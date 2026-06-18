@@ -9,6 +9,7 @@ import { ServantsView } from './components/views/ServantsView';
 import { SortHelperView } from './components/views/SortHelperView';
 import { FAQView } from './components/views/FAQView';
 import { SearchView } from './components/views/SearchView';
+import { AIChatView } from './components/views/AIChatView';
 import { useSearch } from './hooks/useSearch';
 import type { View } from './types';
 
@@ -97,6 +98,8 @@ export default function App() {
             onClose={() => navigate('home')}
           />
         );
+      case 'chat':
+        return <AIChatView />;
       default:
         return <HomeView onNavigate={navigate} />;
     }

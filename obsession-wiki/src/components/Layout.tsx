@@ -1,4 +1,4 @@
-import { Home, BookOpen, Users, MoreHorizontal, Grid3X3, User, Search } from 'lucide-react';
+import { Home, BookOpen, Users, MoreHorizontal, Grid3X3, Search, MessageSquare } from 'lucide-react';
 import type { View } from '../types';
 
 interface Props {
@@ -15,11 +15,11 @@ const NAV_ITEMS: { id: NavId; label: string; icon: typeof Home }[] = [
   { id: 'rules', label: 'Rules', icon: BookOpen },
   { id: 'cards', label: 'Cards', icon: Users },
   { id: 'tiles', label: 'Tiles', icon: Grid3X3 },
-  { id: 'families', label: 'Families', icon: User },
+  { id: 'chat', label: 'Ask AI', icon: MessageSquare },
   { id: 'more', label: 'More', icon: MoreHorizontal },
 ];
 
-const MORE_VIEWS: View[] = ['servants', 'sort', 'faq', 'search'];
+const MORE_VIEWS: View[] = ['families', 'servants', 'sort', 'faq', 'search'];
 
 export function Layout({ currentView, onNavigate, onSearchClick, children }: Props) {
   const isMore = MORE_VIEWS.includes(currentView);
@@ -52,7 +52,7 @@ export function Layout({ currentView, onNavigate, onSearchClick, children }: Pro
       <nav className="bottom-nav" aria-label="Main navigation">
         {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
           const isActive = id === 'more' ? isMore : currentView === id;
-          const handleClick = () => id === 'more' ? onNavigate('servants') : onNavigate(id as View);
+          const handleClick = () => id === 'more' ? onNavigate('families') : onNavigate(id as View);
           return (
             <button
               key={id}

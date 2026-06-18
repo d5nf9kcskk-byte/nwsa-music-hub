@@ -100,4 +100,4 @@ export interface SortManifest {
   specialComponents: string[];
 }
 
-export type View = 'home' | 'rules' | 'cards' | 'tiles' | 'families' | 'servants' | 'sort' | 'faq' | 'search';
+export type View = 'home' | 'rules' | 'cards' | 'tiles' | 'families' | 'servants' | 'sort' | 'faq' | 'search' | 'chat';
