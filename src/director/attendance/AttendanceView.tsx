@@ -1,26 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useAttendance } from '../hooks/useAttendance';
+import { useRosterOverrides } from '../hooks/useRosterOverrides';
+import { useEvents } from '../hooks/useEvents';
+import { resolveRoster } from '../rosterResolver';
 import { StudentCard } from './StudentCard';
+import { todayStr, addDays } from '../utils';
 import type { AttendanceStatus } from '../types';
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function formatDate(d: string) {
   const date = new Date(d + 'T12:00:00');
   const isToday = d === todayStr();
   const label = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   return { label, isToday };
-}
-
-function addDays(d: string, n: number) {
-  const date = new Date(d + 'T12:00:00');
-  date.setDate(date.getDate() + n);
-  return date.toISOString().slice(0, 10);
 }
 
 export function AttendanceView() {
@@ -34,10 +28,20 @@ export function AttendanceView() {
     }
   }, [ensembles, selectedEnsembleId]);
 
-  const { students } = useStudents(selectedEnsembleId ?? undefined);
+  const { students: allStudents } = useStudents();
+  const { overrides } = useRosterOverrides();
+  const { events } = useEvents();
   const { recordMap, toggleAttendance } = useAttendance(date, selectedEnsembleId);
 
-  const activeCount = students.length;
+  const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
+
+  // Effective roster for this ensemble + date: base members + subs − pulls.
+  const resolved = useMemo(() => {
+    if (!selectedEnsembleId) return [];
+    return resolveRoster(allStudents, overrides, { ensembleId: selectedEnsembleId, date, eventsById });
+  }, [allStudents, overrides, selectedEnsembleId, date, eventsById]);
+
+  const activeCount = resolved.length;
   const exceptionCount = Object.keys(recordMap).length;
   const { label: dateLabel, isToday } = formatDate(date);
 
@@ -101,19 +105,20 @@ export function AttendanceView() {
       {/* Student cards */}
       {selectedEnsembleId && (
         <div className="dir-student-list">
-          {students.length === 0 ? (
+          {resolved.length === 0 ? (
             <div className="dir-empty">
               <Users size={40} />
               <h3>No active students</h3>
               <p>Add students to this ensemble in the Roster tab.</p>
             </div>
           ) : (
-            students.map(s => (
+            resolved.map(({ student, isSub }) => (
               <StudentCard
-                key={s.id}
-                student={s}
-                record={recordMap[s.id]}
+                key={student.id}
+                student={student}
+                record={recordMap[student.id]}
                 onToggle={handleToggle}
+                isSub={isSub}
               />
             ))
           )}

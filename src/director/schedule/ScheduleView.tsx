@@ -3,7 +3,10 @@ import { ChevronLeft, ChevronRight, CalendarPlus, MapPin, Clock, Users } from 'l
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
+import { useRosterOverrides } from '../hooks/useRosterOverrides';
+import { resolveRoster, overrideSummary } from '../rosterResolver';
 import { EventForm } from './EventForm';
+import { EventRoster } from './EventRoster';
 import {
   todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON,
 } from '../utils';
@@ -15,6 +18,7 @@ export function ScheduleView() {
   const { ensembles } = useEnsembles();
   const { events, addEvent, updateEvent, deleteEvent } = useEvents();
   const { students } = useStudents();
+  const { overrides } = useRosterOverrides();
 
   const [cursor, setCursor] = useState(() => {
     const d = parseDate(todayStr());
@@ -24,8 +28,10 @@ export function ScheduleView() {
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [filterEnsembleId, setFilterEnsembleId] = useState('');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
+  const [rosterEvent, setRosterEvent] = useState<CalendarEvent | null>(null);
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
+  const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
 
   const visibleEvents = useMemo(
     () => (filterEnsembleId ? events.filter(e => e.ensembleIds.includes(filterEnsembleId)) : events),
@@ -68,7 +74,12 @@ export function ScheduleView() {
     .sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
 
   function expectedCount(e: CalendarEvent) {
-    return students.filter(s => s.status === 'Active' && s.ensembleIds?.some(id => e.ensembleIds.includes(id))).length;
+    const set = new Set<string>();
+    for (const ensId of e.ensembleIds) {
+      resolveRoster(students, overrides, { ensembleId: ensId, eventId: e.id, eventsById })
+        .forEach(r => set.add(r.student.id));
+    }
+    return set.size;
   }
 
   function eventColor(e: CalendarEvent) {
@@ -150,26 +161,43 @@ export function ScheduleView() {
         {dayEvents.length === 0 ? (
           <div className="dir-day-empty">No events scheduled. Tap + to add one.</div>
         ) : (
-          dayEvents.map(e => (
-            <div key={e.id} className={`dir-event-card ${e.status === 'Cancelled' ? 'cancelled' : ''}`} onClick={() => setEditing(e)}>
-              <span className="dir-event-bar" style={{ background: eventColor(e) }} />
-              <div className="dir-event-body">
-                <div className="dir-event-title">
-                  <span className="dir-event-type">{EVENT_TYPE_ICON[e.type]}</span>
-                  {eventLabel(e)}
-                  {e.status !== 'Scheduled' && <span className={`dir-event-status ${e.status}`}>{e.status}</span>}
-                </div>
-                <div className="dir-event-meta">
-                  {formatTimeRange(e.startTime, e.endTime) && (
-                    <span><Clock size={12} /> {formatTimeRange(e.startTime, e.endTime)}</span>
+          dayEvents.map(e => {
+            const summary = overrideSummary(overrides, e.id);
+            return (
+              <div key={e.id} className={`dir-event-card ${e.status === 'Cancelled' ? 'cancelled' : ''}`}>
+                <span className="dir-event-bar" style={{ background: eventColor(e) }} />
+                <div className="dir-event-body">
+                  <div className="dir-event-tap" onClick={() => setEditing(e)}>
+                    <div className="dir-event-title">
+                      <span className="dir-event-type">{EVENT_TYPE_ICON[e.type]}</span>
+                      {eventLabel(e)}
+                      {e.status !== 'Scheduled' && <span className={`dir-event-status ${e.status}`}>{e.status}</span>}
+                    </div>
+                    <div className="dir-event-meta">
+                      {formatTimeRange(e.startTime, e.endTime) && (
+                        <span><Clock size={12} /> {formatTimeRange(e.startTime, e.endTime)}</span>
+                      )}
+                      {e.location && <span><MapPin size={12} /> {e.location}</span>}
+                      {e.ensembleIds.length > 0 && <span><Users size={12} /> {expectedCount(e)} expected</span>}
+                    </div>
+                    {e.repertoire && <div className="dir-event-rep">{e.repertoire}</div>}
+                  </div>
+                  {e.ensembleIds.length > 0 && (
+                    <button className="dir-event-roster-btn" onClick={() => setRosterEvent(e)}>
+                      Roster
+                      {(summary.added > 0 || summary.removed > 0) && (
+                        <span className="dir-event-roster-tag">
+                          {summary.added > 0 && `+${summary.added}`}
+                          {summary.added > 0 && summary.removed > 0 && ' '}
+                          {summary.removed > 0 && `−${summary.removed}`}
+                        </span>
+                      )}
+                    </button>
                   )}
-                  {e.location && <span><MapPin size={12} /> {e.location}</span>}
-                  {e.ensembleIds.length > 0 && <span><Users size={12} /> {expectedCount(e)} expected</span>}
                 </div>
-                {e.repertoire && <div className="dir-event-rep">{e.repertoire}</div>}
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -188,6 +216,14 @@ export function ScheduleView() {
           }}
           onDelete={editing !== 'new' ? async () => deleteEvent(editing.id) : undefined}
           onClose={() => setEditing(null)}
+        />
+      )}
+
+      {rosterEvent && (
+        <EventRoster
+          event={rosterEvent}
+          ensembles={ensembles}
+          onClose={() => setRosterEvent(null)}
         />
       )}
     </div>

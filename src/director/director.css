@@ -1103,3 +1103,104 @@
   padding: 0 8px 0 0;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ── Event roster (subs / pulls) ── */
+
+.dir-event-tap { cursor: pointer; }
+
+.dir-event-roster-btn {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--dir-surface-2);
+  border: 1.5px solid var(--dir-border);
+  border-radius: 8px;
+  color: var(--dir-text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 11px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dir-event-roster-btn:active { background: var(--dir-bg); }
+
+.dir-event-roster-tag {
+  font-weight: 700;
+  color: var(--dir-blue);
+}
+
+.dir-roster-sub-date {
+  font-size: 13px;
+  color: var(--dir-text-muted);
+  margin-bottom: 10px;
+}
+
+.dir-roster-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dir-text-muted);
+  margin: 14px 0 6px;
+}
+
+.dir-sub-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--dir-border);
+  width: 100%;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dir-sub-row.pulled { opacity: 0.7; }
+.dir-candidate { cursor: pointer; color: var(--dir-text); }
+.dir-candidate:active { background: var(--dir-bg); }
+
+.dir-sub-info { min-width: 0; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.dir-sub-name { font-size: 14.5px; font-weight: 600; }
+.dir-sub-instr { font-size: 12px; color: var(--dir-text-muted); }
+
+.dir-sub-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: #eff6ff;
+  color: var(--dir-blue);
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-left: 6px;
+}
+
+.dir-pull-btn,
+.dir-restore-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1.5px solid var(--dir-border);
+  background: var(--dir-surface);
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dir-pull-btn { color: var(--dir-absent); border-color: #fecaca; }
+.dir-pull-btn:active { background: var(--dir-absent-bg); }
+.dir-restore-btn { color: var(--dir-blue); border-color: #bfdbfe; }
+.dir-restore-btn:active { background: #eff6ff; }
+
+.dir-add-sub-list { margin-top: 8px; }
+.dir-add-sub-list .dir-btn { margin-top: 12px; }

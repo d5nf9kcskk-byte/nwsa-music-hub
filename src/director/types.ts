@@ -44,6 +44,27 @@ export interface CalendarEvent {
   notes?: string;
 }
 
+export type OverrideScope = 'event' | 'range';
+
+/**
+ * A temporary change to ensemble membership. Permanent moves just edit a
+ * student's ensembleIds; overrides express "for this event" or "for these
+ * dates" subs and pulls without touching the base roster.
+ *   action 'add'    → student plays with this ensemble temporarily
+ *   action 'remove' → student is pulled from this ensemble temporarily
+ */
+export interface RosterOverride {
+  id: string;
+  studentId: string;
+  ensembleId: string;
+  action: 'add' | 'remove';
+  scope: OverrideScope;
+  eventId?: string;   // scope === 'event'
+  startDate?: string; // scope === 'range' (YYYY-MM-DD, inclusive)
+  endDate?: string;   // scope === 'range' (YYYY-MM-DD, inclusive)
+  reason?: string;
+}
+
 export interface AttendanceRecord {
   id: string;
   studentId: string;
