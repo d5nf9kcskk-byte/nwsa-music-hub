@@ -21,7 +21,7 @@ export function useStudents(ensembleId?: string) {
           : all
       );
       setLoading(false);
-    });
+    }, () => setLoading(false));
   }, [ensembleId]);
 
   async function addStudent(data: Omit<Student, 'id'>) {

@@ -23,7 +23,7 @@ export function useAttendance(date: string, ensembleId: string | null) {
     return onSnapshot(q, snap => {
       setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord)));
       setLoading(false);
-    });
+    }, () => setLoading(false));
   }, [date, ensembleId]);
 
   async function toggleAttendance(studentId: string, newStatus: AttendanceStatus) {
@@ -66,7 +66,7 @@ export function useAttendanceHistory(studentId?: string) {
       all.sort((a, b) => b.date.localeCompare(a.date));
       setRecords(all);
       setLoading(false);
-    });
+    }, () => setLoading(false));
   }, [studentId]);
 
   return { records, loading };

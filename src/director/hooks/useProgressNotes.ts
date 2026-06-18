@@ -18,7 +18,7 @@ export function useProgressNotes(studentId?: string) {
     return onSnapshot(q, snap => {
       setNotes(snap.docs.map(d => ({ id: d.id, ...d.data() } as ProgressNote)));
       setLoading(false);
-    });
+    }, () => setLoading(false));
   }, [studentId]);
 
   async function addNote(data: Omit<ProgressNote, 'id'>) {

@@ -16,7 +16,7 @@ export function useEnsembles() {
     return onSnapshot(q, snap => {
       setEnsembles(snap.docs.map(d => ({ id: d.id, ...d.data() } as Ensemble)));
       setLoading(false);
-    });
+    }, () => setLoading(false));
   }, []);
 
   async function addEnsemble(data: Omit<Ensemble, 'id'>) {
