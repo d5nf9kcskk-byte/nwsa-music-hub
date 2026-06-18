@@ -11,10 +11,12 @@
   },
   "dependencies": {
     "chart.js": "^4.5.1",
+    "firebase": "^12.15.0",
     "lucide-react": "^1.14.0",
     "react": "^19.2.5",
     "react-chartjs-2": "^5.3.1",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "react-router": "^8.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
