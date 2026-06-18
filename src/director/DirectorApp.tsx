@@ -2,7 +2,7 @@ import './director.css';
 import { useState } from 'react';
 import { ClipboardList, Users, Calendar, FileText } from 'lucide-react';
 import { AuthGate } from './components/AuthGate';
-import { AttendanceView } from './attendance/AttendanceView';
+import { AttendanceTab } from './attendance/AttendanceTab';
 import { RosterView } from './roster/RosterView';
 import { ScheduleView } from './schedule/ScheduleView';
 import { NotesView } from './notes/NotesView';
@@ -43,7 +43,7 @@ export default function DirectorApp() {
           </header>
 
           <main className="dir-content">
-            {tab === 'roll'     && <AttendanceView />}
+            {tab === 'roll'     && <AttendanceTab />}
             {tab === 'roster'   && <RosterView />}
             {tab === 'schedule' && <ScheduleView />}
             {tab === 'notes'    && <NotesView />}
