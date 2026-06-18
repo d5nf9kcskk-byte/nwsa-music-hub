@@ -3,13 +3,31 @@ import { UserPlus, Users } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { StudentForm } from './StudentForm';
+import { seedRoster, seedStudents, seedEnsembles } from '../seedData';
 import type { Student } from '../types';
 
 export function RosterView() {
-  const { ensembles } = useEnsembles();
-  const { students, addStudent, updateStudent, deleteStudent } = useStudents();
+  const { ensembles, loading: ensemblesLoading } = useEnsembles();
+  const { students, loading: studentsLoading, addStudent, updateStudent, deleteStudent } = useStudents();
   const [editingStudent, setEditingStudent] = useState<Student | null | 'new'>(null);
   const [search, setSearch] = useState('');
+  const [importState, setImportState] = useState<'idle' | 'importing' | 'error'>('idle');
+  const [importError, setImportError] = useState('');
+
+  const loading = ensemblesLoading || studentsLoading;
+  const isEmpty = !loading && students.length === 0;
+
+  async function handleImport() {
+    setImportState('importing');
+    setImportError('');
+    try {
+      await seedRoster();
+      // The real-time listeners pick up the new docs and re-render automatically.
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : String(e));
+      setImportState('error');
+    }
+  }
 
   const filtered = students.filter(s =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -25,14 +43,16 @@ export function RosterView() {
 
   return (
     <div>
-      <div className="dir-filter-bar">
-        <input
-          className="dir-input"
-          placeholder="Search students…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-      </div>
+      {students.length > 0 && (
+        <div className="dir-filter-bar">
+          <input
+            className="dir-input"
+            placeholder="Search students…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+      )}
 
       {grouped.map(({ ensemble, students: grp }) =>
         grp.length === 0 ? null : (
@@ -64,11 +84,32 @@ export function RosterView() {
         </div>
       )}
 
-      {filtered.length === 0 && (
+      {isEmpty && (
         <div className="dir-empty">
           <Users size={40} />
           <h3>No students yet</h3>
-          <p>Tap + to add your first student.</p>
+          <p>
+            Import your NWSA roster — {seedStudents.length} students across{' '}
+            {seedEnsembles.length} ensembles — or tap + to add one manually.
+          </p>
+          {importState === 'error' && (
+            <p className="dir-import-error">Import failed: {importError}</p>
+          )}
+          <button
+            className="dir-import-btn"
+            onClick={handleImport}
+            disabled={importState === 'importing'}
+          >
+            {importState === 'importing' ? 'Importing…' : 'Import NWSA roster'}
+          </button>
+        </div>
+      )}
+
+      {!isEmpty && filtered.length === 0 && (
+        <div className="dir-empty">
+          <Users size={40} />
+          <h3>No matches</h3>
+          <p>No students match “{search}”.</p>
         </div>
       )}
 

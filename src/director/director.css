@@ -419,7 +419,29 @@
 
 .dir-empty svg { opacity: 0.3; }
 .dir-empty h3 { margin: 0; font-size: 16px; color: var(--dir-text); }
-.dir-empty p { margin: 0; font-size: 14px; }
+.dir-empty p { margin: 0; font-size: 14px; max-width: 320px; }
+
+.dir-import-btn {
+  margin-top: 8px;
+  background: var(--dir-blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--dir-radius-sm);
+  padding: 12px 28px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s;
+}
+
+.dir-import-btn:active { opacity: 0.8; }
+.dir-import-btn:disabled { opacity: 0.6; cursor: default; }
+
+.dir-import-error {
+  color: var(--dir-absent);
+  font-weight: 600;
+}
 
 /* ── Primary action button ── */
 
