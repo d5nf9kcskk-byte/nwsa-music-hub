@@ -18,7 +18,7 @@ export function useRehearsals(ensembleId?: string) {
     return onSnapshot(q, snap => {
       setRehearsals(snap.docs.map(d => ({ id: d.id, ...d.data() } as Rehearsal)));
       setLoading(false);
-    });
+    }, () => setLoading(false));
   }, [ensembleId]);
 
   async function addRehearsal(data: Omit<Rehearsal, 'id'>) {
