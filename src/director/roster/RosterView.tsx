@@ -3,6 +3,7 @@ import { UserPlus, Users, SlidersHorizontal } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useAllAttendance } from '../hooks/useAttendance';
+import { useContacts } from '../hooks/useContacts';
 import { StudentForm } from './StudentForm';
 import { EnsembleManager } from './EnsembleManager';
 import { ensembleColor } from '../utils';
@@ -13,6 +14,7 @@ export function RosterView() {
   const { ensembles, loading: ensemblesLoading } = useEnsembles();
   const { students, loading: studentsLoading, addStudent, updateStudent, deleteStudent } = useStudents();
   const { records } = useAllAttendance();
+  const { contacts, saveContact } = useContacts();
 
   const absenceCounts = useMemo(() => {
     const m: Record<string, number> = {};
@@ -135,15 +137,19 @@ export function RosterView() {
       {editingStudent !== null && (
         <StudentForm
           student={editingStudent === 'new' ? null : editingStudent}
+          contact={editingStudent !== 'new' ? contacts[editingStudent.id] ?? null : null}
           ensembles={ensembles}
-          onSave={async data => {
+          onSave={async (data, contactDraft) => {
             if (editingStudent === 'new') {
-              await addStudent(data);
+              const newId = await addStudent(data);
+              if (newId) await saveContact(newId, contactDraft);
             } else {
               await updateStudent(editingStudent.id, data);
+              await saveContact(editingStudent.id, contactDraft);
             }
           }}
           onDelete={editingStudent !== 'new' ? async () => {
+            await saveContact(editingStudent.id, { email: '', parentEmail: '', phone: '' });
             await deleteStudent(editingStudent.id);
           } : undefined}
           onClose={() => setEditingStudent(null)}

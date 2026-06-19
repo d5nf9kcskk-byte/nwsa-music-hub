@@ -62,6 +62,30 @@ export function resolveRoster(
   return result;
 }
 
+/**
+ * Whether a student is expected at an event (honoring subs/pulls), and via
+ * which ensemble(s). Used by the public personal schedule.
+ */
+export function studentExpectation(
+  studentId: string,
+  event: CalendarEvent,
+  students: Student[],
+  overrides: RosterOverride[],
+  eventsById: Record<string, CalendarEvent>,
+): { expected: boolean; ensembleIds: string[]; isSub: boolean } {
+  const ensembleIds: string[] = [];
+  let isSub = false;
+  for (const ensId of event.ensembleIds) {
+    const roster = resolveRoster(students, overrides, { ensembleId: ensId, eventId: event.id, eventsById });
+    const hit = roster.find(r => r.student.id === studentId);
+    if (hit) {
+      ensembleIds.push(ensId);
+      if (hit.isSub) isSub = true;
+    }
+  }
+  return { expected: ensembleIds.length > 0, ensembleIds, isSub };
+}
+
 /** Counts of subs added and players pulled for an event — for compact summaries. */
 export function overrideSummary(overrides: RosterOverride[], eventId: string) {
   const forEvent = overrides.filter(o => o.scope === 'event' && o.eventId === eventId);

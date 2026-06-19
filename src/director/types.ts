@@ -17,9 +17,18 @@ export interface Student {
   section?: string;
   grade?: string;
   status: 'Active' | 'Inactive' | 'Graduated';
-  // Contact info moves to the auth-only `contacts` collection in Phase 4.
+}
+
+/**
+ * Contact details, kept in a separate auth-only `contacts` collection
+ * (doc id === student id) so the publicly-readable student record carries
+ * no PII. Only signed-in directors can read or write these.
+ */
+export interface StudentContact {
+  id: string; // === student id
   email?: string;
   parentEmail?: string;
+  phone?: string;
 }
 
 export type EventType = 'Rehearsal' | 'Concert' | 'Sectional' | 'Event';

@@ -25,6 +25,11 @@
   --dir-radius-sm: 8px;
 }
 
+/* ── Global reset (shared by director + public) ── */
+
+html, body, #root { margin: 0; padding: 0; height: 100%; }
+* { box-sizing: border-box; }
+
 /* ── Layout shell ── */
 
 .dir-app {
@@ -1308,4 +1313,14 @@
   background: var(--dir-absent-bg);
   padding: 3px 8px;
   border-radius: 9px;
+}
+
+.dir-contact-note {
+  font-size: 12px;
+  color: #6b7280;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 11px;
+  margin-top: 4px;
 }
