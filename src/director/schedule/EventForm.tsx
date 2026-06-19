@@ -1,0 +1,212 @@
+import { useState, useEffect } from 'react';
+import { useStudents } from '../hooks/useStudents';
+import { EVENT_TYPES } from '../utils';
+import type { CalendarEvent, Ensemble, EventType, EventStatus } from '../types';
+
+interface Props {
+  event: CalendarEvent | null;
+  ensembles: Ensemble[];
+  defaultDate: string;
+  onSave: (data: Omit<CalendarEvent, 'id'>) => Promise<void>;
+  onDelete?: () => Promise<void>;
+  onClose: () => void;
+}
+
+export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onClose }: Props) {
+  const blank = (): Omit<CalendarEvent, 'id'> => ({
+    type: 'Rehearsal',
+    ensembleIds: [],
+    date: defaultDate,
+    startTime: '',
+    endTime: '',
+    location: '',
+    title: '',
+    repertoire: '',
+    status: 'Scheduled',
+    notes: '',
+  });
+
+  const [form, setForm] = useState<Omit<CalendarEvent, 'id'>>(blank);
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Roster preview ("who should be there") for the chosen ensembles.
+  const { students } = useStudents();
+  const expected = students.filter(
+    s => s.status === 'Active' && s.ensembleIds?.some(id => form.ensembleIds.includes(id)),
+  );
+
+  useEffect(() => {
+    if (event) {
+      const { id: _id, ...rest } = event;
+      setForm({ ...blank(), ...rest });
+    } else {
+      setForm(blank());
+    }
+    setConfirmDelete(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event, defaultDate]);
+
+  function set<K extends keyof typeof form>(k: K, v: typeof form[K]) {
+    setForm(f => ({ ...f, [k]: v }));
+  }
+
+  function toggleEnsemble(id: string) {
+    setForm(f => {
+      const has = f.ensembleIds.includes(id);
+      const ensembleIds = has ? f.ensembleIds.filter(e => e !== id) : [...f.ensembleIds, id];
+      // When adding the first ensemble, pre-fill blank location/time from its defaults.
+      const next = { ...f, ensembleIds };
+      if (!has && f.ensembleIds.length === 0) {
+        const ens = ensembles.find(e => e.id === id);
+        if (ens) {
+          if (!f.location && ens.defaultLocation) next.location = ens.defaultLocation;
+          if (!f.startTime && ens.defaultStartTime) next.startTime = ens.defaultStartTime;
+          if (!f.endTime && ens.defaultEndTime) next.endTime = ens.defaultEndTime;
+        }
+      }
+      return next;
+    });
+  }
+
+  const canSave = form.ensembleIds.length > 0 || form.type !== 'Rehearsal';
+
+  async function handleSave() {
+    if (!canSave) return;
+    setSaving(true);
+    await onSave(form);
+    onClose();
+  }
+
+  async function handleDelete() {
+    if (!onDelete) return;
+    setSaving(true);
+    await onDelete();
+    onClose();
+  }
+
+  return (
+    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="dir-drawer">
+        <div className="dir-drawer-handle" />
+        <div className="dir-drawer-header">
+          <span className="dir-drawer-title">{event ? 'Edit Event' : 'New Event'}</span>
+          <button className="dir-drawer-close" onClick={onClose}>×</button>
+        </div>
+        <div className="dir-drawer-body">
+          <div className="dir-field">
+            <label className="dir-label">Type</label>
+            <div className="dir-segment">
+              {EVENT_TYPES.map(t => (
+                <button
+                  key={t}
+                  className={`dir-segment-btn ${form.type === t ? 'active' : ''}`}
+                  onClick={() => set('type', t as EventType)}
+                  type="button"
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">
+              Ensemble{form.type === 'Concert' ? 's' : ''} {form.type === 'Rehearsal' && '*'}
+            </label>
+            <div className="dir-checkbox-group">
+              {ensembles.map(e => (
+                <label
+                  key={e.id}
+                  className={`dir-checkbox-tag ${form.ensembleIds.includes(e.id) ? 'checked' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.ensembleIds.includes(e.id)}
+                    onChange={() => toggleEnsemble(e.id)}
+                  />
+                  {e.name}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {(form.type === 'Concert' || form.type === 'Event') && (
+            <div className="dir-field">
+              <label className="dir-label">Title</label>
+              <input
+                className="dir-input"
+                value={form.title ?? ''}
+                onChange={e => set('title', e.target.value)}
+                placeholder={form.type === 'Concert' ? 'e.g. Winter Concert' : 'Event name'}
+              />
+            </div>
+          )}
+
+          <div className="dir-field">
+            <label className="dir-label">Date *</label>
+            <input className="dir-input" type="date" value={form.date} onChange={e => set('date', e.target.value)} />
+          </div>
+
+          <div className="dir-field-row">
+            <div className="dir-field">
+              <label className="dir-label">Start</label>
+              <input className="dir-input" type="time" value={form.startTime ?? ''} onChange={e => set('startTime', e.target.value)} />
+            </div>
+            <div className="dir-field">
+              <label className="dir-label">End</label>
+              <input className="dir-input" type="time" value={form.endTime ?? ''} onChange={e => set('endTime', e.target.value)} />
+            </div>
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Location</label>
+            <input className="dir-input" value={form.location ?? ''} onChange={e => set('location', e.target.value)} placeholder="e.g. Band Room / Auditorium" />
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Repertoire</label>
+            <input className="dir-input" value={form.repertoire ?? ''} onChange={e => set('repertoire', e.target.value)} placeholder="Pieces / focus areas" />
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Status</label>
+            <select className="dir-select" value={form.status} onChange={e => set('status', e.target.value as EventStatus)}>
+              <option value="Scheduled">Scheduled</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Notes</label>
+            <textarea className="dir-textarea" value={form.notes ?? ''} onChange={e => set('notes', e.target.value)} placeholder="Planning notes, cancellation reason, etc." />
+          </div>
+
+          {form.ensembleIds.length > 0 && (
+            <div className="dir-expected">
+              <span className="dir-expected-count">{expected.length}</span> student{expected.length !== 1 ? 's' : ''} expected
+            </div>
+          )}
+
+          {event && onDelete && (
+            confirmDelete ? (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="dir-btn dir-btn-danger" style={{ flex: 1 }} onClick={handleDelete} disabled={saving}>Confirm Delete</button>
+                <button className="dir-btn dir-btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
+              </div>
+            ) : (
+              <button className="dir-btn dir-btn-danger" onClick={() => setConfirmDelete(true)}>Delete</button>
+            )
+          )}
+        </div>
+        <div className="dir-drawer-footer">
+          <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !canSave}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

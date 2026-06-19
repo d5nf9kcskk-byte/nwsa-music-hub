@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
-import type { Student, Ensemble } from '../types';
+import type { Student, StudentContact, Ensemble } from '../types';
+
+export interface ContactDraft { email: string; parentEmail: string; phone: string; }
 
 interface Props {
   student: Student | null;
+  contact: StudentContact | null;
   ensembles: Ensemble[];
-  onSave: (data: Omit<Student, 'id'>) => Promise<void>;
+  onSave: (data: Omit<Student, 'id'>, contact: ContactDraft) => Promise<void>;
   onDelete?: () => Promise<void>;
   onClose: () => void;
 }
@@ -16,26 +19,36 @@ const BLANK: Omit<Student, 'id'> = {
   section: '',
   grade: '',
   status: 'Active',
-  email: '',
-  parentEmail: '',
 };
 
-export function StudentForm({ student, ensembles, onSave, onDelete, onClose }: Props) {
+const BLANK_CONTACT: ContactDraft = { email: '', parentEmail: '', phone: '' };
+
+export function StudentForm({ student, contact, ensembles, onSave, onDelete, onClose }: Props) {
   const [form, setForm] = useState<Omit<Student, 'id'>>(BLANK);
+  const [contactForm, setContactForm] = useState<ContactDraft>(BLANK_CONTACT);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (student) {
       const { id: _id, ...rest } = student;
-      setForm(rest);
+      setForm({ ...BLANK, ...rest });
     } else {
       setForm(BLANK);
     }
-  }, [student]);
+    setContactForm({
+      email: contact?.email ?? '',
+      parentEmail: contact?.parentEmail ?? '',
+      phone: contact?.phone ?? '',
+    });
+  }, [student, contact]);
 
   function set<K extends keyof typeof form>(k: K, v: typeof form[K]) {
     setForm(f => ({ ...f, [k]: v }));
+  }
+
+  function setContact<K extends keyof ContactDraft>(k: K, v: string) {
+    setContactForm(f => ({ ...f, [k]: v }));
   }
 
   function toggleEnsemble(id: string) {
@@ -50,7 +63,7 @@ export function StudentForm({ student, ensembles, onSave, onDelete, onClose }: P
   async function handleSave() {
     if (!form.name.trim()) return;
     setSaving(true);
-    await onSave(form);
+    await onSave(form, contactForm);
     onClose();
   }
 
@@ -114,14 +127,21 @@ export function StudentForm({ student, ensembles, onSave, onDelete, onClose }: P
             </select>
           </div>
 
+          <div className="dir-contact-note">🔒 Contact info is private — never shown on the public site.</div>
+
           <div className="dir-field">
             <label className="dir-label">Student Email</label>
-            <input className="dir-input" type="email" value={form.email ?? ''} onChange={e => set('email', e.target.value)} placeholder="optional" />
+            <input className="dir-input" type="email" value={contactForm.email} onChange={e => setContact('email', e.target.value)} placeholder="optional" />
           </div>
 
           <div className="dir-field">
             <label className="dir-label">Parent Email</label>
-            <input className="dir-input" type="email" value={form.parentEmail ?? ''} onChange={e => set('parentEmail', e.target.value)} placeholder="optional" />
+            <input className="dir-input" type="email" value={contactForm.parentEmail} onChange={e => setContact('parentEmail', e.target.value)} placeholder="optional" />
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Phone</label>
+            <input className="dir-input" type="tel" value={contactForm.phone} onChange={e => setContact('phone', e.target.value)} placeholder="optional" />
           </div>
 
           {student && onDelete && (
