@@ -51,6 +51,23 @@ export function useAttendance(date: string, ensembleId: string | null) {
   return { records, recordMap, loading, toggleAttendance };
 }
 
+/** Listens to the entire attendance collection — for the tracker and roster counts. */
+export function useAllAttendance() {
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!db) { setLoading(false); return; }
+    const q = query(collection(db, 'attendance'));
+    return onSnapshot(q, snap => {
+      setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord)));
+      setLoading(false);
+    }, () => setLoading(false));
+  }, []);
+
+  return { records, loading };
+}
+
 export function useAttendanceHistory(studentId?: string) {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);

@@ -24,9 +24,10 @@ export function useStudents(ensembleId?: string) {
     }, () => setLoading(false));
   }, [ensembleId]);
 
-  async function addStudent(data: Omit<Student, 'id'>) {
+  async function addStudent(data: Omit<Student, 'id'>): Promise<string | undefined> {
     if (!db) return;
-    await addDoc(collection(db, 'students'), data);
+    const ref = await addDoc(collection(db, 'students'), data);
+    return ref.id;
   }
 
   async function updateStudent(id: string, data: Partial<Omit<Student, 'id'>>) {

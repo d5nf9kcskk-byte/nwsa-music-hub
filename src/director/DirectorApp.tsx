@@ -2,24 +2,24 @@ import './director.css';
 import { useState } from 'react';
 import { ClipboardList, Users, Calendar, FileText } from 'lucide-react';
 import { AuthGate } from './components/AuthGate';
-import { AttendanceView } from './attendance/AttendanceView';
+import { AttendanceTab } from './attendance/AttendanceTab';
 import { RosterView } from './roster/RosterView';
-import { RehearsalsView } from './rehearsals/RehearsalsView';
+import { ScheduleView } from './schedule/ScheduleView';
 import { NotesView } from './notes/NotesView';
 import type { Tab } from './types';
 
 const TABS: { id: Tab; label: string; Icon: typeof ClipboardList }[] = [
-  { id: 'roll',       label: 'Roll',       Icon: ClipboardList },
-  { id: 'roster',     label: 'Roster',     Icon: Users },
-  { id: 'rehearsals', label: 'Rehearsals', Icon: Calendar },
-  { id: 'notes',      label: 'Notes',      Icon: FileText },
+  { id: 'roll',     label: 'Roll',     Icon: ClipboardList },
+  { id: 'roster',   label: 'Roster',   Icon: Users },
+  { id: 'schedule', label: 'Schedule', Icon: Calendar },
+  { id: 'notes',    label: 'Notes',    Icon: FileText },
 ];
 
 const TAB_TITLES: Record<Tab, string> = {
-  roll:       'Take Roll',
-  roster:     'Roster',
-  rehearsals: 'Rehearsals',
-  notes:      'Progress Notes',
+  roll:     'Take Roll',
+  roster:   'Roster',
+  schedule: 'Schedule',
+  notes:    'Progress Notes',
 };
 
 export default function DirectorApp() {
@@ -43,10 +43,10 @@ export default function DirectorApp() {
           </header>
 
           <main className="dir-content">
-            {tab === 'roll'       && <AttendanceView />}
-            {tab === 'roster'     && <RosterView />}
-            {tab === 'rehearsals' && <RehearsalsView />}
-            {tab === 'notes'      && <NotesView />}
+            {tab === 'roll'     && <AttendanceTab />}
+            {tab === 'roster'   && <RosterView />}
+            {tab === 'schedule' && <ScheduleView />}
+            {tab === 'notes'    && <NotesView />}
           </main>
 
           <nav className="dir-nav">
