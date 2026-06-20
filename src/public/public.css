@@ -578,3 +578,101 @@
   flex-shrink: 0;
 }
 .pub-mypart-btn:active { background: #dce7f7; }
+
+/* ── Event card: linked pieces ── */
+
+.pub-event-pieces {
+  margin-top: 8px; display: flex; flex-direction: column; gap: 5px;
+  padding-top: 8px; border-top: 1px dashed var(--pub-border);
+}
+
+.pub-event-piece { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.pub-event-piece-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 13px; font-weight: 600; color: var(--pub-text); text-decoration: none;
+}
+.pub-event-piece-link svg { color: var(--pub-accent); flex-shrink: 0; }
+.pub-event-piece-link:hover { color: var(--pub-accent); }
+.pub-event-piece-by { color: var(--pub-muted); font-weight: 500; }
+
+.pub-event-mypart {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11.5px; font-weight: 700; color: var(--pub-accent); text-decoration: none;
+  background: var(--pub-accent-soft); border-radius: 7px; padding: 2px 8px;
+}
+.pub-event-mypart:active { background: #dce7f7; }
+
+.pub-event-program-link {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 2px;
+  font-size: 12.5px; font-weight: 700; color: #ca8a04; text-decoration: none;
+}
+.pub-event-program-link:hover { text-decoration: underline; }
+
+/* ── Concert program page ── */
+
+.pub-program-toolbar {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+}
+
+.pub-print-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--pub-accent); color: #fff; border: none; border-radius: 10px;
+  padding: 9px 15px; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.pub-print-btn:active { opacity: 0.85; }
+
+.pub-program-sheet {
+  background: var(--pub-surface); border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius); padding: 28px 26px;
+}
+
+.pub-program-head { text-align: center; padding-bottom: 18px; border-bottom: 2px solid var(--pub-text); margin-bottom: 22px; }
+.pub-program-org { font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--pub-muted); }
+.pub-program-title { font-size: 26px; margin: 8px 0 6px; color: var(--pub-text); font-weight: 800; }
+.pub-program-ensembles { font-size: 15px; color: var(--pub-accent); font-weight: 600; }
+.pub-program-when { font-size: 14px; color: var(--pub-text); margin-top: 8px; }
+.pub-program-where { font-size: 13px; color: var(--pub-muted); margin-top: 2px; }
+
+.pub-program-list { list-style: none; margin: 0; padding: 0; }
+
+.pub-program-piece { padding: 14px 0; border-bottom: 1px solid var(--pub-border); }
+.pub-program-piece:last-child { border-bottom: none; }
+
+.pub-program-piece-main { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.pub-program-piece-title { font-size: 17px; font-weight: 700; color: var(--pub-text); text-decoration: none; line-height: 1.3; }
+.pub-program-piece-title:hover { color: var(--pub-accent); }
+.pub-program-piece-dur { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: var(--pub-muted); white-space: nowrap; flex-shrink: 0; }
+
+.pub-program-piece-composer { font-size: 14px; color: var(--pub-muted); margin-top: 3px; font-style: italic; }
+.pub-program-piece-dates { font-style: normal; }
+
+.pub-program-movements { margin: 8px 0 0; padding: 0 0 0 22px; list-style: lower-roman; }
+.pub-program-movements li { font-size: 13.5px; color: var(--pub-text); padding: 2px 0; }
+.pub-program-mvt-dur { color: var(--pub-muted); font-size: 12px; }
+
+.pub-program-runtime {
+  text-align: center; font-size: 13px; color: var(--pub-muted); font-style: italic;
+  margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--pub-border);
+}
+
+.pub-program-notes-section { margin-top: 28px; }
+.pub-program-notes-head {
+  font-size: 15px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+  text-align: center; color: var(--pub-text); margin: 0 0 16px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--pub-border);
+}
+.pub-program-note { margin-bottom: 16px; }
+.pub-program-note-title { font-size: 14.5px; font-weight: 700; color: var(--pub-text); margin-bottom: 4px; }
+.pub-program-note-by { font-weight: 500; color: var(--pub-muted); font-style: italic; }
+.pub-program-note-body { font-size: 14px; line-height: 1.6; color: var(--pub-text); margin: 0; }
+.pub-program-empty { padding: 28px 0; text-align: center; }
+
+/* Print: just the program sheet, no app chrome. */
+@media print {
+  .pub-header, .pub-nav, .pub-program-toolbar { display: none !important; }
+  .pub-app, .pub-content, .pub-page { background: #fff !important; padding: 0 !important; margin: 0 !important; }
+  .pub-program-sheet { border: none !important; border-radius: 0 !important; padding: 0 !important; box-shadow: none !important; }
+  .pub-program-piece-title, .pub-program-piece-title:hover { color: #000 !important; }
+}

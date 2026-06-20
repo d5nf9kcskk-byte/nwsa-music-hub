@@ -8,7 +8,7 @@ import { useRosterOverrides } from '../director/hooks/useRosterOverrides';
 import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { studentExpectation } from '../director/rosterResolver';
-import { todayStr, parseDate, ensembleColor } from '../director/utils';
+import { todayStr, parseDate, ensembleColor, findPartForInstrument } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 
@@ -25,6 +25,7 @@ export function PublicSchedule() {
   const today = todayStr();
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
+  const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
 
   // Upcoming events where this student is expected (base member or sub, minus pulls).
   const mySchedule = useMemo(() => {
@@ -47,18 +48,24 @@ export function PublicSchedule() {
   // Pieces linked to upcoming events that have a part matching this student's instrument.
   const myParts = useMemo(() => {
     if (!student) return [];
+    // An event references its pieces via pieceIds; a piece also lists its eventIds.
+    // Use both directions so links made from either side surface here.
     const upcomingEventIds = new Set(mySchedule.map(x => x.event.id));
-    const instrument = student.instrument.toLowerCase();
+    const piecesFromEvents = new Set(
+      mySchedule.flatMap(x => x.event.pieceIds ?? []),
+    );
     const result: { piece: typeof pieces[0]; partUrl: string; eventTitles: string[] }[] = [];
     for (const p of pieces) {
-      const partLink = (p.partsLinks ?? []).find(l =>
-        l.instrument.toLowerCase().includes(instrument) ||
-        instrument.includes(l.instrument.toLowerCase()),
-      );
+      const partLink = findPartForInstrument(p, student.instrument);
       if (!partLink) continue;
-      const linkedEventIds = (p.eventIds ?? []).filter(eid => upcomingEventIds.has(eid));
-      if (linkedEventIds.length === 0) continue;
-      const eventTitles = linkedEventIds
+      const linkedEventIds = new Set([
+        ...(p.eventIds ?? []).filter(eid => upcomingEventIds.has(eid)),
+        ...(piecesFromEvents.has(p.id)
+          ? mySchedule.filter(x => (x.event.pieceIds ?? []).includes(p.id)).map(x => x.event.id)
+          : []),
+      ]);
+      if (linkedEventIds.size === 0) continue;
+      const eventTitles = [...linkedEventIds]
         .map(eid => eventsById[eid])
         .filter(Boolean)
         .map(e => e.title || e.type);
@@ -103,7 +110,7 @@ export function PublicSchedule() {
         <div className="pub-card pub-muted">Nothing scheduled for you today.</div>
       ) : (
         todayItems.map(({ event: e, exp }) => (
-          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} ensembleIds={exp.ensembleIds} isSub={exp.isSub} showNotes />
+          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} showNotes />
         ))
       )}
 
@@ -112,7 +119,7 @@ export function PublicSchedule() {
         <div className="pub-muted">No upcoming rehearsals or events.</div>
       ) : (
         upcomingItems.map(({ event: e, exp }) => (
-          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} ensembleIds={exp.ensembleIds} isSub={exp.isSub} showDate showNotes />
+          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} showDate showNotes />
         ))
       )}
 

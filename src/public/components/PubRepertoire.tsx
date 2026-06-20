@@ -1,6 +1,6 @@
 import { Music, ExternalLink, Clock } from 'lucide-react';
 import { Link } from 'react-router';
-import { parseDate } from '../../director/utils';
+import { parseDate, findPartForInstrument } from '../../director/utils';
 import type { RepertoirePiece, CalendarEvent } from '../../director/types';
 
 interface Props {
@@ -16,12 +16,7 @@ export function PubRepertoire({ pieces, eventsById, studentInstrument }: Props) 
     <div className="pub-card pub-rep-list">
       {pieces.map(p => {
         const linkedEvents = (p.eventIds ?? []).map(id => eventsById[id]).filter(Boolean) as CalendarEvent[];
-        const myPart = studentInstrument
-          ? (p.partsLinks ?? []).find(l =>
-              l.instrument.toLowerCase().includes(studentInstrument.toLowerCase()) ||
-              studentInstrument.toLowerCase().includes(l.instrument.toLowerCase()),
-            )
-          : null;
+        const myPart = findPartForInstrument(p, studentInstrument);
 
         return (
           <div key={p.id} className="pub-rep-row">

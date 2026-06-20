@@ -1,4 +1,4 @@
-import type { Ensemble, EventType } from './types';
+import type { Ensemble, EventType, RepertoirePiece, PiecePartLink } from './types';
 
 // ── Date helpers (work in local time, store as YYYY-MM-DD) ──────────────────
 
@@ -81,3 +81,27 @@ export const EVENT_TYPE_ICON: Record<EventType, string> = {
   Sectional: '🎻',
   Event: '📌',
 };
+
+// ── Repertoire helpers ───────────────────────────────────────────────────────
+
+/**
+ * Find the part link matching a student's instrument. Matches case-insensitively
+ * in either direction so "Violin" matches "Violin I" and "Trumpet in B♭" matches
+ * "Trumpet". Returns undefined when there's no per-instrument part for them.
+ */
+export function findPartForInstrument(
+  piece: Pick<RepertoirePiece, 'partsLinks'>,
+  instrument?: string,
+): PiecePartLink | undefined {
+  if (!instrument) return undefined;
+  const instr = instrument.toLowerCase();
+  return (piece.partsLinks ?? []).find(l =>
+    l.instrument.toLowerCase().includes(instr) || instr.includes(l.instrument.toLowerCase()),
+  );
+}
+
+/** Sum movement durations, falling back to the piece's overall duration. */
+export function pieceDuration(piece: Pick<RepertoirePiece, 'duration' | 'movements'>): number {
+  const fromMovements = (piece.movements ?? []).reduce((s, m) => s + (m.duration ?? 0), 0);
+  return piece.duration ?? fromMovements;
+}

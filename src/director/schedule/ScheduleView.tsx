@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, CalendarPlus, MapPin, Clock, Users, Upload }
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
+import { useRepertoire } from '../hooks/useRepertoire';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster, overrideSummary } from '../rosterResolver';
 import { EventForm } from './EventForm';
@@ -19,6 +20,7 @@ export function ScheduleView() {
   const { ensembles } = useEnsembles();
   const { events, addEvent, updateEvent, deleteEvent } = useEvents();
   const { students } = useStudents();
+  const { pieces } = useRepertoire();
   const { overrides } = useRosterOverrides();
 
   const [cursor, setCursor] = useState(() => {
@@ -34,6 +36,7 @@ export function ScheduleView() {
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
+  const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
 
   const visibleEvents = useMemo(
     () => (filterEnsembleId ? events.filter(e => e.ensembleIds.includes(filterEnsembleId)) : events),
@@ -186,7 +189,24 @@ export function ScheduleView() {
                       {e.ensembleIds.length > 0 && <span><Users size={12} /> {expectedCount(e)} expected</span>}
                     </div>
                     {e.repertoire && <div className="dir-event-rep">{e.repertoire}</div>}
+                    {(e.pieceIds ?? []).length > 0 && (
+                      <div className="dir-event-pieces">
+                        {(e.pieceIds ?? []).map(pid => piecesById[pid]).filter(Boolean).map(p => (
+                          <span key={p!.id} className="dir-event-piece-chip">{p!.title}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
+                  {e.type === 'Concert' && (e.pieceIds ?? []).length > 0 && (
+                    <a
+                      className="dir-event-program-btn"
+                      href={`${import.meta.env.BASE_URL}program/${e.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Program ↗
+                    </a>
+                  )}
                   {e.ensembleIds.length > 0 && (
                     <button className="dir-event-roster-btn" onClick={() => setRosterEvent(e)}>
                       Roster

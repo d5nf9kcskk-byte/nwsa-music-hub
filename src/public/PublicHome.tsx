@@ -4,6 +4,7 @@ import { CalendarDays, Users, UserSearch } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
+import { useRepertoire } from '../director/hooks/useRepertoire';
 import { todayStr, parseDate, ensembleColor } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
@@ -13,9 +14,11 @@ export function PublicHome() {
   const { ensembles } = useEnsembles();
   const { events, loading } = useEvents();
   const { announcements } = useAnnouncements();
+  const { pieces } = useRepertoire();
 
   const today = todayStr();
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
+  const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
 
   const todayEvents = events
     .filter(e => e.date === today && e.status !== 'Cancelled')
@@ -54,7 +57,7 @@ export function PublicHome() {
         <div className="pub-card pub-muted">No rehearsals or events scheduled today.</div>
       ) : (
         todayEvents.map(e => (
-          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} showNotes />
+          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showNotes />
         ))
       )}
 

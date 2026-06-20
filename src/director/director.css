@@ -1547,3 +1547,20 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 .dir-piece-title { font-size: 13.5px; font-weight: 600; color: var(--dir-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dir-piece-composer { font-size: 12px; color: var(--dir-text-muted); }
 .dir-piece-ens { font-size: 11px; color: var(--dir-text-muted); white-space: nowrap; }
+
+/* ── Schedule event card: linked pieces ── */
+
+.dir-event-pieces { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+
+.dir-event-piece-chip {
+  font-size: 11.5px; font-weight: 600; color: var(--dir-text-muted);
+  background: var(--dir-surface-2); border: 1px solid var(--dir-border);
+  border-radius: 6px; padding: 2px 8px;
+}
+
+.dir-event-program-btn {
+  align-self: flex-start; font-size: 12px; font-weight: 700; color: #ca8a04;
+  text-decoration: none; border: 1px solid #fde68a; background: #fffbeb;
+  border-radius: 8px; padding: 5px 10px; margin-top: 4px;
+}
+.dir-event-program-btn:active { background: #fef3c7; }
