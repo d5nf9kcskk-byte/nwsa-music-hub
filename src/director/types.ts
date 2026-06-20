@@ -151,4 +151,27 @@ export interface RepertoirePiece {
 }
 
 export type AttendanceStatus = 'Absent' | 'Late' | 'Excused';
-export type Tab = 'roll' | 'roster' | 'schedule' | 'notes';
+export type Tab = 'roll' | 'roster' | 'schedule' | 'notes' | 'assignments';
+
+export type AssignmentType = 'Playing Exam' | 'Written Test' | 'Performance' | 'Other';
+export type AssignmentResultStatus = 'Pending' | 'Pass' | 'Fail' | 'Exempt';
+
+export interface Assignment {
+  id: string;
+  title: string;
+  type: AssignmentType;
+  description?: string;
+  dueDate: string; // YYYY-MM-DD
+  ensembleIds: string[];
+  createdAt: number;
+}
+
+export interface AssignmentResult {
+  id: string;
+  assignmentId: string;
+  studentId: string;
+  status: AssignmentResultStatus;
+  score?: string;
+  notes?: string;
+  gradedAt?: string; // YYYY-MM-DD
+}

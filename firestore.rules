@@ -23,7 +23,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // ── Public read · director write ──────────────────────────────
+    // ── Public read · director write ────────────────────────────
     match /ensembles/{doc}       { allow read; allow write: if signedIn(); }
     match /students/{doc}        { allow read; allow write: if signedIn(); }
     match /events/{doc}          { allow read; allow write: if signedIn(); }
@@ -31,12 +31,14 @@ service cloud.firestore {
     match /announcements/{doc}   { allow read; allow write: if signedIn(); }
     match /repertoire/{doc}      { allow read; allow write: if signedIn(); }
 
-    // ── Private · director read + write only ──────────────────────
-    match /contacts/{doc}        { allow read, write: if signedIn(); }
-    match /attendance/{doc}      { allow read, write: if signedIn(); }
-    match /progressNotes/{doc}   { allow read, write: if signedIn(); }
+    // ── Private · director read + write only ──────────────
+    match /contacts/{doc}           { allow read, write: if signedIn(); }
+    match /attendance/{doc}         { allow read, write: if signedIn(); }
+    match /progressNotes/{doc}      { allow read, write: if signedIn(); }
+    match /assignments/{doc}        { allow read, write: if signedIn(); }
+    match /assignmentResults/{doc}  { allow read, write: if signedIn(); }
 
-    // ── Deny everything else by default ───────────────────────────
+    // ── Deny everything else by default ─────────────────
     match /{document=**}         { allow read, write: if false; }
   }
 }
