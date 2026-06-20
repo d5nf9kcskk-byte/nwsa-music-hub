@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
-import { UserPlus, Users, SlidersHorizontal } from 'lucide-react';
+import { UserPlus, Users, SlidersHorizontal, Megaphone, Music } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useAllAttendance } from '../hooks/useAttendance';
 import { useContacts } from '../hooks/useContacts';
 import { StudentForm } from './StudentForm';
 import { EnsembleManager } from './EnsembleManager';
+import { AnnouncementManager } from '../announcements/AnnouncementManager';
+import { RepertoireManager } from '../repertoire/RepertoireManager';
 import { ensembleColor } from '../utils';
 import { seedRoster, seedStudents, seedEnsembles } from '../seedData';
 import type { Student } from '../types';
@@ -24,6 +26,8 @@ export function RosterView() {
   const [editingStudent, setEditingStudent] = useState<Student | null | 'new'>(null);
   const [search, setSearch] = useState('');
   const [managingEnsembles, setManagingEnsembles] = useState(false);
+  const [managingAnnouncements, setManagingAnnouncements] = useState(false);
+  const [managingRepertoire, setManagingRepertoire] = useState(false);
   const [importState, setImportState] = useState<'idle' | 'importing' | 'error'>('idle');
   const [importError, setImportError] = useState('');
 
@@ -67,6 +71,12 @@ export function RosterView() {
         )}
         <button className="dir-tool-btn" onClick={() => setManagingEnsembles(true)}>
           <SlidersHorizontal size={15} /> Ensembles
+        </button>
+        <button className="dir-tool-btn" onClick={() => setManagingAnnouncements(true)}>
+          <Megaphone size={15} /> Announce
+        </button>
+        <button className="dir-tool-btn" onClick={() => setManagingRepertoire(true)}>
+          <Music size={15} /> Repertoire
         </button>
       </div>
 
@@ -157,6 +167,8 @@ export function RosterView() {
       )}
 
       {managingEnsembles && <EnsembleManager onClose={() => setManagingEnsembles(false)} />}
+      {managingAnnouncements && <AnnouncementManager onClose={() => setManagingAnnouncements(false)} />}
+      {managingRepertoire && <RepertoireManager onClose={() => setManagingRepertoire(false)} />}
     </div>
   );
 }

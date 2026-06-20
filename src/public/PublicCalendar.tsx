@@ -1,8 +1,11 @@
-import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, MapPin, Clock } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
-import { todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON } from '../director/utils';
+import { todayStr, toDateStr, parseDate, ensembleColor } from '../director/utils';
+import { PubEventCard } from './components/PubEventCard';
+import { SubscribeButton } from './components/SubscribeButton';
 import type { CalendarEvent } from '../director/types';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -10,6 +13,7 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 export function PublicCalendar() {
   const { ensembles } = useEnsembles();
   const { events } = useEvents();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [cursor, setCursor] = useState(() => {
     const d = parseDate(todayStr());
@@ -17,7 +21,19 @@ export function PublicCalendar() {
     return d;
   });
   const [selectedDate, setSelectedDate] = useState(todayStr);
-  const [filterEnsembleId, setFilterEnsembleId] = useState('');
+  const [filterEnsembleId, setFilterEnsembleId] = useState(() => searchParams.get('ensemble') ?? '');
+
+  // Keep the ?ensemble= deep-link in sync with the chosen filter.
+  useEffect(() => {
+    const current = searchParams.get('ensemble') ?? '';
+    if (current !== filterEnsembleId) {
+      const next = new URLSearchParams(searchParams);
+      if (filterEnsembleId) next.set('ensemble', filterEnsembleId);
+      else next.delete('ensemble');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterEnsembleId]);
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
 
@@ -44,10 +60,6 @@ export function PublicCalendar() {
 
   function color(e: CalendarEvent) {
     return e.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleMap[e.ensembleIds[0]]);
-  }
-  function label(e: CalendarEvent) {
-    if (e.title) return e.title;
-    return e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(', ') || e.type;
   }
 
   const dayEvents = (byDate[selectedDate] ?? []).slice().sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
@@ -97,22 +109,13 @@ export function PublicCalendar() {
           <div className="pub-muted">Nothing scheduled.</div>
         ) : (
           dayEvents.map(e => (
-            <div key={e.id} className={`pub-event ${e.status === 'Cancelled' ? 'cancelled' : ''}`}>
-              <span className="pub-event-bar" style={{ background: color(e) }} />
-              <div className="pub-event-body">
-                <div className="pub-event-title">
-                  {EVENT_TYPE_ICON[e.type]} {label(e)}
-                  {e.status === 'Cancelled' && <span className="pub-cancelled-tag">Cancelled</span>}
-                </div>
-                <div className="pub-event-meta">
-                  {formatTimeRange(e.startTime, e.endTime) && <span><Clock size={13} /> {formatTimeRange(e.startTime, e.endTime)}</span>}
-                  {e.location && <span><MapPin size={13} /> {e.location}</span>}
-                </div>
-                {e.repertoire && <div className="pub-event-rep">{e.repertoire}</div>}
-              </div>
-            </div>
+            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} showNotes />
           ))
         )}
+      </div>
+
+      <div className="pub-subscribe-section">
+        <SubscribeButton ensembleId={filterEnsembleId || undefined} />
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, CalendarPlus, MapPin, Clock, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarPlus, MapPin, Clock, Users, Upload } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
@@ -7,6 +7,7 @@ import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster, overrideSummary } from '../rosterResolver';
 import { EventForm } from './EventForm';
 import { EventRoster } from './EventRoster';
+import { IcsImport } from './IcsImport';
 import {
   todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON,
 } from '../utils';
@@ -29,6 +30,7 @@ export function ScheduleView() {
   const [filterEnsembleId, setFilterEnsembleId] = useState('');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
   const [rosterEvent, setRosterEvent] = useState<CalendarEvent | null>(null);
+  const [importingIcs, setImportingIcs] = useState(false);
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
@@ -103,6 +105,9 @@ export function ScheduleView() {
         <button className="dir-cal-month" onClick={goToday}>{monthLabel}</button>
         <button className="dir-date-nav-btn" onClick={() => shiftMonth(1)} aria-label="Next month">
           <ChevronRight size={18} />
+        </button>
+        <button className="dir-tool-btn" style={{ marginLeft: 'auto' }} onClick={() => setImportingIcs(true)} title="Import ICS calendar">
+          <Upload size={15} /> Import
         </button>
       </div>
 
@@ -226,6 +231,8 @@ export function ScheduleView() {
           onClose={() => setRosterEvent(null)}
         />
       )}
+
+      {importingIcs && <IcsImport onClose={() => setImportingIcs(false)} />}
     </div>
   );
 }

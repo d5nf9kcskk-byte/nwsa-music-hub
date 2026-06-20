@@ -1,19 +1,29 @@
 import { useMemo } from 'react';
 import { useParams, Link } from 'react-router';
-import { ChevronLeft, MapPin, Clock } from 'lucide-react';
+import { ChevronLeft, CalendarDays } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
 import { useEvents } from '../director/hooks/useEvents';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON } from '../director/utils';
+import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
+import { useRepertoire } from '../director/hooks/useRepertoire';
+import { todayStr, formatTimeRange, ensembleColor } from '../director/utils';
+import { PubEventCard } from './components/PubEventCard';
+import { PubAnnouncements } from './components/PubAnnouncements';
+import { PubRepertoire } from './components/PubRepertoire';
+import { SubscribeButton } from './components/SubscribeButton';
 
 export function PublicEnsemble() {
   const { id = '' } = useParams();
   const { ensembles } = useEnsembles();
   const { students } = useStudents();
   const { events } = useEvents();
+  const { announcements } = useAnnouncements();
+  const { pieces } = useRepertoire();
 
   const ensemble = ensembles.find(e => e.id === id);
   const today = todayStr();
+  const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
+  const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
 
   const members = useMemo(
     () => students
@@ -26,8 +36,18 @@ export function PublicEnsemble() {
     () => events
       .filter(e => e.ensembleIds.includes(id) && e.date >= today)
       .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99'))
-      .slice(0, 8),
+      .slice(0, 10),
     [events, id, today],
+  );
+
+  const ensAnnouncements = useMemo(
+    () => visibleAnnouncements(announcements, today, [id]),
+    [announcements, today, id],
+  );
+
+  const ensPieces = useMemo(
+    () => pieces.filter(p => p.ensembleId === id),
+    [pieces, id],
   );
 
   if (!ensemble) {
@@ -51,27 +71,26 @@ export function PublicEnsemble() {
         </div>
       </div>
 
-      <h2 className="pub-section-title">Upcoming</h2>
+      <PubAnnouncements items={ensAnnouncements} ensembleMap={ensembleMap} showEnsembleTag={false} />
+
+      <div className="pub-section-row">
+        <h2 className="pub-section-title">Schedule</h2>
+        <Link to={`/calendar?ensemble=${ensemble.id}`} className="pub-section-link"><CalendarDays size={13} /> Full calendar</Link>
+      </div>
+      <SubscribeButton ensembleId={ensemble.id} label={`Subscribe · ${ensemble.name}`} />
       {upcoming.length === 0 ? (
         <div className="pub-muted">No upcoming events.</div>
       ) : (
         upcoming.map(e => (
-          <div key={e.id} className={`pub-event ${e.status === 'Cancelled' ? 'cancelled' : ''}`}>
-            <span className="pub-event-bar" style={{ background: e.type === 'Concert' ? '#ca8a04' : ensembleColor(ensemble) }} />
-            <div className="pub-event-body">
-              <div className="pub-event-title">
-                {EVENT_TYPE_ICON[e.type]} {e.title || e.type}
-                {e.status === 'Cancelled' && <span className="pub-cancelled-tag">Cancelled</span>}
-              </div>
-              <div className="pub-event-meta">
-                <span>{parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                {formatTimeRange(e.startTime, e.endTime) && <span><Clock size={13} /> {formatTimeRange(e.startTime, e.endTime)}</span>}
-                {e.location && <span><MapPin size={13} /> {e.location}</span>}
-              </div>
-              {e.repertoire && <div className="pub-event-rep">{e.repertoire}</div>}
-            </div>
-          </div>
+          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} showDate showNotes ensembleIds={[id]} />
         ))
+      )}
+
+      {ensPieces.length > 0 && (
+        <>
+          <h2 className="pub-section-title">Repertoire</h2>
+          <PubRepertoire pieces={ensPieces} eventsById={eventsById} />
+        </>
       )}
 
       <h2 className="pub-section-title">Roster</h2>
@@ -80,10 +99,10 @@ export function PublicEnsemble() {
           <div className="pub-muted">No members listed.</div>
         ) : (
           members.map(s => (
-            <div key={s.id} className="pub-roster-row">
+            <Link key={s.id} to={`/student/${s.id}`} className="pub-roster-row pub-lookup-row">
               <span className="pub-roster-name">{s.name}</span>
               <span className="pub-roster-instr">{[s.instrument, s.section].filter(Boolean).join(' · ')}</span>
-            </div>
+            </Link>
           ))
         )}
       </div>

@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ChevronUp, ChevronDown, Pencil, Plus } from 'lucide-react';
+import { ChevronUp, ChevronDown, Pencil, Plus, CalendarDays } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
-import { ensembleColor, ENSEMBLE_PALETTE } from '../utils';
+import { useEvents } from '../hooks/useEvents';
+import { ensembleColor, ENSEMBLE_PALETTE, toDateStr, parseDate } from '../utils';
 import type { Ensemble } from '../types';
 
 interface Props {
@@ -10,7 +11,9 @@ interface Props {
 
 export function EnsembleManager({ onClose }: Props) {
   const { ensembles, addEnsemble, updateEnsemble, deleteEnsemble } = useEnsembles();
+  const { addEvent } = useEvents();
   const [editing, setEditing] = useState<Ensemble | 'new' | null>(null);
+  const [generating, setGenerating] = useState<Ensemble | null>(null);
 
   async function move(e: Ensemble, dir: -1 | 1) {
     const sorted = [...ensembles].sort((a, b) => a.order - b.order);
@@ -39,6 +42,20 @@ export function EnsembleManager({ onClose }: Props) {
     );
   }
 
+  if (generating) {
+    return (
+      <GenerateRehearsalsForm
+        ensemble={generating}
+        onGenerate={async events => {
+          await Promise.all(events.map(e => addEvent(e)));
+          setGenerating(null);
+        }}
+        onBack={() => setGenerating(null)}
+        onClose={onClose}
+      />
+    );
+  }
+
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="dir-drawer">
@@ -60,6 +77,9 @@ export function EnsembleManager({ onClose }: Props) {
               </button>
               <button className="dir-icon-btn" disabled={i === ensembles.length - 1} onClick={() => move(e, 1)} aria-label="Move down">
                 <ChevronDown size={18} />
+              </button>
+              <button className="dir-icon-btn" onClick={() => setGenerating(e)} aria-label="Generate rehearsals" title="Generate rehearsals">
+                <CalendarDays size={16} />
               </button>
               <button className="dir-icon-btn" onClick={() => setEditing(e)} aria-label="Edit">
                 <Pencil size={16} />
@@ -179,6 +199,146 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
           <button className="dir-btn dir-btn-ghost" onClick={onBack}>Back</button>
           <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !name.trim()}>
             {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Rehearsal generator ───────────────────────────────────────────
+
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+import type { CalendarEvent } from '../types';
+
+function GenerateRehearsalsForm({ ensemble, onGenerate, onBack, onClose }: {
+  ensemble: Ensemble;
+  onGenerate: (events: Omit<CalendarEvent, 'id'>[]) => Promise<void>;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  const today = toDateStr(new Date());
+  const [fromDate, setFromDate] = useState(today);
+  const [toDate, setToDate] = useState('');
+  const [days, setDays] = useState<number[]>(ensemble.meetingDays ?? []);
+  const [startTime, setStartTime] = useState(ensemble.defaultStartTime ?? '');
+  const [endTime, setEndTime] = useState(ensemble.defaultEndTime ?? '');
+  const [location, setLocation] = useState(ensemble.defaultLocation ?? '');
+  const [saving, setSaving] = useState(false);
+
+  function toggleDay(d: number) {
+    setDays(ds => ds.includes(d) ? ds.filter(x => x !== d) : [...ds, d]);
+  }
+
+  /** Preview: list of dates that would be generated. */
+  function previewDates(): string[] {
+    if (!fromDate || !toDate || days.length === 0) return [];
+    const result: string[] = [];
+    const cursor = parseDate(fromDate);
+    const end = parseDate(toDate);
+    while (cursor <= end) {
+      if (days.includes(cursor.getDay())) result.push(toDateStr(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return result;
+  }
+
+  const preview = previewDates();
+
+  async function handleGenerate() {
+    if (preview.length === 0) return;
+    setSaving(true);
+    const events: Omit<CalendarEvent, 'id'>[] = preview.map(date => ({
+      type: 'Rehearsal',
+      ensembleIds: [ensemble.id],
+      date,
+      startTime: startTime || undefined,
+      endTime: endTime || undefined,
+      location: location || undefined,
+      status: 'Scheduled',
+    }));
+    await onGenerate(events);
+  }
+
+  return (
+    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="dir-drawer">
+        <div className="dir-drawer-handle" />
+        <div className="dir-drawer-header">
+          <button className="dir-drawer-back" onClick={onBack}>‹</button>
+          <span className="dir-drawer-title">Generate Rehearsals · {ensemble.name}</span>
+          <button className="dir-drawer-close" onClick={onClose}>×</button>
+        </div>
+        <div className="dir-drawer-body">
+          <div className="dir-field-row">
+            <div className="dir-field">
+              <label className="dir-label">From *</label>
+              <input className="dir-input" type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+            </div>
+            <div className="dir-field">
+              <label className="dir-label">To *</label>
+              <input className="dir-input" type="date" value={toDate} onChange={e => setToDate(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Rehearsal days *</label>
+            <div className="dir-day-row">
+              {DAY_NAMES.map((name, d) => (
+                <button
+                  key={d} type="button"
+                  className={`dir-day-btn ${days.includes(d) ? 'active' : ''}`}
+                  onClick={() => toggleDay(d)}
+                >
+                  {name.slice(0, 1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="dir-field-row">
+            <div className="dir-field">
+              <label className="dir-label">Start time</label>
+              <input className="dir-input" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} />
+            </div>
+            <div className="dir-field">
+              <label className="dir-label">End time</label>
+              <input className="dir-input" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Location</label>
+            <input className="dir-input" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Band Room" />
+          </div>
+
+          {preview.length > 0 && (
+            <div className="dir-gen-preview">
+              <div className="dir-gen-preview-count">{preview.length} rehearsals will be created</div>
+              <div className="dir-gen-preview-dates">
+                {preview.slice(0, 6).map(d => (
+                  <span key={d} className="dir-gen-preview-date">
+                    {parseDate(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                ))}
+                {preview.length > 6 && <span className="dir-gen-preview-date dir-muted">+{preview.length - 6} more</span>}
+              </div>
+            </div>
+          )}
+
+          {fromDate && toDate && days.length > 0 && preview.length === 0 && (
+            <div className="dir-empty-inline">No rehearsals fall on the selected days in this range.</div>
+          )}
+        </div>
+        <div className="dir-drawer-footer">
+          <button className="dir-btn dir-btn-ghost" onClick={onBack}>Back</button>
+          <button
+            className="dir-btn dir-btn-primary"
+            onClick={handleGenerate}
+            disabled={saving || preview.length === 0}
+          >
+            {saving ? 'Generating…' : `Generate ${preview.length > 0 ? preview.length : ''} Rehearsals`}
           </button>
         </div>
       </div>

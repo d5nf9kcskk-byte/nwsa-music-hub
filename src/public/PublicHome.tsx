@@ -1,14 +1,18 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router';
-import { CalendarDays, Users, UserSearch, MapPin, Clock } from 'lucide-react';
+import { CalendarDays, Users, UserSearch } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON } from '../director/utils';
+import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
+import { todayStr, parseDate, ensembleColor } from '../director/utils';
+import { PubEventCard } from './components/PubEventCard';
+import { PubAnnouncements } from './components/PubAnnouncements';
 import type { CalendarEvent } from '../director/types';
 
 export function PublicHome() {
   const { ensembles } = useEnsembles();
   const { events, loading } = useEvents();
+  const { announcements } = useAnnouncements();
 
   const today = todayStr();
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
@@ -20,6 +24,12 @@ export function PublicHome() {
   const upcoming = events
     .filter(e => e.date > today && e.status !== 'Cancelled')
     .slice(0, 5);
+
+  // Home shows school-wide announcements plus anything pinned.
+  const homeAnnouncements = useMemo(
+    () => visibleAnnouncements(announcements, today, 'all').filter(a => a.ensembleId === null || a.pinned),
+    [announcements, today],
+  );
 
   function label(e: CalendarEvent) {
     if (e.title) return e.title;
@@ -36,23 +46,15 @@ export function PublicHome() {
         <h1>Today at NWSA</h1>
       </div>
 
+      <PubAnnouncements items={homeAnnouncements} ensembleMap={ensembleMap} />
+
       {loading ? (
         <div className="pub-muted">Loading…</div>
       ) : todayEvents.length === 0 ? (
         <div className="pub-card pub-muted">No rehearsals or events scheduled today.</div>
       ) : (
         todayEvents.map(e => (
-          <div key={e.id} className="pub-event">
-            <span className="pub-event-bar" style={{ background: color(e) }} />
-            <div className="pub-event-body">
-              <div className="pub-event-title">{EVENT_TYPE_ICON[e.type]} {label(e)}</div>
-              <div className="pub-event-meta">
-                {formatTimeRange(e.startTime, e.endTime) && <span><Clock size={13} /> {formatTimeRange(e.startTime, e.endTime)}</span>}
-                {e.location && <span><MapPin size={13} /> {e.location}</span>}
-              </div>
-              {e.repertoire && <div className="pub-event-rep">{e.repertoire}</div>}
-            </div>
-          </div>
+          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} showNotes />
         ))
       )}
 
