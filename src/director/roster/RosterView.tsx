@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
-import { UserPlus, Users, SlidersHorizontal, Megaphone, Music } from 'lucide-react';
+import { UserPlus, Users, SlidersHorizontal, Music } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useAllAttendance } from '../hooks/useAttendance';
 import { useContacts } from '../hooks/useContacts';
 import { StudentForm } from './StudentForm';
+import { StudentDetail } from './StudentDetail';
 import { EnsembleManager } from './EnsembleManager';
-import { AnnouncementManager } from '../announcements/AnnouncementManager';
 import { RepertoireManager } from '../repertoire/RepertoireManager';
 import { ensembleColor } from '../utils';
 import { seedRoster, seedStudents, seedEnsembles } from '../seedData';
@@ -23,10 +23,10 @@ export function RosterView() {
     for (const r of records) if (r.status === 'Absent') m[r.studentId] = (m[r.studentId] ?? 0) + 1;
     return m;
   }, [records]);
+  const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null | 'new'>(null);
   const [search, setSearch] = useState('');
   const [managingEnsembles, setManagingEnsembles] = useState(false);
-  const [managingAnnouncements, setManagingAnnouncements] = useState(false);
   const [managingRepertoire, setManagingRepertoire] = useState(false);
   const [importState, setImportState] = useState<'idle' | 'importing' | 'error'>('idle');
   const [importError, setImportError] = useState('');
@@ -39,7 +39,6 @@ export function RosterView() {
     setImportError('');
     try {
       await seedRoster();
-      // The real-time listeners pick up the new docs and re-render automatically.
     } catch (e) {
       setImportError(e instanceof Error ? e.message : String(e));
       setImportState('error');
@@ -51,7 +50,6 @@ export function RosterView() {
     s.instrument.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Group by ensemble; students with no ensemble go in a separate bucket
   const grouped = ensembles.map(e => ({
     ensemble: e,
     students: filtered.filter(s => s.ensembleIds?.includes(e.id)),
@@ -72,9 +70,6 @@ export function RosterView() {
         <button className="dir-tool-btn" onClick={() => setManagingEnsembles(true)}>
           <SlidersHorizontal size={15} /> Ensembles
         </button>
-        <button className="dir-tool-btn" onClick={() => setManagingAnnouncements(true)}>
-          <Megaphone size={15} /> Announce
-        </button>
         <button className="dir-tool-btn" onClick={() => setManagingRepertoire(true)}>
           <Music size={15} /> Repertoire
         </button>
@@ -90,7 +85,7 @@ export function RosterView() {
             </div>
             <div className="dir-roster-list">
               {grp.map(s => (
-                <StudentRow key={s.id} student={s} absences={absenceCounts[s.id] ?? 0} onEdit={() => setEditingStudent(s)} />
+                <StudentRow key={s.id} student={s} absences={absenceCounts[s.id] ?? 0} onEdit={() => setViewingStudent(s)} />
               ))}
             </div>
           </div>
@@ -105,7 +100,7 @@ export function RosterView() {
           </div>
           <div className="dir-roster-list">
             {unassigned.map(s => (
-              <StudentRow key={s.id} student={s} absences={absenceCounts[s.id] ?? 0} onEdit={() => setEditingStudent(s)} />
+              <StudentRow key={s.id} student={s} absences={absenceCounts[s.id] ?? 0} onEdit={() => setViewingStudent(s)} />
             ))}
           </div>
         </div>
@@ -136,13 +131,24 @@ export function RosterView() {
         <div className="dir-empty">
           <Users size={40} />
           <h3>No matches</h3>
-          <p>No students match “{search}”.</p>
+          <p>No students match "{search}".</p>
         </div>
       )}
 
       <button className="dir-fab" onClick={() => setEditingStudent('new')} aria-label="Add student">
         <UserPlus size={22} />
       </button>
+
+      {viewingStudent !== null && (
+        <StudentDetail
+          student={viewingStudent}
+          students={students}
+          contact={contacts[viewingStudent.id] ?? null}
+          ensembles={ensembles}
+          onEdit={() => { setEditingStudent(viewingStudent); setViewingStudent(null); }}
+          onClose={() => setViewingStudent(null)}
+        />
+      )}
 
       {editingStudent !== null && (
         <StudentForm
@@ -167,7 +173,6 @@ export function RosterView() {
       )}
 
       {managingEnsembles && <EnsembleManager onClose={() => setManagingEnsembles(false)} />}
-      {managingAnnouncements && <AnnouncementManager onClose={() => setManagingAnnouncements(false)} />}
       {managingRepertoire && <RepertoireManager onClose={() => setManagingRepertoire(false)} />}
     </div>
   );
