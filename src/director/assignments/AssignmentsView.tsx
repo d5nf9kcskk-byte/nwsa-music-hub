@@ -42,15 +42,19 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
   async function handleSave() {
     if (!title.trim()) return;
     setSaving(true);
-    await onSave({
-      title: title.trim(),
-      type,
-      description: description.trim(),
-      dueDate,
-      ensembleIds,
-      createdAt: assignment?.createdAt ?? Date.now(),
-    });
-    onClose();
+    try {
+      await onSave({
+        title: title.trim(),
+        type,
+        description: description.trim(),
+        dueDate,
+        ensembleIds,
+        createdAt: assignment?.createdAt ?? Date.now(),
+      });
+      onClose();
+    } catch {
+      setSaving(false);
+    }
   }
 
   return (

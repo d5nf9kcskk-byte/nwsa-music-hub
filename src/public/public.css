@@ -302,7 +302,7 @@
 .pub-roster-name { font-size: 15px; font-weight: 600; }
 .pub-roster-instr { font-size: 13px; color: var(--pub-muted); text-align: right; }
 
-.pub-lookup-row { background: none; border-top: none; border-left: none; border-right: none; cursor: pointer; text-align: left; -webkit-tap-highlight-color: transparent; }
+.pub-lookup-row { background: none; border-top: none; border-left: none; border-right: none; cursor: pointer; text-align: left; -webkit-tap-highlight-color: transparent; color: var(--pub-ink); text-decoration: none; }
 .pub-lookup-row:active { background: var(--pub-accent-soft); }
 
 /* Search */

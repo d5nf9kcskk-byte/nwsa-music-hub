@@ -76,15 +76,23 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   async function handleSave() {
     if (!canSave) return;
     setSaving(true);
-    await onSave(form);
-    onClose();
+    try {
+      await onSave(form);
+      onClose();
+    } catch {
+      setSaving(false);
+    }
   }
 
   async function handleDelete() {
     if (!onDelete) return;
     setSaving(true);
-    await onDelete();
-    onClose();
+    try {
+      await onDelete();
+      onClose();
+    } catch {
+      setSaving(false);
+    }
   }
 
   return (

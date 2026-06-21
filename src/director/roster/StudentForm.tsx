@@ -63,15 +63,23 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
   async function handleSave() {
     if (!form.name.trim()) return;
     setSaving(true);
-    await onSave(form, contactForm);
-    onClose();
+    try {
+      await onSave(form, contactForm);
+      onClose();
+    } catch {
+      setSaving(false);
+    }
   }
 
   async function handleDelete() {
     if (!onDelete) return;
     setSaving(true);
-    await onDelete();
-    onClose();
+    try {
+      await onDelete();
+      onClose();
+    } catch {
+      setSaving(false);
+    }
   }
 
   return (

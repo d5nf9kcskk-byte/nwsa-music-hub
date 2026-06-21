@@ -118,23 +118,31 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
   async function handleSave() {
     if (!name.trim()) return;
     setSaving(true);
-    await onSave({
-      name: name.trim(),
-      order: ensemble?.order ?? nextOrder,
-      color: color || undefined,
-      defaultLocation: location || undefined,
-      defaultStartTime: startTime || undefined,
-      defaultEndTime: endTime || undefined,
-      meetingDays: ensemble?.meetingDays,
-    });
-    onBack();
+    try {
+      await onSave({
+        name: name.trim(),
+        order: ensemble?.order ?? nextOrder,
+        color: color || undefined,
+        defaultLocation: location || undefined,
+        defaultStartTime: startTime || undefined,
+        defaultEndTime: endTime || undefined,
+        meetingDays: ensemble?.meetingDays,
+      });
+      onBack();
+    } catch {
+      setSaving(false);
+    }
   }
 
   async function handleDelete() {
     if (!onDelete) return;
     setSaving(true);
-    await onDelete();
-    onClose();
+    try {
+      await onDelete();
+      onClose();
+    } catch {
+      setSaving(false);
+    }
   }
 
   return (
@@ -249,16 +257,20 @@ function GenerateRehearsalsForm({ ensemble, onGenerate, onBack, onClose }: {
   async function handleGenerate() {
     if (preview.length === 0) return;
     setSaving(true);
-    const events: Omit<CalendarEvent, 'id'>[] = preview.map(date => ({
-      type: 'Rehearsal',
-      ensembleIds: [ensemble.id],
-      date,
-      startTime: startTime || undefined,
-      endTime: endTime || undefined,
-      location: location || undefined,
-      status: 'Scheduled',
-    }));
-    await onGenerate(events);
+    try {
+      const events: Omit<CalendarEvent, 'id'>[] = preview.map(date => ({
+        type: 'Rehearsal',
+        ensembleIds: [ensemble.id],
+        date,
+        startTime: startTime || undefined,
+        endTime: endTime || undefined,
+        location: location || undefined,
+        status: 'Scheduled',
+      }));
+      await onGenerate(events);
+    } catch {
+      setSaving(false);
+    }
   }
 
   return (
