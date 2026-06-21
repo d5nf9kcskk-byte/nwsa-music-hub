@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useStudents } from '../hooks/useStudents';
 import { EVENT_TYPES } from '../utils';
+import { PiecePicker } from '../repertoire/PiecePicker';
 import type { CalendarEvent, Ensemble, EventType, EventStatus } from '../types';
 
 interface Props {
@@ -22,6 +23,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     location: '',
     title: '',
     repertoire: '',
+    pieceIds: [],
     status: 'Scheduled',
     notes: '',
   });
@@ -74,15 +76,23 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   async function handleSave() {
     if (!canSave) return;
     setSaving(true);
-    await onSave(form);
-    onClose();
+    try {
+      await onSave(form);
+      onClose();
+    } catch {
+      setSaving(false);
+    }
   }
 
   async function handleDelete() {
     if (!onDelete) return;
     setSaving(true);
-    await onDelete();
-    onClose();
+    try {
+      await onDelete();
+      onClose();
+    } catch {
+      setSaving(false);
+    }
   }
 
   return (
@@ -165,8 +175,18 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
           </div>
 
           <div className="dir-field">
-            <label className="dir-label">Repertoire</label>
-            <input className="dir-input" value={form.repertoire ?? ''} onChange={e => set('repertoire', e.target.value)} placeholder="Pieces / focus areas" />
+            <label className="dir-label">Repertoire notes</label>
+            <input className="dir-input" value={form.repertoire ?? ''} onChange={e => set('repertoire', e.target.value)} placeholder="Free-text pieces / focus areas" />
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Pieces from library</label>
+            <PiecePicker
+              ensembleIds={form.ensembleIds}
+              ensembles={ensembles}
+              value={form.pieceIds ?? []}
+              onChange={ids => set('pieceIds', ids)}
+            />
           </div>
 
           <div className="dir-field">

@@ -15,7 +15,7 @@ const TYPE_COLORS: Record<AssignmentType, string> = {
   'Other':        '#64748b',
 };
 
-// ── Assignment form drawer ────────────────────────────────────────────
+// ── Assignment form drawer ─────────────────────────────────────────────────────
 
 interface FormProps {
   assignment: Assignment | null;
@@ -42,15 +42,19 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
   async function handleSave() {
     if (!title.trim()) return;
     setSaving(true);
-    await onSave({
-      title: title.trim(),
-      type,
-      description: description.trim(),
-      dueDate,
-      ensembleIds,
-      createdAt: assignment?.createdAt ?? Date.now(),
-    });
-    onClose();
+    try {
+      await onSave({
+        title: title.trim(),
+        type,
+        description: description.trim(),
+        dueDate,
+        ensembleIds,
+        createdAt: assignment?.createdAt ?? Date.now(),
+      });
+      onClose();
+    } catch {
+      setSaving(false);
+    }
   }
 
   return (
@@ -89,7 +93,7 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
             <label className="dir-label">Ensembles</label>
             <div className="dir-checkbox-group">
               {ensembles.map(e => (
-                <label key={e.id} className={`dir-checkbox-tag ${ensembleIds.includes(e.id) ? 'checked' : ''}`}>
+                <label key={e.id} className={`dir-checkbox-tag ${ensembleIds.includes(e.id) ? 'checked' : ''}` }>
                   <input type="checkbox" checked={ensembleIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
                   {e.name}
                 </label>
@@ -143,7 +147,7 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
   );
 }
 
-// ── Grade sheet drawer ────────────────────────────────────────────
+// ── Grade sheet drawer ────────────────────────────────────────────────
 
 interface GradeSheetProps {
   assignment: Assignment;
@@ -246,7 +250,7 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
   );
 }
 
-// ── Main view ─────────────────────────────────────────────────
+// ── Main view ──────────────────────────────────────────────────────
 
 export function AssignmentsView() {
   const { assignments, loading, addAssignment, updateAssignment, deleteAssignment } = useAssignments();
