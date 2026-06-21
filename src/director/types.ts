@@ -80,7 +80,7 @@ export interface AttendanceRecord {
   studentId: string;
   ensembleId: string;
   date: string; // YYYY-MM-DD
-  status: 'Absent' | 'Late' | 'Excused';
+  status: AttendanceStatus;
   reason?: string;
   notes?: string;
 }

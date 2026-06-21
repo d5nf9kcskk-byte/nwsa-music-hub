@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Outlet, NavLink, Link } from 'react-router';
-import { Home, CalendarDays, Users, UserSearch, Menu, X } from 'lucide-react';
+import { Home, CalendarDays, Users, Music, UserSearch, Menu, X } from 'lucide-react';
 import { NWSA_LOGO } from '../nwsaLogo';
 
 const NAV = [
   { to: '/', label: 'Home', Icon: Home, end: true },
   { to: '/calendar', label: 'Calendar', Icon: CalendarDays, end: false },
   { to: '/ensembles', label: 'Ensembles', Icon: Users, end: false },
+  { to: '/repertoire', label: 'Music', Icon: Music, end: false },
   { to: '/lookup', label: 'My Schedule', Icon: UserSearch, end: false },
 ];
 
