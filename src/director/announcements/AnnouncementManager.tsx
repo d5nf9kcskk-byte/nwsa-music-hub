@@ -114,8 +114,12 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
   async function handleDelete() {
     if (!onDelete) return;
     setSaving(true);
-    await onDelete();
-    onClose();
+    try {
+      await onDelete();
+      onClose();
+    } catch {
+      setSaving(false);
+    }
   }
 
   return (

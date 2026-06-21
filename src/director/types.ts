@@ -80,7 +80,7 @@ export interface AttendanceRecord {
   studentId: string;
   ensembleId: string;
   date: string; // YYYY-MM-DD
-  status: 'Absent' | 'Late' | 'Excused';
+  status: AttendanceStatus;
   reason?: string;
   notes?: string;
 }
@@ -161,7 +161,6 @@ export interface Assignment {
   title: string;
   type: AssignmentType;
   description?: string;
-  linkUrl?: string;      // optional URL to a form, website, or resource
   dueDate: string; // YYYY-MM-DD
   ensembleIds: string[];
   createdAt: number;
