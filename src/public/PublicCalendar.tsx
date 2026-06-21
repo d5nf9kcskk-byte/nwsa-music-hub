@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
+import { useRepertoire } from '../director/hooks/useRepertoire';
 import { todayStr, toDateStr, parseDate, ensembleColor } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { SubscribeButton } from './components/SubscribeButton';
@@ -13,6 +14,7 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 export function PublicCalendar() {
   const { ensembles } = useEnsembles();
   const { events } = useEvents();
+  const { pieces } = useRepertoire();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [cursor, setCursor] = useState(() => {
@@ -23,7 +25,6 @@ export function PublicCalendar() {
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [filterEnsembleId, setFilterEnsembleId] = useState(() => searchParams.get('ensemble') ?? '');
 
-  // Keep the ?ensemble= deep-link in sync with the chosen filter.
   useEffect(() => {
     const current = searchParams.get('ensemble') ?? '';
     if (current !== filterEnsembleId) {
@@ -36,6 +37,7 @@ export function PublicCalendar() {
   }, [filterEnsembleId]);
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
+  const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
 
   const visible = filterEnsembleId ? events.filter(e => e.ensembleIds.includes(filterEnsembleId)) : events;
   const byDate = useMemo(() => {
@@ -109,7 +111,7 @@ export function PublicCalendar() {
           <div className="pub-muted">Nothing scheduled.</div>
         ) : (
           dayEvents.map(e => (
-            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} showNotes />
+            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showNotes />
           ))
         )}
       </div>

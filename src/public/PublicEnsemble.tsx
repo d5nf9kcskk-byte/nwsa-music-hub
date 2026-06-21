@@ -24,6 +24,7 @@ export function PublicEnsemble() {
   const today = todayStr();
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
+  const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
 
   const members = useMemo(
     () => students
@@ -82,7 +83,7 @@ export function PublicEnsemble() {
         <div className="pub-muted">No upcoming events.</div>
       ) : (
         upcoming.map(e => (
-          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} showDate showNotes ensembleIds={[id]} />
+          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showDate showNotes ensembleIds={[id]} />
         ))
       )}
 

@@ -3,10 +3,6 @@ import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'fireb
 import { db } from '../firebase';
 import type { RepertoirePiece } from '../types';
 
-/**
- * Real-time listener for repertoire pieces. Sorted client-side by order then
- * title so the director can arrange a program and missing-order docs still sort.
- */
 export function useRepertoire() {
   const [pieces, setPieces] = useState<RepertoirePiece[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,9 +17,10 @@ export function useRepertoire() {
     }, () => setLoading(false));
   }, []);
 
-  async function addPiece(data: Omit<RepertoirePiece, 'id'>) {
+  async function addPiece(data: Omit<RepertoirePiece, 'id'>): Promise<string | undefined> {
     if (!db) return;
-    await addDoc(collection(db, 'repertoire'), data);
+    const ref = await addDoc(collection(db, 'repertoire'), data);
+    return ref.id;
   }
 
   async function updatePiece(id: string, data: Partial<Omit<RepertoirePiece, 'id'>>) {

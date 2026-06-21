@@ -19,6 +19,7 @@
     "react-router": "^8.0.0"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.55.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
@@ -27,6 +28,7 @@
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "firebase-admin": "^13.4.0",
     "globals": "^17.5.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
