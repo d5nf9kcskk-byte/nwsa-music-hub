@@ -13,6 +13,7 @@ import { PublicLookup } from './public/PublicLookup';
 import { PublicSchedule } from './public/PublicSchedule';
 import { PublicPiece } from './public/PublicPiece';
 import { PublicProgram } from './public/PublicProgram';
+import { PublicRepertoire } from './public/PublicRepertoire';
 import DirectorApp from './director/DirectorApp';
 
 const router = createBrowserRouter(
@@ -25,6 +26,7 @@ const router = createBrowserRouter(
         { path: 'calendar', element: <PublicCalendar /> },
         { path: 'ensembles', element: <PublicEnsembles /> },
         { path: 'ensemble/:id', element: <PublicEnsemble /> },
+        { path: 'repertoire', element: <PublicRepertoire /> },
         { path: 'lookup', element: <PublicLookup /> },
         { path: 'student/:id', element: <PublicSchedule /> },
         { path: 'piece/:id', element: <PublicPiece /> },

@@ -33,7 +33,7 @@ export function TrackerView() {
   );
 
   const totals = useMemo(() => {
-    const t = { Absent: 0, Late: 0, Excused: 0 };
+    const t = { Absent: 0, Late: 0, Excused: 0, Lesson: 0 };
     for (const r of filtered) t[r.status]++;
     return t;
   }, [filtered]);
@@ -42,9 +42,9 @@ export function TrackerView() {
 
   // Per-student tallies, ranked by total exceptions (desc).
   const perStudent = useMemo(() => {
-    const map: Record<string, { Absent: number; Late: number; Excused: number; total: number }> = {};
+    const map: Record<string, { Absent: number; Late: number; Excused: number; Lesson: number; total: number }> = {};
     for (const r of filtered) {
-      const e = (map[r.studentId] ??= { Absent: 0, Late: 0, Excused: 0, total: 0 });
+      const e = (map[r.studentId] ??= { Absent: 0, Late: 0, Excused: 0, Lesson: 0, total: 0 });
       e[r.status]++;
       e.total++;
     }
