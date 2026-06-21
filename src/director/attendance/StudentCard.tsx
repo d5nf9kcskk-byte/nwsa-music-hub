@@ -27,7 +27,7 @@ export function StudentCard({ student, record, onToggle, isSub }: Props) {
         )}
       </div>
       <div className="dir-att-btns">
-        {(['Absent', 'Late', 'Excused'] as AttendanceStatus[]).map(s => (
+        {(['Absent', 'Late', 'Excused', 'Lesson'] as AttendanceStatus[]).map(s => (
           <button
             key={s}
             className={`dir-att-btn ${s.toLowerCase()}-btn${status === s ? ' active' : ''}`}
