@@ -10,6 +10,7 @@ import { NotesView } from './notes/NotesView';
 import { AssignmentsView } from './assignments/AssignmentsView';
 import { AnnouncementManager } from './announcements/AnnouncementManager';
 import { RepertoireManager } from './repertoire/RepertoireManager';
+import { NWSA_LOGO } from '../nwsaLogo';
 import type { Tab } from './types';
 
 const TABS: { id: Tab; label: string; Icon: typeof ClipboardList }[] = [
@@ -40,9 +41,16 @@ export default function DirectorApp() {
       {(user, signOut) => (
         <div className="dir-app">
           <header className="dir-header">
-            <div>
-              <div className="dir-header-title">{TAB_TITLES[tab]}</div>
-              <div className="dir-header-sub">NWSA Music</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <img
+                src={NWSA_LOGO}
+                alt="NWSA"
+                style={{ height: 34, width: 'auto', flexShrink: 0, background: '#fff', borderRadius: 6, padding: 2 }}
+              />
+              <div>
+                <div className="dir-header-title">{TAB_TITLES[tab]}</div>
+                <div className="dir-header-sub">NWSA Music</div>
+              </div>
             </div>
             <div className="dir-header-right">
               <button
