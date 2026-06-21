@@ -161,6 +161,7 @@ export interface Assignment {
   title: string;
   type: AssignmentType;
   description?: string;
+  linkUrl?: string;      // optional URL to a form, website, or resource
   dueDate: string; // YYYY-MM-DD
   ensembleIds: string[];
   createdAt: number;
