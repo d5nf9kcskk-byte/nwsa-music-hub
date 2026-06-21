@@ -19,6 +19,8 @@
   --dir-late-bg: #fffbeb;
   --dir-excused: #22c55e;
   --dir-excused-bg: #f0fdf4;
+  --dir-lesson: #8b5cf6;
+  --dir-lesson-bg: #f5f3ff;
   --dir-header: 56px;
   --dir-nav: 64px;
   --dir-radius: 12px;
@@ -334,6 +336,11 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   background: var(--dir-excused-bg);
 }
 
+.dir-student-card.lesson {
+  border-color: var(--dir-lesson);
+  background: var(--dir-lesson-bg);
+}
+
 .dir-student-info {
   display: flex;
   align-items: center;
@@ -365,6 +372,7 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 .dir-status-badge.absent { background: var(--dir-absent); color: #fff; }
 .dir-status-badge.late { background: var(--dir-late); color: #fff; }
 .dir-status-badge.excused { background: var(--dir-excused); color: #fff; }
+.dir-status-badge.lesson { background: var(--dir-lesson); color: #fff; }
 
 .dir-att-btns {
   display: flex;
@@ -408,6 +416,13 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 .dir-att-btn.absent-btn:not(.active):hover { border-color: var(--dir-absent); color: var(--dir-absent); }
 .dir-att-btn.late-btn:not(.active):hover { border-color: var(--dir-late); color: var(--dir-late); }
 .dir-att-btn.excused-btn:not(.active):hover { border-color: var(--dir-excused); color: var(--dir-excused); }
+.dir-att-btn.lesson-btn:not(.active):hover { border-color: var(--dir-lesson); color: var(--dir-lesson); }
+
+.dir-att-btn.lesson-btn.active {
+  background: var(--dir-lesson);
+  border-color: var(--dir-lesson);
+  color: #fff;
+}
 
 /* ── Empty state ── */
 
@@ -1490,6 +1505,23 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 }
 .dir-header-icon-btn:active { background: rgba(255,255,255,0.28); }
 
+.dir-header-site-btn {
+  display: flex; align-items: center; gap: 5px;
+  height: 30px; padding: 0 10px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.12); color: #fff; cursor: pointer;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent; transition: background 0.15s;
+  flex-shrink: 0;
+}
+.dir-header-site-btn:active { background: rgba(255,255,255,0.25); }
+
+/* ── Repertoire tab page ── */
+.dir-tab-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 /* ── Assignment cards (list view) ── */
 
 .dir-assign-card {
@@ -1612,6 +1644,7 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 .dir-detail-att-absent  { background: var(--dir-absent-bg);  color: var(--dir-absent);  }
 .dir-detail-att-late    { background: var(--dir-late-bg);    color: var(--dir-late);    }
 .dir-detail-att-excused { background: var(--dir-excused-bg); color: #15803d;            }
+.dir-detail-att-lesson  { background: var(--dir-lesson-bg);  color: var(--dir-lesson);  }
 
 .dir-detail-att-list { display: flex; flex-direction: column; gap: 4px; }
 

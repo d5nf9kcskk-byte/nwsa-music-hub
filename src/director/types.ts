@@ -150,8 +150,8 @@ export interface RepertoirePiece {
   aiStatus?: 'pending' | 'enriched' | null;
 }
 
-export type AttendanceStatus = 'Absent' | 'Late' | 'Excused';
-export type Tab = 'roll' | 'roster' | 'schedule' | 'notes' | 'assignments';
+export type AttendanceStatus = 'Absent' | 'Late' | 'Excused' | 'Lesson';
+export type Tab = 'roll' | 'roster' | 'schedule' | 'repertoire' | 'notes' | 'assignments';
 
 export type AssignmentType = 'Playing Exam' | 'Written Test' | 'Performance' | 'Other';
 export type AssignmentResultStatus = 'Pending' | 'Pass' | 'Fail' | 'Exempt';

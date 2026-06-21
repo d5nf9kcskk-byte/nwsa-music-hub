@@ -43,6 +43,7 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
   const absences = attendanceRecords.filter(r => r.status === 'Absent').length;
   const lates   = attendanceRecords.filter(r => r.status === 'Late').length;
   const excused = attendanceRecords.filter(r => r.status === 'Excused').length;
+  const lessons = attendanceRecords.filter(r => r.status === 'Lesson').length;
 
   const assignmentsById = useMemo(
     () => Object.fromEntries(assignments.map(a => [a.id, a])),
@@ -126,6 +127,7 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
               <span className="dir-detail-att-chip dir-detail-att-absent">{absences} Absent</span>
               <span className="dir-detail-att-chip dir-detail-att-late">{lates} Late</span>
               <span className="dir-detail-att-chip dir-detail-att-excused">{excused} Excused</span>
+              {lessons > 0 && <span className="dir-detail-att-chip dir-detail-att-lesson">{lessons} Lesson</span>}
             </div>
             {attendanceRecords.length > 0 && (
               <div className="dir-detail-att-list">

@@ -9,9 +9,10 @@ import type { RepertoirePiece, CalendarEvent, Ensemble, PieceMovement, PiecePart
 interface Props {
   onClose: () => void;
   ensembleId?: string;
+  asTab?: boolean;
 }
 
-export function RepertoireManager({ onClose, ensembleId }: Props) {
+export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
   const { pieces, addPiece, updatePiece, deletePiece } = useRepertoire();
   const { ensembles } = useEnsembles();
   const { events } = useEvents();
@@ -45,6 +46,50 @@ export function RepertoireManager({ onClose, ensembleId }: Props) {
     );
   }
 
+  const listBody = (
+    <>
+      <div className="dir-drawer-body">
+        {shown.length === 0 ? (
+          <div className="dir-empty-inline">No repertoire yet. Add a piece below.</div>
+        ) : (
+          shown.map(p => (
+            <div key={p.id} className="dir-ens-row" onClick={() => setEditing(p)}>
+              <span className="dir-ens-swatch" style={{ background: ensembleColor(ensembleMap[p.ensembleId]) }} />
+              <div className="dir-ens-info">
+                <div className="dir-ens-name">
+                  <Music size={12} style={{ verticalAlign: '-1px', marginRight: 4 }} />
+                  {p.title}
+                  {p.aiStatus === 'pending' && (
+                    <span className="dir-ai-badge pending" style={{ marginLeft: 6 }}>AI pending</span>
+                  )}
+                  {p.aiStatus === 'enriched' && (
+                    <span className="dir-ai-badge enriched" style={{ marginLeft: 6 }}>AI ✓</span>
+                  )}
+                </div>
+                <div className="dir-ens-sub">
+                  {[p.composer, ensembleId ? null : ensembleMap[p.ensembleId]?.name].filter(Boolean).join(' · ') || '—'}
+                  {p.duration ? ` · ${p.duration} min` : ''}
+                </div>
+              </div>
+              <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing(p); }} aria-label="Edit">
+                <Pencil size={16} />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+      <div className="dir-drawer-footer">
+        <button className="dir-btn dir-btn-primary" onClick={() => setEditing('new')}>
+          <Plus size={16} style={{ verticalAlign: '-3px' }} /> Add Piece
+        </button>
+      </div>
+    </>
+  );
+
+  if (asTab) {
+    return <div className="dir-tab-page">{listBody}</div>;
+  }
+
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="dir-drawer">
@@ -55,41 +100,7 @@ export function RepertoireManager({ onClose, ensembleId }: Props) {
           </span>
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
-        <div className="dir-drawer-body">
-          {shown.length === 0 ? (
-            <div className="dir-empty-inline">No repertoire yet. Add a piece below.</div>
-          ) : (
-            shown.map(p => (
-              <div key={p.id} className="dir-ens-row" onClick={() => setEditing(p)}>
-                <span className="dir-ens-swatch" style={{ background: ensembleColor(ensembleMap[p.ensembleId]) }} />
-                <div className="dir-ens-info">
-                  <div className="dir-ens-name">
-                    <Music size={12} style={{ verticalAlign: '-1px', marginRight: 4 }} />
-                    {p.title}
-                    {p.aiStatus === 'pending' && (
-                      <span className="dir-ai-badge pending" style={{ marginLeft: 6 }}>AI pending</span>
-                    )}
-                    {p.aiStatus === 'enriched' && (
-                      <span className="dir-ai-badge enriched" style={{ marginLeft: 6 }}>AI ✓</span>
-                    )}
-                  </div>
-                  <div className="dir-ens-sub">
-                    {[p.composer, ensembleId ? null : ensembleMap[p.ensembleId]?.name].filter(Boolean).join(' · ') || '—'}
-                    {p.duration ? ` · ${p.duration} min` : ''}
-                  </div>
-                </div>
-                <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing(p); }} aria-label="Edit">
-                  <Pencil size={16} />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-        <div className="dir-drawer-footer">
-          <button className="dir-btn dir-btn-primary" onClick={() => setEditing('new')}>
-            <Plus size={16} style={{ verticalAlign: '-3px' }} /> Add Piece
-          </button>
-        </div>
+        {listBody}
       </div>
     </div>
   );

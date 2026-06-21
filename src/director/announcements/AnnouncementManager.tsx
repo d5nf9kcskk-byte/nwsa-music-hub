@@ -96,15 +96,19 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
   async function handleSave() {
     if (!title.trim()) return;
     setSaving(true);
-    await onSave({
-      title: title.trim(),
-      body: body.trim() || undefined,
-      ensembleId,
-      pinned: pinned || undefined,
-      expiresOn: expiresOn || undefined,
-      createdAt: announcement?.createdAt ?? Date.now(),
-    });
-    onBack();
+    try {
+      await onSave({
+        title: title.trim(),
+        body: body.trim() || undefined,
+        ensembleId,
+        pinned: pinned || undefined,
+        expiresOn: expiresOn || undefined,
+        createdAt: announcement?.createdAt ?? Date.now(),
+      });
+      onBack();
+    } catch {
+      setSaving(false);
+    }
   }
 
   async function handleDelete() {
