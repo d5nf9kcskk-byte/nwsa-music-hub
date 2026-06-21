@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet, NavLink, Link } from 'react-router';
 import { Home, CalendarDays, Users, UserSearch, Menu, X } from 'lucide-react';
+import { NWSA_LOGO } from '../nwsaLogo';
 
 const NAV = [
   { to: '/', label: 'Home', Icon: Home, end: true },
@@ -9,21 +10,6 @@ const NAV = [
   { to: '/lookup', label: 'My Schedule', Icon: UserSearch, end: false },
 ];
 
-function NwsaLogo() {
-  return (
-    <svg width="30" height="30" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-      {/* Blue mountain */}
-      <polygon points="20,2 37,36 3,36" fill="#1a56a8"/>
-      {/* White inner triangle */}
-      <polygon points="20,10 30,36 10,36" fill="white"/>
-      {/* Yellow peak accent */}
-      <polygon points="20,2 24,14 16,14" fill="#facc15"/>
-      {/* Purple wave at base */}
-      <path d="M3,34 Q11.5,29.5 20,34 Q28.5,38.5 37,34" stroke="#7c3aed" strokeWidth="2" fill="none" strokeLinecap="round"/>
-    </svg>
-  );
-}
-
 export function PublicLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -31,7 +17,11 @@ export function PublicLayout() {
     <div className="pub-app">
       <header className="pub-header">
         <Link to="/" className="pub-brand">
-          <NwsaLogo />
+          <img
+            src={NWSA_LOGO}
+            alt="NWSA"
+            style={{ height: 34, width: 'auto', display: 'block', background: '#fff', borderRadius: 6, padding: 2 }}
+          />
           <span>NWSA Music</span>
         </Link>
         <button
