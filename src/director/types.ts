@@ -161,6 +161,7 @@ export interface Assignment {
   title: string;
   type: AssignmentType;
   description?: string;
+  linkUrl?: string;
   dueDate: string; // YYYY-MM-DD
   ensembleIds: string[];
   createdAt: number;

@@ -185,7 +185,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
               ensembleIds={form.ensembleIds}
               ensembles={ensembles}
               value={form.pieceIds ?? []}
-              onChange={ids => set('pieceIds', ids)}
+              onChange={(ids: string[]) => set('pieceIds', ids)}
             />
           </div>
 
