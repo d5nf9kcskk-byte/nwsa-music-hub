@@ -47,15 +47,23 @@ export function NoteForm({ note, students, defaultStudentId, onSave, onDelete, o
   async function handleSave() {
     if (!form.studentId || !form.content.trim()) return;
     setSaving(true);
-    await onSave(form);
-    onClose();
+    try {
+      await onSave(form);
+      onClose();
+    } catch {
+      setSaving(false);
+    }
   }
 
   async function handleDelete() {
     if (!onDelete) return;
     setSaving(true);
-    await onDelete();
-    onClose();
+    try {
+      await onDelete();
+      onClose();
+    } catch {
+      setSaving(false);
+    }
   }
 
   const activeStudents = students.filter(s => s.status === 'Active');
