@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Pencil, Music, Sparkles, Trash2, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Music, Sparkles, Trash2, GripVertical, ChevronLeft } from 'lucide-react';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
@@ -368,7 +368,7 @@ Return ONLY a JSON object (no markdown) with these fields (omit any you are not 
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
-          <button className="dir-drawer-back" onClick={onBack}>‹</button>
+          <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
           <span className="dir-drawer-title">{piece ? 'Edit Piece' : 'New Piece'}</span>
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Pin } from 'lucide-react';
+import { Plus, Pencil, Pin, ChevronLeft } from 'lucide-react';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { ensembleColor } from '../utils';
@@ -127,7 +127,7 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
-          <button className="dir-drawer-back" onClick={onBack}>‹</button>
+          <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
           <span className="dir-drawer-title">{announcement ? 'Edit Announcement' : 'New Announcement'}</span>
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
