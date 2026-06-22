@@ -218,8 +218,12 @@ function RepertoireForm({
   async function handleSave() {
     if (!title.trim() || !ensembleId) return;
     setSaving(true);
-    await onSave(buildData());
-    onBack();
+    try {
+      await onSave(buildData());
+      onBack();
+    } catch {
+      setSaving(false);
+    }
   }
 
   async function handleFillWithAI() {
