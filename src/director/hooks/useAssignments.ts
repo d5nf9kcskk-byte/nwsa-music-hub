@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
-  query, orderBy, where,
+  query, where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Assignment, AssignmentResult, AssignmentResultStatus } from '../types';
@@ -12,9 +12,10 @@ export function useAssignments() {
 
   useEffect(() => {
     if (!db) { setLoading(false); return; }
-    const q = query(collection(db, 'assignments'), orderBy('dueDate', 'desc'));
-    return onSnapshot(q, snap => {
-      setAssignments(snap.docs.map(d => ({ id: d.id, ...d.data() } as Assignment)));
+    return onSnapshot(collection(db, 'assignments'), snap => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Assignment));
+      list.sort((a, b) => b.dueDate.localeCompare(a.dueDate));
+      setAssignments(list);
       setLoading(false);
     }, () => setLoading(false));
   }, []);
