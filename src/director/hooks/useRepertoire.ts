@@ -3,6 +3,10 @@ import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'fireb
 import { db } from '../firebase';
 import type { RepertoirePiece } from '../types';
 
+/**
+ * Real-time listener for repertoire pieces. Sorted client-side by order then
+ * title so the director can arrange a program and missing-order docs still sort.
+ */
 export function useRepertoire() {
   const [pieces, setPieces] = useState<RepertoirePiece[]>([]);
   const [loading, setLoading] = useState(true);

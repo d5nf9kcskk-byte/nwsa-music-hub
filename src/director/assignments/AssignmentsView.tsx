@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ClipboardCheck, Plus, Link2 } from 'lucide-react';
+import { ClipboardCheck, Plus } from 'lucide-react';
 import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
@@ -15,7 +15,7 @@ const TYPE_COLORS: Record<AssignmentType, string> = {
   'Other':        '#64748b',
 };
 
-// ── Assignment form drawer ─────────────────────────────────────────────────────
+// ── Assignment form drawer ──────────────────────────────────────────────────
 
 interface FormProps {
   assignment: Assignment | null;
@@ -30,7 +30,6 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
   const [title, setTitle] = useState(assignment?.title ?? '');
   const [type, setType] = useState<AssignmentType>(assignment?.type ?? 'Playing Exam');
   const [description, setDescription] = useState(assignment?.description ?? '');
-  const [linkUrl, setLinkUrl] = useState(assignment?.linkUrl ?? '');
   const [dueDate, setDueDate] = useState(assignment?.dueDate ?? today);
   const [ensembleIds, setEnsembleIds] = useState<string[]>(assignment?.ensembleIds ?? []);
   const [saving, setSaving] = useState(false);
@@ -48,7 +47,6 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
         title: title.trim(),
         type,
         description: description.trim(),
-        linkUrl: linkUrl.trim() || undefined,
         dueDate,
         ensembleIds,
         createdAt: assignment?.createdAt ?? Date.now(),
@@ -111,17 +109,6 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="Optional details, rubric, or instructions"
-            />
-          </div>
-
-          <div className="dir-field">
-            <label className="dir-label">Link (optional)</label>
-            <input
-              className="dir-input"
-              type="url"
-              value={linkUrl}
-              onChange={e => setLinkUrl(e.target.value)}
-              placeholder="https://forms.google.com/…"
             />
           </div>
 
@@ -207,17 +194,6 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            {assignment.linkUrl && (
-              <a
-                className="dir-tool-btn"
-                href={assignment.linkUrl}
-                target="_blank"
-                rel="noreferrer"
-                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}
-              >
-                <Link2 size={13} /> Open
-              </a>
-            )}
             <button className="dir-tool-btn" onClick={onEdit}>Edit</button>
             <button className="dir-drawer-close" onClick={onClose}>×</button>
           </div>
@@ -238,11 +214,6 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
         </div>
 
         <div className="dir-drawer-body" style={{ gap: 6 }}>
-          {assignment.description && (
-            <div style={{ fontSize: 13, color: 'var(--dir-text)', background: 'var(--dir-surface-2)', borderRadius: 8, padding: '8px 12px', lineHeight: 1.5 }}>
-              {assignment.description}
-            </div>
-          )}
           {relevant.length === 0 ? (
             <div className="dir-empty">
               <p>No active students in these ensembles.</p>
@@ -279,7 +250,7 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
   );
 }
 
-// ── Main view ──────────────────────────────────────────────────────
+// ── Main view ──────────────────────────────────────────────────────────
 
 export function AssignmentsView() {
   const { assignments, loading, addAssignment, updateAssignment, deleteAssignment } = useAssignments();
@@ -328,11 +299,6 @@ export function AssignmentsView() {
               </div>
               <div className="dir-assign-card-title">{a.title}</div>
               {ensembleNames && <div className="dir-assign-card-ens">{ensembleNames}</div>}
-              {a.linkUrl && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: 11, color: 'var(--dir-blue)', fontWeight: 600 }}>
-                  <Link2 size={11} /> Link attached
-                </div>
-              )}
             </div>
           );
         })}

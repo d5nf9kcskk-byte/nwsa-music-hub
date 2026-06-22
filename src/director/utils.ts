@@ -1,6 +1,6 @@
 import type { Ensemble, EventType, RepertoirePiece, PiecePartLink } from './types';
 
-// ── Date helpers (work in local time, store as YYYY-MM-DD) ──────────────────
+// ── Date helpers (work in local time, store as YYYY-MM-DD) ──────────────────────
 
 export function todayStr(): string {
   const d = new Date();
@@ -48,7 +48,7 @@ export function formatTimeRange(start?: string, end?: string): string {
   return formatTime(start || end);
 }
 
-// ── Ensemble colors ─────────────────────────────────────────────────────────
+// ── Ensemble colors ─────────────────────────────────────────────────────
 
 const PALETTE = [
   '#2563eb', // blue
@@ -71,7 +71,7 @@ export function ensembleColor(e?: Pick<Ensemble, 'color' | 'order'>): string {
 
 export const ENSEMBLE_PALETTE = PALETTE;
 
-// ── Event type display ──────────────────────────────────────────────────────
+// ── Event type display ──────────────────────────────────────────────
 
 export const EVENT_TYPES: EventType[] = ['Rehearsal', 'Concert', 'Sectional', 'Event'];
 
@@ -82,8 +82,13 @@ export const EVENT_TYPE_ICON: Record<EventType, string> = {
   Event: '📌',
 };
 
-// ── Repertoire helpers ───────────────────────────────────────────────────────
+// ── Repertoire helpers ─────────────────────────────────────────────────
 
+/**
+ * Find the part link matching a student's instrument. Matches case-insensitively
+ * in either direction so "Violin" matches "Violin I" and "Trumpet in B♭" matches
+ * "Trumpet". Returns undefined when there's no per-instrument part for them.
+ */
 export function findPartForInstrument(
   piece: Pick<RepertoirePiece, 'partsLinks'>,
   instrument?: string,
