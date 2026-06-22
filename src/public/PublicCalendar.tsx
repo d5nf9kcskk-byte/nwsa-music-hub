@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
@@ -24,6 +24,7 @@ export function PublicCalendar() {
   });
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [filterEnsembleId, setFilterEnsembleId] = useState(() => searchParams.get('ensemble') ?? '');
+  const touchStartX = useRef<number | null>(null);
 
   // Keep the ?ensemble= deep-link in sync with the chosen filter.
   useEffect(() => {
@@ -61,6 +62,14 @@ export function PublicCalendar() {
   const today = todayStr();
   const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
+  function handleTouchStart(e: React.TouchEvent) { touchStartX.current = e.touches[0].clientX; }
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(dx) > 50) setCursor(c => new Date(c.getFullYear(), c.getMonth() + (dx < 0 ? 1 : -1), 1));
+    touchStartX.current = null;
+  }
+
   function color(e: CalendarEvent) {
     return e.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleMap[e.ensembleIds[0]]);
   }
@@ -86,7 +95,7 @@ export function PublicCalendar() {
         </div>
       )}
 
-      <div className="pub-cal">
+      <div className="pub-cal" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <div className="pub-cal-weekdays">{WEEKDAYS.map((d, i) => <div key={i}>{d}</div>)}</div>
         <div className="pub-cal-grid">
           {cells.map((d, i) => {
