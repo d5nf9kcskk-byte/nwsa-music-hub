@@ -39,6 +39,7 @@ export function ScheduleView() {
   const [seedState, setSeedState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
   const [seedError, setSeedError] = useState('');
   const [schoolCalState, setSchoolCalState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
+  const [schoolCalError, setSchoolCalError] = useState('');
 
   async function handleSeed() {
     setSeedState('seeding');
@@ -54,10 +55,12 @@ export function ScheduleView() {
 
   async function handleSchoolCal() {
     setSchoolCalState('seeding');
+    setSchoolCalError('');
     try {
       await seedSchoolCalendar();
       setSchoolCalState('done');
     } catch (e) {
+      setSchoolCalError(e instanceof Error ? e.message : String(e));
       setSchoolCalState('error');
     }
   }
@@ -223,8 +226,13 @@ export function ScheduleView() {
             disabled={schoolCalState === 'seeding'}
             title="Import MDCPS + MDC 2026-27 school calendar into Schedule"
           >
-            {schoolCalState === 'seeding' ? 'Importing…' : schoolCalState === 'done' ? '✓ School Cal' : 'School Cal'}
+            {schoolCalState === 'seeding' ? 'Importing…' : schoolCalState === 'done' ? '✓ School Cal' : schoolCalState === 'error' ? '⚠ Retry' : 'School Cal'}
           </button>
+          {schoolCalState === 'error' && (
+            <span style={{ fontSize: 12, color: 'var(--dir-danger)', alignSelf: 'center' }}>
+              {schoolCalError}
+            </span>
+          )}
           {seedState !== 'done' && (
             <button
               className="dir-tool-btn"

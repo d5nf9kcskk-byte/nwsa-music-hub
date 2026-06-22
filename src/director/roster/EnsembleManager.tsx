@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronUp, ChevronDown, Pencil, Plus, CalendarDays } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, Pencil, Plus, CalendarDays } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { ensembleColor, ENSEMBLE_PALETTE, toDateStr, parseDate } from '../utils';
@@ -150,7 +150,7 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
-          <button className="dir-drawer-back" onClick={onBack}>‹</button>
+          <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
           <span className="dir-drawer-title">{ensemble ? 'Edit Ensemble' : 'New Ensemble'}</span>
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
@@ -214,7 +214,7 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
   );
 }
 
-// ─── Rehearsal generator ────────────────────────────────────────────────────────────────
+// ─── Rehearsal generator ─────────────────────────────────────
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -278,7 +278,7 @@ function GenerateRehearsalsForm({ ensemble, onGenerate, onBack, onClose }: {
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
-          <button className="dir-drawer-back" onClick={onBack}>‹</button>
+          <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
           <span className="dir-drawer-title">Generate Rehearsals · {ensemble.name}</span>
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
