@@ -1,15 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <!-- Full-bleed background so the platform mask (maskable) has something to crop. -->
-  <rect width="512" height="512" fill="#1e3a5f"/>
-  <!-- Beamed eighth notes, centered within the maskable safe zone. -->
-  <g fill="#ffffff">
-    <!-- note heads -->
-    <ellipse cx="185" cy="360" rx="58" ry="44" transform="rotate(-20 185 360)"/>
-    <ellipse cx="330" cy="335" rx="58" ry="44" transform="rotate(-20 330 335)"/>
-    <!-- stems -->
-    <rect x="233" y="150" width="22" height="212" rx="6"/>
-    <rect x="378" y="125" width="22" height="212" rx="6"/>
-    <!-- beam -->
-    <polygon points="233,150 400,125 400,168 233,193"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 678">
+  <!-- Teal background section -->
+  <rect width="512" height="512" fill="#0d7e8e"/>
+  <!-- White section (text area) -->
+  <rect y="512" width="512" height="166" fill="#ffffff"/>
+
+  <!-- White outer triangle (sail) -->
+  <polygon points="256,36 469,478 43,478" fill="#ffffff"/>
+  <!-- Subtle right-face shadow for depth -->
+  <polygon points="256,36 469,478 363,478" fill="#d8eef0" opacity="0.45"/>
+
+  <!-- Gold inner triangle -->
+  <polygon points="256,264 349,478 163,478" fill="#c8a52a"/>
+
+  <!-- Purple wavy lines (3) -->
+  <path d="M15,488 C80,470 160,506 256,488 C352,470 432,506 497,488"
+        stroke="#7b3578" stroke-width="13" fill="none" stroke-linecap="round"/>
+  <path d="M15,510 C80,492 160,528 256,510 C352,492 432,528 497,510"
+        stroke="#7b3578" stroke-width="13" fill="none" stroke-linecap="round"/>
+  <path d="M15,532 C80,514 160,550 256,532 C352,514 432,550 497,532"
+        stroke="#7b3578" stroke-width="13" fill="none" stroke-linecap="round"/>
+
+  <!-- NWSA text -->
+  <text x="238" y="624" text-anchor="middle"
+        font-family="Arial, Helvetica, sans-serif"
+        font-weight="700" font-size="68" letter-spacing="32"
+        fill="#1a3d50">NWSA</text>
 </svg>

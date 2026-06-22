@@ -29,7 +29,7 @@ export function AuthGate({ children }: Props) {
   if (!isFirebaseConfigured) {
     return (
       <div className="dir-auth">
-        <div className="dir-auth-logo">🎵</div>
+        <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
         <h1>NWSA Director</h1>
         <p>Firebase setup required to get started.</p>
         <div className="dir-setup-box">
@@ -49,7 +49,7 @@ export function AuthGate({ children }: Props) {
   if (user === 'loading') {
     return (
       <div className="dir-auth">
-        <div className="dir-auth-logo">🎵</div>
+        <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
         <p>Loading…</p>
       </div>
     );
@@ -58,7 +58,7 @@ export function AuthGate({ children }: Props) {
   if (!user) {
     return (
       <div className="dir-auth">
-        <div className="dir-auth-logo">🎵</div>
+        <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
         <h1>NWSA Director</h1>
         <p>Roster, attendance, rehearsals, and notes — all in one place.</p>
         <button className="dir-google-btn" onClick={signIn}>
