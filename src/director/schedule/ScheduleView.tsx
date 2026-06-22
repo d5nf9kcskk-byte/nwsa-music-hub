@@ -117,17 +117,14 @@ export function ScheduleView() {
     <div>
       {/* Month navigation */}
       <div className="dir-cal-nav">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <button className="dir-date-nav-btn" onClick={() => shiftMonth(-1)} aria-label="Previous month">
-            <ChevronLeft size={18} />
-          </button>
-          <button className="dir-cal-month" onClick={goToday}>{monthLabel}</button>
-          <button className="dir-date-nav-btn" onClick={() => shiftMonth(1)} aria-label="Next month">
-            <ChevronRight size={18} />
-          </button>
-        </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <button className="dir-tool-btn" onClick={goToday}>Today</button>
+        <button className="dir-date-nav-btn" onClick={() => shiftMonth(-1)} aria-label="Previous month">
+          <ChevronLeft size={18} />
+        </button>
+        <button className="dir-cal-month" onClick={goToday}>{monthLabel}</button>
+        <button className="dir-date-nav-btn" onClick={() => shiftMonth(1)} aria-label="Next month">
+          <ChevronRight size={18} />
+        </button>
+        <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
           {events.length === 0 && seedState !== 'done' && (
             <button
               className="dir-tool-btn"
@@ -139,7 +136,7 @@ export function ScheduleView() {
             </button>
           )}
           {seedState === 'error' && (
-            <span style={{ fontSize: 12, color: 'var(--dir-absent)', alignSelf: 'center' }}>
+            <span style={{ fontSize: 12, color: 'var(--dir-danger)', alignSelf: 'center' }}>
               {seedError}
             </span>
           )}

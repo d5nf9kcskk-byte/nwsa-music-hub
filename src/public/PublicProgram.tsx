@@ -6,6 +6,11 @@ import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { parseDate, formatTimeRange, pieceDuration } from '../director/utils';
 
+/**
+ * Printable concert program built from the pieces linked to a concert event.
+ * Pieces appear in the order they were attached. Uses the rich Phase 7 metadata
+ * (full title, composer dates, movements, durations, program notes).
+ */
 export function PublicProgram() {
   const { id = '' } = useParams();
   const { ensembles } = useEnsembles();
@@ -106,6 +111,7 @@ export function PublicProgram() {
               </div>
             )}
 
+            {/* Program notes */}
             {programPieces.some(p => p.programNotes) && (
               <section className="pub-program-notes-section">
                 <h2 className="pub-program-notes-head">Program Notes</h2>

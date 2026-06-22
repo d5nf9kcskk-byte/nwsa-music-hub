@@ -39,6 +39,7 @@ export function PublicPiece() {
         <ChevronLeft size={16} /> {ensemble?.name ?? 'Ensembles'}
       </Link>
 
+      {/* Hero */}
       <div className="pub-piece-hero" style={{ borderColor: ensemble ? ensembleColor(ensemble) : '#1e3a5f' }}>
         <Music size={20} className="pub-piece-icon" />
         <h1 className="pub-h1">{piece.title}</h1>
@@ -61,6 +62,7 @@ export function PublicPiece() {
         </div>
       </div>
 
+      {/* Instrumentation */}
       {piece.instrumentation && (
         <div className="pub-card pub-piece-section">
           <div className="pub-piece-section-title">Instrumentation</div>
@@ -68,6 +70,7 @@ export function PublicPiece() {
         </div>
       )}
 
+      {/* Movements */}
       {piece.movements && piece.movements.length > 0 && (
         <div className="pub-card pub-piece-section">
           <div className="pub-piece-section-title">Movements</div>
@@ -82,6 +85,7 @@ export function PublicPiece() {
         </div>
       )}
 
+      {/* Program notes */}
       {(piece.programNotes || piece.programNotesUrl) && (
         <div className="pub-card pub-piece-section">
           <div className="pub-piece-section-title">
@@ -96,6 +100,7 @@ export function PublicPiece() {
         </div>
       )}
 
+      {/* Parts */}
       {(piece.partsSharedUrl || piece.partsUrl || (piece.partsLinks && piece.partsLinks.length > 0)) && (
         <div className="pub-card pub-piece-section">
           <div className="pub-piece-section-title">Parts</div>
@@ -121,6 +126,7 @@ export function PublicPiece() {
         </div>
       )}
 
+      {/* Media links */}
       {(piece.imslpUrl || piece.videoUrl || piece.audioUrl) && (
         <div className="pub-card pub-piece-section">
           <div className="pub-piece-section-title">Score &amp; recordings</div>
@@ -144,6 +150,7 @@ export function PublicPiece() {
         </div>
       )}
 
+      {/* Programmed for */}
       {linkedEvents.length > 0 && (
         <div className="pub-card pub-piece-section">
           <div className="pub-piece-section-title">Programmed for</div>
