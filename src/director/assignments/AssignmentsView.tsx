@@ -17,7 +17,7 @@ const TYPE_COLORS: Record<AssignmentType, string> = {
   'Other':        '#64748b',
 };
 
-// ── Assignment form drawer ────────────────────────────────────
+// ── Assignment form drawer ────────────────────────────────────────────
 
 interface FormProps {
   assignment: Assignment | null;
@@ -36,6 +36,7 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
   const [ensembleIds, setEnsembleIds] = useState<string[]>(assignment?.ensembleIds ?? []);
   const [attachments, setAttachments] = useState<Attachment[]>(assignment?.attachments ?? []);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   function toggleEnsemble(id: string) {
@@ -45,19 +46,26 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
   async function handleSave() {
     if (!title.trim()) return;
     setSaving(true);
+    setSaveError('');
     try {
-      await onSave({
-        title: title.trim(),
-        type,
-        description: description.trim(),
-        dueDate,
-        ensembleIds,
-        createdAt: assignment?.createdAt ?? Date.now(),
-        attachments,
-      });
+      await Promise.race([
+        onSave({
+          title: title.trim(),
+          type,
+          description: description.trim(),
+          dueDate,
+          ensembleIds,
+          createdAt: assignment?.createdAt ?? Date.now(),
+          attachments,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Save timed out — check your connection')), 15_000)
+        ),
+      ]);
       onClose();
-    } catch {
+    } catch (err) {
       setSaving(false);
+      setSaveError(err instanceof Error ? err.message : 'Save failed');
     }
   }
 
@@ -145,6 +153,9 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
             )
           )}
         </div>
+        {saveError && (
+          <div style={{ padding: '4px 16px 0', fontSize: 13, color: 'var(--dir-danger)' }}>{saveError}</div>
+        )}
         <div className="dir-drawer-footer">
           <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
           <button
@@ -160,7 +171,7 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
   );
 }
 
-// ── Grade sheet drawer ──────────────────────────────────
+// ── Grade sheet drawer ────────────────────────────────────────────
 
 interface GradeSheetProps {
   assignment: Assignment;
@@ -263,7 +274,7 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
   );
 }
 
-// ── Main view ─────────────────────────────────────────────
+// ── Main view ─────────────────────────────────────────────────
 
 export function AssignmentsView() {
   const { assignments, loading, addAssignment, updateAssignment, deleteAssignment } = useAssignments();

@@ -31,6 +31,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
 
   const [form, setForm] = useState<Omit<CalendarEvent, 'id'>>(blank);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Roster preview ("who should be there") for the chosen ensembles.
@@ -77,11 +78,18 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   async function handleSave() {
     if (!canSave) return;
     setSaving(true);
+    setSaveError('');
     try {
-      await onSave(form);
+      await Promise.race([
+        onSave(form),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Save timed out — check your connection')), 15_000)
+        ),
+      ]);
       onClose();
-    } catch {
+    } catch (err) {
       setSaving(false);
+      setSaveError(err instanceof Error ? err.message : 'Save failed');
     }
   }
 
@@ -225,6 +233,9 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             )
           )}
         </div>
+        {saveError && (
+          <div style={{ padding: '4px 16px 0', fontSize: 13, color: 'var(--dir-danger)' }}>{saveError}</div>
+        )}
         <div className="dir-drawer-footer">
           <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
           <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !canSave}>
