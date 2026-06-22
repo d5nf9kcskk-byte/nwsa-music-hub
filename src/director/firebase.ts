@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 
@@ -18,6 +18,9 @@ export const isFirebaseConfigured = Boolean(
 
 const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 
-export const db = app ? getFirestore(app) : null;
+// ignoreUndefinedProperties: forms build save objects with optional fields set
+// to `undefined` (e.g. composer || undefined). Without this, Firestore rejects
+// the whole write — which is what made the repertoire form hang on "Saving…".
+export const db = app ? initializeFirestore(app, { ignoreUndefinedProperties: true }) : null;
 export const auth = app ? getAuth(app) : null;
 export const storage = app ? getStorage(app) : null;
