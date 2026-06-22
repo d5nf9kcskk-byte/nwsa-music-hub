@@ -162,6 +162,7 @@ function RepertoireForm({
     setEventIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
   }
 
+  // Movements
   function addMovement() {
     setMovements(ms => [...ms, { title: '' }]);
   }
@@ -176,6 +177,7 @@ function RepertoireForm({
     setMovements(ms => ms.filter((_, idx) => idx !== i));
   }
 
+  // Per-instrument parts
   function addPartLink() {
     setPartsLinks(ls => [...ls, { instrument: '', url: '' }]);
   }
@@ -235,11 +237,120 @@ function RepertoireForm({
   }
 
   async function handleFillWithAI() {
-    if (!title.trim() || !ensembleId) return;
+    if (!canFillAI) return;
     setSaving(true);
-    await onSave(buildData('pending'));
-    setAiStatus('pending');
-    setSaving(false);
+    setSaveError('');
+    try {
+      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        throw new Error('Add VITE_ANTHROPIC_API_KEY to .env.local to use AI fill');
+      }
+
+      const res = await Promise.race([
+        fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 1024,
+            messages: [{
+              role: 'user',
+              content: `Fill music metadata for a conductor's score library. Title: "${title}", Composer: "${composer}"${fullTitle ? `, Full title: "${fullTitle}"` : ''}.
+
+Return ONLY a JSON object (no markdown) with these fields (omit any you are not confident about):
+- catalogNumber (string: opus, BWV, K, etc.)
+- composerDates (string: "1756–1791")
+- duration (number: approximate minutes)
+- movements (array of {title, duration?} — only if the piece has distinct named movements)
+- programNotes (string: 2–3 sentences for a concert program audience)
+- imslpUrl (string: full IMSLP URL if you are certain it exists)
+- videoUrl (string: YouTube URL of a well-known professional recording)`,
+            }],
+          }),
+        }),
+        new Promise<never>((_, rej) =>
+          setTimeout(() => rej(new Error('AI request timed out after 20s')), 20_000)
+        ),
+      ]);
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`AI request failed (${res.status})${errText ? ': ' + errText.slice(0, 100) : ''}`);
+      }
+
+      const body = await res.json();
+      const text: string = body.content?.[0]?.text ?? '';
+
+      let ai: Record<string, unknown> = {};
+      try {
+        const m = text.match(/\{[\s\S]*\}/);
+        ai = JSON.parse(m ? m[0] : text);
+      } catch {
+        throw new Error('AI returned unexpected format — try again');
+      }
+
+      // Apply to form state so director can see and edit the filled values
+      if (ai.catalogNumber) { setCatalogNumber(String(ai.catalogNumber)); setShowAdvanced(true); }
+      if (ai.composerDates) setComposerDates(String(ai.composerDates));
+      if (ai.duration) setDuration(String(Math.round(Number(ai.duration))));
+      if (Array.isArray(ai.movements) && (ai.movements as {title?: string}[]).some(m => String(m.title ?? '').trim())) {
+        setMovements((ai.movements as { title?: string; duration?: number }[])
+          .filter(m => String(m.title ?? '').trim())
+          .map(m => ({ title: String(m.title ?? ''), duration: m.duration ? Number(m.duration) : undefined })));
+      }
+      if (ai.programNotes) setProgramNotes(String(ai.programNotes));
+      if (ai.imslpUrl) setImslpUrl(String(ai.imslpUrl));
+      if (ai.videoUrl) setVideoUrl(String(ai.videoUrl));
+      setAiStatus('enriched');
+
+      // Save immediately with enriched data (build directly — state updates are async)
+      const aiMovements = Array.isArray(ai.movements)
+        ? (ai.movements as { title?: string; duration?: number }[])
+            .filter(m => String(m.title ?? '').trim())
+            .map(m => ({ title: String(m.title ?? ''), duration: m.duration ? Number(m.duration) : undefined }))
+        : movements.filter(m => m.title.trim());
+      const cleanParts = partsLinks.filter(l => l.instrument.trim() && l.url.trim());
+
+      await Promise.race([
+        onSave({
+          ensembleId,
+          title: title.trim(),
+          fullTitle: fullTitle.trim() || undefined,
+          composer: composer.trim() || undefined,
+          composerDates: ai.composerDates ? String(ai.composerDates) : (composerDates.trim() || undefined),
+          arranger: arranger.trim() || undefined,
+          catalogNumber: ai.catalogNumber ? String(ai.catalogNumber) : (catalogNumber.trim() || undefined),
+          year: year.trim() || undefined,
+          instrumentation: instrumentation.trim() || undefined,
+          duration: ai.duration ? Math.round(Number(ai.duration)) : (duration ? Number(duration) : undefined),
+          movements: aiMovements.length ? aiMovements : undefined,
+          programNotes: ai.programNotes ? String(ai.programNotes) : (programNotes.trim() || undefined),
+          programNotesUrl: programNotesUrl.trim() || undefined,
+          imslpUrl: ai.imslpUrl ? String(ai.imslpUrl) : (imslpUrl.trim() || undefined),
+          videoUrl: ai.videoUrl ? String(ai.videoUrl) : (videoUrl.trim() || undefined),
+          audioUrl: audioUrl.trim() || undefined,
+          partsSharedUrl: partsSharedUrl.trim() || undefined,
+          partsUrl: partsUrl.trim() || undefined,
+          partsLinks: cleanParts.length ? cleanParts : undefined,
+          notes: notes.trim() || undefined,
+          eventIds: eventIds.length ? eventIds : undefined,
+          order: piece?.order ?? nextOrder,
+          aiStatus: 'enriched',
+        }),
+        new Promise<never>((_, rej) =>
+          setTimeout(() => rej(new Error('Save timed out — check your connection')), 15_000)
+        ),
+      ]);
+      setSaving(false);
+    } catch (err) {
+      setSaving(false);
+      setSaveError(err instanceof Error ? err.message : 'AI fill failed');
+    }
   }
 
   async function handleDelete() {
@@ -250,7 +361,7 @@ function RepertoireForm({
   }
 
   const canSave = title.trim() && ensembleId;
-  const canFillAI = canSave && (!!composer.trim() || !!fullTitle.trim());
+  const canFillAI = canSave && !!composer.trim();
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -265,7 +376,7 @@ function RepertoireForm({
         <div className="dir-drawer-body">
           {aiStatus === 'pending' && (
             <div className="dir-ai-notice pending">
-              <Sparkles size={14} /> AI enrichment queued — fields will be filled on the next GitHub Actions run.
+              <Sparkles size={14} /> Filling metadata with AI…
             </div>
           )}
           {aiStatus === 'enriched' && (
@@ -314,7 +425,7 @@ function RepertoireForm({
               <Sparkles size={14} style={{ verticalAlign: '-2px', marginRight: 5 }} />
               {aiStatus === 'pending' ? 'Enrichment queued…' : 'Fill with AI'}
             </button>
-            <span className="dir-ai-hint">Fills catalog #, duration, movements, program notes, IMSLP link, and video suggestion.</span>
+            <span className="dir-ai-hint">Fills catalog #, duration, movements, program notes, IMSLP &amp; video — enter title + composer first.</span>
           </div>
 
           <button
