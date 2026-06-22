@@ -4,7 +4,9 @@ import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { formatDate } from '../utils';
-import type { Assignment, AssignmentType, AssignmentResultStatus, Student, Ensemble } from '../types';
+import { RichTextArea } from '../components/RichTextArea';
+import { FileUpload } from '../components/FileUpload';
+import type { Assignment, AssignmentType, AssignmentResultStatus, Student, Ensemble, Attachment } from '../types';
 
 const ASSIGNMENT_TYPES: AssignmentType[] = ['Playing Exam', 'Written Test', 'Performance', 'Other'];
 
@@ -32,6 +34,7 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
   const [description, setDescription] = useState(assignment?.description ?? '');
   const [dueDate, setDueDate] = useState(assignment?.dueDate ?? today);
   const [ensembleIds, setEnsembleIds] = useState<string[]>(assignment?.ensembleIds ?? []);
+  const [attachments, setAttachments] = useState<Attachment[]>(assignment?.attachments ?? []);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -50,6 +53,7 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
         dueDate,
         ensembleIds,
         createdAt: assignment?.createdAt ?? Date.now(),
+        attachments,
       });
       onClose();
     } catch {
@@ -103,14 +107,23 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
 
           <div className="dir-field">
             <label className="dir-label">Description / Instructions</label>
-            <textarea
-              className="dir-textarea"
-              rows={3}
+            <RichTextArea
               value={description}
-              onChange={e => setDescription(e.target.value)}
+              onChange={setDescription}
               placeholder="Optional details, rubric, or instructions"
             />
           </div>
+
+          {assignment && (
+            <div className="dir-field">
+              <label className="dir-label">Attachments</label>
+              <FileUpload
+                assignmentId={assignment.id}
+                attachments={attachments}
+                onChange={setAttachments}
+              />
+            </div>
+          )}
 
           {assignment && onDelete && (
             confirmDelete ? (

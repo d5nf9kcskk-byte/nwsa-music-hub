@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, CalendarPlus, MapPin, Clock, Users, Upload, Sparkles } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { ChevronLeft, ChevronRight, CalendarPlus, MapPin, Clock, Users, Upload, Sparkles, LayoutList, Grid3x3 } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
@@ -31,7 +31,9 @@ export function ScheduleView() {
   });
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [filterEnsembleId, setFilterEnsembleId] = useState('');
+  const [calView, setCalView] = useState<'month' | 'list'>('month');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
+  const touchStartX = useRef<number | null>(null);
   const [rosterEvent, setRosterEvent] = useState<CalendarEvent | null>(null);
   const [importingIcs, setImportingIcs] = useState(false);
   const [seedState, setSeedState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
@@ -93,6 +95,23 @@ export function ScheduleView() {
     .slice()
     .sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
 
+  const upcomingEvents = useMemo(() => {
+    const t = today;
+    return [...visibleEvents]
+      .filter(e => e.date >= t)
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
+  }, [visibleEvents, today]);
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(dx) > 50) shiftMonth(dx < 0 ? 1 : -1);
+    touchStartX.current = null;
+  }
+
   function expectedCount(e: CalendarEvent) {
     const set = new Set<string>();
     for (const ensId of e.ensembleIds) {
@@ -113,6 +132,61 @@ export function ScheduleView() {
     return names.join(', ') || e.type;
   }
 
+  function EventCard({ e }: { e: CalendarEvent }) {
+    const summary = overrideSummary(overrides, e.id);
+    return (
+      <div className={`dir-event-card ${e.status === 'Cancelled' ? 'cancelled' : ''}`}>
+        <span className="dir-event-bar" style={{ background: eventColor(e) }} />
+        <div className="dir-event-body">
+          <div className="dir-event-tap" onClick={() => setEditing(e)}>
+            <div className="dir-event-title">
+              <span className="dir-event-type">{EVENT_TYPE_ICON[e.type]}</span>
+              {eventLabel(e)}
+              {e.status !== 'Scheduled' && <span className={`dir-event-status ${e.status}`}>{e.status}</span>}
+            </div>
+            <div className="dir-event-meta">
+              {formatTimeRange(e.startTime, e.endTime) && (
+                <span><Clock size={12} /> {formatTimeRange(e.startTime, e.endTime)}</span>
+              )}
+              {e.location && <span><MapPin size={12} /> {e.location}</span>}
+              {e.ensembleIds.length > 0 && <span><Users size={12} /> {expectedCount(e)} expected</span>}
+            </div>
+            {e.repertoire && <div className="dir-event-rep">{e.repertoire}</div>}
+            {(e.pieceIds ?? []).length > 0 && (
+              <div className="dir-event-pieces">
+                {(e.pieceIds ?? []).map(pid => piecesById[pid]).filter(Boolean).map(p => (
+                  <span key={p!.id} className="dir-event-piece-chip">{p!.title}</span>
+                ))}
+              </div>
+            )}
+          </div>
+          {e.type === 'Concert' && (e.pieceIds ?? []).length > 0 && (
+            <a
+              className="dir-event-program-btn"
+              href={`${import.meta.env.BASE_URL}program/${e.id}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Program ↗
+            </a>
+          )}
+          {e.ensembleIds.length > 0 && (
+            <button className="dir-event-roster-btn" onClick={() => setRosterEvent(e)}>
+              Roster
+              {(summary.added > 0 || summary.removed > 0) && (
+                <span className="dir-event-roster-tag">
+                  {summary.added > 0 && `+${summary.added}`}
+                  {summary.added > 0 && summary.removed > 0 && ' '}
+                  {summary.removed > 0 && `−${summary.removed}`}
+                </span>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Month navigation */}
@@ -125,6 +199,13 @@ export function ScheduleView() {
           <ChevronRight size={18} />
         </button>
         <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+          <button
+            className={`dir-tool-btn${calView === 'list' ? ' active' : ''}`}
+            onClick={() => setCalView(v => v === 'month' ? 'list' : 'month')}
+            title={calView === 'month' ? 'Switch to list view' : 'Switch to month view'}
+          >
+            {calView === 'month' ? <LayoutList size={15} /> : <Grid3x3 size={15} />}
+          </button>
           {events.length === 0 && seedState !== 'done' && (
             <button
               className="dir-tool-btn"
@@ -162,101 +243,79 @@ export function ScheduleView() {
         </div>
       )}
 
-      {/* Calendar grid */}
-      <div className="dir-cal">
-        <div className="dir-cal-weekdays">
-          {WEEKDAYS.map((d, i) => <div key={i} className="dir-cal-weekday">{d}</div>)}
-        </div>
-        <div className="dir-cal-grid">
-          {cells.map((dateStr, i) => {
-            if (!dateStr) return <div key={i} className="dir-cal-cell empty" />;
-            const evs = eventsByDate[dateStr] ?? [];
-            const isToday = dateStr === today;
-            const isSel = dateStr === selectedDate;
-            return (
-              <button
-                key={i}
-                className={`dir-cal-cell ${isSel ? 'selected' : ''} ${isToday ? 'today' : ''}`}
-                onClick={() => setSelectedDate(dateStr)}
-              >
-                <span className="dir-cal-day">{parseDate(dateStr).getDate()}</span>
-                <span className="dir-cal-dots">
-                  {evs.slice(0, 4).map(e => (
-                    <span key={e.id} className="dir-cal-dot" style={{ background: eventColor(e) }} />
-                  ))}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {calView === 'month' ? (
+        <>
+          {/* Calendar grid */}
+          <div
+            className="dir-cal"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            <div className="dir-cal-weekdays">
+              {WEEKDAYS.map((d, i) => <div key={i} className="dir-cal-weekday">{d}</div>)}
+            </div>
+            <div className="dir-cal-grid">
+              {cells.map((dateStr, i) => {
+                if (!dateStr) return <div key={i} className="dir-cal-cell empty" />;
+                const evs = eventsByDate[dateStr] ?? [];
+                const isToday = dateStr === today;
+                const isSel = dateStr === selectedDate;
+                return (
+                  <button
+                    key={i}
+                    className={`dir-cal-cell ${isSel ? 'selected' : ''} ${isToday ? 'today' : ''}`}
+                    onClick={() => setSelectedDate(dateStr)}
+                  >
+                    <span className="dir-cal-day">{parseDate(dateStr).getDate()}</span>
+                    <span className="dir-cal-dots">
+                      {evs.slice(0, 4).map(e => (
+                        <span key={e.id} className="dir-cal-dot" style={{ background: eventColor(e) }} />
+                      ))}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-      {/* Selected-day detail */}
-      <div className="dir-day-detail">
-        <div className="dir-day-detail-header">
-          {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          {selectedDate === today && <span className="dir-today-badge">Today</span>}
-        </div>
-
-        {dayEvents.length === 0 ? (
-          <div className="dir-day-empty">No events scheduled. Tap + to add one.</div>
-        ) : (
-          dayEvents.map(e => {
-            const summary = overrideSummary(overrides, e.id);
-            return (
-              <div key={e.id} className={`dir-event-card ${e.status === 'Cancelled' ? 'cancelled' : ''}`}>
-                <span className="dir-event-bar" style={{ background: eventColor(e) }} />
-                <div className="dir-event-body">
-                  <div className="dir-event-tap" onClick={() => setEditing(e)}>
-                    <div className="dir-event-title">
-                      <span className="dir-event-type">{EVENT_TYPE_ICON[e.type]}</span>
-                      {eventLabel(e)}
-                      {e.status !== 'Scheduled' && <span className={`dir-event-status ${e.status}`}>{e.status}</span>}
+          {/* Selected-day detail */}
+          <div className="dir-day-detail">
+            <div className="dir-day-detail-header">
+              {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              {selectedDate === today && <span className="dir-today-badge">Today</span>}
+            </div>
+            {dayEvents.length === 0 ? (
+              <div className="dir-day-empty">No events scheduled. Tap + to add one.</div>
+            ) : (
+              dayEvents.map(e => <EventCard key={e.id} e={e} />)
+            )}
+          </div>
+        </>
+      ) : (
+        /* List view — upcoming events from today */
+        <div className="dir-list-view">
+          {upcomingEvents.length === 0 ? (
+            <div className="dir-day-empty">No upcoming events.</div>
+          ) : (() => {
+            let lastDate = '';
+            return upcomingEvents.map(e => {
+              const showHeader = e.date !== lastDate;
+              lastDate = e.date;
+              return (
+                <div key={e.id}>
+                  {showHeader && (
+                    <div className={`dir-list-date-header${e.date === today ? ' today' : ''}`}>
+                      {parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      {e.date === today && <span className="dir-today-badge">Today</span>}
                     </div>
-                    <div className="dir-event-meta">
-                      {formatTimeRange(e.startTime, e.endTime) && (
-                        <span><Clock size={12} /> {formatTimeRange(e.startTime, e.endTime)}</span>
-                      )}
-                      {e.location && <span><MapPin size={12} /> {e.location}</span>}
-                      {e.ensembleIds.length > 0 && <span><Users size={12} /> {expectedCount(e)} expected</span>}
-                    </div>
-                    {e.repertoire && <div className="dir-event-rep">{e.repertoire}</div>}
-                    {(e.pieceIds ?? []).length > 0 && (
-                      <div className="dir-event-pieces">
-                        {(e.pieceIds ?? []).map(pid => piecesById[pid]).filter(Boolean).map(p => (
-                          <span key={p!.id} className="dir-event-piece-chip">{p!.title}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {e.type === 'Concert' && (e.pieceIds ?? []).length > 0 && (
-                    <a
-                      className="dir-event-program-btn"
-                      href={`${import.meta.env.BASE_URL}program/${e.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Program ↗
-                    </a>
                   )}
-                  {e.ensembleIds.length > 0 && (
-                    <button className="dir-event-roster-btn" onClick={() => setRosterEvent(e)}>
-                      Roster
-                      {(summary.added > 0 || summary.removed > 0) && (
-                        <span className="dir-event-roster-tag">
-                          {summary.added > 0 && `+${summary.added}`}
-                          {summary.added > 0 && summary.removed > 0 && ' '}
-                          {summary.removed > 0 && `−${summary.removed}`}
-                        </span>
-                      )}
-                    </button>
-                  )}
+                  <EventCard e={e} />
                 </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+              );
+            });
+          })()}
+        </div>
+      )}
 
       <button className="dir-fab" onClick={() => setEditing('new')} aria-label="New event">
         <CalendarPlus size={22} />
