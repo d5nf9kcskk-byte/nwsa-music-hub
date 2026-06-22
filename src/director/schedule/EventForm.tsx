@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useStudents } from '../hooks/useStudents';
 import { EVENT_TYPES } from '../utils';
 import { PiecePicker } from '../repertoire/PiecePicker';
+import { RichTextArea } from '../components/RichTextArea';
 import type { CalendarEvent, Ensemble, EventType, EventStatus } from '../types';
 
 interface Props {
@@ -185,7 +186,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
               ensembleIds={form.ensembleIds}
               ensembles={ensembles}
               value={form.pieceIds ?? []}
-              onChange={(ids: string[]) => set('pieceIds', ids)}
+              onChange={ids => set('pieceIds', ids)}
             />
           </div>
 
@@ -200,7 +201,11 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
 
           <div className="dir-field">
             <label className="dir-label">Notes</label>
-            <textarea className="dir-textarea" value={form.notes ?? ''} onChange={e => set('notes', e.target.value)} placeholder="Planning notes, cancellation reason, etc." />
+            <RichTextArea
+              value={form.notes ?? ''}
+              onChange={v => set('notes', v)}
+              placeholder="Planning notes, cancellation reason, etc."
+            />
           </div>
 
           {form.ensembleIds.length > 0 && (
