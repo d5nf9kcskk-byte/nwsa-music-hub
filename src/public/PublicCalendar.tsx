@@ -25,6 +25,7 @@ export function PublicCalendar() {
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [filterEnsembleId, setFilterEnsembleId] = useState(() => searchParams.get('ensemble') ?? '');
 
+  // Keep the ?ensemble= deep-link in sync with the chosen filter.
   useEffect(() => {
     const current = searchParams.get('ensemble') ?? '';
     if (current !== filterEnsembleId) {

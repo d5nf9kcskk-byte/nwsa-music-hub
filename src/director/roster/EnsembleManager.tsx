@@ -214,7 +214,7 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
   );
 }
 
-// ─── Rehearsal generator ─────────────────────────────────────────────────────────────
+// ─── Rehearsal generator ────────────────────────────────────────────────────────────────
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 

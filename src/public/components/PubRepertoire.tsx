@@ -9,6 +9,7 @@ interface Props {
   studentInstrument?: string;
 }
 
+/** Public repertoire list for an ensemble: title/composer, metadata, parts, concert links. */
 export function PubRepertoire({ pieces, eventsById, studentInstrument }: Props) {
   if (pieces.length === 0) return null;
   return (
