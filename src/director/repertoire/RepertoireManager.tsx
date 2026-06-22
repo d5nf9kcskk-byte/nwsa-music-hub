@@ -145,6 +145,7 @@ function RepertoireForm({
   const [eventIds, setEventIds] = useState<string[]>(piece?.eventIds ?? []);
   const [aiStatus, setAiStatus] = useState(piece?.aiStatus ?? null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(
     !!(piece && (piece.fullTitle || piece.catalogNumber || piece.year || piece.composerDates)),
@@ -220,11 +221,18 @@ function RepertoireForm({
   async function handleSave() {
     if (!title.trim() || !ensembleId) return;
     setSaving(true);
+    setSaveError('');
     try {
-      await onSave(buildData());
+      await Promise.race([
+        onSave(buildData()),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Save timed out — check your connection')), 15_000)
+        ),
+      ]);
       onBack();
-    } catch {
+    } catch (err) {
       setSaving(false);
+      setSaveError(err instanceof Error ? err.message : 'Save failed');
     }
   }
 
@@ -509,6 +517,9 @@ function RepertoireForm({
           )}
         </div>
 
+        {saveError && (
+          <div style={{ padding: '4px 16px 0', fontSize: 13, color: 'var(--dir-danger)' }}>{saveError}</div>
+        )}
         <div className="dir-drawer-footer">
           <button className="dir-btn dir-btn-ghost" onClick={onBack}>Back</button>
           <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !canSave}>
