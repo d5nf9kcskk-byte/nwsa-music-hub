@@ -1,7 +1,7 @@
-/* ═══════════════════════════════════════════
+/* ══════════════════════════════════
    Public view — clean, read-only theme
    All classes prefixed with .pub-
-═══════════════════════════════════════════ */
+═════════════════════════════════ */
 
 :root {
   --pub-bg: #f6f7f9;
@@ -9,8 +9,8 @@
   --pub-ink: #18212f;
   --pub-muted: #6b7686;
   --pub-border: #e6e9ef;
-  --pub-accent: #569BBE;
-  --pub-accent-soft: #edf5f9;
+  --pub-accent: #0d7e8e;
+  --pub-accent-soft: #e6f2f3;
   --pub-nav: 62px;
   --pub-radius: 14px;
 }
@@ -407,9 +407,9 @@
 
 .pub-nav-btn.active { color: var(--pub-accent); }
 
-/* ═══════════════════════════════════════════
+/* ══════════════════════════════════
    Announcements, repertoire, links (phase 5)
-═══════════════════════════════════════════ */
+═════════════════════════════════ */
 
 /* Section title with a trailing action link */
 .pub-section-row { display: flex; align-items: baseline; justify-content: space-between; }
