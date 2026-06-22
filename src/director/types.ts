@@ -156,6 +156,12 @@ export type Tab = 'roll' | 'roster' | 'schedule' | 'repertoire' | 'notes' | 'ass
 export type AssignmentType = 'Playing Exam' | 'Written Test' | 'Performance' | 'Other';
 export type AssignmentResultStatus = 'Pending' | 'Pass' | 'Fail' | 'Exempt';
 
+export interface Attachment {
+  name: string;
+  url: string;
+  size: number; // bytes
+}
+
 export interface Assignment {
   id: string;
   title: string;
@@ -164,6 +170,7 @@ export interface Assignment {
   dueDate: string; // YYYY-MM-DD
   ensembleIds: string[];
   createdAt: number;
+  attachments?: Attachment[];
 }
 
 export interface AssignmentResult {
