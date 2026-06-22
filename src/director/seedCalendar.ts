@@ -112,6 +112,22 @@ function slotsForDay(dow: number /* UTC getUTCDay(): 0=Sun … 6=Sat */): Slot[]
   return s;
 }
 
+/** Write only the MDCPS + MDC academic-calendar markers (no rehearsals). Idempotent. */
+export async function seedSchoolCalendar(): Promise<number> {
+  if (!db) throw new Error('Firebase is not configured.');
+  const CHUNK = 499;
+  const docs = MARKERS.map(m => ({
+    id: `cal-${m.id}`,
+    data: { type: m.type as EventType, ensembleIds: [] as string[], date: m.date, title: m.title, status: 'Scheduled' as const },
+  }));
+  for (let i = 0; i < docs.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    for (const { id, data } of docs.slice(i, i + CHUNK)) batch.set(doc(db, 'events', id), data);
+    await batch.commit();
+  }
+  return docs.length;
+}
+
 export async function seedCalendar(): Promise<{ rehearsals: number; markers: number }> {
   if (!db) throw new Error('Firebase is not configured.');
 

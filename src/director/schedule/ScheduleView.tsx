@@ -9,7 +9,7 @@ import { resolveRoster, overrideSummary } from '../rosterResolver';
 import { EventForm } from './EventForm';
 import { EventRoster } from './EventRoster';
 import { IcsImport } from './IcsImport';
-import { seedCalendar } from '../seedCalendar';
+import { seedCalendar, seedSchoolCalendar } from '../seedCalendar';
 import {
   todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON,
 } from '../utils';
@@ -38,6 +38,7 @@ export function ScheduleView() {
   const [importingIcs, setImportingIcs] = useState(false);
   const [seedState, setSeedState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
   const [seedError, setSeedError] = useState('');
+  const [schoolCalState, setSchoolCalState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
 
   async function handleSeed() {
     setSeedState('seeding');
@@ -48,6 +49,16 @@ export function ScheduleView() {
     } catch (e) {
       setSeedError(e instanceof Error ? e.message : String(e));
       setSeedState('error');
+    }
+  }
+
+  async function handleSchoolCal() {
+    setSchoolCalState('seeding');
+    try {
+      await seedSchoolCalendar();
+      setSchoolCalState('done');
+    } catch (e) {
+      setSchoolCalState('error');
     }
   }
 
@@ -66,6 +77,7 @@ export function ScheduleView() {
     return map;
   }, [visibleEvents]);
 
+  // Build the month grid (leading blanks + days, padded to full weeks).
   const cells = useMemo(() => {
     const year = cursor.getFullYear();
     const month = cursor.getMonth();
@@ -205,12 +217,20 @@ export function ScheduleView() {
           >
             {calView === 'month' ? <LayoutList size={15} /> : <Grid3x3 size={15} />}
           </button>
-          {events.length === 0 && seedState !== 'done' && (
+          <button
+            className="dir-tool-btn"
+            onClick={handleSchoolCal}
+            disabled={schoolCalState === 'seeding'}
+            title="Import MDCPS + MDC 2026-27 school calendar into Schedule"
+          >
+            {schoolCalState === 'seeding' ? 'Importing…' : schoolCalState === 'done' ? '✓ School Cal' : 'School Cal'}
+          </button>
+          {seedState !== 'done' && (
             <button
               className="dir-tool-btn"
               onClick={handleSeed}
               disabled={seedState === 'seeding'}
-              title="Pre-load 2026-27 NWSA rehearsal schedule + MDCPS/MDC calendar"
+              title="Pre-load full 2026-27 NWSA rehearsal schedule + MDCPS/MDC calendar"
             >
               <Sparkles size={15} /> {seedState === 'seeding' ? 'Seeding…' : 'Seed 2026-27'}
             </button>
