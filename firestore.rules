@@ -18,9 +18,17 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Any signed-in user is a director (access is gated by who you let sign in).
+    // A director is an authenticated user whose Google email is on the allowlist
+    // below. Google sign-in lets ANY Google account authenticate, so checking
+    // only `request.auth != null` would expose student contact info, attendance,
+    // and progress notes to anyone who finds the URL. Add each director's exact
+    // Google sign-in email here, then deploy:  firebase deploy --only firestore:rules
     function signedIn() {
-      return request.auth != null;
+      return request.auth != null
+        && request.auth.token.email in [
+          'ggmuze@yahoo.com'
+          // add more director emails here, comma-separated
+        ];
     }
 
     // ── Public read · director write ────────────────────────────
