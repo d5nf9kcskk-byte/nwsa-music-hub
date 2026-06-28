@@ -56,7 +56,9 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   justify-content: space-between;
   height: var(--dir-header);
   padding: 0 16px;
-  background: var(--dir-primary);
+  /* teal → deep-teal wash plus a gold accent line for brand richness */
+  background: linear-gradient(110deg, var(--dir-primary) 0%, #0a6675 100%);
+  border-bottom: 3px solid var(--dir-gold);
   color: #fff;
 }
 
@@ -265,8 +267,8 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 }
 
 .dir-tab.active {
-  background: var(--dir-primary);
-  border-color: var(--dir-primary);
+  background: var(--dir-blue);
+  border-color: var(--dir-blue);
   color: #fff;
 }
 
@@ -600,8 +602,8 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 
 .dir-cal-month {
   font-size: 16px;
-  font-weight: 700;
-  color: var(--dir-text);
+  font-weight: 800;
+  color: var(--dir-primary);
   background: none;
   border: none;
   cursor: pointer;
@@ -610,6 +612,17 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 
 .dir-cal {
   padding: 0 8px;
+}
+
+/* Swipe carousel: the grid slides under a clipped viewport, transform driven
+   by the finger (no transition while dragging, eased on release/commit). */
+.dir-cal-viewport {
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.dir-cal-grid {
+  will-change: transform;
 }
 
 .dir-cal-weekdays {
@@ -1365,7 +1378,7 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 
 .dir-form-section-label {
   font-size: 11px; font-weight: 800; letter-spacing: 0.7px; text-transform: uppercase;
-  color: var(--dir-text-muted); margin: 18px 0 8px; padding-top: 14px;
+  color: var(--dir-blue); margin: 18px 0 8px; padding-top: 14px;
   border-top: 1px solid var(--dir-border);
 }
 

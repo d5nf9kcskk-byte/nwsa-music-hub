@@ -34,6 +34,11 @@ export function ScheduleView() {
   const [calView, setCalView] = useState<'month' | 'list'>('month');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
   const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const swipeAxis = useRef<'h' | 'v' | null>(null);
+  const calViewportRef = useRef<HTMLDivElement>(null);
+  const [dragX, setDragX] = useState(0);
+  const [calAnimating, setCalAnimating] = useState(false);
   const [rosterEvent, setRosterEvent] = useState<CalendarEvent | null>(null);
   const [importingIcs, setImportingIcs] = useState(false);
   const [seedState, setSeedState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
@@ -121,12 +126,48 @@ export function ScheduleView() {
 
   function handleTouchStart(e: React.TouchEvent) {
     touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    swipeAxis.current = null;
+    setCalAnimating(false);
+  }
+  function handleTouchMove(e: React.TouchEvent) {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current;
+    // Lock the gesture to one axis after a small threshold so vertical
+    // scrolling isn't hijacked by the horizontal month swipe.
+    if (swipeAxis.current === null) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      swipeAxis.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+    }
+    if (swipeAxis.current === 'h') setDragX(dx);
   }
   function handleTouchEnd(e: React.TouchEvent) {
     if (touchStartX.current === null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(dx) > 50) shiftMonth(dx < 0 ? 1 : -1);
+    const wasHorizontal = swipeAxis.current === 'h';
     touchStartX.current = null;
+    touchStartY.current = null;
+    swipeAxis.current = null;
+    if (!wasHorizontal) { setDragX(0); return; }
+
+    const width = calViewportRef.current?.offsetWidth ?? 320;
+    setCalAnimating(true);
+    if (Math.abs(dx) > 60) {
+      const dir = dx < 0 ? 1 : -1;        // swipe left → next month
+      setDragX(-dir * width);             // slide the current month fully out
+      window.setTimeout(() => {
+        shiftMonth(dir);
+        setCalAnimating(false);
+        setDragX(dir * width);            // drop the new month in from the opposite edge
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          setCalAnimating(true);
+          setDragX(0);                     // ease it into place
+        }));
+      }, 200);
+    } else {
+      setDragX(0);                         // not far enough — spring back
+    }
   }
 
   function expectedCount(e: CalendarEvent) {
@@ -290,32 +331,41 @@ export function ScheduleView() {
           <div
             className="dir-cal"
             onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
             <div className="dir-cal-weekdays">
               {WEEKDAYS.map((d, i) => <div key={i} className="dir-cal-weekday">{d}</div>)}
             </div>
-            <div className="dir-cal-grid">
-              {cells.map((dateStr, i) => {
-                if (!dateStr) return <div key={i} className="dir-cal-cell empty" />;
-                const evs = eventsByDate[dateStr] ?? [];
-                const isToday = dateStr === today;
-                const isSel = dateStr === selectedDate;
-                return (
-                  <button
-                    key={i}
-                    className={`dir-cal-cell ${isSel ? 'selected' : ''} ${isToday ? 'today' : ''}`}
-                    onClick={() => setSelectedDate(dateStr)}
-                  >
-                    <span className="dir-cal-day">{parseDate(dateStr).getDate()}</span>
-                    <span className="dir-cal-dots">
-                      {evs.slice(0, 4).map(e => (
-                        <span key={e.id} className="dir-cal-dot" style={{ background: eventColor(e) }} />
-                      ))}
-                    </span>
-                  </button>
-                );
-              })}
+            <div className="dir-cal-viewport" ref={calViewportRef}>
+              <div
+                className="dir-cal-grid"
+                style={{
+                  transform: `translateX(${dragX}px)`,
+                  transition: calAnimating ? 'transform 0.2s ease-out' : 'none',
+                }}
+              >
+                {cells.map((dateStr, i) => {
+                  if (!dateStr) return <div key={i} className="dir-cal-cell empty" />;
+                  const evs = eventsByDate[dateStr] ?? [];
+                  const isToday = dateStr === today;
+                  const isSel = dateStr === selectedDate;
+                  return (
+                    <button
+                      key={i}
+                      className={`dir-cal-cell ${isSel ? 'selected' : ''} ${isToday ? 'today' : ''}`}
+                      onClick={() => setSelectedDate(dateStr)}
+                    >
+                      <span className="dir-cal-day">{parseDate(dateStr).getDate()}</span>
+                      <span className="dir-cal-dots">
+                        {evs.slice(0, 4).map(e => (
+                          <span key={e.id} className="dir-cal-dot" style={{ background: eventColor(e) }} />
+                        ))}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
