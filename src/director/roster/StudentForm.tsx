@@ -27,6 +27,7 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
   const [form, setForm] = useState<Omit<Student, 'id'>>(BLANK);
   const [contactForm, setContactForm] = useState<ContactDraft>(BLANK_CONTACT);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -63,22 +64,26 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
   async function handleSave() {
     if (!form.name.trim()) return;
     setSaving(true);
+    setSaveError('');
     try {
       await onSave(form, contactForm);
       onClose();
-    } catch {
+    } catch (e) {
       setSaving(false);
+      setSaveError(e instanceof Error ? e.message : 'Could not save — try again.');
     }
   }
 
   async function handleDelete() {
     if (!onDelete) return;
     setSaving(true);
+    setSaveError('');
     try {
       await onDelete();
       onClose();
-    } catch {
+    } catch (e) {
       setSaving(false);
+      setSaveError(e instanceof Error ? e.message : 'Could not delete — try again.');
     }
   }
 
@@ -167,6 +172,9 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
             )
           )}
         </div>
+        {saveError && (
+          <div style={{ padding: '4px 16px 0', fontSize: 13, color: 'var(--dir-danger)' }}>{saveError}</div>
+        )}
         <div className="dir-drawer-footer">
           <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
           <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !form.name.trim()}>

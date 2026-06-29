@@ -4,6 +4,7 @@ import {
   query, where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { todayStr } from '../utils';
 import type { Assignment, AssignmentResult, AssignmentResultStatus } from '../types';
 
 export function useAssignments() {
@@ -63,7 +64,7 @@ export function useAssignmentResults(assignmentId: string) {
       assignmentId,
       studentId,
       status,
-      gradedAt: new Date().toISOString().slice(0, 10),
+      gradedAt: todayStr(),
     };
     if (existing) {
       await updateDoc(doc(db, 'assignmentResults', existing.id), data);

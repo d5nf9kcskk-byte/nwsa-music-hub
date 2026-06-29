@@ -44,9 +44,17 @@ export function AttendanceView() {
   const activeCount = resolved.length;
   const exceptionCount = Object.keys(recordMap).length;
   const { label: dateLabel, isToday } = formatDate(date);
+  const [toggleError, setToggleError] = useState('');
 
-  function handleToggle(studentId: string, status: AttendanceStatus) {
-    toggleAttendance(studentId, status);
+  async function handleToggle(studentId: string, status: AttendanceStatus) {
+    setToggleError('');
+    try {
+      await toggleAttendance(studentId, status);
+    } catch (e) {
+      // Surface the failure — otherwise a rejected write looks like a no-op
+      // and the director believes attendance was recorded when it wasn't.
+      setToggleError(e instanceof Error ? e.message : 'Could not save — check your connection and try again.');
+    }
   }
 
   if (ensLoading) return <div className="dir-loading">Loading…</div>;
@@ -99,6 +107,12 @@ export function AttendanceView() {
           {exceptionCount === 0 ? 'All present' : (
             <><strong>{exceptionCount}</strong> exception{exceptionCount !== 1 ? 's' : ''} logged</>
           )}
+        </div>
+      )}
+
+      {toggleError && (
+        <div className="dir-att-summary" style={{ color: 'var(--dir-danger)', background: 'var(--dir-absent-bg)' }}>
+          ⚠ {toggleError}
         </div>
       )}
 

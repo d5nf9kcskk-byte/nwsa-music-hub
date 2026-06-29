@@ -3,7 +3,7 @@ import { ClipboardCheck, Plus } from 'lucide-react';
 import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
-import { formatDate } from '../utils';
+import { formatDate, todayStr } from '../utils';
 import { RichTextArea } from '../components/RichTextArea';
 import { FileUpload } from '../components/FileUpload';
 import type { Assignment, AssignmentType, AssignmentResultStatus, Student, Ensemble, Attachment } from '../types';
@@ -28,7 +28,7 @@ interface FormProps {
 }
 
 function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: FormProps) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStr();
   const [title, setTitle] = useState(assignment?.title ?? '');
   const [type, setType] = useState<AssignmentType>(assignment?.type ?? 'Playing Exam');
   const [description, setDescription] = useState(assignment?.description ?? '');
@@ -183,6 +183,7 @@ interface GradeSheetProps {
 function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) {
   const { resultMap, saveResult } = useAssignmentResults(assignment.id);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [gradeError, setGradeError] = useState('');
 
   const relevant = students.filter(s =>
     s.status === 'Active' &&
@@ -193,8 +194,16 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
     const existing = resultMap[studentId];
     if (existing?.status === status) return;
     setSavingId(studentId);
-    await saveResult(studentId, status);
-    setSavingId(null);
+    setGradeError('');
+    try {
+      await saveResult(studentId, status);
+    } catch (e) {
+      // Without finally, a failed write would leave savingId set and disable
+      // this row's buttons for the rest of the session.
+      setGradeError(e instanceof Error ? e.message : 'Could not save grade — try again.');
+    } finally {
+      setSavingId(null);
+    }
   }
 
   const counts = relevant.reduce(
@@ -222,6 +231,10 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
             <button className="dir-drawer-close" onClick={onClose}>×</button>
           </div>
         </div>
+
+        {gradeError && (
+          <div style={{ padding: '8px 16px', color: 'var(--dir-danger)', fontSize: 13 }}>⚠ {gradeError}</div>
+        )}
 
         <div className="dir-assign-summary-bar">
           {[
