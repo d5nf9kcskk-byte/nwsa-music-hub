@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Outlet, NavLink, Link } from 'react-router';
 import { Home, CalendarDays, Users, Music, UserSearch, Menu, X } from 'lucide-react';
-import { NWSA_LOGO } from '../nwsaLogo';
 
 const NAV = [
   { to: '/', label: 'Home', Icon: Home, end: true },
@@ -18,11 +17,7 @@ export function PublicLayout() {
     <div className="pub-app">
       <header className="pub-header">
         <Link to="/" className="pub-brand">
-          <img
-            src={NWSA_LOGO}
-            alt="NWSA"
-            style={{ height: 34, width: 'auto', display: 'block', background: '#fff', borderRadius: 6, padding: 2 }}
-          />
+          <img src={`${import.meta.env.BASE_URL}nwsa-mark.png`} alt="NWSA" className="pub-brand-mark" />
           <span>NWSA Music</span>
         </Link>
         <button

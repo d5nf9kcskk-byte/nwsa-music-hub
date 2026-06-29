@@ -69,13 +69,11 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   min-width: 0;
 }
 
-.dir-header-logo {
-  height: 34px;
+.dir-header-mark {
+  height: 38px;
   width: auto;
   flex-shrink: 0;
-  background: #fff;
-  border-radius: 6px;
-  padding: 2px;
+  display: block;
 }
 
 .dir-header-title {

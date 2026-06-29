@@ -9,8 +9,11 @@
   --pub-ink: #18212f;
   --pub-muted: #6b7686;
   --pub-border: #e6e9ef;
-  --pub-accent: #0d7e8e;
+  --pub-accent: #0d7e8e;       /* logo teal */
   --pub-accent-soft: #e6f2f3;
+  --pub-purple: #7b3578;        /* logo purple — selection accent (matches director) */
+  --pub-gold: #c8a52a;          /* logo gold — highlights (matches director) */
+  --pub-gold-text: #5c4a00;
   --pub-nav: 62px;
   --pub-radius: 14px;
 }
@@ -33,10 +36,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 54px;
-  padding: 0 18px;
+  height: 56px;
+  padding: 0 16px;
   padding-top: env(safe-area-inset-top);
-  background: var(--pub-accent);
+  /* matches the director header: teal gradient + gold accent line */
+  background: linear-gradient(110deg, var(--pub-accent) 0%, #0a6675 100%);
+  border-bottom: 3px solid var(--pub-gold);
   color: #fff;
 }
 
@@ -52,23 +57,9 @@
 }
 
 .pub-brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  background: rgba(255,255,255,0.18);
-  border-radius: 8px;
-  font-size: 15px;
-}
-
-.pub-brand-logo {
-  height: 34px;
+  height: 38px;
   width: auto;
   display: block;
-  background: #fff;
-  border-radius: 6px;
-  padding: 2px;
 }
 
 .pub-director-link {

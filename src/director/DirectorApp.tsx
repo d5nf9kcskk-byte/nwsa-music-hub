@@ -10,7 +10,6 @@ import { NotesView } from './notes/NotesView';
 import { AssignmentsView } from './assignments/AssignmentsView';
 import { AnnouncementManager } from './announcements/AnnouncementManager';
 import { RepertoireManager } from './repertoire/RepertoireManager';
-import { BrandMark } from './BrandMark';
 import type { Tab } from './types';
 
 const TABS: { id: Tab; label: string; Icon: typeof ClipboardList }[] = [
@@ -42,7 +41,7 @@ export default function DirectorApp() {
         <div className="dir-app">
           <header className="dir-header">
             <div className="dir-header-brand">
-              <BrandMark size={38} />
+              <img src={`${import.meta.env.BASE_URL}nwsa-mark.png`} alt="NWSA" className="dir-header-mark" />
               <div>
                 <div className="dir-header-title">{TAB_TITLES[tab]}</div>
                 <div className="dir-header-sub">NWSA Music</div>
