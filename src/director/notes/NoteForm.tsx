@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { todayStr } from '../utils';
 import type { ProgressNote, Student } from '../types';
 
 interface Props {
@@ -8,10 +9,6 @@ interface Props {
   onSave: (data: Omit<ProgressNote, 'id'>) => Promise<void>;
   onDelete?: () => Promise<void>;
   onClose: () => void;
-}
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 const CATEGORIES = ['General', 'Technique', 'Intonation', 'Rhythm', 'Sight-reading', 'Performance'];
@@ -24,6 +21,7 @@ export function NoteForm({ note, students, defaultStudentId, onSave, onDelete, o
     category: 'General',
   });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -47,22 +45,26 @@ export function NoteForm({ note, students, defaultStudentId, onSave, onDelete, o
   async function handleSave() {
     if (!form.studentId || !form.content.trim()) return;
     setSaving(true);
+    setSaveError('');
     try {
       await onSave(form);
       onClose();
-    } catch {
+    } catch (e) {
       setSaving(false);
+      setSaveError(e instanceof Error ? e.message : 'Could not save — try again.');
     }
   }
 
   async function handleDelete() {
     if (!onDelete) return;
     setSaving(true);
+    setSaveError('');
     try {
       await onDelete();
       onClose();
-    } catch {
+    } catch (e) {
       setSaving(false);
+      setSaveError(e instanceof Error ? e.message : 'Could not delete — try again.');
     }
   }
 
@@ -119,6 +121,9 @@ export function NoteForm({ note, students, defaultStudentId, onSave, onDelete, o
             )
           )}
         </div>
+        {saveError && (
+          <div style={{ padding: '4px 16px 0', fontSize: 13, color: 'var(--dir-danger)' }}>{saveError}</div>
+        )}
         <div className="dir-drawer-footer">
           <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
           <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !form.studentId || !form.content.trim()}>

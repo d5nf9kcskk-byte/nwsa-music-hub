@@ -91,11 +91,13 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
   const [pinned, setPinned] = useState(announcement?.pinned ?? false);
   const [expiresOn, setExpiresOn] = useState(announcement?.expiresOn ?? '');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   async function handleSave() {
     if (!title.trim()) return;
     setSaving(true);
+    setSaveError('');
     try {
       await onSave({
         title: title.trim(),
@@ -106,19 +108,22 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
         createdAt: announcement?.createdAt ?? Date.now(),
       });
       onBack();
-    } catch {
+    } catch (e) {
       setSaving(false);
+      setSaveError(e instanceof Error ? e.message : 'Could not post — try again.');
     }
   }
 
   async function handleDelete() {
     if (!onDelete) return;
     setSaving(true);
+    setSaveError('');
     try {
       await onDelete();
       onClose();
-    } catch {
+    } catch (e) {
       setSaving(false);
+      setSaveError(e instanceof Error ? e.message : 'Could not delete — try again.');
     }
   }
 
@@ -178,6 +183,9 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
             )
           )}
         </div>
+        {saveError && (
+          <div style={{ padding: '4px 16px 0', fontSize: 13, color: 'var(--dir-danger)' }}>{saveError}</div>
+        )}
         <div className="dir-drawer-footer">
           <button className="dir-btn dir-btn-ghost" onClick={onBack}>Back</button>
           <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !title.trim()}>

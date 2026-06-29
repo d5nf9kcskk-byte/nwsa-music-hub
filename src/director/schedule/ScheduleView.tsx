@@ -37,6 +37,7 @@ export function ScheduleView() {
   const touchStartY = useRef<number | null>(null);
   const swipeAxis = useRef<'h' | 'v' | null>(null);
   const calViewportRef = useRef<HTMLDivElement>(null);
+  const calTimer = useRef<number | null>(null);
   const [dragX, setDragX] = useState(0);
   const [calAnimating, setCalAnimating] = useState(false);
   const [rosterEvent, setRosterEvent] = useState<CalendarEvent | null>(null);
@@ -125,6 +126,9 @@ export function ScheduleView() {
   }, [visibleEvents, today]);
 
   function handleTouchStart(e: React.TouchEvent) {
+    // Ignore new gestures while a month-commit animation is still in flight,
+    // otherwise the pending timer can double-shift or leave the grid off-screen.
+    if (calTimer.current !== null) return;
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
     swipeAxis.current = null;
@@ -156,13 +160,14 @@ export function ScheduleView() {
     if (Math.abs(dx) > 60) {
       const dir = dx < 0 ? 1 : -1;        // swipe left → next month
       setDragX(-dir * width);             // slide the current month fully out
-      window.setTimeout(() => {
+      calTimer.current = window.setTimeout(() => {
         shiftMonth(dir);
         setCalAnimating(false);
         setDragX(dir * width);            // drop the new month in from the opposite edge
         requestAnimationFrame(() => requestAnimationFrame(() => {
           setCalAnimating(true);
           setDragX(0);                     // ease it into place
+          calTimer.current = null;         // commit complete — accept new gestures
         }));
       }, 200);
     } else {

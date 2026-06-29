@@ -1,4 +1,4 @@
-import { MapPin, Clock, FileText, Music, ExternalLink, ScrollText } from 'lucide-react';
+import { MapPin, Clock, Music, ExternalLink, ScrollText } from 'lucide-react';
 import { Link } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
 import { parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, findPartForInstrument } from '../../director/utils';
@@ -23,7 +23,7 @@ interface Props {
 
 /** Shared, consistently-styled public event card. Ensemble names link to hubs. */
 export function PubEventCard({
-  event: e, ensembleMap, showDate, showNotes, isSub, ensembleIds, piecesById, studentInstrument,
+  event: e, ensembleMap, showDate, isSub, ensembleIds, piecesById, studentInstrument,
 }: Props) {
   const ids = ensembleIds ?? e.ensembleIds;
   const ensembleObjs = ids.map(id => ensembleMap[id]).filter(Boolean) as Ensemble[];
@@ -103,7 +103,9 @@ export function PubEventCard({
           </div>
         )}
 
-        {showNotes && e.notes && <div className="pub-event-note"><FileText size={12} /> {e.notes}</div>}
+        {/* Event `notes` are director-internal (planning / cancellation reasons)
+            and are intentionally NOT rendered publicly. Use Announcements for
+            anything meant for students/parents. */}
       </div>
     </div>
   );
