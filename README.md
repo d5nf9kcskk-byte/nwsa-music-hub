@@ -39,7 +39,7 @@ Firestore with Google sign-in for the director.
 ## Tech stack
 
 - **React 19 + TypeScript + Vite**
-- **React Router** (public routes + `/director` app, basename `/ggmuze`)
+- **React Router** (public routes + `/director` app, basename `/nwsa-music-hub`)
 - **Firebase Firestore** (real-time listeners) + **Firebase Auth** (Google)
 - **GitHub Pages** via GitHub Actions
 - **Anthropic API** for AI repertoire enrichment (GitHub Action, server-side)
@@ -132,7 +132,7 @@ node scripts/migrate.js
    - `VITE_FIREBASE_APP_ID`
 3. Push to `main` → the **Deploy to GitHub Pages** workflow builds the app,
    generates the `.ics` feeds, and publishes. Live at
-   `https://<owner>.github.io/ggmuze/`.
+   `https://<owner>.github.io/nwsa-music-hub/`.
 
 > The deploy workflow also runs on a 4-hour cron to keep calendar feeds current.
 
