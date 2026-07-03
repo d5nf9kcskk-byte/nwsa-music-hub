@@ -10,6 +10,8 @@ import { EnsembleManager } from './EnsembleManager';
 import { RepertoireManager } from '../repertoire/RepertoireManager';
 import { ensembleColor } from '../utils';
 import { seedRoster, seedStudents, seedEnsembles } from '../seedData';
+import { sortStudents, type StudentSort } from '../scoreOrder';
+import { SortToggle } from '../components/SortToggle';
 import type { Student } from '../types';
 
 export function RosterView() {
@@ -26,6 +28,8 @@ export function RosterView() {
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null | 'new'>(null);
   const [search, setSearch] = useState('');
+  const [filterEnsembleId, setFilterEnsembleId] = useState('');
+  const [sort, setSort] = useState<StudentSort>('lastName');
   const [managingEnsembles, setManagingEnsembles] = useState(false);
   const [managingRepertoire, setManagingRepertoire] = useState(false);
   const [importState, setImportState] = useState<'idle' | 'importing' | 'error'>('idle');
@@ -50,11 +54,13 @@ export function RosterView() {
     s.instrument.toLowerCase().includes(search.toLowerCase())
   );
 
-  const grouped = ensembles.map(e => ({
-    ensemble: e,
-    students: filtered.filter(s => s.ensembleIds?.includes(e.id)),
-  }));
-  const unassigned = filtered.filter(s => !s.ensembleIds?.length);
+  const grouped = ensembles
+    .filter(e => !filterEnsembleId || e.id === filterEnsembleId)
+    .map(e => ({
+      ensemble: e,
+      students: sortStudents(filtered.filter(s => s.ensembleIds?.includes(e.id)), sort),
+    }));
+  const unassigned = filterEnsembleId ? [] : sortStudents(filtered.filter(s => !s.ensembleIds?.length), sort);
 
   return (
     <div>
@@ -74,6 +80,27 @@ export function RosterView() {
           <Music size={15} /> Repertoire
         </button>
       </div>
+
+      {/* Show only my ensemble(s): filter chips + sort */}
+      {ensembles.length > 0 && students.length > 0 && (
+        <>
+          <div className="dir-tabs">
+            <button className={`dir-tab ${!filterEnsembleId ? 'active' : ''}`} onClick={() => setFilterEnsembleId('')}>All</button>
+            {ensembles.map(e => (
+              <button
+                key={e.id}
+                className={`dir-tab ${filterEnsembleId === e.id ? 'active' : ''}`}
+                onClick={() => setFilterEnsembleId(id => id === e.id ? '' : e.id)}
+              >
+                {e.name}
+              </button>
+            ))}
+          </div>
+          <div style={{ padding: '2px 16px 6px' }}>
+            <SortToggle value={sort} onChange={setSort} />
+          </div>
+        </>
+      )}
 
       {grouped.map(({ ensemble, students: grp }) =>
         grp.length === 0 ? null : (

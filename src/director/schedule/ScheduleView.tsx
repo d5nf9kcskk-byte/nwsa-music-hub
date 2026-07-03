@@ -75,11 +75,16 @@ export function ScheduleView() {
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
 
-  // School-wide events (ensembleIds: []) are always visible regardless of filter.
+  const hasSchoolEvents = useMemo(() => events.some(e => e.ensembleIds.length === 0), [events]);
+
+  // School-wide events (ensembleIds: []) are always visible regardless of filter;
+  // the special 'school' filter shows ONLY them.
   const visibleEvents = useMemo(
-    () => (filterEnsembleId
-      ? events.filter(e => e.ensembleIds.length === 0 || e.ensembleIds.includes(filterEnsembleId))
-      : events),
+    () => (filterEnsembleId === 'school'
+      ? events.filter(e => e.ensembleIds.length === 0)
+      : filterEnsembleId
+        ? events.filter(e => e.ensembleIds.length === 0 || e.ensembleIds.includes(filterEnsembleId))
+        : events),
     [events, filterEnsembleId],
   );
 
@@ -278,22 +283,28 @@ export function ScheduleView() {
             onClick={() => setCalView(v => v === 'month' ? 'list' : 'month')}
             title={calView === 'month' ? 'Switch to list view' : 'Switch to month view'}
           >
-            {calView === 'month' ? <LayoutList size={15} /> : <Grid3x3 size={15} />}
+            {calView === 'month'
+              ? <><LayoutList size={15} /> List view</>
+              : <><Grid3x3 size={15} /> Calendar view</>}
           </button>
-          <button
-            className="dir-tool-btn"
-            onClick={handleSchoolCal}
-            disabled={schoolCalState === 'seeding'}
-            title="Import MDCPS + MDC 2026-27 school calendar into Schedule"
-          >
-            {schoolCalState === 'seeding' ? 'Importing…' : schoolCalState === 'done' ? '✓ School Cal' : schoolCalState === 'error' ? '⚠ Retry' : 'School Cal'}
-          </button>
+          {/* One-time school-calendar import: hidden once school events exist */}
+          {(!hasSchoolEvents || schoolCalState === 'seeding' || schoolCalState === 'error') && (
+            <button
+              className="dir-tool-btn"
+              onClick={handleSchoolCal}
+              disabled={schoolCalState === 'seeding'}
+              title="Import MDCPS + MDC 2026-27 school calendar into Schedule"
+            >
+              {schoolCalState === 'seeding' ? 'Importing…' : schoolCalState === 'error' ? '⚠ Retry' : 'Import School Cal'}
+            </button>
+          )}
           {schoolCalState === 'error' && (
             <span style={{ fontSize: 12, color: 'var(--dir-danger)', alignSelf: 'center' }}>
               {schoolCalError}
             </span>
           )}
-          {seedState !== 'done' && (
+          {/* One-time season seed: only offered while the calendar is empty */}
+          {events.length === 0 && seedState !== 'done' && (
             <button
               className="dir-tool-btn"
               onClick={handleSeed}
@@ -327,6 +338,14 @@ export function ScheduleView() {
               {e.name}
             </button>
           ))}
+          {hasSchoolEvents && (
+            <button
+              className={`dir-tab ${filterEnsembleId === 'school' ? 'active' : ''}`}
+              onClick={() => setFilterEnsembleId('school')}
+            >
+              School
+            </button>
+          )}
         </div>
       )}
 

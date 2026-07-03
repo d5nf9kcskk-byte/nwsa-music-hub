@@ -15,7 +15,7 @@ import { RepertoireManager } from './repertoire/RepertoireManager';
 import type { Tab } from './types';
 
 // Local tab set = the shared Tab plus this app's dedicated schedule-change area.
-type DirTab = Tab | 'scheduleChanges';
+type DirTab = Tab | 'scheduleChanges' | 'announcements';
 
 const MENU_TABS: { id: DirTab; label: string; Icon: typeof ClipboardList }[] = [
   { id: 'roll',            label: 'Take Roll',               Icon: ClipboardList  },
@@ -25,6 +25,7 @@ const MENU_TABS: { id: DirTab; label: string; Icon: typeof ClipboardList }[] = [
   { id: 'repertoire',      label: 'Music',                   Icon: Music          },
   { id: 'notes',           label: 'Progress Notes',          Icon: FileText       },
   { id: 'assignments',     label: 'Assignments',             Icon: ClipboardCheck },
+  { id: 'announcements',   label: 'Announcements',           Icon: Megaphone       },
 ];
 
 const TAB_TITLES: Record<DirTab, string> = {
@@ -35,11 +36,11 @@ const TAB_TITLES: Record<DirTab, string> = {
   repertoire:      'Repertoire',
   notes:           'Progress Notes',
   assignments:     'Assignments',
+  announcements:   'Announcements',
 };
 
 export default function DirectorApp() {
   const [tab, setTab] = useState<DirTab>('roll');
-  const [showAnnounce, setShowAnnounce] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -70,6 +71,7 @@ export default function DirectorApp() {
             {tab === 'repertoire'      && <RepertoireManager asTab onClose={() => {}} />}
             {tab === 'notes'           && <NotesView />}
             {tab === 'assignments'     && <AssignmentsView />}
+            {tab === 'announcements'   && <AnnouncementManager asTab onClose={() => {}} />}
           </main>
 
           {menuOpen && (
@@ -96,9 +98,6 @@ export default function DirectorApp() {
 
                 <div className="dir-menu-divider" />
 
-                <button className="dir-menu-item" onClick={() => { setShowAnnounce(true); setMenuOpen(false); }}>
-                  <Megaphone size={19} /> Announcements
-                </button>
                 <button className="dir-menu-item" onClick={() => navigate('/')}>
                   <ExternalLink size={19} /> View public site
                 </button>
@@ -112,7 +111,6 @@ export default function DirectorApp() {
             </div>
           )}
 
-          {showAnnounce && <AnnouncementManager onClose={() => setShowAnnounce(false)} />}
         </div>
       )}
     </AuthGate>

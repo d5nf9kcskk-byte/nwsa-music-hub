@@ -73,6 +73,15 @@ export interface RosterOverride {
   startDate?: string; // scope === 'range' (YYYY-MM-DD, inclusive)
   endDate?: string;   // scope === 'range' (YYYY-MM-DD, inclusive)
   reason?: string;
+  /**
+   * Partial-rehearsal window ("HH:MM", 24h). Used for lessons: the student is
+   * out only between these times, not for the whole rehearsal. Attendance and
+   * rosters treat the student as present for the rest of the rehearsal.
+   */
+  startTime?: string;
+  endTime?: string;
+  /** Marks this override as an applied-lesson pull-out (styled/labelled as such). */
+  kind?: 'lesson';
 }
 
 export interface AttendanceRecord {

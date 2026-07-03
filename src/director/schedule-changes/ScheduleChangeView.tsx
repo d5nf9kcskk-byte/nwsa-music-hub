@@ -1,23 +1,28 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, Search, Plus, UserPlus, UserMinus, Trash2, CalendarClock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Plus, UserPlus, UserMinus, Trash2, CalendarClock, GraduationCap } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
-import { ensembleColor, parseDate, todayStr } from '../utils';
+import { ensembleColor, parseDate, todayStr, formatTimeRange } from '../utils';
+import { sortStudents, type StudentSort } from '../scoreOrder';
+import { SortToggle } from '../components/SortToggle';
 import type { Student, Ensemble, RosterOverride } from '../types';
 
 /**
- * A dedicated, clear home for changing a student's schedule — either
- * PERMANENTLY (join/leave an ensemble → edits the student's ensembleIds) or
- * TEMPORARILY (sub-in / pull-out for a day or a date range → a RosterOverride).
- * Both feed the existing rosterResolver, so attendance and every schedule
- * view update automatically.
+ * A dedicated, clear home for changing a student's schedule:
+ *   • PERMANENT — join/leave an ensemble (edits student.ensembleIds)
+ *   • TEMPORARY — sub-in / pull-out for a day or date range (RosterOverride)
+ *   • LESSON    — pulled out for PART of a rehearsal (override with a time window)
+ * Everything feeds the existing rosterResolver, so attendance and every
+ * schedule view update automatically.
  */
 export function ScheduleChangeView() {
   const { students } = useStudents();
   const { ensembles } = useEnsembles();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [ensembleId, setEnsembleId] = useState('');
+  const [sort, setSort] = useState<StudentSort>('lastName');
 
   const selected = students.find(s => s.id === selectedId) ?? null;
 
@@ -25,10 +30,14 @@ export function ScheduleChangeView() {
     return <StudentPanel student={selected} ensembles={ensembles} onBack={() => setSelectedId(null)} />;
   }
 
-  const list = students
-    .filter(s => s.status !== 'Graduated')
-    .filter(s => s.name.toLowerCase().includes(query.trim().toLowerCase()))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const q = query.trim().toLowerCase();
+  const list = sortStudents(
+    students
+      .filter(s => s.status !== 'Graduated' && s.status !== 'Inactive')
+      .filter(s => !ensembleId || s.ensembleIds?.includes(ensembleId))
+      .filter(s => !q || s.name.toLowerCase().includes(q) || s.instrument?.toLowerCase().includes(q)),
+    sort,
+  );
 
   return (
     <div className="dir-tab-page">
@@ -44,24 +53,47 @@ export function ScheduleChangeView() {
           onChange={e => setQuery(e.target.value)}
         />
       </div>
+
+      {/* Jump straight to one ensemble's assigned roster */}
+      <div className="dir-tabs">
+        <button className={`dir-tab ${!ensembleId ? 'active' : ''}`} onClick={() => setEnsembleId('')}>All students</button>
+        {ensembles.map(e => (
+          <button
+            key={e.id}
+            className={`dir-tab ${ensembleId === e.id ? 'active' : ''}`}
+            onClick={() => setEnsembleId(id => id === e.id ? '' : e.id)}
+          >
+            {e.name}
+          </button>
+        ))}
+      </div>
+      <div style={{ padding: '2px 16px 8px' }}>
+        <SortToggle value={sort} onChange={setSort} />
+      </div>
+
       <div className="dir-drawer-body">
         {list.length === 0 ? (
-          <div className="dir-empty-inline">No students found.</div>
+          <div className="dir-empty-inline">No students match.</div>
         ) : (
           list.map(s => (
             <button key={s.id} className="dir-ens-row dir-sc-pick" onClick={() => setSelectedId(s.id)}>
-              <span className="dir-ens-swatch" style={{ background: '#64748b' }} />
+              <span className="dir-ens-swatch" style={{ background: pickColor(s, ensembles) }} />
               <div className="dir-ens-info">
                 <div className="dir-ens-name">{s.name}</div>
-                <div className="dir-ens-sub">{[s.instrument, s.status !== 'Active' ? s.status : null].filter(Boolean).join(' · ') || '—'}</div>
+                <div className="dir-ens-sub">{s.instrument || '—'}</div>
               </div>
-              <ChevronLeft size={18} style={{ transform: 'rotate(180deg)', opacity: 0.4 }} />
+              <ChevronRight size={18} style={{ opacity: 0.45, flexShrink: 0 }} />
             </button>
           ))
         )}
       </div>
     </div>
   );
+}
+
+function pickColor(s: Student, ensembles: Ensemble[]): string {
+  const first = ensembles.find(e => s.ensembleIds?.includes(e.id));
+  return first ? ensembleColor(first) : '#94a3b8';
 }
 
 function StudentPanel({ student, ensembles, onBack }: { student: Student; ensembles: Ensemble[]; onBack: () => void }) {
@@ -98,7 +130,6 @@ function StudentPanel({ student, ensembles, onBack }: { student: Student; ensemb
       <div className="dir-drawer-body">
         {error && <div className="dir-sc-error">⚠ {error}</div>}
 
-        {/* Permanent membership */}
         <div className="dir-form-section-label">In these ensembles (permanent)</div>
         {memberOf.length === 0 ? (
           <div className="dir-empty-inline">Not a permanent member of any ensemble.</div>
@@ -114,19 +145,25 @@ function StudentPanel({ student, ensembles, onBack }: { student: Student; ensemb
           ))
         )}
 
-        {/* Temporary changes */}
-        <div className="dir-form-section-label">Temporary changes</div>
+        <div className="dir-form-section-label">Temporary changes & lessons</div>
         {myOverrides.length === 0 ? (
-          <div className="dir-empty-inline">No temporary subs or pull-outs right now.</div>
+          <div className="dir-empty-inline">No temporary subs, pull-outs, or lessons right now.</div>
         ) : (
           myOverrides.map(o => (
-            <div key={o.id} className={`dir-sc-ov ${o.action}`}>
+            <div key={o.id} className={`dir-sc-ov ${o.kind === 'lesson' ? 'lesson' : o.action}`}>
               <div className="dir-sc-ov-body">
                 <div className="dir-sc-ov-title">
-                  {o.action === 'add' ? <UserPlus size={14} /> : <UserMinus size={14} />}
-                  {o.action === 'add' ? 'Subbed into' : 'Pulled from'} {ensembleMap[o.ensembleId]?.name ?? 'ensemble'}
+                  {o.kind === 'lesson' ? <GraduationCap size={14} />
+                    : o.action === 'add' ? <UserPlus size={14} /> : <UserMinus size={14} />}
+                  {o.kind === 'lesson'
+                    ? `Lesson during ${ensembleMap[o.ensembleId]?.name ?? 'rehearsal'}`
+                    : `${o.action === 'add' ? 'Subbed into' : 'Pulled from'} ${ensembleMap[o.ensembleId]?.name ?? 'ensemble'}`}
                 </div>
-                <div className="dir-sc-ov-meta">{describeWhen(o)}{o.reason ? ` · ${o.reason}` : ''}</div>
+                <div className="dir-sc-ov-meta">
+                  {describeWhen(o)}
+                  {o.startTime && o.endTime ? ` · out ${formatTimeRange(o.startTime, o.endTime)}` : ''}
+                  {o.reason ? ` · ${o.reason}` : ''}
+                </div>
               </div>
               <button className="dir-icon-btn" onClick={() => deleteOverride(o.id)} aria-label="Undo change"><Trash2 size={15} /></button>
             </div>
@@ -158,6 +195,8 @@ function StudentPanel({ student, ensembles, onBack }: { student: Student; ensemb
   );
 }
 
+type ChangeKind = 'temporary' | 'lesson' | 'permanent';
+
 function ChangeForm({
   student, ensembles, onClose, onSavePermanent, onRemovePermanent, onSaveTemporary,
 }: {
@@ -168,25 +207,43 @@ function ChangeForm({
   onRemovePermanent: (ensembleId: string) => Promise<void>;
   onSaveTemporary: (data: Omit<RosterOverride, 'id'>) => Promise<void>;
 }) {
-  const [kind, setKind] = useState<'permanent' | 'temporary'>('temporary');
+  const memberEnsembles = ensembles.filter(e => student.ensembleIds?.includes(e.id));
+  const [kind, setKind] = useState<ChangeKind>('temporary');
   const [action, setAction] = useState<'add' | 'remove'>('add');
   const [ensembleId, setEnsembleId] = useState(ensembles[0]?.id ?? '');
+  const [lessonEnsembleId, setLessonEnsembleId] = useState(memberEnsembles[0]?.id ?? ensembles[0]?.id ?? '');
   const [span, setSpan] = useState<'day' | 'range'>('day');
   const [startDate, setStartDate] = useState(todayStr());
   const [endDate, setEndDate] = useState(todayStr());
+  const [lessonStart, setLessonStart] = useState('15:00');
+  const [lessonEnd, setLessonEnd] = useState('15:50');
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const ensembleName = ensembles.find(e => e.id === ensembleId)?.name ?? 'ensemble';
+  const activeEnsembleId = kind === 'lesson' ? lessonEnsembleId : ensembleId;
+  const ensembleName = ensembles.find(e => e.id === activeEnsembleId)?.name ?? 'ensemble';
 
   async function handleSave() {
-    if (!ensembleId) return;
+    if (!activeEnsembleId) return;
     setSaving(true); setError('');
     try {
       if (kind === 'permanent') {
         if (action === 'add') await onSavePermanent(ensembleId);
         else await onRemovePermanent(ensembleId);
+      } else if (kind === 'lesson') {
+        await onSaveTemporary({
+          studentId: student.id,
+          ensembleId: lessonEnsembleId,
+          action: 'remove',
+          scope: 'range',
+          startDate,
+          endDate: startDate,
+          startTime: lessonStart,
+          endTime: lessonEnd < lessonStart ? lessonStart : lessonEnd,
+          kind: 'lesson',
+          reason: reason.trim() || undefined,
+        });
       } else {
         const start = startDate;
         const end = span === 'day' ? startDate : endDate;
@@ -207,8 +264,9 @@ function ChangeForm({
     }
   }
 
-  const summary = kind === 'permanent'
-    ? `${student.name} will ${action === 'add' ? 'join' : 'leave'} ${ensembleName} permanently.`
+  const summary =
+    kind === 'permanent' ? `${student.name} will ${action === 'add' ? 'join' : 'leave'} ${ensembleName} permanently.`
+    : kind === 'lesson' ? `${student.name} has a lesson ${fmt(startDate)}, ${fmtTime(lessonStart)}–${fmtTime(lessonEnd)} — out of ${ensembleName} for that window only.`
     : `${student.name} ${action === 'add' ? 'subbed into' : 'pulled from'} ${ensembleName} ${span === 'day' ? `on ${fmt(startDate)}` : `${fmt(startDate)} – ${fmt(endDate)}`}.`;
 
   return (
@@ -224,54 +282,90 @@ function ChangeForm({
             <label className="dir-label">Type</label>
             <div className="dir-segment">
               <button className={`dir-segment-btn ${kind === 'temporary' ? 'active' : ''}`} onClick={() => setKind('temporary')}>Temporary</button>
+              <button className={`dir-segment-btn ${kind === 'lesson' ? 'active' : ''}`} onClick={() => setKind('lesson')}>
+                <GraduationCap size={15} /> Lesson
+              </button>
               <button className={`dir-segment-btn ${kind === 'permanent' ? 'active' : ''}`} onClick={() => setKind('permanent')}>Permanent</button>
             </div>
           </div>
 
-          <div className="dir-field">
-            <label className="dir-label">Change</label>
-            <div className="dir-segment">
-              <button className={`dir-segment-btn ${action === 'add' ? 'active' : ''}`} onClick={() => setAction('add')}>
-                <UserPlus size={15} /> {kind === 'permanent' ? 'Join' : 'Sub in'}
-              </button>
-              <button className={`dir-segment-btn ${action === 'remove' ? 'active' : ''}`} onClick={() => setAction('remove')}>
-                <UserMinus size={15} /> {kind === 'permanent' ? 'Leave' : 'Pull out'}
-              </button>
-            </div>
-          </div>
-
-          <div className="dir-field">
-            <label className="dir-label">Ensemble</label>
-            <select className="dir-input" value={ensembleId} onChange={e => setEnsembleId(e.target.value)}>
-              {ensembles.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </select>
-          </div>
-
-          {kind === 'temporary' && (
+          {kind === 'lesson' ? (
             <>
               <div className="dir-field">
-                <label className="dir-label">When</label>
-                <div className="dir-segment">
-                  <button className={`dir-segment-btn ${span === 'day' ? 'active' : ''}`} onClick={() => setSpan('day')}>Just one day</button>
-                  <button className={`dir-segment-btn ${span === 'range' ? 'active' : ''}`} onClick={() => setSpan('range')}>Date range</button>
-                </div>
+                <label className="dir-label">Out of which rehearsal</label>
+                <select className="dir-input" value={lessonEnsembleId} onChange={e => setLessonEnsembleId(e.target.value)}>
+                  {(memberEnsembles.length ? memberEnsembles : ensembles).map(e => (
+                    <option key={e.id} value={e.id}>{e.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="dir-field">
+                <label className="dir-label">Lesson date</label>
+                <input className="dir-input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
               </div>
               <div className="dir-field-row">
                 <div className="dir-field">
-                  <label className="dir-label">{span === 'day' ? 'Date' : 'From'}</label>
-                  <input className="dir-input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                  <label className="dir-label">Lesson starts</label>
+                  <input className="dir-input" type="time" value={lessonStart} onChange={e => setLessonStart(e.target.value)} />
                 </div>
-                {span === 'range' && (
-                  <div className="dir-field">
-                    <label className="dir-label">To</label>
-                    <input className="dir-input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
-                  </div>
-                )}
+                <div className="dir-field">
+                  <label className="dir-label">Lesson ends</label>
+                  <input className="dir-input" type="time" value={lessonEnd} onChange={e => setLessonEnd(e.target.value)} />
+                </div>
               </div>
               <div className="dir-field">
-                <label className="dir-label">Reason (optional)</label>
-                <input className="dir-input" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. field trip, illness, sectional swap" />
+                <label className="dir-label">Applied teacher / note (optional)</label>
+                <input className="dir-input" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. Dr. Rivera, trumpet lesson" />
               </div>
+            </>
+          ) : (
+            <>
+              <div className="dir-field">
+                <label className="dir-label">Change</label>
+                <div className="dir-segment">
+                  <button className={`dir-segment-btn ${action === 'add' ? 'active' : ''}`} onClick={() => setAction('add')}>
+                    <UserPlus size={15} /> {kind === 'permanent' ? 'Join' : 'Sub in'}
+                  </button>
+                  <button className={`dir-segment-btn ${action === 'remove' ? 'active' : ''}`} onClick={() => setAction('remove')}>
+                    <UserMinus size={15} /> {kind === 'permanent' ? 'Leave' : 'Pull out'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="dir-field">
+                <label className="dir-label">Ensemble</label>
+                <select className="dir-input" value={ensembleId} onChange={e => setEnsembleId(e.target.value)}>
+                  {ensembles.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                </select>
+              </div>
+
+              {kind === 'temporary' && (
+                <>
+                  <div className="dir-field">
+                    <label className="dir-label">When</label>
+                    <div className="dir-segment">
+                      <button className={`dir-segment-btn ${span === 'day' ? 'active' : ''}`} onClick={() => setSpan('day')}>Just one day</button>
+                      <button className={`dir-segment-btn ${span === 'range' ? 'active' : ''}`} onClick={() => setSpan('range')}>Date range</button>
+                    </div>
+                  </div>
+                  <div className="dir-field-row">
+                    <div className="dir-field">
+                      <label className="dir-label">{span === 'day' ? 'Date' : 'From'}</label>
+                      <input className="dir-input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                    </div>
+                    {span === 'range' && (
+                      <div className="dir-field">
+                        <label className="dir-label">To</label>
+                        <input className="dir-input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="dir-field">
+                    <label className="dir-label">Reason (optional — illness, school function, …)</label>
+                    <input className="dir-input" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. field trip, illness" />
+                  </div>
+                </>
+              )}
             </>
           )}
 
@@ -281,7 +375,7 @@ function ChangeForm({
         {error && <div className="dir-sc-error" style={{ padding: '4px 16px 0' }}>{error}</div>}
         <div className="dir-drawer-footer">
           <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !ensembleId}>
+          <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !activeEnsembleId}>
             {saving ? 'Saving…' : 'Save change'}
           </button>
         </div>
@@ -292,6 +386,12 @@ function ChangeForm({
 
 function fmt(d: string) {
   return parseDate(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+function fmtTime(t: string) {
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hr = h % 12 === 0 ? 12 : h % 12;
+  return `${hr}:${String(m).padStart(2, '0')} ${ampm}`;
 }
 function describeWhen(o: RosterOverride) {
   if (o.scope === 'event') return 'for one rehearsal';
