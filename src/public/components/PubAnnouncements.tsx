@@ -2,6 +2,7 @@ import { Pin, Megaphone } from 'lucide-react';
 import { Link } from 'react-router';
 import { ensembleColor } from '../../director/utils';
 import type { Announcement, Ensemble } from '../../director/types';
+import { Linkify } from '../../director/components/Linkify';
 
 interface Props {
   items: Announcement[];
@@ -33,7 +34,7 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
                 <span className="pub-announce-tag pub-announce-tag-all">All</span>
               )}
             </div>
-            {a.body && <div className="pub-announce-body">{a.body}</div>}
+            {a.body && <div className="pub-announce-body"><Linkify text={a.body} /></div>}
             <div className="pub-announce-date">
               {new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </div>

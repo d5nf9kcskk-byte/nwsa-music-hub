@@ -6,6 +6,7 @@ import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { parseDate, todayStr } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
+import { linkify } from '../director/components/Linkify';
 
 /**
  * Dedicated page for one calendar event — rehearsal, concert, school date —
@@ -78,17 +79,13 @@ export function PublicEvent() {
 
 /** Minimal renderer for the director's markdown-ish notes: **bold**, "- " bullets, line breaks. */
 function renderNotes(text: string) {
-  const lines = text.split('\n');
-  return lines.map((line, i) => {
-    const parts = line.split(/\*\*(.+?)\*\*/g).map((seg, j) =>
-      j % 2 === 1 ? <strong key={j}>{seg}</strong> : seg
+  const richen = (line: string) =>
+    line.split(/\*\*(.+?)\*\*/g).map((seg, j) =>
+      j % 2 === 1 ? <strong key={j}>{linkify(seg)}</strong> : <span key={j}>{linkify(seg)}</span>
     );
-    if (line.startsWith('- ')) {
-      const bulletParts = line.slice(2).split(/\*\*(.+?)\*\*/g).map((seg, j) =>
-        j % 2 === 1 ? <strong key={j}>{seg}</strong> : seg
-      );
-      return <div key={i} className="pub-note-bullet">• {bulletParts}</div>;
-    }
-    return <div key={i}>{parts.length ? parts : ' '}</div>;
-  });
+  return text.split('\n').map((line, i) =>
+    line.startsWith('- ')
+      ? <div key={i} className="pub-note-bullet">• {richen(line.slice(2))}</div>
+      : <div key={i}>{line ? richen(line) : ' '}</div>
+  );
 }

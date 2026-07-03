@@ -14,6 +14,7 @@ import {
   todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON,
 } from '../utils';
 import type { CalendarEvent } from '../types';
+import { Linkify } from '../components/Linkify';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -244,7 +245,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               {e.location && <span><MapPin size={12} /> {e.location}</span>}
               {e.ensembleIds.length > 0 && <span><Users size={12} /> {expectedCount(e)} expected</span>}
             </div>
-            {e.repertoire && <div className="dir-event-rep">{e.repertoire}</div>}
+            {e.repertoire && <div className="dir-event-rep"><Linkify text={e.repertoire} /></div>}
             {(e.pieceIds ?? []).length > 0 && (
               <div className="dir-event-pieces">
                 {(e.pieceIds ?? []).map(pid => piecesById[pid]).filter(Boolean).map(p => (

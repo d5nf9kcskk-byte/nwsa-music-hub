@@ -9,6 +9,7 @@ import { resolveRoster } from '../rosterResolver';
 import { todayStr, formatTimeRange, ensembleColor, EVENT_TYPE_ICON } from '../utils';
 import type { CalendarEvent } from '../types';
 import type { DirNavigate } from '../types-nav';
+import { Linkify } from '../components/Linkify';
 
 const ENS_PREF_KEY = 'dir.today.ensemble';
 
@@ -155,7 +156,7 @@ function TodayCard({
           {linkedPieces.length > 0
             ? linkedPieces.join(' · ')
             : event.repertoire
-              ? event.repertoire
+              ? <Linkify text={event.repertoire} />
               : <em>No repertoire chosen yet</em>}
         </div>
         <div className="dir-today-actions">

@@ -96,3 +96,6 @@
 
 /* ── Calendar filter chips: wrap instead of sideways scrolling ── */
 .pub-wrap-tabs { flex-wrap: wrap; overflow-x: visible !important; }
+
+/* Auto-detected links inside user text */
+.auto-link { color: var(--pub-accent); font-weight: 600; text-decoration: underline; word-break: break-all; }
