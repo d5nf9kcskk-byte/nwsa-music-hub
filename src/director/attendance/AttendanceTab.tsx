@@ -4,7 +4,7 @@ import { TrackerView } from './TrackerView';
 
 type Mode = 'roll' | 'tracker';
 
-export function AttendanceTab() {
+export function AttendanceTab({ initialEnsembleId }: { initialEnsembleId?: string | null }) {
   const [mode, setMode] = useState<Mode>('roll');
 
   return (
@@ -17,7 +17,7 @@ export function AttendanceTab() {
           Tracker
         </button>
       </div>
-      {mode === 'roll' ? <AttendanceView /> : <TrackerView />}
+      {mode === 'roll' ? <AttendanceView initialEnsembleId={initialEnsembleId} /> : <TrackerView />}
     </div>
   );
 }
