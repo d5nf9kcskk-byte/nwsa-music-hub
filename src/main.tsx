@@ -38,7 +38,7 @@ const router = createBrowserRouter(
       element: <DirectorApp />,
     },
   ],
-  { basename: '/ggmuze' },
+  { basename: '/nwsa-music-hub' },
 );
 
 createRoot(document.getElementById('root')!).render(
