@@ -14,7 +14,7 @@ import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
 import type { Student } from '../types';
 
-export function RosterView() {
+export function RosterView({ initialEnsembleId = '' }: { initialEnsembleId?: string }) {
   const { ensembles, loading: ensemblesLoading } = useEnsembles();
   const { students, loading: studentsLoading, addStudent, updateStudent, deleteStudent } = useStudents();
   const { records } = useAllAttendance();
@@ -28,7 +28,7 @@ export function RosterView() {
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null | 'new'>(null);
   const [search, setSearch] = useState('');
-  const [filterEnsembleId, setFilterEnsembleId] = useState('');
+  const [filterEnsembleId, setFilterEnsembleId] = useState(initialEnsembleId);
   const [sort, setSort] = useState<StudentSort>('lastName');
   const [managingEnsembles, setManagingEnsembles] = useState(false);
   const [managingRepertoire, setManagingRepertoire] = useState(false);
