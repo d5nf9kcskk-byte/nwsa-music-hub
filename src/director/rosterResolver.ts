@@ -40,7 +40,9 @@ export function resolveRoster(
   ctx: RosterContext,
 ): ResolvedStudent[] {
   const relevant = overrides.filter(o => o.ensembleId === ctx.ensembleId && overrideApplies(o, ctx));
-  const removed = new Set(relevant.filter(o => o.action === 'remove').map(o => o.studentId));
+  // Lesson pull-outs are PARTIAL (a time window) — the student is still on the
+  // roster and takes roll; the lesson shows as a badge instead.
+  const removed = new Set(relevant.filter(o => o.action === 'remove' && o.kind !== 'lesson').map(o => o.studentId));
   const added = new Set(relevant.filter(o => o.action === 'add').map(o => o.studentId));
 
   const byId = Object.fromEntries(students.map(s => [s.id, s]));
@@ -93,4 +95,21 @@ export function overrideSummary(overrides: RosterOverride[], eventId: string) {
     added: forEvent.filter(o => o.action === 'add').length,
     removed: forEvent.filter(o => o.action === 'remove').length,
   };
+}
+
+/**
+ * Lesson pull-outs (partial-rehearsal windows) applying to an ensemble+date.
+ * Returns studentId -> the lesson override, for badge display in take roll.
+ */
+export function lessonsFor(
+  overrides: RosterOverride[],
+  ctx: RosterContext,
+): Record<string, RosterOverride> {
+  const out: Record<string, RosterOverride> = {};
+  for (const o of overrides) {
+    if (o.kind === 'lesson' && o.ensembleId === ctx.ensembleId && overrideApplies(o, ctx)) {
+      out[o.studentId] = o;
+    }
+  }
+  return out;
 }

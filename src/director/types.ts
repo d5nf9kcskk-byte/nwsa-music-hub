@@ -52,6 +52,12 @@ export interface CalendarEvent {
   pieceIds?: string[];    // linked RepertoirePiece IDs
   status: EventStatus;
   notes?: string;
+  /**
+   * Set when today's normal schedule is altered (rescheduled, double block,
+   * block rotation, …). Shows a CHANGED tag on the event and drives the red
+   * "schedule changed today" banner on the public home page.
+   */
+  changeNote?: string;
 }
 
 export type OverrideScope = 'event' | 'range';
