@@ -49,9 +49,8 @@ Firestore with Google sign-in for the director.
 ```
 src/
 ├── main.tsx                 # Router: public routes + /director
-├── App.tsx                  # (legacy score-learning practice app)
 ├── director/                # Director PWA
-│   ├── DirectorApp.tsx      # Tab shell: Roll · Roster · Schedule · Notes
+│   ├── DirectorApp.tsx      # Menu shell: Roll · Roster · Schedule · Notes …
 │   ├── firebase.ts          # Firebase init from VITE_* env vars
 │   ├── types.ts             # Data models
 │   ├── utils.ts             # Date / color / repertoire helpers

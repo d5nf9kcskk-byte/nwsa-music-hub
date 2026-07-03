@@ -1,0 +1,130 @@
+/* UI updates layered on top of director.css (kept in a separate file so it can
+   be deployed via the GitHub API without rewriting the large base stylesheet). */
+
+/* Logo chip so the mark stands out from the teal header */
+.dir-logo-chip {
+  display: inline-flex; flex-shrink: 0;
+  padding: 3px; border-radius: 10px;
+  background: #f4e8c1;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.18);
+}
+.dir-header .dir-header-mark { height: 32px; width: auto; display: block; border-radius: 6px; }
+
+/* Hamburger trigger */
+.dir-hamburger {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; border-radius: 10px; border: none;
+  background: rgba(255,255,255,0.16); color: #fff; cursor: pointer; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.dir-hamburger:active { background: rgba(255,255,255,0.28); }
+
+/* FAB no longer clears a bottom nav */
+.dir-app .dir-fab { bottom: calc(20px + env(safe-area-inset-bottom)); }
+
+/* ── Slide-out menu (director) ── */
+.dir-menu-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(15,23,42,0.45);
+  display: flex; justify-content: flex-end;
+}
+.dir-menu-panel {
+  width: 82%; max-width: 320px; height: 100%;
+  background: var(--dir-surface);
+  display: flex; flex-direction: column;
+  padding: 8px 8px calc(16px + env(safe-area-inset-bottom));
+  box-shadow: -8px 0 28px rgba(0,0,0,0.22);
+  overflow-y: auto;
+  animation: dir-menu-in 0.18s ease-out;
+}
+@keyframes dir-menu-in { from { transform: translateX(24px); opacity: 0.6; } to { transform: none; opacity: 1; } }
+.dir-menu-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 12px 14px;
+  border-bottom: 1px solid var(--dir-border);
+  margin-bottom: 8px;
+}
+.dir-menu-title { font-size: 15px; font-weight: 800; color: var(--dir-text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dir-menu-close {
+  width: 34px; height: 34px; border: none; background: var(--dir-bg);
+  border-radius: 8px; color: var(--dir-text-muted); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.dir-menu-item {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left;
+  padding: 14px 14px; border: none; background: none;
+  border-radius: 10px;
+  font-size: 16px; font-weight: 600; color: var(--dir-text);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.dir-menu-item svg { color: var(--dir-text-muted); flex-shrink: 0; }
+.dir-menu-item:active { background: var(--dir-bg); }
+.dir-menu-item.active { background: #f3eaf6; color: var(--dir-blue); }
+.dir-menu-item.active svg { color: var(--dir-blue); }
+.dir-menu-signout { color: var(--dir-danger); }
+.dir-menu-signout svg { color: var(--dir-danger); }
+.dir-menu-divider { height: 1px; background: var(--dir-border); margin: 8px 10px; }
+
+/* ── Segmented control (Take Roll/Tracker, range, form toggles) ── */
+.dir-mode-toggle,
+.dir-segment {
+  display: flex; gap: 4px;
+  background: var(--dir-surface-2);
+  border: 1.5px solid var(--dir-border);
+  border-radius: 12px; padding: 4px;
+}
+.dir-mode-toggle { margin: 12px 16px 4px; }
+.dir-segment-btn {
+  flex: 1;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 42px; padding: 0 12px;
+  border: none; background: none; border-radius: 9px;
+  font-size: 15px; font-weight: 700; color: var(--dir-text-muted);
+  cursor: pointer; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s;
+}
+.dir-segment-btn svg { flex-shrink: 0; }
+.dir-segment-btn.active {
+  background: var(--dir-blue); color: #fff;
+  box-shadow: 0 1px 4px rgba(123,53,120,0.3);
+}
+
+/* ── Student Schedule Change ── */
+.dir-sc-intro {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 16px 6px;
+  font-size: 14px; font-weight: 600; color: var(--dir-text-muted);
+}
+.dir-sc-intro svg { color: var(--dir-primary); }
+.dir-sc-search {
+  display: flex; align-items: center; gap: 8px;
+  margin: 6px 16px 4px; padding: 0 12px;
+  background: var(--dir-surface); border: 1.5px solid var(--dir-border);
+  border-radius: 11px; height: 44px;
+}
+.dir-sc-search svg { color: var(--dir-text-muted); flex-shrink: 0; }
+.dir-sc-search-input { flex: 1; border: none; outline: none; background: none; font-size: 15px; color: var(--dir-text); }
+.dir-sc-pick { width: 100%; text-align: left; border: none; background: none; cursor: pointer; }
+.dir-sc-panel-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px 6px; }
+.dir-sc-student { min-width: 0; }
+.dir-sc-student-name { font-size: 19px; font-weight: 800; color: var(--dir-text); }
+.dir-sc-error { margin: 4px 16px; padding: 8px 12px; font-size: 13px; color: var(--dir-danger); background: var(--dir-absent-bg); border-radius: 8px; }
+.dir-sc-small { flex-shrink: 0; padding: 7px 12px; min-height: 0; font-size: 13px; }
+.dir-sc-ov {
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 12px; margin-bottom: 8px;
+  border: 1.5px solid var(--dir-border); border-left-width: 5px;
+  border-radius: var(--dir-radius); background: var(--dir-surface);
+}
+.dir-sc-ov.add { border-left-color: var(--dir-excused); }
+.dir-sc-ov.remove { border-left-color: var(--dir-absent); }
+.dir-sc-ov-body { flex: 1; min-width: 0; }
+.dir-sc-ov-title { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; color: var(--dir-text); }
+.dir-sc-ov-meta { font-size: 12.5px; color: var(--dir-text-muted); margin-top: 3px; }
+.dir-sc-summary {
+  margin-top: 12px; padding: 12px 14px;
+  background: var(--dir-surface-2); border: 1px solid var(--dir-border);
+  border-radius: 10px; font-size: 14px; font-weight: 600; color: var(--dir-text);
+}
