@@ -1,18 +1,22 @@
 import './uiUpdates.css';
 import { useState } from 'react';
 import { Outlet, NavLink, Link } from 'react-router';
-import { Home, CalendarDays, Users, Music, UserSearch, Menu, X } from 'lucide-react';
+import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, Menu, X, ChevronDown } from 'lucide-react';
+import { useEnsembles } from '../director/hooks/useEnsembles';
+import { ensembleColor } from '../director/utils';
 
 const NAV = [
   { to: '/', label: 'Home', Icon: Home, end: true },
   { to: '/calendar', label: 'Calendar', Icon: CalendarDays, end: false },
-  { to: '/ensembles', label: 'Ensembles', Icon: Users, end: false },
+  { to: '/announcements', label: 'Announcements', Icon: Megaphone, end: false },
   { to: '/repertoire', label: 'Music', Icon: Music, end: false },
   { to: '/lookup', label: 'My Schedule', Icon: UserSearch, end: false },
 ];
 
 export function PublicLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [ensemblesOpen, setEnsemblesOpen] = useState(false);
+  const { ensembles } = useEnsembles();
 
   return (
     <div className="pub-app">
@@ -42,16 +46,54 @@ export function PublicLayout() {
               </button>
             </div>
             {NAV.map(({ to, label, Icon, end }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={end}
-                className={({ isActive }) => `pub-menu-item ${isActive ? 'active' : ''}`}
-                onClick={() => setMenuOpen(false)}
-              >
-                <Icon size={18} />
-                {label}
-              </NavLink>
+              <div key={to}>
+                <NavLink
+                  to={to}
+                  end={end}
+                  className={({ isActive }) => `pub-menu-item ${isActive ? 'active' : ''}`}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <Icon size={18} />
+                  {label}
+                </NavLink>
+                {/* Ensembles drop-down lives right after Calendar */}
+                {to === '/calendar' && (
+                  <>
+                    <button
+                      className="pub-menu-item pub-menu-expand"
+                      onClick={() => setEnsemblesOpen(o => !o)}
+                      aria-expanded={ensemblesOpen}
+                    >
+                      <Users size={18} />
+                      Ensembles
+                      <ChevronDown size={15} style={{ marginLeft: 'auto', transform: ensemblesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+                    </button>
+                    {ensemblesOpen && (
+                      <>
+                        {[...ensembles].sort((a, b) => a.order - b.order).map(e => (
+                          <NavLink
+                            key={e.id}
+                            to={`/ensemble/${e.id}`}
+                            className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
+                            onClick={() => setMenuOpen(false)}
+                          >
+                            <span className="pub-menu-dot" style={{ background: ensembleColor(e) }} />
+                            {e.name}
+                          </NavLink>
+                        ))}
+                        <NavLink
+                          to="/ensembles"
+                          className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <span className="pub-menu-dot" style={{ background: '#94a3b8' }} />
+                          All ensembles
+                        </NavLink>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
             ))}
             <div className="pub-menu-divider" />
             <Link to="/director" className="pub-menu-item pub-menu-director" onClick={() => setMenuOpen(false)}>
