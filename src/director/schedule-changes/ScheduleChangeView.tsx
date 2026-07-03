@@ -16,12 +16,12 @@ import type { Student, Ensemble, RosterOverride } from '../types';
  * Everything feeds the existing rosterResolver, so attendance and every
  * schedule view update automatically.
  */
-export function ScheduleChangeView() {
+export function ScheduleChangeView({ initialEnsembleId = '' }: { initialEnsembleId?: string }) {
   const { students } = useStudents();
   const { ensembles } = useEnsembles();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [ensembleId, setEnsembleId] = useState('');
+  const [ensembleId, setEnsembleId] = useState(initialEnsembleId);
   const [sort, setSort] = useState<StudentSort>('lastName');
 
   const selected = students.find(s => s.id === selectedId) ?? null;

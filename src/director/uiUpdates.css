@@ -301,3 +301,67 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 
 /* Lesson override card accent */
 .dir-sc-ov.lesson { border-left-color: var(--dir-late); }
+
+.dir-field-hint { font-size: 12px; color: var(--dir-text-muted); margin-top: 5px; line-height: 1.4; }
+
+/* Lesson badge on take-roll cards (partial pull-out window) */
+.dir-lesson-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 5px; padding: 3px 9px;
+  background: var(--dir-lesson-bg); color: var(--dir-lesson);
+  border: 1px solid var(--dir-lesson);
+  border-radius: 20px; font-size: 11.5px; font-weight: 800;
+}
+
+/* Menu: ensemble sub-items */
+.dir-menu-subitem { padding-left: 34px; font-size: 15px; }
+.dir-menu-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Today dashboard ── */
+.dir-today-hero { padding: 16px 16px 6px; }
+.dir-today-date { font-size: 13px; font-weight: 700; color: var(--dir-text-muted); }
+.dir-today-title { font-size: 23px; font-weight: 800; letter-spacing: -0.4px; color: var(--dir-text); }
+.dir-today-card {
+  display: flex; overflow: hidden; margin-bottom: 10px;
+  background: var(--dir-surface); border: 1.5px solid var(--dir-border);
+  border-radius: var(--dir-radius);
+}
+.dir-today-card.cancelled { opacity: 0.6; }
+.dir-today-stripe { width: 6px; flex-shrink: 0; }
+.dir-today-body { flex: 1; min-width: 0; padding: 12px 14px; }
+.dir-today-name { font-size: 16px; font-weight: 800; color: var(--dir-text); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.dir-today-icon { font-size: 15px; }
+.dir-today-tag {
+  font-size: 10px; font-weight: 800; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 10px;
+}
+.dir-today-tag.cancelled { background: var(--dir-absent-bg); color: var(--dir-absent); }
+.dir-today-tag.changed { background: #fef3c7; color: #b45309; }
+.dir-today-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 13px; color: var(--dir-text-muted); }
+.dir-today-meta span { display: inline-flex; align-items: center; gap: 5px; }
+.dir-today-change {
+  margin-top: 7px; padding: 7px 10px; border-radius: 8px;
+  background: #fef3c7; color: #92400e; font-size: 13px; font-weight: 600;
+}
+.dir-today-rep { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; font-size: 13.5px; color: var(--dir-text); }
+.dir-today-rep svg { margin-top: 2px; flex-shrink: 0; color: var(--dir-text-muted); }
+.dir-today-rep em { color: var(--dir-text-muted); }
+.dir-today-actions { display: flex; gap: 8px; margin-top: 10px; }
+.dir-today-action { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+
+/* ── Ensemble hub ── */
+.dir-hub-hero {
+  display: flex; align-items: center; gap: 12px;
+  margin: 14px 16px 4px; padding: 14px;
+  background: var(--dir-surface); border: 1.5px solid var(--dir-border);
+  border-left-width: 6px; border-radius: var(--dir-radius);
+}
+.dir-hub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dir-hub-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 16px 8px; border: 1.5px solid var(--dir-border); border-radius: var(--dir-radius);
+  background: var(--dir-surface); color: var(--dir-blue);
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dir-hub-btn:active { background: var(--dir-surface-2); }

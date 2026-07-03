@@ -27,6 +27,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     pieceIds: [],
     status: 'Scheduled',
     notes: '',
+    changeNote: '',
   });
 
   const [form, setForm] = useState<Omit<CalendarEvent, 'id'>>(blank);
@@ -205,6 +206,17 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
               <option value="Completed">Completed</option>
               <option value="Cancelled">Cancelled</option>
             </select>
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Schedule change note</label>
+            <input
+              className="dir-input"
+              value={form.changeNote ?? ''}
+              onChange={e => set('changeNote', e.target.value)}
+              placeholder="e.g. Double block — Ensemble both blocks; moved to Auditorium"
+            />
+            <div className="dir-field-hint">If set, this event shows a CHANGED tag and the public site shows a red schedule-change banner that day.</div>
           </div>
 
           <div className="dir-field">

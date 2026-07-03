@@ -105,3 +105,11 @@ export function pieceDuration(piece: Pick<RepertoirePiece, 'duration' | 'movemen
   const fromMovements = (piece.movements ?? []).reduce((s, m) => s + (m.duration ?? 0), 0);
   return piece.duration ?? fromMovements;
 }
+
+/** "15:00" + 50 → "15:50" (clamped to the same day). */
+export function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return time;
+  const total = Math.min(h * 60 + m + minutes, 23 * 60 + 59);
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}

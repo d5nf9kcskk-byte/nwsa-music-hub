@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, CalendarPlus, MapPin, Clock, Users, Upload, Sparkles, LayoutList, Grid3x3 } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
@@ -17,7 +17,11 @@ import type { CalendarEvent } from '../types';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-export function ScheduleView() {
+export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = '' }: {
+  initialDate?: string;
+  initialEventId?: string;
+  initialEnsembleId?: string;
+} = {}) {
   const { ensembles } = useEnsembles();
   const { events, addEvent, updateEvent, deleteEvent } = useEvents();
   const { students } = useStudents();
@@ -25,12 +29,12 @@ export function ScheduleView() {
   const { overrides } = useRosterOverrides();
 
   const [cursor, setCursor] = useState(() => {
-    const d = parseDate(todayStr());
+    const d = parseDate(initialDate ?? todayStr());
     d.setDate(1);
     return d;
   });
-  const [selectedDate, setSelectedDate] = useState(todayStr);
-  const [filterEnsembleId, setFilterEnsembleId] = useState('');
+  const [selectedDate, setSelectedDate] = useState(initialDate ?? todayStr());
+  const [filterEnsembleId, setFilterEnsembleId] = useState(initialEnsembleId);
   const [calView, setCalView] = useState<'month' | 'list'>('month');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
   const touchStartX = useRef<number | null>(null);
@@ -46,6 +50,14 @@ export function ScheduleView() {
   const [seedError, setSeedError] = useState('');
   const [schoolCalState, setSchoolCalState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
   const [schoolCalError, setSchoolCalError] = useState('');
+  const focusConsumed = useRef(false);
+
+  useEffect(() => {
+    if (initialEventId && !focusConsumed.current && events.length > 0) {
+      const ev = events.find(e => e.id === initialEventId);
+      if (ev) { setEditing(ev); focusConsumed.current = true; }
+    }
+  }, [initialEventId, events]);
 
   async function handleSeed() {
     setSeedState('seeding');
@@ -222,7 +234,9 @@ export function ScheduleView() {
               <span className="dir-event-type">{EVENT_TYPE_ICON[e.type]}</span>
               {eventLabel(e)}
               {e.status !== 'Scheduled' && <span className={`dir-event-status ${e.status}`}>{e.status}</span>}
+              {e.status === 'Scheduled' && e.changeNote && <span className="dir-today-tag changed">Changed</span>}
             </div>
+            {e.changeNote && <div className="dir-today-change">⚠ {e.changeNote}</div>}
             <div className="dir-event-meta">
               {formatTimeRange(e.startTime, e.endTime) && (
                 <span><Clock size={12} /> {formatTimeRange(e.startTime, e.endTime)}</span>
