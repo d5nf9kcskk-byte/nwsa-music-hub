@@ -11,3 +11,88 @@
 
 /* No bottom nav anymore — reclaim the space */
 .pub-app .pub-content { padding-bottom: calc(env(safe-area-inset-bottom) + 16px); }
+
+/* ── Menu: expandable ensembles ── */
+.pub-menu-expand { width: 100%; text-align: left; border: none; background: none; cursor: pointer; font-family: inherit; }
+.pub-menu-subitem { padding-left: 40px; font-size: 14.5px; }
+.pub-menu-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Home hero ── */
+.pub-hero-fancy h1 {
+  font-size: 28px;
+  background: linear-gradient(100deg, var(--pub-accent), var(--pub-purple));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── Schedule-change / cancellation banner ── */
+.pub-alert-banner {
+  background: #fef2f2; border: 1.5px solid #fca5a5; border-left: 6px solid #ef4444;
+  border-radius: var(--pub-radius);
+  padding: 12px 14px; margin-bottom: 14px;
+}
+.pub-alert-banner.changed { background: #fffbeb; border-color: #fcd34d; border-left-color: #f59e0b; }
+.pub-alert-title { font-size: 14px; font-weight: 800; color: #b91c1c; margin-bottom: 6px; }
+.pub-alert-row {
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  padding: 6px 0; font-size: 14px; color: var(--pub-ink); text-decoration: none;
+  border-top: 1px solid #fecaca;
+}
+.pub-alert-row:first-of-type { border-top: none; }
+.pub-alert-row svg { margin-left: auto; color: #b91c1c; flex-shrink: 0; }
+.pub-alert-note { font-size: 13.5px; margin-top: 4px; color: #92400e; font-weight: 600; }
+
+/* ── Prominent Find My Schedule ── */
+.pub-cta-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin: 18px 0 10px; padding: 16px;
+  background: var(--pub-purple); color: #fff;
+  border-radius: var(--pub-radius);
+  font-size: 17px; font-weight: 800; text-decoration: none;
+  box-shadow: 0 2px 8px rgba(123,53,120,0.3);
+}
+.pub-cta-btn:active { opacity: 0.9; }
+
+/* ── Ensemble direct buttons ── */
+.pub-ens-btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pub-ens-btn {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 13px 13px;
+  background: var(--pub-surface); border: 1px solid var(--pub-border);
+  border-left-width: 5px; border-radius: 12px;
+  font-size: 14px; font-weight: 700; color: var(--pub-ink); text-decoration: none;
+}
+.pub-ens-btn.slim { justify-content: flex-start; font-size: 13.5px; padding: 11px 12px; }
+.pub-ens-btn:active { background: var(--pub-accent-soft); }
+
+/* ── Upcoming rows ── */
+.pub-upcoming-time { color: var(--pub-muted); font-weight: 500; font-size: 13px; }
+.pub-upcoming-chev { margin-left: auto; color: var(--pub-muted); flex-shrink: 0; }
+.pub-upcoming-date { width: 88px; }
+
+/* ── Event cards: changed tag + details link ── */
+.pub-changed-tag {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  background: #fef3c7; color: #b45309; padding: 2px 7px; border-radius: 8px;
+}
+.pub-event-change {
+  margin-top: 7px; padding: 7px 10px; border-radius: 8px;
+  background: #fffbeb; color: #92400e; font-size: 13px; font-weight: 600;
+}
+.pub-event-detail-link {
+  display: inline-flex; align-items: center; gap: 3px;
+  margin-top: 9px; font-size: 13px; font-weight: 700;
+  color: var(--pub-accent); text-decoration: none;
+}
+
+/* ── Event detail page ── */
+.pub-back-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-bottom: 10px; font-size: 14px; font-weight: 700;
+  color: var(--pub-accent); text-decoration: none;
+}
+.pub-event-notes { font-size: 14.5px; line-height: 1.6; }
+.pub-note-bullet { padding-left: 6px; }
+
+/* ── Calendar filter chips: wrap instead of sideways scrolling ── */
+.pub-wrap-tabs { flex-wrap: wrap; overflow-x: visible !important; }
