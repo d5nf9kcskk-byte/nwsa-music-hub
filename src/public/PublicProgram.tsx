@@ -5,6 +5,7 @@ import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { parseDate, formatTimeRange, pieceDuration } from '../director/utils';
+import { Linkify } from '../director/components/Linkify';
 
 /**
  * Printable concert program built from the pieces linked to a concert event.
@@ -121,7 +122,7 @@ export function PublicProgram() {
                       {p.title}
                       {p.composer ? <span className="pub-program-note-by"> — {p.composer}</span> : ''}
                     </div>
-                    <p className="pub-program-note-body">{p.programNotes}</p>
+                    <p className="pub-program-note-body"><Linkify text={p.programNotes!} /></p>
                   </div>
                 ))}
               </section>

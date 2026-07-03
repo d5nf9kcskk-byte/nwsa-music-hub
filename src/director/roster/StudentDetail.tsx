@@ -8,6 +8,7 @@ import { useStudentAssignmentResults, useAssignments } from '../hooks/useAssignm
 import { studentExpectation } from '../rosterResolver';
 import { todayStr, ensembleColor, formatDate } from '../utils';
 import type { Student, StudentContact, Ensemble } from '../types';
+import { Linkify } from '../components/Linkify';
 
 interface Props {
   student: Student;
@@ -200,7 +201,7 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
                         <span className="dir-detail-note-cat">{n.category}</span>
                       )}
                     </div>
-                    <div className="dir-detail-note-content">{n.content}</div>
+                    <div className="dir-detail-note-content"><Linkify text={n.content} /></div>
                   </div>
                 ))}
                 {progressNotes.length > 6 && (

@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
 import { parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, findPartForInstrument } from '../../director/utils';
 import { EnsembleLink, EnsembleLinks } from './EnsembleLink';
+import { Linkify } from '../../director/components/Linkify';
 
 interface Props {
   event: CalendarEvent;
@@ -81,7 +82,7 @@ export function PubEventCard({
           {e.location && <span><MapPin size={13} /> {e.location}</span>}
         </div>
 
-        {e.repertoire && <div className="pub-event-rep">{e.repertoire}</div>}
+        {e.repertoire && <div className="pub-event-rep"><Linkify text={e.repertoire} /></div>}
 
         {pieces.length > 0 && (
           <div className="pub-event-pieces">

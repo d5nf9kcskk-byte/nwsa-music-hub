@@ -2,6 +2,7 @@ import { Music, ExternalLink, Clock } from 'lucide-react';
 import { Link } from 'react-router';
 import { parseDate, findPartForInstrument } from '../../director/utils';
 import type { RepertoirePiece, CalendarEvent } from '../../director/types';
+import { Linkify } from '../../director/components/Linkify';
 
 interface Props {
   pieces: RepertoirePiece[];
@@ -41,7 +42,7 @@ export function PubRepertoire({ pieces, eventsById, studentInstrument }: Props) 
                   <span className="pub-rep-chip">{p.movements.length} mvt{p.movements.length !== 1 ? 's' : ''}</span>
                 )}
               </div>
-              {p.notes && <div className="pub-rep-notes">{p.notes}</div>}
+              {p.notes && <div className="pub-rep-notes"><Linkify text={p.notes} /></div>}
               {linkedEvents.length > 0 && (
                 <div className="pub-rep-events">
                   {linkedEvents.map(ev => (
