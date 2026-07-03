@@ -7,9 +7,11 @@ import type { Announcement } from '../types';
 
 interface Props {
   onClose: () => void;
+  /** Render as a full page (menu tab) instead of a bottom-sheet overlay. */
+  asTab?: boolean;
 }
 
-export function AnnouncementManager({ onClose }: Props) {
+export function AnnouncementManager({ onClose, asTab }: Props) {
   const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useAnnouncements();
   const { ensembles } = useEnsembles();
   const [editing, setEditing] = useState<Announcement | 'new' | null>(null);
@@ -28,19 +30,14 @@ export function AnnouncementManager({ onClose }: Props) {
         }}
         onDelete={editing !== 'new' ? async () => deleteAnnouncement(editing.id) : undefined}
         onBack={() => setEditing(null)}
-        onClose={onClose}
+        onClose={asTab ? () => setEditing(null) : onClose}
+        asTab={asTab}
       />
     );
   }
 
-  return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
-        <div className="dir-drawer-handle" />
-        <div className="dir-drawer-header">
-          <span className="dir-drawer-title">Announcements</span>
-          <button className="dir-drawer-close" onClick={onClose}>×</button>
-        </div>
+  const inner = (
+    <>
         <div className="dir-drawer-body">
           {announcements.length === 0 ? (
             <div className="dir-empty-inline">No announcements yet. Post one to show it on the public site.</div>
@@ -70,6 +67,22 @@ export function AnnouncementManager({ onClose }: Props) {
             <Plus size={16} style={{ verticalAlign: '-3px' }} /> New Announcement
           </button>
         </div>
+    </>
+  );
+
+  if (asTab) {
+    return <div className="dir-tab-page">{inner}</div>;
+  }
+
+  return (
+    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="dir-drawer">
+        <div className="dir-drawer-handle" />
+        <div className="dir-drawer-header">
+          <span className="dir-drawer-title">Announcements</span>
+          <button className="dir-drawer-close" onClick={onClose}>×</button>
+        </div>
+        {inner}
       </div>
     </div>
   );
@@ -82,9 +95,10 @@ interface FormProps {
   onDelete?: () => Promise<void>;
   onBack: () => void;
   onClose: () => void;
+  asTab?: boolean;
 }
 
-function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, onClose }: FormProps) {
+function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, onClose, asTab }: FormProps) {
   const [title, setTitle] = useState(announcement?.title ?? '');
   const [body, setBody] = useState(announcement?.body ?? '');
   const [ensembleId, setEnsembleId] = useState<string | null>(announcement?.ensembleId ?? null);
@@ -127,15 +141,8 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
     }
   }
 
-  return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
-        <div className="dir-drawer-handle" />
-        <div className="dir-drawer-header">
-          <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
-          <span className="dir-drawer-title">{announcement ? 'Edit Announcement' : 'New Announcement'}</span>
-          <button className="dir-drawer-close" onClick={onClose}>×</button>
-        </div>
+  const formInner = (
+    <>
         <div className="dir-drawer-body">
           <div className="dir-field">
             <label className="dir-label">Title *</label>
@@ -192,6 +199,33 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
             {saving ? 'Saving…' : 'Post'}
           </button>
         </div>
+    </>
+  );
+
+  if (asTab) {
+    return (
+      <div className="dir-tab-page">
+        <div className="dir-sc-panel-head">
+          <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
+          <div className="dir-sc-student">
+            <div className="dir-sc-student-name">{announcement ? 'Edit Announcement' : 'New Announcement'}</div>
+          </div>
+        </div>
+        {formInner}
+      </div>
+    );
+  }
+
+  return (
+    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="dir-drawer">
+        <div className="dir-drawer-handle" />
+        <div className="dir-drawer-header">
+          <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
+          <span className="dir-drawer-title">{announcement ? 'Edit Announcement' : 'New Announcement'}</span>
+          <button className="dir-drawer-close" onClick={onClose}>×</button>
+        </div>
+        {formInner}
       </div>
     </div>
   );

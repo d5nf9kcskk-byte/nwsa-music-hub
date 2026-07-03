@@ -128,3 +128,176 @@
   background: var(--dir-surface-2); border: 1px solid var(--dir-border);
   border-radius: 10px; font-size: 14px; font-weight: 600; color: var(--dir-text);
 }
+
+/* ════════ Missing-class sweep: every class below was used in components but
+   never styled, which is why "old gray default buttons" kept appearing. ════════ */
+
+/* Generic row card (ensembles, students, pieces) */
+.dir-ens-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px; margin-bottom: 8px;
+  background: var(--dir-surface);
+  border: 1.5px solid var(--dir-border);
+  border-radius: var(--dir-radius);
+}
+.dir-ens-swatch { width: 14px; height: 34px; border-radius: 5px; flex-shrink: 0; }
+.dir-ens-info { flex: 1; min-width: 0; }
+.dir-ens-name { font-size: 15.5px; font-weight: 700; color: var(--dir-text); }
+.dir-ens-sub { font-size: 12.5px; color: var(--dir-text-muted); margin-top: 2px; }
+button.dir-ens-row { cursor: pointer; text-align: left; width: 100%; }
+button.dir-ens-row:active { background: var(--dir-surface-2); }
+
+/* Small icon-only button (delete, edit affordances) */
+.dir-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; flex-shrink: 0;
+  border: 1.5px solid var(--dir-border); border-radius: 9px;
+  background: var(--dir-surface); color: var(--dir-text-muted);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.dir-icon-btn:active { background: var(--dir-surface-2); }
+
+/* Event-card roster button (calendar day list) — was completely unstyled */
+.dir-event-roster-btn {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%; margin-top: 8px; padding: 9px 12px;
+  border: 1.5px solid var(--dir-border); border-radius: 10px;
+  background: var(--dir-surface-2);
+  font-size: 13.5px; font-weight: 700; color: var(--dir-blue);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.dir-event-roster-btn:active { background: var(--dir-border); }
+.dir-event-roster-tag {
+  margin-left: auto; font-size: 11.5px; font-weight: 700;
+  color: var(--dir-text-muted); background: var(--dir-surface);
+  border: 1px solid var(--dir-border); border-radius: 20px; padding: 2px 9px;
+}
+.dir-expected { display: inline-flex; align-items: center; gap: 5px; }
+.dir-expected-count { font-weight: 800; }
+.dir-event-tap { cursor: pointer; }
+
+/* Event-roster drawer rows */
+.dir-roster-sub-date { font-size: 12.5px; color: var(--dir-text-muted); margin-top: 2px; }
+.dir-roster-section-title {
+  font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--dir-text-muted); margin: 16px 0 8px;
+}
+.dir-sub-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; margin-bottom: 6px;
+  background: var(--dir-surface); border: 1.5px solid var(--dir-border);
+  border-radius: 10px;
+}
+.dir-sub-info { flex: 1; min-width: 0; }
+.dir-sub-name { font-size: 14.5px; font-weight: 700; color: var(--dir-text); }
+.dir-sub-instr { font-size: 12px; color: var(--dir-text-muted); }
+.dir-sub-badge {
+  font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+  background: #e6f2f3; color: var(--dir-primary);
+  border-radius: 20px; padding: 3px 8px; flex-shrink: 0;
+}
+.dir-pull-btn, .dir-restore-btn {
+  display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+  padding: 7px 12px; border-radius: 9px; border: 1.5px solid var(--dir-border);
+  background: var(--dir-surface); font-size: 12.5px; font-weight: 700;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.dir-pull-btn { color: var(--dir-danger); }
+.dir-restore-btn { color: var(--dir-excused); }
+.dir-pull-btn:active, .dir-restore-btn:active { background: var(--dir-surface-2); }
+.dir-add-sub-list { margin-top: 4px; }
+.dir-candidate { opacity: 0.92; }
+
+/* Attendance tracker */
+.dir-tracker-summary {
+  display: flex; align-items: center; gap: 18px;
+  padding: 14px 16px; margin: 0 16px 14px;
+  background: var(--dir-surface); border: 1.5px solid var(--dir-border);
+  border-radius: var(--dir-radius);
+}
+.dir-tracker-chart { position: relative; flex-shrink: 0; }
+.dir-tracker-chart-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+}
+.dir-tracker-legend { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.dir-tracker-stat { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--dir-text); }
+.dir-tracker-clean { font-size: 12.5px; color: var(--dir-text-muted); margin-top: 4px; }
+.dir-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--dir-text-muted); }
+.dir-dot.absent { background: var(--dir-absent); }
+.dir-dot.late { background: var(--dir-late); }
+.dir-dot.excused { background: var(--dir-excused); }
+.dir-tracker-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 12px; margin-bottom: 7px;
+  background: var(--dir-surface); border: 1.5px solid var(--dir-border);
+  border-radius: var(--dir-radius);
+}
+.dir-tracker-row-info { flex: 1; min-width: 0; }
+.dir-tracker-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Checklists (repertoire event links, multi-ensemble pickers) */
+.dir-checklist { display: flex; flex-direction: column; gap: 4px; }
+.dir-check-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border: 1.5px solid var(--dir-border); border-radius: 10px;
+  background: var(--dir-surface); font-size: 14px; font-weight: 600; color: var(--dir-text);
+  cursor: pointer;
+}
+.dir-check-row input { width: 18px; height: 18px; accent-color: var(--dir-blue); }
+.dir-count-chip {
+  font-size: 11px; font-weight: 800; background: var(--dir-surface-2);
+  border: 1px solid var(--dir-border); border-radius: 20px; padding: 2px 8px;
+  color: var(--dir-text-muted);
+}
+
+/* Ensemble manager: meeting-day picker + color swatches */
+.dir-day-row { display: flex; gap: 6px; }
+.dir-day-btn {
+  flex: 1; min-height: 38px; border-radius: 9px;
+  border: 1.5px solid var(--dir-border); background: var(--dir-surface);
+  font-size: 13px; font-weight: 700; color: var(--dir-text-muted); cursor: pointer;
+}
+.dir-day-btn.active { background: var(--dir-blue); border-color: var(--dir-blue); color: #fff; }
+.dir-swatch-group { display: flex; gap: 8px; flex-wrap: wrap; }
+.dir-swatch {
+  width: 34px; height: 34px; border-radius: 9px; border: 2.5px solid transparent;
+  cursor: pointer; padding: 0;
+}
+.dir-swatch.active { border-color: var(--dir-text); }
+
+/* Misc */
+.dir-field-row { display: flex; gap: 10px; }
+.dir-field-row > .dir-field { flex: 1; }
+.dir-loading { padding: 40px 16px; text-align: center; color: var(--dir-text-muted); font-size: 14px; }
+
+/* Formal toggle (announcement Pin, etc.) — inline, obvious on/off */
+.dir-toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  width: auto; padding: 10px 16px;
+  border: 1.5px solid var(--dir-border); border-radius: 10px;
+  background: var(--dir-surface); font-size: 14px; font-weight: 700;
+  color: var(--dir-text-muted); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dir-toggle.on {
+  background: var(--dir-blue); border-color: var(--dir-blue); color: #fff;
+  box-shadow: 0 1px 4px rgba(123,53,120,0.3);
+}
+
+/* Student sort switch (Last name | Score order) */
+.dir-sort-toggle {
+  display: inline-flex; gap: 3px; padding: 3px;
+  background: var(--dir-surface-2); border: 1.5px solid var(--dir-border);
+  border-radius: 10px;
+}
+.dir-sort-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 11px; border: none; border-radius: 7px; background: none;
+  font-size: 12.5px; font-weight: 700; color: var(--dir-text-muted); cursor: pointer;
+  white-space: nowrap; -webkit-tap-highlight-color: transparent;
+}
+.dir-sort-btn.active { background: var(--dir-blue); color: #fff; }
+
+/* Lesson override card accent */
+.dir-sc-ov.lesson { border-left-color: var(--dir-late); }
