@@ -3,7 +3,7 @@
  * The feeds are static files deployed to dist/feeds/ by the build pipeline.
  */
 export function feedUrl(ensembleId?: string): string {
-  const base = `${window.location.origin}/ggmuze/feeds`;
+  const base = `${window.location.origin}/nwsa-music-hub/feeds`;
   if (ensembleId) {
     const safe = ensembleId.replace(/[^a-z0-9-]/gi, '-');
     return `${base}/ensemble-${safe}.ics`;
