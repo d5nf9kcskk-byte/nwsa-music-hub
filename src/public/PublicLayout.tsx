@@ -1,3 +1,4 @@
+import './uiUpdates.css';
 import { useState } from 'react';
 import { Outlet, NavLink, Link } from 'react-router';
 import { Home, CalendarDays, Users, Music, UserSearch, Menu, X } from 'lucide-react';
@@ -17,7 +18,9 @@ export function PublicLayout() {
     <div className="pub-app">
       <header className="pub-header">
         <Link to="/" className="pub-brand">
-          <img src={`${import.meta.env.BASE_URL}nwsa-mark.png`} alt="NWSA" className="pub-brand-mark" />
+          <span className="pub-logo-chip">
+            <img src={`${import.meta.env.BASE_URL}nwsa-mark.png`} alt="NWSA" className="pub-brand-mark" />
+          </span>
           <span>NWSA Music</span>
         </Link>
         <button
@@ -61,15 +64,6 @@ export function PublicLayout() {
       <main className="pub-content">
         <Outlet />
       </main>
-
-      <nav className="pub-nav">
-        {NAV.map(({ to, label, Icon, end }) => (
-          <NavLink key={to} to={to} end={end} className={({ isActive }) => `pub-nav-btn ${isActive ? 'active' : ''}`}>
-            <Icon size={20} />
-            <span>{label}</span>
-          </NavLink>
-        ))}
-      </nav>
     </div>
   );
 }
