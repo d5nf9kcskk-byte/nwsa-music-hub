@@ -1,14 +1,16 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router';
-import { CalendarDays, Users, UserSearch } from 'lucide-react';
+import { CalendarDays, UserSearch, Megaphone, Music, ChevronRight } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
-import { todayStr, parseDate, ensembleColor } from '../director/utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, addDays } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import type { CalendarEvent } from '../director/types';
+
+const LOOKAHEAD_DAYS = 14;
 
 export function PublicHome() {
   const { ensembles } = useEnsembles();
@@ -20,15 +22,23 @@ export function PublicHome() {
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
 
+  // Today: EVERYTHING, including cancelled/changed — students must see those.
   const todayEvents = events
-    .filter(e => e.date === today && e.status !== 'Cancelled')
+    .filter(e => e.date === today)
     .sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
 
-  const upcoming = events
-    .filter(e => e.date > today && e.status !== 'Cancelled')
-    .slice(0, 5);
+  // Anything unusual today → red banner up top.
+  const alerts = todayEvents.filter(e => e.status === 'Cancelled' || e.changeNote);
 
-  // Home shows school-wide announcements plus anything pinned.
+  // Coming up: whole days only — never cut off in the middle of a day.
+  const horizon = addDays(today, LOOKAHEAD_DAYS);
+  const future = events.filter(e => e.date > today && e.status !== 'Cancelled');
+  const upcomingRehearsals = future.filter(e => e.type === 'Rehearsal' || e.type === 'Sectional')
+    .filter(e => e.date <= horizon)
+    .sort(byDateTime);
+  const upcomingConcerts = future.filter(e => e.type === 'Concert').sort(byDateTime).slice(0, 6);
+  const upcomingEvents = future.filter(e => e.type === 'Event').sort(byDateTime).slice(0, 6);
+
   const homeAnnouncements = useMemo(
     () => visibleAnnouncements(announcements, today, 'all').filter(a => a.ensembleId === null || a.pinned),
     [announcements, today],
@@ -42,12 +52,29 @@ export function PublicHome() {
     return e.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleMap[e.ensembleIds[0]]);
   }
 
+  const orderedEnsembles = [...ensembles].sort((a, b) => a.order - b.order);
+
   return (
     <div className="pub-page">
-      <div className="pub-hero">
+      <div className="pub-hero pub-hero-fancy">
         <div className="pub-hero-date">{parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-        <h1>Today at NWSA</h1>
+        <h1>🎶 Today at NWSA Music</h1>
       </div>
+
+      {/* Schedule alerts: cancellations, double blocks, rotations, moves */}
+      {alerts.length > 0 && (
+        <div className="pub-alert-banner">
+          <div className="pub-alert-title">⚠ Schedule change today</div>
+          {alerts.map(e => (
+            <Link key={e.id} to={`/event/${e.id}`} className="pub-alert-row">
+              <strong>{label(e)}</strong>
+              {e.status === 'Cancelled' ? ' — cancelled' : ''}
+              {e.changeNote ? ` — ${e.changeNote}` : ''}
+              <ChevronRight size={14} />
+            </Link>
+          ))}
+        </div>
+      )}
 
       <PubAnnouncements items={homeAnnouncements} ensembleMap={ensembleMap} />
 
@@ -61,26 +88,83 @@ export function PublicHome() {
         ))
       )}
 
+      {/* Find my schedule — the #1 student action, front and center */}
+      <Link to="/lookup" className="pub-cta-btn">
+        <UserSearch size={22} /> Find My Schedule
+      </Link>
+
       <div className="pub-quick">
-        <Link to="/lookup" className="pub-quick-btn"><UserSearch size={22} /><span>Find my schedule</span></Link>
-        <Link to="/ensembles" className="pub-quick-btn"><Users size={22} /><span>Browse ensembles</span></Link>
         <Link to="/calendar" className="pub-quick-btn"><CalendarDays size={22} /><span>Full calendar</span></Link>
+        <Link to="/announcements" className="pub-quick-btn"><Megaphone size={22} /><span>Announcements</span></Link>
+        <Link to="/repertoire" className="pub-quick-btn"><Music size={22} /><span>Repertoire</span></Link>
       </div>
 
-      {upcoming.length > 0 && (
+      {upcomingRehearsals.length > 0 && (
         <>
-          <h2 className="pub-section-title">Coming up</h2>
-          {upcoming.map(e => (
-            <Link key={e.id} to="/calendar" className="pub-upcoming">
-              <span className="pub-upcoming-date">
-                {parseDate(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </span>
-              <span className="pub-upcoming-dot" style={{ background: color(e) }} />
-              <span className="pub-upcoming-label">{label(e)}</span>
-            </Link>
-          ))}
+          <h2 className="pub-section-title">Coming up — rehearsals</h2>
+          {upcomingRehearsals.map(e => <UpcomingRow key={e.id} e={e} label={label(e)} color={color(e)} />)}
+        </>
+      )}
+
+      {upcomingConcerts.length > 0 && (
+        <>
+          <h2 className="pub-section-title">Coming up — concerts</h2>
+          {upcomingConcerts.map(e => <UpcomingRow key={e.id} e={e} label={label(e)} color={color(e)} />)}
+        </>
+      )}
+
+      {upcomingEvents.length > 0 && (
+        <>
+          <h2 className="pub-section-title">Coming up — events & school dates</h2>
+          {upcomingEvents.map(e => <UpcomingRow key={e.id} e={e} label={label(e)} color={color(e)} />)}
+        </>
+      )}
+
+      {orderedEnsembles.length > 0 && (
+        <>
+          <h2 className="pub-section-title">Our ensembles</h2>
+          <div className="pub-ens-btn-grid">
+            {orderedEnsembles.map(en => (
+              <Link key={en.id} to={`/ensemble/${en.id}`} className="pub-ens-btn" style={{ borderLeftColor: ensembleColor(en) }}>
+                {en.name} <ChevronRight size={15} />
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
+
+      {orderedEnsembles.length > 0 && (
+        <>
+          <h2 className="pub-section-title">Repertoire by ensemble</h2>
+          <div className="pub-ens-btn-grid">
+            {orderedEnsembles.map(en => (
+              <Link key={en.id} to={`/ensemble/${en.id}`} className="pub-ens-btn slim" style={{ borderLeftColor: ensembleColor(en) }}>
+                <Music size={14} /> {en.name}
+              </Link>
+            ))}
+          </div>
         </>
       )}
     </div>
+  );
+}
+
+function byDateTime(a: CalendarEvent, b: CalendarEvent) {
+  return a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99');
+}
+
+function UpcomingRow({ e, label, color }: { e: CalendarEvent; label: string; color: string }) {
+  return (
+    <Link to={`/event/${e.id}`} className="pub-upcoming">
+      <span className="pub-upcoming-date">
+        {parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+      </span>
+      <span className="pub-upcoming-dot" style={{ background: color }} />
+      <span className="pub-upcoming-label">
+        {label}
+        {e.startTime ? <span className="pub-upcoming-time"> · {formatTimeRange(e.startTime, e.endTime)}</span> : null}
+      </span>
+      <ChevronRight size={15} className="pub-upcoming-chev" />
+    </Link>
   );
 }

@@ -75,16 +75,37 @@ export function PublicEnsemble() {
       <PubAnnouncements items={ensAnnouncements} ensembleMap={ensembleMap} showEnsembleTag={false} />
 
       <div className="pub-section-row">
-        <h2 className="pub-section-title">Schedule</h2>
+        <h2 className="pub-section-title">Schedule &amp; concerts</h2>
         <Link to={`/calendar?ensemble=${ensemble.id}`} className="pub-section-link"><CalendarDays size={13} /> Full calendar</Link>
       </div>
       <SubscribeButton ensembleId={ensemble.id} label={`Subscribe · ${ensemble.name}`} />
-      {upcoming.length === 0 ? (
-        <div className="pub-muted">No upcoming events.</div>
-      ) : (
-        upcoming.map(e => (
-          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showDate showNotes ensembleIds={[id]} />
-        ))
+      {upcoming.length === 0 && <div className="pub-muted">No upcoming events.</div>}
+
+      {upcoming.filter(e => e.type === 'Rehearsal' || e.type === 'Sectional').length > 0 && (
+        <>
+          <h2 className="pub-section-title">Rehearsal schedule</h2>
+          {upcoming.filter(e => e.type === 'Rehearsal' || e.type === 'Sectional').map(e => (
+            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showDate showNotes ensembleIds={[id]} />
+          ))}
+        </>
+      )}
+
+      {upcoming.filter(e => e.type === 'Concert').length > 0 && (
+        <>
+          <h2 className="pub-section-title">Concert schedule</h2>
+          {upcoming.filter(e => e.type === 'Concert').map(e => (
+            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showDate showNotes ensembleIds={[id]} />
+          ))}
+        </>
+      )}
+
+      {upcoming.filter(e => e.type === 'Event').length > 0 && (
+        <>
+          <h2 className="pub-section-title">Events</h2>
+          {upcoming.filter(e => e.type === 'Event').map(e => (
+            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showDate showNotes ensembleIds={[id]} />
+          ))}
+        </>
       )}
 
       {ensPieces.length > 0 && (

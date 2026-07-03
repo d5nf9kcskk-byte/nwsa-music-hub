@@ -1,4 +1,4 @@
-import { MapPin, Clock, Music, ExternalLink, ScrollText } from 'lucide-react';
+import { MapPin, Clock, Music, ExternalLink, ScrollText, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
 import { parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, findPartForInstrument } from '../../director/utils';
@@ -19,11 +19,13 @@ interface Props {
   piecesById?: Record<string, RepertoirePiece>;
   /** When set, surfaces the part link matching this instrument on each piece. */
   studentInstrument?: string;
+  /** Show a "Details" link to the event's own page (default true). */
+  detailLink?: boolean;
 }
 
 /** Shared, consistently-styled public event card. Ensemble names link to hubs. */
 export function PubEventCard({
-  event: e, ensembleMap, showDate, isSub, ensembleIds, piecesById, studentInstrument,
+  event: e, ensembleMap, showDate, isSub, ensembleIds, piecesById, studentInstrument, detailLink = true,
 }: Props) {
   const ids = ensembleIds ?? e.ensembleIds;
   const ensembleObjs = ids.map(id => ensembleMap[id]).filter(Boolean) as Ensemble[];
@@ -54,7 +56,10 @@ export function PubEventCard({
               : <span>{e.type}</span>}
           {isSub && <span className="pub-sub-tag">Sub</span>}
           {e.status === 'Cancelled' && <span className="pub-cancelled-tag">Cancelled</span>}
+          {e.status !== 'Cancelled' && e.changeNote && <span className="pub-changed-tag">Changed</span>}
         </div>
+
+        {e.changeNote && <div className="pub-event-change">⚠ {e.changeNote}</div>}
 
         {e.title && ensembleObjs.length > 0 && (
           <div className="pub-tag-row pub-tag-row-sm">
@@ -103,9 +108,11 @@ export function PubEventCard({
           </div>
         )}
 
-        {/* Event `notes` are director-internal (planning / cancellation reasons)
-            and are intentionally NOT rendered publicly. Use Announcements for
-            anything meant for students/parents. */}
+        {detailLink && (
+          <Link to={`/event/${e.id}`} className="pub-event-detail-link">
+            Details <ChevronRight size={13} />
+          </Link>
+        )}
       </div>
     </div>
   );

@@ -139,7 +139,7 @@ export function PublicCalendar() {
       </div>
 
       {ensembles.length > 0 && (
-        <div className="dir-tabs">
+        <div className="dir-tabs pub-wrap-tabs">
           <button className={`dir-tab ${!filterEnsembleId ? 'active' : ''}`} onClick={() => setFilterEnsembleId('')}>All</button>
           {ensembles.map(e => (
             <button key={e.id} className={`dir-tab ${filterEnsembleId === e.id ? 'active' : ''}`} onClick={() => setFilterEnsembleId(e.id)}>
