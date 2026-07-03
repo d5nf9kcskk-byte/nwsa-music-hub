@@ -5,6 +5,7 @@ import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { parseDate, ensembleColor } from '../director/utils';
+import { Linkify } from '../director/components/Linkify';
 
 export function PublicPiece() {
   const { id = '' } = useParams();
@@ -91,7 +92,7 @@ export function PublicPiece() {
           <div className="pub-piece-section-title">
             <BookOpen size={14} style={{ verticalAlign: '-2px', marginRight: 5 }} />Program notes
           </div>
-          {piece.programNotes && <p className="pub-piece-body">{piece.programNotes}</p>}
+          {piece.programNotes && <p className="pub-piece-body"><Linkify text={piece.programNotes} /></p>}
           {piece.programNotesUrl && (
             <a className="pub-piece-link" href={piece.programNotesUrl} target="_blank" rel="noreferrer">
               Read full notes <ExternalLink size={12} />

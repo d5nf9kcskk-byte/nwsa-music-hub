@@ -365,3 +365,6 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   -webkit-tap-highlight-color: transparent;
 }
 .dir-hub-btn:active { background: var(--dir-surface-2); }
+
+/* Auto-detected links inside user text */
+.auto-link { color: var(--dir-primary); font-weight: 600; text-decoration: underline; word-break: break-all; }

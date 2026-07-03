@@ -243,7 +243,18 @@ function RepertoireForm({
     try {
       const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
       if (!apiKey) {
-        throw new Error('Add VITE_ANTHROPIC_API_KEY to .env.local to use AI fill');
+        // No local key (normal in production — a key baked into the public
+        // bundle would be exposed). Queue the piece instead: the
+        // enrich-repertoire GitHub Action fills pending pieces using the
+        // repo's ANTHROPIC_API_KEY secret.
+        await Promise.race([
+          onSave(buildData('pending')),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Save timed out — check your connection')), 15_000)
+          ),
+        ]);
+        onBack();
+        return;
       }
 
       const res = await Promise.race([
@@ -376,7 +387,7 @@ Return ONLY a JSON object (no markdown) with these fields (omit any you are not 
         <div className="dir-drawer-body">
           {aiStatus === 'pending' && (
             <div className="dir-ai-notice pending">
-              <Sparkles size={14} /> Filling metadata with AI…
+              <Sparkles size={14} /> Queued for AI — fills in automatically within a few hours (or run "Enrich Repertoire with AI" in GitHub Actions to do it now).
             </div>
           )}
           {aiStatus === 'enriched' && (
