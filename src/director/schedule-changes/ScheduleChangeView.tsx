@@ -2,11 +2,16 @@ import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Search, Plus, UserPlus, UserMinus, Trash2, CalendarClock, GraduationCap } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
+import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
-import { ensembleColor, parseDate, todayStr, formatTimeRange } from '../utils';
+import { resolveRoster } from '../rosterResolver';
+import { ensembleColor, parseDate, todayStr, formatTimeRange, EVENT_TYPE_ICON } from '../utils';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
 import type { Student, Ensemble, RosterOverride } from '../types';
+
+/** Prefill carried into the change form when arriving via the by-date flow. */
+interface Prefill { ensembleId?: string; date?: string }
 
 /**
  * A dedicated, clear home for changing a student's schedule:
@@ -19,15 +24,32 @@ import type { Student, Ensemble, RosterOverride } from '../types';
 export function ScheduleChangeView({ initialEnsembleId = '' }: { initialEnsembleId?: string }) {
   const { students } = useStudents();
   const { ensembles } = useEnsembles();
+  const { events } = useEvents();
+  const { overrides } = useRosterOverrides();
+  const [mode, setMode] = useState<'student' | 'date'>('student');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [prefill, setPrefill] = useState<Prefill | null>(null);
   const [query, setQuery] = useState('');
   const [ensembleId, setEnsembleId] = useState(initialEnsembleId);
   const [sort, setSort] = useState<StudentSort>('lastName');
+  const [dateSel, setDateSel] = useState(todayStr());
+  const [dateEventId, setDateEventId] = useState<string | null>(null);
+
+  const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
+  const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
 
   const selected = students.find(s => s.id === selectedId) ?? null;
 
   if (selected) {
-    return <StudentPanel student={selected} ensembles={ensembles} onBack={() => setSelectedId(null)} />;
+    return (
+      <StudentPanel
+        student={selected}
+        ensembles={ensembles}
+        prefill={prefill ?? undefined}
+        autoOpenForm={!!prefill}
+        onBack={() => { setSelectedId(null); setPrefill(null); }}
+      />
+    );
   }
 
   const q = query.trim().toLowerCase();
@@ -39,54 +61,141 @@ export function ScheduleChangeView({ initialEnsembleId = '' }: { initialEnsemble
     sort,
   );
 
+  // By-date flow: that day's rehearsals/concerts → tap one → its expected roster.
+  const dayEvents = events
+    .filter(e => e.date === dateSel && e.ensembleIds.length > 0)
+    .sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
+  const dateEvent = dateEventId ? eventsById[dateEventId] : null;
+
   return (
     <div className="dir-tab-page">
       <div className="dir-sc-intro">
-        <CalendarClock size={18} /> Pick a student to change their schedule.
-      </div>
-      <div className="dir-sc-search">
-        <Search size={16} />
-        <input
-          className="dir-sc-search-input"
-          placeholder="Search students…"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-        />
+        <CalendarClock size={18} />
+        {mode === 'student' ? 'Pick a student to change their schedule.' : 'Pick a day, then a rehearsal, then the student.'}
       </div>
 
-      {/* Jump straight to one ensemble's assigned roster */}
-      <div className="dir-tabs">
-        <button className={`dir-tab ${!ensembleId ? 'active' : ''}`} onClick={() => setEnsembleId('')}>All students</button>
-        {ensembles.map(e => (
-          <button
-            key={e.id}
-            className={`dir-tab ${ensembleId === e.id ? 'active' : ''}`}
-            onClick={() => setEnsembleId(id => id === e.id ? '' : e.id)}
-          >
-            {e.name}
-          </button>
-        ))}
-      </div>
-      <div style={{ padding: '2px 16px 8px' }}>
-        <SortToggle value={sort} onChange={setSort} />
+      {/* Direction: start from a student, or start from a date on the schedule */}
+      <div className="dir-mode-toggle" style={{ margin: '6px 16px 8px' }}>
+        <button className={`dir-segment-btn ${mode === 'student' ? 'active' : ''}`} onClick={() => setMode('student')}>By student</button>
+        <button className={`dir-segment-btn ${mode === 'date' ? 'active' : ''}`} onClick={() => setMode('date')}>By date</button>
       </div>
 
-      <div className="dir-drawer-body">
-        {list.length === 0 ? (
-          <div className="dir-empty-inline">No students match.</div>
-        ) : (
-          list.map(s => (
-            <button key={s.id} className="dir-ens-row dir-sc-pick" onClick={() => setSelectedId(s.id)}>
-              <span className="dir-ens-swatch" style={{ background: pickColor(s, ensembles) }} />
-              <div className="dir-ens-info">
-                <div className="dir-ens-name">{s.name}</div>
-                <div className="dir-ens-sub">{s.instrument || '—'}</div>
-              </div>
-              <ChevronRight size={18} style={{ opacity: 0.45, flexShrink: 0 }} />
-            </button>
-          ))
-        )}
-      </div>
+      {mode === 'student' ? (
+        <>
+          <div className="dir-sc-search">
+            <Search size={16} />
+            <input
+              className="dir-sc-search-input"
+              placeholder="Search students…"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
+          </div>
+
+          {/* Jump straight to one ensemble's assigned roster */}
+          <div className="dir-tabs">
+            <button className={`dir-tab ${!ensembleId ? 'active' : ''}`} onClick={() => setEnsembleId('')}>All students</button>
+            {ensembles.map(e => (
+              <button
+                key={e.id}
+                className={`dir-tab ${ensembleId === e.id ? 'active' : ''}`}
+                onClick={() => setEnsembleId(id => id === e.id ? '' : e.id)}
+              >
+                {e.name}
+              </button>
+            ))}
+          </div>
+          <div style={{ padding: '2px 16px 8px' }}>
+            <SortToggle value={sort} onChange={setSort} />
+          </div>
+
+          <div className="dir-drawer-body">
+            {list.length === 0 ? (
+              <div className="dir-empty-inline">No students match.</div>
+            ) : (
+              list.map(s => (
+                <button key={s.id} className="dir-ens-row dir-sc-pick" onClick={() => setSelectedId(s.id)}>
+                  <span className="dir-ens-swatch" style={{ background: pickColor(s, ensembles) }} />
+                  <div className="dir-ens-info">
+                    <div className="dir-ens-name">{s.name}</div>
+                    <div className="dir-ens-sub">{s.instrument || '—'}</div>
+                  </div>
+                  <ChevronRight size={18} style={{ opacity: 0.45, flexShrink: 0 }} />
+                </button>
+              ))
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="dir-drawer-body">
+          <div className="dir-field">
+            <label className="dir-label">Date</label>
+            <input
+              className="dir-input"
+              type="date"
+              value={dateSel}
+              onChange={e => { setDateSel(e.target.value); setDateEventId(null); }}
+            />
+          </div>
+
+          {!dateEvent ? (
+            dayEvents.length === 0 ? (
+              <div className="dir-empty-inline">No rehearsals or concerts on this day.</div>
+            ) : (
+              dayEvents.map(e => (
+                <button key={e.id} className="dir-ens-row dir-sc-pick" onClick={() => setDateEventId(e.id)}>
+                  <span className="dir-ens-swatch" style={{ background: ensembleColor(ensembleMap[e.ensembleIds[0]]) }} />
+                  <div className="dir-ens-info">
+                    <div className="dir-ens-name">
+                      {EVENT_TYPE_ICON[e.type]} {e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(', ') || e.type}
+                    </div>
+                    <div className="dir-ens-sub">
+                      {formatTimeRange(e.startTime, e.endTime) || 'No time set'}{e.location ? ` · ${e.location}` : ''}
+                    </div>
+                  </div>
+                  <ChevronRight size={18} style={{ opacity: 0.45, flexShrink: 0 }} />
+                </button>
+              ))
+            )
+          ) : (
+            <>
+              <button className="dir-drawer-back" onClick={() => setDateEventId(null)} style={{ marginBottom: 8 }}>
+                <ChevronLeft size={18} /> All of {parseDate(dateSel).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </button>
+              {dateEvent.ensembleIds.map(eid => {
+                const roster = sortStudents(
+                  resolveRoster(students, overrides, { ensembleId: eid, date: dateSel, eventsById }).map(r => r.student),
+                  sort,
+                );
+                return (
+                  <div key={eid}>
+                    <div className="dir-form-section-label">
+                      {ensembleMap[eid]?.name ?? 'Ensemble'} — expected roster ({roster.length})
+                    </div>
+                    <div style={{ padding: '0 0 8px' }}>
+                      <SortToggle value={sort} onChange={setSort} />
+                    </div>
+                    {roster.map(s => (
+                      <button
+                        key={s.id}
+                        className="dir-ens-row dir-sc-pick"
+                        onClick={() => { setPrefill({ ensembleId: eid, date: dateSel }); setSelectedId(s.id); }}
+                      >
+                        <span className="dir-ens-swatch" style={{ background: ensembleColor(ensembleMap[eid]) }} />
+                        <div className="dir-ens-info">
+                          <div className="dir-ens-name">{s.name}</div>
+                          <div className="dir-ens-sub">{s.instrument || '—'}</div>
+                        </div>
+                        <ChevronRight size={18} style={{ opacity: 0.45, flexShrink: 0 }} />
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -96,10 +205,16 @@ function pickColor(s: Student, ensembles: Ensemble[]): string {
   return first ? ensembleColor(first) : '#94a3b8';
 }
 
-function StudentPanel({ student, ensembles, onBack }: { student: Student; ensembles: Ensemble[]; onBack: () => void }) {
+function StudentPanel({ student, ensembles, onBack, prefill, autoOpenForm }: {
+  student: Student;
+  ensembles: Ensemble[];
+  onBack: () => void;
+  prefill?: Prefill;
+  autoOpenForm?: boolean;
+}) {
   const { updateStudent } = useStudents();
   const { overrides, addOverride, deleteOverride } = useRosterOverrides();
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(!!autoOpenForm);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -181,6 +296,7 @@ function StudentPanel({ student, ensembles, onBack }: { student: Student; ensemb
         <ChangeForm
           student={student}
           ensembles={ensembles}
+          prefill={prefill}
           onClose={() => setShowForm(false)}
           onSavePermanent={async ensembleId => {
             await updateStudent(student.id, { ensembleIds: Array.from(new Set([...(student.ensembleIds ?? []), ensembleId])) });
@@ -198,7 +314,7 @@ function StudentPanel({ student, ensembles, onBack }: { student: Student; ensemb
 type ChangeKind = 'temporary' | 'lesson' | 'permanent';
 
 function ChangeForm({
-  student, ensembles, onClose, onSavePermanent, onRemovePermanent, onSaveTemporary,
+  student, ensembles, onClose, onSavePermanent, onRemovePermanent, onSaveTemporary, prefill,
 }: {
   student: Student;
   ensembles: Ensemble[];
@@ -206,15 +322,17 @@ function ChangeForm({
   onSavePermanent: (ensembleId: string) => Promise<void>;
   onRemovePermanent: (ensembleId: string) => Promise<void>;
   onSaveTemporary: (data: Omit<RosterOverride, 'id'>) => Promise<void>;
+  prefill?: Prefill;
 }) {
   const memberEnsembles = ensembles.filter(e => student.ensembleIds?.includes(e.id));
   const [kind, setKind] = useState<ChangeKind>('temporary');
-  const [action, setAction] = useState<'add' | 'remove'>('add');
-  const [ensembleId, setEnsembleId] = useState(ensembles[0]?.id ?? '');
-  const [lessonEnsembleId, setLessonEnsembleId] = useState(memberEnsembles[0]?.id ?? ensembles[0]?.id ?? '');
+  // Coming from a roster (by-date flow), pulling out is the likely intent.
+  const [action, setAction] = useState<'add' | 'remove'>(prefill ? 'remove' : 'add');
+  const [ensembleId, setEnsembleId] = useState(prefill?.ensembleId ?? ensembles[0]?.id ?? '');
+  const [lessonEnsembleId, setLessonEnsembleId] = useState(prefill?.ensembleId ?? memberEnsembles[0]?.id ?? ensembles[0]?.id ?? '');
   const [span, setSpan] = useState<'day' | 'range'>('day');
-  const [startDate, setStartDate] = useState(todayStr());
-  const [endDate, setEndDate] = useState(todayStr());
+  const [startDate, setStartDate] = useState(prefill?.date ?? todayStr());
+  const [endDate, setEndDate] = useState(prefill?.date ?? todayStr());
   const [lessonStart, setLessonStart] = useState('15:00');
   const [lessonEnd, setLessonEnd] = useState('15:50');
   const [reason, setReason] = useState('');

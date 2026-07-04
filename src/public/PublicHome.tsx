@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { CalendarDays, UserSearch, Megaphone, Music, ChevronRight } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
@@ -31,13 +31,17 @@ export function PublicHome() {
   const alerts = todayEvents.filter(e => e.status === 'Cancelled' || e.changeNote);
 
   // Coming up: whole days only — never cut off in the middle of a day.
-  const horizon = addDays(today, LOOKAHEAD_DAYS);
+  const [lookaheadDays, setLookaheadDays] = useState(LOOKAHEAD_DAYS);
+  const horizon = addDays(today, lookaheadDays);
   const future = events.filter(e => e.date > today && e.status !== 'Cancelled');
   const upcomingRehearsals = future.filter(e => e.type === 'Rehearsal' || e.type === 'Sectional')
     .filter(e => e.date <= horizon)
     .sort(byDateTime);
-  const upcomingConcerts = future.filter(e => e.type === 'Concert').sort(byDateTime).slice(0, 6);
-  const upcomingEvents = future.filter(e => e.type === 'Event').sort(byDateTime).slice(0, 6);
+  const moreRehearsalsExist = future.some(e =>
+    (e.type === 'Rehearsal' || e.type === 'Sectional') && e.date > horizon);
+  // Concerts/events look far ahead but always end on a day boundary.
+  const upcomingConcerts = capWholeDays(future.filter(e => e.type === 'Concert').sort(byDateTime), 5);
+  const upcomingEvents = capWholeDays(future.filter(e => e.type === 'Event').sort(byDateTime), 6);
 
   const homeAnnouncements = useMemo(
     () => visibleAnnouncements(announcements, today, 'all').filter(a => a.ensembleId === null || a.pinned),
@@ -103,6 +107,11 @@ export function PublicHome() {
         <>
           <h2 className="pub-section-title">Coming up — rehearsals</h2>
           {upcomingRehearsals.map(e => <UpcomingRow key={e.id} e={e} label={label(e)} color={color(e)} />)}
+          {moreRehearsalsExist && (
+            <button className="pub-show-more" onClick={() => setLookaheadDays(d => d + 14)}>
+              Show more days <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
+            </button>
+          )}
         </>
       )}
 
@@ -138,7 +147,7 @@ export function PublicHome() {
           <h2 className="pub-section-title">Repertoire by ensemble</h2>
           <div className="pub-ens-btn-grid">
             {orderedEnsembles.map(en => (
-              <Link key={en.id} to={`/ensemble/${en.id}`} className="pub-ens-btn slim" style={{ borderLeftColor: ensembleColor(en) }}>
+              <Link key={en.id} to={`/ensemble/${en.id}#repertoire`} className="pub-ens-btn slim" style={{ borderLeftColor: ensembleColor(en) }}>
                 <Music size={14} /> {en.name}
               </Link>
             ))}
@@ -151,6 +160,15 @@ export function PublicHome() {
 
 function byDateTime(a: CalendarEvent, b: CalendarEvent) {
   return a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99');
+}
+
+/** Cap a sorted list at ~min items but always finish the last included day. */
+function capWholeDays(list: CalendarEvent[], min: number): CalendarEvent[] {
+  if (list.length <= min) return list;
+  const lastDate = list[min - 1].date;
+  let end = min;
+  while (end < list.length && list[end].date === lastDate) end++;
+  return list.slice(0, end);
 }
 
 function UpcomingRow({ e, label, color }: { e: CalendarEvent; label: string; color: string }) {

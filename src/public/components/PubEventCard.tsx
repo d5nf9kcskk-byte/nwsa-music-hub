@@ -1,5 +1,5 @@
-import { MapPin, Clock, Music, ExternalLink, ScrollText, ChevronRight } from 'lucide-react';
-import { Link } from 'react-router';
+import { MapPin, Clock, Music, ExternalLink, ScrollText, ChevronRight, StickyNote } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
 import { parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, findPartForInstrument } from '../../director/utils';
 import { EnsembleLink, EnsembleLinks } from './EnsembleLink';
@@ -26,11 +26,19 @@ interface Props {
 
 /** Shared, consistently-styled public event card. Ensemble names link to hubs. */
 export function PubEventCard({
-  event: e, ensembleMap, showDate, isSub, ensembleIds, piecesById, studentInstrument, detailLink = true,
+  event: e, ensembleMap, showDate, showNotes, isSub, ensembleIds, piecesById, studentInstrument, detailLink = true,
 }: Props) {
+  const navigate = useNavigate();
   const ids = ensembleIds ?? e.ensembleIds;
   const ensembleObjs = ids.map(id => ensembleMap[id]).filter(Boolean) as Ensemble[];
   const barColor = e.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleObjs[0]);
+
+  // The whole card opens the event page; inner links/buttons keep their own action.
+  function handleCardTap(ev: React.MouseEvent) {
+    if (!detailLink) return;
+    if ((ev.target as HTMLElement).closest('a, button')) return;
+    navigate(`/event/${e.id}`);
+  }
 
   // Pieces linked to this event from either direction: the event's pieceIds
   // (in program order) plus any piece that names this event in its eventIds.
@@ -45,7 +53,10 @@ export function PubEventCard({
   })();
 
   return (
-    <div className={`pub-event ${e.status === 'Cancelled' ? 'cancelled' : ''}`}>
+    <div
+      className={`pub-event ${e.status === 'Cancelled' ? 'cancelled' : ''} ${detailLink ? 'tappable' : ''}`}
+      onClick={handleCardTap}
+    >
       <span className="pub-event-bar" style={{ background: barColor }} />
       <div className="pub-event-body">
         <div className="pub-event-title">
@@ -83,6 +94,12 @@ export function PubEventCard({
         </div>
 
         {e.repertoire && <div className="pub-event-rep"><Linkify text={e.repertoire} /></div>}
+
+        {showNotes && e.notes && (
+          <div className="pub-event-notes-inline">
+            <StickyNote size={12} /> <Linkify text={e.notes} />
+          </div>
+        )}
 
         {pieces.length > 0 && (
           <div className="pub-event-pieces">

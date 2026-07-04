@@ -99,3 +99,26 @@
 
 /* Auto-detected links inside user text */
 .auto-link { color: var(--pub-accent); font-weight: 600; text-decoration: underline; word-break: break-all; }
+
+/* Whole event card is tappable (inner links keep their own action) */
+.pub-event.tappable { cursor: pointer; }
+.pub-event.tappable:active { background: var(--pub-accent-soft); }
+
+/* Inline student-facing notes on event cards */
+.pub-event-notes-inline {
+  display: flex; align-items: flex-start; gap: 6px;
+  margin-top: 7px; padding: 7px 10px; border-radius: 8px;
+  background: var(--pub-accent-soft); color: var(--pub-ink);
+  font-size: 13px; line-height: 1.45;
+}
+.pub-event-notes-inline svg { flex-shrink: 0; margin-top: 2px; color: var(--pub-accent); }
+
+/* Show more days (Coming up) */
+.pub-show-more {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  width: 100%; margin-top: 8px; padding: 11px;
+  background: var(--pub-surface); border: 1px solid var(--pub-border);
+  border-radius: 12px; font-size: 13.5px; font-weight: 700;
+  color: var(--pub-accent); cursor: pointer;
+}
+.pub-show-more:active { background: var(--pub-accent-soft); }

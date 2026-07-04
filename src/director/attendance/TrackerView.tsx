@@ -40,10 +40,13 @@ export function TrackerView() {
 
   const studentMap = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
 
-  // Per-student tallies, ranked by total exceptions (desc).
+  // Per-student tallies, ranked by total exceptions (desc). Legacy whole-
+  // rehearsal 'Lesson' records are NOT exceptions — lessons are partial and
+  // never count against a student's record.
   const perStudent = useMemo(() => {
     const map: Record<string, { Absent: number; Late: number; Excused: number; Lesson: number; total: number }> = {};
     for (const r of filtered) {
+      if (r.status === 'Lesson') continue;
       const e = (map[r.studentId] ??= { Absent: 0, Late: 0, Excused: 0, Lesson: 0, total: 0 });
       e[r.status]++;
       e.total++;
