@@ -62,7 +62,7 @@ export function PublicProgram() {
 
       <div className="pub-program-sheet">
         <header className="pub-program-head">
-          <div className="pub-program-org">Northwestern School of the Arts</div>
+          <div className="pub-program-org">New World School of the Arts</div>
           <h1 className="pub-program-title">{event.title || 'Concert'}</h1>
           {ensembleNames && <div className="pub-program-ensembles">{ensembleNames}</div>}
           <div className="pub-program-when">

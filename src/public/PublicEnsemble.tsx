@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { useParams, Link } from 'react-router';
+import { useMemo, useRef, useEffect } from 'react';
+import { useParams, useLocation, Link } from 'react-router';
 import { ChevronLeft, CalendarDays } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
@@ -33,13 +33,28 @@ export function PublicEnsemble() {
     [students, id],
   );
 
-  const upcoming = useMemo(
-    () => events
+  // Cap per SECTION (after splitting by type) so a far-off concert is never
+  // pushed out of view by a long run of rehearsals.
+  const { upcomingRehearsals, upcomingConcerts, upcomingOther } = useMemo(() => {
+    const mine = events
       .filter(e => e.ensembleIds.includes(id) && e.date >= today)
-      .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99'))
-      .slice(0, 10),
-    [events, id, today],
-  );
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
+    return {
+      upcomingRehearsals: mine.filter(e => e.type === 'Rehearsal' || e.type === 'Sectional').slice(0, 10),
+      upcomingConcerts: mine.filter(e => e.type === 'Concert').slice(0, 6),
+      upcomingOther: mine.filter(e => e.type === 'Event').slice(0, 6),
+    };
+  }, [events, id, today]);
+  const upcomingCount = upcomingRehearsals.length + upcomingConcerts.length + upcomingOther.length;
+
+  // Deep links like /ensemble/:id#repertoire scroll to their section.
+  const { hash } = useLocation();
+  const repertoireRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (hash === '#repertoire' && repertoireRef.current) {
+      repertoireRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [hash, pieces.length]);
 
   const ensAnnouncements = useMemo(
     () => visibleAnnouncements(announcements, today, [id]),
@@ -79,40 +94,40 @@ export function PublicEnsemble() {
         <Link to={`/calendar?ensemble=${ensemble.id}`} className="pub-section-link"><CalendarDays size={13} /> Full calendar</Link>
       </div>
       <SubscribeButton ensembleId={ensemble.id} label={`Subscribe · ${ensemble.name}`} />
-      {upcoming.length === 0 && <div className="pub-muted">No upcoming events.</div>}
+      {upcomingCount === 0 && <div className="pub-muted">No upcoming events.</div>}
 
-      {upcoming.filter(e => e.type === 'Rehearsal' || e.type === 'Sectional').length > 0 && (
+      {upcomingRehearsals.length > 0 && (
         <>
           <h2 className="pub-section-title">Rehearsal schedule</h2>
-          {upcoming.filter(e => e.type === 'Rehearsal' || e.type === 'Sectional').map(e => (
+          {upcomingRehearsals.map(e => (
             <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showDate showNotes ensembleIds={[id]} />
           ))}
         </>
       )}
 
-      {upcoming.filter(e => e.type === 'Concert').length > 0 && (
+      {upcomingConcerts.length > 0 && (
         <>
           <h2 className="pub-section-title">Concert schedule</h2>
-          {upcoming.filter(e => e.type === 'Concert').map(e => (
+          {upcomingConcerts.map(e => (
             <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showDate showNotes ensembleIds={[id]} />
           ))}
         </>
       )}
 
-      {upcoming.filter(e => e.type === 'Event').length > 0 && (
+      {upcomingOther.length > 0 && (
         <>
-          <h2 className="pub-section-title">Events</h2>
-          {upcoming.filter(e => e.type === 'Event').map(e => (
+          <h2 className="pub-section-title">Event schedule</h2>
+          {upcomingOther.map(e => (
             <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showDate showNotes ensembleIds={[id]} />
           ))}
         </>
       )}
 
       {ensPieces.length > 0 && (
-        <>
+        <div ref={repertoireRef} id="repertoire">
           <h2 className="pub-section-title">Repertoire</h2>
           <PubRepertoire pieces={ensPieces} eventsById={eventsById} />
-        </>
+        </div>
       )}
 
       <h2 className="pub-section-title">Roster</h2>

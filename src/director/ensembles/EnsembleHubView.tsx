@@ -24,7 +24,8 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
     [events, ensembleId, today],
   );
   const nextRehearsal = mine.find(e => e.type === 'Rehearsal');
-  const upcomingConcerts = mine.filter(e => e.type === 'Concert').slice(0, 3);
+  // Concerts AND other non-rehearsal happenings (Events, Sectionals) both belong here.
+  const upcomingConcerts = mine.filter(e => e.type !== 'Rehearsal').slice(0, 5);
   const rosterCount = students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(ensembleId)).length;
   const myAnnouncements = announcements.filter(a => a.ensembleId === null || a.ensembleId === ensembleId).length;
 
@@ -73,13 +74,13 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
 
         <div className="dir-form-section-label">Upcoming concerts & events</div>
         {upcomingConcerts.length === 0 ? (
-          <div className="dir-empty-inline">No concerts scheduled yet.</div>
+          <div className="dir-empty-inline">No concerts or events scheduled yet.</div>
         ) : (
           upcomingConcerts.map(c => (
             <button key={c.id} className="dir-ens-row dir-sc-pick" onClick={() => onNavigate('schedule', { date: c.date, eventId: c.id })}>
               <span className="dir-today-icon">{EVENT_TYPE_ICON[c.type]}</span>
               <div className="dir-ens-info">
-                <div className="dir-ens-name">{c.title || 'Concert'}</div>
+                <div className="dir-ens-name">{c.title || c.type}</div>
                 <div className="dir-ens-sub">{fmtDay(c.date)}{c.startTime ? ` · ${formatTimeRange(c.startTime, c.endTime)}` : ''}{c.location ? ` · ${c.location}` : ''}</div>
               </div>
             </button>
