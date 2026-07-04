@@ -5,7 +5,7 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster } from '../rosterResolver';
-import { ensembleColor, parseDate, todayStr, formatTimeRange, EVENT_TYPE_ICON } from '../utils';
+import { ensembleColor, parseDate, todayStr, formatTimeRange, addMinutesToTime, EVENT_TYPE_ICON } from '../utils';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
 import type { Student, Ensemble, RosterOverride } from '../types';
@@ -358,7 +358,8 @@ function ChangeForm({
           startDate,
           endDate: startDate,
           startTime: lessonStart,
-          endTime: lessonEnd < lessonStart ? lessonStart : lessonEnd,
+          // Guard against a zero/negative-length window — nudge to a 30-min minimum.
+          endTime: lessonEnd <= lessonStart ? addMinutesToTime(lessonStart, 30) : lessonEnd,
           kind: 'lesson',
           reason: reason.trim() || undefined,
         });
