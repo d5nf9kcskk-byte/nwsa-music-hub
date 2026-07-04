@@ -1,0 +1,23 @@
+name: Add Ensembles
+
+# One-shot admin task: writes new ensembles (and their weekly rehearsals)
+# into Firestore using the service account. Idempotent — safe to re-run.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install firebase-admin --no-save
+      - name: Add ensembles to Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/add-ensembles.mjs
