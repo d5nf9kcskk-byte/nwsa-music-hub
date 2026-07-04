@@ -49,7 +49,8 @@ export function AttendanceView({ initialEnsembleId }: { initialEnsembleId?: stri
 
   const lessonCount = Object.keys(lessons).length;
   const activeCount = resolved.length;
-  const exceptionCount = Object.keys(recordMap).length;
+  // Legacy whole-rehearsal 'Lesson' records don't count as exceptions.
+  const exceptionCount = Object.values(recordMap).filter(r => r.status !== 'Lesson').length;
   const { label: dateLabel, isToday } = formatDate(date);
   const [toggleError, setToggleError] = useState('');
   const [lessonStudent, setLessonStudent] = useState<Student | null>(null);
