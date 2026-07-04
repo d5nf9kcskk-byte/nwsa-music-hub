@@ -4,6 +4,13 @@ name: Add Ensembles
 # into Firestore using the service account. Idempotent — safe to re-run.
 on:
   workflow_dispatch:
+  # Also runs when these files change on main — the script is idempotent, so
+  # this is a safe self-trigger (lets changes apply without a manual click).
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/add-ensembles.mjs'
+      - '.github/workflows/add-ensembles.yml'
 
 permissions:
   contents: read
