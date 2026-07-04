@@ -61,6 +61,17 @@ export function PublicEvent() {
 
       <PubEventCard event={event} ensembleMap={ensembleMap} piecesById={piecesById} showNotes />
 
+      {(event.attendanceEnsembleIds ?? []).length > 0 && (
+        <div className="pub-card pub-attend-card">
+          <strong>Attendance required:</strong> members of{' '}
+          {(event.attendanceEnsembleIds ?? [])
+            .map(id => ensembleMap[id]?.name)
+            .filter(Boolean)
+            .join(', ')}{' '}
+          must attend this {event.type.toLowerCase()} even though they are not performing.
+        </div>
+      )}
+
       {event.notes && (
         <>
           <h2 className="pub-section-title">Notes & directions</h2>

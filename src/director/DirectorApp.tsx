@@ -24,7 +24,7 @@ const MENU_TABS: { id: DirTab; label: string; Icon: typeof ClipboardList }[] = [
   { id: 'roster',          label: 'Roster',                  Icon: Users          },
   { id: 'schedule',        label: 'Schedule',                Icon: Calendar       },
   { id: 'scheduleChanges', label: 'Student Schedule Change', Icon: CalendarClock  },
-  { id: 'repertoire',      label: 'Music',                   Icon: Music          },
+  { id: 'repertoire',      label: 'Repertoire',              Icon: Music          },
   { id: 'notes',           label: 'Progress Notes',          Icon: FileText       },
   { id: 'assignments',     label: 'Assignments',             Icon: ClipboardCheck },
   { id: 'announcements',   label: 'Announcements',           Icon: Megaphone      },

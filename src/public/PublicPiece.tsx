@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useParams, Link } from 'react-router';
+import { useParams, useNavigate, useLocation, Link } from 'react-router';
 import { ChevronLeft, ExternalLink, Music, Clock, FileText, Video, Headphones, BookOpen } from 'lucide-react';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useEnsembles } from '../director/hooks/useEnsembles';
@@ -9,6 +9,8 @@ import { Linkify } from '../director/components/Linkify';
 
 export function PublicPiece() {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { pieces } = useRepertoire();
   const { ensembles } = useEnsembles();
   const { events } = useEvents();
@@ -33,12 +35,12 @@ export function PublicPiece() {
 
   return (
     <div className="pub-page">
-      <Link
-        to={ensemble ? `/ensemble/${ensemble.id}` : '/ensembles'}
+      <button
         className="pub-back"
+        onClick={() => (location.key !== 'default' ? navigate(-1) : navigate('/repertoire'))}
       >
-        <ChevronLeft size={16} /> {ensemble?.name ?? 'Ensembles'}
-      </Link>
+        <ChevronLeft size={16} /> Back
+      </button>
 
       {/* Hero */}
       <div className="pub-piece-hero" style={{ borderColor: ensemble ? ensembleColor(ensemble) : '#1e3a5f' }}>

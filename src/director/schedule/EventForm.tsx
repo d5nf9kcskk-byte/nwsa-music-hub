@@ -25,6 +25,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     title: '',
     repertoire: '',
     pieceIds: [],
+    attendanceEnsembleIds: [],
     status: 'Scheduled',
     notes: '',
     changeNote: '',
@@ -71,6 +72,13 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
         }
       }
       return next;
+    });
+  }
+
+  function toggleAttendanceEnsemble(id: string) {
+    setForm(f => {
+      const cur = f.attendanceEnsembleIds ?? [];
+      return { ...f, attendanceEnsembleIds: cur.includes(id) ? cur.filter(e => e !== id) : [...cur, id] };
     });
   }
 
@@ -150,6 +158,31 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
               ))}
             </div>
           </div>
+
+          {(form.type === 'Concert' || form.type === 'Event') && (
+            <div className="dir-field">
+              <label className="dir-label">Also required to attend (not performing)</label>
+              <div className="dir-field-hint">
+                Members of these ensembles must be in the audience — it shows on their
+                schedules as “attendance required.”
+              </div>
+              <div className="dir-checkbox-group">
+                {ensembles.filter(e => !form.ensembleIds.includes(e.id)).map(e => (
+                  <label
+                    key={e.id}
+                    className={`dir-checkbox-tag ${(form.attendanceEnsembleIds ?? []).includes(e.id) ? 'checked' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={(form.attendanceEnsembleIds ?? []).includes(e.id)}
+                      onChange={() => toggleAttendanceEnsemble(e.id)}
+                    />
+                    {e.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {(form.type === 'Concert' || form.type === 'Event') && (
             <div className="dir-field">

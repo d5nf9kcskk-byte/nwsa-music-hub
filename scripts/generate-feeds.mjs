@@ -136,12 +136,14 @@ function wrapCalendar(name, description, vevents) {
 
 (async () => {
   try {
-    const [events, ensembles] = await Promise.all([
+    const [events, ensembles, students, overrides] = await Promise.all([
       fetchCollection('events'),
       fetchCollection('ensembles'),
+      fetchCollection('students'),
+      fetchCollection('rosterOverrides'),
     ]);
 
-    console.log(`Fetched ${events.length} events, ${ensembles.length} ensembles`);
+    console.log(`Fetched ${events.length} events, ${ensembles.length} ensembles, ${students.length} students, ${overrides.length} overrides`);
 
     const ensembleMap = Object.fromEntries(ensembles.map(e => [e.id, e]));
 
@@ -161,6 +163,41 @@ function wrapCalendar(name, description, vevents) {
         wrapCalendar(ens.name, `${ens.name} — NWSA Music`, vevents),
       );
     }
+
+    // Per-student feeds: base membership + subs − pulls + attendance requirements.
+    // (Lesson-kind overrides are PARTIAL absences and never remove an event.)
+    const overrideApplies = (o, event) => {
+      if (o.scope === 'event') return o.eventId === event.id;
+      if (o.startDate && event.date < o.startDate) return false;
+      if (o.endDate && event.date > o.endDate) return false;
+      return true;
+    };
+    const expectedForStudent = (stu, event) => {
+      const memberIds = stu.ensembleIds ?? [];
+      for (const ensId of event.ensembleIds ?? []) {
+        const isMember = memberIds.includes(ensId);
+        const mine = overrides.filter(o =>
+          o.studentId === stu.id && o.ensembleId === ensId && o.kind !== 'lesson' && overrideApplies(o, event));
+        const pulled = mine.some(o => o.action === 'remove');
+        const added = mine.some(o => o.action === 'add');
+        if ((isMember && !pulled) || added) return true;
+      }
+      // Audience requirement: member of an attendance-required ensemble.
+      return (event.attendanceEnsembleIds ?? []).some(ensId => memberIds.includes(ensId));
+    };
+    let studentFeeds = 0;
+    for (const stu of students) {
+      if (stu.status === 'Graduated' || stu.status === 'Inactive') continue;
+      const mine = events.filter(e => expectedForStudent(stu, e));
+      const vevents = mine.map(e => buildVEVENT(e, ensembleMap));
+      const safeId = stu.id.replace(/[^a-z0-9-]/gi, '-');
+      writeFileSync(
+        `dist/feeds/student-${safeId}.ics`,
+        wrapCalendar(`${stu.name} — NWSA Music`, `Personal schedule for ${stu.name}`, vevents),
+      );
+      studentFeeds++;
+    }
+    console.log(`Generated ${studentFeeds} per-student feeds`);
 
     // Index file listing all feeds (handy for debugging)
     const index = {
