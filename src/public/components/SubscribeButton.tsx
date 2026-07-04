@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { CalendarPlus, Copy, Check } from 'lucide-react';
-import { feedUrl, webcalUrl } from '../feedUrl';
+import { feedUrl, studentFeedUrl, webcalUrl } from '../feedUrl';
 
 interface Props {
   ensembleId?: string;
+  /** Subscribe to one student's personal feed instead of an ensemble/all feed. */
+  studentId?: string;
   label?: string;
 }
 
@@ -12,11 +14,11 @@ interface Props {
  * On iOS/macOS tapping "Subscribe" opens the system calendar with the webcal://
  * URL pre-filled. On other platforms, it shows the HTTPS URL to copy/paste.
  */
-export function SubscribeButton({ ensembleId, label }: Props) {
+export function SubscribeButton({ ensembleId, studentId, label }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const https = feedUrl(ensembleId);
+  const https = studentId ? studentFeedUrl(studentId) : feedUrl(ensembleId);
   const webcal = webcalUrl(https);
   const displayLabel = label ?? (ensembleId ? 'Subscribe to this calendar' : 'Subscribe to all events');
 

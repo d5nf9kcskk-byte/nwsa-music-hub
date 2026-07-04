@@ -369,3 +369,11 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 
 /* Auto-detected links inside user text */
 .auto-link { color: var(--dir-primary); font-weight: 600; text-decoration: underline; word-break: break-all; }
+
+/* Ensemble filter chips WRAP as plain buttons — no more horizontal swipe strip
+   (it also caught vertical scroll gestures and felt broken). App-wide. */
+.dir-tabs {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+.dir-tab { flex-shrink: 0; }

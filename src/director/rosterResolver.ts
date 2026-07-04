@@ -74,7 +74,7 @@ export function studentExpectation(
   students: Student[],
   overrides: RosterOverride[],
   eventsById: Record<string, CalendarEvent>,
-): { expected: boolean; ensembleIds: string[]; isSub: boolean } {
+): { expected: boolean; ensembleIds: string[]; isSub: boolean; attendanceOnly: boolean } {
   const ensembleIds: string[] = [];
   let isSub = false;
   for (const ensId of event.ensembleIds) {
@@ -85,7 +85,15 @@ export function studentExpectation(
       if (hit.isSub) isSub = true;
     }
   }
-  return { expected: ensembleIds.length > 0, ensembleIds, isSub };
+  if (ensembleIds.length > 0) return { expected: true, ensembleIds, isSub, attendanceOnly: false };
+
+  // Not performing — but membership in an attendance-required ensemble still
+  // puts the event on this student's schedule (audience requirement).
+  const student = students.find(st => st.id === studentId);
+  const attends = (event.attendanceEnsembleIds ?? []).filter(ensId => student?.ensembleIds?.includes(ensId));
+  if (attends.length > 0) return { expected: true, ensembleIds: attends, isSub: false, attendanceOnly: true };
+
+  return { expected: false, ensembleIds: [], isSub: false, attendanceOnly: false };
 }
 
 /** Counts of subs added and players pulled for an event — for compact summaries. */
