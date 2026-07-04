@@ -14,6 +14,9 @@ export const seedEnsembles: Ensemble[] = [
   { id: 'camerata-string-orchestra', name: 'Camerata String Orchestra', order: 3 },
   { id: 'jazz-ensemble',             name: 'Jazz Ensemble',             order: 4 },
   { id: 'chamber-winds',             name: 'Chamber Winds',             order: 5 },
+  { id: 'college-chamber-orchestra', name: 'College Chamber Orchestra', order: 6, defaultStartTime: '14:30', defaultEndTime: '15:45', meetingDays: [4] },
+  { id: 'high-school-choir',         name: 'High School Choir',         order: 7 },
+  { id: 'opera-orchestra',           name: 'Opera Orchestra',           order: 8 },
 ];
 
 export const seedStudents: Student[] = [
