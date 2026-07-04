@@ -9,6 +9,7 @@ const ENS = {
   camerata:  'camerata-string-orchestra',
   jazz:      'jazz-ensemble',
   chamber:   'chamber-winds',
+  collegeChamber: 'college-chamber-orchestra',
 } as const;
 
 // MDCPS 2026-2027: every weekday on which students do NOT attend school.
@@ -141,6 +142,9 @@ function slotsForDay(dow: number /* UTC getUTCDay(): 0=Sun … 6=Sat */): Slot[]
   // Period 7/8 (2:30–3:45)
   if (dow === 2) {
     s.push({ ensId: ENS.wind, start: '14:30', end: '15:45', room: 'Room 4302' });
+  }
+  if (dow === 4) {
+    s.push({ ensId: ENS.collegeChamber, start: '14:30', end: '15:45', room: '' });
   }
   if (dow === 3 || dow === 5) {
     s.push({ ensId: ENS.orchestra, start: '14:30', end: '15:45', room: 'Room 4302' });

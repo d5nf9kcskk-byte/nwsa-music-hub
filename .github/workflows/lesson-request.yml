@@ -1,0 +1,44 @@
+name: Apply Lesson Request
+
+# Receiving end of the Microsoft Forms → Power Automate lesson-request
+# pipeline. Power Automate (after the director taps Approve in Teams) makes an
+# HTTP POST to:
+#   https://api.github.com/repos/<owner>/<repo>/dispatches
+#   body: { "event_type": "lesson-request", "client_payload": { student, ensemble, date, start, end, teacher } }
+# and this workflow writes the lesson pull-out into Firestore.
+#
+# workflow_dispatch inputs allow manual testing from the Actions tab.
+on:
+  repository_dispatch:
+    types: [lesson-request]
+  workflow_dispatch:
+    inputs:
+      student:  { description: 'Student name or id', required: true }
+      ensemble: { description: 'Ensemble name or id', required: true }
+      date:     { description: 'Lesson date (YYYY-MM-DD)', required: true }
+      start:    { description: 'Start (HH:MM 24h)', required: true }
+      end:      { description: 'End (HH:MM 24h)', required: true }
+      teacher:  { description: 'Applied teacher name', required: false }
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install firebase-admin --no-save
+      - name: Write lesson override to Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          LESSON_STUDENT:  ${{ github.event.client_payload.student  || inputs.student }}
+          LESSON_ENSEMBLE: ${{ github.event.client_payload.ensemble || inputs.ensemble }}
+          LESSON_DATE:     ${{ github.event.client_payload.date     || inputs.date }}
+          LESSON_START:    ${{ github.event.client_payload.start    || inputs.start }}
+          LESSON_END:      ${{ github.event.client_payload.end      || inputs.end }}
+          LESSON_TEACHER:  ${{ github.event.client_payload.teacher  || inputs.teacher }}
+        run: node scripts/apply-lesson-request.mjs
