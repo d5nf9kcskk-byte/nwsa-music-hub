@@ -101,7 +101,8 @@ export function AttendanceView({ initialEnsembleId }: { initialEnsembleId?: stri
         startDate: date,
         endDate: date,
         startTime: start,
-        endTime: end < start ? start : end,
+        // Guard against a zero/negative-length window — nudge to a 30-min minimum.
+        endTime: end <= start ? addMinutesToTime(start, 30) : end,
         kind: 'lesson',
         reason: note.trim() || undefined,
       });

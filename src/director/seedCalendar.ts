@@ -46,8 +46,20 @@ const NO_SCHOOL = new Set([
   '2027-05-31',
 ]);
 
+/**
+ * MDCPS (K-12) and Miami Dade College run separate academic calendars — NWSA
+ * serves both middle/high schoolers and dual-enrolled college students, so a
+ * date can be "off" for one and a normal day for the other. Whenever an MDC
+ * marker lands on a day MDCPS is in normal session (i.e. NOT in the no-school
+ * set above), attach an explanatory note so a family checking one calendar
+ * isn't misled about the other.
+ */
+function mdcNote(date: string): string | undefined {
+  return NO_SCHOOL.has(date) ? undefined : 'MDCPS schools are in regular session this day — this date affects Miami Dade College only.';
+}
+
 // School-wide calendar markers (MDCPS academic milestones + MDC key dates).
-const MARKERS: { id: string; date: string; title: string; type: EventType }[] = [
+const MARKERS: { id: string; date: string; title: string; type: EventType; notes?: string }[] = [
   // MDCPS — teacher planning days before school opens
   { id: 'mdcps-plan-0810',          date: '2026-08-10', title: 'MDCPS: Teacher Planning Day — No School', type: 'Event' },
   { id: 'mdcps-plan-0811',          date: '2026-08-11', title: 'MDCPS: Teacher Planning Day — No School', type: 'Event' },
@@ -94,12 +106,12 @@ const MARKERS: { id: string; date: string; title: string; type: EventType }[] = 
   { id: 'mdcps-memorial-day',       date: '2027-05-31', title: 'MDCPS: Memorial Day — No School',         type: 'Event' },
   { id: 'mdcps-last-day',           date: '2027-06-03', title: 'MDCPS: Last Day of School',               type: 'Event' },
   // MDC academic calendar (Fall 2026 + Spring 2027)
-  { id: 'mdc-fall-start',           date: '2026-08-24', title: 'MDC: Fall 2026 Classes Begin',     type: 'Event' },
-  { id: 'mdc-fall-finals',          date: '2026-12-11', title: 'MDC: Fall 2026 Finals / Last Day', type: 'Event' },
-  { id: 'mdc-winter-break',         date: '2026-12-21', title: 'MDC: Winter Break Begins',         type: 'Event' },
-  { id: 'mdc-spring-start',         date: '2027-01-04', title: 'MDC: Spring 2027 Classes Begin',   type: 'Event' },
-  { id: 'mdc-spring-break-start',   date: '2027-03-22', title: 'MDC: Spring Break Begins',         type: 'Event' },
-  { id: 'mdc-spring-break-end',     date: '2027-03-29', title: 'MDC: Spring Break Ends',           type: 'Event' },
+  { id: 'mdc-fall-start',           date: '2026-08-24', title: 'MDC: Fall 2026 Classes Begin',     type: 'Event', notes: mdcNote('2026-08-24') },
+  { id: 'mdc-fall-finals',          date: '2026-12-11', title: 'MDC: Fall 2026 Finals / Last Day', type: 'Event', notes: mdcNote('2026-12-11') },
+  { id: 'mdc-winter-break',         date: '2026-12-21', title: 'MDC: Winter Break Begins',         type: 'Event', notes: mdcNote('2026-12-21') },
+  { id: 'mdc-spring-start',         date: '2027-01-04', title: 'MDC: Spring 2027 Classes Begin',   type: 'Event', notes: mdcNote('2027-01-04') },
+  { id: 'mdc-spring-break-start',   date: '2027-03-22', title: 'MDC: Spring Break Begins',         type: 'Event', notes: mdcNote('2027-03-22') },
+  { id: 'mdc-spring-break-end',     date: '2027-03-29', title: 'MDC: Spring Break Ends',           type: 'Event', notes: mdcNote('2027-03-29') },
 ];
 
 // NWSA 2025-2026 schedule pattern (same rooms and times apply for 2026-2027).
@@ -144,7 +156,7 @@ export async function seedSchoolCalendar(): Promise<number> {
   const CHUNK = 499;
   const docs = MARKERS.map(m => ({
     id: `cal-${m.id}`,
-    data: { type: m.type as EventType, ensembleIds: [] as string[], date: m.date, title: m.title, status: 'Scheduled' as const },
+    data: { type: m.type as EventType, ensembleIds: [] as string[], date: m.date, title: m.title, status: 'Scheduled' as const, ...(m.notes ? { notes: m.notes } : {}) },
   }));
   for (let i = 0; i < docs.length; i += CHUNK) {
     const batch = writeBatch(db);
@@ -204,7 +216,7 @@ export async function seedCalendar(): Promise<{ rehearsals: number; markers: num
   for (const m of MARKERS) {
     allDocs.push({
       id: `cal-${m.id}`,
-      data: { type: m.type, ensembleIds: [], date: m.date, title: m.title, status: 'Scheduled' },
+      data: { type: m.type, ensembleIds: [], date: m.date, title: m.title, status: 'Scheduled', ...(m.notes ? { notes: m.notes } : {}) },
     });
   }
 
