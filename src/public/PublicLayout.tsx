@@ -9,7 +9,7 @@ const NAV = [
   { to: '/', label: 'Home', Icon: Home, end: true },
   { to: '/calendar', label: 'Calendar', Icon: CalendarDays, end: false },
   { to: '/announcements', label: 'Announcements', Icon: Megaphone, end: false },
-  { to: '/repertoire', label: 'Music', Icon: Music, end: false },
+  { to: '/repertoire', label: 'Repertoire', Icon: Music, end: false },
   { to: '/lookup', label: 'My Schedule', Icon: UserSearch, end: false },
 ];
 

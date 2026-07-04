@@ -14,6 +14,8 @@ interface Props {
   showNotes?: boolean;
   /** Mark this card as a substitute assignment. */
   isSub?: boolean;
+  /** Student must ATTEND (audience) but is not performing. */
+  attendanceOnly?: boolean;
   /** Restrict the ensembles named in the title (e.g. only the student's). */
   ensembleIds?: string[];
   /** Repertoire lookup so linked pieces can be shown. */
@@ -26,7 +28,7 @@ interface Props {
 
 /** Shared, consistently-styled public event card. Ensemble names link to hubs. */
 export function PubEventCard({
-  event: e, ensembleMap, showDate, showNotes, isSub, ensembleIds, piecesById, studentInstrument, detailLink = true,
+  event: e, ensembleMap, showDate, showNotes, isSub, attendanceOnly, ensembleIds, piecesById, studentInstrument, detailLink = true,
 }: Props) {
   const navigate = useNavigate();
   const ids = ensembleIds ?? e.ensembleIds;
@@ -67,6 +69,7 @@ export function PubEventCard({
               ? <EnsembleLinks ensembles={ensembleObjs} />
               : <span>{e.type}</span>}
           {isSub && <span className="pub-sub-tag">Sub</span>}
+          {attendanceOnly && <span className="pub-attend-tag">Attendance required</span>}
           {e.status === 'Cancelled' && <span className="pub-cancelled-tag">Cancelled</span>}
           {e.status !== 'Cancelled' && e.changeNote && <span className="pub-changed-tag">Changed</span>}
         </div>
