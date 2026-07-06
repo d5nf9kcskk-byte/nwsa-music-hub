@@ -3,7 +3,9 @@ import { ClipboardCheck, Plus } from 'lucide-react';
 import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
-import { formatDate, todayStr } from '../utils';
+import { formatDate, todayStr, studentHasAssignment } from '../utils';
+import { sortStudents, type StudentSort } from '../scoreOrder';
+import { SortToggle } from '../components/SortToggle';
 import { RichTextArea } from '../components/RichTextArea';
 import { FileUpload } from '../components/FileUpload';
 import type { Assignment, AssignmentType, AssignmentResultStatus, Student, Ensemble, Attachment } from '../types';
@@ -22,18 +24,21 @@ const TYPE_COLORS: Record<AssignmentType, string> = {
 interface FormProps {
   assignment: Assignment | null;
   ensembles: Ensemble[];
+  students: Student[];
   onSave: (data: Omit<Assignment, 'id'>) => Promise<void>;
   onDelete?: () => Promise<void>;
   onClose: () => void;
 }
 
-function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: FormProps) {
+function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onClose }: FormProps) {
   const today = todayStr();
   const [title, setTitle] = useState(assignment?.title ?? '');
   const [type, setType] = useState<AssignmentType>(assignment?.type ?? 'Playing Exam');
   const [description, setDescription] = useState(assignment?.description ?? '');
   const [dueDate, setDueDate] = useState(assignment?.dueDate ?? today);
   const [ensembleIds, setEnsembleIds] = useState<string[]>(assignment?.ensembleIds ?? []);
+  const [studentIds, setStudentIds] = useState<string[]>(assignment?.studentIds ?? []);
+  const [studentQuery, setStudentQuery] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>(assignment?.attachments ?? []);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -42,6 +47,12 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
   function toggleEnsemble(id: string) {
     setEnsembleIds(prev => prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]);
   }
+  function toggleStudent(id: string) {
+    setStudentIds(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
+  }
+  const studentMatches = studentQuery.trim()
+    ? students.filter(s => s.status === 'Active' && s.name.toLowerCase().includes(studentQuery.toLowerCase())).slice(0, 8)
+    : [];
 
   async function handleSave() {
     if (!title.trim()) return;
@@ -55,6 +66,7 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
           description: description.trim(),
           dueDate,
           ensembleIds,
+          studentIds: studentIds.length ? studentIds : undefined,
           createdAt: assignment?.createdAt ?? Date.now(),
           attachments,
         }),
@@ -111,6 +123,41 @@ function AssignmentForm({ assignment, ensembles, onSave, onDelete, onClose }: Fo
                 </label>
               ))}
             </div>
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Or specific students <span className="dir-label-hint">optional — for individual assignments</span></label>
+            {studentIds.length > 0 && (
+              <div className="dir-checkbox-group" style={{ marginBottom: 8 }}>
+                {studentIds.map(id => {
+                  const s = students.find(x => x.id === id);
+                  return (
+                    <label key={id} className="dir-checkbox-tag checked" onClick={() => toggleStudent(id)}>
+                      {s?.name ?? id} ✕
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+            <input className="dir-input" value={studentQuery} onChange={e => setStudentQuery(e.target.value)} placeholder="Search a student to add…" />
+            {studentMatches.length > 0 && (
+              <div className="dir-add-sub-list" style={{ marginTop: 6 }}>
+                {studentMatches.map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="dir-ens-row dir-sc-pick"
+                    onClick={() => { toggleStudent(s.id); setStudentQuery(''); }}
+                  >
+                    <div className="dir-ens-info">
+                      <div className="dir-ens-name">{s.name}</div>
+                      <div className="dir-ens-sub">{s.instrument}</div>
+                    </div>
+                    {studentIds.includes(s.id) ? <span className="dir-sub-badge">Added</span> : <Plus size={16} />}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="dir-field">
@@ -184,11 +231,14 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
   const { resultMap, saveResult } = useAssignmentResults(assignment.id);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [gradeError, setGradeError] = useState('');
+  const [sort, setSort] = useState<StudentSort>('scoreOrder');
 
-  const relevant = students.filter(s =>
-    s.status === 'Active' &&
-    assignment.ensembleIds.some(eid => s.ensembleIds?.includes(eid))
-  ).sort((a, b) => a.name.localeCompare(b.name));
+  // Everyone targeted: ensemble members + any specific individuals, ordered so
+  // the director can move down the section (score order) or find a name fast.
+  const relevant = sortStudents(
+    students.filter(s => s.status === 'Active' && studentHasAssignment(assignment, s.id, s.ensembleIds)),
+    sort,
+  );
 
   async function handleStatus(studentId: string, status: AssignmentResultStatus) {
     const existing = resultMap[studentId];
@@ -250,6 +300,9 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
           ))}
         </div>
 
+        <div style={{ padding: '6px 16px 0' }}>
+          <SortToggle value={sort} onChange={setSort} />
+        </div>
         <div className="dir-drawer-body" style={{ gap: 6 }}>
           {relevant.length === 0 ? (
             <div className="dir-empty">
@@ -349,6 +402,7 @@ export function AssignmentsView() {
         <AssignmentForm
           assignment={null}
           ensembles={ensembles}
+          students={students}
           onSave={addAssignment}
           onClose={() => setAddingNew(false)}
         />
@@ -358,6 +412,7 @@ export function AssignmentsView() {
         <AssignmentForm
           assignment={editingAssignment}
           ensembles={ensembles}
+          students={students}
           onSave={data => updateAssignment(editingAssignment.id, data)}
           onDelete={() => deleteAssignment(editingAssignment.id)}
           onClose={() => setEditingId(null)}

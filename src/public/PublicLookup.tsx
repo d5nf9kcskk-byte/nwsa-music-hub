@@ -1,17 +1,27 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { Search } from 'lucide-react';
 import { useStudents } from '../director/hooks/useStudents';
+import { useEnsembles } from '../director/hooks/useEnsembles';
+import { sortStudents, type StudentSort } from '../director/scoreOrder';
 
 export function PublicLookup() {
   const { students } = useStudents();
+  const { ensembles } = useEnsembles();
   const [q, setQ] = useState('');
+  const [ensembleId, setEnsembleId] = useState('');
+  const [sort, setSort] = useState<StudentSort>('lastName');
   const navigate = useNavigate();
 
-  const matches = students
-    .filter(s => s.status === 'Active' && s.name.toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .slice(0, 30);
+  const orderedEns = useMemo(() => [...ensembles].sort((a, b) => a.order - b.order), [ensembles]);
+
+  const matches = useMemo(() => {
+    const base = students
+      .filter(s => s.status === 'Active')
+      .filter(s => !ensembleId || s.ensembleIds?.includes(ensembleId))
+      .filter(s => s.name.toLowerCase().includes(q.toLowerCase()));
+    return sortStudents(base, sort).slice(0, 60);
+  }, [students, ensembleId, q, sort]);
 
   return (
     <div className="pub-page">
@@ -29,9 +39,25 @@ export function PublicLookup() {
         />
       </div>
 
+      {/* Filter by ensemble */}
+      <div className="pub-filter-row">
+        <button className={`pub-filter-btn ${!ensembleId ? 'active' : ''}`} onClick={() => setEnsembleId('')}>All</button>
+        {orderedEns.map(e => (
+          <button key={e.id} className={`pub-filter-btn ${ensembleId === e.id ? 'active' : ''}`} onClick={() => setEnsembleId(id => id === e.id ? '' : e.id)}>
+            {e.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Sort */}
+      <div className="pub-filter-row" style={{ marginTop: -4 }}>
+        <button className={`pub-filter-btn ${sort === 'lastName' ? 'active' : ''}`} onClick={() => setSort('lastName')}>By last name</button>
+        <button className={`pub-filter-btn ${sort === 'scoreOrder' ? 'active' : ''}`} onClick={() => setSort('scoreOrder')}>By score order</button>
+      </div>
+
       <div className="pub-card pub-roster">
         {matches.length === 0 ? (
-          <div className="pub-muted">{q ? 'No matching names.' : 'Start typing to search.'}</div>
+          <div className="pub-muted">{q || ensembleId ? 'No matching names.' : 'Start typing to search.'}</div>
         ) : (
           matches.map(s => (
             <button key={s.id} className="pub-roster-row pub-lookup-row" onClick={() => navigate(`/student/${s.id}`)}>
