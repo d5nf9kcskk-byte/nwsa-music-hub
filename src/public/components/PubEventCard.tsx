@@ -72,7 +72,7 @@ export function PubEventCard({
 
   return (
     <div
-      className={`pub-event pub-ev2 ${cancelled ? 'cancelled' : ''} ${detailLink ? 'tappable' : ''}`}
+      className={`pub-event pub-ev2 ${cancelled ? 'cancelled' : ''} ${detailLink ? 'tappable' : ''} ${isSub ? 'pub-temp' : ''}`}
       onClick={handleCardTap}
     >
       <span className="pub-event-bar" style={{ background: barColor }} />
@@ -84,6 +84,9 @@ export function PubEventCard({
           {attendanceOnly && <span className="pub-attend-tag">Attendance required</span>}
           {cancelled && <span className="pub-cancelled-tag">Cancelled</span>}
           {!cancelled && e.changeNote && <span className="pub-changed-tag">Changed</span>}
+          {!cancelled && !e.changeNote && e.updatedAt && Date.now() - e.updatedAt < 5 * 86400_000 && (
+            <span className="pub-changed-tag" title={e.changeLog ?? 'Recently updated'}>Updated</span>
+          )}
         </div>
 
         {/* Time-first row: big start time, small end time, room pill */}

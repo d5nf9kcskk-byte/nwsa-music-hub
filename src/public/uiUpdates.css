@@ -304,3 +304,16 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
 .pub-az-btn { min-height: 36px; }
 button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); outline-offset: 2px; }
 :root { --pub-gold-text: #7a5c00; } /* darker gold-on-white for WCAG */
+
+/* Temporary-appearance grammar (#33): dashed = not your permanent schedule */
+.pub-event.pub-temp { border-style: dashed; border-width: 2px; }
+
+/* Breadcrumb chips (#7) */
+.pub-crumbs { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+.pub-crumb {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 11px; border: 1.5px solid var(--pub-border); border-left-width: 4px;
+  border-radius: 16px; background: var(--pub-surface);
+  font-size: 12px; font-weight: 800; color: var(--pub-ink); text-decoration: none;
+}
+.pub-crumb.gold { border-left-color: #ca8a04; }
