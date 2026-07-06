@@ -12,6 +12,7 @@ import { db } from '../firebase';
 import { QuickChangeMenu } from './QuickChange';
 import { SubSheet } from './SubSheet';
 import { SeasonChecklist } from './SeasonChecklist';
+import { QrKitView } from '../qr/QrKitView';
 import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster } from '../rosterResolver';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays } from '../utils';
@@ -35,6 +36,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const [snowDay, setSnowDay] = useState(false);
   const [subSheetFor, setSubSheetFor] = useState<CalendarEvent | null>(null);
   const [showChecklist, setShowChecklist] = useState(false);
+  const [showQrKit, setShowQrKit] = useState(false);
   const [ensembleId, setEnsembleId] = useState(() => localStorage.getItem(ENS_PREF_KEY) ?? '');
 
   const today = todayStr();
@@ -229,6 +231,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
           <button className="dir-quick-btn" onClick={() => onNavigate('scheduleChanges')}><Users size={18} /> Schedule change</button>
           <button className="dir-quick-btn" onClick={() => setSnowDay(true)}>❄️ Close a day</button>
           <button className="dir-quick-btn" onClick={() => setShowChecklist(true)}>🍂 Term checklist</button>
+          <button className="dir-quick-btn" onClick={() => setShowQrKit(true)}>📱 QR kit</button>
         </div>
 
         {/* Coming up */}
@@ -294,6 +297,8 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
           onClose={() => setSubSheetFor(null)}
         />
       )}
+
+      {showQrKit && <QrKitView onClose={() => setShowQrKit(false)} />}
 
       {showChecklist && (
         <SeasonChecklist onNavigate={onNavigate} onClose={() => setShowChecklist(false)} />

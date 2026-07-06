@@ -19,6 +19,9 @@ import { PublicRepertoire } from './public/PublicRepertoire';
 import { PublicAssignments } from './public/PublicAssignments';
 import { StartGuide } from './public/StartGuide';
 import { SeasonPage } from './public/SeasonPage';
+import { CampusMap } from './public/CampusMap';
+import { VanityRedirect } from './public/VanityRedirect';
+import { VANITY_SLUGS } from './shared/vanity';
 import DirectorApp from './director/DirectorApp';
 
 const router = createBrowserRouter(
@@ -40,7 +43,10 @@ const router = createBrowserRouter(
         { path: 'assignments', element: <PublicAssignments /> },
         { path: 'start', element: <StartGuide /> },
         { path: 'concerts', element: <SeasonPage /> },
+        { path: 'map', element: <CampusMap /> },
         { path: 'program/:id', element: <PublicProgram /> },
+        // Vanity short links (#5): /so /we /wind /jazz /cam /choir /opera /cco
+        ...VANITY_SLUGS.map(v => ({ path: v.slug, element: <VanityRedirect slug={v.slug} /> })),
       ],
     },
     {

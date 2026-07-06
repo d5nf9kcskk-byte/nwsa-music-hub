@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, Fragment } from 'react';
 import { useParams, Link } from 'react-router';
 import { useMonthSwipe } from './useMonthSwipe';
 import { NowNext } from './components/NowNext';
+import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
 import { PracticeCard } from './components/PracticeCard';
 import { PlannedAbsenceButton } from './components/PlannedAbsence';
 import { ChevronLeft, ChevronRight, ExternalLink, LayoutList, Grid3x3 } from 'lucide-react';
@@ -68,6 +69,8 @@ export function PublicSchedule() {
   }, [student, events, students, overrides, eventsById, id, today]);
 
   const todayItems = mySchedule.filter(x => x.event.date === today);
+  const { nowHM, isPast } = usePastDimming();
+  const todayNowIdx = nowLineIndex(todayItems.map(x => x.event), today, nowHM);
   const upcomingItems = mySchedule.filter(x => x.event.date > today && matchesFilter(x.event, filter));
 
   const myAnnouncements = useMemo(
@@ -193,9 +196,17 @@ export function PublicSchedule() {
       {todayItems.length === 0 ? (
         <div className="pub-card pub-muted">Nothing scheduled for you today.</div>
       ) : (
-        todayItems.map(({ event: e, exp }) => (
-          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showNotes />
-        ))
+        <>
+          {todayItems.map(({ event: e, exp }, i) => (
+            <Fragment key={e.id}>
+              {i === todayNowIdx && <NowLine />}
+              <div className={isPast(e) ? 'pub-past-dim' : undefined}>
+                <PubEventCard event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showNotes />
+              </div>
+            </Fragment>
+          ))}
+          {todayNowIdx === todayItems.length && todayItems.length > 0 && <NowLine />}
+        </>
       )}
 
       <div className="pub-section-row">

@@ -6,24 +6,26 @@ import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
 import { SearchOverlay } from './components/SearchOverlay';
 import { TextSizeControl } from './components/TextSize';
-import { LABELS } from '../shared/labels';
+import { t, useLang } from '../shared/i18n';
+import { LangToggle } from './components/LangToggle';
 import { primaryStudent, onIdentityChange } from '../shared/identity';
 import { useEffect, useReducer } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { ensembleColor } from '../director/utils';
 
 const NAV = [
-  { to: '/', label: 'Home', Icon: Home, end: true },
-  { to: '/calendar', label: 'Calendar', Icon: CalendarDays, end: false },
-  { to: '/concerts', label: LABELS.concerts, Icon: Ticket, end: false },
-  { to: '/announcements', label: 'Announcements', Icon: Megaphone, end: false },
-  { to: '/repertoire', label: 'Repertoire', Icon: Music, end: false },
-  { to: '/assignments', label: 'Assignments', Icon: ClipboardCheck, end: false },
-  { to: '/lookup', label: 'My Schedule', Icon: UserSearch, end: false },
-  { to: '/start', label: LABELS.startHere, Icon: HelpCircle, end: false },
+  { to: '/', label: 'nav.home', Icon: Home, end: true },
+  { to: '/calendar', label: 'nav.calendar', Icon: CalendarDays, end: false },
+  { to: '/concerts', label: 'nav.concerts', Icon: Ticket, end: false },
+  { to: '/announcements', label: 'nav.announcements', Icon: Megaphone, end: false },
+  { to: '/repertoire', label: 'nav.repertoire', Icon: Music, end: false },
+  { to: '/assignments', label: 'nav.assignmentsShort', Icon: ClipboardCheck, end: false },
+  { to: '/lookup', label: 'nav.mySchedule', Icon: UserSearch, end: false },
+  { to: '/start', label: 'nav.startHere', Icon: HelpCircle, end: false },
 ];
 
 export function PublicLayout() {
+  useLang(); // re-render on EN/ES switch (#42)
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
@@ -42,14 +44,15 @@ export function PublicLayout() {
           <span>NWSA Music</span>
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <LangToggle />
           <TextSizeControl />
-          <button className="pub-hamburger" onClick={() => setSearchOpen(true)} aria-label="Search">
+          <button className="pub-hamburger" onClick={() => setSearchOpen(true)} aria-label={t('nav.search')}>
             <Search size={20} />
           </button>
           <button
             className="pub-hamburger"
             onClick={() => setMenuOpen(o => !o)}
-            aria-label="Menu"
+            aria-label={t('nav.menu')}
           >
             {menuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
@@ -61,7 +64,7 @@ export function PublicLayout() {
           <nav className="pub-menu-panel" onClick={e => e.stopPropagation()}>
             <div className="pub-menu-header">
               <span className="pub-menu-title">NWSA Music</span>
-              <button className="pub-menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">
+              <button className="pub-menu-close" onClick={() => setMenuOpen(false)} aria-label={t('nav.closeMenu')}>
                 <X size={20} />
               </button>
             </div>
@@ -69,7 +72,7 @@ export function PublicLayout() {
               <Link to="/lookup" className="pub-menu-item pub-menu-me" onClick={() => setMenuOpen(false)}>
                 <UserCircle size={18} />
                 <span style={{ flex: 1, minWidth: 0 }}>{me.name}</span>
-                <span className="pub-menu-switch">Not you? Switch</span>
+                <span className="pub-menu-switch">{t('nav.notYouSwitch')}</span>
               </Link>
             )}
             {NAV.map(({ to, label, Icon, end }) => (
@@ -81,7 +84,7 @@ export function PublicLayout() {
                   onClick={() => setMenuOpen(false)}
                 >
                   <Icon size={18} />
-                  {label}
+                  {t(label)}
                 </NavLink>
                 {/* Ensembles drop-down lives right after Calendar */}
                 {to === '/calendar' && (
@@ -92,7 +95,7 @@ export function PublicLayout() {
                       aria-expanded={ensemblesOpen}
                     >
                       <Users size={18} />
-                      Ensembles
+                      {t('nav.ensembles')}
                       <ChevronDown size={15} style={{ marginLeft: 'auto', transform: ensemblesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
                     </button>
                     {ensemblesOpen && (
@@ -124,7 +127,7 @@ export function PublicLayout() {
             ))}
             <div className="pub-menu-divider" />
             <Link to="/director" className="pub-menu-item pub-menu-director" onClick={() => setMenuOpen(false)}>
-              Director login
+              {t('nav.directorLogin')}
             </Link>
           </nav>
         </div>
@@ -138,19 +141,19 @@ export function PublicLayout() {
       {/* Thumb-reach bottom bar (#2): the three daily tasks + More */}
       <nav className="pub-tabbar" aria-label="Primary">
         <RRNavLink to="/" end className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}>
-          <Home size={20} /><span>Home</span>
+          <Home size={20} /><span>{t('nav.home')}</span>
         </RRNavLink>
         <RRNavLink to="/calendar" className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}>
-          <CalendarDays size={20} /><span>Calendar</span>
+          <CalendarDays size={20} /><span>{t('nav.calendar')}</span>
         </RRNavLink>
         <RRNavLink
           to={me ? `/student/${me.id}` : '/lookup'}
           className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}
         >
-          <UserSearch size={20} /><span>My Schedule</span>
+          <UserSearch size={20} /><span>{t('nav.mySchedule')}</span>
         </RRNavLink>
         <button className="pub-tabbar-btn" onClick={() => setMenuOpen(true)}>
-          <MoreHorizontal size={20} /><span>More</span>
+          <MoreHorizontal size={20} /><span>{t('nav.more')}</span>
         </button>
       </nav>
 

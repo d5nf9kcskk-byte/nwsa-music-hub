@@ -1,0 +1,43 @@
+/* Campus map page (#15) — pub- prefixed */
+
+.pub-map-img {
+  display: block; width: 100%; max-width: 100%;
+  border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius);
+  margin-bottom: 18px;
+  background: var(--pub-surface);
+}
+
+.pub-map-placeholder {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 18px;
+}
+
+.pub-map-list {
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius);
+  overflow: hidden;
+}
+
+.pub-map-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--pub-border);
+  scroll-margin-top: 72px; /* keep anchored rows clear of the sticky header */
+}
+.pub-map-row:last-child { border-bottom: none; }
+.pub-map-row.highlight {
+  background: var(--pub-accent-soft);
+  box-shadow: inset 3px 0 0 var(--pub-accent);
+}
+
+.pub-map-pin { color: var(--pub-accent); flex-shrink: 0; margin-top: 2px; }
+
+.pub-map-info { min-width: 0; }
+.pub-map-room { font-size: 15px; font-weight: 700; color: var(--pub-ink); }
+.pub-map-label { font-weight: 500; }
+.pub-map-directions {
+  font-size: 13px; color: var(--pub-muted);
+  margin-top: 2px; line-height: 1.4;
+}

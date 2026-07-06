@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, Fragment } from 'react';
 import { useSearchParams, Link } from 'react-router';
 import { ChevronLeft, ChevronRight, LayoutList, Grid3x3 } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
@@ -7,6 +7,7 @@ import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { todayStr, toDateStr, parseDate, ensembleColor } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
+import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
 import { SubscribeButton } from './components/SubscribeButton';
 import type { CalendarEvent } from '../director/types';
 
@@ -110,6 +111,11 @@ export function PublicCalendar() {
 
   const today = todayStr();
   const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const { nowHM, isPast } = usePastDimming();
+  const nowIdx = nowLineIndex(
+    listItems.map(it => (it.kind === 'event' ? { date: it.date, startTime: it.e.startTime } : { date: it.date })),
+    today, nowHM,
+  );
 
   function shiftMonth(n: number) {
     setCursor(c => new Date(c.getFullYear(), c.getMonth() + n, 1));
@@ -210,9 +216,21 @@ export function PublicCalendar() {
           {listItems.length === 0 ? (
             <div className="pub-card pub-muted">Nothing coming up for this filter.</div>
           ) : (
-            listItems.map(item => item.kind === 'event'
-              ? <PubEventCard key={item.e.id} event={item.e} ensembleMap={ensembleMap} piecesById={piecesById} />
-              : <AssignRow key={item.a.id} a={item.a} showDate />)
+            <>
+              {listItems.map((item, i) => (
+                <Fragment key={item.kind === 'event' ? item.e.id : item.a.id}>
+                  {i === nowIdx && <NowLine />}
+                  {item.kind === 'event'
+                    ? (
+                      <div className={isPast(item.e) ? 'pub-past-dim' : undefined}>
+                        <PubEventCard event={item.e} ensembleMap={ensembleMap} piecesById={piecesById} />
+                      </div>
+                    )
+                    : <AssignRow a={item.a} showDate />}
+                </Fragment>
+              ))}
+              {nowIdx === listItems.length && <NowLine />}
+            </>
           )}
         </div>
       ) : (

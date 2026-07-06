@@ -5,6 +5,7 @@ import { parseDate, formatTime, ensembleColor, findPartForInstrument } from '../
 import { EnsembleLink, EnsembleLinks } from './EnsembleLink';
 import { Linkify } from '../../director/components/Linkify';
 import { EventChip } from './EventChip';
+import { LocationText } from './LocationText';
 import { AddToCalendarButton } from './AddToCalendar';
 import './pubEventCard.css';
 
@@ -91,7 +92,7 @@ export function PubEventCard({
             ? <span className="pub-ev2-start">{startLabel}</span>
             : <span className="pub-ev2-start allday">All day</span>}
           {endLabel && <span className="pub-ev2-end">– {endLabel}</span>}
-          {e.location && <span className="pub-ev2-room"><MapPin size={12} /> {e.location}</span>}
+          {e.location && <span className="pub-ev2-room"><MapPin size={12} /> <LocationText room={e.location} /></span>}
         </div>
 
         <div className="pub-event-title pub-ev2-title">
