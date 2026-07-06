@@ -1,9 +1,12 @@
-import { MapPin, Clock, Music, ExternalLink, ScrollText, ChevronRight, StickyNote } from 'lucide-react';
+import { MapPin, Music, ExternalLink, ScrollText, ChevronRight, StickyNote } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
-import { parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, findPartForInstrument } from '../../director/utils';
+import { parseDate, formatTime, ensembleColor, findPartForInstrument } from '../../director/utils';
 import { EnsembleLink, EnsembleLinks } from './EnsembleLink';
 import { Linkify } from '../../director/components/Linkify';
+import { EventChip } from './EventChip';
+import { AddToCalendarButton } from './AddToCalendar';
+import './pubEventCard.css';
 
 interface Props {
   event: CalendarEvent;
@@ -26,7 +29,12 @@ interface Props {
   detailLink?: boolean;
 }
 
-/** Shared, consistently-styled public event card. Ensemble names link to hubs. */
+/**
+ * Shared, consistently-styled public event card. Ensemble names link to hubs.
+ * Time-first (#32): the start time is the biggest thing on the card, with the
+ * room as a pill beside it. Type + ensemble identity live in the EventChip
+ * (#31). Cancellation grammar (#30): struck title, red tag, dimmed time.
+ */
 export function PubEventCard({
   event: e, ensembleMap, showDate, showNotes, isSub, attendanceOnly, ensembleIds, piecesById, studentInstrument, detailLink = true,
 }: Props) {
@@ -34,6 +42,11 @@ export function PubEventCard({
   const ids = ensembleIds ?? e.ensembleIds;
   const ensembleObjs = ids.map(id => ensembleMap[id]).filter(Boolean) as Ensemble[];
   const barColor = e.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleObjs[0]);
+  const cancelled = e.status === 'Cancelled';
+
+  // Time-first: the big number is the start time (fall back to a lone end time).
+  const startLabel = formatTime(e.startTime) || formatTime(e.endTime);
+  const endLabel = e.startTime && e.endTime ? formatTime(e.endTime) : '';
 
   // The whole card opens the event page; inner links/buttons keep their own action.
   function handleCardTap(ev: React.MouseEvent) {
@@ -54,24 +67,39 @@ export function PubEventCard({
     return [...ordered, ...extra];
   })();
 
+  const showAddToCal = !cancelled && Boolean(e.date);
+
   return (
     <div
-      className={`pub-event ${e.status === 'Cancelled' ? 'cancelled' : ''} ${detailLink ? 'tappable' : ''}`}
+      className={`pub-event pub-ev2 ${cancelled ? 'cancelled' : ''} ${detailLink ? 'tappable' : ''}`}
       onClick={handleCardTap}
     >
       <span className="pub-event-bar" style={{ background: barColor }} />
       <div className="pub-event-body">
-        <div className="pub-event-title">
-          {EVENT_TYPE_ICON[e.type]}{' '}
+        {/* Identity row: ensemble+type chip plus status tags */}
+        <div className="pub-ev2-chiprow">
+          <EventChip ensemble={ensembleObjs[0]} type={e.type} />
+          {isSub && <span className="pub-sub-tag">Sub</span>}
+          {attendanceOnly && <span className="pub-attend-tag">Attendance required</span>}
+          {cancelled && <span className="pub-cancelled-tag">Cancelled</span>}
+          {!cancelled && e.changeNote && <span className="pub-changed-tag">Changed</span>}
+        </div>
+
+        {/* Time-first row: big start time, small end time, room pill */}
+        <div className="pub-ev2-timerow">
+          {startLabel
+            ? <span className="pub-ev2-start">{startLabel}</span>
+            : <span className="pub-ev2-start allday">All day</span>}
+          {endLabel && <span className="pub-ev2-end">– {endLabel}</span>}
+          {e.location && <span className="pub-ev2-room"><MapPin size={12} /> {e.location}</span>}
+        </div>
+
+        <div className="pub-event-title pub-ev2-title">
           {e.title
             ? <span>{e.title}</span>
             : ensembleObjs.length > 0
               ? <EnsembleLinks ensembles={ensembleObjs} />
               : <span>{e.type}</span>}
-          {isSub && <span className="pub-sub-tag">Sub</span>}
-          {attendanceOnly && <span className="pub-attend-tag">Attendance required</span>}
-          {e.status === 'Cancelled' && <span className="pub-cancelled-tag">Cancelled</span>}
-          {e.status !== 'Cancelled' && e.changeNote && <span className="pub-changed-tag">Changed</span>}
         </div>
 
         {e.changeNote && <div className="pub-event-change">⚠ {e.changeNote}</div>}
@@ -86,15 +114,11 @@ export function PubEventCard({
           </div>
         )}
 
-        <div className="pub-event-meta">
-          {showDate && (
+        {showDate && (
+          <div className="pub-event-meta">
             <span>{parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-          )}
-          {formatTimeRange(e.startTime, e.endTime) && (
-            <span><Clock size={13} /> {formatTimeRange(e.startTime, e.endTime)}</span>
-          )}
-          {e.location && <span><MapPin size={13} /> {e.location}</span>}
-        </div>
+          </div>
+        )}
 
         {e.repertoire && <div className="pub-event-rep"><Linkify text={e.repertoire} /></div>}
 
@@ -129,10 +153,15 @@ export function PubEventCard({
           </div>
         )}
 
-        {detailLink && (
-          <Link to={`/event/${e.id}`} className="pub-event-detail-link">
-            Details <ChevronRight size={13} />
-          </Link>
+        {(showAddToCal || detailLink) && (
+          <div className="pub-ev2-foot">
+            {showAddToCal && <AddToCalendarButton event={e} ensembleName={ensembleObjs[0]?.name} />}
+            {detailLink && (
+              <Link to={`/event/${e.id}`} className="pub-event-detail-link">
+                Details <ChevronRight size={13} />
+              </Link>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -199,7 +199,6 @@ export interface RepertoirePiece {
   notes?: string;             // director notes (edition, cuts, etc.)
   eventIds?: string[];        // concerts/events this piece is programmed for
   order: number;
-  aiStatus?: 'pending' | 'enriched' | null;
 }
 
 export type AttendanceStatus = 'Absent' | 'Late' | 'Excused' | 'Lesson';
