@@ -1,0 +1,104 @@
+/* ── Concert Hub day sheet (#9) — prominent card on the public event page ── */
+
+.pub-daysheet {
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-left: 5px solid var(--pub-gold);
+  border-radius: var(--pub-radius);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.pub-daysheet-head {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  margin-bottom: 8px;
+}
+
+.pub-daysheet-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.pub-daysheet-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--pub-border);
+}
+
+.pub-daysheet-row:first-child {
+  border-top: 0;
+}
+
+.pub-daysheet-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--pub-muted);
+  flex-shrink: 0;
+}
+
+.pub-daysheet-time {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--pub-ink);
+}
+
+.pub-daysheet-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--pub-ink);
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pub-daysheet-addr {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--pub-muted);
+  margin-top: 2px;
+}
+
+.pub-daysheet-maps {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pub-accent);
+  text-decoration: none;
+}
+
+.pub-daysheet-maps:active {
+  opacity: 0.7;
+}
+
+.pub-daysheet-empty {
+  font-size: 14px;
+  color: var(--pub-muted);
+  padding: 2px 0 4px;
+}
+
+.pub-daysheet-program {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pub-border);
+  width: 100%;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pub-accent);
+  text-decoration: none;
+}

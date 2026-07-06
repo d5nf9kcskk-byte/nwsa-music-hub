@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 import { useParams, Link } from 'react-router';
-import { ChevronLeft, CalendarPlus } from 'lucide-react';
+import { ChevronLeft, CalendarPlus, MapPin, ScrollText } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
-import { parseDate, todayStr } from '../director/utils';
+import { parseDate, todayStr, formatTime } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { linkify } from '../director/components/Linkify';
+import type { CalendarEvent } from '../director/types';
+import './pubDaySheet.css';
 
 /**
  * Dedicated page for one calendar event — rehearsal, concert, school date —
@@ -59,6 +61,8 @@ export function PublicEvent() {
         </div>
       )}
 
+      {event.type === 'Concert' && <ConcertDaySheet event={event} />}
+
       <PubEventCard event={event} ensembleMap={ensembleMap} piecesById={piecesById} showNotes detailLink={false} />
 
       {(event.attendanceEnsembleIds ?? []).length > 0 && (
@@ -84,6 +88,73 @@ export function PublicEvent() {
           <CalendarPlus size={20} /><span>See the full calendar</span>
         </Link>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Concert Hub day sheet (#9) — the four answers every family needs on concert
+ * day (call time, dress, venue, pickup) plus the downbeat, in one card.
+ */
+function ConcertDaySheet({ event }: { event: CalendarEvent }) {
+  const hasDetails = Boolean(event.callTime || event.dress || event.venueAddress || event.pickupTime);
+  const hasProgram = (event.pieceIds ?? []).length > 0;
+
+  return (
+    <div className="pub-daysheet">
+      <div className="pub-daysheet-head">🎼 Concert Day Sheet</div>
+      {hasDetails ? (
+        <div className="pub-daysheet-rows">
+          {event.callTime && (
+            <div className="pub-daysheet-row">
+              <span className="pub-daysheet-label">Call time</span>
+              <span className="pub-daysheet-time">{formatTime(event.callTime)}</span>
+            </div>
+          )}
+          {event.startTime && (
+            <div className="pub-daysheet-row">
+              <span className="pub-daysheet-label">Downbeat</span>
+              <span className="pub-daysheet-time">{formatTime(event.startTime)}</span>
+            </div>
+          )}
+          {event.dress && (
+            <div className="pub-daysheet-row">
+              <span className="pub-daysheet-label">Dress</span>
+              <span className="pub-daysheet-value">{event.dress}</span>
+            </div>
+          )}
+          {event.venueAddress && (
+            <div className="pub-daysheet-row">
+              <span className="pub-daysheet-label">Venue</span>
+              <span className="pub-daysheet-value">
+                {event.location && <span>{event.location}</span>}
+                <span className="pub-daysheet-addr">{event.venueAddress}</span>
+                <a
+                  className="pub-daysheet-maps"
+                  href={`https://maps.google.com/?q=${encodeURIComponent(event.venueAddress)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <MapPin size={13} /> Open in Maps
+                </a>
+              </span>
+            </div>
+          )}
+          {event.pickupTime && (
+            <div className="pub-daysheet-row">
+              <span className="pub-daysheet-label">Pickup</span>
+              <span className="pub-daysheet-time">{formatTime(event.pickupTime)}</span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="pub-daysheet-empty">Details coming — check back soon.</div>
+      )}
+      {hasProgram && (
+        <Link to={`/program/${event.id}`} className="pub-daysheet-program">
+          <ScrollText size={14} /> View the printable program
+        </Link>
+      )}
     </div>
   );
 }
