@@ -5,6 +5,7 @@ import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
+import { useAssignments } from '../director/hooks/useAssignments';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, addDays } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
@@ -16,6 +17,7 @@ export function PublicHome() {
   const { ensembles } = useEnsembles();
   const { events, loading } = useEvents();
   const { announcements } = useAnnouncements();
+  const { assignments } = useAssignments();
   const { pieces } = useRepertoire();
 
   const today = todayStr();
@@ -42,6 +44,10 @@ export function PublicHome() {
   // Concerts/events look far ahead but always end on a day boundary.
   const upcomingConcerts = capWholeDays(future.filter(e => e.type === 'Concert').sort(byDateTime), 5);
   const upcomingEvents = capWholeDays(future.filter(e => e.type === 'Event').sort(byDateTime), 6);
+  const upcomingAssignments = useMemo(
+    () => assignments.filter(a => a.dueDate >= today).sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 5),
+    [assignments, today],
+  );
 
   const homeAnnouncements = useMemo(
     () => visibleAnnouncements(announcements, today, 'all').filter(a => a.ensembleId === null || a.pinned),
@@ -126,6 +132,24 @@ export function PublicHome() {
         <>
           <h2 className="pub-section-title">Coming up — events & school dates</h2>
           {upcomingEvents.map(e => <UpcomingRow key={e.id} e={e} label={label(e)} color={color(e)} />)}
+        </>
+      )}
+
+      {upcomingAssignments.length > 0 && (
+        <>
+          <h2 className="pub-section-title">Coming up — assignments & exams</h2>
+          {upcomingAssignments.map(a => (
+            <Link key={a.id} to="/assignments" className="pub-upcoming">
+              <span className="pub-upcoming-date">
+                {parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </span>
+              <span className="pub-upcoming-dot" style={{ background: '#7c3aed' }} />
+              <span className="pub-upcoming-label">
+                {a.type === 'Playing Exam' ? '🎯 ' : a.type === 'Written Test' ? '📝 ' : ''}{a.title}
+              </span>
+              <ChevronRight size={15} className="pub-upcoming-chev" />
+            </Link>
+          ))}
         </>
       )}
 
