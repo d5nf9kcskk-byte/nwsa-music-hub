@@ -123,6 +123,10 @@ export interface AttendanceRecord {
   status: AttendanceStatus;
   reason?: string;
   notes?: string;
+  /** Minutes late, silently recorded for the Tracker (#25). */
+  minutesLate?: number;
+  /** Follow-up triage (#26): director contacted the family or dismissed it. */
+  followUp?: 'contacted' | 'dismissed';
 }
 
 export interface ProgressNote {

@@ -6,9 +6,13 @@ import { useStudents } from '../hooks/useStudents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useAnnouncements, visibleAnnouncements } from '../hooks/useAnnouncements';
+import { useAllAttendance } from '../hooks/useAttendance';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { QuickChangeMenu } from './QuickChange';
 import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster } from '../rosterResolver';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON } from '../utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays } from '../utils';
 import type { CalendarEvent } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
@@ -18,12 +22,15 @@ const ENS_PREF_KEY = 'dir.today.ensemble';
 /** Director landing page: same shape as the public home, plus editing jumps. */
 export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const { ensembles } = useEnsembles();
-  const { events } = useEvents();
+  const { events, updateEvent } = useEvents();
   const { students } = useStudents();
   const { pieces } = useRepertoire();
   const { overrides } = useRosterOverrides();
-  const { announcements } = useAnnouncements();
+  const { announcements, addAnnouncement } = useAnnouncements();
   const { assignments } = useAssignments();
+  const { records: allAttendance } = useAllAttendance();
+  const [quickChange, setQuickChange] = useState<CalendarEvent | null>(null);
+  const [snowDay, setSnowDay] = useState(false);
   const [ensembleId, setEnsembleId] = useState(() => localStorage.getItem(ENS_PREF_KEY) ?? '');
 
   const today = todayStr();
@@ -77,6 +84,31 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
     [overrides, today, ensembleId]);
 
   const orderedEns = useMemo(() => [...ensembles].sort((a, b) => a.order - b.order), [ensembles]);
+
+  // Follow-up queue (#26): recent unexcused absences nobody has triaged.
+  const followUps = useMemo(() => {
+    const cutoff = addDays(today, -7);
+    return allAttendance
+      .filter(r => r.status === 'Absent' && !r.followUp && r.date < today && r.date >= cutoff)
+      .filter(r => !ensembleId || r.ensembleId === ensembleId)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [allAttendance, today, ensembleId]);
+  const [showFollowUps, setShowFollowUps] = useState(false);
+
+  async function closeSchoolFor(date: string) {
+    const affected = events.filter(e => e.date === date && e.status !== 'Cancelled' && e.ensembleIds.length > 0);
+    for (const e of affected) {
+      await updateEvent(e.id, { status: 'Cancelled', changeNote: 'School closed' });
+    }
+    await addAnnouncement({
+      title: `School closed ${parseDate(date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })} — all rehearsals cancelled`,
+      ensembleId: null,
+      priority: 'urgent',
+      createdAt: Date.now(),
+      expiresOn: addDays(date, 1),
+    });
+    setSnowDay(false);
+  }
   const dateLabel = parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   const upRow = (e: CalendarEvent) => (
@@ -155,6 +187,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
                 ? ev.ensembleIds.reduce((n, id) => n + resolveRoster(students, overrides, { ensembleId: id, eventId: ev.id, eventsById }).length, 0)
                 : null}
               onNavigate={onNavigate}
+              onQuickChange={() => setQuickChange(ev)}
             />
           ))
         )}
@@ -177,11 +210,19 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
           </>
         )}
 
+        {/* Follow-up queue tile (#26) */}
+        {followUps.length > 0 && (
+          <button className="dir-followup-tile" onClick={() => setShowFollowUps(true)}>
+            🔔 {followUps.length} unexcused absence{followUps.length !== 1 ? 's' : ''} this week — review
+          </button>
+        )}
+
         {/* Quick actions */}
         <div className="dir-today-quick">
           <button className="dir-quick-btn" onClick={() => onNavigate('schedule', { date: today })}><CalendarPlus size={18} /> New event</button>
           <button className="dir-quick-btn" onClick={() => onNavigate('announcements')}><Megaphone size={18} /> Post announcement</button>
           <button className="dir-quick-btn" onClick={() => onNavigate('scheduleChanges')}><Users size={18} /> Schedule change</button>
+          <button className="dir-quick-btn" onClick={() => setSnowDay(true)}>❄️ Close a day</button>
         </div>
 
         {/* Coming up */}
@@ -217,18 +258,45 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
           </>
         )}
       </div>
+
+      {quickChange && (
+        <QuickChangeMenu
+          event={quickChange}
+          ensembleNames={quickChange.title || quickChange.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(' + ') || 'Rehearsal'}
+          onApply={data => updateEvent(quickChange.id, data)}
+          onAnnounce={async (title) => {
+            await addAnnouncement({
+              title,
+              ensembleId: quickChange.ensembleIds.length === 1 ? quickChange.ensembleIds[0] : null,
+              priority: 'urgent',
+              createdAt: Date.now(),
+              expiresOn: addDays(today, 1),
+            });
+          }}
+          onClose={() => setQuickChange(null)}
+        />
+      )}
+
+      {snowDay && (
+        <SnowDaySheet onConfirm={closeSchoolFor} onClose={() => setSnowDay(false)} defaultDate={today} />
+      )}
+
+      {showFollowUps && (
+        <FollowUpSheet records={followUps} students={studentsById} ensembleMap={ensembleMap} onClose={() => setShowFollowUps(false)} />
+      )}
     </div>
   );
 }
 
 function TodayCard({
-  event, ensembleMap, piecesById, expected, onNavigate,
+  event, ensembleMap, piecesById, expected, onNavigate, onQuickChange,
 }: {
   event: CalendarEvent;
   ensembleMap: Record<string, { id: string; name: string; order: number; color?: string }>;
   piecesById: Record<string, { id: string; title: string }>;
   expected: number | null;
   onNavigate: DirNavigate;
+  onQuickChange: () => void;
 }) {
   const firstEns = event.ensembleIds.map(id => ensembleMap[id]).find(Boolean);
   const name = event.title
@@ -261,15 +329,123 @@ function TodayCard({
               ? <Linkify text={event.repertoire} />
               : <em>No repertoire chosen yet</em>}
         </div>
+        {/* Roll receipt (#22) */}
+        {isRehearsal && !cancelled && (
+          (() => {
+            const receipts = event.ensembleIds.map(id => ({ id, r: event.rollTaken?.[id] }));
+            const taken = receipts.filter(x => x.r);
+            return taken.length > 0 ? (
+              <div className="dir-roll-receipt done">
+                ✓ Roll taken {new Date(taken[0].r!.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                {' · '}{taken.reduce((n, x) => n + (x.r!.absent ?? 0), 0)} absent
+              </div>
+            ) : (
+              <div className="dir-roll-receipt">Roll not taken yet</div>
+            );
+          })()
+        )}
         <div className="dir-today-actions">
           {isRehearsal && !cancelled && (
             <button className="dir-btn dir-btn-primary dir-today-action" onClick={() => onNavigate('roll', { ensembleId: event.ensembleIds[0] })}>
               <ClipboardList size={15} /> Take Roll
             </button>
           )}
+          {!cancelled && event.ensembleIds.length > 0 && (
+            <button className="dir-btn dir-btn-ghost dir-today-action" onClick={onQuickChange}>
+              ⚡ Quick change
+            </button>
+          )}
           <button className="dir-btn dir-btn-ghost dir-today-action" onClick={() => onNavigate('schedule', { date: event.date, eventId: event.id })}>
             {linkedPieces.length > 0 || event.repertoire ? 'Edit / details' : <><Plus size={14} /> Add repertoire</>}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Snow-day switch (#20): cancel everything on one date, one urgent announcement. */
+function SnowDaySheet({ defaultDate, onConfirm, onClose }: {
+  defaultDate: string; onConfirm: (date: string) => Promise<void>; onClose: () => void;
+}) {
+  const [date, setDate] = useState(defaultDate);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  return (
+    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="dir-drawer">
+        <div className="dir-drawer-handle" />
+        <div className="dir-drawer-header">
+          <span className="dir-drawer-title">❄️ Close school for a day</span>
+          <button className="dir-drawer-close" onClick={onClose}>×</button>
+        </div>
+        <div className="dir-drawer-body">
+          <div className="dir-field-hint" style={{ marginBottom: 10 }}>
+            Cancels EVERY rehearsal, concert, and event on this date and posts one urgent
+            school-wide announcement. Events can be un-cancelled individually afterward.
+          </div>
+          <div className="dir-field">
+            <label className="dir-label">Date</label>
+            <input className="dir-input" type="date" value={date} onChange={e => setDate(e.target.value)} />
+          </div>
+          {err && <div className="dir-sc-error" style={{ margin: '8px 0 0' }}>⚠ {err}</div>}
+        </div>
+        <div className="dir-drawer-footer">
+          <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
+          <button
+            className="dir-btn dir-btn-danger"
+            disabled={busy}
+            onClick={async () => { setBusy(true); setErr(''); try { await onConfirm(date); } catch (e) { setBusy(false); setErr(e instanceof Error ? e.message : 'Failed'); } }}
+          >
+            {busy ? 'Closing…' : 'Close this day'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Follow-up triage (#26): act on recent unexcused absences. */
+function FollowUpSheet({ records, students, ensembleMap, onClose }: {
+  records: { id: string; studentId: string; ensembleId: string; date: string }[];
+  students: Record<string, { name: string } | undefined>;
+  ensembleMap: Record<string, { name: string } | undefined>;
+  onClose: () => void;
+}) {
+  const [busyId, setBusyId] = useState('');
+  async function act(id: string, action: 'excuse' | 'contacted' | 'dismissed') {
+    if (!db) return;
+    setBusyId(id);
+    try {
+      const ref = doc(db, 'attendance', id);
+      if (action === 'excuse') await updateDoc(ref, { status: 'Excused', followUp: 'contacted' });
+      else await updateDoc(ref, { followUp: action });
+    } finally { setBusyId(''); }
+  }
+  return (
+    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="dir-drawer">
+        <div className="dir-drawer-handle" />
+        <div className="dir-drawer-header">
+          <span className="dir-drawer-title">🔔 Unexcused absences — this week</span>
+          <button className="dir-drawer-close" onClick={onClose}>×</button>
+        </div>
+        <div className="dir-drawer-body">
+          {records.length === 0 ? (
+            <div className="dir-empty-inline">All caught up. 🎉</div>
+          ) : records.map(r => (
+            <div key={r.id} className="dir-sub-row" style={{ flexWrap: 'wrap' }}>
+              <div className="dir-sub-info" style={{ minWidth: '55%' }}>
+                <div className="dir-sub-name">{students[r.studentId]?.name ?? 'Student'}</div>
+                <div className="dir-sub-instr">{ensembleMap[r.ensembleId]?.name ?? ''} · {r.date}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="dir-pull-btn" style={{ color: 'var(--dir-excused)' }} disabled={busyId === r.id} onClick={() => act(r.id, 'excuse')}>Excuse</button>
+                <button className="dir-pull-btn" style={{ color: 'var(--dir-blue)' }} disabled={busyId === r.id} onClick={() => act(r.id, 'contacted')}>Contacted</button>
+                <button className="dir-pull-btn" disabled={busyId === r.id} onClick={() => act(r.id, 'dismissed')}>Dismiss</button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

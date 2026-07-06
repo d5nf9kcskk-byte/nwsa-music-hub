@@ -469,3 +469,17 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-history-dot.late { background: var(--dir-late); }
 .dir-history-dot.excused { background: var(--dir-excused); }
 .dir-history-dot.lesson { background: #d97706; }
+
+/* Roll receipts (#22) + follow-up tile (#26) */
+.dir-roll-receipt {
+  display: inline-block; margin-top: 8px; padding: 4px 11px; border-radius: 20px;
+  background: #fdf6e3; border: 1px solid #f0d492;
+  font-size: 12px; font-weight: 800; color: #92600a;
+}
+.dir-roll-receipt.done { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+.dir-followup-tile {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  margin-bottom: 10px; padding: 12px 14px;
+  background: #eff6ff; border: 1.5px solid #bfdbfe; border-left: 6px solid #3b82f6;
+  border-radius: 10px; font-size: 13.5px; font-weight: 700; color: #1d4ed8;
+}
