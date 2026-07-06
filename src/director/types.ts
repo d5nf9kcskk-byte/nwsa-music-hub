@@ -155,7 +155,8 @@ export interface RepertoirePiece {
   arranger?: string;
   catalogNumber?: string;     // e.g. "Op. 67", "BWV 1068", "K. 550"
   year?: string;              // composition year or range e.g. "1804–1808"
-  instrumentation?: string;   // brief forces description
+  instrumentation?: string;   // Daniels' Orchestral Music shorthand (ww — br — perc — kbd/hp — str)
+  percussion?: string;        // specific percussion instruments called for (comma-separated)
   duration?: number;          // typical performance duration in minutes
   movements?: PieceMovement[];
   programNotes?: string;      // text suitable for a concert program

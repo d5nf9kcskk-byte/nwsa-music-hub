@@ -113,3 +113,17 @@ export function addMinutesToTime(time: string, minutes: number): string {
   const total = Math.min(h * 60 + m + minutes, 23 * 60 + 59);
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
+
+/**
+ * Reliable "find it" links built from composer + title. AI models hallucinate
+ * exact IMSLP/YouTube URLs, so instead of storing a guessed deep link we store
+ * a SEARCH url that always resolves to real results the user can pick from.
+ */
+export function imslpSearchUrl(composer: string | undefined, title: string): string {
+  const q = [composer, title].filter(Boolean).join(' ');
+  return `https://imslp.org/index.php?title=Special:Search&search=${encodeURIComponent(q)}&fulltext=Search`;
+}
+export function youtubeSearchUrl(composer: string | undefined, title: string): string {
+  const q = [composer, title].filter(Boolean).join(' ');
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+}

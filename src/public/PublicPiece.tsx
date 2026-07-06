@@ -65,11 +65,16 @@ export function PublicPiece() {
         </div>
       </div>
 
-      {/* Instrumentation */}
-      {piece.instrumentation && (
+      {/* Instrumentation (Daniels format) + percussion detail */}
+      {(piece.instrumentation || piece.percussion) && (
         <div className="pub-card pub-piece-section">
           <div className="pub-piece-section-title">Instrumentation</div>
-          <div className="pub-piece-body">{piece.instrumentation}</div>
+          {piece.instrumentation && <div className="pub-piece-body" style={{ fontFamily: 'ui-monospace, Menlo, monospace' }}>{piece.instrumentation}</div>}
+          {piece.percussion && (
+            <div className="pub-piece-body" style={{ marginTop: 6 }}>
+              <strong>Percussion:</strong> {piece.percussion}
+            </div>
+          )}
         </div>
       )}
 
@@ -136,12 +141,12 @@ export function PublicPiece() {
           <div className="pub-piece-media-row">
             {piece.imslpUrl && (
               <a className="pub-piece-media-btn" href={piece.imslpUrl} target="_blank" rel="noreferrer">
-                <FileText size={14} /> IMSLP
+                <FileText size={14} /> Find on IMSLP
               </a>
             )}
             {piece.videoUrl && (
               <a className="pub-piece-media-btn" href={piece.videoUrl} target="_blank" rel="noreferrer">
-                <Video size={14} /> Video
+                <Video size={14} /> Find recording
               </a>
             )}
             {piece.audioUrl && (

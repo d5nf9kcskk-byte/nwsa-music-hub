@@ -3,7 +3,8 @@ import { Plus, Pencil, Music, Sparkles, Trash2, GripVertical } from 'lucide-reac
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
-import { ensembleColor, parseDate } from '../utils';
+import { ensembleColor, parseDate, imslpSearchUrl, youtubeSearchUrl } from '../utils';
+import { DANIELS_PROMPT } from './danielsPrompt';
 import type { RepertoirePiece, CalendarEvent, Ensemble, PieceMovement, PiecePartLink } from '../types';
 
 interface Props {
@@ -129,6 +130,7 @@ function RepertoireForm({
   const [catalogNumber, setCatalogNumber] = useState(piece?.catalogNumber ?? '');
   const [year, setYear] = useState(piece?.year ?? '');
   const [instrumentation, setInstrumentation] = useState(piece?.instrumentation ?? '');
+  const [percussion, setPercussion] = useState(piece?.percussion ?? '');
   const [duration, setDuration] = useState(piece?.duration?.toString() ?? '');
   const [movements, setMovements] = useState<PieceMovement[]>(piece?.movements ?? []);
   const [programNotes, setProgramNotes] = useState(piece?.programNotes ?? '');
@@ -199,6 +201,7 @@ function RepertoireForm({
       catalogNumber: catalogNumber.trim() || undefined,
       year: year.trim() || undefined,
       instrumentation: instrumentation.trim() || undefined,
+      percussion: percussion.trim() || undefined,
       duration: duration ? Number(duration) : undefined,
       movements: cleanMovements.length ? cleanMovements : undefined,
       programNotes: programNotes.trim() || undefined,
@@ -271,14 +274,19 @@ function RepertoireForm({
               role: 'user',
               content: `Fill music metadata for a conductor's score library. Title: "${title}", Composer: "${composer}"${fullTitle ? `, Full title: "${fullTitle}"` : ''}.
 
-Return ONLY a JSON object (no markdown) with these fields (omit any you are not confident about):
+Return ONLY a JSON object (no markdown) with these fields (omit any you are not confident about, EXCEPT instrumentation and percussion which are required):
 - catalogNumber (string: opus, BWV, K, etc.)
 - composerDates (string: "1756–1791")
+- year (string: composition year or range)
 - duration (number: approximate minutes)
+- instrumentation (string)
+- percussion (string)
 - movements (array of {title, duration?} — only if the piece has distinct named movements)
 - programNotes (string: 2–3 sentences for a concert program audience)
-- imslpUrl (string: full IMSLP URL if you are certain it exists)
-- videoUrl (string: YouTube URL of a well-known professional recording)`,
+
+${DANIELS_PROMPT}
+
+Do NOT return any URLs — links are generated separately.`,
             }],
           }),
         }),
@@ -313,8 +321,14 @@ Return ONLY a JSON object (no markdown) with these fields (omit any you are not 
           .map(m => ({ title: String(m.title ?? ''), duration: m.duration ? Number(m.duration) : undefined })));
       }
       if (ai.programNotes) setProgramNotes(String(ai.programNotes));
-      if (ai.imslpUrl) setImslpUrl(String(ai.imslpUrl));
-      if (ai.videoUrl) setVideoUrl(String(ai.videoUrl));
+      if (ai.instrumentation) { setInstrumentation(String(ai.instrumentation)); setShowAdvanced(true); }
+      if (ai.percussion) setPercussion(String(ai.percussion));
+      if (ai.year) setYear(String(ai.year));
+      // Reliable search links (never hallucinated deep URLs).
+      const imslp = imslpSearchUrl(composer, title);
+      const yt = youtubeSearchUrl(composer, title);
+      setImslpUrl(imslp);
+      setVideoUrl(yt);
       setAiStatus('enriched');
 
       // Save immediately with enriched data (build directly — state updates are async)
@@ -334,14 +348,15 @@ Return ONLY a JSON object (no markdown) with these fields (omit any you are not 
           composerDates: ai.composerDates ? String(ai.composerDates) : (composerDates.trim() || undefined),
           arranger: arranger.trim() || undefined,
           catalogNumber: ai.catalogNumber ? String(ai.catalogNumber) : (catalogNumber.trim() || undefined),
-          year: year.trim() || undefined,
-          instrumentation: instrumentation.trim() || undefined,
+          year: ai.year ? String(ai.year) : (year.trim() || undefined),
+          instrumentation: ai.instrumentation ? String(ai.instrumentation) : (instrumentation.trim() || undefined),
+          percussion: ai.percussion ? String(ai.percussion) : (percussion.trim() || undefined),
           duration: ai.duration ? Math.round(Number(ai.duration)) : (duration ? Number(duration) : undefined),
           movements: aiMovements.length ? aiMovements : undefined,
           programNotes: ai.programNotes ? String(ai.programNotes) : (programNotes.trim() || undefined),
           programNotesUrl: programNotesUrl.trim() || undefined,
-          imslpUrl: ai.imslpUrl ? String(ai.imslpUrl) : (imslpUrl.trim() || undefined),
-          videoUrl: ai.videoUrl ? String(ai.videoUrl) : (videoUrl.trim() || undefined),
+          imslpUrl: imslpSearchUrl(composer, title),
+          videoUrl: youtubeSearchUrl(composer, title),
           audioUrl: audioUrl.trim() || undefined,
           partsSharedUrl: partsSharedUrl.trim() || undefined,
           partsUrl: partsUrl.trim() || undefined,
@@ -466,8 +481,13 @@ Return ONLY a JSON object (no markdown) with these fields (omit any you are not 
           <div className="dir-form-section-label">Performance</div>
 
           <div className="dir-field">
-            <label className="dir-label">Instrumentation</label>
-            <input className="dir-input" value={instrumentation} onChange={e => setInstrumentation(e.target.value)} placeholder="e.g. fl, ob, cl, bsn, hn, str" />
+            <label className="dir-label">Instrumentation <span className="dir-label-hint">Daniels format</span></label>
+            <input className="dir-input" value={instrumentation} onChange={e => setInstrumentation(e.target.value)} placeholder="3[1.2.pic] 2 2 2 — 4 2 3 1 — tmp+3 — hp — str" />
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Percussion <span className="dir-label-hint">specific instruments</span></label>
+            <input className="dir-input" value={percussion} onChange={e => setPercussion(e.target.value)} placeholder="Snare Drum, Bass Drum, Cymbals, Triangle, Glockenspiel" />
           </div>
 
           <div className="dir-field" style={{ flex: '0 0 120px' }}>
