@@ -6,6 +6,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useAnnouncements, visibleAnnouncements } from '../hooks/useAnnouncements';
+import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster } from '../rosterResolver';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON } from '../utils';
 import type { CalendarEvent } from '../types';
@@ -22,6 +23,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const { pieces } = useRepertoire();
   const { overrides } = useRosterOverrides();
   const { announcements } = useAnnouncements();
+  const { assignments } = useAssignments();
   const [ensembleId, setEnsembleId] = useState(() => localStorage.getItem(ENS_PREF_KEY) ?? '');
 
   const today = todayStr();
@@ -51,6 +53,12 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const upRehearsals = future.filter(e => e.type === 'Rehearsal' || e.type === 'Sectional').slice(0, 6);
   const upConcerts = future.filter(e => e.type === 'Concert').slice(0, 4);
   const upEvents = future.filter(e => e.type === 'Event').slice(0, 5);
+  const upAssignments = useMemo(() =>
+    assignments
+      .filter(a => a.dueDate >= today)
+      .filter(a => !ensembleId || a.ensembleIds.includes(ensembleId) || (a.studentIds?.length ?? 0) > 0)
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 5),
+    [assignments, today, ensembleId]);
 
   const alerts = useMemo(() =>
     events.filter(e => e.date === today).filter(matchesEns)
@@ -180,6 +188,19 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
         {upRehearsals.length > 0 && (<><div className="dir-section-head"><span>Coming up — rehearsals</span></div>{upRehearsals.map(upRow)}</>)}
         {upConcerts.length > 0 && (<><div className="dir-section-head"><span>Coming up — concerts</span></div>{upConcerts.map(upRow)}</>)}
         {upEvents.length > 0 && (<><div className="dir-section-head"><span>Coming up — events</span></div>{upEvents.map(upRow)}</>)}
+        {upAssignments.length > 0 && (
+          <>
+            <div className="dir-section-head"><span>Coming up — assignments</span><button className="dir-link-btn" onClick={() => onNavigate('assignments')}>Manage</button></div>
+            {upAssignments.map(a => (
+              <button key={a.id} className="dir-up-row" onClick={() => onNavigate('assignments')}>
+                <span className="dir-up-date">{parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                <span className="dir-up-dot" style={{ background: '#7c3aed' }} />
+                <span className="dir-up-label">{a.type === 'Playing Exam' ? '🎯 ' : ''}{a.title}</span>
+                <ChevronRight size={15} className="dir-up-chev" />
+              </button>
+            ))}
+          </>
+        )}
 
         {/* Ensembles grid */}
         {orderedEns.length > 0 && (
