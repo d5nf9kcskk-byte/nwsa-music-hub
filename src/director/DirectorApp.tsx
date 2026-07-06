@@ -2,8 +2,9 @@ import './director.css';
 import './uiUpdates.css';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search } from 'lucide-react';
 import { AuthGate } from './components/AuthGate';
+import { DirectorSearch } from './components/DirectorSearch';
 import { AttendanceTab } from './attendance/AttendanceTab';
 import { RosterView } from './roster/RosterView';
 import { ScheduleView } from './schedule/ScheduleView';
@@ -46,6 +47,7 @@ const TAB_TITLES: Record<DirTab, string> = {
 export default function DirectorApp() {
   const [tab, setTab] = useState<DirTab>('today');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
   const [intent, setIntent] = useState<DirNavOpts>({});
   const navigate = useNavigate();
@@ -76,9 +78,14 @@ export default function DirectorApp() {
                 <div className="dir-header-sub">NWSA Music</div>
               </div>
             </div>
-            <button className="dir-hamburger" onClick={() => setMenuOpen(true)} aria-label="Menu">
-              <Menu size={24} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button className="dir-hamburger" onClick={() => setSearchOpen(true)} aria-label="Search">
+                <Search size={22} />
+              </button>
+              <button className="dir-hamburger" onClick={() => setMenuOpen(true)} aria-label="Menu">
+                <Menu size={24} />
+              </button>
+            </div>
           </header>
 
           <main className="dir-content">
@@ -102,6 +109,12 @@ export default function DirectorApp() {
               <EnsembleHubView key={intentKey} ensembleId={intent.ensembleId} onNavigate={go} />
             )}
           </main>
+
+          <DirectorSearch
+            open={searchOpen}
+            onClose={() => setSearchOpen(false)}
+            onOpenStudent={id => { setSearchOpen(false); go('roster', { ensembleId: undefined }); void id; }}
+          />
 
           {menuOpen && (
             <div className="dir-menu-overlay" onClick={() => setMenuOpen(false)}>

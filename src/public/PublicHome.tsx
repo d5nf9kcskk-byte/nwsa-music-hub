@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { CalendarDays, UserSearch, Megaphone, Music, ChevronRight } from 'lucide-react';
+import { CalendarDays, UserSearch, Megaphone, Music, ChevronRight, Ticket, HelpCircle } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
@@ -107,6 +107,8 @@ export function PublicHome() {
         <Link to="/calendar" className="pub-quick-btn"><CalendarDays size={22} /><span>Full calendar</span></Link>
         <Link to="/announcements" className="pub-quick-btn"><Megaphone size={22} /><span>Announcements</span></Link>
         <Link to="/repertoire" className="pub-quick-btn"><Music size={22} /><span>Repertoire</span></Link>
+        <Link to="/concerts" className="pub-quick-btn"><Ticket size={22} /><span>Concert Season</span></Link>
+        <Link to="/start" className="pub-quick-btn"><HelpCircle size={22} /><span>Start Here</span></Link>
       </div>
 
       {upcomingRehearsals.length > 0 && (

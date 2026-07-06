@@ -17,6 +17,8 @@ import { PublicEvent } from './public/PublicEvent';
 import { PublicAnnouncementsPage } from './public/PublicAnnouncements';
 import { PublicRepertoire } from './public/PublicRepertoire';
 import { PublicAssignments } from './public/PublicAssignments';
+import { StartGuide } from './public/StartGuide';
+import { SeasonPage } from './public/SeasonPage';
 import DirectorApp from './director/DirectorApp';
 
 const router = createBrowserRouter(
@@ -36,6 +38,8 @@ const router = createBrowserRouter(
         { path: 'event/:id', element: <PublicEvent /> },
         { path: 'announcements', element: <PublicAnnouncementsPage /> },
         { path: 'assignments', element: <PublicAssignments /> },
+        { path: 'start', element: <StartGuide /> },
+        { path: 'concerts', element: <SeasonPage /> },
         { path: 'program/:id', element: <PublicProgram /> },
       ],
     },

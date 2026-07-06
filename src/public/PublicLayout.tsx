@@ -1,9 +1,11 @@
 import './uiUpdates.css';
 import { useState } from 'react';
 import { Outlet, NavLink, Link } from 'react-router';
-import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, MoreHorizontal, UserCircle } from 'lucide-react';
+import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, MoreHorizontal, UserCircle, Ticket, HelpCircle, Search } from 'lucide-react';
 import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
+import { SearchOverlay } from './components/SearchOverlay';
+import { LABELS } from '../shared/labels';
 import { primaryStudent, onIdentityChange } from '../shared/identity';
 import { useEffect, useReducer } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
@@ -12,14 +14,17 @@ import { ensembleColor } from '../director/utils';
 const NAV = [
   { to: '/', label: 'Home', Icon: Home, end: true },
   { to: '/calendar', label: 'Calendar', Icon: CalendarDays, end: false },
+  { to: '/concerts', label: LABELS.concerts, Icon: Ticket, end: false },
   { to: '/announcements', label: 'Announcements', Icon: Megaphone, end: false },
   { to: '/repertoire', label: 'Repertoire', Icon: Music, end: false },
   { to: '/assignments', label: 'Assignments', Icon: ClipboardCheck, end: false },
   { to: '/lookup', label: 'My Schedule', Icon: UserSearch, end: false },
+  { to: '/start', label: LABELS.startHere, Icon: HelpCircle, end: false },
 ];
 
 export function PublicLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
   const { ensembles } = useEnsembles();
   const [, bump] = useReducer(x => x + 1, 0);
@@ -35,13 +40,18 @@ export function PublicLayout() {
           </span>
           <span>NWSA Music</span>
         </Link>
-        <button
-          className="pub-hamburger"
-          onClick={() => setMenuOpen(o => !o)}
-          aria-label="Menu"
-        >
-          {menuOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button className="pub-hamburger" onClick={() => setSearchOpen(true)} aria-label="Search">
+            <Search size={20} />
+          </button>
+          <button
+            className="pub-hamburger"
+            onClick={() => setMenuOpen(o => !o)}
+            aria-label="Menu"
+          >
+            {menuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
       </header>
 
       {menuOpen && (
@@ -141,6 +151,8 @@ export function PublicLayout() {
           <MoreHorizontal size={20} /><span>More</span>
         </button>
       </nav>
+
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }
