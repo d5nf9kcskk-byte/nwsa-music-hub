@@ -483,3 +483,23 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   background: #eff6ff; border: 1.5px solid #bfdbfe; border-left: 6px solid #3b82f6;
   border-radius: 10px; font-size: 13.5px; font-weight: 700; color: #1d4ed8;
 }
+
+/* Instrumentation gap (#29) */
+.dir-gap-warning {
+  margin: 0 16px 10px; padding: 10px 13px;
+  background: #fdf6e3; border: 1.5px solid #f0d492; border-left: 6px solid #d97706;
+  border-radius: 10px; font-size: 13px; font-weight: 800; color: #92600a;
+}
+/* Chart-view roll (#28) */
+.dir-chart-seats { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 16px 12px; }
+.dir-chart-seat {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 72px; padding: 8px 10px; border-radius: 12px; cursor: pointer;
+  border: 2px solid #bbf7d0; background: #f0fdf4;
+}
+.dir-chart-seat.absent { border-color: var(--dir-absent); background: var(--dir-absent-bg); }
+.dir-chart-seat.late { border-color: var(--dir-late); background: #fdf6e3; }
+.dir-chart-seat.excused, .dir-chart-seat.lesson { border-color: var(--dir-excused); background: #ecfdf5; }
+.dir-chart-seat-num { font-size: 10px; font-weight: 900; color: var(--dir-text-muted); }
+.dir-chart-seat-name { font-size: 12.5px; font-weight: 700; color: var(--dir-text); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dir-chart-seat-status { font-size: 9.5px; font-weight: 900; text-transform: uppercase; color: var(--dir-text-muted); }

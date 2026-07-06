@@ -5,6 +5,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useAttendance, useDayAttendance, useAllAttendance } from '../hooks/useAttendance';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { usePlannedAbsences } from '../hooks/usePlannedAbsences';
+import { useSeatingCharts } from '../hooks/useSeatingCharts';
 import { useEvents } from '../hooks/useEvents';
 import { useContacts } from '../hooks/useContacts';
 import { resolveRoster, lessonsFor } from '../rosterResolver';
@@ -184,6 +185,26 @@ function RollPeriod({ date, period, ensemble, onBack }: {
 
   const [toggleError, setToggleError] = useState('');
   const [lessonStudent, setLessonStudent] = useState<Student | null>(null);
+  const [chartView, setChartView] = useState(false);
+  const { charts } = useSeatingCharts(ensembleId);
+  const latestChart = charts[0] ?? null;
+
+  // Instrumentation-gap warning (#29): every player of an instrument is out.
+  const gapWarning = useMemo(() => {
+    const out = new Set(Object.values(recordMap)
+      .filter(r => r.status === 'Absent' || r.status === 'Excused')
+      .map(r => r.studentId));
+    const byInstr = new Map<string, { total: number; present: number }>();
+    for (const { student } of resolved) {
+      const k = student.instrument || 'Unknown';
+      const e = byInstr.get(k) ?? { total: 0, present: 0 };
+      e.total += 1;
+      if (!out.has(student.id)) e.present += 1;
+      byInstr.set(k, e);
+    }
+    const missing = [...byInstr.entries()].filter(([, v]) => v.total > 0 && v.present === 0).map(([k]) => k);
+    return missing;
+  }, [recordMap, resolved]);
 
   const lessonCount = Object.keys(lessons).length;
   const exceptionCount = Object.values(recordMap).filter(r => r.status !== 'Lesson').length;
@@ -286,6 +307,48 @@ function RollPeriod({ date, period, ensemble, onBack }: {
         <div className="dir-att-summary" style={{ color: 'var(--dir-danger)', background: 'var(--dir-absent-bg)' }}>⚠ {toggleError}</div>
       )}
 
+      {gapWarning.length > 0 && (
+        <div className="dir-gap-warning">🎺 Section gap: no {gapWarning.join(', ')} present today</div>
+      )}
+
+      {latestChart && (
+        <div style={{ padding: '0 16px 8px' }}>
+          <button className="dir-tool-btn" onClick={() => setChartView(v => !v)}>
+            {chartView ? '📋 List view' : '🪑 Chart view'}
+          </button>
+        </div>
+      )}
+
+      {chartView && latestChart ? (
+        <div className="dir-chart-roll">
+          <div className="dir-field-hint" style={{ padding: '0 16px 8px' }}>
+            Tap a chair: Present → Absent → Late → Present.
+          </div>
+          {latestChart.sections.map((sec, i) => (
+            <div key={i} className="dir-chart-section">
+              <div className="dir-form-section-label" style={{ padding: '0 16px' }}>{sec.section}</div>
+              <div className="dir-chart-seats">
+                {sec.seats.map((seat, j) => {
+                  const st = recordMap[seat.studentId]?.status;
+                  const stu = allStudents.find(x => x.id === seat.studentId);
+                  const cycle = () => {
+                    if (!st) handleToggle(seat.studentId, 'Absent');
+                    else if (st === 'Absent') handleToggle(seat.studentId, 'Late');
+                    else handleToggle(seat.studentId, st as AttendanceStatus); // tapping current clears
+                  };
+                  return (
+                    <button key={seat.studentId} className={`dir-chart-seat ${st ? st.toLowerCase() : 'present'}`} onClick={cycle}>
+                      <span className="dir-chart-seat-num">{j + 1}</span>
+                      <span className="dir-chart-seat-name">{stu?.preferredName || stu?.name?.split(',')[0] || '—'}</span>
+                      {st && <span className="dir-chart-seat-status">{st}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="dir-student-list">
         {resolved.length === 0 ? (
           <div className="dir-empty"><Users size={40} /><h3>No active students</h3><p>Add students to this ensemble in the Roster tab.</p></div>
@@ -306,6 +369,7 @@ function RollPeriod({ date, period, ensemble, onBack }: {
           ))
         )}
       </div>
+      )}
 
       <div style={{ padding: '8px 16px calc(20px + env(safe-area-inset-bottom))' }}>
         <button

@@ -10,6 +10,7 @@ import { useAllAttendance } from '../hooks/useAttendance';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { QuickChangeMenu } from './QuickChange';
+import { SubSheet } from './SubSheet';
 import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster } from '../rosterResolver';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays } from '../utils';
@@ -31,6 +32,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const { records: allAttendance } = useAllAttendance();
   const [quickChange, setQuickChange] = useState<CalendarEvent | null>(null);
   const [snowDay, setSnowDay] = useState(false);
+  const [subSheetFor, setSubSheetFor] = useState<CalendarEvent | null>(null);
   const [ensembleId, setEnsembleId] = useState(() => localStorage.getItem(ENS_PREF_KEY) ?? '');
 
   const today = todayStr();
@@ -188,6 +190,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
                 : null}
               onNavigate={onNavigate}
               onQuickChange={() => setQuickChange(ev)}
+              onSubSheet={() => setSubSheetFor(ev)}
             />
           ))
         )}
@@ -281,6 +284,14 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
         <SnowDaySheet onConfirm={closeSchoolFor} onClose={() => setSnowDay(false)} defaultDate={today} />
       )}
 
+      {subSheetFor && subSheetFor.ensembleIds[0] && ensembleMap[subSheetFor.ensembleIds[0]] && (
+        <SubSheet
+          event={subSheetFor}
+          ensemble={ensembleMap[subSheetFor.ensembleIds[0]] as import('../types').Ensemble}
+          onClose={() => setSubSheetFor(null)}
+        />
+      )}
+
       {showFollowUps && (
         <FollowUpSheet records={followUps} students={studentsById} ensembleMap={ensembleMap} onClose={() => setShowFollowUps(false)} />
       )}
@@ -289,7 +300,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
 }
 
 function TodayCard({
-  event, ensembleMap, piecesById, expected, onNavigate, onQuickChange,
+  event, ensembleMap, piecesById, expected, onNavigate, onQuickChange, onSubSheet,
 }: {
   event: CalendarEvent;
   ensembleMap: Record<string, { id: string; name: string; order: number; color?: string }>;
@@ -297,6 +308,7 @@ function TodayCard({
   expected: number | null;
   onNavigate: DirNavigate;
   onQuickChange: () => void;
+  onSubSheet: () => void;
 }) {
   const firstEns = event.ensembleIds.map(id => ensembleMap[id]).find(Boolean);
   const name = event.title
@@ -353,6 +365,11 @@ function TodayCard({
           {!cancelled && event.ensembleIds.length > 0 && (
             <button className="dir-btn dir-btn-ghost dir-today-action" onClick={onQuickChange}>
               ⚡ Quick change
+            </button>
+          )}
+          {isRehearsal && !cancelled && (
+            <button className="dir-btn dir-btn-ghost dir-today-action" onClick={onSubSheet}>
+              🖨 Sub sheet
             </button>
           )}
           <button className="dir-btn dir-btn-ghost dir-today-action" onClick={() => onNavigate('schedule', { date: event.date, eventId: event.id })}>
