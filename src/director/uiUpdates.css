@@ -432,3 +432,16 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   cursor: pointer; text-align: left;
 }
 .dir-ens-grid-btn:active { background: var(--dir-surface-2); }
+
+/* Seating editor */
+.dir-seat-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--dir-border); }
+.dir-seat-num {
+  width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%;
+  background: var(--dir-blue); color: #fff; font-size: 12px; font-weight: 800;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.dir-seat-body { flex: 1; min-width: 0; }
+.dir-seat-name { font-size: 14.5px; font-weight: 700; color: var(--dir-text); }
+.dir-seat-note { height: 30px; font-size: 12px; margin-top: 3px; padding: 4px 8px; }
+.dir-seat-moves { display: flex; gap: 3px; flex-shrink: 0; }
+.dir-seat-move { width: 30px; height: 30px; }
