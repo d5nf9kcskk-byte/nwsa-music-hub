@@ -186,3 +186,55 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
 .pub-seat-item { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; font-size: 14.5px; }
 .pub-seat-name { font-weight: 600; }
 .pub-seat-note { font-size: 12px; color: var(--pub-accent); font-weight: 700; }
+
+/* ── Bottom thumb-reach tab bar (#2) ── */
+.pub-tabbar {
+  position: sticky; bottom: 0; z-index: 60;
+  display: flex;
+  background: var(--pub-surface);
+  border-top: 1px solid var(--pub-border);
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
+}
+.pub-tabbar-btn {
+  flex: 1; min-height: 52px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  border: none; background: none; cursor: pointer;
+  font-size: 10.5px; font-weight: 700; color: var(--pub-muted); text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.pub-tabbar-btn.active { color: var(--pub-purple); }
+.pub-tabbar-btn:focus-visible { outline: 2px solid var(--pub-purple); outline-offset: -2px; }
+.pub-app .pub-content { padding-bottom: 16px; }
+
+/* ── Global alert strip (#18) + urgency tiers (#19) ── */
+.pub-allclear {
+  display: block; margin: 10px 16px 0; padding: 8px 12px;
+  background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px;
+  font-size: 12.5px; font-weight: 700; color: #15803d;
+}
+.pub-urgent-banner {
+  display: block; margin: 10px 16px 0; padding: 12px 14px;
+  background: #7f1d1d; color: #fff; border-radius: 10px;
+  font-size: 14px; text-decoration: none; line-height: 1.45;
+  box-shadow: 0 2px 8px rgba(127,29,29,0.35);
+}
+.pub-strip-alert {
+  display: block; margin: 10px 16px 0; padding: 10px 13px;
+  background: #fef2f2; border: 1.5px solid #fca5a5; border-left: 6px solid #ef4444;
+  border-radius: 10px; font-size: 13px; font-weight: 700; color: #b91c1c; text-decoration: none;
+}
+.pub-announce-important { border-left: 5px solid #f59e0b !important; }
+
+/* Identity chip in menu (#1) */
+.pub-menu-me { background: var(--pub-accent-soft); border-radius: 10px; margin: 0 8px 4px; font-weight: 700; }
+.pub-menu-switch { font-size: 11.5px; color: var(--pub-accent); font-weight: 700; white-space: nowrap; }
+
+.pub-announce-urgent { border-left: 5px solid #dc2626 !important; background: #fef2f2; }
+.pub-assign-form-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 10px; padding: 10px 16px;
+  background: var(--pub-purple); color: #fff; border-radius: 10px;
+  font-size: 14px; font-weight: 800; text-decoration: none;
+}
+.pub-assign-form-btn:active { opacity: 0.9; }

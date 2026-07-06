@@ -12,6 +12,10 @@ export interface Ensemble {
 export interface Student {
   id: string;
   name: string;
+  /** "Goes by" name shown on Take Roll and seating (#46) */
+  preferredName?: string;
+  /** Phonetic pronunciation, e.g. "see-oh-MAH-rah" (#46) */
+  pronunciation?: string;
   ensembleIds: string[];
   instrument: string;
   section?: string;
@@ -59,6 +63,17 @@ export interface CalendarEvent {
   pieceIds?: string[];    // linked RepertoirePiece IDs
   status: EventStatus;
   notes?: string;
+  /* ── Concert Hub (#9): the day-sheet answers, in one place ── */
+  callTime?: string;        // "HH:MM" — when performers arrive
+  dress?: string;           // dress code description
+  venueAddress?: string;    // full address for maps link
+  pickupTime?: string;      // "HH:MM" — when parents collect
+  /* ── Change tracking (#17, #40) ── */
+  updatedAt?: number;       // Date.now() of last edit
+  updatedBy?: string;       // director email
+  changeLog?: string;       // one-line human diff of the last edit
+  /* ── Roll receipts (#22): keyed by ensembleId for multi-ensemble events ── */
+  rollTaken?: Record<string, { at: number; by?: string; absent: number }>;
   /**
    * Set when today's normal schedule is altered (rescheduled, double block,
    * block rotation, …). Shows a CHANGED tag on the event and drives the red
@@ -123,11 +138,18 @@ export interface ProgressNote {
  * ensembleId === null means school-wide (shown to everyone). World-readable,
  * so never put anything private here.
  */
+export type AnnouncementPriority = 'info' | 'important' | 'urgent';
+
 export interface Announcement {
   id: string;
   ensembleId: string | null; // null = school-wide
   title: string;
   body?: string;
+  /** info = plain card · important = colored border · urgent = site-wide banner (#19) */
+  priority?: AnnouncementPriority;
+  /** Optional Spanish translation shown when the ES toggle is on (#42) */
+  titleEs?: string;
+  bodyEs?: string;
   createdAt: number;         // Date.now() — for ordering
   pinned?: boolean;
   expiresOn?: string;        // YYYY-MM-DD; hidden on/after this date if set
@@ -196,6 +218,8 @@ export interface Assignment {
   dueDate: string; // YYYY-MM-DD
   ensembleIds: string[];
   studentIds?: string[];  // specific individuals (in addition to whole ensembles)
+  /** Google Form link — playing exams are submitted through it, not in person. */
+  formUrl?: string;
   createdAt: number;
   attachments?: Attachment[];
 }
@@ -224,4 +248,38 @@ export interface AssignmentResult {
   score?: string;
   notes?: string;
   gradedAt?: string; // YYYY-MM-DD
+}
+
+/** Student/parent-submitted planned absence (#27). Create-only from the public
+ *  side; the director converts it to Excused or dismisses it at roll time. */
+export interface PlannedAbsence {
+  id: string;
+  studentId: string;
+  studentName: string;   // denormalized so roll can show it without a join
+  date: string;          // YYYY-MM-DD
+  reason: string;
+  submittedAt: number;
+  status?: 'pending' | 'approved' | 'dismissed';
+}
+
+/** Plain-English location directory (#15). Key = the short room string used on
+ *  events; value adds building/directions and an optional campus-map anchor. */
+export interface CampusLocation {
+  id: string;
+  room: string;           // e.g. "Room 121" — matched against event.location
+  label: string;          // e.g. "Band Hall"
+  directions?: string;    // e.g. "enter through East doors"
+  mapAnchor?: string;     // fragment id on the campus-map image
+}
+
+/** Outbound notification queue (#21): the app writes, a scheduled Power
+ *  Automate flow reads via the Firestore REST API and posts to Teams / email. */
+export interface NotifyQueueItem {
+  id: string;
+  kind: 'urgent-announcement' | 'cancellation' | 'change' | 'digest';
+  title: string;
+  body?: string;
+  ensembleIds: string[];
+  createdAt: number;
+  processedAt?: number | null;
 }

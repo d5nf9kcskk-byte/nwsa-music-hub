@@ -1,7 +1,11 @@
 import './uiUpdates.css';
 import { useState } from 'react';
 import { Outlet, NavLink, Link } from 'react-router';
-import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown } from 'lucide-react';
+import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, MoreHorizontal, UserCircle } from 'lucide-react';
+import { NavLink as RRNavLink } from 'react-router';
+import { GlobalAlerts } from './components/GlobalAlerts';
+import { primaryStudent, onIdentityChange } from '../shared/identity';
+import { useEffect, useReducer } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { ensembleColor } from '../director/utils';
 
@@ -18,6 +22,9 @@ export function PublicLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
   const { ensembles } = useEnsembles();
+  const [, bump] = useReducer(x => x + 1, 0);
+  useEffect(() => onIdentityChange(bump), []);
+  const me = primaryStudent();
 
   return (
     <div className="pub-app">
@@ -46,6 +53,13 @@ export function PublicLayout() {
                 <X size={20} />
               </button>
             </div>
+            {me && (
+              <Link to="/lookup" className="pub-menu-item pub-menu-me" onClick={() => setMenuOpen(false)}>
+                <UserCircle size={18} />
+                <span style={{ flex: 1, minWidth: 0 }}>{me.name}</span>
+                <span className="pub-menu-switch">Not you? Switch</span>
+              </Link>
+            )}
             {NAV.map(({ to, label, Icon, end }) => (
               <div key={to}>
                 <NavLink
@@ -105,8 +119,28 @@ export function PublicLayout() {
       )}
 
       <main className="pub-content">
+        <GlobalAlerts />
         <Outlet />
       </main>
+
+      {/* Thumb-reach bottom bar (#2): the three daily tasks + More */}
+      <nav className="pub-tabbar" aria-label="Primary">
+        <RRNavLink to="/" end className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}>
+          <Home size={20} /><span>Home</span>
+        </RRNavLink>
+        <RRNavLink to="/calendar" className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}>
+          <CalendarDays size={20} /><span>Calendar</span>
+        </RRNavLink>
+        <RRNavLink
+          to={me ? `/student/${me.id}` : '/lookup'}
+          className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}
+        >
+          <UserSearch size={20} /><span>My Schedule</span>
+        </RRNavLink>
+        <button className="pub-tabbar-btn" onClick={() => setMenuOpen(true)}>
+          <MoreHorizontal size={20} /><span>More</span>
+        </button>
+      </nav>
     </div>
   );
 }

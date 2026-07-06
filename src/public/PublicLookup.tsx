@@ -4,6 +4,7 @@ import { Search } from 'lucide-react';
 import { useStudents } from '../director/hooks/useStudents';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { sortStudents, type StudentSort } from '../director/scoreOrder';
+import { rememberStudent } from '../shared/identity';
 
 export function PublicLookup() {
   const { students } = useStudents();
@@ -60,7 +61,14 @@ export function PublicLookup() {
           <div className="pub-muted">{q || ensembleId ? 'No matching names.' : 'Start typing to search.'}</div>
         ) : (
           matches.map(s => (
-            <button key={s.id} className="pub-roster-row pub-lookup-row" onClick={() => navigate(`/student/${s.id}`)}>
+            <button
+              key={s.id}
+              className="pub-roster-row pub-lookup-row"
+              onClick={() => {
+                rememberStudent({ id: s.id, name: s.name, ensembleIds: s.ensembleIds ?? [], instrument: s.instrument });
+                navigate(`/student/${s.id}`);
+              }}
+            >
               <span className="pub-roster-name">{s.name}</span>
               <span className="pub-roster-instr">{s.instrument}</span>
             </button>

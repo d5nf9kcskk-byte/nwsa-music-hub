@@ -39,6 +39,7 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
   const [ensembleIds, setEnsembleIds] = useState<string[]>(assignment?.ensembleIds ?? []);
   const [studentIds, setStudentIds] = useState<string[]>(assignment?.studentIds ?? []);
   const [studentQuery, setStudentQuery] = useState('');
+  const [formUrl, setFormUrl] = useState(assignment?.formUrl ?? '');
   const [attachments, setAttachments] = useState<Attachment[]>(assignment?.attachments ?? []);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -67,6 +68,7 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
           dueDate,
           ensembleIds,
           studentIds: studentIds.length ? studentIds : undefined,
+          formUrl: formUrl.trim() || undefined,
           createdAt: assignment?.createdAt ?? Date.now(),
           attachments,
         }),
@@ -158,6 +160,11 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Google Form link <span className="dir-label-hint">exams are taken through this form</span></label>
+            <input className="dir-input" type="url" value={formUrl} onChange={e => setFormUrl(e.target.value)} placeholder="https://forms.gle/…" />
           </div>
 
           <div className="dir-field">

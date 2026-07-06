@@ -152,6 +152,11 @@ export function PublicSchedule() {
                   <span className="pub-assign-type">{a.type}</span>
                   <span>Due {parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
                 </div>
+                {a.formUrl && (
+                  <a className="pub-assign-form-btn" href={a.formUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>
+                    📝 Open exam form
+                  </a>
+                )}
               </div>
             </Link>
           ))}
