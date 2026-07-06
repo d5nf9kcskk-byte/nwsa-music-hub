@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Plus, Pencil, Pin, ChevronLeft } from 'lucide-react';
 import { useAnnouncements } from '../hooks/useAnnouncements';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { ensembleColor } from '../utils';
 import type { Announcement } from '../types';
@@ -123,6 +125,20 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
         expiresOn: expiresOn || undefined,
         createdAt: announcement?.createdAt ?? Date.now(),
       });
+      // Urgent announcements also enter the notification relay queue (#21):
+      // a scheduled Power Automate flow posts them to Teams / parent email.
+      if (priority === 'urgent' && db) {
+        try {
+          await addDoc(collection(db, 'notifyQueue'), {
+            kind: 'urgent-announcement',
+            title: title.trim(),
+            body: body.trim() || undefined,
+            ensembleIds: ensembleId ? [ensembleId] : [],
+            createdAt: Date.now(),
+            processedAt: null,
+          });
+        } catch { /* relay is best-effort; the announcement itself saved */ }
+      }
       onBack();
     } catch (e) {
       setSaving(false);
