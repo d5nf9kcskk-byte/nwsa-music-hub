@@ -26,7 +26,7 @@ service cloud.firestore {
     function signedIn() {
       return request.auth != null
         && request.auth.token.email in [
-          'ggmuze@yahoo.com'
+          'nwsaorchestras@gmail.com'
           // add more director emails here, comma-separated
         ];
     }
