@@ -17,7 +17,7 @@ interface Period {
 
 export function AttendanceView({ initialEnsembleId }: { initialEnsembleId?: string | null }) {
   const { ensembles, loading: ensLoading } = useEnsembles();
-  const { events } = useEvents();
+  const { events, loading: eventsLoading } = useEvents();
   const [date, setDate] = useState(todayStr);
   const [showCal, setShowCal] = useState(false);
   const [period, setPeriod] = useState<Period | null>(null);
@@ -38,13 +38,14 @@ export function AttendanceView({ initialEnsembleId }: { initialEnsembleId?: stri
     return out;
   }, [events, date]);
 
-  // If arriving from a "Take Roll" jump, open that ensemble's period for today.
+  // If arriving from a "Take Roll" jump, open that ensemble's period for today —
+  // but only after events have loaded, otherwise we'd land in ad-hoc (untagged)
+  // roll even when a rehearsal IS scheduled, defeating per-period attendance.
   useEffect(() => {
-    if (!initialEnsembleId) return;
+    if (!initialEnsembleId || eventsLoading) return;
     setPeriod(prev => prev ?? (periods.find(x => x.ensembleId === initialEnsembleId) ?? { event: null, ensembleId: initialEnsembleId }));
-    // Run once for the incoming intent; periods for today are stable enough.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialEnsembleId, periods.length]);
+  }, [initialEnsembleId, eventsLoading, periods.length]);
 
   if (ensLoading) return <div className="dir-loading">Loading…</div>;
   if (ensembles.length === 0) {
