@@ -32,8 +32,14 @@ export function useEvents() {
 
   async function updateEvent(id: string, data: Partial<Omit<CalendarEvent, 'id'>>) {
     if (!db) return;
-    // Change tracking (#17/#40): every edit stamps who + when.
-    data = { ...data, updatedAt: Date.now(), updatedBy: auth?.currentUser?.email ?? undefined };
+    // Change tracking (#17/#40): every SCHEDULE edit stamps who + when.
+    // Roll receipts are bookkeeping, not schedule changes — stamping them would
+    // falsely flag the rehearsal "Updated" on the public site after every roll.
+    const keys = Object.keys(data);
+    const bookkeepingOnly = keys.length > 0 && keys.every(k => k === 'rollTaken');
+    if (!bookkeepingOnly) {
+      data = { ...data, updatedAt: Date.now(), updatedBy: auth?.currentUser?.email ?? undefined };
+    }
     await updateDoc(doc(db, 'events', id), data);
   }
 

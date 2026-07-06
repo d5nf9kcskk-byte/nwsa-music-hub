@@ -396,7 +396,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
         )}
         <div className="dir-drawer-footer">
           <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !canSave}>
+          <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !canSave || (editedElsewhere && !overrideTheirs)}>
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
