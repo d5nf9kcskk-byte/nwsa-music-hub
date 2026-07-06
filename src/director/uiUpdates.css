@@ -454,3 +454,18 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   background: #eff6ff; border: 1px solid #bfdbfe;
   font-size: 12.5px; font-weight: 700; color: #1d4ed8;
 }
+
+/* Roll context (#25) */
+.dir-daycontext { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+.dir-daycontext-chip {
+  font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 10px;
+  background: var(--dir-surface-2); color: var(--dir-text-muted); border: 1px solid var(--dir-border);
+}
+.dir-daycontext-chip.absent { background: var(--dir-absent-bg); color: var(--dir-absent); border-color: transparent; }
+.dir-daycontext-chip.late { background: #fdf6e3; color: #b45309; border-color: transparent; }
+.dir-history-dots { display: inline-flex; gap: 3px; margin-top: 6px; }
+.dir-history-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dir-border); }
+.dir-history-dot.absent { background: var(--dir-absent); }
+.dir-history-dot.late { background: var(--dir-late); }
+.dir-history-dot.excused { background: var(--dir-excused); }
+.dir-history-dot.lesson { background: #d97706; }
