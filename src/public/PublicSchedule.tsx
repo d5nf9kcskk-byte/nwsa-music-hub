@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router';
+import { useMonthSwipe } from './useMonthSwipe';
 import { ChevronLeft, ChevronRight, ExternalLink, LayoutList, Grid3x3 } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
@@ -240,43 +241,47 @@ function StudentMonth({ items, ensembleMap, piecesById, studentInstrument }: {
 
   const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const dayItems = byDate[selectedDate] ?? [];
+  const shiftMonth = (n: number) => setCursor(c => new Date(c.getFullYear(), c.getMonth() + n, 1));
+  const { dragX, animating, viewportRef, handlers } = useMonthSwipe(shiftMonth);
 
   return (
     <>
       <div className="pub-cal-nav">
-        <button className="pub-cal-arrow" onClick={() => setCursor(c => new Date(c.getFullYear(), c.getMonth() - 1, 1))} aria-label="Previous month">
+        <button className="pub-cal-arrow" onClick={() => shiftMonth(-1)} aria-label="Previous month">
           <ChevronLeft size={18} />
         </button>
         <span className="pub-cal-month">{monthLabel}</span>
-        <button className="pub-cal-arrow" onClick={() => setCursor(c => new Date(c.getFullYear(), c.getMonth() + 1, 1))} aria-label="Next month">
+        <button className="pub-cal-arrow" onClick={() => shiftMonth(1)} aria-label="Next month">
           <ChevronRight size={18} />
         </button>
       </div>
-      <div className="pub-cal">
+      <div className="pub-cal" onTouchStart={handlers.onTouchStart} onTouchMove={handlers.onTouchMove} onTouchEnd={handlers.onTouchEnd}>
         <div className="pub-cal-weekdays">
           {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i}>{d}</div>)}
         </div>
-        <div className="pub-cal-grid">
-          {cells.map((date, i) => date === null ? (
-            <div key={i} className="pub-cal-cell empty" />
-          ) : (
-            <button
-              key={i}
-              className={`pub-cal-cell ${date === today ? 'today' : ''} ${date === selectedDate ? 'selected' : ''}`}
-              onClick={() => setSelectedDate(date)}
-            >
-              <span className="pub-cal-day">{Number(date.slice(8))}</span>
-              <span className="pub-cal-dots">
-                {(byDate[date] ?? []).slice(0, 3).map((it, j) => (
-                  <span
-                    key={j}
-                    className="pub-cal-dot"
-                    style={{ background: it.event.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleMap[it.exp.ensembleIds[0] ?? it.event.ensembleIds[0]]) }}
-                  />
-                ))}
-              </span>
-            </button>
-          ))}
+        <div className="pub-cal-swipe-viewport" ref={viewportRef} style={{ overflow: 'hidden' }}>
+          <div className="pub-cal-grid" style={{ transform: `translateX(${dragX}px)`, transition: animating ? 'transform 0.2s ease-out' : 'none' }}>
+            {cells.map((date, i) => date === null ? (
+              <div key={i} className="pub-cal-cell empty" />
+            ) : (
+              <button
+                key={i}
+                className={`pub-cal-cell ${date === today ? 'today' : ''} ${date === selectedDate ? 'selected' : ''}`}
+                onClick={() => setSelectedDate(date)}
+              >
+                <span className="pub-cal-day">{Number(date.slice(8))}</span>
+                <span className="pub-cal-dots">
+                  {(byDate[date] ?? []).slice(0, 3).map((it, j) => (
+                    <span
+                      key={j}
+                      className="pub-cal-dot"
+                      style={{ background: it.event.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleMap[it.exp.ensembleIds[0] ?? it.event.ensembleIds[0]]) }}
+                    />
+                  ))}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
