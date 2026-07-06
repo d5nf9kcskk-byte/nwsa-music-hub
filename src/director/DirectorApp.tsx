@@ -2,8 +2,10 @@ import './director.css';
 import './uiUpdates.css';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut } from 'lucide-react';
+import { ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, Sun, LayoutGrid } from 'lucide-react';
 import { AuthGate } from './components/AuthGate';
+import { TodayView } from './dashboard/TodayView';
+import { EnsemblesHub } from './ensembles/EnsemblesHub';
 import { AttendanceTab } from './attendance/AttendanceTab';
 import { RosterView } from './roster/RosterView';
 import { ScheduleView } from './schedule/ScheduleView';
@@ -15,10 +17,12 @@ import { RepertoireManager } from './repertoire/RepertoireManager';
 import type { Tab } from './types';
 
 // Local tab set = the shared Tab plus this app's dedicated schedule-change area.
-type DirTab = Tab | 'scheduleChanges' | 'announcements';
+type DirTab = Tab | 'today' | 'ensembles' | 'scheduleChanges' | 'announcements';
 
 const MENU_TABS: { id: DirTab; label: string; Icon: typeof ClipboardList }[] = [
+  { id: 'today',           label: 'Today',                   Icon: Sun            },
   { id: 'roll',            label: 'Take Roll',               Icon: ClipboardList  },
+  { id: 'ensembles',       label: 'Ensembles',               Icon: LayoutGrid     },
   { id: 'roster',          label: 'Roster',                  Icon: Users          },
   { id: 'schedule',        label: 'Schedule',                Icon: Calendar       },
   { id: 'scheduleChanges', label: 'Student Schedule Change', Icon: CalendarClock  },
@@ -29,6 +33,8 @@ const MENU_TABS: { id: DirTab; label: string; Icon: typeof ClipboardList }[] = [
 ];
 
 const TAB_TITLES: Record<DirTab, string> = {
+  today:           'Today',
+  ensembles:       'Ensembles',
   roll:            'Take Roll',
   roster:          'Roster',
   schedule:        'Schedule',
@@ -40,9 +46,15 @@ const TAB_TITLES: Record<DirTab, string> = {
 };
 
 export default function DirectorApp() {
-  const [tab, setTab] = useState<DirTab>('roll');
+  const [tab, setTab] = useState<DirTab>('today');
+  const [rollEnsembleId, setRollEnsembleId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
+
+  function openRoll(ensembleId: string) {
+    setRollEnsembleId(ensembleId);
+    setTab('roll');
+  }
 
   return (
     <AuthGate>
@@ -64,7 +76,9 @@ export default function DirectorApp() {
           </header>
 
           <main className="dir-content">
-            {tab === 'roll'            && <AttendanceTab />}
+            {tab === 'today'           && <TodayView onTakeRoll={openRoll} onOpenSchedule={() => setTab('schedule')} />}
+            {tab === 'ensembles'       && <EnsemblesHub onTakeRoll={openRoll} onOpenTab={t => setTab(t)} />}
+            {tab === 'roll'            && <AttendanceTab initialEnsembleId={rollEnsembleId} />}
             {tab === 'roster'          && <RosterView />}
             {tab === 'schedule'        && <ScheduleView />}
             {tab === 'scheduleChanges' && <ScheduleChangeView />}

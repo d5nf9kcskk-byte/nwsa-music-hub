@@ -27,6 +27,8 @@ function overrideApplies(o: RosterOverride, ctx: RosterContext): boolean {
 export interface ResolvedStudent {
   student: Student;
   isSub: boolean; // present via an 'add' override rather than base membership
+  /** Scheduled lesson pull-out for this date: student is only gone for this window. */
+  lesson?: RosterOverride;
 }
 
 /**
@@ -40,7 +42,10 @@ export function resolveRoster(
   ctx: RosterContext,
 ): ResolvedStudent[] {
   const relevant = overrides.filter(o => o.ensembleId === ctx.ensembleId && overrideApplies(o, ctx));
-  const removed = new Set(relevant.filter(o => o.action === 'remove').map(o => o.studentId));
+  // Lessons are partial pull-outs: the student STAYS on the roll, flagged with
+  // the time window, instead of vanishing like a full 'remove'.
+  const lessons = new Map(relevant.filter(o => o.kind === 'lesson').map(o => [o.studentId, o]));
+  const removed = new Set(relevant.filter(o => o.action === 'remove' && o.kind !== 'lesson').map(o => o.studentId));
   const added = new Set(relevant.filter(o => o.action === 'add').map(o => o.studentId));
 
   const byId = Object.fromEntries(students.map(s => [s.id, s]));
@@ -49,12 +54,12 @@ export function resolveRoster(
   for (const s of students) {
     if (s.status !== 'Active') continue;
     const isBase = s.ensembleIds?.includes(ctx.ensembleId) ?? false;
-    if (isBase && !removed.has(s.id)) result.push({ student: s, isSub: false });
+    if (isBase && !removed.has(s.id)) result.push({ student: s, isSub: false, lesson: lessons.get(s.id) });
   }
   for (const id of added) {
     const s = byId[id];
     if (s && s.status === 'Active' && !result.some(r => r.student.id === id)) {
-      result.push({ student: s, isSub: true });
+      result.push({ student: s, isSub: true, lesson: lessons.get(id) });
     }
   }
 

@@ -92,6 +92,9 @@ export interface AttendanceRecord {
   status: AttendanceStatus;
   reason?: string;
   notes?: string;
+  /** For status 'Lesson': the window the student was out ("HH:MM", 24h). */
+  startTime?: string;
+  endTime?: string;
 }
 
 export interface ProgressNote {

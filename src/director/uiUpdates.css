@@ -301,3 +301,67 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 
 /* Lesson override card accent */
 .dir-sc-ov.lesson { border-left-color: var(--dir-late); }
+
+/* ── Take Roll: lessons as partial pull-outs ── */
+.dir-lesson-hint {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11.5px; font-weight: 800;
+  color: #92600a; background: #fdf0d5;
+  border: 1px solid #f0d492; border-radius: 20px; padding: 3px 9px;
+  white-space: nowrap;
+}
+.dir-att-btn.lesson-btn.active { background: var(--dir-late); border-color: var(--dir-late); color: #fff; }
+.dir-lesson-sheet {
+  margin-top: 10px; padding: 10px 12px;
+  background: #fdf6e3; border: 1.5px solid #f0d492; border-radius: 10px;
+}
+.dir-lesson-sheet-title {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 700; color: #92600a; margin-bottom: 8px;
+}
+.dir-lesson-sheet-row { display: flex; align-items: center; gap: 8px; }
+.dir-lesson-sheet-row .dir-input { flex: 1; min-width: 0; }
+.dir-lesson-sheet-dash { color: var(--dir-text-muted); font-weight: 700; }
+.dir-lesson-sheet-save { flex-shrink: 0; padding: 10px 16px; }
+.dir-lesson-sheet-note { font-size: 11.5px; color: #92600a; margin-top: 7px; opacity: 0.85; }
+
+/* ── Today dashboard ── */
+.dir-today-hero { padding: 16px 16px 6px; }
+.dir-today-date { font-size: 13px; font-weight: 700; color: var(--dir-text-muted); }
+.dir-today-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: var(--dir-text); }
+.dir-today-school {
+  padding: 10px 14px; margin-bottom: 10px;
+  background: #fdf6e3; border: 1.5px solid #f0d492; border-radius: 10px;
+  font-size: 13.5px; font-weight: 700; color: #92600a;
+}
+.dir-today-card {
+  display: flex; margin-bottom: 12px;
+  background: var(--dir-surface); border: 1.5px solid var(--dir-border);
+  border-radius: var(--dir-radius); overflow: hidden;
+}
+.dir-today-stripe { width: 6px; flex-shrink: 0; }
+.dir-today-body { flex: 1; min-width: 0; padding: 13px 14px; }
+.dir-today-head { font-size: 16.5px; font-weight: 800; color: var(--dir-text); }
+.dir-today-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px;
+  font-size: 13px; color: var(--dir-text-muted);
+}
+.dir-today-meta span { display: inline-flex; align-items: center; gap: 5px; }
+.dir-today-rep {
+  display: flex; align-items: center; gap: 6px; margin-top: 8px;
+  font-size: 13.5px; font-weight: 600; color: var(--dir-text);
+}
+.dir-today-rep.muted { color: var(--dir-text-muted); font-weight: 500; font-style: italic; }
+.dir-today-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.dir-today-action { flex: 1; min-width: 130px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+
+/* ── Ensemble hub ── */
+.dir-hub-stats { display: flex; gap: 8px; margin-bottom: 6px; }
+.dir-hub-stat {
+  flex: 1; text-align: center; padding: 12px 6px;
+  background: var(--dir-surface); border: 1.5px solid var(--dir-border);
+  border-radius: var(--dir-radius);
+}
+.dir-hub-stat-num { font-size: 16px; font-weight: 800; color: var(--dir-text); }
+.dir-hub-stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--dir-text-muted); margin-top: 2px; }
+.dir-hub-icon { color: var(--dir-blue); flex-shrink: 0; }

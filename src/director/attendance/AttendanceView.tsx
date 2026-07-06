@@ -17,10 +17,10 @@ function formatDate(d: string) {
   return { label, isToday };
 }
 
-export function AttendanceView() {
+export function AttendanceView({ initialEnsembleId }: { initialEnsembleId?: string | null }) {
   const [date, setDate] = useState(todayStr);
   const { ensembles, loading: ensLoading } = useEnsembles();
-  const [selectedEnsembleId, setSelectedEnsembleId] = useState<string | null>(null);
+  const [selectedEnsembleId, setSelectedEnsembleId] = useState<string | null>(initialEnsembleId ?? null);
 
   useEffect(() => {
     if (ensembles.length > 0 && !selectedEnsembleId) {
@@ -46,10 +46,10 @@ export function AttendanceView() {
   const { label: dateLabel, isToday } = formatDate(date);
   const [toggleError, setToggleError] = useState('');
 
-  async function handleToggle(studentId: string, status: AttendanceStatus) {
+  async function handleToggle(studentId: string, status: AttendanceStatus, times?: { startTime?: string; endTime?: string }) {
     setToggleError('');
     try {
-      await toggleAttendance(studentId, status);
+      await toggleAttendance(studentId, status, times);
     } catch (e) {
       // Surface the failure — otherwise a rejected write looks like a no-op
       // and the director believes attendance was recorded when it wasn't.
@@ -126,13 +126,14 @@ export function AttendanceView() {
               <p>Add students to this ensemble in the Roster tab.</p>
             </div>
           ) : (
-            resolved.map(({ student, isSub }) => (
+            resolved.map(({ student, isSub, lesson }) => (
               <StudentCard
                 key={student.id}
                 student={student}
                 record={recordMap[student.id]}
                 onToggle={handleToggle}
                 isSub={isSub}
+                scheduledLesson={lesson}
               />
             ))
           )}

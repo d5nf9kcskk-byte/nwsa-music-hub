@@ -26,16 +26,24 @@ export function useAttendance(date: string, ensembleId: string | null) {
     }, () => setLoading(false));
   }, [date, ensembleId]);
 
-  async function toggleAttendance(studentId: string, newStatus: AttendanceStatus) {
+  async function toggleAttendance(
+    studentId: string,
+    newStatus: AttendanceStatus,
+    times?: { startTime?: string; endTime?: string },
+  ) {
     if (!db || !ensembleId) return;
     const existing = recordMap[studentId];
+    // Firestore rejects undefined values — only include the window when set.
+    const timeFields = times?.startTime && times?.endTime
+      ? { startTime: times.startTime, endTime: times.endTime }
+      : {};
 
-    if (existing?.status === newStatus) {
+    if (existing?.status === newStatus && !times) {
       // Tapping the active button clears it (back to present)
       await deleteDoc(doc(db, 'attendance', existing.id));
     } else if (existing) {
-      // Change status
-      await updateDoc(doc(db, 'attendance', existing.id), { status: newStatus });
+      // Change status (or update the lesson window)
+      await updateDoc(doc(db, 'attendance', existing.id), { status: newStatus, ...timeFields });
     } else {
       // New exception record
       await addDoc(collection(db, 'attendance'), {
@@ -43,6 +51,7 @@ export function useAttendance(date: string, ensembleId: string | null) {
         ensembleId,
         date,
         status: newStatus,
+        ...timeFields,
         createdAt: serverTimestamp(),
       });
     }
