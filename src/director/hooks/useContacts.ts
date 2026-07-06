@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { reportWriteError } from '../writeStatus';
 import type { StudentContact } from '../types';
 
 /**
@@ -33,7 +34,13 @@ export function useContacts() {
       await deleteDoc(doc(db, 'contacts', studentId)).catch(() => {});
       return;
     }
-    await setDoc(doc(db, 'contacts', studentId), clean);
+    try {
+      await setDoc(doc(db, 'contacts', studentId), clean);
+    } catch (e) {
+      // Surface instead of swallowing (#36) — offer a retry.
+      reportWriteError('Contact info failed to save', () => setDoc(doc(db!, 'contacts', studentId), clean));
+      throw e;
+    }
   }
 
   return { contacts, loading, saveContact };

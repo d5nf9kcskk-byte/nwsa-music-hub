@@ -503,3 +503,8 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-chart-seat-num { font-size: 10px; font-weight: 900; color: var(--dir-text-muted); }
 .dir-chart-seat-name { font-size: 12.5px; font-weight: 700; color: var(--dir-text); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dir-chart-seat-status { font-size: 9.5px; font-weight: 900; text-transform: uppercase; color: var(--dir-text-muted); }
+
+/* Legibility (#44): podium-sized targets */
+.dir-att-btn { min-height: 48px; }
+.dir-tab { min-height: 40px; }
+button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; }

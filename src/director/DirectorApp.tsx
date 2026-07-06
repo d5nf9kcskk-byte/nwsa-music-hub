@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router';
 import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search } from 'lucide-react';
 import { AuthGate } from './components/AuthGate';
 import { DirectorSearch } from './components/DirectorSearch';
+import { WriteTray } from './components/WriteTray';
 import { AttendanceTab } from './attendance/AttendanceTab';
 import { RosterView } from './roster/RosterView';
 import { ScheduleView } from './schedule/ScheduleView';
@@ -109,6 +110,8 @@ export default function DirectorApp() {
               <EnsembleHubView key={intentKey} ensembleId={intent.ensembleId} onNavigate={go} />
             )}
           </main>
+
+          <WriteTray />
 
           <DirectorSearch
             open={searchOpen}

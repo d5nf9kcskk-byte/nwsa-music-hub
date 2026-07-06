@@ -38,7 +38,13 @@ export function useEvents() {
 
   async function deleteEvent(id: string) {
     if (!db) return;
+    // Undo (#38): capture the doc, delete, offer 10s restore with the same id.
+    const gone = events.find(x => x.id === id);
     await deleteDoc(doc(db, 'events', id));
+    if (gone) {
+      const { id: _id, ...data } = gone;
+      offerUndo('events', id, data, `Deleted \"${gone.title || gone.type}\" — restore?`);
+    }
   }
 
   return { events, loading, addEvent, updateEvent, deleteEvent };

@@ -51,6 +51,13 @@ const router = createBrowserRouter(
   { basename: '/nwsa-music-hub' },
 );
 
+// Offline app shell (#43) — registered after load so it never delays startup.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
+  });
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <RouterProvider router={router} />

@@ -231,7 +231,13 @@ export function PublicCalendar() {
               if (!d) return <div key={i} className="dir-cal-cell empty" />;
               const evs = byDate[d] ?? [];
               return (
-                <button key={i} className={`dir-cal-cell ${d === selectedDate ? 'selected' : ''} ${d === today ? 'today' : ''}`} onClick={() => setSelectedDate(d)}>
+                <button
+                  key={i}
+                  className={`dir-cal-cell ${d === selectedDate ? 'selected' : ''} ${d === today ? 'today' : ''}`}
+                  onClick={() => setSelectedDate(d)}
+                  aria-label={`${parseDate(d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}${(byDate[d] ?? []).length ? `, ${(byDate[d] ?? []).length} event${(byDate[d] ?? []).length !== 1 ? 's' : ''}` : ', no events'}`}
+                  aria-pressed={d === selectedDate}
+                >
                   <span className="dir-cal-day">{parseDate(d).getDate()}</span>
                   <span className="dir-cal-dots">
                     {evs.slice(0, 4).map(e => <span key={e.id} className="dir-cal-dot" style={{ background: color(e) }} />)}

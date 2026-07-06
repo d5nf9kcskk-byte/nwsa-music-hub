@@ -85,7 +85,7 @@ function veventToEvent(v: Record<string, string>): Partial<Omit<CalendarEvent, '
 
 export function IcsImport({ onClose }: Props) {
   const { ensembles } = useEnsembles();
-  const { addEvent } = useEvents();
+  const { events: existingEvents, addEvent } = useEvents();
 
   const [url, setUrl] = useState('');
   const [text, setText] = useState('');
@@ -94,6 +94,13 @@ export function IcsImport({ onClose }: Props) {
   const [eventType, setEventType] = useState<CalendarEvent['type']>('Event');
 
   const [parsed, setParsed] = useState<Partial<Omit<CalendarEvent, 'id'>>[] | null>(null);
+
+  // Dry-run duplicate check (#41): same date + title (+ start time) already on the calendar.
+  const dupKey = (e: { date?: string; title?: string; startTime?: string }) =>
+    `${e.date ?? ''}|${(e.title ?? '').trim().toLowerCase()}|${e.startTime ?? ''}`;
+  const existingKeys = new Set(existingEvents.map(dupKey));
+  const fresh = (parsed ?? []).filter(ev => !existingKeys.has(dupKey(ev)));
+  const dupes = (parsed?.length ?? 0) - fresh.length;
   const [status, setStatus] = useState<'idle' | 'fetching' | 'importing' | 'done' | 'error'>('idle');
   const [error, setError] = useState('');
 
@@ -124,7 +131,7 @@ export function IcsImport({ onClose }: Props) {
     if (!parsed?.length) return;
     setStatus('importing');
     try {
-      await Promise.all(parsed.map(ev => addEvent({
+      await Promise.all(fresh.map(ev => addEvent({
         ...ev,
         type: eventType,
         ensembleIds: ensembleId ? [ensembleId] : [],
@@ -200,7 +207,9 @@ export function IcsImport({ onClose }: Props) {
 
               {parsed !== null && (
                 <div className="dir-gen-preview">
-                  <div className="dir-gen-preview-count">{parsed.length} events found</div>
+                  <div className="dir-gen-preview-count">
+                    Create {fresh.length}{dupes > 0 ? ` · Skip ${dupes} duplicate${dupes !== 1 ? 's' : ''} already on the calendar` : ''}
+                  </div>
                   <div className="dir-gen-preview-dates">
                     {parsed.slice(0, 5).map((ev, i) => (
                       <span key={i} className="dir-gen-preview-date">{ev.title ?? 'Event'} · {ev.date}</span>
