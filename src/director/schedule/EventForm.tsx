@@ -29,6 +29,10 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     status: 'Scheduled',
     notes: '',
     changeNote: '',
+    callTime: '',
+    dress: '',
+    venueAddress: '',
+    pickupTime: '',
   });
 
   const [form, setForm] = useState<Omit<CalendarEvent, 'id'>>(blank);
@@ -216,6 +220,53 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             <label className="dir-label">Location</label>
             <input className="dir-input" value={form.location ?? ''} onChange={e => set('location', e.target.value)} placeholder="e.g. Band Room / Auditorium" />
           </div>
+
+          {form.type === 'Concert' && (
+            <>
+              <div className="dir-section-title" style={{ margin: '6px 0 2px' }}>Concert day sheet</div>
+              <div className="dir-field-hint" style={{ marginBottom: 10 }}>
+                Shown to families on the public event page — call time, dress, venue, pickup.
+              </div>
+              <div className="dir-field-row">
+                <div className="dir-field">
+                  <label className="dir-label">Call time</label>
+                  <input
+                    className="dir-input"
+                    type="time"
+                    value={form.callTime ?? ''}
+                    onChange={e => set('callTime', e.target.value)}
+                  />
+                </div>
+                <div className="dir-field">
+                  <label className="dir-label">Pickup time</label>
+                  <input
+                    className="dir-input"
+                    type="time"
+                    value={form.pickupTime ?? ''}
+                    onChange={e => set('pickupTime', e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="dir-field">
+                <label className="dir-label">Dress</label>
+                <input
+                  className="dir-input"
+                  value={form.dress ?? ''}
+                  onChange={e => set('dress', e.target.value)}
+                  placeholder="e.g. Concert black — long sleeves, black shoes"
+                />
+              </div>
+              <div className="dir-field">
+                <label className="dir-label">Venue address</label>
+                <input
+                  className="dir-input"
+                  value={form.venueAddress ?? ''}
+                  onChange={e => set('venueAddress', e.target.value)}
+                  placeholder="Full street address (used for the Maps link)"
+                />
+              </div>
+            </>
+          )}
 
           <div className="dir-field">
             <label className="dir-label">Repertoire notes</label>

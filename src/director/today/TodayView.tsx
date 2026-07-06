@@ -11,6 +11,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { QuickChangeMenu } from './QuickChange';
 import { SubSheet } from './SubSheet';
+import { SeasonChecklist } from './SeasonChecklist';
 import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster } from '../rosterResolver';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays } from '../utils';
@@ -33,6 +34,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const [quickChange, setQuickChange] = useState<CalendarEvent | null>(null);
   const [snowDay, setSnowDay] = useState(false);
   const [subSheetFor, setSubSheetFor] = useState<CalendarEvent | null>(null);
+  const [showChecklist, setShowChecklist] = useState(false);
   const [ensembleId, setEnsembleId] = useState(() => localStorage.getItem(ENS_PREF_KEY) ?? '');
 
   const today = todayStr();
@@ -226,6 +228,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
           <button className="dir-quick-btn" onClick={() => onNavigate('announcements')}><Megaphone size={18} /> Post announcement</button>
           <button className="dir-quick-btn" onClick={() => onNavigate('scheduleChanges')}><Users size={18} /> Schedule change</button>
           <button className="dir-quick-btn" onClick={() => setSnowDay(true)}>❄️ Close a day</button>
+          <button className="dir-quick-btn" onClick={() => setShowChecklist(true)}>🍂 Term checklist</button>
         </div>
 
         {/* Coming up */}
@@ -290,6 +293,10 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
           ensemble={ensembleMap[subSheetFor.ensembleIds[0]] as import('../types').Ensemble}
           onClose={() => setSubSheetFor(null)}
         />
+      )}
+
+      {showChecklist && (
+        <SeasonChecklist onNavigate={onNavigate} onClose={() => setShowChecklist(false)} />
       )}
 
       {showFollowUps && (

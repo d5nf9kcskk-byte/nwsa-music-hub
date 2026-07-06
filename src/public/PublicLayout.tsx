@@ -5,6 +5,7 @@ import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck
 import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
 import { SearchOverlay } from './components/SearchOverlay';
+import { TextSizeControl } from './components/TextSize';
 import { LABELS } from '../shared/labels';
 import { primaryStudent, onIdentityChange } from '../shared/identity';
 import { useEffect, useReducer } from 'react';
@@ -41,6 +42,7 @@ export function PublicLayout() {
           <span>NWSA Music</span>
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <TextSizeControl />
           <button className="pub-hamburger" onClick={() => setSearchOpen(true)} aria-label="Search">
             <Search size={20} />
           </button>
