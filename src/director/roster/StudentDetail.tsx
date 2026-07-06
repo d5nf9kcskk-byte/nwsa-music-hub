@@ -91,10 +91,14 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
             </div>
           )}
 
-          {/* ── Contact info (private) ── */}
-          {(contact?.email || contact?.parentEmail || contact?.phone) && (
-            <div className="dir-detail-section">
-              <div className="dir-detail-section-title"><Mail size={13} /> Contact <span className="dir-detail-private">private</span></div>
+          {/* ── Contact info (director-only) ── */}
+          <div className="dir-detail-section">
+            <div className="dir-detail-section-title"><Mail size={13} /> Contact <span className="dir-detail-private">directors only</span></div>
+            {!(contact?.email || contact?.parentEmail || contact?.phone) ? (
+              <button className="dir-btn dir-btn-ghost" style={{ marginTop: 6 }} onClick={onEdit}>
+                <Pencil size={13} /> Add contact info
+              </button>
+            ) : (
               <div className="dir-detail-contact-list">
                 {contact.email && (
                   <a href={`mailto:${contact.email}`} className="dir-detail-contact-row">
@@ -118,8 +122,8 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
                   </a>
                 )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* ── Attendance ── */}
           <div className="dir-detail-section">

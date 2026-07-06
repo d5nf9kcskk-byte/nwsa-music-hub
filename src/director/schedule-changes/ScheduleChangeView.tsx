@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Search, Plus, UserPlus, UserMinus, Trash2, CalendarClock, GraduationCap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Plus, UserPlus, UserMinus, Trash2, CalendarClock, GraduationCap, Clock, FileText } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
@@ -271,16 +271,18 @@ function StudentPanel({ student, ensembles, onBack, prefill, autoOpenForm }: {
                   {o.kind === 'lesson' ? <GraduationCap size={14} />
                     : o.action === 'add' ? <UserPlus size={14} /> : <UserMinus size={14} />}
                   {o.kind === 'lesson'
-                    ? `Lesson during ${ensembleMap[o.ensembleId]?.name ?? 'rehearsal'}`
-                    : `${o.action === 'add' ? 'Subbed into' : 'Pulled from'} ${ensembleMap[o.ensembleId]?.name ?? 'ensemble'}`}
+                    ? `Lesson — out of ${ensembleMap[o.ensembleId]?.name ?? 'rehearsal'}`
+                    : `${o.action === 'add' ? 'Subbed INTO' : 'Pulled FROM'} ${ensembleMap[o.ensembleId]?.name ?? 'ensemble'}`}
                 </div>
-                <div className="dir-sc-ov-meta">
-                  {describeWhen(o)}
-                  {o.startTime && o.endTime ? ` · out ${formatTimeRange(o.startTime, o.endTime)}` : ''}
-                  {o.reason ? ` · ${o.reason}` : ''}
+                <div className="dir-sc-ov-lines">
+                  <div className="dir-sc-ov-line"><CalendarClock size={12} /> {describeWhen(o)}</div>
+                  {o.kind === 'lesson' && o.startTime && o.endTime && (
+                    <div className="dir-sc-ov-line"><Clock size={12} /> Out {formatTimeRange(o.startTime, o.endTime)} (present the rest of rehearsal)</div>
+                  )}
+                  {o.reason && <div className="dir-sc-ov-line"><FileText size={12} /> {o.reason}</div>}
                 </div>
               </div>
-              <button className="dir-icon-btn" onClick={() => deleteOverride(o.id)} aria-label="Undo change"><Trash2 size={15} /></button>
+              <button className="dir-icon-btn" onClick={() => deleteOverride(o.id)} aria-label="Delete this change"><Trash2 size={15} /></button>
             </div>
           ))
         )}
@@ -513,9 +515,14 @@ function fmtTime(t: string) {
   return `${hr}:${String(m).padStart(2, '0')} ${ampm}`;
 }
 function describeWhen(o: RosterOverride) {
-  if (o.scope === 'event') return 'for one rehearsal';
+  if (o.scope === 'event') return 'For one rehearsal';
   if (o.startDate && o.endDate) {
-    return o.startDate === o.endDate ? fmt(o.startDate) : `${fmt(o.startDate)} – ${fmt(o.endDate)}`;
+    if (o.startDate === o.endDate) return fmtLong(o.startDate);
+    const days = Math.round((parseDate(o.endDate).getTime() - parseDate(o.startDate).getTime()) / 86400000) + 1;
+    return `${fmtLong(o.startDate)} → ${fmtLong(o.endDate)} (${days} days)`;
   }
-  return 'temporary';
+  return 'Ongoing';
+}
+function fmtLong(d: string) {
+  return parseDate(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }

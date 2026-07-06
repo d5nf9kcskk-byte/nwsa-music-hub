@@ -62,21 +62,28 @@ For the piece "${piece.title}" by ${piece.composer || 'unknown composer'}, provi
   "composerDates": "birth–death years e.g. 1770–1827",
   "catalogNumber": "opus or catalog number e.g. Op. 67 or BWV 1068 (null if none)",
   "year": "composition year or range e.g. 1807–08 (null if unknown)",
-  "instrumentation": "brief orchestration using standard abbreviations e.g. 2fl, 2ob, 2cl, 2bsn, 2hn, 2tp, timp, str",
+  "instrumentation": "see INSTRUMENTATION rules below — required",
+  "percussion": "see PERCUSSION rules below — required",
   "duration": <typical performance duration in whole minutes as a number, null if unknown>,
   "movements": [
     {"title": "movement title e.g. Allegro con brio", "duration": <minutes as number or null>}
   ],
-  "programNotes": "2-3 sentences suitable for a school concert program, mentioning historical context and what makes this piece notable",
-  "imslpUrl": "exact IMSLP URL for the work if it is in the public domain (e.g. https://imslp.org/wiki/...), otherwise null",
-  "videoUrl": "URL to a highly notable recording on YouTube — only include if you are very confident the URL is correct and publicly accessible, otherwise null",
-  "audioUrl": null
+  "programNotes": "2-3 sentences suitable for a school concert program, mentioning historical context and what makes this piece notable"
 }
 
+INSTRUMENTATION — use the Daniels' Orchestral Music shorthand EXACTLY, sections separated by " — " in order: woodwinds — brass — percussion — keyboards/harp — strings.
+- Woodwinds: four numbers Flute.Oboe.Clarinet.Bassoon, doublings in square brackets using pic, afl, Eh, Ebcl, bcl, cbn. e.g. 3[1.2.pic] 2[1.2/Eh] 2 2
+- Brass: four numbers Horn.Trumpet.Trombone.Tuba. e.g. 4 2 3 1 (use cnt for cornets if specified)
+- Percussion: "tmp" for timpani then "+N" for the number of OTHER percussionists. e.g. tmp+3
+- Keyboards/harp: hp, cel, pf, org; omit the section if none.
+- Strings: "str".
+Full example: "3[1.2.pic] 2[1.2/Eh] 2 2 — 4 2 3 1 — tmp+3 — hp — str"
+
+PERCUSSION — a comma-separated list of the SPECIFIC percussion instruments the work calls for, unabbreviated, e.g. "Snare Drum, Bass Drum, Cymbals, Triangle, Tam-tam, Glockenspiel, Xylophone". If timpani only, return "Timpani only". This field is required, complete, and accurate.
+
 Rules:
-- Only include movements if the work actually has named movements. Use null for audioUrl always.
-- For imslpUrl: only provide if the work is public domain and you know the exact IMSLP page URL.
-- For videoUrl: only provide a YouTube URL if you are highly confident it is correct. Prefer null over a wrong URL.
+- Only include movements if the work actually has named movements.
+- Do NOT return any URLs — links are generated separately.
 - All string values must be in English.`;
 
   const msg = await anthropic.messages.create({
@@ -101,6 +108,11 @@ Rules:
       clean.movements = clean.movements.filter(m => m && typeof m.title === 'string' && m.title.trim());
       if (clean.movements.length === 0) delete clean.movements;
     }
+    // Never trust AI-generated deep URLs (they hallucinate). Attach reliable
+    // SEARCH links built from composer + title instead.
+    const q = encodeURIComponent([piece.composer, piece.title].filter(Boolean).join(' '));
+    clean.imslpUrl = `https://imslp.org/index.php?title=Special:Search&search=${q}&fulltext=Search`;
+    clean.videoUrl = `https://www.youtube.com/results?search_query=${q}`;
     return clean;
   } catch (err) {
     console.warn(`  JSON parse error for "${piece.title}":`, err.message);

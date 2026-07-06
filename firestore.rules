@@ -38,12 +38,15 @@ service cloud.firestore {
     match /rosterOverrides/{doc} { allow read; allow write: if signedIn(); }
     match /announcements/{doc}   { allow read; allow write: if signedIn(); }
     match /repertoire/{doc}      { allow read; allow write: if signedIn(); }
+    // Assignment DEFINITIONS (title, type, due date, target) are public so
+    // students see what's assigned. Individual RESULTS/grades stay private below.
+    match /assignments/{doc}     { allow read; allow write: if signedIn(); }
+    match /seatingCharts/{doc}   { allow read; allow write: if signedIn(); }
 
     // ── Private · director read + write only ──────────────
     match /contacts/{doc}           { allow read, write: if signedIn(); }
     match /attendance/{doc}         { allow read, write: if signedIn(); }
     match /progressNotes/{doc}      { allow read, write: if signedIn(); }
-    match /assignments/{doc}        { allow read, write: if signedIn(); }
     match /assignmentResults/{doc}  { allow read, write: if signedIn(); }
 
     // ── Deny everything else by default ─────────────────

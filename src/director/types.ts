@@ -102,6 +102,9 @@ export interface AttendanceRecord {
   studentId: string;
   ensembleId: string;
   date: string; // YYYY-MM-DD
+  /** The specific rehearsal/period. Lets a student be present in one block and
+   *  excused in another on the same day (per-period roll). */
+  eventId?: string;
   status: AttendanceStatus;
   reason?: string;
   notes?: string;
@@ -155,7 +158,8 @@ export interface RepertoirePiece {
   arranger?: string;
   catalogNumber?: string;     // e.g. "Op. 67", "BWV 1068", "K. 550"
   year?: string;              // composition year or range e.g. "1804–1808"
-  instrumentation?: string;   // brief forces description
+  instrumentation?: string;   // Daniels' Orchestral Music shorthand (ww — br — perc — kbd/hp — str)
+  percussion?: string;        // specific percussion instruments called for (comma-separated)
   duration?: number;          // typical performance duration in minutes
   movements?: PieceMovement[];
   programNotes?: string;      // text suitable for a concert program
@@ -191,8 +195,25 @@ export interface Assignment {
   description?: string;
   dueDate: string; // YYYY-MM-DD
   ensembleIds: string[];
+  studentIds?: string[];  // specific individuals (in addition to whole ensembles)
   createdAt: number;
   attachments?: Attachment[];
+}
+
+/**
+ * A published seating result for a playing exam / piece. Chairs are ordered
+ * per (ensemble, piece): seat 1 = principal. Publicly readable so students
+ * see where they sit; which piece it's for can vary chair-to-chair.
+ */
+export interface SeatingChart {
+  id: string;
+  ensembleId: string;
+  title: string;              // e.g. "Fall Concert — Rip Van Winkle"
+  pieceId?: string;           // optional linked repertoire piece
+  date?: string;              // YYYY-MM-DD published/effective
+  // Ordered seats grouped by section label (e.g. "Violin I", "Trumpet").
+  sections: { section: string; seats: { studentId: string; note?: string }[] }[];
+  createdAt: number;
 }
 
 export interface AssignmentResult {

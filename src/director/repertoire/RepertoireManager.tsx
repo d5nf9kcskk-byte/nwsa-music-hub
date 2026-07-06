@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { Plus, Pencil, Music, Sparkles, Trash2, GripVertical, ChevronLeft } from 'lucide-react';
+import { Plus, Pencil, Music, Sparkles, Trash2, GripVertical } from 'lucide-react';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
-import { ensembleColor, parseDate } from '../utils';
+import { ensembleColor, parseDate, imslpSearchUrl, youtubeSearchUrl } from '../utils';
+import { DANIELS_PROMPT } from './danielsPrompt';
 import type { RepertoirePiece, CalendarEvent, Ensemble, PieceMovement, PiecePartLink } from '../types';
 
 interface Props {
@@ -20,6 +21,31 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const shown = ensembleId ? pieces.filter(p => p.ensembleId === ensembleId) : pieces;
+  const [groupBy, setGroupBy] = useState<'ensemble' | 'concert'>('ensemble');
+
+  // Build grouped sections for the list view.
+  const groups = useMemo(() => {
+    if (groupBy === 'concert') {
+      const concerts = events
+        .filter(e => e.type === 'Concert')
+        .sort((a, b) => a.date.localeCompare(b.date));
+      const out: { key: string; label: string; color: string; pieces: typeof shown }[] = [];
+      for (const c of concerts) {
+        const ps = shown.filter(p => (p.eventIds ?? []).includes(c.id));
+        if (ps.length) out.push({ key: c.id, label: c.title || 'Concert', color: ensembleColor(ensembleMap[c.ensembleIds[0]]), pieces: ps });
+      }
+      const unassigned = shown.filter(p => !(p.eventIds ?? []).some(id => events.find(e => e.id === id && e.type === 'Concert')));
+      if (unassigned.length) out.push({ key: '_none', label: 'Not on a concert yet', color: '#94a3b8', pieces: unassigned });
+      return out;
+    }
+    // by ensemble
+    const out: { key: string; label: string; color: string; pieces: typeof shown }[] = [];
+    for (const e of [...ensembles].sort((a, b) => a.order - b.order)) {
+      const ps = shown.filter(p => p.ensembleId === e.id);
+      if (ps.length) out.push({ key: e.id, label: e.name, color: ensembleColor(e), pieces: ps });
+    }
+    return out;
+  }, [groupBy, shown, events, ensembles, ensembleMap]);
 
   if (editing) {
     const piece = editing === 'new' ? null : editing;
@@ -41,39 +67,53 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
         }}
         onDelete={editing !== 'new' ? async () => deletePiece(editing.id) : undefined}
         onBack={() => setEditing(null)}
-        onClose={onClose}
       />
     );
   }
 
+  const pieceRow = (p: RepertoirePiece) => (
+    <div key={p.id} className="dir-ens-row" onClick={() => setEditing(p)}>
+      <span className="dir-ens-swatch" style={{ background: ensembleColor(ensembleMap[p.ensembleId]) }} />
+      <div className="dir-ens-info">
+        <div className="dir-ens-name">
+          <Music size={12} style={{ verticalAlign: '-1px', marginRight: 4 }} />
+          {p.title}
+          {p.aiStatus === 'pending' && (
+            <span className="dir-ai-badge pending" style={{ marginLeft: 6 }}>AI pending</span>
+          )}
+          {p.aiStatus === 'enriched' && (
+            <span className="dir-ai-badge enriched" style={{ marginLeft: 6 }}>AI ✓</span>
+          )}
+        </div>
+        <div className="dir-ens-sub">
+          {[p.composer, groupBy === 'concert' && !ensembleId ? ensembleMap[p.ensembleId]?.name : null].filter(Boolean).join(' · ') || '—'}
+          {p.duration ? ` · ${p.duration} min` : ''}
+        </div>
+      </div>
+      <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing(p); }} aria-label="Edit">
+        <Pencil size={16} />
+      </button>
+    </div>
+  );
+
   const listBody = (
     <>
+      <div className="dir-mode-toggle">
+        <button className={`dir-segment-btn ${groupBy === 'ensemble' ? 'active' : ''}`} onClick={() => setGroupBy('ensemble')}>By ensemble</button>
+        <button className={`dir-segment-btn ${groupBy === 'concert' ? 'active' : ''}`} onClick={() => setGroupBy('concert')}>By concert</button>
+      </div>
       <div className="dir-drawer-body">
         {shown.length === 0 ? (
           <div className="dir-empty-inline">No repertoire yet. Add a piece below.</div>
         ) : (
-          shown.map(p => (
-            <div key={p.id} className="dir-ens-row" onClick={() => setEditing(p)}>
-              <span className="dir-ens-swatch" style={{ background: ensembleColor(ensembleMap[p.ensembleId]) }} />
-              <div className="dir-ens-info">
-                <div className="dir-ens-name">
-                  <Music size={12} style={{ verticalAlign: '-1px', marginRight: 4 }} />
-                  {p.title}
-                  {p.aiStatus === 'pending' && (
-                    <span className="dir-ai-badge pending" style={{ marginLeft: 6 }}>AI pending</span>
-                  )}
-                  {p.aiStatus === 'enriched' && (
-                    <span className="dir-ai-badge enriched" style={{ marginLeft: 6 }}>AI ✓</span>
-                  )}
-                </div>
-                <div className="dir-ens-sub">
-                  {[p.composer, ensembleId ? null : ensembleMap[p.ensembleId]?.name].filter(Boolean).join(' · ') || '—'}
-                  {p.duration ? ` · ${p.duration} min` : ''}
-                </div>
+          groups.map(g => (
+            <div key={g.key} className="dir-roster-group">
+              <div className="dir-roster-group-header">
+                <span className="dir-roster-swatch" style={{ background: g.color }} />
+                {g.label}
+                <span className="dir-roster-count">{g.pieces.length}</span>
               </div>
-              <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing(p); }} aria-label="Edit">
-                <Pencil size={16} />
-              </button>
+              {g.pieces.map(pieceRow)}
             </div>
           ))
         )}
@@ -115,12 +155,11 @@ interface FormProps {
   onSave: (data: Omit<RepertoirePiece, 'id'>) => Promise<void>;
   onDelete?: () => Promise<void>;
   onBack: () => void;
-  onClose: () => void;
 }
 
 function RepertoireForm({
   piece, ensembles, events, lockedEnsembleId, nextOrder,
-  onSave, onDelete, onBack, onClose,
+  onSave, onDelete, onBack,
 }: FormProps) {
   const [ensembleId, setEnsembleId] = useState(piece?.ensembleId ?? lockedEnsembleId ?? ensembles[0]?.id ?? '');
   const [title, setTitle] = useState(piece?.title ?? '');
@@ -131,6 +170,7 @@ function RepertoireForm({
   const [catalogNumber, setCatalogNumber] = useState(piece?.catalogNumber ?? '');
   const [year, setYear] = useState(piece?.year ?? '');
   const [instrumentation, setInstrumentation] = useState(piece?.instrumentation ?? '');
+  const [percussion, setPercussion] = useState(piece?.percussion ?? '');
   const [duration, setDuration] = useState(piece?.duration?.toString() ?? '');
   const [movements, setMovements] = useState<PieceMovement[]>(piece?.movements ?? []);
   const [programNotes, setProgramNotes] = useState(piece?.programNotes ?? '');
@@ -201,6 +241,7 @@ function RepertoireForm({
       catalogNumber: catalogNumber.trim() || undefined,
       year: year.trim() || undefined,
       instrumentation: instrumentation.trim() || undefined,
+      percussion: percussion.trim() || undefined,
       duration: duration ? Number(duration) : undefined,
       movements: cleanMovements.length ? cleanMovements : undefined,
       programNotes: programNotes.trim() || undefined,
@@ -273,14 +314,19 @@ function RepertoireForm({
               role: 'user',
               content: `Fill music metadata for a conductor's score library. Title: "${title}", Composer: "${composer}"${fullTitle ? `, Full title: "${fullTitle}"` : ''}.
 
-Return ONLY a JSON object (no markdown) with these fields (omit any you are not confident about):
+Return ONLY a JSON object (no markdown) with these fields (omit any you are not confident about, EXCEPT instrumentation and percussion which are required):
 - catalogNumber (string: opus, BWV, K, etc.)
 - composerDates (string: "1756–1791")
+- year (string: composition year or range)
 - duration (number: approximate minutes)
+- instrumentation (string)
+- percussion (string)
 - movements (array of {title, duration?} — only if the piece has distinct named movements)
 - programNotes (string: 2–3 sentences for a concert program audience)
-- imslpUrl (string: full IMSLP URL if you are certain it exists)
-- videoUrl (string: YouTube URL of a well-known professional recording)`,
+
+${DANIELS_PROMPT}
+
+Do NOT return any URLs — links are generated separately.`,
             }],
           }),
         }),
@@ -315,8 +361,14 @@ Return ONLY a JSON object (no markdown) with these fields (omit any you are not 
           .map(m => ({ title: String(m.title ?? ''), duration: m.duration ? Number(m.duration) : undefined })));
       }
       if (ai.programNotes) setProgramNotes(String(ai.programNotes));
-      if (ai.imslpUrl) setImslpUrl(String(ai.imslpUrl));
-      if (ai.videoUrl) setVideoUrl(String(ai.videoUrl));
+      if (ai.instrumentation) { setInstrumentation(String(ai.instrumentation)); setShowAdvanced(true); }
+      if (ai.percussion) setPercussion(String(ai.percussion));
+      if (ai.year) setYear(String(ai.year));
+      // Reliable search links (never hallucinated deep URLs).
+      const imslp = imslpSearchUrl(composer, title);
+      const yt = youtubeSearchUrl(composer, title);
+      setImslpUrl(imslp);
+      setVideoUrl(yt);
       setAiStatus('enriched');
 
       // Save immediately with enriched data (build directly — state updates are async)
@@ -336,14 +388,15 @@ Return ONLY a JSON object (no markdown) with these fields (omit any you are not 
           composerDates: ai.composerDates ? String(ai.composerDates) : (composerDates.trim() || undefined),
           arranger: arranger.trim() || undefined,
           catalogNumber: ai.catalogNumber ? String(ai.catalogNumber) : (catalogNumber.trim() || undefined),
-          year: year.trim() || undefined,
-          instrumentation: instrumentation.trim() || undefined,
+          year: ai.year ? String(ai.year) : (year.trim() || undefined),
+          instrumentation: ai.instrumentation ? String(ai.instrumentation) : (instrumentation.trim() || undefined),
+          percussion: ai.percussion ? String(ai.percussion) : (percussion.trim() || undefined),
           duration: ai.duration ? Math.round(Number(ai.duration)) : (duration ? Number(duration) : undefined),
           movements: aiMovements.length ? aiMovements : undefined,
           programNotes: ai.programNotes ? String(ai.programNotes) : (programNotes.trim() || undefined),
           programNotesUrl: programNotesUrl.trim() || undefined,
-          imslpUrl: ai.imslpUrl ? String(ai.imslpUrl) : (imslpUrl.trim() || undefined),
-          videoUrl: ai.videoUrl ? String(ai.videoUrl) : (videoUrl.trim() || undefined),
+          imslpUrl: imslpSearchUrl(composer, title),
+          videoUrl: youtubeSearchUrl(composer, title),
           audioUrl: audioUrl.trim() || undefined,
           partsSharedUrl: partsSharedUrl.trim() || undefined,
           partsUrl: partsUrl.trim() || undefined,
@@ -368,20 +421,19 @@ Return ONLY a JSON object (no markdown) with these fields (omit any you are not 
     if (!onDelete) return;
     setSaving(true);
     await onDelete();
-    onClose();
+    onBack();
   }
 
   const canSave = title.trim() && ensembleId;
   const canFillAI = canSave && !!composer.trim();
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onBack()}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
-          <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
           <span className="dir-drawer-title">{piece ? 'Edit Piece' : 'New Piece'}</span>
-          <button className="dir-drawer-close" onClick={onClose}>×</button>
+          <button className="dir-drawer-close" onClick={onBack} aria-label="Close">×</button>
         </div>
 
         <div className="dir-drawer-body">
@@ -469,8 +521,13 @@ Return ONLY a JSON object (no markdown) with these fields (omit any you are not 
           <div className="dir-form-section-label">Performance</div>
 
           <div className="dir-field">
-            <label className="dir-label">Instrumentation</label>
-            <input className="dir-input" value={instrumentation} onChange={e => setInstrumentation(e.target.value)} placeholder="e.g. fl, ob, cl, bsn, hn, str" />
+            <label className="dir-label">Instrumentation <span className="dir-label-hint">Daniels format</span></label>
+            <input className="dir-input" value={instrumentation} onChange={e => setInstrumentation(e.target.value)} placeholder="3[1.2.pic] 2 2 2 — 4 2 3 1 — tmp+3 — hp — str" />
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Percussion <span className="dir-label-hint">specific instruments</span></label>
+            <input className="dir-input" value={percussion} onChange={e => setPercussion(e.target.value)} placeholder="Snare Drum, Bass Drum, Cymbals, Triangle, Glockenspiel" />
           </div>
 
           <div className="dir-field" style={{ flex: '0 0 120px' }}>
@@ -628,7 +685,7 @@ Return ONLY a JSON object (no markdown) with these fields (omit any you are not 
           <div style={{ padding: '4px 16px 0', fontSize: 13, color: 'var(--dir-danger)' }}>{saveError}</div>
         )}
         <div className="dir-drawer-footer">
-          <button className="dir-btn dir-btn-ghost" onClick={onBack}>Back</button>
+          <button className="dir-btn dir-btn-ghost" onClick={onBack}>Cancel</button>
           <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !canSave}>
             {saving ? 'Saving…' : 'Save'}
           </button>

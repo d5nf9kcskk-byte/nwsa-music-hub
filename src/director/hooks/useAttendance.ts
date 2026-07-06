@@ -6,12 +6,22 @@ import {
 import { db } from '../firebase';
 import type { AttendanceRecord, AttendanceStatus } from '../types';
 
-export function useAttendance(date: string, ensembleId: string | null) {
+/**
+ * Attendance for a (date, ensemble) — optionally scoped to a specific rehearsal
+ * `eventId` so roll can be taken per class period. When eventId is given, only
+ * records for that period are surfaced and new records are tagged with it; older
+ * records without an eventId are treated as belonging to that day's period so
+ * nothing is lost.
+ */
+export function useAttendance(date: string, ensembleId: string | null, eventId?: string | null) {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Map from studentId → record for quick lookup
-  const recordMap = Object.fromEntries(records.map(r => [r.studentId, r]));
+  // Scope to this period when an eventId is set (untagged legacy records included).
+  const scoped = eventId
+    ? records.filter(r => r.eventId === eventId || r.eventId == null)
+    : records;
+  const recordMap = Object.fromEntries(scoped.map(r => [r.studentId, r]));
 
   useEffect(() => {
     if (!db || !ensembleId) { setLoading(false); return; }
@@ -34,8 +44,8 @@ export function useAttendance(date: string, ensembleId: string | null) {
       // Tapping the active button clears it (back to present)
       await deleteDoc(doc(db, 'attendance', existing.id));
     } else if (existing) {
-      // Change status
-      await updateDoc(doc(db, 'attendance', existing.id), { status: newStatus });
+      // Change status (and backfill eventId on any legacy record)
+      await updateDoc(doc(db, 'attendance', existing.id), { status: newStatus, ...(eventId ? { eventId } : {}) });
     } else {
       // New exception record
       await addDoc(collection(db, 'attendance'), {
@@ -43,12 +53,13 @@ export function useAttendance(date: string, ensembleId: string | null) {
         ensembleId,
         date,
         status: newStatus,
+        ...(eventId ? { eventId } : {}),
         createdAt: serverTimestamp(),
       });
     }
   }
 
-  return { records, recordMap, loading, toggleAttendance };
+  return { records: scoped, recordMap, loading, toggleAttendance };
 }
 
 /** Listens to the entire attendance collection — for the tracker and roster counts. */

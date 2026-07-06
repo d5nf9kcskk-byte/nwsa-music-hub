@@ -1,7 +1,7 @@
 import './uiUpdates.css';
 import { useState } from 'react';
 import { Outlet, NavLink, Link } from 'react-router';
-import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, Menu, X, ChevronDown } from 'lucide-react';
+import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { ensembleColor } from '../director/utils';
 
@@ -10,6 +10,7 @@ const NAV = [
   { to: '/calendar', label: 'Calendar', Icon: CalendarDays, end: false },
   { to: '/announcements', label: 'Announcements', Icon: Megaphone, end: false },
   { to: '/repertoire', label: 'Repertoire', Icon: Music, end: false },
+  { to: '/assignments', label: 'Assignments', Icon: ClipboardCheck, end: false },
   { to: '/lookup', label: 'My Schedule', Icon: UserSearch, end: false },
 ];
 

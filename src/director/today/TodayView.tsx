@@ -1,31 +1,34 @@
 import { useMemo, useState } from 'react';
-import { ClipboardList, MapPin, Clock, Music, GraduationCap, CalendarPlus, Users } from 'lucide-react';
+import { ClipboardList, MapPin, Clock, Music, GraduationCap, CalendarPlus, Users, Megaphone, ChevronRight, Plus } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
+import { useAnnouncements, visibleAnnouncements } from '../hooks/useAnnouncements';
 import { resolveRoster } from '../rosterResolver';
-import { todayStr, formatTimeRange, ensembleColor, EVENT_TYPE_ICON } from '../utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON } from '../utils';
 import type { CalendarEvent } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
 
 const ENS_PREF_KEY = 'dir.today.ensemble';
 
-/** The director's landing page: today's schedule with one-tap jumps. */
+/** Director landing page: same shape as the public home, plus editing jumps. */
 export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const { ensembles } = useEnsembles();
   const { events } = useEvents();
   const { students } = useStudents();
   const { pieces } = useRepertoire();
   const { overrides } = useRosterOverrides();
+  const { announcements } = useAnnouncements();
   const [ensembleId, setEnsembleId] = useState(() => localStorage.getItem(ENS_PREF_KEY) ?? '');
 
   const today = todayStr();
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
+  const studentsById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
 
   function pickEnsemble(id: string) {
     const next = ensembleId === id ? '' : id;
@@ -33,12 +36,30 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
     localStorage.setItem(ENS_PREF_KEY, next);
   }
 
+  const matchesEns = (e: CalendarEvent) => !ensembleId || e.ensembleIds.length === 0 || e.ensembleIds.includes(ensembleId);
+
   const todays = useMemo(() =>
-    events
-      .filter(e => e.date === today)
-      .filter(e => !ensembleId || e.ensembleIds.length === 0 || e.ensembleIds.includes(ensembleId))
+    events.filter(e => e.date === today).filter(matchesEns)
       .sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99')),
     [events, today, ensembleId]);
+
+  const future = useMemo(() =>
+    events.filter(e => e.date > today && e.status !== 'Cancelled').filter(matchesEns)
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99')),
+    [events, today, ensembleId]);
+
+  const upRehearsals = future.filter(e => e.type === 'Rehearsal' || e.type === 'Sectional').slice(0, 6);
+  const upConcerts = future.filter(e => e.type === 'Concert').slice(0, 4);
+  const upEvents = future.filter(e => e.type === 'Event').slice(0, 5);
+
+  const alerts = useMemo(() =>
+    events.filter(e => e.date === today).filter(matchesEns)
+      .filter(e => e.status === 'Cancelled' || e.changeNote),
+    [events, today, ensembleId]);
+
+  const homeAnnouncements = useMemo(
+    () => visibleAnnouncements(announcements, today, ensembleId ? [ensembleId] : 'all').slice(0, 3),
+    [announcements, today, ensembleId]);
 
   const lessonsToday = useMemo(() =>
     overrides
@@ -47,34 +68,67 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
       .sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99')),
     [overrides, today, ensembleId]);
 
-  const studentsById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
+  const orderedEns = useMemo(() => [...ensembles].sort((a, b) => a.order - b.order), [ensembles]);
+  const dateLabel = parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  const dateLabel = new Date(today + 'T12:00:00')
-    .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const upRow = (e: CalendarEvent) => (
+    <button key={e.id} className="dir-up-row" onClick={() => onNavigate('schedule', { date: e.date, eventId: e.id })}>
+      <span className="dir-up-date">{parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+      <span className="dir-up-dot" style={{ background: e.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleMap[e.ensembleIds[0]]) }} />
+      <span className="dir-up-label">
+        {e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(' + ') || e.type}
+        {e.startTime ? <span className="dir-up-time"> · {formatTimeRange(e.startTime, e.endTime)}</span> : null}
+      </span>
+      <ChevronRight size={15} className="dir-up-chev" />
+    </button>
+  );
 
   return (
     <div className="dir-tab-page">
       <div className="dir-today-hero">
         <div className="dir-today-date">{dateLabel}</div>
-        <div className="dir-today-title">Today at NWSA</div>
+        <div className="dir-today-title">🎶 Today at NWSA</div>
       </div>
 
       {ensembles.length > 0 && (
         <div className="dir-tabs">
           <button className={`dir-tab ${!ensembleId ? 'active' : ''}`} onClick={() => pickEnsemble('')}>All</button>
           {ensembles.map(e => (
-            <button
-              key={e.id}
-              className={`dir-tab ${ensembleId === e.id ? 'active' : ''}`}
-              onClick={() => pickEnsemble(e.id)}
-            >
-              {e.name}
-            </button>
+            <button key={e.id} className={`dir-tab ${ensembleId === e.id ? 'active' : ''}`} onClick={() => pickEnsemble(e.id)}>{e.name}</button>
           ))}
         </div>
       )}
 
       <div className="dir-drawer-body">
+        {/* Alerts: today's cancellations / changes */}
+        {alerts.map(e => (
+          <button key={e.id} className="dir-today-alert" onClick={() => onNavigate('schedule', { date: e.date, eventId: e.id })}>
+            ⚠ {e.status === 'Cancelled' ? 'Cancelled' : 'Changed'}: {e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).join(' + ') || e.type}
+            {e.changeNote ? ` — ${e.changeNote}` : ''}
+          </button>
+        ))}
+
+        {/* Announcements */}
+        {homeAnnouncements.length > 0 && (
+          <>
+            <div className="dir-section-head">
+              <span><Megaphone size={14} /> Announcements</span>
+              <button className="dir-link-btn" onClick={() => onNavigate('announcements')}>Manage</button>
+            </div>
+            {homeAnnouncements.map(a => (
+              <button key={a.id} className="dir-ens-row dir-sc-pick" onClick={() => onNavigate('announcements')}>
+                <span className="dir-ens-swatch" style={{ background: a.ensembleId ? ensembleColor(ensembleMap[a.ensembleId]) : '#64748b' }} />
+                <div className="dir-ens-info">
+                  <div className="dir-ens-name">{a.pinned ? '📌 ' : ''}{a.title}</div>
+                  <div className="dir-ens-sub">{a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide'}</div>
+                </div>
+              </button>
+            ))}
+          </>
+        )}
+
+        {/* Today's rehearsals */}
+        <div className="dir-section-head"><span>Today's schedule</span></div>
         {todays.length === 0 ? (
           <div className="dir-empty-inline">
             Nothing scheduled today{ensembleId ? ' for this ensemble' : ''}.
@@ -114,6 +168,33 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
             ))}
           </>
         )}
+
+        {/* Quick actions */}
+        <div className="dir-today-quick">
+          <button className="dir-quick-btn" onClick={() => onNavigate('schedule', { date: today })}><CalendarPlus size={18} /> New event</button>
+          <button className="dir-quick-btn" onClick={() => onNavigate('announcements')}><Megaphone size={18} /> Post announcement</button>
+          <button className="dir-quick-btn" onClick={() => onNavigate('scheduleChanges')}><Users size={18} /> Schedule change</button>
+        </div>
+
+        {/* Coming up */}
+        {upRehearsals.length > 0 && (<><div className="dir-section-head"><span>Coming up — rehearsals</span></div>{upRehearsals.map(upRow)}</>)}
+        {upConcerts.length > 0 && (<><div className="dir-section-head"><span>Coming up — concerts</span></div>{upConcerts.map(upRow)}</>)}
+        {upEvents.length > 0 && (<><div className="dir-section-head"><span>Coming up — events</span></div>{upEvents.map(upRow)}</>)}
+
+        {/* Ensembles grid */}
+        {orderedEns.length > 0 && (
+          <>
+            <div className="dir-section-head"><span>Ensembles</span></div>
+            <div className="dir-ens-grid">
+              {orderedEns.map(e => (
+                <button key={e.id} className="dir-ens-grid-btn" style={{ borderLeftColor: ensembleColor(e) }} onClick={() => onNavigate('ensembleHub', { ensembleId: e.id })}>
+                  {e.name}
+                  <ChevronRight size={15} style={{ opacity: 0.4 }} />
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -133,7 +214,7 @@ function TodayCard({
     || event.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(' + ')
     || 'School';
   const linkedPieces = (event.pieceIds ?? []).map(id => piecesById[id]?.title).filter(Boolean);
-  const isRehearsal = event.type === 'Rehearsal' && event.ensembleIds.length > 0;
+  const isRehearsal = (event.type === 'Rehearsal' || event.type === 'Sectional') && event.ensembleIds.length > 0;
   const cancelled = event.status === 'Cancelled';
 
   return (
@@ -166,7 +247,7 @@ function TodayCard({
             </button>
           )}
           <button className="dir-btn dir-btn-ghost dir-today-action" onClick={() => onNavigate('schedule', { date: event.date, eventId: event.id })}>
-            {linkedPieces.length > 0 || event.repertoire ? 'Details' : 'Add repertoire'}
+            {linkedPieces.length > 0 || event.repertoire ? 'Edit / details' : <><Plus size={14} /> Add repertoire</>}
           </button>
         </div>
       </div>

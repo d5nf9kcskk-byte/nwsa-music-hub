@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
-import { ClipboardList, Users, Calendar, Music, Megaphone, Clock, MapPin, Sparkles } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ClipboardList, Users, Calendar, Music, Megaphone, Clock, MapPin, Sparkles, Armchair } from 'lucide-react';
+import { SeatingManager } from '../seating/SeatingManager';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
@@ -16,6 +17,7 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
 
   const ensemble = ensembles.find(e => e.id === ensembleId);
   const today = todayStr();
+  const [showSeating, setShowSeating] = useState(false);
 
   const mine = useMemo(
     () => events
@@ -107,8 +109,15 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           <button className="dir-hub-btn" onClick={() => onNavigate('scheduleChanges', { ensembleId })}>
             <Sparkles size={20} /> Schedule Change
           </button>
+          <button className="dir-hub-btn" onClick={() => setShowSeating(true)}>
+            <Armchair size={20} /> Seating
+          </button>
         </div>
       </div>
+
+      {showSeating && (
+        <SeatingManager ensembleId={ensembleId} ensembleName={ensemble.name} onClose={() => setShowSeating(false)} />
+      )}
     </div>
   );
 }

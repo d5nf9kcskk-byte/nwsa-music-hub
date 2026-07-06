@@ -6,6 +6,7 @@ import { useStudents } from '../director/hooks/useStudents';
 import { useEvents } from '../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
+import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
 import { todayStr, formatTimeRange, ensembleColor } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
@@ -130,6 +131,12 @@ export function PublicEnsemble() {
         </div>
       )}
 
+      <SeatingSection
+        ensembleId={id}
+        studentName={sid => students.find(s => s.id === sid)?.name ?? '—'}
+        pieceTitle={pid => piecesById[pid]?.title}
+      />
+
       <h2 className="pub-section-title">Roster</h2>
       <div className="pub-card pub-roster">
         {members.length === 0 ? (
@@ -143,6 +150,40 @@ export function PublicEnsemble() {
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+/** Published seating charts for this ensemble (playing-exam results). */
+function SeatingSection({ ensembleId, studentName, pieceTitle }: {
+  ensembleId: string;
+  studentName: (id: string) => string;
+  pieceTitle: (id: string) => string | undefined;
+}) {
+  const { charts } = useSeatingCharts(ensembleId);
+  if (charts.length === 0) return null;
+  return (
+    <div>
+      <h2 className="pub-section-title">🪑 Seating</h2>
+      {charts.map(c => (
+        <div key={c.id} className="pub-card pub-seat-card">
+          <div className="pub-seat-title">{c.title}</div>
+          {(c.pieceId && pieceTitle(c.pieceId)) && <div className="pub-seat-sub">For: {pieceTitle(c.pieceId)}</div>}
+          {c.sections.map((sec, i) => (
+            <div key={i} className="pub-seat-section">
+              <div className="pub-seat-section-name">{sec.section}</div>
+              <ol className="pub-seat-list">
+                {sec.seats.map(seat => (
+                  <li key={seat.studentId} className="pub-seat-item">
+                    <span className="pub-seat-name">{studentName(seat.studentId)}</span>
+                    {seat.note && <span className="pub-seat-note">{seat.note}</span>}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

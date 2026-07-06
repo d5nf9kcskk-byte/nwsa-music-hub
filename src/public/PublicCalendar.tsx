@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutList, Grid3x3 } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
@@ -10,6 +10,13 @@ import { SubscribeButton } from './components/SubscribeButton';
 import type { CalendarEvent } from '../director/types';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+type TypeFilter = 'all' | 'Rehearsal' | 'Concert' | 'Event';
+function matchesType(e: CalendarEvent, f: TypeFilter): boolean {
+  if (f === 'all') return true;
+  if (f === 'Rehearsal') return e.type === 'Rehearsal' || e.type === 'Sectional';
+  return e.type === f;
+}
 
 export function PublicCalendar() {
   const { ensembles } = useEnsembles();
@@ -24,6 +31,8 @@ export function PublicCalendar() {
   });
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [filterEnsembleId, setFilterEnsembleId] = useState(() => searchParams.get('ensemble') ?? '');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [view, setView] = useState<'month' | 'list'>('month');
 
   // Swipe-animation state — mirrors the director calendar exactly.
   const touchStartX = useRef<number | null>(null);
@@ -50,9 +59,15 @@ export function PublicCalendar() {
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
 
   // School-wide events (ensembleIds: []) are always visible regardless of filter.
-  const visible = filterEnsembleId
+  const visible = (filterEnsembleId
     ? events.filter(e => e.ensembleIds.length === 0 || e.ensembleIds.includes(filterEnsembleId))
-    : events;
+    : events
+  ).filter(e => matchesType(e, typeFilter));
+
+  const upcoming = useMemo(
+    () => [...visible].filter(e => e.date >= todayStr()).sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99')),
+    [visible],
+  );
   const byDate = useMemo(() => {
     const m: Record<string, CalendarEvent[]> = {};
     for (const e of visible) (m[e.date] ??= []).push(e);
@@ -131,12 +146,21 @@ export function PublicCalendar() {
 
   return (
     <div className="pub-page">
-      {/* Month navigation — same chrome as the director calendar */}
-      <div className="dir-cal-nav">
-        <button className="dir-date-nav-btn" onClick={() => shiftMonth(-1)} aria-label="Previous month"><ChevronLeft size={18} /></button>
-        <button className="dir-cal-month" onClick={() => { const d = parseDate(today); setCursor(new Date(d.getFullYear(), d.getMonth(), 1)); setSelectedDate(today); }}>{monthLabel}</button>
-        <button className="dir-date-nav-btn" onClick={() => shiftMonth(1)} aria-label="Next month"><ChevronRight size={18} /></button>
+      {/* View toggle + month navigation */}
+      <div className="pub-section-row" style={{ marginBottom: 8 }}>
+        <h1 className="pub-h1" style={{ margin: 0 }}>Calendar</h1>
+        <button className="pub-view-toggle" onClick={() => setView(v => v === 'month' ? 'list' : 'month')}>
+          {view === 'month' ? <><LayoutList size={13} /> List view</> : <><Grid3x3 size={13} /> Month view</>}
+        </button>
       </div>
+
+      {view === 'month' && (
+        <div className="dir-cal-nav">
+          <button className="dir-date-nav-btn" onClick={() => shiftMonth(-1)} aria-label="Previous month"><ChevronLeft size={18} /></button>
+          <button className="dir-cal-month" onClick={() => { const d = parseDate(today); setCursor(new Date(d.getFullYear(), d.getMonth(), 1)); setSelectedDate(today); }}>{monthLabel}</button>
+          <button className="dir-date-nav-btn" onClick={() => shiftMonth(1)} aria-label="Next month"><ChevronRight size={18} /></button>
+        </div>
+      )}
 
       {ensembles.length > 0 && (
         <div className="dir-tabs pub-wrap-tabs">
@@ -149,6 +173,25 @@ export function PublicCalendar() {
         </div>
       )}
 
+      {/* Type filter */}
+      <div className="pub-filter-row">
+        {(['all', 'Rehearsal', 'Concert', 'Event'] as TypeFilter[]).map(t => (
+          <button key={t} className={`pub-filter-btn ${typeFilter === t ? 'active' : ''}`} onClick={() => setTypeFilter(t)}>
+            {t === 'all' ? 'Everything' : t === 'Rehearsal' ? 'Rehearsals' : t === 'Concert' ? 'Concerts' : 'Events'}
+          </button>
+        ))}
+      </div>
+
+      {view === 'list' ? (
+        <div style={{ marginTop: 8 }}>
+          {upcoming.length === 0 ? (
+            <div className="pub-card pub-muted">Nothing coming up for this filter.</div>
+          ) : (
+            upcoming.map(e => <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} />)
+          )}
+        </div>
+      ) : (
+      <>
       {/* Calendar grid — identical markup + animated swipe to the director side */}
       <div className="dir-cal" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <div className="dir-cal-weekdays">
@@ -189,6 +232,8 @@ export function PublicCalendar() {
           ))
         )}
       </div>
+      </>
+      )}
 
       <div className="pub-subscribe-section">
         <SubscribeButton ensembleId={filterEnsembleId || undefined} />
