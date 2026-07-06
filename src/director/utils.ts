@@ -127,3 +127,13 @@ export function youtubeSearchUrl(composer: string | undefined, title: string): s
   const q = [composer, title].filter(Boolean).join(' ');
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 }
+
+/** Does this assignment target the given student (via ensemble or individually)? */
+export function studentHasAssignment(
+  a: { ensembleIds: string[]; studentIds?: string[] },
+  studentId: string,
+  studentEnsembleIds: string[] | undefined,
+): boolean {
+  if ((a.studentIds ?? []).includes(studentId)) return true;
+  return a.ensembleIds.some(id => (studentEnsembleIds ?? []).includes(id));
+}

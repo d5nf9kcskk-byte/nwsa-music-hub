@@ -158,3 +158,20 @@
 
 /* .pub-back is also used on <button> now (history-back on piece pages) */
 button.pub-back { border: none; background: none; padding: 0; cursor: pointer; font-family: inherit; }
+
+/* Assignments (public) */
+.pub-assign-card {
+  display: block; text-decoration: none; color: var(--pub-ink);
+  background: var(--pub-surface); border: 1px solid var(--pub-border);
+  border-left: 5px solid var(--pub-purple); border-radius: var(--pub-radius);
+  padding: 13px 15px; margin-bottom: 10px;
+}
+.pub-assign-link { display: flex; align-items: center; gap: 10px; }
+.pub-assign-top { display: flex; align-items: flex-start; gap: 10px; }
+.pub-assign-emoji { font-size: 20px; flex-shrink: 0; line-height: 1.2; }
+.pub-assign-title { font-size: 15.5px; font-weight: 700; }
+.pub-assign-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 12.5px; color: var(--pub-muted); }
+.pub-assign-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.pub-assign-type { font-weight: 700; text-transform: uppercase; font-size: 10.5px; background: #ede9fe; color: #6d28d9; padding: 2px 7px; border-radius: 8px; }
+.pub-assign-desc { margin-top: 8px; font-size: 13.5px; line-height: 1.5; color: var(--pub-ink); }
+.pub-assign-for { font-size: 12.5px; color: var(--pub-muted); margin: -4px 0 10px 2px; }

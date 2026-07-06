@@ -8,8 +8,9 @@ import { useEvents } from '../director/hooks/useEvents';
 import { useRosterOverrides } from '../director/hooks/useRosterOverrides';
 import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
+import { useAssignments } from '../director/hooks/useAssignments';
 import { studentExpectation } from '../director/rosterResolver';
-import { todayStr, toDateStr, parseDate, ensembleColor, findPartForInstrument } from '../director/utils';
+import { todayStr, toDateStr, parseDate, ensembleColor, findPartForInstrument, studentHasAssignment } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { SubscribeButton } from './components/SubscribeButton';
@@ -39,6 +40,7 @@ export function PublicSchedule() {
   const { overrides } = useRosterOverrides();
   const { announcements } = useAnnouncements();
   const { pieces } = useRepertoire();
+  const { assignments } = useAssignments();
 
   // Plain component state on purpose: the filter and view reset every time the
   // student re-opens this page, so nothing stays silently hidden.
@@ -68,6 +70,15 @@ export function PublicSchedule() {
   const myAnnouncements = useMemo(
     () => student ? visibleAnnouncements(announcements, today, student.ensembleIds ?? []) : [],
     [announcements, today, student],
+  );
+
+  const myAssignments = useMemo(
+    () => student
+      ? assignments
+          .filter(a => a.dueDate >= today && studentHasAssignment(a, student.id, student.ensembleIds))
+          .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+      : [],
+    [assignments, today, student],
   );
 
   // Pieces linked to upcoming events that have a part matching this student's instrument.
@@ -128,6 +139,24 @@ export function PublicSchedule() {
       <SubscribeButton studentId={student.id} label={`Subscribe · ${student.name.split(' ')[0]}'s calendar`} />
 
       <PubAnnouncements items={myAnnouncements} ensembleMap={ensembleMap} />
+
+      {myAssignments.length > 0 && (
+        <>
+          <h2 className="pub-section-title">Your assignments &amp; exams</h2>
+          {myAssignments.map(a => (
+            <Link key={a.id} to="/assignments" className="pub-assign-card pub-assign-link">
+              <span className="pub-assign-emoji">{a.type === 'Playing Exam' ? '🎯' : a.type === 'Written Test' ? '📝' : a.type === 'Performance' ? '🎭' : '📌'}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="pub-assign-title">{a.title}</div>
+                <div className="pub-assign-meta">
+                  <span className="pub-assign-type">{a.type}</span>
+                  <span>Due {parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </>
+      )}
 
       <h2 className="pub-section-title">
         Today · {parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}

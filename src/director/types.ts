@@ -192,8 +192,25 @@ export interface Assignment {
   description?: string;
   dueDate: string; // YYYY-MM-DD
   ensembleIds: string[];
+  studentIds?: string[];  // specific individuals (in addition to whole ensembles)
   createdAt: number;
   attachments?: Attachment[];
+}
+
+/**
+ * A published seating result for a playing exam / piece. Chairs are ordered
+ * per (ensemble, piece): seat 1 = principal. Publicly readable so students
+ * see where they sit; which piece it's for can vary chair-to-chair.
+ */
+export interface SeatingChart {
+  id: string;
+  ensembleId: string;
+  title: string;              // e.g. "Fall Concert — Rip Van Winkle"
+  pieceId?: string;           // optional linked repertoire piece
+  date?: string;              // YYYY-MM-DD published/effective
+  // Ordered seats grouped by section label (e.g. "Violin I", "Trumpet").
+  sections: { section: string; seats: { studentId: string; note?: string }[] }[];
+  createdAt: number;
 }
 
 export interface AssignmentResult {
