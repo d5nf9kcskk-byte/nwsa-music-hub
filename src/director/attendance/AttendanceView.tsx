@@ -4,6 +4,7 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useAttendance } from '../hooks/useAttendance';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
+import { usePlannedAbsences } from '../hooks/usePlannedAbsences';
 import { useEvents } from '../hooks/useEvents';
 import { resolveRoster, lessonsFor } from '../rosterResolver';
 import { StudentCard } from './StudentCard';
@@ -167,6 +168,10 @@ function RollPeriod({ date, period, ensemble, onBack }: {
   const eventId = period.event?.id ?? null;
   const ensembleId = period.ensembleId;
   const { recordMap, toggleAttendance } = useAttendance(date, ensembleId, eventId);
+  const { absences: plannedAbsences } = usePlannedAbsences();
+  const plannedByStudent = useMemo(() => Object.fromEntries(
+    plannedAbsences.filter(a => a.date === date && a.status !== 'dismissed').map(a => [a.studentId, a]),
+  ), [plannedAbsences, date]);
 
   const ctx = { ensembleId, date, eventId: eventId ?? undefined, eventsById };
   const resolved = useMemo(() => resolveRoster(allStudents, overrides, ctx), [allStudents, overrides, ensembleId, date, eventId, eventsById]);
@@ -248,6 +253,7 @@ function RollPeriod({ date, period, ensemble, onBack }: {
               isSub={isSub}
               lesson={lessons[student.id]}
               onLesson={handleLessonTap}
+              plannedAbsence={plannedByStudent[student.id]}
             />
           ))
         )}

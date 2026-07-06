@@ -238,3 +238,63 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
   font-size: 14px; font-weight: 800; text-decoration: none;
 }
 .pub-assign-form-btn:active { opacity: 0.9; }
+
+/* Saved students / parent mode (#1, #11) */
+.pub-saved-row { display: flex; align-items: center; gap: 6px; }
+.pub-saved-link {
+  flex: 1; display: flex; align-items: center; gap: 9px; min-width: 0;
+  padding: 10px 8px; text-decoration: none; color: var(--pub-ink);
+  border-radius: 10px; font-weight: 700; font-size: 15px;
+}
+.pub-saved-link:active { background: var(--pub-accent-soft); }
+.pub-saved-link svg { color: var(--pub-purple); flex-shrink: 0; }
+.pub-saved-instr { font-size: 12px; color: var(--pub-muted); font-weight: 500; }
+.pub-saved-forget {
+  width: 30px; height: 30px; border: 1px solid var(--pub-border); border-radius: 8px;
+  background: var(--pub-surface); color: var(--pub-muted); cursor: pointer; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.pub-parent-toggle {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 8px;
+  font-size: 13px; color: var(--pub-muted); font-weight: 600; cursor: pointer;
+}
+.pub-parent-toggle input { width: 17px; height: 17px; accent-color: var(--pub-purple); }
+
+/* A–Z rail (#3) */
+.pub-az-rail { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 4px; }
+.pub-az-btn {
+  flex: 1 0 28px; min-height: 32px; border: 1px solid var(--pub-border); border-radius: 7px;
+  background: var(--pub-surface); font-size: 12.5px; font-weight: 800; color: var(--pub-muted);
+  cursor: pointer;
+}
+.pub-az-btn.active { background: var(--pub-purple); border-color: var(--pub-purple); color: #fff; }
+
+/* Confirm card (#3) */
+.pub-confirm-overlay {
+  position: fixed; inset: 0; z-index: 200; background: rgba(15,23,42,0.5);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.pub-confirm-card {
+  width: 100%; max-width: 340px; background: var(--pub-surface);
+  border-radius: 18px; padding: 22px 18px; text-align: center;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+}
+.pub-confirm-title { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--pub-muted); }
+.pub-confirm-name { font-size: 22px; font-weight: 800; margin-top: 6px; }
+.pub-confirm-detail { font-size: 14px; color: var(--pub-muted); margin-top: 3px; }
+.pub-confirm-actions { display: flex; gap: 10px; margin-top: 18px; }
+.pub-confirm-no {
+  flex: 1; padding: 12px; border: 1.5px solid var(--pub-border); border-radius: 12px;
+  background: var(--pub-surface); font-size: 14px; font-weight: 700; color: var(--pub-muted); cursor: pointer;
+}
+.pub-confirm-yes {
+  flex: 2; padding: 12px; border: none; border-radius: 12px;
+  background: var(--pub-purple); color: #fff; font-size: 14px; font-weight: 800; cursor: pointer;
+}
+
+/* Conflict explainer chip (#10) */
+.pub-conflict-chip {
+  margin-bottom: 10px; padding: 10px 13px;
+  background: #fdf6e3; border: 1.5px solid #f0d492; border-left: 5px solid #d97706;
+  border-radius: 10px; font-size: 13px; font-weight: 600; color: #92600a; line-height: 1.5;
+}

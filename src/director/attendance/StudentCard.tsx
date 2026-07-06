@@ -4,6 +4,8 @@ import type { Student, AttendanceRecord, AttendanceStatus, RosterOverride } from
 
 interface Props {
   student: Student;
+  /** Pending planned absence submitted by the student/parent (#27). */
+  plannedAbsence?: { reason: string };
   record: AttendanceRecord | undefined;
   onToggle: (studentId: string, status: AttendanceStatus) => void;
   isSub?: boolean;
@@ -13,7 +15,7 @@ interface Props {
   onLesson: (student: Student) => void;
 }
 
-export function StudentCard({ student, record, onToggle, isSub, lesson, onLesson }: Props) {
+export function StudentCard({ student, record, onToggle, isSub, lesson, onLesson, plannedAbsence }: Props) {
   const status = record?.status;
 
   return (
@@ -22,11 +24,16 @@ export function StudentCard({ student, record, onToggle, isSub, lesson, onLesson
         <div>
           <div className="dir-student-name">
             {student.name}
+            {student.preferredName && <span className="dir-goesby">"{student.preferredName}"</span>}
             {isSub && <span className="dir-sub-badge">Sub</span>}
           </div>
           <div className="dir-student-meta">
             {[student.instrument, student.section].filter(Boolean).join(' · ')}
+            {student.pronunciation && <span className="dir-pronounce"> · 🗣 {student.pronunciation}</span>}
           </div>
+          {plannedAbsence && !record && (
+            <div className="dir-prereport">📋 Reported ahead: {plannedAbsence.reason} — tap Excused to accept</div>
+          )}
           {lesson && (
             <div className="dir-lesson-badge">
               <GraduationCap size={12} />

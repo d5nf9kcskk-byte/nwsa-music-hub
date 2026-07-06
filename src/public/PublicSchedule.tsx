@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router';
 import { useMonthSwipe } from './useMonthSwipe';
+import { NowNext } from './components/NowNext';
+import { PracticeCard } from './components/PracticeCard';
+import { PlannedAbsenceButton } from './components/PlannedAbsence';
 import { ChevronLeft, ChevronRight, ExternalLink, LayoutList, Grid3x3 } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
@@ -72,6 +75,15 @@ export function PublicSchedule() {
     [announcements, today, student],
   );
 
+  // Conflict explainer (#10): today's lesson windows that override a rehearsal.
+  const myLessonsToday = useMemo(
+    () => student
+      ? overrides.filter(o => o.kind === 'lesson' && o.studentId === student.id
+          && o.startDate && o.endDate && o.startDate <= today && today <= o.endDate)
+      : [],
+    [overrides, student, today],
+  );
+
   const myAssignments = useMemo(
     () => student
       ? assignments
@@ -137,8 +149,20 @@ export function PublicSchedule() {
 
       {/* Personal calendar feed — the one subscription that follows THIS student. */}
       <SubscribeButton studentId={student.id} label={`Subscribe · ${student.name.split(' ')[0]}'s calendar`} />
+      <PlannedAbsenceButton student={student} />
 
       <PubAnnouncements items={myAnnouncements} ensembleMap={ensembleMap} />
+
+      <NowNext items={mySchedule} />
+
+      {myLessonsToday.map(o => (
+        <div key={o.id} className="pub-conflict-chip">
+          🎓 Lesson today{o.startTime && o.endTime ? ` ${o.startTime}–${o.endTime}` : ''} overrides{' '}
+          {ensembleMap[o.ensembleId]?.name ?? 'rehearsal'} — you're excused for that window only, then expected back.
+        </div>
+      ))}
+
+      <PracticeCard student={student} schedule={mySchedule} piecesById={piecesById} assignments={myAssignments} />
 
       {myAssignments.length > 0 && (
         <>

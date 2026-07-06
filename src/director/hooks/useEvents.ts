@@ -3,7 +3,7 @@ import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
   query, orderBy,
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import type { CalendarEvent } from '../types';
 
 /**
@@ -31,6 +31,8 @@ export function useEvents() {
 
   async function updateEvent(id: string, data: Partial<Omit<CalendarEvent, 'id'>>) {
     if (!db) return;
+    // Change tracking (#17/#40): every edit stamps who + when.
+    data = { ...data, updatedAt: Date.now(), updatedBy: auth?.currentUser?.email ?? undefined };
     await updateDoc(doc(db, 'events', id), data);
   }
 
