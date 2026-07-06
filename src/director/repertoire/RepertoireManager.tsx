@@ -21,6 +21,31 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const shown = ensembleId ? pieces.filter(p => p.ensembleId === ensembleId) : pieces;
+  const [groupBy, setGroupBy] = useState<'ensemble' | 'concert'>('ensemble');
+
+  // Build grouped sections for the list view.
+  const groups = useMemo(() => {
+    if (groupBy === 'concert') {
+      const concerts = events
+        .filter(e => e.type === 'Concert')
+        .sort((a, b) => a.date.localeCompare(b.date));
+      const out: { key: string; label: string; color: string; pieces: typeof shown }[] = [];
+      for (const c of concerts) {
+        const ps = shown.filter(p => (p.eventIds ?? []).includes(c.id));
+        if (ps.length) out.push({ key: c.id, label: c.title || 'Concert', color: ensembleColor(ensembleMap[c.ensembleIds[0]]), pieces: ps });
+      }
+      const unassigned = shown.filter(p => !(p.eventIds ?? []).some(id => events.find(e => e.id === id && e.type === 'Concert')));
+      if (unassigned.length) out.push({ key: '_none', label: 'Not on a concert yet', color: '#94a3b8', pieces: unassigned });
+      return out;
+    }
+    // by ensemble
+    const out: { key: string; label: string; color: string; pieces: typeof shown }[] = [];
+    for (const e of [...ensembles].sort((a, b) => a.order - b.order)) {
+      const ps = shown.filter(p => p.ensembleId === e.id);
+      if (ps.length) out.push({ key: e.id, label: e.name, color: ensembleColor(e), pieces: ps });
+    }
+    return out;
+  }, [groupBy, shown, events, ensembles, ensembleMap]);
 
   if (editing) {
     const piece = editing === 'new' ? null : editing;
@@ -46,34 +71,49 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
     );
   }
 
+  const pieceRow = (p: RepertoirePiece) => (
+    <div key={p.id} className="dir-ens-row" onClick={() => setEditing(p)}>
+      <span className="dir-ens-swatch" style={{ background: ensembleColor(ensembleMap[p.ensembleId]) }} />
+      <div className="dir-ens-info">
+        <div className="dir-ens-name">
+          <Music size={12} style={{ verticalAlign: '-1px', marginRight: 4 }} />
+          {p.title}
+          {p.aiStatus === 'pending' && (
+            <span className="dir-ai-badge pending" style={{ marginLeft: 6 }}>AI pending</span>
+          )}
+          {p.aiStatus === 'enriched' && (
+            <span className="dir-ai-badge enriched" style={{ marginLeft: 6 }}>AI ✓</span>
+          )}
+        </div>
+        <div className="dir-ens-sub">
+          {[p.composer, groupBy === 'concert' && !ensembleId ? ensembleMap[p.ensembleId]?.name : null].filter(Boolean).join(' · ') || '—'}
+          {p.duration ? ` · ${p.duration} min` : ''}
+        </div>
+      </div>
+      <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing(p); }} aria-label="Edit">
+        <Pencil size={16} />
+      </button>
+    </div>
+  );
+
   const listBody = (
     <>
+      <div className="dir-mode-toggle">
+        <button className={`dir-segment-btn ${groupBy === 'ensemble' ? 'active' : ''}`} onClick={() => setGroupBy('ensemble')}>By ensemble</button>
+        <button className={`dir-segment-btn ${groupBy === 'concert' ? 'active' : ''}`} onClick={() => setGroupBy('concert')}>By concert</button>
+      </div>
       <div className="dir-drawer-body">
         {shown.length === 0 ? (
           <div className="dir-empty-inline">No repertoire yet. Add a piece below.</div>
         ) : (
-          shown.map(p => (
-            <div key={p.id} className="dir-ens-row" onClick={() => setEditing(p)}>
-              <span className="dir-ens-swatch" style={{ background: ensembleColor(ensembleMap[p.ensembleId]) }} />
-              <div className="dir-ens-info">
-                <div className="dir-ens-name">
-                  <Music size={12} style={{ verticalAlign: '-1px', marginRight: 4 }} />
-                  {p.title}
-                  {p.aiStatus === 'pending' && (
-                    <span className="dir-ai-badge pending" style={{ marginLeft: 6 }}>AI pending</span>
-                  )}
-                  {p.aiStatus === 'enriched' && (
-                    <span className="dir-ai-badge enriched" style={{ marginLeft: 6 }}>AI ✓</span>
-                  )}
-                </div>
-                <div className="dir-ens-sub">
-                  {[p.composer, ensembleId ? null : ensembleMap[p.ensembleId]?.name].filter(Boolean).join(' · ') || '—'}
-                  {p.duration ? ` · ${p.duration} min` : ''}
-                </div>
+          groups.map(g => (
+            <div key={g.key} className="dir-roster-group">
+              <div className="dir-roster-group-header">
+                <span className="dir-roster-swatch" style={{ background: g.color }} />
+                {g.label}
+                <span className="dir-roster-count">{g.pieces.length}</span>
               </div>
-              <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing(p); }} aria-label="Edit">
-                <Pencil size={16} />
-              </button>
+              {g.pieces.map(pieceRow)}
             </div>
           ))
         )}
