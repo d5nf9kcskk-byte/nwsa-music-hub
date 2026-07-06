@@ -1,0 +1,16 @@
+.dir-checklist-progress { font-size: 14px; font-weight: 800; color: var(--dir-blue); margin-bottom: 10px; }
+.dir-check-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 0; border-bottom: 1px solid var(--dir-border);
+}
+.dir-check-item svg.ok { color: #16a34a; flex-shrink: 0; }
+.dir-check-item svg.todo { color: var(--dir-border); flex-shrink: 0; }
+.dir-check-body { flex: 1; min-width: 0; }
+.dir-check-label { font-size: 14.5px; font-weight: 700; color: var(--dir-text); }
+.dir-check-item.done .dir-check-label { color: var(--dir-text-muted); }
+.dir-check-detail { font-size: 12.5px; color: var(--dir-text-muted); margin-top: 2px; }
+.dir-check-jump {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 3px;
+  border: none; background: none; color: var(--dir-blue);
+  font-size: 12px; font-weight: 800; cursor: pointer; padding: 4px 0;
+}

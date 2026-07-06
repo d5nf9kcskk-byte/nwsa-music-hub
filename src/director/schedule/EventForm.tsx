@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useStudents } from '../hooks/useStudents';
+import { useEvents } from '../hooks/useEvents';
+import { useRosterOverrides } from '../hooks/useRosterOverrides';
+import { resolveRoster } from '../rosterResolver';
 import { EVENT_TYPES } from '../utils';
 import { PiecePicker } from '../repertoire/PiecePicker';
 import { RichTextArea } from '../components/RichTextArea';
@@ -15,6 +18,14 @@ interface Props {
 }
 
 export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onClose }: Props) {
+  const { events: liveEvents } = useEvents();
+  const { students } = useStudents();
+  const { overrides } = useRosterOverrides();
+  // Concurrent-edit guard (#40): remember what we loaded; compare before save.
+  const loadedUpdatedAt = event?.updatedAt ?? 0;
+  const liveVersion = event ? liveEvents.find(e => e.id === event.id) : undefined;
+  const editedElsewhere = !!(liveVersion?.updatedAt && liveVersion.updatedAt > loadedUpdatedAt);
+  const [overrideTheirs, setOverrideTheirs] = useState(false);
   const blank = (): Omit<CalendarEvent, 'id'> => ({
     type: 'Rehearsal',
     ensembleIds: [],
@@ -29,15 +40,47 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     status: 'Scheduled',
     notes: '',
     changeNote: '',
+    callTime: '',
+    dress: '',
+    venueAddress: '',
+    pickupTime: '',
   });
 
   const [form, setForm] = useState<Omit<CalendarEvent, 'id'>>(blank);
+
+  // Cross-ensemble conflict radar (#48): students on THIS event who are also
+  // expected somewhere else at an overlapping time that day.
+  const conflicts = useMemo(() => {
+    if (!form.date || form.ensembleIds.length === 0) return [];
+    const overlap = (aS?: string, aE?: string, bS?: string, bE?: string) =>
+      !aS || !bS ? true : (aS < (bE ?? '23:59')) && (bS < (aE ?? '23:59'));
+    const eventsById = Object.fromEntries(liveEvents.map(e => [e.id, e]));
+    const myIds = new Set<string>();
+    for (const ensId of form.ensembleIds) {
+      for (const r of resolveRoster(students, overrides, { ensembleId: ensId, date: form.date, eventsById })) {
+        myIds.add(r.student.id);
+      }
+    }
+    const clashes: { name: string; where: string }[] = [];
+    for (const other of liveEvents) {
+      if (other.date !== form.date || other.id === event?.id || other.status === 'Cancelled') continue;
+      if (!overlap(form.startTime, form.endTime, other.startTime, other.endTime)) continue;
+      for (const ensId of other.ensembleIds) {
+        if (form.ensembleIds.includes(ensId)) continue;
+        for (const r of resolveRoster(students, overrides, { ensembleId: ensId, eventId: other.id, eventsById })) {
+          if (myIds.has(r.student.id) && !clashes.some(c => c.name === r.student.name)) {
+            clashes.push({ name: r.student.name, where: other.title || other.type });
+          }
+        }
+      }
+    }
+    return clashes;
+  }, [form.date, form.startTime, form.endTime, form.ensembleIds, liveEvents, students, overrides, event?.id]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Roster preview ("who should be there") for the chosen ensembles.
-  const { students } = useStudents();
   const expected = students.filter(
     s => s.status === 'Active' && s.ensembleIds?.some(id => form.ensembleIds.includes(id)),
   );
@@ -85,6 +128,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   const canSave = form.ensembleIds.length > 0 || form.type !== 'Rehearsal';
 
   async function handleSave() {
+    if (editedElsewhere && !overrideTheirs) return; // banner asks first
     if (!canSave) return;
     setSaving(true);
     setSaveError('');
@@ -122,6 +166,28 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
         <div className="dir-drawer-body">
+          {/* Concurrent-edit guard (#40) */}
+          {editedElsewhere && !overrideTheirs && (
+            <div className="dir-conflict-banner">
+              ⚠ <strong>{liveVersion?.updatedBy || 'Another director'}</strong> edited this event
+              {liveVersion?.updatedAt ? ` ${Math.max(1, Math.round((Date.now() - liveVersion.updatedAt) / 60000))} min ago` : ''}
+              {liveVersion?.changeLog ? ` — "${liveVersion.changeLog}"` : ''}.
+              Saving now would overwrite their change.
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button type="button" className="dir-btn dir-btn-ghost dir-sc-small" onClick={onClose}>Close &amp; reload</button>
+                <button type="button" className="dir-btn dir-btn-danger dir-sc-small" onClick={() => setOverrideTheirs(true)}>Overwrite anyway</button>
+              </div>
+            </div>
+          )}
+
+          {/* Cross-ensemble conflict radar (#48) */}
+          {conflicts.length > 0 && (
+            <div className="dir-radar-box">
+              🛰 <strong>{conflicts.length} student{conflicts.length !== 1 ? 's' : ''} double-booked</strong> at this time:
+              {' '}{conflicts.slice(0, 6).map(c => `${c.name} (${c.where})`).join(', ')}{conflicts.length > 6 ? ` +${conflicts.length - 6} more` : ''}
+            </div>
+          )}
+
           <div className="dir-field">
             <label className="dir-label">Type</label>
             <div className="dir-segment">
@@ -217,6 +283,53 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             <input className="dir-input" value={form.location ?? ''} onChange={e => set('location', e.target.value)} placeholder="e.g. Band Room / Auditorium" />
           </div>
 
+          {form.type === 'Concert' && (
+            <>
+              <div className="dir-section-title" style={{ margin: '6px 0 2px' }}>Concert day sheet</div>
+              <div className="dir-field-hint" style={{ marginBottom: 10 }}>
+                Shown to families on the public event page — call time, dress, venue, pickup.
+              </div>
+              <div className="dir-field-row">
+                <div className="dir-field">
+                  <label className="dir-label">Call time</label>
+                  <input
+                    className="dir-input"
+                    type="time"
+                    value={form.callTime ?? ''}
+                    onChange={e => set('callTime', e.target.value)}
+                  />
+                </div>
+                <div className="dir-field">
+                  <label className="dir-label">Pickup time</label>
+                  <input
+                    className="dir-input"
+                    type="time"
+                    value={form.pickupTime ?? ''}
+                    onChange={e => set('pickupTime', e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="dir-field">
+                <label className="dir-label">Dress</label>
+                <input
+                  className="dir-input"
+                  value={form.dress ?? ''}
+                  onChange={e => set('dress', e.target.value)}
+                  placeholder="e.g. Concert black — long sleeves, black shoes"
+                />
+              </div>
+              <div className="dir-field">
+                <label className="dir-label">Venue address</label>
+                <input
+                  className="dir-input"
+                  value={form.venueAddress ?? ''}
+                  onChange={e => set('venueAddress', e.target.value)}
+                  placeholder="Full street address (used for the Maps link)"
+                />
+              </div>
+            </>
+          )}
+
           <div className="dir-field">
             <label className="dir-label">Repertoire notes</label>
             <input className="dir-input" value={form.repertoire ?? ''} onChange={e => set('repertoire', e.target.value)} placeholder="Free-text pieces / focus areas" />
@@ -283,7 +396,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
         )}
         <div className="dir-drawer-footer">
           <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !canSave}>
+          <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !canSave || (editedElsewhere && !overrideTheirs)}>
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 
@@ -21,6 +21,11 @@ const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 // ignoreUndefinedProperties: forms build save objects with optional fields set
 // to `undefined` (e.g. composer || undefined). Without this, Firestore rejects
 // the whole write — which is what made the repertoire form hang on "Saving…".
-export const db = app ? initializeFirestore(app, { ignoreUndefinedProperties: true }) : null;
+// persistentLocalCache (#37): reads AND queued writes survive dead zones —
+// roll taken in an auditorium basement syncs when the signal returns.
+export const db = app ? initializeFirestore(app, {
+  ignoreUndefinedProperties: true,
+  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager(undefined) }),
+}) : null;
 export const auth = app ? getAuth(app) : null;
 export const storage = app ? getStorage(app) : null;

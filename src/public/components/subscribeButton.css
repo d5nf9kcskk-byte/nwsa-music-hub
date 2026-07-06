@@ -1,0 +1,251 @@
+/* Subscribe wizard (#14) — bottom-sheet with a 3-step per-platform guide.
+   Mobile-first: sheet slides up from the bottom edge; on wider screens it
+   becomes a centered card. Trigger button styling lives in public.css
+   (.pub-subscribe-btn) and is unchanged. */
+
+.pub-subw-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.pub-subw-sheet {
+  position: relative;
+  width: 100%;
+  max-height: 88dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--pub-bg);
+  border: 1px solid var(--pub-border);
+  border-bottom: none;
+  border-radius: 18px 18px 0 0;
+  padding: 8px 16px calc(18px + env(safe-area-inset-bottom));
+  animation: pub-subw-up 0.22s ease-out;
+}
+
+@keyframes pub-subw-up {
+  from { transform: translateY(24px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@media (min-width: 640px) {
+  .pub-subw-overlay { align-items: center; padding: 24px 16px; }
+  .pub-subw-sheet {
+    max-width: 480px;
+    border-bottom: 1px solid var(--pub-border);
+    border-radius: var(--pub-radius);
+    padding-bottom: 18px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+  }
+}
+
+.pub-subw-handle {
+  width: 38px;
+  height: 4px;
+  margin: 2px auto 8px;
+  border-radius: 2px;
+  background: var(--pub-border);
+}
+@media (min-width: 640px) { .pub-subw-handle { display: none; } }
+
+/* Header */
+.pub-subw-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.pub-subw-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--pub-ink);
+}
+.pub-subw-title svg { color: var(--pub-accent); flex-shrink: 0; }
+
+.pub-subw-close {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--pub-surface);
+  color: var(--pub-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.pub-subw-close:active { background: var(--pub-border); }
+
+/* Platform tabs */
+.pub-subw-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.pub-subw-tab {
+  flex: 1;
+  padding: 7px 4px;
+  border: 1px solid var(--pub-border);
+  border-radius: 999px;
+  background: var(--pub-surface);
+  color: var(--pub-muted);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.pub-subw-tab.on {
+  background: var(--pub-accent-soft);
+  border-color: var(--pub-accent);
+  color: var(--pub-accent);
+}
+
+/* Steps */
+.pub-subw-steps {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pub-subw-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius);
+}
+
+.pub-subw-step-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--pub-accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pub-subw-step-icon {
+  flex-shrink: 0;
+  font-size: 18px;
+  line-height: 22px;
+}
+
+.pub-subw-step-text {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--pub-ink);
+}
+
+/* Primary action (webcal / Google Calendar) */
+.pub-subw-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px 16px;
+  border-radius: 12px;
+  background: var(--pub-accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.pub-subw-action:active { opacity: 0.85; }
+
+/* Copy-link fallback */
+.pub-subw-fallback {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.pub-subw-url {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--pub-border);
+  border-radius: 10px;
+  background: var(--pub-surface);
+  color: var(--pub-muted);
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: all;
+  -webkit-user-select: all;
+}
+
+.pub-subw-copy {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 13px;
+  border: 1px solid var(--pub-border);
+  border-radius: 10px;
+  background: var(--pub-surface);
+  color: var(--pub-accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.pub-subw-copy:active { background: var(--pub-accent-soft); }
+
+.pub-subw-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--pub-muted);
+  text-align: center;
+}
+
+/* "Copied!" toast */
+.pub-subw-toast {
+  position: absolute;
+  left: 50%;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--pub-ink);
+  color: var(--pub-bg);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  animation: pub-subw-toast-in 0.18s ease-out;
+  pointer-events: none;
+}
+
+@keyframes pub-subw-toast-in {
+  from { transform: translate(-50%, 6px); opacity: 0; }
+  to   { transform: translate(-50%, 0);   opacity: 1; }
+}

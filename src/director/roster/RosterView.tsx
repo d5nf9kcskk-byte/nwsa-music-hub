@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { UserPlus, Users, SlidersHorizontal, Music } from 'lucide-react';
+import { UserPlus, Users, SlidersHorizontal, Music, MapPinned } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useAllAttendance } from '../hooks/useAttendance';
@@ -8,6 +8,7 @@ import { StudentForm } from './StudentForm';
 import { StudentDetail } from './StudentDetail';
 import { EnsembleManager } from './EnsembleManager';
 import { RepertoireManager } from '../repertoire/RepertoireManager';
+import { LocationsManager } from '../locations/LocationsManager';
 import { ensembleColor } from '../utils';
 import { seedRoster, seedStudents, seedEnsembles } from '../seedData';
 import { sortStudents, type StudentSort } from '../scoreOrder';
@@ -32,6 +33,7 @@ export function RosterView({ initialEnsembleId = '' }: { initialEnsembleId?: str
   const [sort, setSort] = useState<StudentSort>('lastName');
   const [managingEnsembles, setManagingEnsembles] = useState(false);
   const [managingRepertoire, setManagingRepertoire] = useState(false);
+  const [managingLocations, setManagingLocations] = useState(false);
   const [importState, setImportState] = useState<'idle' | 'importing' | 'error'>('idle');
   const [importError, setImportError] = useState('');
 
@@ -78,6 +80,9 @@ export function RosterView({ initialEnsembleId = '' }: { initialEnsembleId?: str
         </button>
         <button className="dir-tool-btn" onClick={() => setManagingRepertoire(true)}>
           <Music size={15} /> Repertoire
+        </button>
+        <button className="dir-tool-btn" onClick={() => setManagingLocations(true)}>
+          <MapPinned size={15} /> Locations
         </button>
       </div>
 
@@ -201,6 +206,7 @@ export function RosterView({ initialEnsembleId = '' }: { initialEnsembleId?: str
 
       {managingEnsembles && <EnsembleManager onClose={() => setManagingEnsembles(false)} />}
       {managingRepertoire && <RepertoireManager onClose={() => setManagingRepertoire(false)} />}
+      {managingLocations && <LocationsManager onClose={() => setManagingLocations(false)} />}
     </div>
   );
 }

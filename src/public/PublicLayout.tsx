@@ -1,23 +1,38 @@
 import './uiUpdates.css';
 import { useState } from 'react';
 import { Outlet, NavLink, Link } from 'react-router';
-import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown } from 'lucide-react';
+import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, MoreHorizontal, UserCircle, Ticket, HelpCircle, Search } from 'lucide-react';
+import { NavLink as RRNavLink } from 'react-router';
+import { GlobalAlerts } from './components/GlobalAlerts';
+import { SearchOverlay } from './components/SearchOverlay';
+import { TextSizeControl } from './components/TextSize';
+import { t, useLang } from '../shared/i18n';
+import { LangToggle } from './components/LangToggle';
+import { primaryStudent, onIdentityChange } from '../shared/identity';
+import { useEffect, useReducer } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { ensembleColor } from '../director/utils';
 
 const NAV = [
-  { to: '/', label: 'Home', Icon: Home, end: true },
-  { to: '/calendar', label: 'Calendar', Icon: CalendarDays, end: false },
-  { to: '/announcements', label: 'Announcements', Icon: Megaphone, end: false },
-  { to: '/repertoire', label: 'Repertoire', Icon: Music, end: false },
-  { to: '/assignments', label: 'Assignments', Icon: ClipboardCheck, end: false },
-  { to: '/lookup', label: 'My Schedule', Icon: UserSearch, end: false },
+  { to: '/', label: 'nav.home', Icon: Home, end: true },
+  { to: '/calendar', label: 'nav.calendar', Icon: CalendarDays, end: false },
+  { to: '/concerts', label: 'nav.concerts', Icon: Ticket, end: false },
+  { to: '/announcements', label: 'nav.announcements', Icon: Megaphone, end: false },
+  { to: '/repertoire', label: 'nav.repertoire', Icon: Music, end: false },
+  { to: '/assignments', label: 'nav.assignmentsShort', Icon: ClipboardCheck, end: false },
+  { to: '/lookup', label: 'nav.mySchedule', Icon: UserSearch, end: false },
+  { to: '/start', label: 'nav.startHere', Icon: HelpCircle, end: false },
 ];
 
 export function PublicLayout() {
+  useLang(); // re-render on EN/ES switch (#42)
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
   const { ensembles } = useEnsembles();
+  const [, bump] = useReducer(x => x + 1, 0);
+  useEffect(() => onIdentityChange(bump), []);
+  const me = primaryStudent();
 
   return (
     <div className="pub-app">
@@ -28,13 +43,20 @@ export function PublicLayout() {
           </span>
           <span>NWSA Music</span>
         </Link>
-        <button
-          className="pub-hamburger"
-          onClick={() => setMenuOpen(o => !o)}
-          aria-label="Menu"
-        >
-          {menuOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <LangToggle />
+          <TextSizeControl />
+          <button className="pub-hamburger" onClick={() => setSearchOpen(true)} aria-label={t('nav.search')}>
+            <Search size={20} />
+          </button>
+          <button
+            className="pub-hamburger"
+            onClick={() => setMenuOpen(o => !o)}
+            aria-label={t('nav.menu')}
+          >
+            {menuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
       </header>
 
       {menuOpen && (
@@ -42,10 +64,17 @@ export function PublicLayout() {
           <nav className="pub-menu-panel" onClick={e => e.stopPropagation()}>
             <div className="pub-menu-header">
               <span className="pub-menu-title">NWSA Music</span>
-              <button className="pub-menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">
+              <button className="pub-menu-close" onClick={() => setMenuOpen(false)} aria-label={t('nav.closeMenu')}>
                 <X size={20} />
               </button>
             </div>
+            {me && (
+              <Link to="/lookup" className="pub-menu-item pub-menu-me" onClick={() => setMenuOpen(false)}>
+                <UserCircle size={18} />
+                <span style={{ flex: 1, minWidth: 0 }}>{me.name}</span>
+                <span className="pub-menu-switch">{t('nav.notYouSwitch')}</span>
+              </Link>
+            )}
             {NAV.map(({ to, label, Icon, end }) => (
               <div key={to}>
                 <NavLink
@@ -55,7 +84,7 @@ export function PublicLayout() {
                   onClick={() => setMenuOpen(false)}
                 >
                   <Icon size={18} />
-                  {label}
+                  {t(label)}
                 </NavLink>
                 {/* Ensembles drop-down lives right after Calendar */}
                 {to === '/calendar' && (
@@ -66,7 +95,7 @@ export function PublicLayout() {
                       aria-expanded={ensemblesOpen}
                     >
                       <Users size={18} />
-                      Ensembles
+                      {t('nav.ensembles')}
                       <ChevronDown size={15} style={{ marginLeft: 'auto', transform: ensemblesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
                     </button>
                     {ensemblesOpen && (
@@ -98,15 +127,37 @@ export function PublicLayout() {
             ))}
             <div className="pub-menu-divider" />
             <Link to="/director" className="pub-menu-item pub-menu-director" onClick={() => setMenuOpen(false)}>
-              Director login
+              {t('nav.directorLogin')}
             </Link>
           </nav>
         </div>
       )}
 
       <main className="pub-content">
+        <GlobalAlerts />
         <Outlet />
       </main>
+
+      {/* Thumb-reach bottom bar (#2): the three daily tasks + More */}
+      <nav className="pub-tabbar" aria-label="Primary">
+        <RRNavLink to="/" end className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}>
+          <Home size={20} /><span>{t('nav.home')}</span>
+        </RRNavLink>
+        <RRNavLink to="/calendar" className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}>
+          <CalendarDays size={20} /><span>{t('nav.calendar')}</span>
+        </RRNavLink>
+        <RRNavLink
+          to={me ? `/student/${me.id}` : '/lookup'}
+          className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}
+        >
+          <UserSearch size={20} /><span>{t('nav.mySchedule')}</span>
+        </RRNavLink>
+        <button className="pub-tabbar-btn" onClick={() => setMenuOpen(true)}>
+          <MoreHorizontal size={20} /><span>{t('nav.more')}</span>
+        </button>
+      </nav>
+
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

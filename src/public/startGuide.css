@@ -1,0 +1,91 @@
+/* Start Here guide (#6) — pub-sg-* classes, scoped to StartGuide.tsx */
+
+.pub-sg-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.pub-sg-head .pub-h1 { margin-bottom: 4px; }
+
+.pub-sg-print-btn {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  padding: 7px 12px; border: 1px solid var(--pub-border); border-radius: 9px;
+  background: var(--pub-surface); font-size: 12.5px; font-weight: 700;
+  color: var(--pub-accent); cursor: pointer; white-space: nowrap; font-family: inherit;
+}
+.pub-sg-print-btn:active { background: var(--pub-accent-soft); }
+
+.pub-sg-intro { font-size: 14px; color: var(--pub-muted); margin: 0 0 14px; line-height: 1.5; }
+
+/* ── Audience tabs ── */
+.pub-sg-tabs {
+  display: flex; gap: 6px; margin-bottom: 14px;
+  background: var(--pub-surface); border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius); padding: 5px;
+}
+.pub-sg-tab {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 6px; border: none; border-radius: 10px; background: none;
+  font-size: 13.5px; font-weight: 700; color: var(--pub-muted);
+  cursor: pointer; font-family: inherit;
+}
+.pub-sg-tab.active { background: var(--pub-accent); color: #fff; }
+
+/* ── Panels: only the active one shows on screen; print shows all ── */
+.pub-sg-panel { display: none; }
+.pub-sg-panel.active { display: block; }
+.pub-sg-panel-title { display: none; } /* screen: the tabs already say who; print shows it */
+
+/* ── Question accordion ── */
+.pub-sg-list { display: flex; flex-direction: column; gap: 8px; }
+.pub-sg-item {
+  background: var(--pub-surface); border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius); overflow: hidden;
+}
+.pub-sg-q {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 13px 14px; border: none; background: none; text-align: left;
+  font-size: 14.5px; font-weight: 700; color: var(--pub-ink);
+  cursor: pointer; font-family: inherit; line-height: 1.35;
+}
+.pub-sg-chev { color: var(--pub-muted); flex-shrink: 0; transition: transform 0.15s; }
+.pub-sg-item.open .pub-sg-chev { transform: rotate(180deg); }
+.pub-sg-answer {
+  display: none;
+  padding: 0 14px 13px; font-size: 14px; line-height: 1.55; color: var(--pub-ink);
+}
+.pub-sg-item.open .pub-sg-answer { display: block; }
+.pub-sg-answer a { color: var(--pub-accent); font-weight: 700; }
+
+/* ── Glossary ── */
+.pub-sg-glossary-title {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 16px; font-weight: 800; margin: 24px 0 10px; color: var(--pub-ink);
+  scroll-margin-top: 70px; /* land below the sticky header on #glossary links */
+}
+.pub-sg-glossary {
+  margin: 0; background: var(--pub-surface); border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius); padding: 4px 14px;
+}
+.pub-sg-glossary-item { padding: 11px 0; border-bottom: 1px solid var(--pub-border); }
+.pub-sg-glossary-item:last-child { border-bottom: none; }
+.pub-sg-glossary dt { font-size: 14px; font-weight: 800; color: var(--pub-accent); margin: 0 0 3px; }
+.pub-sg-glossary dd { font-size: 13.5px; line-height: 1.55; color: var(--pub-ink); margin: 0; }
+
+/* ── Print: no app chrome, every tab + every answer expanded ── */
+@media print {
+  .pub-header, .pub-tabbar, .pub-urgent-banner, .pub-strip-alert, .pub-allclear,
+  .pub-sg-tabs, .pub-sg-print-btn { display: none !important; }
+  .pub-app, .pub-content, .pub-page { background: #fff !important; padding: 0 !important; margin: 0 !important; }
+
+  .pub-sg-panel { display: block !important; }
+  .pub-sg-panel-title {
+    display: block !important;
+    font-size: 15px; font-weight: 800; margin: 16px 0 8px;
+    border-bottom: 2px solid #000; padding-bottom: 3px;
+  }
+  .pub-sg-answer { display: block !important; }
+  .pub-sg-chev { display: none !important; }
+  .pub-sg-item { break-inside: avoid; border-color: #ccc; }
+  .pub-sg-q { padding-bottom: 4px; }
+  .pub-sg-glossary-item { break-inside: avoid; }
+  .pub-sg-answer a { color: #000; text-decoration: none; }
+}

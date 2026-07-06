@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { offerUndo } from '../writeStatus';
 import type { RepertoirePiece } from '../types';
 
 /**
@@ -34,7 +35,13 @@ export function useRepertoire() {
 
   async function deletePiece(id: string) {
     if (!db) return;
+    // Undo (#38): capture the doc, delete, offer 10s restore with the same id.
+    const gone = pieces.find(x => x.id === id);
     await deleteDoc(doc(db, 'repertoire', id));
+    if (gone) {
+      const { id: _id, ...data } = gone;
+      offerUndo('repertoire', id, data, `Deleted \"${gone.title}\" — restore?`);
+    }
   }
 
   return { pieces, loading, addPiece, updatePiece, deletePiece };

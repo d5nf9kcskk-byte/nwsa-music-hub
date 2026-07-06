@@ -4,6 +4,12 @@ import type { Student, AttendanceRecord, AttendanceStatus, RosterOverride } from
 
 interface Props {
   student: Student;
+  /** Pending planned absence submitted by the student/parent (#27). */
+  plannedAbsence?: { reason: string };
+  /** Same-day statuses from other periods (#25), e.g. absent period 1. */
+  dayContext?: { label: string; status: string }[];
+  /** Last five rehearsals' statuses for mini history dots (#25). */
+  history?: string[];
   record: AttendanceRecord | undefined;
   onToggle: (studentId: string, status: AttendanceStatus) => void;
   isSub?: boolean;
@@ -13,7 +19,7 @@ interface Props {
   onLesson: (student: Student) => void;
 }
 
-export function StudentCard({ student, record, onToggle, isSub, lesson, onLesson }: Props) {
+export function StudentCard({ student, record, onToggle, isSub, lesson, onLesson, plannedAbsence, dayContext, history }: Props) {
   const status = record?.status;
 
   return (
@@ -22,11 +28,30 @@ export function StudentCard({ student, record, onToggle, isSub, lesson, onLesson
         <div>
           <div className="dir-student-name">
             {student.name}
+            {student.preferredName && <span className="dir-goesby">"{student.preferredName}"</span>}
             {isSub && <span className="dir-sub-badge">Sub</span>}
           </div>
           <div className="dir-student-meta">
             {[student.instrument, student.section].filter(Boolean).join(' · ')}
+            {student.pronunciation && <span className="dir-pronounce"> · 🗣 {student.pronunciation}</span>}
           </div>
+          {plannedAbsence && !record && (
+            <div className="dir-prereport">📋 Reported ahead: {plannedAbsence.reason} — tap Excused to accept</div>
+          )}
+          {dayContext && dayContext.length > 0 && (
+            <div className="dir-daycontext">
+              {dayContext.map((c, i) => (
+                <span key={i} className={`dir-daycontext-chip ${c.status.toLowerCase()}`}>
+                  {c.status} earlier today
+                </span>
+              ))}
+            </div>
+          )}
+          {history && history.length > 0 && (
+            <span className="dir-history-dots" title="Last 5 rehearsals">
+              {history.map((st, i) => <span key={i} className={`dir-history-dot ${st.toLowerCase()}`} />)}
+            </span>
+          )}
           {lesson && (
             <div className="dir-lesson-badge">
               <GraduationCap size={12} />

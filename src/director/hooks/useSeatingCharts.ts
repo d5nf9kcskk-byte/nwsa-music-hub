@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
+import { offerUndo } from '../writeStatus';
 import type { SeatingChart } from '../types';
 
 /** Published seating charts. Public-readable (students see where they sit). */
@@ -30,7 +31,13 @@ export function useSeatingCharts(ensembleId?: string) {
   }
   async function deleteChart(id: string) {
     if (!db) return;
+    // Undo (#38): capture the doc, delete, offer 10s restore with the same id.
+    const gone = charts.find(x => x.id === id);
     await deleteDoc(doc(db, 'seatingCharts', id));
+    if (gone) {
+      const { id: _id, ...data } = gone;
+      offerUndo('seatingCharts', id, data, `Deleted seating chart — restore?`);
+    }
   }
 
   return { charts, loading, addChart, updateChart, deleteChart };

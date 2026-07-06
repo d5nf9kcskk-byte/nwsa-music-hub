@@ -1,0 +1,9 @@
+.pub-textsize {
+  display: inline-flex; align-items: baseline; gap: 2px;
+  min-width: 42px; height: 38px; padding: 0 10px;
+  border: none; border-radius: 9px;
+  background: rgba(255,255,255,0.15); color: #fff;
+  font-size: 15px; font-weight: 800; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.pub-textsize-pct { font-size: 9px; font-weight: 700; opacity: 0.85; }

@@ -21,7 +21,7 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
       {items.map(a => {
         const ens = a.ensembleId ? ensembleMap[a.ensembleId] : undefined;
         return (
-          <div key={a.id} className={`pub-announce ${a.pinned ? 'pinned' : ''}`}>
+          <div key={a.id} className={`pub-announce ${a.pinned ? 'pinned' : ''} ${a.priority === 'important' ? 'pub-announce-important' : ''} ${a.priority === 'urgent' ? 'pub-announce-urgent' : ''}`}>
             <div className="pub-announce-head">
               {a.pinned && <Pin size={13} className="pub-announce-pin" />}
               <span className="pub-announce-title">{a.title}</span>

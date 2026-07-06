@@ -1,0 +1,98 @@
+/* PubEventCard time-first redesign (#30/#31/#32).
+   Base .pub-event styles live in public.css; the extra .pub-ev2 class scopes
+   every rule here so no shared file needs to change. */
+
+/* ── Identity row: EventChip + status tags ── */
+.pub-ev2-chiprow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 7px;
+}
+
+/* ── Time-first row (#32): start time is the largest text on the card ── */
+.pub-ev2-timerow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pub-ev2-start {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--pub-ink);
+}
+
+.pub-ev2-start.allday {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--pub-muted);
+}
+
+.pub-ev2-end {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pub-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Room / location as a pill beside the time */
+.pub-ev2-room {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: center;
+  max-width: 100%;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pub-ink);
+  background: var(--pub-bg);
+  border: 1px solid var(--pub-border);
+  border-radius: 999px;
+}
+.pub-ev2-room svg { color: var(--pub-accent); flex-shrink: 0; }
+
+/* Title demoted below the time (chip already carries type identity) */
+.pub-ev2 .pub-ev2-title {
+  margin-top: 5px;
+  font-size: 15px;
+}
+
+/* Footer: add-to-calendar + details, side by side */
+.pub-ev2-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+  margin-top: 9px;
+}
+.pub-ev2-foot .pub-event-detail-link { margin-top: 0; }
+
+/* ── Cancellation grammar (#30): one consistent treatment everywhere.
+   Un-dim the whole-card fade from public.css, then apply the grammar:
+   struck-through title, full-strength red CANCELLED tag, original time
+   still visible but dimmed. ── */
+.pub-event.pub-ev2.cancelled { opacity: 1; }
+
+.pub-ev2.cancelled .pub-event-bar { opacity: 0.4; }
+
+.pub-ev2.cancelled .pub-ev2-title {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  color: var(--pub-muted);
+}
+
+.pub-ev2.cancelled .pub-ev2-timerow,
+.pub-ev2.cancelled .pub-eventchip,
+.pub-ev2.cancelled .pub-event-meta,
+.pub-ev2.cancelled .pub-event-rep,
+.pub-ev2.cancelled .pub-event-pieces {
+  opacity: 0.55;
+}

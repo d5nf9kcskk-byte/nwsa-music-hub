@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Plus, Pencil, Pin, ChevronLeft } from 'lucide-react';
 import { useAnnouncements } from '../hooks/useAnnouncements';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { ensembleColor } from '../utils';
 import type { Announcement } from '../types';
@@ -103,6 +105,7 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
   const [body, setBody] = useState(announcement?.body ?? '');
   const [ensembleId, setEnsembleId] = useState<string | null>(announcement?.ensembleId ?? null);
   const [pinned, setPinned] = useState(announcement?.pinned ?? false);
+  const [priority, setPriority] = useState<'info' | 'important' | 'urgent'>(announcement?.priority ?? 'info');
   const [expiresOn, setExpiresOn] = useState(announcement?.expiresOn ?? '');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -117,10 +120,25 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
         title: title.trim(),
         body: body.trim() || undefined,
         ensembleId,
+        priority: priority === 'info' ? undefined : priority,
         pinned: pinned || undefined,
         expiresOn: expiresOn || undefined,
         createdAt: announcement?.createdAt ?? Date.now(),
       });
+      // Urgent announcements also enter the notification relay queue (#21):
+      // a scheduled Power Automate flow posts them to Teams / parent email.
+      if (priority === 'urgent' && db) {
+        try {
+          await addDoc(collection(db, 'notifyQueue'), {
+            kind: 'urgent-announcement',
+            title: title.trim(),
+            body: body.trim() || undefined,
+            ensembleIds: ensembleId ? [ensembleId] : [],
+            createdAt: Date.now(),
+            processedAt: null,
+          });
+        } catch { /* relay is best-effort; the announcement itself saved */ }
+      }
       onBack();
     } catch (e) {
       setSaving(false);
@@ -160,6 +178,16 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
               <option value="">All ensembles (school-wide)</option>
               {ensembles.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
             </select>
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Urgency</label>
+            <div className="dir-segment">
+              <button type="button" className={`dir-segment-btn ${priority === 'info' ? 'active' : ''}`} onClick={() => setPriority('info')}>Info</button>
+              <button type="button" className={`dir-segment-btn ${priority === 'important' ? 'active' : ''}`} onClick={() => setPriority('important')}>Important</button>
+              <button type="button" className={`dir-segment-btn ${priority === 'urgent' ? 'active' : ''}`} onClick={() => setPriority('urgent')}>🚨 Urgent</button>
+            </div>
+            <div className="dir-field-hint">Urgent shows as a red banner on every public page. Important gets a gold edge.</div>
           </div>
 
           <div className="dir-field-row">
