@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Pencil, Music, Sparkles, Trash2, GripVertical, ChevronLeft } from 'lucide-react';
+import { Plus, Pencil, Music, Sparkles, Trash2, GripVertical } from 'lucide-react';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
@@ -41,7 +41,6 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
         }}
         onDelete={editing !== 'new' ? async () => deletePiece(editing.id) : undefined}
         onBack={() => setEditing(null)}
-        onClose={onClose}
       />
     );
   }
@@ -115,12 +114,11 @@ interface FormProps {
   onSave: (data: Omit<RepertoirePiece, 'id'>) => Promise<void>;
   onDelete?: () => Promise<void>;
   onBack: () => void;
-  onClose: () => void;
 }
 
 function RepertoireForm({
   piece, ensembles, events, lockedEnsembleId, nextOrder,
-  onSave, onDelete, onBack, onClose,
+  onSave, onDelete, onBack,
 }: FormProps) {
   const [ensembleId, setEnsembleId] = useState(piece?.ensembleId ?? lockedEnsembleId ?? ensembles[0]?.id ?? '');
   const [title, setTitle] = useState(piece?.title ?? '');
@@ -368,20 +366,19 @@ Return ONLY a JSON object (no markdown) with these fields (omit any you are not 
     if (!onDelete) return;
     setSaving(true);
     await onDelete();
-    onClose();
+    onBack();
   }
 
   const canSave = title.trim() && ensembleId;
   const canFillAI = canSave && !!composer.trim();
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onBack()}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
-          <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
           <span className="dir-drawer-title">{piece ? 'Edit Piece' : 'New Piece'}</span>
-          <button className="dir-drawer-close" onClick={onClose}>×</button>
+          <button className="dir-drawer-close" onClick={onBack} aria-label="Close">×</button>
         </div>
 
         <div className="dir-drawer-body">
@@ -628,7 +625,7 @@ Return ONLY a JSON object (no markdown) with these fields (omit any you are not 
           <div style={{ padding: '4px 16px 0', fontSize: 13, color: 'var(--dir-danger)' }}>{saveError}</div>
         )}
         <div className="dir-drawer-footer">
-          <button className="dir-btn dir-btn-ghost" onClick={onBack}>Back</button>
+          <button className="dir-btn dir-btn-ghost" onClick={onBack}>Cancel</button>
           <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !canSave}>
             {saving ? 'Saving…' : 'Save'}
           </button>

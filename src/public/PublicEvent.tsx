@@ -59,7 +59,7 @@ export function PublicEvent() {
         </div>
       )}
 
-      <PubEventCard event={event} ensembleMap={ensembleMap} piecesById={piecesById} showNotes />
+      <PubEventCard event={event} ensembleMap={ensembleMap} piecesById={piecesById} showNotes detailLink={false} />
 
       {(event.attendanceEnsembleIds ?? []).length > 0 && (
         <div className="pub-card pub-attend-card">

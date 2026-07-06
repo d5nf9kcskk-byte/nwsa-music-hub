@@ -140,7 +140,7 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
             </select>
           </div>
 
-          <div className="dir-contact-note">🔒 Contact info is private — never shown on the public site.</div>
+          <div className="dir-contact-note">🔒 Visible to signed-in directors here in the roster. Never shown on the public site.</div>
 
           <div className="dir-field">
             <label className="dir-label">Student Email</label>
