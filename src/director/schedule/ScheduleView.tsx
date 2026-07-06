@@ -36,6 +36,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   });
   const [selectedDate, setSelectedDate] = useState(initialDate ?? todayStr());
   const [filterEnsembleId, setFilterEnsembleId] = useState(initialEnsembleId);
+  const [typeFilter, setTypeFilter] = useState<'all' | 'Rehearsal' | 'Sectional' | 'Concert' | 'Event'>('all');
   const [calView, setCalView] = useState<'month' | 'list'>('month');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
   const touchStartX = useRef<number | null>(null);
@@ -93,12 +94,15 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   // School-wide events (ensembleIds: []) are always visible regardless of filter;
   // the special 'school' filter shows ONLY them.
   const visibleEvents = useMemo(
-    () => (filterEnsembleId === 'school'
-      ? events.filter(e => e.ensembleIds.length === 0)
-      : filterEnsembleId
-        ? events.filter(e => e.ensembleIds.length === 0 || e.ensembleIds.includes(filterEnsembleId))
-        : events),
-    [events, filterEnsembleId],
+    () => {
+      const byEns = filterEnsembleId === 'school'
+        ? events.filter(e => e.ensembleIds.length === 0)
+        : filterEnsembleId
+          ? events.filter(e => e.ensembleIds.length === 0 || e.ensembleIds.includes(filterEnsembleId))
+          : events;
+      return typeFilter === 'all' ? byEns : byEns.filter(e => e.type === typeFilter);
+    },
+    [events, filterEnsembleId, typeFilter],
   );
 
   const eventsByDate = useMemo(() => {
@@ -363,6 +367,18 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           )}
         </div>
       )}
+
+      {/* Type filter */}
+      <div className="dir-type-filter">
+        <span className="dir-type-filter-label">Show:</span>
+        <select className="dir-input dir-type-select" value={typeFilter} onChange={e => setTypeFilter(e.target.value as typeof typeFilter)}>
+          <option value="all">Everything</option>
+          <option value="Rehearsal">Rehearsals</option>
+          <option value="Sectional">Sectionals</option>
+          <option value="Concert">Concerts</option>
+          <option value="Event">Events</option>
+        </select>
+      </div>
 
       {calView === 'month' ? (
         <>
