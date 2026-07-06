@@ -3,7 +3,8 @@ import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
   query, orderBy,
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
+import { offerUndo } from '../writeStatus';
 import type { CalendarEvent } from '../types';
 
 /**
@@ -31,12 +32,26 @@ export function useEvents() {
 
   async function updateEvent(id: string, data: Partial<Omit<CalendarEvent, 'id'>>) {
     if (!db) return;
+    // Change tracking (#17/#40): every SCHEDULE edit stamps who + when.
+    // Roll receipts are bookkeeping, not schedule changes — stamping them would
+    // falsely flag the rehearsal "Updated" on the public site after every roll.
+    const keys = Object.keys(data);
+    const bookkeepingOnly = keys.length > 0 && keys.every(k => k === 'rollTaken');
+    if (!bookkeepingOnly) {
+      data = { ...data, updatedAt: Date.now(), updatedBy: auth?.currentUser?.email ?? undefined };
+    }
     await updateDoc(doc(db, 'events', id), data);
   }
 
   async function deleteEvent(id: string) {
     if (!db) return;
+    // Undo (#38): capture the doc, delete, offer 10s restore with the same id.
+    const gone = events.find(x => x.id === id);
     await deleteDoc(doc(db, 'events', id));
+    if (gone) {
+      const { id: _id, ...data } = gone;
+      offerUndo('events', id, data, `Deleted \"${gone.title || gone.type}\" — restore?`);
+    }
   }
 
   return { events, loading, addEvent, updateEvent, deleteEvent };

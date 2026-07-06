@@ -26,7 +26,6 @@ Firestore with Google sign-in for the director.
 - **Repertoire library** — full work metadata (formal title, composer dates,
   catalog number, instrumentation, duration, movements, program notes, IMSLP /
   video / audio links), per-instrument parts plus a shared folder link.
-  Quick-add a title + composer, then **Fill with AI** to enrich the rest.
 - **Piece ↔ event linking** — attach pieces to concerts/rehearsals; students see
   the pieces (and *their* instrument's part) on each event; concerts get a
   **printable program** in director-set order.
@@ -42,7 +41,6 @@ Firestore with Google sign-in for the director.
 - **React Router** (public routes + `/director` app, basename `/nwsa-music-hub`)
 - **Firebase Firestore** (real-time listeners) + **Firebase Auth** (Google)
 - **GitHub Pages** via GitHub Actions
-- **Anthropic API** for AI repertoire enrichment (GitHub Action, server-side)
 
 ## Project structure
 
@@ -63,13 +61,11 @@ src/
     └── public.css
 scripts/
 ├── generate-feeds.mjs       # Build step: writes .ics feeds into dist/feeds
-├── enrich-repertoire.mjs    # GitHub Action: AI-fill pending repertoire pieces
 └── migrate.js               # One-time: seed ensembles + roster into Firestore
 firestore.rules              # Security rules (public read / director write)
 firebase.json                # Points the Firebase CLI at firestore.rules
 .github/workflows/
 ├── deploy.yml               # Build + ICS feeds + deploy to Pages (push + 4h cron)
-└── enrich-repertoire.yml    # Run AI enrichment after each deploy
 ```
 
 ## Firestore collections
@@ -136,21 +132,6 @@ node scripts/migrate.js
 
 > The deploy workflow also runs on a 4-hour cron to keep calendar feeds current.
 
-### 5. AI repertoire enrichment (optional)
-
-The **Fill with AI** button marks a piece `aiStatus: 'pending'`. The
-`enrich-repertoire` workflow (runs after each deploy, or manually via
-*Actions → Enrich Repertoire with AI → Run workflow*) fills in the metadata.
-
-Add two more Actions secrets:
-
-- `ANTHROPIC_API_KEY` — from [console.anthropic.com](https://console.anthropic.com).
-- `FIREBASE_SERVICE_ACCOUNT_JSON` — the full JSON of a service account key
-  (Firebase Console → Project Settings → Service Accounts → Generate new private
-  key). Paste the file's entire contents as the secret value.
-
-The enrichment script uses the Admin SDK (service account), so it writes back
-regardless of the Firestore rules.
 
 ## Custom domain (future)
 
@@ -167,5 +148,4 @@ GitHub Pages custom-domain setting.
 | `npm run lint` | ESLint |
 | `npm run preview` | Preview the production build |
 | `node scripts/generate-feeds.mjs` | Regenerate `.ics` feeds (needs `VITE_FIREBASE_PROJECT_ID`) |
-| `node scripts/enrich-repertoire.mjs` | Run AI enrichment (needs `ANTHROPIC_API_KEY` + `FIREBASE_SERVICE_ACCOUNT_JSON`) |
 | `node scripts/migrate.js` | Seed ensembles + roster |

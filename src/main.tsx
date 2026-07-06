@@ -17,6 +17,11 @@ import { PublicEvent } from './public/PublicEvent';
 import { PublicAnnouncementsPage } from './public/PublicAnnouncements';
 import { PublicRepertoire } from './public/PublicRepertoire';
 import { PublicAssignments } from './public/PublicAssignments';
+import { StartGuide } from './public/StartGuide';
+import { SeasonPage } from './public/SeasonPage';
+import { CampusMap } from './public/CampusMap';
+import { VanityRedirect } from './public/VanityRedirect';
+import { VANITY_SLUGS } from './shared/vanity';
 import DirectorApp from './director/DirectorApp';
 
 const router = createBrowserRouter(
@@ -36,7 +41,12 @@ const router = createBrowserRouter(
         { path: 'event/:id', element: <PublicEvent /> },
         { path: 'announcements', element: <PublicAnnouncementsPage /> },
         { path: 'assignments', element: <PublicAssignments /> },
+        { path: 'start', element: <StartGuide /> },
+        { path: 'concerts', element: <SeasonPage /> },
+        { path: 'map', element: <CampusMap /> },
         { path: 'program/:id', element: <PublicProgram /> },
+        // Vanity short links (#5): /so /we /wind /jazz /cam /choir /opera /cco
+        ...VANITY_SLUGS.map(v => ({ path: v.slug, element: <VanityRedirect slug={v.slug} /> })),
       ],
     },
     {
@@ -46,6 +56,13 @@ const router = createBrowserRouter(
   ],
   { basename: '/nwsa-music-hub' },
 );
+
+// Offline app shell (#43) — registered after load so it never delays startup.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
+  });
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

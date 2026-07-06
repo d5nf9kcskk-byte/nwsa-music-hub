@@ -1,6 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, Fragment } from 'react';
 import { useParams, Link } from 'react-router';
 import { useMonthSwipe } from './useMonthSwipe';
+import { NowNext } from './components/NowNext';
+import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
+import { PracticeCard } from './components/PracticeCard';
+import { PlannedAbsenceButton } from './components/PlannedAbsence';
 import { ChevronLeft, ChevronRight, ExternalLink, LayoutList, Grid3x3 } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
@@ -65,11 +69,22 @@ export function PublicSchedule() {
   }, [student, events, students, overrides, eventsById, id, today]);
 
   const todayItems = mySchedule.filter(x => x.event.date === today);
+  const { nowHM, isPast } = usePastDimming();
+  const todayNowIdx = nowLineIndex(todayItems.map(x => x.event), today, nowHM);
   const upcomingItems = mySchedule.filter(x => x.event.date > today && matchesFilter(x.event, filter));
 
   const myAnnouncements = useMemo(
     () => student ? visibleAnnouncements(announcements, today, student.ensembleIds ?? []) : [],
     [announcements, today, student],
+  );
+
+  // Conflict explainer (#10): today's lesson windows that override a rehearsal.
+  const myLessonsToday = useMemo(
+    () => student
+      ? overrides.filter(o => o.kind === 'lesson' && o.studentId === student.id
+          && o.startDate && o.endDate && o.startDate <= today && today <= o.endDate)
+      : [],
+    [overrides, student, today],
   );
 
   const myAssignments = useMemo(
@@ -137,8 +152,20 @@ export function PublicSchedule() {
 
       {/* Personal calendar feed — the one subscription that follows THIS student. */}
       <SubscribeButton studentId={student.id} label={`Subscribe · ${student.name.split(' ')[0]}'s calendar`} />
+      <PlannedAbsenceButton student={student} />
 
       <PubAnnouncements items={myAnnouncements} ensembleMap={ensembleMap} />
+
+      <NowNext items={mySchedule} />
+
+      {myLessonsToday.map(o => (
+        <div key={o.id} className="pub-conflict-chip">
+          🎓 Lesson today{o.startTime && o.endTime ? ` ${o.startTime}–${o.endTime}` : ''} overrides{' '}
+          {ensembleMap[o.ensembleId]?.name ?? 'rehearsal'} — you're excused for that window only, then expected back.
+        </div>
+      ))}
+
+      <PracticeCard student={student} schedule={mySchedule} piecesById={piecesById} assignments={myAssignments} />
 
       {myAssignments.length > 0 && (
         <>
@@ -152,6 +179,11 @@ export function PublicSchedule() {
                   <span className="pub-assign-type">{a.type}</span>
                   <span>Due {parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
                 </div>
+                {a.formUrl && (
+                  <a className="pub-assign-form-btn" href={a.formUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>
+                    📝 Open exam form
+                  </a>
+                )}
               </div>
             </Link>
           ))}
@@ -164,9 +196,17 @@ export function PublicSchedule() {
       {todayItems.length === 0 ? (
         <div className="pub-card pub-muted">Nothing scheduled for you today.</div>
       ) : (
-        todayItems.map(({ event: e, exp }) => (
-          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showNotes />
-        ))
+        <>
+          {todayItems.map(({ event: e, exp }, i) => (
+            <Fragment key={e.id}>
+              {i === todayNowIdx && <NowLine />}
+              <div className={isPast(e) ? 'pub-past-dim' : undefined}>
+                <PubEventCard event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showNotes />
+              </div>
+            </Fragment>
+          ))}
+          {todayNowIdx === todayItems.length && todayItems.length > 0 && <NowLine />}
+        </>
       )}
 
       <div className="pub-section-row">

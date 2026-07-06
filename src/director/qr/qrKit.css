@@ -1,0 +1,108 @@
+/* ── QR kit (#5): printable posters + folder slips ─────────────────────── */
+
+.dir-qrkit {
+  max-height: 92dvh;
+  overflow-y: auto;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.dir-qrkit-body {
+  padding: 14px;
+  background: var(--dir-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dir-qrkit-hint { margin: 0; font-size: 13px; color: var(--dir-text-muted); }
+.dir-qrkit-empty { padding: 24px 12px; text-align: center; font-size: 13.5px; color: var(--dir-text-muted); }
+
+/* Each .dir-qr-page becomes one printed sheet */
+.dir-qr-page {
+  background: #fff;
+  border: 1px solid var(--dir-border);
+  border-radius: var(--dir-radius);
+}
+
+/* ── Poster ── */
+.dir-qr-poster {
+  border-top: 6px solid var(--dir-primary);
+  padding: 26px 18px 22px;
+  text-align: center;
+}
+.dir-qr-poster-kicker {
+  font-size: 12px; font-weight: 800; letter-spacing: 2px;
+  text-transform: uppercase; color: #0d7e8e;
+}
+.dir-qr-poster-name {
+  font-size: clamp(28px, 7vw, 44px); font-weight: 900;
+  margin: 6px 0 4px; color: #111; line-height: 1.1;
+}
+.dir-qr-poster-tag { font-size: 15px; color: #444; margin: 0 auto 18px; max-width: 46ch; }
+.dir-qr-poster-code { width: min(62vw, 300px); margin: 0 auto; }
+.dir-qr-poster-code svg { display: block; width: 100%; height: auto; }
+.dir-qr-poster-url {
+  margin-top: 14px; font-size: 14px; font-weight: 700; color: #111;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all;
+}
+
+/* ── Folder slips ── */
+.dir-qr-slips { padding: 12px; }
+.dir-qr-slips-head { font-size: 12px; font-weight: 700; color: #555; text-align: center; margin-bottom: 8px; }
+.dir-qr-slip-grid { display: grid; grid-template-columns: 1fr; }
+@media (min-width: 480px) { .dir-qr-slip-grid { grid-template-columns: 1fr 1fr; } }
+.dir-qr-slip {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px; border: 1px dashed #999; margin: -0.5px;
+}
+.dir-qr-slip-code { width: 74px; flex-shrink: 0; }
+.dir-qr-slip-code svg { display: block; width: 100%; height: auto; }
+.dir-qr-slip-info { min-width: 0; }
+.dir-qr-slip-name { font-size: 13.5px; font-weight: 800; color: #111; line-height: 1.15; }
+.dir-qr-slip-sub { font-size: 10.5px; color: #555; margin-top: 2px; }
+.dir-qr-slip-url {
+  font-size: 10px; color: #333; margin-top: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all;
+}
+
+/* ── Print: one poster / slip sheet per page, no chrome ──
+   Scoped with :has() so these rules only apply while the kit is open —
+   printing other pages of the app is unaffected. */
+@media print {
+  body:has(.dir-qrkit-overlay) * { visibility: hidden !important; }
+  .dir-qrkit, .dir-qrkit * { visibility: visible !important; }
+  .dir-qrkit-noprint { display: none !important; }
+
+  .dir-qrkit-overlay {
+    position: absolute !important; inset: auto !important;
+    top: 0 !important; left: 0 !important; width: 100% !important;
+    height: auto !important; display: block !important; background: none !important;
+  }
+  .dir-qrkit {
+    max-height: none !important; overflow: visible !important;
+    border-radius: 0 !important; box-shadow: none !important;
+  }
+  .dir-qrkit-body { display: block; padding: 0; background: #fff; }
+
+  .dir-qr-page {
+    border: none; border-radius: 0;
+    break-after: page; page-break-after: always;
+    break-inside: avoid;
+  }
+  .dir-qr-page:last-child { break-after: auto; page-break-after: auto; }
+
+  .dir-qr-poster { padding-top: 1.2in; }
+  .dir-qr-poster-name { font-size: 54pt; }
+  .dir-qr-poster-tag { font-size: 16pt; margin-bottom: 0.35in; }
+  .dir-qr-poster-code { width: 4.4in; max-width: 78%; }
+  .dir-qr-poster-url { font-size: 15pt; margin-top: 0.3in; }
+
+  .dir-qr-slips { padding: 0.25in 0 0; }
+  .dir-qr-slip-grid { grid-template-columns: 1fr 1fr; }
+  .dir-qr-slip { break-inside: avoid; padding: 0.18in; }
+  .dir-qr-slip-code { width: 1.1in; }
+  .dir-qr-slip-name { font-size: 12pt; }
+  .dir-qr-slip-sub { font-size: 8.5pt; }
+  .dir-qr-slip-url { font-size: 8pt; }
+}

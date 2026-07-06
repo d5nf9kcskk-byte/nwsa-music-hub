@@ -1,0 +1,17 @@
+.dir-qc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.dir-qc-btn {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 52px; border: 1.5px solid var(--dir-border); border-radius: 12px;
+  background: var(--dir-surface); font-size: 14px; font-weight: 700; color: var(--dir-text);
+  cursor: pointer;
+}
+.dir-qc-btn.danger { color: var(--dir-danger); border-color: #fca5a5; grid-column: span 2; }
+.dir-qc-btn:active { background: var(--dir-surface-2); }
+.dir-qc-review { padding: 4px 2px; }
+.dir-qc-review-title { font-size: 17px; font-weight: 800; margin-bottom: 10px; }
+.dir-qc-review-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--dir-text-muted); padding: 4px 0; }
+.dir-qc-msg {
+  margin-top: 12px; padding: 11px 13px; border-radius: 10px;
+  background: var(--dir-surface-2); border: 1px solid var(--dir-border);
+  font-size: 14px; font-weight: 600; line-height: 1.5;
+}

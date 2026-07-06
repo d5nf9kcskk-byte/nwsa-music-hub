@@ -14,6 +14,8 @@ interface Props {
 
 const BLANK: Omit<Student, 'id'> = {
   name: '',
+  preferredName: '',
+  pronunciation: '',
   ensembleIds: [],
   instrument: '',
   section: '',
@@ -119,6 +121,17 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
           <div className="dir-field">
             <label className="dir-label">Instrument</label>
             <input className="dir-input" value={form.instrument} onChange={e => set('instrument', e.target.value)} placeholder="e.g. Violin" />
+          </div>
+
+          <div className="dir-field-row">
+            <div className="dir-field">
+              <label className="dir-label">Goes by <span className="dir-label-hint">optional</span></label>
+              <input className="dir-input" value={form.preferredName ?? ''} onChange={e => set('preferredName', e.target.value)} placeholder="e.g. Alex" />
+            </div>
+            <div className="dir-field">
+              <label className="dir-label">Pronounced <span className="dir-label-hint">optional</span></label>
+              <input className="dir-input" value={form.pronunciation ?? ''} onChange={e => set('pronunciation', e.target.value)} placeholder="see-oh-MAH-rah" />
+            </div>
           </div>
 
           <div className="dir-field">

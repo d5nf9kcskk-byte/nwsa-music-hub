@@ -1,0 +1,84 @@
+/* Season at a Glance (#13) — pub-season-* classes, scoped to SeasonPage.tsx */
+
+.pub-season-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.pub-season-head .pub-h1 { margin-bottom: 4px; }
+
+.pub-season-print {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  padding: 7px 12px; border: 1px solid var(--pub-border); border-radius: 9px;
+  background: var(--pub-surface); font-size: 12.5px; font-weight: 700;
+  color: var(--pub-accent); cursor: pointer; white-space: nowrap; font-family: inherit;
+}
+.pub-season-print:active { background: var(--pub-accent-soft); }
+
+.pub-season-intro { font-size: 14px; color: var(--pub-muted); margin: 0 0 12px; line-height: 1.5; }
+
+/* ── Month groups ── */
+.pub-season-month { margin-bottom: 6px; }
+.pub-season-month-title {
+  font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--pub-muted); margin: 16px 0 8px;
+}
+
+/* ── Concert rows ── */
+.pub-season-row {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--pub-surface); border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius); padding: 11px 12px; margin-bottom: 8px;
+  text-decoration: none; color: var(--pub-ink);
+}
+.pub-season-row:active { background: var(--pub-accent-soft); }
+
+.pub-season-date {
+  display: flex; flex-direction: column; align-items: center; flex-shrink: 0;
+  width: 52px; padding: 5px 0; border-radius: 10px;
+  background: var(--pub-accent-soft); color: var(--pub-accent);
+}
+.pub-season-dow { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+.pub-season-day { font-size: 21px; font-weight: 800; line-height: 1.1; }
+.pub-season-mon { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+
+.pub-season-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.pub-season-title { font-size: 14.5px; font-weight: 800; line-height: 1.3; }
+
+.pub-season-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.pub-season-tag {
+  font-size: 10.5px; font-weight: 700; color: #fff;
+  padding: 2px 7px; border-radius: 8px; white-space: nowrap;
+}
+
+.pub-season-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 12px;
+  font-size: 12.5px; color: var(--pub-muted);
+}
+.pub-season-meta > span { display: inline-flex; align-items: center; gap: 4px; }
+
+.pub-season-cancelled-tag {
+  margin-left: 7px; font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+  color: #b91c1c; background: #fee2e2; padding: 2px 7px; border-radius: 8px;
+  vertical-align: 2px;
+}
+.pub-season-row.cancelled .pub-season-title { text-decoration: line-through; }
+
+/* Past concerts: dimmed, at the bottom */
+.pub-season-past { margin-top: 22px; padding-top: 4px; border-top: 1px dashed var(--pub-border); }
+.pub-season-past-title {
+  font-size: 14px; font-weight: 800; color: var(--pub-muted); margin: 12px 0 0;
+}
+.pub-season-row.past { opacity: 0.55; }
+.pub-season-row.past .pub-season-date { background: var(--pub-bg); color: var(--pub-muted); }
+
+/* ── Print: the fridge copy — no chrome, no filters, no dimming ── */
+@media print {
+  .pub-header, .pub-tabbar, .pub-urgent-banner, .pub-strip-alert, .pub-allclear,
+  .pub-filter-row, .pub-season-print { display: none !important; }
+  .pub-app, .pub-content, .pub-page { background: #fff !important; padding: 0 !important; margin: 0 !important; }
+
+  .pub-season-row { break-inside: avoid; border-color: #ccc; margin-bottom: 6px; }
+  .pub-season-row.past { opacity: 1; }
+  .pub-season-date { background: none; border: 1px solid #ccc; color: #000; }
+  .pub-season-tag { color: #000; background: none !important; border: 1px solid #999; padding: 1px 6px; }
+  .pub-season-month-title { color: #000; border-bottom: 2px solid #000; padding-bottom: 3px; }
+}

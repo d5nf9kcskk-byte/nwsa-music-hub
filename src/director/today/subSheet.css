@@ -1,0 +1,18 @@
+.dir-subsheet { max-height: 92dvh; overflow-y: auto; }
+.dir-subsheet-page { padding: 16px; background: #fff; }
+.dir-subsheet-h1 { font-size: 20px; font-weight: 800; margin: 0 0 2px; }
+.dir-subsheet-meta { font-size: 13px; color: #555; margin-bottom: 12px; }
+.dir-subsheet-box { border: 1.5px solid #333; border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-bottom: 10px; }
+.dir-subsheet-box.light { border-style: dashed; color: #444; }
+.dir-subsheet-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.dir-subsheet-table th, .dir-subsheet-table td { border: 1px solid #999; padding: 5px 7px; text-align: left; }
+.dir-subsheet-table .c { text-align: center; width: 48px; }
+.dir-subsheet-table .box { font-size: 16px; }
+.dir-subsheet-table .notes { width: 30%; }
+.dir-subsheet-foot { margin-top: 10px; font-size: 10px; color: #888; }
+@media print {
+  body * { visibility: hidden !important; }
+  .dir-subsheet, .dir-subsheet * { visibility: visible !important; }
+  .dir-subsheet { position: fixed; inset: 0; max-height: none; box-shadow: none; border-radius: 0; }
+  .dir-subsheet-noprint { display: none !important; }
+}

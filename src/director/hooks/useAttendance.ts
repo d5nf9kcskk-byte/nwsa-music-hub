@@ -36,16 +36,23 @@ export function useAttendance(date: string, ensembleId: string | null, eventId?:
     }, () => setLoading(false));
   }, [date, ensembleId]);
 
-  async function toggleAttendance(studentId: string, newStatus: AttendanceStatus) {
+  async function toggleAttendance(
+    studentId: string,
+    newStatus: AttendanceStatus,
+    extra?: { minutesLate?: number },
+  ) {
     if (!db || !ensembleId) return;
     const existing = recordMap[studentId];
+    const extraFields = extra?.minutesLate != null && extra.minutesLate > 0
+      ? { minutesLate: Math.round(extra.minutesLate) }
+      : {};
 
     if (existing?.status === newStatus) {
       // Tapping the active button clears it (back to present)
       await deleteDoc(doc(db, 'attendance', existing.id));
     } else if (existing) {
       // Change status (and backfill eventId on any legacy record)
-      await updateDoc(doc(db, 'attendance', existing.id), { status: newStatus, ...(eventId ? { eventId } : {}) });
+      await updateDoc(doc(db, 'attendance', existing.id), { status: newStatus, ...extraFields, ...(eventId ? { eventId } : {}) });
     } else {
       // New exception record
       await addDoc(collection(db, 'attendance'), {
@@ -53,6 +60,7 @@ export function useAttendance(date: string, ensembleId: string | null, eventId?:
         ensembleId,
         date,
         status: newStatus,
+        ...extraFields,
         ...(eventId ? { eventId } : {}),
         createdAt: serverTimestamp(),
       });
@@ -98,4 +106,18 @@ export function useAttendanceHistory(studentId?: string) {
   }, [studentId]);
 
   return { records, loading };
+}
+
+/** Every attendance record for one DAY across all ensembles — powers the
+ *  cross-period context badges on Take Roll (#25). */
+export function useDayAttendance(date: string) {
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  useEffect(() => {
+    if (!db) return;
+    const q = query(collection(db, 'attendance'), where('date', '==', date));
+    return onSnapshot(q, snap => {
+      setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord)));
+    }, () => {});
+  }, [date]);
+  return { records };
 }

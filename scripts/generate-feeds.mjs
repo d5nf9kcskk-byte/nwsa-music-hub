@@ -88,7 +88,12 @@ function nextDay(d) {
 
 function buildVEVENT(event, ensembleMap) {
   const ensNames = (event.ensembleIds ?? []).map(id => ensembleMap[id]?.name).filter(Boolean).join(', ');
-  const summary = event.title || ensNames || event.type || 'NWSA Event';
+  // Cancelled events STAY in the feed (#30): STATUS:CANCELLED plus an explicit
+  // "[CANCELLED]" summary prefix, because several phone calendar apps ignore
+  // STATUS on subscribed feeds and would otherwise show the event as still on.
+  const cancelled = event.status === 'Cancelled';
+  const summary = (cancelled ? '[CANCELLED] ' : '')
+    + (event.title || ensNames || event.type || 'NWSA Event');
   const descParts = [];
   if (ensNames) descParts.push(ensNames);
   if (event.repertoire) descParts.push(`Repertoire: ${event.repertoire}`);
@@ -103,7 +108,7 @@ function buildVEVENT(event, ensembleMap) {
     ? `DTEND:${icsDateTime(event.date, event.endTime || event.startTime)}`
     : `DTEND;VALUE=DATE:${icsDate(nextDay(event.date))}`;
 
-  const status = event.status === 'Cancelled' ? 'CANCELLED' : 'CONFIRMED';
+  const status = cancelled ? 'CANCELLED' : 'CONFIRMED';
   const uid = `${event.id}@ggmuze.nwsa`;
 
   const lines = [

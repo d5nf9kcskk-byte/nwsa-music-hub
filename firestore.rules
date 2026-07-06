@@ -42,6 +42,24 @@ service cloud.firestore {
     // students see what's assigned. Individual RESULTS/grades stay private below.
     match /assignments/{doc}     { allow read; allow write: if signedIn(); }
     match /seatingCharts/{doc}   { allow read; allow write: if signedIn(); }
+    match /locations/{doc}       { allow read; allow write: if signedIn(); }
+
+    // Planned absences (#27): anyone may SUBMIT one (create-only, shape-checked),
+    // but only directors can read the queue or change/delete entries — so the
+    // public side can't enumerate or tamper with other students' reports.
+    match /plannedAbsences/{doc} {
+      allow create: if request.resource.data.keys().hasOnly(['studentId', 'studentName', 'date', 'reason', 'submittedAt', 'status'])
+        && request.resource.data.studentId is string
+        && request.resource.data.date is string
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 300
+        && request.resource.data.status == 'pending';
+      allow read, update, delete: if signedIn();
+    }
+
+    // Outbound notification queue (#21): director-only writes; Power Automate
+    // reads it with a service credential (Admin SDK bypasses rules).
+    match /notifyQueue/{doc}     { allow read, write: if signedIn(); }
 
     // ── Private · director read + write only ──────────────
     match /contacts/{doc}           { allow read, write: if signedIn(); }

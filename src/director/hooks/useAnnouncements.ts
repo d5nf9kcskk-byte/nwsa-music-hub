@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { offerUndo } from '../writeStatus';
 import type { Announcement } from '../types';
 
 /**
@@ -35,7 +36,13 @@ export function useAnnouncements() {
 
   async function deleteAnnouncement(id: string) {
     if (!db) return;
+    // Undo (#38): capture the doc, delete, offer 10s restore with the same id.
+    const gone = announcements.find(x => x.id === id);
     await deleteDoc(doc(db, 'announcements', id));
+    if (gone) {
+      const { id: _id, ...data } = gone;
+      offerUndo('announcements', id, data, `Deleted announcement — restore?`);
+    }
   }
 
   return { announcements, loading, addAnnouncement, updateAnnouncement, deleteAnnouncement };

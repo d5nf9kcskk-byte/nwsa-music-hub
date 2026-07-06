@@ -42,6 +42,23 @@ export function PublicPiece() {
         <ChevronLeft size={16} /> Back
       </button>
 
+      {/* Breadcrumb graph (#7): ensemble › concerts this piece is on */}
+      <div className="pub-crumbs">
+        {ensemble && (
+          <Link to={`/ensemble/${ensemble.id}`} className="pub-crumb" style={{ borderColor: ensembleColor(ensemble) }}>
+            {ensemble.name}
+          </Link>
+        )}
+        {(piece.eventIds ?? []).map(eid => {
+          const ev = events.find(e => e.id === eid);
+          return ev ? (
+            <Link key={eid} to={`/event/${eid}`} className="pub-crumb gold">
+              🎫 {ev.title || 'Concert'}
+            </Link>
+          ) : null;
+        })}
+      </div>
+
       {/* Hero */}
       <div className="pub-piece-hero" style={{ borderColor: ensemble ? ensembleColor(ensemble) : '#1e3a5f' }}>
         <Music size={20} className="pub-piece-icon" />

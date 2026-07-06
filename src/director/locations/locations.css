@@ -1,0 +1,27 @@
+/* Campus locations manager (#15) — dir- prefixed, drawer rows + form hints */
+
+.dir-loc-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--dir-border);
+  cursor: pointer;
+}
+.dir-loc-row:last-child { border-bottom: none; }
+
+.dir-loc-pin { color: var(--dir-primary); flex-shrink: 0; }
+
+.dir-loc-info { flex: 1; min-width: 0; }
+.dir-loc-name { font-size: 15px; font-weight: 700; color: var(--dir-text); }
+.dir-loc-label { font-weight: 500; }
+.dir-loc-sub {
+  font-size: 12.5px; color: var(--dir-text-muted);
+  margin-top: 1px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.dir-loc-empty {
+  padding: 14px 4px; font-size: 13.5px; line-height: 1.5;
+  color: var(--dir-text-muted);
+}
+
+.dir-loc-hint { font-size: 11.5px; color: var(--dir-text-muted); margin-top: 4px; }

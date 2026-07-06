@@ -51,6 +51,11 @@ export function PublicAssignments() {
         </div>
       </div>
       {a.description && <div className="pub-assign-desc"><Linkify text={a.description} /></div>}
+      {a.formUrl && (
+        <a className="pub-assign-form-btn" href={a.formUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>
+          📝 Open exam form
+        </a>
+      )}
     </div>
   );
 

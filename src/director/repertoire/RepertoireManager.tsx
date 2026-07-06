@@ -1,10 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Plus, Pencil, Music, Sparkles, Trash2, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Music, Trash2, GripVertical } from 'lucide-react';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
-import { ensembleColor, parseDate, imslpSearchUrl, youtubeSearchUrl } from '../utils';
-import { DANIELS_PROMPT } from './danielsPrompt';
+import { ensembleColor, parseDate } from '../utils';
 import type { RepertoirePiece, CalendarEvent, Ensemble, PieceMovement, PiecePartLink } from '../types';
 
 interface Props {
@@ -78,12 +77,6 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
         <div className="dir-ens-name">
           <Music size={12} style={{ verticalAlign: '-1px', marginRight: 4 }} />
           {p.title}
-          {p.aiStatus === 'pending' && (
-            <span className="dir-ai-badge pending" style={{ marginLeft: 6 }}>AI pending</span>
-          )}
-          {p.aiStatus === 'enriched' && (
-            <span className="dir-ai-badge enriched" style={{ marginLeft: 6 }}>AI ✓</span>
-          )}
         </div>
         <div className="dir-ens-sub">
           {[p.composer, groupBy === 'concert' && !ensembleId ? ensembleMap[p.ensembleId]?.name : null].filter(Boolean).join(' · ') || '—'}
@@ -183,7 +176,6 @@ function RepertoireForm({
   const [partsLinks, setPartsLinks] = useState<PiecePartLink[]>(piece?.partsLinks ?? []);
   const [notes, setNotes] = useState(piece?.notes ?? '');
   const [eventIds, setEventIds] = useState<string[]>(piece?.eventIds ?? []);
-  const [aiStatus, setAiStatus] = useState(piece?.aiStatus ?? null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -228,7 +220,7 @@ function RepertoireForm({
     setPartsLinks(ls => ls.filter((_, idx) => idx !== i));
   }
 
-  function buildData(status?: typeof aiStatus): Omit<RepertoirePiece, 'id'> {
+  function buildData(): Omit<RepertoirePiece, 'id'> {
     const cleanMovements = movements.filter(m => m.title.trim());
     const cleanParts = partsLinks.filter(l => l.instrument.trim() && l.url.trim());
     return {
@@ -255,7 +247,6 @@ function RepertoireForm({
       notes: notes.trim() || undefined,
       eventIds: eventIds.length ? eventIds : undefined,
       order: piece?.order ?? nextOrder,
-      aiStatus: status !== undefined ? status : (aiStatus ?? null),
     };
   }
 
@@ -277,146 +268,6 @@ function RepertoireForm({
     }
   }
 
-  async function handleFillWithAI() {
-    if (!canFillAI) return;
-    setSaving(true);
-    setSaveError('');
-    try {
-      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-      if (!apiKey) {
-        // No local key (normal in production — a key baked into the public
-        // bundle would be exposed). Queue the piece instead: the
-        // enrich-repertoire GitHub Action fills pending pieces using the
-        // repo's ANTHROPIC_API_KEY secret.
-        await Promise.race([
-          onSave(buildData('pending')),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Save timed out — check your connection')), 15_000)
-          ),
-        ]);
-        onBack();
-        return;
-      }
-
-      const res = await Promise.race([
-        fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true',
-          },
-          body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 1024,
-            messages: [{
-              role: 'user',
-              content: `Fill music metadata for a conductor's score library. Title: "${title}", Composer: "${composer}"${fullTitle ? `, Full title: "${fullTitle}"` : ''}.
-
-Return ONLY a JSON object (no markdown) with these fields (omit any you are not confident about, EXCEPT instrumentation and percussion which are required):
-- catalogNumber (string: opus, BWV, K, etc.)
-- composerDates (string: "1756–1791")
-- year (string: composition year or range)
-- duration (number: approximate minutes)
-- instrumentation (string)
-- percussion (string)
-- movements (array of {title, duration?} — only if the piece has distinct named movements)
-- programNotes (string: 2–3 sentences for a concert program audience)
-
-${DANIELS_PROMPT}
-
-Do NOT return any URLs — links are generated separately.`,
-            }],
-          }),
-        }),
-        new Promise<never>((_, rej) =>
-          setTimeout(() => rej(new Error('AI request timed out after 20s')), 20_000)
-        ),
-      ]);
-
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        throw new Error(`AI request failed (${res.status})${errText ? ': ' + errText.slice(0, 100) : ''}`);
-      }
-
-      const body = await res.json();
-      const text: string = body.content?.[0]?.text ?? '';
-
-      let ai: Record<string, unknown> = {};
-      try {
-        const m = text.match(/\{[\s\S]*\}/);
-        ai = JSON.parse(m ? m[0] : text);
-      } catch {
-        throw new Error('AI returned unexpected format — try again');
-      }
-
-      // Apply to form state so director can see and edit the filled values
-      if (ai.catalogNumber) { setCatalogNumber(String(ai.catalogNumber)); setShowAdvanced(true); }
-      if (ai.composerDates) setComposerDates(String(ai.composerDates));
-      if (ai.duration) setDuration(String(Math.round(Number(ai.duration))));
-      if (Array.isArray(ai.movements) && (ai.movements as {title?: string}[]).some(m => String(m.title ?? '').trim())) {
-        setMovements((ai.movements as { title?: string; duration?: number }[])
-          .filter(m => String(m.title ?? '').trim())
-          .map(m => ({ title: String(m.title ?? ''), duration: m.duration ? Number(m.duration) : undefined })));
-      }
-      if (ai.programNotes) setProgramNotes(String(ai.programNotes));
-      if (ai.instrumentation) { setInstrumentation(String(ai.instrumentation)); setShowAdvanced(true); }
-      if (ai.percussion) setPercussion(String(ai.percussion));
-      if (ai.year) setYear(String(ai.year));
-      // Reliable search links (never hallucinated deep URLs).
-      const imslp = imslpSearchUrl(composer, title);
-      const yt = youtubeSearchUrl(composer, title);
-      setImslpUrl(imslp);
-      setVideoUrl(yt);
-      setAiStatus('enriched');
-
-      // Save immediately with enriched data (build directly — state updates are async)
-      const aiMovements = Array.isArray(ai.movements)
-        ? (ai.movements as { title?: string; duration?: number }[])
-            .filter(m => String(m.title ?? '').trim())
-            .map(m => ({ title: String(m.title ?? ''), duration: m.duration ? Number(m.duration) : undefined }))
-        : movements.filter(m => m.title.trim());
-      const cleanParts = partsLinks.filter(l => l.instrument.trim() && l.url.trim());
-
-      await Promise.race([
-        onSave({
-          ensembleId,
-          title: title.trim(),
-          fullTitle: fullTitle.trim() || undefined,
-          composer: composer.trim() || undefined,
-          composerDates: ai.composerDates ? String(ai.composerDates) : (composerDates.trim() || undefined),
-          arranger: arranger.trim() || undefined,
-          catalogNumber: ai.catalogNumber ? String(ai.catalogNumber) : (catalogNumber.trim() || undefined),
-          year: ai.year ? String(ai.year) : (year.trim() || undefined),
-          instrumentation: ai.instrumentation ? String(ai.instrumentation) : (instrumentation.trim() || undefined),
-          percussion: ai.percussion ? String(ai.percussion) : (percussion.trim() || undefined),
-          duration: ai.duration ? Math.round(Number(ai.duration)) : (duration ? Number(duration) : undefined),
-          movements: aiMovements.length ? aiMovements : undefined,
-          programNotes: ai.programNotes ? String(ai.programNotes) : (programNotes.trim() || undefined),
-          programNotesUrl: programNotesUrl.trim() || undefined,
-          imslpUrl: imslpSearchUrl(composer, title),
-          videoUrl: youtubeSearchUrl(composer, title),
-          audioUrl: audioUrl.trim() || undefined,
-          partsSharedUrl: partsSharedUrl.trim() || undefined,
-          partsUrl: partsUrl.trim() || undefined,
-          partsLinks: cleanParts.length ? cleanParts : undefined,
-          notes: notes.trim() || undefined,
-          eventIds: eventIds.length ? eventIds : undefined,
-          order: piece?.order ?? nextOrder,
-          aiStatus: 'enriched',
-        }),
-        new Promise<never>((_, rej) =>
-          setTimeout(() => rej(new Error('Save timed out — check your connection')), 15_000)
-        ),
-      ]);
-      setSaving(false);
-    } catch (err) {
-      setSaving(false);
-      setSaveError(err instanceof Error ? err.message : 'AI fill failed');
-    }
-  }
-
   async function handleDelete() {
     if (!onDelete) return;
     setSaving(true);
@@ -425,7 +276,6 @@ Do NOT return any URLs — links are generated separately.`,
   }
 
   const canSave = title.trim() && ensembleId;
-  const canFillAI = canSave && !!composer.trim();
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onBack()}>
@@ -437,16 +287,6 @@ Do NOT return any URLs — links are generated separately.`,
         </div>
 
         <div className="dir-drawer-body">
-          {aiStatus === 'pending' && (
-            <div className="dir-ai-notice pending">
-              <Sparkles size={14} /> Queued for AI — fills in automatically within a few hours (or run "Enrich Repertoire with AI" in GitHub Actions to do it now).
-            </div>
-          )}
-          {aiStatus === 'enriched' && (
-            <div className="dir-ai-notice enriched">
-              <Sparkles size={14} /> Metadata filled by AI — review and adjust as needed.
-            </div>
-          )}
 
           {!lockedEnsembleId && (
             <div className="dir-field">
@@ -476,19 +316,6 @@ Do NOT return any URLs — links are generated separately.`,
           <div className="dir-field">
             <label className="dir-label">Arranger</label>
             <input className="dir-input" value={arranger} onChange={e => setArranger(e.target.value)} placeholder="optional" />
-          </div>
-
-          <div className="dir-ai-row">
-            <button
-              className="dir-btn dir-btn-ai"
-              onClick={handleFillWithAI}
-              disabled={saving || !canFillAI || aiStatus === 'pending'}
-              type="button"
-            >
-              <Sparkles size={14} style={{ verticalAlign: '-2px', marginRight: 5 }} />
-              {aiStatus === 'pending' ? 'Enrichment queued…' : 'Fill with AI'}
-            </button>
-            <span className="dir-ai-hint">Fills catalog #, duration, movements, program notes, IMSLP &amp; video — enter title + composer first.</span>
           </div>
 
           <button

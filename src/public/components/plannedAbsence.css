@@ -1,0 +1,11 @@
+.pub-absence-btn {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; margin: 10px 0; padding: 12px;
+  background: var(--pub-surface); border: 1.5px dashed var(--pub-border); border-radius: 12px;
+  font-size: 13.5px; font-weight: 700; color: var(--pub-muted); cursor: pointer;
+}
+.pub-absence-btn:active { background: var(--pub-accent-soft); }
+.pub-absence-hint { font-size: 13px; color: var(--pub-muted); line-height: 1.5; margin: 8px 0 12px; }
+.pub-absence-label { display: block; font-size: 12px; font-weight: 800; color: var(--pub-muted); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+.pub-absence-input { width: 100%; padding: 11px 12px; border: 1.5px solid var(--pub-border); border-radius: 10px; font-size: 15px; font-family: inherit; }
+.pub-absence-error { margin-top: 8px; font-size: 13px; color: #b91c1c; }

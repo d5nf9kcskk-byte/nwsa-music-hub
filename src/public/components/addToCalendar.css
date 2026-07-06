@@ -1,0 +1,58 @@
+/* One-tap "Add to my calendar" (#14) — small inline pill that downloads a
+   single-event .ics. Mobile-first; sized to sit inside event cards. */
+
+.pub-atc {
+  position: relative;
+  display: inline-flex;
+}
+
+.pub-atc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border: 1px solid var(--pub-border);
+  border-radius: 999px;
+  background: var(--pub-surface);
+  color: var(--pub-accent);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pub-atc-btn:active { background: var(--pub-accent-soft); }
+
+/* Cancelled event — button stays visible but reads as inert. */
+.pub-atc-btn-off {
+  color: var(--pub-muted);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+.pub-atc-btn-off:active { background: var(--pub-surface); }
+
+/* Refusal tooltip shown when tapping a cancelled event's button. */
+.pub-atc-tip {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 0;
+  z-index: 60;
+  width: max-content;
+  max-width: 230px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--pub-ink);
+  color: var(--pub-bg);
+  font-size: 12px;
+  line-height: 1.35;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+.pub-atc-tip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 16px;
+  border: 5px solid transparent;
+  border-top-color: var(--pub-ink);
+}
