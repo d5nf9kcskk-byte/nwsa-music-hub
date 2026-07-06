@@ -197,6 +197,7 @@ export function PublicSchedule() {
       {view === 'calendar' ? (
         <StudentMonth
           items={mySchedule.filter(x => matchesFilter(x.event, filter))}
+          assignments={myAssignments}
           ensembleMap={ensembleMap}
           piecesById={piecesById}
           studentInstrument={student.instrument}
@@ -236,8 +237,9 @@ export function PublicSchedule() {
 }
 
 /** Personal month calendar: dots on days with this student's events; tap a day for details. */
-function StudentMonth({ items, ensembleMap, piecesById, studentInstrument }: {
+function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInstrument }: {
   items: { event: CalendarEvent; exp: ReturnType<typeof studentExpectation> }[];
+  assignments: import('../director/types').Assignment[];
   ensembleMap: Record<string, import('../director/types').Ensemble>;
   piecesById: Record<string, import('../director/types').RepertoirePiece>;
   studentInstrument?: string;
@@ -255,6 +257,12 @@ function StudentMonth({ items, ensembleMap, piecesById, studentInstrument }: {
     for (const it of items) (m[it.event.date] ??= []).push(it);
     return m;
   }, [items]);
+
+  const assignByDate = useMemo(() => {
+    const m: Record<string, typeof assignments> = {};
+    for (const a of assignments) (m[a.dueDate] ??= []).push(a);
+    return m;
+  }, [assignments]);
 
   const cells = useMemo(() => {
     const year = cursor.getFullYear();
@@ -317,12 +325,23 @@ function StudentMonth({ items, ensembleMap, piecesById, studentInstrument }: {
       <h3 className="pub-section-title">
         {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
       </h3>
-      {dayItems.length === 0 ? (
+      {dayItems.length === 0 && (assignByDate[selectedDate] ?? []).length === 0 ? (
         <div className="pub-muted">Nothing for you this day.</div>
       ) : (
-        dayItems.map(({ event: e, exp }) => (
-          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={studentInstrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showNotes />
-        ))
+        <>
+          {dayItems.map(({ event: e, exp }) => (
+            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={studentInstrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showNotes />
+          ))}
+          {(assignByDate[selectedDate] ?? []).map(a => (
+            <Link key={a.id} to="/assignments" className="pub-assign-card pub-assign-link">
+              <span className="pub-assign-emoji">{a.type === 'Playing Exam' ? '🎯' : a.type === 'Written Test' ? '📝' : '📌'}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="pub-assign-title">{a.title}</div>
+                <div className="pub-assign-meta"><span className="pub-assign-type">{a.type}</span><span>Due this day</span></div>
+              </div>
+            </Link>
+          ))}
+        </>
       )}
     </>
   );

@@ -5,6 +5,7 @@ import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
+import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster, overrideSummary } from '../rosterResolver';
 import { EventForm } from './EventForm';
 import { EventRoster } from './EventRoster';
@@ -28,6 +29,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   const { students } = useStudents();
   const { pieces } = useRepertoire();
   const { overrides } = useRosterOverrides();
+  const { assignments } = useAssignments();
 
   const [cursor, setCursor] = useState(() => {
     const d = parseDate(initialDate ?? todayStr());
@@ -36,7 +38,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   });
   const [selectedDate, setSelectedDate] = useState(initialDate ?? todayStr());
   const [filterEnsembleId, setFilterEnsembleId] = useState(initialEnsembleId);
-  const [typeFilter, setTypeFilter] = useState<'all' | 'Rehearsal' | 'Sectional' | 'Concert' | 'Event'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'Rehearsal' | 'Sectional' | 'Concert' | 'Event' | 'Assignment'>('all');
   const [calView, setCalView] = useState<'month' | 'list'>('month');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
   const touchStartX = useRef<number | null>(null);
@@ -100,7 +102,9 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
         : filterEnsembleId
           ? events.filter(e => e.ensembleIds.length === 0 || e.ensembleIds.includes(filterEnsembleId))
           : events;
-      return typeFilter === 'all' ? byEns : byEns.filter(e => e.type === typeFilter);
+      if (typeFilter === 'all') return byEns;
+      if (typeFilter === 'Assignment') return [];
+      return byEns.filter(e => e.type === typeFilter);
     },
     [events, filterEnsembleId, typeFilter],
   );
@@ -110,6 +114,18 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
     for (const e of visibleEvents) (map[e.date] ??= []).push(e);
     return map;
   }, [visibleEvents]);
+
+  // Assignment due dates as a parallel stream on the calendar.
+  const visibleAssignments = useMemo(() => {
+    if (typeFilter !== 'all' && typeFilter !== 'Assignment') return [];
+    if (filterEnsembleId === 'school') return [];
+    return assignments.filter(a => !filterEnsembleId || a.ensembleIds.includes(filterEnsembleId));
+  }, [assignments, filterEnsembleId, typeFilter]);
+  const assignByDate = useMemo(() => {
+    const m: Record<string, typeof assignments> = {};
+    for (const a of visibleAssignments) (m[a.dueDate] ??= []).push(a);
+    return m;
+  }, [visibleAssignments]);
 
   // Build the month grid (leading blanks + days, padded to full weeks).
   const cells = useMemo(() => {
@@ -377,6 +393,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           <option value="Sectional">Sectionals</option>
           <option value="Concert">Concerts</option>
           <option value="Event">Events</option>
+          <option value="Assignment">Assignments</option>
         </select>
       </div>
 
@@ -416,6 +433,9 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
                         {evs.slice(0, 4).map(e => (
                           <span key={e.id} className="dir-cal-dot" style={{ background: eventColor(e) }} />
                         ))}
+                        {(assignByDate[dateStr] ?? []).slice(0, 2).map(a => (
+                          <span key={a.id} className="dir-cal-dot" style={{ background: '#7c3aed' }} />
+                        ))}
                       </span>
                     </button>
                   );
@@ -430,10 +450,20 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               {selectedDate === today && <span className="dir-today-badge">Today</span>}
             </div>
-            {dayEvents.length === 0 ? (
+            {dayEvents.length === 0 && (assignByDate[selectedDate] ?? []).length === 0 ? (
               <div className="dir-day-empty">No events scheduled. Tap + to add one.</div>
             ) : (
-              dayEvents.map(e => <EventCard key={e.id} e={e} />)
+              <>
+                {dayEvents.map(e => <EventCard key={e.id} e={e} />)}
+                {(assignByDate[selectedDate] ?? []).map(a => (
+                  <div key={a.id} className="dir-sc-ov" style={{ borderLeftColor: '#7c3aed' }}>
+                    <div className="dir-sc-ov-body">
+                      <div className="dir-sc-ov-title">{a.type === 'Playing Exam' ? '🎯' : '📝'} {a.title}</div>
+                      <div className="dir-sc-ov-meta">{a.type} · due this day · grade it in Assignments</div>
+                    </div>
+                  </div>
+                ))}
+              </>
             )}
           </div>
         </>

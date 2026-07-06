@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router';
+import { useSearchParams, Link } from 'react-router';
 import { ChevronLeft, ChevronRight, LayoutList, Grid3x3 } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
+import { useAssignments } from '../director/hooks/useAssignments';
 import { todayStr, toDateStr, parseDate, ensembleColor } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { SubscribeButton } from './components/SubscribeButton';
@@ -11,9 +12,10 @@ import type { CalendarEvent } from '../director/types';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-type TypeFilter = 'all' | 'Rehearsal' | 'Concert' | 'Event';
+type TypeFilter = 'all' | 'Rehearsal' | 'Concert' | 'Event' | 'Assignment';
 function matchesType(e: CalendarEvent, f: TypeFilter): boolean {
   if (f === 'all') return true;
+  if (f === 'Assignment') return false; // assignments are a parallel stream
   if (f === 'Rehearsal') return e.type === 'Rehearsal' || e.type === 'Sectional';
   return e.type === f;
 }
@@ -22,6 +24,7 @@ export function PublicCalendar() {
   const { ensembles } = useEnsembles();
   const { events } = useEvents();
   const { pieces } = useRepertoire();
+  const { assignments } = useAssignments();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [cursor, setCursor] = useState(() => {
@@ -68,6 +71,26 @@ export function PublicCalendar() {
     () => [...visible].filter(e => e.date >= todayStr()).sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99')),
     [visible],
   );
+
+  // Assignments as a parallel calendar stream (due dates).
+  const visibleAssignments = useMemo(() => {
+    if (typeFilter !== 'all' && typeFilter !== 'Assignment') return [];
+    return assignments.filter(a => !filterEnsembleId || a.ensembleIds.includes(filterEnsembleId));
+  }, [assignments, filterEnsembleId, typeFilter]);
+  const assignByDate = useMemo(() => {
+    const m: Record<string, typeof assignments> = {};
+    for (const a of visibleAssignments) (m[a.dueDate] ??= []).push(a);
+    return m;
+  }, [visibleAssignments]);
+
+  // List view: events and assignment due dates interleaved chronologically.
+  type ListItem = { kind: 'event'; e: CalendarEvent; date: string } | { kind: 'assign'; a: (typeof assignments)[0]; date: string };
+  const listItems = useMemo<ListItem[]>(() => {
+    const t = todayStr();
+    const evs: ListItem[] = upcoming.map(e => ({ kind: 'event' as const, e, date: e.date }));
+    const asg: ListItem[] = visibleAssignments.filter(a => a.dueDate >= t).map(a => ({ kind: 'assign' as const, a, date: a.dueDate }));
+    return [...evs, ...asg].sort((x, y) => x.date.localeCompare(y.date));
+  }, [upcoming, visibleAssignments]);
   const byDate = useMemo(() => {
     const m: Record<string, CalendarEvent[]> = {};
     for (const e of visible) (m[e.date] ??= []).push(e);
@@ -175,19 +198,21 @@ export function PublicCalendar() {
 
       {/* Type filter */}
       <div className="pub-filter-row">
-        {(['all', 'Rehearsal', 'Concert', 'Event'] as TypeFilter[]).map(t => (
+        {(['all', 'Rehearsal', 'Concert', 'Event', 'Assignment'] as TypeFilter[]).map(t => (
           <button key={t} className={`pub-filter-btn ${typeFilter === t ? 'active' : ''}`} onClick={() => setTypeFilter(t)}>
-            {t === 'all' ? 'Everything' : t === 'Rehearsal' ? 'Rehearsals' : t === 'Concert' ? 'Concerts' : 'Events'}
+            {t === 'all' ? 'Everything' : t === 'Rehearsal' ? 'Rehearsals' : t === 'Concert' ? 'Concerts' : t === 'Event' ? 'Events' : 'Assignments'}
           </button>
         ))}
       </div>
 
       {view === 'list' ? (
         <div style={{ marginTop: 8 }}>
-          {upcoming.length === 0 ? (
+          {listItems.length === 0 ? (
             <div className="pub-card pub-muted">Nothing coming up for this filter.</div>
           ) : (
-            upcoming.map(e => <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} />)
+            listItems.map(item => item.kind === 'event'
+              ? <PubEventCard key={item.e.id} event={item.e} ensembleMap={ensembleMap} piecesById={piecesById} />
+              : <AssignRow key={item.a.id} a={item.a} showDate />)
           )}
         </div>
       ) : (
@@ -210,6 +235,7 @@ export function PublicCalendar() {
                   <span className="dir-cal-day">{parseDate(d).getDate()}</span>
                   <span className="dir-cal-dots">
                     {evs.slice(0, 4).map(e => <span key={e.id} className="dir-cal-dot" style={{ background: color(e) }} />)}
+                    {(assignByDate[d] ?? []).slice(0, 2).map(a => <span key={a.id} className="dir-cal-dot" style={{ background: '#7c3aed' }} />)}
                   </span>
                 </button>
               );
@@ -224,12 +250,15 @@ export function PublicCalendar() {
           {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           {selectedDate === today && <span className="dir-today-badge">Today</span>}
         </div>
-        {dayEvents.length === 0 ? (
+        {dayEvents.length === 0 && (assignByDate[selectedDate] ?? []).length === 0 ? (
           <div className="dir-day-empty">Nothing scheduled.</div>
         ) : (
-          dayEvents.map(e => (
-            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} />
-          ))
+          <>
+            {dayEvents.map(e => (
+              <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} />
+            ))}
+            {(assignByDate[selectedDate] ?? []).map(a => <AssignRow key={a.id} a={a} />)}
+          </>
         )}
       </div>
       </>
@@ -239,5 +268,21 @@ export function PublicCalendar() {
         <SubscribeButton ensembleId={filterEnsembleId || undefined} />
       </div>
     </div>
+  );
+}
+
+/** Compact assignment row used on calendar day details and the list view. */
+function AssignRow({ a, showDate }: { a: { id: string; title: string; type: string; dueDate: string }; showDate?: boolean }) {
+  return (
+    <Link to="/assignments" className="pub-assign-card pub-assign-link">
+      <span className="pub-assign-emoji">{a.type === 'Playing Exam' ? '🎯' : a.type === 'Written Test' ? '📝' : a.type === 'Performance' ? '🎭' : '📌'}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="pub-assign-title">{a.title}</div>
+        <div className="pub-assign-meta">
+          <span className="pub-assign-type">{a.type}</span>
+          <span>Due{showDate ? ` ${parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}` : ' this day'}</span>
+        </div>
+      </div>
+    </Link>
   );
 }
