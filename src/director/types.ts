@@ -102,6 +102,9 @@ export interface AttendanceRecord {
   studentId: string;
   ensembleId: string;
   date: string; // YYYY-MM-DD
+  /** The specific rehearsal/period. Lets a student be present in one block and
+   *  excused in another on the same day (per-period roll). */
+  eventId?: string;
   status: AttendanceStatus;
   reason?: string;
   notes?: string;
