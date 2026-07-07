@@ -11,6 +11,7 @@ import { useModalA11y } from '../shared/useModalA11y';
 import { StatusStrips } from '../shared/StatusStrips';
 import { AttendanceTab } from './attendance/AttendanceTab';
 import { RosterView } from './roster/RosterView';
+import { WhosOutView } from './roster/WhosOutView';
 import { ScheduleView } from './schedule/ScheduleView';
 import { ScheduleChangeView } from './schedule-changes/ScheduleChangeView';
 import { NotesView } from './notes/NotesView';
@@ -46,11 +47,12 @@ const TAB_TITLES: Record<DirTab, string> = {
   assignments:     'Assignments',
   announcements:   'Announcements',
   ensembleHub:     'Ensemble',
+  whosOut:         'Who\u2019s Out',
 };
 
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'roster', 'schedule', 'scheduleChanges', 'repertoire',
-  'notes', 'assignments', 'announcements', 'ensembleHub',
+  'notes', 'assignments', 'announcements', 'ensembleHub', 'whosOut',
 ];
 
 export default function DirectorApp() {
@@ -124,13 +126,15 @@ export default function DirectorApp() {
             <StatusStrips />
             {tab === 'today'           && <TodayView onNavigate={go} />}
             {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} />}
-            {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} />}
+            {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} onNavigate={go} />}
+            {tab === 'whosOut'         && <WhosOutView key={intentKey} initialDate={intent.date} initialEnsembleId={intent.ensembleId ?? ''} onNavigate={go} />}
             {tab === 'schedule'        && (
               <ScheduleView
                 key={intentKey}
                 initialDate={intent.date}
                 initialEventId={intent.eventId}
                 initialEnsembleId={intent.ensembleId ?? ''}
+                onNavigate={go}
               />
             )}
             {tab === 'scheduleChanges' && <ScheduleChangeView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} />}
