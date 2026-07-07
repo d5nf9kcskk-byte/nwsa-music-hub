@@ -322,3 +322,10 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
   font-size: 12px; font-weight: 800; color: var(--pub-ink); text-decoration: none;
 }
 .pub-crumb.gold { border-left-color: #ca8a04; }
+
+/* Deep-linked assignment card flash (arriving via ?focus=) */
+@keyframes pub-assign-flash {
+  0%, 55% { box-shadow: 0 0 0 3px var(--pub-purple); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.pub-assign-focus { animation: pub-assign-flash 2.2s ease-out 1; }

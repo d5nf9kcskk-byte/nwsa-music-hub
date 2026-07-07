@@ -5,11 +5,13 @@ import { Clock, MapPin, Printer } from 'lucide-react';
 import { useEvents } from '../director/hooks/useEvents';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { LABELS } from '../shared/labels';
+import { t, useLang } from '../shared/i18n';
 import { todayStr, parseDate, formatTimeRange, ensembleColor } from '../director/utils';
 import type { CalendarEvent, Ensemble } from '../director/types';
 
 /** Season at a Glance (#13): every concert of the year on one printable page. */
 export function SeasonPage() {
+  useLang();
   const { events, loading } = useEvents();
   const { ensembles } = useEnsembles();
   const [filter, setFilter] = useState('');
@@ -40,18 +42,18 @@ export function SeasonPage() {
       <div className="pub-season-head">
         <h1 className="pub-h1">{LABELS.concerts}</h1>
         <button className="pub-season-print" onClick={() => window.print()}>
-          <Printer size={14} /> Print season
+          <Printer size={14} /> {t('season.print')}
         </button>
       </div>
       <p className="pub-season-intro">
-        <span className="pub-season-intro-screen">Every concert this year, at a glance. Tap one for call time, dress, and directions.</span>
+        <span className="pub-season-intro-screen">{t('season.intro')}</span>
         {filter && <span className="pub-season-filter-note"> Showing: {concertEnsembles.find(e => e.id === filter)?.name ?? 'filtered'} only.</span>}
       </p>
 
       {concertEnsembles.length > 1 && (
         <div className="pub-filter-row">
           <button className={`pub-filter-btn ${!filter ? 'active' : ''}`} onClick={() => setFilter('')}>
-            All ensembles
+            {t('nav.allEnsembles')}
           </button>
           {concertEnsembles.map(e => (
             <button

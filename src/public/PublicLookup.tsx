@@ -4,6 +4,7 @@ import { Search, UserCircle, X, ChevronRight } from 'lucide-react';
 import { useStudents } from '../director/hooks/useStudents';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { sortStudents, lastName, type StudentSort } from '../director/scoreOrder';
+import { t, useLang } from '../shared/i18n';
 import { getIdentity, rememberStudent, forgetStudent, setParentMode } from '../shared/identity';
 import { ensembleColor } from '../director/utils';
 import type { Student } from '../director/types';
@@ -48,6 +49,7 @@ function matchesQuery(s: Student, q: string): boolean {
 const AZ = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export function PublicLookup() {
+  useLang();
   const { students } = useStudents();
   const { ensembles } = useEnsembles();
   const [q, setQ] = useState('');
@@ -86,14 +88,14 @@ export function PublicLookup() {
 
   return (
     <div className="pub-page">
-      <h1 className="pub-h1">My Schedule</h1>
-      <p className="pub-muted">Find your name to see where you should be and when.</p>
+      <h1 className="pub-h1">{t('nav.mySchedule')}</h1>
+      <p className="pub-muted">{t('lookup.findYourName')}</p>
 
       {/* Saved students (remember-me #1 / parent mode #11) */}
       {identity.students.length > 0 && (
         <div className="pub-card" style={{ marginBottom: 12, padding: 12 }}>
           <div className="pub-section-title" style={{ margin: '0 0 8px' }}>
-            {identity.parentMode ? 'Your students' : 'Welcome back'}
+            {identity.parentMode ? t('lookup.yourStudents') : t('lookup.welcomeBack')}
           </div>
           {identity.students.map(st => (
             <div key={st.id} className="pub-saved-row">

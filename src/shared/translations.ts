@@ -23,6 +23,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.allEnsembles':     { en: 'All ensembles',       es: 'Todos los ensambles' },
   'nav.startHere':        { en: 'Start Here',          es: 'Empieza aquí' },
   'nav.concerts':         { en: 'Concert Season',      es: 'Temporada de conciertos' },
+  'nav.concertsShort':    { en: 'Concerts',            es: 'Conciertos' },
   'nav.directorLogin':    { en: 'Director login',      es: 'Acceso para directores' },
   'nav.more':             { en: 'More',                es: 'Más' },
   'nav.menu':             { en: 'Menu',                es: 'Menú' },
@@ -95,6 +96,49 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'cal.allEnsembles':     { en: 'All',                es: 'Todos' },
   'cal.due':              { en: 'Due',                es: 'Entrega' },
   'cal.today':            { en: 'Today',              es: 'Hoy' },
+
+  // ── Event cards (shared) ────────────────────────────────────────────────
+  'card.allDay':             { en: 'All day',             es: 'Todo el día' },
+  'card.cancelled':          { en: 'Cancelled',           es: 'Cancelado' },
+  'card.changed':            { en: 'Changed',             es: 'Cambiado' },
+  'card.updated':            { en: 'Updated',             es: 'Actualizado' },
+  'card.details':            { en: 'Details',             es: 'Detalles' },
+  'card.myPart':             { en: 'My part',             es: 'Mi partitura' },
+  'card.viewProgram':        { en: 'View concert program', es: 'Ver el programa del concierto' },
+  'card.sub':                { en: 'Sub',                 es: 'Suplente' },
+  'card.attendanceRequired': { en: 'Attendance required', es: 'Asistencia obligatoria' },
+
+  // ── Event page / Concert Day Sheet ──────────────────────────────────────
+  'event.back':             { en: 'Back',                        es: 'Volver' },
+  'event.daySheet':         { en: 'Concert Day Sheet',           es: 'Hoja del día del concierto' },
+  'event.callTime':         { en: 'Call time',                   es: 'Hora de llegada' },
+  'event.concertStarts':    { en: 'Concert starts',              es: 'Empieza el concierto' },
+  'event.dress':            { en: 'Dress',                       es: 'Vestimenta' },
+  'event.venue':            { en: 'Venue',                       es: 'Lugar' },
+  'event.pickup':           { en: 'Pickup',                      es: 'Recogida' },
+  'event.openMaps':         { en: 'Open in Maps',                es: 'Abrir en Maps' },
+  'event.detailsComing':    { en: 'Details coming — check back soon.', es: 'Pronto habrá más detalles — vuelve a revisar.' },
+  'event.printableProgram': { en: 'View the printable program',  es: 'Ver el programa para imprimir' },
+  'event.notesDirections':  { en: 'Notes & directions',          es: 'Notas e indicaciones' },
+  'event.seeFullCalendar':  { en: 'See the full calendar',       es: 'Ver el calendario completo' },
+  'event.scheduleChange':   { en: 'Schedule change:',            es: 'Cambio de horario:' },
+
+  // ── Season page ─────────────────────────────────────────────────────────
+  'season.intro': {
+    en: 'Every concert this year, at a glance. Tap one for call time, dress, and directions.',
+    es: 'Todos los conciertos del año, de un vistazo. Toca uno para ver hora de llegada, vestimenta e indicaciones.',
+  },
+  'season.print': { en: 'Print season', es: 'Imprimir temporada' },
+
+  // ── My Schedule page ────────────────────────────────────────────────────
+  'sched.yourParts':      { en: 'Your parts',                 es: 'Tus partituras' },
+  'sched.plannedAbsence': { en: 'Report a planned absence',   es: 'Avisar una ausencia planificada' },
+
+  // ── Assignments page ────────────────────────────────────────────────────
+  'assign.intro':      { en: 'Playing exams, written tests, and performances coming up.', es: 'Próximos exámenes de ejecución, pruebas escritas y presentaciones.' },
+  'assign.dueSoon':    { en: 'Due soon',                       es: 'Próximas entregas' },
+  'assign.nothingDue': { en: 'Nothing due right now. Check back soon!', es: 'No hay nada pendiente por ahora. ¡Vuelve pronto!' },
+  'assign.individual': { en: 'Individual',                     es: 'Individual' },
 
   // ── Misc ────────────────────────────────────────────────────────────────
   'misc.loading':        { en: 'Loading…',           es: 'Cargando…' },

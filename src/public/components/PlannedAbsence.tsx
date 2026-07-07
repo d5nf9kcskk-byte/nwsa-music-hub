@@ -3,6 +3,7 @@ import { CalendarX } from 'lucide-react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../director/firebase';
 import { todayStr, parseDate } from '../../director/utils';
+import { t, useLang } from '../../shared/i18n';
 import type { Student } from '../../director/types';
 import './plannedAbsence.css';
 
@@ -12,6 +13,7 @@ import './plannedAbsence.css';
  * pre-badged on Take Roll and converts it to Excused or dismisses it.
  */
 export function PlannedAbsenceButton({ student }: { student: Student }) {
+  useLang();
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(todayStr());
   const [reason, setReason] = useState('');
@@ -41,7 +43,7 @@ export function PlannedAbsenceButton({ student }: { student: Student }) {
   return (
     <>
       <button className="pub-absence-btn" onClick={() => { setOpen(true); setState('idle'); setReason(''); }}>
-        <CalendarX size={15} /> Report a planned absence
+        <CalendarX size={15} /> {t('sched.plannedAbsence')}
       </button>
 
       {open && (

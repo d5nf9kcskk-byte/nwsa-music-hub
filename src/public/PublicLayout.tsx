@@ -1,7 +1,7 @@
 import './uiUpdates.css';
 import { useState } from 'react';
 import { Outlet, NavLink, Link } from 'react-router';
-import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, MoreHorizontal, UserCircle, Ticket, HelpCircle, Search, MapPinned } from 'lucide-react';
+import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned } from 'lucide-react';
 import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
 import { SearchOverlay } from './components/SearchOverlay';
@@ -153,9 +153,9 @@ export function PublicLayout() {
         >
           <UserSearch size={20} /><span>{t('nav.mySchedule')}</span>
         </RRNavLink>
-        <button className="pub-tabbar-btn" onClick={() => setMenuOpen(true)}>
-          <MoreHorizontal size={20} /><span>{t('nav.more')}</span>
-        </button>
+        <RRNavLink to="/concerts" className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}>
+          <Ticket size={20} /><span>{t('nav.concertsShort')}</span>
+        </RRNavLink>
       </nav>
 
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />

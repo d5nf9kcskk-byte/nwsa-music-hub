@@ -5,6 +5,7 @@ import { useAnnouncements, visibleAnnouncements } from '../../director/hooks/use
 import { useEnsembles } from '../../director/hooks/useEnsembles';
 import { todayStr } from '../../director/utils';
 import { getIdentity, onIdentityChange } from '../../shared/identity';
+import { t, useLang } from '../../shared/i18n';
 
 /**
  * Site-wide alert strip (#18 + #19): shows today's cancellations/changes and
@@ -12,6 +13,7 @@ import { getIdentity, onIdentityChange } from '../../shared/identity';
  * so "no banner" is never ambiguous with "page didn't load".
  */
 export function GlobalAlerts() {
+  useLang();
   const { events } = useEvents();
   const { announcements } = useAnnouncements();
   const { ensembles } = useEnsembles();
@@ -47,7 +49,7 @@ export function GlobalAlerts() {
     if (onHome || events.length === 0) return null;
     return (
       <div className="pub-allclear" role="status">
-        ✓ No cancellations today — everything as scheduled
+        ✓ {t('alert.allClear')}
       </div>
     );
   }
@@ -61,7 +63,7 @@ export function GlobalAlerts() {
       ))}
       {!onHome && problems.map(e => (
         <Link key={e.id} to={`/event/${e.id}`} className="pub-strip-alert">
-          ⚠ {e.status === 'Cancelled' ? 'CANCELLED today' : 'Changed today'}: {e.title || ensName(e.ensembleIds)}
+          ⚠ {e.status === 'Cancelled' ? t('alert.cancelledToday') : t('alert.changedToday')}: {e.title || ensName(e.ensembleIds)}
           {e.changeNote ? ` — ${e.changeNote}` : ''}
         </Link>
       ))}
