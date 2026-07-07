@@ -44,10 +44,13 @@ export function primaryStudent(): SavedStudent | null { return read().students[0
 
 export function rememberStudent(s: SavedStudent, asParent = false) {
   const st = read();
-  const students = asParent
+  // Once the device is in parent mode, keep appending — a parent who saved
+  // two kids must not lose them by forgetting to re-tick the checkbox.
+  const keepList = asParent || st.parentMode;
+  const students = keepList
     ? [...st.students.filter(x => x.id !== s.id), s]
     : [s];
-  write({ students, parentMode: asParent || st.parentMode });
+  write({ students, parentMode: keepList });
 }
 
 export function forgetStudent(id: string) {

@@ -167,7 +167,7 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
                 <button
                   key={c}
                   type="button"
-                  className={`dir-swatch ${color === c ? 'selected' : ''}`}
+                  className={`dir-swatch ${color === c ? 'active' : ''}`}
                   style={{ background: c }}
                   onClick={() => setColor(c)}
                   aria-label={`Color ${c}`}

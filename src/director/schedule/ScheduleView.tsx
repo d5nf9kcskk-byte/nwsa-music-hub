@@ -10,9 +10,11 @@ import { resolveRoster, overrideSummary } from '../rosterResolver';
 import { EventForm } from './EventForm';
 import { EventRoster } from './EventRoster';
 import { IcsImport } from './IcsImport';
+import { SubSheet } from '../today/SubSheet';
 import { seedCalendar, seedSchoolCalendar } from '../seedCalendar';
+import { useMonthSwipe } from '../../shared/useMonthSwipe';
 import {
-  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON,
+  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR,
 } from '../utils';
 import type { CalendarEvent } from '../types';
 import { Linkify } from '../components/Linkify';
@@ -41,14 +43,8 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   const [typeFilter, setTypeFilter] = useState<'all' | 'Rehearsal' | 'Sectional' | 'Concert' | 'Event' | 'Assignment'>('all');
   const [calView, setCalView] = useState<'month' | 'list'>('month');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
-  const touchStartX = useRef<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
-  const swipeAxis = useRef<'h' | 'v' | null>(null);
-  const calViewportRef = useRef<HTMLDivElement>(null);
-  const calTimer = useRef<number | null>(null);
-  const [dragX, setDragX] = useState(0);
-  const [calAnimating, setCalAnimating] = useState(false);
   const [rosterEvent, setRosterEvent] = useState<CalendarEvent | null>(null);
+  const [subSheetFor, setSubSheetFor] = useState<CalendarEvent | null>(null);
   const [importingIcs, setImportingIcs] = useState(false);
   const [seedState, setSeedState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
   const [seedError, setSeedError] = useState('');
@@ -146,6 +142,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   function shiftMonth(n: number) {
     setCursor(c => new Date(c.getFullYear(), c.getMonth() + n, 1));
   }
+  const { dragX, animating: calAnimating, viewportRef: calViewportRef, handlers: swipeHandlers } = useMonthSwipe(shiftMonth);
   function goToday() {
     const d = parseDate(today);
     setCursor(new Date(d.getFullYear(), d.getMonth(), 1));
@@ -163,56 +160,6 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
       .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
   }, [visibleEvents, today]);
 
-  function handleTouchStart(e: React.TouchEvent) {
-    // Ignore new gestures while a month-commit animation is still in flight,
-    // otherwise the pending timer can double-shift or leave the grid off-screen.
-    if (calTimer.current !== null) return;
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-    swipeAxis.current = null;
-    setCalAnimating(false);
-  }
-  function handleTouchMove(e: React.TouchEvent) {
-    if (touchStartX.current === null || touchStartY.current === null) return;
-    const dx = e.touches[0].clientX - touchStartX.current;
-    const dy = e.touches[0].clientY - touchStartY.current;
-    // Lock the gesture to one axis after a small threshold so vertical
-    // scrolling isn't hijacked by the horizontal month swipe.
-    if (swipeAxis.current === null) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      swipeAxis.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
-    }
-    if (swipeAxis.current === 'h') setDragX(dx);
-  }
-  function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const wasHorizontal = swipeAxis.current === 'h';
-    touchStartX.current = null;
-    touchStartY.current = null;
-    swipeAxis.current = null;
-    if (!wasHorizontal) { setDragX(0); return; }
-
-    const width = calViewportRef.current?.offsetWidth ?? 320;
-    setCalAnimating(true);
-    if (Math.abs(dx) > 60) {
-      const dir = dx < 0 ? 1 : -1;        // swipe left → next month
-      setDragX(-dir * width);             // slide the current month fully out
-      calTimer.current = window.setTimeout(() => {
-        shiftMonth(dir);
-        setCalAnimating(false);
-        setDragX(dir * width);            // drop the new month in from the opposite edge
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          setCalAnimating(true);
-          setDragX(0);                     // ease it into place
-          calTimer.current = null;         // commit complete — accept new gestures
-        }));
-      }, 200);
-    } else {
-      setDragX(0);                         // not far enough — spring back
-    }
-  }
-
   function expectedCount(e: CalendarEvent) {
     const set = new Set<string>();
     for (const ensId of e.ensembleIds) {
@@ -223,7 +170,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   }
 
   function eventColor(e: CalendarEvent) {
-    if (e.type === 'Concert') return '#ca8a04';
+    if (e.type === 'Concert') return CONCERT_COLOR;
     return ensembleColor(ensembleMap[e.ensembleIds[0]]);
   }
 
@@ -284,6 +231,11 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               Program ↗
             </a>
           )}
+          {(e.type === 'Rehearsal' || e.type === 'Sectional') && e.ensembleIds.length > 0 && (
+            <button className="dir-event-roster-btn" onClick={() => setSubSheetFor(e)} title="Printable day sheet for a substitute">
+              🖨 Sub sheet
+            </button>
+          )}
           {e.ensembleIds.length > 0 && (
             <button className="dir-event-roster-btn" onClick={() => setRosterEvent(e)}>
               Roster
@@ -303,16 +255,8 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
 
   return (
     <div>
-      {/* Month navigation */}
-      <div className="dir-cal-nav">
-        <button className="dir-date-nav-btn" onClick={() => shiftMonth(-1)} aria-label="Previous month">
-          <ChevronLeft size={18} />
-        </button>
-        <button className="dir-cal-month" onClick={goToday}>{monthLabel}</button>
-        <button className="dir-date-nav-btn" onClick={() => shiftMonth(1)} aria-label="Next month">
-          <ChevronRight size={18} />
-        </button>
-        <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+      {/* Toolbar: view toggle + one-time imports (month nav lives with the grid) */}
+      <div className="dir-cal-toolbar">
           <button
             className={`dir-tool-btn${calView === 'list' ? ' active' : ''}`}
             onClick={() => setCalView(v => v === 'month' ? 'list' : 'month')}
@@ -357,7 +301,6 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           <button className="dir-tool-btn" onClick={() => setImportingIcs(true)} title="Import ICS calendar">
             <Upload size={15} /> Import
           </button>
-        </div>
       </div>
 
       {/* Ensemble filter */}
@@ -399,13 +342,19 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
 
       {calView === 'month' ? (
         <>
+          {/* Month navigation — directly above the grid it controls */}
+          <div className="dir-cal-nav">
+            <button className="dir-date-nav-btn" onClick={() => shiftMonth(-1)} aria-label="Previous month">
+              <ChevronLeft size={18} />
+            </button>
+            <button className="dir-cal-month" onClick={goToday} title="Jump back to today">{monthLabel}</button>
+            <button className="dir-date-nav-btn" onClick={() => shiftMonth(1)} aria-label="Next month">
+              <ChevronRight size={18} />
+            </button>
+          </div>
+
           {/* Calendar grid */}
-          <div
-            className="dir-cal"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
+          <div className="dir-cal" {...swipeHandlers}>
             <div className="dir-cal-weekdays">
               {WEEKDAYS.map((d, i) => <div key={i} className="dir-cal-weekday">{d}</div>)}
             </div>
@@ -434,7 +383,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
                           <span key={e.id} className="dir-cal-dot" style={{ background: eventColor(e) }} />
                         ))}
                         {(assignByDate[dateStr] ?? []).slice(0, 2).map(a => (
-                          <span key={a.id} className="dir-cal-dot" style={{ background: '#7c3aed' }} />
+                          <span key={a.id} className="dir-cal-dot" style={{ background: ASSIGN_COLOR }} />
                         ))}
                       </span>
                     </button>
@@ -456,9 +405,9 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               <>
                 {dayEvents.map(e => <EventCard key={e.id} e={e} />)}
                 {(assignByDate[selectedDate] ?? []).map(a => (
-                  <div key={a.id} className="dir-sc-ov" style={{ borderLeftColor: '#7c3aed' }}>
+                  <div key={a.id} className="dir-sc-ov" style={{ borderLeftColor: ASSIGN_COLOR }}>
                     <div className="dir-sc-ov-body">
-                      <div className="dir-sc-ov-title">{a.type === 'Playing Exam' ? '🎯' : '📝'} {a.title}</div>
+                      <div className="dir-sc-ov-title">{assignmentEmoji(a.type)} {a.title}</div>
                       <div className="dir-sc-ov-meta">{a.type} · due this day · grade it in Assignments</div>
                     </div>
                   </div>
@@ -508,6 +457,14 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           }}
           onDelete={editing !== 'new' ? async () => deleteEvent(editing.id) : undefined}
           onClose={() => setEditing(null)}
+        />
+      )}
+
+      {subSheetFor && subSheetFor.ensembleIds[0] && ensembleMap[subSheetFor.ensembleIds[0]] && (
+        <SubSheet
+          event={subSheetFor}
+          ensemble={ensembleMap[subSheetFor.ensembleIds[0]]}
+          onClose={() => setSubSheetFor(null)}
         />
       )}
 

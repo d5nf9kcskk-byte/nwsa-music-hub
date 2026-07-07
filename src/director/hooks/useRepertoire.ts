@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { noteLoadError } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
 import type { RepertoirePiece } from '../types';
 
@@ -19,7 +20,7 @@ export function useRepertoire() {
       list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.title.localeCompare(b.title));
       setPieces(list);
       setLoading(false);
-    }, () => setLoading(false));
+    }, () => { noteLoadError(); setLoading(false); });
   }, []);
 
   async function addPiece(data: Omit<RepertoirePiece, 'id'>): Promise<string | undefined> {

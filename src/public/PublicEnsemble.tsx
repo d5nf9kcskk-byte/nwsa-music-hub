@@ -1,21 +1,22 @@
 import { useMemo, useRef, useEffect } from 'react';
 import { useParams, useLocation, Link } from 'react-router';
-import { ChevronLeft, CalendarDays } from 'lucide-react';
+import { ChevronLeft, CalendarDays, Armchair } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
 import { useEvents } from '../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
-import { todayStr, formatTimeRange, ensembleColor } from '../director/utils';
+import { todayStr, formatTimeRange, ensembleColor, parseDate } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { PubRepertoire } from './components/PubRepertoire';
+import { primaryStudent } from '../shared/identity';
 import { SubscribeButton } from './components/SubscribeButton';
 
 export function PublicEnsemble() {
   const { id = '' } = useParams();
-  const { ensembles } = useEnsembles();
+  const { ensembles, loading: ensemblesLoading } = useEnsembles();
   const { students } = useStudents();
   const { events } = useEvents();
   const { announcements } = useAnnouncements();
@@ -71,7 +72,7 @@ export function PublicEnsemble() {
     return (
       <div className="pub-page">
         <Link to="/ensembles" className="pub-back"><ChevronLeft size={16} /> Ensembles</Link>
-        <div className="pub-card pub-muted">Ensemble not found.</div>
+        <div className="pub-card pub-muted">{ensemblesLoading ? 'Loading…' : 'Ensemble not found.'}</div>
       </div>
     );
   }
@@ -127,7 +128,7 @@ export function PublicEnsemble() {
       {ensPieces.length > 0 && (
         <div ref={repertoireRef} id="repertoire">
           <h2 className="pub-section-title">Repertoire</h2>
-          <PubRepertoire pieces={ensPieces} eventsById={eventsById} />
+          <PubRepertoire pieces={ensPieces} eventsById={eventsById} studentInstrument={primaryStudent()?.instrument} />
         </div>
       )}
 
@@ -161,21 +162,32 @@ function SeatingSection({ ensembleId, studentName, pieceTitle }: {
   pieceTitle: (id: string) => string | undefined;
 }) {
   const { charts } = useSeatingCharts(ensembleId);
+  const me = primaryStudent();
   if (charts.length === 0) return null;
+  // Newest first; the newest published chart is the one in effect.
+  const ordered = [...charts].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
   return (
     <div>
-      <h2 className="pub-section-title">🪑 Seating</h2>
-      {charts.map(c => (
+      <h2 className="pub-section-title"><Armchair size={15} style={{ verticalAlign: '-2px' }} /> Seating</h2>
+      {ordered.map((c, ci) => (
         <div key={c.id} className="pub-card pub-seat-card">
-          <div className="pub-seat-title">{c.title}</div>
+          <div className="pub-seat-title">
+            {c.title}
+            {ordered.length > 1 && ci === 0 && <span className="pub-seat-current">Current</span>}
+          </div>
+          {c.date && (
+            <div className="pub-seat-sub">
+              Published {parseDate(c.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </div>
+          )}
           {(c.pieceId && pieceTitle(c.pieceId)) && <div className="pub-seat-sub">For: {pieceTitle(c.pieceId)}</div>}
           {c.sections.map((sec, i) => (
             <div key={i} className="pub-seat-section">
               <div className="pub-seat-section-name">{sec.section}</div>
               <ol className="pub-seat-list">
                 {sec.seats.map(seat => (
-                  <li key={seat.studentId} className="pub-seat-item">
-                    <span className="pub-seat-name">{studentName(seat.studentId)}</span>
+                  <li key={seat.studentId} className={`pub-seat-item${me?.id === seat.studentId ? ' me' : ''}`}>
+                    <span className="pub-seat-name">{studentName(seat.studentId)}{me?.id === seat.studentId ? ' (you)' : ''}</span>
                     {seat.note && <span className="pub-seat-note">{seat.note}</span>}
                   </li>
                 ))}

@@ -52,8 +52,12 @@ export function SeasonChecklist({ onNavigate, onClose }: { onNavigate: DirNaviga
       done: staleCharts.length === 0,
       label: 'Old seating charts retired',
       detail: staleCharts.length === 0 ? 'No stale published charts' : `${staleCharts.length} chart${staleCharts.length !== 1 ? 's' : ''} older than ~4 months still published`,
-      action: () => onNavigate('ensembleHub', {}),
-      actionLabel: 'Review in ensemble hubs',
+      // Jump straight to the hub of the first stale chart's ensemble — the hub
+      // tab renders blank without an ensembleId.
+      action: staleCharts[0]?.ensembleId
+        ? () => onNavigate('ensembleHub', { ensembleId: staleCharts[0].ensembleId })
+        : undefined,
+      actionLabel: 'Review in ensemble hub',
     },
     {
       done: missingContacts < Math.max(3, activeCount * 0.2),
@@ -73,6 +77,7 @@ export function SeasonChecklist({ onNavigate, onClose }: { onNavigate: DirNaviga
   const doneCount = items.filter(i => i.done).length;
 
   async function graduateSeniors() {
+    if (!window.confirm(`Mark all ${seniors.length} active 12th-graders as Graduated? They leave rosters and rolls immediately.`)) return;
     setBusy(true);
     try {
       for (const s of seniors) await updateStudent(s.id, { status: 'Graduated' });

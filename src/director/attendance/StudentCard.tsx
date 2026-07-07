@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { GraduationCap } from 'lucide-react';
 import { formatTimeRange } from '../utils';
 import type { Student, AttendanceRecord, AttendanceStatus, RosterOverride } from '../types';
@@ -19,7 +20,7 @@ interface Props {
   onLesson: (student: Student) => void;
 }
 
-export function StudentCard({ student, record, onToggle, isSub, lesson, onLesson, plannedAbsence, dayContext, history }: Props) {
+function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, plannedAbsence, dayContext, history }: Props) {
   const status = record?.status;
 
   return (
@@ -84,3 +85,6 @@ export function StudentCard({ student, record, onToggle, isSub, lesson, onLesson
     </div>
   );
 }
+
+/** Rosters run to 80+ rows; memo keeps a single tap from re-rendering them all. */
+export const StudentCard = memo(StudentCardInner);

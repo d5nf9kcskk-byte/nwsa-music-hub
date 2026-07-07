@@ -1,14 +1,17 @@
-import { useState, useMemo, useEffect, useRef, Fragment } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import { useSearchParams, Link } from 'react-router';
-import { ChevronLeft, ChevronRight, LayoutList, Grid3x3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutList, Grid3x3, CalendarX } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
-import { todayStr, toDateStr, parseDate, ensembleColor } from '../director/utils';
+import { todayStr, toDateStr, parseDate, ensembleColor, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
+import { PageHeader, EmptyState } from './components/PageHeader';
 import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
 import { SubscribeButton } from './components/SubscribeButton';
+import { useMonthSwipe } from '../shared/useMonthSwipe';
+import { t, useLang } from '../shared/i18n';
 import type { CalendarEvent } from '../director/types';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -21,7 +24,16 @@ function matchesType(e: CalendarEvent, f: TypeFilter): boolean {
   return e.type === f;
 }
 
+const TYPE_LABEL_KEY: Record<TypeFilter, string> = {
+  all: 'cal.everything',
+  Rehearsal: 'cal.rehearsals',
+  Concert: 'cal.concerts',
+  Event: 'cal.events',
+  Assignment: 'cal.assignments',
+};
+
 export function PublicCalendar() {
+  useLang(); // re-render labels on EN/ES switch
   const { ensembles } = useEnsembles();
   const { events } = useEvents();
   const { pieces } = useRepertoire();
@@ -37,15 +49,6 @@ export function PublicCalendar() {
   const [filterEnsembleId, setFilterEnsembleId] = useState(() => searchParams.get('ensemble') ?? '');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [view, setView] = useState<'month' | 'list'>('month');
-
-  // Swipe-animation state — mirrors the director calendar exactly.
-  const touchStartX = useRef<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
-  const swipeAxis = useRef<'h' | 'v' | null>(null);
-  const calViewportRef = useRef<HTMLDivElement>(null);
-  const calTimer = useRef<number | null>(null);
-  const [dragX, setDragX] = useState(0);
-  const [calAnimating, setCalAnimating] = useState(false);
 
   // Keep the ?ensemble= deep-link in sync with the chosen filter.
   useEffect(() => {
@@ -120,82 +123,32 @@ export function PublicCalendar() {
   function shiftMonth(n: number) {
     setCursor(c => new Date(c.getFullYear(), c.getMonth() + n, 1));
   }
-
-  function handleTouchStart(e: React.TouchEvent) {
-    if (calTimer.current !== null) return; // a month-commit animation is in flight
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-    swipeAxis.current = null;
-    setCalAnimating(false);
-  }
-  function handleTouchMove(e: React.TouchEvent) {
-    if (touchStartX.current === null || touchStartY.current === null) return;
-    const dx = e.touches[0].clientX - touchStartX.current;
-    const dy = e.touches[0].clientY - touchStartY.current;
-    if (swipeAxis.current === null) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      swipeAxis.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
-    }
-    if (swipeAxis.current === 'h') setDragX(dx);
-  }
-  function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const wasHorizontal = swipeAxis.current === 'h';
-    touchStartX.current = null;
-    touchStartY.current = null;
-    swipeAxis.current = null;
-    if (!wasHorizontal) { setDragX(0); return; }
-
-    const width = calViewportRef.current?.offsetWidth ?? 320;
-    setCalAnimating(true);
-    if (Math.abs(dx) > 60) {
-      const dir = dx < 0 ? 1 : -1;
-      setDragX(-dir * width);
-      calTimer.current = window.setTimeout(() => {
-        shiftMonth(dir);
-        setCalAnimating(false);
-        setDragX(dir * width);
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          setCalAnimating(true);
-          setDragX(0);
-          calTimer.current = null;
-        }));
-      }, 200);
-    } else {
-      setDragX(0);
-    }
-  }
+  const { dragX, animating, viewportRef, handlers } = useMonthSwipe(shiftMonth);
 
   function color(e: CalendarEvent) {
-    return e.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleMap[e.ensembleIds[0]]);
+    return e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]);
   }
 
   const dayEvents = (byDate[selectedDate] ?? []).slice().sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
 
   return (
     <div className="pub-page">
-      {/* View toggle + month navigation */}
-      <div className="pub-section-row" style={{ marginBottom: 8 }}>
-        <h1 className="pub-h1" style={{ margin: 0 }}>Calendar</h1>
-        <button className="pub-view-toggle" onClick={() => setView(v => v === 'month' ? 'list' : 'month')}>
-          {view === 'month' ? <><LayoutList size={13} /> List view</> : <><Grid3x3 size={13} /> Month view</>}
-        </button>
-      </div>
+      <PageHeader
+        title={t('nav.calendar')}
+        action={
+          <button className="pub-view-toggle" onClick={() => setView(v => v === 'month' ? 'list' : 'month')}>
+            {view === 'month' ? <><LayoutList size={13} /> {t('cal.listView')}</> : <><Grid3x3 size={13} /> {t('cal.monthView')}</>}
+          </button>
+        }
+      />
 
-      {view === 'month' && (
-        <div className="dir-cal-nav">
-          <button className="dir-date-nav-btn" onClick={() => shiftMonth(-1)} aria-label="Previous month"><ChevronLeft size={18} /></button>
-          <button className="dir-cal-month" onClick={() => { const d = parseDate(today); setCursor(new Date(d.getFullYear(), d.getMonth(), 1)); setSelectedDate(today); }}>{monthLabel}</button>
-          <button className="dir-date-nav-btn" onClick={() => shiftMonth(1)} aria-label="Next month"><ChevronRight size={18} /></button>
-        </div>
-      )}
-
+      {/* Filters first; the month header sits directly above the grid below. */}
       {ensembles.length > 0 && (
-        <div className="dir-tabs pub-wrap-tabs">
-          <button className={`dir-tab ${!filterEnsembleId ? 'active' : ''}`} onClick={() => setFilterEnsembleId('')}>All</button>
+        <div className="pub-chips pub-wrap-tabs">
+          <button className={`pub-chip ${!filterEnsembleId ? 'active' : ''}`} onClick={() => setFilterEnsembleId('')}>{t('cal.allEnsembles')}</button>
           {ensembles.map(e => (
-            <button key={e.id} className={`dir-tab ${filterEnsembleId === e.id ? 'active' : ''}`} onClick={() => setFilterEnsembleId(e.id)}>
+            <button key={e.id} className={`pub-chip ${filterEnsembleId === e.id ? 'active' : ''}`} onClick={() => setFilterEnsembleId(e.id)}>
+              <span className="pub-chip-dot" style={{ background: ensembleColor(e) }} />
               {e.name}
             </button>
           ))}
@@ -204,9 +157,9 @@ export function PublicCalendar() {
 
       {/* Type filter */}
       <div className="pub-filter-row">
-        {(['all', 'Rehearsal', 'Concert', 'Event', 'Assignment'] as TypeFilter[]).map(t => (
-          <button key={t} className={`pub-filter-btn ${typeFilter === t ? 'active' : ''}`} onClick={() => setTypeFilter(t)}>
-            {t === 'all' ? 'Everything' : t === 'Rehearsal' ? 'Rehearsals' : t === 'Concert' ? 'Concerts' : t === 'Event' ? 'Events' : 'Assignments'}
+        {(['all', 'Rehearsal', 'Concert', 'Event', 'Assignment'] as TypeFilter[]).map(f => (
+          <button key={f} className={`pub-filter-btn ${typeFilter === f ? 'active' : ''}`} onClick={() => setTypeFilter(f)}>
+            {t(TYPE_LABEL_KEY[f])}
           </button>
         ))}
       </div>
@@ -214,36 +167,62 @@ export function PublicCalendar() {
       {view === 'list' ? (
         <div style={{ marginTop: 8 }}>
           {listItems.length === 0 ? (
-            <div className="pub-card pub-muted">Nothing coming up for this filter.</div>
+            <EmptyState icon={<CalendarX size={26} />}>{t('cal.nothingUpcoming')}</EmptyState>
           ) : (
             <>
-              {listItems.map((item, i) => (
-                <Fragment key={item.kind === 'event' ? item.e.id : item.a.id}>
-                  {i === nowIdx && <NowLine />}
-                  {item.kind === 'event'
-                    ? (
-                      <div className={isPast(item.e) ? 'pub-past-dim' : undefined}>
-                        <PubEventCard event={item.e} ensembleMap={ensembleMap} piecesById={piecesById} />
-                      </div>
-                    )
-                    : <AssignRow a={item.a} showDate />}
-                </Fragment>
-              ))}
+              {(() => {
+                let lastDate = '';
+                return listItems.map((item, i) => {
+                  const showHeader = item.date !== lastDate;
+                  lastDate = item.date;
+                  return (
+                    <Fragment key={item.kind === 'event' ? item.e.id : item.a.id}>
+                      {showHeader && (
+                        <div className={`pub-list-datehead${item.date === today ? ' today' : ''}`}>
+                          {parseDate(item.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                          {item.date === today && <span className="dir-today-badge">{t('cal.today')}</span>}
+                        </div>
+                      )}
+                      {i === nowIdx && <NowLine />}
+                      {item.kind === 'event'
+                        ? (
+                          <div className={isPast(item.e) ? 'pub-past-dim' : undefined}>
+                            <PubEventCard event={item.e} ensembleMap={ensembleMap} piecesById={piecesById} />
+                          </div>
+                        )
+                        : <AssignRow a={item.a} />}
+                    </Fragment>
+                  );
+                });
+              })()}
               {nowIdx === listItems.length && <NowLine />}
             </>
           )}
         </div>
       ) : (
       <>
-      {/* Calendar grid — identical markup + animated swipe to the director side */}
-      <div className="dir-cal" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+      {/* Month header — directly above the grid it controls */}
+      <div className="pub-cal-nav" style={{ marginTop: 4 }}>
+        <button className="pub-cal-arrow" onClick={() => shiftMonth(-1)} aria-label="Previous month"><ChevronLeft size={18} /></button>
+        <button
+          className="pub-cal-month-btn"
+          onClick={() => { const d = parseDate(today); setCursor(new Date(d.getFullYear(), d.getMonth(), 1)); setSelectedDate(today); }}
+          title="Jump back to today"
+        >
+          {monthLabel}
+        </button>
+        <button className="pub-cal-arrow" onClick={() => shiftMonth(1)} aria-label="Next month"><ChevronRight size={18} /></button>
+      </div>
+
+      {/* Calendar grid — same compact grid + swipe as the director side */}
+      <div className="dir-cal" {...handlers}>
         <div className="dir-cal-weekdays">
           {WEEKDAYS.map((d, i) => <div key={i} className="dir-cal-weekday">{d}</div>)}
         </div>
-        <div className="dir-cal-viewport" ref={calViewportRef}>
+        <div className="dir-cal-viewport" ref={viewportRef}>
           <div
             className="dir-cal-grid"
-            style={{ transform: `translateX(${dragX}px)`, transition: calAnimating ? 'transform 0.2s ease-out' : 'none' }}
+            style={{ transform: `translateX(${dragX}px)`, transition: animating ? 'transform 0.2s ease-out' : 'none' }}
           >
             {cells.map((d, i) => {
               if (!d) return <div key={i} className="dir-cal-cell empty" />;
@@ -259,7 +238,7 @@ export function PublicCalendar() {
                   <span className="dir-cal-day">{parseDate(d).getDate()}</span>
                   <span className="dir-cal-dots">
                     {evs.slice(0, 4).map(e => <span key={e.id} className="dir-cal-dot" style={{ background: color(e) }} />)}
-                    {(assignByDate[d] ?? []).slice(0, 2).map(a => <span key={a.id} className="dir-cal-dot" style={{ background: '#7c3aed' }} />)}
+                    {(assignByDate[d] ?? []).slice(0, 2).map(a => <span key={a.id} className="dir-cal-dot" style={{ background: ASSIGN_COLOR }} />)}
                   </span>
                 </button>
               );
@@ -272,10 +251,10 @@ export function PublicCalendar() {
       <div className="dir-day-detail">
         <div className="dir-day-detail-header">
           {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          {selectedDate === today && <span className="dir-today-badge">Today</span>}
+          {selectedDate === today && <span className="dir-today-badge">{t('cal.today')}</span>}
         </div>
         {dayEvents.length === 0 && (assignByDate[selectedDate] ?? []).length === 0 ? (
-          <div className="dir-day-empty">Nothing scheduled.</div>
+          <div className="dir-day-empty">{t('cal.nothingScheduled')}</div>
         ) : (
           <>
             {dayEvents.map(e => (
@@ -298,13 +277,13 @@ export function PublicCalendar() {
 /** Compact assignment row used on calendar day details and the list view. */
 function AssignRow({ a, showDate }: { a: { id: string; title: string; type: string; dueDate: string }; showDate?: boolean }) {
   return (
-    <Link to="/assignments" className="pub-assign-card pub-assign-link">
-      <span className="pub-assign-emoji">{a.type === 'Playing Exam' ? '🎯' : a.type === 'Written Test' ? '📝' : a.type === 'Performance' ? '🎭' : '📌'}</span>
+    <Link to={`/assignments?focus=${a.id}`} className="pub-assign-card pub-assign-link">
+      <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="pub-assign-title">{a.title}</div>
         <div className="pub-assign-meta">
           <span className="pub-assign-type">{a.type}</span>
-          <span>Due{showDate ? ` ${parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}` : ' this day'}</span>
+          <span>{t('cal.due')}{showDate ? ` ${parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}` : ' this day'}</span>
         </div>
       </div>
     </Link>

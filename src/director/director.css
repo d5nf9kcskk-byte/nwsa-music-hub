@@ -54,8 +54,9 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: var(--dir-header);
-  padding: 0 16px;
+  min-height: var(--dir-header);
+  padding: 0 calc(16px + env(safe-area-inset-right)) 0 calc(16px + env(safe-area-inset-left));
+  padding-top: env(safe-area-inset-top); /* standalone PWA: clear the notch */
   /* teal → deep-teal wash plus a gold accent line for brand richness */
   background: linear-gradient(110deg, var(--dir-primary) 0%, #0a6675 100%);
   border-bottom: 3px solid var(--dir-gold);
@@ -598,6 +599,17 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   padding: 10px 16px 6px;
 }
 
+/* Schedule toolbar (view toggle + one-time imports) — wraps on phones
+   instead of overflowing off-screen. */
+.dir-cal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px 16px 0;
+}
+
 .dir-cal-month {
   font-size: 16px;
   font-weight: 800;
@@ -642,8 +654,10 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   gap: 2px;
 }
 
+/* Compact cells: a day number + dot row only needs ~44px of height. The old
+   square aspect ratio ballooned the grid on wide screens for no information. */
 .dir-cal-cell {
-  aspect-ratio: 1 / 1;
+  height: 44px;
   border: none;
   background: none;
   border-radius: var(--dir-radius-sm);
@@ -651,8 +665,8 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding-top: 5px;
-  gap: 3px;
+  padding-top: 3px;
+  gap: 2px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   position: relative;
@@ -861,6 +875,7 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  animation: dir-fade-in 0.15s ease-out;
 }
 
 .dir-drawer {
@@ -870,7 +885,11 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   display: flex;
   flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom);
+  animation: dir-sheet-up 0.2s ease-out;
 }
+
+@keyframes dir-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dir-sheet-up { from { transform: translateY(48px); opacity: 0.4; } to { transform: none; opacity: 1; } }
 
 .dir-drawer-handle {
   width: 40px;
@@ -931,6 +950,7 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 
 .dir-drawer-body {
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 16px;
   display: flex;
   flex-direction: column;

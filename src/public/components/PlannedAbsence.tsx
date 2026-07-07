@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { CalendarX } from 'lucide-react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../director/firebase';
-import { todayStr } from '../../director/utils';
+import { todayStr, parseDate } from '../../director/utils';
+import { t, useLang } from '../../shared/i18n';
 import type { Student } from '../../director/types';
 import './plannedAbsence.css';
 
@@ -12,6 +13,7 @@ import './plannedAbsence.css';
  * pre-badged on Take Roll and converts it to Excused or dismisses it.
  */
 export function PlannedAbsenceButton({ student }: { student: Student }) {
+  useLang();
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(todayStr());
   const [reason, setReason] = useState('');
@@ -33,14 +35,15 @@ export function PlannedAbsenceButton({ student }: { student: Student }) {
       setState('done');
     } catch (e) {
       setState('error');
-      setError(e instanceof Error ? e.message : 'Could not send — try again.');
+      void e;
+      setError('Could not send right now — check your connection and try again, or email nwsaorchestras@gmail.com.');
     }
   }
 
   return (
     <>
       <button className="pub-absence-btn" onClick={() => { setOpen(true); setState('idle'); setReason(''); }}>
-        <CalendarX size={15} /> Report a planned absence
+        <CalendarX size={15} /> {t('sched.plannedAbsence')}
       </button>
 
       {open && (
@@ -49,7 +52,11 @@ export function PlannedAbsenceButton({ student }: { student: Student }) {
             {state === 'done' ? (
               <>
                 <div className="pub-confirm-name" style={{ fontSize: 18 }}>✓ Sent to your director</div>
-                <p className="pub-absence-hint">They'll see it when they take roll that day. No reply needed.</p>
+                <p className="pub-absence-hint">
+                  {student.name.split(' ')[0]} is reported out on{' '}
+                  <strong>{parseDate(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</strong>.
+                  They'll see it when they take roll that day. No reply needed.
+                </p>
                 <button className="pub-confirm-yes" style={{ width: '100%' }} onClick={() => setOpen(false)}>Done</button>
               </>
             ) : (

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { noteLoadError } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
 import type { Announcement } from '../types';
 
@@ -21,7 +22,7 @@ export function useAnnouncements() {
       );
       setAnnouncements(list);
       setLoading(false);
-    }, () => setLoading(false));
+    }, () => { noteLoadError(); setLoading(false); });
   }, []);
 
   async function addAnnouncement(data: Omit<Announcement, 'id'>) {
@@ -55,7 +56,8 @@ export function visibleAnnouncements(
   ensembleIds: string[] | 'all',
 ): Announcement[] {
   return announcements.filter(a => {
-    if (a.expiresOn && a.expiresOn <= today) return false;
+    // "Hide after" means the announcement still shows ON that date.
+    if (a.expiresOn && a.expiresOn < today) return false;
     if (ensembleIds === 'all') return true;
     if (a.ensembleId === null) return true; // school-wide
     return ensembleIds.includes(a.ensembleId);

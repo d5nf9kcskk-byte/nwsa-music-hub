@@ -46,7 +46,7 @@ export function PubRepertoire({ pieces, eventsById, studentInstrument }: Props) 
               {linkedEvents.length > 0 && (
                 <div className="pub-rep-events">
                   {linkedEvents.map(ev => (
-                    <Link key={ev.id} to="/calendar" className="pub-rep-event-tag">
+                    <Link key={ev.id} to={`/event/${ev.id}`} className="pub-rep-event-tag">
                       {ev.title || ev.type} · {parseDate(ev.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </Link>
                   ))}

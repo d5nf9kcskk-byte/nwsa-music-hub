@@ -152,6 +152,8 @@ interface ResultGroup {
 }
 
 interface DirectorSearchProps {
+  /** Open a director tab (keeps the director inside the director app). */
+  onNavigate?: import('../types-nav').DirNavigate;
   open: boolean;
   onClose: () => void;
   /** Open the director-side view for a student (roster profile, etc.). */
@@ -164,12 +166,12 @@ interface DirectorSearchProps {
  * "where are they now" line and tap-to-call. Mounted only while open so its
  * Firestore listeners are live only during a search.
  */
-export function DirectorSearch({ open, onClose, onOpenStudent }: DirectorSearchProps) {
+export function DirectorSearch({ open, onClose, onOpenStudent, onNavigate }: DirectorSearchProps) {
   if (!open) return null;
-  return <DirectorSearchInner onClose={onClose} onOpenStudent={onOpenStudent} />;
+  return <DirectorSearchInner onClose={onClose} onOpenStudent={onOpenStudent} onNavigate={onNavigate} />;
 }
 
-function DirectorSearchInner({ onClose, onOpenStudent }: Omit<DirectorSearchProps, 'open'>) {
+function DirectorSearchInner({ onClose, onOpenStudent, onNavigate }: Omit<DirectorSearchProps, 'open'>) {
   const navigate = useNavigate();
   const { students } = useStudents();
   const { contacts } = useContacts();
@@ -228,6 +230,12 @@ function DirectorSearchInner({ onClose, onOpenStudent }: Omit<DirectorSearchProp
     const now = new Date();
     const nowHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const go = (to: string) => { navigate(to); onClose(); };
+    // Results open the DIRECTOR tab when the app provides one — search must
+    // not silently eject the director to the public site.
+    const goTab: import('../types-nav').DirNavigate = (tab, opts) => {
+      if (onNavigate) onNavigate(tab, opts);
+      onClose();
+    };
     const out: ResultGroup[] = [];
 
     // Students first — Active students ahead of Inactive/Graduated on ties.
@@ -272,7 +280,7 @@ function DirectorSearchInner({ onClose, onOpenStudent }: Omit<DirectorSearchProp
             formatTimeRange(e.startTime, e.endTime),
             e.location,
           ].filter(Boolean).join(' · '),
-          onSelect: () => go(`/event/${e.id}`),
+          onSelect: () => onNavigate ? goTab('schedule', { date: e.date, eventId: e.id }) : go(`/event/${e.id}`),
         })),
       });
     }
@@ -285,7 +293,7 @@ function DirectorSearchInner({ onClose, onOpenStudent }: Omit<DirectorSearchProp
           key: `rep-${p.id}`,
           label: p.title,
           sub: [p.composer, ensembleMap[p.ensembleId]?.name].filter(Boolean).join(' · '),
-          onSelect: () => go(`/piece/${p.id}`),
+          onSelect: () => onNavigate ? goTab('repertoire', { ensembleId: p.ensembleId }) : go(`/piece/${p.id}`),
         })),
       });
     }
@@ -298,7 +306,7 @@ function DirectorSearchInner({ onClose, onOpenStudent }: Omit<DirectorSearchProp
           key: `ann-${a.id}`,
           label: a.title,
           sub: a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide',
-          onSelect: () => go('/announcements'),
+          onSelect: () => onNavigate ? goTab('announcements') : go('/announcements'),
         })),
       });
     }
@@ -311,7 +319,7 @@ function DirectorSearchInner({ onClose, onOpenStudent }: Omit<DirectorSearchProp
           key: `ens-${e.id}`,
           label: e.name,
           sub: e.defaultLocation,
-          onSelect: () => go(`/ensemble/${e.id}`),
+          onSelect: () => onNavigate ? goTab('ensembleHub', { ensembleId: e.id }) : go(`/ensemble/${e.id}`),
         })),
       });
     }
@@ -324,7 +332,7 @@ function DirectorSearchInner({ onClose, onOpenStudent }: Omit<DirectorSearchProp
           key: `asg-${a.id}`,
           label: a.title,
           sub: [a.type, `Due ${formatDate(a.dueDate, { month: 'short', day: 'numeric' })}`].join(' · '),
-          onSelect: () => go('/assignments'),
+          onSelect: () => onNavigate ? goTab('assignments') : go('/assignments'),
         })),
       });
     }
@@ -332,7 +340,7 @@ function DirectorSearchInner({ onClose, onOpenStudent }: Omit<DirectorSearchProp
     return out;
   }, [
     q, students, contacts, events, pieces, announcements, ensembles, assignments,
-    todaysEvents, todaysLessons, ensembleMap, today, navigate, onClose, onOpenStudent,
+    todaysEvents, todaysLessons, ensembleMap, today, navigate, onClose, onOpenStudent, onNavigate,
   ]);
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups]);
@@ -374,7 +382,7 @@ function DirectorSearchInner({ onClose, onOpenStudent }: Omit<DirectorSearchProp
             onChange={e => setQuery(e.target.value)}
             onKeyDown={onInputKeyDown}
             autoFocus
-            autoComplete="off"
+            autoComplete="off" enterKeyHint="search"
             autoCorrect="off"
             spellCheck={false}
             aria-label="Search"

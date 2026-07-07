@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
+import { noteLoadError } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
 import type { SeatingChart } from '../types';
 
@@ -18,7 +19,7 @@ export function useSeatingCharts(ensembleId?: string) {
       list.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.createdAt - a.createdAt);
       setCharts(list);
       setLoading(false);
-    }, () => setLoading(false));
+    }, () => { noteLoadError(); setLoading(false); });
   }, [ensembleId]);
 
   async function addChart(data: Omit<SeatingChart, 'id'>) {

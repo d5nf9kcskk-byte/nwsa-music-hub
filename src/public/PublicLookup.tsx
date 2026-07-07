@@ -3,7 +3,9 @@ import { useNavigate, Link } from 'react-router';
 import { Search, UserCircle, X, ChevronRight } from 'lucide-react';
 import { useStudents } from '../director/hooks/useStudents';
 import { useEnsembles } from '../director/hooks/useEnsembles';
-import { sortStudents, type StudentSort } from '../director/scoreOrder';
+import { sortStudents, lastName, type StudentSort } from '../director/scoreOrder';
+import { t, useLang } from '../shared/i18n';
+import { PageHeader } from './components/PageHeader';
 import { getIdentity, rememberStudent, forgetStudent, setParentMode } from '../shared/identity';
 import { ensembleColor } from '../director/utils';
 import type { Student } from '../director/types';
@@ -48,6 +50,7 @@ function matchesQuery(s: Student, q: string): boolean {
 const AZ = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export function PublicLookup() {
+  useLang();
   const { students } = useStudents();
   const { ensembles } = useEnsembles();
   const [q, setQ] = useState('');
@@ -67,7 +70,9 @@ export function PublicLookup() {
       .filter(s => s.status === 'Active')
       .filter(s => !ensembleId || s.ensembleIds?.includes(ensembleId))
       .filter(s => matchesQuery(s, qFolded))
-      .filter(s => !letter || fold(s.name).startsWith(fold(letter)));
+      // The rail letter follows the active sort: last-name lists filter by
+      // last name, score-order lists by first name — so "G" finds Garcia.
+      .filter(s => !letter || fold(sort === 'lastName' ? lastName(s.name) : s.name).startsWith(fold(letter)));
     return sortStudents(base, sort).slice(0, 80);
   }, [students, ensembleId, qFolded, sort, letter]);
 
@@ -84,14 +89,13 @@ export function PublicLookup() {
 
   return (
     <div className="pub-page">
-      <h1 className="pub-h1">My Schedule</h1>
-      <p className="pub-muted">Find your name to see where you should be and when.</p>
+      <PageHeader title={t('nav.mySchedule')} intro={t('lookup.findYourName')} />
 
       {/* Saved students (remember-me #1 / parent mode #11) */}
       {identity.students.length > 0 && (
         <div className="pub-card" style={{ marginBottom: 12, padding: 12 }}>
           <div className="pub-section-title" style={{ margin: '0 0 8px' }}>
-            {identity.parentMode ? 'Your students' : 'Welcome back'}
+            {identity.parentMode ? t('lookup.yourStudents') : t('lookup.welcomeBack')}
           </div>
           {identity.students.map(st => (
             <div key={st.id} className="pub-saved-row">
@@ -104,7 +108,12 @@ export function PublicLookup() {
               <button
                 className="pub-saved-forget"
                 aria-label={`Forget ${st.name}`}
-                onClick={() => { forgetStudent(st.id); setTick(t => t + 1); }}
+                onClick={() => {
+                  if (window.confirm(`Forget ${st.name} on this device? You can always find them again.`)) {
+                    forgetStudent(st.id);
+                    setTick(t => t + 1);
+                  }
+                }}
               >
                 <X size={14} />
               </button>

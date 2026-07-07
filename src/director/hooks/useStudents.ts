@@ -4,6 +4,8 @@ import {
   query, orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { noteLoadError } from '../../shared/appStatus';
+import { offerUndo, trackWrite } from '../writeStatus';
 import type { Student } from '../types';
 
 export function useStudents(ensembleId?: string) {
@@ -21,23 +23,32 @@ export function useStudents(ensembleId?: string) {
           : all
       );
       setLoading(false);
-    }, () => setLoading(false));
+    }, () => { noteLoadError(); setLoading(false); });
   }, [ensembleId]);
 
   async function addStudent(data: Omit<Student, 'id'>): Promise<string | undefined> {
     if (!db) return;
-    const ref = await addDoc(collection(db, 'students'), data);
-    return ref.id;
+    const dbRef = db;
+    const ref = await trackWrite('Student', () => addDoc(collection(dbRef, 'students'), data));
+    return ref?.id;
   }
 
   async function updateStudent(id: string, data: Partial<Omit<Student, 'id'>>) {
     if (!db) return;
-    await updateDoc(doc(db, 'students', id), data);
+    const dbRef = db;
+    await trackWrite('Student update', () => updateDoc(doc(dbRef, 'students', id), data));
   }
 
   async function deleteStudent(id: string) {
     if (!db) return;
+    // Undo (#38): the one previously-unrecoverable tap in the roster.
+    const gone = students.find(x => x.id === id);
     await deleteDoc(doc(db, 'students', id));
+    if (gone) {
+      const { id: _id, ...data } = gone;
+      void _id;
+      offerUndo('students', id, data, `Deleted ${gone.name} — restore?`);
+    }
   }
 
   return { students, loading, addStudent, updateStudent, deleteStudent };

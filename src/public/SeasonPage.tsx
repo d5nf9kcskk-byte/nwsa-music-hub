@@ -1,15 +1,18 @@
 import './season.css';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { Clock, MapPin, Printer } from 'lucide-react';
+import { Clock, MapPin, Printer, Ticket } from 'lucide-react';
 import { useEvents } from '../director/hooks/useEvents';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { LABELS } from '../shared/labels';
+import { t, useLang } from '../shared/i18n';
+import { PageHeader, SkeletonCards } from './components/PageHeader';
 import { todayStr, parseDate, formatTimeRange, ensembleColor } from '../director/utils';
 import type { CalendarEvent, Ensemble } from '../director/types';
 
 /** Season at a Glance (#13): every concert of the year on one printable page. */
 export function SeasonPage() {
+  useLang();
   const { events, loading } = useEvents();
   const { ensembles } = useEnsembles();
   const [filter, setFilter] = useState('');
@@ -37,18 +40,23 @@ export function SeasonPage() {
 
   return (
     <div className="pub-page pub-season">
-      <div className="pub-season-head">
-        <h1 className="pub-h1">{LABELS.concerts}</h1>
-        <button className="pub-season-print" onClick={() => window.print()}>
-          <Printer size={14} /> Print season
-        </button>
-      </div>
-      <p className="pub-season-intro">Every concert this year, at a glance. Tap one for call time, dress, and directions.</p>
+      <PageHeader
+        title={LABELS.concerts}
+        action={
+          <button className="pub-season-print" onClick={() => window.print()}>
+            <Printer size={14} /> {t('season.print')}
+          </button>
+        }
+      />
+      <p className="pub-season-intro">
+        <span className="pub-season-intro-screen">{t('season.intro')}</span>
+        {filter && <span className="pub-season-filter-note"> Showing: {concertEnsembles.find(e => e.id === filter)?.name ?? 'filtered'} only.</span>}
+      </p>
 
       {concertEnsembles.length > 1 && (
         <div className="pub-filter-row">
           <button className={`pub-filter-btn ${!filter ? 'active' : ''}`} onClick={() => setFilter('')}>
-            All ensembles
+            {t('nav.allEnsembles')}
           </button>
           {concertEnsembles.map(e => (
             <button
@@ -63,7 +71,7 @@ export function SeasonPage() {
       )}
 
       {loading ? (
-        <div className="pub-muted">Loading…</div>
+        <SkeletonCards n={4} slim />
       ) : filtered.length === 0 ? (
         <div className="pub-card pub-muted">No concerts on the calendar yet.</div>
       ) : (
@@ -133,7 +141,7 @@ function SeasonRow({ e, ensembleMap, past }: {
       </span>
       <span className="pub-season-body">
         <span className="pub-season-title">
-          🎭 {e.title || (ens.length > 0 ? ens.map(x => x.name).join(', ') : 'Concert')}
+          <Ticket size={14} style={{ verticalAlign: '-2px' }} /> {e.title || (ens.length > 0 ? ens.map(x => x.name).join(', ') : 'Concert')}
           {cancelled && <span className="pub-season-cancelled-tag">Cancelled</span>}
         </span>
         {ens.length > 0 && (

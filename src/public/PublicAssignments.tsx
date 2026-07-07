@@ -1,22 +1,34 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router';
 import { ClipboardCheck, Calendar } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { useStudents } from '../director/hooks/useStudents';
-import { todayStr, parseDate, ensembleColor } from '../director/utils';
-import { Linkify } from '../director/components/Linkify';
+import { todayStr, parseDate, ensembleColor, assignmentEmoji } from '../director/utils';
+import { NotesText } from './components/NotesText';
+import { PageHeader, SkeletonCards, EmptyState } from './components/PageHeader';
+import { t, useLang } from '../shared/i18n';
 import type { Assignment } from '../director/types';
-
-const TYPE_EMOJI: Record<string, string> = {
-  'Playing Exam': '🎯', 'Written Test': '📝', 'Performance': '🎭', 'Other': '📌',
-};
 
 /** Public list of upcoming assignments & exams, grouped by ensemble. */
 export function PublicAssignments() {
+  useLang();
   const { ensembles } = useEnsembles();
   const { assignments, loading } = useAssignments();
   const { students } = useStudents();
+  const [searchParams] = useSearchParams();
+  const focusId = searchParams.get('focus');
   const today = todayStr();
+
+  // Deep links from Home / calendars / My Schedule land on the exact card.
+  useEffect(() => {
+    if (!focusId || loading) return;
+    const el = document.getElementById(`assign-${focusId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('pub-assign-focus');
+    }
+  }, [focusId, loading]);
 
   const studentName = (id: string) => students.find(s => s.id === id)?.name ?? 'a student';
 
@@ -39,9 +51,9 @@ export function PublicAssignments() {
   const orderedEns = [...ensembles].sort((a, b) => a.order - b.order).filter(e => byEnsemble.m[e.id]?.length);
 
   const card = (a: Assignment) => (
-    <div key={a.id} className="pub-assign-card">
+    <div key={a.id} id={`assign-${a.id}`} className="pub-assign-card">
       <div className="pub-assign-top">
-        <span className="pub-assign-emoji">{TYPE_EMOJI[a.type] ?? '📌'}</span>
+        <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="pub-assign-title">{a.title}</div>
           <div className="pub-assign-meta">
@@ -50,10 +62,10 @@ export function PublicAssignments() {
           </div>
         </div>
       </div>
-      {a.description && <div className="pub-assign-desc"><Linkify text={a.description} /></div>}
+      {a.description && <div className="pub-assign-desc"><NotesText text={a.description} /></div>}
       {a.formUrl && (
         <a className="pub-assign-form-btn" href={a.formUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>
-          📝 Open exam form
+          📝 {t('misc.openExamForm')}
         </a>
       )}
     </div>
@@ -61,15 +73,38 @@ export function PublicAssignments() {
 
   return (
     <div className="pub-page">
-      <h1 className="pub-h1"><ClipboardCheck size={22} style={{ verticalAlign: '-4px' }} /> Assignments &amp; Exams</h1>
-      <p className="pub-muted">Playing exams, written tests, and performances coming up.</p>
+      <PageHeader
+        title={<><ClipboardCheck size={22} style={{ verticalAlign: '-4px' }} /> {t('nav.assignments')}</>}
+        intro={t('assign.intro')}
+      />
 
       {loading ? (
-        <div className="pub-muted">Loading…</div>
+        <SkeletonCards n={3} />
       ) : upcoming.length === 0 ? (
-        <div className="pub-card pub-muted">Nothing due right now. Check back soon!</div>
+        <EmptyState icon={<ClipboardCheck size={26} />}>{t('assign.nothingDue')}</EmptyState>
       ) : (
         <>
+          {/* Soonest first, across all ensembles — the by-ensemble groups follow */}
+          {upcoming.length > 1 && (
+            <>
+              <h2 className="pub-section-title">{t('assign.dueSoon')}</h2>
+              {upcoming.slice(0, 4).map(a => (
+                <div key={a.id} className="pub-assign-card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="pub-assign-title">{a.title}</div>
+                    <div className="pub-assign-meta">
+                      {a.ensembleIds.map(eid => {
+                        const e = ensembles.find(x => x.id === eid);
+                        return e ? <span key={eid} className="pub-assign-type" style={{ color: ensembleColor(e) }}>{e.name}</span> : null;
+                      })}
+                      <span>Due {parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
           {orderedEns.map(e => (
             <div key={e.id}>
               <h2 className="pub-section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -81,7 +116,7 @@ export function PublicAssignments() {
           ))}
           {byEnsemble.individual.length > 0 && (
             <div>
-              <h2 className="pub-section-title">Individual</h2>
+              <h2 className="pub-section-title">{t('assign.individual')}</h2>
               {byEnsemble.individual.map(a => (
                 <div key={a.id}>
                   {card(a)}

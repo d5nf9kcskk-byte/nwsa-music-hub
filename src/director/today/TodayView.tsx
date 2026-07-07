@@ -15,7 +15,7 @@ import { SeasonChecklist } from './SeasonChecklist';
 import { QrKitView } from '../qr/QrKitView';
 import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster } from '../rosterResolver';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays } from '../utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../utils';
 import type { CalendarEvent } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
@@ -37,7 +37,9 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const [subSheetFor, setSubSheetFor] = useState<CalendarEvent | null>(null);
   const [showChecklist, setShowChecklist] = useState(false);
   const [showQrKit, setShowQrKit] = useState(false);
-  const [ensembleId, setEnsembleId] = useState(() => localStorage.getItem(ENS_PREF_KEY) ?? '');
+  const [ensembleId, setEnsembleId] = useState(() => {
+    try { return localStorage.getItem(ENS_PREF_KEY) ?? ''; } catch { return ''; }
+  });
 
   const today = todayStr();
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
@@ -48,7 +50,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   function pickEnsemble(id: string) {
     const next = ensembleId === id ? '' : id;
     setEnsembleId(next);
-    localStorage.setItem(ENS_PREF_KEY, next);
+    try { localStorage.setItem(ENS_PREF_KEY, next); } catch { /* private mode */ }
   }
 
   const matchesEns = (e: CalendarEvent) => !ensembleId || e.ensembleIds.length === 0 || e.ensembleIds.includes(ensembleId);
@@ -120,7 +122,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const upRow = (e: CalendarEvent) => (
     <button key={e.id} className="dir-up-row" onClick={() => onNavigate('schedule', { date: e.date, eventId: e.id })}>
       <span className="dir-up-date">{parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-      <span className="dir-up-dot" style={{ background: e.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleMap[e.ensembleIds[0]]) }} />
+      <span className="dir-up-dot" style={{ background: e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]) }} />
       <span className="dir-up-label">
         {e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(' + ') || e.type}
         {e.startTime ? <span className="dir-up-time"> · {formatTimeRange(e.startTime, e.endTime)}</span> : null}
@@ -133,7 +135,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
     <div className="dir-tab-page">
       <div className="dir-today-hero">
         <div className="dir-today-date">{dateLabel}</div>
-        <div className="dir-today-title">🎶 Today at NWSA</div>
+        <div className="dir-today-title">🎶 Today at NWSA Music</div>
       </div>
 
       {ensembles.length > 0 && (
@@ -154,25 +156,6 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
           </button>
         ))}
 
-        {/* Announcements */}
-        {homeAnnouncements.length > 0 && (
-          <>
-            <div className="dir-section-head">
-              <span><Megaphone size={14} /> Announcements</span>
-              <button className="dir-link-btn" onClick={() => onNavigate('announcements')}>Manage</button>
-            </div>
-            {homeAnnouncements.map(a => (
-              <button key={a.id} className="dir-ens-row dir-sc-pick" onClick={() => onNavigate('announcements')}>
-                <span className="dir-ens-swatch" style={{ background: a.ensembleId ? ensembleColor(ensembleMap[a.ensembleId]) : '#64748b' }} />
-                <div className="dir-ens-info">
-                  <div className="dir-ens-name">{a.pinned ? '📌 ' : ''}{a.title}</div>
-                  <div className="dir-ens-sub">{a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide'}</div>
-                </div>
-              </button>
-            ))}
-          </>
-        )}
-
         {/* Today's rehearsals */}
         <div className="dir-section-head"><span>Today's schedule</span></div>
         {todays.length === 0 ? (
@@ -192,6 +175,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
               expected={ev.ensembleIds.length > 0
                 ? ev.ensembleIds.reduce((n, id) => n + resolveRoster(students, overrides, { ensembleId: id, eventId: ev.id, eventsById }).length, 0)
                 : null}
+              markedCount={allAttendance.filter(r => r.date === ev.date && ev.ensembleIds.includes(r.ensembleId)).length}
               onNavigate={onNavigate}
               onQuickChange={() => setQuickChange(ev)}
               onSubSheet={() => setSubSheetFor(ev)}
@@ -224,6 +208,26 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
           </button>
         )}
 
+        {/* Announcements */}
+        {homeAnnouncements.length > 0 && (
+          <>
+            <div className="dir-section-head">
+              <span><Megaphone size={14} /> Announcements</span>
+              <button className="dir-link-btn" onClick={() => onNavigate('announcements')}>Manage</button>
+            </div>
+            {homeAnnouncements.map(a => (
+              <button key={a.id} className="dir-ens-row dir-sc-pick" onClick={() => onNavigate('announcements')}>
+                <span className="dir-ens-swatch" style={{ background: a.ensembleId ? ensembleColor(ensembleMap[a.ensembleId]) : '#64748b' }} />
+                <div className="dir-ens-info">
+                  <div className="dir-ens-name">{a.pinned ? '📌 ' : ''}{a.title}</div>
+                  <div className="dir-ens-sub">{a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide'}</div>
+                </div>
+              </button>
+            ))}
+          </>
+        )}
+
+
         {/* Quick actions */}
         <div className="dir-today-quick">
           <button className="dir-quick-btn" onClick={() => onNavigate('schedule', { date: today })}><CalendarPlus size={18} /> New event</button>
@@ -244,8 +248,8 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
             {upAssignments.map(a => (
               <button key={a.id} className="dir-up-row" onClick={() => onNavigate('assignments')}>
                 <span className="dir-up-date">{parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                <span className="dir-up-dot" style={{ background: '#7c3aed' }} />
-                <span className="dir-up-label">{a.type === 'Playing Exam' ? '🎯 ' : ''}{a.title}</span>
+                <span className="dir-up-dot" style={{ background: ASSIGN_COLOR }} />
+                <span className="dir-up-label">{assignmentEmoji(a.type)} {a.title}</span>
                 <ChevronRight size={15} className="dir-up-chev" />
               </button>
             ))}
@@ -312,12 +316,13 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
 }
 
 function TodayCard({
-  event, ensembleMap, piecesById, expected, onNavigate, onQuickChange, onSubSheet,
+  event, ensembleMap, piecesById, expected, markedCount = 0, onNavigate, onQuickChange, onSubSheet,
 }: {
   event: CalendarEvent;
   ensembleMap: Record<string, { id: string; name: string; order: number; color?: string }>;
   piecesById: Record<string, { id: string; title: string }>;
   expected: number | null;
+  markedCount?: number;
   onNavigate: DirNavigate;
   onQuickChange: () => void;
   onSubSheet: () => void;
@@ -363,6 +368,8 @@ function TodayCard({
                 ✓ Roll taken {new Date(taken[0].r!.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                 {' · '}{taken.reduce((n, x) => n + (x.r!.absent ?? 0), 0)} absent
               </div>
+            ) : markedCount > 0 ? (
+              <div className="dir-roll-receipt">Roll in progress — {markedCount}{expected ? `/${expected}` : ''} marked</div>
             ) : (
               <div className="dir-roll-receipt">Roll not taken yet</div>
             );
@@ -410,8 +417,8 @@ function SnowDaySheet({ defaultDate, onConfirm, onClose }: {
         </div>
         <div className="dir-drawer-body">
           <div className="dir-field-hint" style={{ marginBottom: 10 }}>
-            Cancels EVERY rehearsal, concert, and event on this date and posts one urgent
-            school-wide announcement. Events can be un-cancelled individually afterward.
+            Cancels every ensemble rehearsal, concert, and event on this date (school-calendar
+            notes stay) and posts one urgent school-wide announcement. Events can be un-cancelled individually afterward.
           </div>
           <div className="dir-field">
             <label className="dir-label">Date</label>
@@ -466,7 +473,7 @@ function FollowUpSheet({ records, students, ensembleMap, onClose }: {
             <div key={r.id} className="dir-sub-row" style={{ flexWrap: 'wrap' }}>
               <div className="dir-sub-info" style={{ minWidth: '55%' }}>
                 <div className="dir-sub-name">{students[r.studentId]?.name ?? 'Student'}</div>
-                <div className="dir-sub-instr">{ensembleMap[r.ensembleId]?.name ?? ''} · {r.date}</div>
+                <div className="dir-sub-instr">{ensembleMap[r.ensembleId]?.name ?? ''} · {parseDate(r.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="dir-pull-btn" style={{ color: 'var(--dir-excused)' }} disabled={busyId === r.id} onClick={() => act(r.id, 'excuse')}>Excuse</button>
