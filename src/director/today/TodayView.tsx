@@ -154,25 +154,6 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
           </button>
         ))}
 
-        {/* Announcements */}
-        {homeAnnouncements.length > 0 && (
-          <>
-            <div className="dir-section-head">
-              <span><Megaphone size={14} /> Announcements</span>
-              <button className="dir-link-btn" onClick={() => onNavigate('announcements')}>Manage</button>
-            </div>
-            {homeAnnouncements.map(a => (
-              <button key={a.id} className="dir-ens-row dir-sc-pick" onClick={() => onNavigate('announcements')}>
-                <span className="dir-ens-swatch" style={{ background: a.ensembleId ? ensembleColor(ensembleMap[a.ensembleId]) : '#64748b' }} />
-                <div className="dir-ens-info">
-                  <div className="dir-ens-name">{a.pinned ? '📌 ' : ''}{a.title}</div>
-                  <div className="dir-ens-sub">{a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide'}</div>
-                </div>
-              </button>
-            ))}
-          </>
-        )}
-
         {/* Today's rehearsals */}
         <div className="dir-section-head"><span>Today's schedule</span></div>
         {todays.length === 0 ? (
@@ -224,6 +205,26 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
             🔔 {followUps.length} unexcused absence{followUps.length !== 1 ? 's' : ''} this week — review
           </button>
         )}
+
+        {/* Announcements */}
+        {homeAnnouncements.length > 0 && (
+          <>
+            <div className="dir-section-head">
+              <span><Megaphone size={14} /> Announcements</span>
+              <button className="dir-link-btn" onClick={() => onNavigate('announcements')}>Manage</button>
+            </div>
+            {homeAnnouncements.map(a => (
+              <button key={a.id} className="dir-ens-row dir-sc-pick" onClick={() => onNavigate('announcements')}>
+                <span className="dir-ens-swatch" style={{ background: a.ensembleId ? ensembleColor(ensembleMap[a.ensembleId]) : '#64748b' }} />
+                <div className="dir-ens-info">
+                  <div className="dir-ens-name">{a.pinned ? '📌 ' : ''}{a.title}</div>
+                  <div className="dir-ens-sub">{a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide'}</div>
+                </div>
+              </button>
+            ))}
+          </>
+        )}
+
 
         {/* Quick actions */}
         <div className="dir-today-quick">

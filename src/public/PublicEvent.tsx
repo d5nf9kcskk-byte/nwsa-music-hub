@@ -7,6 +7,7 @@ import { useRepertoire } from '../director/hooks/useRepertoire';
 import { parseDate, todayStr, formatTime } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { NotesText } from './components/NotesText';
+import { t, useLang } from '../shared/i18n';
 import type { CalendarEvent } from '../director/types';
 import './pubDaySheet.css';
 
@@ -16,6 +17,7 @@ import './pubDaySheet.css';
  * parts), student-facing notes, and any cancellation / schedule change.
  */
 export function PublicEvent() {
+  useLang();
   const { id } = useParams();
   const navigate = useNavigate();
   // Go back to wherever the user came from (Home, My Schedule, Calendar…);
@@ -36,7 +38,7 @@ export function PublicEvent() {
   if (!event) {
     return (
       <div className="pub-page">
-        <button onClick={goBack} className="pub-back-link"><ChevronLeft size={16} /> Back</button>
+        <button onClick={goBack} className="pub-back-link"><ChevronLeft size={16} /> {t('event.back')}</button>
         <div className="pub-card pub-muted">This event isn't on the calendar anymore.</div>
       </div>
     );
@@ -52,7 +54,7 @@ export function PublicEvent() {
 
   return (
     <div className="pub-page">
-      <button onClick={goBack} className="pub-back-link"><ChevronLeft size={16} /> Back</button>
+      <button onClick={goBack} className="pub-back-link"><ChevronLeft size={16} /> {t('event.back')}</button>
 
       <div className="pub-hero">
         <h1 className="pub-h1" style={{ marginBottom: 2 }}>{heroTitle}</h1>
@@ -67,7 +69,7 @@ export function PublicEvent() {
       )}
       {event.status !== 'Cancelled' && event.changeNote && (
         <div className="pub-alert-banner changed">
-          ⚠ <strong>Schedule change:</strong>
+          ⚠ <strong>{t('event.scheduleChange')}</strong>
           <div className="pub-alert-note">{event.changeNote}</div>
         </div>
       )}
@@ -89,14 +91,14 @@ export function PublicEvent() {
 
       {event.notes && (
         <>
-          <h2 className="pub-section-title">Notes & directions</h2>
+          <h2 className="pub-section-title">{t('event.notesDirections')}</h2>
           <div className="pub-card pub-event-notes"><NotesText text={event.notes} /></div>
         </>
       )}
 
       <div className="pub-subscribe-section">
         <Link to={`/calendar?ensemble=${event.ensembleIds[0] ?? ''}`} className="pub-quick-btn" style={{ maxWidth: 260, margin: '0 auto' }}>
-          <CalendarPlus size={20} /><span>See the full calendar</span>
+          <CalendarPlus size={20} /><span>{t('event.seeFullCalendar')}</span>
         </Link>
       </div>
     </div>
@@ -113,30 +115,30 @@ function ConcertDaySheet({ event }: { event: CalendarEvent }) {
 
   return (
     <div className="pub-daysheet">
-      <div className="pub-daysheet-head">🎼 Concert Day Sheet</div>
+      <div className="pub-daysheet-head">🎼 {t('event.daySheet')}</div>
       {hasDetails ? (
         <div className="pub-daysheet-rows">
           {event.callTime && (
             <div className="pub-daysheet-row">
-              <span className="pub-daysheet-label">Call time</span>
+              <span className="pub-daysheet-label">{t('event.callTime')}</span>
               <span className="pub-daysheet-time">{formatTime(event.callTime)}</span>
             </div>
           )}
           {event.startTime && (
             <div className="pub-daysheet-row">
-              <span className="pub-daysheet-label">Concert starts</span>
+              <span className="pub-daysheet-label">{t('event.concertStarts')}</span>
               <span className="pub-daysheet-time">{formatTime(event.startTime)}</span>
             </div>
           )}
           {event.dress && (
             <div className="pub-daysheet-row">
-              <span className="pub-daysheet-label">Dress</span>
+              <span className="pub-daysheet-label">{t('event.dress')}</span>
               <span className="pub-daysheet-value">{event.dress}</span>
             </div>
           )}
           {(event.venueAddress || event.location) && (
             <div className="pub-daysheet-row">
-              <span className="pub-daysheet-label">Venue</span>
+              <span className="pub-daysheet-label">{t('event.venue')}</span>
               <span className="pub-daysheet-value">
                 {event.location && <span>{event.location}</span>}
                 {event.venueAddress && <span className="pub-daysheet-addr">{event.venueAddress}</span>}
@@ -146,24 +148,24 @@ function ConcertDaySheet({ event }: { event: CalendarEvent }) {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  <MapPin size={13} /> Open in Maps
+                  <MapPin size={13} /> {t('event.openMaps')}
                 </a>
               </span>
             </div>
           )}
           {event.pickupTime && (
             <div className="pub-daysheet-row">
-              <span className="pub-daysheet-label">Pickup</span>
+              <span className="pub-daysheet-label">{t('event.pickup')}</span>
               <span className="pub-daysheet-time">{formatTime(event.pickupTime)}</span>
             </div>
           )}
         </div>
       ) : (
-        <div className="pub-daysheet-empty">Details coming — check back soon.</div>
+        <div className="pub-daysheet-empty">{t('event.detailsComing')}</div>
       )}
       {hasProgram && (
         <Link to={`/program/${event.id}`} className="pub-daysheet-program">
-          <ScrollText size={14} /> View the printable program
+          <ScrollText size={14} /> {t('event.printableProgram')}
         </Link>
       )}
     </div>

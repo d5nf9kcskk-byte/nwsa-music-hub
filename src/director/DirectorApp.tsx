@@ -1,7 +1,7 @@
 import './director.css';
 import './uiUpdates.css';
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useLocation, useSearchParams } from 'react-router';
 import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle } from 'lucide-react';
 import { AuthGate } from './components/AuthGate';
 import { DirectorSearch } from './components/DirectorSearch';
@@ -45,18 +45,39 @@ const TAB_TITLES: Record<DirTab, string> = {
   ensembleHub:     'Ensemble',
 };
 
+const VALID_TABS: readonly DirTab[] = [
+  'today', 'roll', 'roster', 'schedule', 'scheduleChanges', 'repertoire',
+  'notes', 'assignments', 'announcements', 'ensembleHub',
+];
+
 export default function DirectorApp() {
-  const [tab, setTab] = useState<DirTab>('today');
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
-  const [intent, setIntent] = useState<DirNavOpts>({});
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { ensembles } = useEnsembles();
 
+  // Tab + intent live in the URL (/director/<tab>?ensemble=…&date=…), so the
+  // browser Back button steps through tabs and a reload keeps your place.
+  const seg = location.pathname.split('/')[2] ?? '';
+  const tab: DirTab = (VALID_TABS as readonly string[]).includes(seg) ? (seg as DirTab) : 'today';
+  const intent: DirNavOpts = {
+    ensembleId: searchParams.get('ensemble') ?? undefined,
+    date: searchParams.get('date') ?? undefined,
+    eventId: searchParams.get('event') ?? undefined,
+    studentId: searchParams.get('student') ?? undefined,
+  };
+
   function go(t: DirTab, opts?: DirNavOpts) {
-    setIntent(opts ?? {});
-    setTab(t);
+    const p = new URLSearchParams();
+    if (opts?.ensembleId) p.set('ensemble', opts.ensembleId);
+    if (opts?.date) p.set('date', opts.date);
+    if (opts?.eventId) p.set('event', opts.eventId);
+    if (opts?.studentId) p.set('student', opts.studentId);
+    const qs = p.toString();
+    navigate(`/director${t === 'today' ? '' : `/${t}`}${qs ? `?${qs}` : ''}`);
     setMenuOpen(false);
   }
 

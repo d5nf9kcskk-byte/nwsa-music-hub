@@ -275,7 +275,7 @@ export function PublicCalendar() {
 /** Compact assignment row used on calendar day details and the list view. */
 function AssignRow({ a, showDate }: { a: { id: string; title: string; type: string; dueDate: string }; showDate?: boolean }) {
   return (
-    <Link to="/assignments" className="pub-assign-card pub-assign-link">
+    <Link to={`/assignments?focus=${a.id}`} className="pub-assign-card pub-assign-link">
       <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="pub-assign-title">{a.title}</div>

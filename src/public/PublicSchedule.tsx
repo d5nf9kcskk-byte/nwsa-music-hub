@@ -19,6 +19,7 @@ import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { SubscribeButton } from './components/SubscribeButton';
 import { getIdentity } from '../shared/identity';
+import { t, useLang } from '../shared/i18n';
 import type { CalendarEvent } from '../director/types';
 
 type TypeFilter = 'all' | 'rehearsals' | 'concerts' | 'events';
@@ -38,6 +39,7 @@ function matchesFilter(e: CalendarEvent, f: TypeFilter): boolean {
 }
 
 export function PublicSchedule() {
+  useLang();
   const { id = '' } = useParams();
   const { ensembles } = useEnsembles();
   const { students, loading: studentsLoading } = useStudents();
@@ -182,9 +184,9 @@ export function PublicSchedule() {
 
       {myAssignments.length > 0 && (
         <>
-          <h2 className="pub-section-title">Your assignments &amp; exams</h2>
+          <h2 className="pub-section-title">{t('sched.yourAssignments')}</h2>
           {myAssignments.map(a => (
-            <Link key={a.id} to="/assignments" className="pub-assign-card pub-assign-link">
+            <Link key={a.id} to={`/assignments?focus=${a.id}`} className="pub-assign-card pub-assign-link">
               <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="pub-assign-title">{a.title}</div>
@@ -204,10 +206,10 @@ export function PublicSchedule() {
       )}
 
       <h2 className="pub-section-title">
-        Today · {parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+        {t('cal.today')} · {parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
       </h2>
       {todayItems.length === 0 ? (
-        <div className="pub-card pub-muted">Nothing scheduled for you today.</div>
+        <div className="pub-card pub-muted">{t('sched.nothingToday')}</div>
       ) : (
         <>
           {todayItems.map(({ event: e, exp }, i) => (
@@ -223,7 +225,7 @@ export function PublicSchedule() {
       )}
 
       <div className="pub-section-row">
-        <h2 className="pub-section-title">Your schedule</h2>
+        <h2 className="pub-section-title">{t('sched.yourSchedule')}</h2>
         <button
           className="pub-view-toggle"
           onClick={() => setView(v => v === 'list' ? 'calendar' : 'list')}
@@ -274,7 +276,7 @@ export function PublicSchedule() {
 
       {myParts.length > 0 && (
         <>
-          <h2 className="pub-section-title">Your parts</h2>
+          <h2 className="pub-section-title">{t('sched.yourParts')}</h2>
           <div className="pub-card">
             {myParts.map(({ piece, partUrl, eventTitles }) => (
               <div key={piece.id} className="pub-mypart-row">
@@ -396,7 +398,7 @@ function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInst
             <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={studentInstrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showNotes />
           ))}
           {(assignByDate[selectedDate] ?? []).map(a => (
-            <Link key={a.id} to="/assignments" className="pub-assign-card pub-assign-link">
+            <Link key={a.id} to={`/assignments?focus=${a.id}`} className="pub-assign-card pub-assign-link">
               <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="pub-assign-title">{a.title}</div>

@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import { ensembleColor } from '../../director/utils';
 import type { Announcement, Ensemble } from '../../director/types';
 import { Linkify } from '../../director/components/Linkify';
-import { getLang, useLang } from '../../shared/i18n';
+import { getLang, t, useLang } from '../../shared/i18n';
 
 interface Props {
   items: Announcement[];
@@ -22,7 +22,7 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
   if (items.length === 0) return null;
   return (
     <>
-      {title && <h2 className="pub-section-title"><Megaphone size={14} style={{ verticalAlign: '-2px', marginRight: 5 }} />{title}</h2>}
+      {title && <h2 className="pub-section-title"><Megaphone size={14} style={{ verticalAlign: '-2px', marginRight: 5 }} />{title === 'Announcements' ? t('nav.announcements') : title}</h2>}
       {items.map(a => {
         const ens = a.ensembleId ? ensembleMap[a.ensembleId] : undefined;
         const hasEs = Boolean(a.titleEs || a.bodyEs);

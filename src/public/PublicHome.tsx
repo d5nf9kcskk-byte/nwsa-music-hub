@@ -160,7 +160,7 @@ export function PublicHome() {
         <>
           <h2 className="pub-section-title">{t('home.comingUpAssignments')}</h2>
           {upcomingAssignments.map(a => (
-            <Link key={a.id} to="/assignments" className="pub-upcoming">
+            <Link key={a.id} to={`/assignments?focus=${a.id}`} className="pub-upcoming">
               <span className="pub-upcoming-date">
                 {parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
               </span>
