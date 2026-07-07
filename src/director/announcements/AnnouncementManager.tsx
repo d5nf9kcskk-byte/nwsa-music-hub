@@ -11,12 +11,23 @@ interface Props {
   onClose: () => void;
   /** Render as a full page (menu tab) instead of a bottom-sheet overlay. */
   asTab?: boolean;
+  /** Open this announcement's editor as soon as the list loads (dashboard tap-to-edit). */
+  initialId?: string;
 }
 
-export function AnnouncementManager({ onClose, asTab }: Props) {
+export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
   const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useAnnouncements();
   const { ensembles } = useEnsembles();
   const [editing, setEditing] = useState<Announcement | 'new' | null>(null);
+
+  // Deep link from the Today dashboard: jump straight into that announcement
+  // (adjust-state-during-render, guarded by the consumed id).
+  const [consumedId, setConsumedId] = useState<string | null>(null);
+  if (initialId && consumedId !== initialId && announcements.length > 0) {
+    setConsumedId(initialId);
+    const target = announcements.find(a => a.id === initialId);
+    if (target) setEditing(target);
+  }
 
   const ensembleName = (id: string | null) =>
     id === null ? 'All ensembles' : ensembles.find(e => e.id === id)?.name ?? 'Unknown';

@@ -441,8 +441,9 @@ function ChangeForm({
                 </div>
               </div>
               <div className="dir-field">
-                <label className="dir-label">Applied teacher / note (optional)</label>
-                <input className="dir-input" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. Dr. Rivera, trumpet lesson" />
+                <label className="dir-label">Reason *</label>
+                <input className="dir-input" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. Trumpet lesson — Dr. Rivera" />
+                <div className="dir-field-hint">Every pull-out is documented — this shows on the Roll screen and Who's Out.</div>
               </div>
             </>
           ) : (
@@ -488,8 +489,11 @@ function ChangeForm({
                     )}
                   </div>
                   <div className="dir-field">
-                    <label className="dir-label">Reason (optional — illness, school function, …)</label>
-                    <input className="dir-input" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. field trip, illness" />
+                    <label className="dir-label">Reason {action === 'remove' ? '*' : '(recommended)'}</label>
+                    <input className="dir-input" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. other ensemble, field trip, released from school" />
+                    {action === 'remove' && (
+                      <div className="dir-field-hint">Nobody gets pulled without a reason — this shows on the Roll screen and Who's Out.</div>
+                    )}
                   </div>
                 </>
               )}
@@ -502,7 +506,13 @@ function ChangeForm({
         {error && <div className="dir-sc-error" style={{ padding: '4px 16px 0' }}>{error}</div>}
         <div className="dir-drawer-footer">
           <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !activeEnsembleId}>
+          <button
+            className="dir-btn dir-btn-primary"
+            onClick={handleSave}
+            disabled={saving || !activeEnsembleId
+              || (kind === 'lesson' && !reason.trim())
+              || (kind === 'temporary' && action === 'remove' && !reason.trim())}
+          >
             {saving ? 'Saving…' : 'Save change'}
           </button>
         </div>

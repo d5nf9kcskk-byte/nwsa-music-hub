@@ -8,7 +8,7 @@ import { usePlannedAbsences } from '../hooks/usePlannedAbsences';
 import { useSeatingCharts } from '../hooks/useSeatingCharts';
 import { useEvents } from '../hooks/useEvents';
 import { useContacts } from '../hooks/useContacts';
-import { resolveRoster, lessonsFor } from '../rosterResolver';
+import { resolveRoster, lessonsFor, overrideApplies } from '../rosterResolver';
 import { StudentCard } from './StudentCard';
 import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRange, ensembleColor } from '../utils';
 import type { AttendanceStatus, Student, Ensemble, CalendarEvent } from '../types';
@@ -18,7 +18,7 @@ interface Period {
   ensembleId: string;
 }
 
-export function AttendanceView({ initialEnsembleId }: { initialEnsembleId?: string | null }) {
+export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsembleId?: string | null; onNavigate?: import('../types-nav').DirNavigate }) {
   const { ensembles, loading: ensLoading } = useEnsembles();
   const { events, loading: eventsLoading } = useEvents();
   const [date, setDate] = useState(todayStr);
@@ -68,6 +68,7 @@ export function AttendanceView({ initialEnsembleId }: { initialEnsembleId?: stri
         period={period}
         ensemble={ensembleMap[period.ensembleId]}
         onBack={() => setPeriod(null)}
+        onNavigate={onNavigate}
       />
     );
   }
@@ -160,8 +161,9 @@ export function AttendanceView({ initialEnsembleId }: { initialEnsembleId?: stri
 }
 
 /** Roll for one period = (date, ensemble, optional specific rehearsal event). */
-function RollPeriod({ date, period, ensemble, onBack }: {
+function RollPeriod({ date, period, ensemble, onBack, onNavigate }: {
   date: string; period: Period; ensemble?: Ensemble; onBack: () => void;
+  onNavigate?: import('../types-nav').DirNavigate;
 }) {
   const { students: allStudents } = useStudents();
   const { overrides, addOverride, deleteOverride } = useRosterOverrides();
@@ -175,6 +177,15 @@ function RollPeriod({ date, period, ensemble, onBack }: {
   const ensembleId = period.ensembleId;
   const { recordMap, toggleAttendance } = useAttendance(date, ensembleId, eventId);
   const { absences: plannedAbsences } = usePlannedAbsences();
+  // Students removed from THIS roster today by a pull override (not lessons):
+  // they must never just vanish — show who, why, and for how long.
+  const pulledToday = useMemo(() => {
+    const ctx = { ensembleId, date, eventId: eventId ?? undefined, eventsById };
+    return overrides
+      .filter(o => o.ensembleId === ensembleId && o.action === 'remove' && o.kind !== 'lesson' && overrideApplies(o, ctx))
+      .map(o => ({ o, student: allStudents.find(st => st.id === o.studentId) }));
+  }, [overrides, ensembleId, date, eventId, eventsById, allStudents]);
+
   const plannedByStudent = useMemo(() => Object.fromEntries(
     plannedAbsences.filter(a => a.date === date && a.status !== 'dismissed').map(a => [a.studentId, a]),
   ), [plannedAbsences, date]);
@@ -261,6 +272,8 @@ function RollPeriod({ date, period, ensemble, onBack }: {
   async function handleLessonTap(student: Student) {
     const existing = lessons[student.id];
     if (existing) {
+      const win = existing.startTime && existing.endTime ? ` (${existing.startTime}–${existing.endTime})` : '';
+      if (!window.confirm(`Remove ${student.name}'s lesson pull-out${win}? They'll be expected for the full rehearsal.`)) return;
       setToggleError('');
       try { await deleteOverride(existing.id); }
       catch (e) { setToggleError(e instanceof Error ? e.message : 'Could not remove the lesson.'); }
@@ -302,8 +315,34 @@ function RollPeriod({ date, period, ensemble, onBack }: {
         <strong>{resolved.length}</strong> students ·{' '}
         {exceptionCount === 0 ? 'All present' : <><strong>{exceptionCount}</strong> exception{exceptionCount !== 1 ? 's' : ''}</>}
         {lessonCount > 0 && <> · <strong>{lessonCount}</strong> at lessons</>}
+        {pulledToday.length > 0 && <> · <strong>{pulledToday.length}</strong> pulled</>}
+        {onNavigate && (
+          <button className="dir-link-btn" style={{ marginLeft: 'auto' }} onClick={() => onNavigate('scheduleChanges', { ensembleId })}>
+            Subs &amp; pull-outs
+          </button>
+        )}
       </div>
       </div>
+
+      {/* Every pull is documented HERE, where roll is taken — name, why, how long. */}
+      {pulledToday.length > 0 && (
+        <div className="dir-pulled-strip">
+          {pulledToday.map(({ o, student }) => (
+            <div key={o.id} className="dir-pulled-row">
+              <span className="dir-pulled-name">{student?.name ?? 'Student'}</span>
+              <span className="dir-pulled-why">
+                pulled {o.scope === 'event' ? 'for this event' : o.startDate === o.endDate ? 'today' : `${o.startDate} → ${o.endDate}`}
+                {' — '}{o.reason || 'no reason recorded'}
+              </span>
+              {onNavigate && (
+                <button className="dir-link-btn" onClick={() => onNavigate('scheduleChanges', { ensembleId, studentId: o.studentId })}>
+                  Adjust
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {toggleError && (
         <div className="dir-att-summary" style={{ color: 'var(--dir-danger)', background: 'var(--dir-absent-bg)' }}>⚠ {toggleError}</div>
@@ -439,13 +478,21 @@ function LessonSheet({ student, defaultStart, onClose, onSave }: {
             </div>
           </div>
           <div className="dir-field">
-            <label className="dir-label">Applied teacher / note (optional)</label>
-            <input className="dir-input" value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. Dr. Rivera" />
+            <label className="dir-label">Reason *</label>
+            <div className="dir-field-row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+              {['Applied lesson', 'Another ensemble', 'Released from school'].map(r => (
+                <button key={r} type="button" className="dir-tool-btn" onClick={() => setNote(n => n.startsWith(r) ? n : `${r}${n ? ` — ${n}` : ''}`)}>
+                  {r}
+                </button>
+              ))}
+            </div>
+            <input className="dir-input" value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. Applied lesson — Dr. Rivera" />
+            <div className="dir-field-hint">Every pull-out is documented — this shows on the roll card and Who's Out.</div>
           </div>
         </div>
         <div className="dir-drawer-footer">
           <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="dir-btn dir-btn-primary" disabled={saving}
+          <button className="dir-btn dir-btn-primary" disabled={saving || !note.trim()}
             onClick={async () => { setSaving(true); try { await onSave(start, end, note); } finally { setSaving(false); } }}>
             {saving ? 'Saving…' : 'Save lesson'}
           </button>

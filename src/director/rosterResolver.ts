@@ -8,7 +8,7 @@ export interface RosterContext {
 }
 
 /** Does override `o` apply within the given context (already known to match ensemble)? */
-function overrideApplies(o: RosterOverride, ctx: RosterContext): boolean {
+export function overrideApplies(o: RosterOverride, ctx: RosterContext): boolean {
   // The effective date we're evaluating against: explicit date, or the event's date.
   const ctxDate = ctx.date ?? (ctx.eventId ? ctx.eventsById?.[ctx.eventId]?.date : undefined);
 

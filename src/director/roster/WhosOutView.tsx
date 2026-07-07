@@ -1,14 +1,12 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, ClipboardList, UserCheck, X } from 'lucide-react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useDayAttendance } from '../hooks/useAttendance';
 import { usePlannedAbsences } from '../hooks/usePlannedAbsences';
-import { lessonsFor, resolveRoster } from '../rosterResolver';
+import { lessonsFor, resolveRoster, overrideApplies } from '../rosterResolver';
 import { todayStr, addDays, parseDate, formatTimeRange, ensembleColor } from '../utils';
 import type { DirNavigate } from '../types-nav';
 
@@ -27,11 +25,10 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
   const { students } = useStudents();
   const { events } = useEvents();
   const { overrides } = useRosterOverrides();
-  const { absences: plannedAbsences, setStatus } = usePlannedAbsences();
+  const { absences: plannedAbsences } = usePlannedAbsences();
 
   const [date, setDate] = useState(initialDate ?? todayStr());
   const [ensembleId, setEnsembleId] = useState(initialEnsembleId);
-  const [busyId, setBusyId] = useState('');
   const { records } = useDayAttendance(date);
 
   const today = todayStr();
@@ -63,37 +60,18 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
       .filter(o => o.student);
     const guests = resolveRoster(students, overrides, { ensembleId: ens.id, date, eventsById })
       .filter(r => r.isSub);
+    const pulls = overrides
+      .filter(o => o.ensembleId === ens.id && o.action === 'remove' && o.kind !== 'lesson' && overrideApplies(o, { ensembleId: ens.id, date, eventsById }))
+      .map(o => ({ ...o, student: studentsById[o.studentId] }))
+      .filter(o => o.student);
     const rehearsal = dayEvents.find(e => e.ensembleIds.includes(ens.id) && e.status !== 'Cancelled');
-    return { ens, marks, lessons, guests, rehearsal };
-  }).filter(s => s.marks.length > 0 || s.lessons.length > 0 || s.guests.length > 0 || s.rehearsal),
+    return { ens, marks, lessons, guests, pulls, rehearsal };
+  }).filter(s => s.marks.length > 0 || s.lessons.length > 0 || s.guests.length > 0 || s.pulls.length > 0 || s.rehearsal),
   [orderedEnsembles, records, studentsById, overrides, date, eventsById, students, dayEvents]);
 
   const totalOut = sections.reduce((n, s) => n + s.marks.length, 0);
   const totalLessons = sections.reduce((n, s) => n + s.lessons.length, 0);
   const dateLabel = parseDate(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-
-  /** Convert a reported absence into an Excused mark on the student's roll. */
-  async function excuseReported(absenceId: string, studentId: string) {
-    if (!db) return;
-    const student = studentsById[studentId];
-    if (!student) return;
-    // Prefer the ensemble that actually rehearses this day.
-    const ensId = (student.ensembleIds ?? []).find(id => dayEvents.some(e => e.ensembleIds.includes(id)))
-      ?? student.ensembleIds?.[0];
-    if (!ensId) return;
-    setBusyId(absenceId);
-    try {
-      const already = records.some(r => r.studentId === studentId && r.ensembleId === ensId && r.status === 'Excused');
-      if (!already) {
-        await addDoc(collection(db, 'attendance'), {
-          studentId, ensembleId: ensId, date, status: 'Excused', createdAt: serverTimestamp(),
-        });
-      }
-      await setStatus(absenceId, 'approved');
-    } finally {
-      setBusyId('');
-    }
-  }
 
   return (
     <div className="dir-tab-page">
@@ -138,36 +116,23 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
           <>
             <div className="dir-section-head"><span>Reported ahead of time</span></div>
             {reported.map(a => (
-              <div key={a.id} className="dir-sub-row" style={{ flexWrap: 'wrap' }}>
-                <div className="dir-sub-info" style={{ minWidth: '55%' }}>
+              <div key={a.id} className="dir-sub-row">
+                <div className="dir-sub-info">
                   <div className="dir-sub-name">
                     {a.studentName}
-                    {a.status === 'approved' && <span className="dir-status-badge excused" style={{ marginLeft: 8 }}>Excused</span>}
+                    {a.status === 'approved'
+                      ? <span className="dir-status-badge excused" style={{ marginLeft: 8 }}>Excused</span>
+                      : <span className="dir-status-badge late" style={{ marginLeft: 8 }}>Pending</span>}
                   </div>
                   <div className="dir-sub-instr">{a.reason}</div>
                 </div>
-                {a.status !== 'approved' && (
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button
-                      className="dir-pull-btn"
-                      style={{ color: 'var(--dir-excused)' }}
-                      disabled={busyId === a.id}
-                      onClick={() => excuseReported(a.id, a.studentId)}
-                    >
-                      <UserCheck size={14} /> Mark excused
-                    </button>
-                    <button className="dir-pull-btn" disabled={busyId === a.id} onClick={() => setStatus(a.id, 'dismissed')}>
-                      <X size={14} /> Dismiss
-                    </button>
-                  </div>
-                )}
               </div>
             ))}
           </>
         )}
 
         {/* Per-ensemble: who's out and why */}
-        {sections.map(({ ens, marks, lessons, guests, rehearsal }) => (
+        {sections.map(({ ens, marks, lessons, guests, pulls, rehearsal }) => (
           <div key={ens.id}>
             <div className="dir-section-head">
               <span>
@@ -180,7 +145,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
               </button>
             </div>
 
-            {marks.length === 0 && lessons.length === 0 && guests.length === 0 && (
+            {marks.length === 0 && lessons.length === 0 && guests.length === 0 && pulls.length === 0 && (
               <div className="dir-empty-inline">Everyone expected — nobody marked out.</div>
             )}
 
@@ -209,6 +174,18 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
               </div>
             ))}
 
+            {pulls.map(o => (
+              <div key={o.id} className="dir-sub-row">
+                <div className="dir-sub-info">
+                  <div className="dir-sub-name">{o.student!.name}</div>
+                  <div className="dir-sub-instr">
+                    Pulled {o.startDate === o.endDate ? '' : `${o.startDate} → ${o.endDate} `}— {o.reason || 'no reason recorded'}
+                  </div>
+                </div>
+                <span className="dir-status-badge absent">Pulled</span>
+              </div>
+            ))}
+
             {guests.map(({ student }) => (
               <div key={student.id} className="dir-sub-row">
                 <div className="dir-sub-info">
@@ -222,8 +199,8 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
         ))}
 
         <div className="dir-field-hint">
-          Marks come from Take Roll; reported absences come from families using
-          “Report a planned absence.” Use Student Schedule Change for subs and lessons.
+          This page is read-only — every change happens in one place: <strong>Take Roll</strong>
+          (marks, lessons, accepting reported absences) and its <strong>Subs &amp; Pull-outs</strong> tool.
         </div>
       </div>
     </div>

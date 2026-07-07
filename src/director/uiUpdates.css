@@ -568,3 +568,27 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
   white-space: nowrap;
 }
 .dir-save-cue.saved { background: rgba(74, 222, 128, 0.25); }
+
+/* Today dashboard: announcements shown in full */
+.dir-announce-full { align-items: flex-start; }
+.dir-announce-body {
+  font-size: 14px; line-height: 1.5; color: var(--dir-text);
+  margin: 4px 0 5px; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left;
+}
+
+/* Roll screen: pulled-today strip — every pull documented where roll is taken */
+.dir-pulled-strip {
+  background: var(--dir-absent-bg);
+  border-bottom: 1px solid var(--dir-border);
+  padding: 6px 16px;
+}
+.dir-pulled-row {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  padding: 4px 0; font-size: 13px;
+}
+.dir-pulled-name { font-weight: 700; color: var(--dir-text); }
+.dir-pulled-why { color: var(--dir-text-muted); flex: 1; min-width: 50%; }
+
+/* Schedule Change (block swap): selected rows */
+.dir-swap-picked { outline: 2px solid var(--dir-blue); outline-offset: -2px; border-radius: var(--dir-radius); }
+.dir-att-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }

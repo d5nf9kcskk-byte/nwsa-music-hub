@@ -464,6 +464,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           event={rosterEvent}
           ensembles={ensembles}
           onClose={() => setRosterEvent(null)}
+          onNavigate={onNavigate}
         />
       )}
 

@@ -9,7 +9,6 @@ import { useAnnouncements, visibleAnnouncements } from '../hooks/useAnnouncement
 import { useAllAttendance } from '../hooks/useAttendance';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { QuickChangeMenu } from './QuickChange';
 import { SeasonChecklist } from './SeasonChecklist';
 import { QrKitView } from '../qr/QrKitView';
 import { useAssignments } from '../hooks/useAssignments';
@@ -31,7 +30,6 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const { announcements, addAnnouncement } = useAnnouncements();
   const { assignments } = useAssignments();
   const { records: allAttendance } = useAllAttendance();
-  const [quickChange, setQuickChange] = useState<CalendarEvent | null>(null);
   const [snowDay, setSnowDay] = useState(false);
   const [showChecklist, setShowChecklist] = useState(false);
   const [showQrKit, setShowQrKit] = useState(false);
@@ -175,7 +173,6 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
                 : null}
               markedCount={allAttendance.filter(r => r.date === ev.date && ev.ensembleIds.includes(r.ensembleId)).length}
               onNavigate={onNavigate}
-              onQuickChange={() => setQuickChange(ev)}
             />
           ))
         )}
@@ -213,11 +210,14 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
               <button className="dir-link-btn" onClick={() => onNavigate('announcements')}>Manage</button>
             </div>
             {homeAnnouncements.map(a => (
-              <button key={a.id} className="dir-ens-row dir-sc-pick" onClick={() => onNavigate('announcements')}>
+              <button key={a.id} className="dir-ens-row dir-sc-pick dir-announce-full" onClick={() => onNavigate('announcements', { announcementId: a.id })}>
                 <span className="dir-ens-swatch" style={{ background: a.ensembleId ? ensembleColor(ensembleMap[a.ensembleId]) : '#64748b' }} />
                 <div className="dir-ens-info">
                   <div className="dir-ens-name">{a.pinned ? '📌 ' : ''}{a.title}</div>
-                  <div className="dir-ens-sub">{a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide'}</div>
+                  {a.body && <div className="dir-announce-body"><Linkify text={a.body} /></div>}
+                  <div className="dir-ens-sub">
+                    {a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide'} · tap to edit
+                  </div>
                 </div>
               </button>
             ))}
@@ -229,8 +229,8 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
         <div className="dir-today-quick">
           <button className="dir-quick-btn" onClick={() => onNavigate('schedule', { date: today })}><CalendarPlus size={18} /> New event</button>
           <button className="dir-quick-btn" onClick={() => onNavigate('announcements')}><Megaphone size={18} /> Post announcement</button>
-          <button className="dir-quick-btn" onClick={() => onNavigate('scheduleChanges')}><Users size={18} /> Schedule change</button>
-          <button className="dir-quick-btn" onClick={() => setSnowDay(true)}>❄️ Close a day</button>
+          <button className="dir-quick-btn" onClick={() => onNavigate('scheduleSwap', { date: today })}><Clock size={18} /> Schedule change</button>
+          <button className="dir-quick-btn" onClick={() => setSnowDay(true)}>🌀 Close a day</button>
           <button className="dir-quick-btn" onClick={() => setShowChecklist(true)}>🍂 Term checklist</button>
           <button className="dir-quick-btn" onClick={() => setShowQrKit(true)}>📱 QR kit</button>
         </div>
@@ -269,24 +269,6 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
         )}
       </div>
 
-      {quickChange && (
-        <QuickChangeMenu
-          event={quickChange}
-          ensembleNames={quickChange.title || quickChange.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(' + ') || 'Rehearsal'}
-          onApply={data => updateEvent(quickChange.id, data)}
-          onAnnounce={async (title) => {
-            await addAnnouncement({
-              title,
-              ensembleId: quickChange.ensembleIds.length === 1 ? quickChange.ensembleIds[0] : null,
-              priority: 'urgent',
-              createdAt: Date.now(),
-              expiresOn: addDays(today, 1),
-            });
-          }}
-          onClose={() => setQuickChange(null)}
-        />
-      )}
-
       {snowDay && (
         <SnowDaySheet onConfirm={closeSchoolFor} onClose={() => setSnowDay(false)} defaultDate={today} />
       )}
@@ -305,7 +287,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
 }
 
 function TodayCard({
-  event, ensembleMap, piecesById, expected, markedCount = 0, onNavigate, onQuickChange,
+  event, ensembleMap, piecesById, expected, markedCount = 0, onNavigate,
 }: {
   event: CalendarEvent;
   ensembleMap: Record<string, { id: string; name: string; order: number; color?: string }>;
@@ -313,7 +295,6 @@ function TodayCard({
   expected: number | null;
   markedCount?: number;
   onNavigate: DirNavigate;
-  onQuickChange: () => void;
 }) {
   const firstEns = event.ensembleIds.map(id => ensembleMap[id]).find(Boolean);
   const name = event.title
@@ -369,11 +350,6 @@ function TodayCard({
               <ClipboardList size={15} /> Take Roll
             </button>
           )}
-          {!cancelled && event.ensembleIds.length > 0 && (
-            <button className="dir-btn dir-btn-ghost dir-today-action" onClick={onQuickChange}>
-              ⚡ Quick change
-            </button>
-          )}
           {isRehearsal && !cancelled && (
             <button
               className="dir-btn dir-btn-ghost dir-today-action"
@@ -403,7 +379,7 @@ function SnowDaySheet({ defaultDate, onConfirm, onClose }: {
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
-          <span className="dir-drawer-title">❄️ Close school for a day</span>
+          <span className="dir-drawer-title">🌀 Close school for a day</span>
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
         <div className="dir-drawer-body">
