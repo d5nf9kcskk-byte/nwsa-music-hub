@@ -10,7 +10,6 @@ import { resolveRoster, overrideSummary } from '../rosterResolver';
 import { EventForm } from './EventForm';
 import { EventRoster } from './EventRoster';
 import { IcsImport } from './IcsImport';
-import { SubSheet } from '../today/SubSheet';
 import { seedCalendar, seedSchoolCalendar } from '../seedCalendar';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
 import {
@@ -21,10 +20,11 @@ import { Linkify } from '../components/Linkify';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = '' }: {
+export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = '', onNavigate }: {
   initialDate?: string;
   initialEventId?: string;
   initialEnsembleId?: string;
+  onNavigate?: import('../types-nav').DirNavigate;
 } = {}) {
   const { ensembles } = useEnsembles();
   const { events, addEvent, updateEvent, deleteEvent } = useEvents();
@@ -44,7 +44,6 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   const [calView, setCalView] = useState<'month' | 'list'>('month');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
   const [rosterEvent, setRosterEvent] = useState<CalendarEvent | null>(null);
-  const [subSheetFor, setSubSheetFor] = useState<CalendarEvent | null>(null);
   const [importingIcs, setImportingIcs] = useState(false);
   const [seedState, setSeedState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
   const [seedError, setSeedError] = useState('');
@@ -231,9 +230,9 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               Program ↗
             </a>
           )}
-          {(e.type === 'Rehearsal' || e.type === 'Sectional') && e.ensembleIds.length > 0 && (
-            <button className="dir-event-roster-btn" onClick={() => setSubSheetFor(e)} title="Printable day sheet for a substitute">
-              🖨 Sub sheet
+          {(e.type === 'Rehearsal' || e.type === 'Sectional') && e.ensembleIds.length > 0 && onNavigate && (
+            <button className="dir-event-roster-btn" onClick={() => onNavigate('whosOut', { date: e.date, ensembleId: e.ensembleIds[0] })} title="Who is out that day, and why">
+              Who’s out
             </button>
           )}
           {e.ensembleIds.length > 0 && (
@@ -457,14 +456,6 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           }}
           onDelete={editing !== 'new' ? async () => deleteEvent(editing.id) : undefined}
           onClose={() => setEditing(null)}
-        />
-      )}
-
-      {subSheetFor && subSheetFor.ensembleIds[0] && ensembleMap[subSheetFor.ensembleIds[0]] && (
-        <SubSheet
-          event={subSheetFor}
-          ensemble={ensembleMap[subSheetFor.ensembleIds[0]]}
-          onClose={() => setSubSheetFor(null)}
         />
       )}
 

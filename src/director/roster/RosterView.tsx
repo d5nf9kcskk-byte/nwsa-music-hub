@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { UserPlus, Users, SlidersHorizontal, Music, MapPinned } from 'lucide-react';
+import { UserPlus, Users, SlidersHorizontal, Music, MapPinned, CalendarX } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useAllAttendance } from '../hooks/useAttendance';
@@ -15,7 +15,7 @@ import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
 import type { Student } from '../types';
 
-export function RosterView({ initialEnsembleId = '', initialStudentId }: { initialEnsembleId?: string; initialStudentId?: string }) {
+export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigate }: { initialEnsembleId?: string; initialStudentId?: string; onNavigate?: import('../types-nav').DirNavigate }) {
   const { ensembles, loading: ensemblesLoading } = useEnsembles();
   const { students, loading: studentsLoading, addStudent, updateStudent, deleteStudent } = useStudents();
   const { records } = useAllAttendance();
@@ -83,6 +83,11 @@ export function RosterView({ initialEnsembleId = '', initialStudentId }: { initi
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+        )}
+        {onNavigate && (
+          <button className="dir-tool-btn" onClick={() => onNavigate('whosOut', { ensembleId: filterEnsembleId || undefined })}>
+            <CalendarX size={15} /> Who’s out
+          </button>
         )}
         <button className="dir-tool-btn" onClick={() => setManagingEnsembles(true)}>
           <SlidersHorizontal size={15} /> Ensembles
