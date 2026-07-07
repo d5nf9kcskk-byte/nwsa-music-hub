@@ -14,6 +14,7 @@ import { RosterView } from './roster/RosterView';
 import { WhosOutView } from './roster/WhosOutView';
 import { ScheduleView } from './schedule/ScheduleView';
 import { ScheduleChangeView } from './schedule-changes/ScheduleChangeView';
+import { ScheduleSwapView } from './schedule/ScheduleSwapView';
 import { NotesView } from './notes/NotesView';
 import { AssignmentsView } from './assignments/AssignmentsView';
 import { AnnouncementManager } from './announcements/AnnouncementManager';
@@ -29,7 +30,7 @@ const MENU_TABS: { id: DirTab; label: string; Icon: typeof ClipboardList }[] = [
   { id: 'roll',            label: 'Take Roll',               Icon: ClipboardList  },
   { id: 'roster',          label: 'Roster',                  Icon: Users          },
   { id: 'schedule',        label: 'Schedule',                Icon: Calendar       },
-  { id: 'scheduleChanges', label: 'Student Schedule Change', Icon: CalendarClock  },
+  { id: 'scheduleSwap',    label: 'Schedule Change',         Icon: CalendarClock  },
   { id: 'repertoire',      label: 'Repertoire',              Icon: Music          },
   { id: 'notes',           label: 'Progress Notes',          Icon: FileText       },
   { id: 'assignments',     label: 'Assignments',             Icon: ClipboardCheck },
@@ -41,7 +42,8 @@ const TAB_TITLES: Record<DirTab, string> = {
   roll:            'Take Roll',
   roster:          'Roster',
   schedule:        'Schedule',
-  scheduleChanges: 'Student Schedule Change',
+  scheduleChanges: 'Subs & Pull-outs',
+  scheduleSwap:    'Schedule Change',
   repertoire:      'Repertoire',
   notes:           'Progress Notes',
   assignments:     'Assignments',
@@ -52,7 +54,7 @@ const TAB_TITLES: Record<DirTab, string> = {
 
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'roster', 'schedule', 'scheduleChanges', 'repertoire',
-  'notes', 'assignments', 'announcements', 'ensembleHub', 'whosOut',
+  'notes', 'assignments', 'announcements', 'ensembleHub', 'whosOut', 'scheduleSwap',
 ];
 
 export default function DirectorApp() {
@@ -75,6 +77,7 @@ export default function DirectorApp() {
     date: searchParams.get('date') ?? undefined,
     eventId: searchParams.get('event') ?? undefined,
     studentId: searchParams.get('student') ?? undefined,
+    announcementId: searchParams.get('announcement') ?? undefined,
   };
 
   function go(t: DirTab, opts?: DirNavOpts) {
@@ -83,6 +86,7 @@ export default function DirectorApp() {
     if (opts?.date) p.set('date', opts.date);
     if (opts?.eventId) p.set('event', opts.eventId);
     if (opts?.studentId) p.set('student', opts.studentId);
+    if (opts?.announcementId) p.set('announcement', opts.announcementId);
     const qs = p.toString();
     navigate(`/director${t === 'today' ? '' : `/${t}`}${qs ? `?${qs}` : ''}`);
     setMenuOpen(false);
@@ -91,7 +95,7 @@ export default function DirectorApp() {
   const hubEnsemble = ensembles.find(e => e.id === intent.ensembleId);
   const title = tab === 'ensembleHub' && hubEnsemble ? hubEnsemble.name : TAB_TITLES[tab];
   // Remount the target view when the intent changes so preselects apply cleanly.
-  const intentKey = `${intent.ensembleId ?? ''}|${intent.date ?? ''}|${intent.eventId ?? ''}|${intent.studentId ?? ''}`;
+  const intentKey = `${intent.ensembleId ?? ''}|${intent.date ?? ''}|${intent.eventId ?? ''}|${intent.studentId ?? ''}|${intent.announcementId ?? ''}`;
 
   return (
     <AuthGate>
@@ -125,7 +129,7 @@ export default function DirectorApp() {
           <main className="dir-content">
             <StatusStrips />
             {tab === 'today'           && <TodayView onNavigate={go} />}
-            {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} />}
+            {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} onNavigate={go} />}
             {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} onNavigate={go} />}
             {tab === 'whosOut'         && <WhosOutView key={intentKey} initialDate={intent.date} initialEnsembleId={intent.ensembleId ?? ''} onNavigate={go} />}
             {tab === 'schedule'        && (
@@ -138,10 +142,11 @@ export default function DirectorApp() {
               />
             )}
             {tab === 'scheduleChanges' && <ScheduleChangeView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} />}
+            {tab === 'scheduleSwap'    && <ScheduleSwapView key={intentKey} initialDate={intent.date} onNavigate={go} />}
             {tab === 'repertoire'      && <RepertoireManager key={intentKey} asTab ensembleId={intent.ensembleId} onClose={() => {}} />}
             {tab === 'notes'           && <NotesView />}
             {tab === 'assignments'     && <AssignmentsView />}
-            {tab === 'announcements'   && <AnnouncementManager asTab onClose={() => {}} />}
+            {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} onClose={() => {}} />}
             {tab === 'ensembleHub' && intent.ensembleId && (
               <EnsembleHubView key={intentKey} ensembleId={intent.ensembleId} onNavigate={go} />
             )}

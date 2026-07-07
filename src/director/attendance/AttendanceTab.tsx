@@ -4,7 +4,7 @@ import { TrackerView } from './TrackerView';
 
 type Mode = 'roll' | 'tracker';
 
-export function AttendanceTab({ initialEnsembleId }: { initialEnsembleId?: string | null }) {
+export function AttendanceTab({ initialEnsembleId, onNavigate }: { initialEnsembleId?: string | null; onNavigate?: import('../types-nav').DirNavigate }) {
   const [mode, setMode] = useState<Mode>('roll');
 
   return (
@@ -17,7 +17,7 @@ export function AttendanceTab({ initialEnsembleId }: { initialEnsembleId?: strin
           Tracker
         </button>
       </div>
-      {mode === 'roll' ? <AttendanceView initialEnsembleId={initialEnsembleId} /> : <TrackerView />}
+      {mode === 'roll' ? <AttendanceView initialEnsembleId={initialEnsembleId} onNavigate={onNavigate} /> : <TrackerView />}
     </div>
   );
 }

@@ -11,7 +11,7 @@ export const LABELS = {
   ensembles: 'Ensembles',
   seating: 'Seating',
   takeRoll: 'Take Roll',
-  scheduleChange: 'Student Schedule Change',
+  scheduleChange: 'Subs & Pull-outs',
   plannedAbsence: 'Report a planned absence',
   concerts: 'Concert Season',
   startHere: 'Start Here',
