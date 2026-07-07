@@ -2,7 +2,7 @@ import './director.css';
 import './uiUpdates.css';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle } from 'lucide-react';
 import { AuthGate } from './components/AuthGate';
 import { DirectorSearch } from './components/DirectorSearch';
 import { WriteTray } from './components/WriteTray';
@@ -63,7 +63,7 @@ export default function DirectorApp() {
   const hubEnsemble = ensembles.find(e => e.id === intent.ensembleId);
   const title = tab === 'ensembleHub' && hubEnsemble ? hubEnsemble.name : TAB_TITLES[tab];
   // Remount the target view when the intent changes so preselects apply cleanly.
-  const intentKey = `${intent.ensembleId ?? ''}|${intent.date ?? ''}|${intent.eventId ?? ''}`;
+  const intentKey = `${intent.ensembleId ?? ''}|${intent.date ?? ''}|${intent.eventId ?? ''}|${intent.studentId ?? ''}`;
 
   return (
     <AuthGate>
@@ -92,7 +92,7 @@ export default function DirectorApp() {
           <main className="dir-content">
             {tab === 'today'           && <TodayView onNavigate={go} />}
             {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} />}
-            {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} />}
+            {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} />}
             {tab === 'schedule'        && (
               <ScheduleView
                 key={intentKey}
@@ -116,7 +116,8 @@ export default function DirectorApp() {
           <DirectorSearch
             open={searchOpen}
             onClose={() => setSearchOpen(false)}
-            onOpenStudent={id => { setSearchOpen(false); go('roster', { ensembleId: undefined }); void id; }}
+            onOpenStudent={id => { setSearchOpen(false); go('roster', { studentId: id }); }}
+            onNavigate={go}
           />
 
           {menuOpen && (
@@ -168,6 +169,9 @@ export default function DirectorApp() {
 
                 <button className="dir-menu-item" onClick={() => navigate('/')}>
                   <ExternalLink size={19} /> View public site
+                </button>
+                <button className="dir-menu-item" onClick={() => navigate('/start?staff=1')}>
+                  <HelpCircle size={19} /> Start guide (all audiences)
                 </button>
 
                 <div className="dir-menu-divider" />

@@ -155,7 +155,8 @@ export function IcsImport({ onClose }: Props) {
         <div className="dir-drawer-body">
           {status === 'done' ? (
             <div className="dir-empty-inline">
-              Imported {parsed?.length ?? 0} events successfully.
+              Imported {fresh.length} event{fresh.length !== 1 ? 's' : ''}
+              {(parsed?.length ?? 0) - fresh.length > 0 ? ` (${(parsed?.length ?? 0) - fresh.length} duplicate${(parsed?.length ?? 0) - fresh.length !== 1 ? 's' : ''} skipped)` : ''}.
               <br />You can close this panel.
             </div>
           ) : (
@@ -239,7 +240,7 @@ export function IcsImport({ onClose }: Props) {
                 onClick={handleImport}
                 disabled={status === 'importing' || parsed.length === 0}
               >
-                {status === 'importing' ? 'Importing…' : `Import ${parsed.length} events`}
+                {status === 'importing' ? 'Importing…' : `Import ${fresh.length} event${fresh.length !== 1 ? 's' : ''}`}
               </button>
             )}
           </div>

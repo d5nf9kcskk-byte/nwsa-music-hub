@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { CalendarX } from 'lucide-react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../director/firebase';
-import { todayStr } from '../../director/utils';
+import { todayStr, parseDate } from '../../director/utils';
 import type { Student } from '../../director/types';
 import './plannedAbsence.css';
 
@@ -33,7 +33,8 @@ export function PlannedAbsenceButton({ student }: { student: Student }) {
       setState('done');
     } catch (e) {
       setState('error');
-      setError(e instanceof Error ? e.message : 'Could not send — try again.');
+      void e;
+      setError('Could not send right now — check your connection and try again, or email nwsaorchestras@gmail.com.');
     }
   }
 
@@ -49,7 +50,11 @@ export function PlannedAbsenceButton({ student }: { student: Student }) {
             {state === 'done' ? (
               <>
                 <div className="pub-confirm-name" style={{ fontSize: 18 }}>✓ Sent to your director</div>
-                <p className="pub-absence-hint">They'll see it when they take roll that day. No reply needed.</p>
+                <p className="pub-absence-hint">
+                  {student.name.split(' ')[0]} is reported out on{' '}
+                  <strong>{parseDate(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</strong>.
+                  They'll see it when they take roll that day. No reply needed.
+                </p>
                 <button className="pub-confirm-yes" style={{ width: '100%' }} onClick={() => setOpen(false)}>Done</button>
               </>
             ) : (

@@ -70,6 +70,12 @@
 .pub-sg-glossary dt { font-size: 14px; font-weight: 800; color: var(--pub-accent); margin: 0 0 3px; }
 .pub-sg-glossary dd { font-size: 13.5px; line-height: 1.55; color: var(--pub-ink); margin: 0; }
 
+/* ── Contact footer ── */
+.pub-sg-contact {
+  margin: 18px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--pub-muted);
+}
+.pub-sg-contact a { color: var(--pub-accent); font-weight: 700; }
+
 /* ── Print: no app chrome, every tab + every answer expanded ── */
 @media print {
   .pub-header, .pub-tabbar, .pub-urgent-banner, .pub-strip-alert, .pub-allclear,

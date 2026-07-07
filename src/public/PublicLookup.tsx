@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router';
 import { Search, UserCircle, X, ChevronRight } from 'lucide-react';
 import { useStudents } from '../director/hooks/useStudents';
 import { useEnsembles } from '../director/hooks/useEnsembles';
-import { sortStudents, type StudentSort } from '../director/scoreOrder';
+import { sortStudents, lastName, type StudentSort } from '../director/scoreOrder';
 import { getIdentity, rememberStudent, forgetStudent, setParentMode } from '../shared/identity';
 import { ensembleColor } from '../director/utils';
 import type { Student } from '../director/types';
@@ -67,7 +67,9 @@ export function PublicLookup() {
       .filter(s => s.status === 'Active')
       .filter(s => !ensembleId || s.ensembleIds?.includes(ensembleId))
       .filter(s => matchesQuery(s, qFolded))
-      .filter(s => !letter || fold(s.name).startsWith(fold(letter)));
+      // The rail letter follows the active sort: last-name lists filter by
+      // last name, score-order lists by first name — so "G" finds Garcia.
+      .filter(s => !letter || fold(sort === 'lastName' ? lastName(s.name) : s.name).startsWith(fold(letter)));
     return sortStudents(base, sort).slice(0, 80);
   }, [students, ensembleId, qFolded, sort, letter]);
 
@@ -104,7 +106,12 @@ export function PublicLookup() {
               <button
                 className="pub-saved-forget"
                 aria-label={`Forget ${st.name}`}
-                onClick={() => { forgetStudent(st.id); setTick(t => t + 1); }}
+                onClick={() => {
+                  if (window.confirm(`Forget ${st.name} on this device? You can always find them again.`)) {
+                    forgetStudent(st.id);
+                    setTick(t => t + 1);
+                  }
+                }}
               >
                 <X size={14} />
               </button>

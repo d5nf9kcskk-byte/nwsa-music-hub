@@ -6,6 +6,7 @@ export interface DirNavOpts {
   ensembleId?: string;
   date?: string;
   eventId?: string;
+  studentId?: string;
 }
 
 /** Cross-tab navigation with intent (preselect an ensemble, focus an event, …). */

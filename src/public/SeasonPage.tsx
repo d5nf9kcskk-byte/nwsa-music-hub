@@ -43,7 +43,10 @@ export function SeasonPage() {
           <Printer size={14} /> Print season
         </button>
       </div>
-      <p className="pub-season-intro">Every concert this year, at a glance. Tap one for call time, dress, and directions.</p>
+      <p className="pub-season-intro">
+        <span className="pub-season-intro-screen">Every concert this year, at a glance. Tap one for call time, dress, and directions.</span>
+        {filter && <span className="pub-season-filter-note"> Showing: {concertEnsembles.find(e => e.id === filter)?.name ?? 'filtered'} only.</span>}
+      </p>
 
       {concertEnsembles.length > 1 && (
         <div className="pub-filter-row">

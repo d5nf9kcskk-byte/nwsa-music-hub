@@ -1,7 +1,7 @@
 import './uiUpdates.css';
 import { useState } from 'react';
 import { Outlet, NavLink, Link } from 'react-router';
-import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, MoreHorizontal, UserCircle, Ticket, HelpCircle, Search } from 'lucide-react';
+import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, MoreHorizontal, UserCircle, Ticket, HelpCircle, Search, MapPinned } from 'lucide-react';
 import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
 import { SearchOverlay } from './components/SearchOverlay';
@@ -21,6 +21,7 @@ const NAV = [
   { to: '/repertoire', label: 'nav.repertoire', Icon: Music, end: false },
   { to: '/assignments', label: 'nav.assignmentsShort', Icon: ClipboardCheck, end: false },
   { to: '/lookup', label: 'nav.mySchedule', Icon: UserSearch, end: false },
+  { to: '/map', label: 'nav.campusMap', Icon: MapPinned, end: false },
   { to: '/start', label: 'nav.startHere', Icon: HelpCircle, end: false },
 ];
 

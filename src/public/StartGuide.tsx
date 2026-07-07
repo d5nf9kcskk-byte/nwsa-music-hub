@@ -1,7 +1,7 @@
 import './startGuide.css';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { GraduationCap, Users, Music2, ChevronDown, Printer, BookOpen } from 'lucide-react';
 import { LABELS } from '../shared/labels';
 
@@ -228,9 +228,10 @@ const DIRECTOR_QA: QA[] = [
     q: 'How do I publish seating after a playing exam?',
     a: (
       <>
-        Build the chart in <strong>{LABELS.seating}</strong> in the{' '}
-        <Link to="/director">director app</Link> — seat 1 is the principal. Students
-        see published charts on their ensemble’s public page.
+        In the <Link to="/director">director app</Link>, open your ensemble under{' '}
+        <strong>Ensembles</strong> and use its <strong>{LABELS.seating}</strong>{' '}
+        section — seat 1 is the principal. Students see published charts on their
+        ensemble’s public page.
       </>
     ),
   },
@@ -293,14 +294,19 @@ const GLOSSARY: { term: string; def: string }[] = [
   },
 ];
 
-const TABS: { key: Audience; label: string; Icon: typeof Users; panelTitle: string; qa: QA[] }[] = [
+const ALL_TABS: { key: Audience; label: string; Icon: typeof Users; panelTitle: string; qa: QA[] }[] = [
   { key: 'students', label: 'Students', Icon: GraduationCap, panelTitle: 'For Students', qa: STUDENT_QA },
   { key: 'parents', label: 'Parents', Icon: Users, panelTitle: 'For Parents', qa: PARENT_QA },
-  { key: 'directors', label: 'Directors', Icon: Music2, panelTitle: 'For Directors', qa: DIRECTOR_QA },
+  { key: 'directors', label: 'Directors & Staff', Icon: Music2, panelTitle: 'For Directors & Staff', qa: DIRECTOR_QA },
 ];
 
 export function StartGuide() {
-  const [tab, setTab] = useState<Audience>('students');
+  // Public visitors see Students + Parents. The staff view (linked from the
+  // director app menu as /start?staff=1) adds the Directors & Staff tab.
+  const [searchParams] = useSearchParams();
+  const staffView = searchParams.get('staff') === '1';
+  const TABS = staffView ? ALL_TABS : ALL_TABS.filter(t => t.key !== 'directors');
+  const [tab, setTab] = useState<Audience>(staffView ? 'directors' : 'students');
 
   return (
     <div className="pub-page pub-sg">
@@ -329,7 +335,7 @@ export function StartGuide() {
         ))}
       </div>
 
-      {/* All three panels stay in the DOM so the print view shows everything. */}
+      {/* Every visible audience's panel stays in the DOM so print shows them all. */}
       {TABS.map(({ key, panelTitle, qa }) => (
         <section key={key} className={`pub-sg-panel ${tab === key ? 'active' : ''}`}>
           <h2 className="pub-sg-panel-title">{panelTitle}</h2>
@@ -348,6 +354,11 @@ export function StartGuide() {
           </div>
         ))}
       </dl>
+
+      <p className="pub-sg-contact">
+        Still stuck, or something looks wrong? Email the music office at{' '}
+        <a href="mailto:nwsaorchestras@gmail.com">nwsaorchestras@gmail.com</a>.
+      </p>
     </div>
   );
 }

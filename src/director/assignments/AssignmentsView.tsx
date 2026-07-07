@@ -235,7 +235,7 @@ interface GradeSheetProps {
 }
 
 function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) {
-  const { resultMap, saveResult } = useAssignmentResults(assignment.id);
+  const { resultMap, saveResult, clearResult } = useAssignmentResults(assignment.id);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [gradeError, setGradeError] = useState('');
   const [sort, setSort] = useState<StudentSort>('scoreOrder');
@@ -249,11 +249,14 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
 
   async function handleStatus(studentId: string, status: AssignmentResultStatus) {
     const existing = resultMap[studentId];
-    if (existing?.status === status) return;
+    // Tapping the active grade again clears it back to Pending — same
+    // toggle-off convention as the attendance screen.
+    const clearing = existing?.status === status;
     setSavingId(studentId);
     setGradeError('');
     try {
-      await saveResult(studentId, status);
+      if (clearing) await clearResult(studentId);
+      else await saveResult(studentId, status);
     } catch (e) {
       // Without finally, a failed write would leave savingId set and disable
       // this row's buttons for the rest of the session.

@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useReducer } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useEvents } from '../../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements } from '../../director/hooks/useAnnouncements';
 import { useEnsembles } from '../../director/hooks/useEnsembles';
 import { todayStr } from '../../director/utils';
-import { primaryStudent } from '../../shared/identity';
+import { getIdentity, onIdentityChange } from '../../shared/identity';
 
 /**
  * Site-wide alert strip (#18 + #19): shows today's cancellations/changes and
@@ -18,8 +18,13 @@ export function GlobalAlerts() {
   const { pathname } = useLocation();
   const today = todayStr();
 
-  const me = primaryStudent();
-  const myEnsembles = me?.ensembleIds ?? null;
+  // Watch EVERY saved student (parents can save several) and re-render when
+  // the saved list changes — filtering by just the first child could show
+  // "all clear" while another child's rehearsal is cancelled.
+  const [, bump] = useReducer(x => x + 1, 0);
+  useEffect(() => onIdentityChange(bump), []);
+  const saved = getIdentity().students;
+  const myEnsembles = saved.length > 0 ? saved.flatMap(s => s.ensembleIds) : null;
 
   const problems = useMemo(() =>
     events.filter(e => e.date === today

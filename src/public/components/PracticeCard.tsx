@@ -25,9 +25,15 @@ export function PracticeCard({ student, schedule, piecesById, assignments }: {
 
   const pieces = useMemo(() => {
     const ids = new Set<string>();
+    const weekEventIds = new Set<string>();
     for (const { event: e } of schedule) {
       if (e.date < today || e.date > horizon) continue;
+      weekEventIds.add(e.id);
       for (const pid of e.pieceIds ?? []) ids.add(pid);
+    }
+    // Pieces linked from the other direction (piece.eventIds) count too.
+    for (const p of Object.values(piecesById)) {
+      if ((p.eventIds ?? []).some(eid => weekEventIds.has(eid))) ids.add(p.id);
     }
     return [...ids].map(id => piecesById[id]).filter(Boolean);
   }, [schedule, piecesById, today, horizon]);

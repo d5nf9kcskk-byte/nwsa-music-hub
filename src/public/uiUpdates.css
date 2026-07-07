@@ -178,7 +178,12 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
 
 /* Seating (public) */
 .pub-seat-card { margin-bottom: 12px; }
-.pub-seat-title { font-size: 16px; font-weight: 800; }
+.pub-seat-title { font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.pub-seat-current {
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+  color: #fff; background: var(--pub-accent); border-radius: 999px; padding: 2px 8px;
+}
+.pub-seat-item.me .pub-seat-name { font-weight: 800; color: var(--pub-accent); }
 .pub-seat-sub { font-size: 13px; color: var(--pub-muted); margin-top: 2px; }
 .pub-seat-section { margin-top: 12px; }
 .pub-seat-section-name { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--pub-accent); margin-bottom: 4px; }

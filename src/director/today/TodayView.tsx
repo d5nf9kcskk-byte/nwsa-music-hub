@@ -15,7 +15,7 @@ import { SeasonChecklist } from './SeasonChecklist';
 import { QrKitView } from '../qr/QrKitView';
 import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster } from '../rosterResolver';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays } from '../utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays, assignmentEmoji } from '../utils';
 import type { CalendarEvent } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
@@ -133,7 +133,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
     <div className="dir-tab-page">
       <div className="dir-today-hero">
         <div className="dir-today-date">{dateLabel}</div>
-        <div className="dir-today-title">🎶 Today at NWSA</div>
+        <div className="dir-today-title">🎶 Today at NWSA Music</div>
       </div>
 
       {ensembles.length > 0 && (
@@ -192,6 +192,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
               expected={ev.ensembleIds.length > 0
                 ? ev.ensembleIds.reduce((n, id) => n + resolveRoster(students, overrides, { ensembleId: id, eventId: ev.id, eventsById }).length, 0)
                 : null}
+              markedCount={allAttendance.filter(r => r.date === ev.date && ev.ensembleIds.includes(r.ensembleId)).length}
               onNavigate={onNavigate}
               onQuickChange={() => setQuickChange(ev)}
               onSubSheet={() => setSubSheetFor(ev)}
@@ -245,7 +246,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
               <button key={a.id} className="dir-up-row" onClick={() => onNavigate('assignments')}>
                 <span className="dir-up-date">{parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
                 <span className="dir-up-dot" style={{ background: '#7c3aed' }} />
-                <span className="dir-up-label">{a.type === 'Playing Exam' ? '🎯 ' : ''}{a.title}</span>
+                <span className="dir-up-label">{assignmentEmoji(a.type)} {a.title}</span>
                 <ChevronRight size={15} className="dir-up-chev" />
               </button>
             ))}
@@ -312,12 +313,13 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
 }
 
 function TodayCard({
-  event, ensembleMap, piecesById, expected, onNavigate, onQuickChange, onSubSheet,
+  event, ensembleMap, piecesById, expected, markedCount = 0, onNavigate, onQuickChange, onSubSheet,
 }: {
   event: CalendarEvent;
   ensembleMap: Record<string, { id: string; name: string; order: number; color?: string }>;
   piecesById: Record<string, { id: string; title: string }>;
   expected: number | null;
+  markedCount?: number;
   onNavigate: DirNavigate;
   onQuickChange: () => void;
   onSubSheet: () => void;
@@ -363,6 +365,8 @@ function TodayCard({
                 ✓ Roll taken {new Date(taken[0].r!.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                 {' · '}{taken.reduce((n, x) => n + (x.r!.absent ?? 0), 0)} absent
               </div>
+            ) : markedCount > 0 ? (
+              <div className="dir-roll-receipt">Roll in progress — {markedCount}{expected ? `/${expected}` : ''} marked</div>
             ) : (
               <div className="dir-roll-receipt">Roll not taken yet</div>
             );
@@ -410,8 +414,8 @@ function SnowDaySheet({ defaultDate, onConfirm, onClose }: {
         </div>
         <div className="dir-drawer-body">
           <div className="dir-field-hint" style={{ marginBottom: 10 }}>
-            Cancels EVERY rehearsal, concert, and event on this date and posts one urgent
-            school-wide announcement. Events can be un-cancelled individually afterward.
+            Cancels every ensemble rehearsal, concert, and event on this date (school-calendar
+            notes stay) and posts one urgent school-wide announcement. Events can be un-cancelled individually afterward.
           </div>
           <div className="dir-field">
             <label className="dir-label">Date</label>
@@ -466,7 +470,7 @@ function FollowUpSheet({ records, students, ensembleMap, onClose }: {
             <div key={r.id} className="dir-sub-row" style={{ flexWrap: 'wrap' }}>
               <div className="dir-sub-info" style={{ minWidth: '55%' }}>
                 <div className="dir-sub-name">{students[r.studentId]?.name ?? 'Student'}</div>
-                <div className="dir-sub-instr">{ensembleMap[r.ensembleId]?.name ?? ''} · {r.date}</div>
+                <div className="dir-sub-instr">{ensembleMap[r.ensembleId]?.name ?? ''} · {parseDate(r.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="dir-pull-btn" style={{ color: 'var(--dir-excused)' }} disabled={busyId === r.id} onClick={() => act(r.id, 'excuse')}>Excuse</button>

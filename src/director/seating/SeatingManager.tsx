@@ -4,7 +4,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useSeatingCharts } from '../hooks/useSeatingCharts';
 import { scoreOrderRank, lastName } from '../scoreOrder';
-import { todayStr } from '../utils';
+import { todayStr, parseDate } from '../utils';
 import type { SeatingChart, Student } from '../types';
 
 /** Director seating editor for one ensemble. Charts are per-piece playing-exam
@@ -54,7 +54,7 @@ export function SeatingManager({ ensembleId, ensembleName, onClose }: {
                 <Armchair size={18} className="dir-hub-icon" />
                 <div className="dir-ens-info">
                   <div className="dir-ens-name">{c.title}</div>
-                  <div className="dir-ens-sub">{c.sections.reduce((n, s) => n + s.seats.length, 0)} seats{c.date ? ` · ${c.date}` : ''}</div>
+                  <div className="dir-ens-sub">{c.sections.reduce((n, s) => n + s.seats.length, 0)} seats{c.date ? ` · ${parseDate(c.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}</div>
                 </div>
                 <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing(c); }}><Pencil size={15} /></button>
               </div>
@@ -188,7 +188,13 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
           ))}
 
           {onDelete && (
-            <button className="dir-btn dir-btn-danger" style={{ marginTop: 16 }} onClick={onDelete}>Delete chart</button>
+            <button
+              className="dir-btn dir-btn-danger"
+              style={{ marginTop: 16 }}
+              onClick={() => { if (window.confirm('Delete this seating chart? Students will no longer see it.')) onDelete(); }}
+            >
+              Delete chart
+            </button>
           )}
         </div>
         {err && <div className="dir-sc-error" style={{ padding: '4px 16px 0' }}>{err}</div>}

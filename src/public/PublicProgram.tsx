@@ -15,7 +15,7 @@ import { Linkify } from '../director/components/Linkify';
 export function PublicProgram() {
   const { id = '' } = useParams();
   const { ensembles } = useEnsembles();
-  const { events } = useEvents();
+  const { events, loading: eventsLoading } = useEvents();
   const { pieces } = useRepertoire();
 
   const event = events.find(e => e.id === id);
@@ -46,7 +46,7 @@ export function PublicProgram() {
     return (
       <div className="pub-page">
         <Link to="/calendar" className="pub-back"><ChevronLeft size={16} /> Calendar</Link>
-        <div className="pub-card pub-muted">Concert not found.</div>
+        <div className="pub-card pub-muted">{eventsLoading ? 'Loading…' : 'Concert not found.'}</div>
       </div>
     );
   }

@@ -7,6 +7,7 @@
   --pub-bg: #f6f7f9;
   --pub-surface: #ffffff;
   --pub-ink: #18212f;
+  --pub-text: #18212f; /* alias — several rules reference --pub-text */
   --pub-muted: #6b7686;
   --pub-border: #e6e9ef;
   --pub-accent: #0d7e8e;       /* logo teal */
@@ -335,6 +336,20 @@
 /* Calendar */
 .pub-cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .pub-cal-month { font-size: 17px; font-weight: 700; }
+.pub-cal-month-btn {
+  font-size: 17px; font-weight: 700; color: var(--pub-ink);
+  background: none; border: none; cursor: pointer; font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Date group headers for list views (mirrors the director list view) */
+.pub-list-datehead {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 2px 4px;
+  font-size: 12px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.4px; color: var(--pub-muted);
+}
+.pub-list-datehead.today { color: var(--pub-accent); }
 .pub-icon-btn {
   width: 36px; height: 36px; border-radius: 50%;
   border: 1px solid var(--pub-border); background: var(--pub-surface);
@@ -354,12 +369,15 @@
 .pub-chip-dot { width: 8px; height: 8px; border-radius: 50%; }
 
 .pub-cal { background: var(--pub-surface); border: 1px solid var(--pub-border); border-radius: var(--pub-radius); padding: 8px; }
+/* Let vertical page scroll through, but keep horizontal touch moves for the
+   month swipe (matches .dir-cal-viewport on the director side). */
+.pub-cal-swipe-viewport { overflow: hidden; touch-action: pan-y; }
 .pub-cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); }
 .pub-cal-weekdays div { text-align: center; font-size: 11px; font-weight: 700; color: var(--pub-muted); padding: 4px 0; }
 .pub-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 .pub-cal-cell {
-  aspect-ratio: 1 / 1; border: none; background: none; border-radius: 9px;
-  display: flex; flex-direction: column; align-items: center; padding-top: 5px; gap: 3px;
+  height: 44px; border: none; background: none; border-radius: 9px;
+  display: flex; flex-direction: column; align-items: center; padding-top: 3px; gap: 2px;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .pub-cal-cell.empty { cursor: default; }
@@ -447,6 +465,14 @@
   padding: 2px 8px; border-radius: 8px; text-decoration: none;
 }
 .pub-announce-tag-all { background: var(--pub-muted); }
+/* ES/EN flip chip on announcements that carry a translation */
+.pub-announce-lang {
+  flex-shrink: 0; margin-left: auto; padding: 2px 8px; min-height: 24px;
+  border: 1px solid var(--pub-border); border-radius: 999px;
+  background: var(--pub-surface); color: var(--pub-accent);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.04em;
+  cursor: pointer; font-family: inherit;
+}
 .pub-announce-body { font-size: 14px; color: var(--pub-ink); margin-top: 6px; white-space: pre-wrap; line-height: 1.45; }
 .pub-announce-date { font-size: 11.5px; color: var(--pub-muted); margin-top: 8px; }
 
@@ -735,7 +761,8 @@
 
 /* Print: just the program sheet, no app chrome. */
 @media print {
-  .pub-header, .pub-nav, .pub-program-toolbar { display: none !important; }
+  .pub-header, .pub-tabbar, .pub-program-toolbar,
+  .pub-urgent-banner, .pub-strip-alert, .pub-allclear { display: none !important; }
   .pub-app, .pub-content, .pub-page { background: #fff !important; padding: 0 !important; margin: 0 !important; }
   .pub-program-sheet { border: none !important; border-radius: 0 !important; padding: 0 !important; box-shadow: none !important; }
   .pub-program-piece-title, .pub-program-piece-title:hover { color: #000 !important; }

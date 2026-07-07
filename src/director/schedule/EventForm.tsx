@@ -80,10 +80,18 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Roster preview ("who should be there") for the chosen ensembles.
-  const expected = students.filter(
-    s => s.status === 'Active' && s.ensembleIds?.some(id => form.ensembleIds.includes(id)),
-  );
+  // Roster preview ("who should be there") — resolved through overrides so it
+  // matches the count on the schedule cards behind this form.
+  const expected = useMemo(() => {
+    const byId = Object.fromEntries(liveEvents.map(e => [e.id, e]));
+    const ids = new Set<string>();
+    for (const ensId of form.ensembleIds) {
+      for (const r of resolveRoster(students, overrides, { ensembleId: ensId, eventId: event?.id, date: form.date, eventsById: byId })) {
+        ids.add(r.student.id);
+      }
+    }
+    return students.filter(s => ids.has(s.id));
+  }, [students, overrides, form.ensembleIds, form.date, event?.id, liveEvents]);
 
   useEffect(() => {
     if (event) {

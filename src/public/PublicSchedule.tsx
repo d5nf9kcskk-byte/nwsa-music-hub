@@ -1,6 +1,6 @@
 import { useMemo, useState, Fragment } from 'react';
 import { useParams, Link } from 'react-router';
-import { useMonthSwipe } from './useMonthSwipe';
+import { useMonthSwipe } from '../shared/useMonthSwipe';
 import { NowNext } from './components/NowNext';
 import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
 import { PracticeCard } from './components/PracticeCard';
@@ -14,10 +14,11 @@ import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnn
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { studentExpectation } from '../director/rosterResolver';
-import { todayStr, toDateStr, parseDate, ensembleColor, findPartForInstrument, studentHasAssignment } from '../director/utils';
+import { todayStr, toDateStr, parseDate, ensembleColor, findPartForInstrument, studentHasAssignment, assignmentEmoji } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { SubscribeButton } from './components/SubscribeButton';
+import { getIdentity } from '../shared/identity';
 import type { CalendarEvent } from '../director/types';
 
 type TypeFilter = 'all' | 'rehearsals' | 'concerts' | 'events';
@@ -39,7 +40,7 @@ function matchesFilter(e: CalendarEvent, f: TypeFilter): boolean {
 export function PublicSchedule() {
   const { id = '' } = useParams();
   const { ensembles } = useEnsembles();
-  const { students } = useStudents();
+  const { students, loading: studentsLoading } = useStudents();
   const { events } = useEvents();
   const { overrides } = useRosterOverrides();
   const { announcements } = useAnnouncements();
@@ -50,6 +51,7 @@ export function PublicSchedule() {
   // student re-opens this page, so nothing stays silently hidden.
   const [filter, setFilter] = useState<TypeFilter>('all');
   const [view, setView] = useState<'list' | 'calendar'>('list');
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
 
   const student = students.find(s => s.id === id);
   const today = todayStr();
@@ -127,7 +129,7 @@ export function PublicSchedule() {
     return (
       <div className="pub-page">
         <Link to="/lookup" className="pub-back"><ChevronLeft size={16} /> Search</Link>
-        <div className="pub-card pub-muted">Student not found.</div>
+        <div className="pub-card pub-muted">{studentsLoading ? 'Loading…' : 'Student not found.'}</div>
       </div>
     );
   }
@@ -137,6 +139,17 @@ export function PublicSchedule() {
   return (
     <div className="pub-page">
       <Link to="/lookup" className="pub-back"><ChevronLeft size={16} /> Search</Link>
+
+      {/* Parent mode: quick switch between saved students (#11) */}
+      {getIdentity().students.length > 1 && (
+        <div className="pub-chips" style={{ paddingBottom: 6 }}>
+          {getIdentity().students.map(s => (
+            <Link key={s.id} to={`/student/${s.id}`} className={`pub-chip ${s.id === student.id ? 'active' : ''}`}>
+              {s.name.split(' ')[0]}
+            </Link>
+          ))}
+        </div>
+      )}
 
       <div className="pub-ens-hero">
         <h1 className="pub-h1">{student.name}</h1>
@@ -172,7 +185,7 @@ export function PublicSchedule() {
           <h2 className="pub-section-title">Your assignments &amp; exams</h2>
           {myAssignments.map(a => (
             <Link key={a.id} to="/assignments" className="pub-assign-card pub-assign-link">
-              <span className="pub-assign-emoji">{a.type === 'Playing Exam' ? '🎯' : a.type === 'Written Test' ? '📝' : a.type === 'Performance' ? '🎭' : '📌'}</span>
+              <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="pub-assign-title">{a.title}</div>
                 <div className="pub-assign-meta">
@@ -247,9 +260,16 @@ export function PublicSchedule() {
           {filter === 'all' ? 'No upcoming rehearsals or events.' : 'Nothing in this category coming up.'}
         </div>
       ) : (
-        upcomingItems.map(({ event: e, exp }) => (
-          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showDate showNotes />
-        ))
+        <>
+          {(showAllUpcoming ? upcomingItems : upcomingItems.slice(0, 20)).map(({ event: e, exp }) => (
+            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showDate showNotes />
+          ))}
+          {!showAllUpcoming && upcomingItems.length > 20 && (
+            <button className="pub-view-toggle" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setShowAllUpcoming(true)}>
+              Show all {upcomingItems.length} upcoming
+            </button>
+          )}
+        </>
       )}
 
       {myParts.length > 0 && (
@@ -355,6 +375,9 @@ function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInst
                       style={{ background: it.event.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleMap[it.exp.ensembleIds[0] ?? it.event.ensembleIds[0]]) }}
                     />
                   ))}
+                  {(assignByDate[date] ?? []).slice(0, 2).map(a => (
+                    <span key={a.id} className="pub-cal-dot" style={{ background: '#7c3aed' }} />
+                  ))}
                 </span>
               </button>
             ))}
@@ -374,7 +397,7 @@ function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInst
           ))}
           {(assignByDate[selectedDate] ?? []).map(a => (
             <Link key={a.id} to="/assignments" className="pub-assign-card pub-assign-link">
-              <span className="pub-assign-emoji">{a.type === 'Playing Exam' ? '🎯' : a.type === 'Written Test' ? '📝' : '📌'}</span>
+              <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="pub-assign-title">{a.title}</div>
                 <div className="pub-assign-meta"><span className="pub-assign-type">{a.type}</span><span>Due this day</span></div>

@@ -73,7 +73,14 @@ export function useAssignmentResults(assignmentId: string) {
     }
   }
 
-  return { results, resultMap, loading, saveResult };
+  /** Remove a student's result — tapping the same grade again clears it back to Pending. */
+  async function clearResult(studentId: string) {
+    if (!db) return;
+    const existing = resultMap[studentId];
+    if (existing) await deleteDoc(doc(db, 'assignmentResults', existing.id));
+  }
+
+  return { results, resultMap, loading, saveResult, clearResult };
 }
 
 export function useStudentAssignmentResults(studentId?: string) {

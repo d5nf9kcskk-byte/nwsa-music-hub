@@ -73,7 +73,7 @@
 /* ── Print: the fridge copy — no chrome, no filters, no dimming ── */
 @media print {
   .pub-header, .pub-tabbar, .pub-urgent-banner, .pub-strip-alert, .pub-allclear,
-  .pub-filter-row, .pub-season-print { display: none !important; }
+  .pub-filter-row, .pub-season-print, .pub-season-intro-screen { display: none !important; }
   .pub-app, .pub-content, .pub-page { background: #fff !important; padding: 0 !important; margin: 0 !important; }
 
   .pub-season-row { break-inside: avoid; border-color: #ccc; margin-bottom: 6px; }

@@ -1,7 +1,7 @@
 {
-  "name": "NWSA Director",
-  "short_name": "Director",
-  "description": "Roster, attendance, rehearsals, and progress notes for NWSA music ensembles.",
+  "name": "NWSA Music Hub",
+  "short_name": "NWSA Music",
+  "description": "Schedules, announcements, repertoire, and attendance for New World School of the Arts music ensembles.",
   "start_url": "/nwsa-music-hub/",
   "display": "standalone",
   "background_color": "#f1f5f9",
