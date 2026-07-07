@@ -4,18 +4,20 @@ import { ChevronLeft, ExternalLink, Music, Clock, FileText, Video, Headphones, B
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
-import { parseDate, ensembleColor } from '../director/utils';
+import { parseDate, ensembleColor, findPartForInstrument } from '../director/utils';
+import { primaryStudent } from '../shared/identity';
 import { Linkify } from '../director/components/Linkify';
 
 export function PublicPiece() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { pieces } = useRepertoire();
+  const { pieces, loading: piecesLoading } = useRepertoire();
   const { ensembles } = useEnsembles();
   const { events } = useEvents();
 
   const piece = pieces.find(p => p.id === id);
+  const myPart = piece ? findPartForInstrument(piece, primaryStudent()?.instrument) : undefined;
   const ensemble = useMemo(() => ensembles.find(e => e.id === piece?.ensembleId), [ensembles, piece]);
   const linkedEvents = useMemo(
     () => (piece?.eventIds ?? []).map(eid => events.find(e => e.id === eid)).filter(Boolean),
@@ -26,7 +28,7 @@ export function PublicPiece() {
     return (
       <div className="pub-page">
         <Link to="/ensembles" className="pub-back"><ChevronLeft size={16} /> Ensembles</Link>
-        <div className="pub-card pub-muted">Piece not found.</div>
+        <div className="pub-card pub-muted">{piecesLoading ? 'Loading…' : 'Piece not found.'}</div>
       </div>
     );
   }
@@ -129,6 +131,11 @@ export function PublicPiece() {
       {(piece.partsSharedUrl || piece.partsUrl || (piece.partsLinks && piece.partsLinks.length > 0)) && (
         <div className="pub-card pub-piece-section">
           <div className="pub-piece-section-title">Parts</div>
+          {myPart && (
+            <a className="pub-piece-link" href={myPart.url} target="_blank" rel="noreferrer" style={{ fontWeight: 800 }}>
+              ⭐ My part ({myPart.instrument}) <ExternalLink size={12} />
+            </a>
+          )}
           {piece.partsLinks && piece.partsLinks.length > 0 && (
             <div className="pub-piece-parts-list">
               {piece.partsLinks.map((l, i) => (
@@ -181,7 +188,7 @@ export function PublicPiece() {
           <div className="pub-piece-section-title">Programmed for</div>
           {linkedEvents.map(e => e && (
             <div key={e.id} className="pub-piece-event">
-              <Link to="/calendar" className="pub-piece-event-link">
+              <Link to={`/event/${e.id}`} className="pub-piece-event-link">
                 {e.title || e.type} · {parseDate(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </Link>
             </div>

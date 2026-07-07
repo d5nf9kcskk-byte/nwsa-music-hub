@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut, GoogleAuthProvider } from 'firebase/auth';
 import type { User } from 'firebase/auth';
+import { Link } from 'react-router';
 import { auth, isFirebaseConfigured } from '../firebase';
+
+/**
+ * Client-side mirror of the Firestore-rules allowlist (firestore.rules —
+ * signedIn()). Security is enforced by the rules; this copy exists so an
+ * unauthorized account sees an honest "not authorized" screen instead of a
+ * working-looking app whose every save silently fails. Keep the two in sync.
+ */
+const DIRECTOR_EMAILS = [
+  'nwsaorchestras@gmail.com',
+];
 
 interface Props {
   children: (user: User, signOutFn: () => void) => React.ReactNode;
@@ -30,7 +41,7 @@ export function AuthGate({ children }: Props) {
     return (
       <div className="dir-auth">
         <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
-        <h1>NWSA Director</h1>
+        <h1>NWSA Music Hub — Directors</h1>
         <p>Firebase setup required to get started.</p>
         <div className="dir-setup-box">
           <h3>One-time setup (~10 min)</h3>
@@ -59,7 +70,7 @@ export function AuthGate({ children }: Props) {
     return (
       <div className="dir-auth">
         <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
-        <h1>NWSA Director</h1>
+        <h1>NWSA Music Hub — Directors</h1>
         <p>Roster, attendance, rehearsals, and notes — all in one place.</p>
         <button className="dir-google-btn" onClick={signIn}>
           <svg width="18" height="18" viewBox="0 0 18 18">
@@ -70,6 +81,24 @@ export function AuthGate({ children }: Props) {
           </svg>
           Sign in with Google
         </button>
+      </div>
+    );
+  }
+
+  // Signed in, but not on the director allowlist: say so plainly. Without
+  // this, Firestore rules reject every write while the UI looks functional.
+  if (!DIRECTOR_EMAILS.includes(user.email ?? '')) {
+    return (
+      <div className="dir-auth">
+        <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
+        <h1>This account isn’t authorized</h1>
+        <p>
+          You’re signed in as <strong>{user.email}</strong>, which isn’t on the
+          director list for NWSA Music Hub. If you should have access, ask the
+          director to add your Google email.
+        </p>
+        <button className="dir-google-btn" onClick={handleSignOut}>Sign in with a different account</button>
+        <p><Link to="/">← Back to the public site</Link></p>
       </div>
     );
   }

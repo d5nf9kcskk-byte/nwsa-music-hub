@@ -29,6 +29,13 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.closeMenu':        { en: 'Close menu',          es: 'Cerrar menú' },
   'nav.search':           { en: 'Search',              es: 'Buscar' },
   'nav.notYouSwitch':     { en: 'Not you? Switch',     es: '¿No eres tú? Cambiar' },
+  'nav.campusMap':        { en: 'Campus Map',          es: 'Mapa del campus' },
+
+  // ── Text-size control (header "Aa") ─────────────────────────────────────
+  'textsize.label':   { en: 'Text size', es: 'Tamaño del texto' },
+  'textsize.normal':  { en: 'Normal',    es: 'Normal' },
+  'textsize.large':   { en: 'Large',     es: 'Grande' },
+  'textsize.largest': { en: 'Largest',   es: 'Muy grande' },
 
   // ── Home headings + quick actions ───────────────────────────────────────
   'home.todayAt':               { en: 'Today at NWSA Music',                es: 'Hoy en NWSA Music' },
@@ -84,6 +91,8 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'cal.listView':         { en: 'List view',          es: 'Vista de lista' },
   'cal.monthView':        { en: 'Month view',         es: 'Vista de mes' },
   'cal.nothingScheduled': { en: 'Nothing scheduled.', es: 'No hay nada programado.' },
+  'cal.nothingUpcoming':  { en: 'Nothing coming up for this filter.', es: 'No hay nada próximo con este filtro.' },
+  'cal.allEnsembles':     { en: 'All',                es: 'Todos' },
   'cal.due':              { en: 'Due',                es: 'Entrega' },
   'cal.today':            { en: 'Today',              es: 'Hoy' },
 

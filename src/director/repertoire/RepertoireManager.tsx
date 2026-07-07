@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Pencil, Music, Trash2, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Music, Trash2 } from 'lucide-react';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
@@ -373,7 +373,7 @@ function RepertoireForm({
               <div className="dir-movements-list">
                 {movements.map((m, i) => (
                   <div key={i} className="dir-movement-row">
-                    <GripVertical size={14} className="dir-movement-grip" />
+                    <span className="dir-movement-grip">{i + 1}.</span>
                     <input
                       className="dir-input dir-movement-title"
                       placeholder={`Movement ${i + 1} title`}

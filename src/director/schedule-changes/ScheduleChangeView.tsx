@@ -253,7 +253,13 @@ function StudentPanel({ student, ensembles, onBack, prefill, autoOpenForm }: {
             <div key={e.id} className="dir-ens-row">
               <span className="dir-ens-swatch" style={{ background: ensembleColor(e) }} />
               <div className="dir-ens-info"><div className="dir-ens-name">{e.name}</div></div>
-              <button className="dir-btn dir-btn-ghost dir-sc-small" disabled={busy} onClick={() => removePermanent(e.id)}>
+              <button
+                className="dir-btn dir-btn-ghost dir-sc-small"
+                disabled={busy}
+                onClick={() => {
+                  if (window.confirm(`Remove this student from ${e.name} permanently? For one event or a date range, use a temporary change instead.`)) removePermanent(e.id);
+                }}
+              >
                 <UserMinus size={14} /> Remove
               </button>
             </div>

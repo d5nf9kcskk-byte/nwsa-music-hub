@@ -50,9 +50,16 @@ function buildIcs(event: CalendarEvent, ensembleName?: string): string {
   const summary = event.title || (ensembleName ? `${ensembleName} — ${event.type}` : event.type);
   const location = [event.location, event.venueAddress].filter(Boolean).join(', ');
 
+  // Concerts with a call time start the calendar entry AT call time — that is
+  // when performers must arrive; a downbeat-time alert fires too late.
+  const arriveBy = event.type === 'Concert' && event.callTime ? event.callTime : event.startTime;
+
   const descParts: string[] = [];
   if (event.changeNote) descParts.push(`⚠ Changed: ${event.changeNote}`);
   if (event.callTime) descParts.push(`Call time: ${formatTime(event.callTime)}`);
+  if (event.type === 'Concert' && event.callTime && event.startTime) {
+    descParts.push(`Concert starts: ${formatTime(event.startTime)}`);
+  }
   if (event.dress) descParts.push(`Dress: ${event.dress}`);
   if (event.pickupTime) descParts.push(`Pickup: ${formatTime(event.pickupTime)}`);
   if (event.notes) descParts.push(event.notes);
@@ -68,13 +75,13 @@ function buildIcs(event: CalendarEvent, ensembleName?: string): string {
     `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`,
   ];
 
-  if (event.startTime) {
-    lines.push(`DTSTART:${utcStamp(event.date, event.startTime)}`);
+  if (arriveBy) {
+    lines.push(`DTSTART:${utcStamp(event.date, arriveBy)}`);
     if (event.endTime) {
       lines.push(`DTEND:${utcStamp(event.date, event.endTime)}`);
     } else {
       // No end time on record — assume one hour.
-      const [h, m] = event.startTime.split(':').map(Number);
+      const [h, m] = arriveBy.split(':').map(Number);
       const end = `${String(h + 1).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
       lines.push(`DTEND:${utcStamp(event.date, end)}`);
     }

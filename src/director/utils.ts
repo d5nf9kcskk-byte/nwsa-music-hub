@@ -50,14 +50,17 @@ export function formatTimeRange(start?: string, end?: string): string {
 
 // ── Ensemble colors ─────────────────────────────────────────────────────
 
+// Gold (#ca8a04) is reserved for concerts and violet (#7c3aed) for assignment
+// dots on the calendars — the auto palette avoids both so an ensemble's dots
+// can never be mistaken for either.
 const PALETTE = [
   '#2563eb', // blue
   '#16a34a', // green
-  '#9333ea', // purple
+  '#0f766e', // teal
   '#ea580c', // orange
   '#0891b2', // cyan
   '#db2777', // pink
-  '#ca8a04', // gold
+  '#65a30d', // olive
   '#dc2626', // red
 ];
 
@@ -85,19 +88,50 @@ export const EVENT_TYPE_ICON: Record<EventType, string> = {
 // ── Repertoire helpers ─────────────────────────────────────────────────
 
 /**
- * Find the part link matching a student's instrument. Matches case-insensitively
- * in either direction so "Violin" matches "Violin I" and "Trumpet in B♭" matches
- * "Trumpet". Returns undefined when there's no per-instrument part for them.
+ * Find the part link matching a student's instrument. An exact name match wins;
+ * otherwise names may contain each other ("Trumpet in B♭" ↔ "Trumpet") — but
+ * never across DIFFERENT part numbers, so a Violin II student is never handed
+ * the Violin I part just because the names overlap.
  */
 export function findPartForInstrument(
   piece: Pick<RepertoirePiece, 'partsLinks'>,
   instrument?: string,
 ): PiecePartLink | undefined {
   if (!instrument) return undefined;
-  const instr = instrument.toLowerCase();
-  return (piece.partsLinks ?? []).find(l =>
-    l.instrument.toLowerCase().includes(instr) || instr.includes(l.instrument.toLowerCase()),
-  );
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+  const NUM: Record<string, number> = { i: 1, ii: 2, iii: 3, iv: 4, '1': 1, '2': 2, '3': 3, '4': 4 };
+  /** "violin ii" → 2, "2nd violin" → 2, "viola" → null. */
+  const partNo = (s: string): number | null => {
+    const suffix = s.match(/\b(i{1,3}|iv|[1-4])(?:st|nd|rd|th)?$/);
+    if (suffix) return NUM[suffix[1]] ?? null;
+    const prefix = s.match(/^([1-4])(?:st|nd|rd|th)?\b/);
+    return prefix ? NUM[prefix[1]] ?? null : null;
+  };
+  const baseOf = (s: string) =>
+    s.replace(/\s*\b(i{1,3}|iv|[1-4])(?:st|nd|rd|th)?$/, '').replace(/^([1-4])(?:st|nd|rd|th)?\s+/, '').trim() || s;
+
+  const instr = norm(instrument);
+  const links = piece.partsLinks ?? [];
+  const exact = links.find(l => norm(l.instrument) === instr);
+  if (exact) return exact;
+
+  const iNo = partNo(instr);
+  const iBase = baseOf(instr);
+  return links.find(l => {
+    const li = norm(l.instrument);
+    const lBase = baseOf(li);
+    if (!(lBase.includes(iBase) || iBase.includes(lBase))) return false;
+    const lNo = partNo(li);
+    return lNo === null || iNo === null || lNo === iNo;
+  });
+}
+
+/** One emoji per assignment type — shared so every list renders them alike. */
+export function assignmentEmoji(type: string): string {
+  return type === 'Playing Exam' ? '🎯'
+    : type === 'Written Test' ? '📝'
+    : type === 'Performance' ? '🎭'
+    : '📌';
 }
 
 /** Sum movement durations, falling back to the piece's overall duration. */

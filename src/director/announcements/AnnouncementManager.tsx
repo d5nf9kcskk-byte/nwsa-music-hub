@@ -4,7 +4,7 @@ import { useAnnouncements } from '../hooks/useAnnouncements';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useEnsembles } from '../hooks/useEnsembles';
-import { ensembleColor } from '../utils';
+import { ensembleColor, parseDate } from '../utils';
 import type { Announcement } from '../types';
 
 interface Props {
@@ -54,7 +54,7 @@ export function AnnouncementManager({ onClose, asTab }: Props) {
                   </div>
                   <div className="dir-ens-sub">
                     {ensembleName(a.ensembleId)}
-                    {a.expiresOn ? ` · until ${a.expiresOn}` : ''}
+                    {a.expiresOn ? ` · through ${parseDate(a.expiresOn).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
                   </div>
                 </div>
                 <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing(a); }} aria-label="Edit">
@@ -104,6 +104,8 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
   const [title, setTitle] = useState(announcement?.title ?? '');
   const [body, setBody] = useState(announcement?.body ?? '');
   const [ensembleId, setEnsembleId] = useState<string | null>(announcement?.ensembleId ?? null);
+  const [titleEs, setTitleEs] = useState(announcement?.titleEs ?? '');
+  const [bodyEs, setBodyEs] = useState(announcement?.bodyEs ?? '');
   const [pinned, setPinned] = useState(announcement?.pinned ?? false);
   const [priority, setPriority] = useState<'info' | 'important' | 'urgent'>(announcement?.priority ?? 'info');
   const [expiresOn, setExpiresOn] = useState(announcement?.expiresOn ?? '');
@@ -121,13 +123,17 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
         body: body.trim() || undefined,
         ensembleId,
         priority: priority === 'info' ? undefined : priority,
+        titleEs: titleEs.trim() || undefined,
+        bodyEs: bodyEs.trim() || undefined,
         pinned: pinned || undefined,
         expiresOn: expiresOn || undefined,
         createdAt: announcement?.createdAt ?? Date.now(),
       });
       // Urgent announcements also enter the notification relay queue (#21):
       // a scheduled Power Automate flow posts them to Teams / parent email.
-      if (priority === 'urgent' && db) {
+      // Only on the FIRST urgent save — editing a typo must not re-notify.
+      const wasUrgent = announcement?.priority === 'urgent';
+      if (priority === 'urgent' && !wasUrgent && db) {
         try {
           await addDoc(collection(db, 'notifyQueue'), {
             kind: 'urgent-announcement',
@@ -170,6 +176,13 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
           <div className="dir-field">
             <label className="dir-label">Message</label>
             <textarea className="dir-input dir-textarea" value={body} onChange={e => setBody(e.target.value)} rows={4} placeholder="Optional details…" />
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Spanish translation (optional)</label>
+            <input className="dir-input" value={titleEs} onChange={e => setTitleEs(e.target.value)} placeholder="Título en español" />
+            <textarea className="dir-input dir-textarea" style={{ marginTop: 6 }} value={bodyEs} onChange={e => setBodyEs(e.target.value)} rows={3} placeholder="Mensaje en español (opcional)" />
+            <div className="dir-field-hint">Families reading in Español see this version; posts with a translation show an ES button.</div>
           </div>
 
           <div className="dir-field">

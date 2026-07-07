@@ -95,6 +95,9 @@ export function PubEventCard({
             ? <span className="pub-ev2-start">{startLabel}</span>
             : <span className="pub-ev2-start allday">All day</span>}
           {endLabel && <span className="pub-ev2-end">– {endLabel}</span>}
+          {e.type === 'Concert' && e.callTime && (
+            <span className="pub-ev2-call">Call {formatTime(e.callTime)}</span>
+          )}
           {e.location && <span className="pub-ev2-room"><MapPin size={12} /> <LocationText room={e.location} /></span>}
         </div>
 

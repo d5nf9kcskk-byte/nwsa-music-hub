@@ -58,6 +58,21 @@
 }
 .pub-ev2-room svg { color: var(--pub-accent); flex-shrink: 0; }
 
+/* Concert call time — the time performers actually arrive by */
+.pub-ev2-call {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--pub-gold-text, #7a5c00);
+  background: #fdf6e3;
+  border: 1px solid #e5d5a3;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
 /* Title demoted below the time (chip already carries type identity) */
 .pub-ev2 .pub-ev2-title {
   margin-top: 5px;
