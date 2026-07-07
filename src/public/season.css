@@ -8,7 +8,7 @@
 .pub-season-print {
   display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
   padding: 7px 12px; border: 1px solid var(--pub-border); border-radius: 9px;
-  background: var(--pub-surface); font-size: 12.5px; font-weight: 700;
+  background: var(--pub-surface); font-size: 13px; font-weight: 700;
   color: var(--pub-accent); cursor: pointer; white-space: nowrap; font-family: inherit;
 }
 .pub-season-print:active { background: var(--pub-accent-soft); }
@@ -36,27 +36,27 @@
   width: 52px; padding: 5px 0; border-radius: 10px;
   background: var(--pub-accent-soft); color: var(--pub-accent);
 }
-.pub-season-dow { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+.pub-season-dow { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
 .pub-season-day { font-size: 21px; font-weight: 800; line-height: 1.1; }
-.pub-season-mon { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.pub-season-mon { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
 
 .pub-season-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
-.pub-season-title { font-size: 14.5px; font-weight: 800; line-height: 1.3; }
+.pub-season-title { font-size: 14px; font-weight: 800; line-height: 1.3; }
 
 .pub-season-tags { display: flex; flex-wrap: wrap; gap: 5px; }
 .pub-season-tag {
-  font-size: 10.5px; font-weight: 700; color: #fff;
+  font-size: 11px; font-weight: 700; color: #fff;
   padding: 2px 7px; border-radius: 8px; white-space: nowrap;
 }
 
 .pub-season-meta {
   display: flex; flex-wrap: wrap; gap: 4px 12px;
-  font-size: 12.5px; color: var(--pub-muted);
+  font-size: 13px; color: var(--pub-muted);
 }
 .pub-season-meta > span { display: inline-flex; align-items: center; gap: 4px; }
 
 .pub-season-cancelled-tag {
-  margin-left: 7px; font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+  margin-left: 7px; font-size: 11px; font-weight: 800; text-transform: uppercase;
   color: #b91c1c; background: #fee2e2; padding: 2px 7px; border-radius: 8px;
   vertical-align: 2px;
 }

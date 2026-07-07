@@ -14,7 +14,7 @@ import { SubSheet } from '../today/SubSheet';
 import { seedCalendar, seedSchoolCalendar } from '../seedCalendar';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
 import {
-  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, assignmentEmoji,
+  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR,
 } from '../utils';
 import type { CalendarEvent } from '../types';
 import { Linkify } from '../components/Linkify';
@@ -170,7 +170,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   }
 
   function eventColor(e: CalendarEvent) {
-    if (e.type === 'Concert') return '#ca8a04';
+    if (e.type === 'Concert') return CONCERT_COLOR;
     return ensembleColor(ensembleMap[e.ensembleIds[0]]);
   }
 
@@ -383,7 +383,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
                           <span key={e.id} className="dir-cal-dot" style={{ background: eventColor(e) }} />
                         ))}
                         {(assignByDate[dateStr] ?? []).slice(0, 2).map(a => (
-                          <span key={a.id} className="dir-cal-dot" style={{ background: '#7c3aed' }} />
+                          <span key={a.id} className="dir-cal-dot" style={{ background: ASSIGN_COLOR }} />
                         ))}
                       </span>
                     </button>
@@ -405,7 +405,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               <>
                 {dayEvents.map(e => <EventCard key={e.id} e={e} />)}
                 {(assignByDate[selectedDate] ?? []).map(a => (
-                  <div key={a.id} className="dir-sc-ov" style={{ borderLeftColor: '#7c3aed' }}>
+                  <div key={a.id} className="dir-sc-ov" style={{ borderLeftColor: ASSIGN_COLOR }}>
                     <div className="dir-sc-ov-body">
                       <div className="dir-sc-ov-title">{assignmentEmoji(a.type)} {a.title}</div>
                       <div className="dir-sc-ov-meta">{a.type} · due this day · grade it in Assignments</div>

@@ -1,14 +1,16 @@
 import './uiUpdates.css';
 import { useState } from 'react';
-import { Outlet, NavLink, Link } from 'react-router';
+import { Outlet, NavLink, Link, ScrollRestoration } from 'react-router';
 import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned } from 'lucide-react';
 import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
+import { StatusStrips } from '../shared/StatusStrips';
 import { SearchOverlay } from './components/SearchOverlay';
 import { TextSizeControl } from './components/TextSize';
 import { t, useLang } from '../shared/i18n';
 import { LangToggle } from './components/LangToggle';
 import { primaryStudent, onIdentityChange } from '../shared/identity';
+import { useModalA11y } from '../shared/useModalA11y';
 import { useEffect, useReducer } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { ensembleColor } from '../director/utils';
@@ -32,6 +34,7 @@ export function PublicLayout() {
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
   const { ensembles } = useEnsembles();
   const [, bump] = useReducer(x => x + 1, 0);
+  const menuRef = useModalA11y<HTMLElement>(() => setMenuOpen(false), menuOpen);
   useEffect(() => onIdentityChange(bump), []);
   const me = primaryStudent();
 
@@ -62,7 +65,7 @@ export function PublicLayout() {
 
       {menuOpen && (
         <div className="pub-menu-overlay" onClick={() => setMenuOpen(false)}>
-          <nav className="pub-menu-panel" onClick={e => e.stopPropagation()}>
+          <nav className="pub-menu-panel" role="dialog" aria-modal="true" aria-label={t('nav.menu')} tabIndex={-1} ref={menuRef} onClick={e => e.stopPropagation()}>
             <div className="pub-menu-header">
               <span className="pub-menu-title">NWSA Music</span>
               <button className="pub-menu-close" onClick={() => setMenuOpen(false)} aria-label={t('nav.closeMenu')}>
@@ -135,6 +138,7 @@ export function PublicLayout() {
       )}
 
       <main className="pub-content">
+        <StatusStrips />
         <GlobalAlerts />
         <Outlet />
       </main>
@@ -159,6 +163,8 @@ export function PublicLayout() {
       </nav>
 
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+      {/* Reset/restore window scroll on route change (deep pages otherwise open mid-scroll) */}
+      <ScrollRestoration />
     </div>
   );
 }

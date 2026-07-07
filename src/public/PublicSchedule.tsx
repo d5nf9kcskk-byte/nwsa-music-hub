@@ -5,7 +5,7 @@ import { NowNext } from './components/NowNext';
 import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
 import { PracticeCard } from './components/PracticeCard';
 import { PlannedAbsenceButton } from './components/PlannedAbsence';
-import { ChevronLeft, ChevronRight, ExternalLink, LayoutList, Grid3x3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, LayoutList, Grid3x3, CalendarX, GraduationCap } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
 import { useEvents } from '../director/hooks/useEvents';
@@ -14,9 +14,10 @@ import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnn
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { studentExpectation } from '../director/rosterResolver';
-import { todayStr, toDateStr, parseDate, ensembleColor, findPartForInstrument, studentHasAssignment, assignmentEmoji } from '../director/utils';
+import { todayStr, toDateStr, parseDate, ensembleColor, findPartForInstrument, studentHasAssignment, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
+import { SkeletonCards, EmptyState } from './components/PageHeader';
 import { SubscribeButton } from './components/SubscribeButton';
 import { getIdentity } from '../shared/identity';
 import { t, useLang } from '../shared/i18n';
@@ -131,7 +132,7 @@ export function PublicSchedule() {
     return (
       <div className="pub-page">
         <Link to="/lookup" className="pub-back"><ChevronLeft size={16} /> Search</Link>
-        <div className="pub-card pub-muted">{studentsLoading ? 'Loading…' : 'Student not found.'}</div>
+        {studentsLoading ? <SkeletonCards n={3} /> : <div className="pub-card pub-muted">Student not found.</div>}
       </div>
     );
   }
@@ -175,7 +176,7 @@ export function PublicSchedule() {
 
       {myLessonsToday.map(o => (
         <div key={o.id} className="pub-conflict-chip">
-          🎓 Lesson today{o.startTime && o.endTime ? ` ${o.startTime}–${o.endTime}` : ''} overrides{' '}
+          <GraduationCap size={14} style={{ verticalAlign: '-2px' }} /> Lesson today{o.startTime && o.endTime ? ` ${o.startTime}–${o.endTime}` : ''} overrides{' '}
           {ensembleMap[o.ensembleId]?.name ?? 'rehearsal'} — you're excused for that window only, then expected back.
         </div>
       ))}
@@ -209,7 +210,7 @@ export function PublicSchedule() {
         {t('cal.today')} · {parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
       </h2>
       {todayItems.length === 0 ? (
-        <div className="pub-card pub-muted">{t('sched.nothingToday')}</div>
+        <EmptyState icon={<CalendarX size={24} />}>{t('sched.nothingToday')}</EmptyState>
       ) : (
         <>
           {todayItems.map(({ event: e, exp }, i) => (
@@ -374,11 +375,11 @@ function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInst
                     <span
                       key={j}
                       className="pub-cal-dot"
-                      style={{ background: it.event.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleMap[it.exp.ensembleIds[0] ?? it.event.ensembleIds[0]]) }}
+                      style={{ background: it.event.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[it.exp.ensembleIds[0] ?? it.event.ensembleIds[0]]) }}
                     />
                   ))}
                   {(assignByDate[date] ?? []).slice(0, 2).map(a => (
-                    <span key={a.id} className="pub-cal-dot" style={{ background: '#7c3aed' }} />
+                    <span key={a.id} className="pub-cal-dot" style={{ background: ASSIGN_COLOR }} />
                   ))}
                 </span>
               </button>

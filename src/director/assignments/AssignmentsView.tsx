@@ -3,7 +3,7 @@ import { ClipboardCheck, Plus } from 'lucide-react';
 import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
-import { formatDate, todayStr, studentHasAssignment } from '../utils';
+import { formatDate, todayStr, studentHasAssignment, ASSIGN_COLOR } from '../utils';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
 import { RichTextArea } from '../components/RichTextArea';
@@ -13,7 +13,7 @@ import type { Assignment, AssignmentType, AssignmentResultStatus, Student, Ensem
 const ASSIGNMENT_TYPES: AssignmentType[] = ['Playing Exam', 'Written Test', 'Performance', 'Other'];
 
 const TYPE_COLORS: Record<AssignmentType, string> = {
-  'Playing Exam': '#7c3aed',
+  'Playing Exam': ASSIGN_COLOR,
   'Written Test': '#0891b2',
   'Performance':  '#16a34a',
   'Other':        '#64748b',

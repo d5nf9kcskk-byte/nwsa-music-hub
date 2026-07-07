@@ -6,6 +6,7 @@ import { resolveRoster } from '../rosterResolver';
 import { EVENT_TYPES } from '../utils';
 import { PiecePicker } from '../repertoire/PiecePicker';
 import { RichTextArea } from '../components/RichTextArea';
+import { useModalA11y } from '../../shared/useModalA11y';
 import type { CalendarEvent, Ensemble, EventType, EventStatus } from '../types';
 
 interface Props {
@@ -79,6 +80,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const panelRef = useModalA11y<HTMLDivElement>(onClose);
 
   // Roster preview ("who should be there") — resolved through overrides so it
   // matches the count on the schedule cards behind this form.
@@ -138,6 +140,14 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   async function handleSave() {
     if (editedElsewhere && !overrideTheirs) return; // banner asks first
     if (!canSave) return;
+    if (!form.date) {
+      setSaveError('Pick a date before saving.');
+      return;
+    }
+    if (form.startTime && form.endTime && form.endTime <= form.startTime) {
+      setSaveError('The end time is before the start time — double-check the times.');
+      return;
+    }
     setSaving(true);
     setSaveError('');
     try {
@@ -167,7 +177,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
+      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={event ? 'Edit event' : 'New event'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <span className="dir-drawer-title">{event ? 'Edit Event' : 'New Event'}</span>

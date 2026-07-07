@@ -1,7 +1,7 @@
 import { MapPin, Music, ExternalLink, ScrollText, ChevronRight, StickyNote } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
-import { parseDate, formatTime, ensembleColor, findPartForInstrument } from '../../director/utils';
+import { parseDate, formatTime, ensembleColor, findPartForInstrument, CONCERT_COLOR } from '../../director/utils';
 import { t, useLang } from '../../shared/i18n';
 import { EnsembleLink, EnsembleLinks } from './EnsembleLink';
 import { Linkify } from '../../director/components/Linkify';
@@ -44,7 +44,7 @@ export function PubEventCard({
   const navigate = useNavigate();
   const ids = ensembleIds ?? e.ensembleIds;
   const ensembleObjs = ids.map(id => ensembleMap[id]).filter(Boolean) as Ensemble[];
-  const barColor = e.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleObjs[0]);
+  const barColor = e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleObjs[0]);
   const cancelled = e.status === 'Cancelled';
 
   // Time-first: the big number is the start time (fall back to a lone end time).

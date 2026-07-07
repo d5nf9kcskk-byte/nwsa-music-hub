@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer } from 'react';
 import { Link, useLocation } from 'react-router';
+import { CheckCircle2, Siren, AlertTriangle } from 'lucide-react';
 import { useEvents } from '../../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements } from '../../director/hooks/useAnnouncements';
 import { useEnsembles } from '../../director/hooks/useEnsembles';
@@ -49,7 +50,7 @@ export function GlobalAlerts() {
     if (onHome || events.length === 0) return null;
     return (
       <div className="pub-allclear" role="status">
-        ✓ {t('alert.allClear')}
+        <CheckCircle2 size={15} style={{ verticalAlign: '-2.5px' }} /> {t('alert.allClear')}
       </div>
     );
   }
@@ -58,12 +59,12 @@ export function GlobalAlerts() {
     <div role="status" aria-live="polite">
       {urgent.map(a => (
         <Link key={a.id} to="/announcements" className="pub-urgent-banner">
-          🚨 <strong>{a.title}</strong>{a.body ? ` — ${a.body.slice(0, 90)}${a.body.length > 90 ? '…' : ''}` : ''}
+          <Siren size={15} style={{ verticalAlign: '-2.5px' }} /> <strong>{a.title}</strong>{a.body ? ` — ${a.body.slice(0, 90)}${a.body.length > 90 ? '…' : ''}` : ''}
         </Link>
       ))}
       {!onHome && problems.map(e => (
         <Link key={e.id} to={`/event/${e.id}`} className="pub-strip-alert">
-          ⚠ {e.status === 'Cancelled' ? t('alert.cancelledToday') : t('alert.changedToday')}: {e.title || ensName(e.ensembleIds)}
+          <AlertTriangle size={14} style={{ verticalAlign: '-2px' }} /> {e.status === 'Cancelled' ? t('alert.cancelledToday') : t('alert.changedToday')}: {e.title || ensName(e.ensembleIds)}
           {e.changeNote ? ` — ${e.changeNote}` : ''}
         </Link>
       ))}

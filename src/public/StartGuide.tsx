@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { GraduationCap, Users, Music2, ChevronDown, Printer, BookOpen } from 'lucide-react';
 import { LABELS } from '../shared/labels';
+import { PageHeader } from './components/PageHeader';
 
 type Audience = 'students' | 'parents' | 'directors';
 
@@ -310,12 +311,14 @@ export function StartGuide() {
 
   return (
     <div className="pub-page pub-sg">
-      <div className="pub-sg-head">
-        <h1 className="pub-h1">{LABELS.startHere}</h1>
-        <button className="pub-sg-print-btn" onClick={() => window.print()}>
-          <Printer size={14} /> Print this guide
-        </button>
-      </div>
+      <PageHeader
+        title={LABELS.startHere}
+        action={
+          <button className="pub-sg-print-btn" onClick={() => window.print()}>
+            <Printer size={14} /> Print this guide
+          </button>
+        }
+      />
       <p className="pub-sg-intro">
         New to NWSA Music? Pick who you are, then tap any question. Every answer links
         straight to the right page.

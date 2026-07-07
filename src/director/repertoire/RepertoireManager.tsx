@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Plus, Pencil, Music, Trash2 } from 'lucide-react';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useEnsembles } from '../hooks/useEnsembles';
@@ -166,6 +166,7 @@ function RepertoireForm({
   const [percussion, setPercussion] = useState(piece?.percussion ?? '');
   const [duration, setDuration] = useState(piece?.duration?.toString() ?? '');
   const [movements, setMovements] = useState<PieceMovement[]>(piece?.movements ?? []);
+  const [movementKeys, setMovementKeys] = useState<number[]>(() => (piece?.movements ?? []).map((_, i) => i));
   const [programNotes, setProgramNotes] = useState(piece?.programNotes ?? '');
   const [programNotesUrl, setProgramNotesUrl] = useState(piece?.programNotesUrl ?? '');
   const [imslpUrl, setImslpUrl] = useState(piece?.imslpUrl ?? '');
@@ -174,6 +175,8 @@ function RepertoireForm({
   const [partsSharedUrl, setPartsSharedUrl] = useState(piece?.partsSharedUrl ?? '');
   const [partsUrl, setPartsUrl] = useState(piece?.partsUrl ?? '');
   const [partsLinks, setPartsLinks] = useState<PiecePartLink[]>(piece?.partsLinks ?? []);
+  const [partKeys, setPartKeys] = useState<number[]>(() => (piece?.partsLinks ?? []).map((_, i) => i + 1000));
+  const rowSeq = useRef(2000);
   const [notes, setNotes] = useState(piece?.notes ?? '');
   const [eventIds, setEventIds] = useState<string[]>(piece?.eventIds ?? []);
   const [saving, setSaving] = useState(false);
@@ -197,6 +200,7 @@ function RepertoireForm({
   // Movements
   function addMovement() {
     setMovements(ms => [...ms, { title: '' }]);
+    setMovementKeys(ks => [...ks, rowSeq.current++]);
   }
   function updateMovement(i: number, field: 'title' | 'duration', val: string) {
     setMovements(ms => ms.map((m, idx) =>
@@ -207,17 +211,20 @@ function RepertoireForm({
   }
   function removeMovement(i: number) {
     setMovements(ms => ms.filter((_, idx) => idx !== i));
+    setMovementKeys(ks => ks.filter((_, idx) => idx !== i));
   }
 
   // Per-instrument parts
   function addPartLink() {
     setPartsLinks(ls => [...ls, { instrument: '', url: '' }]);
+    setPartKeys(ks => [...ks, rowSeq.current++]);
   }
   function updatePartLink(i: number, field: 'instrument' | 'url', val: string) {
     setPartsLinks(ls => ls.map((l, idx) => idx === i ? { ...l, [field]: val } : l));
   }
   function removePartLink(i: number) {
     setPartsLinks(ls => ls.filter((_, idx) => idx !== i));
+    setPartKeys(ks => ks.filter((_, idx) => idx !== i));
   }
 
   function buildData(): Omit<RepertoirePiece, 'id'> {
@@ -372,7 +379,7 @@ function RepertoireForm({
             ) : (
               <div className="dir-movements-list">
                 {movements.map((m, i) => (
-                  <div key={i} className="dir-movement-row">
+                  <div key={movementKeys[i] ?? i} className="dir-movement-row">
                     <span className="dir-movement-grip">{i + 1}.</span>
                     <input
                       className="dir-input dir-movement-title"
@@ -453,7 +460,7 @@ function RepertoireForm({
             ) : (
               <div className="dir-parts-list">
                 {partsLinks.map((l, i) => (
-                  <div key={i} className="dir-part-row">
+                  <div key={partKeys[i] ?? i} className="dir-part-row">
                     <input
                       className="dir-input dir-part-instr"
                       placeholder="Instrument e.g. Violin I"

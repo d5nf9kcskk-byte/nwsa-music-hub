@@ -286,6 +286,7 @@ function RollPeriod({ date, period, ensemble, onBack }: {
 
   return (
     <div>
+      <div className="dir-roll-sticky-top">
       <div className="dir-sc-panel-head">
         <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
         <div className="dir-sc-student" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -301,6 +302,7 @@ function RollPeriod({ date, period, ensemble, onBack }: {
         <strong>{resolved.length}</strong> students ·{' '}
         {exceptionCount === 0 ? 'All present' : <><strong>{exceptionCount}</strong> exception{exceptionCount !== 1 ? 's' : ''}</>}
         {lessonCount > 0 && <> · <strong>{lessonCount}</strong> at lessons</>}
+      </div>
       </div>
 
       {toggleError && (
@@ -371,7 +373,7 @@ function RollPeriod({ date, period, ensemble, onBack }: {
       </div>
       )}
 
-      <div style={{ padding: '8px 16px calc(20px + env(safe-area-inset-bottom))' }}>
+      <div className="dir-roll-sticky-bottom" style={{ padding: '8px 16px calc(8px + env(safe-area-inset-bottom))' }}>
         <button
           className="dir-btn dir-btn-primary"
           style={{ width: '100%' }}

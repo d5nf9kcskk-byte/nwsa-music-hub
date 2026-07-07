@@ -20,6 +20,7 @@ interface Props {
 
 export function AuthGate({ children }: Props) {
   const [user, setUser] = useState<User | null | 'loading'>('loading');
+  const [signInError, setSignInError] = useState('');
 
   useEffect(() => {
     if (!auth) { setUser(null); return; }
@@ -28,8 +29,19 @@ export function AuthGate({ children }: Props) {
 
   async function signIn() {
     if (!auth) return;
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    setSignInError('');
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch (e) {
+      // A dismissed popup is not an error worth shouting about.
+      const code = (e as { code?: string }).code ?? '';
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+      setSignInError(
+        code === 'auth/popup-blocked'
+          ? 'Your browser blocked the sign-in popup — allow popups for this site and try again.'
+          : 'Sign-in didn\u2019t complete — check your connection and try again.',
+      );
+    }
   }
 
   async function handleSignOut() {
@@ -81,6 +93,7 @@ export function AuthGate({ children }: Props) {
           </svg>
           Sign in with Google
         </button>
+        {signInError && <p style={{ color: '#b91c1c', fontSize: 14, maxWidth: 340 }}>{signInError}</p>}
       </div>
     );
   }

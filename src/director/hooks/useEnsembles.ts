@@ -4,6 +4,7 @@ import {
   query, orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { noteLoadError } from '../../shared/appStatus';
 import type { Ensemble } from '../types';
 
 export function useEnsembles() {
@@ -16,7 +17,7 @@ export function useEnsembles() {
     return onSnapshot(q, snap => {
       setEnsembles(snap.docs.map(d => ({ id: d.id, ...d.data() } as Ensemble)));
       setLoading(false);
-    }, () => setLoading(false));
+    }, () => { noteLoadError(); setLoading(false); });
   }, []);
 
   async function addEnsemble(data: Omit<Ensemble, 'id'>) {

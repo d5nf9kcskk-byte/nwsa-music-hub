@@ -8,7 +8,7 @@
 .pub-nownext-tag {
   flex-shrink: 0; padding: 3px 9px; border-radius: 8px;
   background: var(--pub-accent); color: #fff;
-  font-size: 10.5px; font-weight: 900; letter-spacing: 0.06em;
+  font-size: 11px; font-weight: 900; letter-spacing: 0.06em;
 }
 .pub-nownext.now .pub-nownext-tag { background: #10b981; }
 .pub-nownext-body { font-size: 14px; line-height: 1.45; min-width: 0; }

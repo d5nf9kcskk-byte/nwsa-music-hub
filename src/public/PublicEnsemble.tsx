@@ -1,6 +1,6 @@
 import { useMemo, useRef, useEffect } from 'react';
 import { useParams, useLocation, Link } from 'react-router';
-import { ChevronLeft, CalendarDays } from 'lucide-react';
+import { ChevronLeft, CalendarDays, Armchair } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
 import { useEvents } from '../director/hooks/useEvents';
@@ -168,7 +168,7 @@ function SeatingSection({ ensembleId, studentName, pieceTitle }: {
   const ordered = [...charts].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
   return (
     <div>
-      <h2 className="pub-section-title">🪑 Seating</h2>
+      <h2 className="pub-section-title"><Armchair size={15} style={{ verticalAlign: '-2px' }} /> Seating</h2>
       {ordered.map((c, ci) => (
         <div key={c.id} className="pub-card pub-seat-card">
           <div className="pub-seat-title">

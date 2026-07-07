@@ -1,9 +1,9 @@
 import type { Ensemble, EventType } from '../../director/types';
-import { ensembleColor } from '../../director/utils';
+import { ensembleColor, CONCERT_COLOR } from '../../director/utils';
 import './eventChip.css';
 
 /** Gold is reserved exclusively for concerts, everywhere on the site (#31). */
-const CONCERT_GOLD = '#ca8a04';
+const CONCERT_GOLD = CONCERT_COLOR;
 
 /**
  * 2–3 letter monogram from an ensemble name's initials:

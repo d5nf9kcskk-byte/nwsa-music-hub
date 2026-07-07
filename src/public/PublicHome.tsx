@@ -1,14 +1,15 @@
 import { useMemo, useState, useEffect, useReducer } from 'react';
 import { Link } from 'react-router';
-import { CalendarDays, UserSearch, Megaphone, Music, ChevronRight, Ticket, HelpCircle } from 'lucide-react';
+import { CalendarDays, UserSearch, Megaphone, Music, ChevronRight, Ticket, HelpCircle, Music2, AlertTriangle } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, addDays, assignmentEmoji } from '../director/utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, addDays, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
+import { SkeletonCards, EmptyState } from './components/PageHeader';
 import { getIdentity, onIdentityChange } from '../shared/identity';
 import { t, useLang } from '../shared/i18n';
 import type { CalendarEvent } from '../director/types';
@@ -67,7 +68,7 @@ export function PublicHome() {
     return e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(', ') || e.type;
   }
   function color(e: CalendarEvent) {
-    return e.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleMap[e.ensembleIds[0]]);
+    return e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]);
   }
 
   const orderedEnsembles = [...ensembles].sort((a, b) => a.order - b.order);
@@ -76,13 +77,13 @@ export function PublicHome() {
     <div className="pub-page">
       <div className="pub-hero pub-hero-fancy">
         <div className="pub-hero-date">{parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-        <h1>🎶 {t('home.todayAt')}</h1>
+        <h1><Music2 size={22} style={{ verticalAlign: '-3px' }} /> {t('home.todayAt')}</h1>
       </div>
 
       {/* Schedule alerts: cancellations, double blocks, rotations, moves */}
       {alerts.length > 0 && (
         <div className="pub-alert-banner">
-          <div className="pub-alert-title">⚠ Schedule change today</div>
+          <div className="pub-alert-title"><AlertTriangle size={15} style={{ verticalAlign: '-2px' }} /> Schedule change today</div>
           {alerts.map(e => (
             <Link key={e.id} to={`/event/${e.id}`} className="pub-alert-row">
               <strong>{label(e)}</strong>
@@ -97,9 +98,9 @@ export function PublicHome() {
       <PubAnnouncements items={homeAnnouncements} ensembleMap={ensembleMap} />
 
       {loading ? (
-        <div className="pub-muted">Loading…</div>
+        <SkeletonCards n={3} />
       ) : todayEvents.length === 0 ? (
-        <div className="pub-card pub-muted">{t('home.noEventsToday')}</div>
+        <EmptyState icon={<CalendarDays size={26} />}>{t('home.noEventsToday')}</EmptyState>
       ) : (
         todayEvents.map(e => (
           <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showNotes />
@@ -164,7 +165,7 @@ export function PublicHome() {
               <span className="pub-upcoming-date">
                 {parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
               </span>
-              <span className="pub-upcoming-dot" style={{ background: '#7c3aed' }} />
+              <span className="pub-upcoming-dot" style={{ background: ASSIGN_COLOR }} />
               <span className="pub-upcoming-label">
                 {assignmentEmoji(a.type)} {a.title}
               </span>
