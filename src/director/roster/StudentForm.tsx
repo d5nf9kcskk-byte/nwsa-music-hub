@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Student, StudentContact, Ensemble } from '../types';
+import { useModalA11y } from '../../shared/useModalA11y';
 
 export interface ContactDraft { email: string; parentEmail: string; phone: string; }
 
@@ -26,6 +27,7 @@ const BLANK: Omit<Student, 'id'> = {
 const BLANK_CONTACT: ContactDraft = { email: '', parentEmail: '', phone: '' };
 
 export function StudentForm({ student, contact, ensembles, onSave, onDelete, onClose }: Props) {
+  const panelRef = useModalA11y<HTMLDivElement>(onClose);
   const [form, setForm] = useState<Omit<Student, 'id'>>(BLANK);
   const [contactForm, setContactForm] = useState<ContactDraft>(BLANK_CONTACT);
   const [saving, setSaving] = useState(false);
@@ -91,7 +93,7 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
+      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={student ? 'Edit student' : 'New student'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <span className="dir-drawer-title">{student ? 'Edit Student' : 'Add Student'}</span>
@@ -157,17 +159,17 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
 
           <div className="dir-field">
             <label className="dir-label">Student Email</label>
-            <input className="dir-input" type="email" value={contactForm.email} onChange={e => setContact('email', e.target.value)} placeholder="optional" />
+            <input className="dir-input" type="email" inputMode="email" autoComplete="email" value={contactForm.email} onChange={e => setContact('email', e.target.value)} placeholder="optional" />
           </div>
 
           <div className="dir-field">
             <label className="dir-label">Parent Email</label>
-            <input className="dir-input" type="email" value={contactForm.parentEmail} onChange={e => setContact('parentEmail', e.target.value)} placeholder="optional" />
+            <input className="dir-input" type="email" inputMode="email" autoComplete="email" value={contactForm.parentEmail} onChange={e => setContact('parentEmail', e.target.value)} placeholder="optional" />
           </div>
 
           <div className="dir-field">
             <label className="dir-label">Phone</label>
-            <input className="dir-input" type="tel" value={contactForm.phone} onChange={e => setContact('phone', e.target.value)} placeholder="optional" />
+            <input className="dir-input" type="tel" inputMode="tel" autoComplete="tel" value={contactForm.phone} onChange={e => setContact('phone', e.target.value)} placeholder="optional" />
           </div>
 
           {student && onDelete && (

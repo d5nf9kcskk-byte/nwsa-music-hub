@@ -3,7 +3,7 @@ import { ClipboardCheck, Plus } from 'lucide-react';
 import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
-import { formatDate, todayStr, studentHasAssignment } from '../utils';
+import { formatDate, todayStr, studentHasAssignment, ASSIGN_COLOR } from '../utils';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
 import { RichTextArea } from '../components/RichTextArea';
@@ -13,7 +13,7 @@ import type { Assignment, AssignmentType, AssignmentResultStatus, Student, Ensem
 const ASSIGNMENT_TYPES: AssignmentType[] = ['Playing Exam', 'Written Test', 'Performance', 'Other'];
 
 const TYPE_COLORS: Record<AssignmentType, string> = {
-  'Playing Exam': '#7c3aed',
+  'Playing Exam': ASSIGN_COLOR,
   'Written Test': '#0891b2',
   'Performance':  '#16a34a',
   'Other':        '#64748b',
@@ -235,7 +235,7 @@ interface GradeSheetProps {
 }
 
 function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) {
-  const { resultMap, saveResult } = useAssignmentResults(assignment.id);
+  const { resultMap, saveResult, clearResult } = useAssignmentResults(assignment.id);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [gradeError, setGradeError] = useState('');
   const [sort, setSort] = useState<StudentSort>('scoreOrder');
@@ -249,11 +249,14 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
 
   async function handleStatus(studentId: string, status: AssignmentResultStatus) {
     const existing = resultMap[studentId];
-    if (existing?.status === status) return;
+    // Tapping the active grade again clears it back to Pending — same
+    // toggle-off convention as the attendance screen.
+    const clearing = existing?.status === status;
     setSavingId(studentId);
     setGradeError('');
     try {
-      await saveResult(studentId, status);
+      if (clearing) await clearResult(studentId);
+      else await saveResult(studentId, status);
     } catch (e) {
       // Without finally, a failed write would leave savingId set and disable
       // this row's buttons for the rest of the session.

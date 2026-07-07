@@ -4,6 +4,8 @@ import {
   query, where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { offerUndo } from '../writeStatus';
+import { noteLoadError } from '../../shared/appStatus';
 import { todayStr } from '../utils';
 import type { Assignment, AssignmentResult, AssignmentResultStatus } from '../types';
 
@@ -18,7 +20,7 @@ export function useAssignments() {
       list.sort((a, b) => b.dueDate.localeCompare(a.dueDate));
       setAssignments(list);
       setLoading(false);
-    }, () => setLoading(false));
+    }, () => { noteLoadError(); setLoading(false); });
   }, []);
 
   async function addAssignment(data: Omit<Assignment, 'id'>) {
@@ -33,7 +35,13 @@ export function useAssignments() {
 
   async function deleteAssignment(id: string) {
     if (!db) return;
+    const gone = assignments.find(x => x.id === id);
     await deleteDoc(doc(db, 'assignments', id));
+    if (gone) {
+      const { id: _id, ...data } = gone;
+      void _id;
+      offerUndo('assignments', id, data, `Deleted "${gone.title}" — restore?`);
+    }
   }
 
   return { assignments, loading, addAssignment, updateAssignment, deleteAssignment };
@@ -52,7 +60,7 @@ export function useAssignmentResults(assignmentId: string) {
     return onSnapshot(q, snap => {
       setResults(snap.docs.map(d => ({ id: d.id, ...d.data() } as AssignmentResult)));
       setLoading(false);
-    }, () => setLoading(false));
+    }, () => { noteLoadError(); setLoading(false); });
   }, [assignmentId]);
 
   const resultMap = Object.fromEntries(results.map(r => [r.studentId, r]));
@@ -73,7 +81,14 @@ export function useAssignmentResults(assignmentId: string) {
     }
   }
 
-  return { results, resultMap, loading, saveResult };
+  /** Remove a student's result — tapping the same grade again clears it back to Pending. */
+  async function clearResult(studentId: string) {
+    if (!db) return;
+    const existing = resultMap[studentId];
+    if (existing) await deleteDoc(doc(db, 'assignmentResults', existing.id));
+  }
+
+  return { results, resultMap, loading, saveResult, clearResult };
 }
 
 export function useStudentAssignmentResults(studentId?: string) {

@@ -1,11 +1,14 @@
 import './director.css';
 import './uiUpdates.css';
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search } from 'lucide-react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle } from 'lucide-react';
 import { AuthGate } from './components/AuthGate';
 import { DirectorSearch } from './components/DirectorSearch';
 import { WriteTray } from './components/WriteTray';
+import { useWriteBusy } from './writeStatus';
+import { useModalA11y } from '../shared/useModalA11y';
+import { StatusStrips } from '../shared/StatusStrips';
 import { AttendanceTab } from './attendance/AttendanceTab';
 import { RosterView } from './roster/RosterView';
 import { ScheduleView } from './schedule/ScheduleView';
@@ -45,25 +48,48 @@ const TAB_TITLES: Record<DirTab, string> = {
   ensembleHub:     'Ensemble',
 };
 
+const VALID_TABS: readonly DirTab[] = [
+  'today', 'roll', 'roster', 'schedule', 'scheduleChanges', 'repertoire',
+  'notes', 'assignments', 'announcements', 'ensembleHub',
+];
+
 export default function DirectorApp() {
-  const [tab, setTab] = useState<DirTab>('today');
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
-  const [intent, setIntent] = useState<DirNavOpts>({});
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { ensembles } = useEnsembles();
+  const writeBusy = useWriteBusy();
+  const menuRef = useModalA11y<HTMLElement>(() => setMenuOpen(false), menuOpen);
+
+  // Tab + intent live in the URL (/director/<tab>?ensemble=…&date=…), so the
+  // browser Back button steps through tabs and a reload keeps your place.
+  const seg = location.pathname.split('/')[2] ?? '';
+  const tab: DirTab = (VALID_TABS as readonly string[]).includes(seg) ? (seg as DirTab) : 'today';
+  const intent: DirNavOpts = {
+    ensembleId: searchParams.get('ensemble') ?? undefined,
+    date: searchParams.get('date') ?? undefined,
+    eventId: searchParams.get('event') ?? undefined,
+    studentId: searchParams.get('student') ?? undefined,
+  };
 
   function go(t: DirTab, opts?: DirNavOpts) {
-    setIntent(opts ?? {});
-    setTab(t);
+    const p = new URLSearchParams();
+    if (opts?.ensembleId) p.set('ensemble', opts.ensembleId);
+    if (opts?.date) p.set('date', opts.date);
+    if (opts?.eventId) p.set('event', opts.eventId);
+    if (opts?.studentId) p.set('student', opts.studentId);
+    const qs = p.toString();
+    navigate(`/director${t === 'today' ? '' : `/${t}`}${qs ? `?${qs}` : ''}`);
     setMenuOpen(false);
   }
 
   const hubEnsemble = ensembles.find(e => e.id === intent.ensembleId);
   const title = tab === 'ensembleHub' && hubEnsemble ? hubEnsemble.name : TAB_TITLES[tab];
   // Remount the target view when the intent changes so preselects apply cleanly.
-  const intentKey = `${intent.ensembleId ?? ''}|${intent.date ?? ''}|${intent.eventId ?? ''}`;
+  const intentKey = `${intent.ensembleId ?? ''}|${intent.date ?? ''}|${intent.eventId ?? ''}|${intent.studentId ?? ''}`;
 
   return (
     <AuthGate>
@@ -80,6 +106,11 @@ export default function DirectorApp() {
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {writeBusy !== 'idle' && (
+                <span className={`dir-save-cue ${writeBusy}`} role="status">
+                  {writeBusy === 'saving' ? 'Saving…' : '✓ Saved'}
+                </span>
+              )}
               <button className="dir-hamburger" onClick={() => setSearchOpen(true)} aria-label="Search">
                 <Search size={22} />
               </button>
@@ -90,9 +121,10 @@ export default function DirectorApp() {
           </header>
 
           <main className="dir-content">
+            <StatusStrips />
             {tab === 'today'           && <TodayView onNavigate={go} />}
             {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} />}
-            {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} />}
+            {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} />}
             {tab === 'schedule'        && (
               <ScheduleView
                 key={intentKey}
@@ -116,12 +148,13 @@ export default function DirectorApp() {
           <DirectorSearch
             open={searchOpen}
             onClose={() => setSearchOpen(false)}
-            onOpenStudent={id => { setSearchOpen(false); go('roster', { ensembleId: undefined }); void id; }}
+            onOpenStudent={id => { setSearchOpen(false); go('roster', { studentId: id }); }}
+            onNavigate={go}
           />
 
           {menuOpen && (
             <div className="dir-menu-overlay" onClick={() => setMenuOpen(false)}>
-              <nav className="dir-menu-panel" onClick={e => e.stopPropagation()}>
+              <nav className="dir-menu-panel" role="dialog" aria-modal="true" aria-label="Menu" tabIndex={-1} ref={menuRef} onClick={e => e.stopPropagation()}>
                 <div className="dir-menu-header">
                   {user.photoURL && <img className="dir-avatar" src={user.photoURL} alt={user.displayName ?? 'User'} referrerPolicy="no-referrer" />}
                   <span className="dir-menu-title">{user.displayName ?? 'NWSA Music'}</span>
@@ -168,6 +201,9 @@ export default function DirectorApp() {
 
                 <button className="dir-menu-item" onClick={() => navigate('/')}>
                   <ExternalLink size={19} /> View public site
+                </button>
+                <button className="dir-menu-item" onClick={() => navigate('/start?staff=1')}>
+                  <HelpCircle size={19} /> Start guide (all audiences)
                 </button>
 
                 <div className="dir-menu-divider" />

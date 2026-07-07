@@ -53,6 +53,41 @@ export function reportWriteError(label: string, retry?: () => Promise<void>) {
   emit();
 }
 
+/* ── In-flight write counter: drives the header "Saving… / ✓ Saved" cue ── */
+let inFlight = 0;
+let savedFlashUntil = 0;
+const busyListeners = new Set<() => void>();
+function emitBusy() { busyListeners.forEach(l => l()); }
+
+/**
+ * Track a mutation promise: shows "Saving…" while pending, flashes "Saved",
+ * and reports a retryable failure to the tray if it rejects.
+ */
+export function trackWrite<T>(label: string, run: () => Promise<T>): Promise<T | undefined> {
+  inFlight++;
+  emitBusy();
+  return run().then(v => {
+    savedFlashUntil = Date.now() + 1500;
+    return v;
+  }).catch(() => {
+    reportWriteError(`${label} failed to save`, async () => { await trackWrite(label, run); });
+    return undefined;
+  }).finally(() => {
+    inFlight--;
+    emitBusy();
+    setTimeout(emitBusy, 1600); // let the "Saved" flash expire
+  });
+}
+
+export type WriteBusyState = 'saving' | 'saved' | 'idle';
+export function useWriteBusy(): WriteBusyState {
+  return useSyncExternalStore(
+    l => { busyListeners.add(l); return () => busyListeners.delete(l); },
+    () => (inFlight > 0 ? 'saving' : Date.now() < savedFlashUntil ? 'saved' : 'idle'),
+    () => 'idle' as const,
+  );
+}
+
 export function useTray(): TrayItem[] {
   return useSyncExternalStore(
     l => { listeners.add(l); return () => listeners.delete(l); },

@@ -4,6 +4,7 @@ import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useEvents } from '../director/hooks/useEvents';
 import { ensembleColor } from '../director/utils';
 import { PubRepertoire } from './components/PubRepertoire';
+import { primaryStudent } from '../shared/identity';
 
 export function PublicRepertoire() {
   const { ensembles } = useEnsembles();
@@ -52,7 +53,7 @@ export function PublicRepertoire() {
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: ensembleColor(ensemble), display: 'inline-block', flexShrink: 0 }} />
               {ensemble.name}
             </h2>
-            <PubRepertoire pieces={piecesByEnsemble[ensemble.id]} eventsById={eventsById} />
+            <PubRepertoire pieces={piecesByEnsemble[ensemble.id]} eventsById={eventsById} studentInstrument={primaryStudent()?.instrument} />
           </div>
         ))
       )}

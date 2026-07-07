@@ -520,3 +520,51 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
   background: #fdf6e3; border: 1.5px solid #f0d492; border-left: 6px solid #d97706;
   border-radius: 10px; font-size: 12.5px; color: #92600a; line-height: 1.5;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Polish pass: press feedback, sticky roll chrome, micro-interactions
+═══════════════════════════════════════════════════════════════════ */
+
+/* Consistent press feedback on every tappable director surface */
+.dir-today-card, .dir-quick-btn, .dir-up-row, .dir-menu-item, .dir-segment-btn,
+.dir-ens-row, .dir-tool-btn, .dir-check-jump, .dir-tab, .dir-btn {
+  transition: background-color 0.12s ease, border-color 0.12s ease,
+              transform 0.12s ease, box-shadow 0.12s ease;
+}
+.dir-quick-btn:active, .dir-up-row:active, .dir-segment-btn:active,
+.dir-tool-btn:active, .dir-check-jump:active, .dir-tab:active { transform: scale(0.97); }
+@media (hover: hover) {
+  .dir-quick-btn:hover, .dir-tool-btn:hover, .dir-tab:not(.active):hover,
+  .dir-menu-item:hover, .dir-up-row:hover, .dir-ens-row:hover { border-color: var(--dir-blue); background: var(--dir-surface-2); }
+}
+
+/* Sticky roll-call chrome: the count stays visible, Finish stays reachable */
+.dir-roll-sticky-top {
+  position: sticky; top: 0; z-index: 30;
+  background: var(--dir-bg);
+  padding-top: 4px; margin-top: -4px;
+  box-shadow: 0 4px 8px -6px rgba(0, 0, 0, 0.25);
+}
+.dir-roll-sticky-bottom {
+  position: sticky; bottom: 0; z-index: 30;
+  background: linear-gradient(to top, var(--dir-bg) 70%, transparent);
+  padding: 10px 0 calc(8px + env(safe-area-inset-bottom));
+}
+
+/* Attendance badge pop — sell the tap */
+@keyframes dir-badge-pop { 0% { transform: scale(0.6); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.dir-status-badge { animation: dir-badge-pop 0.18s ease-out; }
+
+/* Scroll containment */
+.dir-content, .dir-menu-panel, .dir-search-results { overscroll-behavior: contain; }
+
+/* Keep the FAB clear of the write tray's toast strip */
+.dir-fab { z-index: 120; }
+
+/* Header save cue driven by the in-flight write counter */
+.dir-save-cue {
+  font-size: 12px; font-weight: 700; color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.16); border-radius: 999px; padding: 4px 10px;
+  white-space: nowrap;
+}
+.dir-save-cue.saved { background: rgba(74, 222, 128, 0.25); }

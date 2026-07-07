@@ -15,7 +15,7 @@ import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
 import type { Student } from '../types';
 
-export function RosterView({ initialEnsembleId = '' }: { initialEnsembleId?: string }) {
+export function RosterView({ initialEnsembleId = '', initialStudentId }: { initialEnsembleId?: string; initialStudentId?: string }) {
   const { ensembles, loading: ensemblesLoading } = useEnsembles();
   const { students, loading: studentsLoading, addStudent, updateStudent, deleteStudent } = useStudents();
   const { records } = useAllAttendance();
@@ -28,6 +28,15 @@ export function RosterView({ initialEnsembleId = '' }: { initialEnsembleId?: str
   }, [records]);
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null | 'new'>(null);
+
+  // Deep-link from search: open the student's profile once the roster loads
+  // (React's adjust-state-during-render pattern, guarded by the consumed id).
+  const [consumedStudentId, setConsumedStudentId] = useState<string | null>(null);
+  if (initialStudentId && consumedStudentId !== initialStudentId && students.length > 0) {
+    setConsumedStudentId(initialStudentId);
+    const target = students.find(x => x.id === initialStudentId);
+    if (target) setViewingStudent(target);
+  }
   const [search, setSearch] = useState('');
   const [filterEnsembleId, setFilterEnsembleId] = useState(initialEnsembleId);
   const [sort, setSort] = useState<StudentSort>('lastName');

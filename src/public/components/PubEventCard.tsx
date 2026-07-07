@@ -1,7 +1,8 @@
 import { MapPin, Music, ExternalLink, ScrollText, ChevronRight, StickyNote } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
-import { parseDate, formatTime, ensembleColor, findPartForInstrument } from '../../director/utils';
+import { parseDate, formatTime, ensembleColor, findPartForInstrument, CONCERT_COLOR } from '../../director/utils';
+import { t, useLang } from '../../shared/i18n';
 import { EnsembleLink, EnsembleLinks } from './EnsembleLink';
 import { Linkify } from '../../director/components/Linkify';
 import { EventChip } from './EventChip';
@@ -39,10 +40,11 @@ interface Props {
 export function PubEventCard({
   event: e, ensembleMap, showDate, showNotes, isSub, attendanceOnly, ensembleIds, piecesById, studentInstrument, detailLink = true,
 }: Props) {
+  useLang(); // tags/labels re-render on EN/ES switch
   const navigate = useNavigate();
   const ids = ensembleIds ?? e.ensembleIds;
   const ensembleObjs = ids.map(id => ensembleMap[id]).filter(Boolean) as Ensemble[];
-  const barColor = e.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleObjs[0]);
+  const barColor = e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleObjs[0]);
   const cancelled = e.status === 'Cancelled';
 
   // Time-first: the big number is the start time (fall back to a lone end time).
@@ -80,12 +82,12 @@ export function PubEventCard({
         {/* Identity row: ensemble+type chip plus status tags */}
         <div className="pub-ev2-chiprow">
           <EventChip ensemble={ensembleObjs[0]} type={e.type} />
-          {isSub && <span className="pub-sub-tag">Sub</span>}
-          {attendanceOnly && <span className="pub-attend-tag">Attendance required</span>}
-          {cancelled && <span className="pub-cancelled-tag">Cancelled</span>}
-          {!cancelled && e.changeNote && <span className="pub-changed-tag">Changed</span>}
+          {isSub && <span className="pub-sub-tag">{t('card.sub')}</span>}
+          {attendanceOnly && <span className="pub-attend-tag">{t('card.attendanceRequired')}</span>}
+          {cancelled && <span className="pub-cancelled-tag">{t('card.cancelled')}</span>}
+          {!cancelled && e.changeNote && <span className="pub-changed-tag">{t('card.changed')}</span>}
           {!cancelled && !e.changeNote && e.updatedAt && Date.now() - e.updatedAt < 5 * 86400_000 && (
-            <span className="pub-changed-tag" title={e.changeLog ?? 'Recently updated'}>Updated</span>
+            <span className="pub-changed-tag" title={e.changeLog ?? 'Recently updated'}>{t('card.updated')}</span>
           )}
         </div>
 
@@ -93,8 +95,11 @@ export function PubEventCard({
         <div className="pub-ev2-timerow">
           {startLabel
             ? <span className="pub-ev2-start">{startLabel}</span>
-            : <span className="pub-ev2-start allday">All day</span>}
+            : <span className="pub-ev2-start allday">{t('card.allDay')}</span>}
           {endLabel && <span className="pub-ev2-end">– {endLabel}</span>}
+          {e.type === 'Concert' && e.callTime && (
+            <span className="pub-ev2-call">Call {formatTime(e.callTime)}</span>
+          )}
           {e.location && <span className="pub-ev2-room"><MapPin size={12} /> <LocationText room={e.location} /></span>}
         </div>
 
@@ -143,7 +148,7 @@ export function PubEventCard({
                   </Link>
                   {myPart && (
                     <a className="pub-event-mypart" href={myPart.url} target="_blank" rel="noreferrer">
-                      My part <ExternalLink size={10} />
+                      {t('card.myPart')} <ExternalLink size={10} />
                     </a>
                   )}
                 </div>
@@ -151,7 +156,7 @@ export function PubEventCard({
             })}
             {e.type === 'Concert' && (
               <Link to={`/program/${e.id}`} className="pub-event-program-link">
-                <ScrollText size={12} /> View concert program
+                <ScrollText size={12} /> {t('card.viewProgram')}
               </Link>
             )}
           </div>
@@ -162,7 +167,7 @@ export function PubEventCard({
             {showAddToCal && <AddToCalendarButton event={e} ensembleName={ensembleObjs[0]?.name} />}
             {detailLink && (
               <Link to={`/event/${e.id}`} className="pub-event-detail-link">
-                Details <ChevronRight size={13} />
+                {t('card.details')} <ChevronRight size={13} />
               </Link>
             )}
           </div>

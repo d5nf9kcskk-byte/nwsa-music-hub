@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
-import { useParams, Link } from 'react-router';
-import { ChevronLeft, CalendarPlus, MapPin, ScrollText } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router';
+import { ChevronLeft, CalendarPlus, MapPin, ScrollText, XCircle, AlertTriangle, Music } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { parseDate, todayStr, formatTime } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
-import { linkify } from '../director/components/Linkify';
+import { NotesText } from './components/NotesText';
+import { SkeletonCards } from './components/PageHeader';
+import { t, useLang } from '../shared/i18n';
 import type { CalendarEvent } from '../director/types';
 import './pubDaySheet.css';
 
@@ -16,7 +18,15 @@ import './pubDaySheet.css';
  * parts), student-facing notes, and any cancellation / schedule change.
  */
 export function PublicEvent() {
+  useLang();
   const { id } = useParams();
+  const navigate = useNavigate();
+  // Go back to wherever the user came from (Home, My Schedule, Calendar…);
+  // fall back to the calendar on a cold deep-link.
+  const goBack = () => {
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+    else navigate('/calendar');
+  };
   const { events, loading } = useEvents();
   const { ensembles } = useEnsembles();
   const { pieces } = useRepertoire();
@@ -25,11 +35,11 @@ export function PublicEvent() {
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
   const event = events.find(e => e.id === id);
 
-  if (loading && !event) return <div className="pub-page"><div className="pub-muted">Loading…</div></div>;
+  if (loading && !event) return <div className="pub-page"><SkeletonCards n={2} /></div>;
   if (!event) {
     return (
       <div className="pub-page">
-        <Link to="/calendar" className="pub-back-link"><ChevronLeft size={16} /> Calendar</Link>
+        <button onClick={goBack} className="pub-back-link"><ChevronLeft size={16} /> {t('event.back')}</button>
         <div className="pub-card pub-muted">This event isn't on the calendar anymore.</div>
       </div>
     );
@@ -38,25 +48,29 @@ export function PublicEvent() {
   const dateLabel = parseDate(event.date).toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   });
+  const heroTitle = event.title
+    || event.ensembleIds.map(eid => ensembleMap[eid]?.name).filter(Boolean).join(' + ')
+    || event.type;
   const isToday = event.date === todayStr();
 
   return (
     <div className="pub-page">
-      <Link to="/calendar" className="pub-back-link"><ChevronLeft size={16} /> Calendar</Link>
+      <button onClick={goBack} className="pub-back-link"><ChevronLeft size={16} /> {t('event.back')}</button>
 
       <div className="pub-hero">
+        <h1 className="pub-h1" style={{ marginBottom: 2 }}>{heroTitle}</h1>
         <div className="pub-hero-date">{dateLabel}{isToday ? ' — today' : ''}</div>
       </div>
 
       {event.status === 'Cancelled' && (
         <div className="pub-alert-banner">
-          ❌ This {event.type.toLowerCase()} is <strong>cancelled</strong>.
+          <XCircle size={15} style={{ verticalAlign: '-2px' }} /> This {event.type.toLowerCase()} is <strong>cancelled</strong>.
           {event.changeNote ? <div className="pub-alert-note">{event.changeNote}</div> : null}
         </div>
       )}
       {event.status !== 'Cancelled' && event.changeNote && (
         <div className="pub-alert-banner changed">
-          ⚠ <strong>Schedule change:</strong>
+          <AlertTriangle size={14} style={{ verticalAlign: '-2px' }} /> <strong>{t('event.scheduleChange')}</strong>
           <div className="pub-alert-note">{event.changeNote}</div>
         </div>
       )}
@@ -78,14 +92,14 @@ export function PublicEvent() {
 
       {event.notes && (
         <>
-          <h2 className="pub-section-title">Notes & directions</h2>
-          <div className="pub-card pub-event-notes">{renderNotes(event.notes)}</div>
+          <h2 className="pub-section-title">{t('event.notesDirections')}</h2>
+          <div className="pub-card pub-event-notes"><NotesText text={event.notes} /></div>
         </>
       )}
 
       <div className="pub-subscribe-section">
         <Link to={`/calendar?ensemble=${event.ensembleIds[0] ?? ''}`} className="pub-quick-btn" style={{ maxWidth: 260, margin: '0 auto' }}>
-          <CalendarPlus size={20} /><span>See the full calendar</span>
+          <CalendarPlus size={20} /><span>{t('event.seeFullCalendar')}</span>
         </Link>
       </div>
     </div>
@@ -97,77 +111,65 @@ export function PublicEvent() {
  * day (call time, dress, venue, pickup) plus the downbeat, in one card.
  */
 function ConcertDaySheet({ event }: { event: CalendarEvent }) {
-  const hasDetails = Boolean(event.callTime || event.dress || event.venueAddress || event.pickupTime);
+  const hasDetails = Boolean(event.callTime || event.dress || event.venueAddress || event.location || event.pickupTime);
   const hasProgram = (event.pieceIds ?? []).length > 0;
 
   return (
     <div className="pub-daysheet">
-      <div className="pub-daysheet-head">🎼 Concert Day Sheet</div>
+      <div className="pub-daysheet-head"><Music size={15} style={{ verticalAlign: '-2px' }} /> {t('event.daySheet')}</div>
       {hasDetails ? (
         <div className="pub-daysheet-rows">
           {event.callTime && (
             <div className="pub-daysheet-row">
-              <span className="pub-daysheet-label">Call time</span>
+              <span className="pub-daysheet-label">{t('event.callTime')}</span>
               <span className="pub-daysheet-time">{formatTime(event.callTime)}</span>
             </div>
           )}
           {event.startTime && (
             <div className="pub-daysheet-row">
-              <span className="pub-daysheet-label">Downbeat</span>
+              <span className="pub-daysheet-label">{t('event.concertStarts')}</span>
               <span className="pub-daysheet-time">{formatTime(event.startTime)}</span>
             </div>
           )}
           {event.dress && (
             <div className="pub-daysheet-row">
-              <span className="pub-daysheet-label">Dress</span>
+              <span className="pub-daysheet-label">{t('event.dress')}</span>
               <span className="pub-daysheet-value">{event.dress}</span>
             </div>
           )}
-          {event.venueAddress && (
+          {(event.venueAddress || event.location) && (
             <div className="pub-daysheet-row">
-              <span className="pub-daysheet-label">Venue</span>
+              <span className="pub-daysheet-label">{t('event.venue')}</span>
               <span className="pub-daysheet-value">
                 {event.location && <span>{event.location}</span>}
-                <span className="pub-daysheet-addr">{event.venueAddress}</span>
+                {event.venueAddress && <span className="pub-daysheet-addr">{event.venueAddress}</span>}
                 <a
                   className="pub-daysheet-maps"
-                  href={`https://maps.google.com/?q=${encodeURIComponent(event.venueAddress)}`}
+                  href={`https://maps.google.com/?q=${encodeURIComponent(event.venueAddress || event.location || '')}`}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  <MapPin size={13} /> Open in Maps
+                  <MapPin size={13} /> {t('event.openMaps')}
                 </a>
               </span>
             </div>
           )}
           {event.pickupTime && (
             <div className="pub-daysheet-row">
-              <span className="pub-daysheet-label">Pickup</span>
+              <span className="pub-daysheet-label">{t('event.pickup')}</span>
               <span className="pub-daysheet-time">{formatTime(event.pickupTime)}</span>
             </div>
           )}
         </div>
       ) : (
-        <div className="pub-daysheet-empty">Details coming — check back soon.</div>
+        <div className="pub-daysheet-empty">{t('event.detailsComing')}</div>
       )}
       {hasProgram && (
         <Link to={`/program/${event.id}`} className="pub-daysheet-program">
-          <ScrollText size={14} /> View the printable program
+          <ScrollText size={14} /> {t('event.printableProgram')}
         </Link>
       )}
     </div>
   );
 }
 
-/** Minimal renderer for the director's markdown-ish notes: **bold**, "- " bullets, line breaks. */
-function renderNotes(text: string) {
-  const richen = (line: string) =>
-    line.split(/\*\*(.+?)\*\*/g).map((seg, j) =>
-      j % 2 === 1 ? <strong key={j}>{linkify(seg)}</strong> : <span key={j}>{linkify(seg)}</span>
-    );
-  return text.split('\n').map((line, i) =>
-    line.startsWith('- ')
-      ? <div key={i} className="pub-note-bullet">• {richen(line.slice(2))}</div>
-      : <div key={i}>{line ? richen(line) : ' '}</div>
-  );
-}

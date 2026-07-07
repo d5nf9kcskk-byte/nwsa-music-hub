@@ -74,7 +74,8 @@ export function SubSheet({ event, ensemble, onClose }: {
 
           <div className="dir-subsheet-box light">
             Mark an ✗ for anyone absent, note late arrivals, and leave this sheet on the podium
-            (or text a photo to the director). Students listed "Lesson" leave and return at the shown times.
+            (or email a photo to nwsaorchestras@gmail.com). Students listed "Lesson" leave and
+            return at the shown times. "(guest)" marks a student sitting in from another ensemble.
           </div>
 
           <table className="dir-subsheet-table">
@@ -88,7 +89,7 @@ export function SubSheet({ event, ensemble, onClose }: {
                   <td>
                     {student.name}
                     {student.preferredName ? ` “${student.preferredName}”` : ''}
-                    {isSub ? ' (sub)' : ''}
+                    {isSub ? ' (guest)' : ''}
                   </td>
                   <td>{student.instrument}</td>
                   <td className="notes">

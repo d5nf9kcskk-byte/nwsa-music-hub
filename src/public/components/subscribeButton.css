@@ -65,7 +65,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 15.5px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--pub-ink);
 }
@@ -101,7 +101,7 @@
   background: var(--pub-surface);
   color: var(--pub-muted);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -153,7 +153,7 @@
 }
 
 .pub-subw-step-text {
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.45;
   color: var(--pub-ink);
 }

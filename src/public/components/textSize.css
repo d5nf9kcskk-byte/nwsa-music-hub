@@ -1,9 +1,45 @@
+/* "Aa" text-size control (#44) — pill button + labeled drop-down menu.
+   The button matches the EN|ES pill next to it so the header controls read
+   as one family. */
+
+.pub-textsize-wrap { position: relative; flex-shrink: 0; }
+
 .pub-textsize {
-  display: inline-flex; align-items: baseline; gap: 2px;
-  min-width: 42px; height: 38px; padding: 0 10px;
-  border: none; border-radius: 9px;
-  background: rgba(255,255,255,0.15); color: #fff;
-  font-size: 15px; font-weight: 800; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 44px; min-height: 34px; padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16); color: #fff;
+  font-size: 14px; font-weight: 800; cursor: pointer; font-family: inherit;
   -webkit-tap-highlight-color: transparent;
 }
-.pub-textsize-pct { font-size: 9px; font-weight: 700; opacity: 0.85; }
+.pub-textsize:active { background: rgba(255, 255, 255, 0.28); }
+/* When a larger size is active, the pill flips solid so you can see the
+   control is "on" — and find your way back to Normal. */
+.pub-textsize.adjusted { background: #fff; color: var(--pub-accent); }
+
+.pub-textsize-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 60;
+  min-width: 190px; padding: 6px;
+  background: var(--pub-surface); border: 1px solid var(--pub-border);
+  border-radius: 12px; box-shadow: 0 8px 24px rgba(15, 40, 60, 0.18);
+}
+
+.pub-textsize-menu-title {
+  padding: 6px 10px 4px; font-size: 11px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--pub-muted);
+}
+
+.pub-textsize-opt {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 10px; border: none; border-radius: 9px; background: none;
+  color: var(--pub-ink); font-family: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer; text-align: left; -webkit-tap-highlight-color: transparent;
+}
+.pub-textsize-opt:active { background: var(--pub-accent-soft); }
+.pub-textsize-opt.active { color: var(--pub-accent); font-weight: 800; }
+
+.pub-textsize-sample {
+  width: 28px; text-align: center; font-weight: 800; flex-shrink: 0;
+}
+.pub-textsize-optlabel { flex: 1; }
+.pub-textsize-check { flex-shrink: 0; }

@@ -71,7 +71,10 @@
    printing other pages of the app is unaffected. */
 @media print {
   body:has(.dir-qrkit-overlay) * { visibility: hidden !important; }
-  .dir-qrkit, .dir-qrkit * { visibility: visible !important; }
+  /* The restore rule must out-specify the hide rule above, or the posters
+     print blank — hence the repeated body:has() prefix. */
+  body:has(.dir-qrkit-overlay) .dir-qrkit,
+  body:has(.dir-qrkit-overlay) .dir-qrkit * { visibility: visible !important; }
   .dir-qrkit-noprint { display: none !important; }
 
   .dir-qrkit-overlay {

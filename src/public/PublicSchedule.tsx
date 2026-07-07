@@ -1,11 +1,11 @@
 import { useMemo, useState, Fragment } from 'react';
 import { useParams, Link } from 'react-router';
-import { useMonthSwipe } from './useMonthSwipe';
+import { useMonthSwipe } from '../shared/useMonthSwipe';
 import { NowNext } from './components/NowNext';
 import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
 import { PracticeCard } from './components/PracticeCard';
 import { PlannedAbsenceButton } from './components/PlannedAbsence';
-import { ChevronLeft, ChevronRight, ExternalLink, LayoutList, Grid3x3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, LayoutList, Grid3x3, CalendarX, GraduationCap } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
 import { useEvents } from '../director/hooks/useEvents';
@@ -14,10 +14,13 @@ import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnn
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { studentExpectation } from '../director/rosterResolver';
-import { todayStr, toDateStr, parseDate, ensembleColor, findPartForInstrument, studentHasAssignment } from '../director/utils';
+import { todayStr, toDateStr, parseDate, ensembleColor, findPartForInstrument, studentHasAssignment, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
+import { SkeletonCards, EmptyState } from './components/PageHeader';
 import { SubscribeButton } from './components/SubscribeButton';
+import { getIdentity } from '../shared/identity';
+import { t, useLang } from '../shared/i18n';
 import type { CalendarEvent } from '../director/types';
 
 type TypeFilter = 'all' | 'rehearsals' | 'concerts' | 'events';
@@ -37,9 +40,10 @@ function matchesFilter(e: CalendarEvent, f: TypeFilter): boolean {
 }
 
 export function PublicSchedule() {
+  useLang();
   const { id = '' } = useParams();
   const { ensembles } = useEnsembles();
-  const { students } = useStudents();
+  const { students, loading: studentsLoading } = useStudents();
   const { events } = useEvents();
   const { overrides } = useRosterOverrides();
   const { announcements } = useAnnouncements();
@@ -50,6 +54,7 @@ export function PublicSchedule() {
   // student re-opens this page, so nothing stays silently hidden.
   const [filter, setFilter] = useState<TypeFilter>('all');
   const [view, setView] = useState<'list' | 'calendar'>('list');
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
 
   const student = students.find(s => s.id === id);
   const today = todayStr();
@@ -127,7 +132,7 @@ export function PublicSchedule() {
     return (
       <div className="pub-page">
         <Link to="/lookup" className="pub-back"><ChevronLeft size={16} /> Search</Link>
-        <div className="pub-card pub-muted">Student not found.</div>
+        {studentsLoading ? <SkeletonCards n={3} /> : <div className="pub-card pub-muted">Student not found.</div>}
       </div>
     );
   }
@@ -137,6 +142,17 @@ export function PublicSchedule() {
   return (
     <div className="pub-page">
       <Link to="/lookup" className="pub-back"><ChevronLeft size={16} /> Search</Link>
+
+      {/* Parent mode: quick switch between saved students (#11) */}
+      {getIdentity().students.length > 1 && (
+        <div className="pub-chips" style={{ paddingBottom: 6 }}>
+          {getIdentity().students.map(s => (
+            <Link key={s.id} to={`/student/${s.id}`} className={`pub-chip ${s.id === student.id ? 'active' : ''}`}>
+              {s.name.split(' ')[0]}
+            </Link>
+          ))}
+        </div>
+      )}
 
       <div className="pub-ens-hero">
         <h1 className="pub-h1">{student.name}</h1>
@@ -160,7 +176,7 @@ export function PublicSchedule() {
 
       {myLessonsToday.map(o => (
         <div key={o.id} className="pub-conflict-chip">
-          🎓 Lesson today{o.startTime && o.endTime ? ` ${o.startTime}–${o.endTime}` : ''} overrides{' '}
+          <GraduationCap size={14} style={{ verticalAlign: '-2px' }} /> Lesson today{o.startTime && o.endTime ? ` ${o.startTime}–${o.endTime}` : ''} overrides{' '}
           {ensembleMap[o.ensembleId]?.name ?? 'rehearsal'} — you're excused for that window only, then expected back.
         </div>
       ))}
@@ -169,10 +185,10 @@ export function PublicSchedule() {
 
       {myAssignments.length > 0 && (
         <>
-          <h2 className="pub-section-title">Your assignments &amp; exams</h2>
+          <h2 className="pub-section-title">{t('sched.yourAssignments')}</h2>
           {myAssignments.map(a => (
-            <Link key={a.id} to="/assignments" className="pub-assign-card pub-assign-link">
-              <span className="pub-assign-emoji">{a.type === 'Playing Exam' ? '🎯' : a.type === 'Written Test' ? '📝' : a.type === 'Performance' ? '🎭' : '📌'}</span>
+            <Link key={a.id} to={`/assignments?focus=${a.id}`} className="pub-assign-card pub-assign-link">
+              <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="pub-assign-title">{a.title}</div>
                 <div className="pub-assign-meta">
@@ -191,10 +207,10 @@ export function PublicSchedule() {
       )}
 
       <h2 className="pub-section-title">
-        Today · {parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+        {t('cal.today')} · {parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
       </h2>
       {todayItems.length === 0 ? (
-        <div className="pub-card pub-muted">Nothing scheduled for you today.</div>
+        <EmptyState icon={<CalendarX size={24} />}>{t('sched.nothingToday')}</EmptyState>
       ) : (
         <>
           {todayItems.map(({ event: e, exp }, i) => (
@@ -210,7 +226,7 @@ export function PublicSchedule() {
       )}
 
       <div className="pub-section-row">
-        <h2 className="pub-section-title">Your schedule</h2>
+        <h2 className="pub-section-title">{t('sched.yourSchedule')}</h2>
         <button
           className="pub-view-toggle"
           onClick={() => setView(v => v === 'list' ? 'calendar' : 'list')}
@@ -247,14 +263,21 @@ export function PublicSchedule() {
           {filter === 'all' ? 'No upcoming rehearsals or events.' : 'Nothing in this category coming up.'}
         </div>
       ) : (
-        upcomingItems.map(({ event: e, exp }) => (
-          <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showDate showNotes />
-        ))
+        <>
+          {(showAllUpcoming ? upcomingItems : upcomingItems.slice(0, 20)).map(({ event: e, exp }) => (
+            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showDate showNotes />
+          ))}
+          {!showAllUpcoming && upcomingItems.length > 20 && (
+            <button className="pub-view-toggle" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setShowAllUpcoming(true)}>
+              Show all {upcomingItems.length} upcoming
+            </button>
+          )}
+        </>
       )}
 
       {myParts.length > 0 && (
         <>
-          <h2 className="pub-section-title">Your parts</h2>
+          <h2 className="pub-section-title">{t('sched.yourParts')}</h2>
           <div className="pub-card">
             {myParts.map(({ piece, partUrl, eventTitles }) => (
               <div key={piece.id} className="pub-mypart-row">
@@ -352,8 +375,11 @@ function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInst
                     <span
                       key={j}
                       className="pub-cal-dot"
-                      style={{ background: it.event.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleMap[it.exp.ensembleIds[0] ?? it.event.ensembleIds[0]]) }}
+                      style={{ background: it.event.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[it.exp.ensembleIds[0] ?? it.event.ensembleIds[0]]) }}
                     />
+                  ))}
+                  {(assignByDate[date] ?? []).slice(0, 2).map(a => (
+                    <span key={a.id} className="pub-cal-dot" style={{ background: ASSIGN_COLOR }} />
                   ))}
                 </span>
               </button>
@@ -373,8 +399,8 @@ function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInst
             <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={studentInstrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showNotes />
           ))}
           {(assignByDate[selectedDate] ?? []).map(a => (
-            <Link key={a.id} to="/assignments" className="pub-assign-card pub-assign-link">
-              <span className="pub-assign-emoji">{a.type === 'Playing Exam' ? '🎯' : a.type === 'Written Test' ? '📝' : '📌'}</span>
+            <Link key={a.id} to={`/assignments?focus=${a.id}`} className="pub-assign-card pub-assign-link">
+              <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="pub-assign-title">{a.title}</div>
                 <div className="pub-assign-meta"><span className="pub-assign-type">{a.type}</span><span>Due this day</span></div>
