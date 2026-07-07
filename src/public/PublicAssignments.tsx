@@ -6,6 +6,7 @@ import { useAssignments } from '../director/hooks/useAssignments';
 import { useStudents } from '../director/hooks/useStudents';
 import { todayStr, parseDate, ensembleColor, assignmentEmoji } from '../director/utils';
 import { NotesText } from './components/NotesText';
+import { PageHeader, SkeletonCards, EmptyState } from './components/PageHeader';
 import { t, useLang } from '../shared/i18n';
 import type { Assignment } from '../director/types';
 
@@ -72,13 +73,15 @@ export function PublicAssignments() {
 
   return (
     <div className="pub-page">
-      <h1 className="pub-h1"><ClipboardCheck size={22} style={{ verticalAlign: '-4px' }} /> {t('nav.assignments')}</h1>
-      <p className="pub-muted">{t('assign.intro')}</p>
+      <PageHeader
+        title={<><ClipboardCheck size={22} style={{ verticalAlign: '-4px' }} /> {t('nav.assignments')}</>}
+        intro={t('assign.intro')}
+      />
 
       {loading ? (
-        <div className="pub-muted">Loading…</div>
+        <SkeletonCards n={3} />
       ) : upcoming.length === 0 ? (
-        <div className="pub-card pub-muted">{t('assign.nothingDue')}</div>
+        <EmptyState icon={<ClipboardCheck size={26} />}>{t('assign.nothingDue')}</EmptyState>
       ) : (
         <>
           {/* Soonest first, across all ensembles — the by-ensemble groups follow */}

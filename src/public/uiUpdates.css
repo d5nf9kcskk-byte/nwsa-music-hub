@@ -14,7 +14,7 @@
 
 /* ── Menu: expandable ensembles ── */
 .pub-menu-expand { width: 100%; text-align: left; border: none; background: none; cursor: pointer; font-family: inherit; }
-.pub-menu-subitem { padding-left: 40px; font-size: 14.5px; }
+.pub-menu-subitem { padding-left: 40px; font-size: 14px; }
 .pub-menu-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
 /* ── Home hero ── */
@@ -40,7 +40,7 @@
 }
 .pub-alert-row:first-of-type { border-top: none; }
 .pub-alert-row svg { margin-left: auto; color: #b91c1c; flex-shrink: 0; }
-.pub-alert-note { font-size: 13.5px; margin-top: 4px; color: #92400e; font-weight: 600; }
+.pub-alert-note { font-size: 14px; margin-top: 4px; color: #92400e; font-weight: 600; }
 
 /* ── Prominent Find My Schedule ── */
 .pub-cta-btn {
@@ -62,7 +62,7 @@
   border-left-width: 5px; border-radius: 12px;
   font-size: 14px; font-weight: 700; color: var(--pub-ink); text-decoration: none;
 }
-.pub-ens-btn.slim { justify-content: flex-start; font-size: 13.5px; padding: 11px 12px; }
+.pub-ens-btn.slim { justify-content: flex-start; font-size: 14px; padding: 11px 12px; }
 .pub-ens-btn:active { background: var(--pub-accent-soft); }
 
 /* ── Upcoming rows ── */
@@ -91,7 +91,7 @@
   margin-bottom: 10px; font-size: 14px; font-weight: 700;
   color: var(--pub-accent); text-decoration: none;
 }
-.pub-event-notes { font-size: 14.5px; line-height: 1.6; }
+.pub-event-notes { font-size: 14px; line-height: 1.6; }
 .pub-note-bullet { padding-left: 6px; }
 
 /* ── Calendar filter chips: wrap instead of sideways scrolling ── */
@@ -118,7 +118,7 @@
   display: flex; align-items: center; justify-content: center; gap: 5px;
   width: 100%; margin-top: 8px; padding: 11px;
   background: var(--pub-surface); border: 1px solid var(--pub-border);
-  border-radius: 12px; font-size: 13.5px; font-weight: 700;
+  border-radius: 12px; font-size: 14px; font-weight: 700;
   color: var(--pub-accent); cursor: pointer;
 }
 .pub-show-more:active { background: var(--pub-accent-soft); }
@@ -133,7 +133,7 @@
 .pub-view-toggle {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 7px 12px; border: 1px solid var(--pub-border); border-radius: 9px;
-  background: var(--pub-surface); font-size: 12.5px; font-weight: 700;
+  background: var(--pub-surface); font-size: 13px; font-weight: 700;
   color: var(--pub-accent); cursor: pointer; white-space: nowrap;
 }
 .pub-view-toggle:active { background: var(--pub-accent-soft); }
@@ -152,7 +152,7 @@
 
 /* Attendance-requirement callout on event pages */
 .pub-attend-card {
-  margin-top: 10px; font-size: 13.5px; line-height: 1.5;
+  margin-top: 10px; font-size: 14px; line-height: 1.5;
   background: #ede9fe; border-color: #ddd6fe; color: #4c1d95;
 }
 
@@ -163,24 +163,24 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
 .pub-assign-card {
   display: block; text-decoration: none; color: var(--pub-ink);
   background: var(--pub-surface); border: 1px solid var(--pub-border);
-  border-left: 5px solid var(--pub-purple); border-radius: var(--pub-radius);
+  border-left: 4px solid var(--pub-purple); border-radius: var(--pub-radius);
   padding: 13px 15px; margin-bottom: 10px;
 }
 .pub-assign-link { display: flex; align-items: center; gap: 10px; }
 .pub-assign-top { display: flex; align-items: flex-start; gap: 10px; }
 .pub-assign-emoji { font-size: 20px; flex-shrink: 0; line-height: 1.2; }
-.pub-assign-title { font-size: 15.5px; font-weight: 700; }
-.pub-assign-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 12.5px; color: var(--pub-muted); }
+.pub-assign-title { font-size: 16px; font-weight: 700; }
+.pub-assign-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 13px; color: var(--pub-muted); }
 .pub-assign-meta span { display: inline-flex; align-items: center; gap: 4px; }
-.pub-assign-type { font-weight: 700; text-transform: uppercase; font-size: 10.5px; background: #ede9fe; color: #6d28d9; padding: 2px 7px; border-radius: 8px; }
-.pub-assign-desc { margin-top: 8px; font-size: 13.5px; line-height: 1.5; color: var(--pub-ink); }
-.pub-assign-for { font-size: 12.5px; color: var(--pub-muted); margin: -4px 0 10px 2px; }
+.pub-assign-type { font-weight: 700; text-transform: uppercase; font-size: 11px; background: #ede9fe; color: #6d28d9; padding: 2px 7px; border-radius: 8px; }
+.pub-assign-desc { margin-top: 8px; font-size: 14px; line-height: 1.5; color: var(--pub-ink); }
+.pub-assign-for { font-size: 13px; color: var(--pub-muted); margin: -4px 0 10px 2px; }
 
 /* Seating (public) */
 .pub-seat-card { margin-bottom: 12px; }
 .pub-seat-title { font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
 .pub-seat-current {
-  font-size: 10.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
   color: #fff; background: var(--pub-accent); border-radius: 999px; padding: 2px 8px;
 }
 .pub-seat-item.me .pub-seat-name { font-weight: 800; color: var(--pub-accent); }
@@ -188,7 +188,7 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
 .pub-seat-section { margin-top: 12px; }
 .pub-seat-section-name { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--pub-accent); margin-bottom: 4px; }
 .pub-seat-list { list-style: decimal inside; margin: 0; padding: 0; }
-.pub-seat-item { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; font-size: 14.5px; }
+.pub-seat-item { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; font-size: 14px; }
 .pub-seat-name { font-weight: 600; }
 .pub-seat-note { font-size: 12px; color: var(--pub-accent); font-weight: 700; }
 
@@ -205,7 +205,7 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
   flex: 1; min-height: 52px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   border: none; background: none; cursor: pointer;
-  font-size: 10.5px; font-weight: 700; color: var(--pub-muted); text-decoration: none;
+  font-size: 11px; font-weight: 700; color: var(--pub-muted); text-decoration: none;
   -webkit-tap-highlight-color: transparent;
 }
 .pub-tabbar-btn.active { color: var(--pub-purple); }
@@ -216,7 +216,7 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
 .pub-allclear {
   display: block; margin: 10px 16px 0; padding: 8px 12px;
   background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px;
-  font-size: 12.5px; font-weight: 700; color: #15803d;
+  font-size: 13px; font-weight: 700; color: #15803d;
 }
 .pub-urgent-banner {
   display: block; margin: 10px 16px 0; padding: 12px 14px;
@@ -229,13 +229,13 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
   background: #fef2f2; border: 1.5px solid #fca5a5; border-left: 6px solid #ef4444;
   border-radius: 10px; font-size: 13px; font-weight: 700; color: #b91c1c; text-decoration: none;
 }
-.pub-announce-important { border-left: 5px solid #f59e0b !important; }
+.pub-announce-important { border-left: 4px solid #f59e0b !important; }
 
 /* Identity chip in menu (#1) */
 .pub-menu-me { background: var(--pub-accent-soft); border-radius: 10px; margin: 0 8px 4px; font-weight: 700; }
-.pub-menu-switch { font-size: 11.5px; color: var(--pub-accent); font-weight: 700; white-space: nowrap; }
+.pub-menu-switch { font-size: 12px; color: var(--pub-accent); font-weight: 700; white-space: nowrap; }
 
-.pub-announce-urgent { border-left: 5px solid #dc2626 !important; background: #fef2f2; }
+.pub-announce-urgent { border-left: 4px solid #dc2626 !important; background: #fef2f2; }
 .pub-assign-form-btn {
   display: inline-flex; align-items: center; gap: 6px;
   margin-top: 10px; padding: 10px 16px;
@@ -269,7 +269,7 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
 .pub-az-rail { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 4px; }
 .pub-az-btn {
   flex: 1 0 28px; min-height: 32px; border: 1px solid var(--pub-border); border-radius: 7px;
-  background: var(--pub-surface); font-size: 12.5px; font-weight: 800; color: var(--pub-muted);
+  background: var(--pub-surface); font-size: 13px; font-weight: 800; color: var(--pub-muted);
   cursor: pointer;
 }
 .pub-az-btn.active { background: var(--pub-purple); border-color: var(--pub-purple); color: #fff; }
@@ -300,7 +300,7 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
 /* Conflict explainer chip (#10) */
 .pub-conflict-chip {
   margin-bottom: 10px; padding: 10px 13px;
-  background: #fdf6e3; border: 1.5px solid #f0d492; border-left: 5px solid #d97706;
+  background: #fdf6e3; border: 1.5px solid #f0d492; border-left: 4px solid #d97706;
   border-radius: 10px; font-size: 13px; font-weight: 600; color: #92600a; line-height: 1.5;
 }
 
@@ -329,3 +329,141 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 .pub-assign-focus { animation: pub-assign-flash 2.2s ease-out 1; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Polish pass: dark mode, motion, hover, skeletons, empty states
+═══════════════════════════════════════════════════════════════════ */
+
+/* ── Dark mode: token overrides + the few hardcoded light surfaces ── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --pub-bg: #10151b;
+    --pub-surface: #1a212a;
+    --pub-ink: #e7ecf2;
+    --pub-text: #e7ecf2;
+    --pub-muted: #97a3b2;
+    --pub-border: #2b3441;
+    --pub-accent: #3aa8b8;
+    --pub-accent-soft: #123840;
+    --pub-gold-text: #e4c968;
+    --pub-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --pub-shadow-2: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --pub-shadow-3: 0 16px 48px rgba(0, 0, 0, 0.6);
+  }
+  .pub-app { color-scheme: dark; }
+  .pub-menu-panel { background: var(--pub-surface); }
+  .pub-announce.pinned { background: #26200f; }
+  .pub-alert-banner.changed { background: #2a2310; border-color: #6b5d1d; }
+  .pub-lang-btn.active, .pub-textsize.adjusted { background: var(--pub-ink); color: #0d3e46; }
+}
+
+/* ── Interaction feel: transitions + hover (pointer devices) + press ── */
+.pub-chip, .pub-filter-btn, .pub-view-toggle, .pub-cal-arrow, .pub-quick-btn,
+.pub-ens-btn, .pub-cta-btn, .pub-menu-item, .pub-upcoming, .pub-season-row,
+.pub-event.tappable, .pub-assign-link, .pub-saved-link, .pub-sg-q,
+.pub-tabbar-btn, .pub-icon-btn, .pub-back-link, .pub-sg-print-btn, .pub-season-print {
+  transition: background-color 0.12s ease, border-color 0.12s ease,
+              color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+@media (hover: hover) {
+  .pub-chip:not(.active):hover, .pub-filter-btn:not(.active):hover,
+  .pub-view-toggle:hover, .pub-cal-arrow:hover, .pub-icon-btn:hover,
+  .pub-menu-item:hover, .pub-sg-q:hover, .pub-sg-print-btn:hover, .pub-season-print:hover {
+    background: var(--pub-accent-soft);
+    border-color: var(--pub-accent);
+  }
+  .pub-quick-btn:hover, .pub-ens-btn:hover, .pub-upcoming:hover,
+  .pub-season-row:hover, .pub-assign-link:hover, .pub-saved-link:hover,
+  .pub-event.tappable:hover {
+    border-color: var(--pub-accent);
+    box-shadow: var(--pub-shadow-1);
+  }
+  .pub-cta-btn:hover { filter: brightness(1.06); }
+}
+.pub-cta-btn:active, .pub-quick-btn:active, .pub-ens-btn:active,
+.pub-chip:active, .pub-filter-btn:active, .pub-view-toggle:active { transform: scale(0.98); }
+
+/* ── Overlay + sheet entrances (menus/search/confirm snap-fixes) ── */
+@keyframes pub-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pub-sheet-up { from { transform: translateY(36px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@keyframes pub-slide-in-right { from { transform: translateX(32px); opacity: 0.5; } to { transform: none; opacity: 1; } }
+.pub-menu-overlay { animation: pub-fade-in 0.15s ease-out; }
+.pub-menu-panel { animation: pub-slide-in-right 0.2s ease-out; }
+.pub-confirm-overlay { animation: pub-fade-in 0.15s ease-out; }
+.pub-confirm-card { animation: pub-sheet-up 0.18s ease-out; }
+.pub-search-overlay { animation: pub-fade-in 0.15s ease-out; }
+.pub-search-panel { animation: pub-sheet-up 0.18s ease-out; }
+.pub-subw-overlay { animation: pub-fade-in 0.15s ease-out; }
+.pub-subw-sheet { animation: pub-sheet-up 0.2s ease-out; }
+.pub-textsize-menu { animation: pub-sheet-up 0.14s ease-out; }
+
+/* ── Scroll behavior: keep gestures inside their container ── */
+.pub-content, .pub-menu-panel, .pub-search-panel, .pub-subw-sheet { overscroll-behavior: contain; }
+.pub-content { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+
+/* ── Reduced motion: kill animation/transitions app-wide (both halves) ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
+}
+
+/* ── Skeleton loading (shimmer cards while Firestore answers) ── */
+.pub-skeleton-card {
+  height: 92px;
+  border-radius: var(--pub-radius);
+  border: 1px solid var(--pub-border);
+  background: linear-gradient(100deg, var(--pub-surface) 40%, var(--pub-accent-soft) 50%, var(--pub-surface) 60%);
+  background-size: 200% 100%;
+  animation: pub-shimmer 1.4s ease-in-out infinite;
+  margin-bottom: 10px;
+}
+.pub-skeleton-card.slim { height: 48px; }
+@keyframes pub-shimmer { from { background-position: 120% 0; } to { background-position: -80% 0; } }
+
+/* ── Empty states: one designed treatment everywhere ── */
+.pub-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 26px 16px; text-align: center;
+  background: var(--pub-surface); border: 1px dashed var(--pub-border);
+  border-radius: var(--pub-radius); color: var(--pub-muted);
+}
+.pub-empty svg { color: var(--pub-muted); opacity: 0.7; }
+.pub-empty-text { font-size: 14px; line-height: 1.5; }
+.pub-empty a { color: var(--pub-accent); font-weight: 700; }
+
+/* ── Public calendar grid: theme the shared dir-cal classes teal so both
+     public calendars match (director keeps its own blue/gold look) ── */
+.pub-app .dir-cal-cell.selected .dir-cal-day { background: var(--pub-accent); color: #fff; }
+.pub-app .dir-cal-cell.today .dir-cal-day {
+  color: var(--pub-accent); font-weight: 800;
+  box-shadow: inset 0 0 0 2px var(--pub-accent);
+}
+.pub-app .dir-cal-month, .pub-app .dir-day-detail-header { color: var(--pub-ink); }
+.pub-app .dir-day-detail-header .dir-today-badge { background: var(--pub-accent); color: #fff; }
+.pub-app .dir-cal-weekday, .pub-app .dir-day-empty { color: var(--pub-muted); }
+
+/* ── Connectivity / data-error strips (shared by both shells) ── */
+.app-status-strip {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 14px; font-size: 13px; font-weight: 600;
+}
+.app-status-strip.offline { background: #334155; color: #e2e8f0; }
+.app-status-strip.error { background: #7f1d1d; color: #fee2e2; }
+.app-status-strip svg { flex-shrink: 0; }
+.app-status-dismiss {
+  margin-left: auto; display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border: none; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15); color: inherit; cursor: pointer;
+}
+
+/* ── Shared page header (one title treatment on every page) ── */
+.pub-pagehead {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 8px;
+}
+.pub-pagehead .pub-h1 { margin: 0; }
+.pub-page-intro { font-size: 14px; color: var(--pub-muted); margin: 0 0 14px; line-height: 1.5; }

@@ -382,7 +382,7 @@ function DirectorSearchInner({ onClose, onOpenStudent, onNavigate }: Omit<Direct
             onChange={e => setQuery(e.target.value)}
             onKeyDown={onInputKeyDown}
             autoFocus
-            autoComplete="off"
+            autoComplete="off" enterKeyHint="search"
             autoCorrect="off"
             spellCheck={false}
             aria-label="Search"

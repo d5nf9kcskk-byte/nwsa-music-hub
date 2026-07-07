@@ -50,6 +50,10 @@ export function formatTimeRange(start?: string, end?: string): string {
 
 // ── Ensemble colors ─────────────────────────────────────────────────────
 
+/** Concert gold + assignment violet — the two reserved semantic colors. */
+export const CONCERT_COLOR = '#ca8a04';
+export const ASSIGN_COLOR = '#7c3aed';
+
 // Gold (#ca8a04) is reserved for concerts and violet (#7c3aed) for assignment
 // dots on the calendars — the auto palette avoids both so an ensemble's dots
 // can never be mistaken for either.

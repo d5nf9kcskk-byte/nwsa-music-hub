@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
-import { ChevronLeft, CalendarPlus, MapPin, ScrollText } from 'lucide-react';
+import { ChevronLeft, CalendarPlus, MapPin, ScrollText, XCircle, AlertTriangle, Music } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { parseDate, todayStr, formatTime } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { NotesText } from './components/NotesText';
+import { SkeletonCards } from './components/PageHeader';
 import { t, useLang } from '../shared/i18n';
 import type { CalendarEvent } from '../director/types';
 import './pubDaySheet.css';
@@ -34,7 +35,7 @@ export function PublicEvent() {
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
   const event = events.find(e => e.id === id);
 
-  if (loading && !event) return <div className="pub-page"><div className="pub-muted">Loading…</div></div>;
+  if (loading && !event) return <div className="pub-page"><SkeletonCards n={2} /></div>;
   if (!event) {
     return (
       <div className="pub-page">
@@ -63,13 +64,13 @@ export function PublicEvent() {
 
       {event.status === 'Cancelled' && (
         <div className="pub-alert-banner">
-          ❌ This {event.type.toLowerCase()} is <strong>cancelled</strong>.
+          <XCircle size={15} style={{ verticalAlign: '-2px' }} /> This {event.type.toLowerCase()} is <strong>cancelled</strong>.
           {event.changeNote ? <div className="pub-alert-note">{event.changeNote}</div> : null}
         </div>
       )}
       {event.status !== 'Cancelled' && event.changeNote && (
         <div className="pub-alert-banner changed">
-          ⚠ <strong>{t('event.scheduleChange')}</strong>
+          <AlertTriangle size={14} style={{ verticalAlign: '-2px' }} /> <strong>{t('event.scheduleChange')}</strong>
           <div className="pub-alert-note">{event.changeNote}</div>
         </div>
       )}
@@ -115,7 +116,7 @@ function ConcertDaySheet({ event }: { event: CalendarEvent }) {
 
   return (
     <div className="pub-daysheet">
-      <div className="pub-daysheet-head">🎼 {t('event.daySheet')}</div>
+      <div className="pub-daysheet-head"><Music size={15} style={{ verticalAlign: '-2px' }} /> {t('event.daySheet')}</div>
       {hasDetails ? (
         <div className="pub-daysheet-rows">
           {event.callTime && (

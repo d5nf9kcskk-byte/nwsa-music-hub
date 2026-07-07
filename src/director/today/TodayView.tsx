@@ -15,7 +15,7 @@ import { SeasonChecklist } from './SeasonChecklist';
 import { QrKitView } from '../qr/QrKitView';
 import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster } from '../rosterResolver';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays, assignmentEmoji } from '../utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../utils';
 import type { CalendarEvent } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
@@ -37,7 +37,9 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const [subSheetFor, setSubSheetFor] = useState<CalendarEvent | null>(null);
   const [showChecklist, setShowChecklist] = useState(false);
   const [showQrKit, setShowQrKit] = useState(false);
-  const [ensembleId, setEnsembleId] = useState(() => localStorage.getItem(ENS_PREF_KEY) ?? '');
+  const [ensembleId, setEnsembleId] = useState(() => {
+    try { return localStorage.getItem(ENS_PREF_KEY) ?? ''; } catch { return ''; }
+  });
 
   const today = todayStr();
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
@@ -48,7 +50,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   function pickEnsemble(id: string) {
     const next = ensembleId === id ? '' : id;
     setEnsembleId(next);
-    localStorage.setItem(ENS_PREF_KEY, next);
+    try { localStorage.setItem(ENS_PREF_KEY, next); } catch { /* private mode */ }
   }
 
   const matchesEns = (e: CalendarEvent) => !ensembleId || e.ensembleIds.length === 0 || e.ensembleIds.includes(ensembleId);
@@ -120,7 +122,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const upRow = (e: CalendarEvent) => (
     <button key={e.id} className="dir-up-row" onClick={() => onNavigate('schedule', { date: e.date, eventId: e.id })}>
       <span className="dir-up-date">{parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-      <span className="dir-up-dot" style={{ background: e.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleMap[e.ensembleIds[0]]) }} />
+      <span className="dir-up-dot" style={{ background: e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]) }} />
       <span className="dir-up-label">
         {e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(' + ') || e.type}
         {e.startTime ? <span className="dir-up-time"> · {formatTimeRange(e.startTime, e.endTime)}</span> : null}
@@ -246,7 +248,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
             {upAssignments.map(a => (
               <button key={a.id} className="dir-up-row" onClick={() => onNavigate('assignments')}>
                 <span className="dir-up-date">{parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                <span className="dir-up-dot" style={{ background: '#7c3aed' }} />
+                <span className="dir-up-dot" style={{ background: ASSIGN_COLOR }} />
                 <span className="dir-up-label">{assignmentEmoji(a.type)} {a.title}</span>
                 <ChevronRight size={15} className="dir-up-chev" />
               </button>

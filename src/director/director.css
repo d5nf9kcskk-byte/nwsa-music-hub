@@ -54,8 +54,9 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: var(--dir-header);
-  padding: 0 16px;
+  min-height: var(--dir-header);
+  padding: 0 calc(16px + env(safe-area-inset-right)) 0 calc(16px + env(safe-area-inset-left));
+  padding-top: env(safe-area-inset-top); /* standalone PWA: clear the notch */
   /* teal → deep-teal wash plus a gold accent line for brand richness */
   background: linear-gradient(110deg, var(--dir-primary) 0%, #0a6675 100%);
   border-bottom: 3px solid var(--dir-gold);
@@ -874,6 +875,7 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  animation: dir-fade-in 0.15s ease-out;
 }
 
 .dir-drawer {
@@ -883,7 +885,11 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   display: flex;
   flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom);
+  animation: dir-sheet-up 0.2s ease-out;
 }
+
+@keyframes dir-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dir-sheet-up { from { transform: translateY(48px); opacity: 0.4; } to { transform: none; opacity: 1; } }
 
 .dir-drawer-handle {
   width: 40px;
@@ -944,6 +950,7 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 
 .dir-drawer-body {
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 16px;
   display: flex;
   flex-direction: column;

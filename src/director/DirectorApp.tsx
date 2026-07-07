@@ -6,6 +6,9 @@ import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megapho
 import { AuthGate } from './components/AuthGate';
 import { DirectorSearch } from './components/DirectorSearch';
 import { WriteTray } from './components/WriteTray';
+import { useWriteBusy } from './writeStatus';
+import { useModalA11y } from '../shared/useModalA11y';
+import { StatusStrips } from '../shared/StatusStrips';
 import { AttendanceTab } from './attendance/AttendanceTab';
 import { RosterView } from './roster/RosterView';
 import { ScheduleView } from './schedule/ScheduleView';
@@ -58,6 +61,8 @@ export default function DirectorApp() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { ensembles } = useEnsembles();
+  const writeBusy = useWriteBusy();
+  const menuRef = useModalA11y<HTMLElement>(() => setMenuOpen(false), menuOpen);
 
   // Tab + intent live in the URL (/director/<tab>?ensemble=…&date=…), so the
   // browser Back button steps through tabs and a reload keeps your place.
@@ -101,6 +106,11 @@ export default function DirectorApp() {
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {writeBusy !== 'idle' && (
+                <span className={`dir-save-cue ${writeBusy}`} role="status">
+                  {writeBusy === 'saving' ? 'Saving…' : '✓ Saved'}
+                </span>
+              )}
               <button className="dir-hamburger" onClick={() => setSearchOpen(true)} aria-label="Search">
                 <Search size={22} />
               </button>
@@ -111,6 +121,7 @@ export default function DirectorApp() {
           </header>
 
           <main className="dir-content">
+            <StatusStrips />
             {tab === 'today'           && <TodayView onNavigate={go} />}
             {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} />}
             {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} />}
@@ -143,7 +154,7 @@ export default function DirectorApp() {
 
           {menuOpen && (
             <div className="dir-menu-overlay" onClick={() => setMenuOpen(false)}>
-              <nav className="dir-menu-panel" onClick={e => e.stopPropagation()}>
+              <nav className="dir-menu-panel" role="dialog" aria-modal="true" aria-label="Menu" tabIndex={-1} ref={menuRef} onClick={e => e.stopPropagation()}>
                 <div className="dir-menu-header">
                   {user.photoURL && <img className="dir-avatar" src={user.photoURL} alt={user.displayName ?? 'User'} referrerPolicy="no-referrer" />}
                   <span className="dir-menu-title">{user.displayName ?? 'NWSA Music'}</span>

@@ -55,7 +55,7 @@ export function PracticeCard({ student, schedule, piecesById, assignments }: {
 
   return (
     <div className="pub-card pub-practice">
-      <div className="pub-practice-title">🎵 Practice this week</div>
+      <div className="pub-practice-title"><Music size={15} style={{ verticalAlign: '-2px' }} /> Practice this week</div>
       {pieces.map(p => {
         const part = findPartForInstrument(p, student.instrument);
         return (

@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect, Fragment } from 'react';
 import { useSearchParams, Link } from 'react-router';
-import { ChevronLeft, ChevronRight, LayoutList, Grid3x3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutList, Grid3x3, CalendarX } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
-import { todayStr, toDateStr, parseDate, ensembleColor, assignmentEmoji } from '../director/utils';
+import { todayStr, toDateStr, parseDate, ensembleColor, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
+import { PageHeader, EmptyState } from './components/PageHeader';
 import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
 import { SubscribeButton } from './components/SubscribeButton';
 import { useMonthSwipe } from '../shared/useMonthSwipe';
@@ -125,20 +126,21 @@ export function PublicCalendar() {
   const { dragX, animating, viewportRef, handlers } = useMonthSwipe(shiftMonth);
 
   function color(e: CalendarEvent) {
-    return e.type === 'Concert' ? '#ca8a04' : ensembleColor(ensembleMap[e.ensembleIds[0]]);
+    return e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]);
   }
 
   const dayEvents = (byDate[selectedDate] ?? []).slice().sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
 
   return (
     <div className="pub-page">
-      {/* Title + view toggle */}
-      <div className="pub-section-row" style={{ marginBottom: 8 }}>
-        <h1 className="pub-h1" style={{ margin: 0 }}>{t('nav.calendar')}</h1>
-        <button className="pub-view-toggle" onClick={() => setView(v => v === 'month' ? 'list' : 'month')}>
-          {view === 'month' ? <><LayoutList size={13} /> {t('cal.listView')}</> : <><Grid3x3 size={13} /> {t('cal.monthView')}</>}
-        </button>
-      </div>
+      <PageHeader
+        title={t('nav.calendar')}
+        action={
+          <button className="pub-view-toggle" onClick={() => setView(v => v === 'month' ? 'list' : 'month')}>
+            {view === 'month' ? <><LayoutList size={13} /> {t('cal.listView')}</> : <><Grid3x3 size={13} /> {t('cal.monthView')}</>}
+          </button>
+        }
+      />
 
       {/* Filters first; the month header sits directly above the grid below. */}
       {ensembles.length > 0 && (
@@ -165,7 +167,7 @@ export function PublicCalendar() {
       {view === 'list' ? (
         <div style={{ marginTop: 8 }}>
           {listItems.length === 0 ? (
-            <div className="pub-card pub-muted">{t('cal.nothingUpcoming')}</div>
+            <EmptyState icon={<CalendarX size={26} />}>{t('cal.nothingUpcoming')}</EmptyState>
           ) : (
             <>
               {(() => {
@@ -236,7 +238,7 @@ export function PublicCalendar() {
                   <span className="dir-cal-day">{parseDate(d).getDate()}</span>
                   <span className="dir-cal-dots">
                     {evs.slice(0, 4).map(e => <span key={e.id} className="dir-cal-dot" style={{ background: color(e) }} />)}
-                    {(assignByDate[d] ?? []).slice(0, 2).map(a => <span key={a.id} className="dir-cal-dot" style={{ background: '#7c3aed' }} />)}
+                    {(assignByDate[d] ?? []).slice(0, 2).map(a => <span key={a.id} className="dir-cal-dot" style={{ background: ASSIGN_COLOR }} />)}
                   </span>
                 </button>
               );

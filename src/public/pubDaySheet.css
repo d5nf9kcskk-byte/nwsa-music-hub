@@ -3,7 +3,7 @@
 .pub-daysheet {
   background: var(--pub-surface);
   border: 1px solid var(--pub-border);
-  border-left: 5px solid var(--pub-gold);
+  border-left: 4px solid var(--pub-gold);
   border-radius: var(--pub-radius);
   padding: 14px 16px;
   margin-bottom: 14px;

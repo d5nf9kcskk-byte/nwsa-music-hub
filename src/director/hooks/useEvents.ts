@@ -4,7 +4,8 @@ import {
   query, orderBy,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { offerUndo } from '../writeStatus';
+import { noteLoadError } from '../../shared/appStatus';
+import { offerUndo, trackWrite } from '../writeStatus';
 import type { CalendarEvent } from '../types';
 
 /**
@@ -22,12 +23,13 @@ export function useEvents() {
     return onSnapshot(q, snap => {
       setEvents(snap.docs.map(d => ({ id: d.id, ...d.data() } as CalendarEvent)));
       setLoading(false);
-    }, () => setLoading(false));
+    }, () => { noteLoadError(); setLoading(false); });
   }, []);
 
   async function addEvent(data: Omit<CalendarEvent, 'id'>) {
     if (!db) return;
-    await addDoc(collection(db, 'events'), data);
+    const dbRef = db;
+    await trackWrite('Event', () => addDoc(collection(dbRef, 'events'), data));
   }
 
   async function updateEvent(id: string, data: Partial<Omit<CalendarEvent, 'id'>>) {
@@ -40,7 +42,9 @@ export function useEvents() {
     if (!bookkeepingOnly) {
       data = { ...data, updatedAt: Date.now(), updatedBy: auth?.currentUser?.email ?? undefined };
     }
-    await updateDoc(doc(db, 'events', id), data);
+    const dbRef = db;
+    const payload = data;
+    await trackWrite('Event update', () => updateDoc(doc(dbRef, 'events', id), payload));
   }
 
   async function deleteEvent(id: string) {

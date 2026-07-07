@@ -4,6 +4,8 @@ import {
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { noteLoadError } from '../../shared/appStatus';
+import { reportWriteError } from '../writeStatus';
 import type { AttendanceRecord, AttendanceStatus } from '../types';
 
 /**
@@ -16,12 +18,40 @@ import type { AttendanceRecord, AttendanceStatus } from '../types';
 export function useAttendance(date: string, ensembleId: string | null, eventId?: string | null) {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  // Optimistic overlay: studentId → status the director just tapped (null =
+  // cleared back to present). The card repaints instantly; the entry drops
+  // once the Firestore echo confirms it. Doubles as a per-student tap lock so
+  // a double-tap can never create duplicate records.
+  const [optimistic, setOptimistic] = useState<Record<string, AttendanceStatus | null>>({});
 
   // Scope to this period when an eventId is set (untagged legacy records included).
   const scoped = eventId
     ? records.filter(r => r.eventId === eventId || r.eventId == null)
     : records;
-  const recordMap = Object.fromEntries(scoped.map(r => [r.studentId, r]));
+  const serverMap: Record<string, AttendanceRecord> = Object.fromEntries(scoped.map(r => [r.studentId, r]));
+
+  // Drop confirmed optimistic entries (render-phase adjustment).
+  const confirmed = Object.entries(optimistic).filter(([sid, status]) => {
+    const rec = serverMap[sid];
+    return status === null ? !rec : rec?.status === status;
+  });
+  if (confirmed.length > 0) {
+    setOptimistic(o => {
+      const next = { ...o };
+      for (const [sid] of confirmed) delete next[sid];
+      return next;
+    });
+  }
+
+  // What consumers see: server state overlaid with in-flight taps.
+  const recordMap: Record<string, AttendanceRecord> = { ...serverMap };
+  for (const [sid, status] of Object.entries(optimistic)) {
+    if (status === null) delete recordMap[sid];
+    else recordMap[sid] = {
+      ...(serverMap[sid] ?? { id: `optimistic-${sid}`, studentId: sid, ensembleId: ensembleId ?? '', date }),
+      status,
+    } as AttendanceRecord;
+  }
 
   useEffect(() => {
     if (!db || !ensembleId) { setLoading(false); return; }
@@ -33,38 +63,56 @@ export function useAttendance(date: string, ensembleId: string | null, eventId?:
     return onSnapshot(q, snap => {
       setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord)));
       setLoading(false);
-    }, () => setLoading(false));
+    }, () => { noteLoadError(); setLoading(false); });
   }, [date, ensembleId]);
 
-  async function toggleAttendance(
+  function toggleAttendance(
     studentId: string,
     newStatus: AttendanceStatus,
     extra?: { minutesLate?: number },
   ) {
     if (!db || !ensembleId) return;
-    const existing = recordMap[studentId];
+    // A tap is still settling for this student — ignore until the echo lands.
+    if (studentId in optimistic) return;
+    const dbRef = db;
+    const existing = serverMap[studentId];
     const extraFields = extra?.minutesLate != null && extra.minutesLate > 0
       ? { minutesLate: Math.round(extra.minutesLate) }
       : {};
+    const clearing = existing?.status === newStatus;
 
-    if (existing?.status === newStatus) {
-      // Tapping the active button clears it (back to present)
-      await deleteDoc(doc(db, 'attendance', existing.id));
-    } else if (existing) {
-      // Change status (and backfill eventId on any legacy record)
-      await updateDoc(doc(db, 'attendance', existing.id), { status: newStatus, ...extraFields, ...(eventId ? { eventId } : {}) });
-    } else {
-      // New exception record
-      await addDoc(collection(db, 'attendance'), {
-        studentId,
-        ensembleId,
-        date,
-        status: newStatus,
-        ...extraFields,
-        ...(eventId ? { eventId } : {}),
-        createdAt: serverTimestamp(),
+    setOptimistic(o => ({ ...o, [studentId]: clearing ? null : newStatus }));
+    try { navigator.vibrate?.(10); } catch { /* no haptics */ }
+
+    const run = async () => {
+      if (clearing) {
+        // Tapping the active button clears it (back to present)
+        await deleteDoc(doc(dbRef, 'attendance', existing.id));
+      } else if (existing) {
+        // Change status (and backfill eventId on any legacy record)
+        await updateDoc(doc(dbRef, 'attendance', existing.id), { status: newStatus, ...extraFields, ...(eventId ? { eventId } : {}) });
+      } else {
+        // New exception record
+        await addDoc(collection(dbRef, 'attendance'), {
+          studentId,
+          ensembleId,
+          date,
+          status: newStatus,
+          ...extraFields,
+          ...(eventId ? { eventId } : {}),
+          createdAt: serverTimestamp(),
+        });
+      }
+    };
+    run().catch(() => {
+      // Roll back the overlay and surface a retry.
+      setOptimistic(o => {
+        const next = { ...o };
+        delete next[studentId];
+        return next;
       });
-    }
+      reportWriteError('Roll mark failed to save', run);
+    });
   }
 
   return { records: scoped, recordMap, loading, toggleAttendance };
@@ -81,7 +129,7 @@ export function useAllAttendance() {
     return onSnapshot(q, snap => {
       setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord)));
       setLoading(false);
-    }, () => setLoading(false));
+    }, () => { noteLoadError(); setLoading(false); });
   }, []);
 
   return { records, loading };
@@ -102,7 +150,7 @@ export function useAttendanceHistory(studentId?: string) {
       all.sort((a, b) => b.date.localeCompare(a.date));
       setRecords(all);
       setLoading(false);
-    }, () => setLoading(false));
+    }, () => { noteLoadError(); setLoading(false); });
   }, [studentId]);
 
   return { records, loading };

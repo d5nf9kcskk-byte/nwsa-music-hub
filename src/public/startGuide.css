@@ -8,7 +8,7 @@
 .pub-sg-print-btn {
   display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
   padding: 7px 12px; border: 1px solid var(--pub-border); border-radius: 9px;
-  background: var(--pub-surface); font-size: 12.5px; font-weight: 700;
+  background: var(--pub-surface); font-size: 13px; font-weight: 700;
   color: var(--pub-accent); cursor: pointer; white-space: nowrap; font-family: inherit;
 }
 .pub-sg-print-btn:active { background: var(--pub-accent-soft); }
@@ -24,7 +24,7 @@
 .pub-sg-tab {
   flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   padding: 9px 6px; border: none; border-radius: 10px; background: none;
-  font-size: 13.5px; font-weight: 700; color: var(--pub-muted);
+  font-size: 14px; font-weight: 700; color: var(--pub-muted);
   cursor: pointer; font-family: inherit;
 }
 .pub-sg-tab.active { background: var(--pub-accent); color: #fff; }
@@ -43,7 +43,7 @@
 .pub-sg-q {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   width: 100%; padding: 13px 14px; border: none; background: none; text-align: left;
-  font-size: 14.5px; font-weight: 700; color: var(--pub-ink);
+  font-size: 14px; font-weight: 700; color: var(--pub-ink);
   cursor: pointer; font-family: inherit; line-height: 1.35;
 }
 .pub-sg-chev { color: var(--pub-muted); flex-shrink: 0; transition: transform 0.15s; }
@@ -68,11 +68,11 @@
 .pub-sg-glossary-item { padding: 11px 0; border-bottom: 1px solid var(--pub-border); }
 .pub-sg-glossary-item:last-child { border-bottom: none; }
 .pub-sg-glossary dt { font-size: 14px; font-weight: 800; color: var(--pub-accent); margin: 0 0 3px; }
-.pub-sg-glossary dd { font-size: 13.5px; line-height: 1.55; color: var(--pub-ink); margin: 0; }
+.pub-sg-glossary dd { font-size: 14px; line-height: 1.55; color: var(--pub-ink); margin: 0; }
 
 /* ── Contact footer ── */
 .pub-sg-contact {
-  margin: 18px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--pub-muted);
+  margin: 18px 0 0; font-size: 14px; line-height: 1.55; color: var(--pub-muted);
 }
 .pub-sg-contact a { color: var(--pub-accent); font-weight: 700; }
 

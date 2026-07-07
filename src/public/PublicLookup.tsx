@@ -5,6 +5,7 @@ import { useStudents } from '../director/hooks/useStudents';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { sortStudents, lastName, type StudentSort } from '../director/scoreOrder';
 import { t, useLang } from '../shared/i18n';
+import { PageHeader } from './components/PageHeader';
 import { getIdentity, rememberStudent, forgetStudent, setParentMode } from '../shared/identity';
 import { ensembleColor } from '../director/utils';
 import type { Student } from '../director/types';
@@ -88,8 +89,7 @@ export function PublicLookup() {
 
   return (
     <div className="pub-page">
-      <h1 className="pub-h1">{t('nav.mySchedule')}</h1>
-      <p className="pub-muted">{t('lookup.findYourName')}</p>
+      <PageHeader title={t('nav.mySchedule')} intro={t('lookup.findYourName')} />
 
       {/* Saved students (remember-me #1 / parent mode #11) */}
       {identity.students.length > 0 && (
