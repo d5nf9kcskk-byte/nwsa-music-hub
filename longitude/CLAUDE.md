@@ -46,6 +46,17 @@ this brand; feedback should push toward specific, stakes-bearing claims.
 Each module owns one Firestore doc in the `modules` collection (see
 `src/storage.js`) with a localStorage mirror for offline resilience.
 
+## Companion apps
+
+`score-study/` (and any future sibling folder) is a **standalone static
+app** built by a separate session — plain HTML/CSS/JS, its own storage,
+not part of the Vite build. The deploy workflow copies it into `dist/`
+so it ships at `/score-study/` beside Longitude. Don't import from it,
+don't run it through Vite, and don't let a second Pages workflow appear
+alongside `.github/workflows/deploy.yml` (two workflows deploying the
+same Pages site race each other). Its GitHub-sync data lands in `data/`,
+which the deploy trigger ignores.
+
 ## AI Reader architecture
 
 The Schwarz Workbench's AI Reader never calls Anthropic from the browser.

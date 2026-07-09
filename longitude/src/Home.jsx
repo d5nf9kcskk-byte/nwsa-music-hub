@@ -125,6 +125,27 @@ export default function Home() {
         gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
         gap: '14px',
       }}>
+        {/* Score Study is a standalone static companion app deployed at
+            /score-study/ alongside the Vite build — plain link, not a route. */}
+        <a
+          href={`${import.meta.env.BASE_URL}score-study/`}
+          style={{
+            display: 'block',
+            textDecoration: 'none',
+            color: '#e8e8e8',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderTop: '2px solid #b48c3c',
+            borderRadius: '10px',
+            padding: '18px 18px 16px',
+          }}
+        >
+          <div style={{ fontSize: '16px', marginBottom: '3px' }}>Score Study ↗</div>
+          <div style={{ fontSize: '12px', color: '#666', fontStyle: 'italic', marginBottom: '12px' }}>
+            Encoding-first score-learning coach
+          </div>
+          <div style={{ fontSize: '12px', color: '#b48c3c' }}>Companion app</div>
+        </a>
         {CARDS.map(card => (
           <NavLink
             key={card.to}

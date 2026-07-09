@@ -13,6 +13,17 @@ trajectory. One app, seven modules:
 | **Idea Capture** | `#/ideas` | Quick capture with tags (American Muse, programming, writing…) |
 | **Task Board** | `#/tasks` | Now · Next · Later · Done, tagged by area |
 
+## Companion apps
+
+Standalone static apps live in their own top-level folders and are copied
+into the Pages deployment beside the Vite build:
+
+- **`score-study/`** — 🎼 Score Study, an encoding-first score-learning
+  coach (spaced recall, PACER passage types, deadline-aware scheduling).
+  Static HTML/CSS/JS with localStorage + optional GitHub sync into
+  `data/` (which the deploy workflow ignores as a trigger). Served at
+  `/score-study/`; see its own README/Method page for the framework.
+
 ## How it works
 
 - **React 19 + Vite**, plain JSX, no CSS framework — the whole UI is the
