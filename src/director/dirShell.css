@@ -151,10 +151,10 @@
   to { transform: none; opacity: 1; }
 }
 
-/* ── Schedule two-pane at >=1280px (redesign Phase 5) ──
+/*/* ── Schedule two-pane at >=1100px (redesign Phase 5; iPad landscape included) ──
    Month grid left, selected-day panel sticky right — the day detail no
    longer lives below the fold on wide screens. */
-@media (min-width: 1280px) {
+@media (min-width: 1100px) {
   .dir-sched-split {
     display: grid;
     grid-template-columns: minmax(0, 1.4fr) minmax(340px, 1fr);

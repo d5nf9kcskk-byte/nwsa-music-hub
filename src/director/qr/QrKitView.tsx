@@ -6,6 +6,7 @@ import { renderQrSvg } from '../../shared/qr';
 import { vanityPathFor } from '../../shared/vanity';
 import type { Ensemble } from '../types';
 import './qrKit.css';
+import { useModalA11y } from '../../shared/useModalA11y';
 
 /** Public site root the QR codes point at (GitHub Pages deployment). */
 const SITE_URL = 'https://d5nf9kcskk-byte.github.io/nwsa-music-hub/';
@@ -60,12 +61,13 @@ function SlipsPage({ ensemble }: { ensemble: Ensemble }) {
  * poster + slip sheet per ensemble. Print → one block per page.
  */
 export function QrKitView({ onClose }: { onClose?: () => void }) {
+  const panelRef = useModalA11y<HTMLDivElement>(() => onClose?.(), true);
   const { ensembles } = useEnsembles();
   const ordered = useMemo(() => [...ensembles].sort((a, b) => a.order - b.order), [ensembles]);
 
   return (
     <div className="dir-drawer-overlay dir-qrkit-overlay" onClick={e => { if (e.target === e.currentTarget) onClose?.(); }}>
-      <div className="dir-drawer dir-qrkit">
+      <div className="dir-drawer dir-qrkit" ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="QR kit">
         <div className="dir-drawer-header dir-qrkit-noprint">
           <span className="dir-drawer-title">
             <QrCode size={17} style={{ verticalAlign: '-3px' }} /> QR kit

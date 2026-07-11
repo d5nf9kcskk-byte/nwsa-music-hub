@@ -112,3 +112,12 @@
 @media (min-width: 1024px), (max-height: 560px) {
   .pub-event-actionbar, .pub-event-actionbar-spacer { display: none; }
 }
+
+/* Spanish CTA at 1.3x zoom must fit (test pass 3): the label wraps to two
+   lines inside a capped button instead of escaping the viewport. */
+.pub-event-actionbar .pub-atc-primary { max-width: 55%; }
+.pub-event-actionbar .pub-atc-btn {
+  white-space: normal;
+  line-height: 1.2;
+  padding: 9px 12px;
+}
