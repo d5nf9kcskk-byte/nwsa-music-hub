@@ -183,7 +183,12 @@ export function AddToCalendarButton({ event, ensembleName, variant }: { event: C
       downloadIcs(event, ensembleName);
       showTip('sent', 6000);
     } else {
-      window.open(googleCalendarUrl(event, ensembleName), '_blank', 'noopener');
+      // window.open WITHOUT a features string: passing 'noopener' as a
+      // feature makes browsers treat it as a suppressible popup window (and
+      // some suppress it silently — the exact dead-button failure this rework
+      // exists to fix). Nulling opener on the handle gives the same security.
+      const w = window.open(googleCalendarUrl(event, ensembleName), '_blank');
+      if (w) w.opener = null;
       showTip('opened', 6000);
     }
   }

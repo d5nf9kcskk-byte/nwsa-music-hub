@@ -140,3 +140,16 @@
   font-size: 14px;
   cursor: pointer;
 }
+
+/* ── High-zoom safety (found in redesign test pass 3) ──
+   At "Aa" 1.3x on a 360px phone the header cluster exceeded the viewport,
+   pushing the whole page into horizontal scroll. The wordmark yields
+   (ellipsis) so the controls never do. */
+.pub-header { gap: 8px; }
+.pub-header .pub-brand { flex: 1 1 auto; min-width: 0; }
+.pub-header .pub-brand > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pub-header > div:last-child { flex: none; }

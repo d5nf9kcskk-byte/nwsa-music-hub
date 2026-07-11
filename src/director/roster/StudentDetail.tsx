@@ -9,6 +9,7 @@ import { studentExpectation } from '../rosterResolver';
 import { todayStr, ensembleColor, formatDate } from '../utils';
 import type { Student, StudentContact, Ensemble } from '../types';
 import { Linkify } from '../components/Linkify';
+import { useModalA11y } from '../../shared/useModalA11y';
 
 interface Props {
   student: Student;
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function StudentDetail({ student, students, contact, ensembles, onEdit, onClose }: Props) {
+  const panelRef = useModalA11y<HTMLDivElement>(onClose, true);
   const { records: attendanceRecords } = useAttendanceHistory(student.id);
   const { notes: progressNotes } = useProgressNotes(student.id);
   const { events } = useEvents();
@@ -57,7 +59,7 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
+      <div className="dir-drawer" ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={student.name}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <div style={{ flex: 1, minWidth: 0 }}>
