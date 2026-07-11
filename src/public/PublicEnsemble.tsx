@@ -1,21 +1,26 @@
-import { useMemo, useRef, useEffect } from 'react';
+import { useMemo, useRef, useEffect, useState } from 'react';
 import { useParams, useLocation, Link } from 'react-router';
-import { ChevronLeft, CalendarDays, Armchair } from 'lucide-react';
+import { ChevronLeft, CalendarDays, Armchair, ChevronRight } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
 import { useEvents } from '../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
-import { todayStr, formatTimeRange, ensembleColor, parseDate } from '../director/utils';
+import { todayStr, formatTimeRange, formatTime, ensembleColor, parseDate } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { PubRepertoire } from './components/PubRepertoire';
 import { primaryStudent } from '../shared/identity';
 import { SubscribeButton } from './components/SubscribeButton';
+import { GradientHero } from './components/GradientHero';
+import { t, tn, useLang } from '../shared/i18n';
 
 export function PublicEnsemble() {
+  useLang();
   const { id = '' } = useParams();
+  const [showAllRoster, setShowAllRoster] = useState(false);
+  const [showAllPieces, setShowAllPieces] = useState(false);
   const { ensembles, loading: ensemblesLoading } = useEnsembles();
   const { students } = useStudents();
   const { events } = useEvents();
@@ -77,17 +82,29 @@ export function PublicEnsemble() {
     );
   }
 
+  // The one answer the hero must never bury: the next thing on the calendar.
+  const nextEvent = [...upcomingConcerts, ...upcomingRehearsals, ...upcomingOther]
+    .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99'))[0];
+
   return (
     <div className="pub-page">
       <Link to="/ensembles" className="pub-back"><ChevronLeft size={16} /> Ensembles</Link>
-      <div className="pub-ens-hero" style={{ borderColor: ensembleColor(ensemble) }}>
-        <h1 className="pub-h1">{ensemble.name}</h1>
-        <div className="pub-muted">
-          {members.length} member{members.length !== 1 ? 's' : ''}
+      <GradientHero color={ensembleColor(ensemble)} seed={ensemble.id} title={ensemble.name}>
+        <div className="pub-ghero-meta">
+          {tn('ens.members', members.length)}
           {ensemble.defaultLocation ? ` · ${ensemble.defaultLocation}` : ''}
           {formatTimeRange(ensemble.defaultStartTime, ensemble.defaultEndTime) ? ` · ${formatTimeRange(ensemble.defaultStartTime, ensemble.defaultEndTime)}` : ''}
         </div>
-      </div>
+        {nextEvent && (
+          <Link to={`/event/${nextEvent.id}`} className="pub-ghero-next">
+            <span>{t('misc.next')}:</span>
+            {parseDate(nextEvent.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            {nextEvent.startTime ? ` · ${formatTime(nextEvent.startTime)}` : ''}
+            {' · '}{nextEvent.title || nextEvent.type}
+            <ChevronRight size={15} style={{ marginLeft: 'auto', flex: 'none' }} />
+          </Link>
+        )}
+      </GradientHero>
 
       <PubAnnouncements items={ensAnnouncements} ensembleMap={ensembleMap} showEnsembleTag={false} />
 
@@ -128,7 +145,16 @@ export function PublicEnsemble() {
       {ensPieces.length > 0 && (
         <div ref={repertoireRef} id="repertoire">
           <h2 className="pub-section-title">Repertoire</h2>
-          <PubRepertoire pieces={ensPieces} eventsById={eventsById} studentInstrument={primaryStudent()?.instrument} />
+          <PubRepertoire
+            pieces={showAllPieces ? ensPieces : ensPieces.slice(0, 8)}
+            eventsById={eventsById}
+            studentInstrument={primaryStudent()?.instrument}
+          />
+          {!showAllPieces && ensPieces.length > 8 && (
+            <button className="pub-showall-btn" onClick={() => setShowAllPieces(true)}>
+              {t('misc.showAll', { count: ensPieces.length })}
+            </button>
+          )}
         </div>
       )}
 
@@ -143,7 +169,7 @@ export function PublicEnsemble() {
         {members.length === 0 ? (
           <div className="pub-muted">No members listed.</div>
         ) : (
-          members.map(s => (
+          (showAllRoster ? members : members.slice(0, 12)).map(s => (
             <Link key={s.id} to={`/student/${s.id}`} className="pub-roster-row pub-lookup-row">
               <span className="pub-roster-name">{s.name}</span>
               <span className="pub-roster-instr">{[s.instrument, s.section].filter(Boolean).join(' · ')}</span>
@@ -151,6 +177,11 @@ export function PublicEnsemble() {
           ))
         )}
       </div>
+      {!showAllRoster && members.length > 12 && (
+        <button className="pub-showall-btn" onClick={() => setShowAllRoster(true)}>
+          {t('misc.showAll', { count: members.length })}
+        </button>
+      )}
     </div>
   );
 }

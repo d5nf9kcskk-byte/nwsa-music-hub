@@ -153,5 +153,9 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'atc.cancelledTitle':  { en: 'This event is cancelled', es: 'Este evento está cancelado' },
   'event.getDirections': { en: 'Get directions', es: 'Cómo llegar' },
   'event.when':          { en: 'When & where', es: 'Cuándo y dónde' },
+  'misc.showAll':        { en: 'Show all {count}', es: 'Ver los {count}' },
+  'misc.next':           { en: 'Next', es: 'Próximo' },
+  'ens.members.one':     { en: '{count} member', es: '{count} integrante' },
+  'ens.members.other':   { en: '{count} members', es: '{count} integrantes' },
   'misc.openExamForm':   { en: 'Open exam form',     es: 'Abrir el formulario del examen' },
 };
