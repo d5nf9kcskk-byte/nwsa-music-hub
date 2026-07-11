@@ -41,6 +41,10 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
   const [search, setSearch] = useState('');
   const [filterEnsembleId, setFilterEnsembleId] = useState(initialEnsembleId);
   const [sort, setSort] = useState<StudentSort>('lastName');
+  // Saved views (redesign Phase 6): fixed, not user-configurable — the two
+  // real gaps beyond per-ensemble chips. 'Missing info' = no grade,
+  // instrument, or any contact detail on file.
+  const [view, setView] = useState<'' | 'seniors' | 'missing'>('');
   const [managingEnsembles, setManagingEnsembles] = useState(false);
   const [managingRepertoire, setManagingRepertoire] = useState(false);
   const [managingLocations, setManagingLocations] = useState(false);
@@ -61,10 +65,16 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
     }
   }
 
-  const filtered = students.filter(s =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.instrument.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = students.filter(s => {
+    if (!(s.name.toLowerCase().includes(search.toLowerCase()) ||
+          s.instrument.toLowerCase().includes(search.toLowerCase()))) return false;
+    if (view === 'seniors') return s.grade === '12th';
+    if (view === 'missing') {
+      const c = contacts[s.id];
+      return !s.grade || !s.instrument || !c || (!c.email && !c.parentEmail && !c.phone);
+    }
+    return true;
+  });
 
   const grouped = ensembles
     .filter(e => !filterEnsembleId || e.id === filterEnsembleId)
@@ -115,6 +125,12 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
                 {e.name}
               </button>
             ))}
+            <button className={`dir-tab dir-tab-view ${view === 'seniors' ? 'active' : ''}`} onClick={() => setView(v => v === 'seniors' ? '' : 'seniors')}>
+              Seniors
+            </button>
+            <button className={`dir-tab dir-tab-view ${view === 'missing' ? 'active' : ''}`} onClick={() => setView(v => v === 'missing' ? '' : 'missing')}>
+              Missing info
+            </button>
           </div>
           <div style={{ padding: '2px 16px 6px' }}>
             <SortToggle value={sort} onChange={setSort} />
