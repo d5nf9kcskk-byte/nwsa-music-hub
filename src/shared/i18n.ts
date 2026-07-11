@@ -48,11 +48,30 @@ export function useLang(): Lang {
 /**
  * Translate a key. English is the source of truth; unknown keys are returned
  * verbatim so untranslated corners of the app degrade gracefully.
+ *
+ * Parameterized strings use {name} placeholders so word order can differ
+ * between languages ("Show all {count}" / "Ver los {count}"): pass values as
+ * the second argument. Unmatched placeholders are left visible on purpose —
+ * a stray "{count}" in the UI is a louder bug report than a silent blank.
  */
-export function t(key: string): string {
+export function t(key: string, params?: Record<string, string | number>): string {
   const entry = TRANSLATIONS[key];
-  if (!entry) return key;
-  return getLang() === 'es' ? entry.es : entry.en;
+  let s = !entry ? key : getLang() === 'es' ? entry.es : entry.en;
+  if (params) {
+    for (const [name, value] of Object.entries(params)) {
+      s = s.replaceAll(`{${name}}`, String(value));
+    }
+  }
+  return s;
+}
+
+/**
+ * Count-aware translate: looks up `key.one` when count is 1, else `key.other`,
+ * and substitutes {count} (plus any extra params). Spanish and English share
+ * the one/other rule, so two keys per string are sufficient for this app.
+ */
+export function tn(key: string, count: number, params?: Record<string, string | number>): string {
+  return t(`${key}.${count === 1 ? 'one' : 'other'}`, { count, ...params });
 }
 
 // Stamp <html lang="…"> on first load so screen readers and hyphenation
