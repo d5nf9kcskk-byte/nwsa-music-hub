@@ -124,3 +124,19 @@
   .pub-tabbar { display: none; }
   .pub-app .pub-content { padding-bottom: 32px; }
 }
+
+/* "Show all N" progressive disclosure (redesign Phase 3): the count in the
+   label guarantees visible completeness — nothing hides in a carousel. */
+.pub-showall-btn {
+  display: block;
+  width: 100%;
+  margin: 8px 0 14px;
+  padding: 10px;
+  border: 1px solid var(--pub-border);
+  border-radius: 10px;
+  background: var(--pub-surface);
+  color: var(--pub-accent);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}

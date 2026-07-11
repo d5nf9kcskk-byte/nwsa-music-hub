@@ -1,14 +1,17 @@
 import { useMemo } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router';
-import { ChevronLeft, ExternalLink, Music, Clock, FileText, Video, Headphones, BookOpen } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Clock, FileText, Video, Headphones, BookOpen } from 'lucide-react';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { parseDate, ensembleColor, findPartForInstrument } from '../director/utils';
 import { primaryStudent } from '../shared/identity';
 import { Linkify } from '../director/components/Linkify';
+import { GradientHero } from './components/GradientHero';
+import { t, useLang } from '../shared/i18n';
 
 export function PublicPiece() {
+  useLang();
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -61,71 +64,34 @@ export function PublicPiece() {
         })}
       </div>
 
-      {/* Hero */}
-      <div className="pub-piece-hero" style={{ borderColor: ensemble ? ensembleColor(ensemble) : '#1e3a5f' }}>
-        <Music size={20} className="pub-piece-icon" />
-        <h1 className="pub-h1">{piece.title}</h1>
+      {/* Album hero — the one full-Spotify surface: the content here really
+          is music. Gradient derives from the owning ensemble's color; ink is
+          computed; prints as an outlined box. */}
+      <GradientHero
+        color={ensemble ? ensembleColor(ensemble) : '#0d7e8e'}
+        seed={piece.ensembleId || piece.id}
+        eyebrow={t('nav.repertoire')}
+        title={piece.title}
+        compact
+      >
         {piece.fullTitle && piece.fullTitle !== piece.title && (
-          <div className="pub-piece-full-title">{piece.fullTitle}</div>
+          <div className="pub-ghero-meta" style={{ fontStyle: 'italic' }}>{piece.fullTitle}</div>
         )}
-        <div className="pub-muted pub-piece-byline">
+        <div className="pub-ghero-meta">
           {piece.composer}
-          {piece.composerDates && <span className="pub-piece-dates"> ({piece.composerDates})</span>}
-          {piece.arranger && <span> · arr. {piece.arranger}</span>}
+          {piece.composerDates && ` (${piece.composerDates})`}
+          {piece.arranger && ` · arr. ${piece.arranger}`}
         </div>
-        <div className="pub-piece-meta-row">
-          {piece.catalogNumber && <span className="pub-piece-chip">{piece.catalogNumber}</span>}
-          {piece.year && <span className="pub-piece-chip">{piece.year}</span>}
-          {(piece.duration || totalDuration > 0) && (
-            <span className="pub-piece-chip">
-              <Clock size={11} style={{ verticalAlign: '-1px' }} /> {piece.duration ?? totalDuration} min
-            </span>
-          )}
-        </div>
+      </GradientHero>
+      <div className="pub-piece-meta-row" style={{ marginTop: -8, marginBottom: 14 }}>
+        {piece.catalogNumber && <span className="pub-piece-chip">{piece.catalogNumber}</span>}
+        {piece.year && <span className="pub-piece-chip">{piece.year}</span>}
+        {(piece.duration || totalDuration > 0) && (
+          <span className="pub-piece-chip">
+            <Clock size={11} style={{ verticalAlign: '-1px' }} /> {piece.duration ?? totalDuration} min
+          </span>
+        )}
       </div>
-
-      {/* Instrumentation (Daniels format) + percussion detail */}
-      {(piece.instrumentation || piece.percussion) && (
-        <div className="pub-card pub-piece-section">
-          <div className="pub-piece-section-title">Instrumentation</div>
-          {piece.instrumentation && <div className="pub-piece-body" style={{ fontFamily: 'ui-monospace, Menlo, monospace' }}>{piece.instrumentation}</div>}
-          {piece.percussion && (
-            <div className="pub-piece-body" style={{ marginTop: 6 }}>
-              <strong>Percussion:</strong> {piece.percussion}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Movements */}
-      {piece.movements && piece.movements.length > 0 && (
-        <div className="pub-card pub-piece-section">
-          <div className="pub-piece-section-title">Movements</div>
-          <ol className="pub-piece-movements">
-            {piece.movements.map((m, i) => (
-              <li key={i} className="pub-piece-movement">
-                <span className="pub-piece-mvt-title">{m.title}</span>
-                {m.duration ? <span className="pub-piece-mvt-dur">{m.duration} min</span> : null}
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
-
-      {/* Program notes */}
-      {(piece.programNotes || piece.programNotesUrl) && (
-        <div className="pub-card pub-piece-section">
-          <div className="pub-piece-section-title">
-            <BookOpen size={14} style={{ verticalAlign: '-2px', marginRight: 5 }} />Program notes
-          </div>
-          {piece.programNotes && <p className="pub-piece-body"><Linkify text={piece.programNotes} /></p>}
-          {piece.programNotesUrl && (
-            <a className="pub-piece-link" href={piece.programNotesUrl} target="_blank" rel="noreferrer">
-              Read full notes <ExternalLink size={12} />
-            </a>
-          )}
-        </div>
-      )}
 
       {/* Parts */}
       {(piece.partsSharedUrl || piece.partsUrl || (piece.partsLinks && piece.partsLinks.length > 0)) && (
@@ -179,6 +145,50 @@ export function PublicPiece() {
               </a>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Movements as the tracklist — only when movements exist (most band
+          charts are single-movement; an empty tracklist reads as broken). */}
+      {piece.movements && piece.movements.length > 0 && (
+        <div className="pub-card pub-piece-section">
+          <div className="pub-piece-section-title">Movements</div>
+          <ol className="pub-piece-movements">
+            {piece.movements.map((m, i) => (
+              <li key={i} className="pub-piece-movement">
+                <span className="pub-piece-mvt-title">{m.title}</span>
+                {m.duration ? <span className="pub-piece-mvt-dur">{m.duration} min</span> : null}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {/* Instrumentation (Daniels format) + percussion detail */}
+      {(piece.instrumentation || piece.percussion) && (
+        <div className="pub-card pub-piece-section">
+          <div className="pub-piece-section-title">Instrumentation</div>
+          {piece.instrumentation && <div className="pub-piece-body" style={{ fontFamily: 'ui-monospace, Menlo, monospace' }}>{piece.instrumentation}</div>}
+          {piece.percussion && (
+            <div className="pub-piece-body" style={{ marginTop: 6 }}>
+              <strong>Percussion:</strong> {piece.percussion}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Program notes */}
+      {(piece.programNotes || piece.programNotesUrl) && (
+        <div className="pub-card pub-piece-section">
+          <div className="pub-piece-section-title">
+            <BookOpen size={14} style={{ verticalAlign: '-2px', marginRight: 5 }} />Program notes
+          </div>
+          {piece.programNotes && <p className="pub-piece-body"><Linkify text={piece.programNotes} /></p>}
+          {piece.programNotesUrl && (
+            <a className="pub-piece-link" href={piece.programNotesUrl} target="_blank" rel="noreferrer">
+              Read full notes <ExternalLink size={12} />
+            </a>
+          )}
         </div>
       )}
 

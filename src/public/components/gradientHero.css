@@ -1,0 +1,86 @@
+/* Gradient hero — deterministic ensemble "cover art" (redesign Phase 3). */
+
+.pub-ghero {
+  position: relative;
+  border-radius: var(--pub-radius);
+  margin: 6px 0 16px;
+  min-height: 148px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  box-shadow: var(--pub-shadow-1);
+}
+.pub-ghero-compact { min-height: 118px; }
+
+@media (min-width: 1024px) {
+  .pub-ghero { min-height: 200px; }
+  .pub-ghero-compact { min-height: 148px; }
+}
+
+/* Scrim: only rendered when neither ink passes AA on the raw gradient —
+   a bottom-weighted darkening that the ink color is re-computed against. */
+.pub-ghero-scrimmed::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.35) 60%, rgba(0, 0, 0, 0.25) 100%);
+  pointer-events: none;
+}
+
+.pub-ghero-inner {
+  position: relative;
+  width: 100%;
+  padding: 18px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pub-ghero-eyebrow {
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.pub-ghero-title {
+  margin: 0;
+  font-size: clamp(26px, 5vw, 40px);
+  line-height: 1.08;
+  letter-spacing: -0.6px;
+  text-wrap: balance;
+}
+
+.pub-ghero-meta { font-size: 13.5px; opacity: 0.92; font-weight: 550; }
+
+/* Full-width tappable next-event row (never bury the answer in decoration). */
+.pub-ghero-next {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.16);
+  color: inherit;
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 700;
+  backdrop-filter: blur(2px);
+}
+.pub-ghero[style*="color: #18212f"] .pub-ghero-next { background: rgba(255, 255, 255, 0.45); }
+
+/* Print: gradients are stripped by printers — render an outlined box with
+   forced dark ink instead, so ensemble identity survives on paper. */
+@media print {
+  .pub-ghero {
+    background: #fff !important;
+    color: #18212f !important;
+    border: 1.5px solid #18212f;
+    box-shadow: none;
+    min-height: 0;
+  }
+  .pub-ghero-scrimmed::before { display: none; }
+  .pub-ghero-next { background: none; padding: 2px 0; }
+}
