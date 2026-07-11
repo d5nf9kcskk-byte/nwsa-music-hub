@@ -1,0 +1,89 @@
+/* ═══════════════════════════════════════════════════════════════
+   base.css — global foundation shared by both surfaces.
+
+   Extracted from the retired index.css (the legacy pre-NWSA theme):
+   these are the only rules from that file the app actually relies on.
+   Values are inlined literals for exact visual parity with the old
+   token-driven rules.
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+  background: #0f0b1e;
+  color: #e2d9ff;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+#root { min-height: 100dvh; display: flex; flex-direction: column; }
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.3); border-radius: 4px; }
+
+/* ── Layer scale (redesign Phase 0) ──
+   One z-index ladder for the whole app, replacing the ad-hoc 30/50/100/
+   200/400/9999 values scattered across the CSS files. New code MUST use
+   these; existing values migrate as their files are touched. Order:
+   sticky in-page chrome < fixed bars < menus/overlays < modal dialogs <
+   toasts/undo (always visible above everything). */
+:root {
+  --z-sticky: 30;    /* sticky section headers, in-page sticky rows */
+  --z-bar: 60;       /* fixed shells: tab bar, sidebars, happening-now bar */
+  --z-overlay: 100;  /* slide-in menus, search overlay, non-modal panes */
+  --z-modal: 200;    /* modal dialogs and sheets */
+  --z-toast: 400;    /* WriteTray undo, SW update toast, save cues */
+
+  /* Height of the fixed chrome currently docked at the viewport bottom.
+     The shell keeps this current so independent bottom-anchored elements
+     (SW update toast, WriteTray) can stack above whatever is there. */
+  --nwsa-bottom-chrome: 76px;
+}
+
+/* ── Accessibility ── */
+:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Print safety (redesign Phase 0)
+
+   The printed surfaces (concert program, season fridge copy, start
+   guide, QR kit) previously forced white BACKGROUNDS but not text
+   colors — with the OS in dark mode, browsers that honor the dark
+   scheme when printing (e.g. Firefox) rendered near-invisible light
+   ink on white paper. Forcing the ink tokens light here fixes that
+   for every current and future print surface. !important is required:
+   custom-property !important beats the dark-mode media block in
+   public/uiUpdates.css regardless of import order.
+
+   Also resets the "Aa" text-size zoom so pagination doesn't change
+   with a reader's on-screen size setting, and provides the shared
+   .no-print utility — new chrome must use it rather than being
+   appended to per-page print hide-lists.
+═══════════════════════════════════════════════════════════════ */
+@media print {
+  :root {
+    --pub-bg: #ffffff !important;
+    --pub-surface: #ffffff !important;
+    --pub-ink: #18212f !important;
+    --pub-text: #18212f !important;
+    --pub-muted: #4a5568 !important;
+    --pub-border: #d0d5dd !important;
+    --pub-gold-text: #5c4a00 !important;
+    --pub-shadow-1: none !important;
+    --pub-shadow-2: none !important;
+    --pub-shadow-3: none !important;
+  }
+  .pub-app { zoom: 1 !important; }
+  body { background: #fff; color: #18212f; }
+  .no-print { display: none !important; }
+}

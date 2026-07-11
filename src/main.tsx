@@ -1,7 +1,7 @@
 import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router';
-import './index.css';
+import './base.css';
 import './public/public.css';
 
 import { PublicLayout } from './public/PublicLayout';
@@ -25,8 +25,23 @@ import { VANITY_SLUGS } from './shared/vanity';
 import { AppError } from './shared/AppError';
 
 // Code-split: students and parents never download the director surface.
+// If a deploy replaced the hashed chunk while this tab was open (stale PWA
+// shell requesting an asset the server no longer has), reload once to pick
+// up the new shell instead of stranding the user on an error page.
 // eslint-disable-next-line react-refresh/only-export-components
-const DirectorApp = lazy(() => import('./director/DirectorApp'));
+const DirectorApp = lazy(() =>
+  import('./director/DirectorApp').catch(err => {
+    const KEY = 'nwsa.chunkReload';
+    try {
+      if (!sessionStorage.getItem(KEY)) {
+        sessionStorage.setItem(KEY, '1');
+        window.location.reload();
+        return new Promise<never>(() => {}); // reloading — never resolves
+      }
+    } catch { /* private mode — fall through to the error */ }
+    throw err;
+  }),
+);
 
 const router = createBrowserRouter(
   [
@@ -79,7 +94,7 @@ if ('serviceWorker' in navigator) {
         toast.id = 'nwsa-update-toast';
         toast.setAttribute('role', 'status');
         toast.style.cssText =
-          'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));' +
+          'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nwsa-bottom-chrome, 76px) + env(safe-area-inset-bottom));' +
           'z-index:9999;display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:12px;' +
           'background:#18212f;color:#fff;font:600 13.5px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;' +
           'box-shadow:0 8px 24px rgba(0,0,0,0.35);max-width:92vw;';

@@ -11,13 +11,6 @@ const OPTIONS = [
   { value: 1.3, labelKey: 'textsize.largest' },
 ] as const;
 
-export function applySavedTextSize() {
-  try {
-    const v = Number(localStorage.getItem(KEY) ?? '1');
-    if (v > 1) (document.querySelector('.pub-app') as HTMLElement | null)?.style.setProperty('zoom', String(v));
-  } catch { /* ignore */ }
-}
-
 /**
  * "Aa" text-size control (#44). Opens a small labeled menu — Normal / Large /
  * Largest — so it's clear what the button does before you commit to anything.
