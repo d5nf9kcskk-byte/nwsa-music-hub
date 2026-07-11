@@ -546,6 +546,66 @@ their phases; 54 "green light" findings confirm load-bearing decisions.
 - Happening-now bar scope: personalized only (saved student's NOW/NEXT) or also a school-wide mode ('Next today at NWSA: Jazz Band 3:30') for devices with no saved identity?
 - Director keyboard investment: will roll ever realistically be taken on a keyboard device, or should Phase 6's keyboard-chord work be cut in favor of more phone-roll polish (e.g., seating tap-roll improvements)?
 
+## 10. Decisions recorded (July 11, 2026)
+
+The owner answered the four build-shaping questions:
+
+1. **Devices** — families are mostly on phones; the director uses
+   laptops/desktops *and an iPad daily*. Consequence: the director "desktop"
+   layout (≥1024px rail + panes + tables) must be **coarse-pointer-first** —
+   iPads in landscape hit the desktop breakpoint, so every desktop affordance
+   needs 44px touch targets and zero hover dependencies (this hardens the
+   already-adopted "no hover-only reveals" amendment from suggestion to
+   foundation). The public desktop shell drops in priority relative to the
+   director track; keyboard roll chords are cut (touch-first roll polish wins).
+2. **Theme** — light-first agreed, "but a bit more darkness to diversify
+   color." Consequence: keep content surfaces light and print-safe, but deepen
+   the chrome and accent ramp — a darker ink-teal header/rail, richer second
+   stops in the ensemble gradients, and a deeper neutral text scale — so the
+   palette reads dimensional rather than washed-out. No Spotify-dark surfaces.
+3. **Artwork** — some photos may exist; gradients are the consistent bet, and
+   generic music/ensemble photography is acceptable. Consequence: the
+   deterministic gradient + monogram system is the permanent primary; an
+   optional photo layer (generic instrument/stage imagery) may back heroes
+   where available, always behind the computed-contrast scrim, never required,
+   never blocking.
+4. **Timing** — owner asked to compress the rollout into ~one week (July),
+   instead of term-boundary phasing. Assessment: July is *exactly* the safe
+   window the critics demanded — school is out, so the "never change director
+   chrome mid-term" and family-muscle-memory risks largely evaporate, and a
+   single compressed release burst replaces eight service-worker cache churns,
+   with a month of soak before school resumes in August. The costs: phases get
+   days-not-weeks of individual soak (bugs surface in bulk during the
+   verification pass instead of gradually), the verification matrix (real
+   phone at ES/1.3× zoom, real iPad, four print surfaces in both OS themes,
+   PWA cache transition) becomes the true bottleneck and needs owner
+   spot-checks on real devices, and the two L-sized phases make ~7 days
+   realistically 7–10. Compression changes the calendar, not the order:
+   foundations still ship first and every gate still applies.
+
+### Compressed schedule (order preserved, calendar compressed)
+
+- **Day 1 — Foundations:** base.css extraction; token unification + deepened
+  palette; `t()` interpolation; luminance text-color helper; forced-light
+  print block + `.no-print`; z-index scale; SW build-hash + lazy-chunk 404
+  recovery; bottom-slot manager; import-boundary lint; regression checklist.
+- **Day 2 — Public desktop shell** (1a + 1b, zoom architecture decided and
+  implemented; mobile byte-for-byte).
+- **Day 3 — Detail patterns:** sticky day-sheet; stacked mobile action bar;
+  the Add-to-calendar fix (Google template URL + success feedback + ES).
+- **Day 4 — Hubs + Spotify moments:** tool-tile hubs, gradient heroes with
+  computed contrast + print mode, piece page (conditional album grammar),
+  happening-now mini-bar.
+- **Day 5 — Director shell, iPad-first:** grouped rail, "+ New" with
+  contextual primary, always-expanded frequency-ordered phone/iPad menu,
+  Cmd+K, gear split.
+- **Day 6 — Director data surfaces:** saved-view chip subset + bulk bar;
+  RecordPane/FormPane primitives; slide-in panes; schedule two-pane; Take Roll
+  strip (exception-derived, no-reflow filtering).
+- **Day 7+ — Verification:** device matrix, four print surfaces light + dark,
+  PWA transition, EN/ES sweep, school-name grep gate, fixes.
+- **Deferred to fall:** Phase 7 change-awareness layer; keyboard chords (cut).
+
 ---
 
 *Study artifacts: the interactive wireframe version of this study is published
