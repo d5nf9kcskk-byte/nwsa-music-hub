@@ -1,4 +1,5 @@
 import './uiUpdates.css';
+import './pubShell.css';
 import { useState } from 'react';
 import { Outlet, NavLink, Link, ScrollRestoration } from 'react-router';
 import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned } from 'lucide-react';
@@ -47,6 +48,10 @@ export function PublicLayout() {
           </span>
           <span>NWSA Music</span>
         </Link>
+        <button className="pub-header-search no-print" onClick={() => setSearchOpen(true)} aria-label={t('nav.search')}>
+          <Search size={15} />
+          <span>{t('nav.searchPlaceholder')}</span>
+        </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <LangToggle />
           <TextSizeControl />
@@ -137,11 +142,77 @@ export function PublicLayout() {
         </div>
       )}
 
-      <main className="pub-content">
-        <StatusStrips />
-        <GlobalAlerts />
-        <Outlet />
-      </main>
+      {/* Desktop shell (≥1024px): sidebar + content grid. On phones the
+          wrapper is display:contents, so mobile layout is untouched. */}
+      <div className="pub-shell">
+        <aside className="pub-sidebar no-print">
+          <nav aria-label={t('nav.menu')} style={{ display: 'contents' }}>
+            <NavLink to="/" end className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+              <Home size={18} />{t('nav.home')}
+            </NavLink>
+            <NavLink to="/calendar" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+              <CalendarDays size={18} />{t('nav.calendar')}
+            </NavLink>
+            <NavLink to={me ? `/student/${me.id}` : '/lookup'} className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+              <UserSearch size={18} />{t('nav.mySchedule')}
+            </NavLink>
+            <NavLink to="/concerts" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+              <Ticket size={18} />{t('nav.concertsShort')}
+            </NavLink>
+            <NavLink to="/ensembles" end className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+              <Users size={18} />{t('nav.ensembles')}
+            </NavLink>
+
+            {ensembles.length > 0 && <div className="pub-side-head">{t('nav.ensembles')}</div>}
+            {[...ensembles].sort((a, b) => a.order - b.order).map(e => (
+              <NavLink
+                key={e.id}
+                to={`/ensemble/${e.id}`}
+                className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}
+              >
+                <span className="pub-side-dot" style={{ background: ensembleColor(e) }} />
+                {e.name}
+              </NavLink>
+            ))}
+
+            <div className="pub-side-head">{t('nav.resources')}</div>
+            <NavLink to="/announcements" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+              <Megaphone size={18} />{t('nav.announcements')}
+            </NavLink>
+            <NavLink to="/repertoire" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+              <Music size={18} />{t('nav.repertoire')}
+            </NavLink>
+            <NavLink to="/assignments" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+              <ClipboardCheck size={18} />{t('nav.assignmentsShort')}
+            </NavLink>
+            <NavLink to="/map" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+              <MapPinned size={18} />{t('nav.campusMap')}
+            </NavLink>
+            <NavLink to="/start" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+              <HelpCircle size={18} />{t('nav.startHere')}
+            </NavLink>
+          </nav>
+
+          <div className="pub-side-bottom">
+            {me && (
+              <Link to="/lookup" className="pub-side-item pub-side-me">
+                <UserCircle size={18} />
+                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{me.name}</span>
+                <span className="pub-side-switch">{t('nav.notYouSwitch')}</span>
+              </Link>
+            )}
+            <Link to="/director" className="pub-side-item pub-side-director">
+              {t('nav.directorLogin')}
+            </Link>
+          </div>
+        </aside>
+
+        <main className="pub-content">
+          <StatusStrips />
+          <GlobalAlerts />
+          <Outlet />
+        </main>
+      </div>
 
       {/* Thumb-reach bottom bar (#2): the three daily tasks + More */}
       <nav className="pub-tabbar" aria-label="Primary">
