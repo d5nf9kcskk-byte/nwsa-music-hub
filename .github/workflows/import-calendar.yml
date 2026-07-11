@@ -1,0 +1,31 @@
+name: Import Official Calendar
+
+# Admin task: imports the official NWSA CALENDAR OF EVENTS 2026-27 into
+# Firestore (music concerts on the correct ensembles + dance/theatre/visual
+# arts division events). Deletes existing Concert events and previous imports
+# first — idempotent, safe to re-run. Runs on manual dispatch, and
+# automatically when the import data changes on main.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/import-official-calendar.mjs'
+      - '.github/workflows/import-calendar.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install firebase-admin --no-save
+      - name: Import calendar into Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/import-official-calendar.mjs
