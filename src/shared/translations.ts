@@ -146,5 +146,12 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'misc.loading':        { en: 'Loading…',           es: 'Cargando…' },
   'misc.showMoreDays':   { en: 'Show more days',     es: 'Ver más días' },
   'misc.addToCalendar':  { en: 'Add to my calendar', es: 'Agregar a mi calendario' },
+  'atc.openedGoogle':    { en: 'Google Calendar opened — tap Save there.', es: 'Se abrió Google Calendar — toca Guardar allí.' },
+  'atc.sentIos':         { en: 'Sent to your calendar app — look for the new event.', es: 'Enviado a tu app de calendario — busca el evento nuevo.' },
+  'atc.icsInstead':      { en: 'Use a .ics file instead', es: 'Usar un archivo .ics' },
+  'atc.cancelledTip':    { en: "This event is cancelled — there's nothing to add.", es: 'Este evento está cancelado — no hay nada que agregar.' },
+  'atc.cancelledTitle':  { en: 'This event is cancelled', es: 'Este evento está cancelado' },
+  'event.getDirections': { en: 'Get directions', es: 'Cómo llegar' },
+  'event.when':          { en: 'When & where', es: 'Cuándo y dónde' },
   'misc.openExamForm':   { en: 'Open exam form',     es: 'Abrir el formulario del examen' },
 };

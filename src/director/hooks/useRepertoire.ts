@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { noteLoadError } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
 import type { RepertoirePiece } from '../types';
+import { FIXTURES_ON, FIXTURE_PIECES } from './fixtures';
 
 /**
  * Real-time listener for repertoire pieces. Sorted client-side by order then
@@ -14,7 +15,7 @@ export function useRepertoire() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!db) { setLoading(false); return; }
+    if (!db) { if (FIXTURES_ON) setPieces(FIXTURE_PIECES); setLoading(false); return; }
     return onSnapshot(collection(db, 'repertoire'), snap => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as RepertoirePiece));
       list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.title.localeCompare(b.title));

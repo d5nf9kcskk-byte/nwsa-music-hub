@@ -6,13 +6,14 @@ import {
 import { db } from '../firebase';
 import { noteLoadError } from '../../shared/appStatus';
 import type { Ensemble } from '../types';
+import { FIXTURES_ON, FIXTURE_ENSEMBLES } from './fixtures';
 
 export function useEnsembles() {
   const [ensembles, setEnsembles] = useState<Ensemble[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!db) { setLoading(false); return; }
+    if (!db) { if (FIXTURES_ON) setEnsembles(FIXTURE_ENSEMBLES); setLoading(false); return; }
     const q = query(collection(db, 'ensembles'), orderBy('order'));
     return onSnapshot(q, snap => {
       setEnsembles(snap.docs.map(d => ({ id: d.id, ...d.data() } as Ensemble)));

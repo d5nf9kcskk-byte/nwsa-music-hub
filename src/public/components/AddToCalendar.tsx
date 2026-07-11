@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CalendarEvent } from '../../director/types';
 import { formatTime } from '../../director/utils';
+import { detectPlatform } from '../platform';
+import { t, useLang } from '../../shared/i18n';
 import './addToCalendar.css';
 
 /* ── ICS generation (single event, client-side) ─────────────────────────
@@ -99,6 +101,42 @@ function buildIcs(event: CalendarEvent, ensembleName?: string): string {
   return lines.map(fold).join('\r\n') + '\r\n';
 }
 
+/* Google Calendar event-template URL: on Android (and desktop, where Google
+   Calendar dominates for this audience) this opens a visible "save event"
+   screen — unlike the silent .ics file download, which non-technical users
+   never find in their downloads bar. iOS keeps .ics: it opens straight into
+   the Apple Calendar add sheet. */
+function googleCalendarUrl(event: CalendarEvent, ensembleName?: string): string {
+  const summary = event.title || (ensembleName ? `${ensembleName} — ${event.type}` : event.type);
+  const location = [event.location, event.venueAddress].filter(Boolean).join(', ');
+  const arriveBy = event.type === 'Concert' && event.callTime ? event.callTime : event.startTime;
+
+  let dates: string;
+  if (arriveBy) {
+    let end: string;
+    if (event.endTime) {
+      end = utcStamp(event.date, event.endTime);
+    } else {
+      const [h, m] = arriveBy.split(':').map(Number);
+      end = utcStamp(event.date, `${String(h + 1).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`);
+    }
+    dates = `${utcStamp(event.date, arriveBy)}/${end}`;
+  } else {
+    dates = `${dateStamp(event.date)}/${dateStamp(event.date, 1)}`;
+  }
+
+  const descParts: string[] = [];
+  if (event.callTime) descParts.push(`Call time: ${formatTime(event.callTime)}`);
+  if (event.type === 'Concert' && event.callTime && event.startTime) descParts.push(`Concert starts: ${formatTime(event.startTime)}`);
+  if (event.dress) descParts.push(`Dress: ${event.dress}`);
+  if (event.pickupTime) descParts.push(`Pickup: ${formatTime(event.pickupTime)}`);
+
+  const p = new URLSearchParams({ action: 'TEMPLATE', text: summary, dates });
+  if (location) p.set('location', location);
+  if (descParts.length) p.set('details', descParts.join('\n'));
+  return `https://calendar.google.com/calendar/render?${p.toString()}`;
+}
+
 function downloadIcs(event: CalendarEvent, ensembleName?: string) {
   const ics = buildIcs(event, ensembleName);
   const base = (event.title || ensembleName || event.type || 'event')
@@ -115,41 +153,61 @@ function downloadIcs(event: CalendarEvent, ensembleName?: string) {
 }
 
 /**
- * One-tap "Add to my calendar" (#14): downloads a single-event .ics that any
- * calendar app (Apple, Google, Outlook) can open. Refuses cancelled events
- * with a small tooltip instead of silently downloading a dead entry.
+ * One-tap "Add to my calendar" (#14, reworked in the redesign): opens the
+ * Google Calendar save screen on Android/desktop and the .ics add sheet on
+ * iOS — with visible confirmation either way, because the old silent .ics
+ * download stranded non-technical Android users. The confirmation includes
+ * a manual ".ics file" fallback for Outlook/other calendars. Refuses
+ * cancelled events with a tooltip instead of adding a dead entry.
  */
-export function AddToCalendarButton({ event, ensembleName }: { event: CalendarEvent; ensembleName?: string }) {
-  const [tip, setTip] = useState(false);
+export function AddToCalendarButton({ event, ensembleName, variant }: { event: CalendarEvent; ensembleName?: string; variant?: 'primary' }) {
+  useLang();
+  const [tip, setTip] = useState<'cancelled' | 'opened' | 'sent' | null>(null);
   const tipTimer = useRef<number | undefined>(undefined);
   const cancelled = event.status === 'Cancelled';
 
   useEffect(() => () => window.clearTimeout(tipTimer.current), []);
 
+  function showTip(kind: 'cancelled' | 'opened' | 'sent', ms: number) {
+    setTip(kind);
+    window.clearTimeout(tipTimer.current);
+    tipTimer.current = window.setTimeout(() => setTip(null), ms);
+  }
+
   function handleClick() {
     if (cancelled) {
-      setTip(true);
-      window.clearTimeout(tipTimer.current);
-      tipTimer.current = window.setTimeout(() => setTip(false), 2400);
+      showTip('cancelled', 2400);
       return;
     }
-    downloadIcs(event, ensembleName);
+    if (detectPlatform() === 'ios') {
+      downloadIcs(event, ensembleName);
+      showTip('sent', 6000);
+    } else {
+      window.open(googleCalendarUrl(event, ensembleName), '_blank', 'noopener');
+      showTip('opened', 6000);
+    }
   }
 
   return (
-    <span className="pub-atc">
+    <span className={`pub-atc${variant === 'primary' ? ' pub-atc-primary' : ''}`}>
       <button
         type="button"
         className={`pub-atc-btn${cancelled ? ' pub-atc-btn-off' : ''}`}
         onClick={handleClick}
         aria-disabled={cancelled}
-        title={cancelled ? 'This event is cancelled' : 'Download this event to your calendar'}
+        title={cancelled ? t('atc.cancelledTitle') : t('misc.addToCalendar')}
       >
-        <span aria-hidden="true">📅</span> Add to my calendar
+        <span aria-hidden="true">📅</span> {t('misc.addToCalendar')}
       </button>
-      {tip && (
-        <span className="pub-atc-tip" role="tooltip">
-          This event is cancelled — there's nothing to add.
+      {tip === 'cancelled' && (
+        <span className="pub-atc-tip" role="tooltip">{t('atc.cancelledTip')}</span>
+      )}
+      {(tip === 'opened' || tip === 'sent') && (
+        <span className="pub-atc-tip pub-atc-ok" role="status">
+          {t(tip === 'opened' ? 'atc.openedGoogle' : 'atc.sentIos')}{' '}
+          <button type="button" className="pub-atc-alt" onClick={() => { downloadIcs(event, ensembleName); setTip(null); }}>
+            {t('atc.icsInstead')}
+          </button>
         </span>
       )}
     </span>

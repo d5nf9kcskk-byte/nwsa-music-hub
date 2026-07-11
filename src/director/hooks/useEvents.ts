@@ -7,6 +7,7 @@ import { db, auth } from '../firebase';
 import { noteLoadError } from '../../shared/appStatus';
 import { offerUndo, trackWrite } from '../writeStatus';
 import type { CalendarEvent } from '../types';
+import { FIXTURES_ON, FIXTURE_EVENTS } from './fixtures';
 
 /**
  * Real-time listener for all calendar events (rehearsals, concerts, etc.),
@@ -18,7 +19,7 @@ export function useEvents() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!db) { setLoading(false); return; }
+    if (!db) { if (FIXTURES_ON) setEvents(FIXTURE_EVENTS); setLoading(false); return; }
     const q = query(collection(db, 'events'), orderBy('date'));
     return onSnapshot(q, snap => {
       setEvents(snap.docs.map(d => ({ id: d.id, ...d.data() } as CalendarEvent)));

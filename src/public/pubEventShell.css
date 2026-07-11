@@ -1,0 +1,114 @@
+/* ═══════════════════════════════════════════════════════════════
+   pubEventShell.css — event-page layout (redesign Phase 2).
+
+   Desktop (≥1024px): Airbnb-style listing skeleton — sectioned content
+   left, sticky day-sheet action panel right. The day sheet is this
+   app's booking card; "Add to calendar" is its Reserve button.
+
+   Mobile: a contextual action bar docked ABOVE the retained tab bar
+   (never replacing it — QR arrivals must never lose global nav). The
+   bar yields on short viewports and announces its height to the
+   bottom-chrome contract via --nwsa-bottom-chrome so the SW update
+   toast stacks above it.
+═══════════════════════════════════════════════════════════════ */
+
+.pub-event-grid { display: contents; }
+.pub-event-desktop-side { display: none; }
+
+@media (min-width: 1024px) {
+  .pub-page-wide { max-width: 1080px; }
+
+  .pub-event-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 20px;
+    align-items: start;
+  }
+  .pub-event-side {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: 71px; /* header 59px + breathing room */
+    display: flex;
+    flex-direction: column;
+  }
+  .pub-event-main { grid-column: 1; grid-row: 1; min-width: 0; }
+  .pub-event-desktop-side { display: block; }
+}
+
+/* ── Primary calendar CTA (day sheet + mobile action bar) ── */
+.pub-atc-primary { display: block; margin: 2px 0 10px; }
+.pub-atc-primary .pub-atc-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--pub-accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pub-atc-primary .pub-atc-btn.pub-atc-btn-off { opacity: 0.55; }
+
+.pub-daysheet-directions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 16px;
+  margin-bottom: 10px;
+  border: 1px solid var(--pub-border);
+  border-radius: 10px;
+  color: var(--pub-ink);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 650;
+  background: var(--pub-surface);
+}
+
+/* ── Mobile contextual action bar ── */
+.pub-event-actionbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* Measured tab-bar height set by EventBody's ResizeObserver (includes
+     safe-area padding); token fallback before first measure. */
+  bottom: var(--pub-tabbar-h, calc(var(--pub-nav) + env(safe-area-inset-bottom)));
+  z-index: var(--z-bar);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px calc(14px + env(safe-area-inset-right)) 10px calc(16px + env(safe-area-inset-left));
+  background: var(--pub-surface);
+  border-top: 1px solid var(--pub-border);
+  box-shadow: 0 -4px 16px rgba(15, 40, 60, 0.08);
+}
+.pub-event-actionbar-info { flex: 1; min-width: 0; }
+.pub-event-actionbar-date { font-size: 14px; font-weight: 750; letter-spacing: -0.2px; }
+.pub-event-actionbar-venue {
+  font-size: 12px;
+  color: var(--pub-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pub-event-actionbar .pub-atc-primary { margin: 0; flex: none; max-width: 60%; }
+.pub-event-actionbar .pub-atc-btn { width: auto; padding: 11px 16px; font-size: 14px; }
+/* Reserve scroll room so the last content is never hidden behind the bar. */
+.pub-event-actionbar-spacer { height: 64px; }
+
+/* Announce the extra bottom chrome (toast stacks above the pair). */
+@media (max-width: 1023.98px) and (min-height: 561px) {
+  :root:has(.pub-event-actionbar) { --nwsa-bottom-chrome: 142px; }
+}
+
+/* The bar retires on desktop (sticky panel takes over) and on short
+   viewports (bottom-chrome budget: tab bar + one extra occupant max). */
+@media (min-width: 1024px), (max-height: 560px) {
+  .pub-event-actionbar, .pub-event-actionbar-spacer { display: none; }
+}
