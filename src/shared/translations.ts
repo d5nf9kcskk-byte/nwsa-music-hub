@@ -31,6 +31,8 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.search':           { en: 'Search',              es: 'Buscar' },
   'nav.notYouSwitch':     { en: 'Not you? Switch',     es: '¿No eres tú? Cambiar' },
   'nav.campusMap':        { en: 'Campus Map',          es: 'Mapa del campus' },
+  'nav.resources':        { en: 'Resources',           es: 'Recursos' },
+  'nav.searchPlaceholder': { en: 'Search events, ensembles, music…', es: 'Buscar eventos, ensambles, música…' },
 
   // ── Text-size control (header "Aa") ─────────────────────────────────────
   'textsize.label':   { en: 'Text size', es: 'Tamaño del texto' },
