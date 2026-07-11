@@ -195,6 +195,11 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate }: {
   const lessons = useMemo(() => lessonsFor(overrides, ctx), [overrides, ensembleId, date, eventId, eventsById]);
 
   const [toggleError, setToggleError] = useState('');
+  // Status-strip highlight filter (redesign Phase 6). Dims non-matching rows
+  // instead of removing them: the list must NEVER reflow under a pending tap
+  // mid-roll (marked rows vanishing shifted the next tap onto the wrong
+  // student). Attendance stays exception-only — Present is always derived.
+  const [statusFilter, setStatusFilter] = useState<AttendanceStatus | 'Unmarked' | null>(null);
   const [lessonStudent, setLessonStudent] = useState<Student | null>(null);
   const [chartView, setChartView] = useState(false);
   const { charts } = useSeatingCharts(ensembleId);
@@ -219,6 +224,23 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate }: {
 
   const lessonCount = Object.keys(lessons).length;
   const exceptionCount = Object.values(recordMap).filter(r => r.status !== 'Lesson').length;
+  const statusCounts = useMemo(() => {
+    const c = { Absent: 0, Late: 0, Excused: 0 } as Record<'Absent' | 'Late' | 'Excused', number>;
+    for (const r of Object.values(recordMap)) {
+      if (r.status === 'Absent' || r.status === 'Late' || r.status === 'Excused') c[r.status] += 1;
+    }
+    return c;
+  }, [recordMap]);
+  const unmarkedCount = resolved.filter(({ student }) => !recordMap[student.id] && !lessons[student.id]).length;
+  function rowMatchesFilter(studentId: string): boolean {
+    if (!statusFilter) return true;
+    if (statusFilter === 'Unmarked') return !recordMap[studentId] && !lessons[studentId];
+    if (statusFilter === 'Lesson') return Boolean(lessons[studentId]) || recordMap[studentId]?.status === 'Lesson';
+    return recordMap[studentId]?.status === statusFilter;
+  }
+  function toggleFilter(f: AttendanceStatus | 'Unmarked') {
+    setStatusFilter(cur => (cur === f ? null : f));
+  }
 
   // Same-day context from OTHER periods/ensembles (#25).
   const dayContext = useMemo(() => {
@@ -311,10 +333,36 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate }: {
         </div>
       </div>
 
-      <div className="dir-att-summary">
-        <strong>{resolved.length}</strong> students ·{' '}
-        {exceptionCount === 0 ? 'All present' : <><strong>{exceptionCount}</strong> exception{exceptionCount !== 1 ? 's' : ''}</>}
-        {lessonCount > 0 && <> · <strong>{lessonCount}</strong> at lessons</>}
+      <div className="dir-att-summary dir-att-strip">
+        <button className={`dir-att-chip${statusFilter === null ? ' on' : ''}`} onClick={() => setStatusFilter(null)}>
+          <strong>{resolved.length}</strong> on roster
+        </button>
+        {exceptionCount === 0 && <span className="dir-att-allpresent">All present</span>}
+        {statusCounts.Absent > 0 && (
+          <button className={`dir-att-chip absent${statusFilter === 'Absent' ? ' on' : ''}`} onClick={() => toggleFilter('Absent')}>
+            <strong>{statusCounts.Absent}</strong> Absent
+          </button>
+        )}
+        {statusCounts.Late > 0 && (
+          <button className={`dir-att-chip late${statusFilter === 'Late' ? ' on' : ''}`} onClick={() => toggleFilter('Late')}>
+            <strong>{statusCounts.Late}</strong> Late
+          </button>
+        )}
+        {statusCounts.Excused > 0 && (
+          <button className={`dir-att-chip excused${statusFilter === 'Excused' ? ' on' : ''}`} onClick={() => toggleFilter('Excused')}>
+            <strong>{statusCounts.Excused}</strong> Excused
+          </button>
+        )}
+        {lessonCount > 0 && (
+          <button className={`dir-att-chip lesson${statusFilter === 'Lesson' ? ' on' : ''}`} onClick={() => toggleFilter('Lesson')}>
+            <strong>{lessonCount}</strong> Lessons
+          </button>
+        )}
+        {unmarkedCount > 0 && exceptionCount > 0 && (
+          <button className={`dir-att-chip${statusFilter === 'Unmarked' ? ' on' : ''}`} onClick={() => toggleFilter('Unmarked')}>
+            <strong>{unmarkedCount}</strong> Unmarked
+          </button>
+        )}
         {pulledToday.length > 0 && <> · <strong>{pulledToday.length}</strong> pulled</>}
         {onNavigate && (
           <button className="dir-link-btn" style={{ marginLeft: 'auto' }} onClick={() => onNavigate('scheduleChanges', { ensembleId })}>
@@ -395,8 +443,8 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate }: {
           <div className="dir-empty"><Users size={40} /><h3>No active students</h3><p>Add students to this ensemble in the Roster tab.</p></div>
         ) : (
           resolved.map(({ student, isSub }) => (
+            <div key={student.id} className={rowMatchesFilter(student.id) ? undefined : 'dir-roll-dim'}>
             <StudentCard
-              key={student.id}
               student={student}
               record={recordMap[student.id]}
               onToggle={handleToggle}
@@ -407,6 +455,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate }: {
               dayContext={dayContext[student.id]}
               history={history5[student.id]}
             />
+            </div>
           ))
         )}
       </div>

@@ -340,7 +340,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
       </div>
 
       {calView === 'month' ? (
-        <>
+        <div className="dir-sched-split">
           {/* Month navigation — directly above the grid it controls */}
           <div className="dir-cal-nav">
             <button className="dir-date-nav-btn" onClick={() => shiftMonth(-1)} aria-label="Previous month">
@@ -414,7 +414,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               </>
             )}
           </div>
-        </>
+        </div>
       ) : (
         /* List view — upcoming events from today */
         <div className="dir-list-view">

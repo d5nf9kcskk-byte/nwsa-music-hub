@@ -7,13 +7,14 @@ import { db } from '../firebase';
 import { noteLoadError } from '../../shared/appStatus';
 import { offerUndo, trackWrite } from '../writeStatus';
 import type { Student } from '../types';
+import { FIXTURES_ON, FIXTURE_STUDENTS } from './fixtures';
 
 export function useStudents(ensembleId?: string) {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!db) { setLoading(false); return; }
+    if (!db) { if (FIXTURES_ON) setStudents(FIXTURE_STUDENTS); setLoading(false); return; }
     const q = query(collection(db, 'students'), orderBy('name'));
     return onSnapshot(q, snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as Student));

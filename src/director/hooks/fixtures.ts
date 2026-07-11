@@ -1,4 +1,4 @@
-import type { CalendarEvent, Ensemble, RepertoirePiece } from '../types';
+import type { CalendarEvent, Ensemble, RepertoirePiece, Student } from '../types';
 
 /**
  * Local development fixtures (redesign test cycle). Served ONLY when Firebase
@@ -66,4 +66,15 @@ export const FIXTURE_EVENTS: CalendarEvent[] = [
     date: iso(3), startTime: '18:00', location: 'Downtown Arts Plaza',
     title: 'Jazz in the Plaza', status: 'Scheduled',
   },
+];
+
+export const FIXTURE_STUDENTS: Student[] = [
+  { id: 'fx-s1', name: 'Alvarez, Maria', instrument: 'Violin', grade: '11th', status: 'Active', ensembleIds: ['symphony-orchestra'] },
+  { id: 'fx-s2', name: 'Brown, DeShawn', instrument: 'Trumpet', grade: '12th', status: 'Active', ensembleIds: ['wind-ensemble', 'jazz-ensemble'] },
+  { id: 'fx-s3', name: 'Chen, Wei', instrument: 'Cello', grade: '9th', status: 'Active', ensembleIds: ['symphony-orchestra'] },
+  { id: 'fx-s4', name: 'Delgado, Sofia', instrument: 'Clarinet', grade: '10th', status: 'Active', ensembleIds: ['wind-ensemble'] },
+  { id: 'fx-s5', name: 'Etienne, Marcus', instrument: 'Saxophone', grade: '12th', status: 'Active', ensembleIds: ['jazz-ensemble', 'wind-ensemble'] },
+  { id: 'fx-s6', name: 'Fernandez, Lucia', instrument: 'Flute', grade: '9th', status: 'Active', ensembleIds: ['wind-ensemble'] },
+  { id: 'fx-s7', name: 'Garcia, Mateo', instrument: 'Bass', grade: '11th', status: 'Active', ensembleIds: ['symphony-orchestra', 'jazz-ensemble'] },
+  { id: 'fx-s8', name: 'Hernandez, Isabella', instrument: 'Percussion', grade: '10th', status: 'Active', ensembleIds: ['wind-ensemble', 'symphony-orchestra'] },
 ];

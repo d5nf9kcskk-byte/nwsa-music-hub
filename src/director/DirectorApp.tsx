@@ -258,7 +258,7 @@ export default function DirectorApp() {
               <nav className="dir-menu-panel" role="dialog" aria-modal="true" aria-label="Menu" tabIndex={-1} ref={menuRef} onClick={e => e.stopPropagation()}>
                 <div className="dir-menu-header">
                   {user.photoURL && <img className="dir-avatar" src={user.photoURL} alt={user.displayName ?? 'User'} referrerPolicy="no-referrer" />}
-                  <span className="dir-menu-title">{user.displayName ?? 'NWSA Music'}</span>
+                  <span className="dir-menu-title">{user.displayName ?? 'NWSA Music Hub'}</span>
                   <button className="dir-menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">
                     <X size={20} />
                   </button>

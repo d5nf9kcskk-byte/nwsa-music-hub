@@ -131,7 +131,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
     <div className="dir-tab-page">
       <div className="dir-today-hero">
         <div className="dir-today-date">{dateLabel}</div>
-        <div className="dir-today-title">🎶 Today at NWSA Music</div>
+        <div className="dir-today-title">🎶 Today at NWSA Music Hub</div>
       </div>
 
       {ensembles.length > 0 && (
