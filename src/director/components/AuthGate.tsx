@@ -3,6 +3,7 @@ import { onAuthStateChanged, signInWithPopup, signOut, GoogleAuthProvider } from
 import type { User } from 'firebase/auth';
 import { Link } from 'react-router';
 import { auth, isFirebaseConfigured } from '../firebase';
+import { FIXTURES_ON } from '../hooks/fixtures';
 
 /**
  * Client-side mirror of the Firestore-rules allowlist (firestore.rules —
@@ -50,6 +51,12 @@ export function AuthGate({ children }: Props) {
   }
 
   if (!isFirebaseConfigured) {
+    // Local fixture builds (VITE_FIXTURES=1, no Firebase config) render the
+    // console with a stub user so layout work is verifiable — deploys always
+    // have Firebase configured, so this can never appear in production.
+    if (FIXTURES_ON) {
+      return <>{children({ displayName: 'Fixture Director', email: 'fixtures@local', photoURL: null } as unknown as User, () => {})}</>;
+    }
     return (
       <div className="dir-auth">
         <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />

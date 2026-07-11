@@ -1,8 +1,10 @@
 import './director.css';
 import './uiUpdates.css';
-import { useState } from 'react';
+import './dirShell.css';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, Repeat, QrCode } from 'lucide-react';
+import { QrKitView } from './qr/QrKitView';
 import { AuthGate } from './components/AuthGate';
 import { DirectorSearch } from './components/DirectorSearch';
 import { WriteTray } from './components/WriteTray';
@@ -25,16 +27,43 @@ import { useEnsembles } from './hooks/useEnsembles';
 import { ensembleColor } from './utils';
 import type { DirTab, DirNavOpts } from './types-nav';
 
-const MENU_TABS: { id: DirTab; label: string; Icon: typeof ClipboardList }[] = [
-  { id: 'today',           label: 'Today',                   Icon: Home           },
-  { id: 'roll',            label: 'Take Roll',               Icon: ClipboardList  },
-  { id: 'roster',          label: 'Roster',                  Icon: Users          },
-  { id: 'schedule',        label: 'Schedule',                Icon: Calendar       },
-  { id: 'scheduleSwap',    label: 'Schedule Change',         Icon: CalendarClock  },
-  { id: 'repertoire',      label: 'Repertoire',              Icon: Music          },
-  { id: 'notes',           label: 'Progress Notes',          Icon: FileText       },
-  { id: 'assignments',     label: 'Assignments',             Icon: ClipboardCheck },
-  { id: 'announcements',   label: 'Announcements',           Icon: Megaphone      },
+/**
+ * Navigation groups shared by the desktop rail and the phone menu (redesign
+ * Phase 4). Frequency-ordered: the daily loop (Today, Take Roll, Calendar,
+ * Who's Out) sits at top level; everything else is grouped. This also fixes
+ * a long-standing defect — Who's Out and Subs & Pull-outs were valid tabs
+ * with no menu entry anywhere.
+ */
+type NavItem = { id: DirTab; label: string; Icon: typeof ClipboardList };
+const NAV_TOP: NavItem[] = [
+  { id: 'today',    label: 'Today',     Icon: Home          },
+  { id: 'roll',     label: 'Take Roll', Icon: ClipboardList },
+  { id: 'schedule', label: 'Calendar',  Icon: Calendar      },
+  { id: 'whosOut',  label: "Who's Out", Icon: UserX         },
+];
+const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
+  {
+    head: 'Schedule',
+    items: [
+      { id: 'scheduleSwap',    label: 'Schedule Change', Icon: CalendarClock },
+      { id: 'scheduleChanges', label: 'Subs & Pull-outs', Icon: Repeat },
+    ],
+  },
+  {
+    head: 'People',
+    items: [
+      { id: 'roster', label: 'Roster',         Icon: Users    },
+      { id: 'notes',  label: 'Progress Notes', Icon: FileText },
+    ],
+  },
+  {
+    head: 'Library',
+    items: [
+      { id: 'repertoire',    label: 'Repertoire',    Icon: Music          },
+      { id: 'assignments',   label: 'Assignments',   Icon: ClipboardCheck },
+      { id: 'announcements', label: 'Announcements', Icon: Megaphone      },
+    ],
+  },
 ];
 
 const TAB_TITLES: Record<DirTab, string> = {
@@ -61,6 +90,20 @@ export default function DirectorApp() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+
+  // Cmd/Ctrl+K opens the quick switcher (DirectorSearch already has full
+  // keyboard navigation — it only lacked the shortcut).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(o => !o);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -101,6 +144,53 @@ export default function DirectorApp() {
     <AuthGate>
       {(user, signOut) => (
         <div className="dir-app">
+          {/* Desktop/iPad-landscape rail (≥1024px): grouped, always expanded,
+              coarse-pointer-first. Same items as the phone menu. */}
+          <aside className="dir-rail no-print">
+            <div className="dir-rail-brand">
+              <img src={`${import.meta.env.BASE_URL}nwsa-mark.png`} alt="NWSA" />
+              NWSA Music Hub
+            </div>
+            <nav aria-label="Director navigation" style={{ display: 'contents' }}>
+              {NAV_TOP.map(({ id, label, Icon }) => (
+                <button key={id} className={`dir-rail-item ${tab === id ? 'active' : ''}`} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined}>
+                  <Icon size={18} /> {label}
+                </button>
+              ))}
+              {NAV_GROUPS.map(g => (
+                <div key={g.head} style={{ display: 'contents' }}>
+                  <div className="dir-rail-head">{g.head}</div>
+                  {g.items.map(({ id, label, Icon }) => (
+                    <button key={id} className={`dir-rail-item ${tab === id ? 'active' : ''}`} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined}>
+                      <Icon size={18} /> {label}
+                    </button>
+                  ))}
+                </div>
+              ))}
+              {ensembles.length > 0 && <div className="dir-rail-head">Ensembles</div>}
+              {[...ensembles].sort((a, b) => a.order - b.order).map(e => (
+                <button
+                  key={e.id}
+                  className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
+                  onClick={() => go('ensembleHub', { ensembleId: e.id })}
+                >
+                  <span className="dir-rail-dot" style={{ background: ensembleColor(e) }} /> {e.name}
+                </button>
+              ))}
+            </nav>
+            <div className="dir-rail-bottom">
+              <button className="dir-rail-item" onClick={() => setQrOpen(true)}>
+                <QrCode size={18} /> QR Kit
+              </button>
+              <button className="dir-rail-item" onClick={() => navigate('/')}>
+                <ExternalLink size={18} /> View public site
+              </button>
+              <button className="dir-rail-item dir-rail-signout" onClick={signOut}>
+                <LogOut size={18} /> Sign out
+              </button>
+            </div>
+          </aside>
+
           <header className="dir-header">
             <div className="dir-header-brand">
               <span className="dir-logo-chip">
@@ -108,7 +198,7 @@ export default function DirectorApp() {
               </span>
               <div>
                 <div className="dir-header-title">{title}</div>
-                <div className="dir-header-sub">NWSA Music</div>
+                <div className="dir-header-sub">NWSA Music Hub</div>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -120,7 +210,7 @@ export default function DirectorApp() {
               <button className="dir-hamburger" onClick={() => setSearchOpen(true)} aria-label="Search">
                 <Search size={22} />
               </button>
-              <button className="dir-hamburger" onClick={() => setMenuOpen(true)} aria-label="Menu">
+              <button className="dir-hamburger dir-hamburger-menu" onClick={() => setMenuOpen(true)} aria-label="Menu">
                 <Menu size={24} />
               </button>
             </div>
@@ -154,6 +244,8 @@ export default function DirectorApp() {
 
           <WriteTray />
 
+          {qrOpen && <QrKitView onClose={() => setQrOpen(false)} />}
+
           <DirectorSearch
             open={searchOpen}
             onClose={() => setSearchOpen(false)}
@@ -172,41 +264,58 @@ export default function DirectorApp() {
                   </button>
                 </div>
 
-                {MENU_TABS.map(({ id, label, Icon }) => (
-                  <div key={id}>
-                    <button
-                      className={`dir-menu-item ${tab === id ? 'active' : ''}`}
-                      onClick={() => go(id)}
-                      aria-current={tab === id ? 'page' : undefined}
-                    >
-                      <Icon size={19} /> {label}
-                    </button>
-                    {/* Ensemble hubs live right under Schedule */}
-                    {id === 'schedule' && ensembles.length > 0 && (
-                      <>
-                        <button
-                          className={`dir-menu-item ${tab === 'ensembleHub' ? 'active' : ''}`}
-                          onClick={() => setEnsemblesOpen(o => !o)}
-                          aria-expanded={ensemblesOpen}
-                        >
-                          <Users size={19} /> Ensembles
-                          <ChevronDown size={16} style={{ marginLeft: 'auto', transform: ensemblesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
-                        </button>
-                        {ensemblesOpen && ensembles.map(e => (
-                          <button
-                            key={e.id}
-                            className={`dir-menu-item dir-menu-subitem ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
-                            onClick={() => go('ensembleHub', { ensembleId: e.id })}
-                          >
-                            <span className="dir-menu-dot" style={{ background: ensembleColor(e) }} /> {e.name}
-                          </button>
-                        ))}
-                      </>
-                    )}
+                {NAV_TOP.map(({ id, label, Icon }) => (
+                  <button
+                    key={id}
+                    className={`dir-menu-item ${tab === id ? 'active' : ''}`}
+                    onClick={() => go(id)}
+                    aria-current={tab === id ? 'page' : undefined}
+                  >
+                    <Icon size={19} /> {label}
+                  </button>
+                ))}
+                {NAV_GROUPS.map(g => (
+                  <div key={g.head}>
+                    <div className="dir-menu-group-head">{g.head}</div>
+                    {g.items.map(({ id, label, Icon }) => (
+                      <button
+                        key={id}
+                        className={`dir-menu-item ${tab === id ? 'active' : ''}`}
+                        onClick={() => go(id)}
+                        aria-current={tab === id ? 'page' : undefined}
+                      >
+                        <Icon size={19} /> {label}
+                      </button>
+                    ))}
                   </div>
                 ))}
+                {ensembles.length > 0 && (
+                  <>
+                    <button
+                      className={`dir-menu-item ${tab === 'ensembleHub' ? 'active' : ''}`}
+                      onClick={() => setEnsemblesOpen(o => !o)}
+                      aria-expanded={ensemblesOpen}
+                    >
+                      <Users size={19} /> Ensembles
+                      <ChevronDown size={16} style={{ marginLeft: 'auto', transform: ensemblesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+                    </button>
+                    {ensemblesOpen && ensembles.map(e => (
+                      <button
+                        key={e.id}
+                        className={`dir-menu-item dir-menu-subitem ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
+                        onClick={() => go('ensembleHub', { ensembleId: e.id })}
+                      >
+                        <span className="dir-menu-dot" style={{ background: ensembleColor(e) }} /> {e.name}
+                      </button>
+                    ))}
+                  </>
+                )}
 
                 <div className="dir-menu-divider" />
+
+                <button className="dir-menu-item" onClick={() => { setQrOpen(true); setMenuOpen(false); }}>
+                  <QrCode size={19} /> QR Kit
+                </button>
 
                 <button className="dir-menu-item" onClick={() => navigate('/')}>
                   <ExternalLink size={19} /> View public site
