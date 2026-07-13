@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { UserPlus, Users, SlidersHorizontal, Music, MapPinned, CalendarX } from 'lucide-react';
+import { UserPlus, Users, SlidersHorizontal, Music, MapPinned, CalendarX, FileSpreadsheet } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useAllAttendance } from '../hooks/useAttendance';
@@ -9,6 +9,7 @@ import { StudentDetail } from './StudentDetail';
 import { EnsembleManager } from './EnsembleManager';
 import { RepertoireManager } from '../repertoire/RepertoireManager';
 import { LocationsManager } from '../locations/LocationsManager';
+import { RosterImport } from './RosterImport';
 import { ensembleColor } from '../utils';
 import { seedRoster, seedStudents, seedEnsembles } from '../seedData';
 import { resetToBaseline, importBaselineContacts } from '../resetBaseline';
@@ -48,6 +49,7 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
   const [managingEnsembles, setManagingEnsembles] = useState(false);
   const [managingRepertoire, setManagingRepertoire] = useState(false);
   const [managingLocations, setManagingLocations] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [importState, setImportState] = useState<'idle' | 'importing' | 'error'>('idle');
   const [importError, setImportError] = useState('');
 
@@ -112,6 +114,9 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
         </button>
         <button className="dir-tool-btn" onClick={() => setManagingLocations(true)}>
           <MapPinned size={15} /> Locations
+        </button>
+        <button className="dir-tool-btn" onClick={() => setImporting(true)}>
+          <FileSpreadsheet size={15} /> Import
         </button>
       </div>
 
@@ -247,6 +252,7 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
       {managingEnsembles && <EnsembleManager onClose={() => setManagingEnsembles(false)} />}
       {managingRepertoire && <RepertoireManager onClose={() => setManagingRepertoire(false)} />}
       {managingLocations && <LocationsManager onClose={() => setManagingLocations(false)} />}
+      {importing && <RosterImport onClose={() => setImporting(false)} />}
     </div>
   );
 }
