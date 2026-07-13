@@ -43,6 +43,21 @@ export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsem
     return out;
   }, [events, date]);
 
+  const [level1View, setLevel1View] = useState<'day' | 'list'>('day');
+  // List view: every rehearsal/sectional in a window (one row per ensemble)
+  // with its roll status — a "what still needs roll" worklist across days.
+  const rollWorklist = useMemo(() => {
+    const from = addDays(todayStr(), -21), to = addDays(todayStr(), 90);
+    const rows: { event: CalendarEvent; ensembleId: string }[] = [];
+    for (const e of events) {
+      if (e.type !== 'Rehearsal' && e.type !== 'Sectional') continue;
+      if (e.date < from || e.date > to) continue;
+      for (const ensId of e.ensembleIds) rows.push({ event: e, ensembleId: ensId });
+    }
+    rows.sort((a, b) => a.event.date.localeCompare(b.event.date) || (a.event.startTime ?? '99').localeCompare(b.event.startTime ?? '99'));
+    return rows;
+  }, [events]);
+
   // If arriving from a "Take Roll" jump, open that ensemble's period for today —
   // but only after events have loaded, otherwise we'd land in ad-hoc (untagged)
   // roll even when a rehearsal IS scheduled, defeating per-period attendance.
@@ -91,6 +106,12 @@ export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsem
 
   return (
     <div>
+      <div className="dir-mode-toggle" style={{ margin: '0 16px 8px' }}>
+        <button className={`dir-segment-btn ${level1View === 'day' ? 'active' : ''}`} onClick={() => setLevel1View('day')}>Day</button>
+        <button className={`dir-segment-btn ${level1View === 'list' ? 'active' : ''}`} onClick={() => setLevel1View('list')}>List</button>
+      </div>
+      {level1View === 'day' ? (
+      <>
       {/* Date navigation — any date, both directions */}
       <div className="dir-cal-nav">
         <button className="dir-date-nav-btn" onClick={() => setDate(d => addDays(d, -1))} aria-label="Previous day"><ChevronLeft size={18} /></button>
@@ -162,6 +183,28 @@ export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsem
           {musicEnsembles(ensembles).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
       </div>
+      </>
+      ) : (
+        <div style={{ padding: '0 16px' }}>
+          <div className="dir-form-section-label" style={{ padding: '4px 0' }}>Rehearsals — tap to take roll</div>
+          {rollWorklist.length === 0 ? (
+            <div className="dir-empty-inline">No rehearsals in this window.</div>
+          ) : rollWorklist.map(({ event: e, ensembleId }, i) => {
+            const ens = ensembleMap[ensembleId];
+            const taken = e.rollTaken?.[ensembleId];
+            return (
+              <button key={i} className="dir-ens-row dir-sc-pick" onClick={() => { setDate(e.date); setPeriod({ event: e, ensembleId }); }}>
+                <span className="dir-ens-swatch" style={{ background: ens ? ensembleColor(ens) : '#94a3b8' }} />
+                <div className="dir-ens-info">
+                  <div className="dir-ens-name">{ens?.name ?? 'Ensemble'} · {parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                  <div className="dir-ens-sub">{taken ? '✓ Roll taken' : 'Not taken'}{e.startTime ? ` · ${formatTimeRange(e.startTime, e.endTime)}` : ''}</div>
+                </div>
+                <ChevronRight size={18} style={{ opacity: 0.45, flexShrink: 0 }} />
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
