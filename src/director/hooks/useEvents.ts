@@ -4,7 +4,7 @@ import {
   query, orderBy,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { noteLoadError } from '../../shared/appStatus';
+import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo, trackWrite } from '../writeStatus';
 import type { CalendarEvent } from '../types';
 import { FIXTURES_ON, FIXTURE_EVENTS } from './fixtures';
@@ -23,8 +23,9 @@ export function useEvents() {
     const q = query(collection(db, 'events'), orderBy('date'));
     return onSnapshot(q, snap => {
       setEvents(snap.docs.map(d => ({ id: d.id, ...d.data() } as CalendarEvent)));
+      noteLoadOk('events');
       setLoading(false);
-    }, () => { noteLoadError(); setLoading(false); });
+    }, () => { noteLoadError('events'); setLoading(false); });
   }, []);
 
   async function addEvent(data: Omit<CalendarEvent, 'id'>) {

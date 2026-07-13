@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { noteLoadError } from '../../shared/appStatus';
+import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
 import type { Announcement } from '../types';
 
@@ -21,8 +21,9 @@ export function useAnnouncements() {
         (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.createdAt ?? 0) - (a.createdAt ?? 0)
       );
       setAnnouncements(list);
+      noteLoadOk('announcements');
       setLoading(false);
-    }, () => { noteLoadError(); setLoading(false); });
+    }, () => { noteLoadError('announcements'); setLoading(false); });
   }, []);
 
   async function addAnnouncement(data: Omit<Announcement, 'id'>) {

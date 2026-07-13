@@ -5,7 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { offerUndo } from '../writeStatus';
-import { noteLoadError } from '../../shared/appStatus';
+import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import type { ProgressNote } from '../types';
 
 export function useProgressNotes(studentId?: string) {
@@ -19,8 +19,9 @@ export function useProgressNotes(studentId?: string) {
       : query(collection(db, 'progressNotes'), orderBy('date', 'desc'));
     return onSnapshot(q, snap => {
       setNotes(snap.docs.map(d => ({ id: d.id, ...d.data() } as ProgressNote)));
+      noteLoadOk('progressNotes');
       setLoading(false);
-    }, () => { noteLoadError(); setLoading(false); });
+    }, () => { noteLoadError('progressNotes'); setLoading(false); });
   }, [studentId]);
 
   async function addNote(data: Omit<ProgressNote, 'id'>) {

@@ -4,7 +4,7 @@ import {
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { noteLoadError } from '../../shared/appStatus';
+import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { reportWriteError } from '../writeStatus';
 import type { AttendanceRecord, AttendanceStatus } from '../types';
 
@@ -62,8 +62,9 @@ export function useAttendance(date: string, ensembleId: string | null, eventId?:
     );
     return onSnapshot(q, snap => {
       setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord)));
+      noteLoadOk('attendance');
       setLoading(false);
-    }, () => { noteLoadError(); setLoading(false); });
+    }, () => { noteLoadError('attendance'); setLoading(false); });
   }, [date, ensembleId]);
 
   function toggleAttendance(
@@ -128,8 +129,9 @@ export function useAllAttendance() {
     const q = query(collection(db, 'attendance'));
     return onSnapshot(q, snap => {
       setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord)));
+      noteLoadOk('attendance');
       setLoading(false);
-    }, () => { noteLoadError(); setLoading(false); });
+    }, () => { noteLoadError('attendance'); setLoading(false); });
   }, []);
 
   return { records, loading };
@@ -149,8 +151,9 @@ export function useAttendanceHistory(studentId?: string) {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord));
       all.sort((a, b) => b.date.localeCompare(a.date));
       setRecords(all);
+      noteLoadOk('attendance');
       setLoading(false);
-    }, () => { noteLoadError(); setLoading(false); });
+    }, () => { noteLoadError('attendance'); setLoading(false); });
   }, [studentId]);
 
   return { records, loading };

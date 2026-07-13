@@ -4,7 +4,7 @@ import {
   query, orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { noteLoadError } from '../../shared/appStatus';
+import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo, trackWrite } from '../writeStatus';
 import type { Student } from '../types';
 import { FIXTURES_ON, FIXTURE_STUDENTS } from './fixtures';
@@ -23,8 +23,9 @@ export function useStudents(ensembleId?: string) {
           ? all.filter(s => s.ensembleIds?.includes(ensembleId) && s.status === 'Active')
           : all
       );
+      noteLoadOk('students');
       setLoading(false);
-    }, () => { noteLoadError(); setLoading(false); });
+    }, () => { noteLoadError('students'); setLoading(false); });
   }, [ensembleId]);
 
   async function addStudent(data: Omit<Student, 'id'>): Promise<string | undefined> {
