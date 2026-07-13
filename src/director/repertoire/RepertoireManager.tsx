@@ -3,7 +3,7 @@ import { Plus, Pencil, Music, Trash2 } from 'lucide-react';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
-import { ensembleColor, parseDate } from '../utils';
+import { ensembleColor, parseDate, musicEnsembles } from '../utils';
 import type { RepertoirePiece, CalendarEvent, Ensemble, PieceMovement, PiecePartLink } from '../types';
 
 interface Props {
@@ -19,7 +19,18 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
   const [editing, setEditing] = useState<RepertoirePiece | 'new' | null>(null);
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
-  const shown = ensembleId ? pieces.filter(p => p.ensembleId === ensembleId) : pieces;
+  const musicEns = musicEnsembles(ensembles);
+  // Remember the last ensemble filter (tab mode only; a locked ensembleId wins).
+  const [filterEns, setFilterEns] = useState(() => {
+    try { return localStorage.getItem('dir.repertoire.ensemble') ?? ''; } catch { return ''; }
+  });
+  function pickEns(id: string) {
+    const next = filterEns === id ? '' : id;
+    setFilterEns(next);
+    try { localStorage.setItem('dir.repertoire.ensemble', next); } catch { /* private mode */ }
+  }
+  const activeEns = ensembleId ?? filterEns;
+  const shown = activeEns ? pieces.filter(p => p.ensembleId === activeEns) : pieces;
   const [groupBy, setGroupBy] = useState<'ensemble' | 'concert'>('ensemble');
 
   // Build grouped sections for the list view.
@@ -39,7 +50,7 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
     }
     // by ensemble
     const out: { key: string; label: string; color: string; pieces: typeof shown }[] = [];
-    for (const e of [...ensembles].sort((a, b) => a.order - b.order)) {
+    for (const e of musicEnsembles([...ensembles].sort((a, b) => a.order - b.order))) {
       const ps = shown.filter(p => p.ensembleId === e.id);
       if (ps.length) out.push({ key: e.id, label: e.name, color: ensembleColor(e), pieces: ps });
     }
@@ -56,7 +67,7 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
     return (
       <RepertoireForm
         piece={piece}
-        ensembles={ensembles}
+        ensembles={musicEns}
         events={events}
         lockedEnsembleId={ensembleId}
         nextOrder={nextOrder}
@@ -91,6 +102,16 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
 
   const listBody = (
     <>
+      {!ensembleId && asTab && musicEns.length > 0 && (
+        <div className="dir-tabs">
+          <button className={`dir-tab ${!filterEns ? 'active' : ''}`} onClick={() => pickEns('')}>All</button>
+          {musicEns.map(e => (
+            <button key={e.id} className={`dir-tab ${filterEns === e.id ? 'active' : ''}`} onClick={() => pickEns(e.id)}>
+              {e.name}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="dir-mode-toggle">
         <button className={`dir-segment-btn ${groupBy === 'ensemble' ? 'active' : ''}`} onClick={() => setGroupBy('ensemble')}>By ensemble</button>
         <button className={`dir-segment-btn ${groupBy === 'concert' ? 'active' : ''}`} onClick={() => setGroupBy('concert')}>By concert</button>

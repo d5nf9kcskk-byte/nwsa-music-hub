@@ -4,7 +4,8 @@ import { useAnnouncements } from '../hooks/useAnnouncements';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useEnsembles } from '../hooks/useEnsembles';
-import { ensembleColor, parseDate } from '../utils';
+import { ensembleColor, parseDate, musicEnsembles } from '../utils';
+import { NotesText } from '../../public/components/NotesText';
 import type { Announcement } from '../types';
 
 interface Props {
@@ -19,6 +20,19 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
   const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useAnnouncements();
   const { ensembles } = useEnsembles();
   const [editing, setEditing] = useState<Announcement | 'new' | null>(null);
+  const musicEns = musicEnsembles(ensembles);
+  const [filterEns, setFilterEns] = useState(() => {
+    try { return localStorage.getItem('dir.announcements.ensemble') ?? ''; } catch { return ''; }
+  });
+  function pickEns(id: string) {
+    const next = filterEns === id ? '' : id;
+    setFilterEns(next);
+    try { localStorage.setItem('dir.announcements.ensemble', next); } catch { /* private mode */ }
+  }
+  // Per-ensemble filter; school-wide posts (ensembleId null) always show.
+  const shown = filterEns
+    ? announcements.filter(a => a.ensembleId === filterEns || a.ensembleId === null)
+    : announcements;
 
   // Deep link from the Today dashboard: jump straight into that announcement
   // (adjust-state-during-render, guarded by the consumed id).
@@ -36,7 +50,7 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
     return (
       <AnnouncementForm
         announcement={editing === 'new' ? null : editing}
-        ensembles={ensembles}
+        ensembles={musicEns}
         onSave={async data => {
           if (editing === 'new') await addAnnouncement(data);
           else await updateAnnouncement(editing.id, data);
@@ -51,11 +65,23 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
 
   const inner = (
     <>
+        {musicEns.length > 0 && announcements.length > 0 && (
+          <div className="dir-tabs">
+            <button className={`dir-tab ${!filterEns ? 'active' : ''}`} onClick={() => pickEns('')}>All</button>
+            {musicEns.map(e => (
+              <button key={e.id} className={`dir-tab ${filterEns === e.id ? 'active' : ''}`} onClick={() => pickEns(e.id)}>
+                {e.name}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="dir-drawer-body">
           {announcements.length === 0 ? (
             <div className="dir-empty-inline">No announcements yet. Post one to show it on the public site.</div>
+          ) : shown.length === 0 ? (
+            <div className="dir-empty-inline">No announcements for this ensemble.</div>
           ) : (
-            announcements.map(a => (
+            shown.map(a => (
               <div key={a.id} className="dir-ens-row" onClick={() => setEditing(a)}>
                 <span className="dir-ens-swatch" style={{ background: a.ensembleId ? ensembleColor(ensembles.find(e => e.id === a.ensembleId)) : '#64748b' }} />
                 <div className="dir-ens-info">
@@ -67,6 +93,7 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
                     {ensembleName(a.ensembleId)}
                     {a.expiresOn ? ` · through ${parseDate(a.expiresOn).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
                   </div>
+                  {a.body && <div className="dir-ann-body"><NotesText text={a.body} /></div>}
                 </div>
                 <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing(a); }} aria-label="Edit">
                   <Pencil size={16} />

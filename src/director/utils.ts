@@ -56,6 +56,21 @@ export const TIME_BLOCKS = [
   { label: 'Block 2 · 2:30–3:45', start: '14:30', end: '15:45' },
 ] as const;
 
+// ── Music ensembles vs divisions ────────────────────────────────────────────
+// Dance / Theater / Visual Arts are school "divisions" — calendar labels only,
+// never selectable ensembles. Guard by name so a stray division can't surface
+// in an ensemble picker or filter (mirrors the recovered app's migration guard).
+const DIVISION_NAMES = new Set(['dance', 'theater', 'theatre', 'visual arts', 'visual']);
+
+export function isDivision(e: Pick<Ensemble, 'name'>): boolean {
+  return DIVISION_NAMES.has(e.name.trim().toLowerCase());
+}
+
+/** Filter an ensemble-like list down to music ensembles only. */
+export function musicEnsembles<T extends Pick<Ensemble, 'name'>>(list: T[]): T[] {
+  return list.filter(e => !isDivision(e));
+}
+
 // ── Ensemble colors ─────────────────────────────────────────────────────
 
 /** Concert gold + assignment violet — the two reserved semantic colors. */
