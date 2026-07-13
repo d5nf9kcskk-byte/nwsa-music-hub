@@ -288,14 +288,16 @@ function StudentPanel({ student, ensembles, onBack, prefill, autoOpenForm }: {
                     : o.action === 'add' ? <UserPlus size={14} /> : <UserMinus size={14} />}
                   {o.kind === 'lesson'
                     ? `Lesson — out of ${ensembleMap[o.ensembleId]?.name ?? 'rehearsal'}`
-                    : `${o.action === 'add' ? 'Subbed INTO' : 'Pulled FROM'} ${ensembleMap[o.ensembleId]?.name ?? 'ensemble'}`}
+                    : o.action === 'remove' && o.destEnsembleId
+                      ? `Pulled FROM ${ensembleMap[o.ensembleId]?.name ?? 'ensemble'} → ${ensembleMap[o.destEnsembleId]?.name ?? 'another ensemble'}`
+                      : `${o.action === 'add' ? 'Subbed INTO' : 'Pulled FROM'} ${ensembleMap[o.ensembleId]?.name ?? 'ensemble'}`}
                 </div>
                 <div className="dir-sc-ov-lines">
                   <div className="dir-sc-ov-line"><CalendarClock size={12} /> {describeWhen(o)}</div>
                   {o.kind === 'lesson' && o.startTime && o.endTime && (
                     <div className="dir-sc-ov-line"><Clock size={12} /> Out {formatTimeRange(o.startTime, o.endTime)} (present the rest of rehearsal)</div>
                   )}
-                  {o.reason && <div className="dir-sc-ov-line"><FileText size={12} /> {o.reason}</div>}
+                  {o.reason && !(o.destEnsembleId && o.reason.startsWith('Subbing into')) && <div className="dir-sc-ov-line"><FileText size={12} /> {o.reason}</div>}
                 </div>
               </div>
               <button className="dir-icon-btn" onClick={() => deleteOverride(o.id)} aria-label="Delete this change"><Trash2 size={15} /></button>
@@ -354,6 +356,9 @@ function ChangeForm({
   const [lessonStart, setLessonStart] = useState('15:00');
   const [lessonEnd, setLessonEnd] = useState('15:50');
   const [reason, setReason] = useState('');
+  // Pull-out destination: subbing into another ensemble, a lesson, or other.
+  const [dest, setDest] = useState<'ensemble' | 'lesson' | 'other'>('other');
+  const [destEnsembleId, setDestEnsembleId] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -384,6 +389,7 @@ function ChangeForm({
       } else {
         const start = startDate;
         const end = span === 'day' ? startDate : endDate;
+        const subbingInto = action === 'remove' && dest === 'ensemble' && destEnsembleId ? destEnsembleId : undefined;
         await onSaveTemporary({
           studentId: student.id,
           ensembleId,
@@ -391,7 +397,8 @@ function ChangeForm({
           scope: 'range',
           startDate: start,
           endDate: end < start ? start : end,
-          reason: reason.trim() || undefined,
+          reason: reason.trim() || (subbingInto ? `Subbing into ${ensembles.find(e => e.id === subbingInto)?.name ?? 'another ensemble'}` : undefined),
+          ...(subbingInto ? { destEnsembleId: subbingInto } : {}),
         });
       }
       onClose();
@@ -479,6 +486,28 @@ function ChangeForm({
 
               {kind === 'temporary' && (
                 <>
+                  {action === 'remove' && (
+                    <>
+                      <div className="dir-field">
+                        <label className="dir-label">Where are they going?</label>
+                        <div className="dir-segment">
+                          <button className={`dir-segment-btn ${dest === 'ensemble' ? 'active' : ''}`} onClick={() => setDest('ensemble')}>Another ensemble</button>
+                          <button className={`dir-segment-btn ${dest === 'lesson' ? 'active' : ''}`} onClick={() => setDest('lesson')}>Lesson</button>
+                          <button className={`dir-segment-btn ${dest === 'other' ? 'active' : ''}`} onClick={() => setDest('other')}>Other</button>
+                        </div>
+                      </div>
+                      {dest === 'ensemble' && (
+                        <div className="dir-field">
+                          <label className="dir-label">Subbing into</label>
+                          <select className="dir-input" value={destEnsembleId} onChange={e => setDestEnsembleId(e.target.value)}>
+                            <option value="">— pick an ensemble —</option>
+                            {musicEnsembles(ensembles).filter(e => e.id !== ensembleId).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                          </select>
+                          <div className="dir-field-hint">One entry — they're pulled from {ensembleName} and show on the other ensemble's roll for these dates.</div>
+                        </div>
+                      )}
+                    </>
+                  )}
                   <div className="dir-field">
                     <label className="dir-label">When</label>
                     <div className="dir-segment">
@@ -499,9 +528,14 @@ function ChangeForm({
                     )}
                   </div>
                   <div className="dir-field">
-                    <label className="dir-label">Reason {action === 'remove' ? '*' : '(recommended)'}</label>
-                    <input className="dir-input" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. other ensemble, field trip, released from school" />
-                    {action === 'remove' && (
+                    <label className="dir-label">Reason {action === 'remove' && dest !== 'ensemble' ? '*' : '(recommended)'}</label>
+                    <input
+                      className="dir-input"
+                      value={reason}
+                      onChange={e => setReason(e.target.value)}
+                      placeholder={dest === 'lesson' ? 'e.g. Trumpet lesson — Dr. Rivera' : dest === 'ensemble' ? 'optional note' : 'e.g. field trip, released from school'}
+                    />
+                    {action === 'remove' && dest !== 'ensemble' && (
                       <div className="dir-field-hint">Nobody gets pulled without a reason — this shows on the Roll screen and Who's Out.</div>
                     )}
                   </div>
@@ -521,7 +555,8 @@ function ChangeForm({
             onClick={handleSave}
             disabled={saving || !activeEnsembleId
               || (kind === 'lesson' && !reason.trim())
-              || (kind === 'temporary' && action === 'remove' && !reason.trim())}
+              || (kind === 'temporary' && action === 'remove' && dest === 'ensemble' && !destEnsembleId)
+              || (kind === 'temporary' && action === 'remove' && dest !== 'ensemble' && !reason.trim())}
           >
             {saving ? 'Saving…' : 'Save change'}
           </button>
