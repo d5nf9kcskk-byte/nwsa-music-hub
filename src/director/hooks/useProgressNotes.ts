@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
+  collection, addDoc, updateDoc, deleteDoc, doc,
   query, where, orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { offerUndo } from '../writeStatus';
-import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
+import { watchCollection } from '../../shared/watchCollection';
 import type { ProgressNote } from '../types';
 
 export function useProgressNotes(studentId?: string) {
@@ -17,11 +17,9 @@ export function useProgressNotes(studentId?: string) {
     const q = studentId
       ? query(collection(db, 'progressNotes'), where('studentId', '==', studentId), orderBy('date', 'desc'))
       : query(collection(db, 'progressNotes'), orderBy('date', 'desc'));
-    return onSnapshot(q, snap => {
+    return watchCollection(q, 'progressNotes', snap => {
       setNotes(snap.docs.map(d => ({ id: d.id, ...d.data() } as ProgressNote)));
-      noteLoadOk('progressNotes');
-      setLoading(false);
-    }, () => { noteLoadError('progressNotes'); setLoading(false); });
+    }, () => setLoading(false));
   }, [studentId]);
 
   async function addNote(data: Omit<ProgressNote, 'id'>) {
