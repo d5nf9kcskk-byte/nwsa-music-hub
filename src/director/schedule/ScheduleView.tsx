@@ -11,7 +11,7 @@ import { EventForm } from './EventForm';
 import { EventRoster } from './EventRoster';
 import { IcsImport } from './IcsImport';
 import { EnsembleFilter } from '../components/EnsembleFilter';
-import { seedCalendar, seedSchoolCalendar, seedClasses } from '../seedCalendar';
+import { seedCalendar, seedSchoolCalendar, seedExtraSchedule } from '../seedCalendar';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
 import {
   todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR,
@@ -77,8 +77,8 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
     setClassesState('seeding');
     setClassesMsg('');
     try {
-      const n = await seedClasses();
-      setClassesMsg(`Added ${n} class sessions for the year.`);
+      const n = await seedExtraSchedule();
+      setClassesMsg(`Added ${n} choir + class sessions for the year.`);
       setClassesState('done');
     } catch (e) {
       setClassesMsg(e instanceof Error ? e.message : String(e));
@@ -319,9 +319,9 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               className="dir-tool-btn"
               onClick={handleSeedClasses}
               disabled={classesState === 'seeding'}
-              title="Add AP Theory, Jazz Theory, Theory 9th/10th, Music History, and String Masterclass to the calendar for the whole year"
+              title="Add HS Choir rehearsals plus every academic class (AP Theory, Jazz Theory, Theory 9th/10th, Music History, String Masterclass, Vocal Lit, Vocal Forum) to the calendar for the whole year"
             >
-              <Sparkles size={15} /> {classesState === 'seeding' ? 'Adding classes…' : 'Add classes'}
+              <Sparkles size={15} /> {classesState === 'seeding' ? 'Adding…' : 'Add classes & choir'}
             </button>
           )}
           {(classesState === 'done' || classesState === 'error') && (
