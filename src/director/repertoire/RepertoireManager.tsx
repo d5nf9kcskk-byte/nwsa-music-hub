@@ -29,7 +29,10 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
     setFilterEns(next);
     try { localStorage.setItem('dir.repertoire.ensemble', next); } catch { /* private mode */ }
   }
-  const activeEns = ensembleId ?? filterEns;
+  // Honor the persisted filter only in tab mode, where the chip row can clear
+  // it. In drawer mode (no asTab, no ensembleId) there is no chip UI, so fall
+  // back to showing every piece rather than a silently-stuck filter.
+  const activeEns = ensembleId ?? (asTab ? filterEns : '');
   const shown = activeEns ? pieces.filter(p => p.ensembleId === activeEns) : pieces;
   const [groupBy, setGroupBy] = useState<'ensemble' | 'concert'>('ensemble');
 
