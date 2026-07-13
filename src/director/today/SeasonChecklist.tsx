@@ -79,8 +79,9 @@ export function SeasonChecklist({ onNavigate, onClose }: { onNavigate: DirNaviga
   async function graduateSeniors() {
     if (!window.confirm(`Mark all ${seniors.length} active 12th-graders as Graduated? They leave rosters and rolls immediately.`)) return;
     setBusy(true);
+    const label = `Class of ${new Date().getFullYear()}`;
     try {
-      for (const s of seniors) await updateStudent(s.id, { status: 'Graduated' });
+      for (const s of seniors) await updateStudent(s.id, { status: 'Graduated', archivedAt: Date.now(), archivedLabel: label });
     } finally { setBusy(false); }
   }
 

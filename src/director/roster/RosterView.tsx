@@ -44,7 +44,7 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
   // Saved views (redesign Phase 6): fixed, not user-configurable — the two
   // real gaps beyond per-ensemble chips. 'Missing info' = no grade,
   // instrument, or any contact detail on file.
-  const [view, setView] = useState<'' | 'seniors' | 'missing'>('');
+  const [view, setView] = useState<'' | 'seniors' | 'missing' | 'archived'>('');
   const [managingEnsembles, setManagingEnsembles] = useState(false);
   const [managingRepertoire, setManagingRepertoire] = useState(false);
   const [managingLocations, setManagingLocations] = useState(false);
@@ -68,6 +68,10 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
   const filtered = students.filter(s => {
     if (!(s.name.toLowerCase().includes(search.toLowerCase()) ||
           s.instrument.toLowerCase().includes(search.toLowerCase()))) return false;
+    // Archived (graduated/inactive) students are kept but hidden from every
+    // view except the dedicated Archived one.
+    if (view === 'archived') return s.status !== 'Active';
+    if (s.status !== 'Active') return false;
     if (view === 'seniors') return s.grade === '12th';
     if (view === 'missing') {
       const c = contacts[s.id];
@@ -130,6 +134,9 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
             </button>
             <button className={`dir-tab dir-tab-view ${view === 'missing' ? 'active' : ''}`} onClick={() => setView(v => v === 'missing' ? '' : 'missing')}>
               Missing info
+            </button>
+            <button className={`dir-tab dir-tab-view ${view === 'archived' ? 'active' : ''}`} onClick={() => setView(v => v === 'archived' ? '' : 'archived')}>
+              Archived
             </button>
           </div>
           <div style={{ padding: '2px 16px 6px' }}>

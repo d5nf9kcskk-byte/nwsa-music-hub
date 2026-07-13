@@ -21,6 +21,12 @@ export interface Student {
   section?: string;
   grade?: string;
   status: 'Active' | 'Inactive' | 'Graduated';
+  /** When the student was archived (Date.now()); stamped when status leaves
+   *  'Active'. Display metadata for the Archived view only — never the filter
+   *  key (that is always `status !== 'Active'`). */
+  archivedAt?: number;
+  /** Optional archive label, e.g. "Class of 2026". */
+  archivedLabel?: string;
 }
 
 /**
