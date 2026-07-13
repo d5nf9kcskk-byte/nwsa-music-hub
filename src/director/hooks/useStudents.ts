@@ -17,7 +17,12 @@ export function useStudents(ensembleId?: string) {
     if (!db) { if (FIXTURES_ON) setStudents(FIXTURE_STUDENTS); setLoading(false); return; }
     const q = query(collection(db, 'students'), orderBy('name'));
     return onSnapshot(q, snap => {
-      const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
+      // Default a legacy doc with no status to Active/visible rather than
+      // letting it silently vanish behind the Active-only filters.
+      const all = snap.docs.map(d => {
+        const data = d.data();
+        return { id: d.id, ...data, status: data.status ?? 'Active' } as Student;
+      });
       setStudents(
         ensembleId
           ? all.filter(s => s.ensembleIds?.includes(ensembleId) && s.status === 'Active')
@@ -53,5 +58,18 @@ export function useStudents(ensembleId?: string) {
     }
   }
 
-  return { students, loading, addStudent, updateStudent, deleteStudent };
+  /** Archive a student: kept in Firestore but hidden from every active roster,
+   *  roll, and picker (all of which gate on status === 'Active'). */
+  async function archiveStudent(id: string, label?: string) {
+    const patch: Partial<Omit<Student, 'id'>> = { status: 'Graduated', archivedAt: Date.now() };
+    if (label) patch.archivedLabel = label;
+    await updateStudent(id, patch);
+  }
+
+  /** Bring an archived student back onto active rosters. */
+  async function restoreStudent(id: string) {
+    await updateStudent(id, { status: 'Active' });
+  }
+
+  return { students, loading, addStudent, updateStudent, deleteStudent, archiveStudent, restoreStudent };
 }

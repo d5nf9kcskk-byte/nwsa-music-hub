@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { Pencil, Phone, Mail, Users, Calendar, FileText, ClipboardCheck, ExternalLink } from 'lucide-react';
+import { Pencil, Phone, Mail, Users, Calendar, FileText, ClipboardCheck, ExternalLink, Archive, RotateCcw } from 'lucide-react';
 import { useAttendanceHistory } from '../hooks/useAttendance';
 import { useProgressNotes } from '../hooks/useProgressNotes';
 import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useStudentAssignmentResults, useAssignments } from '../hooks/useAssignments';
+import { useStudents } from '../hooks/useStudents';
 import { studentExpectation } from '../rosterResolver';
 import { todayStr, ensembleColor, formatDate } from '../utils';
 import type { Student, StudentContact, Ensemble } from '../types';
@@ -28,6 +29,7 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
   const { overrides } = useRosterOverrides();
   const { results: assignmentResults } = useStudentAssignmentResults(student.id);
   const { assignments } = useAssignments();
+  const { archiveStudent, restoreStudent } = useStudents();
   const today = todayStr();
 
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
@@ -70,6 +72,15 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            {student.status === 'Active' ? (
+              <button className="dir-tool-btn" onClick={() => { if (window.confirm(`Archive ${student.name}? They leave all rosters and rolls but stay in the Archived list and can be restored anytime.`)) { void archiveStudent(student.id); onClose(); } }}>
+                <Archive size={13} /> Archive
+              </button>
+            ) : (
+              <button className="dir-tool-btn" onClick={() => { void restoreStudent(student.id); onClose(); }}>
+                <RotateCcw size={13} /> Restore
+              </button>
+            )}
             <button className="dir-tool-btn" onClick={onEdit}>
               <Pencil size={13} /> Edit
             </button>
