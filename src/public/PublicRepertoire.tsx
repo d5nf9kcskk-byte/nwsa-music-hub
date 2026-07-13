@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useEvents } from '../director/hooks/useEvents';
-import { ensembleColor } from '../director/utils';
+import { ensembleColor, musicEnsembles } from '../director/utils';
 import { PubRepertoire } from './components/PubRepertoire';
 import { primaryStudent } from '../shared/identity';
 
@@ -24,7 +24,7 @@ export function PublicRepertoire() {
   }, [pieces]);
 
   const sorted = useMemo(
-    () => [...ensembles].sort((a, b) => a.order - b.order),
+    () => musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)),
     [ensembles],
   );
 

@@ -14,7 +14,7 @@ import { primaryStudent, onIdentityChange } from '../shared/identity';
 import { useModalA11y } from '../shared/useModalA11y';
 import { useEffect, useReducer } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
-import { ensembleColor } from '../director/utils';
+import { ensembleColor, musicEnsembles } from '../director/utils';
 
 const NAV = [
   { to: '/', label: 'nav.home', Icon: Home, end: true },
@@ -109,7 +109,7 @@ export function PublicLayout() {
                     </button>
                     {ensemblesOpen && (
                       <>
-                        {[...ensembles].sort((a, b) => a.order - b.order).map(e => (
+                        {musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
                           <NavLink
                             key={e.id}
                             to={`/ensemble/${e.id}`}
@@ -164,7 +164,7 @@ export function PublicLayout() {
             </NavLink>
 
             {ensembles.length > 0 && <div className="pub-side-head">{t('nav.ensembles')}</div>}
-            {[...ensembles].sort((a, b) => a.order - b.order).map(e => (
+            {musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
               <NavLink
                 key={e.id}
                 to={`/ensemble/${e.id}`}

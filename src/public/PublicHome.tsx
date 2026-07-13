@@ -6,7 +6,7 @@ import { useEvents } from '../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, addDays, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, addDays, assignmentEmoji, musicEnsembles, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { SkeletonCards, EmptyState } from './components/PageHeader';
@@ -71,7 +71,7 @@ export function PublicHome() {
     return e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]);
   }
 
-  const orderedEnsembles = [...ensembles].sort((a, b) => a.order - b.order);
+  const orderedEnsembles = musicEnsembles([...ensembles].sort((a, b) => a.order - b.order));
 
   return (
     <div className="pub-page">

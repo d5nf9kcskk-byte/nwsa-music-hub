@@ -4,7 +4,7 @@ import { ClipboardCheck, Calendar } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { useStudents } from '../director/hooks/useStudents';
-import { todayStr, parseDate, ensembleColor, assignmentEmoji } from '../director/utils';
+import { todayStr, parseDate, ensembleColor, assignmentEmoji, musicEnsembles } from '../director/utils';
 import { NotesText } from './components/NotesText';
 import { PageHeader, SkeletonCards, EmptyState } from './components/PageHeader';
 import { t, useLang } from '../shared/i18n';
@@ -48,7 +48,7 @@ export function PublicAssignments() {
     return { m, individual };
   }, [upcoming]);
 
-  const orderedEns = [...ensembles].sort((a, b) => a.order - b.order).filter(e => byEnsemble.m[e.id]?.length);
+  const orderedEns = musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).filter(e => byEnsemble.m[e.id]?.length);
 
   const card = (a: Assignment) => (
     <div key={a.id} id={`assign-${a.id}`} className="pub-assign-card">
