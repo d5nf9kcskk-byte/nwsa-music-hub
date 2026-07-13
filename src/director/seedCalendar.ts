@@ -10,6 +10,7 @@ const ENS = {
   jazz:      'jazz-ensemble',
   chamber:   'chamber-winds',
   collegeChamber: 'college-chamber-orchestra',
+  choir:     'high-school-choir',
 } as const;
 
 // MDCPS 2026-2027: every weekday on which students do NOT attend school.
@@ -166,6 +167,9 @@ const CLASSES: ClassSlot[] = [
   { title: 'Theory — 10th Grade',       days: [1, 4],          start: '14:30', end: '15:45', room: 'Room 4210' },
   { title: 'Music History — 11th–12th', days: [1, 4],          start: '14:30', end: '15:45', room: 'Room 4309' },
   { title: 'String Masterclass',        days: [2],             start: '14:30', end: '15:45', room: 'Rooms 4210 / 4304 / 4309' },
+  // Vocal-division classes (Period 6). Rooms TBD.
+  { title: 'Vocal Lit',                 days: [1, 3, 5],       start: '13:10', end: '14:25', room: '' },
+  { title: 'Vocal Forum',               days: [2, 4],          start: '13:10', end: '14:25', room: '' },
 ];
 
 const classSlug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -216,12 +220,33 @@ function classEventDocs(): { id: string; data: SeedEventData }[] {
   return docs;
 }
 
-/** Add just the non-ensemble academic classes across the year. Safe to run any
- *  time — idempotent (stable ids), and it never touches rehearsals, markers, or
- *  manually-added events. Returns the number of class sessions written. */
-export async function seedClasses(): Promise<number> {
+/** HS Choir rehearsals across the year. Modeled as an ensemble rehearsal (tied
+ *  to the high-school-choir ensemble, so it shows on the choir page/filter),
+ *  meeting every school day 2:30–3:45. */
+function choirRehearsalDocs(): { id: string; data: SeedEventData }[] {
+  const docs: { id: string; data: SeedEventData }[] = [];
+  for (let ms = YEAR_START_MS; ms <= YEAR_END_MS; ms += 86_400_000) {
+    const d = new Date(ms);
+    const dow = d.getUTCDay();
+    if (dow === 0 || dow === 6) continue;
+    const dateStr = d.toISOString().slice(0, 10);
+    if (NO_SCHOOL.has(dateStr)) continue;
+    docs.push({
+      id: `reh-${dateStr}-${ENS.choir}-1430`,
+      data: { type: 'Rehearsal', ensembleIds: [ENS.choir], date: dateStr, startTime: '14:30', endTime: '15:45', location: '', status: 'Scheduled' },
+    });
+  }
+  return docs;
+}
+
+/** Add the non-instrumental parts of the schedule to an already-seeded
+ *  calendar: HS Choir rehearsals plus every academic class (AP Theory …
+ *  Vocal Forum). Safe to run any time — idempotent (stable ids), and it never
+ *  touches the instrumental rehearsals, markers, or manually-added events.
+ *  Returns the number of sessions written. */
+export async function seedExtraSchedule(): Promise<number> {
   if (!db) throw new Error('Firebase is not configured.');
-  const docs = classEventDocs();
+  const docs = [...choirRehearsalDocs(), ...classEventDocs()];
   const CHUNK = 499;
   for (let i = 0; i < docs.length; i += CHUNK) {
     const batch = writeBatch(db);
@@ -277,9 +302,11 @@ export async function seedCalendar(): Promise<{ rehearsals: number; classes: num
     }
   }
 
+  // 2. HS Choir rehearsals (ensemble-scoped, every school day).
+  allDocs.push(...choirRehearsalDocs());
   const rehearsalCount = allDocs.length;
 
-  // 2. Non-ensemble academic classes (school-wide, shown on every calendar).
+  // 3. Non-ensemble academic classes (school-wide, shown on every calendar).
   allDocs.push(...classEventDocs());
   const classCount = allDocs.length - rehearsalCount;
 
