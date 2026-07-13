@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { ensembleColor, parseDate, musicEnsembles } from '../utils';
 import { NotesText } from '../../public/components/NotesText';
+import { EnsembleFilter } from '../components/EnsembleFilter';
 import type { Announcement } from '../types';
 
 interface Props {
@@ -25,9 +26,8 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
     try { return localStorage.getItem('dir.announcements.ensemble') ?? ''; } catch { return ''; }
   });
   function pickEns(id: string) {
-    const next = filterEns === id ? '' : id;
-    setFilterEns(next);
-    try { localStorage.setItem('dir.announcements.ensemble', next); } catch { /* private mode */ }
+    setFilterEns(id);
+    try { localStorage.setItem('dir.announcements.ensemble', id); } catch { /* private mode */ }
   }
   // Per-ensemble filter; school-wide posts (ensembleId null) always show.
   const shown = filterEns
@@ -65,15 +65,8 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
 
   const inner = (
     <>
-        {musicEns.length > 0 && announcements.length > 0 && (
-          <div className="dir-tabs">
-            <button className={`dir-tab ${!filterEns ? 'active' : ''}`} onClick={() => pickEns('')}>All</button>
-            {musicEns.map(e => (
-              <button key={e.id} className={`dir-tab ${filterEns === e.id ? 'active' : ''}`} onClick={() => pickEns(e.id)}>
-                {e.name}
-              </button>
-            ))}
-          </div>
+        {announcements.length > 0 && (
+          <EnsembleFilter ensembles={ensembles} value={filterEns} onChange={pickEns} />
         )}
         <div className="dir-drawer-body">
           {announcements.length === 0 ? (

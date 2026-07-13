@@ -13,10 +13,11 @@ import { SeasonChecklist } from './SeasonChecklist';
 import { QrKitView } from '../qr/QrKitView';
 import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster } from '../rosterResolver';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays, assignmentEmoji, musicEnsembles, CONCERT_COLOR, ASSIGN_COLOR } from '../utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../utils';
 import type { CalendarEvent } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
+import { EnsembleFilter } from '../components/EnsembleFilter';
 
 const ENS_PREF_KEY = 'dir.today.ensemble';
 
@@ -44,9 +45,8 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const studentsById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
 
   function pickEnsemble(id: string) {
-    const next = ensembleId === id ? '' : id;
-    setEnsembleId(next);
-    try { localStorage.setItem(ENS_PREF_KEY, next); } catch { /* private mode */ }
+    setEnsembleId(id);
+    try { localStorage.setItem(ENS_PREF_KEY, id); } catch { /* private mode */ }
   }
 
   const matchesEns = (e: CalendarEvent) => !ensembleId || e.ensembleIds.length === 0 || e.ensembleIds.includes(ensembleId);
@@ -135,12 +135,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
       </div>
 
       {ensembles.length > 0 && (
-        <div className="dir-tabs">
-          <button className={`dir-tab ${!ensembleId ? 'active' : ''}`} onClick={() => pickEnsemble('')}>All</button>
-          {musicEnsembles(ensembles).map(e => (
-            <button key={e.id} className={`dir-tab ${ensembleId === e.id ? 'active' : ''}`} onClick={() => pickEnsemble(e.id)}>{e.name}</button>
-          ))}
-        </div>
+        <EnsembleFilter ensembles={ensembles} value={ensembleId} onChange={pickEnsemble} />
       )}
 
       <div className="dir-drawer-body">

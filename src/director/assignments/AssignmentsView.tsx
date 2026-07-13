@@ -6,6 +6,7 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { formatDate, todayStr, studentHasAssignment, musicEnsembles, ASSIGN_COLOR } from '../utils';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
+import { EnsembleFilter } from '../components/EnsembleFilter';
 import { RichTextArea } from '../components/RichTextArea';
 import { FileUpload } from '../components/FileUpload';
 import { NotesText } from '../../public/components/NotesText';
@@ -365,9 +366,8 @@ export function AssignmentsView() {
     try { return localStorage.getItem('dir.assignments.ensemble') ?? ''; } catch { return ''; }
   });
   function pickEns(id: string) {
-    const next = filterEns === id ? '' : id;
-    setFilterEns(next);
-    try { localStorage.setItem('dir.assignments.ensemble', next); } catch { /* private mode */ }
+    setFilterEns(id);
+    try { localStorage.setItem('dir.assignments.ensemble', id); } catch { /* private mode */ }
   }
   // Individual-only assignments (no ensembleIds) show only under "All".
   const shownAssignments = filterEns
@@ -395,15 +395,8 @@ export function AssignmentsView() {
         </div>
       )}
 
-      {musicEns.length > 0 && assignments.length > 0 && (
-        <div className="dir-tabs">
-          <button className={`dir-tab ${!filterEns ? 'active' : ''}`} onClick={() => pickEns('')}>All</button>
-          {musicEns.map(e => (
-            <button key={e.id} className={`dir-tab ${filterEns === e.id ? 'active' : ''}`} onClick={() => pickEns(e.id)}>
-              {e.name}
-            </button>
-          ))}
-        </div>
+      {assignments.length > 0 && (
+        <EnsembleFilter ensembles={ensembles} value={filterEns} onChange={pickEns} />
       )}
 
       <div style={{ padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>

@@ -5,7 +5,8 @@ import { BarChart3 } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useAllAttendance } from '../hooks/useAttendance';
-import { todayStr, addDays, musicEnsembles } from '../utils';
+import { todayStr, addDays } from '../utils';
+import { EnsembleFilter } from '../components/EnsembleFilter';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -88,14 +89,7 @@ export function TrackerView() {
 
       {/* Ensemble filter */}
       {ensembles.length > 0 && (
-        <div className="dir-tabs">
-          <button className={`dir-tab ${!ensembleId ? 'active' : ''}`} onClick={() => setEnsembleId('')}>All</button>
-          {musicEnsembles(ensembles).map(e => (
-            <button key={e.id} className={`dir-tab ${ensembleId === e.id ? 'active' : ''}`} onClick={() => setEnsembleId(e.id)}>
-              {e.name}
-            </button>
-          ))}
-        </div>
+        <EnsembleFilter ensembles={ensembles} value={ensembleId} onChange={setEnsembleId} />
       )}
 
       {totalExceptions === 0 ? (

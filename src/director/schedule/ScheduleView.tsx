@@ -10,10 +10,11 @@ import { resolveRoster, overrideSummary } from '../rosterResolver';
 import { EventForm } from './EventForm';
 import { EventRoster } from './EventRoster';
 import { IcsImport } from './IcsImport';
+import { EnsembleFilter } from '../components/EnsembleFilter';
 import { seedCalendar, seedSchoolCalendar } from '../seedCalendar';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
 import {
-  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, assignmentEmoji, musicEnsembles, CONCERT_COLOR, ASSIGN_COLOR,
+  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR,
 } from '../utils';
 import type { CalendarEvent } from '../types';
 import { Linkify } from '../components/Linkify';
@@ -303,28 +304,12 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
       </div>
 
       {/* Ensemble filter */}
-      {ensembles.length > 0 && (
-        <div className="dir-tabs">
-          <button className={`dir-tab ${!filterEnsembleId ? 'active' : ''}`} onClick={() => setFilterEnsembleId('')}>All</button>
-          {musicEnsembles(ensembles).map(e => (
-            <button
-              key={e.id}
-              className={`dir-tab ${filterEnsembleId === e.id ? 'active' : ''}`}
-              onClick={() => setFilterEnsembleId(e.id)}
-            >
-              {e.name}
-            </button>
-          ))}
-          {hasSchoolEvents && (
-            <button
-              className={`dir-tab ${filterEnsembleId === 'school' ? 'active' : ''}`}
-              onClick={() => setFilterEnsembleId('school')}
-            >
-              School
-            </button>
-          )}
-        </div>
-      )}
+      <EnsembleFilter
+        ensembles={ensembles}
+        value={filterEnsembleId}
+        onChange={setFilterEnsembleId}
+        extraOptions={hasSchoolEvents ? [{ value: 'school', label: 'School events' }] : undefined}
+      />
 
       {/* Type filter */}
       <div className="dir-type-filter">

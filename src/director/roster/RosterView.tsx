@@ -10,7 +10,8 @@ import { EnsembleManager } from './EnsembleManager';
 import { RepertoireManager } from '../repertoire/RepertoireManager';
 import { LocationsManager } from '../locations/LocationsManager';
 import { RosterImport } from './RosterImport';
-import { ensembleColor, musicEnsembles } from '../utils';
+import { ensembleColor } from '../utils';
+import { EnsembleFilter } from '../components/EnsembleFilter';
 import { seedRoster, seedStudents, seedEnsembles } from '../seedData';
 import { resetToBaseline, importBaselineContacts } from '../resetBaseline';
 import { sortStudents, type StudentSort } from '../scoreOrder';
@@ -123,17 +124,8 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
       {/* Show only my ensemble(s): filter chips + sort */}
       {ensembles.length > 0 && students.length > 0 && (
         <>
+          <EnsembleFilter ensembles={ensembles} value={filterEnsembleId} onChange={setFilterEnsembleId} />
           <div className="dir-tabs">
-            <button className={`dir-tab ${!filterEnsembleId ? 'active' : ''}`} onClick={() => setFilterEnsembleId('')}>All</button>
-            {musicEnsembles(ensembles).map(e => (
-              <button
-                key={e.id}
-                className={`dir-tab ${filterEnsembleId === e.id ? 'active' : ''}`}
-                onClick={() => setFilterEnsembleId(id => id === e.id ? '' : e.id)}
-              >
-                {e.name}
-              </button>
-            ))}
             <button className={`dir-tab dir-tab-view ${view === 'seniors' ? 'active' : ''}`} onClick={() => setView(v => v === 'seniors' ? '' : 'seniors')}>
               Seniors
             </button>

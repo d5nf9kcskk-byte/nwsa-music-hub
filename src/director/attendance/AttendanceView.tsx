@@ -151,12 +151,16 @@ export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsem
 
       {/* Ad-hoc: take roll for any ensemble even without a scheduled rehearsal */}
       <div className="dir-form-section-label" style={{ padding: '10px 16px 4px' }}>Or take roll for any ensemble</div>
-      <div className="dir-tabs">
-        {musicEnsembles(ensembles).map(e => (
-          <button key={e.id} className="dir-tab" onClick={() => setPeriod({ event: periods.find(p => p.ensembleId === e.id)?.event ?? null, ensembleId: e.id })}>
-            {e.name}
-          </button>
-        ))}
+      <div className="dir-ens-filter">
+        <select
+          className="dir-select dir-ens-filter-select"
+          value=""
+          aria-label="Take roll for an ensemble"
+          onChange={e => { const id = e.target.value; if (id) setPeriod({ event: periods.find(p => p.ensembleId === id)?.event ?? null, ensembleId: id }); }}
+        >
+          <option value="">Choose an ensemble…</option>
+          {musicEnsembles(ensembles).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+        </select>
       </div>
     </div>
   );
