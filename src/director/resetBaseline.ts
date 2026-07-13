@@ -1,20 +1,26 @@
 import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { db } from './firebase';
 import { baselineStudents, baselineNewEnsembles } from './baseline2526';
+import { seedCalendar } from './seedCalendar';
 import type { Guardian } from './types';
 
 /**
- * "Fresh start" tool for the July 2026 redesign test cycle: wipes every
- * student-linked collection and imports the 2025-26 baseline roster
- * (src/director/baseline2526.ts). Structure — ensembles, events, repertoire,
- * announcements, locations, assignment definitions — is deliberately kept.
+ * "Clean baseline" reset: wipes every student-linked collection plus the
+ * schedule-change trail (announcements + queued notifications), imports the
+ * 2025-26 baseline roster (src/director/baseline2526.ts), and re-seeds the
+ * standard schedule so any block swaps / time changes / cancellations on the
+ * seeded rehearsals revert to normal. Structural config — ensembles,
+ * repertoire, locations, assignment definitions — and any manually-added
+ * concerts are deliberately kept.
  *
- * Idempotent: baseline ids are stable slugs, so re-running always converges
- * on the same state. This is also the end-of-redesign reset.
+ * Idempotent: baseline + schedule ids are stable slugs, so re-running always
+ * converges on the same known-good state. Contacts are wiped and reloaded
+ * separately from the private contacts file.
  */
 const WIPE: readonly string[] = [
   'students', 'contacts', 'attendance', 'progressNotes',
   'plannedAbsences', 'rosterOverrides', 'seatingCharts', 'assignmentResults',
+  'announcements', 'notifyQueue',
 ];
 
 const BATCH_LIMIT = 400; // Firestore caps a write batch at 500 ops
@@ -53,6 +59,13 @@ export async function resetToBaseline(
     await batch.commit();
   }
   onProgress?.(`Imported ${baselineStudents.length} students${missing.length ? ` + ${missing.map(e => e.name).join(', ')}` : ''}`);
+
+  // Re-seed the standard schedule (rehearsals + choir + academic classes +
+  // MDCPS/MDC markers). Overwrites the stable rehearsal/class/marker ids, so any
+  // swaps, time/room edits, or cancellations on seeded rehearsals revert to
+  // normal; manually-added concerts keep their own ids and are left untouched.
+  const cal = await seedCalendar();
+  onProgress?.(`Reseeded schedule — ${cal.rehearsals} rehearsals, ${cal.classes} classes, ${cal.markers} calendar dates`);
 
   return { deleted, students: baselineStudents.length };
 }
