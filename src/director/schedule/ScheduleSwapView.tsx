@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, ArrowLeftRight, Clock3, MapPin, XCircle, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeftRight, Clock3, MapPin, XCircle, RotateCcw, Grid3x3, CalendarDays } from 'lucide-react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useEvents } from '../hooks/useEvents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useAnnouncements } from '../hooks/useAnnouncements';
-import { todayStr, addDays, parseDate, formatTime, formatTimeRange, ensembleColor, addMinutesToTime, TIME_BLOCKS, CONCERT_COLOR } from '../utils';
-import type { CalendarEvent, Announcement } from '../types';
+import { todayStr, addDays, parseDate, toDateStr, formatTime, formatTimeRange, ensembleColor, addMinutesToTime, TIME_BLOCKS, CONCERT_COLOR } from '../utils';
+import type { CalendarEvent, Announcement, Ensemble } from '../types';
 import type { DirNavigate } from '../types-nav';
 
 /** Post the urgent announcement (in-app banner) and enqueue the notify relay
@@ -69,6 +69,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   const [confirmSwap, setConfirmSwap] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [view, setView] = useState<'day' | 'month'>('day');
 
   const today = todayStr();
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
@@ -135,6 +136,16 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
 
   return (
     <div className="dir-tab-page">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0' }}>
+        <button className="dir-tool-btn" onClick={() => setView(v => (v === 'day' ? 'month' : 'day'))}>
+          {view === 'day' ? <><Grid3x3 size={14} /> Month view</> : <><CalendarDays size={14} /> Day view</>}
+        </button>
+      </div>
+
+      {view === 'month' ? (
+        <SwapMonth date={date} events={events} ensembleMap={ensembleMap} onPick={d => { setDate(d); setView('day'); }} />
+      ) : (
+      <>
       <div className="dir-cal-nav">
         <button className="dir-date-nav-btn" onClick={() => setDate(d => addDays(d, -1))} aria-label="Previous day">
           <ChevronLeft size={18} />
@@ -221,6 +232,8 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
         )}
         {error && <div className="dir-sc-error">⚠ {error}</div>}
       </div>
+      </>
+      )}
 
       {confirmSwap && a && b && (
         <SwapConfirm
@@ -244,6 +257,74 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
           onClose={() => setEditing(null)}
         />
       )}
+    </div>
+  );
+}
+
+/** Full-month overview: see every day's ensemble events at a glance; tap a day
+ *  to open it in the day view and swap/change its blocks. */
+function SwapMonth({ date, events, ensembleMap, onPick }: {
+  date: string;
+  events: CalendarEvent[];
+  ensembleMap: Record<string, Ensemble | undefined>;
+  onPick: (date: string) => void;
+}) {
+  const [cursor, setCursor] = useState(() => { const d = parseDate(date); d.setDate(1); return d; });
+  const y = cursor.getFullYear();
+  const mo = cursor.getMonth();
+  const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const today = todayStr();
+
+  const cells = useMemo(() => {
+    const firstWd = new Date(y, mo, 1).getDay();
+    const days = new Date(y, mo + 1, 0).getDate();
+    const out: (string | null)[] = [];
+    for (let i = 0; i < firstWd; i++) out.push(null);
+    for (let d = 1; d <= days; d++) out.push(toDateStr(new Date(y, mo, d)));
+    while (out.length % 7 !== 0) out.push(null);
+    return out;
+  }, [y, mo]);
+
+  const byDate = useMemo(() => {
+    const m: Record<string, CalendarEvent[]> = {};
+    for (const e of events) if (e.ensembleIds.length > 0) (m[e.date] ??= []).push(e);
+    return m;
+  }, [events]);
+
+  return (
+    <div className="dir-cal">
+      <div className="dir-cal-nav">
+        <button className="dir-date-nav-btn" onClick={() => setCursor(c => new Date(c.getFullYear(), c.getMonth() - 1, 1))} aria-label="Previous month">
+          <ChevronLeft size={18} />
+        </button>
+        <span className="dir-cal-month">{monthLabel}</span>
+        <button className="dir-date-nav-btn" onClick={() => setCursor(c => new Date(c.getFullYear(), c.getMonth() + 1, 1))} aria-label="Next month">
+          <ChevronRight size={18} />
+        </button>
+      </div>
+      <div className="dir-cal-weekdays">
+        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i} className="dir-cal-weekday">{d}</div>)}
+      </div>
+      <div className="dir-cal-grid">
+        {cells.map((d, i) => d === null ? (
+          <div key={i} className="dir-cal-cell empty" />
+        ) : (
+          <button
+            key={i}
+            className={`dir-cal-cell ${d === date ? 'selected' : ''} ${d === today ? 'today' : ''}`}
+            onClick={() => onPick(d)}
+            aria-label={`${parseDate(d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}${(byDate[d] ?? []).length ? `, ${(byDate[d] ?? []).length} event(s)` : ''}`}
+          >
+            <span className="dir-cal-day">{parseDate(d).getDate()}</span>
+            <span className="dir-cal-dots">
+              {(byDate[d] ?? []).slice(0, 4).map(e => (
+                <span key={e.id} className="dir-cal-dot" style={{ background: e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]) }} />
+              ))}
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="dir-field-hint" style={{ padding: '10px 16px' }}>Tap a day to open it and swap or change its blocks.</div>
     </div>
   );
 }
