@@ -6,6 +6,7 @@ import { useSeatingCharts } from '../hooks/useSeatingCharts';
 import { scoreOrderRank, lastName } from '../scoreOrder';
 import { todayStr, parseDate } from '../utils';
 import type { SeatingChart, Student } from '../types';
+import { SeatingChartCard } from '../../public/components/SeatingChartCard';
 
 /** Director seating editor for one ensemble. Charts are per-piece playing-exam
  *  seating: seat 1 = principal. Published charts show on the public ensemble page. */
@@ -116,6 +117,9 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
   const [sections, setSections] = useState<SeatingChart['sections']>(chart?.sections ?? buildSections(roster));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  // Student-view-first: an existing chart opens in the read-only student view;
+  // a brand-new chart opens straight into edit.
+  const [editing, setEditing] = useState(!chart);
 
   function move(si: number, seatIdx: number, dir: -1 | 1) {
     setSections(prev => {
@@ -161,6 +165,12 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
           <button className="dir-drawer-close" onClick={onBack}>×</button>
         </div>
         <div className="dir-drawer-body">
+          <div className="dir-mode-toggle">
+            <button type="button" className={`dir-segment-btn ${!editing ? 'active' : ''}`} onClick={() => setEditing(false)}>Student view</button>
+            <button type="button" className={`dir-segment-btn ${editing ? 'active' : ''}`} onClick={() => setEditing(true)}>Edit</button>
+          </div>
+          {editing ? (
+          <>
           <div className="dir-field">
             <label className="dir-label">Title *</label>
             <input className="dir-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Fall Concert seating" autoFocus />
@@ -209,6 +219,13 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
             >
               Delete chart
             </button>
+          )}
+          </>
+          ) : (
+            <SeatingChartCard
+              chart={{ id: chart?.id ?? 'preview', ensembleId, title: title || 'Seating', pieceId: pieceId || undefined, date: date || undefined, sections: sections.filter(s => s.seats.length > 0), createdAt: chart?.createdAt ?? 0 }}
+              studentName={sid => nameById[sid] ?? sid}
+            />
           )}
         </div>
         {err && <div className="dir-sc-error" style={{ padding: '4px 16px 0' }}>{err}</div>}
