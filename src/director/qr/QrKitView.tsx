@@ -13,6 +13,37 @@ const SITE_URL = 'https://d5nf9kcskk-byte.github.io/nwsa-music-hub/';
 /** Human-typeable form printed under the codes. */
 const SHORT_HOST = 'd5nf9kcskk-byte.github.io/nwsa-music-hub';
 
+/** Self-contained print stylesheet for the pop-out print window. It mirrors the
+ *  @media print rules in qrKit.css but needs no app CSS/variables to resolve,
+ *  so the popup prints correctly on its own (each QR is an inline SVG). */
+const QR_PRINT_CSS = `
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { margin: 0; background: #fff; color: #111;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  .dir-qrkit-noprint { display: none !important; }
+  .dir-qr-page { background: #fff; break-inside: avoid; break-after: page; page-break-after: always; }
+  .dir-qr-page:last-child { break-after: auto; page-break-after: auto; }
+  .dir-qr-poster { border-top: 6px solid #0d7e8e; padding: 1.2in 18px 22px; text-align: center; }
+  .dir-qr-poster-kicker { font-size: 12px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #0d7e8e; }
+  .dir-qr-poster-name { font-size: 54pt; font-weight: 900; margin: 6px 0 4px; color: #111; line-height: 1.1; }
+  .dir-qr-poster-tag { font-size: 16pt; color: #444; margin: 0 auto 0.35in; max-width: 46ch; }
+  .dir-qr-poster-code { width: 4.4in; max-width: 78%; margin: 0 auto; }
+  .dir-qr-poster-code svg { display: block; width: 100%; height: auto; }
+  .dir-qr-poster-url { margin-top: 0.3in; font-size: 15pt; font-weight: 700; color: #111;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+  .dir-qr-slips { padding: 0.25in 0 0; }
+  .dir-qr-slips-head { font-size: 12px; font-weight: 700; color: #555; text-align: center; margin-bottom: 8px; }
+  .dir-qr-slip-grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .dir-qr-slip { display: flex; align-items: center; gap: 10px; padding: 0.18in; border: 1px dashed #999; margin: -0.5px; break-inside: avoid; }
+  .dir-qr-slip-code { width: 1.1in; flex-shrink: 0; }
+  .dir-qr-slip-code svg { display: block; width: 100%; height: auto; }
+  .dir-qr-slip-info { min-width: 0; }
+  .dir-qr-slip-name { font-size: 12pt; font-weight: 800; color: #111; line-height: 1.15; }
+  .dir-qr-slip-sub { font-size: 8.5pt; color: #555; margin-top: 2px; }
+  .dir-qr-slip-url { font-size: 8pt; color: #333; margin-top: 3px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+`;
+
 /** One wall poster — prints on its own page. */
 function PosterPage({ name, tagline, url, urlLabel, accent }: {
   name: string; tagline: string; url: string; urlLabel: string; accent?: string;
@@ -65,6 +96,28 @@ export function QrKitView({ onClose }: { onClose?: () => void }) {
   const { ensembles } = useEnsembles();
   const ordered = useMemo(() => [...ensembles].sort((a, b) => a.order - b.order), [ensembles]);
 
+  /** Print via a real browser window. window.print() is a silent no-op in the
+   *  installed iPad PWA (standalone display mode); a popped window is a normal
+   *  browser context where printing works. The kit is inline SVG + text, so its
+   *  markup can be serialized straight into the popup. Falls back to in-page
+   *  print if the popup is blocked. */
+  function printKit() {
+    const body = panelRef.current?.querySelector('.dir-qrkit-body')?.innerHTML;
+    const w = body ? window.open('', '_blank') : null;
+    if (!w || !body) { window.print(); return; }
+    w.document.write(
+      '<!doctype html><html><head><meta charset="utf-8">'
+      + '<title>NWSA Music Hub — QR kit</title>'
+      + `<style>${QR_PRINT_CSS}</style></head><body>${body}</body></html>`,
+    );
+    w.document.close();
+    w.focus();
+    let printed = false;
+    const go = () => { if (printed) return; printed = true; try { w.print(); } catch { /* ignore */ } };
+    w.onload = go;
+    setTimeout(go, 500); // Safari: load may have already fired after document.write
+  }
+
   return (
     <div className="dir-drawer-overlay dir-qrkit-overlay" onClick={e => { if (e.target === e.currentTarget) onClose?.(); }}>
       <div className="dir-drawer dir-qrkit" ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="QR kit">
@@ -73,7 +126,7 @@ export function QrKitView({ onClose }: { onClose?: () => void }) {
             <QrCode size={17} style={{ verticalAlign: '-3px' }} /> QR kit
           </span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="dir-btn dir-btn-primary" onClick={() => window.print()}>
+            <button className="dir-btn dir-btn-primary" onClick={printKit}>
               <Printer size={15} style={{ verticalAlign: '-2px' }} /> Print
             </button>
             {onClose && <button className="dir-drawer-close" onClick={onClose} aria-label="Close">×</button>}
