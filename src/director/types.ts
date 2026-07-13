@@ -138,6 +138,11 @@ export interface RosterOverride {
   endTime?: string;
   /** Marks this override as an applied-lesson pull-out (styled/labelled as such). */
   kind?: 'lesson';
+  /** When a pull-out ('remove') is really a move INTO another ensemble, the id
+   *  of that ensemble. A single entry both pulls the student from here and subs
+   *  them into there — the resolver adds them to the destination's roster, so no
+   *  second override is needed. */
+  destEnsembleId?: string;
 }
 
 export interface AttendanceRecord {

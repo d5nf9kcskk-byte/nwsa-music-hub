@@ -44,6 +44,13 @@ export function resolveRoster(
   // roster and takes roll; the lesson shows as a badge instead.
   const removed = new Set(relevant.filter(o => o.action === 'remove' && o.kind !== 'lesson').map(o => o.studentId));
   const added = new Set(relevant.filter(o => o.action === 'add').map(o => o.studentId));
+  // A pull-out that names a destination ensemble subs the student INTO this one
+  // (same entry, no separate 'add' override needed). Matched by date/event.
+  for (const o of overrides) {
+    if (o.destEnsembleId === ctx.ensembleId && o.action === 'remove' && overrideApplies(o, ctx)) {
+      added.add(o.studentId);
+    }
+  }
 
   const byId = Object.fromEntries(students.map(s => [s.id, s]));
   const result: ResolvedStudent[] = [];
