@@ -12,7 +12,7 @@ import { resolveRoster, lessonsFor, overrideApplies } from '../rosterResolver';
 import { StudentCard } from './StudentCard';
 import { SortToggle } from '../components/SortToggle';
 import { sortStudents, type StudentSort } from '../scoreOrder';
-import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRange, ensembleColor } from '../utils';
+import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles } from '../utils';
 import type { AttendanceStatus, Student, Ensemble, CalendarEvent } from '../types';
 
 interface Period {
@@ -152,7 +152,7 @@ export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsem
       {/* Ad-hoc: take roll for any ensemble even without a scheduled rehearsal */}
       <div className="dir-form-section-label" style={{ padding: '10px 16px 4px' }}>Or take roll for any ensemble</div>
       <div className="dir-tabs">
-        {ensembles.map(e => (
+        {musicEnsembles(ensembles).map(e => (
           <button key={e.id} className="dir-tab" onClick={() => setPeriod({ event: periods.find(p => p.ensembleId === e.id)?.event ?? null, ensembleId: e.id })}>
             {e.name}
           </button>

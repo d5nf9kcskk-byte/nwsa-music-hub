@@ -13,7 +13,7 @@ import { IcsImport } from './IcsImport';
 import { seedCalendar, seedSchoolCalendar } from '../seedCalendar';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
 import {
-  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR,
+  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, assignmentEmoji, musicEnsembles, CONCERT_COLOR, ASSIGN_COLOR,
 } from '../utils';
 import type { CalendarEvent } from '../types';
 import { Linkify } from '../components/Linkify';
@@ -306,7 +306,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
       {ensembles.length > 0 && (
         <div className="dir-tabs">
           <button className={`dir-tab ${!filterEnsembleId ? 'active' : ''}`} onClick={() => setFilterEnsembleId('')}>All</button>
-          {ensembles.map(e => (
+          {musicEnsembles(ensembles).map(e => (
             <button
               key={e.id}
               className={`dir-tab ${filterEnsembleId === e.id ? 'active' : ''}`}

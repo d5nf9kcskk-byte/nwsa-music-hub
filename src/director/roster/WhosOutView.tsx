@@ -7,7 +7,7 @@ import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useDayAttendance, useAllAttendance } from '../hooks/useAttendance';
 import { usePlannedAbsences } from '../hooks/usePlannedAbsences';
 import { lessonsFor, resolveRoster, overrideApplies } from '../rosterResolver';
-import { todayStr, addDays, toDateStr, parseDate, formatTimeRange, ensembleColor } from '../utils';
+import { todayStr, addDays, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles } from '../utils';
 import type { DirNavigate } from '../types-nav';
 
 /**
@@ -66,7 +66,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
   const dayEvents = useMemo(() => events.filter(e => e.date === date), [events, date]);
   const orderedEnsembles = useMemo(
-    () => [...ensembles].sort((a, b) => a.order - b.order).filter(e => !ensembleId || e.id === ensembleId),
+    () => musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).filter(e => !ensembleId || e.id === ensembleId),
     [ensembles, ensembleId],
   );
 
@@ -115,7 +115,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
       {ensembles.length > 1 && (
         <div className="dir-tabs">
           <button className={`dir-tab ${!ensembleId ? 'active' : ''}`} onClick={() => setEnsembleId('')}>All</button>
-          {[...ensembles].sort((a, b) => a.order - b.order).map(e => (
+          {musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
             <button key={e.id} className={`dir-tab ${ensembleId === e.id ? 'active' : ''}`} onClick={() => setEnsembleId(e.id)}>
               {e.name}
             </button>

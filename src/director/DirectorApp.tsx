@@ -24,7 +24,7 @@ import { RepertoireManager } from './repertoire/RepertoireManager';
 import { TodayView } from './today/TodayView';
 import { EnsembleHubView } from './ensembles/EnsembleHubView';
 import { useEnsembles } from './hooks/useEnsembles';
-import { ensembleColor } from './utils';
+import { ensembleColor, musicEnsembles } from './utils';
 import type { DirTab, DirNavOpts } from './types-nav';
 
 /**
@@ -176,7 +176,7 @@ export default function DirectorApp() {
                 </div>
               ))}
               {ensembles.length > 0 && <div className="dir-rail-head">Ensembles</div>}
-              {[...ensembles].sort((a, b) => a.order - b.order).map(e => (
+              {musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
                 <button
                   key={e.id}
                   className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
@@ -309,7 +309,7 @@ export default function DirectorApp() {
                       <Users size={19} /> Ensembles
                       <ChevronDown size={16} style={{ marginLeft: 'auto', transform: ensemblesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
                     </button>
-                    {ensemblesOpen && ensembles.map(e => (
+                    {ensemblesOpen && musicEnsembles(ensembles).map(e => (
                       <button
                         key={e.id}
                         className={`dir-menu-item dir-menu-subitem ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
