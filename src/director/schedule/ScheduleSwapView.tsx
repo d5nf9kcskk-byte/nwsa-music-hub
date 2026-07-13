@@ -5,7 +5,7 @@ import { db } from '../firebase';
 import { useEvents } from '../hooks/useEvents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useAnnouncements } from '../hooks/useAnnouncements';
-import { todayStr, addDays, parseDate, formatTime, formatTimeRange, ensembleColor, addMinutesToTime, CONCERT_COLOR } from '../utils';
+import { todayStr, addDays, parseDate, formatTime, formatTimeRange, ensembleColor, addMinutesToTime, TIME_BLOCKS, CONCERT_COLOR } from '../utils';
 import type { CalendarEvent, Announcement } from '../types';
 import type { DirNavigate } from '../types-nav';
 
@@ -294,7 +294,12 @@ function TimeChangeSheet({ event, name, onApply, onClose }: {
             <label className="dir-label"><MapPin size={12} /> Room / location</label>
             <input className="dir-input" value={room} onChange={e => setRoom(e.target.value)} placeholder="e.g. Auditorium" />
           </div>
-          <div className="dir-field-row" style={{ gap: 8 }}>
+          <div className="dir-field-row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            {TIME_BLOCKS.map(b => (
+              <button key={b.label} type="button" className="dir-tool-btn" onClick={() => { setStart(b.start); setEnd(b.end); }}>
+                {b.label}
+              </button>
+            ))}
             <button className="dir-tool-btn" onClick={() => { if (start) { const ns = addMinutesToTime(start, 30); setStart(ns); if (end) setEnd(addMinutesToTime(end, 30)); } }}>
               <Clock3 size={14} /> +30 min
             </button>

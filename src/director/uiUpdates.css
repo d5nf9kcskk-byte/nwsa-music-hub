@@ -388,7 +388,7 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 /* Schedule type filter */
 .dir-type-filter { display: flex; align-items: center; gap: 8px; padding: 4px 16px 8px; }
 .dir-type-filter-label { font-size: 13px; font-weight: 700; color: var(--dir-text-muted); }
-.dir-type-select { flex: 1; max-width: 220px; height: 38px; }
+.dir-type-select { flex: 1; max-width: 220px; min-height: 38px; }
 
 /* Today dashboard: sections mirroring the public home */
 .dir-section-head {

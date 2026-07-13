@@ -3,7 +3,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster } from '../rosterResolver';
-import { EVENT_TYPES } from '../utils';
+import { EVENT_TYPES, TIME_BLOCKS } from '../utils';
 import { PiecePicker } from '../repertoire/PiecePicker';
 import { RichTextArea } from '../components/RichTextArea';
 import { useModalA11y } from '../../shared/useModalA11y';
@@ -294,6 +294,13 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
               <label className="dir-label">End</label>
               <input className="dir-input" type="time" value={form.endTime ?? ''} onChange={e => set('endTime', e.target.value)} />
             </div>
+          </div>
+          <div className="dir-field-row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            {TIME_BLOCKS.map(b => (
+              <button key={b.label} type="button" className="dir-tool-btn" onClick={() => { set('startTime', b.start); set('endTime', b.end); }}>
+                {b.label}
+              </button>
+            ))}
           </div>
 
           <div className="dir-field">

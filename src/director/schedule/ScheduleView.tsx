@@ -329,7 +329,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
       {/* Type filter */}
       <div className="dir-type-filter">
         <span className="dir-type-filter-label">Show:</span>
-        <select className="dir-input dir-type-select" value={typeFilter} onChange={e => setTypeFilter(e.target.value as typeof typeFilter)}>
+        <select className="dir-select dir-type-select" value={typeFilter} onChange={e => setTypeFilter(e.target.value as typeof typeFilter)}>
           <option value="all">Everything</option>
           <option value="Rehearsal">Rehearsals</option>
           <option value="Sectional">Sectionals</option>
