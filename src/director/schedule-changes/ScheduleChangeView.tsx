@@ -39,6 +39,18 @@ export function ScheduleChangeView({ initialEnsembleId = '' }: { initialEnsemble
 
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
+  // Month-picker data — must stay above the early return below (rules of hooks).
+  const daysWithEvents = useMemo(() => new Set(events.filter(e => e.ensembleIds.length > 0).map(e => e.date)), [events]);
+  const monthCells = useMemo(() => {
+    const y = calCursor.getFullYear(), mo = calCursor.getMonth();
+    const first = new Date(y, mo, 1).getDay();
+    const n = new Date(y, mo + 1, 0).getDate();
+    const out: (string | null)[] = [];
+    for (let i = 0; i < first; i++) out.push(null);
+    for (let d = 1; d <= n; d++) out.push(toDateStr(new Date(y, mo, d)));
+    while (out.length % 7 !== 0) out.push(null);
+    return out;
+  }, [calCursor]);
 
   const selected = students.find(s => s.id === selectedId) ?? null;
 
@@ -68,18 +80,6 @@ export function ScheduleChangeView({ initialEnsembleId = '' }: { initialEnsemble
     .filter(e => e.date === dateSel && e.ensembleIds.length > 0)
     .sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
   const dateEvent = dateEventId ? eventsById[dateEventId] : null;
-
-  const daysWithEvents = useMemo(() => new Set(events.filter(e => e.ensembleIds.length > 0).map(e => e.date)), [events]);
-  const monthCells = useMemo(() => {
-    const y = calCursor.getFullYear(), mo = calCursor.getMonth();
-    const first = new Date(y, mo, 1).getDay();
-    const n = new Date(y, mo + 1, 0).getDate();
-    const out: (string | null)[] = [];
-    for (let i = 0; i < first; i++) out.push(null);
-    for (let d = 1; d <= n; d++) out.push(toDateStr(new Date(y, mo, d)));
-    while (out.length % 7 !== 0) out.push(null);
-    return out;
-  }, [calCursor]);
 
   return (
     <div className="dir-tab-page">
