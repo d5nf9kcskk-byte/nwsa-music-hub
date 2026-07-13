@@ -1,13 +1,16 @@
 import { useMemo } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router';
-import { ChevronLeft, ExternalLink, Clock, FileText, Video, Headphones, BookOpen } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Clock, FileText, Video, Headphones, BookOpen, Armchair } from 'lucide-react';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
+import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
+import { useStudents } from '../director/hooks/useStudents';
 import { parseDate, ensembleColor, findPartForInstrument } from '../director/utils';
 import { primaryStudent } from '../shared/identity';
 import { Linkify } from '../director/components/Linkify';
 import { GradientHero } from './components/GradientHero';
+import { SeatingChartCard } from './components/SeatingChartCard';
 import { t, useLang } from '../shared/i18n';
 
 export function PublicPiece() {
@@ -20,6 +23,8 @@ export function PublicPiece() {
   const { events } = useEvents();
 
   const piece = pieces.find(p => p.id === id);
+  const { charts: seatingCharts } = useSeatingCharts(piece?.ensembleId ?? '');
+  const { students: allStudents } = useStudents();
   const myPart = piece ? findPartForInstrument(piece, primaryStudent()?.instrument) : undefined;
   const ensemble = useMemo(() => ensembles.find(e => e.id === piece?.ensembleId), [ensembles, piece]);
   const linkedEvents = useMemo(
@@ -37,6 +42,16 @@ export function PublicPiece() {
   }
 
   const totalDuration = piece.movements?.reduce((s, m) => s + (m.duration ?? 0), 0) ?? 0;
+
+  // Applied seating: a chart tied to this piece if one exists, else the
+  // ensemble's current (newest) published chart.
+  const studentName = (sid: string) => allStudents.find(s => s.id === sid)?.name ?? '—';
+  const pieceCharts = seatingCharts
+    .filter(c => c.pieceId === piece.id)
+    .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+  const appliedChart = pieceCharts[0]
+    ?? [...seatingCharts].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))[0]
+    ?? null;
 
   return (
     <div className="pub-page">
@@ -190,6 +205,19 @@ export function PublicPiece() {
             </a>
           )}
         </div>
+      )}
+
+      {/* Applied seating chart — piece-specific when one exists, otherwise the
+          ensemble's current chart, shown the way students read it. */}
+      {appliedChart && (
+        <>
+          <h2 className="pub-section-title"><Armchair size={15} style={{ verticalAlign: '-2px' }} /> Seating</h2>
+          <SeatingChartCard
+            chart={appliedChart}
+            studentName={studentName}
+            subtitle={pieceCharts.length > 0 ? 'For this piece' : `Current seating${ensemble ? ` — ${ensemble.name}` : ''}`}
+          />
+        </>
       )}
 
       {/* Programmed for */}

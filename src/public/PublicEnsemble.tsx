@@ -12,6 +12,7 @@ import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { PubRepertoire } from './components/PubRepertoire';
 import { primaryStudent } from '../shared/identity';
+import { SeatingChartCard } from './components/SeatingChartCard';
 import { SubscribeButton } from './components/SubscribeButton';
 import { GradientHero } from './components/GradientHero';
 import { t, tn, useLang } from '../shared/i18n';
@@ -193,7 +194,6 @@ function SeatingSection({ ensembleId, studentName, pieceTitle }: {
   pieceTitle: (id: string) => string | undefined;
 }) {
   const { charts } = useSeatingCharts(ensembleId);
-  const me = primaryStudent();
   if (charts.length === 0) return null;
   // Newest first; the newest published chart is the one in effect.
   const ordered = [...charts].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
@@ -201,31 +201,13 @@ function SeatingSection({ ensembleId, studentName, pieceTitle }: {
     <div>
       <h2 className="pub-section-title"><Armchair size={15} style={{ verticalAlign: '-2px' }} /> Seating</h2>
       {ordered.map((c, ci) => (
-        <div key={c.id} className="pub-card pub-seat-card">
-          <div className="pub-seat-title">
-            {c.title}
-            {ordered.length > 1 && ci === 0 && <span className="pub-seat-current">Current</span>}
-          </div>
-          {c.date && (
-            <div className="pub-seat-sub">
-              Published {parseDate(c.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-            </div>
-          )}
-          {(c.pieceId && pieceTitle(c.pieceId)) && <div className="pub-seat-sub">For: {pieceTitle(c.pieceId)}</div>}
-          {c.sections.map((sec, i) => (
-            <div key={i} className="pub-seat-section">
-              <div className="pub-seat-section-name">{sec.section}</div>
-              <ol className="pub-seat-list">
-                {sec.seats.map(seat => (
-                  <li key={seat.studentId} className={`pub-seat-item${me?.id === seat.studentId ? ' me' : ''}`}>
-                    <span className="pub-seat-name">{studentName(seat.studentId)}{me?.id === seat.studentId ? ' (you)' : ''}</span>
-                    {seat.note && <span className="pub-seat-note">{seat.note}</span>}
-                  </li>
-                ))}
-              </ol>
-            </div>
-          ))}
-        </div>
+        <SeatingChartCard
+          key={c.id}
+          chart={c}
+          studentName={studentName}
+          current={ordered.length > 1 && ci === 0}
+          subtitle={c.pieceId && pieceTitle(c.pieceId) ? `For: ${pieceTitle(c.pieceId)}` : undefined}
+        />
       ))}
     </div>
   );
