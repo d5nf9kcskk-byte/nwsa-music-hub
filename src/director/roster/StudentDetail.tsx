@@ -107,35 +107,67 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
           {/* ── Contact info (director-only) ── */}
           <div className="dir-detail-section">
             <div className="dir-detail-section-title"><Mail size={13} /> Contact <span className="dir-detail-private">directors only</span></div>
-            {!(contact?.email || contact?.parentEmail || contact?.phone) ? (
-              <button className="dir-btn dir-btn-ghost" style={{ marginTop: 6 }} onClick={onEdit}>
-                <Pencil size={13} /> Add contact info
-              </button>
-            ) : (
-              <div className="dir-detail-contact-list">
-                {contact.email && (
-                  <a href={`mailto:${contact.email}`} className="dir-detail-contact-row">
-                    <Mail size={13} />
-                    <span>{contact.email}</span>
-                    <ExternalLink size={11} className="dir-detail-ext" />
-                  </a>
-                )}
-                {contact.parentEmail && (
-                  <a href={`mailto:${contact.parentEmail}`} className="dir-detail-contact-row">
-                    <Mail size={13} />
-                    <span><em>Parent:</em> {contact.parentEmail}</span>
-                    <ExternalLink size={11} className="dir-detail-ext" />
-                  </a>
-                )}
-                {contact.phone && (
-                  <a href={`tel:${contact.phone}`} className="dir-detail-contact-row">
-                    <Phone size={13} />
-                    <span>{contact.phone}</span>
-                    <ExternalLink size={11} className="dir-detail-ext" />
-                  </a>
-                )}
-              </div>
-            )}
+            {(() => {
+              // Prefer the full guardians[] list from the spreadsheet import; fall
+              // back to the flat parent mirror for records created before import.
+              const guardians = contact?.guardians?.length
+                ? contact.guardians
+                : (contact?.parentEmail || contact?.phone)
+                  ? [{ email: contact?.parentEmail, phone: contact?.phone }]
+                  : [];
+              const extras = contact?.extra ? Object.entries(contact.extra).filter(([, v]) => v) : [];
+              if (!(contact?.email || guardians.length > 0 || extras.length > 0)) {
+                return (
+                  <button className="dir-btn dir-btn-ghost" style={{ marginTop: 6 }} onClick={onEdit}>
+                    <Pencil size={13} /> Add contact info
+                  </button>
+                );
+              }
+              return (
+                <div className="dir-detail-contact-list">
+                  {contact?.email && (
+                    <a href={`mailto:${contact.email}`} className="dir-detail-contact-row">
+                      <Mail size={13} />
+                      <span>{contact.email}</span>
+                      <ExternalLink size={11} className="dir-detail-ext" />
+                    </a>
+                  )}
+                  {guardians.map((g, i) => (
+                    <div key={i} className="dir-detail-guardian">
+                      <div className="dir-detail-guardian-name">
+                        <Users size={13} />
+                        <span>{g.name || 'Parent / Guardian'}{g.relation ? ` · ${g.relation}` : ''}</span>
+                      </div>
+                      {g.email && (
+                        <a href={`mailto:${g.email}`} className="dir-detail-contact-row">
+                          <Mail size={13} />
+                          <span>{g.email}</span>
+                          <ExternalLink size={11} className="dir-detail-ext" />
+                        </a>
+                      )}
+                      {g.phone && (
+                        <a href={`tel:${g.phone}`} className="dir-detail-contact-row">
+                          <Phone size={13} />
+                          <span>{g.phone}</span>
+                          <ExternalLink size={11} className="dir-detail-ext" />
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                  {extras.length > 0 && (
+                    <div className="dir-detail-extra">
+                      {extras.map(([k, v]) => (
+                        <div key={k} className="dir-detail-extra-row">
+                          <FileText size={12} />
+                          <span className="dir-detail-extra-key">{k}</span>
+                          <span className="dir-detail-extra-val"><Linkify text={v} /></span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* ── Attendance ── */}
