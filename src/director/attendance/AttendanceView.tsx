@@ -377,7 +377,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate }: {
         {pulledToday.length > 0 && <> · <strong>{pulledToday.length}</strong> pulled</>}
         {onNavigate && (
           <button className="dir-link-btn" style={{ marginLeft: 'auto' }} onClick={() => onNavigate('scheduleChanges', { ensembleId })}>
-            Subs &amp; pull-outs
+            Temporary Roster Changes
           </button>
         )}
       </div>

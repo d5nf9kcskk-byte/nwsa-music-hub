@@ -119,7 +119,7 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
               className="dir-btn dir-btn-primary"
               onClick={() => { onClose(); onNavigate('scheduleChanges', { ensembleId }); }}
             >
-              <ClipboardList size={15} style={{ verticalAlign: '-2px' }} /> Make changes (Subs &amp; Pull-outs)
+              <ClipboardList size={15} style={{ verticalAlign: '-2px' }} /> Make changes (Temporary Roster Changes)
             </button>
           )}
         </div>
