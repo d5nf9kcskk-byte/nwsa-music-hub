@@ -13,7 +13,7 @@ import { SeasonChecklist } from './SeasonChecklist';
 import { QrKitView } from '../qr/QrKitView';
 import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster } from '../rosterResolver';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays, assignmentEmoji, musicEnsembles, CONCERT_COLOR, ASSIGN_COLOR } from '../utils';
 import type { CalendarEvent } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
@@ -137,7 +137,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
       {ensembles.length > 0 && (
         <div className="dir-tabs">
           <button className={`dir-tab ${!ensembleId ? 'active' : ''}`} onClick={() => pickEnsemble('')}>All</button>
-          {ensembles.map(e => (
+          {musicEnsembles(ensembles).map(e => (
             <button key={e.id} className={`dir-tab ${ensembleId === e.id ? 'active' : ''}`} onClick={() => pickEnsemble(e.id)}>{e.name}</button>
           ))}
         </div>
