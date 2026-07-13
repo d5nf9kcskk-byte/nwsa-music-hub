@@ -299,11 +299,13 @@ function ResetToBaseline() {
       {open && (
         <div style={{ padding: '10px 14px', fontSize: 13.5, display: 'grid', gap: 10 }}>
           <p style={{ margin: 0 }}>
-            <strong>Reset to the 2025–26 baseline:</strong> clears students, contacts,
+            <strong>Reset to a clean 2025–26 baseline:</strong> clears the roster,
             attendance, progress notes, planned absences, sub/pull-outs, seating charts,
-            and assignment results, then imports the 86-student baseline roster with
-            provisional ensemble assignments. Ensembles, schedule, repertoire,
-            announcements, and locations are kept.
+            assignment results, announcements, and queued notifications; re-imports the
+            86-student baseline roster; and re-seeds the standard schedule so any block
+            swaps, time/room changes, or cancellations revert to normal. Ensembles,
+            repertoire, locations, and manually-added concerts are kept.{' '}
+            <strong>When it finishes, re-upload your contacts file below.</strong>
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input
