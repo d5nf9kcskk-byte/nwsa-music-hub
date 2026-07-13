@@ -4,6 +4,7 @@ import { useRepertoire } from '../hooks/useRepertoire';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { ensembleColor, parseDate, musicEnsembles } from '../utils';
+import { EnsembleFilter } from '../components/EnsembleFilter';
 import type { RepertoirePiece, CalendarEvent, Ensemble, PieceMovement, PiecePartLink } from '../types';
 
 interface Props {
@@ -25,9 +26,8 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
     try { return localStorage.getItem('dir.repertoire.ensemble') ?? ''; } catch { return ''; }
   });
   function pickEns(id: string) {
-    const next = filterEns === id ? '' : id;
-    setFilterEns(next);
-    try { localStorage.setItem('dir.repertoire.ensemble', next); } catch { /* private mode */ }
+    setFilterEns(id);
+    try { localStorage.setItem('dir.repertoire.ensemble', id); } catch { /* private mode */ }
   }
   // Honor the persisted filter only in tab mode, where the chip row can clear
   // it. In drawer mode (no asTab, no ensembleId) there is no chip UI, so fall
@@ -105,15 +105,8 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
 
   const listBody = (
     <>
-      {!ensembleId && asTab && musicEns.length > 0 && (
-        <div className="dir-tabs">
-          <button className={`dir-tab ${!filterEns ? 'active' : ''}`} onClick={() => pickEns('')}>All</button>
-          {musicEns.map(e => (
-            <button key={e.id} className={`dir-tab ${filterEns === e.id ? 'active' : ''}`} onClick={() => pickEns(e.id)}>
-              {e.name}
-            </button>
-          ))}
-        </div>
+      {!ensembleId && asTab && (
+        <EnsembleFilter ensembles={ensembles} value={filterEns} onChange={pickEns} />
       )}
       <div className="dir-mode-toggle">
         <button className={`dir-segment-btn ${groupBy === 'ensemble' ? 'active' : ''}`} onClick={() => setGroupBy('ensemble')}>By ensemble</button>

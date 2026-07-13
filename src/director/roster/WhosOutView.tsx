@@ -8,6 +8,7 @@ import { useDayAttendance, useAllAttendance } from '../hooks/useAttendance';
 import { usePlannedAbsences } from '../hooks/usePlannedAbsences';
 import { lessonsFor, resolveRoster, overrideApplies } from '../rosterResolver';
 import { todayStr, addDays, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles } from '../utils';
+import { EnsembleFilter } from '../components/EnsembleFilter';
 import type { DirNavigate } from '../types-nav';
 
 /**
@@ -113,14 +114,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
 
       {/* Ensemble filter (both views) */}
       {ensembles.length > 1 && (
-        <div className="dir-tabs">
-          <button className={`dir-tab ${!ensembleId ? 'active' : ''}`} onClick={() => setEnsembleId('')}>All</button>
-          {musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
-            <button key={e.id} className={`dir-tab ${ensembleId === e.id ? 'active' : ''}`} onClick={() => setEnsembleId(e.id)}>
-              {e.name}
-            </button>
-          ))}
-        </div>
+        <EnsembleFilter ensembles={ensembles} value={ensembleId} onChange={setEnsembleId} />
       )}
 
       {view === 'month' ? (

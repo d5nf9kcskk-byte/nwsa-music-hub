@@ -390,6 +390,11 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-type-filter-label { font-size: 13px; font-weight: 700; color: var(--dir-text-muted); }
 .dir-type-select { flex: 1; max-width: 220px; min-height: 38px; }
 
+/* Compact music-only ensemble filter — replaces the wrapping chip rows. */
+.dir-ens-filter { display: flex; align-items: center; gap: 8px; padding: 6px 16px 8px; }
+.dir-ens-filter-label { font-size: 13px; font-weight: 700; color: var(--dir-text-muted); white-space: nowrap; }
+.dir-ens-filter-select { flex: 1; max-width: 280px; min-height: 40px; }
+
 /* Director Panel back-end marker: a dark top strip + gold "DIRECTOR PANEL"
    chips, so the editing side is unmistakable vs the light student/public site. */
 .dir-panel-banner {
