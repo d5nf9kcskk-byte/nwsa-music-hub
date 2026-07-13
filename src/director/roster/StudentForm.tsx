@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Student, StudentContact, Ensemble } from '../types';
 import { useModalA11y } from '../../shared/useModalA11y';
+import { musicEnsembles } from '../utils';
 
 export interface ContactDraft { email: string; parentEmail: string; phone: string; }
 
@@ -108,7 +109,7 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
           <div className="dir-field">
             <label className="dir-label">Ensembles</label>
             <div className="dir-checkbox-group">
-              {ensembles.map(e => (
+              {musicEnsembles(ensembles).map(e => (
                 <label
                   key={e.id}
                   className={`dir-checkbox-tag ${form.ensembleIds.includes(e.id) ? 'checked' : ''}`}

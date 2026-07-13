@@ -1,7 +1,7 @@
 import { useMemo, Fragment } from 'react';
 import { Printer, QrCode, Scissors } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
-import { ensembleColor } from '../utils';
+import { ensembleColor, musicEnsembles } from '../utils';
 import { renderQrSvg } from '../../shared/qr';
 import { vanityPathFor } from '../../shared/vanity';
 import type { Ensemble } from '../types';
@@ -94,7 +94,7 @@ function SlipsPage({ ensemble }: { ensemble: Ensemble }) {
 export function QrKitView({ onClose }: { onClose?: () => void }) {
   const panelRef = useModalA11y<HTMLDivElement>(() => onClose?.(), true);
   const { ensembles } = useEnsembles();
-  const ordered = useMemo(() => [...ensembles].sort((a, b) => a.order - b.order), [ensembles]);
+  const ordered = useMemo(() => musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)), [ensembles]);
 
   /** Print via a real browser window. window.print() is a silent no-op in the
    *  installed iPad PWA (standalone display mode); a popped window is a normal

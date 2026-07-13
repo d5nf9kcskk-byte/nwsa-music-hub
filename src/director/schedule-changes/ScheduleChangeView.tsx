@@ -5,7 +5,7 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster } from '../rosterResolver';
-import { ensembleColor, parseDate, todayStr, formatTimeRange, addMinutesToTime, EVENT_TYPE_ICON } from '../utils';
+import { ensembleColor, parseDate, todayStr, formatTimeRange, addMinutesToTime, EVENT_TYPE_ICON, musicEnsembles } from '../utils';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
 import type { Student, Ensemble, RosterOverride } from '../types';
@@ -95,7 +95,7 @@ export function ScheduleChangeView({ initialEnsembleId = '' }: { initialEnsemble
           {/* Jump straight to one ensemble's assigned roster */}
           <div className="dir-tabs">
             <button className={`dir-tab ${!ensembleId ? 'active' : ''}`} onClick={() => setEnsembleId('')}>All students</button>
-            {ensembles.map(e => (
+            {musicEnsembles(ensembles).map(e => (
               <button
                 key={e.id}
                 className={`dir-tab ${ensembleId === e.id ? 'active' : ''}`}
@@ -463,7 +463,7 @@ function ChangeForm({
               <div className="dir-field">
                 <label className="dir-label">Ensemble</label>
                 <select className="dir-input" value={ensembleId} onChange={e => setEnsembleId(e.target.value)}>
-                  {ensembles.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                  {musicEnsembles(ensembles).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
               </div>
 

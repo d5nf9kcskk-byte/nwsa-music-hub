@@ -10,7 +10,7 @@ import { EnsembleManager } from './EnsembleManager';
 import { RepertoireManager } from '../repertoire/RepertoireManager';
 import { LocationsManager } from '../locations/LocationsManager';
 import { RosterImport } from './RosterImport';
-import { ensembleColor } from '../utils';
+import { ensembleColor, musicEnsembles } from '../utils';
 import { seedRoster, seedStudents, seedEnsembles } from '../seedData';
 import { resetToBaseline, importBaselineContacts } from '../resetBaseline';
 import { sortStudents, type StudentSort } from '../scoreOrder';
@@ -125,7 +125,7 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
         <>
           <div className="dir-tabs">
             <button className={`dir-tab ${!filterEnsembleId ? 'active' : ''}`} onClick={() => setFilterEnsembleId('')}>All</button>
-            {ensembles.map(e => (
+            {musicEnsembles(ensembles).map(e => (
               <button
                 key={e.id}
                 className={`dir-tab ${filterEnsembleId === e.id ? 'active' : ''}`}
