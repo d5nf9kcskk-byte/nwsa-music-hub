@@ -71,10 +71,24 @@ export function SeatingManager({ ensembleId, ensembleName, onClose }: {
   );
 }
 
+/** Section key for seating. Keeps Violin 1 vs Violin 2 distinct: the roster
+ *  stores instrument as plain "Violin", so honor a part recorded in the
+ *  student's `section` ("Violin 1" / "1" / "II"). Instruments already stored as
+ *  "Violin I" / "Violin II" split on their own via scoreOrderRank (400 vs 402).
+ *  Non-numeric section roles (e.g. "First Chair") never trigger a split. */
+function seatingSectionKey(s: Student): string {
+  const instr = (s.instrument || 'Other').trim();
+  if (/^violins?$/i.test(instr) && s.section) {
+    if (/\b(2|ii)\b/i.test(s.section)) return 'Violin 2';
+    if (/\b(1|i)\b/i.test(s.section)) return 'Violin 1';
+  }
+  return instr;
+}
+
 function buildSections(roster: Student[]): SeatingChart['sections'] {
   const byInstr = new Map<string, Student[]>();
   for (const s of roster) {
-    const key = s.instrument || 'Other';
+    const key = seatingSectionKey(s);
     if (!byInstr.has(key)) byInstr.set(key, []);
     byInstr.get(key)!.push(s);
   }
