@@ -457,6 +457,14 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 }
 .dir-assign-card-form:hover { text-decoration: underline; }
 
+/* Who's Out month heatmap: per-day absence count badge. */
+.dir-heat-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 15px; height: 15px; padding: 0 3px;
+  font-size: 9.5px; font-weight: 800; line-height: 1;
+  color: #fff; background: var(--dir-danger, #dc2626); border-radius: 8px;
+}
+
 /* Today dashboard: sections mirroring the public home */
 .dir-section-head {
   display: flex; align-items: center; justify-content: space-between;
