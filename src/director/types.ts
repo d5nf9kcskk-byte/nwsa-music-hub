@@ -34,11 +34,25 @@ export interface Student {
  * (doc id === student id) so the publicly-readable student record carries
  * no PII. Only signed-in directors can read or write these.
  */
+/** One parent/guardian contact. */
+export interface Guardian {
+  name?: string;
+  relation?: string;   // e.g. "Mother", "Guardian"
+  email?: string;
+  phone?: string;
+}
+
 export interface StudentContact {
   id: string; // === student id
-  email?: string;
-  parentEmail?: string;
-  phone?: string;
+  email?: string;       // student email
+  parentEmail?: string; // mirror of guardians[0]?.email (back-compat)
+  phone?: string;       // mirror of guardians[0]?.phone (back-compat)
+  /** All parent/guardian contacts (unlimited), added by the spreadsheet
+   *  import. guardians[0] is mirrored into parentEmail/phone so older readers
+   *  keep working. Absent on records created before the import feature. */
+  guardians?: Guardian[];
+  /** Unrecognized spreadsheet columns, preserved verbatim so nothing is lost. */
+  extra?: Record<string, string>;
 }
 
 export type EventType = 'Rehearsal' | 'Concert' | 'Sectional' | 'Event';

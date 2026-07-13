@@ -465,6 +465,14 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   color: #fff; background: var(--dir-danger, #dc2626); border-radius: 8px;
 }
 
+/* "beta" chip on the roster import title. */
+.dir-beta-tag {
+  display: inline-block; margin-left: 6px; vertical-align: 1px;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--dir-gold-text, #5c4a00); background: var(--dir-gold, #c8a52a);
+  border-radius: 5px; padding: 1px 5px;
+}
+
 /* Today dashboard: sections mirroring the public home */
 .dir-section-head {
   display: flex; align-items: center; justify-content: space-between;

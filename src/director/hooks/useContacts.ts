@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, setDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { reportWriteError } from '../writeStatus';
@@ -26,21 +26,21 @@ export function useContacts() {
 
   async function saveContact(studentId: string, data: Omit<StudentContact, 'id'>) {
     if (!db) return;
-    const clean = {
+    // Merge-write so editing the three flat fields from StudentForm never wipes
+    // imported `guardians`/`extra` (which the form doesn't carry). Only the keys
+    // present in `data` are written; anything else on the doc is preserved.
+    const clean: Record<string, unknown> = {
       email: data.email || '',
       parentEmail: data.parentEmail || '',
       phone: data.phone || '',
     };
-    if (!clean.email && !clean.parentEmail && !clean.phone) {
-      // Nothing to store — remove any existing contact doc.
-      await deleteDoc(doc(db, 'contacts', studentId)).catch(() => {});
-      return;
-    }
+    if (data.guardians !== undefined) clean.guardians = data.guardians;
+    if (data.extra !== undefined) clean.extra = data.extra;
     try {
-      await setDoc(doc(db, 'contacts', studentId), clean);
+      await setDoc(doc(db, 'contacts', studentId), clean, { merge: true });
     } catch (e) {
       // Surface instead of swallowing (#36) — offer a retry.
-      reportWriteError('Contact info failed to save', () => setDoc(doc(db!, 'contacts', studentId), clean));
+      reportWriteError('Contact info failed to save', () => setDoc(doc(db!, 'contacts', studentId), clean, { merge: true }));
       throw e;
     }
   }

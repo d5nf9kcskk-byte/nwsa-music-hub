@@ -1,0 +1,5 @@
+Name,Instrument,Grade,Section,Parent 1 Name,Parent 1 Email,Parent 1 Phone,Parent 2 Name,Parent 2 Email
+"Nguyen, Bao",Violin,10,Violin 1,Linh Nguyen,linh@example.com,305-555-0101,Minh Nguyen,minh@example.com
+"Carter, Jaylen",Cello,11,,Denise Carter,denise@example.com,305-555-0144,,
+"Okafor, Ada",Flute,9,,Chidi Okafor,chidi@example.com,786-555-0199,,
+"Alvarez, Sofia",Clarinet,12,Principal,Marta Alvarez,marta@example.com,305-555-0170,,
