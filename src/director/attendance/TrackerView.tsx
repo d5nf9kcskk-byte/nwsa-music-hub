@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, Download } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useAllAttendance } from '../hooks/useAttendance';
 import { todayStr, addDays } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
+import { attendanceToCsv, downloadCsv } from './attendanceCsv';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -40,6 +41,13 @@ export function TrackerView() {
   }, [filtered]);
 
   const studentMap = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
+  const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
+
+  function handleExport() {
+    const csv = attendanceToCsv(filtered, studentMap, ensembleMap);
+    const tag = ensembleId ? (ensembleMap[ensembleId]?.name.replace(/\s+/g, '-').toLowerCase() ?? 'ensemble') : 'all';
+    downloadCsv(`nwsa-attendance-${tag}-${todayStr()}.csv`, csv);
+  }
 
   // Per-student tallies, ranked by total exceptions (desc). Legacy whole-
   // rehearsal 'Lesson' records are NOT exceptions — lessons are partial and
@@ -90,6 +98,15 @@ export function TrackerView() {
       {/* Ensemble filter */}
       {ensembles.length > 0 && (
         <EnsembleFilter ensembles={ensembles} value={ensembleId} onChange={setEnsembleId} />
+      )}
+
+      {/* Download the current view (respects the range + ensemble filters). */}
+      {filtered.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+          <button className="dir-tool-btn" onClick={handleExport} title="Download this view as a CSV spreadsheet (opens in Excel or Google Sheets)">
+            <Download size={14} /> Export CSV ({filtered.length})
+          </button>
+        </div>
       )}
 
       {totalExceptions === 0 ? (
