@@ -1,15 +1,51 @@
 import { useState, useEffect } from 'react';
-import type { Student, StudentContact, Ensemble } from '../types';
+import { Plus, Trash2 } from 'lucide-react';
+import type { Student, StudentContact, Guardian, Ensemble } from '../types';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { musicEnsembles } from '../utils';
 
-export interface ContactDraft { email: string; parentEmail: string; phone: string; }
+/** Editable contact: the student email plus an unlimited list of guardians and
+ *  any extra columns carried over from the spreadsheet import. */
+export interface ContactDraft {
+  email: string;
+  guardians: Guardian[];
+  extra: Record<string, string>;
+}
+
+/** Collapse a draft into the stored shape: trim, drop empty guardians, and keep
+ *  the flat parentEmail/phone in sync with guardian #1 so the many readers of
+ *  those back-compat fields (search, checklists, "missing info" view) keep
+ *  working. Never emits `undefined` values (Firestore rejects them). */
+function normalizeContact(draft: ContactDraft): Omit<StudentContact, 'id'> {
+  const guardians: Guardian[] = draft.guardians
+    .map(g => {
+      const o: Guardian = {};
+      if (g.name?.trim()) o.name = g.name.trim();
+      if (g.relation?.trim()) o.relation = g.relation.trim();
+      if (g.email?.trim()) o.email = g.email.trim();
+      if (g.phone?.trim()) o.phone = g.phone.trim();
+      return o;
+    })
+    .filter(g => g.name || g.relation || g.email || g.phone);
+  const extra: Record<string, string> = {};
+  for (const [k, v] of Object.entries(draft.extra)) {
+    if (v.trim()) extra[k] = v.trim();
+  }
+  const g0 = guardians[0];
+  return {
+    email: draft.email.trim(),
+    parentEmail: g0?.email ?? '',
+    phone: g0?.phone ?? '',
+    guardians,
+    extra,
+  };
+}
 
 interface Props {
   student: Student | null;
   contact: StudentContact | null;
   ensembles: Ensemble[];
-  onSave: (data: Omit<Student, 'id'>, contact: ContactDraft) => Promise<void>;
+  onSave: (data: Omit<Student, 'id'>, contact: Omit<StudentContact, 'id'>) => Promise<void>;
   onDelete?: () => Promise<void>;
   onClose: () => void;
 }
@@ -25,7 +61,7 @@ const BLANK: Omit<Student, 'id'> = {
   status: 'Active',
 };
 
-const BLANK_CONTACT: ContactDraft = { email: '', parentEmail: '', phone: '' };
+const BLANK_CONTACT: ContactDraft = { email: '', guardians: [], extra: {} };
 
 export function StudentForm({ student, contact, ensembles, onSave, onDelete, onClose }: Props) {
   const panelRef = useModalA11y<HTMLDivElement>(onClose);
@@ -44,8 +80,14 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
     }
     setContactForm({
       email: contact?.email ?? '',
-      parentEmail: contact?.parentEmail ?? '',
-      phone: contact?.phone ?? '',
+      // Prefer the imported guardians[]; fall back to synthesizing one guardian
+      // from the legacy flat parentEmail/phone for pre-import records.
+      guardians: contact?.guardians?.length
+        ? contact.guardians.map(g => ({ ...g }))
+        : (contact?.parentEmail || contact?.phone)
+          ? [{ email: contact.parentEmail ?? '', phone: contact.phone ?? '' }]
+          : [],
+      extra: contact?.extra ? { ...contact.extra } : {},
     });
   }, [student, contact]);
 
@@ -53,8 +95,17 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
     setForm(f => ({ ...f, [k]: v }));
   }
 
-  function setContact<K extends keyof ContactDraft>(k: K, v: string) {
-    setContactForm(f => ({ ...f, [k]: v }));
+  function setGuardian(i: number, k: keyof Guardian, v: string) {
+    setContactForm(f => ({ ...f, guardians: f.guardians.map((g, gi) => gi === i ? { ...g, [k]: v } : g) }));
+  }
+  function addGuardian() {
+    setContactForm(f => ({ ...f, guardians: [...f.guardians, {}] }));
+  }
+  function removeGuardian(i: number) {
+    setContactForm(f => ({ ...f, guardians: f.guardians.filter((_, gi) => gi !== i) }));
+  }
+  function setExtra(key: string, v: string) {
+    setContactForm(f => ({ ...f, extra: { ...f.extra, [key]: v } }));
   }
 
   function toggleEnsemble(id: string) {
@@ -71,7 +122,7 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
     setSaving(true);
     setSaveError('');
     try {
-      await onSave(form, contactForm);
+      await onSave(form, normalizeContact(contactForm));
       onClose();
     } catch (e) {
       setSaving(false);
@@ -160,18 +211,60 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
 
           <div className="dir-field">
             <label className="dir-label">Student Email</label>
-            <input className="dir-input" type="email" inputMode="email" autoComplete="email" value={contactForm.email} onChange={e => setContact('email', e.target.value)} placeholder="optional" />
+            <input className="dir-input" type="email" inputMode="email" autoComplete="email" value={contactForm.email} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))} placeholder="optional" />
           </div>
 
           <div className="dir-field">
-            <label className="dir-label">Parent Email</label>
-            <input className="dir-input" type="email" inputMode="email" autoComplete="email" value={contactForm.parentEmail} onChange={e => setContact('parentEmail', e.target.value)} placeholder="optional" />
+            <label className="dir-label">Parents / Guardians</label>
+            {contactForm.guardians.length === 0 && (
+              <div className="dir-field-hint" style={{ marginBottom: 6 }}>No parents or guardians on file yet.</div>
+            )}
+            {contactForm.guardians.map((g, i) => (
+              <div key={i} className="dir-guardian-edit">
+                <div className="dir-guardian-edit-head">
+                  <span className="dir-guardian-edit-num">Parent / Guardian {i + 1}</span>
+                  <button type="button" className="dir-guardian-remove" onClick={() => removeGuardian(i)} aria-label={`Remove parent or guardian ${i + 1}`}>
+                    <Trash2 size={13} /> Remove
+                  </button>
+                </div>
+                <div className="dir-field-row">
+                  <div className="dir-field">
+                    <label className="dir-label">Name</label>
+                    <input className="dir-input" value={g.name ?? ''} onChange={e => setGuardian(i, 'name', e.target.value)} placeholder="e.g. Maria Alvarez" />
+                  </div>
+                  <div className="dir-field">
+                    <label className="dir-label">Relationship</label>
+                    <input className="dir-input" value={g.relation ?? ''} onChange={e => setGuardian(i, 'relation', e.target.value)} placeholder="e.g. Mother" />
+                  </div>
+                </div>
+                <div className="dir-field-row">
+                  <div className="dir-field">
+                    <label className="dir-label">Email</label>
+                    <input className="dir-input" type="email" inputMode="email" value={g.email ?? ''} onChange={e => setGuardian(i, 'email', e.target.value)} placeholder="optional" />
+                  </div>
+                  <div className="dir-field">
+                    <label className="dir-label">Phone</label>
+                    <input className="dir-input" type="tel" inputMode="tel" value={g.phone ?? ''} onChange={e => setGuardian(i, 'phone', e.target.value)} placeholder="optional" />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button type="button" className="dir-btn dir-btn-ghost dir-guardian-add" onClick={addGuardian}>
+              <Plus size={14} /> Add parent / guardian
+            </button>
           </div>
 
-          <div className="dir-field">
-            <label className="dir-label">Phone</label>
-            <input className="dir-input" type="tel" inputMode="tel" autoComplete="tel" value={contactForm.phone} onChange={e => setContact('phone', e.target.value)} placeholder="optional" />
-          </div>
+          {Object.keys(contactForm.extra).length > 0 && (
+            <div className="dir-field">
+              <label className="dir-label">Other imported details</label>
+              {Object.entries(contactForm.extra).map(([k, v]) => (
+                <div key={k} className="dir-field dir-extra-field">
+                  <label className="dir-label dir-label-hint">{k}</label>
+                  <input className="dir-input" value={v} onChange={e => setExtra(k, e.target.value)} />
+                </div>
+              ))}
+            </div>
+          )}
 
           {student && onDelete && (
             confirmDelete ? (

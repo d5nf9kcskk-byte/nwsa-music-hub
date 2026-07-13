@@ -1730,6 +1730,26 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 .dir-detail-contact-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dir-detail-ext { opacity: 0.5; flex-shrink: 0; }
 
+/* One block per parent/guardian in the read-only detail view. */
+.dir-detail-guardian { display: flex; flex-direction: column; gap: 6px; padding-left: 10px; border-left: 2px solid var(--dir-border); }
+.dir-detail-guardian-name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--dir-text); }
+.dir-detail-guardian-name svg { flex-shrink: 0; color: var(--dir-text-muted); }
+
+/* Extra spreadsheet columns preserved on import (address, emergency contact, …). */
+.dir-detail-extra { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+.dir-detail-extra-row { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.dir-detail-extra-row svg { flex-shrink: 0; color: var(--dir-text-muted); transform: translateY(2px); }
+.dir-detail-extra-key { color: var(--dir-text-muted); font-weight: 600; flex-shrink: 0; }
+.dir-detail-extra-val { color: var(--dir-text); min-width: 0; word-break: break-word; }
+
+/* Repeating guardian editor in the student form. */
+.dir-guardian-edit { border: 1px solid var(--dir-border); border-radius: var(--dir-radius-sm); padding: 10px; margin-bottom: 8px; background: var(--dir-surface); }
+.dir-guardian-edit-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.dir-guardian-edit-num { font-size: 12px; font-weight: 700; color: var(--dir-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.dir-guardian-remove { display: inline-flex; align-items: center; gap: 4px; border: none; background: none; color: var(--dir-danger); font-size: 12px; font-weight: 600; cursor: pointer; padding: 2px 4px; }
+.dir-guardian-add { margin-top: 2px; }
+.dir-extra-field { margin-bottom: 8px; }
+
 /* Attendance */
 .dir-detail-att-chips { display: flex; gap: 7px; margin-bottom: 8px; flex-wrap: wrap; }
 

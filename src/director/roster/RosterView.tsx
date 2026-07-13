@@ -78,7 +78,7 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
     if (view === 'seniors') return s.grade === '12th';
     if (view === 'missing') {
       const c = contacts[s.id];
-      return !s.grade || !s.instrument || !c || (!c.email && !c.parentEmail && !c.phone);
+      return !s.grade || !s.instrument || !c || (!c.email && !c.parentEmail && !c.phone && !c.guardians?.length);
     }
     return true;
   });
@@ -224,13 +224,13 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
           student={editingStudent === 'new' ? null : editingStudent}
           contact={editingStudent !== 'new' ? contacts[editingStudent.id] ?? null : null}
           ensembles={ensembles}
-          onSave={async (data, contactDraft) => {
+          onSave={async (data, contact) => {
             if (editingStudent === 'new') {
               const newId = await addStudent(data);
-              if (newId) await saveContact(newId, contactDraft);
+              if (newId) await saveContact(newId, contact);
             } else {
               await updateStudent(editingStudent.id, data);
-              await saveContact(editingStudent.id, contactDraft);
+              await saveContact(editingStudent.id, contact);
             }
           }}
           onDelete={editingStudent !== 'new' ? async () => {
