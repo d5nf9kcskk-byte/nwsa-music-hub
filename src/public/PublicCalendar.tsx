@@ -7,6 +7,7 @@ import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { todayStr, toDateStr, parseDate, ensembleColor, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEnsembleSelect } from './components/PubEnsembleSelect';
+import { PubSelect } from './components/PubSelect';
 import { PubEventCard } from './components/PubEventCard';
 import { PageHeader, EmptyState } from './components/PageHeader';
 import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
@@ -143,16 +144,15 @@ export function PublicCalendar() {
         }
       />
 
-      {/* Filters first; the month header sits directly above the grid below. */}
-      <PubEnsembleSelect ensembles={ensembles} value={filterEnsembleId} onChange={setFilterEnsembleId} allLabel={t('cal.allEnsembles')} />
-
-      {/* Type filter */}
-      <div className="pub-filter-row">
-        {(['all', 'Rehearsal', 'Concert', 'Event', 'Assignment'] as TypeFilter[]).map(f => (
-          <button key={f} className={`pub-filter-btn ${typeFilter === f ? 'active' : ''}`} onClick={() => setTypeFilter(f)}>
-            {t(TYPE_LABEL_KEY[f])}
-          </button>
-        ))}
+      {/* Filters — compact dropdowns (ensemble + type) instead of chip rows. */}
+      <div className="pub-filter-selects">
+        <PubEnsembleSelect ensembles={ensembles} value={filterEnsembleId} onChange={setFilterEnsembleId} allLabel={t('cal.allEnsembles')} />
+        <PubSelect
+          value={typeFilter}
+          onChange={v => setTypeFilter(v as TypeFilter)}
+          ariaLabel="Filter by type"
+          options={(['all', 'Rehearsal', 'Concert', 'Event', 'Assignment'] as TypeFilter[]).map(f => ({ value: f, label: t(TYPE_LABEL_KEY[f]) }))}
+        />
       </div>
 
       {view === 'list' ? (
@@ -171,7 +171,7 @@ export function PublicCalendar() {
                       {showHeader && (
                         <div className={`pub-list-datehead${item.date === today ? ' today' : ''}`}>
                           {parseDate(item.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                          {item.date === today && <span className="dir-today-badge">{t('cal.today')}</span>}
+                          {item.date === today && <span className="pub-today-badge">{t('cal.today')}</span>}
                         </div>
                       )}
                       {i === nowIdx && <NowLine />}
@@ -205,31 +205,31 @@ export function PublicCalendar() {
         <button className="pub-cal-arrow" onClick={() => shiftMonth(1)} aria-label="Next month"><ChevronRight size={18} /></button>
       </div>
 
-      {/* Calendar grid — same compact grid + swipe as the director side */}
-      <div className="dir-cal" {...handlers}>
-        <div className="dir-cal-weekdays">
-          {WEEKDAYS.map((d, i) => <div key={i} className="dir-cal-weekday">{d}</div>)}
+      {/* Calendar grid — same compact grid + swipe as the rest of the public app */}
+      <div className="pub-cal" {...handlers}>
+        <div className="pub-cal-weekdays">
+          {WEEKDAYS.map((d, i) => <div key={i}>{d}</div>)}
         </div>
-        <div className="dir-cal-viewport" ref={viewportRef}>
+        <div className="pub-cal-swipe-viewport" ref={viewportRef} style={{ overflow: 'hidden' }}>
           <div
-            className="dir-cal-grid"
+            className="pub-cal-grid"
             style={{ transform: `translateX(${dragX}px)`, transition: animating ? 'transform 0.2s ease-out' : 'none' }}
           >
             {cells.map((d, i) => {
-              if (!d) return <div key={i} className="dir-cal-cell empty" />;
+              if (!d) return <div key={i} className="pub-cal-cell empty" />;
               const evs = byDate[d] ?? [];
               return (
                 <button
                   key={i}
-                  className={`dir-cal-cell ${d === selectedDate ? 'selected' : ''} ${d === today ? 'today' : ''}`}
+                  className={`pub-cal-cell ${d === selectedDate ? 'selected' : ''} ${d === today ? 'today' : ''}`}
                   onClick={() => setSelectedDate(d)}
                   aria-label={`${parseDate(d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}${(byDate[d] ?? []).length ? `, ${(byDate[d] ?? []).length} event${(byDate[d] ?? []).length !== 1 ? 's' : ''}` : ', no events'}`}
                   aria-pressed={d === selectedDate}
                 >
-                  <span className="dir-cal-day">{parseDate(d).getDate()}</span>
-                  <span className="dir-cal-dots">
-                    {evs.slice(0, 4).map(e => <span key={e.id} className="dir-cal-dot" style={{ background: color(e) }} />)}
-                    {(assignByDate[d] ?? []).slice(0, 2).map(a => <span key={a.id} className="dir-cal-dot" style={{ background: ASSIGN_COLOR }} />)}
+                  <span className="pub-cal-day">{parseDate(d).getDate()}</span>
+                  <span className="pub-cal-dots">
+                    {evs.slice(0, 4).map(e => <span key={e.id} className="pub-cal-dot" style={{ background: color(e) }} />)}
+                    {(assignByDate[d] ?? []).slice(0, 2).map(a => <span key={a.id} className="pub-cal-dot" style={{ background: ASSIGN_COLOR }} />)}
                   </span>
                 </button>
               );
@@ -238,14 +238,14 @@ export function PublicCalendar() {
         </div>
       </div>
 
-      {/* Selected-day detail — same wrapper/header as the director side */}
-      <div className="dir-day-detail">
-        <div className="dir-day-detail-header">
+      {/* Selected-day detail */}
+      <div className="pub-day-detail">
+        <h3 className="pub-section-title pub-day-detail-header">
           {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          {selectedDate === today && <span className="dir-today-badge">{t('cal.today')}</span>}
-        </div>
+          {selectedDate === today && <span className="pub-today-badge">{t('cal.today')}</span>}
+        </h3>
         {dayEvents.length === 0 && (assignByDate[selectedDate] ?? []).length === 0 ? (
-          <div className="dir-day-empty">{t('cal.nothingScheduled')}</div>
+          <div className="pub-muted">{t('cal.nothingScheduled')}</div>
         ) : (
           <>
             {dayEvents.map(e => (
