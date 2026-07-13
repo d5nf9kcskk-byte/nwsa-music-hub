@@ -3,7 +3,7 @@ import {
   collection, onSnapshot, addDoc, deleteDoc, doc, query,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { noteLoadError } from '../../shared/appStatus';
+import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
 import type { RosterOverride } from '../types';
 
@@ -17,8 +17,9 @@ export function useRosterOverrides() {
     const q = query(collection(db, 'rosterOverrides'));
     return onSnapshot(q, snap => {
       setOverrides(snap.docs.map(d => ({ id: d.id, ...d.data() } as RosterOverride)));
+      noteLoadOk('rosterOverrides');
       setLoading(false);
-    }, () => { noteLoadError(); setLoading(false); });
+    }, () => { noteLoadError('rosterOverrides'); setLoading(false); });
   }, []);
 
   async function addOverride(data: Omit<RosterOverride, 'id'>) {

@@ -4,7 +4,7 @@ import {
   query, orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { noteLoadError } from '../../shared/appStatus';
+import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import type { CampusLocation } from '../types';
 
 /**
@@ -21,8 +21,9 @@ export function useLocations() {
     const q = query(collection(db, 'locations'), orderBy('room'));
     return onSnapshot(q, snap => {
       setLocations(snap.docs.map(d => ({ id: d.id, ...d.data() } as CampusLocation)));
+      noteLoadOk('locations');
       setLoading(false);
-    }, () => { noteLoadError(); setLoading(false); });
+    }, () => { noteLoadError('locations'); setLoading(false); });
   }, []);
 
   async function addLocation(data: Omit<CampusLocation, 'id'>) {

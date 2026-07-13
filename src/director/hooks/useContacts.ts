@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { noteLoadError } from '../../shared/appStatus';
+import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { reportWriteError } from '../writeStatus';
 import type { StudentContact } from '../types';
 
@@ -20,7 +20,8 @@ export function useContacts() {
       snap.docs.forEach(d => { map[d.id] = { id: d.id, ...d.data() } as StudentContact; });
       setContacts(map);
       setLoading(false);
-    }, () => { noteLoadError(); setLoading(false); });
+      noteLoadOk('contacts');
+    }, () => { noteLoadError('contacts'); setLoading(false); });
   }, []);
 
   async function saveContact(studentId: string, data: Omit<StudentContact, 'id'>) {

@@ -5,7 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { offerUndo } from '../writeStatus';
-import { noteLoadError } from '../../shared/appStatus';
+import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { todayStr } from '../utils';
 import type { Assignment, AssignmentResult, AssignmentResultStatus } from '../types';
 
@@ -19,8 +19,9 @@ export function useAssignments() {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Assignment));
       list.sort((a, b) => b.dueDate.localeCompare(a.dueDate));
       setAssignments(list);
+      noteLoadOk('assignments');
       setLoading(false);
-    }, () => { noteLoadError(); setLoading(false); });
+    }, () => { noteLoadError('assignments'); setLoading(false); });
   }, []);
 
   async function addAssignment(data: Omit<Assignment, 'id'>) {
@@ -59,8 +60,9 @@ export function useAssignmentResults(assignmentId: string) {
     );
     return onSnapshot(q, snap => {
       setResults(snap.docs.map(d => ({ id: d.id, ...d.data() } as AssignmentResult)));
+      noteLoadOk('assignments');
       setLoading(false);
-    }, () => { noteLoadError(); setLoading(false); });
+    }, () => { noteLoadError('assignments'); setLoading(false); });
   }, [assignmentId]);
 
   const resultMap = Object.fromEntries(results.map(r => [r.studentId, r]));

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { noteLoadError } from '../../shared/appStatus';
+import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
 import type { RepertoirePiece } from '../types';
 import { FIXTURES_ON, FIXTURE_PIECES } from './fixtures';
@@ -20,8 +20,9 @@ export function useRepertoire() {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as RepertoirePiece));
       list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.title.localeCompare(b.title));
       setPieces(list);
+      noteLoadOk('repertoire');
       setLoading(false);
-    }, () => { noteLoadError(); setLoading(false); });
+    }, () => { noteLoadError('repertoire'); setLoading(false); });
   }, []);
 
   async function addPiece(data: Omit<RepertoirePiece, 'id'>): Promise<string | undefined> {

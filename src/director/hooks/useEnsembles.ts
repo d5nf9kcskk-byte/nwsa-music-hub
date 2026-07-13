@@ -4,7 +4,7 @@ import {
   query, orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { noteLoadError } from '../../shared/appStatus';
+import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import type { Ensemble } from '../types';
 import { FIXTURES_ON, FIXTURE_ENSEMBLES } from './fixtures';
 
@@ -17,8 +17,9 @@ export function useEnsembles() {
     const q = query(collection(db, 'ensembles'), orderBy('order'));
     return onSnapshot(q, snap => {
       setEnsembles(snap.docs.map(d => ({ id: d.id, ...d.data() } as Ensemble)));
+      noteLoadOk('ensembles');
       setLoading(false);
-    }, () => { noteLoadError(); setLoading(false); });
+    }, () => { noteLoadError('ensembles'); setLoading(false); });
   }, []);
 
   async function addEnsemble(data: Omit<Ensemble, 'id'>) {
