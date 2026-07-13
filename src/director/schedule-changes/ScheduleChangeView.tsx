@@ -5,7 +5,7 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster } from '../rosterResolver';
-import { ensembleColor, parseDate, todayStr, formatTimeRange, addMinutesToTime, EVENT_TYPE_ICON, musicEnsembles } from '../utils';
+import { ensembleColor, parseDate, todayStr, toDateStr, formatTimeRange, addMinutesToTime, EVENT_TYPE_ICON, musicEnsembles } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
@@ -34,6 +34,7 @@ export function ScheduleChangeView({ initialEnsembleId = '' }: { initialEnsemble
   const [ensembleId, setEnsembleId] = useState(initialEnsembleId);
   const [sort, setSort] = useState<StudentSort>('lastName');
   const [dateSel, setDateSel] = useState(todayStr());
+  const [calCursor, setCalCursor] = useState(() => parseDate(todayStr()));
   const [dateEventId, setDateEventId] = useState<string | null>(null);
 
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
@@ -67,6 +68,18 @@ export function ScheduleChangeView({ initialEnsembleId = '' }: { initialEnsemble
     .filter(e => e.date === dateSel && e.ensembleIds.length > 0)
     .sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
   const dateEvent = dateEventId ? eventsById[dateEventId] : null;
+
+  const daysWithEvents = useMemo(() => new Set(events.filter(e => e.ensembleIds.length > 0).map(e => e.date)), [events]);
+  const monthCells = useMemo(() => {
+    const y = calCursor.getFullYear(), mo = calCursor.getMonth();
+    const first = new Date(y, mo, 1).getDay();
+    const n = new Date(y, mo + 1, 0).getDate();
+    const out: (string | null)[] = [];
+    for (let i = 0; i < first; i++) out.push(null);
+    for (let d = 1; d <= n; d++) out.push(toDateStr(new Date(y, mo, d)));
+    while (out.length % 7 !== 0) out.push(null);
+    return out;
+  }, [calCursor]);
 
   return (
     <div className="dir-tab-page">
@@ -118,14 +131,21 @@ export function ScheduleChangeView({ initialEnsembleId = '' }: { initialEnsemble
         </>
       ) : (
         <div className="dir-drawer-body">
-          <div className="dir-field">
-            <label className="dir-label">Date</label>
-            <input
-              className="dir-input"
-              type="date"
-              value={dateSel}
-              onChange={e => { setDateSel(e.target.value); setDateEventId(null); }}
-            />
+          <div className="dir-cal" style={{ marginBottom: 6 }}>
+            <div className="dir-cal-nav" style={{ padding: '4px 0' }}>
+              <button className="dir-date-nav-btn" onClick={() => setCalCursor(c => new Date(c.getFullYear(), c.getMonth() - 1, 1))} aria-label="Previous month"><ChevronLeft size={16} /></button>
+              <span className="dir-cal-month">{calCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+              <button className="dir-date-nav-btn" onClick={() => setCalCursor(c => new Date(c.getFullYear(), c.getMonth() + 1, 1))} aria-label="Next month"><ChevronRight size={16} /></button>
+            </div>
+            <div className="dir-cal-weekdays">{['S','M','T','W','T','F','S'].map((d, i) => <div key={i} className="dir-cal-weekday">{d}</div>)}</div>
+            <div className="dir-cal-grid">
+              {monthCells.map((d, i) => d === null ? <div key={i} className="dir-cal-cell empty" /> : (
+                <button key={i} className={`dir-cal-cell ${d === dateSel ? 'selected' : ''} ${d === todayStr() ? 'today' : ''}`} onClick={() => { setDateSel(d); setDateEventId(null); }}>
+                  <span className="dir-cal-day">{parseDate(d).getDate()}</span>
+                  <span className="dir-cal-dots">{daysWithEvents.has(d) && <span className="dir-cal-dot" style={{ background: 'var(--dir-primary)' }} />}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {!dateEvent ? (
