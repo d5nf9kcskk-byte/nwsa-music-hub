@@ -154,6 +154,83 @@ function slotsForDay(dow: number /* UTC getUTCDay(): 0=Sun … 6=Sat */): Slot[]
   return s;
 }
 
+// Academic (non-ensemble) music classes — NWSA HS Music Division schedule.
+// Added as individual calendar entries (type 'Event') so every student can see
+// exactly where each period meets, whether it's an ensemble or a class. Teacher
+// names are intentionally omitted for now. Days: 1=Mon … 5=Fri.
+type ClassSlot = { title: string; days: number[]; start: string; end: string; room: string };
+const CLASSES: ClassSlot[] = [
+  { title: 'AP Theory',                 days: [1, 2, 3, 4, 5], start: '12:10', end: '13:00', room: 'Room 4204' },
+  { title: 'Jazz Theory',               days: [1, 4],          start: '14:30', end: '15:45', room: 'Room 4304' },
+  { title: 'Theory — 9th Grade',        days: [1, 4],          start: '14:30', end: '15:45', room: 'Room 4213' },
+  { title: 'Theory — 10th Grade',       days: [1, 4],          start: '14:30', end: '15:45', room: 'Room 4210' },
+  { title: 'Music History — 11th–12th', days: [1, 4],          start: '14:30', end: '15:45', room: 'Room 4309' },
+  { title: 'String Masterclass',        days: [2],             start: '14:30', end: '15:45', room: 'Rooms 4210 / 4304 / 4309' },
+];
+
+const classSlug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+type SeedEventData = {
+  type: EventType;
+  ensembleIds: string[];
+  date: string;
+  title?: string;
+  startTime?: string;
+  endTime?: string;
+  location?: string;
+  status: 'Scheduled';
+  notes?: string;
+};
+
+// School year: Aug 13, 2026 → Jun 3, 2027. UTC ms to avoid TZ day-shifts.
+const YEAR_START_MS = Date.UTC(2026, 7, 13);
+const YEAR_END_MS = Date.UTC(2027, 5, 3);
+
+/** Every non-ensemble class as a dated calendar event across the school year,
+ *  skipping weekends and no-school days. Shared by seedCalendar + seedClasses. */
+function classEventDocs(): { id: string; data: SeedEventData }[] {
+  const docs: { id: string; data: SeedEventData }[] = [];
+  for (let ms = YEAR_START_MS; ms <= YEAR_END_MS; ms += 86_400_000) {
+    const d = new Date(ms);
+    const dow = d.getUTCDay();
+    if (dow === 0 || dow === 6) continue;
+    const dateStr = d.toISOString().slice(0, 10);
+    if (NO_SCHOOL.has(dateStr)) continue;
+    for (const cls of CLASSES) {
+      if (!cls.days.includes(dow)) continue;
+      docs.push({
+        id: `class-${dateStr}-${classSlug(cls.title)}-${cls.start.replace(':', '')}`,
+        data: {
+          type: 'Event',
+          ensembleIds: [],
+          date: dateStr,
+          title: cls.title,
+          startTime: cls.start,
+          endTime: cls.end,
+          location: cls.room,
+          status: 'Scheduled',
+        },
+      });
+    }
+  }
+  return docs;
+}
+
+/** Add just the non-ensemble academic classes across the year. Safe to run any
+ *  time — idempotent (stable ids), and it never touches rehearsals, markers, or
+ *  manually-added events. Returns the number of class sessions written. */
+export async function seedClasses(): Promise<number> {
+  if (!db) throw new Error('Firebase is not configured.');
+  const docs = classEventDocs();
+  const CHUNK = 499;
+  for (let i = 0; i < docs.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    for (const { id, data } of docs.slice(i, i + CHUNK)) batch.set(doc(db, 'events', id), data);
+    await batch.commit();
+  }
+  return docs.length;
+}
+
 /** Write only the MDCPS + MDC academic-calendar markers (no rehearsals). Idempotent. */
 export async function seedSchoolCalendar(): Promise<number> {
   if (!db) throw new Error('Firebase is not configured.');
@@ -170,27 +247,13 @@ export async function seedSchoolCalendar(): Promise<number> {
   return docs.length;
 }
 
-export async function seedCalendar(): Promise<{ rehearsals: number; markers: number }> {
+export async function seedCalendar(): Promise<{ rehearsals: number; classes: number; markers: number }> {
   if (!db) throw new Error('Firebase is not configured.');
 
-  type EventData = {
-    type: EventType;
-    ensembleIds: string[];
-    date: string;
-    title?: string;
-    startTime?: string;
-    endTime?: string;
-    location?: string;
-    status: 'Scheduled';
-  };
+  const allDocs: { id: string; data: SeedEventData }[] = [];
 
-  const allDocs: { id: string; data: EventData }[] = [];
-
-  // 1. Rehearsal events: Aug 13, 2026 → Jun 3, 2027
-  // Use UTC milliseconds to avoid local-timezone day-boundary issues.
-  const startMs = Date.UTC(2026, 7, 13);  // Aug = month 7 (0-indexed)
-  const endMs   = Date.UTC(2027, 5,  3);  // Jun = month 5
-  for (let ms = startMs; ms <= endMs; ms += 86_400_000) {
+  // 1. Rehearsal events across the school year (UTC ms to avoid TZ day-shifts).
+  for (let ms = YEAR_START_MS; ms <= YEAR_END_MS; ms += 86_400_000) {
     const d   = new Date(ms);
     const dow = d.getUTCDay();
     if (dow === 0 || dow === 6) continue; // skip weekends
@@ -216,7 +279,11 @@ export async function seedCalendar(): Promise<{ rehearsals: number; markers: num
 
   const rehearsalCount = allDocs.length;
 
-  // 2. School-wide calendar markers
+  // 2. Non-ensemble academic classes (school-wide, shown on every calendar).
+  allDocs.push(...classEventDocs());
+  const classCount = allDocs.length - rehearsalCount;
+
+  // 3. School-wide calendar markers
   for (const m of MARKERS) {
     allDocs.push({
       id: `cal-${m.id}`,
@@ -234,5 +301,5 @@ export async function seedCalendar(): Promise<{ rehearsals: number; markers: num
     await batch.commit();
   }
 
-  return { rehearsals: rehearsalCount, markers: MARKERS.length };
+  return { rehearsals: rehearsalCount, classes: classCount, markers: MARKERS.length };
 }

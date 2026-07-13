@@ -11,7 +11,7 @@ import { EventForm } from './EventForm';
 import { EventRoster } from './EventRoster';
 import { IcsImport } from './IcsImport';
 import { EnsembleFilter } from '../components/EnsembleFilter';
-import { seedCalendar, seedSchoolCalendar } from '../seedCalendar';
+import { seedCalendar, seedSchoolCalendar, seedClasses } from '../seedCalendar';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
 import {
   todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR,
@@ -50,6 +50,8 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   const [seedError, setSeedError] = useState('');
   const [schoolCalState, setSchoolCalState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
   const [schoolCalError, setSchoolCalError] = useState('');
+  const [classesState, setClassesState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
+  const [classesMsg, setClassesMsg] = useState('');
   const focusConsumed = useRef(false);
 
   useEffect(() => {
@@ -68,6 +70,19 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
     } catch (e) {
       setSeedError(e instanceof Error ? e.message : String(e));
       setSeedState('error');
+    }
+  }
+
+  async function handleSeedClasses() {
+    setClassesState('seeding');
+    setClassesMsg('');
+    try {
+      const n = await seedClasses();
+      setClassesMsg(`Added ${n} class sessions for the year.`);
+      setClassesState('done');
+    } catch (e) {
+      setClassesMsg(e instanceof Error ? e.message : String(e));
+      setClassesState('error');
     }
   }
 
@@ -296,6 +311,22 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           {seedState === 'error' && (
             <span style={{ fontSize: 12, color: 'var(--dir-danger)', alignSelf: 'center' }}>
               {seedError}
+            </span>
+          )}
+          {/* Add the theory/academic classes to an already-seeded calendar. */}
+          {events.length > 0 && classesState !== 'done' && (
+            <button
+              className="dir-tool-btn"
+              onClick={handleSeedClasses}
+              disabled={classesState === 'seeding'}
+              title="Add AP Theory, Jazz Theory, Theory 9th/10th, Music History, and String Masterclass to the calendar for the whole year"
+            >
+              <Sparkles size={15} /> {classesState === 'seeding' ? 'Adding classes…' : 'Add classes'}
+            </button>
+          )}
+          {(classesState === 'done' || classesState === 'error') && (
+            <span style={{ fontSize: 12, color: classesState === 'error' ? 'var(--dir-danger)' : 'inherit', alignSelf: 'center' }}>
+              {classesMsg}
             </span>
           )}
           <button className="dir-tool-btn" onClick={() => setImportingIcs(true)} title="Import ICS calendar">
