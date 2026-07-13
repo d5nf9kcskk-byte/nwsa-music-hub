@@ -438,6 +438,25 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   vertical-align: 1px;
 }
 
+/* Fuller content cards: assignment description + form link, announcement body. */
+.dir-assign-card-desc,
+.dir-ann-body {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--dir-text-muted);
+  margin-top: 5px;
+  white-space: normal;
+}
+.dir-assign-card-form {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dir-primary);
+  text-decoration: none;
+}
+.dir-assign-card-form:hover { text-decoration: underline; }
+
 /* Today dashboard: sections mirroring the public home */
 .dir-section-head {
   display: flex; align-items: center; justify-content: space-between;
