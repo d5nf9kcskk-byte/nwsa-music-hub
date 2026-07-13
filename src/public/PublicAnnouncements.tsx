@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
-import { todayStr } from '../director/utils';
+import { todayStr, musicEnsembles } from '../director/utils';
 import { PubAnnouncements } from './components/PubAnnouncements';
 
 /** Every current announcement, school-wide and per-ensemble, in one place. */
@@ -20,7 +20,7 @@ export function PublicAnnouncementsPage() {
     return all;
   }, [all, filter]);
 
-  const orderedEns = useMemo(() => [...ensembles].sort((a, b) => a.order - b.order), [ensembles]);
+  const orderedEns = useMemo(() => musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)), [ensembles]);
 
   return (
     <div className="pub-page">

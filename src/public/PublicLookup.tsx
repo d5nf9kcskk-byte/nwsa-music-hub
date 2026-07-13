@@ -7,7 +7,7 @@ import { sortStudents, lastName, type StudentSort } from '../director/scoreOrder
 import { t, useLang } from '../shared/i18n';
 import { PageHeader } from './components/PageHeader';
 import { getIdentity, rememberStudent, forgetStudent, setParentMode } from '../shared/identity';
-import { ensembleColor } from '../director/utils';
+import { ensembleColor, musicEnsembles } from '../director/utils';
 import type { Student } from '../director/types';
 
 /** Diacritic-stripped lowercase for forgiving matching (#3): José → jose. */
@@ -62,7 +62,7 @@ export function PublicLookup() {
   const navigate = useNavigate();
 
   const identity = getIdentity();
-  const orderedEns = useMemo(() => [...ensembles].sort((a, b) => a.order - b.order), [ensembles]);
+  const orderedEns = useMemo(() => musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)), [ensembles]);
 
   const qFolded = fold(q.trim());
   const matches = useMemo(() => {

@@ -7,7 +7,7 @@ import { useEnsembles } from '../director/hooks/useEnsembles';
 import { LABELS } from '../shared/labels';
 import { t, useLang } from '../shared/i18n';
 import { PageHeader, SkeletonCards } from './components/PageHeader';
-import { todayStr, parseDate, formatTimeRange, ensembleColor } from '../director/utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles } from '../director/utils';
 import type { CalendarEvent, Ensemble } from '../director/types';
 
 /** Season at a Glance (#13): every concert of the year on one printable page. */
@@ -28,7 +28,7 @@ export function SeasonPage() {
   // Only offer chips for ensembles that actually appear on a concert.
   const concertEnsembles = useMemo(() => {
     const ids = new Set(concerts.flatMap(c => [...c.ensembleIds, ...(c.attendanceEnsembleIds ?? [])]));
-    return [...ensembles].sort((a, b) => a.order - b.order).filter(e => ids.has(e.id));
+    return musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).filter(e => ids.has(e.id));
   }, [concerts, ensembles]);
 
   const filtered = filter

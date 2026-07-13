@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { ChevronRight } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
-import { ensembleColor } from '../director/utils';
+import { ensembleColor, musicEnsembles } from '../director/utils';
 
 export function PublicEnsembles() {
   const { ensembles, loading } = useEnsembles();
@@ -26,7 +26,7 @@ export function PublicEnsembles() {
       ) : ensembles.length === 0 ? (
         <div className="pub-card pub-muted">No ensembles yet.</div>
       ) : (
-        ensembles.map(e => (
+        musicEnsembles(ensembles).map(e => (
           <Link key={e.id} to={`/ensemble/${e.id}`} className="pub-ens-card">
             <span className="pub-ens-stripe" style={{ background: ensembleColor(e) }} />
             <div className="pub-ens-info">
