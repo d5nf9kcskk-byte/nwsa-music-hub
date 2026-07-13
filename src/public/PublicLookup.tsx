@@ -8,6 +8,7 @@ import { t, useLang } from '../shared/i18n';
 import { PageHeader } from './components/PageHeader';
 import { getIdentity, rememberStudent, forgetStudent, setParentMode } from '../shared/identity';
 import { ensembleColor, musicEnsembles } from '../director/utils';
+import { PubEnsembleSelect } from './components/PubEnsembleSelect';
 import type { Student } from '../director/types';
 
 /** Diacritic-stripped lowercase for forgiving matching (#3): José → jose. */
@@ -154,14 +155,7 @@ export function PublicLookup() {
         ))}
       </div>
 
-      <div className="pub-filter-row">
-        <button className={`pub-filter-btn ${!ensembleId ? 'active' : ''}`} onClick={() => setEnsembleId('')}>All</button>
-        {orderedEns.map(e => (
-          <button key={e.id} className={`pub-filter-btn ${ensembleId === e.id ? 'active' : ''}`} onClick={() => setEnsembleId(id => id === e.id ? '' : e.id)}>
-            {e.name}
-          </button>
-        ))}
-      </div>
+      <PubEnsembleSelect ensembles={orderedEns} value={ensembleId} onChange={setEnsembleId} />
 
       <div className="pub-filter-row" style={{ marginTop: -4 }}>
         <button className={`pub-filter-btn ${sort === 'lastName' ? 'active' : ''}`} onClick={() => setSort('lastName')}>By last name</button>
