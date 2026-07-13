@@ -4,10 +4,10 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
-import { useDayAttendance } from '../hooks/useAttendance';
+import { useDayAttendance, useAllAttendance } from '../hooks/useAttendance';
 import { usePlannedAbsences } from '../hooks/usePlannedAbsences';
 import { lessonsFor, resolveRoster, overrideApplies } from '../rosterResolver';
-import { todayStr, addDays, parseDate, formatTimeRange, ensembleColor } from '../utils';
+import { todayStr, addDays, toDateStr, parseDate, formatTimeRange, ensembleColor } from '../utils';
 import type { DirNavigate } from '../types-nav';
 
 /**
@@ -29,9 +29,39 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
 
   const [date, setDate] = useState(initialDate ?? todayStr());
   const [ensembleId, setEnsembleId] = useState(initialEnsembleId);
+  const [view, setView] = useState<'day' | 'month'>('day');
+  const [calCursor, setCalCursor] = useState(() => parseDate(initialDate ?? todayStr()));
   const { records } = useDayAttendance(date);
+  const { records: allAtt } = useAllAttendance();
 
   const today = todayStr();
+
+  // Month heatmap: absences (Absent/Late/Excused) per day, optionally scoped to
+  // the selected ensemble, plus which days have parent-reported absences.
+  const outByDate = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const r of allAtt) {
+      if (r.status !== 'Absent' && r.status !== 'Late' && r.status !== 'Excused') continue;
+      if (ensembleId && r.ensembleId !== ensembleId) continue;
+      m[r.date] = (m[r.date] ?? 0) + 1;
+    }
+    return m;
+  }, [allAtt, ensembleId]);
+  const plannedByDate = useMemo(() => {
+    const s = new Set<string>();
+    for (const a of plannedAbsences) if (a.status !== 'dismissed') s.add(a.date);
+    return s;
+  }, [plannedAbsences]);
+  const monthCells = useMemo(() => {
+    const y = calCursor.getFullYear(), mo = calCursor.getMonth();
+    const first = new Date(y, mo, 1).getDay();
+    const n = new Date(y, mo + 1, 0).getDate();
+    const out: (string | null)[] = [];
+    for (let i = 0; i < first; i++) out.push(null);
+    for (let d = 1; d <= n; d++) out.push(toDateStr(new Date(y, mo, d)));
+    while (out.length % 7 !== 0) out.push(null);
+    return out;
+  }, [calCursor]);
   const studentsById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
   const dayEvents = useMemo(() => events.filter(e => e.date === date), [events, date]);
@@ -75,6 +105,51 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
 
   return (
     <div className="dir-tab-page">
+      {/* View mode: a single day, or a month heatmap of who's out */}
+      <div className="dir-mode-toggle">
+        <button className={`dir-segment-btn ${view === 'day' ? 'active' : ''}`} onClick={() => setView('day')}>Day</button>
+        <button className={`dir-segment-btn ${view === 'month' ? 'active' : ''}`} onClick={() => setView('month')}>Month</button>
+      </div>
+
+      {/* Ensemble filter (both views) */}
+      {ensembles.length > 1 && (
+        <div className="dir-tabs">
+          <button className={`dir-tab ${!ensembleId ? 'active' : ''}`} onClick={() => setEnsembleId('')}>All</button>
+          {[...ensembles].sort((a, b) => a.order - b.order).map(e => (
+            <button key={e.id} className={`dir-tab ${ensembleId === e.id ? 'active' : ''}`} onClick={() => setEnsembleId(e.id)}>
+              {e.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {view === 'month' ? (
+        <div className="dir-drawer-body">
+          <div className="dir-cal">
+            <div className="dir-cal-nav" style={{ padding: '4px 0' }}>
+              <button className="dir-date-nav-btn" onClick={() => setCalCursor(c => new Date(c.getFullYear(), c.getMonth() - 1, 1))} aria-label="Previous month"><ChevronLeft size={16} /></button>
+              <span className="dir-cal-month">{calCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+              <button className="dir-date-nav-btn" onClick={() => setCalCursor(c => new Date(c.getFullYear(), c.getMonth() + 1, 1))} aria-label="Next month"><ChevronRight size={16} /></button>
+            </div>
+            <div className="dir-cal-weekdays">{['S','M','T','W','T','F','S'].map((d, i) => <div key={i} className="dir-cal-weekday">{d}</div>)}</div>
+            <div className="dir-cal-grid">
+              {monthCells.map((d, i) => d === null ? <div key={i} className="dir-cal-cell empty" /> : (
+                <button key={i} className={`dir-cal-cell ${d === today ? 'today' : ''} ${d === date ? 'selected' : ''}`} onClick={() => { setDate(d); setView('day'); }}>
+                  <span className="dir-cal-day">{parseDate(d).getDate()}</span>
+                  <span className="dir-cal-dots">
+                    {outByDate[d] ? <span className="dir-heat-count">{outByDate[d]}</span> : null}
+                    {plannedByDate.has(d) && <span className="dir-cal-dot" style={{ background: '#7c3aed' }} />}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="dir-field-hint">
+            Number = students marked out that day{ensembleId ? ' for this ensemble' : ''}; the violet dot flags parent-reported absences. Tap a day for the full breakdown.
+          </div>
+        </div>
+      ) : (
+      <>
       {/* Date navigation */}
       <div className="dir-cal-nav">
         <button className="dir-date-nav-btn" onClick={() => setDate(d => addDays(d, -1))} aria-label="Previous day">
@@ -87,18 +162,6 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
           <ChevronRight size={18} />
         </button>
       </div>
-
-      {/* Ensemble filter */}
-      {ensembles.length > 1 && (
-        <div className="dir-tabs">
-          <button className={`dir-tab ${!ensembleId ? 'active' : ''}`} onClick={() => setEnsembleId('')}>All</button>
-          {[...ensembles].sort((a, b) => a.order - b.order).map(e => (
-            <button key={e.id} className={`dir-tab ${ensembleId === e.id ? 'active' : ''}`} onClick={() => setEnsembleId(e.id)}>
-              {e.name}
-            </button>
-          ))}
-        </div>
-      )}
 
       <div className="dir-drawer-body">
         <div className="dir-att-summary" style={{ borderRadius: 10 }}>
@@ -203,6 +266,8 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
           (marks, lessons, accepting reported absences) and its <strong>Temporary Roster Changes</strong> tool.
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }
