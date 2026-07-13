@@ -107,7 +107,7 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
             <Megaphone size={20} /> Announcements{myAnnouncements > 0 ? ` (${myAnnouncements})` : ''}
           </button>
           <button className="dir-hub-btn" onClick={() => onNavigate('scheduleChanges', { ensembleId })}>
-            <Sparkles size={20} /> Schedule Change
+            <Sparkles size={20} /> Temporary Roster Changes
           </button>
           <button className="dir-hub-btn" onClick={() => setShowSeating(true)}>
             <Armchair size={20} /> Seating

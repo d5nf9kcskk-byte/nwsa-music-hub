@@ -46,7 +46,7 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
     head: 'Schedule',
     items: [
       { id: 'scheduleSwap',    label: 'Schedule Change', Icon: CalendarClock },
-      { id: 'scheduleChanges', label: 'Subs & Pull-outs', Icon: Repeat },
+      { id: 'scheduleChanges', label: 'Temporary Roster Changes', Icon: Repeat },
     ],
   },
   {
@@ -71,7 +71,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   roll:            'Take Roll',
   roster:          'Roster',
   schedule:        'Schedule',
-  scheduleChanges: 'Subs & Pull-outs',
+  scheduleChanges: 'Temporary Roster Changes',
   scheduleSwap:    'Schedule Change',
   repertoire:      'Repertoire',
   notes:           'Progress Notes',
@@ -144,12 +144,20 @@ export default function DirectorApp() {
     <AuthGate>
       {(user, signOut) => (
         <div className="dir-app">
+          {/* Back-end marker: an unmistakable dark strip + gold rule, always on
+              top, so the director always knows this is the editing side. */}
+          <div className="dir-panel-banner no-print" role="note">
+            <span className="dir-panel-banner-dot" />
+            <span>Director Panel</span>
+            <span className="dir-panel-banner-sub">· editing area — the student side shows what you set here</span>
+          </div>
           {/* Desktop/iPad-landscape rail (≥1024px): grouped, always expanded,
               coarse-pointer-first. Same items as the phone menu. */}
           <aside className="dir-rail no-print">
             <div className="dir-rail-brand">
               <img src={`${import.meta.env.BASE_URL}nwsa-mark.png`} alt="NWSA" />
-              NWSA Music Hub
+              <span className="dir-rail-brand-name">NWSA Music Hub</span>
+              <span className="dir-panel-tag">Director Panel</span>
             </div>
             <nav aria-label="Director navigation" style={{ display: 'contents' }}>
               {NAV_TOP.map(({ id, label, Icon }) => (
@@ -198,7 +206,9 @@ export default function DirectorApp() {
               </span>
               <div>
                 <div className="dir-header-title">{title}</div>
-                <div className="dir-header-sub">NWSA Music Hub</div>
+                <div className="dir-header-sub">
+                  <span className="dir-panel-tag">Director Panel</span> NWSA Music Hub
+                </div>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

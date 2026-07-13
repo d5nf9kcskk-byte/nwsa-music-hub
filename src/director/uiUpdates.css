@@ -390,6 +390,54 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-type-filter-label { font-size: 13px; font-weight: 700; color: var(--dir-text-muted); }
 .dir-type-select { flex: 1; max-width: 220px; min-height: 38px; }
 
+/* Director Panel back-end marker: a dark top strip + gold "DIRECTOR PANEL"
+   chips, so the editing side is unmistakable vs the light student/public site. */
+.dir-panel-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #07090d;
+  color: #f5e7c8;
+  border-bottom: 2px solid #d9a441;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: calc(7px + env(safe-area-inset-top)) 16px 7px;
+}
+.dir-panel-banner-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d9a441;
+  box-shadow: 0 0 8px #d9a441;
+}
+.dir-panel-banner-sub {
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: none;
+  color: #bda87c;
+  font-size: 11.5px;
+}
+@media (max-width: 560px) {
+  .dir-panel-banner-sub { display: none; }
+}
+
+/* Gold "Director Panel" chip, reused in the header sub-line and the rail brand. */
+.dir-panel-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #16130a;
+  background: #d9a441;
+  border-radius: 6px;
+  padding: 2px 7px;
+  vertical-align: 1px;
+}
+
 /* Today dashboard: sections mirroring the public home */
 .dir-section-head {
   display: flex; align-items: center; justify-content: space-between;

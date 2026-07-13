@@ -200,7 +200,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
 
         <div className="dir-field-hint">
           This page is read-only — every change happens in one place: <strong>Take Roll</strong>
-          (marks, lessons, accepting reported absences) and its <strong>Subs &amp; Pull-outs</strong> tool.
+          (marks, lessons, accepting reported absences) and its <strong>Temporary Roster Changes</strong> tool.
         </div>
       </div>
     </div>
