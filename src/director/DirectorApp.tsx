@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, Repeat, QrCode } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, Repeat, QrCode, Moon, Sun } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { AuthGate } from './components/AuthGate';
 import { DirectorSearch } from './components/DirectorSearch';
@@ -91,6 +91,7 @@ export default function DirectorApp() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem('dir.theme') === 'dark'; } catch { return false; } });
 
   // Cmd/Ctrl+K opens the quick switcher (DirectorSearch already has full
   // keyboard navigation — it only lacked the shortcut).
@@ -143,7 +144,7 @@ export default function DirectorApp() {
   return (
     <AuthGate>
       {(user, signOut) => (
-        <div className="dir-app">
+        <div className="dir-app" data-dir-theme={darkMode ? 'dark' : undefined}>
           {/* Back-end marker: an unmistakable dark strip + gold rule, always on
               top, so the director always knows this is the editing side. */}
           <div className="dir-panel-banner no-print" role="note">
@@ -217,6 +218,13 @@ export default function DirectorApp() {
                   {writeBusy === 'saving' ? 'Saving…' : '✓ Saved'}
                 </span>
               )}
+              <button
+                className="dir-hamburger"
+                onClick={() => { const v = !darkMode; setDarkMode(v); try { localStorage.setItem('dir.theme', v ? 'dark' : 'light'); } catch { /* private mode */ } }}
+                aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
               <button className="dir-hamburger" onClick={() => setSearchOpen(true)} aria-label="Search">
                 <Search size={22} />
               </button>

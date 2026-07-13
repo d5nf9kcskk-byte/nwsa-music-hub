@@ -390,6 +390,26 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-type-filter-label { font-size: 13px; font-weight: 700; color: var(--dir-text-muted); }
 .dir-type-select { flex: 1; max-width: 220px; min-height: 38px; }
 
+/* Opt-in dark theme for the back end (Moon/Sun toggle in the header). The
+   content surfaces are token-driven, so overriding the core tokens re-themes
+   the whole editing area; the header and Director Panel strip are already dark. */
+.dir-app[data-dir-theme="dark"] {
+  --dir-bg: #12151b;
+  --dir-surface: #1a1f28;
+  --dir-surface-2: #232a36;
+  --dir-text: #e9ecf1;
+  --dir-text-muted: #9aa4b2;
+  --dir-border: #2b3240;
+  --dir-absent-bg: #3a1f1f;
+  --dir-late-bg: #38301a;
+  --dir-excused-bg: #17301f;
+  --dir-lesson-bg: #241f38;
+}
+.dir-app[data-dir-theme="dark"] .dir-gen-preview-date.dir-muted,
+.dir-app[data-dir-theme="dark"] .dir-detail-assign-exempt {
+  background: var(--dir-surface-2); color: var(--dir-text-muted);
+}
+
 /* Compact music-only ensemble filter — replaces the wrapping chip rows. */
 .dir-ens-filter { display: flex; align-items: center; gap: 8px; padding: 6px 16px 8px; }
 .dir-ens-filter-label { font-size: 13px; font-weight: 700; color: var(--dir-text-muted); white-space: nowrap; }
