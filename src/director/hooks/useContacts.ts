@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, setDoc, doc } from 'firebase/firestore';
+import { collection, setDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
+import { watchCollection } from '../../shared/watchCollection';
 import { reportWriteError } from '../writeStatus';
 import type { StudentContact } from '../types';
 
@@ -15,13 +15,11 @@ export function useContacts() {
 
   useEffect(() => {
     if (!db) { setLoading(false); return; }
-    return onSnapshot(collection(db, 'contacts'), snap => {
+    return watchCollection(collection(db, 'contacts'), 'contacts', snap => {
       const map: Record<string, StudentContact> = {};
       snap.docs.forEach(d => { map[d.id] = { id: d.id, ...d.data() } as StudentContact; });
       setContacts(map);
-      setLoading(false);
-      noteLoadOk('contacts');
-    }, () => { noteLoadError('contacts'); setLoading(false); });
+    }, () => setLoading(false));
   }, []);
 
   async function saveContact(studentId: string, data: Omit<StudentContact, 'id'>) {

@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
+  collection, addDoc, updateDoc, deleteDoc, doc,
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
+import { watchCollection } from '../../shared/watchCollection';
 import { reportWriteError } from '../writeStatus';
 import type { AttendanceRecord, AttendanceStatus } from '../types';
 
@@ -60,11 +60,9 @@ export function useAttendance(date: string, ensembleId: string | null, eventId?:
       where('date', '==', date),
       where('ensembleId', '==', ensembleId),
     );
-    return onSnapshot(q, snap => {
+    return watchCollection(q, 'attendance', snap => {
       setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord)));
-      noteLoadOk('attendance');
-      setLoading(false);
-    }, () => { noteLoadError('attendance'); setLoading(false); });
+    }, () => setLoading(false));
   }, [date, ensembleId]);
 
   function toggleAttendance(
@@ -127,11 +125,9 @@ export function useAllAttendance() {
   useEffect(() => {
     if (!db) { setLoading(false); return; }
     const q = query(collection(db, 'attendance'));
-    return onSnapshot(q, snap => {
+    return watchCollection(q, 'attendance', snap => {
       setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord)));
-      noteLoadOk('attendance');
-      setLoading(false);
-    }, () => { noteLoadError('attendance'); setLoading(false); });
+    }, () => setLoading(false));
   }, []);
 
   return { records, loading };
@@ -147,13 +143,11 @@ export function useAttendanceHistory(studentId?: string) {
       collection(db, 'attendance'),
       where('studentId', '==', studentId),
     );
-    return onSnapshot(q, snap => {
+    return watchCollection(q, 'attendance', snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord));
       all.sort((a, b) => b.date.localeCompare(a.date));
       setRecords(all);
-      noteLoadOk('attendance');
-      setLoading(false);
-    }, () => { noteLoadError('attendance'); setLoading(false); });
+    }, () => setLoading(false));
   }, [studentId]);
 
   return { records, loading };
@@ -166,9 +160,9 @@ export function useDayAttendance(date: string) {
   useEffect(() => {
     if (!db) return;
     const q = query(collection(db, 'attendance'), where('date', '==', date));
-    return onSnapshot(q, snap => {
+    return watchCollection(q, 'attendance', snap => {
       setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord)));
-    }, () => {});
+    });
   }, [date]);
   return { records };
 }

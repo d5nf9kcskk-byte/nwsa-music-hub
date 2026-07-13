@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
+  collection, addDoc, updateDoc, deleteDoc, doc,
   query, where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { offerUndo } from '../writeStatus';
-import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
+import { watchCollection } from '../../shared/watchCollection';
 import { todayStr } from '../utils';
 import type { Assignment, AssignmentResult, AssignmentResultStatus } from '../types';
 
@@ -15,13 +15,11 @@ export function useAssignments() {
 
   useEffect(() => {
     if (!db) { setLoading(false); return; }
-    return onSnapshot(collection(db, 'assignments'), snap => {
+    return watchCollection(collection(db, 'assignments'), 'assignments', snap => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Assignment));
       list.sort((a, b) => b.dueDate.localeCompare(a.dueDate));
       setAssignments(list);
-      noteLoadOk('assignments');
-      setLoading(false);
-    }, () => { noteLoadError('assignments'); setLoading(false); });
+    }, () => setLoading(false));
   }, []);
 
   async function addAssignment(data: Omit<Assignment, 'id'>) {
@@ -58,11 +56,9 @@ export function useAssignmentResults(assignmentId: string) {
       collection(db, 'assignmentResults'),
       where('assignmentId', '==', assignmentId),
     );
-    return onSnapshot(q, snap => {
+    return watchCollection(q, 'assignments', snap => {
       setResults(snap.docs.map(d => ({ id: d.id, ...d.data() } as AssignmentResult)));
-      noteLoadOk('assignments');
-      setLoading(false);
-    }, () => { noteLoadError('assignments'); setLoading(false); });
+    }, () => setLoading(false));
   }, [assignmentId]);
 
   const resultMap = Object.fromEntries(results.map(r => [r.studentId, r]));
@@ -102,9 +98,9 @@ export function useStudentAssignmentResults(studentId?: string) {
       collection(db, 'assignmentResults'),
       where('studentId', '==', studentId),
     );
-    return onSnapshot(q, snap => {
+    return watchCollection(q, 'assignments', snap => {
       setResults(snap.docs.map(d => ({ id: d.id, ...d.data() } as AssignmentResult)));
-    }, () => {});
+    });
   }, [studentId]);
 
   return { results };
