@@ -16,6 +16,7 @@ import { useAssignments } from '../director/hooks/useAssignments';
 import { studentExpectation } from '../director/rosterResolver';
 import { todayStr, toDateStr, parseDate, ensembleColor, findPartForInstrument, studentHasAssignment, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
+import { PubSelect } from './components/PubSelect';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { SkeletonCards, EmptyState } from './components/PageHeader';
 import { SubscribeButton } from './components/SubscribeButton';
@@ -237,17 +238,14 @@ export function PublicSchedule() {
         </button>
       </div>
 
-      {/* Type filter — resets to All every visit so nothing stays hidden */}
-      <div className="pub-filter-row">
-        {FILTERS.map(f => (
-          <button
-            key={f.key}
-            className={`pub-filter-btn ${filter === f.key ? 'active' : ''}`}
-            onClick={() => setFilter(f.key)}
-          >
-            {f.label}
-          </button>
-        ))}
+      {/* Type filter — a compact dropdown; resets to All every visit so nothing stays hidden */}
+      <div className="pub-filter-selects">
+        <PubSelect
+          value={filter}
+          onChange={v => setFilter(v as TypeFilter)}
+          ariaLabel="Filter by type"
+          options={FILTERS.map(f => ({ value: f.key, label: f.label }))}
+        />
       </div>
 
       {view === 'calendar' ? (
