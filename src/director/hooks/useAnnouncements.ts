@@ -26,9 +26,10 @@ export function useAnnouncements() {
     }, () => { noteLoadError('announcements'); setLoading(false); });
   }, []);
 
-  async function addAnnouncement(data: Omit<Announcement, 'id'>) {
+  async function addAnnouncement(data: Omit<Announcement, 'id'>): Promise<string | undefined> {
     if (!db) return;
-    await addDoc(collection(db, 'announcements'), data);
+    const ref = await addDoc(collection(db, 'announcements'), data);
+    return ref.id;
   }
 
   async function updateAnnouncement(id: string, data: Partial<Omit<Announcement, 'id'>>) {

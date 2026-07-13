@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
-  query, orderBy,
+  query, orderBy, deleteField,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
@@ -60,5 +60,33 @@ export function useEvents() {
     }
   }
 
-  return { events, loading, addEvent, updateEvent, deleteEvent };
+  /**
+   * Revert a changed rehearsal to its normal schedule: restore the pre-change
+   * snapshot (`changeFrom`), then clear every "changed" marker — the change
+   * note, the snapshot, the linked announcement id, and the update stamp (so
+   * the public "UPDATED" tag doesn't linger). Returns the announcement id the
+   * caller should delete, if one was posted. If no snapshot was captured (a
+   * legacy/manual change), it still un-cancels and clears the note.
+   */
+  async function revertEvent(id: string): Promise<string | undefined> {
+    if (!db) return;
+    const e = events.find(x => x.id === id);
+    const cf = e?.changeFrom;
+    const payload: Record<string, unknown> = {
+      status: cf?.status ?? 'Scheduled',
+      startTime: cf?.startTime ?? deleteField(),
+      endTime: cf?.endTime ?? deleteField(),
+      location: cf?.location ?? deleteField(),
+      changeNote: deleteField(),
+      changeFrom: deleteField(),
+      changeAnnouncementId: deleteField(),
+      updatedAt: deleteField(),
+      updatedBy: deleteField(),
+    };
+    const dbRef = db;
+    await trackWrite('Revert', () => updateDoc(doc(dbRef, 'events', id), payload));
+    return e?.changeAnnouncementId;
+  }
+
+  return { events, loading, addEvent, updateEvent, deleteEvent, revertEvent };
 }
