@@ -100,6 +100,14 @@ export interface CalendarEvent {
    * "schedule changed today" banner on the public home page.
    */
   changeNote?: string;
+  /**
+   * Snapshot of the schedule taken right before the FIRST change to this event,
+   * so "Revert to normal" can restore it exactly. Left in place across further
+   * edits so the original is never lost; cleared on revert.
+   */
+  changeFrom?: { startTime?: string; endTime?: string; location?: string; status?: EventStatus };
+  /** Id of the announcement auto-posted for this change, so revert can pull it. */
+  changeAnnouncementId?: string;
 }
 
 export type OverrideScope = 'event' | 'range';

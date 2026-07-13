@@ -9,14 +9,16 @@ import { todayStr, addDays, parseDate, formatTime, formatTimeRange, ensembleColo
 import type { CalendarEvent, Announcement } from '../types';
 import type { DirNavigate } from '../types-nav';
 
-/** Post the urgent announcement + queue the Teams/email relay (#21). */
+/** Post the urgent announcement (in-app banner) and enqueue the notify relay
+ *  for a future Teams/email integration. Returns the announcement id so the
+ *  event can link it and a later revert can pull it back down. */
 async function postScheduleAnnouncement(
-  addAnnouncement: (data: Omit<Announcement, 'id'>) => Promise<void>,
+  addAnnouncement: (data: Omit<Announcement, 'id'>) => Promise<string | undefined>,
   date: string,
   title: string,
   ensembleIds: string[],
-) {
-  await addAnnouncement({
+): Promise<string | undefined> {
+  const annId = await addAnnouncement({
     title,
     ensembleId: ensembleIds.length === 1 ? ensembleIds[0] : null,
     priority: 'urgent',
@@ -30,21 +32,36 @@ async function postScheduleAnnouncement(
       });
     } catch { /* relay is best-effort */ }
   }
+  return annId;
 }
+
+/** Pre-change schedule snapshot, captured once (on the first change) so a
+ *  revert can restore it exactly. Omits undefined fields for Firestore. */
+function snapshot(e: CalendarEvent): NonNullable<CalendarEvent['changeFrom']> {
+  const s: NonNullable<CalendarEvent['changeFrom']> = { status: e.status };
+  if (e.startTime !== undefined) s.startTime = e.startTime;
+  if (e.endTime !== undefined) s.endTime = e.endTime;
+  if (e.location !== undefined) s.location = e.location;
+  return s;
+}
+/** Include a `changeFrom` snapshot only if this event hasn't been changed yet,
+ *  so the ORIGINAL schedule is preserved across repeated edits. */
+const captureOriginal = (e: CalendarEvent) => (e.changeFrom ? {} : { changeFrom: snapshot(e) });
 
 /**
  * Schedule Change — ENSEMBLE times, not students (students are handled on the
  * Roll screen). Swap two blocks, shift a rehearsal's time, move the room, or
  * cancel — for any day. Every change stamps a change note (drives the public
- * red banner) and can post an urgent announcement + parent notification.
+ * red banner) and can post an urgent announcement (in-app banner). A per-row
+ * "Revert to normal" restores the original schedule and clears both.
  */
 export function ScheduleSwapView({ initialDate, onNavigate }: {
   initialDate?: string;
   onNavigate: DirNavigate;
 }) {
-  const { events, updateEvent } = useEvents();
+  const { events, updateEvent, revertEvent } = useEvents();
   const { ensembles } = useEnsembles();
-  const { addAnnouncement } = useAnnouncements();
+  const { addAnnouncement, deleteAnnouncement } = useAnnouncements();
 
   const [date, setDate] = useState(initialDate ?? todayStr());
   const [swapPick, setSwapPick] = useState<string[]>([]); // event ids picked for a swap
@@ -81,19 +98,36 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
     try {
       const noteA = `Block swap — now ${formatTimeRange(b.startTime, b.endTime)}${b.location && b.location !== a.location ? ` in ${b.location}` : ''}`;
       const noteB = `Block swap — now ${formatTimeRange(a.startTime, a.endTime)}${a.location && a.location !== b.location ? ` in ${a.location}` : ''}`;
-      await updateEvent(a.id, { startTime: b.startTime, endTime: b.endTime, location: b.location, changeNote: noteA });
-      await updateEvent(b.id, { startTime: a.startTime, endTime: a.endTime, location: a.location, changeNote: noteB });
+      await updateEvent(a.id, { startTime: b.startTime, endTime: b.endTime, location: b.location, changeNote: noteA, ...captureOriginal(a) });
+      await updateEvent(b.id, { startTime: a.startTime, endTime: a.endTime, location: a.location, changeNote: noteB, ...captureOriginal(b) });
       if (notify) {
-        await announce(
+        const annId = await announce(
           `Block swap ${parseDate(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}: ` +
           `${label(a)} now ${formatTime(b.startTime)}, ${label(b)} now ${formatTime(a.startTime)}`,
           [...new Set([...a.ensembleIds, ...b.ensembleIds])],
         );
+        if (annId) {
+          await updateEvent(a.id, { changeAnnouncementId: annId });
+          await updateEvent(b.id, { changeAnnouncementId: annId });
+        }
       }
       setSwapPick([]);
       setConfirmSwap(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save the swap — try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRevert(e: CalendarEvent) {
+    setBusy(true); setError('');
+    try {
+      const annId = await revertEvent(e.id);
+      if (annId) await deleteAnnouncement(annId);
+      setSwapPick(p => p.filter(x => x !== e.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not revert — try again.');
     } finally {
       setBusy(false);
     }
@@ -159,6 +193,17 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  {(e.changeNote || e.changeFrom || e.status === 'Cancelled') && (
+                    <button
+                      className="dir-tool-btn"
+                      style={{ color: 'var(--dir-blue)' }}
+                      disabled={busy}
+                      onClick={() => handleRevert(e)}
+                      title="Revert to normal schedule (clears the change note and its announcement)"
+                    >
+                      <RotateCcw size={14} />
+                    </button>
+                  )}
                   <button
                     className={`dir-tool-btn ${swapPick.includes(e.id) ? 'active' : ''}`}
                     onClick={() => togglePick(e.id)}
@@ -190,8 +235,11 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
           event={editing}
           name={label(editing)}
           onApply={async (data, notifyTitle) => {
-            await updateEvent(editing.id, data);
-            if (notifyTitle) await announce(notifyTitle, editing.ensembleIds);
+            await updateEvent(editing.id, { ...data, ...captureOriginal(editing) });
+            if (notifyTitle) {
+              const annId = await announce(notifyTitle, editing.ensembleIds);
+              if (annId) await updateEvent(editing.id, { changeAnnouncementId: annId });
+            }
           }}
           onClose={() => setEditing(null)}
         />
@@ -220,7 +268,7 @@ function SwapConfirm({ a, b, labelA, labelB, busy, onConfirm, onClose }: {
           </div>
           <label className="pub-parent-toggle" style={{ marginTop: 8 }}>
             <input type="checkbox" checked={notify} onChange={e => setNotify(e.target.checked)} />
-            Post an urgent announcement (banner + parent notification)
+            Post an urgent announcement (shows a banner on the calendar)
           </label>
         </div>
         <div className="dir-drawer-footer">
@@ -322,7 +370,7 @@ function TimeChangeSheet({ event, name, onApply, onClose }: {
           </div>
           <label className="pub-parent-toggle">
             <input type="checkbox" checked={notify} onChange={e => setNotify(e.target.checked)} />
-            Post an urgent announcement (banner + parent notification)
+            Post an urgent announcement (shows a banner on the calendar)
           </label>
           {error && <div className="dir-sc-error">⚠ {error}</div>}
         </div>
