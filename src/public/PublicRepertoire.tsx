@@ -3,6 +3,7 @@ import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useEvents } from '../director/hooks/useEvents';
 import { ensembleColor, musicEnsembles } from '../director/utils';
+import { PubEnsembleSelect } from './components/PubEnsembleSelect';
 import { PubRepertoire } from './components/PubRepertoire';
 import { primaryStudent } from '../shared/identity';
 
@@ -35,14 +36,7 @@ export function PublicRepertoire() {
     <div className="pub-page">
       <h1 className="pub-h1">Repertoire</h1>
       {ensemblesWithPieces.length > 1 && (
-        <div className="pub-filter-row">
-          <button className={`pub-filter-btn ${!filter ? 'active' : ''}`} onClick={() => setFilter('')}>All ensembles</button>
-          {ensemblesWithPieces.map(e => (
-            <button key={e.id} className={`pub-filter-btn ${filter === e.id ? 'active' : ''}`} onClick={() => setFilter(f => f === e.id ? '' : e.id)}>
-              {e.name}
-            </button>
-          ))}
-        </div>
+        <PubEnsembleSelect ensembles={ensemblesWithPieces} value={filter} onChange={setFilter} />
       )}
       {pieces.length === 0 ? (
         <div className="pub-card pub-muted">No repertoire added yet.</div>

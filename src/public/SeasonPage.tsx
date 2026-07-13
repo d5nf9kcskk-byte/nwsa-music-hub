@@ -8,6 +8,7 @@ import { LABELS } from '../shared/labels';
 import { t, useLang } from '../shared/i18n';
 import { PageHeader, SkeletonCards } from './components/PageHeader';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles } from '../director/utils';
+import { PubEnsembleSelect } from './components/PubEnsembleSelect';
 import type { CalendarEvent, Ensemble } from '../director/types';
 
 /** Season at a Glance (#13): every concert of the year on one printable page. */
@@ -54,20 +55,7 @@ export function SeasonPage() {
       </p>
 
       {concertEnsembles.length > 1 && (
-        <div className="pub-filter-row">
-          <button className={`pub-filter-btn ${!filter ? 'active' : ''}`} onClick={() => setFilter('')}>
-            {t('nav.allEnsembles')}
-          </button>
-          {concertEnsembles.map(e => (
-            <button
-              key={e.id}
-              className={`pub-filter-btn ${filter === e.id ? 'active' : ''}`}
-              onClick={() => setFilter(f => (f === e.id ? '' : e.id))}
-            >
-              {e.name}
-            </button>
-          ))}
-        </div>
+        <PubEnsembleSelect ensembles={concertEnsembles} value={filter} onChange={setFilter} allLabel={t('nav.allEnsembles')} />
       )}
 
       {loading ? (

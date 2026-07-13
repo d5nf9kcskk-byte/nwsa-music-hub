@@ -5,7 +5,8 @@ import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
-import { todayStr, toDateStr, parseDate, ensembleColor, assignmentEmoji, musicEnsembles, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { todayStr, toDateStr, parseDate, ensembleColor, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { PubEnsembleSelect } from './components/PubEnsembleSelect';
 import { PubEventCard } from './components/PubEventCard';
 import { PageHeader, EmptyState } from './components/PageHeader';
 import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
@@ -143,17 +144,7 @@ export function PublicCalendar() {
       />
 
       {/* Filters first; the month header sits directly above the grid below. */}
-      {ensembles.length > 0 && (
-        <div className="pub-chips pub-wrap-tabs">
-          <button className={`pub-chip ${!filterEnsembleId ? 'active' : ''}`} onClick={() => setFilterEnsembleId('')}>{t('cal.allEnsembles')}</button>
-          {musicEnsembles(ensembles).map(e => (
-            <button key={e.id} className={`pub-chip ${filterEnsembleId === e.id ? 'active' : ''}`} onClick={() => setFilterEnsembleId(e.id)}>
-              <span className="pub-chip-dot" style={{ background: ensembleColor(e) }} />
-              {e.name}
-            </button>
-          ))}
-        </div>
-      )}
+      <PubEnsembleSelect ensembles={ensembles} value={filterEnsembleId} onChange={setFilterEnsembleId} allLabel={t('cal.allEnsembles')} />
 
       {/* Type filter */}
       <div className="pub-filter-row">
