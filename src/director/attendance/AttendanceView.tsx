@@ -10,6 +10,8 @@ import { useEvents } from '../hooks/useEvents';
 import { useContacts } from '../hooks/useContacts';
 import { resolveRoster, lessonsFor, overrideApplies } from '../rosterResolver';
 import { StudentCard } from './StudentCard';
+import { SortToggle } from '../components/SortToggle';
+import { sortStudents, type StudentSort } from '../scoreOrder';
 import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRange, ensembleColor } from '../utils';
 import type { AttendanceStatus, Student, Ensemble, CalendarEvent } from '../types';
 
@@ -202,6 +204,15 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate }: {
   const [statusFilter, setStatusFilter] = useState<AttendanceStatus | 'Unmarked' | null>(null);
   const [lessonStudent, setLessonStudent] = useState<Student | null>(null);
   const [chartView, setChartView] = useState(false);
+  const [sort, setSort] = useState<StudentSort>('scoreOrder');
+  // Take Roll list order: score order (default) or last name, reusing the
+  // app's shared sort logic — Violin I/II already rank distinctly there.
+  // Chart view keeps its seating-chart section order and is left untouched.
+  const orderedRoster = useMemo(() => {
+    const subIds = new Set(resolved.filter(r => r.isSub).map(r => r.student.id));
+    return sortStudents(resolved.map(r => r.student), sort)
+      .map(student => ({ student, isSub: subIds.has(student.id) }));
+  }, [resolved, sort]);
   const { charts } = useSeatingCharts(ensembleId);
   const latestChart = charts[0] ?? null;
 
@@ -438,11 +449,17 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate }: {
           ))}
         </div>
       ) : (
+      <>
+      {resolved.length > 0 && (
+        <div style={{ padding: '4px 16px 8px' }}>
+          <SortToggle value={sort} onChange={setSort} />
+        </div>
+      )}
       <div className="dir-student-list">
         {resolved.length === 0 ? (
           <div className="dir-empty"><Users size={40} /><h3>No active students</h3><p>Add students to this ensemble in the Roster tab.</p></div>
         ) : (
-          resolved.map(({ student, isSub }) => (
+          orderedRoster.map(({ student, isSub }) => (
             <div key={student.id} className={rowMatchesFilter(student.id) ? undefined : 'dir-roll-dim'}>
             <StudentCard
               student={student}
@@ -459,6 +476,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate }: {
           ))
         )}
       </div>
+      </>
       )}
 
       <div className="dir-roll-sticky-bottom" style={{ padding: '8px 16px calc(8px + env(safe-area-inset-bottom))' }}>

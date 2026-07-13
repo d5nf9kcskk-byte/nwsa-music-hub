@@ -48,6 +48,14 @@ export function formatTimeRange(start?: string, end?: string): string {
   return formatTime(start || end);
 }
 
+// Standard NWSA ensemble blocks — one-tap presets for schedule-time entry.
+// Values are 24h "HH:MM" strings (the value format of <input type="time">);
+// labels are hardcoded to the exact requested copy (12h, en-dash, no AM/PM).
+export const TIME_BLOCKS = [
+  { label: 'Block 1 · 1:10–2:25', start: '13:10', end: '14:25' },
+  { label: 'Block 2 · 2:30–3:45', start: '14:30', end: '15:45' },
+] as const;
+
 // ── Ensemble colors ─────────────────────────────────────────────────────
 
 /** Concert gold + assignment violet — the two reserved semantic colors. */
