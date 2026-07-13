@@ -233,7 +233,7 @@ function choirRehearsalDocs(): { id: string; data: SeedEventData }[] {
     if (NO_SCHOOL.has(dateStr)) continue;
     docs.push({
       id: `reh-${dateStr}-${ENS.choir}-1430`,
-      data: { type: 'Rehearsal', ensembleIds: [ENS.choir], date: dateStr, startTime: '14:30', endTime: '15:45', location: '', status: 'Scheduled' },
+      data: { type: 'Rehearsal', ensembleIds: [ENS.choir], date: dateStr, startTime: '14:30', endTime: '15:45', location: 'Room 4204', status: 'Scheduled' },
     });
   }
   return docs;
