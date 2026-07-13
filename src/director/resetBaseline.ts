@@ -1,6 +1,7 @@
 import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { db } from './firebase';
 import { baselineStudents, baselineNewEnsembles } from './baseline2526';
+import type { Guardian } from './types';
 
 /**
  * "Fresh start" tool for the July 2026 redesign test cycle: wipes every
@@ -58,14 +59,25 @@ export async function resetToBaseline(
 
 /**
  * Imports the private contacts file (JSON array of {id, email?, parentEmail?,
- * phone?}). The file lives outside the repo on purpose — contact details are
- * never committed; they go straight into the auth-only `contacts` collection.
+ * phone?, guardians?, extra?}). The file lives outside the repo on purpose —
+ * contact details are never committed; they go straight into the auth-only
+ * `contacts` collection. Accepts both the flat 3-field export and the richer
+ * shape carrying named guardians and extra spreadsheet columns.
  */
+interface ContactImportRow {
+  id: string;
+  email?: string;
+  parentEmail?: string;
+  phone?: string;
+  guardians?: Guardian[];
+  extra?: Record<string, string>;
+}
+
 export async function importBaselineContacts(raw: unknown): Promise<number> {
   if (!db) throw new Error('Firebase is not configured.');
   if (!Array.isArray(raw)) throw new Error('Expected a JSON array of contacts.');
   const validIds = new Set(baselineStudents.map(s => s.id));
-  const entries = raw.filter((c): c is { id: string; email?: string; parentEmail?: string; phone?: string } =>
+  const entries = raw.filter((c): c is ContactImportRow =>
     !!c && typeof c === 'object' && typeof (c as { id?: unknown }).id === 'string');
   const unknown = entries.filter(c => !validIds.has(c.id));
   if (unknown.length > 0) {
@@ -74,11 +86,20 @@ export async function importBaselineContacts(raw: unknown): Promise<number> {
   for (let i = 0; i < entries.length; i += BATCH_LIMIT) {
     const batch = writeBatch(db);
     for (const c of entries.slice(i, i + BATCH_LIMIT)) {
-      batch.set(doc(db, 'contacts', c.id), {
+      const g0 = c.guardians?.[0];
+      // Keep the flat trio authoritative for the many back-compat readers
+      // (search, checklists, "missing info"), mirroring it from guardian #1
+      // when the file carries the richer shape.
+      const data: Record<string, unknown> = {
         email: c.email ?? '',
-        parentEmail: c.parentEmail ?? '',
-        phone: c.phone ?? '',
-      });
+        parentEmail: g0?.email ?? c.parentEmail ?? '',
+        phone: g0?.phone ?? c.phone ?? '',
+      };
+      if (c.guardians?.length) data.guardians = c.guardians;
+      if (c.extra && Object.keys(c.extra).length) data.extra = c.extra;
+      // Merge, not overwrite: updating never wipes guardians[]/extra a director
+      // has since added by hand in the roster.
+      batch.set(doc(db, 'contacts', c.id), data, { merge: true });
     }
     await batch.commit();
   }

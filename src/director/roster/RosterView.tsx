@@ -327,7 +327,10 @@ function ResetToBaseline() {
             </div>
           )}
           <label style={{ display: 'grid', gap: 4 }}>
-            <span><strong>Contacts file</strong> (private JSON — never committed to the repo):</span>
+            <span>
+              <strong>Load contacts</strong> (private JSON — student email, guardians &amp; details; never committed to the repo).
+              {' '}Safe on its own: it only fills in contact info — it does <em>not</em> reset or wipe anything.
+            </span>
             <input type="file" accept=".json,application/json" onChange={e => onContactsFile(e.target.files?.[0])} />
           </label>
           {contactsMsg && <div role="status" style={{ fontSize: 12.5 }}>{contactsMsg}</div>}
