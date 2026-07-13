@@ -407,6 +407,9 @@ export function AssignmentsView() {
       )}
 
       <div style={{ padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {assignments.length > 0 && shownAssignments.length === 0 && (
+          <div className="dir-empty-inline">No assignments for this ensemble.</div>
+        )}
         {shownAssignments.map(a => {
           const ensembleNames = a.ensembleIds
             .map(eid => ensembles.find(e => e.id === eid)?.name)
