@@ -37,6 +37,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     title: '',
     repertoire: '',
     pieceIds: [],
+    pieceMovements: {},
     attendanceEnsembleIds: [],
     status: 'Scheduled',
     notes: '',
@@ -367,6 +368,8 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
               ensembles={ensembles}
               value={form.pieceIds ?? []}
               onChange={ids => set('pieceIds', ids)}
+              movementSel={form.pieceMovements ?? {}}
+              onMovementSelChange={sel => set('pieceMovements', sel)}
             />
           </div>
 

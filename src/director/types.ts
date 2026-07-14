@@ -81,6 +81,16 @@ export interface CalendarEvent {
   title?: string;         // primarily for concerts / one-off events
   repertoire?: string;    // free-text repertoire/focus notes
   pieceIds?: string[];    // linked RepertoirePiece IDs
+  /**
+   * Per-concert movement selection. Key = pieceId; value = the indices into
+   * that piece's `movements[]` that are performed on THIS event. A piece absent
+   * from the map (or with an empty array) performs the whole work — every
+   * movement — which is the default. This lets the same piece show a different
+   * subset of movements on different concerts: e.g. Nutcracker as the full act
+   * in December, only the Waltz of the Flowers + character dances on the
+   * concerto-competition concert, and yet another subset on the October concert.
+   */
+  pieceMovements?: Record<string, number[]>;
   status: EventStatus;
   notes?: string;
   /* ── Concert Hub (#9): the day-sheet answers, in one place ── */

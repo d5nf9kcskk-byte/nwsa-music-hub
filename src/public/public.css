@@ -704,6 +704,13 @@
 .pub-event-piece-link:hover { color: var(--pub-accent); }
 .pub-event-piece-by { color: var(--pub-muted); font-weight: 500; }
 
+/* Per-concert movement subset — "on this concert, only these movements". */
+.pub-event-piece-mvts {
+  flex-basis: 100%;
+  padding-left: 19px;
+  font-size: 12px; font-style: italic; color: var(--pub-muted);
+}
+
 .pub-event-mypart {
   display: inline-flex; align-items: center; gap: 3px;
   font-size: 12px; font-weight: 700; color: var(--pub-accent); text-decoration: none;

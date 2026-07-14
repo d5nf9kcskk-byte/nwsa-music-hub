@@ -1,7 +1,7 @@
 import { MapPin, Music, ExternalLink, ScrollText, ChevronRight, StickyNote } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
-import { parseDate, formatTime, ensembleColor, findPartForInstrument, CONCERT_COLOR } from '../../director/utils';
+import { parseDate, formatTime, ensembleColor, findPartForInstrument, CONCERT_COLOR, eventPieceMovements, eventRestrictsMovements } from '../../director/utils';
 import { t, useLang } from '../../shared/i18n';
 import { EnsembleLink, EnsembleLinks } from './EnsembleLink';
 import { Linkify } from '../../director/components/Linkify';
@@ -141,6 +141,9 @@ export function PubEventCard({
           <div className="pub-event-pieces">
             {pieces.map(p => {
               const myPart = findPartForInstrument(p, studentInstrument);
+              const subset = eventRestrictsMovements(e, p)
+                ? eventPieceMovements(e, p).map(m => m.title).filter(Boolean)
+                : [];
               return (
                 <div key={p.id} className="pub-event-piece">
                   <Link to={`/piece/${p.id}`} className="pub-event-piece-link">
@@ -150,6 +153,9 @@ export function PubEventCard({
                     <a className="pub-event-mypart" href={myPart.url} target="_blank" rel="noreferrer">
                       {t('card.myPart')} <ExternalLink size={10} />
                     </a>
+                  )}
+                  {subset.length > 0 && (
+                    <div className="pub-event-piece-mvts">{subset.join(' · ')}</div>
                   )}
                 </div>
               );
