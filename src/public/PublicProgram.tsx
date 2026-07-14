@@ -4,7 +4,7 @@ import { ChevronLeft, Printer, Clock } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
-import { parseDate, formatTimeRange, pieceDuration } from '../director/utils';
+import { parseDate, formatTimeRange, eventPieceDuration, eventPieceMovements } from '../director/utils';
 import { Linkify } from '../director/components/Linkify';
 
 /**
@@ -38,8 +38,8 @@ export function PublicProgram() {
   );
 
   const totalRuntime = useMemo(
-    () => programPieces.reduce((s, p) => s + pieceDuration(p), 0),
-    [programPieces],
+    () => (event ? programPieces.reduce((s, p) => s + eventPieceDuration(event, p), 0) : 0),
+    [programPieces, event],
   );
 
   if (!event) {
@@ -77,33 +77,37 @@ export function PublicProgram() {
         ) : (
           <>
             <ol className="pub-program-list">
-              {programPieces.map(p => (
-                <li key={p.id} className="pub-program-piece">
-                  <div className="pub-program-piece-main">
-                    <Link to={`/piece/${p.id}`} className="pub-program-piece-title">
-                      {p.fullTitle || p.title}
-                    </Link>
-                    {pieceDuration(p) > 0 && (
-                      <span className="pub-program-piece-dur"><Clock size={11} /> {pieceDuration(p)}′</span>
+              {programPieces.map(p => {
+                const mvts = eventPieceMovements(event, p);
+                const dur = eventPieceDuration(event, p);
+                return (
+                  <li key={p.id} className="pub-program-piece">
+                    <div className="pub-program-piece-main">
+                      <Link to={`/piece/${p.id}`} className="pub-program-piece-title">
+                        {p.fullTitle || p.title}
+                      </Link>
+                      {dur > 0 && (
+                        <span className="pub-program-piece-dur"><Clock size={11} /> {dur}′</span>
+                      )}
+                    </div>
+                    <div className="pub-program-piece-composer">
+                      {p.composer}
+                      {p.composerDates && <span className="pub-program-piece-dates"> ({p.composerDates})</span>}
+                      {p.arranger && <span> · arr. {p.arranger}</span>}
+                    </div>
+                    {mvts.length > 0 && (
+                      <ol className="pub-program-movements">
+                        {mvts.map((m, i) => (
+                          <li key={i}>
+                            {m.title}
+                            {m.duration ? <span className="pub-program-mvt-dur"> — {m.duration}′</span> : null}
+                          </li>
+                        ))}
+                      </ol>
                     )}
-                  </div>
-                  <div className="pub-program-piece-composer">
-                    {p.composer}
-                    {p.composerDates && <span className="pub-program-piece-dates"> ({p.composerDates})</span>}
-                    {p.arranger && <span> · arr. {p.arranger}</span>}
-                  </div>
-                  {p.movements && p.movements.length > 0 && (
-                    <ol className="pub-program-movements">
-                      {p.movements.map((m, i) => (
-                        <li key={i}>
-                          {m.title}
-                          {m.duration ? <span className="pub-program-mvt-dur"> — {m.duration}′</span> : null}
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ol>
 
             {totalRuntime > 0 && (

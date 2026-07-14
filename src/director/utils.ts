@@ -1,4 +1,4 @@
-import type { Ensemble, EventType, RepertoirePiece, PiecePartLink } from './types';
+import type { Ensemble, EventType, RepertoirePiece, PiecePartLink, PieceMovement, CalendarEvent } from './types';
 
 // ── Date helpers (work in local time, store as YYYY-MM-DD) ──────────────────────
 
@@ -172,6 +172,53 @@ export function assignmentEmoji(type: string): string {
 export function pieceDuration(piece: Pick<RepertoirePiece, 'duration' | 'movements'>): number {
   const fromMovements = (piece.movements ?? []).reduce((s, m) => s + (m.duration ?? 0), 0);
   return piece.duration ?? fromMovements;
+}
+
+/**
+ * The movements of `piece` actually performed on `event`, in the piece's own
+ * order. If the event restricts the selection (`event.pieceMovements[piece.id]`
+ * names a subset), only those movements are returned; otherwise the whole work.
+ * A stored index that no longer exists (a movement was deleted) is skipped.
+ */
+export function eventPieceMovements(
+  event: Pick<CalendarEvent, 'pieceMovements'>,
+  piece: Pick<RepertoirePiece, 'id' | 'movements'>,
+): PieceMovement[] {
+  const all = piece.movements ?? [];
+  const sel = event.pieceMovements?.[piece.id];
+  if (!sel || sel.length === 0) return all;
+  return [...sel]
+    .filter(i => i >= 0 && i < all.length)
+    .sort((a, b) => a - b)
+    .map(i => all[i]);
+}
+
+/** True when `event` performs only a strict subset of `piece`'s movements. */
+export function eventRestrictsMovements(
+  event: Pick<CalendarEvent, 'pieceMovements'>,
+  piece: Pick<RepertoirePiece, 'id' | 'movements'>,
+): boolean {
+  const all = piece.movements ?? [];
+  const sel = event.pieceMovements?.[piece.id];
+  if (!sel || sel.length === 0 || all.length === 0) return false;
+  const valid = sel.filter(i => i >= 0 && i < all.length);
+  return valid.length > 0 && valid.length < all.length;
+}
+
+/**
+ * Duration of `piece` as programmed on `event`: the sum of the selected
+ * movements' durations when the event performs a subset (and those movements
+ * carry durations), otherwise the piece's normal full-work duration.
+ */
+export function eventPieceDuration(
+  event: Pick<CalendarEvent, 'pieceMovements'>,
+  piece: Pick<RepertoirePiece, 'id' | 'duration' | 'movements'>,
+): number {
+  if (eventRestrictsMovements(event, piece)) {
+    const sum = eventPieceMovements(event, piece).reduce((s, m) => s + (m.duration ?? 0), 0);
+    if (sum > 0) return sum;
+  }
+  return pieceDuration(piece);
 }
 
 /** "15:00" + 50 → "15:50" (clamped to the same day). */
