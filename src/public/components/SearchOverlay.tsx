@@ -9,7 +9,7 @@ import { useRepertoire } from '../../director/hooks/useRepertoire';
 import { useAnnouncements } from '../../director/hooks/useAnnouncements';
 import { useEnsembles } from '../../director/hooks/useEnsembles';
 import { useAssignments } from '../../director/hooks/useAssignments';
-import { formatDate, formatTimeRange, todayStr } from '../../director/utils';
+import { formatDate, formatTimeRange, todayStr, pieceEnsembleIds } from '../../director/utils';
 import type { CalendarEvent, Ensemble } from '../../director/types';
 
 /* ── Tiny fuzzy-search util ──────────────────────────────────────────────
@@ -161,7 +161,7 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
         items: reps.map(p => ({
           key: `rep-${p.id}`,
           label: p.title,
-          sub: [p.composer, ensembleMap[p.ensembleId]?.name].filter(Boolean).join(' · '),
+          sub: [p.composer, pieceEnsembleIds(p).map(id => ensembleMap[id]?.name).filter(Boolean).join(', ')].filter(Boolean).join(' · '),
           to: `/piece/${p.id}`,
         })),
       });

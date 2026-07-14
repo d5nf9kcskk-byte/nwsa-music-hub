@@ -13,7 +13,7 @@ import { useRepertoire } from '../hooks/useRepertoire';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useAssignments } from '../hooks/useAssignments';
-import { formatDate, formatTimeRange, todayStr } from '../utils';
+import { formatDate, formatTimeRange, todayStr, pieceEnsembleIds } from '../utils';
 import type { CalendarEvent, Ensemble, RosterOverride, Student } from '../types';
 
 /* ── Tiny fuzzy-search util (mirrors the public SearchOverlay) ──────────
@@ -292,8 +292,8 @@ function DirectorSearchInner({ onClose, onOpenStudent, onNavigate }: Omit<Direct
         items: reps.map(p => ({
           key: `rep-${p.id}`,
           label: p.title,
-          sub: [p.composer, ensembleMap[p.ensembleId]?.name].filter(Boolean).join(' · '),
-          onSelect: () => onNavigate ? goTab('repertoire', { ensembleId: p.ensembleId }) : go(`/piece/${p.id}`),
+          sub: [p.composer, pieceEnsembleIds(p).map(id => ensembleMap[id]?.name).filter(Boolean).join(', ')].filter(Boolean).join(' · '),
+          onSelect: () => onNavigate ? goTab('repertoire', { ensembleId: pieceEnsembleIds(p)[0] }) : go(`/piece/${p.id}`),
         })),
       });
     }

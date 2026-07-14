@@ -71,6 +71,13 @@ export function musicEnsembles<T extends Pick<Ensemble, 'name'>>(list: T[]): T[]
   return list.filter(e => !isDivision(e));
 }
 
+/** A piece's ensembles as an array — reads the new `ensembleIds` or falls back
+ *  to the legacy single `ensembleId`. Empty array if neither is set. */
+export function pieceEnsembleIds(p: Pick<RepertoirePiece, 'ensembleIds' | 'ensembleId'>): string[] {
+  if (p.ensembleIds && p.ensembleIds.length) return p.ensembleIds;
+  return p.ensembleId ? [p.ensembleId] : [];
+}
+
 // ── Ensemble colors ─────────────────────────────────────────────────────
 
 /** Concert gold + assignment violet — the two reserved semantic colors. */

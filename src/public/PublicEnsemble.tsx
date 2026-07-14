@@ -7,7 +7,7 @@ import { useEvents } from '../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
-import { todayStr, formatTimeRange, formatTime, ensembleColor, parseDate } from '../director/utils';
+import { todayStr, formatTimeRange, formatTime, ensembleColor, parseDate, pieceEnsembleIds } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { PubRepertoire } from './components/PubRepertoire';
@@ -70,7 +70,7 @@ export function PublicEnsemble() {
   );
 
   const ensPieces = useMemo(
-    () => pieces.filter(p => p.ensembleId === id),
+    () => pieces.filter(p => pieceEnsembleIds(p).includes(id)),
     [pieces, id],
   );
 

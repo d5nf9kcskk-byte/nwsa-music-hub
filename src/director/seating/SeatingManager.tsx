@@ -4,7 +4,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useSeatingCharts } from '../hooks/useSeatingCharts';
 import { scoreOrderRank, lastName } from '../scoreOrder';
-import { todayStr, parseDate } from '../utils';
+import { todayStr, parseDate, pieceEnsembleIds } from '../utils';
 import type { SeatingChart, Student } from '../types';
 import { SeatingChartCard } from '../../public/components/SeatingChartCard';
 
@@ -22,7 +22,7 @@ export function SeatingManager({ ensembleId, ensembleName, onClose }: {
     () => students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(ensembleId)),
     [students, ensembleId],
   );
-  const ensemblePieces = pieces.filter(p => p.ensembleId === ensembleId);
+  const ensemblePieces = pieces.filter(p => pieceEnsembleIds(p).includes(ensembleId));
 
   if (editing) {
     return (

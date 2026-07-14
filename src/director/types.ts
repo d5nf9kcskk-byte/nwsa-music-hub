@@ -209,7 +209,12 @@ export interface PiecePartLink {
  */
 export interface RepertoirePiece {
   id: string;
-  ensembleId: string;
+  /** @deprecated Legacy single-ensemble field — still read for old pieces.
+   *  New writes populate `ensembleIds`; use `pieceEnsembleIds()` to read either. */
+  ensembleId?: string;
+  /** Ensembles that perform this piece. A piece can be shared across several
+   *  (e.g. 1812 Overture on Wind Ensemble + Symphony + Choir). */
+  ensembleIds?: string[];
   title: string;              // short working title for labels and lists
   fullTitle?: string;         // formal title e.g. "Symphony No. 5 in C minor, Op. 67"
   composer?: string;
