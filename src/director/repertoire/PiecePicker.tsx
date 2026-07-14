@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Search, Plus, Check, ChevronUp, ChevronDown, X } from 'lucide-react';
 import { useRepertoire } from '../hooks/useRepertoire';
+import { pieceEnsembleIds } from '../utils';
 import type { Ensemble } from '../types';
 
 interface Props {
@@ -30,7 +31,7 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange }: Props) 
   );
 
   const pool = ensembleIds.length
-    ? pieces.filter(p => ensembleIds.includes(p.ensembleId))
+    ? pieces.filter(p => pieceEnsembleIds(p).some(id => ensembleIds.includes(id)))
     : pieces;
 
   const filtered = search
@@ -57,12 +58,15 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange }: Props) 
 
   async function handleQuickAdd() {
     if (!qaTitle.trim()) return;
-    const ensId = ensembleIds[0] ?? ensembles[0]?.id ?? '';
-    if (!ensId) return;
+    // A piece quick-added from a concert belongs to all of that concert's
+    // ensembles (e.g. 1812 Overture on Wind + Symphony + Choir).
+    const ensIds = ensembleIds.length ? ensembleIds : (ensembles[0] ? [ensembles[0].id] : []);
+    if (ensIds.length === 0) return;
     setQaSaving(true);
-    const nextOrder = pieces.filter(p => p.ensembleId === ensId).reduce((m, p) => Math.max(m, p.order ?? 0), 0) + 1;
+    const nextOrder = pieces.filter(p => pieceEnsembleIds(p).includes(ensIds[0])).reduce((m, p) => Math.max(m, p.order ?? 0), 0) + 1;
     const newId = await addPiece({
-      ensembleId: ensId,
+      ensembleId: ensIds[0],
+      ensembleIds: ensIds,
       title: qaTitle.trim(),
       composer: qaComposer.trim() || undefined,
       order: nextOrder,
@@ -203,7 +207,7 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange }: Props) 
                   {p.composer && <span className="dir-piece-composer">{p.composer}</span>}
                 </span>
                 {ensembleIds.length === 0 && (
-                  <span className="dir-piece-ens">{ensembleMap[p.ensembleId]?.name ?? ''}</span>
+                  <span className="dir-piece-ens">{pieceEnsembleIds(p).map(id => ensembleMap[id]?.name).filter(Boolean).join(', ')}</span>
                 )}
               </button>
             );

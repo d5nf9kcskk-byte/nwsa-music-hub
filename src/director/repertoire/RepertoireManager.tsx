@@ -3,7 +3,7 @@ import { Plus, Pencil, Music, Trash2 } from 'lucide-react';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
-import { ensembleColor, parseDate, musicEnsembles } from '../utils';
+import { ensembleColor, parseDate, musicEnsembles, pieceEnsembleIds } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import type { RepertoirePiece, CalendarEvent, Ensemble, PieceMovement, PiecePartLink } from '../types';
 
@@ -13,10 +13,16 @@ interface Props {
   asTab?: boolean;
 }
 
+/** A piece is "on" a concert via EITHER linkage — the piece's own eventIds, or
+ *  the event's pieceIds (what the concert's piece-picker writes). Union so a
+ *  piece shows under its concert no matter which side linked it. */
+const pieceOnConcert = (p: RepertoirePiece, c: CalendarEvent) =>
+  (p.eventIds ?? []).includes(c.id) || (c.pieceIds ?? []).includes(p.id);
+
 export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
   const { pieces, addPiece, updatePiece, deletePiece } = useRepertoire();
   const { ensembles } = useEnsembles();
-  const { events } = useEvents();
+  const { events, updateEvent } = useEvents();
   const [editing, setEditing] = useState<RepertoirePiece | 'new' | null>(null);
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
@@ -33,7 +39,7 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
   // it. In drawer mode (no asTab, no ensembleId) there is no chip UI, so fall
   // back to showing every piece rather than a silently-stuck filter.
   const activeEns = ensembleId ?? (asTab ? filterEns : '');
-  const shown = activeEns ? pieces.filter(p => p.ensembleId === activeEns) : pieces;
+  const shown = activeEns ? pieces.filter(p => pieceEnsembleIds(p).includes(activeEns)) : pieces;
   const [groupBy, setGroupBy] = useState<'ensemble' | 'concert'>('ensemble');
 
   // Build grouped sections for the list view.
@@ -44,17 +50,17 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
         .sort((a, b) => a.date.localeCompare(b.date));
       const out: { key: string; label: string; color: string; pieces: typeof shown }[] = [];
       for (const c of concerts) {
-        const ps = shown.filter(p => (p.eventIds ?? []).includes(c.id));
+        const ps = shown.filter(p => pieceOnConcert(p, c));
         if (ps.length) out.push({ key: c.id, label: c.title || 'Concert', color: ensembleColor(ensembleMap[c.ensembleIds[0]]), pieces: ps });
       }
-      const unassigned = shown.filter(p => !(p.eventIds ?? []).some(id => events.find(e => e.id === id && e.type === 'Concert')));
+      const unassigned = shown.filter(p => !concerts.some(c => pieceOnConcert(p, c)));
       if (unassigned.length) out.push({ key: '_none', label: 'Not on a concert yet', color: '#94a3b8', pieces: unassigned });
       return out;
     }
-    // by ensemble
+    // by ensemble — a shared piece appears under each of its ensembles
     const out: { key: string; label: string; color: string; pieces: typeof shown }[] = [];
     for (const e of musicEnsembles([...ensembles].sort((a, b) => a.order - b.order))) {
-      const ps = shown.filter(p => p.ensembleId === e.id);
+      const ps = shown.filter(p => pieceEnsembleIds(p).includes(e.id));
       if (ps.length) out.push({ key: e.id, label: e.name, color: ensembleColor(e), pieces: ps });
     }
     return out;
@@ -62,10 +68,10 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
 
   if (editing) {
     const piece = editing === 'new' ? null : editing;
-    const scopedEnsId = piece?.ensembleId ?? ensembleId;
+    const scopedEnsId = (piece ? pieceEnsembleIds(piece)[0] : undefined) ?? ensembleId;
     const nextOrder =
       pieces
-        .filter(p => p.ensembleId === (scopedEnsId ?? p.ensembleId))
+        .filter(p => !scopedEnsId || pieceEnsembleIds(p).includes(scopedEnsId))
         .reduce((m, p) => Math.max(m, p.order ?? 0), 0) + 1;
     return (
       <RepertoireForm
@@ -75,8 +81,20 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
         lockedEnsembleId={ensembleId}
         nextOrder={nextOrder}
         onSave={async data => {
-          if (editing === 'new') await addPiece(data);
-          else await updatePiece(editing.id, data);
+          let pieceId: string | undefined;
+          if (editing === 'new') pieceId = await addPiece(data);
+          else { await updatePiece(editing.id, data); pieceId = editing.id; }
+          // Keep each concert's pieceIds in sync with the piece's "Programmed
+          // for" selection, so the concert-side and piece-side links never drift.
+          if (pieceId) {
+            const wanted = new Set(data.eventIds ?? []);
+            for (const ev of events) {
+              if (ev.type !== 'Concert' && ev.type !== 'Event') continue;
+              const has = (ev.pieceIds ?? []).includes(pieceId);
+              if (wanted.has(ev.id) && !has) await updateEvent(ev.id, { pieceIds: [...(ev.pieceIds ?? []), pieceId] });
+              else if (!wanted.has(ev.id) && has) await updateEvent(ev.id, { pieceIds: (ev.pieceIds ?? []).filter(id => id !== pieceId) });
+            }
+          }
         }}
         onDelete={editing !== 'new' ? async () => deletePiece(editing.id) : undefined}
         onBack={() => setEditing(null)}
@@ -86,14 +104,14 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
 
   const pieceRow = (p: RepertoirePiece) => (
     <div key={p.id} className="dir-ens-row" onClick={() => setEditing(p)}>
-      <span className="dir-ens-swatch" style={{ background: ensembleColor(ensembleMap[p.ensembleId]) }} />
+      <span className="dir-ens-swatch" style={{ background: ensembleColor(ensembleMap[pieceEnsembleIds(p)[0]]) }} />
       <div className="dir-ens-info">
         <div className="dir-ens-name">
           <Music size={12} style={{ verticalAlign: '-1px', marginRight: 4 }} />
           {p.title}
         </div>
         <div className="dir-ens-sub">
-          {[p.composer, groupBy === 'concert' && !ensembleId ? ensembleMap[p.ensembleId]?.name : null].filter(Boolean).join(' · ') || '—'}
+          {[p.composer, groupBy === 'concert' && !ensembleId ? pieceEnsembleIds(p).map(id => ensembleMap[id]?.name).filter(Boolean).join(', ') : null].filter(Boolean).join(' · ') || '—'}
           {p.duration ? ` · ${p.duration} min` : ''}
         </div>
       </div>
@@ -171,7 +189,10 @@ function RepertoireForm({
   piece, ensembles, events, lockedEnsembleId, nextOrder,
   onSave, onDelete, onBack,
 }: FormProps) {
-  const [ensembleId, setEnsembleId] = useState(piece?.ensembleId ?? lockedEnsembleId ?? ensembles[0]?.id ?? '');
+  const [ensembleIds, setEnsembleIds] = useState<string[]>(() => {
+    const init = piece ? pieceEnsembleIds(piece) : (lockedEnsembleId ? [lockedEnsembleId] : []);
+    return init.length ? init : (ensembles[0] ? [ensembles[0].id] : []);
+  });
   const [title, setTitle] = useState(piece?.title ?? '');
   const [fullTitle, setFullTitle] = useState(piece?.fullTitle ?? '');
   const [composer, setComposer] = useState(piece?.composer ?? '');
@@ -195,7 +216,13 @@ function RepertoireForm({
   const [partKeys, setPartKeys] = useState<number[]>(() => (piece?.partsLinks ?? []).map((_, i) => i + 1000));
   const rowSeq = useRef(2000);
   const [notes, setNotes] = useState(piece?.notes ?? '');
-  const [eventIds, setEventIds] = useState<string[]>(piece?.eventIds ?? []);
+  const [eventIds, setEventIds] = useState<string[]>(() => {
+    // Union of the piece's own eventIds and any concert that already lists this
+    // piece (linked from the concert view), so both show as checked.
+    const own = piece?.eventIds ?? [];
+    const viaEvents = piece ? events.filter(e => (e.pieceIds ?? []).includes(piece.id)).map(e => e.id) : [];
+    return [...new Set([...own, ...viaEvents])];
+  });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -205,13 +232,16 @@ function RepertoireForm({
 
   const linkableEvents = useMemo(
     () => events
-      .filter(e => e.ensembleIds.includes(ensembleId) && (e.type === 'Concert' || e.type === 'Event'))
+      .filter(e => e.ensembleIds.some(id => ensembleIds.includes(id)) && (e.type === 'Concert' || e.type === 'Event'))
       .sort((a, b) => a.date.localeCompare(b.date)),
-    [events, ensembleId],
+    [events, ensembleIds],
   );
 
   function toggleEvent(id: string) {
     setEventIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
+  }
+  function toggleEnsemble(id: string) {
+    setEnsembleIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
   }
 
   // Movements
@@ -248,7 +278,8 @@ function RepertoireForm({
     const cleanMovements = movements.filter(m => m.title.trim());
     const cleanParts = partsLinks.filter(l => l.instrument.trim() && l.url.trim());
     return {
-      ensembleId,
+      ensembleId: ensembleIds[0],   // keep the legacy field pointing at the primary
+      ensembleIds,
       title: title.trim(),
       fullTitle: fullTitle.trim() || undefined,
       composer: composer.trim() || undefined,
@@ -275,7 +306,7 @@ function RepertoireForm({
   }
 
   async function handleSave() {
-    if (!title.trim() || !ensembleId) return;
+    if (!title.trim() || ensembleIds.length === 0) return;
     setSaving(true);
     setSaveError('');
     try {
@@ -299,7 +330,7 @@ function RepertoireForm({
     onBack();
   }
 
-  const canSave = title.trim() && ensembleId;
+  const canSave = title.trim() && ensembleIds.length > 0;
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onBack()}>
@@ -314,10 +345,16 @@ function RepertoireForm({
 
           {!lockedEnsembleId && (
             <div className="dir-field">
-              <label className="dir-label">Ensemble *</label>
-              <select className="dir-input" value={ensembleId} onChange={e => setEnsembleId(e.target.value)}>
-                {ensembles.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-              </select>
+              <label className="dir-label">Ensembles *</label>
+              <div className="dir-checkbox-group">
+                {ensembles.map(e => (
+                  <label key={e.id} className={`dir-checkbox-tag ${ensembleIds.includes(e.id) ? 'checked' : ''}`}>
+                    <input type="checkbox" checked={ensembleIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
+                    {e.name}
+                  </label>
+                ))}
+              </div>
+              <div className="dir-field-hint">Pick every ensemble that plays this piece — e.g. Wind Ensemble + Symphony + Choir.</div>
             </div>
           )}
 

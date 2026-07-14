@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useEvents } from '../director/hooks/useEvents';
-import { ensembleColor, musicEnsembles } from '../director/utils';
+import { ensembleColor, musicEnsembles, pieceEnsembleIds } from '../director/utils';
 import { PubEnsembleSelect } from './components/PubEnsembleSelect';
 import { PubRepertoire } from './components/PubRepertoire';
 import { primaryStudent } from '../shared/identity';
@@ -18,8 +18,10 @@ export function PublicRepertoire() {
   const piecesByEnsemble = useMemo(() => {
     const m: Record<string, typeof pieces> = {};
     for (const p of pieces) {
-      if (!m[p.ensembleId]) m[p.ensembleId] = [];
-      m[p.ensembleId].push(p);
+      for (const eid of pieceEnsembleIds(p)) {
+        if (!m[eid]) m[eid] = [];
+        m[eid].push(p);
+      }
     }
     return m;
   }, [pieces]);

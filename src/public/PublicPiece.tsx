@@ -6,7 +6,7 @@ import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
 import { useStudents } from '../director/hooks/useStudents';
-import { parseDate, ensembleColor, findPartForInstrument } from '../director/utils';
+import { parseDate, ensembleColor, findPartForInstrument, pieceEnsembleIds } from '../director/utils';
 import { primaryStudent } from '../shared/identity';
 import { Linkify } from '../director/components/Linkify';
 import { GradientHero } from './components/GradientHero';
@@ -23,10 +23,10 @@ export function PublicPiece() {
   const { events } = useEvents();
 
   const piece = pieces.find(p => p.id === id);
-  const { charts: seatingCharts } = useSeatingCharts(piece?.ensembleId ?? '');
+  const { charts: seatingCharts } = useSeatingCharts(piece ? (pieceEnsembleIds(piece)[0] ?? '') : '');
   const { students: allStudents } = useStudents();
   const myPart = piece ? findPartForInstrument(piece, primaryStudent()?.instrument) : undefined;
-  const ensemble = useMemo(() => ensembles.find(e => e.id === piece?.ensembleId), [ensembles, piece]);
+  const ensemble = useMemo(() => piece ? ensembles.find(e => pieceEnsembleIds(piece).includes(e.id)) : undefined, [ensembles, piece]);
   const linkedEvents = useMemo(
     () => (piece?.eventIds ?? []).map(eid => events.find(e => e.id === eid)).filter(Boolean),
     [piece, events],
@@ -84,7 +84,7 @@ export function PublicPiece() {
           computed; prints as an outlined box. */}
       <GradientHero
         color={ensemble ? ensembleColor(ensemble) : '#0d7e8e'}
-        seed={piece.ensembleId || piece.id}
+        seed={pieceEnsembleIds(piece)[0] || piece.id}
         eyebrow={t('nav.repertoire')}
         title={piece.title}
         compact
