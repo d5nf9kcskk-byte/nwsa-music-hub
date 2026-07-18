@@ -13,6 +13,7 @@ import { FIXTURES_ON } from '../hooks/fixtures';
  */
 const DIRECTOR_EMAILS = [
   'nwsaorchestras@gmail.com',
+  'danielandai@gmail.com',
 ];
 
 interface Props {
