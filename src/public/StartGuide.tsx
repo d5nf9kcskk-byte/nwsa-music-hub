@@ -279,6 +279,10 @@ const GLOSSARY: { term: string; def: string }[] = [
     def: 'A rehearsal for one section only (just the violins, just the brass) instead of the full ensemble.',
   },
   {
+    term: 'Class',
+    def: 'A scheduled academic class — music theory, musicianship, and the like. Roll is taken, so it shows on the calendar like a rehearsal but in its own category.',
+  },
+  {
     term: 'Score order',
     def: 'The standard top-to-bottom ordering of instruments in a conductor’s score — woodwinds, brass, percussion, then strings. Rosters and lists often follow it.',
   },

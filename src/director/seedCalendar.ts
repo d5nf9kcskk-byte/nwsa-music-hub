@@ -205,7 +205,10 @@ function classEventDocs(): { id: string; data: SeedEventData }[] {
       docs.push({
         id: `class-${dateStr}-${classSlug(cls.title)}-${cls.start.replace(':', '')}`,
         data: {
-          type: 'Event',
+          // Academic classes are their own category, not generic events — so
+          // they show under the "Classes" filter/sections. They stay
+          // school-wide (no ensemble), so no per-ensemble roll is generated.
+          type: 'Class',
           ensembleIds: [],
           date: dateStr,
           title: cls.title,

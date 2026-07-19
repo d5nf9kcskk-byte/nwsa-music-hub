@@ -17,6 +17,7 @@ import { PublicEvent } from './public/PublicEvent';
 import { PublicAnnouncementsPage } from './public/PublicAnnouncements';
 import { PublicRepertoire } from './public/PublicRepertoire';
 import { PublicAssignments } from './public/PublicAssignments';
+import { PublicDocuments } from './public/PublicDocuments';
 import { StartGuide } from './public/StartGuide';
 import { SeasonPage } from './public/SeasonPage';
 import { CampusMap } from './public/CampusMap';
@@ -61,6 +62,7 @@ const router = createBrowserRouter(
         { path: 'event/:id', element: <PublicEvent /> },
         { path: 'announcements', element: <PublicAnnouncementsPage /> },
         { path: 'assignments', element: <PublicAssignments /> },
+        { path: 'documents', element: <PublicDocuments /> },
         { path: 'start', element: <StartGuide /> },
         { path: 'concerts', element: <SeasonPage /> },
         { path: 'map', element: <CampusMap /> },

@@ -1,0 +1,36 @@
+/* Public Documents page + per-ensemble document lists */
+
+.pub-doc-list { display: flex; flex-direction: column; gap: 8px; }
+
+.pub-doc-card {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 13px 14px;
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius);
+  text-decoration: none; color: inherit;
+}
+.pub-doc-card:hover { border-color: var(--pub-accent); }
+
+.pub-doc-icon { flex: none; margin-top: 1px; }
+.pub-doc-main { flex: 1; min-width: 0; }
+.pub-doc-title { font-size: 15.5px; font-weight: 700; color: var(--pub-ink); line-height: 1.3; }
+
+.pub-doc-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 5px; }
+.pub-doc-badge {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px;
+}
+.pub-doc-tag {
+  font-size: 11.5px; font-weight: 700; color: var(--pub-muted);
+  padding: 2px 8px; border-radius: 999px; background: var(--pub-accent-soft);
+}
+.pub-doc-desc { font-size: 13px; color: var(--pub-muted); margin-top: 6px; line-height: 1.45; }
+
+.pub-doc-open { flex: none; color: var(--pub-muted); margin-top: 2px; }
+
+.pub-doc-group-title {
+  font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--pub-muted); margin: 20px 0 8px;
+}
+.pub-doc-group-title:first-of-type { margin-top: 6px; }

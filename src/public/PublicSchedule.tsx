@@ -24,11 +24,12 @@ import { getIdentity } from '../shared/identity';
 import { t, useLang } from '../shared/i18n';
 import type { CalendarEvent } from '../director/types';
 
-type TypeFilter = 'all' | 'rehearsals' | 'concerts' | 'events';
+type TypeFilter = 'all' | 'rehearsals' | 'classes' | 'concerts' | 'events';
 
 const FILTERS: { key: TypeFilter; label: string }[] = [
   { key: 'all',        label: 'All' },
   { key: 'rehearsals', label: 'Rehearsals' },
+  { key: 'classes',    label: 'Classes' },
   { key: 'concerts',   label: 'Concerts' },
   { key: 'events',     label: 'Events' },
 ];
@@ -36,6 +37,7 @@ const FILTERS: { key: TypeFilter; label: string }[] = [
 function matchesFilter(e: CalendarEvent, f: TypeFilter): boolean {
   if (f === 'all') return true;
   if (f === 'rehearsals') return e.type === 'Rehearsal' || e.type === 'Sectional';
+  if (f === 'classes') return e.type === 'Class';
   if (f === 'concerts') return e.type === 'Concert';
   return e.type === 'Event';
 }

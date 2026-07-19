@@ -62,6 +62,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
     [events, today, ensembleId]);
 
   const upRehearsals = future.filter(e => e.type === 'Rehearsal' || e.type === 'Sectional').slice(0, 6);
+  const upClasses = future.filter(e => e.type === 'Class').slice(0, 5);
   const upConcerts = future.filter(e => e.type === 'Concert').slice(0, 4);
   const upEvents = future.filter(e => e.type === 'Event').slice(0, 5);
   const upAssignments = useMemo(() =>
@@ -232,6 +233,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
 
         {/* Coming up */}
         {upRehearsals.length > 0 && (<><div className="dir-section-head"><span>Coming up — rehearsals</span></div>{upRehearsals.map(upRow)}</>)}
+        {upClasses.length > 0 && (<><div className="dir-section-head"><span>Coming up — classes</span></div>{upClasses.map(upRow)}</>)}
         {upConcerts.length > 0 && (<><div className="dir-section-head"><span>Coming up — concerts</span></div>{upConcerts.map(upRow)}</>)}
         {upEvents.length > 0 && (<><div className="dir-section-head"><span>Coming up — events</span></div>{upEvents.map(upRow)}</>)}
         {upAssignments.length > 0 && (

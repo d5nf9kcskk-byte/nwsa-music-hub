@@ -8,6 +8,62 @@
   background: var(--pub-surface);
 }
 
+/* ── Most-used locations: highlight rings on the official map + legend ─── */
+.pub-campus-intro { margin: -4px 0 12px; }
+
+.pub-campus-map-wrap { position: relative; margin-bottom: 14px; }
+.pub-campus-map-wrap .pub-campus-map-img { margin-bottom: 0; }
+
+/* A colored ring centered over the building's numbered circle on the map.
+   The map's own number stays visible inside the ring. */
+.pub-campus-pin {
+  position: absolute;
+  width: 34px; height: 34px;
+  transform: translate(-50%, -50%);
+  border: 3px solid; border-radius: 50%;
+  background: transparent; padding: 0; cursor: pointer;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 2px 8px rgba(15, 23, 42, 0.35);
+}
+.pub-campus-pin.active { box-shadow: 0 0 0 4px currentColor, 0 2px 8px rgba(15, 23, 42, 0.35); }
+@media (max-width: 480px) {
+  .pub-campus-pin { width: 26px; height: 26px; border-width: 2.5px; }
+}
+
+.pub-campus-mi {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 13px; margin-bottom: 20px;
+  background: var(--pub-accent); color: #fff;
+  border-radius: 12px; font-size: 15px; font-weight: 700; text-decoration: none;
+}
+.pub-campus-mi:hover { filter: brightness(1.05); }
+
+.pub-campus-legend {
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius);
+  overflow: hidden;
+  margin-bottom: 22px;
+}
+.pub-campus-leg-row {
+  display: flex; align-items: flex-start; gap: 11px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--pub-border);
+  scroll-margin-top: 72px;
+}
+.pub-campus-leg-row:last-child { border-bottom: none; }
+.pub-campus-leg-row.highlight { background: var(--pub-accent-soft); box-shadow: inset 3px 0 0 var(--pub-accent); }
+.pub-campus-leg-badge {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  min-width: 34px; height: 26px; padding: 0 7px;
+  color: #fff; font-size: 13px; font-weight: 800; border-radius: 7px;
+}
+.pub-campus-leg-info { min-width: 0; }
+.pub-campus-leg-title {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 15px; font-weight: 700; color: var(--pub-ink);
+}
+.pub-campus-leg-blurb { font-size: 13px; color: var(--pub-muted); margin-top: 3px; line-height: 1.45; }
+
 .pub-map-placeholder {
   display: flex; align-items: center; gap: 10px;
   margin-bottom: 18px;
