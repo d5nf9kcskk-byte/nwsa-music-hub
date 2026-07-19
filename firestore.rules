@@ -43,6 +43,10 @@ service cloud.firestore {
     match /assignments/{doc}     { allow read; allow write: if signedIn(); }
     match /seatingCharts/{doc}   { allow read; allow write: if signedIn(); }
     match /locations/{doc}       { allow read; allow write: if signedIn(); }
+    // Document repository (syllabi, handbooks, forms). Metadata is public so the
+    // Documents page and per-ensemble lists can render; the files themselves
+    // live in Storage. Only a director may add/edit/remove entries.
+    match /documents/{doc}       { allow read; allow write: if signedIn(); }
 
     // Planned absences (#27): anyone may SUBMIT one (create-only, shape-checked),
     // but only directors can read the queue or change/delete entries — so the

@@ -5,9 +5,8 @@ import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
-import { todayStr, toDateStr, parseDate, ensembleColor, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
-import { PubEnsembleSelect } from './components/PubEnsembleSelect';
-import { PubSelect } from './components/PubSelect';
+import { todayStr, toDateStr, parseDate, ensembleColor, assignmentEmoji, musicEnsembles, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { FilterMenu } from '../shared/FilterMenu';
 import { PubEventCard } from './components/PubEventCard';
 import { PageHeader, EmptyState } from './components/PageHeader';
 import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
@@ -18,21 +17,32 @@ import type { CalendarEvent } from '../director/types';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-type TypeFilter = 'all' | 'Rehearsal' | 'Concert' | 'Event' | 'Assignment';
-function matchesType(e: CalendarEvent, f: TypeFilter): boolean {
-  if (f === 'all') return true;
-  if (f === 'Assignment') return false; // assignments are a parallel stream
-  if (f === 'Rehearsal') return e.type === 'Rehearsal' || e.type === 'Sectional';
-  return e.type === f;
+// The type-filter buckets. Sectionals fold into "Rehearsals"; everything else
+// is its own bucket. Empty selection === show all. Assignments are a parallel
+// stream (due dates), handled separately below.
+type TypeKey = 'Rehearsal' | 'Class' | 'Concert' | 'Event' | 'Assignment';
+
+const TYPE_OPTIONS: { value: TypeKey; labelKey: string; color: string }[] = [
+  { value: 'Rehearsal', labelKey: 'cal.rehearsals', color: '#2563eb' },
+  { value: 'Class',      labelKey: 'cal.classes',    color: '#0f766e' },
+  { value: 'Concert',    labelKey: 'cal.concerts',   color: CONCERT_COLOR },
+  { value: 'Event',      labelKey: 'cal.events',     color: '#64748b' },
+  { value: 'Assignment', labelKey: 'cal.assignments', color: ASSIGN_COLOR },
+];
+
+/** Which type bucket an event falls into (Sectional → Rehearsal). */
+function eventTypeKey(t: CalendarEvent['type']): Exclude<TypeKey, 'Assignment'> {
+  if (t === 'Sectional' || t === 'Rehearsal') return 'Rehearsal';
+  if (t === 'Class') return 'Class';
+  if (t === 'Concert') return 'Concert';
+  return 'Event';
 }
 
-const TYPE_LABEL_KEY: Record<TypeFilter, string> = {
-  all: 'cal.everything',
-  Rehearsal: 'cal.rehearsals',
-  Concert: 'cal.concerts',
-  Event: 'cal.events',
-  Assignment: 'cal.assignments',
-};
+/** Empty `keys` = no type filter (show all). */
+function matchesTypes(e: CalendarEvent, keys: TypeKey[]): boolean {
+  if (keys.length === 0) return true;
+  return keys.includes(eventTypeKey(e.type));
+}
 
 export function PublicCalendar() {
   useLang(); // re-render labels on EN/ES switch
@@ -48,41 +58,49 @@ export function PublicCalendar() {
     return d;
   });
   const [selectedDate, setSelectedDate] = useState(todayStr);
-  const [filterEnsembleId, setFilterEnsembleId] = useState(() => searchParams.get('ensemble') ?? '');
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  // Multi-select filters: several ensembles AND several types at once (e.g.
+  // Symphony + Camerata, showing Rehearsals + Concerts). Empty === all.
+  const [filterEnsembleIds, setFilterEnsembleIds] = useState<string[]>(
+    () => (searchParams.get('ensemble') ?? '').split(',').map(s => s.trim()).filter(Boolean),
+  );
+  const [typeFilters, setTypeFilters] = useState<TypeKey[]>([]);
   const [view, setView] = useState<'month' | 'list'>('month');
 
-  // Keep the ?ensemble= deep-link in sync with the chosen filter.
+  // Keep the ?ensemble= deep-link (comma-separated) in sync with the chosen
+  // ensembles, so a filtered calendar is shareable and survives reload.
   useEffect(() => {
     const current = searchParams.get('ensemble') ?? '';
-    if (current !== filterEnsembleId) {
+    const wanted = filterEnsembleIds.join(',');
+    if (current !== wanted) {
       const next = new URLSearchParams(searchParams);
-      if (filterEnsembleId) next.set('ensemble', filterEnsembleId);
+      if (wanted) next.set('ensemble', wanted);
       else next.delete('ensemble');
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterEnsembleId]);
+  }, [filterEnsembleIds]);
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
 
-  // School-wide events (ensembleIds: []) are always visible regardless of filter.
-  const visible = (filterEnsembleId
-    ? events.filter(e => e.ensembleIds.length === 0 || e.ensembleIds.includes(filterEnsembleId))
-    : events
-  ).filter(e => matchesType(e, typeFilter));
+  // School-wide events (ensembleIds: []) are always visible regardless of the
+  // ensemble filter; the type filter still applies to them.
+  const visible = events.filter(e =>
+    (filterEnsembleIds.length === 0 || e.ensembleIds.length === 0 || e.ensembleIds.some(id => filterEnsembleIds.includes(id)))
+    && matchesTypes(e, typeFilters),
+  );
 
   const upcoming = useMemo(
     () => [...visible].filter(e => e.date >= todayStr()).sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99')),
     [visible],
   );
 
-  // Assignments as a parallel calendar stream (due dates).
+  // Assignments as a parallel calendar stream (due dates). Shown when no type
+  // filter is set, or when "Assignments" is one of the chosen types.
   const visibleAssignments = useMemo(() => {
-    if (typeFilter !== 'all' && typeFilter !== 'Assignment') return [];
-    return assignments.filter(a => !filterEnsembleId || a.ensembleIds.includes(filterEnsembleId));
-  }, [assignments, filterEnsembleId, typeFilter]);
+    if (typeFilters.length > 0 && !typeFilters.includes('Assignment')) return [];
+    return assignments.filter(a => filterEnsembleIds.length === 0 || a.ensembleIds.some(id => filterEnsembleIds.includes(id)));
+  }, [assignments, filterEnsembleIds, typeFilters]);
   const assignByDate = useMemo(() => {
     const m: Record<string, typeof assignments> = {};
     for (const a of visibleAssignments) (m[a.dueDate] ??= []).push(a);
@@ -144,14 +162,24 @@ export function PublicCalendar() {
         }
       />
 
-      {/* Filters — compact dropdowns (ensemble + type) instead of chip rows. */}
+      {/* Filters — multi-select menus: pick several ensembles AND several
+          types at once (e.g. Symphony + Camerata → Rehearsals + Concerts). */}
       <div className="pub-filter-selects">
-        <PubEnsembleSelect ensembles={ensembles} value={filterEnsembleId} onChange={setFilterEnsembleId} allLabel={t('cal.allEnsembles')} />
-        <PubSelect
-          value={typeFilter}
-          onChange={v => setTypeFilter(v as TypeFilter)}
-          ariaLabel="Filter by type"
-          options={(['all', 'Rehearsal', 'Concert', 'Event', 'Assignment'] as TypeFilter[]).map(f => ({ value: f, label: t(TYPE_LABEL_KEY[f]) }))}
+        <FilterMenu
+          prefix="pub"
+          allLabel={t('nav.allEnsembles')}
+          ariaLabel={t('nav.ensembles')}
+          options={musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => ({ value: e.id, label: e.name, color: ensembleColor(e) }))}
+          selected={filterEnsembleIds}
+          onChange={setFilterEnsembleIds}
+        />
+        <FilterMenu
+          prefix="pub"
+          allLabel={t('cal.allTypes')}
+          ariaLabel={t('cal.filterTypes')}
+          options={TYPE_OPTIONS.map(o => ({ value: o.value, label: t(o.labelKey), color: o.color }))}
+          selected={typeFilters}
+          onChange={next => setTypeFilters(next as TypeKey[])}
         />
       </div>
 
@@ -259,7 +287,7 @@ export function PublicCalendar() {
       )}
 
       <div className="pub-subscribe-section">
-        <SubscribeButton ensembleId={filterEnsembleId || undefined} />
+        <SubscribeButton ensembleId={filterEnsembleIds.length === 1 ? filterEnsembleIds[0] : undefined} />
       </div>
     </div>
   );

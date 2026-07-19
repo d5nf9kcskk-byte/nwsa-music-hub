@@ -50,6 +50,9 @@ export function PublicHome() {
     .sort(byDateTime);
   const moreRehearsalsExist = future.some(e =>
     (e.type === 'Rehearsal' || e.type === 'Sectional') && e.date > horizon);
+  const upcomingClasses = future.filter(e => e.type === 'Class')
+    .filter(e => e.date <= horizon)
+    .sort(byDateTime);
   // Concerts/events look far ahead but always end on a day boundary.
   const upcomingConcerts = capWholeDays(future.filter(e => e.type === 'Concert').sort(byDateTime), 5);
   const upcomingEvents = capWholeDays(future.filter(e => e.type === 'Event').sort(byDateTime), 6);
@@ -140,6 +143,13 @@ export function PublicHome() {
               {t('misc.showMoreDays')} <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
             </button>
           )}
+        </>
+      )}
+
+      {upcomingClasses.length > 0 && (
+        <>
+          <h2 className="pub-section-title">{t('home.comingUpClasses')}</h2>
+          {upcomingClasses.map(e => <UpcomingRow key={e.id} e={e} label={label(e)} color={color(e)} />)}
         </>
       )}
 

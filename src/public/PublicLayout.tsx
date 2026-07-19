@@ -2,7 +2,7 @@ import './uiUpdates.css';
 import './pubShell.css';
 import { useState } from 'react';
 import { Outlet, NavLink, Link, ScrollRestoration } from 'react-router';
-import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned } from 'lucide-react';
+import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned, FolderOpen } from 'lucide-react';
 import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
 import { StatusStrips } from '../shared/StatusStrips';
@@ -23,6 +23,7 @@ const NAV = [
   { to: '/announcements', label: 'nav.announcements', Icon: Megaphone, end: false },
   { to: '/repertoire', label: 'nav.repertoire', Icon: Music, end: false },
   { to: '/assignments', label: 'nav.assignmentsShort', Icon: ClipboardCheck, end: false },
+  { to: '/documents', label: 'nav.documents', Icon: FolderOpen, end: false },
   { to: '/lookup', label: 'nav.mySchedule', Icon: UserSearch, end: false },
   { to: '/map', label: 'nav.campusMap', Icon: MapPinned, end: false },
   { to: '/start', label: 'nav.startHere', Icon: HelpCircle, end: false },
@@ -184,6 +185,9 @@ export function PublicLayout() {
             </NavLink>
             <NavLink to="/assignments" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
               <ClipboardCheck size={18} />{t('nav.assignmentsShort')}
+            </NavLink>
+            <NavLink to="/documents" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+              <FolderOpen size={18} />{t('nav.documents')}
             </NavLink>
             <NavLink to="/map" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
               <MapPinned size={18} />{t('nav.campusMap')}

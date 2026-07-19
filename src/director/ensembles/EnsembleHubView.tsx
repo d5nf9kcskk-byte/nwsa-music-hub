@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ClipboardList, Users, Calendar, Music, Megaphone, Clock, MapPin, Sparkles, Armchair } from 'lucide-react';
+import { ClipboardList, Users, Calendar, Music, Megaphone, Clock, MapPin, Sparkles, Armchair, FolderOpen } from 'lucide-react';
 import { SeatingManager } from '../seating/SeatingManager';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
@@ -102,6 +102,9 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           </button>
           <button className="dir-hub-btn" onClick={() => onNavigate('repertoire', { ensembleId })}>
             <Music size={20} /> Repertoire
+          </button>
+          <button className="dir-hub-btn" onClick={() => onNavigate('documents', { ensembleId })}>
+            <FolderOpen size={20} /> Documents
           </button>
           <button className="dir-hub-btn" onClick={() => onNavigate('announcements')}>
             <Megaphone size={20} /> Announcements{myAnnouncements > 0 ? ` (${myAnnouncements})` : ''}

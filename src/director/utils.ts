@@ -110,14 +110,27 @@ export const ENSEMBLE_PALETTE = PALETTE;
 
 // ── Event type display ──────────────────────────────────────────────
 
-export const EVENT_TYPES: EventType[] = ['Rehearsal', 'Concert', 'Sectional', 'Event'];
+// 'Class' sits next to Rehearsal — both are roll-taking meetings of an
+// ensemble/section — with Concert/Event (no roll) after.
+export const EVENT_TYPES: EventType[] = ['Rehearsal', 'Class', 'Sectional', 'Concert', 'Event'];
 
 export const EVENT_TYPE_ICON: Record<EventType, string> = {
   Rehearsal: '🎵',
+  Class: '📚',
   Concert: '🎭',
   Sectional: '🎻',
   Event: '📌',
 };
+
+/**
+ * Event types the director takes roll for. A class meets on a schedule and its
+ * attendance matters exactly like a rehearsal or sectional, so it counts here;
+ * concerts and one-off events do not. Centralized so every attendance surface
+ * agrees on what "a rehearsal day" means.
+ */
+export function takesAttendance(type: EventType): boolean {
+  return type === 'Rehearsal' || type === 'Sectional' || type === 'Class';
+}
 
 // ── Repertoire helpers ─────────────────────────────────────────────────
 
