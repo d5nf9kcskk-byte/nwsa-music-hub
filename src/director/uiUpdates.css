@@ -390,6 +390,40 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-type-filter-label { font-size: 13px; font-weight: 700; color: var(--dir-text-muted); }
 .dir-type-select { flex: 1; max-width: 220px; min-height: 38px; }
 
+/* ── Multi-select filter menu (FilterMenu) — director surface ───────────── */
+.dir-multi-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 16px 8px; }
+.dir-multi-filter-label { font-size: 13px; font-weight: 700; color: var(--dir-text-muted); white-space: nowrap; }
+.dir-fm { position: relative; flex: 1 1 160px; min-width: 150px; max-width: 280px; }
+.dir-fm-btn {
+  display: flex; align-items: center; gap: 6px; width: 100%; min-height: 40px;
+  padding: 9px 12px; font-size: 14px; font-weight: 700; color: var(--dir-text);
+  background: var(--dir-surface); border: 1.5px solid var(--dir-border); border-radius: var(--dir-radius-sm);
+  cursor: pointer; text-align: left;
+}
+.dir-fm-btn.active { border-color: var(--dir-primary); }
+.dir-fm-btn-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dir-fm-caret { flex: none; color: var(--dir-text-muted); transition: transform 0.15s; }
+.dir-fm-panel {
+  position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; min-width: 100%;
+  max-height: 340px; overflow-y: auto; padding: 6px;
+  background: var(--dir-surface); border: 1.5px solid var(--dir-border);
+  border-radius: var(--dir-radius-sm); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+.dir-fm-opt {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 9px 10px; font-size: 14px; font-weight: 600; color: var(--dir-text);
+  background: none; border: none; border-radius: 8px; cursor: pointer; text-align: left; white-space: nowrap;
+}
+.dir-fm-opt:hover { background: var(--dir-surface-2); }
+.dir-fm-opt.checked { color: var(--dir-primary); }
+.dir-fm-box {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 18px; height: 18px; border: 1.5px solid var(--dir-border); border-radius: 5px; color: #fff;
+}
+.dir-fm-opt.checked .dir-fm-box { background: var(--dir-primary); border-color: var(--dir-primary); }
+.dir-fm-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+.dir-fm-opt-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
 /* Opt-in dark theme for the back end (Moon/Sun toggle in the header). The
    content surfaces are token-driven, so overriding the core tokens re-themes
    the whole editing area; the header and Director Panel strip are already dark. */

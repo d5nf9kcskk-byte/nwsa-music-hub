@@ -55,7 +55,12 @@ export interface StudentContact {
   extra?: Record<string, string>;
 }
 
-export type EventType = 'Rehearsal' | 'Concert' | 'Sectional' | 'Event';
+// 'Class' is a scheduled academic meeting (music theory, musicianship, AP, …).
+// It is its OWN category — a class is not a generic "Event". Like a rehearsal
+// or sectional it meets on a schedule and the director takes roll for it, so it
+// is attendance-eligible (see `takesAttendance` in utils.ts). Kept last-but-one
+// in the union so older readers that only knew the first four still narrow.
+export type EventType = 'Rehearsal' | 'Concert' | 'Sectional' | 'Class' | 'Event';
 export type EventStatus = 'Scheduled' | 'Completed' | 'Cancelled';
 
 /**
@@ -321,6 +326,52 @@ export interface CampusLocation {
   label: string;          // e.g. "Band Hall"
   directions?: string;    // e.g. "enter through East doors"
   mapAnchor?: string;     // fragment id on the campus-map image
+}
+
+/**
+ * Document repository (#doc-hub). One uploaded file or external link that the
+ * director publishes for students/parents — a syllabus, handbook, form, policy,
+ * etc. World-readable (it powers the public Documents page and per-ensemble
+ * document lists), so never attach anything private here.
+ *
+ * Two independent tag axes let the same library serve everyone:
+ *   • ensembleIds — which ensembles this belongs to. EMPTY = "General
+ *     documents" (school-wide), e.g. a student handbook that isn't tied to one
+ *     ensemble. A doc can be shared across several ensembles.
+ *   • category — what KIND of document it is (Syllabus, Handbook, Form, …), so
+ *     the repository can be filtered "Symphony → Syllabus" or
+ *     "General → Handbook" independently of the ensemble tag.
+ */
+export type DocumentCategory =
+  | 'Syllabus'
+  | 'Handbook'
+  | 'Form'
+  | 'Policy'
+  | 'Repertoire'
+  | 'Calendar'
+  | 'Newsletter'
+  | 'Other';
+
+/** Distinguishes the two divisions a single title can exist for — e.g. the
+ *  high-school student handbook vs. the college student handbook. */
+export type DocumentAudience = 'All' | 'High School' | 'College';
+
+export interface LibraryDocument {
+  id: string;
+  title: string;
+  category: DocumentCategory;
+  /** Empty = General (school-wide, not tied to an ensemble). */
+  ensembleIds: string[];
+  audience?: DocumentAudience;
+  /** An uploaded file (Firebase Storage) … */
+  file?: Attachment;
+  /** … or an external link (Google Drive, district site, etc.). At least one
+   *  of `file` / `url` is set; a doc may carry both (link + mirror). */
+  url?: string;
+  description?: string;
+  createdAt: number;
+  updatedAt?: number;
+  order?: number;
 }
 
 /** Outbound notification queue (#21): the app writes, a scheduled Power

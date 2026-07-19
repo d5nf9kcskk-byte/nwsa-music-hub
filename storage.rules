@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// NWSA Music Hub — Firebase Storage security rules
+//
+// Uploaded files back two public features: assignment attachments and the
+// document repository (syllabi, handbooks, forms). The files are world-
+// READABLE (their links are already public in Firestore), and only a signed-in
+// director on the allowlist may upload, overwrite, or delete them.
+//
+// Keep the director allowlist below in sync with firestore.rules.
+//
+// Deploy with:  firebase deploy --only storage
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.email in [
+          'nwsaorchestras@gmail.com'
+          // add more director emails here, comma-separated
+        ];
+    }
+
+    // Assignment attachments and document-repository files.
+    match /assignments/{allPaths=**} { allow read; allow write: if signedIn(); }
+    match /documents/{allPaths=**}   { allow read; allow write: if signedIn(); }
+
+    // Deny everything else by default.
+    match /{allPaths=**}             { allow read, write: if false; }
+  }
+}

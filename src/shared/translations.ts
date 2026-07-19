@@ -31,6 +31,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.search':           { en: 'Search',              es: 'Buscar' },
   'nav.notYouSwitch':     { en: 'Not you? Switch',     es: '¿No eres tú? Cambiar' },
   'nav.campusMap':        { en: 'Campus Map',          es: 'Mapa del campus' },
+  'nav.documents':        { en: 'Documents',           es: 'Documentos' },
   'nav.resources':        { en: 'Resources',           es: 'Recursos' },
   'nav.searchPlaceholder': { en: 'Search events, ensembles, music…', es: 'Buscar eventos, ensambles, música…' },
 
@@ -43,6 +44,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   // ── Home headings + quick actions ───────────────────────────────────────
   'home.todayAt':               { en: 'Today at NWSA Music',                es: 'Hoy en NWSA Music' },
   'home.comingUpRehearsals':    { en: 'Coming up — rehearsals',             es: 'Próximos ensayos' },
+  'home.comingUpClasses':       { en: 'Coming up — classes',                es: 'Próximas clases' },
   'home.comingUpConcerts':      { en: 'Coming up — concerts',               es: 'Próximos conciertos' },
   'home.comingUpEvents':        { en: 'Coming up — events & school dates',  es: 'Próximos eventos y fechas escolares' },
   'home.comingUpAssignments':   { en: 'Coming up — assignments & exams',    es: 'Próximas tareas y exámenes' },
@@ -88,6 +90,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   // ── Calendar page ───────────────────────────────────────────────────────
   'cal.everything':       { en: 'Everything',         es: 'Todo' },
   'cal.rehearsals':       { en: 'Rehearsals',         es: 'Ensayos' },
+  'cal.classes':          { en: 'Classes',            es: 'Clases' },
   'cal.concerts':         { en: 'Concerts',           es: 'Conciertos' },
   'cal.events':           { en: 'Events',             es: 'Eventos' },
   'cal.assignments':      { en: 'Assignments',        es: 'Tareas' },
@@ -96,6 +99,9 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'cal.nothingScheduled': { en: 'Nothing scheduled.', es: 'No hay nada programado.' },
   'cal.nothingUpcoming':  { en: 'Nothing coming up for this filter.', es: 'No hay nada próximo con este filtro.' },
   'cal.allEnsembles':     { en: 'All',                es: 'Todos' },
+  'cal.allTypes':         { en: 'All types',          es: 'Todos los tipos' },
+  'cal.filterTypes':      { en: 'Types',              es: 'Tipos' },
+  'cal.clearFilter':      { en: 'Clear',              es: 'Limpiar' },
   'cal.due':              { en: 'Due',                es: 'Entrega' },
   'cal.today':            { en: 'Today',              es: 'Hoy' },
 
@@ -141,6 +147,17 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'assign.dueSoon':    { en: 'Due soon',                       es: 'Próximas entregas' },
   'assign.nothingDue': { en: 'Nothing due right now. Check back soon!', es: 'No hay nada pendiente por ahora. ¡Vuelve pronto!' },
   'assign.individual': { en: 'Individual',                     es: 'Individual' },
+
+  // ── Documents page ──────────────────────────────────────────────────────
+  'docs.title':         { en: 'Documents',  es: 'Documentos' },
+  'docs.intro':         { en: 'Handbooks, syllabi, forms, and other resources for your ensembles.', es: 'Manuales, programas de estudio, formularios y otros recursos para tus ensambles.' },
+  'docs.general':       { en: 'General documents', es: 'Documentos generales' },
+  'docs.allTypes':      { en: 'All types',   es: 'Todos los tipos' },
+  'docs.allEnsembles':  { en: 'All ensembles', es: 'Todos los ensambles' },
+  'docs.none':          { en: 'No documents yet.', es: 'Aún no hay documentos.' },
+  'docs.noneFilter':    { en: 'No documents match this filter.', es: 'Ningún documento coincide con este filtro.' },
+  'docs.open':          { en: 'Open',        es: 'Abrir' },
+  'docs.section':       { en: 'Documents',   es: 'Documentos' },
 
   // ── Misc ────────────────────────────────────────────────────────────────
   'misc.loading':        { en: 'Loading…',           es: 'Cargando…' },

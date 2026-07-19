@@ -10,16 +10,28 @@ import { resolveRoster, overrideSummary } from '../rosterResolver';
 import { EventForm } from './EventForm';
 import { EventRoster } from './EventRoster';
 import { IcsImport } from './IcsImport';
-import { EnsembleFilter } from '../components/EnsembleFilter';
+import { FilterMenu } from '../../shared/FilterMenu';
 import { seedCalendar, seedSchoolCalendar, seedExtraSchedule } from '../seedCalendar';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
 import {
-  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR,
+  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, EVENT_TYPE_ICON, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR,
 } from '../utils';
-import type { CalendarEvent } from '../types';
+import type { CalendarEvent, EventType } from '../types';
 import { Linkify } from '../components/Linkify';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+// Sentinel for the "school-wide events only" pick in the ensemble filter menu.
+const SCHOOL = '__school__';
+type SchedTypeKey = EventType | 'Assignment';
+const SCHED_TYPE_OPTIONS: { value: SchedTypeKey; label: string; color: string }[] = [
+  { value: 'Rehearsal', label: 'Rehearsals', color: '#2563eb' },
+  { value: 'Class',     label: 'Classes',    color: '#0f766e' },
+  { value: 'Sectional', label: 'Sectionals', color: '#0891b2' },
+  { value: 'Concert',   label: 'Concerts',   color: CONCERT_COLOR },
+  { value: 'Event',     label: 'Events',     color: '#64748b' },
+  { value: 'Assignment', label: 'Assignments', color: ASSIGN_COLOR },
+];
 
 export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = '', onNavigate }: {
   initialDate?: string;
@@ -40,8 +52,11 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
     return d;
   });
   const [selectedDate, setSelectedDate] = useState(initialDate ?? todayStr());
-  const [filterEnsembleId, setFilterEnsembleId] = useState(initialEnsembleId);
-  const [typeFilter, setTypeFilter] = useState<'all' | 'Rehearsal' | 'Sectional' | 'Concert' | 'Event' | 'Assignment'>('all');
+  // Multi-select: filter by several ensembles AND several types at once.
+  // Empty === all. `initialEnsembleId` (a deep-link from an ensemble hub) seeds
+  // the ensemble selection.
+  const [filterEnsembleIds, setFilterEnsembleIds] = useState<string[]>(initialEnsembleId ? [initialEnsembleId] : []);
+  const [typeFilters, setTypeFilters] = useState<SchedTypeKey[]>([]);
   const [calView, setCalView] = useState<'month' | 'list'>('month');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
   const [rosterEvent, setRosterEvent] = useState<CalendarEvent | null>(null);
@@ -104,20 +119,23 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
 
   const hasSchoolEvents = useMemo(() => events.some(e => e.ensembleIds.length === 0), [events]);
 
-  // School-wide events (ensembleIds: []) are always visible regardless of filter;
-  // the special 'school' filter shows ONLY them.
+  // School-wide events (ensembleIds: []) are always visible unless the filter
+  // is narrowed to ONLY the "School events" pick, which shows just them.
+  const realEnsIds = useMemo(() => filterEnsembleIds.filter(x => x !== SCHOOL), [filterEnsembleIds]);
+  const onlySchool = filterEnsembleIds.includes(SCHOOL) && realEnsIds.length === 0;
   const visibleEvents = useMemo(
     () => {
-      const byEns = filterEnsembleId === 'school'
-        ? events.filter(e => e.ensembleIds.length === 0)
-        : filterEnsembleId
-          ? events.filter(e => e.ensembleIds.length === 0 || e.ensembleIds.includes(filterEnsembleId))
-          : events;
-      if (typeFilter === 'all') return byEns;
-      if (typeFilter === 'Assignment') return [];
-      return byEns.filter(e => e.type === typeFilter);
+      const byEns = filterEnsembleIds.length === 0
+        ? events
+        : onlySchool
+          ? events.filter(e => e.ensembleIds.length === 0)
+          : events.filter(e => e.ensembleIds.length === 0 || e.ensembleIds.some(id => realEnsIds.includes(id)));
+      const typeSel = typeFilters.filter((t): t is EventType => t !== 'Assignment');
+      if (typeFilters.length === 0) return byEns;
+      if (typeSel.length === 0) return []; // only "Assignments" chosen → no events
+      return byEns.filter(e => typeSel.includes(e.type));
     },
-    [events, filterEnsembleId, typeFilter],
+    [events, filterEnsembleIds, realEnsIds, onlySchool, typeFilters],
   );
 
   const eventsByDate = useMemo(() => {
@@ -128,10 +146,10 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
 
   // Assignment due dates as a parallel stream on the calendar.
   const visibleAssignments = useMemo(() => {
-    if (typeFilter !== 'all' && typeFilter !== 'Assignment') return [];
-    if (filterEnsembleId === 'school') return [];
-    return assignments.filter(a => !filterEnsembleId || a.ensembleIds.includes(filterEnsembleId));
-  }, [assignments, filterEnsembleId, typeFilter]);
+    if (typeFilters.length > 0 && !typeFilters.includes('Assignment')) return [];
+    if (onlySchool) return [];
+    return assignments.filter(a => realEnsIds.length === 0 || a.ensembleIds.some(id => realEnsIds.includes(id)));
+  }, [assignments, realEnsIds, onlySchool, typeFilters]);
   const assignByDate = useMemo(() => {
     const m: Record<string, typeof assignments> = {};
     for (const a of visibleAssignments) (m[a.dueDate] ??= []).push(a);
@@ -334,25 +352,28 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           </button>
       </div>
 
-      {/* Ensemble filter */}
-      <EnsembleFilter
-        ensembles={ensembles}
-        value={filterEnsembleId}
-        onChange={setFilterEnsembleId}
-        extraOptions={hasSchoolEvents ? [{ value: 'school', label: 'School events' }] : undefined}
-      />
-
-      {/* Type filter */}
-      <div className="dir-type-filter">
-        <span className="dir-type-filter-label">Show:</span>
-        <select className="dir-select dir-type-select" value={typeFilter} onChange={e => setTypeFilter(e.target.value as typeof typeFilter)}>
-          <option value="all">Everything</option>
-          <option value="Rehearsal">Rehearsals</option>
-          <option value="Sectional">Sectionals</option>
-          <option value="Concert">Concerts</option>
-          <option value="Event">Events</option>
-          <option value="Assignment">Assignments</option>
-        </select>
+      {/* Filters — multi-select: several ensembles AND several types at once. */}
+      <div className="dir-multi-filter">
+        <span className="dir-multi-filter-label">Show:</span>
+        <FilterMenu
+          prefix="dir"
+          allLabel="All ensembles"
+          ariaLabel="Filter by ensemble"
+          options={[
+            ...musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => ({ value: e.id, label: e.name, color: ensembleColor(e) })),
+            ...(hasSchoolEvents ? [{ value: SCHOOL, label: 'School events' }] : []),
+          ]}
+          selected={filterEnsembleIds}
+          onChange={setFilterEnsembleIds}
+        />
+        <FilterMenu
+          prefix="dir"
+          allLabel="All types"
+          ariaLabel="Filter by type"
+          options={SCHED_TYPE_OPTIONS}
+          selected={typeFilters}
+          onChange={next => setTypeFilters(next as SchedTypeKey[])}
+        />
       </div>
 
       {calView === 'month' ? (

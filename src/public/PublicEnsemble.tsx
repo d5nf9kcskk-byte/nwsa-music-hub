@@ -6,11 +6,14 @@ import { useStudents } from '../director/hooks/useStudents';
 import { useEvents } from '../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
+import { useDocuments } from '../director/hooks/useDocuments';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
 import { todayStr, formatTimeRange, formatTime, ensembleColor, parseDate, pieceEnsembleIds } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { PubRepertoire } from './components/PubRepertoire';
+import { PubDocCard } from './components/PubDocCard';
+import './documents.css';
 import { primaryStudent } from '../shared/identity';
 import { SeatingChartCard } from './components/SeatingChartCard';
 import { SubscribeButton } from './components/SubscribeButton';
@@ -27,6 +30,7 @@ export function PublicEnsemble() {
   const { events } = useEvents();
   const { announcements } = useAnnouncements();
   const { pieces } = useRepertoire();
+  const { documents } = useDocuments();
 
   const ensemble = ensembles.find(e => e.id === id);
   const today = todayStr();
@@ -43,17 +47,18 @@ export function PublicEnsemble() {
 
   // Cap per SECTION (after splitting by type) so a far-off concert is never
   // pushed out of view by a long run of rehearsals.
-  const { upcomingRehearsals, upcomingConcerts, upcomingOther } = useMemo(() => {
+  const { upcomingRehearsals, upcomingClasses, upcomingConcerts, upcomingOther } = useMemo(() => {
     const mine = events
       .filter(e => e.ensembleIds.includes(id) && e.date >= today)
       .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
     return {
       upcomingRehearsals: mine.filter(e => e.type === 'Rehearsal' || e.type === 'Sectional').slice(0, 10),
+      upcomingClasses: mine.filter(e => e.type === 'Class').slice(0, 6),
       upcomingConcerts: mine.filter(e => e.type === 'Concert').slice(0, 6),
       upcomingOther: mine.filter(e => e.type === 'Event').slice(0, 6),
     };
   }, [events, id, today]);
-  const upcomingCount = upcomingRehearsals.length + upcomingConcerts.length + upcomingOther.length;
+  const upcomingCount = upcomingRehearsals.length + upcomingClasses.length + upcomingConcerts.length + upcomingOther.length;
 
   // Deep links like /ensemble/:id#repertoire scroll to their section.
   const { hash } = useLocation();
@@ -74,6 +79,11 @@ export function PublicEnsemble() {
     [pieces, id],
   );
 
+  const ensDocs = useMemo(
+    () => documents.filter(d => d.ensembleIds.includes(id)),
+    [documents, id],
+  );
+
   if (!ensemble) {
     return (
       <div className="pub-page">
@@ -84,7 +94,7 @@ export function PublicEnsemble() {
   }
 
   // The one answer the hero must never bury: the next thing on the calendar.
-  const nextEvent = [...upcomingConcerts, ...upcomingRehearsals, ...upcomingOther]
+  const nextEvent = [...upcomingConcerts, ...upcomingRehearsals, ...upcomingClasses, ...upcomingOther]
     .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99'))[0];
 
   return (
@@ -125,6 +135,15 @@ export function PublicEnsemble() {
         </>
       )}
 
+      {upcomingClasses.length > 0 && (
+        <>
+          <h2 className="pub-section-title">Class schedule</h2>
+          {upcomingClasses.map(e => (
+            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showDate showNotes ensembleIds={[id]} />
+          ))}
+        </>
+      )}
+
       {upcomingConcerts.length > 0 && (
         <>
           <h2 className="pub-section-title">Concert schedule</h2>
@@ -156,6 +175,18 @@ export function PublicEnsemble() {
               {t('misc.showAll', { count: ensPieces.length })}
             </button>
           )}
+        </div>
+      )}
+
+      {ensDocs.length > 0 && (
+        <div>
+          <div className="pub-section-row">
+            <h2 className="pub-section-title">Documents</h2>
+            <Link to="/documents" className="pub-section-link">All documents</Link>
+          </div>
+          <div className="pub-doc-list">
+            {ensDocs.map(d => <PubDocCard key={d.id} doc={d} />)}
+          </div>
         </div>
       )}
 

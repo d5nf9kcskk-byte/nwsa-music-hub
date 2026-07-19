@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, Repeat, QrCode, Moon, Sun } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, Repeat, QrCode, Moon, Sun, FolderOpen } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { AuthGate } from './components/AuthGate';
 import { DirectorSearch } from './components/DirectorSearch';
@@ -21,6 +21,7 @@ import { NotesView } from './notes/NotesView';
 import { AssignmentsView } from './assignments/AssignmentsView';
 import { AnnouncementManager } from './announcements/AnnouncementManager';
 import { RepertoireManager } from './repertoire/RepertoireManager';
+import { DocumentsView } from './documents/DocumentsView';
 import { TodayView } from './today/TodayView';
 import { EnsembleHubView } from './ensembles/EnsembleHubView';
 import { useEnsembles } from './hooks/useEnsembles';
@@ -60,6 +61,7 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
     head: 'Library',
     items: [
       { id: 'repertoire',    label: 'Repertoire',    Icon: Music          },
+      { id: 'documents',     label: 'Documents',     Icon: FolderOpen     },
       { id: 'assignments',   label: 'Assignments',   Icon: ClipboardCheck },
       { id: 'announcements', label: 'Announcements', Icon: Megaphone      },
     ],
@@ -74,6 +76,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   scheduleChanges: 'Temporary Roster Changes',
   scheduleSwap:    'Schedule Change',
   repertoire:      'Repertoire',
+  documents:       'Documents',
   notes:           'Progress Notes',
   assignments:     'Assignments',
   announcements:   'Announcements',
@@ -82,7 +85,7 @@ const TAB_TITLES: Record<DirTab, string> = {
 };
 
 const VALID_TABS: readonly DirTab[] = [
-  'today', 'roll', 'roster', 'schedule', 'scheduleChanges', 'repertoire',
+  'today', 'roll', 'roster', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'ensembleHub', 'whosOut', 'scheduleSwap',
 ];
 
@@ -252,6 +255,7 @@ export default function DirectorApp() {
             {tab === 'scheduleChanges' && <ScheduleChangeView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} />}
             {tab === 'scheduleSwap'    && <ScheduleSwapView key={intentKey} initialDate={intent.date} onNavigate={go} />}
             {tab === 'repertoire'      && <RepertoireManager key={intentKey} asTab ensembleId={intent.ensembleId} onClose={() => {}} />}
+            {tab === 'documents'       && <DocumentsView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} />}
             {tab === 'notes'           && <NotesView />}
             {tab === 'assignments'     && <AssignmentsView />}
             {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} onClose={() => {}} />}

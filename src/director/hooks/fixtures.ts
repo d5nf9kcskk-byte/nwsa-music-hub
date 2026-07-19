@@ -1,4 +1,4 @@
-import type { CalendarEvent, Ensemble, RepertoirePiece, Student } from '../types';
+import type { CalendarEvent, Ensemble, LibraryDocument, RepertoirePiece, Student } from '../types';
 
 /**
  * Local development fixtures (redesign test cycle). Served ONLY when Firebase
@@ -62,9 +62,40 @@ export const FIXTURE_EVENTS: CalendarEvent[] = [
     pieceIds: ['fx-beethoven5'], status: 'Scheduled',
   },
   {
+    id: 'fx-theory-class', type: 'Class', ensembleIds: ['symphony-orchestra'],
+    date: iso(2), startTime: '13:10', endTime: '14:25', title: 'Music Theory II',
+    location: 'Room 305', status: 'Scheduled',
+  },
+  {
     id: 'fx-jazz-gig', type: 'Event', ensembleIds: ['jazz-ensemble'],
     date: iso(3), startTime: '18:00', location: 'Downtown Arts Plaza',
     title: 'Jazz in the Plaza', status: 'Scheduled',
+  },
+];
+
+export const FIXTURE_DOCUMENTS: LibraryDocument[] = [
+  {
+    id: 'fx-doc-hs-handbook', title: 'Student Handbook — High School', category: 'Handbook',
+    ensembleIds: [], audience: 'High School', url: 'https://example.org/hs-handbook',
+    description: 'Policies, bell schedule, and expectations for high-school students.',
+    createdAt: 1_700_000_005_000,
+  },
+  {
+    id: 'fx-doc-college-handbook', title: 'Student Handbook — College', category: 'Handbook',
+    ensembleIds: [], audience: 'College', url: 'https://example.org/college-handbook',
+    description: 'Policies and expectations for the college division.',
+    createdAt: 1_700_000_004_000,
+  },
+  {
+    id: 'fx-doc-symphony-syllabus', title: 'Symphony Orchestra Syllabus', category: 'Syllabus',
+    ensembleIds: ['symphony-orchestra'], url: 'https://example.org/symphony-syllabus',
+    description: 'Grading, attendance, and repertoire expectations for the year.',
+    createdAt: 1_700_000_003_000,
+  },
+  {
+    id: 'fx-doc-uniform', title: 'Concert Dress Guidelines', category: 'Policy',
+    ensembleIds: ['symphony-orchestra', 'wind-ensemble'], url: 'https://example.org/dress',
+    createdAt: 1_700_000_002_000,
   },
 ];
 

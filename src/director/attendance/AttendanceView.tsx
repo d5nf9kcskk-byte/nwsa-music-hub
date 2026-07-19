@@ -12,7 +12,7 @@ import { resolveRoster, lessonsFor, overrideApplies } from '../rosterResolver';
 import { StudentCard } from './StudentCard';
 import { SortToggle } from '../components/SortToggle';
 import { sortStudents, type StudentSort } from '../scoreOrder';
-import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles } from '../utils';
+import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, takesAttendance } from '../utils';
 import type { AttendanceStatus, Student, Ensemble, CalendarEvent } from '../types';
 
 interface Period {
@@ -31,12 +31,13 @@ export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsem
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const isToday = date === todayStr();
 
-  // Periods for the selected day: one per (rehearsal/sectional event × ensemble).
+  // Periods for the selected day: one per (roll-taking event × ensemble) —
+  // rehearsals, sectionals, and classes.
   const periods = useMemo<Period[]>(() => {
     const out: Period[] = [];
     for (const e of events) {
       if (e.date !== date) continue;
-      if (e.type !== 'Rehearsal' && e.type !== 'Sectional') continue;
+      if (!takesAttendance(e.type)) continue;
       for (const ensId of e.ensembleIds) out.push({ event: e, ensembleId: ensId });
     }
     out.sort((a, b) => (a.event?.startTime ?? '99').localeCompare(b.event?.startTime ?? '99'));
@@ -44,13 +45,13 @@ export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsem
   }, [events, date]);
 
   const [level1View, setLevel1View] = useState<'day' | 'list'>('day');
-  // List view: every rehearsal/sectional in a window (one row per ensemble)
+  // List view: every roll-taking event in a window (one row per ensemble)
   // with its roll status — a "what still needs roll" worklist across days.
   const rollWorklist = useMemo(() => {
     const from = addDays(todayStr(), -21), to = addDays(todayStr(), 90);
     const rows: { event: CalendarEvent; ensembleId: string }[] = [];
     for (const e of events) {
-      if (e.type !== 'Rehearsal' && e.type !== 'Sectional') continue;
+      if (!takesAttendance(e.type)) continue;
       if (e.date < from || e.date > to) continue;
       for (const ensId of e.ensembleIds) rows.push({ event: e, ensembleId: ensId });
     }
@@ -101,7 +102,7 @@ export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsem
     while (out.length % 7 !== 0) out.push(null);
     return out;
   })();
-  const daysWithRehearsal = new Set(events.filter(e => e.type === 'Rehearsal' || e.type === 'Sectional').map(e => e.date));
+  const daysWithRehearsal = new Set(events.filter(e => takesAttendance(e.type)).map(e => e.date));
   const dateLabel = parseDate(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (

@@ -30,13 +30,15 @@ function tint(hex: string, alpha: number): string {
 
 /**
  * One shape per event type, ALWAYS paired with the type word (never
- * color/shape alone): ● Rehearsal, ★ Concert, ◆ Sectional, ■ Event.
+ * color/shape alone): ● Rehearsal, ▲ Class, ★ Concert, ◆ Sectional, ■ Event.
  */
 function TypeShape({ type }: { type: EventType }) {
   const common = { width: 8, height: 8, viewBox: '0 0 10 10', 'aria-hidden': true };
   switch (type) {
     case 'Rehearsal':
       return <svg {...common}><circle cx="5" cy="5" r="4" fill="currentColor" /></svg>;
+    case 'Class':
+      return <svg {...common}><path d="M5 0.6 L9.4 9.2 L0.6 9.2 Z" fill="currentColor" /></svg>;
     case 'Concert':
       return (
         <svg {...common}>

@@ -136,7 +136,11 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     });
   }
 
-  const canSave = form.ensembleIds.length > 0 || form.type !== 'Rehearsal';
+  // Rehearsals and classes are taken per-ensemble (you take roll for a group),
+  // so at least one ensemble is required; concerts/events/sectionals can stand
+  // alone.
+  const needsEnsemble = form.type === 'Rehearsal' || form.type === 'Class';
+  const canSave = form.ensembleIds.length > 0 || !needsEnsemble;
 
   async function handleSave() {
     if (editedElsewhere && !overrideTheirs) return; // banner asks first
@@ -225,7 +229,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
 
           <div className="dir-field">
             <label className="dir-label">
-              Ensemble{form.type === 'Concert' ? 's' : ''} {form.type === 'Rehearsal' && '*'}
+              Ensemble{form.type === 'Concert' ? 's' : ''} {needsEnsemble && '*'}
             </label>
             <div className="dir-checkbox-group">
               {ensembles.map(e => (
@@ -269,14 +273,14 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             </div>
           )}
 
-          {(form.type === 'Concert' || form.type === 'Event') && (
+          {(form.type === 'Concert' || form.type === 'Event' || form.type === 'Class') && (
             <div className="dir-field">
               <label className="dir-label">Title</label>
               <input
                 className="dir-input"
                 value={form.title ?? ''}
                 onChange={e => set('title', e.target.value)}
-                placeholder={form.type === 'Concert' ? 'e.g. Winter Concert' : 'Event name'}
+                placeholder={form.type === 'Concert' ? 'e.g. Winter Concert' : form.type === 'Class' ? 'e.g. Music Theory I' : 'Event name'}
               />
             </div>
           )}

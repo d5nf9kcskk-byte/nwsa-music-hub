@@ -160,6 +160,38 @@
 .pub-filter-selects .pub-ens-select { flex: 1 1 180px; width: auto; max-width: none; margin: 0; }
 .pub-type-select { flex: 0 1 auto; min-width: 150px; }
 
+/* ── Multi-select filter menu (FilterMenu) — public surface ─────────────── */
+.pub-fm { position: relative; flex: 1 1 180px; min-width: 150px; }
+.pub-fm-btn {
+  display: flex; align-items: center; gap: 6px; width: 100%; min-height: 44px;
+  padding: 10px 12px 10px 14px; font-size: 15px; font-weight: 700; color: inherit;
+  background: var(--pub-surface); border: 1px solid var(--pub-border); border-radius: 12px;
+  cursor: pointer; text-align: left;
+}
+.pub-fm-btn.active { border-color: var(--pub-accent); background: var(--pub-accent-soft); }
+.pub-fm-btn-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pub-fm-caret { flex: none; color: var(--pub-muted); transition: transform 0.15s; }
+.pub-fm-panel {
+  position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; min-width: 100%;
+  max-height: 320px; overflow-y: auto; padding: 6px;
+  background: var(--pub-surface); border: 1px solid var(--pub-border);
+  border-radius: 12px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+}
+.pub-fm-opt {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 9px 10px; font-size: 14.5px; font-weight: 600; color: var(--pub-ink);
+  background: none; border: none; border-radius: 9px; cursor: pointer; text-align: left; white-space: nowrap;
+}
+.pub-fm-opt:hover { background: var(--pub-accent-soft); }
+.pub-fm-opt.checked { color: var(--pub-accent); }
+.pub-fm-box {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 18px; height: 18px; border: 1.5px solid var(--pub-border); border-radius: 5px; color: #fff;
+}
+.pub-fm-opt.checked .pub-fm-box { background: var(--pub-accent); border-color: var(--pub-accent); }
+.pub-fm-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+.pub-fm-opt-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
 /* Selected-day detail on the public calendar (mirrors the schedule page). */
 .pub-day-detail { margin-top: 6px; }
 .pub-day-detail-header { display: flex; align-items: center; gap: 8px; }

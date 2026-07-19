@@ -5,22 +5,32 @@ import { storage } from '../firebase';
 import type { Attachment } from '../types';
 
 interface Props {
-  assignmentId: string;
   attachments: Attachment[];
   onChange: (attachments: Attachment[]) => void;
+  /** Storage folder path prefix for uploads. Defaults to `assignments/<id>`. */
+  folder?: string;
+  /** Legacy: an assignment id, used to derive the default folder. */
+  assignmentId?: string;
+  /** Cap the list at a single file (documents attach exactly one). */
+  single?: boolean;
+  /** Optional accept filter passed to the file input. */
+  accept?: string;
+  /** Label for the attach button (defaults to "Attach file"). */
+  label?: string;
 }
 
-export function FileUpload({ assignmentId, attachments, onChange }: Props) {
+export function FileUpload({ attachments, onChange, folder, assignmentId, single, accept, label }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const base = folder ?? `assignments/${assignmentId ?? 'misc'}`;
 
   async function handleFile(file: File) {
     if (!storage) { setError('Storage not configured.'); return; }
     setError('');
     setProgress(0);
     try {
-      const path = `assignments/${assignmentId}/${Date.now()}-${file.name}`;
+      const path = `${base}/${Date.now()}-${file.name}`;
       const sRef = storageRef(storage, path);
       const task = uploadBytesResumable(sRef, file);
       await new Promise<void>((resolve, reject) => {
@@ -32,7 +42,8 @@ export function FileUpload({ assignmentId, attachments, onChange }: Props) {
         );
       });
       const url = await getDownloadURL(task.snapshot.ref);
-      onChange([...attachments, { name: file.name, url, size: file.size }]);
+      const next = { name: file.name, url, size: file.size };
+      onChange(single ? [next] : [...attachments, next]);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed.');
     } finally {
@@ -67,14 +78,16 @@ export function FileUpload({ assignmentId, attachments, onChange }: Props) {
           <span className="dir-attach-pct">{progress}%</span>
         </div>
       ) : (
-        <button
-          type="button"
-          className="dir-tool-btn"
-          style={{ fontSize: 12 }}
-          onClick={() => inputRef.current?.click()}
-        >
-          <Paperclip size={13} /> Attach file
-        </button>
+        (!single || attachments.length === 0) && (
+          <button
+            type="button"
+            className="dir-tool-btn"
+            style={{ fontSize: 12 }}
+            onClick={() => inputRef.current?.click()}
+          >
+            <Paperclip size={13} /> {label ?? (single ? 'Upload file' : 'Attach file')}
+          </button>
+        )
       )}
 
       {error && <div className="dir-attach-error">{error}</div>}
@@ -82,6 +95,7 @@ export function FileUpload({ assignmentId, attachments, onChange }: Props) {
       <input
         ref={inputRef}
         type="file"
+        accept={accept}
         style={{ display: 'none' }}
         onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }}
       />
