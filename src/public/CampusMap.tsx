@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
-import { MapPin, ExternalLink, Building2, GraduationCap, Music, Landmark, Car, ParkingSquare } from 'lucide-react';
+import { MapPin, ExternalLink, Building2, GraduationCap, Music, Landmark, Car, ParkingSquare, Theater } from 'lucide-react';
 import { useLocations } from '../director/hooks/useLocations';
 import './campusMap.css';
 
@@ -14,63 +14,69 @@ const ROLE_COLOR: Record<Role, string> = {
   academic: '#2563eb',
   chapman:  '#7c3aed',
   venue:    '#ca8a04', // gold, reserved for performance venues
-  parking:  '#64748b',
+  parking:  '#475569',
 };
 
 interface Spot {
   key: string;      // anchor id (/map#music-building)
   code: string;     // building number / lot label
-  short: string;    // label on the map tile
   label: string;    // full name in the legend
   role: Role;
-  area: string;     // grid-area name
+  /** Marker position on the official map image, in % of its width/height. */
+  x: number;
+  y: number;
   Icon: typeof Music;
   blurb: string;
 }
 
 // The most-used locations on the Miami Dade College Wolfson Campus, where New
 // World School of the Arts is based — exactly as the director called them out.
+// x/y place each highlight ring over the building's numbered circle on the
+// official map image (public/campus-map.jpg).
 const SPOTS: Spot[] = [
   {
-    key: 'music-building', code: '4', short: 'Music', label: 'Music Building',
-    role: 'music', area: 'b4', Icon: Music,
+    key: 'music-building', code: '4', label: 'Music Building (Building 4)',
+    role: 'music', x: 74.5, y: 33.2, Icon: Music,
     blurb: 'Home base for NWSA Music — most music classes, rehearsals, and the music office are here.',
   },
   {
-    key: 'academic', code: '5', short: 'Academic', label: 'Academic Building',
-    role: 'academic', area: 'b5', Icon: GraduationCap,
+    key: 'academic', code: '5', label: 'Academic Building (Building 5)',
+    role: 'academic', x: 17.4, y: 61.4, Icon: GraduationCap,
     blurb: 'General academic classes.',
   },
   {
-    key: 'chapman', code: '3', short: 'Chapman', label: 'Chapman',
-    role: 'chapman', area: 'b3', Icon: Building2,
+    key: 'chapman', code: '3', label: 'Chapman (Building 3)',
+    role: 'chapman', x: 83.9, y: 30.0, Icon: Building2,
     blurb: 'The location of Chapman (Chapman Conference Center).',
   },
   {
-    key: 'library-wolfson', code: '1', short: 'Library + Wolfson Aud.', label: 'Library & Wolfson Auditorium',
-    role: 'venue', area: 'b1', Icon: Landmark,
+    key: 'library-wolfson', code: '1', label: 'Library & Wolfson Auditorium (Building 1)',
+    role: 'venue', x: 63.9, y: 38.3, Icon: Landmark,
     blurb: 'The campus library and Wolfson Auditorium — the main performance venue.',
   },
   {
-    key: 'garage', code: '7', short: 'Parking garage', label: 'Parking Garage (Building 7)',
-    role: 'parking', area: 'b7', Icon: Car,
+    key: 'batten-room', code: '2', label: 'Batten Room (Building 2)',
+    role: 'venue', x: 59.1, y: 31.3, Icon: Theater,
+    blurb: 'The Batten Room is in Building 2.',
+  },
+  {
+    key: 'garage', code: '7', label: 'Parking Garage (Building 7)',
+    role: 'parking', x: 62.5, y: 20.1, Icon: Car,
     blurb: 'The main parking garage for the Music Building.',
   },
   {
-    key: 'lot-1', code: 'Lot 1', short: 'Parking', label: 'Parking Lot 1',
-    role: 'parking', area: 'lot', Icon: ParkingSquare,
-    blurb: 'Another parking option.',
+    key: 'lot-1', code: 'Lot 1', label: 'Parking Lot 1',
+    role: 'parking', x: 74.3, y: 22.2, Icon: ParkingSquare,
+    blurb: 'Another parking option, off Biscayne Blvd.',
   },
 ];
 
 /**
- * /map — campus map + plain-English location directory (#15).
- *
- * Because the school's own aerial map isn't bundled, the "Most-used locations"
- * board is a self-contained, color-coded highlight of the buildings the
- * director flagged, backed by the Wolfson interactive map for exact detail. If
- * an official image is dropped in at public/campus-map.png it appears on top.
- * The Firestore-driven "Where things are" directory still lists room details.
+ * /map — the official Wolfson Campus map with the most-used locations
+ * highlighted (#15). Colored rings sit over the buildings the director called
+ * out; tapping one jumps to its legend entry. The Wolfson MapsIndoors link
+ * gives full interactive detail, and the Firestore-driven "Where things are"
+ * directory below still lists room-level info.
  */
 export function CampusMap() {
   const { locations, loading } = useLocations();
@@ -93,41 +99,37 @@ export function CampusMap() {
   return (
     <div className="pub-page">
       <h1 className="pub-h1">Campus Map</h1>
-
-      {/* Optional official aerial map: drop public/campus-map.png to show it. */}
-      {!imgFailed && (
-        <img
-          className="pub-map-img"
-          src={`${import.meta.env.BASE_URL}campus-map.png`}
-          alt="NWSA campus map"
-          onError={() => setImgFailed(true)}
-        />
-      )}
-
-      <h2 className="pub-section-title">Most-used locations</h2>
       <p className="pub-muted pub-campus-intro">
-        These are the spots you’ll use most on the Miami Dade College Wolfson Campus,
-        where New World School of the Arts is based. Tap a building for details.
+        The Miami Dade College Wolfson Campus, where New World School of the Arts is
+        based. The highlighted rings mark the spots you’ll use most — tap one for details.
       </p>
 
-      <div className="pub-campus-board" role="group" aria-label="Most-used campus locations">
-        {SPOTS.map(s => {
-          const color = ROLE_COLOR[s.role];
-          return (
+      {imgFailed ? (
+        <div className="pub-card pub-muted pub-map-placeholder">
+          <MapPin size={22} />
+          <div>Campus map image unavailable — use the interactive map below.</div>
+        </div>
+      ) : (
+        <div className="pub-campus-map-wrap">
+          <img
+            className="pub-map-img pub-campus-map-img"
+            src={`${import.meta.env.BASE_URL}campus-map.jpg`}
+            alt="Miami Dade College Wolfson Campus map with NWSA's most-used buildings highlighted"
+            onError={() => setImgFailed(true)}
+          />
+          {SPOTS.map(s => (
             <button
               key={s.key}
               type="button"
-              className={`pub-campus-tile area-${s.area}${anchor === s.key ? ' active' : ''}`}
-              style={{ borderColor: color, background: `${color}14` }}
+              className={`pub-campus-pin${anchor === s.key ? ' active' : ''}`}
+              style={{ left: `${s.x}%`, top: `${s.y}%`, borderColor: ROLE_COLOR[s.role], color: ROLE_COLOR[s.role] }}
               onClick={() => focusSpot(s.key)}
               aria-label={`${s.label} — ${s.blurb}`}
-            >
-              <span className="pub-campus-code" style={{ color }}>{s.code}</span>
-              <span className="pub-campus-tile-label">{s.short}</span>
-            </button>
-          );
-        })}
-      </div>
+              title={s.label}
+            />
+          ))}
+        </div>
+      )}
 
       <a className="pub-campus-mi" href={MAPSINDOORS_URL} target="_blank" rel="noreferrer">
         <MapPin size={16} />
@@ -135,6 +137,7 @@ export function CampusMap() {
         <ExternalLink size={14} />
       </a>
 
+      <h2 className="pub-section-title">Most-used locations</h2>
       <div className="pub-campus-legend">
         {SPOTS.map(s => {
           const color = ROLE_COLOR[s.role];

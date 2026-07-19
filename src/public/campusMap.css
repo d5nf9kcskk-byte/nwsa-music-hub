@@ -8,31 +8,26 @@
   background: var(--pub-surface);
 }
 
-/* ── Most-used locations: highlighted schematic board + legend ─────────── */
+/* ── Most-used locations: highlight rings on the official map + legend ─── */
 .pub-campus-intro { margin: -4px 0 12px; }
 
-.pub-campus-board {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-areas:
-    "b5 b4 b3"
-    "b1 b1 b7"
-    "lot lot lot";
-  gap: 8px;
-  margin-bottom: 14px;
-}
-.area-b5 { grid-area: b5; } .area-b4 { grid-area: b4; } .area-b3 { grid-area: b3; }
-.area-b1 { grid-area: b1; } .area-b7 { grid-area: b7; } .area-lot { grid-area: lot; }
+.pub-campus-map-wrap { position: relative; margin-bottom: 14px; }
+.pub-campus-map-wrap .pub-campus-map-img { margin-bottom: 0; }
 
-.pub-campus-tile {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
-  min-height: 76px; padding: 10px 8px;
-  border: 2px solid; border-radius: 13px;
-  font: inherit; cursor: pointer; text-align: center;
+/* A colored ring centered over the building's numbered circle on the map.
+   The map's own number stays visible inside the ring. */
+.pub-campus-pin {
+  position: absolute;
+  width: 34px; height: 34px;
+  transform: translate(-50%, -50%);
+  border: 3px solid; border-radius: 50%;
+  background: transparent; padding: 0; cursor: pointer;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 2px 8px rgba(15, 23, 42, 0.35);
 }
-.pub-campus-tile.active { box-shadow: 0 0 0 3px var(--pub-accent-soft); }
-.pub-campus-code { font-size: 21px; font-weight: 800; line-height: 1; }
-.pub-campus-tile-label { font-size: 12px; font-weight: 700; color: var(--pub-ink); line-height: 1.2; }
+.pub-campus-pin.active { box-shadow: 0 0 0 4px currentColor, 0 2px 8px rgba(15, 23, 42, 0.35); }
+@media (max-width: 480px) {
+  .pub-campus-pin { width: 26px; height: 26px; border-width: 2.5px; }
+}
 
 .pub-campus-mi {
   display: flex; align-items: center; justify-content: center; gap: 8px;
