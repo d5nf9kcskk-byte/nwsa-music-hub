@@ -1,20 +1,26 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut, GoogleAuthProvider } from 'firebase/auth';
 import type { User } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { Link } from 'react-router';
-import { auth, isFirebaseConfigured } from '../firebase';
+import { auth, db, isFirebaseConfigured } from '../firebase';
 import { FIXTURES_ON } from '../hooks/fixtures';
+import { directorEmailId } from '../hooks/useDirectors';
 
 /**
- * Client-side mirror of the Firestore-rules allowlist (firestore.rules —
- * signedIn()). Security is enforced by the rules; this copy exists so an
- * unauthorized account sees an honest "not authorized" screen instead of a
- * working-looking app whose every save silently fails. Keep the two in sync.
+ * Break-glass allowlist. Access is normally decided by the `directors`
+ * collection in Firestore (see useDirectors + firestore.rules), so this list is
+ * NOT the source of truth and does NOT need editing to add a director — do that
+ * from the in-app Directors screen. It is used ONLY when the membership read
+ * itself fails (e.g. during the one-time migration, before the new rules are
+ * deployed, the read is denied), so the founding accounts can never be locked
+ * out by a mis-ordered rollout. Keep it to the seed accounts.
  */
-const DIRECTOR_EMAILS = [
+const BREAK_GLASS_EMAILS = [
   'nwsaorchestras@gmail.com',
-  'g.elgarresta@gmail.com', // Giselle Rios — chorus director
 ];
+
+type Access = 'checking' | 'granted' | 'denied' | 'error';
 
 interface Props {
   children: (user: User, signOutFn: () => void) => React.ReactNode;
@@ -22,12 +28,35 @@ interface Props {
 
 export function AuthGate({ children }: Props) {
   const [user, setUser] = useState<User | null | 'loading'>('loading');
+  const [access, setAccess] = useState<Access>('checking');
+  const [checkNonce, setCheckNonce] = useState(0);
   const [signInError, setSignInError] = useState('');
 
   useEffect(() => {
     if (!auth) { setUser(null); return; }
     return onAuthStateChanged(auth, u => setUser(u));
   }, []);
+
+  // Membership check: does a `directors/<email>` doc exist for this account?
+  // Runs whenever the signed-in user changes (or the user retries).
+  useEffect(() => {
+    if (user === 'loading' || user === null) return;
+    if (!db) { setAccess('granted'); return; } // no Firestore = local/dev build
+    let cancelled = false;
+    setAccess('checking');
+    const email = directorEmailId(user.email ?? '');
+    getDoc(doc(db, 'directors', email))
+      .then(snap => { if (!cancelled) setAccess(snap.exists() ? 'granted' : 'denied'); })
+      .catch(() => {
+        // The read itself failed (offline, or pre-migration rules). Fall back to
+        // the break-glass list so the founding accounts stay in; everyone else
+        // gets an honest "couldn't verify" with a retry rather than a silent app
+        // whose every save fails.
+        if (cancelled) return;
+        setAccess(BREAK_GLASS_EMAILS.includes(email) ? 'granted' : 'error');
+      });
+    return () => { cancelled = true; };
+  }, [user, checkNonce]);
 
   async function signIn() {
     if (!auth) return;
@@ -41,7 +70,7 @@ export function AuthGate({ children }: Props) {
       setSignInError(
         code === 'auth/popup-blocked'
           ? 'Your browser blocked the sign-in popup — allow popups for this site and try again.'
-          : 'Sign-in didn\u2019t complete — check your connection and try again.',
+          : 'Sign-in didn’t complete — check your connection and try again.',
       );
     }
   }
@@ -106,17 +135,45 @@ export function AuthGate({ children }: Props) {
     );
   }
 
-  // Signed in, but not on the director allowlist: say so plainly. Without
-  // this, Firestore rules reject every write while the UI looks functional.
-  if (!DIRECTOR_EMAILS.includes(user.email ?? '')) {
+  // Signed in — still confirming the account is a director.
+  if (access === 'checking') {
+    return (
+      <div className="dir-auth">
+        <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
+        <p>Checking access…</p>
+      </div>
+    );
+  }
+
+  // The membership read failed (network, or the new rules aren't live yet).
+  // Offer a retry instead of pretending the account is unauthorized.
+  if (access === 'error') {
+    return (
+      <div className="dir-auth">
+        <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
+        <h1>Couldn’t verify your access</h1>
+        <p>
+          You’re signed in as <strong>{user.email}</strong>, but we couldn’t reach
+          the director list to confirm your access. Check your connection and try
+          again.
+        </p>
+        <button className="dir-google-btn" onClick={() => setCheckNonce(n => n + 1)}>Try again</button>
+        <button className="dir-google-btn" onClick={handleSignOut}>Sign in with a different account</button>
+        <p><Link to="/">← Back to the public site</Link></p>
+      </div>
+    );
+  }
+
+  // Signed in, but not on the director list: say so plainly.
+  if (access === 'denied') {
     return (
       <div className="dir-auth">
         <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
         <h1>This account isn’t authorized</h1>
         <p>
           You’re signed in as <strong>{user.email}</strong>, which isn’t on the
-          director list for NWSA Music Hub. If you should have access, ask the
-          director to add your Google email.
+          director list for NWSA Music Hub. If you should have access, ask a
+          current director to add your Google email from the Directors screen.
         </p>
         <button className="dir-google-btn" onClick={handleSignOut}>Sign in with a different account</button>
         <p><Link to="/">← Back to the public site</Link></p>

@@ -18,18 +18,20 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // A director is an authenticated user whose Google email is on the allowlist
-    // below. Google sign-in lets ANY Google account authenticate, so checking
-    // only `request.auth != null` would expose student contact info, attendance,
-    // and progress notes to anyone who finds the URL. Add each director's exact
-    // Google sign-in email here, then deploy:  firebase deploy --only firestore:rules
+    // A director is an authenticated user who has a doc in the `directors`
+    // collection (doc id = their lowercased Google sign-in email). Google
+    // sign-in lets ANY Google account authenticate, so checking only
+    // `request.auth != null` would expose student contact info, attendance,
+    // and progress notes to anyone who finds the URL.
+    //
+    // The allowlist lives in DATA (see the `directors` match block below), not
+    // in this file — so a director is added or removed from inside the app with
+    // NO rules redeploy. That closes the old trap where the app's sign-in mirror
+    // shipped automatically but this file had to be deployed by hand, leaving a
+    // newly-added director able to open the app but unable to save.
     function signedIn() {
       return request.auth != null
-        && request.auth.token.email in [
-          'nwsaorchestras@gmail.com',
-          'g.elgarresta@gmail.com'  // Giselle Rios — chorus director
-          // add more director emails here, comma-separated
-        ];
+        && exists(/databases/$(database)/documents/directors/$(request.auth.token.email));
     }
 
     // ── Public read · director write ────────────────────────────
@@ -71,6 +73,26 @@ service cloud.firestore {
     match /attendance/{doc}         { allow read, write: if signedIn(); }
     match /progressNotes/{doc}      { allow read, write: if signedIn(); }
     match /assignmentResults/{doc}  { allow read, write: if signedIn(); }
+
+    // ── Director allowlist (stored as data) ─────────────
+    // Each doc id is a director's lowercased Google sign-in email; its presence
+    // grants access (see signedIn() above). Managed from the app's Directors
+    // screen — no rules redeploy to add or remove a director. The first
+    // director(s) are seeded out-of-band by scripts/seed-directors.mjs (Admin
+    // SDK bypasses these rules), since writing here requires already being one.
+    match /directors/{email} {
+      // A signed-in user may read THEIR OWN doc to discover whether they're a
+      // director (the app gates access on this); a director may read/list the
+      // whole roster to manage it. Nobody else can enumerate director emails.
+      allow get:  if request.auth != null
+                     && (request.auth.token.email == email || signedIn());
+      allow list: if signedIn();
+      // Existing directors add or edit others.
+      allow create, update: if signedIn();
+      // A director may remove others but not themselves — this keeps a director
+      // from locking the last account out of the app.
+      allow delete: if signedIn() && request.auth.token.email != email;
+    }
 
     // ── Deny everything else by default ─────────────────
     match /{document=**}         { allow read, write: if false; }

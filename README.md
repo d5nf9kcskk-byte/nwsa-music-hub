@@ -105,6 +105,35 @@ firebase login
 firebase deploy --only firestore:rules --project YOUR_PROJECT_ID
 ```
 
+### Who can sign in (directors)
+
+The director allowlist lives in **data**, in the `directors` Firestore
+collection (one doc per director, id = their lowercased Google email). Add or
+remove a director from inside the app: sign in and open **Directors** (rail or
+menu). Changes take effect immediately — **no code change and no rules
+redeploy.** This is deliberate: the list used to live in `firestore.rules` and
+had to be hand-deployed, so a newly-added director could open the app but have
+every save silently rejected until someone ran `firebase deploy` — the recurring
+"it hangs in the middle of updating" bug. Data-driven means that can't happen.
+
+Because writing to `directors` requires already being a director, the **first**
+director(s) are seeded out-of-band. Run the **Seed Directors** GitHub Action
+(Actions tab → Seed Directors → Run workflow), or locally:
+
+```bash
+FIREBASE_SERVICE_ACCOUNT_JSON="$(cat serviceAccount.json)" node scripts/seed-directors.mjs
+```
+
+It's bootstrap-only (does nothing if the collection already has entries).
+
+> **One-time migration order** (only when moving an existing site to this
+> data-driven model): **seed the directors first**, **then** deploy the updated
+> `firestore.rules`, **then** deploy the app. Seeding before deploying the new
+> rules means the current director is never locked out. (If they get done out of
+> order, the app shows "Checking access… / Couldn't verify" with a retry — never
+> a permanent lockout — and resolves once the rules are live and the seed has
+> run.)
+
 ### 3. Seed the roster (optional)
 
 ```bash
