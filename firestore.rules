@@ -26,7 +26,8 @@ service cloud.firestore {
     function signedIn() {
       return request.auth != null
         && request.auth.token.email in [
-          'nwsaorchestras@gmail.com'
+          'nwsaorchestras@gmail.com',
+          'g.elgarresta@gmail.com'  // Giselle Rios — chorus director
           // add more director emails here, comma-separated
         ];
     }

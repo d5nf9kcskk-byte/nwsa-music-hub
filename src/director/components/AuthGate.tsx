@@ -13,6 +13,7 @@ import { FIXTURES_ON } from '../hooks/fixtures';
  */
 const DIRECTOR_EMAILS = [
   'nwsaorchestras@gmail.com',
+  'g.elgarresta@gmail.com', // Giselle Rios — chorus director
 ];
 
 interface Props {
