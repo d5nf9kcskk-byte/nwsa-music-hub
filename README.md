@@ -96,14 +96,48 @@ Open the dev URL; the public site is at `/`, the director tool at `/director`.
 
 ### 2. Security rules
 
-Deploy the rules in `firestore.rules` (or paste them into the Firebase console →
-Firestore → Rules):
+Security rules deploy **automatically**: the *Deploy Firestore & Storage rules*
+GitHub Action ships `firestore.rules` and `storage.rules` whenever they change
+on `main`, using the `FIREBASE_SERVICE_ACCOUNT_JSON` secret. Editing the rules
+no longer needs a hand-run deploy. To deploy manually anyway (first-time setup,
+or a non-CI change) you can still:
 
 ```bash
 npm install -g firebase-tools
 firebase login
-firebase deploy --only firestore:rules --project YOUR_PROJECT_ID
+firebase deploy --only firestore:rules,storage:rules --project YOUR_PROJECT_ID
 ```
+
+### Who can sign in (directors)
+
+The director allowlist lives in **data**, in the `directors` Firestore
+collection (one doc per director, id = their lowercased Google email). Add or
+remove a director from inside the app: sign in and open **Directors** (rail or
+menu). Changes take effect immediately — **no code change and no rules
+redeploy.** This is deliberate: the list used to live in `firestore.rules` and
+had to be hand-deployed, so a newly-added director could open the app but have
+every save silently rejected until someone ran `firebase deploy` — the recurring
+"it hangs in the middle of updating" bug. Data-driven means that can't happen.
+
+Because writing to `directors` requires already being a director, the **first**
+director(s) are seeded out-of-band. Run the **Seed Directors** GitHub Action
+(Actions tab → Seed Directors → Run workflow), or locally:
+
+```bash
+FIREBASE_SERVICE_ACCOUNT_JSON="$(cat serviceAccount.json)" node scripts/seed-directors.mjs
+```
+
+It's bootstrap-only (does nothing if the collection already has entries).
+
+> **One-time migration** (only when moving an existing site to this data-driven
+> model): **run the *Seed Directors* Action first** so the founding directors
+> exist, **then merge** — the updated rules deploy automatically (*Deploy
+> Firestore & Storage rules*) and the app redeploys. Seeding before the new
+> rules go live means the current director is never locked out. If the order
+> slips (rules live a few seconds before the seed finishes), the founding
+> accounts stay in via the break-glass fallback and everyone else briefly sees
+> "Checking access… / Couldn't verify" with a retry — never a permanent
+> lockout — clearing the moment the seed completes.
 
 ### 3. Seed the roster (optional)
 

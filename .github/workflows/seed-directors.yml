@@ -1,0 +1,31 @@
+name: Seed Directors
+
+# One-time bootstrap for the data-driven director allowlist: creates the
+# founding entries in the `directors` collection using the service account.
+# After this, directors are managed from the app's Directors screen — no
+# code, no rules redeploy. Bootstrap-only: does nothing if the collection is
+# already populated, so re-running (or the push self-trigger) is always safe.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/seed-directors.mjs'
+      - '.github/workflows/seed-directors.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install firebase-admin --no-save
+      - name: Seed founding directors into Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/seed-directors.mjs

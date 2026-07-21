@@ -3,8 +3,9 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, Repeat, QrCode, Moon, Sun, FolderOpen } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, Repeat, QrCode, Moon, Sun, FolderOpen, ShieldCheck } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
+import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
 import { DirectorSearch } from './components/DirectorSearch';
 import { WriteTray } from './components/WriteTray';
@@ -94,6 +95,7 @@ export default function DirectorApp() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [directorsOpen, setDirectorsOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem('dir.theme') === 'dark'; } catch { return false; } });
 
   // Cmd/Ctrl+K opens the quick switcher (DirectorSearch already has full
@@ -194,6 +196,9 @@ export default function DirectorApp() {
               <button className="dir-rail-item" onClick={() => setQrOpen(true)}>
                 <QrCode size={18} /> QR Kit
               </button>
+              <button className="dir-rail-item" onClick={() => setDirectorsOpen(true)}>
+                <ShieldCheck size={18} /> Directors
+              </button>
               <button className="dir-rail-item" onClick={() => navigate('/')}>
                 <ExternalLink size={18} /> View public site
               </button>
@@ -268,6 +273,8 @@ export default function DirectorApp() {
 
           {qrOpen && <QrKitView onClose={() => setQrOpen(false)} />}
 
+          {directorsOpen && <DirectorsManager currentEmail={user.email} onClose={() => setDirectorsOpen(false)} />}
+
           <DirectorSearch
             open={searchOpen}
             onClose={() => setSearchOpen(false)}
@@ -337,6 +344,10 @@ export default function DirectorApp() {
 
                 <button className="dir-menu-item" onClick={() => { setQrOpen(true); setMenuOpen(false); }}>
                   <QrCode size={19} /> QR Kit
+                </button>
+
+                <button className="dir-menu-item" onClick={() => { setDirectorsOpen(true); setMenuOpen(false); }}>
+                  <ShieldCheck size={19} /> Directors
                 </button>
 
                 <button className="dir-menu-item" onClick={() => navigate('/')}>
