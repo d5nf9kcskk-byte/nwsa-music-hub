@@ -5,9 +5,23 @@ rules_version = '2';
 // Two tiers of data:
 //   • PUBLIC collections are world-readable (they power the public site:
 //     schedules, ensemble rosters, repertoire, announcements). They contain
-//     no private contact info. Only a signed-in director may write them.
+//     no private contact info. Only staff (Owner/Director) may write them.
 //   • PRIVATE collections (contact details, attendance exceptions, progress
-//     notes) are readable and writable only by a signed-in director.
+//     notes, private lessons) are readable and writable only by signed-in
+//     staff — never world-readable.
+//
+// Three access levels (#roles), stored on each directors/{email} doc's
+// `role` field:
+//   • owner    — exactly one account. The only one that can add/remove a
+//                director or change anyone's role.
+//   • director — full edit access to everything except the Directors list.
+//   • teacher  — scoped to scheduling their OWN private lessons (see
+//                `lessons` and the `kind == 'lesson'` exception on
+//                `rosterOverrides` below). Can't touch rosters, schedule,
+//                repertoire, documents, announcements, contacts, or the
+//                Directors list.
+// A doc with no `role` predates this feature and is treated as a full
+// director (see isStaff()) — nobody with existing access loses it.
 //
 // The AI enrichment GitHub Action authenticates with a service account via the
 // Admin SDK, which bypasses these rules entirely — so enrichment writes work
@@ -17,6 +31,10 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function myDirectorDoc() {
+      return get(/databases/$(database)/documents/directors/$(request.auth.token.email)).data;
+    }
 
     // A director is an authenticated user who has a doc in the `directors`
     // collection (doc id = their lowercased Google sign-in email). Google
@@ -34,25 +52,51 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/directors/$(request.auth.token.email));
     }
 
-    // ── Public read · director write ────────────────────────────
-    match /ensembles/{doc}       { allow read; allow write: if signedIn(); }
-    match /students/{doc}        { allow read; allow write: if signedIn(); }
-    match /events/{doc}          { allow read; allow write: if signedIn(); }
-    match /rosterOverrides/{doc} { allow read; allow write: if signedIn(); }
-    match /announcements/{doc}   { allow read; allow write: if signedIn(); }
-    match /repertoire/{doc}      { allow read; allow write: if signedIn(); }
+    // The Owner: the one account allowed to manage the Directors list itself.
+    function isOwner() {
+      return signedIn() && myDirectorDoc().role == 'owner';
+    }
+
+    function isTeacherRole() {
+      return signedIn() && myDirectorDoc().role == 'teacher';
+    }
+
+    // Full director privileges: Owner, Director, or a legacy doc with no
+    // role set (every director created before roles existed). Only an
+    // explicit 'teacher' role is excluded.
+    function isStaff() {
+      return signedIn() && !isTeacherRole();
+    }
+
+    // ── Public read · staff write ────────────────────
+    match /ensembles/{doc}       { allow read; allow write: if isStaff(); }
+    match /students/{doc}        { allow read; allow write: if isStaff(); }
+    match /events/{doc}          { allow read; allow write: if isStaff(); }
+    // rosterOverrides: staff can write anything. A Teacher may create/edit/
+    // delete only THEIR OWN private-lesson pull-outs (kind == 'lesson') — the
+    // automatic side effect of scheduling a lesson that conflicts with a
+    // rehearsal/class (see the `lessons` collection below). Teachers never
+    // touch ordinary subs/pull-outs or another teacher's lesson entries.
+    match /rosterOverrides/{doc} {
+      allow read;
+      allow create: if isStaff() || (isTeacherRole() && request.resource.data.kind == 'lesson');
+      allow update: if isStaff() || (isTeacherRole() && resource.data.kind == 'lesson' && request.resource.data.kind == 'lesson');
+      allow delete: if isStaff() || (isTeacherRole() && resource.data.kind == 'lesson');
+    }
+    match /announcements/{doc}   { allow read; allow write: if isStaff(); }
+    match /repertoire/{doc}      { allow read; allow write: if isStaff(); }
     // Assignment DEFINITIONS (title, type, due date, target) are public so
     // students see what's assigned. Individual RESULTS/grades stay private below.
-    match /assignments/{doc}     { allow read; allow write: if signedIn(); }
-    match /seatingCharts/{doc}   { allow read; allow write: if signedIn(); }
-    match /locations/{doc}       { allow read; allow write: if signedIn(); }
+    match /assignments/{doc}     { allow read; allow write: if isStaff(); }
+    match /seatingCharts/{doc}   { allow read; allow write: if isStaff(); }
+    match /locations/{doc}       { allow read; allow write: if isStaff(); }
     // Document repository (syllabi, handbooks, forms). Metadata is public so the
     // Documents page and per-ensemble lists can render; the files themselves
-    // live in Storage. Only a director may add/edit/remove entries.
-    match /documents/{doc}       { allow read; allow write: if signedIn(); }
+    // live in Storage. Only staff may add/edit/remove entries.
+    match /documents/{doc}       { allow read; allow write: if isStaff(); }
 
     // Planned absences (#27): anyone may SUBMIT one (create-only, shape-checked),
-    // but only directors can read the queue or change/delete entries — so the
+    // but only staff can read the queue or change/delete entries — so the
     // public side can't enumerate or tamper with other students' reports.
     match /plannedAbsences/{doc} {
       allow create: if request.resource.data.keys().hasOnly(['studentId', 'studentName', 'date', 'reason', 'submittedAt', 'status'])
@@ -61,37 +105,52 @@ service cloud.firestore {
         && request.resource.data.reason is string
         && request.resource.data.reason.size() <= 300
         && request.resource.data.status == 'pending';
-      allow read, update, delete: if signedIn();
+      allow read, update, delete: if isStaff();
     }
 
-    // Outbound notification queue (#21): director-only writes; Power Automate
+    // Outbound notification queue (#21): staff-only writes; Power Automate
     // reads it with a service credential (Admin SDK bypasses rules).
-    match /notifyQueue/{doc}     { allow read, write: if signedIn(); }
+    match /notifyQueue/{doc}     { allow read, write: if isStaff(); }
 
-    // ── Private · director read + write only ──────────────
-    match /contacts/{doc}           { allow read, write: if signedIn(); }
-    match /attendance/{doc}         { allow read, write: if signedIn(); }
-    match /progressNotes/{doc}      { allow read, write: if signedIn(); }
-    match /assignmentResults/{doc}  { allow read, write: if signedIn(); }
+    // Private lessons (#roles): a Teacher schedules/edits/cancels their OWN
+    // lessons; Owner/Director can see and manage all of them (coordination —
+    // e.g. confirming a conflict with the ensemble director). Never world-
+    // readable, since it names an individual student and their teacher.
+    match /lessons/{doc} {
+      allow read: if signedIn();
+      allow create: if isStaff() || (isTeacherRole() && request.resource.data.teacherEmail == request.auth.token.email);
+      allow update, delete: if isStaff() || (isTeacherRole() && resource.data.teacherEmail == request.auth.token.email);
+    }
+
+    // ── Private · staff read + write only ──────────────
+    match /contacts/{doc}           { allow read, write: if isStaff(); }
+    match /attendance/{doc}         { allow read, write: if isStaff(); }
+    match /progressNotes/{doc}      { allow read, write: if isStaff(); }
+    match /assignmentResults/{doc}  { allow read, write: if isStaff(); }
 
     // ── Director allowlist (stored as data) ─────────────
-    // Each doc id is a director's lowercased Google sign-in email; its presence
-    // grants access (see signedIn() above). Managed from the app's Directors
-    // screen — no rules redeploy to add or remove a director. The first
-    // director(s) are seeded out-of-band by scripts/seed-directors.mjs (Admin
-    // SDK bypasses these rules), since writing here requires already being one.
+    // Owner-only management (#roles): only the Owner may add/remove a
+    // director, change a role, or even list the roster — closes the gap
+    // where any signed-in director could see or edit who has access. Two
+    // narrow self-service exceptions keep the app usable day-to-day:
+    //   • a signed-in user may always GET their own doc (to discover
+    //     whether they're a director — the app gates access on this);
+    //   • a director may UPDATE only `name` and/or `assignedStudentIds` on
+    //     their OWN doc — auto-captured display name on first sign-in, and a
+    //     Teacher adjusting their own "students assigned to me" list.
     match /directors/{email} {
-      // A signed-in user may read THEIR OWN doc to discover whether they're a
-      // director (the app gates access on this); a director may read/list the
-      // whole roster to manage it. Nobody else can enumerate director emails.
       allow get:  if request.auth != null
-                     && (request.auth.token.email == email || signedIn());
-      allow list: if signedIn();
-      // Existing directors add or edit others.
-      allow create, update: if signedIn();
-      // A director may remove others but not themselves — this keeps a director
-      // from locking the last account out of the app.
-      allow delete: if signedIn() && request.auth.token.email != email;
+                     && (request.auth.token.email == email || isOwner());
+      allow list: if isOwner();
+      // Existing directors are seeded out-of-band (Admin SDK bypasses these
+      // rules); from here on, only the Owner adds or edits others.
+      allow create: if isOwner();
+      allow update: if isOwner()
+        || (request.auth != null && request.auth.token.email == email
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'assignedStudentIds']));
+      // The Owner may remove any OTHER director, but never their own
+      // account — the app can never end up ownerless.
+      allow delete: if isOwner() && request.auth.token.email != email;
     }
 
     // ── Deny everything else by default ─────────────────

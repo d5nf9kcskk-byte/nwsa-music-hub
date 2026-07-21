@@ -6,6 +6,7 @@ import { resolveRoster } from '../rosterResolver';
 import { EVENT_TYPES, TIME_BLOCKS } from '../utils';
 import { PiecePicker } from '../repertoire/PiecePicker';
 import { RichTextArea } from '../components/RichTextArea';
+import { EditedByLine } from '../components/EditedByLine';
 import { useModalA11y } from '../../shared/useModalA11y';
 import type { CalendarEvent, Ensemble, EventType, EventStatus } from '../types';
 
@@ -189,6 +190,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
         <div className="dir-drawer-body">
+          {event && <EditedByLine updatedAt={event.updatedAt} updatedBy={event.updatedBy} />}
           {/* Concurrent-edit guard (#40) */}
           {editedElsewhere && !overrideTheirs && (
             <div className="dir-conflict-banner">

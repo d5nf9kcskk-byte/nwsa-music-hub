@@ -3,6 +3,7 @@ import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'fireb
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
+import { currentDirectorName } from '../currentDirector';
 import type { Announcement } from '../types';
 
 /**
@@ -34,7 +35,8 @@ export function useAnnouncements() {
 
   async function updateAnnouncement(id: string, data: Partial<Omit<Announcement, 'id'>>) {
     if (!db) return;
-    await updateDoc(doc(db, 'announcements', id), data);
+    const payload = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
+    await updateDoc(doc(db, 'announcements', id), payload);
   }
 
   async function deleteAnnouncement(id: string) {

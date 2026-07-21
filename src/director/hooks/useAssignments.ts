@@ -7,6 +7,7 @@ import { db } from '../firebase';
 import { offerUndo } from '../writeStatus';
 import { watchCollection } from '../../shared/watchCollection';
 import { todayStr } from '../utils';
+import { currentDirectorName } from '../currentDirector';
 import type { Assignment, AssignmentResult, AssignmentResultStatus } from '../types';
 
 export function useAssignments() {
@@ -29,7 +30,8 @@ export function useAssignments() {
 
   async function updateAssignment(id: string, data: Partial<Omit<Assignment, 'id'>>) {
     if (!db) return;
-    await updateDoc(doc(db, 'assignments', id), data);
+    const payload = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
+    await updateDoc(doc(db, 'assignments', id), payload);
   }
 
   async function deleteAssignment(id: string) {

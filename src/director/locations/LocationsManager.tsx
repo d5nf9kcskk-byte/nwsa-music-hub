@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronLeft, MapPin, Pencil, Plus } from 'lucide-react';
 import { useLocations } from '../hooks/useLocations';
+import { EditedByLine } from '../components/EditedByLine';
 import type { CampusLocation } from '../types';
 import './locations.css';
 
@@ -132,6 +133,7 @@ function LocationForm({ location, onSave, onDelete, onBack, onClose }: FormProps
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
         <div className="dir-drawer-body">
+          {location && <EditedByLine updatedAt={location.updatedAt} updatedBy={location.updatedBy} />}
           <div className="dir-field">
             <label className="dir-label">Room *</label>
             <input className="dir-input" value={room} onChange={e => setRoom(e.target.value)} placeholder="e.g. Room 121" />

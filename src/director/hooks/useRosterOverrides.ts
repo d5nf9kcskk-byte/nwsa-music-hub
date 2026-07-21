@@ -22,9 +22,10 @@ export function useRosterOverrides() {
     }, () => { noteLoadError('rosterOverrides'); setLoading(false); });
   }, []);
 
-  async function addOverride(data: Omit<RosterOverride, 'id'>) {
+  async function addOverride(data: Omit<RosterOverride, 'id'>): Promise<string | undefined> {
     if (!db) return;
-    await addDoc(collection(db, 'rosterOverrides'), data);
+    const ref = await addDoc(collection(db, 'rosterOverrides'), data);
+    return ref.id;
   }
 
   async function deleteOverride(id: string) {
