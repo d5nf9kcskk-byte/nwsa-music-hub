@@ -96,11 +96,13 @@ Open the dev URL; the public site is at `/`, the director tool at `/director`.
 
 ### 2. Security rules
 
-Security rules deploy **automatically**: the *Deploy Firestore & Storage rules*
-GitHub Action ships `firestore.rules` and `storage.rules` whenever they change
-on `main`, using the `FIREBASE_SERVICE_ACCOUNT_JSON` secret. Editing the rules
-no longer needs a hand-run deploy. To deploy manually anyway (first-time setup,
-or a non-CI change) you can still:
+Firestore rules deploy **automatically**: the *Deploy Firestore rules* GitHub
+Action ships `firestore.rules` whenever it changes on `main`, using the
+`FIREBASE_SERVICE_ACCOUNT_JSON` secret. Editing the rules no longer needs a
+hand-run deploy. (`storage.rules` is deployed by hand — its deploy needs a
+Service Usage permission the service account doesn't have; see the workflow
+comment.) To deploy manually anyway (first-time setup, or a storage-rules
+change) you can still:
 
 ```bash
 npm install -g firebase-tools
@@ -132,7 +134,7 @@ It's bootstrap-only (does nothing if the collection already has entries).
 > **One-time migration** (only when moving an existing site to this data-driven
 > model): **run the *Seed Directors* Action first** so the founding directors
 > exist, **then merge** — the updated rules deploy automatically (*Deploy
-> Firestore & Storage rules*) and the app redeploys. Seeding before the new
+> Firestore rules*) and the app redeploys. Seeding before the new
 > rules go live means the current director is never locked out. If the order
 > slips (rules live a few seconds before the seed finishes), the founding
 > accounts stay in via the break-glass fallback and everyone else briefly sees
