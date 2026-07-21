@@ -1,9 +1,18 @@
-name: Deploy Firestore & Storage rules
+name: Deploy Firestore rules
 
-# Deploys the security rules automatically whenever they change on main, using
-# the same service account the other admin tasks use. This closes the last
-# manual step: editing firestore.rules / storage.rules no longer needs a
-# hand-run `firebase deploy` — the rules go live with the change that made them.
+# Deploys the Firestore security rules automatically whenever they change on
+# main, using the same service account the other admin tasks use. This closes
+# the last manual step: editing firestore.rules no longer needs a hand-run
+# `firebase deploy` — the rules go live with the change that made them.
+#
+# Storage rules are intentionally NOT deployed here. Firebase Storage requires
+# the paid Blaze plan (there is no bucket on the free Spark plan), so a Storage
+# deploy fails with "fetching default storage bucket … 403 / may not exist" and
+# would drag the whole job — including the Firestore rules — down with it.
+# storage.rules is kept in the repo, ready to deploy, for whenever Storage is
+# enabled; add `,storage:rules` back to the deploy command below at that point.
+# Until then, document/attachment uploads use external links (Drive, etc.)
+# instead of in-app file uploads.
 on:
   workflow_dispatch:
   push:
@@ -48,7 +57,7 @@ jobs:
       - name: Deploy rules
         run: |
           npx --yes firebase-tools@13 deploy \
-            --only firestore:rules,storage:rules \
+            --only firestore:rules \
             --project nwsa-hub \
             --non-interactive
 
