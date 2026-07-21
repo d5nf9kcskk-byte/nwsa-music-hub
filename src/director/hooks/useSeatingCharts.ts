@@ -3,6 +3,7 @@ import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
+import { currentDirectorName } from '../currentDirector';
 import type { SeatingChart } from '../types';
 
 /** Published seating charts. Public-readable (students see where they sit). */
@@ -29,7 +30,8 @@ export function useSeatingCharts(ensembleId?: string) {
   }
   async function updateChart(id: string, data: Partial<Omit<SeatingChart, 'id'>>) {
     if (!db) return;
-    await updateDoc(doc(db, 'seatingCharts', id), data);
+    const payload = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
+    await updateDoc(doc(db, 'seatingCharts', id), payload);
   }
   async function deleteChart(id: string) {
     if (!db) return;

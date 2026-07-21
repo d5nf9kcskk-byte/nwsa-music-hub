@@ -6,6 +6,7 @@ import {
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo, trackWrite } from '../writeStatus';
+import { currentDirectorName } from '../currentDirector';
 import type { Student } from '../types';
 import { FIXTURES_ON, FIXTURE_STUDENTS } from './fixtures';
 
@@ -43,7 +44,8 @@ export function useStudents(ensembleId?: string) {
   async function updateStudent(id: string, data: Partial<Omit<Student, 'id'>>) {
     if (!db) return;
     const dbRef = db;
-    await trackWrite('Student update', () => updateDoc(doc(dbRef, 'students', id), data));
+    const payload = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
+    await trackWrite('Student update', () => updateDoc(doc(dbRef, 'students', id), payload));
   }
 
   async function deleteStudent(id: string) {

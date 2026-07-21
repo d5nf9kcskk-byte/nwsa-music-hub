@@ -215,7 +215,12 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
 
   function EventCard({ e }: { e: CalendarEvent }) {
     const summary = overrideSummary(overrides, e.id);
-    const isSchoolWide = e.ensembleIds.length === 0;
+    // School-wide items collapse to a minimal note UNLESS they're a Class —
+    // classes are always school-wide (no ensemble) but still meet at a real
+    // time/place, so they need the full card (time, location, type icon) just
+    // like the public calendar shows them. Only timeless school markers (no
+    // school today, planning days, etc.) get the minimal treatment.
+    const isSchoolWide = e.ensembleIds.length === 0 && e.type !== 'Class';
 
     if (isSchoolWide) {
       return (

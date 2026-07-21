@@ -7,6 +7,7 @@ import { noteLoadOk } from '../../shared/appStatus';
 import { offerUndo, trackWrite } from '../writeStatus';
 import { watchCollection } from '../../shared/watchCollection';
 import { FIXTURES_ON, FIXTURE_DOCUMENTS } from './fixtures';
+import { currentDirectorName } from '../currentDirector';
 import type { LibraryDocument } from '../types';
 
 /**
@@ -43,7 +44,7 @@ export function useDocuments() {
     // SKIPPED and the old value left in place — a removed file/link would
     // silently persist. Convert cleared fields to deleteField() so they're
     // actually removed.
-    const payload: Record<string, unknown> = { updatedAt: Date.now() };
+    const payload: Record<string, unknown> = { updatedAt: Date.now(), updatedBy: currentDirectorName() };
     for (const [k, v] of Object.entries(data)) {
       payload[k] = v === undefined ? deleteField() : v;
     }

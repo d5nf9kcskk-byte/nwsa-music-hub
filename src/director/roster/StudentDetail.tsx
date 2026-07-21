@@ -10,6 +10,7 @@ import { studentExpectation } from '../rosterResolver';
 import { todayStr, ensembleColor, formatDate } from '../utils';
 import type { Student, StudentContact, Ensemble } from '../types';
 import { Linkify } from '../components/Linkify';
+import { EditedByLine } from '../components/EditedByLine';
 import { useModalA11y } from '../../shared/useModalA11y';
 
 interface Props {
@@ -89,6 +90,7 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
         </div>
 
         <div className="dir-drawer-body">
+          <EditedByLine updatedAt={student.updatedAt} updatedBy={student.updatedBy} />
 
           {/* ── Ensembles ── */}
           {homeEnsembles.length > 0 && (

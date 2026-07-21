@@ -222,10 +222,20 @@ const EVENTS = [
   ev('va-cafecito-3', 'Event', ['visual-arts'], '2027-02-07', '14:00', V.moad, 'New World Meets for Cafecito', FREE),
 
   /* ── SCHOOL-WIDE (Rising Stars signature showcase) ─────────────────── */
-  ev('rising-stars-exhibit', 'Event', [], '2027-03-18', '17:00', V.gallery, 'Rising Stars Exhibition — Reception',
-    `Rising Stars Signature Showcase. Exhibition runs March 18–21. Reception 5–8pm. ${FREE}`),
+  // Exhibition runs March 15–21 with the reception on March 17 (brochure:
+  // "SIGNATURE SHOWCASE EXHIBITION March 15-21; Reception: March 17; 5-8pm") —
+  // this previously said March 18, off by a day from the printed brochure.
+  ev('rising-stars-exhibit', 'Event', [], '2027-03-17', '17:00', V.gallery, 'Rising Stars Exhibition — Reception',
+    `Rising Stars Signature Showcase. Exhibition runs March 15–21. Reception 5–8pm. ${FREE}`),
   ev('rising-stars-performance', 'Event', [], '2027-03-18', '19:30', V.ziff, 'Rising Stars: Performance & VIP Reception',
     'Rising Stars Signature Showcase, directed by Alan Patrick Kenny. Admission $35, $20; VIP $250, $150.'),
+
+  /* ── SCHOOL-WIDE (Convergence — date confirmed, details TBD) ────────── */
+  // startTime/location left blank (not undefined — the Admin SDK rejects
+  // undefined field values) until the director fills them in from the
+  // Schedule screen.
+  ev('convergence', 'Event', [], '2026-09-12', '', { location: 'TBD', venueAddress: '' }, 'Convergence',
+    'Time and location TBD.'),
 ];
 
 /* ── Run ───────────────────────────────────────────────────────────────── */
