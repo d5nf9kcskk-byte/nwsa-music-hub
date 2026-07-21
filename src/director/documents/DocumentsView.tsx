@@ -134,19 +134,8 @@ function DocumentForm({ document, ensembles, onSave, onDelete, onClose }: FormPr
           </div>
 
           <div className="dir-field">
-            <label className="dir-label">File</label>
-            <FileUpload
-              attachments={attachments}
-              onChange={setAttachments}
-              folder={`documents/${uploadId}`}
-              single
-              label="Upload file (PDF, image, …)"
-            />
-          </div>
-
-          <div className="dir-field">
             <label className="dir-label">
-              Or link <span className="dir-label-hint">Google Drive, district site, etc.</span>
+              Link <span className="dir-label-hint">Google Drive, district site, etc. — recommended</span>
             </label>
             <input
               className="dir-input"
@@ -154,6 +143,22 @@ function DocumentForm({ document, ensembles, onSave, onDelete, onClose }: FormPr
               value={url}
               onChange={e => setUrl(e.target.value)}
               placeholder="https://…"
+            />
+            <div className="dir-field-hint">
+              Upload the file to Google Drive (or similar) and paste its share link here.
+            </div>
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">
+              Or upload a file <span className="dir-label-hint">requires the paid Storage plan</span>
+            </label>
+            <FileUpload
+              attachments={attachments}
+              onChange={setAttachments}
+              folder={`documents/${uploadId}`}
+              single
+              label="Upload file (PDF, image, …)"
             />
           </div>
 

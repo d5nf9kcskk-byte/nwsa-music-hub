@@ -45,7 +45,16 @@ export function FileUpload({ attachments, onChange, folder, assignmentId, single
       const next = { name: file.name, url, size: file.size };
       onChange(single ? [next] : [...attachments, next]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Upload failed.');
+      // Firebase Storage requires the paid Blaze plan; on the free plan there's
+      // no bucket, so every upload fails with a storage/* code (the cryptic
+      // "storage/unknown"). Translate that into a plain-English nudge toward the
+      // link field every upload surface already offers, instead of the raw code.
+      const code = (e as { code?: string }).code ?? '';
+      setError(
+        code.startsWith('storage/')
+          ? 'File uploads aren’t available on this plan. Add a link instead (upload the file to Google Drive, then paste its share link below).'
+          : e instanceof Error ? e.message : 'Upload failed.',
+      );
     } finally {
       setProgress(null);
       if (inputRef.current) inputRef.current.value = '';
