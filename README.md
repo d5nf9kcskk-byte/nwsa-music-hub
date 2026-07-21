@@ -96,13 +96,16 @@ Open the dev URL; the public site is at `/`, the director tool at `/director`.
 
 ### 2. Security rules
 
-Deploy the rules in `firestore.rules` (or paste them into the Firebase console →
-Firestore → Rules):
+Security rules deploy **automatically**: the *Deploy Firestore & Storage rules*
+GitHub Action ships `firestore.rules` and `storage.rules` whenever they change
+on `main`, using the `FIREBASE_SERVICE_ACCOUNT_JSON` secret. Editing the rules
+no longer needs a hand-run deploy. To deploy manually anyway (first-time setup,
+or a non-CI change) you can still:
 
 ```bash
 npm install -g firebase-tools
 firebase login
-firebase deploy --only firestore:rules --project YOUR_PROJECT_ID
+firebase deploy --only firestore:rules,storage:rules --project YOUR_PROJECT_ID
 ```
 
 ### Who can sign in (directors)
@@ -126,13 +129,15 @@ FIREBASE_SERVICE_ACCOUNT_JSON="$(cat serviceAccount.json)" node scripts/seed-dir
 
 It's bootstrap-only (does nothing if the collection already has entries).
 
-> **One-time migration order** (only when moving an existing site to this
-> data-driven model): **seed the directors first**, **then** deploy the updated
-> `firestore.rules`, **then** deploy the app. Seeding before deploying the new
-> rules means the current director is never locked out. (If they get done out of
-> order, the app shows "Checking access… / Couldn't verify" with a retry — never
-> a permanent lockout — and resolves once the rules are live and the seed has
-> run.)
+> **One-time migration** (only when moving an existing site to this data-driven
+> model): **run the *Seed Directors* Action first** so the founding directors
+> exist, **then merge** — the updated rules deploy automatically (*Deploy
+> Firestore & Storage rules*) and the app redeploys. Seeding before the new
+> rules go live means the current director is never locked out. If the order
+> slips (rules live a few seconds before the seed finishes), the founding
+> accounts stay in via the break-glass fallback and everyone else briefly sees
+> "Checking access… / Couldn't verify" with a retry — never a permanent
+> lockout — clearing the moment the seed completes.
 
 ### 3. Seed the roster (optional)
 
