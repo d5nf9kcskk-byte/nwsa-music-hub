@@ -27,6 +27,9 @@ export interface Student {
   archivedAt?: number;
   /** Optional archive label, e.g. "Class of 2026". */
   archivedLabel?: string;
+  /* ── Change tracking (director-side only, never shown publicly) ── */
+  updatedAt?: number;
+  updatedBy?: string; // director's display name (falls back to email)
 }
 
 /**
@@ -205,6 +208,9 @@ export interface Announcement {
   createdAt: number;         // Date.now() — for ordering
   pinned?: boolean;
   expiresOn?: string;        // YYYY-MM-DD; hidden on/after this date if set
+  /* ── Change tracking (director-side only, never shown publicly) ── */
+  updatedAt?: number;
+  updatedBy?: string; // director's display name (falls back to email)
 }
 
 export interface PieceMovement {
@@ -252,6 +258,9 @@ export interface RepertoirePiece {
   notes?: string;             // director notes (edition, cuts, etc.)
   eventIds?: string[];        // concerts/events this piece is programmed for
   order: number;
+  /* ── Change tracking (director-side only, never shown publicly) ── */
+  updatedAt?: number;
+  updatedBy?: string; // director's display name (falls back to email)
 }
 
 export type AttendanceStatus = 'Absent' | 'Late' | 'Excused' | 'Lesson';
@@ -278,6 +287,9 @@ export interface Assignment {
   formUrl?: string;
   createdAt: number;
   attachments?: Attachment[];
+  /* ── Change tracking (director-side only, never shown publicly) ── */
+  updatedAt?: number;
+  updatedBy?: string; // director's display name (falls back to email)
 }
 
 /**
@@ -294,6 +306,9 @@ export interface SeatingChart {
   // Ordered seats grouped by section label (e.g. "Violin I", "Trumpet").
   sections: { section: string; seats: { studentId: string; note?: string }[] }[];
   createdAt: number;
+  /* ── Change tracking (director-side only, never shown publicly) ── */
+  updatedAt?: number;
+  updatedBy?: string; // director's display name (falls back to email)
 }
 
 export interface AssignmentResult {
@@ -326,6 +341,9 @@ export interface CampusLocation {
   label: string;          // e.g. "Band Hall"
   directions?: string;    // e.g. "enter through East doors"
   mapAnchor?: string;     // fragment id on the campus-map image
+  /* ── Change tracking (director-side only, never shown publicly) ── */
+  updatedAt?: number;
+  updatedBy?: string; // director's display name (falls back to email)
 }
 
 /**
@@ -371,6 +389,7 @@ export interface LibraryDocument {
   description?: string;
   createdAt: number;
   updatedAt?: number;
+  updatedBy?: string; // director's display name (falls back to email) — director-side only
   order?: number;
 }
 
@@ -384,4 +403,45 @@ export interface NotifyQueueItem {
   ensembleIds: string[];
   createdAt: number;
   processedAt?: number | null;
+}
+
+/**
+ * A private (one-on-one) lesson, scheduled by a Teacher-role director for one
+ * of their assigned students. Private — never world-readable (unlike
+ * CalendarEvent) since it names an individual student and their teacher.
+ *
+ * When the lesson's time overlaps a rehearsal/sectional/class the student is
+ * normally in, the teacher must acknowledge the conflict (see `conflict`
+ * below); on acknowledgment a linked `RosterOverride` (kind: 'lesson') is
+ * created so the existing pull-out machinery (Take Roll badge, Who's Out,
+ * attendance) treats it exactly like a director-entered lesson pull-out. A
+ * lesson with no conflict (e.g. after school) has no linked override.
+ */
+export interface Lesson {
+  id: string;
+  teacherEmail: string;   // directors/{email} doc id of the teaching director
+  teacherName?: string;   // denormalized for display without a join
+  studentId: string;
+  date: string;            // YYYY-MM-DD
+  startTime: string;       // "HH:MM" (24h)
+  endTime: string;         // "HH:MM" (24h)
+  location?: string;
+  instrument?: string;     // denormalized from the teacher's instrument(s)
+  notes?: string;
+  status: EventStatus;
+  /** Set once the teacher has acknowledged a scheduling conflict for this
+   *  lesson. Absent = no conflict was detected at save time. */
+  conflict?: {
+    eventId: string;
+    ensembleId: string;     // the ensemble whose rehearsal/class this conflicts with
+    eventLabel: string;     // e.g. "Wind Ensemble Rehearsal, 1:10–2:25 PM"
+    acknowledgedAt: number;
+    acknowledgedBy?: string; // director's display name
+  };
+  /** Id of the linked RosterOverride (kind: 'lesson') pull-out, when this
+   *  lesson's conflict was acknowledged. Kept in sync on edit/delete. */
+  overrideId?: string;
+  createdAt: number;
+  updatedAt?: number;
+  updatedBy?: string; // director's display name (falls back to email)
 }

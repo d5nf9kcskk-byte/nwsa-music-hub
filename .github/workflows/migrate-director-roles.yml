@@ -1,0 +1,28 @@
+name: Migrate Director Roles
+
+# One-time backfill (#roles): stamps role: 'owner' on the founding account and
+# role: 'director' on every other existing director doc, so the Owner-only
+# Directors screen and the new firestore.rules can enforce access by role.
+# Idempotent — only touches docs missing a `role`, safe to re-run.
+#
+# Run this manually (workflow_dispatch) AFTER the updated firestore.rules have
+# deployed — see "Deploy Firestore & Storage rules".
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install firebase-admin --no-save
+      - name: Backfill director roles in Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/migrate-director-roles.mjs

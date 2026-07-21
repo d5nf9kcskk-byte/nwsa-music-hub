@@ -3,6 +3,7 @@ import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'fireb
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
+import { currentDirectorName } from '../currentDirector';
 import type { RepertoirePiece } from '../types';
 import { FIXTURES_ON, FIXTURE_PIECES } from './fixtures';
 
@@ -33,7 +34,8 @@ export function useRepertoire() {
 
   async function updatePiece(id: string, data: Partial<Omit<RepertoirePiece, 'id'>>) {
     if (!db) return;
-    await updateDoc(doc(db, 'repertoire', id), data);
+    const payload = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
+    await updateDoc(doc(db, 'repertoire', id), payload);
   }
 
   async function deletePiece(id: string) {

@@ -7,6 +7,8 @@ import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megapho
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
+import { useCurrentDirector } from './currentDirector';
+import { TeacherApp } from './teacher/TeacherApp';
 import { DirectorSearch } from './components/DirectorSearch';
 import { WriteTray } from './components/WriteTray';
 import { useWriteBusy } from './writeStatus';
@@ -116,6 +118,11 @@ export default function DirectorApp() {
   const { ensembles } = useEnsembles();
   const writeBusy = useWriteBusy();
   const menuRef = useModalA11y<HTMLElement>(() => setMenuOpen(false), menuOpen);
+  const me = useCurrentDirector();
+  // Owner-only Directors screen (#roles): everyone else — including every
+  // Director — never even sees the entry point. A Teacher never reaches this
+  // shell at all (see the AuthGate render-prop below).
+  const isOwner = me?.role === 'owner';
 
   // Tab + intent live in the URL (/director/<tab>?ensemble=…&date=…), so the
   // browser Back button steps through tabs and a reload keeps your place.
@@ -148,7 +155,9 @@ export default function DirectorApp() {
 
   return (
     <AuthGate>
-      {(user, signOut) => (
+      {(user, signOut) => me?.role === 'teacher' ? (
+        <TeacherApp user={user} signOut={signOut} />
+      ) : (
         <div className="dir-app" data-dir-theme={darkMode ? 'dark' : undefined}>
           {/* Back-end marker: an unmistakable dark strip + gold rule, always on
               top, so the director always knows this is the editing side. */}
@@ -196,9 +205,11 @@ export default function DirectorApp() {
               <button className="dir-rail-item" onClick={() => setQrOpen(true)}>
                 <QrCode size={18} /> QR Kit
               </button>
-              <button className="dir-rail-item" onClick={() => setDirectorsOpen(true)}>
-                <ShieldCheck size={18} /> Directors
-              </button>
+              {isOwner && (
+                <button className="dir-rail-item" onClick={() => setDirectorsOpen(true)}>
+                  <ShieldCheck size={18} /> Directors
+                </button>
+              )}
               <button className="dir-rail-item" onClick={() => navigate('/')}>
                 <ExternalLink size={18} /> View public site
               </button>
@@ -273,7 +284,9 @@ export default function DirectorApp() {
 
           {qrOpen && <QrKitView onClose={() => setQrOpen(false)} />}
 
-          {directorsOpen && <DirectorsManager currentEmail={user.email} onClose={() => setDirectorsOpen(false)} />}
+          {directorsOpen && isOwner && (
+            <DirectorsManager currentEmail={user.email} currentRole={me?.role ?? 'director'} onClose={() => setDirectorsOpen(false)} />
+          )}
 
           <DirectorSearch
             open={searchOpen}
@@ -346,9 +359,11 @@ export default function DirectorApp() {
                   <QrCode size={19} /> QR Kit
                 </button>
 
-                <button className="dir-menu-item" onClick={() => { setDirectorsOpen(true); setMenuOpen(false); }}>
-                  <ShieldCheck size={19} /> Directors
-                </button>
+                {isOwner && (
+                  <button className="dir-menu-item" onClick={() => { setDirectorsOpen(true); setMenuOpen(false); }}>
+                    <ShieldCheck size={19} /> Directors
+                  </button>
+                )}
 
                 <button className="dir-menu-item" onClick={() => navigate('/')}>
                   <ExternalLink size={19} /> View public site

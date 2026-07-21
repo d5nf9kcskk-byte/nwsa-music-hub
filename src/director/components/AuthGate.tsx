@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut, GoogleAuthProvider } from 'firebase/auth';
 import type { User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { Link } from 'react-router';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { FIXTURES_ON } from '../hooks/fixtures';
 import { directorEmailId } from '../hooks/useDirectors';
+import type { Director } from '../hooks/useDirectors';
+import { setCurrentDirector, clearCurrentDirector } from '../currentDirector';
 
 /**
  * Break-glass allowlist. Access is normally decided by the `directors`
@@ -37,23 +39,54 @@ export function AuthGate({ children }: Props) {
     return onAuthStateChanged(auth, u => setUser(u));
   }, []);
 
+  // Fixture builds never run the real auth flow below, so seed a fixture
+  // identity directly (role/name gating elsewhere reads currentDirector.ts).
+  useEffect(() => {
+    if (!isFirebaseConfigured && FIXTURES_ON) {
+      setCurrentDirector({ email: 'fixtures@local', role: 'director' }, 'Fixture Director');
+    }
+  }, []);
+
   // Membership check: does a `directors/<email>` doc exist for this account?
   // Runs whenever the signed-in user changes (or the user retries).
   useEffect(() => {
     if (user === 'loading' || user === null) return;
-    if (!db) { setAccess('granted'); return; } // no Firestore = local/dev build
+    if (!db) {
+      // No Firestore = local/dev build — grant access with a reasonable
+      // default identity so role-gated screens still render sensibly.
+      setCurrentDirector({ email: user.email ?? '', role: 'director' }, user.displayName);
+      setAccess('granted');
+      return;
+    }
     let cancelled = false;
     setAccess('checking');
     const email = directorEmailId(user.email ?? '');
     getDoc(doc(db, 'directors', email))
-      .then(snap => { if (!cancelled) setAccess(snap.exists() ? 'granted' : 'denied'); })
+      .then(snap => {
+        if (cancelled) return;
+        if (!snap.exists()) { setAccess('denied'); return; }
+        const directorDoc = { email, ...snap.data() } as Director;
+        setCurrentDirector(directorDoc, user.displayName);
+        // Auto-capture the director's display name on first sign-in — a
+        // self-service write (firestore.rules lets a director change ONLY
+        // `name` on their own doc), so nobody has to hand-type names in.
+        if (!directorDoc.name?.trim() && user.displayName?.trim() && db) {
+          updateDoc(doc(db, 'directors', email), { name: user.displayName.trim() }).catch(() => {});
+        }
+        setAccess('granted');
+      })
       .catch(() => {
         // The read itself failed (offline, or pre-migration rules). Fall back to
-        // the break-glass list so the founding accounts stay in; everyone else
+        // the break-glass list so the founding account stays in; everyone else
         // gets an honest "couldn't verify" with a retry rather than a silent app
         // whose every save fails.
         if (cancelled) return;
-        setAccess(BREAK_GLASS_EMAILS.includes(email) ? 'granted' : 'error');
+        if (BREAK_GLASS_EMAILS.includes(email)) {
+          setCurrentDirector({ email, role: 'owner' }, user.displayName);
+          setAccess('granted');
+        } else {
+          setAccess('error');
+        }
       });
     return () => { cancelled = true; };
   }, [user, checkNonce]);
@@ -77,6 +110,7 @@ export function AuthGate({ children }: Props) {
 
   async function handleSignOut() {
     if (!auth) return;
+    clearCurrentDirector();
     await signOut(auth);
   }
 

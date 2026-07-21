@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
+import { currentDirectorName } from '../currentDirector';
 import type { CampusLocation } from '../types';
 
 /**
@@ -33,7 +34,8 @@ export function useLocations() {
 
   async function updateLocation(id: string, data: Partial<Omit<CampusLocation, 'id'>>) {
     if (!db) return;
-    await updateDoc(doc(db, 'locations', id), data);
+    const payload = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
+    await updateDoc(doc(db, 'locations', id), payload);
   }
 
   async function deleteLocation(id: string) {

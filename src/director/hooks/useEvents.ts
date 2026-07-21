@@ -3,9 +3,10 @@ import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
   query, orderBy, deleteField,
 } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo, trackWrite } from '../writeStatus';
+import { currentDirectorName } from '../currentDirector';
 import type { CalendarEvent } from '../types';
 import { FIXTURES_ON, FIXTURE_EVENTS } from './fixtures';
 
@@ -42,7 +43,7 @@ export function useEvents() {
     const keys = Object.keys(data);
     const bookkeepingOnly = keys.length > 0 && keys.every(k => k === 'rollTaken');
     if (!bookkeepingOnly) {
-      data = { ...data, updatedAt: Date.now(), updatedBy: auth?.currentUser?.email ?? undefined };
+      data = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
     }
     const dbRef = db;
     const payload = data;

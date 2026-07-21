@@ -4,27 +4,41 @@ rules_version = '2';
 //
 // Uploaded files back two public features: assignment attachments and the
 // document repository (syllabi, handbooks, forms). The files are world-
-// READABLE (their links are already public in Firestore), and only a signed-in
-// director on the allowlist may upload, overwrite, or delete them.
+// READABLE (their links are already public in Firestore), and only a
+// director/owner may upload, overwrite, or delete them (Teachers are scoped
+// to lesson scheduling only — see firestore.rules — and don't get Storage
+// access).
 //
-// Keep the director allowlist below in sync with firestore.rules.
+// The allowlist is NOT hardcoded here (that was the bug: a director added
+// in-app via the Directors screen could sign in and save to Firestore, but
+// every upload silently failed with "storage/unknown" because this file
+// still only knew about the original seed email). Instead this reads the
+// SAME `directors` collection in Firestore that firestore.rules uses, via
+// Storage's cross-service firestore.get()/exists() — one allowlist, one
+// place to manage it (the in-app Directors screen), no rules redeploy to
+// grant a new director Storage access ever again.
 //
 // Deploy with:  firebase deploy --only storage
 
 service firebase.storage {
   match /b/{bucket}/o {
 
-    function signedIn() {
+    function directorDoc() {
+      return firestore.get(/databases/(default)/documents/directors/$(request.auth.token.email)).data;
+    }
+
+    // Signed in AND listed in Firestore's `directors` collection — mirrors
+    // firestore.rules' signedIn(). Owner and Director both get full Storage
+    // access; Teacher (scoped to lesson scheduling only) does not.
+    function isStaff() {
       return request.auth != null
-        && request.auth.token.email in [
-          'nwsaorchestras@gmail.com'
-          // add more director emails here, comma-separated
-        ];
+        && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
+        && directorDoc().role != 'teacher';
     }
 
     // Assignment attachments and document-repository files.
-    match /assignments/{allPaths=**} { allow read; allow write: if signedIn(); }
-    match /documents/{allPaths=**}   { allow read; allow write: if signedIn(); }
+    match /assignments/{allPaths=**} { allow read; allow write: if isStaff(); }
+    match /documents/{allPaths=**}   { allow read; allow write: if isStaff(); }
 
     // Deny everything else by default.
     match /{allPaths=**}             { allow read, write: if false; }

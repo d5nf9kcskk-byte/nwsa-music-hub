@@ -6,6 +6,7 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { FileUpload } from '../components/FileUpload';
 import { RichTextArea } from '../components/RichTextArea';
+import { EditedByLine } from '../components/EditedByLine';
 import { musicEnsembles } from '../utils';
 import { DOC_CATEGORIES, DOC_AUDIENCES, DOC_CATEGORY_COLOR } from '../../shared/docMeta';
 import type {
@@ -88,6 +89,7 @@ function DocumentForm({ document, ensembles, onSave, onDelete, onClose }: FormPr
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
         <div className="dir-drawer-body">
+          {document && <EditedByLine updatedAt={document.updatedAt} updatedBy={document.updatedBy} />}
           <div className="dir-field">
             <label className="dir-label">Title *</label>
             <input

@@ -5,6 +5,7 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { ensembleColor, parseDate, musicEnsembles, pieceEnsembleIds } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
+import { EditedByLine } from '../components/EditedByLine';
 import type { RepertoirePiece, CalendarEvent, Ensemble, PieceMovement, PiecePartLink } from '../types';
 
 interface Props {
@@ -342,6 +343,7 @@ function RepertoireForm({
         </div>
 
         <div className="dir-drawer-body">
+          {piece && <EditedByLine updatedAt={piece.updatedAt} updatedBy={piece.updatedBy} />}
 
           {!lockedEnsembleId && (
             <div className="dir-field">
