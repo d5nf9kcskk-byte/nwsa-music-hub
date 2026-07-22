@@ -11,6 +11,21 @@ import type { CalendarEvent } from '../types';
 import { FIXTURES_ON, FIXTURE_EVENTS } from './fixtures';
 
 /**
+ * Heal legacy academic-class events. Classes seeded before they became their
+ * own event type were written with `type: 'Event'`, which makes the director
+ * schedule collapse them to a bare school-note and hides them from the
+ * "Classes" filter and attendance. Every such doc carries the stable
+ * `class-…` id the seeder mints (manual events get random Firestore ids;
+ * markers use `cal-`, rehearsals `reh-`), so the id is a safe signal to
+ * coerce the type back to 'Class' at read time — no data migration needed,
+ * and editing one heals the stored doc for good.
+ */
+function normalizeEvent(e: CalendarEvent): CalendarEvent {
+  if (e.type !== 'Class' && e.id.startsWith('class-')) return { ...e, type: 'Class' };
+  return e;
+}
+
+/**
  * Real-time listener for all calendar events (rehearsals, concerts, etc.),
  * ordered by date. Filtering by ensemble or month is done in-memory by the
  * views, since events can belong to multiple ensembles.
@@ -20,10 +35,10 @@ export function useEvents() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!db) { if (FIXTURES_ON) setEvents(FIXTURE_EVENTS); setLoading(false); return; }
+    if (!db) { if (FIXTURES_ON) setEvents(FIXTURE_EVENTS.map(normalizeEvent)); setLoading(false); return; }
     const q = query(collection(db, 'events'), orderBy('date'));
     return onSnapshot(q, snap => {
-      setEvents(snap.docs.map(d => ({ id: d.id, ...d.data() } as CalendarEvent)));
+      setEvents(snap.docs.map(d => normalizeEvent({ id: d.id, ...d.data() } as CalendarEvent)));
       noteLoadOk('events');
       setLoading(false);
     }, () => { noteLoadError('events'); setLoading(false); });
