@@ -66,6 +66,8 @@ export function TextSizeControl() {
               <span className="pub-textsize-sample" style={{ fontSize: `${Math.round(13 * o.value)}px` }}>Aa</span>
               <span className="pub-textsize-optlabel">{t(o.labelKey)}</span>
               {size === o.value && <Check size={15} className="pub-textsize-check" />}
+              {/* Hidden delight (#easter-eggs): the loudest setting gets a dynamic marking. */}
+              {o.value === 1.3 && size === o.value && <span className="pub-textsize-ff">ff</span>}
             </button>
           ))}
         </div>

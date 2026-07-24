@@ -4,8 +4,9 @@ import { ChevronLeft, Printer, Clock } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
-import { parseDate, formatTimeRange, eventPieceDuration, eventPieceMovements } from '../director/utils';
+import { formatTimeRange, eventPieceDuration, eventPieceMovements } from '../director/utils';
 import { Linkify } from '../director/components/Linkify';
+import { fmtFullDate } from '../shared/dates';
 
 /**
  * Printable concert program built from the pieces linked to a concert event.
@@ -66,7 +67,7 @@ export function PublicProgram() {
           <h1 className="pub-program-title">{event.title || 'Concert'}</h1>
           {ensembleNames && <div className="pub-program-ensembles">{ensembleNames}</div>}
           <div className="pub-program-when">
-            {parseDate(event.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            {fmtFullDate(event.date)}
             {formatTimeRange(event.startTime, event.endTime) ? ` · ${formatTimeRange(event.startTime, event.endTime)}` : ''}
           </div>
           {event.location && <div className="pub-program-where">{event.location}</div>}

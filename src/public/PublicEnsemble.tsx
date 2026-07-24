@@ -8,7 +8,7 @@ import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../direct
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useDocuments } from '../director/hooks/useDocuments';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
-import { todayStr, formatTimeRange, formatTime, ensembleColor, parseDate, pieceEnsembleIds } from '../director/utils';
+import { todayStr, formatTimeRange, formatTime, ensembleColor, pieceEnsembleIds } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { PubRepertoire } from './components/PubRepertoire';
@@ -18,6 +18,7 @@ import { primaryStudent } from '../shared/identity';
 import { SeatingChartCard } from './components/SeatingChartCard';
 import { SubscribeButton } from './components/SubscribeButton';
 import { GradientHero } from './components/GradientHero';
+import { fmtShortDate } from '../shared/dates';
 import { t, tn, useLang } from '../shared/i18n';
 
 export function PublicEnsemble() {
@@ -110,7 +111,7 @@ export function PublicEnsemble() {
         {nextEvent && (
           <Link to={`/event/${nextEvent.id}`} className="pub-ghero-next">
             <span>{t('misc.next')}:</span>
-            {parseDate(nextEvent.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            {fmtShortDate(nextEvent.date)}
             {nextEvent.startTime ? ` · ${formatTime(nextEvent.startTime)}` : ''}
             {' · '}{nextEvent.title || nextEvent.type}
             <ChevronRight size={15} style={{ marginLeft: 'auto', flex: 'none' }} />

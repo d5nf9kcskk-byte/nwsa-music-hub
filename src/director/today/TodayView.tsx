@@ -18,7 +18,7 @@ import type { CalendarEvent } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
 import { EnsembleFilter } from '../components/EnsembleFilter';
-import { composerBirthdaysOn, birthdayLine } from '../../shared/whimsy';
+import { composerBirthdaysOn, birthdayLine, musicHolidayOn } from '../../shared/whimsy';
 
 const ENS_PREF_KEY = 'dir.today.ensemble';
 
@@ -138,6 +138,9 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
         {composerBirthdaysOn(new Date()).map(b => (
           <div key={b.name} className="dir-today-birthday">{birthdayLine(b, 'en', new Date())}</div>
         ))}
+        {musicHolidayOn(new Date(), 'en') && (
+          <div className="dir-today-birthday">{musicHolidayOn(new Date(), 'en')}</div>
+        )}
       </div>
 
       {ensembles.length > 0 && (

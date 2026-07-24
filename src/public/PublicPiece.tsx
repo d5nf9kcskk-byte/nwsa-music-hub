@@ -6,12 +6,13 @@ import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
 import { useStudents } from '../director/hooks/useStudents';
-import { parseDate, ensembleColor, findPartForInstrument, pieceEnsembleIds } from '../director/utils';
+import { ensembleColor, findPartForInstrument, pieceEnsembleIds } from '../director/utils';
 import { primaryStudent } from '../shared/identity';
 import { Linkify } from '../director/components/Linkify';
 import { GradientHero } from './components/GradientHero';
 import { SeatingChartCard } from './components/SeatingChartCard';
-import { t, useLang } from '../shared/i18n';
+import { t, tType, useLang } from '../shared/i18n';
+import { fmtMonthDay } from '../shared/dates';
 
 export function PublicPiece() {
   useLang();
@@ -227,7 +228,7 @@ export function PublicPiece() {
           {linkedEvents.map(e => e && (
             <div key={e.id} className="pub-piece-event">
               <Link to={`/event/${e.id}`} className="pub-piece-event-link">
-                {e.title || e.type} · {parseDate(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                {e.title || tType(e.type)} · {fmtMonthDay(e.date)}
               </Link>
             </div>
           ))}

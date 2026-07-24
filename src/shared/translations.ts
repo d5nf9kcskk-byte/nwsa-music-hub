@@ -54,6 +54,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'home.findMySchedule':        { en: 'Find My Schedule',                   es: 'Buscar mi horario' },
   'home.fullCalendar':          { en: 'Full calendar',                      es: 'Calendario completo' },
   'home.noEventsToday':         { en: 'No rehearsals or events scheduled today.', es: 'Hoy no hay ensayos ni eventos programados.' },
+  'home.studentSchedule':       { en: "{name}'s schedule",                  es: 'Horario de {name}' },
 
   // ── Ensemble + schedule pages ───────────────────────────────────────────
   'ens.rehearsalSchedule':  { en: 'Rehearsal schedule',       es: 'Horario de ensayos' },
@@ -105,6 +106,32 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'cal.clearFilter':      { en: 'Clear',              es: 'Limpiar' },
   'cal.due':              { en: 'Due',                es: 'Entrega' },
   'cal.today':            { en: 'Today',              es: 'Hoy' },
+  'cal.calendarView':     { en: 'Calendar view',      es: 'Vista de calendario' },
+  'cal.prevMonth':        { en: 'Previous month',     es: 'Mes anterior' },
+  'cal.nextMonth':        { en: 'Next month',         es: 'Mes siguiente' },
+  'cal.jumpToday':        { en: 'Jump back to today', es: 'Volver a hoy' },
+  'cal.dueThisDay':       { en: 'Due this day',       es: 'Entrega este día' },
+  'cal.noEvents':         { en: 'no events',          es: 'sin eventos' },
+  'cal.eventCount.one':   { en: '{count} event',      es: '{count} evento' },
+  'cal.eventCount.other': { en: '{count} events',     es: '{count} eventos' },
+  'cal.filterByType':     { en: 'Filter by type',     es: 'Filtrar por tipo' },
+  'cal.nothingThisDay':   { en: 'Nothing for you this day.', es: 'No tienes nada este día.' },
+  'cal.noUpcomingMine':   { en: 'No upcoming rehearsals or events.', es: 'No tienes ensayos ni eventos próximos.' },
+  'cal.noneInCategory':   { en: 'Nothing in this category coming up.', es: 'No hay nada próximo en esta categoría.' },
+  'cal.showAllUpcoming':  { en: 'Show all {count} upcoming', es: 'Ver los {count} próximos' },
+
+  // ── Event types (the word on every chip, filter, and banner) ────────────
+  'type.Rehearsal': { en: 'Rehearsal', es: 'Ensayo' },
+  'type.Class':     { en: 'Class',     es: 'Clase' },
+  'type.Sectional': { en: 'Sectional', es: 'Seccional' },
+  'type.Concert':   { en: 'Concert',   es: 'Concierto' },
+  'type.Event':     { en: 'Event',     es: 'Evento' },
+
+  // ── Now / Next banner + the "now" divider in schedule lists ─────────────
+  'now.now':      { en: 'NOW',  es: 'AHORA' },
+  'now.next':     { en: 'NEXT', es: 'PRÓXIMO' },
+  'now.label':    { en: 'Now',  es: 'Ahora' },
+  'now.startsIn': { en: 'starts in {mins} min', es: 'empieza en {mins} min' },
 
   // ── Event cards (shared) ────────────────────────────────────────────────
   'card.allDay':             { en: 'All day',             es: 'Todo el día' },
@@ -116,6 +143,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'card.viewProgram':        { en: 'View concert program', es: 'Ver el programa del concierto' },
   'card.sub':                { en: 'Sub',                 es: 'Suplente' },
   'card.attendanceRequired': { en: 'Attendance required', es: 'Asistencia obligatoria' },
+  'card.call':               { en: 'Call',                es: 'Llegada' },
 
   // ── Event page / Concert Day Sheet ──────────────────────────────────────
   'event.back':             { en: 'Back',                        es: 'Volver' },
@@ -131,17 +159,91 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'event.notesDirections':  { en: 'Notes & directions',          es: 'Notas e indicaciones' },
   'event.seeFullCalendar':  { en: 'See the full calendar',       es: 'Ver el calendario completo' },
   'event.scheduleChange':   { en: 'Schedule change:',            es: 'Cambio de horario:' },
+  'event.notOnCalendar':    { en: "This event isn't on the calendar anymore.", es: 'Este evento ya no está en el calendario.' },
+  'event.todaySuffix':      { en: '— today',                     es: '— hoy' },
+  // Spanish drops the {type} word on purpose: "clase" is feminine and
+  // "concierto" masculine, so a single templated sentence can't agree with
+  // both. The generic "evento" always agrees.
+  'event.isCancelled':      { en: 'This {type} is cancelled.',   es: 'Este evento está cancelado.' },
+  'event.attendanceLabel':  { en: 'Attendance required:',        es: 'Asistencia obligatoria:' },
+  'event.attendanceBody':   {
+    en: 'members of {ensembles} must attend this {type} even though they are not performing.',
+    es: 'los integrantes de {ensembles} deben asistir aunque no vayan a tocar.',
+  },
 
   // ── Season page ─────────────────────────────────────────────────────────
   'season.intro': {
     en: 'Every concert this year, at a glance. Tap one for call time, dress, and directions.',
     es: 'Todos los conciertos del año, de un vistazo. Toca uno para ver hora de llegada, vestimenta e indicaciones.',
   },
-  'season.print': { en: 'Print season', es: 'Imprimir temporada' },
+  'season.print':       { en: 'Print season', es: 'Imprimir temporada' },
+  'season.none':        { en: 'No concerts on the calendar yet.', es: 'Aún no hay conciertos en el calendario.' },
+  'season.noUpcoming':  { en: 'No upcoming concerts — the rest of the season is below.', es: 'No hay conciertos próximos — el resto de la temporada está abajo.' },
+  'season.earlier':     { en: 'Earlier this season', es: 'Antes en esta temporada' },
+  'season.showingOnly': { en: 'Showing: {name} only.', es: 'Mostrando solo: {name}.' },
 
   // ── My Schedule page ────────────────────────────────────────────────────
   'sched.yourParts':      { en: 'Your parts',                 es: 'Tus partituras' },
   'sched.plannedAbsence': { en: 'Report a planned absence',   es: 'Avisar una ausencia planificada' },
+  'sched.studentNotFound':{ en: 'Student not found.',         es: 'No encontramos a ese estudiante.' },
+  'sched.subscribeMine':  { en: "Subscribe · {name}'s calendar", es: 'Suscribirse · calendario de {name}' },
+  'sched.part':           { en: 'Part',                       es: 'Partitura' },
+  'sched.lessonOverride': {
+    en: "Lesson today{time} overrides {ensemble} — you're excused for that window only, then expected back.",
+    es: 'Clase particular hoy{time} en lugar de {ensemble} — estás excusado solo en ese horario y después se te espera de vuelta.',
+  },
+
+  // ── Practice This Week card ─────────────────────────────────────────────
+  'practice.thisWeek':    { en: 'Practice this week',  es: 'Practica esta semana' },
+  'practice.due':         { en: 'due',                 es: 'entrega' },
+  'practice.myPart':      { en: 'My part',             es: 'Mi partitura' },
+  'practice.form':        { en: 'Form',                es: 'Formulario' },
+  'practice.markDone':    { en: 'Mark practiced',      es: 'Marcar como practicado' },
+  'practice.markNotDone': { en: 'Mark not practiced',  es: 'Quitar la marca de practicado' },
+  'practice.note':        { en: 'Check-offs stay on this device — your own practice list.', es: 'Las marcas se quedan en este dispositivo — es tu propia lista de práctica.' },
+
+  // ── Seating chart card ──────────────────────────────────────────────────
+  'seat.current':   { en: 'Current',            es: 'Actual' },
+  'seat.published': { en: 'Published {date}',   es: 'Publicado el {date}' },
+  'seat.stage':     { en: 'Stage · Conductor',  es: 'Escenario · Director' },
+  'seat.you':       { en: '(you)',              es: '(tú)' },
+
+  // ── Repertoire lists ────────────────────────────────────────────────────
+  'rep.parts':          { en: 'Parts',                    es: 'Partituras' },
+  'rep.yourPart':       { en: 'Your part ({instrument})', es: 'Tu partitura ({instrument})' },
+  'rep.minutes':        { en: '{count} min',              es: '{count} min' },
+  'rep.movements.one':  { en: '{count} mvt',              es: '{count} mov.' },
+  'rep.movements.other':{ en: '{count} mvts',             es: '{count} mov.' },
+  'rep.browseAll':      { en: 'Browse all repertoire',    es: 'Ver todo el repertorio' },
+
+  // ── Announcement cards ──────────────────────────────────────────────────
+  'announce.all':         { en: 'All',              es: 'Todos' },
+  'announce.readEnglish': { en: 'Read in English',  es: 'Leer en inglés' },
+  'announce.readSpanish': { en: 'Read in Spanish',  es: 'Leer en español' },
+
+  // ── Subscribe-to-calendar wizard ────────────────────────────────────────
+  'sub.thisCalendar': { en: 'Subscribe to this calendar', es: 'Suscribirse a este calendario' },
+  'sub.allEvents':    { en: 'Subscribe to all events',    es: 'Suscribirse a todos los eventos' },
+  'sub.dialog':       { en: 'Subscribe to calendar',      es: 'Suscribirse al calendario' },
+  'sub.yourDevice':   { en: 'Your device',                es: 'Tu dispositivo' },
+  'sub.close':        { en: 'Close',                      es: 'Cerrar' },
+  'sub.ios':          { en: 'iPhone / iPad',              es: 'iPhone / iPad' },
+  'sub.android':      { en: 'Android',                    es: 'Android' },
+  'sub.desktop':      { en: 'Computer',                   es: 'Computadora' },
+  'sub.iosStep1':     { en: 'Tap "Subscribe in Apple Calendar" below.', es: 'Toca “Suscribirse en Apple Calendar” abajo.' },
+  'sub.iosStep2':     { en: 'A pop-up appears — tap Subscribe, then Done.', es: 'Aparece una ventana — toca Suscribirse y luego Listo.' },
+  'sub.iosStep3':     { en: 'That’s it! New events and schedule changes show up in your Calendar app automatically.', es: '¡Listo! Los eventos nuevos y los cambios de horario aparecen solos en tu app de Calendario.' },
+  'sub.andStep1':     { en: 'Tap "Add to Google Calendar" below (sign in to Google if asked).', es: 'Toca “Agregar a Google Calendar” abajo (inicia sesión en Google si te lo pide).' },
+  'sub.andStep2':     { en: 'On the page that opens, tap Add to confirm the new calendar.', es: 'En la página que se abre, toca Agregar para confirmar el calendario nuevo.' },
+  'sub.andStep3':     { en: 'Done! Events sync to your Google Calendar app automatically. If you don’t see them, turn the calendar on under Settings in the app.', es: '¡Listo! Los eventos se sincronizan solos con tu app de Google Calendar. Si no los ves, activa el calendario en Configuración dentro de la app.' },
+  'sub.deskStep1':    { en: 'Click "Add to Google Calendar" below (sign in to Google if asked), then click Add to confirm.', es: 'Haz clic en “Agregar a Google Calendar” abajo (inicia sesión en Google si te lo pide) y luego en Agregar para confirmar.' },
+  'sub.deskStep2':    { en: 'Using Outlook or Apple Calendar instead? Copy the link and choose "Add calendar → From URL" (Outlook) or "File → New Calendar Subscription" (Apple).', es: '¿Usas Outlook o Apple Calendar? Copia el enlace y elige “Agregar calendario → Desde URL” (Outlook) o “Archivo → Nueva suscripción de calendario” (Apple).' },
+  'sub.deskStep3':    { en: 'Done! New events and schedule changes appear automatically — no need to re-add anything.', es: '¡Listo! Los eventos nuevos y los cambios de horario aparecen solos — no hay que volver a agregar nada.' },
+  'sub.apple':        { en: 'Subscribe in Apple Calendar', es: 'Suscribirse en Apple Calendar' },
+  'sub.google':       { en: 'Add to Google Calendar',      es: 'Agregar a Google Calendar' },
+  'sub.copyLink':     { en: 'Copy link',                   es: 'Copiar enlace' },
+  'sub.copied':       { en: 'Copied!',                     es: '¡Copiado!' },
+  'sub.hint':         { en: 'This is a live subscription — the calendar updates itself whenever the schedule changes.', es: 'Es una suscripción en vivo — el calendario se actualiza solo cada vez que cambia el horario.' },
 
   // ── Assignments page ────────────────────────────────────────────────────
   'assign.intro':      { en: 'Playing exams, written tests, and performances coming up.', es: 'Próximos exámenes de ejecución, pruebas escritas y presentaciones.' },
@@ -159,6 +261,9 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'docs.noneFilter':    { en: 'No documents match this filter.', es: 'Ningún documento coincide con este filtro.' },
   'docs.open':          { en: 'Open',        es: 'Abrir' },
   'docs.section':       { en: 'Documents',   es: 'Documentos' },
+
+  // ── Not-found page ──────────────────────────────────────────────────────
+  'nf.title': { en: 'Page not found', es: 'Página no encontrada' },
 
   // ── Misc ────────────────────────────────────────────────────────────────
   'misc.loading':        { en: 'Loading…',           es: 'Cargando…' },

@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { MapPin } from 'lucide-react';
 import type { CalendarEvent } from '../../director/types';
 import { todayStr, formatTimeRange } from '../../director/utils';
+import { t, tType, useLang } from '../../shared/i18n';
 import './nowNext.css';
 
 /**
@@ -10,6 +11,7 @@ import './nowNext.css';
  * pinned card. Recomputes every 30s so "starts in 12 min" stays honest.
  */
 export function NowNext({ items }: { items: { event: CalendarEvent }[] }) {
+  useLang();
   const [, tick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => tick(x => x + 1), 30_000);
@@ -38,13 +40,13 @@ export function NowNext({ items }: { items: { event: CalendarEvent }[] }) {
 
   return (
     <Link to={`/event/${e.id}`} className={`pub-nownext ${current ? 'now' : ''}`}>
-      <span className="pub-nownext-tag">{current ? 'NOW' : 'NEXT'}</span>
+      <span className="pub-nownext-tag">{current ? t('now.now') : t('now.next')}</span>
       <span className="pub-nownext-body">
-        <strong>{e.title || e.type}</strong>
+        <strong>{e.title || tType(e.type)}</strong>
         {' · '}{formatTimeRange(e.startTime, e.endTime)}
         {e.location && <> · <MapPin size={12} style={{ verticalAlign: '-1px' }} /> {e.location}</>}
         {minsUntil !== null && minsUntil > 0 && minsUntil <= 90 && (
-          <em className="pub-nownext-count"> — starts in {minsUntil} min</em>
+          <em className="pub-nownext-count"> — {t('now.startsIn', { mins: minsUntil })}</em>
         )}
       </span>
     </Link>

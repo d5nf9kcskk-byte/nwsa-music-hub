@@ -6,13 +6,16 @@ import { useEvents } from '../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, addDays, assignmentEmoji, musicEnsembles, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { todayStr, formatTimeRange, ensembleColor, addDays, assignmentEmoji, musicEnsembles, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { SkeletonCards, EmptyState } from './components/PageHeader';
 import { getIdentity, onIdentityChange } from '../shared/identity';
 import { t, useLang, getLang } from '../shared/i18n';
-import { composerBirthdaysOn, birthdayLine } from '../shared/whimsy';
+import { fmtLongDate, fmtShortDate } from '../shared/dates';
+import { composerBirthdaysOn, birthdayLine, musicHolidayOn, concertDayLine, dailyPun, say } from '../shared/whimsy';
+import { useTapTempo } from '../shared/useTapTempo';
+import { NoteBurst } from '../shared/NoteBurst';
 import type { CalendarEvent } from '../director/types';
 
 const LOOKAHEAD_DAYS = 14;
@@ -25,6 +28,8 @@ export function PublicHome() {
   const now = useMinuteTick(); // scheduled posts appear the minute they go live
   const { assignments } = useAssignments();
   const { pieces } = useRepertoire();
+  // Hidden delight (#easter-eggs): tap the date in rhythm → a tempo reading.
+  const { cheer: tempoCheer, onTap: onDateTap } = useTapTempo();
 
   // Saved identity (student or parent's kids) personalizes the schedule CTA.
   const [, bump] = useReducer(x => x + 1, 0);
@@ -81,23 +86,30 @@ export function PublicHome() {
   return (
     <div className="pub-page">
       <div className="pub-hero pub-hero-fancy">
-        <div className="pub-hero-date">{parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+        <div className="pub-hero-date" onClick={onDateTap}>{fmtLongDate(today)}</div>
         <h1><Music2 size={22} style={{ verticalAlign: '-3px' }} /> {t('home.todayAt')}</h1>
       </div>
 
-      {/* Hidden delight (#easter-eggs): composer-birthday greeting, only on the day */}
+      {/* Hidden delights (#easter-eggs), each only on its own day: composer
+          birthdays, musical holidays, and a concert-day ribbon. */}
       {composerBirthdaysOn(new Date()).map(b => (
         <div key={b.name} className="pub-birthday-line">{birthdayLine(b, getLang(), new Date())}</div>
       ))}
+      {musicHolidayOn(new Date(), getLang()) && (
+        <div className="pub-birthday-line">{musicHolidayOn(new Date(), getLang())}</div>
+      )}
+      {todayEvents.some(e => e.type === 'Concert' && e.status !== 'Cancelled') && (
+        <div className="pub-birthday-line">{concertDayLine(getLang())}</div>
+      )}
 
       {/* Schedule alerts: cancellations, double blocks, rotations, moves */}
       {alerts.length > 0 && (
         <div className="pub-alert-banner">
-          <div className="pub-alert-title"><AlertTriangle size={15} style={{ verticalAlign: '-2px' }} /> Schedule change today</div>
+          <div className="pub-alert-title"><AlertTriangle size={15} style={{ verticalAlign: '-2px' }} /> {t('alert.scheduleChangeToday')}</div>
           {alerts.map(e => (
             <Link key={e.id} to={`/event/${e.id}`} className="pub-alert-row">
               <strong>{label(e)}</strong>
-              {e.status === 'Cancelled' ? ' — cancelled' : ''}
+              {e.status === 'Cancelled' ? ` — ${t('alert.cancelled')}` : ''}
               {e.changeNote ? ` — ${e.changeNote}` : ''}
               <ChevronRight size={14} />
             </Link>
@@ -110,7 +122,9 @@ export function PublicHome() {
       {loading ? (
         <SkeletonCards n={3} />
       ) : todayEvents.length === 0 ? (
-        <EmptyState icon={<CalendarDays size={26} />}>{t('home.noEventsToday')}</EmptyState>
+        <EmptyState icon={<CalendarDays size={26} />}>
+          {t('home.noEventsToday')} {say(dailyPun('home'), getLang())}
+        </EmptyState>
       ) : (
         todayEvents.map(e => (
           <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showNotes />
@@ -123,7 +137,7 @@ export function PublicHome() {
         <div className="pub-quick">
           {savedStudents.map(s => (
             <Link key={s.id} to={`/student/${s.id}`} className="pub-quick-btn">
-              <UserSearch size={22} /><span>{s.name.split(' ')[0]}'s schedule</span>
+              <UserSearch size={22} /><span>{t('home.studentSchedule', { name: s.name.split(' ')[0] })}</span>
             </Link>
           ))}
         </div>
@@ -180,7 +194,7 @@ export function PublicHome() {
           {upcomingAssignments.map(a => (
             <Link key={a.id} to={`/assignments?focus=${a.id}`} className="pub-upcoming">
               <span className="pub-upcoming-date">
-                {parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                {fmtShortDate(a.dueDate)}
               </span>
               <span className="pub-upcoming-dot" style={{ background: ASSIGN_COLOR }} />
               <span className="pub-upcoming-label">
@@ -207,9 +221,11 @@ export function PublicHome() {
 
       {orderedEnsembles.length > 0 && (
         <Link to="/repertoire" className="pub-quick-btn" style={{ marginTop: 10 }}>
-          <Music size={18} /><span>Browse all repertoire</span>
+          <Music size={18} /><span>{t('rep.browseAll')}</span>
         </Link>
       )}
+
+      <NoteBurst cheer={tempoCheer} />
     </div>
   );
 }
@@ -231,13 +247,13 @@ function UpcomingRow({ e, label, color }: { e: CalendarEvent; label: string; col
   return (
     <Link to={`/event/${e.id}`} className="pub-upcoming">
       <span className="pub-upcoming-date">
-        {parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+        {fmtShortDate(e.date)}
       </span>
       <span className="pub-upcoming-dot" style={{ background: color }} />
       <span className="pub-upcoming-label">
         {label}
-        {e.status === 'Cancelled' && <span className="pub-cancelled-tag" style={{ marginLeft: 6 }}>Cancelled</span>}
-        {e.status !== 'Cancelled' && e.changeNote && <span className="pub-changed-tag" style={{ marginLeft: 6 }}>Changed</span>}
+        {e.status === 'Cancelled' && <span className="pub-cancelled-tag" style={{ marginLeft: 6 }}>{t('card.cancelled')}</span>}
+        {e.status !== 'Cancelled' && e.changeNote && <span className="pub-changed-tag" style={{ marginLeft: 6 }}>{t('card.changed')}</span>}
         {e.startTime ? <span className="pub-upcoming-time"> · {formatTimeRange(e.startTime, e.endTime)}</span> : null}
       </span>
       <ChevronRight size={15} className="pub-upcoming-chev" />

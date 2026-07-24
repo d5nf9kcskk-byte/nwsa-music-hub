@@ -11,6 +11,8 @@ import { useEnsembles } from '../../director/hooks/useEnsembles';
 import { useAssignments } from '../../director/hooks/useAssignments';
 import { formatDate, formatTimeRange, todayStr, pieceEnsembleIds } from '../../director/utils';
 import type { CalendarEvent, Ensemble } from '../../director/types';
+import { searchEgg } from '../../shared/whimsy';
+import { getLang } from '../../shared/i18n';
 
 /* ── Tiny fuzzy-search util ──────────────────────────────────────────────
  * Diacritic-stripped, case-insensitive matching: every whitespace-separated
@@ -247,6 +249,9 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // Hidden delight (#easter-eggs): a few magic words answer back.
+  const egg = searchEgg(q, getLang());
+
   let idx = -1;
   return (
     <div className="pub-search-overlay" role="dialog" aria-modal="true" aria-label="Search" onClick={onClose}>
@@ -277,9 +282,10 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
               Find events, repertoire, announcements, ensembles, and assignments.
             </div>
           )}
-          {q.length >= 2 && flat.length === 0 && (
+          {q.length >= 2 && flat.length === 0 && !egg && (
             <div className="pub-search-empty">No matches for “{q}”.</div>
           )}
+          {egg && <div className="pub-search-egg">{egg}</div>}
           {groups.map(g => (
             <div key={g.label} className="pub-search-group">
               <div className="pub-search-group-label">
