@@ -178,16 +178,36 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
     const d = new Date(announcement.publishAt);
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   });
+  // The date/time fields only exist while this is on — off means "post now".
+  const [scheduleOn, setScheduleOn] = useState(!!announcement?.publishAt);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  /** Turning the toggle on prefills tomorrow at 8:00 AM so the fields are
+   *  never blank white boxes; turning it off clears the schedule. */
+  function toggleSchedule() {
+    if (scheduleOn) {
+      setScheduleOn(false);
+      setPublishDate('');
+      setPublishTime('');
+    } else {
+      setScheduleOn(true);
+      if (!publishDate) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        setPublishDate(toDateStr(tomorrow));
+        setPublishTime('08:00');
+      }
+    }
+  }
+
   /** Combine the schedule inputs into epoch ms (local time). Date with no
-   *  time means midnight — visible all that day. Empty date = post now.
+   *  time means midnight — visible all that day. Toggle off = post now.
    *  (The urgent Teams/email relay is queued by the manager: immediately for
    *  live posts, at publish time for scheduled ones.) */
   function publishAtValue(): number | undefined {
-    if (!publishDate) return undefined;
+    if (!scheduleOn || !publishDate) return undefined;
     const [y, mo, d] = publishDate.split('-').map(Number);
     const [h, mi] = (publishTime || '00:00').split(':').map(Number);
     return new Date(y, mo - 1, d, h || 0, mi || 0).getTime();
@@ -294,22 +314,32 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
             </div>
           </div>
 
-          <div className="dir-field">
-            <label className="dir-label"><Clock size={12} style={{ verticalAlign: '-2px' }} /> Publish later (optional)</label>
-            <div className="dir-field-row">
-              <input className="dir-input" type="date" value={publishDate} onChange={e => setPublishDate(e.target.value)} aria-label="Publish date" />
-              <input className="dir-input" type="time" value={publishTime} onChange={e => setPublishTime(e.target.value)} disabled={!publishDate} aria-label="Publish time" />
-              {publishDate && (
-                <button type="button" className="dir-tool-btn" onClick={() => { setPublishDate(''); setPublishTime(''); }}>
-                  Clear
-                </button>
-              )}
-            </div>
-            <div className="dir-field-hint">
-              {isScheduling && scheduledPreview
-                ? `Stays hidden from families until ${new Date(scheduledPreview).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} — it posts itself then. For urgent posts, the Teams/email relay is queued around that moment (whenever a director next has the Hub open).`
-                : 'Leave blank to post immediately. Pick a date (and time) to schedule this announcement for later.'}
-            </div>
+          <div className={`dir-field dir-schedule ${scheduleOn ? 'open' : ''}`}>
+            <button type="button" className={`dir-toggle dir-schedule-toggle ${scheduleOn ? 'on' : ''}`} onClick={toggleSchedule} aria-pressed={scheduleOn}>
+              <span className={`dir-schedule-check ${scheduleOn ? 'checked' : ''}`} aria-hidden="true">{scheduleOn ? '✓' : ''}</span>
+              <Clock size={15} /> Send later
+            </button>
+            {scheduleOn ? (
+              <>
+                <div className="dir-field-row" style={{ marginTop: 10 }}>
+                  <div className="dir-field">
+                    <label className="dir-label">Date</label>
+                    <input className="dir-input" type="date" value={publishDate} onChange={e => setPublishDate(e.target.value)} aria-label="Publish date" />
+                  </div>
+                  <div className="dir-field">
+                    <label className="dir-label">Time</label>
+                    <input className="dir-input" type="time" value={publishTime} onChange={e => setPublishTime(e.target.value)} aria-label="Publish time" />
+                  </div>
+                </div>
+                <div className="dir-field-hint">
+                  {isScheduling && scheduledPreview
+                    ? `Stays hidden from families until ${new Date(scheduledPreview).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} — it posts itself then. For urgent posts, the Teams/email relay is queued around that moment (whenever a director next has the Hub open).`
+                    : 'Pick a future date and time — this announcement stays hidden until then.'}
+                </div>
+              </>
+            ) : (
+              <div className="dir-field-hint">Posts immediately. Tap “Send later” to schedule it for a future date and time instead.</div>
+            )}
           </div>
 
           {announcement && onDelete && (
