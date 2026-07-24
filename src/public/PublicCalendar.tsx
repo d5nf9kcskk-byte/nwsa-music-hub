@@ -12,10 +12,10 @@ import { PageHeader, EmptyState } from './components/PageHeader';
 import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
 import { SubscribeButton } from './components/SubscribeButton';
 import { useMonthSwipe } from '../shared/useMonthSwipe';
-import { t, useLang } from '../shared/i18n';
+import { t, tn, useLang, getLang } from '../shared/i18n';
+import { dailyPun, say } from '../shared/whimsy';
+import { fmtDayHeader, fmtLongDate, fmtMonthYear, fmtShortDate, weekdayInitials } from '../shared/dates';
 import type { CalendarEvent } from '../director/types';
-
-const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 // The type-filter buckets. Sectionals fold into "Rehearsals"; everything else
 // is its own bucket. Empty selection === show all. Assignments are a parallel
@@ -133,7 +133,8 @@ export function PublicCalendar() {
   }, [cursor]);
 
   const today = todayStr();
-  const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const monthLabel = fmtMonthYear(cursor);
+  const weekdays = weekdayInitials();
   const { nowHM, isPast } = usePastDimming();
   const nowIdx = nowLineIndex(
     listItems.map(it => (it.kind === 'event' ? { date: it.date, startTime: it.e.startTime } : { date: it.date })),
@@ -186,7 +187,9 @@ export function PublicCalendar() {
       {view === 'list' ? (
         <div style={{ marginTop: 8 }}>
           {listItems.length === 0 ? (
-            <EmptyState icon={<CalendarX size={26} />}>{t('cal.nothingUpcoming')}</EmptyState>
+            <EmptyState icon={<CalendarX size={26} />}>
+              {t('cal.nothingUpcoming')} {say(dailyPun('cal-list'), getLang())}
+            </EmptyState>
           ) : (
             <>
               {(() => {
@@ -198,7 +201,7 @@ export function PublicCalendar() {
                     <Fragment key={item.kind === 'event' ? item.e.id : item.a.id}>
                       {showHeader && (
                         <div className={`pub-list-datehead${item.date === today ? ' today' : ''}`}>
-                          {parseDate(item.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                          {fmtDayHeader(item.date)}
                           {item.date === today && <span className="pub-today-badge">{t('cal.today')}</span>}
                         </div>
                       )}
@@ -226,7 +229,7 @@ export function PublicCalendar() {
         <button
           className="pub-cal-month-btn"
           onClick={() => { const d = parseDate(today); setCursor(new Date(d.getFullYear(), d.getMonth(), 1)); setSelectedDate(today); }}
-          title="Jump back to today"
+          title={t('cal.jumpToday')}
         >
           {monthLabel}
         </button>
@@ -236,7 +239,7 @@ export function PublicCalendar() {
       {/* Calendar grid — same compact grid + swipe as the rest of the public app */}
       <div className="pub-cal" {...handlers}>
         <div className="pub-cal-weekdays">
-          {WEEKDAYS.map((d, i) => <div key={i}>{d}</div>)}
+          {weekdays.map((d, i) => <div key={i}>{d}</div>)}
         </div>
         <div className="pub-cal-swipe-viewport" ref={viewportRef} style={{ overflow: 'hidden' }}>
           <div
@@ -251,7 +254,7 @@ export function PublicCalendar() {
                   key={i}
                   className={`pub-cal-cell ${d === selectedDate ? 'selected' : ''} ${d === today ? 'today' : ''}`}
                   onClick={() => setSelectedDate(d)}
-                  aria-label={`${parseDate(d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}${(byDate[d] ?? []).length ? `, ${(byDate[d] ?? []).length} event${(byDate[d] ?? []).length !== 1 ? 's' : ''}` : ', no events'}`}
+                  aria-label={`${fmtLongDate(d)}, ${evs.length ? tn('cal.eventCount', evs.length) : t('cal.noEvents')}`}
                   aria-pressed={d === selectedDate}
                 >
                   <span className="pub-cal-day">{parseDate(d).getDate()}</span>
@@ -269,11 +272,11 @@ export function PublicCalendar() {
       {/* Selected-day detail */}
       <div className="pub-day-detail">
         <h3 className="pub-section-title pub-day-detail-header">
-          {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          {fmtLongDate(selectedDate)}
           {selectedDate === today && <span className="pub-today-badge">{t('cal.today')}</span>}
         </h3>
         {dayEvents.length === 0 && (assignByDate[selectedDate] ?? []).length === 0 ? (
-          <div className="pub-muted">{t('cal.nothingScheduled')}</div>
+          <div className="pub-muted">{t('cal.nothingScheduled')} {say(dailyPun('cal-day'), getLang())}</div>
         ) : (
           <>
             {dayEvents.map(e => (
@@ -302,7 +305,7 @@ function AssignRow({ a, showDate }: { a: { id: string; title: string; type: stri
         <div className="pub-assign-title">{a.title}</div>
         <div className="pub-assign-meta">
           <span className="pub-assign-type">{a.type}</span>
-          <span>{t('cal.due')}{showDate ? ` ${parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}` : ' this day'}</span>
+          <span>{showDate ? `${t('cal.due')} ${fmtShortDate(a.dueDate)}` : t('cal.dueThisDay')}</span>
         </div>
       </div>
     </Link>

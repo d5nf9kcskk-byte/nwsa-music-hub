@@ -1,5 +1,6 @@
-import { parseDate } from '../../director/utils';
 import { primaryStudent } from '../../shared/identity';
+import { t, useLang } from '../../shared/i18n';
+import { fmtMonthDayYear } from '../../shared/dates';
 import type { SeatingChart } from '../../director/types';
 
 /**
@@ -15,27 +16,28 @@ export function SeatingChartCard({ chart, studentName, subtitle, current }: {
   subtitle?: string;
   current?: boolean;
 }) {
+  useLang();
   const me = primaryStudent();
   return (
     <div className="pub-card pub-seat-card">
       <div className="pub-seat-title">
         {chart.title}
-        {current && <span className="pub-seat-current">Current</span>}
+        {current && <span className="pub-seat-current">{t('seat.current')}</span>}
       </div>
       {subtitle && <div className="pub-seat-sub">{subtitle}</div>}
       {chart.date && (
         <div className="pub-seat-sub">
-          Published {parseDate(chart.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          {t('seat.published', { date: fmtMonthDayYear(chart.date) })}
         </div>
       )}
-      <div className="pub-seat-stage" aria-hidden="true">Stage · Conductor</div>
+      <div className="pub-seat-stage" aria-hidden="true">{t('seat.stage')}</div>
       {chart.sections.map((sec, i) => (
         <div key={i} className="pub-seat-section">
           <div className="pub-seat-section-name">{sec.section}</div>
           <ol className="pub-seat-list">
             {sec.seats.map(seat => (
               <li key={seat.studentId} className={`pub-seat-item${me?.id === seat.studentId ? ' me' : ''}`}>
-                <span className="pub-seat-name">{studentName(seat.studentId)}{me?.id === seat.studentId ? ' (you)' : ''}</span>
+                <span className="pub-seat-name">{studentName(seat.studentId)}{me?.id === seat.studentId ? ` ${t('seat.you')}` : ''}</span>
                 {seat.note && <span className="pub-seat-note">{seat.note}</span>}
               </li>
             ))}

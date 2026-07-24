@@ -1,5 +1,6 @@
 import type { Ensemble, EventType } from '../../director/types';
 import { ensembleColor, CONCERT_COLOR } from '../../director/utils';
+import { tType, useLang } from '../../shared/i18n';
 import './eventChip.css';
 
 /** Gold is reserved exclusively for concerts, everywhere on the site (#31). */
@@ -60,20 +61,22 @@ function TypeShape({ type }: { type: EventType }) {
  * ensemble's monogram plus a shape+word pair for the event type.
  */
 export function EventChip({ ensemble, type }: { ensemble?: Ensemble; type: EventType }) {
+  useLang(); // the type word is translated
   const base = ensembleColor(ensemble);
   const mono = ensembleMonogram(ensemble?.name);
+  const typeLabel = tType(type);
   return (
     <span
       className="pub-eventchip"
       style={{ background: tint(base, 0.13), borderColor: tint(base, 0.32) }}
-      title={ensemble ? `${ensemble.name} · ${type}` : type}
+      title={ensemble ? `${ensemble.name} · ${typeLabel}` : typeLabel}
     >
       {mono && <span className="pub-eventchip-mono" style={{ color: base }}>{mono}</span>}
       <span
         className="pub-eventchip-type"
         style={type === 'Concert' ? { color: CONCERT_GOLD } : undefined}
       >
-        <TypeShape type={type} /> {type}
+        <TypeShape type={type} /> {typeLabel}
       </span>
     </span>
   );

@@ -2,7 +2,10 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Music, Target, Check } from 'lucide-react';
 import type { CalendarEvent, RepertoirePiece, Assignment, Student } from '../../director/types';
-import { todayStr, parseDate, findPartForInstrument, addDays } from '../../director/utils';
+import { todayStr, findPartForInstrument, addDays } from '../../director/utils';
+import { t, useLang, getLang } from '../../shared/i18n';
+import { practiceCompleteLine } from '../../shared/whimsy';
+import { fmtShortDate } from '../../shared/dates';
 import './practiceCard.css';
 
 /**
@@ -16,6 +19,7 @@ export function PracticeCard({ student, schedule, piecesById, assignments }: {
   piecesById: Record<string, RepertoirePiece>;
   assignments: Assignment[];
 }) {
+  useLang();
   const today = todayStr();
   const horizon = addDays(today, 7);
   const storageKey = `nwsa.practice.${student.id}`;
@@ -55,18 +59,18 @@ export function PracticeCard({ student, schedule, piecesById, assignments }: {
 
   return (
     <div className="pub-card pub-practice">
-      <div className="pub-practice-title"><Music size={15} style={{ verticalAlign: '-2px' }} /> Practice this week</div>
+      <div className="pub-practice-title"><Music size={15} style={{ verticalAlign: '-2px' }} /> {t('practice.thisWeek')}</div>
       {pieces.map(p => {
         const part = findPartForInstrument(p, student.instrument);
         return (
           <div key={p.id} className={`pub-practice-row ${done[p.id] ? 'done' : ''}`}>
-            <button className="pub-practice-check" aria-label={done[p.id] ? 'Mark not practiced' : 'Mark practiced'} onClick={() => toggle(p.id)}>
+            <button className="pub-practice-check" aria-label={done[p.id] ? t('practice.markNotDone') : t('practice.markDone')} onClick={() => toggle(p.id)}>
               {done[p.id] && <Check size={13} />}
             </button>
             <Link to={`/piece/${p.id}`} className="pub-practice-name">
               <Music size={13} /> {p.title}{p.composer ? ` — ${p.composer}` : ''}
             </Link>
-            {part && <a className="pub-practice-part" href={part.url} target="_blank" rel="noreferrer">My part</a>}
+            {part && <a className="pub-practice-part" href={part.url} target="_blank" rel="noreferrer">{t('practice.myPart')}</a>}
           </div>
         );
       })}
@@ -74,12 +78,16 @@ export function PracticeCard({ student, schedule, piecesById, assignments }: {
         <div key={a.id} className="pub-practice-row exam">
           <Target size={14} className="pub-practice-target" />
           <Link to="/assignments" className="pub-practice-name">
-            {a.title} — due {parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            {a.title} — {t('practice.due')} {fmtShortDate(a.dueDate)}
           </Link>
-          {a.formUrl && <a className="pub-practice-part" href={a.formUrl} target="_blank" rel="noreferrer">Form</a>}
+          {a.formUrl && <a className="pub-practice-part" href={a.formUrl} target="_blank" rel="noreferrer">{t('practice.form')}</a>}
         </div>
       ))}
-      <div className="pub-practice-note">Check-offs stay on this device — your own practice list.</div>
+      {/* Hidden delight (#easter-eggs): finish the list, get a bravo. */}
+      {pieces.length > 0 && pieces.every(p => done[p.id]) && (
+        <div className="pub-practice-bravo">{practiceCompleteLine(getLang())}</div>
+      )}
+      <div className="pub-practice-note">{t('practice.note')}</div>
     </div>
   );
 }

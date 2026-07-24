@@ -14,24 +14,26 @@ import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../direct
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { studentExpectation } from '../director/rosterResolver';
-import { todayStr, toDateStr, parseDate, ensembleColor, findPartForInstrument, studentHasAssignment, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { todayStr, toDateStr, parseDate, formatTime, ensembleColor, findPartForInstrument, studentHasAssignment, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubSelect } from './components/PubSelect';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { SkeletonCards, EmptyState } from './components/PageHeader';
 import { SubscribeButton } from './components/SubscribeButton';
 import { getIdentity } from '../shared/identity';
-import { t, useLang } from '../shared/i18n';
+import { t, useLang, getLang } from '../shared/i18n';
+import { dailyPun, instrumentQuip, say } from '../shared/whimsy';
+import { fmtDayHeader, fmtMonthYear, fmtShortDate, weekdayInitials } from '../shared/dates';
 import type { CalendarEvent } from '../director/types';
 
 type TypeFilter = 'all' | 'rehearsals' | 'classes' | 'concerts' | 'events';
 
-const FILTERS: { key: TypeFilter; label: string }[] = [
-  { key: 'all',        label: 'All' },
-  { key: 'rehearsals', label: 'Rehearsals' },
-  { key: 'classes',    label: 'Classes' },
-  { key: 'concerts',   label: 'Concerts' },
-  { key: 'events',     label: 'Events' },
+const FILTERS: { key: TypeFilter; labelKey: string }[] = [
+  { key: 'all',        labelKey: 'lookup.all' },
+  { key: 'rehearsals', labelKey: 'cal.rehearsals' },
+  { key: 'classes',    labelKey: 'cal.classes' },
+  { key: 'concerts',   labelKey: 'cal.concerts' },
+  { key: 'events',     labelKey: 'cal.events' },
 ];
 
 function matchesFilter(e: CalendarEvent, f: TypeFilter): boolean {
@@ -135,8 +137,8 @@ export function PublicSchedule() {
   if (!student) {
     return (
       <div className="pub-page">
-        <Link to="/lookup" className="pub-back"><ChevronLeft size={16} /> Search</Link>
-        {studentsLoading ? <SkeletonCards n={3} /> : <div className="pub-card pub-muted">Student not found.</div>}
+        <Link to="/lookup" className="pub-back"><ChevronLeft size={16} /> {t('nav.search')}</Link>
+        {studentsLoading ? <SkeletonCards n={3} /> : <div className="pub-card pub-muted">{t('sched.studentNotFound')}</div>}
       </div>
     );
   }
@@ -145,7 +147,7 @@ export function PublicSchedule() {
 
   return (
     <div className="pub-page">
-      <Link to="/lookup" className="pub-back"><ChevronLeft size={16} /> Search</Link>
+      <Link to="/lookup" className="pub-back"><ChevronLeft size={16} /> {t('nav.search')}</Link>
 
       {/* Parent mode: quick switch between saved students (#11) */}
       {getIdentity().students.length > 1 && (
@@ -171,17 +173,25 @@ export function PublicSchedule() {
       </div>
 
       {/* Personal calendar feed — the one subscription that follows THIS student. */}
-      <SubscribeButton studentId={student.id} label={`Subscribe · ${student.name.split(' ')[0]}'s calendar`} />
+      <SubscribeButton studentId={student.id} label={t('sched.subscribeMine', { name: student.name.split(' ')[0] })} />
       <PlannedAbsenceButton student={student} />
 
       <PubAnnouncements items={myAnnouncements} ensembleMap={ensembleMap} />
 
       <NowNext items={mySchedule} />
 
+      {/* Hidden delight (#easter-eggs): a line for your own instrument, one a day. */}
+      {instrumentQuip(student.instrument, getLang()) && (
+        <div className="pub-instrument-quip">{instrumentQuip(student.instrument, getLang())}</div>
+      )}
+
       {myLessonsToday.map(o => (
         <div key={o.id} className="pub-conflict-chip">
-          <GraduationCap size={14} style={{ verticalAlign: '-2px' }} /> Lesson today{o.startTime && o.endTime ? ` ${o.startTime}–${o.endTime}` : ''} overrides{' '}
-          {ensembleMap[o.ensembleId]?.name ?? 'rehearsal'} — you're excused for that window only, then expected back.
+          <GraduationCap size={14} style={{ verticalAlign: '-2px' }} />{' '}
+          {t('sched.lessonOverride', {
+            time: o.startTime && o.endTime ? ` ${formatTime(o.startTime)}–${formatTime(o.endTime)}` : '',
+            ensemble: ensembleMap[o.ensembleId]?.name ?? t('type.Rehearsal').toLowerCase(),
+          })}
         </div>
       ))}
 
@@ -197,11 +207,11 @@ export function PublicSchedule() {
                 <div className="pub-assign-title">{a.title}</div>
                 <div className="pub-assign-meta">
                   <span className="pub-assign-type">{a.type}</span>
-                  <span>Due {parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                  <span>{t('cal.due')} {fmtShortDate(a.dueDate)}</span>
                 </div>
                 {a.formUrl && (
                   <a className="pub-assign-form-btn" href={a.formUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>
-                    📝 Open exam form
+                    📝 {t('misc.openExamForm')}
                   </a>
                 )}
               </div>
@@ -211,10 +221,12 @@ export function PublicSchedule() {
       )}
 
       <h2 className="pub-section-title">
-        {t('cal.today')} · {parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+        {t('cal.today')} · {fmtDayHeader(today)}
       </h2>
       {todayItems.length === 0 ? (
-        <EmptyState icon={<CalendarX size={24} />}>{t('sched.nothingToday')}</EmptyState>
+        <EmptyState icon={<CalendarX size={24} />}>
+          {t('sched.nothingToday')} {say(dailyPun('my-sched'), getLang())}
+        </EmptyState>
       ) : (
         <>
           {todayItems.map(({ event: e, exp }, i) => (
@@ -236,8 +248,8 @@ export function PublicSchedule() {
           onClick={() => setView(v => v === 'list' ? 'calendar' : 'list')}
         >
           {view === 'list'
-            ? <><Grid3x3 size={13} /> Calendar view</>
-            : <><LayoutList size={13} /> List view</>}
+            ? <><Grid3x3 size={13} /> {t('cal.calendarView')}</>
+            : <><LayoutList size={13} /> {t('cal.listView')}</>}
         </button>
       </div>
 
@@ -246,8 +258,8 @@ export function PublicSchedule() {
         <PubSelect
           value={filter}
           onChange={v => setFilter(v as TypeFilter)}
-          ariaLabel="Filter by type"
-          options={FILTERS.map(f => ({ value: f.key, label: f.label }))}
+          ariaLabel={t('cal.filterByType')}
+          options={FILTERS.map(f => ({ value: f.key, label: t(f.labelKey) }))}
         />
       </div>
 
@@ -261,7 +273,7 @@ export function PublicSchedule() {
         />
       ) : upcomingItems.length === 0 ? (
         <div className="pub-muted">
-          {filter === 'all' ? 'No upcoming rehearsals or events.' : 'Nothing in this category coming up.'}
+          {filter === 'all' ? t('cal.noUpcomingMine') : t('cal.noneInCategory')}
         </div>
       ) : (
         <>
@@ -270,7 +282,7 @@ export function PublicSchedule() {
           ))}
           {!showAllUpcoming && upcomingItems.length > 20 && (
             <button className="pub-view-toggle" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setShowAllUpcoming(true)}>
-              Show all {upcomingItems.length} upcoming
+              {t('cal.showAllUpcoming', { count: upcomingItems.length })}
             </button>
           )}
         </>
@@ -289,7 +301,7 @@ export function PublicSchedule() {
                   )}
                 </div>
                 <a className="pub-mypart-btn" href={partUrl} target="_blank" rel="noreferrer">
-                  Part <ExternalLink size={12} />
+                  {t('sched.part')} <ExternalLink size={12} />
                 </a>
               </div>
             ))}
@@ -308,6 +320,7 @@ function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInst
   piecesById: Record<string, import('../director/types').RepertoirePiece>;
   studentInstrument?: string;
 }) {
+  useLang(); // month/weekday names follow the EN/ES toggle
   const today = todayStr();
   const [cursor, setCursor] = useState(() => {
     const d = parseDate(today);
@@ -340,7 +353,7 @@ function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInst
     return out;
   }, [cursor]);
 
-  const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const monthLabel = fmtMonthYear(cursor);
   const dayItems = byDate[selectedDate] ?? [];
   const shiftMonth = (n: number) => setCursor(c => new Date(c.getFullYear(), c.getMonth() + n, 1));
   const { dragX, animating, viewportRef, handlers } = useMonthSwipe(shiftMonth);
@@ -348,17 +361,17 @@ function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInst
   return (
     <>
       <div className="pub-cal-nav">
-        <button className="pub-cal-arrow" onClick={() => shiftMonth(-1)} aria-label="Previous month">
+        <button className="pub-cal-arrow" onClick={() => shiftMonth(-1)} aria-label={t('cal.prevMonth')}>
           <ChevronLeft size={18} />
         </button>
         <span className="pub-cal-month">{monthLabel}</span>
-        <button className="pub-cal-arrow" onClick={() => shiftMonth(1)} aria-label="Next month">
+        <button className="pub-cal-arrow" onClick={() => shiftMonth(1)} aria-label={t('cal.nextMonth')}>
           <ChevronRight size={18} />
         </button>
       </div>
       <div className="pub-cal" onTouchStart={handlers.onTouchStart} onTouchMove={handlers.onTouchMove} onTouchEnd={handlers.onTouchEnd}>
         <div className="pub-cal-weekdays">
-          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i}>{d}</div>)}
+          {weekdayInitials().map((d, i) => <div key={i}>{d}</div>)}
         </div>
         <div className="pub-cal-swipe-viewport" ref={viewportRef} style={{ overflow: 'hidden' }}>
           <div className="pub-cal-grid" style={{ transform: `translateX(${dragX}px)`, transition: animating ? 'transform 0.2s ease-out' : 'none' }}>
@@ -390,10 +403,10 @@ function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInst
       </div>
 
       <h3 className="pub-section-title">
-        {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+        {fmtDayHeader(selectedDate)}
       </h3>
       {dayItems.length === 0 && (assignByDate[selectedDate] ?? []).length === 0 ? (
-        <div className="pub-muted">Nothing for you this day.</div>
+        <div className="pub-muted">{t('cal.nothingThisDay')}</div>
       ) : (
         <>
           {dayItems.map(({ event: e, exp }) => (
@@ -404,7 +417,7 @@ function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInst
               <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="pub-assign-title">{a.title}</div>
-                <div className="pub-assign-meta"><span className="pub-assign-type">{a.type}</span><span>Due this day</span></div>
+                <div className="pub-assign-meta"><span className="pub-assign-type">{a.type}</span><span>{t('cal.dueThisDay')}</span></div>
               </div>
             </Link>
           ))}

@@ -535,3 +535,55 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
 @media (prefers-color-scheme: dark) {
   .pub-birthday-line { background: #2a2416; border-color: #4a3d1f; color: #e8d9a8; }
 }
+
+/* ── More hidden delights (#easter-eggs) ── */
+
+/* A daily line for the student's own instrument (My Schedule). */
+.pub-instrument-quip {
+  margin: 8px 0 2px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--pub-card, #fff);
+  border: 1px dashed #d8dde5;
+  font-size: 13px;
+  color: var(--pub-muted, #6b7686);
+}
+@media (prefers-color-scheme: dark) {
+  .pub-instrument-quip { background: transparent; border-color: #39424f; }
+}
+
+/* Every box on the practice card checked off. */
+.pub-practice-bravo {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0d7e8e;
+}
+
+/* The loudest text size earns a dynamic marking. */
+.pub-textsize-ff {
+  margin-left: 4px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 13px;
+  color: #ca8a04;
+}
+
+/* A magic word typed into search answers back. */
+.pub-search-egg {
+  padding: 12px 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #5a4a22;
+  background: linear-gradient(120deg, #fdf6e3, #fceff3);
+  border-top: 1px solid #f0dfc0;
+}
+@media (prefers-color-scheme: dark) {
+  .pub-search-egg { background: #2a2416; border-color: #4a3d1f; color: #e8d9a8; }
+}
+
+/* ── Not-found page ── */
+.pub-notfound { text-align: center; padding: 26px 18px; }
+.pub-notfound-rest { font-size: 46px; line-height: 1; color: var(--pub-muted, #6b7686); }
+.pub-notfound-line { margin: 12px 0 18px; font-size: 14.5px; color: var(--pub-muted, #6b7686); }
