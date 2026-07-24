@@ -4,7 +4,7 @@ import { ChevronLeft, CalendarDays, Armchair, ChevronRight } from 'lucide-react'
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
 import { useEvents } from '../director/hooks/useEvents';
-import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
+import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useDocuments } from '../director/hooks/useDocuments';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
@@ -29,6 +29,7 @@ export function PublicEnsemble() {
   const { students } = useStudents();
   const { events } = useEvents();
   const { announcements } = useAnnouncements();
+  const now = useMinuteTick(); // scheduled posts appear the minute they go live
   const { pieces } = useRepertoire();
   const { documents } = useDocuments();
 
@@ -70,8 +71,8 @@ export function PublicEnsemble() {
   }, [hash, pieces.length]);
 
   const ensAnnouncements = useMemo(
-    () => visibleAnnouncements(announcements, today, [id]),
-    [announcements, today, id],
+    () => visibleAnnouncements(announcements, today, [id], now),
+    [announcements, today, id, now],
   );
 
   const ensPieces = useMemo(

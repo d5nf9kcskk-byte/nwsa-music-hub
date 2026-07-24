@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { UserPlus, Users, SlidersHorizontal, Music, MapPinned, CalendarX, FileSpreadsheet } from 'lucide-react';
+import { UserPlus, Users, SlidersHorizontal, Music, MapPinned, CalendarX, FileSpreadsheet, GraduationCap } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useAllAttendance } from '../hooks/useAttendance';
@@ -75,7 +75,7 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
     // view except the dedicated Archived one.
     if (view === 'archived') return s.status !== 'Active';
     if (s.status !== 'Active') return false;
-    if (view === 'seniors') return s.grade === '12th';
+    if (view === 'seniors') return (s.grade ?? '').startsWith('12');
     if (view === 'missing') {
       const c = contacts[s.id];
       return !s.grade || !s.instrument || !c || (!c.email && !c.parentEmail && !c.phone && !c.guardians?.length);
@@ -139,6 +139,16 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
           <div style={{ padding: '2px 16px 6px' }}>
             <SortToggle value={sort} onChange={setSort} />
           </div>
+          {view === 'seniors' && (
+            <RotateOutSeniors
+              seniors={students.filter(s => s.status === 'Active' && (s.grade ?? '').startsWith('12'))}
+              onRotate={async (ids, label) => {
+                for (const id of ids) {
+                  await updateStudent(id, { status: 'Graduated', archivedAt: Date.now(), archivedLabel: label });
+                }
+              }}
+            />
+          )}
         </>
       )}
 
@@ -342,6 +352,42 @@ function ResetToBaseline() {
   );
 }
 
+/**
+ * One-tap "rotate out last year's seniors" (shown only on the Seniors view).
+ * Marks every active 12th-grader Graduated: they stay in the roster archive
+ * (Archived view) but leave every active roster, roll, event roster, and
+ * schedule immediately — all of those gate on status === 'Active'.
+ */
+function RotateOutSeniors({ seniors, onRotate }: {
+  seniors: Student[];
+  onRotate: (ids: string[], label: string) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  if (seniors.length === 0) return null;
+  const label = `Class of ${new Date().getFullYear()}`;
+
+  async function rotate() {
+    if (!window.confirm(
+      `Rotate out all ${seniors.length} active senior${seniors.length !== 1 ? 's' : ''} as "${label}"?\n\n` +
+      'They move to the roster Archive (kept forever, restorable) and leave every current roster, roll, rehearsal, event, and concert schedule immediately.',
+    )) return;
+    setBusy(true);
+    try { await onRotate(seniors.map(s => s.id), label); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="dir-rotate-seniors">
+      <span>
+        <GraduationCap size={14} style={{ verticalAlign: '-2px' }} />{' '}
+        These {seniors.length} senior{seniors.length !== 1 ? 's' : ''} are still on active rosters and schedules.
+      </span>
+      <button className="dir-tool-btn" disabled={busy} onClick={rotate}>
+        {busy ? 'Rotating out…' : `Rotate out → Archive (${label})`}
+      </button>
+    </div>
+  );
+}
+
 function StudentRow({ student, absences, onEdit }: { student: Student; absences: number; onEdit: () => void }) {
   return (
     <div className="dir-roster-card" onClick={onEdit}>
@@ -350,7 +396,7 @@ function StudentRow({ student, absences, onEdit }: { student: Student; absences:
         <div className="dir-roster-name">{student.name}</div>
         <div className="dir-roster-detail">
           {[student.instrument, student.section, student.grade].filter(Boolean).join(' · ')}
-          {student.status !== 'Active' && ` · ${student.status}`}
+          {student.status !== 'Active' && ` · ${student.archivedLabel || student.status}`}
         </div>
       </div>
       {absences > 0 && (

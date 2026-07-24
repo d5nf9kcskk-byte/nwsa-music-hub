@@ -7,20 +7,22 @@ import type { StudentContact } from '../types';
 
 /**
  * Auth-only contact details, keyed by student id. Directors read/write here;
- * the public app never touches this collection.
+ * the public app never touches this collection. Pass `enabled: false` for
+ * roles firestore.rules bars from contacts (the Personnel Assistant shell) —
+ * otherwise the denied listener trips the "couldn't load" status strip.
  */
-export function useContacts() {
+export function useContacts(enabled: boolean = true) {
   const [contacts, setContacts] = useState<Record<string, StudentContact>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!db) { setLoading(false); return; }
+    if (!db || !enabled) { setLoading(false); return; }
     return watchCollection(collection(db, 'contacts'), 'contacts', snap => {
       const map: Record<string, StudentContact> = {};
       snap.docs.forEach(d => { map[d.id] = { id: d.id, ...d.data() } as StudentContact; });
       setContacts(map);
     }, () => setLoading(false));
-  }, []);
+  }, [enabled]);
 
   async function saveContact(studentId: string, data: Omit<StudentContact, 'id'>) {
     if (!db) return;

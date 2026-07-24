@@ -18,6 +18,7 @@ import {
 } from '../utils';
 import type { CalendarEvent, EventType } from '../types';
 import { Linkify } from '../components/Linkify';
+import { dailyPun } from '../../shared/whimsy';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -42,7 +43,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   const { ensembles } = useEnsembles();
   const { events, addEvent, updateEvent, deleteEvent } = useEvents();
   const { students } = useStudents();
-  const { pieces } = useRepertoire();
+  const { pieces, updatePiece } = useRepertoire();
   const { overrides } = useRosterOverrides();
   const { assignments } = useAssignments();
 
@@ -443,7 +444,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               {selectedDate === today && <span className="dir-today-badge">Today</span>}
             </div>
             {dayEvents.length === 0 && (assignByDate[selectedDate] ?? []).length === 0 ? (
-              <div className="dir-day-empty">No events scheduled. Tap + to add one.</div>
+              <div className="dir-day-empty">No events scheduled. Tap + to add one. {dailyPun('dir-sched').en}</div>
             ) : (
               <>
                 {dayEvents.map(e => <EventCard key={e.id} e={e} />)}
@@ -495,8 +496,28 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           ensembles={ensembles}
           defaultDate={selectedDate}
           onSave={async data => {
-            if (editing === 'new') await addEvent(data);
-            else await updateEvent(editing.id, data);
+            let eventId: string | undefined;
+            if (editing === 'new') eventId = await addEvent(data);
+            else { await updateEvent(editing.id, data); eventId = editing.id; }
+            // Pieces↔concerts are linked from BOTH sides (piece.eventIds and
+            // event.pieceIds), and every reader treats the union as truth. The
+            // piece form already syncs the event side; mirror it here so
+            // unselecting a piece from the concert also clears the piece's own
+            // link — otherwise the stale piece.eventIds keeps the piece on the
+            // concert's repertoire everywhere. Concert/Event only (same set the
+            // piece form links): rehearsal programs stay one-sided on the
+            // event, never in a piece's "programmed for" list.
+            if (eventId && (data.type === 'Concert' || data.type === 'Event')) {
+              const eid = eventId;
+              const wanted = new Set(data.pieceIds ?? []);
+              const writes: Promise<void>[] = [];
+              for (const p of pieces) {
+                const has = (p.eventIds ?? []).includes(eid);
+                if (wanted.has(p.id) && !has) writes.push(updatePiece(p.id, { eventIds: [...(p.eventIds ?? []), eid] }));
+                else if (!wanted.has(p.id) && has) writes.push(updatePiece(p.id, { eventIds: (p.eventIds ?? []).filter(id => id !== eid) }));
+              }
+              await Promise.all(writes);
+            }
           }}
           onDelete={editing !== 'new' ? async () => deleteEvent(editing.id) : undefined}
           onClose={() => setEditing(null)}

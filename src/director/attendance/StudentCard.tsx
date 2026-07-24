@@ -60,6 +60,11 @@ function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, 
               {lesson.reason ? ` · ${lesson.reason}` : ''}
             </div>
           )}
+          {record?.updatedByRole === 'assistant' && (
+            <div className="dir-marked-by">
+              ✎ Marked by {record.updatedBy || 'the Personnel Assistant'} (Personnel Assistant)
+            </div>
+          )}
         </div>
         {status && (
           <span className={`dir-status-badge ${status.toLowerCase()}`}>{status}</span>

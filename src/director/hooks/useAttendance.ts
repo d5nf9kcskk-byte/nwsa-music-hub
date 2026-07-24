@@ -6,6 +6,7 @@ import {
 import { db } from '../firebase';
 import { watchCollection } from '../../shared/watchCollection';
 import { reportWriteError } from '../writeStatus';
+import { currentDirectorName, currentDirectorRole } from '../currentDirector';
 import type { AttendanceRecord, AttendanceStatus } from '../types';
 
 /**
@@ -83,13 +84,22 @@ export function useAttendance(date: string, ensembleId: string | null, eventId?:
     setOptimistic(o => ({ ...o, [studentId]: clearing ? null : newStatus }));
     try { navigator.vibrate?.(10); } catch { /* no haptics */ }
 
+    // Attribution: who set this mark (name + role). Lets the director side
+    // show when a change was made by the Personnel Assistant.
+    const name = currentDirectorName();
+    const who = {
+      updatedAt: Date.now(),
+      ...(name ? { updatedBy: name } : {}),
+      updatedByRole: currentDirectorRole(),
+    };
+
     const run = async () => {
       if (clearing) {
         // Tapping the active button clears it (back to present)
         await deleteDoc(doc(dbRef, 'attendance', existing.id));
       } else if (existing) {
         // Change status (and backfill eventId on any legacy record)
-        await updateDoc(doc(dbRef, 'attendance', existing.id), { status: newStatus, ...extraFields, ...(eventId ? { eventId } : {}) });
+        await updateDoc(doc(dbRef, 'attendance', existing.id), { status: newStatus, ...extraFields, ...(eventId ? { eventId } : {}), ...who });
       } else {
         // New exception record
         await addDoc(collection(dbRef, 'attendance'), {
@@ -99,6 +109,7 @@ export function useAttendance(date: string, ensembleId: string | null, eventId?:
           status: newStatus,
           ...extraFields,
           ...(eventId ? { eventId } : {}),
+          ...who,
           createdAt: serverTimestamp(),
         });
       }

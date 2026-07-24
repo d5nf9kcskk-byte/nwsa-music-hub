@@ -2,7 +2,7 @@ import { useEffect, useMemo, useReducer } from 'react';
 import { Link, useLocation } from 'react-router';
 import { CheckCircle2, Siren, AlertTriangle } from 'lucide-react';
 import { useEvents } from '../../director/hooks/useEvents';
-import { useAnnouncements, visibleAnnouncements } from '../../director/hooks/useAnnouncements';
+import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../../director/hooks/useAnnouncements';
 import { useEnsembles } from '../../director/hooks/useEnsembles';
 import { todayStr } from '../../director/utils';
 import { getIdentity, onIdentityChange } from '../../shared/identity';
@@ -20,6 +20,7 @@ export function GlobalAlerts() {
   const { ensembles } = useEnsembles();
   const { pathname } = useLocation();
   const today = todayStr();
+  const now = useMinuteTick(); // scheduled posts appear the minute they go live
 
   // Watch EVERY saved student (parents can save several) and re-render when
   // the saved list changes — filtering by just the first child could show
@@ -36,8 +37,8 @@ export function GlobalAlerts() {
     [events, today, myEnsembles]);
 
   const urgent = useMemo(() =>
-    visibleAnnouncements(announcements, today, 'all').filter(a => a.priority === 'urgent'),
-    [announcements, today]);
+    visibleAnnouncements(announcements, today, 'all', now).filter(a => a.priority === 'urgent'),
+    [announcements, today, now]);
 
   const ensName = (ids: string[]) =>
     ids.map(id => ensembles.find(e => e.id === id)?.name).filter(Boolean).join(' + ') || 'School';

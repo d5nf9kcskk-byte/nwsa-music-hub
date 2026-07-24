@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useStudents } from '../hooks/useStudents';
 import { useEvents } from '../hooks/useEvents';
+import { useRepertoire } from '../hooks/useRepertoire';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster } from '../rosterResolver';
 import { EVENT_TYPES, TIME_BLOCKS } from '../utils';
@@ -107,6 +108,24 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     setConfirmDelete(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event, defaultDate]);
+
+  // Pieces↔events link from BOTH sides and every reader treats the union as
+  // truth, so the picker must show the union too — mirror of the piece form's
+  // union seed. A piece linked only via its own eventIds would otherwise
+  // render unchecked here, and saving ANY edit would destroy that link
+  // through the reverse sync. Merge is add-only and runs once per event.
+  const { pieces } = useRepertoire();
+  const mergedForEventId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!event || pieces.length === 0 || mergedForEventId.current === event.id) return;
+    mergedForEventId.current = event.id;
+    const viaPieces = pieces.filter(p => (p.eventIds ?? []).includes(event.id)).map(p => p.id);
+    if (viaPieces.length === 0) return;
+    // One-shot add-only merge once pieces load; must run AFTER the seed
+    // effect above (declaration order), so it lives in an effect like it.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setForm(f => ({ ...f, pieceIds: [...new Set([...(f.pieceIds ?? []), ...viaPieces])] }));
+  }, [event, pieces]);
 
   function set<K extends keyof typeof form>(k: K, v: typeof form[K]) {
     setForm(f => ({ ...f, [k]: v }));

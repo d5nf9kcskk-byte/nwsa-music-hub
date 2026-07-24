@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, Pencil, Lock } from 'lucide-react';
+import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock } from 'lucide-react';
 import { useDirectors, directorEmailId } from '../hooks/useDirectors';
 import type { Director, DirectorRole } from '../hooks/useDirectors';
 import { useStudents } from '../hooks/useStudents';
+import { useEnsembles } from '../hooks/useEnsembles';
+import { musicEnsembles } from '../utils';
 
 interface Props {
   /** Email of the signed-in director, so we can flag "you" and block self-removal. */
@@ -18,8 +20,8 @@ interface Props {
 // Deliberately loose — just enough to catch typos, not to police valid addresses.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const ROLE_LABEL: Record<DirectorRole, string> = { owner: 'Owner', director: 'Director', teacher: 'Teacher' };
-const ROLE_ICON: Record<DirectorRole, typeof ShieldCheck> = { owner: ShieldCheck, director: UserCog, teacher: GraduationCap };
+const ROLE_LABEL: Record<DirectorRole, string> = { owner: 'Owner', director: 'Director', teacher: 'Teacher', assistant: 'Personnel Assistant' };
+const ROLE_ICON: Record<DirectorRole, typeof ShieldCheck> = { owner: ShieldCheck, director: UserCog, teacher: GraduationCap, assistant: ClipboardList };
 
 /**
  * Manage who can sign in and edit the Hub, and at what level (#roles).
@@ -29,6 +31,8 @@ const ROLE_ICON: Record<DirectorRole, typeof ShieldCheck> = { owner: ShieldCheck
  */
 export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) {
   const { directors, loading, addDirector, updateDirector, removeDirector } = useDirectors();
+  const { ensembles } = useEnsembles();
+  const ensembleName = (id: string) => ensembles.find(e => e.id === id)?.name ?? id;
   const [adding, setAdding] = useState(false);
   const [editingEmail, setEditingEmail] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
@@ -78,7 +82,8 @@ export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) 
           <p className="dir-loc-hint" style={{ marginTop: 0 }}>
             Only you (the Owner) can see or change this list. Directors get full
             edit access everywhere except here; Teachers can only schedule
-            private lessons for the students assigned to them.
+            private lessons for the students assigned to them; Personnel
+            Assistants can only take roll for the ensembles assigned to them.
           </p>
 
           {loading && directors.length === 0 && <div className="dir-loc-empty">Loading…</div>}
@@ -102,6 +107,9 @@ export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) 
                     <div className="dir-ens-sub">
                       {d.name ? `${d.email} · ` : ''}{ROLE_LABEL[role]}
                       {role === 'teacher' && d.instruments?.length ? ` · ${d.instruments.join(', ')}` : ''}
+                      {role === 'assistant' && d.assignedEnsembleIds?.length
+                        ? ` · ${d.assignedEnsembleIds.map(ensembleName).join(', ')}`
+                        : ''}
                     </div>
                   </div>
                   {confirmRemove === d.email ? (
@@ -143,7 +151,7 @@ export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) 
         <div className="dir-drawer-footer" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
           {!adding ? (
             <button className="dir-btn dir-btn-primary" onClick={() => setAdding(true)}>
-              <Plus size={16} style={{ verticalAlign: '-3px' }} /> Add a director or teacher
+              <Plus size={16} style={{ verticalAlign: '-3px' }} /> Add a director, teacher, or assistant
             </button>
           ) : (
             <DirectorEditor
@@ -151,6 +159,7 @@ export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) 
                 await addDirector(data.email!, currentEmail ?? undefined, {
                   name: data.name, role: data.role as Exclude<DirectorRole, 'owner'>,
                   instruments: data.instruments, assignedStudentIds: data.assignedStudentIds,
+                  assignedEnsembleIds: data.assignedEnsembleIds,
                 });
                 setAdding(false);
               }}
@@ -165,7 +174,8 @@ export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) 
 }
 
 /** Add/edit form: email (add only) + name + role + (Teacher) instruments &
- *  assigned students. One shared shape so adding and editing stay consistent. */
+ *  assigned students + (Personnel Assistant) assigned ensembles. One shared
+ *  shape so adding and editing stay consistent. */
 function DirectorEditor({ director, onSave, onClose, existingEmails }: {
   director?: Director;
   onSave: (data: Partial<Director> & { email?: string }) => Promise<void>;
@@ -173,13 +183,15 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
   existingEmails?: string[];
 }) {
   const { students } = useStudents();
+  const { ensembles } = useEnsembles();
   const [email, setEmail] = useState(director?.email ?? '');
   const [name, setName] = useState(director?.name ?? '');
   const [role, setRole] = useState<Exclude<DirectorRole, 'owner'>>(
-    director?.role === 'teacher' ? 'teacher' : 'director',
+    director?.role === 'teacher' || director?.role === 'assistant' ? director.role : 'director',
   );
   const [instruments, setInstruments] = useState((director?.instruments ?? []).join(', '));
   const [assignedIds, setAssignedIds] = useState<string[]>(director?.assignedStudentIds ?? []);
+  const [assignedEnsIds, setAssignedEnsIds] = useState<string[]>(director?.assignedEnsembleIds ?? []);
   const [studentQuery, setStudentQuery] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -197,6 +209,9 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
   function toggleStudent(id: string) {
     setAssignedIds(cur => cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]);
   }
+  function toggleEnsemble(id: string) {
+    setAssignedEnsIds(cur => cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]);
+  }
 
   async function handleSave() {
     setError('');
@@ -204,6 +219,10 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
     if (!director) {
       if (!EMAIL_RE.test(id)) { setError('Enter a valid email address.'); return; }
       if (existingEmails?.includes(id)) { setError('That person is already listed.'); return; }
+    }
+    if (role === 'assistant' && assignedEnsIds.length === 0) {
+      setError('Pick at least one ensemble the assistant takes roll for.');
+      return;
     }
     setSaving(true);
     try {
@@ -215,6 +234,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
           ? instruments.split(',').map(s => s.trim()).filter(Boolean)
           : undefined,
         assignedStudentIds: role === 'teacher' ? assignedIds : undefined,
+        assignedEnsembleIds: role === 'assistant' ? assignedEnsIds : undefined,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save — try again.');
@@ -244,13 +264,35 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
           <button type="button" className={`dir-segment-btn ${role === 'teacher' ? 'active' : ''}`} onClick={() => setRole('teacher')}>
             <GraduationCap size={14} /> Teacher
           </button>
+          <button type="button" className={`dir-segment-btn ${role === 'assistant' ? 'active' : ''}`} onClick={() => setRole('assistant')}>
+            <ClipboardList size={14} /> Personnel Asst.
+          </button>
         </div>
         <div className="dir-field-hint">
           {role === 'director'
             ? 'Full edit access everywhere except this Directors screen.'
-            : 'Can only schedule private lessons for the students assigned below — nothing else in the Hub.'}
+            : role === 'teacher'
+              ? 'Can only schedule private lessons for the students assigned below — nothing else in the Hub.'
+              : 'Can only take roll (attendance) for the ensembles selected below — nothing else in the Hub. Every mark they make is labelled with their name on the director side.'}
         </div>
       </div>
+
+      {role === 'assistant' && (
+        <div className="dir-field">
+          <label className="dir-label">Ensembles they take roll for ({assignedEnsIds.length})</label>
+          <div className="dir-checkbox-group">
+            {musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
+              <label key={e.id} className={`dir-checkbox-tag ${assignedEnsIds.includes(e.id) ? 'checked' : ''}`}>
+                <input type="checkbox" checked={assignedEnsIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
+                {e.name}
+              </label>
+            ))}
+          </div>
+          <div className="dir-field-hint">
+            e.g. the Orchestra Personnel Assistant covers Camerata, Symphony, Philharmonic, and Opera Orchestra.
+          </div>
+        </div>
+      )}
 
       {role === 'teacher' && (
         <>

@@ -18,6 +18,8 @@ export interface CurrentDirector {
   role: DirectorRole;
   instruments: string[];
   assignedStudentIds: string[];
+  /** Assistant-only: ensembles this Personnel Assistant may take roll for. */
+  assignedEnsembleIds: string[];
 }
 
 let current: CurrentDirector | null = null;
@@ -32,6 +34,7 @@ export function setCurrentDirector(directorDoc: Director, googleDisplayName?: st
     role: directorRole(directorDoc),
     instruments: directorDoc.instruments ?? [],
     assignedStudentIds: directorDoc.assignedStudentIds ?? [],
+    assignedEnsembleIds: directorDoc.assignedEnsembleIds ?? [],
   };
   emit();
 }
