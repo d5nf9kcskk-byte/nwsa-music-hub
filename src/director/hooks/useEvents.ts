@@ -11,17 +11,19 @@ import type { CalendarEvent } from '../types';
 import { FIXTURES_ON, FIXTURE_EVENTS } from './fixtures';
 
 /**
- * Heal legacy academic-class events. Classes seeded before they became their
- * own event type were written with `type: 'Event'`, which makes the director
- * schedule collapse them to a bare school-note and hides them from the
- * "Classes" filter and attendance. Every such doc carries the stable
- * `class-…` id the seeder mints (manual events get random Firestore ids;
- * markers use `cal-`, rehearsals `reh-`), so the id is a safe signal to
- * coerce the type back to 'Class' at read time — no data migration needed,
- * and editing one heals the stored doc for good.
+ * Heal legacy events seeded before their category became its own event type —
+ * written with `type: 'Event'`, which mislabels them everywhere (the roster
+ * drawer, filters, attendance) even though the UI handles the real type
+ * correctly. Every seeded doc carries the seeder's stable id prefix (manual
+ * events get random Firestore ids; markers use `cal-`), so the id is a safe
+ * signal to coerce the type at read time — no data migration needed, and
+ * editing one heals the stored doc for good:
+ *   • `class-…` → 'Class'      (academic classes: AP Theory, Vocal Lit, …)
+ *   • `reh-…`   → 'Rehearsal'  (ensemble rehearsals)
  */
 function normalizeEvent(e: CalendarEvent): CalendarEvent {
   if (e.type !== 'Class' && e.id.startsWith('class-')) return { ...e, type: 'Class' };
+  if (e.type === 'Event' && e.id.startsWith('reh-')) return { ...e, type: 'Rehearsal' };
   return e;
 }
 
@@ -44,10 +46,11 @@ export function useEvents() {
     }, () => { noteLoadError('events'); setLoading(false); });
   }, []);
 
-  async function addEvent(data: Omit<CalendarEvent, 'id'>) {
+  async function addEvent(data: Omit<CalendarEvent, 'id'>): Promise<string | undefined> {
     if (!db) return;
     const dbRef = db;
-    await trackWrite('Event', () => addDoc(collection(dbRef, 'events'), data));
+    const ref = await trackWrite('Event', () => addDoc(collection(dbRef, 'events'), data));
+    return ref?.id;
   }
 
   async function updateEvent(id: string, data: Partial<Omit<CalendarEvent, 'id'>>) {

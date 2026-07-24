@@ -10,6 +10,8 @@ import { SearchOverlay } from './components/SearchOverlay';
 import { TextSizeControl } from './components/TextSize';
 import { t, useLang } from '../shared/i18n';
 import { LangToggle } from './components/LangToggle';
+import { NoteBurst } from '../shared/NoteBurst';
+import { useLogoEgg } from '../shared/useLogoEgg';
 import { primaryStudent, onIdentityChange } from '../shared/identity';
 import { useModalA11y } from '../shared/useModalA11y';
 import { useEffect, useReducer } from 'react';
@@ -39,11 +41,13 @@ export function PublicLayout() {
   const menuRef = useModalA11y<HTMLElement>(() => setMenuOpen(false), menuOpen);
   useEffect(() => onIdentityChange(bump), []);
   const me = primaryStudent();
+  // Hidden delight (#easter-eggs): five quick taps on the logo → note burst.
+  const { cheer, onLogoTap } = useLogoEgg();
 
   return (
     <div className="pub-app">
       <header className="pub-header">
-        <Link to="/" className="pub-brand">
+        <Link to="/" className="pub-brand" onClick={onLogoTap}>
           <span className="pub-logo-chip">
             <img src={`${import.meta.env.BASE_URL}nwsa-mark.png`} alt="NWSA" className="pub-brand-mark" />
           </span>
@@ -139,6 +143,9 @@ export function PublicLayout() {
             <Link to="/director" className="pub-menu-item pub-menu-director" onClick={() => setMenuOpen(false)}>
               {t('nav.directorLogin')}
             </Link>
+            <Link to="/assistant" className="pub-menu-item pub-menu-director" onClick={() => setMenuOpen(false)}>
+              {t('nav.assistantLogin')}
+            </Link>
           </nav>
         </div>
       )}
@@ -208,6 +215,9 @@ export function PublicLayout() {
             <Link to="/director" className="pub-side-item pub-side-director">
               {t('nav.directorLogin')}
             </Link>
+            <Link to="/assistant" className="pub-side-item pub-side-director">
+              {t('nav.assistantLogin')}
+            </Link>
           </div>
         </aside>
 
@@ -238,6 +248,7 @@ export function PublicLayout() {
       </nav>
 
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <NoteBurst cheer={cheer} />
       {/* Reset/restore window scroll on route change (deep pages otherwise open mid-scroll) */}
       <ScrollRestoration />
     </div>

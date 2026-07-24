@@ -1,3 +1,15 @@
+/**
+ * Access levels for signed-in staff (#roles). Lives here (the dependency-free
+ * leaf module) so both the directors hook and record-attribution fields can
+ * share it. `useDirectors.DirectorRole` is an alias of this type.
+ *   • owner     — manages the Directors list itself.
+ *   • director  — full edit access everywhere except the Directors list.
+ *   • teacher   — schedules private lessons for their assigned students only.
+ *   • assistant — Personnel Assistant: takes roll (attendance) for their
+ *                 assigned ensembles only; nothing else in the Hub.
+ */
+export type StaffRole = 'owner' | 'director' | 'teacher' | 'assistant';
+
 export interface Ensemble {
   id: string;
   name: string;
@@ -110,8 +122,10 @@ export interface CalendarEvent {
   updatedAt?: number;       // Date.now() of last edit
   updatedBy?: string;       // director email
   changeLog?: string;       // one-line human diff of the last edit
-  /* ── Roll receipts (#22): keyed by ensembleId for multi-ensemble events ── */
-  rollTaken?: Record<string, { at: number; by?: string; absent: number }>;
+  /* ── Roll receipts (#22): keyed by ensembleId for multi-ensemble events.
+   *    `by`/`byRole` record who finished roll (byRole 'assistant' shows the
+   *    Personnel Assistant attribution on the director side). ── */
+  rollTaken?: Record<string, { at: number; by?: string; byRole?: StaffRole; absent: number }>;
   /**
    * Set when today's normal schedule is altered (rescheduled, double block,
    * block rotation, …). Shows a CHANGED tag on the event and drives the red
@@ -178,6 +192,12 @@ export interface AttendanceRecord {
   minutesLate?: number;
   /** Follow-up triage (#26): director contacted the family or dismissed it. */
   followUp?: 'contacted' | 'dismissed';
+  /* ── Attribution: who last set/changed this mark (director-side only).
+   *    updatedByRole 'assistant' surfaces "marked by the Personnel Assistant"
+   *    on Take Roll for that day. ── */
+  updatedAt?: number;
+  updatedBy?: string;
+  updatedByRole?: StaffRole;
 }
 
 export interface ProgressNote {
@@ -207,7 +227,17 @@ export interface Announcement {
   bodyEs?: string;
   createdAt: number;         // Date.now() — for ordering
   pinned?: boolean;
-  expiresOn?: string;        // YYYY-MM-DD; hidden on/after this date if set
+  expiresOn?: string;        // YYYY-MM-DD; hidden strictly AFTER this date if set
+  /** Scheduled publishing: epoch ms. If set and in the future, the post is
+   *  hidden from every public surface (and the director Today feed) until
+   *  that moment — the Announcements screen shows it as "Scheduled".
+   *  NOTE: the embargo is client-side only. The announcements collection is
+   *  world-readable, so a scheduled post is technically fetchable before it
+   *  publishes — like everything here, never put anything private in one. */
+  publishAt?: number;
+  /** When the urgent Teams/email relay entry for a SCHEDULED urgent post was
+   *  queued (see AnnouncementManager's publish sweep) — guards double-sends. */
+  relayQueuedAt?: number;
   /* ── Change tracking (director-side only, never shown publicly) ── */
   updatedAt?: number;
   updatedBy?: string; // director's display name (falls back to email)

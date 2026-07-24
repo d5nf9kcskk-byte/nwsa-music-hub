@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { CalendarDays, UserSearch, Megaphone, Music, ChevronRight, Ticket, HelpCircle, Music2, AlertTriangle } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
-import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
+import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, addDays, assignmentEmoji, musicEnsembles, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
@@ -11,7 +11,8 @@ import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { SkeletonCards, EmptyState } from './components/PageHeader';
 import { getIdentity, onIdentityChange } from '../shared/identity';
-import { t, useLang } from '../shared/i18n';
+import { t, useLang, getLang } from '../shared/i18n';
+import { composerBirthdaysOn, birthdayLine } from '../shared/whimsy';
 import type { CalendarEvent } from '../director/types';
 
 const LOOKAHEAD_DAYS = 14;
@@ -21,6 +22,7 @@ export function PublicHome() {
   const { ensembles } = useEnsembles();
   const { events, loading } = useEvents();
   const { announcements } = useAnnouncements();
+  const now = useMinuteTick(); // scheduled posts appear the minute they go live
   const { assignments } = useAssignments();
   const { pieces } = useRepertoire();
 
@@ -62,8 +64,8 @@ export function PublicHome() {
   );
 
   const homeAnnouncements = useMemo(
-    () => visibleAnnouncements(announcements, today, 'all').filter(a => a.ensembleId === null || a.pinned),
-    [announcements, today],
+    () => visibleAnnouncements(announcements, today, 'all', now).filter(a => a.ensembleId === null || a.pinned),
+    [announcements, today, now],
   );
 
   function label(e: CalendarEvent) {
@@ -82,6 +84,11 @@ export function PublicHome() {
         <div className="pub-hero-date">{parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
         <h1><Music2 size={22} style={{ verticalAlign: '-3px' }} /> {t('home.todayAt')}</h1>
       </div>
+
+      {/* Hidden delight (#easter-eggs): composer-birthday greeting, only on the day */}
+      {composerBirthdaysOn(new Date()).map(b => (
+        <div key={b.name} className="pub-birthday-line">{birthdayLine(b, getLang(), new Date())}</div>
+      ))}
 
       {/* Schedule alerts: cancellations, double blocks, rotations, moves */}
       {alerts.length > 0 && (

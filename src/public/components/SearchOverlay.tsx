@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useEvents } from '../../director/hooks/useEvents';
 import { useRepertoire } from '../../director/hooks/useRepertoire';
-import { useAnnouncements } from '../../director/hooks/useAnnouncements';
+import { useAnnouncements, useMinuteTick } from '../../director/hooks/useAnnouncements';
 import { useEnsembles } from '../../director/hooks/useEnsembles';
 import { useAssignments } from '../../director/hooks/useAssignments';
 import { formatDate, formatTimeRange, todayStr, pieceEnsembleIds } from '../../director/utils';
@@ -101,6 +101,14 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
   const { announcements } = useAnnouncements();
   const { ensembles } = useEnsembles();
   const { assignments } = useAssignments();
+  // Scheduled posts stay out of public search until they publish — this
+  // overlay is on the public site, so it must honor the same embargo as
+  // every other announcement surface.
+  const tick = useMinuteTick();
+  const publishedAnnouncements = useMemo(
+    () => announcements.filter(a => !a.publishAt || a.publishAt <= tick),
+    [announcements, tick],
+  );
 
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -167,7 +175,7 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
       });
     }
 
-    const anns = rankMatches(announcements, q, a => [a.title, a.titleEs]);
+    const anns = rankMatches(publishedAnnouncements, q, a => [a.title, a.titleEs]);
     if (anns.length) {
       out.push({
         label: 'Announcements', Icon: Megaphone,
@@ -207,7 +215,7 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
     }
 
     return out;
-  }, [q, events, pieces, announcements, ensembles, assignments, ensembleMap]);
+  }, [q, events, pieces, publishedAnnouncements, ensembles, assignments, ensembleMap]);
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups]);
 
