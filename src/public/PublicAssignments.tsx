@@ -4,10 +4,12 @@ import { ClipboardCheck, Calendar } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { useStudents } from '../director/hooks/useStudents';
-import { todayStr, parseDate, ensembleColor, assignmentEmoji, musicEnsembles } from '../director/utils';
+import { todayStr, ensembleColor, assignmentEmoji, musicEnsembles } from '../director/utils';
 import { NotesText } from './components/NotesText';
 import { PageHeader, SkeletonCards, EmptyState } from './components/PageHeader';
-import { t, useLang } from '../shared/i18n';
+import { t, useLang, getLang } from '../shared/i18n';
+import { dailyPun, say } from '../shared/whimsy';
+import { fmtShortDate } from '../shared/dates';
 import type { Assignment } from '../director/types';
 
 /** Public list of upcoming assignments & exams, grouped by ensemble. */
@@ -58,7 +60,7 @@ export function PublicAssignments() {
           <div className="pub-assign-title">{a.title}</div>
           <div className="pub-assign-meta">
             <span className="pub-assign-type">{a.type}</span>
-            <span><Calendar size={12} /> Due {parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+            <span><Calendar size={12} /> {t('cal.due')} {fmtShortDate(a.dueDate)}</span>
           </div>
         </div>
       </div>
@@ -81,7 +83,9 @@ export function PublicAssignments() {
       {loading ? (
         <SkeletonCards n={3} />
       ) : upcoming.length === 0 ? (
-        <EmptyState icon={<ClipboardCheck size={26} />}>{t('assign.nothingDue')}</EmptyState>
+        <EmptyState icon={<ClipboardCheck size={26} />}>
+          {t('assign.nothingDue')} {say(dailyPun('assign'), getLang())}
+        </EmptyState>
       ) : (
         <>
           {/* Soonest first, across all ensembles — the by-ensemble groups follow */}
@@ -98,7 +102,7 @@ export function PublicAssignments() {
                         const e = ensembles.find(x => x.id === eid);
                         return e ? <span key={eid} className="pub-assign-type" style={{ color: ensembleColor(e) }}>{e.name}</span> : null;
                       })}
-                      <span>Due {parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                      <span>{t('cal.due')} {fmtShortDate(a.dueDate)}</span>
                     </div>
                   </div>
                 </div>

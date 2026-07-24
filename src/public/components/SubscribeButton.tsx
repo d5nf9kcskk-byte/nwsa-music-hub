@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CalendarPlus, Copy, Check, X } from 'lucide-react';
 import { feedUrl, studentFeedUrl, webcalUrl } from '../feedUrl';
 import { detectPlatform, type Platform } from '../platform';
+import { t, useLang } from '../../shared/i18n';
 import './subscribeButton.css';
 
 interface Props {
@@ -16,28 +17,28 @@ interface Props {
    maxTouchPoints too. Detection only picks the DEFAULT tab — the user can
    always switch platforms inside the sheet. */
 
-const PLATFORM_LABEL: Record<Platform, string> = {
-  ios: 'iPhone / iPad',
-  android: 'Android',
-  desktop: 'Computer',
+const PLATFORM_LABEL_KEY: Record<Platform, string> = {
+  ios: 'sub.ios',
+  android: 'sub.android',
+  desktop: 'sub.desktop',
 };
 
-/** Plain-language 3-step guide per platform. */
-const GUIDES: Record<Platform, { icon: string; text: string }[]> = {
+/** Plain-language 3-step guide per platform (translated at render time). */
+const GUIDES: Record<Platform, { icon: string; key: string }[]> = {
   ios: [
-    { icon: '👇', text: 'Tap "Subscribe in Apple Calendar" below.' },
-    { icon: '✅', text: 'A pop-up appears — tap Subscribe, then Done.' },
-    { icon: '🔄', text: 'That’s it! New events and schedule changes show up in your Calendar app automatically.' },
+    { icon: '👇', key: 'sub.iosStep1' },
+    { icon: '✅', key: 'sub.iosStep2' },
+    { icon: '🔄', key: 'sub.iosStep3' },
   ],
   android: [
-    { icon: '👇', text: 'Tap "Add to Google Calendar" below (sign in to Google if asked).' },
-    { icon: '✅', text: 'On the page that opens, tap Add to confirm the new calendar.' },
-    { icon: '🔄', text: 'Done! Events sync to your Google Calendar app automatically. If you don’t see them, turn the calendar on under Settings in the app.' },
+    { icon: '👇', key: 'sub.andStep1' },
+    { icon: '✅', key: 'sub.andStep2' },
+    { icon: '🔄', key: 'sub.andStep3' },
   ],
   desktop: [
-    { icon: '👇', text: 'Click "Add to Google Calendar" below (sign in to Google if asked), then click Add to confirm.' },
-    { icon: '📋', text: 'Using Outlook or Apple Calendar instead? Copy the link and choose "Add calendar → From URL" (Outlook) or "File → New Calendar Subscription" (Apple).' },
-    { icon: '🔄', text: 'Done! New events and schedule changes appear automatically — no need to re-add anything.' },
+    { icon: '👇', key: 'sub.deskStep1' },
+    { icon: '📋', key: 'sub.deskStep2' },
+    { icon: '🔄', key: 'sub.deskStep3' },
   ],
 };
 
@@ -48,6 +49,7 @@ const GUIDES: Record<Platform, { icon: string; text: string }[]> = {
  * Calendar add-by-URL link on Android/desktop, plus a copy-link fallback).
  */
 export function SubscribeButton({ ensembleId, studentId, label }: Props) {
+  useLang(); // the whole wizard is translated
   const [open, setOpen] = useState(false);
   const [platform, setPlatform] = useState<Platform>('desktop');
   const [copied, setCopied] = useState(false);
@@ -56,7 +58,7 @@ export function SubscribeButton({ ensembleId, studentId, label }: Props) {
   const https = studentId ? studentFeedUrl(studentId) : feedUrl(ensembleId);
   const webcal = webcalUrl(https);
   const googleAdd = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`;
-  const displayLabel = label ?? (ensembleId ? 'Subscribe to this calendar' : 'Subscribe to all events');
+  const displayLabel = label ?? t(ensembleId ? 'sub.thisCalendar' : 'sub.allEvents');
 
   // Lock page scroll while the sheet is open; close on Escape.
   useEffect(() => {
@@ -116,19 +118,19 @@ export function SubscribeButton({ ensembleId, studentId, label }: Props) {
             className="pub-subw-sheet"
             role="dialog"
             aria-modal="true"
-            aria-label="Subscribe to calendar"
+            aria-label={t('sub.dialog')}
             onClick={e => e.stopPropagation()}
           >
             <div className="pub-subw-handle" aria-hidden="true" />
 
             <div className="pub-subw-head">
               <div className="pub-subw-title"><CalendarPlus size={17} /> {displayLabel}</div>
-              <button className="pub-subw-close" onClick={() => setOpen(false)} aria-label="Close">
+              <button className="pub-subw-close" onClick={() => setOpen(false)} aria-label={t('sub.close')}>
                 <X size={18} />
               </button>
             </div>
 
-            <div className="pub-subw-tabs" role="tablist" aria-label="Your device">
+            <div className="pub-subw-tabs" role="tablist" aria-label={t('sub.yourDevice')}>
               {(['ios', 'android', 'desktop'] as Platform[]).map(p => (
                 <button
                   key={p}
@@ -137,7 +139,7 @@ export function SubscribeButton({ ensembleId, studentId, label }: Props) {
                   className={`pub-subw-tab${platform === p ? ' on' : ''}`}
                   onClick={() => setPlatform(p)}
                 >
-                  {PLATFORM_LABEL[p]}
+                  {t(PLATFORM_LABEL_KEY[p])}
                 </button>
               ))}
             </div>
@@ -147,32 +149,30 @@ export function SubscribeButton({ ensembleId, studentId, label }: Props) {
                 <li key={i} className="pub-subw-step">
                   <span className="pub-subw-step-num" aria-hidden="true">{i + 1}</span>
                   <span className="pub-subw-step-icon" aria-hidden="true">{step.icon}</span>
-                  <span className="pub-subw-step-text">{step.text}</span>
+                  <span className="pub-subw-step-text">{t(step.key)}</span>
                 </li>
               ))}
             </ol>
 
             {platform === 'ios' ? (
               <a className="pub-subw-action" href={webcal}>
-                <CalendarPlus size={17} /> Subscribe in Apple Calendar
+                <CalendarPlus size={17} /> {t('sub.apple')}
               </a>
             ) : (
               <a className="pub-subw-action" href={googleAdd} target="_blank" rel="noreferrer">
-                <CalendarPlus size={17} /> Add to Google Calendar
+                <CalendarPlus size={17} /> {t('sub.google')}
               </a>
             )}
 
             <div className="pub-subw-fallback">
               <div className="pub-subw-url" title={https}>{https}</div>
               <button className="pub-subw-copy" onClick={copyUrl}>
-                {copied ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy link</>}
+                {copied ? <><Check size={14} /> {t('sub.copied')}</> : <><Copy size={14} /> {t('sub.copyLink')}</>}
               </button>
             </div>
-            <div className="pub-subw-hint">
-              This is a live subscription — the calendar updates itself whenever the schedule changes.
-            </div>
+            <div className="pub-subw-hint">{t('sub.hint')}</div>
 
-            {copied && <div className="pub-subw-toast" role="status">Copied!</div>}
+            {copied && <div className="pub-subw-toast" role="status">{t('sub.copied')}</div>}
           </div>
         </div>
       )}

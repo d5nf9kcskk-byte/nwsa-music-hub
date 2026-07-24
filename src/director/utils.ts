@@ -1,4 +1,5 @@
 import type { Ensemble, EventType, RepertoirePiece, PiecePartLink, PieceMovement, CalendarEvent } from './types';
+import { dateLocale, fmtDate } from '../shared/dates';
 
 // ── Date helpers (work in local time, store as YYYY-MM-DD) ──────────────────────
 
@@ -26,18 +27,19 @@ export function addDays(s: string, n: number): string {
 }
 
 export function formatDate(s: string, opts?: Intl.DateTimeFormatOptions): string {
-  return parseDate(s).toLocaleDateString('en-US', opts ?? {
+  return fmtDate(parseDate(s), opts ?? {
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
   });
 }
 
-/** "15:30" → "3:30 PM". Empty input returns "". */
+/** "15:30" → "3:30 PM" ("3:30 p.m." in Spanish). Empty input returns "". */
 export function formatTime(t?: string): string {
   if (!t) return '';
   const [hStr, mStr] = t.split(':');
   let h = Number(hStr);
   const m = mStr ?? '00';
-  const ampm = h >= 12 ? 'PM' : 'AM';
+  const es = dateLocale().startsWith('es');
+  const ampm = h >= 12 ? (es ? 'p.m.' : 'PM') : (es ? 'a.m.' : 'AM');
   h = h % 12 || 12;
   return `${h}:${m} ${ampm}`;
 }

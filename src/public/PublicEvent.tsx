@@ -4,12 +4,15 @@ import { ChevronLeft, CalendarPlus, MapPin, ScrollText, XCircle, AlertTriangle, 
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
-import { parseDate, todayStr, formatTime } from '../director/utils';
+import { todayStr, formatTime } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { NotesText } from './components/NotesText';
 import { SkeletonCards } from './components/PageHeader';
-import { t, useLang } from '../shared/i18n';
+import { t, tType, useLang } from '../shared/i18n';
+import { fmtFullDate, fmtShortDate } from '../shared/dates';
 import { AddToCalendarButton } from './components/AddToCalendar';
+import { concertDayLine } from '../shared/whimsy';
+import { getLang } from '../shared/i18n';
 import type { CalendarEvent } from '../director/types';
 import './pubDaySheet.css';
 import './pubEventShell.css';
@@ -42,22 +45,20 @@ export function PublicEvent() {
     return (
       <div className="pub-page">
         <button onClick={goBack} className="pub-back-link"><ChevronLeft size={16} /> {t('event.back')}</button>
-        <div className="pub-card pub-muted">This event isn't on the calendar anymore.</div>
+        <div className="pub-card pub-muted">{t('event.notOnCalendar')}</div>
       </div>
     );
   }
 
-  const dateLabel = parseDate(event.date).toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-  });
+  const dateLabel = fmtFullDate(event.date);
   const heroTitle = event.title
     || event.ensembleIds.map(eid => ensembleMap[eid]?.name).filter(Boolean).join(' + ')
-    || event.type;
+    || tType(event.type);
   const isToday = event.date === todayStr();
 
   const cancelled = event.status === 'Cancelled';
   const primaryEnsembleName = ensembleMap[event.ensembleIds[0] ?? '']?.name;
-  const shortDate = parseDate(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const shortDate = fmtShortDate(event.date);
 
   return <EventBody event={event} cancelled={cancelled} primaryEnsembleName={primaryEnsembleName}
     shortDate={shortDate} dateLabel={dateLabel} heroTitle={heroTitle} isToday={isToday}
@@ -90,12 +91,18 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
 
       <div className="pub-hero">
         <h1 className="pub-h1" style={{ marginBottom: 2 }}>{heroTitle}</h1>
-        <div className="pub-hero-date">{dateLabel}{isToday ? ' — today' : ''}</div>
+        <div className="pub-hero-date">{dateLabel}{isToday ? ` ${t('event.todaySuffix')}` : ''}</div>
       </div>
+
+      {/* Hidden delight (#easter-eggs): the concert-day ribbon, only on the day. */}
+      {isToday && event.type === 'Concert' && !cancelled && (
+        <div className="pub-birthday-line">{concertDayLine(getLang())}</div>
+      )}
 
       {cancelled && (
         <div className="pub-alert-banner">
-          <XCircle size={15} style={{ verticalAlign: '-2px' }} /> This {event.type.toLowerCase()} is <strong>cancelled</strong>.
+          <XCircle size={15} style={{ verticalAlign: '-2px' }} />{' '}
+          <strong>{t('event.isCancelled', { type: tType(event.type).toLowerCase() })}</strong>
           {event.changeNote ? <div className="pub-alert-note">{event.changeNote}</div> : null}
         </div>
       )}
@@ -152,12 +159,14 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
 
           {(event.attendanceEnsembleIds ?? []).length > 0 && (
             <div className="pub-card pub-attend-card">
-              <strong>Attendance required:</strong> members of{' '}
-              {(event.attendanceEnsembleIds ?? [])
-                .map(id => ensembleMap[id]?.name)
-                .filter(Boolean)
-                .join(', ')}{' '}
-              must attend this {event.type.toLowerCase()} even though they are not performing.
+              <strong>{t('event.attendanceLabel')}</strong>{' '}
+              {t('event.attendanceBody', {
+                ensembles: (event.attendanceEnsembleIds ?? [])
+                  .map(id => ensembleMap[id]?.name)
+                  .filter(Boolean)
+                  .join(', '),
+                type: tType(event.type).toLowerCase(),
+              })}
             </div>
           )}
 

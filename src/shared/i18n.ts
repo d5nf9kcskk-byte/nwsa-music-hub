@@ -74,6 +74,14 @@ export function tn(key: string, count: number, params?: Record<string, string | 
   return t(`${key}.${count === 1 ? 'one' : 'other'}`, { count, ...params });
 }
 
+/**
+ * The display word for an event type ('Concert' → "Concert" / "Concierto").
+ * Event types are stored in English in Firestore; only the label translates.
+ */
+export function tType(type: string): string {
+  return t(`type.${type}`);
+}
+
 // Stamp <html lang="…"> on first load so screen readers and hyphenation
 // match the saved preference before any component mounts.
 if (typeof document !== 'undefined') {

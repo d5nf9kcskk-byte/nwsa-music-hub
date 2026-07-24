@@ -5,6 +5,7 @@ import { ensembleColor } from '../../director/utils';
 import type { Announcement, Ensemble } from '../../director/types';
 import { Linkify } from '../../director/components/Linkify';
 import { getLang, t, useLang } from '../../shared/i18n';
+import { fmtMonthDay } from '../../shared/dates';
 
 interface Props {
   items: Announcement[];
@@ -40,13 +41,13 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
                 </Link>
               )}
               {showEnsembleTag && a.ensembleId === null && (
-                <span className="pub-announce-tag pub-announce-tag-all">All</span>
+                <span className="pub-announce-tag pub-announce-tag-all">{t('announce.all')}</span>
               )}
               {hasEs && (
                 <button
                   className="pub-announce-lang"
                   onClick={() => setFlipped(f => ({ ...f, [a.id]: !f[a.id] }))}
-                  aria-label={showEs ? 'Read in English' : 'Leer en español'}
+                  aria-label={showEs ? t('announce.readEnglish') : t('announce.readSpanish')}
                 >
                   {showEs ? 'EN' : 'ES'}
                 </button>
@@ -55,7 +56,7 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
             {showBody && <div className="pub-announce-body"><Linkify text={showBody} /></div>}
             <div className="pub-announce-date">
               {/* A scheduled post is "posted" when it published, not when drafted. */}
-              {new Date(a.publishAt ?? a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {fmtMonthDay(new Date(a.publishAt ?? a.createdAt))}
             </div>
           </div>
         );

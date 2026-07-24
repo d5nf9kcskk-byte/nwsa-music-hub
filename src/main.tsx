@@ -22,6 +22,7 @@ import { StartGuide } from './public/StartGuide';
 import { SeasonPage } from './public/SeasonPage';
 import { CampusMap } from './public/CampusMap';
 import { VanityRedirect } from './public/VanityRedirect';
+import { NotFound } from './public/NotFound';
 import { VANITY_SLUGS } from './shared/vanity';
 import { AppError } from './shared/AppError';
 
@@ -69,6 +70,9 @@ const router = createBrowserRouter(
         { path: 'program/:id', element: <PublicProgram /> },
         // Vanity short links (#5): /so /we /wind /jazz /cam /choir /opera /cco
         ...VANITY_SLUGS.map(v => ({ path: v.slug, element: <VanityRedirect slug={v.slug} /> })),
+        // Anything else under the public site: a real page with a way back,
+        // not the crash boundary.
+        { path: '*', element: <NotFound /> },
       ],
     },
     {

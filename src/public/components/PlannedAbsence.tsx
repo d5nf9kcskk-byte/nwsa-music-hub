@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { CalendarX } from 'lucide-react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../director/firebase';
-import { todayStr, parseDate } from '../../director/utils';
+import { todayStr } from '../../director/utils';
 import { t, useLang } from '../../shared/i18n';
+import { fmtLongDate } from '../../shared/dates';
 import type { Student } from '../../director/types';
 import './plannedAbsence.css';
 
@@ -54,7 +55,7 @@ export function PlannedAbsenceButton({ student }: { student: Student }) {
                 <div className="pub-confirm-name" style={{ fontSize: 18 }}>✓ Sent to your director</div>
                 <p className="pub-absence-hint">
                   {student.name.split(' ')[0]} is reported out on{' '}
-                  <strong>{parseDate(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</strong>.
+                  <strong>{fmtLongDate(date)}</strong>.
                   They'll see it when they take roll that day. No reply needed.
                 </p>
                 <button className="pub-confirm-yes" style={{ width: '100%' }} onClick={() => setOpen(false)}>Done</button>

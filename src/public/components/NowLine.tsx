@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { todayStr, formatTime } from '../../director/utils';
+import { t, useLang } from '../../shared/i18n';
 import './nowLine.css';
 
 function nowHMStr(d: Date): string {
@@ -47,12 +48,13 @@ export function nowLineIndex(
 
 /** Teal "Now — 3:42 PM" divider row for schedule lists. */
 export function NowLine() {
+  useLang();
   const { nowHM } = usePastDimming(30_000);
   const label = formatTime(nowHM);
   return (
-    <div className="pub-nowline" role="separator" aria-label={`Now, ${label}`}>
+    <div className="pub-nowline" role="separator" aria-label={`${t('now.label')}, ${label}`}>
       <span className="pub-nowline-dot" aria-hidden="true" />
-      <span className="pub-nowline-label">Now — {label}</span>
+      <span className="pub-nowline-label">{t('now.label')} — {label}</span>
       <span className="pub-nowline-rule" aria-hidden="true" />
     </div>
   );

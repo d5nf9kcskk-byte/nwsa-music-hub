@@ -1,8 +1,9 @@
 import { MapPin, Music, ExternalLink, ScrollText, ChevronRight, StickyNote } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
-import { parseDate, formatTime, ensembleColor, findPartForInstrument, CONCERT_COLOR, eventPieceMovements, eventRestrictsMovements } from '../../director/utils';
-import { t, useLang } from '../../shared/i18n';
+import { formatTime, ensembleColor, findPartForInstrument, CONCERT_COLOR, eventPieceMovements, eventRestrictsMovements } from '../../director/utils';
+import { t, tType, useLang } from '../../shared/i18n';
+import { fmtShortDate } from '../../shared/dates';
 import { EnsembleLink, EnsembleLinks } from './EnsembleLink';
 import { Linkify } from '../../director/components/Linkify';
 import { EventChip } from './EventChip';
@@ -98,7 +99,7 @@ export function PubEventCard({
             : <span className="pub-ev2-start allday">{t('card.allDay')}</span>}
           {endLabel && <span className="pub-ev2-end">– {endLabel}</span>}
           {e.type === 'Concert' && e.callTime && (
-            <span className="pub-ev2-call">Call {formatTime(e.callTime)}</span>
+            <span className="pub-ev2-call">{t('card.call')} {formatTime(e.callTime)}</span>
           )}
           {e.location && <span className="pub-ev2-room"><MapPin size={12} /> <LocationText room={e.location} /></span>}
         </div>
@@ -108,7 +109,7 @@ export function PubEventCard({
             ? <span>{e.title}</span>
             : ensembleObjs.length > 0
               ? <EnsembleLinks ensembles={ensembleObjs} />
-              : <span>{e.type}</span>}
+              : <span>{tType(e.type)}</span>}
         </div>
 
         {e.changeNote && <div className="pub-event-change">⚠ {e.changeNote}</div>}
@@ -125,7 +126,7 @@ export function PubEventCard({
 
         {showDate && (
           <div className="pub-event-meta">
-            <span>{parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+            <span>{fmtShortDate(e.date)}</span>
           </div>
         )}
 

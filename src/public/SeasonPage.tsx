@@ -4,8 +4,8 @@ import { Link } from 'react-router';
 import { Clock, MapPin, Printer, Ticket } from 'lucide-react';
 import { useEvents } from '../director/hooks/useEvents';
 import { useEnsembles } from '../director/hooks/useEnsembles';
-import { LABELS } from '../shared/labels';
-import { t, useLang } from '../shared/i18n';
+import { t, tType, useLang } from '../shared/i18n';
+import { fmtDate, fmtMonthYear } from '../shared/dates';
 import { PageHeader, SkeletonCards } from './components/PageHeader';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles } from '../director/utils';
 import { PubEnsembleSelect } from './components/PubEnsembleSelect';
@@ -42,7 +42,7 @@ export function SeasonPage() {
   return (
     <div className="pub-page pub-season">
       <PageHeader
-        title={LABELS.concerts}
+        title={t('nav.concerts')}
         action={
           <button className="pub-season-print" onClick={() => window.print()}>
             <Printer size={14} /> {t('season.print')}
@@ -51,7 +51,11 @@ export function SeasonPage() {
       />
       <p className="pub-season-intro">
         <span className="pub-season-intro-screen">{t('season.intro')}</span>
-        {filter && <span className="pub-season-filter-note"> Showing: {concertEnsembles.find(e => e.id === filter)?.name ?? 'filtered'} only.</span>}
+        {filter && (
+          <span className="pub-season-filter-note">
+            {' '}{t('season.showingOnly', { name: concertEnsembles.find(e => e.id === filter)?.name ?? '—' })}
+          </span>
+        )}
       </p>
 
       {concertEnsembles.length > 1 && (
@@ -61,11 +65,11 @@ export function SeasonPage() {
       {loading ? (
         <SkeletonCards n={4} slim />
       ) : filtered.length === 0 ? (
-        <div className="pub-card pub-muted">No concerts on the calendar yet.</div>
+        <div className="pub-card pub-muted">{t('season.none')}</div>
       ) : (
         <>
           {upcoming.length === 0 && (
-            <div className="pub-card pub-muted">No upcoming concerts — the rest of the season is below.</div>
+            <div className="pub-card pub-muted">{t('season.noUpcoming')}</div>
           )}
           {groupByMonth(upcoming).map(([label, list]) => (
             <section key={label} className="pub-season-month">
@@ -76,7 +80,7 @@ export function SeasonPage() {
 
           {past.length > 0 && (
             <div className="pub-season-past">
-              <h2 className="pub-season-past-title">Earlier this season</h2>
+              <h2 className="pub-season-past-title">{t('season.earlier')}</h2>
               {groupByMonth(past).map(([label, list]) => (
                 <section key={label} className="pub-season-month">
                   <h2 className="pub-season-month-title">{label}</h2>
@@ -99,7 +103,7 @@ function byDateTime(a: CalendarEvent, b: CalendarEvent) {
 function groupByMonth(list: CalendarEvent[]): [string, CalendarEvent[]][] {
   const out: [string, CalendarEvent[]][] = [];
   for (const e of list) {
-    const label = parseDate(e.date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const label = fmtMonthYear(parseDate(e.date));
     const last = out[out.length - 1];
     if (last && last[0] === label) last[1].push(e);
     else out.push([label, [e]]);
@@ -112,6 +116,7 @@ function SeasonRow({ e, ensembleMap, past }: {
   ensembleMap: Record<string, Ensemble>;
   past?: boolean;
 }) {
+  useLang(); // date + tags follow the EN/ES toggle
   const ens = e.ensembleIds.map(id => ensembleMap[id]).filter(Boolean) as Ensemble[];
   const d = parseDate(e.date);
   const time = formatTimeRange(e.startTime, e.endTime);
@@ -123,14 +128,14 @@ function SeasonRow({ e, ensembleMap, past }: {
       className={`pub-season-row ${past ? 'past' : ''} ${cancelled ? 'cancelled' : ''}`}
     >
       <span className="pub-season-date">
-        <span className="pub-season-dow">{d.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+        <span className="pub-season-dow">{fmtDate(d, { weekday: 'short' })}</span>
         <span className="pub-season-day">{d.getDate()}</span>
-        <span className="pub-season-mon">{d.toLocaleDateString('en-US', { month: 'short' })}</span>
+        <span className="pub-season-mon">{fmtDate(d, { month: 'short' })}</span>
       </span>
       <span className="pub-season-body">
         <span className="pub-season-title">
-          <Ticket size={14} style={{ verticalAlign: '-2px' }} /> {e.title || (ens.length > 0 ? ens.map(x => x.name).join(', ') : 'Concert')}
-          {cancelled && <span className="pub-season-cancelled-tag">Cancelled</span>}
+          <Ticket size={14} style={{ verticalAlign: '-2px' }} /> {e.title || (ens.length > 0 ? ens.map(x => x.name).join(', ') : tType('Concert'))}
+          {cancelled && <span className="pub-season-cancelled-tag">{t('card.cancelled')}</span>}
         </span>
         {ens.length > 0 && (
           <span className="pub-season-tags">
