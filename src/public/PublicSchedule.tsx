@@ -10,7 +10,7 @@ import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRosterOverrides } from '../director/hooks/useRosterOverrides';
-import { useAnnouncements, visibleAnnouncements } from '../director/hooks/useAnnouncements';
+import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { studentExpectation } from '../director/rosterResolver';
@@ -50,6 +50,7 @@ export function PublicSchedule() {
   const { events } = useEvents();
   const { overrides } = useRosterOverrides();
   const { announcements } = useAnnouncements();
+  const now = useMinuteTick(); // scheduled posts appear the minute they go live
   const { pieces } = useRepertoire();
   const { assignments } = useAssignments();
 
@@ -82,8 +83,8 @@ export function PublicSchedule() {
   const upcomingItems = mySchedule.filter(x => x.event.date > today && matchesFilter(x.event, filter));
 
   const myAnnouncements = useMemo(
-    () => student ? visibleAnnouncements(announcements, today, student.ensembleIds ?? []) : [],
-    [announcements, today, student],
+    () => student ? visibleAnnouncements(announcements, today, student.ensembleIds ?? [], now) : [],
+    [announcements, today, student, now],
   );
 
   // Conflict explainer (#10): today's lesson windows that override a rehearsal.

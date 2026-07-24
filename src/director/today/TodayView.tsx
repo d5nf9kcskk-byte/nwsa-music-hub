@@ -5,7 +5,7 @@ import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
-import { useAnnouncements, visibleAnnouncements } from '../hooks/useAnnouncements';
+import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../hooks/useAnnouncements';
 import { useAllAttendance } from '../hooks/useAttendance';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -18,6 +18,7 @@ import type { CalendarEvent } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
 import { EnsembleFilter } from '../components/EnsembleFilter';
+import { composerBirthdaysOn, birthdayLine } from '../../shared/whimsy';
 
 const ENS_PREF_KEY = 'dir.today.ensemble';
 
@@ -29,6 +30,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const { pieces } = useRepertoire();
   const { overrides } = useRosterOverrides();
   const { announcements, addAnnouncement } = useAnnouncements();
+  const now = useMinuteTick(); // scheduled posts appear the minute they go live
   const { assignments } = useAssignments();
   const { records: allAttendance } = useAllAttendance();
   const [snowDay, setSnowDay] = useState(false);
@@ -78,8 +80,8 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
     [events, today, ensembleId]);
 
   const homeAnnouncements = useMemo(
-    () => visibleAnnouncements(announcements, today, ensembleId ? [ensembleId] : 'all').slice(0, 3),
-    [announcements, today, ensembleId]);
+    () => visibleAnnouncements(announcements, today, ensembleId ? [ensembleId] : 'all', now).slice(0, 3),
+    [announcements, today, ensembleId, now]);
 
   const lessonsToday = useMemo(() =>
     overrides
@@ -133,6 +135,9 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
       <div className="dir-today-hero">
         <div className="dir-today-date">{dateLabel}</div>
         <div className="dir-today-title">🎶 Today at NWSA Music Hub</div>
+        {composerBirthdaysOn(new Date()).map(b => (
+          <div key={b.name} className="dir-today-birthday">{birthdayLine(b, 'en', new Date())}</div>
+        ))}
       </div>
 
       {ensembles.length > 0 && (

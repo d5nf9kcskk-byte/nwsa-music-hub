@@ -177,8 +177,32 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-expected-count { font-weight: 800; }
 .dir-event-tap { cursor: pointer; }
 
+/* Composer-birthday greeting on Today (#easter-eggs) */
+.dir-today-birthday { font-size: 13px; margin-top: 6px; opacity: 0.92; }
+
+/* Announcements list: scheduled-for-later chip */
+.dir-ann-scheduled { color: var(--dir-primary); font-weight: 700; }
+
+/* Take Roll: "marked by the Personnel Assistant" attribution line */
+.dir-marked-by { font-size: 11.5px; color: var(--dir-text-muted); margin-top: 3px; font-style: italic; }
+
+/* Seniors view: rotate-out banner */
+.dir-rotate-seniors {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  margin: 0 16px 10px; padding: 10px 12px;
+  background: var(--dir-surface); border: 1.5px dashed var(--dir-border); border-radius: 10px;
+  font-size: 13px; color: var(--dir-text-muted);
+}
+
 /* Event-roster drawer rows */
+.dir-roster-event-name { font-size: 15.5px; font-weight: 800; color: var(--dir-text); }
 .dir-roster-sub-date { font-size: 12.5px; color: var(--dir-text-muted); margin-top: 2px; }
+/* Inline name · badge · instrument rows: flex with a real gap so the name and
+ * instrument never run together (JSX strips the whitespace between spans). */
+.dir-sub-inline { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+/* Footer buttons whose labels are longer than one or two words: smaller type,
+ * allowed to wrap, so the text stays readable instead of overflowing. */
+.dir-btn-compact { font-size: 13.5px; line-height: 1.25; white-space: normal; height: auto; min-height: 48px; padding: 8px 10px; }
 .dir-roster-section-title {
   font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
   color: var(--dir-text-muted); margin: 16px 0 8px;

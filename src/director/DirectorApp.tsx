@@ -9,11 +9,15 @@ import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
 import { useCurrentDirector } from './currentDirector';
 import { TeacherApp } from './teacher/TeacherApp';
+import { AssistantApp } from './assistant/AssistantApp';
 import { DirectorSearch } from './components/DirectorSearch';
 import { WriteTray } from './components/WriteTray';
 import { useWriteBusy } from './writeStatus';
 import { useModalA11y } from '../shared/useModalA11y';
 import { StatusStrips } from '../shared/StatusStrips';
+import { NoteBurst } from '../shared/NoteBurst';
+import { useLogoEgg } from '../shared/useLogoEgg';
+import { useUrgentRelaySweep } from './announcements/urgentRelay';
 import { AttendanceTab } from './attendance/AttendanceTab';
 import { RosterView } from './roster/RosterView';
 import { WhosOutView } from './roster/WhosOutView';
@@ -123,6 +127,12 @@ export default function DirectorApp() {
   // Director — never even sees the entry point. A Teacher never reaches this
   // shell at all (see the AuthGate render-prop below).
   const isOwner = me?.role === 'owner';
+  // Hidden delight (#easter-eggs): five quick taps on the logo → note burst.
+  const { cheer, onLogoTap } = useLogoEgg();
+  // Scheduled URGENT posts queue their Teams/email relay when their moment
+  // passes — swept from here so any open director session fires it, not just
+  // the Announcements screen. Teachers/assistants can't write the queue.
+  useUrgentRelaySweep(!!me && me.role !== 'teacher' && me.role !== 'assistant');
 
   // Tab + intent live in the URL (/director/<tab>?ensemble=…&date=…), so the
   // browser Back button steps through tabs and a reload keeps your place.
@@ -157,6 +167,8 @@ export default function DirectorApp() {
     <AuthGate>
       {(user, signOut) => me?.role === 'teacher' ? (
         <TeacherApp user={user} signOut={signOut} />
+      ) : me?.role === 'assistant' ? (
+        <AssistantApp user={user} signOut={signOut} />
       ) : (
         <div className="dir-app" data-dir-theme={darkMode ? 'dark' : undefined}>
           {/* Back-end marker: an unmistakable dark strip + gold rule, always on
@@ -221,7 +233,7 @@ export default function DirectorApp() {
 
           <header className="dir-header">
             <div className="dir-header-brand">
-              <span className="dir-logo-chip">
+              <span className="dir-logo-chip" onClick={onLogoTap}>
                 <img src={`${import.meta.env.BASE_URL}nwsa-mark.png`} alt="NWSA" className="dir-header-mark" />
               </span>
               <div>
@@ -281,6 +293,7 @@ export default function DirectorApp() {
           </main>
 
           <WriteTray />
+          <NoteBurst cheer={cheer} />
 
           {qrOpen && <QrKitView onClose={() => setQrOpen(false)} />}
 

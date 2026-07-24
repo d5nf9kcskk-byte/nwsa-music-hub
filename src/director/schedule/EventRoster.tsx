@@ -3,7 +3,7 @@ import { ClipboardList, Users } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster } from '../rosterResolver';
-import { formatDate } from '../utils';
+import { formatDate, formatTimeRange, EVENT_TYPE_ICON } from '../utils';
 import type { CalendarEvent, Ensemble, RosterOverride } from '../types';
 import type { DirNavigate } from '../types-nav';
 
@@ -49,16 +49,27 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
     .map(o => ({ o, student: students.find(s => s.id === o.studentId) }))
     .filter(x => x.student);
 
+  // The event's display name and its REAL category. A rehearsal is labelled
+  // "Rehearsal", a class "Class", a concert "Concert" — the generic "Event"
+  // label is reserved for items that are none of those.
+  const eventName = event.title
+    || eventEnsembles.map(e => e.name).filter(Boolean).join(', ')
+    || event.type;
+  const timeLabel = formatTimeRange(event.startTime, event.endTime);
+
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
-          <span className="dir-drawer-title"><Users size={16} style={{ verticalAlign: '-2px' }} /> Event Roster</span>
+          <span className="dir-drawer-title"><Users size={16} style={{ verticalAlign: '-2px' }} /> {event.type} Roster</span>
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
         <div className="dir-drawer-body">
-          <div className="dir-roster-sub-date">{formatDate(event.date)}</div>
+          <div className="dir-roster-event-name">{EVENT_TYPE_ICON[event.type]} {eventName}</div>
+          <div className="dir-roster-sub-date">
+            {event.type} · {formatDate(event.date)}{timeLabel ? ` · ${timeLabel}` : ''}
+          </div>
 
           {eventEnsembles.length > 1 && (
             <div className="dir-tabs" style={{ padding: '0 0 8px' }}>
@@ -73,7 +84,7 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
           <div className="dir-roster-section-title">{resolved.length} expected</div>
           {resolved.map(({ student, isSub }) => (
             <div key={student.id} className="dir-sub-row">
-              <div className="dir-sub-info">
+              <div className="dir-sub-info dir-sub-inline">
                 <span className="dir-sub-name">{student.name}</span>
                 {isSub && <span className="dir-sub-badge">Sub</span>}
                 <span className="dir-sub-instr">{student.instrument}</span>
@@ -86,7 +97,7 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
               <div className="dir-roster-section-title">Lesson pull-outs (partial)</div>
               {lessons.map(({ o, student }) => (
                 <div key={o.id} className="dir-sub-row">
-                  <div className="dir-sub-info">
+                  <div className="dir-sub-info dir-sub-inline">
                     <span className="dir-sub-name">{student!.name}</span>
                     <span className="dir-sub-instr">
                       {o.startTime && o.endTime ? `${o.startTime}–${o.endTime}` : 'window TBD'}
@@ -103,7 +114,7 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
               <div className="dir-roster-section-title">Pulled out</div>
               {pulled.map(({ o, student }) => (
                 <div key={o.id} className="dir-sub-row pulled">
-                  <div className="dir-sub-info">
+                  <div className="dir-sub-info dir-sub-inline">
                     <span className="dir-sub-name">{student!.name}</span>
                     <span className="dir-sub-instr">{o.reason || 'no reason recorded'}</span>
                   </div>
@@ -116,10 +127,10 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
           <button className="dir-btn dir-btn-ghost" onClick={onClose}>Close</button>
           {onNavigate && (
             <button
-              className="dir-btn dir-btn-primary"
+              className="dir-btn dir-btn-primary dir-btn-compact"
               onClick={() => { onClose(); onNavigate('scheduleChanges', { ensembleId }); }}
             >
-              <ClipboardList size={15} style={{ verticalAlign: '-2px' }} /> Make changes (Temporary Roster Changes)
+              <ClipboardList size={15} style={{ verticalAlign: '-2px' }} /> Make roster changes
             </button>
           )}
         </div>
