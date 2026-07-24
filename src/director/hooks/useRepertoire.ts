@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, deleteField, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
@@ -34,7 +34,15 @@ export function useRepertoire() {
 
   async function updatePiece(id: string, data: Partial<Omit<RepertoirePiece, 'id'>>) {
     if (!db) return;
-    const payload = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
+    // The form clears an optional field by setting it to `undefined`, but the
+    // app initializes Firestore with ignoreUndefinedProperties, which silently
+    // DROPS those keys from the patch — the stored value survived every
+    // "clear" (this is what kept a piece glued to a concert after unchecking
+    // its last "Programmed for" box). Explicit undefined now means DELETE.
+    const stamped: Record<string, unknown> = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
+    const payload = Object.fromEntries(
+      Object.entries(stamped).map(([k, v]) => [k, v === undefined ? deleteField() : v]),
+    );
     await updateDoc(doc(db, 'repertoire', id), payload);
   }
 

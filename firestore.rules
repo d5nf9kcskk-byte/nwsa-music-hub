@@ -10,16 +10,22 @@ rules_version = '2';
 //     notes, private lessons) are readable and writable only by signed-in
 //     staff — never world-readable.
 //
-// Three access levels (#roles), stored on each directors/{email} doc's
+// Four access levels (#roles), stored on each directors/{email} doc's
 // `role` field:
-//   • owner    — exactly one account. The only one that can add/remove a
-//                director or change anyone's role.
-//   • director — full edit access to everything except the Directors list.
-//   • teacher  — scoped to scheduling their OWN private lessons (see
-//                `lessons` and the `kind == 'lesson'` exception on
-//                `rosterOverrides` below). Can't touch rosters, schedule,
-//                repertoire, documents, announcements, contacts, or the
-//                Directors list.
+//   • owner     — exactly one account. The only one that can add/remove a
+//                 director or change anyone's role.
+//   • director  — full edit access to everything except the Directors list.
+//   • teacher   — scoped to scheduling their OWN private lessons (see
+//                 `lessons` and the `kind == 'lesson'` exception on
+//                 `rosterOverrides` below). Can't touch rosters, schedule,
+//                 repertoire, documents, announcements, contacts, or the
+//                 Directors list.
+//   • assistant — Personnel Assistant: reads/writes ATTENDANCE only, and only
+//                 for the ensembles named in their doc's `assignedEnsembleIds`
+//                 (plus the narrow side-effects of taking roll: the event's
+//                 rollTaken receipt, lesson pull-out overrides, and reading
+//                 planned absences). Never contacts, notes, grades, or any
+//                 public-collection write.
 // A doc with no `role` predates this feature and is treated as a full
 // director (see isStaff()) — nobody with existing access loses it.
 //
@@ -61,27 +67,62 @@ service cloud.firestore {
       return signedIn() && myDirectorDoc().role == 'teacher';
     }
 
+    // Personnel Assistant (#roles): attendance-only, for assigned ensembles.
+    function isAssistantRole() {
+      return signedIn() && myDirectorDoc().role == 'assistant';
+    }
+
+    // Is `ensembleId` one of the signed-in assistant's assigned ensembles?
+    function assistantCovers(ensembleId) {
+      return isAssistantRole()
+        && ensembleId in myDirectorDoc().get('assignedEnsembleIds', []);
+    }
+
     // Full director privileges: Owner, Director, or a legacy doc with no
-    // role set (every director created before roles existed). Only an
-    // explicit 'teacher' role is excluded.
+    // role set (every director created before roles existed). Explicit
+    // 'teacher' and 'assistant' roles are excluded.
     function isStaff() {
-      return signedIn() && !isTeacherRole();
+      return signedIn() && !isTeacherRole() && !isAssistantRole();
     }
 
     // ── Public read · staff write ────────────────────
     match /ensembles/{doc}       { allow read; allow write: if isStaff(); }
     match /students/{doc}        { allow read; allow write: if isStaff(); }
-    match /events/{doc}          { allow read; allow write: if isStaff(); }
+    // events: staff edit freely. A Personnel Assistant may update ONLY the
+    // rollTaken receipt (the side-effect of finishing roll) — never the
+    // schedule itself — and only the receipt entries for THEIR ensembles.
+    match /events/{doc} {
+      allow read;
+      allow create, delete: if isStaff();
+      allow update: if isStaff()
+        || (isAssistantRole()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rollTaken'])
+            && request.resource.data.rollTaken
+                 .diff(resource.data.get('rollTaken', {}))
+                 .affectedKeys()
+                 .hasOnly(myDirectorDoc().get('assignedEnsembleIds', [])));
+    }
     // rosterOverrides: staff can write anything. A Teacher may create/edit/
     // delete only THEIR OWN private-lesson pull-outs (kind == 'lesson') — the
     // automatic side effect of scheduling a lesson that conflicts with a
     // rehearsal/class (see the `lessons` collection below). Teachers never
     // touch ordinary subs/pull-outs or another teacher's lesson entries.
+    // A Personnel Assistant gets the same lesson-only exception (the Lesson
+    // button on Take Roll records a pull-out window) — scoped to the
+    // ensembles they cover.
     match /rosterOverrides/{doc} {
       allow read;
-      allow create: if isStaff() || (isTeacherRole() && request.resource.data.kind == 'lesson');
-      allow update: if isStaff() || (isTeacherRole() && resource.data.kind == 'lesson' && request.resource.data.kind == 'lesson');
-      allow delete: if isStaff() || (isTeacherRole() && resource.data.kind == 'lesson');
+      allow create: if isStaff()
+        || (isTeacherRole() && request.resource.data.kind == 'lesson')
+        || (request.resource.data.kind == 'lesson' && assistantCovers(request.resource.data.ensembleId));
+      allow update: if isStaff()
+        || (isTeacherRole() && resource.data.kind == 'lesson' && request.resource.data.kind == 'lesson')
+        || (resource.data.kind == 'lesson' && request.resource.data.kind == 'lesson'
+            && assistantCovers(resource.data.ensembleId)
+            && request.resource.data.ensembleId == resource.data.ensembleId);
+      allow delete: if isStaff()
+        || (isTeacherRole() && resource.data.kind == 'lesson')
+        || (resource.data.kind == 'lesson' && assistantCovers(resource.data.ensembleId));
     }
     match /announcements/{doc}   { allow read; allow write: if isStaff(); }
     match /repertoire/{doc}      { allow read; allow write: if isStaff(); }
@@ -105,7 +146,10 @@ service cloud.firestore {
         && request.resource.data.reason is string
         && request.resource.data.reason.size() <= 300
         && request.resource.data.status == 'pending';
-      allow read, update, delete: if isStaff();
+      // Assistants read the queue too — Take Roll shows "reported ahead"
+      // chips so they can accept a planned absence as Excused.
+      allow read: if isStaff() || isAssistantRole();
+      allow update, delete: if isStaff();
     }
 
     // Outbound notification queue (#21): staff-only writes; Power Automate
@@ -117,14 +161,28 @@ service cloud.firestore {
     // e.g. confirming a conflict with the ensemble director). Never world-
     // readable, since it names an individual student and their teacher.
     match /lessons/{doc} {
-      allow read: if signedIn();
+      // Not plain signedIn(): a Personnel Assistant is attendance-only and
+      // has no business reading who takes private lessons with whom.
+      allow read: if isStaff() || isTeacherRole();
       allow create: if isStaff() || (isTeacherRole() && request.resource.data.teacherEmail == request.auth.token.email);
       allow update, delete: if isStaff() || (isTeacherRole() && resource.data.teacherEmail == request.auth.token.email);
     }
 
     // ── Private · staff read + write only ──────────────
     match /contacts/{doc}           { allow read, write: if isStaff(); }
-    match /attendance/{doc}         { allow read, write: if isStaff(); }
+    // attendance: staff freely; a Personnel Assistant reads all (roll needs
+    // same-day context across periods) but writes only records for THEIR
+    // assigned ensembles.
+    match /attendance/{doc} {
+      allow read: if isStaff() || isAssistantRole();
+      allow create: if isStaff() || assistantCovers(request.resource.data.ensembleId);
+      // Update: the record must belong to a covered ensemble AND stay there —
+      // an assistant can't re-home a record into an ensemble they don't cover.
+      allow update: if isStaff()
+        || (assistantCovers(resource.data.ensembleId)
+            && request.resource.data.ensembleId == resource.data.ensembleId);
+      allow delete: if isStaff() || assistantCovers(resource.data.ensembleId);
+    }
     match /progressNotes/{doc}      { allow read, write: if isStaff(); }
     match /assignmentResults/{doc}  { allow read, write: if isStaff(); }
 

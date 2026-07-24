@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { Plus, Pencil, Pin, ChevronLeft } from 'lucide-react';
-import { useAnnouncements } from '../hooks/useAnnouncements';
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { Plus, Pencil, Pin, ChevronLeft, Clock } from 'lucide-react';
+import { useAnnouncements, useMinuteTick } from '../hooks/useAnnouncements';
+import { queueUrgentRelay, markRelayHandled } from './urgentRelay';
 import { useEnsembles } from '../hooks/useEnsembles';
-import { ensembleColor, parseDate, musicEnsembles } from '../utils';
+import { ensembleColor, parseDate, musicEnsembles, toDateStr } from '../utils';
 import { NotesText } from '../../public/components/NotesText';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import type { Announcement } from '../types';
@@ -43,6 +42,11 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
     if (target) setEditing(target);
   }
 
+  // (The publish-time relay sweep for scheduled urgent posts lives in
+  // useUrgentRelaySweep, mounted by the DirectorApp shell — so it runs
+  // whenever any director has the Hub open, not just this screen.)
+  const now = useMinuteTick(); // drives the "Scheduled · posts …" chips below
+
   const ensembleName = (id: string | null) =>
     id === null ? 'All ensembles' : ensembles.find(e => e.id === id)?.name ?? 'Unknown';
 
@@ -52,8 +56,27 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
         announcement={editing === 'new' ? null : editing}
         ensembles={musicEns}
         onSave={async data => {
-          if (editing === 'new') await addAnnouncement(data);
-          else await updateAnnouncement(editing.id, data);
+          let id: string | undefined;
+          if (editing === 'new') id = await addAnnouncement(data);
+          else { await updateAnnouncement(editing.id, data); id = editing.id; }
+          // Urgent announcements enter the notification relay queue (#21).
+          // Queue now unless the post is scheduled for later (the sweep in
+          // urgentRelay.ts handles those when they go live). Guards:
+          //   • wasLiveUrgent — the post already went out as urgent (editing a
+          //     typo must not re-notify). A post still WAITING to publish
+          //     (publishAt set, relay not yet queued) is NOT live — clearing
+          //     its schedule to "post now" must send the relay it never got.
+          //   • queueUrgentRelay itself never overwrites an existing entry,
+          //     so even a mistaken second call can't re-send the blast.
+          const scheduledLater = !!data.publishAt && data.publishAt > Date.now();
+          const wasLiveUrgent = editing !== 'new' && editing.priority === 'urgent'
+            && !(editing.publishAt && !editing.relayQueuedAt);
+          if (id && data.priority === 'urgent' && !scheduledLater && !wasLiveUrgent) {
+            try {
+              await queueUrgentRelay({ id, title: data.title, body: data.body, ensembleId: data.ensembleId });
+              await markRelayHandled(id);
+            } catch { /* relay is best-effort; the announcement itself saved */ }
+          }
         }}
         onDelete={editing !== 'new' ? async () => deleteAnnouncement(editing.id) : undefined}
         onBack={() => setEditing(null)}
@@ -83,6 +106,13 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
                     {a.title}
                   </div>
                   <div className="dir-ens-sub">
+                    {a.publishAt && a.publishAt > now && (
+                      <span className="dir-ann-scheduled">
+                        <Clock size={11} style={{ verticalAlign: '-1.5px' }} /> Scheduled · posts{' '}
+                        {new Date(a.publishAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                        {' · '}
+                      </span>
+                    )}
                     {ensembleName(a.ensembleId)}
                     {a.expiresOn ? ` · through ${parseDate(a.expiresOn).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
                   </div>
@@ -140,12 +170,40 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
   const [pinned, setPinned] = useState(announcement?.pinned ?? false);
   const [priority, setPriority] = useState<'info' | 'important' | 'urgent'>(announcement?.priority ?? 'info');
   const [expiresOn, setExpiresOn] = useState(announcement?.expiresOn ?? '');
+  // Scheduled publishing: a date + time pair the post stays hidden until.
+  const [publishDate, setPublishDate] = useState(() =>
+    announcement?.publishAt ? toDateStr(new Date(announcement.publishAt)) : '');
+  const [publishTime, setPublishTime] = useState(() => {
+    if (!announcement?.publishAt) return '';
+    const d = new Date(announcement.publishAt);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  /** Combine the schedule inputs into epoch ms (local time). Date with no
+   *  time means midnight — visible all that day. Empty date = post now.
+   *  (The urgent Teams/email relay is queued by the manager: immediately for
+   *  live posts, at publish time for scheduled ones.) */
+  function publishAtValue(): number | undefined {
+    if (!publishDate) return undefined;
+    const [y, mo, d] = publishDate.split('-').map(Number);
+    const [h, mi] = (publishTime || '00:00').split(':').map(Number);
+    return new Date(y, mo - 1, d, h || 0, mi || 0).getTime();
+  }
+  const scheduledPreview = publishAtValue();
+  const nowTick = useMinuteTick();
+  const isScheduling = !!scheduledPreview && scheduledPreview > nowTick;
+
   async function handleSave() {
     if (!title.trim()) return;
+    // A post scheduled to publish after its own "Hide after" date would never
+    // show anywhere — catch the crossed dates instead of saving a ghost.
+    if (isScheduling && expiresOn && publishDate > expiresOn) {
+      setSaveError('The publish date is after the "Hide after" date — this post would never appear. Adjust one of the dates.');
+      return;
+    }
     setSaving(true);
     setSaveError('');
     try {
@@ -158,24 +216,9 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
         bodyEs: bodyEs.trim() || undefined,
         pinned: pinned || undefined,
         expiresOn: expiresOn || undefined,
+        publishAt: publishAtValue(),
         createdAt: announcement?.createdAt ?? Date.now(),
       });
-      // Urgent announcements also enter the notification relay queue (#21):
-      // a scheduled Power Automate flow posts them to Teams / parent email.
-      // Only on the FIRST urgent save — editing a typo must not re-notify.
-      const wasUrgent = announcement?.priority === 'urgent';
-      if (priority === 'urgent' && !wasUrgent && db) {
-        try {
-          await addDoc(collection(db, 'notifyQueue'), {
-            kind: 'urgent-announcement',
-            title: title.trim(),
-            body: body.trim() || undefined,
-            ensembleIds: ensembleId ? [ensembleId] : [],
-            createdAt: Date.now(),
-            processedAt: null,
-          });
-        } catch { /* relay is best-effort; the announcement itself saved */ }
-      }
       onBack();
     } catch (e) {
       setSaving(false);
@@ -251,6 +294,24 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
             </div>
           </div>
 
+          <div className="dir-field">
+            <label className="dir-label"><Clock size={12} style={{ verticalAlign: '-2px' }} /> Publish later (optional)</label>
+            <div className="dir-field-row">
+              <input className="dir-input" type="date" value={publishDate} onChange={e => setPublishDate(e.target.value)} aria-label="Publish date" />
+              <input className="dir-input" type="time" value={publishTime} onChange={e => setPublishTime(e.target.value)} disabled={!publishDate} aria-label="Publish time" />
+              {publishDate && (
+                <button type="button" className="dir-tool-btn" onClick={() => { setPublishDate(''); setPublishTime(''); }}>
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className="dir-field-hint">
+              {isScheduling && scheduledPreview
+                ? `Stays hidden from families until ${new Date(scheduledPreview).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} — it posts itself then. For urgent posts, the Teams/email relay is queued around that moment (whenever a director next has the Hub open).`
+                : 'Leave blank to post immediately. Pick a date (and time) to schedule this announcement for later.'}
+            </div>
+          </div>
+
           {announcement && onDelete && (
             confirmDelete ? (
               <div style={{ display: 'flex', gap: 8 }}>
@@ -268,7 +329,7 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
         <div className="dir-drawer-footer">
           <button className="dir-btn dir-btn-ghost" onClick={onBack}>Back</button>
           <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !title.trim()}>
-            {saving ? 'Saving…' : 'Post'}
+            {saving ? 'Saving…' : isScheduling ? 'Schedule' : 'Post'}
           </button>
         </div>
     </>

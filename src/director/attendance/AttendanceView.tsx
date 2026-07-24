@@ -13,6 +13,7 @@ import { StudentCard } from './StudentCard';
 import { SortToggle } from '../components/SortToggle';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, takesAttendance } from '../utils';
+import { currentDirectorName, currentDirectorRole } from '../currentDirector';
 import type { AttendanceStatus, Student, Ensemble, CalendarEvent } from '../types';
 
 interface Period {
@@ -20,14 +21,27 @@ interface Period {
   ensembleId: string;
 }
 
-export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsembleId?: string | null; onNavigate?: import('../types-nav').DirNavigate }) {
-  const { ensembles, loading: ensLoading } = useEnsembles();
+export function AttendanceView({ initialEnsembleId, onNavigate, allowedEnsembleIds, assistantMode }: {
+  initialEnsembleId?: string | null;
+  onNavigate?: import('../types-nav').DirNavigate;
+  /** Restrict everything (periods, worklist, ad-hoc picker) to these
+   *  ensembles — the Personnel Assistant's assigned set. Omitted = all. */
+  allowedEnsembleIds?: string[];
+  /** Personnel Assistant shell: skips the contacts listener (firestore.rules
+   *  bars assistants from contact PII). */
+  assistantMode?: boolean;
+}) {
+  const { ensembles: allEnsembles, loading: ensLoading } = useEnsembles();
   const { events, loading: eventsLoading } = useEvents();
   const [date, setDate] = useState(todayStr);
   const [showCal, setShowCal] = useState(false);
   const [period, setPeriod] = useState<Period | null>(null);
   const [calCursor, setCalCursor] = useState(() => { const d = parseDate(todayStr()); d.setDate(1); return d; });
 
+  const ensembles = useMemo(
+    () => allowedEnsembleIds ? allEnsembles.filter(e => allowedEnsembleIds.includes(e.id)) : allEnsembles,
+    [allEnsembles, allowedEnsembleIds],
+  );
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const isToday = date === todayStr();
 
@@ -38,11 +52,14 @@ export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsem
     for (const e of events) {
       if (e.date !== date) continue;
       if (!takesAttendance(e.type)) continue;
-      for (const ensId of e.ensembleIds) out.push({ event: e, ensembleId: ensId });
+      for (const ensId of e.ensembleIds) {
+        if (allowedEnsembleIds && !allowedEnsembleIds.includes(ensId)) continue;
+        out.push({ event: e, ensembleId: ensId });
+      }
     }
     out.sort((a, b) => (a.event?.startTime ?? '99').localeCompare(b.event?.startTime ?? '99'));
     return out;
-  }, [events, date]);
+  }, [events, date, allowedEnsembleIds]);
 
   const [level1View, setLevel1View] = useState<'day' | 'list'>('day');
   // List view: every roll-taking event in a window (one row per ensemble)
@@ -53,11 +70,14 @@ export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsem
     for (const e of events) {
       if (!takesAttendance(e.type)) continue;
       if (e.date < from || e.date > to) continue;
-      for (const ensId of e.ensembleIds) rows.push({ event: e, ensembleId: ensId });
+      for (const ensId of e.ensembleIds) {
+        if (allowedEnsembleIds && !allowedEnsembleIds.includes(ensId)) continue;
+        rows.push({ event: e, ensembleId: ensId });
+      }
     }
     rows.sort((a, b) => a.event.date.localeCompare(b.event.date) || (a.event.startTime ?? '99').localeCompare(b.event.startTime ?? '99'));
     return rows;
-  }, [events]);
+  }, [events, allowedEnsembleIds]);
 
   // If arriving from a "Take Roll" jump, open that ensemble's period for today —
   // but only after events have loaded, otherwise we'd land in ad-hoc (untagged)
@@ -87,6 +107,7 @@ export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsem
         ensemble={ensembleMap[period.ensembleId]}
         onBack={() => setPeriod(null)}
         onNavigate={onNavigate}
+        assistantMode={assistantMode}
       />
     );
   }
@@ -102,7 +123,10 @@ export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsem
     while (out.length % 7 !== 0) out.push(null);
     return out;
   })();
-  const daysWithRehearsal = new Set(events.filter(e => takesAttendance(e.type)).map(e => e.date));
+  const daysWithRehearsal = new Set(events
+    .filter(e => takesAttendance(e.type)
+      && (!allowedEnsembleIds || e.ensembleIds.some(id => allowedEnsembleIds.includes(id))))
+    .map(e => e.date));
   const dateLabel = parseDate(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
@@ -198,7 +222,10 @@ export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsem
                 <span className="dir-ens-swatch" style={{ background: ens ? ensembleColor(ens) : '#94a3b8' }} />
                 <div className="dir-ens-info">
                   <div className="dir-ens-name">{ens?.name ?? 'Ensemble'} · {parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-                  <div className="dir-ens-sub">{taken ? '✓ Roll taken' : 'Not taken'}{e.startTime ? ` · ${formatTimeRange(e.startTime, e.endTime)}` : ''}</div>
+                  <div className="dir-ens-sub">
+                    {taken ? `✓ Roll taken${taken.by ? ` by ${taken.by}${taken.byRole === 'assistant' ? ' (Personnel Assistant)' : ''}` : ''}` : 'Not taken'}
+                    {e.startTime ? ` · ${formatTimeRange(e.startTime, e.endTime)}` : ''}
+                  </div>
                 </div>
                 <ChevronRight size={18} style={{ opacity: 0.45, flexShrink: 0 }} />
               </button>
@@ -211,16 +238,17 @@ export function AttendanceView({ initialEnsembleId, onNavigate }: { initialEnsem
 }
 
 /** Roll for one period = (date, ensemble, optional specific rehearsal event). */
-function RollPeriod({ date, period, ensemble, onBack, onNavigate }: {
+function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode }: {
   date: string; period: Period; ensemble?: Ensemble; onBack: () => void;
   onNavigate?: import('../types-nav').DirNavigate;
+  assistantMode?: boolean;
 }) {
   const { students: allStudents } = useStudents();
   const { overrides, addOverride, deleteOverride } = useRosterOverrides();
   const { events, updateEvent } = useEvents();
   const { records: dayRecords } = useDayAttendance(date);
   const { records: historyRecords } = useAllAttendance();
-  const { contacts } = useContacts();
+  const { contacts } = useContacts(!assistantMode);
   const [showSummary, setShowSummary] = useState(false);
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
   const eventId = period.event?.id ?? null;
@@ -324,18 +352,26 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate }: {
     return byStudent;
   }, [historyRecords, ensembleId, date]);
 
-  // Roll receipt (#22): stamp the event whenever the summary is opened.
+  // Roll receipt (#22): stamp the event whenever the summary is opened —
+  // including WHO finished roll, so the director side can show when it was
+  // the Personnel Assistant.
   async function stampReceipt() {
     if (!period.event) return;
     const absent = Object.values(recordMap).filter(r => r.status === 'Absent').length;
+    const by = currentDirectorName();
     try {
       await updateEvent(period.event.id, {
-        rollTaken: { ...(period.event.rollTaken ?? {}), [ensembleId]: { at: Date.now(), absent } },
+        rollTaken: {
+          ...(period.event.rollTaken ?? {}),
+          [ensembleId]: { at: Date.now(), absent, ...(by ? { by } : {}), byRole: currentDirectorRole() },
+        },
       });
     } catch { /* non-fatal */ }
   }
   const dateLabel = parseDate(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const timeLabel = period.event?.startTime ? formatTimeRange(period.event.startTime, period.event.endTime) : '';
+  // Existing receipt for this period — surfaces "roll taken by …" on any day.
+  const receipt = period.event?.rollTaken?.[ensembleId];
 
   async function handleToggle(studentId: string, status: AttendanceStatus) {
     setToggleError('');
@@ -388,6 +424,11 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate }: {
           <div>
             <div className="dir-sc-student-name" style={{ fontSize: 17 }}>{ensemble?.name ?? 'Roll'}</div>
             <div className="dir-ens-sub">{dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}</div>
+            {receipt?.by && (
+              <div className="dir-ens-sub">
+                ✓ Roll taken by {receipt.by}{receipt.byRole === 'assistant' ? ' (Personnel Assistant)' : ''}
+              </div>
+            )}
           </div>
         </div>
       </div>

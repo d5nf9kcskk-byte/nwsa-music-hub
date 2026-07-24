@@ -54,7 +54,8 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
             </div>
             {showBody && <div className="pub-announce-body"><Linkify text={showBody} /></div>}
             <div className="pub-announce-date">
-              {new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {/* A scheduled post is "posted" when it published, not when drafted. */}
+              {new Date(a.publishAt ?? a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </div>
           </div>
         );

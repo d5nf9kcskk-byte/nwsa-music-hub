@@ -80,6 +80,18 @@ const router = createBrowserRouter(
         </Suspense>
       ),
     },
+    {
+      // Personnel Assistant entry point — same sign-in and shell as /director;
+      // once signed in, the account's role decides which panel renders (an
+      // assistant gets the attendance-only Personnel Assistant panel).
+      path: '/assistant/*',
+      errorElement: <AppError />,
+      element: (
+        <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading…</div>}>
+          <DirectorApp />
+        </Suspense>
+      ),
+    },
   ],
   { basename: '/nwsa-music-hub' },
 );
