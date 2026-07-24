@@ -90,8 +90,10 @@ const EVENTS = [
   // Faculty recitals: faculty perform; ALL students (all divisions) required to attend.
   ev('faculty-recital-aug', 'Concert', [], '2026-08-31', '18:30', V.wolfsonAud, 'NWSA Music Faculty Recital',
     `${FREE} All NWSA students (all divisions) are required to attend.`, { attendanceEnsembleIds: ALL_MUSIC }),
+  // Retitled from "High School Pops Concert" per the updated 2026-27 Music
+  // Division calendar (slug kept so the Firestore doc id stays stable).
   ev('hs-pops', 'Concert', ['symphony-orchestra', 'wind-ensemble', 'high-school-choir'], '2026-09-28', '19:00', V.chapman,
-    'Pops Concert', T10_5),
+    'NWSA Pops Concert', T10_5),
   ev('cco-concert-sep', 'Concert', ['college-chamber-orchestra'], '2026-09-29', '18:30', V.wolfsonAud,
     'College Chamber Orchestra Concert', FREE),
   ev('so-concert-oct', 'Concert', ['symphony-orchestra'], '2026-10-06', '19:00', V.chapman,
@@ -142,9 +144,9 @@ const EVENTS = [
 
   // The Nutcracker: Dance production, Symphony Orchestra performs (director-confirmed).
   ev('nutcracker-mat', 'Concert', ['symphony-orchestra', 'dance'], '2026-12-12', '14:00', V.fillmore,
-    'The Nutcracker (matinee)', 'Tickets: General admission $15 – $35. NWSA Dance with the Symphony Orchestra.'),
+    'The Nutcracker (matinee)', 'Tickets: General admission $15 – $35, at armourdance.org. NWSA Dance with the Symphony Orchestra.'),
   ev('nutcracker-eve', 'Concert', ['symphony-orchestra', 'dance'], '2026-12-12', '19:00', V.fillmore,
-    'The Nutcracker (evening)', 'Tickets: General admission $15 – $35. NWSA Dance with the Symphony Orchestra.'),
+    'The Nutcracker (evening)', 'Tickets: General admission $15 – $35, at armourdance.org. NWSA Dance with the Symphony Orchestra.'),
 
   /* ── DANCE ─────────────────────────────────────────────────────────── */
   ev('dance-sampler', 'Event', ['dance'], '2026-10-17', '20:00', V.danceTheater, 'Daniel Lewis Dance Sampler',
@@ -220,6 +222,12 @@ const EVENTS = [
   ev('va-cafecito-1', 'Event', ['visual-arts'], '2026-09-20', '14:00', V.moca, 'New World Meets for Cafecito', FREE),
   ev('va-cafecito-2', 'Event', ['visual-arts'], '2027-01-17', '14:00', V.bakehouse, 'New World Meets for Cafecito', FREE),
   ev('va-cafecito-3', 'Event', ['visual-arts'], '2027-02-07', '14:00', V.moad, 'New World Meets for Cafecito', FREE),
+
+  /* ── SCHOOL-WIDE (MDC fundraising days, from the official calendar) ──── */
+  ev('i-am-mdc', 'Event', [], '2026-09-06', '', { location: 'Online', venueAddress: '' }, 'I AM MDC — MDC Birthday Celebration',
+    'Donate online: mdc.edu/iammdc'),
+  ev('give-miami-day', 'Event', [], '2026-11-19', '', { location: 'Online', venueAddress: '' }, 'Give Miami Day',
+    'For just 24 hours — donate online: givemiamiday.org. Early Giving starts November 14.'),
 
   /* ── SCHOOL-WIDE (Rising Stars signature showcase) ─────────────────── */
   // Exhibition runs March 15–21 with the reception on March 17 (brochure:
