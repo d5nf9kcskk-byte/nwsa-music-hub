@@ -91,7 +91,7 @@ const EVENTS = [
   ev('faculty-recital-aug', 'Concert', [], '2026-08-31', '18:30', V.wolfsonAud, 'NWSA Music Faculty Recital',
     `${FREE} All NWSA students (all divisions) are required to attend.`, { attendanceEnsembleIds: ALL_MUSIC }),
   ev('hs-pops', 'Concert', ['symphony-orchestra', 'wind-ensemble', 'high-school-choir'], '2026-09-28', '19:00', V.chapman,
-    'High School Pops Concert', T10_5),
+    'Pops Concert', T10_5),
   ev('cco-concert-sep', 'Concert', ['college-chamber-orchestra'], '2026-09-29', '18:30', V.wolfsonAud,
     'College Chamber Orchestra Concert', FREE),
   ev('so-concert-oct', 'Concert', ['symphony-orchestra'], '2026-10-06', '19:00', V.chapman,
