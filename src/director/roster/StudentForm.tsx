@@ -64,7 +64,7 @@ const BLANK: Omit<Student, 'id'> = {
 const BLANK_CONTACT: ContactDraft = { email: '', guardians: [], extra: {} };
 
 export function StudentForm({ student, contact, ensembles, onSave, onDelete, onClose }: Props) {
-  const panelRef = useModalA11y<HTMLDivElement>(onClose);
+  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
   const [form, setForm] = useState<Omit<Student, 'id'>>(BLANK);
   const [contactForm, setContactForm] = useState<ContactDraft>(BLANK_CONTACT);
   const [saving, setSaving] = useState(false);

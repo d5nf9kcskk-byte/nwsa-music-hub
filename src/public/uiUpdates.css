@@ -398,28 +398,31 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
    Polish pass: dark mode, motion, hover, skeletons, empty states
 ═══════════════════════════════════════════════════════════════════ */
 
-/* ── Dark mode: token overrides + the few hardcoded light surfaces ── */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --pub-bg: #10151b;
-    --pub-surface: #1a212a;
-    --pub-ink: #e7ecf2;
-    --pub-text: #e7ecf2;
-    --pub-muted: #97a3b2;
-    --pub-border: #2b3441;
-    --pub-accent: #3aa8b8;
-    --pub-accent-soft: #123840;
-    --pub-gold-text: #e4c968;
-    --pub-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4);
-    --pub-shadow-2: 0 8px 24px rgba(0, 0, 0, 0.5);
-    --pub-shadow-3: 0 16px 48px rgba(0, 0, 0, 0.6);
-  }
-  .pub-app { color-scheme: dark; }
-  .pub-menu-panel { background: var(--pub-surface); }
-  .pub-announce.pinned { background: #26200f; }
-  .pub-alert-banner.changed { background: #2a2310; border-color: #6b5d1d; }
-  .pub-lang-btn.active, .pub-textsize.adjusted { background: var(--pub-ink); color: #0d3e46; }
+/* ── Dark mode: token overrides + the few hardcoded light surfaces ──
+   Keyed off data-pub-theme on <html> (#dark-view), NOT prefers-color-scheme:
+   index.html + src/public/theme.ts resolve the reader's choice (Automatic /
+   Light / Dark) to "light" or "dark" before first paint, so following the OS
+   still works while an explicit choice can override it either way. */
+:root[data-pub-theme='dark'] {
+  --pub-bg: #10151b;
+  --pub-surface: #1a212a;
+  --pub-ink: #e7ecf2;
+  --pub-text: #e7ecf2;
+  --pub-muted: #97a3b2;
+  --pub-border: #2b3441;
+  --pub-accent: #3aa8b8;
+  --pub-accent-soft: #123840;
+  --pub-gold-text: #e4c968;
+  --pub-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --pub-shadow-2: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --pub-shadow-3: 0 16px 48px rgba(0, 0, 0, 0.6);
 }
+[data-pub-theme='dark'] .pub-app { color-scheme: dark; }
+[data-pub-theme='dark'] .pub-menu-panel { background: var(--pub-surface); }
+[data-pub-theme='dark'] .pub-announce.pinned { background: #26200f; }
+[data-pub-theme='dark'] .pub-alert-banner.changed { background: #2a2310; border-color: #6b5d1d; }
+[data-pub-theme='dark'] .pub-lang-btn.active,
+[data-pub-theme='dark'] .pub-textsize.adjusted { background: var(--pub-ink); color: #0d3e46; }
 
 /* ── Interaction feel: transitions + hover (pointer devices) + press ── */
 .pub-chip, .pub-filter-btn, .pub-view-toggle, .pub-cal-arrow, .pub-quick-btn,
@@ -532,9 +535,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
   font-weight: 600;
   color: #5a4a22;
 }
-@media (prefers-color-scheme: dark) {
-  .pub-birthday-line { background: #2a2416; border-color: #4a3d1f; color: #e8d9a8; }
-}
+[data-pub-theme='dark'] .pub-birthday-line { background: #2a2416; border-color: #4a3d1f; color: #e8d9a8; }
 
 /* ── More hidden delights (#easter-eggs) ── */
 
@@ -548,9 +549,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
   font-size: 13px;
   color: var(--pub-muted, #6b7686);
 }
-@media (prefers-color-scheme: dark) {
-  .pub-instrument-quip { background: transparent; border-color: #39424f; }
-}
+[data-pub-theme='dark'] .pub-instrument-quip { background: transparent; border-color: #39424f; }
 
 /* Every box on the practice card checked off. */
 .pub-practice-bravo {
@@ -579,9 +578,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
   background: linear-gradient(120deg, #fdf6e3, #fceff3);
   border-top: 1px solid #f0dfc0;
 }
-@media (prefers-color-scheme: dark) {
-  .pub-search-egg { background: #2a2416; border-color: #4a3d1f; color: #e8d9a8; }
-}
+[data-pub-theme='dark'] .pub-search-egg { background: #2a2416; border-color: #4a3d1f; color: #e8d9a8; }
 
 /* ── Not-found page ── */
 .pub-notfound { text-align: center; padding: 26px 18px; }

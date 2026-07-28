@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useParams, Link } from 'react-router';
-import { ChevronLeft, Printer, Clock } from 'lucide-react';
+import { Printer, Clock } from 'lucide-react';
+import { BackLink } from './components/BackLink';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
@@ -46,7 +47,7 @@ export function PublicProgram() {
   if (!event) {
     return (
       <div className="pub-page">
-        <Link to="/calendar" className="pub-back"><ChevronLeft size={16} /> Calendar</Link>
+        <BackLink fallback="/calendar" label="Back" />
         <div className="pub-card pub-muted">{eventsLoading ? 'Loading…' : 'Concert not found.'}</div>
       </div>
     );
@@ -55,7 +56,7 @@ export function PublicProgram() {
   return (
     <div className="pub-page pub-program">
       <div className="pub-program-toolbar">
-        <Link to="/calendar" className="pub-back"><ChevronLeft size={16} /> Calendar</Link>
+        <BackLink fallback="/calendar" label="Back" />
         <button className="pub-print-btn" onClick={() => window.print()}>
           <Printer size={14} /> Print
         </button>

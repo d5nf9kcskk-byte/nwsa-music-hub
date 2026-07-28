@@ -211,6 +211,20 @@ service cloud.firestore {
       allow delete: if isOwner() && request.auth.token.email != email;
     }
 
+    // ── Sign-in log (#login-history) ────────────────────
+    // One receipt per staff sign-in (all roles), written by the app the
+    // moment access is confirmed. Anyone on the directors list may append
+    // their OWN receipt; only the Owner may read the log (Directors screen →
+    // Sign-in history). Nobody edits or deletes — it's an audit trail.
+    match /loginEvents/{doc} {
+      allow read: if isOwner();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['email', 'name', 'role', 'at'])
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.at is number;
+      allow update, delete: if false;
+    }
+
     // ── Deny everything else by default ─────────────────
     match /{document=**}         { allow read, write: if false; }
   }

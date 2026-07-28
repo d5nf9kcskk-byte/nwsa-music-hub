@@ -5,6 +5,7 @@ import { NowNext } from './components/NowNext';
 import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
 import { PracticeCard } from './components/PracticeCard';
 import { PlannedAbsenceButton } from './components/PlannedAbsence';
+import { BackLink } from './components/BackLink';
 import { ChevronLeft, ChevronRight, ExternalLink, LayoutList, Grid3x3, CalendarX, GraduationCap } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
@@ -137,7 +138,7 @@ export function PublicSchedule() {
   if (!student) {
     return (
       <div className="pub-page">
-        <Link to="/lookup" className="pub-back"><ChevronLeft size={16} /> {t('nav.search')}</Link>
+        <BackLink fallback="/lookup" label={t('event.back')} />
         {studentsLoading ? <SkeletonCards n={3} /> : <div className="pub-card pub-muted">{t('sched.studentNotFound')}</div>}
       </div>
     );
@@ -147,7 +148,7 @@ export function PublicSchedule() {
 
   return (
     <div className="pub-page">
-      <Link to="/lookup" className="pub-back"><ChevronLeft size={16} /> {t('nav.search')}</Link>
+      <BackLink fallback="/lookup" label={t('event.back')} />
 
       {/* Parent mode: quick switch between saved students (#11) */}
       {getIdentity().students.length > 1 && (

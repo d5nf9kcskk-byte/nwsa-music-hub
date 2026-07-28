@@ -62,8 +62,8 @@ body {
    scheme when printing (e.g. Firefox) rendered near-invisible light
    ink on white paper. Forcing the ink tokens light here fixes that
    for every current and future print surface. !important is required:
-   custom-property !important beats the dark-mode media block in
-   public/uiUpdates.css regardless of import order.
+   custom-property !important beats the [data-pub-theme='dark'] token
+   rules in public/uiUpdates.css regardless of import order.
 
    Also resets the "Aa" text-size zoom so pagination doesn't change
    with a reader's on-screen size setting, and provides the shared
