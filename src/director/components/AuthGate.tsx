@@ -5,8 +5,9 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { Link } from 'react-router';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { FIXTURES_ON } from '../hooks/fixtures';
-import { directorEmailId } from '../hooks/useDirectors';
+import { directorEmailId, directorRole } from '../hooks/useDirectors';
 import type { Director } from '../hooks/useDirectors';
+import { recordLogin } from '../hooks/useLoginEvents';
 import { setCurrentDirector, clearCurrentDirector } from '../currentDirector';
 
 /**
@@ -67,6 +68,13 @@ export function AuthGate({ children }: Props) {
         if (!snap.exists()) { setAccess('denied'); return; }
         const directorDoc = { email, ...snap.data() } as Director;
         setCurrentDirector(directorDoc, user.displayName);
+        // Sign-in log (#login-history): the Owner can review who signed in
+        // and when from the Directors screen. Best-effort, once per session.
+        recordLogin({
+          email,
+          name: directorDoc.name?.trim() || user.displayName?.trim() || undefined,
+          role: directorRole(directorDoc),
+        });
         // Auto-capture the director's display name on first sign-in — a
         // self-service write (firestore.rules lets a director change ONLY
         // `name` on their own doc), so nobody has to hand-type names in.
@@ -83,6 +91,7 @@ export function AuthGate({ children }: Props) {
         if (cancelled) return;
         if (BREAK_GLASS_EMAILS.includes(email)) {
           setCurrentDirector({ email, role: 'owner' }, user.displayName);
+          recordLogin({ email, name: user.displayName?.trim() || undefined, role: 'owner' });
           setAccess('granted');
         } else {
           setAccess('error');

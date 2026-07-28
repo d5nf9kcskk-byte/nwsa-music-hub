@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock } from 'lucide-react';
+import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock, History, ChevronDown, ChevronUp } from 'lucide-react';
 import { useDirectors, directorEmailId } from '../hooks/useDirectors';
 import type { Director, DirectorRole } from '../hooks/useDirectors';
+import { useLoginEvents, LOGIN_LOG_LIMIT } from '../hooks/useLoginEvents';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
+import { useModalA11y } from '../../shared/useModalA11y';
 import { musicEnsembles } from '../utils';
 
 interface Props {
@@ -37,6 +39,8 @@ export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) 
   const [editingEmail, setEditingEmail] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showLog, setShowLog] = useState(false);
+  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
 
   const meId = currentEmail ? directorEmailId(currentEmail) : null;
 
@@ -56,7 +60,7 @@ export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) 
     // rather than silently no-op'ing.
     return (
       <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-        <div className="dir-drawer">
+        <div className="dir-drawer" role="dialog" aria-modal="true" aria-label="Directors" tabIndex={-1} ref={panelRef}>
           <div className="dir-drawer-handle" />
           <div className="dir-drawer-header">
             <span className="dir-drawer-title"><Lock size={16} style={{ verticalAlign: '-2px' }} /> Directors</span>
@@ -72,7 +76,7 @@ export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) 
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
+      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label="Directors" tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <span className="dir-drawer-title">Directors</span>
@@ -146,6 +150,20 @@ export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) 
               </div>
             );
           })}
+
+          {/* Sign-in history (#login-history): Owner-only record of who signed
+              in and when — every role: directors, teachers, assistants. */}
+          <div className="dir-menu-divider" style={{ margin: '16px 0 10px' }} />
+          <button
+            className="dir-btn dir-btn-ghost"
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+            onClick={() => setShowLog(s => !s)}
+            aria-expanded={showLog}
+          >
+            <History size={15} /> Sign-in history
+            {showLog ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {showLog && <LoginHistory />}
         </div>
 
         <div className="dir-drawer-footer" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
@@ -168,6 +186,50 @@ export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) 
             />
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** "Jul 28, 9:14 AM" — with the year added once it isn't this year's entry. */
+function fmtLoginTime(at: number): string {
+  const d = new Date(at);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleString(undefined, {
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  });
+}
+
+/** Recent sign-ins, newest first (#login-history). Mounted only while the
+ *  section is expanded so the log isn't read on every Directors open. */
+function LoginHistory() {
+  const { events, state } = useLoginEvents(true);
+  if (state === 'error') return <div className="dir-loc-empty">Couldn’t load the sign-in log — check your connection and reopen.</div>;
+  if (state === 'loading' && events.length === 0) return <div className="dir-loc-empty">Loading sign-ins…</div>;
+  if (events.length === 0) {
+    return (
+      <div className="dir-loc-empty">
+        Nothing recorded yet. A sign-in is logged each time a director, teacher,
+        or personnel assistant opens the Hub from now on.
+      </div>
+    );
+  }
+  return (
+    <div>
+      {events.map(ev => (
+        <div key={ev.id} className="dir-loc-row" style={{ cursor: 'default' }}>
+          <div className="dir-loc-info">
+            <div className="dir-loc-name">{ev.name || ev.email}</div>
+            <div className="dir-ens-sub">
+              {ev.name ? `${ev.email} · ` : ''}{ROLE_LABEL[ev.role] ?? ev.role}
+            </div>
+          </div>
+          <span className="dir-ens-sub" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{fmtLoginTime(ev.at)}</span>
+        </div>
+      ))}
+      <div className="dir-field-hint" style={{ marginTop: 6 }}>
+        One entry per sign-in session · showing the most recent {LOGIN_LOG_LIMIT}.
       </div>
     </div>
   );

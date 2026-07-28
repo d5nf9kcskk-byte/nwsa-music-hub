@@ -17,7 +17,7 @@ import {
  * the primary guardian for back-compat.
  */
 export function RosterImport({ onClose }: { onClose: () => void }) {
-  const panelRef = useModalA11y<HTMLDivElement>(onClose, true);
+  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
   const { students, addStudent, updateStudent } = useStudents();
   const { contacts, saveContact } = useContacts();
   const { ensembles } = useEnsembles();

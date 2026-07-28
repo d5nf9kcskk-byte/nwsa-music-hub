@@ -92,7 +92,7 @@ function SlipsPage({ ensemble }: { ensemble: Ensemble }) {
  * poster + slip sheet per ensemble. Print → one block per page.
  */
 export function QrKitView({ onClose }: { onClose?: () => void }) {
-  const panelRef = useModalA11y<HTMLDivElement>(() => onClose?.(), true);
+  const panelRef = useModalA11y<HTMLDivElement>(() => onClose?.(), true, { closeOnBack: true });
   const { ensembles } = useEnsembles();
   const ordered = useMemo(() => musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)), [ensembles]);
 

@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Search, Plus, Check, ChevronUp, ChevronDown, X, ListMusic } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { Search, Plus, Check, ChevronUp, ChevronDown, X, ListMusic, GripVertical } from 'lucide-react';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { pieceEnsembleIds } from '../utils';
 import type { Ensemble } from '../types';
@@ -30,6 +30,12 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
   // Which selected piece has its movement-picker expanded (by piece id).
   const [openMovements, setOpenMovements] = useState<string | null>(null);
   const movementsEnabled = !!onMovementSelChange;
+  // Drag-to-reorder (#program-order): grip handle on each selected row.
+  // While a drag is live the pending order is kept locally and only committed
+  // to the form on release. `from` is the item's index in `value`; `to` is its
+  // current index in the displayed (pending) order.
+  const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
+  const selListRef = useRef<HTMLDivElement | null>(null);
 
   const ensembleMap = useMemo(
     () => Object.fromEntries(ensembles.map(e => [e.id, e])),
@@ -51,8 +57,9 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
       )
     : pool;
 
-  // Selected pieces resolved in program order (skip any that were deleted).
-  const selected = value.map(id => piecesById[id]).filter(Boolean);
+  // Selected pieces resolved in program order — with any live drag applied —
+  // (skip any that were deleted).
+  const selected = pendingOrder().map(id => piecesById[id]).filter(Boolean);
 
   function toggle(id: string) {
     const removing = value.includes(id);
@@ -94,6 +101,43 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
     onChange(next);
   }
 
+  /** Selected ids in displayed order: the saved order with any live drag applied. */
+  function pendingOrder(): string[] {
+    if (!drag || drag.from === drag.to) return value;
+    const next = [...value];
+    const [moved] = next.splice(drag.from, 1);
+    next.splice(drag.to, 0, moved);
+    return next;
+  }
+
+  function onGripDown(e: React.PointerEvent<HTMLButtonElement>, displayIndex: number) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({ from: displayIndex, to: displayIndex });
+  }
+
+  function onGripMove(e: React.PointerEvent<HTMLButtonElement>) {
+    if (!drag) return;
+    const rows = Array.from(
+      selListRef.current?.querySelectorAll<HTMLElement>('[data-sel-row]') ?? [],
+    );
+    // Rows render in pending order; drop before the first row whose midpoint
+    // is below the pointer (else at the end).
+    let to = rows.length - 1;
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i].getBoundingClientRect();
+      if (e.clientY < r.top + r.height / 2) { to = i; break; }
+    }
+    if (to !== drag.to) setDrag(d => (d ? { ...d, to } : d));
+  }
+
+  function onGripUp() {
+    if (!drag) return;
+    if (drag.from !== drag.to) onChange(pendingOrder());
+    setDrag(null);
+  }
+
   async function handleQuickAdd() {
     if (!qaTitle.trim()) return;
     // A piece quick-added from a concert belongs to all of that concert's
@@ -120,10 +164,11 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
     <div className="dir-piece-picker">
       {/* Selected pieces, in program order */}
       {selected.length > 0 && (
-        <div className="dir-piece-selected">
+        <div className="dir-piece-selected" ref={selListRef}>
           <div className="dir-piece-selected-head">
             {selected.length > 1 ? 'Program order' : 'Selected'}
             <span className="dir-piece-selected-count">{selected.length}</span>
+            {selected.length > 1 && <span className="dir-piece-selected-hint">drag ≡ to reorder</span>}
           </div>
           {selected.map((p, i) => {
             const movements = p.movements ?? [];
@@ -133,8 +178,25 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
             const chosenCount = isSubset ? sel!.length : movements.length;
             const open = openMovements === p.id;
             return (
-              <div key={p.id} className="dir-piece-sel-item">
+              <div key={p.id} data-sel-row className={`dir-piece-sel-item${drag && drag.to === i ? ' dragging' : ''}`}>
                 <div className="dir-piece-sel-row">
+                  {selected.length > 1 && (
+                    <button
+                      type="button"
+                      className="dir-piece-grip"
+                      aria-label={`Reorder ${p.title} — drag, or use arrow keys`}
+                      onPointerDown={e => onGripDown(e, i)}
+                      onPointerMove={onGripMove}
+                      onPointerUp={onGripUp}
+                      onPointerCancel={() => setDrag(null)}
+                      onKeyDown={e => {
+                        if (e.key === 'ArrowUp') { e.preventDefault(); move(i, -1); }
+                        if (e.key === 'ArrowDown') { e.preventDefault(); move(i, 1); }
+                      }}
+                    >
+                      <GripVertical size={16} />
+                    </button>
+                  )}
                   <span className="dir-piece-sel-num">{i + 1}</span>
                   <span className="dir-piece-sel-info">
                     <span className="dir-piece-title">{p.title}</span>
@@ -154,28 +216,6 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
                       </button>
                     )}
                   </span>
-                  {selected.length > 1 && (
-                    <span className="dir-piece-sel-moves">
-                      <button
-                        type="button"
-                        className="dir-piece-move"
-                        onClick={() => move(i, -1)}
-                        disabled={i === 0}
-                        aria-label="Move up"
-                      >
-                        <ChevronUp size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        className="dir-piece-move"
-                        onClick={() => move(i, 1)}
-                        disabled={i === selected.length - 1}
-                        aria-label="Move down"
-                      >
-                        <ChevronDown size={15} />
-                      </button>
-                    </span>
-                  )}
                   <button
                     type="button"
                     className="dir-piece-remove"

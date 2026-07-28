@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router';
-import { ChevronLeft, CalendarPlus, MapPin, ScrollText, XCircle, AlertTriangle, Music } from 'lucide-react';
+import { useParams, Link } from 'react-router';
+import { CalendarPlus, MapPin, ScrollText, XCircle, AlertTriangle, Music } from 'lucide-react';
+import { BackLink } from './components/BackLink';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
@@ -25,13 +26,6 @@ import './pubEventShell.css';
 export function PublicEvent() {
   useLang();
   const { id } = useParams();
-  const navigate = useNavigate();
-  // Go back to wherever the user came from (Home, My Schedule, Calendar…);
-  // fall back to the calendar on a cold deep-link.
-  const goBack = () => {
-    if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
-    else navigate('/calendar');
-  };
   const { events, loading } = useEvents();
   const { ensembles } = useEnsembles();
   const { pieces } = useRepertoire();
@@ -44,7 +38,7 @@ export function PublicEvent() {
   if (!event) {
     return (
       <div className="pub-page">
-        <button onClick={goBack} className="pub-back-link"><ChevronLeft size={16} /> {t('event.back')}</button>
+        <BackLink fallback="/calendar" label={t('event.back')} className="pub-back-link" />
         <div className="pub-card pub-muted">{t('event.notOnCalendar')}</div>
       </div>
     );
@@ -62,13 +56,13 @@ export function PublicEvent() {
 
   return <EventBody event={event} cancelled={cancelled} primaryEnsembleName={primaryEnsembleName}
     shortDate={shortDate} dateLabel={dateLabel} heroTitle={heroTitle} isToday={isToday}
-    ensembleMap={ensembleMap} piecesById={piecesById} goBack={goBack} />;
+    ensembleMap={ensembleMap} piecesById={piecesById} />;
 }
 
-function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel, heroTitle, isToday, ensembleMap, piecesById, goBack }: {
+function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel, heroTitle, isToday, ensembleMap, piecesById }: {
   event: CalendarEvent; cancelled: boolean; primaryEnsembleName?: string; shortDate: string; dateLabel: string;
   heroTitle: string; isToday: boolean; ensembleMap: Record<string, import('../director/types').Ensemble>;
-  piecesById: Record<string, import('../director/types').RepertoirePiece>; goBack: () => void;
+  piecesById: Record<string, import('../director/types').RepertoirePiece>;
 }) {
   useLang();
   // Dock the action bar flush against the real rendered tab bar — its height
@@ -87,7 +81,7 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
 
   return (
     <div className="pub-page pub-page-wide">
-      <button onClick={goBack} className="pub-back-link"><ChevronLeft size={16} /> {t('event.back')}</button>
+      <BackLink fallback="/calendar" label={t('event.back')} className="pub-back-link" />
 
       <div className="pub-hero">
         <h1 className="pub-h1" style={{ marginBottom: 2 }}>{heroTitle}</h1>
