@@ -42,6 +42,12 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'textsize.large':   { en: 'Large',     es: 'Grande' },
   'textsize.largest': { en: 'Largest',   es: 'Muy grande' },
 
+  // ── Appearance control (header sun/moon) ────────────────────────────────
+  'theme.label': { en: 'Appearance',         es: 'Apariencia' },
+  'theme.auto':  { en: 'Automatic (device)', es: 'Automática (dispositivo)' },
+  'theme.light': { en: 'Light',              es: 'Clara' },
+  'theme.dark':  { en: 'Dark',               es: 'Oscura' },
+
   // ── Home headings + quick actions ───────────────────────────────────────
   'home.todayAt':               { en: 'Today at NWSA Music',                es: 'Hoy en NWSA Music' },
   'home.comingUpRehearsals':    { en: 'Coming up — rehearsals',             es: 'Próximos ensayos' },

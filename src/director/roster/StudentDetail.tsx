@@ -23,7 +23,7 @@ interface Props {
 }
 
 export function StudentDetail({ student, students, contact, ensembles, onEdit, onClose }: Props) {
-  const panelRef = useModalA11y<HTMLDivElement>(onClose, true);
+  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
   const { records: attendanceRecords } = useAttendanceHistory(student.id);
   const { notes: progressNotes } = useProgressNotes(student.id);
   const { events } = useEvents();

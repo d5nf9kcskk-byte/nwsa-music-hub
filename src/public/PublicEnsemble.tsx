@@ -1,6 +1,7 @@
 import { useMemo, useRef, useEffect, useState } from 'react';
 import { useParams, useLocation, Link } from 'react-router';
-import { ChevronLeft, CalendarDays, Armchair, ChevronRight } from 'lucide-react';
+import { CalendarDays, Armchair, ChevronRight } from 'lucide-react';
+import { BackLink } from './components/BackLink';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudents } from '../director/hooks/useStudents';
 import { useEvents } from '../director/hooks/useEvents';
@@ -89,7 +90,7 @@ export function PublicEnsemble() {
   if (!ensemble) {
     return (
       <div className="pub-page">
-        <Link to="/ensembles" className="pub-back"><ChevronLeft size={16} /> Ensembles</Link>
+        <BackLink fallback="/ensembles" label={t('event.back')} />
         <div className="pub-card pub-muted">{ensemblesLoading ? 'Loading…' : 'Ensemble not found.'}</div>
       </div>
     );
@@ -101,7 +102,7 @@ export function PublicEnsemble() {
 
   return (
     <div className="pub-page">
-      <Link to="/ensembles" className="pub-back"><ChevronLeft size={16} /> Ensembles</Link>
+      <BackLink fallback="/ensembles" label={t('event.back')} />
       <GradientHero color={ensembleColor(ensemble)} seed={ensemble.id} title={ensemble.name}>
         <div className="pub-ghero-meta">
           {tn('ens.members', members.length)}

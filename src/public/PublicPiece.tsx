@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { useParams, useNavigate, useLocation, Link } from 'react-router';
-import { ChevronLeft, ExternalLink, Clock, FileText, Video, Headphones, BookOpen, Armchair } from 'lucide-react';
+import { useParams, Link } from 'react-router';
+import { ExternalLink, Clock, FileText, Video, Headphones, BookOpen, Armchair } from 'lucide-react';
+import { BackLink } from './components/BackLink';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
@@ -17,8 +18,6 @@ import { fmtMonthDay } from '../shared/dates';
 export function PublicPiece() {
   useLang();
   const { id = '' } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
   const { pieces, loading: piecesLoading } = useRepertoire();
   const { ensembles } = useEnsembles();
   const { events } = useEvents();
@@ -36,7 +35,7 @@ export function PublicPiece() {
   if (!piece) {
     return (
       <div className="pub-page">
-        <Link to="/ensembles" className="pub-back"><ChevronLeft size={16} /> Ensembles</Link>
+        <BackLink fallback="/ensembles" label="Back" />
         <div className="pub-card pub-muted">{piecesLoading ? 'Loading…' : 'Piece not found.'}</div>
       </div>
     );
@@ -56,12 +55,7 @@ export function PublicPiece() {
 
   return (
     <div className="pub-page">
-      <button
-        className="pub-back"
-        onClick={() => (location.key !== 'default' ? navigate(-1) : navigate('/repertoire'))}
-      >
-        <ChevronLeft size={16} /> Back
-      </button>
+      <BackLink fallback="/repertoire" label="Back" />
 
       {/* Breadcrumb graph (#7): ensemble › concerts this piece is on */}
       <div className="pub-crumbs">

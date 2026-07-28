@@ -8,6 +8,7 @@ import { GlobalAlerts } from './components/GlobalAlerts';
 import { StatusStrips } from '../shared/StatusStrips';
 import { SearchOverlay } from './components/SearchOverlay';
 import { TextSizeControl } from './components/TextSize';
+import { ThemeToggle } from './components/ThemeToggle';
 import { t, useLang } from '../shared/i18n';
 import { LangToggle } from './components/LangToggle';
 import { NoteBurst } from '../shared/NoteBurst';
@@ -60,6 +61,7 @@ export function PublicLayout() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <LangToggle />
           <TextSizeControl />
+          <ThemeToggle />
           <button className="pub-hamburger" onClick={() => setSearchOpen(true)} aria-label={t('nav.search')}>
             <Search size={20} />
           </button>
