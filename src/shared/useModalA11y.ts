@@ -1,15 +1,32 @@
 import { useEffect, useRef } from 'react';
+import { registerOverlayClose } from './overlayBack';
 
 /**
  * Overlay accessibility: Escape closes, Tab is trapped inside the panel, and
  * focus returns to the opener on close. Attach the returned ref to the panel
  * element and give it tabIndex={-1} (the panel itself takes initial focus so
  * mobile keyboards don't pop for the first input).
+ *
+ * Pass `{ closeOnBack: true }` for editing drawers/forms so the browser Back
+ * button (or phone back gesture) closes the overlay instead of leaving the
+ * page and dumping unsaved work (#back-nav). Leave it off for overlays whose
+ * items themselves navigate on tap (nav menus, search) — for those, closing
+ * happens as part of the navigation.
  */
-export function useModalA11y<T extends HTMLElement>(onClose: () => void, active = true) {
+export function useModalA11y<T extends HTMLElement>(
+  onClose: () => void,
+  active = true,
+  opts?: { closeOnBack?: boolean },
+) {
   const ref = useRef<T | null>(null);
   const closeRef = useRef(onClose);
   useEffect(() => { closeRef.current = onClose; });
+
+  const closeOnBack = opts?.closeOnBack ?? false;
+  useEffect(() => {
+    if (!active || !closeOnBack) return;
+    return registerOverlayClose(() => closeRef.current());
+  }, [active, closeOnBack]);
 
   useEffect(() => {
     if (!active) return;

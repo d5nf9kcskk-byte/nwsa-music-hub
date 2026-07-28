@@ -83,7 +83,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const panelRef = useModalA11y<HTMLDivElement>(onClose);
+  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
 
   // Roster preview ("who should be there") — resolved through overrides so it
   // matches the count on the schedule cards behind this form.

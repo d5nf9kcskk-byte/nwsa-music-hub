@@ -16,6 +16,18 @@
     <link rel="apple-touch-icon" href="/nwsa-music-hub/apple-touch-icon.png" />
   </head>
   <body>
+    <!-- Dark-view choice (#dark-view): resolve Auto/Light/Dark before first
+         paint so a stored choice never flashes the wrong scheme. Kept current
+         after load by src/public/theme.ts. -->
+    <script>
+      (function () {
+        var choice = null;
+        try { choice = localStorage.getItem('pub.theme'); } catch (e) { /* private mode */ }
+        var dark = choice === 'dark' ||
+          (choice !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-pub-theme', dark ? 'dark' : 'light');
+      })();
+    </script>
     <div id="root"></div>
     <!-- GitHub Pages SPA fix: restore the URL saved by 404.html on refresh/direct link -->
     <script>
