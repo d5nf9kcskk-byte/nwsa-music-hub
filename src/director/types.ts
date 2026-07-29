@@ -18,6 +18,10 @@ export interface Ensemble {
    *  most ensemble names (proper nouns like "Camerata", genre words like
    *  "Jazz Ensemble") don't need a separate translation. */
   nameEs?: string;
+  /** Conductor/director's name as printed on concert programs (#program-template),
+   *  e.g. "Hyunjee Chung" or "Dr. Hyunjee Chung". Also groups ensembles under
+   *  one conductor on the cover page when several share the same name. */
+  conductorName?: string;
   order: number;
   color?: string;            // hex used for calendar chips; falls back to a palette by order
   defaultLocation?: string;

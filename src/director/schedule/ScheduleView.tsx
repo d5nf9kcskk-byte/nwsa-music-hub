@@ -11,6 +11,7 @@ import { resolveRoster, overrideSummary } from '../rosterResolver';
 import { EventForm } from './EventForm';
 import { EventRoster } from './EventRoster';
 import { IcsImport } from './IcsImport';
+import { QuickAddView } from './QuickAddView';
 import { ScheduleChangesSubscribe } from '../components/ScheduleChangesSubscribe';
 import { FilterMenu } from '../../shared/FilterMenu';
 import { seedCalendar, seedSchoolCalendar, seedExtraSchedule } from '../seedCalendar';
@@ -62,8 +63,10 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   const [typeFilters, setTypeFilters] = useState<SchedTypeKey[]>([]);
   const [calView, setCalView] = useState<'month' | 'list'>('month');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
+  const [quickAddDraft, setQuickAddDraft] = useState<Partial<Omit<CalendarEvent, 'id'>> | undefined>(undefined);
   const [rosterEvent, setRosterEvent] = useState<CalendarEvent | null>(null);
   const [importingIcs, setImportingIcs] = useState(false);
+  const [quickAdding, setQuickAdding] = useState(false);
   const [seedState, setSeedState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
   const [seedError, setSeedError] = useState('');
   const [schoolCalState, setSchoolCalState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
@@ -360,6 +363,9 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           <button className="dir-tool-btn" onClick={() => setImportingIcs(true)} title="Import ICS calendar">
             <Upload size={15} /> Import
           </button>
+          <button className="dir-tool-btn" onClick={() => setQuickAdding(true)} title="Describe an event in plain English">
+            <Sparkles size={15} /> Quick Add
+          </button>
           <ScheduleChangesSubscribe />
       </div>
 
@@ -500,6 +506,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           event={editing === 'new' ? null : editing}
           ensembles={ensembles}
           defaultDate={selectedDate}
+          initialDraft={editing === 'new' ? quickAddDraft : undefined}
           onSave={async data => {
             let eventId: string | undefined;
             if (editing === 'new') eventId = await addEvent(data);
@@ -525,7 +532,18 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             }
           }}
           onDelete={editing !== 'new' ? async () => deleteEvent(editing.id) : undefined}
-          onClose={() => setEditing(null)}
+          onClose={() => { setEditing(null); setQuickAddDraft(undefined); }}
+        />
+      )}
+
+      {quickAdding && (
+        <QuickAddView
+          onClose={() => setQuickAdding(false)}
+          onContinue={draft => {
+            setQuickAddDraft(draft);
+            setQuickAdding(false);
+            setEditing('new');
+          }}
         />
       )}
 

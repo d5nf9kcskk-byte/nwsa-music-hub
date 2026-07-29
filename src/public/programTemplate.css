@@ -1,0 +1,147 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Concert program template (#program-template)
+
+   Matches the director's printed-program template: a cover page (school
+   leadership, mission statement, concert title/conductors/date/venue), a
+   repertoire page grouped by performing ensemble with a conductor byline
+   after each ensemble's pieces, and one roster page per performing
+   ensemble. Serif type throughout — this page exists to be printed, not
+   to match the rest of the (sans-serif) site chrome.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.pub-program-sheet {
+  font-family: Georgia, 'Times New Roman', Times, serif;
+}
+
+.pub-program-page + .pub-program-page {
+  margin-top: 40px;
+  padding-top: 32px;
+  border-top: 1px dashed var(--pub-border);
+}
+
+.pub-program-page-title {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 20px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--pub-text);
+}
+
+/* ── Cover page ── */
+
+.pub-program-cover {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 36px;
+}
+@media (max-width: 640px) {
+  .pub-program-cover { grid-template-columns: 1fr; }
+}
+
+.pub-program-cover-col { display: flex; flex-direction: column; }
+.pub-program-cover-right { text-align: center; }
+
+.pub-program-wordmark {
+  border-top: 1px solid var(--pub-text);
+  padding-top: 10px;
+  margin-bottom: 18px;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.pub-program-leadership {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.pub-program-leadership em { font-style: italic; }
+
+.pub-program-rule { border: none; border-top: 1px solid var(--pub-border); margin: 0 0 18px; }
+
+.pub-program-mission {
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--pub-muted);
+  margin: 0 0 20px;
+}
+
+.pub-program-partners {
+  margin-top: auto;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--pub-muted);
+  text-transform: uppercase;
+}
+
+.pub-program-division {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--pub-muted);
+  border-top: 1px solid var(--pub-text);
+  padding-top: 10px;
+  margin-bottom: 18px;
+}
+
+.pub-program-cover .pub-program-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 20px;
+}
+
+.pub-program-conductors { margin-bottom: 22px; }
+.pub-program-conductor-group { margin-bottom: 14px; }
+.pub-program-conductor-name { font-size: 15px; font-weight: 700; }
+.pub-program-conductor-ens { font-size: 14px; color: var(--pub-muted); }
+
+.pub-program-when { font-size: 14px; line-height: 1.6; margin-bottom: 16px; }
+.pub-program-venue { font-size: 13px; color: var(--pub-muted); line-height: 1.6; }
+
+/* ── Repertoire groups (each ensemble's pieces + byline) ── */
+
+.pub-program-group { margin-bottom: 8px; }
+.pub-program-byline {
+  text-align: center;
+  margin: 6px 0 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--pub-border);
+}
+.pub-program-byline-ensemble { font-size: 15px; font-weight: 700; }
+.pub-program-byline-conductor { font-size: 13px; color: var(--pub-muted); font-style: italic; }
+
+/* ── Roster pages ── */
+
+.pub-program-roster-cols {
+  column-count: 2;
+  column-gap: 32px;
+}
+@media (max-width: 640px) {
+  .pub-program-roster-cols { column-count: 1; }
+}
+.pub-program-roster-section {
+  break-inside: avoid;
+  margin-bottom: 16px;
+}
+.pub-program-roster-section-name {
+  font-size: 13px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--pub-border);
+  padding-bottom: 2px;
+  margin-bottom: 4px;
+}
+.pub-program-roster-name { font-size: 13px; padding: 1px 0 1px 10px; }
+
+/* ── Print: each major page break-after so it lands on its own sheet ── */
+@media print {
+  .pub-program-page { break-after: page; page-break-after: always; }
+  .pub-program-page:last-child { break-after: auto; page-break-after: auto; }
+  .pub-program-page + .pub-program-page { border-top: none; margin-top: 0; padding-top: 0; }
+  .pub-program-roster-cols { column-count: 3; }
+}

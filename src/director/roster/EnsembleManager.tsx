@@ -110,6 +110,7 @@ interface FormProps {
 function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }: FormProps) {
   const [name, setName] = useState(ensemble?.name ?? '');
   const [nameEs, setNameEs] = useState(ensemble?.nameEs ?? '');
+  const [conductorName, setConductorName] = useState(ensemble?.conductorName ?? '');
   const [color, setColor] = useState(ensemble?.color ?? '');
   const [location, setLocation] = useState(ensemble?.defaultLocation ?? '');
   const [startTime, setStartTime] = useState(ensemble?.defaultStartTime ?? '');
@@ -125,6 +126,7 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
       await onSave({
         name: name.trim(),
         nameEs: nameEs.trim() || undefined,
+        conductorName: conductorName.trim() || undefined,
         order: ensemble?.order ?? nextOrder,
         color: color || undefined,
         defaultLocation: location || undefined,
@@ -169,6 +171,13 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
               Spanish name <span className="dir-label-hint">optional — shown on the public site when Español is on</span>
             </label>
             <input className="dir-input" value={nameEs} onChange={e => setNameEs(e.target.value)} placeholder="Leave blank to reuse the name above" />
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">
+              Conductor <span className="dir-label-hint">printed on concert programs, e.g. "Dr. Hyunjee Chung"</span>
+            </label>
+            <input className="dir-input" value={conductorName} onChange={e => setConductorName(e.target.value)} placeholder="e.g. Hyunjee Chung" />
           </div>
 
           <div className="dir-field">

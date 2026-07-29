@@ -19,9 +19,13 @@ interface Props {
   onSave: (data: Omit<CalendarEvent, 'id'>) => Promise<void>;
   onDelete?: () => Promise<void>;
   onClose: () => void;
+  /** Prefills a brand-new event (ignored when `event` is set) — used by
+   *  Quick Add to hand off its parsed guess for the director to confirm or
+   *  correct before anything saves. */
+  initialDraft?: Partial<Omit<CalendarEvent, 'id'>>;
 }
 
-export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onClose }: Props) {
+export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onClose, initialDraft }: Props) {
   const { events: liveEvents } = useEvents();
   const { students } = useStudents();
   const { overrides } = useRosterOverrides();
@@ -49,6 +53,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     dress: '',
     venueAddress: '',
     pickupTime: '',
+    ...initialDraft,
   });
 
   const [form, setForm] = useState<Omit<CalendarEvent, 'id'>>(blank);

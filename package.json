@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "chart.js": "^4.5.1",
+    "chrono-node": "^2.10.1",
     "firebase": "^12.15.0",
     "lucide-react": "^1.14.0",
     "react": "^19.2.5",
