@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { ClipboardList, Users, Calendar, Music, Megaphone, Clock, MapPin, Sparkles, Armchair, FolderOpen } from 'lucide-react';
+import { ClipboardList, Users, Calendar, Music, Megaphone, Clock, MapPin, Sparkles, Armchair, FolderOpen, UserPlus } from 'lucide-react';
 import { SeatingManager } from '../seating/SeatingManager';
+import { EnsembleRosterEditor } from './EnsembleRosterEditor';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
@@ -18,6 +19,7 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
   const ensemble = ensembles.find(e => e.id === ensembleId);
   const today = todayStr();
   const [showSeating, setShowSeating] = useState(false);
+  const [addingStudents, setAddingStudents] = useState(false);
 
   const mine = useMemo(
     () => events
@@ -44,7 +46,16 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           <div className="dir-today-title">{ensemble.name}</div>
           <div className="dir-ens-sub">{rosterCount} active students</div>
         </div>
+        <button className="dir-btn dir-btn-primary dir-sc-small" style={{ marginLeft: 'auto', flexShrink: 0 }} onClick={() => setAddingStudents(true)}>
+          <UserPlus size={14} style={{ verticalAlign: '-2px' }} /> Add students
+        </button>
       </div>
+
+      {rosterCount === 0 && (
+        <div className="dir-field-hint" style={{ padding: '0 16px' }}>
+          This ensemble has no students yet — tap <strong>Add students</strong> above to build its roster.
+        </div>
+      )}
 
       <div className="dir-drawer-body">
         <div className="dir-form-section-label">Next rehearsal</div>
@@ -97,6 +108,9 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           <button className="dir-hub-btn" onClick={() => onNavigate('roster', { ensembleId })}>
             <Users size={20} /> Roster
           </button>
+          <button className="dir-hub-btn" onClick={() => setAddingStudents(true)}>
+            <UserPlus size={20} /> Add / Remove Students
+          </button>
           <button className="dir-hub-btn" onClick={() => onNavigate('schedule', { ensembleId })}>
             <Calendar size={20} /> Schedule
           </button>
@@ -120,6 +134,15 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
 
       {showSeating && (
         <SeatingManager ensembleId={ensembleId} ensembleName={ensemble.name} onClose={() => setShowSeating(false)} />
+      )}
+
+      {addingStudents && (
+        <EnsembleRosterEditor
+          ensembleId={ensembleId}
+          ensembleName={ensemble.name}
+          onNavigate={onNavigate}
+          onClose={() => setAddingStudents(false)}
+        />
       )}
     </div>
   );

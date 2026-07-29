@@ -22,9 +22,10 @@ export function useEnsembles() {
     }, () => { noteLoadError('ensembles'); setLoading(false); });
   }, []);
 
-  async function addEnsemble(data: Omit<Ensemble, 'id'>) {
+  async function addEnsemble(data: Omit<Ensemble, 'id'>): Promise<string | undefined> {
     if (!db) return;
-    await addDoc(collection(db, 'ensembles'), data);
+    const ref = await addDoc(collection(db, 'ensembles'), data);
+    return ref.id;
   }
 
   async function updateEnsemble(id: string, data: Partial<Omit<Ensemble, 'id'>>) {

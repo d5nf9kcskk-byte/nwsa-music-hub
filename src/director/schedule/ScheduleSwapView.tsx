@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, ArrowLeftRight, Clock3, MapPin, XCircle, RotateCcw, Grid3x3, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeftRight, Clock3, MapPin, XCircle, RotateCcw, Grid3x3, CalendarDays, List } from 'lucide-react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useEvents } from '../hooks/useEvents';
@@ -23,6 +23,31 @@ async function postScheduleAnnouncement(
     ensembleId: ensembleIds.length === 1 ? ensembleIds[0] : null,
     priority: 'urgent',
     createdAt: Date.now(),
+    expiresOn: addDays(date, 1),
+  });
+  if (db) {
+    try {
+      await addDoc(collection(db, 'notifyQueue'), {
+        kind: 'urgent-announcement', title, ensembleIds, createdAt: Date.now(), processedAt: null,
+      });
+    } catch { /* relay is best-effort */ }
+  }
+  return annId;
+}
+
+/** Second change to the same event: UPDATE its existing red-banner
+ *  announcement (one event = one banner) instead of stacking a duplicate. */
+async function updateScheduleAnnouncement(
+  updateAnnouncement: (id: string, data: Partial<Omit<Announcement, 'id'>>) => Promise<void>,
+  annId: string,
+  date: string,
+  title: string,
+  ensembleIds: string[],
+): Promise<string> {
+  await updateAnnouncement(annId, {
+    title,
+    ensembleId: ensembleIds.length === 1 ? ensembleIds[0] : null,
+    createdAt: Date.now(), // resurface as the newest post
     expiresOn: addDays(date, 1),
   });
   if (db) {
@@ -61,7 +86,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
 }) {
   const { events, updateEvent, revertEvent } = useEvents();
   const { ensembles } = useEnsembles();
-  const { addAnnouncement, deleteAnnouncement } = useAnnouncements();
+  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useAnnouncements();
 
   const [date, setDate] = useState(initialDate ?? todayStr());
   const [swapPick, setSwapPick] = useState<string[]>([]); // event ids picked for a swap
@@ -69,7 +94,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   const [confirmSwap, setConfirmSwap] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [view, setView] = useState<'day' | 'month'>('day');
+  const [view, setView] = useState<'day' | 'list' | 'month'>('day');
 
   const today = todayStr();
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
@@ -84,8 +109,15 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   const label = (e: CalendarEvent) =>
     e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(' + ') || e.type;
 
-  const announce = (title: string, ensembleIds: string[]) =>
-    postScheduleAnnouncement(addAnnouncement, date, title, ensembleIds);
+  /** Post the red-banner announcement for a change — or, when this event
+   *  already has one (a second change to the same rehearsal/concert), UPDATE
+   *  that banner instead of stacking a duplicate. One event = one banner. */
+  function announce(title: string, ensembleIds: string[], existingAnnId?: string): Promise<string | undefined> {
+    const existing = existingAnnId ? announcements.find(x => x.id === existingAnnId) : undefined;
+    return existing
+      ? updateScheduleAnnouncement(updateAnnouncement, existing.id, date, title, ensembleIds)
+      : postScheduleAnnouncement(addAnnouncement, date, title, ensembleIds);
+  }
 
   function togglePick(id: string) {
     setSwapPick(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id].slice(-2));
@@ -106,6 +138,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
           `Block swap ${parseDate(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}: ` +
           `${label(a)} now ${formatTime(b.startTime)}, ${label(b)} now ${formatTime(a.startTime)}`,
           [...new Set([...a.ensembleIds, ...b.ensembleIds])],
+          a.changeAnnouncementId ?? b.changeAnnouncementId,
         );
         if (annId) {
           await updateEvent(a.id, { changeAnnouncementId: annId });
@@ -136,14 +169,22 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
 
   return (
     <div className="dir-tab-page">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0' }}>
-        <button className="dir-tool-btn" onClick={() => setView(v => (v === 'day' ? 'month' : 'day'))}>
-          {view === 'day' ? <><Grid3x3 size={14} /> Month view</> : <><CalendarDays size={14} /> Day view</>}
+      <div className="dir-mode-toggle">
+        <button className={`dir-segment-btn ${view === 'day' ? 'active' : ''}`} onClick={() => setView('day')}>
+          <CalendarDays size={14} style={{ verticalAlign: '-2px' }} /> Day
+        </button>
+        <button className={`dir-segment-btn ${view === 'list' ? 'active' : ''}`} onClick={() => setView('list')}>
+          <List size={14} style={{ verticalAlign: '-2px' }} /> List
+        </button>
+        <button className={`dir-segment-btn ${view === 'month' ? 'active' : ''}`} onClick={() => setView('month')}>
+          <Grid3x3 size={14} style={{ verticalAlign: '-2px' }} /> Month
         </button>
       </div>
 
       {view === 'month' ? (
         <SwapMonth date={date} events={events} ensembleMap={ensembleMap} onPick={d => { setDate(d); setView('day'); }} />
+      ) : view === 'list' ? (
+        <SwapList events={events} ensembleMap={ensembleMap} onPick={d => { setDate(d); setView('day'); }} />
       ) : (
       <>
       <div className="dir-cal-nav">
@@ -203,27 +244,27 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
                     {e.changeNote ? ` · ⚠ ${e.changeNote}` : ''}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   {(e.changeNote || e.changeFrom || e.status === 'Cancelled') && (
                     <button
                       className="dir-tool-btn"
                       style={{ color: 'var(--dir-blue)' }}
                       disabled={busy}
                       onClick={() => handleRevert(e)}
-                      title="Revert to normal schedule (clears the change note and its announcement)"
+                      title="Put this back to its normal schedule and clear the change banner"
                     >
-                      <RotateCcw size={14} />
+                      <RotateCcw size={14} /> Revert
                     </button>
                   )}
                   <button
                     className={`dir-tool-btn ${swapPick.includes(e.id) ? 'active' : ''}`}
                     onClick={() => togglePick(e.id)}
-                    title="Select for a block swap"
+                    title="Select this and one other block to trade times"
                   >
-                    <ArrowLeftRight size={14} />
+                    <ArrowLeftRight size={14} /> Swap
                   </button>
-                  <button className="dir-tool-btn" onClick={() => setEditing(e)} title="Change time / room / cancel">
-                    <Clock3 size={14} />
+                  <button className="dir-tool-btn" onClick={() => setEditing(e)} title="Change time / room, or cancel">
+                    <Clock3 size={14} /> Change
                   </button>
                 </div>
               </div>
@@ -250,13 +291,65 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
           onApply={async (data, notifyTitle) => {
             await updateEvent(editing.id, { ...data, ...captureOriginal(editing) });
             if (notifyTitle) {
-              const annId = await announce(notifyTitle, editing.ensembleIds);
+              const annId = await announce(notifyTitle, editing.ensembleIds, editing.changeAnnouncementId);
               if (annId) await updateEvent(editing.id, { changeAnnouncementId: annId });
             }
           }}
           onClose={() => setEditing(null)}
         />
       )}
+    </div>
+  );
+}
+
+/** List view: the next few weeks of ensemble events grouped by day, so the
+ *  director can find the day to change without arrowing one day at a time.
+ *  Tap any day to open it in the day view. */
+function SwapList({ events, ensembleMap, onPick }: {
+  events: CalendarEvent[];
+  ensembleMap: Record<string, Ensemble | undefined>;
+  onPick: (date: string) => void;
+}) {
+  const today = todayStr();
+  const horizon = addDays(today, 28);
+  const byDate = useMemo(() => {
+    const m = new Map<string, CalendarEvent[]>();
+    for (const e of events) {
+      if (e.ensembleIds.length === 0 || e.date < today || e.date > horizon) continue;
+      const list = m.get(e.date) ?? [];
+      list.push(e);
+      m.set(e.date, list);
+    }
+    for (const list of m.values()) list.sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [events, today, horizon]);
+
+  if (byDate.length === 0) {
+    return <div className="dir-empty-inline">No ensemble events in the next four weeks.</div>;
+  }
+  return (
+    <div className="dir-drawer-body">
+      <div className="dir-field-hint">The next four weeks — tap a day to open it and make a change.</div>
+      {byDate.map(([d, dayEvents]) => (
+        <button key={d} className="dir-ens-row dir-sc-pick" onClick={() => onPick(d)}>
+          <div className="dir-ens-info">
+            <div className="dir-ens-name">
+              {parseDate(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              {d === today && <span className="dir-today-badge" style={{ marginLeft: 8 }}>Today</span>}
+            </div>
+            {dayEvents.map(e => (
+              <div key={e.id} className="dir-ens-sub">
+                <span className="dir-cal-dot" style={{ display: 'inline-block', background: e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]), marginRight: 6 }} />
+                {e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(' + ') || e.type}
+                {' · '}{formatTimeRange(e.startTime, e.endTime) || 'No time set'}
+                {e.status === 'Cancelled' ? ' · Cancelled' : ''}
+                {e.changeNote ? ` · ⚠ ${e.changeNote}` : ''}
+              </div>
+            ))}
+          </div>
+          <ChevronRight size={16} style={{ flexShrink: 0, opacity: 0.5 }} />
+        </button>
+      ))}
     </div>
   );
 }
@@ -390,13 +483,18 @@ function TimeChangeSheet({ event, name, onApply, onClose }: {
 
   function saveTimeRoom() {
     if (start && end && end <= start) { setError('End time is before start time.'); return; }
+    if (start === (event.startTime ?? '') && end === (event.endTime ?? '') && room.trim() === (event.location ?? '')) { onClose(); return; }
+    // Describe the change against the ORIGINAL schedule (the pre-change
+    // snapshot when one exists), so a second edit produces one note/banner
+    // covering everything — not a note that only mentions the latest tweak.
+    const orig = event.changeFrom ?? event;
     const bits: string[] = [];
-    if (start !== (event.startTime ?? '')) bits.push(`now ${formatTime(start)}`);
-    if (room.trim() !== (event.location ?? '')) bits.push(`in ${room.trim() || 'TBD'}`);
-    if (bits.length === 0) { onClose(); return; }
+    if (start !== (orig.startTime ?? '')) bits.push(`now ${formatTime(start)}`);
+    if (room.trim() !== (orig.location ?? '')) bits.push(`in ${room.trim() || 'TBD'}`);
+    const note = bits.length > 0 ? `Changed — ${bits.join(', ')}` : 'Changed — back to the usual time';
     run(
-      { startTime: start || undefined, endTime: end || undefined, location: room.trim() || undefined, changeNote: `Changed — ${bits.join(', ')}` },
-      `⚠ ${name}: ${bits.join(', ')} (${parseDate(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })})`,
+      { startTime: start || undefined, endTime: end || undefined, location: room.trim() || undefined, changeNote: note },
+      `⚠ ${name}: ${bits.length > 0 ? bits.join(', ') : 'back to the usual time'} (${parseDate(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })})`,
     );
   }
 
