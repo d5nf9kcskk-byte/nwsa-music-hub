@@ -1104,6 +1104,32 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 
 .dir-tool-btn:active { background: var(--dir-bg); }
 
+.dir-division-btn {
+  display: block;
+  margin: 6px 0 8px;
+}
+.dir-division-btn.active {
+  background: var(--dir-blue);
+  border-color: var(--dir-blue);
+  color: #fff;
+}
+
+/* Director-only "subscribe to schedule changes" popover (#director-changes-feed) */
+.dir-subscribe-changes { position: relative; display: inline-flex; }
+.dir-subscribe-pop {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 20;
+  width: 280px; max-width: calc(100vw - 32px);
+  background: var(--dir-surface); border: 1.5px solid var(--dir-border);
+  border-radius: 12px; box-shadow: var(--dir-shadow-2, 0 8px 24px rgba(0,0,0,0.16));
+  padding: 12px;
+}
+.dir-subscribe-pop-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dir-subscribe-open { display: block; text-align: center; text-decoration: none; margin: 8px 0; }
+.dir-subscribe-url {
+  font-size: 11px; color: var(--dir-text-muted); word-break: break-all;
+  background: var(--dir-bg); border-radius: 8px; padding: 6px 8px; margin-bottom: 8px;
+}
+
 .dir-absence-pill {
   font-size: 11px;
   font-weight: 800;

@@ -7,7 +7,7 @@ import { sortStudents, lastName, type StudentSort } from '../director/scoreOrder
 import { t, useLang } from '../shared/i18n';
 import { PageHeader } from './components/PageHeader';
 import { getIdentity, rememberStudent, forgetStudent, setParentMode } from '../shared/identity';
-import { ensembleColor, musicEnsembles } from '../director/utils';
+import { ensembleColor, ensembleDisplayName, musicEnsembles } from '../director/utils';
 import { PubEnsembleSelect } from './components/PubEnsembleSelect';
 import type { Student } from '../director/types';
 
@@ -187,7 +187,7 @@ export function PublicLookup() {
             <div className="pub-tag-row" style={{ justifyContent: 'center', marginTop: 8 }}>
               {(confirming.ensembleIds ?? []).map(id => {
                 const e = ensembles.find(x => x.id === id);
-                return e ? <span key={id} className="pub-ens-tag" style={{ background: ensembleColor(e) }}>{e.name}</span> : null;
+                return e ? <span key={id} className="pub-ens-tag" style={{ background: ensembleColor(e) }}>{ensembleDisplayName(e)}</span> : null;
               })}
             </div>
             <div className="pub-confirm-actions">

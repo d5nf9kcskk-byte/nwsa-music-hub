@@ -9,7 +9,7 @@ import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../direct
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useDocuments } from '../director/hooks/useDocuments';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
-import { todayStr, formatTimeRange, formatTime, ensembleColor, pieceEnsembleIds } from '../director/utils';
+import { todayStr, formatTimeRange, formatTime, ensembleColor, ensembleDisplayName, pieceEnsembleIds, isPublished } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { PubRepertoire } from './components/PubRepertoire';
@@ -83,8 +83,8 @@ export function PublicEnsemble() {
   );
 
   const ensDocs = useMemo(
-    () => documents.filter(d => d.ensembleIds.includes(id)),
-    [documents, id],
+    () => documents.filter(d => d.ensembleIds.includes(id) && isPublished(d, now)),
+    [documents, id, now],
   );
 
   if (!ensemble) {
@@ -103,7 +103,7 @@ export function PublicEnsemble() {
   return (
     <div className="pub-page">
       <BackLink fallback="/ensembles" label={t('event.back')} />
-      <GradientHero color={ensembleColor(ensemble)} seed={ensemble.id} title={ensemble.name}>
+      <GradientHero color={ensembleColor(ensemble)} seed={ensemble.id} title={ensembleDisplayName(ensemble)}>
         <div className="pub-ghero-meta">
           {tn('ens.members', members.length)}
           {ensemble.defaultLocation ? ` · ${ensemble.defaultLocation}` : ''}
@@ -126,7 +126,7 @@ export function PublicEnsemble() {
         <h2 className="pub-section-title">Schedule &amp; concerts</h2>
         <Link to={`/calendar?ensemble=${ensemble.id}`} className="pub-section-link"><CalendarDays size={13} /> Full calendar</Link>
       </div>
-      <SubscribeButton ensembleId={ensemble.id} label={`Subscribe · ${ensemble.name}`} />
+      <SubscribeButton ensembleId={ensemble.id} label={`Subscribe · ${ensembleDisplayName(ensemble)}`} />
       {upcomingCount === 0 && <div className="pub-muted">No upcoming events.</div>}
 
       {upcomingRehearsals.length > 0 && (

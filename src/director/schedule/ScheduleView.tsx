@@ -6,10 +6,12 @@ import { useStudents } from '../hooks/useStudents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useAssignments } from '../hooks/useAssignments';
+import { recordActivity } from '../hooks/useActivityLog';
 import { resolveRoster, overrideSummary } from '../rosterResolver';
 import { EventForm } from './EventForm';
 import { EventRoster } from './EventRoster';
 import { IcsImport } from './IcsImport';
+import { ScheduleChangesSubscribe } from '../components/ScheduleChangesSubscribe';
 import { FilterMenu } from '../../shared/FilterMenu';
 import { seedCalendar, seedSchoolCalendar, seedExtraSchedule } from '../seedCalendar';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
@@ -69,6 +71,8 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   const [classesState, setClassesState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
   const [classesMsg, setClassesMsg] = useState('');
   const focusConsumed = useRef(false);
+
+  useEffect(() => { recordActivity('schedule.view'); }, []);
 
   useEffect(() => {
     if (initialEventId && !focusConsumed.current && events.length > 0) {
@@ -356,6 +360,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           <button className="dir-tool-btn" onClick={() => setImportingIcs(true)} title="Import ICS calendar">
             <Upload size={15} /> Import
           </button>
+          <ScheduleChangesSubscribe />
       </div>
 
       {/* Filters — multi-select: several ensembles AND several types at once. */}

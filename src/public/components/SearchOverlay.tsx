@@ -9,7 +9,7 @@ import { useRepertoire } from '../../director/hooks/useRepertoire';
 import { useAnnouncements, useMinuteTick } from '../../director/hooks/useAnnouncements';
 import { useEnsembles } from '../../director/hooks/useEnsembles';
 import { useAssignments } from '../../director/hooks/useAssignments';
-import { formatDate, formatTimeRange, todayStr, pieceEnsembleIds } from '../../director/utils';
+import { formatDate, formatTimeRange, todayStr, pieceEnsembleIds, ensembleDisplayName, isPublished } from '../../director/utils';
 import type { CalendarEvent, Ensemble } from '../../director/types';
 import { searchEgg } from '../../shared/whimsy';
 import { getLang } from '../../shared/i18n';
@@ -82,7 +82,7 @@ interface SearchOverlayProps {
 
 function eventLabel(e: CalendarEvent, ensembleMap: Record<string, Ensemble>): string {
   if (e.title) return e.title;
-  const names = e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(', ');
+  const names = e.ensembleIds.map(id => ensembleDisplayName(ensembleMap[id])).filter(Boolean).join(', ');
   return names ? `${e.type} — ${names}` : e.type;
 }
 
@@ -110,6 +110,10 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
   const publishedAnnouncements = useMemo(
     () => announcements.filter(a => !a.publishAt || a.publishAt <= tick),
     [announcements, tick],
+  );
+  const publishedAssignments = useMemo(
+    () => assignments.filter(a => isPublished(a, tick)),
+    [assignments, tick],
   );
 
   const [query, setQuery] = useState('');
@@ -171,7 +175,7 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
         items: reps.map(p => ({
           key: `rep-${p.id}`,
           label: p.title,
-          sub: [p.composer, pieceEnsembleIds(p).map(id => ensembleMap[id]?.name).filter(Boolean).join(', ')].filter(Boolean).join(' · '),
+          sub: [p.composer, pieceEnsembleIds(p).map(id => ensembleDisplayName(ensembleMap[id])).filter(Boolean).join(', ')].filter(Boolean).join(' · '),
           to: `/piece/${p.id}`,
         })),
       });
@@ -184,26 +188,26 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
         items: anns.map(a => ({
           key: `ann-${a.id}`,
           label: a.title,
-          sub: a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide',
+          sub: a.ensembleId ? ensembleDisplayName(ensembleMap[a.ensembleId]) : 'School-wide',
           to: '/announcements',
         })),
       });
     }
 
-    const enss = rankMatches(ensembles, q, e => [e.name]);
+    const enss = rankMatches(ensembles, q, e => [e.name, e.nameEs]);
     if (enss.length) {
       out.push({
         label: 'Ensembles', Icon: Users,
         items: enss.map(e => ({
           key: `ens-${e.id}`,
-          label: e.name,
+          label: ensembleDisplayName(e),
           sub: e.defaultLocation,
           to: `/ensemble/${e.id}`,
         })),
       });
     }
 
-    const asgs = rankMatches(assignments, q, a => [a.title, a.type]);
+    const asgs = rankMatches(publishedAssignments, q, a => [a.title, a.type]);
     if (asgs.length) {
       out.push({
         label: 'Assignments', Icon: ClipboardCheck,
@@ -217,7 +221,7 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
     }
 
     return out;
-  }, [q, events, pieces, publishedAnnouncements, ensembles, assignments, ensembleMap]);
+  }, [q, events, pieces, publishedAnnouncements, ensembles, publishedAssignments, ensembleMap]);
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups]);
 

@@ -9,6 +9,7 @@ import { ensembleColor, parseDate, todayStr, toDateStr, formatTimeRange, addMinu
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
+import { useModalA11y } from '../../shared/useModalA11y';
 import type { Student, Ensemble, RosterOverride } from '../types';
 
 /** Prefill carried into the change form when arriving via the by-date flow. */
@@ -361,6 +362,7 @@ function ChangeForm({
   const [destEnsembleId, setDestEnsembleId] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
 
   const activeEnsembleId = kind === 'lesson' ? lessonEnsembleId : ensembleId;
   const ensembleName = ensembles.find(e => e.id === activeEnsembleId)?.name ?? 'ensemble';
@@ -415,7 +417,7 @@ function ChangeForm({
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
+      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label="New schedule change" tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <span className="dir-drawer-title">New schedule change</span>

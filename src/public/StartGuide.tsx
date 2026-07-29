@@ -1,10 +1,11 @@
 import './startGuide.css';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { GraduationCap, Users, Music2, ChevronDown, Printer, BookOpen } from 'lucide-react';
 import { LABELS } from '../shared/labels';
 import { PageHeader } from './components/PageHeader';
+import { printViaPopup } from '../shared/printPopup';
 
 type Audience = 'students' | 'parents' | 'directors';
 
@@ -313,13 +314,18 @@ export function StartGuide() {
   const staffView = searchParams.get('staff') === '1';
   const TABS = staffView ? ALL_TABS : ALL_TABS.filter(t => t.key !== 'directors');
   const [tab, setTab] = useState<Audience>(staffView ? 'directors' : 'students');
+  const pageRef = useRef<HTMLDivElement>(null);
+  function handlePrint() {
+    if (pageRef.current) printViaPopup('NWSA Music — Start Here Guide', pageRef.current.outerHTML);
+    else window.print();
+  }
 
   return (
-    <div className="pub-page pub-sg">
+    <div className="pub-page pub-sg" ref={pageRef}>
       <PageHeader
         title={LABELS.startHere}
         action={
-          <button className="pub-sg-print-btn" onClick={() => window.print()}>
+          <button className="pub-sg-print-btn" onClick={handlePrint}>
             <Printer size={14} /> Print this guide
           </button>
         }

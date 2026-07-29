@@ -3,6 +3,7 @@ import { ChevronUp, ChevronDown, ChevronLeft, Pencil, Plus, CalendarDays } from 
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { ensembleColor, ENSEMBLE_PALETTE, toDateStr, parseDate } from '../utils';
+import { useModalA11y } from '../../shared/useModalA11y';
 import type { Ensemble } from '../types';
 
 interface Props {
@@ -108,12 +109,14 @@ interface FormProps {
 
 function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }: FormProps) {
   const [name, setName] = useState(ensemble?.name ?? '');
+  const [nameEs, setNameEs] = useState(ensemble?.nameEs ?? '');
   const [color, setColor] = useState(ensemble?.color ?? '');
   const [location, setLocation] = useState(ensemble?.defaultLocation ?? '');
   const [startTime, setStartTime] = useState(ensemble?.defaultStartTime ?? '');
   const [endTime, setEndTime] = useState(ensemble?.defaultEndTime ?? '');
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const panelRef = useModalA11y<HTMLDivElement>(onBack, true, { closeOnBack: true });
 
   async function handleSave() {
     if (!name.trim()) return;
@@ -121,6 +124,7 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
     try {
       await onSave({
         name: name.trim(),
+        nameEs: nameEs.trim() || undefined,
         order: ensemble?.order ?? nextOrder,
         color: color || undefined,
         defaultLocation: location || undefined,
@@ -147,7 +151,7 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
+      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={ensemble ? 'Edit Ensemble' : 'New Ensemble'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
@@ -158,6 +162,13 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
           <div className="dir-field">
             <label className="dir-label">Name *</label>
             <input className="dir-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Jazz Ensemble" />
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">
+              Spanish name <span className="dir-label-hint">optional — shown on the public site when Español is on</span>
+            </label>
+            <input className="dir-input" value={nameEs} onChange={e => setNameEs(e.target.value)} placeholder="Leave blank to reuse the name above" />
           </div>
 
           <div className="dir-field">

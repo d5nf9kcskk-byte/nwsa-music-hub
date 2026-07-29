@@ -7,7 +7,7 @@ import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
 import { useStudents } from '../director/hooks/useStudents';
-import { ensembleColor, findPartForInstrument, pieceEnsembleIds } from '../director/utils';
+import { ensembleColor, ensembleDisplayName, findPartForInstrument, pieceEnsembleIds } from '../director/utils';
 import { primaryStudent } from '../shared/identity';
 import { Linkify } from '../director/components/Linkify';
 import { GradientHero } from './components/GradientHero';
@@ -61,7 +61,7 @@ export function PublicPiece() {
       <div className="pub-crumbs">
         {ensemble && (
           <Link to={`/ensemble/${ensemble.id}`} className="pub-crumb" style={{ borderColor: ensembleColor(ensemble) }}>
-            {ensemble.name}
+            {ensembleDisplayName(ensemble)}
           </Link>
         )}
         {(piece.eventIds ?? []).map(eid => {
@@ -210,7 +210,7 @@ export function PublicPiece() {
           <SeatingChartCard
             chart={appliedChart}
             studentName={studentName}
-            subtitle={pieceCharts.length > 0 ? 'For this piece' : `Current seating${ensemble ? ` — ${ensemble.name}` : ''}`}
+            subtitle={pieceCharts.length > 0 ? 'For this piece' : `Current seating${ensemble ? ` — ${ensembleDisplayName(ensemble)}` : ''}`}
           />
         </>
       )}

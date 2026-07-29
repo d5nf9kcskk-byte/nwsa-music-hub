@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Plus, Trash2, ChevronUp, ChevronDown, Pencil, ChevronLeft, Armchair } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { Plus, Trash2, Pencil, ChevronLeft, Armchair, GripVertical } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useSeatingCharts } from '../hooks/useSeatingCharts';
@@ -7,6 +7,7 @@ import { scoreOrderRank, lastName } from '../scoreOrder';
 import { todayStr, parseDate, pieceEnsembleIds } from '../utils';
 import type { SeatingChart, Student } from '../types';
 import { SeatingChartCard } from '../../public/components/SeatingChartCard';
+import { useModalA11y } from '../../shared/useModalA11y';
 
 /** Director seating editor for one ensemble. Charts are per-piece playing-exam
  *  seating: seat 1 = principal. Published charts show on the public ensemble page. */
@@ -120,10 +121,29 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
   // Student-view-first: an existing chart opens in the read-only student view;
   // a brand-new chart opens straight into edit.
   const [editing, setEditing] = useState(!chart);
+  const panelRef = useModalA11y<HTMLDivElement>(onBack, true, { closeOnBack: true });
 
-  function move(si: number, seatIdx: number, dir: -1 | 1) {
+  // Drag-to-reorder seats within a section (mirrors PiecePicker's program-order
+  // grip): while a drag is live the pending order is kept locally and only
+  // committed to `sections` on release. `si` scopes the drag to one section —
+  // moving a seat to a DIFFERENT section is a separate action (the per-seat
+  // "move to" select below), not a cross-section drag.
+  const [drag, setDrag] = useState<{ si: number; from: number; to: number } | null>(null);
+  const sectionRefs = useRef(new Map<number, HTMLDivElement>());
+
+  // Seats shown for section `si`, with any live drag in that section applied.
+  function displaySeats(si: number) {
+    const seats = sections[si].seats;
+    if (!drag || drag.si !== si || drag.from === drag.to) return seats;
+    const next = [...seats];
+    const [moved] = next.splice(drag.from, 1);
+    next.splice(drag.to, 0, moved);
+    return next;
+  }
+
+  function moveWithinSection(si: number, seatIdx: number, dir: -1 | 1) {
     setSections(prev => {
-      const next = prev.map(s => ({ ...s, seats: [...s.seats] }));
+      const next = prev.map((s, i) => i === si ? { ...s, seats: [...s.seats] } : s);
       const seats = next[si].seats;
       const j = seatIdx + dir;
       if (j < 0 || j >= seats.length) return prev;
@@ -131,13 +151,92 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
       return next;
     });
   }
-  function removeSeat(si: number, seatIdx: number) {
-    setSections(prev => prev.map((s, i) => i === si ? { ...s, seats: s.seats.filter((_, k) => k !== seatIdx) } : s));
+
+  function onGripDown(e: React.PointerEvent<HTMLButtonElement>, si: number, seatIdx: number) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({ si, from: seatIdx, to: seatIdx });
   }
-  function setNote(si: number, seatIdx: number, note: string) {
+  function onGripMove(e: React.PointerEvent<HTMLButtonElement>) {
+    if (!drag) return;
+    const container = sectionRefs.current.get(drag.si);
+    const rows = Array.from(container?.querySelectorAll<HTMLElement>('[data-seat-row]') ?? []);
+    let to = rows.length - 1;
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i].getBoundingClientRect();
+      if (e.clientY < r.top + r.height / 2) { to = i; break; }
+    }
+    if (to !== drag.to) setDrag(d => (d ? { ...d, to } : d));
+  }
+  function onGripUp() {
+    if (!drag) return;
+    if (drag.from !== drag.to) {
+      setSections(prev => {
+        const next = prev.map((s, i) => i === drag.si ? { ...s, seats: [...s.seats] } : s);
+        const seats = next[drag.si].seats;
+        const [moved] = seats.splice(drag.from, 1);
+        seats.splice(drag.to, 0, moved);
+        return next;
+      });
+    }
+    setDrag(null);
+  }
+
+  function removeSeat(si: number, studentId: string) {
+    setSections(prev => prev.map((s, i) => i === si ? { ...s, seats: s.seats.filter(seat => seat.studentId !== studentId) } : s));
+  }
+  function setNote(si: number, studentId: string, note: string) {
     setSections(prev => prev.map((s, i) => i === si
-      ? { ...s, seats: s.seats.map((seat, k) => k === seatIdx ? { ...seat, note: note || undefined } : seat) }
+      ? { ...s, seats: s.seats.map(seat => seat.studentId === studentId ? { ...seat, note: note || undefined } : seat) }
       : s));
+  }
+  /** Move a seated student to a different section (a category change, e.g.
+   *  moving someone from "Saxophone" into a newly-added "Saxophone 3"). */
+  function moveSeatToSection(fromSi: number, studentId: string, toSi: number) {
+    if (fromSi === toSi) return;
+    setSections(prev => {
+      const seat = prev[fromSi].seats.find(s => s.studentId === studentId);
+      if (!seat) return prev;
+      return prev.map((s, i) => {
+        if (i === fromSi) return { ...s, seats: s.seats.filter(x => x.studentId !== studentId) };
+        if (i === toSi) return { ...s, seats: [...s.seats, seat] };
+        return s;
+      });
+    });
+  }
+
+  // Custom categories (#seating-sections): the director isn't limited to
+  // whatever buildSections() auto-derived from instruments — a 3rd sax part
+  // or an obscure percussion part gets its own named section.
+  const [newSectionName, setNewSectionName] = useState('');
+  function addSection() {
+    const name = newSectionName.trim();
+    if (!name || sections.some(s => s.section.toLowerCase() === name.toLowerCase())) return;
+    setSections(prev => [...prev, { section: name, seats: [] }]);
+    setNewSectionName('');
+  }
+  function renameSection(si: number, name: string) {
+    setSections(prev => prev.map((s, i) => i === si ? { ...s, section: name } : s));
+  }
+  function removeSection(si: number) {
+    const sec = sections[si];
+    if (sec.seats.length > 0 && !window.confirm(
+      `Remove "${sec.section}"? ${sec.seats.length} seated student${sec.seats.length === 1 ? '' : 's'} will be unseated.`
+    )) return;
+    setSections(prev => prev.filter((_, i) => i !== si));
+  }
+
+  // Adding a student to a section — only from the roster and only students
+  // not already seated somewhere else in this chart.
+  const [addingSeatSection, setAddingSeatSection] = useState<number | null>(null);
+  const [seatQuery, setSeatQuery] = useState('');
+  const seatedIds = useMemo(() => new Set(sections.flatMap(s => s.seats.map(x => x.studentId))), [sections]);
+  const unseated = useMemo(() => roster.filter(s => !seatedIds.has(s.id)), [roster, seatedIds]);
+  function addSeat(si: number, studentId: string) {
+    setSections(prev => prev.map((s, i) => i === si ? { ...s, seats: [...s.seats, { studentId }] } : s));
+    setAddingSeatSection(null);
+    setSeatQuery('');
   }
 
   async function save() {
@@ -157,7 +256,7 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onBack()}>
-      <div className="dir-drawer">
+      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={chart ? 'Edit Seating' : 'New Seating'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
@@ -189,27 +288,119 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
             </div>
           </div>
 
-          <div className="dir-field-hint">Seat 1 = principal. Use the arrows to set the order after a playing exam.</div>
+          <div className="dir-field-hint">Seat 1 = principal. Drag ≡ to set the order after a playing exam.</div>
 
-          {sections.map((sec, si) => (
-            <div key={si} style={{ marginTop: 12 }}>
-              <div className="dir-form-section-label" style={{ padding: 0 }}>{sec.section}</div>
-              {sec.seats.map((seat, seatIdx) => (
-                <div key={seat.studentId} className="dir-seat-row">
-                  <span className="dir-seat-num">{seatIdx + 1}</span>
-                  <div className="dir-seat-body">
-                    <div className="dir-seat-name">{nameById[seat.studentId] ?? seat.studentId}</div>
-                    <input className="dir-input dir-seat-note" value={seat.note ?? ''} onChange={e => setNote(si, seatIdx, e.target.value)} placeholder="note (e.g. Principal)" />
-                  </div>
-                  <div className="dir-seat-moves">
-                    <button className="dir-icon-btn dir-seat-move" onClick={() => move(si, seatIdx, -1)} disabled={seatIdx === 0}><ChevronUp size={14} /></button>
-                    <button className="dir-icon-btn dir-seat-move" onClick={() => move(si, seatIdx, 1)} disabled={seatIdx === sec.seats.length - 1}><ChevronDown size={14} /></button>
-                    <button className="dir-icon-btn dir-seat-move" onClick={() => removeSeat(si, seatIdx)}><Trash2 size={13} /></button>
-                  </div>
+          {sections.map((sec, si) => {
+            const seats = displaySeats(si);
+            return (
+              <div key={si} style={{ marginTop: 16 }}>
+                <div className="dir-seat-section-head">
+                  <input
+                    className="dir-input dir-seat-section-name"
+                    value={sec.section}
+                    onChange={e => renameSection(si, e.target.value)}
+                    placeholder="Section name"
+                  />
+                  <button
+                    type="button"
+                    className="dir-icon-btn"
+                    onClick={() => removeSection(si)}
+                    aria-label={`Remove ${sec.section || 'section'}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
-              ))}
+                <div ref={el => { if (el) sectionRefs.current.set(si, el); else sectionRefs.current.delete(si); }}>
+                  {seats.map((seat, seatIdx) => (
+                    <div
+                      key={seat.studentId}
+                      data-seat-row
+                      className={`dir-seat-row${drag && drag.si === si && drag.to === seatIdx ? ' dragging' : ''}`}
+                    >
+                      <button
+                        type="button"
+                        className="dir-seat-grip"
+                        aria-label={`Reorder ${nameById[seat.studentId] ?? seat.studentId} — drag, or use arrow keys`}
+                        onPointerDown={e => onGripDown(e, si, seatIdx)}
+                        onPointerMove={onGripMove}
+                        onPointerUp={onGripUp}
+                        onPointerCancel={() => setDrag(null)}
+                        onKeyDown={e => {
+                          if (e.key === 'ArrowUp') { e.preventDefault(); moveWithinSection(si, seatIdx, -1); }
+                          if (e.key === 'ArrowDown') { e.preventDefault(); moveWithinSection(si, seatIdx, 1); }
+                        }}
+                      >
+                        <GripVertical size={15} />
+                      </button>
+                      <span className="dir-seat-num">{seatIdx + 1}</span>
+                      <div className="dir-seat-body">
+                        <div className="dir-seat-name">{nameById[seat.studentId] ?? seat.studentId}</div>
+                        <input className="dir-input dir-seat-note" value={seat.note ?? ''} onChange={e => setNote(si, seat.studentId, e.target.value)} placeholder="note (e.g. Principal)" />
+                      </div>
+                      <div className="dir-seat-moves">
+                        {sections.length > 1 && (
+                          <select
+                            className="dir-seat-section-move"
+                            value={si}
+                            onChange={e => moveSeatToSection(si, seat.studentId, Number(e.target.value))}
+                            aria-label={`Move ${nameById[seat.studentId] ?? seat.studentId} to a different section`}
+                          >
+                            {sections.map((s2, i2) => <option key={i2} value={i2}>{s2.section || `Section ${i2 + 1}`}</option>)}
+                          </select>
+                        )}
+                        <button className="dir-icon-btn dir-seat-move" onClick={() => removeSeat(si, seat.studentId)} aria-label={`Remove ${nameById[seat.studentId] ?? seat.studentId}`}><Trash2 size={13} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {addingSeatSection === si ? (
+                  <div className="dir-seat-add">
+                    <input
+                      className="dir-input"
+                      value={seatQuery}
+                      onChange={e => setSeatQuery(e.target.value)}
+                      placeholder="Search a student to add…"
+                      autoFocus
+                    />
+                    <div className="dir-add-sub-list" style={{ marginTop: 6 }}>
+                      {unseated.filter(s => s.name.toLowerCase().includes(seatQuery.toLowerCase())).slice(0, 8).map(s => (
+                        <button key={s.id} type="button" className="dir-ens-row dir-sc-pick" onClick={() => addSeat(si, s.id)}>
+                          <div className="dir-ens-info">
+                            <div className="dir-ens-name">{s.name}</div>
+                            <div className="dir-ens-sub">{s.instrument}</div>
+                          </div>
+                          <Plus size={16} />
+                        </button>
+                      ))}
+                      {unseated.length === 0 && <div className="dir-empty-inline">Everyone on the roster is already seated.</div>}
+                    </div>
+                    <button type="button" className="dir-btn dir-btn-ghost dir-sc-small" style={{ marginTop: 6 }} onClick={() => { setAddingSeatSection(null); setSeatQuery(''); }}>Done</button>
+                  </div>
+                ) : (
+                  <button type="button" className="dir-tool-btn" style={{ marginTop: 8 }} onClick={() => { setAddingSeatSection(si); setSeatQuery(''); }}>
+                    <Plus size={13} /> Add student
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          <div className="dir-field-row" style={{ marginTop: 16, alignItems: 'flex-end' }}>
+            <div className="dir-field">
+              <label className="dir-label">Add a section</label>
+              <input
+                className="dir-input"
+                value={newSectionName}
+                onChange={e => setNewSectionName(e.target.value)}
+                placeholder="e.g. Saxophone 3, Auxiliary Percussion"
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSection(); } }}
+              />
             </div>
-          ))}
+            <button type="button" className="dir-btn dir-btn-ghost" onClick={addSection} disabled={!newSectionName.trim()}>
+              <Plus size={15} /> Add
+            </button>
+          </div>
 
           {onDelete && (
             <button

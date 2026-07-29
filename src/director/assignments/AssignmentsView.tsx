@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { ClipboardCheck, Plus } from 'lucide-react';
+import { ClipboardCheck, Plus, Clock } from 'lucide-react';
 import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
+import { useMinuteTick } from '../hooks/useAnnouncements';
 import { formatDate, todayStr, studentHasAssignment, musicEnsembles, ASSIGN_COLOR } from '../utils';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { RichTextArea } from '../components/RichTextArea';
 import { FileUpload } from '../components/FileUpload';
+import { SchedulePublishField } from '../components/SchedulePublishField';
+import { useModalA11y } from '../../shared/useModalA11y';
 import { NotesText } from '../../public/components/NotesText';
 import type { Assignment, AssignmentType, AssignmentResultStatus, Student, Ensemble, Attachment } from '../types';
 
@@ -37,15 +40,18 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
   const [title, setTitle] = useState(assignment?.title ?? '');
   const [type, setType] = useState<AssignmentType>(assignment?.type ?? 'Playing Exam');
   const [description, setDescription] = useState(assignment?.description ?? '');
+  const [descriptionEs, setDescriptionEs] = useState(assignment?.descriptionEs ?? '');
   const [dueDate, setDueDate] = useState(assignment?.dueDate ?? today);
   const [ensembleIds, setEnsembleIds] = useState<string[]>(assignment?.ensembleIds ?? []);
   const [studentIds, setStudentIds] = useState<string[]>(assignment?.studentIds ?? []);
   const [studentQuery, setStudentQuery] = useState('');
   const [formUrl, setFormUrl] = useState(assignment?.formUrl ?? '');
   const [attachments, setAttachments] = useState<Attachment[]>(assignment?.attachments ?? []);
+  const [publishAt, setPublishAt] = useState<number | undefined>(assignment?.publishAt);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
 
   function toggleEnsemble(id: string) {
     setEnsembleIds(prev => prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]);
@@ -67,12 +73,14 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
           title: title.trim(),
           type,
           description: description.trim(),
+          descriptionEs: descriptionEs.trim() || undefined,
           dueDate,
           ensembleIds,
           studentIds: studentIds.length ? studentIds : undefined,
           formUrl: formUrl.trim() || undefined,
           createdAt: assignment?.createdAt ?? Date.now(),
           attachments,
+          publishAt,
         }),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Save timed out — check your connection')), 15_000)
@@ -87,7 +95,7 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
+      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={assignment ? 'Edit Assignment' : 'New Assignment'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <span className="dir-drawer-title">{assignment ? 'Edit Assignment' : 'New Assignment'}</span>
@@ -177,6 +185,20 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
               placeholder="Optional details, rubric, or instructions"
             />
           </div>
+
+          <div className="dir-field">
+            <label className="dir-label">
+              Spanish translation <span className="dir-label-hint">optional</span>
+            </label>
+            <RichTextArea
+              value={descriptionEs}
+              onChange={setDescriptionEs}
+              placeholder="Descripción en español (opcional)"
+            />
+            <div className="dir-field-hint">Families reading in Español see this version instead.</div>
+          </div>
+
+          <SchedulePublishField publishAt={publishAt} onChange={setPublishAt} />
 
           {assignment && (
             <div className="dir-field">
@@ -359,6 +381,7 @@ export function AssignmentsView() {
   const { students } = useStudents();
   const { ensembles } = useEnsembles();
   const musicEns = musicEnsembles(ensembles);
+  const now = useMinuteTick(); // drives the "Scheduled · posts …" chip below
 
   // Remember the director's last ensemble filter so Repertoire/Assignments/
   // Announcements each reopen scoped the way they left them.
@@ -422,6 +445,12 @@ export function AssignmentsView() {
                 </span>
               </div>
               <div className="dir-assign-card-title">{a.title}</div>
+              {a.publishAt && a.publishAt > now && (
+                <div className="dir-ann-scheduled">
+                  <Clock size={11} style={{ verticalAlign: '-1.5px' }} /> Scheduled · posts{' '}
+                  {new Date(a.publishAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                </div>
+              )}
               {ensembleNames && <div className="dir-assign-card-ens">{ensembleNames}</div>}
               {a.description && <div className="dir-assign-card-desc"><NotesText text={a.description} /></div>}
               {a.formUrl && (

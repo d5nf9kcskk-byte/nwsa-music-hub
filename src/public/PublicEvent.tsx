@@ -5,7 +5,7 @@ import { BackLink } from './components/BackLink';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
-import { todayStr, formatTime } from '../director/utils';
+import { todayStr, formatTime, ensembleDisplayName } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { NotesText } from './components/NotesText';
 import { SkeletonCards } from './components/PageHeader';
@@ -46,12 +46,12 @@ export function PublicEvent() {
 
   const dateLabel = fmtFullDate(event.date);
   const heroTitle = event.title
-    || event.ensembleIds.map(eid => ensembleMap[eid]?.name).filter(Boolean).join(' + ')
+    || event.ensembleIds.map(eid => ensembleDisplayName(ensembleMap[eid])).filter(Boolean).join(' + ')
     || tType(event.type);
   const isToday = event.date === todayStr();
 
   const cancelled = event.status === 'Cancelled';
-  const primaryEnsembleName = ensembleMap[event.ensembleIds[0] ?? '']?.name;
+  const primaryEnsembleName = ensembleDisplayName(ensembleMap[event.ensembleIds[0] ?? '']) || undefined;
   const shortDate = fmtShortDate(event.date);
 
   return <EventBody event={event} cancelled={cancelled} primaryEnsembleName={primaryEnsembleName}
@@ -156,7 +156,7 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
               <strong>{t('event.attendanceLabel')}</strong>{' '}
               {t('event.attendanceBody', {
                 ensembles: (event.attendanceEnsembleIds ?? [])
-                  .map(id => ensembleMap[id]?.name)
+                  .map(id => ensembleDisplayName(ensembleMap[id]))
                   .filter(Boolean)
                   .join(', '),
                 type: tType(event.type).toLowerCase(),

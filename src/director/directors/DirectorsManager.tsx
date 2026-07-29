@@ -1,12 +1,29 @@
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock, History, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock, History, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { useDirectors, directorEmailId } from '../hooks/useDirectors';
 import type { Director, DirectorRole } from '../hooks/useDirectors';
 import { useLoginEvents, LOGIN_LOG_LIMIT } from '../hooks/useLoginEvents';
+import { useActivityLog, ACTIVITY_LOG_LIMIT } from '../hooks/useActivityLog';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { musicEnsembles } from '../utils';
+
+/** Human-readable label for each logged action slug. Falls back to the raw
+ *  slug so a newly-added action still shows something before this map is
+ *  updated. */
+const ACTIVITY_LABEL: Record<string, string> = {
+  'schedule.view': 'Opened the Schedule/Calendar',
+  'schedule.edit': 'Edited an event',
+  'schedule.create': 'Created an event',
+  'roster.view': 'Opened the Roster',
+  'notes.save': 'Saved a rehearsal note',
+  'attendance.save': 'Finished taking roll',
+};
+function activityLabel(a: { action: string; detail?: string }): string {
+  const label = ACTIVITY_LABEL[a.action] ?? a.action;
+  return a.detail ? `${label} — ${a.detail}` : label;
+}
 
 interface Props {
   /** Email of the signed-in director, so we can flag "you" and block self-removal. */
@@ -40,6 +57,7 @@ export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) 
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showLog, setShowLog] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
   const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
 
   const meId = currentEmail ? directorEmailId(currentEmail) : null;
@@ -164,6 +182,20 @@ export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) 
             {showLog ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
           {showLog && <LoginHistory />}
+
+          {/* Activity log (#activity-log): Owner-only record of notable actions
+              (opened Schedule, opened Roster, saved a rehearsal note, …) — not
+              just sign-in. */}
+          <button
+            className="dir-btn dir-btn-ghost"
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8 }}
+            onClick={() => setShowActivity(s => !s)}
+            aria-expanded={showActivity}
+          >
+            <Activity size={15} /> Activity log
+            {showActivity ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {showActivity && <ActivityHistory />}
         </div>
 
         <div className="dir-drawer-footer" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
@@ -230,6 +262,40 @@ function LoginHistory() {
       ))}
       <div className="dir-field-hint" style={{ marginTop: 6 }}>
         One entry per sign-in session · showing the most recent {LOGIN_LOG_LIMIT}.
+      </div>
+    </div>
+  );
+}
+
+/** Recent activity, newest first (#activity-log). Mounted only while the
+ *  section is expanded so the log isn't read on every Directors open. */
+function ActivityHistory() {
+  const { events, state } = useActivityLog(true);
+  if (state === 'error') return <div className="dir-loc-empty">Couldn’t load the activity log — check your connection and reopen.</div>;
+  if (state === 'loading' && events.length === 0) return <div className="dir-loc-empty">Loading activity…</div>;
+  if (events.length === 0) {
+    return (
+      <div className="dir-loc-empty">
+        Nothing recorded yet. Actions like opening the Schedule or Roster, or
+        saving a rehearsal note, are logged here from now on.
+      </div>
+    );
+  }
+  return (
+    <div>
+      {events.map(ev => (
+        <div key={ev.id} className="dir-loc-row" style={{ cursor: 'default' }}>
+          <div className="dir-loc-info">
+            <div className="dir-loc-name">{activityLabel(ev)}</div>
+            <div className="dir-ens-sub">
+              {ev.name || ev.email} · {ROLE_LABEL[ev.role] ?? ev.role}
+            </div>
+          </div>
+          <span className="dir-ens-sub" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{fmtLoginTime(ev.at)}</span>
+        </div>
+      ))}
+      <div className="dir-field-hint" style={{ marginTop: 6 }}>
+        Showing the most recent {ACTIVITY_LOG_LIMIT}.
       </div>
     </div>
   );

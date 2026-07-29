@@ -1,0 +1,45 @@
+/* Printable director sheet (#print-updates) — dir-print-* classes */
+
+.dir-print-sheet {
+  background: var(--dir-surface);
+  border: 1px solid var(--dir-border);
+  border-radius: 12px;
+  padding: 20px;
+  color: var(--dir-text);
+}
+
+.dir-print-head { text-align: center; border-bottom: 2px solid var(--dir-text); padding-bottom: 12px; margin-bottom: 16px; }
+.dir-print-org { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dir-text-muted); }
+.dir-print-title { font-size: 20px; font-weight: 800; margin: 4px 0; }
+.dir-print-asof { font-size: 13px; color: var(--dir-text-muted); }
+
+.dir-print-section { margin-bottom: 18px; }
+.dir-print-section-title {
+  font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--dir-border); padding-bottom: 4px; margin-bottom: 10px;
+}
+.dir-print-empty { font-size: 13px; color: var(--dir-text-muted); font-style: italic; }
+
+.dir-print-item { padding: 8px 0; border-bottom: 1px solid var(--dir-border); break-inside: avoid; }
+.dir-print-item:last-child { border-bottom: none; }
+.dir-print-item-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.dir-print-item-date { font-size: 12px; font-weight: 700; color: var(--dir-text-muted); flex-shrink: 0; min-width: 64px; }
+.dir-print-item-title { font-size: 14.5px; font-weight: 700; flex: 1; }
+.dir-print-item-ens { font-size: 12px; color: var(--dir-text-muted); flex-shrink: 0; }
+.dir-print-item-note { font-size: 13.5px; margin-top: 3px; line-height: 1.45; white-space: pre-wrap; }
+
+.dir-print-tag {
+  display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 800;
+  letter-spacing: 0.04em; padding: 1px 6px; border-radius: 6px; vertical-align: 1px;
+}
+.dir-print-tag-cancel { background: #fee2e2; color: #b91c1c; }
+.dir-print-tag-urgent { background: #fee2e2; color: #b91c1c; }
+
+@media print {
+  html, body { background: #fff !important; }
+  .dir-print-sheet {
+    background: #fff; color: #111; border: none; border-radius: 0; padding: 0;
+  }
+  .dir-print-head { border-bottom-color: #111; }
+  .dir-print-section-title, .dir-print-item { border-color: #ccc; }
+}

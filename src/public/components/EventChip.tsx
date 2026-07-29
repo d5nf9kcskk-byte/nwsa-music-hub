@@ -1,5 +1,5 @@
 import type { Ensemble, EventType } from '../../director/types';
-import { ensembleColor, CONCERT_COLOR } from '../../director/utils';
+import { ensembleColor, ensembleDisplayName, CONCERT_COLOR } from '../../director/utils';
 import { tType, useLang } from '../../shared/i18n';
 import './eventChip.css';
 
@@ -69,7 +69,7 @@ export function EventChip({ ensemble, type }: { ensemble?: Ensemble; type: Event
     <span
       className="pub-eventchip"
       style={{ background: tint(base, 0.13), borderColor: tint(base, 0.32) }}
-      title={ensemble ? `${ensemble.name} · ${typeLabel}` : typeLabel}
+      title={ensemble ? `${ensembleDisplayName(ensemble)} · ${typeLabel}` : typeLabel}
     >
       {mono && <span className="pub-eventchip-mono" style={{ color: base }}>{mono}</span>}
       <span

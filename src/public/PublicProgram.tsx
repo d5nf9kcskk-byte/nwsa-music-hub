@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router';
 import { Printer, Clock } from 'lucide-react';
 import { BackLink } from './components/BackLink';
@@ -8,6 +8,7 @@ import { useRepertoire } from '../director/hooks/useRepertoire';
 import { formatTimeRange, eventPieceDuration, eventPieceMovements } from '../director/utils';
 import { Linkify } from '../director/components/Linkify';
 import { fmtFullDate } from '../shared/dates';
+import { printViaPopup } from '../shared/printPopup';
 
 /**
  * Printable concert program built from the pieces linked to a concert event.
@@ -19,6 +20,12 @@ export function PublicProgram() {
   const { ensembles } = useEnsembles();
   const { events, loading: eventsLoading } = useEvents();
   const { pieces } = useRepertoire();
+
+  const sheetRef = useRef<HTMLDivElement>(null);
+  function handlePrint() {
+    if (sheetRef.current) printViaPopup('NWSA Music — Program', sheetRef.current.outerHTML);
+    else window.print();
+  }
 
   const event = events.find(e => e.id === id);
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
@@ -57,12 +64,12 @@ export function PublicProgram() {
     <div className="pub-page pub-program">
       <div className="pub-program-toolbar">
         <BackLink fallback="/calendar" label="Back" />
-        <button className="pub-print-btn" onClick={() => window.print()}>
+        <button className="pub-print-btn" onClick={handlePrint}>
           <Printer size={14} /> Print
         </button>
       </div>
 
-      <div className="pub-program-sheet">
+      <div className="pub-program-sheet" ref={sheetRef}>
         <header className="pub-program-head">
           <div className="pub-program-org">New World School of the Arts</div>
           <h1 className="pub-program-title">{event.title || 'Concert'}</h1>

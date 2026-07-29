@@ -10,9 +10,11 @@ import type { Ensemble, Student } from './types';
  * collection; imported separately, never committed).
  */
 
-/** Added if missing on reset - named by the director in the July 2026 redesign kickoff. */
+/** Added if missing on reset - named by the director in the July 2026 redesign kickoff.
+ *  Name follows the same "X Orchestra/Ensemble/Choir" pattern as its siblings
+ *  (Symphony Orchestra, Camerata String Orchestra, Opera Orchestra, …). */
 export const baselineNewEnsembles: Ensemble[] = [
-  { id: 'philharmonic', name: 'Philharmonic', order: 9 },
+  { id: 'philharmonic', name: 'Philharmonic Orchestra', order: 9 },
 ];
 
 export const baselineStudents: Student[] = [

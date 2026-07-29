@@ -14,6 +14,7 @@ import { SortToggle } from '../components/SortToggle';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, takesAttendance } from '../utils';
 import { currentDirectorName, currentDirectorRole } from '../currentDirector';
+import { recordActivity } from '../hooks/useActivityLog';
 import type { AttendanceStatus, Student, Ensemble, CalendarEvent } from '../types';
 
 interface Period {
@@ -366,6 +367,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
           [ensembleId]: { at: Date.now(), absent, ...(by ? { by } : {}), byRole: currentDirectorRole() },
         },
       });
+      recordActivity('attendance.save', ensemble?.name);
     } catch { /* non-fatal */ }
   }
   const dateLabel = parseDate(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });

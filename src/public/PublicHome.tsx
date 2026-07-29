@@ -6,7 +6,7 @@ import { useEvents } from '../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
-import { todayStr, formatTimeRange, ensembleColor, addDays, assignmentEmoji, musicEnsembles, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { todayStr, formatTimeRange, ensembleColor, ensembleDisplayName, addDays, assignmentEmoji, musicEnsembles, isPublished, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { SkeletonCards, EmptyState } from './components/PageHeader';
@@ -64,8 +64,8 @@ export function PublicHome() {
   const upcomingConcerts = capWholeDays(future.filter(e => e.type === 'Concert').sort(byDateTime), 5);
   const upcomingEvents = capWholeDays(future.filter(e => e.type === 'Event').sort(byDateTime), 6);
   const upcomingAssignments = useMemo(
-    () => assignments.filter(a => a.dueDate >= today).sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 5),
-    [assignments, today],
+    () => assignments.filter(a => a.dueDate >= today && isPublished(a, now)).sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 5),
+    [assignments, today, now],
   );
 
   const homeAnnouncements = useMemo(
@@ -75,7 +75,7 @@ export function PublicHome() {
 
   function label(e: CalendarEvent) {
     if (e.title) return e.title;
-    return e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(', ') || e.type;
+    return e.ensembleIds.map(id => ensembleDisplayName(ensembleMap[id])).filter(Boolean).join(', ') || e.type;
   }
   function color(e: CalendarEvent) {
     return e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]);
@@ -212,7 +212,7 @@ export function PublicHome() {
           <div className="pub-ens-btn-grid">
             {orderedEnsembles.map(en => (
               <Link key={en.id} to={`/ensemble/${en.id}`} className="pub-ens-btn" style={{ borderLeftColor: ensembleColor(en) }}>
-                {en.name} <ChevronRight size={15} />
+                {ensembleDisplayName(en)} <ChevronRight size={15} />
               </Link>
             ))}
           </div>

@@ -1,5 +1,6 @@
 import type { Ensemble, EventType, RepertoirePiece, PiecePartLink, PieceMovement, CalendarEvent } from './types';
 import { dateLocale, fmtDate } from '../shared/dates';
+import { getLang } from '../shared/i18n';
 
 // ── Date helpers (work in local time, store as YYYY-MM-DD) ──────────────────────
 
@@ -109,6 +110,21 @@ export function ensembleColor(e?: Pick<Ensemble, 'color' | 'order'>): string {
 }
 
 export const ENSEMBLE_PALETTE = PALETTE;
+
+/** True if a scheduled item (Assignment/LibraryDocument) should show now —
+ *  no publishAt set, or its publish moment has already passed. Mirrors the
+ *  announcement scheduling gate (visibleAnnouncements in useAnnouncements.ts). */
+export function isPublished(item: { publishAt?: number }, now: number = Date.now()): boolean {
+  return !item.publishAt || item.publishAt <= now;
+}
+
+/** Ensemble name in the current public-site language (#es-ensemble-names):
+ *  the Spanish `nameEs` when the ES toggle is on and one was entered, else the
+ *  canonical `name` — so an ensemble without a translation still renders. */
+export function ensembleDisplayName(e?: Pick<Ensemble, 'name' | 'nameEs'> | null): string {
+  if (!e) return '';
+  return getLang() === 'es' && e.nameEs ? e.nameEs : e.name;
+}
 
 // ── Event type display ──────────────────────────────────────────────
 
