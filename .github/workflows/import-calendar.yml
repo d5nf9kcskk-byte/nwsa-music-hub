@@ -2,9 +2,10 @@ name: Import Official Calendar
 
 # Admin task: imports the official NWSA CALENDAR OF EVENTS 2026-27 into
 # Firestore (music concerts on the correct ensembles + dance/theatre/visual
-# arts division events). Deletes existing Concert events and previous imports
-# first — idempotent, safe to re-run. Runs on manual dispatch, and
-# automatically when the import data changes on main.
+# arts division events). Strictly additive: only creates events that are
+# missing, never updates or deletes anything — idempotent, safe to re-run.
+# Runs on manual dispatch, and automatically when the import data changes
+# on main.
 on:
   workflow_dispatch:
   push:

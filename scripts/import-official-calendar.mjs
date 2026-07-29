@@ -10,11 +10,15 @@
  *    ensemble mappings, July 2026).
  *  • DANCE / THEATRE / VISUAL ARTS events are classified under division
  *    entries (created as ensembles with high sort orders so they list last).
- *  • Deletes ALL existing type==='Concert' events (replaced by this import)
- *    and any previous oc26-* import docs. Rehearsals, sectionals, and the
- *    seeded school-day entries are never touched.
+ *  • STRICTLY ADDITIVE: creates its own oc26-* docs when missing and never
+ *    updates or deletes ANY event. Director-created events and Hub edits to
+ *    previously-imported docs always win. (An earlier version deleted every
+ *    Concert event on each run, which silently wiped hand-added events —
+ *    the Oct 3 / Feb 6 workshop concerts and the Dec 9 morning showcase.
+ *    That behavior must never come back; corrections to an already-imported
+ *    event are made in the Hub's Schedule editor, not here.)
  *
- * Idempotent: stable oc26-* ids; re-running converges on the same state.
+ * Idempotent: stable oc26-* ids; re-running only fills gaps.
  * Required env: FIREBASE_SERVICE_ACCOUNT_JSON (GitHub secret)
  */
 
@@ -98,6 +102,13 @@ const EVENTS = [
     'NWSA Pops Concert', T10_5),
   ev('cco-concert-sep', 'Concert', ['college-chamber-orchestra'], '2026-09-29', '18:30', V.wolfsonAud,
     'College Chamber Orchestra Concert', FREE),
+  // Workshop concerts + morning showcase (from the 2026–27 Season Master
+  // Document): deliberately absent from the public brochure, but first-class
+  // calendar events for the ensembles involved. Restored here after an
+  // earlier destructive import wiped the hand-added originals.
+  ev('workshop-1-nutcracker', 'Concert', ['symphony-orchestra'], '2026-10-03', '14:00', V.chapman,
+    'Workshop I — The Nutcracker Project',
+    "Day-long workshop for the NWSA Symphony Orchestra and guest ensembles, built around Tchaikovsky's The Nutcracker. Workshop 2:00–5:45pm; combined concert 6:00pm. Partners: SFYS, MMP Leaders, Krop HS, Palmetto HS."),
   ev('so-concert-oct', 'Concert', ['symphony-orchestra'], '2026-10-06', '19:00', V.chapman,
     'Symphony Orchestra Concert', T10_5),
   ev('hs-voice-oct', 'Concert', ['high-school-choir'], '2026-10-19', '19:00', V.wolfsonAud,
@@ -114,12 +125,19 @@ const EVENTS = [
     { attendanceEnsembleIds: ['symphony-orchestra'] }),
   ev('jazz-combos-dec', 'Concert', ['jazz-ensemble'], '2026-12-03', '19:00', V.wolfsonAud,
     'High School Jazz Combos Concert', FREE),
+  ev('music-showcase-dec', 'Concert', ALL_MUSIC, '2026-12-09', '10:00', V.chapman,
+    'NWSA Music Showcase Concert',
+    'Morning education & recruitment concert — visiting schools attend.'),
   ev('we-jazz-dec', 'Concert', ['wind-ensemble', 'jazz-ensemble'], '2026-12-09', '19:00', V.chapman,
     'High School Wind Ensemble & Jazz Ensemble Concert', T10_5),
   ev('choir-holiday', 'Concert', ['high-school-choir'], '2026-12-10', '19:00', V.trinity,
     'High School Choir Holiday Concert', T10_5),
   ev('faculty-recital-jan', 'Concert', [], '2027-01-25', '18:30', V.wolfsonAud, 'NWSA Music Faculty Recital',
     `${FREE} All NWSA students (all divisions) are required to attend.`, { attendanceEnsembleIds: ALL_MUSIC }),
+  ev('workshop-2-kendall', 'Concert', ['college-chamber-orchestra', 'symphony-orchestra'], '2027-02-06', '',
+    { location: 'MDC Kendall Campus', venueAddress: '11011 SW 104 Street, Miami' },
+    'Workshop II — Kendall',
+    'In development with Dr. Leo Walz — time TBD. High school orchestras and bands alongside college ensembles; shorter works and combined-forces repertoire.'),
   ev('we-jazz-feb', 'Concert', ['wind-ensemble', 'jazz-ensemble'], '2027-02-08', '19:00', V.chapman,
     'High School Wind Ensemble & Jazz Ensemble Concert', T10_5),
   ev('side-by-side', 'Concert', ['college-chamber-orchestra', 'symphony-orchestra'], '2027-02-09', '18:30', V.chapman,
@@ -260,26 +278,22 @@ async function run() {
     }
   }
 
-  // 2. Delete replaced events: every Concert + any previous oc26-* import.
+  // 2. Create any missing calendar events. NOTHING is ever updated or
+  //    deleted: director-created events and Hub edits to previously-imported
+  //    docs always win over this script.
   const evSnap = await db.collection('events').get();
-  const toDelete = evSnap.docs.filter(d => d.data().type === 'Concert' || d.id.startsWith('oc26-'));
-  console.log(`Deleting ${toDelete.length} events (existing concerts + previous imports) of ${evSnap.size} total…`);
-  for (let i = 0; i < toDelete.length; i += 400) {
+  const existing = new Set(evSnap.docs.map(d => d.id));
+  const missing = EVENTS.filter(e => !existing.has(e.id));
+  console.log(`Creating ${missing.length} missing events (${EVENTS.length - missing.length} already present — left untouched).`);
+  for (let i = 0; i < missing.length; i += 400) {
     const batch = db.batch();
-    toDelete.slice(i, i + 400).forEach(d => batch.delete(d.ref));
-    await batch.commit();
-  }
-
-  // 3. Write the official calendar.
-  for (let i = 0; i < EVENTS.length; i += 400) {
-    const batch = db.batch();
-    for (const { id, ...data } of EVENTS.slice(i, i + 400)) {
+    for (const { id, ...data } of missing.slice(i, i + 400)) {
       batch.set(db.collection('events').doc(id), data);
     }
     await batch.commit();
   }
-  const concerts = EVENTS.filter(e => e.type === 'Concert').length;
-  console.log(`Imported ${EVENTS.length} events (${concerts} concerts, ${EVENTS.length - concerts} division/school events).`);
+  const concerts = missing.filter(e => e.type === 'Concert').length;
+  console.log(`Created ${missing.length} events (${concerts} concerts, ${missing.length - concerts} division/school events).`);
 }
 
 run().then(() => { console.log('Done.'); process.exit(0); })
