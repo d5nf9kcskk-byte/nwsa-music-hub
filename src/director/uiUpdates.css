@@ -820,3 +820,14 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
 /* Schedule Change (block swap): selected rows */
 .dir-swap-picked { outline: 2px solid var(--dir-blue); outline-offset: -2px; border-radius: var(--dir-radius); }
 .dir-att-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+
+/* Per-section instruction line (#ux): one short "here's what this screen is
+   for" sentence rendered by the shell under the header, on every tab. */
+.dir-page-hint {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 10px 16px 0; padding: 10px 14px;
+  background: var(--dir-surface); border: 1.5px solid var(--dir-border);
+  border-left: 3px solid var(--dir-primary);
+  border-radius: var(--dir-radius);
+  font-size: 13.5px; line-height: 1.45; color: var(--dir-text-muted);
+}

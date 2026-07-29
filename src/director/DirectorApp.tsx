@@ -31,6 +31,7 @@ import { RepertoireManager } from './repertoire/RepertoireManager';
 import { DocumentsView } from './documents/DocumentsView';
 import { TodayView } from './today/TodayView';
 import { EnsembleHubView } from './ensembles/EnsembleHubView';
+import { EnsemblesView } from './ensembles/EnsemblesView';
 import { useEnsembles } from './hooks/useEnsembles';
 import { ensembleColor, musicEnsembles } from './utils';
 import type { DirTab, DirNavOpts } from './types-nav';
@@ -60,6 +61,7 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
   {
     head: 'People',
     items: [
+      { id: 'ensembles', label: 'Ensembles',   Icon: Music    },
       { id: 'roster', label: 'Roster',         Icon: Users    },
       { id: 'notes',  label: 'Progress Notes', Icon: FileText },
     ],
@@ -88,13 +90,35 @@ const TAB_TITLES: Record<DirTab, string> = {
   assignments:     'Assignments',
   announcements:   'Announcements',
   ensembleHub:     'Ensemble',
+  ensembles:       'Ensembles',
   whosOut:         'Who\u2019s Out',
 };
 
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'roster', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
-  'notes', 'assignments', 'announcements', 'ensembleHub', 'whosOut', 'scheduleSwap',
+  'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'whosOut', 'scheduleSwap',
 ];
+
+/**
+ * One- or two-sentence "here's what this screen is for" line under each
+ * section's header (#ux \u2014 directors asked for a short pointer to get going).
+ * Rendered centrally so every tab gets one without touching each view.
+ */
+const TAB_HINTS: Partial<Record<DirTab, string>> = {
+  today:           'Your day at a glance \u2014 everything happening today, with one-tap roll for each rehearsal.',
+  roll:            'Pick an ensemble, then mark who\u2019s here. Tap a student to cycle Present, Absent, and Tardy.',
+  schedule:        'The full calendar of rehearsals, concerts, and events. Tap a day to see or add its events.',
+  whosOut:         'Every absence and pull-out in one place. Switch Day and Month to spot patterns.',
+  scheduleSwap:    'Change one day\u2019s ensemble times: use the arrows (or Month/List view) to pick the day, then swap, shift, or cancel a block. Families see a red banner automatically.',
+  scheduleChanges: 'Temporary student moves \u2014 subs, pull-outs, and one-day loans between ensembles.',
+  ensembles:       'Create ensembles, add students to their rosters, and open any ensemble\u2019s hub \u2014 all from here.',
+  roster:          'Every student in the program. Tap a student to edit their info or which ensembles they\u2019re in.',
+  notes:           'Private progress notes per student. Only directors ever see these.',
+  repertoire:      'What each ensemble is playing, by ensemble or by concert. This feeds the printed program.',
+  documents:       'Handbooks, forms, and files for families. Anything you post here shows on the public site.',
+  assignments:     'Post practice assignments and exams. Students see them on the public site.',
+  announcements:   'Post news for families \u2014 school-wide or per ensemble. Urgent posts show as a red banner.',
+};
 
 export default function DirectorApp() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -203,6 +227,11 @@ export default function DirectorApp() {
                 </div>
               ))}
               {ensembles.length > 0 && <div className="dir-rail-head">Ensembles</div>}
+              {ensembles.length > 0 && (
+                <button className={`dir-rail-item ${tab === 'ensembles' ? 'active' : ''}`} onClick={() => go('ensembles')} aria-current={tab === 'ensembles' ? 'page' : undefined}>
+                  <Music size={18} /> All Ensembles
+                </button>
+              )}
               {musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
                 <button
                   key={e.id}
@@ -267,6 +296,7 @@ export default function DirectorApp() {
 
           <main className="dir-content">
             <StatusStrips />
+            {TAB_HINTS[tab] && <div className="dir-page-hint no-print">{TAB_HINTS[tab]}</div>}
             {tab === 'today'           && <TodayView onNavigate={go} />}
             {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} onNavigate={go} />}
             {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} onNavigate={go} />}
@@ -287,6 +317,7 @@ export default function DirectorApp() {
             {tab === 'notes'           && <NotesView />}
             {tab === 'assignments'     && <AssignmentsView />}
             {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} onClose={() => {}} />}
+            {tab === 'ensembles'       && <EnsemblesView onNavigate={go} />}
             {tab === 'ensembleHub' && intent.ensembleId && (
               <EnsembleHubView key={intentKey} ensembleId={intent.ensembleId} onNavigate={go} />
             )}
@@ -354,6 +385,14 @@ export default function DirectorApp() {
                       <Users size={19} /> Ensembles
                       <ChevronDown size={16} style={{ marginLeft: 'auto', transform: ensemblesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
                     </button>
+                    {ensemblesOpen && (
+                      <button
+                        className={`dir-menu-item dir-menu-subitem ${tab === 'ensembles' ? 'active' : ''}`}
+                        onClick={() => go('ensembles')}
+                      >
+                        <Music size={16} /> All Ensembles
+                      </button>
+                    )}
                     {ensemblesOpen && musicEnsembles(ensembles).map(e => (
                       <button
                         key={e.id}

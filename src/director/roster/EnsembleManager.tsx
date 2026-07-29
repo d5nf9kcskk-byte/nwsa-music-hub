@@ -8,12 +8,17 @@ import type { Ensemble } from '../types';
 
 interface Props {
   onClose: () => void;
+  /** Open straight into the "New Ensemble" form (Ensembles page shortcut). */
+  startNew?: boolean;
+  /** Called with the new ensemble's id after a create, so the caller can
+   *  jump straight to "add students" — the step directors kept missing. */
+  onCreated?: (id: string) => void;
 }
 
-export function EnsembleManager({ onClose }: Props) {
+export function EnsembleManager({ onClose, startNew, onCreated }: Props) {
   const { ensembles, addEnsemble, updateEnsemble, deleteEnsemble } = useEnsembles();
   const { addEvent } = useEvents();
-  const [editing, setEditing] = useState<Ensemble | 'new' | null>(null);
+  const [editing, setEditing] = useState<Ensemble | 'new' | null>(startNew ? 'new' : null);
   const [generating, setGenerating] = useState<Ensemble | null>(null);
 
   async function move(e: Ensemble, dir: -1 | 1) {
@@ -33,8 +38,12 @@ export function EnsembleManager({ onClose }: Props) {
         ensemble={editing === 'new' ? null : editing}
         nextOrder={(ensembles.reduce((m, e) => Math.max(m, e.order), 0)) + 1}
         onSave={async data => {
-          if (editing === 'new') await addEnsemble(data);
-          else await updateEnsemble(editing.id, data);
+          if (editing === 'new') {
+            const id = await addEnsemble(data);
+            if (id && onCreated) { onCreated(id); return; }
+          } else {
+            await updateEnsemble(editing.id, data);
+          }
         }}
         onDelete={editing !== 'new' ? async () => deleteEnsemble(editing.id) : undefined}
         onBack={() => setEditing(null)}
