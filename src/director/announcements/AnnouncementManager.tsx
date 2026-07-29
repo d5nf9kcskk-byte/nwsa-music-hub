@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Plus, Pencil, Pin, ChevronLeft, Clock } from 'lucide-react';
+import { Plus, Pencil, Pin, ChevronLeft, Clock, Printer } from 'lucide-react';
 import { useAnnouncements, useMinuteTick } from '../hooks/useAnnouncements';
 import { queueUrgentRelay, markRelayHandled } from './urgentRelay';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { ensembleColor, parseDate, musicEnsembles, toDateStr } from '../utils';
 import { NotesText } from '../../public/components/NotesText';
 import { EnsembleFilter } from '../components/EnsembleFilter';
+import { PrintableUpdates } from './PrintableUpdates';
+import { useModalA11y } from '../../shared/useModalA11y';
 import type { Announcement } from '../types';
 
 interface Props {
@@ -20,6 +22,7 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
   const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useAnnouncements();
   const { ensembles } = useEnsembles();
   const [editing, setEditing] = useState<Announcement | 'new' | null>(null);
+  const [printing, setPrinting] = useState(false);
   const musicEns = musicEnsembles(ensembles);
   const [filterEns, setFilterEns] = useState(() => {
     try { return localStorage.getItem('dir.announcements.ensemble') ?? ''; } catch { return ''; }
@@ -88,6 +91,14 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
 
   const inner = (
     <>
+        {asTab && (
+          <div className="dir-section-header">
+            <span className="dir-section-title">Announcements</span>
+            <button className="dir-tool-btn" onClick={() => setPrinting(true)}>
+              <Printer size={14} /> Print
+            </button>
+          </div>
+        )}
         {announcements.length > 0 && (
           <EnsembleFilter ensembles={ensembles} value={filterEns} onChange={pickEns} />
         )}
@@ -134,20 +145,33 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
   );
 
   if (asTab) {
-    return <div className="dir-tab-page">{inner}</div>;
+    return (
+      <>
+        <div className="dir-tab-page">{inner}</div>
+        {printing && <PrintableUpdates onClose={() => setPrinting(false)} />}
+      </>
+    );
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
-        <div className="dir-drawer-handle" />
-        <div className="dir-drawer-header">
-          <span className="dir-drawer-title">Announcements</span>
-          <button className="dir-drawer-close" onClick={onClose}>×</button>
+    <>
+      <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+        <div className="dir-drawer">
+          <div className="dir-drawer-handle" />
+          <div className="dir-drawer-header">
+            <span className="dir-drawer-title">Announcements</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button className="dir-icon-btn" onClick={() => setPrinting(true)} aria-label="Print updates" title="Print updates">
+                <Printer size={16} />
+              </button>
+              <button className="dir-drawer-close" onClick={onClose}>×</button>
+            </div>
+          </div>
+          {inner}
         </div>
-        {inner}
       </div>
-    </div>
+      {printing && <PrintableUpdates onClose={() => setPrinting(false)} />}
+    </>
   );
 }
 
@@ -162,6 +186,9 @@ interface FormProps {
 }
 
 function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, onClose, asTab }: FormProps) {
+  // Drawer mode only — asTab renders as ordinary page content, not an
+  // overlay, so there's no back-gesture-closes-overlay behavior to wire up.
+  const panelRef = useModalA11y<HTMLDivElement>(onBack, !asTab, { closeOnBack: true });
   const [title, setTitle] = useState(announcement?.title ?? '');
   const [body, setBody] = useState(announcement?.body ?? '');
   const [ensembleId, setEnsembleId] = useState<string | null>(announcement?.ensembleId ?? null);
@@ -381,7 +408,7 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
+      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={announcement ? 'Edit Announcement' : 'New Announcement'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>

@@ -13,6 +13,15 @@ export type StaffRole = 'owner' | 'director' | 'teacher' | 'assistant';
 export interface Ensemble {
   id: string;
   name: string;
+  /** Optional Spanish display name, shown on the public site when the ES
+   *  toggle is on. Absent = the (English) `name` is used for both languages —
+   *  most ensemble names (proper nouns like "Camerata", genre words like
+   *  "Jazz Ensemble") don't need a separate translation. */
+  nameEs?: string;
+  /** Conductor/director's name as printed on concert programs (#program-template),
+   *  e.g. "Hyunjee Chung" or "Dr. Hyunjee Chung". Also groups ensembles under
+   *  one conductor on the cover page when several share the same name. */
+  conductorName?: string;
   order: number;
   color?: string;            // hex used for calendar chips; falls back to a palette by order
   defaultLocation?: string;
@@ -310,6 +319,9 @@ export interface Assignment {
   title: string;
   type: AssignmentType;
   description?: string;
+  /** Optional Spanish translation of the description, shown when the ES
+   *  toggle is on (mirrors Announcement.bodyEs). */
+  descriptionEs?: string;
   dueDate: string; // YYYY-MM-DD
   ensembleIds: string[];
   studentIds?: string[];  // specific individuals (in addition to whole ensembles)
@@ -317,6 +329,10 @@ export interface Assignment {
   formUrl?: string;
   createdAt: number;
   attachments?: Attachment[];
+  /** Scheduled publishing (mirrors Announcement.publishAt): epoch ms. If set
+   *  and in the future, hidden from every public surface until that moment —
+   *  the Assignments screen shows it as "Scheduled". */
+  publishAt?: number;
   /* ── Change tracking (director-side only, never shown publicly) ── */
   updatedAt?: number;
   updatedBy?: string; // director's display name (falls back to email)
@@ -407,6 +423,10 @@ export type DocumentAudience = 'All' | 'High School' | 'College';
 export interface LibraryDocument {
   id: string;
   title: string;
+  /** Optional Spanish translations, shown when the ES toggle is on (mirrors
+   *  Announcement.titleEs/bodyEs). Absent = the English fields are used. */
+  titleEs?: string;
+  descriptionEs?: string;
   category: DocumentCategory;
   /** Empty = General (school-wide, not tied to an ensemble). */
   ensembleIds: string[];
@@ -418,6 +438,10 @@ export interface LibraryDocument {
   url?: string;
   description?: string;
   createdAt: number;
+  /** Scheduled publishing (mirrors Announcement.publishAt): epoch ms. If set
+   *  and in the future, hidden from every public surface until that moment —
+   *  the Documents screen shows it as "Scheduled". */
+  publishAt?: number;
   updatedAt?: number;
   updatedBy?: string; // director's display name (falls back to email) — director-side only
   order?: number;

@@ -211,7 +211,6 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   // ── Seating chart card ──────────────────────────────────────────────────
   'seat.current':   { en: 'Current',            es: 'Actual' },
   'seat.published': { en: 'Published {date}',   es: 'Publicado el {date}' },
-  'seat.stage':     { en: 'Stage · Conductor',  es: 'Escenario · Director' },
   'seat.you':       { en: '(you)',              es: '(tú)' },
 
   // ── Repertoire lists ────────────────────────────────────────────────────

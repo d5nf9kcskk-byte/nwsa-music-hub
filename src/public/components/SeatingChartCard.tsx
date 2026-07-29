@@ -4,10 +4,9 @@ import { fmtMonthDayYear } from '../../shared/dates';
 import type { SeatingChart } from '../../director/types';
 
 /**
- * One published seating chart, rendered the way students read it: a
- * "Stage · Conductor" orientation strip on top, then each section's ranked
- * list (seat 1 = principal). Shared by the ensemble page and the piece page
- * so both show the exact same student-facing view.
+ * One published seating chart, rendered the way students read it: each
+ * section's ranked list (seat 1 = principal). Shared by the ensemble page
+ * and the piece page so both show the exact same student-facing view.
  */
 export function SeatingChartCard({ chart, studentName, subtitle, current }: {
   chart: SeatingChart;
@@ -30,7 +29,6 @@ export function SeatingChartCard({ chart, studentName, subtitle, current }: {
           {t('seat.published', { date: fmtMonthDayYear(chart.date) })}
         </div>
       )}
-      <div className="pub-seat-stage" aria-hidden="true">{t('seat.stage')}</div>
       {chart.sections.map((sec, i) => (
         <div key={i} className="pub-seat-section">
           <div className="pub-seat-section-name">{sec.section}</div>

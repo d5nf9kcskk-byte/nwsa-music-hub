@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useEvents } from '../director/hooks/useEvents';
-import { ensembleColor, musicEnsembles, pieceEnsembleIds } from '../director/utils';
+import { ensembleColor, ensembleDisplayName, musicEnsembles, pieceEnsembleIds } from '../director/utils';
 import { PubEnsembleSelect } from './components/PubEnsembleSelect';
 import { PubRepertoire } from './components/PubRepertoire';
 import { primaryStudent } from '../shared/identity';
+import { useLang } from '../shared/i18n';
 
 export function PublicRepertoire() {
+  useLang(); // ensemble names follow the EN/ES toggle
   const { ensembles } = useEnsembles();
   const { pieces } = useRepertoire();
   const { events } = useEvents();
@@ -47,7 +49,7 @@ export function PublicRepertoire() {
           <div key={ensemble.id}>
             <h2 className="pub-section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: ensembleColor(ensemble), display: 'inline-block', flexShrink: 0 }} />
-              {ensemble.name}
+              {ensembleDisplayName(ensemble)}
             </h2>
             <PubRepertoire pieces={piecesByEnsemble[ensemble.id]} eventsById={eventsById} studentInstrument={primaryStudent()?.instrument} />
           </div>

@@ -739,7 +739,7 @@
 .pub-print-btn:active { opacity: 0.85; }
 
 .pub-program-sheet {
-  background: var(--pub-surface); border: 1px solid var(--pub-border);
+  background: var(--pub-surface); color: var(--pub-text); border: 1px solid var(--pub-border);
   border-radius: var(--pub-radius); padding: 28px 26px;
 }
 

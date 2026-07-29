@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { todayStr } from '../utils';
+import { recordActivity } from '../hooks/useActivityLog';
+import { useModalA11y } from '../../shared/useModalA11y';
 import type { ProgressNote, Student } from '../types';
 
 interface Props {
@@ -23,6 +25,7 @@ export function NoteForm({ note, students, defaultStudentId, onSave, onDelete, o
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
 
   useEffect(() => {
     if (note) {
@@ -48,6 +51,7 @@ export function NoteForm({ note, students, defaultStudentId, onSave, onDelete, o
     setSaveError('');
     try {
       await onSave(form);
+      recordActivity('notes.save', students.find(s => s.id === form.studentId)?.name);
       onClose();
     } catch (e) {
       setSaving(false);
@@ -72,7 +76,7 @@ export function NoteForm({ note, students, defaultStudentId, onSave, onDelete, o
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
+      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={note ? 'Edit Note' : 'New Note'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <span className="dir-drawer-title">{note ? 'Edit Note' : 'New Note'}</span>

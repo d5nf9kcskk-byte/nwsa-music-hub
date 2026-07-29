@@ -1,5 +1,7 @@
-import type { Ensemble, EventType, RepertoirePiece, PiecePartLink, PieceMovement, CalendarEvent } from './types';
+import type { Ensemble, EventType, RepertoirePiece, PiecePartLink, PieceMovement, CalendarEvent, SeatingChart, Student } from './types';
 import { dateLocale, fmtDate } from '../shared/dates';
+import { getLang } from '../shared/i18n';
+import { scoreOrderRank, lastName } from './scoreOrder';
 
 // ── Date helpers (work in local time, store as YYYY-MM-DD) ──────────────────────
 
@@ -109,6 +111,21 @@ export function ensembleColor(e?: Pick<Ensemble, 'color' | 'order'>): string {
 }
 
 export const ENSEMBLE_PALETTE = PALETTE;
+
+/** True if a scheduled item (Assignment/LibraryDocument) should show now —
+ *  no publishAt set, or its publish moment has already passed. Mirrors the
+ *  announcement scheduling gate (visibleAnnouncements in useAnnouncements.ts). */
+export function isPublished(item: { publishAt?: number }, now: number = Date.now()): boolean {
+  return !item.publishAt || item.publishAt <= now;
+}
+
+/** Ensemble name in the current public-site language (#es-ensemble-names):
+ *  the Spanish `nameEs` when the ES toggle is on and one was entered, else the
+ *  canonical `name` — so an ensemble without a translation still renders. */
+export function ensembleDisplayName(e?: Pick<Ensemble, 'name' | 'nameEs'> | null): string {
+  if (!e) return '';
+  return getLang() === 'es' && e.nameEs ? e.nameEs : e.name;
+}
 
 // ── Event type display ──────────────────────────────────────────────
 
@@ -266,4 +283,37 @@ export function studentHasAssignment(
 ): boolean {
   if ((a.studentIds ?? []).includes(studentId)) return true;
   return a.ensembleIds.some(id => (studentEnsembleIds ?? []).includes(id));
+}
+
+// ── Seating sections (shared by the seating editor and the printed program's
+//    roster pages — kept here, not in a component file, so public/shared code
+//    can import it without dragging director UI into that bundle) ──────────
+
+/** Section key for seating. Keeps Violin 1 vs Violin 2 distinct: the roster
+ *  stores instrument as plain "Violin", so honor a part recorded in the
+ *  student's `section` ("Violin 1" / "1" / "II"). Instruments already stored as
+ *  "Violin I" / "Violin II" split on their own via scoreOrderRank (400 vs 402).
+ *  Non-numeric section roles (e.g. "First Chair") never trigger a split. */
+export function seatingSectionKey(s: Student): string {
+  const instr = (s.instrument || 'Other').trim();
+  if (/^violins?$/i.test(instr) && s.section) {
+    if (/\b(2|ii)\b/i.test(s.section)) return 'Violin 2';
+    if (/\b(1|i)\b/i.test(s.section)) return 'Violin 1';
+  }
+  return instr;
+}
+
+export function buildSections(roster: Student[]): SeatingChart['sections'] {
+  const byInstr = new Map<string, Student[]>();
+  for (const s of roster) {
+    const key = seatingSectionKey(s);
+    if (!byInstr.has(key)) byInstr.set(key, []);
+    byInstr.get(key)!.push(s);
+  }
+  return [...byInstr.entries()]
+    .sort((a, b) => scoreOrderRank(a[0]) - scoreOrderRank(b[0]) || a[0].localeCompare(b[0]))
+    .map(([section, list]) => ({
+      section,
+      seats: list.sort((a, b) => lastName(a.name).localeCompare(lastName(b.name))).map(s => ({ studentId: s.id })),
+    }));
 }

@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { Ensemble } from '../../director/types';
-import { musicEnsembles } from '../../director/utils';
+import { musicEnsembles, ensembleDisplayName } from '../../director/utils';
 
 /**
  * Compact, music-only ensemble dropdown for the family-facing pages — replaces
@@ -26,7 +26,7 @@ export function PubEnsembleSelect({ ensembles, value, onChange, allLabel = 'All 
       style={style}
     >
       <option value="">{allLabel}</option>
-      {music.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+      {music.map(e => <option key={e.id} value={e.id}>{ensembleDisplayName(e)}</option>)}
       {extraOptions?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   );

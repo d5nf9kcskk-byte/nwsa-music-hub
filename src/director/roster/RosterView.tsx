@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { UserPlus, Users, SlidersHorizontal, Music, MapPinned, CalendarX, FileSpreadsheet, GraduationCap } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useAllAttendance } from '../hooks/useAttendance';
 import { useContacts } from '../hooks/useContacts';
+import { recordActivity } from '../hooks/useActivityLog';
 import { StudentForm } from './StudentForm';
 import { StudentDetail } from './StudentDetail';
 import { EnsembleManager } from './EnsembleManager';
@@ -23,6 +24,8 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
   const { students, loading: studentsLoading, addStudent, updateStudent, deleteStudent } = useStudents();
   const { records } = useAllAttendance();
   const { contacts, saveContact } = useContacts();
+
+  useEffect(() => { recordActivity('roster.view'); }, []);
 
   const absenceCounts = useMemo(() => {
     const m: Record<string, number> = {};

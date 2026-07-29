@@ -616,7 +616,7 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-ens-grid-btn:active { background: var(--dir-surface-2); }
 
 /* Seating editor */
-.dir-seat-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--dir-border); }
+.dir-seat-row { display: flex; align-items: center; gap: 6px; padding: 7px 0; border-bottom: 1px solid var(--dir-border); }
 .dir-seat-num {
   width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%;
   background: var(--dir-blue); color: #fff; font-size: 12px; font-weight: 800;
@@ -625,8 +625,54 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-seat-body { flex: 1; min-width: 0; }
 .dir-seat-name { font-size: 14.5px; font-weight: 700; color: var(--dir-text); }
 .dir-seat-note { height: 30px; font-size: 12px; margin-top: 3px; padding: 4px 8px; }
-.dir-seat-moves { display: flex; gap: 3px; flex-shrink: 0; }
+.dir-seat-moves { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .dir-seat-move { width: 30px; height: 30px; }
+
+/* Drag-to-reorder grip (#seating-dnd) — replaced the up/down chevrons. */
+.dir-seat-grip {
+  display: flex; align-items: center; justify-content: center;
+  width: 24px; height: 34px; margin-left: -6px; flex-shrink: 0; padding: 0;
+  background: none; border: none; border-radius: 8px;
+  color: var(--dir-text-muted); cursor: grab;
+  touch-action: none; -webkit-tap-highlight-color: transparent;
+}
+.dir-seat-grip:active { cursor: grabbing; color: var(--dir-blue); }
+.dir-seat-row.dragging {
+  position: relative; z-index: 2;
+  background: var(--dir-surface);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+.dir-seat-section-move {
+  height: 30px; font-size: 11.5px; border-radius: 8px; max-width: 92px;
+  border: 1.5px solid var(--dir-border); background: var(--dir-surface); color: var(--dir-text);
+}
+
+/* Quick Add (#quick-add) — natural-language draft preview */
+.dir-quickadd-preview {
+  margin-top: 4px;
+  padding: 12px;
+  border: 1.5px solid var(--dir-border);
+  border-radius: 10px;
+  background: var(--dir-bg);
+}
+.dir-quickadd-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.dir-quickadd-row:last-of-type { margin-bottom: 0; }
+.dir-quickadd-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
+  background: var(--dir-surface); border: 1px solid var(--dir-border); color: var(--dir-text);
+}
+.dir-quickadd-chip-ens { background: var(--dir-blue); border-color: var(--dir-blue); color: #fff; }
+.dir-quickadd-chip-muted { color: var(--dir-text-muted); font-weight: 500; font-style: italic; }
+.dir-quickadd-title { margin-top: 8px; font-size: 13px; color: var(--dir-text-muted); font-style: italic; }
+
+/* Custom seating categories (#seating-sections) */
+.dir-seat-section-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.dir-seat-section-name { flex: 1; font-weight: 700; }
+.dir-seat-add {
+  margin-top: 8px; padding: 10px;
+  border: 1.5px dashed var(--dir-border); border-radius: 10px;
+}
 
 /* Preferred name / pronunciation (#46) + planned-absence pre-badge (#27) */
 .dir-goesby { margin-left: 6px; font-size: 12.5px; font-weight: 700; color: var(--dir-blue); }

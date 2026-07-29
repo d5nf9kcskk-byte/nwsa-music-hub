@@ -4,7 +4,8 @@ import { ClipboardCheck, Calendar } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { useStudents } from '../director/hooks/useStudents';
-import { todayStr, ensembleColor, assignmentEmoji, musicEnsembles } from '../director/utils';
+import { useMinuteTick } from '../director/hooks/useAnnouncements';
+import { todayStr, ensembleColor, ensembleDisplayName, assignmentEmoji, musicEnsembles, isPublished } from '../director/utils';
 import { NotesText } from './components/NotesText';
 import { PageHeader, SkeletonCards, EmptyState } from './components/PageHeader';
 import { t, useLang, getLang } from '../shared/i18n';
@@ -21,6 +22,7 @@ export function PublicAssignments() {
   const [searchParams] = useSearchParams();
   const focusId = searchParams.get('focus');
   const today = todayStr();
+  const now = useMinuteTick(); // a scheduled assignment appears the minute it publishes
 
   // Deep links from Home / calendars / My Schedule land on the exact card.
   useEffect(() => {
@@ -36,8 +38,10 @@ export function PublicAssignments() {
 
   // Upcoming (due today or later), earliest first.
   const upcoming = useMemo(
-    () => assignments.filter(a => a.dueDate >= today).sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
-    [assignments, today],
+    () => assignments
+      .filter(a => a.dueDate >= today && isPublished(a, now))
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
+    [assignments, today, now],
   );
 
   const byEnsemble = useMemo(() => {
@@ -52,7 +56,9 @@ export function PublicAssignments() {
 
   const orderedEns = musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).filter(e => byEnsemble.m[e.id]?.length);
 
-  const card = (a: Assignment) => (
+  const card = (a: Assignment) => {
+    const desc = (getLang() === 'es' && a.descriptionEs) || a.description;
+    return (
     <div key={a.id} id={`assign-${a.id}`} className="pub-assign-card">
       <div className="pub-assign-top">
         <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
@@ -64,14 +70,15 @@ export function PublicAssignments() {
           </div>
         </div>
       </div>
-      {a.description && <div className="pub-assign-desc"><NotesText text={a.description} /></div>}
+      {desc && <div className="pub-assign-desc"><NotesText text={desc} /></div>}
       {a.formUrl && (
         <a className="pub-assign-form-btn" href={a.formUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>
           📝 {t('misc.openExamForm')}
         </a>
       )}
     </div>
-  );
+    );
+  };
 
   return (
     <div className="pub-page">
@@ -100,7 +107,7 @@ export function PublicAssignments() {
                     <div className="pub-assign-meta">
                       {a.ensembleIds.map(eid => {
                         const e = ensembles.find(x => x.id === eid);
-                        return e ? <span key={eid} className="pub-assign-type" style={{ color: ensembleColor(e) }}>{e.name}</span> : null;
+                        return e ? <span key={eid} className="pub-assign-type" style={{ color: ensembleColor(e) }}>{ensembleDisplayName(e)}</span> : null;
                       })}
                       <span>{t('cal.due')} {fmtShortDate(a.dueDate)}</span>
                     </div>
@@ -113,7 +120,7 @@ export function PublicAssignments() {
             <div key={e.id}>
               <h2 className="pub-section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: ensembleColor(e), display: 'inline-block' }} />
-                {e.name}
+                {ensembleDisplayName(e)}
               </h2>
               {byEnsemble.m[e.id].map(card)}
             </div>

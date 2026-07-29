@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { ensembleColor } from '../../director/utils';
+import { ensembleColor, ensembleDisplayName } from '../../director/utils';
 import type { Ensemble } from '../../director/types';
 
 /** An ensemble name rendered as a link to its hub page, with an optional color dot. */
@@ -8,7 +8,7 @@ export function EnsembleLink({ ensemble, dot, className }: { ensemble?: Ensemble
   return (
     <Link to={`/ensemble/${ensemble.id}`} className={className ?? 'pub-ens-link'}>
       {dot && <span className="pub-chip-dot" style={{ background: ensembleColor(ensemble) }} />}
-      {ensemble.name}
+      {ensembleDisplayName(ensemble)}
     </Link>
   );
 }
@@ -20,7 +20,7 @@ export function EnsembleLinks({ ensembles }: { ensembles: Ensemble[] }) {
       {ensembles.map((e, i) => (
         <span key={e.id}>
           {i > 0 && ', '}
-          <Link to={`/ensemble/${e.id}`} className="pub-ev-ens-link">{e.name}</Link>
+          <Link to={`/ensemble/${e.id}`} className="pub-ev-ens-link">{ensembleDisplayName(e)}</Link>
         </span>
       ))}
     </>

@@ -15,7 +15,7 @@ import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../direct
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { studentExpectation } from '../director/rosterResolver';
-import { todayStr, toDateStr, parseDate, formatTime, ensembleColor, findPartForInstrument, studentHasAssignment, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { todayStr, toDateStr, parseDate, formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, studentHasAssignment, assignmentEmoji, isPublished, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubSelect } from './components/PubSelect';
 import { PubAnnouncements } from './components/PubAnnouncements';
@@ -102,10 +102,10 @@ export function PublicSchedule() {
   const myAssignments = useMemo(
     () => student
       ? assignments
-          .filter(a => a.dueDate >= today && studentHasAssignment(a, student.id, student.ensembleIds))
+          .filter(a => a.dueDate >= today && isPublished(a, now) && studentHasAssignment(a, student.id, student.ensembleIds))
           .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
       : [],
-    [assignments, today, student],
+    [assignments, today, now, student],
   );
 
   // Pieces linked to upcoming events that have a part matching this student's instrument.
@@ -167,7 +167,7 @@ export function PublicSchedule() {
         {homeEnsembles.length > 0 && (
           <div className="pub-tag-row">
             {homeEnsembles.map(e => (
-              <Link key={e.id} to={`/ensemble/${e.id}`} className="pub-ens-tag" style={{ background: ensembleColor(e) }}>{e.name}</Link>
+              <Link key={e.id} to={`/ensemble/${e.id}`} className="pub-ens-tag" style={{ background: ensembleColor(e) }}>{ensembleDisplayName(e)}</Link>
             ))}
           </div>
         )}

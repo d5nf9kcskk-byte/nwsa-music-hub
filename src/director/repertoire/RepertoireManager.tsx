@@ -6,6 +6,7 @@ import { useEvents } from '../hooks/useEvents';
 import { ensembleColor, parseDate, musicEnsembles, pieceEnsembleIds } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { EditedByLine } from '../components/EditedByLine';
+import { useModalA11y } from '../../shared/useModalA11y';
 import type { RepertoirePiece, CalendarEvent, Ensemble, PieceMovement, PiecePartLink } from '../types';
 
 interface Props {
@@ -194,6 +195,7 @@ function RepertoireForm({
     const init = piece ? pieceEnsembleIds(piece) : (lockedEnsembleId ? [lockedEnsembleId] : []);
     return init.length ? init : (ensembles[0] ? [ensembles[0].id] : []);
   });
+  const panelRef = useModalA11y<HTMLDivElement>(onBack, true, { closeOnBack: true });
   const [title, setTitle] = useState(piece?.title ?? '');
   const [fullTitle, setFullTitle] = useState(piece?.fullTitle ?? '');
   const [composer, setComposer] = useState(piece?.composer ?? '');
@@ -335,7 +337,7 @@ function RepertoireForm({
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onBack()}>
-      <div className="dir-drawer">
+      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={piece ? 'Edit Piece' : 'New Piece'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <span className="dir-drawer-title">{piece ? 'Edit Piece' : 'New Piece'}</span>

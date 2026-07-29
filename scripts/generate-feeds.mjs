@@ -96,6 +96,7 @@ function buildVEVENT(event, ensembleMap) {
     + (event.title || ensNames || event.type || 'NWSA Event');
   const descParts = [];
   if (ensNames) descParts.push(ensNames);
+  if (event.changeNote) descParts.push(`⚠ Changed: ${event.changeNote}`);
   if (event.repertoire) descParts.push(`Repertoire: ${event.repertoire}`);
   if (event.notes) descParts.push(event.notes);
   const desc = descParts.join('\\n');
@@ -158,6 +159,17 @@ function wrapCalendar(name, description, vevents) {
     const allVevents = events.map(e => buildVEVENT(e, ensembleMap));
     writeFileSync('dist/feeds/all.ics', wrapCalendar('NWSA Music', 'All NWSA music department events', allVevents));
 
+    // Schedule-changes-only feed (#director-changes-feed): cancellations and
+    // events carrying a changeNote — director/teacher side only (linked from
+    // the Schedule screen, never surfaced to students/families). Deliberately
+    // narrow so subscribing doesn't mean re-seeing the whole normal schedule.
+    const changedEvents = events.filter(e => e.status === 'Cancelled' || e.changeNote);
+    const changeVevents = changedEvents.map(e => buildVEVENT(e, ensembleMap));
+    writeFileSync(
+      'dist/feeds/changes.ics',
+      wrapCalendar('NWSA Music — Schedule Changes', 'Cancellations and schedule changes only', changeVevents),
+    );
+
     // Per-ensemble feeds
     for (const ens of ensembles) {
       const ensEvents = events.filter(e => (e.ensembleIds ?? []).includes(ens.id));
@@ -209,6 +221,7 @@ function wrapCalendar(name, description, vevents) {
       generated: new Date().toISOString(),
       feeds: [
         { name: 'All Events', file: 'all.ics' },
+        { name: 'Schedule Changes Only', file: 'changes.ics' },
         ...ensembles.map(e => ({ name: e.name, ensembleId: e.id, file: `ensemble-${e.id.replace(/[^a-z0-9-]/gi, '-')}.ics` })),
       ],
     };
