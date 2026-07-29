@@ -85,7 +85,10 @@ export function useEvents() {
    * note, the snapshot, the linked announcement id, and the update stamp (so
    * the public "UPDATED" tag doesn't linger). Returns the announcement id the
    * caller should delete, if one was posted. If no snapshot was captured (a
-   * legacy/manual change), it still un-cancels and clears the note.
+   * legacy/manual change), it still un-cancels and clears the note — but it
+   * must NOT touch the time/room: with no snapshot, the live startTime /
+   * endTime / location ARE the only record of the schedule, and deleting
+   * them blanked one-off events like a manually-noted rehearsal.
    */
   async function revertEvent(id: string): Promise<string | undefined> {
     if (!db) return;
@@ -93,15 +96,18 @@ export function useEvents() {
     const cf = e?.changeFrom;
     const payload: Record<string, unknown> = {
       status: cf?.status ?? 'Scheduled',
-      startTime: cf?.startTime ?? deleteField(),
-      endTime: cf?.endTime ?? deleteField(),
-      location: cf?.location ?? deleteField(),
       changeNote: deleteField(),
       changeFrom: deleteField(),
       changeAnnouncementId: deleteField(),
       updatedAt: deleteField(),
       updatedBy: deleteField(),
     };
+    if (cf) {
+      // A field absent from the snapshot was unset originally — clear it.
+      payload.startTime = 'startTime' in cf ? cf.startTime : deleteField();
+      payload.endTime = 'endTime' in cf ? cf.endTime : deleteField();
+      payload.location = 'location' in cf ? cf.location : deleteField();
+    }
     const dbRef = db;
     await trackWrite('Revert', () => updateDoc(doc(dbRef, 'events', id), payload));
     return e?.changeAnnouncementId;
