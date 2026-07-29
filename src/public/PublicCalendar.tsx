@@ -5,7 +5,8 @@ import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
-import { todayStr, toDateStr, parseDate, ensembleColor, assignmentEmoji, musicEnsembles, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { useMinuteTick } from '../director/hooks/useAnnouncements';
+import { todayStr, toDateStr, parseDate, ensembleColor, ensembleDisplayName, assignmentEmoji, musicEnsembles, isPublished, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { FilterMenu } from '../shared/FilterMenu';
 import { PubEventCard } from './components/PubEventCard';
 import { PageHeader, EmptyState } from './components/PageHeader';
@@ -50,6 +51,7 @@ export function PublicCalendar() {
   const { events } = useEvents();
   const { pieces } = useRepertoire();
   const { assignments } = useAssignments();
+  const now = useMinuteTick(); // a scheduled assignment appears the minute it publishes
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [cursor, setCursor] = useState(() => {
@@ -99,8 +101,9 @@ export function PublicCalendar() {
   // filter is set, or when "Assignments" is one of the chosen types.
   const visibleAssignments = useMemo(() => {
     if (typeFilters.length > 0 && !typeFilters.includes('Assignment')) return [];
-    return assignments.filter(a => filterEnsembleIds.length === 0 || a.ensembleIds.some(id => filterEnsembleIds.includes(id)));
-  }, [assignments, filterEnsembleIds, typeFilters]);
+    return assignments.filter(a =>
+      isPublished(a, now) && (filterEnsembleIds.length === 0 || a.ensembleIds.some(id => filterEnsembleIds.includes(id))));
+  }, [assignments, filterEnsembleIds, typeFilters, now]);
   const assignByDate = useMemo(() => {
     const m: Record<string, typeof assignments> = {};
     for (const a of visibleAssignments) (m[a.dueDate] ??= []).push(a);
@@ -170,7 +173,7 @@ export function PublicCalendar() {
           prefix="pub"
           allLabel={t('nav.allEnsembles')}
           ariaLabel={t('nav.ensembles')}
-          options={musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => ({ value: e.id, label: e.name, color: ensembleColor(e) }))}
+          options={musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => ({ value: e.id, label: ensembleDisplayName(e), color: ensembleColor(e) }))}
           selected={filterEnsembleIds}
           onChange={setFilterEnsembleIds}
         />

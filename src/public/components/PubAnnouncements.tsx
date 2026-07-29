@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pin, Megaphone } from 'lucide-react';
 import { Link } from 'react-router';
-import { ensembleColor } from '../../director/utils';
+import { ensembleColor, ensembleDisplayName } from '../../director/utils';
 import type { Announcement, Ensemble } from '../../director/types';
 import { Linkify } from '../../director/components/Linkify';
 import { getLang, t, useLang } from '../../shared/i18n';
@@ -37,7 +37,7 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
               <span className="pub-announce-title">{showTitle}</span>
               {showEnsembleTag && ens && (
                 <Link to={`/ensemble/${ens.id}`} className="pub-announce-tag" style={{ background: ensembleColor(ens) }}>
-                  {ens.name}
+                  {ensembleDisplayName(ens)}
                 </Link>
               )}
               {showEnsembleTag && a.ensembleId === null && (

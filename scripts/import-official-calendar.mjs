@@ -33,10 +33,12 @@ if (getApps().length === 0) initializeApp({ credential: cert(serviceAccount) });
 const db = getFirestore();
 
 /* ── Ensembles that must exist ─────────────────────────────────────────── */
-// Philharmonic: named by the director for the baseline roster mapping.
+// Philharmonic Orchestra: named by the director for the baseline roster
+// mapping; "Orchestra" suffix matches its siblings (Symphony Orchestra,
+// Camerata String Orchestra, Opera Orchestra, …).
 // Division entries: high `order` so they sort after the music ensembles.
 const ENSURE_ENSEMBLES = [
-  { id: 'philharmonic', name: 'Philharmonic', order: 9 },
+  { id: 'philharmonic', name: 'Philharmonic Orchestra', order: 9 },
   { id: 'dance',        name: 'Dance',        order: 20, color: '#e11d8f' },
   { id: 'theatre',      name: 'Theatre',      order: 21, color: '#b45309' },
   { id: 'visual-arts',  name: 'Visual Arts',  order: 22, color: '#57534e' },

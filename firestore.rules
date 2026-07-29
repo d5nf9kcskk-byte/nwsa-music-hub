@@ -225,6 +225,22 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Activity log (#activity-log) ────────────────────
+    // One entry per notable action (opened Schedule, opened Roster, saved a
+    // rehearsal note, …) — a parallel, equally append-only log to loginEvents
+    // above, kept separate so that collection's narrower shape never has to
+    // change. Anyone on the directors list may append their OWN entry; only
+    // the Owner may read the log (Directors screen → Activity log).
+    match /activityLog/{doc} {
+      allow read: if isOwner();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['email', 'name', 'role', 'action', 'detail', 'at'])
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.action is string
+        && request.resource.data.at is number;
+      allow update, delete: if false;
+    }
+
     // ── Deny everything else by default ─────────────────
     match /{document=**}         { allow read, write: if false; }
   }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronLeft, MapPin, Pencil, Plus } from 'lucide-react';
 import { useLocations } from '../hooks/useLocations';
 import { EditedByLine } from '../components/EditedByLine';
+import { useModalA11y } from '../../shared/useModalA11y';
 import type { CampusLocation } from '../types';
 import './locations.css';
 
@@ -93,6 +94,7 @@ function LocationForm({ location, onSave, onDelete, onBack, onClose }: FormProps
   const [mapAnchor, setMapAnchor] = useState(location?.mapAnchor ?? '');
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const panelRef = useModalA11y<HTMLDivElement>(onBack, true, { closeOnBack: true });
 
   const valid = room.trim() && label.trim();
 
@@ -125,7 +127,7 @@ function LocationForm({ location, onSave, onDelete, onBack, onClose }: FormProps
 
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
+      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={location ? 'Edit Location' : 'New Location'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>

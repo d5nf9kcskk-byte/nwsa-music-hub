@@ -1,7 +1,7 @@
 import { MapPin, Music, ExternalLink, ScrollText, ChevronRight, StickyNote } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
-import { formatTime, ensembleColor, findPartForInstrument, CONCERT_COLOR, eventPieceMovements, eventRestrictsMovements } from '../../director/utils';
+import { formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, CONCERT_COLOR, eventPieceMovements, eventRestrictsMovements } from '../../director/utils';
 import { t, tType, useLang } from '../../shared/i18n';
 import { fmtShortDate } from '../../shared/dates';
 import { EnsembleLink, EnsembleLinks } from './EnsembleLink';
@@ -171,7 +171,7 @@ export function PubEventCard({
 
         {(showAddToCal || detailLink) && (
           <div className="pub-ev2-foot">
-            {showAddToCal && <AddToCalendarButton event={e} ensembleName={ensembleObjs[0]?.name} />}
+            {showAddToCal && <AddToCalendarButton event={e} ensembleName={ensembleDisplayName(ensembleObjs[0]) || undefined} />}
             {detailLink && (
               <Link to={`/event/${e.id}`} className="pub-event-detail-link">
                 {t('card.details')} <ChevronRight size={13} />

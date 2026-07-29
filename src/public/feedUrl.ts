@@ -17,6 +17,13 @@ export function studentFeedUrl(studentId: string): string {
   return `${window.location.origin}/nwsa-music-hub/feeds/student-${safe}.ics`;
 }
 
+/** ICS feed of schedule CHANGES only (cancellations + changeNote events) —
+ *  director/teacher side only, so subscribing doesn't mean re-seeing the
+ *  whole normal schedule, just what's different from it. */
+export function changesFeedUrl(): string {
+  return `${window.location.origin}/nwsa-music-hub/feeds/changes.ics`;
+}
+
 /** Convert an https:// URL to webcal:// for one-tap calendar subscription on iOS/macOS. */
 export function webcalUrl(url: string): string {
   return url.replace(/^https?:\/\//, 'webcal://');

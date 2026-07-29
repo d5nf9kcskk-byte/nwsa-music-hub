@@ -3,7 +3,8 @@ import { FolderOpen } from 'lucide-react';
 import './documents.css';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useDocuments } from '../director/hooks/useDocuments';
-import { ensembleColor, musicEnsembles } from '../director/utils';
+import { useMinuteTick } from '../director/hooks/useAnnouncements';
+import { ensembleColor, ensembleDisplayName, musicEnsembles, isPublished } from '../director/utils';
 import { DOC_CATEGORIES, DOC_CATEGORY_COLOR } from '../shared/docMeta';
 import { FilterMenu } from '../shared/FilterMenu';
 import { PubDocCard } from './components/PubDocCard';
@@ -20,6 +21,7 @@ export function PublicDocuments() {
   useLang();
   const { ensembles } = useEnsembles();
   const { documents, loading } = useDocuments();
+  const now = useMinuteTick(); // a scheduled document appears the minute it publishes
 
   const [filterEnsembleIds, setFilterEnsembleIds] = useState<string[]>([]);
   const [typeFilters, setTypeFilters] = useState<string[]>([]);
@@ -29,10 +31,11 @@ export function PublicDocuments() {
   // General documents (no ensemble tag) always show regardless of the ensemble
   // filter — a handbook is relevant to everyone; the type filter still applies.
   const shown = useMemo(() => documents.filter(d => {
+    if (!isPublished(d, now)) return false;
     if (typeFilters.length > 0 && !typeFilters.includes(d.category)) return false;
     if (filterEnsembleIds.length === 0) return true;
     return d.ensembleIds.length === 0 || d.ensembleIds.some(id => filterEnsembleIds.includes(id));
-  }), [documents, typeFilters, filterEnsembleIds]);
+  }), [documents, typeFilters, filterEnsembleIds, now]);
 
   const general = shown.filter(d => d.ensembleIds.length === 0);
   const ensGroups = music
@@ -54,7 +57,7 @@ export function PublicDocuments() {
             prefix="pub"
             allLabel={t('docs.allEnsembles')}
             ariaLabel={t('nav.ensembles')}
-            options={music.map(e => ({ value: e.id, label: e.name, color: ensembleColor(e) }))}
+            options={music.map(e => ({ value: e.id, label: ensembleDisplayName(e), color: ensembleColor(e) }))}
             selected={filterEnsembleIds}
             onChange={setFilterEnsembleIds}
           />
@@ -87,7 +90,7 @@ export function PublicDocuments() {
           )}
           {ensGroups.map(({ ens, docs }) => (
             <div key={ens.id}>
-              <div className="pub-doc-group-title">{ens.name}</div>
+              <div className="pub-doc-group-title">{ensembleDisplayName(ens)}</div>
               <div className="pub-doc-list">
                 {docs.map(d => <PubDocCard key={d.id} doc={d} />)}
               </div>

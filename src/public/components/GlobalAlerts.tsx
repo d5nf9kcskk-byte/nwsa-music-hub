@@ -4,7 +4,7 @@ import { CheckCircle2, Siren, AlertTriangle } from 'lucide-react';
 import { useEvents } from '../../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../../director/hooks/useAnnouncements';
 import { useEnsembles } from '../../director/hooks/useEnsembles';
-import { todayStr } from '../../director/utils';
+import { todayStr, ensembleDisplayName } from '../../director/utils';
 import { getIdentity, onIdentityChange } from '../../shared/identity';
 import { t, useLang } from '../../shared/i18n';
 
@@ -41,7 +41,7 @@ export function GlobalAlerts() {
     [announcements, today, now]);
 
   const ensName = (ids: string[]) =>
-    ids.map(id => ensembles.find(e => e.id === id)?.name).filter(Boolean).join(' + ') || 'School';
+    ids.map(id => ensembleDisplayName(ensembles.find(e => e.id === id))).filter(Boolean).join(' + ') || 'School';
 
   // Home renders its own richer banner; skip the duplicate there unless urgent.
   const onHome = pathname === '/';

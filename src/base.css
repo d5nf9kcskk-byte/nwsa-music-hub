@@ -84,6 +84,11 @@ body {
     --pub-shadow-3: none !important;
   }
   .pub-app { zoom: 1 !important; }
-  body { background: #fff; color: #18212f; }
+  /* !important: a plain `body` selector loses a specificity war against
+     [data-pub-theme='dark'] body (an attribute selector beats a bare tag
+     selector) whenever the device's saved theme is dark — any printed text
+     that inherits color from body instead of consuming --pub-text directly
+     would otherwise come out in the dark theme's light ink on white paper. */
+  body { background: #fff !important; color: #18212f !important; }
   .no-print { display: none !important; }
 }

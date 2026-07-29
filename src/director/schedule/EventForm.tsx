@@ -4,11 +4,12 @@ import { useEvents } from '../hooks/useEvents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster } from '../rosterResolver';
-import { EVENT_TYPES, TIME_BLOCKS } from '../utils';
+import { EVENT_TYPES, TIME_BLOCKS, musicEnsembles } from '../utils';
 import { PiecePicker } from '../repertoire/PiecePicker';
 import { RichTextArea } from '../components/RichTextArea';
 import { EditedByLine } from '../components/EditedByLine';
 import { useModalA11y } from '../../shared/useModalA11y';
+import { recordActivity } from '../hooks/useActivityLog';
 import type { CalendarEvent, Ensemble, EventType, EventStatus } from '../types';
 
 interface Props {
@@ -18,9 +19,13 @@ interface Props {
   onSave: (data: Omit<CalendarEvent, 'id'>) => Promise<void>;
   onDelete?: () => Promise<void>;
   onClose: () => void;
+  /** Prefills a brand-new event (ignored when `event` is set) — used by
+   *  Quick Add to hand off its parsed guess for the director to confirm or
+   *  correct before anything saves. */
+  initialDraft?: Partial<Omit<CalendarEvent, 'id'>>;
 }
 
-export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onClose }: Props) {
+export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onClose, initialDraft }: Props) {
   const { events: liveEvents } = useEvents();
   const { students } = useStudents();
   const { overrides } = useRosterOverrides();
@@ -48,6 +53,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     dress: '',
     venueAddress: '',
     pickupTime: '',
+    ...initialDraft,
   });
 
   const [form, setForm] = useState<Omit<CalendarEvent, 'id'>>(blank);
@@ -156,6 +162,40 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     });
   }
 
+  // "Whole Music Division" shortcut (#division-shortcut): the ensemble list
+  // mixes actual music ensembles with school divisions (Dance/Theater/Visual
+  // Arts, kept selectable for genuine all-school events) — this one-tap
+  // toggle adds/removes just the music ensembles instead of checking each one
+  // by hand. Additive: it never touches a division checkbox the director
+  // already picked.
+  const musicIds = useMemo(() => musicEnsembles(ensembles).map(e => e.id), [ensembles]);
+  const allMusicSelected = musicIds.length > 0 && musicIds.every(id => form.ensembleIds.includes(id));
+  function toggleWholeMusicDivision() {
+    setForm(f => ({
+      ...f,
+      ensembleIds: allMusicSelected
+        ? f.ensembleIds.filter(id => !musicIds.includes(id))
+        : [...new Set([...f.ensembleIds, ...musicIds])],
+    }));
+  }
+  const attendanceMusicIds = useMemo(
+    () => musicIds.filter(id => !form.ensembleIds.includes(id)),
+    [musicIds, form.ensembleIds],
+  );
+  const allAttendanceMusicSelected = attendanceMusicIds.length > 0
+    && attendanceMusicIds.every(id => (form.attendanceEnsembleIds ?? []).includes(id));
+  function toggleWholeMusicDivisionAttendance() {
+    setForm(f => {
+      const cur = f.attendanceEnsembleIds ?? [];
+      return {
+        ...f,
+        attendanceEnsembleIds: allAttendanceMusicSelected
+          ? cur.filter(id => !attendanceMusicIds.includes(id))
+          : [...new Set([...cur, ...attendanceMusicIds])],
+      };
+    });
+  }
+
   // Rehearsals and classes are taken per-ensemble (you take roll for a group),
   // so at least one ensemble is required; concerts/events/sectionals can stand
   // alone.
@@ -182,6 +222,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
           setTimeout(() => reject(new Error('Save timed out — check your connection')), 15_000)
         ),
       ]);
+      recordActivity(event ? 'schedule.edit' : 'schedule.create', form.title || form.type);
       onClose();
     } catch (err) {
       setSaving(false);
@@ -252,6 +293,15 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             <label className="dir-label">
               Ensemble{form.type === 'Concert' ? 's' : ''} {needsEnsemble && '*'}
             </label>
+            {musicIds.length > 0 && (
+              <button
+                type="button"
+                className={`dir-tool-btn dir-division-btn${allMusicSelected ? ' active' : ''}`}
+                onClick={toggleWholeMusicDivision}
+              >
+                {allMusicSelected ? '✓ Whole Music Division' : 'Whole Music Division'}
+              </button>
+            )}
             <div className="dir-checkbox-group">
               {ensembles.map(e => (
                 <label
@@ -276,6 +326,15 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                 Members of these ensembles must be in the audience — it shows on their
                 schedules as “attendance required.”
               </div>
+              {attendanceMusicIds.length > 0 && (
+                <button
+                  type="button"
+                  className={`dir-tool-btn dir-division-btn${allAttendanceMusicSelected ? ' active' : ''}`}
+                  onClick={toggleWholeMusicDivisionAttendance}
+                >
+                  {allAttendanceMusicSelected ? '✓ Whole Music Division' : 'Whole Music Division'}
+                </button>
+              )}
               <div className="dir-checkbox-group">
                 {ensembles.filter(e => !form.ensembleIds.includes(e.id)).map(e => (
                   <label

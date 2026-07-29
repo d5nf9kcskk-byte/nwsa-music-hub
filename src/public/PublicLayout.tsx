@@ -17,7 +17,7 @@ import { primaryStudent, onIdentityChange } from '../shared/identity';
 import { useModalA11y } from '../shared/useModalA11y';
 import { useEffect, useReducer } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
-import { ensembleColor, musicEnsembles } from '../director/utils';
+import { ensembleColor, ensembleDisplayName, musicEnsembles } from '../director/utils';
 
 const NAV = [
   { to: '/', label: 'nav.home', Icon: Home, end: true },
@@ -124,7 +124,7 @@ export function PublicLayout() {
                             onClick={() => setMenuOpen(false)}
                           >
                             <span className="pub-menu-dot" style={{ background: ensembleColor(e) }} />
-                            {e.name}
+                            {ensembleDisplayName(e)}
                           </NavLink>
                         ))}
                         <NavLink
@@ -181,7 +181,7 @@ export function PublicLayout() {
                 className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}
               >
                 <span className="pub-side-dot" style={{ background: ensembleColor(e) }} />
-                {e.name}
+                {ensembleDisplayName(e)}
               </NavLink>
             ))}
 

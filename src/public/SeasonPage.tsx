@@ -1,5 +1,5 @@
 import './season.css';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { Clock, MapPin, Printer, Ticket } from 'lucide-react';
 import { useEvents } from '../director/hooks/useEvents';
@@ -7,8 +7,9 @@ import { useEnsembles } from '../director/hooks/useEnsembles';
 import { t, tType, useLang } from '../shared/i18n';
 import { fmtDate, fmtMonthYear } from '../shared/dates';
 import { PageHeader, SkeletonCards } from './components/PageHeader';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles } from '../director/utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, ensembleDisplayName, musicEnsembles } from '../director/utils';
 import { PubEnsembleSelect } from './components/PubEnsembleSelect';
+import { printViaPopup } from '../shared/printPopup';
 import type { CalendarEvent, Ensemble } from '../director/types';
 
 /** Season at a Glance (#13): every concert of the year on one printable page. */
@@ -17,6 +18,11 @@ export function SeasonPage() {
   const { events, loading } = useEvents();
   const { ensembles } = useEnsembles();
   const [filter, setFilter] = useState('');
+  const pageRef = useRef<HTMLDivElement>(null);
+  function handlePrint() {
+    if (pageRef.current) printViaPopup('NWSA Music — Season', pageRef.current.outerHTML);
+    else window.print();
+  }
 
   const today = todayStr();
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
@@ -40,11 +46,11 @@ export function SeasonPage() {
   const past = filtered.filter(c => c.date < today);
 
   return (
-    <div className="pub-page pub-season">
+    <div className="pub-page pub-season" ref={pageRef}>
       <PageHeader
         title={t('nav.concerts')}
         action={
-          <button className="pub-season-print" onClick={() => window.print()}>
+          <button className="pub-season-print" onClick={handlePrint}>
             <Printer size={14} /> {t('season.print')}
           </button>
         }
@@ -53,7 +59,7 @@ export function SeasonPage() {
         <span className="pub-season-intro-screen">{t('season.intro')}</span>
         {filter && (
           <span className="pub-season-filter-note">
-            {' '}{t('season.showingOnly', { name: concertEnsembles.find(e => e.id === filter)?.name ?? '—' })}
+            {' '}{t('season.showingOnly', { name: ensembleDisplayName(concertEnsembles.find(e => e.id === filter)) || '—' })}
           </span>
         )}
       </p>
@@ -134,14 +140,14 @@ function SeasonRow({ e, ensembleMap, past }: {
       </span>
       <span className="pub-season-body">
         <span className="pub-season-title">
-          <Ticket size={14} style={{ verticalAlign: '-2px' }} /> {e.title || (ens.length > 0 ? ens.map(x => x.name).join(', ') : tType('Concert'))}
+          <Ticket size={14} style={{ verticalAlign: '-2px' }} /> {e.title || (ens.length > 0 ? ens.map(x => ensembleDisplayName(x)).join(', ') : tType('Concert'))}
           {cancelled && <span className="pub-season-cancelled-tag">{t('card.cancelled')}</span>}
         </span>
         {ens.length > 0 && (
           <span className="pub-season-tags">
             {ens.map(en => (
               <span key={en.id} className="pub-season-tag" style={{ background: ensembleColor(en) }}>
-                {en.name}
+                {ensembleDisplayName(en)}
               </span>
             ))}
           </span>
