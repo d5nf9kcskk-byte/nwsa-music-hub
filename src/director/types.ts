@@ -247,6 +247,11 @@ export interface Announcement {
   /** When the urgent Teams/email relay entry for a SCHEDULED urgent post was
    *  queued (see AnnouncementManager's publish sweep) — guards double-sends. */
   relayQueuedAt?: number;
+  /** The calendar event this banner is about, when it was auto-posted by a
+   *  schedule change. Keyed on so a SECOND change to the same rehearsal or
+   *  concert rewrites this one banner instead of stacking another (#ux) —
+   *  one event, one red banner. */
+  eventId?: string;
   /* ── Change tracking (director-side only, never shown publicly) ── */
   updatedAt?: number;
   updatedBy?: string; // director's display name (falls back to email)
