@@ -17,6 +17,7 @@ async function postScheduleAnnouncement(
   date: string,
   title: string,
   ensembleIds: string[],
+  eventId: string,
 ): Promise<string | undefined> {
   const annId = await addAnnouncement({
     title,
@@ -24,14 +25,9 @@ async function postScheduleAnnouncement(
     priority: 'urgent',
     createdAt: Date.now(),
     expiresOn: addDays(date, 1),
+    eventId,
   });
-  if (db) {
-    try {
-      await addDoc(collection(db, 'notifyQueue'), {
-        kind: 'urgent-announcement', title, ensembleIds, createdAt: Date.now(), processedAt: null,
-      });
-    } catch { /* relay is best-effort */ }
-  }
+  await queueRelay(title, ensembleIds);
   return annId;
 }
 
@@ -43,21 +39,55 @@ async function updateScheduleAnnouncement(
   date: string,
   title: string,
   ensembleIds: string[],
+  eventId: string,
 ): Promise<string> {
   await updateAnnouncement(annId, {
     title,
     ensembleId: ensembleIds.length === 1 ? ensembleIds[0] : null,
     createdAt: Date.now(), // resurface as the newest post
     expiresOn: addDays(date, 1),
+    eventId, // stamp legacy banners so the next change finds this one
   });
-  if (db) {
-    try {
-      await addDoc(collection(db, 'notifyQueue'), {
-        kind: 'urgent-announcement', title, ensembleIds, createdAt: Date.now(), processedAt: null,
-      });
-    } catch { /* relay is best-effort */ }
-  }
+  await queueRelay(title, ensembleIds);
   return annId;
+}
+
+/** Enqueue the Teams/email relay entry (best-effort — never blocks a save). */
+async function queueRelay(title: string, ensembleIds: string[]) {
+  if (!db) return;
+  try {
+    await addDoc(collection(db, 'notifyQueue'), {
+      kind: 'urgent-announcement', title, ensembleIds, createdAt: Date.now(), processedAt: null,
+    });
+  } catch { /* relay is best-effort */ }
+}
+
+/**
+ * Every live red banner that belongs to these events, oldest first. Matched
+ * three ways so a repeat change never stacks a second banner:
+ *   1. the event's own `changeAnnouncementId` link,
+ *   2. a banner stamped with this `eventId`,
+ *   3. legacy banners posted before either existed — same expiry as this
+ *      day's change, urgent, and titled after the event.
+ * Anything beyond the first is a duplicate the caller folds away.
+ */
+function bannersForEvents(
+  announcements: Announcement[],
+  evts: CalendarEvent[],
+  labels: string[],
+  date: string,
+): Announcement[] {
+  const linked = new Set(evts.map(e => e.changeAnnouncementId).filter(Boolean) as string[]);
+  const eventIds = new Set(evts.map(e => e.id));
+  const expiry = addDays(date, 1);
+  return announcements
+    .filter(a =>
+      a.priority === 'urgent' && (
+        linked.has(a.id) ||
+        (!!a.eventId && eventIds.has(a.eventId)) ||
+        (!a.eventId && a.expiresOn === expiry && labels.some(l => l && a.title.includes(l)))
+      ))
+    .sort((x, y) => (x.createdAt ?? 0) - (y.createdAt ?? 0));
 }
 
 /** Pre-change schedule snapshot, captured once (on the first change) so a
@@ -112,11 +142,21 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   /** Post the red-banner announcement for a change — or, when this event
    *  already has one (a second change to the same rehearsal/concert), UPDATE
    *  that banner instead of stacking a duplicate. One event = one banner. */
-  function announce(title: string, ensembleIds: string[], existingAnnId?: string): Promise<string | undefined> {
-    const existing = existingAnnId ? announcements.find(x => x.id === existingAnnId) : undefined;
-    return existing
-      ? updateScheduleAnnouncement(updateAnnouncement, existing.id, date, title, ensembleIds)
-      : postScheduleAnnouncement(addAnnouncement, date, title, ensembleIds);
+  /**
+   * One event = one red banner. Rewrites the event's existing banner when it
+   * already has one, and folds away any duplicates left by earlier changes
+   * (or by a change made from another screen) so families see a single
+   * banner describing the current state.
+   */
+  async function announce(title: string, evts: CalendarEvent[]): Promise<string | undefined> {
+    const ensembleIds = [...new Set(evts.flatMap(e => e.ensembleIds))];
+    const existing = bannersForEvents(announcements, evts, evts.map(label), date);
+    const [keep, ...dupes] = existing;
+    const annId = keep
+      ? await updateScheduleAnnouncement(updateAnnouncement, keep.id, date, title, ensembleIds, evts[0].id)
+      : await postScheduleAnnouncement(addAnnouncement, date, title, ensembleIds, evts[0].id);
+    for (const d of dupes) await deleteAnnouncement(d.id);
+    return annId;
   }
 
   function togglePick(id: string) {
@@ -137,8 +177,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
         const annId = await announce(
           `Block swap ${parseDate(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}: ` +
           `${label(a)} now ${formatTime(b.startTime)}, ${label(b)} now ${formatTime(a.startTime)}`,
-          [...new Set([...a.ensembleIds, ...b.ensembleIds])],
-          a.changeAnnouncementId ?? b.changeAnnouncementId,
+          [a, b],
         );
         if (annId) {
           await updateEvent(a.id, { changeAnnouncementId: annId });
@@ -157,8 +196,14 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   async function handleRevert(e: CalendarEvent) {
     setBusy(true); setError('');
     try {
+      // Pull down EVERY banner for this event, not just the linked one —
+      // an event changed more than once (before one-banner-per-event) can
+      // have several, and leaving strays up is what families complain about.
+      const strays = bannersForEvents(announcements, [e], [label(e)], date);
       const annId = await revertEvent(e.id);
-      if (annId) await deleteAnnouncement(annId);
+      const gone = new Set<string>();
+      for (const s of strays) { await deleteAnnouncement(s.id); gone.add(s.id); }
+      if (annId && !gone.has(annId)) await deleteAnnouncement(annId);
       setSwapPick(p => p.filter(x => x !== e.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not revert — try again.');
@@ -291,7 +336,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
           onApply={async (data, notifyTitle) => {
             await updateEvent(editing.id, { ...data, ...captureOriginal(editing) });
             if (notifyTitle) {
-              const annId = await announce(notifyTitle, editing.ensembleIds, editing.changeAnnouncementId);
+              const annId = await announce(notifyTitle, [editing]);
               if (annId) await updateEvent(editing.id, { changeAnnouncementId: annId });
             }
           }}
