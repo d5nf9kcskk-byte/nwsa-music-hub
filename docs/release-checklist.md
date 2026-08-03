@@ -44,11 +44,21 @@ shipped incident, not a style bug.
 
 ## PWA / offline
 
-- [ ] Build stamps a new SW cache name (`[sw-cache-bust]` line in build log)
-- [ ] Update toast appears in an open tab after deploy, and reload works
+- [ ] Build prints `[sw-precache] sw.js content hash: <hash>` — the hash
+      changes iff app code changed, and is identical when only feeds
+      regenerate (the 4-hourly cron redeploy must NOT toast open tabs:
+      build twice, `sha256sum dist/sw.js` matches)
+- [ ] `dist/sw.js` precaches no feeds: the only `feeds` reference in it is
+      the navigateFallback denylist regex
+- [ ] Update toast appears in an open tab after deploy; Refresh reloads
+      exactly once into the new build (prompt flow — the waiting SW only
+      activates on Refresh, never mid-session)
 - [ ] Toast anchors above current bottom chrome (`--nwsa-bottom-chrome`)
+- [ ] Installed app boots offline (airplane mode) immediately after a
+      deploy — including `/director` (auth gate answers from cache)
 - [ ] Public bundle contains no director code (ESLint boundary + spot-check
-      `dist/assets` — DirectorApp stays a separate lazy chunk)
+      `dist/assets` — DirectorApp stays a separate lazy chunk; firebase
+      auth/storage live in the DirectorApp chunk, not the public entry)
 
 ## Data safety
 
@@ -57,6 +67,13 @@ shipped incident, not a style bug.
       or in logs
 - [ ] Attendance stays exception-only (unmarked = present; no bulk
       "present" writes)
+- [ ] Sign-out purges the Firestore IndexedDB cache (DevTools →
+      Application → IndexedDB is empty after signing out)
+- [ ] CSP meta tag present in `dist/index.html` with two script hashes;
+      after any release that touches auth, storage, or external URLs,
+      re-run the CSP smoke list: sign-in popup, sign-out, file upload,
+      ICS import, avatar renders, charts, QR kit, print views,
+      planned-absence submit (a CSP violation shows in the console)
 
 ## Bottom-edge chrome (one budget, one occupant per slot)
 
