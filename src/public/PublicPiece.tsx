@@ -6,7 +6,7 @@ import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
-import { useStudents } from '../director/hooks/useStudents';
+import { useStudentsPublic } from './hooks/usePublicRoster';
 import { ensembleColor, ensembleDisplayName, findPartForInstrument, pieceEnsembleIds } from '../director/utils';
 import { primaryStudent } from '../shared/identity';
 import { Linkify } from '../director/components/Linkify';
@@ -24,7 +24,7 @@ export function PublicPiece() {
 
   const piece = pieces.find(p => p.id === id);
   const { charts: seatingCharts } = useSeatingCharts(piece ? (pieceEnsembleIds(piece)[0] ?? '') : '');
-  const { students: allStudents } = useStudents();
+  const { students: allStudents } = useStudentsPublic();
   const myPart = piece ? findPartForInstrument(piece, primaryStudent()?.instrument) : undefined;
   const ensemble = useMemo(() => piece ? ensembles.find(e => pieceEnsembleIds(piece).includes(e.id)) : undefined, [ensembles, piece]);
   const linkedEvents = useMemo(

@@ -29,8 +29,16 @@ export function dismissTray(id: string) {
   emit();
 }
 
-/** Register a just-deleted doc so the user can undo (restore same id). */
-export function offerUndo(collection: string, docId: string, data: Record<string, unknown>, label: string) {
+/** Register a just-deleted doc so the user can undo (restore same id).
+ *  `extras` restores companion docs in the same tap — e.g. the public-mirror
+ *  projection deleted alongside a student (#privacy). */
+export function offerUndo(
+  collection: string,
+  docId: string,
+  data: Record<string, unknown>,
+  label: string,
+  extras?: { collection: string; docId: string; data: Record<string, unknown> }[],
+) {
   const id = `u${++seq}`;
   items = [...items.filter(i => i.kind !== 'undo'), {
     id,
@@ -40,6 +48,9 @@ export function offerUndo(collection: string, docId: string, data: Record<string
     action: async () => {
       if (!db) return;
       await setDoc(doc(db, collection, docId), data);
+      for (const x of extras ?? []) {
+        await setDoc(doc(db, x.collection, x.docId), x.data);
+      }
     },
   }];
   emit();
