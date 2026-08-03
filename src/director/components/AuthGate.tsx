@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut, GoogleAuthProvider } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut, GoogleAuthProvider } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc, waitForPendingWrites, terminate, clearIndexedDbPersistence } from 'firebase/firestore';
 import { Link } from 'react-router';
@@ -114,6 +114,16 @@ export function AuthGate({ children }: Props) {
       // A dismissed popup is not an error worth shouting about.
       const code = (e as { code?: string }).code ?? '';
       if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+      // Installed app (standalone window): some platforms refuse the popup
+      // outright. Fall back to the redirect flow — best-effort, since the
+      // auth domain is cross-origin to github.io and Safari's tracking
+      // prevention can drop the result; popup stays the primary path.
+      if (code === 'auth/popup-blocked' && window.matchMedia('(display-mode: standalone)').matches) {
+        try {
+          await signInWithRedirect(auth, new GoogleAuthProvider());
+          return; // navigating away
+        } catch { /* fall through to the error message */ }
+      }
       setSignInError(
         code === 'auth/popup-blocked'
           ? 'Your browser blocked the sign-in popup — allow popups for this site and try again.'
