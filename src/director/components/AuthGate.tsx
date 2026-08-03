@@ -3,7 +3,8 @@ import { onAuthStateChanged, signInWithPopup, signOut, GoogleAuthProvider } from
 import type { User } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc, waitForPendingWrites, terminate, clearIndexedDbPersistence } from 'firebase/firestore';
 import { Link } from 'react-router';
-import { auth, db, isFirebaseConfigured } from '../firebase';
+import { db, isFirebaseConfigured } from '../firebase';
+import { auth } from '../firebaseAuth';
 import { FIXTURES_ON } from '../hooks/fixtures';
 import { directorEmailId, directorRole } from '../hooks/useDirectors';
 import type { Director } from '../hooks/useDirectors';
