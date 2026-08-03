@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut, GoogleAuthProvider } from 'firebase/auth';
 import type { User } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { Link } from 'react-router';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { FIXTURES_ON } from '../hooks/fixtures';
@@ -59,12 +59,17 @@ export function AuthGate({ children }: Props) {
       setAccess('granted');
       return;
     }
-    let cancelled = false;
     setAccess('checking');
     const email = directorEmailId(user.email ?? '');
-    getDoc(doc(db, 'directors', email))
-      .then(snap => {
-        if (cancelled) return;
+    // Live membership watch instead of a one-shot server read (audit A5): the
+    // Firestore persistent cache answers instantly on stalled Wi-Fi, so an
+    // installed app in a dead zone opens straight into the console instead of
+    // hanging at "Checking access…" — and a revoked account is signed out of
+    // the UI live, without waiting for the next cold start.
+    const unsub = onSnapshot(doc(db, 'directors', email),
+      snap => {
+        // A cache miss proves nothing — only a server answer may deny.
+        if (snap.metadata.fromCache && !snap.exists()) return;
         if (!snap.exists()) { setAccess('denied'); return; }
         const directorDoc = { email, ...snap.data() } as Director;
         setCurrentDirector(directorDoc, user.displayName);
@@ -82,13 +87,12 @@ export function AuthGate({ children }: Props) {
           updateDoc(doc(db, 'directors', email), { name: user.displayName.trim() }).catch(() => {});
         }
         setAccess('granted');
-      })
-      .catch(() => {
+      },
+      () => {
         // The read itself failed (offline, or pre-migration rules). Fall back to
         // the break-glass list so the founding account stays in; everyone else
         // gets an honest "couldn't verify" with a retry rather than a silent app
         // whose every save fails.
-        if (cancelled) return;
         if (BREAK_GLASS_EMAILS.includes(email)) {
           setCurrentDirector({ email, role: 'owner' }, user.displayName);
           recordLogin({ email, name: user.displayName?.trim() || undefined, role: 'owner' });
@@ -97,7 +101,7 @@ export function AuthGate({ children }: Props) {
           setAccess('error');
         }
       });
-    return () => { cancelled = true; };
+    return unsub;
   }, [user, checkNonce]);
 
   async function signIn() {

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 
@@ -23,9 +23,11 @@ const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 // the whole write — which is what made the repertoire form hang on "Saving…".
 // persistentLocalCache (#37): reads AND queued writes survive dead zones —
 // roll taken in an auditorium basement syncs when the signal returns.
+// Multi-tab (audit A8): with the single-tab manager, a second open tab
+// silently fell back to memory-only cache and lost offline entirely.
 export const db = app ? initializeFirestore(app, {
   ignoreUndefinedProperties: true,
-  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager(undefined) }),
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 }) : null;
 export const auth = app ? getAuth(app) : null;
 export const storage = app ? getStorage(app) : null;
