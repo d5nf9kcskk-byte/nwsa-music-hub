@@ -4,11 +4,19 @@ rules_version = '2';
 //
 // Two tiers of data:
 //   • PUBLIC collections are world-readable (they power the public site:
-//     schedules, ensemble rosters, repertoire, announcements). They contain
-//     no private contact info. Only staff (Owner/Director) may write them.
-//   • PRIVATE collections (contact details, attendance exceptions, progress
-//     notes, private lessons) are readable and writable only by signed-in
-//     staff — never world-readable.
+//     schedules, repertoire, announcements). They contain no private contact
+//     info. Only staff (Owner/Director) may write them.
+//   • PRIVATE collections (full student records, contact details, attendance
+//     exceptions, progress notes, private lessons) are readable and writable
+//     only by signed-in staff — never world-readable.
+//
+// Student privacy (#privacy): the full `students` and `rosterOverrides`
+// collections are staff-only. The public site reads projection mirrors
+// instead — `studentsPublic` (name, preferred name, instrument, section,
+// ensembles, status; NEVER grade or pronunciation) and
+// `rosterOverridesPublic` (every field EXCEPT the free-text reason).
+// Mirrors are batched with each write (src/director/publicMirror.ts) and
+// converged by scripts/backfill-public-projections.mjs via the Admin SDK.
 //
 // Four access levels (#roles), stored on each directors/{email} doc's
 // `role` field:
@@ -87,7 +95,21 @@ service cloud.firestore {
 
     // ── Public read · staff write ────────────────────
     match /ensembles/{doc}       { allow read; allow write: if isStaff(); }
-    match /students/{doc}        { allow read; allow write: if isStaff(); }
+    // Full student records (grade level, pronunciation, …) are staff-eyes
+    // only (#privacy). Every allowlisted role may READ them — teachers need
+    // names for lessons, assistants need pronunciation for roll — but the
+    // public site gets only the studentsPublic projection below.
+    match /students/{doc}        { allow read: if signedIn(); allow write: if isStaff(); }
+    // Public projection of the roster: name, preferredName, instrument,
+    // section, ensembleIds, status — nothing else. Written in the same batch
+    // as the source doc by staff clients.
+    match /studentsPublic/{doc} {
+      allow read;
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly(
+             ['name', 'preferredName', 'instrument', 'section', 'ensembleIds', 'status']);
+      allow delete: if isStaff();
+    }
     // events: staff edit freely. A Personnel Assistant may update ONLY the
     // rollTaken receipt (the side-effect of finishing roll) — never the
     // schedule itself — and only the receipt entries for THEIR ensembles.
@@ -111,7 +133,10 @@ service cloud.firestore {
     // button on Take Roll records a pull-out window) — scoped to the
     // ensembles they cover.
     match /rosterOverrides/{doc} {
-      allow read;
+      // Staff-only reads (#privacy): override docs carry a free-text `reason`
+      // directors may fill with sensitive context. The public site reads the
+      // reason-free rosterOverridesPublic mirror below instead.
+      allow read: if signedIn();
       allow create: if isStaff()
         || (isTeacherRole() && request.resource.data.kind == 'lesson')
         || (request.resource.data.kind == 'lesson' && assistantCovers(request.resource.data.ensembleId));
@@ -123,6 +148,18 @@ service cloud.firestore {
       allow delete: if isStaff()
         || (isTeacherRole() && resource.data.kind == 'lesson')
         || (resource.data.kind == 'lesson' && assistantCovers(resource.data.ensembleId));
+    }
+    // Reason-free public mirror of rosterOverrides (#privacy): the public
+    // student-schedule page shows lesson pull-out windows and sub/pull roster
+    // effects from here. Writers are the same clients that write the source
+    // collection (all allowlisted roles — teachers and assistants create
+    // lesson pull-outs); the shape check makes a leaked `reason` impossible
+    // regardless of client code.
+    match /rosterOverridesPublic/{doc} {
+      allow read;
+      allow create, update: if signedIn()
+        && !request.resource.data.keys().hasAny(['reason']);
+      allow delete: if signedIn();
     }
     match /announcements/{doc}   { allow read; allow write: if isStaff(); }
     match /repertoire/{doc}      { allow read; allow write: if isStaff(); }

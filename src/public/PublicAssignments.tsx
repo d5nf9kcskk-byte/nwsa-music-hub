@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router';
 import { ClipboardCheck, Calendar } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useAssignments } from '../director/hooks/useAssignments';
-import { useStudents } from '../director/hooks/useStudents';
+import { useStudentsPublic } from './hooks/usePublicRoster';
 import { useMinuteTick } from '../director/hooks/useAnnouncements';
 import { todayStr, ensembleColor, ensembleDisplayName, assignmentEmoji, musicEnsembles, isPublished } from '../director/utils';
 import { NotesText } from './components/NotesText';
@@ -18,7 +18,7 @@ export function PublicAssignments() {
   useLang();
   const { ensembles } = useEnsembles();
   const { assignments, loading } = useAssignments();
-  const { students } = useStudents();
+  const { students } = useStudentsPublic();
   const [searchParams] = useSearchParams();
   const focusId = searchParams.get('focus');
   const today = todayStr();

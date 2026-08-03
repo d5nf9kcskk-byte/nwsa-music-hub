@@ -1,0 +1,31 @@
+name: Backfill public projections
+
+# Converges studentsPublic / rosterOverridesPublic from the staff-only source
+# collections (#privacy). Idempotent — safe to re-run any time the mirrors
+# might have drifted (client writes normally keep them in sync).
+on:
+  workflow_dispatch:
+  # Also runs when the script changes on main, so the initial backfill fires
+  # automatically with the merge that introduces the projection split.
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/backfill-public-projections.mjs'
+      - '.github/workflows/backfill-public-projections.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install firebase-admin --no-save
+      - name: Converge public projection mirrors
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/backfill-public-projections.mjs

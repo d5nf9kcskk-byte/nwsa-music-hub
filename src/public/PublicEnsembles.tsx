@@ -2,14 +2,14 @@ import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { ChevronRight } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
-import { useStudents } from '../director/hooks/useStudents';
+import { useStudentsPublic } from './hooks/usePublicRoster';
 import { ensembleColor, ensembleDisplayName, musicEnsembles } from '../director/utils';
 import { useLang } from '../shared/i18n';
 
 export function PublicEnsembles() {
   useLang(); // ensemble names follow the EN/ES toggle
   const { ensembles, loading } = useEnsembles();
-  const { students } = useStudents();
+  const { students } = useStudentsPublic();
 
   const counts = useMemo(() => {
     const m: Record<string, number> = {};

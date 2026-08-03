@@ -13,8 +13,7 @@ import { LocationsManager } from '../locations/LocationsManager';
 import { RosterImport } from './RosterImport';
 import { ensembleColor } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
-import { seedRoster, seedStudents, seedEnsembles } from '../seedData';
-import { resetToBaseline, importBaselineContacts } from '../resetBaseline';
+import { importContactsFile } from '../contactsImport';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
 import type { Student } from '../types';
@@ -54,22 +53,9 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
   const [managingRepertoire, setManagingRepertoire] = useState(false);
   const [managingLocations, setManagingLocations] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [importState, setImportState] = useState<'idle' | 'importing' | 'error'>('idle');
-  const [importError, setImportError] = useState('');
 
   const loading = ensemblesLoading || studentsLoading;
   const isEmpty = !loading && students.length === 0;
-
-  async function handleImport() {
-    setImportState('importing');
-    setImportError('');
-    try {
-      await seedRoster();
-    } catch (e) {
-      setImportError(e instanceof Error ? e.message : String(e));
-      setImportState('error');
-    }
-  }
 
   const filtered = students.filter(s => {
     if (!(s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -191,18 +177,11 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
           <Users size={40} />
           <h3>No students yet</h3>
           <p>
-            Import your NWSA roster — {seedStudents.length} students across{' '}
-            {seedEnsembles.length} ensembles — or tap + to add one manually.
+            Import your roster from a CSV export, or tap + to add students
+            one at a time.
           </p>
-          {importState === 'error' && (
-            <p className="dir-import-error">Import failed: {importError}</p>
-          )}
-          <button
-            className="dir-import-btn"
-            onClick={handleImport}
-            disabled={importState === 'importing'}
-          >
-            {importState === 'importing' ? 'Importing…' : 'Import NWSA roster'}
+          <button className="dir-import-btn" onClick={() => setImporting(true)}>
+            Import roster from CSV
           </button>
         </div>
       )}
@@ -215,7 +194,7 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
         </div>
       )}
 
-      <ResetToBaseline />
+      <ContactsImportPanel students={students} />
 
       <button className="dir-fab" onClick={() => setEditingStudent('new')} aria-label="Add student">
         <UserPlus size={22} />
@@ -261,38 +240,22 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
     </div>
   );
 }
-
 /**
- * Redesign test-cycle tool (July 2026): wipe student-linked data and import
- * the 2025-26 baseline roster, then load the private contacts file. Quiet by
- * default; destructive action requires typing RESET.
+ * Collapsed panel to load the private contacts file (#privacy): student
+ * email, guardians & details live outside the repo and go straight into the
+ * auth-only `contacts` collection. Non-destructive — it only fills in
+ * contact info for students already on the roster.
  */
-function ResetToBaseline() {
+function ContactsImportPanel({ students }: { students: Student[] }) {
   const [open, setOpen] = useState(false);
-  const [confirm, setConfirm] = useState('');
-  const [state, setState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
-  const [log, setLog] = useState<string[]>([]);
   const [contactsMsg, setContactsMsg] = useState('');
-
-  async function run() {
-    setState('running');
-    setLog([]);
-    try {
-      const result = await resetToBaseline(msg => setLog(l => [...l, msg]));
-      setLog(l => [...l, `Done — ${result.deleted} old records cleared, ${result.students} students imported.`]);
-      setState('done');
-    } catch (e) {
-      setLog(l => [...l, `Failed: ${e instanceof Error ? e.message : String(e)}`]);
-      setState('error');
-    }
-    setConfirm('');
-  }
 
   async function onContactsFile(file: File | undefined) {
     if (!file) return;
     setContactsMsg('Importing contacts…');
     try {
-      const count = await importBaselineContacts(JSON.parse(await file.text()));
+      const validIds = new Set(students.map(s => s.id));
+      const count = await importContactsFile(JSON.parse(await file.text()), validIds);
       setContactsMsg(`Imported contact info for ${count} students.`);
     } catch (e) {
       setContactsMsg(`Contacts import failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -307,44 +270,14 @@ function ResetToBaseline() {
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
       >
-        Redesign test data {open ? '▾' : '▸'}
+        Load contacts file {open ? '\u25be' : '\u25b8'}
       </button>
       {open && (
         <div style={{ padding: '10px 14px', fontSize: 13.5, display: 'grid', gap: 10 }}>
-          <p style={{ margin: 0 }}>
-            <strong>Reset to a clean 2025–26 baseline:</strong> clears the roster,
-            attendance, progress notes, planned absences, sub/pull-outs, seating charts,
-            assignment results, announcements, and queued notifications; re-imports the
-            86-student baseline roster; and re-seeds the standard schedule so any block
-            swaps, time/room changes, or cancellations revert to normal. Ensembles,
-            repertoire, locations, and manually-added concerts are kept.{' '}
-            <strong>When it finishes, re-upload your contacts file below.</strong>
-          </p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input
-              value={confirm}
-              onChange={e => setConfirm(e.target.value)}
-              placeholder="Type RESET to confirm"
-              aria-label="Type RESET to confirm"
-              style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--dir-border, #ccc)', fontSize: 14 }}
-            />
-            <button
-              className="dir-import-btn"
-              disabled={confirm !== 'RESET' || state === 'running'}
-              onClick={run}
-            >
-              {state === 'running' ? 'Resetting…' : 'Reset to baseline'}
-            </button>
-          </div>
-          {log.length > 0 && (
-            <div role="status" style={{ fontSize: 12.5, color: state === 'error' ? '#b3372e' : 'inherit' }}>
-              {log.map((m, i) => <div key={i}>{m}</div>)}
-            </div>
-          )}
           <label style={{ display: 'grid', gap: 4 }}>
             <span>
-              <strong>Load contacts</strong> (private JSON — student email, guardians &amp; details; never committed to the repo).
-              {' '}Safe on its own: it only fills in contact info — it does <em>not</em> reset or wipe anything.
+              <strong>Load contacts</strong> (private JSON \u2014 student email, guardians &amp; details; never committed to the repo).
+              {' '}Safe on its own: it only fills in contact info \u2014 it does <em>not</em> reset or wipe anything.
             </span>
             <input type="file" accept=".json,application/json" onChange={e => onContactsFile(e.target.files?.[0])} />
           </label>

@@ -8,9 +8,9 @@ import { PlannedAbsenceButton } from './components/PlannedAbsence';
 import { BackLink } from './components/BackLink';
 import { ChevronLeft, ChevronRight, ExternalLink, LayoutList, Grid3x3, CalendarX, GraduationCap } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
-import { useStudents } from '../director/hooks/useStudents';
+import { useStudentsPublic } from './hooks/usePublicRoster';
 import { useEvents } from '../director/hooks/useEvents';
-import { useRosterOverrides } from '../director/hooks/useRosterOverrides';
+import { usePublicOverrides } from './hooks/usePublicRoster';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
@@ -49,9 +49,9 @@ export function PublicSchedule() {
   useLang();
   const { id = '' } = useParams();
   const { ensembles } = useEnsembles();
-  const { students, loading: studentsLoading } = useStudents();
+  const { students, loading: studentsLoading } = useStudentsPublic();
   const { events } = useEvents();
-  const { overrides } = useRosterOverrides();
+  const { overrides } = usePublicOverrides();
   const { announcements } = useAnnouncements();
   const now = useMinuteTick(); // scheduled posts appear the minute they go live
   const { pieces } = useRepertoire();
@@ -163,7 +163,7 @@ export function PublicSchedule() {
 
       <div className="pub-ens-hero">
         <h1 className="pub-h1">{student.name}</h1>
-        <div className="pub-muted">{student.instrument}{student.grade ? ` · ${student.grade}` : ''}</div>
+        <div className="pub-muted">{student.instrument}</div>
         {homeEnsembles.length > 0 && (
           <div className="pub-tag-row">
             {homeEnsembles.map(e => (

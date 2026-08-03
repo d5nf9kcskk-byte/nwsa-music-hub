@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { Search, UserCircle, X, ChevronRight } from 'lucide-react';
-import { useStudents } from '../director/hooks/useStudents';
+import { useStudentsPublic } from './hooks/usePublicRoster';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { sortStudents, lastName, type StudentSort } from '../director/scoreOrder';
 import { t, useLang } from '../shared/i18n';
@@ -52,7 +52,7 @@ const AZ = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export function PublicLookup() {
   useLang();
-  const { students } = useStudents();
+  const { students } = useStudentsPublic();
   const { ensembles } = useEnsembles();
   const [q, setQ] = useState('');
   const [ensembleId, setEnsembleId] = useState('');
@@ -182,7 +182,7 @@ export function PublicLookup() {
             <div className="pub-confirm-title">Is this you{identity.parentMode ? 'r student' : ''}?</div>
             <div className="pub-confirm-name">{confirming.name}</div>
             <div className="pub-confirm-detail">
-              {[confirming.instrument, confirming.grade].filter(Boolean).join(' · ')}
+              {confirming.instrument}
             </div>
             <div className="pub-tag-row" style={{ justifyContent: 'center', marginTop: 8 }}>
               {(confirming.ensembleIds ?? []).map(id => {

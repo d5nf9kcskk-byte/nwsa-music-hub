@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
+  collection, onSnapshot, writeBatch, doc,
   query, orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo, trackWrite } from '../writeStatus';
 import { currentDirectorName } from '../currentDirector';
+import { publicStudentFields } from '../publicMirror';
 import type { Student } from '../types';
 import { FIXTURES_ON, FIXTURE_STUDENTS } from './fixtures';
 
@@ -34,29 +35,59 @@ export function useStudents(ensembleId?: string) {
     }, () => { noteLoadError('students'); setLoading(false); });
   }, [ensembleId]);
 
+  // Every mutation batches the studentsPublic mirror with the source doc
+  // (#privacy): the public site reads only the projection, so the two must
+  // never drift. publicMirror.ts owns which fields the projection carries.
+
   async function addStudent(data: Omit<Student, 'id'>): Promise<string | undefined> {
     if (!db) return;
     const dbRef = db;
-    const ref = await trackWrite('Student', () => addDoc(collection(dbRef, 'students'), data));
-    return ref?.id;
+    const ref = doc(collection(dbRef, 'students'));
+    const ok = await trackWrite('Student', async () => {
+      const batch = writeBatch(dbRef);
+      batch.set(ref, data);
+      batch.set(doc(dbRef, 'studentsPublic', ref.id), publicStudentFields(data));
+      await batch.commit();
+      return true;
+    });
+    return ok ? ref.id : undefined;
   }
 
   async function updateStudent(id: string, data: Partial<Omit<Student, 'id'>>) {
     if (!db) return;
     const dbRef = db;
     const payload = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
-    await trackWrite('Student update', () => updateDoc(doc(dbRef, 'students', id), payload));
+    const existing = students.find(s => s.id === id);
+    await trackWrite('Student update', async () => {
+      const batch = writeBatch(dbRef);
+      batch.update(doc(dbRef, 'students', id), payload);
+      if (existing) {
+        const { id: _id, ...merged } = { ...existing, ...data };
+        void _id;
+        batch.set(doc(dbRef, 'studentsPublic', id), publicStudentFields(merged));
+      } else {
+        // Not in this hook's snapshot (filtered mount) — patch just the
+        // public fields present rather than risking a stale full rewrite.
+        batch.set(doc(dbRef, 'studentsPublic', id), publicStudentFields(data), { merge: true });
+      }
+      await batch.commit();
+    });
   }
 
   async function deleteStudent(id: string) {
     if (!db) return;
     // Undo (#38): the one previously-unrecoverable tap in the roster.
     const gone = students.find(x => x.id === id);
-    await deleteDoc(doc(db, 'students', id));
+    const batch = writeBatch(db);
+    batch.delete(doc(db, 'students', id));
+    batch.delete(doc(db, 'studentsPublic', id));
+    await batch.commit();
     if (gone) {
       const { id: _id, ...data } = gone;
       void _id;
-      offerUndo('students', id, data, `Deleted ${gone.name} — restore?`);
+      offerUndo('students', id, data, `Deleted ${gone.name} — restore?`, [
+        { collection: 'studentsPublic', docId: id, data: publicStudentFields(data) },
+      ]);
     }
   }
 

@@ -6,7 +6,10 @@
  * and writes subscribable ICS calendar files into dist/feeds/.
  *
  * Runs as a post-build step in deploy.yml. No auth required because the
- * Firestore security rules allow public reads on `events` and `ensembles`.
+ * Firestore security rules allow public reads on `events`, `ensembles`,
+ * `studentsPublic`, and `rosterOverridesPublic` (#privacy: the full
+ * students/rosterOverrides collections are staff-only — this script must
+ * only ever read the public projections).
  *
  * Environment variable required:
  *   VITE_FIREBASE_PROJECT_ID — same one already set as a GitHub secret.
@@ -145,8 +148,8 @@ function wrapCalendar(name, description, vevents) {
     const [events, ensembles, students, overrides] = await Promise.all([
       fetchCollection('events'),
       fetchCollection('ensembles'),
-      fetchCollection('students'),
-      fetchCollection('rosterOverrides'),
+      fetchCollection('studentsPublic'),
+      fetchCollection('rosterOverridesPublic'),
     ]);
 
     console.log(`Fetched ${events.length} events, ${ensembles.length} ensembles, ${students.length} students, ${overrides.length} overrides`);

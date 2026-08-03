@@ -5,7 +5,7 @@ import { BackLink } from './components/BackLink';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvents } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
-import { useStudents } from '../director/hooks/useStudents';
+import { useStudentsPublic } from './hooks/usePublicRoster';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
 import { formatTimeRange, eventPieceDuration, eventPieceMovements, pieceEnsembleIds, ensembleDisplayName, buildSections } from '../director/utils';
 import { Linkify } from '../director/components/Linkify';
@@ -57,7 +57,7 @@ export function PublicProgram() {
   const { ensembles } = useEnsembles();
   const { events, loading: eventsLoading } = useEvents();
   const { pieces } = useRepertoire();
-  const { students } = useStudents();
+  const { students } = useStudentsPublic();
   const { charts } = useSeatingCharts();
 
   const sheetRef = useRef<HTMLDivElement>(null);
