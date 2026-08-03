@@ -22,7 +22,8 @@ export function PlannedAbsenceButton({ student }: { student: Student }) {
   const [error, setError] = useState('');
 
   async function submit() {
-    if (!db || !reason.trim()) return;
+    // A cleared date input submits '' — rules require a real YYYY-MM-DD.
+    if (!db || !reason.trim() || !date) return;
     setState('saving'); setError('');
     try {
       await addDoc(collection(db, 'plannedAbsences'), {

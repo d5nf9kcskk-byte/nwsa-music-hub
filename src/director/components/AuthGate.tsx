@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut, GoogleAuthProvider } from 'firebase/auth';
 import type { User } from 'firebase/auth';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, waitForPendingWrites, terminate, clearIndexedDbPersistence } from 'firebase/firestore';
 import { Link } from 'react-router';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { FIXTURES_ON } from '../hooks/fixtures';
@@ -121,10 +121,31 @@ export function AuthGate({ children }: Props) {
     }
   }
 
+  // Sign out AND purge the Firestore offline cache (audit S7): the
+  // persistent cache holds everything this account ever read — full student
+  // records, guardian contacts, attendance history, progress notes — and
+  // must not survive a sign-out on a shared or lost device. Order matters:
+  // wait (bounded) for queued writes like dead-zone roll marks to flush,
+  // then terminate the client so the IndexedDB clear is allowed. The clear
+  // is best-effort — with the app open in another tab it throws
+  // failed-precondition — so the finally still hard-reloads: the db handle
+  // is dead after terminate(), and a fresh boot lands on the sign-in gate.
   async function handleSignOut() {
     if (!auth) return;
     clearCurrentDirector();
-    await signOut(auth);
+    try {
+      if (db) {
+        await Promise.race([waitForPendingWrites(db), new Promise(r => setTimeout(r, 4000))]);
+      }
+      await signOut(auth);
+      if (db) {
+        await terminate(db);
+        await clearIndexedDbPersistence(db);
+      }
+    } catch { /* best-effort — the reload below recovers regardless */ }
+    finally {
+      window.location.reload();
+    }
   }
 
   if (!isFirebaseConfigured) {

@@ -35,7 +35,10 @@ rules_version = '2';
 //                 planned absences). Never contacts, notes, grades, or any
 //                 public-collection write.
 // A doc with no `role` predates this feature and is treated as a full
-// director (see isStaff()) — nobody with existing access loses it.
+// director (see isStaff()) — nobody with existing access loses it. An
+// EXPLICIT but unrecognized role gets no privileges at all (fail-closed):
+// a future fifth role added to the app can never silently inherit
+// director rights from these rules.
 //
 // The AI enrichment GitHub Action authenticates with a service account via the
 // Admin SDK, which bypasses these rules entirely — so enrichment writes work
@@ -61,8 +64,13 @@ service cloud.firestore {
     // NO rules redeploy. That closes the old trap where the app's sign-in mirror
     // shipped automatically but this file had to be deployed by hand, leaving a
     // newly-added director able to open the app but unable to save.
+    // email_verified: Google sign-in always verifies, so this costs existing
+    // accounts nothing — it only closes the door on a future auth provider
+    // (or a forged federated account) presenting an unverified claim to an
+    // email that happens to be on the allowlist.
     function signedIn() {
       return request.auth != null
+        && request.auth.token.email_verified == true
         && exists(/databases/$(database)/documents/directors/$(request.auth.token.email));
     }
 
@@ -87,10 +95,14 @@ service cloud.firestore {
     }
 
     // Full director privileges: Owner, Director, or a legacy doc with no
-    // role set (every director created before roles existed). Explicit
-    // 'teacher' and 'assistant' roles are excluded.
+    // role set (every director created before roles existed — the default
+    // fills in 'director' for those). Fail-CLOSED for anything else: an
+    // explicit unknown role gets teacher/assistant-level nothing, instead of
+    // silently inheriting full director rights the way the old
+    // "not teacher && not assistant" check did.
     function isStaff() {
-      return signedIn() && !isTeacherRole() && !isAssistantRole();
+      return signedIn()
+        && myDirectorDoc().get('role', 'director') in ['owner', 'director'];
     }
 
     // ── Public read · staff write ────────────────────
@@ -177,11 +189,21 @@ service cloud.firestore {
     // but only staff can read the queue or change/delete entries — so the
     // public side can't enumerate or tamper with other students' reports.
     match /plannedAbsences/{doc} {
+      // Hardened shape (audit S4): the student must actually exist (no
+      // spam-for-invented-ids), the date must be a real YYYY-MM-DD string,
+      // and every free-text field is size-bounded — this is the one
+      // unauthenticated write in the whole app, so it gets the strictest
+      // validation.
       allow create: if request.resource.data.keys().hasOnly(['studentId', 'studentName', 'date', 'reason', 'submittedAt', 'status'])
         && request.resource.data.studentId is string
+        && exists(/databases/$(database)/documents/students/$(request.resource.data.studentId))
+        && request.resource.data.studentName is string
+        && request.resource.data.studentName.size() <= 120
         && request.resource.data.date is string
+        && request.resource.data.date.matches('\\d{4}-\\d{2}-\\d{2}')
         && request.resource.data.reason is string
         && request.resource.data.reason.size() <= 300
+        && request.resource.data.submittedAt is number
         && request.resource.data.status == 'pending';
       // Assistants read the queue too — Take Roll shows "reported ahead"
       // chips so they can accept a planned absence as Excused.
