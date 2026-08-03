@@ -1,13 +1,22 @@
 # Handoff — directors' presentation
 
-Notes for picking this up in a new session. Written 2026-07-28.
+Notes for picking this up in a new session. Written 2026-07-28; **rebuilt
+2026-08-03** against the Hub as it exists after the Aug 2026 privacy-model
+change. See "2026-08-03 rebuild" at the bottom for what changed and why —
+read that section before trusting anything below it as still current, since
+most of sections 2–7 below predate that pass and several facts they cite have
+since moved (the claim map in §4 is now the *superseded* version; the current
+one lives only in git history of this rebuild's commits and the corrected
+deck itself).
 
 ---
 
 ## 1. Where everything is
 
-- **Branch:** `claude/nwsa-music-hub-presentation-dxdw1e`
-- **PR:** [#37](https://github.com/d5nf9kcskk-byte/nwsa-music-hub/pull/37) — open, **draft, not merged**, 1 commit (`3393a44`), mergeable state clean, no CI (repo workflows only fire on push to `main` / manual dispatch)
+- **Branch:** `claude/nwsa-hub-presentation-rebuild-rjqe9f` (this rebuild).
+  Prior round: `claude/nwsa-music-hub-presentation-dxdw1e`, PR #37 (open,
+  draft, unmerged as of this rebuild — check its current state before
+  assuming it's still open).
 - **All files:** `docs/presentation/`
 
 | File | What |
@@ -199,3 +208,74 @@ When the Hub's setup changes, these are the parts most likely to go stale:
 7. **Anything added since** — new features need a home, but the "only what serves
    the purpose" rule applies: a feature the Dean and three directors won't touch
    does not earn a slide.
+
+---
+
+## 8. 2026-08-03 rebuild — what changed and why
+
+Triggered by the Aug 2026 privacy-model change (see repo root `CLAUDE.md`).
+Re-verified every row in §4 directly against the current source (not the old
+deck, not this file) before touching any deliverable.
+
+**The one correction that mattered:** slide 17 (the Dean's slide) said
+`students`/`rosterOverrides` were world-readable collections and stated
+outright that student **grade level** was public "by design." Both were
+wrong. Since the privacy-model change: `students` and `rosterOverrides`
+(with its free-text `reason` field) are staff-only; the public site reads
+`studentsPublic` (name, preferredName, instrument, section, ensembleIds,
+status — **never grade or pronunciation**) and `rosterOverridesPublic`
+(everything except `reason`), both enforced field-by-field in
+`firestore.rules`, not just by app code (`src/director/publicMirror.ts` is
+the single source of truth for the field lists). Slide 17, slide 23, and
+every mention of this in `00`–`03` were rewritten to say grade is staff-only,
+always — not public and reversible, which is what the old materials claimed.
+
+**Everything else in the old claim map (§4) held up:** two surfaces, four
+roles (owner/director/teacher/assistant), exception-only attendance, the
+Schedule Change / Temporary Roster Changes screen pair (confusingly the file
+names are swapped relative to intuition — `ScheduleSwapView.tsx` is Schedule
+Change, `schedule-changes/ScheduleChangeView.tsx` is Temporary Roster
+Changes — unchanged, not a new problem), announcements, repertoire → program,
+QR kit, all 8 vanity slugs (`/so /we /wind /jazz /cam /choir /opera /cco`),
+the 4-hour `.ics` cron, and the 9-ensemble list (Symphony, Wind Ensemble,
+Camerata String Orchestra, Jazz Ensemble, Chamber Winds, College Chamber
+Orchestra, High School Choir, Opera Orchestra, Philharmonic) — unchanged,
+though its source moved: `seedData.ts`/`baseline2526.ts` no longer exist
+(real rosters were purged from files *and git history*, per CLAUDE.md);
+provisioning now runs through `seedCalendar.ts` plus two admin scripts
+(`add-ensembles.mjs`, `import-official-calendar.mjs`).
+
+**One label rename:** the "Schedule" nav item is now labeled **"Calendar"**
+in the director app (same screen, same `ScheduleView.tsx` component) — not
+significant enough to change deck copy, but worth knowing if you're driving
+the live demo.
+
+**The Teams/email relay (A5) is still unverified** — the app still only
+queues to `notifyQueue`; delivery is still an external, untested Power
+Automate flow. The internal queuing logic got more robust (a scheduled sweep,
+double-send protection) but that's not user-facing and doesn't change what
+can honestly be promised onstage.
+
+**New since the old deck, deliberately given no slide** (per the "only what
+serves the Dean and three directors" rule): a Teacher-role private-lesson
+workflow (`src/director/teacher/`); an Owner-only sign-in/activity audit log;
+a more elaborate PWA update-toast. None of these are things these four people
+touch directly.
+
+**Framing shift, per explicit request this round:** several feature slides
+(Schedule Change, Temporary Roster Changes, Announcements) were re-kickered
+to "Live —" and their speaker notes rewritten to demo the feature live on
+screen (with a second browser tab open to the public site) rather than
+describe it — consistent with slides 6/7/8/14, which were already built this
+way. The ask was to keep the focus on *how directors get into the app and
+use it*, not on backend mechanics.
+
+**Files touched this round:** `build-deck.cjs` (slides 6, 11, 12, 13, 17, 23
+content + notes; slide 6 also had a pre-existing text-overlap bug, fixed),
+`00-PRESENTER-OUTLINE.md`, `01-AUDIENCE-OUTLINE.md`, `02-SCRIPT.md`,
+`03-SPEAKER-NOTES.md` (kept identical to the deck's notes area per the
+standing rule), root `README.md` (its Firestore collections list was stale
+and out of sync with `firestore.rules` — fixed independently of the deck).
+`.pptx`/`.pdf` regenerated from `build-deck.cjs`, validated
+(`scripts/office/validate.py` — all passed), and visually inspected slide by
+slide at 100dpi for overflow/overlap before calling it done.

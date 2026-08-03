@@ -70,9 +70,14 @@ firebase.json                # Points the Firebase CLI at firestore.rules
 
 ## Firestore collections
 
-Public (world-readable, director-write): `ensembles`, `students`, `events`,
-`rosterOverrides`, `announcements`, `repertoire`.
-Private (director only): `contacts`, `attendance`, `progressNotes`.
+Public (world-readable, staff-write): `ensembles`, `studentsPublic`, `events`,
+`rosterOverridesPublic`, `announcements`, `repertoire`, `assignments`,
+`seatingCharts`, `locations`, `documents`.
+Staff only (signed-in staff read/write; never world-readable): `students`,
+`rosterOverrides`, `contacts`, `attendance`, `progressNotes`,
+`assignmentResults`, `lessons`, `notifyQueue`. See `firestore.rules` for the
+full model, including the `studentsPublic`/`rosterOverridesPublic` projection
+mirrors and their field contracts (`src/director/publicMirror.ts`).
 
 ## Local development
 

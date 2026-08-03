@@ -268,24 +268,30 @@ presenter's outline.
 
 **[ON SCREEN]** Swap · Shift · Move · Cancel — and undo.
 
-> **SAY:** Things change. That used to be the expensive part of the week.
+> **SAY:** Things change. That used to be the expensive part of the week. Let
+> me show you, not tell you.
 >
-> There's a screen called **Schedule Change**. You pick the day, and you can
-> swap two blocks with each other, shift a rehearsal's time, move it to another
-> room, or cancel it.
+> **[LIVE]** Pick a real upcoming rehearsal. Open **Schedule Change**, shift its
+> time by fifteen minutes, save.
 >
-> When you do, three things happen without you doing anything else. The event
-> gets tagged as changed. The red banner appears on the public front page. And
+> **[DO]** Switch to the public site in a second tab or window. Point: the red
+> banner is already there. You didn't post it anywhere — the change IS the
+> notice.
+>
+> That's what happens automatically on every schedule change, whether you swap
+> two blocks, shift a time, move a room, or cancel outright: the event gets
+> tagged as changed, the red banner appears on the public front page, and
 > you're offered a notice that goes out as an urgent announcement.
 >
-> And there's **Revert to normal**. The app took a snapshot of the original
-> schedule before your first change, so reverting puts back exactly what was
-> there and pulls the notice down with it. You are never stuck having damaged
-> the calendar.
+> **[LIVE]** Now tap **Revert to normal**. The app took a snapshot of the
+> original before your first change, so this puts back exactly what was there
+> and pulls the notice down with it. You are never stuck having damaged the
+> calendar.
 >
 > There's also a **Close a day** button for the whole-school situation — the
 > hurricane day. One button cancels everything on that date and posts one
-> notice, instead of you editing fourteen events.
+> notice, instead of you editing fourteen events. I'll describe that one rather
+> than demo it, in the interest of time.
 >
 > ⚠ **VERIFY:** only say "hurricane day" if that's the local phrasing. Otherwise
 > "the day school closes."
@@ -300,17 +306,19 @@ presenter's outline.
 > concert. A singer gets pulled for a lesson every Thursday for a month.
 >
 > The old way to handle that is to edit the roster and remember to put it back.
-> That's how rosters rot.
+> That's how rosters rot. Let me show you the new way.
 >
-> Here, that's a **temporary roster change**. You add a student to your ensemble
-> for one event or for a date range — or you pull one out — and you give a
-> reason. It's required.
+> **[LIVE]** Pull a real student out for one rehearsal, right now. Add the
+> student, pick the event, type a reason — it's required — save. That took
+> seconds.
 >
-> Your permanent roster is never touched. The change expires by itself. And
-> while it's active it's real: the student shows up on your roll screen with a
-> "Sub" badge, they appear on Who's Out for the ensemble they left, and their own
-> public schedule page shows the change. If you're moving a student from one
-> ensemble into another, one entry does both sides.
+> **[DO]** Point at the three places that just changed: the "Sub" badge on the
+> roll screen, the student now listed on Who's Out for the ensemble they left,
+> and — switch to the public tab — the change on their own public schedule.
+>
+> Your permanent roster was never touched, and the change expires by itself.
+> If you're moving a student from one ensemble into another, one entry does
+> both sides.
 >
 > Nobody has to remember to undo anything.
 
@@ -320,7 +328,12 @@ presenter's outline.
 
 **[ON SCREEN]** Normal · Important · Urgent — school-wide or just yours.
 
-> **SAY:** Announcements are yours per ensemble, or school-wide.
+> **SAY:** Announcements are yours per ensemble, or school-wide. Let me write
+> one.
+>
+> **[LIVE]** Write one real Urgent announcement on screen — something you'd
+> actually post this week — and publish it. Switch to the public tab: the
+> site-wide banner is already up.
 >
 > Three levels. A normal post appears on the front page and the ensemble page.
 > **Important** gets highlighted. **Urgent** puts a banner across every page of
@@ -440,23 +453,26 @@ presenter's outline.
 > **SAY:** ⚠ *[Dean]*, this one's mainly for you, and I want to be precise
 > rather than reassuring.
 >
-> Two tiers, and the line between them is enforced by the database itself — not
-> by hiding a page. Even if somebody knew the exact address, the data doesn't
-> come out.
->
-> **Staff only, always:** contact details for students and guardians, attendance
-> records, progress notes, private lesson schedules. Signed-in staff on the list.
-> Nobody else, ever.
->
 > **Public, on purpose:** schedules, concerts, repertoire, announcements — and
-> student names, instruments, grade, and which ensemble they're in. That last
-> part is a real trade and I want it on the record: it's public *because* the
-> site lets a student find their own schedule without an account, and to do that
-> it has to show them a list of names.
+> a student's name, instrument, section, and which ensemble they're in. That's
+> the whole public list. It's public *because* the site lets a student find
+> their own schedule without an account, and to do that it has to show them a
+> list of names. That's a real trade, and I want it on the record.
 >
-> That is a decision, not an accident. If you want it changed, that's a
-> conversation we can have — it would mean giving students accounts, and I'd
-> rather you make that call knowing the cost.
+> **Staff only, always:** grade level, and pronunciation guides — those never
+> made it into that trade and never appear publicly. Plus contact details for
+> students and guardians, attendance records, progress notes, and private
+> lesson schedules. Signed-in staff on the list. Nobody else, ever.
+>
+> The line is enforced twice: which records the public site is even allowed to
+> query, and separately, by name, which fields the answer is allowed to
+> contain. Grade doesn't cross it in either direction — even a mistake in the
+> app can't leak it, because the second check happens at the database, not in
+> the app's code.
+>
+> If you ever want the public list narrower still, that's a conversation we
+> can have — it would mean giving students accounts, and I'd rather you make
+> that call knowing the cost.
 >
 > And announcements are public by design, so nothing private goes in one.
 
@@ -601,8 +617,8 @@ presenter's outline.
 >   a study.
 > - The Teams and email relay for urgent posts is queued by the app; the delivery
 >   step lives outside it and I haven't verified it end to end. ⚠
-> - Student names, instruments and ensembles are public. That's a decision, and
->   it's reversible if you want it reversed.
+> - Grade level is public anywhere. It isn't — only a student's name,
+>   instrument, section and ensemble are public; grade stays behind sign-in.
 > - Whoever maintains this is me. There's no help desk behind it. ⚠
 > - ⚠ *[anything you promised to find out during the talk]*
 >

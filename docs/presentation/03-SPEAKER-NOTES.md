@@ -88,25 +88,30 @@ If silence: name one person, ask one specific question, count to five.
 
 ---
 
-**11 · When the day changes** — *2:00*
-Schedule Change: swap two blocks · shift a time · move a room · cancel.
-Automatically: tagged as changed + red public banner + offer to post a notice.
-**Revert to normal** restores the pre-change snapshot and pulls the notice down.
-**Close a day** = one button cancels everything on a date + one notice.
+**11 · When the day changes** — *2:00* — **LIVE**
+Pick a real upcoming rehearsal and shift it 15 minutes on screen — don't
+describe the buttons, tap them. The moment you save, point at the public site
+in a second tab: the red banner is already there. That's the whole demo.
+Then show **Revert to normal** undoing it, banner gone.
+**Close a day** = one button cancels everything on a date + one notice —
+mention it, demo only if time allows.
 ⚠ Local phrasing for the closure day.
 
 ---
 
-**12 · Subs and pull-outs** — *1:30*
-Temporary roster change: add or pull, one event or a date range, reason required.
-Permanent roster untouched; expires itself.
-While active it's real: "Sub" badge on roll, appears on Who's Out, shows on the
-student's public schedule. One entry moves a student both out and in.
+**12 · Subs and pull-outs** — *1:30* — **LIVE**
+Pull a real student out for one rehearsal on screen — reason required, takes
+seconds. Then show it: the "Sub" badge on roll, the student on Who's Out, the
+change on their own public schedule.
+Permanent roster untouched; expires itself. One entry can move a student both
+out and in at once.
 Line: *"nobody has to remember to undo anything."*
 
 ---
 
-**13 · Announcements** — *2:00*
+**13 · Announcements** — *2:00* — **LIVE**
+Write one real Urgent announcement on screen and post it — watch the
+site-wide banner appear in the other tab.
 Per-ensemble or school-wide. Normal / Important / **Urgent** (site-wide banner —
 for "call time moved," not "bring your folder").
 Pin · expiry date · schedule for later · Spanish field you write yourself.
@@ -150,13 +155,16 @@ Go around by name. Write it down where they can see you writing it.
 ---
 
 **17 · Who can see what** — *2:00* — **the Dean's slide**
-Enforced by the database, not by hiding pages.
-**Staff only:** contacts, attendance, progress notes, private lessons.
-**Public on purpose:** schedules, concerts, repertoire, announcements — and
-student names, instruments, grade, ensemble.
+Be precise, not reassuring.
+**Public, on purpose:** schedules, concerts, repertoire, announcements, and a
+student's name/instrument/section/ensemble — that's it.
+**Staff only, always:** grade level, pronunciation, contact details,
+attendance, progress notes, private lessons.
 Say the trade out loud: names are public *because* lookup-without-an-account
-requires it. It's a decision, reversible, costs student accounts.
-Announcements are public by design.
+requires it. **Grade was never part of that trade and never appears publicly.**
+If asked how it's enforced: two layers — which collections the public site can
+even query, and a field allowlist on top of that, so a bug in the app can't
+leak grade even by accident.
 
 ---
 
@@ -205,6 +213,7 @@ term setup is real; the payoff is ten months of not re-entering.
 
 **23 · Questions — and what I'm not claiming** — *8:00+*
 Read the open items aloud: no measured time savings · Teams/email relay
-unverified ⚠ · student names are public by design · maintenance is you ⚠ ·
-anything you promised mid-talk.
+unverified ⚠ · **grade level is NOT public anywhere — only name, instrument,
+section and ensemble are** · maintenance is you ⚠ · anything you promised
+mid-talk.
 Then: *"What did I miss, and what's going to break?"* — and stop talking.

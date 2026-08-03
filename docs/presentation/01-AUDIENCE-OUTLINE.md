@@ -98,12 +98,13 @@ the work, not a measured number of minutes.*
 
 ## Who can see what
 
-- **Public** (no login): schedules, concerts, repertoire, announcements, ensemble
-  rosters — student **names, instruments, grade and ensemble**, so a student can
-  find their own schedule without an account.
-- **Staff only** (enforced by the database itself, not just a hidden page):
-  contact details for students and guardians, **attendance**, progress notes,
-  private lessons.
+- **Public** (no login): schedules, concerts, repertoire, announcements, and a
+  student's **name, instrument, section and ensemble**, so a student can find
+  their own schedule without an account.
+- **Staff only, always** (enforced twice — by collection and by field, not
+  just a hidden page): **grade level and pronunciation guides**, contact
+  details for students and guardians, **attendance**, progress notes, private
+  lessons.
 - **Never** put anything private in an announcement — announcements are public
   by design.
 

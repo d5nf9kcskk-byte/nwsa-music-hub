@@ -31,10 +31,10 @@ one is marked in the script too.
 | A4 | **The choir director may already have an account.** The seed script lists a second founding email (`g.elgarresta@gmail.com`, noted in code as the chorus director). I can't see live data to confirm it's still there. | Slide 21 | Check the Directors screen *before* the meeting so you don't promise access you have to go fix |
 | A5 | **Teams / email delivery is NOT verified.** The app *queues* an outbound notification for urgent posts (`notifyQueue`). Actual delivery needs a Power Automate flow running outside the app (`docs/POWER-AUTOMATE-RELAY.md`). I could not verify it is switched on. | Slide 13 | Either confirm it's live and say so, or say "in-app banner today, Teams relay is the next step." **Do not promise a text/Teams blast you haven't tested.** |
 | A6 | **No time-savings numbers.** I have no measurement of how long the old way took. Nothing in these materials claims minutes saved. | Slides 9, 20 | The arithmetic on slide 9 is design math (taps = absences), not a study. Keep it that way |
-| A7 | **Live student counts.** The repo holds a seed roster and a 2025-26 baseline import; live enrollment lives in Firestore, which I can't read. | Slide 9 | Say "an ensemble of *about* eighty" or open the real roster on screen and read the number off it |
+| A7 | **Live student counts.** Real rosters are never committed to the repo (purged from files and git history, Aug 2026) — provisioning now runs through `seedCalendar.ts` and two admin scripts (`add-ensembles.mjs`, `import-official-calendar.mjs`); live enrollment lives only in Firestore, which I can't read from here. | Slide 9 | Say "an ensemble of *about* eighty" or open the real roster on screen and read the number off it |
 | A8 | **The "before" story.** The one documented fact is that this replaced a **Notion-based workflow** whose mobile interface couldn't do fast tap-to-mark attendance; the first roster was imported from that Notion workspace and from a spreadsheet export. Anything else about the old way — paper, group texts, whiteboards — is **your** memory, not mine. | Slide 3, 20 | Fill in the blanks on slide 3 with what actually happened. Say it in first person: "here's what my week looked like" |
 | A9 | **Cost.** The setup documentation uses GitHub Pages and Firebase's free plan. Free tiers depend on usage and vendor terms. | Slide 19 | Say "no license, free tiers as configured" — don't say "free forever" |
-| A10 | **The site is live.** I confirmed `https://d5nf9kcskk-byte.github.io/nwsa-music-hub/` responds today. | Slide 6 | Load it once before you walk in |
+| A10 | **The site is live.** I confirmed `https://d5nf9kcskk-byte.github.io/nwsa-music-hub/` responds today (2026-08-03). | Slide 6 | Load it once before you walk in |
 
 ---
 
@@ -66,9 +66,9 @@ one is marked in the script too.
 | 9 | Why that's faster | 1:30 | The arithmetic. Then stop talking |
 | 10 | Roll answers questions later | 1:30 | Receipt, history, follow-ups, export |
 | — | **PAUSE 1** | 2:00 | "Questions on roll before I move on?" |
-| 11 | When the day changes | 2:00 | Schedule Change + Close a day |
-| 12 | Subs & pull-outs | 1:30 | The base roster never gets damaged |
-| 13 | Announcements | 2:00 | Three levels, Spanish, scheduled. **Honest about Teams (A5)** |
+| 11 | When the day changes | 2:00 | **LIVE.** Shift a real rehearsal, show the banner appear |
+| 12 | Subs & pull-outs | 1:30 | **LIVE.** Pull a student, show the badge/Who's Out/public schedule update |
+| 13 | Announcements | 2:00 | **LIVE.** Post one, show the banner. **Honest about Teams (A5)** |
 | 14 | Repertoire → program | 2:00 | **LIVE.** Show a printed program |
 | 15 | Assignments · Documents · Seating | 1:30 | Fast. Don't linger |
 | 16 | Getting families in | 1:30 | Hold up the QR page |
@@ -146,6 +146,28 @@ Rehearse each once. Each is under 60 seconds.
    movements, the runtime total.
 3. Say: *"you set the order in the app; this page is generated from it."*
 
+**Demo E — Schedule Change (slide 11)** — have a second tab/window on the
+public site open before you start
+1. `/director` → **Schedule Change**. Pick a real upcoming rehearsal.
+2. Shift the time by 15 minutes. Save.
+3. Switch to the public tab. Point at the red banner: *"I didn't post that
+   anywhere — the change IS the notice."*
+4. Back in the director tab, tap **Revert to normal**. Switch tabs again —
+   banner's gone, time's back.
+
+**Demo F — Subs & pull-outs (slide 12)**
+1. `/director` → **Temporary Roster Changes**. Pick a real student and a real
+   upcoming event.
+2. Pull the student out (or add one in) — type a reason, it's required. Save.
+3. Point at the "Sub" badge on the roll screen, then the student on **Who's
+   Out**, then switch tabs and show it on the student's own public schedule.
+
+**Demo G — Announcements (slide 13)** — same two-tab setup as Demo E
+1. `/director` → **Announcements** → new, level **Urgent**.
+2. Write one real line you'd actually post this week. Publish.
+3. Switch to the public tab — the site-wide banner is up. Say the honest line
+   about Teams/email (⚠ A5) here, not before.
+
 ---
 
 ## Questions you will get, and honest answers
@@ -165,11 +187,13 @@ only by signed-in staff, enforced by the database's own security rules — not j
 by hiding a page.
 
 **"Can a parent see another family's information?"**
-Contact details, no — those are staff-only. But be precise: student **names,
-instruments, grade and ensemble membership are public**, because the public site
-has a name lookup so a student can find their own schedule without an account.
-That's a deliberate trade. If the Dean wants that changed, it's a real
-conversation, not a checkbox. (See slide 17.)
+Contact details, no — those are staff-only. But be precise: a student's
+**name, instrument, section and ensemble membership are public**, because the
+public site has a name lookup so a student can find their own schedule
+without an account. **Grade level is not part of that trade — it stays
+staff-only, always.** That's a deliberate trade on the fields that are
+public. If the Dean wants the public list narrower, it's a real conversation,
+not a checkbox. (See slide 17.)
 
 **"Do I have to use all of it?"**
 No. Roll and the calendar carry themselves. Repertoire, documents, seating and

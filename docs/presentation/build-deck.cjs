@@ -288,7 +288,7 @@ function n(text) { notes.push(text); }
    ══════════════════════════════════════════════════════════════════════ */
 {
   const s = light('What a family sees', 'Live — the public site');
-  const lw = 7.0;
+  const lw = 6.5;
   const rows = [
     ['A red strip, or nothing', 'Anything cancelled or moved today shows at the very top. No red strip means today is normal — and that is the whole point.'],
     ['Find your name once', 'The site remembers that student on that device. From then on it’s their rehearsals, their concerts, their part.'],
@@ -299,13 +299,13 @@ function n(text) { notes.push(text); }
   });
   const rx = M + lw + 0.5;
   const rw = CW - lw - 0.5;
-  card(s, rx, 1.95, rw, 2.95, { fill: DEEP, line: DEEP });
-  s.addText('No account.\nNo password to reset.\nNothing to download.', {
-    x: rx + 0.35, y: 2.3, w: rw - 0.7, h: 1.5, margin: 0,
-    fontFace: HEAD, fontSize: 23, bold: true, color: WHITE, lineSpacing: 36,
+  card(s, rx, 1.95, rw, 3.3, { fill: DEEP, line: DEEP });
+  s.addText('No account.\nNo password.\nNothing to install.', {
+    x: rx + 0.35, y: 2.3, w: rw - 0.7, h: 1.65, margin: 0,
+    fontFace: HEAD, fontSize: 22, bold: true, color: WHITE, lineSpacing: 36,
   });
   s.addText('An account is a wall. We don’t need one to tell somebody when rehearsal is.', {
-    x: rx + 0.35, y: 3.9, w: rw - 0.7, h: 0.8, margin: 0,
+    x: rx + 0.35, y: 4.15, w: rw - 0.7, h: 0.8, margin: 0,
     fontFace: BODY, fontSize: 14, italic: true, color: 'A8D3DA',
   });
   s.addText('LIVE: Home → My Schedule → look up a real student by name.', {
@@ -509,7 +509,7 @@ function n(text) { notes.push(text); }
    11 — When the day changes
    ══════════════════════════════════════════════════════════════════════ */
 {
-  const s = light('When the day changes', 'Schedule Change');
+  const s = light('When the day changes', 'Live — Schedule Change');
   const acts = ['Swap two blocks', 'Shift a time', 'Move the room', 'Cancel it'];
   const pw = 2.9, gap = (CW - pw * 4) / 3;
   acts.forEach((t, i) => {
@@ -554,10 +554,10 @@ function n(text) { notes.push(text); }
     x: M, y: 6.35, w: CW, h: 0.4, margin: 0, fontFace: BODY, fontSize: 15, italic: true, color: MUTED,
   });
   n([
-    'Schedule Change: swap two blocks, shift a time, move a room, cancel.',
-    'Automatic: tagged as changed + red public banner + offer to post a notice.',
-    'Revert to normal restores the pre-change snapshot and pulls the notice down.',
-    'Close a day = one button cancels everything on a date and posts one notice.',
+    'LIVE DEMO. Pick a real upcoming rehearsal and shift it 15 minutes on screen - don\'t describe the buttons, tap them.',
+    'The moment you save: point at the public site in a second tab/window - the red banner is already there. That\'s the whole demo.',
+    'Then show Revert to normal undoing it, banner gone.',
+    'Close a day = one button cancels everything on a date and posts one notice. Mention it; demo only if time allows.',
     'VERIFY the local phrasing for a school closure day.',
   ].join('\n'));
 }
@@ -566,7 +566,7 @@ function n(text) { notes.push(text); }
    12 — Subs and pull-outs
    ══════════════════════════════════════════════════════════════════════ */
 {
-  const s = light('Borrow a student. Keep your roster.', 'Temporary Roster Changes');
+  const s = light('Borrow a student. Keep your roster.', 'Live — Temporary Roster Changes');
   const cw = 5.9, gap = CW - cw * 2;
   card(s, M, 1.95, cw, 3.5);
   s.addText('What you do', {
@@ -599,10 +599,10 @@ function n(text) { notes.push(text); }
     x: M, y: 5.9, w: CW, h: 0.45, margin: 0, fontFace: BODY, fontSize: 17, italic: true, color: DEEP, align: 'center',
   });
   n([
-    'Temporary roster change: add or pull, one event or a date range, reason required.',
-    'Permanent roster untouched; the change expires itself.',
-    'While active it is real: Sub badge on roll, appears on Who\'s Out, shows on the student\'s public schedule.',
-    'One entry can move a student out of one ensemble and into another.',
+    'LIVE DEMO. Pull a real student out for one rehearsal on screen - reason required, takes seconds.',
+    'Then show it: the Sub badge on the roll screen, the student on Who\'s Out, the change on their own public schedule.',
+    'Say it plainly: permanent roster untouched; the change expires itself, nobody has to remember to undo it.',
+    'One entry can move a student out of one ensemble and into another at once.',
   ].join('\n'));
 }
 
@@ -610,7 +610,7 @@ function n(text) { notes.push(text); }
    13 — Announcements
    ══════════════════════════════════════════════════════════════════════ */
 {
-  const s = light('Three levels — and one rule', 'Announcements');
+  const s = light('Three levels — and one rule', 'Live — Announcements');
   const levels = [
     ['Normal', 'Appears on the front page and your ensemble’s page.', CARD, INK, CARDLINE],
     ['Important', 'Highlighted so it can’t be scrolled past.', 'FBF4E3', '5A4A22', 'E8D9B0'],
@@ -654,8 +654,8 @@ function n(text) { notes.push(text); }
     fontFace: BODY, fontSize: 16.5, bold: true, color: '7A2E2E',
   });
   n([
-    'Per-ensemble or school-wide. Normal / Important / Urgent (site-wide banner).',
-    'Pin, expiry date, schedule for later, and a Spanish field you write yourself (not machine translation).',
+    'LIVE DEMO. Write one real Urgent announcement on screen and post it - watch the site-wide banner appear in the other tab.',
+    'Per-ensemble or school-wide. Normal / Important / Urgent. Pin, expiry date, schedule for later, and a Spanish field you write yourself (not machine translation).',
     'TEAMS / EMAIL - SAY THE HONEST VERSION. Unless you have watched one arrive: "the app queues it; that last hop is set up outside the app and I will not promise it until I have tested it. Today, treat the banner as the delivery."',
     'Rule: announcements are public. Nothing private in one.',
   ].join('\n'));
@@ -786,44 +786,43 @@ function n(text) { notes.push(text); }
 {
   const s = light('Who can see what', 'Privacy');
   const cw = 5.9, gap = CW - cw * 2;
-  card(s, M, 1.9, cw, 2.6, { fill: DEEP, line: DEEP });
+  card(s, M, 1.9, cw, 2.9, { fill: DEEP, line: DEEP });
   s.addText('Staff only — always', {
     x: M + 0.4, y: 2.1, w: cw - 0.8, h: 0.4, margin: 0, fontFace: HEAD, fontSize: 22, bold: true, color: WHITE,
   });
-  const priv = ['Contact details for students and guardians', 'Attendance records', 'Progress notes', 'Private lesson schedules'];
+  const priv = ['Grade level and pronunciation guide', 'Contact details for students and guardians', 'Attendance records', 'Progress notes', 'Private lesson schedules'];
   s.addText(priv.map((t, j) => ({ text: t, options: { bullet: true, breakLine: j < priv.length - 1 } })), {
-    x: M + 0.4, y: 2.65, w: cw - 0.8, h: 1.6, margin: 0, fontFace: BODY, fontSize: 15, color: 'CFE6EA', paraSpaceAfter: 8,
+    x: M + 0.4, y: 2.65, w: cw - 0.8, h: 2.0, margin: 0, fontFace: BODY, fontSize: 15, color: 'CFE6EA', paraSpaceAfter: 8,
   });
 
   const x2 = M + cw + gap;
-  card(s, x2, 1.9, cw, 2.6);
+  card(s, x2, 1.9, cw, 2.9);
   s.addText('Public — on purpose', {
     x: x2 + 0.4, y: 2.1, w: cw - 0.8, h: 0.4, margin: 0, fontFace: HEAD, fontSize: 22, bold: true, color: TEAL,
   });
-  const pub = ['Schedules and concerts', 'Repertoire and programs', 'Announcements', 'Student names, instrument, grade, ensemble'];
+  const pub = ['Schedules and concerts', 'Repertoire and programs', 'Announcements', 'Student name, instrument, section, ensemble'];
   s.addText(pub.map((t, j) => ({ text: t, options: { bullet: true, breakLine: j < pub.length - 1 } })), {
-    x: x2 + 0.4, y: 2.65, w: cw - 0.8, h: 1.6, margin: 0, fontFace: BODY, fontSize: 15, color: INK, paraSpaceAfter: 8,
+    x: x2 + 0.4, y: 2.65, w: cw - 0.8, h: 2.0, margin: 0, fontFace: BODY, fontSize: 15, color: INK, paraSpaceAfter: 8,
   });
 
-  s.addText('The line between them is enforced by the database itself — not by hiding a page. Knowing the address doesn’t get the data out.', {
-    x: M, y: 4.7, w: CW, h: 0.45, margin: 0, fontFace: BODY, fontSize: 16, color: INK,
+  s.addText('The line is enforced twice: what the public site is even allowed to ask for, and separately, by name, what fields that answer is allowed to contain. Grade never crosses it, in either direction.', {
+    x: M, y: 5.0, w: CW, h: 0.55, margin: 0, fontFace: BODY, fontSize: 15.5, color: INK,
   });
   s.addShape(pres.ShapeType.roundRect, {
-    x: M, y: 5.3, w: CW, h: 1.4, rectRadius: 0.1, fill: { color: 'FBF4E3' }, line: { color: 'E8D9B0', width: 1 },
+    x: M, y: 5.65, w: CW, h: 1.15, rectRadius: 0.1, fill: { color: 'FBF4E3' }, line: { color: 'E8D9B0', width: 1 },
   });
-  s.addText('Student names are public — and that is a decision, not an accident.', {
-    x: M + 0.35, y: 5.45, w: CW - 0.7, h: 0.4, margin: 0, fontFace: BODY, fontSize: 17, bold: true, color: '5A4A22',
+  s.addText('Names are public so a student can find their own schedule without an account.', {
+    x: M + 0.35, y: 5.8, w: CW - 0.7, h: 0.4, margin: 0, fontFace: BODY, fontSize: 16.5, bold: true, color: '5A4A22',
   });
-  s.addText('The site lets a student find their own schedule without an account, and to do that it has to show a list of names. It’s reversible — the cost of reversing it is giving every student a login. Your call, made knowing the trade.', {
-    x: M + 0.35, y: 5.88, w: CW - 0.7, h: 0.7, margin: 0, fontFace: BODY, fontSize: 14, color: '5A4A22',
+  s.addText('Grade level was never part of that trade — it stays behind sign-in with everything else on the left. That line is a decision the two of us can revisit; it isn’t a default.', {
+    x: M + 0.35, y: 6.18, w: CW - 0.7, h: 0.55, margin: 0, fontFace: BODY, fontSize: 13.5, color: '5A4A22',
   });
   n([
     'THE DEAN\'S SLIDE. Be precise rather than reassuring.',
-    'Enforced by the database, not by hidden pages.',
-    'Staff only: contacts, attendance, progress notes, private lessons.',
-    'Public on purpose: schedules, concerts, repertoire, announcements - AND student names, instrument, grade, ensemble.',
-    'Say the trade out loud: names are public BECAUSE lookup-without-an-account requires it. Reversible; the cost is student accounts. Their call.',
-    'Announcements are public by design - nothing private in one.',
+    'Public, on purpose: schedules, concerts, repertoire, announcements, and a student\'s name/instrument/section/ensemble - that\'s it.',
+    'Staff only, always: grade level, pronunciation, contact details, attendance, progress notes, private lessons.',
+    'Say the trade out loud: names are public BECAUSE lookup-without-an-account requires it. Grade was never part of that trade and never appears publicly.',
+    'If asked how it\'s enforced: two layers - which collections the public site can even query, and a field allowlist on top of that, so a bug in the app can\'t leak grade even by accident.',
   ].join('\n'));
 }
 
@@ -1033,7 +1032,7 @@ function n(text) { notes.push(text); }
   const claims = [
     'A measured time saving — the argument is structural, not a study',
     'Teams / email delivery of urgent posts — the app queues it; that hop is unverified',
-    'That student names stay private — they’re public by design, and reversible',
+    'That grade level is public anywhere — it isn’t; only name, instrument, section and ensemble are',
     'That there’s a help desk behind this — there’s me',
   ];
   s.addText(claims.map((t, j) => ({ text: t, options: { bullet: true, breakLine: j < claims.length - 1 } })), {
@@ -1052,7 +1051,7 @@ function n(text) { notes.push(text); }
   });
   n([
     'Read the open items aloud before taking questions - edit the list to match what is true on the day.',
-    'No measured time savings. Teams/email relay unverified. Student names public by design. Maintenance is you.',
+    'No measured time savings. Teams/email relay unverified. Grade level is NOT public anywhere - only name/instrument/section/ensemble are. Maintenance is you.',
     'Add anything you promised to find out during the talk.',
     'Then: "What did I miss, and what is going to break?" - and STOP TALKING. Let the silence work.',
   ].join('\n'));
