@@ -15,36 +15,31 @@
  *   5. Update the Submission doc with the Drive file id.
  *
  * Env:
- *   FIREBASE_SERVICE_ACCOUNT_JSON — Firebase Admin SDK service account key.
- *   GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON — GCP service account key with
- *     Drive file write access (same format as Firebase key).
+ *   FIREBASE_SERVICE_ACCOUNT_JSON — Firebase Admin SDK service account key
+ *     (same secret the other workflows already use). Also authenticates
+ *     to Drive; enable the Drive API on the GCP project once.
  *
- * The Drive service account must have "Writer" access on each director's
- * assignment folder (granted by the director via useGoogleDrive.ts when
- * they first connect).
+ * The service account must have "Writer" access on each director's
+ * assignment folder (granted by useGoogleDrive.ts on Connect).
  */
 
+import { Readable } from 'stream';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { google } from 'googleapis';
 
-const rawFirebase = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-const rawDrive = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON;
-
-if (!rawFirebase) {
+const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+if (!raw) {
   console.error('FIREBASE_SERVICE_ACCOUNT_JSON is not set — aborting.');
   process.exit(1);
 }
-if (!rawDrive) {
-  console.error('GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON is not set — aborting.');
-  process.exit(1);
-}
+const sa = JSON.parse(raw);
 
-const firebaseApp = initializeApp({ credential: cert(JSON.parse(rawFirebase)) });
+const firebaseApp = initializeApp({ credential: cert(sa) });
 const db = getFirestore(firebaseApp);
 
 const driveAuth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(rawDrive),
+  credentials: sa,
   scopes: ['https://www.googleapis.com/auth/drive.file'],
 });
 const drive = google.drive({ version: 'v3', auth: driveAuth });
@@ -100,7 +95,7 @@ async function main() {
         },
         media: {
           mimeType: res.headers.get('content-type') ?? 'video/webm',
-          body: require('stream').Readable.from(buffer),
+          body: Readable.from(buffer),
         },
         fields: 'id,webViewLink',
       });

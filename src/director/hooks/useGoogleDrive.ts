@@ -2,7 +2,10 @@ import { useState, useCallback } from 'react';
 import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 
 const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-const SERVICE_ACCOUNT_EMAIL = 'nwsa-video-sync@nwsa-music-hub.iam.gserviceaccount.com';
+// ponytail: hardcode until we know the Firebase SA client_email; Connect still
+// works without share — cron skips unshared folders. Fix: paste the SA email
+// from Firebase Console → Project settings → Service accounts.
+const SERVICE_ACCOUNT_EMAIL = 'firebase-adminsdk@nwsa-hub.iam.gserviceaccount.com';
 
 interface DriveState {
   connected: boolean;

@@ -22,5 +22,6 @@ jobs:
       - name: Sync submissions to Drive
         run: node scripts/sync-drive-videos.mjs
         env:
+          # Same Firebase SA already used by deploy-rules / backfill — also
+          # authenticates to Drive (Drive API must be enabled on the GCP project).
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON }}
