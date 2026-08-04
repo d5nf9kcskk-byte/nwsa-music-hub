@@ -4,7 +4,9 @@ Written 2026-08 alongside the PWA hardening PR. That PR already shipped the
 cheap, high-value fixes:
 
 - fail-closed roles in `firestore.rules` and `storage.rules` (an explicit
-  unknown role gets nothing; assistants can no longer write Storage),
+  unknown role keeps only self-service access to its own directors doc —
+  no student, roster, log, or Storage access; assistants can no longer
+  write Storage),
 - `email_verified` required on every allowlist check,
 - hardened `plannedAbsences` create (real student id, real date, bounded
   strings) — still the app's only unauthenticated write,
@@ -47,12 +49,13 @@ Directors screen next gets touched.
 ## 3. Freeze the `rosterOverridesPublic` shape
 
 `studentsPublic` writes are locked to an exact key allowlist; the
-`rosterOverridesPublic` mirror only denies `reason`, so any signed-in role
+`rosterOverridesPublic` mirror only denies `reason`, so any recognized role
 (teachers and assistants write lesson pull-outs there) could add arbitrary
 extra keys to a world-readable doc. A `keys().hasOnly([...])` allowlist
 mirroring `publicOverrideFields()` in `src/director/publicMirror.ts` closes
 it — deferred because every schema addition would then need a rules deploy
-in lockstep with the app, and the write path is staff-only today.
+in lockstep with the app, and the write path is limited to the four known
+staff roles today.
 
 ## 4. Offline-honest forms (audit A4)
 

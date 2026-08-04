@@ -67,8 +67,12 @@ shipped incident, not a style bug.
       or in logs
 - [ ] Attendance stays exception-only (unmarked = present; no bulk
       "present" writes)
-- [ ] Sign-out purges the Firestore IndexedDB cache (DevTools →
-      Application → IndexedDB is empty after signing out)
+- [ ] Sign-out purges the Firestore cache: with NO other Hub tab/window
+      open, sign out, then DevTools → Application → IndexedDB no longer
+      lists any `firestore/...` database (other `firebase-*` databases
+      remain — they hold no student data). A second open tab holds the
+      persistence lease and legitimately blocks the purge; close it and
+      repeat when testing
 - [ ] CSP meta tag present in `dist/index.html` with two script hashes;
       after any release that touches auth, storage, or external URLs,
       re-run the CSP smoke list: sign-in popup, sign-out, file upload,

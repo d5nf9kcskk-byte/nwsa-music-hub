@@ -112,7 +112,13 @@ export default defineConfig(({ mode }) => {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,jpg,json,woff2}'],
         // dist/feeds/ is written AFTER vite build by generate-feeds.mjs and
         // regenerated every 4 hours; it must never enter the precache.
-        globIgnores: ['feeds/**'],
+        // sw-cleanup.js is part of the SW itself (importScripts below) — the
+        // browser caches it with the SW script, so precaching it is redundant.
+        globIgnores: ['feeds/**', 'sw-cleanup.js'],
+        // Legacy-cache migration runs inside the SW's own activate (see
+        // public/sw-cleanup.js) — never from the page, where it would race
+        // the still-controlling old SW's offline fallback.
+        importScripts: ['sw-cleanup.js'],
         navigateFallback: `${BASE}index.html`,
         // Never serve the SPA shell for feeds or for anything with a file
         // extension (real files should 404 honestly, not render the app).

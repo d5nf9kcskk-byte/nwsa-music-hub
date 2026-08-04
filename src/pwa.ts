@@ -52,11 +52,10 @@ export function initPwa() {
     },
     onRegisteredSW(_swUrl, reg) {
       if (!reg) return;
-      // One-time migration off the hand-rolled sw.js: its named caches are
-      // orphaned once Workbox takes over.
-      caches.keys()
-        .then(keys => Promise.all(keys.filter(k => k.startsWith('nwsa-hub-')).map(k => caches.delete(k))))
-        .catch(() => {});
+      // (Legacy nwsa-hub-* cache cleanup happens in the SW's own activate —
+      // public/sw-cleanup.js — NOT here: at registration time the old
+      // hand-rolled SW may still be the controller and still needs its cache
+      // for the offline fallback.)
       setInterval(() => { reg.update().catch(() => {}); }, UPDATE_CHECK_MS);
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') reg.update().catch(() => {});
@@ -78,7 +77,7 @@ function promptRefresh(onAccept: () => void) {
   toast.innerHTML =
     '<span>A new version of NWSA Music Hub is ready.</span>' +
     '<button style="border:none;border-radius:8px;padding:7px 12px;background:#0d7e8e;color:#fff;' +
-    'font:700 13px inherit;cursor:pointer;">Refresh</button>';
+    'font:inherit;font-weight:700;font-size:13px;cursor:pointer;">Refresh</button>';
   toast.querySelector('button')!.addEventListener('click', onAccept);
   document.body.appendChild(toast);
 }
