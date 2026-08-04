@@ -94,6 +94,13 @@ Open the dev URL; the public site is at `/`, the director tool at `/director`.
 4. **Project Settings → Your apps → Web app** → copy the config values into
    `.env.local` (see `.env.local.template`).
 
+> **File uploads need the Blaze plan.** Since 3 Feb 2026 the Spark plan has no
+> Cloud Storage bucket, so every upload in `FileUpload.tsx` fails with a
+> `storage/*` code and the UI falls back to "paste a link instead". Everything
+> else works on Spark. Blaze is metered with no monthly fee, and the document
+> repository fits inside its free allowance — see
+> [`docs/firebase-blaze-cost-analysis.md`](docs/firebase-blaze-cost-analysis.md).
+
 ### 2. Security rules
 
 Security rules deploy **automatically**: the *Deploy Firestore & Storage rules*
