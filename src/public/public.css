@@ -762,6 +762,7 @@
 
 .pub-program-piece-composer { font-size: 14px; color: var(--pub-muted); margin-top: 3px; font-style: italic; }
 .pub-program-piece-dates { font-style: normal; }
+.pub-program-soloist { font-size: 13.5px; color: var(--pub-text); margin-top: 4px; font-weight: 600; }
 
 .pub-program-movements { margin: 8px 0 0; padding: 0 0 0 22px; list-style: lower-roman; }
 .pub-program-movements li { font-size: 14px; color: var(--pub-text); padding: 2px 0; }

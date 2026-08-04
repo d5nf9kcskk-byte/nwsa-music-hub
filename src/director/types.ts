@@ -302,6 +302,10 @@ export interface RepertoirePiece {
   percussion?: string;        // specific percussion instruments called for (comma-separated)
   duration?: number;          // typical performance duration in minutes
   movements?: PieceMovement[];
+  /** Featured soloist for concert programs (name as printed). */
+  soloistName?: string;
+  /** Soloist's instrument as printed on the program, e.g. "violin", "piano". */
+  soloistInstrument?: string;
   programNotes?: string;      // text suitable for a concert program
   programNotesUrl?: string;   // link to external program notes
   imslpUrl?: string;          // IMSLP score/parts page

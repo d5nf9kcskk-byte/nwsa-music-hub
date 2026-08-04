@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from 'react';
-import { Plus, Pencil, Music, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Music, Trash2, GripVertical } from 'lucide-react';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
@@ -208,6 +208,10 @@ function RepertoireForm({
   const [duration, setDuration] = useState(piece?.duration?.toString() ?? '');
   const [movements, setMovements] = useState<PieceMovement[]>(piece?.movements ?? []);
   const [movementKeys, setMovementKeys] = useState<number[]>(() => (piece?.movements ?? []).map((_, i) => i));
+  const [mvtDrag, setMvtDrag] = useState<{ from: number; to: number } | null>(null);
+  const mvtListRef = useRef<HTMLDivElement>(null);
+  const [soloistName, setSoloistName] = useState(piece?.soloistName ?? '');
+  const [soloistInstrument, setSoloistInstrument] = useState(piece?.soloistInstrument ?? '');
   const [programNotes, setProgramNotes] = useState(piece?.programNotes ?? '');
   const [programNotesUrl, setProgramNotesUrl] = useState(piece?.programNotesUrl ?? '');
   const [imslpUrl, setImslpUrl] = useState(piece?.imslpUrl ?? '');
@@ -264,6 +268,58 @@ function RepertoireForm({
     setMovementKeys(ks => ks.filter((_, idx) => idx !== i));
   }
 
+  function pendingMovements(): { movements: PieceMovement[]; keys: number[] } {
+    if (!mvtDrag || mvtDrag.from === mvtDrag.to) return { movements, keys: movementKeys };
+    const nextM = [...movements];
+    const nextK = [...movementKeys];
+    const [m] = nextM.splice(mvtDrag.from, 1);
+    const [k] = nextK.splice(mvtDrag.from, 1);
+    nextM.splice(mvtDrag.to, 0, m);
+    nextK.splice(mvtDrag.to, 0, k);
+    return { movements: nextM, keys: nextK };
+  }
+
+  function onMvtGripDown(e: React.PointerEvent<HTMLButtonElement>, displayIndex: number) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setMvtDrag({ from: displayIndex, to: displayIndex });
+  }
+
+  function onMvtGripMove(e: React.PointerEvent<HTMLButtonElement>) {
+    if (!mvtDrag) return;
+    const rows = Array.from(
+      mvtListRef.current?.querySelectorAll<HTMLElement>('[data-mvt-row]') ?? [],
+    );
+    let to = rows.length - 1;
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i].getBoundingClientRect();
+      if (e.clientY < r.top + r.height / 2) { to = i; break; }
+    }
+    if (to !== mvtDrag.to) setMvtDrag(d => (d ? { ...d, to } : d));
+  }
+
+  function onMvtGripUp() {
+    if (!mvtDrag) return;
+    if (mvtDrag.from !== mvtDrag.to) {
+      const pending = pendingMovements();
+      setMovements(pending.movements);
+      setMovementKeys(pending.keys);
+    }
+    setMvtDrag(null);
+  }
+
+  function moveMovement(i: number, delta: number) {
+    const j = i + delta;
+    if (j < 0 || j >= movements.length) return;
+    const nextM = [...movements];
+    const nextK = [...movementKeys];
+    [nextM[i], nextM[j]] = [nextM[j], nextM[i]];
+    [nextK[i], nextK[j]] = [nextK[j], nextK[i]];
+    setMovements(nextM);
+    setMovementKeys(nextK);
+  }
+
   // Per-instrument parts
   function addPartLink() {
     setPartsLinks(ls => [...ls, { instrument: '', url: '' }]);
@@ -294,6 +350,8 @@ function RepertoireForm({
       percussion: percussion.trim() || undefined,
       duration: duration ? Number(duration) : undefined,
       movements: cleanMovements.length ? cleanMovements : undefined,
+      soloistName: soloistName.trim() || undefined,
+      soloistInstrument: soloistInstrument.trim() || undefined,
       programNotes: programNotes.trim() || undefined,
       programNotesUrl: programNotesUrl.trim() || undefined,
       imslpUrl: imslpUrl.trim() || undefined,
@@ -435,15 +493,47 @@ function RepertoireForm({
             {movements.length === 0 ? (
               <div className="dir-empty-inline">No movements added yet.</div>
             ) : (
-              <div className="dir-movements-list">
-                {movements.map((m, i) => (
-                  <div key={movementKeys[i] ?? i} className="dir-movement-row">
-                    <span className="dir-movement-grip">{i + 1}.</span>
+              (() => {
+                const pending = pendingMovements();
+                const display = pending.movements;
+                const keys = pending.keys;
+                const srcIndex = (displayI: number) => {
+                  if (!mvtDrag) return displayI;
+                  const order = movements.map((_, idx) => idx);
+                  const [moved] = order.splice(mvtDrag.from, 1);
+                  order.splice(mvtDrag.to, 0, moved);
+                  return order[displayI];
+                };
+                return (
+              <div className="dir-movements-list" ref={mvtListRef}>
+                {display.map((m, i) => {
+                  const src = srcIndex(i);
+                  return (
+                  <div
+                    key={keys[i] ?? i}
+                    data-mvt-row
+                    className={`dir-movement-row${mvtDrag && mvtDrag.to === i ? ' dragging' : ''}`}
+                  >
+                    <button
+                      type="button"
+                      className="dir-piece-grip"
+                      aria-label={`Reorder movement ${i + 1} — drag, or use arrow keys`}
+                      onPointerDown={e => onMvtGripDown(e, i)}
+                      onPointerMove={onMvtGripMove}
+                      onPointerUp={onMvtGripUp}
+                      onPointerCancel={() => setMvtDrag(null)}
+                      onKeyDown={e => {
+                        if (e.key === 'ArrowUp') { e.preventDefault(); moveMovement(src, -1); }
+                        if (e.key === 'ArrowDown') { e.preventDefault(); moveMovement(src, 1); }
+                      }}
+                    >
+                      <GripVertical size={16} />
+                    </button>
                     <input
                       className="dir-input dir-movement-title"
                       placeholder={`Movement ${i + 1} title`}
                       value={m.title}
-                      onChange={e => updateMovement(i, 'title', e.target.value)}
+                      onChange={e => updateMovement(src, 'title', e.target.value)}
                     />
                     <input
                       className="dir-input dir-movement-dur"
@@ -451,15 +541,42 @@ function RepertoireForm({
                       min="1"
                       placeholder="min"
                       value={m.duration ?? ''}
-                      onChange={e => updateMovement(i, 'duration', e.target.value)}
+                      onChange={e => updateMovement(src, 'duration', e.target.value)}
                     />
-                    <button className="dir-icon-btn" onClick={() => removeMovement(i)} type="button" aria-label="Remove">
+                    <button className="dir-icon-btn" onClick={() => removeMovement(src)} type="button" aria-label="Remove">
                       <Trash2 size={14} />
                     </button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
+                );
+              })()
             )}
+          </div>
+
+          <div className="dir-field-row">
+            <div className="dir-field">
+              <label className="dir-label">Soloist</label>
+              <input
+                className="dir-input"
+                value={soloistName}
+                onChange={e => setSoloistName(e.target.value)}
+                placeholder="Name as printed on the program"
+              />
+            </div>
+            <div className="dir-field">
+              <label className="dir-label">Solo instrument</label>
+              <input
+                className="dir-input"
+                value={soloistInstrument}
+                onChange={e => setSoloistInstrument(e.target.value)}
+                placeholder="e.g. violin, piano"
+              />
+            </div>
+          </div>
+          <div className="dir-field-hint" style={{ marginTop: -6 }}>
+            Shown on the public concert program whenever this piece is programmed.
           </div>
 
           <div className="dir-form-section-label">Links</div>

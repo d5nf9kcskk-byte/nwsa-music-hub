@@ -138,6 +138,13 @@ export function PublicProgram() {
           {p.composerDates && <span className="pub-program-piece-dates"> ({p.composerDates})</span>}
           {p.arranger && <span> · arr. {p.arranger}</span>}
         </div>
+        {(p.soloistName || p.soloistInstrument) && (
+          <div className="pub-program-soloist">
+            {p.soloistName}
+            {p.soloistName && p.soloistInstrument ? ', ' : ''}
+            {p.soloistInstrument}
+          </div>
+        )}
         {mvts.length > 0 && (
           <ol className="pub-program-movements">
             {mvts.map((m, i) => (

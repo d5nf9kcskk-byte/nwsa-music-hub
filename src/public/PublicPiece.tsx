@@ -92,6 +92,13 @@ export function PublicPiece() {
           {piece.composerDates && ` (${piece.composerDates})`}
           {piece.arranger && ` · arr. ${piece.arranger}`}
         </div>
+        {(piece.soloistName || piece.soloistInstrument) && (
+          <div className="pub-ghero-meta">
+            {piece.soloistName}
+            {piece.soloistName && piece.soloistInstrument ? ', ' : ''}
+            {piece.soloistInstrument}
+          </div>
+        )}
       </GradientHero>
       <div className="pub-piece-meta-row" style={{ marginTop: -8, marginBottom: 14 }}>
         {piece.catalogNumber && <span className="pub-piece-chip">{piece.catalogNumber}</span>}

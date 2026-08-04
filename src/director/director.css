@@ -1488,6 +1488,12 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 .dir-movement-row {
   display: flex; align-items: center; gap: 6px;
 }
+.dir-movement-row.dragging {
+  position: relative; z-index: 2;
+  background: var(--dir-surface);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  border-radius: 10px;
+}
 .dir-movement-grip { color: var(--dir-border); flex-shrink: 0; }
 .dir-movement-title { flex: 1; }
 .dir-movement-dur { width: 68px; flex-shrink: 0; }

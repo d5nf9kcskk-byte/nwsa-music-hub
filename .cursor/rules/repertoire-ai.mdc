@@ -1,0 +1,38 @@
+---
+description: How to fill NWSA repertoire pieces via Cursor AI (owner workflow)
+globs: src/director/repertoire/**,src/director/types.ts,src/director/hooks/useRepertoire.ts,src/public/PublicProgram.tsx,src/public/PublicPiece.tsx
+alwaysApply: false
+---
+
+# Repertoire AI fill (owner / Cursor)
+
+When asked to add or enrich repertoire, fill **as many fields as possible** on `RepertoirePiece`. Other directors edit manually in the Hub; Drive/parts links are handled by Bottega — **do not invent Google Drive or parts URLs**.
+
+## Always try to fill
+
+- `title` (short list label) and `fullTitle` (formal program title)
+- `composer`, `composerDates` (en dash, e.g. `1770–1827`), `arranger` when arranged
+- `catalogNumber`, `year` (composition year/range)
+- `instrumentation` in **Daniels' Orchestral Music** shorthand (e.g. `2 2 2 2 — 2 2 0 0 — timp — str`)
+- `percussion` when the Daniels line uses `tmp+N` / perc — list instruments
+- `duration` (total minutes) and every `movements[]` entry with `title` + `duration` (minutes)
+- `soloistName` + `soloistInstrument` when the work is a concerto / featured solo (printed on the program)
+- `programNotes` — **2–3 sentences**, concert-program voice, factual, no fluff
+- `imslpUrl` / `videoUrl` / `audioUrl` only when you have a real, verified URL (prefer search helpers over guessing)
+- `ensembleIds` for the performing ensemble(s); link `eventIds` only when asked
+
+## Never fill (Bottega / humans)
+
+- `partsSharedUrl`, `partsUrl`, `partsLinks` (Google Drive / per-instrument parts)
+- Fake or hallucinated Drive/IMSLP/YouTube links — leave blank or use known-good search URLs from `imslpSearchUrl` / `youtubeSearchUrl`
+
+## Conventions
+
+- Movement order = performance order; titles use standard Italian/English as customary for the work
+- Prefer en dashes in date ranges; keep Daniels spacing with ` — ` between sections
+- Soloist prints as `Name, instrument` on the public program when the piece is programmed
+- Persist via the existing repertoire hooks / Firestore `repertoire` collection; push to `main` when the owner asks to ship
+
+## Example ask
+
+> Add Mendelssohn Violin Concerto in E minor for Symphony: Daniels, all movements with timings, composer dates, soloist Jane Doe violin, short program notes. Skip parts links.
