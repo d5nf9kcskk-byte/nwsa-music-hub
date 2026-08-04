@@ -97,12 +97,23 @@ export interface CalendarEvent {
   type: EventType;
   ensembleIds: string[];
   /**
+   * Individual students required to PERFORM (in addition to any ensemble
+   * rosters in `ensembleIds`). Same expectation rules as being on a
+   * performing ensemble — shows as a performer, not audience-only.
+   */
+  studentIds?: string[];
+  /**
    * Ensembles whose members are REQUIRED TO ATTEND (in the audience) even
    * though they are not performing — e.g. all Symphony members must attend the
    * College Chamber Orchestra concert. Shows on those students' schedules with
    * an "attendance required" badge; never affects performer rosters.
    */
   attendanceEnsembleIds?: string[];
+  /**
+   * Individual students required to ATTEND (audience) but not perform —
+   * same badge/expectation as `attendanceEnsembleIds`, one student at a time.
+   */
+  attendanceStudentIds?: string[];
   date: string;           // YYYY-MM-DD
   startTime?: string;     // "HH:MM" (24h)
   endTime?: string;       // "HH:MM" (24h)

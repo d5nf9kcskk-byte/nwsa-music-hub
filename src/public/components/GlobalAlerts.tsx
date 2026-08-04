@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useReducer } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import { Link, useLocation } from 'react-router';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { CheckCircle2, Siren, AlertTriangle } from 'lucide-react';
 import { useEvents } from '../../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../../director/hooks/useAnnouncements';
 import { useEnsembles } from '../../director/hooks/useEnsembles';
+import { auth, db } from '../../director/firebase';
+import { directorEmailId } from '../../director/hooks/useDirectors';
 import { todayStr, ensembleDisplayName } from '../../director/utils';
 import { getIdentity, onIdentityChange } from '../../shared/identity';
 import { t, useLang } from '../../shared/i18n';
@@ -12,6 +16,9 @@ import { t, useLang } from '../../shared/i18n';
  * Site-wide alert strip (#18 + #19): shows today's cancellations/changes and
  * urgent announcements on EVERY public page — with a positive all-clear state
  * so "no banner" is never ambiguous with "page didn't load".
+ *
+ * Signed-in staff tapping an urgent banner land in the director Announcement
+ * editor (edit / remove). Families keep the public announcements list.
  */
 export function GlobalAlerts() {
   useLang();
@@ -21,6 +28,20 @@ export function GlobalAlerts() {
   const { pathname } = useLocation();
   const today = todayStr();
   const now = useMinuteTick(); // scheduled posts appear the minute they go live
+  const [isStaff, setIsStaff] = useState(false);
+
+  useEffect(() => {
+    if (!auth) return;
+    return onAuthStateChanged(auth, async (u) => {
+      if (!u?.email || !db) { setIsStaff(false); return; }
+      try {
+        const snap = await getDoc(doc(db, 'directors', directorEmailId(u.email)));
+        setIsStaff(snap.exists());
+      } catch {
+        setIsStaff(false);
+      }
+    });
+  }, []);
 
   // Watch EVERY saved student (parents can save several) and re-render when
   // the saved list changes — filtering by just the first child could show
@@ -59,8 +80,13 @@ export function GlobalAlerts() {
   return (
     <div role="status" aria-live="polite">
       {urgent.map(a => (
-        <Link key={a.id} to="/announcements" className="pub-urgent-banner">
+        <Link
+          key={a.id}
+          to={isStaff ? `/director/announcements?announcement=${encodeURIComponent(a.id)}` : '/announcements'}
+          className="pub-urgent-banner"
+        >
           <Siren size={15} style={{ verticalAlign: '-2.5px' }} /> <strong>{a.title}</strong>{a.body ? ` — ${a.body.slice(0, 90)}${a.body.length > 90 ? '…' : ''}` : ''}
+          {isStaff ? ' · Edit' : ''}
         </Link>
       ))}
       {!onHome && problems.map(e => (

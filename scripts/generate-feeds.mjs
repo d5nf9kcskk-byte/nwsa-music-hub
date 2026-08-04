@@ -184,6 +184,16 @@ function wrapCalendar(name, description, vevents) {
       );
     }
 
+    // Per-type feeds (Classes, Rehearsals, …) so directors can subscribe to one
+    // category without every other ensemble/class on the same phone calendar.
+    for (const type of ['Class', 'Rehearsal', 'Sectional', 'Concert', 'Event']) {
+      const typed = events.filter(e => e.type === type);
+      writeFileSync(
+        `dist/feeds/type-${type}.ics`,
+        wrapCalendar(`NWSA Music — ${type}s`, `${type} events only`, typed.map(e => buildVEVENT(e, ensembleMap))),
+      );
+    }
+
     // Per-student feeds: base membership + subs − pulls + attendance requirements.
     // (Lesson-kind overrides are PARTIAL absences and never remove an event.)
     const overrideApplies = (o, event) => {
@@ -194,6 +204,7 @@ function wrapCalendar(name, description, vevents) {
     };
     const expectedForStudent = (stu, event) => {
       const memberIds = stu.ensembleIds ?? [];
+      if ((event.studentIds ?? []).includes(stu.id)) return true;
       for (const ensId of event.ensembleIds ?? []) {
         const isMember = memberIds.includes(ensId);
         const mine = overrides.filter(o =>
@@ -202,7 +213,8 @@ function wrapCalendar(name, description, vevents) {
         const added = mine.some(o => o.action === 'add');
         if ((isMember && !pulled) || added) return true;
       }
-      // Audience requirement: member of an attendance-required ensemble.
+      // Audience requirement: member of an attendance-required ensemble, or named individually.
+      if ((event.attendanceStudentIds ?? []).includes(stu.id)) return true;
       return (event.attendanceEnsembleIds ?? []).some(ensId => memberIds.includes(ensId));
     };
     let studentFeeds = 0;

@@ -19,7 +19,7 @@ const RANGE_LABELS: Record<Range, string> = {
   'all': 'All time',
 };
 
-export function TrackerView() {
+export function TrackerView({ onNavigate }: { onNavigate?: import('../types-nav').DirNavigate } = {}) {
   const { ensembles } = useEnsembles();
   const { students } = useStudents();
   const { records } = useAllAttendance();
@@ -143,7 +143,13 @@ export function TrackerView() {
           {/* Per-student ranked list */}
           <div className="dir-roster-list">
             {perStudent.map(({ student, counts }) => (
-              <div key={student.id} className="dir-tracker-row">
+              <button
+                key={student.id}
+                type="button"
+                className="dir-tracker-row"
+                style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}
+                onClick={() => onNavigate?.('roster', { studentId: student.id })}
+              >
                 <div className="dir-tracker-row-info">
                   <div className="dir-roster-name">{student.name}</div>
                   <div className="dir-roster-detail">{student.instrument}</div>
@@ -153,7 +159,7 @@ export function TrackerView() {
                   {counts.Late > 0 && <span className="dir-count-chip late">{counts.Late} L</span>}
                   {counts.Excused > 0 && <span className="dir-count-chip excused">{counts.Excused} E</span>}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </>

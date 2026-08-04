@@ -11,6 +11,12 @@ export function feedUrl(ensembleId?: string): string {
   return `${base}/all.ics`;
 }
 
+/** ICS feed for one event type (Class, Rehearsal, …) — built at deploy time. */
+export function typeFeedUrl(type: string): string {
+  const safe = type.replace(/[^a-z0-9-]/gi, '-');
+  return `${window.location.origin}/nwsa-music-hub/feeds/type-${safe}.ics`;
+}
+
 /** ICS feed for one student's personal schedule (their ensembles + subs + required attendance). */
 export function studentFeedUrl(studentId: string): string {
   const safe = studentId.replace(/[^a-z0-9-]/gi, '-');

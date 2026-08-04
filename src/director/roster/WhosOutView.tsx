@@ -207,7 +207,13 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
             )}
 
             {marks.map(r => (
-              <div key={r.id} className="dir-sub-row">
+              <button
+                key={r.id}
+                type="button"
+                className="dir-sub-row"
+                style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', background: 'inherit' }}
+                onClick={() => onNavigate('roster', { studentId: r.student!.id })}
+              >
                 <div className="dir-sub-info">
                   <div className="dir-sub-name">{r.student!.name}</div>
                   <div className="dir-sub-instr">
@@ -216,11 +222,17 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
                   </div>
                 </div>
                 <span className={`dir-status-badge ${r.status.toLowerCase()}`}>{r.status}</span>
-              </div>
+              </button>
             ))}
 
             {lessons.map(o => (
-              <div key={o.id} className="dir-sc-ov lesson">
+              <button
+                key={o.id}
+                type="button"
+                className="dir-sc-ov lesson"
+                style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none' }}
+                onClick={() => onNavigate('roster', { studentId: o.studentId })}
+              >
                 <div className="dir-sc-ov-body">
                   <div className="dir-sc-ov-title">{o.student!.name}</div>
                   <div className="dir-sc-ov-meta">
@@ -228,11 +240,17 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
                     {o.reason ? ` · ${o.reason}` : ''} — back after
                   </div>
                 </div>
-              </div>
+              </button>
             ))}
 
             {pulls.map(o => (
-              <div key={o.id} className="dir-sub-row">
+              <button
+                key={o.id}
+                type="button"
+                className="dir-sub-row"
+                style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', background: 'inherit' }}
+                onClick={() => onNavigate('roster', { studentId: o.studentId })}
+              >
                 <div className="dir-sub-info">
                   <div className="dir-sub-name">{o.student!.name}</div>
                   <div className="dir-sub-instr">
@@ -240,17 +258,23 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
                   </div>
                 </div>
                 <span className="dir-status-badge absent">Pulled</span>
-              </div>
+              </button>
             ))}
 
             {guests.map(({ student }) => (
-              <div key={student.id} className="dir-sub-row">
+              <button
+                key={student.id}
+                type="button"
+                className="dir-sub-row"
+                style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', background: 'inherit' }}
+                onClick={() => onNavigate('roster', { studentId: student.id })}
+              >
                 <div className="dir-sub-info">
                   <div className="dir-sub-name">{student.name}</div>
                   <div className="dir-sub-instr">{student.instrument} · guest today (schedule change)</div>
                 </div>
                 <span className="dir-status-badge excused">Guest</span>
-              </div>
+              </button>
             ))}
           </div>
         ))}

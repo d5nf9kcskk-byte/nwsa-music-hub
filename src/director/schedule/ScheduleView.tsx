@@ -12,7 +12,7 @@ import { EventForm } from './EventForm';
 import { EventRoster } from './EventRoster';
 import { IcsImport } from './IcsImport';
 import { QuickAddView } from './QuickAddView';
-import { ScheduleChangesSubscribe } from '../components/ScheduleChangesSubscribe';
+import { FilteredCalendarSubscribe } from '../components/FilteredCalendarSubscribe';
 import { FilterMenu } from '../../shared/FilterMenu';
 import { seedCalendar, seedSchoolCalendar, seedExtraSchedule } from '../seedCalendar';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
@@ -366,7 +366,13 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           <button className="dir-tool-btn" onClick={() => setQuickAdding(true)} title="Describe an event in plain English">
             <Sparkles size={15} /> Quick Add
           </button>
-          <ScheduleChangesSubscribe />
+          <FilteredCalendarSubscribe
+            events={visibleEvents}
+            ensembles={ensembles}
+            filterEnsembleIds={filterEnsembleIds}
+            typeFilters={typeFilters}
+            schoolSentinel={SCHOOL}
+          />
       </div>
 
       {/* Filters — multi-select: several ensembles AND several types at once. */}

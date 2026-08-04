@@ -18,7 +18,7 @@ interface Props {
   students: Student[];
   contact: StudentContact | null;
   ensembles: Ensemble[];
-  onEdit: () => void;
+  onEdit?: () => void;
   onClose: () => void;
 }
 
@@ -82,9 +82,11 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
                 <RotateCcw size={13} /> Restore
               </button>
             )}
-            <button className="dir-tool-btn" onClick={onEdit}>
-              <Pencil size={13} /> Edit
-            </button>
+            {onEdit && (
+              <button className="dir-tool-btn" onClick={onEdit}>
+                <Pencil size={13} /> Edit
+              </button>
+            )}
             <button className="dir-drawer-close" onClick={onClose}>×</button>
           </div>
         </div>
@@ -187,7 +189,10 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
                   <div key={r.id} className="dir-detail-att-row">
                     <span className={`dir-detail-att-status dir-detail-att-${r.status.toLowerCase()}`}>{r.status}</span>
                     <span className="dir-detail-att-date">{formatDate(r.date, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    {r.reason && <span className="dir-detail-att-reason">{r.reason}</span>}
+                    <span className="dir-detail-att-reason">
+                      {ensembles.find(e => e.id === r.ensembleId)?.name ?? ''}
+                      {r.reason ? (ensembles.find(e => e.id === r.ensembleId) ? ` · ${r.reason}` : r.reason) : ''}
+                    </span>
                   </div>
                 ))}
                 {attendanceRecords.length > 12 && (

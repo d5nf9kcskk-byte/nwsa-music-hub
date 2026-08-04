@@ -375,6 +375,15 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   font-weight: 700;
   color: var(--dir-text);
 }
+.dir-student-name-btn {
+  font: inherit;
+  font-weight: 700;
+  color: var(--dir-blue, #2563eb);
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 .dir-student-meta {
   font-size: 12px;
@@ -1686,7 +1695,17 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
 .dir-tab-page {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  /* Let the parent .dir-content be the only scroller — nested overflow-y
+   * (e.g. reusing .dir-drawer-body on a full tab) creates two scroll boxes. */
+  min-height: min-content;
+}
+
+/* Page body inside a tab: same padding/gap as a drawer body, but no nested scroll. */
+.dir-page-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 /* ── Assignment cards (list view) ── */

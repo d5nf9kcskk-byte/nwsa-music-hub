@@ -94,11 +94,21 @@ export function studentExpectation(
   }
   if (ensembleIds.length > 0) return { expected: true, ensembleIds, isSub, attendanceOnly: false };
 
+  // Named individual performers (in addition to / instead of an ensemble roster).
+  if ((event.studentIds ?? []).includes(studentId)) {
+    return { expected: true, ensembleIds: event.ensembleIds.slice(0, 1), isSub: false, attendanceOnly: false };
+  }
+
   // Not performing — but membership in an attendance-required ensemble still
   // puts the event on this student's schedule (audience requirement).
   const student = students.find(st => st.id === studentId);
   const attends = (event.attendanceEnsembleIds ?? []).filter(ensId => student?.ensembleIds?.includes(ensId));
   if (attends.length > 0) return { expected: true, ensembleIds: attends, isSub: false, attendanceOnly: true };
+
+  // Named individual audience attendees.
+  if ((event.attendanceStudentIds ?? []).includes(studentId)) {
+    return { expected: true, ensembleIds: [], isSub: false, attendanceOnly: true };
+  }
 
   return { expected: false, ensembleIds: [], isSub: false, attendanceOnly: false };
 }

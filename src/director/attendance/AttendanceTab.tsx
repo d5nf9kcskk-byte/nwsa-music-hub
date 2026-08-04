@@ -17,7 +17,7 @@ export function AttendanceTab({ initialEnsembleId, onNavigate }: { initialEnsemb
           Tracker
         </button>
       </div>
-      {mode === 'roll' ? <AttendanceView initialEnsembleId={initialEnsembleId} onNavigate={onNavigate} /> : <TrackerView />}
+      {mode === 'roll' ? <AttendanceView initialEnsembleId={initialEnsembleId} onNavigate={onNavigate} /> : <TrackerView onNavigate={onNavigate} />}
     </div>
   );
 }

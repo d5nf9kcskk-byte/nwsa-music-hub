@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { Plus } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useEvents } from '../hooks/useEvents';
 import { useRepertoire } from '../hooks/useRepertoire';
@@ -46,6 +47,8 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     pieceIds: [],
     pieceMovements: {},
     attendanceEnsembleIds: [],
+    studentIds: [],
+    attendanceStudentIds: [],
     status: 'Scheduled',
     notes: '',
     changeNote: '',
@@ -61,11 +64,11 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   // Cross-ensemble conflict radar (#48): students on THIS event who are also
   // expected somewhere else at an overlapping time that day.
   const conflicts = useMemo(() => {
-    if (!form.date || form.ensembleIds.length === 0) return [];
+    if (!form.date || (form.ensembleIds.length === 0 && !(form.studentIds?.length))) return [];
     const overlap = (aS?: string, aE?: string, bS?: string, bE?: string) =>
       !aS || !bS ? true : (aS < (bE ?? '23:59')) && (bS < (aE ?? '23:59'));
     const eventsById = Object.fromEntries(liveEvents.map(e => [e.id, e]));
-    const myIds = new Set<string>();
+    const myIds = new Set<string>(form.studentIds ?? []);
     for (const ensId of form.ensembleIds) {
       for (const r of resolveRoster(students, overrides, { ensembleId: ensId, date: form.date, eventsById })) {
         myIds.add(r.student.id);
@@ -83,9 +86,15 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
           }
         }
       }
+      for (const sid of other.studentIds ?? []) {
+        if (myIds.has(sid) && !clashes.some(c => c.name === (students.find(s => s.id === sid)?.name ?? sid))) {
+          const name = students.find(s => s.id === sid)?.name ?? sid;
+          clashes.push({ name, where: other.title || other.type });
+        }
+      }
     }
     return clashes;
-  }, [form.date, form.startTime, form.endTime, form.ensembleIds, liveEvents, students, overrides, event?.id]);
+  }, [form.date, form.startTime, form.endTime, form.ensembleIds, form.studentIds, liveEvents, students, overrides, event?.id]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -95,14 +104,47 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   // matches the count on the schedule cards behind this form.
   const expected = useMemo(() => {
     const byId = Object.fromEntries(liveEvents.map(e => [e.id, e]));
-    const ids = new Set<string>();
+    const ids = new Set<string>([...(form.studentIds ?? []), ...(form.attendanceStudentIds ?? [])]);
     for (const ensId of form.ensembleIds) {
       for (const r of resolveRoster(students, overrides, { ensembleId: ensId, eventId: event?.id, date: form.date, eventsById: byId })) {
         ids.add(r.student.id);
       }
     }
+    for (const ensId of form.attendanceEnsembleIds ?? []) {
+      for (const s of students) {
+        if (s.status === 'Active' && s.ensembleIds?.includes(ensId)) ids.add(s.id);
+      }
+    }
     return students.filter(s => ids.has(s.id));
-  }, [students, overrides, form.ensembleIds, form.date, event?.id, liveEvents]);
+  }, [students, overrides, form.ensembleIds, form.attendanceEnsembleIds, form.studentIds, form.attendanceStudentIds, form.date, event?.id, liveEvents]);
+
+  const [performerQuery, setPerformerQuery] = useState('');
+  const [audienceQuery, setAudienceQuery] = useState('');
+  const activeStudents = useMemo(
+    () => students.filter(s => s.status === 'Active').sort((a, b) => a.name.localeCompare(b.name)),
+    [students],
+  );
+  const performerMatches = useMemo(() => {
+    const q = performerQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return activeStudents
+      .filter(s => !(form.studentIds ?? []).includes(s.id) && (s.name.toLowerCase().includes(q) || (s.preferredName ?? '').toLowerCase().includes(q)))
+      .slice(0, 8);
+  }, [activeStudents, performerQuery, form.studentIds]);
+  const audienceMatches = useMemo(() => {
+    const q = audienceQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return activeStudents
+      .filter(s => !(form.attendanceStudentIds ?? []).includes(s.id) && (s.name.toLowerCase().includes(q) || (s.preferredName ?? '').toLowerCase().includes(q)))
+      .slice(0, 8);
+  }, [activeStudents, audienceQuery, form.attendanceStudentIds]);
+
+  function toggleStudentId(field: 'studentIds' | 'attendanceStudentIds', id: string) {
+    setForm(f => {
+      const cur = f[field] ?? [];
+      return { ...f, [field]: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id] };
+    });
+  }
 
   useEffect(() => {
     if (event) {
@@ -197,10 +239,10 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   }
 
   // Rehearsals and classes are taken per-ensemble (you take roll for a group),
-  // so at least one ensemble is required; concerts/events/sectionals can stand
-  // alone.
+  // Rehearsals and classes need a performing ensemble OR named performers;
+  // concerts/events/sectionals can stand alone.
   const needsEnsemble = form.type === 'Rehearsal' || form.type === 'Class';
-  const canSave = form.ensembleIds.length > 0 || !needsEnsemble;
+  const canSave = form.ensembleIds.length > 0 || (form.studentIds?.length ?? 0) > 0 || !needsEnsemble;
 
   async function handleSave() {
     if (editedElsewhere && !overrideTheirs) return; // banner asks first
@@ -317,14 +359,51 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                 </label>
               ))}
             </div>
+            <div className="dir-field-hint" style={{ marginTop: 8 }}>Or add individual students (performers)</div>
+            {(form.studentIds ?? []).length > 0 && (
+              <div className="dir-checkbox-group" style={{ marginBottom: 8 }}>
+                {(form.studentIds ?? []).map(id => {
+                  const s = students.find(x => x.id === id);
+                  return (
+                    <label key={id} className="dir-checkbox-tag checked" onClick={() => toggleStudentId('studentIds', id)}>
+                      {s?.name ?? id} ✕
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+            <input
+              className="dir-input"
+              value={performerQuery}
+              onChange={e => setPerformerQuery(e.target.value)}
+              placeholder="Search a student to add as performer…"
+            />
+            {performerMatches.length > 0 && (
+              <div className="dir-add-sub-list" style={{ marginTop: 6 }}>
+                {performerMatches.map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="dir-ens-row dir-sc-pick"
+                    onClick={() => { toggleStudentId('studentIds', s.id); setPerformerQuery(''); }}
+                  >
+                    <div className="dir-ens-info">
+                      <div className="dir-ens-name">{s.name}</div>
+                      <div className="dir-ens-sub">{s.instrument}</div>
+                    </div>
+                    <Plus size={16} />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {(form.type === 'Concert' || form.type === 'Event') && (
             <div className="dir-field">
               <label className="dir-label">Also required to attend (not performing)</label>
               <div className="dir-field-hint">
-                Members of these ensembles must be in the audience — it shows on their
-                schedules as “attendance required.”
+                Members of these ensembles — or specific students — must be in the audience.
+                It shows on their schedules as “attendance required.”
               </div>
               {attendanceMusicIds.length > 0 && (
                 <button
@@ -350,6 +429,43 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                   </label>
                 ))}
               </div>
+              <div className="dir-field-hint" style={{ marginTop: 8 }}>Or add individual students (attend only)</div>
+              {(form.attendanceStudentIds ?? []).length > 0 && (
+                <div className="dir-checkbox-group" style={{ marginBottom: 8 }}>
+                  {(form.attendanceStudentIds ?? []).map(id => {
+                    const s = students.find(x => x.id === id);
+                    return (
+                      <label key={id} className="dir-checkbox-tag checked" onClick={() => toggleStudentId('attendanceStudentIds', id)}>
+                        {s?.name ?? id} ✕
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              <input
+                className="dir-input"
+                value={audienceQuery}
+                onChange={e => setAudienceQuery(e.target.value)}
+                placeholder="Search a student required to attend…"
+              />
+              {audienceMatches.length > 0 && (
+                <div className="dir-add-sub-list" style={{ marginTop: 6 }}>
+                  {audienceMatches.map(s => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className="dir-ens-row dir-sc-pick"
+                      onClick={() => { toggleStudentId('attendanceStudentIds', s.id); setAudienceQuery(''); }}
+                    >
+                      <div className="dir-ens-info">
+                        <div className="dir-ens-name">{s.name}</div>
+                        <div className="dir-ens-sub">{s.instrument}</div>
+                      </div>
+                      <Plus size={16} />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -486,7 +602,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             />
           </div>
 
-          {form.ensembleIds.length > 0 && (
+          {(form.ensembleIds.length > 0 || (form.studentIds?.length ?? 0) > 0 || (form.attendanceStudentIds?.length ?? 0) > 0) && (
             <div className="dir-expected">
               <span className="dir-expected-count">{expected.length}</span> student{expected.length !== 1 ? 's' : ''} expected
             </div>

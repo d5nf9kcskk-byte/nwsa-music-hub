@@ -18,9 +18,11 @@ interface Props {
   lesson?: RosterOverride;
   /** Tap on the Lesson chip: opens the time sheet (or clears an existing lesson). */
   onLesson: (student: Student) => void;
+  /** Open the student's attendance / roster card (name tap). */
+  onOpenStudent?: (studentId: string) => void;
 }
 
-function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, plannedAbsence, dayContext, history }: Props) {
+function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, plannedAbsence, dayContext, history, onOpenStudent }: Props) {
   const status = record?.status;
 
   return (
@@ -28,7 +30,18 @@ function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, 
       <div className="dir-student-info">
         <div>
           <div className="dir-student-name">
-            {student.name}
+            {onOpenStudent ? (
+              <button
+                type="button"
+                className="dir-link-btn dir-student-name-btn"
+                onClick={() => onOpenStudent(student.id)}
+                title="Open student attendance card"
+              >
+                {student.name}
+              </button>
+            ) : (
+              student.name
+            )}
             {student.preferredName && <span className="dir-goesby">"{student.preferredName}"</span>}
             {isSub && <span className="dir-sub-badge">Sub</span>}
           </div>

@@ -10,6 +10,7 @@ import { useEvents } from '../hooks/useEvents';
 import { useContacts } from '../hooks/useContacts';
 import { resolveRoster, lessonsFor, overrideApplies } from '../rosterResolver';
 import { StudentCard } from './StudentCard';
+import { StudentDetail } from '../roster/StudentDetail';
 import { SortToggle } from '../components/SortToggle';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, takesAttendance } from '../utils';
@@ -245,6 +246,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
   assistantMode?: boolean;
 }) {
   const { students: allStudents } = useStudents();
+  const { ensembles: allEnsembles } = useEnsembles();
   const { overrides, addOverride, deleteOverride } = useRosterOverrides();
   const { events, updateEvent } = useEvents();
   const { records: dayRecords } = useDayAttendance(date);
@@ -270,7 +272,15 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
   ), [plannedAbsences, date]);
 
   const ctx = { ensembleId, date, eventId: eventId ?? undefined, eventsById };
-  const resolved = useMemo(() => resolveRoster(allStudents, overrides, ctx), [allStudents, overrides, ensembleId, date, eventId, eventsById]);
+  const resolved = useMemo(() => {
+    const base = resolveRoster(allStudents, overrides, ctx);
+    const seen = new Set(base.map(r => r.student.id));
+    const extras = (period.event?.studentIds ?? [])
+      .map(id => allStudents.find(s => s.id === id && s.status === 'Active'))
+      .filter((s): s is Student => !!s && !seen.has(s.id))
+      .map(student => ({ student, isSub: false }));
+    return [...base, ...extras];
+  }, [allStudents, overrides, ensembleId, date, eventId, eventsById, period.event?.studentIds]);
   const lessons = useMemo(() => lessonsFor(overrides, ctx), [overrides, ensembleId, date, eventId, eventsById]);
 
   const [toggleError, setToggleError] = useState('');
@@ -280,6 +290,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
   // student). Attendance stays exception-only — Present is always derived.
   const [statusFilter, setStatusFilter] = useState<AttendanceStatus | 'Unmarked' | null>(null);
   const [lessonStudent, setLessonStudent] = useState<Student | null>(null);
+  const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
   const [chartView, setChartView] = useState(false);
   const [sort, setSort] = useState<StudentSort>('scoreOrder');
   // Take Roll list order: score order (default) or last name, reusing the
@@ -528,11 +539,23 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
                     else handleToggle(seat.studentId, st as AttendanceStatus); // tapping current clears
                   };
                   return (
-                    <button key={seat.studentId} className={`dir-chart-seat ${st ? st.toLowerCase() : 'present'}`} onClick={cycle}>
-                      <span className="dir-chart-seat-num">{j + 1}</span>
-                      <span className="dir-chart-seat-name">{stu?.preferredName || stu?.name?.split(',')[0] || '—'}</span>
-                      {st && <span className="dir-chart-seat-status">{st}</span>}
-                    </button>
+                    <div key={seat.studentId} className={`dir-chart-seat ${st ? st.toLowerCase() : 'present'}`}>
+                      <button type="button" className="dir-chart-seat-main" onClick={cycle}>
+                        <span className="dir-chart-seat-num">{j + 1}</span>
+                        <span className="dir-chart-seat-name">{stu?.preferredName || stu?.name?.split(',')[0] || '—'}</span>
+                        {st && <span className="dir-chart-seat-status">{st}</span>}
+                      </button>
+                      {stu && (
+                        <button
+                          type="button"
+                          className="dir-chart-seat-open"
+                          title={`Open ${stu.name}`}
+                          onClick={() => setViewingStudentId(stu.id)}
+                        >
+                          i
+                        </button>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -562,6 +585,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
               plannedAbsence={plannedByStudent[student.id]}
               dayContext={dayContext[student.id]}
               history={history5[student.id]}
+              onOpenStudent={setViewingStudentId}
             />
             </div>
           ))
@@ -599,6 +623,24 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
           onSave={saveLesson}
         />
       )}
+
+      {viewingStudentId && (() => {
+        const stu = allStudents.find(s => s.id === viewingStudentId);
+        if (!stu) return null;
+        return (
+          <StudentDetail
+            student={stu}
+            students={allStudents}
+            contact={contacts[stu.id] ?? null}
+            ensembles={allEnsembles}
+            onEdit={assistantMode ? undefined : () => {
+              setViewingStudentId(null);
+              onNavigate?.('roster', { studentId: stu.id, ensembleId });
+            }}
+            onClose={() => setViewingStudentId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

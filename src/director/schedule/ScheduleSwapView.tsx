@@ -124,7 +124,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   const [confirmSwap, setConfirmSwap] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [view, setView] = useState<'day' | 'list' | 'month'>('day');
+  const [view, setView] = useState<'day' | 'list' | 'month'>('month');
 
   const today = todayStr();
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
@@ -244,7 +244,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
         </button>
       </div>
 
-      <div className="dir-drawer-body">
+      <div className="dir-page-body">
         <div className="dir-field-hint">
           Ensemble times only — swap blocks, shift a rehearsal, move rooms, or cancel.
           Families see a red “Schedule change” banner automatically.
@@ -347,39 +347,37 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   );
 }
 
-/** List view: the next few weeks of ensemble events grouped by day, so the
- *  director can find the day to change without arrowing one day at a time.
- *  Tap any day to open it in the day view. */
+/** List view: every ensemble event on the calendar, grouped by day (past and
+ *  future). Tap any day to open it in the day view. */
 function SwapList({ events, ensembleMap, onPick }: {
   events: CalendarEvent[];
   ensembleMap: Record<string, Ensemble | undefined>;
   onPick: (date: string) => void;
 }) {
   const today = todayStr();
-  const horizon = addDays(today, 28);
   const byDate = useMemo(() => {
     const m = new Map<string, CalendarEvent[]>();
     for (const e of events) {
-      if (e.ensembleIds.length === 0 || e.date < today || e.date > horizon) continue;
+      if (e.ensembleIds.length === 0) continue;
       const list = m.get(e.date) ?? [];
       list.push(e);
       m.set(e.date, list);
     }
     for (const list of m.values()) list.sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [events, today, horizon]);
+  }, [events]);
 
   if (byDate.length === 0) {
-    return <div className="dir-empty-inline">No ensemble events in the next four weeks.</div>;
+    return <div className="dir-empty-inline">No ensemble events on the calendar.</div>;
   }
   return (
-    <div className="dir-drawer-body">
-      <div className="dir-field-hint">The next four weeks — tap a day to open it and make a change.</div>
+    <div className="dir-page-body">
+      <div className="dir-field-hint">All ensemble events — tap a day to open it and make a change.</div>
       {byDate.map(([d, dayEvents]) => (
         <button key={d} className="dir-ens-row dir-sc-pick" onClick={() => onPick(d)}>
           <div className="dir-ens-info">
             <div className="dir-ens-name">
-              {parseDate(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              {parseDate(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
               {d === today && <span className="dir-today-badge" style={{ marginLeft: 8 }}>Today</span>}
             </div>
             {dayEvents.map(e => (
