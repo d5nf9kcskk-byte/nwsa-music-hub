@@ -839,3 +839,17 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
   border-radius: var(--dir-radius);
   font-size: 13.5px; line-height: 1.45; color: var(--dir-text-muted);
 }
+
+/* ── Video submission rows (director grade sheet) ── */
+.dir-submission-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px; border-bottom: 1px solid var(--dir-border);
+  background: var(--dir-surface); border-radius: var(--dir-radius-sm);
+}
+.dir-submission-row:last-child { border-bottom: none; }
+.dir-submission-info { flex: 1; min-width: 0; }
+.dir-submission-name { font-size: 14px; font-weight: 700; }
+.dir-submission-meta { font-size: 11px; color: var(--dir-text-muted); margin-top: 2px; }
+.dir-submission-notes { font-size: 12px; color: var(--dir-text); margin-top: 4px; font-style: italic; }
+.dir-submission-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+.dir-submission-reviewed { background: #f0fdf4 !important; color: #16a34a !important; border-color: #16a34a !important; }

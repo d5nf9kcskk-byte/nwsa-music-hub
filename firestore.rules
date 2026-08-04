@@ -266,6 +266,43 @@ service cloud.firestore {
     match /progressNotes/{doc}      { allow read, write: if isStaff(); }
     match /assignmentResults/{doc}  { allow read, write: if isStaff(); }
 
+    // ── Student video submissions (#video-submissions) ──
+    // Students submit video recordings/upload for Playing Exam assignments
+    // from the public site (unauthenticated). Staff review them in the
+    // grade sheet. A cron GitHub Action syncs them to Google Drive.
+    match /assignmentSubmissions/{doc} {
+      allow read: if isStaff();
+      // Unauthenticated create with strict shape validation — same pattern
+      // as plannedAbsences: must reference a real assignment that accepts
+      // video, a real student from that assignment's ensembles, and
+      // every field is size-bounded.
+      allow create: if request.resource.data.keys().hasOnly([
+            'assignmentId', 'studentId', 'studentName', 'status',
+            'videoUrl', 'videoDurationSeconds', 'videoThumbnailUrl',
+            'fileName', 'fileSize', 'notes', 'submittedAt',
+            'googleDriveFileId', 'googleDriveFolderId',
+          ])
+        && request.resource.data.assignmentId is string
+        && exists(/databases/$(database)/documents/assignments/$(request.resource.data.assignmentId))
+        && get(/databases/$(database)/documents/assignments/$(request.resource.data.assignmentId)).data.acceptsVideoSubmissions == true
+        && request.resource.data.studentId is string
+        && exists(/databases/$(database)/documents/students/$(request.resource.data.studentId))
+        && request.resource.data.studentName is string
+        && request.resource.data.studentName.size() <= 120
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.videoUrl is string
+        && request.resource.data.videoUrl.size() <= 1024
+        && request.resource.data.videoDurationSeconds is number
+        && request.resource.data.videoDurationSeconds > 0
+        && request.resource.data.fileName is string
+        && request.resource.data.fileName.size() <= 256
+        && request.resource.data.fileSize is number
+        && request.resource.data.fileSize > 0
+        && request.resource.data.submittedAt is number;
+      // Only staff may update (review status, Drive sync fields) or delete.
+      allow update, delete: if isStaff();
+    }
+
     // ── Director allowlist (stored as data) ─────────────
     // Owner-only management (#roles): only the Owner may add/remove a
     // director, change a role, or even list the roster — closes the gap

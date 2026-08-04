@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { ClipboardCheck, Plus, Clock } from 'lucide-react';
+import { ClipboardCheck, Plus, Clock, Video } from 'lucide-react';
 import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
+import { useAssignmentSubmissions } from '../hooks/useAssignmentSubmissions';
+import { useGoogleDrive } from '../hooks/useGoogleDrive';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useMinuteTick } from '../hooks/useAnnouncements';
@@ -46,12 +48,16 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
   const [studentIds, setStudentIds] = useState<string[]>(assignment?.studentIds ?? []);
   const [studentQuery, setStudentQuery] = useState('');
   const [formUrl, setFormUrl] = useState(assignment?.formUrl ?? '');
+  const [acceptsVideo, setAcceptsVideo] = useState(assignment?.acceptsVideoSubmissions ?? false);
+  const [maxVideoSeconds, setMaxVideoSeconds] = useState(assignment?.maxVideoDurationSeconds ?? 300);
+  const [googleDriveFolderId, setGoogleDriveFolderId] = useState(assignment?.googleDriveFolderId ?? '');
   const [attachments, setAttachments] = useState<Attachment[]>(assignment?.attachments ?? []);
   const [publishAt, setPublishAt] = useState<number | undefined>(assignment?.publishAt);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
+  const drive = useGoogleDrive();
 
   function toggleEnsemble(id: string) {
     setEnsembleIds(prev => prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]);
@@ -78,6 +84,9 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
           ensembleIds,
           studentIds: studentIds.length ? studentIds : undefined,
           formUrl: formUrl.trim() || undefined,
+          acceptsVideoSubmissions: acceptsVideo || undefined,
+          maxVideoDurationSeconds: acceptsVideo ? maxVideoSeconds : undefined,
+          googleDriveFolderId: googleDriveFolderId || undefined,
           createdAt: assignment?.createdAt ?? Date.now(),
           attachments,
           publishAt,
@@ -178,6 +187,61 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
           </div>
 
           <div className="dir-field">
+            <label className="dir-checkbox-tag" style={{ display: 'inline-flex', cursor: 'pointer', alignItems: 'center', gap: 6 }}>
+              <input type="checkbox" checked={acceptsVideo} onChange={e => setAcceptsVideo(e.target.checked)} />
+              <Video size={14} /> Accept video submissions in-app
+            </label>
+            <div className="dir-field-hint">Students can record or upload a video directly on the assignment page. Videos are stored in Firebase Storage and synced to Google Drive.</div>
+            {acceptsVideo && (
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label className="dir-label">Max recording duration (seconds)</label>
+                <input
+                  className="dir-input"
+                  type="number"
+                  value={maxVideoSeconds}
+                  onChange={e => setMaxVideoSeconds(Math.max(10, Math.min(3600, Number(e.target.value) || 300)))}
+                  min={10}
+                  max={3600}
+                  style={{ width: 120 }}
+                />
+                <div className="dir-field-hint">10–3600 seconds (6 sec – 1 hour). Default: 300 (5 min).</div>
+
+                {googleDriveFolderId ? (
+                  <div style={{ fontSize: 13, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    ✓ Google Drive connected
+                    <button type="button" className="dir-tool-btn" style={{ fontSize: 11 }} onClick={async () => {
+                      const result = await drive.createSubmissionFolder(title || 'Untitled Assignment');
+                      if (result) setGoogleDriveFolderId(result.folderId);
+                    }}>
+                      Change folder
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="dir-btn dir-btn-primary"
+                    style={{ fontSize: 13, padding: '8px 16px' }}
+                    onClick={async () => {
+                      await drive.connectDrive();
+                      const result = await drive.createSubmissionFolder(title || 'Untitled Assignment');
+                      if (result) setGoogleDriveFolderId(result.folderId);
+                    }}
+                    disabled={drive.loading}
+                  >
+                    {drive.loading ? 'Connecting…' : 'Connect Google Drive'}
+                  </button>
+                )}
+                {drive.error && <div style={{ fontSize: 12, color: 'var(--dir-danger)' }}>{drive.error}</div>}
+                <div className="dir-field-hint">
+                  Videos will sync every 15 minutes to your Drive in:
+                  <br />
+                  <strong>My Drive → NWSA Music Hub → {title || 'Assignment Name'}</strong>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="dir-field">
             <label className="dir-label">Description / Instructions</label>
             <RichTextArea
               value={description}
@@ -260,9 +324,11 @@ interface GradeSheetProps {
 
 function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) {
   const { resultMap, saveResult, clearResult } = useAssignmentResults(assignment.id);
+  const { submissions, loading: subLoading, setReviewStatus } = useAssignmentSubmissions(assignment.id);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [gradeError, setGradeError] = useState('');
   const [sort, setSort] = useState<StudentSort>('scoreOrder');
+  const [showSubmissions, setShowSubmissions] = useState(false);
 
   // Everyone targeted: ensemble members + any specific individuals, ordered so
   // the director can move down the section (score order) or find a name fast.
@@ -369,6 +435,61 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
             })
           )}
         </div>
+
+        {assignment.acceptsVideoSubmissions && (
+          <div style={{ borderTop: '1px solid var(--dir-border)', padding: '4px 0' }}>
+            <button
+              className="dir-tool-btn"
+              style={{ margin: '6px 16px', fontSize: 13 }}
+              onClick={() => setShowSubmissions(v => !v)}
+            >
+              <Video size={13} /> {showSubmissions ? 'Hide' : 'Show'} Submissions ({submissions.length})
+            </button>
+            {showSubmissions && (
+              <div className="dir-drawer-body" style={{ gap: 6, paddingTop: 0 }}>
+                {subLoading ? (
+                  <div style={{ padding: 16, color: 'var(--dir-text-muted)', fontSize: 13 }}>Loading…</div>
+                ) : submissions.length === 0 ? (
+                  <div className="dir-empty" style={{ padding: '12px 0' }}>
+                    <p style={{ fontSize: 13 }}>No video submissions yet.</p>
+                  </div>
+                ) : (
+                  submissions.map(sub => (
+                    <div key={sub.id} className="dir-submission-row">
+                      <div className="dir-submission-info">
+                        <div className="dir-submission-name">{sub.studentName}</div>
+                        <div className="dir-submission-meta">
+                          {Math.floor(sub.videoDurationSeconds / 60)}:{String(sub.videoDurationSeconds % 60).padStart(2, '0')}
+                          {' · '}{(sub.fileSize / (1024 * 1024)).toFixed(1)} MB
+                          {' · '}{new Date(sub.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                        </div>
+                        {sub.notes && <div className="dir-submission-notes">{sub.notes}</div>}
+                      </div>
+                      <div className="dir-submission-actions">
+                        <a
+                          className="dir-tool-btn"
+                          href={sub.videoUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ fontSize: 12, textDecoration: 'none' }}
+                        >
+                          Watch
+                        </a>
+                        <button
+                          className={`dir-tool-btn ${sub.status === 'reviewed' ? 'dir-submission-reviewed' : ''}`}
+                          style={{ fontSize: 12 }}
+                          onClick={() => setReviewStatus(sub.id, sub.status === 'reviewed' ? 'submitted' : 'reviewed')}
+                        >
+                          {sub.status === 'reviewed' ? '✓ Reviewed' : 'Mark reviewed'}
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

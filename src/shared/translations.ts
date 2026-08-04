@@ -256,6 +256,27 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'assign.nothingDue': { en: 'Nothing due right now. Check back soon!', es: 'No hay nada pendiente por ahora. ¡Vuelve pronto!' },
   'assign.individual': { en: 'Individual',                     es: 'Individual' },
 
+  // ── Video submissions ───────────────────────────────────────────────────
+  'vid.submit':         { en: 'Submit Video',                  es: 'Enviar video' },
+  'vid.record':         { en: 'Record Video',                  es: 'Grabar video' },
+  'vid.upload':         { en: 'Upload Video',                  es: 'Subir video' },
+  'vid.chooseFile':     { en: 'Choose video file',             es: 'Elegir archivo de video' },
+  'vid.fileHint':       { en: 'MP4, MOV, or WebM — up to 500 MB', es: 'MP4, MOV o WebM — hasta 500 MB' },
+  'vid.yourName':       { en: 'Your name',                     es: 'Tu nombre' },
+  'vid.selectName':     { en: '— Select your name —',          es: '— Selecciona tu nombre —' },
+  'vid.selectStudent':  { en: 'Please select your name first.', es: 'Por favor selecciona tu nombre primero.' },
+  'vid.notes':          { en: 'Notes (optional)',              es: 'Notas (opcional)' },
+  'vid.notesHint':      { en: 'Any notes for your director…',  es: 'Alguna nota para tu director…' },
+  'vid.submitted':      { en: 'Submitted!',                    es: '¡Enviado!' },
+  'vid.submittedDesc':  { en: 'Your video has been submitted. You can close this page.', es: 'Tu video ha sido enviado. Puedes cerrar esta página.' },
+  'vid.noStudents':     { en: 'No students assigned to this exam.', es: 'No hay estudiantes asignados a este examen.' },
+  'vid.noSubmissions':  { en: 'No submissions yet.',           es: 'Aún no hay entregas.' },
+  'vid.reviewed':       { en: 'Reviewed',                      es: 'Revisado' },
+  'vid.markReviewed':   { en: 'Mark reviewed',                 es: 'Marcar como revisado' },
+  'vid.export':         { en: 'Export to Drive',               es: 'Exportar a Drive' },
+  'vid.exported':       { en: 'In Drive',                      es: 'En Drive' },
+  'vidView.title':      { en: 'Submissions',                   es: 'Entregas' },
+
   // ── Documents page ──────────────────────────────────────────────────────
   'docs.title':         { en: 'Documents',  es: 'Documentos' },
   'docs.intro':         { en: 'Handbooks, syllabi, forms, and other resources for your ensembles.', es: 'Manuales, programas de estudio, formularios y otros recursos para tus ensambles.' },

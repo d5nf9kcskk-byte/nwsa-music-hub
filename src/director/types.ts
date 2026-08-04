@@ -347,6 +347,14 @@ export interface Assignment {
   studentIds?: string[];  // specific individuals (in addition to whole ensembles)
   /** Google Form link — playing exams are submitted through it, not in person. */
   formUrl?: string;
+  /** Enable in-app video submissions (record or upload). Students submit
+   *  directly on the public assignment card — no Google Form needed. */
+  acceptsVideoSubmissions?: boolean;
+  /** Max video duration in seconds when recording in-app. Default 300 (5 min). */
+  maxVideoDurationSeconds?: number;
+  /** Google Drive folder ID where the cron sync uploads submissions. Set by
+   *  the director when they connect Drive to this assignment. */
+  googleDriveFolderId?: string;
   createdAt: number;
   attachments?: Attachment[];
   /** Scheduled publishing (mirrors Announcement.publishAt): epoch ms. If set
@@ -385,6 +393,30 @@ export interface AssignmentResult {
   score?: string;
   notes?: string;
   gradedAt?: string; // YYYY-MM-DD
+}
+
+export type AssignmentSubmissionStatus = 'submitted' | 'reviewed';
+
+/** A video submission from a student for a Playing Exam assignment.
+ *  Written by unauthenticated clients (public site) with shape validation;
+ *  read-only for staff. Videos land in Firebase Storage; a cron GitHub
+ *  Action syncs them to the director's Google Drive. */
+export interface AssignmentSubmission {
+  id: string;
+  assignmentId: string;
+  studentId: string;
+  studentName: string;           // denormalized from studentsPublic
+  status: AssignmentSubmissionStatus;
+  videoUrl: string;              // Firebase Storage download URL
+  videoDurationSeconds: number;
+  videoThumbnailUrl?: string;    // auto-captured first-frame thumbnail
+  fileName: string;
+  fileSize: number;              // bytes
+  notes?: string;
+  submittedAt: number;           // epoch ms
+  /** Set when the cron sync copies this video to Google Drive. */
+  googleDriveFileId?: string;
+  googleDriveFolderId?: string;
 }
 
 /** Student/parent-submitted planned absence (#27). Create-only from the public

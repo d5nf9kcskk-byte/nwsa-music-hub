@@ -44,6 +44,19 @@ service firebase.storage {
     match /assignments/{allPaths=**} { allow read; allow write: if isStaff(); }
     match /documents/{allPaths=**}   { allow read; allow write: if isStaff(); }
 
+    // Student video submissions (#video-submissions). World-readable so the
+    // director can stream them in the grade sheet and the cron sync can
+    // download them. Unauthenticated write is allowed only for video files
+    // under the submissions path — the Firestore doc write (which validates
+    // the assignment exists and accepts video) gates access in practice.
+    // Max file size: 500 MB (playing exam videos).
+    match /submissions/{allPaths=**} {
+      allow read;
+      allow create: if request.resource.size < 500 * 1024 * 1024
+        && request.resource.contentType.matches('video/.*');
+      allow update, delete: if isStaff();
+    }
+
     // Deny everything else by default.
     match /{allPaths=**}             { allow read, write: if false; }
   }

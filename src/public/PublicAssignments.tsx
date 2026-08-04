@@ -1,6 +1,6 @@
 import { useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router';
-import { ClipboardCheck, Calendar } from 'lucide-react';
+import { useSearchParams, Link } from 'react-router';
+import { ClipboardCheck, Calendar, Video } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { useStudentsPublic } from './hooks/usePublicRoster';
@@ -75,6 +75,17 @@ export function PublicAssignments() {
         <a className="pub-assign-form-btn" href={a.formUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>
           📝 {t('misc.openExamForm')}
         </a>
+      )}
+      {a.acceptsVideoSubmissions && (
+        <Link
+          className="pub-assign-form-btn"
+          to={`/assignments/${a.id}/submit`}
+          onClick={e => e.stopPropagation()}
+          style={{ marginTop: a.formUrl ? 8 : 0 }}
+        >
+          <Video size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
+          {t('vid.submit')}
+        </Link>
       )}
     </div>
     );
