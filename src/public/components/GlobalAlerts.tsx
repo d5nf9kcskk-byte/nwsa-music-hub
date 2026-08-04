@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { Link, useLocation } from 'react-router';
-import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { CheckCircle2, Siren, AlertTriangle } from 'lucide-react';
 import { useEvents } from '../../director/hooks/useEvents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../../director/hooks/useAnnouncements';
 import { useEnsembles } from '../../director/hooks/useEnsembles';
-import { auth, db } from '../../director/firebase';
+import { db } from '../../director/firebase';
 import { directorEmailId } from '../../director/hooks/useDirectors';
 import { todayStr, ensembleDisplayName } from '../../director/utils';
 import { getIdentity, onIdentityChange } from '../../shared/identity';
@@ -31,16 +30,25 @@ export function GlobalAlerts() {
   const [isStaff, setIsStaff] = useState(false);
 
   useEffect(() => {
-    if (!auth) return;
-    return onAuthStateChanged(auth, async (u) => {
-      if (!u?.email || !db) { setIsStaff(false); return; }
-      try {
-        const snap = await getDoc(doc(db, 'directors', directorEmailId(u.email)));
-        setIsStaff(snap.exists());
-      } catch {
-        setIsStaff(false);
-      }
-    });
+    // Auth lives in firebaseAuth.ts and loads lazily here: a static import
+    // would drag firebase/auth back into the public bundle (audit A6).
+    let cancelled = false;
+    let unsub: (() => void) | undefined;
+    Promise.all([import('firebase/auth'), import('../../director/firebaseAuth')])
+      .then(([{ onAuthStateChanged }, { auth }]) => {
+        if (cancelled || !auth) return;
+        unsub = onAuthStateChanged(auth, async (u) => {
+          if (!u?.email || !db) { setIsStaff(false); return; }
+          try {
+            const snap = await getDoc(doc(db, 'directors', directorEmailId(u.email)));
+            setIsStaff(snap.exists());
+          } catch {
+            setIsStaff(false);
+          }
+        });
+      })
+      .catch(() => { /* chunk unavailable (offline first visit) — families see the public link */ });
+    return () => { cancelled = true; unsub?.(); };
   }, []);
 
   // Watch EVERY saved student (parents can save several) and re-render when
