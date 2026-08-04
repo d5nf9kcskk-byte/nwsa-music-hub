@@ -28,12 +28,16 @@ service firebase.storage {
     }
 
     // Signed in AND listed in Firestore's `directors` collection — mirrors
-    // firestore.rules' signedIn(). Owner and Director both get full Storage
-    // access; Teacher (scoped to lesson scheduling only) does not.
+    // firestore.rules' isStaff(). Owner and Director get full Storage access
+    // (a legacy doc with no role counts as director); every other role is
+    // fail-closed. The old check only excluded 'teacher', which let a
+    // Personnel Assistant — attendance-only by design — upload, overwrite,
+    // or delete the world-readable documents and assignment files (audit S5).
     function isStaff() {
       return request.auth != null
+        && request.auth.token.email_verified == true
         && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
-        && directorDoc().role != 'teacher';
+        && directorDoc().get('role', 'director') in ['owner', 'director'];
     }
 
     // Assignment attachments and document-repository files.

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Paperclip, X } from 'lucide-react';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { storage } from '../firebase';
+import { storage } from '../firebaseAuth';
 import type { Attachment } from '../types';
 
 interface Props {

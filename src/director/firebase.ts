@@ -1,7 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { getStorage } from 'firebase/storage';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -16,16 +14,18 @@ export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey && firebaseConfig.projectId
 );
 
-const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
+// Exported for firebaseAuth.ts (Auth + Storage live there so the public
+// bundle — which imports this module for `db` — doesn't carry them; audit A6).
+export const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 
 // ignoreUndefinedProperties: forms build save objects with optional fields set
 // to `undefined` (e.g. composer || undefined). Without this, Firestore rejects
 // the whole write — which is what made the repertoire form hang on "Saving…".
 // persistentLocalCache (#37): reads AND queued writes survive dead zones —
 // roll taken in an auditorium basement syncs when the signal returns.
+// Multi-tab (audit A8): with the single-tab manager, a second open tab
+// silently fell back to memory-only cache and lost offline entirely.
 export const db = app ? initializeFirestore(app, {
   ignoreUndefinedProperties: true,
-  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager(undefined) }),
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 }) : null;
-export const auth = app ? getAuth(app) : null;
-export const storage = app ? getStorage(app) : null;

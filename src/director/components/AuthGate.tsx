@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut, GoogleAuthProvider } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider } from 'firebase/auth';
 import type { User } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, waitForPendingWrites, terminate, clearIndexedDbPersistence } from 'firebase/firestore';
 import { Link } from 'react-router';
-import { auth, db, isFirebaseConfigured } from '../firebase';
+import { db, isFirebaseConfigured } from '../firebase';
+import { auth } from '../firebaseAuth';
 import { FIXTURES_ON } from '../hooks/fixtures';
 import { directorEmailId, directorRole } from '../hooks/useDirectors';
 import type { Director } from '../hooks/useDirectors';
@@ -40,6 +41,20 @@ export function AuthGate({ children }: Props) {
     return onAuthStateChanged(auth, u => setUser(u));
   }, []);
 
+  // Consume a pending redirect sign-in (the standalone-app fallback in
+  // signIn below). Success needs no handling — onAuthStateChanged fires —
+  // but a completion error (e.g. Safari storage partitioning dropping the
+  // pending-redirect state across the auth-domain hop) would otherwise
+  // bounce the user back to the sign-in screen with zero explanation.
+  useEffect(() => {
+    if (!auth) return;
+    getRedirectResult(auth).catch(e => {
+      const code = (e as { code?: string }).code ?? '';
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+      setSignInError('Sign-in didn’t complete — check your connection and try again.');
+    });
+  }, []);
+
   // Fixture builds never run the real auth flow below, so seed a fixture
   // identity directly (role/name gating elsewhere reads currentDirector.ts).
   useEffect(() => {
@@ -59,12 +74,34 @@ export function AuthGate({ children }: Props) {
       setAccess('granted');
       return;
     }
-    let cancelled = false;
     setAccess('checking');
     const email = directorEmailId(user.email ?? '');
-    getDoc(doc(db, 'directors', email))
-      .then(snap => {
-        if (cancelled) return;
+    // Live membership watch instead of a one-shot server read (audit A5): the
+    // Firestore persistent cache answers instantly on stalled Wi-Fi, so an
+    // installed app in a dead zone opens straight into the console instead of
+    // hanging at "Checking access…" — and a revoked account is signed out of
+    // the UI live, without waiting for the next cold start.
+    let resolved = false; // a real verdict (grant/deny) has been delivered
+    // Offline with nothing cached, the listener neither answers nor errors —
+    // it just keeps emitting cache misses. Bound the wait so the user lands
+    // on the error screen (retry + sign-out buttons) instead of an
+    // inescapable "Checking access…".
+    const failTimer = setTimeout(() => {
+      if (resolved) return;
+      if (BREAK_GLASS_EMAILS.includes(email)) {
+        setCurrentDirector({ email, role: 'owner' }, user.displayName);
+        recordLogin({ email, name: user.displayName?.trim() || undefined, role: 'owner' });
+        setAccess('granted');
+      } else {
+        setAccess('error');
+      }
+    }, 8000);
+    const unsub = onSnapshot(doc(db, 'directors', email),
+      snap => {
+        // A cache miss proves nothing — only a server answer may deny.
+        if (snap.metadata.fromCache && !snap.exists()) return;
+        resolved = true;
+        clearTimeout(failTimer);
         if (!snap.exists()) { setAccess('denied'); return; }
         const directorDoc = { email, ...snap.data() } as Director;
         setCurrentDirector(directorDoc, user.displayName);
@@ -82,13 +119,16 @@ export function AuthGate({ children }: Props) {
           updateDoc(doc(db, 'directors', email), { name: user.displayName.trim() }).catch(() => {});
         }
         setAccess('granted');
-      })
-      .catch(() => {
+      },
+      () => {
         // The read itself failed (offline, or pre-migration rules). Fall back to
         // the break-glass list so the founding account stays in; everyone else
         // gets an honest "couldn't verify" with a retry rather than a silent app
-        // whose every save fails.
-        if (cancelled) return;
+        // whose every save fails. Only for the INITIAL read: an error after a
+        // real verdict (e.g. token revoked mid-session) must never overwrite
+        // the already-resolved role with break-glass 'owner'.
+        clearTimeout(failTimer);
+        if (resolved) return;
         if (BREAK_GLASS_EMAILS.includes(email)) {
           setCurrentDirector({ email, role: 'owner' }, user.displayName);
           recordLogin({ email, name: user.displayName?.trim() || undefined, role: 'owner' });
@@ -97,7 +137,7 @@ export function AuthGate({ children }: Props) {
           setAccess('error');
         }
       });
-    return () => { cancelled = true; };
+    return () => { clearTimeout(failTimer); unsub(); };
   }, [user, checkNonce]);
 
   async function signIn() {
@@ -109,6 +149,16 @@ export function AuthGate({ children }: Props) {
       // A dismissed popup is not an error worth shouting about.
       const code = (e as { code?: string }).code ?? '';
       if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+      // Installed app (standalone window): some platforms refuse the popup
+      // outright. Fall back to the redirect flow — best-effort, since the
+      // auth domain is cross-origin to github.io and Safari's tracking
+      // prevention can drop the result; popup stays the primary path.
+      if (code === 'auth/popup-blocked' && window.matchMedia('(display-mode: standalone)').matches) {
+        try {
+          await signInWithRedirect(auth, new GoogleAuthProvider());
+          return; // navigating away
+        } catch { /* fall through to the error message */ }
+      }
       setSignInError(
         code === 'auth/popup-blocked'
           ? 'Your browser blocked the sign-in popup — allow popups for this site and try again.'
@@ -117,10 +167,43 @@ export function AuthGate({ children }: Props) {
     }
   }
 
+  // Sign out AND purge the Firestore offline cache (audit S7): the
+  // persistent cache holds everything this account ever read — full student
+  // records, guardian contacts, attendance history, progress notes — and
+  // must not survive a sign-out on a shared or lost device. Order matters:
+  // wait (bounded) for queued writes like dead-zone roll marks to flush,
+  // and if they can't (still offline), ASK before destroying them — the
+  // purge deletes the mutation queue along with the cache. The clear itself
+  // is best-effort (with the app open in another tab it throws
+  // failed-precondition), so the finally still hard-reloads: the db handle
+  // is dead after terminate(), and a fresh boot lands on the sign-in gate.
   async function handleSignOut() {
     if (!auth) return;
+    if (db) {
+      let flushed = false;
+      try {
+        flushed = await Promise.race([
+          waitForPendingWrites(db).then(() => true),
+          new Promise<boolean>(resolve => { setTimeout(() => resolve(false), 4000); }),
+        ]);
+      } catch { /* treat as not flushed */ }
+      if (!flushed && !window.confirm(
+        'Some changes (like roll marks) haven’t synced yet — signing out now will discard them. Sign out anyway?',
+      )) {
+        return; // keep the session; queued writes sync when back online
+      }
+    }
     clearCurrentDirector();
-    await signOut(auth);
+    try {
+      await signOut(auth);
+      if (db) {
+        await terminate(db);
+        await clearIndexedDbPersistence(db);
+      }
+    } catch { /* best-effort — the reload below recovers regardless */ }
+    finally {
+      window.location.reload();
+    }
   }
 
   if (!isFirebaseConfigured) {

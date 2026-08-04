@@ -2,11 +2,16 @@
   "name": "NWSA Music Hub",
   "short_name": "NWSA Music",
   "description": "Schedules, announcements, repertoire, and attendance for New World School of the Arts music ensembles.",
+  "id": "/nwsa-music-hub/",
   "start_url": "/nwsa-music-hub/",
+  "scope": "/nwsa-music-hub/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#f6f7f9",
   "theme_color": "#0d7e8e",
-  "orientation": "portrait-primary",
+  "orientation": "any",
+  "lang": "en",
+  "categories": ["education", "music", "productivity"],
   "icons": [
     {
       "src": "/nwsa-music-hub/icon-192.png",
@@ -21,6 +26,12 @@
       "purpose": "any"
     },
     {
+      "src": "/nwsa-music-hub/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "/nwsa-music-hub/icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
@@ -31,6 +42,28 @@
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Take Roll",
+      "url": "/nwsa-music-hub/director/roll",
+      "icons": [{ "src": "/nwsa-music-hub/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Today (Director)",
+      "url": "/nwsa-music-hub/director",
+      "icons": [{ "src": "/nwsa-music-hub/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Calendar",
+      "url": "/nwsa-music-hub/calendar",
+      "icons": [{ "src": "/nwsa-music-hub/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Find My Schedule",
+      "url": "/nwsa-music-hub/lookup",
+      "icons": [{ "src": "/nwsa-music-hub/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }
