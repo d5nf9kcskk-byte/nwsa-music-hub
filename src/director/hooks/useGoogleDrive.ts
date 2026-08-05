@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { auth } from '../firebaseAuth';
 
 const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 // ponytail: hardcode until we know the Firebase SA client_email; Connect still
@@ -23,66 +24,65 @@ export function useGoogleDrive() {
   });
   const [loading, setLoading] = useState(false);
 
-  const getDriveToken = useCallback(async (): Promise<string | null> => {
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return null;
-
-    const provider = new GoogleAuthProvider();
-    provider.addScope(DRIVE_FILE_SCOPE);
-
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      return credential?.accessToken ?? null;
-    } catch (e) {
-      if ((e as { code?: string }).code === 'auth/popup-closed-by-user') {
-        setDrive(d => ({ ...d, error: 'Drive connection cancelled.' }));
-        return null;
-      }
-      throw e;
+  /**
+   * One click → one Google popup → create the assignment folder.
+   * Must not await anything before signInWithPopup or browsers block it.
+   */
+  const connectAndCreateFolder = useCallback(async (assignmentTitle: string) => {
+    if (!auth?.currentUser) {
+      setDrive(d => ({ ...d, error: 'Sign in first, then connect Drive.' }));
+      return null;
     }
-  }, []);
 
-  const connectDrive = useCallback(async () => {
     setLoading(true);
     setDrive(d => ({ ...d, error: null }));
+
+    // Popup FIRST — no awaits above this line.
+    const provider = new GoogleAuthProvider();
+    provider.addScope(DRIVE_FILE_SCOPE);
+    let token: string | null = null;
     try {
-      const token = await getDriveToken();
-      if (token) {
-        setDrive({ connected: true, folderId: null, folderUrl: null, error: null });
-      }
+      const result = await signInWithPopup(auth, provider);
+      token = GoogleAuthProvider.credentialFromResult(result)?.accessToken ?? null;
     } catch (e) {
-      setDrive(d => ({ ...d, error: e instanceof Error ? e.message : 'Could not connect Drive' }));
-    } finally {
+      const code = (e as { code?: string }).code ?? '';
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        setDrive(d => ({ ...d, error: 'Drive connection cancelled.' }));
+        setLoading(false);
+        return null;
+      }
+      setDrive(d => ({
+        ...d,
+        error: code === 'auth/popup-blocked'
+          ? 'Your browser blocked the popup — allow popups for this site and try again.'
+          : e instanceof Error ? e.message : 'Could not connect Drive',
+      }));
       setLoading(false);
+      return null;
     }
-  }, [getDriveToken]);
 
-  const createSubmissionFolder = useCallback(async (assignmentTitle: string) => {
-    setLoading(true);
+    if (!token) {
+      setDrive(d => ({ ...d, error: 'Google did not return a Drive token — try again.' }));
+      setLoading(false);
+      return null;
+    }
+
     try {
-      const token = await getDriveToken();
-      if (!token) return null;
-
       const rootId = await findOrCreateFolder(token, 'NWSA Music Hub', null);
       const subId = await findOrCreateFolder(token, assignmentTitle, rootId);
-
       const folderUrl = `https://drive.google.com/drive/folders/${subId}`;
-      setDrive(d => ({ ...d, folderId: subId, folderUrl }));
-
-      await shareFolder(token, subId, SERVICE_ACCOUNT_EMAIL);
-
+      setDrive({ connected: true, folderId: subId, folderUrl, error: null });
+      try { await shareFolder(token, subId, SERVICE_ACCOUNT_EMAIL); } catch { /* ignore */ }
       return { folderId: subId, folderUrl };
     } catch (e) {
-      setDrive(d => ({ ...d, error: e instanceof Error ? e.message : 'Could not create Drive folder' }));
+      setDrive(d => ({ ...d, connected: true, error: e instanceof Error ? e.message : 'Could not create Drive folder' }));
       return null;
     } finally {
       setLoading(false);
     }
-  }, [getDriveToken]);
+  }, []);
 
-  return { ...drive, loading, connectDrive, createSubmissionFolder };
+  return { ...drive, loading, connectAndCreateFolder };
 }
 
 async function driveFetch(token: string, path: string, init?: RequestInit) {

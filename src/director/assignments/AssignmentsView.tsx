@@ -210,7 +210,7 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
                   <div style={{ fontSize: 13, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 6 }}>
                     ✓ Google Drive connected
                     <button type="button" className="dir-tool-btn" style={{ fontSize: 11 }} onClick={async () => {
-                      const result = await drive.createSubmissionFolder(title || 'Untitled Assignment');
+                      const result = await drive.connectAndCreateFolder(title || 'Untitled Assignment');
                       if (result) setGoogleDriveFolderId(result.folderId);
                     }}>
                       Change folder
@@ -222,8 +222,7 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
                     className="dir-btn dir-btn-primary"
                     style={{ fontSize: 13, padding: '8px 16px' }}
                     onClick={async () => {
-                      await drive.connectDrive();
-                      const result = await drive.createSubmissionFolder(title || 'Untitled Assignment');
+                      const result = await drive.connectAndCreateFolder(title || 'Untitled Assignment');
                       if (result) setGoogleDriveFolderId(result.folderId);
                     }}
                     disabled={drive.loading}
