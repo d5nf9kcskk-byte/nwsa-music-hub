@@ -1,5 +1,9 @@
 # NWSA Music Hub
 
+**Canonical repo only.** Do not edit `~/Documents/GitHub/nwsa-music-hub` or `~/Documents/Maestro` — those are stale clones.
+
+**Opus OS:** this codebase becomes Opus OS (OPAS-class product; NWSA = customer zero). See [`docs/opus-os/`](docs/opus-os/). Personal ops index: `~/Documents/Bottega/Archivio/MAP.md`.
+
 A purpose-built web app for managing a school music program — roster, attendance,
 rehearsals, concerts, repertoire, and announcements — with a mobile-first director
 tool and a public-facing site for students and parents.
