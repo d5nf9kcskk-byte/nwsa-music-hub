@@ -508,6 +508,18 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             <label className="dir-label">Location</label>
             <input className="dir-input" value={form.location ?? ''} onChange={e => set('location', e.target.value)} placeholder="e.g. Band Room / Auditorium" />
           </div>
+          <div className="dir-field">
+            <label className="dir-label">Venue address</label>
+            <input
+              className="dir-input"
+              value={form.venueAddress ?? ''}
+              onChange={e => set('venueAddress', e.target.value)}
+              placeholder="Full street address only (shows Get directions on the public page)"
+            />
+            <div className="dir-field-hint" style={{ marginTop: 4 }}>
+              Leave blank for campus rooms. Room numbers are not sent to Maps.
+            </div>
+          </div>
 
           {form.type === 'Concert' && (
             <>
@@ -542,15 +554,6 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                   value={form.dress ?? ''}
                   onChange={e => set('dress', e.target.value)}
                   placeholder="e.g. Concert black — long sleeves, black shoes"
-                />
-              </div>
-              <div className="dir-field">
-                <label className="dir-label">Venue address</label>
-                <input
-                  className="dir-input"
-                  value={form.venueAddress ?? ''}
-                  onChange={e => set('venueAddress', e.target.value)}
-                  placeholder="Full street address (used for the Maps link)"
                 />
               </div>
             </>

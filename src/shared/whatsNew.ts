@@ -35,7 +35,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     ],
   },
   {
-    id: '2026-08-13-event-repertoire-list',
+    id: '2026-08-13-event-detail-clarity',
     date: '2026-08-13',
     title: 'Opening a rehearsal or class card stays focused',
     audience: 'both',
@@ -45,6 +45,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Site-wide schedule alerts and urgent notices stay on Home, Calendar, and each ensemble page — not stacked on every detail page.',
       'Alerts on those overview pages are grouped under Classes, ensemble, or Everyone, with Show all when a group is long.',
       'Linked repertoire on a rehearsal or concert lists each movement on its own line, so you can see exactly what is planned.',
+      'Get directions only appears when the event has a full street address, not for campus room numbers.',
     ],
   },
 ];

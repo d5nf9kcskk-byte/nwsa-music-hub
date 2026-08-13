@@ -142,10 +142,10 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
                 )}
               </div>
               {!cancelled && <AddToCalendarButton event={event} ensembleName={primaryEnsembleName} variant="primary" />}
-              {(event.venueAddress || event.location) && (
+              {!cancelled && event.venueAddress?.trim() && (
                 <a
                   className="pub-daysheet-directions"
-                  href={`https://maps.google.com/?q=${encodeURIComponent(event.venueAddress || event.location || '')}`}
+                  href={`https://maps.google.com/?q=${encodeURIComponent(event.venueAddress.trim())}`}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -221,10 +221,10 @@ function ConcertDaySheet({ event, ensembleName }: { event: CalendarEvent; ensemb
     <div className="pub-daysheet">
       <div className="pub-daysheet-head"><Music size={15} style={{ verticalAlign: '-2px' }} /> {t('event.daySheet')}</div>
       {!cancelled && <AddToCalendarButton event={event} ensembleName={ensembleName} variant="primary" />}
-      {!cancelled && (event.venueAddress || event.location) && (
+      {!cancelled && event.venueAddress?.trim() && (
         <a
           className="pub-daysheet-directions"
-          href={`https://maps.google.com/?q=${encodeURIComponent(event.venueAddress || event.location || '')}`}
+          href={`https://maps.google.com/?q=${encodeURIComponent(event.venueAddress.trim())}`}
           target="_blank"
           rel="noreferrer"
         >
@@ -257,14 +257,16 @@ function ConcertDaySheet({ event, ensembleName }: { event: CalendarEvent; ensemb
               <span className="pub-daysheet-value">
                 {event.location && <span>{event.location}</span>}
                 {event.venueAddress && <span className="pub-daysheet-addr">{event.venueAddress}</span>}
-                <a
-                  className="pub-daysheet-maps"
-                  href={`https://maps.google.com/?q=${encodeURIComponent(event.venueAddress || event.location || '')}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <MapPin size={13} /> {t('event.openMaps')}
-                </a>
+                {event.venueAddress?.trim() && (
+                  <a
+                    className="pub-daysheet-maps"
+                    href={`https://maps.google.com/?q=${encodeURIComponent(event.venueAddress.trim())}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <MapPin size={13} /> {t('event.openMaps')}
+                  </a>
+                )}
               </span>
             </div>
           )}
