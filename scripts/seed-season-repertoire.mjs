@@ -233,9 +233,13 @@ piece('rp26-souvenir-de-florence', {
   eventIds: ['oc26-cco-concert-sep'],
 });
 
-/* ─── Nutcracker Act II (Oct 3 / Oct 6 / Nov 16) ───────────────────────── */
+/* ─── Nutcracker ballet (one library entry; Act II movements for pickers) ─ */
 
+// Full Act II numbers so directors can choose the whole act, divertissement
+// only, Pas de Deux, or any subset on a concert or rehearsal.
 const NUT_MOVEMENTS = [
+  { title: 'Scene 10 — The Magic Castle (Clara and the Nutcracker)', duration: 4 },
+  { title: 'Scene 11 — Clara and the Prince / Arrival of the Sugar Plum Fairy', duration: 5 },
   { title: 'Scene 12 — Divertissement: Chocolate (Spanish Dance)', duration: 1 },
   { title: 'Scene 12 — Divertissement: Coffee (Arabian Dance)', duration: 3 },
   { title: 'Scene 12 — Divertissement: Tea (Chinese Dance)', duration: 1 },
@@ -244,49 +248,35 @@ const NUT_MOVEMENTS = [
   { title: 'Scene 12 — Divertissement: Mother Ginger and the Polichinelles', duration: 3 },
   { title: 'Scene 13 — Waltz of the Flowers', duration: 7 },
   { title: 'Scene 14 — Pas de Deux: Intrada', duration: 5 },
+  { title: 'Scene 14 — Pas de Deux: Variation I (Tarantella / Cavalier)', duration: 1 },
+  { title: 'Scene 14 — Pas de Deux: Variation II (Dance of the Sugar Plum Fairy)', duration: 2 },
   { title: 'Scene 14 — Pas de Deux: Coda', duration: 2 },
   { title: 'Scene 15 — Final Waltz and Apotheosis', duration: 5 },
 ];
 
-piece('rp26-nutcracker-act-ii', {
+piece('rp26-nutcracker-ballet', {
   order: 200,
   ensembleIds: [SO],
-  title: 'The Nutcracker, Act II (selections)',
-  fullTitle: 'The Nutcracker, Op. 71 — Act II selections',
+  title: 'Nutcracker ballet',
+  fullTitle: 'The Nutcracker, Op. 71 — Act II',
   composer: 'Pyotr Ilyich Tchaikovsky',
   composerDates: '1840–1893',
   catalogNumber: 'Op. 71',
   year: '1892',
   instrumentation: '3[1.2.pic] 2 2[1.2.bcl] 2 — 4 2 3 1 — tmp+perc — 2hp — cel — str',
   percussion: 'timpani, snare drum, tambourine, triangle, cymbals, bass drum, glockenspiel, castanets (as scored per number)',
-  duration: 30,
+  duration: 42,
   movements: NUT_MOVEMENTS,
   programNotes:
-    'Act II of The Nutcracker opens in the Kingdom of Sweets, where Clara is entertained by a divertissement of national character dances before the Waltz of the Flowers. The Pas de Deux for the Sugar Plum Fairy and her Cavalier—heard tonight in Intrada and Coda—leads into the Final Waltz and Apotheosis that crowns the ballet. These scenes are the score’s most familiar concert excerpts; movement subsets differ by program (Festival I, Sleep No More finale, and the Concerto Competition concert).',
+    'Act II of The Nutcracker opens in the Kingdom of Sweets. Clara is entertained by a divertissement of character dances and the Waltz of the Flowers before the Pas de Deux for the Sugar Plum Fairy and her Cavalier and the Final Waltz and Apotheosis. One library entry covers every Act II number; each concert or rehearsal picks the subset performed that day (Festival I, Sleep No More, Concerto Competition, December Fillmore shows with Armour Dance, or a Camerata strings sectional).',
   imslpUrl: 'https://imslp.org/wiki/The_Nutcracker_(ballet),_Op.71_(Tchaikovsky,_Pyotr)',
   eventIds: [
     'oc26-workshop-1-nutcracker',
     'oc26-so-concert-oct',
     'oc26-concerto-winners',
+    'oc26-nutcracker-mat',
+    'oc26-nutcracker-eve',
   ],
-});
-
-piece('rp26-nutcracker-ballet', {
-  order: 210,
-  ensembleIds: [SO],
-  title: 'The Nutcracker (ballet)',
-  fullTitle: 'The Nutcracker, Op. 71',
-  composer: 'Pyotr Ilyich Tchaikovsky',
-  composerDates: '1840–1893',
-  catalogNumber: 'Op. 71',
-  year: '1892',
-  instrumentation: '3[1.2.pic] 2 2[1.2.bcl] 2 — 4 2 3 1 — tmp+perc — 2hp — cel — str',
-  percussion: 'timpani and full ballet battery as scored',
-  duration: 90,
-  programNotes:
-    'Tchaikovsky’s 1892 ballet, after E. T. A. Hoffmann by way of Dumas, follows Clara from a Christmas party into a dream of battle and the Kingdom of Sweets. NWSA Symphony partners with Armour Dance Theatre at the Fillmore; specific scenes and cuts for the December performances remain to be locked.',
-  imslpUrl: 'https://imslp.org/wiki/The_Nutcracker_(ballet),_Op.71_(Tchaikovsky,_Pyotr)',
-  eventIds: ['oc26-nutcracker-mat', 'oc26-nutcracker-eve'],
 });
 
 /* ─── Oct 6 — Sleep No More ───────────────────────────────────────────── */
@@ -553,8 +543,8 @@ const CONCERTS = {
   },
   'oc26-workshop-1-nutcracker': {
     title: 'Festival I — The Nutcracker Project',
-    pieceIds: ['rp26-nutcracker-act-ii'],
-    // All Act II movements catalogued (indices 0–9)
+    pieceIds: ['rp26-nutcracker-ballet'],
+    // All Act II movements available; no subset locked for the workshop day.
   },
   'oc26-so-concert-oct': {
     title: 'Sleep No More',
@@ -562,18 +552,18 @@ const CONCERTS = {
       'rp26-chadwick-rip-van-winkle',
       'rp26-rhapsody-in-blue-1942',
       'rp26-marche-des-princesses',
-      'rp26-nutcracker-act-ii',
+      'rp26-nutcracker-ballet',
     ],
     pieceMovements: {
-      // Scene 14 Intrada + Coda, Scene 15 Final Waltz & Apotheosis
-      'rp26-nutcracker-act-ii': [7, 8, 9],
+      // Intrada, Coda, Final Waltz & Apotheosis
+      'rp26-nutcracker-ballet': [9, 12, 13],
     },
   },
   'oc26-concerto-winners': {
-    pieceIds: ['rp26-nutcracker-act-ii'],
+    pieceIds: ['rp26-nutcracker-ballet'],
     pieceMovements: {
       // Spanish, Arabian, Chinese, Trepak, Reed Flutes, Waltz of the Flowers
-      'rp26-nutcracker-act-ii': [0, 1, 2, 3, 4, 6],
+      'rp26-nutcracker-ballet': [2, 3, 4, 5, 6, 8],
     },
   },
   'oc26-so-arsht': {
@@ -611,6 +601,8 @@ async function run() {
     writer.set(db.collection('repertoire').doc(id), data, { merge: true });
     nPieces++;
   }
+  // Retired: Act II was a second Nutcracker doc. One ballet entry now.
+  writer.delete(db.collection('repertoire').doc('rp26-nutcracker-act-ii'));
 
   let nConcerts = 0;
   for (const [eventId, patch] of Object.entries(CONCERTS)) {
@@ -631,7 +623,30 @@ async function run() {
   }
 
   await writer.close();
-  console.log(`Upserted ${nPieces} repertoire pieces; linked ${nConcerts} concerts.`);
+
+  // Remap rehearsals (and any other events) still pointing at the retired Act II doc.
+  // Old Act II indices → new ballet Act II list (opening scenes + full Pas de Deux inserted).
+  const OLD_TO_NEW = { 0: 2, 1: 3, 2: 4, 3: 5, 4: 6, 5: 7, 6: 8, 7: 9, 8: 12, 9: 13 };
+  const OLD = 'rp26-nutcracker-act-ii';
+  const NEW = 'rp26-nutcracker-ballet';
+  const allEvents = await db.collection('events').get();
+  let nMigrated = 0;
+  for (const d of allEvents.docs) {
+    const e = d.data();
+    const ids = e.pieceIds || [];
+    if (!ids.includes(OLD)) continue;
+    const pieceIds = [...new Set(ids.map(id => (id === OLD ? NEW : id)))];
+    const pm = { ...(e.pieceMovements || {}) };
+    if (pm[OLD]) {
+      pm[NEW] = [...new Set(pm[OLD].map(i => OLD_TO_NEW[i] ?? i))].sort((a, b) => a - b);
+      delete pm[OLD];
+    }
+    await d.ref.update({ pieceIds, pieceMovements: pm });
+    nMigrated++;
+    console.log(`  migrated ${d.id}`);
+  }
+
+  console.log(`Upserted ${nPieces} repertoire pieces; linked ${nConcerts} concerts; migrated ${nMigrated} events off Act II doc.`);
 }
 
 run()
