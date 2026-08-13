@@ -40,6 +40,18 @@
 }
 .pub-alert-row:first-of-type { border-top: none; }
 .pub-alert-row svg { margin-left: auto; color: #b91c1c; flex-shrink: 0; }
+.pub-alert-group-in-banner {
+  margin: 8px 0 0;
+}
+.pub-alert-group-in-banner .pub-alert-group-title {
+  color: #991b1b;
+  margin-bottom: 2px;
+}
+.pub-alert-group-in-banner .pub-alert-row:first-of-type { border-top: 1px solid #fecaca; }
+.pub-alert-group-in-banner .pub-alert-group-more {
+  border-color: color-mix(in srgb, #ef4444 35%, transparent);
+  color: #b91c1c;
+}
 .pub-alert-note { font-size: 14px; margin-top: 4px; color: #92400e; font-weight: 600; }
 
 /* ── Prominent Find My Schedule ── */

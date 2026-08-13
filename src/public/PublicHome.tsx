@@ -18,6 +18,8 @@ import { useTapTempo } from '../shared/useTapTempo';
 import { NoteBurst } from '../shared/NoteBurst';
 import { WhatsNewBanner } from '../shared/WhatsNewBanner';
 import '../shared/whatsNew.css';
+import { groupScheduleAlerts } from '../shared/groupAlerts';
+import { AlertGroupSections } from '../shared/AlertGroupSections';
 import { WelcomeHubBanner } from './components/WelcomeHubBanner';
 import { PinnedHubGuide } from './components/PinnedHubGuide';
 import { showPinnedHubGuide } from './welcomeHubSchedule';
@@ -52,6 +54,7 @@ export function PublicHome() {
 
   // Anything unusual today → red banner up top.
   const alerts = todayEvents.filter(e => e.status === 'Cancelled' || e.changeNote);
+  const alertGroups = groupScheduleAlerts(alerts, ensembles);
 
   // Coming up: whole days only — never cut off in the middle of a day.
   const [lookaheadDays, setLookaheadDays] = useState(LOOKAHEAD_DAYS);
@@ -115,14 +118,18 @@ export function PublicHome() {
       {alerts.length > 0 && (
         <div className="pub-alert-banner">
           <div className="pub-alert-title"><AlertTriangle size={15} style={{ verticalAlign: '-2px' }} /> {t('alert.scheduleChangeToday')}</div>
-          {alerts.map(e => (
-            <Link key={e.id} to={`/event/${e.id}`} className="pub-alert-row">
-              <strong>{label(e)}</strong>
-              {e.status === 'Cancelled' ? ` — ${t('alert.cancelled')}` : ''}
-              {e.changeNote ? ` — ${e.changeNote}` : ''}
-              <ChevronRight size={14} />
-            </Link>
-          ))}
+          <AlertGroupSections
+            groups={alertGroups}
+            sectionClassName="pub-alert-group pub-alert-group-in-banner"
+            renderItem={e => (
+              <Link key={e.id} to={`/event/${e.id}`} className="pub-alert-row">
+                <strong>{label(e)}</strong>
+                {e.status === 'Cancelled' ? ` — ${t('alert.cancelled')}` : ''}
+                {e.changeNote ? ` — ${e.changeNote}` : ''}
+                <ChevronRight size={14} />
+              </Link>
+            )}
+          />
         </div>
       )}
 

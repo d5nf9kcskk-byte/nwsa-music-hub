@@ -26,9 +26,9 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     audience: 'staff',
     expires: '2026-08-27',
     bullets: [
-      'Schedule changes and urgent notices now sit under Classes, ensemble, or Everyone headings (public pages and each ensemble hub).',
+      'Schedule changes and urgent notices sit under Classes, ensemble, or Everyone headings on home, other public pages, and each ensemble hub.',
       'Each alert stays its own card. If a group has more than three, the rest hide behind Show all until you expand them.',
-      'Home still uses its usual “today” banner; the new grouping is on other public pages and in director ensemble hubs.',
+      'Director Today and ensemble hubs use the same layout so a busy change day stays scannable.',
     ],
   },
 ];

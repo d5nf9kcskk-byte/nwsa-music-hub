@@ -20,6 +20,8 @@ import { Linkify } from '../components/Linkify';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { composerBirthdaysOn, birthdayLine, musicHolidayOn } from '../../shared/whimsy';
 import { DIRECTOR_FEEDBACK_FORM_URL } from '../feedbackForm';
+import { groupScheduleAlerts } from '../../shared/groupAlerts';
+import { AlertGroupSections } from '../../shared/AlertGroupSections';
 
 const ENS_PREF_KEY = 'dir.today.ensemble';
 
@@ -79,6 +81,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
     events.filter(e => e.date === today).filter(matchesEns)
       .filter(e => e.status === 'Cancelled' || e.changeNote),
     [events, today, ensembleId]);
+  const alertGroups = useMemo(() => groupScheduleAlerts(alerts, ensembles), [alerts, ensembles]);
 
   const homeAnnouncements = useMemo(
     () => visibleAnnouncements(announcements, today, ensembleId ? [ensembleId] : 'all', now).slice(0, 3),
@@ -164,12 +167,20 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
 
       <div className="dir-page-body">
         {/* Alerts: today's cancellations / changes */}
-        {alerts.map(e => (
-          <button key={e.id} className="dir-today-alert" onClick={() => onNavigate('schedule', { date: e.date, eventId: e.id })}>
-            ⚠ {e.status === 'Cancelled' ? 'Cancelled' : 'Changed'}: {e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).join(' + ') || e.type}
-            {e.changeNote ? ` — ${e.changeNote}` : ''}
-          </button>
-        ))}
+        {alerts.length > 0 && (
+          <AlertGroupSections
+            groups={alertGroups}
+            headingClassName="dir-alert-group-title"
+            sectionClassName="dir-alert-group"
+            moreClassName="dir-alert-group-more"
+            renderItem={e => (
+              <button key={e.id} className="dir-today-alert" onClick={() => onNavigate('schedule', { date: e.date, eventId: e.id })}>
+                ⚠ {e.status === 'Cancelled' ? 'Cancelled' : 'Changed'}: {e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).join(' + ') || e.type}
+                {e.changeNote ? ` — ${e.changeNote}` : ''}
+              </button>
+            )}
+          />
+        )}
 
         {/* Today's rehearsals */}
         <div className="dir-section-head"><span>Today's schedule</span></div>
