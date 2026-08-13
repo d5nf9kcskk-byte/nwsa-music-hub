@@ -67,7 +67,6 @@ piece('rp26-star-spangled-banner', {
   programNotes:
     'Francis Scott Key’s lyric on Smith’s Anacreontic melody is here in Igor Stravinsky’s 1941 harmonization and orchestration (Mercury), finished July 4, 1941: full orchestra with SATB chorus and Stravinsky’s unmistakable voice-leading on the national anthem.',
   eventIds: ['oc26-hs-pops'],
-  notes: 'Stravinsky 1941 orch+chorus (Mercury). Score on disk at Sheet Music/Stravinsky/Star Spangled Banner/. WE join still open with Brent.',
 });
 
 piece('rp26-american-salute', {
@@ -85,7 +84,6 @@ piece('rp26-american-salute', {
   programNotes:
     'Gould wrote American Salute in 1942 as a wartime concert showpiece built on the Civil War song “When Johnny Comes Marching Home.” The 1943 published orchestration keeps the tune in constant transformation—fanfare, march, and jazz-tinged episode—before a broad closing statement.',
   eventIds: ['oc26-hs-pops'],
-  notes: 'NWSA library set on disk (full 1943 orch). WE join open.',
 });
 
 piece('rp26-hoe-down', {
@@ -103,7 +101,6 @@ piece('rp26-hoe-down', {
   programNotes:
     'Rodeo (1942) is Copland’s ballet of American cowboy life; Hoe-Down is the final dance episode, a barn-dance built on fiddling tunes including “Bonyparte” and “McLeod’s Reel.” Extracted for the concert hall, it became one of Copland’s most familiar orchestral calling cards.',
   eventIds: ['oc26-hs-pops'],
-  notes: 'Found at school 2026-08-11; scanning in — do not purchase.',
 });
 
 piece('rp26-battle-hymn-wilhousky', {
@@ -121,7 +118,6 @@ piece('rp26-battle-hymn-wilhousky', {
   programNotes:
     'Howe’s Civil War lyric rides a camp-meeting tune associated with William Steffe. Wilhousky’s mid-century concert arrangement—chorus and orchestra in a cumulative build—has been a staple of American combined-forces programs since the 1940s.',
   eventIds: ['oc26-hs-pops'],
-  notes: 'Combined: Orchestra + HS WE + chorus. Orch held; Trit band set for sax merge.',
 });
 
 piece('rp26-1812-finale-modified', {
@@ -139,7 +135,6 @@ piece('rp26-1812-finale-modified', {
   programNotes:
     'Tchaikovsky’s 1812 Overture commemorates Russia’s defense against Napoleon; its finale piles on artillery, bells, and the imperial anthem. This NWSA version replaces the Russian anthem with the American national anthem and brings in SATB chorus on adapted Gettysburg Address text at the chorale.',
   eventIds: ['oc26-hs-pops'],
-  notes: 'Modified: American anthem replaces Russian; SATB on adapted Gettysburg text. No band edition — Grant builds sax parts in Sibelius.',
 });
 
 piece('rp26-stars-and-stripes', {
@@ -156,7 +151,6 @@ piece('rp26-stars-and-stripes', {
   programNotes:
     'Sousa’s 1896 march—later designated the National March of the United States—pairs a swaggering trio with the famous piccolo obligato. Tonight it closes the Pops as an encore for Orchestra, Wind Ensemble, and Chorus together.',
   eventIds: ['oc26-hs-pops'],
-  notes: 'Encore: Orchestra + WE + Chorus.',
 });
 
 /* ─── Sept 29 — College Chamber Orchestra ─────────────────────────────── */
@@ -182,7 +176,6 @@ piece('rp26-mozart-33', {
     'Mozart completed K. 319 in Salzburg in July 1779, scoring it for the lean Classical wind choir of two oboes, two bassoons, and two horns with strings. The four-movement design balances a bright opening Allegro with a gracious Andante, a courtly Menuetto, and a sparkling finale; tonight’s timing assumes few or no repeats.',
   imslpUrl: 'https://imslp.org/wiki/Symphony_No.33_in_B-flat_major,_K.319_(Mozart,_Wolfgang_Amadeus)',
   eventIds: ['oc26-cco-concert-sep'],
-  notes: 'Verified scoring from performing edition: 2 ob, 2 bsn, 2 hn, str.',
 });
 
 piece('rp26-down-a-country-lane', {
@@ -198,7 +191,6 @@ piece('rp26-down-a-country-lane', {
   programNotes:
     'Copland first wrote Down a Country Lane in 1962 as a short piano piece for young players, later arranging it for school orchestra. The music is deliberately spare—open intervals and a walking melody that evoke a quiet rural landscape without rustic pastiche.',
   eventIds: ['oc26-cco-concert-sep'],
-  notes: 'Confirm wind doublings against the Boosey school-orchestra edition in use.',
 });
 
 piece('rp26-boccherini-musica-notturna', {
@@ -216,7 +208,6 @@ piece('rp26-boccherini-musica-notturna', {
     'Boccherini’s “Night Music of the Streets of Madrid” is a programmatic string quintet that stages an evening on the Spanish capital’s streets—military tattoo, beggars’ Ave Maria, the paseo, and the retreat. Performed here in the original one-to-a-part quintet scoring (2 violins, viola, 2 cellos).',
   imslpUrl: 'https://imslp.org/wiki/6_String_Quintets,_G.319-324_(Op.30)_(Boccherini,_Luigi)',
   eventIds: ['oc26-cco-concert-sep'],
-  notes: 'Grant: original quintet forces, not orchestra arrangement.',
 });
 
 piece('rp26-souvenir-de-florence', {
@@ -240,7 +231,6 @@ piece('rp26-souvenir-de-florence', {
     'Tchaikovsky sketched this string sextet after a stay in Florence and finished the familiar version in 1891–92. Despite the Italian title, the music speaks his Russian lyric voice—especially the long-breathed Adagio—while the outer movements demand chamber-music clarity at orchestral intensity. Dean’s Ensemble personnel play within CCO; not separately billed.',
   imslpUrl: 'https://imslp.org/wiki/Souvenir_de_Florence,_Op.70_(Tchaikovsky,_Pyotr)',
   eventIds: ['oc26-cco-concert-sep'],
-  notes: 'Sextet only (2.2.2.0). No bass / no string-orchestra set.',
 });
 
 /* ─── Nutcracker Act II (Oct 3 / Oct 6 / Nov 16) ───────────────────────── */
@@ -279,7 +269,6 @@ piece('rp26-nutcracker-act-ii', {
     'oc26-so-concert-oct',
     'oc26-concerto-winners',
   ],
-  notes: 'Act II focus. Oct 3: Scenes 12–15 as listed. Oct 6: Scene 14 Intrada+Coda + Scene 15. Nov 16: character dances + Waltz of the Flowers. Dec ballet cuts TBD separately.',
 });
 
 piece('rp26-nutcracker-ballet', {
@@ -298,7 +287,6 @@ piece('rp26-nutcracker-ballet', {
     'Tchaikovsky’s 1892 ballet, after E. T. A. Hoffmann by way of Dumas, follows Clara from a Christmas party into a dream of battle and the Kingdom of Sweets. NWSA Symphony partners with Armour Dance Theatre at the Fillmore; specific scenes and cuts for the December performances remain to be locked.',
   imslpUrl: 'https://imslp.org/wiki/The_Nutcracker_(ballet),_Op.71_(Tchaikovsky,_Pyotr)',
   eventIds: ['oc26-nutcracker-mat', 'oc26-nutcracker-eve'],
-  notes: 'Dec 12 Fillmore with Armour Dance Theatre. Scenes/cuts TBD.',
 });
 
 /* ─── Oct 6 — Sleep No More ───────────────────────────────────────────── */
@@ -318,7 +306,6 @@ piece('rp26-chadwick-rip-van-winkle', {
   programNotes:
     'Chadwick’s early Leipzig overture (1879, revised 1929) takes Washington Irving’s Hudson Valley sleeper as a romantic orchestral character study—somnolent opening, rustic scherzo energy, and a broad American lyricism that already points toward Chadwick’s later New England voice.',
   eventIds: ['oc26-so-concert-oct'],
-  notes: 'Rental IN PROGRESS with Dani/Henry — pending payment (priority #1).',
 });
 
 piece('rp26-rhapsody-in-blue-1942', {
@@ -338,7 +325,6 @@ piece('rp26-rhapsody-in-blue-1942', {
   programNotes:
     'Gershwin’s 1924 “experiment in modern music,” written for Paul Whiteman’s band, became a concert staple in Ferde Grofé’s successive orchestrations. The 1942 symphonic version—solo piano with full orchestra, saxophones, and banjo—is the Daniels-catalog scoring used for this program: clarinet glissando, bluesy episodes, and the great lyrical tune for full orchestra.',
   eventIds: ['oc26-so-concert-oct'],
-  notes: '1942 Grofé symphony orchestration (Daniels / Luck’s 05589 profile). Soloist: Ciro Fodere, Head of Piano, NWSA.',
 });
 
 piece('rp26-marche-des-princesses', {
@@ -357,7 +343,6 @@ piece('rp26-marche-des-princesses', {
     'Massenet’s Cendrillon (1899) retells Perrault’s Cinderella with French lyric elegance and fairy-tale color. The Marche des Princesses—drawn from Act IV and published as the finale of Massenet’s own concert suite—is a ceremonial procession for the eligible princesses at the ball: bright piccolo writing, martial percussion, and a broad lyrical strain before the cortège strides to its close.',
   imslpUrl: 'https://imslp.org/wiki/Cendrillon_(suite)_(Massenet,_Jules)',
   eventIds: ['oc26-so-concert-oct'],
-  notes: 'Suite excerpt (Heugel), not full-opera cut. Verified: 1 flute + 2 piccolos; tam-tam does not play in performed excerpt.',
 });
 
 /* ─── Mar 1 — Arsht ───────────────────────────────────────────────────── */
@@ -390,12 +375,9 @@ piece('rp26-lincoln-portrait', {
   instrumentation: '2 2 2 2 — 4 3 3 1 — tmp+perc — hp — cel — str',
   percussion: 'timpani, snare drum, bass drum, cymbals, xylophone, glockenspiel (as scored)',
   duration: 14,
-  soloistName: 'Narrator TBD',
-  soloistInstrument: 'spoken voice',
   programNotes:
     'Commissioned in 1942, Copland’s Lincoln Portrait frames excerpts from Lincoln’s letters and speeches—including the Gettysburg Address—with orchestral paraphrases of American tunes such as “Camptown Races” and “On Springfield Mountain.” Brass fanfares and open-interval harmony support the spoken text rather than compete with it.',
   eventIds: ['oc26-so-arsht'],
-  notes: 'Orch rental on Dani/Henry priority #3. Narrator: Carlos Izcaray interested (as of 2026-08-11); confirm before print.',
 });
 
 piece('rp26-tchaik-sym-5', {
@@ -420,7 +402,6 @@ piece('rp26-tchaik-sym-5', {
     'Tchaikovsky’s Fifth (1888) is built on a recurring “Fate” motto that darkens the first movement, softens into the famous horn Andante, dances through a waltz, and is finally transformed in the E-major finale. It remains one of the central Romantic symphonies of the concert repertoire.',
   imslpUrl: 'https://imslp.org/wiki/Symphony_No.5,_Op.64_(Tchaikovsky,_Pyotr)',
   eventIds: ['oc26-so-arsht'],
-  notes: 'Practice parts = Jurgenson/Kalmus on disk; conducting score = Grant physical edition (ID TBD).',
 });
 
 /* ─── May 18 — Philharmonic & Camerata ────────────────────────────────── */
@@ -440,7 +421,6 @@ piece('rp26-khachaturian-spartacus-adagio', {
   programNotes:
     'From Khachaturian’s ballet Spartacus, the Adagio of Spartacus and Phrygia is a long-breathed love duet for the Thracian rebel and his companion. Suite No. 2 opens with this movement: broad string cantabile, harp and celesta color, and a climax that made the Adagio famous far beyond the ballet stage.',
   eventIds: ['oc26-phil-camerata'],
-  notes: 'Prefer Adagio alone via Zinfonia WID 228874; full Suite No. 2 only if needed.',
 });
 
 piece('rp26-mascagni-intermezzo', {
@@ -458,7 +438,6 @@ piece('rp26-mascagni-intermezzo', {
     'Mascagni’s one-act Cavalleria rusticana (1890) pauses after the Easter drama for this wordless Intermezzo—an intimate string hymn with harp and organ that became the opera’s best-known orchestral excerpt. Brass and percussion are tacet throughout the number.',
   imslpUrl: 'https://imslp.org/wiki/Cavalleria_rusticana_(Mascagni,_Pietro)',
   eventIds: ['oc26-phil-camerata'],
-  notes: 'Verified Sonzogno 1890: strings, 1 harp, organ, cued winds; no brass, no percussion.',
 });
 
 /* ─── Camerata MPA set (library; no dedicated Hub concert yet) ────────── */
@@ -482,9 +461,8 @@ piece('rp26-holberg-suite', {
     { title: 'Rigaudon (Allegro con brio)', duration: 4 },
   ],
   programNotes:
-    'Grieg wrote the Holberg Suite in 1884 for the bicentenary of Norwegian playwright Ludvig Holberg, casting baroque dance forms in Romantic string language. District MPA programs the opening Praeludium (fast) from the string-orchestra version.',
+    'Grieg wrote the Holberg Suite in 1884 for the bicentenary of Norwegian playwright Ludvig Holberg, casting baroque dance forms in Romantic string language. The opening Praeludium is the movement programmed this season.',
   imslpUrl: 'https://imslp.org/wiki/From_Holberg%27s_Time,_Op.40_(Grieg,_Edvard)',
-  notes: 'MPA District Mar 9–11: Praeludium only. Ordering full scores ×2 (Dani/Henry).',
 });
 
 piece('rp26-capriol-suite', {
@@ -506,9 +484,8 @@ piece('rp26-capriol-suite', {
     { title: 'Mattachins (Sword Dance)', duration: 1 },
   ],
   programNotes:
-    'Warlock’s 1926 Capriol Suite freely reimagines Renaissance dances from Arbeau’s Orchésographie for string orchestra. District MPA takes the slow fifth movement, Pieds-en-l’air—a gentle, hovering air that contrasts the suite’s brisker dances.',
+    'Warlock’s 1926 Capriol Suite freely reimagines Renaissance dances from Arbeau’s Orchésographie for string orchestra. The slow fifth movement, Pieds-en-l’air, is a gentle, hovering air that contrasts the suite’s brisker dances.',
   imslpUrl: 'https://imslp.org/wiki/Capriol_Suite_(Warlock,_Peter)',
-  notes: 'MPA: Pieds-en-l\'air only (mvt. 5). Ordering full scores ×2.',
 });
 
 piece('rp26-danzas-de-panama', {
@@ -528,8 +505,7 @@ piece('rp26-danzas-de-panama', {
     { title: 'Cumbia y Congo', duration: 3 },
   ],
   programNotes:
-    'Still’s Danzas de Panamá (1948) presents four Panamanian dance types for string orchestra—Tamborito, Mejorana y Socavón, Punto, and Cumbia y Congo—with rhythmic bite and lyric warmth characteristic of his mid-century concert style. Programmed as Camerata’s MPA free-choice work.',
-  notes: 'MPA free choice. Dani/Henry purchase priority #4.',
+    'Still’s Danzas de Panamá (1948) presents four Panamanian dance types for string orchestra—Tamborito, Mejorana y Socavón, Punto, and Cumbia y Congo—with rhythmic bite and lyric warmth characteristic of his mid-century concert style. A set of four Panamanian dances for string orchestra.',
 });
 
 /* ─── Apr — Cendrillon (production listing) ───────────────────────────── */
@@ -547,7 +523,6 @@ piece('rp26-cendrillon-opera', {
   programNotes:
     'Massenet’s Cendrillon (Opéra-Comique, 1899) is a fairy-tale opéra comique after Perrault: Lucette, her stepsisters, the Fairy Godmother, and the Prince meet across four acts of lyrical French melody and enchanted orchestral color. NWSA College Opera Theatre Ensemble and Opera Orchestra present the work in April; casting and cuts are still being set.',
   eventIds: ['oc26-cendrillon-1', 'oc26-cendrillon-2'],
-  notes: 'Production confirmed; casting/cuts TBD.',
 });
 
 /* ─── Concert ↔ piece links (ordered programs) ────────────────────────── */
