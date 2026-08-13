@@ -20,10 +20,10 @@ to confirm you're matching existing usage, not inventing a new variant.
 
 ## Student privacy — the projection model (Aug 2026)
 
-Decided by the director (session note, 2026-08-03): student names,
-instruments, sections, ensemble membership, and schedules are public;
-**everything else is staff-only**. Grade level and attendance were never
-meant to be public. No opt-out system — privacy is enforced by what data
+Decided by the director (session note, 2026-08-03; revised 2026-08-13):
+student names, instruments, sections, ensemble membership, schedules, and
+**grade level** are public; contacts, pronunciation, attendance, and notes
+are staff-only. No opt-out system — privacy is enforced by what data
 exists publicly, not per-student flags.
 
 How it works — do not regress this:
@@ -32,7 +32,7 @@ How it works — do not regress this:
   (any allowlisted role may read; only the public projections are
   world-readable).
 - The public site reads ONLY `studentsPublic` (name, preferredName,
-  instrument, section, ensembleIds, status — **never grade or
+  instrument, section, ensembleIds, status, grade — **never
   pronunciation**) and `rosterOverridesPublic` (all fields **except the
   free-text `reason`**), via `src/public/hooks/usePublicRoster.ts`.
 - The field contract lives in `src/director/publicMirror.ts`. Every write in

@@ -173,7 +173,7 @@ export function PublicSchedule() {
 
       <div className="pub-ens-hero">
         <h1 className="pub-h1">{student.name}</h1>
-        <div className="pub-muted">{student.instrument}</div>
+        <div className="pub-muted">{[student.instrument, student.grade].filter(Boolean).join(' · ')}</div>
         {homeEnsembles.length > 0 && (
           <div className="pub-tag-row">
             {homeEnsembles.map(e => (

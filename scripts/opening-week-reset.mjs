@@ -31,7 +31,7 @@ const DELETE_EVENT_IDS = [
 ];
 
 const ARCHIVE_LABEL = 'Class of 2026';
-const PUBLIC_STUDENT_KEYS = ['name', 'preferredName', 'instrument', 'section', 'ensembleIds', 'status'];
+const PUBLIC_STUDENT_KEYS = ['name', 'preferredName', 'instrument', 'section', 'ensembleIds', 'status', 'grade'];
 
 function projectStudent(data) {
   const out = {};

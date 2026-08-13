@@ -8,7 +8,7 @@ import type { Student, RosterOverride } from './types';
  * is allowed to appear in a mirror doc:
  *
  *   • studentsPublic       — name, preferredName, instrument, section,
- *                            ensembleIds, status. NEVER grade, pronunciation,
+ *                            ensembleIds, status, grade. NEVER pronunciation
  *                            or staff-attribution metadata.
  *   • rosterOverridesPublic — everything except the free-text `reason`
  *                            (directors may type sensitive context there).
@@ -19,7 +19,7 @@ import type { Student, RosterOverride } from './types';
  */
 
 const PUBLIC_STUDENT_KEYS = [
-  'name', 'preferredName', 'instrument', 'section', 'ensembleIds', 'status',
+  'name', 'preferredName', 'instrument', 'section', 'ensembleIds', 'status', 'grade',
 ] as const;
 
 export function publicStudentFields(

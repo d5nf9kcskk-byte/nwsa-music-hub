@@ -242,7 +242,7 @@ export function PublicEnsemble() {
               (showAllRoster ? members : members.slice(0, 12)).map(s => (
                 <Link key={s.id} to={`/student/${s.id}`} className="pub-roster-row pub-lookup-row">
                   <span className="pub-roster-name">{s.name}</span>
-                  <span className="pub-roster-instr">{[s.instrument, s.section].filter(Boolean).join(' · ')}</span>
+                  <span className="pub-roster-instr">{[s.instrument, s.grade].filter(Boolean).join(' · ')}</span>
                 </Link>
               ))
             )}

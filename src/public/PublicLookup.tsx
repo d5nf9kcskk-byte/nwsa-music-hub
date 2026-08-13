@@ -178,7 +178,7 @@ export function PublicLookup() {
           matches.map(s => (
             <button key={s.id} className="pub-roster-row pub-lookup-row" onClick={() => setConfirming(s)}>
               <span className="pub-roster-name">{s.name}</span>
-              <span className="pub-roster-instr">{s.instrument}</span>
+              <span className="pub-roster-instr">{[s.instrument, s.grade].filter(Boolean).join(' · ')}</span>
             </button>
           ))
         )}
@@ -191,7 +191,7 @@ export function PublicLookup() {
             <div className="pub-confirm-title">Is this you{identity.parentMode ? 'r student' : ''}?</div>
             <div className="pub-confirm-name">{confirming.name}</div>
             <div className="pub-confirm-detail">
-              {confirming.instrument}
+              {[confirming.instrument, confirming.grade].filter(Boolean).join(' · ')}
             </div>
             <div className="pub-tag-row" style={{ justifyContent: 'center', marginTop: 8 }}>
               {(confirming.ensembleIds ?? []).map(id => {

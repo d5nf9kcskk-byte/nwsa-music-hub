@@ -13,7 +13,7 @@ rules_version = '2';
 // Student privacy (#privacy): the full `students` and `rosterOverrides`
 // collections are staff-only. The public site reads projection mirrors
 // instead — `studentsPublic` (name, preferred name, instrument, section,
-// ensembles, status; NEVER grade or pronunciation) and
+// ensembles, status, grade; NEVER pronunciation or contacts) and
 // `rosterOverridesPublic` (every field EXCEPT the free-text reason).
 // Mirrors are batched with each write (src/director/publicMirror.ts) and
 // converged by scripts/backfill-public-projections.mjs via the Admin SDK.
@@ -128,19 +128,19 @@ service cloud.firestore {
 
     // ── Public read · staff write ────────────────────
     match /ensembles/{doc}       { allow read; allow write: if isStaff(); }
-    // Full student records (grade level, pronunciation, …) are staff-eyes
-    // only (#privacy). Every recognized role may READ them — teachers need
+    // Full student records (pronunciation, …) are staff-eyes only
+    // (#privacy). Every recognized role may READ them — teachers need
     // names for lessons, assistants need pronunciation for roll — but the
     // public site gets only the studentsPublic projection below.
     match /students/{doc}        { allow read: if isKnownRole(); allow write: if isStaff(); }
     // Public projection of the roster: name, preferredName, instrument,
-    // section, ensembleIds, status — nothing else. Written in the same batch
-    // as the source doc by staff clients.
+    // section, ensembleIds, status, grade — nothing else. Written in the same
+    // batch as the source doc by staff clients.
     match /studentsPublic/{doc} {
       allow read;
       allow create, update: if isStaff()
         && request.resource.data.keys().hasOnly(
-             ['name', 'preferredName', 'instrument', 'section', 'ensembleIds', 'status']);
+             ['name', 'preferredName', 'instrument', 'section', 'ensembleIds', 'status', 'grade']);
       allow delete: if isStaff();
     }
     // events: staff edit freely. A Personnel Assistant may update ONLY the

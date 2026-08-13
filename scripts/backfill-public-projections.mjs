@@ -6,7 +6,7 @@
  * collections using the Admin SDK (bypasses security rules):
  *
  *   students        → studentsPublic        (name, preferredName, instrument,
- *                                            section, ensembleIds, status)
+ *                                            section, ensembleIds, status, grade)
  *   rosterOverrides → rosterOverridesPublic (all fields EXCEPT reason)
  *
  * Also deletes mirror docs whose source doc no longer exists, so re-running
@@ -28,7 +28,7 @@ if (!raw) {
 initializeApp({ credential: cert(JSON.parse(raw)) });
 const db = getFirestore();
 
-const PUBLIC_STUDENT_KEYS = ['name', 'preferredName', 'instrument', 'section', 'ensembleIds', 'status'];
+const PUBLIC_STUDENT_KEYS = ['name', 'preferredName', 'instrument', 'section', 'ensembleIds', 'status', 'grade'];
 
 function projectStudent(data) {
   const out = {};

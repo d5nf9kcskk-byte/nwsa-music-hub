@@ -9,10 +9,10 @@ import { PUBLIC_STUDENT_INFO } from '../publicStudentInfo';
 /**
  * Public-site roster hooks (#privacy). The full `students` and
  * `rosterOverrides` collections are staff-only; the public surface reads the
- * `studentsPublic` / `rosterOverridesPublic` projections instead (no grade,
- * no pronunciation, no free-text override reasons — see
+ * `studentsPublic` / `rosterOverridesPublic` projections instead (no
+ * pronunciation, no free-text override reasons — see
  * src/director/publicMirror.ts for the field contract). The returned shapes
- * are Student / RosterOverride with those optional fields simply absent, so
+ * are Student / RosterOverride with staff-only fields simply absent, so
  * public components consume them unchanged.
  *
  * When PUBLIC_STUDENT_INFO is false, both hooks return empty lists so every
