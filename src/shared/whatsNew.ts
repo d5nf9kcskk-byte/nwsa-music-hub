@@ -1,9 +1,12 @@
 /**
  * Temporary "What's New" entries for Hub update summaries.
- * Leave empty until the next real change set — the banner renders nothing.
+ * Leave empty when there is nothing new — the banner renders nothing.
  *
  * audience: 'staff' = director Today only; 'public' = public home;
  * 'both' = either surface when relevant.
+ *
+ * Agents: when shipping Hub changes, follow `.cursor/rules/whats-new.mdc`
+ * and update this file in the same commit when the rule says to.
  */
 export type WhatsNewAudience = 'staff' | 'public' | 'both';
 
@@ -20,15 +23,15 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
-    id: '2026-08-13-grouped-alerts',
+    id: '2026-08-13-event-pages-quiet',
     date: '2026-08-13',
-    title: 'Alerts are grouped by who they apply to',
-    audience: 'staff',
+    title: 'Opening a rehearsal or class card stays focused',
+    audience: 'both',
     expires: '2026-08-27',
     bullets: [
-      'Schedule changes and urgent notices sit under Classes, ensemble, or Everyone headings on home, other public pages, and each ensemble hub.',
-      'Each alert stays its own card. If a group has more than three, the rest hide behind Show all until you expand them.',
-      'Director Today and ensemble hubs use the same layout so a busy change day stays scannable.',
+      'Tap a rehearsal, class, or event card and you land on that item only: a clear “Rehearsal / Class / Event information” heading, then time, place, and notes.',
+      'Site-wide schedule alerts and urgent notices stay on Home, Calendar, and each ensemble page — not stacked on every detail page.',
+      'Alerts on those overview pages are grouped under Classes, ensemble, or Everyone, with Show all when a group is long.',
     ],
   },
 ];

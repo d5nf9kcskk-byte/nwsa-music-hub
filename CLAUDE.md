@@ -92,3 +92,9 @@ hand-write SW fetch/install logic. Rules that must not regress:
 - Deferred security work is tracked in `docs/security-recommendations.md`;
   the session record for all of the above is
   `docs/session-notes-2026-08-04-pwa-hardening.md`.
+
+## What's New banner (auto)
+
+Product/UX changes that affect all staff or the public student site must
+update `src/shared/whatsNew.ts` in the same ship commit. Full include/exclude
+rules: `.cursor/rules/whats-new.mdc`. Do not wait to be asked.

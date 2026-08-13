@@ -1,0 +1,52 @@
+---
+description: Auto-update What's New when shipping Hub product/UI changes for all staff or students
+alwaysApply: true
+---
+
+# What's New (automatic)
+
+When you finish Hub work that ships (commit to main), update
+`src/shared/whatsNew.ts` in the **same commit** when the change qualifies.
+Do not wait for Grant to ask.
+
+## Put an entry when
+
+- The change affects **all directors/teachers** (shared chrome, rolls UX,
+  Today, schedule alerts, auth shell, shared director tools).
+- The change affects **what students/families see** on the public site
+  (home, calendar, ensembles, event cards, lookup, documents, PWA shell).
+
+Use `audience: 'staff' | 'public' | 'both'` to match who should see the
+banner. Prefer one entry per ship day; merge related bullets. Set
+`expires` ~2 weeks out. Bump `id` if re-showing a revised tip.
+
+## Do NOT put an entry when
+
+- Ensemble-specific content Grant (or any director) enters in the app:
+  repertoire, concerts details, announcements they write, roster edits,
+  seating, documents uploaded for one program.
+- Allowlist / access admin: adding a teacher, changing a role, directors
+  collection seed.
+- Pure refactors, tests, docs, CI, or scripts with no user-visible change.
+- One-off Firestore data fixes that are not a product/UX change (unless
+  the fix itself changes how the site is read, e.g. opening-week schedule
+  for everyone).
+
+## Entry shape
+
+```ts
+{
+  id: 'YYYY-MM-DD-short-slug',
+  date: 'YYYY-MM-DD',
+  title: 'Plain, student-friendly headline',
+  audience: 'both', // or staff / public
+  expires: 'YYYY-MM-DD', // ~14 days later
+  bullets: [
+    'What changed, in plain language.',
+    'Where to look, if useful.',
+  ],
+}
+```
+
+Replace or prune expired/stale entries when adding new ones so the banner
+does not pile up. Empty `WHATS_NEW` is fine when nothing qualifies.
