@@ -519,8 +519,36 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
 }
 [data-pub-theme='dark'] .pub-app { color-scheme: dark; }
 [data-pub-theme='dark'] .pub-menu-panel { background: var(--pub-surface); }
-[data-pub-theme='dark'] .pub-announce.pinned { background: #26200f; }
+/* Announcement / alert pastels are hardcoded for light mode; without these
+   overrides, --pub-ink (near-white) sits on #fef2f2 / #fffbeb and goes illegible. */
+[data-pub-theme='dark'] .pub-announce.pinned { background: #2a2416; }
+[data-pub-theme='dark'] .pub-announce-urgent { background: #2a1518; }
+[data-pub-theme='dark'] .pub-alert-banner {
+  background: #2a1518; border-color: #7f1d1d;
+}
 [data-pub-theme='dark'] .pub-alert-banner.changed { background: #2a2310; border-color: #6b5d1d; }
+[data-pub-theme='dark'] .pub-alert-title,
+[data-pub-theme='dark'] .pub-alert-row svg,
+[data-pub-theme='dark'] .pub-alert-group-in-banner .pub-alert-group-title,
+[data-pub-theme='dark'] .pub-alert-group-in-banner .pub-alert-group-more { color: #fca5a5; }
+[data-pub-theme='dark'] .pub-alert-row,
+[data-pub-theme='dark'] .pub-alert-group-in-banner .pub-alert-row:first-of-type { border-top-color: #5c2626; }
+[data-pub-theme='dark'] .pub-alert-note { color: #fcd34d; }
+[data-pub-theme='dark'] .pub-strip-alert {
+  background: #2a1518; border-color: #7f1d1d; color: #fca5a5;
+}
+[data-pub-theme='dark'] .pub-ens-alert-row {
+  background: #2a1518; border-color: #7f1d1d;
+}
+[data-pub-theme='dark'] .pub-ens-alert-row.changed {
+  background: #2a2310; border-color: #6b5d1d;
+}
+[data-pub-theme='dark'] .pub-ens-alert-scope.everyone {
+  background: rgba(255, 255, 255, 0.12); color: #cbd5e1;
+}
+[data-pub-theme='dark'] .pub-allclear {
+  background: #14261a; border-color: #14532d; color: #86efac;
+}
 [data-pub-theme='dark'] .pub-lang-btn.active,
 [data-pub-theme='dark'] .pub-textsize.adjusted { background: var(--pub-ink); color: #0d3e46; }
 

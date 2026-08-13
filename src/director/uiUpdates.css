@@ -483,6 +483,34 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-app[data-dir-theme="dark"] .dir-detail-assign-exempt {
   background: var(--dir-surface-2); color: var(--dir-text-muted);
 }
+/* Hardcoded light pastels (Today alerts, conflict banner) stay readable only
+   because their text is also hardcoded dark red — still look broken in dark.
+   Match the public dark announcement treatment. */
+.dir-app[data-dir-theme="dark"] .dir-today-alert,
+.dir-app[data-dir-theme="dark"] .dir-conflict-banner {
+  background: #2a1518; border-color: #7f1d1d; color: #fca5a5;
+}
+.dir-app[data-dir-theme="dark"] .dir-alert-scope {
+  background: rgba(255, 255, 255, 0.12); color: #fecaca;
+}
+.dir-app[data-dir-theme="dark"] .dir-radar-box {
+  background: #2a2310; border-color: #6b5d1d; color: #fcd34d;
+}
+.dir-app[data-dir-theme="dark"] .dir-alert-group-more:hover {
+  background: var(--dir-surface-2);
+}
+.dir-app[data-dir-theme="dark"] .dir-event-status.Cancelled {
+  background: var(--dir-absent-bg);
+}
+.dir-app[data-dir-theme="dark"] .dir-assign-row-fail {
+  background: var(--dir-absent-bg);
+}
+.dir-app[data-dir-theme="dark"] .dir-detail-assign-fail {
+  background: #3a1f1f; color: #fca5a5;
+}
+.dir-app[data-dir-theme="dark"] .dir-submission-reviewed {
+  background: #14261a !important; color: #86efac !important; border-color: #14532d !important;
+}
 
 /* Compact music-only ensemble filter — replaces the wrapping chip rows. */
 .dir-ens-filter { display: flex; align-items: center; gap: 8px; padding: 6px 16px 8px; }
