@@ -23,6 +23,18 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-13-piece-picker-cross-ensemble',
+    date: '2026-08-13',
+    title: 'Any orchestra piece on any rehearsal',
+    audience: 'staff',
+    expires: '2026-08-27',
+    bullets: [
+      'When linking repertoire to a rehearsal or concert, that ensemble’s pieces still appear first.',
+      'Search the piece field to add any other library piece (for example Nutcracker on a Camerata strings rehearsal).',
+      'Cross-ensemble picks show the piece’s home ensemble name so you can tell where it lives in the library.',
+    ],
+  },
+  {
     id: '2026-08-13-event-pages-quiet',
     date: '2026-08-13',
     title: 'Opening a rehearsal or class card stays focused',

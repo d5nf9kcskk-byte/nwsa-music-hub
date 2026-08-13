@@ -5,7 +5,7 @@ import { pieceEnsembleIds } from '../utils';
 import type { Ensemble } from '../types';
 
 interface Props {
-  /** Filter piece suggestions to these ensembles; empty array = show all. */
+  /** Ensemble(s) on this event — their pieces list first; search covers the full library. */
   ensembleIds: string[];
   ensembles: Ensemble[];
   /** Selected piece IDs, in program order. */
@@ -46,16 +46,35 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
     [pieces],
   );
 
-  const pool = ensembleIds.length
-    ? pieces.filter(p => pieceEnsembleIds(p).some(id => ensembleIds.includes(id)))
-    : pieces;
+  const primaryIds = useMemo(() => new Set(ensembleIds), [ensembleIds]);
 
-  const filtered = search
-    ? pool.filter(p =>
-        p.title.toLowerCase().includes(search.toLowerCase()) ||
-        (p.composer ?? '').toLowerCase().includes(search.toLowerCase()),
-      )
-    : pool;
+  // Browse: this event's ensemble pieces first. Search: every library piece
+  // (so Camerata can pull Nutcracker for a strings sectional), still sorted
+  // with this ensemble's pieces on top.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const primary = (p: (typeof pieces)[number]) =>
+      primaryIds.size === 0 || pieceEnsembleIds(p).some(id => primaryIds.has(id));
+    const matchesQuery = (p: (typeof pieces)[number]) =>
+      !q
+      || p.title.toLowerCase().includes(q)
+      || (p.composer ?? '').toLowerCase().includes(q);
+
+    const pool = !q && primaryIds.size > 0
+      ? pieces.filter(primary)
+      : pieces.filter(matchesQuery);
+
+    return [...pool].sort((a, b) => {
+      const ap = primary(a) ? 0 : 1;
+      const bp = primary(b) ? 0 : 1;
+      if (ap !== bp) return ap - bp;
+      return (a.order ?? 0) - (b.order ?? 0) || a.title.localeCompare(b.title);
+    });
+  }, [pieces, search, primaryIds]);
+
+  const isPrimary = (p: (typeof pieces)[number]) =>
+    primaryIds.size === 0 || pieceEnsembleIds(p).some(id => primaryIds.has(id));
+
 
   // Selected pieces resolved in program order — with any live drag applied —
   // (skip any that were deleted).
@@ -266,7 +285,9 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
           <Search size={13} className="dir-piece-search-icon" />
           <input
             className="dir-piece-search-input"
-            placeholder="Search pieces to add…"
+            placeholder={ensembleIds.length
+              ? 'Search this ensemble, or any orchestra piece…'
+              : 'Search pieces to add…'}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -325,6 +346,7 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
         ) : (
           filtered.map(p => {
             const sel = value.includes(p.id);
+            const fromOther = primaryIds.size > 0 && !isPrimary(p);
             return (
               <button
                 key={p.id}
@@ -337,7 +359,7 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
                   <span className="dir-piece-title">{p.title}</span>
                   {p.composer && <span className="dir-piece-composer">{p.composer}</span>}
                 </span>
-                {ensembleIds.length === 0 && (
+                {(ensembleIds.length === 0 || fromOther) && (
                   <span className="dir-piece-ens">{pieceEnsembleIds(p).map(id => ensembleMap[id]?.name).filter(Boolean).join(', ')}</span>
                 )}
               </button>
