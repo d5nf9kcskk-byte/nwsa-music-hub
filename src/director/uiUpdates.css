@@ -586,6 +586,19 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   border-radius: 10px; padding: 11px 13px; margin-bottom: 10px;
   font-size: 13.5px; font-weight: 700; color: #b91c1c;
 }
+.dir-alert-scope {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  margin-right: 4px;
+  background: rgba(185, 28, 28, 0.12);
+  color: #991b1b;
+  vertical-align: 1px;
+}
 .dir-today-quick { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 12px 0 4px; }
 .dir-quick-btn {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
