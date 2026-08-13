@@ -18,5 +18,17 @@ export interface WhatsNewEntry {
   expires?: string;
 }
 
-/** Ship empty until the next intentional update summary. */
-export const WHATS_NEW: WhatsNewEntry[] = [];
+export const WHATS_NEW: WhatsNewEntry[] = [
+  {
+    id: '2026-08-13-grouped-alerts',
+    date: '2026-08-13',
+    title: 'Alerts are grouped by who they apply to',
+    audience: 'staff',
+    expires: '2026-08-27',
+    bullets: [
+      'Schedule changes and urgent notices now sit under Classes, ensemble, or Everyone headings (public pages and each ensemble hub).',
+      'Each alert stays its own card. If a group has more than three, the rest hide behind Show all until you expand them.',
+      'Home still uses its usual “today” banner; the new grouping is on other public pages and in director ensemble hubs.',
+    ],
+  },
+];
