@@ -118,7 +118,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
       )}
 
       {view === 'month' ? (
-        <div className="dir-drawer-body">
+        <div className="dir-page-body">
           <div className="dir-cal">
             <div className="dir-cal-nav" style={{ padding: '4px 0' }}>
               <button className="dir-date-nav-btn" onClick={() => setCalCursor(c => new Date(c.getFullYear(), c.getMonth() - 1, 1))} aria-label="Previous month"><ChevronLeft size={16} /></button>
@@ -157,7 +157,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
         </button>
       </div>
 
-      <div className="dir-drawer-body">
+      <div className="dir-page-body">
         <div className="dir-att-summary" style={{ borderRadius: 10 }}>
           {totalOut === 0 && reported.length === 0 && totalLessons === 0
             ? <>Nobody reported out{ensembleId ? ' for this ensemble' : ''}. 🎉</>

@@ -23,6 +23,17 @@
 .pub-header-search { display: none; }
 
 @media (min-width: 1024px) {
+  /* Window is the scroll root on desktop (ScrollRestoration / hash anchors). */
+  .pub-app {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .pub-app .pub-content {
+    overflow: visible;
+    min-height: 0;
+  }
+
   .pub-shell {
     display: grid;
     grid-template-columns: 264px minmax(0, 1fr);

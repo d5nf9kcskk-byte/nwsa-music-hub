@@ -113,7 +113,7 @@ export function ScheduleChangeView({ initialEnsembleId = '' }: { initialEnsemble
             <SortToggle value={sort} onChange={setSort} />
           </div>
 
-          <div className="dir-drawer-body">
+          <div className="dir-page-body">
             {list.length === 0 ? (
               <div className="dir-empty-inline">No students match.</div>
             ) : (
@@ -131,7 +131,7 @@ export function ScheduleChangeView({ initialEnsembleId = '' }: { initialEnsemble
           </div>
         </>
       ) : (
-        <div className="dir-drawer-body">
+        <div className="dir-page-body">
           <div className="dir-cal" style={{ marginBottom: 6 }}>
             <div className="dir-cal-nav" style={{ padding: '4px 0' }}>
               <button className="dir-date-nav-btn" onClick={() => setCalCursor(c => new Date(c.getFullYear(), c.getMonth() - 1, 1))} aria-label="Previous month"><ChevronLeft size={16} /></button>
@@ -253,7 +253,7 @@ function StudentPanel({ student, ensembles, onBack, prefill, autoOpenForm }: {
         </div>
       </div>
 
-      <div className="dir-drawer-body">
+      <div className="dir-page-body">
         {error && <div className="dir-sc-error">⚠ {error}</div>}
 
         <div className="dir-form-section-label">In these ensembles (permanent)</div>

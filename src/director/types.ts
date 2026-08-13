@@ -534,6 +534,9 @@ export interface Lesson {
   location?: string;
   instrument?: string;     // denormalized from the teacher's instrument(s)
   notes?: string;
+  /** Lesson grade / mark. Reserved for Dean payment tracking; not collected in
+   *  the teacher UI yet, but exported in director CSV when present. */
+  grade?: string;
   status: EventStatus;
   /** Set once the teacher has acknowledged a scheduling conflict for this
    *  lesson. Absent = no conflict was detected at save time. */

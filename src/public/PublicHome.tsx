@@ -16,6 +16,8 @@ import { fmtLongDate, fmtShortDate } from '../shared/dates';
 import { composerBirthdaysOn, birthdayLine, musicHolidayOn, concertDayLine, dailyPun, say } from '../shared/whimsy';
 import { useTapTempo } from '../shared/useTapTempo';
 import { NoteBurst } from '../shared/NoteBurst';
+import { WhatsNewBanner } from '../shared/WhatsNewBanner';
+import '../shared/whatsNew.css';
 import type { CalendarEvent } from '../director/types';
 
 const LOOKAHEAD_DAYS = 14;
@@ -85,6 +87,7 @@ export function PublicHome() {
 
   return (
     <div className="pub-page">
+      <WhatsNewBanner audience="public" />
       <div className="pub-hero pub-hero-fancy">
         <div className="pub-hero-date" onClick={onDateTap}>{fmtLongDate(today)}</div>
         <h1><Music2 size={22} style={{ verticalAlign: '-3px' }} /> {t('home.todayAt')}</h1>

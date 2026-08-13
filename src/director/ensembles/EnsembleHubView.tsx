@@ -57,7 +57,7 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
         </div>
       )}
 
-      <div className="dir-drawer-body">
+      <div className="dir-page-body">
         <div className="dir-form-section-label">Next rehearsal</div>
         {nextRehearsal ? (
           <div className="dir-today-card">

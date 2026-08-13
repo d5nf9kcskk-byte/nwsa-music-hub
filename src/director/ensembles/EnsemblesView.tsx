@@ -42,7 +42,7 @@ export function EnsemblesView({ onNavigate }: { onNavigate: DirNavigate }) {
         </span>
       </div>
 
-      <div className="dir-drawer-body">
+      <div className="dir-page-body">
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="dir-btn dir-btn-primary" onClick={() => setManaging('new')}>
             <Plus size={16} style={{ verticalAlign: '-3px' }} /> New Ensemble

@@ -164,7 +164,7 @@ function wrapCalendar(name, description, vevents) {
 
     // All-events feed
     const allVevents = events.map(e => buildVEVENT(e, ensembleMap));
-    writeFileSync('dist/feeds/all.ics', wrapCalendar('NWSA Music', 'All NWSA music department events', allVevents));
+    writeFileSync('dist/feeds/all.ics', wrapCalendar('NWSA · All events', 'All NWSA music department events', allVevents));
 
     // Schedule-changes-only feed (#director-changes-feed): cancellations and
     // events carrying a changeNote — director/teacher side only (linked from
@@ -174,7 +174,7 @@ function wrapCalendar(name, description, vevents) {
     const changeVevents = changedEvents.map(e => buildVEVENT(e, ensembleMap));
     writeFileSync(
       'dist/feeds/changes.ics',
-      wrapCalendar('NWSA Music — Schedule Changes', 'Cancellations and schedule changes only', changeVevents),
+      wrapCalendar('NWSA · Schedule changes', 'Cancellations and schedule changes only', changeVevents),
     );
 
     // Per-ensemble feeds
@@ -184,7 +184,7 @@ function wrapCalendar(name, description, vevents) {
       const safeName = ens.id.replace(/[^a-z0-9-]/gi, '-');
       writeFileSync(
         `dist/feeds/ensemble-${safeName}.ics`,
-        wrapCalendar(ens.name, `${ens.name} — NWSA Music`, vevents),
+        wrapCalendar(`NWSA · ${ens.name}`, `${ens.name} — NWSA Music`, vevents),
       );
     }
 
@@ -194,7 +194,7 @@ function wrapCalendar(name, description, vevents) {
       const typed = events.filter(e => e.type === type);
       writeFileSync(
         `dist/feeds/type-${type}.ics`,
-        wrapCalendar(`NWSA Music — ${type}s`, `${type} events only`, typed.map(e => buildVEVENT(e, ensembleMap))),
+        wrapCalendar(`NWSA · ${type}s`, `${type} events only`, typed.map(e => buildVEVENT(e, ensembleMap))),
       );
     }
 

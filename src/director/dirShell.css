@@ -168,11 +168,12 @@
      height can never redistribute the grid rows and shove the calendar down.
      The panel sticks in place and scrolls on its own instead of growing. */
   .dir-sched-cal-col { grid-column: 1; min-width: 0; }
+  /* Sticky day panel, but NO nested scroller — .dir-content scrolls the page.
+     Nested overflow here trapped users who scrolled the panel while the outer
+     pane stayed put (subscribe popovers also got clipped). */
   .dir-sched-split .dir-day-detail {
     grid-column: 2;
     position: sticky;
     top: 8px;
-    max-height: calc(100dvh - 88px);
-    overflow-y: auto;
   }
 }

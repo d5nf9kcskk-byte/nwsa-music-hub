@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ClipboardList, MapPin, Clock, Music, GraduationCap, CalendarPlus, Users, Megaphone, ChevronRight, Plus } from 'lucide-react';
+import { ClipboardList, MapPin, Clock, Music, GraduationCap, CalendarPlus, Users, Megaphone, ChevronRight, Plus, MessageSquarePlus } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
@@ -19,6 +19,7 @@ import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { composerBirthdaysOn, birthdayLine, musicHolidayOn } from '../../shared/whimsy';
+import { DIRECTOR_FEEDBACK_FORM_URL } from '../feedbackForm';
 
 const ENS_PREF_KEY = 'dir.today.ensemble';
 
@@ -147,7 +148,21 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
         <EnsembleFilter ensembles={ensembles} value={ensembleId} onChange={pickEnsemble} />
       )}
 
-      <div className="dir-drawer-body">
+      <a
+        className="dir-feedback-banner"
+        href={DIRECTOR_FEEDBACK_FORM_URL}
+        target="_blank"
+        rel="noreferrer"
+      >
+        <MessageSquarePlus size={18} />
+        <span>
+          <strong>See something wrong, or have an idea?</strong>
+          {' '}Use the feedback form so it stays in one place (instead of texts or email).
+        </span>
+        <ChevronRight size={16} className="dir-up-chev" />
+      </a>
+
+      <div className="dir-page-body">
         {/* Alerts: today's cancellations / changes */}
         {alerts.map(e => (
           <button key={e.id} className="dir-today-alert" onClick={() => onNavigate('schedule', { date: e.date, eventId: e.id })}>

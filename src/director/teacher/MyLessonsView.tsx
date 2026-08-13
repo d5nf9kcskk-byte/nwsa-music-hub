@@ -106,11 +106,18 @@ export function MyLessonsView() {
 
   return (
     <div className="dir-tab-page">
+      <div className="dir-page-hint" style={{ marginTop: 4 }}>
+        Logging lessons here is encouraged (not required yet). It trains the habit for
+        when the Dean uses these records for lesson tracking and pay. Date, times,
+        student, instrument, location, and notes matter; grades come later.
+      </div>
+
       {/* My students */}
       <div className="dir-form-section-label" style={{ marginTop: 8 }}>My students ({assignedStudents.length})</div>
       {assignedStudents.length === 0 ? (
         <div className="dir-empty-inline">
-          No students assigned to you yet. Ask the Owner to assign students from the Directors screen, or add them yourself below.
+          No students assigned to you yet. The Dean sets teacher–student assignments;
+          once those are in the Hub, they will show here. You can also adjust your list below if needed.
         </div>
       ) : (
         <div className="dir-checkbox-group" style={{ padding: '0 16px 4px' }}>

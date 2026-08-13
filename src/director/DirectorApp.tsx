@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, Repeat, QrCode, Moon, Sun, FolderOpen, ShieldCheck } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, Repeat, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -18,6 +18,9 @@ import { useModalA11y } from '../shared/useModalA11y';
 import { StatusStrips } from '../shared/StatusStrips';
 import { NoteBurst } from '../shared/NoteBurst';
 import { useLogoEgg } from '../shared/useLogoEgg';
+import { WhatsNewBanner } from '../shared/WhatsNewBanner';
+import '../shared/whatsNew.css';
+import { DIRECTOR_FEEDBACK_FORM_URL } from './feedbackForm';
 import { useUrgentRelaySweep } from './announcements/urgentRelay';
 import { AttendanceTab } from './attendance/AttendanceTab';
 import { RosterView } from './roster/RosterView';
@@ -31,6 +34,7 @@ import { AnnouncementManager } from './announcements/AnnouncementManager';
 import { RepertoireManager } from './repertoire/RepertoireManager';
 import { DocumentsView } from './documents/DocumentsView';
 import { TodayView } from './today/TodayView';
+import { LessonsView } from './lessons/LessonsView';
 import { EnsembleHubView } from './ensembles/EnsembleHubView';
 import { EnsemblesView } from './ensembles/EnsemblesView';
 import { useEnsembles } from './hooks/useEnsembles';
@@ -64,6 +68,7 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
     items: [
       { id: 'ensembles', label: 'Ensembles',   Icon: Music    },
       { id: 'roster', label: 'Roster',         Icon: Users    },
+      { id: 'lessons', label: 'Lessons',       Icon: GraduationCap },
       { id: 'notes',  label: 'Progress Notes', Icon: FileText },
     ],
   },
@@ -82,6 +87,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   today:           'Today',
   roll:            'Take Roll',
   roster:          'Roster',
+  lessons:         'Lessons',
   schedule:        'Schedule',
   scheduleChanges: 'Temporary Roster Changes',
   scheduleSwap:    'Schedule Change',
@@ -96,7 +102,7 @@ const TAB_TITLES: Record<DirTab, string> = {
 };
 
 const VALID_TABS: readonly DirTab[] = [
-  'today', 'roll', 'roster', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
+  'today', 'roll', 'roster', 'lessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'whosOut', 'scheduleSwap',
 ];
 
@@ -114,6 +120,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   scheduleChanges: 'Temporary student moves \u2014 subs, pull-outs, and one-day loans between ensembles.',
   ensembles:       'Create ensembles, add students to their rosters, and open any ensemble\u2019s hub \u2014 all from here.',
   roster:          'Every student in the program. Tap a student to edit their info or which ensembles they\u2019re in.',
+  lessons:         'Private lessons teachers have logged. Download CSV for the Dean\u2019s record (pay tracking later).',
   notes:           'Private progress notes per student. Only directors ever see these.',
   repertoire:      'What each ensemble is playing, by ensemble or by concert. This feeds the printed program.',
   documents:       'Handbooks, forms, and files for families. Anything you post here shows on the public site.',
@@ -244,6 +251,14 @@ export default function DirectorApp() {
               ))}
             </nav>
             <div className="dir-rail-bottom">
+              <a
+                className="dir-rail-item"
+                href={DIRECTOR_FEEDBACK_FORM_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <MessageSquarePlus size={18} /> Suggest a change
+              </a>
               <button className="dir-rail-item" onClick={() => setQrOpen(true)}>
                 <QrCode size={18} /> QR Kit
               </button>
@@ -297,10 +312,12 @@ export default function DirectorApp() {
 
           <main className="dir-content">
             <StatusStrips />
+            <WhatsNewBanner audience="staff" />
             {TAB_HINTS[tab] && <div className="dir-page-hint no-print">{TAB_HINTS[tab]}</div>}
             {tab === 'today'           && <TodayView onNavigate={go} />}
             {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} onNavigate={go} />}
             {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} onNavigate={go} />}
+            {tab === 'lessons'         && <LessonsView />}
             {tab === 'whosOut'         && <WhosOutView key={intentKey} initialDate={intent.date} initialEnsembleId={intent.ensembleId ?? ''} onNavigate={go} />}
             {tab === 'schedule'        && (
               <ScheduleView
@@ -407,6 +424,16 @@ export default function DirectorApp() {
                 )}
 
                 <div className="dir-menu-divider" />
+
+                <a
+                  className="dir-menu-item"
+                  href={DIRECTOR_FEEDBACK_FORM_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <MessageSquarePlus size={19} /> Suggest a change
+                </a>
 
                 <button className="dir-menu-item" onClick={() => { setQrOpen(true); setMenuOpen(false); }}>
                   <QrCode size={19} /> QR Kit
