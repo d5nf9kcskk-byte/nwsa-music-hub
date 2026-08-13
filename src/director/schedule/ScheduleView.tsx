@@ -312,6 +312,13 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               ? <><LayoutList size={15} /> List view</>
               : <><Grid3x3 size={15} /> Calendar view</>}
           </button>
+          <FilteredCalendarSubscribe
+            events={visibleEvents}
+            ensembles={ensembles}
+            filterEnsembleIds={filterEnsembleIds}
+            typeFilters={typeFilters}
+            schoolSentinel={SCHOOL}
+          />
           {/* One-time school-calendar import: hidden once school events exist */}
           {(!hasSchoolEvents || schoolCalState === 'seeding' || schoolCalState === 'error') && (
             <button
@@ -366,13 +373,6 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           <button className="dir-tool-btn" onClick={() => setQuickAdding(true)} title="Describe an event in plain English">
             <Sparkles size={15} /> Quick Add
           </button>
-          <FilteredCalendarSubscribe
-            events={visibleEvents}
-            ensembles={ensembles}
-            filterEnsembleIds={filterEnsembleIds}
-            typeFilters={typeFilters}
-            schoolSentinel={SCHOOL}
-          />
       </div>
 
       {/* Filters — multi-select: several ensembles AND several types at once. */}

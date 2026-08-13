@@ -187,6 +187,10 @@ export function PublicCalendar() {
         />
       </div>
 
+      <div className="pub-subscribe-section">
+        <SubscribeButton ensembleId={filterEnsembleIds.length === 1 ? filterEnsembleIds[0] : undefined} />
+      </div>
+
       {view === 'list' ? (
         <div style={{ marginTop: 8 }}>
           {listItems.length === 0 ? (
@@ -291,10 +295,6 @@ export function PublicCalendar() {
       </div>
       </>
       )}
-
-      <div className="pub-subscribe-section">
-        <SubscribeButton ensembleId={filterEnsembleIds.length === 1 ? filterEnsembleIds[0] : undefined} />
-      </div>
     </div>
   );
 }

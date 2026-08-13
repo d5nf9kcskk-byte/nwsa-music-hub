@@ -531,7 +531,7 @@
 
 /* ── Calendar subscribe ── */
 
-.pub-subscribe-section { margin-top: 22px; margin-bottom: 6px; }
+.pub-subscribe-section { margin-top: 10px; margin-bottom: 12px; }
 
 .pub-subscribe-btn {
   display: inline-flex; align-items: center; gap: 7px;
