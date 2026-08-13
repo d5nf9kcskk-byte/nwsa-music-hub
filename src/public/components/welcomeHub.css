@@ -1,0 +1,307 @@
+/* Opening-week Welcome Hub banner + detail sheet */
+
+.pub-welcome-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin: 0;
+  padding: 4px 6px 4px 4px;
+  border-bottom: 3px solid var(--pub-gold);
+  background: linear-gradient(105deg, #0a6675 0%, var(--pub-accent) 55%, #1a9aad 100%);
+  color: #fff;
+  overflow: hidden;
+  animation: pub-welcome-roll 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes pub-welcome-roll {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+.pub-welcome-notes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.pub-welcome-note {
+  position: absolute;
+  top: 110%;
+  font-size: 14px;
+  opacity: 0;
+  animation: pub-welcome-float 4.5s ease-in-out infinite;
+}
+
+.pub-welcome-note:nth-child(1) { left: 6%;  font-size: 13px; }
+.pub-welcome-note:nth-child(2) { left: 28%; animation-duration: 5.2s; }
+.pub-welcome-note:nth-child(3) { left: 48%; font-size: 16px; animation-duration: 4.1s; }
+.pub-welcome-note:nth-child(4) { left: 68%; animation-duration: 5.6s; }
+.pub-welcome-note:nth-child(5) { left: 86%; font-size: 12px; animation-duration: 4.8s; }
+
+@keyframes pub-welcome-float {
+  0%   { transform: translateY(0) rotate(-6deg);   opacity: 0; }
+  12%  { opacity: 0.55; }
+  50%  { transform: translateY(-48px) rotate(8deg); opacity: 0.4; }
+  100% { transform: translateY(-88px) rotate(-4deg); opacity: 0; }
+}
+
+.pub-welcome-open {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin: 0;
+  padding: 10px 8px 10px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pub-welcome-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f5e6a8;
+}
+
+.pub-welcome-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15.5px;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.pub-welcome-tap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+  font-size: 12.5px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.pub-welcome-dismiss {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  opacity: 0.85;
+  cursor: pointer;
+}
+.pub-welcome-dismiss:hover,
+.pub-welcome-dismiss:focus-visible {
+  background: rgba(255, 255, 255, 0.18);
+  opacity: 1;
+  outline: none;
+}
+
+/* Detail sheet */
+.pub-welcome-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(15, 30, 40, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  animation: pub-welcome-fade 0.2s ease-out;
+}
+
+@keyframes pub-welcome-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.pub-welcome-sheet {
+  width: min(520px, 100%);
+  max-height: min(92dvh, 860px);
+  overflow: auto;
+  background: var(--pub-surface);
+  color: var(--pub-ink);
+  border-radius: 18px 18px 14px 14px;
+  box-shadow: var(--pub-shadow-3);
+  padding: 18px 18px 22px;
+  animation: pub-welcome-sheet-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes pub-welcome-sheet-in {
+  from { transform: translateY(28px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.pub-welcome-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.pub-welcome-sheet-head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+.pub-welcome-sheet-close {
+  border: 0;
+  background: var(--pub-bg);
+  color: var(--pub-muted);
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.pub-welcome-lead {
+  margin: 0 0 14px;
+  color: var(--pub-muted);
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+.pub-welcome-qr {
+  width: min(220px, 70%);
+  margin: 0 auto 10px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid var(--pub-border);
+  border-radius: 12px;
+  box-shadow: var(--pub-shadow-1);
+}
+.pub-welcome-qr svg { display: block; width: 100%; height: auto; }
+
+.pub-welcome-funny {
+  margin: 0 auto 14px;
+  max-width: 36ch;
+  text-align: center;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--pub-accent);
+  font-weight: 600;
+  font-style: italic;
+}
+
+.pub-welcome-url-block {
+  text-align: center;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  background: var(--pub-accent-soft);
+  border-radius: 10px;
+}
+.pub-welcome-url-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pub-muted);
+  margin-bottom: 4px;
+}
+.pub-welcome-url {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--pub-accent);
+  word-break: break-all;
+  text-decoration: none;
+}
+
+.pub-welcome-section {
+  margin-bottom: 16px;
+  padding-top: 4px;
+  border-top: 1px solid var(--pub-border);
+}
+.pub-welcome-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 6px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.pub-welcome-section-hint {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--pub-muted);
+  line-height: 1.4;
+}
+.pub-welcome-os {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  background: var(--pub-bg);
+  border-radius: 10px;
+}
+.pub-welcome-os strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: var(--pub-accent);
+}
+.pub-welcome-os ol {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.pub-welcome-os li { margin: 3px 0; }
+
+.pub-welcome-done {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--pub-accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pub-welcome-banner,
+  .pub-welcome-sheet,
+  .pub-welcome-overlay { animation: none; }
+  .pub-welcome-note { animation: none; opacity: 0.25; top: 30%; }
+}
+
+@media print {
+  .pub-welcome-banner,
+  .pub-welcome-overlay { display: none !important; }
+}
+
+@media (min-width: 720px) {
+  .pub-welcome-overlay {
+    align-items: center;
+  }
+  .pub-welcome-sheet {
+    border-radius: 16px;
+  }
+}
