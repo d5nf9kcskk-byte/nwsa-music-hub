@@ -212,12 +212,28 @@ export interface AttendanceRecord {
   minutesLate?: number;
   /** Follow-up triage (#26): director contacted the family or dismissed it. */
   followUp?: 'contacted' | 'dismissed';
+  /** Set when the daily office Attendance Bulletin wrote this mark. */
+  source?: 'office';
   /* ── Attribution: who last set/changed this mark (director-side only).
    *    updatedByRole 'assistant' surfaces "marked by the Personnel Assistant"
    *    on Take Roll for that day. ── */
   updatedAt?: number;
   updatedBy?: string;
   updatedByRole?: StaffRole;
+}
+
+/** Ambiguous office-bulletin rows waiting for a director to resolve. */
+export interface BulletinQueueItem {
+  id: string;
+  date: string; // YYYY-MM-DD
+  category: string;
+  bulletinName: string;
+  grade?: string;
+  districtId?: string;
+  time?: string;
+  candidateIds: string[];
+  status: 'pending' | 'applied' | 'dismissed';
+  createdAt?: number;
 }
 
 export interface ProgressNote {

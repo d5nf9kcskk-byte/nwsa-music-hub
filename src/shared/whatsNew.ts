@@ -27,6 +27,18 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-13-office-bulletin-roll',
+    date: '2026-08-13',
+    title: 'Office attendance on Take Roll',
+    audience: 'staff',
+    expires: '2026-08-27',
+    bullets: [
+      'The daily school Attendance Bulletin can mark music students Absent / Late / Excused with an Office badge (other departments are ignored).',
+      'Your own taps still win. Ambiguous names show under Who’s Out for a quick check.',
+      'Cloud ingest starts in dry-run; see docs/ATTENDANCE-BULLETIN.md to flip it on.',
+    ],
+  },
+  {
     id: '2026-08-13-easter-eggs-batch2',
     date: '2026-08-13',
     title: 'Hidden musical delights (staff map)',

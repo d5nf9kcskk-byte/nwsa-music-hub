@@ -6,6 +6,7 @@ import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useDayAttendance, useAllAttendance } from '../hooks/useAttendance';
 import { usePlannedAbsences } from '../hooks/usePlannedAbsences';
+import { useBulletinQueue } from '../hooks/useBulletinQueue';
 import { lessonsFor, resolveRoster, overrideApplies } from '../rosterResolver';
 import { todayStr, addDays, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
@@ -35,6 +36,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
   const [calCursor, setCalCursor] = useState(() => parseDate(initialDate ?? todayStr()));
   const { records } = useDayAttendance(date);
   const { records: allAtt } = useAllAttendance();
+  const { pending: bulletinPending, dismiss: dismissBulletin } = useBulletinQueue(date);
 
   const today = todayStr();
 
@@ -189,6 +191,28 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
           </>
         )}
 
+        {bulletinPending.length > 0 && (
+          <>
+            <div className="dir-section-head"><span>Office bulletin — needs a name check</span></div>
+            {bulletinPending.map(b => (
+              <div key={b.id} className="dir-sub-row">
+                <div className="dir-sub-info">
+                  <div className="dir-sub-name">
+                    {b.bulletinName}
+                    <span className="dir-office-badge">Office</span>
+                  </div>
+                  <div className="dir-sub-instr">
+                    {b.category}{b.grade ? ` · grade ${b.grade}` : ''}{b.time ? ` · ${b.time}` : ''}
+                    {b.candidateIds.length > 1 ? ' · matched more than one music student' : ' · name unclear on the music roster'}
+                    {' — mark roll by hand, then dismiss'}
+                  </div>
+                </div>
+                <button type="button" className="dir-link-btn" onClick={() => dismissBulletin(b.id)}>Dismiss</button>
+              </div>
+            ))}
+          </>
+        )}
+
         {/* Per-ensemble: who's out and why */}
         {sections.map(({ ens, marks, lessons, guests, pulls, rehearsal }) => (
           <div key={ens.id}>
@@ -216,10 +240,14 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
                 onClick={() => onNavigate('roster', { studentId: r.student!.id })}
               >
                 <div className="dir-sub-info">
-                  <div className="dir-sub-name">{r.student!.name}</div>
+                  <div className="dir-sub-name">
+                    {r.student!.name}
+                    {r.source === 'office' && <span className="dir-office-badge">Office</span>}
+                  </div>
                   <div className="dir-sub-instr">
                     {r.student!.instrument}
                     {r.status === 'Late' && r.minutesLate ? ` · ${r.minutesLate} min late` : ''}
+                    {r.source === 'office' && r.reason ? ` · ${r.reason}` : ''}
                   </div>
                 </div>
                 <span className={`dir-status-badge ${r.status.toLowerCase()}`}>{r.status}</span>

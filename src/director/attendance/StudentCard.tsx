@@ -44,11 +44,15 @@ function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, 
             )}
             {student.preferredName && <span className="dir-goesby">"{student.preferredName}"</span>}
             {isSub && <span className="dir-sub-badge">Sub</span>}
+            {record?.source === 'office' && <span className="dir-office-badge" title={record.reason || 'From office attendance bulletin'}>Office</span>}
           </div>
           <div className="dir-student-meta">
             {[student.instrument, student.section].filter(Boolean).join(' · ')}
             {student.pronunciation && <span className="dir-pronounce"> · 🗣 {student.pronunciation}</span>}
           </div>
+          {record?.source === 'office' && record.reason && (
+            <div className="dir-office-reason">{record.reason}</div>
+          )}
           {plannedAbsence && !record && (
             <div className="dir-prereport">📋 Reported ahead: {plannedAbsence.reason} — tap Excused to accept</div>
           )}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, addDoc, updateDoc, deleteDoc, doc,
+  collection, addDoc, updateDoc, deleteDoc, doc, deleteField,
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -98,8 +98,16 @@ export function useAttendance(date: string, ensembleId: string | null, eventId?:
         // Tapping the active button clears it (back to present)
         await deleteDoc(doc(dbRef, 'attendance', existing.id));
       } else if (existing) {
-        // Change status (and backfill eventId on any legacy record)
-        await updateDoc(doc(dbRef, 'attendance', existing.id), { status: newStatus, ...extraFields, ...(eventId ? { eventId } : {}), ...who });
+        // Change status (and backfill eventId on any legacy record).
+        // Director tap clears any office-bulletin source/reason.
+        await updateDoc(doc(dbRef, 'attendance', existing.id), {
+          status: newStatus,
+          ...extraFields,
+          ...(eventId ? { eventId } : {}),
+          ...who,
+          source: deleteField(),
+          reason: deleteField(),
+        });
       } else {
         // New exception record
         await addDoc(collection(dbRef, 'attendance'), {

@@ -235,6 +235,9 @@ service cloud.firestore {
     // Outbound notification queue (#21): staff-only writes; Power Automate
     // reads it with a service credential (Admin SDK bypasses rules).
     match /notifyQueue/{doc}     { allow read, write: if isStaff(); }
+    // Ambiguous rows from the daily office Attendance Bulletin (Admin SDK
+    // writes; directors read / dismiss / resolve in Who's Out).
+    match /bulletinQueue/{doc}   { allow read, write: if isStaff(); }
 
     // Private lessons (#roles): a Teacher schedules/edits/cancels their OWN
     // lessons; Owner/Director can see and manage all of them (coordination —
