@@ -5,7 +5,6 @@ import { Outlet, NavLink, Link, ScrollRestoration } from 'react-router';
 import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned, FolderOpen } from 'lucide-react';
 import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
-import { WelcomeHubBanner } from './components/WelcomeHubBanner';
 import { StatusStrips } from '../shared/StatusStrips';
 import { SearchOverlay } from './components/SearchOverlay';
 import { TextSizeControl } from './components/TextSize';
@@ -226,7 +225,6 @@ export function PublicLayout() {
 
         <main className="pub-content">
           <StatusStrips />
-          <WelcomeHubBanner />
           <GlobalAlerts />
           <Outlet />
         </main>

@@ -128,6 +128,13 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'welcome.androidHome2':    { en: 'Tap the three-dot menu.', es: 'Toca el menú de tres puntos.' },
   'welcome.androidHome3':    { en: 'Tap Add to Home screen or Install app, then confirm. The Hub icon lands on your home screen.', es: 'Toca Añadir a pantalla de inicio o Instalar app y confirma. El ícono del Hub queda en tu pantalla de inicio.' },
   'welcome.gotIt':           { en: 'Got it. Let’s make music.', es: 'Listo. A hacer música.' },
+  'welcome.collegeKicker':   { en: 'College musicians', es: 'Músicos de college' },
+  'welcome.collegeTitle':    { en: 'Welcome to the Hub, college edition', es: 'Bienvenidos al Hub, edición college' },
+  'welcome.collegeSheetTitle':{ en: 'College students: save the Hub', es: 'College: guarda el Hub' },
+  'welcome.collegeShout':    { en: 'Shout-out to our college musicians: classes are rolling and the Hub is your calendar, repertoire, and concert desk. Bookmark it, put it on your Home Screen, and you will never dig for a link again.', es: 'Un saludo a nuestros músicos de college: empiezan las clases y el Hub es tu calendario, repertorio y mesa de conciertos. Guárdalo en marcadores y en la pantalla de inicio, y no vuelvas a buscar el enlace.' },
+  'welcome.collegeLead':     { en: 'Same Hub the high school uses. Your ensembles, rehearsals, and concerts are here. Save it once for the semester.', es: 'El mismo Hub que usa el high school. Aquí van tus ensembles, ensayos y conciertos. Guárdalo una vez para el semestre.' },
+  'welcome.pinnedTitle':     { en: 'Save the Hub to your phone', es: 'Guarda el Hub en tu teléfono' },
+  'welcome.pinnedSub':       { en: 'QR code, full address, and steps for Apple and Android. Stays here through September 1.', es: 'Código QR, dirección completa y pasos para Apple y Android. Permanece aquí hasta el 1 de septiembre.' },
 
   // ── Calendar page ───────────────────────────────────────────────────────
   'cal.everything':       { en: 'Everything',         es: 'Todo' },

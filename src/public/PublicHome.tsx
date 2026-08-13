@@ -18,6 +18,9 @@ import { useTapTempo } from '../shared/useTapTempo';
 import { NoteBurst } from '../shared/NoteBurst';
 import { WhatsNewBanner } from '../shared/WhatsNewBanner';
 import '../shared/whatsNew.css';
+import { WelcomeHubBanner } from './components/WelcomeHubBanner';
+import { PinnedHubGuide } from './components/PinnedHubGuide';
+import { showPinnedHubGuide } from './welcomeHubSchedule';
 import type { CalendarEvent } from '../director/types';
 
 const LOOKAHEAD_DAYS = 14;
@@ -87,11 +90,14 @@ export function PublicHome() {
 
   return (
     <div className="pub-page">
+      <WelcomeHubBanner />
       <WhatsNewBanner audience="public" />
       <div className="pub-hero pub-hero-fancy">
         <div className="pub-hero-date" onClick={onDateTap}>{fmtLongDate(today)}</div>
         <h1><Music2 size={22} style={{ verticalAlign: '-3px' }} /> {t('home.todayAt')}</h1>
       </div>
+
+      {showPinnedHubGuide(today) && <PinnedHubGuide />}
 
       {/* Hidden delights (#easter-eggs), each only on its own day: composer
           birthdays, musical holidays, and a concert-day ribbon. */}
