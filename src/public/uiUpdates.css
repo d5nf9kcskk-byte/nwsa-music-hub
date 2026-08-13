@@ -347,6 +347,40 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
   margin-right: 4px;
 }
 
+.pub-global-alert-groups { margin-bottom: 2px; }
+.pub-alert-group { margin: 10px 16px 0; }
+.pub-alert-group .pub-urgent-banner,
+.pub-alert-group .pub-strip-alert { margin-left: 0; margin-right: 0; }
+.pub-alert-group-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pub-muted, #64748b);
+  margin: 0 0 6px;
+}
+.pub-ens-alerts .pub-alert-group { margin: 0 0 12px; }
+.pub-ens-alerts .pub-alert-group-title {
+  margin-bottom: 8px;
+  color: var(--pub-muted, #64748b);
+}
+.pub-alert-group-more {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px dashed color-mix(in srgb, var(--pub-muted, #94a3b8) 55%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pub-accent, #0d7e8e);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+}
+.pub-alert-group-more:hover { background: color-mix(in srgb, var(--pub-accent, #0d7e8e) 8%, transparent); }
+
+
 .pub-announce-important { border-left: 4px solid #f59e0b !important; }
 
 /* Identity chip in menu (#1) */

@@ -10,6 +10,8 @@ import { directorEmailId } from '../../director/hooks/useDirectors';
 import { todayStr, ensembleDisplayName } from '../../director/utils';
 import { getIdentity, onIdentityChange } from '../../shared/identity';
 import { t, useLang } from '../../shared/i18n';
+import { groupScheduleAlerts, groupUrgentAnnouncements } from '../../shared/groupAlerts';
+import { AlertGroupSections } from '../../shared/AlertGroupSections';
 
 /**
  * Site-wide alert strip (#18 + #19): shows today's cancellations/changes and
@@ -18,6 +20,8 @@ import { t, useLang } from '../../shared/i18n';
  *
  * Signed-in staff tapping an urgent banner land in the director Announcement
  * editor (edit / remove). Families keep the public announcements list.
+ *
+ * Non-home pages group alerts under Classes / ensemble / Everyone headings.
  */
 export function GlobalAlerts() {
   useLang();
@@ -26,12 +30,10 @@ export function GlobalAlerts() {
   const { ensembles } = useEnsembles();
   const { pathname } = useLocation();
   const today = todayStr();
-  const now = useMinuteTick(); // scheduled posts appear the minute they go live
+  const now = useMinuteTick();
   const [isStaff, setIsStaff] = useState(false);
 
   useEffect(() => {
-    // Auth lives in firebaseAuth.ts and loads lazily here: a static import
-    // would drag firebase/auth back into the public bundle (audit A6).
     let cancelled = false;
     let unsub: (() => void) | undefined;
     Promise.all([import('firebase/auth'), import('../../director/firebaseAuth')])
@@ -47,13 +49,10 @@ export function GlobalAlerts() {
           }
         });
       })
-      .catch(() => { /* chunk unavailable (offline first visit) — families see the public link */ });
+      .catch(() => { /* chunk unavailable */ });
     return () => { cancelled = true; unsub?.(); };
   }, []);
 
-  // Watch EVERY saved student (parents can save several) and re-render when
-  // the saved list changes — filtering by just the first child could show
-  // "all clear" while another child's rehearsal is cancelled.
   const [, bump] = useReducer(x => x + 1, 0);
   useEffect(() => onIdentityChange(bump), []);
   const saved = getIdentity().students;
@@ -72,15 +71,15 @@ export function GlobalAlerts() {
   const ensName = (ids: string[]) =>
     ids.map(id => ensembleDisplayName(ensembles.find(e => e.id === id))).filter(Boolean).join(' + ') || 'School';
 
-  // Home renders its own richer banner; ensemble pages own a headed Alerts
-  // section (ensemble + everyone). Skip the duplicate strip there.
   const onHome = pathname === '/';
   const onEnsemble = /^\/ensemble\/[^/]+\/?$/.test(pathname);
+
+  const urgentGroups = useMemo(() => groupUrgentAnnouncements(urgent, ensembles), [urgent, ensembles]);
+  const problemGroups = useMemo(() => groupScheduleAlerts(problems, ensembles), [problems, ensembles]);
 
   if (onEnsemble) return null;
 
   if (urgent.length === 0 && (problems.length === 0 || onHome)) {
-    // Positive all-clear — only on non-home pages, only when we actually have data.
     if (onHome || events.length === 0) return null;
     return (
       <div className="pub-allclear" role="status">
@@ -90,23 +89,34 @@ export function GlobalAlerts() {
   }
 
   return (
-    <div role="status" aria-live="polite">
-      {urgent.map(a => (
-        <Link
-          key={a.id}
-          to={isStaff ? `/director/announcements?announcement=${encodeURIComponent(a.id)}` : '/announcements'}
-          className="pub-urgent-banner"
-        >
-          <Siren size={15} style={{ verticalAlign: '-2.5px' }} /> <strong>{a.title}</strong>{a.body ? ` — ${a.body.slice(0, 90)}${a.body.length > 90 ? '…' : ''}` : ''}
-          {isStaff ? ' · Edit' : ''}
-        </Link>
-      ))}
-      {!onHome && problems.map(e => (
-        <Link key={e.id} to={`/event/${e.id}`} className="pub-strip-alert">
-          <AlertTriangle size={14} style={{ verticalAlign: '-2px' }} /> {e.status === 'Cancelled' ? t('alert.cancelledToday') : t('alert.changedToday')}: {e.title || ensName(e.ensembleIds)}
-          {e.changeNote ? ` — ${e.changeNote}` : ''}
-        </Link>
-      ))}
+    <div role="status" aria-live="polite" className="pub-global-alert-groups">
+      <AlertGroupSections
+        groups={urgentGroups}
+        renderItem={a => (
+          <Link
+            key={a.id}
+            to={isStaff ? `/director/announcements?announcement=${encodeURIComponent(a.id)}` : '/announcements'}
+            className="pub-urgent-banner"
+          >
+            <Siren size={15} style={{ verticalAlign: '-2.5px' }} /> <strong>{a.title}</strong>
+            {a.body ? ` — ${a.body.slice(0, 90)}${a.body.length > 90 ? '…' : ''}` : ''}
+            {isStaff ? ' · Edit' : ''}
+          </Link>
+        )}
+      />
+      {!onHome && (
+        <AlertGroupSections
+          groups={problemGroups}
+          renderItem={e => (
+            <Link key={e.id} to={`/event/${e.id}`} className="pub-strip-alert">
+              <AlertTriangle size={14} style={{ verticalAlign: '-2px' }} />{' '}
+              {e.status === 'Cancelled' ? t('alert.cancelledToday') : t('alert.changedToday')}:{' '}
+              {e.title || ensName(e.ensembleIds)}
+              {e.changeNote ? ` — ${e.changeNote}` : ''}
+            </Link>
+          )}
+        />
+      )}
     </div>
   );
 }

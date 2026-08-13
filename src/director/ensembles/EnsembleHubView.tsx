@@ -7,6 +7,8 @@ import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../hooks/useAnnouncements';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON } from '../utils';
+import { groupScheduleAlerts, groupUrgentAnnouncements } from '../../shared/groupAlerts';
+import { AlertGroupSections } from '../../shared/AlertGroupSections';
 import type { DirNavigate } from '../types-nav';
 
 /** Per-ensemble dashboard: next rehearsal, upcoming concerts, quick links. */
@@ -29,7 +31,6 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
     [events, ensembleId, today],
   );
   const nextRehearsal = mine.find(e => e.type === 'Rehearsal');
-  // Concerts AND other non-rehearsal happenings (Events, Sectionals) both belong here.
   const upcomingConcerts = mine.filter(e => e.type !== 'Rehearsal').slice(0, 5);
   const rosterCount = students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(ensembleId)).length;
   const myAnnouncements = announcements.filter(a => a.ensembleId === null || a.ensembleId === ensembleId).length;
@@ -48,6 +49,8 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
     () => visibleAnnouncements(announcements, today, [ensembleId], now).filter(a => a.priority === 'urgent'),
     [announcements, today, ensembleId, now],
   );
+  const urgentGroups = useMemo(() => groupUrgentAnnouncements(urgentAlerts, ensembles), [urgentAlerts, ensembles]);
+  const scheduleGroups = useMemo(() => groupScheduleAlerts(scheduleAlerts, ensembles), [scheduleAlerts, ensembles]);
 
   if (!ensemble) return <div className="dir-loading">Loading…</div>;
   const color = ensembleColor(ensemble);
@@ -83,33 +86,45 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
             <p className="dir-field-hint" style={{ marginTop: -6 }}>
               Schedule changes for {ensemble.name}, plus notices for everyone.
             </p>
-            {urgentAlerts.map(a => (
-              <button
-                key={a.id}
-                type="button"
-                className="dir-today-alert"
-                onClick={() => onNavigate('announcements', { announcementId: a.id })}
-              >
-                <span className="dir-alert-scope">{a.ensembleId == null ? 'Everyone' : ensemble.name}</span>
-                {' '}{a.title}{a.body ? ` — ${a.body.slice(0, 80)}${a.body.length > 80 ? '…' : ''}` : ''}
-              </button>
-            ))}
-            {scheduleAlerts.map(e => (
-              <button
-                key={e.id}
-                type="button"
-                className="dir-today-alert"
-                onClick={() => onNavigate('schedule', { date: e.date, eventId: e.id })}
-              >
-                <span className="dir-alert-scope">
-                  {e.ensembleIds.includes(ensembleId) ? ensemble.name : 'Everyone'}
-                </span>
-                {' '}
-                {e.status === 'Cancelled' ? 'Cancelled' : 'Changed'}: {e.title || e.type}
-                {' · '}{fmtDay(e.date)}
-                {e.changeNote ? ` — ${e.changeNote}` : ''}
-              </button>
-            ))}
+            <AlertGroupSections
+              groups={urgentGroups}
+              headingClassName="dir-alert-group-title"
+              sectionClassName="dir-alert-group"
+              moreClassName="dir-alert-group-more"
+              renderItem={a => (
+                <button
+                  key={a.id}
+                  type="button"
+                  className="dir-today-alert"
+                  onClick={() => onNavigate('announcements', { announcementId: a.id })}
+                >
+                  <span className="dir-alert-scope">{a.ensembleId == null ? 'Everyone' : ensemble.name}</span>
+                  {' '}{a.title}{a.body ? ` — ${a.body.slice(0, 80)}${a.body.length > 80 ? '…' : ''}` : ''}
+                </button>
+              )}
+            />
+            <AlertGroupSections
+              groups={scheduleGroups}
+              headingClassName="dir-alert-group-title"
+              sectionClassName="dir-alert-group"
+              moreClassName="dir-alert-group-more"
+              renderItem={e => (
+                <button
+                  key={e.id}
+                  type="button"
+                  className="dir-today-alert"
+                  onClick={() => onNavigate('schedule', { date: e.date, eventId: e.id })}
+                >
+                  <span className="dir-alert-scope">
+                    {e.ensembleIds.includes(ensembleId) ? ensemble.name : 'Everyone'}
+                  </span>
+                  {' '}
+                  {e.status === 'Cancelled' ? 'Cancelled' : 'Changed'}: {e.title || e.type}
+                  {' · '}{fmtDay(e.date)}
+                  {e.changeNote ? ` — ${e.changeNote}` : ''}
+                </button>
+              )}
+            />
           </>
         )}
 

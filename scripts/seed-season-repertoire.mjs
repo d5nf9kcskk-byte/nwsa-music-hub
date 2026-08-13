@@ -461,7 +461,8 @@ piece('rp26-holberg-suite', {
     { title: 'Rigaudon (Allegro con brio)', duration: 4 },
   ],
   programNotes:
-    'Grieg wrote the Holberg Suite in 1884 for the bicentenary of Norwegian playwright Ludvig Holberg, casting baroque dance forms in Romantic string language. The opening Praeludium is the movement programmed this season.',
+    'Grieg wrote the Holberg Suite in 1884 for the bicentenary of Norwegian playwright Ludvig Holberg, casting baroque dance forms in Romantic string language. This season programs the opening Praeludium.',
+  notes: 'MPA: Praeludium only (not the full suite).',
   imslpUrl: 'https://imslp.org/wiki/From_Holberg%27s_Time,_Op.40_(Grieg,_Edvard)',
 });
 
@@ -484,13 +485,14 @@ piece('rp26-capriol-suite', {
     { title: 'Mattachins (Sword Dance)', duration: 1 },
   ],
   programNotes:
-    'Warlock’s 1926 Capriol Suite freely reimagines Renaissance dances from Arbeau’s Orchésographie for string orchestra. The slow fifth movement, Pieds-en-l’air, is a gentle, hovering air that contrasts the suite’s brisker dances.',
+    'Warlock’s 1926 Capriol Suite freely reimagines Renaissance dances from Arbeau’s Orchésographie for string orchestra. This season programs the slow fifth movement, Pieds-en-l’air.',
+  notes: 'MPA: Pieds-en-l\'air only (movement 5).',
   imslpUrl: 'https://imslp.org/wiki/Capriol_Suite_(Warlock,_Peter)',
 });
 
 piece('rp26-danzas-de-panama', {
   order: 520,
-  ensembleIds: [CAM],
+  ensembleIds: [CAM, PHIL],
   title: 'Danzas de Panamá',
   fullTitle: 'Danzas de Panamá',
   composer: 'William Grant Still',
@@ -505,7 +507,9 @@ piece('rp26-danzas-de-panama', {
     { title: 'Cumbia y Congo', duration: 3 },
   ],
   programNotes:
-    'Still’s Danzas de Panamá (1948) presents four Panamanian dance types for string orchestra—Tamborito, Mejorana y Socavón, Punto, and Cumbia y Congo—with rhythmic bite and lyric warmth characteristic of his mid-century concert style. A set of four Panamanian dances for string orchestra.',
+    'Still’s Danzas de Panamá (1948) presents four Panamanian dance types for string orchestra—Tamborito, Mejorana y Socavón, Punto, and Cumbia y Congo—with rhythmic bite and lyric warmth characteristic of his mid-century concert style.',
+  notes: 'MPA: one movement (TBD which). May Philharmonic & Camerata concert: full suite.',
+  eventIds: ['oc26-phil-camerata'],
 });
 
 /* ─── Apr — Cendrillon (production listing) ───────────────────────────── */
@@ -583,6 +587,7 @@ const CONCERTS = {
     pieceIds: [
       'rp26-khachaturian-spartacus-adagio',
       'rp26-mascagni-intermezzo',
+      'rp26-danzas-de-panama',
     ],
   },
   'oc26-nutcracker-mat': {
