@@ -32,6 +32,13 @@ banner. Prefer one entry per ship day; merge related bullets. Set
   the fix itself changes how the site is read, e.g. opening-week schedule
   for everyone).
 
+## Launch day hold (2026-08-13 only)
+
+On **2026-08-13**, do **not** add or keep any entry with
+`audience: 'public'` or `audience: 'both'`. Public home stays clean so
+students go straight to the main info. Staff-only tips are fine.
+From **2026-08-14** onward, public / both entries may ship again as usual.
+
 ## Entry shape
 
 ```ts

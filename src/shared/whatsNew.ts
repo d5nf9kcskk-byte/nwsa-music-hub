@@ -5,6 +5,10 @@
  * audience: 'staff' = director Today only; 'public' = public home;
  * 'both' = either surface when relevant.
  *
+ * Launch day 2026-08-13: keep the PUBLIC home clean (no public/both entries
+ * dated today). Staff-only tips are fine. From 2026-08-14 onward, public
+ * entries may ship again per `.cursor/rules/whats-new.mdc`.
+ *
  * Agents: when shipping Hub changes, follow `.cursor/rules/whats-new.mdc`
  * and update this file in the same commit when the rule says to.
  */
@@ -37,7 +41,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     id: '2026-08-13-choir-blocks',
     date: '2026-08-13',
     title: 'Choir block times are staggered from instrumental',
-    audience: 'both',
+    audience: 'staff',
     expires: '2026-08-27',
     bullets: [
       'Choir Block 1 is 1:10–2:15 and Block 2 is 2:25–3:45, so bathroom breaks do not line up with instrumental.',
@@ -61,7 +65,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     id: '2026-08-13-event-detail-clarity',
     date: '2026-08-13',
     title: 'Opening a rehearsal or class card stays focused',
-    audience: 'both',
+    audience: 'staff',
     expires: '2026-08-27',
     bullets: [
       'Tap a rehearsal, class, or event card and you land on that item only: a clear “Rehearsal / Class / Event information” heading, then time, place, and notes.',
