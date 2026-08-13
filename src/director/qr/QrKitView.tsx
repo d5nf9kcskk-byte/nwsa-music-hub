@@ -18,6 +18,7 @@ const SHORT_HOST = 'd5nf9kcskk-byte.github.io/nwsa-music-hub';
  *  so the popup prints correctly on its own (each QR is an inline SVG). */
 const QR_PRINT_CSS = `
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @page { size: letter portrait; margin: 0; }
   html, body { margin: 0; background: #fff; color: #111;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
   .dir-qrkit-noprint { display: none !important; }
@@ -42,7 +43,90 @@ const QR_PRINT_CSS = `
   .dir-qr-slip-sub { font-size: 8.5pt; color: #555; margin-top: 2px; }
   .dir-qr-slip-url { font-size: 8pt; color: #333; margin-top: 3px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+
+  /* Launch flyer — full-bleed letter page */
+  .dir-qr-launch {
+    width: 8.5in; height: 11in; margin: 0; padding: 0.45in 0.5in 0.4in;
+    border: none; border-radius: 0; text-align: center; color: #fff;
+    display: flex; flex-direction: column; align-items: center;
+    background:
+      radial-gradient(ellipse 90% 55% at 50% -10%, rgba(200, 165, 42, 0.45), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 100% 40%, rgba(123, 53, 120, 0.55), transparent 50%),
+      radial-gradient(ellipse 70% 50% at 0% 60%, rgba(13, 126, 142, 0.65), transparent 50%),
+      linear-gradient(165deg, #0a5f6c 0%, #0d7e8e 28%, #5a2d68 72%, #7b3578 100%);
+    position: relative; overflow: hidden;
+  }
+  .dir-qr-launch::before {
+    content: ""; position: absolute; inset: 0.22in;
+    border: 3px solid rgba(255,255,255,0.35); border-radius: 18px; pointer-events: none;
+  }
+  .dir-qr-launch::after {
+    content: ""; position: absolute; inset: 0.32in;
+    border: 1px solid rgba(200,165,42,0.55); border-radius: 12px; pointer-events: none;
+  }
+  .dir-qr-launch-logo { width: 1.35in; height: auto; margin-top: 0.15in; position: relative; z-index: 1; }
+  .dir-qr-launch-school {
+    margin: 0.18in 0 0; font-size: 11pt; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: rgba(255,255,255,0.88); position: relative; z-index: 1;
+  }
+  .dir-qr-launch-headline {
+    margin: 0.22in 0 0; font-weight: 900; font-size: 40pt; line-height: 1.05;
+    letter-spacing: -0.02em; max-width: 7in; position: relative; z-index: 1;
+  }
+  .dir-qr-launch-headline em { font-style: normal; color: #f0d56a; }
+  .dir-qr-launch-tag {
+    margin: 0.18in auto 0; font-size: 14pt; font-weight: 600; line-height: 1.35;
+    max-width: 28ch; color: rgba(255,255,255,0.95); position: relative; z-index: 1;
+  }
+  .dir-qr-launch-qr {
+    margin: 0.28in auto 0; width: 3.9in; padding: 0.26in; background: #fff;
+    border-radius: 22px; position: relative; z-index: 1;
+    box-shadow: 0 0 0 6px rgba(200,165,42,0.85), 0 18px 40px rgba(0,0,0,0.35);
+  }
+  .dir-qr-launch-qr svg { display: block; width: 100%; height: auto; }
+  .dir-qr-launch-scan {
+    margin: 0.18in 0 0; font-size: 16pt; font-weight: 800; letter-spacing: 0.04em;
+    text-transform: uppercase; color: #f0d56a; position: relative; z-index: 1;
+  }
+  .dir-qr-launch-spacer { flex: 1; min-height: 0.15in; }
+  .dir-qr-launch-cta {
+    width: 100%; max-width: 7.2in; margin-top: 0.15in; padding: 0.2in 0.26in;
+    background: rgba(0,0,0,0.28); border: 2px solid rgba(255,255,255,0.35);
+    border-radius: 14px; position: relative; z-index: 1;
+  }
+  .dir-qr-launch-cta-label {
+    font-size: 10pt; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(255,255,255,0.8); margin-bottom: 0.06in;
+  }
+  .dir-qr-launch-cta-url {
+    font-size: 12.5pt; font-weight: 800; word-break: break-all; color: #fff; line-height: 1.35;
+  }
 `;
+
+/** Bright campus flyer announcing the new Hub (one letter page). */
+function LaunchPosterPage() {
+  const svg = useMemo(() => renderQrSvg(SITE_URL), []);
+  const logoSrc = `${SITE_URL}nwsa-logo.png`;
+  return (
+    <section className="dir-qr-page dir-qr-launch">
+      <img className="dir-qr-launch-logo" src={logoSrc} alt="New World School of the Arts" />
+      <p className="dir-qr-launch-school">New World School of the Arts</p>
+      <h2 className="dir-qr-launch-headline">
+        The new<br /><em>NWSA Music Hub</em><br />is here
+      </h2>
+      <p className="dir-qr-launch-tag">
+        Schedules, parts, concerts &amp; announcements — one place for every music student and family.
+      </p>
+      <div className="dir-qr-launch-qr" dangerouslySetInnerHTML={{ __html: svg }} />
+      <p className="dir-qr-launch-scan">Scan to open</p>
+      <div className="dir-qr-launch-spacer" aria-hidden="true" />
+      <div className="dir-qr-launch-cta">
+        <div className="dir-qr-launch-cta-label">Or type this address</div>
+        <div className="dir-qr-launch-cta-url">{SITE_URL}</div>
+      </div>
+    </section>
+  );
+}
 
 /** One wall poster — prints on its own page. */
 function PosterPage({ name, tagline, url, urlLabel, accent }: {
@@ -135,8 +219,15 @@ export function QrKitView({ onClose }: { onClose?: () => void }) {
 
         <div className="dir-qrkit-body">
           <p className="dir-qrkit-hint dir-qrkit-noprint">
-            Posters for the wall, slips for the front of every folder. Each block below prints on its own page.
+            First page is the bright campus launch flyer. Then wall posters and folder slips.
+            Each block prints on its own page. Tip: open{' '}
+            <a href={`${SITE_URL}hub-launch-flyer.html`} target="_blank" rel="noreferrer">
+              hub-launch-flyer.html
+            </a>{' '}
+            to print only the colorful flyer.
           </p>
+
+          <LaunchPosterPage />
 
           <PosterPage
             name="NWSA Music"

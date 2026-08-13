@@ -23,6 +23,17 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-13-launch-flyer',
+    date: '2026-08-13',
+    title: 'Campus launch flyer ready to print',
+    audience: 'staff',
+    expires: '2026-08-27',
+    bullets: [
+      'Director → QR kit now opens with a bright one-page “Music Hub is here” flyer (logo, big QR, full URL).',
+      'Or open hub-launch-flyer.html on the public site and tap Print flyer for a single letter page to post around campus.',
+    ],
+  },
+  {
     id: '2026-08-13-choir-blocks',
     date: '2026-08-13',
     title: 'Choir block times are staggered from instrumental',
