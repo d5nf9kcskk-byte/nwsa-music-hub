@@ -17,9 +17,6 @@
  * Env: FIREBASE_SERVICE_ACCOUNT_JSON — the service-account key JSON.
  */
 
-import { spawnSync } from 'child_process';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -28,17 +25,6 @@ if (!raw) {
   console.error('FIREBASE_SERVICE_ACCOUNT_JSON is not set — aborting.');
   process.exit(1);
 }
-
-// Temporary one-shot: choir wing staggered blocks. Remove after run.
-{
-  const here = dirname(fileURLToPath(import.meta.url));
-  const r = spawnSync(process.execPath, [join(here, 'fix-choir-blocks.mjs')], {
-    env: process.env,
-    stdio: 'inherit',
-  });
-  if (r.status !== 0) process.exit(r.status ?? 1);
-}
-
 initializeApp({ credential: cert(JSON.parse(raw)) });
 const db = getFirestore();
 
