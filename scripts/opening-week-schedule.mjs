@@ -4,9 +4,9 @@
  *
  * Director-confirmed opening week (clarified 2026-08-12 evening):
  *
- *   Thu 8/13 — Handbook reading 11:00–15:45.
- *     Instrumental (all non-choir music ensembles): Room 4302.
- *     Choir: Room 4204, same window.
+ *   Thu 8/13 — Handbook reading.
+ *     Instrumental: Room 4302, 11:00–15:45.
+ *     Choir: Room 4204, 11:05–15:45 (Scheduled, not cancelled).
  *     Everything else in that window stays Cancelled.
  *
  *   Fri 8/14 — P6 Camerata+Wind (normal Friday). P7 Camerata+Wind instead
@@ -194,16 +194,17 @@ async function applyThursday() {
     title: 'Handbook Reading (Choir)',
     ensembleIds: [CHOIR],
     date,
-    startTime: '11:00',
+    startTime: '11:05',
     endTime: '15:45',
     location: 'Room 4204',
     status: 'Scheduled',
-    changeNote: 'First day — choir students',
-    notes: 'Choir students report to Room 4204 for handbook reading, 11:00–3:45 (same window as instrumental upstairs in 4302).',
+    // No changeNote: this is the real choir schedule today, not a cancellation.
+    changeNote: del,
+    notes: 'Choir students report to Room 4204 for handbook reading, 11:05–3:45 (instrumental upstairs in 4302).',
     updatedAt: NOW,
     updatedBy: BY,
   }, { merge: true });
-  console.log('  handbook choir: Room 4204');
+  console.log('  handbook choir: Room 4204 @ 11:05');
 }
 
 async function applyFriday() {
