@@ -4,10 +4,10 @@
  *
  * Director-confirmed opening week (clarified 2026-08-12 evening):
  *
- *   Thu 8/13 — Handbook reading.
- *     Instrumental: Room 4302, 11:00–15:45.
- *     Choir: Room 4204, 11:05–15:45 (Scheduled, not cancelled).
- *     Everything else in that window stays Cancelled.
+ *   Thu 8/13 — Handbook reading, P6+P7 only (13:10–15:45).
+ *     Instrumental: Room 4302. Choir: Room 4204. Both Scheduled.
+ *     Rehearsals/classes in that window stay Cancelled.
+ *     Do NOT schedule HS music before 13:10 (no 11:00 handbook).
  *
  *   Fri 8/14 — P6 Camerata+Wind (normal Friday). P7 Camerata+Wind instead
  *     of Symphony/Jazz/Chamber Winds. Classes + choir unchanged.
@@ -162,14 +162,15 @@ async function upsertRehearsal({ id, ensId, date, start, end, room, note }) {
 
 async function applyThursday() {
   const date = '2026-08-13';
-  const note = 'Handbook reading 11:00–3:45 (first day of school)';
-  console.log(`\n=== ${date} Handbook ===`);
+  // P6+P7 only. HS music does not meet before 13:10.
+  const note = 'Handbook reading 1:10–3:45 (first day of school)';
+  console.log(`\n=== ${date} Handbook (P6+P7) ===`);
   const day = await eventsOn(date);
   for (const e of day) {
     if (e.id.startsWith('cal-')) continue;
     if (e.id.startsWith('evt-2026-08-13-handbook')) continue;
     const start = e.startTime;
-    if (!start || start < '11:00' || start >= '15:45') continue;
+    if (!start || start < '13:10' || start >= '15:45') continue;
     await cancelEvent(e, note);
   }
 
@@ -178,33 +179,32 @@ async function applyThursday() {
     title: 'Handbook Reading',
     ensembleIds: INSTRUMENTAL,
     date,
-    startTime: '11:00',
+    startTime: '13:10',
     endTime: '15:45',
     location: 'Room 4302',
     status: 'Scheduled',
-    changeNote: 'First day — instrumental students',
-    notes: 'All instrumental music students report to Room 4302 for handbook reading, 11:00–3:45. No regular rehearsals or classes.',
+    changeNote: del,
+    notes: 'All instrumental music students report to Room 4302 for handbook reading, 1:10–3:45 (P6+P7).',
     updatedAt: NOW,
     updatedBy: BY,
   }, { merge: true });
-  console.log('  handbook instrumental: Room 4302');
+  console.log('  handbook instrumental: Room 4302 @ 13:10–15:45');
 
   await db.collection('events').doc('evt-2026-08-13-handbook-choir').set({
     type: 'Event',
     title: 'Handbook Reading (Choir)',
     ensembleIds: [CHOIR],
     date,
-    startTime: '11:05',
+    startTime: '13:10',
     endTime: '15:45',
     location: 'Room 4204',
     status: 'Scheduled',
-    // No changeNote: this is the real choir schedule today, not a cancellation.
     changeNote: del,
-    notes: 'Choir students report to Room 4204 for handbook reading, 11:05–3:45 (instrumental upstairs in 4302).',
+    notes: 'Choir students report to Room 4204 for handbook reading, 1:10–3:45 (P6+P7; instrumental upstairs in 4302).',
     updatedAt: NOW,
     updatedBy: BY,
   }, { merge: true });
-  console.log('  handbook choir: Room 4204 @ 11:05');
+  console.log('  handbook choir: Room 4204 @ 13:10–15:45');
 }
 
 async function applyFriday() {
