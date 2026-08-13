@@ -56,18 +56,18 @@ piece('rp26-star-spangled-banner', {
   order: 10,
   ensembleIds: [SO, WE],
   title: 'The Star-Spangled Banner',
-  fullTitle: 'The Star-Spangled Banner',
+  fullTitle: 'The Star-Spangled Banner (harmonized and orchestrated by Igor Stravinsky)',
   composer: 'John Stafford Smith',
   composerDates: '1750–1836',
-  arranger: 'Orchestral arrangement (standard concert)',
-  year: '1814',
-  instrumentation: '2 2 2 2 — 4 2 3 1 — tmp+perc — str',
-  percussion: 'timpani, snare drum, bass drum, cymbals',
+  arranger: 'Igor Stravinsky',
+  year: '1814; arr. 1941',
+  instrumentation: '3[1.2.pic] 2[1.2.eh] 2[1.2.bcl] 2[1.2.cbsn] — 4 3 3 1 — tmp — SATB — str',
+  percussion: 'timpani',
   duration: 2,
   programNotes:
-    'Francis Scott Key’s 1814 lyric, set to Smith’s earlier Anacreontic melody, became the United States’ national anthem by law in 1931. Concert orchestras usually open patriotic programs with a brief, full-ensemble statement of the tune.',
+    'Francis Scott Key’s lyric on Smith’s Anacreontic melody is here in Igor Stravinsky’s 1941 harmonization and orchestration (Mercury), finished July 4, 1941: full orchestra with SATB chorus and Stravinsky’s unmistakable voice-leading on the national anthem.',
   eventIds: ['oc26-hs-pops'],
-  notes: 'Pops opening. Wind Ensemble join for Banner/Salute still open with Brent.',
+  notes: 'Stravinsky 1941 orch+chorus (Mercury). Score on disk at Sheet Music/Stravinsky/Star Spangled Banner/. WE join still open with Brent.',
 });
 
 piece('rp26-american-salute', {
