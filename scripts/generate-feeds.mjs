@@ -24,6 +24,10 @@ if (!PROJECT_ID) {
   process.exit(0); // non-fatal: local builds without secrets still succeed
 }
 
+// Keep in sync with src/public/publicStudentInfo.ts — when false, skip
+// per-student ICS so personal schedules stay dark until the roster is final.
+const PUBLIC_STUDENT_INFO = false;
+
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 
 async function fetchCollection(name) {
@@ -218,18 +222,22 @@ function wrapCalendar(name, description, vevents) {
       return (event.attendanceEnsembleIds ?? []).some(ensId => memberIds.includes(ensId));
     };
     let studentFeeds = 0;
-    for (const stu of students) {
-      if (stu.status === 'Graduated' || stu.status === 'Inactive') continue;
-      const mine = events.filter(e => expectedForStudent(stu, e));
-      const vevents = mine.map(e => buildVEVENT(e, ensembleMap));
-      const safeId = stu.id.replace(/[^a-z0-9-]/gi, '-');
-      writeFileSync(
-        `dist/feeds/student-${safeId}.ics`,
-        wrapCalendar(`${stu.name} — NWSA Music`, `Personal schedule for ${stu.name}`, vevents),
-      );
-      studentFeeds++;
+    if (PUBLIC_STUDENT_INFO) {
+      for (const stu of students) {
+        if (stu.status === 'Graduated' || stu.status === 'Inactive') continue;
+        const mine = events.filter(e => expectedForStudent(stu, e));
+        const vevents = mine.map(e => buildVEVENT(e, ensembleMap));
+        const safeId = stu.id.replace(/[^a-z0-9-]/gi, '-');
+        writeFileSync(
+          `dist/feeds/student-${safeId}.ics`,
+          wrapCalendar(`${stu.name} — NWSA Music`, `Personal schedule for ${stu.name}`, vevents),
+        );
+        studentFeeds++;
+      }
     }
-    console.log(`Generated ${studentFeeds} per-student feeds`);
+    console.log(PUBLIC_STUDENT_INFO
+      ? `Generated ${studentFeeds} per-student feeds`
+      : 'Skipped per-student feeds (PUBLIC_STUDENT_INFO=false)');
 
     // Index file listing all feeds (handy for debugging)
     const index = {

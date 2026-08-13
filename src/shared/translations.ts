@@ -94,6 +94,10 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'lookup.noGoBack':       { en: 'No, go back',                     es: 'No, volver' },
   'lookup.yesShowSchedule':{ en: 'Yes — show my schedule',          es: 'Sí — ver mi horario' },
   'lookup.parentToggle':   { en: "I'm a parent — let me save more than one student", es: 'Soy padre o madre — quiero guardar más de un estudiante' },
+  'lookup.rosterPending':  {
+    en: 'Personal schedules open after the 2026–27 roster is finalized. Until then, use the calendar and ensembles for rehearsal times, concerts, and repertoire.',
+    es: 'Los horarios personales se abrirán cuando el roster 2026–27 esté listo. Mientras tanto, usa el calendario y los ensembles para ensayos, conciertos y repertorio.',
+  },
 
   // ── Calendar page ───────────────────────────────────────────────────────
   'cal.everything':       { en: 'Everything',         es: 'Todo' },

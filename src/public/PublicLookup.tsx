@@ -10,6 +10,7 @@ import { getIdentity, rememberStudent, forgetStudent, setParentMode } from '../s
 import { ensembleColor, ensembleDisplayName, musicEnsembles } from '../director/utils';
 import { PubEnsembleSelect } from './components/PubEnsembleSelect';
 import type { Student } from '../director/types';
+import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 
 /** Diacritic-stripped lowercase for forgiving matching (#3): José → jose. */
 function fold(s: string): string {
@@ -86,6 +87,14 @@ export function PublicLookup() {
     const id = confirming.id;
     setConfirming(null);
     navigate(`/student/${id}`);
+  }
+
+  if (!PUBLIC_STUDENT_INFO) {
+    return (
+      <div className="pub-page">
+        <PageHeader title={t('nav.mySchedule')} intro={t('lookup.rosterPending')} />
+      </div>
+    );
   }
 
   return (

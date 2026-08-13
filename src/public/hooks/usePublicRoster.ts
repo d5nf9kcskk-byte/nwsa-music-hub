@@ -4,6 +4,7 @@ import { db } from '../../director/firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import type { Student, RosterOverride } from '../../director/types';
 import { FIXTURES_ON, FIXTURE_STUDENTS } from '../../director/hooks/fixtures';
+import { PUBLIC_STUDENT_INFO } from '../publicStudentInfo';
 
 /**
  * Public-site roster hooks (#privacy). The full `students` and
@@ -13,6 +14,10 @@ import { FIXTURES_ON, FIXTURE_STUDENTS } from '../../director/hooks/fixtures';
  * src/director/publicMirror.ts for the field contract). The returned shapes
  * are Student / RosterOverride with those optional fields simply absent, so
  * public components consume them unchanged.
+ *
+ * When PUBLIC_STUDENT_INFO is false, both hooks return empty lists so every
+ * public consumer (lookup, personal schedule, ensemble roster, program
+ * personnel) hides student identity without touching Firestore.
  */
 
 export function useStudentsPublic(ensembleId?: string) {
@@ -20,6 +25,11 @@ export function useStudentsPublic(ensembleId?: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!PUBLIC_STUDENT_INFO) {
+      setStudents([]);
+      setLoading(false);
+      return;
+    }
     if (!db) { if (FIXTURES_ON) setStudents(FIXTURE_STUDENTS); setLoading(false); return; }
     const q = query(collection(db, 'studentsPublic'), orderBy('name'));
     return onSnapshot(q, snap => {
@@ -46,6 +56,11 @@ export function usePublicOverrides() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!PUBLIC_STUDENT_INFO) {
+      setOverrides([]);
+      setLoading(false);
+      return;
+    }
     if (!db) { setLoading(false); return; }
     const q = query(collection(db, 'rosterOverridesPublic'));
     return onSnapshot(q, snap => {

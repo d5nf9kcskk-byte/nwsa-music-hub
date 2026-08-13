@@ -12,6 +12,7 @@ import { primaryStudent } from '../shared/identity';
 import { Linkify } from '../director/components/Linkify';
 import { GradientHero } from './components/GradientHero';
 import { SeatingChartCard } from './components/SeatingChartCard';
+import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 import { t, tType, useLang } from '../shared/i18n';
 import { fmtMonthDay } from '../shared/dates';
 
@@ -211,7 +212,7 @@ export function PublicPiece() {
 
       {/* Applied seating chart — piece-specific when one exists, otherwise the
           ensemble's current chart, shown the way students read it. */}
-      {appliedChart && (
+      {PUBLIC_STUDENT_INFO && appliedChart && (
         <>
           <h2 className="pub-section-title"><Armchair size={15} style={{ verticalAlign: '-2px' }} /> Seating</h2>
           <SeatingChartCard

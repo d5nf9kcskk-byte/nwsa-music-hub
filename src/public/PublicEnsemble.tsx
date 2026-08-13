@@ -21,6 +21,7 @@ import { SubscribeButton } from './components/SubscribeButton';
 import { GradientHero } from './components/GradientHero';
 import { fmtShortDate } from '../shared/dates';
 import { t, tn, useLang } from '../shared/i18n';
+import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 
 export function PublicEnsemble() {
   useLang();
@@ -105,9 +106,11 @@ export function PublicEnsemble() {
       <BackLink fallback="/ensembles" label={t('event.back')} />
       <GradientHero color={ensembleColor(ensemble)} seed={ensemble.id} title={ensembleDisplayName(ensemble)}>
         <div className="pub-ghero-meta">
-          {tn('ens.members', members.length)}
-          {ensemble.defaultLocation ? ` · ${ensemble.defaultLocation}` : ''}
-          {formatTimeRange(ensemble.defaultStartTime, ensemble.defaultEndTime) ? ` · ${formatTimeRange(ensemble.defaultStartTime, ensemble.defaultEndTime)}` : ''}
+          {[
+            PUBLIC_STUDENT_INFO ? tn('ens.members', members.length) : null,
+            ensemble.defaultLocation || null,
+            formatTimeRange(ensemble.defaultStartTime, ensemble.defaultEndTime) || null,
+          ].filter(Boolean).join(' · ')}
         </div>
         {nextEvent && (
           <Link to={`/event/${nextEvent.id}`} className="pub-ghero-next">
@@ -193,29 +196,35 @@ export function PublicEnsemble() {
         </div>
       )}
 
-      <SeatingSection
-        ensembleId={id}
-        studentName={sid => students.find(s => s.id === sid)?.name ?? '—'}
-        pieceTitle={pid => piecesById[pid]?.title}
-      />
+      {PUBLIC_STUDENT_INFO && (
+        <SeatingSection
+          ensembleId={id}
+          studentName={sid => students.find(s => s.id === sid)?.name ?? '—'}
+          pieceTitle={pid => piecesById[pid]?.title}
+        />
+      )}
 
-      <h2 className="pub-section-title">Roster</h2>
-      <div className="pub-card pub-roster">
-        {members.length === 0 ? (
-          <div className="pub-muted">No members listed.</div>
-        ) : (
-          (showAllRoster ? members : members.slice(0, 12)).map(s => (
-            <Link key={s.id} to={`/student/${s.id}`} className="pub-roster-row pub-lookup-row">
-              <span className="pub-roster-name">{s.name}</span>
-              <span className="pub-roster-instr">{[s.instrument, s.section].filter(Boolean).join(' · ')}</span>
-            </Link>
-          ))
-        )}
-      </div>
-      {!showAllRoster && members.length > 12 && (
-        <button className="pub-showall-btn" onClick={() => setShowAllRoster(true)}>
-          {t('misc.showAll', { count: members.length })}
-        </button>
+      {PUBLIC_STUDENT_INFO && (
+        <>
+          <h2 className="pub-section-title">Roster</h2>
+          <div className="pub-card pub-roster">
+            {members.length === 0 ? (
+              <div className="pub-muted">No members listed.</div>
+            ) : (
+              (showAllRoster ? members : members.slice(0, 12)).map(s => (
+                <Link key={s.id} to={`/student/${s.id}`} className="pub-roster-row pub-lookup-row">
+                  <span className="pub-roster-name">{s.name}</span>
+                  <span className="pub-roster-instr">{[s.instrument, s.section].filter(Boolean).join(' · ')}</span>
+                </Link>
+              ))
+            )}
+          </div>
+          {!showAllRoster && members.length > 12 && (
+            <button className="pub-showall-btn" onClick={() => setShowAllRoster(true)}>
+              {t('misc.showAll', { count: members.length })}
+            </button>
+          )}
+        </>
       )}
     </div>
   );

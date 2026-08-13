@@ -13,6 +13,7 @@ import { fmtFullDate } from '../shared/dates';
 import { printViaPopup } from '../shared/printPopup';
 import type { Ensemble, RepertoirePiece, SeatingChart } from '../director/types';
 import './programTemplate.css';
+import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 
 /**
  * Static cover-page boilerplate (#program-template): the school's leadership
@@ -270,7 +271,7 @@ export function PublicProgram() {
         </section>
 
         {/* ── Roster page(s): one per performing ensemble ───────────── */}
-        {performingEnsembles.map(ens => {
+        {PUBLIC_STUDENT_INFO && performingEnsembles.map(ens => {
           const sections = rosterSectionsFor(ens.id);
           if (sections.length === 0) return null;
           return (

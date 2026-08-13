@@ -5,6 +5,7 @@ import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudentsPublic } from './hooks/usePublicRoster';
 import { ensembleColor, ensembleDisplayName, musicEnsembles } from '../director/utils';
 import { useLang } from '../shared/i18n';
+import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 
 export function PublicEnsembles() {
   useLang(); // ensemble names follow the EN/ES toggle
@@ -34,8 +35,9 @@ export function PublicEnsembles() {
             <div className="pub-ens-info">
               <div className="pub-ens-name">{ensembleDisplayName(e)}</div>
               <div className="pub-ens-sub">
-                {counts[e.id] ?? 0} member{(counts[e.id] ?? 0) !== 1 ? 's' : ''}
-                {e.defaultLocation ? ` · ${e.defaultLocation}` : ''}
+                {PUBLIC_STUDENT_INFO
+                  ? `${counts[e.id] ?? 0} member${(counts[e.id] ?? 0) !== 1 ? 's' : ''}${e.defaultLocation ? ` · ${e.defaultLocation}` : ''}`
+                  : (e.defaultLocation || '')}
               </div>
             </div>
             <ChevronRight size={18} className="pub-ens-chev" />

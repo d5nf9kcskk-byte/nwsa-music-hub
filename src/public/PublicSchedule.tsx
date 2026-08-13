@@ -26,6 +26,7 @@ import { t, useLang, getLang } from '../shared/i18n';
 import { dailyPun, instrumentQuip, say } from '../shared/whimsy';
 import { fmtDayHeader, fmtMonthYear, fmtShortDate, weekdayInitials } from '../shared/dates';
 import type { CalendarEvent } from '../director/types';
+import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 
 type TypeFilter = 'all' | 'rehearsals' | 'classes' | 'concerts' | 'events';
 
@@ -134,6 +135,15 @@ export function PublicSchedule() {
     }
     return result;
   }, [student, mySchedule, pieces, eventsById]);
+
+  if (!PUBLIC_STUDENT_INFO) {
+    return (
+      <div className="pub-page">
+        <BackLink fallback="/lookup" label={t('event.back')} />
+        <div className="pub-card pub-muted">{t('lookup.rosterPending')}</div>
+      </div>
+    );
+  }
 
   if (!student) {
     return (
