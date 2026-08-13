@@ -79,11 +79,19 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
     return () => ro.disconnect();
   }, [cancelled, event.id]);
 
+  const infoTitle =
+    event.type === 'Rehearsal' ? t('event.infoRehearsal')
+    : event.type === 'Class' ? t('event.infoClass')
+    : event.type === 'Concert' ? t('event.infoConcert')
+    : event.type === 'Sectional' ? t('event.infoSectional')
+    : t('event.infoEvent');
+
   return (
     <div className="pub-page pub-page-wide">
       <BackLink fallback="/calendar" label={t('event.back')} className="pub-back-link" />
 
       <div className="pub-hero">
+        <div className="pub-hero-kicker">{infoTitle}</div>
         <h1 className="pub-h1" style={{ marginBottom: 2 }}>{heroTitle}</h1>
         <div className="pub-hero-date">{dateLabel}{isToday ? ` ${t('event.todaySuffix')}` : ''}</div>
       </div>

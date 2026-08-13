@@ -188,6 +188,14 @@
 
 /* Hero */
 .pub-hero { margin-bottom: 16px; }
+.pub-hero-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pub-accent, #0d7e8e);
+  margin-bottom: 4px;
+}
 .pub-hero-date { font-size: 13px; color: var(--pub-muted); font-weight: 600; }
 .pub-hero h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin: 2px 0 0; }
 

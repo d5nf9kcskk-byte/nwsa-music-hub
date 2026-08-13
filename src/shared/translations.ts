@@ -197,6 +197,11 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
 
   // ── Event page / Concert Day Sheet ──────────────────────────────────────
   'event.back':             { en: 'Back',                        es: 'Volver' },
+  'event.infoRehearsal':    { en: 'Rehearsal information',       es: 'Información del ensayo' },
+  'event.infoClass':        { en: 'Class information',           es: 'Información de la clase' },
+  'event.infoConcert':      { en: 'Concert information',         es: 'Información del concierto' },
+  'event.infoSectional':    { en: 'Sectional information',       es: 'Información del sectional' },
+  'event.infoEvent':        { en: 'Event information',           es: 'Información del evento' },
   'event.daySheet':         { en: 'Concert Day Sheet',           es: 'Hoja del día del concierto' },
   'event.callTime':         { en: 'Call time',                   es: 'Hora de llegada' },
   'event.concertStarts':    { en: 'Concert starts',              es: 'Empieza el concierto' },

@@ -14,14 +14,12 @@ import { groupScheduleAlerts, groupUrgentAnnouncements } from '../../shared/grou
 import { AlertGroupSections } from '../../shared/AlertGroupSections';
 
 /**
- * Site-wide alert strip (#18 + #19): shows today's cancellations/changes and
- * urgent announcements on EVERY public page — with a positive all-clear state
- * so "no banner" is never ambiguous with "page didn't load".
+ * Alert strip for the pages where schedule noise belongs: Home and Calendar.
+ * Ensemble hubs use EnsembleAlerts instead. Event/class/rehearsal detail pages
+ * stay quiet so opening a card isn't drowned in site-wide banners.
  *
  * Signed-in staff tapping an urgent banner land in the director Announcement
  * editor (edit / remove). Families keep the public announcements list.
- *
- * Non-home pages group alerts under Classes / ensemble / Everyone headings.
  */
 export function GlobalAlerts() {
   useLang();
@@ -72,12 +70,14 @@ export function GlobalAlerts() {
     ids.map(id => ensembleDisplayName(ensembles.find(e => e.id === id))).filter(Boolean).join(' + ') || 'School';
 
   const onHome = pathname === '/';
-  const onEnsemble = /^\/ensemble\/[^/]+\/?$/.test(pathname);
+  const onCalendar = pathname === '/calendar';
 
   const urgentGroups = useMemo(() => groupUrgentAnnouncements(urgent, ensembles), [urgent, ensembles]);
   const problemGroups = useMemo(() => groupScheduleAlerts(problems, ensembles), [problems, ensembles]);
 
-  if (onEnsemble) return null;
+  // Ensemble pages render EnsembleAlerts in-page. Everywhere else (event
+  // detail, repertoire, documents, …) stays clear of this strip.
+  if (!onHome && !onCalendar) return null;
 
   if (urgent.length === 0 && (problems.length === 0 || onHome)) {
     if (onHome || events.length === 0) return null;
