@@ -55,9 +55,12 @@ export function formatTimeRange(start?: string, end?: string): string {
 // Standard NWSA ensemble blocks — one-tap presets for schedule-time entry.
 // Values are 24h "HH:MM" strings (the value format of <input type="time">);
 // labels are hardcoded to the exact requested copy (12h, en-dash, no AM/PM).
+// Choir blocks end/start earlier so bathroom breaks do not overlap instrumental.
 export const TIME_BLOCKS = [
   { label: 'Block 1 · 1:10–2:25', start: '13:10', end: '14:25' },
   { label: 'Block 2 · 2:30–3:45', start: '14:30', end: '15:45' },
+  { label: 'Choir 1 · 1:10–2:15', start: '13:10', end: '14:15' },
+  { label: 'Choir 2 · 2:25–3:45', start: '14:25', end: '15:45' },
 ] as const;
 
 // ── Music ensembles vs divisions ────────────────────────────────────────────

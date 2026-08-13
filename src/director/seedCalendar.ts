@@ -162,14 +162,16 @@ function slotsForDay(dow: number /* UTC getUTCDay(): 0=Sun … 6=Sat */): Slot[]
 type ClassSlot = { title: string; days: number[]; start: string; end: string; room: string };
 const CLASSES: ClassSlot[] = [
   { title: 'AP Theory',                 days: [1, 2, 3, 4, 5], start: '12:10', end: '13:00', room: 'Room 4204' },
+  // Instrumental wing (43xx) — instrumental Block 2.
   { title: 'Jazz Theory',               days: [1, 4],          start: '14:30', end: '15:45', room: 'Room 4304' },
-  { title: 'Theory — 9th Grade',        days: [1, 4],          start: '14:30', end: '15:45', room: 'Room 4213' },
-  { title: 'Theory — 10th Grade',       days: [1, 4],          start: '14:30', end: '15:45', room: 'Room 4210' },
   { title: 'Music History — 11th–12th', days: [1, 4],          start: '14:30', end: '15:45', room: 'Room 4309' },
   { title: 'String Masterclass',        days: [2],             start: '14:30', end: '15:45', room: 'Rooms 4210 / 4304 / 4309' },
-  // Vocal-division classes (Period 6). Rooms TBD.
-  { title: 'Vocal Lit',                 days: [1, 3, 5],       start: '13:10', end: '14:25', room: '' },
-  { title: 'Vocal Forum',               days: [2, 4],          start: '13:10', end: '14:25', room: '' },
+  // Choir floor (42xx) + vocal classes — choir blocks (1:10–2:15 / 2:25–3:45)
+  // so bathroom breaks do not overlap the instrumental wing.
+  { title: 'Theory — 9th Grade',        days: [1, 4],          start: '14:25', end: '15:45', room: 'Room 4213' },
+  { title: 'Theory — 10th Grade',       days: [1, 4],          start: '14:25', end: '15:45', room: 'Room 4210' },
+  { title: 'Vocal Lit',                 days: [1, 3, 5],       start: '13:10', end: '14:15', room: '' },
+  { title: 'Vocal Forum',               days: [2, 4],          start: '13:10', end: '14:15', room: '' },
 ];
 
 const classSlug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -202,8 +204,14 @@ function classEventDocs(): { id: string; data: SeedEventData }[] {
     if (NO_SCHOOL.has(dateStr)) continue;
     for (const cls of CLASSES) {
       if (!cls.days.includes(dow)) continue;
+      // Id keeps the original seed clock suffix so re-runs stay idempotent
+      // after choir-block time shifts (Vocal * still …-1310; grade Theory …-1430).
+      const idClock =
+        cls.title === 'Vocal Lit' || cls.title === 'Vocal Forum' ? '1310'
+        : cls.title === 'Theory — 9th Grade' || cls.title === 'Theory — 10th Grade' ? '1430'
+        : cls.start.replace(':', '');
       docs.push({
-        id: `class-${dateStr}-${classSlug(cls.title)}-${cls.start.replace(':', '')}`,
+        id: `class-${dateStr}-${classSlug(cls.title)}-${idClock}`,
         data: {
           // Academic classes are their own category, not generic events — so
           // they show under the "Classes" filter/sections. They stay
@@ -225,7 +233,7 @@ function classEventDocs(): { id: string; data: SeedEventData }[] {
 
 /** HS Choir rehearsals across the year. Modeled as an ensemble rehearsal (tied
  *  to the high-school-choir ensemble, so it shows on the choir page/filter),
- *  meeting every school day 2:30–3:45. */
+ *  meeting every school day on choir Block 2 (2:25–3:45). */
 function choirRehearsalDocs(): { id: string; data: SeedEventData }[] {
   const docs: { id: string; data: SeedEventData }[] = [];
   for (let ms = YEAR_START_MS; ms <= YEAR_END_MS; ms += 86_400_000) {
@@ -235,8 +243,9 @@ function choirRehearsalDocs(): { id: string; data: SeedEventData }[] {
     const dateStr = d.toISOString().slice(0, 10);
     if (NO_SCHOOL.has(dateStr)) continue;
     docs.push({
+      // Keep -1430 in the id (legacy seed key); clock time is choir Block 2.
       id: `reh-${dateStr}-${ENS.choir}-1430`,
-      data: { type: 'Rehearsal', ensembleIds: [ENS.choir], date: dateStr, startTime: '14:30', endTime: '15:45', location: 'Room 4204', status: 'Scheduled' },
+      data: { type: 'Rehearsal', ensembleIds: [ENS.choir], date: dateStr, startTime: '14:25', endTime: '15:45', location: 'Room 4204', status: 'Scheduled' },
     });
   }
   return docs;

@@ -45,7 +45,13 @@ const ENSEMBLES = [
     defaultEndTime: '15:45',
     meetingDays: [4], // Thursday
   },
-  { id: 'high-school-choir', name: 'High School Choir', order: 7 },
+  {
+    id: 'high-school-choir',
+    name: 'High School Choir',
+    order: 7,
+    defaultStartTime: '14:25',
+    defaultEndTime: '15:45',
+  },
   { id: 'opera-orchestra',   name: 'Opera Orchestra',   order: 8 },
 ];
 

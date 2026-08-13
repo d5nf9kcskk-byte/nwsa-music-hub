@@ -23,6 +23,18 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-13-choir-blocks',
+    date: '2026-08-13',
+    title: 'Choir block times are staggered from instrumental',
+    audience: 'both',
+    expires: '2026-08-27',
+    bullets: [
+      'Choir Block 1 is 1:10–2:15 and Block 2 is 2:25–3:45, so bathroom breaks do not line up with instrumental.',
+      'That clock applies to HS Choir, Vocal Lit, Vocal Forum, and Theory (9th and 10th).',
+      'Instrumental ensembles and Jazz Theory / Music History stay on 1:10–2:25 and 2:30–3:45.',
+    ],
+  },
+  {
     id: '2026-08-13-piece-picker-cross-ensemble',
     date: '2026-08-13',
     title: 'Any orchestra piece on any rehearsal',
