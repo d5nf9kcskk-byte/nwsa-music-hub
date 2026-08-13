@@ -1,7 +1,7 @@
 import { MapPin, Music, ExternalLink, ScrollText, ChevronRight, StickyNote } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
-import { formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, CONCERT_COLOR, eventPieceMovements, eventRestrictsMovements } from '../../director/utils';
+import { formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, CONCERT_COLOR, eventPieceMovements } from '../../director/utils';
 import { t, tType, useLang } from '../../shared/i18n';
 import { fmtShortDate } from '../../shared/dates';
 import { EnsembleLink, EnsembleLinks } from './EnsembleLink';
@@ -142,21 +142,25 @@ export function PubEventCard({
           <div className="pub-event-pieces">
             {pieces.map(p => {
               const myPart = findPartForInstrument(p, studentInstrument);
-              const subset = eventRestrictsMovements(e, p)
-                ? eventPieceMovements(e, p).map(m => m.title).filter(Boolean)
-                : [];
+              const mvts = eventPieceMovements(e, p).map(m => m.title).filter(Boolean);
               return (
                 <div key={p.id} className="pub-event-piece">
-                  <Link to={`/piece/${p.id}`} className="pub-event-piece-link">
-                    <Music size={11} /> {p.title}{p.composer ? <span className="pub-event-piece-by"> · {p.composer}</span> : ''}
-                  </Link>
-                  {myPart && (
-                    <a className="pub-event-mypart" href={myPart.url} target="_blank" rel="noreferrer">
-                      {t('card.myPart')} <ExternalLink size={10} />
-                    </a>
-                  )}
-                  {subset.length > 0 && (
-                    <div className="pub-event-piece-mvts">{subset.join(' · ')}</div>
+                  <div className="pub-event-piece-head">
+                    <Link to={`/piece/${p.id}`} className="pub-event-piece-link">
+                      <Music size={11} /> {p.title}{p.composer ? <span className="pub-event-piece-by"> · {p.composer}</span> : ''}
+                    </Link>
+                    {myPart && (
+                      <a className="pub-event-mypart" href={myPart.url} target="_blank" rel="noreferrer">
+                        {t('card.myPart')} <ExternalLink size={10} />
+                      </a>
+                    )}
+                  </div>
+                  {mvts.length > 0 && (
+                    <ul className="pub-event-piece-mvts">
+                      {mvts.map((title, i) => (
+                        <li key={i}>{title}</li>
+                      ))}
+                    </ul>
                   )}
                 </div>
               );

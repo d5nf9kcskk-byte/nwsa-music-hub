@@ -704,7 +704,11 @@
   padding-top: 8px; border-top: 1px dashed var(--pub-border);
 }
 
-.pub-event-piece { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pub-event-piece { display: flex; flex-direction: column; gap: 4px; }
+
+.pub-event-piece-head {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
 
 .pub-event-piece-link {
   display: inline-flex; align-items: center; gap: 4px;
@@ -714,11 +718,17 @@
 .pub-event-piece-link:hover { color: var(--pub-accent); }
 .pub-event-piece-by { color: var(--pub-muted); font-weight: 500; }
 
-/* Per-concert movement subset — "on this concert, only these movements". */
+/* Chosen movements: one line each (same clarity as the director picker). */
 .pub-event-piece-mvts {
-  flex-basis: 100%;
-  padding-left: 19px;
-  font-size: 12px; font-style: italic; color: var(--pub-muted);
+  margin: 0;
+  padding: 0 0 0 19px;
+  list-style: none;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--pub-muted);
+}
+.pub-event-piece-mvts li {
+  padding: 1px 0;
 }
 
 .pub-event-mypart {
