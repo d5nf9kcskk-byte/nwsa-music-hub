@@ -27,6 +27,19 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-13-easter-eggs-batch2',
+    date: '2026-08-13',
+    title: 'Hidden musical delights (staff map)',
+    audience: 'staff',
+    expires: '2026-08-27',
+    bullets: [
+      'Students can find quiet easter eggs on the public site; this tip is only for directors so you know what is there.',
+      'Text ribbons: first day of school, last day before break, Monday morning, Friday after 3, empty Who’s Out, subscribe footer, all-clear extra line, roster-of-one.',
+      'One-time toasts: first Dark mode → “notturno”; first switch to ES → bilingual tip.',
+      'Taps: hold Home hero (fermata), long-press empty calendar day, double-tap month title, pinch calendar, filter ens→type→ens→type, triple-tap ensemble title, 4× your name on My Schedule, double-tap a cancelled banner, 3× Announcements title (p/mf/ff), 5× DIRECTOR PANEL strip.',
+    ],
+  },
+  {
     id: '2026-08-13-launch-flyer',
     date: '2026-08-13',
     title: 'Campus launch flyer ready to print',

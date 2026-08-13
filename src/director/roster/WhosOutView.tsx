@@ -10,6 +10,7 @@ import { lessonsFor, resolveRoster, overrideApplies } from '../rosterResolver';
 import { todayStr, addDays, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import type { DirNavigate } from '../types-nav';
+import { emptyWhosOutLine } from '../../shared/whimsy';
 
 /**
  * Who's Out (replaces the printable "sub sheet"): one live page answering
@@ -160,7 +161,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
       <div className="dir-page-body">
         <div className="dir-att-summary" style={{ borderRadius: 10 }}>
           {totalOut === 0 && reported.length === 0 && totalLessons === 0
-            ? <>Nobody reported out{ensembleId ? ' for this ensemble' : ''}. 🎉</>
+            ? <>{emptyWhosOutLine()}</>
             : <>
                 <strong>{totalOut}</strong> marked out
                 {reported.length > 0 && <> · <strong>{reported.length}</strong> reported ahead</>}

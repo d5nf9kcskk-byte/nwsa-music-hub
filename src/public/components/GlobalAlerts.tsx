@@ -9,9 +9,10 @@ import { db } from '../../director/firebase';
 import { directorEmailId } from '../../director/hooks/useDirectors';
 import { todayStr, ensembleDisplayName } from '../../director/utils';
 import { getIdentity, onIdentityChange } from '../../shared/identity';
-import { t, useLang } from '../../shared/i18n';
+import { t, useLang, getLang } from '../../shared/i18n';
 import { groupScheduleAlerts, groupUrgentAnnouncements } from '../../shared/groupAlerts';
 import { AlertGroupSections } from '../../shared/AlertGroupSections';
+import { allClearExtraLine } from '../../shared/whimsy';
 
 /**
  * Alert strip for the pages where schedule noise belongs: Home and Calendar.
@@ -83,7 +84,8 @@ export function GlobalAlerts() {
     if (onHome || events.length === 0) return null;
     return (
       <div className="pub-allclear" role="status">
-        <CheckCircle2 size={15} style={{ verticalAlign: '-2.5px' }} /> {t('alert.allClear')}
+        <CheckCircle2 size={15} style={{ verticalAlign: '-2.5px' }} /> {t('alert.allClear')}{' '}
+        <span className="pub-allclear-extra">{allClearExtraLine(getLang())}</span>
       </div>
     );
   }

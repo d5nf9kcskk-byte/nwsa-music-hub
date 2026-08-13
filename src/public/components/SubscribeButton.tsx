@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { CalendarPlus, Copy, Check, X } from 'lucide-react';
 import { feedUrl, studentFeedUrl, webcalUrl } from '../feedUrl';
 import { detectPlatform, type Platform } from '../platform';
-import { t, useLang } from '../../shared/i18n';
+import { t, useLang, getLang } from '../../shared/i18n';
 import './subscribeButton.css';
+import { subscribeFooterLine } from '../../shared/whimsy';
 
 interface Props {
   ensembleId?: string;
@@ -171,6 +172,7 @@ export function SubscribeButton({ ensembleId, studentId, label }: Props) {
               </button>
             </div>
             <div className="pub-subw-hint">{t('sub.hint')}</div>
+            <div className="pub-subw-hint pub-subw-egg">{subscribeFooterLine(getLang())}</div>
 
             {copied && <div className="pub-subw-toast" role="status">{t('sub.copied')}</div>}
           </div>

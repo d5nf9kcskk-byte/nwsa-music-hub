@@ -16,13 +16,15 @@ import './gradientHero.css';
  * Rule from the design study: generated art never appears without the full
  * name adjacent — the title lives INSIDE this component on purpose.
  */
-export function GradientHero({ color, seed, eyebrow, title, compact, children }: {
+export function GradientHero({ color, seed, eyebrow, title, compact, children, onTitleTap }: {
   color: string;
   seed: string;
   eyebrow?: string;
   title: string;
   compact?: boolean;
   children?: ReactNode;
+  /** Hidden delight: triple-tap the title for an ensemble mood marking. */
+  onTitleTap?: () => void;
 }) {
   const [a, b] = ensembleGradientStops(color, seed);
   let ink = inkOn(a, b);
@@ -38,7 +40,13 @@ export function GradientHero({ color, seed, eyebrow, title, compact, children }:
     >
       <div className="pub-ghero-inner">
         {eyebrow && <div className="pub-ghero-eyebrow">{eyebrow}</div>}
-        <h1 className="pub-h1 pub-ghero-title">{title}</h1>
+        <h1
+          className="pub-h1 pub-ghero-title"
+          onClick={onTitleTap}
+          style={onTitleTap ? { cursor: 'pointer' } : undefined}
+        >
+          {title}
+        </h1>
         {children}
       </div>
     </header>

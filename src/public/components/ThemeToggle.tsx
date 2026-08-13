@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Moon, Sun, SunMoon } from 'lucide-react';
-import { t, useLang } from '../../shared/i18n';
+import { t, useLang, getLang } from '../../shared/i18n';
 import { usePubTheme, setPubTheme, resolvedPubTheme } from '../theme';
 import type { PubThemeChoice } from '../theme';
+import { darkModeToastLine, eggOnce } from '../../shared/whimsy';
+import { useEggCheer } from '../../shared/useEggCheer';
+import { NoteBurst } from '../../shared/NoteBurst';
 
 const OPTIONS: { value: PubThemeChoice; labelKey: string; Icon: typeof Sun }[] = [
   { value: 'auto', labelKey: 'theme.auto', Icon: SunMoon },
@@ -20,6 +23,7 @@ export function ThemeToggle() {
   const choice = usePubTheme();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const { cheer, show } = useEggCheer();
 
   // Tap anywhere else to dismiss the menu.
   useEffect(() => {
@@ -32,6 +36,14 @@ export function ThemeToggle() {
   }, [open]);
 
   const EffectiveIcon = resolvedPubTheme(choice) === 'dark' ? Moon : Sun;
+
+  function pick(value: PubThemeChoice) {
+    setPubTheme(value);
+    setOpen(false);
+    if (resolvedPubTheme(value) === 'dark' && eggOnce('dark-notturno')) {
+      show(darkModeToastLine(getLang()));
+    }
+  }
 
   return (
     <div className="pub-textsize-wrap" ref={wrapRef}>
@@ -54,7 +66,7 @@ export function ThemeToggle() {
               role="menuitemradio"
               aria-checked={choice === value}
               className={`pub-textsize-opt ${choice === value ? 'active' : ''}`}
-              onClick={() => { setPubTheme(value); setOpen(false); }}
+              onClick={() => pick(value)}
             >
               <span className="pub-textsize-sample"><Icon size={16} /></span>
               <span className="pub-textsize-optlabel">{t(labelKey)}</span>
@@ -63,6 +75,7 @@ export function ThemeToggle() {
           ))}
         </div>
       )}
+      <NoteBurst cheer={cheer} />
     </div>
   );
 }

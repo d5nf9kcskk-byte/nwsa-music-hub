@@ -283,3 +283,178 @@ export function notFoundLine(lang: Lang): string {
     ? 'Esta página es un silencio — aquí no hay nada que tocar. 𝄽'
     : 'This page is a rest — there’s nothing to play here. 𝄽';
 }
+
+/* ── More hidden delights (batch 2) ─────────────────────────────────────── */
+
+/** Fire-once gate (localStorage). Returns true the first time only. */
+export function eggOnce(key: string): boolean {
+  try {
+    const k = `nwsa.egg.${key}`;
+    if (localStorage.getItem(k)) return false;
+    localStorage.setItem(k, '1');
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+/** MDCPS 2026–27 first day + last days before big breaks. */
+const SCHOOL_MOMENTS: { date: string; line: Pun }[] = [
+  { date: '2026-08-13', line: {
+    en: '📖 Opening measure. Cue the A.',
+    es: '📖 Compás de apertura. Que suene el la.' } },
+  { date: '2026-12-17', line: {
+    en: '❄️ Fermata on the semester. Don’t lose your stand partner.',
+    es: '❄️ Calderón del semestre. No pierdas a tu atril.' } },
+  { date: '2027-03-19', line: {
+    en: '🌸 Last school day before spring break. Fermata, then rest.',
+    es: '🌸 Último día antes de las vacaciones de primavera. Calderón, y descanso.' } },
+];
+
+export function schoolMomentLine(d: Date, lang: Lang): string | null {
+  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const hit = SCHOOL_MOMENTS.find(m => m.date === key);
+  return hit ? say(hit.line, lang) : null;
+}
+
+/** Friday after 3pm / Monday before noon — quiet time-of-week lines. */
+export function weekdayMomentLine(d: Date, lang: Lang): string | null {
+  const day = d.getDay();
+  const mins = d.getHours() * 60 + d.getMinutes();
+  if (day === 5 && mins >= 15 * 60) {
+    return say({
+      en: '🎷 TGIF = Thank Goodness It’s Finale.',
+      es: '🎷 TGIF = Gracias a Dios, es el Finale.',
+    }, lang);
+  }
+  if (day === 1 && mins < 12 * 60) {
+    return say({
+      en: '☕ Back to tempo. The weekend was a ritard.',
+      es: '☕ De vuelta al tempo. El fin de semana fue un ritardando.',
+    }, lang);
+  }
+  return null;
+}
+
+export function emptyWhosOutLine(): string {
+  return 'Full section. Even the fourth chair made it. 🎉';
+}
+
+export function subscribeFooterLine(lang: Lang): string {
+  return say({
+    en: 'Add once. Never miss a double block again.',
+    es: 'Añádelo una vez. No te pierdas otro bloque doble.',
+  }, lang);
+}
+
+export function darkModeToastLine(lang: Lang): string {
+  return say({
+    en: 'Now reading in notturno. 🌙',
+    es: 'Ahora lees en notturno. 🌙',
+  }, lang);
+}
+
+export function spanishToggleTip(lang: Lang): string {
+  return say({
+    en: 'Traducción a la vista — same music, new words.',
+    es: 'Traducción a la vista — misma música, nuevas palabras.',
+  }, lang);
+}
+
+export function rosterOfOneLine(lang: Lang): string {
+  return say({
+    en: 'Soloist energy. Don’t rush the cadenza.',
+    es: 'Energía de solista. No aceleres la cadencia.',
+  }, lang);
+}
+
+const ALL_CLEAR_EXTRAS: Pun[] = [
+  { en: 'No fire drills. Just music.', es: 'Sin simulacros. Solo música.' },
+  { en: 'The schedule is behaving today.', es: 'El horario se porta bien hoy.' },
+  { en: 'All systems A440.', es: 'Todo en la 440.' },
+];
+
+export function allClearExtraLine(lang: Lang, today: Date = new Date()): string {
+  return say(ALL_CLEAR_EXTRAS[dayOfYear(today) % ALL_CLEAR_EXTRAS.length], lang);
+}
+
+export function emptyDayHoldLine(dateLabel: string, lang: Lang): string {
+  return lang === 'es'
+    ? `Tacet el ${dateLabel}. Úsalo bien.`
+    : `Tacet on ${dateLabel}. Use it wisely.`;
+}
+
+/** Italian mood marking from an ensemble display name. */
+export function ensembleMood(name: string): string {
+  const n = name.toLowerCase();
+  if (/jazz/.test(n)) return 'Swing';
+  if (/choir|chorale|vocal|chorus/.test(n)) return 'Cantabile';
+  if (/camerata|chamber/.test(n)) return 'Grazioso';
+  if (/symphony|philharmon|orchestra/.test(n)) return 'Maestoso';
+  if (/band|wind/.test(n)) return 'Marziale';
+  if (/guitar/.test(n)) return 'Espressivo';
+  if (/percussion/.test(n)) return 'Marcato';
+  return 'Con moto';
+}
+
+export function ensembleMoodLine(name: string, lang: Lang): string {
+  const mood = ensembleMood(name);
+  return lang === 'es'
+    ? `${name}: ${mood}. (La sala ya lo sabe.)`
+    : `${name}: ${mood}. (The hall already knows.)`;
+}
+
+export function daCapoTodayLine(lang: Lang): string {
+  return say({
+    en: 'Da capo al oggi. Back to today.',
+    es: 'Da capo al oggi. De vuelta a hoy.',
+  }, lang);
+}
+
+export const DYNAMICS = ['p', 'mf', 'ff'] as const;
+
+export function fermataHoldLine(lang: Lang): string {
+  return say({
+    en: 'Hold… and release. 𝄐',
+    es: 'Sostén… y suelta. 𝄐',
+  }, lang);
+}
+
+export function codaFoundLine(lang: Lang): string {
+  return say({
+    en: 'You found the coda. 🎼',
+    es: 'Encontraste la coda. 🎼',
+  }, lang);
+}
+
+export function yesThatsYouLine(lang: Lang): string {
+  return say({
+    en: 'Yes, that’s you. Cue entrance.',
+    es: 'Sí, eres tú. Entrada.',
+  }, lang);
+}
+
+export function cancelledNotPersonalLine(lang: Lang): string {
+  return say({
+    en: 'Cancelled ≠ personal. Practice the next one.',
+    es: 'Cancelado ≠ personal. Practica el próximo.',
+  }, lang);
+}
+
+export function batonInHandLine(): string {
+  return 'The baton is in your hand. 🪄';
+}
+
+export function alreadyFfLine(lang: Lang): string {
+  return say({
+    en: 'Already at ff. The hall can hear you.',
+    es: 'Ya estás en ff. La sala te oye.',
+  }, lang);
+}
+
+/** Friday-after-3 empty calendar line (replaces the usual pun when it applies). */
+export function fridayFinaleEmpty(lang: Lang): string | null {
+  const d = new Date();
+  if (d.getDay() !== 5 || d.getHours() * 60 + d.getMinutes() < 15 * 60) return null;
+  return weekdayMomentLine(d, lang);
+}

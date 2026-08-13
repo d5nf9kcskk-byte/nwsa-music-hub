@@ -18,6 +18,8 @@ import { useModalA11y } from '../shared/useModalA11y';
 import { StatusStrips } from '../shared/StatusStrips';
 import { NoteBurst } from '../shared/NoteBurst';
 import { useLogoEgg } from '../shared/useLogoEgg';
+import { useEggCheer, useTapN } from '../shared/useEggCheer';
+import { batonInHandLine } from '../shared/whimsy';
 import { WhatsNewBanner } from '../shared/WhatsNewBanner';
 import '../shared/whatsNew.css';
 import { DIRECTOR_FEEDBACK_FORM_URL } from './feedbackForm';
@@ -160,7 +162,9 @@ export default function DirectorApp() {
   // shell at all (see the AuthGate render-prop below).
   const isOwner = me?.role === 'owner';
   // Hidden delight (#easter-eggs): five quick taps on the logo → note burst.
-  const { cheer, onLogoTap } = useLogoEgg();
+  const { cheer: logoCheer, onLogoTap } = useLogoEgg();
+  const { cheer: panelCheer, show: showPanel } = useEggCheer();
+  const onPanelTap = useTapN(5, 2500, () => showPanel(batonInHandLine()));
   // Scheduled URGENT posts queue their Teams/email relay when their moment
   // passes — swept from here so any open director session fires it, not just
   // the Announcements screen. Teachers/assistants can't write the queue.
@@ -205,7 +209,7 @@ export default function DirectorApp() {
         <div className="dir-app" data-dir-theme={darkMode ? 'dark' : undefined}>
           {/* Back-end marker: an unmistakable dark strip + gold rule, always on
               top, so the director always knows this is the editing side. */}
-          <div className="dir-panel-banner no-print" role="note">
+          <div className="dir-panel-banner no-print" role="note" onClick={onPanelTap} style={{ cursor: 'pointer' }}>
             <span className="dir-panel-banner-dot" />
             <span>Director Panel</span>
             <span className="dir-panel-banner-sub">· editing area — the student side shows what you set here</span>
@@ -342,7 +346,7 @@ export default function DirectorApp() {
           </main>
 
           <WriteTray />
-          <NoteBurst cheer={cheer} />
+          <NoteBurst cheer={logoCheer || panelCheer} />
 
           {qrOpen && <QrKitView onClose={() => setQrOpen(false)} />}
 

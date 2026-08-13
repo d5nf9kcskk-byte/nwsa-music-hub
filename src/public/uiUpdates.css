@@ -285,6 +285,8 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
   background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px;
   font-size: 13px; font-weight: 700; color: #15803d;
 }
+.pub-allclear-extra { font-weight: 600; opacity: 0.9; }
+.pub-announce-dyn { font-style: italic; font-weight: 700; color: var(--pub-accent); }
 .pub-urgent-banner {
   display: block; margin: 10px 16px 0; padding: 12px 14px;
   background: #7f1d1d; color: #fff; border-radius: 10px;

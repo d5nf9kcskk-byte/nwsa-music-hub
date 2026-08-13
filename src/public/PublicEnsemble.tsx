@@ -21,8 +21,11 @@ import { SeatingChartCard } from './components/SeatingChartCard';
 import { SubscribeButton } from './components/SubscribeButton';
 import { GradientHero } from './components/GradientHero';
 import { fmtShortDate } from '../shared/dates';
-import { t, tn, useLang } from '../shared/i18n';
+import { t, tn, useLang, getLang } from '../shared/i18n';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
+import { ensembleMoodLine, rosterOfOneLine } from '../shared/whimsy';
+import { useEggCheer, useTapN } from '../shared/useEggCheer';
+import { NoteBurst } from '../shared/NoteBurst';
 
 export function PublicEnsemble() {
   useLang();
@@ -99,6 +102,11 @@ export function PublicEnsemble() {
     [announcements, today, id, now],
   );
 
+  const { cheer, show } = useEggCheer();
+  const onTitleTap = useTapN(3, 1200, () => {
+    if (ensemble) show(ensembleMoodLine(ensembleDisplayName(ensemble), getLang()));
+  });
+
   const ensPieces = useMemo(
     () => pieces.filter(p => pieceEnsembleIds(p).includes(id)),
     [pieces, id],
@@ -125,7 +133,12 @@ export function PublicEnsemble() {
   return (
     <div className="pub-page">
       <BackLink fallback="/ensembles" label={t('event.back')} />
-      <GradientHero color={ensembleColor(ensemble)} seed={ensemble.id} title={ensembleDisplayName(ensemble)}>
+      <GradientHero
+        color={ensembleColor(ensemble)}
+        seed={ensemble.id}
+        title={ensembleDisplayName(ensemble)}
+        onTitleTap={onTitleTap}
+      >
         <div className="pub-ghero-meta">
           {[
             PUBLIC_STUDENT_INFO ? tn('ens.members', members.length) : null,
@@ -133,6 +146,9 @@ export function PublicEnsemble() {
             formatTimeRange(ensemble.defaultStartTime, ensemble.defaultEndTime) || null,
           ].filter(Boolean).join(' · ')}
         </div>
+        {members.length === 1 && PUBLIC_STUDENT_INFO && (
+          <div className="pub-ghero-meta">{rosterOfOneLine(getLang())}</div>
+        )}
         {nextEvent && (
           <Link to={`/event/${nextEvent.id}`} className="pub-ghero-next">
             <span>{t('misc.next')}:</span>
@@ -254,6 +270,7 @@ export function PublicEnsemble() {
           )}
         </>
       )}
+      <NoteBurst cheer={cheer} />
     </div>
   );
 }

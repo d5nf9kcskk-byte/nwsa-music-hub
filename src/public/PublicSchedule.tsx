@@ -23,7 +23,9 @@ import { SkeletonCards, EmptyState } from './components/PageHeader';
 import { SubscribeButton } from './components/SubscribeButton';
 import { getIdentity } from '../shared/identity';
 import { t, useLang, getLang } from '../shared/i18n';
-import { dailyPun, instrumentQuip, say } from '../shared/whimsy';
+import { dailyPun, instrumentQuip, say, yesThatsYouLine } from '../shared/whimsy';
+import { useEggCheer, useTapN } from '../shared/useEggCheer';
+import { NoteBurst } from '../shared/NoteBurst';
 import { fmtDayHeader, fmtMonthYear, fmtShortDate, weekdayInitials } from '../shared/dates';
 import type { CalendarEvent } from '../director/types';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
@@ -63,6 +65,8 @@ export function PublicSchedule() {
   const [filter, setFilter] = useState<TypeFilter>('all');
   const [view, setView] = useState<'list' | 'calendar'>('list');
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+  const { cheer, show } = useEggCheer();
+  const onNameTap = useTapN(4, 2000, () => show(yesThatsYouLine(getLang())));
 
   const student = students.find(s => s.id === id);
   const today = todayStr();
@@ -172,7 +176,7 @@ export function PublicSchedule() {
       )}
 
       <div className="pub-ens-hero">
-        <h1 className="pub-h1">{student.name}</h1>
+        <h1 className="pub-h1" onClick={onNameTap} style={{ cursor: 'pointer' }}>{student.name}</h1>
         <div className="pub-muted">{[student.instrument, student.grade].filter(Boolean).join(' · ')}</div>
         {homeEnsembles.length > 0 && (
           <div className="pub-tag-row">
@@ -319,6 +323,7 @@ export function PublicSchedule() {
           </div>
         </>
       )}
+      <NoteBurst cheer={cheer} />
     </div>
   );
 }

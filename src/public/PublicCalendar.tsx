@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, Fragment } from 'react';
+import { useState, useMemo, useEffect, Fragment, useRef, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router';
 import { ChevronLeft, ChevronRight, LayoutList, Grid3x3, CalendarX } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
@@ -14,7 +14,9 @@ import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
 import { SubscribeButton } from './components/SubscribeButton';
 import { useMonthSwipe } from '../shared/useMonthSwipe';
 import { t, tn, useLang, getLang } from '../shared/i18n';
-import { dailyPun, say } from '../shared/whimsy';
+import { dailyPun, say, fridayFinaleEmpty, emptyDayHoldLine, daCapoTodayLine, codaFoundLine, alreadyFfLine } from '../shared/whimsy';
+import { useEggCheer, useTapN } from '../shared/useEggCheer';
+import { NoteBurst } from '../shared/NoteBurst';
 import { fmtDayHeader, fmtLongDate, fmtMonthYear, fmtShortDate, weekdayInitials } from '../shared/dates';
 import type { CalendarEvent } from '../director/types';
 
@@ -67,6 +69,28 @@ export function PublicCalendar() {
   );
   const [typeFilters, setTypeFilters] = useState<TypeKey[]>([]);
   const [view, setView] = useState<'month' | 'list'>('month');
+  const { cheer, show } = useEggCheer();
+  const filterSeq = useRef<string[]>([]);
+  const pinchStart = useRef<number | null>(null);
+
+  const noteFilter = useCallback((kind: 'ens' | 'type') => {
+    const seq = filterSeq.current;
+    seq.push(kind);
+    if (seq.length > 4) seq.shift();
+    if (seq.join(',') === 'ens,type,ens,type') {
+      seq.length = 0;
+      show(codaFoundLine(getLang()));
+    }
+  }, [show]);
+
+  const onMonthTitleTap = useTapN(2, 800, () => show(daCapoTodayLine(getLang())));
+
+  function jumpMonthToToday() {
+    const d = parseDate(todayStr());
+    setCursor(new Date(d.getFullYear(), d.getMonth(), 1));
+    setSelectedDate(todayStr());
+    onMonthTitleTap();
+  }
 
   // Keep the ?ensemble= deep-link (comma-separated) in sync with the chosen
   // ensembles, so a filtered calendar is shareable and survives reload.
@@ -175,7 +199,7 @@ export function PublicCalendar() {
           ariaLabel={t('nav.ensembles')}
           options={musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => ({ value: e.id, label: ensembleDisplayName(e), color: ensembleColor(e) }))}
           selected={filterEnsembleIds}
-          onChange={setFilterEnsembleIds}
+          onChange={next => { setFilterEnsembleIds(next); noteFilter('ens'); }}
         />
         <FilterMenu
           prefix="pub"
@@ -183,7 +207,7 @@ export function PublicCalendar() {
           ariaLabel={t('cal.filterTypes')}
           options={TYPE_OPTIONS.map(o => ({ value: o.value, label: t(o.labelKey), color: o.color }))}
           selected={typeFilters}
-          onChange={next => setTypeFilters(next as TypeKey[])}
+          onChange={next => { setTypeFilters(next as TypeKey[]); noteFilter('type'); }}
         />
       </div>
 
@@ -195,7 +219,7 @@ export function PublicCalendar() {
         <div style={{ marginTop: 8 }}>
           {listItems.length === 0 ? (
             <EmptyState icon={<CalendarX size={26} />}>
-              {t('cal.nothingUpcoming')} {say(dailyPun('cal-list'), getLang())}
+              {t('cal.nothingUpcoming')} {fridayFinaleEmpty(getLang()) ?? say(dailyPun('cal-list'), getLang())}
             </EmptyState>
           ) : (
             <>
@@ -235,7 +259,7 @@ export function PublicCalendar() {
         <button className="pub-cal-arrow" onClick={() => shiftMonth(-1)} aria-label="Previous month"><ChevronLeft size={18} /></button>
         <button
           className="pub-cal-month-btn"
-          onClick={() => { const d = parseDate(today); setCursor(new Date(d.getFullYear(), d.getMonth(), 1)); setSelectedDate(today); }}
+          onClick={jumpMonthToToday}
           title={t('cal.jumpToday')}
         >
           {monthLabel}
@@ -244,7 +268,31 @@ export function PublicCalendar() {
       </div>
 
       {/* Calendar grid — same compact grid + swipe as the rest of the public app */}
-      <div className="pub-cal" {...handlers}>
+      <div
+        className="pub-cal"
+        {...handlers}
+        onTouchStart={e => {
+          handlers.onTouchStart(e);
+          if (e.touches.length === 2) {
+            const [a, b] = [e.touches[0], e.touches[1]];
+            pinchStart.current = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+          }
+        }}
+        onTouchMove={e => {
+          handlers.onTouchMove(e);
+          if (e.touches.length !== 2 || pinchStart.current == null) return;
+          const [a, b] = [e.touches[0], e.touches[1]];
+          const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+          if (dist / pinchStart.current > 1.35) {
+            pinchStart.current = null;
+            show(alreadyFfLine(getLang()));
+          }
+        }}
+        onTouchEnd={e => {
+          handlers.onTouchEnd(e);
+          pinchStart.current = null;
+        }}
+      >
         <div className="pub-cal-weekdays">
           {weekdays.map((d, i) => <div key={i}>{d}</div>)}
         </div>
@@ -283,7 +331,21 @@ export function PublicCalendar() {
           {selectedDate === today && <span className="pub-today-badge">{t('cal.today')}</span>}
         </h3>
         {dayEvents.length === 0 && (assignByDate[selectedDate] ?? []).length === 0 ? (
-          <div className="pub-muted">{t('cal.nothingScheduled')} {say(dailyPun('cal-day'), getLang())}</div>
+          <div
+            className="pub-muted"
+            onContextMenu={e => e.preventDefault()}
+            onPointerDown={e => {
+              // Long-press empty day → tacet line (#easter-eggs).
+              const id = window.setTimeout(() => {
+                show(emptyDayHoldLine(fmtLongDate(selectedDate), getLang()));
+              }, 550);
+              const clear = () => window.clearTimeout(id);
+              e.currentTarget.addEventListener('pointerup', clear, { once: true });
+              e.currentTarget.addEventListener('pointerleave', clear, { once: true });
+            }}
+          >
+            {t('cal.nothingScheduled')} {say(dailyPun('cal-day'), getLang())}
+          </div>
         ) : (
           <>
             {dayEvents.map(e => (
@@ -295,6 +357,7 @@ export function PublicCalendar() {
       </div>
       </>
       )}
+      <NoteBurst cheer={cheer} />
     </div>
   );
 }

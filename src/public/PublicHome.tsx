@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useReducer } from 'react';
+import { useMemo, useState, useEffect, useReducer, useRef } from 'react';
 import { Link } from 'react-router';
 import { CalendarDays, UserSearch, Megaphone, Music, ChevronRight, Ticket, HelpCircle, Music2, AlertTriangle } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
@@ -13,8 +13,9 @@ import { SkeletonCards, EmptyState } from './components/PageHeader';
 import { getIdentity, onIdentityChange } from '../shared/identity';
 import { t, useLang, getLang } from '../shared/i18n';
 import { fmtLongDate, fmtShortDate } from '../shared/dates';
-import { composerBirthdaysOn, birthdayLine, musicHolidayOn, concertDayLine, dailyPun, say } from '../shared/whimsy';
+import { composerBirthdaysOn, birthdayLine, musicHolidayOn, concertDayLine, dailyPun, say, schoolMomentLine, weekdayMomentLine, fermataHoldLine } from '../shared/whimsy';
 import { useTapTempo } from '../shared/useTapTempo';
+import { useEggCheer } from '../shared/useEggCheer';
 import { NoteBurst } from '../shared/NoteBurst';
 import { WhatsNewBanner } from '../shared/WhatsNewBanner';
 import '../shared/whatsNew.css';
@@ -37,6 +38,17 @@ export function PublicHome() {
   const { pieces } = useRepertoire();
   // Hidden delight (#easter-eggs): tap the date in rhythm → a tempo reading.
   const { cheer: tempoCheer, onTap: onDateTap } = useTapTempo();
+  const { cheer: holdCheer, show: showHold } = useEggCheer();
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(holdTimer.current), []);
+
+  function onHeroHoldStart() {
+    clearTimeout(holdTimer.current);
+    holdTimer.current = setTimeout(() => showHold(fermataHoldLine(getLang())), 1500);
+  }
+  function onHeroHoldEnd() {
+    clearTimeout(holdTimer.current);
+  }
 
   // Saved identity (student or parent's kids) personalizes the schedule CTA.
   const [, bump] = useReducer(x => x + 1, 0);
@@ -95,7 +107,13 @@ export function PublicHome() {
     <div className="pub-page">
       <WelcomeHubBanner />
       <WhatsNewBanner audience="public" />
-      <div className="pub-hero pub-hero-fancy">
+      <div
+        className="pub-hero pub-hero-fancy"
+        onPointerDown={onHeroHoldStart}
+        onPointerUp={onHeroHoldEnd}
+        onPointerLeave={onHeroHoldEnd}
+        onPointerCancel={onHeroHoldEnd}
+      >
         <div className="pub-hero-date" onClick={onDateTap}>{fmtLongDate(today)}</div>
         <h1><Music2 size={22} style={{ verticalAlign: '-3px' }} /> {t('home.todayAt')}</h1>
       </div>
@@ -103,12 +121,18 @@ export function PublicHome() {
       {showPinnedHubGuide(today) && <PinnedHubGuide />}
 
       {/* Hidden delights (#easter-eggs), each only on its own day: composer
-          birthdays, musical holidays, and a concert-day ribbon. */}
+          birthdays, musical holidays, school moments, weekday quips, concert ribbon. */}
       {composerBirthdaysOn(new Date()).map(b => (
         <div key={b.name} className="pub-birthday-line">{birthdayLine(b, getLang(), new Date())}</div>
       ))}
       {musicHolidayOn(new Date(), getLang()) && (
         <div className="pub-birthday-line">{musicHolidayOn(new Date(), getLang())}</div>
+      )}
+      {schoolMomentLine(new Date(), getLang()) && (
+        <div className="pub-birthday-line">{schoolMomentLine(new Date(), getLang())}</div>
+      )}
+      {weekdayMomentLine(new Date(), getLang()) && (
+        <div className="pub-birthday-line">{weekdayMomentLine(new Date(), getLang())}</div>
       )}
       {todayEvents.some(e => e.type === 'Concert' && e.status !== 'Cancelled') && (
         <div className="pub-birthday-line">{concertDayLine(getLang())}</div>
@@ -241,7 +265,7 @@ export function PublicHome() {
         </Link>
       )}
 
-      <NoteBurst cheer={tempoCheer} />
+      <NoteBurst cheer={tempoCheer || holdCheer} />
     </div>
   );
 }

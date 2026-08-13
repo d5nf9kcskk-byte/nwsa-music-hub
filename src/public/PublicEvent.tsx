@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router';
 import { CalendarPlus, MapPin, ScrollText, XCircle, AlertTriangle, Music } from 'lucide-react';
 import { BackLink } from './components/BackLink';
@@ -12,8 +12,10 @@ import { SkeletonCards } from './components/PageHeader';
 import { t, tType, useLang } from '../shared/i18n';
 import { fmtFullDate, fmtShortDate } from '../shared/dates';
 import { AddToCalendarButton } from './components/AddToCalendar';
-import { concertDayLine } from '../shared/whimsy';
+import { concertDayLine, cancelledNotPersonalLine } from '../shared/whimsy';
 import { getLang } from '../shared/i18n';
+import { useEggCheer } from '../shared/useEggCheer';
+import { NoteBurst } from '../shared/NoteBurst';
 import type { CalendarEvent } from '../director/types';
 import './pubDaySheet.css';
 import './pubEventShell.css';
@@ -68,6 +70,13 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
   // Dock the action bar flush against the real rendered tab bar — its height
   // varies with safe-area insets, the Aa zoom level, and label wrapping.
   const barRef = useRef<HTMLDivElement>(null);
+  const { cheer, show } = useEggCheer();
+  const lastCancelTap = useRef(0);
+  const onCancelTap = useCallback(() => {
+    const now = Date.now();
+    if (now - lastCancelTap.current < 500) show(cancelledNotPersonalLine(getLang()));
+    lastCancelTap.current = now;
+  }, [show]);
   useEffect(() => {
     const tab = document.querySelector('.pub-tabbar') as HTMLElement | null;
     const bar = barRef.current;
@@ -102,7 +111,7 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
       )}
 
       {cancelled && (
-        <div className="pub-alert-banner">
+        <div className="pub-alert-banner" onClick={onCancelTap} style={{ cursor: 'pointer' }}>
           <XCircle size={15} style={{ verticalAlign: '-2px' }} />{' '}
           <strong>{t('event.isCancelled', { type: tType(event.type).toLowerCase() })}</strong>
           {event.changeNote ? <div className="pub-alert-note">{event.changeNote}</div> : null}
@@ -204,6 +213,7 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
           </div>
         </>
       )}
+      <NoteBurst cheer={cheer} />
     </div>
   );
 }
