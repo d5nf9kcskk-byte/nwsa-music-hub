@@ -640,10 +640,11 @@ async function run() {
       console.warn(`Concert ${eventId} missing — skipping piece link (import calendar first).`);
       continue;
     }
+    // Always replace pieceMovements (merge would leave stale keys from old piece IDs).
     const update = {
       pieceIds: patch.pieceIds,
+      pieceMovements: patch.pieceMovements || {},
     };
-    if (patch.pieceMovements) update.pieceMovements = patch.pieceMovements;
     if (patch.title) update.title = patch.title;
     writer.set(ref, update, { merge: true });
     nConcerts++;
