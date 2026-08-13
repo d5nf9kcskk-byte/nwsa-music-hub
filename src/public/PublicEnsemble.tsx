@@ -12,6 +12,7 @@ import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
 import { todayStr, formatTimeRange, formatTime, ensembleColor, ensembleDisplayName, pieceEnsembleIds, isPublished } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
+import { EnsembleAlerts } from './components/EnsembleAlerts';
 import { PubRepertoire } from './components/PubRepertoire';
 import { PubDocCard } from './components/PubDocCard';
 import './documents.css';
@@ -74,7 +75,27 @@ export function PublicEnsemble() {
   }, [hash, pieces.length]);
 
   const ensAnnouncements = useMemo(
-    () => visibleAnnouncements(announcements, today, [id], now),
+    () => visibleAnnouncements(announcements, today, [id], now)
+      .filter(a => a.priority !== 'urgent'),
+    [announcements, today, id, now],
+  );
+
+  /** Cancelled / changed events for this ensemble, plus school-wide schedule alerts. */
+  const scheduleAlerts = useMemo(() => {
+    return events
+      .filter(e => {
+        if (e.date < today) return false;
+        if (e.status !== 'Cancelled' && !e.changeNote) return false;
+        const forThis = e.ensembleIds.includes(id);
+        const forEveryone = e.ensembleIds.length === 0;
+        return forThis || forEveryone;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
+  }, [events, id, today]);
+
+  /** Active urgent notices: everyone-wide, or tagged to this ensemble. */
+  const urgentAlerts = useMemo(
+    () => visibleAnnouncements(announcements, today, [id], now).filter(a => a.priority === 'urgent'),
     [announcements, today, id, now],
   );
 
@@ -123,7 +144,14 @@ export function PublicEnsemble() {
         )}
       </GradientHero>
 
-      <PubAnnouncements items={ensAnnouncements} ensembleMap={ensembleMap} showEnsembleTag={false} />
+      <EnsembleAlerts
+        ensembleId={id}
+        ensembleName={ensembleDisplayName(ensemble)}
+        scheduleAlerts={scheduleAlerts}
+        urgentAlerts={urgentAlerts}
+      />
+
+      <PubAnnouncements items={ensAnnouncements} ensembleMap={ensembleMap} showEnsembleTag />
 
       <div className="pub-section-row">
         <h2 className="pub-section-title">Schedule &amp; concerts</h2>

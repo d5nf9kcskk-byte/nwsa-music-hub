@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { ClipboardList, Users, Calendar, Music, Megaphone, Clock, MapPin, Sparkles, Armchair, FolderOpen, UserPlus } from 'lucide-react';
+import { ClipboardList, Users, Calendar, Music, Megaphone, Clock, MapPin, Sparkles, Armchair, FolderOpen, UserPlus, AlertTriangle } from 'lucide-react';
 import { SeatingManager } from '../seating/SeatingManager';
 import { EnsembleRosterEditor } from './EnsembleRosterEditor';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
-import { useAnnouncements } from '../hooks/useAnnouncements';
+import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../hooks/useAnnouncements';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON } from '../utils';
 import type { DirNavigate } from '../types-nav';
 
@@ -15,6 +15,7 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
   const { events } = useEvents();
   const { students } = useStudents();
   const { announcements } = useAnnouncements();
+  const now = useMinuteTick();
 
   const ensemble = ensembles.find(e => e.id === ensembleId);
   const today = todayStr();
@@ -32,6 +33,21 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
   const upcomingConcerts = mine.filter(e => e.type !== 'Rehearsal').slice(0, 5);
   const rosterCount = students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(ensembleId)).length;
   const myAnnouncements = announcements.filter(a => a.ensembleId === null || a.ensembleId === ensembleId).length;
+
+  const scheduleAlerts = useMemo(() =>
+    events
+      .filter(e => {
+        if (e.date < today) return false;
+        if (e.status !== 'Cancelled' && !e.changeNote) return false;
+        return e.ensembleIds.includes(ensembleId) || e.ensembleIds.length === 0;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99')),
+    [events, ensembleId, today],
+  );
+  const urgentAlerts = useMemo(
+    () => visibleAnnouncements(announcements, today, [ensembleId], now).filter(a => a.priority === 'urgent'),
+    [announcements, today, ensembleId, now],
+  );
 
   if (!ensemble) return <div className="dir-loading">Loading…</div>;
   const color = ensembleColor(ensemble);
@@ -58,6 +74,45 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
       )}
 
       <div className="dir-page-body">
+        {(scheduleAlerts.length > 0 || urgentAlerts.length > 0) && (
+          <>
+            <div className="dir-form-section-label">
+              <AlertTriangle size={13} style={{ verticalAlign: '-1px', marginRight: 4 }} />
+              Alerts
+            </div>
+            <p className="dir-field-hint" style={{ marginTop: -6 }}>
+              Schedule changes for {ensemble.name}, plus notices for everyone.
+            </p>
+            {urgentAlerts.map(a => (
+              <button
+                key={a.id}
+                type="button"
+                className="dir-today-alert"
+                onClick={() => onNavigate('announcements', { announcementId: a.id })}
+              >
+                <span className="dir-alert-scope">{a.ensembleId == null ? 'Everyone' : ensemble.name}</span>
+                {' '}{a.title}{a.body ? ` — ${a.body.slice(0, 80)}${a.body.length > 80 ? '…' : ''}` : ''}
+              </button>
+            ))}
+            {scheduleAlerts.map(e => (
+              <button
+                key={e.id}
+                type="button"
+                className="dir-today-alert"
+                onClick={() => onNavigate('schedule', { date: e.date, eventId: e.id })}
+              >
+                <span className="dir-alert-scope">
+                  {e.ensembleIds.includes(ensembleId) ? ensemble.name : 'Everyone'}
+                </span>
+                {' '}
+                {e.status === 'Cancelled' ? 'Cancelled' : 'Changed'}: {e.title || e.type}
+                {' · '}{fmtDay(e.date)}
+                {e.changeNote ? ` — ${e.changeNote}` : ''}
+              </button>
+            ))}
+          </>
+        )}
+
         <div className="dir-form-section-label">Next rehearsal</div>
         {nextRehearsal ? (
           <div className="dir-today-card">

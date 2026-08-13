@@ -72,8 +72,12 @@ export function GlobalAlerts() {
   const ensName = (ids: string[]) =>
     ids.map(id => ensembleDisplayName(ensembles.find(e => e.id === id))).filter(Boolean).join(' + ') || 'School';
 
-  // Home renders its own richer banner; skip the duplicate there unless urgent.
+  // Home renders its own richer banner; ensemble pages own a headed Alerts
+  // section (ensemble + everyone). Skip the duplicate strip there.
   const onHome = pathname === '/';
+  const onEnsemble = /^\/ensemble\/[^/]+\/?$/.test(pathname);
+
+  if (onEnsemble) return null;
 
   if (urgent.length === 0 && (problems.length === 0 || onHome)) {
     // Positive all-clear — only on non-home pages, only when we actually have data.

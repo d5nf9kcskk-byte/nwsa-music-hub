@@ -78,7 +78,10 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'alert.cancelledToday':     { en: 'CANCELLED today',      es: 'CANCELADO hoy' },
   'alert.changedToday':       { en: 'Changed today',        es: 'Cambió hoy' },
   'alert.scheduleChangeToday':{ en: 'Schedule change today',es: 'Cambio de horario hoy' },
-  'alert.cancelled':          { en: 'cancelled',            es: 'cancelado' },
+  'alert.cancelled':          { en: 'Cancelled',            es: 'Cancelado' },
+  'alert.sectionTitle':       { en: 'Alerts',               es: 'Alertas' },
+  'alert.sectionLead':        { en: 'Schedule changes for {ensemble}, plus notices for everyone.', es: 'Cambios de horario de {ensemble}, y avisos para todos.' },
+  'alert.scopeEveryone':      { en: 'Everyone',             es: 'Todos' },
 
   // ── Find My Schedule (lookup) ───────────────────────────────────────────
   'lookup.typeYourName':   { en: 'Type your name (nicknames OK)…',  es: 'Escribe tu nombre (con apodo también sirve)…' },
