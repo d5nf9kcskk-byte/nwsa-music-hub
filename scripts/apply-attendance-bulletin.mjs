@@ -3,7 +3,7 @@
  * apply-attendance-bulletin.mjs
  *
  * Cloud ingest for the daily MDC Outlook "Attendance Bulletin" PDF:
- *   Power Automate → repository_dispatch → this script → Firestore
+ *   GitHub cron → Graph mail/OneDrive fetch → this script → Firestore
  *
  * Writes office-sourced attendance for Active Hub (music) students only.
  * Other departments on the school-wide bulletin are ignored.
@@ -12,10 +12,12 @@
  * Env:
  *   FIREBASE_SERVICE_ACCOUNT_JSON  (required unless DRY_RUN=parse-only)
  *   BULLETIN_TEXT                  plain layout text (preferred for tests)
+ *   BULLETIN_TEXT_PATH             utf8 file of that text
  *   BULLETIN_PDF_PATH              local PDF path
  *   BULLETIN_PDF_BASE64            PDF bytes
  *   BULLETIN_DATE                  optional YYYY-MM-DD override
  *   DRY_RUN                        "1" / "true" → match + log, no writes (default true)
+ *   SKIP_IF_EMPTY                  "1" → exit 0 when no bulletin input (cron)
  */
 
 import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
@@ -31,9 +33,11 @@ import {
 } from './lib/attendanceBulletinParse.mjs';
 
 const DRY_RUN = !/^(0|false|no)$/i.test(String(process.env.DRY_RUN ?? 'true').trim() || 'true');
+const CI = Boolean(process.env.GITHUB_ACTIONS);
 
 function loadText() {
   if (process.env.BULLETIN_TEXT?.trim()) return process.env.BULLETIN_TEXT;
+  if (process.env.BULLETIN_TEXT_PATH) return readFileSync(process.env.BULLETIN_TEXT_PATH, 'utf8');
   if (process.env.BULLETIN_PDF_PATH) return pdfToText(process.env.BULLETIN_PDF_PATH);
   if (process.env.BULLETIN_PDF_BASE64) {
     const path = join(tmpdir(), `bulletin-${Date.now()}.pdf`);
@@ -41,7 +45,11 @@ function loadText() {
     try { return pdfToText(path); }
     finally { try { unlinkSync(path); } catch { /* */ } }
   }
-  console.error('Provide BULLETIN_TEXT, BULLETIN_PDF_PATH, or BULLETIN_PDF_BASE64.');
+  if (/^(1|true|yes)$/i.test(String(process.env.SKIP_IF_EMPTY || '').trim())) {
+    console.log('No bulletin input; skip.');
+    process.exit(0);
+  }
+  console.error('Provide BULLETIN_TEXT, BULLETIN_TEXT_PATH, BULLETIN_PDF_PATH, or BULLETIN_PDF_BASE64.');
   process.exit(1);
 }
 
@@ -89,14 +97,16 @@ const { matched, ambiguous, ignored } = matchBulletinRows(parsed.rows, students)
 console.log(`Matched music: ${matched.length}; ambiguous: ${ambiguous.length}; ignored (other depts / unknown): ${ignored}`);
 
 if (DRY_RUN) {
-  for (const { row, student } of matched) {
-    const mapped = mapBulletinToAttendance(row);
-    console.log(`  would mark ${student.name} (${student.id}) → ${mapped?.status} · ${mapped?.reason}`);
+  if (!CI) {
+    for (const { row, student } of matched) {
+      const mapped = mapBulletinToAttendance(row);
+      console.log(`  would mark ${student.name} (${student.id}) → ${mapped?.status} · ${mapped?.reason}`);
+    }
+    for (const { row, candidates } of ambiguous) {
+      console.log(`  ambiguous ${row.rawName} → ${candidates.map(c => c.name).join(' | ')}`);
+    }
   }
-  for (const { row, candidates } of ambiguous) {
-    console.log(`  ambiguous ${row.rawName} → ${candidates.map(c => c.name).join(' | ')}`);
-  }
-  console.log('Dry run complete — no writes.');
+  console.log('Dry run complete; no writes.');
   process.exit(0);
 }
 
@@ -108,7 +118,7 @@ for (const { row, student } of matched) {
   if (!mapped) continue;
   const ensembleIds = (student.ensembleIds ?? []).filter(Boolean);
   if (ensembleIds.length === 0) {
-    console.log(`  skip ${student.name}: no ensembles`);
+    if (!CI) console.log(`  skip ${student.name}: no ensembles`);
     continue;
   }
 
@@ -126,7 +136,7 @@ for (const { row, student } of matched) {
       const data = existing.data();
       if (data.source !== 'office') {
         skippedDirector += 1;
-        console.log(`  keep director mark for ${student.name} / ${ensembleId}`);
+        if (!CI) console.log(`  keep director mark for ${student.name} / ${ensembleId}`);
         continue;
       }
       await existing.ref.update({

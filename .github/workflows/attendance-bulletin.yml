@@ -1,18 +1,17 @@
 name: Apply Attendance Bulletin
 
-# Daily MDC Outlook "Attendance Bulletin" PDF → office-sourced Hub roll marks.
-# Power Automate watches ggilman@mdc.edu and POSTs repository_dispatch:
-#   event_type: attendance-bulletin
-#   client_payload: { text, date?, dry_run? }
+# Daily MDC Outlook "Attendance Bulletin" → office-sourced Hub roll marks.
+# GitHub pulls the PDF via Microsoft Graph (Mail.Read) and runs pdftotext.
+# Fallback: OneDrive /Hub/attendance-bulletins (Power Automate Create file).
+# No Premium HTTP. See docs/ATTENDANCE-BULLETIN.md.
 #
-# Prefer sending extracted layout TEXT (not raw PDF base64) — GitHub dispatch
-# payloads are size-capped. See docs/ATTENDANCE-BULLETIN.md.
-#
-# Default DRY_RUN=true until soft-launch is done. Pass dry_run: "false" to write.
+# Default DRY_RUN=true until vars.ATTENDANCE_BULLETIN_DRY_RUN is "false".
 
 on:
-  repository_dispatch:
-    types: [attendance-bulletin]
+  schedule:
+    # Weekdays 12:30 and 3:00 PM Eastern (bulletin is late morning, sometimes updated).
+    - cron: '30 16 * * 1-5'
+    - cron: '0 19 * * 1-5'
   workflow_dispatch:
     inputs:
       date:
@@ -25,6 +24,8 @@ on:
       bulletin_text:
         description: 'pdftotext -layout paste for a one-off test'
         required: false
+  repository_dispatch:
+    types: [attendance-bulletin]
 
 permissions:
   contents: read
@@ -41,13 +42,30 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
       - name: Self-check parser
         run: node scripts/attendance-bulletin.selfcheck.mjs
+      - name: Self-check Graph fetch helpers
+        run: node scripts/fetch-attendance-bulletin.mjs --self-check
+      - name: Fetch bulletin (Graph mail or OneDrive)
+        id: fetch
+        env:
+          MS_GRAPH_TENANT_ID: ${{ secrets.MS_GRAPH_TENANT_ID }}
+          MS_GRAPH_CLIENT_ID: ${{ secrets.MS_GRAPH_CLIENT_ID }}
+          MS_GRAPH_CLIENT_SECRET: ${{ secrets.MS_GRAPH_CLIENT_SECRET }}
+          MS_GRAPH_REFRESH_TOKEN: ${{ secrets.MS_GRAPH_REFRESH_TOKEN }}
+          MS_GRAPH_MAILBOX: ggilman@mdc.edu
+          BULLETIN_OUT: ${{ runner.temp }}/bulletin
+        run: node scripts/fetch-attendance-bulletin.mjs
       - name: Install firebase-admin
+        if: ${{ steps.fetch.outputs.found == '1' || github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch' }}
         run: npm install firebase-admin --no-save
       - name: Apply bulletin
+        if: ${{ steps.fetch.outputs.found == '1' || github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch' }}
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           BULLETIN_DATE: ${{ github.event.client_payload.date || inputs.date }}
           BULLETIN_TEXT: ${{ github.event.client_payload.text || inputs.bulletin_text }}
           BULLETIN_PDF_BASE64: ${{ github.event.client_payload.pdf_base64 }}
-          DRY_RUN: ${{ github.event.client_payload.dry_run || inputs.dry_run || 'true' }}
+          BULLETIN_PDF_PATH: ${{ steps.fetch.outputs.kind == 'pdf' && steps.fetch.outputs.path || '' }}
+          BULLETIN_TEXT_PATH: ${{ steps.fetch.outputs.kind == 'txt' && steps.fetch.outputs.path || '' }}
+          DRY_RUN: ${{ inputs.dry_run || github.event.client_payload.dry_run || vars.ATTENDANCE_BULLETIN_DRY_RUN || 'true' }}
+          SKIP_IF_EMPTY: '1'
         run: node scripts/apply-attendance-bulletin.mjs
