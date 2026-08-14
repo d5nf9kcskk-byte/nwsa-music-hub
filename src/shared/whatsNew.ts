@@ -113,7 +113,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     ],
   },
   {
-    id: '2026-08-14-public-calendar-window',
+    id: '2026-08-14-public-calendar-window-v2',
     date: '2026-08-14',
     title: 'Public site loads the calendar in a window',
     audience: 'staff',
@@ -123,6 +123,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Public pages now load about a week back and six weeks ahead. Paging to another month on the calendar loads that month on the spot, so nothing is lost.',
       'Concerts and school calendar dates still load for the whole year everywhere, so the Concerts page, repertoire links, and programs are unchanged.',
       'The director side is untouched: you still see the full year.',
+      'Calendar subscription links (Add to Calendar) are working again. They went briefly dead this morning when the same allowance stopped the feed files from being built.',
     ],
   },
 ];

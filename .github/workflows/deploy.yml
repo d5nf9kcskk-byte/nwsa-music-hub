@@ -48,6 +48,11 @@ jobs:
         env:
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
 
+      # Feed generation is deliberately non-fatal, so annotate instead of
+      # failing: a green deploy serving 404 feeds must not go unnoticed.
+      - name: Verify ICS feeds
+        run: grep -q BEGIN:VEVENT dist/feeds/all.ics || echo "::error::ICS feed generation produced no events"
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3

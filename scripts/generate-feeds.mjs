@@ -30,13 +30,30 @@ const PUBLIC_STUDENT_INFO = true;
 
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 
+/**
+ * Firestore reports both the free daily read allowance and per-project rate
+ * limits as a bare 429 RESOURCE_EXHAUSTED. One blip used to throw away every
+ * feed, so retry with backoff: a partly-throttled window still yields
+ * calendars instead of 404s.
+ */
+async function fetchWithRetry(url, label, attempts = 6) {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url);
+    if (res.ok) return res;
+    const retriable = res.status === 429 || res.status >= 500;
+    if (!retriable || attempt >= attempts - 1) {
+      throw new Error(`Firestore ${label}: HTTP ${res.status}`);
+    }
+    await new Promise(resolve => setTimeout(resolve, 1000 * 2 ** attempt));
+  }
+}
+
 async function fetchCollection(name) {
   const docs = [];
   let nextPage = null;
   do {
     const url = `${FIRESTORE_BASE}/${name}?pageSize=300${nextPage ? `&pageToken=${nextPage}` : ''}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Firestore ${name}: HTTP ${res.status}`);
+    const res = await fetchWithRetry(url, name);
     const json = await res.json();
     for (const d of json.documents ?? []) {
       const id = d.name.split('/').pop();
