@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, Fragment, useRef, useCallback } from 'rea
 import { useSearchParams, Link } from 'react-router';
 import { ChevronLeft, ChevronRight, LayoutList, Grid3x3, CalendarX } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
-import { useEvents } from '../director/hooks/useEvents';
+import { usePublicEvents } from './hooks/usePublicEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { useMinuteTick } from '../director/hooks/useAnnouncements';
@@ -50,7 +50,7 @@ function matchesTypes(e: CalendarEvent, keys: TypeKey[]): boolean {
 export function PublicCalendar() {
   useLang(); // re-render labels on EN/ES switch
   const { ensembles } = useEnsembles();
-  const { events } = useEvents();
+  const { events, ensureMonth } = usePublicEvents();
   const { pieces } = useRepertoire();
   const { assignments } = useAssignments();
   const now = useMinuteTick(); // a scheduled assignment appears the minute it publishes
@@ -91,6 +91,10 @@ export function PublicCalendar() {
     setSelectedDate(todayStr());
     onMonthTitleTap();
   }
+
+  // Only a window around today is live (#reads) — paging to another month
+  // pulls that month once, so the whole year is still browsable.
+  useEffect(() => { ensureMonth(cursor); }, [cursor, ensureMonth]);
 
   // Keep the ?ensemble= deep-link (comma-separated) in sync with the chosen
   // ensembles, so a filtered calendar is shareable and survives reload.

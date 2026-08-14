@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 import {
   Search, X, CalendarDays, Music, Megaphone, Users, ClipboardCheck,
 } from 'lucide-react';
-import { useEvents } from '../../director/hooks/useEvents';
+import { usePublicEvents } from '../hooks/usePublicEvents';
 import { useRepertoire } from '../../director/hooks/useRepertoire';
 import { useAnnouncements, useMinuteTick } from '../../director/hooks/useAnnouncements';
 import { useEnsembles } from '../../director/hooks/useEnsembles';
@@ -98,7 +98,7 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
 
 function SearchOverlayInner({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
-  const { events } = useEvents();
+  const { events } = usePublicEvents();
   const { pieces } = useRepertoire();
   const { announcements } = useAnnouncements();
   const { ensembles } = useEnsembles();

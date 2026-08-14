@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useRepertoire } from '../director/hooks/useRepertoire';
-import { useEvents } from '../director/hooks/useEvents';
+import { usePublicEvents } from './hooks/usePublicEvents';
 import { ensembleColor, ensembleDisplayName, musicEnsembles, pieceEnsembleIds } from '../director/utils';
 import { PubEnsembleSelect } from './components/PubEnsembleSelect';
 import { PubRepertoire } from './components/PubRepertoire';
@@ -12,7 +12,7 @@ export function PublicRepertoire() {
   useLang(); // ensemble names follow the EN/ES toggle
   const { ensembles } = useEnsembles();
   const { pieces } = useRepertoire();
-  const { events } = useEvents();
+  const { events } = usePublicEvents();
   const [filter, setFilter] = useState('');
 
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);

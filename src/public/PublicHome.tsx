@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useReducer, useRef } from 'react';
 import { Link } from 'react-router';
 import { CalendarDays, UserSearch, Megaphone, Music, ChevronRight, Ticket, HelpCircle, Music2, AlertTriangle } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
-import { useEvents } from '../director/hooks/useEvents';
+import { usePublicEvents } from './hooks/usePublicEvents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
@@ -31,7 +31,7 @@ const LOOKAHEAD_DAYS = 14;
 export function PublicHome() {
   useLang(); // re-render headings on EN/ES switch
   const { ensembles } = useEnsembles();
-  const { events, loading } = useEvents();
+  const { events, loading } = usePublicEvents();
   const { announcements } = useAnnouncements();
   const now = useMinuteTick(); // scheduled posts appear the minute they go live
   const { assignments } = useAssignments();

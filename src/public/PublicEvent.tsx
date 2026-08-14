@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router';
 import { CalendarPlus, MapPin, ScrollText, XCircle, AlertTriangle, Music } from 'lucide-react';
 import { BackLink } from './components/BackLink';
 import { useEnsembles } from '../director/hooks/useEnsembles';
-import { useEvents } from '../director/hooks/useEvents';
+import { useEvent } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { todayStr, formatTime, ensembleDisplayName } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
@@ -27,14 +27,13 @@ import './pubEventShell.css';
  */
 export function PublicEvent() {
   useLang();
-  const { id } = useParams();
-  const { events, loading } = useEvents();
+  const { id = '' } = useParams();
+  const { event, loading } = useEvent(id);
   const { ensembles } = useEnsembles();
   const { pieces } = useRepertoire();
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
-  const event = events.find(e => e.id === id);
 
   if (loading && !event) return <div className="pub-page"><SkeletonCards n={2} /></div>;
   if (!event) {

@@ -112,4 +112,17 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Parents can remember more than one student on a phone. Teachers (or anyone) can tap Find a different student, then Stop remembering on this device, to clear it.',
     ],
   },
+  {
+    id: '2026-08-14-public-calendar-window',
+    date: '2026-08-14',
+    title: 'Public site loads the calendar in a window',
+    audience: 'staff',
+    expires: '2026-08-28',
+    bullets: [
+      'Every public page used to load the entire school year of rehearsals and classes, which ran the site out of its daily database allowance most mornings.',
+      'Public pages now load about a week back and six weeks ahead. Paging to another month on the calendar loads that month on the spot, so nothing is lost.',
+      'Concerts and school calendar dates still load for the whole year everywhere, so the Concerts page, repertoire links, and programs are unchanged.',
+      'The director side is untouched: you still see the full year.',
+    ],
+  },
 ];

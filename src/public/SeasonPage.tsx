@@ -2,7 +2,7 @@ import './season.css';
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { Clock, MapPin, Printer, Ticket } from 'lucide-react';
-import { useEvents } from '../director/hooks/useEvents';
+import { usePublicEvents } from './hooks/usePublicEvents';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { t, tType, useLang } from '../shared/i18n';
 import { fmtDate, fmtMonthYear } from '../shared/dates';
@@ -15,7 +15,7 @@ import type { CalendarEvent, Ensemble } from '../director/types';
 /** Season at a Glance (#13): every concert of the year on one printable page. */
 export function SeasonPage() {
   useLang();
-  const { events, loading } = useEvents();
+  const { events, loading } = usePublicEvents();
   const { ensembles } = useEnsembles();
   const [filter, setFilter] = useState('');
   const pageRef = useRef<HTMLDivElement>(null);

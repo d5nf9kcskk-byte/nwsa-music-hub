@@ -2,7 +2,7 @@ import { useEffect, useMemo, useReducer, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { CheckCircle2, Siren, AlertTriangle } from 'lucide-react';
-import { useEvents } from '../../director/hooks/useEvents';
+import { usePublicEvents } from '../hooks/usePublicEvents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../../director/hooks/useAnnouncements';
 import { useEnsembles } from '../../director/hooks/useEnsembles';
 import { db } from '../../director/firebase';
@@ -23,11 +23,20 @@ import { allClearExtraLine } from '../../shared/whimsy';
  * editor (edit / remove). Families keep the public announcements list.
  */
 export function GlobalAlerts() {
+  const { pathname } = useLocation();
+  // Ensemble pages render EnsembleAlerts in-page; everywhere else (event
+  // detail, repertoire, documents, …) stays clear of this strip. It lives in
+  // the public layout, so gating BEFORE the hooks keeps every one of those
+  // pages from opening the events / announcements listeners at all (#reads).
+  if (pathname !== '/' && pathname !== '/calendar') return null;
+  return <AlertStrip onHome={pathname === '/'} />;
+}
+
+function AlertStrip({ onHome }: { onHome: boolean }) {
   useLang();
-  const { events } = useEvents();
+  const { events } = usePublicEvents();
   const { announcements } = useAnnouncements();
   const { ensembles } = useEnsembles();
-  const { pathname } = useLocation();
   const today = todayStr();
   const now = useMinuteTick();
   const [isStaff, setIsStaff] = useState(false);
@@ -70,15 +79,8 @@ export function GlobalAlerts() {
   const ensName = (ids: string[]) =>
     ids.map(id => ensembleDisplayName(ensembles.find(e => e.id === id))).filter(Boolean).join(' + ') || 'School';
 
-  const onHome = pathname === '/';
-  const onCalendar = pathname === '/calendar';
-
   const urgentGroups = useMemo(() => groupUrgentAnnouncements(urgent, ensembles), [urgent, ensembles]);
   const problemGroups = useMemo(() => groupScheduleAlerts(problems, ensembles), [problems, ensembles]);
-
-  // Ensemble pages render EnsembleAlerts in-page. Everywhere else (event
-  // detail, repertoire, documents, …) stays clear of this strip.
-  if (!onHome && !onCalendar) return null;
 
   if (urgent.length === 0 && (problems.length === 0 || onHome)) {
     if (onHome || events.length === 0) return null;

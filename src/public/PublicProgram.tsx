@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router';
 import { Printer, Clock } from 'lucide-react';
 import { BackLink } from './components/BackLink';
 import { useEnsembles } from '../director/hooks/useEnsembles';
-import { useEvents } from '../director/hooks/useEvents';
+import { usePublicEvents } from './hooks/usePublicEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useStudentsPublic } from './hooks/usePublicRoster';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
@@ -56,7 +56,7 @@ function conductorByline(name: string): string {
 export function PublicProgram() {
   const { id = '' } = useParams();
   const { ensembles } = useEnsembles();
-  const { events, loading: eventsLoading } = useEvents();
+  const { events, loading: eventsLoading } = usePublicEvents();
   const { pieces } = useRepertoire();
   const { students } = useStudentsPublic();
   const { charts } = useSeatingCharts();

@@ -1,4 +1,4 @@
-import { useMemo, useState, Fragment } from 'react';
+import { useEffect, useMemo, useState, Fragment } from 'react';
 import { useParams, Link } from 'react-router';
 import { useMonthSwipe } from '../shared/useMonthSwipe';
 import { NowNext } from './components/NowNext';
@@ -9,7 +9,7 @@ import { BackLink } from './components/BackLink';
 import { ChevronLeft, ChevronRight, ExternalLink, LayoutList, Grid3x3, CalendarX, GraduationCap } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudentsPublic } from './hooks/usePublicRoster';
-import { useEvents } from '../director/hooks/useEvents';
+import { usePublicEvents } from './hooks/usePublicEvents';
 import { usePublicOverrides } from './hooks/usePublicRoster';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
@@ -53,7 +53,7 @@ export function PublicSchedule() {
   const { id = '' } = useParams();
   const { ensembles } = useEnsembles();
   const { students, loading: studentsLoading } = useStudentsPublic();
-  const { events } = useEvents();
+  const { events, ensureMonth } = usePublicEvents();
   const { overrides } = usePublicOverrides();
   const { announcements } = useAnnouncements();
   const now = useMinuteTick(); // scheduled posts appear the minute they go live
@@ -288,6 +288,7 @@ export function PublicSchedule() {
           ensembleMap={ensembleMap}
           piecesById={piecesById}
           studentInstrument={student.instrument}
+          onMonth={ensureMonth}
         />
       ) : upcomingItems.length === 0 ? (
         <div className="pub-muted">
@@ -332,12 +333,14 @@ export function PublicSchedule() {
 }
 
 /** Personal month calendar: dots on days with this student's events; tap a day for details. */
-function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInstrument }: {
+function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInstrument, onMonth }: {
   items: { event: CalendarEvent; exp: ReturnType<typeof studentExpectation> }[];
   assignments: import('../director/types').Assignment[];
   ensembleMap: Record<string, import('../director/types').Ensemble>;
   piecesById: Record<string, import('../director/types').RepertoirePiece>;
   studentInstrument?: string;
+  /** Load the month being viewed — only a window around today is live (#reads). */
+  onMonth: (cursor: Date) => void;
 }) {
   useLang(); // month/weekday names follow the EN/ES toggle
   const today = todayStr();
@@ -347,6 +350,8 @@ function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInst
     return d;
   });
   const [selectedDate, setSelectedDate] = useState(today);
+
+  useEffect(() => { onMonth(cursor); }, [cursor, onMonth]);
 
   const byDate = useMemo(() => {
     const m: Record<string, typeof items> = {};

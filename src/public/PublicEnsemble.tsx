@@ -4,7 +4,7 @@ import { CalendarDays, Armchair, ChevronRight } from 'lucide-react';
 import { BackLink } from './components/BackLink';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudentsPublic } from './hooks/usePublicRoster';
-import { useEvents } from '../director/hooks/useEvents';
+import { usePublicEvents } from './hooks/usePublicEvents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useDocuments } from '../director/hooks/useDocuments';
@@ -34,7 +34,7 @@ export function PublicEnsemble() {
   const [showAllPieces, setShowAllPieces] = useState(false);
   const { ensembles, loading: ensemblesLoading } = useEnsembles();
   const { students } = useStudentsPublic();
-  const { events } = useEvents();
+  const { events } = usePublicEvents();
   const { announcements } = useAnnouncements();
   const now = useMinuteTick(); // scheduled posts appear the minute they go live
   const { pieces } = useRepertoire();

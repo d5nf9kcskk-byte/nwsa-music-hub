@@ -4,7 +4,7 @@ import { ExternalLink, Clock, FileText, Video, Headphones, BookOpen, Armchair } 
 import { BackLink } from './components/BackLink';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useEnsembles } from '../director/hooks/useEnsembles';
-import { useEvents } from '../director/hooks/useEvents';
+import { usePublicEvents } from './hooks/usePublicEvents';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
 import { useStudentsPublic } from './hooks/usePublicRoster';
 import { ensembleColor, ensembleDisplayName, findPartForInstrument, pieceEnsembleIds } from '../director/utils';
@@ -21,7 +21,7 @@ export function PublicPiece() {
   const { id = '' } = useParams();
   const { pieces, loading: piecesLoading } = useRepertoire();
   const { ensembles } = useEnsembles();
-  const { events } = useEvents();
+  const { events } = usePublicEvents();
 
   const piece = pieces.find(p => p.id === id);
   const { charts: seatingCharts } = useSeatingCharts(piece ? (pieceEnsembleIds(piece)[0] ?? '') : '');
