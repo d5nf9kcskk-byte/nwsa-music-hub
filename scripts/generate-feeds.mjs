@@ -26,7 +26,7 @@ if (!PROJECT_ID) {
 
 // Keep in sync with src/public/publicStudentInfo.ts — when false, skip
 // per-student ICS so personal schedules stay dark until the roster is final.
-const PUBLIC_STUDENT_INFO = false;
+const PUBLIC_STUDENT_INFO = true;
 
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 

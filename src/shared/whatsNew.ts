@@ -100,4 +100,15 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Get directions only appears when the event has a full street address, not for campus room numbers.',
     ],
   },
+  {
+    id: '2026-08-14-roster-live',
+    date: '2026-08-14',
+    title: 'Find your name and your schedule',
+    audience: 'both',
+    expires: '2026-08-28',
+    bullets: [
+      'Search your name on Home to open your personal schedule, including ensembles and theory class by grade.',
+      'Ensemble pages list members. Public records show name, instrument, and grade; contact details stay on the director side.',
+    ],
+  },
 ];

@@ -89,21 +89,25 @@ function matchKey(name) {
   return String(name).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean).sort().join(' ');
 }
 
+function compact(obj) {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v != null && v !== ''));
+}
+
 function contactPayload(row) {
   const guardians = [];
   if (row.guardianName || row.guardianEmail || row.guardianPhone) {
-    guardians.push({
-      name: row.guardianName || undefined,
-      email: row.guardianEmail || undefined,
-      phone: row.guardianPhone || undefined,
-    });
+    guardians.push(compact({
+      name: row.guardianName,
+      email: row.guardianEmail,
+      phone: row.guardianPhone,
+    }));
   }
   if (row.guardian2Name || row.guardian2Phone || row.contact2Email) {
-    guardians.push({
-      name: row.guardian2Name || undefined,
-      email: row.contact2Email || undefined,
-      phone: row.guardian2Phone || undefined,
-    });
+    guardians.push(compact({
+      name: row.guardian2Name,
+      email: row.contact2Email,
+      phone: row.guardian2Phone,
+    }));
   }
   const g0 = guardians[0] ?? {};
   const extra = {};
