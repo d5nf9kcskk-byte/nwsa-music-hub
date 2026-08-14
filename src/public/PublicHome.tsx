@@ -180,6 +180,9 @@ export function PublicHome() {
               <UserSearch size={22} /><span>{t('home.studentSchedule', { name: s.name.split(' ')[0] })}</span>
             </Link>
           ))}
+          <Link to="/lookup" className="pub-quick-btn">
+            <UserSearch size={22} /><span>{t('home.findSomeoneElse')}</span>
+          </Link>
         </div>
       ) : (
         <Link to="/lookup" className="pub-cta-btn">

@@ -101,7 +101,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     ],
   },
   {
-    id: '2026-08-14-roster-live',
+    id: '2026-08-14-roster-live-v2',
     date: '2026-08-14',
     title: 'Find your name and your schedule',
     audience: 'both',
@@ -109,6 +109,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     bullets: [
       'Search your name on Home to open your personal schedule, including ensembles and theory class by grade.',
       'Ensemble pages list members. Public records show name, instrument, and grade; contact details stay on the director side.',
+      'Parents can remember more than one student on a phone. Teachers (or anyone) can tap Find a different student, then Stop remembering on this device, to clear it.',
     ],
   },
 ];

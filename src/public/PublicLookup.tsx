@@ -6,7 +6,7 @@ import { useEnsembles } from '../director/hooks/useEnsembles';
 import { sortStudents, lastName, type StudentSort } from '../director/scoreOrder';
 import { t, useLang } from '../shared/i18n';
 import { PageHeader } from './components/PageHeader';
-import { getIdentity, rememberStudent, forgetStudent, setParentMode } from '../shared/identity';
+import { getIdentity, rememberStudent, forgetStudent, forgetAll, setParentMode } from '../shared/identity';
 import { ensembleColor, ensembleDisplayName, musicEnsembles } from '../director/utils';
 import { PubEnsembleSelect } from './components/PubEnsembleSelect';
 import type { Student } from '../director/types';
@@ -105,7 +105,7 @@ export function PublicLookup() {
       {identity.students.length > 0 && (
         <div className="pub-card" style={{ marginBottom: 12, padding: 12 }}>
           <div className="pub-section-title" style={{ margin: '0 0 8px' }}>
-            {identity.parentMode ? t('lookup.yourStudents') : t('lookup.welcomeBack')}
+            {t('lookup.savedOnDevice')}
           </div>
           {identity.students.map(st => (
             <div key={st.id} className="pub-saved-row">
@@ -117,27 +117,33 @@ export function PublicLookup() {
               </Link>
               <button
                 className="pub-saved-forget"
-                aria-label={`Forget ${st.name}`}
-                onClick={() => {
-                  if (window.confirm(`Forget ${st.name} on this device? You can always find them again.`)) {
-                    forgetStudent(st.id);
-                    setTick(t => t + 1);
-                  }
-                }}
+                aria-label={t('lookup.forgetName', { name: st.name })}
+                onClick={() => { forgetStudent(st.id); setTick(n => n + 1); }}
               >
                 <X size={14} />
               </button>
             </div>
           ))}
-          <label className="pub-parent-toggle">
-            <input
-              type="checkbox"
-              checked={identity.parentMode}
-              onChange={e => { setParentMode(e.target.checked); setTick(t => t + 1); }}
-            />
-            I'm a parent — let me save more than one student
-          </label>
+          <button
+            type="button"
+            className="pub-saved-clear"
+            onClick={() => { forgetAll(); setTick(n => n + 1); }}
+          >
+            {t('lookup.stopRemembering')}
+          </button>
         </div>
+      )}
+
+      <label className="pub-parent-toggle">
+        <input
+          type="checkbox"
+          checked={identity.parentMode}
+          onChange={e => { setParentMode(e.target.checked); setTick(n => n + 1); }}
+        />
+        {t('lookup.parentToggle')}
+      </label>
+      {identity.students.length === 0 && (
+        <div className="pub-muted" style={{ margin: '-4px 0 12px' }}>{t('lookup.parentHint')}</div>
       )}
 
       <div className="pub-search">
@@ -188,7 +194,7 @@ export function PublicLookup() {
       {confirming && (
         <div className="pub-confirm-overlay" onClick={e => e.target === e.currentTarget && setConfirming(null)}>
           <div className="pub-confirm-card">
-            <div className="pub-confirm-title">Is this you{identity.parentMode ? 'r student' : ''}?</div>
+            <div className="pub-confirm-title">{identity.parentMode ? t('lookup.isThisYourStudent') : t('lookup.isThisYou')}</div>
             <div className="pub-confirm-name">{confirming.name}</div>
             <div className="pub-confirm-detail">
               {[confirming.instrument, confirming.grade].filter(Boolean).join(' · ')}
@@ -200,8 +206,8 @@ export function PublicLookup() {
               })}
             </div>
             <div className="pub-confirm-actions">
-              <button className="pub-confirm-no" onClick={() => setConfirming(null)}>No, go back</button>
-              <button className="pub-confirm-yes" onClick={confirm}>Yes — show my schedule</button>
+              <button className="pub-confirm-no" onClick={() => setConfirming(null)}>{t('lookup.noGoBack')}</button>
+              <button className="pub-confirm-yes" onClick={confirm}>{t('lookup.yesShowSchedule')}</button>
             </div>
           </div>
         </div>

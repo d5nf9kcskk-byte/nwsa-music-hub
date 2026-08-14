@@ -178,6 +178,9 @@ export function PublicSchedule() {
       <div className="pub-ens-hero">
         <h1 className="pub-h1" onClick={onNameTap} style={{ cursor: 'pointer' }}>{student.name}</h1>
         <div className="pub-muted">{[student.instrument, student.grade].filter(Boolean).join(' · ')}</div>
+        <Link to="/lookup" className="pub-muted" style={{ display: 'inline-block', marginTop: 4, fontWeight: 700 }}>
+          {t('sched.notYou')}
+        </Link>
         {homeEnsembles.length > 0 && (
           <div className="pub-tag-row">
             {homeEnsembles.map(e => (

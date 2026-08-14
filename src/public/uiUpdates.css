@@ -429,7 +429,12 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
   display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 8px;
   font-size: 13px; color: var(--pub-muted); font-weight: 600; cursor: pointer;
 }
-.pub-parent-toggle input { width: 17px; height: 17px; accent-color: var(--pub-purple); }
+.pub-parent-toggle input { width: 17px; height: 17px; accent-color: var(--pub-purple); flex-shrink: 0; }
+.pub-saved-clear {
+  display: block; width: 100%; margin-top: 8px; padding: 8px;
+  border: 0; background: none; cursor: pointer; text-align: left;
+  font-size: 13px; font-weight: 700; color: var(--pub-muted); text-decoration: underline;
+}
 
 /* A–Z rail (#3) */
 .pub-az-rail { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 4px; }
