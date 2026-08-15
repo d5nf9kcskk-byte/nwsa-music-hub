@@ -14,6 +14,7 @@ import { printViaPopup } from '../shared/printPopup';
 import type { Ensemble, RepertoirePiece, SeatingChart } from '../director/types';
 import './programTemplate.css';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
+import { ORG } from '../org';
 
 /**
  * Static cover-page boilerplate (#program-template): the school's leadership
@@ -22,13 +23,10 @@ import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
  * order) — see the director's program template. Edit here if a title or the
  * wording ever changes.
  */
-const LEADERSHIP = [
-  { name: 'Jeffrey Hodgson', title: 'Provost' },
-  { name: 'Daniel Andai', title: 'Dean of Music' },
-  { name: 'Contessa Bryant', title: 'High School Principal' },
-];
-const MISSION_STATEMENT = 'New World School of the Arts was created by the Florida Legislature as a center of excellence in the performing and visual arts as an educational partnership of Miami-Dade County Public Schools, Miami Dade College and the University of Florida.';
-const PARTNERS = 'Miami-Dade County Public Schools  ·  Miami Dade College  ·  University of Florida';
+// Cover-page identity — per-org (config/orgs/*.json → ORG.program).
+const LEADERSHIP = ORG.program.leadership;
+const MISSION_STATEMENT = ORG.program.missionStatement;
+const PARTNERS = ORG.program.partners;
 
 /** Ensembles on this concert, grouped by shared conductor (mirrors the
  *  template's cover page: one conductor's name over every ensemble they
@@ -63,7 +61,7 @@ export function PublicProgram() {
 
   const sheetRef = useRef<HTMLDivElement>(null);
   function handlePrint() {
-    if (sheetRef.current) printViaPopup('NWSA Music — Program', sheetRef.current.outerHTML);
+    if (sheetRef.current) printViaPopup(`${ORG.brandName} — Program`, sheetRef.current.outerHTML);
     else window.print();
   }
 
@@ -183,8 +181,8 @@ export function PublicProgram() {
         <section className="pub-program-page pub-program-cover">
           <div className="pub-program-cover-col">
             <div className="pub-program-wordmark">
-              <div className="pub-program-wordmark-main">New World School</div>
-              <div className="pub-program-wordmark-main">of the Arts</div>
+              <div className="pub-program-wordmark-main">{ORG.program.wordmarkMain}</div>
+              <div className="pub-program-wordmark-main">{ORG.program.wordmarkSub}</div>
             </div>
             <ul className="pub-program-leadership">
               {LEADERSHIP.map(l => (
@@ -198,7 +196,7 @@ export function PublicProgram() {
 
           <div className="pub-program-cover-col pub-program-cover-right">
             <div className="pub-program-division">
-              New World School of the Arts<br />Music Division
+              {ORG.program.footerLine1}<br />{ORG.program.footerLine2}
             </div>
             <h1 className="pub-program-title">{event.title || 'Concert'}</h1>
             <div className="pub-program-conductors">

@@ -1,0 +1,70 @@
+name: Deploy ASYO demo
+
+# Second-org deployment (#org-config): builds this same codebase with
+# VITE_ORG=asyo against the asyo-hub-demo Firebase project and pushes the
+# built site to the thin `asyo-music-hub` repo's gh-pages branch (GitHub
+# Pages ties one site to one repo; that repo holds zero source). Kept fully
+# separate from deploy.yml so a demo failure can never block or slow the
+# NWSA deploy.
+#
+# One-time setup lives in docs/demo-asyo-setup.md (Firebase project, the
+# ASYO_* secrets, the deploy key on the target repo).
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Refresh demo ICS feeds every 4 hours, offset from the NWSA cron.
+    - cron: '15 */4 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: demo-pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    # Don't run the cron in forks or before secrets exist.
+    if: ${{ github.repository_owner == 'd5nf9kcskk-byte' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build (ASYO org)
+        run: npm run build
+        env:
+          VITE_ORG: asyo
+          VITE_FIREBASE_API_KEY: ${{ secrets.ASYO_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.ASYO_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.ASYO_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.ASYO_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.ASYO_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.ASYO_FIREBASE_APP_ID }}
+
+      - name: Generate ICS calendar feeds
+        run: node scripts/generate-feeds.mjs
+        env:
+          ORG: asyo
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.ASYO_FIREBASE_PROJECT_ID }}
+
+      - name: Verify ICS feeds
+        run: grep -q BEGIN:VEVENT dist/feeds/all.ics || echo "::error::ICS feed generation produced no events"
+
+      - name: Publish to asyo-music-hub gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          external_repository: d5nf9kcskk-byte/asyo-music-hub
+          publish_branch: gh-pages
+          publish_dir: dist
+          deploy_key: ${{ secrets.ASYO_DEPLOY_KEY }}
+          # GitHub Pages must not run Jekyll over the built site.
+          enable_jekyll: false
+          commit_message: 'Deploy ASYO demo from ${{ github.sha }}'

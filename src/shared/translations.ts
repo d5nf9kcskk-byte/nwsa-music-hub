@@ -8,8 +8,11 @@
  * - Proper nouns stay as-is ("NWSA Music").
  *
  * Keys are stable dotted slugs; the English value is the exact string the UI
- * showed before #42 so integrators can grep for it.
+ * showed before #42 so integrators can grep for it. Org names interpolate
+ * from ORG (#org-config) so a white-label build brands its own copy.
  */
+import { ORG } from '../org';
+
 export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   // ── Nav + menu + tab bar ────────────────────────────────────────────────
   'nav.home':             { en: 'Home',                es: 'Inicio' },
@@ -18,6 +21,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.repertoire':       { en: 'Repertoire',          es: 'Repertorio' },
   'nav.assignments':      { en: 'Assignments & Exams', es: 'Tareas y exámenes' },
   'nav.assignmentsShort': { en: 'Assignments',         es: 'Tareas' },
+  'nav.contact':          { en: 'Contact Us',          es: 'Contáctanos' },
   'nav.mySchedule':       { en: 'My Schedule',         es: 'Mi horario' },
   'nav.ensembles':        { en: 'Ensembles',           es: 'Ensambles' },
   'nav.allEnsembles':     { en: 'All ensembles',       es: 'Todos los ensambles' },
@@ -49,7 +53,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'theme.dark':  { en: 'Dark',               es: 'Oscura' },
 
   // ── Home headings + quick actions ───────────────────────────────────────
-  'home.todayAt':               { en: 'Today at NWSA Music',                es: 'Hoy en NWSA Music' },
+  'home.todayAt':               { en: `Today at ${ORG.brandName}`,          es: `Hoy en ${ORG.brandName}` },
   'home.comingUpRehearsals':    { en: 'Coming up — rehearsals',             es: 'Próximos ensayos' },
   'home.comingUpClasses':       { en: 'Coming up — classes',                es: 'Próximas clases' },
   'home.comingUpConcerts':      { en: 'Coming up — concerts',               es: 'Próximos conciertos' },
@@ -109,13 +113,13 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
 
   // ── Welcome Hub banner (opening week) ───────────────────────────────────
   'welcome.kicker':          { en: 'Welcome back to school', es: 'Bienvenidos de nuevo' },
-  'welcome.title':           { en: 'Welcome to the Hub for NWSA Music', es: 'Bienvenidos al Hub de Música de NWSA' },
+  'welcome.title':           { en: `Welcome to the Hub for ${ORG.brandName}`, es: `Bienvenidos al Hub de Música de ${ORG.orgShortName}` },
   'welcome.tap':             { en: 'Tap for the QR code and how to save it', es: 'Toca para el código QR y cómo guardarlo' },
   'welcome.dismiss':         { en: 'Dismiss welcome banner', es: 'Cerrar aviso de bienvenida' },
   'welcome.close':           { en: 'Close', es: 'Cerrar' },
   'welcome.sheetTitle':      { en: 'Your shortcut to the Hub', es: 'Tu acceso directo al Hub' },
   'welcome.lead':            { en: 'Schedules, repertoire, announcements, and concert details live here. Save it once and you will always find it.', es: 'Aquí viven los horarios, el repertorio, los avisos y los conciertos. Guárdalo una vez y siempre lo tendrás a mano.' },
-  'welcome.qrLabel':         { en: 'QR code for the NWSA Music Hub', es: 'Código QR del Hub de Música de NWSA' },
+  'welcome.qrLabel':         { en: `QR code for the ${ORG.appName}`, es: `Código QR del Hub de Música de ${ORG.orgShortName}` },
   'welcome.funny':           { en: 'Typing that whole address on a phone keyboard is a competitive sport. Scan the code. Your thumbs will thank you.', es: 'Escribir toda esa dirección en el teclado del teléfono es un deporte olímpico. Mejor escanea el código. Tus pulgares te lo agradecerán.' },
   'welcome.urlLabel':        { en: 'Full Hub address', es: 'Dirección completa del Hub' },
   'welcome.bookmarkTitle':   { en: 'Save as a bookmark (quick link)', es: 'Guardar como marcador (enlace rápido)' },
@@ -131,7 +135,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'welcome.androidBookmark3':{ en: 'Tap the star (or Bookmark) and save it. You can find it later under Bookmarks.', es: 'Toca la estrella (o Marcador) y guárdalo. Luego lo encuentras en Marcadores.' },
   'welcome.iosHome1':        { en: 'Open this page in Safari.', es: 'Abre esta página en Safari.' },
   'welcome.iosHome2':        { en: 'Tap Share (square with arrow up).', es: 'Toca Compartir (cuadrado con flecha hacia arriba).' },
-  'welcome.iosHome3':        { en: 'Scroll and tap Add to Home Screen, then Add. Look for the NWSA Music icon on your home screen.', es: 'Desplázate y toca Añadir a pantalla de inicio, luego Añadir. Busca el ícono de NWSA Music en tu pantalla de inicio.' },
+  'welcome.iosHome3':        { en: `Scroll and tap Add to Home Screen, then Add. Look for the ${ORG.brandName} icon on your home screen.`, es: `Desplázate y toca Añadir a pantalla de inicio, luego Añadir. Busca el ícono de ${ORG.brandName} en tu pantalla de inicio.` },
   'welcome.androidHome1':    { en: 'Open this page in Chrome.', es: 'Abre esta página en Chrome.' },
   'welcome.androidHome2':    { en: 'Tap the three-dot menu.', es: 'Toca el menú de tres puntos.' },
   'welcome.androidHome3':    { en: 'Tap Add to Home screen or Install app, then confirm. The Hub icon lands on your home screen.', es: 'Toca Añadir a pantalla de inicio o Instalar app y confirma. El ícono del Hub queda en tu pantalla de inicio.' },

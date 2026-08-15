@@ -4,6 +4,7 @@ import { formatTime } from '../../director/utils';
 import { detectPlatform } from '../platform';
 import { t, useLang } from '../../shared/i18n';
 import './addToCalendar.css';
+import { ORG } from '../../org';
 
 /* ── ICS generation (single event, client-side) ─────────────────────────
    Times in Firestore are wall-clock America/New_York. We convert them to
@@ -69,11 +70,11 @@ function buildIcs(event: CalendarEvent, ensembleName?: string): string {
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//NWSA Music Hub//Event//EN',
+    `PRODID:${ORG.ics.fileProdId}`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
-    `UID:${event.id}@nwsa-music-hub`,
+    `UID:${event.id}@${ORG.ics.fileUidDomain}`,
     `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`,
   ];
 

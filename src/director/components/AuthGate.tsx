@@ -10,6 +10,7 @@ import { directorEmailId, directorRole } from '../hooks/useDirectors';
 import type { Director } from '../hooks/useDirectors';
 import { recordLogin } from '../hooks/useLoginEvents';
 import { setCurrentDirector, clearCurrentDirector } from '../currentDirector';
+import { ORG } from '../../org';
 
 /**
  * Break-glass allowlist. Access is normally decided by the `directors`
@@ -18,11 +19,10 @@ import { setCurrentDirector, clearCurrentDirector } from '../currentDirector';
  * from the in-app Directors screen. It is used ONLY when the membership read
  * itself fails (e.g. during the one-time migration, before the new rules are
  * deployed, the read is denied), so the founding accounts can never be locked
- * out by a mis-ordered rollout. Keep it to the seed accounts.
+ * out by a mis-ordered rollout. Keep it to the seed accounts — the list is
+ * per-org in config/orgs/*.json.
  */
-const BREAK_GLASS_EMAILS = [
-  'nwsaorchestras@gmail.com',
-];
+const BREAK_GLASS_EMAILS = ORG.breakGlassEmails;
 
 type Access = 'checking' | 'granted' | 'denied' | 'error';
 
@@ -215,8 +215,8 @@ export function AuthGate({ children }: Props) {
     }
     return (
       <div className="dir-auth">
-        <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
-        <h1>NWSA Music Hub — Directors</h1>
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
+        <h1>{ORG.appName} — Directors</h1>
         <p>Firebase setup required to get started.</p>
         <div className="dir-setup-box">
           <h3>One-time setup (~10 min)</h3>
@@ -235,7 +235,7 @@ export function AuthGate({ children }: Props) {
   if (user === 'loading') {
     return (
       <div className="dir-auth">
-        <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
         <p>Loading…</p>
       </div>
     );
@@ -244,8 +244,8 @@ export function AuthGate({ children }: Props) {
   if (!user) {
     return (
       <div className="dir-auth">
-        <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
-        <h1>NWSA Music Hub — Directors</h1>
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
+        <h1>{ORG.appName} — Directors</h1>
         <p>Roster, attendance, rehearsals, and notes — all in one place.</p>
         <button className="dir-google-btn" onClick={signIn}>
           <svg width="18" height="18" viewBox="0 0 18 18">
@@ -265,7 +265,7 @@ export function AuthGate({ children }: Props) {
   if (access === 'checking') {
     return (
       <div className="dir-auth">
-        <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
         <p>Checking access…</p>
       </div>
     );
@@ -276,7 +276,7 @@ export function AuthGate({ children }: Props) {
   if (access === 'error') {
     return (
       <div className="dir-auth">
-        <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
         <h1>Couldn’t verify your access</h1>
         <p>
           You’re signed in as <strong>{user.email}</strong>, but we couldn’t reach
@@ -294,11 +294,11 @@ export function AuthGate({ children }: Props) {
   if (access === 'denied') {
     return (
       <div className="dir-auth">
-        <img src={`${import.meta.env.BASE_URL}nwsa-logo.png`} className="dir-auth-logo" alt="NWSA" />
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
         <h1>This account isn’t authorized</h1>
         <p>
           You’re signed in as <strong>{user.email}</strong>, which isn’t on the
-          director list for NWSA Music Hub. If you should have access, ask a
+          director list for {ORG.appName}. If you should have access, ask a
           current director to add your Google email from the Directors screen.
         </p>
         <button className="dir-google-btn" onClick={handleSignOut}>Sign in with a different account</button>

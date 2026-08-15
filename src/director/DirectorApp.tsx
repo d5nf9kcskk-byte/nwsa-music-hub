@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, Repeat, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, Repeat, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -33,6 +33,8 @@ import { ScheduleSwapView } from './schedule/ScheduleSwapView';
 import { NotesView } from './notes/NotesView';
 import { AssignmentsView } from './assignments/AssignmentsView';
 import { AnnouncementManager } from './announcements/AnnouncementManager';
+import { MessagesView } from './messages/MessagesView';
+import { useParentMessages } from './hooks/useParentMessages';
 import { RepertoireManager } from './repertoire/RepertoireManager';
 import { DocumentsView } from './documents/DocumentsView';
 import { TodayView } from './today/TodayView';
@@ -42,6 +44,7 @@ import { EnsemblesView } from './ensembles/EnsemblesView';
 import { useEnsembles } from './hooks/useEnsembles';
 import { ensembleColor, musicEnsembles } from './utils';
 import type { DirTab, DirNavOpts } from './types-nav';
+import { ORG } from '../org';
 
 /**
  * Navigation groups shared by the desktop rail and the phone menu (redesign
@@ -81,6 +84,8 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
       { id: 'documents',     label: 'Documents',     Icon: FolderOpen     },
       { id: 'assignments',   label: 'Assignments',   Icon: ClipboardCheck },
       { id: 'announcements', label: 'Announcements', Icon: Megaphone      },
+      // Parent contact-form inbox (#parent-messages) — org-gated.
+      ...(ORG.features.contactForm ? [{ id: 'messages' as const, label: 'Messages', Icon: Mail }] : []),
     ],
   },
 ];
@@ -101,11 +106,13 @@ const TAB_TITLES: Record<DirTab, string> = {
   ensembleHub:     'Ensemble',
   ensembles:       'Ensembles',
   whosOut:         'Who\u2019s Out',
+  messages:        'Messages',
 };
 
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'roster', 'lessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'whosOut', 'scheduleSwap',
+  'messages',
 ];
 
 /**
@@ -128,6 +135,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   documents:       'Handbooks, forms, and files for families. Anything you post here shows on the public site.',
   assignments:     'Post practice assignments and exams. Students see them on the public site.',
   announcements:   'Post news for families \u2014 school-wide or per ensemble. Urgent posts show as a red banner.',
+  messages:        'Messages families send through the public Contact Us form. Reply opens your own email app.',
 };
 
 export default function DirectorApp() {
@@ -154,6 +162,10 @@ export default function DirectorApp() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { ensembles } = useEnsembles();
+  // Unread parent-messages badge (#parent-messages); listener only runs for
+  // orgs with the contact form enabled.
+  const { messages: parentMsgs } = useParentMessages(ORG.features.contactForm);
+  const newMsgCount = parentMsgs.filter(m => m.status === 'new').length;
   const writeBusy = useWriteBusy();
   const menuRef = useModalA11y<HTMLElement>(() => setMenuOpen(false), menuOpen);
   const me = useCurrentDirector();
@@ -218,8 +230,8 @@ export default function DirectorApp() {
               coarse-pointer-first. Same items as the phone menu. */}
           <aside className="dir-rail no-print">
             <div className="dir-rail-brand">
-              <img src={`${import.meta.env.BASE_URL}nwsa-mark.png`} alt="NWSA" />
-              <span className="dir-rail-brand-name">NWSA Music Hub</span>
+              <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} />
+              <span className="dir-rail-brand-name">{ORG.appName}</span>
               <span className="dir-panel-tag">Director Panel</span>
             </div>
             <nav aria-label="Director navigation" style={{ display: 'contents' }}>
@@ -234,6 +246,7 @@ export default function DirectorApp() {
                   {g.items.map(({ id, label, Icon }) => (
                     <button key={id} className={`dir-rail-item ${tab === id ? 'active' : ''}`} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined}>
                       <Icon size={18} /> {label}
+                      {id === 'messages' && newMsgCount > 0 && <span className="dir-nav-badge">{newMsgCount}</span>}
                     </button>
                   ))}
                 </div>
@@ -283,12 +296,12 @@ export default function DirectorApp() {
           <header className="dir-header">
             <div className="dir-header-brand">
               <span className="dir-logo-chip" onClick={onLogoTap}>
-                <img src={`${import.meta.env.BASE_URL}nwsa-mark.png`} alt="NWSA" className="dir-header-mark" />
+                <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} className="dir-header-mark" />
               </span>
               <div>
                 <div className="dir-header-title">{title}</div>
                 <div className="dir-header-sub">
-                  <span className="dir-panel-tag">Director Panel</span> NWSA Music Hub
+                  <span className="dir-panel-tag">Director Panel</span> {ORG.appName}
                 </div>
               </div>
             </div>
@@ -339,6 +352,7 @@ export default function DirectorApp() {
             {tab === 'notes'           && <NotesView />}
             {tab === 'assignments'     && <AssignmentsView />}
             {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} onClose={() => {}} />}
+            {tab === 'messages'        && <MessagesView />}
             {tab === 'ensembles'       && <EnsemblesView onNavigate={go} />}
             {tab === 'ensembleHub' && intent.ensembleId && (
               <EnsembleHubView key={intentKey} ensembleId={intent.ensembleId} onNavigate={go} />
@@ -366,7 +380,7 @@ export default function DirectorApp() {
               <nav className="dir-menu-panel" role="dialog" aria-modal="true" aria-label="Menu" tabIndex={-1} ref={menuRef} onClick={e => e.stopPropagation()}>
                 <div className="dir-menu-header">
                   {user.photoURL && <img className="dir-avatar" src={user.photoURL} alt={user.displayName ?? 'User'} referrerPolicy="no-referrer" />}
-                  <span className="dir-menu-title">{user.displayName ?? 'NWSA Music Hub'}</span>
+                  <span className="dir-menu-title">{user.displayName ?? ORG.appName}</span>
                   <button className="dir-menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">
                     <X size={20} />
                   </button>
@@ -393,6 +407,7 @@ export default function DirectorApp() {
                         aria-current={tab === id ? 'page' : undefined}
                       >
                         <Icon size={19} /> {label}
+                        {id === 'messages' && newMsgCount > 0 && <span className="dir-nav-badge">{newMsgCount}</span>}
                       </button>
                     ))}
                   </div>

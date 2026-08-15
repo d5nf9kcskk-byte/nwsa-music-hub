@@ -1,0 +1,67 @@
+{
+  "orgId": "nwsa",
+  "appName": "NWSA Music Hub",
+  "brandName": "NWSA Music",
+  "orgShortName": "NWSA",
+  "orgFullName": "New World School of the Arts",
+  "basePath": "/nwsa-music-hub/",
+  "publicUrl": "https://d5nf9kcskk-byte.github.io/nwsa-music-hub/",
+  "publicUrlDisplay": "d5nf9kcskk-byte.github.io/nwsa-music-hub",
+  "timezone": "America/New_York",
+  "contactEmail": "nwsaorchestras@gmail.com",
+  "logoFile": "nwsa-logo.png",
+  "markFile": "nwsa-mark.png",
+  "assets": [
+    "nwsa-logo.png",
+    "nwsa-mark.png",
+    "campus-map.jpg",
+    "hub-launch-flyer.html",
+    "hub-launch-qr.svg"
+  ],
+  "themeColor": "#0d7e8e",
+  "brand": {},
+  "brandDark": {},
+  "features": {
+    "campusMap": true,
+    "calendarSeed": true,
+    "contactForm": false
+  },
+  "program": {
+    "missionStatement": "New World School of the Arts was created by the Florida Legislature as a center of excellence in the performing and visual arts as an educational partnership of Miami-Dade County Public Schools, Miami Dade College and the University of Florida.",
+    "wordmarkMain": "New World School",
+    "wordmarkSub": "of the Arts",
+    "footerLine1": "New World School of the Arts",
+    "footerLine2": "Music Division",
+    "leadership": [
+      { "name": "Jeffrey Hodgson", "title": "Provost" },
+      { "name": "Daniel Andai", "title": "Dean of Music" },
+      { "name": "Contessa Bryant", "title": "High School Principal" }
+    ],
+    "partners": "Miami-Dade County Public Schools  ·  Miami Dade College  ·  University of Florida"
+  },
+  "vanitySlugs": [
+    { "slug": "so", "match": ["symphony"] },
+    { "slug": "we", "match": ["wind"] },
+    { "slug": "wind", "match": ["wind"] },
+    { "slug": "jazz", "match": ["jazz"] },
+    { "slug": "cam", "match": ["camerata"] },
+    { "slug": "choir", "match": ["choir", "chorus"] },
+    { "slug": "opera", "match": ["opera"] },
+    { "slug": "cco", "match": ["chamber"] }
+  ],
+  "breakGlassEmails": ["nwsaorchestras@gmail.com"],
+  "ics": {
+    "prodId": "-//NWSA Music//ggmuze//EN",
+    "uidDomain": "ggmuze.nwsa",
+    "namePrefix": "NWSA",
+    "allDesc": "All NWSA music department events",
+    "brand": "NWSA Music",
+    "fileProdId": "-//NWSA Music Hub//Event//EN",
+    "fileUidDomain": "nwsa-music-hub"
+  },
+  "manifest": {
+    "name": "NWSA Music Hub",
+    "shortName": "NWSA Music",
+    "description": "Schedules, announcements, repertoire, and attendance for New World School of the Arts music ensembles."
+  }
+}

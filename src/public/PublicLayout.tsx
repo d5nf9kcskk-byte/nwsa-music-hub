@@ -2,7 +2,7 @@ import './uiUpdates.css';
 import './pubShell.css';
 import { useState } from 'react';
 import { Outlet, NavLink, Link, ScrollRestoration } from 'react-router';
-import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned, FolderOpen } from 'lucide-react';
+import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned, FolderOpen, Mail } from 'lucide-react';
 import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
 import { StatusStrips } from '../shared/StatusStrips';
@@ -18,6 +18,7 @@ import { useModalA11y } from '../shared/useModalA11y';
 import { useEffect, useReducer } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { ensembleColor, ensembleDisplayName, musicEnsembles } from '../director/utils';
+import { ORG } from '../org';
 
 const NAV = [
   { to: '/', label: 'nav.home', Icon: Home, end: true },
@@ -28,7 +29,9 @@ const NAV = [
   { to: '/assignments', label: 'nav.assignmentsShort', Icon: ClipboardCheck, end: false },
   { to: '/documents', label: 'nav.documents', Icon: FolderOpen, end: false },
   { to: '/lookup', label: 'nav.mySchedule', Icon: UserSearch, end: false },
-  { to: '/map', label: 'nav.campusMap', Icon: MapPinned, end: false },
+  // Campus map + contact form are org-gated (#org-config, #parent-messages).
+  ...(ORG.features.campusMap ? [{ to: '/map', label: 'nav.campusMap', Icon: MapPinned, end: false }] : []),
+  ...(ORG.features.contactForm ? [{ to: '/contact', label: 'nav.contact', Icon: Mail, end: false }] : []),
   { to: '/start', label: 'nav.startHere', Icon: HelpCircle, end: false },
 ];
 
@@ -50,9 +53,9 @@ export function PublicLayout() {
       <header className="pub-header">
         <Link to="/" className="pub-brand" onClick={onLogoTap}>
           <span className="pub-logo-chip">
-            <img src={`${import.meta.env.BASE_URL}nwsa-mark.png`} alt="NWSA" className="pub-brand-mark" />
+            <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} className="pub-brand-mark" />
           </span>
-          <span>NWSA Music</span>
+          <span>{ORG.brandName}</span>
         </Link>
         <button className="pub-header-search no-print" onClick={() => setSearchOpen(true)} aria-label={t('nav.search')}>
           <Search size={15} />
@@ -79,7 +82,7 @@ export function PublicLayout() {
         <div className="pub-menu-overlay" onClick={() => setMenuOpen(false)}>
           <nav className="pub-menu-panel" role="dialog" aria-modal="true" aria-label={t('nav.menu')} tabIndex={-1} ref={menuRef} onClick={e => e.stopPropagation()}>
             <div className="pub-menu-header">
-              <span className="pub-menu-title">NWSA Music</span>
+              <span className="pub-menu-title">{ORG.brandName}</span>
               <button className="pub-menu-close" onClick={() => setMenuOpen(false)} aria-label={t('nav.closeMenu')}>
                 <X size={20} />
               </button>
@@ -198,9 +201,16 @@ export function PublicLayout() {
             <NavLink to="/documents" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
               <FolderOpen size={18} />{t('nav.documents')}
             </NavLink>
-            <NavLink to="/map" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-              <MapPinned size={18} />{t('nav.campusMap')}
-            </NavLink>
+            {ORG.features.campusMap && (
+              <NavLink to="/map" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+                <MapPinned size={18} />{t('nav.campusMap')}
+              </NavLink>
+            )}
+            {ORG.features.contactForm && (
+              <NavLink to="/contact" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+                <Mail size={18} />{t('nav.contact')}
+              </NavLink>
+            )}
             <NavLink to="/start" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
               <HelpCircle size={18} />{t('nav.startHere')}
             </NavLink>

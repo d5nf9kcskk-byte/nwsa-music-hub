@@ -12,6 +12,8 @@
  * Agents: when shipping Hub changes, follow `.cursor/rules/whats-new.mdc`
  * and update this file in the same commit when the rule says to.
  */
+import { ORG } from '../org';
+
 export type WhatsNewAudience = 'staff' | 'public' | 'both';
 
 export interface WhatsNewEntry {
@@ -26,6 +28,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Contact form + Messages inbox (#parent-messages) — only shown for orgs
+  // with the feature enabled (NWSA ships with contactForm: false, so this
+  // entry is invisible there until the director opts in).
+  ...(ORG.features.contactForm ? [{
+    id: '2026-08-15-parent-messages',
+    date: '2026-08-15',
+    title: 'Families can message the staff from the site',
+    audience: 'both' as const,
+    expires: '2026-08-29',
+    bullets: [
+      'New Contact Us page on the public site: name, email, topic, and message — no account needed.',
+      'Staff see every message in the new Messages inbox (Library group), with an unread badge and one-tap email reply.',
+      'Messages are only visible to staff.',
+    ],
+  }] : []),
   {
     id: '2026-08-13-office-bulletin-roll',
     date: '2026-08-13',

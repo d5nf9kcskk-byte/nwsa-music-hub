@@ -1,0 +1,66 @@
+{
+  "orgId": "asyo",
+  "appName": "ASYO Music Hub",
+  "brandName": "ASYO",
+  "orgShortName": "ASYO",
+  "orgFullName": "Alpharetta Symphony Youth Orchestra",
+  "basePath": "/asyo-music-hub/",
+  "publicUrl": "https://d5nf9kcskk-byte.github.io/asyo-music-hub/",
+  "publicUrlDisplay": "d5nf9kcskk-byte.github.io/asyo-music-hub",
+  "timezone": "America/New_York",
+  "contactEmail": "youth@alpharettasymphony.org",
+  "logoFile": "asyo-logo.png",
+  "markFile": "asyo-mark.png",
+  "assets": [
+    "asyo-logo.png",
+    "asyo-mark.png"
+  ],
+  "themeColor": "#1d3a6b",
+  "brand": {
+    "--pub-accent": "#1d3a6b",
+    "--pub-accent-soft": "#e8edf6",
+    "--pub-purple": "#7a2d3d",
+    "--pub-gold": "#c8a52a",
+    "--pub-gold-text": "#5c4a00"
+  },
+  "brandDark": {
+    "--pub-accent": "#7fa3d6",
+    "--pub-accent-soft": "#1b2a44",
+    "--pub-purple": "#b06a79"
+  },
+  "features": {
+    "campusMap": false,
+    "calendarSeed": false,
+    "contactForm": true
+  },
+  "program": {
+    "missionStatement": "The Alpharetta Symphony Youth Orchestra provides young musicians in the North Fulton area with a dynamic and educational performance experience, in partnership with the Alpharetta Symphony.",
+    "wordmarkMain": "Alpharetta Symphony",
+    "wordmarkSub": "Youth Orchestra",
+    "footerLine1": "Alpharetta Symphony Youth Orchestra",
+    "footerLine2": "alpharettasymphony.org",
+    "leadership": [],
+    "partners": "In partnership with the Alpharetta Symphony"
+  },
+  "vanitySlugs": [
+    { "slug": "ys", "match": ["youth symphony"] },
+    { "slug": "phil", "match": ["philharmonia"] },
+    { "slug": "prelude", "match": ["prelude"] },
+    { "slug": "chamber", "match": ["chamber"] }
+  ],
+  "breakGlassEmails": ["ggmuze@yahoo.com"],
+  "ics": {
+    "prodId": "-//ASYO Music Hub//asyo//EN",
+    "uidDomain": "asyo.hub",
+    "namePrefix": "ASYO",
+    "allDesc": "All Alpharetta Symphony Youth Orchestra events",
+    "brand": "ASYO",
+    "fileProdId": "-//ASYO Music Hub//Event//EN",
+    "fileUidDomain": "asyo-music-hub"
+  },
+  "manifest": {
+    "name": "ASYO Music Hub",
+    "shortName": "ASYO",
+    "description": "Schedules, announcements, repertoire, and attendance for the Alpharetta Symphony Youth Orchestra."
+  }
+}

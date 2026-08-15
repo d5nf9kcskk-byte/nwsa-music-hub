@@ -16,6 +16,7 @@ import { SchedulePublishField } from '../components/SchedulePublishField';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { NotesText } from '../../public/components/NotesText';
 import type { Assignment, AssignmentType, AssignmentResultStatus, Student, Ensemble, Attachment } from '../types';
+import { ORG } from '../../org';
 
 const ASSIGNMENT_TYPES: AssignmentType[] = ['Playing Exam', 'Written Test', 'Performance', 'Other'];
 
@@ -234,7 +235,7 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
                 <div className="dir-field-hint">
                   Videos will sync every 15 minutes to your Drive in:
                   <br />
-                  <strong>My Drive → NWSA Music Hub → {title || 'Assignment Name'}</strong>
+                  <strong>My Drive → {ORG.appName} → {title || 'Assignment Name'}</strong>
                 </div>
               </div>
             )}

@@ -7,6 +7,7 @@ import { ExternalLink, LogOut } from 'lucide-react';
 import { WriteTray } from '../components/WriteTray';
 import { StatusStrips } from '../../shared/StatusStrips';
 import { MyLessonsView } from './MyLessonsView';
+import { ORG } from '../../org';
 
 /**
  * The whole app, for a Teacher-role sign-in (#roles). Deliberately NOT the
@@ -30,12 +31,12 @@ export function TeacherApp({ user, signOut }: { user: User; signOut: () => void 
       <header className="dir-header">
         <div className="dir-header-brand">
           <span className="dir-logo-chip">
-            <img src={`${import.meta.env.BASE_URL}nwsa-mark.png`} alt="NWSA" className="dir-header-mark" />
+            <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} className="dir-header-mark" />
           </span>
           <div>
             <div className="dir-header-title">My Lessons</div>
             <div className="dir-header-sub">
-              <span className="dir-panel-tag">Teacher Panel</span> {user.displayName ?? 'NWSA Music Hub'}
+              <span className="dir-panel-tag">Teacher Panel</span> {user.displayName ?? ORG.appName}
             </div>
           </div>
         </div>

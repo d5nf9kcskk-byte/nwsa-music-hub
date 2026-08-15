@@ -22,6 +22,7 @@ import {
 import type { CalendarEvent, EventType } from '../types';
 import { Linkify } from '../components/Linkify';
 import { dailyPun } from '../../shared/whimsy';
+import { ORG } from '../../org';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -319,8 +320,10 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             typeFilters={typeFilters}
             schoolSentinel={SCHOOL}
           />
-          {/* One-time school-calendar import: hidden once school events exist */}
-          {(!hasSchoolEvents || schoolCalState === 'seeding' || schoolCalState === 'error') && (
+          {/* One-time school-calendar import: hidden once school events exist.
+              The whole seed family is NWSA-only (hardcoded MDCPS/MDC data) —
+              other orgs never see these buttons (#org-config). */}
+          {ORG.features.calendarSeed && (!hasSchoolEvents || schoolCalState === 'seeding' || schoolCalState === 'error') && (
             <button
               className="dir-tool-btn"
               onClick={handleSchoolCal}
@@ -336,7 +339,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             </span>
           )}
           {/* One-time season seed: only offered while the calendar is empty */}
-          {events.length === 0 && seedState !== 'done' && (
+          {ORG.features.calendarSeed && events.length === 0 && seedState !== 'done' && (
             <button
               className="dir-tool-btn"
               onClick={handleSeed}
@@ -352,7 +355,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             </span>
           )}
           {/* Add the theory/academic classes to an already-seeded calendar. */}
-          {events.length > 0 && classesState !== 'done' && (
+          {ORG.features.calendarSeed && events.length > 0 && classesState !== 'done' && (
             <button
               className="dir-tool-btn"
               onClick={handleSeedClasses}

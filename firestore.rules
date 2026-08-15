@@ -232,6 +232,41 @@ service cloud.firestore {
       allow update, delete: if isStaff();
     }
 
+    match /parentMessages/{doc} {
+      // Parent→staff contact form (#parent-messages): an unauthenticated
+      // create (like plannedAbsences and assignmentSubmissions), so it
+      // gets the same strictest-validation
+      // treatment as plannedAbsences — exact key set, closed topic enum,
+      // size floors AND ceilings on every free-text field. keys().hasOnly
+      // doubles as the honeypot: the form only includes its hidden decoy
+      // field when a bot fills it, and the create is rejected here.
+      // Deliberately NO students/{id} anchor — prospective families (no
+      // student doc yet) are a primary audience for this form. Real rate
+      // limiting needs App Check or a Cloud Function (Blaze) and is
+      // deferred, matching the plannedAbsences stance
+      // (docs/security-recommendations.md).
+      allow create: if request.resource.data.keys().hasOnly(
+            ['parentName', 'email', 'studentName', 'topic', 'message', 'submittedAt', 'status'])
+        && request.resource.data.parentName is string
+        && request.resource.data.parentName.size() >= 2
+        && request.resource.data.parentName.size() <= 120
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.email.matches('.+@.+\\..+')
+        && (!('studentName' in request.resource.data)
+            || (request.resource.data.studentName is string
+                && request.resource.data.studentName.size() <= 120))
+        && request.resource.data.topic in
+            ['attendance', 'schedule', 'lessons', 'concerts', 'volunteer', 'enrollment', 'other']
+        && request.resource.data.message is string
+        && request.resource.data.message.size() >= 10
+        && request.resource.data.message.size() <= 1000
+        && request.resource.data.submittedAt is number
+        && request.resource.data.status == 'new';
+      allow read: if isStaff();
+      allow update, delete: if isStaff();
+    }
+
     // Outbound notification queue (#21): staff-only writes; Power Automate
     // reads it with a service credential (Admin SDK bypasses rules).
     match /notifyQueue/{doc}     { allow read, write: if isStaff(); }
