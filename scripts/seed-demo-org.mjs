@@ -263,6 +263,14 @@ function buildEvents() {
 
 // ── Announcements / documents / inbox samples ──────────────────────────────
 const ANNOUNCEMENTS = [
+  // Self-labeling: the sandbox says it's a sandbox, so nobody mistakes
+  // fictional students/dates for real ones. reset-demo-org.mjs --go-live
+  // deletes this along with everything else.
+  {
+    id: 'asyo-ann-demo-notice', ensembleId: null, title: 'Demo sandbox — explore freely',
+    body: 'Everything here is fictional demo data: students, rehearsals, concerts, and messages. Click anything, edit anything, take roll, post announcements — it all resets before your real season goes in. Nothing you do here can break anything.',
+    priority: 'info', pinned: true, createdAt: Date.now() - 2 * 86_400_000,
+  },
   {
     id: 'asyo-ann-welcome', ensembleId: null, title: 'Welcome to the ASYO Music Hub',
     body: 'Schedules, repertoire, concert details, and announcements now live in one place. Tap "Find My Schedule" and search your musician’s name to see their personal calendar — and subscribe so rehearsals appear on your phone automatically.',

@@ -90,6 +90,47 @@ both the `director` role so they can try everything.
    an unread badge; take roll on today's rehearsal; `feeds/all.ics`
    downloads with `PRODID:-//ASYO Music Hub//asyo//EN`.
 
+## Demo → pilot go-live (same URL, same accounts, zero migration)
+
+The demo instance IS the future production instance — the transition is a
+data operation, not a deployment. Three phases:
+
+**Demo period (limited time, fictional data).**
+- Only the administrator + music director get director accounts; do NOT
+  circulate the public URL to families yet.
+- The seed includes a pinned "Demo sandbox" announcement so the fictional
+  data labels itself.
+- Reset the sandbox to pristine any time:
+  `node scripts/reset-demo-org.mjs --to-demo --yes` then re-run
+  `seed-demo-org.mjs`.
+- Access control is the time limit: revoking the demo just means removing
+  their two entries in Directors (owner menu) — revocation takes effect
+  live, mid-session. No code needed to "expire" the demo.
+
+**Go-live (starts the pilot term).**
+```bash
+FIREBASE_SERVICE_ACCOUNT_JSON="$(cat asyo-hub-demo-key.json)" \
+  node scripts/reset-demo-org.mjs --go-live --yes
+```
+Wipes every collection EXCEPT `directors` — the admin and conductor sign
+in exactly as before, into an empty org. Then, in-app:
+1. Create the real ensembles (Ensembles screen).
+2. Roster → Import CSV with the real roster (get the spreadsheet from the
+   admin; never commit it).
+3. Build the real season calendar — or collect the admin's dates and seed
+   them via a one-shot script like the NWSA ones.
+4. Swap in real logo/colors if their artwork has arrived
+   (`config/orgs/asyo.json` + `public/asyo-*.png`, redeploy).
+5. ICS feeds regenerate with real data on the next deploy-demo cron (≤4 h)
+   — same feed URLs, so anything subscribed during the demo just updates.
+6. NOW share the public URL/QR with families. Pilot term starts here.
+
+**During the pilot** nothing changes technically — same project, same
+deploy. The project id `asyo-hub-demo` is cosmetic and invisible to users
+(the public URL is the Pages address); don't churn Firebase projects just
+to rename it. If ASYO converts to paid later and wants a custom domain,
+that's a Pages custom-domain setting, not a migration.
+
 ## Notes / gotchas
 
 - **Local ASYO build**: `VITE_ORG=asyo npm run build && npx vite preview`
