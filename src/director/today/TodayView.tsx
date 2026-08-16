@@ -22,6 +22,7 @@ import { composerBirthdaysOn, birthdayLine, musicHolidayOn } from '../../shared/
 import { DIRECTOR_FEEDBACK_FORM_URL } from '../feedbackForm';
 import { groupScheduleAlerts } from '../../shared/groupAlerts';
 import { AlertGroupSections } from '../../shared/AlertGroupSections';
+import { ORG } from '../../org';
 
 const ENS_PREF_KEY = 'dir.today.ensemble';
 
@@ -138,7 +139,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
     <div className="dir-tab-page">
       <div className="dir-today-hero">
         <div className="dir-today-date">{dateLabel}</div>
-        <div className="dir-today-title">🎶 Today at NWSA Music Hub</div>
+        <div className="dir-today-title">🎶 Today at {ORG.appName}</div>
         {composerBirthdaysOn(new Date()).map(b => (
           <div key={b.name} className="dir-today-birthday">{birthdayLine(b, 'en', new Date())}</div>
         ))}

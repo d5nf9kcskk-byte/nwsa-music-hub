@@ -6,6 +6,7 @@ import { todayStr } from '../../director/utils';
 import { t, useLang } from '../../shared/i18n';
 import { fmtLongDate } from '../../shared/dates';
 import type { Student } from '../../director/types';
+import { ORG } from '../../org';
 import './plannedAbsence.css';
 
 /**
@@ -38,7 +39,7 @@ export function PlannedAbsenceButton({ student }: { student: Student }) {
     } catch (e) {
       setState('error');
       void e;
-      setError('Could not send right now — check your connection and try again, or email nwsaorchestras@gmail.com.');
+      setError(`Could not send right now — check your connection and try again, or email ${ORG.contactEmail}.`);
     }
   }
 

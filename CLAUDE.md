@@ -1,5 +1,31 @@
 # NWSA Music Hub
 
+## Org config / white-label (Aug 2026)
+
+This codebase builds MORE THAN ONE deployment. `VITE_ORG` selects a JSON
+file from `config/orgs/` (default `nwsa` — every existing command still
+produces the NWSA site); the object is injected as `__ORG_CONFIG__` and read
+via `src/org/index.ts` (`ORG`). Rules:
+
+- Org names, brand colors, base path, contact email, ICS PRODID/UIDs,
+  vanity slugs, and feature flags live in `config/orgs/*.json` — never
+  hardcode a new org-specific string in `src/`; add a config field.
+- The NWSA build must stay **behavior-identical and deterministic**: after
+  touching the org layer, build twice with no `VITE_ORG` and confirm the
+  `[sw-precache]` hash is stable, and `grep -ri asyo dist/` is empty.
+- NWSA ICS values are frozen contracts (existing subscribers) — never
+  change `ics.*` in `config/orgs/nwsa.json`.
+- The demo org is `asyo` (Alpharetta Symphony Youth Orchestra), Firebase
+  project `asyo-hub-demo`, deployed to the `asyo-music-hub` Pages repo via
+  `.github/workflows/deploy-demo.yml`. Setup: `docs/demo-asyo-setup.md`.
+- `scripts/seed-demo-org.mjs` must only ever write to `asyo-hub-demo`
+  (it hard-aborts otherwise). NEVER seed `nwsa-hub` with demo data, and
+  NEVER put real student data in any org's seed — demo people are fictional.
+- NWSA-only modules stay NWSA-hardcoded and are feature-flagged off for
+  other orgs (`features.campusMap`, `features.calendarSeed`): CampusMap,
+  seedCalendar, classSchedule, the attendance-bulletin pipeline,
+  import-official-calendar. Do not genericize them without a plan.
+
 ## The school's name — get this exactly right, everywhere
 
 The school is **New World School of the Arts** ("NWSA"). It is NOT

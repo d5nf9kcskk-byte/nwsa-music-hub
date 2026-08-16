@@ -1,3 +1,4 @@
+import { ORG } from '../org';
 /**
  * Musical whimsy (#easter-eggs): small hidden delights sprinkled through the
  * app — composer birthdays, musical holidays, daily-rotating musician humor
@@ -209,9 +210,10 @@ const SEARCH_EGGS: { match: RegExp; line: Pun }[] = [
   { match: /^(encore|bravo)$/i, line: {
     en: '👏 Bravo! Take another bow.',
     es: '👏 ¡Bravo! Haz otra reverencia.' } },
-  { match: /^(nwsa|new world)$/i, line: {
+  // School-mascot egg — NWSA-only (the panther); other orgs skip it.
+  ...(ORG.orgId === 'nwsa' ? [{ match: /^(nwsa|new world)$/i, line: {
     en: '🐆 New World School of the Arts — you’re already home.',
-    es: '🐆 New World School of the Arts — ya estás en casa.' } },
+    es: '🐆 New World School of the Arts — ya estás en casa.' } }] : []),
 ];
 
 /** A hidden line for a "magic word" typed into search, or null. */

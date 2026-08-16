@@ -8,6 +8,7 @@ import { WriteTray } from '../components/WriteTray';
 import { StatusStrips } from '../../shared/StatusStrips';
 import { AttendanceView } from '../attendance/AttendanceView';
 import { useCurrentDirector } from '../currentDirector';
+import { ORG } from '../../org';
 
 /**
  * The whole app, for a Personnel Assistant sign-in (#roles). Deliberately NOT
@@ -35,12 +36,12 @@ export function AssistantApp({ user, signOut }: { user: User; signOut: () => voi
       <header className="dir-header">
         <div className="dir-header-brand">
           <span className="dir-logo-chip">
-            <img src={`${import.meta.env.BASE_URL}nwsa-mark.png`} alt="NWSA" className="dir-header-mark" />
+            <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} className="dir-header-mark" />
           </span>
           <div>
             <div className="dir-header-title">Take Roll</div>
             <div className="dir-header-sub">
-              <span className="dir-panel-tag">Personnel Assistant</span> {me?.name ?? user.displayName ?? 'NWSA Music Hub'}
+              <span className="dir-panel-tag">Personnel Assistant</span> {me?.name ?? user.displayName ?? ORG.appName}
             </div>
           </div>
         </div>

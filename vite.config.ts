@@ -1,13 +1,26 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import type { OrgConfig } from './src/org/types';
 
-const BASE = '/nwsa-music-hub/';
 const ROOT = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Org selection (#org-config): VITE_ORG picks a JSON file from config/orgs/
+ * (default nwsa — every existing build command keeps producing the NWSA
+ * site). The whole object is injected into the bundle as __ORG_CONFIG__
+ * (see src/org/index.ts), so one org's build contains none of the other
+ * org's strings.
+ */
+const ORG_ID = process.env.VITE_ORG || 'nwsa';
+const ORG: OrgConfig = JSON.parse(
+  readFileSync(resolve(ROOT, 'config', 'orgs', `${ORG_ID}.json`), 'utf8'),
+);
+const BASE = ORG.basePath;
 
 /**
  * Content-Security-Policy via <meta> — GitHub Pages can't send headers, so
@@ -85,6 +98,70 @@ function swStamp(): Plugin {
   };
 }
 
+/**
+ * Org-aware static files. index.html carries __ORG_*__ tokens replaced here
+ * (before cspPlugin's `post` transform, so the CSP hashes the final HTML);
+ * public/manifest.json and public/404.html stay NWSA-literal on disk (frozen
+ * contracts) and are rewritten in dist/ after they're copied. closeBundle
+ * runs in plugin-array order, so placing this plugin BEFORE VitePWA means
+ * the rewrite lands before the service-worker precache manifest is computed
+ * and the precache revisions hash the rewritten bytes. For the NWSA org
+ * every replacement is an identity — output stays byte-for-byte unchanged.
+ */
+function orgStatics(): Plugin {
+  return {
+    // No `apply: 'build'` — the dev server needs the index.html token
+    // replacement too (closeBundle's existsSync guards make it dev-safe).
+    name: 'org-statics',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        return html
+          .replaceAll('__ORG_APPNAME__', ORG.appName)
+          .replaceAll('__ORG_BRANDNAME__', ORG.brandName)
+          .replaceAll('__ORG_THEMECOLOR__', ORG.themeColor);
+      },
+    },
+    closeBundle() {
+      // String-level replacement (never a JSON re-stringify) so the NWSA
+      // build's output stays byte-for-byte identical to the source file.
+      const manifestPath = resolve(ROOT, 'dist', 'manifest.json');
+      if (existsSync(manifestPath)) {
+        const nwsa = JSON.parse(readFileSync(resolve(ROOT, 'public', 'manifest.json'), 'utf8'));
+        const manifest = readFileSync(manifestPath, 'utf8')
+          .replaceAll('/nwsa-music-hub/', BASE)
+          .replaceAll(JSON.stringify(nwsa.name), JSON.stringify(ORG.manifest.name))
+          .replaceAll(JSON.stringify(nwsa.short_name), JSON.stringify(ORG.manifest.shortName))
+          .replaceAll(JSON.stringify(nwsa.description), JSON.stringify(ORG.manifest.description))
+          .replaceAll(JSON.stringify(nwsa.theme_color), JSON.stringify(ORG.themeColor));
+        writeFileSync(manifestPath, manifest);
+      }
+      const notFoundPath = resolve(ROOT, 'dist', '404.html');
+      if (existsSync(notFoundPath)) {
+        const html = readFileSync(notFoundPath, 'utf8')
+          .replaceAll('/nwsa-music-hub/', BASE)
+          .replaceAll('NWSA Music Hub', ORG.appName);
+        writeFileSync(notFoundPath, html);
+      }
+      // Prune OTHER orgs' assets (logos, org-specific collateral) from dist
+      // so they neither ship nor enter the SW precache — runs before
+      // VitePWA's closeBundle computes the precache manifest.
+      for (const file of readdirSync(resolve(ROOT, 'config', 'orgs'))) {
+        const otherId = file.replace(/\.json$/, '');
+        if (!file.endsWith('.json') || otherId === ORG_ID) continue;
+        const other: OrgConfig = JSON.parse(
+          readFileSync(resolve(ROOT, 'config', 'orgs', file), 'utf8'),
+        );
+        for (const asset of other.assets) {
+          if (ORG.assets.includes(asset)) continue; // shared asset
+          const p = resolve(ROOT, 'dist', asset);
+          if (existsSync(p)) rmSync(p);
+        }
+      }
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   // Auth domain for the CSP frame-src/connect-src entries. loadEnv covers
   // .env.local; process.env covers CI (deploy.yml sets the VITE_* secrets).
@@ -95,8 +172,12 @@ export default defineConfig(({ mode }) => {
 
   return {
   base: BASE,
+  define: {
+    __ORG_CONFIG__: JSON.stringify(ORG),
+  },
   plugins: [
     react(),
+    orgStatics(),
     VitePWA({
       // Prompt flow: the new SW installs and WAITS; src/pwa.ts shows the
       // refresh toast and only then posts SKIP_WAITING. (The old hand-rolled

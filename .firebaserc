@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "nwsa-hub"
+    "default": "nwsa-hub",
+    "demo": "asyo-hub-demo"
   }
 }

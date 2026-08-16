@@ -3,6 +3,7 @@ import { Bell, CalendarPlus, Check, Copy, Download, X } from 'lucide-react';
 import { changesFeedUrl, feedUrl, typeFeedUrl, webcalUrl } from '../../public/feedUrl';
 import { detectPlatform, type Platform } from '../../public/platform';
 import type { CalendarEvent, Ensemble, EventType } from '../types';
+import { ORG } from '../../org';
 
 type SchedTypeKey = EventType | 'Assignment';
 type SheetMode = 'filter' | 'changes';
@@ -77,8 +78,8 @@ export function FilteredCalendarSubscribe({
 
   const filterLabel = `${filterParts.ensemblesPart.join(', ')} · ${filterParts.typesPart.join(', ')}`;
   const calendarName = sheet === 'changes'
-    ? 'NWSA · Schedule changes'
-    : `NWSA · ${filterLabel}`;
+    ? `${ORG.ics.namePrefix} · Schedule changes`
+    : `${ORG.ics.namePrefix} · ${filterLabel}`;
 
   const liveHttps = useMemo(() => {
     if (sheet === 'changes') return changesFeedUrl();
@@ -129,11 +130,11 @@ export function FilteredCalendarSubscribe({
     const vevents = events.map(event => {
       const ensNames = (event.ensembleIds ?? []).map(id => ensMap[id]?.name).filter(Boolean).join(', ');
       const cancelled = event.status === 'Cancelled';
-      const summary = (cancelled ? '[CANCELLED] ' : '') + (event.title || ensNames || event.type || 'NWSA Event');
+      const summary = (cancelled ? '[CANCELLED] ' : '') + (event.title || ensNames || event.type || `${ORG.ics.namePrefix} Event`);
       const hasTime = Boolean(event.startTime);
       const lines = [
         'BEGIN:VEVENT',
-        fold(`UID:${event.id}@ggmuze.nwsa`),
+        fold(`UID:${event.id}@${ORG.ics.uidDomain}`),
         fold(`SUMMARY:${esc(summary)}`),
         fold(hasTime ? `DTSTART:${icsDateTime(event.date, event.startTime)}` : `DTSTART;VALUE=DATE:${icsDate(event.date)}`),
         fold(hasTime ? `DTEND:${icsDateTime(event.date, event.endTime || event.startTime)}` : `DTEND;VALUE=DATE:${icsDate(nextDay(event.date))}`),
@@ -146,12 +147,12 @@ export function FilteredCalendarSubscribe({
     return [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//NWSA Music//ggmuze//EN',
+      `PRODID:${ORG.ics.prodId}`,
       'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH',
       fold(`X-WR-CALNAME:${esc(calendarName)}`),
       fold(`X-WR-CALDESC:${esc(filterLabel)}`),
-      'X-WR-TIMEZONE:America/New_York',
+      `X-WR-TIMEZONE:${ORG.timezone}`,
       ...vevents,
       'END:VCALENDAR',
     ].join('\r\n');

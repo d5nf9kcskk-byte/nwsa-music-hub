@@ -22,10 +22,12 @@ import { PublicDocuments } from './public/PublicDocuments';
 import { StartGuide } from './public/StartGuide';
 import { SeasonPage } from './public/SeasonPage';
 import { CampusMap } from './public/CampusMap';
+import { PublicContact } from './public/PublicContact';
 import { VanityRedirect } from './public/VanityRedirect';
 import { NotFound } from './public/NotFound';
 import { VANITY_SLUGS } from './shared/vanity';
 import { AppError } from './shared/AppError';
+import { ORG, applyBrand } from './org';
 import { initPwa } from './pwa';
 
 // Code-split: students and parents never download the director surface.
@@ -74,9 +76,13 @@ const router = createBrowserRouter(
         { path: 'documents', element: <PublicDocuments /> },
         { path: 'start', element: <StartGuide /> },
         { path: 'concerts', element: <SeasonPage /> },
-        { path: 'map', element: <CampusMap /> },
+        // Campus map is NWSA-only (hardcoded MDC Wolfson buildings) — other
+        // orgs drop the route entirely (#org-config).
+        ...(ORG.features.campusMap ? [{ path: 'map', element: <CampusMap /> }] : []),
+        // Parent→admin contact form (#parent-messages) — org-gated.
+        ...(ORG.features.contactForm ? [{ path: 'contact', element: <PublicContact /> }] : []),
         { path: 'program/:id', element: <PublicProgram /> },
-        // Vanity short links (#5): /so /we /wind /jazz /cam /choir /opera /cco
+        // Vanity short links (#5) — per-org list in config/orgs/*.json.
         ...VANITY_SLUGS.map(v => ({ path: v.slug, element: <VanityRedirect slug={v.slug} /> })),
         // Anything else under the public site: a real page with a way back,
         // not the crash boundary.
@@ -105,8 +111,13 @@ const router = createBrowserRouter(
       ),
     },
   ],
-  { basename: '/nwsa-music-hub' },
+  // BASE_URL comes from the org's basePath (vite.config.ts); the router
+  // basename is the same path without the trailing slash.
+  { basename: import.meta.env.BASE_URL.replace(/\/$/, '') },
 );
+
+// Org brand palette (no-op for NWSA — empty maps inject nothing).
+applyBrand();
 
 // Offline app shell (#43) — registered after load so it never delays startup.
 // When a NEW version installs under an open tab, src/pwa.ts shows a one-tap

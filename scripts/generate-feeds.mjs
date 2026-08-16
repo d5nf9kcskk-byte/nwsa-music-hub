@@ -15,14 +15,25 @@
  *   VITE_FIREBASE_PROJECT_ID — same one already set as a GitHub secret.
  */
 
-import { writeFileSync, mkdirSync } from 'fs';
-import { join } from 'path';
+import { writeFileSync, readFileSync, mkdirSync } from 'fs';
+import { join, dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
 const PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID;
 if (!PROJECT_ID) {
   console.error('VITE_FIREBASE_PROJECT_ID is not set — skipping feed generation');
   process.exit(0); // non-fatal: local builds without secrets still succeed
 }
+
+// Org config (#org-config): same JSON the app builds with, selected by the
+// ORG env var (default nwsa). Keeps feed branding, PRODID, and — critically —
+// event UIDs in lockstep with the deployed site. NWSA values are frozen:
+// existing subscribers' UIDs must never change.
+const ORG_ID = process.env.ORG || process.env.VITE_ORG || 'nwsa';
+const ORG = JSON.parse(readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), '..', 'config', 'orgs', `${ORG_ID}.json`),
+  'utf8',
+));
 
 // Keep in sync with src/public/publicStudentInfo.ts — when false, skip
 // per-student ICS so personal schedules stay dark until the roster is final.
@@ -117,7 +128,7 @@ function buildVEVENT(event, ensembleMap) {
   // STATUS on subscribed feeds and would otherwise show the event as still on.
   const cancelled = event.status === 'Cancelled';
   const summary = (cancelled ? '[CANCELLED] ' : '')
-    + (event.title || ensNames || event.type || 'NWSA Event');
+    + (event.title || ensNames || event.type || `${ORG.ics.namePrefix} Event`);
   const descParts = [];
   if (ensNames) descParts.push(ensNames);
   if (event.changeNote) descParts.push(`⚠ Changed: ${event.changeNote}`);
@@ -134,7 +145,7 @@ function buildVEVENT(event, ensembleMap) {
     : `DTEND;VALUE=DATE:${icsDate(nextDay(event.date))}`;
 
   const status = cancelled ? 'CANCELLED' : 'CONFIRMED';
-  const uid = `${event.id}@ggmuze.nwsa`;
+  const uid = `${event.id}@${ORG.ics.uidDomain}`;
 
   const lines = [
     'BEGIN:VEVENT',
@@ -154,12 +165,12 @@ function wrapCalendar(name, description, vevents) {
   const header = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//NWSA Music//ggmuze//EN',
+    `PRODID:${ORG.ics.prodId}`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     fold(`X-WR-CALNAME:${esc(name)}`),
     fold(`X-WR-CALDESC:${esc(description)}`),
-    'X-WR-TIMEZONE:America/New_York',
+    `X-WR-TIMEZONE:${ORG.timezone}`,
   ].join('\r\n');
   return `${header}\r\n${vevents.join('\r\n')}\r\nEND:VCALENDAR`;
 }
@@ -181,7 +192,7 @@ function wrapCalendar(name, description, vevents) {
 
     // All-events feed
     const allVevents = events.map(e => buildVEVENT(e, ensembleMap));
-    writeFileSync('dist/feeds/all.ics', wrapCalendar('NWSA · All events', 'All NWSA music department events', allVevents));
+    writeFileSync('dist/feeds/all.ics', wrapCalendar(`${ORG.ics.namePrefix} · All events`, ORG.ics.allDesc, allVevents));
 
     // Schedule-changes-only feed (#director-changes-feed): cancellations and
     // events carrying a changeNote — director/teacher side only (linked from
@@ -191,7 +202,7 @@ function wrapCalendar(name, description, vevents) {
     const changeVevents = changedEvents.map(e => buildVEVENT(e, ensembleMap));
     writeFileSync(
       'dist/feeds/changes.ics',
-      wrapCalendar('NWSA · Schedule changes', 'Cancellations and schedule changes only', changeVevents),
+      wrapCalendar(`${ORG.ics.namePrefix} · Schedule changes`, 'Cancellations and schedule changes only', changeVevents),
     );
 
     // Per-ensemble feeds
@@ -201,7 +212,7 @@ function wrapCalendar(name, description, vevents) {
       const safeName = ens.id.replace(/[^a-z0-9-]/gi, '-');
       writeFileSync(
         `dist/feeds/ensemble-${safeName}.ics`,
-        wrapCalendar(`NWSA · ${ens.name}`, `${ens.name} — NWSA Music`, vevents),
+        wrapCalendar(`${ORG.ics.namePrefix} · ${ens.name}`, `${ens.name} — ${ORG.ics.brand}`, vevents),
       );
     }
 
@@ -211,7 +222,7 @@ function wrapCalendar(name, description, vevents) {
       const typed = events.filter(e => e.type === type);
       writeFileSync(
         `dist/feeds/type-${type}.ics`,
-        wrapCalendar(`NWSA · ${type}s`, `${type} events only`, typed.map(e => buildVEVENT(e, ensembleMap))),
+        wrapCalendar(`${ORG.ics.namePrefix} · ${type}s`, `${type} events only`, typed.map(e => buildVEVENT(e, ensembleMap))),
       );
     }
 
@@ -247,7 +258,7 @@ function wrapCalendar(name, description, vevents) {
         const safeId = stu.id.replace(/[^a-z0-9-]/gi, '-');
         writeFileSync(
           `dist/feeds/student-${safeId}.ics`,
-          wrapCalendar(`${stu.name} — NWSA Music`, `Personal schedule for ${stu.name}`, vevents),
+          wrapCalendar(`${stu.name} — ${ORG.ics.brand}`, `Personal schedule for ${stu.name}`, vevents),
         );
         studentFeeds++;
       }

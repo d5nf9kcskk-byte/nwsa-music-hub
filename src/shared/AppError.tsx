@@ -1,4 +1,5 @@
 import { useRouteError } from 'react-router';
+import { ORG } from '../org';
 
 /**
  * Route-level error boundary: a render crash shows a recoverable card instead
@@ -19,7 +20,7 @@ export function AppError() {
       <h1 style={{ fontSize: 20, margin: 0 }}>Something went wrong</h1>
       <p style={{ margin: 0, fontSize: 14, color: '#6b7686', maxWidth: 420 }}>
         The page hit an unexpected error. Reloading usually fixes it — if it
-        keeps happening, email nwsaorchestras@gmail.com with what you tapped.
+        keeps happening, email {ORG.contactEmail} with what you tapped.
       </p>
       <details style={{ fontSize: 12, color: '#6b7686', maxWidth: 420, overflowWrap: 'anywhere' }}>
         <summary>Technical details</summary>

@@ -6,6 +6,7 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { formatDate, todayStr } from '../utils';
 import { printViaPopup } from '../../shared/printPopup';
 import './printableUpdates.css';
+import { ORG } from '../../org';
 
 /**
  * Director-facing printable sheet (#print-updates): today's schedule changes
@@ -46,7 +47,7 @@ export function PrintableUpdates({ onClose }: { onClose: () => void }) {
   }
 
   function handlePrint() {
-    if (sheetRef.current) printViaPopup('NWSA Music — Announcements & Schedule Changes', sheetRef.current.outerHTML);
+    if (sheetRef.current) printViaPopup(`${ORG.brandName} — Announcements & Schedule Changes`, sheetRef.current.outerHTML);
     else window.print();
   }
 
@@ -61,7 +62,7 @@ export function PrintableUpdates({ onClose }: { onClose: () => void }) {
         <div className="dir-drawer-body">
           <div className="dir-print-sheet" ref={sheetRef}>
             <header className="dir-print-head">
-              <div className="dir-print-org">NWSA Music Hub</div>
+              <div className="dir-print-org">{ORG.appName}</div>
               <h1 className="dir-print-title">Announcements &amp; Schedule Changes</h1>
               <div className="dir-print-asof">As of {formatDate(today, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
             </header>

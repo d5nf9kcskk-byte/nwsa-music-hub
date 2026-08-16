@@ -7,11 +7,12 @@ import { vanityPathFor } from '../../shared/vanity';
 import type { Ensemble } from '../types';
 import './qrKit.css';
 import { useModalA11y } from '../../shared/useModalA11y';
+import { ORG } from '../../org';
 
-/** Public site root the QR codes point at (GitHub Pages deployment). */
-const SITE_URL = 'https://d5nf9kcskk-byte.github.io/nwsa-music-hub/';
+/** Public site root the QR codes point at — per-org (config/orgs/*.json). */
+const SITE_URL = ORG.publicUrl;
 /** Human-typeable form printed under the codes. */
-const SHORT_HOST = 'd5nf9kcskk-byte.github.io/nwsa-music-hub';
+const SHORT_HOST = ORG.publicUrlDisplay;
 
 /** Self-contained print stylesheet for the pop-out print window. It mirrors the
  *  @media print rules in qrKit.css but needs no app CSS/variables to resolve,
@@ -24,8 +25,8 @@ const QR_PRINT_CSS = `
   .dir-qrkit-noprint { display: none !important; }
   .dir-qr-page { background: #fff; break-inside: avoid; break-after: page; page-break-after: always; }
   .dir-qr-page:last-child { break-after: auto; page-break-after: auto; }
-  .dir-qr-poster { border-top: 6px solid #0d7e8e; padding: 1.2in 18px 22px; text-align: center; }
-  .dir-qr-poster-kicker { font-size: 12px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #0d7e8e; }
+  .dir-qr-poster { border-top: 6px solid ${ORG.themeColor}; padding: 1.2in 18px 22px; text-align: center; }
+  .dir-qr-poster-kicker { font-size: 12px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: ${ORG.themeColor}; }
   .dir-qr-poster-name { font-size: 54pt; font-weight: 900; margin: 6px 0 4px; color: #111; line-height: 1.1; }
   .dir-qr-poster-tag { font-size: 16pt; color: #444; margin: 0 auto 0.35in; max-width: 46ch; }
   .dir-qr-poster-code { width: 4.4in; max-width: 78%; margin: 0 auto; }
@@ -106,13 +107,13 @@ const QR_PRINT_CSS = `
 /** Bright campus flyer announcing the new Hub (one letter page). */
 function LaunchPosterPage() {
   const svg = useMemo(() => renderQrSvg(SITE_URL), []);
-  const logoSrc = `${SITE_URL}nwsa-logo.png`;
+  const logoSrc = `${SITE_URL}${ORG.logoFile}`;
   return (
     <section className="dir-qr-page dir-qr-launch">
-      <img className="dir-qr-launch-logo" src={logoSrc} alt="New World School of the Arts" />
-      <p className="dir-qr-launch-school">New World School of the Arts</p>
+      <img className="dir-qr-launch-logo" src={logoSrc} alt={ORG.orgFullName} />
+      <p className="dir-qr-launch-school">{ORG.orgFullName}</p>
       <h2 className="dir-qr-launch-headline">
-        The new<br /><em>NWSA Music Hub</em><br />is here
+        The new<br /><em>{ORG.appName}</em><br />is here
       </h2>
       <p className="dir-qr-launch-tag">
         Schedules, parts, concerts &amp; announcements — one place for every music student and family.
@@ -135,7 +136,7 @@ function PosterPage({ name, tagline, url, urlLabel, accent }: {
   const svg = useMemo(() => renderQrSvg(url), [url]);
   return (
     <section className="dir-qr-page dir-qr-poster" style={accent ? { borderTopColor: accent } : undefined}>
-      <div className="dir-qr-poster-kicker">NWSA Music Hub</div>
+      <div className="dir-qr-poster-kicker">{ORG.appName}</div>
       <h2 className="dir-qr-poster-name">{name}</h2>
       <p className="dir-qr-poster-tag">{tagline}</p>
       <div className="dir-qr-poster-code" dangerouslySetInnerHTML={{ __html: svg }} />
@@ -191,7 +192,7 @@ export function QrKitView({ onClose }: { onClose?: () => void }) {
     if (!w || !body) { window.print(); return; }
     w.document.write(
       '<!doctype html><html><head><meta charset="utf-8">'
-      + '<title>NWSA Music Hub — QR kit</title>'
+      + `<title>${ORG.appName} — QR kit</title>`
       + `<style>${QR_PRINT_CSS}</style></head><body>${body}</body></html>`,
     );
     w.document.close();
@@ -220,17 +221,24 @@ export function QrKitView({ onClose }: { onClose?: () => void }) {
         <div className="dir-qrkit-body">
           <p className="dir-qrkit-hint dir-qrkit-noprint">
             First page is the bright campus launch flyer. Then wall posters and folder slips.
-            Each block prints on its own page. Tip: open{' '}
-            <a href={`${SITE_URL}hub-launch-flyer.html`} target="_blank" rel="noreferrer">
-              hub-launch-flyer.html
-            </a>{' '}
-            to print only the colorful flyer.
+            Each block prints on its own page.
+            {/* The standalone flyer page is NWSA print collateral — only
+                offer the link when this org actually ships it. */}
+            {ORG.assets.includes('hub-launch-flyer.html') && (
+              <>
+                {' '}Tip: open{' '}
+                <a href={`${SITE_URL}hub-launch-flyer.html`} target="_blank" rel="noreferrer">
+                  hub-launch-flyer.html
+                </a>{' '}
+                to print only the colorful flyer.
+              </>
+            )}
           </p>
 
           <LaunchPosterPage />
 
           <PosterPage
-            name="NWSA Music"
+            name={ORG.brandName}
             tagline="Scan for schedules, parts & announcements"
             url={SITE_URL}
             urlLabel={SHORT_HOST}

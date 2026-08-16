@@ -447,6 +447,29 @@ export interface PlannedAbsence {
   status?: 'pending' | 'approved' | 'dismissed';
 }
 
+/** Topics a parent can pick on the public contact form (#parent-messages).
+ *  A closed set — firestore.rules enforces the same list on create. */
+export const PARENT_MESSAGE_TOPICS = [
+  'attendance', 'schedule', 'lessons', 'concerts', 'volunteer', 'enrollment', 'other',
+] as const;
+export type ParentMessageTopic = (typeof PARENT_MESSAGE_TOPICS)[number];
+
+/** Parent→staff message from the public contact form (#parent-messages).
+ *  Create-only public write (rules enforce shape, same posture as
+ *  plannedAbsences); staff read and manage status from the Messages inbox. */
+export interface ParentMessage {
+  id: string;
+  parentName: string;
+  email: string;
+  /** Free text, deliberately not tied to a student doc — prospective
+   *  families (no student yet) are exactly who this form is for too. */
+  studentName?: string;
+  topic: ParentMessageTopic;
+  message: string;
+  submittedAt: number;
+  status: 'new' | 'read' | 'replied' | 'archived';
+}
+
 /** Plain-English location directory (#15). Key = the short room string used on
  *  events; value adds building/directions and an optional campus-map anchor. */
 export interface CampusLocation {

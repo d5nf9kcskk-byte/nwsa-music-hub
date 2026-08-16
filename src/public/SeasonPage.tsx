@@ -11,6 +11,7 @@ import { todayStr, parseDate, formatTimeRange, ensembleColor, ensembleDisplayNam
 import { PubEnsembleSelect } from './components/PubEnsembleSelect';
 import { printViaPopup } from '../shared/printPopup';
 import type { CalendarEvent, Ensemble } from '../director/types';
+import { ORG } from '../org';
 
 /** Season at a Glance (#13): every concert of the year on one printable page. */
 export function SeasonPage() {
@@ -20,7 +21,7 @@ export function SeasonPage() {
   const [filter, setFilter] = useState('');
   const pageRef = useRef<HTMLDivElement>(null);
   function handlePrint() {
-    if (pageRef.current) printViaPopup('NWSA Music — Season', pageRef.current.outerHTML);
+    if (pageRef.current) printViaPopup(`${ORG.brandName} — Season`, pageRef.current.outerHTML);
     else window.print();
   }
 

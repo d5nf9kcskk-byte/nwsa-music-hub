@@ -1,12 +1,16 @@
 import { useState, useCallback } from 'react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../firebaseAuth';
+import { ORG } from '../../org';
 
 const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-// ponytail: hardcode until we know the Firebase SA client_email; Connect still
-// works without share — cron skips unshared folders. Fix: paste the SA email
-// from Firebase Console → Project settings → Service accounts.
-const SERVICE_ACCOUNT_EMAIL = 'firebase-adminsdk@nwsa-hub.iam.gserviceaccount.com';
+// ponytail: hardcoded NWSA fallback until we know the Firebase SA
+// client_email; Connect still works without share — cron skips unshared
+// folders. Other orgs set VITE_FIREBASE_SERVICE_ACCOUNT_EMAIL (Firebase
+// Console → Project settings → Service accounts).
+const SERVICE_ACCOUNT_EMAIL =
+  import.meta.env.VITE_FIREBASE_SERVICE_ACCOUNT_EMAIL
+  || 'firebase-adminsdk@nwsa-hub.iam.gserviceaccount.com';
 
 interface DriveState {
   connected: boolean;
@@ -68,7 +72,7 @@ export function useGoogleDrive() {
     }
 
     try {
-      const rootId = await findOrCreateFolder(token, 'NWSA Music Hub', null);
+      const rootId = await findOrCreateFolder(token, ORG.appName, null);
       const subId = await findOrCreateFolder(token, assignmentTitle, rootId);
       const folderUrl = `https://drive.google.com/drive/folders/${subId}`;
       setDrive({ connected: true, folderId: subId, folderUrl, error: null });

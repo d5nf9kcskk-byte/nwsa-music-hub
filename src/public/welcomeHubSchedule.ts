@@ -1,8 +1,9 @@
 import { todayStr } from '../director/utils';
+import { ORG } from '../org';
 
-/** Same public root the QR kit posters use. */
-export const HUB_URL = 'https://d5nf9kcskk-byte.github.io/nwsa-music-hub/';
-export const HUB_DISPLAY = 'd5nf9kcskk-byte.github.io/nwsa-music-hub';
+/** Same public root the QR kit posters use — per-org (config/orgs/*.json). */
+export const HUB_URL = ORG.publicUrl;
+export const HUB_DISPLAY = ORG.publicUrlDisplay;
 
 /** Inclusive calendar windows (local `todayStr`). */
 const OPENING_BANNER_END = '2026-08-14';

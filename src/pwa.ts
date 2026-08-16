@@ -1,4 +1,5 @@
 import { registerSW } from 'virtual:pwa-register';
+import { ORG } from './org';
 
 // Staff keep the installed app open for days; poll so pushed fixes surface
 // without waiting for a cold start.
@@ -75,7 +76,7 @@ function promptRefresh(onAccept: () => void) {
     'background:#18212f;color:#fff;font:600 13.5px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;' +
     'box-shadow:0 8px 24px rgba(0,0,0,0.35);max-width:92vw;';
   toast.innerHTML =
-    '<span>A new version of NWSA Music Hub is ready.</span>' +
+    `<span>A new version of ${ORG.appName} is ready.</span>` +
     '<button style="border:none;border-radius:8px;padding:7px 12px;background:#0d7e8e;color:#fff;' +
     'font:inherit;font-weight:700;font-size:13px;cursor:pointer;">Refresh</button>';
   toast.querySelector('button')!.addEventListener('click', onAccept);

@@ -6,6 +6,7 @@ import { GraduationCap, Users, Music2, ChevronDown, Printer, BookOpen } from 'lu
 import { LABELS } from '../shared/labels';
 import { PageHeader } from './components/PageHeader';
 import { printViaPopup } from '../shared/printPopup';
+import { ORG } from '../org';
 
 type Audience = 'students' | 'parents' | 'directors';
 
@@ -316,7 +317,7 @@ export function StartGuide() {
   const [tab, setTab] = useState<Audience>(staffView ? 'directors' : 'students');
   const pageRef = useRef<HTMLDivElement>(null);
   function handlePrint() {
-    if (pageRef.current) printViaPopup('NWSA Music — Start Here Guide', pageRef.current.outerHTML);
+    if (pageRef.current) printViaPopup(`${ORG.brandName} — Start Here Guide`, pageRef.current.outerHTML);
     else window.print();
   }
 
@@ -331,7 +332,7 @@ export function StartGuide() {
         }
       />
       <p className="pub-sg-intro">
-        New to NWSA Music? Pick who you are, then tap any question. Every answer links
+        New to {ORG.brandName}? Pick who you are, then tap any question. Every answer links
         straight to the right page.
       </p>
 
@@ -371,7 +372,7 @@ export function StartGuide() {
 
       <p className="pub-sg-contact">
         Still stuck, or something looks wrong? Email the music office at{' '}
-        <a href="mailto:nwsaorchestras@gmail.com">nwsaorchestras@gmail.com</a>.
+        <a href={`mailto:${ORG.contactEmail}`}>{ORG.contactEmail}</a>.
       </p>
     </div>
   );
