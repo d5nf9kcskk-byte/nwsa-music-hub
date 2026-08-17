@@ -152,6 +152,55 @@ Longer exams, higher bitrate, a second grader reviewing, students rewatching.
 The spread between C and E is entirely video size and view count. Both are
 controllable, and controlling them is cheaper than paying for not doing so.
 
+## Unit economics — the numbers to reuse
+
+The scenarios above are specific to one school. These per-unit rates are
+portable, and are the right thing to reach for when sizing a different
+deployment, a demo, or another organization.
+
+| Rule of thumb | |
+|---|---|
+| Store one 200 MB video for a year | **~5¢** |
+| Store 1 GB for a year | ~24¢ |
+| Serve 1 GB **beyond** the free 100 GB/month | 12¢ |
+| Free every month | 5 GB stored, 100 GB served |
+
+**~5¢ per video per year, all-in**, provided viewing stays inside the free
+egress allowance. That is the conservative figure — it charges every video
+for a full twelve months, whereas real rounds accumulate through the year,
+so actual spend runs lower. Scenario C works out to ~$14 rather than the
+~$29 a flat 5¢ × 600 videos would suggest, for exactly that reason.
+
+**Why it lands in pennies:** not because video is cheap, but because at this
+scale *the expensive meter never turns on*. Egress costs 6× storage, but the
+first 100 GB each month is free — roughly **500 video-views/month** at 200 MB
+each. A department grading a few hundred exams never reaches it, so the bill
+is storage only, and storage is nearly free.
+
+**What a $10/month alert buys**, in video terms:
+
+- ~2,500 videos (200 MB) held in storage simultaneously, on storage alone
+- ~900 views/month, on egress alone
+
+That is roughly 4× scenario C. Requiring more video from students is well
+within the headroom.
+
+**What breaks it:** 4K capture. ~1 GB for three minutes is 5× every number
+here, and it is a phone setting the student will never think about. Hence
+lever 1 below.
+
+### Sizing another organization
+
+For the demo and any multi-tenant version: **a school-sized deployment costs
+single-digit dollars per month, and most of it is inside the free tier.**
+Firestore reads for students and parents checking schedules — the original
+use case — are free at any realistic school size (50K reads/day, and a
+300-student school browsing all day does not approach it). Auth is free to
+50K MAU. Hosting is free at this traffic. The marginal cost of one more
+school is close to zero **until it starts serving significant video**, which
+makes video policy — size cap, retention window, view pattern — the only
+variable worth modelling per tenant.
+
 ## The levers, in order of effect
 
 1. **Cap upload size in `storage.rules`, not in the UI.** A client-side check
@@ -234,39 +283,62 @@ Worth confirming the school's FERPA position and parental consent posture for
 recordings of minors before building this, not after. That is a conversation,
 not a code change, and it is the real long pole.
 
-### Blaze has no hard spending cap
+### A Cloud Billing budget is an alert, not a cap
 
-Metered billing with no ceiling by default. Before the first student uploads
-anything:
+This one is easy to get wrong, because the console calls it a budget and it
+reads like a limit. **It is not.** A Cloud Billing budget emails you when
+spend crosses a threshold; it does not stop anything. There is no console
+setting that hard-stops a Firebase project at a dollar amount. Treat the
+project's budget as a smoke alarm, not a sprinkler.
 
-- Set a **budget alert** in Cloud Billing (email at 50/90/100% of, say, $25/month).
-- Enforce the size and content-type caps **in the rules**, as above.
-- Be aware that the one existing anonymous write path (`plannedAbsences`) is
-  rate-limited only by pricing — deferred item #1 in
-  `docs/security-recommendations.md` proposes App Check for exactly this, and
-  it becomes more compelling once a card is attached to the project.
+At the volumes in this document that distinction is academic — you would have
+to be far outside every scenario here to care. It matters only as an
+assumption not to build on.
 
-The genuine hard-stop pattern is a billing-alert Pub/Sub topic triggering a
-Cloud Function that disables billing. Cloud Functions themselves require
-Blaze and carry a small Artifact Registry / Cloud Build cost — a few cents a
-month at this deployment's scale.
+What actually constrains spend:
+
+- **Size and content-type caps in `storage.rules`**, as above. This is the
+  only true server-side ceiling, and the only thing standing between
+  scenario C and scenario E.
+- **A budget alert** at a threshold you'd want to know about (email at
+  50/90/100%), for awareness rather than enforcement.
+- The genuine hard-stop pattern, if it's ever warranted: a billing-alert
+  Pub/Sub topic triggering a Cloud Function that disables billing on the
+  project. Cloud Functions require Blaze and carry a small Artifact Registry
+  / Cloud Build cost — cents a month here. This nukes the site rather than
+  throttling it, so it is a backstop against runaway abuse, not a budgeting
+  tool.
+- The one existing anonymous write path (`plannedAbsences`) is rate-limited
+  only by pricing — deferred item #1 in `docs/security-recommendations.md`
+  proposes App Check for exactly this, and it becomes more compelling once a
+  card is attached to the project.
+
+### Confirm the bucket region
+
+The free allowance (5 GB stored, 100 GB served) applies **only** to buckets
+in `us-central1`, `us-east1`, or `us-west1`. A bucket created in any other
+region loses it entirely and every figure in this document gets materially
+worse — the 100 GB free egress is what keeps the exam-video scenarios in
+pennies. Worth verifying in the console once, at setup.
 
 ## Recommendation
 
 **Split it in two.** They are different-sized decisions wearing the same
 question.
 
-**Now, if you want:** enable Blaze. The document repository starts working
-immediately with zero code changes and a $0 bill, and it retires the "paste a
-Google Drive link" workaround across every upload surface. Set a $25 budget
-alert the same day. This is a ten-minute console change with an honest
-expected cost of nothing.
+**Done (2026-08-04):** Blaze is enabled on the project with a $10 budget
+alert. That alone switches the document repository on — zero code changes,
+zero expected cost — and retires the "paste a Google Drive link" workaround
+across every upload surface. Two things to verify once: that the bucket is in
+`us-central1` / `us-east1` / `us-west1`, and that the $10 figure is understood
+as an alert rather than a ceiling. Both above.
 
 **Separately, as a project:** student exam uploads. The billing question is
-effectively answered — budget **$15–25/month** and cap uploads so it stays
-there. The open questions are student authentication, the privacy rules, and
-the school's consent posture for recording minors. Those want a decision
-before they want code.
+answered and the answer is "cheap" — ~5¢ per video-year, with $10/month of
+headroom covering roughly 2,500 stored videos. Cap upload size in
+`storage.rules` and it stays there permanently. The open questions are
+student authentication, the privacy rules, and the school's consent posture
+for recording minors. Those want a decision before they want code.
 
 ## Sources
 
