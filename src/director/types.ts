@@ -31,7 +31,14 @@ export interface Ensemble {
 }
 
 export interface Student {
+  /** Random Firestore ID. NEVER the school-issued Student ID (#privacy):
+   *  doc IDs surface publicly via studentsPublic, /student/<id> URLs, and
+   *  feeds/student-<id>.ics. */
   id: string;
+  /** School-issued 7-digit Student ID. Staff-only — lives on the `students`
+   *  doc and is never in PUBLIC_STUDENT_KEYS (src/director/publicMirror.ts),
+   *  so it can never reach the public mirror. */
+  schoolId?: string;
   name: string;
   /** "Goes by" name shown on Take Roll and seating (#46) */
   preferredName?: string;

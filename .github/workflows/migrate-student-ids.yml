@@ -1,0 +1,31 @@
+name: Migrate student doc IDs
+
+# One-time #privacy repair: re-keys student docs whose doc ID is the school-
+# issued 7-digit Student ID (doc IDs surface publicly) to random Firestore
+# IDs, rewriting every referencing collection. Dry-run unless dispatched with
+# live=true. Idempotent — safe to re-run; no push trigger on purpose, a data
+# migration only ever runs from an explicit dispatch.
+on:
+  workflow_dispatch:
+    inputs:
+      live:
+        description: 'Actually write (true/false). Default false = dry run.'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install firebase-admin --no-save
+      - name: Migrate student doc IDs
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/migrate-student-doc-ids.mjs ${{ inputs.live == 'true' && '--live' || '' }}

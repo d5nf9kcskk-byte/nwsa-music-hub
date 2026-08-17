@@ -67,6 +67,12 @@ How it works — do not regress this:
   mirrors on demand.
 - `scripts/generate-feeds.mjs` must only ever fetch the public projections —
   it runs unauthenticated at deploy time.
+- Student doc IDs are RANDOM Firestore IDs, never the school-issued Student
+  ID — doc IDs are effectively public (shared with `studentsPublic`, and in
+  `/student/<id>` URLs and `feeds/student-<id>.ics`). The school ID lives
+  only in the staff-only `schoolId` field on `students`.
+  `scripts/migrate-student-doc-ids.mjs` repaired the Aug 2026 import that
+  briefly violated this; keep any future importer on random IDs.
 - **NEVER commit real student data** (names, grades, rosters) to this repo —
   seed/baseline rosters with real students were purged from files AND git
   history in Aug 2026. Contact info is imported at runtime from a private
