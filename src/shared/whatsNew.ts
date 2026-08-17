@@ -28,6 +28,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Student page links were re-keyed on 2026-08-17 (#privacy: doc IDs no
+  // longer expose school Student IDs), which reset saved schedules and
+  // personal calendar subscriptions made before that date.
+  {
+    id: '2026-08-17-schedule-links-reset',
+    date: '2026-08-17',
+    title: 'Pick your schedule again (one-time reset)',
+    audience: 'public',
+    expires: '2026-08-31',
+    bullets: [
+      'We changed how student schedule pages are linked behind the scenes to better protect student information.',
+      'If your saved schedule or a bookmarked link stopped working, open Find My Schedule and pick your name once — saving works the same as before.',
+      'If you subscribed to a personal calendar feed, re-subscribe from your schedule page so it keeps updating.',
+    ],
+  },
   // Contact form + Messages inbox (#parent-messages) — only shown for orgs
   // with the feature enabled (NWSA ships with contactForm: false, so this
   // entry is invisible there until the director opts in).

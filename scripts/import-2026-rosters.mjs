@@ -17,7 +17,11 @@
  *   Vocal   → High School Choir
  *   Theory  → Jazz Theory if in Jazz; else by grade (9 / 10 / Music History 11–12)
  *
- * Matching: name tokens (order-independent). New docs use school Student ID.
+ * Matching: staff-only `schoolId` field first, then name tokens
+ * (order-independent). New docs get RANDOM Firestore IDs — never the school
+ * Student ID (#privacy: doc IDs surface publicly via studentsPublic,
+ * /student/<id> URLs, and feeds/student-<id>.ics; the school ID lives only in
+ * the staff-only `schoolId` field / contacts).
  * Leavers (Active, not on the new list) → archive "Not on 2026-27 roster".
  * Graduated seniors are left alone. Contacts merge into `contacts`.
  */
@@ -89,6 +93,13 @@ function matchKey(name) {
   return String(name).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean).sort().join(' ');
 }
 
+/** 7-digit school ID, or '' when the row has none (never pad an empty value —
+ *  padding '' to '0000000' once collapsed ID-less students into one doc). */
+function normalizeSchoolId(v) {
+  const digits = String(v ?? '').replace(/\D/g, '');
+  return digits ? digits.padStart(7, '0') : '';
+}
+
 function compact(obj) {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v != null && v !== ''));
 }
@@ -138,7 +149,7 @@ const planned = rows.map(row => ({
   name: row.name,
   instrument: row.instrument || '',
   grade: row.grade || '',
-  schoolId: String(row.schoolId || '').replace(/\D/g, '').padStart(7, '0'),
+  schoolId: normalizeSchoolId(row.schoolId),
 }));
 
 // Self-check a few known rules before touching Firestore.
@@ -192,11 +203,13 @@ async function loadStudents() {
 
 const existing = await loadStudents();
 const byKey = new Map();
+const bySchoolId = new Map();
 for (const s of existing) {
   if ((s.status ?? 'Active') !== 'Active') continue; // don't revive Graduated/Inactive via name match
   const k = matchKey(s.name);
   if (!byKey.has(k)) byKey.set(k, []);
   byKey.get(k).push(s);
+  if (s.schoolId) bySchoolId.set(s.schoolId, s);
 }
 
 const creates = [];
@@ -205,6 +218,13 @@ const ambiguous = [];
 const matchedIds = new Set();
 
 for (const p of planned) {
+  // schoolId is authoritative (survives name changes); fall back to name.
+  const byId = p.schoolId ? bySchoolId.get(p.schoolId) : undefined;
+  if (byId) {
+    matchedIds.add(byId.id);
+    updates.push({ id: byId.id, prev: byId, next: p });
+    continue;
+  }
   const matches = byKey.get(matchKey(p.name)) ?? [];
   if (matches.length > 1) { ambiguous.push(p); continue; }
   if (matches.length === 1) {
@@ -217,7 +237,7 @@ for (const p of planned) {
 }
 
 const leavers = existing.filter(s => (s.status ?? 'Active') === 'Active' && !matchedIds.has(s.id)
-  && !creates.some(c => c.schoolId && c.schoolId === s.id));
+  && !creates.some(c => c.schoolId && (c.schoolId === s.schoolId || c.schoolId === s.id)));
 
 console.log(JSON.stringify({
   dryRun: DRY,
@@ -244,7 +264,8 @@ writer.onWriteError(err => {
 });
 
 for (const p of creates) {
-  const id = p.schoolId || db.collection('students').doc().id;
+  // Random ID always (#privacy) — the school ID is a staff-only FIELD.
+  const id = db.collection('students').doc().id;
   const data = {
     name: p.name,
     instrument: p.instrument,
@@ -254,12 +275,13 @@ for (const p of creates) {
     updatedAt: now,
     updatedBy: 'import-2026-rosters',
   };
+  if (p.schoolId) data.schoolId = p.schoolId;
   writer.set(db.collection('students').doc(id), data);
   writer.set(db.collection('studentsPublic').doc(id), projectStudent(data));
   writer.set(db.collection('contacts').doc(id), contactPayload(p.row), { merge: true });
 }
 
-for (const { id, next } of updates) {
+for (const { id, prev, next } of updates) {
   const data = {
     name: next.name,
     instrument: next.instrument,
@@ -269,8 +291,11 @@ for (const { id, next } of updates) {
     updatedAt: now,
     updatedBy: 'import-2026-rosters',
   };
+  if (next.schoolId) data.schoolId = next.schoolId;
   writer.set(db.collection('students').doc(id), data, { merge: true });
-  writer.set(db.collection('studentsPublic').doc(id), projectStudent(data));
+  // Project the MERGED doc, not just the imported fields — a bare
+  // projectStudent(data) once wiped section/preferredName off the mirror.
+  writer.set(db.collection('studentsPublic').doc(id), projectStudent({ ...prev, ...data }));
   writer.set(db.collection('contacts').doc(id), contactPayload(next.row), { merge: true });
 }
 
