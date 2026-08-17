@@ -1,6 +1,6 @@
 # Firebase upgrade — what it costs to host files and student exam videos
 
-Written 2026-08-04 in response to: *"how much would it cost to upgrade
+Written 2026-08-17 in response to: *"how much would it cost to upgrade
 Firebase so documents can be saved in the hub itself, not just readable
 documents, and so singing exams can be given with students uploading video
 directly to the hub app?"*
@@ -28,22 +28,23 @@ students have no accounts and Storage is currently world-readable.
 
 Two separate reasons, and only the first is about video.
 
-**1. There is no bucket today.** `src/director/components/FileUpload.tsx:48`
-already carries the comment:
+**1. There was no bucket.** `src/director/components/FileUpload.tsx:48`
+still carries the comment:
 
 > Firebase Storage requires the paid Blaze plan; on the free plan there's no
 > bucket, so every upload fails with a `storage/*` code
 
-That is current. Since **3 February 2026**, Cloud Storage for Firebase follows
-standard Google Cloud Storage rules and a bucket cannot be created without a
-linked billing account. The Spark plan no longer includes a storage bucket at
-all. So the document-repository upload path — already written, already wired
-through `DocumentsView.tsx` and `AssignmentsView.tsx` — is dead code on Spark,
-which is why every upload surface offers "paste a Google Drive link instead" as
-a fallback.
+Since **3 February 2026**, Cloud Storage for Firebase follows standard Google
+Cloud Storage rules and a bucket cannot be created without a linked billing
+account. The Spark plan no longer includes a storage bucket at all. So the
+document-repository upload path — already written, already wired through
+`DocumentsView.tsx` and `AssignmentsView.tsx` — was dead code on Spark, which
+is why every upload surface offers "paste a Google Drive link instead" as a
+fallback.
 
-**Flipping to Blaze turns that existing feature on, at no cost.** That is the
-cheap half of the request and it needs no new code.
+**Resolved 2026-08-17.** Blaze is enabled and the bucket exists (details
+below). Turning the existing feature on took no new code — only the console
+change and a rules deploy.
 
 **2. Video is new construction.** Student-uploaded exams need student accounts,
 new Storage paths, new rules, and a submission model in Firestore. None of that
@@ -107,7 +108,7 @@ exceeded. Firestore's location is immutable, so the multi-region rate is a
 given rather than a decision — it is stated here only so the ceiling is
 honest.
 
-Observed 2026-08-04, before any real traffic: **65K reads against 2 writes**,
+Observed 2026-08-17, before any real traffic: **65K reads against 2 writes**,
 i.e. already past the Spark ceiling on test usage alone. That is the read
 pattern above, not a user load, and it is the concrete argument that the
 upgrade was necessary rather than precautionary.
@@ -380,9 +381,17 @@ region — including the `US` multi-region — loses it entirely, and every
 figure in this document gets materially worse, since the 100 GB free egress
 is what keeps the exam-video scenarios in pennies.
 
-**Resolved 2026-08-04:** the bucket was created as
+**Resolved 2026-08-17:** the bucket was created as
 `gs://nwsa-hub.firebasestorage.app`, Regional / Standard, in **us-central1**,
 via the console's own "No cost location" option. Free tier applies.
+
+One follow-on: the service account behind `FIREBASE_SERVICE_ACCOUNT_JSON`
+predates the bucket, so its first Storage rules deploy failed with
+`403 Permission 'firebasestorage.defaultBucket.get' denied`. Firestore rules
+deployed fine in the same run — the split-step design working as intended.
+Fix is an IAM grant, not a code change: add **Firebase Storage Admin**
+(`roles/firebasestorage.admin`) to that service account, then re-run the
+workflow. Worth doing at setup time for any new deployment.
 
 Two things learned doing it, worth keeping for the next deployment:
 
@@ -430,7 +439,7 @@ of dollars a month. Worth a calendar reminder for **early November 2026**.
 **Split it in two.** They are different-sized decisions wearing the same
 question.
 
-**Done (2026-08-04):** Blaze is enabled on the project with a $10 budget
+**Done (2026-08-17):** Blaze is enabled on the project with a $10 budget
 alert. That alone switches the document repository on — zero code changes,
 zero expected cost — and retires the "paste a Google Drive link" workaround
 across every upload surface. Two things to verify once: that the bucket is in
