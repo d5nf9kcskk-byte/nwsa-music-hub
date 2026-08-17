@@ -1,18 +1,22 @@
-name: Deploy Firestore rules
+name: Deploy Firestore & Storage rules
 
-# Deploys the Firestore security rules automatically whenever they change on
-# main, using the same service account the other admin tasks use. This closes
-# the last manual step: editing firestore.rules no longer needs a hand-run
-# `firebase deploy` — the rules go live with the change that made them.
+# Deploys the Firestore AND Storage security rules automatically whenever they
+# change on main, using the same service account the other admin tasks use.
+# This closes the last manual step: editing either rules file no longer needs a
+# hand-run `firebase deploy` — the rules go live with the change that made them.
 #
-# Storage rules are intentionally NOT deployed here. Firebase Storage requires
-# the paid Blaze plan (there is no bucket on the free Spark plan), so a Storage
-# deploy fails with "fetching default storage bucket … 403 / may not exist" and
-# would drag the whole job — including the Firestore rules — down with it.
-# storage.rules is kept in the repo, ready to deploy, for whenever Storage is
-# enabled; add `,storage:rules` back to the deploy command below at that point.
-# Until then, document/attachment uploads use external links (Drive, etc.)
-# instead of in-app file uploads.
+# Storage rules were excluded here until Aug 2026, because Firebase Storage
+# requires the Blaze plan and there was no bucket on Spark: the deploy failed
+# with "fetching default storage bucket … 403 / may not exist" and dragged the
+# whole job — including the Firestore rules — down with it.
+#
+# The bucket now exists (gs://nwsa-hub.firebasestorage.app, us-central1), so
+# Storage rules deploy again. They run as their OWN step, AFTER Firestore, so
+# that the original failure mode cannot come back: if a Storage deploy ever
+# fails, Firestore's rules have already shipped and only the Storage step goes
+# red. The job failing is the point — a security-rules deploy that silently
+# no-ops is worse than a visible failure — so this step is deliberately NOT
+# `continue-on-error`.
 on:
   workflow_dispatch:
   push:
@@ -54,10 +58,19 @@ jobs:
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
 
-      - name: Deploy rules
+      # Firestore first, deliberately. If Storage ever fails, these are already
+      # live and the blast radius is one step instead of the whole job.
+      - name: Deploy Firestore rules
         run: |
           npx --yes firebase-tools@13 deploy \
             --only firestore:rules \
+            --project nwsa-hub \
+            --non-interactive
+
+      - name: Deploy Storage rules
+        run: |
+          npx --yes firebase-tools@13 deploy \
+            --only storage \
             --project nwsa-hub \
             --non-interactive
 
