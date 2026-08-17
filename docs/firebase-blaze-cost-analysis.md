@@ -66,6 +66,55 @@ Firestore, Hosting, and Auth keep their existing free tiers — 1 GiB stored,
 Authentication**. Student sign-in adds no authentication cost at any roster
 size this school will ever have.
 
+**Blaze does not replace the free tier — it extends past it.** The quotas
+above are identical on Spark and Blaze; the only difference is what happens
+at the ceiling. This is worth stating plainly because "upgrade to the paid
+plan" reads like the free amounts go away, and they do not. Enabling Blaze
+on an unchanged workload changes the bill by $0.
+
+## Was Blaze needed for the read-only use case?
+
+Yes, but for the failure mode, not the money — and the distinction matters
+for anyone sizing this app later.
+
+**This app reads heavily per page view.** `useStudentsPublic` pulls the whole
+`studentsPublic` collection and filters client-side, and a public page
+attaches listeners to nine collections (`events`, `repertoire`,
+`assignments`, `documents`, `announcements`, `ensembles`, `locations`, plus
+the two roster projections). Firestore bills one read per document returned,
+so a cold page load is plausibly **700–1,000 reads**. Against the 50K/day
+free quota that is roughly **50 cold visits per day**.
+
+**On Spark, hitting that ceiling breaks the site.** Reads begin failing and
+stay failing until quota resets at midnight UTC — 7–8pm Eastern, i.e. the
+site goes dark exactly when families check schedules in the evening and
+recovers overnight. Spark's quota is a cutoff, not a bill.
+
+**On Blaze the same traffic simply works**, at $0.03 per 100,000 reads:
+
+| Daily traffic | Billable reads | Cost |
+|---|---|---|
+| 50 visits | 0 | $0 |
+| 200 visits/day | 150K | ~$1.35/month |
+| 500 visits/day | 450K | ~$4/month |
+
+Four times past the Spark wall costs about a dollar a month. The upgrade buys
+uptime, not capacity, and it costs nothing until the quota is actually
+exceeded.
+
+Those figures are a ceiling rather than a forecast: Firestore's offline cache
+and listener resume tokens mean a returning visitor on the same device is
+charged only for documents that *changed* since the last snapshot, so
+real-world reads run well below the cold-load worst case. The static ICS
+feeds under `dist/feeds/` cost zero reads by construction — they are
+generated at deploy time by `scripts/generate-feeds.mjs`.
+
+If read volume ever does need reducing, the lever is the whole-collection
+listeners: query server-side (`where('ensembleIds', 'array-contains', id)`)
+instead of fetching everything and filtering in the client, and avoid
+attaching every collection's listener on pages that don't render them.
+Neither is worth doing at current cost.
+
 ## Rates above the allowance
 
 | Meter | Rate |
@@ -317,9 +366,23 @@ What actually constrains spend:
 
 The free allowance (5 GB stored, 100 GB served) applies **only** to buckets
 in `us-central1`, `us-east1`, or `us-west1`. A bucket created in any other
-region loses it entirely and every figure in this document gets materially
-worse — the 100 GB free egress is what keeps the exam-video scenarios in
-pennies. Worth verifying in the console once, at setup.
+region — including the `US` multi-region — loses it entirely, and every
+figure in this document gets materially worse, since the 100 GB free egress
+is what keeps the exam-video scenarios in pennies.
+
+To check, use the **Cloud** console rather than the Firebase one:
+[console.cloud.google.com/storage/browser](https://console.cloud.google.com/storage/browser)
+→ select the project → the bucket (`<project-id>.firebasestorage.app`) lists
+its **Location**. Or from a shell with `gcloud` authenticated:
+
+```bash
+gcloud storage buckets describe gs://YOUR-PROJECT.firebasestorage.app \
+  --format="value(location)"
+```
+
+**A bucket's region cannot be changed after creation.** Fixing a wrong one
+means creating a new bucket in a free-tier region and repointing the app, so
+this is worth confirming while the bucket is still empty.
 
 ## Recommendation
 
