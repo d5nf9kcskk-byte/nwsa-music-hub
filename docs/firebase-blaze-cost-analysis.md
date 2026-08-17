@@ -389,9 +389,15 @@ One follow-on: the service account behind `FIREBASE_SERVICE_ACCOUNT_JSON`
 predates the bucket, so its first Storage rules deploy failed with
 `403 Permission 'firebasestorage.defaultBucket.get' denied`. Firestore rules
 deployed fine in the same run — the split-step design working as intended.
-Fix is an IAM grant, not a code change: add **Firebase Storage Admin**
-(`roles/firebasestorage.admin`) to that service account, then re-run the
-workflow. Worth doing at setup time for any new deployment.
+
+Fix is an IAM grant, not a code change: give that service account **Cloud
+Storage for Firebase Admin** (`roles/firebasestorage.admin` — note the console
+display name starts with *Cloud Storage*, not *Firebase Storage*), then re-run.
+**Allow several minutes for propagation.** A re-run ~5 minutes after the grant
+still 403'd with an identical error; the next attempt passed with no further
+changes. An unchanged 403 immediately after an IAM change is not evidence the
+grant was wrong — wait before diagnosing. Worth doing at setup time for any new
+deployment so it never comes up.
 
 Two things learned doing it, worth keeping for the next deployment:
 

@@ -106,10 +106,14 @@ Open the dev URL; the public site is at `/`, the director tool at `/director`.
 5. **Project Settings → Your apps → Web app** → copy the config values into
    `.env.local` (see `.env.local.template`).
 6. **IAM** → grant the deploy service account (the one in
-   `FIREBASE_SERVICE_ACCOUNT_JSON`) the **Firebase Storage Admin**
+   `FIREBASE_SERVICE_ACCOUNT_JSON`) the **Cloud Storage for Firebase Admin**
    (`roles/firebasestorage.admin`) role. Without it the Storage rules deploy
    fails with `403 Permission 'firebasestorage.defaultBucket.get' denied` —
-   a service account created before the bucket existed won't have it.
+   a service account created before the bucket existed won't have it. Allow a
+   few minutes for the grant to propagate before re-running; an identical 403
+   right after granting usually just means it hasn't landed yet. The workflow
+   logs which account it authenticates as, so check that against the principal
+   you granted.
 
 > **Blaze is required, and it does not remove the free tier.** Two independent
 > reasons: since 3 Feb 2026 the Spark plan has no Cloud Storage bucket at all,
