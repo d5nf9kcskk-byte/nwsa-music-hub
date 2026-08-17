@@ -81,10 +81,13 @@ hand-write SW fetch/install logic. Rules that must not regress:
 - Every allowlist check requires `email_verified` (incl. the directors
   self-service paths via `verifiedSelf()`). Keep it that way if another
   sign-in provider is ever added.
-- **Rules do NOT auto-deploy.** After merging any change to
-  `firestore.rules` or `storage.rules`, run
-  `firebase deploy --only firestore:rules,storage` (the deploy-rules
-  workflow covers Firestore only).
+- **Rules auto-deploy** (since Aug 2026). The *Deploy Firestore & Storage
+  rules* workflow ships **both** `firestore.rules` and `storage.rules` on
+  every push to `main` that touches them. Storage runs as its own step after
+  Firestore, so a Storage failure can't take the Firestore deploy with it —
+  that was the bug that kept Storage out of this workflow while the project
+  was on Spark and had no bucket. To deploy by hand anyway:
+  `firebase deploy --only firestore:rules,storage`.
 - Sign-out must keep purging the Firestore IndexedDB cache
   (`AuthGate.handleSignOut`: flush-with-consent → `signOut` → `terminate` →
   `clearIndexedDbPersistence`) — staff caches hold grades, contacts,

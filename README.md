@@ -88,17 +88,27 @@ Open the dev URL; the public site is at `/`, the director tool at `/director`.
 
 ### 1. Firebase
 
-1. Create a project at [console.firebase.google.com](https://console.firebase.google.com) (free Spark plan).
+1. Create a project at [console.firebase.google.com](https://console.firebase.google.com)
+   and enable the **Blaze** plan (see the note below — this is required, and
+   costs nothing at this app's scale).
 2. **Firestore Database** → create (production mode).
 3. **Authentication** → enable **Google** provider. (Only people you let sign in can write.)
-4. **Project Settings → Your apps → Web app** → copy the config values into
+4. **Storage** → *Get started* → **production mode** → **No cost location**,
+   `us-central1`. The region matters and **cannot be changed afterwards** —
+   only `us-central1` / `us-east1` / `us-west1` carry the no-cost tier, and a
+   multi-region bucket (`US`, `nam5`) forfeits it. Note that the project's
+   *default GCP resource location* does **not** govern this: since Oct 2024 the
+   `*.firebasestorage.app` default bucket picks its own location.
+5. **Project Settings → Your apps → Web app** → copy the config values into
    `.env.local` (see `.env.local.template`).
 
-> **File uploads need the Blaze plan.** Since 3 Feb 2026 the Spark plan has no
-> Cloud Storage bucket, so every upload in `FileUpload.tsx` fails with a
-> `storage/*` code and the UI falls back to "paste a link instead". Everything
-> else works on Spark. Blaze is metered with no monthly fee, and the document
-> repository fits inside its free allowance — see
+> **Blaze is required, and it does not remove the free tier.** Two independent
+> reasons: since 3 Feb 2026 the Spark plan has no Cloud Storage bucket at all,
+> so every upload in `FileUpload.tsx` fails with a `storage/*` code; and Spark's
+> 50K Firestore reads/day is a *hard cutoff* rather than a bill — a public page
+> here costs ~700–1,000 reads, so exceeding it takes the site down until
+> midnight UTC. Blaze keeps every free quota identical and only meters usage
+> beyond them, so an unchanged workload bills $0. Full costing in
 > [`docs/firebase-blaze-cost-analysis.md`](docs/firebase-blaze-cost-analysis.md).
 
 ### 2. Security rules
@@ -106,13 +116,18 @@ Open the dev URL; the public site is at `/`, the director tool at `/director`.
 Security rules deploy **automatically**: the *Deploy Firestore & Storage rules*
 GitHub Action ships `firestore.rules` and `storage.rules` whenever they change
 on `main`, using the `FIREBASE_SERVICE_ACCOUNT_JSON` secret. Editing the rules
-no longer needs a hand-run deploy. To deploy manually anyway (first-time setup,
-or a non-CI change) you can still:
+no longer needs a hand-run deploy. Storage deploys as a separate step after
+Firestore, so if a Storage deploy fails the Firestore rules have already
+shipped and only that step goes red.
+
+A newly created bucket starts on Firebase's default locked-down rules, **not**
+`storage.rules` — uploads fail with a permissions error until the workflow has
+run once. To deploy manually (first-time setup, or a non-CI change):
 
 ```bash
 npm install -g firebase-tools
 firebase login
-firebase deploy --only firestore:rules,storage:rules --project YOUR_PROJECT_ID
+firebase deploy --only firestore:rules,storage --project YOUR_PROJECT_ID
 ```
 
 ### Who can sign in (directors)

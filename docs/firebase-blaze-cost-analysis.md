@@ -90,17 +90,27 @@ stay failing until quota resets at midnight UTC — 7–8pm Eastern, i.e. the
 site goes dark exactly when families check schedules in the evening and
 recovers overnight. Spark's quota is a cutoff, not a bill.
 
-**On Blaze the same traffic simply works**, at $0.03 per 100,000 reads:
+**On Blaze the same traffic simply works.** Reads run $0.03 per 100,000 in a
+single region; this project's Firestore is in the `nam5` multi-region, where
+published rates disagree on whether reads carry a multiplier, so treat the
+regional rate as a floor and assume up to 2×:
 
 | Daily traffic | Billable reads | Cost |
 |---|---|---|
 | 50 visits | 0 | $0 |
-| 200 visits/day | 150K | ~$1.35/month |
-| 500 visits/day | 450K | ~$4/month |
+| 200 visits/day | 150K | $1.35–2.70/month |
+| 500 visits/day | 450K | $4–8/month |
 
-Four times past the Spark wall costs about a dollar a month. The upgrade buys
+Four times past the Spark wall costs a few dollars a month. The upgrade buys
 uptime, not capacity, and it costs nothing until the quota is actually
-exceeded.
+exceeded. Firestore's location is immutable, so the multi-region rate is a
+given rather than a decision — it is stated here only so the ceiling is
+honest.
+
+Observed 2026-08-04, before any real traffic: **65K reads against 2 writes**,
+i.e. already past the Spark ceiling on test usage alone. That is the read
+pattern above, not a user load, and it is the concrete argument that the
+upgrade was necessary rather than precautionary.
 
 Those figures are a ceiling rather than a forecast: Firestore's offline cache
 and listener resume tokens mean a returning visitor on the same device is
@@ -370,10 +380,29 @@ region — including the `US` multi-region — loses it entirely, and every
 figure in this document gets materially worse, since the 100 GB free egress
 is what keeps the exam-video scenarios in pennies.
 
-To check, use the **Cloud** console rather than the Firebase one:
+**Resolved 2026-08-04:** the bucket was created as
+`gs://nwsa-hub.firebasestorage.app`, Regional / Standard, in **us-central1**,
+via the console's own "No cost location" option. Free tier applies.
+
+Two things learned doing it, worth keeping for the next deployment:
+
+- **Enabling Blaze does not create a bucket.** It only makes creating one
+  possible. Storage has to be provisioned explicitly (Firebase Console →
+  Storage → *Get started*), and until that happens uploads fail exactly as
+  they did on Spark.
+- **The project's *default GCP resource location* does not govern the bucket.**
+  This project's is `nam5`, a multi-region whose "(us-central)" label makes it
+  look like a region. That would have forfeited the free tier — but since
+  30 Oct 2024, `*.firebasestorage.app` default buckets are decoupled from App
+  Engine and pick their own location, so the setup flow offers a free-tier
+  region picker regardless. Create the bucket from the **Firebase** console,
+  not Cloud Console's generic *Create bucket* — the latter makes a plain GCS
+  bucket that isn't registered as the Firebase default, so `getStorage()`
+  won't find it and `storage.rules` won't apply to it.
+
+To verify an existing bucket:
 [console.cloud.google.com/storage/browser](https://console.cloud.google.com/storage/browser)
-→ select the project → the bucket (`<project-id>.firebasestorage.app`) lists
-its **Location**. Or from a shell with `gcloud` authenticated:
+→ select the project → read the **Location** column. Or with `gcloud`:
 
 ```bash
 gcloud storage buckets describe gs://YOUR-PROJECT.firebasestorage.app \
@@ -382,7 +411,19 @@ gcloud storage buckets describe gs://YOUR-PROJECT.firebasestorage.app \
 
 **A bucket's region cannot be changed after creation.** Fixing a wrong one
 means creating a new bucket in a free-tier region and repointing the app, so
-this is worth confirming while the bucket is still empty.
+confirm it while the bucket is still empty.
+
+### The billing account is a Google Cloud free trial, expiring 2026-11-13
+
+Blaze here is backed by the **$300 Google Cloud free trial**, not a standing
+paid account. Real spend is $0 until the credit runs out or the trial ends,
+and at the volumes in this document the trial would cover several years.
+
+**The trial does not roll over.** When it ends, the billing account must be
+manually converted to a paid one; if it lapses, billing detaches and Storage
+stops working — taking the document repository down mid-semester. The
+conversion is just adding a payment method, and the resulting bill is a couple
+of dollars a month. Worth a calendar reminder for **early November 2026**.
 
 ## Recommendation
 
