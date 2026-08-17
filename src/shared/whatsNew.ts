@@ -28,6 +28,22 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Calendar subscribe + video submissions round (#subscribe-any-view,
+  // #video-submissions): filter-view feeds, repertoire in calendar notes,
+  // classes out of ensemble views, and a real record → watch → submit flow.
+  {
+    id: '2026-08-17-subscribe-any-view',
+    date: '2026-08-17',
+    title: 'Subscribe to any calendar view — and a fixed video submit',
+    audience: 'both',
+    expires: '2026-08-31',
+    bullets: [
+      'Subscribe now works for whatever the calendar is showing — any mix of ensembles and event types, not just one at a time.',
+      'Repertoire shows up in the notes of synced calendar events, including pieces linked from the Repertoire page.',
+      'Filtering to an ensemble no longer mixes in academic classes; pick "Classes" in the type filter when you want them.',
+      'Video assignments: the camera preview works, you can watch your take back before sending it, and there is a Submit button — nothing uploads until you press it.',
+    ],
+  },
   // Student page links were re-keyed on 2026-08-17 (#privacy: doc IDs no
   // longer expose school Student IDs), which reset saved schedules and
   // personal calendar subscriptions made before that date.

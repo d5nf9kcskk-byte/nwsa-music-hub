@@ -157,6 +157,28 @@ service cloud.firestore {
                  .affectedKeys()
                  .hasOnly(myDirectorDoc().get('assignedEnsembleIds', [])));
     }
+    // Saved calendar views (#subscribe-any-view): the filter mixes the deploy
+    // step turns into subscribable ICS feeds. World-readable (they hold no
+    // more than a list of ensemble ids and event types) and staff-written —
+    // the public site only ever links feeds that are pre-built for every
+    // deploy, so nothing here needs an unauthenticated write. The doc ID is a
+    // hash of the filters themselves, so re-subscribing to the same mix
+    // rewrites one doc, and the generator ignores any doc whose id does not
+    // match its contents.
+    match /calendarViews/{doc} {
+      allow read;
+      allow delete: if isStaff();
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly(['ensembleIds', 'school', 'types', 'label', 'updatedAt'])
+        && request.resource.data.ensembleIds is list
+        && request.resource.data.ensembleIds.size() <= 40
+        && request.resource.data.school is bool
+        && request.resource.data.types is list
+        && request.resource.data.types.size() <= 12
+        && request.resource.data.label is string
+        && request.resource.data.label.size() <= 200
+        && request.resource.data.updatedAt is number;
+    }
     // rosterOverrides: staff can write anything. A Teacher may create/edit/
     // delete only THEIR OWN private-lesson pull-outs (kind == 'lesson') — the
     // automatic side effect of scheduling a lesson that conflicts with a
@@ -330,8 +352,14 @@ service cloud.firestore {
         && request.resource.data.status == 'submitted'
         && request.resource.data.videoUrl is string
         && request.resource.data.videoUrl.size() <= 1024
+        // >= 0, not > 0: a browser cannot always read the length of a video
+        // file a student picked from their phone, and 0 means "unknown", not
+        // "empty". Requiring a positive number here is what made every upload
+        // (and, before the recorder's timer was fixed, every recording) fail
+        // with "Missing or insufficient permissions". File size below still
+        // has to be positive, which is the check that actually proves a video.
         && request.resource.data.videoDurationSeconds is number
-        && request.resource.data.videoDurationSeconds > 0
+        && request.resource.data.videoDurationSeconds >= 0
         && request.resource.data.fileName is string
         && request.resource.data.fileName.size() <= 256
         && request.resource.data.fileSize is number

@@ -18,6 +18,7 @@ import { dailyPun, say, fridayFinaleEmpty, emptyDayHoldLine, daCapoTodayLine, co
 import { useEggCheer, useTapN } from '../shared/useEggCheer';
 import { NoteBurst } from '../shared/NoteBurst';
 import { fmtDayHeader, fmtLongDate, fmtMonthYear, fmtShortDate, weekdayInitials } from '../shared/dates';
+import { assignmentMatchesView, eventMatchesView, normalizeView, type ViewTypeKey } from '../shared/calendarView';
 import type { CalendarEvent } from '../director/types';
 
 // The type-filter buckets. Sectionals fold into "Rehearsals"; everything else
@@ -33,19 +34,14 @@ const TYPE_OPTIONS: { value: TypeKey; labelKey: string; color: string }[] = [
   { value: 'Assignment', labelKey: 'cal.assignments', color: ASSIGN_COLOR },
 ];
 
-/** Which type bucket an event falls into (Sectional → Rehearsal). */
-function eventTypeKey(t: CalendarEvent['type']): Exclude<TypeKey, 'Assignment'> {
-  if (t === 'Sectional' || t === 'Rehearsal') return 'Rehearsal';
-  if (t === 'Class') return 'Class';
-  if (t === 'Concert') return 'Concert';
-  return 'Event';
-}
-
-/** Empty `keys` = no type filter (show all). */
-function matchesTypes(e: CalendarEvent, keys: TypeKey[]): boolean {
-  if (keys.length === 0) return true;
-  return keys.includes(eventTypeKey(e.type));
-}
+/** The event types behind each bucket — "Rehearsals" covers sectionals too. */
+const BUCKET_TYPES: Record<TypeKey, ViewTypeKey[]> = {
+  Rehearsal: ['Rehearsal', 'Sectional'],
+  Class: ['Class'],
+  Concert: ['Concert'],
+  Event: ['Event'],
+  Assignment: ['Assignment'],
+};
 
 export function PublicCalendar() {
   useLang(); // re-render labels on EN/ES switch
@@ -113,12 +109,19 @@ export function PublicCalendar() {
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
 
-  // School-wide events (ensembleIds: []) are always visible regardless of the
-  // ensemble filter; the type filter still applies to them.
-  const visible = events.filter(e =>
-    (filterEnsembleIds.length === 0 || e.ensembleIds.length === 0 || e.ensembleIds.some(id => filterEnsembleIds.includes(id)))
-    && matchesTypes(e, typeFilters),
+  // The filters as a shareable "view": school-wide days (holidays, early
+  // release) ride along with an ensemble pick, academic classes do not — see
+  // src/shared/calendarView.ts. The calendar feed is built from this same
+  // object, so a subscription matches the screen.
+  const viewSpec = useMemo(
+    () => normalizeView({
+      ensembleIds: filterEnsembleIds,
+      school: false,
+      types: typeFilters.flatMap(k => BUCKET_TYPES[k]),
+    }),
+    [filterEnsembleIds, typeFilters],
   );
+  const visible = useMemo(() => events.filter(e => eventMatchesView(e, viewSpec)), [events, viewSpec]);
 
   const upcoming = useMemo(
     () => [...visible].filter(e => e.date >= todayStr()).sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99')),
@@ -127,11 +130,10 @@ export function PublicCalendar() {
 
   // Assignments as a parallel calendar stream (due dates). Shown when no type
   // filter is set, or when "Assignments" is one of the chosen types.
-  const visibleAssignments = useMemo(() => {
-    if (typeFilters.length > 0 && !typeFilters.includes('Assignment')) return [];
-    return assignments.filter(a =>
-      isPublished(a, now) && (filterEnsembleIds.length === 0 || a.ensembleIds.some(id => filterEnsembleIds.includes(id))));
-  }, [assignments, filterEnsembleIds, typeFilters, now]);
+  const visibleAssignments = useMemo(
+    () => assignments.filter(a => isPublished(a, now) && assignmentMatchesView(a, viewSpec)),
+    [assignments, viewSpec, now],
+  );
   const assignByDate = useMemo(() => {
     const m: Record<string, typeof assignments> = {};
     for (const a of visibleAssignments) (m[a.dueDate] ??= []).push(a);
@@ -216,7 +218,10 @@ export function PublicCalendar() {
       </div>
 
       <div className="pub-subscribe-section">
-        <SubscribeButton ensembleId={filterEnsembleIds.length === 1 ? filterEnsembleIds[0] : undefined} />
+        <SubscribeButton
+          view={viewSpec}
+          snapshot={{ events: visible, assignments: visibleAssignments, ensembles, piecesById }}
+        />
       </div>
 
       {view === 'list' ? (

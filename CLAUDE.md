@@ -102,6 +102,24 @@ hand-write SW fetch/install logic. Rules that must not regress:
 - The SW must keep ignoring cross-origin requests: Firestore offline is the
   SDK's IndexedDB cache, not Cache Storage.
 
+## Calendar feeds & filter views (Aug 2026)
+
+- `src/shared/calendarView.ts` is the ONE definition of what a filtered
+  calendar shows. The Schedule screen, the public calendar, and
+  `scripts/generate-feeds.mjs` (which imports the `.ts` directly — Node
+  strips types) all filter through it. Do not re-implement the filter.
+- School-wide items (no `ensembleIds`) ride along with an ensemble filter;
+  **academic Classes do not**, unless the type filter names them. Classes
+  showing under "Symphony Orchestra" was a reported bug, not a feature.
+- Every filter mix is subscribable: `feeds/view-<slug>.ics`, slug =
+  `viewSlug()` hash of the filters. Common mixes are pre-built each deploy
+  (`autoViewSpecs`); wider mixes are registered in `calendarViews` (staff
+  write) and built on the next feed refresh. **The slug hash is a frozen
+  subscription contract** — `scripts/calendar-view.selfcheck.mjs` pins it.
+- ICS text lives in `src/shared/ics.ts` and is shared with the in-app
+  snapshot download, so calendar notes carry the same repertoire (free text
+  AND linked pieces) either way.
+
 ## Roles & Firestore rules — invariants (Aug 2026, PR #44)
 
 - Roles are a CLOSED set enforced by `isKnownRole()` in `firestore.rules`

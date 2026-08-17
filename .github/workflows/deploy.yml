@@ -33,6 +33,11 @@ jobs:
 
       - run: npm ci
 
+      # Feed URLs are a frozen contract: this pins the view-feed slug hash and
+      # the filter rules the feeds are built from (docs/release-checklist.md).
+      - name: Check calendar view + ICS contracts
+        run: node scripts/calendar-view.selfcheck.mjs
+
       - name: Build
         run: npm run build
         env:

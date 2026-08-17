@@ -1,24 +1,56 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { Camera, StopCircle, RotateCcw, AlertTriangle } from 'lucide-react';
+import { describeDuration, formatClock, formatFileSize } from '../duration';
 
 interface VideoRecorderProps {
   maxDurationSeconds?: number; // default 300 (5 min)
+  /** Fired when a take is ready to review — the parent STAGES it and shows
+   *  its own Submit button. Nothing uploads until the student says so. */
   onRecordingComplete: (blob: Blob, durationSeconds: number, thumbnailUrl: string) => void;
+  /** Fired when the student throws a take away (Record again / Cancel). */
+  onDiscard?: () => void;
+  /** True while the parent is uploading — controls lock so a take can't be
+   *  swapped out from under an upload. */
+  busy?: boolean;
 }
 
-export function VideoRecorder({ maxDurationSeconds = 300, onRecordingComplete }: VideoRecorderProps) {
+/** Container the browser will actually record in — Safari only does mp4. */
+function pickMimeType(): string {
+  const candidates = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+  const supported = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported;
+  for (const type of candidates) {
+    if (!supported || MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return 'video/webm';
+}
+
+export function VideoRecorder({
+  maxDurationSeconds = 300,
+  onRecordingComplete,
+  onDiscard,
+  busy = false,
+}: VideoRecorderProps) {
   const [state, setState] = useState<'idle' | 'requesting' | 'ready' | 'recording' | 'complete'>('idle');
   const [error, setError] = useState('');
   const [elapsed, setElapsed] = useState(0);
-  const [thumbnailUrl, setThumbnailUrl] = useState('');
+  const [playbackUrl, setPlaybackUrl] = useState('');
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
 
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startedAtRef = useRef(0);
+  const thumbnailRef = useRef('');
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const stopTracks = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) videoRef.current.srcObject = null;
+  }, []);
 
   const cleanup = useCallback(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
@@ -26,21 +58,57 @@ export function VideoRecorder({ maxDurationSeconds = 300, onRecordingComplete }:
       recorderRef.current.stop();
     }
     recorderRef.current = null;
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
+    stopTracks();
+  }, [stopTracks]);
+
+  // Object URLs outlive the component unless they're released by hand. Held in
+  // a ref, not an effect dependency: under StrictMode an effect keyed on the
+  // URL would revoke the take the student is currently watching.
+  const playbackUrlRef = useRef('');
+  const revokePlayback = useCallback(() => {
+    if (playbackUrlRef.current) URL.revokeObjectURL(playbackUrlRef.current);
+    playbackUrlRef.current = '';
   }, []);
 
-  useEffect(() => cleanup, [cleanup]);
+  useEffect(() => () => { cleanup(); revokePlayback(); }, [cleanup, revokePlayback]);
 
-  function captureThumbnail(video: HTMLVideoElement): string {
+  /**
+   * Attach the live stream once the <video> is actually on screen.
+   *
+   * This is the blank-preview bug: the element used to be rendered only after
+   * the camera was granted, so the code that ran the instant getUserMedia
+   * resolved found `videoRef.current === null`, silently skipped the
+   * assignment, and the student got a permission prompt followed by a black
+   * box. The element is always mounted now, and the stream is attached from an
+   * effect that runs after the DOM exists.
+   */
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if ((state === 'ready' || state === 'recording') && streamRef.current) {
+      if (video.srcObject !== streamRef.current) video.srcObject = streamRef.current;
+      video.play().catch(() => { /* autoplay blocked; the frame is still live */ });
+    }
+  }, [state]);
+
+  /** Downscaled still from the LIVE preview — grabbed before the tracks stop,
+   *  which works everywhere (seeking a fresh webm blob does not). */
+  function captureThumbnail(): string {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return '';
+    const width = Math.min(video.videoWidth, 320);
+    const height = Math.round((video.videoHeight / video.videoWidth) * width) || 240;
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 320;
-    canvas.height = video.videoHeight || 240;
-    const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.7);
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+    ctx.drawImage(video, 0, 0, width, height);
+    try {
+      return canvas.toDataURL('image/jpeg', 0.7);
+    } catch {
+      return ''; // tainted canvas — a missing thumbnail must not block a submit
+    }
   }
 
   async function startCamera() {
@@ -52,10 +120,6 @@ export function VideoRecorder({ maxDurationSeconds = 300, onRecordingComplete }:
         audio: true,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
       setState('ready');
     } catch (e) {
       const msg = e instanceof DOMException
@@ -73,82 +137,78 @@ export function VideoRecorder({ maxDurationSeconds = 300, onRecordingComplete }:
   function startRecording() {
     if (!streamRef.current) return;
     chunksRef.current = [];
+    thumbnailRef.current = '';
     setElapsed(0);
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-      ? 'video/webm;codecs=vp9'
-      : MediaRecorder.isTypeSupported('video/webm')
-        ? 'video/webm'
-        : 'video/mp4';
+    setError('');
+    const mimeType = pickMimeType();
 
-    const recorder = new MediaRecorder(streamRef.current, { mimeType, videoBitsPerSecond: 2_500_000 });
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(streamRef.current, { mimeType, videoBitsPerSecond: 2_500_000 });
+    } catch {
+      setError('This browser could not start a recording. Try the Upload tab instead.');
+      return;
+    }
     recorderRef.current = recorder;
 
     recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    recorder.onerror = () => {
+      setError('Recording stopped unexpectedly. Please try again.');
+      setState('ready');
+    };
 
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: mimeType });
+      // Wall-clock, not a state snapshot: reading `elapsed` in here used to
+      // capture the value from the render that STARTED the recording — always
+      // 0 — and a submission with 0 seconds is rejected by the security rules
+      // as "missing or insufficient permissions".
+      const seconds = Math.max(1, Math.round((Date.now() - startedAtRef.current) / 1000));
       setRecordedBlob(blob);
-      const duration = elapsed; // snapshot at stop time
-      // Replay the recorded video to grab a thumbnail from the first frame
-      if (videoRef.current) {
-        const replay = document.createElement('video');
-        replay.src = URL.createObjectURL(blob);
-        replay.currentTime = 0.5; // grab 0.5s in
-        replay.onloadeddata = () => {
-          replay.onseeked = () => {
-            const thumb = captureThumbnail(replay);
-            setThumbnailUrl(thumb);
-            URL.revokeObjectURL(replay.src);
-            setState('complete');
-          };
-        };
-      } else {
-        setState('complete');
-      }
-      onRecordingComplete(blob, duration, thumbnailUrl);
+      revokePlayback();
+      playbackUrlRef.current = URL.createObjectURL(blob);
+      setPlaybackUrl(playbackUrlRef.current);
+      setElapsed(seconds);
+      setState('complete');
+      onRecordingComplete(blob, seconds, thumbnailRef.current);
     };
 
+    startedAtRef.current = Date.now();
     recorder.start(1000); // 1-second chunks for smooth upload
     setState('recording');
 
     timerRef.current = setInterval(() => {
-      setElapsed(prev => {
-        if (prev + 1 >= maxDurationSeconds) {
-          stopRecording();
-          return maxDurationSeconds;
-        }
-        return prev + 1;
-      });
-    }, 1000);
+      const seconds = Math.round((Date.now() - startedAtRef.current) / 1000);
+      setElapsed(Math.min(seconds, maxDurationSeconds));
+      if (seconds >= maxDurationSeconds) stopRecording();
+    }, 250);
   }
 
   function stopRecording() {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    // Grab the still while the camera is still running, then release it.
+    thumbnailRef.current = captureThumbnail();
     if (recorderRef.current && recorderRef.current.state === 'recording') {
       recorderRef.current.stop();
     }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) videoRef.current.srcObject = null;
+    stopTracks();
   }
 
   function reset() {
     cleanup();
     setRecordedBlob(null);
-    setThumbnailUrl('');
+    revokePlayback();
+    setPlaybackUrl('');
+    thumbnailRef.current = '';
     setElapsed(0);
+    setError('');
     setState('idle');
+    onDiscard?.();
   }
 
-  function formatTime(s: number) {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  }
-
-  const progressPct = (elapsed / maxDurationSeconds) * 100;
+  const progressPct = Math.min(100, (elapsed / maxDurationSeconds) * 100);
+  const remaining = Math.max(0, maxDurationSeconds - elapsed);
+  const showLive = state === 'ready' || state === 'recording' || state === 'requesting';
 
   return (
     <div className="vr-root">
@@ -158,60 +218,74 @@ export function VideoRecorder({ maxDurationSeconds = 300, onRecordingComplete }:
         </div>
       )}
 
-      {/* Hidden canvas for thumbnail capture */}
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-      {state === 'idle' && !error && (
-        <button className="vr-start-btn" onClick={startCamera}>
-          <Camera size={20} /> Start Camera
-        </button>
+      {state === 'idle' && (
+        <>
+          <button className="vr-start-btn" onClick={startCamera}>
+            <Camera size={20} /> {error ? 'Try camera again' : 'Start Camera'}
+          </button>
+          <div className="vr-limit-note">
+            You can record up to {describeDuration(maxDurationSeconds)}. Nothing is sent until you
+            watch it back and tap Submit.
+          </div>
+        </>
       )}
 
-      {state === 'requesting' && (
-        <div className="vr-loading">Requesting camera access…</div>
-      )}
-
-      {(state === 'ready' || state === 'recording' || state === 'complete') && (
-        <div className="vr-preview-wrap">
-          <video
-            ref={videoRef}
-            className={`vr-preview ${state === 'recording' ? 'vr-recording' : ''}`}
-            muted
-            playsInline
-          />
-          {state === 'ready' && (
-            <div className="vr-controls">
-              <span className="vr-ready-label">Camera ready</span>
-              <button className="vr-record-btn" onClick={startRecording}>
-                <div className="vr-record-dot" /> Record
-              </button>
-              <button className="vr-cancel-btn" onClick={reset}>Cancel</button>
+      {/* The live preview stays mounted from the first render so the camera
+          stream always has an element to attach to. */}
+      <div className="vr-preview-wrap" style={showLive ? undefined : { display: 'none' }}>
+        <video
+          ref={videoRef}
+          className={`vr-preview ${state === 'recording' ? 'vr-recording' : ''}`}
+          muted
+          autoPlay
+          playsInline
+        />
+        {state === 'requesting' && <div className="vr-loading vr-overlay">Requesting camera access…</div>}
+        {state === 'ready' && (
+          <div className="vr-controls">
+            <span className="vr-ready-label">Camera ready</span>
+            <button className="vr-record-btn" onClick={startRecording}>
+              <div className="vr-record-dot" /> Record
+            </button>
+            <button className="vr-cancel-btn" onClick={reset}>Cancel</button>
+          </div>
+        )}
+        {state === 'recording' && (
+          <div className="vr-controls">
+            <div className="vr-progress-bar">
+              <div className="vr-progress-fill" style={{ width: `${progressPct}%` }} />
             </div>
-          )}
-          {state === 'recording' && (
-            <div className="vr-controls">
-              <div className="vr-progress-bar">
-                <div className="vr-progress-fill" style={{ width: `${progressPct}%` }} />
-              </div>
-              <span className="vr-timer">{formatTime(elapsed)}</span>
-              <button className="vr-stop-btn" onClick={stopRecording}>
-                <StopCircle size={18} /> Stop
-              </button>
-            </div>
-          )}
-        </div>
+            <span className="vr-timer">{formatClock(elapsed)}</span>
+            <button className="vr-stop-btn" onClick={stopRecording}>
+              <StopCircle size={18} /> Stop
+            </button>
+          </div>
+        )}
+      </div>
+
+      {state === 'recording' && remaining <= 30 && (
+        <div className="vr-limit-note">{formatClock(remaining)} left — recording stops on its own at the limit.</div>
       )}
 
+      {/* Review step: watch it back before anything is sent. */}
       {state === 'complete' && recordedBlob && (
         <div className="vr-complete">
-          <div className="vr-complete-header">Recording complete</div>
-          <div className="vr-complete-meta">
-            Duration: {formatTime(elapsed)} · {(recordedBlob.size / (1024 * 1024)).toFixed(1)} MB
-          </div>
-          {thumbnailUrl && (
-            <img src={thumbnailUrl} alt="Video thumbnail" className="vr-thumbnail" />
+          <div className="vr-complete-header">Watch it back</div>
+          {playbackUrl && (
+            <video
+              className="vr-playback"
+              src={playbackUrl}
+              controls
+              playsInline
+            />
           )}
-          <button className="vr-reset-btn" onClick={reset}>
+          <div className="vr-complete-meta">
+            {formatClock(elapsed)} · {formatFileSize(recordedBlob.size)}
+          </div>
+          <div className="vr-complete-hint">
+            Happy with it? Add your name and notes below, then tap Submit. Otherwise record it again.
+          </div>
+          <button className="vr-reset-btn" onClick={reset} disabled={busy}>
             <RotateCcw size={14} /> Record again
           </button>
         </div>

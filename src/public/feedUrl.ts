@@ -4,6 +4,8 @@
  * Paths derive from the build's BASE_URL (the org's basePath), so both the
  * NWSA and demo deployments point at their own feeds (audit D-QR).
  */
+import { viewFeedFile, type CalendarViewSpec } from '../shared/calendarView';
+
 const FEEDS_BASE = () => `${window.location.origin}${import.meta.env.BASE_URL}feeds`;
 
 export function feedUrl(ensembleId?: string): string {
@@ -19,6 +21,17 @@ export function feedUrl(ensembleId?: string): string {
 export function typeFeedUrl(type: string): string {
   const safe = type.replace(/[^a-z0-9-]/gi, '-');
   return `${FEEDS_BASE()}/type-${safe}.ics`;
+}
+
+/**
+ * ICS feed for ANY filter view — one ensemble or five, one type or all
+ * (#subscribe-any-view). The file name is a hash of the filters themselves
+ * (src/shared/calendarView.ts), so the same mix always resolves to the same
+ * subscription URL. Common mixes are pre-built at deploy time; wider ones are
+ * registered in `calendarViews` and built on the next feed refresh.
+ */
+export function viewFeedUrl(spec: CalendarViewSpec): string {
+  return `${FEEDS_BASE()}/${viewFeedFile(spec)}`;
 }
 
 /** ICS feed for one student's personal schedule (their ensembles + subs + required attendance). */

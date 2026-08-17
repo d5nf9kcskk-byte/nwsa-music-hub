@@ -357,6 +357,11 @@ export interface Attachment {
   size: number; // bytes
 }
 
+/** Default upload ceiling in MB — matches the cap in storage.rules, so the
+ *  form can refuse an oversized file with a sentence instead of letting the
+ *  upload fail on a rules rejection. */
+export const DEFAULT_VIDEO_MAX_MB = 500;
+
 export interface Assignment {
   id: string;
   title: string;
@@ -373,8 +378,13 @@ export interface Assignment {
   /** Enable in-app video submissions (record or upload). Students submit
    *  directly on the public assignment card — no Google Form needed. */
   acceptsVideoSubmissions?: boolean;
-  /** Max video duration in seconds when recording in-app. Default 300 (5 min). */
+  /** Max video duration when recording in-app, STORED in seconds (existing
+   *  assignments depend on it) but always set and shown in minutes. Default
+   *  300 (5 minutes). */
   maxVideoDurationSeconds?: number;
+  /** Max size of an uploaded video file, in MB. Default `DEFAULT_VIDEO_MAX_MB`;
+   *  the Storage rules cap every upload at 500 MB regardless. */
+  maxVideoSizeMB?: number;
   /** Google Drive folder ID where the cron sync uploads submissions. Set by
    *  the director when they connect Drive to this assignment. */
   googleDriveFolderId?: string;
