@@ -58,6 +58,14 @@ jobs:
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
 
+      # Print WHICH principal we deploy as. A rules deploy that lacks an IAM
+      # role fails with a 403 naming the resource but never the caller, so
+      # "grant the service account this role" turns into guesswork about which
+      # account is even in the secret. client_email is an identifier, not a
+      # credential — the key material stays in the file.
+      - name: Show deploy identity
+        run: node -e "console.log('deploying as:', require(process.env.GOOGLE_APPLICATION_CREDENTIALS).client_email)"
+
       # Firestore first, deliberately. If Storage ever fails, these are already
       # live and the blast radius is one step instead of the whole job.
       - name: Deploy Firestore rules
