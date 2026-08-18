@@ -128,7 +128,8 @@ function orgStatics(): Plugin {
           .replaceAll('__ORG_BRANDNAME__', ORG.brandName)
           .replaceAll('__ORG_THEMECOLOR__', ORG.themeColor)
           .replaceAll('__ORG_FAVICONFILE__', ORG.faviconFile)
-          .replaceAll('__ORG_FAVICONTYPE__', FAVICON_MIME[ext] ?? 'image/png');
+          .replaceAll('__ORG_FAVICONTYPE__', FAVICON_MIME[ext] ?? 'image/png')
+          .replaceAll('__ORG_APPLETOUCHICON__', ORG.icons.appleTouchIcon);
       },
     },
     closeBundle() {
@@ -137,12 +138,24 @@ function orgStatics(): Plugin {
       const manifestPath = resolve(ROOT, 'dist', 'manifest.json');
       if (existsSync(manifestPath)) {
         const nwsa = JSON.parse(readFileSync(resolve(ROOT, 'public', 'manifest.json'), 'utf8'));
-        const manifest = readFileSync(manifestPath, 'utf8')
+        // PWA icon filenames — keyed on the exact literal filenames in
+        // public/manifest.json's `icons` array (also reused 4x in
+        // `shortcuts[].icons`; replaceAll catches every occurrence). None of
+        // the five is a substring of another, so order doesn't matter.
+        const iconMap: Record<string, string> = {
+          'icon-192.png': ORG.icons.icon192,
+          'icon-512.png': ORG.icons.icon512,
+          'icon-maskable-192.png': ORG.icons.maskable192,
+          'icon-maskable-512.png': ORG.icons.maskable512,
+          'icon.svg': ORG.icons.svg,
+        };
+        let manifest = readFileSync(manifestPath, 'utf8')
           .replaceAll('/nwsa-music-hub/', BASE)
           .replaceAll(JSON.stringify(nwsa.name), JSON.stringify(ORG.manifest.name))
           .replaceAll(JSON.stringify(nwsa.short_name), JSON.stringify(ORG.manifest.shortName))
           .replaceAll(JSON.stringify(nwsa.description), JSON.stringify(ORG.manifest.description))
           .replaceAll(JSON.stringify(nwsa.theme_color), JSON.stringify(ORG.themeColor));
+        for (const [from, to] of Object.entries(iconMap)) manifest = manifest.replaceAll(from, to);
         writeFileSync(manifestPath, manifest);
       }
       const notFoundPath = resolve(ROOT, 'dist', '404.html');

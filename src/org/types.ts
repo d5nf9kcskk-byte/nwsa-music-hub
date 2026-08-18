@@ -39,6 +39,25 @@ export interface OrgConfig {
    */
   faviconFile: string;
   /**
+   * PWA install-prompt / home-screen icon filenames under public/ —
+   * public/manifest.json's `icons` entries and index.html's apple-touch-icon
+   * link are both rewritten from these (vite.config.ts's orgStatics
+   * plugin, by literal filename substring replacement against the NWSA
+   * manifest since none of the five filenames overlaps another). NWSA keeps
+   * the existing shared files; other orgs point at their own. `maskable192`
+   * and `maskable512` must keep their artwork inside the safe-zone circle
+   * (content within ~65-70% of the canvas) — Android crops anything
+   * outside it, unlike the `icon192`/`icon512` "any"-purpose entries.
+   */
+  icons: {
+    icon192: string;
+    icon512: string;
+    maskable192: string;
+    maskable512: string;
+    svg: string;
+    appleTouchIcon: string;
+  };
+  /**
    * Every org-specific file under public/ that belongs to THIS org (logos,
    * printed collateral, campus map). At build time, other orgs' listed
    * assets are pruned from dist so one org's build never ships or precaches
