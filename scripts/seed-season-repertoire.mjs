@@ -440,7 +440,7 @@ piece('rp26-holberg-suite', {
   composer: 'Edvard Grieg',
   composerDates: '1843–1907',
   catalogNumber: 'Op. 40',
-  year: '1884 (orch. 1885)',
+  year: '1884 (piano); arr. for string orchestra 1885',
   instrumentation: 'str',
   duration: 20,
   movements: [
@@ -451,9 +451,18 @@ piece('rp26-holberg-suite', {
     { title: 'Rigaudon (Allegro con brio)', duration: 4 },
   ],
   programNotes:
-    'Grieg wrote the Holberg Suite in 1884 for the bicentenary of Norwegian playwright Ludvig Holberg, casting baroque dance forms in Romantic string language. This season programs the opening Praeludium.',
-  notes: 'MPA: Praeludium only (not the full suite).',
-  imslpUrl: 'https://imslp.org/wiki/From_Holberg%27s_Time,_Op.40_(Grieg,_Edvard)',
+    'Ludvig Holberg, the Danish-Norwegian playwright who gave eighteenth-century Scandinavia its comic stage, turned two hundred in 1884, and Bergen — his birthplace and Grieg’s — threw him a party. Grieg wrote this suite for it. He took five dance forms Holberg’s contemporaries would have recognized (prelude, sarabande, gavotte with musette, air, rigaudon) and wrote them in his own harmonic language, so the piece looks backward and sounds unmistakably Norwegian at the same time. He scored it first for piano, then rewrote it the following year for string orchestra, and that is the version that took hold. The writing asks the strings to do everything: the Praeludium runs on relentless sixteenths, the Air opens into some of the most exposed lyric playing in the string repertoire, and the Rigaudon hands solo violin and viola a duet before the whole band drives it home.',
+  notes: 'Edition: C.F. Peters first edition — score plate 6887, parts plate 6888 (EP 1931). Score 20 pp.; parts Vn I 7, Vn II 7, Va 7, Vc 4, Cb 3. Rehearsal letters A–V are printed in both score and parts and they align. Public domain. Scans carry pencil bowings and fingerings from a Stavanger library copy — erase or reprint clean before handing to students. MPA movement not yet chosen — the whole suite is filed and linked so any movement can be pulled.',
+  imslpUrl: 'https://imslp.org/wiki/Holberg_Suite,_Op.40_(Grieg,_Edvard)',
+  partsSharedUrl: 'https://drive.google.com/drive/folders/1MKfrijOVfNEHH5exuferZgtK7CMf3ynZ',
+  partsLinks: [
+    { instrument: 'Full Score', url: 'https://drive.google.com/file/d/1IpQ6kEyYsb8aM635Obx9jb_e7f3trD7y/view' },
+    { instrument: 'Violin I', url: 'https://drive.google.com/file/d/1QU_cIoKZJBO5joQ-wGGAKOio0__F8e6L/view' },
+    { instrument: 'Violin II', url: 'https://drive.google.com/file/d/1rSIuUdXW0brkl10Jgxo_OLzfIKgtl9Nf/view' },
+    { instrument: 'Viola', url: 'https://drive.google.com/file/d/1AHr43UezZ-62T5V-kLuw9Zxbw1ON8MG_/view' },
+    { instrument: 'Violoncello', url: 'https://drive.google.com/file/d/1owsVIvR3fgCTiABDAiefDBQ6yGrt5JUN/view' },
+    { instrument: 'Contrabass', url: 'https://drive.google.com/file/d/1iXo8jUfvKVxT90SLsAOF7jZyb14_tClr/view' },
+  ],
 });
 
 piece('rp26-capriol-suite', {
