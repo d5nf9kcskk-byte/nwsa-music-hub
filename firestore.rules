@@ -226,10 +226,21 @@ service cloud.firestore {
     // collection (all allowlisted roles — teachers and assistants create
     // lesson pull-outs); the shape check makes a leaked `reason` impossible
     // regardless of client code.
+    // Public projection of roster overrides: every field EXCEPT the free-text
+    // `reason`. The key list is FROZEN here, mirroring publicOverrideFields()
+    // in src/director/publicMirror.ts — denying `reason` alone left any
+    // recognized role (teachers and assistants write lesson pull-outs here)
+    // able to add arbitrary extra keys to a world-readable doc (audit rec #3).
+    // Adding a field to RosterOverride now means adding it here in the same
+    // change; rules auto-deploy on merge to main, so the two ship together.
     match /rosterOverridesPublic/{doc} {
       allow read;
       allow create, update: if isKnownRole()
-        && !request.resource.data.keys().hasAny(['reason']);
+        && request.resource.data.keys().hasOnly([
+             'studentId', 'ensembleId', 'action', 'scope',
+             'eventId', 'startDate', 'endDate',
+             'startTime', 'endTime', 'kind', 'destEnsembleId',
+           ]);
       allow delete: if isKnownRole();
     }
     match /announcements/{doc}   { allow read; allow write: if isStaff(); }
@@ -319,7 +330,15 @@ service cloud.firestore {
     match /lessons/{doc} {
       // Not plain signedIn(): a Personnel Assistant is attendance-only and
       // has no business reading who takes private lessons with whom.
-      allow read: if isStaff() || isTeacherRole();
+      //
+      // A Teacher reads only their OWN lessons (audit rec #5) — every teacher
+      // could previously read every other teacher's schedule. Rules match per
+      // document, so a LIST for a teacher only succeeds if the query itself
+      // filters to teacherEmail == their address; useLessons.ts issues exactly
+      // that query for the teacher role. Owner/Director still read all of it
+      // for coordination.
+      allow read: if isStaff()
+        || (isTeacherRole() && resource.data.teacherEmail == request.auth.token.email);
       allow create: if isStaff() || (isTeacherRole() && request.resource.data.teacherEmail == request.auth.token.email);
       allow update, delete: if isStaff() || (isTeacherRole() && resource.data.teacherEmail == request.auth.token.email);
     }
@@ -420,9 +439,16 @@ service cloud.firestore {
     // Sign-in history). Nobody edits or deletes — it's an audit trail.
     match /loginEvents/{doc} {
       allow read: if isOwner();
+      // `role` must MATCH the directors doc, not whatever the client claims
+      // (audit rec #5): an audit trail that lets the audited party pick their
+      // own label is not an audit trail. `name` stays client-supplied and is
+      // display-only — it is the resolved display name, which has no
+      // server-side source of truth (it can fall back to the Google account
+      // name), so it is never used for access decisions anywhere.
       allow create: if isKnownRole()
         && request.resource.data.keys().hasOnly(['email', 'name', 'role', 'at'])
         && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == myDirectorDoc().get('role', 'director')
         && request.resource.data.at is number;
       allow update, delete: if false;
     }
@@ -435,9 +461,12 @@ service cloud.firestore {
     // the Owner may read the log (Directors screen → Activity log).
     match /activityLog/{doc} {
       allow read: if isOwner();
+      // Same as loginEvents: `role` is verified against the directors doc,
+      // `name` is display-only (audit rec #5).
       allow create: if isKnownRole()
         && request.resource.data.keys().hasOnly(['email', 'name', 'role', 'action', 'detail', 'at'])
         && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == myDirectorDoc().get('role', 'director')
         && request.resource.data.action is string
         && request.resource.data.at is number;
       allow update, delete: if false;

@@ -8,6 +8,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { musicEnsembles } from '../utils';
+import { whenQueued } from '../writeStatus';
 
 /** Human-readable label for each logged action slug. Falls back to the raw
  *  slug so a newly-added action still shows something before this map is
@@ -354,7 +355,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
     }
     setSaving(true);
     try {
-      await onSave({
+      await whenQueued(onSave({
         email: id,
         name: name.trim() || undefined,
         role,
@@ -363,7 +364,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
           : undefined,
         assignedStudentIds: role === 'teacher' ? assignedIds : undefined,
         assignedEnsembleIds: role === 'assistant' ? assignedEnsIds : undefined,
-      });
+      }));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save — try again.');
     } finally {

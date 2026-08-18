@@ -5,6 +5,7 @@ import { EditedByLine } from '../components/EditedByLine';
 import { useModalA11y } from '../../shared/useModalA11y';
 import type { CampusLocation } from '../types';
 import './locations.css';
+import { whenQueued } from '../writeStatus';
 
 interface Props {
   onClose: () => void;
@@ -102,12 +103,12 @@ function LocationForm({ location, onSave, onDelete, onBack, onClose }: FormProps
     if (!valid) return;
     setSaving(true);
     try {
-      await onSave({
+      await whenQueued(onSave({
         room: room.trim(),
         label: label.trim(),
         directions: directions.trim() || undefined,
         mapAnchor: mapAnchor.trim() || undefined,
-      });
+      }));
       onBack();
     } catch {
       setSaving(false);

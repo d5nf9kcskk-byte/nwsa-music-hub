@@ -14,6 +14,7 @@ import { RichTextArea } from '../components/RichTextArea';
 import { FileUpload } from '../components/FileUpload';
 import { SchedulePublishField } from '../components/SchedulePublishField';
 import { useModalA11y } from '../../shared/useModalA11y';
+import { whenQueued } from '../writeStatus';
 import { NotesText } from '../../public/components/NotesText';
 import { DEFAULT_VIDEO_MAX_MB } from '../types';
 import type { Assignment, AssignmentType, AssignmentResultStatus, Student, Ensemble, Attachment } from '../types';
@@ -80,8 +81,7 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
     setSaving(true);
     setSaveError('');
     try {
-      await Promise.race([
-        onSave({
+      await whenQueued(onSave({
           title: title.trim(),
           type,
           description: description.trim(),
@@ -97,11 +97,10 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
           createdAt: assignment?.createdAt ?? Date.now(),
           attachments,
           publishAt,
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Save timed out — check your connection')), 15_000)
-        ),
-      ]);
+        // Closes once the write is queued rather than acknowledged: the old
+        // 15-second race reported "Save timed out" for saves that synced
+        // fine a moment later (audit rec #4).
+        }));
       onClose();
     } catch (err) {
       setSaving(false);

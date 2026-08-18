@@ -3,6 +3,7 @@ import { todayStr } from '../utils';
 import { recordActivity } from '../hooks/useActivityLog';
 import { useModalA11y } from '../../shared/useModalA11y';
 import type { ProgressNote, Student } from '../types';
+import { whenQueued } from '../writeStatus';
 
 interface Props {
   note: ProgressNote | null;
@@ -50,7 +51,7 @@ export function NoteForm({ note, students, defaultStudentId, onSave, onDelete, o
     setSaving(true);
     setSaveError('');
     try {
-      await onSave(form);
+      await whenQueued(onSave(form));
       recordActivity('notes.save', students.find(s => s.id === form.studentId)?.name);
       onClose();
     } catch (e) {

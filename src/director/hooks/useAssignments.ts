@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { offerUndo } from '../writeStatus';
+import { deleteStoredFiles } from '../storageCleanup';
 import { watchCollection } from '../../shared/watchCollection';
 import { todayStr } from '../utils';
 import { currentDirectorName } from '../currentDirector';
@@ -31,7 +32,14 @@ export function useAssignments() {
   async function updateAssignment(id: string, data: Partial<Omit<Assignment, 'id'>>) {
     if (!db) return;
     const payload = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
+    const previous = assignments.find(a => a.id === id)?.attachments ?? [];
     await updateDoc(doc(db, 'assignments', id), payload);
+    // Attachments dropped in this save are no longer referenced — delete the
+    // objects (audit rec #6). After the save, so a cancelled edit keeps them.
+    if ('attachments' in data) {
+      const kept = new Set((data.attachments ?? []).map(a => a.url));
+      void deleteStoredFiles(previous.map(a => a.url).filter(url => !kept.has(url)));
+    }
   }
 
   async function deleteAssignment(id: string) {
@@ -41,7 +49,9 @@ export function useAssignments() {
     if (gone) {
       const { id: _id, ...data } = gone;
       void _id;
-      offerUndo('assignments', id, data, `Deleted "${gone.title}" — restore?`);
+      // Attachments are deleted with the assignment once undo lapses (rec #6).
+      offerUndo('assignments', id, data, `Deleted "${gone.title}" — restore?`, undefined,
+        () => { void deleteStoredFiles((gone.attachments ?? []).map(a => a.url)); });
     }
   }
 

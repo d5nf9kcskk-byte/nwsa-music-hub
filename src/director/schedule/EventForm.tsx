@@ -11,6 +11,7 @@ import { RichTextArea } from '../components/RichTextArea';
 import { EditedByLine } from '../components/EditedByLine';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { recordActivity } from '../hooks/useActivityLog';
+import { whenQueued } from '../writeStatus';
 import type { CalendarEvent, Ensemble, EventType, EventStatus } from '../types';
 
 interface Props {
@@ -258,12 +259,11 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     setSaving(true);
     setSaveError('');
     try {
-      await Promise.race([
-        onSave(form),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Save timed out — check your connection')), 15_000)
-        ),
-      ]);
+      // Closes once the write is queued, not once the server acks it: a
+      // rehearsal saved in a basement used to sit on "Saving…" for 15s and
+      // then claim it timed out, even though the write synced fine later
+      // (audit rec #4).
+      await whenQueued(onSave(form));
       recordActivity(event ? 'schedule.edit' : 'schedule.create', form.title || form.type);
       onClose();
     } catch (err) {

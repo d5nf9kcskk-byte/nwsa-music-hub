@@ -9,6 +9,7 @@ import { EnsembleFilter } from '../components/EnsembleFilter';
 import { PrintableUpdates } from './PrintableUpdates';
 import { useModalA11y } from '../../shared/useModalA11y';
 import type { Announcement } from '../types';
+import { whenQueued } from '../writeStatus';
 
 interface Props {
   onClose: () => void;
@@ -254,7 +255,7 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
     setSaving(true);
     setSaveError('');
     try {
-      await onSave({
+      await whenQueued(onSave({
         title: title.trim(),
         body: body.trim() || undefined,
         ensembleId,
@@ -265,7 +266,7 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
         expiresOn: expiresOn || undefined,
         publishAt: publishAtValue(),
         createdAt: announcement?.createdAt ?? Date.now(),
-      });
+      }));
       onBack();
     } catch (e) {
       setSaving(false);

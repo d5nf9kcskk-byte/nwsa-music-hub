@@ -9,10 +9,13 @@
  * Firestore security rules allow public reads on `events`, `ensembles`,
  * `studentsPublic`, and `rosterOverridesPublic` (#privacy: the full
  * students/rosterOverrides collections are staff-only — this script must
- * only ever read the public projections).
+ * only ever read the public projections, credentialed or not).
  *
- * Environment variable required:
- *   VITE_FIREBASE_PROJECT_ID — same one already set as a GitHub secret.
+ * Environment variables:
+ *   VITE_FIREBASE_PROJECT_ID     — required; same GitHub secret as the build.
+ *   FIREBASE_SERVICE_ACCOUNT_JSON — optional; when set, reads are made with an
+ *                                   access token so App Check enforcement
+ *                                   doesn't break feed generation (rec #1).
  */
 
 import { writeFileSync, readFileSync, mkdirSync } from 'fs';
@@ -51,14 +54,46 @@ const PUBLIC_STUDENT_INFO = true;
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 
 /**
+ * Optional service-account credentials (audit rec #1).
+ *
+ * These reads are anonymous by default, which is a feature: the script can
+ * only ever see what the whole internet can see. But App Check enforcement on
+ * Firestore applies to anonymous REST reads too, so enabling it would silently
+ * kill every calendar feed at the next refresh. When
+ * FIREBASE_SERVICE_ACCOUNT_JSON is present the same requests are made with an
+ * access token, which App Check does not gate.
+ *
+ * The #privacy invariant is unchanged and matters MORE with a credential in
+ * hand: this script fetches the PUBLIC projections only — never `students`,
+ * never `rosterOverrides`. Do not add a private collection here.
+ */
+async function getAccessToken() {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!raw) return null;
+  try {
+    const { initializeApp, cert } = await import('firebase-admin/app');
+    const app = initializeApp({ credential: cert(JSON.parse(raw)) });
+    const token = await app.options.credential.getAccessToken();
+    console.log('Feed generation authenticated with the service account');
+    return token.access_token;
+  } catch (err) {
+    console.warn(`::warning::Service-account auth failed, falling back to anonymous reads: ${err.message}`);
+    return null;
+  }
+}
+
+let accessToken = null;
+
+/**
  * Firestore reports both the free daily read allowance and per-project rate
  * limits as a bare 429 RESOURCE_EXHAUSTED. One blip used to throw away every
  * feed, so retry with backoff: a partly-throttled window still yields
  * calendars instead of 404s.
  */
 async function fetchWithRetry(url, label, attempts = 6) {
+  const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(url);
+    const res = await fetch(url, { headers });
     if (res.ok) return res;
     const retriable = res.status === 429 || res.status >= 500;
     if (!retriable || attempt >= attempts - 1) {
@@ -146,6 +181,7 @@ function wrapCalendar(name, description, vevents) {
 
 (async () => {
   try {
+    accessToken = await getAccessToken();
     const [events, ensembles, students, overrides, pieces, assignments, views] = await Promise.all([
       fetchCollection('events'),
       fetchCollection('ensembles'),

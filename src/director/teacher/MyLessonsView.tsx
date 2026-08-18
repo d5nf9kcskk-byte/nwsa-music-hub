@@ -12,6 +12,7 @@ import { useLessons } from '../hooks/useLessons';
 import { findLessonConflicts } from '../lessonConflicts';
 import { todayStr, parseDate, formatTimeRange } from '../utils';
 import type { Lesson, Student } from '../types';
+import { whenQueued } from '../writeStatus';
 
 // Stable reference so `director?.assignedStudentIds ?? EMPTY_IDS` doesn't
 // hand useMemo a fresh [] literal every render (which would defeat memoizing).
@@ -352,7 +353,7 @@ function LessonForm({
     setSaving(true);
     try {
       const primary = conflicts[0];
-      await onSave({
+      await whenQueued(onSave({
         teacherEmail, teacherName, studentId, date, startTime, endTime,
         location: location.trim() || undefined,
         notes: notes.trim() || undefined,
@@ -364,7 +365,7 @@ function LessonForm({
           acknowledgedAt: Date.now(),
           acknowledgedBy: teacherName,
         } : undefined,
-      });
+      }));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save — try again.');
       setSaving(false);

@@ -3,6 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import type { Student, StudentContact, Guardian, Ensemble } from '../types';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { musicEnsembles } from '../utils';
+import { whenQueued } from '../writeStatus';
 
 /** Editable contact: the student email plus an unlimited list of guardians and
  *  any extra columns carried over from the spreadsheet import. */
@@ -122,7 +123,7 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
     setSaving(true);
     setSaveError('');
     try {
-      await onSave(form, normalizeContact(contactForm));
+      await whenQueued(onSave(form, normalizeContact(contactForm)));
       onClose();
     } catch (e) {
       setSaving(false);
