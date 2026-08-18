@@ -32,6 +32,32 @@ export interface OrgConfig {
   logoFile: string;
   markFile: string;
   /**
+   * Browser-tab favicon filename under public/ — index.html's <link
+   * rel="icon"> href AND type are both rewritten from this (type inferred
+   * from the extension in vite.config.ts's orgStatics plugin). NWSA keeps
+   * the existing shared 'favicon.svg'; other orgs point at their own file.
+   */
+  faviconFile: string;
+  /**
+   * PWA install-prompt / home-screen icon filenames under public/ —
+   * public/manifest.json's `icons` entries and index.html's apple-touch-icon
+   * link are both rewritten from these (vite.config.ts's orgStatics
+   * plugin, by literal filename substring replacement against the NWSA
+   * manifest since none of the five filenames overlaps another). NWSA keeps
+   * the existing shared files; other orgs point at their own. `maskable192`
+   * and `maskable512` must keep their artwork inside the safe-zone circle
+   * (content within ~65-70% of the canvas) — Android crops anything
+   * outside it, unlike the `icon192`/`icon512` "any"-purpose entries.
+   */
+  icons: {
+    icon192: string;
+    icon512: string;
+    maskable192: string;
+    maskable512: string;
+    svg: string;
+    appleTouchIcon: string;
+  };
+  /**
    * Every org-specific file under public/ that belongs to THIS org (logos,
    * printed collateral, campus map). At build time, other orgs' listed
    * assets are pruned from dist so one org's build never ships or precaches
@@ -44,10 +70,21 @@ export interface OrgConfig {
    * CSS custom-property overrides applied via an injected <style> tag —
    * `brand` under `:root`, `brandDark` under `:root[data-pub-theme='dark']`
    * (matching the dark-token block in src/public/uiUpdates.css). Empty
-   * objects inject nothing, keeping the NWSA build untouched.
+   * objects inject nothing, keeping the NWSA build untouched. Any CSS
+   * variable name can go here, including `--org-font` (see `fonts` below)
+   * and the `-deep`/`-light` gradient-stop variants read by public.css /
+   * director.css / welcomeHub.css.
    */
   brand: Record<string, string>;
   brandDark: Record<string, string>;
+  /**
+   * Self-hosted @font-face files under public/ for a custom body font —
+   * applyBrand() emits the @font-face rules from this list. Empty for NWSA
+   * (system font stack only, via base.css's literal fallback). Pair with a
+   * `--org-font` entry in `brand` naming the same family plus a fallback
+   * stack, e.g. `"'Poppins', 'Segoe UI', system-ui, sans-serif"`.
+   */
+  fonts: { family: string; weight: number; file: string }[];
   features: {
     /** The /map page (hardcoded MDC Wolfson campus) — NWSA-only. */
     campusMap: boolean;

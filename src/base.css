@@ -15,7 +15,7 @@ html { font-size: 16px; scroll-behavior: smooth; }
 body {
   background: #0f0b1e;
   color: #e2d9ff;
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--org-font, 'Inter', 'Segoe UI', system-ui, sans-serif);
   min-height: 100dvh;
   overflow-x: hidden;
 }

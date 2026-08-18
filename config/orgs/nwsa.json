@@ -11,9 +11,25 @@
   "contactEmail": "nwsaorchestras@gmail.com",
   "logoFile": "nwsa-logo.png",
   "markFile": "nwsa-mark.png",
+  "faviconFile": "favicon.svg",
+  "icons": {
+    "icon192": "icon-192.png",
+    "icon512": "icon-512.png",
+    "maskable192": "icon-maskable-192.png",
+    "maskable512": "icon-maskable-512.png",
+    "svg": "icon.svg",
+    "appleTouchIcon": "apple-touch-icon.png"
+  },
   "assets": [
     "nwsa-logo.png",
     "nwsa-mark.png",
+    "favicon.svg",
+    "icon-192.png",
+    "icon-512.png",
+    "icon-maskable-192.png",
+    "icon-maskable-512.png",
+    "icon.svg",
+    "apple-touch-icon.png",
     "campus-map.jpg",
     "hub-launch-flyer.html",
     "hub-launch-qr.svg"
@@ -21,6 +37,7 @@
   "themeColor": "#0d7e8e",
   "brand": {},
   "brandDark": {},
+  "fonts": [],
   "features": {
     "campusMap": true,
     "calendarSeed": true,

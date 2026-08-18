@@ -3,12 +3,16 @@ import { Smartphone, Bookmark } from 'lucide-react';
 import { renderQrSvg } from '../../shared/qr';
 import { t, useLang } from '../../shared/i18n';
 import { HUB_DISPLAY, HUB_URL } from '../welcomeHubSchedule';
+import { ORG } from '../../org';
 
 /** QR + bookmark + Home Screen steps. Shared by the welcome sheet and the
  *  pinned home-page card (through 2026-09-01). */
 export function HubSaveGuide({ leadKey = 'welcome.lead' }: { leadKey?: string }) {
   useLang();
-  const qrSvg = useMemo(() => renderQrSvg(HUB_URL, { dark: '#0a6675' }), []);
+  const qrSvg = useMemo(
+    () => renderQrSvg(HUB_URL, { dark: ORG.brand['--pub-accent-deep'] ?? '#0a6675' }),
+    [],
+  );
 
   return (
     <div className="pub-hub-guide">

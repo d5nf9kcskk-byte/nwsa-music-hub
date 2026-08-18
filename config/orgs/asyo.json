@@ -11,23 +11,57 @@
   "contactEmail": "youth@alpharettasymphony.org",
   "logoFile": "asyo-logo.png",
   "markFile": "asyo-mark.png",
+  "faviconFile": "asyo-favicon.png",
+  "icons": {
+    "icon192": "asyo-icon-192.png",
+    "icon512": "asyo-icon-512.png",
+    "maskable192": "asyo-icon-maskable-192.png",
+    "maskable512": "asyo-icon-maskable-512.png",
+    "svg": "asyo-icon.svg",
+    "appleTouchIcon": "asyo-apple-touch-icon.png"
+  },
   "assets": [
     "asyo-logo.png",
-    "asyo-mark.png"
+    "asyo-mark.png",
+    "asyo-favicon.png",
+    "asyo-icon-192.png",
+    "asyo-icon-512.png",
+    "asyo-icon-maskable-192.png",
+    "asyo-icon-maskable-512.png",
+    "asyo-icon.svg",
+    "asyo-apple-touch-icon.png",
+    "asyo-poppins-400.woff2",
+    "asyo-poppins-500.woff2",
+    "asyo-poppins-600.woff2",
+    "asyo-poppins-700.woff2"
   ],
-  "themeColor": "#1d3a6b",
+  "themeColor": "#503593",
   "brand": {
-    "--pub-accent": "#1d3a6b",
-    "--pub-accent-soft": "#e8edf6",
-    "--pub-purple": "#7a2d3d",
-    "--pub-gold": "#c8a52a",
-    "--pub-gold-text": "#5c4a00"
+    "--pub-accent": "#503593",
+    "--pub-accent-soft": "#efeafb",
+    "--pub-accent-deep": "#2e2158",
+    "--pub-accent-light": "#7860c9",
+    "--pub-purple": "#3a2569",
+    "--pub-gold": "#8a6fc4",
+    "--pub-gold-text": "#3a2569",
+    "--dir-primary": "#503593",
+    "--dir-primary-deep": "#2e2158",
+    "--dir-blue": "#3a2569",
+    "--dir-gold": "#8a6fc4",
+    "--dir-gold-text": "#3a2569",
+    "--org-font": "'Poppins', 'Segoe UI', system-ui, sans-serif"
   },
   "brandDark": {
-    "--pub-accent": "#7fa3d6",
-    "--pub-accent-soft": "#1b2a44",
-    "--pub-purple": "#b06a79"
+    "--pub-accent": "#a68be0",
+    "--pub-accent-soft": "#261a42",
+    "--pub-purple": "#8f76c9"
   },
+  "fonts": [
+    { "family": "Poppins", "weight": 400, "file": "asyo-poppins-400.woff2" },
+    { "family": "Poppins", "weight": 500, "file": "asyo-poppins-500.woff2" },
+    { "family": "Poppins", "weight": 600, "file": "asyo-poppins-600.woff2" },
+    { "family": "Poppins", "weight": 700, "file": "asyo-poppins-700.woff2" }
+  ],
   "features": {
     "campusMap": false,
     "calendarSeed": false,
@@ -48,7 +82,7 @@
     { "slug": "prelude", "match": ["prelude"] },
     { "slug": "chamber", "match": ["chamber"] }
   ],
-  "breakGlassEmails": ["nwsaorchestras@gmail.com"],
+  "breakGlassEmails": ["ggmuze@yahoo.com"],
   "ics": {
     "prodId": "-//ASYO Music Hub//asyo//EN",
     "uidDomain": "asyo.hub",
