@@ -108,6 +108,12 @@ function swStamp(): Plugin {
  * and the precache revisions hash the rewritten bytes. For the NWSA org
  * every replacement is an identity — output stays byte-for-byte unchanged.
  */
+const FAVICON_MIME: Record<string, string> = {
+  svg: 'image/svg+xml',
+  png: 'image/png',
+  ico: 'image/x-icon',
+};
+
 function orgStatics(): Plugin {
   return {
     // No `apply: 'build'` — the dev server needs the index.html token
@@ -116,10 +122,13 @@ function orgStatics(): Plugin {
     transformIndexHtml: {
       order: 'pre',
       handler(html) {
+        const ext = ORG.faviconFile.split('.').pop() ?? '';
         return html
           .replaceAll('__ORG_APPNAME__', ORG.appName)
           .replaceAll('__ORG_BRANDNAME__', ORG.brandName)
-          .replaceAll('__ORG_THEMECOLOR__', ORG.themeColor);
+          .replaceAll('__ORG_THEMECOLOR__', ORG.themeColor)
+          .replaceAll('__ORG_FAVICONFILE__', ORG.faviconFile)
+          .replaceAll('__ORG_FAVICONTYPE__', FAVICON_MIME[ext] ?? 'image/png');
       },
     },
     closeBundle() {

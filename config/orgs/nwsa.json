@@ -11,9 +11,11 @@
   "contactEmail": "nwsaorchestras@gmail.com",
   "logoFile": "nwsa-logo.png",
   "markFile": "nwsa-mark.png",
+  "faviconFile": "favicon.svg",
   "assets": [
     "nwsa-logo.png",
     "nwsa-mark.png",
+    "favicon.svg",
     "campus-map.jpg",
     "hub-launch-flyer.html",
     "hub-launch-qr.svg"
@@ -21,6 +23,7 @@
   "themeColor": "#0d7e8e",
   "brand": {},
   "brandDark": {},
+  "fonts": [],
   "features": {
     "campusMap": true,
     "calendarSeed": true,
