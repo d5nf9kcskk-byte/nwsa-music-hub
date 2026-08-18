@@ -23,10 +23,17 @@ Demo URL once live: **https://d5nf9kcskk-byte.github.io/asyo-music-hub/**
 6. Authentication → Settings → **Authorized domains** → add
    `d5nf9kcskk-byte.github.io` (sign-in popup won't work without it).
 
-## 2. Deploy the Firestore rules to the demo project (~2 min)
+## 2. Firestore rules — automatic (no action)
 
-The `deploy-rules.yml` workflow only covers `nwsa-hub`. The demo project
-gets rules by hand (repeat after ANY future `firestore.rules` merge):
+`deploy-rules.yml` deploys `firestore.rules` to **both** projects on every
+push to main that touches them: `nwsa-hub` first, then `asyo-hub-demo`. The
+demo half is skipped cleanly until the `ASYO_SERVICE_ACCOUNT_JSON` secret
+exists (step 4 below), so set that secret and the drift problem is gone.
+
+Storage rules go to `nwsa-hub` only — the demo is on Spark and has no
+bucket. Add a step if it ever moves to Blaze.
+
+To deploy the demo's rules by hand anyway:
 
 ```bash
 npx firebase-tools login
@@ -62,15 +69,31 @@ six values from step 1.4:
 | `ASYO_FIREBASE_MESSAGING_SENDER_ID` | messagingSenderId |
 | `ASYO_FIREBASE_APP_ID` | appId |
 
-## 5. Seed the demo data (~5 min)
+Plus one more, from the service-account JSON downloaded in step 1.5:
+
+| Secret | Value |
+|---|---|
+| `ASYO_SERVICE_ACCOUNT_JSON` | the ENTIRE contents of the `.json` file |
+
+That one secret powers both the automatic demo rules deploy (step 2) and
+the **Seed ASYO demo data** workflow (step 5). It is a master key to the
+demo database — GitHub secrets are the right place for it; a laptop
+Downloads folder is not.
+
+## 5. Seed the demo data (~2 min)
+
+With `ASYO_SERVICE_ACCOUNT_JSON` set, no local checkout is needed: Actions →
+**Seed ASYO demo data** → Run workflow.
+
+Or locally, if you'd rather:
 
 ```bash
 FIREBASE_SERVICE_ACCOUNT_JSON="$(cat /path/to/asyo-hub-demo-key.json)" \
   node scripts/seed-demo-org.mjs
 ```
 
-Idempotent — run it again anytime to reset the sandbox to a clean demo
-state (it uses fixed doc ids). It seeds fictional students only, plus
+Idempotent either way — run it again anytime to reset the sandbox to a clean
+demo state (it uses fixed doc ids). It seeds fictional students only, plus
 ensembles, a fall/winter season, repertoire with program notes, sample
 announcements, documents, planned absences, and parent messages. Events are
 pinned relative to "today" so the Today view is always alive in a demo.
@@ -136,8 +159,10 @@ that's a Pages custom-domain setting, not a migration.
 - **Local ASYO build**: `VITE_ORG=asyo npm run build && npx vite preview`
   (add a `.env.local` with the ASYO `VITE_FIREBASE_*` values to hit the
   demo backend locally, or none to get the graceful "setup required" gate).
-- **Rules drift**: every future change to `firestore.rules` must be
-  deployed to BOTH projects — the workflow covers `nwsa-hub` only (step 2).
+- **Rules drift**: fixed. `deploy-rules.yml` now ships `firestore.rules` to
+  both projects (step 2). If you ever see the demo behaving as though it's on
+  old rules, check that the `ASYO_SERVICE_ACCOUNT_JSON` secret still exists —
+  without it the demo half of that workflow silently skips.
 - **Logo/colors**: `public/asyo-logo.png` + `public/asyo-mark.png` are
   typeset placeholders. When ASYO sends real artwork, drop in files with
   the same names and adjust `brand`/`themeColor` in `config/orgs/asyo.json`.

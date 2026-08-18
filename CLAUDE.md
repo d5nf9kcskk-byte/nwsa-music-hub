@@ -142,7 +142,10 @@ hand-write SW fetch/install logic. Rules that must not regress:
   sign-in provider is ever added.
 - **Rules auto-deploy** (since Aug 2026). The *Deploy Firestore & Storage
   rules* workflow ships **both** `firestore.rules` and `storage.rules` on
-  every push to `main` that touches them. Storage runs as its own step after
+  every push to `main` that touches them — and, since the demo was set up,
+  `firestore.rules` to `asyo-hub-demo` as well (skipped when
+  `ASYO_SERVICE_ACCOUNT_JSON` is absent). Rules are no longer per-project
+  hand work for ANY org. Storage runs as its own step after
   Firestore, so a Storage failure can't take the Firestore deploy with it —
   that was the bug that kept Storage out of this workflow while the project
   was on Spark and had no bucket. To deploy by hand anyway:
