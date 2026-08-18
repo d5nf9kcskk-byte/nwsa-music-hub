@@ -1,0 +1,53 @@
+name: Seed ASYO demo data
+
+# Loads the fictional demo season into the asyo-hub-demo Firebase project —
+# the browser-clickable version of `node scripts/seed-demo-org.mjs`, so the
+# demo can be set up and reset without a local checkout, Node, or a service
+# account key sitting on someone's laptop.
+#
+# Manual only, never scheduled: it WRITES data. Re-running is safe and is in
+# fact how you reset the sandbox — the seeder uses fixed doc ids and set(),
+# so a second run restores a clean demo state (docs demo users created
+# themselves are left alone).
+#
+# SAFETY: seed-demo-org.mjs hard-aborts unless the service account's own
+# project is exactly `asyo-hub-demo`, so this workflow is physically unable
+# to write to the NWSA project no matter what secret it is handed.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two seeders racing would interleave writes for no benefit.
+concurrency:
+  group: seed-demo
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check the demo secret exists
+        env:
+          ASYO_SERVICE_ACCOUNT_JSON: ${{ secrets.ASYO_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$ASYO_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::ASYO_SERVICE_ACCOUNT_JSON is not set. Add it under Settings → Secrets and variables → Actions (see docs/demo-asyo-setup.md)." >&2
+            exit 1
+          fi
+
+      - name: Seed the demo sandbox
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.ASYO_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/seed-demo-org.mjs

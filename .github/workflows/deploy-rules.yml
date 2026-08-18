@@ -74,6 +74,43 @@ jobs:
             --project nwsa-hub \
             --non-interactive
 
+      # ── Demo org (#org-config) ─────────────────────────────────────────
+      # The ASYO demo runs the SAME rules against its own project, and used
+      # to need a hand-run `firebase deploy` after every rules merge — the
+      # "rules drift" gotcha in docs/demo-asyo-setup.md, and a security
+      # footgun, since forgetting it left the demo on stale rules
+      # indefinitely. These steps retire that.
+      #
+      # They run LAST and skip cleanly when the demo secret is absent, so a
+      # repo without the demo configured behaves exactly as before and the
+      # NWSA rules above have already shipped either way.
+      - name: Write demo service-account key
+        id: demo_key
+        env:
+          ASYO_SERVICE_ACCOUNT_JSON: ${{ secrets.ASYO_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$ASYO_SERVICE_ACCOUNT_JSON" ]; then
+            echo "ASYO_SERVICE_ACCOUNT_JSON not set — skipping the demo rules deploy."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf '%s' "$ASYO_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/asyo-sa.json"
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      # Firestore only. The demo project is on Spark, which has no Storage
+      # bucket — a storage deploy there fails exactly the way it did for NWSA
+      # before the upgrade. Add a storage step here if the demo ever moves to
+      # Blaze.
+      - name: Deploy Firestore rules (ASYO demo)
+        if: steps.demo_key.outputs.configured == 'true'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/asyo-sa.json
+        run: |
+          npx --yes firebase-tools@13 deploy \
+            --only firestore:rules \
+            --project asyo-hub-demo \
+            --non-interactive
+
       - name: Clean up credentials
         if: always()
-        run: rm -f "$RUNNER_TEMP/sa.json"
+        run: rm -f "$RUNNER_TEMP/sa.json" "$RUNNER_TEMP/asyo-sa.json"
