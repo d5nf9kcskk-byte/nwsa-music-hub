@@ -16,6 +16,11 @@ name: Seed ASYO demo data
 
 on:
   workflow_dispatch:
+    inputs:
+      owner_email:
+        description: 'Google account that will own the demo (must be able to sign in with Google — a non-Google address locks everyone out)'
+        required: false
+        default: 'nwsaorchestras@gmail.com'
 
 permissions:
   contents: read
@@ -50,4 +55,5 @@ jobs:
       - name: Seed the demo sandbox
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.ASYO_SERVICE_ACCOUNT_JSON }}
+          DEMO_OWNER_EMAIL: ${{ inputs.owner_email }}
         run: node scripts/seed-demo-org.mjs

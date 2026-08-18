@@ -69,10 +69,24 @@ function nextWeekday(weekday, minOffset = 0) {
 function isoOf(date) { return date.toISOString().slice(0, 10); }
 
 // ── Directors ──────────────────────────────────────────────────────────────
-// Owner = Grant; the ASYO administrator + music director get added from the
+// Owner first; the ASYO administrator + music director get added from the
 // in-app Directors screen after first sign-in (self-service, no redeploy).
+//
+// This MUST be an address that can complete a GOOGLE sign-in — that is the
+// only provider the app offers. Seeding a non-Google address here locks
+// everyone out of the demo's director side entirely: the owner is the only
+// role that can add directors, so there is no way back in from the app. That
+// happened once with a Yahoo address; hence the check below and the
+// DEMO_OWNER_EMAIL override, so a wrong guess is fixed by re-running the
+// seeder rather than by editing this file.
+const OWNER_EMAIL = (process.env.DEMO_OWNER_EMAIL || 'nwsaorchestras@gmail.com')
+  .trim().toLowerCase();
+if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(OWNER_EMAIL)) {
+  console.error(`DEMO_OWNER_EMAIL ("${OWNER_EMAIL}") is not a valid email — aborting.`);
+  process.exit(1);
+}
 const DIRECTORS = [
-  { email: 'ggmuze@yahoo.com', role: 'owner', name: 'Grant (Owner)' },
+  { email: OWNER_EMAIL, role: 'owner', name: 'Demo Owner' },
 ];
 
 // ── Ensembles (mirrors ASYO's real program structure; colors are demo brand) ─
@@ -376,5 +390,5 @@ const PARENT_MESSAGES = [
   console.log(`  ${ENSEMBLES.length} ensembles, ${STUDENTS.length} students (+mirrors), ${PIECES.length} pieces`);
   console.log(`  ${buildEvents().length} events, ${ANNOUNCEMENTS.length} announcements, ${DOCUMENTS.length} documents`);
   console.log(`  ${PLANNED_ABSENCES.length} planned absences, ${PARENT_MESSAGES.length} parent messages`);
-  console.log('Owner: ggmuze@yahoo.com — add the ASYO admin + music director from the Directors screen.');
+  console.log(`Owner: ${OWNER_EMAIL} — sign in with THAT Google account, then add the ASYO admin + music director from the Directors screen.`);
 })();
