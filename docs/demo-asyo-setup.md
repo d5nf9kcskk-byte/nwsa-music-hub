@@ -98,9 +98,22 @@ ensembles, a fall/winter season, repertoire with program notes, sample
 announcements, documents, planned absences, and parent messages. Events are
 pinned relative to "today" so the Today view is always alive in a demo.
 
-The seed makes **ggmuze@yahoo.com the owner**. After first sign-in, add the
-ASYO administrator and music director from Directors (owner menu) — give
-both the `director` role so they can try everything.
+The seed makes **nwsaorchestras@gmail.com the owner** — override it with the
+workflow's `owner_email` input (or `DEMO_OWNER_EMAIL` locally) to seed a
+different one.
+
+**It must be an address that can complete a GOOGLE sign-in.** Google is the
+only provider the app offers, and the owner is the only role that can add
+directors — so seeding an address nobody can sign in with locks everyone out
+of the demo's director side with no way back in from the app. (This is not
+hypothetical: the demo first shipped owned by a Yahoo address and had to be
+re-seeded.) The recovery, if it happens again, is exactly that: re-run the
+seeder with the right `owner_email`.
+
+After first sign-in, add the ASYO administrator and music director from
+Directors (owner menu) — give both the `director` role so they can try
+everything. A stale owner row from an earlier seed can be deleted from that
+same screen.
 
 ## 6. First deploy + smoke test
 
