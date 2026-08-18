@@ -158,23 +158,39 @@ service cloud.firestore {
                  .hasOnly(myDirectorDoc().get('assignedEnsembleIds', [])));
     }
     // Saved calendar views (#subscribe-any-view): the filter mixes the deploy
-    // step turns into subscribable ICS feeds. World-readable (they hold no
-    // more than a list of ensemble ids and event types) and staff-written —
-    // the public site only ever links feeds that are pre-built for every
-    // deploy, so nothing here needs an unauthenticated write. The doc ID is a
-    // hash of the filters themselves, so re-subscribing to the same mix
-    // rewrites one doc, and the generator ignores any doc whose id does not
-    // match its contents.
+    // step turns into subscribable ICS feeds. World-readable, and written by
+    // ANYONE — a student picking their own three ensembles on the public
+    // calendar is the main audience, and a live subscription for that mix is
+    // the entire point of the feature, so this is an unauthenticated create
+    // like plannedAbsences and parentMessages, with the same strictest-
+    // validation treatment: exact key set, closed type enum, bounded lists
+    // and label.
+    //
+    // A view doc carries no personal information — a list of ensemble ids and
+    // event types, all of them already world-readable. Two structural guards
+    // do the rest of the work:
+    //   • the doc ID is a hash of the filters themselves (viewSlug), so
+    //     re-subscribing to the same mix rewrites ONE doc instead of piling
+    //     up new ones;
+    //   • generate-feeds.mjs recomputes that hash and ignores any doc whose
+    //     ID does not match its own contents, so a squatted ID can only ever
+    //     hold the correct filters — and the next real subscriber overwrites
+    //     it (hence create AND update).
+    // Volume rate-limiting still needs App Check or a Cloud Function and is
+    // deferred, matching the stance on the other public writes
+    // (docs/security-recommendations.md).
     match /calendarViews/{doc} {
       allow read;
       allow delete: if isStaff();
-      allow create, update: if isStaff()
-        && request.resource.data.keys().hasOnly(['ensembleIds', 'school', 'types', 'label', 'updatedAt'])
+      allow create, update: if request.resource.data.keys().hasOnly(
+            ['ensembleIds', 'school', 'types', 'label', 'updatedAt'])
         && request.resource.data.ensembleIds is list
         && request.resource.data.ensembleIds.size() <= 40
         && request.resource.data.school is bool
         && request.resource.data.types is list
         && request.resource.data.types.size() <= 12
+        && request.resource.data.types.hasOnly(
+             ['Class', 'Rehearsal', 'Sectional', 'Concert', 'Event', 'Assignment'])
         && request.resource.data.label is string
         && request.resource.data.label.size() <= 200
         && request.resource.data.updatedAt is number;

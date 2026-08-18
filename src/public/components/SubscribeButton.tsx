@@ -6,6 +6,7 @@ import { t, useLang, getLang } from '../../shared/i18n';
 import './subscribeButton.css';
 import { subscribeFooterLine } from '../../shared/whimsy';
 import { describeView, isAutoView, viewLabel, type CalendarViewSpec } from '../../shared/calendarView';
+import { registerCalendarView } from '../../director/hooks/useCalendarViews';
 import { icsAssignment, icsCalendar, icsEvent } from '../../shared/ics';
 import type { Assignment, CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
 import { ORG } from '../../org';
@@ -15,14 +16,15 @@ interface Props {
   /** Subscribe to one student's personal feed instead of an ensemble/all feed. */
   studentId?: string;
   /**
-   * Subscribe to the filters currently on screen (#subscribe-any-view). One
-   * ensemble or one category has a live feed built at deploy time; a wider mix
-   * has no live URL on the public side, so the sheet offers the events shown
-   * right now as a downloadable file instead of quietly handing out the
-   * all-events calendar, which is what it used to do.
+   * Subscribe to the filters currently on screen (#subscribe-any-view) — any
+   * mix, not just one ensemble. Common mixes have a feed built at deploy time;
+   * a wider one (three ensembles and two categories, say) registers itself and
+   * goes live at the next feed refresh. Either way the link is a real
+   * subscription that keeps updating, which is the point: before this, picking
+   * more than one ensemble quietly handed out the all-events calendar.
    */
   view?: CalendarViewSpec;
-  /** What the screen is showing — used for that download. */
+  /** What the screen is showing — used for the download-it-now fallback. */
   snapshot?: {
     events: CalendarEvent[];
     assignments?: Assignment[];
@@ -75,16 +77,20 @@ export function SubscribeButton({ ensembleId, studentId, view, snapshot, label }
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<number | undefined>(undefined);
 
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
   const ensembleName = (id: string) =>
     snapshot?.ensembles.find(e => e.id === id)?.name ?? id;
-  const liveView = view && isAutoView(view) ? view : null;
+  /** Pre-built mixes are live the moment the site deploys; anything wider is
+   *  registered below and lands on the next feed refresh. */
+  const preBuilt = view ? isAutoView(view) : true;
   const https = studentId
     ? studentFeedUrl(studentId)
     : view
-      ? (liveView ? viewFeedUrl(liveView) : '')
+      ? viewFeedUrl(view)
       : feedUrl(ensembleId);
-  const webcal = https ? webcalUrl(https) : '';
-  const googleAdd = https ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}` : '';
+  const webcal = webcalUrl(https);
+  const googleAdd = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`;
   const displayLabel = label
     ?? (view ? t('sub.thisView') : t(ensembleId ? 'sub.thisCalendar' : 'sub.allEvents'));
   const viewChips = useMemo(
@@ -139,6 +145,13 @@ export function SubscribeButton({ ensembleId, studentId, view, snapshot, label }
     setPlatform(detectPlatform());
     setCopied(false);
     setOpen(true);
+    // Registering on open (rather than behind another button) means the link
+    // shown is always one the feed generator will build.
+    if (!view || preBuilt) { setSaveState('idle'); return; }
+    setSaveState('saving');
+    registerCalendarView(view, viewLabel(view, ensembleName))
+      .then(() => setSaveState('saved'))
+      .catch(() => setSaveState('error'));
   }
 
   async function copyUrl() {
@@ -200,17 +213,11 @@ export function SubscribeButton({ ensembleId, studentId, view, snapshot, label }
               </div>
             )}
 
-            {view && !liveView ? (
-              <>
-                <p className="pub-subw-hint">{t('sub.noLive')}</p>
-                {snapshot && (
-                  <button className="pub-subw-action" onClick={downloadSnapshot}>
-                    <Download size={17} /> {t('sub.download', { count: snapshotCount })}
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
+            {view && !preBuilt && (
+              <p className="pub-subw-hint pub-subw-note">
+                {saveState === 'error' ? t('sub.newMixError') : t('sub.newMix')}
+              </p>
+            )}
             <div className="pub-subw-tabs" role="tablist" aria-label={t('sub.yourDevice')}>
               {(['ios', 'android', 'desktop'] as Platform[]).map(p => (
                 <button
@@ -252,7 +259,13 @@ export function SubscribeButton({ ensembleId, studentId, view, snapshot, label }
               </button>
             </div>
             <div className="pub-subw-hint">{t('sub.hint')}</div>
-              </>
+
+            {/* Want it on the phone this second? The events on screen, as a
+                file. Not a subscription — it never updates again. */}
+            {view && snapshot && (
+              <button className="pub-subw-copy pub-subw-snapshot" onClick={downloadSnapshot}>
+                <Download size={14} /> {t('sub.download', { count: snapshotCount })}
+              </button>
             )}
             <div className="pub-subw-hint pub-subw-egg">{subscribeFooterLine(getLang())}</div>
 

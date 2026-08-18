@@ -113,9 +113,15 @@ hand-write SW fetch/install logic. Rules that must not regress:
   showing under "Symphony Orchestra" was a reported bug, not a feature.
 - Every filter mix is subscribable: `feeds/view-<slug>.ics`, slug =
   `viewSlug()` hash of the filters. Common mixes are pre-built each deploy
-  (`autoViewSpecs`); wider mixes are registered in `calendarViews` (staff
-  write) and built on the next feed refresh. **The slug hash is a frozen
-  subscription contract** — `scripts/calendar-view.selfcheck.mjs` pins it.
+  (`autoViewSpecs`); wider mixes are registered in `calendarViews` and built
+  on the next feed refresh. **The slug hash is a frozen subscription
+  contract** — `scripts/calendar-view.selfcheck.mjs` pins it.
+- `calendarViews` is the app's fourth unauthenticated write (with
+  `plannedAbsences`, `parentMessages`, `assignmentSubmissions`) — students
+  subscribing to their OWN mix is the point of the feature. It is safe only
+  because of two structural guards: the doc ID is the hash of the filters,
+  and the generator ignores any doc whose ID doesn't match its contents.
+  Keep both if you touch either side.
 - ICS text lives in `src/shared/ics.ts` and is shared with the in-app
   snapshot download, so calendar notes carry the same repertoire (free text
   AND linked pieces) either way.

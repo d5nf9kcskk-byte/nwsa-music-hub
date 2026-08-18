@@ -309,8 +309,9 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'sub.hint':         { en: 'This is a live subscription — the calendar updates itself whenever the schedule changes.', es: 'Es una suscripción en vivo — el calendario se actualiza solo cada vez que cambia el horario.' },
   'sub.thisView':     { en: 'Subscribe to this view',        es: 'Suscribirse a esta vista' },
   'sub.filters':      { en: 'Showing now:',                  es: 'Mostrando ahora:' },
-  'sub.noLive':       { en: 'This mix of filters doesn’t have a live calendar. Pick one ensemble, or one category, for a subscription that updates itself — or download the events shown right now as a file.', es: 'Esta combinación de filtros no tiene un calendario en vivo. Elige un conjunto, o una categoría, para una suscripción que se actualiza sola — o descarga los eventos que se ven ahora como archivo.' },
-  'sub.download':     { en: 'Download .ics ({count})',       es: 'Descargar .ics ({count})' },
+  'sub.newMix':       { en: 'This is a new mix, so it gets its own calendar. Subscribe now — it fills in at the next update (within about 4 hours) and stays in sync from then on. Need it right this minute? Download the events below.', es: 'Esta es una combinación nueva, así que recibe su propio calendario. Suscríbete ahora — se llena en la próxima actualización (en unas 4 horas) y desde ahí se mantiene sincronizado. ¿Lo necesitas ya mismo? Descarga los eventos abajo.' },
+  'sub.newMixError':  { en: 'We couldn’t save this mix just now. Reopen this window to try again — the download below still works.', es: 'No pudimos guardar esta combinación ahora. Vuelve a abrir esta ventana para intentarlo — la descarga de abajo sigue funcionando.' },
+  'sub.download':     { en: 'Download these events (.ics, {count})', es: 'Descargar estos eventos (.ics, {count})' },
 
   // ── Assignments page ────────────────────────────────────────────────────
   'assign.intro':      { en: 'Playing exams, written tests, and performances coming up.', es: 'Próximos exámenes de ejecución, pruebas escritas y presentaciones.' },

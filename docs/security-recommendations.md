@@ -24,6 +24,18 @@ the backbone: privacy is enforced by what data exists publicly.
 still spam it (rate-limited only by Firestore pricing). Firebase App Check
 (reCAPTCHA v3/Enterprise) raises the bar to "real browser on our origin".
 
+The same applies to the other unauthenticated writes, which have grown to
+four: `plannedAbsences`, `parentMessages`, `assignmentSubmissions`, and
+`calendarViews` (#subscribe-any-view — a student saving their own mix of
+ensembles so it becomes a live calendar feed). `calendarViews` is the
+cheapest of the four to abuse and the least valuable: the docs hold only
+ensemble ids and event types, its doc ID is the hash of its own contents
+(so honest re-subscribes rewrite one doc rather than adding one), and
+`generate-feeds.mjs` ignores any doc whose ID does not match its contents
+and builds at most `MAX_REGISTERED_VIEWS` of them. What spam would cost is
+Firestore writes, not correctness or privacy — but it is the same bet as
+the other three, and App Check settles all four at once.
+
 Needs (user actions, not code): register the site in Firebase console →
 App Check, get a site key, then ~10 lines in `src/director/firebase.ts`
 (`initializeAppCheck(app, { provider: new ReCaptchaV3Provider(KEY) })`) and

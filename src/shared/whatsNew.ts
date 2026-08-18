@@ -38,7 +38,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     audience: 'both',
     expires: '2026-08-31',
     bullets: [
-      'Subscribe now works for whatever the calendar is showing — any mix of ensembles and event types, not just one at a time.',
+      'Subscribe now works for whatever the calendar is showing — any mix of ensembles and event types, not just one at a time. Pick the ensembles and categories you care about, subscribe once, and your phone calendar keeps itself up to date.',
       'Repertoire shows up in the notes of synced calendar events, including pieces linked from the Repertoire page.',
       'Filtering to an ensemble no longer mixes in academic classes; pick "Classes" in the type filter when you want them.',
       'Video assignments: the camera preview works, you can watch your take back before sending it, and there is a Submit button — nothing uploads until you press it.',
