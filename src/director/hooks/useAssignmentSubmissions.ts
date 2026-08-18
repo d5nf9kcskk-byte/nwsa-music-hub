@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { watchCollection } from '../../shared/watchCollection';
+import { deleteStoredFile } from '../storageCleanup';
 import type { AssignmentSubmission, AssignmentSubmissionStatus } from '../types';
 
 export function useAssignmentSubmissions(assignmentId?: string) {
@@ -38,10 +39,14 @@ export function useAssignmentSubmissions(assignmentId?: string) {
     });
   }
 
-  /** Delete a submission (and its video in Storage — caller handles Storage cleanup). */
+  /** Delete a submission AND the video behind it. A student's playing-exam
+   *  recording must not stay world-readable at its old Storage URL after the
+   *  director deletes the submission (audit rec #6). */
   async function deleteSubmission(id: string) {
     if (!db) return;
+    const gone = submissions.find(s => s.id === id);
     await deleteDoc(doc(db, 'assignmentSubmissions', id));
+    await deleteStoredFile(gone?.videoUrl);
   }
 
   return { submissions, loading, setReviewStatus, markDriveSynced, deleteSubmission };

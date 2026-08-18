@@ -5,6 +5,7 @@ import { useEvents } from '../hooks/useEvents';
 import { ensembleColor, ENSEMBLE_PALETTE, toDateStr, parseDate } from '../utils';
 import { useModalA11y } from '../../shared/useModalA11y';
 import type { Ensemble } from '../types';
+import { whenQueued } from '../writeStatus';
 
 interface Props {
   onClose: () => void;
@@ -132,7 +133,7 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
     if (!name.trim()) return;
     setSaving(true);
     try {
-      await onSave({
+      await whenQueued(onSave({
         name: name.trim(),
         nameEs: nameEs.trim() || undefined,
         conductorName: conductorName.trim() || undefined,
@@ -142,7 +143,7 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
         defaultStartTime: startTime || undefined,
         defaultEndTime: endTime || undefined,
         meetingDays: ensemble?.meetingDays,
-      });
+      }));
       onBack();
     } catch {
       setSaving(false);

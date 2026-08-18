@@ -176,6 +176,44 @@
 }
 .pub-subw-action:active { opacity: 0.85; }
 
+/* The filters this subscription covers, echoed as chips so the calendar you
+   get is never a surprise (#subscribe-any-view). */
+.pub-subw-filters { margin-bottom: 12px; }
+
+.pub-subw-filters-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pub-muted);
+  margin-bottom: 6px;
+}
+
+.pub-subw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.pub-subw-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--pub-accent-soft);
+  color: var(--pub-accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* A brand-new filter mix goes live at the next feed refresh — say so. */
+.pub-subw-note {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--pub-accent-soft);
+  color: var(--pub-ink);
+  text-align: left;
+}
+
+/* Download-it-now, under the live subscription rather than instead of it. */
+.pub-subw-snapshot {
+  width: 100%;
+  justify-content: center;
+  margin-top: 10px;
+}
+
 /* Copy-link fallback */
 .pub-subw-fallback {
   display: flex;

@@ -44,6 +44,22 @@
       "purpose": "any"
     }
   ],
+  "screenshots": [
+    {
+      "src": "/nwsa-music-hub/screenshots/calendar-wide.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "The music calendar: filter by ensemble or type, then subscribe to exactly that view"
+    },
+    {
+      "src": "/nwsa-music-hub/screenshots/calendar-narrow.png",
+      "sizes": "414x896",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Rehearsals, call times, and concerts on your phone"
+    }
+  ],
   "shortcuts": [
     {
       "name": "Take Roll",

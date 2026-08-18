@@ -195,7 +195,10 @@ export default defineConfig(({ mode }) => {
         // regenerated every 4 hours; it must never enter the precache.
         // sw-cleanup.js is part of the SW itself (importScripts below) — the
         // browser caches it with the SW script, so precaching it is redundant.
-        globIgnores: ['feeds/**', 'sw-cleanup.js'],
+        // screenshots/** are read once by the OS install prompt, never by the
+        // app — precaching ~200 KB of them would cost every visitor bytes
+        // they never use.
+        globIgnores: ['feeds/**', 'sw-cleanup.js', 'screenshots/**'],
         // Legacy-cache migration runs inside the SW's own activate (see
         // public/sw-cleanup.js) — never from the page, where it would race
         // the still-controlling old SW's offline fallback.

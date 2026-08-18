@@ -5,6 +5,7 @@ import {
 import { db } from '../firebase';
 import { noteLoadOk } from '../../shared/appStatus';
 import { offerUndo, trackWrite } from '../writeStatus';
+import { deleteStoredFile } from '../storageCleanup';
 import { watchCollection } from '../../shared/watchCollection';
 import { FIXTURES_ON, FIXTURE_DOCUMENTS } from './fixtures';
 import { currentDirectorName } from '../currentDirector';
@@ -48,7 +49,15 @@ export function useDocuments() {
     for (const [k, v] of Object.entries(data)) {
       payload[k] = v === undefined ? deleteField() : v;
     }
+    const previousFile = documents.find(d => d.id === id)?.file?.url;
     await trackWrite('Document update', () => updateDoc(doc(dbRef, 'documents', id), payload));
+    // Replaced or cleared the uploaded file? The old object is now referenced
+    // by nothing, so delete it rather than leaving it world-readable at its
+    // old URL (audit rec #6). Deliberately AFTER the save, not when the form
+    // field changes — cancelling an edit must not delete the live file.
+    if ('file' in data && previousFile && data.file?.url !== previousFile) {
+      void deleteStoredFile(previousFile);
+    }
   }
 
   async function deleteDocument(id: string) {
@@ -58,7 +67,11 @@ export function useDocuments() {
     if (gone) {
       const { id: _id, ...data } = gone;
       void _id;
-      offerUndo('documents', id, data, `Deleted "${gone.title}" — restore?`);
+      // Once the undo window lapses the delete is final, so the uploaded file
+      // goes too — otherwise a "deleted" handbook stays readable forever at
+      // its old Storage URL (audit rec #6). External links are left alone.
+      offerUndo('documents', id, data, `Deleted "${gone.title}" — restore?`, undefined,
+        () => { void deleteStoredFile(gone.file?.url); });
     }
   }
 

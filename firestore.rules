@@ -157,6 +157,44 @@ service cloud.firestore {
                  .affectedKeys()
                  .hasOnly(myDirectorDoc().get('assignedEnsembleIds', [])));
     }
+    // Saved calendar views (#subscribe-any-view): the filter mixes the deploy
+    // step turns into subscribable ICS feeds. World-readable, and written by
+    // ANYONE — a student picking their own three ensembles on the public
+    // calendar is the main audience, and a live subscription for that mix is
+    // the entire point of the feature, so this is an unauthenticated create
+    // like plannedAbsences and parentMessages, with the same strictest-
+    // validation treatment: exact key set, closed type enum, bounded lists
+    // and label.
+    //
+    // A view doc carries no personal information — a list of ensemble ids and
+    // event types, all of them already world-readable. Two structural guards
+    // do the rest of the work:
+    //   • the doc ID is a hash of the filters themselves (viewSlug), so
+    //     re-subscribing to the same mix rewrites ONE doc instead of piling
+    //     up new ones;
+    //   • generate-feeds.mjs recomputes that hash and ignores any doc whose
+    //     ID does not match its own contents, so a squatted ID can only ever
+    //     hold the correct filters — and the next real subscriber overwrites
+    //     it (hence create AND update).
+    // Volume rate-limiting still needs App Check or a Cloud Function and is
+    // deferred, matching the stance on the other public writes
+    // (docs/security-recommendations.md).
+    match /calendarViews/{doc} {
+      allow read;
+      allow delete: if isStaff();
+      allow create, update: if request.resource.data.keys().hasOnly(
+            ['ensembleIds', 'school', 'types', 'label', 'updatedAt'])
+        && request.resource.data.ensembleIds is list
+        && request.resource.data.ensembleIds.size() <= 40
+        && request.resource.data.school is bool
+        && request.resource.data.types is list
+        && request.resource.data.types.size() <= 12
+        && request.resource.data.types.hasOnly(
+             ['Class', 'Rehearsal', 'Sectional', 'Concert', 'Event', 'Assignment'])
+        && request.resource.data.label is string
+        && request.resource.data.label.size() <= 200
+        && request.resource.data.updatedAt is number;
+    }
     // rosterOverrides: staff can write anything. A Teacher may create/edit/
     // delete only THEIR OWN private-lesson pull-outs (kind == 'lesson') — the
     // automatic side effect of scheduling a lesson that conflicts with a
@@ -188,10 +226,21 @@ service cloud.firestore {
     // collection (all allowlisted roles — teachers and assistants create
     // lesson pull-outs); the shape check makes a leaked `reason` impossible
     // regardless of client code.
+    // Public projection of roster overrides: every field EXCEPT the free-text
+    // `reason`. The key list is FROZEN here, mirroring publicOverrideFields()
+    // in src/director/publicMirror.ts — denying `reason` alone left any
+    // recognized role (teachers and assistants write lesson pull-outs here)
+    // able to add arbitrary extra keys to a world-readable doc (audit rec #3).
+    // Adding a field to RosterOverride now means adding it here in the same
+    // change; rules auto-deploy on merge to main, so the two ship together.
     match /rosterOverridesPublic/{doc} {
       allow read;
       allow create, update: if isKnownRole()
-        && !request.resource.data.keys().hasAny(['reason']);
+        && request.resource.data.keys().hasOnly([
+             'studentId', 'ensembleId', 'action', 'scope',
+             'eventId', 'startDate', 'endDate',
+             'startTime', 'endTime', 'kind', 'destEnsembleId',
+           ]);
       allow delete: if isKnownRole();
     }
     match /announcements/{doc}   { allow read; allow write: if isStaff(); }
@@ -281,7 +330,15 @@ service cloud.firestore {
     match /lessons/{doc} {
       // Not plain signedIn(): a Personnel Assistant is attendance-only and
       // has no business reading who takes private lessons with whom.
-      allow read: if isStaff() || isTeacherRole();
+      //
+      // A Teacher reads only their OWN lessons (audit rec #5) — every teacher
+      // could previously read every other teacher's schedule. Rules match per
+      // document, so a LIST for a teacher only succeeds if the query itself
+      // filters to teacherEmail == their address; useLessons.ts issues exactly
+      // that query for the teacher role. Owner/Director still read all of it
+      // for coordination.
+      allow read: if isStaff()
+        || (isTeacherRole() && resource.data.teacherEmail == request.auth.token.email);
       allow create: if isStaff() || (isTeacherRole() && request.resource.data.teacherEmail == request.auth.token.email);
       allow update, delete: if isStaff() || (isTeacherRole() && resource.data.teacherEmail == request.auth.token.email);
     }
@@ -330,8 +387,14 @@ service cloud.firestore {
         && request.resource.data.status == 'submitted'
         && request.resource.data.videoUrl is string
         && request.resource.data.videoUrl.size() <= 1024
+        // >= 0, not > 0: a browser cannot always read the length of a video
+        // file a student picked from their phone, and 0 means "unknown", not
+        // "empty". Requiring a positive number here is what made every upload
+        // (and, before the recorder's timer was fixed, every recording) fail
+        // with "Missing or insufficient permissions". File size below still
+        // has to be positive, which is the check that actually proves a video.
         && request.resource.data.videoDurationSeconds is number
-        && request.resource.data.videoDurationSeconds > 0
+        && request.resource.data.videoDurationSeconds >= 0
         && request.resource.data.fileName is string
         && request.resource.data.fileName.size() <= 256
         && request.resource.data.fileSize is number
@@ -376,9 +439,16 @@ service cloud.firestore {
     // Sign-in history). Nobody edits or deletes — it's an audit trail.
     match /loginEvents/{doc} {
       allow read: if isOwner();
+      // `role` must MATCH the directors doc, not whatever the client claims
+      // (audit rec #5): an audit trail that lets the audited party pick their
+      // own label is not an audit trail. `name` stays client-supplied and is
+      // display-only — it is the resolved display name, which has no
+      // server-side source of truth (it can fall back to the Google account
+      // name), so it is never used for access decisions anywhere.
       allow create: if isKnownRole()
         && request.resource.data.keys().hasOnly(['email', 'name', 'role', 'at'])
         && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == myDirectorDoc().get('role', 'director')
         && request.resource.data.at is number;
       allow update, delete: if false;
     }
@@ -391,9 +461,12 @@ service cloud.firestore {
     // the Owner may read the log (Directors screen → Activity log).
     match /activityLog/{doc} {
       allow read: if isOwner();
+      // Same as loginEvents: `role` is verified against the directors doc,
+      // `name` is display-only (audit rec #5).
       allow create: if isKnownRole()
         && request.resource.data.keys().hasOnly(['email', 'name', 'role', 'action', 'detail', 'at'])
         && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == myDirectorDoc().get('role', 'director')
         && request.resource.data.action is string
         && request.resource.data.at is number;
       allow update, delete: if false;

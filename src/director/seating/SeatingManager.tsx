@@ -7,6 +7,7 @@ import { todayStr, parseDate, pieceEnsembleIds, buildSections } from '../utils';
 import type { SeatingChart, Student } from '../types';
 import { SeatingChartCard } from '../../public/components/SeatingChartCard';
 import { useModalA11y } from '../../shared/useModalA11y';
+import { whenQueued } from '../writeStatus';
 
 /** Director seating editor for one ensemble. Charts are per-piece playing-exam
  *  seating: seat 1 = principal. Published charts show on the public ensemble page. */
@@ -214,14 +215,14 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
     if (!title.trim()) { setErr('Give the chart a title.'); return; }
     setSaving(true); setErr('');
     try {
-      await onSave({
+      await whenQueued(onSave({
         ensembleId,
         title: title.trim(),
         pieceId: pieceId || undefined,
         date: date || undefined,
         sections: sections.filter(s => s.seats.length > 0),
         createdAt: chart?.createdAt ?? Date.now(),
-      });
+      }));
     } catch (e) { setSaving(false); setErr(e instanceof Error ? e.message : 'Could not save.'); }
   }
 

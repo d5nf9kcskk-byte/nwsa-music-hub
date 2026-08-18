@@ -20,6 +20,7 @@ import {
   todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, EVENT_TYPE_ICON, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR,
 } from '../utils';
 import type { CalendarEvent, EventType } from '../types';
+import { assignmentMatchesView, eventMatchesView, normalizeView } from '../../shared/calendarView';
 import { Linkify } from '../components/Linkify';
 import { dailyPun } from '../../shared/whimsy';
 import { ORG } from '../../org';
@@ -128,23 +129,16 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
 
   const hasSchoolEvents = useMemo(() => events.some(e => e.ensembleIds.length === 0), [events]);
 
-  // School-wide events (ensembleIds: []) are always visible unless the filter
-  // is narrowed to ONLY the "School events" pick, which shows just them.
+  // The filters as a shareable "view" — the same object the calendar feed is
+  // built from, so what you subscribe to is what you're looking at.
   const realEnsIds = useMemo(() => filterEnsembleIds.filter(x => x !== SCHOOL), [filterEnsembleIds]);
-  const onlySchool = filterEnsembleIds.includes(SCHOOL) && realEnsIds.length === 0;
+  const viewSpec = useMemo(
+    () => normalizeView({ ensembleIds: realEnsIds, school: filterEnsembleIds.includes(SCHOOL), types: typeFilters }),
+    [realEnsIds, filterEnsembleIds, typeFilters],
+  );
   const visibleEvents = useMemo(
-    () => {
-      const byEns = filterEnsembleIds.length === 0
-        ? events
-        : onlySchool
-          ? events.filter(e => e.ensembleIds.length === 0)
-          : events.filter(e => e.ensembleIds.length === 0 || e.ensembleIds.some(id => realEnsIds.includes(id)));
-      const typeSel = typeFilters.filter((t): t is EventType => t !== 'Assignment');
-      if (typeFilters.length === 0) return byEns;
-      if (typeSel.length === 0) return []; // only "Assignments" chosen → no events
-      return byEns.filter(e => typeSel.includes(e.type));
-    },
-    [events, filterEnsembleIds, realEnsIds, onlySchool, typeFilters],
+    () => events.filter(e => eventMatchesView(e, viewSpec)),
+    [events, viewSpec],
   );
 
   const eventsByDate = useMemo(() => {
@@ -154,11 +148,10 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   }, [visibleEvents]);
 
   // Assignment due dates as a parallel stream on the calendar.
-  const visibleAssignments = useMemo(() => {
-    if (typeFilters.length > 0 && !typeFilters.includes('Assignment')) return [];
-    if (onlySchool) return [];
-    return assignments.filter(a => realEnsIds.length === 0 || a.ensembleIds.some(id => realEnsIds.includes(id)));
-  }, [assignments, realEnsIds, onlySchool, typeFilters]);
+  const visibleAssignments = useMemo(
+    () => assignments.filter(a => assignmentMatchesView(a, viewSpec)),
+    [assignments, viewSpec],
+  );
   const assignByDate = useMemo(() => {
     const m: Record<string, typeof assignments> = {};
     for (const a of visibleAssignments) (m[a.dueDate] ??= []).push(a);
@@ -315,10 +308,10 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           </button>
           <FilteredCalendarSubscribe
             events={visibleEvents}
+            assignments={visibleAssignments}
             ensembles={ensembles}
-            filterEnsembleIds={filterEnsembleIds}
-            typeFilters={typeFilters}
-            schoolSentinel={SCHOOL}
+            piecesById={piecesById}
+            view={viewSpec}
           />
           {/* One-time school-calendar import: hidden once school events exist.
               The whole seed family is NWSA-only (hardcoded MDCPS/MDC data) —

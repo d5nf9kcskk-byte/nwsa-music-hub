@@ -16,6 +16,11 @@ shipped incident, not a style bug.
 - [ ] Query deep links work: `?ensemble=`, `?focus=`, `?staff=1`, director
       `?ensemble/date/event/student/announcement=` intent params
 - [ ] ICS feed URLs unchanged: `{origin}/nwsa-music-hub/feeds/{all,ensemble-*,student-*}.ics`
+- [ ] Filter-view feed slugs unchanged: `feeds/view-<hash>.ics` is a live
+      subscription URL, and the hash comes from `viewSlug()` in
+      `src/shared/calendarView.ts`. Changing the canonical string or the hash
+      silently kills every subscribed custom view —
+      `node scripts/calendar-view.selfcheck.mjs` pins two of them.
 - [ ] 404.html SPA shim still routes deep links on GitHub Pages
 
 ## Print (four load-bearing paper surfaces)

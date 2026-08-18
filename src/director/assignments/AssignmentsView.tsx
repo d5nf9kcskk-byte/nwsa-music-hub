@@ -14,8 +14,11 @@ import { RichTextArea } from '../components/RichTextArea';
 import { FileUpload } from '../components/FileUpload';
 import { SchedulePublishField } from '../components/SchedulePublishField';
 import { useModalA11y } from '../../shared/useModalA11y';
+import { whenQueued } from '../writeStatus';
 import { NotesText } from '../../public/components/NotesText';
+import { DEFAULT_VIDEO_MAX_MB } from '../types';
 import type { Assignment, AssignmentType, AssignmentResultStatus, Student, Ensemble, Attachment } from '../types';
+import { describeDuration, formatClock, formatFileSize, minutesToSeconds, secondsToMinutes } from '../../shared/duration';
 import { ORG } from '../../org';
 
 const ASSIGNMENT_TYPES: AssignmentType[] = ['Playing Exam', 'Written Test', 'Performance', 'Other'];
@@ -50,7 +53,10 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
   const [studentQuery, setStudentQuery] = useState('');
   const [formUrl, setFormUrl] = useState(assignment?.formUrl ?? '');
   const [acceptsVideo, setAcceptsVideo] = useState(assignment?.acceptsVideoSubmissions ?? false);
-  const [maxVideoSeconds, setMaxVideoSeconds] = useState(assignment?.maxVideoDurationSeconds ?? 300);
+  const [maxVideoMinutes, setMaxVideoMinutes] = useState(
+    secondsToMinutes(assignment?.maxVideoDurationSeconds ?? 300),
+  );
+  const [maxVideoSizeMB, setMaxVideoSizeMB] = useState(assignment?.maxVideoSizeMB ?? DEFAULT_VIDEO_MAX_MB);
   const [googleDriveFolderId, setGoogleDriveFolderId] = useState(assignment?.googleDriveFolderId ?? '');
   const [attachments, setAttachments] = useState<Attachment[]>(assignment?.attachments ?? []);
   const [publishAt, setPublishAt] = useState<number | undefined>(assignment?.publishAt);
@@ -75,8 +81,7 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
     setSaving(true);
     setSaveError('');
     try {
-      await Promise.race([
-        onSave({
+      await whenQueued(onSave({
           title: title.trim(),
           type,
           description: description.trim(),
@@ -86,16 +91,16 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
           studentIds: studentIds.length ? studentIds : undefined,
           formUrl: formUrl.trim() || undefined,
           acceptsVideoSubmissions: acceptsVideo || undefined,
-          maxVideoDurationSeconds: acceptsVideo ? maxVideoSeconds : undefined,
+          maxVideoDurationSeconds: acceptsVideo ? minutesToSeconds(maxVideoMinutes) : undefined,
+          maxVideoSizeMB: acceptsVideo ? maxVideoSizeMB : undefined,
           googleDriveFolderId: googleDriveFolderId || undefined,
           createdAt: assignment?.createdAt ?? Date.now(),
           attachments,
           publishAt,
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Save timed out — check your connection')), 15_000)
-        ),
-      ]);
+        // Closes once the write is queued rather than acknowledged: the old
+        // 15-second race reported "Save timed out" for saves that synced
+        // fine a moment later (audit rec #4).
+        }));
       onClose();
     } catch (err) {
       setSaving(false);
@@ -195,17 +200,42 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
             <div className="dir-field-hint">Students can record or upload a video directly on the assignment page. Videos are stored in Firebase Storage and synced to Google Drive.</div>
             {acceptsVideo && (
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label className="dir-label">Max recording duration (seconds)</label>
+                {/* Minutes and megabytes, not seconds and bytes — the stored
+                    fields stay in seconds/MB so old assignments still work. */}
+                <label className="dir-label" htmlFor="dir-video-minutes">Longest recording (minutes)</label>
                 <input
+                  id="dir-video-minutes"
                   className="dir-input"
                   type="number"
-                  value={maxVideoSeconds}
-                  onChange={e => setMaxVideoSeconds(Math.max(10, Math.min(3600, Number(e.target.value) || 300)))}
-                  min={10}
-                  max={3600}
+                  value={maxVideoMinutes}
+                  onChange={e => setMaxVideoMinutes(Math.max(1, Math.min(60, Number(e.target.value) || 5)))}
+                  min={1}
+                  max={60}
+                  step={1}
                   style={{ width: 120 }}
                 />
-                <div className="dir-field-hint">10–3600 seconds (6 sec – 1 hour). Default: 300 (5 min).</div>
+                <div className="dir-field-hint">
+                  1–60 minutes. Default: 5. In-app recording stops on its own at this limit, and an
+                  uploaded video longer than {describeDuration(minutesToSeconds(maxVideoMinutes))} is turned away.
+                </div>
+
+                <label className="dir-label" htmlFor="dir-video-size">Largest upload (MB)</label>
+                <input
+                  id="dir-video-size"
+                  className="dir-input"
+                  type="number"
+                  value={maxVideoSizeMB}
+                  onChange={e => setMaxVideoSizeMB(Math.max(10, Math.min(DEFAULT_VIDEO_MAX_MB, Number(e.target.value) || DEFAULT_VIDEO_MAX_MB)))}
+                  min={10}
+                  max={DEFAULT_VIDEO_MAX_MB}
+                  step={10}
+                  style={{ width: 120 }}
+                />
+                <div className="dir-field-hint">
+                  10–{DEFAULT_VIDEO_MAX_MB} MB. A phone video runs roughly 60–100 MB per minute at
+                  full quality, so {maxVideoSizeMB} MB is about {Math.max(1, Math.round(maxVideoSizeMB / 80))} minute
+                  {Math.max(1, Math.round(maxVideoSizeMB / 80)) === 1 ? '' : 's'} of phone footage.
+                </div>
 
                 {googleDriveFolderId ? (
                   <div style={{ fontSize: 13, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -459,8 +489,10 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
                       <div className="dir-submission-info">
                         <div className="dir-submission-name">{sub.studentName}</div>
                         <div className="dir-submission-meta">
-                          {Math.floor(sub.videoDurationSeconds / 60)}:{String(sub.videoDurationSeconds % 60).padStart(2, '0')}
-                          {' · '}{(sub.fileSize / (1024 * 1024)).toFixed(1)} MB
+                          {/* 0 means the browser could not read the file's
+                              length, not a zero-length video. */}
+                          {sub.videoDurationSeconds > 0 ? formatClock(sub.videoDurationSeconds) : 'length unknown'}
+                          {' · '}{formatFileSize(sub.fileSize)}
                           {' · '}{new Date(sub.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                         </div>
                         {sub.notes && <div className="dir-submission-notes">{sub.notes}</div>}

@@ -65,8 +65,11 @@ How it works — do not regress this:
   `useStudents` / `useRosterOverrides` batches the mirror doc with the source
   doc; `scripts/backfill-public-projections.mjs` (GitHub Action) converges
   mirrors on demand.
-- `scripts/generate-feeds.mjs` must only ever fetch the public projections —
-  it runs unauthenticated at deploy time.
+- `scripts/generate-feeds.mjs` must only ever fetch the public projections.
+  It runs unauthenticated by default; when `FIREBASE_SERVICE_ACCOUNT_JSON` is
+  set it uses a service account instead (so App Check enforcement can be
+  turned on without killing the feeds — docs/security-recommendations.md #1).
+  The credential does NOT widen what it may read: public projections only.
 - Student doc IDs are RANDOM Firestore IDs, never the school-issued Student
   ID — doc IDs are effectively public (shared with `studentsPublic`, and in
   `/student/<id>` URLs and `feeds/student-<id>.ics`). The school ID lives
@@ -102,6 +105,30 @@ hand-write SW fetch/install logic. Rules that must not regress:
 - The SW must keep ignoring cross-origin requests: Firestore offline is the
   SDK's IndexedDB cache, not Cache Storage.
 
+## Calendar feeds & filter views (Aug 2026)
+
+- `src/shared/calendarView.ts` is the ONE definition of what a filtered
+  calendar shows. The Schedule screen, the public calendar, and
+  `scripts/generate-feeds.mjs` (which imports the `.ts` directly — Node
+  strips types) all filter through it. Do not re-implement the filter.
+- School-wide items (no `ensembleIds`) ride along with an ensemble filter;
+  **academic Classes do not**, unless the type filter names them. Classes
+  showing under "Symphony Orchestra" was a reported bug, not a feature.
+- Every filter mix is subscribable: `feeds/view-<slug>.ics`, slug =
+  `viewSlug()` hash of the filters. Common mixes are pre-built each deploy
+  (`autoViewSpecs`); wider mixes are registered in `calendarViews` and built
+  on the next feed refresh. **The slug hash is a frozen subscription
+  contract** — `scripts/calendar-view.selfcheck.mjs` pins it.
+- `calendarViews` is the app's fourth unauthenticated write (with
+  `plannedAbsences`, `parentMessages`, `assignmentSubmissions`) — students
+  subscribing to their OWN mix is the point of the feature. It is safe only
+  because of two structural guards: the doc ID is the hash of the filters,
+  and the generator ignores any doc whose ID doesn't match its contents.
+  Keep both if you touch either side.
+- ICS text lives in `src/shared/ics.ts` and is shared with the in-app
+  snapshot download, so calendar notes carry the same repertoire (free text
+  AND linked pieces) either way.
+
 ## Roles & Firestore rules — invariants (Aug 2026, PR #44)
 
 - Roles are a CLOSED set enforced by `isKnownRole()` in `firestore.rules`
@@ -124,6 +151,21 @@ hand-write SW fetch/install logic. Rules that must not regress:
   (`AuthGate.handleSignOut`: flush-with-consent → `signOut` → `terminate` →
   `clearIndexedDbPersistence`) — staff caches hold grades, contacts,
   attendance, and notes (audit S7).
+- **Query and rule must agree**: rules match per document, so a scoped read
+  rule only works if the app's query asks for the same subset. A Teacher may
+  read only their OWN `lessons`, and `useLessons.ts` issues the matching
+  `where('teacherEmail', ...)` query — change one and you must change the
+  other, or the listener errors for that role.
+- `rosterOverridesPublic` is pinned to an exact key allowlist mirroring
+  `publicOverrideFields()`. Adding a field to `RosterOverride` means adding it
+  to `firestore.rules` in the SAME change, or the mirror write starts failing.
+- `loginEvents` / `activityLog` verify the claimed `role` against the
+  directors doc; `name` is display-only and must never gate access.
+- Storage: staff uploads are capped at 50 MB, and student video submissions
+  are capped at the assignment's own `maxVideoSizeMB` (read across services
+  from the assignment doc). `src/director/storageCleanup.ts` deletes objects
+  when the record pointing at them goes away — after the save for
+  replacements, and only once the undo window lapses for undoable deletes.
 - Deferred security work is tracked in `docs/security-recommendations.md`;
   the session record for all of the above is
   `docs/session-notes-2026-08-04-pwa-hardening.md`.
