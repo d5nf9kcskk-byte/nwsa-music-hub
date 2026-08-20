@@ -1,4 +1,22 @@
-# Attendance Bulletin → Hub roll (cloud)
+# Attendance Bulletin → Hub roll
+
+**LIVE since 2026-08-20.** Runs locally on Grant's Mac via launchd
+(`com.nwsa.hub.bulletin`, weekdays 12:45 and 15:15), writing office-sourced
+attendance straight to Firestore. `DRY_RUN=false` is set in the plist's
+EnvironmentVariables; set it back to `true` to pause writes without
+uninstalling anything.
+
+Backfilled 2026-08-14 through 2026-08-20 on go-live: 84 office docs, 0
+ambiguous. Director-entered marks are never overwritten.
+
+The Azure / Microsoft Graph / GitHub Actions plan below is **not in use**.
+The PDFs reach the Mac through the existing Power Automate → OneDrive flow,
+and they also arrive as attachments in Mail (`ggilman@mdc.edu`), so the
+OneDrive dependency can be dropped later by reading Mail directly — the same
+move that fixed email triage. Kept for reference only.
+
+---
+
 
 Daily school-wide **Attendance Bulletin** email (MDC Outlook, PDF attachment)
 feeds office marks onto music Take Roll. Other departments are ignored.
