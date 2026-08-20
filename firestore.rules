@@ -254,6 +254,14 @@ service cloud.firestore {
     // Documents page and per-ensemble lists can render; the files themselves
     // live in Storage. Only staff may add/edit/remove entries.
     match /documents/{doc}       { allow read; allow write: if isStaff(); }
+    // Sign-up FORMS (#signups): "tell me you want to do All-State, and fill
+    // out the paperwork while you're here." World-readable because the public
+    // sign-up page has to render the form before anyone identifies
+    // themselves. A form carries no personal data: a title, an intro, the
+    // director's own questions, and an audience expressed as ensembles +
+    // instrument families — never a list of student ids, which would publish
+    // who was invited to what (see src/shared/signupEligibility.ts).
+    match /signupForms/{doc}     { allow read; allow write: if isStaff(); }
 
     // Planned absences (#27): anyone may SUBMIT one (create-only, shape-checked),
     // but only staff can read the queue or change/delete entries — so the
@@ -261,9 +269,10 @@ service cloud.firestore {
     match /plannedAbsences/{doc} {
       // Hardened shape (audit S4): the student must actually exist (no
       // spam-for-invented-ids), the date must be a real YYYY-MM-DD string,
-      // and every free-text field is size-bounded — this is the one
-      // unauthenticated write in the whole app, so it gets the strictest
-      // validation.
+      // and every free-text field is size-bounded — this was the FIRST
+      // unauthenticated write in the app and set the standard the other four
+      // (parentMessages, assignmentSubmissions, calendarViews,
+      // signupResponses) are held to.
       allow create: if request.resource.data.keys().hasOnly(['studentId', 'studentName', 'date', 'reason', 'submittedAt', 'status'])
         && request.resource.data.studentId is string
         && exists(/databases/$(database)/documents/students/$(request.resource.data.studentId))
@@ -312,6 +321,80 @@ service cloud.firestore {
         && request.resource.data.message.size() <= 1000
         && request.resource.data.submittedAt is number
         && request.resource.data.status == 'new';
+      allow read: if isStaff();
+      allow update, delete: if isStaff();
+    }
+
+    // Sign-up RESPONSES (#signups): a student saying "yes, I want to do this",
+    // plus whatever the form asked for and a typed signature. The app's fifth
+    // unauthenticated create (with plannedAbsences, parentMessages,
+    // assignmentSubmissions and calendarViews) — students have no accounts, so
+    // requiring auth would kill the feature — and it gets the same
+    // strictest-validation treatment: exact key set, an anchor to a real
+    // student AND a real sign-up, and a ceiling on every free-text field.
+    //
+    // Two deliberate shapes:
+    //   • Answers ride in ONE bounded `answersJson` string rather than a map.
+    //     Rules can bound a string's length but cannot reach inside a map to
+    //     bound its values, and an unauthenticated writer must not be able to
+    //     park 900 KB in a field nobody checked.
+    //   • There is NO public update. An unauthenticated update rule would let
+    //     anyone overwrite anyone else's signed form; a student who comes back
+    //     to finish the paperwork creates a second doc and the director's
+    //     screen keeps the newest (latestPerStudent in useSignups.ts).
+    //
+    // The sign-up must still be OPEN — the closed flag is checked here, not
+    // just in the UI, so closing a sign-up actually stops new responses.
+    // Volume rate-limiting still needs App Check or a Cloud Function and is
+    // deferred, matching the stance on the other public writes
+    // (docs/security-recommendations.md).
+    match /signupResponses/{doc} {
+      allow create: if request.resource.data.keys().hasOnly([
+            'formId', 'studentId', 'studentName', 'grade', 'instrument',
+            'email', 'phone', 'answersJson', 'signature',
+            'guardianName', 'guardianSignature', 'guardianEmail',
+            'submittedAt', 'status'])
+        && request.resource.data.formId is string
+        && exists(/databases/$(database)/documents/signupForms/$(request.resource.data.formId))
+        && get(/databases/$(database)/documents/signupForms/$(request.resource.data.formId))
+             .data.get('closed', false) == false
+        && request.resource.data.studentId is string
+        && exists(/databases/$(database)/documents/students/$(request.resource.data.studentId))
+        && request.resource.data.studentName is string
+        && request.resource.data.studentName.size() >= 2
+        && request.resource.data.studentName.size() <= 120
+        && request.resource.data.grade is string
+        && request.resource.data.grade.size() <= 40
+        && (!('instrument' in request.resource.data)
+            || (request.resource.data.instrument is string
+                && request.resource.data.instrument.size() <= 60))
+        && (!('email' in request.resource.data)
+            || (request.resource.data.email is string
+                && request.resource.data.email.size() <= 254
+                && request.resource.data.email.matches('.+@.+\\..+')))
+        && (!('phone' in request.resource.data)
+            || (request.resource.data.phone is string
+                && request.resource.data.phone.size() <= 40))
+        && (!('answersJson' in request.resource.data)
+            || (request.resource.data.answersJson is string
+                && request.resource.data.answersJson.size() <= 4000))
+        && (!('signature' in request.resource.data)
+            || (request.resource.data.signature is string
+                && request.resource.data.signature.size() <= 120))
+        && (!('guardianName' in request.resource.data)
+            || (request.resource.data.guardianName is string
+                && request.resource.data.guardianName.size() <= 120))
+        && (!('guardianSignature' in request.resource.data)
+            || (request.resource.data.guardianSignature is string
+                && request.resource.data.guardianSignature.size() <= 120))
+        && (!('guardianEmail' in request.resource.data)
+            || (request.resource.data.guardianEmail is string
+                && request.resource.data.guardianEmail.size() <= 254
+                && request.resource.data.guardianEmail.matches('.+@.+\\..+')))
+        && request.resource.data.submittedAt is number
+        && request.resource.data.status == 'submitted';
+      // A response names a student, their grade, a contact address and a
+      // signature — staff-eyes only, and never listable by the public side.
       allow read: if isStaff();
       allow update, delete: if isStaff();
     }

@@ -610,3 +610,111 @@ export interface Lesson {
   updatedAt?: number;
   updatedBy?: string; // director's display name (falls back to email)
 }
+
+// ── Sign-ups (#signups) ────────────────────────────────────────────────
+
+export const SIGNUP_QUESTION_TYPES = ['short', 'long', 'choice', 'yesno'] as const;
+export type SignupQuestionType = (typeof SIGNUP_QUESTION_TYPES)[number];
+
+/** The six instrument families a sign-up can be aimed at. Declared here (the
+ *  dependency-free leaf module) and re-exported as `InstrumentFamily` by
+ *  src/shared/instrumentFamily.ts, which owns the instrument → family logic. */
+export type InstrumentFamilyId = 'woodwind' | 'brass' | 'percussion' | 'rhythm' | 'strings' | 'voice';
+
+/** One director-written question on a sign-up form. `id` is stable for the
+ *  life of the question so answers keep pointing at the right prompt when
+ *  the director reorders or renames things later. */
+export interface SignupQuestion {
+  id: string;
+  label: string;
+  type: SignupQuestionType;
+  /** For 'choice' only. */
+  options?: string[];
+  required?: boolean;
+  /** Small grey line under the field. */
+  help?: string;
+}
+
+/**
+ * A sign-up form (#signups): "tell me you want to do this, and fill out the
+ * paperwork while you're here." World-readable so the public page can render
+ * it before anyone identifies themselves — which is why the audience is
+ * ensembles + instrument families and never a list of student ids (see
+ * src/shared/signupEligibility.ts).
+ *
+ * Every response always carries name + grade + a typed confirmation. Anything
+ * past that — extra questions, a signed agreement, a guardian co-signature —
+ * is optional, so a director can open an interest list in one minute today
+ * and add the real form to the same sign-up tomorrow.
+ */
+export interface SignupForm {
+  id: string;
+  title: string;
+  titleEs?: string;
+  /** Plain text shown above the form. */
+  intro?: string;
+  introEs?: string;
+  /** Audience — empty ensembleIds = whole program, empty families = all. */
+  ensembleIds: string[];
+  families: InstrumentFamilyId[];
+  /** YYYY-MM-DD. Past its deadline a sign-up stops accepting responses. */
+  deadline?: string;
+  /** Director closed it by hand, regardless of the deadline. */
+  closed?: boolean;
+  /** Scheduled publishing (mirrors Announcement.publishAt): epoch ms. */
+  publishAt?: number;
+  questions: SignupQuestion[];
+  collectEmail?: boolean;
+  collectPhone?: boolean;
+  /** Set = the student must type their name to agree to this statement. */
+  signatureStatement?: string;
+  /** Set = a parent/guardian must also type their name. Requires
+   *  signatureStatement — the student signs before the guardian does. */
+  guardianStatement?: string;
+  /** Optional link to the official paperwork (Drive, district site, or a
+   *  Hub document's own URL), shown on the sign-up page above the form. */
+  formUrl?: string;
+  createdAt: number;
+  updatedAt?: number;
+  updatedBy?: string; // director's display name (falls back to email)
+}
+
+/** Where a response is in the director's workflow. Public clients may only
+ *  ever create 'submitted'; the rest are staff-set (firestore.rules). */
+export const SIGNUP_RESPONSE_STATUSES = ['submitted', 'entered', 'withdrawn'] as const;
+export type SignupResponseStatus = (typeof SIGNUP_RESPONSE_STATUSES)[number];
+
+/**
+ * One student's response. Create-only for the public (same posture as
+ * plannedAbsences / parentMessages / assignmentSubmissions); staff read,
+ * update the status, and delete.
+ *
+ * There is no public UPDATE — an unauthenticated update rule would let anyone
+ * overwrite anyone else's signed form. A student who comes back and submits
+ * again simply creates a second doc; `latestPerStudent()` in
+ * src/director/hooks/useSignups.ts keeps the newest and the director sees the
+ * earlier ones as history.
+ */
+export interface SignupResponse {
+  id: string;
+  formId: string;
+  studentId: string;
+  studentName: string;
+  grade: string;
+  instrument?: string;
+  email?: string;
+  phone?: string;
+  /** Answers to the form's questions, as a JSON object of questionId → string.
+   *  Stored as a bounded STRING rather than a map because Firestore rules can
+   *  bound a string's length but cannot reach inside a map to bound its
+   *  values — and this is an unauthenticated write, where every free-text
+   *  field gets a ceiling. Read it with `parseAnswers()`. */
+  answersJson?: string;
+  /** Typed full name = the signature. */
+  signature?: string;
+  guardianName?: string;
+  guardianSignature?: string;
+  guardianEmail?: string;
+  submittedAt: number;
+  status: SignupResponseStatus;
+}

@@ -1,0 +1,162 @@
+/* Sign-ups (#signups) — public side.
+   Everything is built on the --pub-* tokens so the reader's Light/Dark choice
+   carries automatically; the few pastel surfaces get explicit dark overrides
+   at the bottom, the way the alert banners in uiUpdates.css do. */
+
+/* ── The "you need to answer this" strip (Home, My Schedule) ── */
+.pub-signup-alert {
+  display: flex; align-items: center; gap: 11px;
+  margin: 0 0 12px; padding: 12px 14px;
+  background: var(--pub-accent-soft);
+  border: 1px solid var(--pub-accent);
+  border-radius: var(--pub-radius);
+  color: var(--pub-ink); text-decoration: none;
+}
+.pub-signup-alert > svg { color: var(--pub-accent); flex-shrink: 0; }
+.pub-signup-alert.urgent { background: #fff7ed; border-color: var(--pub-warn); }
+.pub-signup-alert.urgent > svg { color: var(--pub-warn); }
+.pub-signup-alert-body { flex: 1; min-width: 0; }
+.pub-signup-alert-title { font-size: 14px; font-weight: 800; }
+.pub-signup-alert-sub {
+  font-size: 13px; color: var(--pub-muted); margin-top: 1px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Index rows ── */
+.pub-signup-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 10px; padding: 14px 15px;
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius);
+  color: var(--pub-ink); text-decoration: none;
+}
+.pub-signup-row.highlight { border-color: var(--pub-accent); border-width: 1.5px; }
+.pub-signup-row.closed { opacity: 0.6; }
+.pub-signup-row-body { flex: 1; min-width: 0; }
+.pub-signup-row-title { font-size: 15px; font-weight: 700; }
+.pub-signup-row-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 10px;
+  font-size: 13px; color: var(--pub-muted); margin-top: 2px;
+}
+.pub-signup-row-meta .urgent { color: var(--pub-warn); font-weight: 700; }
+.pub-signup-row-done {
+  display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+  font-size: 12px; font-weight: 800; color: var(--pub-success);
+}
+
+/* ── The form page ── */
+.pub-signup-loading { padding: 32px; text-align: center; color: var(--pub-muted); }
+.pub-signup-head { margin: 6px 0 16px; }
+.pub-signup-kicker {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--pub-accent);
+}
+.pub-signup-head h1 { font-size: 23px; font-weight: 800; letter-spacing: -0.4px; margin: 4px 0 6px; }
+.pub-signup-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 13px; color: var(--pub-muted); }
+.pub-signup-due { display: inline-flex; align-items: center; gap: 4px; }
+.pub-signup-due.urgent { color: var(--pub-warn); font-weight: 800; }
+.pub-signup-intro { font-size: 15px; line-height: 1.55; margin: 10px 0 0; white-space: pre-wrap; }
+.pub-signup-doc {
+  display: inline-flex; align-items: center; gap: 7px;
+  margin-top: 12px; padding: 10px 13px;
+  background: var(--pub-surface); border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius-md);
+  font-size: 14px; font-weight: 700; color: var(--pub-ink); text-decoration: none;
+}
+
+.pub-signup-receipt {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin-bottom: 12px; padding: 11px 13px;
+  background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--pub-radius-md);
+  font-size: 13px; line-height: 1.5; color: #14532d;
+}
+.pub-signup-receipt svg { flex-shrink: 0; margin-top: 2px; }
+
+.pub-signup-closed h2 { font-size: 17px; margin: 0 0 6px; }
+.pub-signup-closed p { font-size: 14px; line-height: 1.55; margin: 0; color: var(--pub-muted); }
+
+.pub-signup-step { display: flex; align-items: center; gap: 9px; margin: 20px 0 9px; }
+.pub-signup-step-num {
+  width: 22px; height: 22px; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: var(--pub-accent); color: #fff;
+  border-radius: var(--pub-pill); font-size: 12px; font-weight: 800;
+}
+.pub-signup-step-title {
+  font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--pub-muted);
+}
+
+.pub-signup-me { display: flex; align-items: center; gap: 10px; }
+.pub-signup-me-name { font-size: 17px; font-weight: 800; }
+.pub-signup-switch {
+  margin-left: auto; flex-shrink: 0;
+  background: none; border: none; padding: 6px 2px;
+  font-size: 13px; font-weight: 700; color: var(--pub-accent); cursor: pointer;
+}
+.pub-signup-names { max-height: 340px; overflow-y: auto; }
+.pub-signup-name-row {
+  display: flex; align-items: baseline; gap: 10px; width: 100%;
+  padding: 11px 4px; background: none; border: none;
+  border-bottom: 1px solid var(--pub-border);
+  font-family: inherit; font-size: 15px; text-align: left;
+  color: var(--pub-ink); cursor: pointer;
+}
+.pub-signup-name-row:last-child { border-bottom: none; }
+.pub-signup-name-row:active { background: var(--pub-accent-soft); }
+
+.pub-signup-q { margin-bottom: 6px; }
+.pub-signup-textarea { resize: vertical; line-height: 1.5; }
+.pub-signup-note { font-size: 12.5px; line-height: 1.45; color: var(--pub-muted); margin: 5px 0 2px; }
+.pub-signup-optional { font-weight: 600; text-transform: none; letter-spacing: 0; }
+
+.pub-signup-yesno { display: flex; gap: 8px; }
+.pub-signup-yesno-btn {
+  flex: 1; padding: 11px; border: 1.5px solid var(--pub-border);
+  background: var(--pub-surface); border-radius: var(--pub-radius-md);
+  font-family: inherit; font-size: 15px; font-weight: 700;
+  color: var(--pub-ink); cursor: pointer;
+}
+.pub-signup-yesno-btn.active {
+  background: var(--pub-accent); border-color: var(--pub-accent); color: #fff;
+}
+
+.pub-signup-statement {
+  font-size: 14px; line-height: 1.6; margin: 0 0 4px;
+  white-space: pre-wrap;
+}
+.pub-signup-sign {
+  font-family: 'Segoe Script', 'Snell Roundhand', 'Brush Script MT', cursive;
+  font-size: 20px;
+}
+.pub-signup-divider { height: 1px; background: var(--pub-border); margin: 18px 0 14px; }
+
+.pub-signup-send {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; margin-top: 16px; padding: 15px;
+  background: var(--pub-accent); color: #fff;
+  border: none; border-radius: var(--pub-radius-md);
+  font-family: inherit; font-size: 16px; font-weight: 800;
+  text-decoration: none; cursor: pointer;
+}
+.pub-signup-send:disabled { opacity: 0.5; cursor: default; }
+.pub-signup-why { text-align: center; }
+.pub-signup-privacy { font-size: 12.5px; color: var(--pub-muted); text-align: center; margin: 14px 0 0; }
+
+.pub-signup-done { padding: 36px 16px; text-align: center; }
+.pub-signup-done-mark {
+  width: 62px; height: 62px; margin: 0 auto 16px;
+  display: grid; place-items: center;
+  background: var(--pub-success); color: #fff; border-radius: var(--pub-pill);
+}
+.pub-signup-done h1 { font-size: 23px; font-weight: 800; margin: 0 0 8px; }
+.pub-signup-done p { font-size: 15px; line-height: 1.55; margin: 0 0 10px; }
+.pub-signup-done .pub-signup-send { max-width: 280px; margin: 20px auto 0; }
+
+/* ── Dark mode for the hardcoded pastels ── */
+[data-pub-theme='dark'] .pub-signup-alert.urgent { background: #2a2310; border-color: #6b5d1d; }
+[data-pub-theme='dark'] .pub-signup-receipt {
+  background: #14261a; border-color: #14532d; color: #86efac;
+}

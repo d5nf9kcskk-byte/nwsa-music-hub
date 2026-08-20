@@ -20,10 +20,10 @@ export const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 
 /**
  * App Check (audit rec #1) — proves a write came from a real browser on our
- * own origin, which is the only real defence for the four unauthenticated
+ * own origin, which is the only real defence for the five unauthenticated
  * write paths (`plannedAbsences`, `parentMessages`, `assignmentSubmissions`,
- * `calendarViews`): their shapes are validated, but nothing else stops a
- * script from hammering them.
+ * `calendarViews`, `signupResponses`): their shapes are validated, but
+ * nothing else stops a script from hammering them.
  *
  * Off unless VITE_RECAPTCHA_SITE_KEY is set, so nothing changes until the
  * site key exists in the Firebase console — and the SDK is dynamically

@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, Repeat, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, Repeat, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -34,6 +34,7 @@ import { NotesView } from './notes/NotesView';
 import { AssignmentsView } from './assignments/AssignmentsView';
 import { AnnouncementManager } from './announcements/AnnouncementManager';
 import { MessagesView } from './messages/MessagesView';
+import { SignupsView } from './signups/SignupsView';
 import { useParentMessages } from './hooks/useParentMessages';
 import { RepertoireManager } from './repertoire/RepertoireManager';
 import { DocumentsView } from './documents/DocumentsView';
@@ -83,6 +84,7 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
       { id: 'repertoire',    label: 'Repertoire',    Icon: Music          },
       { id: 'documents',     label: 'Documents',     Icon: FolderOpen     },
       { id: 'assignments',   label: 'Assignments',   Icon: ClipboardCheck },
+      { id: 'signups',       label: 'Sign-ups',      Icon: ClipboardSignature },
       { id: 'announcements', label: 'Announcements', Icon: Megaphone      },
       // Parent contact-form inbox (#parent-messages) — org-gated.
       ...(ORG.features.contactForm ? [{ id: 'messages' as const, label: 'Messages', Icon: Mail }] : []),
@@ -107,12 +109,13 @@ const TAB_TITLES: Record<DirTab, string> = {
   ensembles:       'Ensembles',
   whosOut:         'Who\u2019s Out',
   messages:        'Messages',
+  signups:         'Sign-ups',
 };
 
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'roster', 'lessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'whosOut', 'scheduleSwap',
-  'messages',
+  'messages', 'signups',
 ];
 
 /**
@@ -136,6 +139,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   assignments:     'Post practice assignments and exams. Students see them on the public site.',
   announcements:   'Post news for families \u2014 school-wide or per ensemble. Urgent posts show as a red banner.',
   messages:        'Messages families send through the public Contact Us form. Reply opens your own email app.',
+  signups:         'Ask students to opt in \u2014 auditions, trips, anything. They pick their name, confirm their grade, answer your questions, and sign. You get the list, a spreadsheet, and printable signed forms.',
 };
 
 export default function DirectorApp() {
@@ -353,6 +357,7 @@ export default function DirectorApp() {
             {tab === 'assignments'     && <AssignmentsView />}
             {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} onClose={() => {}} />}
             {tab === 'messages'        && <MessagesView />}
+            {tab === 'signups'         && <SignupsView />}
             {tab === 'ensembles'       && <EnsemblesView onNavigate={go} />}
             {tab === 'ensembleHub' && intent.ensembleId && (
               <EnsembleHubView key={intentKey} ensembleId={intent.ensembleId} onNavigate={go} />

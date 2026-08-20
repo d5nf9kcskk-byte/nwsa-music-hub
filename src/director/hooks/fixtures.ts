@@ -1,4 +1,4 @@
-import type { CalendarEvent, Ensemble, LibraryDocument, RepertoirePiece, Student } from '../types';
+import type { CalendarEvent, Ensemble, LibraryDocument, RepertoirePiece, SignupForm, Student } from '../types';
 
 /**
  * Local development fixtures (redesign test cycle). Served ONLY when Firebase
@@ -108,4 +108,27 @@ export const FIXTURE_STUDENTS: Student[] = [
   { id: 'fx-s6', name: 'Fernandez, Lucia', instrument: 'Flute', grade: '9th', status: 'Active', ensembleIds: ['wind-ensemble'] },
   { id: 'fx-s7', name: 'Garcia, Mateo', instrument: 'Bass', grade: '11th', status: 'Active', ensembleIds: ['symphony-orchestra', 'jazz-ensemble'] },
   { id: 'fx-s8', name: 'Hernandez, Isabella', instrument: 'Percussion', grade: '10th', status: 'Active', ensembleIds: ['wind-ensemble', 'symphony-orchestra'] },
+];
+
+/** One open sign-up, aimed at the string players in Symphony Orchestra —
+ *  the shape #signups was built for. `deadline` is relative to today so the
+ *  "closes today / by <date>" states are reachable while developing. */
+export const FIXTURE_SIGNUPS: SignupForm[] = [
+  {
+    id: 'fx-signup-allstate',
+    title: 'All-State auditions — who’s in?',
+    intro: 'Sign up here if you want to audition, so I can register you before the deadline.',
+    ensembleIds: ['symphony-orchestra'],
+    families: ['strings'],
+    deadline: iso(1),
+    questions: [
+      { id: 'q1', label: 'What will you audition on?', type: 'short', required: true },
+      { id: 'q2', label: 'Have you auditioned before?', type: 'yesno', required: true },
+      { id: 'q3', label: 'Anything I should know?', type: 'long' },
+    ],
+    collectEmail: true,
+    signatureStatement: 'I want to audition for All-State, and I understand what preparing for it involves.',
+    guardianStatement: 'I am the parent or guardian of the student above and I give permission for them to audition.',
+    createdAt: 1_700_000_010_000,
+  },
 ];

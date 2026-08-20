@@ -1,0 +1,166 @@
+/* Sign-ups (#signups) — director side. Tokens only, so the panel's dark
+   mode ([data-dir-theme='dark']) carries without per-rule overrides. */
+
+.dir-signups { padding-bottom: 40px; }
+
+.dir-signups-toolbar {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;
+}
+
+/* ── List card ── */
+.dir-signup-card {
+  display: block; width: 100%; text-align: left;
+  margin-bottom: 10px; padding: 14px 15px;
+  background: var(--dir-surface);
+  border: 1px solid var(--dir-border);
+  border-radius: var(--dir-radius);
+  font-family: inherit; color: var(--dir-text); cursor: pointer;
+}
+.dir-signup-card-head { display: flex; align-items: center; gap: 10px; }
+.dir-signup-card-title { font-size: 15px; font-weight: 700; flex: 1; min-width: 0; }
+.dir-signup-state {
+  flex-shrink: 0; padding: 2px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.dir-signup-state.open { background: var(--dir-excused-bg); color: #15803d; }
+.dir-signup-state.closed { background: var(--dir-border); color: var(--dir-text-muted); }
+.dir-signup-card-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px;
+  margin-top: 5px; font-size: 13px; color: var(--dir-text-muted);
+}
+.dir-signup-card-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.dir-signup-card-meta .urgent { color: #b45309; font-weight: 800; }
+.dir-signup-card-who { margin-top: 4px; font-size: 12.5px; color: var(--dir-text-muted); }
+
+/* ── Detail ── */
+.dir-signup-detail-head { margin: 4px 0 14px; }
+.dir-signup-detail-title { font-size: 19px; font-weight: 800; margin: 0 0 4px; }
+
+.dir-signup-share {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; margin-bottom: 6px;
+  background: var(--dir-surface-2);
+  border: 1px solid var(--dir-border); border-radius: var(--dir-radius);
+}
+.dir-signup-share-url {
+  flex: 1; min-width: 0; font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--dir-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dir-signup-hint { font-size: 12.5px; line-height: 1.5; color: var(--dir-text-muted); margin: 0 0 14px; }
+.dir-signup-disabled { opacity: 0.45; pointer-events: none; }
+
+.dir-signup-section {
+  display: flex; align-items: center; gap: 10px;
+  margin: 22px 0 9px;
+  font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--dir-text-muted);
+}
+.dir-signup-section-btn {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: none; padding: 2px 0;
+  font-family: inherit; font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em;
+  color: var(--dir-blue); cursor: pointer;
+}
+
+/* ── One response ── */
+.dir-signup-resp {
+  margin-bottom: 8px; background: var(--dir-surface);
+  border: 1px solid var(--dir-border); border-radius: var(--dir-radius);
+  overflow: hidden;
+}
+.dir-signup-resp.withdrawn { opacity: 0.6; }
+.dir-signup-resp-head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  width: 100%; padding: 12px 14px; text-align: left;
+  background: none; border: none; font-family: inherit;
+  color: var(--dir-text); cursor: pointer;
+}
+.dir-signup-resp-name { font-size: 15px; font-weight: 700; }
+.dir-signup-resp-grade { font-size: 13px; font-weight: 700; color: var(--dir-blue); }
+.dir-signup-resp-instr { font-size: 13px; color: var(--dir-text-muted); }
+/* One right-aligned group, so the row stays tidy whether it carries three
+   tags or none (an interest-only sign-up has no "complete" state to show). */
+.dir-signup-tags { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px; }
+.dir-signup-tag {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800;
+}
+.dir-signup-tag.done { background: var(--dir-excused-bg); color: #15803d; }
+.dir-signup-tag.partial { background: var(--dir-late-bg); color: #b45309; }
+.dir-signup-tag.entered { background: #ede9fe; color: #6d28d9; }
+.dir-signup-tag.withdrawn { background: var(--dir-absent-bg); color: #b91c1c; }
+
+.dir-signup-resp-body { padding: 0 14px 14px; border-top: 1px solid var(--dir-border); }
+.dir-signup-resp-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 10px 0;
+  font-size: 12.5px; color: var(--dir-text-muted);
+}
+.dir-signup-answer { padding: 8px 0; border-top: 1px solid var(--dir-border); }
+.dir-signup-answer-q { font-size: 12px; font-weight: 800; color: var(--dir-text-muted); }
+.dir-signup-answer-a { font-size: 14px; line-height: 1.5; margin-top: 2px; white-space: pre-wrap; }
+.dir-signup-sig {
+  font-family: 'Segoe Script', 'Snell Roundhand', 'Brush Script MT', cursive;
+  font-size: 20px; margin-top: 2px;
+}
+.dir-signup-resp-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.dir-signup-warn {
+  display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 8px 10px;
+  background: var(--dir-late-bg); border-radius: var(--dir-radius-sm);
+  font-size: 12.5px; color: #92400e;
+}
+
+.dir-signup-waiting { display: flex; flex-wrap: wrap; gap: 6px; }
+.dir-signup-waiting-chip {
+  padding: 5px 10px; background: var(--dir-surface-2);
+  border: 1px solid var(--dir-border); border-radius: 999px;
+  font-size: 12.5px; color: var(--dir-text-muted);
+}
+
+.dir-signup-danger {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--dir-border);
+  font-size: 13px; color: var(--dir-text-muted);
+}
+
+/* ── Editor ── */
+.dir-signup-help { font-size: 12px; line-height: 1.45; color: var(--dir-text-muted); margin-top: 5px; }
+.dir-signup-error { margin: 10px 0; font-size: 13px; color: var(--dir-danger); }
+.dir-signup-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+.dir-signup-qedit {
+  padding: 10px; margin-bottom: 8px;
+  background: var(--dir-surface-2);
+  border: 1px solid var(--dir-border); border-radius: var(--dir-radius-sm);
+}
+.dir-signup-qedit-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.dir-signup-qedit-row .dir-input { flex: 1; min-width: 160px; }
+.dir-signup-qedit-row .dir-select { flex: 1; min-width: 140px; }
+
+/* ── Print packet ──
+   Kept out of the flow on screen (never display:none — printViaPopup copies
+   the node's markup into a fresh window, and a hidden node still serializes,
+   but an author who later prints in-page must not get a blank sheet). */
+.dir-signup-print-host { position: absolute; left: -10000px; top: 0; width: 800px; }
+
+.signup-sheet {
+  page-break-after: always; break-after: page;
+  padding: 28px 32px; font-size: 13px; line-height: 1.55; color: #111;
+}
+.signup-sheet:last-child { page-break-after: auto; break-after: auto; }
+.signup-sheet-head { border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 18px; }
+.signup-sheet-org { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.signup-sheet-head h1 { font-size: 19px; font-weight: 800; margin: 4px 0 0; }
+.signup-sheet-fields {
+  display: grid; grid-template-columns: 190px 1fr; gap: 7px 16px; margin: 0 0 22px;
+}
+.signup-sheet-fields dt { font-weight: 700; }
+.signup-sheet-fields dd { margin: 0; white-space: pre-wrap; }
+.signup-sheet-sign { margin-top: 18px; padding-top: 14px; border-top: 1px solid #999; }
+.signup-sheet-statement { margin: 0 0 14px; }
+.signup-sheet-line { border-bottom: 1px solid #111; padding-bottom: 2px; }
+.signup-sheet-sig {
+  display: block;
+  font-family: 'Segoe Script', 'Snell Roundhand', 'Brush Script MT', cursive;
+  font-size: 22px;
+}
+.signup-sheet-cap { display: block; margin-top: 3px; font-size: 10.5px; color: #444; }

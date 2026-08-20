@@ -38,6 +38,11 @@ jobs:
       - name: Check calendar view + ICS contracts
         run: node scripts/calendar-view.selfcheck.mjs
 
+      # Who a sign-up reaches. Drift here is silent — a director opens
+      # "Camerata strings" and half the section never sees it (#signups).
+      - name: Check sign-up eligibility
+        run: node scripts/signup-eligibility.selfcheck.mjs
+
       - name: Build
         run: npm run build
         env:
