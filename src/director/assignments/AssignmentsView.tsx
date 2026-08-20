@@ -354,11 +354,13 @@ interface GradeSheetProps {
 
 function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) {
   const { resultMap, saveResult, clearResult } = useAssignmentResults(assignment.id);
-  const { submissions, loading: subLoading, setReviewStatus } = useAssignmentSubmissions(assignment.id);
+  const { submissions, loading: subLoading, setReviewStatus, deleteSubmission } = useAssignmentSubmissions(assignment.id);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [gradeError, setGradeError] = useState('');
   const [sort, setSort] = useState<StudentSort>('scoreOrder');
   const [showSubmissions, setShowSubmissions] = useState(false);
+  // Which submission is awaiting a delete confirmation (id, or '' for none).
+  const [confirmDeleteSub, setConfirmDeleteSub] = useState('');
 
   // Everyone targeted: ensemble members + any specific individuals, ordered so
   // the director can move down the section (score order) or find a name fast.
@@ -514,6 +516,49 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
                         >
                           {sub.status === 'reviewed' ? '✓ Reviewed' : 'Mark reviewed'}
                         </button>
+                        {/* Removing a wrong take (a test, or one filed under
+                            the wrong name) also deletes the video itself, so
+                            a student's recording never lingers at its public
+                            Storage URL. Two-step confirm, like Delete
+                            Assignment above. */}
+                        {confirmDeleteSub === sub.id ? (
+                          <>
+                            <button
+                              className="dir-tool-btn"
+                              /* .dir-btn-danger is declared BEFORE
+                                 .dir-tool-btn, so it loses the cascade here
+                                 and the confirm button would render as an
+                                 ordinary one. Set the danger colors inline. */
+                              style={{
+                                fontSize: 12,
+                                background: 'var(--dir-absent)',
+                                borderColor: 'var(--dir-absent)',
+                                color: '#fff',
+                              }}
+                              onClick={async () => {
+                                await deleteSubmission(sub.id);
+                                setConfirmDeleteSub('');
+                              }}
+                            >
+                              Confirm delete
+                            </button>
+                            <button
+                              className="dir-tool-btn"
+                              style={{ fontSize: 12 }}
+                              onClick={() => setConfirmDeleteSub('')}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            className="dir-tool-btn"
+                            style={{ fontSize: 12 }}
+                            onClick={() => setConfirmDeleteSub(sub.id)}
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))
