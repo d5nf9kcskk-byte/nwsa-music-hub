@@ -239,7 +239,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
              'studentId', 'ensembleId', 'action', 'scope',
              'eventId', 'startDate', 'endDate',
-             'startTime', 'endTime', 'kind', 'destEnsembleId',
+             'startTime', 'endTime', 'kind', 'destEnsembleId', 'days',
            ]);
       allow delete: if isKnownRole();
     }

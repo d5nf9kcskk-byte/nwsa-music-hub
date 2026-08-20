@@ -187,6 +187,15 @@ export interface RosterOverride {
   eventId?: string;   // scope === 'event'
   startDate?: string; // scope === 'range' (YYYY-MM-DD, inclusive)
   endDate?: string;   // scope === 'range' (YYYY-MM-DD, inclusive)
+  /**
+   * Recurring weekday filter for a 'range' override (0=Sun…6=Sat, same
+   * convention as `Ensemble.meetingDays`). Absent or empty = every day in the
+   * span, i.e. exactly the old behaviour. Standing rotations use this: "base
+   * Symphony, but Jazz on Tue+Fri" is ONE doc with days:[2,5] + destEnsembleId,
+   * not one doc per rehearsal date — both override hooks load the whole
+   * collection unfiltered on every page load, so doc count is a hard budget.
+   */
+  days?: number[];
   reason?: string;
   /**
    * Partial-rehearsal window ("HH:MM", 24h). Used for lessons: the student is
@@ -195,8 +204,14 @@ export interface RosterOverride {
    */
   startTime?: string;
   endTime?: string;
-  /** Marks this override as an applied-lesson pull-out (styled/labelled as such). */
-  kind?: 'lesson';
+  /** Marks an override as machine-managed rather than a one-off hand entry:
+   *    'lesson'   — applied private-lesson pull-out (PARTIAL: student stays on
+   *                 the roster and takes roll; shown as a badge).
+   *    'rotation' — a standing weekday rotation (see `days`). A FULL removal,
+   *                 same as a hand pull-out; the marker exists so re-applying a
+   *                 rotation can replace only its own docs, and so teachers can
+   *                 be granted rotation access without opening up every override. */
+  kind?: 'lesson' | 'rotation';
   /** When a pull-out ('remove') is really a move INTO another ensemble, the id
    *  of that ensemble. A single entry both pulls the student from here and subs
    *  them into there — the resolver adds them to the destination's roster, so no

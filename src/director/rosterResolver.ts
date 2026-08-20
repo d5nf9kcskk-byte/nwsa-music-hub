@@ -1,5 +1,6 @@
 import type { Student, RosterOverride, CalendarEvent } from './types';
 import { theoryClassTitleFor, isChoirClassTitle } from './classSchedule';
+import { takesAttendance } from './utils';
 
 export interface RosterContext {
   ensembleId: string;
@@ -13,6 +14,17 @@ export function overrideApplies(o: RosterOverride, ctx: RosterContext): boolean 
   // The effective date we're evaluating against: explicit date, or the event's date.
   const ctxDate = ctx.date ?? (ctx.eventId ? ctx.eventsById?.[ctx.eventId]?.date : undefined);
 
+  // A standing rotation describes which REHEARSAL a student attends on a given
+  // weekday — it says nothing about concerts. On a performance the student plays
+  // with whichever ensemble is on stage, so fall back to base membership (the
+  // rotation model deliberately keeps them a member of both). Without this a
+  // Jazz concert falling on a Wed/Thu silently drops every Wed/Thu rotator.
+  // A date-only context has no event to judge, and is always a rehearsal lookup.
+  if (o.kind === 'rotation' && ctx.eventId) {
+    const ev = ctx.eventsById?.[ctx.eventId];
+    if (ev && !takesAttendance(ev.type)) return false;
+  }
+
   if (o.scope === 'event') {
     if (ctx.eventId && o.eventId === ctx.eventId) return true;
     // Event-scoped override also applies on its event's date (for date-based lookups).
@@ -22,7 +34,12 @@ export function overrideApplies(o: RosterOverride, ctx: RosterContext): boolean 
 
   // scope === 'range'
   if (!ctxDate || !o.startDate || !o.endDate) return false;
-  return o.startDate <= ctxDate && ctxDate <= o.endDate;
+  if (o.startDate > ctxDate || ctxDate > o.endDate) return false;
+  // Optional recurring-weekday narrowing (standing rotations). Parsed as UTC:
+  // `new Date('2026-08-13')` is UTC midnight but .getDay() reads it LOCAL, which
+  // shifts the weekday a day west of UTC (see seedCalendar.ts for the same trap).
+  if (o.days?.length) return o.days.includes(new Date(`${ctxDate}T00:00:00Z`).getUTCDay());
+  return true;
 }
 
 export interface ResolvedStudent {

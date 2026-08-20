@@ -144,7 +144,13 @@ function flattenFields(fields) {
     if ('stringValue' in v) out[k] = v.stringValue;
     else if ('integerValue' in v) out[k] = Number(v.integerValue);
     else if ('booleanValue' in v) out[k] = v.booleanValue;
-    else if ('arrayValue' in v) out[k] = (v.arrayValue.values ?? []).map(av => av.stringValue ?? '');
+    // Decode by value type — `days` is a NUMBER array; a string-only map
+    // silently turned [2,5] into ['',''] and made every rotation inert.
+    else if ('arrayValue' in v) out[k] = (v.arrayValue.values ?? []).map(av =>
+      'integerValue' in av ? Number(av.integerValue)
+      : 'doubleValue' in av ? Number(av.doubleValue)
+      : 'booleanValue' in av ? av.booleanValue
+      : av.stringValue ?? '');
     else if ('nullValue' in v) out[k] = null;
     else out[k] = v;
   }
@@ -303,10 +309,18 @@ function wrapCalendar(name, description, vevents) {
 
     // Per-student feeds: base membership + subs − pulls + attendance requirements.
     // (Lesson-kind overrides are PARTIAL absences and never remove an event.)
+    // Keep in sync with overrideApplies() in src/director/rosterResolver.ts.
+    // (Plain node here — no `src` imports — so this copy is deliberate.)
+    // Rotations govern rehearsals only; on a concert the student plays with
+    // whichever ensemble is on stage (mirrors rosterResolver.ts).
+    const TAKES_ROLL = new Set(['Rehearsal', 'Sectional', 'Class']);
     const overrideApplies = (o, event) => {
+      if (o.kind === 'rotation' && !TAKES_ROLL.has(event.type)) return false;
       if (o.scope === 'event') return o.eventId === event.id;
       if (o.startDate && event.date < o.startDate) return false;
       if (o.endDate && event.date > o.endDate) return false;
+      // Standing weekday rotation — UTC, to match the resolver.
+      if (o.days?.length) return o.days.includes(new Date(`${event.date}T00:00:00Z`).getUTCDay());
       return true;
     };
     const expectedForStudent = (stu, event) => {
@@ -317,7 +331,12 @@ function wrapCalendar(name, description, vevents) {
         const mine = overrides.filter(o =>
           o.studentId === stu.id && o.ensembleId === ensId && o.kind !== 'lesson' && overrideApplies(o, event));
         const pulled = mine.some(o => o.action === 'remove');
-        const added = mine.some(o => o.action === 'add');
+        // A 'remove' naming destEnsembleId both pulls from its own ensemble AND
+        // subs the student INTO the destination — mirrors resolveRoster(). Without
+        // this the destination rehearsal never reaches subscribed calendars.
+        const added = mine.some(o => o.action === 'add')
+          || overrides.some(o => o.studentId === stu.id && o.destEnsembleId === ensId
+            && o.action === 'remove' && overrideApplies(o, event));
         if ((isMember && !pulled) || added) return true;
       }
       // Audience requirement: member of an attendance-required ensemble, or named individually.

@@ -119,6 +119,18 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     ],
   }] : []),
   {
+    id: '2026-08-20-ensemble-rotations',
+    date: '2026-08-20',
+    title: 'Rotating players now show the right ensemble each day',
+    audience: 'both',
+    expires: '2026-09-03',
+    bullets: [
+      'Students who split the week between two ensembles — Jazz and Symphony, or Wind Ensemble and Camerata — now see the correct one on each day of their schedule.',
+      'Your subscribed calendar feed follows the same rotation, so phone calendars match the Hub.',
+      'Rosters, Take Roll and Who\u2019s Out all use the day\u2019s actual line-up.',
+    ],
+  },
+  {
     id: '2026-08-13-office-bulletin-roll',
     date: '2026-08-13',
     title: 'Office attendance on Take Roll',

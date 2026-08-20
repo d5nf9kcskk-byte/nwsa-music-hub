@@ -95,7 +95,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
     const guests = resolveRoster(students, overrides, { ensembleId: ens.id, date, eventsById })
       .filter(r => r.isSub);
     const pulls = overrides
-      .filter(o => o.ensembleId === ens.id && o.action === 'remove' && o.kind !== 'lesson' && overrideApplies(o, { ensembleId: ens.id, date, eventsById }))
+      .filter(o => o.ensembleId === ens.id && o.action === 'remove' && !o.kind && overrideApplies(o, { ensembleId: ens.id, date, eventsById }))
       .map(o => ({ ...o, student: studentsById[o.studentId] }))
       .filter(o => o.student);
     const rehearsal = dayEvents.find(e => e.ensembleIds.includes(ens.id) && e.status !== 'Cancelled');

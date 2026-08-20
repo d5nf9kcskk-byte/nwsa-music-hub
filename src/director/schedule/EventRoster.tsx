@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { ClipboardList, Users } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
-import { resolveRoster } from '../rosterResolver';
+import { resolveRoster, overrideApplies } from '../rosterResolver';
 import { formatDate, formatTimeRange, EVENT_TYPE_ICON } from '../utils';
 import type { CalendarEvent, Ensemble, RosterOverride } from '../types';
 import type { DirNavigate } from '../types-nav';
@@ -37,11 +37,10 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
 
   function applies(o: RosterOverride) {
     if (o.ensembleId !== ensembleId) return false;
-    if (o.scope === 'event') return o.eventId === event.id;
-    return !!o.startDate && !!o.endDate && o.startDate <= event.date && event.date <= o.endDate;
+    return overrideApplies(o, { ensembleId, eventId: event.id, eventsById });
   }
   const pulled = overrides
-    .filter(o => o.action === 'remove' && o.kind !== 'lesson' && applies(o))
+    .filter(o => o.action === 'remove' && !o.kind && applies(o))
     .map(o => ({ o, student: students.find(s => s.id === o.studentId) }))
     .filter(x => x.student);
   const lessons = overrides

@@ -577,9 +577,16 @@ function fmtTime(t: string) {
   const hr = h % 12 === 0 ? 12 : h % 12;
   return `${hr}:${String(m).padStart(2, '0')} ${ampm}`;
 }
+const WEEKDAY_LABEL = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function describeWhen(o: RosterOverride) {
   if (o.scope === 'event') return 'For one rehearsal';
   if (o.startDate && o.endDate) {
+    // A weekday rotation is NOT a continuous pull — saying so made a Tue/Fri
+    // rotation read identically to a 325-day removal.
+    if (o.days?.length) {
+      const on = o.days.map(d => WEEKDAY_LABEL[d]).join(', ');
+      return `${on} only · ${fmtLong(o.startDate)} → ${fmtLong(o.endDate)}`;
+    }
     if (o.startDate === o.endDate) return fmtLong(o.startDate);
     const days = Math.round((parseDate(o.endDate).getTime() - parseDate(o.startDate).getTime()) / 86400000) + 1;
     return `${fmtLong(o.startDate)} → ${fmtLong(o.endDate)} (${days} days)`;

@@ -263,7 +263,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
   const pulledToday = useMemo(() => {
     const ctx = { ensembleId, date, eventId: eventId ?? undefined, eventsById };
     return overrides
-      .filter(o => o.ensembleId === ensembleId && o.action === 'remove' && o.kind !== 'lesson' && overrideApplies(o, ctx))
+      .filter(o => o.ensembleId === ensembleId && o.action === 'remove' && !o.kind && overrideApplies(o, ctx))
       .map(o => ({ o, student: allStudents.find(st => st.id === o.studentId) }));
   }, [overrides, ensembleId, date, eventId, eventsById, allStudents]);
 
