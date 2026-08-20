@@ -38,6 +38,8 @@ export function VideoRecorder({
   const [elapsed, setElapsed] = useState(0);
   const [playbackUrl, setPlaybackUrl] = useState('');
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  /** The take exists, but this browser refused to decode it for preview. */
+  const [playbackFailed, setPlaybackFailed] = useState(false);
 
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -179,7 +181,10 @@ export function VideoRecorder({
       playbackUrlRef.current = URL.createObjectURL(blob);
       setPlaybackUrl(playbackUrlRef.current);
       setElapsed(seconds);
+      setPlaybackFailed(false);
       setState('complete');
+      // Safe to release the camera now: the file is written.
+      stopTracks();
       onRecordingComplete(blob, seconds, thumbnailRef.current);
     };
 
@@ -202,12 +207,22 @@ export function VideoRecorder({
 
   function stopRecording() {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    // Grab the still while the camera is still running, then release it.
+    // Grab the still while the camera is still running.
     thumbnailRef.current = captureThumbnail();
     if (recorderRef.current && recorderRef.current.state === 'recording') {
+      // Do NOT stop the camera tracks here. MediaRecorder.stop() finishes
+      // asynchronously — it still has to flush the last frames and write the
+      // container's trailing metadata (for MP4, the moov atom) before it
+      // fires onstop. Ending the source tracks in this same tick pulls the
+      // input out from under that finalize step, and iOS Safari hands back a
+      // truncated file: real bytes, plausible size, but no playable header —
+      // the "can't play" icon in the review step. onstop releases the camera
+      // instead, once the blob is genuinely complete.
       recorderRef.current.stop();
+    } else {
+      // Nothing was recording, so no onstop is coming to do it for us.
+      stopTracks();
     }
-    stopTracks();
   }
 
   function reset() {
@@ -287,20 +302,33 @@ export function VideoRecorder({
       {state === 'complete' && recordedBlob && (
         <div className="vr-complete">
           <div className="vr-complete-header">Watch it back</div>
-          {playbackUrl && (
+          {playbackUrl && !playbackFailed && (
             <video
               className="vr-playback"
               src={playbackUrl}
               controls
               playsInline
+              // A device that cannot DECODE the take for preview has not
+              // necessarily recorded a bad one — the file is already captured
+              // and uploads fine. Say so instead of leaving a broken-video
+              // icon, which reads as "your exam recording is ruined".
+              onError={() => setPlaybackFailed(true)}
             />
           )}
           <div className="vr-complete-meta">
             {formatClock(elapsed)} · {formatFileSize(recordedBlob.size)}
           </div>
-          <div className="vr-complete-hint">
-            Happy with it? Add your name and notes below, then tap Submit. Otherwise record it again.
-          </div>
+          {playbackFailed ? (
+            <div className="vr-complete-hint">
+              Your video recorded ({formatClock(elapsed)}, {formatFileSize(recordedBlob.size)}), but this
+              device will not play it back here. You can still add your name and tap Submit — your
+              director will be able to watch it. Record again if you would rather start over.
+            </div>
+          ) : (
+            <div className="vr-complete-hint">
+              Happy with it? Add your name and notes below, then tap Submit. Otherwise record it again.
+            </div>
+          )}
           <button className="vr-reset-btn" onClick={reset} disabled={busy}>
             <RotateCcw size={14} /> Record again
           </button>
