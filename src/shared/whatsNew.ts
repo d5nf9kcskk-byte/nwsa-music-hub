@@ -28,6 +28,23 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Absence email → Who's Out (#absence-email): parent/student "not going
+  // to be there" emails feed into planned absences instead of being
+  // manually entered. Off by default until soft-launched per
+  // docs/ABSENCE-EMAIL.md; ships in advance so the section is recognizable
+  // once it starts writing.
+  {
+    id: '2026-08-20-absence-email',
+    date: '2026-08-20',
+    title: 'Parent absence emails now feed Who’s Out',
+    audience: 'staff',
+    expires: '2026-09-03',
+    bullets: [
+      'A new local pipeline reads "not going to be there" emails from Mail.app and reports clear, single-student matches the same way the "Report a planned absence" button does.',
+      'Anything unclear — no name found, more than one name, or an unclear date — shows under Who’s Out → "Absence email — needs a look" instead of guessing.',
+      'Setup and the soft-launch dry run are in docs/ABSENCE-EMAIL.md.',
+    ],
+  },
   // Fixed: Class (Theory, etc.) events couldn't be saved at all — the Save
   // button silently disabled itself because Classes have no ensemble
   // attached by design. Directors need to know Cancel now works.

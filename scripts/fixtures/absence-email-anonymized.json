@@ -1,0 +1,37 @@
+[
+  {
+    "messageId": "<fixture-1@example.com>",
+    "subject": "Absent tomorrow",
+    "from": "A Parent <parent1@example.com>",
+    "receivedDate": "2026-08-19T15:00:00.000Z",
+    "body": "Hi, just letting you know Jane Musicone will not be in school tomorrow. She has a doctor's appointment."
+  },
+  {
+    "messageId": "<fixture-2@example.com>",
+    "subject": "Sam out sick",
+    "from": "Another Parent <parent2@example.com>",
+    "receivedDate": "2026-08-19T16:00:00.000Z",
+    "body": "Sam Music Two is out sick today and won't make rehearsal."
+  },
+  {
+    "messageId": "<fixture-3@example.com>",
+    "subject": "Question about the concert",
+    "from": "Third Parent <parent3@example.com>",
+    "receivedDate": "2026-08-19T17:00:00.000Z",
+    "body": "What time does the fall concert start next month?"
+  },
+  {
+    "messageId": "<fixture-4@example.com>",
+    "subject": "Absence",
+    "from": "Fourth Parent <parent4@example.com>",
+    "receivedDate": "2026-08-19T18:00:00.000Z",
+    "body": "My son won't be at school tomorrow, thank you."
+  },
+  {
+    "messageId": "<fixture-5@example.com>",
+    "subject": "Family trip",
+    "from": "Fifth Parent <parent5@example.com>",
+    "receivedDate": "2026-08-19T19:00:00.000Z",
+    "body": "Both Jane Musicone and Sam Music Two will not be in school tomorrow — family trip."
+  }
+]
