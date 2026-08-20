@@ -239,15 +239,20 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     });
   }
 
-  // Rehearsals and classes are taken per-ensemble (you take roll for a group),
-  // Rehearsals and classes need a performing ensemble OR named performers;
-  // concerts/events/sectionals can stand alone.
-  const needsEnsemble = form.type === 'Rehearsal' || form.type === 'Class';
+  // Rehearsals are taken per-ensemble (you take roll for a group) and need a
+  // performing ensemble OR named performers. Academic Classes (theory, etc.)
+  // are intentionally school-wide with empty ensembleIds — students are
+  // matched by title, not roster (see classSchedule.ts) — so they don't need
+  // one. Concerts/events/sectionals can also stand alone.
+  const needsEnsemble = form.type === 'Rehearsal';
   const canSave = form.ensembleIds.length > 0 || (form.studentIds?.length ?? 0) > 0 || !needsEnsemble;
 
   async function handleSave() {
     if (editedElsewhere && !overrideTheirs) return; // banner asks first
-    if (!canSave) return;
+    if (!canSave) {
+      setSaveError('Pick an ensemble or named performers before saving a rehearsal.');
+      return;
+    }
     if (!form.date) {
       setSaveError('Pick a date before saving.');
       return;
