@@ -43,6 +43,13 @@ jobs:
       - name: Check sign-up eligibility
         run: node scripts/signup-eligibility.selfcheck.mjs
 
+      # Absence-email parsing/matching (docs/ABSENCE-EMAIL.md) — pinned so a
+      # regex change can't silently start mismatching students or dates.
+      # The launchd/Mail.app side (absence-email-local.mjs) runs only on the
+      # director's Mac, matching how bulletin-local.mjs is kept out of CI too.
+      - name: Check absence-email parsing
+        run: node scripts/absence-email.selfcheck.mjs
+
       - name: Build
         run: npm run build
         env:

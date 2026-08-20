@@ -7,6 +7,7 @@ import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useDayAttendance, useAllAttendance } from '../hooks/useAttendance';
 import { usePlannedAbsences } from '../hooks/usePlannedAbsences';
 import { useBulletinQueue } from '../hooks/useBulletinQueue';
+import { useAbsenceEmailQueue } from '../hooks/useAbsenceEmailQueue';
 import { lessonsFor, resolveRoster, overrideApplies } from '../rosterResolver';
 import { todayStr, addDays, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
@@ -37,6 +38,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
   const { records } = useDayAttendance(date);
   const { records: allAtt } = useAllAttendance();
   const { pending: bulletinPending, dismiss: dismissBulletin } = useBulletinQueue(date);
+  const { pending: absenceEmailPending, dismiss: dismissAbsenceEmail } = useAbsenceEmailQueue(date);
 
   const today = todayStr();
 
@@ -208,6 +210,27 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
                   </div>
                 </div>
                 <button type="button" className="dir-link-btn" onClick={() => dismissBulletin(b.id)}>Dismiss</button>
+              </div>
+            ))}
+          </>
+        )}
+
+        {absenceEmailPending.length > 0 && (
+          <>
+            <div className="dir-section-head"><span>Absence email — needs a look</span></div>
+            {absenceEmailPending.map(e => (
+              <div key={e.id} className="dir-sub-row">
+                <div className="dir-sub-info">
+                  <div className="dir-sub-name">
+                    {e.candidateNames.length > 0 ? e.candidateNames.join(' or ') : e.subject || 'Absence email'}
+                    <span className="dir-office-badge">Email</span>
+                  </div>
+                  <div className="dir-sub-instr">
+                    {e.reason} — "{e.snippet}"
+                    {' — from '}{e.from || 'unknown sender'}
+                  </div>
+                </div>
+                <button type="button" className="dir-link-btn" onClick={() => dismissAbsenceEmail(e.id)}>Dismiss</button>
               </div>
             ))}
           </>

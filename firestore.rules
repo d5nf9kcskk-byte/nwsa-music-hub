@@ -405,6 +405,12 @@ service cloud.firestore {
     // Ambiguous rows from the daily office Attendance Bulletin (Admin SDK
     // writes; directors read / dismiss / resolve in Who's Out).
     match /bulletinQueue/{doc}   { allow read, write: if isStaff(); }
+    // Parent/student absence emails the local Mail.app pipeline couldn't
+    // confidently match (no roster name, more than one name, or an unclear
+    // date). A confident match skips this queue entirely and writes straight
+    // to plannedAbsences instead. Admin SDK writes; directors read / dismiss
+    // in Who's Out, same shape as bulletinQueue.
+    match /absenceEmailQueue/{doc} { allow read, write: if isStaff(); }
 
     // Private lessons (#roles): a Teacher schedules/edits/cancels their OWN
     // lessons; Owner/Director can see and manage all of them (coordination —

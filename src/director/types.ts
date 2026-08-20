@@ -258,6 +258,21 @@ export interface BulletinQueueItem {
   createdAt?: number;
 }
 
+/** Parent/student absence emails the local Mail.app pipeline couldn't confidently match. */
+export interface AbsenceEmailQueueItem {
+  id: string;
+  from: string;
+  subject: string;
+  receivedDate: string; // ISO timestamp
+  snippet: string;
+  candidateIds: string[];
+  candidateNames: string[];
+  dates: string[]; // YYYY-MM-DD, zero or more guesses
+  reason: string; // why it needed a human (no name / multiple names / unclear date)
+  status: 'pending' | 'dismissed';
+  createdAt?: number;
+}
+
 export interface ProgressNote {
   id: string;
   studentId: string;
