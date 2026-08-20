@@ -1,0 +1,104 @@
+From 2690cae855dbb7085403a9eb19848765dfbb812b Mon Sep 17 00:00:00 2001
+From: Copista <noreply@anthropic.com>
+Date: Tue, 18 Aug 2026 20:45:38 +0000
+Subject: [PATCH] Holberg Suite: attach score and all five parts; add
+ repertoire seed workflow
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The rp26-holberg-suite doc already carried title, movements, duration and a
+short note, but no sheet music. Adds partsLinks for the full score and all
+five string parts plus partsSharedUrl, from the C.F. Peters first edition on
+IMSLP (score plate 6887, parts plate 6888) — a matched set, verified page by
+page: every part carries all five movements and the printed rehearsal letters
+A-V line up with the score.
+
+Also:
+- imslpUrl now points at the canonical page instead of a redirect
+- year spells out piano 1884 / string orchestra 1885
+- programNotes is a full concert-program note; the season-specific
+  "Praeludium only" line moves to notes where it belongs
+- notes records edition, plate numbers, page counts, the rehearsal-letter
+  check, and that the scans carry another orchestra's pencil markings
+
+The seed script had no workflow, so shipping repertoire meant running it by
+hand with a service account key. Adds a workflow_dispatch workflow using the
+FIREBASE_SERVICE_ACCOUNT_JSON secret the other jobs already use.
+---
+ .github/workflows/seed-season-repertoire.yml | 27 ++++++++++++++++++++
+ scripts/seed-season-repertoire.mjs           | 17 +++++++++---
+ 2 files changed, 40 insertions(+), 4 deletions(-)
+ create mode 100644 .github/workflows/seed-season-repertoire.yml
+
+diff --git a/.github/workflows/seed-season-repertoire.yml b/.github/workflows/seed-season-repertoire.yml
+new file mode 100644
+index 0000000..1839533
+--- /dev/null
++++ b/.github/workflows/seed-season-repertoire.yml
+@@ -0,0 +1,27 @@
++name: Seed season repertoire
++
++# Upserts the confirmed season repertoire into Firestore `repertoire` and links
++# the pieces onto their concert events. The script is idempotent on its stable
++# `rp26-*` document IDs, so re-running only overwrites the seeded fields.
++#
++# Manual only — repertoire is a deliberate act, not something that should fire
++# on every push to main.
++on:
++  workflow_dispatch:
++
++permissions:
++  contents: read
++
++jobs:
++  seed:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-node@v4
++        with:
++          node-version: 20
++      - run: npm install firebase-admin --no-save
++      - name: Upsert season repertoire
++        env:
++          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
++        run: node scripts/seed-season-repertoire.mjs
+diff --git a/scripts/seed-season-repertoire.mjs b/scripts/seed-season-repertoire.mjs
+index a332f38..e7636e2 100644
+--- a/scripts/seed-season-repertoire.mjs
++++ b/scripts/seed-season-repertoire.mjs
+@@ -440,7 +440,7 @@ piece('rp26-holberg-suite', {
+   composer: 'Edvard Grieg',
+   composerDates: '1843–1907',
+   catalogNumber: 'Op. 40',
+-  year: '1884 (orch. 1885)',
++  year: '1884 (piano); arr. for string orchestra 1885',
+   instrumentation: 'str',
+   duration: 20,
+   movements: [
+@@ -451,9 +451,18 @@ piece('rp26-holberg-suite', {
+     { title: 'Rigaudon (Allegro con brio)', duration: 4 },
+   ],
+   programNotes:
+-    'Grieg wrote the Holberg Suite in 1884 for the bicentenary of Norwegian playwright Ludvig Holberg, casting baroque dance forms in Romantic string language. This season programs the opening Praeludium.',
+-  notes: 'MPA: Praeludium only (not the full suite).',
+-  imslpUrl: 'https://imslp.org/wiki/From_Holberg%27s_Time,_Op.40_(Grieg,_Edvard)',
++    'Ludvig Holberg, the Danish-Norwegian playwright who gave eighteenth-century Scandinavia its comic stage, turned two hundred in 1884, and Bergen — his birthplace and Grieg’s — threw him a party. Grieg wrote this suite for it. He took five dance forms Holberg’s contemporaries would have recognized (prelude, sarabande, gavotte with musette, air, rigaudon) and wrote them in his own harmonic language, so the piece looks backward and sounds unmistakably Norwegian at the same time. He scored it first for piano, then rewrote it the following year for string orchestra, and that is the version that took hold. The writing asks the strings to do everything: the Praeludium runs on relentless sixteenths, the Air opens into some of the most exposed lyric playing in the string repertoire, and the Rigaudon hands solo violin and viola a duet before the whole band drives it home.',
++  notes: 'Edition: C.F. Peters first edition — score plate 6887, parts plate 6888 (EP 1931). Score 20 pp.; parts Vn I 7, Vn II 7, Va 7, Vc 4, Cb 3. Rehearsal letters A–V are printed in both score and parts and they align. Public domain. Scans carry pencil bowings and fingerings from a Stavanger library copy — erase or reprint clean before handing to students. MPA: Praeludium only (not the full suite).',
++  imslpUrl: 'https://imslp.org/wiki/Holberg_Suite,_Op.40_(Grieg,_Edvard)',
++  partsSharedUrl: 'https://imslp.org/wiki/Holberg_Suite,_Op.40_(Grieg,_Edvard)',
++  partsLinks: [
++    { instrument: 'Full Score', url: 'https://imslp.org/wiki/Special:IMSLPImageHandler/322046' },
++    { instrument: 'Violin I', url: 'https://imslp.org/wiki/Special:IMSLPImageHandler/17680' },
++    { instrument: 'Violin II', url: 'https://imslp.org/wiki/Special:IMSLPImageHandler/17681' },
++    { instrument: 'Viola', url: 'https://imslp.org/wiki/Special:IMSLPImageHandler/17682' },
++    { instrument: 'Violoncello', url: 'https://imslp.org/wiki/Special:IMSLPImageHandler/17683' },
++    { instrument: 'Contrabass', url: 'https://imslp.org/wiki/Special:IMSLPImageHandler/17684' },
++  ],
+ });
+ 
+ piece('rp26-capriol-suite', {
+-- 
+2.43.0
+

@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# This repo is public. Never commit credentials, bulletins, or student data.
+*service-account*.json
+*-adminsdk-*.json
+.env
+.env.*
+*.pdf
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

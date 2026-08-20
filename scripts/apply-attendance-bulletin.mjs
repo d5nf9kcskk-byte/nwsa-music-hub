@@ -33,6 +33,7 @@ import {
 } from './lib/attendanceBulletinParse.mjs';
 
 const DRY_RUN = !/^(0|false|no)$/i.test(String(process.env.DRY_RUN ?? 'true').trim() || 'true');
+const PARSE_ONLY = /^parse-only$/i.test(String(process.env.DRY_RUN || '').trim());
 const CI = Boolean(process.env.GITHUB_ACTIONS);
 
 function loadText() {
@@ -81,6 +82,11 @@ if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
 }
 
 console.log(`Bulletin date ${date}; ${parsed.rows.length} roll rows; DRY_RUN=${DRY_RUN}`);
+
+if (PARSE_ONLY) {
+  console.log('Parse only; no credentials read, nothing matched.');
+  process.exit(0);
+}
 
 const sa = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!sa) { console.error('FIREBASE_SERVICE_ACCOUNT_JSON not set.'); process.exit(1); }
