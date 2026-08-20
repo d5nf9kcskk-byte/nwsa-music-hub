@@ -21,6 +21,7 @@ import { WhatsNewBanner } from '../shared/WhatsNewBanner';
 import '../shared/whatsNew.css';
 import { groupScheduleAlerts } from '../shared/groupAlerts';
 import { AlertGroupSections } from '../shared/AlertGroupSections';
+import { SignupAlert } from './components/SignupAlert';
 import { WelcomeHubBanner } from './components/WelcomeHubBanner';
 import { PinnedHubGuide } from './components/PinnedHubGuide';
 import { showPinnedHubGuide } from './welcomeHubSchedule';
@@ -106,6 +107,10 @@ export function PublicHome() {
   return (
     <div className="pub-page">
       <WelcomeHubBanner />
+      {/* Open sign-ups this device hasn't answered yet (#signups) — ABOVE
+          What's New on purpose: a sign-up with a next-day deadline is the one
+          thing on this page that expires, and the changelog is not. */}
+      <SignupAlert />
       <WhatsNewBanner audience="public" />
       <div
         className="pub-hero pub-hero-fancy"

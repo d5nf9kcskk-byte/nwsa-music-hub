@@ -9,7 +9,7 @@ cheap, high-value fixes:
   write Storage),
 - `email_verified` required on every allowlist check,
 - hardened `plannedAbsences` create (real student id, real date, bounded
-  strings) — the first of what are now four unauthenticated writes, all held
+  strings) — the first of what are now five unauthenticated writes, all held
   to the same standard,
 - sign-out purge of the Firestore IndexedDB cache,
 - a build-time CSP meta tag.
@@ -33,16 +33,25 @@ the SDK is dynamically imported, so while it's off visitors don't even
 download it. `deploy.yml` already passes the secret through, so setting the
 secret is the entire deploy-side change.
 
-Why it matters: the four unauthenticated writes — `plannedAbsences`,
-`parentMessages`, `assignmentSubmissions`, and `calendarViews`
+Why it matters: the five unauthenticated writes — `plannedAbsences`,
+`parentMessages`, `assignmentSubmissions`, `calendarViews`
 (#subscribe-any-view, a student saving their own mix of ensembles as a live
-calendar feed) — are shape-checked but nothing else stops a script from
-hammering them. `calendarViews` is the cheapest to abuse and the least
+calendar feed), and `signupResponses` (#signups, a student opting into an
+audition and signing the form) — are shape-checked but nothing else stops a
+script from hammering them. `calendarViews` is the cheapest to abuse and the least
 valuable: docs hold only ensemble ids and event types, the doc ID is the hash
 of its own contents (honest re-subscribes rewrite one doc), the generator
 ignores any doc whose ID doesn't match its contents, and it builds at most
 `MAX_REGISTERED_VIEWS` of them. Spam costs Firestore writes, not correctness
-or privacy — but App Check settles all four at once.
+or privacy — but App Check settles all five at once.
+
+`signupResponses` is the one with real content in it: a name, a grade, a
+contact address and a typed signature. It is anchored to a real `students`
+doc AND a real, still-open `signupForms` doc, every field is bounded, and
+nobody but staff can read the collection back — so the worst a script can do
+is forge junk responses a director will spot by name. The structural reason
+there is no public UPDATE rule is recorded in `firestore.rules`: an
+unauthenticated update would let anyone overwrite someone else's signed form.
 
 **What's left (console work, in this order):**
 

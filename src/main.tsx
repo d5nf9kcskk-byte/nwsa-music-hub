@@ -19,6 +19,8 @@ import { PublicRepertoire } from './public/PublicRepertoire';
 import { PublicAssignments } from './public/PublicAssignments';
 import { PublicSubmission } from './public/PublicSubmission';
 import { PublicDocuments } from './public/PublicDocuments';
+import { PublicSignups } from './public/PublicSignups';
+import { PublicSignup } from './public/PublicSignup';
 import { StartGuide } from './public/StartGuide';
 import { SeasonPage } from './public/SeasonPage';
 import { CampusMap } from './public/CampusMap';
@@ -74,6 +76,9 @@ const router = createBrowserRouter(
         { path: 'assignments', element: <PublicAssignments /> },
         { path: 'assignments/:id/submit', element: <PublicSubmission /> },
         { path: 'documents', element: <PublicDocuments /> },
+        // Sign-ups (#signups): the index, and one form per sign-up.
+        { path: 'signups', element: <PublicSignups /> },
+        { path: 'signup/:id', element: <PublicSignup /> },
         { path: 'start', element: <StartGuide /> },
         { path: 'concerts', element: <SeasonPage /> },
         // Campus map is NWSA-only (hardcoded MDC Wolfson buildings) — other

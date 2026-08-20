@@ -37,6 +37,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.notYouSwitch':     { en: 'Not you? Switch',     es: '¿No eres tú? Cambiar' },
   'nav.campusMap':        { en: 'Campus Map',          es: 'Mapa del campus' },
   'nav.documents':        { en: 'Documents',           es: 'Documentos' },
+  'nav.signups':          { en: 'Sign-ups',            es: 'Inscripciones' },
   'nav.resources':        { en: 'Resources',           es: 'Recursos' },
   'nav.searchPlaceholder': { en: 'Search events, ensembles, music…', es: 'Buscar eventos, ensambles, música…' },
 

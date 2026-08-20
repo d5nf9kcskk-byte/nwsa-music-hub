@@ -10,7 +10,8 @@ shipped incident, not a style bug.
 - [ ] Router basename `/nwsa-music-hub` (vite.config.ts `base` + main.tsx)
 - [ ] All public routes resolve: `/`, `/calendar`, `/ensembles`, `/ensemble/:id`,
       `/repertoire`, `/lookup`, `/student/:id`, `/piece/:id`, `/event/:id`,
-      `/announcements`, `/assignments`, `/start`, `/concerts`, `/map`, `/program/:id`
+      `/announcements`, `/assignments`, `/documents`, `/signups`, `/signup/:id`,
+      `/start`, `/concerts`, `/map`, `/program/:id`
 - [ ] Vanity slugs redirect: `/so /we /wind /jazz /cam /choir /opera /cco`
 - [ ] Hash anchors scroll: `/ensemble/:id#repertoire`, `/map#<anchor>`
 - [ ] Query deep links work: `?ensemble=`, `?focus=`, `?staff=1`, director
@@ -21,6 +22,10 @@ shipped incident, not a style bug.
       `src/shared/calendarView.ts`. Changing the canonical string or the hash
       silently kills every subscribed custom view —
       `node scripts/calendar-view.selfcheck.mjs` pins two of them.
+- [ ] Sign-up audiences still resolve — `node scripts/signup-eligibility.selfcheck.mjs`
+      pins instrument families and who a sign-up reaches. Drift is silent: a
+      director opens one for "Camerata strings" and half the section never
+      sees it.
 - [ ] 404.html SPA shim still routes deep links on GitHub Pages
 
 ## Print (four load-bearing paper surfaces)
@@ -30,6 +35,8 @@ shipped incident, not a style bug.
 - [ ] Season fridge copy (`/concerts`)
 - [ ] Start guide (`/start` — print expands all tabs/answers)
 - [ ] Director QR kit
+- [ ] Sign-up packet (Director Panel → Sign-ups → **Print / save PDF**) — one
+      signed form per page, signature and timestamp on every sheet
 - [ ] All four print correctly with the OS in **dark mode** (forced-light
       tokens in base.css must keep winning)
 - [ ] All four print correctly with "Aa" text size at Largest (zoom reset)

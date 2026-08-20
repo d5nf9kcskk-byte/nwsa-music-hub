@@ -119,8 +119,9 @@ hand-write SW fetch/install logic. Rules that must not regress:
   (`autoViewSpecs`); wider mixes are registered in `calendarViews` and built
   on the next feed refresh. **The slug hash is a frozen subscription
   contract** — `scripts/calendar-view.selfcheck.mjs` pins it.
-- `calendarViews` is the app's fourth unauthenticated write (with
-  `plannedAbsences`, `parentMessages`, `assignmentSubmissions`) — students
+- `calendarViews` is one of the app's five unauthenticated writes (with
+  `plannedAbsences`, `parentMessages`, `assignmentSubmissions`,
+  `signupResponses`) — students
   subscribing to their OWN mix is the point of the feature. It is safe only
   because of two structural guards: the doc ID is the hash of the filters,
   and the generator ignores any doc whose ID doesn't match its contents.
@@ -128,6 +129,39 @@ hand-write SW fetch/install logic. Rules that must not regress:
 - ICS text lives in `src/shared/ics.ts` and is shared with the in-app
   snapshot download, so calendar notes carry the same repertoire (free text
   AND linked pieces) either way.
+
+## Sign-ups (Aug 2026)
+
+"Tell me you want to do this, and fill out the paperwork while you're here."
+Built to replace the manual loop a director described: collect names → type
+them into the state's system → email everyone the file → chase the signed
+copies.
+
+- `src/shared/signupEligibility.ts` is the ONE definition of who a sign-up
+  reaches, and `src/shared/instrumentFamily.ts` the one instrument → family
+  map (derived from `scoreOrderRank`, never a second spelling list). The
+  public page, the Home/schedule alerts, and the director's "3 of 14
+  responded" all filter through them. Pinned by
+  `scripts/signup-eligibility.selfcheck.mjs`, which runs in the deploy
+  workflow. Those two modules import with explicit `.ts` extensions on
+  purpose — Node's type-stripping loader (the self-check) can't resolve
+  extensionless relative imports.
+- Audience is **ensembles + instrument families only** — never a list of
+  student ids. `signupForms` is world-readable, and student doc ids are
+  shared with `studentsPublic`, so an invite list would publish who was
+  invited to what. Unrecognized/blank instruments fail CLOSED.
+- `signupResponses` is the app's fifth unauthenticated write. There is
+  deliberately **no public update rule** — an unauthenticated update would
+  let anyone overwrite someone else's signed form. A student who comes back
+  creates a second doc; `latestPerStudent()` keeps the newest. Keep it that
+  way.
+- Answers ride in ONE bounded `answersJson` string, not a map: rules can
+  bound a string's length but can't reach inside a map to bound its values.
+  Read it with `parseAnswers()`, which never throws.
+- Signatures are typed names plus the write's timestamp. The PDF export is
+  the browser's own print-to-PDF (`printViaPopup`) over an off-screen
+  packet — no PDF dependency, and it's why `.dir-signup-print-host` is
+  positioned off-screen rather than `display: none`.
 
 ## Roles & Firestore rules — invariants (Aug 2026, PR #44)
 

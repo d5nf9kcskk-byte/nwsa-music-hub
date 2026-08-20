@@ -28,6 +28,22 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Sign-ups (#signups): interest + paperwork + signature in one place, so a
+  // director stops running collect-names → email-the-file → chase-the-file
+  // by hand.
+  {
+    id: '2026-08-20-signups',
+    date: '2026-08-20',
+    title: 'Sign-ups: say yes and fill out the form in one place',
+    audience: 'both',
+    expires: '2026-09-03',
+    bullets: [
+      'When your director opens a sign-up — All-State auditions, a trip, anything — it shows up on the Hub home page and on your own schedule page.',
+      'Tap it, find your name, confirm the grade you are in, answer whatever your director asked, and sign by typing your name. That is the whole thing.',
+      'Directors: Sign-ups is a new section in the Director Panel. Aim one at an ensemble and, if you want, only its strings, winds, brass, or percussion.',
+      'You get the names and grades in one tap to copy, a spreadsheet, printable signed forms you can save as a PDF, one email to everyone who signed up, and a list of who has not answered yet.',
+    ],
+  },
   // Appearance + iOS recording fixes. Deliberately says nothing about whether
   // a submission SENDS — that path is still being verified against the
   // Storage rules; only claims what these fixes actually restore.
