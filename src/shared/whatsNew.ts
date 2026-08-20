@@ -28,6 +28,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Fixed: Class (Theory, etc.) events couldn't be saved at all — the Save
+  // button silently disabled itself because Classes have no ensemble
+  // attached by design. Directors need to know Cancel now works.
+  {
+    id: '2026-08-20-class-status-save-fix',
+    date: '2026-08-20',
+    title: 'Fixed: saving changes to a Class (Theory, etc.) event',
+    audience: 'staff',
+    expires: '2026-09-03',
+    bullets: [
+      'Editing a Class event — marking it Cancelled, changing the time, anything — now saves. It used to silently refuse to save because Classes don\'t have an ensemble attached.',
+      'A cancelled class shows a "cancelled today" banner on the public calendar only on the day it happens — not before, not after.',
+    ],
+  },
   // Sign-ups (#signups): interest + paperwork + signature in one place, so a
   // director stops running collect-names → email-the-file → chase-the-file
   // by hand.
