@@ -37,6 +37,20 @@
   --pub-shadow-3: 0 16px 48px rgba(15, 40, 60, 0.26);
 }
 
+/* The public site must own the page canvas. base.css still paints the legacy
+   dark-purple body (#0f0b1e) behind everything, and .pub-app was the only
+   element carrying the themed background — so iPad/iPhone Safari revealed the
+   dark body mid-scroll (fast scrolls outrun the repaint; rubber-band
+   overscroll always shows it), which looked like the site "switching to dark
+   mode" partway down the page. Painting <html>/<body> with the theme tokens
+   whenever the public shell is mounted makes anything the browser reveals the
+   right color. (@media print in base.css still forces white with !important.) */
+html:has(.pub-app),
+html:has(.pub-app) body {
+  background: var(--pub-bg);
+  color: var(--pub-ink);
+}
+
 .pub-app {
   display: flex;
   flex-direction: column;

@@ -35,6 +35,17 @@
 html, body, #root { margin: 0; padding: 0; height: 100%; }
 * { box-sizing: border-box; }
 
+/* Same canvas fix the public shell gets (see public.css): base.css still
+   paints the retired dark-purple theme on <body>, and only .dir-app carries
+   the real background — so any moment the browser shows the canvas instead
+   of the app (overscroll bounce, a scroll that outruns the repaint) flashes
+   the old dark theme through. */
+html:has(.dir-app),
+html:has(.dir-app) body {
+  background: var(--dir-bg);
+  color: var(--dir-text);
+}
+
 /* ── Layout shell ── */
 
 .dir-app {

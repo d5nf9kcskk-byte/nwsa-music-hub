@@ -14,14 +14,17 @@ interface VideoRecorderProps {
   busy?: boolean;
 }
 
-/** Container the browser will actually record in — Safari only does mp4. */
+/** Container the browser will actually record in — Safari only does mp4.
+ *  Returns '' when the browser can't say (no isTypeSupported): passing a
+ *  guessed type there throws on Safari, while passing NO type lets every
+ *  browser record in its own native container. */
 function pickMimeType(): string {
+  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return '';
   const candidates = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
-  const supported = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported;
   for (const type of candidates) {
-    if (!supported || MediaRecorder.isTypeSupported(type)) return type;
+    if (MediaRecorder.isTypeSupported(type)) return type;
   }
-  return 'video/webm';
+  return '';
 }
 
 export function VideoRecorder({
@@ -144,7 +147,10 @@ export function VideoRecorder({
 
     let recorder: MediaRecorder;
     try {
-      recorder = new MediaRecorder(streamRef.current, { mimeType, videoBitsPerSecond: 2_500_000 });
+      recorder = new MediaRecorder(streamRef.current, {
+        ...(mimeType ? { mimeType } : {}),
+        videoBitsPerSecond: 2_500_000,
+      });
     } catch {
       setError('This browser could not start a recording. Try the Upload tab instead.');
       return;
@@ -158,7 +164,11 @@ export function VideoRecorder({
     };
 
     recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: mimeType });
+      // The recorder knows what it actually produced (it may have ignored or
+      // refined the requested type); fall back to mp4, the one container an
+      // unlabeled take is most likely to be (Safari).
+      const type = recorder.mimeType || mimeType || 'video/mp4';
+      const blob = new Blob(chunksRef.current, { type });
       // Wall-clock, not a state snapshot: reading `elapsed` in here used to
       // capture the value from the render that STARTED the recording — always
       // 0 — and a submission with 0 seconds is rejected by the security rules
@@ -174,7 +184,13 @@ export function VideoRecorder({
     };
 
     startedAtRef.current = Date.now();
-    recorder.start(1000); // 1-second chunks for smooth upload
+    // No timeslice: iOS Safari's MediaRecorder writes broken MP4 fragments
+    // when asked for periodic chunks — the reassembled blob showed the
+    // "can't play" icon in the review step and uploaded as a corrupt file.
+    // Nothing here needs streaming chunks (the upload starts only after the
+    // take is finished and reviewed), so let every browser hand over one
+    // well-formed file on stop().
+    recorder.start();
     setState('recording');
 
     timerRef.current = setInterval(() => {

@@ -28,6 +28,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Appearance + iOS recording fixes. Deliberately says nothing about whether
+  // a submission SENDS — that path is still being verified against the
+  // Storage rules; only claims what these fixes actually restore.
+  {
+    id: '2026-08-20-scroll-and-ios-recording',
+    date: '2026-08-20',
+    title: 'Two fixes: scrolling colors and recording on iPhone/iPad',
+    audience: 'both',
+    expires: '2026-09-03',
+    bullets: [
+      'Scrolling quickly no longer flashes a dark background behind the page — the Hub stays in the appearance you picked.',
+      'Recording a video assignment on an iPhone or iPad now plays back properly when you watch your take back before sending it.',
+    ],
+  },
   // Calendar subscribe + video submissions round (#subscribe-any-view,
   // #video-submissions): filter-view feeds, repertoire in calendar notes,
   // classes out of ensemble views, and a real record → watch → submit flow.
