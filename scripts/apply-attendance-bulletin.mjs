@@ -100,7 +100,7 @@ if (DRY_RUN) {
   if (!CI) {
     for (const { row, student } of matched) {
       const mapped = mapBulletinToAttendance(row);
-      console.log(`  would mark ${student.name} (${student.id}) → ${mapped?.status} · ${mapped?.reason}`);
+      console.log(`  would mark ${student.name} (${student.id}) [${row.date || date}] → ${mapped?.status} · ${mapped?.reason}`);
     }
     for (const { row, candidates } of ambiguous) {
       console.log(`  ambiguous ${row.rawName} → ${candidates.map(c => c.name).join(' | ')}`);
@@ -116,6 +116,7 @@ let skippedDirector = 0;
 for (const { row, student } of matched) {
   const mapped = mapBulletinToAttendance(row);
   if (!mapped) continue;
+  const rowDate = row.date || date;
   const ensembleIds = (student.ensembleIds ?? []).filter(Boolean);
   if (ensembleIds.length === 0) {
     if (!CI) console.log(`  skip ${student.name}: no ensembles`);
@@ -124,7 +125,7 @@ for (const { row, student } of matched) {
 
   for (const ensembleId of ensembleIds) {
     const existingSnap = await db.collection('attendance')
-      .where('date', '==', date)
+      .where('date', '==', rowDate)
       .where('ensembleId', '==', ensembleId)
       .where('studentId', '==', student.id)
       .get();
@@ -150,7 +151,7 @@ for (const { row, student } of matched) {
       await db.collection('attendance').add({
         studentId: student.id,
         ensembleId,
-        date,
+        date: rowDate,
         status: mapped.status,
         reason: mapped.reason,
         source: 'office',
@@ -171,7 +172,7 @@ await batch.commit();
 
 for (const { row, candidates } of ambiguous) {
   await db.collection('bulletinQueue').add({
-    date,
+    date: row.date || date,
     category: row.category,
     bulletinName: row.rawName,
     grade: row.grade ?? null,

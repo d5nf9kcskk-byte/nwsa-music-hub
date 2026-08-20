@@ -22,7 +22,7 @@ export const SKIP_SECTIONS = new Set([
 
 const SPLIT_COL = 43;
 
-/** @typedef {{ category: string, last: string, first: string, mi?: string, grade?: string, districtId?: string, time?: string, rawName: string }} BulletinRow */
+/** @typedef {{ category: string, date?: string | null, last: string, first: string, mi?: string, grade?: string, districtId?: string, time?: string, rawName: string }} BulletinRow */
 
 /**
  * @param {string} text
@@ -91,35 +91,38 @@ function ingestHalf(half, side, section, rows) {
   if (/^\*+/.test(t) && !detectSection(t)) return;
 
   const cat = section[side];
-  if (!cat || !ROLL_SECTIONS.has(normalizeSection(cat))) return;
-  // EXCUSED EARLY is stored as that key
-  const category = normalizeSection(cat);
-  if (!ROLL_SECTIONS.has(category)) return;
+  if (!cat || !ROLL_SECTIONS.has(cat.name)) return;
 
-  const row = parseNameLine(t, category);
-  if (row) rows.push(row);
+  const row = parseNameLine(t, cat.name);
+  if (row) {
+    row.date = cat.date ?? null;
+    rows.push(row);
+  }
 }
 
-/** @param {string} t */
+/**
+ * @param {string} t
+ * @returns {{ name: string, date?: string | null } | null}
+ */
 function detectSection(t) {
   const u = t.replace(/\*/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
-  if (u.includes('TRANSFERRING TO YOUR SCHOOL')) return 'TRANSFERRING TO YOUR SCHOOL';
-  if (/\bWITHDRAWAL\b/.test(u)) return 'WITHDRAWAL';
-  if (/^NEW$/.test(u) || /\bNEW\b/.test(u) && u.length < 20) return 'NEW';
-  if (u.includes('NO SHOWS')) return 'NO SHOWS';
-  if (u.includes('INDOOR SUSPENSION')) return 'INDOOR SUSPENSION';
-  if (u.includes('OUTDOOR SUSPENSION')) return 'OUTDOOR SUSPENSION';
-  if (u.includes('EXCUSED EARLY')) return 'EXCUSED EARLY';
-  if (u.includes('SPECIAL NOTE')) return 'SPECIAL NOTE';
-  if (/\bABSENT\b/.test(u) && !u.includes('TOTAL')) return 'ABSENT';
-  if (/\bTARDY\b/.test(u)) return 'TARDY';
+  if (u.includes('TRANSFERRING TO YOUR SCHOOL')) return { name: 'TRANSFERRING TO YOUR SCHOOL' };
+  if (/\bWITHDRAWAL\b/.test(u)) return { name: 'WITHDRAWAL' };
+  if (/^NEW$/.test(u) || /\bNEW\b/.test(u) && u.length < 20) return { name: 'NEW' };
+  if (u.includes('NO SHOWS')) return { name: 'NO SHOWS' };
+  if (u.includes('INDOOR SUSPENSION')) return { name: 'INDOOR SUSPENSION' };
+  if (u.includes('OUTDOOR SUSPENSION')) return { name: 'OUTDOOR SUSPENSION' };
+  // "EXCUSED EARLY 08/18/26" — bulletins repeat this section per date, and
+  // often include a prior day's update alongside today's. Carry that date
+  // per-row so the apply script writes it to the right day, not today's.
+  if (u.includes('EXCUSED EARLY')) {
+    const m = u.match(/(\d{2})\/(\d{2})\/(\d{2})/);
+    return { name: 'EXCUSED EARLY', date: m ? yyToIso(m[1], m[2], m[3]) : null };
+  }
+  if (u.includes('SPECIAL NOTE')) return { name: 'SPECIAL NOTE' };
+  if (/\bABSENT\b/.test(u) && !u.includes('TOTAL')) return { name: 'ABSENT' };
+  if (/\bTARDY\b/.test(u)) return { name: 'TARDY' };
   return null;
-}
-
-/** @param {string} cat */
-function normalizeSection(cat) {
-  if (cat.startsWith('EXCUSED EARLY')) return 'EXCUSED EARLY';
-  return cat;
 }
 
 /**
