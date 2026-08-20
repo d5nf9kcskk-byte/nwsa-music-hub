@@ -25,7 +25,7 @@ export const INSTRUMENT_FAMILIES: { id: InstrumentFamily; label: string }[] = [
   { id: 'woodwind',   label: 'Woodwinds' },
   { id: 'brass',      label: 'Brass' },
   { id: 'percussion', label: 'Percussion' },
-  { id: 'rhythm',     label: 'Harp / keys / rhythm' },
+  { id: 'rhythm',     label: 'Keys / rhythm' },
   { id: 'strings',    label: 'Strings' },
   { id: 'voice',      label: 'Voice' },
 ];
@@ -33,8 +33,22 @@ export const INSTRUMENT_FAMILIES: { id: InstrumentFamily; label: string }[] = [
 export const INSTRUMENT_FAMILY_LABEL: Record<InstrumentFamily, string> =
   Object.fromEntries(INSTRUMENT_FAMILIES.map(f => [f.id, f.label])) as Record<InstrumentFamily, string>;
 
+/**
+ * Harp counts as STRINGS here, even though score order prints it up in the
+ * harp/keys/rhythm block above the string section. That position is about
+ * where the part sits on the page, not what the instrument is — a harp is a
+ * string instrument, and a director who says "my strings" means the harpist
+ * too. Missing them is the expensive mistake; including them in a
+ * strings-only sign-up costs one person one tap.
+ *
+ * `\bharp(s|ist)?\b` deliberately does NOT match "harpsichord" (no word
+ * boundary after "harp"), which scoreOrderRank otherwise lumps in with harp.
+ */
+const HARP = /\bharp(s|ist)?\b/i;
+
 /** The family an instrument belongs to, or null when it isn't recognized. */
 export function instrumentFamily(instrument: string | undefined): InstrumentFamily | null {
+  if (instrument && HARP.test(instrument)) return 'strings';
   const rank = scoreOrderRank(instrument);
   if (rank < 100) return 'woodwind';
   if (rank < 200) return 'brass';

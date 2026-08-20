@@ -598,8 +598,9 @@ function SignupEditor({ initial, isNew, ensembles, onSave, onClose }: {
             </div>
             <div className="dir-signup-help">
               Nothing ticked = every instrument. Tick Strings to reach only the string
-              players in the ensembles above. Students whose roster instrument is blank
-              or unrecognized aren’t matched, so fix those on the Roster first.
+              players in the ensembles above — harp counts as a string. Students whose
+              roster instrument is blank or unrecognized aren’t matched, so fix those on
+              the Roster first.
             </div>
           </div>
 

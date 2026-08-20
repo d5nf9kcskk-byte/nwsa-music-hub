@@ -25,7 +25,12 @@ assert(instrumentFamily('Viola') === 'strings', 'viola is a string');
 assert(instrumentFamily('Cello') === 'strings', 'cello is a string');
 assert(instrumentFamily('Double Bass') === 'strings', 'double bass is a string');
 assert(instrumentFamily('Bass') === 'strings', 'a bare "Bass" is the string bass');
-assert(instrumentFamily('Harp') === 'rhythm', 'harp is not counted as a string here');
+// Harp is a string instrument even though score order prints it above the
+// section — a director asking for "strings" means the harpist too.
+assert(instrumentFamily('Harp') === 'strings', 'harp counts as a string');
+assert(instrumentFamily('Pedal Harp') === 'strings', 'pedal harp counts as a string');
+assert(instrumentFamily('harp') === 'strings', 'harp matching is case-insensitive');
+assert(instrumentFamily('Harpsichord') === 'rhythm', 'a harpsichord is not a harp');
 assert(instrumentFamily('Bass Guitar') === 'rhythm', 'bass guitar is rhythm, not strings');
 assert(instrumentFamily('Flute') === 'woodwind', 'flute is a woodwind');
 assert(instrumentFamily('Bass Clarinet') === 'woodwind', 'bass clarinet is a woodwind');
@@ -46,6 +51,7 @@ const everyone = { ensembleIds: [], families: [] };
 
 assert(eligibleForSignup(cam('Violin'), stringsInCamerata), 'a Camerata violinist is in');
 assert(eligibleForSignup(cam('Cello'), stringsInCamerata), 'a Camerata cellist is in');
+assert(eligibleForSignup(cam('Harp'), stringsInCamerata), 'a Camerata harpist is in');
 assert(!eligibleForSignup(cam('Flute'), stringsInCamerata), 'a Camerata flute is not a string');
 assert(
   !eligibleForSignup({ ensembleIds: ['symphony'], instrument: 'Violin', status: 'Active' }, stringsInCamerata),
