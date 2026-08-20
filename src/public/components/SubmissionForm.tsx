@@ -162,6 +162,9 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
       setSubmitted(true);
       onSubmitted();
     } catch (e) {
+      // Keep the full error in the console — a student screenshot of the
+      // friendly message plus this line is enough to pinpoint the layer.
+      console.error('[submission] submit failed', e);
       setError(submitErrorMessage(e));
     } finally {
       setUploading(false);
@@ -169,12 +172,19 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
   }
 
   /** Firebase's raw errors ("Missing or insufficient permissions.") tell a
-   *  student nothing they can act on. */
+   *  student nothing they can act on — but the error CODE (storage/… vs
+   *  permission-denied) is what tells the director which layer refused, so
+   *  it rides along in parentheses. */
   function submitErrorMessage(e: unknown): string {
     const raw = e instanceof Error ? e.message : String(e);
-    if (/permission|unauthorized|insufficient/i.test(raw)) return t('vid.errPermission');
-    if (/quota|retry-limit|network|offline/i.test(raw)) return t('vid.errNetwork');
-    return raw || t('vid.errGeneric');
+    const code = typeof (e as { code?: unknown } | null)?.code === 'string'
+      ? (e as { code: string }).code
+      : '';
+    const friendly =
+      /permission|unauthorized|insufficient|app-?check/i.test(`${code} ${raw}`) ? t('vid.errPermission')
+      : /quota|retry-limit|network|offline/i.test(`${code} ${raw}`) ? t('vid.errNetwork')
+      : raw || t('vid.errGeneric');
+    return code ? `${friendly} (${code})` : friendly;
   }
 
   if (submitted) {
