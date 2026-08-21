@@ -30,7 +30,8 @@ function run(argv) {
 
     let inbox;
     try {
-      inbox = acct.mailboxes.byName('INBOX');
+      inbox = acct.mailboxes().find(function (b) { try { return String(b.name()).toUpperCase() === 'INBOX'; } catch (e) { return false; } });
+      if (!inbox) continue;
       inbox.name();
     } catch (e) { continue; }
 
