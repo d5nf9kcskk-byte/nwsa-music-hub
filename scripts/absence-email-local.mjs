@@ -45,7 +45,7 @@ const PLIST = join(HOME, 'Library/LaunchAgents', `${LABEL}.plist`);
 const ACCOUNT_FILTER = process.env.MDC_MAIL_ACCOUNT_NAME || '';
 
 /** Local clock on this Mac is Eastern, so launchd times are school times. */
-const RUN_MINUTES_PAST_HOUR = 5;
+const RUN_MINUTES = [5, 20, 35, 50];
 const RUN_HOURS = Array.from({ length: 12 }, (_, i) => 7 + i); // 7am–6pm
 const DEFAULT_LOOKBACK_HOURS = 24; // first-ever run, or state file missing
 const MAX_LOOKBACK_HOURS = 168; // don't reprocess a week-old backlog if paused
@@ -167,9 +167,9 @@ function run() {
 }
 
 function plistXml() {
-  const calendar = RUN_HOURS.map(h =>
+  const calendar = RUN_HOURS.flatMap(h => RUN_MINUTES.map(m =>
     `    <dict><key>Hour</key><integer>${h}</integer>`
-    + `<key>Minute</key><integer>${RUN_MINUTES_PAST_HOUR}</integer></dict>`).join('\n');
+    + `<key>Minute</key><integer>${m}</integer></dict>`)).join('\n');
   // Same TCC reasoning as bulletin-local.mjs: node runs through /bin/bash so
   // the child inherits whatever automation/Full Disk Access was granted to
   // the shell instead of a version-pinned node path that breaks on upgrade.
@@ -185,7 +185,7 @@ function plistXml() {
     <string>exec ${xml(`"${process.execPath}" "${RUNNER}"`)}</string>
   </array>
   <key>EnvironmentVariables</key>
-  <dict><key>PATH</key><string>${xml(process.env.PATH || '')}</string></dict>
+  <dict><key>PATH</key><string>${xml(process.env.PATH || '')}</string>${ACCOUNT_FILTER ? '<key>MDC_MAIL_ACCOUNT_NAME</key><string>' + xml(ACCOUNT_FILTER) + '</string>' : ''}</dict>
   <key>StartCalendarInterval</key>
   <array>
 ${calendar}
@@ -208,7 +208,7 @@ function install() {
     console.error(r.stderr?.trim() || 'launchctl bootstrap failed');
     return 1;
   }
-  console.log(`Installed ${LABEL}: hourly, ${RUN_HOURS[0]}:00–${RUN_HOURS[RUN_HOURS.length - 1]}:00.`);
+  console.log(`Installed ${LABEL}: every 15 min, ${RUN_HOURS[0]}:00–${RUN_HOURS[RUN_HOURS.length - 1]}:00.`);
   console.log('First run will prompt macOS for permission to let this control Mail — approve it.');
   return status();
 }
@@ -224,7 +224,7 @@ function status() {
   const list = spawnSync('launchctl', ['list', LABEL], { encoding: 'utf8' });
   const lastExit = list.stdout?.match(/"LastExitStatus"\s*=\s*(\d+)/)?.[1];
   console.log(`agent:    ${list.status === 0
-    ? `loaded, hourly ${RUN_HOURS[0]}:00–${RUN_HOURS[RUN_HOURS.length - 1]}:00${lastExit ? ` (last exit ${lastExit})` : ''}`
+    ? `loaded, every 15 min ${RUN_HOURS[0]}:00–${RUN_HOURS[RUN_HOURS.length - 1]}:00${lastExit ? ` (last exit ${lastExit})` : ''}`
     : 'not loaded — run: node scripts/absence-email-local.mjs --install'}`);
   console.log(`mode:     ${DRY_RUN === 'false' ? 'LIVE, writes to Firestore' : 'dry run, no writes'}`);
   console.log(`creds:    ${readCred() ? CRED : `missing — put the key at ${CRED}`}`);
@@ -242,7 +242,7 @@ function selfCheck() {
   assert(existsSync(FETCHER), 'mail-fetch.jxa.js is where this script expects');
 
   const plist = plistXml();
-  assert((plist.match(/<key>Hour<\/key>/g) || []).length === RUN_HOURS.length, 'one entry per run hour');
+  assert((plist.match(/<key>Hour<\/key>/g) || []).length === RUN_HOURS.length * RUN_MINUTES.length, 'one entry per run hour');
   assert(plist.includes(RUNNER) && plist.includes(LOG), 'plist points at this script and the log');
   if (process.platform === 'darwin') {
     const tmp = join(tmpdir(), `${LABEL}.selfcheck.plist`);

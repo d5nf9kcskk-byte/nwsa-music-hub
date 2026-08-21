@@ -24,6 +24,7 @@ const ABSENCE_PHRASES = [
   /calling\s+in\s+(?:absent|sick)/i,
 ];
 
+const MONTH_ABBR = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
 /** @param {string} text */
@@ -44,7 +45,8 @@ export function extractDates(text, referenceDate) {
   if (!ref) return [];
   const found = new Set();
 
-  if (/\btomorrow\b/i.test(text)) found.add(toYmd(addDays(ref, 1)));
+  const backTomorrow = /(back|return|returning|be there|be in|see you|rejoin)[^.!?]{0,40}\btomorrow\b/i.test(text);
+  if (/\btomorrow\b/i.test(text) && !backTomorrow) found.add(toYmd(addDays(ref, 1)));
   if (/\btoday\b/i.test(text)) found.add(toYmd(ref));
 
   // Explicit M/D or M/D/YY(YY)
@@ -58,6 +60,14 @@ export function extractDates(text, referenceDate) {
 
   // "this/next <weekday>" and a bare weekday name (assumed the nearest
   // upcoming one, since parents write about absences ahead of time).
+  const monthRe = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}))?/gi;
+  for (const m of text.matchAll(monthRe)) {
+    const mo = MONTH_ABBR.indexOf(m[1].toLowerCase());
+    const da = Number(m[2]);
+    if (mo < 0 || da < 1 || da > 31) continue;
+    const yr = m[3] ? Number(m[3]) : ref.getFullYear();
+    found.add(toYmd(new Date(yr, mo, da)));
+  }
   const weekdayRe = /\b(next\s+|this\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/gi;
   for (const m of text.matchAll(weekdayRe)) {
     const target = WEEKDAYS.indexOf(m[2].toLowerCase());
@@ -103,13 +113,24 @@ export function matchAbsenceEmailStudents(text, students) {
  * @param {{ id: string, name: string, preferredName?: string, status?: string }[]} students
  * @returns {MatchedAbsence | AmbiguousAbsence | IgnoredAbsence}
  */
+function stripQuotedHeaders(text) {
+  const nl = String.fromCharCode(10);
+  const keys = ['from', 'sent', 'to', 'cc', 'bcc', 'subject', 'date', 'reply-to'];
+  return String(text).split(nl).filter(function (line) {
+    const t = line.trim().toLowerCase();
+    const i = t.indexOf(':');
+    if (i < 1) return true;
+    return keys.indexOf(t.slice(0, i).trim()) === -1;
+  }).join(nl);
+}
+
 export function parseAbsenceEmail(email, students) {
   const text = `${email.subject}\n${email.body}`;
   if (!looksLikeAbsenceEmail(text)) return { status: 'ignored' };
 
   const snippet = text.trim().replace(/\s+/g, ' ').slice(0, 280);
-  const candidates = matchAbsenceEmailStudents(text, students);
-  const dates = extractDates(text, easternDateStr(email.receivedDate));
+  const candidates = matchAbsenceEmailStudents(email.from + ' ' + text, students);
+  const dates = extractDates(stripQuotedHeaders(text), easternDateStr(email.receivedDate));
 
   if (candidates.length === 1 && dates.length === 1) {
     return {
