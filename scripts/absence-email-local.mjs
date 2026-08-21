@@ -9,6 +9,7 @@
  *
  *   node scripts/absence-email-local.mjs              run once, now
  *   node scripts/absence-email-local.mjs --install    load the LaunchAgent
+ *   node scripts/absence-email-local.mjs --grant      settle the Mail permission up front
  *   node scripts/absence-email-local.mjs --status     loaded? creds? Mail reachable?
  *   node scripts/absence-email-local.mjs --uninstall  unload and remove it
  *   node scripts/absence-email-local.mjs --self-check
@@ -79,6 +80,15 @@ function readCred() {
   } catch { return null; }
 }
 
+/** What the INSTALLED agent will actually use — not what this shell has. */
+function installedAccountFilter() {
+  try {
+    const m = /<key>MDC_MAIL_ACCOUNT_NAME<\/key><string>([^<]*)<\/string>/
+      .exec(readFileSync(PLIST, 'utf8'));
+    return m ? m[1] : null;
+  } catch { return null; }
+}
+
 function readState() {
   try { return JSON.parse(readFileSync(STATE_FILE, 'utf8')); }
   catch { return { lastCheckedAt: null, processedIds: [] }; }
@@ -96,7 +106,7 @@ function notify(msg) {
 function denialHelp(stderr) {
   return `Mail.app automation was denied (macOS privacy): ${stderr.trim()}\n`
     + '  System Settings → Privacy & Security → Automation → Terminal (or node) → allow "Mail"\n'
-    + '  Then re-run: node scripts/absence-email-local.mjs --install';
+    + '  Then re-run: node scripts/absence-email-local.mjs --grant';
 }
 
 /**
@@ -170,6 +180,18 @@ function plistXml() {
   const calendar = RUN_HOURS.map(h =>
     `    <dict><key>Hour</key><integer>${h}</integer>`
     + `<key>Minute</key><integer>${RUN_MINUTES_PAST_HOUR}</integer></dict>`).join('\n');
+  // launchd does NOT source a shell profile, so anything the scheduled job
+  // needs from the environment has to be baked in here, at install time.
+  // MDC_MAIL_ACCOUNT_NAME especially: without it the job silently falls back
+  // to reading EVERY Mail account on the Mac, personal ones included, which
+  // is the whole thing that setting exists to prevent. Change it → re-run
+  // --install, or the agent keeps the value it was installed with.
+  const envEntries = [['PATH', process.env.PATH || '']];
+  if (ACCOUNT_FILTER) envEntries.push(['MDC_MAIL_ACCOUNT_NAME', ACCOUNT_FILTER]);
+  if (process.env.DRY_RUN) envEntries.push(['DRY_RUN', process.env.DRY_RUN]);
+  const envXml = envEntries
+    .map(([k, v]) => `    <key>${xml(k)}</key><string>${xml(v)}</string>`)
+    .join('\n');
   // Same TCC reasoning as bulletin-local.mjs: node runs through /bin/bash so
   // the child inherits whatever automation/Full Disk Access was granted to
   // the shell instead of a version-pinned node path that breaks on upgrade.
@@ -185,7 +207,9 @@ function plistXml() {
     <string>exec ${xml(`"${process.execPath}" "${RUNNER}"`)}</string>
   </array>
   <key>EnvironmentVariables</key>
-  <dict><key>PATH</key><string>${xml(process.env.PATH || '')}</string></dict>
+  <dict>
+${envXml}
+  </dict>
   <key>StartCalendarInterval</key>
   <array>
 ${calendar}
@@ -209,8 +233,52 @@ function install() {
     return 1;
   }
   console.log(`Installed ${LABEL}: hourly, ${RUN_HOURS[0]}:00–${RUN_HOURS[RUN_HOURS.length - 1]}:00.`);
-  console.log('First run will prompt macOS for permission to let this control Mail — approve it.');
+  console.log('Next: node scripts/absence-email-local.mjs --grant');
+  console.log('  — settles the Mail permission now, instead of during an unattended run you would miss.');
   return status();
+}
+
+/**
+ * Trigger the macOS "allow control of Mail" prompt ON PURPOSE, right now,
+ * while a human is sitting in front of the machine.
+ *
+ * There is no way to grant this from a script — tccutil can only RESET
+ * permissions, never grant them, and the TCC database is SIP-protected.
+ * That is deliberate: a script that could self-approve Mail automation could
+ * silently read and send a person's mail. The only no-prompt path is an MDM
+ * PPPC profile pushed by whoever manages the Mac. So instead of removing the
+ * prompt, this makes it happen at a predictable moment.
+ *
+ * macOS attributes automation to the RESPONSIBLE process, and a LaunchAgent
+ * run is a different responsible process than a Terminal run — so approving
+ * it here does not necessarily cover the background job. That's what the
+ * kickstart below is for: it forces one real launchd run while you're still
+ * here to answer a second prompt if macOS asks for that context too.
+ */
+function grant() {
+  console.log('Asking macOS for permission to control Mail — approve the dialog if it appears.');
+  console.log('(If Mail is not running, this launches it. That is expected.)\n');
+  const probe = spawnSync('osascript', ['-l', 'JavaScript', '-e', 'Application("Mail").accounts().length'],
+    { encoding: 'utf8', timeout: 120_000 });
+  if (probe.status !== 0) {
+    console.error(denialHelp(probe.stderr || `osascript exited ${probe.status}`));
+    return 1;
+  }
+  console.log(`Foreground: OK — Mail answered (${probe.stdout.trim()} account(s) visible).`);
+
+  if (spawnSync('launchctl', ['list', LABEL], { stdio: 'ignore' }).status !== 0) {
+    console.log('\nAgent is not installed yet. Run --install, then --grant again to prove the background run.');
+    return 0;
+  }
+
+  console.log('\nForcing one real background run — this is the context launchd will use...');
+  const kick = spawnSync('launchctl', ['kickstart', '-k', `gui/${uid()}/${LABEL}`], { encoding: 'utf8' });
+  if (kick.status !== 0) {
+    console.error(kick.stderr?.trim() || 'launchctl kickstart failed');
+    return 1;
+  }
+  console.log(`Kicked off. Confirm it actually read Mail:\n  tail -n 40 ${LOG}`);
+  return 0;
 }
 
 function uninstall() {
@@ -228,7 +296,12 @@ function status() {
     : 'not loaded — run: node scripts/absence-email-local.mjs --install'}`);
   console.log(`mode:     ${DRY_RUN === 'false' ? 'LIVE, writes to Firestore' : 'dry run, no writes'}`);
   console.log(`creds:    ${readCred() ? CRED : `missing — put the key at ${CRED}`}`);
-  console.log(`account:  ${ACCOUNT_FILTER || 'all Mail.app accounts (set MDC_MAIL_ACCOUNT_NAME to narrow)'}`);
+  const installedFilter = installedAccountFilter();
+  console.log(`account:  ${installedFilter
+    || 'ALL Mail.app accounts — set MDC_MAIL_ACCOUNT_NAME, then re-run --install to narrow'}`);
+  if (ACCOUNT_FILTER !== (installedFilter ?? '')) {
+    console.log(`          ⚠ this shell says "${ACCOUNT_FILTER || '(unset)'}" — re-run --install to apply it`);
+  }
   const state = readState();
   console.log(`watched:  ${state.lastCheckedAt ? `since ${state.lastCheckedAt}` : `never run — first run looks back ${DEFAULT_LOOKBACK_HOURS}h`}`);
   console.log(`log:      ${LOG}`);
@@ -244,6 +317,19 @@ function selfCheck() {
   const plist = plistXml();
   assert((plist.match(/<key>Hour<\/key>/g) || []).length === RUN_HOURS.length, 'one entry per run hour');
   assert(plist.includes(RUNNER) && plist.includes(LOG), 'plist points at this script and the log');
+
+  // launchd never sources a shell profile, so the account filter is only
+  // honored by the scheduled job if it was baked into the plist at install
+  // time. Missing it means the job quietly reads every account on the Mac.
+  if (ACCOUNT_FILTER) {
+    assert(plist.includes('<key>MDC_MAIL_ACCOUNT_NAME</key>'), 'account filter baked into plist');
+    assert(plist.includes(`<string>${xml(ACCOUNT_FILTER)}</string>`), 'account filter value baked in');
+    // ...and that --status can read that value back out of the plist again.
+    const readBack = /<key>MDC_MAIL_ACCOUNT_NAME<\/key><string>([^<]*)<\/string>/.exec(plist)?.[1];
+    assert(readBack === xml(ACCOUNT_FILTER), `status reads the filter back, got ${readBack}`);
+  } else {
+    assert(!plist.includes('MDC_MAIL_ACCOUNT_NAME'), 'no stale account filter when unset');
+  }
   if (process.platform === 'darwin') {
     const tmp = join(tmpdir(), `${LABEL}.selfcheck.plist`);
     writeFileSync(tmp, plist);
@@ -259,6 +345,7 @@ function selfCheck() {
 const cmd = process.argv[2] || '';
 if (cmd === '--self-check') process.exit(selfCheck());
 if (cmd === '--install') process.exit(install());
+if (cmd === '--grant') process.exit(grant());
 if (cmd === '--uninstall') process.exit(uninstall());
 if (cmd === '--status') process.exit(status());
 process.exit(run());
