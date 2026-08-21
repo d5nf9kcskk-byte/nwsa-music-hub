@@ -5,7 +5,7 @@
  *
  * Mac-native by design (no Gmail/Graph API — MDC mail lives in Mail.app):
  *
- *   Mail.app INBOX → launchd (hourly) → osascript/JXA fetch → apply-absence-email.mjs
+ *   Mail.app INBOX → launchd (every 15 min) → osascript/JXA fetch → apply-absence-email.mjs
  *
  *   node scripts/absence-email-local.mjs              run once, now
  *   node scripts/absence-email-local.mjs --install    load the LaunchAgent
@@ -46,7 +46,7 @@ const PLIST = join(HOME, 'Library/LaunchAgents', `${LABEL}.plist`);
 const ACCOUNT_FILTER = process.env.MDC_MAIL_ACCOUNT_NAME || '';
 
 /** Local clock on this Mac is Eastern, so launchd times are school times. */
-const RUN_MINUTES_PAST_HOUR = 5;
+const RUN_MINUTES = [5, 20, 35, 50];
 const RUN_HOURS = Array.from({ length: 12 }, (_, i) => 7 + i); // 7am–6pm
 const DEFAULT_LOOKBACK_HOURS = 24; // first-ever run, or state file missing
 const MAX_LOOKBACK_HOURS = 168; // don't reprocess a week-old backlog if paused
@@ -177,9 +177,9 @@ function run() {
 }
 
 function plistXml() {
-  const calendar = RUN_HOURS.map(h =>
+  const calendar = RUN_HOURS.flatMap(h => RUN_MINUTES.map(m =>
     `    <dict><key>Hour</key><integer>${h}</integer>`
-    + `<key>Minute</key><integer>${RUN_MINUTES_PAST_HOUR}</integer></dict>`).join('\n');
+    + `<key>Minute</key><integer>${m}</integer></dict>`)).join('\n');
   // launchd does NOT source a shell profile, so anything the scheduled job
   // needs from the environment has to be baked in here, at install time.
   // MDC_MAIL_ACCOUNT_NAME especially: without it the job silently falls back
@@ -232,7 +232,7 @@ function install() {
     console.error(r.stderr?.trim() || 'launchctl bootstrap failed');
     return 1;
   }
-  console.log(`Installed ${LABEL}: hourly, ${RUN_HOURS[0]}:00–${RUN_HOURS[RUN_HOURS.length - 1]}:00.`);
+  console.log(`Installed ${LABEL}: every 15 min, ${RUN_HOURS[0]}:00–${RUN_HOURS[RUN_HOURS.length - 1]}:00.`);
   console.log('Next: node scripts/absence-email-local.mjs --grant');
   console.log('  — settles the Mail permission now, instead of during an unattended run you would miss.');
   return status();
@@ -292,7 +292,7 @@ function status() {
   const list = spawnSync('launchctl', ['list', LABEL], { encoding: 'utf8' });
   const lastExit = list.stdout?.match(/"LastExitStatus"\s*=\s*(\d+)/)?.[1];
   console.log(`agent:    ${list.status === 0
-    ? `loaded, hourly ${RUN_HOURS[0]}:00–${RUN_HOURS[RUN_HOURS.length - 1]}:00${lastExit ? ` (last exit ${lastExit})` : ''}`
+    ? `loaded, every 15 min ${RUN_HOURS[0]}:00–${RUN_HOURS[RUN_HOURS.length - 1]}:00${lastExit ? ` (last exit ${lastExit})` : ''}`
     : 'not loaded — run: node scripts/absence-email-local.mjs --install'}`);
   console.log(`mode:     ${DRY_RUN === 'false' ? 'LIVE, writes to Firestore' : 'dry run, no writes'}`);
   console.log(`creds:    ${readCred() ? CRED : `missing — put the key at ${CRED}`}`);
@@ -315,7 +315,8 @@ function selfCheck() {
   assert(existsSync(FETCHER), 'mail-fetch.jxa.js is where this script expects');
 
   const plist = plistXml();
-  assert((plist.match(/<key>Hour<\/key>/g) || []).length === RUN_HOURS.length, 'one entry per run hour');
+  assert((plist.match(/<key>Hour<\/key>/g) || []).length === RUN_HOURS.length * RUN_MINUTES.length,
+    'one calendar entry per hour × run minute');
   assert(plist.includes(RUNNER) && plist.includes(LOG), 'plist points at this script and the log');
 
   // launchd never sources a shell profile, so the account filter is only

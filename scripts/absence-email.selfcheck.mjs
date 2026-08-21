@@ -44,9 +44,36 @@ assert(results[3].candidateIds.length === 0, 'fixture 4 should have no candidate
 assert(results[4].status === 'ambiguous', `fixture 5 expected ambiguous, got ${results[4].status}`);
 assert(results[4].candidateIds.length === 2, `fixture 5 expected 2 candidates, got ${results[4].candidateIds.length}`);
 
+// #6: a month written by name ("Aug 24") resolves like an explicit date.
+assert(results[5].status === 'matched', `fixture 6 expected matched, got ${results[5].status}`);
+assert(results[5].studentId === 's3', `fixture 6 expected s3, got ${results[5].studentId}`);
+assert(results[5].date === '2026-08-24', `fixture 6 expected 2026-08-24, got ${results[5].date}`);
+
+// #7: "back tomorrow" describes the RETURN, so only today is the absence —
+// without the guard this would find two dates and fall to the queue.
+assert(results[6].status === 'matched', `fixture 7 expected matched, got ${results[6].status}`);
+assert(results[6].date === '2026-08-19', `fixture 7 expected 2026-08-19, got ${results[6].date}`);
+
+// #8: a forward's quoted "Sent: Tuesday, September 15, 2026" header must not
+// register as an absence date — otherwise every forwarded email goes ambiguous.
+assert(results[7].status === 'matched', `fixture 8 expected matched, got ${results[7].status}`);
+assert(results[7].date === '2026-08-19', `fixture 8 expected 2026-08-19, got ${results[7].date}`);
+
+// #9: the sender's surname completes a first-name-only body.
+assert(results[8].status === 'matched', `fixture 9 expected matched, got ${results[8].status}`);
+assert(results[8].studentId === 's1', `fixture 9 expected s1, got ${results[8].studentId}`);
+assert(results[8].date === '2026-08-20', `fixture 9 expected 2026-08-20, got ${results[8].date}`);
+
 // Weekday / explicit-date resolution, pinned independent of the fixture.
 assert(extractDates('see you Monday', '2026-08-19').includes('2026-08-24'), 'bare weekday → nearest upcoming');
 assert(extractDates('out on 8/21', '2026-08-19').includes('2026-08-21'), 'explicit M/D resolves this year');
+assert(extractDates('absent September 3rd', '2026-08-19').includes('2026-09-03'), 'month name + ordinal');
+// The return-guard hinges on negation, not on the verb: "be in ... tomorrow"
+// appears in both a return AND in the commonest absence sentence there is.
+assert(extractDates('back tomorrow', '2026-08-19').length === 0, 'a return date is not an absence date');
+assert(extractDates('will be there tomorrow', '2026-08-19').length === 0, 'affirmative "be there" is a return');
+assert(extractDates('will not be in school tomorrow', '2026-08-19')[0] === '2026-08-20',
+  'negated "be in" is the absence itself, not a return');
 assert(!looksLikeAbsenceEmail('Great concert last night!'), 'unrelated email is not absence-shaped');
 
 console.log('absence-email.selfcheck: ok');
