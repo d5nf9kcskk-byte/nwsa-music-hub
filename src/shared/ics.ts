@@ -8,6 +8,11 @@
  * VEVENT: NWSA feeds are a frozen contract for people already subscribed.
  */
 
+// Explicit .ts extension on purpose: scripts/generate-feeds.mjs imports this
+// file under Node's type-stripping loader, which cannot resolve an
+// extensionless relative import (same rule as signupEligibility.ts).
+import { richTextToPlain } from './richTextParse.ts';
+
 /** Escape the characters ICS gives meaning to. */
 export function icsEscape(value = ''): string {
   return String(value).replace(/[\\;,\n\r]/g, c => (c === '\n' || c === '\r' ? '\\n' : '\\' + c));
@@ -116,7 +121,11 @@ export function icsDescription(event: IcsEventLike, lookups: IcsLookups): string
   const repertoire = [event.repertoire, ...pieces].filter(Boolean).join(' · ');
   if (repertoire) parts.push(`Repertoire: ${repertoire}`);
 
-  if (event.notes) parts.push(event.notes);
+  // Notes are typed with the formatting toolbar, so they can carry block
+  // markers ("# Warm-up order", "-# Bring your folder"). A calendar app shows
+  // DESCRIPTION as plain text, so flatten the markers rather than shipping
+  // them verbatim to every subscriber.
+  if (event.notes) parts.push(richTextToPlain(event.notes));
   return parts.map(p => icsEscape(p)).join('\\n');
 }
 
@@ -152,6 +161,56 @@ export function icsEvent(event: IcsEventLike, lookups: IcsLookups, branding: Ics
   return lines.join('\r\n');
 }
 
+/** A private lesson, as the director's own calendar shows it. */
+export interface IcsLessonLike {
+  id: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  studentName?: string;
+  teacherName?: string;
+  teacherEmail?: string;
+  instrument?: string;
+  location?: string;
+  status?: string;
+}
+
+/**
+ * One VEVENT for a private lesson (#lessons-feed).
+ *
+ * Only ever written into the unlisted lessons feed — who takes lessons with
+ * whom is staff-only everywhere else in the app, so nothing here may be
+ * reached from a public surface.
+ */
+export function icsLesson(lesson: IcsLessonLike, branding: IcsBranding): string {
+  const who = lesson.studentName || 'Student';
+  const teacher = lesson.teacherName || lesson.teacherEmail || '';
+  const cancelled = lesson.status === 'Cancelled';
+  const summary = `${cancelled ? '[CANCELLED] ' : ''}${who}${teacher ? ` with ${teacher}` : ''}`;
+  const detail = [
+    lesson.instrument,
+    teacher ? `Teacher: ${teacher}` : '',
+    lesson.location ? `Room: ${lesson.location}` : '',
+  ].filter(Boolean).join('\n');
+  const hasTime = Boolean(lesson.startTime);
+  const lines = [
+    'BEGIN:VEVENT',
+    icsFold(`UID:lesson-${lesson.id}@${branding.uidDomain}`),
+    icsFold(`SUMMARY:${icsEscape(summary)}`),
+    icsFold(hasTime
+      ? `DTSTART:${icsDateTime(lesson.date, lesson.startTime)}`
+      : `DTSTART;VALUE=DATE:${icsDate(lesson.date)}`),
+    icsFold(hasTime
+      ? `DTEND:${icsDateTime(lesson.date, lesson.endTime || lesson.startTime)}`
+      : `DTEND;VALUE=DATE:${icsDate(icsNextDay(lesson.date))}`),
+    icsFold(`STATUS:${cancelled ? 'CANCELLED' : 'CONFIRMED'}`),
+  ];
+  if (lesson.location) lines.push(icsFold(`LOCATION:${icsEscape(lesson.location)}`));
+  if (detail) lines.push(icsFold(`DESCRIPTION:${detail.split('\n').map(p => icsEscape(p)).join('\\n')}`));
+  lines.push('END:VEVENT');
+  return lines.join('\r\n');
+}
+
 /**
  * One all-day VEVENT for an assignment due date, so a view that includes
  * Assignments subscribes to the due dates too (they show on the calendar
@@ -163,7 +222,7 @@ export function icsAssignment(
   branding: IcsBranding,
 ): string {
   const ensNames = (assignment.ensembleIds ?? []).map(lookups.ensembleName).filter(Boolean).join(', ');
-  const parts = [ensNames, assignment.type, assignment.description].filter(Boolean) as string[];
+  const parts = [ensNames, assignment.type, assignment.description && richTextToPlain(assignment.description)].filter(Boolean) as string[];
   const lines = [
     'BEGIN:VEVENT',
     icsFold(`UID:assignment-${assignment.id}@${branding.uidDomain}`),

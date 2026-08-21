@@ -51,7 +51,12 @@ export function PublicAssignment() {
   useEffect(() => {
     if (!wantsSubmit || loading || !assignment) return;
     document.getElementById('assign-submit')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [wantsSubmit, loading, assignment]);
+    // Keyed on the id, not the object: the assignments listener re-emits a
+    // fresh object whenever ANY assignment is saved, which used to scroll a
+    // reader back to the recorder mid-sentence. The body only uses
+    // `assignment` as a presence check, which the id already covers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantsSubmit, loading, assignment?.id]);
 
   if (!assignment) {
     return (
@@ -166,7 +171,12 @@ export function PublicAssignment() {
           <h2 className="pub-assign-section-title">
             <Video size={15} /> {t('vid.submit')}
           </h2>
-          <SubmissionForm assignment={assignment} students={students} onSubmitted={() => {}} />
+          {/* The section itself always renders — it is the #assign-submit
+              scroll target — but the form waits for the roster, or it would
+              briefly claim nobody is assigned to the exam. */}
+          {loadingStudents
+            ? <div className="pub-muted" style={{ padding: '8px 0' }}>{t('misc.loading')}</div>
+            : <SubmissionForm assignment={assignment} students={students} onSubmitted={() => {}} />}
         </section>
       )}
     </div>

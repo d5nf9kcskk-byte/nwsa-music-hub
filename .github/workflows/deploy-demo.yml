@@ -13,8 +13,10 @@ name: Deploy ASYO demo
 on:
   workflow_dispatch:
   schedule:
-    # Refresh demo ICS feeds every 4 hours, offset from the NWSA cron.
-    - cron: '15 */4 * * *'
+    # Refresh demo ICS feeds hourly, offset from the NWSA cron. Hourly because
+    # the subscribe sheet tells every org "usually within the hour" when a
+    # custom filter mix has no feed file yet.
+    - cron: '15 * * * *'
 
 permissions:
   contents: read

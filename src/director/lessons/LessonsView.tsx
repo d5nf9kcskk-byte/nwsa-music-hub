@@ -5,6 +5,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useDirectors } from '../hooks/useDirectors';
 import { parseDate, formatTimeRange, todayStr } from '../utils';
 import { downloadLessonsCsv } from './lessonsCsv';
+import { LessonsFeedPanel } from './LessonsFeedPanel';
 import type { Lesson } from '../types';
 import type { DirNavigate } from '../types-nav';
 
@@ -58,6 +59,8 @@ export function LessonsView({ onNavigate }: { onNavigate?: DirNavigate } = {}) {
           (who taught whom, when, and eventually grade / pay tracking). Grade is
           reserved in the export; teachers are not asked for it in the app yet.
         </p>
+
+        <LessonsFeedPanel />
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
           <label className="dir-field" style={{ margin: 0, minWidth: 140 }}>

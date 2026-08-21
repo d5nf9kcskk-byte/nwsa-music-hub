@@ -45,6 +45,11 @@ jobs:
       - name: Check calendar view + ICS contracts
         run: node scripts/calendar-view.selfcheck.mjs
 
+      # Named bundles are subscription addresses too — pin their slugs and
+      # their no-overlap guarantee the same way the view slugs are pinned.
+      - name: Check calendar bundles
+        run: node scripts/calendar-bundles.selfcheck.mjs
+
       # Who a sign-up reaches. Drift here is silent — a director opens
       # "Camerata strings" and half the section never sees it (#signups).
       - name: Check sign-up eligibility

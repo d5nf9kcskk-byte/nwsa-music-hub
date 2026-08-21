@@ -31,7 +31,11 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
   /** Anything listed here opens its own editor. Close the sheet first so the
    *  director lands on the target screen, not on top of this one. */
   const go: DirNavigate = (tab, opts) => { onClose(); onNavigate?.(tab, opts); };
-  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
+  // No closeOnBack: this sheet's rows NAVIGATE on tap, and the back-sentinel
+  // would pop that navigation straight back off the history stack (landing
+  // the director back on Roster). useModalA11y's own rule — closeOnBack is
+  // for editing drawers with unsaved work, not for overlays you tap through.
+  const panelRef = useModalA11y<HTMLDivElement>(onClose, true);
   const { records: attendanceRecords } = useAttendanceHistory(student.id);
   const { notes: progressNotes } = useProgressNotes(student.id);
   const { events } = useEvents();

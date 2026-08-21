@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bell, CalendarPlus, Check, Copy, Download, RefreshCw, X } from 'lucide-react';
 import { changesFeedUrl, viewFeedUrl, webcalUrl } from '../../public/feedUrl';
-import { splitViewFeeds, useFeedReady } from '../../public/feedReady';
+import { splitDuplicatesSchoolWide, splitViewFeeds, useFeedReady } from '../../public/feedReady';
+import { BundleCalendars } from '../../public/components/BundleCalendars';
 import { detectPlatform, type Platform } from '../../public/platform';
 import { registerCalendarView } from '../hooks/useCalendarViews';
 import type { Assignment, CalendarEvent, Ensemble, RepertoirePiece } from '../types';
@@ -189,20 +190,32 @@ export function FilteredCalendarSubscribe({
                   && '⚠ This mix could not be saved — check your connection and reopen this sheet. The snapshot below still works.'}
                 {saveState !== 'saving' && saveState !== 'error' && feedState === 'checking'
                   && 'Checking whether this calendar is ready…'}
-                {saveState !== 'saving' && saveState !== 'error' && notReady && (
+                {saveState !== 'saving' && saveState !== 'error' && feedState === 'unknown' && (
                   <>
-                    ⚠ This mix is saved, but its calendar file has not been built yet — it lands at the
-                    next feed refresh (hourly, so usually within the hour). Adding it right now fails: Apple Calendar
-                    and Google fetch the file the moment you tap, and an address with nothing behind it
-                    comes back as “Validation failed”. Use the ready-made calendars below, or the
-                    snapshot, and come back for the single calendar once it exists.
+                    Could not check whether this calendar is ready — you may be offline. The button
+                    below may still work.
                     {' '}
                     <button type="button" className="dir-link-btn" onClick={recheck}>
                       <RefreshCw size={12} style={{ verticalAlign: '-2px' }} /> Check again
                     </button>
                   </>
                 )}
-                {saveState !== 'saving' && saveState !== 'error' && (feedState === 'live' || feedState === 'unknown')
+                {saveState !== 'saving' && saveState !== 'error' && notReady && (
+                  <>
+                    ⚠ This mix is saved, but its calendar file has not been built yet — it lands at the
+                    next feed refresh (hourly, so usually within the hour). Adding it right now fails: Apple Calendar
+                    and Google fetch the file the moment you tap, and an address with nothing behind it
+                    comes back as “Validation failed”.
+                    {perEnsemble.length > 0
+                      ? ' Use the ready-made calendars below, or the snapshot, and come back for the single calendar once it exists.'
+                      : ' Nothing pre-made covers this exact mix, so there is no live calendar to offer in the meantime — download the snapshot below and come back once it is built.'}
+                    {' '}
+                    <button type="button" className="dir-link-btn" onClick={recheck}>
+                      <RefreshCw size={12} style={{ verticalAlign: '-2px' }} /> Check again
+                    </button>
+                  </>
+                )}
+                {saveState !== 'saving' && saveState !== 'error' && feedState === 'live'
                   && 'This is a custom mix, so it gets its own calendar — and it is ready. Subscribe below and it stays in sync from here on. Want the events on your phone as a one-off file instead? Download the snapshot.'}
               </p>
             )}
@@ -244,27 +257,31 @@ export function FilteredCalendarSubscribe({
                 </>
               )}
             </ol>
-            {notReady ? (
-              perEnsemble.length > 0 && (
-                <div className="dir-subw-split">
-                  <div className="dir-subw-split-head">
-                    Ready now — subscribe to these instead. Together they hold the same events:
-                  </div>
-                  {perEnsemble.map(f => (
-                    <a
-                      key={f.id}
-                      className="dir-btn dir-btn-ghost dir-subw-action"
-                      href={platform === 'ios'
-                        ? webcalUrl(f.url)
-                        : `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl(f.url))}`}
-                      {...(platform === 'ios' ? {} : { target: '_blank', rel: 'noreferrer' })}
-                    >
-                      <CalendarPlus size={15} /> {f.label}
-                    </a>
-                  ))}
+            {notReady && perEnsemble.length > 0 ? (
+              <div className="dir-subw-split">
+                <div className="dir-subw-split-head">
+                  Ready now — one calendar per ensemble. Between them they cover everything in this mix:
                 </div>
-              )
-            ) : platform === 'ios' ? (
+                {perEnsemble.map(f => (
+                  <a
+                    key={f.id}
+                    className="dir-btn dir-btn-ghost dir-subw-action"
+                    href={platform === 'ios'
+                      ? webcalUrl(f.url)
+                      : `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl(f.url))}`}
+                    {...(platform === 'ios' ? {} : { target: '_blank', rel: 'noreferrer' })}
+                  >
+                    <CalendarPlus size={15} /> {f.label}
+                  </a>
+                ))}
+                {splitDuplicatesSchoolWide(perEnsemble) && (
+                  <div className="dir-subw-split-note">
+                    Heads up: school-wide days (holidays, early release) are on every one of these, so
+                    you will see them once per calendar. The single combined calendar does not do that.
+                  </div>
+                )}
+              </div>
+            ) : notReady ? null : platform === 'ios' ? (
               <a className="dir-btn dir-btn-primary dir-subw-action" href={webcal}>
                 <CalendarPlus size={16} /> Add to Apple Calendar
               </a>
@@ -273,6 +290,14 @@ export function FilteredCalendarSubscribe({
                 <CalendarPlus size={16} /> Add to Google Calendar
               </a>
             )}
+            {sheet === 'filter' && (
+              <BundleCalendars
+                platform={platform}
+                heading="Or pick a ready-made school calendar — always live, never a wait:"
+                className="dir-subw-bundles"
+              />
+            )}
+
             {platform === 'ios' && (
               <p className="dir-field-hint" style={{ margin: 0 }}>
                 If iPad or iPhone asks about an “insecure connection”, tap Continue — that is Apple

@@ -47,7 +47,9 @@ export function RichTextArea({ value, onChange, placeholder, rows = 3, className
   function setLinePrefix(prefix: string) {
     const el = ref.current;
     if (!el) return;
-    const start = value.lastIndexOf('\n', el.selectionStart - 1) + 1;
+    // selectionStart 0 would search from -1 and wrap to the LAST newline, so
+    // a description that opens with a blank line grew an extra one.
+    const start = el.selectionStart > 0 ? value.lastIndexOf('\n', el.selectionStart - 1) + 1 : 0;
     const endLine = value.indexOf('\n', el.selectionEnd);
     const end = endLine === -1 ? value.length : endLine;
     const lines = value.slice(start, end).split('\n');
@@ -107,7 +109,9 @@ export function RichTextArea({ value, onChange, placeholder, rows = 3, className
         <button
           type="button"
           className={`dir-rte-btn dir-rte-preview${preview ? ' on' : ''}`}
-          onMouseDown={e => { e.preventDefault(); setPreview(p => !p); }}
+          /* onClick, not onMouseDown: this button has no selection to
+             preserve, and mousedown-only left it unreachable by keyboard. */
+          onClick={() => setPreview(p => !p)}
           title={preview ? 'Back to editing' : 'Preview what students see'}
         >
           {preview ? <><Pencil size={12} /> Edit</> : <><Eye size={12} /> Preview</>}

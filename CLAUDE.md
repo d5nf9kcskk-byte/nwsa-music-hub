@@ -65,11 +65,22 @@ How it works — do not regress this:
   `useStudents` / `useRosterOverrides` batches the mirror doc with the source
   doc; `scripts/backfill-public-projections.mjs` (GitHub Action) converges
   mirrors on demand.
-- `scripts/generate-feeds.mjs` must only ever fetch the public projections.
+- `scripts/generate-feeds.mjs` must only ever fetch the public projections
+  for PUBLIC feeds.
   It runs unauthenticated by default; when `FIREBASE_SERVICE_ACCOUNT_JSON` is
   set it uses a service account instead (so App Check enforcement can be
   turned on without killing the feeds — docs/security-recommendations.md #1).
-  The credential does NOT widen what it may read: public projections only.
+  The credential does NOT widen what any PUBLIC feed may read: public
+  projections only.
+- **One scoped exception** (#lessons-feed): the private lessons calendar,
+  written to `feeds/lessons-<token>.ics`. It reads the staff-only `lessons`
+  collection and is built ONLY when a service-account credential AND a token
+  in `feedSecrets/lessons` are both present, so an anonymous run fails
+  closed. Its unguessable URL is its only protection, so the token lives in a
+  staff-only Firestore doc — never in the repo, never in the app bundle — and
+  the file is deliberately absent from `feeds/index.json`. The director
+  creates and rotates it on the Lessons screen. Do NOT widen this exception,
+  add the file to any index, or log the token (workflow logs are public).
 - Student doc IDs are RANDOM Firestore IDs, never the school-issued Student
   ID — doc IDs are effectively public (shared with `studentsPublic`, and in
   `/student/<id>` URLs and `feeds/student-<id>.ics`). The school ID lives
@@ -119,6 +130,18 @@ hand-write SW fetch/install logic. Rules that must not regress:
   (`autoViewSpecs`); wider mixes are registered in `calendarViews` and built
   on the next feed refresh. **The slug hash is a frozen subscription
   contract** — `scripts/calendar-view.selfcheck.mjs` pins it.
+- **Named bundles** (`src/shared/calendarBundles.ts`, configured per org in
+  `config/orgs/*.json`) are curated calendars at a STABLE address
+  (`feeds/bundle-<slug>.ics`) whose MEMBERSHIP is resolved on every build —
+  by ensemble id and by name pattern, so a "Jazz Combo #2" created next term
+  joins the bundle it matches without anyone re-subscribing. That is the one
+  thing a hash-addressed view cannot do, since changing a view's filters
+  changes its URL. Bundles are also defined NOT to overlap (an ensemble
+  bundle drops the school-wide ride-along unless `includeSchoolWide`), so
+  subscribing to several never repeats a holiday. A published slug is a
+  subscription contract — never rename one.
+  `scripts/calendar-bundles.selfcheck.mjs` pins both promises and runs in the
+  deploy workflow.
 - `calendarViews` is one of the app's five unauthenticated writes (with
   `plannedAbsences`, `parentMessages`, `assignmentSubmissions`,
   `signupResponses`) — students

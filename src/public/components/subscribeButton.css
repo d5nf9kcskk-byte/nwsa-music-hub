@@ -221,6 +221,15 @@
   font-size: 12.5px; font-weight: 700; color: var(--pub-muted); text-align: left;
 }
 .pub-subw-action-sm { padding: 11px 14px; font-size: 14px; }
+.pub-subw-bundles { margin-top: 4px; }
+.pub-subw-bundle { align-items: flex-start; text-align: left; }
+.pub-subw-bundle-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pub-subw-bundle-name { font-weight: 800; }
+.pub-subw-bundle-desc { font-size: 12px; font-weight: 500; opacity: 0.85; line-height: 1.35; }
+.pub-subw-split-note {
+  font-size: 12.5px; line-height: 1.45; color: var(--pub-muted);
+  text-align: left; margin-top: 2px;
+}
 
 /* Download-it-now, under the live subscription rather than instead of it. */
 .pub-subw-snapshot {

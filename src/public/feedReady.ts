@@ -53,19 +53,38 @@ export function useFeedReady(url: string, enabled: boolean): {
 
 /**
  * Calendars the reader can subscribe to RIGHT NOW that together cover the
- * same mix — one per ensemble, which is always pre-built. Not as tidy as a
- * single calendar, but it is live this minute instead of after the next
- * refresh, and every event is there.
+ * same mix — one per ensemble, which is always pre-built. Live this minute
+ * instead of after the next refresh.
+ *
+ * It is a COVER, not a partition, and the UI must not claim otherwise. Every
+ * per-ensemble feed carries the school-wide items too (that ride-along is
+ * deliberate — see eventMatchesView), so holidays and early-release days
+ * land on each calendar the reader adds. There is no "this ensemble without
+ * the school-wide items" feed to build a clean partition from, and the slug
+ * hash is a frozen subscription contract, so the existing specs cannot be
+ * redefined to make one.
+ *
+ * Returns [] when nothing pre-built covers the mix (a custom TYPE set, say) —
+ * callers must handle that rather than rendering an empty container.
  */
 export function splitViewFeeds(
   spec: CalendarViewSpec,
   ensembleName: (id: string) => string,
 ): { id: string; label: string; url: string }[] {
-  const parts = [
-    ...spec.ensembleIds.map(id => ({ id, label: ensembleName(id), one: { ensembleIds: [id], school: false, types: spec.types } })),
-    ...(spec.school ? [{ id: '__school', label: 'School events', one: { ensembleIds: [], school: true, types: spec.types } }] : []),
-  ];
+  const parts = spec.ensembleIds.length > 0
+    // School-wide items already ride along in every ensemble feed; adding the
+    // School calendar on top would duplicate them once more for no gain.
+    ? spec.ensembleIds.map(id => ({ id, label: ensembleName(id), one: { ensembleIds: [id], school: false, types: spec.types } }))
+    : spec.school
+      ? [{ id: '__school', label: 'School events', one: { ensembleIds: [], school: true, types: spec.types } }]
+      : [];
   return parts
     .filter(p => isAutoView(p.one))
     .map(p => ({ id: p.id, label: p.label, url: viewFeedUrl(p.one) }));
+}
+
+/** True when the split will duplicate school-wide items across the calendars
+ *  it offers — which is whenever it offers more than one. */
+export function splitDuplicatesSchoolWide(feeds: { id: string }[]): boolean {
+  return feeds.length > 1;
 }

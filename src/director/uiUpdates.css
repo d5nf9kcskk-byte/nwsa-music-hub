@@ -1012,3 +1012,26 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
 .dir-submission-notes { font-size: 12px; color: var(--dir-text); margin-top: 4px; font-style: italic; }
 .dir-submission-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
 .dir-submission-reviewed { background: #f0fdf4 !important; color: #16a34a !important; border-color: #16a34a !important; }
+
+
+/* ── Private lessons calendar (#lessons-feed) ─────────────────────────
+   Deliberately warning-coloured: this is the one feed in the app whose link
+   is the only thing protecting private data. */
+.dir-lessons-feed {
+  display: flex; flex-direction: column; gap: 8px;
+  margin: 12px 0 4px; padding: 12px 14px;
+  border: 1.5px solid var(--dir-border); border-left: 5px solid var(--dir-lesson);
+  border-radius: var(--dir-radius); background: var(--dir-surface);
+}
+.dir-lessons-feed-head {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 14px; font-weight: 800; color: var(--dir-text);
+}
+.dir-lessons-feed-warn {
+  margin: 0; padding: 9px 11px;
+  font-size: 12.5px; line-height: 1.5;
+  color: var(--dir-text);
+  background: #fef3c7; border-radius: 8px;
+}
+[data-dir-theme='dark'] .dir-lessons-feed-warn { background: #43350f; }
+.dir-lessons-feed-actions { display: flex; flex-wrap: wrap; gap: 8px; }

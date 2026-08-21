@@ -1233,6 +1233,11 @@ html:has(.dir-app) body {
   color: var(--dir-text-muted);
   line-height: 1.4;
 }
+.dir-subw-split-note {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--dir-text-muted);
+}
 @media (min-width: 720px) {
   .dir-subw-overlay { align-items: center; }
   .dir-subw-sheet { border-radius: 16px; }

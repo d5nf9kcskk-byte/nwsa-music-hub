@@ -66,6 +66,28 @@
     { "slug": "opera", "match": ["opera"] },
     { "slug": "cco", "match": ["chamber"] }
   ],
+  "calendarBundles": [
+    {
+      "slug": "ensembles",
+      "name": "Ensembles (no orchestras)",
+      "description": "Wind Ensemble, Jazz Ensemble, Chamber Winds, and every Jazz Combo.",
+      "ensembleIds": ["wind-ensemble", "jazz-ensemble", "chamber-winds"],
+      "ensembleNamePatterns": ["^jazz\\s*combo"]
+    },
+    {
+      "slug": "classes",
+      "name": "Classes & school days",
+      "description": "Theory, Jazz Theory, Music Appreciation and the rest, plus school-wide days.",
+      "schoolOnly": true,
+      "types": ["Class", "Event"]
+    },
+    {
+      "slug": "arts",
+      "name": "Dance, Theatre & Visual Arts",
+      "description": "Everything scheduled for the Dance, Theatre, and Visual Arts programs.",
+      "ensembleIds": ["dance", "theatre", "visual-arts"]
+    }
+  ],
   "breakGlassEmails": ["nwsaorchestras@gmail.com"],
   "ics": {
     "prodId": "-//NWSA Music//ggmuze//EN",

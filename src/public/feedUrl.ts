@@ -34,6 +34,15 @@ export function viewFeedUrl(spec: CalendarViewSpec): string {
   return `${FEEDS_BASE()}/${viewFeedFile(spec)}`;
 }
 
+/**
+ * ICS feed for a named bundle (#calendar-bundles) — a curated calendar whose
+ * ADDRESS is fixed while its membership is resolved on each build. Always
+ * built, so this link works the moment the site deploys, with no waiting.
+ */
+export function bundleFeedUrl(slug: string): string {
+  return `${FEEDS_BASE()}/bundle-${slug.replace(/[^a-z0-9-]/gi, '-')}.ics`;
+}
+
 /** ICS feed for one student's personal schedule (their ensembles + subs + required attendance). */
 export function studentFeedUrl(studentId: string): string {
   const safe = studentId.replace(/[^a-z0-9-]/gi, '-');

@@ -69,4 +69,40 @@ assert(
 const plain = 'Please read the following instructions carefully.\nFollow all setup guidelines.';
 assert(richTextToPlain(plain) === plain, 'plain text round-trips');
 
+// ── Regressions found reviewing the change that introduced this file.
+
+// A trailing space inside the closing ** must still bold. Double-clicking a
+// word in Firefox selects its trailing space, so the toolbar really does
+// write this — and leaving the asterisks raw is the reported bug all over.
+const trailing = parseRichText('Wear **black ** shoes');
+assert(!flat(trailing[0]).includes('*'), 'no raw asterisks with a space before the close');
+assert(
+  trailing[0].segments.some(s => s.marks.includes('bold') && s.text.startsWith('black')),
+  'space before the closing ** still bolds',
+);
+// The same courtesy is NOT extended to a lone asterisk: arithmetic stays text.
+assert(flat(parseRichText('2 * 3 * 4')[0]) === '2 * 3 * 4', 'lone asterisk still literal');
+assert(parseRichText('2 * 3 * 4')[0].segments.every(s => s.marks.length === 0), 'arithmetic unmarked');
+
+// Bold then Italic on the same selection writes ***both*** — the innermost
+// mark has to close first or a stray asterisk survives.
+const both = parseRichText('Wear ***black*** shoes');
+assert(!flat(both[0]).includes('*'), 'no stray asterisk from ***');
+assert(
+  both[0].segments.some(s => s.marks.includes('bold') && s.marks.includes('italic') && s.text === 'black'),
+  'bold+italic both applied',
+);
+assert(flat(both[0]) === 'Wear black shoes', `*** round-trips, got ${flat(both[0])}`);
+
+// A pasted Drive link is a link, not markup — underscores in it are part of
+// the address and must survive intact.
+const link = 'https://drive.google.com/file/d/1a__b__c/view';
+const pasted = parseRichText(`Parts: ${link}`);
+assert(flat(pasted[0]) === `Parts: ${link}`, `URL kept verbatim, got ${flat(pasted[0])}`);
+assert(pasted[0].segments.every(s => !s.marks.includes('underline')), 'no underline inside a URL');
+// …but markup still works around one.
+const around = parseRichText(`**Parts: ${link}**`);
+assert(around[0].segments.every(s => s.marks.includes('bold')), 'bold still wraps a URL');
+assert(flat(around[0]) === `Parts: ${link}`, 'URL intact inside bold');
+
 console.log('richText self-check passed');

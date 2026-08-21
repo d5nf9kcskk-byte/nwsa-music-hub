@@ -57,21 +57,66 @@ interface Pair { open: number; close: number; len: number; mark: RichMark }
 
 const isSpace = (ch: string | undefined) => ch === undefined || /\s/.test(ch);
 
+/** A link is opaque — see the URL skip in `pairDelimiters`. Kept in step with
+ *  the pattern in components/Linkify.tsx, and sticky so it can only match at
+ *  the position being scanned. */
+const URL_AT = /(?:https?:\/\/|www\.)[^\s<>"']+/y;
+
 /**
  * Pair up emphasis delimiters across the whole text.
  *
- * A delimiter may CLOSE only when the character before it is not a space and
- * a matching one is open, and may OPEN only when the character after it is
- * not a space — the standard flanking rule, and what keeps arithmetic
- * ("2 * 3") and a lone asterisk from turning into markup.
+ * A delimiter may OPEN only when the character after it is not a space. A
+ * LONE `*` may close only when the character before it is not a space either
+ * — that strict flanking rule is what keeps arithmetic ("2 * 3") from
+ * turning into markup. A MULTI-character delimiter (`**`, `__`, `~~`) is
+ * deliberate markup nobody types by accident, so it may also close after a
+ * space: double-clicking a word in Firefox selects its trailing space, so the
+ * toolbar writes "**black ** shoes", and refusing to close there put the raw
+ * asterisks back on students' screens — the very thing this renderer exists
+ * to prevent.
  */
 function pairDelimiters(text: string): Pair[] {
   const pairs: Pair[] = [];
   const stack: { mark: RichMark; index: number }[] = [];
   let i = 0;
   while (i < text.length) {
-    const d = DELIMS.find(x => text.startsWith(x.chars, i));
-    if (!d) { i++; continue; }
+    // URLs are opaque. A Drive link to the parts is full of underscores
+    // ("/d/1a__b__c/view"); treating those as underline markup deleted them
+    // from the address and handed students a broken link.
+    if (text[i] === 'h' || text[i] === 'w') {
+      URL_AT.lastIndex = i;
+      const url = URL_AT.exec(text);
+      if (url) {
+        // The URL pattern is greedy, so "**see https://…/view**" would eat the
+        // closing delimiter along with the address. Hand back any trailing run
+        // that closes a mark which is actually open right now.
+        let end = i + url[0].length;
+        for (let trimming = true; trimming && end > i + 1;) {
+          trimming = false;
+          for (const open of stack) {
+            const dl = DELIMS.find(x => x.mark === open.mark);
+            if (dl && end - dl.chars.length > i && text.startsWith(dl.chars, end - dl.chars.length)) {
+              end -= dl.chars.length;
+              trimming = true;
+              break;
+            }
+          }
+        }
+        i = end;
+        continue;
+      }
+    }
+
+    const match = DELIMS.find(x => text.startsWith(x.chars, i));
+    if (!match) { i++; continue; }
+    // Close the INNERMOST open mark when more than one delimiter matches here.
+    // Without this, "***both***" closes the outer bold first, discards the
+    // italic opener as literal, and leaves a stray asterisk on screen.
+    const top = stack[stack.length - 1];
+    const topDelim = top && top.mark !== match.mark
+      ? DELIMS.find(x => x.mark === top.mark && text.startsWith(x.chars, i))
+      : undefined;
+    const d = topDelim ?? match;
     const len = d.chars.length;
 
     // Code spans are opaque: whatever sits between the backticks is literal,
@@ -91,7 +136,7 @@ function pairDelimiters(text: string): Pair[] {
     for (let k = stack.length - 1; k >= 0; k--) {
       if (stack[k].mark === d.mark) { matchIdx = k; break; }
     }
-    if (matchIdx >= 0 && !isSpace(text[i - 1])) {
+    if (matchIdx >= 0 && (len > 1 || !isSpace(text[i - 1]))) {
       const open = stack[matchIdx];
       stack.length = matchIdx; // anything opened inside and left open is literal
       pairs.push({ open: open.index, close: i, len, mark: d.mark });
