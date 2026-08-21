@@ -11,6 +11,7 @@ import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { SkeletonCards, EmptyState } from './components/PageHeader';
 import { getIdentity, onIdentityChange } from '../shared/identity';
+import { isSharedBlock, sharedBlockLabel } from '../shared/sharedBlock';
 import { t, useLang, getLang } from '../shared/i18n';
 import { fmtLongDate, fmtShortDate } from '../shared/dates';
 import { composerBirthdaysOn, birthdayLine, musicHolidayOn, concertDayLine, dailyPun, say, schoolMomentLine, weekdayMomentLine, fermataHoldLine } from '../shared/whimsy';
@@ -96,7 +97,9 @@ export function PublicHome() {
 
   function label(e: CalendarEvent) {
     if (e.title) return e.title;
-    return e.ensembleIds.map(id => ensembleDisplayName(ensembleMap[id])).filter(Boolean).join(', ') || e.type;
+    const names = e.ensembleIds.map(id => ensembleDisplayName(ensembleMap[id])).filter(Boolean);
+    if (isSharedBlock(e)) return sharedBlockLabel(names);
+    return names.join(', ') || e.type;
   }
   function color(e: CalendarEvent) {
     return e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]);

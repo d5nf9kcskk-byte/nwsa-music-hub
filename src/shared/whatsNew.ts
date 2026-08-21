@@ -28,6 +28,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Shared/combined blocks (#shared-block). Combining two ensembles used to
+  // mean creating one event per ensemble and hoping nobody read them as a
+  // double-booking; now it is one event with a checkbox.
+  {
+    id: '2026-08-21-shared-blocks',
+    date: '2026-08-21',
+    title: 'Rehearsing two ensembles together is now one event',
+    audience: 'both',
+    expires: '2026-09-11',
+    bullets: [
+      'When a rehearsal has more than one ensemble on it, a new "They meet together" checkbox says they share the room \u2014 for two ensembles or for the whole department.',
+      'Combined blocks say so everywhere: on the calendar, on your own schedule, and in subscribed calendar feeds, so nobody has to guess which room to walk into.',
+      'The director\u2019s roster for a combined block lists everyone in the room once, even players who belong to two of the ensembles. Roll is still taken per ensemble.',
+    ],
+  },
   // Stale-client visibility (#stale-client). A phone running an older build
   // does not fail — it renders wrong rosters (a build predating `days` on
   // RosterOverride applies a standing rotation every day of its range and

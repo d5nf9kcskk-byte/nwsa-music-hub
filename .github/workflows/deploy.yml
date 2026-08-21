@@ -43,6 +43,13 @@ jobs:
       - name: Check sign-up eligibility
         run: node scripts/signup-eligibility.selfcheck.mjs
 
+      # Shared/combined blocks: the predicate that decides whether several
+      # ensembles on one event means "one room together" — and the guard that
+      # the combined label never disturbs an ordinary event's VEVENT, which is
+      # a live subscription contract.
+      - name: Check shared-block semantics + frozen ICS shape
+        run: node scripts/shared-block.selfcheck.mjs
+
       # Standing weekday rotations: `days` on RosterOverride decides which
       # ensemble a rotating student rehearses with, and generate-feeds.mjs
       # keeps its own copy of that predicate. This pins both, and that they

@@ -7,6 +7,9 @@
  * NOTHING here may change UID composition or the line order of an existing
  * VEVENT: NWSA feeds are a frozen contract for people already subscribed.
  */
+// Explicit .ts: generate-feeds.mjs loads this file under Node's type-stripping
+// loader, which does not resolve extensionless relative imports.
+import { isSharedBlock, sharedBlockLabel } from './sharedBlock.ts';
 
 /** Escape the characters ICS gives meaning to. */
 export function icsEscape(value = ''): string {
@@ -65,6 +68,7 @@ interface IcsEventLike {
   repertoire?: string;
   pieceIds?: string[];
   ensembleIds?: string[];
+  sharedBlock?: boolean;
 }
 
 interface IcsPieceLike {
@@ -104,7 +108,7 @@ function pieceText(piece: IcsPieceLike): string {
 export function icsDescription(event: IcsEventLike, lookups: IcsLookups): string {
   const parts: string[] = [];
   const ensNames = (event.ensembleIds ?? []).map(lookups.ensembleName).filter(Boolean).join(', ');
-  if (ensNames) parts.push(ensNames);
+  if (ensNames) parts.push(isSharedBlock(event) ? `Combined block: ${ensNames}` : ensNames);
   if (event.changeNote) parts.push(`⚠ Changed: ${event.changeNote}`);
 
   const pieces = (event.pieceIds ?? [])
@@ -123,10 +127,15 @@ export function icsDescription(event: IcsEventLike, lookups: IcsLookups): string
 /** Summary line: cancellations are prefixed because several phone calendar
  *  apps ignore STATUS:CANCELLED on subscribed feeds (#30). */
 export function icsSummary(event: IcsEventLike, lookups: IcsLookups, branding: IcsBranding): string {
-  const ensNames = (event.ensembleIds ?? []).map(lookups.ensembleName).filter(Boolean).join(', ');
+  const names = (event.ensembleIds ?? []).map(lookups.ensembleName).filter((n): n is string => !!n);
+  // A combined block is ONE call in ONE room, so the subscribed calendar has to
+  // say who else is in it — "Wind Ensemble" alone would send half the room to
+  // the wrong place. Ordinary multi-ensemble events keep their comma list.
+  const ensNames = isSharedBlock(event) ? sharedBlockLabel(names) : names.join(', ');
   const cancelled = event.status === 'Cancelled';
+  const base = event.title || ensNames || event.type || `${branding.namePrefix} Event`;
   return (cancelled ? '[CANCELLED] ' : '')
-    + (event.title || ensNames || event.type || `${branding.namePrefix} Event`);
+    + (isSharedBlock(event) && !event.title ? `${base} (combined)` : base);
 }
 
 /** One VEVENT for a calendar event. */

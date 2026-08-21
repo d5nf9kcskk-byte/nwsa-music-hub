@@ -121,6 +121,16 @@ export interface CalendarEvent {
    * same badge/expectation as `attendanceEnsembleIds`, one student at a time.
    */
   attendanceStudentIds?: string[];
+  /**
+   * The ensembles in `ensembleIds` meet TOGETHER — one room, one downbeat
+   * (a combined pops rehearsal, a full-department call). Without this, a
+   * rehearsal tagged with several ensembles is ambiguous, and a genuine
+   * combined block reads downstream as a student booked into two rooms at
+   * once. Any number of ensembles, from two up to all of them.
+   * Semantics live in src/shared/sharedBlock.ts — use isSharedBlock(), which
+   * fails closed when the flag outlives the second ensemble.
+   */
+  sharedBlock?: boolean;
   date: string;           // YYYY-MM-DD
   startTime?: string;     // "HH:MM" (24h)
   endTime?: string;       // "HH:MM" (24h)

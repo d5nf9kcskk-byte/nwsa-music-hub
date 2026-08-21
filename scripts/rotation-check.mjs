@@ -52,6 +52,7 @@ globalThis.__ORG_CONFIG__ = JSON.parse(
 
 const { resolveRoster } = await import('../src/director/rosterResolver.ts');
 const { takesAttendance } = await import('../src/director/utils.ts');
+const { isSharedBlock, sharedBlockLabel } = await import('../src/shared/sharedBlock.ts');
 
 const PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID || 'nwsa-hub';
 const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
@@ -176,16 +177,37 @@ for (const date of DATES) {
       continue;
     }
 
-    // Two rosters at the same time is the other half of a broken rotation:
-    // the student is told to be in two rooms at once.
+    // Two rosters at the same time is the other half of a broken rotation: the
+    // student is told to be in two rooms at once. Two rosters on the SAME event
+    // is not that — one event has one location, so those ensembles are in one
+    // room together. Collapse per event first, then judge the slot.
     const bySlot = {};
-    for (const h of hits) (bySlot[`${h.event.startTime}-${h.event.endTime}`] ??= []).push(h);
+    for (const h of hits) {
+      const slot = (bySlot[`${h.event.startTime}-${h.event.endTime}`] ??= new Map());
+      const entry = slot.get(h.event.id) ?? { event: h.event, ensembleIds: [] };
+      entry.ensembleIds.push(h.ensembleId);
+      slot.set(h.event.id, entry);
+    }
     const parts = [];
-    for (const [slot, list] of Object.entries(bySlot).sort()) {
-      const names = list.map(h => `${ensName[h.ensembleId] ?? h.ensembleId} (${h.event.location || 'room ?'})`);
-      const clash = list.length > 1;
+    for (const [slot, byEvent] of Object.entries(bySlot).sort()) {
+      const entries = [...byEvent.values()];
+      const describe = e => {
+        const names = e.ensembleIds.map(id => ensName[id] ?? id);
+        const room = e.event.location || 'room ?';
+        // An event carrying several ensembles without the flag is ambiguous,
+        // not wrong — one location says they are together, but nobody SAID so.
+        // Name it rather than silently accepting or rejecting it.
+        if (e.ensembleIds.length > 1 && !isSharedBlock(e.event)) {
+          return `${sharedBlockLabel(names)} (${room}) — untagged shared block?`;
+        }
+        return e.ensembleIds.length > 1
+          ? `${sharedBlockLabel(names)} together (${room})`
+          : `${names[0]} (${room})`;
+      };
+      // Only DIFFERENT events at the same time are a real clash.
+      const clash = entries.length > 1;
       if (clash) problems++;
-      parts.push(`${slot} ${clash ? '⚠ BOTH ' : ''}${names.join(' + ')}`);
+      parts.push(`${slot} ${clash ? '⚠ BOTH ' : ''}${entries.map(describe).join(' + ')}`);
     }
     console.log(`   ${label} ${parts.join('   ·   ')}`);
   }

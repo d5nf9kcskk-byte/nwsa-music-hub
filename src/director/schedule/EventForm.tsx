@@ -12,6 +12,7 @@ import { EditedByLine } from '../components/EditedByLine';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { recordActivity } from '../hooks/useActivityLog';
 import { whenQueued } from '../writeStatus';
+import { isSharedBlock, sharedBlockLabel } from '../../shared/sharedBlock';
 import type { CalendarEvent, Ensemble, EventType, EventStatus } from '../types';
 
 interface Props {
@@ -50,6 +51,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     attendanceEnsembleIds: [],
     studentIds: [],
     attendanceStudentIds: [],
+    sharedBlock: false,
     status: 'Scheduled',
     notes: '',
     changeNote: '',
@@ -221,6 +223,10 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
         : [...new Set([...f.ensembleIds, ...musicIds])],
     }));
   }
+  const sharedNames = useMemo(
+    () => form.ensembleIds.map(id => ensembles.find(e => e.id === id)?.name ?? '').filter(Boolean),
+    [form.ensembleIds, ensembles],
+  );
   const attendanceMusicIds = useMemo(
     () => musicIds.filter(id => !form.ensembleIds.includes(id)),
     [musicIds, form.ensembleIds],
@@ -268,7 +274,10 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
       // rehearsal saved in a basement used to sit on "Saving…" for 15s and
       // then claim it timed out, even though the write synced fine later
       // (audit rec #4).
-      await whenQueued(onSave(form));
+      // Normalize before writing: isSharedBlock() fails closed on read, but a
+      // `true` left behind after the second ensemble was unchecked is still
+      // misleading data for anything reading the raw doc.
+      await whenQueued(onSave({ ...form, sharedBlock: isSharedBlock(form) }));
       recordActivity(event ? 'schedule.edit' : 'schedule.create', form.title || form.type);
       onClose();
     } catch (err) {
@@ -364,6 +373,23 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                 </label>
               ))}
             </div>
+            {form.ensembleIds.length >= 2 && (
+              <label className="dir-checkbox-row" style={{ marginTop: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={!!form.sharedBlock}
+                  onChange={ev => setForm(f => ({ ...f, sharedBlock: ev.target.checked }))}
+                />
+                <span>
+                  <strong>They meet together</strong> — one room, one downbeat
+                  <div className="dir-field-hint" style={{ marginTop: 2 }}>
+                    {form.sharedBlock
+                      ? `${sharedBlockLabel(sharedNames, { total: ensembles.length })} in ${form.location || 'one room'}. Roll is still taken per ensemble.`
+                      : 'Leave off if the groups rehearse separately and this event just concerns both.'}
+                  </div>
+                </span>
+              </label>
+            )}
             <div className="dir-field-hint" style={{ marginTop: 8 }}>Or add individual students (performers)</div>
             {(form.studentIds ?? []).length > 0 && (
               <div className="dir-checkbox-group" style={{ marginBottom: 8 }}>

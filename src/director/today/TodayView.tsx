@@ -13,6 +13,7 @@ import { SeasonChecklist } from './SeasonChecklist';
 import { QrKitView } from '../qr/QrKitView';
 import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster } from '../rosterResolver';
+import { isSharedBlock, sharedBlockLabel } from '../../shared/sharedBlock';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../utils';
 import type { CalendarEvent } from '../types';
 import type { DirNavigate } from '../types-nav';
@@ -123,12 +124,21 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   }
   const dateLabel = parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
+  // One label for an event's ensembles, so a combined block reads the same on
+  // every row here as it does on the calendar and in a subscribed feed.
+  const eventLabel = (e: CalendarEvent) => {
+    if (e.title) return e.title;
+    const names = e.ensembleIds.map(id => ensembleMap[id]?.name ?? '').filter(Boolean);
+    if (isSharedBlock(e)) return sharedBlockLabel(names, { total: ensembles.length });
+    return names.join(' + ') || e.type;
+  };
+
   const upRow = (e: CalendarEvent) => (
     <button key={e.id} className="dir-up-row" onClick={() => onNavigate('schedule', { date: e.date, eventId: e.id })}>
       <span className="dir-up-date">{parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
       <span className="dir-up-dot" style={{ background: e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]) }} />
       <span className="dir-up-label">
-        {e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(' + ') || e.type}
+        {eventLabel(e)}
         {e.startTime ? <span className="dir-up-time"> · {formatTimeRange(e.startTime, e.endTime)}</span> : null}
       </span>
       <ChevronRight size={15} className="dir-up-chev" />
@@ -176,7 +186,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
             moreClassName="dir-alert-group-more"
             renderItem={e => (
               <button key={e.id} className="dir-today-alert" onClick={() => onNavigate('schedule', { date: e.date, eventId: e.id })}>
-                ⚠ {e.status === 'Cancelled' ? 'Cancelled' : 'Changed'}: {e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).join(' + ') || e.type}
+                ⚠ {e.status === 'Cancelled' ? 'Cancelled' : 'Changed'}: {eventLabel(e)}
                 {e.changeNote ? ` — ${e.changeNote}` : ''}
               </button>
             )}
