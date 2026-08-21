@@ -30,13 +30,27 @@ data.
    ls -l ~/.config/nwsa-hub/service-account.json
    ```
    If it's missing, see **Getting the service account key** below.
-3. Optional but recommended: narrow the watch to just the MDC account so the
-   pipeline never reads a director's personal mail:
+3. Narrow the watch to just the MDC account, so the pipeline never reads a
+   director's personal mail. **Do this before step 4** — the value is baked
+   into the LaunchAgent at install time (see below).
    ```bash
    export MDC_MAIL_ACCOUNT_NAME='exactly the account name shown in Mail ▸ Settings ▸ Accounts'
    ```
-   Put that `export` in `~/.zshrc` (or wherever the installing shell reads
-   its environment) so it's set every time, not just this session.
+   Also put that `export` in `~/.zshrc` so manual runs match the scheduled
+   job. Once Mail permission is granted (step 5) you can print the exact
+   account names to copy from:
+   ```bash
+   osascript -l JavaScript -e 'Application("Mail").accounts().map(a => a.name()).join("\n")'
+   ```
+
+   > **`launchd` does not read your shell profile.** An `export` in
+   > `~/.zshrc` reaches a run you type by hand, but never the scheduled job.
+   > So `--install` copies the current value of `MDC_MAIL_ACCOUNT_NAME` into
+   > the agent's own plist. The consequence: **changing it means re-running
+   > `--install`**, or the agent keeps the value it was installed with. If
+   > it was never set at install time, the scheduled job reads *every* Mail
+   > account on the Mac. `--status` prints what the installed agent actually
+   > uses and warns when your shell disagrees with it.
 4. Install the LaunchAgent:
    ```bash
    node scripts/absence-email-local.mjs --install

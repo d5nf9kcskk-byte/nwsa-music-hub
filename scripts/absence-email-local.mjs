@@ -80,6 +80,15 @@ function readCred() {
   } catch { return null; }
 }
 
+/** What the INSTALLED agent will actually use — not what this shell has. */
+function installedAccountFilter() {
+  try {
+    const m = /<key>MDC_MAIL_ACCOUNT_NAME<\/key><string>([^<]*)<\/string>/
+      .exec(readFileSync(PLIST, 'utf8'));
+    return m ? m[1] : null;
+  } catch { return null; }
+}
+
 function readState() {
   try { return JSON.parse(readFileSync(STATE_FILE, 'utf8')); }
   catch { return { lastCheckedAt: null, processedIds: [] }; }
@@ -171,6 +180,18 @@ function plistXml() {
   const calendar = RUN_HOURS.map(h =>
     `    <dict><key>Hour</key><integer>${h}</integer>`
     + `<key>Minute</key><integer>${RUN_MINUTES_PAST_HOUR}</integer></dict>`).join('\n');
+  // launchd does NOT source a shell profile, so anything the scheduled job
+  // needs from the environment has to be baked in here, at install time.
+  // MDC_MAIL_ACCOUNT_NAME especially: without it the job silently falls back
+  // to reading EVERY Mail account on the Mac, personal ones included, which
+  // is the whole thing that setting exists to prevent. Change it → re-run
+  // --install, or the agent keeps the value it was installed with.
+  const envEntries = [['PATH', process.env.PATH || '']];
+  if (ACCOUNT_FILTER) envEntries.push(['MDC_MAIL_ACCOUNT_NAME', ACCOUNT_FILTER]);
+  if (process.env.DRY_RUN) envEntries.push(['DRY_RUN', process.env.DRY_RUN]);
+  const envXml = envEntries
+    .map(([k, v]) => `    <key>${xml(k)}</key><string>${xml(v)}</string>`)
+    .join('\n');
   // Same TCC reasoning as bulletin-local.mjs: node runs through /bin/bash so
   // the child inherits whatever automation/Full Disk Access was granted to
   // the shell instead of a version-pinned node path that breaks on upgrade.
@@ -186,7 +207,9 @@ function plistXml() {
     <string>exec ${xml(`"${process.execPath}" "${RUNNER}"`)}</string>
   </array>
   <key>EnvironmentVariables</key>
-  <dict><key>PATH</key><string>${xml(process.env.PATH || '')}</string></dict>
+  <dict>
+${envXml}
+  </dict>
   <key>StartCalendarInterval</key>
   <array>
 ${calendar}
@@ -273,7 +296,12 @@ function status() {
     : 'not loaded — run: node scripts/absence-email-local.mjs --install'}`);
   console.log(`mode:     ${DRY_RUN === 'false' ? 'LIVE, writes to Firestore' : 'dry run, no writes'}`);
   console.log(`creds:    ${readCred() ? CRED : `missing — put the key at ${CRED}`}`);
-  console.log(`account:  ${ACCOUNT_FILTER || 'all Mail.app accounts (set MDC_MAIL_ACCOUNT_NAME to narrow)'}`);
+  const installedFilter = installedAccountFilter();
+  console.log(`account:  ${installedFilter
+    || 'ALL Mail.app accounts — set MDC_MAIL_ACCOUNT_NAME, then re-run --install to narrow'}`);
+  if (ACCOUNT_FILTER !== (installedFilter ?? '')) {
+    console.log(`          ⚠ this shell says "${ACCOUNT_FILTER || '(unset)'}" — re-run --install to apply it`);
+  }
   const state = readState();
   console.log(`watched:  ${state.lastCheckedAt ? `since ${state.lastCheckedAt}` : `never run — first run looks back ${DEFAULT_LOOKBACK_HOURS}h`}`);
   console.log(`log:      ${LOG}`);
@@ -289,6 +317,19 @@ function selfCheck() {
   const plist = plistXml();
   assert((plist.match(/<key>Hour<\/key>/g) || []).length === RUN_HOURS.length, 'one entry per run hour');
   assert(plist.includes(RUNNER) && plist.includes(LOG), 'plist points at this script and the log');
+
+  // launchd never sources a shell profile, so the account filter is only
+  // honored by the scheduled job if it was baked into the plist at install
+  // time. Missing it means the job quietly reads every account on the Mac.
+  if (ACCOUNT_FILTER) {
+    assert(plist.includes('<key>MDC_MAIL_ACCOUNT_NAME</key>'), 'account filter baked into plist');
+    assert(plist.includes(`<string>${xml(ACCOUNT_FILTER)}</string>`), 'account filter value baked in');
+    // ...and that --status can read that value back out of the plist again.
+    const readBack = /<key>MDC_MAIL_ACCOUNT_NAME<\/key><string>([^<]*)<\/string>/.exec(plist)?.[1];
+    assert(readBack === xml(ACCOUNT_FILTER), `status reads the filter back, got ${readBack}`);
+  } else {
+    assert(!plist.includes('MDC_MAIL_ACCOUNT_NAME'), 'no stale account filter when unset');
+  }
   if (process.platform === 'darwin') {
     const tmp = join(tmpdir(), `${LABEL}.selfcheck.plist`);
     writeFileSync(tmp, plist);
