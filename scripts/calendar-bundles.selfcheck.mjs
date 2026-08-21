@@ -52,10 +52,12 @@ assert(bundleFeedFile(bySlug('arts')) === 'bundle-arts.ics', 'arts feed file');
 const ens = bundleEnsembleIds(bySlug('ensembles'), ensembles);
 assert(ens.includes('wind-ensemble') && ens.includes('jazz-ensemble') && ens.includes('chamber-winds'),
   `the three named ensembles are in, got ${ens}`);
+assert(ens.includes('high-school-choir'), 'High School Choir is in');
 assert(ens.includes('tS6kGJ2iv4ossPDwJ4v8'), 'Jazz Combo #1 matched by name, not by id');
 assert(!ens.some(id => id.includes('orchestra') || id === 'philharmonic'), `no orchestras, got ${ens}`);
-assert(!ens.includes('high-school-choir'), 'choir stays out — it was not on the list');
-assert(!ens.some(id => id.startsWith('masterclass-')), 'masterclasses keep their own calendars');
+assert(!ens.some(id => id.startsWith('masterclass-')), 'masterclasses keep their own calendars — each is its own section');
+assert(!ens.includes('dance') && !ens.includes('theatre') && !ens.includes('visual-arts'),
+  'the non-music programs stay in their own bundle');
 
 // ── THE POINT: a combo created next term joins on the next build, and the
 // subscription address does not move.
@@ -71,10 +73,12 @@ const symphReh = { type: 'Rehearsal', ensembleIds: ['symphony-orchestra'] };
 const theory = { type: 'Class', ensembleIds: [] };
 const holiday = { type: 'Event', ensembleIds: [] };
 const danceShow = { type: 'Concert', ensembleIds: ['dance'] };
+const choirReh = { type: 'Rehearsal', ensembleIds: ['high-school-choir'] };
 
 const E = bySlug('ensembles'), C = bySlug('classes'), A = bySlug('arts');
 assert(eventMatchesBundle(jazzReh, E, ensembles), 'jazz rehearsal in ensembles bundle');
 assert(eventMatchesBundle(comboReh, E, ensembles), 'combo rehearsal in ensembles bundle');
+assert(eventMatchesBundle(choirReh, E, ensembles), 'choir rehearsal in ensembles bundle');
 assert(!eventMatchesBundle(symphReh, E, ensembles), 'symphony rehearsal excluded');
 assert(!eventMatchesBundle(theory, E, ensembles), 'academic class not in the ensembles bundle');
 assert(!eventMatchesBundle(holiday, E, ensembles), 'school-wide day NOT duplicated into the ensembles bundle');
@@ -88,7 +92,7 @@ assert(!eventMatchesBundle(holiday, A, ensembles), 'school-wide day NOT duplicat
 
 // Every event belongs to at most one bundle — subscribe to all three and
 // nothing is listed twice.
-for (const [label, ev] of [['jazz', jazzReh], ['combo', comboReh], ['theory', theory], ['holiday', holiday], ['dance', danceShow], ['symphony', symphReh]]) {
+for (const [label, ev] of [['jazz', jazzReh], ['combo', comboReh], ['choir', choirReh], ['theory', theory], ['holiday', holiday], ['dance', danceShow], ['symphony', symphReh]]) {
   const n = [E, C, A].filter(b => eventMatchesBundle(ev, b, ensembles)).length;
   assert(n <= 1, `${label} appears in ${n} bundles — subscribing to all three would duplicate it`);
 }

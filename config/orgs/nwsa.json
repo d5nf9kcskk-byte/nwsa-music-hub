@@ -70,8 +70,8 @@
     {
       "slug": "ensembles",
       "name": "Ensembles (no orchestras)",
-      "description": "Wind Ensemble, Jazz Ensemble, Chamber Winds, and every Jazz Combo.",
-      "ensembleIds": ["wind-ensemble", "jazz-ensemble", "chamber-winds"],
+      "description": "High School Choir, Wind Ensemble, Jazz Ensemble, Chamber Winds, and every Jazz Combo.",
+      "ensembleIds": ["high-school-choir", "wind-ensemble", "jazz-ensemble", "chamber-winds"],
       "ensembleNamePatterns": ["^jazz\\s*combo"]
     },
     {
