@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ClipboardCheck, Plus, Clock, Video } from 'lucide-react';
+import { ClipboardCheck, Plus, Clock, Video, Music } from 'lucide-react';
 import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
+import { useRepertoire } from '../hooks/useRepertoire';
 import { useAssignmentSubmissions } from '../hooks/useAssignmentSubmissions';
 import { useGoogleDrive } from '../hooks/useGoogleDrive';
 import { useStudents } from '../hooks/useStudents';
@@ -11,11 +12,13 @@ import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { RichTextArea } from '../components/RichTextArea';
+import { PiecePicker } from '../repertoire/PiecePicker';
 import { FileUpload } from '../components/FileUpload';
 import { SchedulePublishField } from '../components/SchedulePublishField';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { whenQueued } from '../writeStatus';
 import { NotesText } from '../../public/components/NotesText';
+import { richTextToPlain } from '../../shared/richTextParse';
 import { DEFAULT_VIDEO_MAX_MB } from '../types';
 import type { Assignment, AssignmentType, AssignmentResultStatus, Student, Ensemble, Attachment } from '../types';
 import { describeDuration, formatClock, formatFileSize, minutesToSeconds, secondsToMinutes } from '../../shared/duration';
@@ -58,6 +61,7 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
   );
   const [maxVideoSizeMB, setMaxVideoSizeMB] = useState(assignment?.maxVideoSizeMB ?? DEFAULT_VIDEO_MAX_MB);
   const [googleDriveFolderId, setGoogleDriveFolderId] = useState(assignment?.googleDriveFolderId ?? '');
+  const [pieceIds, setPieceIds] = useState<string[]>(assignment?.pieceIds ?? []);
   const [attachments, setAttachments] = useState<Attachment[]>(assignment?.attachments ?? []);
   const [publishAt, setPublishAt] = useState<number | undefined>(assignment?.publishAt);
   const [saving, setSaving] = useState(false);
@@ -94,6 +98,7 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
           maxVideoDurationSeconds: acceptsVideo ? minutesToSeconds(maxVideoMinutes) : undefined,
           maxVideoSizeMB: acceptsVideo ? maxVideoSizeMB : undefined,
           googleDriveFolderId: googleDriveFolderId || undefined,
+          pieceIds: pieceIds.length ? pieceIds : undefined,
           createdAt: assignment?.createdAt ?? Date.now(),
           attachments,
           publishAt,
@@ -292,6 +297,25 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
             <div className="dir-field-hint">Families reading in Español see this version instead.</div>
           </div>
 
+          {/* Music this assignment is on. Students open the piece from the
+              assignment page, download their part, and come back to record —
+              so the excerpt and the part are never two separate hunts. */}
+          <div className="dir-field">
+            <label className="dir-label">
+              Music <span className="dir-label-hint">optional — links the parts to this assignment</span>
+            </label>
+            <PiecePicker
+              ensembleIds={ensembleIds}
+              ensembles={ensembles}
+              value={pieceIds}
+              onChange={setPieceIds}
+            />
+            <div className="dir-field-hint">
+              Whatever you pick shows on the student's assignment page with a link straight to the
+              piece, where their part is waiting.
+            </div>
+          </div>
+
           <SchedulePublishField publishAt={publishAt} onChange={setPublishAt} />
 
           {assignment && (
@@ -354,6 +378,10 @@ interface GradeSheetProps {
 
 function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) {
   const { resultMap, saveResult, clearResult } = useAssignmentResults(assignment.id);
+  const { pieces } = useRepertoire();
+  const linkedPieces = (assignment.pieceIds ?? [])
+    .map(pid => pieces.find(p => p.id === pid))
+    .filter(p => !!p);
   const { submissions, loading: subLoading, setReviewStatus, deleteSubmission } = useAssignmentSubmissions(assignment.id);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [gradeError, setGradeError] = useState('');
@@ -416,6 +444,28 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
 
         {gradeError && (
           <div style={{ padding: '8px 16px', color: 'var(--dir-danger)', fontSize: 13 }}>⚠ {gradeError}</div>
+        )}
+
+        {/* What students are reading, rendered the same way they see it. */}
+        {(assignment.description || linkedPieces.length > 0 || assignment.formUrl) && (
+          <div className="dir-assign-brief">
+            {assignment.description && <NotesText text={assignment.description} />}
+            {linkedPieces.length > 0 && (
+              <div className="dir-assign-brief-music">
+                <Music size={13} /> {linkedPieces.map(p => p.title).join(' · ')}
+              </div>
+            )}
+            {assignment.formUrl && (
+              <a
+                className="dir-assign-card-form"
+                href={assignment.formUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open form ↗
+              </a>
+            )}
+          </div>
         )}
 
         <div className="dir-assign-summary-bar">
@@ -574,7 +624,12 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
 
 // ── Main view ─────────────────────────────────────────────────
 
-export function AssignmentsView() {
+export function AssignmentsView({ initialAssignmentId, initialEnsembleId }: {
+  /** Opened straight onto one assignment — Today's "coming up" list, search,
+   *  an ensemble hub. The assignment is editable from wherever it is shown. */
+  initialAssignmentId?: string;
+  initialEnsembleId?: string;
+} = {}) {
   const { assignments, loading, addAssignment, updateAssignment, deleteAssignment } = useAssignments();
   const { students } = useStudents();
   const { ensembles } = useEnsembles();
@@ -584,6 +639,7 @@ export function AssignmentsView() {
   // Remember the director's last ensemble filter so Repertoire/Assignments/
   // Announcements each reopen scoped the way they left them.
   const [filterEns, setFilterEns] = useState(() => {
+    if (initialEnsembleId) return initialEnsembleId;
     try { return localStorage.getItem('dir.assignments.ensemble') ?? ''; } catch { return ''; }
   });
   function pickEns(id: string) {
@@ -597,7 +653,7 @@ export function AssignmentsView() {
 
   const [addingNew, setAddingNew] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [gradingId, setGradingId] = useState<string | null>(null);
+  const [gradingId, setGradingId] = useState<string | null>(initialAssignmentId ?? null);
 
   const editingAssignment = assignments.find(a => a.id === editingId) ?? null;
   const gradingAssignment = assignments.find(a => a.id === gradingId) ?? null;
@@ -650,17 +706,11 @@ export function AssignmentsView() {
                 </div>
               )}
               {ensembleNames && <div className="dir-assign-card-ens">{ensembleNames}</div>}
-              {a.description && <div className="dir-assign-card-desc"><NotesText text={a.description} /></div>}
-              {a.formUrl && (
-                <a
-                  className="dir-assign-card-form"
-                  href={a.formUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={e => e.stopPropagation()}
-                >
-                  Open form ↗
-                </a>
+              {/* Summary card, same as the student's: the instructions are a
+                  page of text for a playing exam and belong on the sheet you
+                  open, not stacked three deep in a list. */}
+              {a.description && (
+                <div className="dir-assign-card-desc">{richTextToPlain(a.description).replace(/\s+/g, ' ').trim()}</div>
               )}
             </div>
           );

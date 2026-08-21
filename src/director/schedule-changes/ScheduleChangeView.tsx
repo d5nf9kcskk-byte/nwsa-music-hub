@@ -9,6 +9,7 @@ import { ensembleColor, parseDate, todayStr, toDateStr, formatTimeRange, addMinu
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
+import type { DirNavigate } from '../types-nav';
 import { useModalA11y } from '../../shared/useModalA11y';
 import type { Student, Ensemble, RosterOverride } from '../types';
 
@@ -23,13 +24,20 @@ interface Prefill { ensembleId?: string; date?: string }
  * Everything feeds the existing rosterResolver, so attendance and every
  * schedule view update automatically.
  */
-export function ScheduleChangeView({ initialEnsembleId = '' }: { initialEnsembleId?: string }) {
+export function ScheduleChangeView({ initialEnsembleId = '', initialStudentId, onNavigate }: {
+  initialEnsembleId?: string;
+  /** Lets the ensemble headings here open their own hub. */
+  onNavigate?: DirNavigate;
+  /** Arrived from a lesson or pull-out shown elsewhere (Today, Who's Out) —
+   *  open straight onto that student rather than the picker. */
+  initialStudentId?: string;
+}) {
   const { students } = useStudents();
   const { ensembles } = useEnsembles();
   const { events } = useEvents();
   const { overrides } = useRosterOverrides();
   const [mode, setMode] = useState<'student' | 'date'>('student');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialStudentId ?? null);
   const [prefill, setPrefill] = useState<Prefill | null>(null);
   const [query, setQuery] = useState('');
   const [ensembleId, setEnsembleId] = useState(initialEnsembleId);
@@ -181,7 +189,16 @@ export function ScheduleChangeView({ initialEnsembleId = '' }: { initialEnsemble
                 return (
                   <div key={eid}>
                     <div className="dir-form-section-label">
-                      {ensembleMap[eid]?.name ?? 'Ensemble'} — expected roster ({roster.length})
+                      {onNavigate && ensembleMap[eid] ? (
+                        <button
+                          type="button"
+                          className="dir-inline-link"
+                          onClick={() => onNavigate('ensembleHub', { ensembleId: eid })}
+                        >
+                          {ensembleMap[eid].name}
+                        </button>
+                      ) : (ensembleMap[eid]?.name ?? 'Ensemble')}
+                      {' '}— expected roster ({roster.length})
                     </div>
                     <div style={{ padding: '0 0 8px' }}>
                       <SortToggle value={sort} onChange={setSort} />

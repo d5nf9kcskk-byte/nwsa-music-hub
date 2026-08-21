@@ -196,6 +196,7 @@ export default function DirectorApp() {
     eventId: searchParams.get('event') ?? undefined,
     studentId: searchParams.get('student') ?? undefined,
     announcementId: searchParams.get('announcement') ?? undefined,
+    assignmentId: searchParams.get('assignment') ?? undefined,
   };
 
   function go(t: DirTab, opts?: DirNavOpts) {
@@ -205,6 +206,7 @@ export default function DirectorApp() {
     if (opts?.eventId) p.set('event', opts.eventId);
     if (opts?.studentId) p.set('student', opts.studentId);
     if (opts?.announcementId) p.set('announcement', opts.announcementId);
+    if (opts?.assignmentId) p.set('assignment', opts.assignmentId);
     const qs = p.toString();
     navigate(`/director${t === 'today' ? '' : `/${t}`}${qs ? `?${qs}` : ''}`);
     setMenuOpen(false);
@@ -213,7 +215,7 @@ export default function DirectorApp() {
   const hubEnsemble = ensembles.find(e => e.id === intent.ensembleId);
   const title = tab === 'ensembleHub' && hubEnsemble ? hubEnsemble.name : TAB_TITLES[tab];
   // Remount the target view when the intent changes so preselects apply cleanly.
-  const intentKey = `${intent.ensembleId ?? ''}|${intent.date ?? ''}|${intent.eventId ?? ''}|${intent.studentId ?? ''}|${intent.announcementId ?? ''}`;
+  const intentKey = `${intent.ensembleId ?? ''}|${intent.date ?? ''}|${intent.eventId ?? ''}|${intent.studentId ?? ''}|${intent.announcementId ?? ''}|${intent.assignmentId ?? ''}`;
 
   return (
     <AuthGate>
@@ -338,7 +340,7 @@ export default function DirectorApp() {
             {tab === 'today'           && <TodayView onNavigate={go} />}
             {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} onNavigate={go} />}
             {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} onNavigate={go} />}
-            {tab === 'lessons'         && <LessonsView />}
+            {tab === 'lessons'         && <LessonsView onNavigate={go} />}
             {tab === 'whosOut'         && <WhosOutView key={intentKey} initialDate={intent.date} initialEnsembleId={intent.ensembleId ?? ''} onNavigate={go} />}
             {tab === 'schedule'        && (
               <ScheduleView
@@ -349,12 +351,12 @@ export default function DirectorApp() {
                 onNavigate={go}
               />
             )}
-            {tab === 'scheduleChanges' && <ScheduleChangeView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} />}
+            {tab === 'scheduleChanges' && <ScheduleChangeView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} onNavigate={go} />}
             {tab === 'scheduleSwap'    && <ScheduleSwapView key={intentKey} initialDate={intent.date} onNavigate={go} />}
             {tab === 'repertoire'      && <RepertoireManager key={intentKey} asTab ensembleId={intent.ensembleId} onClose={() => {}} />}
             {tab === 'documents'       && <DocumentsView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} />}
             {tab === 'notes'           && <NotesView />}
-            {tab === 'assignments'     && <AssignmentsView />}
+            {tab === 'assignments'     && <AssignmentsView key={intentKey} initialAssignmentId={intent.assignmentId} initialEnsembleId={intent.ensembleId} />}
             {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} onClose={() => {}} />}
             {tab === 'messages'        && <MessagesView />}
             {tab === 'signups'         && <SignupsView />}

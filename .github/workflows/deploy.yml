@@ -5,8 +5,15 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    # Refresh ICS feeds every 4 hours (keeps calendar subscriptions current).
-    - cron: '0 */4 * * *'
+    # Refresh ICS feeds hourly. This is also how long someone waits for a
+    # CUSTOM filter mix (several ensembles at once) to become subscribable:
+    # its feed file is only written by this run, and a calendar app handed a
+    # URL with no file behind it refuses the subscription outright rather
+    # than retrying later. Four hours of that was the reported bug.
+    # Safe to run this often because dist/sw.js is byte-identical for
+    # unchanged source (see the [sw-precache] contract in CLAUDE.md) — an
+    # unchanged build never toasts an open tab.
+    - cron: '0 * * * *'
 
 permissions:
   contents: read

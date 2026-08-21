@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ClipboardList, Users, Calendar, Music, Megaphone, Clock, MapPin, Sparkles, Armchair, FolderOpen, UserPlus, AlertTriangle } from 'lucide-react';
+import { ClipboardList, ClipboardCheck, Users, Calendar, Music, Megaphone, Clock, MapPin, Sparkles, Armchair, FolderOpen, UserPlus, AlertTriangle, ChevronRight } from 'lucide-react';
 import { SeatingManager } from '../seating/SeatingManager';
 import { EnsembleRosterEditor } from './EnsembleRosterEditor';
 import { useEnsembles } from '../hooks/useEnsembles';
@@ -133,7 +133,17 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           <div className="dir-today-card">
             <div className="dir-today-stripe" style={{ background: color }} />
             <div className="dir-today-body">
-              <div className="dir-today-name">{fmtDay(nextRehearsal.date)}{nextRehearsal.date === today ? ' — today' : ''}</div>
+              {/* Tapping the rehearsal opens it, same as on Today. */}
+              <button
+                type="button"
+                className="dir-today-open"
+                onClick={() => onNavigate('schedule', { date: nextRehearsal.date, eventId: nextRehearsal.id })}
+              >
+                <span className="dir-today-name">
+                  {fmtDay(nextRehearsal.date)}{nextRehearsal.date === today ? ' — today' : ''}
+                  <ChevronRight size={15} className="dir-today-open-chev" />
+                </span>
+              </button>
               <div className="dir-today-meta">
                 {nextRehearsal.startTime && <span><Clock size={13} /> {formatTimeRange(nextRehearsal.startTime, nextRehearsal.endTime)}</span>}
                 {nextRehearsal.location && <span><MapPin size={13} /> {nextRehearsal.location}</span>}
@@ -186,6 +196,9 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           </button>
           <button className="dir-hub-btn" onClick={() => onNavigate('repertoire', { ensembleId })}>
             <Music size={20} /> Repertoire
+          </button>
+          <button className="dir-hub-btn" onClick={() => onNavigate('assignments', { ensembleId })}>
+            <ClipboardCheck size={20} /> Assignments
           </button>
           <button className="dir-hub-btn" onClick={() => onNavigate('documents', { ensembleId })}>
             <FolderOpen size={20} /> Documents

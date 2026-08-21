@@ -1,19 +1,24 @@
 import { useMemo, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router';
-import { ClipboardCheck, Calendar, Video } from 'lucide-react';
+import { useSearchParams } from 'react-router';
+import { ClipboardCheck } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { useStudentsPublic } from './hooks/usePublicRoster';
 import { useMinuteTick } from '../director/hooks/useAnnouncements';
-import { todayStr, ensembleColor, ensembleDisplayName, assignmentEmoji, musicEnsembles, isPublished } from '../director/utils';
-import { NotesText } from './components/NotesText';
+import { todayStr, ensembleColor, ensembleDisplayName, musicEnsembles, isPublished } from '../director/utils';
+import { AssignmentCard } from './components/AssignmentCard';
 import { PageHeader, SkeletonCards, EmptyState } from './components/PageHeader';
 import { t, useLang, getLang } from '../shared/i18n';
 import { dailyPun, say } from '../shared/whimsy';
-import { fmtShortDate } from '../shared/dates';
 import type { Assignment } from '../director/types';
 
-/** Public list of upcoming assignments & exams, grouped by ensemble. */
+/**
+ * Public list of upcoming assignments & exams, grouped by ensemble.
+ *
+ * Every card here is a SUMMARY that opens the assignment's own page
+ * (`/assignments/:id`) — instructions, the music it's on, files, and the
+ * recorder all live there, where there is room to read them.
+ */
 export function PublicAssignments() {
   useLang();
   const { ensembles } = useEnsembles();
@@ -24,7 +29,8 @@ export function PublicAssignments() {
   const today = todayStr();
   const now = useMinuteTick(); // a scheduled assignment appears the minute it publishes
 
-  // Deep links from Home / calendars / My Schedule land on the exact card.
+  // Older deep links (?focus=) still land on the right card and flash it.
+  // Anything made from here on points straight at /assignments/:id.
   useEffect(() => {
     if (!focusId || loading) return;
     const el = document.getElementById(`assign-${focusId}`);
@@ -56,41 +62,6 @@ export function PublicAssignments() {
 
   const orderedEns = musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).filter(e => byEnsemble.m[e.id]?.length);
 
-  const card = (a: Assignment) => {
-    const desc = (getLang() === 'es' && a.descriptionEs) || a.description;
-    return (
-    <div key={a.id} id={`assign-${a.id}`} className="pub-assign-card">
-      <div className="pub-assign-top">
-        <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="pub-assign-title">{a.title}</div>
-          <div className="pub-assign-meta">
-            <span className="pub-assign-type">{a.type}</span>
-            <span><Calendar size={12} /> {t('cal.due')} {fmtShortDate(a.dueDate)}</span>
-          </div>
-        </div>
-      </div>
-      {desc && <div className="pub-assign-desc"><NotesText text={desc} /></div>}
-      {a.formUrl && (
-        <a className="pub-assign-form-btn" href={a.formUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>
-          📝 {t('misc.openExamForm')}
-        </a>
-      )}
-      {a.acceptsVideoSubmissions && (
-        <Link
-          className="pub-assign-form-btn"
-          to={`/assignments/${a.id}/submit`}
-          onClick={e => e.stopPropagation()}
-          style={{ marginTop: a.formUrl ? 8 : 0 }}
-        >
-          <Video size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
-          {t('vid.submit')}
-        </Link>
-      )}
-    </div>
-    );
-  };
-
   return (
     <div className="pub-page">
       <PageHeader
@@ -99,7 +70,7 @@ export function PublicAssignments() {
       />
 
       {loading ? (
-        <SkeletonCards n={3} />
+        <SkeletonCards n={3} slim />
       ) : upcoming.length === 0 ? (
         <EmptyState icon={<ClipboardCheck size={26} />}>
           {t('assign.nothingDue')} {say(dailyPun('assign'), getLang())}
@@ -111,19 +82,7 @@ export function PublicAssignments() {
             <>
               <h2 className="pub-section-title">{t('assign.dueSoon')}</h2>
               {upcoming.slice(0, 4).map(a => (
-                <div key={a.id} className="pub-assign-card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="pub-assign-title">{a.title}</div>
-                    <div className="pub-assign-meta">
-                      {a.ensembleIds.map(eid => {
-                        const e = ensembles.find(x => x.id === eid);
-                        return e ? <span key={eid} className="pub-assign-type" style={{ color: ensembleColor(e) }}>{ensembleDisplayName(e)}</span> : null;
-                      })}
-                      <span>{t('cal.due')} {fmtShortDate(a.dueDate)}</span>
-                    </div>
-                  </div>
-                </div>
+                <AssignmentCard key={`soon-${a.id}`} assignment={a} ensembles={ensembles} withAnchor={false} />
               ))}
             </>
           )}
@@ -133,7 +92,9 @@ export function PublicAssignments() {
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: ensembleColor(e), display: 'inline-block' }} />
                 {ensembleDisplayName(e)}
               </h2>
-              {byEnsemble.m[e.id].map(card)}
+              {byEnsemble.m[e.id].map(a => (
+                <AssignmentCard key={a.id} assignment={a} ensembles={ensembles} showEnsembles={false} />
+              ))}
             </div>
           ))}
           {byEnsemble.individual.length > 0 && (
@@ -141,7 +102,7 @@ export function PublicAssignments() {
               <h2 className="pub-section-title">{t('assign.individual')}</h2>
               {byEnsemble.individual.map(a => (
                 <div key={a.id}>
-                  {card(a)}
+                  <AssignmentCard assignment={a} ensembles={ensembles} />
                   <div className="pub-assign-for">For: {(a.studentIds ?? []).map(studentName).join(', ')}</div>
                 </div>
               ))}

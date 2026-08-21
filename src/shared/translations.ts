@@ -310,7 +310,12 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'sub.hint':         { en: 'This is a live subscription — the calendar updates itself whenever the schedule changes.', es: 'Es una suscripción en vivo — el calendario se actualiza solo cada vez que cambia el horario.' },
   'sub.thisView':     { en: 'Subscribe to this view',        es: 'Suscribirse a esta vista' },
   'sub.filters':      { en: 'Showing now:',                  es: 'Mostrando ahora:' },
-  'sub.newMix':       { en: 'This is a new mix, so it gets its own calendar. Subscribe now — it fills in at the next update (within about 4 hours) and stays in sync from then on. Need it right this minute? Download the events below.', es: 'Esta es una combinación nueva, así que recibe su propio calendario. Suscríbete ahora — se llena en la próxima actualización (en unas 4 horas) y desde ahí se mantiene sincronizado. ¿Lo necesitas ya mismo? Descarga los eventos abajo.' },
+  'sub.newMix':       { en: 'This is a new mix, so it gets its own calendar — and it is ready. Subscribe below; it stays in sync from here on.', es: 'Esta es una combinación nueva, así que recibe su propio calendario — y ya está listo. Suscríbete abajo; se mantiene sincronizado desde ahora.' },
+  'sub.checking':     { en: 'Checking whether this calendar is ready…', es: 'Comprobando si este calendario está listo…' },
+  'sub.notReady':     { en: 'This mix is saved, but its calendar file is still being built (it lands at the next update, usually within the hour). Adding it right now would fail — your calendar app can’t subscribe to a file that isn’t there yet.', es: 'Esta combinación está guardada, pero su archivo de calendario aún se está creando (llega en la próxima actualización, normalmente dentro de una hora). Agregarlo ahora fallaría — tu app de calendario no puede suscribirse a un archivo que todavía no existe.' },
+  'sub.checkAgain':   { en: 'Check again',                  es: 'Comprobar de nuevo' },
+  'sub.readyNow':     { en: 'Ready now — subscribe to these instead. Together they hold exactly the same events:', es: 'Listos ahora — suscríbete a estos. Juntos contienen exactamente los mismos eventos:' },
+  'sub.iosInsecure':  { en: 'If iPhone or iPad asks about an “insecure connection”, tap Continue — that’s Apple trying the old address first. The link above is https.', es: 'Si tu iPhone o iPad pregunta por una “conexión no segura”, toca Continuar — es Apple probando primero la dirección antigua. El enlace de arriba es https.' },
   'sub.newMixError':  { en: 'We couldn’t save this mix just now. Reopen this window to try again — the download below still works.', es: 'No pudimos guardar esta combinación ahora. Vuelve a abrir esta ventana para intentarlo — la descarga de abajo sigue funcionando.' },
   'sub.download':     { en: 'Download these events (.ics, {count})', es: 'Descargar estos eventos (.ics, {count})' },
 
@@ -319,6 +324,13 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'assign.dueSoon':    { en: 'Due soon',                       es: 'Próximas entregas' },
   'assign.nothingDue': { en: 'Nothing due right now. Check back soon!', es: 'No hay nada pendiente por ahora. ¡Vuelve pronto!' },
   'assign.individual': { en: 'Individual',                     es: 'Individual' },
+  'assign.notFound':   { en: 'That assignment isn’t here anymore.', es: 'Esa tarea ya no está aquí.' },
+  'assign.notYet':     { en: 'This assignment isn’t posted yet.',   es: 'Esta tarea aún no está publicada.' },
+  'assign.instructions': { en: 'Instructions',                 es: 'Instrucciones' },
+  'assign.music':      { en: 'Music for this assignment',      es: 'Música para esta tarea' },
+  'assign.musicHint':  { en: 'Open the piece to get your part, then come back here and finish.', es: 'Abre la obra para conseguir tu parte y luego vuelve aquí para terminar.' },
+  'assign.getPart':    { en: 'Get your part',                  es: 'Conseguir tu parte' },
+  'assign.files':      { en: 'Files',                          es: 'Archivos' },
 
   // ── Video submissions ───────────────────────────────────────────────────
   'vid.submit':         { en: 'Submit Video',                  es: 'Enviar video' },

@@ -1225,6 +1225,14 @@ html:has(.dir-app) body {
   width: 100%;
   margin-bottom: 4px;
 }
+/* The ready-made calendars offered while a custom mix is still being built. */
+.dir-subw-split { display: flex; flex-direction: column; gap: 6px; }
+.dir-subw-split-head {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--dir-text-muted);
+  line-height: 1.4;
+}
 @media (min-width: 720px) {
   .dir-subw-overlay { align-items: center; }
   .dir-subw-sheet { border-radius: 16px; }
@@ -2076,6 +2084,28 @@ a.dir-menu-item {
   color: var(--dir-text-muted); cursor: pointer;
 }
 .dir-rte-btn:hover { background: var(--dir-border); color: var(--dir-text); }
+.dir-rte-btn:disabled { opacity: 0.35; cursor: default; }
+.dir-rte-btn:disabled:hover { background: transparent; color: var(--dir-text-muted); }
+.dir-rte-sep {
+  width: 1px; align-self: stretch; margin: 4px 3px;
+  background: var(--dir-border);
+}
+/* Preview toggle sits at the end of the toolbar, pushed right. */
+.dir-rte-preview {
+  width: auto; gap: 4px; padding: 0 8px;
+  margin-left: auto; font-size: 11px; font-weight: 700;
+}
+.dir-rte-preview.on { background: var(--dir-border); color: var(--dir-text); }
+.dir-rte-preview-pane {
+  padding: 10px 12px;
+  background: var(--dir-surface);
+  border: 1px solid var(--dir-border);
+  border-radius: 0 0 8px 8px;
+  font-size: 14px;
+  color: var(--dir-text);
+  overflow-wrap: anywhere;
+}
+.dir-rte-preview-empty { color: var(--dir-text-muted); font-style: italic; font-size: 13px; }
 .dir-rte .dir-textarea {
   border-radius: 0 0 8px 8px;
   border-top: 1px solid var(--dir-border);

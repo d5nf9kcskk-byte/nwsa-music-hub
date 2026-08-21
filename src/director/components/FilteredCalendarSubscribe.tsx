@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bell, CalendarPlus, Check, Copy, Download, X } from 'lucide-react';
+import { Bell, CalendarPlus, Check, Copy, Download, RefreshCw, X } from 'lucide-react';
 import { changesFeedUrl, viewFeedUrl, webcalUrl } from '../../public/feedUrl';
+import { splitViewFeeds, useFeedReady } from '../../public/feedReady';
 import { detectPlatform, type Platform } from '../../public/platform';
 import { registerCalendarView } from '../hooks/useCalendarViews';
 import type { Assignment, CalendarEvent, Ensemble, RepertoirePiece } from '../types';
@@ -129,6 +130,13 @@ export function FilteredCalendarSubscribe({
   const googleAdd = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`;
   const snapshotCount = events.length + assignments.length;
 
+  // A custom mix's file does not exist until the next feed refresh, and a
+  // calendar app handed a 404 refuses the subscription outright ("Validation
+  // failed") rather than waiting for it. Check, then say which it is.
+  const { state: feedState, recheck } = useFeedReady(liveHttps, sheet === 'filter' && !preBuilt);
+  const notReady = feedState === 'missing';
+  const perEnsemble = useMemo(() => splitViewFeeds(view, ensembleName), [view, ensembleName]);
+
   return (
     <>
       <button type="button" className="dir-tool-btn" onClick={() => openSheet('filter')} title="Subscribe to the calendar with the filters shown">
@@ -179,8 +187,23 @@ export function FilteredCalendarSubscribe({
                 {saveState === 'saving' && 'Saving this mix as its own calendar…'}
                 {saveState === 'error'
                   && '⚠ This mix could not be saved — check your connection and reopen this sheet. The snapshot below still works.'}
-                {(saveState === 'saved' || saveState === 'idle')
-                  && 'This is a custom mix, so it gets its own calendar. Subscribe now: it starts filling in at the next feed refresh (within about 4 hours) and stays in sync after that. Need it on your phone right this minute? Download the snapshot below.'}
+                {saveState !== 'saving' && saveState !== 'error' && feedState === 'checking'
+                  && 'Checking whether this calendar is ready…'}
+                {saveState !== 'saving' && saveState !== 'error' && notReady && (
+                  <>
+                    ⚠ This mix is saved, but its calendar file has not been built yet — it lands at the
+                    next feed refresh (hourly, so usually within the hour). Adding it right now fails: Apple Calendar
+                    and Google fetch the file the moment you tap, and an address with nothing behind it
+                    comes back as “Validation failed”. Use the ready-made calendars below, or the
+                    snapshot, and come back for the single calendar once it exists.
+                    {' '}
+                    <button type="button" className="dir-link-btn" onClick={recheck}>
+                      <RefreshCw size={12} style={{ verticalAlign: '-2px' }} /> Check again
+                    </button>
+                  </>
+                )}
+                {saveState !== 'saving' && saveState !== 'error' && (feedState === 'live' || feedState === 'unknown')
+                  && 'This is a custom mix, so it gets its own calendar — and it is ready. Subscribe below and it stays in sync from here on. Want the events on your phone as a one-off file instead? Download the snapshot.'}
               </p>
             )}
 
@@ -221,7 +244,27 @@ export function FilteredCalendarSubscribe({
                 </>
               )}
             </ol>
-            {platform === 'ios' ? (
+            {notReady ? (
+              perEnsemble.length > 0 && (
+                <div className="dir-subw-split">
+                  <div className="dir-subw-split-head">
+                    Ready now — subscribe to these instead. Together they hold the same events:
+                  </div>
+                  {perEnsemble.map(f => (
+                    <a
+                      key={f.id}
+                      className="dir-btn dir-btn-ghost dir-subw-action"
+                      href={platform === 'ios'
+                        ? webcalUrl(f.url)
+                        : `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl(f.url))}`}
+                      {...(platform === 'ios' ? {} : { target: '_blank', rel: 'noreferrer' })}
+                    >
+                      <CalendarPlus size={15} /> {f.label}
+                    </a>
+                  ))}
+                </div>
+              )
+            ) : platform === 'ios' ? (
               <a className="dir-btn dir-btn-primary dir-subw-action" href={webcal}>
                 <CalendarPlus size={16} /> Add to Apple Calendar
               </a>
@@ -229,6 +272,12 @@ export function FilteredCalendarSubscribe({
               <a className="dir-btn dir-btn-primary dir-subw-action" href={googleAdd} target="_blank" rel="noreferrer">
                 <CalendarPlus size={16} /> Add to Google Calendar
               </a>
+            )}
+            {platform === 'ios' && (
+              <p className="dir-field-hint" style={{ margin: 0 }}>
+                If iPad or iPhone asks about an “insecure connection”, tap Continue — that is Apple
+                trying the old address first. The link below is https.
+              </p>
             )}
             <div className="dir-subscribe-url" title={liveHttps}>{liveHttps}</div>
             <button type="button" className="dir-btn dir-btn-ghost" onClick={() => copy(liveHttps)}>

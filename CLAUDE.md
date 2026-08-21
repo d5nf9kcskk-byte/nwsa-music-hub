@@ -92,12 +92,12 @@ hand-write SW fetch/install logic. Rules that must not regress:
   install — that puts a new SW in control of tabs running old code (the
   original bug this replaced).
 - **Deterministic builds**: unchanged source → byte-identical `dist/sw.js`.
-  The deploy cron rebuilds every 4 hours to refresh ICS feeds; a
+  The deploy cron rebuilds hourly to refresh ICS feeds; a
   nondeterministic SW would toast every open tab each time. Check the
   `[sw-precache]` line in the build log (contract in
   `docs/release-checklist.md`).
 - **`dist/feeds/**` never enters the precache** — it's written AFTER
-  `vite build` by `scripts/generate-feeds.mjs` and regenerates every 4 h
+  `vite build` by `scripts/generate-feeds.mjs` and regenerates hourly
   (`globIgnores` + the navigateFallback denylist both enforce this).
 - One-time cache migrations run in the SW's own `activate`
   (`public/sw-cleanup.js` via `importScripts`) — never from page code, which
