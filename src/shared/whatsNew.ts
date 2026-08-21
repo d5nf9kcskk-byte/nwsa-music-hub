@@ -28,6 +28,23 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Stale-client visibility (#stale-client). A phone running an older build
+  // does not fail — it renders wrong rosters (a build predating `days` on
+  // RosterOverride applies a standing rotation every day of its range and
+  // drops the rotating student from both ensembles). Directors need to be
+  // able to tell, from the phone, which build they are on.
+  {
+    id: '2026-08-21-app-version',
+    date: '2026-08-21',
+    title: 'The menu now shows which version of the Hub you\u2019re running',
+    audience: 'staff',
+    expires: '2026-09-04',
+    bullets: [
+      'Menu \u2192 "App version" shows the build this phone or tab is actually running, and checks for a newer one when you tap it.',
+      'Worth a tap if a roster looks wrong: the installed app waits for you to tap Refresh before taking an update, so it can keep showing yesterday\u2019s data all day.',
+      'Rotating students (Wind Ensemble/Camerata, Symphony/Jazz) are the ones this shows up on first \u2014 an out-of-date app drops them from both of their ensembles.',
+    ],
+  },
   // Absence email → Who's Out (#absence-email): parent/student "not going
   // to be there" emails feed into planned absences instead of being
   // manually entered. Off by default until soft-launched per

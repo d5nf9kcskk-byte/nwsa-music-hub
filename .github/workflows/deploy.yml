@@ -43,6 +43,13 @@ jobs:
       - name: Check sign-up eligibility
         run: node scripts/signup-eligibility.selfcheck.mjs
 
+      # Standing weekday rotations: `days` on RosterOverride decides which
+      # ensemble a rotating student rehearses with, and generate-feeds.mjs
+      # keeps its own copy of that predicate. This pins both, and that they
+      # agree — divergence silently sends a student to the wrong room.
+      - name: Check rotation weekday resolution
+        run: node scripts/rotation-weekday.selfcheck.mjs
+
       # Absence-email parsing/matching (docs/ABSENCE-EMAIL.md) — pinned so a
       # regex change can't silently start mismatching students or dates.
       # The launchd/Mail.app side (absence-email-local.mjs) runs only on the
