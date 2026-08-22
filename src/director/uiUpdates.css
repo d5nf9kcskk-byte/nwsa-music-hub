@@ -1047,3 +1047,17 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
 .dir-subw-bundles .pub-subw-split-head,
 .dir-subw-bundles .pub-subw-split-note { color: var(--dir-text-muted); }
 .dir-subw-bundles .pub-subw-bundle { background: var(--dir-primary); color: #fff; }
+
+
+/* Lessons calendar: the endpoint is deployed by its own workflow and can lag
+   the app that links to it, so the panel says so rather than handing over a
+   link that fails silently in the calendar app. */
+.dir-lessons-feed-pending {
+  padding: 10px 12px;
+  border: 1.5px solid var(--dir-late);
+  border-radius: var(--dir-radius);
+  background: var(--dir-surface-2);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dir-text);
+}

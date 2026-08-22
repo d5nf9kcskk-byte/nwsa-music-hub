@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CalendarPlus, Check, Copy, KeyRound, RefreshCw } from 'lucide-react';
 import { useLessonsFeed } from '../hooks/useLessonsFeed';
 import { webcalUrl } from '../../public/feedUrl';
+import { useFeedReady } from '../../public/feedReady';
 import { ORG } from '../../org';
 
 /**
@@ -29,8 +30,6 @@ export function LessonsFeedPanel() {
   const [copied, setCopied] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
 
-  if (loading) return null;
-
   // The v1 Cloud Functions hostname is derived from the project id alone,
   // which is why the endpoint is a v1 function: a v2 URL carries a project
   // hash that is not known until after the first deploy, and the director
@@ -40,6 +39,30 @@ export function LessonsFeedPanel() {
   const https = token && projectId
     ? `https://us-central1-${projectId}.cloudfunctions.net/lessonsFeed/${token}.ics`
     : '';
+
+  // Is the endpoint actually there? It is a Cloud Function, deployed by its
+  // own workflow, so it can lag the app that links to it — the first deploy
+  // failed outright because three Google APIs were not enabled on the
+  // project. Handing a director a link that silently 404s is worse than
+  // telling them it is not ready, so probe before offering it.
+  //
+  // 'unknown' counts as not-live here, unlike on the public subscribe sheet.
+  // Those feeds are same-origin files, so a missing one answers with a
+  // readable 404 and 'unknown' really does mean the network. This endpoint is
+  // cross-origin, and when the function is NOT deployed the 404 comes from
+  // Google's own frontend, which sends no Access-Control-Allow-Origin — the
+  // browser refuses to show it to us at all and the probe looks exactly like
+  // a network error. Keying only on 'missing' would miss the one case this
+  // guard exists for. navigator.onLine is the tiebreak: a browser that says
+  // it is offline explains the failure by itself, so don't accuse the link.
+  const { state: feed, recheck } = useFeedReady(https, !!https);
+  const online = typeof navigator === 'undefined' || navigator.onLine !== false;
+  const notLive = feed === 'missing' || (feed === 'unknown' && online);
+
+  // After the hooks, never before: an early return above useFeedReady
+  // changes the hook order between renders. `https` is '' while the token
+  // loads, which is exactly the `enabled: false` case the probe expects.
+  if (loading) return null;
 
   async function copy() {
     try {
@@ -79,17 +102,40 @@ export function LessonsFeedPanel() {
             it anywhere shared. The calendar works the moment you subscribe, and updates
             itself from then on.
           </p>
-          <a className="dir-btn dir-btn-primary dir-subw-action" href={webcalUrl(https)}>
-            <CalendarPlus size={16} /> Add to Apple Calendar
-          </a>
-          <a
-            className="dir-btn dir-btn-ghost dir-subw-action"
-            href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl(https))}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <CalendarPlus size={16} /> Add to Google Calendar
-          </a>
+
+          {notLive ? (
+            /* The link exists but nothing is answering it yet. Subscribing now
+               would fail in the calendar app with no explanation, so say so
+               here instead of handing it over. */
+            <div className="dir-lessons-feed-pending">
+              <p style={{ margin: '0 0 8px' }}>
+                <strong>Not ready yet.</strong> Your link is saved, but the calendar service
+                behind it is not answering — it is deployed separately from the rest of the
+                Hub. Subscribing now would fail, so hold off until this clears. If the rest
+                of the Hub is loading fine, this is on our side, not yours.
+              </p>
+              <button type="button" className="dir-btn dir-btn-ghost" onClick={recheck}>
+                <RefreshCw size={14} /> Check again
+              </button>
+            </div>
+          ) : (
+            <>
+              {feed === 'checking' && (
+                <p className="dir-field-hint" style={{ margin: '0 0 8px' }}>Checking the calendar service…</p>
+              )}
+              <a className="dir-btn dir-btn-primary dir-subw-action" href={webcalUrl(https)}>
+                <CalendarPlus size={16} /> Add to Apple Calendar
+              </a>
+              <a
+                className="dir-btn dir-btn-ghost dir-subw-action"
+                href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl(https))}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <CalendarPlus size={16} /> Add to Google Calendar
+              </a>
+            </>
+          )}
           <div className="dir-subscribe-url" title={https}>{https}</div>
           <div className="dir-lessons-feed-actions">
             <button className="dir-btn dir-btn-ghost" onClick={copy}>

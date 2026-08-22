@@ -37,6 +37,20 @@ jobs:
           npm --prefix functions ci
           npm --prefix functions run selfcheck
 
+      # A functions deploy needs MORE than the rules deploy does, and the
+      # errors name the resource but never the caller — the same trap PR #49
+      # hit on Storage. Printing client_email turns "grant the right account"
+      # from a guess into a copy-paste. It is an identifier, not a
+      # credential; the key stays in the temp file, shredded below.
+      #
+      # Required on the deploying account, beyond what rules need:
+      #   • Cloud Functions Admin      (roles/cloudfunctions.admin)
+      #   • Service Account User       (roles/iam.serviceAccountUser) — must
+      #     cover nwsa-hub@appspot.gserviceaccount.com, the account a v1
+      #     function RUNS as. Without it: "Missing permissions required for
+      #     functions deploy … iam.serviceAccounts.ActAs".
+      # IAM grants can take a few minutes to propagate; a failure immediately
+      # after granting is often lag, not a wrong grant (again, see PR #49).
       - name: Deploy
         env:
           SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
@@ -47,6 +61,7 @@ jobs:
           fi
           printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          echo "Deploying as: $(python3 -c 'import json,os;print(json.load(open(os.environ["RUNNER_TEMP"]+"/sa.json")).get("client_email","<unknown>"))')"
           npx --yes firebase-tools@latest deploy \
             --only functions:lessonsFeed \
             --project nwsa-hub \
