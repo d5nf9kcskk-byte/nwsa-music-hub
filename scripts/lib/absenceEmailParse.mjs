@@ -24,7 +24,17 @@ const ABSENCE_PHRASES = [
   /calling\s+in\s+(?:absent|sick)/i,
 ];
 
+const MONTH_ABBR = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+/** Marks a date as the day they come BACK rather than the day they're out. */
+const RETURN_WORDS = /\b(back|returns?|returning|rejoins?|see\s+you|be\s+(there|in|at))\b/i;
+const NEGATION = /\b(not|won'?t|isn'?t|can'?t|cannot|unable|no)\b|n'?t\b/i;
+
+/** The sentence a match sits in — negation one clause over doesn't count. */
+function clauseContaining(text, re) {
+  return String(text).split(/[.!?;\n]+/).find(part => re.test(part)) ?? String(text);
+}
 
 /** @param {string} text */
 export function looksLikeAbsenceEmail(text) {
@@ -44,7 +54,14 @@ export function extractDates(text, referenceDate) {
   if (!ref) return [];
   const found = new Set();
 
-  if (/\btomorrow\b/i.test(text)) found.add(toYmd(addDays(ref, 1)));
+  // "back tomorrow" names the RETURN, not the absence — but only when the
+  // clause is affirmative. "won't be in school tomorrow" is the single most
+  // common absence sentence there is, and negation is what separates them.
+  if (/\btomorrow\b/i.test(text)) {
+    const clause = clauseContaining(text, /\btomorrow\b/i);
+    const isReturn = RETURN_WORDS.test(clause) && !NEGATION.test(clause);
+    if (!isReturn) found.add(toYmd(addDays(ref, 1)));
+  }
   if (/\btoday\b/i.test(text)) found.add(toYmd(ref));
 
   // Explicit M/D or M/D/YY(YY)
@@ -56,9 +73,19 @@ export function extractDates(text, referenceDate) {
     found.add(toYmd(new Date(yr, mo - 1, da)));
   }
 
+  // Month by name: "Aug 21", "September 3rd", "Oct. 4, 2026".
+  const monthRe = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}))?/gi;
+  for (const m of text.matchAll(monthRe)) {
+    const mo = MONTH_ABBR.indexOf(m[1].toLowerCase());
+    const da = Number(m[2]);
+    if (mo < 0 || da < 1 || da > 31) continue;
+    const yr = m[3] ? Number(m[3]) : ref.getFullYear();
+    found.add(toYmd(new Date(yr, mo, da)));
+  }
+
   // "this/next <weekday>" and a bare weekday name (assumed the nearest
   // upcoming one, since parents write about absences ahead of time).
-  const weekdayRe = /\b(next\s+|this\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/gi;
+  const weekdayRe =/\b(next\s+|this\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/gi;
   for (const m of text.matchAll(weekdayRe)) {
     const target = WEEKDAYS.indexOf(m[2].toLowerCase());
     const isNext = /next/i.test(m[1] || '');
@@ -98,6 +125,23 @@ export function matchAbsenceEmailStudents(text, students) {
  * @typedef {{ status: 'ignored' }} IgnoredAbsence
  */
 
+const QUOTED_HEADER_KEYS = ['from', 'sent', 'to', 'cc', 'bcc', 'subject', 'date', 'reply-to'];
+
+/**
+ * Drop the quoted header block a forward or reply carries along. Without
+ * this, a thread's own "Sent: Tuesday, August 19, 2026" line reads as an
+ * absence date — which would make every forwarded email ambiguous the
+ * moment month names became parseable.
+ * @param {string} text
+ */
+function stripQuotedHeaders(text) {
+  return String(text).split('\n').filter(line => {
+    const t = line.trim().toLowerCase();
+    const i = t.indexOf(':');
+    return i < 1 || !QUOTED_HEADER_KEYS.includes(t.slice(0, i).trim());
+  }).join('\n');
+}
+
 /**
  * @param {{ subject: string, body: string, from: string, receivedDate: string }} email
  * @param {{ id: string, name: string, preferredName?: string, status?: string }[]} students
@@ -108,8 +152,11 @@ export function parseAbsenceEmail(email, students) {
   if (!looksLikeAbsenceEmail(text)) return { status: 'ignored' };
 
   const snippet = text.trim().replace(/\s+/g, ' ').slice(0, 280);
-  const candidates = matchAbsenceEmailStudents(text, students);
-  const dates = extractDates(text, easternDateStr(email.receivedDate));
+  // The sender's own name counts toward the match: a parent writing only
+  // "Diego won't be in school" from a shared surname still resolves, since
+  // matching needs first AND last before it will claim a student.
+  const candidates = matchAbsenceEmailStudents(`${email.from ?? ''} ${text}`, students);
+  const dates = extractDates(stripQuotedHeaders(text), easternDateStr(email.receivedDate));
 
   if (candidates.length === 1 && dates.length === 1) {
     return {

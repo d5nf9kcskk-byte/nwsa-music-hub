@@ -33,5 +33,33 @@
     "from": "Fifth Parent <parent5@example.com>",
     "receivedDate": "2026-08-19T19:00:00.000Z",
     "body": "Both Jane Musicone and Sam Music Two will not be in school tomorrow — family trip."
+  },
+  {
+    "messageId": "<fixture-6@example.com>",
+    "subject": "Emma absent Aug 24",
+    "from": "Sixth Parent <parent6@example.com>",
+    "receivedDate": "2026-08-19T20:00:00.000Z",
+    "body": "Emma Earlybird will be absent Aug 24 for a family obligation."
+  },
+  {
+    "messageId": "<fixture-7@example.com>",
+    "subject": "Out today",
+    "from": "Seventh Parent <parent7@example.com>",
+    "receivedDate": "2026-08-19T21:00:00.000Z",
+    "body": "Jane Musicone is home sick today. She should be back tomorrow."
+  },
+  {
+    "messageId": "<fixture-8@example.com>",
+    "subject": "FW: absence",
+    "from": "Eighth Parent <parent8@example.com>",
+    "receivedDate": "2026-08-19T22:00:00.000Z",
+    "body": "Forwarding as requested.\n\nFrom: Eighth Parent\nSent: Tuesday, September 15, 2026 9:04 AM\nTo: Front Office\nSubject: absence\n\nEmma Earlybird will be absent today."
+  },
+  {
+    "messageId": "<fixture-9@example.com>",
+    "subject": "absence",
+    "from": "Musicone, Robert <rmusicone@example.com>",
+    "receivedDate": "2026-08-19T23:00:00.000Z",
+    "body": "Jane will not be in school tomorrow. Thank you."
   }
 ]

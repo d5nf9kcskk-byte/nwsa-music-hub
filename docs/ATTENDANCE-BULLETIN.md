@@ -1,19 +1,72 @@
 # Attendance Bulletin → Hub roll
 
-**LIVE since 2026-08-20.** Runs locally on Grant's Mac via launchd
-(`com.nwsa.hub.bulletin`, weekdays 12:45 and 15:15), writing office-sourced
-attendance straight to Firestore. `DRY_RUN=false` is set in the plist's
-EnvironmentVariables; set it back to `true` to pause writes without
-uninstalling anything.
+**Reads the bulletin PDF straight out of Apple Mail** on Grant's Mac via
+launchd (`com.nwsa.hub.bulletin`, weekdays 12:45 and 15:15). Nothing in the
+live path touches Outlook, Power Automate, OneDrive Online, or Microsoft
+Graph.
+
+```
+Mail.app INBOX ("Attendance Bulletin" + PDF attachment)
+  → launchd → save attachment to a temp dir → pdftotext → Firestore
+```
+
+## Why it moved off OneDrive (2026-08-22)
+
+The OneDrive drop **silently broke every scheduled run.** The log pattern was
+unmistakable: manual runs read the PDF and wrote attendance fine, while every
+12:45 and 15:15 cron run died with
+
+```
+Need pdftotext (poppler) or pymupdf to read PDF.
+apply-attendance-bulletin exited 1
+```
+
+`pdftotext` was installed the whole time. `~/Library/CloudStorage` is
+TCC-protected in a way that denied the *scheduled* job the file itself, and
+that denial surfaces as a missing-dependency error — so the pipeline looked
+like a broken install rather than a permissions problem, and failed quietly
+from 2026-08-21 onward. Bulletins arrive in Mail as attachments anyway;
+saving them to an ordinary temp directory removes the whole class of problem.
+
+The OneDrive folder survives only as a fallback, consulted when Mail yields
+nothing. It is fine for it to be empty forever.
+
+## Setup
+
+1. Mail permission — do this deliberately rather than during a silent cron:
+   ```bash
+   node scripts/bulletin-local.mjs --grant
+   ```
+   Approve the dialog. macOS asks per *responsible process*, so `--grant`
+   also kickstarts one real background run to settle that context too.
+2. Narrow to the MDC account so the job never reads personal mail. Set this
+   **before** `--install` — it is baked into the agent's plist:
+   ```bash
+   export MDC_MAIL_ACCOUNT_NAME='exact name from Mail ▸ Settings ▸ Accounts'
+   node scripts/bulletin-local.mjs --install
+   ```
+3. Check what the *installed agent* actually does:
+   ```bash
+   node scripts/bulletin-local.mjs --status
+   ```
+
+`--status` reads the installed plist, not this script's constants — so the
+`mode:` line reflects what the scheduled job really does.
+
+## DRY_RUN is now safe to reinstall over
+
+`DRY_RUN=false` used to be hand-added to the plist after `--install`. Since
+`--install` regenerates that file, running it again silently wiped the flag
+and reverted the **live** pipeline to dry run — no error, attendance just
+stopped appearing. `--install` now carries the installed value forward.
+
+To pause writes: set `DRY_RUN=true` and re-run `--install`.
 
 Backfilled 2026-08-14 through 2026-08-20 on go-live: 84 office docs, 0
 ambiguous. Director-entered marks are never overwritten.
 
-The Azure / Microsoft Graph / GitHub Actions plan below is **not in use**.
-The PDFs reach the Mac through the existing Power Automate → OneDrive flow,
-and they also arrive as attachments in Mail (`ggilman@mdc.edu`), so the
-OneDrive dependency can be dropped later by reading Mail directly — the same
-move that fixed email triage. Kept for reference only.
+The Azure / Microsoft Graph / GitHub Actions plan below is **not in use** and
+is kept for reference only.
 
 ---
 
