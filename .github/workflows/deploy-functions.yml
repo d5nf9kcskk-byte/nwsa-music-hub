@@ -78,6 +78,14 @@ jobs:
             echo "::error::FIREBASE_SERVICE_ACCOUNT_JSON is not set — cannot deploy functions"
             exit 1
           fi
+          # Shred on EVERY exit path. Actions runs `run:` under `bash -e`, so
+          # a failed deploy leaves the step at once and a trailing shred line
+          # never executes — which is exactly what happened on each failed
+          # attempt that preceded this endpoint going live. The runner is
+          # thrown away either way, but a step that means to destroy a key
+          # should not quietly skip it on the one path where something already
+          # went wrong.
+          trap 'shred -u "$RUNNER_TEMP/sa.json" 2>/dev/null || rm -f "$RUNNER_TEMP/sa.json"' EXIT
           printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
           echo "Deploying as: $(python3 -c 'import json,os;print(json.load(open(os.environ["RUNNER_TEMP"]+"/sa.json")).get("client_email","<unknown>"))')"
@@ -85,4 +93,29 @@ jobs:
             --only functions:lessonsFeed \
             --project nwsa-hub \
             --non-interactive
-          shred -u "$RUNNER_TEMP/sa.json" || rm -f "$RUNNER_TEMP/sa.json"
+
+      # Artifact Registry keeps a container image for every deploy. With no
+      # cleanup policy they pile up into what firebase-tools calls "a small
+      # monthly bill" — on a school's project, a bill nobody is watching.
+      #
+      # This is its OWN step because folding it into the deploy made the
+      # deploy lie: the policy cannot be confirmed interactively in CI, so
+      # firebase-tools exited 1 *after* "Successful create operation", and a
+      # function that was live and answering reported as a failed deploy.
+      # Same reasoning as Storage in deploy-rules.yml — one concern per step,
+      # so each one's red or green means what it says.
+      - name: Set Artifact Registry cleanup policy
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          trap 'shred -u "$RUNNER_TEMP/sa.json" 2>/dev/null || rm -f "$RUNNER_TEMP/sa.json"' EXIT
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          # --force answers the create-or-modify prompt; there is nothing
+          # destructive behind it. 3 days keeps the last few deploys' images
+          # around to look at without letting them accumulate.
+          npx --yes firebase-tools@latest functions:artifacts:setpolicy \
+            --project nwsa-hub \
+            --location us-central1 \
+            --days 3 \
+            --force
