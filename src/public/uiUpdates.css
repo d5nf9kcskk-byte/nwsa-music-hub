@@ -104,7 +104,6 @@
   color: var(--pub-accent); text-decoration: none;
 }
 .pub-event-notes { font-size: 14px; line-height: 1.6; }
-.pub-note-bullet { padding-left: 6px; }
 
 /* ── Calendar filter chips: wrap instead of sideways scrolling ── */
 .pub-wrap-tabs { flex-wrap: wrap; overflow-x: visible !important; }
@@ -242,6 +241,72 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
 .pub-assign-type { font-weight: 700; text-transform: uppercase; font-size: 11px; background: #ede9fe; color: #6d28d9; padding: 2px 7px; border-radius: 8px; }
 .pub-assign-desc { margin-top: 8px; font-size: 14px; line-height: 1.5; color: var(--pub-ink); }
 .pub-assign-for { font-size: 13px; color: var(--pub-muted); margin: -4px 0 10px 2px; }
+
+/* ── Assignment SUMMARY card (#assignment-page) ──────────────────────────
+   Title, kind, due date, whose it is — and a chevron, because everything
+   else is on the assignment's own page. */
+.pub-assign-sum {
+  display: flex; align-items: center; gap: 11px;
+  padding: 11px 13px;
+}
+.pub-assign-sum-body { flex: 1; min-width: 0; display: block; }
+.pub-assign-sum .pub-assign-title {
+  display: block; font-size: 15.5px; line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.pub-assign-sum .pub-assign-meta { display: flex; }
+.pub-assign-ens { font-weight: 700; font-size: 12px; }
+.pub-assign-chev { flex-shrink: 0; color: var(--pub-muted); opacity: 0.6; }
+
+/* ── One assignment, on its own page ─────────────────────────────────── */
+.pub-assign-hero { margin: 4px 0 14px; }
+.pub-assign-hero-emoji { font-size: 30px; line-height: 1; display: block; margin-bottom: 6px; }
+.pub-assign-hero-title {
+  font-size: 24px; font-weight: 800; line-height: 1.2;
+  margin: 0 0 8px; overflow-wrap: anywhere;
+}
+.pub-assign-hero-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.pub-assign-hero-due { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; color: var(--pub-muted); }
+.pub-assign-hero-ens { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.pub-assign-ens-chip {
+  font-size: 12.5px; font-weight: 700; text-decoration: none;
+  border: 1.5px solid currentColor; border-radius: 999px; padding: 3px 11px;
+}
+
+.pub-assign-section { margin-bottom: 12px; }
+.pub-assign-section-title {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--pub-muted); margin: 0 0 10px;
+}
+.pub-assign-section-hint { font-size: 13px; color: var(--pub-muted); margin: -4px 0 10px; }
+/* Roomy line length and size: this is the text students actually read. */
+.pub-assign-body { font-size: 15.5px; line-height: 1.62; color: var(--pub-ink); }
+
+.pub-assign-piece {
+  display: flex; align-items: center; gap: 10px; justify-content: space-between;
+  padding: 10px 12px; margin-top: 8px;
+  border: 1px solid var(--pub-border); border-radius: 10px;
+  text-decoration: none; color: var(--pub-ink);
+}
+.pub-assign-piece:first-of-type { margin-top: 0; }
+.pub-assign-piece-body { min-width: 0; }
+.pub-assign-piece-title { display: block; font-weight: 700; font-size: 15px; overflow-wrap: anywhere; }
+.pub-assign-piece-sub { display: block; font-size: 13px; color: var(--pub-muted); margin-top: 2px; }
+.pub-assign-piece-go {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12.5px; font-weight: 800; color: var(--pub-accent); white-space: nowrap;
+}
+
+.pub-assign-file {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 11px; margin-top: 7px;
+  border: 1px solid var(--pub-border); border-radius: 10px;
+  text-decoration: none; color: var(--pub-ink); font-size: 14px;
+}
+.pub-assign-file:first-of-type { margin-top: 0; }
+.pub-assign-file-name { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.pub-assign-file-size { flex-shrink: 0; font-size: 12px; color: var(--pub-muted); }
 
 /* Seating (public) */
 .pub-seat-card { margin-bottom: 12px; }
@@ -562,7 +627,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
 /* ── Interaction feel: transitions + hover (pointer devices) + press ── */
 .pub-chip, .pub-filter-btn, .pub-view-toggle, .pub-cal-arrow, .pub-quick-btn,
 .pub-ens-btn, .pub-cta-btn, .pub-menu-item, .pub-upcoming, .pub-season-row,
-.pub-event.tappable, .pub-assign-link, .pub-saved-link, .pub-sg-q,
+.pub-event.tappable, .pub-assign-link, .pub-assign-sum, .pub-assign-piece,
+.pub-assign-file, .pub-saved-link, .pub-sg-q,
 .pub-tabbar-btn, .pub-icon-btn, .pub-back-link, .pub-sg-print-btn, .pub-season-print {
   transition: background-color 0.12s ease, border-color 0.12s ease,
               color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
@@ -575,7 +641,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
     border-color: var(--pub-accent);
   }
   .pub-quick-btn:hover, .pub-ens-btn:hover, .pub-upcoming:hover,
-  .pub-season-row:hover, .pub-assign-link:hover, .pub-saved-link:hover,
+  .pub-season-row:hover, .pub-assign-link:hover, .pub-assign-sum:hover,
+  .pub-assign-piece:hover, .pub-assign-file:hover, .pub-saved-link:hover,
   .pub-event.tappable:hover {
     border-color: var(--pub-accent);
     box-shadow: var(--pub-shadow-1);

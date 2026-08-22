@@ -5,6 +5,7 @@
  * NWSA and demo deployments point at their own feeds (audit D-QR).
  */
 import { viewFeedFile, type CalendarViewSpec } from '../shared/calendarView';
+import { bundleSlugSafe } from '../shared/calendarBundles';
 
 const FEEDS_BASE = () => `${window.location.origin}${import.meta.env.BASE_URL}feeds`;
 
@@ -32,6 +33,15 @@ export function typeFeedUrl(type: string): string {
  */
 export function viewFeedUrl(spec: CalendarViewSpec): string {
   return `${FEEDS_BASE()}/${viewFeedFile(spec)}`;
+}
+
+/**
+ * ICS feed for a named bundle (#calendar-bundles) — a curated calendar whose
+ * ADDRESS is fixed while its membership is resolved on each build. Always
+ * built, so this link works the moment the site deploys, with no waiting.
+ */
+export function bundleFeedUrl(slug: string): string {
+  return `${FEEDS_BASE()}/bundle-${bundleSlugSafe(slug)}.ics`;
 }
 
 /** ICS feed for one student's personal schedule (their ensembles + subs + required attendance). */

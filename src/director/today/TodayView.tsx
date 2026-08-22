@@ -212,7 +212,12 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
           <>
             <div className="dir-form-section-label"><GraduationCap size={13} style={{ verticalAlign: '-2px' }} /> Lessons today</div>
             {lessonsToday.map(o => (
-              <div key={o.id} className="dir-sc-ov lesson">
+              <button
+                key={o.id}
+                type="button"
+                className="dir-sc-ov lesson dir-sc-ov-tappable"
+                onClick={() => onNavigate('scheduleChanges', { ensembleId: o.ensembleId, studentId: o.studentId })}
+              >
                 <div className="dir-sc-ov-body">
                   <div className="dir-sc-ov-title">{studentsById[o.studentId]?.name ?? 'Student'}</div>
                   <div className="dir-sc-ov-meta">
@@ -221,7 +226,8 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
                     {o.reason ? ` · ${o.reason}` : ''}
                   </div>
                 </div>
-              </div>
+                <ChevronRight size={15} className="dir-up-chev" />
+              </button>
             ))}
           </>
         )}
@@ -275,7 +281,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
           <>
             <div className="dir-section-head"><span>Coming up — assignments</span><button className="dir-link-btn" onClick={() => onNavigate('assignments')}>Manage</button></div>
             {upAssignments.map(a => (
-              <button key={a.id} className="dir-up-row" onClick={() => onNavigate('assignments')}>
+              <button key={a.id} className="dir-up-row" onClick={() => onNavigate('assignments', { assignmentId: a.id })}>
                 <span className="dir-up-date">{parseDate(a.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
                 <span className="dir-up-dot" style={{ background: ASSIGN_COLOR }} />
                 <span className="dir-up-label">{assignmentEmoji(a.type)} {a.title}</span>
@@ -336,20 +342,45 @@ function TodayCard({
   const isRehearsal = (event.type === 'Rehearsal' || event.type === 'Sectional') && event.ensembleIds.length > 0;
   const cancelled = event.status === 'Cancelled';
 
+  const openEvent = () => onNavigate('schedule', { date: event.date, eventId: event.id });
+
   return (
     <div className={`dir-today-card ${cancelled ? 'cancelled' : ''}`}>
       <div className="dir-today-stripe" style={{ background: firstEns ? ensembleColor(firstEns) : '#94a3b8' }} />
       <div className="dir-today-body">
-        <div className="dir-today-name">
-          <span className="dir-today-icon">{EVENT_TYPE_ICON[event.type]}</span> {name}
-          {cancelled && <span className="dir-today-tag cancelled">Cancelled</span>}
-          {!cancelled && event.changeNote && <span className="dir-today-tag changed">Changed</span>}
-        </div>
+        {/* The card itself opens the event for editing — a director tapping a
+            rehearsal on Today means "let me at it", not "show me a button
+            that opens it". The row buttons below stopPropagation so they
+            still do their own jobs. */}
+        <button type="button" className="dir-today-open" onClick={openEvent}>
+          <span className="dir-today-name">
+            <span className="dir-today-icon">{EVENT_TYPE_ICON[event.type]}</span> {name}
+            {cancelled && <span className="dir-today-tag cancelled">Cancelled</span>}
+            {!cancelled && event.changeNote && <span className="dir-today-tag changed">Changed</span>}
+            <ChevronRight size={15} className="dir-today-open-chev" />
+          </span>
+        </button>
         <div className="dir-today-meta">
           {event.startTime && <span><Clock size={13} /> {formatTimeRange(event.startTime, event.endTime)}</span>}
           {event.location && <span><MapPin size={13} /> {event.location}</span>}
           {expected != null && <span><Users size={13} /> {expected} expected</span>}
         </div>
+        {/* Each ensemble on this event opens its own hub. */}
+        {event.ensembleIds.length > 0 && (
+          <div className="dir-today-ens-row">
+            {event.ensembleIds.map(id => ensembleMap[id]).filter(e => !!e).map(e => (
+              <button
+                key={e.id}
+                type="button"
+                className="dir-today-ens-chip"
+                style={{ borderColor: ensembleColor(e), color: ensembleColor(e) }}
+                onClick={() => onNavigate('ensembleHub', { ensembleId: e.id })}
+              >
+                {e.name}
+              </button>
+            ))}
+          </div>
+        )}
         {event.changeNote && <div className="dir-today-change">⚠ {event.changeNote}</div>}
         <div className="dir-today-rep">
           <Music size={13} />

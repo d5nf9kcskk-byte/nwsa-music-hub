@@ -418,6 +418,11 @@ export interface Assignment {
   /** Google Drive folder ID where the cron sync uploads submissions. Set by
    *  the director when they connect Drive to this assignment. */
   googleDriveFolderId?: string;
+  /** Repertoire this assignment is on. Students open the piece from the
+   *  assignment page to grab their part, then come back and record — which
+   *  is the whole reason the link exists. Public, like the rest of an
+   *  assignment; a piece carries no personal data. */
+  pieceIds?: string[];
   createdAt: number;
   attachments?: Attachment[];
   /** Scheduled publishing (mirrors Announcement.publishAt): epoch ms. If set

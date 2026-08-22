@@ -17,7 +17,7 @@ import { PublicEvent } from './public/PublicEvent';
 import { PublicAnnouncementsPage } from './public/PublicAnnouncements';
 import { PublicRepertoire } from './public/PublicRepertoire';
 import { PublicAssignments } from './public/PublicAssignments';
-import { PublicSubmission } from './public/PublicSubmission';
+import { PublicAssignment } from './public/PublicAssignment';
 import { PublicDocuments } from './public/PublicDocuments';
 import { PublicSignups } from './public/PublicSignups';
 import { PublicSignup } from './public/PublicSignup';
@@ -74,7 +74,12 @@ const router = createBrowserRouter(
         { path: 'event/:id', element: <PublicEvent /> },
         { path: 'announcements', element: <PublicAnnouncementsPage /> },
         { path: 'assignments', element: <PublicAssignments /> },
-        { path: 'assignments/:id/submit', element: <PublicSubmission /> },
+        // One assignment on its own page: instructions, the music it's on,
+        // files, and the recorder, all together. `/submit` is the older
+        // submit URL (already handed out on QR codes) — same page, scrolled
+        // to the recorder.
+        { path: 'assignments/:id', element: <PublicAssignment /> },
+        { path: 'assignments/:id/submit', element: <PublicAssignment /> },
         { path: 'documents', element: <PublicDocuments /> },
         // Sign-ups (#signups): the index, and one form per sign-up.
         { path: 'signups', element: <PublicSignups /> },

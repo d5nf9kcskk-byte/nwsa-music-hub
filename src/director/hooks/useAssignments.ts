@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   collection, addDoc, updateDoc, deleteDoc, doc,
-  query, where,
+  query, where, deleteField,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { offerUndo } from '../writeStatus';
@@ -31,7 +31,15 @@ export function useAssignments() {
 
   async function updateAssignment(id: string, data: Partial<Omit<Assignment, 'id'>>) {
     if (!db) return;
-    const payload = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
+    // Explicit undefined means DELETE, mirroring useRepertoire.updatePiece.
+    // The app initializes Firestore with ignoreUndefinedProperties, which
+    // silently DROPS undefined keys from a patch — so clearing the last
+    // linked piece (or the form link, or turning video submissions off) left
+    // the stored value untouched and the "cleared" field came straight back.
+    const stamped: Record<string, unknown> = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
+    const payload = Object.fromEntries(
+      Object.entries(stamped).map(([k, v]) => [k, v === undefined ? deleteField() : v]),
+    );
     const previous = assignments.find(a => a.id === id)?.attachments ?? [];
     await updateDoc(doc(db, 'assignments', id), payload);
     // Attachments dropped in this save are no longer referenced — delete the
