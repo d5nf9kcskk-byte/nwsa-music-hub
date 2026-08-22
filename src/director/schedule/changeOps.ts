@@ -101,16 +101,7 @@ export async function announceChange(
   return annId;
 }
 
-/** Pre-change schedule snapshot, captured once (on the first change) so a
- *  revert can restore it exactly. Omits undefined fields for Firestore. */
-export function snapshot(e: CalendarEvent): NonNullable<CalendarEvent['changeFrom']> {
-  const s: NonNullable<CalendarEvent['changeFrom']> = { status: e.status };
-  if (e.startTime !== undefined) s.startTime = e.startTime;
-  if (e.endTime !== undefined) s.endTime = e.endTime;
-  if (e.location !== undefined) s.location = e.location;
-  return s;
-}
-
-/** Include a `changeFrom` snapshot only if this event hasn't been changed yet,
- *  so the ORIGINAL schedule is preserved across repeated edits. */
-export const captureOriginal = (e: CalendarEvent) => (e.changeFrom ? {} : { changeFrom: snapshot(e) });
+// Snapshot capture and revert planning moved to changePlan.ts (pure, no
+// firebase imports, loadable by the Phase-2 selfcheck); re-exported here so
+// "the shared change machinery" keeps one import site.
+export { snapshot, captureOriginal, combineSnapshot } from './changePlan';

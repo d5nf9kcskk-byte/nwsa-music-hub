@@ -174,7 +174,16 @@ export interface CalendarEvent {
    * so "Revert to normal" can restore it exactly. Left in place across further
    * edits so the original is never lost; cleared on revert.
    */
-  changeFrom?: { startTime?: string; endTime?: string; location?: string; status?: EventStatus };
+  changeFrom?: {
+    startTime?: string; endTime?: string; location?: string; status?: EventStatus;
+    /** Pre-combine membership (#schedule-ux-redesign §4.1) — present only when
+     *  this event absorbed another block, so revert knows to restore it. */
+    ensembleIds?: string[];
+    sharedBlock?: boolean;
+    /** Full copies of the event(s) deleted by a combine, re-created on revert
+     *  under the SAME doc ids — ICS UIDs derive from doc ids (frozen contract). */
+    absorbed?: ({ id: string } & Partial<Omit<CalendarEvent, 'id'>>)[];
+  };
   /** Id of the announcement auto-posted for this change, so revert can pull it. */
   changeAnnouncementId?: string;
 }

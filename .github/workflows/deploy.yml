@@ -68,6 +68,13 @@ jobs:
       - name: Check shared-block semantics + frozen ICS shape
         run: node scripts/shared-block.selfcheck.mjs
 
+      # Combine + revert (#schedule-ux-redesign Phase 2): a combined block's
+      # revert must re-create absorbed events under their ORIGINAL doc ids
+      # (ICS UIDs derive from doc ids) and leave every student's resolved
+      # schedule exactly where it started.
+      - name: Check combine/revert round trip
+        run: node scripts/schedule-combine.selfcheck.mjs
+
       # Standing weekday rotations: `days` on RosterOverride decides which
       # ensemble a rotating student rehearses with, and generate-feeds.mjs
       # keeps its own copy of that predicate. This pins both, and that they
