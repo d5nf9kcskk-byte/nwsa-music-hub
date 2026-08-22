@@ -27,6 +27,15 @@ function run(argv) {
   const app = Application.currentApplication();
   app.includeStandardAdditions = true;
 
+  /**
+   * Mailboxes that hold mail the pipeline must never treat as RECEIVED.
+   * Sent Items especially: forwarding a bulletin to yourself leaves a copy
+   * there, and reading it back is reading your own outgoing mail. Archive is
+   * deliberately NOT excluded — a triage rule files the real bulletin there
+   * within the hour, which is why an INBOX-only search found nothing.
+   */
+  const SKIP = /^(sent|sent items|sent messages|drafts|junk|junk e-?mail|spam|trash|deleted items|deleted messages|outbox)$/i;
+
   /** Depth-limited walk; Mail nests folders arbitrarily and can cycle. */
   function walk(container, prefix, depth, out) {
     if (depth > 4) return;
@@ -35,6 +44,7 @@ function run(argv) {
     for (const b of boxes) {
       let name;
       try { name = String(b.name()); } catch (e) { continue; }
+      if (SKIP.test(name)) continue;
       const path = prefix ? prefix + '/' + name : name;
       out.push(b);
       walk(b, path, depth + 1, out);

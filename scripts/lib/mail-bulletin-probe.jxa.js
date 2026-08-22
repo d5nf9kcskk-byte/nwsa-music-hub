@@ -73,6 +73,10 @@ function run(argv) {
         out.push({
           account: acctName,
           mailbox: entry.path,
+          // Mirrors the fetchers' exclusion list, so the probe reports what
+          // they will ACTUALLY read rather than everything that matched.
+          skipped: /(^|\/)(sent|sent items|sent messages|drafts|junk|junk e-?mail|spam|trash|deleted items|deleted messages|outbox)$/i
+            .test(entry.path),
           subject: subject,
           receivedDate: receivedDate,
           attachments: attachments,
