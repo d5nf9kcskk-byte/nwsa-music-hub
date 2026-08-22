@@ -57,6 +57,19 @@ jobs:
       #     functions deploy … iam.serviceAccounts.ActAs".
       # IAM grants can take a few minutes to propagate; a failure immediately
       # after granting is often lag, not a wrong grant (again, see PR #49).
+      #
+      # Also enable these APIs on the project by hand. firebase-tools turns
+      # them on itself when it can, but this account has no
+      # serviceusage.services.enable, so each one surfaces as "Permissions
+      # denied enabling <api>" — one at a time, as the deploy reaches it:
+      #   cloudfunctions.googleapis.com
+      #   cloudbuild.googleapis.com
+      #   artifactregistry.googleapis.com
+      #   cloudbilling.googleapis.com   — only a READ of the billing status,
+      #     to confirm the project is on Blaze. Enabling the API neither
+      #     enables billing nor costs anything.
+      # (firebaseextensions.googleapis.com also gets attempted, but failing to
+      # enable it is a warning, not a deploy failure.)
       - name: Deploy
         env:
           SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
