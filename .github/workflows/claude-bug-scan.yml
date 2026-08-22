@@ -1,0 +1,81 @@
+name: Claude weekly bug scan
+
+# Replaces Cursor Bugbot (removed Aug 2026 — it was hitting Cursor usage
+# limits and spamming every PR). Once a week, Claude reviews ONLY the commits
+# that landed on main since the last scan and opens/updates a single GitHub
+# issue if it finds real bugs. Runs on the repo owner's Claude subscription
+# via the CLAUDE_CODE_OAUTH_TOKEN secret (see docs/claude-bug-scan.md).
+#
+# Token-frugality is deliberate:
+#   - the "gate" job skips the whole scan when main had no commits that week
+#   - Claude reviews the week's diff, never the whole repo
+#   - findings go to one rolling issue, not per-PR comments
+
+on:
+  schedule:
+    # Mondays 10:00 UTC (6am ET) — before the school week starts.
+    - cron: '0 10 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.check.outputs.has_changes }}
+      range: ${{ steps.check.outputs.range }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: check
+        run: |
+          BASE=$(git rev-list -1 --before='8 days ago' HEAD || true)
+          COUNT=$(git rev-list --count ${BASE:+$BASE..}HEAD)
+          if [ -z "$BASE" ] || [ "$COUNT" -eq 0 ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No commits on main in the last week — skipping scan."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "range=$BASE..HEAD" >> "$GITHUB_OUTPUT"
+            echo "Scanning $COUNT commit(s): $BASE..HEAD"
+          fi
+
+  scan:
+    needs: gate
+    if: needs.gate.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Weekly bug review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--allowedTools "Bash(git log:*),Bash(git diff:*),Bash(git show:*),Read,Grep,Glob,Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue create:*),Bash(gh issue comment:*)"'
+          prompt: |
+            You are the weekly bug scan for this repository. Review ONLY the
+            changes in the git range ${{ needs.gate.outputs.range }} (use
+            `git diff` and `git log -p` on that range; read surrounding files
+            only where needed to judge a suspect hunk). Do not review code
+            outside that range.
+
+            Look for real defects: correctness bugs, regressions of the
+            invariants in CLAUDE.md (student privacy projections, Firestore
+            rules/query agreement, service-worker determinism, frozen ICS/slug
+            contracts, the school's name), and security issues. Ignore style,
+            nits, and hypotheticals you cannot trace to a concrete failure.
+
+            Reporting: use `gh issue list --label claude-bug-scan` to find the
+            rolling "Claude bug scan findings" issue. If you found nothing,
+            do not create or comment on anything — just stop. If you found
+            confirmed problems, comment on that issue (create it with label
+            `claude-bug-scan` if it doesn't exist) with one short section per
+            finding: file:line, what breaks, and a suggested fix. Never push
+            code changes.
+        env:
+          GH_TOKEN: ${{ github.token }}
