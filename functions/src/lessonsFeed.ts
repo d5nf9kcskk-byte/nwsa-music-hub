@@ -16,6 +16,19 @@ export function tokenMatches(given: string, expected: string): boolean {
   return timingSafeEqual(a, b);
 }
 
+/**
+ * The one browser origin allowed to READ a response from this endpoint.
+ *
+ * Purely so the director's own Lessons panel can probe whether the endpoint
+ * is live and say "not available yet" instead of handing over a link that
+ * silently fails. It grants nothing: the token is the access control, CORS
+ * only governs what a BROWSER PAGE may read, and any non-browser client
+ * (every calendar app) was never subject to it. Scoped to the org's own
+ * origin rather than '*' so no other site can turn a leaked link into a
+ * readable one from a page it controls.
+ */
+export const ALLOWED_ORIGIN = new URL(ORG.publicUrl).origin;
+
 const BRANDING = {
   prodId: ORG.ics.prodId,
   uidDomain: ORG.ics.uidDomain,

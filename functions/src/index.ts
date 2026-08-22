@@ -1,7 +1,7 @@
 import { https } from 'firebase-functions/v1';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { buildLessonsIcs, tokenMatches, TOKEN_RE } from './lessonsFeed.ts';
+import { ALLOWED_ORIGIN, buildLessonsIcs, tokenMatches, TOKEN_RE } from './lessonsFeed.ts';
 
 initializeApp();
 
@@ -31,6 +31,13 @@ export const lessonsFeed = https.onRequest(async (req, res) => {
   // One generic refusal for every failure. Never distinguish "no token doc"
   // from "wrong token" from "malformed" — that would turn this into an
   // oracle for probing.
+  // Set on EVERY response, refusals included: the director's panel probes
+  // this endpoint to tell "not deployed yet" from "live", and a browser
+  // cannot read a 404 that carries no CORS header — it would look like a
+  // network error and the panel could never tell the difference.
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+
   const deny = () => {
     res.set('Cache-Control', 'no-store');
     res.status(404).type('text/plain').send('Not found');

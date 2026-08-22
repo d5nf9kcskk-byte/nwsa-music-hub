@@ -37,6 +37,39 @@ jobs:
           npm --prefix functions ci
           npm --prefix functions run selfcheck
 
+      # A functions deploy needs MORE than the rules deploy does, and the
+      # errors name the resource but never the caller — the same trap PR #49
+      # hit on Storage. Printing client_email turns "grant the right account"
+      # from a guess into a copy-paste. It is an identifier, not a
+      # credential; the key stays in the temp file, shredded below.
+      #
+      # The deploying account is firebase-adminsdk-fbsvc@nwsa-hub.iam.gserviceaccount.com
+      # (a service account email is an identifier, not a credential, and this
+      # one is already printed in the public run log). In IAM, that is the row
+      # to edit — NOT nwsa-hub@appspot.gserviceaccount.com, which is only the
+      # account being acted upon and whose own roles this deploy does not need.
+      #
+      # Required on the deploying account, beyond what rules need:
+      #   • Cloud Functions Admin      (roles/cloudfunctions.admin)
+      #   • Service Account User       (roles/iam.serviceAccountUser) — must
+      #     cover nwsa-hub@appspot.gserviceaccount.com, the account a v1
+      #     function RUNS as. Without it: "Missing permissions required for
+      #     functions deploy … iam.serviceAccounts.ActAs".
+      # IAM grants can take a few minutes to propagate; a failure immediately
+      # after granting is often lag, not a wrong grant (again, see PR #49).
+      #
+      # Also enable these APIs on the project by hand. firebase-tools turns
+      # them on itself when it can, but this account has no
+      # serviceusage.services.enable, so each one surfaces as "Permissions
+      # denied enabling <api>" — one at a time, as the deploy reaches it:
+      #   cloudfunctions.googleapis.com
+      #   cloudbuild.googleapis.com
+      #   artifactregistry.googleapis.com
+      #   cloudbilling.googleapis.com   — only a READ of the billing status,
+      #     to confirm the project is on Blaze. Enabling the API neither
+      #     enables billing nor costs anything.
+      # (firebaseextensions.googleapis.com also gets attempted, but failing to
+      # enable it is a warning, not a deploy failure.)
       - name: Deploy
         env:
           SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
@@ -45,10 +78,43 @@ jobs:
             echo "::error::FIREBASE_SERVICE_ACCOUNT_JSON is not set — cannot deploy functions"
             exit 1
           fi
+          # Shred on EVERY exit path. Actions runs `run:` under `bash -e`, so
+          # a failed deploy leaves the step at once and a trailing shred line
+          # never executes — which is exactly what happened on each failed
+          # attempt that preceded this endpoint going live. The runner is
+          # thrown away either way, but a step that means to destroy a key
+          # should not quietly skip it on the one path where something already
+          # went wrong.
+          trap 'shred -u "$RUNNER_TEMP/sa.json" 2>/dev/null || rm -f "$RUNNER_TEMP/sa.json"' EXIT
           printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          echo "Deploying as: $(python3 -c 'import json,os;print(json.load(open(os.environ["RUNNER_TEMP"]+"/sa.json")).get("client_email","<unknown>"))')"
+          # --force keeps a working deploy from reporting as a failure.
+          # firebase-tools ends every deploy by trying to set an Artifact
+          # Registry cleanup policy; without --force that attempt exits 1
+          # AFTER "Successful create operation", so a function that is live
+          # and answering reports red. It runs INSIDE `firebase deploy`, so a
+          # separate setpolicy step cannot rescue it — the deploy has already
+          # exited and the later step is skipped.
+          #
+          # Nothing destructive rides along. --force also suppresses the
+          # confirmation for deleting functions absent from the source, but
+          # --only scopes that to lessonsFeed, which is what we deploy.
+          #
+          # What --force does NOT do here is actually set the policy. It
+          # downgrades the failure to a warning and the run log still says
+          # "Failed to set up cleanup policy for repositories in region
+          # us-central1" — so this is a PERMISSIONS limit, not a prompt one:
+          # the deploying account cannot write Artifact Registry policy. The
+          # images therefore still accumulate, which is a slowly growing
+          # storage bill and not a functional problem. To fix it for good,
+          # grant the deploying account Artifact Registry Administrator
+          # (roles/artifactregistry.admin) and it will set itself on the next
+          # deploy; or set a cleanup policy once by hand on the
+          # us-central1 gcf-artifacts repository. Left as a warning on
+          # purpose rather than failing the deploy over housekeeping.
           npx --yes firebase-tools@latest deploy \
             --only functions:lessonsFeed \
             --project nwsa-hub \
-            --non-interactive
-          shred -u "$RUNNER_TEMP/sa.json" || rm -f "$RUNNER_TEMP/sa.json"
+            --non-interactive \
+            --force
