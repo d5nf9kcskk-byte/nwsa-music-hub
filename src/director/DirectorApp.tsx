@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, Repeat, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -60,16 +60,14 @@ const NAV_TOP: NavItem[] = [
   { id: 'today',    label: 'Today',     Icon: Home          },
   { id: 'roll',     label: 'Take Roll', Icon: ClipboardList },
   { id: 'schedule', label: 'Calendar',  Icon: Calendar      },
+  // ONE door for changing the schedule (#schedule-ux-redesign): block swaps,
+  // shifts, cancels AND student moves. The old "Temporary Roster Changes"
+  // menu item retired into its Students tab; the `scheduleChanges` tab id
+  // stays valid for deep links.
+  { id: 'scheduleSwap', label: 'Schedule Changes', Icon: CalendarClock },
   { id: 'whosOut',  label: "Who's Out", Icon: UserX         },
 ];
 const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
-  {
-    head: 'Schedule',
-    items: [
-      { id: 'scheduleSwap',    label: 'Schedule Change', Icon: CalendarClock },
-      { id: 'scheduleChanges', label: 'Temporary Roster Changes', Icon: Repeat },
-    ],
-  },
   {
     head: 'People',
     items: [
@@ -100,7 +98,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   lessons:         'Lessons',
   schedule:        'Schedule',
   scheduleChanges: 'Temporary Roster Changes',
-  scheduleSwap:    'Schedule Change',
+  scheduleSwap:    'Schedule Changes',
   repertoire:      'Repertoire',
   documents:       'Documents',
   notes:           'Progress Notes',
@@ -129,7 +127,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   roll:            'Pick an ensemble, then mark who\u2019s here. Tap a student to cycle Present, Absent, and Tardy.',
   schedule:        'The full calendar of rehearsals, concerts, and events. Tap a day to see or add its events.',
   whosOut:         'Every absence and pull-out in one place. Switch Day and Month to spot patterns.',
-  scheduleSwap:    'Change one day\u2019s ensemble times: use the arrows (or Month/List view) to pick the day, then swap, shift, or cancel a block. Families see a red banner automatically.',
+  scheduleSwap:    'Everything different about a day, in one place. Pick the day, then tap Change on a block to swap, shift, cancel, or move a student. Families see a red banner automatically.',
   scheduleChanges: 'Temporary student moves \u2014 subs, pull-outs, and one-day loans between ensembles.',
   ensembles:       'Create ensembles, add students to their rosters, and open any ensemble\u2019s hub \u2014 all from here.',
   roster:          'Every student in the program. Tap a student to edit their info or which ensembles they\u2019re in.',

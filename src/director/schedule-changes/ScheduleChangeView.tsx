@@ -24,27 +24,32 @@ interface Prefill { ensembleId?: string; date?: string }
  * Everything feeds the existing rosterResolver, so attendance and every
  * schedule view update automatically.
  */
-export function ScheduleChangeView({ initialEnsembleId = '', initialStudentId, onNavigate }: {
+export function ScheduleChangeView({ initialEnsembleId = '', initialStudentId, initialMode, initialDate, initialEventId, onNavigate }: {
   initialEnsembleId?: string;
   /** Lets the ensemble headings here open their own hub. */
   onNavigate?: DirNavigate;
   /** Arrived from a lesson or pull-out shown elsewhere (Today, Who's Out) —
    *  open straight onto that student rather than the picker. */
   initialStudentId?: string;
+  /** Embedded by the Schedule Changes screen (#schedule-ux-redesign):
+   *  "Move a student" on a block lands directly on that block's roster. */
+  initialMode?: 'student' | 'date';
+  initialDate?: string;
+  initialEventId?: string;
 }) {
   const { students } = useStudents();
   const { ensembles } = useEnsembles();
   const { events } = useEvents();
   const { overrides } = useRosterOverrides();
-  const [mode, setMode] = useState<'student' | 'date'>('student');
+  const [mode, setMode] = useState<'student' | 'date'>(initialMode ?? 'student');
   const [selectedId, setSelectedId] = useState<string | null>(initialStudentId ?? null);
   const [prefill, setPrefill] = useState<Prefill | null>(null);
   const [query, setQuery] = useState('');
   const [ensembleId, setEnsembleId] = useState(initialEnsembleId);
   const [sort, setSort] = useState<StudentSort>('lastName');
-  const [dateSel, setDateSel] = useState(todayStr());
-  const [calCursor, setCalCursor] = useState(() => parseDate(todayStr()));
-  const [dateEventId, setDateEventId] = useState<string | null>(null);
+  const [dateSel, setDateSel] = useState(initialDate ?? todayStr());
+  const [calCursor, setCalCursor] = useState(() => parseDate(initialDate ?? todayStr()));
+  const [dateEventId, setDateEventId] = useState<string | null>(initialEventId ?? null);
 
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);

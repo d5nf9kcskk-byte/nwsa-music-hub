@@ -176,9 +176,9 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
           {onNavigate && (
             <button
               className="dir-btn dir-btn-primary dir-btn-compact"
-              onClick={() => { onClose(); onNavigate('scheduleChanges', { ensembleId }); }}
+              onClick={() => { onClose(); onNavigate('scheduleSwap', { date: event.date }); }}
             >
-              <ClipboardList size={15} style={{ verticalAlign: '-2px' }} /> Make roster changes
+              <ClipboardList size={15} style={{ verticalAlign: '-2px' }} /> Move a student
             </button>
           )}
         </div>

@@ -1,114 +1,23 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, ArrowLeftRight, Clock3, MapPin, XCircle, RotateCcw, Grid3x3, CalendarDays, List } from 'lucide-react';
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { ChevronLeft, ChevronRight, ArrowLeftRight, Clock3, MapPin, XCircle, RotateCcw, Grid3x3, CalendarDays, List, Users, UserCog, Pencil } from 'lucide-react';
 import { useEvents } from '../hooks/useEvents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { todayStr, addDays, parseDate, toDateStr, formatTime, formatTimeRange, ensembleColor, addMinutesToTime, TIME_BLOCKS, CONCERT_COLOR } from '../utils';
-import type { CalendarEvent, Announcement, Ensemble } from '../types';
+import { bannersForEvents, announceChange, captureOriginal } from './changeOps';
+import { ScheduleChangeView } from '../schedule-changes/ScheduleChangeView';
+import type { CalendarEvent, Ensemble } from '../types';
 import type { DirNavigate } from '../types-nav';
 
-/** Post the urgent announcement (in-app banner) and enqueue the notify relay
- *  for a future Teams/email integration. Returns the announcement id so the
- *  event can link it and a later revert can pull it back down. */
-async function postScheduleAnnouncement(
-  addAnnouncement: (data: Omit<Announcement, 'id'>) => Promise<string | undefined>,
-  date: string,
-  title: string,
-  ensembleIds: string[],
-  eventId: string,
-): Promise<string | undefined> {
-  const annId = await addAnnouncement({
-    title,
-    ensembleId: ensembleIds.length === 1 ? ensembleIds[0] : null,
-    priority: 'urgent',
-    createdAt: Date.now(),
-    expiresOn: addDays(date, 1),
-    eventId,
-  });
-  await queueRelay(title, ensembleIds);
-  return annId;
-}
-
-/** Second change to the same event: UPDATE its existing red-banner
- *  announcement (one event = one banner) instead of stacking a duplicate. */
-async function updateScheduleAnnouncement(
-  updateAnnouncement: (id: string, data: Partial<Omit<Announcement, 'id'>>) => Promise<void>,
-  annId: string,
-  date: string,
-  title: string,
-  ensembleIds: string[],
-  eventId: string,
-): Promise<string> {
-  await updateAnnouncement(annId, {
-    title,
-    ensembleId: ensembleIds.length === 1 ? ensembleIds[0] : null,
-    createdAt: Date.now(), // resurface as the newest post
-    expiresOn: addDays(date, 1),
-    eventId, // stamp legacy banners so the next change finds this one
-  });
-  await queueRelay(title, ensembleIds);
-  return annId;
-}
-
-/** Enqueue the Teams/email relay entry (best-effort — never blocks a save). */
-async function queueRelay(title: string, ensembleIds: string[]) {
-  if (!db) return;
-  try {
-    await addDoc(collection(db, 'notifyQueue'), {
-      kind: 'urgent-announcement', title, ensembleIds, createdAt: Date.now(), processedAt: null,
-    });
-  } catch { /* relay is best-effort */ }
-}
-
 /**
- * Every live red banner that belongs to these events, oldest first. Matched
- * three ways so a repeat change never stacks a second banner:
- *   1. the event's own `changeAnnouncementId` link,
- *   2. a banner stamped with this `eventId`,
- *   3. legacy banners posted before either existed — same expiry as this
- *      day's change, urgent, and titled after the event.
- * Anything beyond the first is a duplicate the caller folds away.
- */
-function bannersForEvents(
-  announcements: Announcement[],
-  evts: CalendarEvent[],
-  labels: string[],
-  date: string,
-): Announcement[] {
-  const linked = new Set(evts.map(e => e.changeAnnouncementId).filter(Boolean) as string[]);
-  const eventIds = new Set(evts.map(e => e.id));
-  const expiry = addDays(date, 1);
-  return announcements
-    .filter(a =>
-      a.priority === 'urgent' && (
-        linked.has(a.id) ||
-        (!!a.eventId && eventIds.has(a.eventId)) ||
-        (!a.eventId && a.expiresOn === expiry && labels.some(l => l && a.title.includes(l)))
-      ))
-    .sort((x, y) => (x.createdAt ?? 0) - (y.createdAt ?? 0));
-}
-
-/** Pre-change schedule snapshot, captured once (on the first change) so a
- *  revert can restore it exactly. Omits undefined fields for Firestore. */
-function snapshot(e: CalendarEvent): NonNullable<CalendarEvent['changeFrom']> {
-  const s: NonNullable<CalendarEvent['changeFrom']> = { status: e.status };
-  if (e.startTime !== undefined) s.startTime = e.startTime;
-  if (e.endTime !== undefined) s.endTime = e.endTime;
-  if (e.location !== undefined) s.location = e.location;
-  return s;
-}
-/** Include a `changeFrom` snapshot only if this event hasn't been changed yet,
- *  so the ORIGINAL schedule is preserved across repeated edits. */
-const captureOriginal = (e: CalendarEvent) => (e.changeFrom ? {} : { changeFrom: snapshot(e) });
-
-/**
- * Schedule Change — ENSEMBLE times, not students (students are handled on the
- * Roll screen). Swap two blocks, shift a rehearsal's time, move the room, or
- * cancel — for any day. Every change stamps a change note (drives the public
- * red banner) and can post an urgent announcement (in-app banner). A per-row
- * "Revert to normal" restores the original schedule and clears both.
+ * Schedule Changes — everything that's different about a day, in one place
+ * (#schedule-ux-redesign Phase 1). Per block: swap, shift, move rooms, cancel,
+ * or move a student (which routes into the existing roster-override flow).
+ * The Students tab is the by-student picker that used to be its own
+ * "Temporary Roster Changes" menu item. Every ensemble-time change stamps a
+ * change note (drives the public red banner) and can post an urgent
+ * announcement (in-app banner). A per-row "Revert to normal" restores the
+ * original schedule and clears both.
  */
 export function ScheduleSwapView({ initialDate, onNavigate }: {
   initialDate?: string;
@@ -116,15 +25,22 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
 }) {
   const { events, updateEvent, revertEvent } = useEvents();
   const { ensembles } = useEnsembles();
-  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useAnnouncements();
+  const announcementApi = useAnnouncements();
+  const { announcements, deleteAnnouncement } = announcementApi;
 
   const [date, setDate] = useState(initialDate ?? todayStr());
   const [swapPick, setSwapPick] = useState<string[]>([]); // event ids picked for a swap
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
+  const [menuFor, setMenuFor] = useState<CalendarEvent | null>(null);
+  const [cancelling, setCancelling] = useState<CalendarEvent | null>(null);
+  // "Move a student" on a block: embed the existing roster-change flow,
+  // landed directly on that block's expected roster.
+  const [studentFlowEventId, setStudentFlowEventId] = useState<string | null>(null);
   const [confirmSwap, setConfirmSwap] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [view, setView] = useState<'day' | 'list' | 'month'>('month');
+  // Deep-linked with a date (from the calendar / Today): open on that day.
+  const [view, setView] = useState<'day' | 'list' | 'month' | 'students'>(initialDate ? 'day' : 'month');
 
   const today = todayStr();
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
@@ -139,25 +55,8 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   const label = (e: CalendarEvent) =>
     e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(' + ') || e.type;
 
-  /** Post the red-banner announcement for a change — or, when this event
-   *  already has one (a second change to the same rehearsal/concert), UPDATE
-   *  that banner instead of stacking a duplicate. One event = one banner. */
-  /**
-   * One event = one red banner. Rewrites the event's existing banner when it
-   * already has one, and folds away any duplicates left by earlier changes
-   * (or by a change made from another screen) so families see a single
-   * banner describing the current state.
-   */
-  async function announce(title: string, evts: CalendarEvent[]): Promise<string | undefined> {
-    const ensembleIds = [...new Set(evts.flatMap(e => e.ensembleIds))];
-    const existing = bannersForEvents(announcements, evts, evts.map(label), date);
-    const [keep, ...dupes] = existing;
-    const annId = keep
-      ? await updateScheduleAnnouncement(updateAnnouncement, keep.id, date, title, ensembleIds, evts[0].id)
-      : await postScheduleAnnouncement(addAnnouncement, date, title, ensembleIds, evts[0].id);
-    for (const d of dupes) await deleteAnnouncement(d.id);
-    return annId;
-  }
+  const announce = (title: string, evts: CalendarEvent[]) =>
+    announceChange(announcementApi, date, title, evts, evts.map(label));
 
   function togglePick(id: string) {
     setSwapPick(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id].slice(-2));
@@ -212,6 +111,25 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
     }
   }
 
+  // "Move a student" from a block's Change menu: hand over to the existing
+  // roster-change flow (the same machinery the old Temporary Roster Changes
+  // screen used), opened straight onto that block's expected roster.
+  if (studentFlowEventId) {
+    return (
+      <div className="dir-tab-page">
+        <button className="dir-drawer-back" style={{ margin: '8px 16px 0' }} onClick={() => setStudentFlowEventId(null)}>
+          <ChevronLeft size={18} /> Back to schedule changes
+        </button>
+        <ScheduleChangeView
+          initialMode="date"
+          initialDate={date}
+          initialEventId={studentFlowEventId}
+          onNavigate={onNavigate}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="dir-tab-page">
       <div className="dir-mode-toggle">
@@ -224,9 +142,14 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
         <button className={`dir-segment-btn ${view === 'month' ? 'active' : ''}`} onClick={() => setView('month')}>
           <Grid3x3 size={14} style={{ verticalAlign: '-2px' }} /> Month
         </button>
+        <button className={`dir-segment-btn ${view === 'students' ? 'active' : ''}`} onClick={() => setView('students')}>
+          <Users size={14} style={{ verticalAlign: '-2px' }} /> Students
+        </button>
       </div>
 
-      {view === 'month' ? (
+      {view === 'students' ? (
+        <ScheduleChangeView onNavigate={onNavigate} />
+      ) : view === 'month' ? (
         <SwapMonth date={date} events={events} ensembleMap={ensembleMap} onPick={d => { setDate(d); setView('day'); }} />
       ) : view === 'list' ? (
         <SwapList events={events} ensembleMap={ensembleMap} onPick={d => { setDate(d); setView('day'); }} />
@@ -246,10 +169,9 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
 
       <div className="dir-page-body">
         <div className="dir-field-hint">
-          Ensemble times only — swap blocks, shift a rehearsal, move rooms, or cancel.
+          Everything different about this day starts here — tap <strong>Change</strong> on a block
+          to swap, shift, move rooms, cancel, or move a student.
           Families see a red “Schedule change” banner automatically.
-          For <strong>students</strong> (subs, pull-outs, absences), use{' '}
-          <button className="dir-link-btn" onClick={() => onNavigate('roll')}>Take Roll</button>.
         </div>
 
         {dayEvents.length === 0 ? (
@@ -301,16 +223,20 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
                       <RotateCcw size={14} /> Revert
                     </button>
                   )}
-                  <button
-                    className={`dir-tool-btn ${swapPick.includes(e.id) ? 'active' : ''}`}
-                    onClick={() => togglePick(e.id)}
-                    title="Select this and one other block to trade times"
-                  >
-                    <ArrowLeftRight size={14} /> Swap
-                  </button>
-                  <button className="dir-tool-btn" onClick={() => setEditing(e)} title="Change time / room, or cancel">
-                    <Clock3 size={14} /> Change
-                  </button>
+                  {swapPick.length > 0 ? (
+                    // Mid-swap: the row's one job is picking the other block.
+                    <button
+                      className={`dir-tool-btn ${swapPick.includes(e.id) ? 'active' : ''}`}
+                      onClick={() => togglePick(e.id)}
+                      title="Select this and one other block to trade times"
+                    >
+                      <ArrowLeftRight size={14} /> Swap
+                    </button>
+                  ) : (
+                    <button className="dir-tool-btn" onClick={() => setMenuFor(e)} title="Swap, shift, move rooms, cancel, or move a student">
+                      <Pencil size={14} /> Change ▾
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -319,6 +245,33 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
         {error && <div className="dir-sc-error">⚠ {error}</div>}
       </div>
       </>
+      )}
+
+      {menuFor && (
+        <ChangeMenu
+          event={menuFor}
+          name={label(menuFor)}
+          onClose={() => setMenuFor(null)}
+          onTimeRoom={() => { setEditing(menuFor); setMenuFor(null); }}
+          onCancel={() => { setCancelling(menuFor); setMenuFor(null); }}
+          onSwap={() => { togglePick(menuFor.id); setMenuFor(null); }}
+          onStudent={() => { setStudentFlowEventId(menuFor.id); setMenuFor(null); }}
+        />
+      )}
+
+      {cancelling && (
+        <CancelSheet
+          event={cancelling}
+          name={label(cancelling)}
+          onApply={async (data, notifyTitle) => {
+            await updateEvent(cancelling.id, { ...data, ...captureOriginal(cancelling) });
+            if (notifyTitle) {
+              const annId = await announce(notifyTitle, [cancelling]);
+              if (annId) await updateEvent(cancelling.id, { changeAnnouncementId: annId });
+            }
+          }}
+          onClose={() => setCancelling(null)}
+        />
       )}
 
       {confirmSwap && a && b && (
@@ -461,6 +414,129 @@ function SwapMonth({ date, events, ensembleMap, onPick }: {
         ))}
       </div>
       <div className="dir-field-hint" style={{ padding: '10px 16px' }}>Tap a day to open it and swap or change its blocks.</div>
+    </div>
+  );
+}
+
+/**
+ * One block's whole change vocabulary in one sheet — the director's verbs,
+ * not the data model's (#schedule-ux-redesign). Time/room and cancel mutate
+ * this event; swap enters the pick-two flow; move-a-student hands off to the
+ * roster-override machinery.
+ */
+function ChangeMenu({ event, name, onClose, onTimeRoom, onCancel, onSwap, onStudent }: {
+  event: CalendarEvent;
+  name: string;
+  onClose: () => void;
+  onTimeRoom: () => void;
+  onCancel: () => void;
+  onSwap: () => void;
+  onStudent: () => void;
+}) {
+  const cancelled = event.status === 'Cancelled';
+  const items: { icon: React.ReactNode; title: string; sub: string; run: () => void; danger?: boolean }[] = [
+    { icon: <Clock3 size={16} />, title: 'Move time or room…', sub: 'Shift this block, or put it somewhere else', run: onTimeRoom },
+    { icon: <ArrowLeftRight size={16} />, title: 'Swap with another block…', sub: 'Trade times (and rooms) with another block this day', run: onSwap },
+    cancelled
+      ? { icon: <RotateCcw size={16} />, title: 'Un-cancel…', sub: 'Put it back on as originally scheduled', run: onCancel }
+      : { icon: <XCircle size={16} />, title: `Cancel this ${event.type.toLowerCase()}…`, sub: 'Families can be told automatically', run: onCancel, danger: true },
+    { icon: <UserCog size={16} />, title: 'Move a student…', sub: 'Lesson pull-out, sub, or a day with another ensemble', run: onStudent },
+  ];
+  return (
+    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="dir-drawer">
+        <div className="dir-drawer-handle" />
+        <div className="dir-drawer-header">
+          <span className="dir-drawer-title">{name}</span>
+          <button className="dir-drawer-close" onClick={onClose}>×</button>
+        </div>
+        <div className="dir-drawer-body">
+          <div className="dir-field-hint" style={{ marginBottom: 8 }}>
+            {parseDate(event.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            {formatTimeRange(event.startTime, event.endTime) ? ` · ${formatTimeRange(event.startTime, event.endTime)}` : ''}
+            {event.location ? ` · ${event.location}` : ''}
+          </div>
+          {items.map(it => (
+            <button key={it.title} className="dir-ens-row dir-sc-pick" onClick={it.run}>
+              <div className="dir-ens-info">
+                <div className="dir-ens-name" style={it.danger ? { color: 'var(--dir-danger)' } : undefined}>
+                  {it.icon} {it.title}
+                </div>
+                <div className="dir-ens-sub">{it.sub}</div>
+              </div>
+              <ChevronRight size={16} style={{ flexShrink: 0, opacity: 0.5 }} />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Confirm a cancel (or un-cancel) with the notify choice — same snapshot,
+ *  note, and banner path as every other change on this screen. */
+function CancelSheet({ event, name, onApply, onClose }: {
+  event: CalendarEvent;
+  name: string;
+  onApply: (data: Partial<Omit<CalendarEvent, 'id'>>, notifyTitle?: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [notify, setNotify] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const cancelled = event.status === 'Cancelled';
+  const when = parseDate(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+  async function run() {
+    setBusy(true); setError('');
+    try {
+      if (cancelled) {
+        await onApply(
+          { status: 'Scheduled', changeNote: 'Back on — as originally scheduled' },
+          notify ? `${name}: back ON ${when} — as originally scheduled` : undefined,
+        );
+      } else {
+        await onApply(
+          { status: 'Cancelled', changeNote: 'Cancelled' },
+          notify ? `🚫 ${name}: CANCELLED ${when}` : undefined,
+        );
+      }
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save — try again.');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="dir-drawer">
+        <div className="dir-drawer-handle" />
+        <div className="dir-drawer-header">
+          <span className="dir-drawer-title">
+            {cancelled ? <RotateCcw size={16} style={{ verticalAlign: '-2px' }} /> : <XCircle size={16} style={{ verticalAlign: '-2px' }} />}
+            {' '}{cancelled ? 'Un-cancel' : 'Cancel'} {event.type.toLowerCase()}
+          </span>
+          <button className="dir-drawer-close" onClick={onClose}>×</button>
+        </div>
+        <div className="dir-drawer-body">
+          <div className="dir-sc-summary">
+            <strong>{name}</strong> {cancelled ? 'goes back on' : 'is cancelled for'} {when}
+            {formatTimeRange(event.startTime, event.endTime) ? ` (${formatTimeRange(event.startTime, event.endTime)})` : ''}.
+          </div>
+          <label className="pub-parent-toggle" style={{ marginTop: 8 }}>
+            <input type="checkbox" checked={notify} onChange={e => setNotify(e.target.checked)} />
+            Post an urgent announcement (shows a banner on the calendar)
+          </label>
+          {error && <div className="dir-sc-error">⚠ {error}</div>}
+        </div>
+        <div className="dir-drawer-footer">
+          <button className="dir-btn dir-btn-ghost" onClick={onClose}>Keep as is</button>
+          <button className={`dir-btn ${cancelled ? 'dir-btn-primary' : 'dir-btn-danger'}`} disabled={busy} onClick={run}>
+            {busy ? 'Saving…' : cancelled ? 'Put it back on' : `Cancel the ${event.type.toLowerCase()}`}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

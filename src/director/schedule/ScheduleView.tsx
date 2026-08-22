@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, CalendarPlus, MapPin, Clock, Users, Upload, Sparkles, LayoutList, Grid3x3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarPlus, CalendarClock, MapPin, Clock, Users, Upload, Sparkles, LayoutList, Grid3x3 } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
@@ -280,6 +280,11 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               Who’s out
             </button>
           )}
+          {e.ensembleIds.length > 0 && onNavigate && (
+            <button className="dir-event-roster-btn" onClick={() => onNavigate('scheduleSwap', { date: e.date })} title="Swap, shift, cancel, or move a student for this day">
+              Change
+            </button>
+          )}
           {e.ensembleIds.length > 0 && (
             <button className="dir-event-roster-btn" onClick={() => setRosterEvent(e)}>
               Roster
@@ -459,6 +464,16 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             <div className="dir-day-detail-header">
               {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               {selectedDate === today && <span className="dir-today-badge">Today</span>}
+              {onNavigate && (eventsByDate[selectedDate] ?? []).some(e => e.ensembleIds.length > 0) && (
+                <button
+                  className="dir-tool-btn"
+                  style={{ marginLeft: 'auto' }}
+                  onClick={() => onNavigate('scheduleSwap', { date: selectedDate })}
+                  title="Swap, shift, cancel, or move a student — everything different about this day"
+                >
+                  <CalendarClock size={14} /> Change this day
+                </button>
+              )}
             </div>
             {dayEvents.length === 0 && (assignByDate[selectedDate] ?? []).length === 0 ? (
               <div className="dir-day-empty">No events scheduled. Tap + to add one. {dailyPun('dir-sched').en}</div>
