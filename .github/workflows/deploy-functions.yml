@@ -43,6 +43,12 @@ jobs:
       # from a guess into a copy-paste. It is an identifier, not a
       # credential; the key stays in the temp file, shredded below.
       #
+      # The deploying account is firebase-adminsdk-fbsvc@nwsa-hub.iam.gserviceaccount.com
+      # (a service account email is an identifier, not a credential, and this
+      # one is already printed in the public run log). In IAM, that is the row
+      # to edit — NOT nwsa-hub@appspot.gserviceaccount.com, which is only the
+      # account being acted upon and whose own roles this deploy does not need.
+      #
       # Required on the deploying account, beyond what rules need:
       #   • Cloud Functions Admin      (roles/cloudfunctions.admin)
       #   • Service Account User       (roles/iam.serviceAccountUser) — must
