@@ -22,14 +22,21 @@ function assert(cond, msg) {
 }
 
 assert(date === '2026-08-13', `date expected 2026-08-13, got ${date}`);
-assert(rows.length === 4, `expected 4 roll rows (withdrawal skipped), got ${rows.length}: ${rows.map(r => r.rawName).join(' | ')}`);
+assert(rows.length === 5, `expected 5 roll rows (withdrawal skipped), got ${rows.length}: ${rows.map(r => r.rawName).join(' | ')}`);
 
 const cats = rows.map(r => r.category).sort().join(',');
-assert(cats === 'EXCUSED EARLY,NO SHOWS,NO SHOWS,NO SHOWS', `categories: ${cats}`);
+assert(cats === 'EXCUSED EARLY,EXCUSED EARLY,NO SHOWS,NO SHOWS,NO SHOWS', `categories: ${cats}`);
 
-const early = rows.find(r => r.category === 'EXCUSED EARLY');
-assert(early?.time === '9:52', `early time: ${early?.time}`);
-assert(mapBulletinToAttendance(early)?.status === 'Excused', 'early → Excused');
+const earlyToday = rows.find(r => r.category === 'EXCUSED EARLY' && r.rawName.includes('EARLYBIRD'));
+assert(earlyToday?.time === '9:52', `early time: ${earlyToday?.time}`);
+assert(earlyToday?.date === '2026-08-13', `earlyToday date: ${earlyToday?.date}`);
+assert(mapBulletinToAttendance(earlyToday)?.status === 'Excused', 'early → Excused');
+
+// A bulletin can carry a same-named EXCUSED EARLY section for a prior day —
+// that row must keep ITS OWN date, not fall back to today's bulletin date.
+const earlyPriorDay = rows.find(r => r.category === 'EXCUSED EARLY' && r.rawName.includes('MUSICONE'));
+assert(earlyPriorDay?.date === '2026-08-12', `earlyPriorDay date: ${earlyPriorDay?.date}`);
+assert(earlyPriorDay?.time === '12:15', `earlyPriorDay time: ${earlyPriorDay?.time}`);
 
 const students = [
   { id: 's1', name: 'Jane Musicone', grade: '10', status: 'Active', ensembleIds: ['orch'] },
@@ -37,7 +44,7 @@ const students = [
   { id: 's3', name: 'Emma Earlybird', grade: '11', status: 'Active', ensembleIds: ['choir'] },
 ];
 const { matched, ambiguous, ignored } = matchBulletinRows(rows, students);
-assert(matched.length === 3, `matched ${matched.length}`);
+assert(matched.length === 4, `matched ${matched.length}`);
 assert(ignored === 1, `ignored other-dept ${ignored}`);
 assert(ambiguous.length === 0, `ambiguous ${ambiguous.length}`);
 
@@ -69,5 +76,20 @@ assert(mergeBulletinMarks([...flip].reverse(), '2026-08-13')[0].status === 'Abse
 const solo = mergeBulletinMarks([dup[0]], '2026-08-13');
 assert(solo.length === 1 && solo[0].status === 'Late', 'a lone row keeps its own mark');
 assert(mergeBulletinMarks([dup[0], flip[0]], '2026-08-13').length === 2, 'distinct students stay separate');
+
+// Per-row dates x collapse: a late EXCUSED EARLY update for a PRIOR day must
+// NOT merge with today's mark for the same student. Same student, different
+// days, so two marks — collapsing those would move a prior day's excuse onto
+// today and lose the day it actually happened.
+const twoDays = mergeBulletinMarks([
+  { row: { category: 'TARDY', rawName: 'A B', date: null }, student: { id: 'x1', name: 'A B' } },
+  { row: { category: 'EXCUSED EARLY', time: '9:52', rawName: 'A B', date: '2026-08-18' }, student: { id: 'x1', name: 'A B' } },
+], '2026-08-20');
+assert(twoDays.length === 2, `different days stay separate, got ${twoDays.length}`);
+const today = twoDays.find(m => m.date === '2026-08-20');
+const prior = twoDays.find(m => m.date === '2026-08-18');
+assert(today?.status === 'Late', `today's row keeps its own mark, got ${today?.status}`);
+assert(prior?.status === 'Excused', `the prior day keeps its own mark, got ${prior?.status}`);
+assert(/9:52/.test(prior?.reason ?? ''), 'the prior day keeps its own time');
 
 console.log('attendance-bulletin.selfcheck: ok');

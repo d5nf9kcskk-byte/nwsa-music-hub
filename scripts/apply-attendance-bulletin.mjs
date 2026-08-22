@@ -175,15 +175,22 @@ for (const { student, date: markDate, status, reason } of marks) {
   }
 }
 
-// Replace pending queue rows for this date
-const oldQ = await db.collection('bulletinQueue').where('date', '==', date).where('status', '==', 'pending').get();
+// Replace pending queue rows for EVERY date this bulletin touches. A row can
+// carry a prior day's date (a late EXCUSED EARLY update), so clearing only the
+// bulletin's own date would leave those rows to pile up run after run — the
+// same section re-emitted tomorrow would queue a second copy.
+const queueDates = [...new Set([date, ...ambiguous.map(a => a.row.date || date)])];
 const batch = db.batch();
-for (const d of oldQ.docs) batch.delete(d.ref);
+for (const qd of queueDates) {
+  const oldQ = await db.collection('bulletinQueue')
+    .where('date', '==', qd).where('status', '==', 'pending').get();
+  for (const d of oldQ.docs) batch.delete(d.ref);
+}
 await batch.commit();
 
 for (const { row, candidates } of ambiguous) {
   await db.collection('bulletinQueue').add({
-    date,
+    date: row.date || date,
     category: row.category,
     bulletinName: row.rawName,
     grade: row.grade ?? null,
