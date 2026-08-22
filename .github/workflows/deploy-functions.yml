@@ -89,33 +89,23 @@ jobs:
           printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
           echo "Deploying as: $(python3 -c 'import json,os;print(json.load(open(os.environ["RUNNER_TEMP"]+"/sa.json")).get("client_email","<unknown>"))')"
+          # --force is required, not optional. Artifact Registry keeps a
+          # container image for every deploy, and firebase-tools ends the
+          # deploy by setting a cleanup policy so they do not pile up into
+          # what it calls "a small monthly bill". It cannot confirm that
+          # policy without a prompt, so in CI it exits 1 — AFTER "Successful
+          # create operation" — and a function that is live and answering
+          # reports as a failed deploy.
+          #
+          # This runs INSIDE `firebase deploy`, so a separate setpolicy step
+          # cannot rescue it: the deploy has already exited non-zero and the
+          # later step is skipped. --force is what the error itself asks for.
+          #
+          # Nothing destructive rides along. --force also suppresses the
+          # confirmation for deleting functions absent from the source, but
+          # --only scopes that to lessonsFeed, which is what we are deploying.
           npx --yes firebase-tools@latest deploy \
             --only functions:lessonsFeed \
             --project nwsa-hub \
-            --non-interactive
-
-      # Artifact Registry keeps a container image for every deploy. With no
-      # cleanup policy they pile up into what firebase-tools calls "a small
-      # monthly bill" — on a school's project, a bill nobody is watching.
-      #
-      # This is its OWN step because folding it into the deploy made the
-      # deploy lie: the policy cannot be confirmed interactively in CI, so
-      # firebase-tools exited 1 *after* "Successful create operation", and a
-      # function that was live and answering reported as a failed deploy.
-      # Same reasoning as Storage in deploy-rules.yml — one concern per step,
-      # so each one's red or green means what it says.
-      - name: Set Artifact Registry cleanup policy
-        env:
-          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-        run: |
-          trap 'shred -u "$RUNNER_TEMP/sa.json" 2>/dev/null || rm -f "$RUNNER_TEMP/sa.json"' EXIT
-          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
-          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
-          # --force answers the create-or-modify prompt; there is nothing
-          # destructive behind it. 3 days keeps the last few deploys' images
-          # around to look at without letting them accumulate.
-          npx --yes firebase-tools@latest functions:artifacts:setpolicy \
-            --project nwsa-hub \
-            --location us-central1 \
-            --days 3 \
+            --non-interactive \
             --force
