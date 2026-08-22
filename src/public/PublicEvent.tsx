@@ -11,6 +11,7 @@ import { NotesText } from './components/NotesText';
 import { SkeletonCards } from './components/PageHeader';
 import { t, tType, useLang } from '../shared/i18n';
 import { fmtFullDate, fmtShortDate } from '../shared/dates';
+import { isSharedBlock, sharedBlockLabel } from '../shared/sharedBlock';
 import { AddToCalendarButton } from './components/AddToCalendar';
 import { concertDayLine, cancelledNotPersonalLine } from '../shared/whimsy';
 import { getLang } from '../shared/i18n';
@@ -46,8 +47,9 @@ export function PublicEvent() {
   }
 
   const dateLabel = fmtFullDate(event.date);
+  const sharedNames = event.ensembleIds.map(eid => ensembleDisplayName(ensembleMap[eid])).filter(Boolean);
   const heroTitle = event.title
-    || event.ensembleIds.map(eid => ensembleDisplayName(ensembleMap[eid])).filter(Boolean).join(' + ')
+    || (isSharedBlock(event) ? sharedBlockLabel(sharedNames) : sharedNames.join(' + '))
     || tType(event.type);
   const isToday = event.date === todayStr();
 
@@ -102,6 +104,14 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
         <div className="pub-hero-kicker">{infoTitle}</div>
         <h1 className="pub-h1" style={{ marginBottom: 2 }}>{heroTitle}</h1>
         <div className="pub-hero-date">{dateLabel}{isToday ? ` ${t('event.todaySuffix')}` : ''}</div>
+        {isSharedBlock(event) && (
+          <div className="pub-hero-date">
+            {t('event.combined')}: {event.ensembleIds
+              .map(id => ensembleDisplayName(ensembleMap[id]))
+              .filter(Boolean)
+              .join(' + ')}
+          </div>
+        )}
       </div>
 
       {/* Hidden delight (#easter-eggs): the concert-day ribbon, only on the day. */}

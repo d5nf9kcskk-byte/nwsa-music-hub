@@ -91,7 +91,7 @@ const norm = s => String(s).toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).
   const end = payload.end <= start ? start.replace(/(\d+):(\d+)/, (_, h, m) => `${String((Number(h) + (Number(m) + 30 >= 60 ? 1 : 0)) % 24).padStart(2, '0')}:${String((Number(m) + 30) % 60).padStart(2, '0')}`) : payload.end;
 
   const id = `lesson-${student.id}-${payload.date}-${start.replace(':', '')}`;
-  await db.collection('rosterOverrides').doc(id).set({
+  const override = {
     studentId: student.id,
     ensembleId: ensemble.id,
     action: 'remove',
@@ -102,7 +102,19 @@ const norm = s => String(s).toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).
     endTime: end,
     kind: 'lesson',
     reason: payload.teacher ? `Lesson — ${payload.teacher}` : 'Lesson (approved request)',
-  }, { merge: true });
+  };
+  // The public mirror ships in the SAME batch as the source doc (#privacy) —
+  // every field except the free-text `reason`, matching publicOverrideFields()
+  // in src/director/publicMirror.ts. Without this the pull-out existed only
+  // for staff: the student's own schedule page and their subscribed ICS feed
+  // (both read rosterOverridesPublic) never showed the lesson, and only a
+  // manual backfill-public-projections run would have converged it.
+  const { reason, ...publicFields } = override;
+  void reason;
+  const batch = db.batch();
+  batch.set(db.collection('rosterOverrides').doc(id), override, { merge: true });
+  batch.set(db.collection('rosterOverridesPublic').doc(id), publicFields, { merge: true });
+  await batch.commit();
 
   console.log(`✓ Lesson applied: ${student.name} out of ${ensemble.name} on ${payload.date}, ${start}–${end}${payload.teacher ? ` (${payload.teacher})` : ''}`);
 })();

@@ -3,6 +3,7 @@ import { ClipboardList, Users } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster, overrideApplies } from '../rosterResolver';
+import { isSharedBlock, mergeSharedRoster, sharedBlockLabel } from '../../shared/sharedBlock';
 import { formatDate, formatTimeRange, EVENT_TYPE_ICON } from '../utils';
 import type { CalendarEvent, Ensemble, RosterOverride } from '../types';
 import type { DirNavigate } from '../types-nav';
@@ -30,14 +31,32 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
 
   const eventsById = useMemo(() => ({ [event.id]: event }), [event]);
 
+  // A combined block is ONE room: show every player in it, not one ensemble at
+  // a time. Doubling members (a rotator who belongs to two of the ensembles
+  // present) are one person and are listed once — mergeSharedRoster dedupes and
+  // keeps which ensembles each came in with.
+  const shared = isSharedBlock(event);
+  const sharedRoster = useMemo(() => {
+    if (!shared) return [];
+    return mergeSharedRoster(event.ensembleIds.map(id => ({
+      ensembleId: id,
+      students: resolveRoster(students, overrides, { ensembleId: id, eventId: event.id, eventsById }),
+    }))).sort((a, b) => a.student.name.localeCompare(b.student.name));
+  }, [shared, students, overrides, event.ensembleIds, event.id, eventsById]);
+
   const resolved = useMemo(
     () => resolveRoster(students, overrides, { ensembleId, eventId: event.id, eventsById }),
     [students, overrides, ensembleId, event.id, eventsById],
   );
 
+  // Which ensembles' overrides this panel is showing: the whole room for a
+  // combined block, otherwise just the selected tab. Without this a combined
+  // block would list the pull-outs of one arbitrary ensemble and silently drop
+  // the rest — the director would think nobody else was missing.
+  const scopeIds = shared ? event.ensembleIds : [ensembleId];
   function applies(o: RosterOverride) {
-    if (o.ensembleId !== ensembleId) return false;
-    return overrideApplies(o, { ensembleId, eventId: event.id, eventsById });
+    if (!scopeIds.includes(o.ensembleId)) return false;
+    return overrideApplies(o, { ensembleId: o.ensembleId, eventId: event.id, eventsById });
   }
   const pulled = overrides
     .filter(o => o.action === 'remove' && !o.kind && applies(o))
@@ -52,7 +71,9 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
   // "Rehearsal", a class "Class", a concert "Concert" — the generic "Event"
   // label is reserved for items that are none of those.
   const eventName = event.title
-    || eventEnsembles.map(e => e.name).filter(Boolean).join(', ')
+    || (shared
+      ? sharedBlockLabel(eventEnsembles.map(e => e.name), { total: ensembles.length })
+      : eventEnsembles.map(e => e.name).filter(Boolean).join(', '))
     || event.type;
   const timeLabel = formatTimeRange(event.startTime, event.endTime);
 
@@ -70,7 +91,15 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
             {event.type} · {formatDate(event.date)}{timeLabel ? ` · ${timeLabel}` : ''}
           </div>
 
-          {eventEnsembles.length > 1 && (
+          {shared && (
+            <div className="dir-roster-sub-date">
+              <span className="dir-shared-badge">⇄ Combined</span>{' '}
+              {eventEnsembles.map(e => e.name).join(' + ')} together
+              {event.location ? ` in ${event.location}` : ''} · roll is taken per ensemble
+            </div>
+          )}
+
+          {eventEnsembles.length > 1 && !shared && (
             <div className="dir-tabs" style={{ padding: '0 0 8px' }}>
               {eventEnsembles.map(e => (
                 <button key={e.id} className={`dir-tab ${ensembleId === e.id ? 'active' : ''}`} onClick={() => setEnsembleId(e.id)}>
@@ -80,6 +109,24 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
             </div>
           )}
 
+          {shared ? (
+            <>
+              <div className="dir-roster-section-title">{sharedRoster.length} in the room</div>
+              {sharedRoster.map(({ student, isSub, ensembleIds }) => (
+                <div key={student.id} className="dir-sub-row">
+                  <div className="dir-sub-info dir-sub-inline">
+                    <span className="dir-sub-name">{student.name}</span>
+                    {isSub && <span className="dir-sub-badge">Sub</span>}
+                    <span className="dir-sub-instr">{student.instrument}</span>
+                    <span className="dir-sub-instr">
+                      {ensembleIds.map(id => ensembles.find(e => e.id === id)?.name ?? id).join(' · ')}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+          <>
           <div className="dir-roster-section-title">{resolved.length} expected</div>
           {resolved.map(({ student, isSub }) => (
             <div key={student.id} className="dir-sub-row">
@@ -90,6 +137,8 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
               </div>
             </div>
           ))}
+          </>
+          )}
 
           {lessons.length > 0 && (
             <>

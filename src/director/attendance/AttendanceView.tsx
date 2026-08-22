@@ -9,6 +9,7 @@ import { useSeatingCharts } from '../hooks/useSeatingCharts';
 import { useEvents } from '../hooks/useEvents';
 import { useContacts } from '../hooks/useContacts';
 import { resolveRoster, lessonsFor, overrideApplies } from '../rosterResolver';
+import { isSharedBlock } from '../../shared/sharedBlock';
 import { StudentCard } from './StudentCard';
 import { StudentDetail } from '../roster/StudentDetail';
 import { SortToggle } from '../components/SortToggle';
@@ -189,6 +190,15 @@ export function AttendanceView({ initialEnsembleId, onNavigate, allowedEnsembleI
                     {p.event?.startTime ? <><Clock size={11} style={{ verticalAlign: '-1px' }} /> {formatTimeRange(p.event.startTime, p.event.endTime)}</> : 'Rehearsal'}
                     {p.event?.location ? ` · ${p.event.location}` : ''}
                   </div>
+                  {p.event && isSharedBlock(p.event) && (
+                    <div className="dir-ens-sub">
+                      <span className="dir-shared-badge">⇄ Combined</span>{' '}
+                      with {p.event.ensembleIds
+                        .filter(id => id !== p.ensembleId)
+                        .map(id => ensembleMap[id]?.name ?? id)
+                        .join(', ')}
+                    </div>
+                  )}
                 </div>
                 <ChevronRight size={18} style={{ opacity: 0.45, flexShrink: 0 }} />
               </button>

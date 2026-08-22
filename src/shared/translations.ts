@@ -14,6 +14,8 @@
 import { ORG } from '../org';
 
 export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
+  // Shared/combined block (#shared-block): several ensembles in one room.
+  'event.combined':       { en: 'Meeting together',      es: 'Ensayo conjunto' },
   // ── Nav + menu + tab bar ────────────────────────────────────────────────
   'nav.home':             { en: 'Home',                es: 'Inicio' },
   'nav.calendar':         { en: 'Calendar',            es: 'Calendario' },

@@ -1,9 +1,44 @@
 import { registerSW } from 'virtual:pwa-register';
 import { ORG } from './org';
 
+// Injected by vite (`define` in vite.config.ts): the deployed commit's short
+// SHA, or 'dev' for a local build. Deterministic per commit, so it never
+// perturbs the precache hash across the deploy cron's 4-hourly rebuilds.
+declare const __BUILD_ID__: string;
+
+/** Short SHA of the build this tab is RUNNING (not the one on the server). */
+export const BUILD_ID: string = __BUILD_ID__;
+
 // Staff keep the installed app open for days; poll so pushed fixes surface
 // without waiting for a cold start.
 const UPDATE_CHECK_MS = 60 * 60 * 1000;
+
+/**
+ * The live registration, kept so the director menu can force an update check
+ * on demand (#stale-client). A phone that quietly runs last week's bundle
+ * renders WRONG data rather than failing — a standing rotation resolved by a
+ * build that predates `days` on RosterOverride drops the rotating student
+ * from both of their ensembles — so "am I current?" has to be answerable
+ * without a laptop.
+ */
+let swRegistration: ServiceWorkerRegistration | null = null;
+
+export type UpdateCheck = 'unsupported' | 'downloading' | 'current' | 'failed';
+
+/**
+ * Ask the browser to re-fetch the service worker now. 'downloading' means a
+ * newer build exists and the refresh toast will follow once it has installed;
+ * 'current' means this tab is already running the deployed build.
+ */
+export async function checkForUpdate(): Promise<UpdateCheck> {
+  if (!swRegistration) return 'unsupported';
+  try {
+    await swRegistration.update();
+  } catch {
+    return 'failed';
+  }
+  return swRegistration.installing || swRegistration.waiting ? 'downloading' : 'current';
+}
 
 /**
  * The `beforeinstallprompt` event, captured so the director menu can offer a
@@ -53,6 +88,7 @@ export function initPwa() {
     },
     onRegisteredSW(_swUrl, reg) {
       if (!reg) return;
+      swRegistration = reg;
       // (Legacy nwsa-hub-* cache cleanup happens in the SW's own activate —
       // public/sw-cleanup.js — NOT here: at registration time the old
       // hand-rolled SW may still be the controller and still needs its cache
