@@ -74,6 +74,8 @@ const theory = { type: 'Class', ensembleIds: [] };
 const holiday = { type: 'Event', ensembleIds: [] };
 const danceShow = { type: 'Concert', ensembleIds: ['dance'] };
 const choirReh = { type: 'Rehearsal', ensembleIds: ['high-school-choir'] };
+// A whole-school concert with no ensemble attached — the Faculty Recital.
+const facultyRecital = { type: 'Concert', ensembleIds: [] };
 
 const E = bySlug('ensembles'), C = bySlug('classes'), A = bySlug('arts');
 assert(eventMatchesBundle(jazzReh, E, ensembles), 'jazz rehearsal in ensembles bundle');
@@ -84,6 +86,11 @@ assert(!eventMatchesBundle(theory, E, ensembles), 'academic class not in the ens
 assert(!eventMatchesBundle(holiday, E, ensembles), 'school-wide day NOT duplicated into the ensembles bundle');
 assert(eventMatchesBundle(theory, C, ensembles), 'theory is in classes bundle');
 assert(eventMatchesBundle(holiday, C, ensembles), 'school-wide day is in classes bundle');
+// The classes bundle takes school-wide items of ANY type, so nothing
+// scheduled for the whole school can fall through all three calendars.
+assert(eventMatchesBundle(facultyRecital, C, ensembles), 'a whole-school concert is in the classes bundle');
+assert(!eventMatchesBundle(facultyRecital, E, ensembles), 'the recital is not in the ensembles bundle');
+assert(!eventMatchesBundle(facultyRecital, A, ensembles), 'the recital is not in the arts bundle');
 assert(!eventMatchesBundle(jazzReh, C, ensembles), 'ensemble rehearsal not in classes bundle');
 assert(!eventMatchesBundle(danceShow, C, ensembles), 'dance show not in classes bundle');
 assert(eventMatchesBundle(danceShow, A, ensembles), 'dance show is in arts bundle');
@@ -92,9 +99,15 @@ assert(!eventMatchesBundle(holiday, A, ensembles), 'school-wide day NOT duplicat
 
 // Every event belongs to at most one bundle — subscribe to all three and
 // nothing is listed twice.
-for (const [label, ev] of [['jazz', jazzReh], ['combo', comboReh], ['choir', choirReh], ['theory', theory], ['holiday', holiday], ['dance', danceShow], ['symphony', symphReh]]) {
+for (const [label, ev] of [['jazz', jazzReh], ['combo', comboReh], ['choir', choirReh], ['theory', theory], ['holiday', holiday], ['dance', danceShow], ['symphony', symphReh], ['recital', facultyRecital]]) {
   const n = [E, C, A].filter(b => eventMatchesBundle(ev, b, ensembles)).length;
   assert(n <= 1, `${label} appears in ${n} bundles — subscribing to all three would duplicate it`);
+}
+
+// Nothing scheduled for the whole school may land in NO calendar.
+for (const [label, ev] of [['holiday', holiday], ['theory', theory], ['recital', facultyRecital]]) {
+  const n = [E, C, A].filter(b => eventMatchesBundle(ev, b, ensembles)).length;
+  assert(n === 1, `${label} lands in ${n} bundles — whole-school items belong in exactly one`);
 }
 
 // ── Assignments follow their ensembles, never the school-only bundle.

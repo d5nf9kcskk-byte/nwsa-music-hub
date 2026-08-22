@@ -45,7 +45,13 @@ export interface CalendarBundle {
   /** Case-insensitive regex sources matched against ensemble NAMES, so
    *  ensembles created later join automatically (e.g. '^jazz combo'). */
   ensembleNamePatterns?: string[];
-  /** Restrict to these event types. Empty/absent = every type. */
+  /**
+   * Restrict to these event types. Empty/absent = every type — but note that
+   * an empty list is NOT the same as listing them all: calendarView.ts
+   * deliberately hides academic Classes unless the type filter NAMES them
+   * (a Theory class has nothing to do with the Symphony). A schoolOnly
+   * bundle that wants classes must therefore spell 'Class' out.
+   */
   types?: ViewTypeKey[];
   /** Only items with NO ensemble at all — academic classes, school-wide days. */
   schoolOnly?: boolean;

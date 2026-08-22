@@ -77,9 +77,9 @@
     {
       "slug": "classes",
       "name": "Classes & school days",
-      "description": "Theory, Jazz Theory, Music Appreciation and the rest, plus school-wide days.",
+      "description": "Academic classes, school-wide days, and anything scheduled for the whole school rather than one ensemble.",
       "schoolOnly": true,
-      "types": ["Class", "Event"]
+      "types": ["Class", "Rehearsal", "Sectional", "Concert", "Event"]
     },
     {
       "slug": "arts",
