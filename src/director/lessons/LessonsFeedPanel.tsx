@@ -5,17 +5,28 @@ import { webcalUrl } from '../../public/feedUrl';
 import { ORG } from '../../org';
 
 /**
- * The private lessons calendar (#lessons-feed).
+ * ON HOLD — this panel is not rendered (see LESSONS_FEED_ENABLED below).
  *
- * Every other feed in the app is safe to hand out because it holds nothing
- * private. This one holds who takes lessons with whom, which is staff-only
- * everywhere else — and a feed on GitHub Pages has no sign-in, so the
- * unguessable URL is the whole of its protection. The panel says that
- * plainly rather than burying it, because the director is the only person
- * who can keep the link from spreading.
+ * The private lessons calendar (#lessons-feed). Every other feed in the app
+ * is safe to hand out because it holds nothing private. This one holds who
+ * takes lessons with whom, which is staff-only everywhere else, and a feed
+ * on GitHub Pages has no sign-in — so the unguessable URL was to be the
+ * whole of its protection.
+ *
+ * That protection does not survive this repository's deploy. GitHub Pages IS
+ * the workflow artifact (`actions/upload-pages-artifact` gets the whole
+ * `dist/` tree), and on a PUBLIC repo anyone can download that artifact from
+ * the Actions tab — getting the schedule AND the token, which then works
+ * against the live site until it is rotated, and the new one ships in the
+ * next hourly artifact. So the real audience is "anyone who opens the
+ * repo", not "anyone the director sent the link to".
+ *
+ * The code is correct and kept for a host that is not built from a public
+ * artifact; only publishing is switched off.
  */
+export const LESSONS_FEED_ENABLED = false;
 export function LessonsFeedPanel() {
-  const { token, loading, busy, issue } = useLessonsFeed();
+  const { token, loading, busy, error, issue } = useLessonsFeed();
   const [copied, setCopied] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
 
@@ -54,6 +65,7 @@ export function LessonsFeedPanel() {
           <button className="dir-btn dir-btn-primary" disabled={busy} onClick={issue}>
             {busy ? 'Creating…' : 'Create the private link'}
           </button>
+          {error && <div className="dir-sc-error" style={{ margin: 0 }}>⚠ {error}</div>}
         </>
       ) : (
         <>
@@ -95,9 +107,10 @@ export function LessonsFeedPanel() {
             )}
           </div>
           <p className="dir-field-hint" style={{ margin: 0 }}>
-            Resetting makes a new address and kills the old one immediately — the way to take
-            access back if the link gets out. You (and anyone you meant to share it with) then
-            re-subscribe with the new link. Calendar name: <strong>{ORG.ics.namePrefix} · Lessons (private)</strong>.
+            Resetting makes a new address. The old one keeps working until the next feed
+            refresh (usually within the hour) and then stops — it is a published file, so it
+            cannot be withdrawn any faster than the next build. You (and anyone you meant to
+            share it with) then re-subscribe with the new link. Calendar name: <strong>{ORG.ics.namePrefix} · Lessons (private)</strong>.
           </p>
         </>
       )}

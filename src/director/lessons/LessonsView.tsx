@@ -5,7 +5,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useDirectors } from '../hooks/useDirectors';
 import { parseDate, formatTimeRange, todayStr } from '../utils';
 import { downloadLessonsCsv } from './lessonsCsv';
-import { LessonsFeedPanel } from './LessonsFeedPanel';
+import { LessonsFeedPanel, LESSONS_FEED_ENABLED } from './LessonsFeedPanel';
 import type { Lesson } from '../types';
 import type { DirNavigate } from '../types-nav';
 
@@ -60,7 +60,10 @@ export function LessonsView({ onNavigate }: { onNavigate?: DirNavigate } = {}) {
           reserved in the export; teachers are not asked for it in the app yet.
         </p>
 
-        <LessonsFeedPanel />
+        {/* The private lessons calendar is on hold — see the note at the top
+            of LessonsFeedPanel.tsx. Offering the link while the generator
+            refuses to build it would hand out a URL that never resolves. */}
+        {LESSONS_FEED_ENABLED && <LessonsFeedPanel />}
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
           <label className="dir-field" style={{ margin: 0, minWidth: 140 }}>

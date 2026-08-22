@@ -105,4 +105,28 @@ const around = parseRichText(`**Parts: ${link}**`);
 assert(around[0].segments.every(s => s.marks.includes('bold')), 'bold still wraps a URL');
 assert(flat(around[0]) === `Parts: ${link}`, 'URL intact inside bold');
 
+// Nesting in BOTH directions. Preferring the innermost mark unconditionally
+// (an over-eager fix for ***both***) destroyed the bold in the first case
+// and left stray asterisks — worse than the bug it was fixing.
+const boldInItalic = parseRichText('*see **this** now*')[0];
+assert(flat(boldInItalic) === 'see this now', `bold nested in italic, got ${flat(boldInItalic)}`);
+assert(
+  boldInItalic.segments.some(s => s.marks.includes('bold') && s.marks.includes('italic') && s.text === 'this'),
+  'the nested bold survives inside italic',
+);
+const italicInBold = parseRichText('**see *this* now**')[0];
+assert(flat(italicInBold) === 'see this now', `italic nested in bold, got ${flat(italicInBold)}`);
+assert(italicInBold.segments.every(s => s.marks.includes('bold')), 'the whole span stays bold');
+
+// A multi-character delimiter closing after a space must not let a LATER
+// opener reach back and close a mark that was never meant to end there.
+const stale = parseRichText('**bold** then ** later')[0];
+assert(flat(stale) === 'bold then ** later', `stale mark stays literal, got ${flat(stale)}`);
+const twoBolds = parseRichText('**one** and **two**')[0];
+assert(flat(twoBolds) === 'one and two', 'two separate bold spans');
+assert(
+  twoBolds.segments.filter(s => s.marks.includes('bold')).map(s => s.text).join('|') === 'one|two',
+  'each bold span covers only its own word',
+);
+
 console.log('richText self-check passed');

@@ -345,8 +345,24 @@ function wrapCalendar(name, description, vevents) {
 
     // ── Private lessons feed (#lessons-feed) ───────────────────────────
     // Unlisted and credential-gated: see the privacy note on getAccessToken.
+    //
+    // DISABLED — do not re-enable without reading this.
+    //
+    // GitHub Pages IS the workflow artifact: deploy.yml hands the whole
+    // `dist/` tree to actions/upload-pages-artifact, and on a PUBLIC
+    // repository (this one is) that artifact is downloadable by anyone from
+    // the Actions tab. So a reader does not need the secret URL — they can
+    // download the run and read both the lesson schedule AND the token,
+    // which then works against the live site indefinitely. Rotating does not
+    // help: the new token ships in the next hourly artifact.
+    //
+    // The unguessable-URL model therefore does not hold here, and the
+    // director agreed to a much smaller exposure than this. Publishing is
+    // off until the feed has a host that is not built from a public
+    // artifact. Everything below is correct and stays for that day.
+    const LESSONS_FEED_ENABLED = false;
     let lessonFeedBuilt = false;
-    if (accessToken) {
+    if (LESSONS_FEED_ENABLED && accessToken) {
       const secrets = await fetchOptionalCollection('feedSecrets');
       const token = secrets.find(d => d.id === 'lessons')?.token;
       if (typeof token === 'string' && /^[a-f0-9]{32,}$/.test(token)) {
@@ -381,7 +397,11 @@ function wrapCalendar(name, description, vevents) {
         console.warn('::warning::feedSecrets/lessons has no valid token — skipping the private lessons feed');
       }
     }
-    if (!lessonFeedBuilt) console.log('Skipped the private lessons feed (no credential or no token)');
+    if (!lessonFeedBuilt) {
+      console.log(LESSONS_FEED_ENABLED
+        ? 'Skipped the private lessons feed (no credential or no token)'
+        : 'Private lessons feed is DISABLED (public Actions artifact would expose it) — nothing written');
+    }
 
     // Per-student feeds: base membership + subs − pulls + attendance requirements.
     // (Lesson-kind overrides are PARTIAL absences and never remove an event.)

@@ -50,6 +50,12 @@ jobs:
       - name: Check calendar bundles
         run: node scripts/calendar-bundles.selfcheck.mjs
 
+      # The rich-text parser decides what students read on every assignment,
+      # announcement and event note. Its self-check ran nowhere until now, so
+      # a regression in it could ship green.
+      - name: Check rich-text rendering
+        run: npx tsx src/shared/richText.selfcheck.ts
+
       # Who a sign-up reaches. Drift here is silent — a director opens
       # "Camerata strings" and half the section never sees it (#signups).
       - name: Check sign-up eligibility

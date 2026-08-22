@@ -72,15 +72,20 @@ How it works — do not regress this:
   turned on without killing the feeds — docs/security-recommendations.md #1).
   The credential does NOT widen what any PUBLIC feed may read: public
   projections only.
-- **One scoped exception** (#lessons-feed): the private lessons calendar,
-  written to `feeds/lessons-<token>.ics`. It reads the staff-only `lessons`
-  collection and is built ONLY when a service-account credential AND a token
-  in `feedSecrets/lessons` are both present, so an anonymous run fails
-  closed. Its unguessable URL is its only protection, so the token lives in a
-  staff-only Firestore doc — never in the repo, never in the app bundle — and
-  the file is deliberately absent from `feeds/index.json`. The director
-  creates and rotates it on the Lessons screen. Do NOT widen this exception,
-  add the file to any index, or log the token (workflow logs are public).
+- **The private lessons feed is BUILT but DISABLED** (#lessons-feed), and
+  must stay that way on this infrastructure. It was to publish the staff-only
+  `lessons` collection to `feeds/lessons-<token>.ics`, protected only by an
+  unguessable URL. That protection does not survive the deploy: GitHub Pages
+  IS the workflow artifact (`actions/upload-pages-artifact` takes the whole
+  `dist/` tree), and this repository is PUBLIC, so anyone can download the
+  artifact from the Actions tab and read both the schedule and the token —
+  which then works against the live site, and rotating just ships a new token
+  in the next hourly artifact. `LESSONS_FEED_ENABLED = false` in
+  `scripts/generate-feeds.mjs` and `LessonsFeedPanel.tsx` keeps it unbuilt
+  and unoffered. Re-enable ONLY behind a host that is not built from a
+  publicly downloadable artifact (a private repo, or somewhere other than
+  this Pages deploy). Never add the file to `feeds/index.json`, and never log
+  the token — workflow logs are public too.
 - Student doc IDs are RANDOM Firestore IDs, never the school-issued Student
   ID — doc IDs are effectively public (shared with `studentsPublic`, and in
   `/student/<id>` URLs and `feeds/student-<id>.ics`). The school ID lives

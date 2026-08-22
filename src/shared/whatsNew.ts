@@ -29,11 +29,12 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   // Ready-made calendars (#calendar-bundles) + the private lessons feed.
-  {
+  // Only for orgs that actually have bundles — the bullets name NWSA's.
+  ...((ORG.calendarBundles?.length ?? 0) > 0 ? [{
     id: '2026-08-21-ready-made-calendars',
     date: '2026-08-21',
     title: 'Ready-made calendars you can subscribe to instantly',
-    audience: 'both',
+    audience: 'both' as const,
     expires: '2026-09-04',
     bullets: [
       'Three new school calendars are always ready — no waiting, no setup: Ensembles (no orchestras), Classes & school days, and Dance, Theatre & Visual Arts. Find them in any Subscribe window.',
@@ -41,23 +42,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'The Ensembles calendar keeps itself current: a new Jazz Combo joins it automatically the next time feeds refresh, and your subscription link never changes.',
       'Each string masterclass — Violin, Viola, Cello, Bass — already had its own calendar, with the room on every entry.',
     ],
-  },
-  {
-    id: '2026-08-21-lessons-calendar',
-    date: '2026-08-21',
-    title: 'Private lessons calendar (directors only)',
-    audience: 'staff',
-    expires: '2026-09-04',
-    bullets: [
-      'The Lessons screen can now give you a private calendar link with every scheduled lesson — student, teacher, and room — that stays in sync in your own calendar app.',
-      'Calendar feeds have no sign-in, so that link is the only thing protecting it: anyone who gets it can read every student\u2019s lesson schedule. Keep it to yourself.',
-      'If it ever gets out, tap Reset link. The old address stops working immediately and you re-subscribe with the new one.',
-    ],
-  },
-  // Assignments got their own page, real formatting, and linked music; every
-  // ensemble/class/event/assignment on the director side opens its editor
-  // wherever it appears; and the subscribe sheet stops handing out a
-  // calendar link that Apple will refuse.
+  }] : []),
   {
     id: '2026-08-21-assignment-page',
     date: '2026-08-21',

@@ -1035,3 +1035,15 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
 }
 [data-dir-theme='dark'] .dir-lessons-feed-warn { background: #43350f; }
 .dir-lessons-feed-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+
+/* ── Ready-made calendars inside the DIRECTOR sheet ───────────────────
+   BundleCalendars is shared with the public site and colours itself from
+   the --pub-* tokens, but the director panel has its own theme switch and
+   never sets data-pub-theme — so in director dark mode the shared block
+   would keep light-theme text on a dark surface. Re-point the text colours
+   at the director tokens; the action buttons keep the accent fill, which
+   reads correctly either way. */
+.dir-subw-bundles .pub-subw-split-head,
+.dir-subw-bundles .pub-subw-split-note { color: var(--dir-text-muted); }
+.dir-subw-bundles .pub-subw-bundle { background: var(--dir-primary); color: #fff; }

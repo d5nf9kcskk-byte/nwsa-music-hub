@@ -95,8 +95,15 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
           studentIds: studentIds.length ? studentIds : undefined,
           formUrl: formUrl.trim() || undefined,
           acceptsVideoSubmissions: acceptsVideo || undefined,
-          maxVideoDurationSeconds: acceptsVideo ? minutesToSeconds(maxVideoMinutes) : undefined,
-          maxVideoSizeMB: acceptsVideo ? maxVideoSizeMB : undefined,
+          // The limits are stored unconditionally, so turning submissions off
+          // clears only the flag it owns. storage.rules reads maxVideoSizeMB
+          // straight off this doc and falls back to 500 MB when it is ABSENT —
+          // and its upload rule only requires the assignment to exist — so
+          // deleting the ceiling here would quietly raise the unauthenticated
+          // upload limit on that assignment. Keeping it also preserves the
+          // director's setting if they switch submissions back on.
+          maxVideoDurationSeconds: minutesToSeconds(maxVideoMinutes),
+          maxVideoSizeMB,
           googleDriveFolderId: googleDriveFolderId || undefined,
           pieceIds: pieceIds.length ? pieceIds : undefined,
           createdAt: assignment?.createdAt ?? Date.now(),

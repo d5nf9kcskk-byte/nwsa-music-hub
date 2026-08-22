@@ -83,12 +83,32 @@ export function bundleViewSpec(bundle: CalendarBundle, ensembles: EnsembleLike[]
 
 const hasEnsemble = (item: { ensembleIds?: string[] }) => (item.ensembleIds ?? []).length > 0;
 
+/** Does this bundle name its members at all (rather than being schoolOnly)? */
+const declaresEnsembles = (b: CalendarBundle) =>
+  (b.ensembleIds?.length ?? 0) > 0 || (b.ensembleNamePatterns?.length ?? 0) > 0;
+
+/**
+ * A bundle that NAMES ensembles but resolves to none matches nothing.
+ *
+ * Without this, an empty resolution produces a spec with no ensembles and
+ * school:false, which `isEveryEnsemble` reads as "every ensemble" — so
+ * renaming `wind-ensemble` would silently turn the no-orchestras calendar
+ * into a full-school one and publish every orchestra date to its
+ * subscribers. Fail closed instead.
+ */
+function resolvesToNothing(bundle: CalendarBundle, ensembles: EnsembleLike[]): boolean {
+  return !bundle.schoolOnly
+    && declaresEnsembles(bundle)
+    && bundleEnsembleIds(bundle, ensembles).length === 0;
+}
+
 /** Does this event belong in this bundle? */
 export function eventMatchesBundle(
   event: { type?: string; ensembleIds?: string[] },
   bundle: CalendarBundle,
   ensembles: EnsembleLike[],
 ): boolean {
+  if (resolvesToNothing(bundle, ensembles)) return false;
   const spec = bundleViewSpec(bundle, ensembles);
   if (!eventMatchesView(event, spec)) return false;
   // Subtractive refinement: an ensemble bundle drops the school-wide
@@ -106,10 +126,18 @@ export function assignmentMatchesBundle(
   // A school-only bundle is classes and school days; assignments belong to
   // ensembles, so they never ride along in one.
   if (bundle.schoolOnly) return false;
+  if (resolvesToNothing(bundle, ensembles)) return false;
   return assignmentMatchesView(assignment, bundleViewSpec(bundle, ensembles));
+}
+
+/** Slug as it appears in a file name and a URL. Sanitized identically in
+ *  both places (see feedUrl.bundleFeedUrl) or a button would link to a file
+ *  that was never written. */
+export function bundleSlugSafe(slug: string): string {
+  return slug.replace(/[^a-z0-9-]/gi, '-');
 }
 
 /** File name (inside `feeds/`) for a bundle's ICS feed. */
 export function bundleFeedFile(bundle: CalendarBundle): string {
-  return `bundle-${bundle.slug}.ics`;
+  return `bundle-${bundleSlugSafe(bundle.slug)}.ics`;
 }

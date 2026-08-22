@@ -29,6 +29,7 @@ export function useLessonsFeed() {
   // inside the effect.
   const [state, setState] = useState<{ token: string | null } | null>(db ? null : { token: null });
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const ref = REF();
@@ -48,18 +49,28 @@ export function useLessonsFeed() {
   const token = state?.token ?? null;
   const loading = state === null;
 
-  /** Create the link, or rotate it — rotating immediately breaks every copy
-   *  of the old URL, which is the only way to take access back. */
+  /**
+   * Create the link, or rotate it. Rotation is NOT instant revocation: the
+   * old file is already published and keeps serving until the next build
+   * replaces the deployed tree, so the honest window is "by the next feed
+   * refresh", which is what the panel says.
+   */
   async function issue(): Promise<void> {
     const ref = REF();
     if (!ref) return;
     setBusy(true);
+    setError('');
     try {
       await setDoc(ref, { token: newToken(), updatedAt: Date.now() });
+    } catch (e) {
+      // Rules deploy in their own workflow, so there is a window where this
+      // write is refused. Surfacing it beats a button that silently does
+      // nothing and a link that never resolves.
+      setError(e instanceof Error ? e.message : 'Could not save the link — try again.');
     } finally {
       setBusy(false);
     }
   }
 
-  return { token, loading, busy, issue };
+  return { token, loading, busy, error, issue };
 }

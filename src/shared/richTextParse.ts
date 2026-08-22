@@ -60,7 +60,7 @@ const isSpace = (ch: string | undefined) => ch === undefined || /\s/.test(ch);
 /** A link is opaque — see the URL skip in `pairDelimiters`. Kept in step with
  *  the pattern in components/Linkify.tsx, and sticky so it can only match at
  *  the position being scanned. */
-const URL_AT = /(?:https?:\/\/|www\.)[^\s<>"']+/y;
+const URL_AT = /(?:https?:\/\/|www\.|[a-z0-9-]+(?:\.[a-z0-9-]+)+\/)[^\s<>"']+/iy;
 
 /**
  * Pair up emphasis delimiters across the whole text.
@@ -83,7 +83,8 @@ function pairDelimiters(text: string): Pair[] {
     // URLs are opaque. A Drive link to the parts is full of underscores
     // ("/d/1a__b__c/view"); treating those as underline markup deleted them
     // from the address and handed students a broken link.
-    if (text[i] === 'h' || text[i] === 'w') {
+    // Cheap gate: only try the URL match where one could begin.
+    if (/[a-z0-9]/i.test(text[i]) && (i === 0 || !/[a-z0-9-]/i.test(text[i - 1]))) {
       URL_AT.lastIndex = i;
       const url = URL_AT.exec(text);
       if (url) {
@@ -109,11 +110,16 @@ function pairDelimiters(text: string): Pair[] {
 
     const match = DELIMS.find(x => text.startsWith(x.chars, i));
     if (!match) { i++; continue; }
-    // Close the INNERMOST open mark when more than one delimiter matches here.
-    // Without this, "***both***" closes the outer bold first, discards the
-    // italic opener as literal, and leaves a stray asterisk on screen.
+    // Close the INNERMOST open mark first, but ONLY where the run of
+    // delimiter characters is longer than the one greedily matched — i.e.
+    // the "***both***" case, where there are enough characters to close two
+    // marks. Preferring the innermost mark unconditionally was worse than
+    // the bug it fixed: in "*see **this** now*" it read the "**" as a
+    // closing "*" for the italic and destroyed the nested bold.
+    let run = 0;
+    while (text[i + run] === text[i]) run++;
     const top = stack[stack.length - 1];
-    const topDelim = top && top.mark !== match.mark
+    const topDelim = top && top.mark !== match.mark && run > match.chars.length
       ? DELIMS.find(x => x.mark === top.mark && text.startsWith(x.chars, i))
       : undefined;
     const d = topDelim ?? match;
@@ -136,7 +142,13 @@ function pairDelimiters(text: string): Pair[] {
     for (let k = stack.length - 1; k >= 0; k--) {
       if (stack[k].mark === d.mark) { matchIdx = k; break; }
     }
-    if (matchIdx >= 0 && (len > 1 || !isSpace(text[i - 1]))) {
+    // A lone `*` may close only when the character before it is not a space,
+    // which keeps arithmetic ("2 * 3") out of the markup. A multi-character
+    // delimiter may ALSO close after a space — the toolbar writes
+    // "**black ** shoes" when a double-click takes the trailing space — but
+    // only when it cannot be read as an opener instead, or a later opener
+    // would reach back and close a mark that was never meant to end there.
+    if (matchIdx >= 0 && (!isSpace(text[i - 1]) || (len > 1 && isSpace(text[i + len])))) {
       const open = stack[matchIdx];
       stack.length = matchIdx; // anything opened inside and left open is literal
       pairs.push({ open: open.index, close: i, len, mark: d.mark });

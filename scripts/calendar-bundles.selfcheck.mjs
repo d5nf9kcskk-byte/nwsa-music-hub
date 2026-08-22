@@ -102,6 +102,24 @@ assert(assignmentMatchesBundle({ ensembleIds: ['jazz-ensemble'] }, E, ensembles)
 assert(!assignmentMatchesBundle({ ensembleIds: ['symphony-orchestra'] }, E, ensembles), 'symphony assignment excluded');
 assert(!assignmentMatchesBundle({ ensembleIds: ['jazz-ensemble'] }, C, ensembles), 'assignments never in the classes bundle');
 
+// ── FAIL CLOSED: a bundle whose named ensembles have all been renamed or
+// deleted must match NOTHING. Resolving to an empty list used to read as
+// "every ensemble", which would have turned the no-orchestras calendar into
+// a full-school one and published every orchestra date to its subscribers.
+const orphaned = { slug: 'orphan', name: 'Orphan', description: '', ensembleIds: ['renamed-away'] };
+assert(bundleEnsembleIds(orphaned, ensembles).length === 0, 'orphaned bundle resolves to no ensembles');
+assert(!eventMatchesBundle(symphReh, orphaned, ensembles), 'orphaned bundle does NOT match a symphony rehearsal');
+assert(!eventMatchesBundle(jazzReh, orphaned, ensembles), 'orphaned bundle does NOT match a jazz rehearsal');
+assert(!eventMatchesBundle(holiday, orphaned, ensembles), 'orphaned bundle does NOT match a school-wide day');
+assert(!assignmentMatchesBundle({ ensembleIds: ['jazz-ensemble'] }, orphaned, ensembles), 'orphaned bundle takes no assignments');
+// A pattern that matches nothing today behaves the same way.
+const noMatch = { slug: 'nm', name: 'NM', description: '', ensembleNamePatterns: ['^nothing-like-this'] };
+assert(!eventMatchesBundle(jazzReh, noMatch, ensembles), 'a pattern matching nothing matches nothing');
+
+// ── The file name and the link must sanitize the slug the same way.
+assert(bundleFeedFile({ slug: 'jazz_combos', name: 'x', description: '' }) === 'bundle-jazz-combos.ics',
+  'an unusual slug is sanitized in the file name');
+
 // ── A malformed pattern in org config must not take the feed build down.
 assert(bundleEnsembleIds({ slug: 'x', name: 'x', description: '', ensembleNamePatterns: ['('] }, ensembles).length === 0,
   'a bad regex yields no members instead of throwing');
