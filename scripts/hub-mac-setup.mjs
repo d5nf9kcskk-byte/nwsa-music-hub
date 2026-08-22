@@ -35,6 +35,8 @@ const AGENTS = [
 const APPLY = process.argv.includes('--apply');
 const problems = [];
 const notes = [];
+/** Set when the shell's account filter is missing or names no real account. */
+let badAccountFilter = false;
 
 const ok = (s) => `  ok    ${s}`;
 const bad = (s) => `  FIX   ${s}`;
@@ -133,10 +135,14 @@ function checkMail() {
     console.log(info('pick the MDC one from the list and re-run with it set, e.g.:'));
     console.log(info(`  export MDC_MAIL_ACCOUNT_NAME=${JSON.stringify(m.accounts[0] ?? 'Account Name')}`));
     problems.push('no account filter');
+    badAccountFilter = true;
   } else if (!m.accounts.includes(want)) {
     console.log(bad(`MDC_MAIL_ACCOUNT_NAME="${want}" does not match any account above`));
     console.log(info('the name must match EXACTLY — the agents would find no mail at all'));
+    const guess = m.accounts.find(a => /mdc/i.test(a));
+    if (guess) console.log(info(`did you mean:  export MDC_MAIL_ACCOUNT_NAME=${JSON.stringify(guess)}`));
     problems.push('account filter does not match');
+    badAccountFilter = true;
   } else {
     console.log(ok(`account filter matches: "${want}"`));
   }
@@ -150,6 +156,14 @@ function agentSection() {
     if (!existsSync(script)) {
       console.log(bad(`missing ${a.script} — repo is not current`));
       problems.push(`${a.script} missing`);
+      continue;
+    }
+    // --install bakes the CURRENT shell's account filter into the plist. If
+    // that value is wrong, installing replaces a good baked-in name with a
+    // bad one and the agent silently stops finding mail. Refuse instead.
+    if (APPLY && badAccountFilter) {
+      console.log(bad('skipped --install: the account filter above is wrong'));
+      console.log(info('installing now would overwrite the working value in the plist'));
       continue;
     }
     if (APPLY) {
