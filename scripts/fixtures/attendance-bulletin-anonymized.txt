@@ -23,3 +23,7 @@
                                                     NAME
                                                LAST FIRST MI   GR SEC  ID-NO. TIME
                                            EARLYBIRD EMMA N  11 ZNS 1000004  9:52
+                                           ******** EXCUSED EARLY 08/12/26 *******
+                                                    NAME
+                                               LAST FIRST MI   GR SEC  ID-NO. TIME
+                                           MUSICONE JANE Q   10 SMH 1000001 12:15
