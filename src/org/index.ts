@@ -3,7 +3,8 @@ import type { OrgConfig } from './types';
 // Injected by vite.config.ts `define` from config/orgs/<VITE_ORG>.json —
 // only the selected org's strings enter the bundle (an NWSA build contains
 // no ASYO text and vice versa). Tests/tooling that import this outside Vite
-// would throw; nothing does today.
+// would throw; scripts/vite-defines-shim.mjs supplies it for the self-checks
+// that do (wired into deploy.yml).
 declare const __ORG_CONFIG__: OrgConfig;
 
 export const ORG: OrgConfig = __ORG_CONFIG__;
