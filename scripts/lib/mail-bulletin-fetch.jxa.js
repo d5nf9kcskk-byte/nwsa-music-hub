@@ -27,24 +27,39 @@ function run(argv) {
   const app = Application.currentApplication();
   app.includeStandardAdditions = true;
 
+  /** Depth-limited walk; Mail nests folders arbitrarily and can cycle. */
+  function walk(container, prefix, depth, out) {
+    if (depth > 4) return;
+    let boxes = [];
+    try { boxes = container.mailboxes(); } catch (e) { return; }
+    for (const b of boxes) {
+      let name;
+      try { name = String(b.name()); } catch (e) { continue; }
+      const path = prefix ? prefix + '/' + name : name;
+      out.push(b);
+      walk(b, path, depth + 1, out);
+    }
+  }
+
   const out = [];
+  const seen = {};
   for (const acct of Mail.accounts()) {
     let acctName;
     try { acctName = acct.name(); } catch (e) { continue; }
     if (accountFilter && acctName !== accountFilter) continue;
 
-    let inbox;
-    try {
-      inbox = acct.mailboxes().find(function (b) {
-        try { return String(b.name()).toUpperCase() === 'INBOX'; } catch (e) { return false; }
-      });
-      if (!inbox) continue;
-    } catch (e) { continue; }
+    // Every mailbox, not just INBOX: a Mail rule filing the bulletin into a
+    // folder is the ordinary case, and an INBOX-only search misses it while
+    // reporting a clean "no bulletin found".
+    const boxes = [];
+    walk(acct, '', 0, boxes);
 
-    let msgs;
-    try {
-      msgs = inbox.messages.whose({ dateReceived: { '>': since } })();
-    } catch (e) { continue; }
+    let msgs = [];
+    for (const b of boxes) {
+      try {
+        msgs = msgs.concat(b.messages.whose({ dateReceived: { '>': since } })());
+      } catch (e) { /* mailbox not searchable */ }
+    }
 
     for (const m of msgs) {
       let subject = '';
@@ -55,6 +70,12 @@ function run(argv) {
       try { receivedDate = m.dateReceived(); } catch (e) { continue; }
       let messageId = '';
       try { messageId = String(m.messageId()); } catch (e) { /* */ }
+
+      // One message can surface from several mailboxes (a folder plus an
+      // "All Mail"-style container), so saving twice is the normal case.
+      const key = messageId || subject + '@' + receivedDate.getTime();
+      if (seen[key]) continue;
+      seen[key] = true;
 
       const files = [];
       let atts = [];

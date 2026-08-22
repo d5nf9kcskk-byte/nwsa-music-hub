@@ -11,6 +11,7 @@
  *   node scripts/bulletin-local.mjs              run once, now
  *   node scripts/bulletin-local.mjs --install    load the LaunchAgent
  *   node scripts/bulletin-local.mjs --grant      settle the Mail permission up front
+ *   node scripts/bulletin-local.mjs --find-mail  where is the bulletin, really?
  *   node scripts/bulletin-local.mjs --status     loaded? creds? what would it read?
  *   node scripts/bulletin-local.mjs --uninstall  unload and remove it
  *   node scripts/bulletin-local.mjs --self-check
@@ -359,6 +360,67 @@ function status() {
 }
 
 /**
+ * Diagnostic: why did the fetch find nothing? Looks in EVERY mailbox of the
+ * account with a loose subject match and prints what it sees, so the two
+ * plausible causes separate cleanly — a filing rule hiding the message, or an
+ * attachment that was never downloaded and so cannot be saved.
+ */
+function findMail() {
+  const days = Number(process.env.FIND_DAYS || 14);
+  const needle = process.env.FIND_NEEDLE || 'bulletin';
+  const since = new Date(Date.now() - days * 24 * 3600_000).toISOString();
+  console.log(`Searching every mailbox${ACCOUNT_FILTER ? ` in "${ACCOUNT_FILTER}"` : ''} `
+    + `for subjects containing "${needle}", last ${days} days...\n`);
+
+  const args = ['-l', 'JavaScript', join(HERE, 'lib/mail-bulletin-probe.jxa.js'), since, needle];
+  if (ACCOUNT_FILTER) args.push(ACCOUNT_FILTER);
+  const r = spawnSync('osascript', args, { encoding: 'utf8', maxBuffer: 20_000_000, timeout: 180_000 });
+  if (r.status !== 0) {
+    console.error(mailDenialHelp(r.stderr || `osascript exited ${r.status}`));
+    return 1;
+  }
+
+  let hits;
+  try { hits = JSON.parse(r.stdout || '[]'); }
+  catch { console.error(`Could not parse probe output: ${r.stdout?.slice(0, 300)}`); return 1; }
+
+  if (hits.length === 0) {
+    console.log('Nothing matched. Either the mail is not in this account, or the');
+    console.log('subject does not contain that word. Try widening:');
+    console.log('  FIND_NEEDLE=attendance FIND_DAYS=30 node scripts/bulletin-local.mjs --find-mail');
+    console.log(`  (drop MDC_MAIL_ACCOUNT_NAME to search all accounts)`);
+    return 0;
+  }
+
+  for (const h of hits) {
+    console.log(`  ${h.receivedDate?.slice(0, 16).replace('T', ' ') ?? '(no date)'}  [${h.account}] ${h.mailbox}`);
+    console.log(`    subject: ${h.subject}`);
+    if (h.attachments.length === 0) {
+      console.log('    attachments: NONE — nothing for the pipeline to read');
+    } else {
+      for (const a of h.attachments) {
+        const dl = a.downloaded === false ? '  NOT DOWNLOADED — cannot be saved' : '';
+        console.log(`    attachment: ${a.name}${dl}`);
+      }
+    }
+    console.log('');
+  }
+
+  const pdfs = hits.filter(h => h.attachments.some(a => /\.pdf$/i.test(a.name)));
+  const inbox = pdfs.filter(h => /^INBOX$/i.test(h.mailbox));
+  console.log(`${hits.length} matching message(s); ${pdfs.length} with a PDF; ${inbox.length} of those in INBOX.`);
+  if (pdfs.length && !inbox.length) {
+    console.log('The bulletin is filed outside INBOX — the fetch now searches every');
+    console.log('mailbox, so this should work on the next run.');
+  }
+  if (pdfs.some(h => h.attachments.some(a => a.downloaded === false))) {
+    console.log('At least one attachment is not downloaded. In Mail: Settings → Accounts');
+    console.log('→ (account) → Account Information → Download Attachments: All.');
+  }
+  return 0;
+}
+
+/**
  * Settle the Mail permission deliberately, while someone is watching — same
  * reasoning as absence-email-local.mjs: macOS won't let a script grant this
  * to itself, and a LaunchAgent run is a different responsible process than a
@@ -431,6 +493,7 @@ function selfCheck() {
 
   assert(existsSync(APPLY), 'apply-attendance-bulletin.mjs is where the plist expects');
   assert(existsSync(MAIL_FETCHER), 'mail-bulletin-fetch.jxa.js is where this script expects');
+  assert(existsSync(join(HERE, 'lib/mail-bulletin-probe.jxa.js')), 'mail-bulletin-probe.jxa.js exists');
   console.log('bulletin-local.selfcheck: ok');
   return 0;
 }
@@ -439,6 +502,7 @@ const cmd = process.argv[2] || '';
 if (cmd === '--self-check') process.exit(selfCheck());
 if (cmd === '--install') process.exit(install());
 if (cmd === '--grant') process.exit(grant());
+if (cmd === '--find-mail') process.exit(findMail());
 if (cmd === '--uninstall') process.exit(uninstall());
 if (cmd === '--status') process.exit(status());
 process.exit(run());
