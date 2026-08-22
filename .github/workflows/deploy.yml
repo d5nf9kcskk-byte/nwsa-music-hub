@@ -82,6 +82,17 @@ jobs:
       - name: Check absence-email parsing
         run: node scripts/absence-email.selfcheck.mjs
 
+      # Alert grouping and the easter-egg helpers. Both transitively import
+      # src/org, whose __ORG_CONFIG__ is a Vite `define` — so they need the
+      # shim to run outside Vite at all. They were silently unrunnable from
+      # the white-label change until 2026-08-22; running them here is what
+      # stops that recurring.
+      - name: Check director/public alert grouping
+        run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/groupAlerts.selfcheck.ts
+
+      - name: Check easter-egg helpers
+        run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/whimsyEggs.selfcheck.ts
+
       - name: Build
         run: npm run build
         env:
