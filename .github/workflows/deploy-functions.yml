@@ -89,21 +89,30 @@ jobs:
           printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
           echo "Deploying as: $(python3 -c 'import json,os;print(json.load(open(os.environ["RUNNER_TEMP"]+"/sa.json")).get("client_email","<unknown>"))')"
-          # --force is required, not optional. Artifact Registry keeps a
-          # container image for every deploy, and firebase-tools ends the
-          # deploy by setting a cleanup policy so they do not pile up into
-          # what it calls "a small monthly bill". It cannot confirm that
-          # policy without a prompt, so in CI it exits 1 — AFTER "Successful
-          # create operation" — and a function that is live and answering
-          # reports as a failed deploy.
-          #
-          # This runs INSIDE `firebase deploy`, so a separate setpolicy step
-          # cannot rescue it: the deploy has already exited non-zero and the
-          # later step is skipped. --force is what the error itself asks for.
+          # --force keeps a working deploy from reporting as a failure.
+          # firebase-tools ends every deploy by trying to set an Artifact
+          # Registry cleanup policy; without --force that attempt exits 1
+          # AFTER "Successful create operation", so a function that is live
+          # and answering reports red. It runs INSIDE `firebase deploy`, so a
+          # separate setpolicy step cannot rescue it — the deploy has already
+          # exited and the later step is skipped.
           #
           # Nothing destructive rides along. --force also suppresses the
           # confirmation for deleting functions absent from the source, but
-          # --only scopes that to lessonsFeed, which is what we are deploying.
+          # --only scopes that to lessonsFeed, which is what we deploy.
+          #
+          # What --force does NOT do here is actually set the policy. It
+          # downgrades the failure to a warning and the run log still says
+          # "Failed to set up cleanup policy for repositories in region
+          # us-central1" — so this is a PERMISSIONS limit, not a prompt one:
+          # the deploying account cannot write Artifact Registry policy. The
+          # images therefore still accumulate, which is a slowly growing
+          # storage bill and not a functional problem. To fix it for good,
+          # grant the deploying account Artifact Registry Administrator
+          # (roles/artifactregistry.admin) and it will set itself on the next
+          # deploy; or set a cleanup policy once by hand on the
+          # us-central1 gcf-artifacts repository. Left as a warning on
+          # purpose rather than failing the deploy over housekeeping.
           npx --yes firebase-tools@latest deploy \
             --only functions:lessonsFeed \
             --project nwsa-hub \
