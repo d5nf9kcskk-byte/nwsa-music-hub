@@ -393,7 +393,8 @@ function findMail() {
   }
 
   for (const h of hits) {
-    console.log(`  ${h.receivedDate?.slice(0, 16).replace('T', ' ') ?? '(no date)'}  [${h.account}] ${h.mailbox}`);
+    console.log(`  ${h.receivedDate?.slice(0, 16).replace('T', ' ') ?? '(no date)'}  [${h.account}] ${h.mailbox}`
+      + `${h.skipped ? '   (SKIPPED — not received mail)' : ''}`);
     console.log(`    subject: ${h.subject}`);
     if (h.attachments.length === 0) {
       console.log('    attachments: NONE — nothing for the pipeline to read');
@@ -407,11 +408,12 @@ function findMail() {
   }
 
   const pdfs = hits.filter(h => h.attachments.some(a => /\.pdf$/i.test(a.name)));
-  const inbox = pdfs.filter(h => /^INBOX$/i.test(h.mailbox));
-  console.log(`${hits.length} matching message(s); ${pdfs.length} with a PDF; ${inbox.length} of those in INBOX.`);
-  if (pdfs.length && !inbox.length) {
-    console.log('The bulletin is filed outside INBOX — the fetch now searches every');
-    console.log('mailbox, so this should work on the next run.');
+  const usable = pdfs.filter(h => !h.skipped);
+  console.log(`${hits.length} matching message(s); ${pdfs.length} with a PDF; `
+    + `${usable.length} the pipeline will actually read.`);
+  if (pdfs.length && !usable.length) {
+    console.log('Every hit is in a mailbox the pipeline skips (Sent/Drafts/Junk/Trash).');
+    console.log('Those are copies you sent, not bulletins you received.');
   }
   if (pdfs.some(h => h.attachments.some(a => a.downloaded === false))) {
     console.log('At least one attachment is not downloaded. In Mail: Settings → Accounts');
