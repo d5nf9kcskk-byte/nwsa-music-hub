@@ -2,25 +2,28 @@
 /**
  * bulletin-local.mjs — apply the daily Attendance Bulletin from Grant's Mac.
  *
- * Interim path. MDC blocked the Azure app registration that GitHub needs to
- * read the mailbox, so the apply step runs here instead of in the cloud:
+ * Reads the bulletin PDF straight out of Apple Mail. Nothing here touches
+ * Outlook, Power Automate, OneDrive Online, or Microsoft Graph:
  *
- *   Power Automate → OneDrive /Hub/attendance-bulletins (synced to this Mac)
+ *   Mail.app INBOX ("Attendance Bulletin" + PDF attachment)
  *     → launchd (weekdays 12:45 PM + 3:15 PM) → apply-attendance-bulletin.mjs
  *
  *   node scripts/bulletin-local.mjs              run once, now
  *   node scripts/bulletin-local.mjs --install    load the LaunchAgent
+ *   node scripts/bulletin-local.mjs --grant      settle the Mail permission up front
  *   node scripts/bulletin-local.mjs --status     loaded? creds? what would it read?
  *   node scripts/bulletin-local.mjs --uninstall  unload and remove it
  *   node scripts/bulletin-local.mjs --self-check
  *
  * Credentials: ~/.config/nwsa-hub/service-account.json (chmod 600, never committed).
  * Log: ~/Library/Logs/nwsa-bulletin.log, trimmed to the last 800 lines.
- * Missing folder, missing bulletin, or missing credentials all log and exit 0.
+ * No mail, no bulletin, or missing credentials all log and exit 0.
  *
- * macOS privacy: OneDrive lives under ~/Library/CloudStorage, which a launchd
- * job may not read until node has Full Disk Access. --install proves it with a
- * real launchd run instead of trusting the terminal, which is already allowed.
+ * Why Mail and not the OneDrive drop it used to read: ~/Library/CloudStorage
+ * is TCC-protected in a way that denied the SCHEDULED job the file while
+ * manual runs succeeded, and it surfaced as the misleading "Need pdftotext
+ * (poppler) or pymupdf to read PDF" — so every cron run failed looking like a
+ * missing dependency. The OneDrive path survives only as a fallback.
  */
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -37,11 +40,18 @@ const LABEL = 'com.nwsa.hub.bulletin';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUNNER = join(HERE, 'bulletin-local.mjs');
 const APPLY = join(HERE, 'apply-attendance-bulletin.mjs');
+const MAIL_FETCHER = join(HERE, 'lib/mail-bulletin-fetch.jxa.js');
+/** Legacy OneDrive drop. Only consulted if Mail yields nothing (see run()). */
 const BULLETIN_DIR = process.env.BULLETIN_DIR
   || join(HOME, 'Library/CloudStorage/OneDrive-MiamiDadeCollege/Hub/attendance-bulletins');
 const CRED = process.env.NWSA_SERVICE_ACCOUNT || join(HOME, '.config/nwsa-hub/service-account.json');
 const LOG = join(HOME, 'Library/Logs/nwsa-bulletin.log');
 const PLIST = join(HOME, 'Library/LaunchAgents', `${LABEL}.plist`);
+const SAVE_DIR = join(tmpdir(), 'nwsa-hub-bulletins');
+/** Subject text that identifies the daily bulletin mail. */
+const MAIL_SUBJECT = process.env.BULLETIN_MAIL_SUBJECT || 'attendance bulletin';
+/** Exact Mail.app account name (Mail ▸ Settings ▸ Accounts); blank = all. */
+const ACCOUNT_FILTER = process.env.MDC_MAIL_ACCOUNT_NAME || '';
 
 /** Local clock on this Mac is Eastern, so launchd times are school times. */
 const RUN_TIMES = [[12, 45], [15, 15]];
@@ -99,12 +109,77 @@ function denialHelp() {
     + '  Turn it on, then re-run: node scripts/bulletin-local.mjs --install';
 }
 
+function mailDenialHelp(stderr) {
+  return `Mail.app automation was denied (macOS privacy): ${String(stderr).trim()}\n`
+    + '  System Settings → Privacy & Security → Automation → Terminal (or node) → allow "Mail"\n'
+    + '  Then re-run: node scripts/bulletin-local.mjs --grant';
+}
+
+/**
+ * Pull the newest bulletin PDF out of Apple Mail.
+ *
+ * This is the primary source. The old path read a OneDrive folder that Power
+ * Automate filled, but ~/Library/CloudStorage is TCC-protected in a way that
+ * denied the SCHEDULED job the file while manual runs succeeded — and it
+ * surfaced as the misleading "Need pdftotext (poppler) or pymupdf to read
+ * PDF", so every cron run failed while looking like a missing dependency.
+ * Attachments saved to an ordinary temp dir have no such problem.
+ *
+ * @returns {{ ok: true, path: string | null } | { ok: false, denied: boolean, error: string }}
+ */
+function fetchBulletinFromMail() {
+  mkdirSync(SAVE_DIR, { recursive: true });
+  const since = new Date(Date.now() - MAX_AGE_HOURS * 3600_000).toISOString();
+  const args = ['-l', 'JavaScript', MAIL_FETCHER, since, SAVE_DIR, MAIL_SUBJECT];
+  if (ACCOUNT_FILTER) args.push(ACCOUNT_FILTER);
+
+  const r = spawnSync('osascript', args, { encoding: 'utf8', maxBuffer: 20_000_000, timeout: 120_000 });
+  if (r.status !== 0) {
+    const denied = /not authorized|-1743|not allowed/i.test(r.stderr || '');
+    return { ok: false, denied, error: r.stderr || `osascript exited ${r.status}` };
+  }
+
+  let found;
+  try { found = JSON.parse(r.stdout || '[]'); }
+  catch { return { ok: false, denied: false, error: `Could not parse mail-bulletin-fetch output: ${r.stdout?.slice(0, 200)}` }; }
+
+  // Newest message wins; the apply step re-reads the date from the PDF itself.
+  const newest = found
+    .filter(m => m.files?.length)
+    .sort((a, b) => Date.parse(b.receivedDate) - Date.parse(a.receivedDate))[0];
+  return { ok: true, path: newest ? newest.files[newest.files.length - 1] : null };
+}
+
+/** Saved attachments are disposable; don't let them pile up in temp forever. */
+function pruneSaved() {
+  try {
+    const cutoff = Date.now() - MAX_AGE_HOURS * 3600_000;
+    for (const name of readdirSync(SAVE_DIR)) {
+      const p = join(SAVE_DIR, name);
+      try { if (statSync(p).mtimeMs < cutoff) unlinkSync(p); } catch { /* raced */ }
+    }
+  } catch { /* nothing saved yet */ }
+}
+
 /** Keep the tail so an unattended agent cannot fill the disk. */
 function trimLog() {
   try {
     if (statSync(LOG).size <= LOG_MAX_BYTES) return;
     writeFileSync(LOG, readFileSync(LOG, 'utf8').split('\n').slice(-LOG_KEEP_LINES).join('\n'));
   } catch { /* no log yet */ }
+}
+
+/** EnvironmentVariables the INSTALLED agent carries — not this shell's. */
+function installedEnv() {
+  const out = {};
+  try {
+    const plist = readFileSync(PLIST, 'utf8');
+    const block = /<key>EnvironmentVariables<\/key>\s*<dict>([\s\S]*?)<\/dict>/.exec(plist)?.[1] ?? '';
+    for (const m of block.matchAll(/<key>([^<]+)<\/key>\s*<string>([^<]*)<\/string>/g)) {
+      out[m[1]] = m[2];
+    }
+  } catch { /* not installed yet */ }
+  return out;
 }
 
 function readCred() {
@@ -121,25 +196,51 @@ function notify(msg) {
 
 function run() {
   trimLog();
+  pruneSaved();
 
-  const { files, denied } = listBulletins();
-  if (denied) {
-    log(denialHelp());
-    notify('Bulletin agent needs Full Disk Access for node. See the log.');
-    return 0;
+  // Mail first. The OneDrive folder is only a fallback for a Mac that still
+  // has the old Power Automate sync and no Mail access yet.
+  let sourcePath = null;
+  let sourceLabel = '';
+
+  const mail = fetchBulletinFromMail();
+  if (!mail.ok) {
+    if (mail.denied) {
+      log(mailDenialHelp(mail.error));
+      notify('Bulletin agent needs Automation access for Mail. See the log.');
+      return 0;
+    }
+    log(`Mail fetch failed: ${mail.error}`);
+  } else if (mail.path) {
+    sourcePath = mail.path;
+    sourceLabel = `Mail: ${mail.path.split('/').pop()}`;
+  } else {
+    log(`No "${MAIL_SUBJECT}" mail with a PDF in the last ${MAX_AGE_HOURS}h.`);
   }
 
-  const pick = pickBulletin(files);
-  if (!pick) { log(`No bulletin from the last ${MAX_AGE_HOURS}h in ${BULLETIN_DIR}; skip.`); return 0; }
+  if (!sourcePath) {
+    const { files, denied } = listBulletins();
+    if (denied) {
+      log(denialHelp());
+    } else {
+      const pick = pickBulletin(files);
+      if (pick) {
+        sourcePath = join(BULLETIN_DIR, pick.name);
+        sourceLabel = `OneDrive (legacy): ${pick.name}`;
+      }
+    }
+  }
+
+  if (!sourcePath) { log(`No bulletin from the last ${MAX_AGE_HOURS}h in Mail or ${BULLETIN_DIR}; skip.`); return 0; }
 
   const cred = readCred();
   if (!cred) log(`No usable service account at ${CRED}; parsing only. See docs/ATTENDANCE-BULLETIN.md.`);
   const dryRun = cred ? (process.env.DRY_RUN || DRY_RUN) : 'parse-only';
-  log(`Reading ${pick.name} (DRY_RUN=${dryRun})`);
+  log(`Reading ${sourceLabel} (DRY_RUN=${dryRun})`);
 
   const env = { ...process.env, DRY_RUN: dryRun, SKIP_IF_EMPTY: '1' };
   if (cred) env.FIREBASE_SERVICE_ACCOUNT_JSON = cred;
-  env[/\.pdf$/i.test(pick.name) ? 'BULLETIN_PDF_PATH' : 'BULLETIN_TEXT_PATH'] = join(BULLETIN_DIR, pick.name);
+  env[/\.pdf$/i.test(sourcePath) ? 'BULLETIN_PDF_PATH' : 'BULLETIN_TEXT_PATH'] = sourcePath;
 
   const code = spawnSync(process.execPath, [APPLY], { cwd: dirname(HERE), env, stdio: 'inherit' }).status ?? 1;
   if (code !== 0) {
@@ -149,11 +250,27 @@ function run() {
   return code;
 }
 
-function plistXml() {
+/** @param {Record<string,string>} [installed] env already on the installed agent */
+function plistXml(installed = installedEnv()) {
   const calendar = RUN_TIMES.flatMap(([h, m]) => [1, 2, 3, 4, 5].map(wd =>
     `    <dict><key>Weekday</key><integer>${wd}</integer>`
     + `<key>Hour</key><integer>${h}</integer>`
     + `<key>Minute</key><integer>${m}</integer></dict>`)).join('\n');
+  // launchd does NOT source a shell profile, so everything the scheduled job
+  // needs from the environment is baked in HERE, at install time.
+  //
+  // DRY_RUN especially. It used to be hand-added to this plist after install,
+  // which meant the next --install silently wiped it and reverted a LIVE
+  // pipeline to dry run — no error, attendance just quietly stops. Carrying
+  // the live value forward makes reinstalling safe.
+  const envEntries = [['PATH', process.env.PATH || '']];
+  const dryRun = process.env.DRY_RUN ?? installed.DRY_RUN;
+  if (dryRun != null) envEntries.push(['DRY_RUN', dryRun]);
+  const account = ACCOUNT_FILTER || installed.MDC_MAIL_ACCOUNT_NAME;
+  if (account) envEntries.push(['MDC_MAIL_ACCOUNT_NAME', account]);
+  const envXml = envEntries
+    .map(([k, v]) => `    <key>${xml(k)}</key><string>${xml(v)}</string>`)
+    .join('\n');
   // PATH is captured from the installing shell so the child finds node, and
   // pdftotext or python3+pymupdf for the PDF.
   //
@@ -177,7 +294,9 @@ function plistXml() {
     <string>exec ${xml(`"${process.execPath}" "${RUNNER}"`)}</string>
   </array>
   <key>EnvironmentVariables</key>
-  <dict><key>PATH</key><string>${xml(process.env.PATH || '')}</string></dict>
+  <dict>
+${envXml}
+  </dict>
   <key>StartCalendarInterval</key>
   <array>
 ${calendar}
@@ -217,14 +336,55 @@ function status() {
   console.log(`agent:    ${list.status === 0
     ? `loaded, weekdays at ${RUN_TIMES.map(hhmm).join(' and ')}${lastExit ? ` (last exit ${lastExit})` : ''}`
     : 'not loaded — run: node scripts/bulletin-local.mjs --install'}`);
-  console.log(`mode:     ${DRY_RUN === 'false' ? 'LIVE, writes to Firestore' : 'dry run, no writes'}`);
+  // The installed plist is the authority: this shell's constant says nothing
+  // about what the scheduled job is actually doing.
+  const installed = installedEnv();
+  const effective = installed.DRY_RUN ?? DRY_RUN;
+  console.log(`mode:     ${effective === 'false' ? 'LIVE, writes to Firestore' : 'dry run, no writes'}`
+    + `${installed.DRY_RUN == null ? ' (from this script; agent plist sets none)' : ' (from the agent plist)'}`);
   console.log(`creds:    ${readCred() ? CRED : `missing — put the key at ${CRED}`}`);
+  console.log(`account:  ${installed.MDC_MAIL_ACCOUNT_NAME || ACCOUNT_FILTER
+    || 'ALL Mail.app accounts — set MDC_MAIL_ACCOUNT_NAME, then re-run --install'}`);
+  const mail = fetchBulletinFromMail();
+  console.log(`mail:     ${mail.ok
+    ? (mail.path ? mail.path.split('/').pop() : `no "${MAIL_SUBJECT}" mail with a PDF in ${MAX_AGE_HOURS}h`)
+    : (mail.denied ? 'DENIED — run --grant' : `error: ${String(mail.error).trim().slice(0, 80)}`)}`);
   let pick = null;
-  try { pick = pickBulletin(listBulletins()); } catch { /* folder missing */ }
-  console.log(`bulletin: ${pick
-    ? `${pick.name}, ${Math.round((Date.now() - pick.mtime) / 3600_000)}h old`
-    : `nothing recent in ${BULLETIN_DIR}`}`);
+  try { pick = pickBulletin(listBulletins().files); } catch { /* folder missing */ }
+  console.log(`onedrive: ${pick
+    ? `${pick.name}, ${Math.round((Date.now() - pick.mtime) / 3600_000)}h old (legacy fallback)`
+    : 'nothing recent (legacy fallback, fine to be empty)'}`);
   console.log(`log:      ${LOG}`);
+  return 0;
+}
+
+/**
+ * Settle the Mail permission deliberately, while someone is watching — same
+ * reasoning as absence-email-local.mjs: macOS won't let a script grant this
+ * to itself, and a LaunchAgent run is a different responsible process than a
+ * Terminal run, so both get asked for here rather than during a silent cron.
+ */
+function grant() {
+  console.log('Asking macOS for permission to control Mail — approve the dialog if it appears.\n');
+  const probe = spawnSync('osascript', ['-l', 'JavaScript', '-e', 'Application("Mail").accounts().length'],
+    { encoding: 'utf8', timeout: 120_000 });
+  if (probe.status !== 0) {
+    console.error(mailDenialHelp(probe.stderr || `osascript exited ${probe.status}`));
+    return 1;
+  }
+  console.log(`Foreground: OK — Mail answered (${probe.stdout.trim()} account(s) visible).`);
+
+  if (spawnSync('launchctl', ['list', LABEL], { stdio: 'ignore' }).status !== 0) {
+    console.log('\nAgent is not installed yet. Run --install, then --grant again.');
+    return 0;
+  }
+  console.log('\nForcing one real background run — the context launchd will use...');
+  const kick = spawnSync('launchctl', ['kickstart', '-k', `gui/${uid()}/${LABEL}`], { encoding: 'utf8' });
+  if (kick.status !== 0) {
+    console.error(kick.stderr?.trim() || 'launchctl kickstart failed');
+    return 1;
+  }
+  console.log(`Kicked off. Confirm it read Mail:\n  tail -n 40 ${LOG}`);
   return 0;
 }
 
@@ -261,7 +421,16 @@ function selfCheck() {
     assert(lint.status === 0, `plutil -lint: ${lint.stdout || lint.stderr}`);
   }
 
+  // DRY_RUN used to be hand-added to the plist, so --install silently wiped it
+  // and reverted a live pipeline to dry run. Reinstalling must carry it over.
+  const withLive = plistXml({ DRY_RUN: 'false', MDC_MAIL_ACCOUNT_NAME: 'MDC & <Mail>' });
+  assert(/<key>DRY_RUN<\/key><string>false<\/string>/.test(withLive), 'live DRY_RUN survives a reinstall');
+  assert(withLive.includes('MDC &amp; &lt;Mail>'), 'account name is XML-escaped into the plist');
+  const noEnv = plistXml({});
+  assert(!noEnv.includes('MDC_MAIL_ACCOUNT_NAME'), 'no stale account filter when never set');
+
   assert(existsSync(APPLY), 'apply-attendance-bulletin.mjs is where the plist expects');
+  assert(existsSync(MAIL_FETCHER), 'mail-bulletin-fetch.jxa.js is where this script expects');
   console.log('bulletin-local.selfcheck: ok');
   return 0;
 }
@@ -269,6 +438,7 @@ function selfCheck() {
 const cmd = process.argv[2] || '';
 if (cmd === '--self-check') process.exit(selfCheck());
 if (cmd === '--install') process.exit(install());
+if (cmd === '--grant') process.exit(grant());
 if (cmd === '--uninstall') process.exit(uninstall());
 if (cmd === '--status') process.exit(status());
 process.exit(run());
