@@ -28,6 +28,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // One door for schedule changes (#schedule-ux-redesign Phase 1).
+  {
+    id: '2026-08-22-schedule-changes-one-door',
+    date: '2026-08-22',
+    title: 'Changing the schedule now starts in one place',
+    audience: 'staff' as const,
+    expires: '2026-09-05',
+    bullets: [
+      '"Schedule Changes" (menu, top level) is now the one door: pick the day, tap Change on a block, and swap, shift, move rooms, cancel, or move a student — no more separate "Temporary Roster Changes" screen (its student picker lives on as the Students tab).',
+      'Get there from wherever you are: "Change this day" on the calendar’s day panel, "Change" on any event card, or "Change today’s schedule" on Today.',
+      'Cancelling from the calendar’s event editor now behaves like cancelling anywhere else: it’s revertible and can post the family banner. No more silent cancels.',
+    ],
+  },
   // Ready-made calendars (#calendar-bundles) + the private lessons feed.
   {
     id: '2026-08-22-lessons-calendar',

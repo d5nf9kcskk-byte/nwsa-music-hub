@@ -276,7 +276,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
         <div className="dir-today-quick">
           <button className="dir-quick-btn" onClick={() => onNavigate('schedule', { date: today })}><CalendarPlus size={18} /> New event</button>
           <button className="dir-quick-btn" onClick={() => onNavigate('announcements')}><Megaphone size={18} /> Post announcement</button>
-          <button className="dir-quick-btn" onClick={() => onNavigate('scheduleSwap', { date: today })}><Clock size={18} /> Schedule change</button>
+          <button className="dir-quick-btn" onClick={() => onNavigate('scheduleSwap', { date: today })}><Clock size={18} /> Change today’s schedule</button>
           <button className="dir-quick-btn" onClick={() => setSnowDay(true)}>🌀 Close a day</button>
           <button className="dir-quick-btn" onClick={() => setShowChecklist(true)}>🍂 Term checklist</button>
           <button className="dir-quick-btn" onClick={() => setShowQrKit(true)}>📱 QR kit</button>

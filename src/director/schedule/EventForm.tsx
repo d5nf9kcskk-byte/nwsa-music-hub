@@ -5,7 +5,7 @@ import { useEvents } from '../hooks/useEvents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster } from '../rosterResolver';
-import { EVENT_TYPES, TIME_BLOCKS, musicEnsembles } from '../utils';
+import { EVENT_TYPES, TIME_BLOCKS, musicEnsembles, parseDate } from '../utils';
 import { PiecePicker } from '../repertoire/PiecePicker';
 import { RichTextArea } from '../components/RichTextArea';
 import { EditedByLine } from '../components/EditedByLine';
@@ -13,6 +13,8 @@ import { useModalA11y } from '../../shared/useModalA11y';
 import { recordActivity } from '../hooks/useActivityLog';
 import { whenQueued } from '../writeStatus';
 import { isSharedBlock, sharedBlockLabel } from '../../shared/sharedBlock';
+import { useAnnouncements } from '../hooks/useAnnouncements';
+import { captureOriginal, announceChange } from './changeOps';
 import type { CalendarEvent, Ensemble, EventType, EventStatus } from '../types';
 
 interface Props {
@@ -101,6 +103,12 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Cancelling from HERE used to be the silent path — no revert snapshot, no
+  // banner — while the same cancel on Schedule Changes had both. Now both
+  // doors run the same changeOps machinery (#schedule-ux-redesign).
+  const announcementApi = useAnnouncements();
+  const cancellingNow = !!event && event.status !== 'Cancelled' && form.status === 'Cancelled';
+  const [notifyCancel, setNotifyCancel] = useState(true);
   const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
 
   // Roster preview ("who should be there") — resolved through overrides so it
@@ -277,7 +285,27 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
       // Normalize before writing: isSharedBlock() fails closed on read, but a
       // `true` left behind after the second ensemble was unchecked is still
       // misleading data for anything reading the raw doc.
-      await whenQueued(onSave({ ...form, sharedBlock: isSharedBlock(form) }));
+      const data: Omit<CalendarEvent, 'id'> = { ...form, sharedBlock: isSharedBlock(form) };
+      if (cancellingNow && event) {
+        // Same guarantees as a cancel on Schedule Changes: snapshot for
+        // revert, a change note (drives the public red-banner day), and
+        // optionally the urgent announcement.
+        Object.assign(data, captureOriginal(event));
+        if (!data.changeNote?.trim()) data.changeNote = 'Cancelled';
+      }
+      await whenQueued(onSave(data));
+      if (cancellingNow && event && notifyCancel) {
+        const name = form.title
+          || form.ensembleIds.map(id => ensembles.find(x => x.id === id)?.name).filter(Boolean).join(' + ')
+          || form.type;
+        const when = parseDate(form.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        // Fire-and-forget: the banner is best-effort and must not hold the
+        // form open (basement-latency rule, audit rec #4). bannersForEvents
+        // matches by the announcement's own eventId stamp, so later changes
+        // and reverts find this banner without a changeAnnouncementId link.
+        void announceChange(announcementApi, form.date, `🚫 ${name}: CANCELLED ${when}`, [event], [name])
+          .catch(() => { /* best-effort */ });
+      }
       recordActivity(event ? 'schedule.edit' : 'schedule.create', form.title || form.type);
       onClose();
     } catch (err) {
@@ -614,6 +642,12 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
               <option value="Completed">Completed</option>
               <option value="Cancelled">Cancelled</option>
             </select>
+            {cancellingNow && (
+              <label className="pub-parent-toggle" style={{ marginTop: 8 }}>
+                <input type="checkbox" checked={notifyCancel} onChange={e => setNotifyCancel(e.target.checked)} />
+                Post an urgent announcement (shows a banner on the calendar)
+              </label>
+            )}
           </div>
 
           <div className="dir-field">
