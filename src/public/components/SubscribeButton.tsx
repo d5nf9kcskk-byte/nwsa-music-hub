@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarPlus, Copy, Check, Download, X } from 'lucide-react';
+import { CalendarPlus, Copy, Check, Download, RefreshCw, X } from 'lucide-react';
 import { feedUrl, studentFeedUrl, viewFeedUrl, webcalUrl } from '../feedUrl';
+import { splitDuplicatesSchoolWide, splitViewFeeds, useFeedReady } from '../feedReady';
+import { BundleCalendars } from './BundleCalendars';
 import { detectPlatform, type Platform } from '../platform';
 import { t, useLang, getLang } from '../../shared/i18n';
 import './subscribeButton.css';
@@ -99,6 +101,16 @@ export function SubscribeButton({ ensembleId, studentId, view, snapshot, label }
     [view, snapshot?.ensembles],
   );
   const snapshotCount = (snapshot?.events.length ?? 0) + (snapshot?.assignments?.length ?? 0);
+
+  // Only a custom mix can be missing; pre-built feeds ship with the site.
+  // Probing while the sheet is open keeps a "Check again" tap honest.
+  const { state: feedState, recheck } = useFeedReady(https, open && !!view && !preBuilt);
+  const notReady = feedState === 'missing';
+  const perEnsemble = useMemo(
+    () => (view ? splitViewFeeds(view, ensembleName) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [view, snapshot?.ensembles],
+  );
 
   /** The events on screen as an .ics file — a one-time download, not a feed. */
   function downloadSnapshot() {
@@ -215,7 +227,20 @@ export function SubscribeButton({ ensembleId, studentId, view, snapshot, label }
 
             {view && !preBuilt && (
               <p className="pub-subw-hint pub-subw-note">
-                {saveState === 'error' ? t('sub.newMixError') : t('sub.newMix')}
+                {saveState === 'error'
+                  ? t('sub.newMixError')
+                  : feedState === 'checking'
+                    ? t('sub.checking')
+                    : feedState === 'unknown'
+                      ? t('sub.checkFailed')
+                      : notReady
+                        ? `${t('sub.notReady')}${perEnsemble.length === 0 ? ` ${t('sub.notReadyAlone')}` : ''}`
+                        : t('sub.newMix')}
+                {(notReady || feedState === 'unknown') && (
+                  <button type="button" className="pub-subw-recheck" onClick={recheck}>
+                    <RefreshCw size={12} /> {t('sub.checkAgain')}
+                  </button>
+                )}
               </p>
             )}
             <div className="pub-subw-tabs" role="tablist" aria-label={t('sub.yourDevice')}>
@@ -242,7 +267,30 @@ export function SubscribeButton({ ensembleId, studentId, view, snapshot, label }
               ))}
             </ol>
 
-            {platform === 'ios' ? (
+            {notReady && perEnsemble.length > 0 ? (
+              /* The link exists but the file does not yet, and a calendar app
+                 asked to add it now just reports an error. Offer the ready
+                 ones instead — and say plainly what they cost, because every
+                 one of them carries the school-wide days. */
+              <div className="pub-subw-split">
+                <div className="pub-subw-split-head">{t('sub.readyNow')}</div>
+                {perEnsemble.map(f => (
+                  <a
+                    key={f.id}
+                    className="pub-subw-action pub-subw-action-sm"
+                    href={platform === 'ios'
+                      ? webcalUrl(f.url)
+                      : `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl(f.url))}`}
+                    {...(platform === 'ios' ? {} : { target: '_blank', rel: 'noreferrer' })}
+                  >
+                    <CalendarPlus size={15} /> {f.label}
+                  </a>
+                ))}
+                {splitDuplicatesSchoolWide(perEnsemble) && (
+                  <div className="pub-subw-split-note">{t('sub.readyNowDup')}</div>
+                )}
+              </div>
+            ) : notReady ? null : platform === 'ios' ? (
               <a className="pub-subw-action" href={webcal}>
                 <CalendarPlus size={17} /> {t('sub.apple')}
               </a>
@@ -259,6 +307,16 @@ export function SubscribeButton({ ensembleId, studentId, view, snapshot, label }
               </button>
             </div>
             <div className="pub-subw-hint">{t('sub.hint')}</div>
+
+            {/* The school's ready-made calendars (#calendar-bundles) — only
+                where a view is being subscribed, where "is there a curated
+                calendar for this?" is the question being asked. */}
+            {view && <BundleCalendars platform={platform} heading={t('sub.bundles')} className="pub-subw-bundles" />}
+            {/* webcal:// makes Apple try http first, so it asks about an
+                insecure connection even though the feed is served over
+                https. Saying so up front stops the warning reading like a
+                reason to back out. */}
+            {platform === 'ios' && <div className="pub-subw-hint">{t('sub.iosInsecure')}</div>}
 
             {/* Want it on the phone this second? The events on screen, as a
                 file. Not a subscription — it never updates again. */}

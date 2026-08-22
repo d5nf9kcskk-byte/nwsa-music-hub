@@ -21,13 +21,14 @@ import { PubEventCard } from './components/PubEventCard';
 import { PubSelect } from './components/PubSelect';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { SkeletonCards, EmptyState } from './components/PageHeader';
+import { AssignmentCard } from './components/AssignmentCard';
 import { SubscribeButton } from './components/SubscribeButton';
 import { getIdentity } from '../shared/identity';
 import { t, useLang, getLang } from '../shared/i18n';
 import { dailyPun, instrumentQuip, say, yesThatsYouLine } from '../shared/whimsy';
 import { useEggCheer, useTapN } from '../shared/useEggCheer';
 import { NoteBurst } from '../shared/NoteBurst';
-import { fmtDayHeader, fmtMonthYear, fmtShortDate, weekdayInitials } from '../shared/dates';
+import { fmtDayHeader, fmtMonthYear, weekdayInitials } from '../shared/dates';
 import type { CalendarEvent } from '../director/types';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 
@@ -222,22 +223,11 @@ export function PublicSchedule() {
       {myAssignments.length > 0 && (
         <>
           <h2 className="pub-section-title">{t('sched.yourAssignments')}</h2>
+          {/* Summary only — the exam form, the music, and the recorder are
+              all on the assignment's own page now, so this row no longer
+              nests a link inside a link. */}
           {myAssignments.map(a => (
-            <Link key={a.id} to={`/assignments?focus=${a.id}`} className="pub-assign-card pub-assign-link">
-              <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="pub-assign-title">{a.title}</div>
-                <div className="pub-assign-meta">
-                  <span className="pub-assign-type">{a.type}</span>
-                  <span>{t('cal.due')} {fmtShortDate(a.dueDate)}</span>
-                </div>
-                {a.formUrl && (
-                  <a className="pub-assign-form-btn" href={a.formUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>
-                    📝 {t('misc.openExamForm')}
-                  </a>
-                )}
-              </div>
-            </Link>
+            <AssignmentCard key={a.id} assignment={a} ensembles={ensembles} />
           ))}
         </>
       )}
@@ -441,7 +431,7 @@ function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInst
             <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={studentInstrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showNotes />
           ))}
           {(assignByDate[selectedDate] ?? []).map(a => (
-            <Link key={a.id} to={`/assignments?focus=${a.id}`} className="pub-assign-card pub-assign-link">
+            <Link key={a.id} to={`/assignments/${a.id}`} className="pub-assign-card pub-assign-link">
               <span className="pub-assign-emoji">{assignmentEmoji(a.type)}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="pub-assign-title">{a.title}</div>

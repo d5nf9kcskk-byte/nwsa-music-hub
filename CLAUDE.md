@@ -65,11 +65,30 @@ How it works — do not regress this:
   `useStudents` / `useRosterOverrides` batches the mirror doc with the source
   doc; `scripts/backfill-public-projections.mjs` (GitHub Action) converges
   mirrors on demand.
-- `scripts/generate-feeds.mjs` must only ever fetch the public projections.
+- `scripts/generate-feeds.mjs` must only ever fetch the public projections
+  for PUBLIC feeds.
   It runs unauthenticated by default; when `FIREBASE_SERVICE_ACCOUNT_JSON` is
   set it uses a service account instead (so App Check enforcement can be
   turned on without killing the feeds — docs/security-recommendations.md #1).
-  The credential does NOT widen what it may read: public projections only.
+  The credential does NOT widen what any PUBLIC feed may read: public
+  projections only.
+- **The private lessons calendar is a Cloud Function, never a file**
+  (#lessons-feed). It serves the staff-only `lessons` collection at
+  `https://us-central1-<project>.cloudfunctions.net/lessonsFeed/<token>.ics`,
+  and the unguessable token is the whole of its access control (a calendar
+  app cannot sign in). Source: `functions/src/`.
+  **Never publish it through the Pages pipeline.** The first attempt wrote
+  `dist/feeds/lessons-<token>.ics`, and GitHub Pages IS the workflow artifact
+  (`actions/upload-pages-artifact` takes the whole `dist/` tree) on a PUBLIC
+  repo — anyone could download the run and take both the schedule and the
+  token. `LESSONS_FEED_ENABLED = false` in `scripts/generate-feeds.mjs` is
+  permanent; do not flip it, and never add a lessons file to
+  `feeds/index.json`. Never log the token — workflow logs are public too.
+  The function keeps the token in `feedSecrets/lessons` (staff-only), compares
+  it in constant time, answers every failure with the same 404, reads names
+  from `studentsPublic` rather than the staff-only `students`, and bounds its
+  query window. `functions/src/lessonsFeed.selfcheck.ts` pins those guards and
+  runs in `deploy-functions.yml` BEFORE any credential is written.
 - Student doc IDs are RANDOM Firestore IDs, never the school-issued Student
   ID — doc IDs are effectively public (shared with `studentsPublic`, and in
   `/student/<id>` URLs and `feeds/student-<id>.ics`). The school ID lives
@@ -92,12 +111,12 @@ hand-write SW fetch/install logic. Rules that must not regress:
   install — that puts a new SW in control of tabs running old code (the
   original bug this replaced).
 - **Deterministic builds**: unchanged source → byte-identical `dist/sw.js`.
-  The deploy cron rebuilds every 4 hours to refresh ICS feeds; a
+  The deploy cron rebuilds hourly to refresh ICS feeds; a
   nondeterministic SW would toast every open tab each time. Check the
   `[sw-precache]` line in the build log (contract in
   `docs/release-checklist.md`).
 - **`dist/feeds/**` never enters the precache** — it's written AFTER
-  `vite build` by `scripts/generate-feeds.mjs` and regenerates every 4 h
+  `vite build` by `scripts/generate-feeds.mjs` and regenerates hourly
   (`globIgnores` + the navigateFallback denylist both enforce this).
 - One-time cache migrations run in the SW's own `activate`
   (`public/sw-cleanup.js` via `importScripts`) — never from page code, which
@@ -119,6 +138,18 @@ hand-write SW fetch/install logic. Rules that must not regress:
   (`autoViewSpecs`); wider mixes are registered in `calendarViews` and built
   on the next feed refresh. **The slug hash is a frozen subscription
   contract** — `scripts/calendar-view.selfcheck.mjs` pins it.
+- **Named bundles** (`src/shared/calendarBundles.ts`, configured per org in
+  `config/orgs/*.json`) are curated calendars at a STABLE address
+  (`feeds/bundle-<slug>.ics`) whose MEMBERSHIP is resolved on every build —
+  by ensemble id and by name pattern, so a "Jazz Combo #2" created next term
+  joins the bundle it matches without anyone re-subscribing. That is the one
+  thing a hash-addressed view cannot do, since changing a view's filters
+  changes its URL. Bundles are also defined NOT to overlap (an ensemble
+  bundle drops the school-wide ride-along unless `includeSchoolWide`), so
+  subscribing to several never repeats a holiday. A published slug is a
+  subscription contract — never rename one.
+  `scripts/calendar-bundles.selfcheck.mjs` pins both promises and runs in the
+  deploy workflow.
 - `calendarViews` is one of the app's five unauthenticated writes (with
   `plannedAbsences`, `parentMessages`, `assignmentSubmissions`,
   `signupResponses`) — students

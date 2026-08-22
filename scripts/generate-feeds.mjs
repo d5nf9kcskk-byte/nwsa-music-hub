@@ -29,7 +29,10 @@ import {
   assignmentMatchesView, autoViewSpecs, eventMatchesView, normalizeView,
   viewFeedFile, viewLabel, viewSlug,
 } from '../src/shared/calendarView.ts';
-import { icsAssignment, icsCalendar, icsEvent } from '../src/shared/ics.ts';
+import { icsAssignment, icsCalendar, icsEvent, icsLesson } from '../src/shared/ics.ts';
+import {
+  assignmentMatchesBundle, bundleEnsembleIds, bundleFeedFile, eventMatchesBundle,
+} from '../src/shared/calendarBundles.ts';
 
 const PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID;
 if (!PROJECT_ID) {
@@ -63,9 +66,18 @@ const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_I
  * FIREBASE_SERVICE_ACCOUNT_JSON is present the same requests are made with an
  * access token, which App Check does not gate.
  *
- * The #privacy invariant is unchanged and matters MORE with a credential in
- * hand: this script fetches the PUBLIC projections only — never `students`,
- * never `rosterOverrides`. Do not add a private collection here.
+ * The #privacy invariant still governs every PUBLIC feed: those are built
+ * from the public projections only — never `students`, never
+ * `rosterOverrides`. Do not add a private collection to them.
+ *
+ * ONE scoped exception exists (#lessons-feed): the private lessons calendar,
+ * written to an unguessable `lessons-<token>.ics` and never listed in
+ * index.json. It reads `lessons` (staff-only) and is built ONLY when a
+ * service-account credential AND a token are both present — anonymous runs
+ * cannot read either, so it fails closed. Its URL is the only thing guarding
+ * it; that is why the token lives in a staff-only Firestore doc and never in
+ * the app bundle or this repo. Do not widen this exception, and do not add
+ * the file to any index.
  */
 async function getAccessToken() {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -307,6 +319,90 @@ function wrapCalendar(name, description, vevents) {
     if (mismatched) console.warn(`::warning::calendarViews: ignored ${mismatched} doc(s) whose id does not match their filters`);
     console.log(`Generated ${viewFeeds} filter-view feeds (${kept.length} registered)`);
 
+    // ── Named bundle feeds (#calendar-bundles) ─────────────────────────
+    // Curated calendars with a STABLE address whose membership is resolved
+    // fresh here on every build — so an ensemble created next term joins the
+    // bundle it matches without anyone re-subscribing. See
+    // src/shared/calendarBundles.ts for why these exist alongside view feeds.
+    const bundles = ORG.calendarBundles ?? [];
+    const bundleIndex = [];
+    for (const bundle of bundles) {
+      const vevents = events
+        .filter(e => eventMatchesBundle(e, bundle, ensembles))
+        .map(e => buildVEVENT(e, lookups));
+      for (const a of publishedAssignments) {
+        if (assignmentMatchesBundle(a, bundle, ensembles)) vevents.push(icsAssignment(a, lookups, BRANDING));
+      }
+      writeFileSync(
+        `dist/feeds/${bundleFeedFile(bundle)}`,
+        wrapCalendar(`${ORG.ics.namePrefix} · ${bundle.name}`, bundle.description, vevents),
+      );
+      const members = bundleEnsembleIds(bundle, ensembles);
+      bundleIndex.push({ slug: bundle.slug, name: bundle.name, file: bundleFeedFile(bundle), ensembleIds: members, events: vevents.length });
+      console.log(`  bundle ${bundle.slug}: ${vevents.length} items${members.length ? ` from ${members.length} ensemble(s)` : ''}`);
+    }
+    if (bundles.length) console.log(`Generated ${bundles.length} named bundle feeds`);
+
+    // ── Private lessons feed (#lessons-feed) ───────────────────────────
+    // Unlisted and credential-gated: see the privacy note on getAccessToken.
+    //
+    // DISABLED — do not re-enable without reading this.
+    //
+    // GitHub Pages IS the workflow artifact: deploy.yml hands the whole
+    // `dist/` tree to actions/upload-pages-artifact, and on a PUBLIC
+    // repository (this one is) that artifact is downloadable by anyone from
+    // the Actions tab. So a reader does not need the secret URL — they can
+    // download the run and read both the lesson schedule AND the token,
+    // which then works against the live site indefinitely. Rotating does not
+    // help: the new token ships in the next hourly artifact.
+    //
+    // The unguessable-URL model therefore does not hold here, and the
+    // director agreed to a much smaller exposure than this. Publishing is
+    // off until the feed has a host that is not built from a public
+    // artifact. Everything below is correct and stays for that day.
+    const LESSONS_FEED_ENABLED = false;
+    let lessonFeedBuilt = false;
+    if (LESSONS_FEED_ENABLED && accessToken) {
+      const secrets = await fetchOptionalCollection('feedSecrets');
+      const token = secrets.find(d => d.id === 'lessons')?.token;
+      if (typeof token === 'string' && /^[a-f0-9]{32,}$/.test(token)) {
+        const lessons = await fetchOptionalCollection('lessons');
+        // Names come from the PUBLIC projection — student names are public
+        // (#privacy); the staff-only `students` collection is not touched.
+        const studentName = id => students.find(s => s.id === id)?.name ?? 'Student';
+        const vevents = lessons.map(l => icsLesson({
+          id: l.id,
+          date: l.date,
+          startTime: l.startTime,
+          endTime: l.endTime,
+          studentName: studentName(l.studentId),
+          teacherName: l.teacherName,
+          teacherEmail: l.teacherEmail,
+          instrument: l.instrument,
+          location: l.location,
+          status: l.status,
+        }, BRANDING));
+        writeFileSync(
+          `dist/feeds/lessons-${token}.ics`,
+          wrapCalendar(
+            `${ORG.ics.namePrefix} · Lessons (private)`,
+            'Private lesson schedule — anyone with this link can read it. Do not share.',
+            vevents,
+          ),
+        );
+        lessonFeedBuilt = true;
+        // Deliberately does NOT log the token: workflow logs are public.
+        console.log(`Generated the private lessons feed (${vevents.length} lessons)`);
+      } else if (secrets.length > 0) {
+        console.warn('::warning::feedSecrets/lessons has no valid token — skipping the private lessons feed');
+      }
+    }
+    if (!lessonFeedBuilt) {
+      console.log(LESSONS_FEED_ENABLED
+        ? 'Skipped the private lessons feed (no credential or no token)'
+        : 'Private lessons feed is DISABLED (public Actions artifact would expose it) — nothing written');
+    }
+
     // Per-student feeds: base membership + subs − pulls + attendance requirements.
     // (Lesson-kind overrides are PARTIAL absences and never remove an event.)
     // Keep in sync with overrideApplies() in src/director/rosterResolver.ts.
@@ -370,6 +466,7 @@ function wrapCalendar(name, description, vevents) {
         ...ensembles.map(e => ({ name: e.name, ensembleId: e.id, file: `ensemble-${e.id.replace(/[^a-z0-9-]/gi, '-')}.ics` })),
       ],
       viewFeeds: [...seenViews].map(slug => ({ slug, file: `view-${slug}.ics` })),
+      bundles: bundleIndex,
     };
     writeFileSync('dist/feeds/index.json', JSON.stringify(index, null, 2));
 

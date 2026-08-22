@@ -8,6 +8,9 @@ export interface DirNavOpts {
   eventId?: string;
   studentId?: string;
   announcementId?: string;
+  /** Open this assignment's sheet on the Assignments tab — so an assignment
+   *  is editable from wherever it is listed, not only from that tab. */
+  assignmentId?: string;
 }
 
 /** Cross-tab navigation with intent (preselect an ensemble, focus an event, …). */

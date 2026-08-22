@@ -208,6 +208,7 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
           ensembles={ensembles}
           onEdit={() => { setEditingStudent(viewingStudent); setViewingStudent(null); }}
           onClose={() => setViewingStudent(null)}
+          onNavigate={onNavigate}
         />
       )}
 

@@ -240,10 +240,24 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
         {sections.map(({ ens, marks, lessons, guests, pulls, rehearsal }) => (
           <div key={ens.id}>
             <div className="dir-section-head">
-              <span>
-                <span className="dir-menu-dot" style={{ background: ensembleColor(ens), marginRight: 6 }} />
-                {ens.name}
-                {rehearsal?.startTime && <span style={{ fontWeight: 500, color: 'var(--dir-text-muted)' }}> · {formatTimeRange(rehearsal.startTime, rehearsal.endTime)}</span>}
+              {/* The heading opens the ensemble's hub, and its time opens the
+                  rehearsal itself — the same "tap what you see" rule the rows
+                  below already follow. */}
+              <span className="dir-head-group">
+                <button type="button" className="dir-head-link" onClick={() => onNavigate('ensembleHub', { ensembleId: ens.id })}>
+                  <span className="dir-menu-dot" style={{ background: ensembleColor(ens), marginRight: 6 }} />
+                  {ens.name}
+                </button>
+                {rehearsal?.startTime && (
+                  <button
+                    type="button"
+                    className="dir-link-btn"
+                    style={{ fontWeight: 500 }}
+                    onClick={() => onNavigate('schedule', { date: rehearsal.date, eventId: rehearsal.id })}
+                  >
+                    {formatTimeRange(rehearsal.startTime, rehearsal.endTime)}
+                  </button>
+                )}
               </span>
               <button className="dir-link-btn" onClick={() => onNavigate('roll', { ensembleId: ens.id })}>
                 <ClipboardList size={13} /> Open roll

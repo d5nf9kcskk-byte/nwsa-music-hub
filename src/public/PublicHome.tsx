@@ -243,7 +243,7 @@ export function PublicHome() {
         <>
           <h2 className="pub-section-title">{t('home.comingUpAssignments')}</h2>
           {upcomingAssignments.map(a => (
-            <Link key={a.id} to={`/assignments?focus=${a.id}`} className="pub-upcoming">
+            <Link key={a.id} to={`/assignments/${a.id}`} className="pub-upcoming">
               <span className="pub-upcoming-date">
                 {fmtShortDate(a.dueDate)}
               </span>

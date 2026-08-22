@@ -5,8 +5,15 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    # Refresh ICS feeds every 4 hours (keeps calendar subscriptions current).
-    - cron: '0 */4 * * *'
+    # Refresh ICS feeds hourly. This is also how long someone waits for a
+    # CUSTOM filter mix (several ensembles at once) to become subscribable:
+    # its feed file is only written by this run, and a calendar app handed a
+    # URL with no file behind it refuses the subscription outright rather
+    # than retrying later. Four hours of that was the reported bug.
+    # Safe to run this often because dist/sw.js is byte-identical for
+    # unchanged source (see the [sw-precache] contract in CLAUDE.md) — an
+    # unchanged build never toasts an open tab.
+    - cron: '0 * * * *'
 
 permissions:
   contents: read
@@ -37,6 +44,17 @@ jobs:
       # the filter rules the feeds are built from (docs/release-checklist.md).
       - name: Check calendar view + ICS contracts
         run: node scripts/calendar-view.selfcheck.mjs
+
+      # Named bundles are subscription addresses too — pin their slugs and
+      # their no-overlap guarantee the same way the view slugs are pinned.
+      - name: Check calendar bundles
+        run: node scripts/calendar-bundles.selfcheck.mjs
+
+      # The rich-text parser decides what students read on every assignment,
+      # announcement and event note. Its self-check ran nowhere until now, so
+      # a regression in it could ship green.
+      - name: Check rich-text rendering
+        run: npx tsx src/shared/richText.selfcheck.ts
 
       # Who a sign-up reaches. Drift here is silent — a director opens
       # "Camerata strings" and half the section never sees it (#signups).

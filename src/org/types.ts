@@ -1,3 +1,5 @@
+import type { CalendarBundle } from '../shared/calendarBundles';
+
 /**
  * Org config — the white-label surface (#org-config). One JSON file per
  * organization lives in config/orgs/; vite.config.ts picks one by the
@@ -108,6 +110,15 @@ export interface OrgConfig {
   };
   /** Vanity short links (see src/shared/vanity.ts). */
   vanitySlugs: { slug: string; match: string[] }[];
+  /**
+   * Curated always-built calendars (`feeds/bundle-<slug>.ics`). Unlike the
+   * hash-addressed filter views, a bundle's ADDRESS is fixed while its
+   * membership is resolved fresh each build — which is how "every ensemble
+   * that isn't an orchestra" can pick up a Jazz Combo created next term
+   * without anyone re-subscribing. Shape: src/shared/calendarBundles.ts.
+   * Optional: an org with none simply builds no bundle feeds.
+   */
+  calendarBundles?: CalendarBundle[];
   /** Fallback allowlist used ONLY when the directors read itself fails (AuthGate). */
   breakGlassEmails: string[];
   /**

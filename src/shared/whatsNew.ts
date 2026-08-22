@@ -28,6 +28,71 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Ready-made calendars (#calendar-bundles) + the private lessons feed.
+  {
+    id: '2026-08-22-lessons-calendar',
+    date: '2026-08-22',
+    title: 'Your lessons, on your phone calendar',
+    audience: 'staff' as const,
+    expires: '2026-09-05',
+    bullets: [
+      'Lessons → "Private lessons calendar" gives you one private link. Subscribe once and every scheduled lesson shows in your own calendar app — student, teacher and room.',
+      'It stays current on its own: add a lesson at 2:15 and it is there the next time your calendar checks.',
+      'Treat the link like a key. Anyone who has it can read every student\u2019s lesson schedule, so do not post it anywhere shared — and if it does get out, Reset link stops the old one immediately.',
+    ],
+  },
+  // Only for orgs that actually have bundles — the bullets name NWSA's.
+  ...((ORG.calendarBundles?.length ?? 0) > 0 ? [{
+    id: '2026-08-21-ready-made-calendars',
+    date: '2026-08-21',
+    title: 'Ready-made calendars you can subscribe to instantly',
+    audience: 'both' as const,
+    expires: '2026-09-04',
+    bullets: [
+      'Three new school calendars are always ready — no waiting, no setup: Ensembles (no orchestras), Classes & school days, and Dance, Theatre & Visual Arts. Find them in any Subscribe window.',
+      'They are built not to overlap, so you can subscribe to all three and still see each holiday only once.',
+      'The Ensembles calendar keeps itself current: a new Jazz Combo joins it automatically the next time feeds refresh, and your subscription link never changes.',
+      'Each string masterclass — Violin, Viola, Cello, Bass — already had its own calendar, with the room on every entry.',
+    ],
+  }] : []),
+  {
+    id: '2026-08-21-assignment-page',
+    date: '2026-08-21',
+    title: 'Assignments now open on their own page — and read the way they were written',
+    audience: 'both',
+    expires: '2026-09-04',
+    bullets: [
+      'An assignment in the list is now a short card — title, what kind it is, when it is due, and whose it is. Tap it to open the whole thing on its own page.',
+      'On that page you get the full instructions, the music it is on, any files, and the video recorder — all together, so you can read the instructions while you record instead of switching screens.',
+      'Formatting works properly now: bold, underline, bigger and smaller text, bullets and numbered steps, and your line breaks exactly where you put them. Text that used to show stray ** asterisks reads normally.',
+      'Directors: the Description box has Bold, Underline, heading sizes, small print, and lists, plus a Preview button that shows exactly what students will see. You can also link a piece of music to an assignment — students tap through to grab their part and come back.',
+    ],
+  },
+  {
+    id: '2026-08-21-tap-anything',
+    date: '2026-08-21',
+    title: 'Tap anything on the Director side to edit it',
+    audience: 'staff',
+    expires: '2026-09-04',
+    bullets: [
+      'On Today, tapping a rehearsal, class, concert, or event opens it for editing — no hunting for the Edit button. Each ensemble on a card is its own chip that opens that ensemble\u2019s hub.',
+      'Today\u2019s lessons open the student\u2019s temporary-change screen, and a coming-up assignment opens that assignment, not just the Assignments list.',
+      'Same everywhere else: Who\u2019s Out headings open the ensemble and its time opens the rehearsal, logged lessons open the student, and a student\u2019s upcoming events and assignment results open their own editors. Ensemble hubs now have an Assignments button.',
+    ],
+  },
+  {
+    id: '2026-08-21-subscribe-custom-mix',
+    date: '2026-08-21',
+    title: 'Fixed: subscribing to a custom calendar mix',
+    audience: 'both',
+    expires: '2026-09-04',
+    bullets: [
+      'Picking several ensembles at once and subscribing used to end in "Validation failed" in Apple Calendar. That mix gets its own calendar file, and it was being handed out before the file existed.',
+      'The subscribe window now checks first. If your mix is not built yet it says so, offers the ready-made calendars that cover the same events right now, and has a Check again button.',
+      'Custom mixes are also built every hour instead of every four, so the wait is much shorter.',
+      'If your iPhone or iPad warns about an "insecure connection", tap Continue — that is Apple trying the old address first. The link is https.',
+    ],
+  },
   // Shared/combined blocks (#shared-block). Combining two ensembles used to
   // mean creating one event per ensemble and hoping nobody read them as a
   // double-booking; now it is one event with a checkbox.

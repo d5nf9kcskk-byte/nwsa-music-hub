@@ -9,7 +9,7 @@ import type { SignupForm, SignupResponse } from '../types';
 
 /**
  * Sign-ups (#signups). `signupForms` is world-readable — the public sign-up
- * page loads it the same way PublicSubmission loads `assignments` — so this
+ * page loads it the same way PublicAssignment loads `assignments` — so this
  * hook serves both surfaces. `signupResponses` is staff-only, which is why it
  * lives in a separate hook that the public bundle never calls: a public
  * client attaching that listener would take a permission-denied error and

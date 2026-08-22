@@ -9,6 +9,7 @@ import { useStudents } from '../hooks/useStudents';
 import { studentExpectation } from '../rosterResolver';
 import { todayStr, ensembleColor, formatDate } from '../utils';
 import type { Student, StudentContact, Ensemble } from '../types';
+import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
 import { EditedByLine } from '../components/EditedByLine';
 import { useModalA11y } from '../../shared/useModalA11y';
@@ -20,10 +21,21 @@ interface Props {
   ensembles: Ensemble[];
   onEdit?: () => void;
   onClose: () => void;
+  /** Present when this sheet was opened from a screen that can navigate —
+   *  makes every event, ensemble, and assignment listed here open its own
+   *  editor instead of being read-only text. */
+  onNavigate?: DirNavigate;
 }
 
-export function StudentDetail({ student, students, contact, ensembles, onEdit, onClose }: Props) {
-  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
+export function StudentDetail({ student, students, contact, ensembles, onEdit, onClose, onNavigate }: Props) {
+  /** Anything listed here opens its own editor. Close the sheet first so the
+   *  director lands on the target screen, not on top of this one. */
+  const go: DirNavigate = (tab, opts) => { onClose(); onNavigate?.(tab, opts); };
+  // No closeOnBack: this sheet's rows NAVIGATE on tap, and the back-sentinel
+  // would pop that navigation straight back off the history stack (landing
+  // the director back on Roster). useModalA11y's own rule — closeOnBack is
+  // for editing drawers with unsaved work, not for overlays you tap through.
+  const panelRef = useModalA11y<HTMLDivElement>(onClose, true);
   const { records: attendanceRecords } = useAttendanceHistory(student.id);
   const { notes: progressNotes } = useProgressNotes(student.id);
   const { events } = useEvents();
@@ -190,7 +202,17 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
                     <span className={`dir-detail-att-status dir-detail-att-${r.status.toLowerCase()}`}>{r.status}</span>
                     <span className="dir-detail-att-date">{formatDate(r.date, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                     <span className="dir-detail-att-reason">
-                      {ensembles.find(e => e.id === r.ensembleId)?.name ?? ''}
+                      {onNavigate && ensembles.some(e => e.id === r.ensembleId) ? (
+                        <button
+                          type="button"
+                          className="dir-inline-link"
+                          onClick={() => go('ensembleHub', { ensembleId: r.ensembleId })}
+                        >
+                          {ensembles.find(e => e.id === r.ensembleId)!.name}
+                        </button>
+                      ) : (
+                        ensembles.find(e => e.id === r.ensembleId)?.name ?? ''
+                      )}
                       {r.reason ? (ensembles.find(e => e.id === r.ensembleId) ? ` · ${r.reason}` : r.reason) : ''}
                     </span>
                   </div>
@@ -208,13 +230,19 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
               <div className="dir-detail-section-title"><Calendar size={13} /> Upcoming Events</div>
               <div className="dir-detail-events">
                 {upcomingEvents.map(({ event: e, exp }) => (
-                  <div key={e.id} className="dir-detail-event-row">
+                  <button
+                    key={e.id}
+                    type="button"
+                    className="dir-detail-event-row dir-detail-row-tappable"
+                    disabled={!onNavigate}
+                    onClick={() => go('schedule', { date: e.date, eventId: e.id })}
+                  >
                     <span className="dir-detail-event-date">
                       {formatDate(e.date, { weekday: 'short', month: 'short', day: 'numeric' })}
                     </span>
                     <span className="dir-detail-event-title">{e.title || e.type}</span>
                     {exp.isSub && <span className="dir-detail-sub-tag">Sub</span>}
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -228,12 +256,18 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
                 {recentAssignmentResults.map(r => {
                   const a = assignmentsById[r.assignmentId];
                   return (
-                    <div key={r.id} className="dir-detail-assign-row">
+                    <button
+                      key={r.id}
+                      type="button"
+                      className="dir-detail-assign-row dir-detail-row-tappable"
+                      disabled={!onNavigate}
+                      onClick={() => go('assignments', { assignmentId: r.assignmentId })}
+                    >
                       <span className={`dir-detail-assign-status dir-detail-assign-${r.status.toLowerCase()}`}>
                         {r.status}
                       </span>
                       <span className="dir-detail-assign-title">{a?.title ?? r.assignmentId}</span>
-                    </div>
+                    </button>
                   );
                 })}
               </div>

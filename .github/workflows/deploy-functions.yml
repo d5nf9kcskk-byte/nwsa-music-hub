@@ -1,0 +1,54 @@
+name: Deploy Cloud Functions
+
+# The private lessons calendar endpoint (#lessons-feed). Kept in its own
+# workflow, not folded into the Pages deploy, for the reason the feature
+# exists at all: nothing this function produces may ever enter the Pages
+# artifact, which is publicly downloadable on this repo.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'functions/**'
+      - 'src/shared/ics.ts'
+      - 'src/shared/richTextParse.ts'
+      - 'config/orgs/nwsa.json'
+      - '.github/workflows/deploy-functions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # No credential, no deploy — never a half-configured endpoint.
+    if: github.repository == 'd5nf9kcskk-byte/nwsa-music-hub'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # Runs before any credential is written: a broken guard must fail the
+      # build, not deploy and then fail.
+      - name: Check the lessons endpoint's guards
+        run: |
+          npm --prefix functions ci
+          npm --prefix functions run selfcheck
+
+      - name: Deploy
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$SA" ]; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT_JSON is not set — cannot deploy functions"
+            exit 1
+          fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@latest deploy \
+            --only functions:lessonsFeed \
+            --project nwsa-hub \
+            --non-interactive
+          shred -u "$RUNNER_TEMP/sa.json" || rm -f "$RUNNER_TEMP/sa.json"

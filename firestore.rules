@@ -433,6 +433,12 @@ service cloud.firestore {
     }
 
     // ── Private · staff read + write only ──────────────
+    // Feed secrets (#lessons-feed): the unguessable token in the private
+    // lessons calendar's URL. Staff-only — the token IS the access control on
+    // that feed, so it must never reach a public surface or the app bundle.
+    // The deploy-time feed generator reads it with the service account, which
+    // bypasses these rules.
+    match /feedSecrets/{doc}        { allow read, write: if isStaff(); }
     match /contacts/{doc}           { allow read, write: if isStaff(); }
     // attendance: staff freely; a Personnel Assistant reads all (roll needs
     // same-day context across periods) but writes only records for THEIR

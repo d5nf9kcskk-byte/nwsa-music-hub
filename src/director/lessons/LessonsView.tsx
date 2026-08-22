@@ -5,14 +5,16 @@ import { useStudents } from '../hooks/useStudents';
 import { useDirectors } from '../hooks/useDirectors';
 import { parseDate, formatTimeRange, todayStr } from '../utils';
 import { downloadLessonsCsv } from './lessonsCsv';
+import { LessonsFeedPanel, LESSONS_FEED_ENABLED } from './LessonsFeedPanel';
 import type { Lesson } from '../types';
+import type { DirNavigate } from '../types-nav';
 
 /**
  * Director view of all private lessons (teacher self-reports).
  * CSV is the handoff for Dean payment tracking later — columns stay rich
  * even while grade is not yet collected in the teacher UI.
  */
-export function LessonsView() {
+export function LessonsView({ onNavigate }: { onNavigate?: DirNavigate } = {}) {
   const { lessons, loading } = useLessons();
   const { students } = useStudents();
   const { directors } = useDirectors();
@@ -58,6 +60,11 @@ export function LessonsView() {
           reserved in the export; teachers are not asked for it in the app yet.
         </p>
 
+        {/* The private lessons calendar is on hold — see the note at the top
+            of LessonsFeedPanel.tsx. Offering the link while the generator
+            refuses to build it would hand out a URL that never resolves. */}
+        {LESSONS_FEED_ENABLED && <LessonsFeedPanel />}
+
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
           <label className="dir-field" style={{ margin: 0, minWidth: 140 }}>
             <span className="dir-label">From</span>
@@ -94,16 +101,26 @@ export function LessonsView() {
         ) : (
           [...filtered]
             .sort((a, b) => b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime))
-            .map(l => <LessonDirectorRow key={l.id} lesson={l} studentName={studentsById[l.studentId]?.name} />)
+            .map(l => <LessonDirectorRow key={l.id} lesson={l} studentName={studentsById[l.studentId]?.name} onNavigate={onNavigate} />)
         )}
       </div>
     </div>
   );
 }
 
-function LessonDirectorRow({ lesson, studentName }: { lesson: Lesson; studentName?: string }) {
+/** One logged lesson. Tapping it opens the student it belongs to. */
+function LessonDirectorRow({ lesson, studentName, onNavigate }: {
+  lesson: Lesson;
+  studentName?: string;
+  onNavigate?: DirNavigate;
+}) {
   return (
-    <div className="dir-ens-row">
+    <button
+      type="button"
+      className="dir-ens-row dir-sc-pick"
+      disabled={!onNavigate}
+      onClick={() => onNavigate?.('roster', { studentId: lesson.studentId })}
+    >
       <span className="dir-ens-swatch" style={{ background: lesson.conflict ? 'var(--dir-danger)' : 'var(--dir-lesson)' }} />
       <div className="dir-ens-info">
         <div className="dir-ens-name">
@@ -126,6 +143,6 @@ function LessonDirectorRow({ lesson, studentName }: { lesson: Lesson; studentNam
           </div>
         )}
       </div>
-    </div>
+    </button>
   );
 }

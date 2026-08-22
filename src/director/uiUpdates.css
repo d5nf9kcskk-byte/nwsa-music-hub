@@ -124,6 +124,11 @@
 .dir-sc-ov-body { flex: 1; min-width: 0; }
 .dir-sc-ov-title { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; color: var(--dir-text); }
 .dir-sc-ov-meta { font-size: 12.5px; color: var(--dir-text-muted); margin-top: 3px; }
+/* Override rows that open their own editor (Today's lessons, Who's Out). */
+.dir-sc-ov-tappable {
+  width: 100%; text-align: left; font: inherit; cursor: pointer;
+}
+.dir-sc-ov-tappable:active { transform: scale(0.99); }
 .dir-sc-summary {
   margin-top: 12px; padding: 12px 14px;
   background: var(--dir-surface-2); border: 1px solid var(--dir-border);
@@ -381,6 +386,28 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-today-body { flex: 1; min-width: 0; padding: 12px 14px; }
 .dir-today-name { font-size: 16px; font-weight: 800; color: var(--dir-text); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .dir-today-icon { font-size: 15px; }
+/* The title row IS the way into the event — full-width, keyboard-reachable,
+   and it carries a chevron so it reads as a way in rather than a label. */
+.dir-today-open {
+  display: block; width: 100%; padding: 0; margin: 0;
+  background: none; border: none; text-align: left;
+  font: inherit; color: inherit; cursor: pointer;
+  border-radius: 6px;
+}
+.dir-today-open:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 3px; }
+.dir-today-open-chev { color: var(--dir-text-muted); opacity: 0.55; margin-left: auto; flex-shrink: 0; }
+@media (hover: hover) {
+  .dir-today-open:hover .dir-today-open-chev { opacity: 1; color: var(--dir-blue); }
+}
+/* Each ensemble on the event, straight to its hub. */
+.dir-today-ens-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.dir-today-ens-chip {
+  font-size: 12px; font-weight: 700;
+  padding: 3px 10px; border-radius: 999px;
+  background: transparent; border: 1.5px solid currentColor;
+  cursor: pointer;
+}
+.dir-today-ens-chip:active { transform: scale(0.96); }
 .dir-today-tag {
   font-size: 10px; font-weight: 800; text-transform: uppercase;
   padding: 2px 8px; border-radius: 10px;
@@ -593,6 +620,33 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 }
 .dir-assign-card-form:hover { text-decoration: underline; }
 
+/* The list card is a summary: one line of the instructions, so a page of
+   playing-exam text can't bury the next assignment. */
+.dir-assign-card-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* What students are reading, at the top of the grade sheet. */
+.dir-assign-brief {
+  padding: 10px 16px 12px;
+  border-bottom: 1px solid var(--dir-border);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--dir-text);
+  max-height: 34vh;
+  overflow-y: auto;
+}
+.dir-assign-brief-music {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 8px;
+  font-size: 12.5px; font-weight: 700;
+  color: var(--dir-text-muted);
+}
+
 /* Who's Out month heatmap: per-day absence count badge. */
 .dir-heat-count {
   display: inline-flex; align-items: center; justify-content: center;
@@ -617,6 +671,35 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 }
 .dir-section-head span { display: inline-flex; align-items: center; gap: 6px; }
 .dir-link-btn { border: none; background: none; color: var(--dir-blue); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+/* A section heading that opens what it names (Who's Out per-ensemble), and
+   the group that keeps it beside its own detail rather than letting
+   space-between push the two apart. */
+.dir-head-group { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.dir-head-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: none; background: none; padding: 0; cursor: pointer;
+  font: inherit; letter-spacing: inherit; text-transform: inherit;
+  color: inherit; text-align: left;
+}
+.dir-head-link:hover { color: var(--dir-blue); }
+/* An ensemble / event / assignment name shown inside a line of text that
+   opens its own editor. Reads as text until you look for it. */
+.dir-inline-link {
+  border: none; background: none; padding: 0; margin: 0;
+  font: inherit; color: var(--dir-blue); font-weight: 700;
+  cursor: pointer; text-align: left;
+}
+.dir-inline-link:hover { text-decoration: underline; }
+/* Student-detail rows (upcoming events, assignment results) that open their
+   own screen — styled as the rows they replaced, not as buttons. */
+.dir-detail-row-tappable {
+  width: 100%; background: none; font: inherit; cursor: pointer;
+  border-left: none; border-right: none; border-top: none;
+  text-align: left;
+}
+.dir-detail-row-tappable:disabled { cursor: default; }
+.dir-detail-row-tappable:not(:disabled):hover .dir-detail-event-title,
+.dir-detail-row-tappable:not(:disabled):hover .dir-detail-assign-title { color: var(--dir-blue); }
 .dir-alert-group { margin-bottom: 10px; }
 .dir-alert-group-title {
   font-size: 11px;
@@ -846,7 +929,8 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
 .dir-tool-btn:active, .dir-check-jump:active, .dir-tab:active { transform: scale(0.97); }
 @media (hover: hover) {
   .dir-quick-btn:hover, .dir-tool-btn:hover, .dir-tab:not(.active):hover,
-  .dir-menu-item:hover, .dir-up-row:hover, .dir-ens-row:hover { border-color: var(--dir-blue); background: var(--dir-surface-2); }
+  .dir-menu-item:hover, .dir-up-row:hover, .dir-ens-row:hover,
+  .dir-sc-ov-tappable:hover { border-color: var(--dir-blue); background: var(--dir-surface-2); }
 }
 
 /* Sticky roll-call chrome: the count stays visible, Finish stays reachable */
@@ -928,3 +1012,38 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
 .dir-submission-notes { font-size: 12px; color: var(--dir-text); margin-top: 4px; font-style: italic; }
 .dir-submission-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
 .dir-submission-reviewed { background: #f0fdf4 !important; color: #16a34a !important; border-color: #16a34a !important; }
+
+
+/* ── Private lessons calendar (#lessons-feed) ─────────────────────────
+   Deliberately warning-coloured: this is the one feed in the app whose link
+   is the only thing protecting private data. */
+.dir-lessons-feed {
+  display: flex; flex-direction: column; gap: 8px;
+  margin: 12px 0 4px; padding: 12px 14px;
+  border: 1.5px solid var(--dir-border); border-left: 5px solid var(--dir-lesson);
+  border-radius: var(--dir-radius); background: var(--dir-surface);
+}
+.dir-lessons-feed-head {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 14px; font-weight: 800; color: var(--dir-text);
+}
+.dir-lessons-feed-warn {
+  margin: 0; padding: 9px 11px;
+  font-size: 12.5px; line-height: 1.5;
+  color: var(--dir-text);
+  background: #fef3c7; border-radius: 8px;
+}
+[data-dir-theme='dark'] .dir-lessons-feed-warn { background: #43350f; }
+.dir-lessons-feed-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+
+/* ── Ready-made calendars inside the DIRECTOR sheet ───────────────────
+   BundleCalendars is shared with the public site and colours itself from
+   the --pub-* tokens, but the director panel has its own theme switch and
+   never sets data-pub-theme — so in director dark mode the shared block
+   would keep light-theme text on a dark surface. Re-point the text colours
+   at the director tokens; the action buttons keep the accent fill, which
+   reads correctly either way. */
+.dir-subw-bundles .pub-subw-split-head,
+.dir-subw-bundles .pub-subw-split-note { color: var(--dir-text-muted); }
+.dir-subw-bundles .pub-subw-bundle { background: var(--dir-primary); color: #fff; }
