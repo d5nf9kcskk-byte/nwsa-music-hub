@@ -79,6 +79,16 @@ if (DRY_RUN) {
   if (!CI) {
     for (const { parsed } of matched) console.log(`  would report ${parsed.studentName} out ${parsed.date}`);
     for (const { parsed } of ambiguous) console.log(`  queue: ${parsed.reason} — "${parsed.snippet}"`);
+    // The soft launch exists to catch a MISS, and a miss looks like nothing
+    // at all: an absence worded outside ABSENCE_PHRASES is counted as
+    // "ignored" and never mentioned again. Name them while dry-running, so
+    // a real absence that slipped through is visible in the log rather than
+    // silent. Local staff log only — never in CI.
+    for (const { email, parsed } of results) {
+      if (parsed.status !== 'ignored') continue;
+      const subject = (email.subject || '(no subject)').slice(0, 80);
+      console.log(`  ignored: "${subject}"  — from ${email.from || 'unknown'}`);
+    }
   }
   console.log('Dry run complete; no writes.');
   process.exit(0);
