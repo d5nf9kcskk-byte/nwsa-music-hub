@@ -101,18 +101,19 @@ jobs:
           # confirmation for deleting functions absent from the source, but
           # --only scopes that to lessonsFeed, which is what we deploy.
           #
-          # What --force does NOT do here is actually set the policy. It
-          # downgrades the failure to a warning and the run log still says
-          # "Failed to set up cleanup policy for repositories in region
-          # us-central1" — so this is a PERMISSIONS limit, not a prompt one:
-          # the deploying account cannot write Artifact Registry policy. The
-          # images therefore still accumulate, which is a slowly growing
-          # storage bill and not a functional problem. To fix it for good,
-          # grant the deploying account Artifact Registry Administrator
-          # (roles/artifactregistry.admin) and it will set itself on the next
-          # deploy; or set a cleanup policy once by hand on the
-          # us-central1 gcf-artifacts repository. Left as a warning on
-          # purpose rather than failing the deploy over housekeeping.
+          # --force alone did NOT set the policy, though. For several runs
+          # it only downgraded the failure to a warning ("Failed to set up
+          # cleanup policy for repositories in region us-central1"), which
+          # made it a permissions limit rather than a prompt one: the
+          # deploying account could not write Artifact Registry policy, so
+          # images accumulated.
+          #
+          # Resolved 2026-08-22 by granting the deploying account Artifact
+          # Registry Repository Administrator
+          # (roles/artifactregistry.repoAdmin — the narrower role is enough;
+          # full artifactregistry.admin is not needed). The warning is gone
+          # from the log and the policy now sets itself on every deploy. If
+          # it ever comes back, that grant is what went missing.
           npx --yes firebase-tools@latest deploy \
             --only functions:lessonsFeed \
             --project nwsa-hub \
