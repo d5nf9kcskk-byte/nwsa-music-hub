@@ -11,9 +11,11 @@ import { db } from '../firebase';
  * never in the repo), it is 128 bits of randomness, and anyone who gets the
  * link can read every student's lesson schedule until it is reset.
  *
- * The deploy-time feed generator reads the same doc with the service account
- * and writes `feeds/lessons-<token>.ics`. Until a director creates a token
- * here, no lessons feed is built at all.
+ * The Cloud Function at `functions/src/index.ts` reads the same doc and
+ * refuses any request whose token does not match it. Until a director
+ * creates a token here, every request to that endpoint is refused — and
+ * deleting the token revokes access on the very next fetch, because nothing
+ * is cached or pre-built.
  */
 const REF = () => (db ? doc(db, 'feedSecrets', 'lessons') : null);
 
@@ -50,10 +52,9 @@ export function useLessonsFeed() {
   const loading = state === null;
 
   /**
-   * Create the link, or rotate it. Rotation is NOT instant revocation: the
-   * old file is already published and keeps serving until the next build
-   * replaces the deployed tree, so the honest window is "by the next feed
-   * refresh", which is what the panel says.
+   * Create the link, or rotate it. Rotation IS instant revocation now that
+   * the calendar is served by a function rather than published as a file:
+   * the endpoint compares against this doc on every request.
    */
   async function issue(): Promise<void> {
     const ref = REF();

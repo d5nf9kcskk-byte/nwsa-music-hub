@@ -29,6 +29,18 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   // Ready-made calendars (#calendar-bundles) + the private lessons feed.
+  {
+    id: '2026-08-22-lessons-calendar',
+    date: '2026-08-22',
+    title: 'Your lessons, on your phone calendar',
+    audience: 'staff' as const,
+    expires: '2026-09-05',
+    bullets: [
+      'Lessons → "Private lessons calendar" gives you one private link. Subscribe once and every scheduled lesson shows in your own calendar app — student, teacher and room.',
+      'It stays current on its own: add a lesson at 2:15 and it is there the next time your calendar checks.',
+      'Treat the link like a key. Anyone who has it can read every student\u2019s lesson schedule, so do not post it anywhere shared — and if it does get out, Reset link stops the old one immediately.',
+    ],
+  },
   // Only for orgs that actually have bundles — the bullets name NWSA's.
   ...((ORG.calendarBundles?.length ?? 0) > 0 ? [{
     id: '2026-08-21-ready-made-calendars',

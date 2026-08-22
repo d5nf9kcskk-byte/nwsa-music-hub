@@ -5,26 +5,25 @@ import { webcalUrl } from '../../public/feedUrl';
 import { ORG } from '../../org';
 
 /**
- * ON HOLD — this panel is not rendered (see LESSONS_FEED_ENABLED below).
+ * The private lessons calendar (#lessons-feed).
  *
- * The private lessons calendar (#lessons-feed). Every other feed in the app
- * is safe to hand out because it holds nothing private. This one holds who
- * takes lessons with whom, which is staff-only everywhere else, and a feed
- * on GitHub Pages has no sign-in — so the unguessable URL was to be the
- * whole of its protection.
+ * Every other feed in the app is safe to hand out because it holds nothing
+ * private. This one holds who takes lessons with whom, which is staff-only
+ * everywhere else — so the unguessable URL is the whole of its protection,
+ * and the panel says so plainly rather than burying it.
  *
- * That protection does not survive this repository's deploy. GitHub Pages IS
- * the workflow artifact (`actions/upload-pages-artifact` gets the whole
- * `dist/` tree), and on a PUBLIC repo anyone can download that artifact from
- * the Actions tab — getting the schedule AND the token, which then works
- * against the live site until it is rotated, and the new one ships in the
- * next hourly artifact. So the real audience is "anyone who opens the
- * repo", not "anyone the director sent the link to".
- *
- * The code is correct and kept for a host that is not built from a public
- * artifact; only publishing is switched off.
+ * It is served by a Cloud Function, NOT written into the site. The first
+ * attempt published `dist/feeds/lessons-<token>.ics`, and GitHub Pages IS
+ * the deploy artifact — on a public repo anyone could download the run and
+ * take both the schedule and the token. Nothing shipped through that
+ * pipeline can hold a secret, so `scripts/generate-feeds.mjs` keeps its own
+ * LESSONS_FEED_ENABLED permanently false and this calendar lives at
+ * `functions/src/index.ts` instead. Serving it live also means the calendar
+ * is built from Firestore per request (a lesson added at 2:15 shows on the
+ * next refresh, not the next deploy) and that resetting the link revokes it
+ * on the very next fetch.
  */
-export const LESSONS_FEED_ENABLED = false;
+export const LESSONS_FEED_ENABLED = true;
 export function LessonsFeedPanel() {
   const { token, loading, busy, error, issue } = useLessonsFeed();
   const [copied, setCopied] = useState(false);
@@ -32,8 +31,14 @@ export function LessonsFeedPanel() {
 
   if (loading) return null;
 
-  const https = token
-    ? `${window.location.origin}${import.meta.env.BASE_URL}feeds/lessons-${token}.ics`
+  // The v1 Cloud Functions hostname is derived from the project id alone,
+  // which is why the endpoint is a v1 function: a v2 URL carries a project
+  // hash that is not known until after the first deploy, and the director
+  // could not be shown their own link. The `.ics` suffix is what makes
+  // calendar apps treat it as a subscription.
+  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+  const https = token && projectId
+    ? `https://us-central1-${projectId}.cloudfunctions.net/lessonsFeed/${token}.ics`
     : '';
 
   async function copy() {
@@ -71,7 +76,8 @@ export function LessonsFeedPanel() {
         <>
           <p className="dir-lessons-feed-warn">
             Anyone with this link can read every student&rsquo;s lesson schedule. Don&rsquo;t post
-            it anywhere shared. The calendar appears after the next feed refresh (hourly).
+            it anywhere shared. The calendar works the moment you subscribe, and updates
+            itself from then on.
           </p>
           <a className="dir-btn dir-btn-primary dir-subw-action" href={webcalUrl(https)}>
             <CalendarPlus size={16} /> Add to Apple Calendar
@@ -107,10 +113,10 @@ export function LessonsFeedPanel() {
             )}
           </div>
           <p className="dir-field-hint" style={{ margin: 0 }}>
-            Resetting makes a new address. The old one keeps working until the next feed
-            refresh (usually within the hour) and then stops — it is a published file, so it
-            cannot be withdrawn any faster than the next build. You (and anyone you meant to
-            share it with) then re-subscribe with the new link. Calendar name: <strong>{ORG.ics.namePrefix} · Lessons (private)</strong>.
+            Resetting makes a new address and stops the old one immediately — the next time
+            anyone&rsquo;s calendar checks that link it is refused. That is how you take access
+            back if it gets out. You (and anyone you meant to share it with) then re-subscribe
+            with the new link. Calendar name: <strong>{ORG.ics.namePrefix} · Lessons (private)</strong>.
           </p>
         </>
       )}

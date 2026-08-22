@@ -72,20 +72,23 @@ How it works — do not regress this:
   turned on without killing the feeds — docs/security-recommendations.md #1).
   The credential does NOT widen what any PUBLIC feed may read: public
   projections only.
-- **The private lessons feed is BUILT but DISABLED** (#lessons-feed), and
-  must stay that way on this infrastructure. It was to publish the staff-only
-  `lessons` collection to `feeds/lessons-<token>.ics`, protected only by an
-  unguessable URL. That protection does not survive the deploy: GitHub Pages
-  IS the workflow artifact (`actions/upload-pages-artifact` takes the whole
-  `dist/` tree), and this repository is PUBLIC, so anyone can download the
-  artifact from the Actions tab and read both the schedule and the token —
-  which then works against the live site, and rotating just ships a new token
-  in the next hourly artifact. `LESSONS_FEED_ENABLED = false` in
-  `scripts/generate-feeds.mjs` and `LessonsFeedPanel.tsx` keeps it unbuilt
-  and unoffered. Re-enable ONLY behind a host that is not built from a
-  publicly downloadable artifact (a private repo, or somewhere other than
-  this Pages deploy). Never add the file to `feeds/index.json`, and never log
-  the token — workflow logs are public too.
+- **The private lessons calendar is a Cloud Function, never a file**
+  (#lessons-feed). It serves the staff-only `lessons` collection at
+  `https://us-central1-<project>.cloudfunctions.net/lessonsFeed/<token>.ics`,
+  and the unguessable token is the whole of its access control (a calendar
+  app cannot sign in). Source: `functions/src/`.
+  **Never publish it through the Pages pipeline.** The first attempt wrote
+  `dist/feeds/lessons-<token>.ics`, and GitHub Pages IS the workflow artifact
+  (`actions/upload-pages-artifact` takes the whole `dist/` tree) on a PUBLIC
+  repo — anyone could download the run and take both the schedule and the
+  token. `LESSONS_FEED_ENABLED = false` in `scripts/generate-feeds.mjs` is
+  permanent; do not flip it, and never add a lessons file to
+  `feeds/index.json`. Never log the token — workflow logs are public too.
+  The function keeps the token in `feedSecrets/lessons` (staff-only), compares
+  it in constant time, answers every failure with the same 404, reads names
+  from `studentsPublic` rather than the staff-only `students`, and bounds its
+  query window. `functions/src/lessonsFeed.selfcheck.ts` pins those guards and
+  runs in `deploy-functions.yml` BEFORE any credential is written.
 - Student doc IDs are RANDOM Firestore IDs, never the school-issued Student
   ID — doc IDs are effectively public (shared with `studentsPublic`, and in
   `/student/<id>` URLs and `feeds/student-<id>.ics`). The school ID lives
