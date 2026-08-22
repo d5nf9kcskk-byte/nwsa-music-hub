@@ -179,6 +179,62 @@ export function mapBulletinToAttendance(row) {
   }
 }
 
+/**
+ * Most-severe-wins order. Absent outranks Late because it means the whole
+ * period was missed; Excused ranks lowest because the student is accounted
+ * for. Used only to collapse a same-day tie — it never changes a lone mark.
+ */
+export const STATUS_SEVERITY = { Absent: 3, Late: 2, Excused: 1 };
+
+const OFFICE_SUFFIX = ' (office bulletin)';
+
+/**
+ * Collapse a day's bulletin rows to ONE mark per student.
+ *
+ * The office bulletin can list the same student in more than one section on
+ * the same day — TARDY plus EXCUSED EARLY is a real combination (came late,
+ * left early), and a re-emitted section can repeat a name outright. The Hub
+ * stores a single status per student/ensemble/day, so without collapsing
+ * first, each row overwrote the previous one and whichever happened to be
+ * processed last silently won.
+ *
+ * Most severe wins, and every distinct reason is preserved, so "Tardy +
+ * Excused early 9:52 (office bulletin)" still tells the director what
+ * actually happened.
+ *
+ * @param {{ row: BulletinRow, student: { id: string, name: string } }[]} matched
+ * @param {string} fallbackDate used when a row carries no date of its own
+ * @returns {{ student: any, date: string, status: string, reason: string }[]}
+ */
+export function mergeBulletinMarks(matched, fallbackDate) {
+  /** @type {Map<string, { student: any, date: string, status: string, reasons: string[] }>} */
+  const byKey = new Map();
+
+  for (const { row, student } of matched) {
+    const mapped = mapBulletinToAttendance(row);
+    if (!mapped) continue;
+    const date = row.date ?? fallbackDate;
+    const key = `${student.id}|${date}`;
+    const prev = byKey.get(key);
+
+    if (!prev) {
+      byKey.set(key, { student, date, status: mapped.status, reasons: [mapped.reason] });
+      continue;
+    }
+    if (!prev.reasons.includes(mapped.reason)) prev.reasons.push(mapped.reason);
+    if (STATUS_SEVERITY[mapped.status] > STATUS_SEVERITY[prev.status]) prev.status = mapped.status;
+  }
+
+  return [...byKey.values()].map(v => ({
+    student: v.student,
+    date: v.date,
+    status: v.status,
+    reason: v.reasons
+      .map(r => (r.endsWith(OFFICE_SUFFIX) ? r.slice(0, -OFFICE_SUFFIX.length) : r))
+      .join(' + ') + OFFICE_SUFFIX,
+  }));
+}
+
 /** Loose name normalization (same idea as apply-lesson-request). */
 export function normName(s) {
   return String(s).toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(Boolean).sort().join(' ');

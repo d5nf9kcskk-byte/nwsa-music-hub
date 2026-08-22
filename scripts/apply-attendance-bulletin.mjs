@@ -28,8 +28,8 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import {
   parseAttendanceBulletinText,
-  mapBulletinToAttendance,
   matchBulletinRows,
+  mergeBulletinMarks,
 } from './lib/attendanceBulletinParse.mjs';
 
 const DRY_RUN = !/^(0|false|no)$/i.test(String(process.env.DRY_RUN ?? 'true').trim() || 'true');
@@ -102,11 +102,19 @@ const { matched, ambiguous, ignored } = matchBulletinRows(parsed.rows, students)
 
 console.log(`Matched music: ${matched.length}; ambiguous: ${ambiguous.length}; ignored (other depts / unknown): ${ignored}`);
 
+// One mark per student per day. The bulletin can list the same student in
+// two sections (tardy AND excused early), and the Hub stores a single status
+// per student/ensemble/day — so collapse BEFORE writing, or the last row
+// processed wins by accident. Most severe wins; reasons are preserved.
+const marks = mergeBulletinMarks(matched, date);
+if (marks.length !== matched.length && !CI) {
+  console.log(`Collapsed ${matched.length} rows into ${marks.length} student-day marks.`);
+}
+
 if (DRY_RUN) {
   if (!CI) {
-    for (const { row, student } of matched) {
-      const mapped = mapBulletinToAttendance(row);
-      console.log(`  would mark ${student.name} (${student.id}) → ${mapped?.status} · ${mapped?.reason}`);
+    for (const { student, date: markDate, status, reason } of marks) {
+      console.log(`  would mark ${student.name} (${student.id}) [${markDate}] → ${status} · ${reason}`);
     }
     for (const { row, candidates } of ambiguous) {
       console.log(`  ambiguous ${row.rawName} → ${candidates.map(c => c.name).join(' | ')}`);
@@ -119,9 +127,7 @@ if (DRY_RUN) {
 let wrote = 0;
 let skippedDirector = 0;
 
-for (const { row, student } of matched) {
-  const mapped = mapBulletinToAttendance(row);
-  if (!mapped) continue;
+for (const { student, date: markDate, status, reason } of marks) {
   const ensembleIds = (student.ensembleIds ?? []).filter(Boolean);
   if (ensembleIds.length === 0) {
     if (!CI) console.log(`  skip ${student.name}: no ensembles`);
@@ -130,7 +136,7 @@ for (const { row, student } of matched) {
 
   for (const ensembleId of ensembleIds) {
     const existingSnap = await db.collection('attendance')
-      .where('date', '==', date)
+      .where('date', '==', markDate)
       .where('ensembleId', '==', ensembleId)
       .where('studentId', '==', student.id)
       .get();
@@ -146,8 +152,8 @@ for (const { row, student } of matched) {
         continue;
       }
       await existing.ref.update({
-        status: mapped.status,
-        reason: mapped.reason,
+        status,
+        reason,
         source: 'office',
         updatedAt: Date.now(),
         updatedBy: 'attendance-bulletin',
@@ -156,9 +162,9 @@ for (const { row, student } of matched) {
       await db.collection('attendance').add({
         studentId: student.id,
         ensembleId,
-        date,
-        status: mapped.status,
-        reason: mapped.reason,
+        date: markDate,
+        status,
+        reason,
         source: 'office',
         updatedAt: Date.now(),
         updatedBy: 'attendance-bulletin',
