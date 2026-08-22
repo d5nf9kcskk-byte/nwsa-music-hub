@@ -12,6 +12,7 @@ import { TeacherApp } from './teacher/TeacherApp';
 import { AssistantApp } from './assistant/AssistantApp';
 import { DirectorSearch } from './components/DirectorSearch';
 import { InstallAppButton } from './components/InstallAppButton';
+import { AppVersionRow } from './components/AppVersionRow';
 import { WriteTray } from './components/WriteTray';
 import { useWriteBusy } from './writeStatus';
 import { useModalA11y } from '../shared/useModalA11y';
@@ -476,6 +477,7 @@ export default function DirectorApp() {
                   <HelpCircle size={19} /> Start guide (all audiences)
                 </button>
                 <InstallAppButton />
+                <AppVersionRow />
 
                 <div className="dir-menu-divider" />
 

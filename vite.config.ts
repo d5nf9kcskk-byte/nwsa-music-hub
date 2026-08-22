@@ -196,6 +196,12 @@ export default defineConfig(({ mode }) => {
   base: BASE,
   define: {
     __ORG_CONFIG__: JSON.stringify(ORG),
+    // Build stamp shown in the director menu (#stale-client). MUST stay
+    // deterministic: the deploy cron rebuilds the SAME commit every 4 hours
+    // to refresh ICS feeds, and anything that varies between those rebuilds
+    // changes dist/sw.js and toasts every open tab (docs/release-checklist.md).
+    // GITHUB_SHA is fixed per commit, and unset locally — never a timestamp.
+    __BUILD_ID__: JSON.stringify((process.env.GITHUB_SHA ?? '').slice(0, 7) || 'dev'),
   },
   plugins: [
     react(),

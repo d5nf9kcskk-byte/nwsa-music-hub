@@ -26,6 +26,18 @@ shipped incident, not a style bug.
       pins instrument families and who a sign-up reaches. Drift is silent: a
       director opens one for "Camerata strings" and half the section never
       sees it.
+- [ ] Shared (combined) blocks still resolve, and ordinary events' ICS is
+      untouched — `node scripts/shared-block.selfcheck.mjs` pins both. The
+      combined label only ever changes the SUMMARY of an event explicitly
+      flagged `sharedBlock`; a subscriber to anything else must see no diff.
+- [ ] Standing rotations still resolve — `node scripts/rotation-weekday.selfcheck.mjs`
+      pins the `days` weekday filter and that generate-feeds.mjs agrees with
+      the resolver (it runs in the deploy workflow). To check the LIVE data on
+      a real school day rather than the logic,
+      `node scripts/rotation-check.mjs [YYYY-MM-DD | --week]` resolves every
+      rotating student through the same resolver the app uses, reading only the
+      public projections — no credentials. If it and the app disagree, the app
+      is out of date, not the plan (director menu → **App version**).
 - [ ] 404.html SPA shim still routes deep links on GitHub Pages
 
 ## Print (four load-bearing paper surfaces)

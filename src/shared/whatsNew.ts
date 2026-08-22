@@ -28,6 +28,38 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Shared/combined blocks (#shared-block). Combining two ensembles used to
+  // mean creating one event per ensemble and hoping nobody read them as a
+  // double-booking; now it is one event with a checkbox.
+  {
+    id: '2026-08-21-shared-blocks',
+    date: '2026-08-21',
+    title: 'Rehearsing two ensembles together is now one event',
+    audience: 'both',
+    expires: '2026-09-11',
+    bullets: [
+      'When a rehearsal has more than one ensemble on it, a new "They meet together" checkbox says they share the room \u2014 for two ensembles or for the whole department.',
+      'Combined blocks say so everywhere: on the calendar, on your own schedule, and in subscribed calendar feeds, so nobody has to guess which room to walk into.',
+      'The director\u2019s roster for a combined block lists everyone in the room once, even players who belong to two of the ensembles. Roll is still taken per ensemble.',
+    ],
+  },
+  // Stale-client visibility (#stale-client). A phone running an older build
+  // does not fail — it renders wrong rosters (a build predating `days` on
+  // RosterOverride applies a standing rotation every day of its range and
+  // drops the rotating student from both ensembles). Directors need to be
+  // able to tell, from the phone, which build they are on.
+  {
+    id: '2026-08-21-app-version',
+    date: '2026-08-21',
+    title: 'The menu now shows which version of the Hub you\u2019re running',
+    audience: 'staff',
+    expires: '2026-09-04',
+    bullets: [
+      'Menu \u2192 "App version" shows the build this phone or tab is actually running, and checks for a newer one when you tap it.',
+      'Worth a tap if a roster looks wrong: the installed app waits for you to tap Refresh before taking an update, so it can keep showing yesterday\u2019s data all day.',
+      'Rotating students (Wind Ensemble/Camerata, Symphony/Jazz) are the ones this shows up on first \u2014 an out-of-date app drops them from both of their ensembles.',
+    ],
+  },
   // Absence email → Who's Out (#absence-email): parent/student "not going
   // to be there" emails feed into planned absences instead of being
   // manually entered. Off by default until soft-launched per

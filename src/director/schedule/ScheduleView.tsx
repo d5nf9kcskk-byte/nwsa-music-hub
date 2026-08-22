@@ -8,6 +8,7 @@ import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useAssignments } from '../hooks/useAssignments';
 import { recordActivity } from '../hooks/useActivityLog';
 import { resolveRoster, overrideSummary } from '../rosterResolver';
+import { isSharedBlock, sharedBlockLabel } from '../../shared/sharedBlock';
 import { EventForm } from './EventForm';
 import { EventRoster } from './EventRoster';
 import { IcsImport } from './IcsImport';
@@ -212,6 +213,9 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   function eventLabel(e: CalendarEvent) {
     if (e.title) return e.title;
     const names = e.ensembleIds.map(id => ensembleMap[id]?.name ?? '').filter(Boolean);
+    // A combined block collapses once it stops being readable — it can cover
+    // every ensemble in the program, and 17 names is not a calendar chip.
+    if (isSharedBlock(e)) return sharedBlockLabel(names, { total: ensembles.length });
     return names.join(', ') || e.type;
   }
 
