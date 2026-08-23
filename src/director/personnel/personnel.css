@@ -1,0 +1,70 @@
+/* Paid-roster screens (#personnel). Imported by PersonnelManager only, so
+   these rules ship inside the personnel chunk — a school org's build carries
+   none of this. Everything structural reuses the dir-* classes from
+   director.css; this file only adds what has no student-side equivalent. */
+
+/* Roster status dots — Personnel statuses alongside the Student ones that
+   director.css already colors (Active / Inactive / Graduated). */
+.dir-status-dot.Contracted { background: var(--dir-excused); }
+.dir-status-dot.SubList    { background: var(--dir-late); }
+
+/* Contract status pill, on roster rows and detail rows. Var-based pairs so
+   the director dark theme recolors them like the attendance chips. */
+.dir-contract-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--dir-bg);
+  color: var(--dir-text-muted);
+}
+.dir-contract-pill.Sent          { background: var(--dir-late-bg);    color: var(--dir-late); }
+.dir-contract-pill.Signed        { background: var(--dir-excused-bg); color: #15803d; }
+.dir-contract-pill.Countersigned { background: var(--dir-excused-bg); color: #15803d; }
+.dir-contract-pill.Void          { background: var(--dir-absent-bg);  color: var(--dir-absent); }
+.dir-contract-pill.none          { background: var(--dir-late-bg);    color: var(--dir-late); }
+
+/* W-9 chip in the detail sheet — a STATUS only, never the number (types.ts). */
+.dir-w9-chip {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--dir-bg);
+  color: var(--dir-text-muted);
+}
+.dir-w9-chip.on-file   { background: var(--dir-excused-bg); color: #15803d; }
+.dir-w9-chip.requested { background: var(--dir-late-bg);    color: var(--dir-late); }
+
+/* Read-only contract rows in the detail sheet. */
+.dir-pers-contract {
+  padding: 8px 10px;
+  border: 1px solid var(--dir-border);
+  border-radius: 10px;
+  margin-top: 8px;
+  display: grid;
+  gap: 3px;
+}
+.dir-pers-contract-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.dir-pers-contract-money { font-size: 13px; }
+.dir-pers-contract-line {
+  font-size: 12.5px;
+  color: var(--dir-text-muted);
+  padding-left: 10px;
+}
+
+/* Section-leader star on a roster row. */
+.dir-pers-leader {
+  color: var(--dir-late);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
