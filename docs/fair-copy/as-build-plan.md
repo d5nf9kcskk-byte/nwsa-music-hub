@@ -245,6 +245,74 @@ task and not an assumption.
 
 **Done when:** either it is confirmed clean, or the leaks are listed.
 
+**Audited 2026-08-23 (PR #89, draft, stacked on the Step 7 seed PR #88 —
+docs-only diff; this is an audit, nothing was fixed).** Verdict: the
+module's data model and logic are reusable for AS as-is — every read and
+write is keyed to ensembles and events, never to students — with **one
+copy-string leak** and a cluster of known degradations where repertoire
+meets roster-shaped surfaces. Full file list and greps in the PR body.
+
+The leak:
+
+- `src/director/repertoire/RepertoireManager.tsx:634` — empty-state copy
+  "No per-instrument links yet. **Students** see their own part
+  automatically when added," rendered verbatim in the AS director UI.
+  Remedy when convenient: org-neutral wording ("Musicians see their own
+  part…"); a one-line copy edit, deliberately not made in this PR.
+
+Degradations to know about (structural, not fixable from inside the
+repertoire module — all trace to the paid roster having no public
+projection, which Step 1 chose on purpose):
+
+- **"My part" personalization is dead for AS.** `PublicRepertoire.tsx:54`,
+  `PublicPiece.tsx:29`, and `PracticeCard` (via `PublicSchedule.tsx:221`)
+  resolve the viewer with `primaryStudent()` (`src/shared/identity.ts`),
+  which only the "Find My Schedule" lookup over `studentsPublic` ever
+  populates. AS has no `studentsPublic`, so no visitor can acquire an
+  identity and the ⭐ per-instrument part links simply never show
+  (degrades silently). An adult "my part" needs its own identity story —
+  per Step 2's note, never a casual pointer at a personnel projection.
+- **Seating on public pages resolves names via `studentsPublic`.**
+  `PublicPiece.tsx:215` (and `PublicEnsemble`'s SeatingSection) render the
+  applied chart gated on `PUBLIC_STUDENT_INFO` — a codebase-global const
+  (`src/public/publicStudentInfo.ts:6`), not org config. Today AS renders
+  nothing (no charts, empty roster → no section). But `seatingCharts` is
+  world-readable and staff-writable (`firestore.rules:255`), so if AS
+  staff ever publish a chart, every `seat.studentId` resolves to '—' and
+  the public piece page shows a chart of dashes. Flag before any AS
+  seating work.
+- **The printed program has no personnel page.** `PublicProgram.tsx`
+  builds roster pages (lines 272–290) exclusively from `studentsPublic` +
+  seating charts, so an AS program prints with no performer credits —
+  silently. The cover page is fully `ORG.program.*`-driven and clean.
+  Crediting the paid roster on a program is exactly the "new, separately
+  reviewed projection" Step 2 reserved; until someone asks for it, this
+  is a known gap, not a bug.
+
+Confirmed org-neutral: the `RepertoirePiece` type (no student fields;
+soloist is free text), `useRepertoire` (reads only `repertoire`, which is
+world-readable / staff-write in `firestore.rules:251` — correct for AS,
+piece docs carry no PII), `PiecePicker`, the `PubRepertoire` list, the
+`rep.*` translation strings, repertoire nav wiring in both apps
+(unconditional — present for AS, as wanted), `src/shared/ics.ts`'s
+repertoire → DESCRIPTION path (`icsLesson`'s `studentName` is the
+lessons feed, outside repertoire and disabled in feeds), and
+`scripts/generate-feeds.mjs`'s pieces → calendar-notes path. Seed
+compatibility confirmed: `seed-as-org.mjs` writes `RepertoirePiece`-shaped
+docs into `repertoire` keyed to the seeded `as-orchestra`/`as-chamber`
+ensembles, and no repertoire read path requires student-shaped data.
+
+Cosmetic, adjacent (noted, not Step 6's to fix):
+`.cursor/rules/repertoire-ai.mdc` describes itself as the "NWSA
+repertoire" fill workflow though its substance is org-neutral; and
+`src/director/components/DirectorSearch.tsx:398` — the search box
+repertoire flows through — says "Find students, events, repertoire…" to
+an AS director (Step 3 territory).
+
+NOT verified: nothing was run — read-only audit (full reads of the
+module and its consumers, plus the greps in the PR body). No live-data
+check until `as-hub-demo` exists.
+
 ---
 
 ## Step 7 — Seed and infrastructure
