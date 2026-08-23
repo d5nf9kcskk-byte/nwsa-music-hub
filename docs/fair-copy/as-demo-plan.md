@@ -115,6 +115,19 @@ class than the student PII the app already guards (NWSA `CLAUDE.md`
 privacy section). Firestore rules for a `musicians`/`contracts` collection
 need to be designed fresh, not copied from `students`.
 
+**Resolved 2026-08-23.** Rules shipped for `personnel`, `personnelContacts`,
+and `contracts` as a third sensitivity tier in `firestore.rules`, written
+fresh (see the `#personnel` section header there for the full rationale):
+no public projection and no unauthenticated write path of any kind;
+Owner/Director only (`isStaff()`, never `isKnownRole()` — teachers and
+assistants get nothing); every doc pinned to an exact key allowlist so a
+taxpayer-id field is unwritable on `personnelContacts` and pay can't creep
+onto the roster doc; `baseRateCents` must be an integer (`is int` — the
+cents rule enforced at the rules layer); and the contract lifecycle is
+enforced server-side — terms freeze once Signed, Void is terminal, and only
+a Draft may be deleted. `contractTemplates` stays under the default deny
+until the personnel screens (step 4) land.
+
 ## First concrete steps, in order
 
 1. Apply the Fair Copy rename (see Naming section above) — do this first so
@@ -195,12 +208,12 @@ staff pages are NOT to be scraped into seed data.
 
 ### Not started
 
-Steps 4–6 (personnel screens, repertoire audit, AS seed script). No
-Firestore rules for `personnel`/`contracts` yet — that is the remaining
-open call below and it blocks any real data. No Firebase project, no Pages
-repo, no `deploy-as.yml`; `docs/demo-asyo-setup.md` is the console
-clickwork to mirror. The types compile and lint clean, but nothing reads
-them yet.
+Steps 4–6 (personnel screens, repertoire audit, AS seed script). Firestore
+rules for `personnel`/`personnelContacts`/`contracts` landed 2026-08-23
+(see Remaining open call above), which unblocks real data. No Firebase
+project, no Pages repo, no `deploy-as.yml`; `docs/demo-asyo-setup.md` is
+the console clickwork to mirror. The types compile and lint clean, but
+nothing reads them yet.
 
 **Agent note:** builds cannot run in a Linux agent sandbox — `node_modules`
 holds darwin-arm64 native bindings only, and the untouched `nwsa` build
