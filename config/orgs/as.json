@@ -1,14 +1,14 @@
 {
-  "orgId": "asyo",
-  "appName": "ASYO Music Hub",
-  "brandName": "ASYO",
-  "orgShortName": "ASYO",
-  "orgFullName": "Alpharetta Symphony Youth Orchestra",
-  "basePath": "/asyo-music-hub/",
-  "publicUrl": "https://d5nf9kcskk-byte.github.io/asyo-music-hub/",
-  "publicUrlDisplay": "d5nf9kcskk-byte.github.io/asyo-music-hub",
+  "orgId": "as",
+  "appName": "Alpharetta Symphony Hub",
+  "brandName": "Alpharetta Symphony",
+  "orgShortName": "Alpharetta Symphony",
+  "orgFullName": "Alpharetta Symphony",
+  "basePath": "/as-music-hub/",
+  "publicUrl": "https://d5nf9kcskk-byte.github.io/as-music-hub/",
+  "publicUrlDisplay": "d5nf9kcskk-byte.github.io/as-music-hub",
   "timezone": "America/New_York",
-  "contactEmail": "youth@alpharettasymphony.org",
+  "contactEmail": "info@alpharettasymphony.org",
   "logoFile": "asyo-logo.png",
   "markFile": "asyo-mark.png",
   "faviconFile": "asyo-favicon.png",
@@ -66,36 +66,34 @@
     "campusMap": false,
     "calendarSeed": false,
     "contactForm": true,
-    "personnel": false
+    "personnel": true
   },
   "program": {
-    "missionStatement": "The Alpharetta Symphony Youth Orchestra provides young musicians in the North Fulton area with a dynamic and educational performance experience, in partnership with the Alpharetta Symphony.",
-    "wordmarkMain": "Alpharetta Symphony",
-    "wordmarkSub": "Youth Orchestra",
-    "footerLine1": "Alpharetta Symphony Youth Orchestra",
+    "missionStatement": "PLACEHOLDER — replace with the Alpharetta Symphony's own mission statement before any program is printed or the demo is shown.",
+    "wordmarkMain": "Alpharetta",
+    "wordmarkSub": "Symphony",
+    "footerLine1": "Alpharetta Symphony",
     "footerLine2": "alpharettasymphony.org",
     "leadership": [],
-    "partners": "In partnership with the Alpharetta Symphony"
+    "partners": ""
   },
   "vanitySlugs": [
-    { "slug": "ys", "match": ["youth symphony"] },
-    { "slug": "phil", "match": ["philharmonia"] },
-    { "slug": "prelude", "match": ["prelude"] },
+    { "slug": "orch", "match": ["symphony orchestra", "orchestra"] },
     { "slug": "chamber", "match": ["chamber"] }
   ],
   "breakGlassEmails": ["ggmuze@yahoo.com"],
   "ics": {
-    "prodId": "-//ASYO Music Hub//asyo//EN",
-    "uidDomain": "asyo.hub",
-    "namePrefix": "ASYO",
-    "allDesc": "All Alpharetta Symphony Youth Orchestra events",
-    "brand": "ASYO",
-    "fileProdId": "-//ASYO Music Hub//Event//EN",
-    "fileUidDomain": "asyo-music-hub"
+    "prodId": "-//Alpharetta Symphony Hub//as//EN",
+    "uidDomain": "as.hub",
+    "namePrefix": "Alpharetta Symphony",
+    "allDesc": "All Alpharetta Symphony events",
+    "brand": "Alpharetta Symphony",
+    "fileProdId": "-//Alpharetta Symphony Hub//Event//EN",
+    "fileUidDomain": "as-music-hub"
   },
   "manifest": {
-    "name": "ASYO Music Hub",
-    "shortName": "ASYO",
-    "description": "Schedules, announcements, repertoire, and attendance for the Alpharetta Symphony Youth Orchestra."
+    "name": "Alpharetta Symphony Hub",
+    "shortName": "Alpharetta",
+    "description": "Schedules, services, personnel, contracts, and repertoire for the Alpharetta Symphony."
   }
 }
