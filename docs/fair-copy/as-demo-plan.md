@@ -72,7 +72,24 @@ structured fields (role, rate, line items, dates) separate from the terms
 text so a real contract's language could be swapped in later without a
 schema change.
 
-## "Attendance" naming — leaning keep
+## "Attendance" naming — keep, and it needs no schema change
+
+Settled 2026-08-22. Keep the word "attendance," tracked per **service**
+(a called rehearsal or concert) rather than per class meeting.
+
+The useful finding: `AttendanceRecord` already carries an optional
+`eventId` alongside `date` + `ensembleId`, added so a student could be
+present in one period and excused in another on the same day. A "service"
+in orchestral terms *is* a `CalendarEvent`, so per-service attendance is
+already expressible — it just means AS treats `eventId` as required where
+the school orgs treat it as optional. No new field, no migration.
+
+What is still open is the *subject* of the record: `AttendanceRecord.studentId`
+names the wrong entity for a paid roster. Two options, deliberately NOT
+decided here because it is step-4 work: widen the record with an optional
+`personnelId`, or add a parallel `ServiceAttendance` keyed by `personnelId`
++ `eventId`. The second is cleaner and keeps the privacy split intact;
+the first is less code. Decide alongside the personnel screens.
 
 Grant is open to alternatives but noted attendance is contractually
 required language in these agreements, so "attendance" is probably already
@@ -115,7 +132,61 @@ need to be designed fresh, not copied from `students`.
    contracts — same "fictional people only" rule as ASYO's
    `seed-demo-org.mjs`)
 
-## Not started
+## Build log — 2026-08-22
 
-No `config/orgs/as.json` exists yet. No `Musician`/`Contract` type exists
-yet. No rename applied yet. This is a planning doc, not a build log.
+Steps 1–3 done, one commit each on `main`, not pushed.
+
+| | Commit | What landed |
+|---|---|---|
+| 1 | `a30263b` | Fair Copy rename (see Naming above) |
+| 2 | `0150c6f` | `config/orgs/as.json` + `features.personnel` |
+| 3 | `9934482` | `Personnel` / `Contract` types |
+
+**Step 2 notes.** AS shares the `asyo-*` brand assets on purpose:
+`asyo-logo.png` is the parent **Alpharetta Symphony** wordmark, so it is
+more correct for this org than for ASYO. Vite's pruning pass treats an
+asset listed by two orgs as shared, so nothing is pruned and no binaries
+are duplicated. The `asyo-` filename prefix is historical (ASYO shipped
+first), not ownership — don't rename those files, it would churn a live
+deployment.
+
+**Step 3 notes.** The person entity is `Personnel`, not the working name
+`Musician`: the position list it has to carry (Bookkeeper, Executive
+Assistant, Operations Manager) is not musicians, so `instrument` is
+optional and the *contract* says what someone is engaged as. Position is
+modeled as a `PositionCategory` (`chair` | `podium` | `staff`) orthogonal
+to an open `Position` string — category is the axis that actually differs,
+which is what lets one `Contract` cover players, podium, and staff without
+three types fighting. Cartage is a `ContractLineItem`, never a position.
+Money is integer **cents** in every field, and the field names say so.
+Contract prose is frozen onto the contract at issue with
+`templateId`/`templateVersion`, so editing a template can't retroactively
+change terms someone already signed.
+
+### Needs Grant — 3 things, none of them code
+
+1. **`contactEmail`** in `as.json` is `info@alpharettasymphony.org`, a
+   guess. Confirm the real one.
+2. **`program.missionStatement`** is the literal string `PLACEHOLDER — …`
+   so it can't be mistaken for real copy. It renders on printed concert
+   programs. Needs AS's own wording before anyone sees the demo.
+3. **`Personnel` vs `Musician`** — overrule me if you want the narrower
+   name, but then staff need their own type.
+
+### Not started
+
+Steps 4–6 (personnel screens, repertoire audit, AS seed script). No
+Firestore rules for `personnel`/`contracts` yet — that is the remaining
+open call below and it blocks any real data. No Firebase project, no Pages
+repo, no `deploy-as.yml`; `docs/demo-asyo-setup.md` is the console
+clickwork to mirror. The types compile and lint clean, but nothing reads
+them yet.
+
+**Not verified:** a full `VITE_ORG=as` bundler build. `node_modules` holds
+darwin-arm64 native bindings only, so no build runs in a Linux agent
+sandbox — the untouched `nwsa` build fails there identically, so this is
+environmental, not a defect. `tsc --noEmit` and `eslint` pass, and the
+org-config surface (referenced files exist, assets survive pruning for all
+three orgs, orgId/basePath/ICS identities unique) was verified by
+simulating vite's pruning pass. Run `VITE_ORG=as npm run build` on the Mac
+to close the gap.
