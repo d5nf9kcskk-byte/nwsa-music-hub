@@ -265,6 +265,36 @@ that only Grant can do.
 - Real 2026-27 season dates are in `as-demo-plan.md` if you want the
   calendar to look alive.
 
+**Agent half landed 2026-08-23 (PR #88, draft, stacked on the Step 3
+screens PR #87 — its diff is Step 7 only).** Everything code can do
+shipped: `scripts/seed-as-org.mjs` (follows `seed-demo-org.mjs`,
+including the hard abort — pinned to `as-hub-demo`, refuses `nwsa-hub`
+and `asyo-hub-demo` by test), `deploy-as.yml` (mirrors `deploy-demo.yml`:
+`VITE_ORG=as`, `AS_*` secrets, `as-music-hub` Pages repo, hourly cron at
+:30), `seed-as.yml` (mirrors `seed-demo.yml`, so seeding needs no laptop
+key), an `as` alias in `.firebaserc`, and `docs/demo-as-setup.md` — the
+~45 min of console clickwork written up for Grant, mirroring
+`docs/demo-asyo-setup.md`. The seed covers every position type above,
+all four rate bases, the full contract lifecycle (Draft → Void), a
+Cartage line item on the Substitute bass contract (plus a Doubling line
+on Principal Flute), the real 2026-27 concert dates, and rehearsals
+pinned to "today". All people fictional; no attendance data (Step 5's
+`ServiceAttendance` is decided, not built); `contractTemplates` not
+seeded (default-deny until Step 4).
+
+Verified in the Firestore emulator, since no live project exists: the
+seed runs end to end (76 docs, idempotent on re-run) and every doc was
+checked against the exact `firestore.rules` `#personnel` predicates —
+key allowlists, `baseRateCents is int`, enums, and id references —
+because Admin SDK writes bypass rules and the shapes have to be right on
+their own. NOT verified: anything against real infrastructure — the two
+workflows are untested until the project, repo, and secrets exist.
+
+**Still owed (Grant, console):** the clickwork in `docs/demo-as-setup.md`
+— Firebase project `as-hub-demo`, Pages repo `as-music-hub`, the seven
+`AS_*` secrets — then run **Seed AS demo data** and **Deploy AS demo**
+and do the doc's smoke test.
+
 ---
 
 ## Recommended slice
