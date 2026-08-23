@@ -2,13 +2,17 @@ rules_version = '2';
 
 // NWSA Music Hub — Firestore security rules
 //
-// Two tiers of data:
+// Three tiers of data:
 //   • PUBLIC collections are world-readable (they power the public site:
 //     schedules, repertoire, announcements). They contain no private contact
 //     info. Only staff (Owner/Director) may write them.
 //   • PRIVATE collections (full student records, contact details, attendance
 //     exceptions, progress notes, private lessons) are readable and writable
 //     only by signed-in staff — never world-readable.
+//   • PAID-ROSTER collections (#personnel: personnel, personnelContacts,
+//     contracts — Fair Copy adult orgs) are stricter still: Owner/Director
+//     only, exact key allowlists, and NO public projection exists or may be
+//     added. See the section header above /personnel below.
 //
 // Student privacy (#privacy): the full `students` and `rosterOverrides`
 // collections are staff-only. The public site reads projection mirrors
@@ -497,6 +501,163 @@ service cloud.firestore {
         && request.resource.data.submittedAt is number;
       // Only staff may update (review status, Drive sync fields) or delete.
       allow update, delete: if isStaff();
+    }
+
+    // ── Paid roster & contracts (#personnel — Fair Copy adult orgs) ─────
+    // The adult professional roster (Alpharetta Symphony demo, and any
+    // future per-service org). The app gates these screens on
+    // ORG.features.personnel; the rules ship to every org's project, where
+    // the collections simply stay empty for the school orgs.
+    //
+    // This is the file's THIRD sensitivity tier, above student data
+    // (#privacy). Pay rates and tax status were designed fresh here, NOT
+    // copied from the students block (docs/fair-copy/as-demo-plan.md), and
+    // four decisions define the tier:
+    //
+    //   • NO public projection. The public site never reads any of these
+    //     collections, and no `personnelPublic` mirror exists. If a printed
+    //     concert-program roster is ever wanted on the public site, that is
+    //     a new, deliberately-designed mirror with its own pinned allowlist
+    //     — never a relaxation of a read rule here.
+    //   • NO unauthenticated write path. The app's five public writes
+    //     (plannedAbsences, parentMessages, assignmentSubmissions,
+    //     calendarViews, signupResponses) stay the only five. A future
+    //     "musician signs their contract online" flow must be an
+    //     authenticated or Cloud Function path — an unauthenticated write
+    //     into a collection that carries pay is off the table, even
+    //     shape-checked, because the signature IS the sensitive act.
+    //   • Owner/Director ONLY — isStaff(), never isKnownRole(). A Teacher
+    //     or Personnel Assistant has no business in pay, tax, or adult
+    //     contact data. If an adult org ever needs a finer role (a
+    //     bookkeeper who sees contracts but not attendance, say), that is a
+    //     new fifth role added to isKnownRole() and granted access here
+    //     deliberately, per the #roles pattern — it does not fall out of
+    //     any existing rule.
+    //   • Every doc shape is PINNED to an exact key allowlist mirroring
+    //     src/director/types.ts. Staff-only collections normally skip shape
+    //     checks (students, contacts — staff clients are trusted), but here
+    //     the allowlist is a structural guard, not spam control: pay can
+    //     never creep onto the roster doc, and — the one that really
+    //     matters — no client, buggy or compromised, can ever add a
+    //     taxpayer-id field to personnelContacts. A TIN (SSN/EIN) must
+    //     never be stored in Firestore in any field; `w9Status` tracks the
+    //     paperwork instead (see the PersonnelContact comment in types.ts).
+    //     Adding a field to these types means adding it here in the SAME
+    //     change; rules auto-deploy on merge, so the two ship together —
+    //     the rosterOverridesPublic contract.
+    //
+    // `contractTemplates` (generic agreement prose, no per-person data) is
+    // deliberately NOT opened here: nothing reads it yet, so it stays under
+    // the default deny until the personnel screens land and its rules are
+    // written alongside them.
+
+    // The roster doc: name, instrument, section, seat — what an orchestra
+    // prints in a program. Still staff-only: "publicly-safe fields" is a
+    // statement about which FIELDS may someday feed a projection, not a
+    // read grant. Pay and contact details are structurally impossible here
+    // (the allowlist has no such keys).
+    match /personnel/{doc} {
+      allow read: if isStaff();
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly([
+             'name', 'preferredName', 'pronunciation', 'instrument',
+             'doubles', 'section', 'seat', 'sectionLeader', 'ensembleIds',
+             'status', 'notes', 'updatedAt', 'updatedBy', 'updatedByRole',
+           ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 1
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.status in ['Contracted', 'SubList', 'Inactive'];
+      // Deleting a person a contract points at orphans the contract — the
+      // app should archive (status: 'Inactive') instead once contracts
+      // exist. The rule still allows staff deletes because rules cannot
+      // query for referencing contracts, and a mistyped brand-new record
+      // must be removable.
+      allow delete: if isStaff();
+    }
+
+    // Private contact + payroll-adjacent details (doc id === personnel id):
+    // address, phone, emergency contact, union local, W-9 STATUS. The
+    // allowlist is the no-TIN guarantee — there is no key a taxpayer id
+    // could ride in on, and adding one requires editing this file in a
+    // reviewed change. `extra` (map of unrecognized import columns) is the
+    // one open surface; rules cannot see inside a map, so the importer is
+    // responsible for never mapping a TIN-looking column into it.
+    //
+    // No exists(/personnel/…) anchor on purpose: the roster doc and its
+    // contact doc are created in one batch (the students/contacts pattern),
+    // and exists() evaluates pre-batch state — the anchor would reject
+    // exactly the atomic create we want. Staff-only writes don't need the
+    // anchor the way the unauthenticated creates above do.
+    match /personnelContacts/{doc} {
+      allow read: if isStaff();
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly([
+             'email', 'phone', 'address', 'emergencyName', 'emergencyPhone',
+             'unionLocal', 'w9Status', 'extra',
+           ])
+        && (!('w9Status' in request.resource.data)
+            || request.resource.data.w9Status in ['not-requested', 'requested', 'on-file']);
+      allow delete: if isStaff();
+    }
+
+    // Shape guard for /contracts — create and update both run it.
+    // `is int`, not `is number`, on baseRateCents: money is INTEGER CENTS
+    // everywhere in this module (types.ts), and the rule makes a
+    // floating-point dollar amount physically unwritable. Line-item amounts
+    // live inside a list, which rules cannot reach into — the same
+    // limitation as `answersJson`, accepted for the same reason.
+    function contractShapeOk() {
+      return request.resource.data.keys().hasOnly([
+           'personnelId', 'personnelName', 'category', 'position',
+           'section', 'seat', 'ensembleIds', 'eventIds',
+           'startDate', 'endDate', 'season',
+           'baseRateCents', 'baseRateBasis', 'baseRateQuantity',
+           'lineItems', 'termsText', 'templateId', 'templateVersion',
+           'status', 'signature', 'signedAt',
+           'countersignedBy', 'countersignedAt', 'notes',
+           'createdAt', 'updatedAt', 'updatedBy', 'updatedByRole',
+         ])
+        && request.resource.data.personnelId is string
+        && request.resource.data.personnelName is string
+        && request.resource.data.category in ['chair', 'podium', 'staff']
+        && request.resource.data.baseRateCents is int
+        && request.resource.data.baseRateBasis in ['per-service', 'per-week', 'hourly', 'flat']
+        && request.resource.data.status in ['Draft', 'Sent', 'Signed', 'Countersigned', 'Void'];
+    }
+
+    // Contracts: the most sensitive collection in the app — pay, and the
+    // record of what was agreed. Reads and writes are Owner/Director only;
+    // on top of that, the LIFECYCLE is enforced here rather than trusted to
+    // the client, because a contract is a legal record, not app state:
+    //   • Draft/Sent — a working document; staff edit freely (a typo found
+    //     after sending is fixed and re-sent, the signature is what
+    //     freezes).
+    //   • Signed/Countersigned — the agreed terms (rate, line items, dates,
+    //     prose) are FROZEN. Only the lifecycle fields may move, and status
+    //     only forward or to Void — no un-signing, and no quiet edit of a
+    //     rate someone already signed against.
+    //   • Void — terminal. The record stays (it is part of the season's
+    //     history and of any dispute); only the internal note may change.
+    //     Status is absent from the allowed-keys list, so a Void contract
+    //     can never be revived.
+    match /contracts/{doc} {
+      allow read: if isStaff();
+      allow create: if isStaff() && contractShapeOk();
+      allow update: if isStaff() && contractShapeOk()
+        && (resource.data.status in ['Draft', 'Sent']
+            || (resource.data.status in ['Signed', 'Countersigned']
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                     'status', 'countersignedBy', 'countersignedAt',
+                     'notes', 'updatedAt', 'updatedBy', 'updatedByRole'])
+                && request.resource.data.status in ['Signed', 'Countersigned', 'Void'])
+            || (resource.data.status == 'Void'
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                     'notes', 'updatedAt', 'updatedBy', 'updatedByRole'])));
+      // Only a Draft — never shown to anyone — may be deleted. Everything
+      // past Draft was communicated and is a record: void it instead.
+      // (Admin SDK bypasses rules for true cleanup, e.g. demo reseeds.)
+      allow delete: if isStaff() && resource.data.status == 'Draft';
     }
 
     // ── Director allowlist (stored as data) ─────────────
