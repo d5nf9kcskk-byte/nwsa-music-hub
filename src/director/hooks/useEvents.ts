@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
+  collection, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, doc,
   query, orderBy, where, deleteField,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo, trackWrite } from '../writeStatus';
 import { currentDirectorName } from '../currentDirector';
+import { revertPlan } from '../schedule/changePlan';
 import type { CalendarEvent, EventType } from '../types';
 import { FIXTURES_ON, FIXTURE_EVENTS } from './fixtures';
 
@@ -90,12 +91,16 @@ export function useEvents(filter?: EventFilter) {
     await trackWrite('Event update', () => updateDoc(doc(dbRef, 'events', id), payload));
   }
 
-  async function deleteEvent(id: string) {
+  /** `undoable: false` skips the restore toast — a combine deletes the
+   *  absorbed block on purpose and holds its own revert path (the host's
+   *  `changeFrom.absorbed` snapshot), so offering a second, conflicting
+   *  restore would recreate a duplicate. */
+  async function deleteEvent(id: string, opts?: { undoable?: boolean }) {
     if (!db) return;
     // Undo (#38): capture the doc, delete, offer 10s restore with the same id.
     const gone = events.find(x => x.id === id);
     await deleteDoc(doc(db, 'events', id));
-    if (gone) {
+    if (gone && opts?.undoable !== false) {
       const { id: _id, ...data } = gone;
       offerUndo('events', id, data, `Deleted \"${gone.title || gone.type}\" — restore?`);
     }
@@ -111,26 +116,26 @@ export function useEvents(filter?: EventFilter) {
    * must NOT touch the time/room: with no snapshot, the live startTime /
    * endTime / location ARE the only record of the schedule, and deleting
    * them blanked one-off events like a manually-noted rehearsal.
+   *
+   * A combine snapshot (#schedule-ux-redesign §4.1) additionally restores the
+   * host's membership and re-creates the absorbed event(s) under their
+   * ORIGINAL doc ids — ICS UIDs derive from doc ids (frozen contract), so
+   * subscribers see the event come back rather than a stranger. The exact
+   * writes come from `revertPlan` (changePlan.ts), which the selfcheck pins.
    */
   async function revertEvent(id: string): Promise<string | undefined> {
     if (!db) return;
-    const e = events.find(x => x.id === id);
-    const cf = e?.changeFrom;
-    const payload: Record<string, unknown> = {
-      status: cf?.status ?? 'Scheduled',
-      changeNote: deleteField(),
-      changeFrom: deleteField(),
-      changeAnnouncementId: deleteField(),
-      updatedAt: deleteField(),
-      updatedBy: deleteField(),
-    };
-    if (cf) {
-      // A field absent from the snapshot was unset originally — clear it.
-      payload.startTime = 'startTime' in cf ? cf.startTime : deleteField();
-      payload.endTime = 'endTime' in cf ? cf.endTime : deleteField();
-      payload.location = 'location' in cf ? cf.location : deleteField();
-    }
     const dbRef = db;
+    const e = events.find(x => x.id === id);
+    const { fields, recreate } = revertPlan(e);
+    // Absorbed events first: if this fails, the host still holds the
+    // snapshot and the revert can simply be run again.
+    for (const r of recreate) {
+      await trackWrite('Restore event', () => setDoc(doc(dbRef, 'events', r.id), r.data));
+    }
+    const payload = Object.fromEntries(
+      Object.entries(fields).map(([k, v]) => [k, v === undefined ? deleteField() : v]),
+    );
     await trackWrite('Revert', () => updateDoc(doc(dbRef, 'events', id), payload));
     return e?.changeAnnouncementId;
   }

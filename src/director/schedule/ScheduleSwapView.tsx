@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, ArrowLeftRight, Clock3, MapPin, XCircle, RotateCcw, Grid3x3, CalendarDays, List, Users, UserCog, Pencil } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeftRight, Clock3, MapPin, XCircle, RotateCcw, Grid3x3, CalendarDays, List, Users, UserCog, Pencil, Merge } from 'lucide-react';
 import { useEvents } from '../hooks/useEvents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useAnnouncements } from '../hooks/useAnnouncements';
+import { useRosterOverrides } from '../hooks/useRosterOverrides';
+import { useStudents } from '../hooks/useStudents';
 import { todayStr, addDays, parseDate, toDateStr, formatTime, formatTimeRange, ensembleColor, addMinutesToTime, TIME_BLOCKS, CONCERT_COLOR } from '../utils';
-import { bannersForEvents, announceChange, captureOriginal } from './changeOps';
+import { sharedBlockLabel } from '../../shared/sharedBlock';
+import { bannersForEvents, announceChange, captureOriginal, combineSnapshot } from './changeOps';
 import { ScheduleChangeView } from '../schedule-changes/ScheduleChangeView';
 import type { CalendarEvent, Ensemble } from '../types';
 import type { DirNavigate } from '../types-nav';
@@ -23,13 +26,15 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   initialDate?: string;
   onNavigate: DirNavigate;
 }) {
-  const { events, updateEvent, revertEvent } = useEvents();
+  const { events, updateEvent, deleteEvent, revertEvent } = useEvents();
   const { ensembles } = useEnsembles();
   const announcementApi = useAnnouncements();
   const { announcements, deleteAnnouncement } = announcementApi;
 
   const [date, setDate] = useState(initialDate ?? todayStr());
-  const [swapPick, setSwapPick] = useState<string[]>([]); // event ids picked for a swap
+  // Pick-mode: tapping blocks to swap (exactly two) or combine (host first,
+  // then any number of blocks to absorb). One grammar for both (#2.3).
+  const [pick, setPick] = useState<{ mode: 'swap' | 'combine'; ids: string[] } | null>(null);
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const [menuFor, setMenuFor] = useState<CalendarEvent | null>(null);
   const [cancelling, setCancelling] = useState<CalendarEvent | null>(null);
@@ -37,6 +42,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   // landed directly on that block's expected roster.
   const [studentFlowEventId, setStudentFlowEventId] = useState<string | null>(null);
   const [confirmSwap, setConfirmSwap] = useState(false);
+  const [confirmCombine, setConfirmCombine] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   // Deep-linked with a date (from the calendar / Today): open on that day.
@@ -58,11 +64,24 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   const announce = (title: string, evts: CalendarEvent[]) =>
     announceChange(announcementApi, date, title, evts, evts.map(label));
 
-  function togglePick(id: string) {
-    setSwapPick(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id].slice(-2));
+  function togglePick(id: string, mode: 'swap' | 'combine' = 'swap') {
+    setPick(p => {
+      const cur = p?.mode === mode ? p.ids : [];
+      const ids = cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id];
+      if (ids.length === 0) return null;
+      return { mode, ids: mode === 'swap' ? ids.slice(-2) : ids };
+    });
   }
 
-  const [a, b] = swapPick.map(id => dayEvents.find(e => e.id === id)).filter(Boolean) as CalendarEvent[];
+  const picked = (pick?.ids ?? []).map(id => dayEvents.find(e => e.id === id)).filter(Boolean) as CalendarEvent[];
+  const [a, b] = pick?.mode === 'swap' ? picked : [];
+
+  /** "Wind Ensemble + Symphony Orchestra" for the blocks being combined. */
+  const combinedLabel = (evts: CalendarEvent[]) =>
+    sharedBlockLabel(
+      [...new Set(evts.flatMap(e => e.ensembleIds))].map(id => ensembleMap[id]?.name).filter(Boolean) as string[],
+      { total: ensembles.length },
+    );
 
   async function applySwap(notify: boolean) {
     if (!a || !b) return;
@@ -83,10 +102,53 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
           await updateEvent(b.id, { changeAnnouncementId: annId });
         }
       }
-      setSwapPick([]);
+      setPick(null);
       setConfirmSwap(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save the swap — try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Combine (#schedule-ux-redesign §2.3): the first-picked block hosts —
+   * it takes the union of ensembles, `sharedBlock: true`, and the chosen
+   * time/room; the other block(s) are absorbed (deleted, with full copies in
+   * the host's snapshot so revert re-creates them under their original doc
+   * ids). One banner, worded as a where/when change so the absorbed
+   * ensemble's families read it as "we meet there, with them" — not a cancel.
+   */
+  async function applyCombine(opts: { startTime?: string; endTime?: string; location?: string; notify: boolean }) {
+    const [host, ...absorbed] = picked;
+    if (!host || absorbed.length === 0) return;
+    setBusy(true); setError('');
+    try {
+      const group = combinedLabel(picked);
+      const where = opts.location?.trim() || undefined;
+      const bits = [
+        opts.startTime ? `${formatTime(opts.startTime)}` : '',
+        where ? `in ${where}` : '',
+      ].filter(Boolean).join(' ');
+      await updateEvent(host.id, {
+        ensembleIds: [...new Set(picked.flatMap(e => e.ensembleIds))],
+        sharedBlock: true,
+        startTime: opts.startTime,
+        endTime: opts.endTime,
+        location: where,
+        changeNote: `Combined rehearsal — ${group}${bits ? `, ${bits}` : ''}`,
+        changeFrom: combineSnapshot(host, absorbed),
+      });
+      for (const e of absorbed) await deleteEvent(e.id, { undoable: false });
+      if (opts.notify) {
+        const when = parseDate(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const annId = await announce(`${group} combined rehearsal ${when}${bits ? `: ${bits}` : ''}`, picked);
+        if (annId) await updateEvent(host.id, { changeAnnouncementId: annId });
+      }
+      setPick(null);
+      setConfirmCombine(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not combine the blocks — try again.');
     } finally {
       setBusy(false);
     }
@@ -103,7 +165,11 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
       const gone = new Set<string>();
       for (const s of strays) { await deleteAnnouncement(s.id); gone.add(s.id); }
       if (annId && !gone.has(annId)) await deleteAnnouncement(annId);
-      setSwapPick(p => p.filter(x => x !== e.id));
+      setPick(p => {
+        if (!p) return p;
+        const ids = p.ids.filter(x => x !== e.id);
+        return ids.length > 0 ? { ...p, ids } : null;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not revert — try again.');
     } finally {
@@ -183,22 +249,33 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
           </div>
         ) : (
           <>
-            {swapPick.length > 0 && (
+            {pick && (
               <div className="dir-att-summary" style={{ borderRadius: 10 }}>
-                {swapPick.length === 1
-                  ? 'Pick the second block to swap with.'
-                  : <>Swapping <strong>{a && label(a)}</strong> ↔ <strong>{b && label(b)}</strong></>}
-                {swapPick.length === 2 && (
+                {pick.mode === 'swap' ? (
+                  picked.length < 2
+                    ? 'Pick the second block to swap with.'
+                    : <>Swapping <strong>{a && label(a)}</strong> ↔ <strong>{b && label(b)}</strong></>
+                ) : (
+                  picked.length < 2
+                    ? 'Pick the block(s) to combine with.'
+                    : <>Combining <strong>{picked.map(label).join(' + ')}</strong></>
+                )}
+                {pick.mode === 'swap' && picked.length === 2 && (
                   <button className="dir-btn dir-btn-primary dir-sc-small" style={{ marginLeft: 10 }} onClick={() => setConfirmSwap(true)}>
                     <ArrowLeftRight size={14} /> Review swap
                   </button>
                 )}
-                <button className="dir-link-btn" style={{ marginLeft: 10 }} onClick={() => setSwapPick([])}>Clear</button>
+                {pick.mode === 'combine' && picked.length >= 2 && (
+                  <button className="dir-btn dir-btn-primary dir-sc-small" style={{ marginLeft: 10 }} onClick={() => setConfirmCombine(true)}>
+                    <Merge size={14} /> Review combine
+                  </button>
+                )}
+                <button className="dir-link-btn" style={{ marginLeft: 10 }} onClick={() => setPick(null)}>Clear</button>
               </div>
             )}
 
             {dayEvents.map(e => (
-              <div key={e.id} className={`dir-ens-row ${swapPick.includes(e.id) ? 'dir-swap-picked' : ''}`}>
+              <div key={e.id} className={`dir-ens-row ${pick?.ids.includes(e.id) ? 'dir-swap-picked' : ''}`}>
                 <span className="dir-ens-swatch" style={{ background: e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]) }} />
                 <div className="dir-ens-info">
                   <div className="dir-ens-name">
@@ -223,14 +300,16 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
                       <RotateCcw size={14} /> Revert
                     </button>
                   )}
-                  {swapPick.length > 0 ? (
-                    // Mid-swap: the row's one job is picking the other block.
+                  {pick ? (
+                    // Mid-pick: the row's one job is picking the other block(s).
                     <button
-                      className={`dir-tool-btn ${swapPick.includes(e.id) ? 'active' : ''}`}
-                      onClick={() => togglePick(e.id)}
-                      title="Select this and one other block to trade times"
+                      className={`dir-tool-btn ${pick.ids.includes(e.id) ? 'active' : ''}`}
+                      onClick={() => togglePick(e.id, pick.mode)}
+                      title={pick.mode === 'swap'
+                        ? 'Select this and one other block to trade times'
+                        : 'Add this block to the combined rehearsal'}
                     >
-                      <ArrowLeftRight size={14} /> Swap
+                      {pick.mode === 'swap' ? <><ArrowLeftRight size={14} /> Swap</> : <><Merge size={14} /> Combine</>}
                     </button>
                   ) : (
                     <button className="dir-tool-btn" onClick={() => setMenuFor(e)} title="Swap, shift, move rooms, cancel, or move a student">
@@ -255,7 +334,20 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
           onTimeRoom={() => { setEditing(menuFor); setMenuFor(null); }}
           onCancel={() => { setCancelling(menuFor); setMenuFor(null); }}
           onSwap={() => { togglePick(menuFor.id); setMenuFor(null); }}
+          onCombine={() => { setPick({ mode: 'combine', ids: [menuFor.id] }); setMenuFor(null); }}
           onStudent={() => { setStudentFlowEventId(menuFor.id); setMenuFor(null); }}
+        />
+      )}
+
+      {confirmCombine && picked.length >= 2 && (
+        <CombineSheet
+          events={picked}
+          labelOf={label}
+          groupLabel={combinedLabel(picked)}
+          date={date}
+          busy={busy}
+          onConfirm={applyCombine}
+          onClose={() => setConfirmCombine(false)}
         />
       )}
 
@@ -424,19 +516,21 @@ function SwapMonth({ date, events, ensembleMap, onPick }: {
  * this event; swap enters the pick-two flow; move-a-student hands off to the
  * roster-override machinery.
  */
-function ChangeMenu({ event, name, onClose, onTimeRoom, onCancel, onSwap, onStudent }: {
+function ChangeMenu({ event, name, onClose, onTimeRoom, onCancel, onSwap, onCombine, onStudent }: {
   event: CalendarEvent;
   name: string;
   onClose: () => void;
   onTimeRoom: () => void;
   onCancel: () => void;
   onSwap: () => void;
+  onCombine: () => void;
   onStudent: () => void;
 }) {
   const cancelled = event.status === 'Cancelled';
   const items: { icon: React.ReactNode; title: string; sub: string; run: () => void; danger?: boolean }[] = [
     { icon: <Clock3 size={16} />, title: 'Move time or room…', sub: 'Shift this block, or put it somewhere else', run: onTimeRoom },
     { icon: <ArrowLeftRight size={16} />, title: 'Swap with another block…', sub: 'Trade times (and rooms) with another block this day', run: onSwap },
+    { icon: <Merge size={16} />, title: 'Combine with another block…', sub: 'Meet together — one room, one downbeat, roll still per ensemble', run: onCombine },
     cancelled
       ? { icon: <RotateCcw size={16} />, title: 'Un-cancel…', sub: 'Put it back on as originally scheduled', run: onCancel }
       : { icon: <XCircle size={16} />, title: `Cancel this ${event.type.toLowerCase()}…`, sub: 'Families can be told automatically', run: onCancel, danger: true },
@@ -534,6 +628,146 @@ function CancelSheet({ event, name, onApply, onClose }: {
           <button className="dir-btn dir-btn-ghost" onClick={onClose}>Keep as is</button>
           <button className={`dir-btn ${cancelled ? 'dir-btn-primary' : 'dir-btn-danger'}`} disabled={busy} onClick={run}>
             {busy ? 'Saving…' : cancelled ? 'Put it back on' : `Cancel the ${event.type.toLowerCase()}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Confirm a combine (#schedule-ux-redesign §2.3): choose which block's time
+ * slot (or custom), the room, and whether to notify. Also surfaces the §4.2
+ * guards before saving — roll already taken on a block being absorbed, and
+ * event-scoped roster moves that will stop applying once that block is gone.
+ */
+function CombineSheet({ events, labelOf, groupLabel, date, busy, onConfirm, onClose }: {
+  events: CalendarEvent[]; // host first, then the block(s) being absorbed
+  labelOf: (e: CalendarEvent) => string;
+  groupLabel: string;
+  date: string;
+  busy: boolean;
+  onConfirm: (opts: { startTime?: string; endTime?: string; location?: string; notify: boolean }) => void;
+  onClose: () => void;
+}) {
+  const [host] = events;
+  const absorbed = events.slice(1);
+  const slots = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { key: string; start: string; end?: string; owner: string }[] = [];
+    for (const e of events) {
+      const key = `${e.startTime}|${e.endTime ?? ''}`;
+      if (!e.startTime || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ key, start: e.startTime, end: e.endTime, owner: labelOf(e) });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events]);
+
+  const [slotKey, setSlotKey] = useState(slots[0]?.key ?? 'custom');
+  const [customStart, setCustomStart] = useState(host.startTime ?? '');
+  const [customEnd, setCustomEnd] = useState(host.endTime ?? '');
+  const [room, setRoom] = useState(host.location ?? '');
+  const [notify, setNotify] = useState(true);
+  const [error, setError] = useState('');
+
+  // §4.2 guards. Roll receipts live on the event (`rollTaken`); event-scoped
+  // overrides pointing at an absorbed block stop applying once it's deleted.
+  const { overrides } = useRosterOverrides();
+  const { students } = useStudents();
+  const rolled = absorbed.filter(e => Object.keys(e.rollTaken ?? {}).length > 0);
+  const absorbedIds = new Set(absorbed.map(e => e.id));
+  const stranded = overrides.filter(o => o.scope === 'event' && !!o.eventId && absorbedIds.has(o.eventId));
+  const studentName = (id: string) => students.find(s => s.id === id)?.name ?? 'A student';
+  const overrideWord = (o: (typeof stranded)[number]) =>
+    o.action === 'add' ? 'sub in' : o.kind === 'lesson' ? 'lesson pull-out' : 'pull-out';
+
+  const slot = slots.find(s => s.key === slotKey);
+  const startTime = slot ? slot.start : customStart || undefined;
+  const endTime = slot ? slot.end : customEnd || undefined;
+  const when = parseDate(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const bits = [startTime ? formatTime(startTime) : '', room.trim() ? `in ${room.trim()}` : ''].filter(Boolean).join(' ');
+
+  function save() {
+    if (!slot && customStart && customEnd && customEnd <= customStart) {
+      setError('End time is before start time.');
+      return;
+    }
+    onConfirm({ startTime, endTime, location: room.trim() || undefined, notify });
+  }
+
+  return (
+    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="dir-drawer">
+        <div className="dir-drawer-handle" />
+        <div className="dir-drawer-header">
+          <span className="dir-drawer-title"><Merge size={16} style={{ verticalAlign: '-2px' }} /> Combine blocks</span>
+          <button className="dir-drawer-close" onClick={onClose}>×</button>
+        </div>
+        <div className="dir-drawer-body">
+          <div className="dir-sc-summary">
+            <strong>{events.map(labelOf).join(' + ')}</strong> meet together {when} — one room, one
+            downbeat. Roll is still taken per ensemble.
+          </div>
+          <div className="dir-field">
+            <label className="dir-label"><Clock3 size={12} /> When</label>
+            {slots.map(s => (
+              <label key={s.key} className="pub-parent-toggle">
+                <input type="radio" name="combine-slot" checked={slotKey === s.key} onChange={() => setSlotKey(s.key)} />
+                {formatTimeRange(s.start, s.end)} ({s.owner}’s slot)
+              </label>
+            ))}
+            <label className="pub-parent-toggle">
+              <input type="radio" name="combine-slot" checked={slotKey === 'custom'} onChange={() => setSlotKey('custom')} />
+              Custom…
+            </label>
+            {slotKey === 'custom' && (
+              <div className="dir-field-row">
+                <div className="dir-field">
+                  <label className="dir-label">Starts</label>
+                  <input className="dir-input" type="time" value={customStart} onChange={e => setCustomStart(e.target.value)} />
+                </div>
+                <div className="dir-field">
+                  <label className="dir-label">Ends</label>
+                  <input className="dir-input" type="time" value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="dir-field">
+            <label className="dir-label"><MapPin size={12} /> Where</label>
+            <input className="dir-input" value={room} onChange={e => setRoom(e.target.value)} placeholder="e.g. Auditorium" />
+          </div>
+          {rolled.length > 0 && (
+            <div className="dir-sc-error">
+              ⚠ Roll was already taken for {rolled.map(labelOf).join(' and ')}. Those attendance
+              records are kept (they’re stored by ensemble and date), but that block’s own roll
+              receipt goes away with it.
+            </div>
+          )}
+          {stranded.length > 0 && (
+            <div className="dir-sc-error">
+              ⚠ These per-event roster moves point at a block being absorbed and will stop applying:{' '}
+              {stranded.map(o => `${studentName(o.studentId)} (${overrideWord(o)})`).join(', ')}.
+              Re-add them on the combined block if they still apply.
+            </div>
+          )}
+          <label className="pub-parent-toggle">
+            <input type="checkbox" checked={notify} onChange={e => setNotify(e.target.checked)} />
+            Post an urgent announcement (shows a banner on the calendar)
+          </label>
+          {notify && (
+            <div className="dir-field-hint">
+              “{groupLabel} combined rehearsal {when}{bits ? `: ${bits}` : ''}”
+            </div>
+          )}
+          {error && <div className="dir-sc-error">⚠ {error}</div>}
+        </div>
+        <div className="dir-drawer-footer">
+          <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="dir-btn dir-btn-primary" disabled={busy} onClick={save}>
+            {busy ? 'Combining…' : 'Combine the blocks'}
           </button>
         </div>
       </div>

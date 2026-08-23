@@ -28,6 +28,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Combine blocks (#schedule-ux-redesign Phase 2).
+  {
+    id: '2026-08-22-combine-blocks',
+    date: '2026-08-22',
+    title: 'Combine blocks into one rehearsal',
+    audience: 'staff' as const,
+    expires: '2026-09-05',
+    bullets: [
+      'Change ▾ on any block now offers "Combine with another block…": tap the other block(s), pick whose time slot (or a custom one) and the room, and save. One combined event, one family banner — worded as a where/when change ("WE + SO combined rehearsal Tue: 2:00 in the Auditorium"), and it shows in both ensembles’ calendars and feeds automatically.',
+      'Revert to normal un-combines: the original blocks come back exactly as they were, subscribed calendars included. A combine is for one day — for another day, just combine again.',
+      'Before saving it warns if roll was already taken on a block being absorbed, and lists any per-event roster moves that would stop applying.',
+    ],
+  },
   // One door for schedule changes (#schedule-ux-redesign Phase 1).
   {
     id: '2026-08-22-schedule-changes-one-door',
