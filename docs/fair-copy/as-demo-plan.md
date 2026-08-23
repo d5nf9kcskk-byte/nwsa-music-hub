@@ -163,15 +163,35 @@ Contract prose is frozen onto the contract at issue with
 `templateId`/`templateVersion`, so editing a template can't retroactively
 change terms someone already signed.
 
-### Needs Grant — 3 things, none of them code
+### Resolved 2026-08-22
 
-1. **`contactEmail`** in `as.json` is `info@alpharettasymphony.org`, a
-   guess. Confirm the real one.
-2. **`program.missionStatement`** is the literal string `PLACEHOLDER — …`
-   so it can't be mistaken for real copy. It renders on printed concert
-   programs. Needs AS's own wording before anyone sees the demo.
-3. **`Personnel` vs `Musician`** — overrule me if you want the narrower
-   name, but then staff need their own type.
+- **`Personnel` over `Musician`** — confirmed by Grant.
+- **`contactEmail`** is `hello@alpharettasymphony.org`, from the site
+  footer. (An earlier guess of `info@` was wrong.)
+- **`program.missionStatement`** is now AS's real wording, from
+  alpharettasymphony.org/mission-vision-values: "The Alpharetta Symphony
+  exists to inspire, connect, educate, and enrich our home city of
+  Alpharetta and North Fulton through the magic of classical music."
+- **Builds verified on the Mac.** `VITE_ORG=as` builds clean. The NWSA
+  regression gate in `CLAUDE.md` passes: two consecutive no-`VITE_ORG`
+  builds produced an identical `[sw-precache]` hash (`5d90d75b`), and
+  `dist/` contains no `asyo`/`Alpharetta` string and no `asyo-*` file.
+
+### Useful facts picked up from the site
+
+Not yet used, but this is what a seed script will want (`scripts/seed-demo-org.mjs`
+pattern). **Demo people stay fictional** — the real musician, board, and
+staff pages are NOT to be scraped into seed data.
+
+- 2026-27 season: Music from the Silver Screen (9/18/26), Tchaikovsky and
+  Borodin (10/30/26), An Alpharetta Holiday (11/28/26), Impressions of
+  Paris (2/12/27), Beethoven's 7th (4/30/27), Let Freedom Ring! (5/31/27).
+- Real positions confirmed on their org chart: Music Director, Executive
+  Director, plus a Board and a Team — which matches the podium/staff split
+  the `Contract` type already models.
+- `program.leadership` is still `[]`. Their masthead is public, but it is
+  not needed for a demo and naming the wrong incumbent on a printed
+  program cover is worse than naming nobody.
 
 ### Not started
 
@@ -182,11 +202,7 @@ repo, no `deploy-as.yml`; `docs/demo-asyo-setup.md` is the console
 clickwork to mirror. The types compile and lint clean, but nothing reads
 them yet.
 
-**Not verified:** a full `VITE_ORG=as` bundler build. `node_modules` holds
-darwin-arm64 native bindings only, so no build runs in a Linux agent
-sandbox — the untouched `nwsa` build fails there identically, so this is
-environmental, not a defect. `tsc --noEmit` and `eslint` pass, and the
-org-config surface (referenced files exist, assets survive pruning for all
-three orgs, orgId/basePath/ICS identities unique) was verified by
-simulating vite's pruning pass. Run `VITE_ORG=as npm run build` on the Mac
-to close the gap.
+**Agent note:** builds cannot run in a Linux agent sandbox — `node_modules`
+holds darwin-arm64 native bindings only, and the untouched `nwsa` build
+fails there identically. Run builds on the Mac (osascript `do shell
+script`, `PATH=/opt/homebrew/bin:$PATH`), not in the sandbox.

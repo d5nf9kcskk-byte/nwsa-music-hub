@@ -8,7 +8,7 @@
   "publicUrl": "https://d5nf9kcskk-byte.github.io/as-music-hub/",
   "publicUrlDisplay": "d5nf9kcskk-byte.github.io/as-music-hub",
   "timezone": "America/New_York",
-  "contactEmail": "info@alpharettasymphony.org",
+  "contactEmail": "hello@alpharettasymphony.org",
   "logoFile": "asyo-logo.png",
   "markFile": "asyo-mark.png",
   "faviconFile": "asyo-favicon.png",
@@ -69,7 +69,7 @@
     "personnel": true
   },
   "program": {
-    "missionStatement": "PLACEHOLDER — replace with the Alpharetta Symphony's own mission statement before any program is printed or the demo is shown.",
+    "missionStatement": "The Alpharetta Symphony exists to inspire, connect, educate, and enrich our home city of Alpharetta and North Fulton through the magic of classical music.",
     "wordmarkMain": "Alpharetta",
     "wordmarkSub": "Symphony",
     "footerLine1": "Alpharetta Symphony",
