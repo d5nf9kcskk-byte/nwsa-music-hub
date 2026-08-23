@@ -30,6 +30,10 @@ export interface OrgConfig {
   timezone: string;
   /** Support/contact email shown in error messages and the Start guide. */
   contactEmail: string;
+  /** Last day of the school term/year (YYYY-MM-DD) — the default end date for
+   *  standing weekly rotations. Optional: when absent, the rotation form
+   *  requires the director to type an end date. */
+  termEnd?: string;
   /** Logo/mark filenames under public/. */
   logoFile: string;
   markFile: string;
