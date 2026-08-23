@@ -159,12 +159,33 @@ VALID_TABS segment, tab render — and the manager is code-split behind a
 build-time `ORG.features.personnel` ternary + `lazy()`, so a school
 bundle should not even reference the chunk.
 
-The done-when itself is HALF-verified: `tsc -b` and eslint are clean (64
-pre-existing errors, unchanged) and the flag gating is confirmed in code,
-but the two builds and the no-personnel-string grep of the NWSA bundle
-need the Mac — run them before merging. If the personnel chunk still
-appears in an `nwsa` dist, Rollup didn't fold the flag and the fix is a
-define-level constant, not more lazy().
+**Done-when verified 2026-08-23, in the Linux agent sandbox** — a fresh
+`npm ci` there installs linux bindings, so builds run after all; the
+"Mac-only" constraint was an artifact of a node_modules that held
+darwin-arm64 binaries, and the deploy workflows build on Linux runners
+anyway. Results:
+
+- The bundler did NOT fold `ORG.features.personnel` (the risk called out
+  above): the first `nwsa` build emitted the personnel chunk. Fixed as
+  predicted with a define-level constant — `__ORG_PERSONNEL__`, a bare
+  boolean in vite.config.ts `define` (mirrored in
+  scripts/vite-defines-shim.mjs); every personnel gate in DirectorApp
+  uses it. Member reads off `__ORG_CONFIG__` do not fold; bare literals
+  do. Remember this for the next flag-gated chunk.
+- After the fix, the `nwsa` dist emits no PersonnelManager chunk and
+  greps clean for every personnel-feature string (cartage, W-9,
+  personnelContacts, the tab hint, …), and stays clean for
+  asyo/Alpharetta. Two consecutive builds were **byte-identical**
+  (`[sw-precache]` a9afd88b twice; differs from the pre-change 5d90d75b
+  because the code changed, not because determinism broke).
+- The `VITE_ORG=as` build emits the personnel chunk and its strings, and
+  the DirectorApp chunk carries the Personnel (not Roster) nav branch.
+  ("New World School" appears twice in the `as` index chunk — that is
+  CampusMap, statically imported for every org and runtime-flagged off,
+  the same pre-existing pattern ASYO builds ship with.)
+
+Still owed: nothing build-side. No live round-trip until Step 7 creates
+`as-hub-demo`.
 
 ---
 

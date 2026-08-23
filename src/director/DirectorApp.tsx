@@ -48,12 +48,18 @@ import { ensembleColor, musicEnsembles } from './utils';
 import type { DirTab, DirNavOpts } from './types-nav';
 import { ORG } from '../org';
 
+// ORG.features.personnel as a bare build-time boolean (vite.config.ts
+// `define`; scripts/vite-defines-shim.mjs supplies it outside Vite). The
+// object form does NOT constant-fold — gating on `ORG.features.personnel`
+// left the personnel chunk and its strings in the NWSA bundle — so every
+// personnel gate in this file uses this literal instead.
+declare const __ORG_PERSONNEL__: boolean;
+
 // Paid-roster screens (#personnel) — org-gated AND code-split. For school
-// orgs the ternary resolves to null at build time (ORG is a build-time
-// constant), so their bundles reference no personnel chunk and carry none of
-// its strings; for adult orgs the chunk loads on first open, like the
-// director surface itself in main.tsx.
-const PersonnelManager = ORG.features.personnel
+// orgs the ternary folds to null at build time, so their bundles reference
+// no personnel chunk and carry none of its strings; for adult orgs the
+// chunk loads on first open, like the director surface itself in main.tsx.
+const PersonnelManager = __ORG_PERSONNEL__
   ? lazy(() => import('./personnel/PersonnelManager'))
   : null;
 
@@ -85,7 +91,7 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
       // for orgs with the flag, the student roster for everyone else. The
       // student screens' grade/guardian assumptions and the paid roster's
       // pay-adjacent details must never share a screen.
-      ...(ORG.features.personnel
+      ...(__ORG_PERSONNEL__
         ? [{ id: 'personnel' as const, label: 'Personnel', Icon: Users }]
         : [{ id: 'roster' as const, label: 'Roster', Icon: Users }]),
       { id: 'lessons', label: 'Lessons',       Icon: GraduationCap },
@@ -134,7 +140,7 @@ const VALID_TABS: readonly DirTab[] = [
   // The roster URL segment follows the org kind too (#personnel), so a
   // school build has no /director/personnel route and an adult build no
   // /director/roster \u2014 an off-org deep link falls back to Today.
-  ...(ORG.features.personnel ? ['personnel' as const] : ['roster' as const]),
+  ...(__ORG_PERSONNEL__ ? ['personnel' as const] : ['roster' as const]),
 ];
 
 /**
@@ -160,7 +166,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   messages:        'Messages families send through the public Contact Us form. Reply opens your own email app.',
   signups:         'Ask students to opt in \u2014 auditions, trips, anything. They pick their name, confirm their grade, answer your questions, and sign. You get the list, a spreadsheet, and printable signed forms.',
   // Spread-conditional so the string ships only in personnel-org bundles.
-  ...(ORG.features.personnel ? {
+  ...(__ORG_PERSONNEL__ ? {
     personnel: 'Everyone the orchestra engages \u2014 players, podium, and staff. Tap a person for private contact details and their contracts.',
   } : {}),
 };

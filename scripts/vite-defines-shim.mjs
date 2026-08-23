@@ -22,3 +22,4 @@ globalThis.__ORG_CONFIG__ = JSON.parse(
   readFileSync(new URL(`../config/orgs/${ORG_ID}.json`, import.meta.url), 'utf8'),
 );
 globalThis.__BUILD_ID__ = (process.env.GITHUB_SHA ?? '').slice(0, 7) || 'dev';
+globalThis.__ORG_PERSONNEL__ = globalThis.__ORG_CONFIG__.features.personnel;
