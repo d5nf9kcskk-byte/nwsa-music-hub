@@ -146,6 +146,26 @@ director tab all check the flag.
 shows Roster and no Personnel; and no personnel string appears in the NWSA
 bundle.
 
+**Implemented 2026-08-23 (PR #87, draft, stacked on the Step 2 hooks
+PR #86 — its diff is Step 3 only).** `src/director/personnel/`:
+PersonnelManager (roster grouped by section in score order, seats inside;
+Sub list / Missing paperwork / Archived views), PersonnelDetail (contact +
+W-9 status + the person's contracts rendered read-only, per the
+"contracts read-only at first" slice), PersonnelForm (adult fields,
+self-contact, archive-over-delete once contracts point at someone), and
+contractMoney.ts (integer-cents formatting/totals, reusable by Step 4).
+Gating follows the campusMap pattern in all three places — nav entry,
+VALID_TABS segment, tab render — and the manager is code-split behind a
+build-time `ORG.features.personnel` ternary + `lazy()`, so a school
+bundle should not even reference the chunk.
+
+The done-when itself is HALF-verified: `tsc -b` and eslint are clean (64
+pre-existing errors, unchanged) and the flag gating is confirmed in code,
+but the two builds and the no-personnel-string grep of the NWSA bundle
+need the Mac — run them before merging. If the personnel chunk still
+appears in an `nwsa` dist, Rollup didn't fold the flag and the fix is a
+define-level constant, not more lazy().
+
 ---
 
 ## Step 4 — Contract surfaces
@@ -181,6 +201,18 @@ What is open is that `AttendanceRecord.studentId` names the wrong entity.
   rules differ.
 
 Cheap to defer until a screen needs it. Decide with Step 3, not before.
+
+**Decided with Step 3 (2026-08-23): Option B** — a parallel
+`ServiceAttendance` keyed by `personnelId` + `eventId`, with its own
+Firestore rules, when a screen needs it. The deciding fact: Step 1
+deliberately gave the paid-roster collections a stricter tier
+(Owner/Director only) than `attendance` (which assistants write), so an
+optional `personnelId` on `AttendanceRecord` would put paid-roster data
+under student-attendance rules — the exact privacy-split leak Option B
+avoids. NOTHING is built yet: the Step 3 screens don't render attendance
+(there is no data model for it), so per the "only what a screen needs"
+rule the collection, rules, and hook land together when the first
+attendance-at-services surface does.
 
 ---
 
