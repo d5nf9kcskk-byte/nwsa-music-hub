@@ -259,7 +259,7 @@ The leak:
   automatically when added," rendered verbatim in the AS director UI.
   Remedy when convenient: org-neutral wording ("Musicians see their own
   part…"); a one-line copy edit, deliberately not made in this PR.
-  **Fixed in PR #90** (branched off `main`, independent of this stack):
+  **Fixed in PR #92** (branched off `main`, independent of this stack):
   the string now says "Musicians", org-neutral for every deployment.
 
 Degradations to know about (structural, not fixable from inside the
