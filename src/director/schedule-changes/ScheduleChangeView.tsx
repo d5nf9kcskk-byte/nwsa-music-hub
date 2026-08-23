@@ -5,7 +5,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
-import { resolveRoster } from '../rosterResolver';
+import { resolveRoster, rotationWrites } from '../rosterResolver';
 import { ensembleColor, parseDate, todayStr, toDateStr, formatTimeRange, addMinutesToTime, EVENT_TYPE_ICON, musicEnsembles } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { sortStudents, type StudentSort } from '../scoreOrder';
@@ -364,7 +364,12 @@ function StudentPanel({ student, ensembles, onBack, prefill, autoOpenForm }: {
           ensembles={ensembles}
           prefill={prefill}
           onClose={() => setVerb(null)}
-          onSave={async data => { await addOverride(data); }}
+          onSave={async w => {
+            // Membership first: if a later write fails, the student is a member
+            // of both (harmless) rather than rotated out with no destination.
+            if (w.ensembleIds) await updateStudent(student.id, { ensembleIds: w.ensembleIds });
+            for (const o of w.overrides) await addOverride(o);
+          }}
         />
       ) : verb ? (
         <ChangeForm
@@ -466,17 +471,18 @@ function VerbMenu({ student, ensembles, prefill, onPick, onClose }: {
 }
 
 /**
- * Standing rotation (#schedule-ux-redesign §2.4): a small face writing ONE
- * RosterOverride — remove from the base ensemble on the chosen weekdays,
- * destEnsembleId subbing the student into the other one, exactly the shape
- * rosterResolver and rotation-check.mjs already handle (incl. the concert
- * exemption). Weekdays follow Ensemble.meetingDays: 0=Sun…6=Sat.
+ * Standing rotation (#schedule-ux-redesign §2.4): a small face over
+ * `rotationWrites` (rosterResolver.ts) — scripts/apply-rotations.mjs's
+ * member-of-both convention, the one every live rotation uses. The save is
+ * membership in BOTH ensembles plus removes carving out rehearsal days, so
+ * the concert exemption keeps the student on both concert rosters.
+ * Weekdays follow Ensemble.meetingDays: 0=Sun…6=Sat.
  */
 function RotationForm({ student, ensembles, prefill, onSave, onClose }: {
   student: Student;
   ensembles: Ensemble[];
   prefill?: Prefill;
-  onSave: (data: Omit<RosterOverride, 'id'>) => Promise<void>;
+  onSave: (writes: ReturnType<typeof rotationWrites>) => Promise<void>;
   onClose: () => void;
 }) {
   const memberEnsembles = ensembles.filter(e => student.ensembleIds?.includes(e.id));
@@ -501,17 +507,7 @@ function RotationForm({ student, ensembles, prefill, onSave, onClose }: {
     if (!ready) return;
     setSaving(true); setError('');
     try {
-      await onSave({
-        studentId: student.id,
-        ensembleId: baseId,
-        action: 'remove',
-        scope: 'range',
-        kind: 'rotation',
-        days: [...days].sort((a, b) => a - b),
-        destEnsembleId: destId,
-        startDate,
-        endDate,
-      });
+      await onSave(rotationWrites(student, baseId, destId, days, startDate, endDate));
       onClose();
     } catch (e) {
       setSaving(false);

@@ -1,6 +1,7 @@
 # Schedule-Change UX Redesign
 
-**Status:** plan only — no application code changed.
+**Status:** Phases 1–3 shipped (PRs #79, #80, #81); §2.4's write shape
+revised afterward to match the live rotation convention (see the note there).
 **Date:** August 2026.
 **Scope:** how a director *changes* the schedule. The five screens traced:
 `ScheduleView`, `EventForm`, `ScheduleSwapView` ("Schedule Change"),
@@ -235,10 +236,19 @@ resolve correctly. The rotation entry is a small face over `ChangeForm`:
   Mon/Wed: Camerata · Fri: Wind Ensemble
 ```
 
-Writes ONE override doc (`action: 'remove'`, `days`, `destEnsembleId`) —
-exactly the shape `rosterResolver` and `rotation-check.mjs` already handle,
-including the concert exemption (rotations never touch performances). The
-student panel's existing `describeWhen()` already displays it.
+**Write shape (revised after Phase 3 shipped):** the save follows
+`scripts/apply-rotations.mjs`'s member-of-both convention — the one every
+live rotation uses — via `rotationWrites()` in `rosterResolver.ts`:
+membership in BOTH ensembles (through `updateStudent`, so the public mirror
+stays converged), a remove-from-base doc on the rotation days (keeping
+`destEnsembleId` for the student panel's summary line), and a reciprocal
+remove-from-destination doc on the other school days. The original plan's
+single doc (`remove` + `days` + `destEnsembleId`, no membership change)
+resolved correctly on rehearsals but dropped the student from the
+destination's CONCERT rosters: the concert exemption in
+`overrideApplies` skips `kind:'rotation'` on performances, so with no base
+membership there was nothing to fall back to. The student panel's existing
+`describeWhen()` displays each doc as before.
 
 ### 2.5 Close the silent-cancel trap
 

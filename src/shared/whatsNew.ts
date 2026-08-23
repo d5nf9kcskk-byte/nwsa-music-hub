@@ -37,7 +37,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     expires: '2026-09-05',
     bullets: [
       'Moving a student now starts from what happened: Lesson pull-out, Send to another ensemble today, Sub someone in, Out today, or Standing weekly rotation. Pick the one that matches and the form asks only for the details — no more Temporary/Lesson/Permanent quiz ("Something else…" keeps the full form for odd cases).',
-      'Standing weekly rotations ("Camerata, but Wind Ensemble on Fridays") finally have a form: pick the base ensemble, tap the weekdays, pick where they go, and it runs through the end of term (editable). One entry covers both rosters and every schedule view — and never touches a concert.',
+      'Standing weekly rotations ("Camerata, but Wind Ensemble on Fridays") finally have a form: pick the base ensemble, tap the weekdays, pick where they go, and it runs through the end of term (editable). Saving makes the student a member of both ensembles with the rotation carving out rehearsal days — so both rosters, every schedule view, and BOTH ensembles’ concerts stay right (rotations never touch a performance).',
       'A student’s panel now shows each rotation as one line: "Mon/Wed: Camerata · Fri: Wind Ensemble".',
     ],
   },

@@ -42,7 +42,8 @@
   "features": {
     "campusMap": true,
     "calendarSeed": true,
-    "contactForm": false
+    "contactForm": false,
+    "personnel": false
   },
   "program": {
     "missionStatement": "New World School of the Arts was created by the Florida Legislature as a center of excellence in the performing and visual arts as an educational partnership of Miami-Dade County Public Schools, Miami Dade College and the University of Florida.",

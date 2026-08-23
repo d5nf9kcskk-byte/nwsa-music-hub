@@ -210,9 +210,11 @@ export interface RosterOverride {
    * Recurring weekday filter for a 'range' override (0=Sun…6=Sat, same
    * convention as `Ensemble.meetingDays`). Absent or empty = every day in the
    * span, i.e. exactly the old behaviour. Standing rotations use this: "base
-   * Symphony, but Jazz on Tue+Fri" is ONE doc with days:[2,5] + destEnsembleId,
-   * not one doc per rehearsal date — both override hooks load the whole
-   * collection unfiltered on every page load, so doc count is a hard budget.
+   * Symphony, but Jazz on Tue+Fri" is membership in BOTH ensembles plus one
+   * remove doc per side with the days they're elsewhere (rotationWrites in
+   * rosterResolver.ts / scripts/apply-rotations.mjs) — never one doc per
+   * rehearsal date, since both override hooks load the whole collection
+   * unfiltered on every page load, so doc count is a hard budget.
    */
   days?: number[];
   reason?: string;
@@ -771,4 +773,336 @@ export interface SignupResponse {
   guardianEmail?: string;
   submittedAt: number;
   status: SignupResponseStatus;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * PAID ROSTER — personnel and contracts (#personnel)
+ *
+ * Everything below is gated on `ORG.features.personnel` and exists ONLY for
+ * adult professional / semi-professional orgs (Alpharetta Symphony). It sits
+ * ALONGSIDE `Student`/`Guardian`, never replacing them: NWSA and ASYO roster
+ * minors, whose model is guardian-mirrored contacts and school IDs, and none
+ * of that applies to an adult freelance musician.
+ *
+ * The two models are also different SENSITIVITY classes and must not share
+ * Firestore rules. Student PII is guarded today by the students/contacts
+ * split plus the public mirror allow-list (src/director/publicMirror.ts).
+ * Pay rates and tax status are stricter than that: no public mirror at all,
+ * and — see `PersonnelContact` — no taxpayer identification number in
+ * Firestore under any circumstances. Write the `personnel`/`contracts` rules
+ * fresh. Do not copy the `students` block.
+ *
+ * Naming note: the plan doc (docs/fair-copy/as-demo-plan.md) used the working
+ * name `Musician` for the person entity. It is `Personnel` here because the
+ * position list it has to carry — Bookkeeper, Executive Assistant, Operations
+ * Manager — is not musicians. One entity, many positions; the CONTRACT says
+ * which. Rename if you disagree, but not back to `Musician` without also
+ * splitting the staff out.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Chair/section positions — what a player is engaged AS for one contract.
+ * A person is not permanently a Principal; they are Principal on a contract.
+ */
+export const CHAIR_POSITIONS = [
+  'Concertmaster',
+  'Principal',
+  'Assistant Principal',
+  'Section',
+  'Substitute',
+] as const;
+
+/** Podium positions. */
+export const PODIUM_POSITIONS = ['Conductor'] as const;
+
+/** Administrative and operational staff positions. */
+export const STAFF_POSITIONS = [
+  'Librarian',
+  'Personnel Manager',
+  'Operations Manager',
+  'Executive Assistant',
+  'Bookkeeper',
+] as const;
+
+/**
+ * The three KINDS of engagement. This is the axis that actually differs —
+ * a chair has a seat and a section, a podium contract has neither, and staff
+ * are salaried/hourly rather than per-service. Keeping `category` separate
+ * from `position` is why one `Contract` type can cover all three without a
+ * discriminated union that fights itself.
+ */
+export type PositionCategory = 'chair' | 'podium' | 'staff';
+
+export type KnownPosition =
+  | (typeof CHAIR_POSITIONS)[number]
+  | (typeof PODIUM_POSITIONS)[number]
+  | (typeof STAFF_POSITIONS)[number];
+
+/**
+ * A position title. The known values above autocomplete; any other string is
+ * still legal, because the source list is explicitly not exhaustive ("etc. —
+ * expect more"). `string & {}` is what preserves the literal suggestions
+ * while widening the type — a bare `string` would erase them.
+ *
+ * Cartage is deliberately NOT here. Cartage is money for hauling a bass,
+ * harp, or percussion setup; it is a cost on a contract, not a job someone
+ * holds. It belongs in `ContractLineItem`, and modeling it as a position
+ * would put a fee in the roster.
+ */
+export type Position = KnownPosition | (string & {});
+
+/** Standing relationship to the organization — distinct from any one contract. */
+export type PersonnelStatus =
+  /** Currently under contract, or expected to be for the season. */
+  | 'Contracted'
+  /** On the substitute/extra list; contracted per service as needed. */
+  | 'SubList'
+  /** Past member, kept for history. Never deleted — contracts point at them. */
+  | 'Inactive';
+
+/**
+ * One adult on the paid roster: player, conductor, or staff.
+ *
+ * Publicly-safe fields only. Orchestras print a roster in the concert
+ * program, so name/instrument/section/chair are expected to be visible.
+ * Anything a person would not want in a program — address, phone, pay, tax
+ * status — lives in `PersonnelContact`, and pay lives in `Contract`.
+ */
+export interface Personnel {
+  /** Random Firestore ID. Never a national ID, union number, or payroll id. */
+  id: string;
+  name: string;
+  /** "Goes by" name for call sheets and seating. */
+  preferredName?: string;
+  /** Phonetic pronunciation, for the conductor and stage announcements. */
+  pronunciation?: string;
+  /**
+   * Primary instrument. Optional because staff and podium personnel have
+   * none — a Bookkeeper is a valid Personnel record with no instrument.
+   */
+  instrument?: string;
+  /** Additional instruments this player covers; drives doubling line items. */
+  doubles?: string[];
+  /** Section as printed in the program, e.g. "Violin I", "Low Brass". */
+  section?: string;
+  /**
+   * Seat/stand number within the section, 1-based. Present only for chair
+   * personnel; the concertmaster is Violin I seat 1.
+   */
+  seat?: number;
+  /**
+   * Section leader flag — kept SEPARATE from the contracted position on
+   * purpose. Someone can lead a section on a given program while contracted
+   * as Section, and an Assistant Principal covers leadership when the
+   * Principal is out. Position lives on the contract; this is the standing
+   * fact about the roster.
+   */
+  sectionLeader?: boolean;
+  /** Which ensembles/series this person plays with. */
+  ensembleIds?: string[];
+  status: PersonnelStatus;
+  /** Free-text note for the personnel manager, e.g. "prefers early calls". */
+  notes?: string;
+  /* ── Change tracking (director-side only) ── */
+  updatedAt?: number;
+  updatedBy?: string;
+  updatedByRole?: StaffRole;
+}
+
+/**
+ * Private contact and payroll-adjacent details, in a separate auth-only
+ * `personnelContacts` collection (doc id === personnel id), mirroring the
+ * `Student`/`StudentContact` split.
+ *
+ * Self-contact, NOT guardian-mirrored: these are adults and there is no
+ * `Guardian` here. Do not reuse `StudentContact`; its `parentEmail`/`phone`
+ * back-compat mirrors of `guardians[0]` are meaningless for an adult and
+ * would quietly invite guardian logic into an adult roster.
+ */
+export interface PersonnelContact {
+  id: string; // === personnel id
+  email?: string;
+  phone?: string;
+  /** Mailing address — needed to send a physical check or a 1099. */
+  address?: string;
+  /** Emergency contact, for tours and out-of-town services. */
+  emergencyName?: string;
+  emergencyPhone?: string;
+  /** Union local, where applicable, e.g. "AFM Local 148-462". */
+  unionLocal?: string;
+  /**
+   * Whether a W-9 is on file — a STATUS ONLY.
+   *
+   * NEVER store the taxpayer identification number itself (SSN or EIN) in
+   * Firestore, and never add a field for it. There is no client-side use for
+   * a TIN: the bookkeeper needs it in the payroll or accounting system, not
+   * in this app. A TIN in a web app's database is an identity-theft payload
+   * with a much worse blast radius than anything else the Hub holds, and no
+   * Firestore rule makes that trade worth taking. Keep the document itself
+   * wherever the org's accountant keeps it; this flag only tracks whether
+   * someone still has to chase it.
+   */
+  w9Status?: 'not-requested' | 'requested' | 'on-file';
+  /** Unrecognized import columns, preserved verbatim so nothing is lost. */
+  extra?: Record<string, string>;
+}
+
+/**
+ * How a rate multiplies out. `flat` is one agreed sum for the whole contract
+ * (a season fee, a guest-conductor engagement); the others are per-unit and
+ * are multiplied by services worked, weeks, or hours at settlement.
+ */
+export type RateBasis = 'per-service' | 'per-week' | 'hourly' | 'flat';
+
+/**
+ * Extra money on a contract that is not the base rate.
+ *
+ * This is where cartage lives. It is also where doubling, mileage, and per
+ * diem live, and where a negative amount expresses a deduction. Keeping
+ * these as a list rather than named columns is what lets a new fee type
+ * appear without a schema change — which the source list explicitly warns
+ * to expect.
+ */
+export const LINE_ITEM_TYPES = [
+  'Cartage',
+  'Doubling',
+  'Mileage',
+  'Per Diem',
+  'Overscale',
+  'Deduction',
+  'Other',
+] as const;
+
+export type LineItemType = (typeof LINE_ITEM_TYPES)[number] | (string & {});
+
+export interface ContractLineItem {
+  /** Stable id so edits and reorders keep pointing at the right line. */
+  id: string;
+  type: LineItemType;
+  /** What it is for, in the payer's words — "Harp cartage, both concerts". */
+  label?: string;
+  /**
+   * Amount in INTEGER CENTS. Negative for a deduction.
+   *
+   * Money is cents everywhere in this module and the field names say so.
+   * Floating-point dollars do not survive being summed: 0.1 + 0.2 is not
+   * 0.3, and a contract total is exactly a sum of many small amounts. A
+   * cent-off total on a musician's pay is not a rounding curiosity, it is a
+   * dispute. Format for display at the edge; never store the formatted value.
+   */
+  amountCents: number;
+  /** How `amountCents` multiplies. `one-time` is a single flat addition. */
+  basis: RateBasis | 'one-time';
+  /** Multiplier for per-unit bases — services, weeks, hours, or trips. */
+  quantity?: number;
+}
+
+/**
+ * Contract lifecycle. `Void` is terminal and kept rather than deleted —
+ * a voided contract is part of the season's history and of any dispute.
+ */
+export type ContractStatus =
+  | 'Draft'
+  | 'Sent'
+  | 'Signed'
+  | 'Countersigned'
+  | 'Void';
+
+/**
+ * A generic, reusable contract skeleton (`contractTemplates` collection).
+ *
+ * Deliberately generic. Building from a real Alpharetta Symphony contract
+ * was considered and declined as too invasive, so the demo ships neutral
+ * placeholder language. The whole point of separating `bodyText` from the
+ * structured fields on `Contract` is that real AS language can be pasted
+ * into a template later WITHOUT a schema migration — the rate, the line
+ * items, and the dates never live inside the prose.
+ */
+export interface ContractTemplate {
+  id: string;
+  /** Template name, e.g. "Per-service musician agreement". */
+  name: string;
+  /** Which kind of engagement this template is written for. */
+  category: PositionCategory;
+  /**
+   * The human-readable agreement text. Supports `{{placeholder}}` tokens
+   * filled from the Contract's structured fields at render time, so the
+   * prose never becomes a second source of truth for the numbers.
+   */
+  bodyText: string;
+  /** Bumped when `bodyText` changes; stamped onto contracts issued from it. */
+  version: number;
+  updatedAt?: number;
+  updatedBy?: string;
+}
+
+/**
+ * One engagement of one person, for one period, at one rate.
+ *
+ * Contracts are the sensitive collection. They carry pay, they are the
+ * record of what was agreed, and they must never reach the public mirror.
+ */
+export interface Contract {
+  id: string;
+  /** → `Personnel.id`. */
+  personnelId: string;
+  /**
+   * Denormalized name, stamped at issue time. Kept on purpose: a contract is
+   * a historical document and must still read correctly if the person later
+   * changes their name on the roster, or if the roster record is archived.
+   */
+  personnelName: string;
+  category: PositionCategory;
+  position: Position;
+  /** Section/seat as contracted, when the position is a chair. */
+  section?: string;
+  seat?: number;
+  /** Which ensemble(s)/series the engagement covers. */
+  ensembleIds?: string[];
+  /**
+   * Specific services covered, → `CalendarEvent.id`. Used for per-service
+   * and substitute contracts, where the engagement IS a named list of calls.
+   * Absent on season contracts, which use the date range instead.
+   */
+  eventIds?: string[];
+  /** Engagement period, YYYY-MM-DD. */
+  startDate?: string;
+  endDate?: string;
+  /** Free-text season label for grouping and reports, e.g. "2026-27". */
+  season?: string;
+  /** Base pay in INTEGER CENTS — see the note on `ContractLineItem`. */
+  baseRateCents: number;
+  baseRateBasis: RateBasis;
+  /**
+   * Expected number of units (services, weeks, hours) for a per-unit base.
+   * Absent for `flat`. This is the ESTIMATE at issue time; what actually
+   * gets paid is settled against attendance at the services.
+   */
+  baseRateQuantity?: number;
+  /** Cartage, doubling, per diem, deductions. */
+  lineItems?: ContractLineItem[];
+  /**
+   * Contract prose, resolved from a template at issue time and frozen here.
+   *
+   * Frozen rather than referenced so that editing a template never
+   * retroactively changes the terms someone already signed. `templateId` and
+   * `templateVersion` record where it came from.
+   */
+  termsText?: string;
+  templateId?: string;
+  templateVersion?: number;
+  status: ContractStatus;
+  /** Typed full name = the signature, matching the SignupResponse pattern. */
+  signature?: string;
+  signedAt?: number;
+  /** Who countersigned for the organization, and when. */
+  countersignedBy?: string;
+  countersignedAt?: number;
+  /** Internal note for the personnel manager. Never shown to the signer. */
+  notes?: string;
+  /* ── Change tracking ── */
+  createdAt?: number;
+  updatedAt?: number;
+  updatedBy?: string;
+  updatedByRole?: StaffRole;
 }

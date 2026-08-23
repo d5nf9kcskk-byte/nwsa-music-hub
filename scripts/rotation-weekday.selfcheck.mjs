@@ -33,7 +33,7 @@ registerHooks({
 globalThis.__ORG_CONFIG__ = JSON.parse(
   readFileSync(new URL('../config/orgs/nwsa.json', import.meta.url), 'utf8'));
 
-const { overrideApplies, resolveRoster } = await import('../src/director/rosterResolver.ts');
+const { overrideApplies, resolveRoster, rotationWrites } = await import('../src/director/rosterResolver.ts');
 
 let failures = 0;
 function assert(cond, msg) {
@@ -126,6 +126,62 @@ for (const d of [MON, TUE, WED, THU, FRI, SAT]) assert(k('wind-ensemble', d), `W
 for (const d of [TUE, WED, THU, FRI]) {
   assert(k('jazz-ensemble', d) !== k('symphony-orchestra', d), `exactly one of jazz/symphony on ${d}`);
 }
+
+// ── The RotationForm's exact write shape (rotationWrites): the form must save
+// apply-rotations.mjs's member-of-both convention. The failure this pins: the
+// form's original single doc (remove + destEnsembleId, no membership change)
+// dropped the student from the destination's CONCERT rosters, because the
+// concert exemption skips kind:'rotation' and there was no membership to fall
+// back to. "Camerata, but Wind Ensemble on Fridays":
+const violist = { id: 's4', name: 'Fixture, Nia', status: 'Active', instrument: 'Viola',
+                  ensembleIds: ['camerata-string-orchestra'] };
+const w = rotationWrites(violist, 'camerata-string-orchestra', 'wind-ensemble', [5], YEAR.startDate, YEAR.endDate);
+
+// Membership gains the destination (base already present, order preserved).
+assert(JSON.stringify(w.ensembleIds) === '["camerata-string-orchestra","wind-ensemble"]',
+  `membership must become base+dest, got ${JSON.stringify(w.ensembleIds)}`);
+// Doc 1: out of base on the rotation days, destEnsembleId kept (it powers the
+// student panel's summary line; harmless duplication next to base membership).
+assert(JSON.stringify(w.overrides[0]) === JSON.stringify({
+  studentId: 's4', action: 'remove', kind: 'rotation', scope: 'range', ...YEAR,
+  ensembleId: 'camerata-string-orchestra', days: [5], destEnsembleId: 'wind-ensemble',
+}), `base remove doc shape changed: ${JSON.stringify(w.overrides[0])}`);
+// Doc 2: reciprocal out of the destination on the OTHER school days, plain
+// shape (no destEnsembleId) — exactly what apply-rotations writes.
+assert(JSON.stringify(w.overrides[1]) === JSON.stringify({
+  studentId: 's4', action: 'remove', kind: 'rotation', scope: 'range', ...YEAR,
+  ensembleId: 'wind-ensemble', days: [1, 2, 3, 4],
+}), `reciprocal remove doc shape changed: ${JSON.stringify(w.overrides[1])}`);
+// Membership already covering both, and a full-school-week rotation, shrink the writes.
+assert(rotationWrites({ ...violist, ensembleIds: ['camerata-string-orchestra', 'wind-ensemble'] },
+  'camerata-string-orchestra', 'wind-ensemble', [5], YEAR.startDate, YEAR.endDate).ensembleIds === undefined,
+  'no membership write when the student is already in both');
+assert(rotationWrites(violist, 'camerata-string-orchestra', 'wind-ensemble', [1, 2, 3, 4, 5],
+  YEAR.startDate, YEAR.endDate).overrides.length === 1,
+  'no reciprocal doc when the rotation names every school day (empty days = FULL removal)');
+
+// And the writes resolve like the live hand-applied rotations do:
+const saved = { ...violist, ensembleIds: w.ensembleIds };
+const formEvents = {
+  rehWFri: { id: 'rehWFri', type: 'Rehearsal', date: FRI, ensembleIds: ['wind-ensemble'], status: 'Scheduled' },
+  rehCFri: { id: 'rehCFri', type: 'Rehearsal', date: FRI, ensembleIds: ['camerata-string-orchestra'], status: 'Scheduled' },
+  rehWMon: { id: 'rehWMon', type: 'Rehearsal', date: MON, ensembleIds: ['wind-ensemble'], status: 'Scheduled' },
+  rehCMon: { id: 'rehCMon', type: 'Rehearsal', date: MON, ensembleIds: ['camerata-string-orchestra'], status: 'Scheduled' },
+  conWMon: { id: 'conWMon', type: 'Concert', date: MON, ensembleIds: ['wind-ensemble'], status: 'Scheduled' },
+  conCFri: { id: 'conCFri', type: 'Concert', date: FRI, ensembleIds: ['camerata-string-orchestra'], status: 'Scheduled' },
+};
+const inForm = (ens, eventId) => resolveRoster([saved], w.overrides,
+  { ensembleId: ens, eventId, eventsById: formEvents }).map(r => r.student.id).includes('s4');
+assert(inForm('wind-ensemble', 'rehWFri'), 'Fri rehearsal: with Wind Ensemble');
+assert(!inForm('camerata-string-orchestra', 'rehCFri'), 'Fri rehearsal: out of Camerata');
+assert(inForm('camerata-string-orchestra', 'rehCMon'), 'Mon rehearsal: with Camerata');
+assert(!inForm('wind-ensemble', 'rehWMon'), 'Mon rehearsal: out of Wind Ensemble');
+// THE fixture that motivated the rewrite: a destination concert on a day the
+// reciprocal remove covers. Membership in both is what keeps them on stage.
+assert(inForm('wind-ensemble', 'conWMon'),
+  "Mon WIND ENSEMBLE CONCERT: the form's writes must keep the student on the destination's concert roster");
+assert(inForm('camerata-string-orchestra', 'conCFri'),
+  'Fri Camerata concert: still on the base concert roster too');
 
 // ── generate-feeds.mjs keeps its OWN copy of this logic (plain node, no src
 // imports) and ships unauthenticated on a 4-hour cron, so divergence is silent.

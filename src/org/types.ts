@@ -98,6 +98,20 @@ export interface OrgConfig {
     calendarSeed: boolean;
     /** Public parent→admin contact form + director Messages inbox. */
     contactForm: boolean;
+    /**
+     * Paid-roster mode: `Musician`/`Contract` records instead of the
+     * `Student`/`Guardian` model, and the personnel + contracts surfaces
+     * built on them. TRUE for adult professional and semi-professional
+     * orgs (AS); FALSE for school and youth orgs (NWSA, ASYO), whose
+     * rosters are minors with guardians.
+     *
+     * This flag is a PRIVACY boundary as much as a UI one. The two roster
+     * models carry different sensitivity classes — student PII and
+     * guardian contacts on one side, pay rates and tax status on the
+     * other — and Firestore rules gate them separately. Never render a
+     * personnel surface in an org with this false.
+     */
+    personnel: boolean;
   };
   /** Printed concert program (src/public/PublicProgram.tsx). */
   program: {
