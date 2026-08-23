@@ -111,6 +111,37 @@ jobs:
             --project asyo-hub-demo \
             --non-interactive
 
+      # ── AS demo (#personnel) ───────────────────────────────────────────
+      # Third project, same pattern as ASYO above: skips cleanly until
+      # Step 7 of docs/fair-copy/as-build-plan.md creates the as-hub-demo
+      # project and its secret. The paid-roster rules tier (personnel,
+      # personnelContacts, contracts) must never drift on the one org that
+      # actually holds pay data, so this exists BEFORE the project does.
+      - name: Write AS service-account key
+        id: as_key
+        env:
+          AS_SERVICE_ACCOUNT_JSON: ${{ secrets.AS_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$AS_SERVICE_ACCOUNT_JSON" ]; then
+            echo "AS_SERVICE_ACCOUNT_JSON not set — skipping the AS rules deploy."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf '%s' "$AS_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/as-sa.json"
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      # Firestore only, like ASYO: no Storage bucket until the project is
+      # on Blaze. Add a storage step here if that ever changes.
+      - name: Deploy Firestore rules (AS demo)
+        if: steps.as_key.outputs.configured == 'true'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/as-sa.json
+        run: |
+          npx --yes firebase-tools@13 deploy \
+            --only firestore:rules \
+            --project as-hub-demo \
+            --non-interactive
+
       - name: Clean up credentials
         if: always()
-        run: rm -f "$RUNNER_TEMP/sa.json" "$RUNNER_TEMP/asyo-sa.json"
+        run: rm -f "$RUNNER_TEMP/sa.json" "$RUNNER_TEMP/asyo-sa.json" "$RUNNER_TEMP/as-sa.json"
