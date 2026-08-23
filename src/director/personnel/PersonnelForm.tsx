@@ -224,7 +224,7 @@ export function PersonnelForm({ person, contact, ensembles, hasContracts, onSave
           </div>
 
           <div className="dir-field">
-            <label className="dir-checkbox-tag" style={{ display: 'inline-flex' }}>
+            <label className={`dir-checkbox-tag ${form.sectionLeader ? 'checked' : ''}`} style={{ display: 'inline-flex' }}>
               <input type="checkbox" checked={form.sectionLeader} onChange={e => set('sectionLeader', e.target.checked)} />
               Section leader
             </label>
