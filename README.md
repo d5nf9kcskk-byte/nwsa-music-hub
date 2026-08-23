@@ -2,7 +2,7 @@
 
 **Canonical repo only.** Do not edit `~/Documents/GitHub/nwsa-music-hub` or `~/Documents/Maestro` — those are stale clones.
 
-**Opus OS:** this codebase becomes Opus OS (OPAS-class product; NWSA = customer zero). See [`docs/opus-os/`](docs/opus-os/). Personal ops index: `~/Documents/Bottega/Archivio/MAP.md`.
+**Fair Copy:** this codebase becomes Fair Copy (OPAS-class product; NWSA = customer zero). Working title, adopted 2026-08-22 — formerly "Opus OS." See [`docs/fair-copy/`](docs/fair-copy/). Personal ops index: `~/Documents/Bottega/Archivio/MAP.md`.
 
 A purpose-built web app for managing a school music program — roster, attendance,
 rehearsals, concerts, repertoire, and announcements — with a mobile-first director

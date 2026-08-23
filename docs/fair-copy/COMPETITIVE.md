@@ -1,8 +1,10 @@
-# Opus OS — Competitive map (vs OPAS)
+# Fair Copy — Competitive map (vs OPAS)
 
-OPAS (Orchestra Planning & Administration System) is the incumbent many top-tier orchestras use. Opus OS aims at that **class** of product, grown from this Hub — not a greenfield rewrite.
+*Named "Opus OS" until 2026-08-22. "Fair Copy" is a working title.*
 
-| OPAS-class capability | Hub today (NWSA) | Opus OS next (directional) |
+OPAS (Orchestra Planning & Administration System) is the incumbent many top-tier orchestras use. Fair Copy aims at that **class** of product, grown from this Hub — not a greenfield rewrite.
+
+| OPAS-class capability | Hub today (NWSA) | Fair Copy next (directional) |
 |----------------------|------------------|----------------------------|
 | Calendar / services / events | Unified calendar, ICS feeds, import | Multi-org calendars; richer service types |
 | Personnel / roster / assignments | Ensembles, roster, overrides, attendance | Contracts-aware assignments; extras workflow |
