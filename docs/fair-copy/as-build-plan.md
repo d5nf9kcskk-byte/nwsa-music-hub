@@ -245,7 +245,7 @@ task and not an assumption.
 
 **Done when:** either it is confirmed clean, or the leaks are listed.
 
-**Audited 2026-08-23 (PR #89, draft, stacked on the Step 7 seed PR #88 —
+**Audited 2026-08-23 (PR #93, stacked on the Step 7 seed PR #88 —
 docs-only diff; this is an audit, nothing was fixed).** Verdict: the
 module's data model and logic are reusable for AS as-is — every read and
 write is keyed to ensembles and events, never to students — with **one

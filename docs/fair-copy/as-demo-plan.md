@@ -209,7 +209,7 @@ staff pages are NOT to be scraped into seed data.
 ### Not started
 
 Contract surfaces (build-plan step 4). The repertoire audit (step 6) is
-done (2026-08-23, PR #89): the module is reusable for AS as-is — one
+done (2026-08-23, PR #93): the module is reusable for AS as-is — one
 student-wording copy string in the director UI, plus known silent
 degradations where repertoire meets roster surfaces ("my part"
 personalization, public seating, the printed program's roster pages all
