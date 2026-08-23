@@ -210,9 +210,11 @@ export interface RosterOverride {
    * Recurring weekday filter for a 'range' override (0=Sun…6=Sat, same
    * convention as `Ensemble.meetingDays`). Absent or empty = every day in the
    * span, i.e. exactly the old behaviour. Standing rotations use this: "base
-   * Symphony, but Jazz on Tue+Fri" is ONE doc with days:[2,5] + destEnsembleId,
-   * not one doc per rehearsal date — both override hooks load the whole
-   * collection unfiltered on every page load, so doc count is a hard budget.
+   * Symphony, but Jazz on Tue+Fri" is membership in BOTH ensembles plus one
+   * remove doc per side with the days they're elsewhere (rotationWrites in
+   * rosterResolver.ts / scripts/apply-rotations.mjs) — never one doc per
+   * rehearsal date, since both override hooks load the whole collection
+   * unfiltered on every page load, so doc count is a hard budget.
    */
   days?: number[];
   reason?: string;

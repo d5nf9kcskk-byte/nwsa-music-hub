@@ -42,6 +42,42 @@ export function overrideApplies(o: RosterOverride, ctx: RosterContext): boolean 
   return true;
 }
 
+/**
+ * The write set for a standing rotation ("base X, but on `days` with Y"),
+ * in scripts/apply-rotations.mjs's convention — the one every live rotation
+ * uses: the student is a base MEMBER of both ensembles (so concerts, which
+ * the rotation exemption above skips, list them on both sides), and the
+ * rotation itself is removes carving out rehearsal days:
+ *   • out of the base ensemble on the rotation days (this doc also carries
+ *     `destEnsembleId` — redundant next to base membership on rehearsal days,
+ *     but it powers the student panel's one-line rotation summary);
+ *   • out of the destination on the OTHER school days (Mon–Fri), plain-shaped
+ *     exactly like apply-rotations' docs — without it the student resolves
+ *     into both halves of a shared block. A no-op on days the destination
+ *     doesn't meet. Omitted when the rotation names every school day
+ *     (empty `days` would mean a FULL removal).
+ * `ensembleIds` is undefined when membership already covers both (the caller
+ * skips the students write); overrides are returned in save order.
+ */
+export function rotationWrites(
+  student: Pick<Student, 'id' | 'ensembleIds'>,
+  baseId: string,
+  destId: string,
+  days: number[],
+  startDate: string,
+  endDate: string,
+): { ensembleIds?: string[]; overrides: Omit<RosterOverride, 'id'>[] } {
+  const have = student.ensembleIds ?? [];
+  const missing = [baseId, destId].filter(id => !have.includes(id));
+  const shared = { studentId: student.id, action: 'remove', kind: 'rotation', scope: 'range', startDate, endDate } as const;
+  const overrides: Omit<RosterOverride, 'id'>[] = [
+    { ...shared, ensembleId: baseId, days: [...days].sort((a, b) => a - b), destEnsembleId: destId },
+  ];
+  const reciprocal = [1, 2, 3, 4, 5].filter(d => !days.includes(d));
+  if (reciprocal.length) overrides.push({ ...shared, ensembleId: destId, days: reciprocal });
+  return { ensembleIds: missing.length ? [...have, ...missing] : undefined, overrides };
+}
+
 export interface ResolvedStudent {
   student: Student;
   isSub: boolean; // present via an 'add' override rather than base membership
