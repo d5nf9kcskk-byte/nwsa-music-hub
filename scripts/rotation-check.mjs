@@ -143,8 +143,13 @@ let problems = 0;
 for (const date of DATES) {
   // Roll-taking events only: a rotation describes a rehearsal block, so a
   // concert is deliberately NOT where a rotation applies (rosterResolver.ts).
+  // A Cancelled block is not a place a student can be (the app never resolves
+  // rosters for one — lessonConflicts.ts) and schedule changes keep the
+  // cancelled doc as the receipt beside its replacement (opening week, swaps),
+  // so counting it would flag every changed day as a phantom double-booking.
   const dayEvents = events
-    .filter(e => e.date === date && takesAttendance(e.type) && (e.ensembleIds ?? []).length > 0)
+    .filter(e => e.date === date && e.status !== 'Cancelled'
+      && takesAttendance(e.type) && (e.ensembleIds ?? []).length > 0)
     .sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
 
   console.log(`── ${DN[dow(date)]} ${date} ${'─'.repeat(46)}`);
