@@ -158,3 +158,32 @@ that otherwise breaks the sign-in popup on the live site).
 - **Seeding stays fenced.** The script only *dispatches* the org's seed
   workflow; the seeder itself is what hard-aborts against any project
   other than its own `<org>-hub-demo`, exactly as before.
+
+## Troubleshooting (lessons from the first real run, `as-hub-demo`)
+
+A project created by CLI differs from a console-created one (like
+`asyo-hub-demo`) in two ways the console papers over silently. The script
+now handles both, but if the *Deploy Firestore & Storage rules* workflow
+ever 403s against a demo project with "The caller does not have
+permission", check them in this order:
+
+1. **The Firebase Rules API is off.** The console enables it implicitly;
+   a CLI-created project doesn't get it. Fix:
+   `gcloud services enable firebaserules.googleapis.com --project=<org>-hub-demo`
+2. **The Admin SDK service account lacks the rules role.** Its default
+   role does not cover the Rules API. Fix:
+   `gcloud projects add-iam-policy-binding <org>-hub-demo --member=serviceAccount:<the firebase-adminsdk email> --role=roles/firebaserules.admin`
+   (find the email with `gcloud iam service-accounts list --project=<org>-hub-demo`)
+
+Then re-run the workflow — and give IAM changes a minute or two to
+propagate first; re-running immediately after a grant can lose that race
+and 403 once more. Two general notes in the same spirit: `gcloud` is
+often silent on success (no output + no `ERROR:` line = it worked), and
+several Google provisioning steps are eventually-consistent, which is why
+the script retries key creation and why re-running the whole script is
+always the safe recovery.
+
+A symptom map for the demo site itself: "Couldn't verify your access" at
+`/director` right after setup almost always means the org's Firestore
+rules have not deployed yet (a fresh database denies everything, so the
+app cannot read the directors list) — it is not a sign-in problem.

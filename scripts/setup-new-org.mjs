@@ -373,7 +373,10 @@ function ensureProject() {
 
 function ensureFirestore() {
   banner(`Firestore database (${LOCATION}, production mode)`);
-  mutate('enable the Firestore API', 'gcloud', ['services', 'enable', 'firestore.googleapis.com', `--project=${PROJECT_ID}`]);
+  // firebaserules.googleapis.com too: the console enables it implicitly on
+  // console-created projects, but a CLI-created project never gets it, and
+  // deploy-rules.yml then 403s against the new org (hit on as-hub-demo).
+  mutate('enable the Firestore API', 'gcloud', ['services', 'enable', 'firestore.googleapis.com', 'firebaserules.googleapis.com', `--project=${PROJECT_ID}`]);
   const list = DRY_RUN
     ? { stdout: '' }
     : run('gcloud', ['firestore', 'databases', 'list', `--project=${PROJECT_ID}`, '--format=value(name)'], { allowFail: true, quiet: true });
@@ -470,12 +473,34 @@ async function ensureServiceAccountKey(tmpDir, secrets) {
   if (!saEmail) {
     fail(`the firebase-adminsdk service account never appeared in ${PROJECT_ID}. Open the console → Project settings → Service accounts once (that forces provisioning), then re-run this script.`);
   }
+
+  // In a CLI-created project the account's default role does NOT cover the
+  // Firebase Rules API, so deploy-rules.yml 403s against the new org (hit
+  // on as-hub-demo; console-created projects like asyo-hub-demo get this
+  // implicitly). Grant it explicitly — idempotent, and it needs a minute or
+  // two to propagate, which the workflow dispatch at the end comfortably
+  // outlasts.
+  run('gcloud', ['projects', 'add-iam-policy-binding', PROJECT_ID,
+    `--member=serviceAccount:${saEmail}`, '--role=roles/firebaserules.admin',
+    '--condition=None', '--format=none'], { quiet: true });
+  console.log(`  ✓ granted roles/firebaserules.admin to ${saEmail} (rules deploys)`);
+
   const keyPath = path.join(tmpDir, `${PROJECT_ID}-sa-key.json`);
-  const keyRes = run('gcloud', ['iam', 'service-accounts', 'keys', 'create', keyPath, `--iam-account=${saEmail}`, `--project=${PROJECT_ID}`], { allowFail: true });
-  if (keyRes.status !== 0) {
+  // A freshly provisioned account can be visible to `list` before the keys
+  // API knows it (IAM propagation lag) — NOT_FOUND here is transient, so
+  // retry it rather than aborting the whole run.
+  let keyRes;
+  for (let attempt = 0; ; attempt++) {
+    keyRes = run('gcloud', ['iam', 'service-accounts', 'keys', 'create', keyPath, `--iam-account=${saEmail}`, `--project=${PROJECT_ID}`], { allowFail: true });
+    if (keyRes.status === 0) break;
     const out = `${keyRes.stdout}\n${keyRes.stderr}`;
     if (/disableServiceAccountKeyCreation|constraints\/iam/i.test(out)) {
       fail(`your Google Cloud organization policy blocks service-account key creation (constraints/iam.disableServiceAccountKeyCreation). Generate the key from the Firebase console instead (Project settings → Service accounts → Generate new private key) and set the ${secretName} secret by hand:\n  gh secret set ${secretName} --repo ${SOURCE_REPO} < key.json`);
+    }
+    if (/NOT_FOUND|does not exist/i.test(out) && attempt < 8) {
+      console.log(`  … the keys API can't see ${saEmail} yet (propagation lag) — retrying in 15s`);
+      await sleep(15_000);
+      continue;
     }
     fail(`key creation failed:\n${out.trim()}`);
   }
