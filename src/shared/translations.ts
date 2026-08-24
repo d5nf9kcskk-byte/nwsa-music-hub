@@ -372,6 +372,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'docs.title':         { en: 'Documents',  es: 'Documentos' },
   'docs.intro':         { en: 'Handbooks, syllabi, forms, and other resources for your ensembles.', es: 'Manuales, programas de estudio, formularios y otros recursos para tus ensambles.' },
   'docs.general':       { en: 'General documents', es: 'Documentos generales' },
+  'docs.classes':       { en: 'Classes', es: 'Clases' },
   'docs.allTypes':      { en: 'All types',   es: 'Todos los tipos' },
   'docs.allEnsembles':  { en: 'All ensembles', es: 'Todos los ensambles' },
   'docs.none':          { en: 'No documents yet.', es: 'Aún no hay documentos.' },

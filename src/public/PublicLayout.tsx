@@ -17,7 +17,7 @@ import { primaryStudent, onIdentityChange } from '../shared/identity';
 import { useModalA11y } from '../shared/useModalA11y';
 import { useEffect, useReducer } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
-import { ensembleColor, ensembleDisplayName, musicEnsembles } from '../director/utils';
+import { ensembleColor, ensembleDisplayName, performingEnsembles, classGroups } from '../director/utils';
 import { ORG } from '../org';
 
 const NAV = [
@@ -42,6 +42,11 @@ export function PublicLayout() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
   const { ensembles } = useEnsembles();
+  // Classes list under their own heading, never among the orchestras
+  // (#classes). Same order field, two headings.
+  const navEnsembles = [...ensembles].sort((a, b) => a.order - b.order);
+  const navPerforming = performingEnsembles(navEnsembles);
+  const navClasses = classGroups(navEnsembles);
   const [, bump] = useReducer(x => x + 1, 0);
   const menuRef = useModalA11y<HTMLElement>(() => setMenuOpen(false), menuOpen);
   useEffect(() => onIdentityChange(bump), []);
@@ -120,7 +125,7 @@ export function PublicLayout() {
                     </button>
                     {ensemblesOpen && (
                       <>
-                        {musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
+                        {[...navPerforming, ...navClasses].map(e => (
                           <NavLink
                             key={e.id}
                             to={`/ensemble/${e.id}`}
@@ -177,8 +182,19 @@ export function PublicLayout() {
               <Users size={18} />{t('nav.ensembles')}
             </NavLink>
 
-            {ensembles.length > 0 && <div className="pub-side-head">{t('nav.ensembles')}</div>}
-            {musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
+            {navPerforming.length > 0 && <div className="pub-side-head">{t('nav.ensembles')}</div>}
+            {navPerforming.map(e => (
+              <NavLink
+                key={e.id}
+                to={`/ensemble/${e.id}`}
+                className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}
+              >
+                <span className="pub-side-dot" style={{ background: ensembleColor(e) }} />
+                {ensembleDisplayName(e)}
+              </NavLink>
+            ))}
+            {navClasses.length > 0 && <div className="pub-side-head">{t('docs.classes')}</div>}
+            {navClasses.map(e => (
               <NavLink
                 key={e.id}
                 to={`/ensemble/${e.id}`}

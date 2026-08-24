@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Plus, Gavel, ChevronUp, ChevronDown, X } from 'lucide-react';
+import { Plus, Gavel, ChevronUp, ChevronDown, X, ArrowDownWideNarrow } from 'lucide-react';
 import { useJuries } from '../hooks/useJuries';
 import { useStudents } from '../hooks/useStudents';
+import { useEnsembles } from '../hooks/useEnsembles';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { whenQueued } from '../writeStatus';
-import { parseDate, formatTimeRange } from '../utils';
+import { parseDate, formatTimeRange, musicEnsembles } from '../utils';
+import { appendInScoreOrder, sortIntoScoreOrder } from './runningOrder';
 import type { Jury } from '../types';
 
 /**
@@ -85,6 +87,7 @@ function JuryForm({ jury, onSave, onDelete, onClose }: {
   onClose: () => void;
 }) {
   const { students } = useStudents();
+  const { ensembles } = useEnsembles();
   const [name, setName] = useState(jury?.name ?? '');
   const [term, setTerm] = useState(jury?.term ?? '');
   const [date, setDate] = useState(jury?.date ?? '');
@@ -100,6 +103,11 @@ function JuryForm({ jury, onSave, onDelete, onClose }: {
   const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
 
   const byId = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
+  // Classes included on purpose: a college theory section can sit juries too.
+  const groupChoices = useMemo(
+    () => musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)),
+    [ensembles],
+  );
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
@@ -185,7 +193,7 @@ function JuryForm({ jury, onSave, onDelete, onClose }: {
 
           <div className="dir-field">
             <label className="dir-label">Running order ({order.length})</label>
-            <div className="dir-field-hint">Add students as the order gets decided; arrows move them.</div>
+            <div className="dir-field-hint">Add a whole group or search one student at a time; arrows move them. Nothing here fixes a time — the order is just an order.</div>
             {order.map((id, i) => (
               <div key={id} className="dir-ens-row">
                 <span className="dir-ens-swatch" style={{ background: 'var(--dir-border)' }}>{i + 1}</span>
@@ -198,6 +206,34 @@ function JuryForm({ jury, onSave, onDelete, onClose }: {
                 <button className="dir-icon-btn" onClick={() => setOrder(o => o.filter(x => x !== id))} aria-label="Remove"><X size={16} /></button>
               </div>
             ))}
+            {/* Forty string players is forty searches otherwise. Adding a
+                roster appends in score order and leaves whatever the director
+                already sequenced exactly where it was. */}
+            <div className="dir-field-row" style={{ marginTop: 8 }}>
+              <select
+                className="dir-input"
+                value=""
+                aria-label="Add a whole group to the running order"
+                onChange={e => {
+                  const ens = e.target.value;
+                  if (!ens) return;
+                  setOrder(o => appendInScoreOrder(o, students.filter(st => st.ensembleIds?.includes(ens))));
+                  e.target.value = '';
+                }}
+              >
+                <option value="">Add a whole group…</option>
+                {groupChoices.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </select>
+              <button
+                type="button"
+                className="dir-btn dir-btn-ghost"
+                disabled={order.length < 2}
+                onClick={() => setOrder(o => sortIntoScoreOrder(o, byId))}
+                title="Sort into score order — winds, brass, percussion, strings"
+              >
+                <ArrowDownWideNarrow size={15} style={{ verticalAlign: '-3px' }} /> Score order
+              </button>
+            </div>
             <input
               className="dir-input"
               style={{ marginTop: 6 }}

@@ -32,6 +32,24 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Classes get a home on the PUBLIC site (#classes) + the juries stub grows a
+  // running order that can be filled in bulk (#juries). Public half is real:
+  // students and families see the Documents page and the Ensembles list change.
+  // Nothing new became world-readable — `documents` and `ensembles` were
+  // already public; this only regroups and labels what was always there.
+  {
+    id: '2026-08-24-classes-on-the-public-site',
+    date: '2026-08-24',
+    title: 'Find your class — and its syllabus — without scrolling past the orchestras',
+    audience: 'both' as const,
+    expires: '2026-09-07',
+    bullets: [
+      'Classes now list under their own “Classes” heading on the Ensembles page, in the menu, and on the Documents page — so Music Theory is not buried among the orchestras.',
+      'Open a class and its documents come first: the syllabus, the handouts, the assignment sheets, before the meeting schedule. There is no repertoire list or seating chart on a class, because a class has neither.',
+      'A dual-enrollment course is labelled “college class” (or “college master class”) wherever it appears, so it is clear which ones carry college credit.',
+      'Staff: juries can now take a whole roster at once. Open a jury, pick “Add a whole group”, and everyone is appended in score order — winds, brass, percussion, strings — on top of whatever you had already sequenced. “Score order” re-sorts the whole list; the arrows still move one person. Nothing else about juries changed: the date, the room, and the panel are still optional until you know them.',
+    ],
+  },
   // Applied Teacher role + lesson grades (#applied). Staff-only: the public
   // site has no idea private lessons exist, let alone their grades.
   {

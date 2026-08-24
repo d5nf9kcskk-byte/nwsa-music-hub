@@ -5,7 +5,7 @@ import { EnsembleRosterEditor } from './EnsembleRosterEditor';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useEvents } from '../hooks/useEvents';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, performingEnsembles, classGroups, isClassGroup, isMasterClass } from '../utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, performingEnsembles, classGroups, isClassGroup, groupKindLabel } from '../utils';
 import type { DirNavigate } from '../types-nav';
 
 /**
@@ -84,7 +84,7 @@ export function EnsemblesView({ onNavigate }: { onNavigate: DirNavigate }) {
                   <div className="dir-ens-sub">
                     {count} student{count === 1 ? '' : 's'}
                     {count === 0 && ' — add some below'}
-                    {isClassGroup(e) && ` · ${e.collegeLevel ? 'college ' : ''}${isMasterClass(e) ? 'master class' : 'class'}`}
+                    {isClassGroup(e) && ` · ${groupKindLabel(e)}`}
                     {next && ` · next rehearsal ${parseDate(next.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}${next.startTime ? ` ${formatTimeRange(next.startTime, next.endTime)}` : ''}`}
                   </div>
                 </button>

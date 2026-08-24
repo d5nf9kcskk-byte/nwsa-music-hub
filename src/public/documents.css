@@ -34,3 +34,26 @@
   color: var(--pub-muted); margin: 20px 0 8px;
 }
 .pub-doc-group-title:first-of-type { margin-top: 6px; }
+
+/* Classes get their own band on the public library (#classes) — a syllabus is
+   found by class, not by scrolling past the orchestras. */
+.pub-doc-section-head {
+  margin: 22px 0 2px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pub-muted);
+  border-top: 1px solid var(--pub-border);
+  padding-top: 14px;
+}
+.pub-doc-kind {
+  /* The group title is uppercased; the kind is not, so it reads as a note on
+     the class rather than part of its name. */
+  text-transform: none;
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0;
+  color: var(--pub-muted);
+  margin-left: 6px;
+}

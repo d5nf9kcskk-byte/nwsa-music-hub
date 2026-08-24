@@ -4,7 +4,7 @@
  * and that master classes list WITH the classes while behaving differently
  * inside a meeting. Both promises are one-liners to break by accident.
  */
-import { isClassGroup, isMasterClass, performingEnsembles, classGroups, musicEnsembles } from './utils';
+import { isClassGroup, isMasterClass, performingEnsembles, classGroups, musicEnsembles, groupKindLabel } from './utils';
 
 function assert(cond: unknown, msg: string): void {
   if (!cond) throw new Error(msg);
@@ -37,5 +37,24 @@ assert(!classGroups(groups).some(e => e.name === 'Dance'), 'no division in the c
 
 // musicEnsembles stays the wider "not a division" list both are built on.
 assert(musicEnsembles(groups).length === 4, 'musicEnsembles still includes classes');
+
+// groupKindLabel is the ONE spelling of what a class is — the director's
+// list and the public class list both read it, so a college master class can
+// never be "college masterclass" on one screen and "master class" on the other.
+// collegeLevel is a display flag, not a fourth kind: a college course behaves
+// exactly like an in-house class, so nothing branches on it.
+assert(groupKindLabel({ name: 'Camerata' } as never) === '', 'an ensemble has no kind label');
+assert(groupKindLabel(groups[2]) === 'class', 'a theory section reads "class"');
+assert(groupKindLabel(groups[3]) === 'master class', 'a master class reads "master class"');
+assert(
+  groupKindLabel({ kind: 'class', collegeLevel: true }) === 'college class',
+  'a dual-enrollment course reads "college class"',
+);
+assert(
+  groupKindLabel({ kind: 'masterclass', collegeLevel: true }) === 'college master class',
+  'both flags compose',
+);
+// collegeLevel on a performing ensemble is meaningless and must stay silent.
+assert(groupKindLabel({ kind: 'ensemble', collegeLevel: true }) === '', 'college flag never labels an ensemble');
 
 console.log('groupKind.selfcheck: ok');

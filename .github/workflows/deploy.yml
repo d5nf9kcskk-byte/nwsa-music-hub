@@ -116,6 +116,12 @@ jobs:
       - name: Check applied-lesson grading
         run: npx tsx src/director/lessonGrades.selfcheck.ts
 
+      # Juries (#juries): a bulk add must never reshuffle an order the director
+      # already sequenced, an inactive student must never enter a jury, and a
+      # sort must lose nobody — including an id whose student record is gone.
+      - name: Check jury running order
+        run: npx tsx src/director/juries/runningOrder.selfcheck.ts
+
       - name: Build
         run: npm run build
         env:

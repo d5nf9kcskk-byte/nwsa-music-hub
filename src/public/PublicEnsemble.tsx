@@ -9,7 +9,7 @@ import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../direct
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useDocuments } from '../director/hooks/useDocuments';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
-import { todayStr, formatTimeRange, formatTime, ensembleColor, ensembleDisplayName, pieceEnsembleIds, isPublished } from '../director/utils';
+import { todayStr, formatTimeRange, formatTime, ensembleColor, ensembleDisplayName, pieceEnsembleIds, isPublished, isClassGroup, groupKindLabel } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { EnsembleAlerts } from './components/EnsembleAlerts';
@@ -130,6 +130,22 @@ export function PublicEnsemble() {
   const nextEvent = [...upcomingConcerts, ...upcomingRehearsals, ...upcomingClasses, ...upcomingOther]
     .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99'))[0];
 
+  // A class leads with its documents (#classes): a student opening Music Theory
+  // came for the syllabus or the handout, not for a rehearsal list. Same block,
+  // moved above the schedule — and repertoire/seating simply never apply.
+  const isClass = isClassGroup(ensemble);
+  const docsSection = ensDocs.length > 0 ? (
+    <div>
+      <div className="pub-section-row">
+        <h2 className="pub-section-title">Documents</h2>
+        <Link to="/documents" className="pub-section-link">All documents</Link>
+      </div>
+      <div className="pub-doc-list">
+        {ensDocs.map(d => <PubDocCard key={d.id} doc={d} />)}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="pub-page">
       <BackLink fallback="/ensembles" label={t('event.back')} />
@@ -142,6 +158,7 @@ export function PublicEnsemble() {
         <div className="pub-ghero-meta">
           {[
             PUBLIC_STUDENT_INFO ? tn('ens.members', members.length) : null,
+            groupKindLabel(ensemble) || null,
             ensemble.defaultLocation || null,
             formatTimeRange(ensemble.defaultStartTime, ensemble.defaultEndTime) || null,
           ].filter(Boolean).join(' · ')}
@@ -168,6 +185,8 @@ export function PublicEnsemble() {
       />
 
       <PubAnnouncements items={ensAnnouncements} ensembleMap={ensembleMap} showEnsembleTag />
+
+      {isClass && docsSection}
 
       <div className="pub-section-row">
         <h2 className="pub-section-title">Schedule &amp; concerts</h2>
@@ -228,19 +247,9 @@ export function PublicEnsemble() {
         </div>
       )}
 
-      {ensDocs.length > 0 && (
-        <div>
-          <div className="pub-section-row">
-            <h2 className="pub-section-title">Documents</h2>
-            <Link to="/documents" className="pub-section-link">All documents</Link>
-          </div>
-          <div className="pub-doc-list">
-            {ensDocs.map(d => <PubDocCard key={d.id} doc={d} />)}
-          </div>
-        </div>
-      )}
+      {!isClass && docsSection}
 
-      {PUBLIC_STUDENT_INFO && (
+      {PUBLIC_STUDENT_INFO && !isClass && (
         <SeatingSection
           ensembleId={id}
           studentName={sid => students.find(s => s.id === sid)?.name ?? '—'}

@@ -112,6 +112,20 @@ export function classGroups<T extends Pick<Ensemble, 'name' | 'kind'>>(list: T[]
   return list.filter(e => !isDivision(e) && isClassGroup(e));
 }
 
+/** What a class is, in words: "class", "master class", and the college
+ *  (dual-enrollment) variants. Empty string for a performing ensemble, so a
+ *  caller can append it unconditionally. `collegeLevel` is display + filtering
+ *  only — it never changes who may read anything, which is why it is a flag on
+ *  the class rather than a fourth `kind`: a college course behaves exactly like
+ *  an in-house one (roster, roll, units, no repertoire), it is just taught for
+ *  college credit. One spelling here so the director list and the public class
+ *  list can never drift apart. */
+export function groupKindLabel(e: Pick<Ensemble, 'kind' | 'collegeLevel'>): string {
+  if (!isClassGroup(e)) return '';
+  const base = isMasterClass(e) ? 'master class' : 'class';
+  return e.collegeLevel ? `college ${base}` : base;
+}
+
 /** A piece's ensembles as an array — reads the new `ensembleIds` or falls back
  *  to the legacy single `ensembleId`. Empty array if neither is set. */
 export function pieceEnsembleIds(p: Pick<RepertoirePiece, 'ensembleIds' | 'ensembleId'>): string[] {
