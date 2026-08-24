@@ -471,11 +471,21 @@ async function ensureServiceAccountKey(tmpDir, secrets) {
     fail(`the firebase-adminsdk service account never appeared in ${PROJECT_ID}. Open the console → Project settings → Service accounts once (that forces provisioning), then re-run this script.`);
   }
   const keyPath = path.join(tmpDir, `${PROJECT_ID}-sa-key.json`);
-  const keyRes = run('gcloud', ['iam', 'service-accounts', 'keys', 'create', keyPath, `--iam-account=${saEmail}`, `--project=${PROJECT_ID}`], { allowFail: true });
-  if (keyRes.status !== 0) {
+  // A freshly provisioned account can be visible to `list` before the keys
+  // API knows it (IAM propagation lag) — NOT_FOUND here is transient, so
+  // retry it rather than aborting the whole run.
+  let keyRes;
+  for (let attempt = 0; ; attempt++) {
+    keyRes = run('gcloud', ['iam', 'service-accounts', 'keys', 'create', keyPath, `--iam-account=${saEmail}`, `--project=${PROJECT_ID}`], { allowFail: true });
+    if (keyRes.status === 0) break;
     const out = `${keyRes.stdout}\n${keyRes.stderr}`;
     if (/disableServiceAccountKeyCreation|constraints\/iam/i.test(out)) {
       fail(`your Google Cloud organization policy blocks service-account key creation (constraints/iam.disableServiceAccountKeyCreation). Generate the key from the Firebase console instead (Project settings → Service accounts → Generate new private key) and set the ${secretName} secret by hand:\n  gh secret set ${secretName} --repo ${SOURCE_REPO} < key.json`);
+    }
+    if (/NOT_FOUND|does not exist/i.test(out) && attempt < 8) {
+      console.log(`  … the keys API can't see ${saEmail} yet (propagation lag) — retrying in 15s`);
+      await sleep(15_000);
+      continue;
     }
     fail(`key creation failed:\n${out.trim()}`);
   }
