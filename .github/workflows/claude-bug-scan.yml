@@ -20,6 +20,7 @@ on:
 permissions:
   contents: read
   issues: write
+  id-token: write   # claude-code-action exchanges an OIDC token for its GitHub token
 
 jobs:
   gate:
