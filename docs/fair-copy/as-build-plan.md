@@ -146,6 +146,47 @@ director tab all check the flag.
 shows Roster and no Personnel; and no personnel string appears in the NWSA
 bundle.
 
+**Implemented 2026-08-23 (PR #87, draft, stacked on the Step 2 hooks
+PR #86 — its diff is Step 3 only).** `src/director/personnel/`:
+PersonnelManager (roster grouped by section in score order, seats inside;
+Sub list / Missing paperwork / Archived views), PersonnelDetail (contact +
+W-9 status + the person's contracts rendered read-only, per the
+"contracts read-only at first" slice), PersonnelForm (adult fields,
+self-contact, archive-over-delete once contracts point at someone), and
+contractMoney.ts (integer-cents formatting/totals, reusable by Step 4).
+Gating follows the campusMap pattern in all three places — nav entry,
+VALID_TABS segment, tab render — and the manager is code-split behind a
+build-time `ORG.features.personnel` ternary + `lazy()`, so a school
+bundle should not even reference the chunk.
+
+**Done-when verified 2026-08-23, in the Linux agent sandbox** — a fresh
+`npm ci` there installs linux bindings, so builds run after all; the
+"Mac-only" constraint was an artifact of a node_modules that held
+darwin-arm64 binaries, and the deploy workflows build on Linux runners
+anyway. Results:
+
+- The bundler did NOT fold `ORG.features.personnel` (the risk called out
+  above): the first `nwsa` build emitted the personnel chunk. Fixed as
+  predicted with a define-level constant — `__ORG_PERSONNEL__`, a bare
+  boolean in vite.config.ts `define` (mirrored in
+  scripts/vite-defines-shim.mjs); every personnel gate in DirectorApp
+  uses it. Member reads off `__ORG_CONFIG__` do not fold; bare literals
+  do. Remember this for the next flag-gated chunk.
+- After the fix, the `nwsa` dist emits no PersonnelManager chunk and
+  greps clean for every personnel-feature string (cartage, W-9,
+  personnelContacts, the tab hint, …), and stays clean for
+  asyo/Alpharetta. Two consecutive builds were **byte-identical**
+  (`[sw-precache]` a9afd88b twice; differs from the pre-change 5d90d75b
+  because the code changed, not because determinism broke).
+- The `VITE_ORG=as` build emits the personnel chunk and its strings, and
+  the DirectorApp chunk carries the Personnel (not Roster) nav branch.
+  ("New World School" appears twice in the `as` index chunk — that is
+  CampusMap, statically imported for every org and runtime-flagged off,
+  the same pre-existing pattern ASYO builds ship with.)
+
+Still owed: nothing build-side. No live round-trip until Step 7 creates
+`as-hub-demo`.
+
 ---
 
 ## Step 4 — Contract surfaces
@@ -181,6 +222,18 @@ What is open is that `AttendanceRecord.studentId` names the wrong entity.
   rules differ.
 
 Cheap to defer until a screen needs it. Decide with Step 3, not before.
+
+**Decided with Step 3 (2026-08-23): Option B** — a parallel
+`ServiceAttendance` keyed by `personnelId` + `eventId`, with its own
+Firestore rules, when a screen needs it. The deciding fact: Step 1
+deliberately gave the paid-roster collections a stricter tier
+(Owner/Director only) than `attendance` (which assistants write), so an
+optional `personnelId` on `AttendanceRecord` would put paid-roster data
+under student-attendance rules — the exact privacy-split leak Option B
+avoids. NOTHING is built yet: the Step 3 screens don't render attendance
+(there is no data model for it), so per the "only what a screen needs"
+rule the collection, rules, and hook land together when the first
+attendance-at-services surface does.
 
 ---
 

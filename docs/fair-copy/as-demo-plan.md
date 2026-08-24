@@ -208,12 +208,15 @@ staff pages are NOT to be scraped into seed data.
 
 ### Not started
 
-Steps 4–6 (personnel screens, repertoire audit, AS seed script). Firestore
-rules for `personnel`/`personnelContacts`/`contracts` landed 2026-08-23
-(see Remaining open call above), which unblocks real data. No Firebase
-project, no Pages repo, no `deploy-as.yml`; `docs/demo-asyo-setup.md` is
-the console clickwork to mirror. The types compile and lint clean, but
-nothing reads them yet.
+Repertoire audit and the AS seed script. Firestore rules for
+`personnel`/`personnelContacts`/`contracts` landed 2026-08-23 (see
+Remaining open call above); the data-layer hooks (PR #86) and the
+personnel screens (PR #87, stacked on #86) followed the same day — see
+`as-build-plan.md` steps 2–3 for what shipped and what still needs Mac
+build verification. The attendance-subject call is decided (Option B,
+`ServiceAttendance` — build-plan step 5) but nothing is built for it. No
+Firebase project, no Pages repo, no `deploy-as.yml`;
+`docs/demo-asyo-setup.md` is the console clickwork to mirror.
 
 **Agent note:** builds cannot run in a Linux agent sandbox — `node_modules`
 holds darwin-arm64 native bindings only, and the untouched `nwsa` build

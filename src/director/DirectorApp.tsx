@@ -1,7 +1,7 @@
 import './director.css';
 import './uiUpdates.css';
 import './dirShell.css';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
 import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
@@ -48,6 +48,21 @@ import { ensembleColor, musicEnsembles } from './utils';
 import type { DirTab, DirNavOpts } from './types-nav';
 import { ORG } from '../org';
 
+// ORG.features.personnel as a bare build-time boolean (vite.config.ts
+// `define`; scripts/vite-defines-shim.mjs supplies it outside Vite). The
+// object form does NOT constant-fold — gating on `ORG.features.personnel`
+// left the personnel chunk and its strings in the NWSA bundle — so every
+// personnel gate in this file uses this literal instead.
+declare const __ORG_PERSONNEL__: boolean;
+
+// Paid-roster screens (#personnel) — org-gated AND code-split. For school
+// orgs the ternary folds to null at build time, so their bundles reference
+// no personnel chunk and carry none of its strings; for adult orgs the
+// chunk loads on first open, like the director surface itself in main.tsx.
+const PersonnelManager = __ORG_PERSONNEL__
+  ? lazy(() => import('./personnel/PersonnelManager'))
+  : null;
+
 /**
  * Navigation groups shared by the desktop rail and the phone menu (redesign
  * Phase 4). Frequency-ordered: the daily loop (Today, Take Roll, Calendar,
@@ -72,7 +87,13 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
     head: 'People',
     items: [
       { id: 'ensembles', label: 'Ensembles',   Icon: Music    },
-      { id: 'roster', label: 'Roster',         Icon: Users    },
+      // One roster surface per org kind (#personnel): the paid adult roster
+      // for orgs with the flag, the student roster for everyone else. The
+      // student screens' grade/guardian assumptions and the paid roster's
+      // pay-adjacent details must never share a screen.
+      ...(__ORG_PERSONNEL__
+        ? [{ id: 'personnel' as const, label: 'Personnel', Icon: Users }]
+        : [{ id: 'roster' as const, label: 'Roster', Icon: Users }]),
       { id: 'lessons', label: 'Lessons',       Icon: GraduationCap },
       { id: 'notes',  label: 'Progress Notes', Icon: FileText },
     ],
@@ -109,12 +130,17 @@ const TAB_TITLES: Record<DirTab, string> = {
   whosOut:         'Who\u2019s Out',
   messages:        'Messages',
   signups:         'Sign-ups',
+  personnel:       'Personnel',
 };
 
 const VALID_TABS: readonly DirTab[] = [
-  'today', 'roll', 'roster', 'lessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
+  'today', 'roll', 'lessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'whosOut', 'scheduleSwap',
   'messages', 'signups',
+  // The roster URL segment follows the org kind too (#personnel), so a
+  // school build has no /director/personnel route and an adult build no
+  // /director/roster \u2014 an off-org deep link falls back to Today.
+  ...(__ORG_PERSONNEL__ ? ['personnel' as const] : ['roster' as const]),
 ];
 
 /**
@@ -139,6 +165,10 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   announcements:   'Post news for families \u2014 school-wide or per ensemble. Urgent posts show as a red banner.',
   messages:        'Messages families send through the public Contact Us form. Reply opens your own email app.',
   signups:         'Ask students to opt in \u2014 auditions, trips, anything. They pick their name, confirm their grade, answer your questions, and sign. You get the list, a spreadsheet, and printable signed forms.',
+  // Spread-conditional so the string ships only in personnel-org bundles.
+  ...(__ORG_PERSONNEL__ ? {
+    personnel: 'Everyone the orchestra engages \u2014 players, podium, and staff. Tap a person for private contact details and their contracts.',
+  } : {}),
 };
 
 export default function DirectorApp() {
@@ -359,6 +389,11 @@ export default function DirectorApp() {
             {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} onClose={() => {}} />}
             {tab === 'messages'        && <MessagesView />}
             {tab === 'signups'         && <SignupsView />}
+            {tab === 'personnel' && PersonnelManager && (
+              <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading personnel…</div>}>
+                <PersonnelManager />
+              </Suspense>
+            )}
             {tab === 'ensembles'       && <EnsemblesView onNavigate={go} />}
             {tab === 'ensembleHub' && intent.ensembleId && (
               <EnsembleHubView key={intentKey} ensembleId={intent.ensembleId} onNavigate={go} />
