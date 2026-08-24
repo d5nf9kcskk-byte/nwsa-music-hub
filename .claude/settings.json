@@ -1,6 +1,8 @@
 {
   "permissions": {
     "allow": [
+      "Bash(git merge:*)",
+      "Bash(git push:*)",
       "mcp__github__merge_pull_request",
       "mcp__github__update_pull_request",
       "mcp__Claude_Code_Remote__send_later",
