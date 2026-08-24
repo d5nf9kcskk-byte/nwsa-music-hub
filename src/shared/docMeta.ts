@@ -3,7 +3,8 @@ import type { DocumentCategory, DocumentAudience } from '../director/types';
 /** Document categories in display order, shared by the director manager and the
  *  public Documents page so the two never drift. */
 export const DOC_CATEGORIES: DocumentCategory[] = [
-  'Syllabus', 'Handbook', 'Form', 'Policy', 'Repertoire', 'Calendar', 'Newsletter', 'Other',
+  'Syllabus', 'Handbook', 'Form', 'Policy', 'Repertoire', 'Calendar', 'Newsletter',
+  'Orchestra Assistant Positions', 'Other',
 ];
 
 export const DOC_AUDIENCES: DocumentAudience[] = ['All', 'High School', 'College'];
@@ -17,5 +18,6 @@ export const DOC_CATEGORY_COLOR: Record<DocumentCategory, string> = {
   Repertoire: '#16a34a',
   Calendar:   '#ca8a04',
   Newsletter: '#db2777',
+  'Orchestra Assistant Positions': '#ea580c',
   Other:      '#64748b',
 };

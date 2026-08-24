@@ -366,6 +366,20 @@ export interface BulletinQueueItem {
   createdAt?: number;
 }
 
+/**
+ * Heartbeat from the Mac attendance-bulletin agent (#bulletin-health), written
+ * only when a bulletin is actually applied. One doc: `bulletinHealth/latest`.
+ */
+export interface BulletinHealth {
+  bulletinDate: string; // YYYY-MM-DD the applied bulletin was FOR
+  at: number;           // when it landed
+  wrote: number;
+  tardies: number;
+  skippedDirector: number;
+  ambiguous: number;
+  source?: string | null; // 'mail' | 'onedrive' | manual run
+}
+
 /** Parent/student absence emails the local Mail.app pipeline couldn't confidently match. */
 export interface AbsenceEmailQueueItem {
   id: string;
@@ -696,6 +710,7 @@ export type DocumentCategory =
   | 'Repertoire'
   | 'Calendar'
   | 'Newsletter'
+  | 'Orchestra Assistant Positions'
   | 'Other';
 
 /** Distinguishes the two divisions a single title can exist for — e.g. the
