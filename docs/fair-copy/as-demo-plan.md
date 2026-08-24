@@ -208,7 +208,13 @@ staff pages are NOT to be scraped into seed data.
 
 ### Not started
 
-Contract surfaces (build-plan step 4) and the repertoire audit (step 6).
+Contract surfaces (build-plan step 4). The repertoire audit (step 6) is
+done (2026-08-23, PR #93): the module is reusable for AS as-is — one
+student-wording copy string in the director UI, plus known silent
+degradations where repertoire meets roster surfaces ("my part"
+personalization, public seating, the printed program's roster pages all
+key off `studentsPublic`, which the paid roster deliberately lacks) —
+see build-plan step 6 for the file:line list.
 Firestore rules for `personnel`/`personnelContacts`/`contracts` landed
 2026-08-23 (see Remaining open call above); the data-layer hooks (PR
 #86), the personnel screens (PR #87, stacked on #86), and the seed +
