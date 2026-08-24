@@ -146,6 +146,47 @@ director tab all check the flag.
 shows Roster and no Personnel; and no personnel string appears in the NWSA
 bundle.
 
+**Implemented 2026-08-23 (PR #87, draft, stacked on the Step 2 hooks
+PR #86 — its diff is Step 3 only).** `src/director/personnel/`:
+PersonnelManager (roster grouped by section in score order, seats inside;
+Sub list / Missing paperwork / Archived views), PersonnelDetail (contact +
+W-9 status + the person's contracts rendered read-only, per the
+"contracts read-only at first" slice), PersonnelForm (adult fields,
+self-contact, archive-over-delete once contracts point at someone), and
+contractMoney.ts (integer-cents formatting/totals, reusable by Step 4).
+Gating follows the campusMap pattern in all three places — nav entry,
+VALID_TABS segment, tab render — and the manager is code-split behind a
+build-time `ORG.features.personnel` ternary + `lazy()`, so a school
+bundle should not even reference the chunk.
+
+**Done-when verified 2026-08-23, in the Linux agent sandbox** — a fresh
+`npm ci` there installs linux bindings, so builds run after all; the
+"Mac-only" constraint was an artifact of a node_modules that held
+darwin-arm64 binaries, and the deploy workflows build on Linux runners
+anyway. Results:
+
+- The bundler did NOT fold `ORG.features.personnel` (the risk called out
+  above): the first `nwsa` build emitted the personnel chunk. Fixed as
+  predicted with a define-level constant — `__ORG_PERSONNEL__`, a bare
+  boolean in vite.config.ts `define` (mirrored in
+  scripts/vite-defines-shim.mjs); every personnel gate in DirectorApp
+  uses it. Member reads off `__ORG_CONFIG__` do not fold; bare literals
+  do. Remember this for the next flag-gated chunk.
+- After the fix, the `nwsa` dist emits no PersonnelManager chunk and
+  greps clean for every personnel-feature string (cartage, W-9,
+  personnelContacts, the tab hint, …), and stays clean for
+  asyo/Alpharetta. Two consecutive builds were **byte-identical**
+  (`[sw-precache]` a9afd88b twice; differs from the pre-change 5d90d75b
+  because the code changed, not because determinism broke).
+- The `VITE_ORG=as` build emits the personnel chunk and its strings, and
+  the DirectorApp chunk carries the Personnel (not Roster) nav branch.
+  ("New World School" appears twice in the `as` index chunk — that is
+  CampusMap, statically imported for every org and runtime-flagged off,
+  the same pre-existing pattern ASYO builds ship with.)
+
+Still owed: nothing build-side. No live round-trip until Step 7 creates
+`as-hub-demo`.
+
 ---
 
 ## Step 4 — Contract surfaces
@@ -182,6 +223,18 @@ What is open is that `AttendanceRecord.studentId` names the wrong entity.
 
 Cheap to defer until a screen needs it. Decide with Step 3, not before.
 
+**Decided with Step 3 (2026-08-23): Option B** — a parallel
+`ServiceAttendance` keyed by `personnelId` + `eventId`, with its own
+Firestore rules, when a screen needs it. The deciding fact: Step 1
+deliberately gave the paid-roster collections a stricter tier
+(Owner/Director only) than `attendance` (which assistants write), so an
+optional `personnelId` on `AttendanceRecord` would put paid-roster data
+under student-attendance rules — the exact privacy-split leak Option B
+avoids. NOTHING is built yet: the Step 3 screens don't render attendance
+(there is no data model for it), so per the "only what a screen needs"
+rule the collection, rules, and hook land together when the first
+attendance-at-services surface does.
+
 ---
 
 ## Step 6 — Repertoire audit
@@ -191,6 +244,76 @@ it is reusable as-is. Probably close to free; "probably" is why it is a
 task and not an assumption.
 
 **Done when:** either it is confirmed clean, or the leaks are listed.
+
+**Audited 2026-08-23 (PR #93, stacked on the Step 7 seed PR #88 —
+docs-only diff; this is an audit, nothing was fixed).** Verdict: the
+module's data model and logic are reusable for AS as-is — every read and
+write is keyed to ensembles and events, never to students — with **one
+copy-string leak** and a cluster of known degradations where repertoire
+meets roster-shaped surfaces. Full file list and greps in the PR body.
+
+The leak:
+
+- `src/director/repertoire/RepertoireManager.tsx:634` — empty-state copy
+  "No per-instrument links yet. **Students** see their own part
+  automatically when added," rendered verbatim in the AS director UI.
+  Remedy when convenient: org-neutral wording ("Musicians see their own
+  part…"); a one-line copy edit, deliberately not made in this PR.
+  **Fixed in PR #92** (branched off `main`, independent of this stack):
+  the string now says "Musicians", org-neutral for every deployment.
+
+Degradations to know about (structural, not fixable from inside the
+repertoire module — all trace to the paid roster having no public
+projection, which Step 1 chose on purpose):
+
+- **"My part" personalization is dead for AS.** `PublicRepertoire.tsx:54`,
+  `PublicPiece.tsx:29`, and `PracticeCard` (via `PublicSchedule.tsx:221`)
+  resolve the viewer with `primaryStudent()` (`src/shared/identity.ts`),
+  which only the "Find My Schedule" lookup over `studentsPublic` ever
+  populates. AS has no `studentsPublic`, so no visitor can acquire an
+  identity and the ⭐ per-instrument part links simply never show
+  (degrades silently). An adult "my part" needs its own identity story —
+  per Step 2's note, never a casual pointer at a personnel projection.
+- **Seating on public pages resolves names via `studentsPublic`.**
+  `PublicPiece.tsx:215` (and `PublicEnsemble`'s SeatingSection) render the
+  applied chart gated on `PUBLIC_STUDENT_INFO` — a codebase-global const
+  (`src/public/publicStudentInfo.ts:6`), not org config. Today AS renders
+  nothing (no charts, empty roster → no section). But `seatingCharts` is
+  world-readable and staff-writable (`firestore.rules:255`), so if AS
+  staff ever publish a chart, every `seat.studentId` resolves to '—' and
+  the public piece page shows a chart of dashes. Flag before any AS
+  seating work.
+- **The printed program has no personnel page.** `PublicProgram.tsx`
+  builds roster pages (lines 272–290) exclusively from `studentsPublic` +
+  seating charts, so an AS program prints with no performer credits —
+  silently. The cover page is fully `ORG.program.*`-driven and clean.
+  Crediting the paid roster on a program is exactly the "new, separately
+  reviewed projection" Step 2 reserved; until someone asks for it, this
+  is a known gap, not a bug.
+
+Confirmed org-neutral: the `RepertoirePiece` type (no student fields;
+soloist is free text), `useRepertoire` (reads only `repertoire`, which is
+world-readable / staff-write in `firestore.rules:251` — correct for AS,
+piece docs carry no PII), `PiecePicker`, the `PubRepertoire` list, the
+`rep.*` translation strings, repertoire nav wiring in both apps
+(unconditional — present for AS, as wanted), `src/shared/ics.ts`'s
+repertoire → DESCRIPTION path (`icsLesson`'s `studentName` is the
+lessons feed, outside repertoire and disabled in feeds), and
+`scripts/generate-feeds.mjs`'s pieces → calendar-notes path. Seed
+compatibility confirmed: `seed-as-org.mjs` writes `RepertoirePiece`-shaped
+docs into `repertoire` keyed to the seeded `as-orchestra`/`as-chamber`
+ensembles, and no repertoire read path requires student-shaped data.
+
+Cosmetic, adjacent (noted, not Step 6's to fix):
+`.cursor/rules/repertoire-ai.mdc` describes itself as the "NWSA
+repertoire" fill workflow though its substance is org-neutral; and
+`src/director/components/DirectorSearch.tsx:398` — the search box
+repertoire flows through — says "Find students, events, repertoire…" to
+an AS director (Step 3 territory).
+
+NOT verified: nothing was run — read-only audit (full reads of the
+module and its consumers, plus the greps in the PR body). No live-data
+check until `as-hub-demo` exists.
 
 ---
 
@@ -211,6 +334,36 @@ that only Grant can do.
   was designed around.
 - Real 2026-27 season dates are in `as-demo-plan.md` if you want the
   calendar to look alive.
+
+**Agent half landed 2026-08-23 (PR #88, draft, stacked on the Step 3
+screens PR #87 — its diff is Step 7 only).** Everything code can do
+shipped: `scripts/seed-as-org.mjs` (follows `seed-demo-org.mjs`,
+including the hard abort — pinned to `as-hub-demo`, refuses `nwsa-hub`
+and `asyo-hub-demo` by test), `deploy-as.yml` (mirrors `deploy-demo.yml`:
+`VITE_ORG=as`, `AS_*` secrets, `as-music-hub` Pages repo, hourly cron at
+:30), `seed-as.yml` (mirrors `seed-demo.yml`, so seeding needs no laptop
+key), an `as` alias in `.firebaserc`, and `docs/demo-as-setup.md` — the
+~45 min of console clickwork written up for Grant, mirroring
+`docs/demo-asyo-setup.md`. The seed covers every position type above,
+all four rate bases, the full contract lifecycle (Draft → Void), a
+Cartage line item on the Substitute bass contract (plus a Doubling line
+on Principal Flute), the real 2026-27 concert dates, and rehearsals
+pinned to "today". All people fictional; no attendance data (Step 5's
+`ServiceAttendance` is decided, not built); `contractTemplates` not
+seeded (default-deny until Step 4).
+
+Verified in the Firestore emulator, since no live project exists: the
+seed runs end to end (76 docs, idempotent on re-run) and every doc was
+checked against the exact `firestore.rules` `#personnel` predicates —
+key allowlists, `baseRateCents is int`, enums, and id references —
+because Admin SDK writes bypass rules and the shapes have to be right on
+their own. NOT verified: anything against real infrastructure — the two
+workflows are untested until the project, repo, and secrets exist.
+
+**Still owed (Grant, console):** the clickwork in `docs/demo-as-setup.md`
+— Firebase project `as-hub-demo`, Pages repo `as-music-hub`, the seven
+`AS_*` secrets — then run **Seed AS demo data** and **Deploy AS demo**
+and do the doc's smoke test.
 
 ---
 

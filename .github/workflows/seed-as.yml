@@ -1,0 +1,60 @@
+name: Seed AS demo data
+
+# Loads the fictional demo season into the as-hub-demo Firebase project —
+# the browser-clickable version of `node scripts/seed-as-org.mjs`, so the
+# demo can be set up and reset without a local checkout, Node, or a service
+# account key sitting on someone's laptop. Mirrors seed-demo.yml (ASYO).
+#
+# Manual only, never scheduled: it WRITES data. Re-running is safe and is in
+# fact how you reset the sandbox — the seeder uses fixed doc ids and set(),
+# so a second run restores a clean demo state (docs demo users created
+# themselves are left alone).
+#
+# SAFETY: seed-as-org.mjs hard-aborts unless the service account's own
+# project is exactly `as-hub-demo`, so this workflow is physically unable to
+# write to the NWSA project — or the ASYO demo — no matter what secret it is
+# handed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      owner_email:
+        description: 'Google account that will own the demo (must be able to sign in with Google — a non-Google address locks everyone out)'
+        required: false
+        default: 'nwsaorchestras@gmail.com'
+
+permissions:
+  contents: read
+
+# Two seeders racing would interleave writes for no benefit.
+concurrency:
+  group: seed-as
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check the demo secret exists
+        env:
+          AS_SERVICE_ACCOUNT_JSON: ${{ secrets.AS_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$AS_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::AS_SERVICE_ACCOUNT_JSON is not set. Add it under Settings → Secrets and variables → Actions (see docs/demo-as-setup.md)." >&2
+            exit 1
+          fi
+
+      - name: Seed the demo sandbox
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.AS_SERVICE_ACCOUNT_JSON }}
+          DEMO_OWNER_EMAIL: ${{ inputs.owner_email }}
+        run: node scripts/seed-as-org.mjs

@@ -208,14 +208,26 @@ staff pages are NOT to be scraped into seed data.
 
 ### Not started
 
-Steps 4–6 (personnel screens, repertoire audit, AS seed script). Firestore
-rules for `personnel`/`personnelContacts`/`contracts` landed 2026-08-23
-(see Remaining open call above), which unblocks real data. No Firebase
-project, no Pages repo, no `deploy-as.yml`; `docs/demo-asyo-setup.md` is
-the console clickwork to mirror. The types compile and lint clean, but
-nothing reads them yet.
+Contract surfaces (build-plan step 4). The repertoire audit (step 6) is
+done (2026-08-23, PR #93): the module is reusable for AS as-is — one
+student-wording copy string in the director UI, plus known silent
+degradations where repertoire meets roster surfaces ("my part"
+personalization, public seating, the printed program's roster pages all
+key off `studentsPublic`, which the paid roster deliberately lacks) —
+see build-plan step 6 for the file:line list.
+Firestore rules for `personnel`/`personnelContacts`/`contracts` landed
+2026-08-23 (see Remaining open call above); the data-layer hooks (PR
+#86), the personnel screens (PR #87, stacked on #86), and the seed +
+deploy infrastructure (PR #88, stacked on #87) followed the same day —
+see `as-build-plan.md` steps 2, 3, and 7 for what shipped and what was
+verified. The attendance-subject call is decided (Option B,
+`ServiceAttendance` — build-plan step 5) but nothing is built for it,
+and the seed deliberately writes no attendance data. What remains of the
+infrastructure is console-only: Firebase project `as-hub-demo`, Pages
+repo `as-music-hub`, and the `AS_*` secrets — written up for Grant in
+`docs/demo-as-setup.md` (the AS mirror of `docs/demo-asyo-setup.md`).
 
-**Agent note:** builds cannot run in a Linux agent sandbox — `node_modules`
-holds darwin-arm64 native bindings only, and the untouched `nwsa` build
-fails there identically. Run builds on the Mac (osascript `do shell
-script`, `PATH=/opt/homebrew/bin:$PATH`), not in the sandbox.
+**Agent note (corrected 2026-08-23, Step 3):** builds DO run in a Linux
+agent sandbox after a fresh `npm ci` — the earlier "Mac-only" version of
+this note was an artifact of a copied `node_modules` holding darwin-arm64
+bindings. The deploy workflows build on Linux runners anyway.

@@ -196,6 +196,14 @@ export default defineConfig(({ mode }) => {
   base: BASE,
   define: {
     __ORG_CONFIG__: JSON.stringify(ORG),
+    // ORG.features.personnel again, as a BARE boolean literal: the bundler
+    // does not constant-fold member reads off the __ORG_CONFIG__ object, so
+    // gating the personnel chunk on `ORG.features.personnel` shipped the
+    // whole paid-roster surface (chunk, CSS, strings) in school-org bundles.
+    // A bare `false` folds its dead branches at build time, which is what
+    // keeps the chunk out of an NWSA/ASYO dist. Mirrored in
+    // scripts/vite-defines-shim.mjs like every other define here.
+    __ORG_PERSONNEL__: JSON.stringify(ORG.features.personnel),
     // Build stamp shown in the director menu (#stale-client). MUST stay
     // deterministic: the deploy cron rebuilds the SAME commit every 4 hours
     // to refresh ICS feeds, and anything that varies between those rebuilds
