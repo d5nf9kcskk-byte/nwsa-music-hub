@@ -98,6 +98,16 @@ recommendation: keep the word "attendance," but track it per **service**
 (rehearsal/concert called) rather than reuse NWSA's per-class-meeting
 framing. No better alternative found; open to Grant's call either way.
 
+**Built 2026-08-24 (build-plan step 5) — Option B as decided.** A parallel
+`ServiceAttendance` (`personnelId` + REQUIRED `eventId`, status
+Present / Absent / Excused, doc id `${eventId}__${personnelId}` enforced in
+rules), its own Owner/Director-only `/serviceAttendance` rules in the
+#personnel tier, `useServiceAttendance`, and the Attendance sheet on the
+PersonnelManager toolbar — a service picker plus per-musician marks, two
+same-day services fully independent. The word stayed "attendance," tracked
+per service; the student `AttendanceRecord` was not touched. Full record:
+`as-build-plan.md` step 5.
+
 ## Concrete gaps in today's `Student` type for an adult pro roster
 
 From `src/director/types.ts`: `Student` carries `grade`, `schoolId`,
@@ -223,9 +233,9 @@ Firestore rules for `personnel`/`personnelContacts`/`contracts` landed
 #86), the personnel screens (PR #87, stacked on #86), and the seed +
 deploy infrastructure (PR #88, stacked on #87) followed the same day —
 see `as-build-plan.md` steps 2, 3, 7, and 4 for what shipped and what
-was verified. The attendance-subject call is decided (Option B,
-`ServiceAttendance` — build-plan step 5) but nothing is built for it,
-and the seed deliberately writes no attendance data. What remains of the
+was verified. Attendance at services shipped 2026-08-24 (Option B,
+`ServiceAttendance` — build-plan step 5), and the seed now writes a
+little fictional roll at the recent services. What remains of the
 infrastructure is console-only: Firebase project `as-hub-demo`, Pages
 repo `as-music-hub`, and the `AS_*` secrets — written up for Grant in
 `docs/demo-as-setup.md` (the AS mirror of `docs/demo-asyo-setup.md`).

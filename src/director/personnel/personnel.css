@@ -168,3 +168,51 @@
   text-transform: uppercase;
   margin-bottom: 2px;
 }
+
+/* ── Service attendance (build-plan step 5) ──
+   Rows reuse the roster typography; the buttons reuse .dir-att-btn from
+   director.css with a personnel palette: Present is the positive mark
+   (green — per-service pay settles against services worked), Absent red,
+   Excused violet — NOT the student green, so an excused musician never
+   reads as present at a glance. */
+.dir-svc-att-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--dir-radius-sm);
+  border: none;
+  margin: 0 0 10px;
+}
+.dir-svc-att-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--dir-border);
+}
+.dir-svc-att-row:last-child { border-bottom: none; }
+.dir-svc-att-row .dir-roster-info { flex: 1; min-width: 0; }
+.dir-svc-att-btns { flex: 0 0 auto; width: 216px; }
+.dir-svc-att-btns .dir-att-btn { height: 34px; font-size: 12px; padding: 0 6px; }
+@media (max-width: 480px) {
+  .dir-svc-att-row { flex-wrap: wrap; }
+  .dir-svc-att-btns { width: 100%; }
+}
+.dir-att-btn.svc-present.active {
+  background: var(--dir-excused);
+  border-color: var(--dir-excused);
+  color: #fff;
+}
+.dir-att-btn.svc-absent.active {
+  background: var(--dir-absent);
+  border-color: var(--dir-absent);
+  color: #fff;
+}
+.dir-att-btn.svc-excused.active {
+  background: var(--dir-lesson);
+  border-color: var(--dir-lesson);
+  color: #fff;
+}
+.dir-att-btn.svc-present:not(.active):hover { border-color: var(--dir-excused); color: var(--dir-excused); }
+.dir-att-btn.svc-absent:not(.active):hover  { border-color: var(--dir-absent);  color: var(--dir-absent); }
+.dir-att-btn.svc-excused:not(.active):hover { border-color: var(--dir-lesson);  color: var(--dir-lesson); }

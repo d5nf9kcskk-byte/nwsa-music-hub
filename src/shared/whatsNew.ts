@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Service attendance (#personnel, AS build-plan step 5). Same build-time
+  // fold as the contracts entry below.
+  ...(__ORG_PERSONNEL__ ? [{
+    id: '2026-08-24-service-attendance',
+    date: '2026-08-24',
+    title: 'Attendance, taken per service',
+    audience: 'staff' as const,
+    expires: '2026-09-07',
+    bullets: [
+      'Personnel → Attendance: pick any called service — a rehearsal or a concert — and mark each musician Present, Absent, or Excused. Tap the same mark again to clear it.',
+      'Marks belong to the service, not the day, so a dress rehearsal and its concert on the same date each keep their own roll.',
+      'Every service’s roster comes from the ensembles on the calendar event, sub list included — a substitute contracted for named services shows up at exactly those.',
+    ],
+  }] : []),
   // Contract surfaces (#personnel, AS build-plan step 4). Folded out of
   // school builds at build time — never gate this on a runtime ORG read,
   // or the strings ship in every org's bundle.

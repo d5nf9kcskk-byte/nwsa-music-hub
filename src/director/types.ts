@@ -1106,3 +1106,41 @@ export interface Contract {
   updatedBy?: string;
   updatedByRole?: StaffRole;
 }
+
+/**
+ * Attendance at services, for the paid roster (#personnel — the AS
+ * build-plan Step 5 decision, Option B): a PARALLEL record keyed by
+ * `personnelId` + `eventId`, deliberately NOT an optional `personnelId` on
+ * `AttendanceRecord`. Step 1 gave the paid-roster collections a stricter
+ * rules tier (Owner/Director only) than `attendance` (which Personnel
+ * Assistants write), so sharing the student record would put paid-roster
+ * data under assistant-writable rules — the exact privacy-split leak the
+ * parallel type avoids.
+ *
+ * Two vocabulary differences from `AttendanceRecord`, both deliberate:
+ *   • `eventId` is REQUIRED. AS tracks attendance per SERVICE — a called
+ *     rehearsal or concert IS a `CalendarEvent` (as-demo-plan.md) — never
+ *     per day, so two services on one date stay independent records.
+ *   • 'Present' is an explicit status, where the student model is
+ *     exception-only (present = no record). Per-service contracts settle
+ *     pay against services actually worked (`Contract.baseRateQuantity`),
+ *     so presence is a positive fact worth a record; unmarked just means
+ *     roll hasn't reached that person yet.
+ */
+export type ServiceAttendanceStatus = 'Present' | 'Absent' | 'Excused';
+
+export interface ServiceAttendance {
+  /**
+   * ALWAYS `${eventId}__${personnelId}` — a deterministic id, enforced by
+   * firestore.rules (the calendarViews doc-id-matches-contents pattern), so
+   * one person can never hold two records for the same service.
+   */
+  id: string;
+  personnelId: string;
+  eventId: string;
+  status: ServiceAttendanceStatus;
+  /* ── Attribution: who last set/changed this mark ── */
+  updatedAt?: number;
+  updatedBy?: string;
+  updatedByRole?: StaffRole;
+}

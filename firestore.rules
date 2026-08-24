@@ -692,6 +692,44 @@ service cloud.firestore {
       allow delete: if isStaff();
     }
 
+    // Attendance at services for the paid roster (`ServiceAttendance` in
+    // types.ts) — the build-plan Step 5 collection, PARALLEL to the student
+    // `attendance` block above on purpose.
+    //
+    // Tier decision: Owner/Director ONLY (isStaff()), like every #personnel
+    // sibling — NOT the assistant-writable student attendance tier. Marks at
+    // services are what per-service contracts settle pay against
+    // (Contract.baseRateQuantity), which makes them pay-adjacent; keeping
+    // paid-roster data out of the assistant-writable rules is the reason
+    // Option B (a parallel collection) was chosen over widening
+    // AttendanceRecord. If a real Personnel Manager role ever needs to take
+    // roll without full director access, that is a deliberate
+    // isKnownRole()-style edit — a new role plus its own rules here — never
+    // a default widening.
+    //
+    // The doc id must equal `eventId + '__' + personnelId` (the calendarViews
+    // doc-id-matches-contents pattern): rules cannot enforce uniqueness by
+    // query, but a deterministic id makes a second record for the same
+    // person at the same service structurally impossible, and two services
+    // on the same day stay independent because the id carries the EVENT, not
+    // the date. No public mirror exists or may be added, and
+    // scripts/generate-feeds.mjs never reads this collection.
+    match /serviceAttendance/{doc} {
+      allow read: if isStaff();
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly([
+             'personnelId', 'eventId', 'status',
+             'updatedAt', 'updatedBy', 'updatedByRole',
+           ])
+        && request.resource.data.personnelId is string
+        && request.resource.data.eventId is string
+        && doc == request.resource.data.eventId + '__' + request.resource.data.personnelId
+        && request.resource.data.status in ['Present', 'Absent', 'Excused'];
+      // Clearing a mark back to "unmarked" IS the delete path (tapping the
+      // active status again) — plain staff delete, no lifecycle.
+      allow delete: if isStaff();
+    }
+
     // ── Director allowlist (stored as data) ─────────────
     // Owner-only management (#roles): only the Owner may add/remove a
     // director, change a role, or even list the roster — closes the gap
