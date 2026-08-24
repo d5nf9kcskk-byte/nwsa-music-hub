@@ -183,6 +183,23 @@ place: `isClassGroup()` / `isMasterClass()` / `performingEnsembles()` /
   prefix and is idempotent; `scripts/seed-masterclass.mjs` now sets `kind`.
 - "Whole Music Division" means `performingEnsembles`, not `musicEnsembles` —
   it must never sweep a theory section onto a concert.
+- **College is a FLAG, not a kind** — `Ensemble.collegeLevel?: boolean`
+  (dual-enrollment / Miami Dade College). `kind` decides BEHAVIOR (repertoire
+  vs. unit vs. performers); college-ness decides none of it — a college course
+  has the same roster, roll, units, and absence of repertoire as an in-house
+  one. A fourth kind would fork every `kind === 'class'` branch for zero
+  behavior difference. It is display + filtering only and never changes who may
+  read anything. Read it through `groupKindLabel()` in `src/director/utils.ts`,
+  the ONE spelling of "class" / "master class" / "college class" / "college
+  master class", so the director list and the public class list cannot drift.
+- **The public site splits ensembles from classes too** (as of this ship).
+  `PublicEnsembles`, `PublicDocuments`, and the `PublicLayout` nav use
+  `performingEnsembles()` / `classGroups()`; a class page leads with its
+  documents and renders no repertoire and no seating. Nothing here widened
+  what is world-readable — `documents` and `ensembles` are already
+  `allow read` in `firestore.rules` and were before this change. The remaining
+  `musicEnsembles()` calls on the public side are FILTER menus, where listing
+  every group is correct.
 - `scripts/../src/director/groupKind.selfcheck.ts` pins all of the above and
   runs in the deploy workflow.
 
@@ -203,6 +220,17 @@ Staff-only, never mirrored publicly: it is attendance-class data.
 Every field but `name` is optional on purpose, because the date, running
 order, and panel aren't settled until the juries are close. Do not grow this
 into a scheduler, a scoring system, or a rubric engine without a plan.
+
+`runningOrder.ts` is the only logic here, and it is deliberately list
+arithmetic rather than process: `appendInScoreOrder()` adds a whole roster at
+once (forty string players was forty typeahead searches) and
+`sortIntoScoreOrder()` re-sorts, both leaning on the ONE ranking table in
+`scoreOrder.ts`. Two promises it must keep, pinned by
+`runningOrder.selfcheck.ts` in the deploy workflow: a bulk add NEVER reshuffles
+an order the director already sequenced, and a sort loses nobody — an id whose
+student record is gone moves to the end rather than vanishing from a jury. No
+per-student slot times (that is the scheduler) and no marks or rubrics (that is
+the scoring system); every field stays optional.
 
 ## Sign-ups (Aug 2026)
 

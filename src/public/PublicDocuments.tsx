@@ -4,7 +4,7 @@ import './documents.css';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useDocuments } from '../director/hooks/useDocuments';
 import { useMinuteTick } from '../director/hooks/useAnnouncements';
-import { ensembleColor, ensembleDisplayName, musicEnsembles, isPublished } from '../director/utils';
+import { ensembleColor, ensembleDisplayName, musicEnsembles, performingEnsembles, classGroups, groupKindLabel, isPublished } from '../director/utils';
 import { DOC_CATEGORIES, DOC_CATEGORY_COLOR } from '../shared/docMeta';
 import { FilterMenu } from '../shared/FilterMenu';
 import { PubDocCard } from './components/PubDocCard';
@@ -13,9 +13,15 @@ import { t, useLang } from '../shared/i18n';
 
 /**
  * /documents — the public document library. Handbooks, syllabi, forms, and
- * other resources, grouped as "General documents" (school-wide) plus one
- * section per ensemble. Two multi-select filters narrow by ensemble and by
+ * other resources, grouped as "General documents" (school-wide), then one
+ * section per ensemble, then the CLASSES under their own heading (#classes) —
+ * a student hunting for the Music Theory syllabus should not have to read past
+ * the orchestras to find it. Two multi-select filters narrow by ensemble and by
  * document type (e.g. Symphony → Syllabus, or General → Handbook).
+ *
+ * Nothing here widens what is world-readable: `documents` and `ensembles` are
+ * already `allow read` in firestore.rules and always have been. This ship only
+ * changes how the already-public list is grouped and labelled.
  */
 export function PublicDocuments() {
   useLang();
@@ -38,12 +44,14 @@ export function PublicDocuments() {
   }), [documents, typeFilters, filterEnsembleIds, now]);
 
   const general = shown.filter(d => d.ensembleIds.length === 0);
-  const ensGroups = music
+  const groupsFor = (list: typeof music) => list
     .filter(e => filterEnsembleIds.length === 0 || filterEnsembleIds.includes(e.id))
     .map(e => ({ ens: e, docs: shown.filter(d => d.ensembleIds.includes(e.id)) }))
     .filter(g => g.docs.length > 0);
+  const ensGroups = groupsFor(performingEnsembles(music));
+  const classDocGroups = groupsFor(classGroups(music));
 
-  const nothing = !loading && general.length === 0 && ensGroups.length === 0;
+  const nothing = !loading && general.length === 0 && ensGroups.length === 0 && classDocGroups.length === 0;
   const filtering = filterEnsembleIds.length > 0 || typeFilters.length > 0;
 
   return (
@@ -91,6 +99,22 @@ export function PublicDocuments() {
           {ensGroups.map(({ ens, docs }) => (
             <div key={ens.id}>
               <div className="pub-doc-group-title">{ensembleDisplayName(ens)}</div>
+              <div className="pub-doc-list">
+                {docs.map(d => <PubDocCard key={d.id} doc={d} />)}
+              </div>
+            </div>
+          ))}
+          {classDocGroups.length > 0 && <div className="pub-doc-section-head">{t('docs.classes')}</div>}
+          {classDocGroups.map(({ ens, docs }) => (
+            <div key={ens.id}>
+              <div className="pub-doc-group-title">
+                {ensembleDisplayName(ens)}
+                {/* Under a "Classes" band, "class" says nothing — only the
+                    college and master-class distinctions earn the space. */}
+                {groupKindLabel(ens) !== 'class' && (
+                  <span className="pub-doc-kind">{groupKindLabel(ens)}</span>
+                )}
+              </div>
               <div className="pub-doc-list">
                 {docs.map(d => <PubDocCard key={d.id} doc={d} />)}
               </div>
