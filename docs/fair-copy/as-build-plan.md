@@ -343,6 +343,50 @@ avoids. NOTHING is built yet: the Step 3 screens don't render attendance
 rule the collection, rules, and hook land together when the first
 attendance-at-services surface does.
 
+**Built 2026-08-24 (this PR) — collection, rules, hook, and screen in one
+change, per the rule above.** What shipped:
+
+- `ServiceAttendance` in types.ts: `personnelId` + `eventId` (REQUIRED —
+  a service IS a CalendarEvent, and two services on one date stay
+  independent), status `Present | Absent | Excused`. 'Present' is explicit
+  where the student model is exception-only, because per-service contracts
+  settle pay against services worked. Doc id is ALWAYS
+  `${eventId}__${personnelId}`, enforced in rules (the calendarViews
+  id-matches-contents pattern), so a duplicate mark is structurally
+  impossible.
+- `/serviceAttendance` rules, written fresh in the #personnel section:
+  **Owner/Director only (`isStaff()`)**, like every #personnel sibling —
+  NOT the assistant-writable student tier, since marks are what per-service
+  pay settles against. Widening to a Personnel Manager role stays a
+  deliberate isKnownRole()-style edit. Exact key allowlist (student
+  vocabulary like `minutesLate` is unwritable), no public mirror,
+  generate-feeds.mjs untouched.
+- `useServiceAttendance(eventId)` — same `usePersonnelGate` as its
+  siblings (the rule is a role check, so the matching query is subscribing
+  only as that role; teachers/assistants render empty, no crashed
+  listener), `where('eventId'==…)` scoping, setDoc/deleteDoc on the
+  deterministic id (tap the active status again to clear).
+- `ServiceAttendanceSheet` off the PersonnelManager toolbar ("Attendance"):
+  service picker over a ±weeks event window, roster = active personnel
+  (sub list included) on the service's ensembles in score order, three-way
+  marks, marked/absent summary. What's New entry behind
+  `__ORG_PERSONNEL__` (the Step 4 fold).
+- Seed: `buildServiceAttendance()` — full roll at the two most recent past
+  Tuesday services (one Excused, one Absent last week) plus a partial roll
+  tonight, so the sheet opens onto live-looking data any demo day.
+
+Verified: 41-case emulator suite against the enforced rules (role tier
+incl. the assistant-denied case with a student-attendance control, id/shape
+guards, same-day independence, update/clear lifecycle, and every seeded doc
+replayed through an enforced create — Admin SDK writes bypass rules).
+`tsc -b` clean, lint at the 64-error baseline. NWSA gate: two no-`VITE_ORG`
+builds byte-identical (`[sw-precache]` 62b4f9cf twice — a new hash is
+expected, whatsNew.ts changed; identical twice is the gate), no
+asyo/Alpharetta/attendance/personnel string and no personnel chunk in the
+school dist; the `VITE_ORG=as` build carries the chunk, the sheet, and the
+What's New entry. NOT verified: nothing against live `as-hub-demo` — the
+seeder workflow is the only writer of demo data.
+
 ---
 
 ## Step 6 — Repertoire audit

@@ -1,6 +1,6 @@
 import './personnel.css';
 import { useState, useEffect, useMemo } from 'react';
-import { UserPlus, Users, Star, FileText } from 'lucide-react';
+import { UserPlus, Users, Star, FileText, ClipboardList } from 'lucide-react';
 import { deleteField } from 'firebase/firestore';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { usePersonnel } from '../hooks/usePersonnel';
@@ -15,6 +15,7 @@ import { PersonnelDetail } from './PersonnelDetail';
 import { ContractSheet } from './ContractSheet';
 import { ContractForm, type ContractDraftData } from './ContractForm';
 import { ContractTemplatesView } from './ContractTemplatesView';
+import { ServiceAttendanceSheet } from './ServiceAttendanceSheet';
 import type { Personnel, Contract } from '../types';
 
 /**
@@ -59,6 +60,7 @@ export default function PersonnelManager() {
   const [openContractId, setOpenContractId] = useState<string | null>(null);
   const [contractEdit, setContractEdit] = useState<{ person: Personnel; contract: Contract | null } | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [attendanceOpen, setAttendanceOpen] = useState(false);
   const openContract = openContractId != null
     ? contracts.find(c => c.id === openContractId) ?? null
     : null;
@@ -148,6 +150,9 @@ export default function PersonnelManager() {
             onChange={e => setSearch(e.target.value)}
           />
         )}
+        <button className="dir-tool-btn" onClick={() => setAttendanceOpen(true)}>
+          <ClipboardList size={15} /> Attendance
+        </button>
         <button className="dir-tool-btn" onClick={() => setTemplatesOpen(true)}>
           <FileText size={15} /> Contract templates
         </button>
@@ -250,6 +255,15 @@ export default function PersonnelManager() {
           templates={templates}
           onSave={saveContract}
           onClose={() => setContractEdit(null)}
+        />
+      )}
+
+      {/* Per-service roll (#personnel, build-plan step 5). */}
+      {attendanceOpen && (
+        <ServiceAttendanceSheet
+          personnel={personnel}
+          ensembles={ensembles}
+          onClose={() => setAttendanceOpen(false)}
         />
       )}
 

@@ -8,10 +8,9 @@
  * with the paid-roster collections in place of students: personnel (+
  * personnelContacts), contracts spanning every position category, the Step 4
  * starter contract templates, the real 2026-27 season concert dates,
- * repertoire, and announcements. NO students,
- * NO public mirrors (the paid roster has none by design — firestore.rules
- * #personnel), and NO attendance records (the ServiceAttendance model is
- * decided but not built — do not seed data no rule or type exists for).
+ * repertoire, announcements, and a little serviceAttendance at the recent
+ * services (build-plan step 5). NO students and NO public mirrors (the paid
+ * roster has none by design — firestore.rules #personnel).
  *
  * SAFETY: hard-aborts unless the service account's project is exactly
  * `as-hub-demo` — this script must be physically unable to touch the NWSA
@@ -533,6 +532,40 @@ const ANNOUNCEMENTS = [
   },
 ];
 
+// ── Service attendance (build-plan step 5) ─────────────────────────────────
+// Roll at the two most recent PAST Tuesday services plus tonight's, so the
+// Attendance sheet opens onto real-looking data any day the demo runs. Doc
+// ids are the rules-enforced `${eventId}__${personnelId}`; statuses come
+// from the /serviceAttendance allowlist (Present | Absent | Excused —
+// explicit Present, unlike student attendance, because per-service pay
+// settles against services worked). Same fictional people as above.
+function buildServiceAttendance() {
+  // Both strictly in the past for any run day (today included, on a Tuesday),
+  // and both dates buildEvents() seeded — same helper, same offsets.
+  const tueTwoWeeksAgo = isoOf(nextWeekday(2, -14));
+  const tueLastWeek = isoOf(nextWeekday(2, -7));
+  const mark = (eventId, personnelId, status) => ({
+    id: `${eventId}__${personnelId}`, personnelId, eventId, status,
+    updatedAt: NOW, updatedBy: 'Rufus Castellan', updatedByRole: 'director',
+  });
+  const fullService = (eventId, exceptions = {}) =>
+    // The playing roster (chairs + podium; staff take no roll), each Present
+    // unless the exceptions map says otherwise.
+    ['as-p01', 'as-p02', 'as-p03', 'as-p04', 'as-p05', 'as-p07']
+      .map(pid => mark(eventId, pid, exceptions[pid] ?? 'Present'));
+  return [
+    // Two weeks ago: everyone played.
+    ...fullService(`as-svc-tue-${tueTwoWeeksAgo}`),
+    // Last week: one excused (work travel), one no-show.
+    ...fullService(`as-svc-tue-${tueLastWeek}`, { 'as-p03': 'Excused', 'as-p04': 'Absent' }),
+    // Tonight's service: roll in progress — the strings are in, winds not
+    // marked yet, so the sheet demos the unmarked state too.
+    mark('as-today-service', 'as-p01', 'Present'),
+    mark('as-today-service', 'as-p02', 'Present'),
+    mark('as-today-service', 'as-p04', 'Absent'),
+  ];
+}
+
 const DOCUMENTS = [
   {
     id: 'as-doc-handbook', title: 'Musician Handbook 2026–27', category: 'Handbook',
@@ -568,12 +601,13 @@ const DOCUMENTS = [
   for (const t of CONTRACT_TEMPLATES) await put('contractTemplates', t);
   for (const p of PIECES) await put('repertoire', p);
   for (const ev of buildEvents()) await put('events', ev);
+  for (const sa of buildServiceAttendance()) await put('serviceAttendance', sa);
   for (const a of ANNOUNCEMENTS) await put('announcements', a);
   for (const doc of DOCUMENTS) await put('documents', doc);
 
   await batch.commit();
   console.log(`Seeded ${count} docs into ${DEMO_PROJECT_ID}:`);
   console.log(`  ${ENSEMBLES.length} ensembles, ${PERSONNEL.length} personnel (+${PERSONNEL_CONTACTS.length} contacts), ${CONTRACTS.length} contracts, ${CONTRACT_TEMPLATES.length} contract templates`);
-  console.log(`  ${PIECES.length} pieces, ${buildEvents().length} events, ${ANNOUNCEMENTS.length} announcements, ${DOCUMENTS.length} documents`);
+  console.log(`  ${PIECES.length} pieces, ${buildEvents().length} events, ${buildServiceAttendance().length} service-attendance marks, ${ANNOUNCEMENTS.length} announcements, ${DOCUMENTS.length} documents`);
   console.log(`Owner: ${OWNER_EMAIL} — sign in with THAT Google account, then add the AS staff from the Directors screen.`);
 })();
