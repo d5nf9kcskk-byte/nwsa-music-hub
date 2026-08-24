@@ -49,9 +49,12 @@ Read these before writing code. Each has already been paid for once.
 - **Demo people are fictional.** AS publishes real musician, board, and
   staff pages. None of it goes into seed data.
 - **Money is integer cents**, and the field name says `Cents`.
-- **Builds cannot run in a Linux agent sandbox** — `node_modules` holds
-  darwin-arm64 bindings only. Run them on the Mac via osascript
-  (`PATH=/opt/homebrew/bin:$PATH`), not in the sandbox.
+- **Builds DO run in a Linux agent sandbox** — after a fresh `npm ci`,
+  which installs linux bindings (verified with Step 3; the deploy
+  workflows build on Linux runners anyway). The old "cannot run" version
+  of this note was an artifact of a `node_modules` holding darwin-arm64
+  bindings. On the Mac, osascript with `PATH=/opt/homebrew/bin:$PATH`
+  still works too.
 
 ---
 
