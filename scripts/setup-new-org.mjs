@@ -473,6 +473,18 @@ async function ensureServiceAccountKey(tmpDir, secrets) {
   if (!saEmail) {
     fail(`the firebase-adminsdk service account never appeared in ${PROJECT_ID}. Open the console → Project settings → Service accounts once (that forces provisioning), then re-run this script.`);
   }
+
+  // In a CLI-created project the account's default role does NOT cover the
+  // Firebase Rules API, so deploy-rules.yml 403s against the new org (hit
+  // on as-hub-demo; console-created projects like asyo-hub-demo get this
+  // implicitly). Grant it explicitly — idempotent, and it needs a minute or
+  // two to propagate, which the workflow dispatch at the end comfortably
+  // outlasts.
+  run('gcloud', ['projects', 'add-iam-policy-binding', PROJECT_ID,
+    `--member=serviceAccount:${saEmail}`, '--role=roles/firebaserules.admin',
+    '--condition=None', '--format=none'], { quiet: true });
+  console.log(`  ✓ granted roles/firebaserules.admin to ${saEmail} (rules deploys)`);
+
   const keyPath = path.join(tmpDir, `${PROJECT_ID}-sa-key.json`);
   // A freshly provisioned account can be visible to `list` before the keys
   // API knows it (IAM propagation lag) — NOT_FOUND here is transient, so
