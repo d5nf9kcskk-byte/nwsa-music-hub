@@ -631,7 +631,7 @@ function RepertoireForm({
               <button className="dir-link-btn" onClick={addPartLink} type="button">+ Add</button>
             </div>
             {partsLinks.length === 0 ? (
-              <div className="dir-empty-inline">No per-instrument links yet. Students see their own part automatically when added.</div>
+              <div className="dir-empty-inline">No per-instrument links yet. Musicians see their own part automatically when added.</div>
             ) : (
               <div className="dir-parts-list">
                 {partsLinks.map((l, i) => (
