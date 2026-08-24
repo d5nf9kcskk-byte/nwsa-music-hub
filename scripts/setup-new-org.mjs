@@ -373,7 +373,10 @@ function ensureProject() {
 
 function ensureFirestore() {
   banner(`Firestore database (${LOCATION}, production mode)`);
-  mutate('enable the Firestore API', 'gcloud', ['services', 'enable', 'firestore.googleapis.com', `--project=${PROJECT_ID}`]);
+  // firebaserules.googleapis.com too: the console enables it implicitly on
+  // console-created projects, but a CLI-created project never gets it, and
+  // deploy-rules.yml then 403s against the new org (hit on as-hub-demo).
+  mutate('enable the Firestore API', 'gcloud', ['services', 'enable', 'firestore.googleapis.com', 'firebaserules.googleapis.com', `--project=${PROJECT_ID}`]);
   const list = DRY_RUN
     ? { stdout: '' }
     : run('gcloud', ['firestore', 'databases', 'list', `--project=${PROJECT_ID}`, '--format=value(name)'], { allowFail: true, quiet: true });
