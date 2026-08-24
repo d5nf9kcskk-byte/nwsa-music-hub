@@ -1,0 +1,35 @@
+name: Seed Academic Classes
+
+# Creates the NWSA academic music classes as class GROUPS (#classes) — AP
+# Theory, Jazz Theory, Music History, Theory 9th/10th, Vocal Lit, Vocal Forum —
+# so each has a roster, takes roll, and holds its own assignments and documents.
+#
+# Rosters come from src/director/classSchedule.ts, the same rules that already
+# put these classes on a student's personal schedule. AP Theory has no rule
+# there and is created empty on purpose.
+#
+# Idempotent — run dry first, read the log, then apply.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List what would change without writing anything'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - run: npm install firebase-admin --no-save
+      - name: Seed academic class groups in Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/seed-academic-classes.mjs ${{ inputs.dry_run && '--dry-run' || '' }}

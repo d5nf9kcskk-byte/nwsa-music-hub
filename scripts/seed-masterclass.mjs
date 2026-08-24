@@ -51,6 +51,9 @@ let ensCount = 0, stuCount = 0, evCreate = 0, evDelete = 0;
 for (const s of SECTIONS) {
   ensCount++;
   const doc = {
+    // A master class is a CLASS, not an ensemble (#classes): rosters and roll,
+    // but no repertoire library, no concerts, and its own list in the UI.
+    kind: 'masterclass',
     name: s.name, order: s.order, defaultLocation: s.room,
     defaultStartTime: '14:30', defaultEndTime: '15:45',
     meetingDays: [2],                       // Tue — informational only

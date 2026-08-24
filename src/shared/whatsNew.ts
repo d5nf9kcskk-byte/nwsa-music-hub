@@ -32,6 +32,51 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Applied Teacher role + lesson grades (#applied). Staff-only: the public
+  // site has no idea private lessons exist, let alone their grades.
+  {
+    id: '2026-08-24-applied-teacher-grades',
+    date: '2026-08-24',
+    title: 'Applied Teachers can grade their lessons',
+    audience: 'staff' as const,
+    expires: '2026-09-07',
+    bullets: [
+      'The “Teacher” access level is now called Applied Teacher — a private studio or instrument teacher (violin, cello, voice), not a classroom theory teacher. Nothing changed about who can sign in or what they can reach; only the name. A theory section is still taught by a Director.',
+      'Applied Teachers can now grade a lesson. Open a lesson that has already happened, pick a mark (A–F), and add a comment about what to practise. A mark on a lesson that has not happened yet is not offered.',
+      'Each of your students now shows a term grade next to their name — the average of their graded lessons, with how many of them you have marked so far. A cancelled lesson never counts against it.',
+      'Anything past and unmarked is flagged “Needs a grade”, with a count at the top of the screen, so nothing quietly goes unrecorded at the end of a term.',
+      'Directors: the Lessons screen shows the mark and its comment on every lesson, and the CSV export now carries both — that is the record for the Dean.',
+    ],
+  },
+  // Classes as their own thing, juries stub, school-day tardies (#classes,
+  // #juries, #tardies). Staff-only: none of it changes the public site.
+  {
+    id: '2026-08-24-classes-juries-tardies',
+    date: '2026-08-24',
+    title: 'Classes are their own thing now — plus juries and school-day tardies',
+    audience: 'staff' as const,
+    expires: '2026-09-07',
+    bullets: [
+      'Groups are now Ensembles or Classes. A class — Music Theory, Music Appreciation, a master class, a college course — gets a roster, roll, assignments, and documents, but no repertoire library and no seating chart, and it lists under its own “Classes” heading instead of sitting among the orchestras.',
+      'The four string master classes are classes now, not ensembles. A master class meeting picks who is playing and the pieces they are bringing; a theory meeting asks for the unit or chapter instead. Visiting college players can be added by name as guest performers — they get no record, no roster spot, and no attendance mark.',
+      'Any new calendar item can repeat weekly: tick the weekdays, pick an end date, and it tells you how many meetings it will create. Each one is a normal event afterward, editable or cancellable on its own.',
+      'Late to SCHOOL is no longer the same thing as late to class. The office bulletin’s tardies used to mark a student Late in every one of their ensembles; now they show as a “Late to school” chip next to the name on Take Roll, and your own marks are yours alone.',
+      'New Juries screen — a place to start organizing while the details are still moving. A name is enough to create one; add the date, room, panel, and running order whenever each gets decided.',
+      'Owner: you can edit your own name on the Directors list now, from the same pencil as everyone else. Your access level stays Owner.',
+    ],
+  },
+  // What's New itself became one roll-up at the bottom of Today.
+  {
+    id: '2026-08-24-whats-new-rollup',
+    date: '2026-08-24',
+    title: 'What’s new, rolled up in one place',
+    audience: 'both' as const,
+    expires: '2026-09-07',
+    bullets: [
+      'Updates no longer stack as separate cards across the app — there is one “What’s new” line at the bottom of Today, showing the most recent date.',
+      'Open it to read everything you haven’t seen yet, each item dated with the day it shipped. Dismissing marks the whole list as seen.',
+    ],
+  },
   // Service attendance (#personnel, AS build-plan step 5). Same build-time
   // fold as the contracts entry below.
   ...(__ORG_PERSONNEL__ ? [{

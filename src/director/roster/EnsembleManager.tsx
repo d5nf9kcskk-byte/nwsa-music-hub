@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ChevronUp, ChevronDown, ChevronLeft, Pencil, Plus, CalendarDays } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
-import { ensembleColor, ENSEMBLE_PALETTE, toDateStr, parseDate } from '../utils';
+import { ensembleColor, ENSEMBLE_PALETTE, toDateStr, parseDate, WEEKDAY_LABELS, isClassGroup } from '../utils';
 import { useModalA11y } from '../../shared/useModalA11y';
 import type { Ensemble } from '../types';
 import { whenQueued } from '../writeStatus';
@@ -89,7 +89,7 @@ export function EnsembleManager({ onClose, startNew, onCreated }: Props) {
               <button className="dir-icon-btn" disabled={i === ensembles.length - 1} onClick={() => move(e, 1)} aria-label="Move down">
                 <ChevronDown size={18} />
               </button>
-              <button className="dir-icon-btn" onClick={() => setGenerating(e)} aria-label="Generate rehearsals" title="Generate rehearsals">
+              <button className="dir-icon-btn" onClick={() => setGenerating(e)} aria-label="Generate meetings" title="Generate meetings">
                 <CalendarDays size={16} />
               </button>
               <button className="dir-icon-btn" onClick={() => setEditing(e)} aria-label="Edit">
@@ -125,6 +125,8 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
   const [location, setLocation] = useState(ensemble?.defaultLocation ?? '');
   const [startTime, setStartTime] = useState(ensemble?.defaultStartTime ?? '');
   const [endTime, setEndTime] = useState(ensemble?.defaultEndTime ?? '');
+  const [kind, setKind] = useState<NonNullable<Ensemble['kind']>>(ensemble?.kind ?? 'ensemble');
+  const [collegeLevel, setCollegeLevel] = useState(!!ensemble?.collegeLevel);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const panelRef = useModalA11y<HTMLDivElement>(onBack, true, { closeOnBack: true });
@@ -137,6 +139,10 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
         name: name.trim(),
         nameEs: nameEs.trim() || undefined,
         conductorName: conductorName.trim() || undefined,
+        kind,
+        // Only a class can be college-level; clearing it on an ensemble keeps
+        // a group that was switched back from being quietly flagged forever.
+        collegeLevel: kind !== 'ensemble' && collegeLevel ? true : undefined,
         order: ensemble?.order ?? nextOrder,
         color: color || undefined,
         defaultLocation: location || undefined,
@@ -167,13 +173,41 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
-          <span className="dir-drawer-title">{ensemble ? 'Edit Ensemble' : 'New Ensemble'}</span>
+          <span className="dir-drawer-title">{ensemble ? 'Edit Group' : 'New Group'}</span>
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
         <div className="dir-drawer-body">
           <div className="dir-field">
             <label className="dir-label">Name *</label>
             <input className="dir-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Jazz Ensemble" />
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">What kind of group</label>
+            <div className="dir-segment">
+              <button type="button" className={`dir-segment-btn ${kind === 'ensemble' ? 'active' : ''}`} onClick={() => setKind('ensemble')}>
+                Ensemble
+              </button>
+              <button type="button" className={`dir-segment-btn ${kind === 'class' ? 'active' : ''}`} onClick={() => setKind('class')}>
+                Class
+              </button>
+              <button type="button" className={`dir-segment-btn ${kind === 'masterclass' ? 'active' : ''}`} onClick={() => setKind('masterclass')}>
+                Master class
+              </button>
+            </div>
+            <div className="dir-field-hint">
+              {kind === 'ensemble'
+                ? 'Rehearses and performs — repertoire, concerts, the public ensembles list.'
+                : kind === 'class'
+                  ? 'Meets, has a roster, and takes roll. Covers units and chapters instead of repertoire, and never lands on a concert.'
+                  : 'A class the students play in: each meeting picks who performs and what they bring. Rosters and roll, but no concerts.'}
+            </div>
+            {kind !== 'ensemble' && (
+              <label className="dir-checkbox-row" style={{ marginTop: 8 }}>
+                <input type="checkbox" checked={collegeLevel} onChange={e => setCollegeLevel(e.target.checked)} />
+                <span>College class <span className="dir-label-hint">dual enrollment rather than high school</span></span>
+              </label>
+            )}
           </div>
 
           <div className="dir-field">
@@ -246,7 +280,6 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
 
 // ─── Rehearsal generator ─────────────────────────────────────
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 import type { CalendarEvent } from '../types';
 
@@ -264,6 +297,11 @@ function GenerateRehearsalsForm({ ensemble, onGenerate, onBack, onClose }: {
   const [endTime, setEndTime] = useState(ensemble.defaultEndTime ?? '');
   const [location, setLocation] = useState(ensemble.defaultLocation ?? '');
   const [saving, setSaving] = useState(false);
+
+  // A class generates meetings, an ensemble generates rehearsals — same form,
+  // one noun so the labels never claim Music Theory is rehearsing.
+  const noun = isClassGroup(ensemble) ? 'meeting' : 'rehearsal';
+  const Noun = isClassGroup(ensemble) ? 'Meetings' : 'Rehearsals';
 
   function toggleDay(d: number) {
     setDays(ds => ds.includes(d) ? ds.filter(x => x !== d) : [...ds, d]);
@@ -289,7 +327,10 @@ function GenerateRehearsalsForm({ ensemble, onGenerate, onBack, onClose }: {
     setSaving(true);
     try {
       const events: Omit<CalendarEvent, 'id'>[] = preview.map(date => ({
-        type: 'Rehearsal',
+        // A class meets, it doesn't rehearse (#classes) — generating
+        // 'Rehearsal' rows for Music Theory put it in rehearsal filters and
+        // on the "next rehearsal" line of every class.
+        type: isClassGroup(ensemble) ? 'Class' : 'Rehearsal',
         ensembleIds: [ensemble.id],
         date,
         startTime: startTime || undefined,
@@ -309,7 +350,7 @@ function GenerateRehearsalsForm({ ensemble, onGenerate, onBack, onClose }: {
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
-          <span className="dir-drawer-title">Generate Rehearsals · {ensemble.name}</span>
+          <span className="dir-drawer-title">Generate {Noun} · {ensemble.name}</span>
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
         <div className="dir-drawer-body">
@@ -327,7 +368,7 @@ function GenerateRehearsalsForm({ ensemble, onGenerate, onBack, onClose }: {
           <div className="dir-field">
             <label className="dir-label">Rehearsal days *</label>
             <div className="dir-day-row">
-              {DAY_NAMES.map((name, d) => (
+              {WEEKDAY_LABELS.map((name, d) => (
                 <button
                   key={d} type="button"
                   className={`dir-day-btn ${days.includes(d) ? 'active' : ''}`}
@@ -357,7 +398,7 @@ function GenerateRehearsalsForm({ ensemble, onGenerate, onBack, onClose }: {
 
           {preview.length > 0 && (
             <div className="dir-gen-preview">
-              <div className="dir-gen-preview-count">{preview.length} rehearsals will be created</div>
+              <div className="dir-gen-preview-count">{preview.length} {noun}{preview.length === 1 ? '' : 's'} will be created</div>
               <div className="dir-gen-preview-dates">
                 {preview.slice(0, 6).map(d => (
                   <span key={d} className="dir-gen-preview-date">
@@ -370,7 +411,7 @@ function GenerateRehearsalsForm({ ensemble, onGenerate, onBack, onClose }: {
           )}
 
           {fromDate && toDate && days.length > 0 && preview.length === 0 && (
-            <div className="dir-empty-inline">No rehearsals fall on the selected days in this range.</div>
+            <div className="dir-empty-inline">No {noun}s fall on the selected days in this range.</div>
           )}
         </div>
         <div className="dir-drawer-footer">
@@ -380,7 +421,7 @@ function GenerateRehearsalsForm({ ensemble, onGenerate, onBack, onClose }: {
             onClick={handleGenerate}
             disabled={saving || preview.length === 0}
           >
-            {saving ? 'Generating…' : `Generate ${preview.length > 0 ? preview.length : ''} Rehearsals`}
+            {saving ? 'Generating…' : `Generate ${preview.length > 0 ? preview.length : ''} ${Noun}`}
           </button>
         </div>
       </div>

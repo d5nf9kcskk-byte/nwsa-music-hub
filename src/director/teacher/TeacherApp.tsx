@@ -10,9 +10,10 @@ import { MyLessonsView } from './MyLessonsView';
 import { ORG } from '../../org';
 
 /**
- * The whole app, for a Teacher-role sign-in (#roles). Deliberately NOT the
- * full DirectorApp shell — a private-lesson teacher gets exactly one screen
- * (their own students + their own lessons), nothing else in the Hub.
+ * The whole app, for an Applied Teacher sign-in (#roles, #applied — stored
+ * role value 'teacher'). Deliberately NOT the full DirectorApp shell — a
+ * private studio teacher gets exactly one screen (their own students, their
+ * own lessons, and the grades on those lessons), nothing else in the Hub.
  * DirectorApp owns the single AuthGate and branches to this by role once
  * signed in, so `user`/`signOut` come in as props rather than a second
  * nested auth flow.
@@ -24,8 +25,8 @@ export function TeacherApp({ user, signOut }: { user: User; signOut: () => void 
     <div className="dir-app">
       <div className="dir-panel-banner no-print" role="note">
         <span className="dir-panel-banner-dot" />
-        <span>Teacher Panel</span>
-        <span className="dir-panel-banner-sub">· private lessons only</span>
+        <span>Applied Teacher</span>
+        <span className="dir-panel-banner-sub">· your students' lessons and grades</span>
       </div>
 
       <header className="dir-header">
@@ -36,7 +37,7 @@ export function TeacherApp({ user, signOut }: { user: User; signOut: () => void 
           <div>
             <div className="dir-header-title">My Lessons</div>
             <div className="dir-header-sub">
-              <span className="dir-panel-tag">Teacher Panel</span> {user.displayName ?? ORG.appName}
+              <span className="dir-panel-tag">Applied Teacher</span> {user.displayName ?? ORG.appName}
             </div>
           </div>
         </div>

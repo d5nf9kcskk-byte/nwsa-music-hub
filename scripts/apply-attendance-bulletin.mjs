@@ -30,6 +30,7 @@ import {
   parseAttendanceBulletinText,
   matchBulletinRows,
   mergeBulletinMarks,
+  schoolDayTardyRows,
 } from './lib/attendanceBulletinParse.mjs';
 
 const DRY_RUN = !/^(0|false|no)$/i.test(String(process.env.DRY_RUN ?? 'true').trim() || 'true');
@@ -107,6 +108,9 @@ console.log(`Matched music: ${matched.length}; ambiguous: ${ambiguous.length}; i
 // per student/ensemble/day — so collapse BEFORE writing, or the last row
 // processed wins by accident. Most severe wins; reasons are preserved.
 const marks = mergeBulletinMarks(matched, date);
+// School-day tardies ride the same pull but are NOT attendance (#tardies):
+// late to school is a fact about the day, not about any one class.
+const tardies = schoolDayTardyRows(matched, date);
 if (marks.length !== matched.length && !CI) {
   console.log(`Collapsed ${matched.length} rows into ${marks.length} student-day marks.`);
 }
@@ -115,6 +119,9 @@ if (DRY_RUN) {
   if (!CI) {
     for (const { student, date: markDate, status, reason } of marks) {
       console.log(`  would mark ${student.name} (${student.id}) [${markDate}] → ${status} · ${reason}`);
+    }
+    for (const { student, date: tDate, time } of tardies) {
+      console.log(`  would record school-day tardy for ${student.name} [${tDate}]${time ? ` at ${time}` : ''}`);
     }
     for (const { row, candidates } of ambiguous) {
       console.log(`  ambiguous ${row.rawName} → ${candidates.map(c => c.name).join(' | ')}`);
@@ -175,6 +182,22 @@ for (const { student, date: markDate, status, reason } of marks) {
   }
 }
 
+// School-day tardies. The doc id is studentId_date, so re-running today's
+// bulletin (the workflow runs more than once a day) updates the same record
+// instead of stacking duplicates.
+let tardyCount = 0;
+for (const { student, date: tDate, time } of tardies) {
+  await db.collection('schoolDayTardies').doc(`${student.id}_${tDate}`).set({
+    studentId: student.id,
+    studentName: student.name,
+    date: tDate,
+    time: time ?? null,
+    source: 'office',
+    updatedAt: Date.now(),
+  }, { merge: true });
+  tardyCount += 1;
+}
+
 // Replace pending queue rows for EVERY date this bulletin touches. A row can
 // carry a prior day's date (a late EXCUSED EARLY update), so clearing only the
 // bulletin's own date would leave those rows to pile up run after run — the
@@ -202,4 +225,5 @@ for (const { row, candidates } of ambiguous) {
   });
 }
 
-console.log(`Wrote ${wrote} attendance docs; skipped ${skippedDirector} director marks; queued ${ambiguous.length} ambiguous.`);
+console.log(`Wrote ${wrote} attendance docs; ${tardyCount} school-day tardies; ` +
+  `skipped ${skippedDirector} director marks; queued ${ambiguous.length} ambiguous.`);

@@ -10,6 +10,7 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useLessons } from '../hooks/useLessons';
 import { findLessonConflicts } from '../lessonConflicts';
+import { LESSON_MARKS, gradeSummary, isLessonMark, needsGrade } from '../lessonGrades';
 import { todayStr, parseDate, formatTimeRange } from '../utils';
 import type { Lesson, Student } from '../types';
 import { whenQueued } from '../writeStatus';
@@ -19,11 +20,14 @@ import { whenQueued } from '../writeStatus';
 const EMPTY_IDS: string[] = [];
 
 /**
- * The Teacher's entire world (#roles): who they're assigned to teach, and
- * the private lessons they've scheduled for those students. A Teacher can
- * adjust their own assigned-student list (firestore.rules allows a director
- * to self-edit ONLY that field), but every other collection in the Hub stays
- * out of reach.
+ * The Applied Teacher's entire world (#roles, #applied): who they're assigned
+ * to teach, the private lessons they've scheduled for those students, and the
+ * grade on each of those lessons. An Applied Teacher can adjust their own
+ * assigned-student list (firestore.rules allows a director to self-edit ONLY
+ * that field), but every other collection in the Hub stays out of reach.
+ *
+ * Grades need no scoping of their own: they live on the lesson doc, and the
+ * lesson is already the thing the rules scope to this teacher.
  */
 export function MyLessonsView() {
   const me = useCurrentDirector();
@@ -54,6 +58,15 @@ export function MyLessonsView() {
   const today = todayStr();
   const upcoming = myLessons.filter(l => l.date >= today);
   const past = myLessons.filter(l => l.date < today);
+  const ungraded = myLessons.filter(l => needsGrade(l, today));
+
+  // Term grade per assigned student, from that student's own lessons. Not
+  // memoized: it is a handful of students over a handful of lessons, and
+  // myLessons is sorted in place above, which the React Compiler (rightly)
+  // refuses to memoize across.
+  const summaries = Object.fromEntries(
+    assignedStudents.map(s => [s.id, gradeSummary(myLessons.filter(l => l.studentId === s.id), today)]),
+  );
 
   async function saveAssignedStudents(ids: string[]) {
     if (!db || !me) return;
@@ -74,6 +87,14 @@ export function MyLessonsView() {
     let lessonId: string | undefined;
     if (existing) {
       await updateLesson(existing.id, data);
+      // Firestore is initialized with ignoreUndefinedProperties, so an
+      // undefined field on an update is DROPPED, not cleared — clearing a
+      // grade the teacher set by mistake needs an explicit deleteField, the
+      // same dance overrideId does above.
+      const cleared: Record<string, unknown> = {};
+      if (!data.grade && existing.grade) cleared.grade = deleteField();
+      if (!data.gradeNote && existing.gradeNote) cleared.gradeNote = deleteField();
+      if (db && Object.keys(cleared).length > 0) await updateDoc(doc(db, 'lessons', existing.id), cleared);
       lessonId = existing.id;
     } else {
       lessonId = await addLesson(data);
@@ -108,9 +129,9 @@ export function MyLessonsView() {
   return (
     <div className="dir-tab-page">
       <div className="dir-page-hint" style={{ marginTop: 4 }}>
-        Logging lessons here is encouraged (not required yet). It trains the habit for
-        when the Dean uses these records for lesson tracking and pay. Date, times,
-        student, instrument, location, and notes matter; grades come later.
+        Log each lesson you give, then grade it once it's happened. Date, times,
+        student, location, and notes are the record the Dean uses for lesson
+        tracking and pay; the grade is what turns that record into a term mark.
       </div>
 
       {/* My students */}
@@ -122,11 +143,15 @@ export function MyLessonsView() {
         </div>
       ) : (
         <div className="dir-checkbox-group" style={{ padding: '0 16px 4px' }}>
-          {assignedStudents.map(s => (
-            <span key={s.id} className="dir-checkbox-tag checked" style={{ cursor: 'default' }}>
-              {s.name}{s.instrument ? ` — ${s.instrument}` : ''}
-            </span>
-          ))}
+          {assignedStudents.map(s => {
+            const g = summaries[s.id];
+            return (
+              <span key={s.id} className="dir-checkbox-tag checked" style={{ cursor: 'default' }}>
+                {s.name}{s.instrument ? ` — ${s.instrument}` : ''}
+                {g ? ` · ${g.letter} (${g.average.toFixed(2)}, ${g.graded} of ${g.gradable} graded)` : ' · not graded yet'}
+              </span>
+            );
+          })}
         </div>
       )}
       <div style={{ padding: '4px 16px 14px' }}>
@@ -136,6 +161,12 @@ export function MyLessonsView() {
       </div>
 
       {/* My lessons */}
+      {ungraded.length > 0 && (
+        <div className="dir-page-hint" style={{ marginTop: 4 }}>
+          {ungraded.length} lesson{ungraded.length === 1 ? '' : 's'} still {ungraded.length === 1 ? 'needs' : 'need'} a grade —
+          open one below and pick a mark.
+        </div>
+      )}
       <div className="dir-form-section-label">Upcoming lessons ({upcoming.length})</div>
       {upcoming.length === 0 ? (
         <div className="dir-empty-inline">No lessons scheduled. Tap “New lesson” to add one.</div>
@@ -144,6 +175,7 @@ export function MyLessonsView() {
           <LessonRow
             key={l.id}
             lesson={l}
+            today={today}
             student={studentsById[l.studentId]}
             confirming={confirmDeleteLesson === l.id}
             onEdit={() => setEditingLesson(l)}
@@ -161,6 +193,7 @@ export function MyLessonsView() {
             <LessonRow
               key={l.id}
               lesson={l}
+              today={today}
               student={studentsById[l.studentId]}
               confirming={confirmDeleteLesson === l.id}
               onEdit={() => setEditingLesson(l)}
@@ -203,8 +236,9 @@ export function MyLessonsView() {
   );
 }
 
-function LessonRow({ lesson, student, confirming, onEdit, onDeleteRequest, onDeleteCancel, onDeleteConfirm }: {
+function LessonRow({ lesson, today, student, confirming, onEdit, onDeleteRequest, onDeleteCancel, onDeleteConfirm }: {
   lesson: Lesson;
+  today: string;
   student?: Student;
   confirming: boolean;
   onEdit: () => void;
@@ -219,11 +253,14 @@ function LessonRow({ lesson, student, confirming, onEdit, onDeleteRequest, onDel
         <div className="dir-ens-name">
           {student?.name ?? 'Unknown student'}
           {lesson.status === 'Cancelled' && <span className="dir-status-badge absent" style={{ marginLeft: 8 }}>Cancelled</span>}
+          {isLessonMark(lesson.grade) && <span className="dir-status-badge" style={{ marginLeft: 8 }}>Grade {lesson.grade}</span>}
+          {needsGrade(lesson, today) && <span className="dir-status-badge absent" style={{ marginLeft: 8 }}>Needs a grade</span>}
         </div>
         <div className="dir-ens-sub">
           {parseDate(lesson.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {formatTimeRange(lesson.startTime, lesson.endTime)}
           {lesson.location ? ` · ${lesson.location}` : ''}
         </div>
+        {lesson.gradeNote && <div className="dir-ens-sub">{lesson.gradeNote}</div>}
         {lesson.conflict && (
           <div className="dir-ens-sub" style={{ color: 'var(--dir-danger)' }}>
             <AlertTriangle size={11} style={{ verticalAlign: '-1px' }} /> Conflicts with {lesson.conflict.eventLabel} — confirmed
@@ -323,6 +360,8 @@ function LessonForm({
   const [endTime, setEndTime] = useState(lesson?.endTime ?? '15:30');
   const [location, setLocation] = useState(lesson?.location ?? '');
   const [notes, setNotes] = useState(lesson?.notes ?? '');
+  const [grade, setGrade] = useState(isLessonMark(lesson?.grade) ? lesson!.grade! : '');
+  const [gradeNote, setGradeNote] = useState(lesson?.gradeNote ?? '');
   // A previously-acknowledged conflict starts pre-checked (re-opening an
   // unchanged lesson shouldn't re-block on the same conflict); ANY change to
   // a field that affects conflict detection resets the ack, since it may now
@@ -357,6 +396,8 @@ function LessonForm({
         teacherEmail, teacherName, studentId, date, startTime, endTime,
         location: location.trim() || undefined,
         notes: notes.trim() || undefined,
+        grade: grade || undefined,
+        gradeNote: grade ? gradeNote.trim() || undefined : undefined,
         status: lesson?.status ?? 'Scheduled',
         conflict: hasConflict && ackConflict && primary ? {
           eventId: primary.event.id,
@@ -414,6 +455,32 @@ function LessonForm({
             <label className="dir-label">Notes</label>
             <input className="dir-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional" />
           </div>
+
+          {/* Grading (#applied). Offered only once the lesson has happened —
+              a mark on a lesson nobody has given yet is not a grade. */}
+          {date <= todayStr() && (
+            <>
+              <div className="dir-form-section-label" style={{ paddingLeft: 0 }}>Lesson grade</div>
+              <div className="dir-field">
+                <label className="dir-label">Mark</label>
+                <select className="dir-select" value={grade} onChange={e => setGrade(e.target.value)}>
+                  <option value="">Not graded yet</option>
+                  {LESSON_MARKS.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              {grade && (
+                <div className="dir-field">
+                  <label className="dir-label">Comment</label>
+                  <input
+                    className="dir-input"
+                    value={gradeNote}
+                    onChange={e => setGradeNote(e.target.value)}
+                    placeholder="What to practise, what improved — optional"
+                  />
+                </div>
+              )}
+            </>
+          )}
 
           {hasConflict && (
             <div className="dir-conflict-banner">

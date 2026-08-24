@@ -8,6 +8,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { musicEnsembles } from '../utils';
+import { STAFF_ROLE_LABEL } from '../types';
 import { whenQueued } from '../writeStatus';
 
 /** Human-readable label for each logged action slug. Falls back to the raw
@@ -40,7 +41,9 @@ interface Props {
 // Deliberately loose — just enough to catch typos, not to police valid addresses.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const ROLE_LABEL: Record<DirectorRole, string> = { owner: 'Owner', director: 'Director', teacher: 'Teacher', assistant: 'Personnel Assistant' };
+// The words for each role live in types.ts (STAFF_ROLE_LABEL) so the Applied
+// Teacher rename is one edit, not a grep. The stored value stays 'teacher'.
+const ROLE_LABEL = STAFF_ROLE_LABEL;
 const ROLE_ICON: Record<DirectorRole, typeof ShieldCheck> = { owner: ShieldCheck, director: UserCog, teacher: GraduationCap, assistant: ClipboardList };
 
 /**
@@ -104,9 +107,10 @@ export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) 
         <div className="dir-drawer-body">
           <p className="dir-loc-hint" style={{ marginTop: 0 }}>
             Only you (the Owner) can see or change this list. Directors get full
-            edit access everywhere except here; Teachers can only schedule
-            private lessons for the students assigned to them; Personnel
-            Assistants can only take roll for the ensembles assigned to them.
+            edit access everywhere except here; Applied Teachers — private
+            studio/instrument teachers — can only schedule and grade lessons
+            for the students assigned to them; Personnel Assistants can only
+            take roll for the ensembles assigned to them.
           </p>
 
           {loading && directors.length === 0 && <div className="dir-loc-empty">Loading…</div>}
@@ -142,11 +146,9 @@ export function DirectorsManager({ currentEmail, currentRole, onClose }: Props) 
                     </div>
                   ) : (
                     <div style={{ display: 'flex', gap: 4 }}>
-                      {role !== 'owner' && (
-                        <button className="dir-icon-btn" onClick={() => setEditingEmail(d.email)} aria-label={`Edit ${d.email}`}>
-                          <Pencil size={15} />
-                        </button>
-                      )}
+                      <button className="dir-icon-btn" onClick={() => setEditingEmail(d.email)} aria-label={`Edit ${d.email}`}>
+                        <Pencil size={15} />
+                      </button>
                       <button
                         className="dir-icon-btn"
                         onClick={() => setConfirmRemove(d.email)}
@@ -302,7 +304,7 @@ function ActivityHistory() {
   );
 }
 
-/** Add/edit form: email (add only) + name + role + (Teacher) instruments &
+/** Add/edit form: email (add only) + name + role + (Applied Teacher) instruments &
  *  assigned students + (Personnel Assistant) assigned ensembles. One shared
  *  shape so adding and editing stay consistent. */
 function DirectorEditor({ director, onSave, onClose, existingEmails }: {
@@ -315,6 +317,11 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
   const { ensembles } = useEnsembles();
   const [email, setEmail] = useState(director?.email ?? '');
   const [name, setName] = useState(director?.name ?? '');
+  // The Owner can edit their own row (the name in every list comes from their
+  // Google account and read oddly next to everyone else's), but the access
+  // level is not editable here for anyone: 'owner' is assigned out-of-band so
+  // the app can never end up with two owners or none.
+  const isOwnerRow = director?.role === 'owner';
   const [role, setRole] = useState<Exclude<DirectorRole, 'owner'>>(
     director?.role === 'teacher' || director?.role === 'assistant' ? director.role : 'director',
   );
@@ -358,7 +365,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
       await whenQueued(onSave({
         email: id,
         name: name.trim() || undefined,
-        role,
+        ...(isOwnerRow ? {} : { role }),
         instruments: role === 'teacher'
           ? instruments.split(',').map(s => s.trim()).filter(Boolean)
           : undefined,
@@ -384,6 +391,16 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
         <label className="dir-label">Name</label>
         <input className="dir-input" value={name} placeholder="First captured automatically when they sign in" onChange={e => setName(e.target.value)} />
       </div>
+      {isOwnerRow ? (
+        <div className="dir-field">
+          <label className="dir-label">Access level</label>
+          <div className="dir-field-hint">
+            <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} /> Owner — assigned outside the app,
+            so there is never more than one by accident. Your name above is what shows on this list and
+            on everything you change.
+          </div>
+        </div>
+      ) : (
       <div className="dir-field">
         <label className="dir-label">Access level</label>
         <div className="dir-segment">
@@ -391,7 +408,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
             <UserCog size={14} /> Director
           </button>
           <button type="button" className={`dir-segment-btn ${role === 'teacher' ? 'active' : ''}`} onClick={() => setRole('teacher')}>
-            <GraduationCap size={14} /> Teacher
+            <GraduationCap size={14} /> Applied Teacher
           </button>
           <button type="button" className={`dir-segment-btn ${role === 'assistant' ? 'active' : ''}`} onClick={() => setRole('assistant')}>
             <ClipboardList size={14} /> Personnel Asst.
@@ -401,10 +418,11 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
           {role === 'director'
             ? 'Full edit access everywhere except this Directors screen.'
             : role === 'teacher'
-              ? 'Can only schedule private lessons for the students assigned below — nothing else in the Hub.'
+              ? 'A private studio/instrument teacher (violin, cello, voice…). Can only schedule and grade private lessons for the students assigned below — nothing else in the Hub. Not for a classroom theory teacher; that is a Director.'
               : 'Can only take roll (attendance) for the ensembles selected below — nothing else in the Hub. Every mark they make is labelled with their name on the director side.'}
         </div>
       </div>
+      )}
 
       {role === 'assistant' && (
         <div className="dir-field">
@@ -448,7 +466,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
               {filteredStudents.length === 0 && <div className="dir-loc-empty">No students match.</div>}
             </div>
             <div className="dir-field-hint">
-              The teacher can adjust this list themselves later from their own lesson screen.
+              The applied teacher can adjust this list themselves later from their own lesson screen.
             </div>
           </div>
         </>

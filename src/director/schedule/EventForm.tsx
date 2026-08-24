@@ -5,7 +5,7 @@ import { useEvents } from '../hooks/useEvents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster } from '../rosterResolver';
-import { EVENT_TYPES, TIME_BLOCKS, musicEnsembles, parseDate } from '../utils';
+import { EVENT_TYPES, TIME_BLOCKS, performingEnsembles, classGroups, isClassGroup, isMasterClass, parseDate, toDateStr, WEEKDAY_LABELS } from '../utils';
 import { PiecePicker } from '../repertoire/PiecePicker';
 import { RichTextArea } from '../components/RichTextArea';
 import { EditedByLine } from '../components/EditedByLine';
@@ -130,6 +130,16 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   }, [students, overrides, form.ensembleIds, form.attendanceEnsembleIds, form.studentIds, form.attendanceStudentIds, form.date, event?.id, liveEvents]);
 
   const [performerQuery, setPerformerQuery] = useState('');
+  const [guestQuery, setGuestQuery] = useState('');
+  // Weekly repeat (#classes) — NEW events only. Editing one meeting of a
+  // series edits that meeting; there is no series object to re-expand, which
+  // is the deliberately cheap version of recurrence: N plain docs, each with
+  // its own id, so every existing reader (feeds, roll, ICS UIDs derived from
+  // doc ids) works with zero changes.
+  // ponytail: no series link — "change every Tuesday at once" means re-running
+  // this form; add a seriesId if bulk edits become the common case.
+  const [repeatDays, setRepeatDays] = useState<number[]>([]);
+  const [repeatUntil, setRepeatUntil] = useState('');
   const [audienceQuery, setAudienceQuery] = useState('');
   const activeStudents = useMemo(
     () => students.filter(s => s.status === 'Active').sort((a, b) => a.name.localeCompare(b.name)),
@@ -221,7 +231,10 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   // toggle adds/removes just the music ensembles instead of checking each one
   // by hand. Additive: it never touches a division checkbox the director
   // already picked.
-  const musicIds = useMemo(() => musicEnsembles(ensembles).map(e => e.id), [ensembles]);
+  // performingEnsembles, not musicEnsembles: classes (theory, master classes)
+  // are music groups too, but "the whole music division is called" never means
+  // "and also every theory section" — that would put a master class on a concert.
+  const musicIds = useMemo(() => performingEnsembles(ensembles).map(e => e.id), [ensembles]);
   const allMusicSelected = musicIds.length > 0 && musicIds.every(id => form.ensembleIds.includes(id));
   function toggleWholeMusicDivision() {
     setForm(f => ({
@@ -258,6 +271,38 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   // are intentionally school-wide with empty ensembleIds — students are
   // matched by title, not roster (see classSchedule.ts) — so they don't need
   // one. Concerts/events/sectionals can also stand alone.
+  // What kind of meeting this is (#classes). The selected group's `kind`
+  // decides what the form asks for: repertoire (ensembles), a unit/chapter
+  // (academic classes), or performers plus the pieces they bring (master
+  // classes). With nothing selected yet, an event typed 'Class' still counts
+  // as an academic class so a brand-new theory meeting never offers pieces.
+  const selectedGroups = useMemo(
+    () => ensembles.filter(e => form.ensembleIds.includes(e.id)),
+    [ensembles, form.ensembleIds],
+  );
+  // Divisions stay in the ensemble column: they are not classes, and genuine
+  // all-school events still need them selectable (see musicEnsembles).
+  const ensembleChoices = useMemo(() => ensembles.filter(e => !isClassGroup(e)), [ensembles]);
+  const classChoices = useMemo(() => classGroups(ensembles), [ensembles]);
+  const masterClassEvent = selectedGroups.some(isMasterClass);
+  const classEvent = !masterClassEvent
+    && (selectedGroups.length > 0 ? selectedGroups.every(isClassGroup) : form.type === 'Class');
+
+  /** Every date this repeat would create, the event's own date included.
+   *  Empty when repeat isn't configured — then save writes the single event. */
+  const repeatDates = useMemo(() => {
+    if (event || repeatDays.length === 0 || !form.date || !repeatUntil) return [];
+    if (repeatUntil < form.date) return [];
+    const out: string[] = [];
+    const cursor = parseDate(form.date);
+    const end = parseDate(repeatUntil);
+    while (cursor <= end) {
+      if (repeatDays.includes(cursor.getDay())) out.push(toDateStr(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return out;
+  }, [event, repeatDays, repeatUntil, form.date]);
+
   const needsEnsemble = form.type === 'Rehearsal';
   const canSave = form.ensembleIds.length > 0 || (form.studentIds?.length ?? 0) > 0 || !needsEnsemble;
 
@@ -293,7 +338,13 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
         Object.assign(data, captureOriginal(event));
         if (!data.changeNote?.trim()) data.changeNote = 'Cancelled';
       }
-      await whenQueued(onSave(data));
+      if (repeatDates.length > 0) {
+        // Sequential: onSave also syncs piece↔event links, and firing 40 of
+        // those at once is how the offline queue ends up interleaving them.
+        for (const date of repeatDates) await whenQueued(onSave({ ...data, date }));
+      } else {
+        await whenQueued(onSave(data));
+      }
       if (cancellingNow && event && notifyCancel) {
         const name = form.title
           || form.ensembleIds.map(id => ensembles.find(x => x.id === id)?.name).filter(Boolean).join(' + ')
@@ -373,6 +424,47 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             </div>
           </div>
 
+          {/* Weekly repeat — creating only. A class that meets Mon/Thu until
+              December is the case this exists for; it works for any type. */}
+          {!event && (
+            <div className="dir-field">
+              <label className="dir-label">Repeats weekly</label>
+              <div className="dir-checkbox-group">
+                {WEEKDAY_LABELS.map((label, d) => (
+                  <label key={d} className={`dir-checkbox-tag ${repeatDays.includes(d) ? 'checked' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={repeatDays.includes(d)}
+                      onChange={() => setRepeatDays(ds => ds.includes(d) ? ds.filter(x => x !== d) : [...ds, d])}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              {repeatDays.length > 0 && (
+                <>
+                  <div className="dir-field" style={{ marginTop: 8 }}>
+                    <label className="dir-label">Repeat until</label>
+                    <input
+                      className="dir-input"
+                      type="date"
+                      value={repeatUntil}
+                      min={form.date}
+                      onChange={e => setRepeatUntil(e.target.value)}
+                    />
+                  </div>
+                  <div className="dir-field-hint">
+                    {repeatUntil
+                      ? repeatDates.length > 0
+                        ? `Creates ${repeatDates.length} meeting${repeatDates.length === 1 ? '' : 's'}, ${parseDate(repeatDates[0]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${parseDate(repeatDates[repeatDates.length - 1]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. Each one can be edited or cancelled on its own.`
+                        : 'No dates in that range fall on the days picked.'
+                      : 'Pick an end date to see how many meetings this creates.'}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="dir-field">
             <label className="dir-label">
               Ensemble{form.type === 'Concert' ? 's' : ''} {needsEnsemble && '*'}
@@ -386,8 +478,14 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                 {allMusicSelected ? '✓ Whole Music Division' : 'Whole Music Division'}
               </button>
             )}
+            {/* Ensembles and classes are listed apart (#classes) — a master
+                class sitting between Camerata and Symphony reads as another
+                orchestra, which is exactly the confusion this splits up. Both
+                stay selectable together: a class CAN be combined with another
+                class (violas joining the violin master class when a teacher
+                is out), which is what sharedBlock below is for. */}
             <div className="dir-checkbox-group">
-              {ensembles.map(e => (
+              {ensembleChoices.map(e => (
                 <label
                   key={e.id}
                   className={`dir-checkbox-tag ${form.ensembleIds.includes(e.id) ? 'checked' : ''}`}
@@ -401,6 +499,26 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                 </label>
               ))}
             </div>
+            {classChoices.length > 0 && (
+              <>
+                <div className="dir-field-hint" style={{ marginTop: 8 }}>Classes</div>
+                <div className="dir-checkbox-group">
+                  {classChoices.map(e => (
+                    <label
+                      key={e.id}
+                      className={`dir-checkbox-tag ${form.ensembleIds.includes(e.id) ? 'checked' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.ensembleIds.includes(e.id)}
+                        onChange={() => toggleEnsemble(e.id)}
+                      />
+                      {e.name}
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
             {form.ensembleIds.length >= 2 && (
               <label className="dir-checkbox-row" style={{ marginTop: 8 }}>
                 <input
@@ -418,7 +536,11 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                 </span>
               </label>
             )}
-            <div className="dir-field-hint" style={{ marginTop: 8 }}>Or add individual students (performers)</div>
+            <div className="dir-field-hint" style={{ marginTop: 8 }}>
+              {masterClassEvent
+                ? 'Who is playing in this class'
+                : 'Or add individual students (performers)'}
+            </div>
             {(form.studentIds ?? []).length > 0 && (
               <div className="dir-checkbox-group" style={{ marginBottom: 8 }}>
                 {(form.studentIds ?? []).map(id => {
@@ -454,6 +576,45 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                   </button>
                 ))}
               </div>
+            )}
+
+            {/* Visiting players who are on no Hub roster (#classes) — the
+                college students who come and play in a master class. Names
+                only: they are not students here, so they never get a record,
+                a feed, or an attendance mark. */}
+            {masterClassEvent && (
+              <>
+                <div className="dir-field-hint" style={{ marginTop: 10 }}>
+                  Guest performers — visitors who aren't on a Hub roster
+                </div>
+                {(form.guestPerformers ?? []).length > 0 && (
+                  <div className="dir-checkbox-group" style={{ marginBottom: 8 }}>
+                    {(form.guestPerformers ?? []).map((g, i) => (
+                      <label
+                        key={`${g}-${i}`}
+                        className="dir-checkbox-tag checked"
+                        onClick={() => set('guestPerformers', (form.guestPerformers ?? []).filter((_, j) => j !== i))}
+                      >
+                        {g} ✕
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <input
+                  className="dir-input"
+                  value={guestQuery}
+                  onChange={e => setGuestQuery(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key !== 'Enter') return;
+                    e.preventDefault();
+                    const name = guestQuery.trim();
+                    if (!name) return;
+                    set('guestPerformers', [...(form.guestPerformers ?? []), name]);
+                    setGuestQuery('');
+                  }}
+                  placeholder="Type a name and press Enter — e.g. a visiting college player"
+                />
+              </>
             )}
           </div>
 
@@ -618,22 +779,54 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             </>
           )}
 
-          <div className="dir-field">
-            <label className="dir-label">Repertoire notes</label>
-            <input className="dir-input" value={form.repertoire ?? ''} onChange={e => set('repertoire', e.target.value)} placeholder="Free-text pieces / focus areas" />
-          </div>
+          {/* An academic class covers a unit, not repertoire (#classes): no
+              repertoire notes, no piece library. A MASTER class keeps the
+              piece library — its students bring works to play — but skips the
+              ensemble-style "repertoire notes", which mean the group's shared
+              program and a master class has none. */}
+          {classEvent ? (
+            <div className="dir-field">
+              <label className="dir-label">Unit / topic covered</label>
+              <input
+                className="dir-input"
+                value={form.unitInfo ?? ''}
+                onChange={e => set('unitInfo', e.target.value)}
+                placeholder="e.g. Chapter 7 — secondary dominants"
+              />
+              <div className="dir-field-hint">
+                What this meeting covers — the unit, chapter, or subject. Shows on
+                the class's card and rides along in the calendar feed.
+              </div>
+            </div>
+          ) : (
+            <>
+              {!masterClassEvent && (
+                <div className="dir-field">
+                  <label className="dir-label">Repertoire notes</label>
+                  <input className="dir-input" value={form.repertoire ?? ''} onChange={e => set('repertoire', e.target.value)} placeholder="Free-text pieces / focus areas" />
+                </div>
+              )}
 
-          <div className="dir-field">
-            <label className="dir-label">Pieces from library</label>
-            <PiecePicker
-              ensembleIds={form.ensembleIds}
-              ensembles={ensembles}
-              value={form.pieceIds ?? []}
-              onChange={ids => set('pieceIds', ids)}
-              movementSel={form.pieceMovements ?? {}}
-              onMovementSelChange={sel => set('pieceMovements', sel)}
-            />
-          </div>
+              <div className="dir-field">
+                <label className="dir-label">
+                  {masterClassEvent ? 'Pieces being played' : 'Pieces from library'}
+                </label>
+                {masterClassEvent && (
+                  <div className="dir-field-hint" style={{ marginBottom: 6 }}>
+                    What the performers above are bringing to this class.
+                  </div>
+                )}
+                <PiecePicker
+                  ensembleIds={form.ensembleIds}
+                  ensembles={ensembles}
+                  value={form.pieceIds ?? []}
+                  onChange={ids => set('pieceIds', ids)}
+                  movementSel={form.pieceMovements ?? {}}
+                  onMovementSelChange={sel => set('pieceMovements', sel)}
+                />
+              </div>
+            </>
+          )}
 
           <div className="dir-field">
             <label className="dir-label">Status</label>

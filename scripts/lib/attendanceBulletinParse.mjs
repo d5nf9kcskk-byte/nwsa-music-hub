@@ -166,7 +166,13 @@ export function mapBulletinToAttendance(row) {
     case 'ABSENT':
       return { status: 'Absent', reason: 'Absent (office bulletin)' };
     case 'TARDY':
-      return { status: 'Late', reason: 'Tardy (office bulletin)' };
+      // A school-day tardy is NOT a class attendance mark (#tardies). Being
+      // late to SCHOOL says nothing about whether the student walked into
+      // Camerata on time, and writing 'Late' onto every one of their
+      // ensembles made the two impossible to tell apart — which is exactly
+      // the distinction the office asked for. Tardies are recorded on their
+      // own instead: see schoolDayTardyRows().
+      return null;
     case 'EXCUSED EARLY':
       return {
         status: 'Excused',
@@ -236,6 +242,35 @@ export function mergeBulletinMarks(matched, fallbackDate) {
       .map(r => (r.endsWith(OFFICE_SUFFIX) ? r.slice(0, -OFFICE_SUFFIX.length) : r))
       .join(' + ') + OFFICE_SUFFIX,
   }));
+}
+
+/**
+ * The school-day tardies in a matched bulletin — one per student per day,
+ * deliberately NOT attendance. `time` is the office's reported arrival time
+ * when the bulletin gives one.
+ *
+ * A student is tardy once, however many rows say so; the earliest reported
+ * time wins, since a later row for the same day is a re-report of the same
+ * arrival rather than a second one.
+ *
+ * @param {{ row: BulletinRow, student: any }[]} matched
+ * @param {string} fallbackDate
+ */
+export function schoolDayTardyRows(matched, fallbackDate) {
+  /** @type {Map<string, { student: any, date: string, time: string | null }>} */
+  const byKey = new Map();
+
+  for (const { row, student } of matched) {
+    if (row.category !== 'TARDY') continue;
+    const date = row.date ?? fallbackDate;
+    const key = `${student.id}|${date}`;
+    const prev = byKey.get(key);
+    const time = row.time ?? null;
+    if (prev && !(time && (!prev.time || time < prev.time))) continue;
+    byKey.set(key, { student, date, time });
+  }
+
+  return [...byKey.values()];
 }
 
 /** Loose name normalization (same idea as apply-lesson-request). */

@@ -8,8 +8,9 @@ const esc = (v: unknown): string => {
 };
 
 /**
- * Rich private-lesson CSV for directors / Dean tracking.
- * Grade column is always present (empty until the app collects it).
+ * Rich private-lesson CSV for directors / Dean grade and pay tracking. Grade
+ * and grade note are what the applied teacher entered, empty when they have
+ * not marked that lesson yet.
  */
 export function lessonsToCsv(
   lessons: Lesson[],
@@ -27,6 +28,7 @@ export function lessonsToCsv(
     'Location',
     'Status',
     'Grade',
+    'Grade note',
     'Notes',
     'Conflict',
     'Conflict ensemble event',
@@ -56,6 +58,7 @@ export function lessonsToCsv(
         l.location ?? '',
         l.status,
         l.grade ?? '',
+        l.gradeNote ?? '',
         l.notes ?? '',
         l.conflict ? 'Yes' : '',
         l.conflict?.eventLabel ?? '',
