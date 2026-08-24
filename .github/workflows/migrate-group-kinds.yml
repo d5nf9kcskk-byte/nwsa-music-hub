@@ -1,0 +1,33 @@
+name: Migrate Group Kinds
+
+# One-time backfill (#classes): stamps `kind` on ensemble docs that predate the
+# field. `kind` absent means 'ensemble', so ONLY the groups that are really
+# classes are touched — today that is the four string master classes, which
+# were seeded as ensembles because there was nothing else to seed them as.
+#
+# Idempotent: a doc already carrying the right kind is skipped, so re-running
+# is safe. Run `dry_run: true` first and read the log before applying.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List what would change without writing anything'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - run: npm install firebase-admin --no-save
+      - name: Stamp kind on class groups in Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/migrate-group-kinds.mjs ${{ inputs.dry_run && '--dry-run' || '' }}

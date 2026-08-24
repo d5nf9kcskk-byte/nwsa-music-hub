@@ -1,11 +1,6 @@
-/* Quiet temporary update strip — staff Today / public Home when WHATS_NEW has entries. */
+/* One collapsed roll-up of unseen updates — bottom of staff Today / public Home. */
 .whats-new {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 16px 0;
-}
-.whats-new-card {
+  margin: 18px 16px 0;
   background: var(--dir-surface, var(--pub-surface, #fff));
   border: 1px solid var(--dir-border, var(--pub-border, #e2e8f0));
   border-left: 3px solid var(--dir-primary, var(--pub-accent, #0d7e8e));
@@ -18,13 +13,16 @@
   gap: 6px;
   font-size: 12px;
   color: var(--dir-text-muted, var(--pub-muted, #64748b));
-  margin-bottom: 4px;
+  cursor: pointer;
+  list-style: none;
 }
+.whats-new-head::-webkit-details-marker { display: none; }
 .whats-new-head strong {
   color: var(--dir-text, var(--pub-ink, #1e293b));
   font-size: 13px;
 }
 .whats-new-date { margin-left: 2px; }
+.whats-new-count { opacity: 0.8; }
 .whats-new-dismiss {
   margin-left: auto;
   border: none;
@@ -34,9 +32,18 @@
   color: inherit;
   border-radius: 6px;
 }
+.whats-new-item { margin-top: 10px; }
+.whats-new-item + .whats-new-item {
+  border-top: 1px solid var(--dir-border, var(--pub-border, #e2e8f0));
+  padding-top: 10px;
+}
 .whats-new-title {
   font-size: 14px;
   font-weight: 650;
+}
+.whats-new-item-date {
+  font-size: 12px;
+  color: var(--dir-text-muted, var(--pub-muted, #64748b));
   margin-bottom: 2px;
 }
 .whats-new-list {

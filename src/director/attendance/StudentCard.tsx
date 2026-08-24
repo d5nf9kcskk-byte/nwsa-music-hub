@@ -7,6 +7,9 @@ interface Props {
   student: Student;
   /** Pending planned absence submitted by the student/parent (#27). */
   plannedAbsence?: { reason: string };
+  /** Late to SCHOOL today, per the office bulletin (#tardies). Context only —
+   *  it is deliberately NOT a class mark, so it never sets a status here. */
+  schoolTardy?: { time?: string | null };
   /** Same-day statuses from other periods (#25), e.g. absent period 1. */
   dayContext?: { label: string; status: string }[];
   /** Last five rehearsals' statuses for mini history dots (#25). */
@@ -22,7 +25,7 @@ interface Props {
   onOpenStudent?: (studentId: string) => void;
 }
 
-function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, plannedAbsence, dayContext, history, onOpenStudent }: Props) {
+function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, plannedAbsence, schoolTardy, dayContext, history, onOpenStudent }: Props) {
   const status = record?.status;
 
   return (
@@ -45,6 +48,14 @@ function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, 
             {student.preferredName && <span className="dir-goesby">"{student.preferredName}"</span>}
             {isSub && <span className="dir-sub-badge">Sub</span>}
             {record?.source === 'office' && <span className="dir-office-badge" title={record.reason || 'From office attendance bulletin'}>Office</span>}
+            {schoolTardy && (
+              <span
+                className="dir-tardy-badge"
+                title={`Late to school${schoolTardy.time ? ` — arrived ${schoolTardy.time}` : ''}. Not a mark for this class.`}
+              >
+                Late to school{schoolTardy.time ? ` ${schoolTardy.time}` : ''}
+              </span>
+            )}
           </div>
           <div className="dir-student-meta">
             {[student.instrument, student.section].filter(Boolean).join(' · ')}

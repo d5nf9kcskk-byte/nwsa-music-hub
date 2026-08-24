@@ -10,9 +10,9 @@ import type { Lesson } from '../types';
 import type { DirNavigate } from '../types-nav';
 
 /**
- * Director view of all private lessons (teacher self-reports).
- * CSV is the handoff for Dean payment tracking later — columns stay rich
- * even while grade is not yet collected in the teacher UI.
+ * Director view of all private lessons (applied-teacher self-reports),
+ * including the grade each teacher gave. CSV is the handoff for Dean grade
+ * and payment tracking.
  */
 export function LessonsView({ onNavigate }: { onNavigate?: DirNavigate } = {}) {
   const { lessons, loading } = useLessons();
@@ -55,9 +55,9 @@ export function LessonsView({ onNavigate }: { onNavigate?: DirNavigate } = {}) {
     <div className="dir-tab-page">
       <div className="dir-page-body">
         <p className="dir-field-hint" style={{ margin: 0 }}>
-          Applied teachers log lessons here. Export is the record for the Dean
-          (who taught whom, when, and eventually grade / pay tracking). Grade is
-          reserved in the export; teachers are not asked for it in the app yet.
+          Applied teachers log lessons here and grade each one once it has
+          happened. Export is the record for the Dean — who taught whom, when,
+          what mark they gave, and the comment that went with it.
         </p>
 
         {/* The private lessons calendar is on hold — see the note at the top
@@ -75,9 +75,9 @@ export function LessonsView({ onNavigate }: { onNavigate?: DirNavigate } = {}) {
             <input type="date" className="dir-input" value={to} onChange={e => setTo(e.target.value)} />
           </label>
           <label className="dir-field" style={{ margin: 0, minWidth: 180 }}>
-            <span className="dir-label">Teacher</span>
+            <span className="dir-label">Applied teacher</span>
             <select className="dir-input" value={teacherFilter} onChange={e => setTeacherFilter(e.target.value)}>
-              <option value="">All teachers</option>
+              <option value="">All applied teachers</option>
               {teachers.map(t => (
                 <option key={t.email} value={t.email}>{t.label}</option>
               ))}
@@ -95,8 +95,8 @@ export function LessonsView({ onNavigate }: { onNavigate?: DirNavigate } = {}) {
 
         {filtered.length === 0 ? (
           <div className="dir-empty-inline">
-            No lessons in this range yet. Teachers add them from their Lessons screen
-            once students are assigned by the Dean.
+            No lessons in this range yet. Applied teachers add them from their Lessons
+            screen once students are assigned by the Dean.
           </div>
         ) : (
           [...filtered]
@@ -137,6 +137,7 @@ function LessonDirectorRow({ lesson, studentName, onNavigate }: {
           {lesson.location ? ` · ${lesson.location}` : ''}
         </div>
         {lesson.notes && <div className="dir-ens-sub">{lesson.notes}</div>}
+        {lesson.gradeNote && <div className="dir-ens-sub">Grade note: {lesson.gradeNote}</div>}
         {lesson.conflict && (
           <div className="dir-ens-sub" style={{ color: 'var(--dir-danger)' }}>
             Pull-out: {lesson.conflict.eventLabel}

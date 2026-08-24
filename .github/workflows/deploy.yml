@@ -89,6 +89,12 @@ jobs:
       - name: Check absence-email parsing
         run: node scripts/absence-email.selfcheck.mjs
 
+      # The office bulletin parser + its mapping to attendance, including the
+      # TARDY split (#tardies): late to SCHOOL must never become a class
+      # attendance mark. The self-check existed but ran nowhere in CI.
+      - name: Check attendance bulletin parsing
+        run: node scripts/attendance-bulletin.selfcheck.mjs
+
       # Alert grouping and the easter-egg helpers. Both transitively import
       # src/org, whose __ORG_CONFIG__ is a Vite `define` — so they need the
       # shim to run outside Vite at all. They were silently unrunnable from
@@ -99,6 +105,16 @@ jobs:
 
       - name: Check easter-egg helpers
         run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/whimsyEggs.selfcheck.ts
+
+      - name: Check ensemble/class classification
+        run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/groupKind.selfcheck.ts
+
+      # Applied-lesson grading (#applied): a cancelled lesson must never count,
+      # an unrecognized mark must be ignored rather than scored as a zero, and
+      # the letter boundary must round to the better grade. No org import, so
+      # no defines shim needed.
+      - name: Check applied-lesson grading
+        run: npx tsx src/director/lessonGrades.selfcheck.ts
 
       - name: Build
         run: npm run build

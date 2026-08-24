@@ -39,9 +39,9 @@ export interface Director {
   role?: DirectorRole;
   addedBy?: string; // email of the director who added them
   addedAt?: number; // epoch ms
-  /** Teacher-only: instrument(s) they give private lessons in, e.g. ["Violin"]. */
+  /** Applied-teacher only: instrument(s) they teach, e.g. ["Violin"]. */
   instruments?: string[];
-  /** Teacher-only: students they give private lessons to. An Owner/Director
+  /** Applied-teacher only: students they give private lessons to. An Owner/Director
    *  sets this when adding the teacher; the teacher may adjust it themselves
    *  afterward (firestore.rules allows a director to self-edit this field). */
   assignedStudentIds?: string[];

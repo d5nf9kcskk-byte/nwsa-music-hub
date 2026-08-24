@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -21,7 +21,6 @@ import { NoteBurst } from '../shared/NoteBurst';
 import { useLogoEgg } from '../shared/useLogoEgg';
 import { useEggCheer, useTapN } from '../shared/useEggCheer';
 import { batonInHandLine } from '../shared/whimsy';
-import { WhatsNewBanner } from '../shared/WhatsNewBanner';
 import '../shared/whatsNew.css';
 import { DIRECTOR_FEEDBACK_FORM_URL } from './feedbackForm';
 import { useUrgentRelaySweep } from './announcements/urgentRelay';
@@ -36,6 +35,7 @@ import { AssignmentsView } from './assignments/AssignmentsView';
 import { AnnouncementManager } from './announcements/AnnouncementManager';
 import { MessagesView } from './messages/MessagesView';
 import { SignupsView } from './signups/SignupsView';
+import { JuriesView } from './juries/JuriesView';
 import { useParentMessages } from './hooks/useParentMessages';
 import { RepertoireManager } from './repertoire/RepertoireManager';
 import { DocumentsView } from './documents/DocumentsView';
@@ -44,7 +44,7 @@ import { LessonsView } from './lessons/LessonsView';
 import { EnsembleHubView } from './ensembles/EnsembleHubView';
 import { EnsemblesView } from './ensembles/EnsemblesView';
 import { useEnsembles } from './hooks/useEnsembles';
-import { ensembleColor, musicEnsembles } from './utils';
+import { ensembleColor, performingEnsembles, classGroups } from './utils';
 import type { DirTab, DirNavOpts } from './types-nav';
 import { ORG } from '../org';
 
@@ -105,6 +105,7 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
       { id: 'documents',     label: 'Documents',     Icon: FolderOpen     },
       { id: 'assignments',   label: 'Assignments',   Icon: ClipboardCheck },
       { id: 'signups',       label: 'Sign-ups',      Icon: ClipboardSignature },
+      { id: 'juries',        label: 'Juries',        Icon: Gavel          },
       { id: 'announcements', label: 'Announcements', Icon: Megaphone      },
       // Parent contact-form inbox (#parent-messages) — org-gated.
       ...(ORG.features.contactForm ? [{ id: 'messages' as const, label: 'Messages', Icon: Mail }] : []),
@@ -130,13 +131,14 @@ const TAB_TITLES: Record<DirTab, string> = {
   whosOut:         'Who\u2019s Out',
   messages:        'Messages',
   signups:         'Sign-ups',
+  juries:          'Juries',
   personnel:       'Personnel',
 };
 
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'lessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'whosOut', 'scheduleSwap',
-  'messages', 'signups',
+  'messages', 'signups', 'juries',
   // The roster URL segment follows the org kind too (#personnel), so a
   // school build has no /director/personnel route and an adult build no
   // /director/roster \u2014 an off-org deep link falls back to Today.
@@ -165,6 +167,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   announcements:   'Post news for families \u2014 school-wide or per ensemble. Urgent posts show as a red banner.',
   messages:        'Messages families send through the public Contact Us form. Reply opens your own email app.',
   signups:         'Ask students to opt in \u2014 auditions, trips, anything. They pick their name, confirm their grade, answer your questions, and sign. You get the list, a spreadsheet, and printable signed forms.',
+  juries:          'End-of-semester juries. Add one as soon as you know it\u2019s happening \u2014 a name is enough \u2014 and fill in the date, room, panel, and running order as each gets decided.',
   // Spread-conditional so the string ships only in personnel-org bundles.
   ...(__ORG_PERSONNEL__ ? {
     personnel: 'Everyone the orchestra engages \u2014 players, podium, and staff. Tap a person for private contact details and their contracts.',
@@ -292,7 +295,17 @@ export default function DirectorApp() {
                   <Music size={18} /> All Ensembles
                 </button>
               )}
-              {musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
+              {performingEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
+                <button
+                  key={e.id}
+                  className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
+                  onClick={() => go('ensembleHub', { ensembleId: e.id })}
+                >
+                  <span className="dir-rail-dot" style={{ background: ensembleColor(e) }} /> {e.name}
+                </button>
+              ))}
+              {classGroups(ensembles).length > 0 && <div className="dir-rail-head">Classes</div>}
+              {classGroups([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
                 <button
                   key={e.id}
                   className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
@@ -364,7 +377,6 @@ export default function DirectorApp() {
 
           <main className="dir-content">
             <StatusStrips />
-            <WhatsNewBanner audience="staff" />
             {TAB_HINTS[tab] && <div className="dir-page-hint no-print">{TAB_HINTS[tab]}</div>}
             {tab === 'today'           && <TodayView onNavigate={go} />}
             {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} onNavigate={go} />}
@@ -389,6 +401,7 @@ export default function DirectorApp() {
             {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} onClose={() => {}} />}
             {tab === 'messages'        && <MessagesView />}
             {tab === 'signups'         && <SignupsView />}
+            {tab === 'juries'          && <JuriesView />}
             {tab === 'personnel' && PersonnelManager && (
               <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading personnel…</div>}>
                 <PersonnelManager />
@@ -471,7 +484,19 @@ export default function DirectorApp() {
                         <Music size={16} /> All Ensembles
                       </button>
                     )}
-                    {ensemblesOpen && musicEnsembles(ensembles).map(e => (
+                    {ensemblesOpen && performingEnsembles(ensembles).map(e => (
+                      <button
+                        key={e.id}
+                        className={`dir-menu-item dir-menu-subitem ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
+                        onClick={() => go('ensembleHub', { ensembleId: e.id })}
+                      >
+                        <span className="dir-menu-dot" style={{ background: ensembleColor(e) }} /> {e.name}
+                      </button>
+                    ))}
+                    {ensemblesOpen && classGroups(ensembles).length > 0 && (
+                      <div className="dir-menu-subhead">Classes</div>
+                    )}
+                    {ensemblesOpen && classGroups(ensembles).map(e => (
                       <button
                         key={e.id}
                         className={`dir-menu-item dir-menu-subitem ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}

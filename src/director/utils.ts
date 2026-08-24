@@ -73,9 +73,43 @@ export function isDivision(e: Pick<Ensemble, 'name'>): boolean {
   return DIVISION_NAMES.has(e.name.trim().toLowerCase());
 }
 
-/** Filter an ensemble-like list down to music ensembles only. */
+/** Filter an ensemble-like list down to music groups only (drops divisions).
+ *  Includes CLASSES — anywhere that needs performing ensembles alone should
+ *  use performingEnsembles() instead. */
 export function musicEnsembles<T extends Pick<Ensemble, 'name'>>(list: T[]): T[] {
   return list.filter(e => !isDivision(e));
+}
+
+/** Weekday labels, Sun..Sat — indexed by Date.getDay(), the same convention
+ *  as Ensemble.meetingDays and RosterOverride weekday filters. */
+export const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// ── Ensembles vs. classes (#classes) ────────────────────────────────────
+// One place decides what `kind` means, so the "absent = ensemble" default for
+// every group created before the field existed is applied exactly once.
+
+/** A class (theory, music appreciation, master class, college course) — has a
+ *  roster and takes roll, but rehearses no repertoire and plays no concerts.
+ *  Covers BOTH class kinds: everywhere a list is shown they belong together. */
+export function isClassGroup(e: Pick<Ensemble, 'kind'>): boolean {
+  return e.kind === 'class' || e.kind === 'masterclass';
+}
+
+/** A master class specifically — a class whose students PLAY in it, so a
+ *  meeting picks performers and their pieces instead of a unit/chapter. */
+export function isMasterClass(e: Pick<Ensemble, 'kind'>): boolean {
+  return e.kind === 'masterclass';
+}
+
+/** Music groups that actually rehearse and perform — the list that belongs in
+ *  repertoire pickers, concert programs, and the public "our ensembles" grid. */
+export function performingEnsembles<T extends Pick<Ensemble, 'name' | 'kind'>>(list: T[]): T[] {
+  return list.filter(e => !isDivision(e) && !isClassGroup(e));
+}
+
+/** The classes, in the same order ensembles come in. */
+export function classGroups<T extends Pick<Ensemble, 'name' | 'kind'>>(list: T[]): T[] {
+  return list.filter(e => !isDivision(e) && isClassGroup(e));
 }
 
 /** A piece's ensembles as an array — reads the new `ensembleIds` or falls back

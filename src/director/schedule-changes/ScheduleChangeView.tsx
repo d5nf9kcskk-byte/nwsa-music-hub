@@ -6,7 +6,7 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster, rotationWrites } from '../rosterResolver';
-import { ensembleColor, parseDate, todayStr, toDateStr, formatTimeRange, addMinutesToTime, EVENT_TYPE_ICON, musicEnsembles } from '../utils';
+import { ensembleColor, parseDate, todayStr, toDateStr, formatTimeRange, addMinutesToTime, EVENT_TYPE_ICON, musicEnsembles, WEEKDAY_LABELS } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
@@ -535,7 +535,7 @@ function RotationForm({ student, ensembles, prefill, onSave, onClose }: {
           <div className="dir-field">
             <label className="dir-label">But on</label>
             <div className="dir-field-row" style={{ gap: 6, flexWrap: 'wrap' }}>
-              {WEEKDAY_LABEL.map((label, d) => (
+              {WEEKDAY_LABELS.map((label, d) => (
                 <button
                   key={d}
                   type="button"
@@ -840,12 +840,11 @@ function fmtTime(t: string) {
   const hr = h % 12 === 0 ? 12 : h % 12;
   return `${hr}:${String(m).padStart(2, '0')} ${ampm}`;
 }
-const WEEKDAY_LABEL = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 /** "Mon/Wed: Camerata · Fri: Wind Ensemble" — the base ensemble's remaining
  *  meeting days (when it declares any), then the rotation days. */
 function rotationSummary(base: Ensemble | undefined, dest: Ensemble | undefined, days: number[] | undefined): string {
   if (!dest || !days?.length) return '';
-  const names = (ds: number[]) => [...ds].sort((a, b) => a - b).map(d => WEEKDAY_LABEL[d]).join('/');
+  const names = (ds: number[]) => [...ds].sort((a, b) => a - b).map(d => WEEKDAY_LABELS[d]).join('/');
   const destPart = `${names(days)}: ${dest.name}`;
   if (!base) return destPart;
   const baseDays = (base.meetingDays ?? []).filter(d => !days.includes(d));
@@ -857,7 +856,7 @@ function describeWhen(o: RosterOverride) {
     // A weekday rotation is NOT a continuous pull — saying so made a Tue/Fri
     // rotation read identically to a 325-day removal.
     if (o.days?.length) {
-      const on = o.days.map(d => WEEKDAY_LABEL[d]).join(', ');
+      const on = o.days.map(d => WEEKDAY_LABELS[d]).join(', ');
       return `${on} only · ${fmtLong(o.startDate)} → ${fmtLong(o.endDate)}`;
     }
     if (o.startDate === o.endDate) return fmtLong(o.startDate);

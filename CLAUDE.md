@@ -161,6 +161,49 @@ hand-write SW fetch/install logic. Rules that must not regress:
   snapshot download, so calendar notes carry the same repertoire (free text
   AND linked pieces) either way.
 
+## Ensembles vs. classes (Aug 2026)
+
+`Ensemble.kind` splits the one `ensembles` collection into performing groups
+and classes. **Absent = `'ensemble'`** — every group that predates the field
+keeps its meaning with no migration, and that default lives in exactly one
+place: `isClassGroup()` / `isMasterClass()` / `performingEnsembles()` /
+`classGroups()` in `src/director/utils.ts`. Never read `kind` directly.
+
+- `'class'` — Music Theory, Jazz Theory, Music Appreciation, college courses.
+  Roster, roll, assignments, documents. No repertoire library, no seating,
+  never on a concert. A meeting carries `unitInfo` (unit/chapter), not
+  `repertoire`.
+- `'masterclass'` — also a class everywhere a LIST is shown, but its students
+  play in it: a meeting picks performers (`studentIds`) and the pieces they
+  bring (`pieceIds`), plus `guestPerformers` — free-text names of visiting
+  players who are on no roster and must never get a student record, a feed
+  entry, or an attendance mark.
+- The four string master classes (`masterclass-*`) were seeded as ensembles
+  before this existed. `scripts/migrate-group-kinds.mjs` stamps them by doc-id
+  prefix and is idempotent; `scripts/seed-masterclass.mjs` now sets `kind`.
+- "Whole Music Division" means `performingEnsembles`, not `musicEnsembles` —
+  it must never sweep a theory section onto a concert.
+- `scripts/../src/director/groupKind.selfcheck.ts` pins all of the above and
+  runs in the deploy workflow.
+
+## School-day tardies vs. class attendance (Aug 2026)
+
+Late to SCHOOL is **not** an attendance mark. The office bulletin's `TARDY`
+section used to write `status: 'Late'` onto every one of a student's
+ensembles, which made "arrived at the building late" and "walked into
+Camerata late" indistinguishable. `mapBulletinToAttendance()` now returns
+`null` for TARDY; `schoolDayTardyRows()` records it in `schoolDayTardies`
+instead (doc id `${studentId}_${date}`, so re-running a bulletin updates one
+record). Take Roll shows it as a chip beside the name — context, never a mark.
+Staff-only, never mirrored publicly: it is attendance-class data.
+
+## Juries (Aug 2026) — a deliberate stub
+
+`juries` + `src/director/juries/` exist to hold what is known as it firms up.
+Every field but `name` is optional on purpose, because the date, running
+order, and panel aren't settled until the juries are close. Do not grow this
+into a scheduler, a scoring system, or a rubric engine without a plan.
+
 ## Sign-ups (Aug 2026)
 
 "Tell me you want to do this, and fill out the paperwork while you're here."
@@ -196,6 +239,24 @@ copies.
 
 ## Roles & Firestore rules — invariants (Aug 2026, PR #44)
 
+- **The `teacher` role is the Applied Teacher** (Aug 2026) — a private
+  studio/instrument teacher, scoped to their OWN assigned students: those
+  students' lessons, the grades on those lessons, and scheduling for them.
+  NOT a classroom theory teacher (that's a director). The label reads
+  "Applied Teacher" everywhere; the **stored value stays `'teacher'`** and
+  must not be migrated — it's the `role` field on live `directors/{email}`
+  docs, compared by name in `isTeacherRole()`/`isKnownRole()` and in the
+  loginEvents/activityLog rules. Renaming it means a data migration plus a
+  window where the rules accept BOTH strings, i.e. widening the closed set.
+  Role words live in `STAFF_ROLE_LABEL` (`src/director/types.ts`) — the one
+  place a future rename touches.
+- **Lesson grades live on the `Lesson` doc**, not a grades collection
+  (`grade` + `gradeNote`; marks and the term average in
+  `src/director/lessonGrades.ts`, pinned by `lessonGrades.selfcheck.ts` in the
+  deploy workflow). A lesson is already scoped to exactly one applied teacher,
+  so the grade inherits that scoping and there is no second query/rule pair to
+  keep in agreement. Don't split grades into their own collection without
+  redoing the `where('teacherEmail', ...)` treatment on both sides.
 - Roles are a CLOSED set enforced by `isKnownRole()` in `firestore.rules`
   (owner / director / teacher / assistant; a doc with no `role` = legacy
   director). Adding a new role means deliberately updating that helper and

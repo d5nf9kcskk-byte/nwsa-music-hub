@@ -6,7 +6,7 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../hooks/useAnnouncements';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON } from '../utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, isClassGroup } from '../utils';
 import { groupScheduleAlerts, groupUrgentAnnouncements } from '../../shared/groupAlerts';
 import { AlertGroupSections } from '../../shared/AlertGroupSections';
 import type { DirNavigate } from '../types-nav';
@@ -156,7 +156,7 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
                   </button>
                 )}
                 <button className="dir-btn dir-btn-ghost dir-today-action" onClick={() => onNavigate('schedule', { date: nextRehearsal.date, eventId: nextRehearsal.id })}>
-                  Details / repertoire
+                  {isClassGroup(ensemble) ? 'Details' : 'Details / repertoire'}
                 </button>
               </div>
             </div>
@@ -194,9 +194,14 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           <button className="dir-hub-btn" onClick={() => onNavigate('schedule', { ensembleId })}>
             <Calendar size={20} /> Schedule
           </button>
-          <button className="dir-hub-btn" onClick={() => onNavigate('repertoire', { ensembleId })}>
-            <Music size={20} /> Repertoire
-          </button>
+          {/* A class has no shared repertoire library and no seating chart
+              (#classes). A master class's music is picked per meeting, on the
+              meeting itself — see the event form's "Pieces being played". */}
+          {!isClassGroup(ensemble) && (
+            <button className="dir-hub-btn" onClick={() => onNavigate('repertoire', { ensembleId })}>
+              <Music size={20} /> Repertoire
+            </button>
+          )}
           <button className="dir-hub-btn" onClick={() => onNavigate('assignments', { ensembleId })}>
             <ClipboardCheck size={20} /> Assignments
           </button>
@@ -209,9 +214,11 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           <button className="dir-hub-btn" onClick={() => onNavigate('scheduleChanges', { ensembleId })}>
             <Sparkles size={20} /> Temporary Roster Changes
           </button>
-          <button className="dir-hub-btn" onClick={() => setShowSeating(true)}>
-            <Armchair size={20} /> Seating
-          </button>
+          {!isClassGroup(ensemble) && (
+            <button className="dir-hub-btn" onClick={() => setShowSeating(true)}>
+              <Armchair size={20} /> Seating
+            </button>
+          )}
         </div>
       </div>
 

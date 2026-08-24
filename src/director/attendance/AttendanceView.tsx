@@ -5,6 +5,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useAttendance, useDayAttendance, useAllAttendance } from '../hooks/useAttendance';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { usePlannedAbsences } from '../hooks/usePlannedAbsences';
+import { useSchoolDayTardies } from '../hooks/useSchoolDayTardies';
 import { useSeatingCharts } from '../hooks/useSeatingCharts';
 import { useEvents } from '../hooks/useEvents';
 import { useContacts } from '../hooks/useContacts';
@@ -268,6 +269,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
   const ensembleId = period.ensembleId;
   const { recordMap, toggleAttendance } = useAttendance(date, ensembleId, eventId);
   const { absences: plannedAbsences } = usePlannedAbsences();
+  const { tardies } = useSchoolDayTardies();
   // Students removed from THIS roster today by a pull override (not lessons):
   // they must never just vanish — show who, why, and for how long.
   const pulledToday = useMemo(() => {
@@ -280,6 +282,13 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
   const plannedByStudent = useMemo(() => Object.fromEntries(
     plannedAbsences.filter(a => a.date === date && a.status !== 'dismissed').map(a => [a.studentId, a]),
   ), [plannedAbsences, date]);
+
+  // Late to school today (#tardies). Shown as a chip beside the name, never as
+  // a mark: a student can be late to the building and still walk into this
+  // rehearsal on time, and conflating the two is what this separates.
+  const tardyByStudent = useMemo(() => Object.fromEntries(
+    tardies.filter(t => t.date === date).map(t => [t.studentId, t]),
+  ), [tardies, date]);
 
   const ctx = { ensembleId, date, eventId: eventId ?? undefined, eventsById };
   const resolved = useMemo(() => {
@@ -593,6 +602,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
               lesson={lessons[student.id]}
               onLesson={handleLessonTap}
               plannedAbsence={plannedByStudent[student.id]}
+              schoolTardy={tardyByStudent[student.id]}
               dayContext={dayContext[student.id]}
               history={history5[student.id]}
               onOpenStudent={setViewingStudentId}

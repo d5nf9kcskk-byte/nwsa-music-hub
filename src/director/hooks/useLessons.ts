@@ -9,16 +9,19 @@ import { currentDirectorName, useCurrentDirector } from '../currentDirector';
 import type { Lesson } from '../types';
 
 /**
- * Private lessons (#roles) — a Teacher's own scheduled 1:1 sessions. Never
- * world-readable (see firestore.rules); Owner/Director can read all of them
- * for coordination, a Teacher only their own (enforced server-side too).
+ * Private lessons (#roles, #applied) — an Applied Teacher's own scheduled 1:1
+ * sessions, including the grade they gave each one. Never world-readable
+ * (see firestore.rules); Owner/Director can read all of them
+ * for coordination, an Applied Teacher only their own (enforced server-side
+ * too, which is why the grade lives on this doc and not in its own
+ * collection).
  */
 export function useLessons() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
   const me = useCurrentDirector();
-  // A Teacher may only READ their own lessons (audit rec #5) — so their
-  // listener has to ASK for only their own, or Firestore rejects the whole
+  // An Applied Teacher may only READ their own lessons (audit rec #5) — so
+  // their listener has to ASK for only their own, or Firestore rejects the whole
   // query. Deliberately no orderBy alongside the filter: an equality query
   // plus a sort on another field needs a composite index, and a teacher's
   // lesson list is small enough to sort here.

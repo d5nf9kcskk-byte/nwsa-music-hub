@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { WhatsNewBanner } from '../../shared/WhatsNewBanner';
 import { ClipboardList, MapPin, Clock, Music, GraduationCap, CalendarPlus, Users, Megaphone, ChevronRight, Plus, MessageSquarePlus } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
@@ -326,6 +327,8 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
       {showChecklist && (
         <SeasonChecklist onNavigate={onNavigate} onClose={() => setShowChecklist(false)} />
       )}
+
+      <WhatsNewBanner audience="staff" />
 
       {showFollowUps && (
         <FollowUpSheet records={followUps} students={studentsById} ensembleMap={ensembleMap} onClose={() => setShowFollowUps(false)} />

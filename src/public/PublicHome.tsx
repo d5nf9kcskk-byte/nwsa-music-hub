@@ -6,7 +6,7 @@ import { usePublicEvents } from './hooks/usePublicEvents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
-import { todayStr, formatTimeRange, ensembleColor, ensembleDisplayName, addDays, assignmentEmoji, musicEnsembles, isPublished, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { todayStr, formatTimeRange, ensembleColor, ensembleDisplayName, addDays, assignmentEmoji, performingEnsembles, isPublished, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { SkeletonCards, EmptyState } from './components/PageHeader';
@@ -105,16 +105,15 @@ export function PublicHome() {
     return e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]);
   }
 
-  const orderedEnsembles = musicEnsembles([...ensembles].sort((a, b) => a.order - b.order));
+  const orderedEnsembles = performingEnsembles([...ensembles].sort((a, b) => a.order - b.order));
 
   return (
     <div className="pub-page">
       <WelcomeHubBanner />
-      {/* Open sign-ups this device hasn't answered yet (#signups) — ABOVE
-          What's New on purpose: a sign-up with a next-day deadline is the one
-          thing on this page that expires, and the changelog is not. */}
+      {/* Open sign-ups this device hasn't answered yet (#signups) — stays at
+          the top: a sign-up with a next-day deadline is the one thing on this
+          page that expires. The What's New roll-up sits at the bottom. */}
       <SignupAlert />
-      <WhatsNewBanner audience="public" />
       <div
         className="pub-hero pub-hero-fancy"
         onPointerDown={onHeroHoldStart}
@@ -275,6 +274,8 @@ export function PublicHome() {
           <Music size={18} /><span>{t('rep.browseAll')}</span>
         </Link>
       )}
+
+      <WhatsNewBanner audience="public" />
 
       <NoteBurst cheer={tempoCheer || holdCheer} />
     </div>

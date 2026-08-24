@@ -4,11 +4,34 @@
  * share it. `useDirectors.DirectorRole` is an alias of this type.
  *   • owner     — manages the Directors list itself.
  *   • director  — full edit access everywhere except the Directors list.
- *   • teacher   — schedules private lessons for their assigned students only.
+ *   • teacher   — the APPLIED TEACHER (#applied): a private studio/instrument
+ *                 teacher (violin, cello, voice…), scoped to their own
+ *                 assigned students — those students' lessons, the grades on
+ *                 those lessons, and nothing else in the Hub. NOT a classroom
+ *                 theory teacher; a theory section is taught by a director.
  *   • assistant — Personnel Assistant: takes roll (attendance) for their
  *                 assigned ensembles only; nothing else in the Hub.
+ *
+ * The STORED value stays `'teacher'` on purpose even though every label now
+ * reads "Applied Teacher". That string is the `role` field on live
+ * `directors/{email}` docs and is compared by name in firestore.rules
+ * (`isTeacherRole()`, `isKnownRole()`, and the loginEvents/activityLog rules
+ * that check the claimed role against the directors doc). Renaming it buys
+ * nothing a label can't, and costs a data migration plus a window where the
+ * rules must accept BOTH strings — i.e. temporarily widening the closed role
+ * set, which is the one thing #roles says not to do. Words live in
+ * STAFF_ROLE_LABEL below; the wire value never moves.
  */
 export type StaffRole = 'owner' | 'director' | 'teacher' | 'assistant';
+
+/** The ONE place each role's user-facing words live. Anything that prints a
+ *  role reads this — so a future rename is a label edit, never a data one. */
+export const STAFF_ROLE_LABEL: Record<StaffRole, string> = {
+  owner: 'Owner',
+  director: 'Director',
+  teacher: 'Applied Teacher',
+  assistant: 'Personnel Assistant',
+};
 
 export interface Ensemble {
   id: string;
@@ -28,6 +51,29 @@ export interface Ensemble {
   defaultStartTime?: string; // "HH:MM" (24h)
   defaultEndTime?: string;
   meetingDays?: number[];    // 0=Sun … 6=Sat — informational recurring pattern
+  /**
+   * What kind of group this is (#classes). Absent = 'ensemble' — every group
+   * that existed before this field is a performing ensemble, so old docs keep
+   * their meaning without a migration.
+   *   • 'ensemble' — rehearses and performs: Camerata, Symphony, Jazz Ensemble.
+   *   • 'class'    — an academic class: meets, has a roster, takes roll, and
+   *                  covers units/chapters rather than repertoire. Music
+   *                  Theory, Jazz Theory, Music Appreciation, Music History.
+   *   • 'masterclass' — also a class (rosters, roll, no concerts), but the
+   *                  students PLAY in it: each meeting has a chosen set of
+   *                  performers and the pieces they bring. A master class is
+   *                  not an ensemble — the players are studio students sharing
+   *                  a room, not a section that performs together.
+   * Both class kinds group under "Classes" everywhere a list is shown; the
+   * difference only decides whether a meeting asks for a unit or for
+   * performers. Use isClassGroup() / isMasterClass() / performingEnsembles() /
+   * classGroups() in utils.ts rather than reading this field directly, so the
+   * "absent = ensemble" default is applied in exactly one place.
+   */
+  kind?: 'ensemble' | 'class' | 'masterclass';
+  /** Class-only: a college / dual-enrollment course rather than a high school
+   *  one. Display + filtering only — it never changes who may read anything. */
+  collegeLevel?: boolean;
 }
 
 export interface Student {
@@ -137,6 +183,23 @@ export interface CalendarEvent {
   location?: string;
   title?: string;         // primarily for concerts / one-off events
   repertoire?: string;    // free-text repertoire/focus notes
+  /**
+   * Class-only counterpart to `repertoire` (#classes): the unit, chapter, or
+   * subject this class meeting covers. A class doesn't rehearse repertoire, so
+   * the event form offers this instead — never both. Kept as its OWN field
+   * rather than reusing `repertoire` so nothing downstream that means "music
+   * being played" (concert programs, piece links) ever picks up a chapter
+   * heading.
+   */
+  unitInfo?: string;
+  /**
+   * Performers at this event who are NOT on any Hub roster — free-text names.
+   * Master classes are the case this exists for: visiting college students
+   * play in the same class as the high school students, and the director wants
+   * that recorded even though they are not students here and never appear on a
+   * roster, in a feed, or in attendance. Names only, no contact details.
+   */
+  guestPerformers?: string[];
   pieceIds?: string[];    // linked RepertoirePiece IDs
   /**
    * Per-concert movement selection. Key = pieceId; value = the indices into
@@ -263,6 +326,30 @@ export interface AttendanceRecord {
   updatedAt?: number;
   updatedBy?: string;
   updatedByRole?: StaffRole;
+}
+
+/**
+ * Late to SCHOOL on a given day (#tardies) — deliberately not attendance.
+ * Brent's log: the office bulletin's TARDY section says a student arrived
+ * late to the building, which says nothing about whether they walked into
+ * their rehearsal on time. Writing it as a class 'Late' mark made the two
+ * impossible to tell apart, so it lives here instead and shows next to roll
+ * as context rather than as a mark.
+ *
+ * Doc id is `${studentId}_${date}`, so the bulletin re-running the same day
+ * updates one record rather than stacking duplicates. Staff-only.
+ */
+export interface SchoolDayTardy {
+  id: string;
+  studentId: string;
+  studentName: string;   // denormalized, same reason as PlannedAbsence
+  date: string;          // YYYY-MM-DD
+  /** Office-reported arrival time when the bulletin gives one, e.g. "8:15". */
+  time?: string | null;
+  /** 'office' = the attendance bulletin. Set by hand for a director entry. */
+  source?: 'office';
+  notes?: string;
+  updatedAt?: number;
 }
 
 /** Ambiguous office-bulletin rows waiting for a director to resolve. */
@@ -398,6 +485,37 @@ export interface RepertoirePiece {
 
 export type AttendanceStatus = 'Absent' | 'Late' | 'Excused' | 'Lesson';
 export type Tab = 'roll' | 'roster' | 'schedule' | 'repertoire' | 'notes' | 'assignments';
+
+/**
+ * End-of-semester juries (#juries) — deliberately a STUB.
+ *
+ * The details that matter most (date, times, running order, panel) are not
+ * decided until the juries are close, so this exists to be somewhere to put
+ * what IS known as it firms up, rather than to model a process nobody has
+ * settled yet. Everything except `name` is optional on purpose; the running
+ * order is a plain ordered list of student ids that a director can shuffle.
+ *
+ * Do not grow this into a scheduler without a plan — see docs.
+ */
+export interface Jury {
+  id: string;
+  /** e.g. "String Juries" / "Wind & Percussion Juries". */
+  name: string;
+  /** Free text — "Fall 2026", "Spring 2027". Not a date, on purpose. */
+  term?: string;
+  date?: string;          // YYYY-MM-DD, once it is known
+  startTime?: string;     // "HH:MM"
+  endTime?: string;
+  location?: string;
+  /** Who is hearing them — free text, one per line is fine. */
+  panel?: string;
+  /** Running order: student ids, in the order they play. Order is the data. */
+  studentIds?: string[];
+  /** Everything not yet worth a field. This is where a stub earns its keep. */
+  notes?: string;
+  updatedAt?: number;
+  updatedBy?: string;
+}
 
 export type AssignmentType = 'Playing Exam' | 'Written Test' | 'Performance' | 'Other';
 export type AssignmentResultStatus = 'Pending' | 'Pass' | 'Fail' | 'Exempt';
@@ -646,9 +764,18 @@ export interface Lesson {
   location?: string;
   instrument?: string;     // denormalized from the teacher's instrument(s)
   notes?: string;
-  /** Lesson grade / mark. Reserved for Dean payment tracking; not collected in
-   *  the teacher UI yet, but exported in director CSV when present. */
+  /** The applied teacher's mark for this lesson — one of LESSON_MARKS
+   *  (src/director/lessonGrades.ts). Typed as string, not LessonMark, because
+   *  the field predates the closed set and some docs may hold free text;
+   *  `isLessonMark()` is the gate everything that COUNTS a grade goes through.
+   *  Lives on the lesson doc rather than a grades collection so it inherits
+   *  the lesson's own scoping — an applied teacher reads and writes only
+   *  their own lessons, so they read and write only their own grades, with no
+   *  second query/rule pair to keep in agreement (#roles). */
   grade?: string;
+  /** Free-text comment on the grade: what to practise, what improved. Staff
+   *  only, same as the lesson — never mirrored publicly. */
+  gradeNote?: string;
   status: EventStatus;
   /** Set once the teacher has acknowledged a scheduling conflict for this
    *  lesson. Absent = no conflict was detected at save time. */

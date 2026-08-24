@@ -28,11 +28,20 @@ rules_version = '2';
 //   • owner     — exactly one account. The only one that can add/remove a
 //                 director or change anyone's role.
 //   • director  — full edit access to everything except the Directors list.
-//   • teacher   — scoped to scheduling their OWN private lessons (see
-//                 `lessons` and the `kind == 'lesson'` exception on
-//                 `rosterOverrides` below). Can't touch rosters, schedule,
-//                 repertoire, documents, announcements, contacts, or the
-//                 Directors list.
+//   • teacher   — the APPLIED TEACHER (#applied): a private studio/instrument
+//                 teacher, scoped to their OWN assigned students — scheduling
+//                 and GRADING their own lessons (see `lessons` and the
+//                 `kind == 'lesson'` exception on `rosterOverrides` below).
+//                 Can't touch rosters, schedule, repertoire, documents,
+//                 announcements, contacts, or the Directors list.
+//                 The label reads "Applied Teacher" everywhere in the app;
+//                 the STORED value is still 'teacher' and must stay that way.
+//                 Renaming it would mean migrating every live directors doc
+//                 while these rules temporarily accepted BOTH strings — i.e.
+//                 widening the closed role set, the one thing this comment
+//                 block exists to prevent. Words are a UI concern
+//                 (STAFF_ROLE_LABEL in src/director/types.ts); the wire value
+//                 is a rules contract.
 //   • assistant — Personnel Assistant: reads/writes ATTENDANCE only, and only
 //                 for the ensembles named in their doc's `assignedEnsembleIds`
 //                 (plus the narrow side-effects of taking roll: the event's
@@ -416,11 +425,26 @@ service cloud.firestore {
     // to plannedAbsences instead. Admin SDK writes; directors read / dismiss
     // in Who's Out, same shape as bulletinQueue.
     match /absenceEmailQueue/{doc} { allow read, write: if isStaff(); }
+    // Late to SCHOOL, from the same bulletin pull (#tardies). Staff-only, and
+    // NEVER mirrored publicly: it is a per-student disciplinary-adjacent fact,
+    // squarely in the same class as attendance and notes (see the projection
+    // model in CLAUDE.md). Admin SDK writes it; directors read and annotate.
+    match /schoolDayTardies/{doc} { allow read, write: if isStaff(); }
+    // Juries (#juries) — staff-only while this is a stub. It names students
+    // and a running order; nothing about it is public, and no public surface
+    // reads it, so it stays behind the allowlist until there is a reason not to.
+    match /juries/{doc} { allow read, write: if isStaff(); }
 
-    // Private lessons (#roles): a Teacher schedules/edits/cancels their OWN
-    // lessons; Owner/Director can see and manage all of them (coordination —
-    // e.g. confirming a conflict with the ensemble director). Never world-
-    // readable, since it names an individual student and their teacher.
+    // Private lessons (#roles, #applied): an Applied Teacher schedules, edits,
+    // cancels and GRADES their OWN lessons; Owner/Director can see and manage
+    // all of them (coordination — e.g. confirming a conflict with the ensemble
+    // director). Never world-readable, since it names an individual student,
+    // their teacher, and now that student's mark.
+    //
+    // The grade deliberately lives on THIS doc rather than in a grades
+    // collection: a lesson is already scoped to exactly one applied teacher,
+    // so the grade inherits that scoping and there is no second
+    // query/rule pair to keep in agreement.
     match /lessons/{doc} {
       // Not plain signedIn(): a Personnel Assistant is attendance-only and
       // has no business reading who takes private lessons with whom.
@@ -434,7 +458,15 @@ service cloud.firestore {
       allow read: if isStaff()
         || (isTeacherRole() && resource.data.teacherEmail == request.auth.token.email);
       allow create: if isStaff() || (isTeacherRole() && request.resource.data.teacherEmail == request.auth.token.email);
-      allow update, delete: if isStaff() || (isTeacherRole() && resource.data.teacherEmail == request.auth.token.email);
+      allow delete: if isStaff() || (isTeacherRole() && resource.data.teacherEmail == request.auth.token.email);
+      // Update checks BOTH the old and the new teacherEmail: owning the doc
+      // gets you the edit, but the edit may not hand the doc (and the grade on
+      // it) to a different teacher, or to an address that is nobody's. Only
+      // checking `resource` let a teacher reassign their own lesson away.
+      allow update: if isStaff()
+        || (isTeacherRole()
+            && resource.data.teacherEmail == request.auth.token.email
+            && request.resource.data.teacherEmail == resource.data.teacherEmail);
     }
 
     // ── Private · staff read + write only ──────────────

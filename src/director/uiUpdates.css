@@ -232,6 +232,14 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   background: #eef1f6; color: #3a4a63;
   border: 1px solid #c5cedb; border-radius: 4px; padding: 1px 6px;
 }
+/* Late to SCHOOL (#tardies) — amber, and deliberately not one of the
+   attendance-status colors: it is context beside the name, not a mark. */
+.dir-tardy-badge {
+  display: inline-block; margin-left: 6px; vertical-align: middle;
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em;
+  background: #fdf3e0; color: #8a5a09;
+  border: 1px solid #eccf96; border-radius: 4px; padding: 1px 6px;
+}
 .dir-office-reason {
   font-size: 11.5px; color: var(--dir-text-muted); margin-top: 2px;
 }
@@ -370,6 +378,15 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 
 /* Menu: ensemble sub-items */
 .dir-menu-subitem { padding-left: 34px; font-size: 15px; }
+/* Heading inside the Ensembles menu group, separating classes from ensembles. */
+.dir-menu-subhead {
+  padding: 10px 12px 2px 34px;
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--dir-text-muted);
+}
 .dir-menu-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
 
 /* ── Today dashboard ── */

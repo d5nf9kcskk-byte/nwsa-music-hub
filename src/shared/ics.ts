@@ -71,6 +71,8 @@ interface IcsEventLike {
   notes?: string;
   changeNote?: string;
   repertoire?: string;
+  /** Class meetings carry a unit/chapter instead of repertoire (#classes). */
+  unitInfo?: string;
   pieceIds?: string[];
   ensembleIds?: string[];
   sharedBlock?: boolean;
@@ -124,6 +126,10 @@ export function icsDescription(event: IcsEventLike, lookups: IcsLookups): string
   // notes would read "bars 40–90\; Rip Van Winkle" in some calendar apps.
   const repertoire = [event.repertoire, ...pieces].filter(Boolean).join(' · ');
   if (repertoire) parts.push(`Repertoire: ${repertoire}`);
+  // A class covers a unit, not repertoire (#classes). Its own line, and its
+  // own label — a subscriber reading "Repertoire: Chapter 7" would be
+  // reasonably confused about what they are meant to bring.
+  if (event.unitInfo) parts.push(`Unit: ${event.unitInfo}`);
 
   // Notes are typed with the formatting toolbar, so they can carry block
   // markers ("# Warm-up order", "-# Bring your folder"). A calendar app shows
