@@ -10,7 +10,8 @@ rules_version = '2';
 //     exceptions, progress notes, private lessons) are readable and writable
 //     only by signed-in staff — never world-readable.
 //   • PAID-ROSTER collections (#personnel: personnel, personnelContacts,
-//     contracts — Fair Copy adult orgs) are stricter still: Owner/Director
+//     contracts, contractTemplates — Fair Copy adult orgs) are stricter
+//     still: Owner/Director
 //     only, exact key allowlists, and NO public projection exists or may be
 //     added. See the section header above /personnel below.
 //
@@ -546,10 +547,9 @@ service cloud.firestore {
     //     change; rules auto-deploy on merge, so the two ship together —
     //     the rosterOverridesPublic contract.
     //
-    // `contractTemplates` (generic agreement prose, no per-person data) is
-    // deliberately NOT opened here: nothing reads it yet, so it stays under
-    // the default deny until the personnel screens land and its rules are
-    // written alongside them.
+    // `contractTemplates` (generic agreement prose, no per-person data)
+    // opened with the contract surfaces (build-plan step 4), which is when
+    // something first reads it — its rules live at the end of this section.
 
     // The roster doc: name, instrument, section, seat — what an orchestra
     // prints in a program. Still staff-only: "publicly-safe fields" is a
@@ -658,6 +658,38 @@ service cloud.firestore {
       // past Draft was communicated and is a record: void it instead.
       // (Admin SDK bypasses rules for true cleanup, e.g. demo reseeds.)
       allow delete: if isStaff() && resource.data.status == 'Draft';
+    }
+
+    // Reusable agreement prose (`ContractTemplate` in types.ts) — the
+    // skeleton contracts are issued FROM. Carries no per-person data and no
+    // money (numbers stay in the contract's structured fields; the prose
+    // only holds {{placeholder}} tokens), but it is still #personnel-tier
+    // Owner/Director-only: what an org offers its musicians is nobody
+    // else's read, and a poisoned template would flow into every contract
+    // issued after. Same exact-allowlist posture as its siblings.
+    //
+    // Deleting or editing a template never reaches issued contracts —
+    // they carry a frozen COPY of the prose (termsText) plus
+    // templateId/templateVersion for provenance — so templates get plain
+    // staff CRUD with no lifecycle of their own. `version` is a bumped-on-
+    // edit int the app stamps onto contracts at issue; `is int >= 1` keeps
+    // a garbage version from muddying that provenance.
+    match /contractTemplates/{doc} {
+      allow read: if isStaff();
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly([
+             'name', 'category', 'bodyText', 'version',
+             'updatedAt', 'updatedBy',
+           ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 1
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.category in ['chair', 'podium', 'staff']
+        && request.resource.data.bodyText is string
+        && request.resource.data.bodyText.size() <= 20000
+        && request.resource.data.version is int
+        && request.resource.data.version >= 1;
+      allow delete: if isStaff();
     }
 
     // ── Director allowlist (stored as data) ─────────────

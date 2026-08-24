@@ -1,16 +1,20 @@
 import './personnel.css';
 import { useState, useEffect, useMemo } from 'react';
-import { UserPlus, Users, Star } from 'lucide-react';
+import { UserPlus, Users, Star, FileText } from 'lucide-react';
 import { deleteField } from 'firebase/firestore';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { usePersonnel } from '../hooks/usePersonnel';
 import { usePersonnelContacts } from '../hooks/usePersonnelContacts';
 import { useContracts } from '../hooks/useContracts';
+import { useContractTemplates } from '../hooks/useContractTemplates';
 import { recordActivity } from '../hooks/useActivityLog';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { scoreOrderRank, lastName } from '../scoreOrder';
 import { PersonnelForm } from './PersonnelForm';
 import { PersonnelDetail } from './PersonnelDetail';
+import { ContractSheet } from './ContractSheet';
+import { ContractForm, type ContractDraftData } from './ContractForm';
+import { ContractTemplatesView } from './ContractTemplatesView';
 import type { Personnel, Contract } from '../types';
 
 /**
@@ -40,12 +44,24 @@ export default function PersonnelManager() {
   const { ensembles } = useEnsembles();
   const { personnel, loading, addPersonnel, updatePersonnel, deletePersonnel, archivePersonnel, restorePersonnel } = usePersonnel();
   const { contacts, savePersonnelContact } = usePersonnelContacts();
-  const { contracts } = useContracts();
+  const {
+    contracts, addContract, updateContract,
+    signContract, countersignContract, voidContract, setContractNotes, deleteContract,
+  } = useContracts();
+  const { templates, addTemplate, updateTemplate, deleteTemplate } = useContractTemplates();
 
   useEffect(() => { recordActivity('personnel.view'); }, []);
 
   const [viewing, setViewing] = useState<Personnel | null>(null);
   const [editing, setEditing] = useState<Personnel | null | 'new'>(null);
+  // Contract surfaces (build-plan step 4). The open sheet tracks an ID and
+  // derives the live doc, so a sign or countersign refreshes it in place.
+  const [openContractId, setOpenContractId] = useState<string | null>(null);
+  const [contractEdit, setContractEdit] = useState<{ person: Personnel; contract: Contract | null } | null>(null);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const openContract = openContractId != null
+    ? contracts.find(c => c.id === openContractId) ?? null
+    : null;
   const [search, setSearch] = useState('');
   const [filterEnsembleId, setFilterEnsembleId] = useState('');
   // Saved views, the RosterView pattern: '' = working roster (Contracted +
@@ -104,6 +120,23 @@ export default function PersonnelManager() {
       .sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label));
   }, [filtered]);
 
+  /** Draft/Sent save from the ContractForm. Cleared optional numbers become
+   *  deleteField() — updateDoc keeps keys the patch omits (the PersonnelForm
+   *  seat precedent). */
+  async function saveContract(data: ContractDraftData) {
+    if (!contractEdit) return;
+    const prior = contractEdit.contract;
+    if (prior) {
+      const patch: Record<string, unknown> = { ...data };
+      if (data.seat == null && prior.seat != null) patch.seat = deleteField();
+      if (data.baseRateQuantity == null && prior.baseRateQuantity != null) patch.baseRateQuantity = deleteField();
+      await updateContract(prior.id, patch as Partial<Contract>);
+    } else {
+      const id = await addContract({ ...data, status: 'Draft' });
+      if (id) setOpenContractId(id);
+    }
+  }
+
   return (
     <div>
       <div className="dir-filter-bar">
@@ -115,6 +148,9 @@ export default function PersonnelManager() {
             onChange={e => setSearch(e.target.value)}
           />
         )}
+        <button className="dir-tool-btn" onClick={() => setTemplatesOpen(true)}>
+          <FileText size={15} /> Contract templates
+        </button>
       </div>
 
       {ensembles.length > 0 && personnel.length > 0 && (
@@ -182,7 +218,48 @@ export default function PersonnelManager() {
           onEdit={() => { setEditing(viewing); setViewing(null); }}
           onArchive={() => { void archivePersonnel(viewing.id); }}
           onRestore={() => { void restorePersonnel(viewing.id); }}
+          onNewContract={() => setContractEdit({ person: viewing, contract: null })}
+          onOpenContract={c => setOpenContractId(c.id)}
           onClose={() => setViewing(null)}
+        />
+      )}
+
+      {/* Contract sheet — stacks over the person detail; closing returns there. */}
+      {openContract && contractEdit === null && (
+        <ContractSheet
+          contract={openContract}
+          templates={templates}
+          onEdit={() => {
+            const p = personnel.find(pp => pp.id === openContract.personnelId);
+            if (p) setContractEdit({ person: p, contract: openContract });
+          }}
+          onMarkSent={() => void updateContract(openContract.id, { status: 'Sent' })}
+          onSign={sig => signContract(openContract.id, sig)}
+          onCountersign={() => countersignContract(openContract.id)}
+          onVoid={() => voidContract(openContract.id)}
+          onDeleteDraft={() => deleteContract(openContract.id)}
+          onSaveNotes={n => setContractNotes(openContract.id, n)}
+          onClose={() => setOpenContractId(null)}
+        />
+      )}
+
+      {contractEdit !== null && (
+        <ContractForm
+          person={contractEdit.person}
+          contract={contractEdit.contract}
+          templates={templates}
+          onSave={saveContract}
+          onClose={() => setContractEdit(null)}
+        />
+      )}
+
+      {templatesOpen && (
+        <ContractTemplatesView
+          templates={templates}
+          onAdd={addTemplate}
+          onUpdate={updateTemplate}
+          onDelete={deleteTemplate}
+          onClose={() => setTemplatesOpen(false)}
         />
       )}
 

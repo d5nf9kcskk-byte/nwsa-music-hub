@@ -6,8 +6,9 @@
  * demo season for the Alpharetta Symphony — the adult, semi-professional
  * org (docs/fair-copy/as-demo-plan.md). Follows scripts/seed-demo-org.mjs,
  * with the paid-roster collections in place of students: personnel (+
- * personnelContacts), contracts spanning every position category, the real
- * 2026-27 season concert dates, repertoire, and announcements. NO students,
+ * personnelContacts), contracts spanning every position category, the Step 4
+ * starter contract templates, the real 2026-27 season concert dates,
+ * repertoire, and announcements. NO students,
  * NO public mirrors (the paid roster has none by design — firestore.rules
  * #personnel), and NO attendance records (the ServiceAttendance model is
  * decided but not built — do not seed data no rule or type exists for).
@@ -34,6 +35,10 @@
 
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+// The app's own starter prose (Node strips the types — the generate-feeds
+// pattern), so the seeded templates are EXACTLY what the in-app "New
+// template" starters offer, not a drifting second copy.
+import { STARTER_TEMPLATES } from '../src/director/personnel/contractTerms.ts';
 
 const DEMO_PROJECT_ID = 'as-hub-demo';
 
@@ -491,6 +496,22 @@ const CONTRACTS = [
   },
 ];
 
+// ── Contract templates — the Step 4 starters, seeded so "issue a contract
+// from a template" is demoable out of the box. Fixed ids, version 1; shapes
+// satisfy the contractTemplates allowlist in firestore.rules. The 13
+// contracts above deliberately keep their inline termsText and NO
+// templateId — templateId is optional provenance, and a demo should show
+// both shapes.
+const CONTRACT_TEMPLATES = STARTER_TEMPLATES.map((t, i) => ({
+  id: `as-tmpl-${t.category}`,
+  name: t.name,
+  category: t.category,
+  bodyText: t.bodyText,
+  version: 1,
+  updatedAt: NOW - (10 - i) * DAY,
+  updatedBy: 'Rufus Castellan',
+}));
+
 // ── Announcements ──────────────────────────────────────────────────────────
 const ANNOUNCEMENTS = [
   // Self-labeling: the sandbox says it's a sandbox, so nobody mistakes
@@ -544,6 +565,7 @@ const DOCUMENTS = [
   for (const p of PERSONNEL) await put('personnel', p);
   for (const pc of PERSONNEL_CONTACTS) await put('personnelContacts', pc);
   for (const c of CONTRACTS) await put('contracts', c);
+  for (const t of CONTRACT_TEMPLATES) await put('contractTemplates', t);
   for (const p of PIECES) await put('repertoire', p);
   for (const ev of buildEvents()) await put('events', ev);
   for (const a of ANNOUNCEMENTS) await put('announcements', a);
@@ -551,7 +573,7 @@ const DOCUMENTS = [
 
   await batch.commit();
   console.log(`Seeded ${count} docs into ${DEMO_PROJECT_ID}:`);
-  console.log(`  ${ENSEMBLES.length} ensembles, ${PERSONNEL.length} personnel (+${PERSONNEL_CONTACTS.length} contacts), ${CONTRACTS.length} contracts`);
+  console.log(`  ${ENSEMBLES.length} ensembles, ${PERSONNEL.length} personnel (+${PERSONNEL_CONTACTS.length} contacts), ${CONTRACTS.length} contracts, ${CONTRACT_TEMPLATES.length} contract templates`);
   console.log(`  ${PIECES.length} pieces, ${buildEvents().length} events, ${ANNOUNCEMENTS.length} announcements, ${DOCUMENTS.length} documents`);
   console.log(`Owner: ${OWNER_EMAIL} — sign in with THAT Google account, then add the AS staff from the Directors screen.`);
 })();

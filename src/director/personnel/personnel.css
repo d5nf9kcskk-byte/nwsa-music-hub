@@ -68,3 +68,103 @@
   display: inline-flex;
   align-items: center;
 }
+
+/* ── Contract surfaces (build-plan step 4) ──
+   The print path deliberately REUSES the sign-up module's classes —
+   .dir-signup-print-host (positioned off-screen, never display:none; print
+   engines skip display:none and printViaPopup serializes the node) and the
+   .signup-sheet-* head/fields/signature styles, which are always loaded
+   (SignupsView is a static import in DirectorApp). Below is only what a
+   contract has and a sign-up form doesn't. */
+
+/* Contract rows in the person sheet are buttons now — they open the
+   contract sheet. Reset button chrome; .dir-pers-contract does the layout. */
+.dir-pers-contract-open {
+  width: 100%;
+  background: var(--dir-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.dir-pers-contract-open:hover { background: var(--dir-surface-2); }
+
+/* Template list rows + starter buttons in the Templates drawer. */
+.dir-tmpl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 8px;
+  border: 1px solid var(--dir-border);
+  border-radius: 10px;
+  background: var(--dir-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.dir-tmpl-row:hover { background: var(--dir-surface-2); }
+.dir-tmpl-name { font-weight: 600; flex: 1; min-width: 0; }
+.dir-tmpl-meta { font-size: 12px; color: var(--dir-text-muted); flex-shrink: 0; }
+.dir-tmpl-starters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.dir-tmpl-body { font-size: 13px; line-height: 1.5; }
+.dir-tmpl-tokens { margin: 4px 0 12px; font-size: 12.5px; }
+.dir-tmpl-tokens summary { cursor: pointer; color: var(--dir-text-muted); font-weight: 600; }
+.dir-tmpl-tokens dl { margin: 6px 0 0; }
+.dir-tmpl-tokens dl > div { display: flex; gap: 10px; padding: 2px 0; }
+.dir-tmpl-tokens dt { min-width: 140px; }
+.dir-tmpl-tokens dd { margin: 0; color: var(--dir-text-muted); }
+
+/* Line-item editor rows in the contract form. */
+.dir-contract-line-edit {
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: var(--dir-surface-2);
+  border: 1px solid var(--dir-border);
+  border-radius: var(--dir-radius-sm, 8px);
+}
+
+/* Lifecycle action row on the contract sheet. */
+.dir-contract-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Rendered agreement prose on the contract sheet. */
+.dir-contract-terms {
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--dir-border);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.dir-contract-terms p { margin: 0 0 10px; }
+.dir-contract-terms p:last-child { margin-bottom: 0; }
+
+/* Compensation breakdown — shared by the sheet and the printed page.
+   Integer-cents arithmetic happens in contractMoney.ts; this only lays out
+   the rows (label · rate · quantity · line total). */
+.contract-comp { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+.contract-comp td { padding: 4px 6px; border-bottom: 1px solid var(--dir-border); vertical-align: top; }
+.contract-comp td:nth-child(2), .contract-comp td:nth-child(3) { white-space: nowrap; }
+.contract-comp td:last-child { text-align: right; white-space: nowrap; }
+.contract-comp tfoot td { font-weight: 700; border-bottom: none; }
+
+/* The printed agreement (rides .signup-sheet-* for head/fields/signature). */
+.contract-sheet {
+  padding: 28px 32px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #111;
+}
+.contract-sheet .contract-comp td { border-bottom-color: #ccc; }
+.contract-sheet-terms { margin: 0 0 16px; }
+.contract-sheet-terms p { margin: 0 0 9px; }
+.contract-sheet-comp { margin-bottom: 10px; }
+.contract-sheet-comp-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}

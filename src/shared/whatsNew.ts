@@ -14,6 +14,10 @@
  */
 import { ORG } from '../org';
 
+/** Build-time fold (vite.config.ts define): personnel-org entries must not
+ *  leave a single contract/personnel string in a school bundle. */
+declare const __ORG_PERSONNEL__: boolean;
+
 export type WhatsNewAudience = 'staff' | 'public' | 'both';
 
 export interface WhatsNewEntry {
@@ -28,6 +32,22 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Contract surfaces (#personnel, AS build-plan step 4). Folded out of
+  // school builds at build time — never gate this on a runtime ORG read,
+  // or the strings ship in every org's bundle.
+  ...(__ORG_PERSONNEL__ ? [{
+    id: '2026-08-24-contracts',
+    date: '2026-08-24',
+    title: 'Contracts: issue, sign, and print from Personnel',
+    audience: 'staff' as const,
+    expires: '2026-09-07',
+    bullets: [
+      'Open anyone on the Personnel screen to draft their contract: position, base rate, expected services, and extra line items like cartage or doubling — totals are computed for you, to the cent.',
+      '“Insert from template” drops in the agreement text. Edit the three starter templates (musician, podium, staff) under Personnel → Contract templates; a contract keeps its own frozen copy, so editing a template never changes anything already issued.',
+      'The lifecycle matches how the paperwork actually moves: Mark sent, record the typed-name signature, countersign, and Void if it falls through. Terms lock the moment a contract is signed.',
+      'Print / save PDF produces the one-page agreement with the compensation table and both signature blocks — same printing flow as sign-up forms.',
+    ],
+  }] : []),
   // Verb-named student moves + standing rotations (#schedule-ux-redesign Phase 3).
   {
     id: '2026-08-22-student-verbs-rotations',

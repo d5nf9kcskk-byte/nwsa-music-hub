@@ -205,6 +205,105 @@ Still owed: nothing build-side. No live round-trip until Step 7 creates
 **Done when:** a contract carrying a base rate and a cartage line item
 prints as a coherent one-page agreement with correct arithmetic in cents.
 
+**Implemented 2026-08-23 (PR #91, draft, stacked on the Step 7 seed PR
+#88 — its diff is Step 4 only).** What shipped, in
+`src/director/personnel/` unless noted:
+
+- `contractTerms.ts` — the `{{token}}` vocabulary, the resolver that
+  fills tokens from a Contract's STRUCTURED fields, and three neutral
+  starter templates (chair/podium/staff), each saying in its own closing
+  line that it is placeholder language. The prose never carries a
+  number: a template's `bodyText` holds tokens; issue copies that text
+  verbatim onto the contract (`termsText` + `templateId`/
+  `templateVersion` — editing a template never reaches an issued
+  contract); and rates/dates substitute at render/print time from the
+  same structured fields the rules freeze at signing. Internal imports
+  carry explicit `.ts` extensions because `seed-as-org.mjs` imports the
+  module (the generate-feeds Node-strips-types pattern), so the seeded
+  demo templates ARE the in-app starters rather than a second copy.
+- `useContractTemplates` (`hooks/`) — the usePersonnel pattern behind
+  the same Owner/Director `usePersonnelGate`; saving a `bodyText` change
+  bumps `version`, the number stamped onto contracts at issue.
+- `contractTemplates` rules — the collection leaves the default deny in
+  the SAME change as the screens, as the Step 1 notes scheduled:
+  `isStaff()` + exact key allowlist mirroring the type, category and
+  `version` (`is int`, ≥ 1) checked, `bodyText` bounded at 20k. Plain
+  staff CRUD, no lifecycle of its own — issued contracts hold frozen
+  copies.
+- ContractTemplatesView (a drawer off the Personnel screen — no new
+  tab/route/gate, so the `__ORG_PERSONNEL__` folding story is
+  untouched), ContractForm (Draft/Sent editor: dollars typed, integer
+  cents stored via the new `parseCentsInput` in `contractMoney.ts` —
+  string arithmetic, fractional cents rejected before Firestore's
+  `is int` does; line items incl. Cartage; "Insert from template" is the
+  issue-time freeze), and ContractSheet (Mark sent, typed-name Record
+  signature per the SignupResponse pattern — signing is the write that
+  freezes terms server-side — Countersign, Void, Draft-only delete,
+  notes alive in every state; renders the frozen `termsText` with
+  tokens resolved).
+- Print: the sign-up path wholesale — `printViaPopup` over
+  `.dir-signup-print-host` itself (positioned off-screen, NEVER
+  `display: none`; print engines skip display:none) and the
+  `signup-sheet-*` styles, which are always loaded (SignupsView is a
+  static DirectorApp import). No PDF dependency.
+- Seed: `seed-as-org.mjs` also seeds the three starters as
+  `contractTemplates` (79 docs). The 13 contracts keep inline
+  `termsText` and no `templateId` on purpose — optional provenance, and
+  the demo should show both shapes.
+
+No divergence from the sketch beyond that drawer-not-tab layout call.
+
+**Verified 2026-08-23, Linux agent sandbox** (no live project exists —
+nothing round-tripped real infrastructure):
+
+- Emulator rules: a 29-case suite for `contractTemplates` —
+  owner/director/legacy-no-role read+write+delete allowed with the exact
+  allowlist; unauthenticated, teacher, assistant, unverified-email, and
+  non-allowlisted accounts denied; unknown key (`tin`), bad category,
+  empty name, non-string and oversized `bodyText`, version 0, and float
+  version all rejected. The extended seed runs end to end, and each
+  seeded template REPLAYED through an enforced create passes the
+  predicates (Admin SDK bypasses rules; shapes checked on their own,
+  the Step 7 discipline).
+- Done-when: `ContractPrintSheet` rendered headlessly
+  (react-dom/server) for a Substitute bass contract carrying
+  $150.00/service × 4 plus a one-time $75.00 Cartage line — base row
+  $600.00, cartage $75.00, estimated total $675.00, cents-exact via
+  `contractMoney`, every `{{token}}` resolved, both signature blocks,
+  one coherent sheet. On-screen printing goes through the same
+  component.
+- NWSA gate: two no-`VITE_ORG` builds, `[sw-precache]` **a9afd88b
+  twice — identical to the pre-change stack hash**, i.e. the school
+  bundle is byte-unchanged by this entire step; `asyo`/`alpharetta`
+  greps empty; no cartage/W-9/contractTemplates/Countersign string and
+  no personnel chunk in the nwsa dist. The `VITE_ORG=as` build carries
+  all the new surfaces in the PersonnelManager chunk.
+- Lint at the 64-error baseline (none in new files); `tsc -b` clean.
+
+What's New: an AS-staff entry ("Contracts: issue, sign, and print from
+Personnel"), added at rebase time on Grant's ask — spread into
+`WHATS_NEW` behind `__ORG_PERSONNEL__` (the build-time constant, NOT a
+runtime `ORG` read) so the school bundles carry none of its strings.
+The `ORG.features.contactForm` spread was the precedent; the build-time
+fold is the difference, and the NWSA-gate greps below prove it out.
+
+**Rebased onto `main` 2026-08-24** after the rest of the stack (Steps
+1–3, 7 and the org-setup automation) merged and the AS demo went live.
+One conflict, doc-only (`as-demo-plan.md` "Not started" — both sides'
+facts kept); the code applied clean. Re-verified in the Linux sandbox
+after the rebase: the done-when print check re-run headlessly against
+the SEEDED Substitute bass contract (as-c06: $95.00/service × 2 plus
+Cartage $40.00/service × 2 → base $190.00, cartage $80.00, estimated
+total $270.00, every token resolved, both signature blocks) as well as
+the $675.00 case above, plus the unknown-token-stays-verbatim and
+missing-quantity-stays-em-dash guards; lint still exactly the 64-error
+baseline; `tsc -b` clean; NWSA gate green (two no-`VITE_ORG` builds,
+`[sw-precache]` **62b4f9cf twice** — differs from a9afd88b only because
+the What's New define-fold is new code — `asyo`/`alpharetta`/cartage/
+W-9/Countersign greps all empty, no personnel chunk); `VITE_ORG=as`
+build carries the surfaces. The emulator rules suite was not re-run — the
+rebase left `firestore.rules` byte-identical to the reviewed diff.
+
 ---
 
 ## Step 5 — Attendance subject

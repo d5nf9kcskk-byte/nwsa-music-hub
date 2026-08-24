@@ -17,6 +17,20 @@ export function formatCents(cents: number): string {
   return USD.format(cents / 100);
 }
 
+/**
+ * Parse a typed dollar amount ("1,234.56", "$85", "-40") into INTEGER CENTS.
+ * Null for anything else — including more than two decimal places, so a
+ * fractional cent can never be typed into existence. String arithmetic, not
+ * parseFloat: 19.99 must become exactly 1999.
+ */
+export function parseCentsInput(text: string): number | null {
+  const m = /^(-?)\$?\s*(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d{1,2}))?$/.exec(text.trim());
+  if (!m) return null;
+  const dollars = Number(m[2].replace(/,/g, ''));
+  const cents = Number((m[3] ?? '').padEnd(2, '0') || '0');
+  return (m[1] ? -1 : 1) * (dollars * 100 + cents);
+}
+
 /** Short unit suffix for a per-unit basis; '' for a single agreed sum. */
 export function basisSuffix(basis: RateBasis | 'one-time'): string {
   switch (basis) {

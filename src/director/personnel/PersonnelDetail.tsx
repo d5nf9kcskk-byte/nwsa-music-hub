@@ -11,9 +11,9 @@ import { useModalA11y } from '../../shared/useModalA11y';
  * the StudentDetail pattern minus everything student-shaped (attendance,
  * assignments, progress notes) and plus the two things an adult roster
  * carries instead: payroll-adjacent contact details and the person's
- * contracts. Contracts render READ-ONLY here on purpose — issuing, signing,
- * and printing are the contract-surfaces step, and until then a roster that
- * reads right beats a half-built signing flow.
+ * contracts. Contract rows here are summaries that OPEN the contract sheet
+ * (build-plan step 4) — issuing, signing, countersigning, and printing all
+ * live there; this sheet never writes a contract itself.
  */
 
 const W9_LABEL: Record<NonNullable<PersonnelContact['w9Status']>, string> = {
@@ -37,10 +37,13 @@ interface Props {
   onEdit: () => void;
   onArchive: () => void;
   onRestore: () => void;
+  /** Contract surfaces (build-plan step 4) — the manager owns the sheets. */
+  onNewContract: () => void;
+  onOpenContract: (c: Contract) => void;
   onClose: () => void;
 }
 
-export function PersonnelDetail({ person, contact, contracts, ensembles, onEdit, onArchive, onRestore, onClose }: Props) {
+export function PersonnelDetail({ person, contact, contracts, ensembles, onEdit, onArchive, onRestore, onNewContract, onOpenContract, onClose }: Props) {
   const panelRef = useModalA11y<HTMLDivElement>(onClose, true);
   const homeEnsembles = ensembles.filter(e => person.ensembleIds?.includes(e.id));
   const sorted = [...contracts].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
@@ -175,16 +178,18 @@ export function PersonnelDetail({ person, contact, contracts, ensembles, onEdit,
             </div>
           </div>
 
-          {/* ── Contracts (read-only) ── */}
+          {/* ── Contracts — tap a row for the full sheet ── */}
           <div className="dir-detail-section">
-            <div className="dir-detail-section-title"><ClipboardSignature size={13} /> Contracts <span className="dir-detail-private">directors only</span></div>
-            {sorted.length === 0 ? (
+            <div className="dir-detail-section-title">
+              <ClipboardSignature size={13} /> Contracts <span className="dir-detail-private">directors only</span>
+            </div>
+            {sorted.length === 0 && (
               <div style={{ fontSize: 13, color: 'var(--dir-text-muted)', marginTop: 6 }}>No contracts on file.</div>
-            ) : (
-              sorted.map(c => {
+            )}
+            {sorted.map(c => {
                 const total = contractTotalCents(c);
                 return (
-                  <div key={c.id} className="dir-pers-contract">
+                  <button key={c.id} className="dir-pers-contract dir-pers-contract-open" onClick={() => onOpenContract(c)}>
                     <div className="dir-pers-contract-head">
                       <span className={`dir-contract-pill ${c.status}`}>{c.status}</span>
                       <span>{c.position}{c.season ? ` · ${c.season}` : ''}</span>
@@ -207,10 +212,12 @@ export function PersonnelDetail({ person, contact, contracts, ensembles, onEdit,
                           .join(' – ')}
                       </div>
                     )}
-                  </div>
+                  </button>
                 );
-              })
-            )}
+            })}
+            <button className="dir-tool-btn" style={{ marginTop: 8 }} onClick={onNewContract}>
+              <ClipboardSignature size={13} /> New contract
+            </button>
           </div>
 
           {/* ── Notes ── */}
