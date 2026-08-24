@@ -304,6 +304,15 @@ W-9/Countersign greps all empty, no personnel chunk); `VITE_ORG=as`
 build carries the surfaces. The emulator rules suite was not re-run — the
 rebase left `firestore.rules` byte-identical to the reviewed diff.
 
+**Merged and verified LIVE 2026-08-24** (PR #91 → `main` as `cb68ad6`).
+Every earlier "no live round-trip" caveat in this step is now closed:
+the rules deploy, NWSA Pages deploy, *Deploy AS demo*, and *Seed AS demo
+data* workflows all ran green on the merge commit — the seed's
+idempotent re-run added the three starter templates as
+`contractTemplates` (79 docs) — and Grant then exercised the template
+flow on the live demo and confirmed it works. Step 4 is done against
+real infrastructure, not just the emulator and headless renders.
+
 ---
 
 ## Step 5 — Attendance subject
