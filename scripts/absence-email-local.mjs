@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 /** Writes are off until this says 'false'. That flip is the whole soft launch. */
-const DRY_RUN = 'true';
+const DRY_RUN = 'false';
 
 const HOME = homedir();
 const LABEL = 'com.nwsa.hub.absence-email';
@@ -188,7 +188,7 @@ function plistXml() {
   // --install, or the agent keeps the value it was installed with.
   const envEntries = [['PATH', process.env.PATH || '']];
   if (ACCOUNT_FILTER) envEntries.push(['MDC_MAIL_ACCOUNT_NAME', ACCOUNT_FILTER]);
-  if (process.env.DRY_RUN) envEntries.push(['DRY_RUN', process.env.DRY_RUN]);
+  envEntries.push(['DRY_RUN', process.env.DRY_RUN || DRY_RUN]);
   const envXml = envEntries
     .map(([k, v]) => `    <key>${xml(k)}</key><string>${xml(v)}</string>`)
     .join('\n');
@@ -322,6 +322,7 @@ function selfCheck() {
   // launchd never sources a shell profile, so the account filter is only
   // honored by the scheduled job if it was baked into the plist at install
   // time. Missing it means the job quietly reads every account on the Mac.
+  assert(plist.includes('<key>DRY_RUN</key>'), 'DRY_RUN baked into plist');
   if (ACCOUNT_FILTER) {
     assert(plist.includes('<key>MDC_MAIL_ACCOUNT_NAME</key>'), 'account filter baked into plist');
     assert(plist.includes(`<string>${xml(ACCOUNT_FILTER)}</string>`), 'account filter value baked in');

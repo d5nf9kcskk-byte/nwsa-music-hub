@@ -1,6 +1,6 @@
 # Parent absence emails → Who's Out
 
-**Off by default (`DRY_RUN=true` in the code).** Runs locally on a director's
+**Live as of 2026-08-26 (`DRY_RUN=false`).** Runs locally on a director's
 Mac via launchd — no Gmail/Yahoo/Graph API, MDC mail is read straight out of
 Apple Mail.app, the same move already noted as the plan for the attendance
 bulletin (`docs/ATTENDANCE-BULLETIN.md`).
@@ -134,22 +134,11 @@ System Settings → Privacy & Security → Automation
 Note: Mail.app must be running for the pipeline to read current mail. If
 it's quit, the job launches it.
 
-## Soft launch
+## Pausing writes
 
-Leave dry run on for a few school days first:
-
-```bash
-DRY_RUN=true node scripts/absence-email-local.mjs
-```
-
-Read the log — matched students, dates, and anything that would have been
-queued. Public repo: it does not print names outside your own terminal.
-
-When it looks right, flip the switch the same way the bulletin pipeline
-does — edit the `DRY_RUN` constant near the top of
-`scripts/absence-email-local.mjs` to `'false'`, then re-run `--install` so
-the LaunchAgent's plist picks up the change. Set it back to `'true'` any
-time to pause writes without uninstalling anything.
+Set the `DRY_RUN` constant near the top of `scripts/absence-email-local.mjs`
+to `'true'` and re-run `--install` so the LaunchAgent's plist picks up the
+change. Set it back to `'false'` to resume.
 
 ## Catch-up
 
