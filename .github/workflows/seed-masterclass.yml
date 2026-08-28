@@ -4,6 +4,9 @@ name: Seed String Master Classes
 # Violin, Viola, Cello, Bass — each with its own roster, roll, and calendar
 # room. Replaces any generic "String Masterclass" calendar block with four
 # section events. Idempotent — run dry first, read the log, then apply.
+#
+# Cloud agents can trigger by pushing a change to
+# `.github/triggers/seed-masterclass` (see file for dry_run flag).
 on:
   workflow_dispatch:
     inputs:
@@ -11,6 +14,10 @@ on:
         description: 'List what would change without writing anything'
         type: boolean
         default: true
+  push:
+    branches: [main]
+    paths:
+      - '.github/triggers/seed-masterclass'
 
 permissions:
   contents: read
@@ -27,4 +34,11 @@ jobs:
       - name: Seed string master class groups in Firestore
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-        run: node scripts/seed-masterclass.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: |
+          EXTRA=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            [ "${{ inputs.dry_run }}" = "true" ] && EXTRA="--dry-run"
+          elif [ -f .github/triggers/seed-masterclass ]; then
+            grep -q '"dry_run"[[:space:]]*:[[:space:]]*true' .github/triggers/seed-masterclass && EXTRA="--dry-run"
+          fi
+          node scripts/seed-masterclass.mjs $EXTRA
