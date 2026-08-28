@@ -1,11 +1,19 @@
 import { useState, useEffect } from 'react';
-import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import {
+  collection, addDoc, updateDoc, deleteDoc, doc,
+  runTransaction, query, where,
+} from 'firebase/firestore';
 import { db } from '../firebase';
 import { offerUndo } from '../writeStatus';
 import { watchCollection } from '../../shared/watchCollection';
+import {
+  slotBookingId, SignupSlotTakenError, type SlotClaim,
+} from '../../shared/signupSlots';
 import { FIXTURES_ON, FIXTURE_SIGNUPS } from './fixtures';
 import { currentDirectorName } from '../currentDirector';
-import type { SignupForm, SignupResponse } from '../types';
+import type { SignupForm, SignupResponse, SignupSlotBooking } from '../types';
+
+export type { SlotClaim } from '../../shared/signupSlots';
 
 /**
  * Sign-ups (#signups). `signupForms` is world-readable — the public sign-up
@@ -57,22 +65,74 @@ export function useSignupForms() {
   return { forms, loading, addForm, updateForm, deleteForm };
 }
 
+/** World-readable slot claims for one sign-up form — drives the "Taken" UI. */
+export function useSignupSlotBookings(formId: string) {
+  const [bookings, setBookings] = useState<SignupSlotBooking[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!db || !formId) { setBookings([]); setLoading(false); return; }
+    const q = query(collection(db, 'signupSlotBookings'), where('formId', '==', formId));
+    return watchCollection(q, 'signupSlotBookings', snap => {
+      setBookings(snap.docs.map(d => ({ id: d.id, ...d.data() } as SignupSlotBooking)));
+      setLoading(false);
+    }, () => setLoading(false));
+  }, [formId]);
+
+  return { bookings, loading };
+}
+
 /**
  * The public write (#signups): one student's response. Unauthenticated and
  * create-only — firestore.rules enforces the exact shape, so this is the ONE
  * place that shape is built. `submittedAt` and `status` are stamped here
  * rather than passed in, mirroring submitAssignmentVideo().
+ *
+ * When `slotClaims` is set, each claim is written in the SAME transaction as
+ * the response so two students cannot grab the same interview slot.
  */
 export async function submitSignupResponse(
   data: Omit<SignupResponse, 'id' | 'submittedAt' | 'status'>,
+  slotClaims: SlotClaim[] = [],
 ): Promise<string> {
   if (!db) throw new Error('Firestore not initialized');
-  const ref = await addDoc(collection(db, 'signupResponses'), {
-    ...data,
-    submittedAt: Date.now(),
-    status: 'submitted',
+  const firestore = db;
+
+  if (slotClaims.length === 0) {
+    const ref = await addDoc(collection(firestore, 'signupResponses'), {
+      ...data,
+      submittedAt: Date.now(),
+      status: 'submitted',
+    });
+    return ref.id;
+  }
+
+  const submittedAt = Date.now();
+  const responseRef = doc(collection(firestore, 'signupResponses'));
+
+  await runTransaction(firestore, async tx => {
+    for (const claim of slotClaims) {
+      const bookingRef = doc(firestore, 'signupSlotBookings', slotBookingId(data.formId, claim.questionId, claim.slotIndex));
+      const existing = await tx.get(bookingRef);
+      if (existing.exists()) {
+        const held = existing.data()?.studentId;
+        if (held !== data.studentId) throw new SignupSlotTakenError(claim.slotLabel);
+      } else {
+        tx.set(bookingRef, {
+          formId: data.formId,
+          questionId: claim.questionId,
+          slotIndex: claim.slotIndex,
+          slotLabel: claim.slotLabel,
+          studentId: data.studentId,
+          studentName: data.studentName,
+          submittedAt,
+        });
+      }
+    }
+    tx.set(responseRef, { ...data, submittedAt, status: 'submitted' });
   });
-  return ref.id;
+
+  return responseRef.id;
 }
 
 /** Staff-only: everything students have sent in. */
@@ -105,6 +165,14 @@ export function useSignupResponses() {
   }
 
   return { responses, loading, setStatus, remove };
+}
+
+/** Staff-only: free an interview slot someone booked (or clear a stale claim). */
+export async function removeSlotBooking(booking: SignupSlotBooking) {
+  if (!db) return;
+  const { id, ...data } = booking;
+  await deleteDoc(doc(db, 'signupSlotBookings', id));
+  offerUndo('signupSlotBookings', id, data, `Freed ${booking.slotLabel} — restore?`);
 }
 
 /**

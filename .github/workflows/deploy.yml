@@ -61,6 +61,9 @@ jobs:
       - name: Check sign-up eligibility
         run: node scripts/signup-eligibility.selfcheck.mjs
 
+      - name: Check sign-up interview slots
+        run: npx tsx src/shared/signupSlots.selfcheck.ts
+
       # Shared/combined blocks: the predicate that decides whether several
       # ensembles on one event means "one room together" — and the guard that
       # the combined label never disturbs an ordinary event's VEVENT, which is
