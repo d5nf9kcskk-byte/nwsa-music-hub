@@ -817,7 +817,7 @@ export interface Lesson {
 
 // ── Sign-ups (#signups) ────────────────────────────────────────────────
 
-export const SIGNUP_QUESTION_TYPES = ['short', 'long', 'choice', 'yesno'] as const;
+export const SIGNUP_QUESTION_TYPES = ['short', 'long', 'choice', 'yesno', 'timeslot'] as const;
 export type SignupQuestionType = (typeof SIGNUP_QUESTION_TYPES)[number];
 
 /** The six instrument families a sign-up can be aimed at. Declared here (the
@@ -832,7 +832,8 @@ export interface SignupQuestion {
   id: string;
   label: string;
   type: SignupQuestionType;
-  /** For 'choice' only. */
+  /** For 'choice' and 'timeslot': the pick-list. Timeslot = one interview
+   *  interval per option; each can only be taken once (see signupSlotBookings). */
   options?: string[];
   required?: boolean;
   /** Small grey line under the field. */
@@ -921,6 +922,20 @@ export interface SignupResponse {
   guardianEmail?: string;
   submittedAt: number;
   status: SignupResponseStatus;
+}
+
+/** A single claimed interview slot on a sign-up form (#signups). World-readable
+ *  so students see "Taken" before they send; doc id is deterministic — see
+ *  slotBookingId() in src/shared/signupSlots.ts. Staff may delete to free a slot. */
+export interface SignupSlotBooking {
+  id: string;
+  formId: string;
+  questionId: string;
+  slotIndex: number;
+  slotLabel: string;
+  studentId: string;
+  studentName: string;
+  submittedAt: number;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

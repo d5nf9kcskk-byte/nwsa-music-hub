@@ -33,6 +33,18 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-28-signup-interview-slots',
+    date: '2026-08-28',
+    title: 'Sign up for an interview time — taken slots stay taken',
+    audience: 'both' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'Directors can add an “Interview time slot” question to any sign-up. List each time on its own line; students tap one and send.',
+      'As soon as someone books a time, it shows as Taken for everyone else — no double-booking.',
+      'Staff: open a sign-up to see every slot, who booked it, and a Free slot button if someone cancels.',
+    ],
+  },
+  {
     id: '2026-08-28-announcement-archive',
     date: '2026-08-28',
     title: 'Archive old announcements instead of deleting them',
