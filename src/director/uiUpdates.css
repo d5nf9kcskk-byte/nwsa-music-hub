@@ -1113,3 +1113,158 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
   text-decoration: none;
 }
 .dir-hub-staff-link:hover { text-decoration: underline; }
+
+/* Assignment grade sheet as a full tab page (not a side drawer). */
+.dir-assign-page {
+  padding-bottom: 32px;
+}
+.dir-assign-page-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px 0;
+}
+.dir-assign-page-head {
+  padding: 10px 16px 12px;
+}
+.dir-assign-page-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--dir-text);
+  line-height: 1.25;
+}
+.dir-assign-page-meta {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--dir-text-muted);
+}
+.dir-assign-page-error {
+  padding: 8px 16px;
+  color: var(--dir-danger);
+  font-size: 13px;
+}
+.dir-assign-brief-page {
+  max-height: none;
+  overflow: visible;
+  margin: 0 16px;
+  border: 1px solid var(--dir-border);
+  border-radius: var(--dir-radius, 12px);
+  padding: 12px 14px;
+}
+.dir-assign-page .dir-assign-summary-bar {
+  margin: 12px 16px 0;
+  border: 1px solid var(--dir-border);
+  border-radius: var(--dir-radius, 12px);
+  overflow: hidden;
+}
+.dir-assign-fold {
+  margin: 14px 16px 0;
+  border: 1px solid var(--dir-border);
+  border-radius: var(--dir-radius, 12px);
+  background: var(--dir-surface);
+  overflow: hidden;
+}
+.dir-assign-fold-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  background: var(--dir-surface-2, var(--dir-bg));
+  color: var(--dir-text);
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.dir-assign-fold-btn:active { background: var(--dir-border); }
+.dir-assign-fold-label {
+  font-size: 14px;
+  font-weight: 800;
+  flex: 1;
+  min-width: 0;
+}
+.dir-assign-fold-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--dir-text-muted);
+}
+.dir-assign-fold-body {
+  padding: 4px 12px 10px;
+  border-top: 1px solid var(--dir-border);
+}
+.dir-assign-sort-row { padding: 6px 0 4px; }
+.dir-assign-fold-muted {
+  padding: 14px 4px;
+  font-size: 13px;
+  color: var(--dir-text-muted);
+}
+.dir-assign-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dir-assign-submitted {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #0f766e;
+  background: #ccfbf1;
+  border: 1px solid #5eead4;
+  border-radius: 999px;
+  padding: 2px 8px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.dir-assign-submitted:hover { text-decoration: underline; }
+.dir-app[data-dir-theme="dark"] .dir-assign-submitted {
+  color: #99f6e4;
+  background: rgba(15, 118, 110, 0.35);
+  border-color: rgba(94, 234, 212, 0.45);
+}
+
+/* Numeric score next to Pass/Fail/Exempt on the assignment grade page. */
+.dir-assign-grade-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.dir-assign-score {
+  width: 3.4rem;
+  height: 34px;
+  border: 1.5px solid var(--dir-border);
+  border-radius: 8px;
+  background: var(--dir-surface);
+  color: var(--dir-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 4px;
+}
+.dir-assign-score:focus {
+  outline: 2px solid var(--dir-primary, #0d7e8e);
+  outline-offset: 1px;
+}
+
+.dir-dot.lateexcused { background: #0d9488; }
+.dir-count-chip.lateexcused {
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+}
+.dir-att-chip.lateexcused.on {
+  border-color: #0d9488;
+  background: #f0fdfa;
+  color: #0f766e;
+}
+.dir-daycontext-chip.lateexcused { background: #f0fdfa; color: #0f766e; border-color: transparent; }
+.dir-history-dot.lateexcused { background: #0d9488; }
+.dir-chart-seat.lateexcused { border-color: #0d9488; background: #f0fdfa; }
+
+

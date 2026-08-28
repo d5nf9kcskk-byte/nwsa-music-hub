@@ -59,8 +59,8 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
   const homeEnsembles = ensembles.filter(e => student.ensembleIds?.includes(e.id));
 
   const absences = attendanceRecords.filter(r => r.status === 'Absent').length;
-  const lates   = attendanceRecords.filter(r => r.status === 'Late').length;
-  const excused = attendanceRecords.filter(r => r.status === 'Excused').length;
+  const lates   = attendanceRecords.filter(r => r.status === 'Late' || r.status === 'LateExcused').length;
+  const excused = attendanceRecords.filter(r => r.status === 'Excused' || r.status === 'LateExcused').length;
   const lessons = attendanceRecords.filter(r => r.status === 'Lesson').length;
 
   const assignmentsById = useMemo(
@@ -264,7 +264,7 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
                       onClick={() => go('assignments', { assignmentId: r.assignmentId })}
                     >
                       <span className={`dir-detail-assign-status dir-detail-assign-${r.status.toLowerCase()}`}>
-                        {r.status}
+                        {r.score ? r.score : r.status}
                       </span>
                       <span className="dir-detail-assign-title">{a?.title ?? r.assignmentId}</span>
                     </button>

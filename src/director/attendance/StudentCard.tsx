@@ -1,6 +1,11 @@
 import { memo } from 'react';
 import { GraduationCap } from 'lucide-react';
 import { formatTimeRange } from '../utils';
+import {
+  ATTENDANCE_BTN_LABEL,
+  ATTENDANCE_STATUS_LABEL,
+  ROLL_MARKS,
+} from '../attendanceStatus';
 import type { Student, AttendanceRecord, AttendanceStatus, RosterOverride } from '../types';
 
 interface Props {
@@ -65,13 +70,13 @@ function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, 
             <div className="dir-office-reason">{record.reason}</div>
           )}
           {plannedAbsence && !record && (
-            <div className="dir-prereport">📋 Reported ahead: {plannedAbsence.reason} — tap Excused to accept</div>
+            <div className="dir-prereport">📋 Reported ahead: {plannedAbsence.reason} — tap Absent (Excused) to accept</div>
           )}
           {dayContext && dayContext.length > 0 && (
             <div className="dir-daycontext">
               {dayContext.map((c, i) => (
                 <span key={i} className={`dir-daycontext-chip ${c.status.toLowerCase()}`}>
-                  {c.status} earlier today
+                  {(ATTENDANCE_STATUS_LABEL[c.status as AttendanceStatus] ?? c.status)} earlier today
                 </span>
               ))}
             </div>
@@ -95,20 +100,25 @@ function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, 
           )}
         </div>
         {status && (
-          <span className={`dir-status-badge ${status.toLowerCase()}`}>{status}</span>
+          <span className={`dir-status-badge ${status.toLowerCase()}`}>
+            {ATTENDANCE_STATUS_LABEL[status]}
+          </span>
         )}
       </div>
       <div className="dir-att-btns">
-        {(['Absent', 'Late', 'Excused'] as AttendanceStatus[]).map(s => (
+        {ROLL_MARKS.map(s => (
           <button
             key={s}
+            type="button"
+            title={ATTENDANCE_STATUS_LABEL[s]}
             className={`dir-att-btn ${s.toLowerCase()}-btn${status === s ? ' active' : ''}`}
             onClick={() => onToggle(student.id, s)}
           >
-            {s}
+            {ATTENDANCE_BTN_LABEL[s]}
           </button>
         ))}
         <button
+          type="button"
           className={`dir-att-btn lesson-btn${lesson || status === 'Lesson' ? ' active' : ''}`}
           onClick={() => onLesson(student)}
         >

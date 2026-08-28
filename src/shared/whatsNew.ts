@@ -33,6 +33,7 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+<<<<<<< HEAD
     id: '2026-08-28-college-area',
     date: '2026-08-28',
     title: 'College ensembles and classes',
@@ -52,6 +53,38 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     expires: '2026-09-11',
     bullets: [
       'On a multi-movement work, uncheck All movements to clear every box, then check only the movements you are playing.',
+=======
+    id: '2026-08-28-scores-and-late-excused',
+    date: '2026-08-28',
+    title: 'Number grades + Late (Excused) on roll',
+    audience: 'staff' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'Assignments: type a number grade next to each student (Pass / Fail / Exempt still work as quick marks).',
+      'Take Roll marks are now Absent, Late, Absent (Excused), and Late (Excused) — plus Lesson. Existing Excused marks are Absent (Excused).',
+    ],
+  },
+  {
+    id: '2026-08-28-assignment-full-page',
+    date: '2026-08-28',
+    title: 'Assignments open as a full page',
+    audience: 'staff' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'Tap an assignment and it fills the screen — no more cramped side drawer. Scroll as far as you need.',
+      'Students & grades and Video submissions each fold open or closed. Anyone who turned in a video shows a Submitted badge next to their name.',
+    ],
+  },
+  {
+    id: '2026-08-28-playing-exam-videos',
+    date: '2026-08-28',
+    title: 'Playing-exam videos show up in the grade sheet',
+    audience: 'staff' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'Open the assignment → each student who turned in a video has a Submitted badge on their grade row, and the Video submissions fold lists every take.',
+      'If a list ever looked empty while students said they submitted, that was a Hub bug (not a delay) — refresh after this update and reopen the exam.',
+>>>>>>> origin/main
     ],
   },
   {

@@ -134,6 +134,12 @@ jobs:
       - name: Check jury running order
         run: npx tsx src/director/juries/runningOrder.selfcheck.ts
 
+      - name: Check assignment submission query (no composite index)
+        run: node scripts/assignment-submissions.selfcheck.mjs
+
+      - name: Check attendance status labels (Late Excused)
+        run: node scripts/attendance-status.selfcheck.mjs
+
       - name: Check announcement archive visibility
         run: npx tsx src/director/hooks/announcementsArchive.selfcheck.ts
 

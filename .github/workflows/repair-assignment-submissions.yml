@@ -1,0 +1,48 @@
+name: Repair assignment submissions
+
+# Creates assignmentSubmissions docs for videos in Storage that never got a
+# Firestore row (or whose row the grade sheet could not list). Idempotent on
+# videoUrl. Default is dry-run; set apply=true to write.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Write docs (true) or dry-run (false)'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      assignment_ids:
+        description: 'Optional space-separated assignment ids (default: all video exams)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - run: npm install firebase-admin --no-save
+      - name: Repair submission docs from Storage
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -euo pipefail
+          ARGS=()
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            ARGS+=(--apply)
+          fi
+          # shellcheck disable=SC2206
+          IDS=(${{ inputs.assignment_ids }})
+          for id in "${IDS[@]+"${IDS[@]}"}"; do
+            [ -n "$id" ] && ARGS+=(--assignment "$id")
+          done
+          node scripts/repair-assignment-submissions.mjs "${ARGS[@]}"

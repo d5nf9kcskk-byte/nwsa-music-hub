@@ -66,8 +66,9 @@ const STUDENT_QA: QA[] = [
     a: (
       <>
         Everything due is on <Link to="/assignments">{LABELS.assignments}</Link>.
-        Playing exams are submitted through the Google Form linked on the assignment —
-        not in person.
+        Open the exam — if it accepts video, record or upload right on that page
+        and tap <strong>Submit</strong>. Some exams may also link a Google Form;
+        use whichever the assignment shows.
       </>
     ),
   },

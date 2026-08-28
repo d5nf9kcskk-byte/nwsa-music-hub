@@ -83,18 +83,27 @@ export function useAssignmentResults(assignmentId: string) {
 
   const resultMap = Object.fromEntries(results.map(r => [r.studentId, r]));
 
-  async function saveResult(studentId: string, status: AssignmentResultStatus) {
+  async function saveResult(
+    studentId: string,
+    status: AssignmentResultStatus,
+    opts?: { score?: string | null },
+  ) {
     if (!db) return;
     const existing = resultMap[studentId];
-    const data = {
+    const data: Record<string, unknown> = {
       assignmentId,
       studentId,
       status,
       gradedAt: todayStr(),
     };
+    if (opts && 'score' in opts) {
+      // Explicit null/'' clears the field; omit opts.score to leave it alone.
+      data.score = opts.score ? opts.score : deleteField();
+    }
     if (existing) {
       await updateDoc(doc(db, 'assignmentResults', existing.id), data);
     } else {
+      if (!opts?.score) delete data.score;
       await addDoc(collection(db, 'assignmentResults'), data);
     }
   }
