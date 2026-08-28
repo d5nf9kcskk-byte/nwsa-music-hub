@@ -1,6 +1,7 @@
 import { doc, writeBatch } from 'firebase/firestore';
 import { db } from './firebase';
 import type { EventType } from './types';
+import { ACADEMIC_CLASSES, academicClassIdForTitle } from './academicClasses';
 
 // Stable ensemble slugs — match the IDs written by seedRoster().
 const ENS = {
@@ -156,22 +157,13 @@ function slotsForDay(dow: number /* UTC getUTCDay(): 0=Sun … 6=Sat */): Slot[]
 }
 
 // Academic (non-ensemble) music classes — NWSA HS Music Division schedule.
-// Added as individual calendar entries (type 'Event') so every student can see
-// exactly where each period meets, whether it's an ensemble or a class. Teacher
-// names are intentionally omitted for now. Days: 1=Mon … 5=Fri.
+// Added as individual calendar entries (type 'Class') scoped to their class
+// group when the group exists (see academicClasses.ts). String Masterclass is
+// still school-wide until seed-masterclass.mjs splits it into four sections.
 type ClassSlot = { title: string; days: number[]; start: string; end: string; room: string };
 const CLASSES: ClassSlot[] = [
-  { title: 'AP Theory',                 days: [1, 2, 3, 4, 5], start: '12:10', end: '13:00', room: 'Room 4204' },
-  // Instrumental wing (43xx) — instrumental Block 2.
-  { title: 'Jazz Theory',               days: [1, 4],          start: '14:30', end: '15:45', room: 'Room 4304' },
-  { title: 'Music History — 11th–12th', days: [1, 4],          start: '14:30', end: '15:45', room: 'Room 4309' },
-  { title: 'String Masterclass',        days: [2],             start: '14:30', end: '15:45', room: 'Rooms 4210 / 4304 / 4309' },
-  // Choir floor (42xx) + vocal classes — choir blocks (1:10–2:15 / 2:25–3:45)
-  // so bathroom breaks do not overlap the instrumental wing.
-  { title: 'Theory — 9th Grade',        days: [1, 4],          start: '14:25', end: '15:45', room: 'Room 4213' },
-  { title: 'Theory — 10th Grade',       days: [1, 4],          start: '14:25', end: '15:45', room: 'Room 4210' },
-  { title: 'Vocal Lit',                 days: [1, 3, 5],       start: '13:10', end: '14:15', room: '' },
-  { title: 'Vocal Forum',               days: [2, 4],          start: '13:10', end: '14:15', room: '' },
+  ...ACADEMIC_CLASSES.map(c => ({ title: c.title, days: c.days, start: c.start, end: c.end, room: c.room })),
+  { title: 'String Masterclass', days: [2], start: '14:30', end: '15:45', room: 'Rooms 4210 / 4304 / 4309' },
 ];
 
 const classSlug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -213,11 +205,8 @@ function classEventDocs(): { id: string; data: SeedEventData }[] {
       docs.push({
         id: `class-${dateStr}-${classSlug(cls.title)}-${idClock}`,
         data: {
-          // Academic classes are their own category, not generic events — so
-          // they show under the "Classes" filter/sections. They stay
-          // school-wide (no ensemble), so no per-ensemble roll is generated.
           type: 'Class',
-          ensembleIds: [],
+          ensembleIds: academicClassIdForTitle(cls.title) ? [academicClassIdForTitle(cls.title)!] : [],
           date: dateStr,
           title: cls.title,
           startTime: cls.start,

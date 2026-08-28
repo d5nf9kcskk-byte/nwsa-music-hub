@@ -30,8 +30,11 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
       .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99')),
     [events, ensembleId, today],
   );
-  const nextRehearsal = mine.find(e => e.type === 'Rehearsal');
-  const upcomingConcerts = mine.filter(e => e.type !== 'Rehearsal').slice(0, 5);
+  const isClass = isClassGroup(ensemble ?? { kind: 'ensemble' });
+  const nextMeeting = isClass
+    ? mine.find(e => e.type === 'Class' || e.type === 'Rehearsal')
+    : mine.find(e => e.type === 'Rehearsal');
+  const upcomingConcerts = mine.filter(e => isClass ? e.type !== 'Class' && e.type !== 'Rehearsal' : e.type !== 'Rehearsal').slice(0, 5);
   const rosterCount = students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(ensembleId)).length;
   const myAnnouncements = announcements.filter(a => a.ensembleId === null || a.ensembleId === ensembleId).length;
 
@@ -72,7 +75,9 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
 
       {rosterCount === 0 && (
         <div className="dir-field-hint" style={{ padding: '0 16px' }}>
-          This ensemble has no students yet — tap <strong>Add students</strong> above to build its roster.
+          {isClass
+            ? <>This class has no students yet — tap <strong>Add students</strong> above to build its roster.</>
+            : <>This ensemble has no students yet — tap <strong>Add students</strong> above to build its roster.</>}
         </div>
       )}
 
@@ -128,44 +133,43 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           </>
         )}
 
-        <div className="dir-form-section-label">Next rehearsal</div>
-        {nextRehearsal ? (
+        <div className="dir-form-section-label">{isClass ? 'Next meeting' : 'Next rehearsal'}</div>
+        {nextMeeting ? (
           <div className="dir-today-card">
             <div className="dir-today-stripe" style={{ background: color }} />
             <div className="dir-today-body">
-              {/* Tapping the rehearsal opens it, same as on Today. */}
               <button
                 type="button"
                 className="dir-today-open"
-                onClick={() => onNavigate('schedule', { date: nextRehearsal.date, eventId: nextRehearsal.id })}
+                onClick={() => onNavigate('schedule', { date: nextMeeting.date, eventId: nextMeeting.id })}
               >
                 <span className="dir-today-name">
-                  {fmtDay(nextRehearsal.date)}{nextRehearsal.date === today ? ' — today' : ''}
+                  {fmtDay(nextMeeting.date)}{nextMeeting.date === today ? ' — today' : ''}
                   <ChevronRight size={15} className="dir-today-open-chev" />
                 </span>
               </button>
               <div className="dir-today-meta">
-                {nextRehearsal.startTime && <span><Clock size={13} /> {formatTimeRange(nextRehearsal.startTime, nextRehearsal.endTime)}</span>}
-                {nextRehearsal.location && <span><MapPin size={13} /> {nextRehearsal.location}</span>}
+                {nextMeeting.startTime && <span><Clock size={13} /> {formatTimeRange(nextMeeting.startTime, nextMeeting.endTime)}</span>}
+                {nextMeeting.location && <span><MapPin size={13} /> {nextMeeting.location}</span>}
               </div>
-              {nextRehearsal.changeNote && <div className="dir-today-change">⚠ {nextRehearsal.changeNote}</div>}
+              {nextMeeting.changeNote && <div className="dir-today-change">⚠ {nextMeeting.changeNote}</div>}
               <div className="dir-today-actions">
-                {nextRehearsal.date === today && (
+                {nextMeeting.date === today && (
                   <button className="dir-btn dir-btn-primary dir-today-action" onClick={() => onNavigate('roll', { ensembleId })}>
                     <ClipboardList size={15} /> Take Roll
                   </button>
                 )}
-                <button className="dir-btn dir-btn-ghost dir-today-action" onClick={() => onNavigate('schedule', { date: nextRehearsal.date, eventId: nextRehearsal.id })}>
-                  {isClassGroup(ensemble) ? 'Details' : 'Details / repertoire'}
+                <button className="dir-btn dir-btn-ghost dir-today-action" onClick={() => onNavigate('schedule', { date: nextMeeting.date, eventId: nextMeeting.id })}>
+                  {isClass ? 'Details' : 'Details / repertoire'}
                 </button>
               </div>
             </div>
           </div>
         ) : (
-          <div className="dir-empty-inline">No upcoming rehearsals on the calendar.</div>
+          <div className="dir-empty-inline">{isClass ? 'No upcoming meetings on the calendar.' : 'No upcoming rehearsals on the calendar.'}</div>
         )}
 
-        <div className="dir-form-section-label">Upcoming concerts & events</div>
+        <div className="dir-form-section-label">{isClass ? 'Upcoming events' : 'Upcoming concerts & events'}</div>
         {upcomingConcerts.length === 0 ? (
           <div className="dir-empty-inline">No concerts or events scheduled yet.</div>
         ) : (
@@ -197,7 +201,7 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           {/* A class has no shared repertoire library and no seating chart
               (#classes). A master class's music is picked per meeting, on the
               meeting itself — see the event form's "Pieces being played". */}
-          {!isClassGroup(ensemble) && (
+          {!isClass && (
             <button className="dir-hub-btn" onClick={() => onNavigate('repertoire', { ensembleId })}>
               <Music size={20} /> Repertoire
             </button>
@@ -208,13 +212,13 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           <button className="dir-hub-btn" onClick={() => onNavigate('documents', { ensembleId })}>
             <FolderOpen size={20} /> Documents
           </button>
-          <button className="dir-hub-btn" onClick={() => onNavigate('announcements')}>
+          <button className="dir-hub-btn" onClick={() => onNavigate('announcements', { ensembleId })}>
             <Megaphone size={20} /> Announcements{myAnnouncements > 0 ? ` (${myAnnouncements})` : ''}
           </button>
           <button className="dir-hub-btn" onClick={() => onNavigate('scheduleChanges', { ensembleId })}>
             <Sparkles size={20} /> Temporary Roster Changes
           </button>
-          {!isClassGroup(ensemble) && (
+          {!isClass && (
             <button className="dir-hub-btn" onClick={() => setShowSeating(true)}>
               <Armchair size={20} /> Seating
             </button>

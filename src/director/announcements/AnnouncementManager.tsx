@@ -18,9 +18,11 @@ interface Props {
   asTab?: boolean;
   /** Open this announcement's editor as soon as the list loads (dashboard tap-to-edit). */
   initialId?: string;
+  /** Preselect ensemble filter (from ensemble/class hub). */
+  initialEnsembleId?: string;
 }
 
-export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
+export function AnnouncementManager({ onClose, asTab, initialId, initialEnsembleId }: Props) {
   const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement, archiveAnnouncement, restoreAnnouncement } = useAnnouncements();
   const me = useCurrentDirector();
   const isOwner = me?.role === 'owner';
@@ -30,6 +32,7 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
   const [view, setView] = useState<'active' | 'archived'>('active');
   const musicEns = musicEnsembles(ensembles);
   const [filterEns, setFilterEns] = useState(() => {
+    if (initialEnsembleId) return initialEnsembleId;
     try { return localStorage.getItem('dir.announcements.ensemble') ?? ''; } catch { return ''; }
   });
   function pickEns(id: string) {

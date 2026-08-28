@@ -100,6 +100,18 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Owners see who posted each announcement and can browse everyone’s archive, active or not.',
     ],
   },
+  {
+    id: '2026-08-28-director-classes-tab',
+    date: '2026-08-28',
+    title: 'Classes have their own menu — with rosters, roll, and class-only posts',
+    audience: 'staff' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'People → Classes lists every theory, history, and vocal class separately from Ensembles. Open one to post assignments and announcements for just that roster.',
+      'On Calendar, “Add classes & choir” now also creates the seven standard academic class groups, enrolls students from grade and choir rules, and links each class session on the calendar to its group so Take Roll works per class.',
+      'New Classes page: “Set up academic classes” does the same if the groups are not there yet. AP Theory is created empty — fill its roster by hand.',
+    ],
+  },
   // Classes get a home on the PUBLIC site (#classes) + the juries stub grows a
   // running order that can be filled in bulk (#juries). Public half is real:
   // students and families see the Documents page and the Ensembles list change.

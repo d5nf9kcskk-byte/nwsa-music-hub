@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -45,6 +45,7 @@ import { LessonsView } from './lessons/LessonsView';
 import { MyLessonsView } from './teacher/MyLessonsView';
 import { EnsembleHubView } from './ensembles/EnsembleHubView';
 import { EnsemblesView } from './ensembles/EnsemblesView';
+import { ClassesView } from './ensembles/ClassesView';
 import { useEnsembles } from './hooks/useEnsembles';
 import { ensembleColor, performingEnsembles, classGroups } from './utils';
 import { hasDirectorRole, isStaffMember } from './hooks/useDirectors';
@@ -91,6 +92,7 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
     head: 'People',
     items: [
       { id: 'ensembles', label: 'Ensembles',   Icon: Music    },
+      { id: 'classes',   label: 'Classes',     Icon: BookOpen },
       // One roster surface per org kind (#personnel): the paid adult roster
       // for orgs with the flag, the student roster for everyone else. The
       // student screens' grade/guardian assumptions and the paid roster's
@@ -133,6 +135,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   announcements:   'Announcements',
   ensembleHub:     'Ensemble',
   ensembles:       'Ensembles',
+  classes:         'Classes',
   whosOut:         'Who\u2019s Out',
   messages:        'Messages',
   signups:         'Sign-ups',
@@ -142,7 +145,7 @@ const TAB_TITLES: Record<DirTab, string> = {
 
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'lessons', 'myLessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
-  'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'whosOut', 'scheduleSwap',
+  'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'classes', 'whosOut', 'scheduleSwap',
   'messages', 'signups', 'juries',
   // The roster URL segment follows the org kind too (#personnel), so a
   // school build has no /director/personnel route and an adult build no
@@ -162,7 +165,8 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   whosOut:         'Every absence and pull-out in one place. Switch Day and Month to spot patterns.',
   scheduleSwap:    'Everything different about a day, in one place. Pick the day, then tap Change on a block to swap, shift, cancel, or move a student. Families see a red banner automatically.',
   scheduleChanges: 'Temporary student moves \u2014 subs, pull-outs, and one-day loans between ensembles.',
-  ensembles:       'Create ensembles, add students to their rosters, and open any ensemble\u2019s hub \u2014 all from here.',
+  ensembles:       'Create ensembles, add students to their rosters, and open any ensemble\u2019s hub \u2014 schedule, roll, repertoire, and documents.',
+  classes:         'Theory, history, vocal lit, and master classes \u2014 each with its own roster, roll, assignments, announcements, and documents.',
   roster:          'Every student in the program. Tap a student to edit their info or which ensembles they\u2019re in.',
   lessons:         'Private lessons teachers have logged. Download CSV for the Dean\u2019s record (pay tracking later).',
   myLessons:       'Your own private-lesson students — schedule sessions, grade each one, and adjust who is assigned to you.',
@@ -208,6 +212,7 @@ export default function DirectorApp() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
+  const [classesOpen, setClassesOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [directorsOpen, setDirectorsOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem('dir.theme') === 'dark'; } catch { return false; } });
@@ -340,6 +345,11 @@ export default function DirectorApp() {
                 </button>
               ))}
               {classGroups(ensembles).length > 0 && <div className="dir-rail-head">Classes</div>}
+              {classGroups(ensembles).length > 0 && (
+                <button className={`dir-rail-item ${tab === 'classes' ? 'active' : ''}`} onClick={() => go('classes')} aria-current={tab === 'classes' ? 'page' : undefined}>
+                  <BookOpen size={18} /> All Classes
+                </button>
+              )}
               {classGroups([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
                 <button
                   key={e.id}
@@ -434,7 +444,7 @@ export default function DirectorApp() {
             {tab === 'documents'       && <DocumentsView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} />}
             {tab === 'notes'           && <NotesView />}
             {tab === 'assignments'     && <AssignmentsView key={intentKey} initialAssignmentId={intent.assignmentId} initialEnsembleId={intent.ensembleId} />}
-            {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} onClose={() => {}} />}
+            {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} initialEnsembleId={intent.ensembleId} onClose={() => {}} />}
             {tab === 'messages'        && <MessagesView />}
             {tab === 'signups'         && <SignupsView />}
             {tab === 'juries'          && <JuriesView />}
@@ -444,6 +454,7 @@ export default function DirectorApp() {
               </Suspense>
             )}
             {tab === 'ensembles'       && <EnsemblesView onNavigate={go} />}
+            {tab === 'classes'         && <ClassesView onNavigate={go} />}
             {tab === 'ensembleHub' && intent.ensembleId && (
               <EnsembleHubView key={intentKey} ensembleId={intent.ensembleId} onNavigate={go} />
             )}
@@ -529,10 +540,27 @@ export default function DirectorApp() {
                         <span className="dir-menu-dot" style={{ background: ensembleColor(e) }} /> {e.name}
                       </button>
                     ))}
-                    {ensemblesOpen && classGroups(ensembles).length > 0 && (
-                      <div className="dir-menu-subhead">Classes</div>
+                  </>
+                )}
+                {classGroups(ensembles).length > 0 && (
+                  <>
+                    <button
+                      className={`dir-menu-item ${tab === 'classes' || (tab === 'ensembleHub' && classGroups(ensembles).some(c => c.id === intent.ensembleId)) ? 'active' : ''}`}
+                      onClick={() => setClassesOpen(o => !o)}
+                      aria-expanded={classesOpen}
+                    >
+                      <BookOpen size={19} /> Classes
+                      <ChevronDown size={16} style={{ marginLeft: 'auto', transform: classesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+                    </button>
+                    {classesOpen && (
+                      <button
+                        className={`dir-menu-item dir-menu-subitem ${tab === 'classes' ? 'active' : ''}`}
+                        onClick={() => go('classes')}
+                      >
+                        <GraduationCap size={16} /> All Classes
+                      </button>
                     )}
-                    {ensemblesOpen && classGroups(ensembles).map(e => (
+                    {classesOpen && classGroups(ensembles).map(e => (
                       <button
                         key={e.id}
                         className={`dir-menu-item dir-menu-subitem ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}

@@ -5,14 +5,12 @@ import { EnsembleRosterEditor } from './EnsembleRosterEditor';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useEvents } from '../hooks/useEvents';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, performingEnsembles, classGroups, isClassGroup, groupKindLabel } from '../utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, performingEnsembles } from '../utils';
 import type { DirNavigate } from '../types-nav';
 
 /**
- * All Ensembles — the central place for everything ensemble-shaped (#ux):
- * create one, build its student roster, and jump into any ensemble's hub.
- * Previously creation was buried inside Roster and adding students to a new
- * ensemble had no obvious path at all.
+ * All Ensembles — performing groups only (#classes). Classes live on the
+ * Classes tab; theory and master classes are not buried among the orchestras.
  */
 export function EnsemblesView({ onNavigate }: { onNavigate: DirNavigate }) {
   const { ensembles } = useEnsembles();
@@ -22,12 +20,10 @@ export function EnsemblesView({ onNavigate }: { onNavigate: DirNavigate }) {
   const [addingTo, setAddingTo] = useState<string | null>(null);
 
   const today = todayStr();
-  const sorted = useMemo(() => [...ensembles].sort((a, b) => a.order - b.order), [ensembles]);
-  // Classes list apart from ensembles (#classes): a master class among the
-  // orchestras reads as another orchestra, and the two answer different
-  // questions ("who performs this?" vs "who is enrolled?").
-  const performing = useMemo(() => performingEnsembles(sorted), [sorted]);
-  const classes = useMemo(() => classGroups(sorted), [sorted]);
+  const performing = useMemo(
+    () => performingEnsembles([...ensembles].sort((a, b) => a.order - b.order)),
+    [ensembles],
+  );
   const memberCount = (id: string) =>
     students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(id)).length;
   const nextRehearsal = (id: string) =>
@@ -42,38 +38,31 @@ export function EnsemblesView({ onNavigate }: { onNavigate: DirNavigate }) {
       <div className="dir-sc-intro">
         <Music size={18} />
         <span>
-          Every ensemble and class in one place — create one, add students to its roster, or open its
-          hub. Tap a name to see its schedule, roll, documents, and (for ensembles) repertoire.
+          Every performing ensemble in one place — create one, add students to its roster, or open its
+          hub. Tap a name to see its schedule, roll, repertoire, and documents.
         </span>
       </div>
 
       <div className="dir-page-body">
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="dir-btn dir-btn-primary" onClick={() => setManaging('new')}>
-            <Plus size={16} style={{ verticalAlign: '-3px' }} /> New Group
+            <Plus size={16} style={{ verticalAlign: '-3px' }} /> New Ensemble
           </button>
           <button className="dir-btn dir-btn-ghost" onClick={() => setManaging('list')}>
             <Settings2 size={16} style={{ verticalAlign: '-3px' }} /> Edit / Reorder
           </button>
         </div>
 
-        {sorted.length === 0 ? (
+        {performing.length === 0 ? (
           <div className="dir-empty-inline">
-            No groups yet — tap <strong>New Group</strong> to create the first one.
+            No ensembles yet — tap <strong>New Ensemble</strong> to create the first one.
           </div>
         ) : (
-          [...performing, ...classes].map(e => {
+          performing.map(e => {
             const count = memberCount(e.id);
             const next = nextRehearsal(e.id);
-            const firstClass = classes.length > 0 && e.id === classes[0].id;
             return (
-              <div key={e.id}>
-              {firstClass && (
-                <div className="dir-field-hint" style={{ margin: '14px 0 6px' }}>
-                  Classes — rosters and roll, no repertoire
-                </div>
-              )}
-              <div className="dir-ens-row">
+              <div key={e.id} className="dir-ens-row">
                 <span className="dir-ens-swatch" style={{ background: ensembleColor(e) }} />
                 <button
                   className="dir-ens-info"
@@ -84,7 +73,6 @@ export function EnsemblesView({ onNavigate }: { onNavigate: DirNavigate }) {
                   <div className="dir-ens-sub">
                     {count} student{count === 1 ? '' : 's'}
                     {count === 0 && ' — add some below'}
-                    {isClassGroup(e) && ` · ${groupKindLabel(e)}`}
                     {next && ` · next rehearsal ${parseDate(next.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}${next.startTime ? ` ${formatTimeRange(next.startTime, next.endTime)}` : ''}`}
                   </div>
                 </button>
@@ -95,7 +83,6 @@ export function EnsemblesView({ onNavigate }: { onNavigate: DirNavigate }) {
                 >
                   <UserPlus size={14} style={{ verticalAlign: '-2px' }} /> Add students
                 </button>
-              </div>
               </div>
             );
           })

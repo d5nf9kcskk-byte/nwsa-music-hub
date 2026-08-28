@@ -16,6 +16,7 @@ import { QuickAddView } from './QuickAddView';
 import { FilteredCalendarSubscribe } from '../components/FilteredCalendarSubscribe';
 import { FilterMenu } from '../../shared/FilterMenu';
 import { seedCalendar, seedSchoolCalendar, seedExtraSchedule } from '../seedCalendar';
+import { seedAcademicClasses } from '../seedAcademicClasses';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
 import {
   todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, EVENT_TYPE_ICON, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR,
@@ -104,7 +105,8 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
     setClassesMsg('');
     try {
       const n = await seedExtraSchedule();
-      setClassesMsg(`Added ${n} choir + class sessions for the year.`);
+      const r = await seedAcademicClasses();
+      setClassesMsg(`Added ${n} choir + class sessions; set up ${r.groups} class group(s), enrolled ${r.enrolled} student(s), linked ${r.linked} session(s).`);
       setClassesState('done');
     } catch (e) {
       setClassesMsg(e instanceof Error ? e.message : String(e));

@@ -11,12 +11,14 @@ interface Props {
   onClose: () => void;
   /** Open straight into the "New Ensemble" form (Ensembles page shortcut). */
   startNew?: boolean;
+  /** Default kind when creating from the Classes page. */
+  defaultKind?: NonNullable<Ensemble['kind']>;
   /** Called with the new ensemble's id after a create, so the caller can
    *  jump straight to "add students" — the step directors kept missing. */
   onCreated?: (id: string) => void;
 }
 
-export function EnsembleManager({ onClose, startNew, onCreated }: Props) {
+export function EnsembleManager({ onClose, startNew, defaultKind, onCreated }: Props) {
   const { ensembles, addEnsemble, updateEnsemble, deleteEnsemble } = useEnsembles();
   const { addEvent } = useEvents();
   const [editing, setEditing] = useState<Ensemble | 'new' | null>(startNew ? 'new' : null);
@@ -37,6 +39,7 @@ export function EnsembleManager({ onClose, startNew, onCreated }: Props) {
     return (
       <EnsembleForm
         ensemble={editing === 'new' ? null : editing}
+        defaultKind={editing === 'new' ? defaultKind : undefined}
         nextOrder={(ensembles.reduce((m, e) => Math.max(m, e.order), 0)) + 1}
         onSave={async data => {
           if (editing === 'new') {
@@ -110,6 +113,7 @@ export function EnsembleManager({ onClose, startNew, onCreated }: Props) {
 
 interface FormProps {
   ensemble: Ensemble | null;
+  defaultKind?: NonNullable<Ensemble['kind']>;
   nextOrder: number;
   onSave: (data: Omit<Ensemble, 'id'>) => Promise<void>;
   onDelete?: () => Promise<void>;
@@ -117,7 +121,7 @@ interface FormProps {
   onClose: () => void;
 }
 
-function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }: FormProps) {
+function EnsembleForm({ ensemble, defaultKind, nextOrder, onSave, onDelete, onBack, onClose }: FormProps) {
   const [name, setName] = useState(ensemble?.name ?? '');
   const [nameEs, setNameEs] = useState(ensemble?.nameEs ?? '');
   const [conductorName, setConductorName] = useState(ensemble?.conductorName ?? '');
@@ -125,7 +129,7 @@ function EnsembleForm({ ensemble, nextOrder, onSave, onDelete, onBack, onClose }
   const [location, setLocation] = useState(ensemble?.defaultLocation ?? '');
   const [startTime, setStartTime] = useState(ensemble?.defaultStartTime ?? '');
   const [endTime, setEndTime] = useState(ensemble?.defaultEndTime ?? '');
-  const [kind, setKind] = useState<NonNullable<Ensemble['kind']>>(ensemble?.kind ?? 'ensemble');
+  const [kind, setKind] = useState<NonNullable<Ensemble['kind']>>(ensemble?.kind ?? defaultKind ?? 'ensemble');
   const [collegeLevel, setCollegeLevel] = useState(!!ensemble?.collegeLevel);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
