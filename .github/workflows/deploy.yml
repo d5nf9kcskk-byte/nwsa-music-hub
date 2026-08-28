@@ -64,6 +64,9 @@ jobs:
       - name: Check sign-up interview slots
         run: npx tsx src/shared/signupSlots.selfcheck.ts
 
+      - name: Check sign-up slot times
+        run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/signupSlotTimes.selfcheck.ts
+
       # Shared/combined blocks: the predicate that decides whether several
       # ensembles on one event means "one room together" — and the guard that
       # the combined label never disturbs an ordinary event's VEVENT, which is

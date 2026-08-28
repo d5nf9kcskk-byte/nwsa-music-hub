@@ -33,15 +33,15 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
-    id: '2026-08-28-signup-interview-slots',
+    id: '2026-08-28-signup-time-slots-v2',
     date: '2026-08-28',
-    title: 'Sign up for an interview time — taken slots stay taken',
+    title: 'Sign-ups can offer time slots — with a calendar to build them',
     audience: 'both' as const,
     expires: '2026-09-11',
     bullets: [
-      'Directors can add an “Interview time slot” question to any sign-up. List each time on its own line; students tap one and send.',
-      'As soon as someone books a time, it shows as Taken for everyone else — no double-booking.',
-      'Staff: open a sign-up to see every slot, who booked it, and a Free slot button if someone cancels.',
+      'Add a “Time slot” question to any sign-up — auditions, meetings, callbacks, anything with a fixed window.',
+      'Pick the day on a calendar, spin the start and end times, and the Hub shows students the length of each slot. Taken times grey out for everyone else.',
+      'Staff: open the sign-up to see who booked each slot, or tap Free slot if someone cancels.',
     ],
   },
   {

@@ -17,6 +17,8 @@ import { lastName } from '../scoreOrder';
 import { INSTRUMENT_FAMILIES, INSTRUMENT_FAMILY_LABEL } from '../../shared/instrumentFamily';
 import { audienceLabel, eligibleForSignup, signupIsOpen, signupIsPublished } from '../../shared/signupEligibility';
 import { isTimeslotQuestion } from '../../shared/signupSlots';
+import { normalizeTimeslotQuestion } from '../../shared/signupSlotTimes';
+import { SignupSlotBuilder } from './SignupSlotBuilder';
 import { byLastName, emailList, exportSlug, namesList, responsesToCsv } from './signupsExport';
 import { allStateTemplate } from './signupTemplates';
 import { ORG } from '../../org';
@@ -329,7 +331,7 @@ function SignupDetail({
 
       {timeslotQuestions.length > 0 && (
         <>
-          <div className="dir-signup-section"><Clock size={13} /> Interview times</div>
+          <div className="dir-signup-section"><Clock size={13} /> Time slots</div>
           {timeslotQuestions.map(q => (
             <SignupSlotSchedule
               key={q.id}
@@ -624,14 +626,17 @@ function SignupEditor({ initial, isNew, ensembles, onSave, onClose }: {
         formUrl: draft.formUrl?.trim() || undefined,
         questions: draft.questions
           .filter(q => q.label.trim())
-          .map(q => ({
-            ...q,
-            label: q.label.trim(),
-            options: (q.type === 'choice' || q.type === 'timeslot')
-              ? (q.options ?? []).map(o => o.trim()).filter(Boolean)
-              : undefined,
-            help: q.help?.trim() || undefined,
-          })),
+          .map(q => {
+            if (q.type === 'timeslot') return normalizeTimeslotQuestion({ ...q, label: q.label.trim() });
+            return {
+              ...q,
+              label: q.label.trim(),
+              options: q.type === 'choice'
+                ? (q.options ?? []).map(o => o.trim()).filter(Boolean)
+                : undefined,
+              help: q.help?.trim() || undefined,
+            };
+          }),
       }));
       onClose();
     } catch (err) {
@@ -738,7 +743,7 @@ function SignupEditor({ initial, isNew, ensembles, onSave, onClose }: {
                   <option value="short">Short answer</option>
                   <option value="long">Long answer</option>
                   <option value="choice">Pick one</option>
-                  <option value="timeslot">Interview time slot</option>
+                  <option value="timeslot">Time slot</option>
                   <option value="yesno">Yes / No</option>
                 </select>
                 <label className={`dir-checkbox-tag ${q.required ? 'checked' : ''}`}>
@@ -746,24 +751,17 @@ function SignupEditor({ initial, isNew, ensembles, onSave, onClose }: {
                   Required
                 </label>
               </div>
-              {(q.type === 'choice' || q.type === 'timeslot') && (
-                q.type === 'timeslot' ? (
-                  <>
-                    <textarea className="dir-input" rows={5}
-                      value={(q.options ?? []).join('\n')}
-                      placeholder={'One time per line, e.g.\nMon, Mar 3 · 3:00 PM\nMon, Mar 3 · 3:15 PM'}
-                      onChange={e => setQuestion(i, { options: e.target.value.split('\n').map(o => o.trim()).filter(Boolean) })} />
-                    <div className="dir-signup-help">
-                      Each line is one interview slot. Once a student picks a time and sends,
-                      that slot shows as Taken for everyone else. Don&apos;t reorder lines after
-                      students start booking — add new times at the bottom instead.
-                    </div>
-                  </>
-                ) : (
-                  <input className="dir-input" value={(q.options ?? []).join(', ')}
-                    placeholder="Choices, separated by commas"
-                    onChange={e => setQuestion(i, { options: e.target.value.split(',').map(o => o.trim()).filter(Boolean) })} />
-                )
+              {q.type === 'choice' && (
+                <input className="dir-input" value={(q.options ?? []).join(', ')}
+                  placeholder="Choices, separated by commas"
+                  onChange={e => setQuestion(i, { options: e.target.value.split(',').map(o => o.trim()).filter(Boolean) })} />
+              )}
+              {q.type === 'timeslot' && (
+                <SignupSlotBuilder
+                  slotDefs={q.slotDefs ?? []}
+                  manualDraft={q.slotManualDraft ?? (q.slotDefs?.length ? '' : (q.options ?? []).join('\n'))}
+                  onChange={patch => setQuestion(i, patch)}
+                />
               )}
             </div>
           ))}

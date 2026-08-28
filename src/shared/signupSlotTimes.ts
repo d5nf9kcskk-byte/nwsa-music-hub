@@ -1,0 +1,95 @@
+import { fmtLongDate } from './dates.ts';
+import { parseSlotOptions } from './signupSlots.ts';
+import type { SignupQuestion, SignupSlotDef } from '../director/types.ts';
+
+/** Minutes since midnight → 12-hour clock parts. */
+export function minutesToParts(min: number): { hour12: number; minute: number; ampm: 'AM' | 'PM' } {
+  const clamped = Math.max(0, Math.min(1439, min));
+  const h24 = Math.floor(clamped / 60);
+  const minute = clamped % 60;
+  const ampm: 'AM' | 'PM' = h24 >= 12 ? 'PM' : 'AM';
+  const hour12 = h24 % 12 || 12;
+  return { hour12, minute, ampm };
+}
+
+export function partsToMinutes(hour12: number, minute: number, ampm: 'AM' | 'PM'): number {
+  let h = hour12 % 12;
+  if (ampm === 'PM') h += 12;
+  return h * 60 + minute;
+}
+
+export function formatClockMin(min: number): string {
+  const { hour12, minute, ampm } = minutesToParts(min);
+  return `${hour12}:${String(minute).padStart(2, '0')} ${ampm}`;
+}
+
+export function formatSlotDuration(startMin: number, endMin: number): string {
+  const mins = Math.max(0, endMin - startMin);
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h} hr ${m} min` : `${h} hr`;
+}
+
+/** Student-facing label: date + start–end + duration hint in parens. */
+export function formatSignupSlotLabel(def: SignupSlotDef): string {
+  const start = formatClockMin(def.startMin);
+  const end = formatClockMin(def.endMin);
+  const dur = formatSlotDuration(def.startMin, def.endMin);
+  return `${fmtLongDate(def.date)} · ${start} – ${end} (${dur})`;
+}
+
+export function slotDefsToOptions(defs: SignupSlotDef[]): string[] {
+  return defs.map(formatSignupSlotLabel);
+}
+
+export function sortSlotDefs(defs: SignupSlotDef[]): SignupSlotDef[] {
+  return [...defs].sort((a, b) =>
+    a.date.localeCompare(b.date) || a.startMin - b.startMin || a.endMin - b.endMin);
+}
+
+export const SLOT_MINUTE_STEPS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] as const;
+export const SLOT_HOURS_12 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+export const SLOT_AMPM = ['AM', 'PM'] as const;
+
+/** Snap a minute value to the nearest 5-minute step. */
+export function snapMinute(min: number): number {
+  return SLOT_MINUTE_STEPS.reduce((best, step) =>
+    Math.abs(step - min) < Math.abs(best - min) ? step : best, 0);
+}
+
+export function defaultSlotTimes(): { startMin: number; endMin: number } {
+  return { startMin: partsToMinutes(3, 0, 'PM'), endMin: partsToMinutes(3, 30, 'PM') };
+}
+
+export function isValidSlotDef(def: SignupSlotDef): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(def.date)
+    && def.startMin >= 0 && def.endMin <= 1440
+    && def.endMin > def.startMin;
+}
+
+/** Strip editor-only fields and derive student-facing `options` from slot defs. */
+export function normalizeTimeslotQuestion(q: SignupQuestion): SignupQuestion {
+  const { slotManualDraft, ...rest } = q;
+  void slotManualDraft;
+  if (q.type !== 'timeslot') return q;
+  const defs = q.slotDefs ?? [];
+  if (defs.length > 0) {
+    return {
+      ...rest,
+      slotDefs: defs,
+      options: slotDefsToOptions(defs),
+      help: q.help?.trim() || undefined,
+    };
+  }
+  const manual = q.slotManualDraft?.trim();
+  const options = manual
+    ? parseSlotOptions(manual)
+    : (q.options ?? []).map(o => o.trim()).filter(Boolean);
+  return {
+    ...rest,
+    options,
+    slotDefs: undefined,
+    help: q.help?.trim() || undefined,
+  };
+}

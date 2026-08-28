@@ -89,7 +89,7 @@ export function useSignupSlotBookings(formId: string) {
  * rather than passed in, mirroring submitAssignmentVideo().
  *
  * When `slotClaims` is set, each claim is written in the SAME transaction as
- * the response so two students cannot grab the same interview slot.
+ * the response so two students cannot grab the same time slot.
  */
 export async function submitSignupResponse(
   data: Omit<SignupResponse, 'id' | 'submittedAt' | 'status'>,
@@ -167,7 +167,7 @@ export function useSignupResponses() {
   return { responses, loading, setStatus, remove };
 }
 
-/** Staff-only: free an interview slot someone booked (or clear a stale claim). */
+/** Staff-only: free a time slot someone booked (or clear a stale claim). */
 export async function removeSlotBooking(booking: SignupSlotBooking) {
   if (!db) return;
   const { id, ...data } = booking;
