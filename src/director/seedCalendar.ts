@@ -2,6 +2,7 @@ import { doc, writeBatch } from 'firebase/firestore';
 import { db } from './firebase';
 import type { EventType } from './types';
 import { ACADEMIC_CLASSES, academicClassIdForTitle } from './academicClasses';
+import { MASTERCLASS_SECTIONS, masterclassIdForTitle } from './masterclassSections';
 
 // Stable ensemble slugs — match the IDs written by seedRoster().
 const ENS = {
@@ -158,12 +159,12 @@ function slotsForDay(dow: number /* UTC getUTCDay(): 0=Sun … 6=Sat */): Slot[]
 
 // Academic (non-ensemble) music classes — NWSA HS Music Division schedule.
 // Added as individual calendar entries (type 'Class') scoped to their class
-// group when the group exists (see academicClasses.ts). String Masterclass is
-// still school-wide until seed-masterclass.mjs splits it into four sections.
-type ClassSlot = { title: string; days: number[]; start: string; end: string; room: string };
+// group when the group exists. String master classes are four sections, not
+// one school-wide block (see masterclassSections.ts).
+type ClassSlot = { title: string; days: number[]; start: string; end: string; room: string; groupId?: string };
 const CLASSES: ClassSlot[] = [
-  ...ACADEMIC_CLASSES.map(c => ({ title: c.title, days: c.days, start: c.start, end: c.end, room: c.room })),
-  { title: 'String Masterclass', days: [2], start: '14:30', end: '15:45', room: 'Rooms 4210 / 4304 / 4309' },
+  ...ACADEMIC_CLASSES.map(c => ({ title: c.title, days: c.days, start: c.start, end: c.end, room: c.room, groupId: c.id })),
+  ...MASTERCLASS_SECTIONS.map(s => ({ title: s.name, days: s.days, start: s.start, end: s.end, room: s.room, groupId: s.id })),
 ];
 
 const classSlug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -202,11 +203,13 @@ function classEventDocs(): { id: string; data: SeedEventData }[] {
         cls.title === 'Vocal Lit' || cls.title === 'Vocal Forum' ? '1310'
         : cls.title === 'Theory — 9th Grade' || cls.title === 'Theory — 10th Grade' ? '1430'
         : cls.start.replace(':', '');
+      const idSlug = cls.groupId ?? classSlug(cls.title);
+      const ensId = cls.groupId ?? academicClassIdForTitle(cls.title) ?? masterclassIdForTitle(cls.title);
       docs.push({
-        id: `class-${dateStr}-${classSlug(cls.title)}-${idClock}`,
+        id: `class-${dateStr}-${idSlug}-${idClock}`,
         data: {
           type: 'Class',
-          ensembleIds: academicClassIdForTitle(cls.title) ? [academicClassIdForTitle(cls.title)!] : [],
+          ensembleIds: ensId ? [ensId] : [],
           date: dateStr,
           title: cls.title,
           startTime: cls.start,

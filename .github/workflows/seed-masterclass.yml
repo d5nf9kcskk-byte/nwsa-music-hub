@@ -1,0 +1,30 @@
+name: Seed String Master Classes
+
+# Creates the four string master class SECTIONS as class groups (#classes) —
+# Violin, Viola, Cello, Bass — each with its own roster, roll, and calendar
+# room. Replaces any generic "String Masterclass" calendar block with four
+# section events. Idempotent — run dry first, read the log, then apply.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List what would change without writing anything'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - run: npm install firebase-admin --no-save
+      - name: Seed string master class groups in Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/seed-masterclass.mjs ${{ inputs.dry_run && '--dry-run' || '' }}

@@ -5,7 +5,7 @@
  * String Masterclass meets as FOUR simultaneous sections in four rooms, so it
  * needs four rosters and four attendance sheets — one per section. This script:
  *
- *   1. creates/updates the four masterclass ensembles;
+ *   1. creates/updates the four masterclass groups (kind: masterclass);
  *   2. adds each string player to their section by instrument
  *      (Violin / Viola / Cello / Bass — nobody else);
  *   3. replaces each generic "String Masterclass" Class event with four
@@ -22,6 +22,7 @@
  */
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { MASTERCLASS_SECTIONS } from '../src/director/masterclassSections.ts';
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!raw) { console.error('FIREBASE_SERVICE_ACCOUNT_JSON is not set — aborting.'); process.exit(1); }
@@ -29,48 +30,34 @@ const DRY = process.argv.includes('--dry-run');
 if (getApps().length === 0) initializeApp({ credential: cert(JSON.parse(raw)) });
 const db = getFirestore();
 
-// instrument is matched EXACTLY: /bass/i would also catch "Bassoon/Clarinet".
-const SECTIONS = [
-  { id: 'masterclass-violin', name: 'Violin Masterclass', instrument: 'Violin',
-    room: '4210', conductor: 'Dr. Grant Gilman', order: 10 },
-  { id: 'masterclass-viola',  name: 'Viola Masterclass',  instrument: 'Viola',
-    room: '4105', conductor: 'Richard Fleischmann', order: 11 },
-  { id: 'masterclass-cello',  name: 'Cello Masterclass',  instrument: 'Cello',
-    room: '4304', conductor: 'Germán Marcano', order: 12 },
-  { id: 'masterclass-bass',   name: 'Bass Masterclass',   instrument: 'Bass',
-    room: '4309', conductor: 'Juan Pena', order: 13 },
-];
-
 const PUBLIC_KEYS = ['name', 'preferredName', 'instrument', 'section', 'ensembleIds', 'status', 'grade'];
 const project = d => Object.fromEntries(PUBLIC_KEYS.filter(k => d[k] !== undefined).map(k => [k, d[k]]));
 
 const ops = [];
 let ensCount = 0, stuCount = 0, evCreate = 0, evDelete = 0;
 
-// ── 1. Ensembles ──────────────────────────────────────────────────────
-for (const s of SECTIONS) {
+// ── 1. Class groups (masterclass kind — not performing ensembles) ───────
+for (const s of MASTERCLASS_SECTIONS) {
   ensCount++;
   const doc = {
-    // A master class is a CLASS, not an ensemble (#classes): rosters and roll,
-    // but no repertoire library, no concerts, and its own list in the UI.
     kind: 'masterclass',
     name: s.name, order: s.order, defaultLocation: s.room,
-    defaultStartTime: '14:30', defaultEndTime: '15:45',
-    meetingDays: [2],                       // Tue — informational only
-    ...(s.conductor ? { conductorName: s.conductor } : {}),
+    defaultStartTime: s.start, defaultEndTime: s.end,
+    meetingDays: s.days,
+    ...(s.conductorName ? { conductorName: s.conductorName } : {}),
   };
-  console.log(`  ensemble    ${s.id.padEnd(20)} ${s.name.padEnd(20)} room ${s.room}` +
-    (s.conductor ? ` · ${s.conductor}` : ' · (no conductor name set)'));
+  console.log(`  class       ${s.id.padEnd(20)} ${s.name.padEnd(20)} room ${s.room}` +
+    (s.conductorName ? ` · ${s.conductorName}` : ' · (no conductor name set)'));
   ops.push(b => b.set(db.collection('ensembles').doc(s.id), doc, { merge: true }));
 }
 
 // ── 2. Rosters, by instrument ─────────────────────────────────────────
 const students = await db.collection('students').get();
-const bySection = Object.fromEntries(SECTIONS.map(s => [s.id, []]));
+const bySection = Object.fromEntries(MASTERCLASS_SECTIONS.map(s => [s.id, []]));
 for (const d of students.docs) {
   const data = d.data();
   if (data.status !== 'Active') continue;
-  const sec = SECTIONS.find(s => s.instrument === data.instrument);
+  const sec = MASTERCLASS_SECTIONS.find(s => s.instrument === data.instrument);
   if (!sec) continue;
   bySection[sec.id].push(data.name);
   const have = data.ensembleIds ?? [];
@@ -82,7 +69,7 @@ for (const d of students.docs) {
     b.set(db.collection('studentsPublic').doc(d.id), project({ ...data, ensembleIds: next }), { merge: true });
   });
 }
-for (const s of SECTIONS) console.log(`  roster      ${s.name.padEnd(20)} ${bySection[s.id].length} student(s)`);
+for (const s of MASTERCLASS_SECTIONS) console.log(`  roster      ${s.name.padEnd(20)} ${bySection[s.id].length} student(s)`);
 
 // ── 3. Events: one per section per date, replacing the generic one ────
 const events = await db.collection('events').get();
@@ -92,12 +79,12 @@ console.log(`  found ${generic.length} generic "String Masterclass" event(s) to 
 for (const g of generic) {
   const e = g.data();
   const hhmm = (e.startTime ?? '14:30').replace(':', '');
-  for (const s of SECTIONS) {
+  for (const s of MASTERCLASS_SECTIONS) {
     evCreate++;
     const id = `class-${e.date}-${s.id}-${hhmm}`;
     ops.push(b => b.set(db.collection('events').doc(id), {
       type: 'Class', title: s.name, ensembleIds: [s.id],
-      date: e.date, startTime: e.startTime ?? '14:30', endTime: e.endTime ?? '15:45',
+      date: e.date, startTime: e.startTime ?? s.start, endTime: e.endTime ?? s.end,
       location: s.room, status: e.status ?? 'Scheduled',
       ...(e.notes ? { notes: e.notes } : {}),
     }, { merge: true }));
@@ -106,7 +93,7 @@ for (const g of generic) {
   ops.push(b => b.delete(g.ref));
 }
 
-console.log(`\n${ensCount} ensemble(s), ${stuCount} student roster add(s), ` +
+console.log(`\n${ensCount} class group(s), ${stuCount} student roster add(s), ` +
   `${evCreate} event(s) created, ${evDelete} generic event(s) deleted.`);
 if (DRY) { console.log('--dry-run: nothing written.'); process.exit(0); }
 

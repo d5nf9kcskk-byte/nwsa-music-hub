@@ -5,9 +5,11 @@ import { EnsembleRosterEditor } from './EnsembleRosterEditor';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useEvents } from '../hooks/useEvents';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, classGroups, isClassGroup, groupKindLabel } from '../utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, classGroups, isClassGroup, isMasterClass, groupKindLabel } from '../utils';
 import { seedAcademicClasses } from '../seedAcademicClasses';
+import { seedMasterclasses } from '../seedMasterclasses';
 import { ACADEMIC_CLASSES } from '../academicClasses';
+import { MASTERCLASS_SECTIONS } from '../masterclassSections';
 import { ORG } from '../../org';
 import type { DirNavigate } from '../types-nav';
 
@@ -23,6 +25,8 @@ export function ClassesView({ onNavigate }: { onNavigate: DirNavigate }) {
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [seedState, setSeedState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
   const [seedMsg, setSeedMsg] = useState('');
+  const [mcSeedState, setMcSeedState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
+  const [mcSeedMsg, setMcSeedMsg] = useState('');
 
   const today = todayStr();
   const classes = useMemo(
@@ -30,6 +34,9 @@ export function ClassesView({ onNavigate }: { onNavigate: DirNavigate }) {
     [ensembles],
   );
   const hasAcademicSet = ACADEMIC_CLASSES.every(c => ensembles.some(e => e.id === c.id));
+  const hasMasterclassSet = MASTERCLASS_SECTIONS.every(s =>
+    ensembles.some(e => e.id === s.id && isMasterClass(e)),
+  );
   const memberCount = (id: string) =>
     students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(id)).length;
   const nextMeeting = (id: string) =>
@@ -49,6 +56,19 @@ export function ClassesView({ onNavigate }: { onNavigate: DirNavigate }) {
     } catch (e) {
       setSeedMsg(e instanceof Error ? e.message : String(e));
       setSeedState('error');
+    }
+  }
+
+  async function handleSeedMasterclasses() {
+    setMcSeedState('seeding');
+    setMcSeedMsg('');
+    try {
+      const r = await seedMasterclasses();
+      setMcSeedMsg(`Created ${r.groups} master class sections; enrolled ${r.enrolled} string player(s); replaced ${r.replaced} generic calendar block(s).`);
+      setMcSeedState('done');
+    } catch (e) {
+      setMcSeedMsg(e instanceof Error ? e.message : String(e));
+      setMcSeedState('error');
     }
   }
 
@@ -76,16 +96,27 @@ export function ClassesView({ onNavigate }: { onNavigate: DirNavigate }) {
               {seedState === 'seeding' ? 'Setting up…' : 'Set up academic classes'}
             </button>
           )}
+          {ORG.features.calendarSeed && !hasMasterclassSet && mcSeedState !== 'done' && (
+            <button className="dir-btn dir-btn-ghost" onClick={handleSeedMasterclasses} disabled={mcSeedState === 'seeding'}>
+              <Sparkles size={16} style={{ verticalAlign: '-3px' }} />
+              {mcSeedState === 'seeding' ? 'Setting up…' : 'Set up string master classes'}
+            </button>
+          )}
         </div>
         {(seedState === 'done' || seedState === 'error') && seedMsg && (
           <div className="dir-field-hint" style={{ marginTop: 8, color: seedState === 'error' ? 'var(--dir-danger)' : undefined }}>
             {seedMsg}
           </div>
         )}
+        {(mcSeedState === 'done' || mcSeedState === 'error') && mcSeedMsg && (
+          <div className="dir-field-hint" style={{ marginTop: 8, color: mcSeedState === 'error' ? 'var(--dir-danger)' : undefined }}>
+            {mcSeedMsg}
+          </div>
+        )}
 
         {classes.length === 0 ? (
           <div className="dir-empty-inline">
-            No classes yet — tap <strong>New Class</strong> to create one, or use <strong>Set up academic classes</strong> for the standard NWSA theory and choir classes.
+            No classes yet — tap <strong>New Class</strong> to create one, or use the setup buttons for NWSA theory, choir, and string master classes.
           </div>
         ) : (
           classes.map(e => {

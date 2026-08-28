@@ -33,6 +33,17 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-28-string-masterclasses-classes',
+    date: '2026-08-28',
+    title: 'String master classes live under Classes',
+    audience: 'both' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'Violin, Viola, Cello, and Bass master classes are class groups now — find them on the Classes tab (director) or under Classes on the public Ensembles page.',
+      'Each section has its own roster, roll, and calendar with the correct room. Owner: tap Set up string master classes on the Classes screen to migrate existing data.',
+    ],
+  },
+  {
     id: '2026-08-28-director-assignments',
     date: '2026-08-28',
     title: 'Assign ensembles and classes to each director',

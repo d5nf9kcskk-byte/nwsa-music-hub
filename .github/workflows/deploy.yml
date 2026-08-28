@@ -143,6 +143,9 @@ jobs:
       - name: Check MDC staff contact lookup
         run: npx tsx src/director/staffMdcContacts.selfcheck.ts
 
+      - name: Check masterclass section specs
+        run: npx tsx src/director/masterclassSections.selfcheck.ts
+
       - name: Build
         run: npm run build
         env:

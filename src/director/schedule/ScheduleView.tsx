@@ -364,7 +364,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               className="dir-tool-btn"
               onClick={handleSeedClasses}
               disabled={classesState === 'seeding'}
-              title="Add HS Choir rehearsals plus every academic class (AP Theory, Jazz Theory, Theory 9th/10th, Music History, String Masterclass, Vocal Lit, Vocal Forum) to the calendar for the whole year"
+              title="Add HS Choir rehearsals plus every academic class (AP Theory, Jazz Theory, Theory 9th/10th, Music History, Violin/Viola/Cello/Bass Masterclass, Vocal Lit, Vocal Forum) to the calendar for the whole year"
             >
               <Sparkles size={15} /> {classesState === 'seeding' ? 'Adding…' : 'Add classes & choir'}
             </button>
