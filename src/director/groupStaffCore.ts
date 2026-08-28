@@ -16,10 +16,11 @@ export function staffMemberForDirector(
   const contact = resolveMdcContact(d);
   const name = d.name?.trim() || contact?.name;
   if (!name) return null;
+  const phone = d.phone ?? contact?.phone;
   return {
     name,
     mdcEmail: contact?.mdcEmail ?? '',
-    phone: d.phone ?? contact?.phone,
+    ...(phone ? { phone } : {}),
   };
 }
 

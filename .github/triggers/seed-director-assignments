@@ -1,6 +1,6 @@
 {
   "dry_run": false,
-  "requestedAt": "2026-08-28T11:40:00Z",
+  "requestedAt": "2026-08-28T11:42:00Z",
   "requestedBy": "cloud-agent",
   "note": "Sync director/teacher assignments and staff contact on class pages"
 }
