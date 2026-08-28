@@ -276,6 +276,11 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
                       />
                       <span>All movements</span>
                     </label>
+                    {isNone && (
+                      <div className="dir-piece-mvt-warn" role="status">
+                        No movements selected — check the ones you&apos;re playing, or All movements.
+                      </div>
+                    )}
                     {movements.map((m, mi) => {
                       const checked = isAll ? true : !!sel?.includes(mi);
                       return (
