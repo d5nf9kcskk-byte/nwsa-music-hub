@@ -1,7 +1,7 @@
-import { resolveAssignedEnsembleIds } from './directorAssignments';
-import { resolveMdcContact } from './staffMdcContacts';
-import type { Ensemble } from './types';
-import type { Director } from './hooks/useDirectors';
+import { resolveAssignedEnsembleIds } from './directorAssignments.ts';
+import { resolveMdcContact } from './staffMdcContacts.ts';
+import type { Ensemble } from './types.ts';
+import type { Director } from './hooks/useDirectors.ts';
 
 /** Public-facing staff on an ensemble/class page — synced from director assignments. */
 export interface GroupStaffMember {
