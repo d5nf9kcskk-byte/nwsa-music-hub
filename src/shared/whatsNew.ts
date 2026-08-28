@@ -56,15 +56,26 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     ],
   },
   {
-    id: '2026-08-28-signup-interview-slots',
+    id: '2026-08-28-signup-specific-students',
     date: '2026-08-28',
-    title: 'Sign up for an interview time — taken slots stay taken',
+    title: 'Sign-ups can target specific students',
     audience: 'both' as const,
     expires: '2026-09-11',
     bullets: [
-      'Directors can add an “Interview time slot” question to any sign-up. List each time on its own line; students tap one and send.',
-      'As soon as someone books a time, it shows as Taken for everyone else — no double-booking.',
-      'Staff: open a sign-up to see every slot, who booked it, and a Free slot button if someone cancels.',
+      'When creating a sign-up, choose “Specific students” instead of whole ensembles — search and add exactly who should see it.',
+      'Invite-only sign-ups stay off the Hub home page; share the link directly with those students.',
+    ],
+  },
+  {
+    id: '2026-08-28-signup-time-slots-v2',
+    date: '2026-08-28',
+    title: 'Sign-ups can offer time slots — with a calendar to build them',
+    audience: 'both' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'Add a “Time slot” question to any sign-up — auditions, meetings, callbacks, anything with a fixed window.',
+      'Describe many slots at once (“March 3-5, 3-5pm every 15 minutes”) or shift-click several days on the calendar and add the same window to all of them.',
+      'Staff: open the sign-up to see who booked each slot, or tap Free slot if someone cancels.',
     ],
   },
   {

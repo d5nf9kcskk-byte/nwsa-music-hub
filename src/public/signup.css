@@ -123,7 +123,7 @@
   background: var(--pub-accent); border-color: var(--pub-accent); color: #fff;
 }
 
-/* Interview time slots — one button per interval */
+/* Time slots — one button per interval */
 .pub-signup-slots { display: flex; flex-direction: column; gap: 8px; }
 .pub-signup-slot {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;

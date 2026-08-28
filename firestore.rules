@@ -178,6 +178,15 @@ service cloud.firestore {
         || (!d.keys().hasAny(['roles']) && claimed == d.get('role', 'director'));
     }
 
+    // Sign-up invite lists live in staff-only signupAudiences/{formId} — never
+    // on the world-readable signupForms doc (#signups / signupEligibility.ts).
+    function signupStudentAllowed(formId, studentId) {
+      let form = get(/databases/$(database)/documents/signupForms/$(formId)).data;
+      return form.get('audienceMode', 'groups') != 'students'
+        || (exists(/databases/$(database)/documents/signupAudiences/$(formId))
+            && studentId in get(/databases/$(database)/documents/signupAudiences/$(formId)).data.studentIds);
+    }
+
     // ── Public read · staff write ────────────────────
     match /ensembles/{doc}       { allow read; allow write: if isStaff(); }
     // Full student records (pronunciation, …) are staff-eyes only
@@ -333,6 +342,18 @@ service cloud.firestore {
     // who was invited to what (see src/shared/signupEligibility.ts).
     match /signupForms/{doc}     { allow read; allow write: if isStaff(); }
 
+    // Staff-only explicit invite list for a sign-up (#signups). Never
+    // world-readable — publishing who was invited would leak through
+    // student doc ids shared with studentsPublic.
+    match /signupAudiences/{formId} {
+      allow read: if isStaff();
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly(['studentIds'])
+        && request.resource.data.studentIds is list
+        && request.resource.data.studentIds.size() <= 500;
+      allow delete: if isStaff();
+    }
+
     // Interview time slots on sign-ups (#signups): world-readable so students
     // see "Taken" before they send. Create-only, one doc per slot, doc id =
     // formId__questionId__slotIndex — the client transaction checks the slot
@@ -357,6 +378,7 @@ service cloud.firestore {
         && request.resource.data.slotLabel.size() <= 200
         && request.resource.data.studentId is string
         && exists(/databases/$(database)/documents/students/$(request.resource.data.studentId))
+        && signupStudentAllowed(request.resource.data.formId, request.resource.data.studentId)
         && request.resource.data.studentName is string
         && request.resource.data.studentName.size() >= 2
         && request.resource.data.studentName.size() <= 120
@@ -465,6 +487,7 @@ service cloud.firestore {
              .data.get('closed', false) == false
         && request.resource.data.studentId is string
         && exists(/databases/$(database)/documents/students/$(request.resource.data.studentId))
+        && signupStudentAllowed(request.resource.data.formId, request.resource.data.studentId)
         && request.resource.data.studentName is string
         && request.resource.data.studentName.size() >= 2
         && request.resource.data.studentName.size() <= 120

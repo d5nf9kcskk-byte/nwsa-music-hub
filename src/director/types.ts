@@ -830,6 +830,15 @@ export type SignupQuestionType = (typeof SIGNUP_QUESTION_TYPES)[number];
  *  src/shared/instrumentFamily.ts, which owns the instrument → family logic. */
 export type InstrumentFamilyId = 'woodwind' | 'brass' | 'percussion' | 'rhythm' | 'strings' | 'voice';
 
+/** One bookable interval for a `timeslot` sign-up question. Stored on the form
+ *  so directors can build slots from a calendar; `options[]` holds the labels
+ *  students see (derived on save). Minutes are from midnight local time. */
+export interface SignupSlotDef {
+  date: string; // YYYY-MM-DD
+  startMin: number;
+  endMin: number;
+}
+
 /** One director-written question on a sign-up form. `id` is stable for the
  *  life of the question so answers keep pointing at the right prompt when
  *  the director reorders or renames things later. */
@@ -837,9 +846,13 @@ export interface SignupQuestion {
   id: string;
   label: string;
   type: SignupQuestionType;
-  /** For 'choice' and 'timeslot': the pick-list. Timeslot = one interview
-   *  interval per option; each can only be taken once (see signupSlotBookings). */
+  /** For 'choice' and 'timeslot': labels students pick from. For timeslot,
+   *  usually derived from `slotDefs` on save — each can only be taken once. */
   options?: string[];
+  /** For 'timeslot': structured slots from the calendar builder. */
+  slotDefs?: SignupSlotDef[];
+  /** While editing: raw manual textarea (not persisted). */
+  slotManualDraft?: string;
   required?: boolean;
   /** Small grey line under the field. */
   help?: string;
@@ -864,9 +877,15 @@ export interface SignupForm {
   /** Plain text shown above the form. */
   intro?: string;
   introEs?: string;
-  /** Audience — empty ensembleIds = whole program, empty families = all. */
+  /** Audience — empty ensembleIds = whole program, empty families = all.
+   *  When `audienceMode` is `'students'`, the named list lives in the
+   *  staff-only `signupAudiences/{formId}` doc (never on this world-readable
+   *  form — see signupEligibility.ts). */
   ensembleIds: string[];
   families: InstrumentFamilyId[];
+  /** `'groups'` (default) = ensemble + instrument family filters.
+   *  `'students'` = only ids in signupAudiences may submit. */
+  audienceMode?: 'groups' | 'students';
   /** YYYY-MM-DD. Past its deadline a sign-up stops accepting responses. */
   deadline?: string;
   /** Director closed it by hand, regardless of the deadline. */
@@ -887,6 +906,12 @@ export interface SignupForm {
   createdAt: number;
   updatedAt?: number;
   updatedBy?: string; // director's display name (falls back to email)
+}
+
+/** Staff-only invite list for a sign-up (`signupAudiences/{formId}`). Never
+ *  world-readable — an explicit list would publish who was invited to what. */
+export interface SignupAudienceDoc {
+  studentIds: string[];
 }
 
 /** Where a response is in the director's workflow. Public clients may only
@@ -929,7 +954,7 @@ export interface SignupResponse {
   status: SignupResponseStatus;
 }
 
-/** A single claimed interview slot on a sign-up form (#signups). World-readable
+/** A single claimed time slot on a sign-up form (#signups). World-readable
  *  so students see "Taken" before they send; doc id is deterministic — see
  *  slotBookingId() in src/shared/signupSlots.ts. Staff may delete to free a slot. */
 export interface SignupSlotBooking {

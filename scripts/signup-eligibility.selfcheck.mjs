@@ -11,7 +11,8 @@
  */
 import { instrumentFamily } from '../src/shared/instrumentFamily.ts';
 import {
-  audienceLabel, eligibleForSignup, signupClosedReason, signupIsOpen, signupIsPublished,
+  audienceLabel, eligibleForSignup, eligibleForSignupPicker, signupClosedReason,
+  signupIsOpen, signupIsPublished, signupShowsInAlerts,
 } from '../src/shared/signupEligibility.ts';
 
 function assert(cond, msg) {
@@ -88,6 +89,32 @@ assert(
   audienceLabel(everyone, name, fam) === 'Everyone in the program',
   'an empty audience says so in words',
 );
+
+// ── Specific students mode ─────────────────────────────────────────
+const inviteOnly = { mode: 'students', ensembleIds: [], families: [], studentIds: ['s1', 's2'] };
+assert(
+  eligibleForSignup({ id: 's1', status: 'Active' }, inviteOnly),
+  'an invited student is in',
+);
+assert(
+  !eligibleForSignup({ id: 's3', status: 'Active' }, inviteOnly),
+  'a student not on the invite list is out',
+);
+assert(
+  audienceLabel(inviteOnly, name, fam) === '2 specific students',
+  'invite list reads as a count',
+);
+assert(
+  eligibleForSignupPicker({ id: 's3', status: 'Active' }, { audienceMode: 'students' }),
+  'public picker shows full roster for invite-only (rules enforce submit)',
+);
+assert(
+  !eligibleForSignupPicker({ id: 's3', status: 'Graduated' }, { audienceMode: 'students' }),
+  'public picker still skips non-active students',
+);
+assert(!signupShowsInAlerts({ audienceMode: 'students' }), 'invite-only sign-ups skip home alerts');
+assert(signupShowsInAlerts({ audienceMode: 'groups' }), 'group sign-ups still alert');
+assert(signupShowsInAlerts({}), 'default group sign-ups still alert');
 
 // ── Open / closed ──────────────────────────────────────────────────
 const TODAY = '2026-08-20';

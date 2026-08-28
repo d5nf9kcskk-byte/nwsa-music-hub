@@ -6,7 +6,7 @@ import { useMinuteTick } from '../../director/hooks/useAnnouncements';
 import { todayStr } from '../../director/utils';
 import { fmtLongDate } from '../../shared/dates';
 import { primaryStudent } from '../../shared/identity';
-import { eligibleForSignup, signupIsOpen } from '../../shared/signupEligibility';
+import { eligibleForSignup, signupIsOpen, signupShowsInAlerts } from '../../shared/signupEligibility';
 import { getReceipt } from '../signupReceipt';
 import type { Student } from '../../director/types';
 import '../signup.css';
@@ -38,7 +38,10 @@ export function SignupAlert({ student }: { student?: Pick<Student, 'id' | 'ensem
     [student, savedId],
   );
 
-  const open = useMemo(() => forms.filter(f => signupIsOpen(f, today, now)), [forms, today, now]);
+  const open = useMemo(
+    () => forms.filter(f => signupIsOpen(f, today, now) && signupShowsInAlerts(f)),
+    [forms, today, now],
+  );
 
   const relevant = useMemo(() => {
     const pool = target

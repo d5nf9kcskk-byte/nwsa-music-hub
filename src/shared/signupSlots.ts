@@ -1,6 +1,6 @@
 import type { SignupForm, SignupQuestion, SignupSlotBooking } from '../director/types';
 
-/** One claimed interview slot. World-readable in `signupSlotBookings` so the
+/** One claimed time slot. World-readable in `signupSlotBookings` so the
  *  public sign-up page can grey out times another student already took — the
  *  main `signupResponses` collection stays staff-only. */
 export type { SignupSlotBooking };
