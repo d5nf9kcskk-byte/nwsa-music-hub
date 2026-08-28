@@ -24,7 +24,7 @@ export async function seedAcademicClasses(): Promise<{ groups: number; enrolled:
       kind: 'class',
       name: c.title,
       order: c.order,
-      defaultLocation: c.room || undefined,
+      ...(c.room ? { defaultLocation: c.room } : {}),
       defaultStartTime: c.start,
       defaultEndTime: c.end,
       meetingDays: c.days,
