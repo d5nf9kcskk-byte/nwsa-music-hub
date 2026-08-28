@@ -13,7 +13,7 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { JAZZ_COMBO_NAME_PATTERN } from '../src/director/directorAssignments.ts';
-import { assignedStaffForGroup } from '../src/director/groupStaff.ts';
+import { assignedStaffForGroup } from '../src/director/groupStaffCore.ts';
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!raw) {

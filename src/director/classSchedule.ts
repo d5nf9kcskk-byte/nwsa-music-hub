@@ -1,5 +1,5 @@
 import type { Student } from './types';
-import { CHOIR_ENSEMBLE_ID } from './academicClasses';
+import { CHOIR_ENSEMBLE_ID } from './academicClasses.ts';
 
 const CHOIR_CLASS_TITLES = ['Vocal Lit', 'Vocal Forum'] as const;
 
