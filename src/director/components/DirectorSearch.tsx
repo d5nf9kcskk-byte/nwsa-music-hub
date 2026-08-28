@@ -298,7 +298,7 @@ function DirectorSearchInner({ onClose, onOpenStudent, onNavigate }: Omit<Direct
       });
     }
 
-    const anns = rankMatches(announcements, q, a => [a.title, a.titleEs]);
+    const anns = rankMatches(announcements.filter(a => !a.archivedAt), q, a => [a.title, a.titleEs]);
     if (anns.length) {
       out.push({
         label: 'Announcements', Icon: Megaphone,

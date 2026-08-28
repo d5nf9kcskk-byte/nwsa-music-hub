@@ -3,7 +3,7 @@ import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, deleteField, doc 
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
-import { currentDirectorName } from '../currentDirector';
+import { currentDirectorEmail, currentDirectorName } from '../currentDirector';
 import type { Announcement } from '../types';
 
 /**
@@ -33,7 +33,11 @@ export function useAnnouncements() {
 
   async function addAnnouncement(data: Omit<Announcement, 'id'>): Promise<string | undefined> {
     if (!db) return;
-    const ref = await addDoc(collection(db, 'announcements'), data);
+    const ref = await addDoc(collection(db, 'announcements'), {
+      ...data,
+      createdByEmail: data.createdByEmail ?? currentDirectorEmail(),
+      createdBy: data.createdBy ?? currentDirectorName(),
+    });
     return ref.id;
   }
 
@@ -60,7 +64,23 @@ export function useAnnouncements() {
     }
   }
 
-  return { announcements, loading, addAnnouncement, updateAnnouncement, deleteAnnouncement };
+  async function archiveAnnouncement(id: string) {
+    await updateAnnouncement(id, { archivedAt: Date.now() });
+  }
+
+  async function restoreAnnouncement(id: string) {
+    await updateAnnouncement(id, { archivedAt: undefined });
+  }
+
+  return {
+    announcements, loading,
+    addAnnouncement, updateAnnouncement, deleteAnnouncement,
+    archiveAnnouncement, restoreAnnouncement,
+  };
+}
+
+export function isArchived(a: Announcement): boolean {
+  return !!a.archivedAt;
 }
 
 /** Announcements that should display now (published, not expired) for a
@@ -74,6 +94,7 @@ export function visibleAnnouncements(
   now: number = Date.now(),
 ): Announcement[] {
   return announcements.filter(a => {
+    if (a.archivedAt) return false;
     // Scheduled for later: hidden everywhere until the moment arrives.
     if (a.publishAt && a.publishAt > now) return false;
     // "Hide after" means the announcement still shows ON that date.

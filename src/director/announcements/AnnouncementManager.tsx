@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Plus, Pencil, Pin, ChevronLeft, Clock, Printer } from 'lucide-react';
-import { useAnnouncements, useMinuteTick } from '../hooks/useAnnouncements';
+import { Plus, Pencil, Pin, ChevronLeft, Clock, Printer, Archive, Inbox } from 'lucide-react';
+import { useAnnouncements, useMinuteTick, isArchived } from '../hooks/useAnnouncements';
 import { queueUrgentRelay, markRelayHandled } from './urgentRelay';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { ensembleColor, parseDate, musicEnsembles, toDateStr } from '../utils';
@@ -10,6 +10,7 @@ import { PrintableUpdates } from './PrintableUpdates';
 import { useModalA11y } from '../../shared/useModalA11y';
 import type { Announcement } from '../types';
 import { whenQueued } from '../writeStatus';
+import { useCurrentDirector } from '../currentDirector';
 
 interface Props {
   onClose: () => void;
@@ -20,10 +21,13 @@ interface Props {
 }
 
 export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
-  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useAnnouncements();
+  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement, archiveAnnouncement, restoreAnnouncement } = useAnnouncements();
+  const me = useCurrentDirector();
+  const isOwner = me?.role === 'owner';
   const { ensembles } = useEnsembles();
   const [editing, setEditing] = useState<Announcement | 'new' | null>(null);
   const [printing, setPrinting] = useState(false);
+  const [view, setView] = useState<'active' | 'archived'>('active');
   const musicEns = musicEnsembles(ensembles);
   const [filterEns, setFilterEns] = useState(() => {
     try { return localStorage.getItem('dir.announcements.ensemble') ?? ''; } catch { return ''; }
@@ -33,9 +37,20 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
     try { localStorage.setItem('dir.announcements.ensemble', id); } catch { /* private mode */ }
   }
   // Per-ensemble filter; school-wide posts (ensembleId null) always show.
+  const byView = announcements.filter(a => {
+    const archived = isArchived(a);
+    if (view === 'archived') {
+      if (!archived) return false;
+      // Owner sees everyone's archive; other staff see only their own.
+      return isOwner || a.createdByEmail === me?.email;
+    }
+    return !archived;
+  });
   const shown = filterEns
-    ? announcements.filter(a => a.ensembleId === filterEns || a.ensembleId === null)
-    : announcements;
+    ? byView.filter(a => a.ensembleId === filterEns || a.ensembleId === null)
+    : byView;
+  const archivedCount = announcements.filter(a =>
+    isArchived(a) && (isOwner || a.createdByEmail === me?.email)).length;
 
   // Deep link from the Today dashboard: jump straight into that announcement
   // (adjust-state-during-render, guarded by the consumed id).
@@ -83,6 +98,8 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
           }
         }}
         onDelete={editing !== 'new' ? async () => deleteAnnouncement(editing.id) : undefined}
+        onArchive={editing !== 'new' && !isArchived(editing) ? async () => archiveAnnouncement(editing.id) : undefined}
+        onRestore={editing !== 'new' && isArchived(editing) ? async () => restoreAnnouncement(editing.id) : undefined}
         onBack={() => setEditing(null)}
         onClose={asTab ? () => setEditing(null) : onClose}
         asTab={asTab}
@@ -101,13 +118,33 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
           </div>
         )}
         {announcements.length > 0 && (
+          <div className="dir-messages-toolbar" style={{ marginBottom: 8 }}>
+            <button
+              className={`dir-tool-btn${view === 'active' ? ' active' : ''}`}
+              onClick={() => setView('active')}
+            >
+              <Inbox size={15} /> Active
+            </button>
+            <button
+              className={`dir-tool-btn${view === 'archived' ? ' active' : ''}`}
+              onClick={() => setView('archived')}
+            >
+              <Archive size={15} /> Archived{archivedCount > 0 ? ` (${archivedCount})` : ''}
+            </button>
+          </div>
+        )}
+        {announcements.length > 0 && (
           <EnsembleFilter ensembles={ensembles} value={filterEns} onChange={pickEns} />
         )}
         <div className="dir-drawer-body">
           {announcements.length === 0 ? (
             <div className="dir-empty-inline">No announcements yet. Post one to show it on the public site.</div>
           ) : shown.length === 0 ? (
-            <div className="dir-empty-inline">No announcements for this ensemble.</div>
+            <div className="dir-empty-inline">
+              {view === 'archived'
+                ? 'Nothing archived yet. Archive a post to keep it here instead of deleting it.'
+                : 'No announcements for this ensemble.'}
+            </div>
           ) : (
             shown.map(a => (
               <div key={a.id} className="dir-ens-row" onClick={() => setEditing(a)}>
@@ -125,8 +162,12 @@ export function AnnouncementManager({ onClose, asTab, initialId }: Props) {
                         {' · '}
                       </span>
                     )}
+                    {isOwner && a.createdBy && (
+                      <span>{a.createdBy}{a.createdByEmail === me?.email ? ' (you)' : ''}{' · '}</span>
+                    )}
                     {ensembleName(a.ensembleId)}
                     {a.expiresOn ? ` · through ${parseDate(a.expiresOn).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
+                    {isArchived(a) && a.archivedAt ? ` · archived ${new Date(a.archivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
                   </div>
                   {a.body && <div className="dir-ann-body"><NotesText text={a.body} /></div>}
                 </div>
@@ -181,12 +222,14 @@ interface FormProps {
   ensembles: { id: string; name: string }[];
   onSave: (data: Omit<Announcement, 'id'>) => Promise<void>;
   onDelete?: () => Promise<void>;
+  onArchive?: () => Promise<void>;
+  onRestore?: () => Promise<void>;
   onBack: () => void;
   onClose: () => void;
   asTab?: boolean;
 }
 
-function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, onClose, asTab }: FormProps) {
+function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive, onRestore, onBack, onClose, asTab }: FormProps) {
   // Drawer mode only — asTab renders as ordinary page content, not an
   // overlay, so there's no back-gesture-closes-overlay behavior to wire up.
   const panelRef = useModalA11y<HTMLDivElement>(onBack, !asTab, { closeOnBack: true });
@@ -287,6 +330,32 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
     }
   }
 
+  async function handleArchive() {
+    if (!onArchive) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      await onArchive();
+      onBack();
+    } catch (e) {
+      setSaving(false);
+      setSaveError(e instanceof Error ? e.message : 'Could not archive — try again.');
+    }
+  }
+
+  async function handleRestore() {
+    if (!onRestore) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      await onRestore();
+      onBack();
+    } catch (e) {
+      setSaving(false);
+      setSaveError(e instanceof Error ? e.message : 'Could not restore — try again.');
+    }
+  }
+
   const formInner = (
     <>
         <div className="dir-drawer-body">
@@ -370,6 +439,18 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
             )}
           </div>
 
+          {announcement && onRestore && (
+            <button className="dir-btn dir-btn-ghost" onClick={handleRestore} disabled={saving}>
+              <Inbox size={14} style={{ verticalAlign: '-2px' }} /> Restore to active
+            </button>
+          )}
+
+          {announcement && onArchive && (
+            <button className="dir-btn dir-btn-ghost" onClick={handleArchive} disabled={saving}>
+              <Archive size={14} style={{ verticalAlign: '-2px' }} /> Archive
+            </button>
+          )}
+
           {announcement && onDelete && (
             confirmDelete ? (
               <div style={{ display: 'flex', gap: 8 }}>
@@ -377,7 +458,7 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onBack, o
                 <button className="dir-btn dir-btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
               </div>
             ) : (
-              <button className="dir-btn dir-btn-danger" onClick={() => setConfirmDelete(true)}>Delete</button>
+              <button className="dir-btn dir-btn-danger" onClick={() => setConfirmDelete(true)}>Delete permanently</button>
             )
           )}
         </div>

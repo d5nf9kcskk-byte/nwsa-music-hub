@@ -32,6 +32,17 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  {
+    id: '2026-08-28-announcement-archive',
+    date: '2026-08-28',
+    title: 'Archive old announcements instead of deleting them',
+    audience: 'staff' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'Open Announcements and use Active / Archived at the top. Archive pulls a post off the public site but keeps it in the Hub — restore anytime.',
+      'Owners see who posted each announcement and can browse everyone’s archive, active or not.',
+    ],
+  },
   // Classes get a home on the PUBLIC site (#classes) + the juries stub grows a
   // running order that can be filled in bulk (#juries). Public half is real:
   // students and families see the Documents page and the Ensembles list change.
