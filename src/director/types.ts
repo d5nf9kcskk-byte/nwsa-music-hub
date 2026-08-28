@@ -510,7 +510,7 @@ export interface RepertoirePiece {
   updatedBy?: string; // director's display name (falls back to email)
 }
 
-export type AttendanceStatus = 'Absent' | 'Late' | 'Excused' | 'Lesson';
+export type AttendanceStatus = 'Absent' | 'Late' | 'Excused' | 'LateExcused' | 'Lesson';
 export type Tab = 'roll' | 'roster' | 'schedule' | 'repertoire' | 'notes' | 'assignments';
 
 /**
@@ -624,6 +624,8 @@ export interface AssignmentResult {
   assignmentId: string;
   studentId: string;
   status: AssignmentResultStatus;
+  /** Numeric (or free-text) grade — e.g. "92". Optional; Pass/Fail/Exempt stay
+   *  available as quick marks alongside a score. */
   score?: string;
   notes?: string;
   gradedAt?: string; // YYYY-MM-DD

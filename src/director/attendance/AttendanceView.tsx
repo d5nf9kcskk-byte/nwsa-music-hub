@@ -19,6 +19,7 @@ import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRa
 import { currentDirectorName, currentDirectorRole } from '../currentDirector';
 import { recordActivity } from '../hooks/useActivityLog';
 import type { AttendanceStatus, Student, Ensemble, CalendarEvent } from '../types';
+import { ATTENDANCE_STATUS_LABEL, isAbsentMark, isRollException } from '../attendanceStatus';
 
 interface Period {
   event: CalendarEvent | null;   // null = ad-hoc roll (no scheduled rehearsal)
@@ -326,7 +327,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
   // Instrumentation-gap warning (#29): every player of an instrument is out.
   const gapWarning = useMemo(() => {
     const out = new Set(Object.values(recordMap)
-      .filter(r => r.status === 'Absent' || r.status === 'Excused')
+      .filter(r => isAbsentMark(r.status))
       .map(r => r.studentId));
     const byInstr = new Map<string, { total: number; present: number }>();
     for (const { student } of resolved) {
@@ -343,9 +344,9 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
   const lessonCount = Object.keys(lessons).length;
   const exceptionCount = Object.values(recordMap).filter(r => r.status !== 'Lesson').length;
   const statusCounts = useMemo(() => {
-    const c = { Absent: 0, Late: 0, Excused: 0 } as Record<'Absent' | 'Late' | 'Excused', number>;
+    const c = { Absent: 0, Late: 0, Excused: 0, LateExcused: 0 };
     for (const r of Object.values(recordMap)) {
-      if (r.status === 'Absent' || r.status === 'Late' || r.status === 'Excused') c[r.status] += 1;
+      if (r.status in c) c[r.status as keyof typeof c] += 1;
     }
     return c;
   }, [recordMap]);
@@ -407,9 +408,10 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
 
   async function handleToggle(studentId: string, status: AttendanceStatus) {
     setToggleError('');
-    // Silently record minutes-late for the Tracker (#25) when marking Late today.
+    // Silently record minutes-late for the Tracker (#25) when marking Late
+    // (or Late Excused) today.
     let minutesLate: number | undefined;
-    if (status === 'Late' && date === todayStr() && period.event?.startTime) {
+    if ((status === 'Late' || status === 'LateExcused') && date === todayStr() && period.event?.startTime) {
       const [h, m] = period.event.startTime.split(':').map(Number);
       const now = new Date();
       minutesLate = Math.max(0, now.getHours() * 60 + now.getMinutes() - (h * 60 + m));
@@ -482,7 +484,12 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
         )}
         {statusCounts.Excused > 0 && (
           <button className={`dir-att-chip excused${statusFilter === 'Excused' ? ' on' : ''}`} onClick={() => toggleFilter('Excused')}>
-            <strong>{statusCounts.Excused}</strong> Excused
+            <strong>{statusCounts.Excused}</strong> Abs Exc
+          </button>
+        )}
+        {statusCounts.LateExcused > 0 && (
+          <button className={`dir-att-chip lateexcused${statusFilter === 'LateExcused' ? ' on' : ''}`} onClick={() => toggleFilter('LateExcused')}>
+            <strong>{statusCounts.LateExcused}</strong> Late Exc
           </button>
         )}
         {lessonCount > 0 && (
@@ -562,7 +569,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
                       <button type="button" className="dir-chart-seat-main" onClick={cycle}>
                         <span className="dir-chart-seat-num">{j + 1}</span>
                         <span className="dir-chart-seat-name">{stu?.preferredName || stu?.name?.split(',')[0] || '—'}</span>
-                        {st && <span className="dir-chart-seat-status">{st}</span>}
+                        {st && <span className="dir-chart-seat-status">{ATTENDANCE_STATUS_LABEL[st]}</span>}
                       </button>
                       {stu && (
                         <button
@@ -733,15 +740,19 @@ function AbsenteeSummary({ records, students, contacts, ensembleName, dateLabel,
 }) {
   const [copied, setCopied] = useState(false);
   const nameOf = (id: string) => students.find(s => s.id === id)?.name ?? 'Student';
-  const flagged = records.filter(r => r.status === 'Absent' || r.status === 'Late' || r.status === 'Excused');
+  const flagged = records.filter(r => isRollException(r.status as AttendanceStatus));
   const absent = flagged.filter(r => r.status === 'Absent');
   const late = flagged.filter(r => r.status === 'Late');
+  const absExc = flagged.filter(r => r.status === 'Excused');
+  const lateExc = flagged.filter(r => r.status === 'LateExcused');
 
   function copyForTeams() {
     const lines = [
       `${ensembleName} — ${dateLabel}`,
       ...(absent.length ? [`Absent: ${absent.map(r => nameOf(r.studentId)).join(', ')}`] : []),
       ...(late.length ? [`Late: ${late.map(r => nameOf(r.studentId)).join(', ')}`] : []),
+      ...(absExc.length ? [`Absent (Excused): ${absExc.map(r => nameOf(r.studentId)).join(', ')}`] : []),
+      ...(lateExc.length ? [`Late (Excused): ${lateExc.map(r => nameOf(r.studentId)).join(', ')}`] : []),
       ...(flagged.length === 0 ? ['Everyone present ✅'] : []),
     ];
     navigator.clipboard?.writeText(lines.join('\n')).then(() => {
@@ -768,7 +779,7 @@ function AbsenteeSummary({ records, students, contacts, ensembleName, dateLabel,
                 <div key={r.studentId} className="dir-sub-row">
                   <div className="dir-sub-info">
                     <div className="dir-sub-name">{nameOf(r.studentId)}</div>
-                    <div className="dir-sub-instr">{r.status}</div>
+                    <div className="dir-sub-instr">{ATTENDANCE_STATUS_LABEL[r.status as AttendanceStatus] ?? r.status}</div>
                   </div>
                   {c?.phone && (
                     <a className="dir-icon-btn" href={`tel:${c.phone}`} aria-label="Call"><Phone size={15} /></a>
@@ -777,7 +788,7 @@ function AbsenteeSummary({ records, students, contacts, ensembleName, dateLabel,
                     <a
                       className="dir-icon-btn"
                       aria-label="Email"
-                      href={`mailto:${c.parentEmail || c.email}?subject=${encodeURIComponent(`${ensembleName} attendance — ${dateLabel}`)}&body=${encodeURIComponent(`Hello,\n\n${nameOf(r.studentId)} was marked ${r.status.toLowerCase()} at today's ${ensembleName} rehearsal (${dateLabel}). `)}`}
+                      href={`mailto:${c.parentEmail || c.email}?subject=${encodeURIComponent(`${ensembleName} attendance — ${dateLabel}`)}&body=${encodeURIComponent(`Hello,\n\n${nameOf(r.studentId)} was marked ${ATTENDANCE_STATUS_LABEL[r.status as AttendanceStatus]?.toLowerCase() ?? r.status.toLowerCase()} at today's ${ensembleName} rehearsal (${dateLabel}). `)}`}
                     >
                       <Mail size={15} />
                     </a>

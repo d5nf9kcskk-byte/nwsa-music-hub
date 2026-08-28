@@ -371,6 +371,11 @@ html:has(.dir-app) body {
   background: var(--dir-excused-bg);
 }
 
+.dir-student-card.lateexcused {
+  border-color: #0d9488;
+  background: #f0fdfa;
+}
+
 .dir-student-card.lesson {
   border-color: var(--dir-lesson);
   background: var(--dir-lesson-bg);
@@ -416,20 +421,23 @@ html:has(.dir-app) body {
 .dir-status-badge.absent { background: var(--dir-absent); color: #fff; }
 .dir-status-badge.late { background: var(--dir-late); color: #fff; }
 .dir-status-badge.excused { background: var(--dir-excused); color: #fff; }
+.dir-status-badge.lateexcused { background: #0d9488; color: #fff; }
 .dir-status-badge.lesson { background: var(--dir-lesson); color: #fff; }
 
 .dir-att-btns {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .dir-att-btn {
-  flex: 1;
+  flex: 1 1 calc(25% - 8px);
+  min-width: 4.5rem;
   height: 40px;
   border-radius: var(--dir-radius-sm);
   border: 1.5px solid var(--dir-border);
   background: var(--dir-surface-2);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--dir-text-muted);
   cursor: pointer;
@@ -457,9 +465,16 @@ html:has(.dir-app) body {
   color: #fff;
 }
 
+.dir-att-btn.lateexcused-btn.active {
+  background: #0d9488;
+  border-color: #0d9488;
+  color: #fff;
+}
+
 .dir-att-btn.absent-btn:not(.active):hover { border-color: var(--dir-absent); color: var(--dir-absent); }
 .dir-att-btn.late-btn:not(.active):hover { border-color: var(--dir-late); color: var(--dir-late); }
 .dir-att-btn.excused-btn:not(.active):hover { border-color: var(--dir-excused); color: var(--dir-excused); }
+.dir-att-btn.lateexcused-btn:not(.active):hover { border-color: #0d9488; color: #0d9488; }
 .dir-att-btn.lesson-btn:not(.active):hover { border-color: var(--dir-lesson); color: var(--dir-lesson); }
 
 .dir-att-btn.lesson-btn.active {

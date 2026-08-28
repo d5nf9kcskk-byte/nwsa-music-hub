@@ -33,6 +33,17 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-28-scores-and-late-excused',
+    date: '2026-08-28',
+    title: 'Number grades + Late (Excused) on roll',
+    audience: 'staff' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'Assignments: type a number grade next to each student (Pass / Fail / Exempt still work as quick marks).',
+      'Take Roll marks are now Absent, Late, Absent (Excused), and Late (Excused) — plus Lesson. Existing Excused marks are Absent (Excused).',
+    ],
+  },
+  {
     id: '2026-08-28-assignment-full-page',
     date: '2026-08-28',
     title: 'Assignments open as a full page',

@@ -1213,3 +1213,43 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
   border-color: rgba(94, 234, 212, 0.45);
 }
 
+/* Numeric score next to Pass/Fail/Exempt on the assignment grade page. */
+.dir-assign-grade-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.dir-assign-score {
+  width: 3.4rem;
+  height: 34px;
+  border: 1.5px solid var(--dir-border);
+  border-radius: 8px;
+  background: var(--dir-surface);
+  color: var(--dir-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 4px;
+}
+.dir-assign-score:focus {
+  outline: 2px solid var(--dir-primary, #0d7e8e);
+  outline-offset: 1px;
+}
+
+.dir-dot.lateexcused { background: #0d9488; }
+.dir-count-chip.lateexcused {
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+}
+.dir-att-chip.lateexcused.on {
+  border-color: #0d9488;
+  background: #f0fdfa;
+  color: #0f766e;
+}
+.dir-daycontext-chip.lateexcused { background: #f0fdfa; color: #0f766e; border-color: transparent; }
+.dir-history-dot.lateexcused { background: #0d9488; }
+.dir-chart-seat.lateexcused { border-color: #0d9488; background: #f0fdfa; }
+
+

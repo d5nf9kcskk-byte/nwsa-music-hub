@@ -13,6 +13,7 @@ import { todayStr, addDays, toDateStr, parseDate, formatTimeRange, ensembleColor
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import type { DirNavigate } from '../types-nav';
 import { emptyWhosOutLine } from '../../shared/whimsy';
+import { isRollException, ATTENDANCE_STATUS_LABEL } from '../attendanceStatus';
 
 /**
  * Who's Out (replaces the printable "sub sheet"): one live page answering
@@ -42,12 +43,12 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
 
   const today = todayStr();
 
-  // Month heatmap: absences (Absent/Late/Excused) per day, optionally scoped to
+  // Month heatmap: roll exceptions per day, optionally scoped to
   // the selected ensemble, plus which days have parent-reported absences.
   const outByDate = useMemo(() => {
     const m: Record<string, number> = {};
     for (const r of allAtt) {
-      if (r.status !== 'Absent' && r.status !== 'Late' && r.status !== 'Excused') continue;
+      if (!isRollException(r.status)) continue;
       if (ensembleId && r.ensembleId !== ensembleId) continue;
       m[r.date] = (m[r.date] ?? 0) + 1;
     }
@@ -87,7 +88,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
   // Per-ensemble picture: marks, lesson pull-outs, guest players.
   const sections = useMemo(() => orderedEnsembles.map(ens => {
     const marks = records
-      .filter(r => r.ensembleId === ens.id && (r.status === 'Absent' || r.status === 'Late' || r.status === 'Excused'))
+      .filter(r => r.ensembleId === ens.id && isRollException(r.status))
       .map(r => ({ ...r, student: studentsById[r.studentId] }))
       .filter(r => r.student)
       .sort((a, b) => a.student!.name.localeCompare(b.student!.name));
@@ -283,11 +284,11 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
                   </div>
                   <div className="dir-sub-instr">
                     {r.student!.instrument}
-                    {r.status === 'Late' && r.minutesLate ? ` · ${r.minutesLate} min late` : ''}
+                    {(r.status === 'Late' || r.status === 'LateExcused') && r.minutesLate ? ` · ${r.minutesLate} min late` : ''}
                     {r.source === 'office' && r.reason ? ` · ${r.reason}` : ''}
                   </div>
                 </div>
-                <span className={`dir-status-badge ${r.status.toLowerCase()}`}>{r.status}</span>
+                <span className={`dir-status-badge ${r.status.toLowerCase()}`}>{ATTENDANCE_STATUS_LABEL[r.status]}</span>
               </button>
             ))}
 

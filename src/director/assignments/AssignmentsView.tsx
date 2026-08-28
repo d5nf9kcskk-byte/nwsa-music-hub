@@ -432,6 +432,30 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
     }
   }
 
+  async function handleScore(studentId: string, raw: string) {
+    const existing = resultMap[studentId];
+    const prev = existing?.score ?? '';
+    if (raw === prev) return;
+    setSavingId(studentId);
+    setGradeError('');
+    try {
+      if (!raw) {
+        if (!existing) return;
+        // Clearing the number keeps Pass/Fail/Exempt; a Pending-only row goes away.
+        if (existing.status === 'Pending') await clearResult(studentId);
+        else await saveResult(studentId, existing.status, { score: null });
+        return;
+      }
+      // A typed score grades the row — default status Pass when nothing was set.
+      const status = existing?.status && existing.status !== 'Pending' ? existing.status : 'Pass';
+      await saveResult(studentId, status, { score: raw });
+    } catch (e) {
+      setGradeError(e instanceof Error ? e.message : 'Could not save score — try again.');
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   const counts = relevant.reduce(
     (acc, s) => {
       const st = resultMap[s.id]?.status ?? 'Pending';
@@ -551,18 +575,34 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
                       </div>
                       <div className="dir-assign-instr">{s.instrument}</div>
                     </div>
-                    <div className="dir-assign-btns">
-                      {(['Pass', 'Fail', 'Exempt'] as const).map(st => (
-                        <button
-                          key={st}
-                          type="button"
-                          className={`dir-assign-btn dir-assign-btn-${st.toLowerCase()} ${status === st ? 'active' : ''}`}
-                          onClick={() => handleStatus(s.id, st)}
-                          disabled={savingId === s.id}
-                        >
-                          {st}
-                        </button>
-                      ))}
+                    <div className="dir-assign-grade-controls">
+                      <input
+                        className="dir-assign-score"
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="#"
+                        aria-label={`Score for ${s.name}`}
+                        key={`${s.id}-${result?.score ?? ''}`}
+                        defaultValue={result?.score ?? ''}
+                        disabled={savingId === s.id}
+                        onBlur={e => { void handleScore(s.id, e.target.value.trim()); }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        }}
+                      />
+                      <div className="dir-assign-btns">
+                        {(['Pass', 'Fail', 'Exempt'] as const).map(st => (
+                          <button
+                            key={st}
+                            type="button"
+                            className={`dir-assign-btn dir-assign-btn-${st.toLowerCase()} ${status === st ? 'active' : ''}`}
+                            onClick={() => handleStatus(s.id, st)}
+                            disabled={savingId === s.id}
+                          >
+                            {st}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 );

@@ -35,8 +35,10 @@ export function TrackerView({ onNavigate }: { onNavigate?: import('../types-nav'
   );
 
   const totals = useMemo(() => {
-    const t = { Absent: 0, Late: 0, Excused: 0, Lesson: 0 };
-    for (const r of filtered) t[r.status]++;
+    const t = { Absent: 0, Late: 0, Excused: 0, LateExcused: 0, Lesson: 0 };
+    for (const r of filtered) {
+      if (r.status in t) t[r.status as keyof typeof t]++;
+    }
     return t;
   }, [filtered]);
 
@@ -53,11 +55,11 @@ export function TrackerView({ onNavigate }: { onNavigate?: import('../types-nav'
   // rehearsal 'Lesson' records are NOT exceptions — lessons are partial and
   // never count against a student's record.
   const perStudent = useMemo(() => {
-    const map: Record<string, { Absent: number; Late: number; Excused: number; Lesson: number; total: number }> = {};
+    const map: Record<string, { Absent: number; Late: number; Excused: number; LateExcused: number; Lesson: number; total: number }> = {};
     for (const r of filtered) {
       if (r.status === 'Lesson') continue;
-      const e = (map[r.studentId] ??= { Absent: 0, Late: 0, Excused: 0, Lesson: 0, total: 0 });
-      e[r.status]++;
+      const e = (map[r.studentId] ??= { Absent: 0, Late: 0, Excused: 0, LateExcused: 0, Lesson: 0, total: 0 });
+      if (r.status in e) e[r.status as 'Absent' | 'Late' | 'Excused' | 'LateExcused']++;
       e.total++;
     }
     return Object.entries(map)
@@ -66,7 +68,7 @@ export function TrackerView({ onNavigate }: { onNavigate?: import('../types-nav'
       .sort((a, b) => b.counts.total - a.counts.total || b.counts.Absent - a.counts.Absent);
   }, [filtered, studentMap]);
 
-  const totalExceptions = totals.Absent + totals.Late + totals.Excused;
+  const totalExceptions = totals.Absent + totals.Late + totals.Excused + totals.LateExcused;
   const cleanCount = students.filter(
     s => s.status === 'Active' &&
       (!ensembleId || s.ensembleIds?.includes(ensembleId)) &&
@@ -74,10 +76,10 @@ export function TrackerView({ onNavigate }: { onNavigate?: import('../types-nav'
   ).length;
 
   const chartData = {
-    labels: ['Absent', 'Late', 'Excused'],
+    labels: ['Absent', 'Late', 'Abs Exc', 'Late Exc'],
     datasets: [{
-      data: [totals.Absent, totals.Late, totals.Excused],
-      backgroundColor: ['#ef4444', '#f59e0b', '#22c55e'],
+      data: [totals.Absent, totals.Late, totals.Excused, totals.LateExcused],
+      backgroundColor: ['#ef4444', '#f59e0b', '#22c55e', '#0d9488'],
       borderWidth: 0,
     }],
   };
@@ -135,7 +137,8 @@ export function TrackerView({ onNavigate }: { onNavigate?: import('../types-nav'
             <div className="dir-tracker-legend">
               <div className="dir-tracker-stat"><span className="dir-dot absent" /> {totals.Absent} Absent</div>
               <div className="dir-tracker-stat"><span className="dir-dot late" /> {totals.Late} Late</div>
-              <div className="dir-tracker-stat"><span className="dir-dot excused" /> {totals.Excused} Excused</div>
+              <div className="dir-tracker-stat"><span className="dir-dot excused" /> {totals.Excused} Abs Exc</div>
+              <div className="dir-tracker-stat"><span className="dir-dot lateexcused" /> {totals.LateExcused} Late Exc</div>
               <div className="dir-tracker-clean">{cleanCount} with a clean record</div>
             </div>
           </div>
@@ -157,7 +160,8 @@ export function TrackerView({ onNavigate }: { onNavigate?: import('../types-nav'
                 <div className="dir-tracker-chips">
                   {counts.Absent > 0 && <span className="dir-count-chip absent">{counts.Absent} A</span>}
                   {counts.Late > 0 && <span className="dir-count-chip late">{counts.Late} L</span>}
-                  {counts.Excused > 0 && <span className="dir-count-chip excused">{counts.Excused} E</span>}
+                  {counts.Excused > 0 && <span className="dir-count-chip excused">{counts.Excused} AE</span>}
+                  {counts.LateExcused > 0 && <span className="dir-count-chip lateexcused">{counts.LateExcused} LE</span>}
                 </div>
               </button>
             ))}
