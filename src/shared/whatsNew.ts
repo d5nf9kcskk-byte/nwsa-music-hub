@@ -33,13 +33,24 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-28-assignment-full-page',
+    date: '2026-08-28',
+    title: 'Assignments open as a full page',
+    audience: 'staff' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'Tap an assignment and it fills the screen — no more cramped side drawer. Scroll as far as you need.',
+      'Students & grades and Video submissions each fold open or closed. Anyone who turned in a video shows a Submitted badge next to their name.',
+    ],
+  },
+  {
     id: '2026-08-28-playing-exam-videos',
     date: '2026-08-28',
     title: 'Playing-exam videos show up in the grade sheet',
     audience: 'staff' as const,
     expires: '2026-09-11',
     bullets: [
-      'Open the assignment → the Submissions list is open by default, and each student who turned in a video has a “Video in” link on their grade row.',
+      'Open the assignment → each student who turned in a video has a Submitted badge on their grade row, and the Video submissions fold lists every take.',
       'If a list ever looked empty while students said they submitted, that was a Hub bug (not a delay) — refresh after this update and reopen the exam.',
     ],
   },

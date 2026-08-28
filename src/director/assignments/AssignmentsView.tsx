@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ClipboardCheck, Plus, Clock, Video, Music } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Plus, Clock, Video, Music } from 'lucide-react';
 import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useAssignmentSubmissions } from '../hooks/useAssignmentSubmissions';
@@ -375,7 +375,7 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
   );
 }
 
-// ── Grade sheet drawer ────────────────────────────────────────────
+// ── Grade sheet (full page) ───────────────────────────────────
 
 interface GradeSheetProps {
   assignment: Assignment;
@@ -397,24 +397,23 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
   const [savingId, setSavingId] = useState<string | null>(null);
   const [gradeError, setGradeError] = useState('');
   const [sort, setSort] = useState<StudentSort>('scoreOrder');
-  // Open by default — directors looking for today's playing-exam videos should
-  // not have to discover a collapsed "Show Submissions" toggle.
+  // Both folds start open — the page scrolls, so neither fights the other for
+  // a fixed drawer height. Collapse whichever you are not using.
+  const [showGrades, setShowGrades] = useState(true);
   const [showSubmissions, setShowSubmissions] = useState(true);
-  // Which submission is awaiting a delete confirmation (id, or '' for none).
   const [confirmDeleteSub, setConfirmDeleteSub] = useState('');
-  // Newest video per student — chip on the grade row so a submitted exam is
-  // visible without scrolling to the submissions list.
+  // Newest video per student — badge on the grade row so a submitted exam is
+  // visible without opening the submissions fold.
   const submissionByStudent = new Map<string, (typeof submissions)[number]>();
   for (const sub of submissions) {
     if (!submissionByStudent.has(sub.studentId)) submissionByStudent.set(sub.studentId, sub);
   }
 
-  // Everyone targeted: ensemble members + any specific individuals, ordered so
-  // the director can move down the section (score order) or find a name fast.
   const relevant = sortStudents(
     students.filter(s => s.status === 'Active' && studentHasAssignment(assignment, s.id, s.ensembleIds)),
     sort,
   );
+  const submittedCount = relevant.filter(s => submissionByStudent.has(s.id)).length;
 
   async function handleStatus(studentId: string, status: AssignmentResultStatus) {
     const existing = resultMap[studentId];
@@ -427,8 +426,6 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
       if (clearing) await clearResult(studentId);
       else await saveResult(studentId, status);
     } catch (e) {
-      // Without finally, a failed write would leave savingId set and disable
-      // this row's buttons for the rest of the session.
       setGradeError(e instanceof Error ? e.message : 'Could not save grade — try again.');
     } finally {
       setSavingId(null);
@@ -445,223 +442,242 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
   );
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
-        <div className="dir-drawer-handle" />
-        <div className="dir-drawer-header">
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="dir-drawer-title" style={{ fontSize: 16 }}>{assignment.title}</div>
-            <div style={{ fontSize: 12, color: 'var(--dir-text-muted)', marginTop: 2 }}>
-              {assignment.type} · Due {formatDate(assignment.dueDate, { month: 'short', day: 'numeric', year: 'numeric' })}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            <button className="dir-tool-btn" onClick={onEdit}>Edit</button>
-            <button className="dir-drawer-close" onClick={onClose}>×</button>
-          </div>
+    <div className="dir-tab-page dir-assign-page">
+      <div className="dir-assign-page-top">
+        <button type="button" className="dir-drawer-back" onClick={onClose}>
+          <ChevronLeft size={16} /> All assignments
+        </button>
+        <button type="button" className="dir-tool-btn" onClick={onEdit}>Edit</button>
+      </div>
+
+      <header className="dir-assign-page-head">
+        <div className="dir-assign-page-title">{assignment.title}</div>
+        <div className="dir-assign-page-meta">
+          {assignment.type} · Due {formatDate(assignment.dueDate, { month: 'short', day: 'numeric', year: 'numeric' })}
+          {assignment.acceptsVideoSubmissions && (
+            <> · {submissions.length} video{submissions.length === 1 ? '' : 's'}</>
+          )}
         </div>
+      </header>
 
-        {gradeError && (
-          <div style={{ padding: '8px 16px', color: 'var(--dir-danger)', fontSize: 13 }}>⚠ {gradeError}</div>
-        )}
+      {gradeError && (
+        <div className="dir-assign-page-error">⚠ {gradeError}</div>
+      )}
 
-        {/* What students are reading, rendered the same way they see it. */}
-        {(assignment.description || linkedPieces.length > 0 || assignment.formUrl) && (
-          <div className="dir-assign-brief">
-            {assignment.description && <NotesText text={assignment.description} />}
-            {linkedPieces.length > 0 && (
-              <div className="dir-assign-brief-music">
-                <Music size={13} /> {linkedPieces.map(p => p.title).join(' · ')}
+      {(assignment.description || linkedPieces.length > 0 || assignment.formUrl) && (
+        <div className="dir-assign-brief dir-assign-brief-page">
+          {assignment.description && <NotesText text={assignment.description} />}
+          {linkedPieces.length > 0 && (
+            <div className="dir-assign-brief-music">
+              <Music size={13} /> {linkedPieces.map(p => p.title).join(' · ')}
+            </div>
+          )}
+          {assignment.formUrl && (
+            <a
+              className="dir-assign-card-form"
+              href={assignment.formUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open form ↗
+            </a>
+          )}
+        </div>
+      )}
+
+      <div className="dir-assign-summary-bar">
+        {[
+          { key: 'Pass',    label: 'Pass',    cls: 'pass' },
+          { key: 'Fail',    label: 'Fail',    cls: 'fail' },
+          { key: 'Exempt',  label: 'Exempt',  cls: 'exempt' },
+          { key: 'Pending', label: 'Pending', cls: 'pending' },
+        ].map(({ key, label, cls }) => (
+          <div key={key} className={`dir-assign-stat dir-assign-stat-${cls}`}>
+            <span className="dir-assign-stat-num">{counts[key] ?? 0}</span>
+            <span className="dir-assign-stat-lbl">{label}</span>
+          </div>
+        ))}
+      </div>
+
+      <section className="dir-assign-fold">
+        <button
+          type="button"
+          className="dir-assign-fold-btn"
+          aria-expanded={showGrades}
+          onClick={() => setShowGrades(v => !v)}
+        >
+          {showGrades ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+          <span className="dir-assign-fold-label">Students &amp; grades</span>
+          <span className="dir-assign-fold-count">
+            {relevant.length}
+            {assignment.acceptsVideoSubmissions && submittedCount > 0 && (
+              <> · {submittedCount} submitted</>
+            )}
+          </span>
+        </button>
+        {showGrades && (
+          <div className="dir-assign-fold-body">
+            <div className="dir-assign-sort-row">
+              <SortToggle value={sort} onChange={setSort} />
+            </div>
+            {relevant.length === 0 ? (
+              <div className="dir-empty">
+                <p>No active students in these ensembles.</p>
               </div>
-            )}
-            {assignment.formUrl && (
-              <a
-                className="dir-assign-card-form"
-                href={assignment.formUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Open form ↗
-              </a>
-            )}
-          </div>
-        )}
-
-        <div className="dir-assign-summary-bar">
-          {[
-            { key: 'Pass',    label: 'Pass',    cls: 'pass' },
-            { key: 'Fail',    label: 'Fail',    cls: 'fail' },
-            { key: 'Exempt',  label: 'Exempt',  cls: 'exempt' },
-            { key: 'Pending', label: 'Pending', cls: 'pending' },
-          ].map(({ key, label, cls }) => (
-            <div key={key} className={`dir-assign-stat dir-assign-stat-${cls}`}>
-              <span className="dir-assign-stat-num">{counts[key] ?? 0}</span>
-              <span className="dir-assign-stat-lbl">{label}</span>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ padding: '6px 16px 0' }}>
-          <SortToggle value={sort} onChange={setSort} />
-        </div>
-        <div className="dir-drawer-body" style={{ gap: 6 }}>
-          {relevant.length === 0 ? (
-            <div className="dir-empty">
-              <p>No active students in these ensembles.</p>
-            </div>
-          ) : (
-            relevant.map(s => {
-              const result = resultMap[s.id];
-              const status: AssignmentResultStatus = result?.status ?? 'Pending';
-              const video = assignment.acceptsVideoSubmissions
-                ? submissionByStudent.get(s.id)
-                : undefined;
-              return (
-                <div key={s.id} className={`dir-assign-row dir-assign-row-${status.toLowerCase()}`}>
-                  <div className="dir-assign-stu">
-                    <div className="dir-assign-name">{s.name}</div>
-                    <div className="dir-assign-instr">
-                      {s.instrument}
-                      {video && (
-                        <>
-                          {' · '}
+            ) : (
+              relevant.map(s => {
+                const result = resultMap[s.id];
+                const status: AssignmentResultStatus = result?.status ?? 'Pending';
+                const video = assignment.acceptsVideoSubmissions
+                  ? submissionByStudent.get(s.id)
+                  : undefined;
+                return (
+                  <div key={s.id} className={`dir-assign-row dir-assign-row-${status.toLowerCase()}`}>
+                    <div className="dir-assign-stu">
+                      <div className="dir-assign-name-row">
+                        <span className="dir-assign-name">{s.name}</span>
+                        {video && (
                           <a
+                            className="dir-assign-submitted"
                             href={video.videoUrl}
                             target="_blank"
                             rel="noreferrer"
-                            style={{ color: 'var(--dir-accent)', fontWeight: 600 }}
+                            title="Watch submission"
                             onClick={e => e.stopPropagation()}
                           >
-                            Video in
+                            <Video size={12} /> Submitted
                           </a>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <div className="dir-assign-btns">
-                    {(['Pass', 'Fail', 'Exempt'] as const).map(st => (
-                      <button
-                        key={st}
-                        className={`dir-assign-btn dir-assign-btn-${st.toLowerCase()} ${status === st ? 'active' : ''}`}
-                        onClick={() => handleStatus(s.id, st)}
-                        disabled={savingId === s.id}
-                      >
-                        {st}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {assignment.acceptsVideoSubmissions && (
-          <div style={{ borderTop: '1px solid var(--dir-border)', padding: '4px 0' }}>
-            <button
-              className="dir-tool-btn"
-              style={{ margin: '6px 16px', fontSize: 13 }}
-              onClick={() => setShowSubmissions(v => !v)}
-            >
-              <Video size={13} /> {showSubmissions ? 'Hide' : 'Show'} Submissions ({submissions.length})
-            </button>
-            {showSubmissions && (
-              <div className="dir-drawer-body" style={{ gap: 6, paddingTop: 0 }}>
-                {subLoading ? (
-                  <div style={{ padding: 16, color: 'var(--dir-text-muted)', fontSize: 13 }}>Loading…</div>
-                ) : subLoadError && submissions.length === 0 ? (
-                  <div className="dir-empty" style={{ padding: '12px 0' }}>
-                    <p style={{ fontSize: 13, color: 'var(--dir-danger)' }}>
-                      Could not load video submissions — check your connection and try reopening this sheet.
-                    </p>
-                  </div>
-                ) : submissions.length === 0 ? (
-                  <div className="dir-empty" style={{ padding: '12px 0' }}>
-                    <p style={{ fontSize: 13 }}>No video submissions yet.</p>
-                  </div>
-                ) : (
-                  submissions.map(sub => (
-                    <div key={sub.id} className="dir-submission-row">
-                      <div className="dir-submission-info">
-                        <div className="dir-submission-name">{sub.studentName}</div>
-                        <div className="dir-submission-meta">
-                          {/* 0 means the browser could not read the file's
-                              length, not a zero-length video. */}
-                          {sub.videoDurationSeconds > 0 ? formatClock(sub.videoDurationSeconds) : 'length unknown'}
-                          {' · '}{formatFileSize(sub.fileSize)}
-                          {' · '}{new Date(sub.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                        </div>
-                        {sub.notes && <div className="dir-submission-notes">{sub.notes}</div>}
-                      </div>
-                      <div className="dir-submission-actions">
-                        <a
-                          className="dir-tool-btn"
-                          href={sub.videoUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ fontSize: 12, textDecoration: 'none' }}
-                        >
-                          Watch
-                        </a>
-                        <button
-                          className={`dir-tool-btn ${sub.status === 'reviewed' ? 'dir-submission-reviewed' : ''}`}
-                          style={{ fontSize: 12 }}
-                          onClick={() => setReviewStatus(sub.id, sub.status === 'reviewed' ? 'submitted' : 'reviewed')}
-                        >
-                          {sub.status === 'reviewed' ? '✓ Reviewed' : 'Mark reviewed'}
-                        </button>
-                        {/* Removing a wrong take (a test, or one filed under
-                            the wrong name) also deletes the video itself, so
-                            a student's recording never lingers at its public
-                            Storage URL. Two-step confirm, like Delete
-                            Assignment above. */}
-                        {confirmDeleteSub === sub.id ? (
-                          <>
-                            <button
-                              className="dir-tool-btn"
-                              /* .dir-btn-danger is declared BEFORE
-                                 .dir-tool-btn, so it loses the cascade here
-                                 and the confirm button would render as an
-                                 ordinary one. Set the danger colors inline. */
-                              style={{
-                                fontSize: 12,
-                                background: 'var(--dir-absent)',
-                                borderColor: 'var(--dir-absent)',
-                                color: '#fff',
-                              }}
-                              onClick={async () => {
-                                await deleteSubmission(sub.id);
-                                setConfirmDeleteSub('');
-                              }}
-                            >
-                              Confirm delete
-                            </button>
-                            <button
-                              className="dir-tool-btn"
-                              style={{ fontSize: 12 }}
-                              onClick={() => setConfirmDeleteSub('')}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            className="dir-tool-btn"
-                            style={{ fontSize: 12 }}
-                            onClick={() => setConfirmDeleteSub(sub.id)}
-                          >
-                            Delete
-                          </button>
                         )}
                       </div>
+                      <div className="dir-assign-instr">{s.instrument}</div>
                     </div>
-                  ))
-                )}
-              </div>
+                    <div className="dir-assign-btns">
+                      {(['Pass', 'Fail', 'Exempt'] as const).map(st => (
+                        <button
+                          key={st}
+                          type="button"
+                          className={`dir-assign-btn dir-assign-btn-${st.toLowerCase()} ${status === st ? 'active' : ''}`}
+                          onClick={() => handleStatus(s.id, st)}
+                          disabled={savingId === s.id}
+                        >
+                          {st}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         )}
-      </div>
+      </section>
+
+      {assignment.acceptsVideoSubmissions && (
+        <section className="dir-assign-fold">
+          <button
+            type="button"
+            className="dir-assign-fold-btn"
+            aria-expanded={showSubmissions}
+            onClick={() => setShowSubmissions(v => !v)}
+          >
+            {showSubmissions ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+            <span className="dir-assign-fold-label">Video submissions</span>
+            <span className="dir-assign-fold-count">{submissions.length}</span>
+          </button>
+          {showSubmissions && (
+            <div className="dir-assign-fold-body">
+              {subLoading ? (
+                <div className="dir-assign-fold-muted">Loading…</div>
+              ) : subLoadError && submissions.length === 0 ? (
+                <div className="dir-empty" style={{ padding: '12px 0' }}>
+                  <p style={{ fontSize: 13, color: 'var(--dir-danger)' }}>
+                    Could not load video submissions — check your connection and try again.
+                  </p>
+                </div>
+              ) : submissions.length === 0 ? (
+                <div className="dir-empty" style={{ padding: '12px 0' }}>
+                  <p style={{ fontSize: 13 }}>No video submissions yet.</p>
+                </div>
+              ) : (
+                submissions.map(sub => (
+                  <div key={sub.id} className="dir-submission-row">
+                    <div className="dir-submission-info">
+                      <div className="dir-submission-name">{sub.studentName}</div>
+                      <div className="dir-submission-meta">
+                        {/* 0 means the browser could not read the file's
+                            length, not a zero-length video. */}
+                        {sub.videoDurationSeconds > 0 ? formatClock(sub.videoDurationSeconds) : 'length unknown'}
+                        {' · '}{formatFileSize(sub.fileSize)}
+                        {' · '}{new Date(sub.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      </div>
+                      {sub.notes && <div className="dir-submission-notes">{sub.notes}</div>}
+                    </div>
+                    <div className="dir-submission-actions">
+                      <a
+                        className="dir-tool-btn"
+                        href={sub.videoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ fontSize: 12, textDecoration: 'none' }}
+                      >
+                        Watch
+                      </a>
+                      <button
+                        type="button"
+                        className={`dir-tool-btn ${sub.status === 'reviewed' ? 'dir-submission-reviewed' : ''}`}
+                        style={{ fontSize: 12 }}
+                        onClick={() => setReviewStatus(sub.id, sub.status === 'reviewed' ? 'submitted' : 'reviewed')}
+                      >
+                        {sub.status === 'reviewed' ? '✓ Reviewed' : 'Mark reviewed'}
+                      </button>
+                      {/* Removing a wrong take also deletes the video itself so
+                          a student's recording never lingers at its public
+                          Storage URL. Two-step confirm. */}
+                      {confirmDeleteSub === sub.id ? (
+                        <>
+                          <button
+                            type="button"
+                            className="dir-tool-btn"
+                            style={{
+                              fontSize: 12,
+                              background: 'var(--dir-absent)',
+                              borderColor: 'var(--dir-absent)',
+                              color: '#fff',
+                            }}
+                            onClick={async () => {
+                              await deleteSubmission(sub.id);
+                              setConfirmDeleteSub('');
+                            }}
+                          >
+                            Confirm delete
+                          </button>
+                          <button
+                            type="button"
+                            className="dir-tool-btn"
+                            style={{ fontSize: 12 }}
+                            onClick={() => setConfirmDeleteSub('')}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="dir-tool-btn"
+                          style={{ fontSize: 12 }}
+                          onClick={() => setConfirmDeleteSub(sub.id)}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
@@ -709,6 +725,35 @@ export function AssignmentsView({ initialAssignmentId, initialEnsembleId, allowe
 
   const editingAssignment = scopedAssignments.find(a => a.id === editingId) ?? null;
   const gradingAssignment = scopedAssignments.find(a => a.id === gradingId) ?? null;
+
+  // Full page replaces the list — no side drawer fighting for vertical space.
+  if (gradingAssignment) {
+    return (
+      <>
+        <GradeSheet
+          assignment={gradingAssignment}
+          students={students}
+          onEdit={() => setEditingId(gradingAssignment.id)}
+          onClose={() => setGradingId(null)}
+        />
+        {editingAssignment && (
+          <AssignmentForm
+            assignment={editingAssignment}
+            ensembles={musicEns}
+            students={students}
+            onSave={async data => {
+              await updateAssignment(editingAssignment.id, data);
+            }}
+            onDelete={async () => {
+              await deleteAssignment(editingAssignment.id);
+              setGradingId(null);
+            }}
+            onClose={() => setEditingId(null)}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <div>
@@ -791,15 +836,6 @@ export function AssignmentsView({ initialAssignmentId, initialEnsembleId, allowe
           onSave={data => updateAssignment(editingAssignment.id, data)}
           onDelete={() => deleteAssignment(editingAssignment.id)}
           onClose={() => setEditingId(null)}
-        />
-      )}
-
-      {gradingAssignment && (
-        <GradeSheet
-          assignment={gradingAssignment}
-          students={students}
-          onEdit={() => { setEditingId(gradingAssignment.id); setGradingId(null); }}
-          onClose={() => setGradingId(null)}
         />
       )}
     </div>
