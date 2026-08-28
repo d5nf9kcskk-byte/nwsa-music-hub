@@ -23,6 +23,7 @@ import { DEFAULT_VIDEO_MAX_MB } from '../types';
 import type { Assignment, AssignmentType, AssignmentResultStatus, Student, Ensemble, Attachment } from '../types';
 import { describeDuration, formatClock, formatFileSize, minutesToSeconds, secondsToMinutes } from '../../shared/duration';
 import { ORG } from '../../org';
+import { studentMatchesQuery } from '../studentSearch';
 
 const ASSIGNMENT_TYPES: AssignmentType[] = ['Playing Exam', 'Written Test', 'Performance', 'Other'];
 
@@ -77,7 +78,7 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
     setStudentIds(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   }
   const studentMatches = studentQuery.trim()
-    ? students.filter(s => s.status === 'Active' && s.name.toLowerCase().includes(studentQuery.toLowerCase())).slice(0, 8)
+    ? students.filter(s => s.status === 'Active' && studentMatchesQuery(s, studentQuery)).slice(0, 8)
     : [];
 
   async function handleSave() {

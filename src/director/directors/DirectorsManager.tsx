@@ -17,6 +17,7 @@ import {
 } from '../directorAssignments';
 import { syncAllEnsembleStaff } from '../groupStaff';
 import { lookupMdcByLogin, lookupMdcByName } from '../staffMdcContacts';
+import { studentMatchesQuery } from '../studentSearch';
 
 /** Human-readable label for each logged action slug. Falls back to the raw
  *  slug so a newly-added action still shows something before this map is
@@ -399,7 +400,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
   const filteredStudents = useMemo(() => {
     const q = studentQuery.trim().toLowerCase();
     if (!q) return activeStudents;
-    return activeStudents.filter(s => s.name.toLowerCase().includes(q) || s.instrument?.toLowerCase().includes(q));
+    return activeStudents.filter(s => studentMatchesQuery(s, q));
   }, [activeStudents, studentQuery]);
 
   function toggleStudent(id: string) {

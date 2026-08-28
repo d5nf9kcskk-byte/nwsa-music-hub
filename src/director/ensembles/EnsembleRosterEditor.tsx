@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Search, UserPlus } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useModalA11y } from '../../shared/useModalA11y';
+import { studentMatchesQuery } from '../studentSearch';
 import type { DirNavigate } from '../types-nav';
 
 /**
@@ -25,7 +26,7 @@ export function EnsembleRosterEditor({ ensembleId, ensembleName, onNavigate, onC
   const active = useMemo(
     () => students
       .filter(s => s.status === 'Active')
-      .filter(s => !filter.trim() || s.name.toLowerCase().includes(filter.trim().toLowerCase())),
+      .filter(s => studentMatchesQuery(s, filter)),
     [students, filter],
   );
   const memberCount = students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(ensembleId)).length;
@@ -65,7 +66,7 @@ export function EnsembleRosterEditor({ ensembleId, ensembleName, onNavigate, onC
               style={{ border: 'none', background: 'transparent', flex: 1 }}
               value={filter}
               onChange={e => setFilter(e.target.value)}
-              placeholder="Search students…"
+              placeholder="Search name, instrument, or grade…"
             />
           </div>
           {active.length === 0 ? (

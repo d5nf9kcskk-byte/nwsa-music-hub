@@ -13,6 +13,7 @@ import { useModalA11y } from '../../shared/useModalA11y';
 import { recordActivity } from '../hooks/useActivityLog';
 import { whenQueued } from '../writeStatus';
 import { isSharedBlock, sharedBlockLabel } from '../../shared/sharedBlock';
+import { studentMatchesQuery } from '../studentSearch';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { captureOriginal, announceChange } from './changeOps';
 import type { CalendarEvent, Ensemble, EventType, EventStatus } from '../types';
@@ -146,17 +147,17 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     [students],
   );
   const performerMatches = useMemo(() => {
-    const q = performerQuery.trim().toLowerCase();
-    if (q.length < 2) return [];
+    const q = performerQuery.trim();
+    if (q.length < 1) return [];
     return activeStudents
-      .filter(s => !(form.studentIds ?? []).includes(s.id) && (s.name.toLowerCase().includes(q) || (s.preferredName ?? '').toLowerCase().includes(q)))
+      .filter(s => !(form.studentIds ?? []).includes(s.id) && studentMatchesQuery(s, q))
       .slice(0, 8);
   }, [activeStudents, performerQuery, form.studentIds]);
   const audienceMatches = useMemo(() => {
-    const q = audienceQuery.trim().toLowerCase();
-    if (q.length < 2) return [];
+    const q = audienceQuery.trim();
+    if (q.length < 1) return [];
     return activeStudents
-      .filter(s => !(form.attendanceStudentIds ?? []).includes(s.id) && (s.name.toLowerCase().includes(q) || (s.preferredName ?? '').toLowerCase().includes(q)))
+      .filter(s => !(form.attendanceStudentIds ?? []).includes(s.id) && studentMatchesQuery(s, q))
       .slice(0, 8);
   }, [activeStudents, audienceQuery, form.attendanceStudentIds]);
 

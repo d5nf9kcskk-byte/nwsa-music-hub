@@ -146,6 +146,12 @@ jobs:
       - name: Check masterclass section specs
         run: npx tsx src/director/masterclassSections.selfcheck.ts
 
+      - name: Check class schedule and AP Theory enrollment
+        run: npx tsx src/director/classSchedule.selfcheck.ts
+
+      - name: Check student search fields
+        run: npx tsx src/director/studentSearch.selfcheck.ts
+
       - name: Build
         run: npm run build
         env:

@@ -13,9 +13,7 @@
  * apart. Node's type-stripping loader handles the .ts import; the explicit
  * extension is required for it (same rule as calendarView.ts / signupEligibility.ts).
  *
- * AP Theory has no rule in classSchedule.ts — nothing in the Hub knows who
- * takes it — so it is created EMPTY for the director to fill in. That is the
- * honest outcome; guessing a roster would be worse than an empty one.
+ * AP Theory: every 12th grader (daily block, separate from afternoon theory).
  *
  * Idempotent: groups merge by fixed doc id, and a student already enrolled is
  * skipped. Safe to re-run after adding students.
@@ -25,8 +23,8 @@
  */
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { theoryClassTitleFor, isChoirClassTitle } from '../src/director/classSchedule.ts';
-import { ACADEMIC_CLASSES, CHOIR_ENSEMBLE_ID, academicClassIdForTitle } from '../src/director/academicClasses.ts';
+import { academicClassTitlesFor } from '../src/director/classSchedule.ts';
+import { ACADEMIC_CLASSES, academicClassIdForTitle } from '../src/director/academicClasses.ts';
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!raw) { console.error('FIREBASE_SERVICE_ACCOUNT_JSON is not set — aborting.'); process.exit(1); }
@@ -62,13 +60,7 @@ for (const d of students.docs) {
   const data = d.data();
   if (data.status !== 'Active') continue;
 
-  const titles = [];
-  const theory = theoryClassTitleFor(data);
-  if (theory) titles.push(theory);
-  if ((data.ensembleIds ?? []).includes(CHOIR_ENSEMBLE_ID)) {
-    titles.push(...ACADEMIC_CLASSES.map(c => c.title).filter(isChoirClassTitle));
-  }
-
+  const titles = academicClassTitlesFor(data);
   const addIds = ACADEMIC_CLASSES.filter(c => titles.includes(c.title)).map(c => c.id);
   if (addIds.length === 0) continue;
   for (const id of addIds) byClass[id].push(data.name);

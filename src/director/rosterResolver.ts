@@ -1,5 +1,6 @@
 import type { Student, RosterOverride, CalendarEvent } from './types';
-import { theoryClassTitleFor, isChoirClassTitle } from './classSchedule';
+import { isChoirClassTitle, academicClassTitlesFor } from './classSchedule';
+import { CHOIR_ENSEMBLE_ID } from './academicClasses';
 import { takesAttendance } from './utils';
 
 export interface RosterContext {
@@ -164,15 +165,13 @@ export function studentExpectation(
     return { expected: true, ensembleIds: [], isSub: false, attendanceOnly: true };
   }
 
-  // Academic classes are seeded school-wide (empty ensembleIds). Attach them to
-  // personal schedules by grade / jazz membership / choir roster.
-  if (event.type === 'Class' && student) {
-    const theory = theoryClassTitleFor(student);
-    if (theory && event.title === theory) {
-      return { expected: true, ensembleIds: [], isSub: false, attendanceOnly: false };
-    }
-    if (isChoirClassTitle(event.title) && student.ensembleIds?.includes('high-school-choir')) {
-      return { expected: true, ensembleIds: ['high-school-choir'], isSub: false, attendanceOnly: false };
+  // Academic classes — attach by enrollment rules (grade, jazz, choir, AP).
+  if (event.type === 'Class' && student && event.title) {
+    if (academicClassTitlesFor(student).includes(event.title)) {
+      const ensIds = isChoirClassTitle(event.title) && student.ensembleIds?.includes(CHOIR_ENSEMBLE_ID)
+        ? [CHOIR_ENSEMBLE_ID]
+        : [];
+      return { expected: true, ensembleIds: ensIds, isSub: false, attendanceOnly: false };
     }
   }
 

@@ -13,6 +13,7 @@ import { findLessonConflicts } from '../lessonConflicts';
 import { LESSON_MARKS, gradeSummary, isLessonMark, needsGrade } from '../lessonGrades';
 import { todayStr, parseDate, formatTimeRange } from '../utils';
 import type { Lesson, Student } from '../types';
+import { studentMatchesQuery } from '../studentSearch';
 import { whenQueued } from '../writeStatus';
 
 // Stable reference so `director?.assignedStudentIds ?? EMPTY_IDS` doesn't
@@ -299,7 +300,7 @@ function StudentAssignEditor({ allStudents, assignedIds, onSave, onClose }: {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return active;
-    return active.filter(s => s.name.toLowerCase().includes(q) || s.instrument?.toLowerCase().includes(q));
+    return active.filter(s => studentMatchesQuery(s, q));
   }, [active, query]);
 
   function toggle(id: string) {

@@ -13,6 +13,7 @@ import { SortToggle } from '../components/SortToggle';
 import type { DirNavigate } from '../types-nav';
 import { useModalA11y } from '../../shared/useModalA11y';
 import type { Student, Ensemble, RosterOverride } from '../types';
+import { studentMatchesQuery } from '../studentSearch';
 
 /** Prefill carried into the change form when arriving via the by-date flow. */
 interface Prefill { ensembleId?: string; date?: string }
@@ -86,7 +87,7 @@ export function ScheduleChangeView({ initialEnsembleId = '', initialStudentId, i
     students
       .filter(s => s.status !== 'Graduated' && s.status !== 'Inactive')
       .filter(s => !ensembleId || s.ensembleIds?.includes(ensembleId))
-      .filter(s => !q || s.name.toLowerCase().includes(q) || s.instrument?.toLowerCase().includes(q)),
+      .filter(s => !q || studentMatchesQuery(s, q)),
     sort,
   );
 

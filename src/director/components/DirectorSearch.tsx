@@ -240,7 +240,7 @@ function DirectorSearchInner({ onClose, onOpenStudent, onNavigate }: Omit<Direct
 
     // Students first — Active students ahead of Inactive/Graduated on ties.
     const studs = rankMatches(
-      students, q, s => [s.name, s.preferredName, s.instrument], 8,
+      students, q, s => [s.name, s.preferredName, s.instrument, s.grade], 8,
       (a, b) =>
         (a.status === 'Active' ? 0 : 1) - (b.status === 'Active' ? 0 : 1)
         || a.name.localeCompare(b.name),

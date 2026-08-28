@@ -1,7 +1,7 @@
 import { doc, writeBatch, collection, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
-import { ACADEMIC_CLASSES, CHOIR_ENSEMBLE_ID, academicClassIdForTitle } from './academicClasses';
-import { theoryClassTitleFor, isChoirClassTitle } from './classSchedule';
+import { ACADEMIC_CLASSES, academicClassIdForTitle } from './academicClasses';
+import { academicClassTitlesFor } from './classSchedule';
 import { publicStudentFields } from './publicMirror';
 import type { CalendarEvent, Student } from './types';
 
@@ -36,13 +36,7 @@ export async function seedAcademicClasses(): Promise<{ groups: number; enrolled:
     const data = d.data() as Student;
     if (data.status !== 'Active') continue;
 
-    const titles: string[] = [];
-    const theory = theoryClassTitleFor(data);
-    if (theory) titles.push(theory);
-    if ((data.ensembleIds ?? []).includes(CHOIR_ENSEMBLE_ID)) {
-      titles.push(...ACADEMIC_CLASSES.map(c => c.title).filter(isChoirClassTitle));
-    }
-
+    const titles = academicClassTitlesFor(data);
     const addIds = ACADEMIC_CLASSES.filter(c => titles.includes(c.title)).map(c => c.id);
     if (addIds.length === 0) continue;
 

@@ -22,6 +22,7 @@ import { SignupSlotBuilder } from './SignupSlotBuilder';
 import { byLastName, emailList, exportSlug, namesList, responsesToCsv } from './signupsExport';
 import { allStateTemplate } from './signupTemplates';
 import { ORG } from '../../org';
+import { studentMatchesQuery } from '../studentSearch';
 import type {
   Ensemble, InstrumentFamilyId, SignupForm, SignupQuestion, SignupResponse, SignupSlotBooking, Student,
 } from '../types';
@@ -619,9 +620,7 @@ function SignupEditor({ initial, isNew, ensembles, students, onSave, onClose }: 
       : [...inviteIds, id]);
   }
   const studentMatches = studentQuery.trim()
-    ? students.filter(s => s.status === 'Active'
-      && (s.name.toLowerCase().includes(studentQuery.toLowerCase())
-        || (s.preferredName ?? '').toLowerCase().includes(studentQuery.toLowerCase()))).slice(0, 8)
+    ? students.filter(s => s.status === 'Active' && studentMatchesQuery(s, studentQuery)).slice(0, 8)
     : [];
   function toggleEnsemble(id: string) {
     set('ensembleIds', draft.ensembleIds.includes(id)

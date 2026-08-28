@@ -8,6 +8,7 @@ import type { SeatingChart, Student } from '../types';
 import { SeatingChartCard } from '../../public/components/SeatingChartCard';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { whenQueued } from '../writeStatus';
+import { studentMatchesQuery } from '../studentSearch';
 
 /** Director seating editor for one ensemble. Charts are per-piece playing-exam
  *  seating: seat 1 = principal. Published charts show on the public ensemble page. */
@@ -336,7 +337,7 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
                       autoFocus
                     />
                     <div className="dir-add-sub-list" style={{ marginTop: 6 }}>
-                      {unseated.filter(s => s.name.toLowerCase().includes(seatQuery.toLowerCase())).slice(0, 8).map(s => (
+                      {unseated.filter(s => studentMatchesQuery(s, seatQuery)).slice(0, 8).map(s => (
                         <button key={s.id} type="button" className="dir-ens-row dir-sc-pick" onClick={() => addSeat(si, s.id)}>
                           <div className="dir-ens-info">
                             <div className="dir-ens-name">{s.name}</div>

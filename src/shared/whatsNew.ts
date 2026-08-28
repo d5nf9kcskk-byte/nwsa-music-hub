@@ -131,7 +131,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     bullets: [
       'People → Classes lists every theory, history, and vocal class separately from Ensembles. Open one to post assignments and announcements for just that roster.',
       'On Calendar, “Add classes & choir” now also creates the seven standard academic class groups, enrolls students from grade and choir rules, and links each class session on the calendar to its group so Take Roll works per class.',
-      'New Classes page: “Set up academic classes” does the same if the groups are not there yet. AP Theory is created empty — fill its roster by hand.',
+      'New Classes page: “Set up academic classes” creates theory, choir, and AP Theory groups and enrolls students by grade.',
     ],
   },
   // Classes get a home on the PUBLIC site (#classes) + the juries stub grows a

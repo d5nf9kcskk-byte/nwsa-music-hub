@@ -8,6 +8,7 @@ import { whenQueued } from '../writeStatus';
 import { parseDate, formatTimeRange, musicEnsembles } from '../utils';
 import { appendInScoreOrder, sortIntoScoreOrder } from './runningOrder';
 import type { Jury } from '../types';
+import { studentMatchesQuery } from '../studentSearch';
 
 /**
  * Juries (#juries) — a place to start getting organized, on purpose.
@@ -113,7 +114,7 @@ function JuryForm({ jury, onSave, onDelete, onClose }: {
     if (!q) return [];
     return students
       .filter(s => s.status === 'Active' && !order.includes(s.id))
-      .filter(s => s.name.toLowerCase().includes(q) || (s.instrument ?? '').toLowerCase().includes(q))
+      .filter(s => studentMatchesQuery(s, q))
       .slice(0, 8);
   }, [students, query, order]);
 

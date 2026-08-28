@@ -12,6 +12,7 @@ import { RepertoireManager } from '../repertoire/RepertoireManager';
 import { LocationsManager } from '../locations/LocationsManager';
 import { RosterImport } from './RosterImport';
 import { ensembleColor } from '../utils';
+import { studentMatchesQuery } from '../studentSearch';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { importContactsFile } from '../contactsImport';
 import { sortStudents, type StudentSort } from '../scoreOrder';
@@ -58,8 +59,7 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
   const isEmpty = !loading && students.length === 0;
 
   const filtered = students.filter(s => {
-    if (!(s.name.toLowerCase().includes(search.toLowerCase()) ||
-          s.instrument.toLowerCase().includes(search.toLowerCase()))) return false;
+    if (!studentMatchesQuery(s, search)) return false;
     // Archived (graduated/inactive) students are kept but hidden from every
     // view except the dedicated Archived one.
     if (view === 'archived') return s.status !== 'Active';
@@ -86,7 +86,7 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
         {students.length > 0 && (
           <input
             className="dir-input"
-            placeholder="Search students…"
+            placeholder="Search name, instrument, or grade…"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
