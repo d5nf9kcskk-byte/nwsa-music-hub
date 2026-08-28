@@ -1,9 +1,9 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
 import {
   ClipboardSignature, Plus, Users, CalendarClock, Check, Copy, Download, Printer,
-  Mail, Link2, Lock, Unlock, Trash2, ChevronLeft, Sparkles, AlertTriangle,
+  Mail, Link2, Lock, Unlock, Trash2, ChevronLeft, Sparkles, AlertTriangle, Clock,
 } from 'lucide-react';
-import { useSignupForms, useSignupResponses, latestPerStudent, parseAnswers, responseIsComplete } from '../hooks/useSignups';
+import { useSignupForms, useSignupResponses, useSignupSlotBookings, removeSlotBooking, latestPerStudent, parseAnswers, responseIsComplete } from '../hooks/useSignups';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useMinuteTick } from '../hooks/useAnnouncements';
@@ -16,11 +16,12 @@ import { addDays, formatDate, todayStr, musicEnsembles, ensembleColor } from '..
 import { lastName } from '../scoreOrder';
 import { INSTRUMENT_FAMILIES, INSTRUMENT_FAMILY_LABEL } from '../../shared/instrumentFamily';
 import { audienceLabel, eligibleForSignup, signupIsOpen, signupIsPublished } from '../../shared/signupEligibility';
+import { isTimeslotQuestion } from '../../shared/signupSlots';
 import { byLastName, emailList, exportSlug, namesList, responsesToCsv } from './signupsExport';
 import { allStateTemplate } from './signupTemplates';
 import { ORG } from '../../org';
 import type {
-  Ensemble, InstrumentFamilyId, SignupForm, SignupQuestion, SignupResponse, Student,
+  Ensemble, InstrumentFamilyId, SignupForm, SignupQuestion, SignupResponse, SignupSlotBooking, Student,
 } from '../types';
 import './signups.css';
 
@@ -196,6 +197,8 @@ function SignupDetail({
   const [copied, setCopied] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [openRow, setOpenRow] = useState<string | null>(null);
+  const [freeingId, setFreeingId] = useState<string | null>(null);
+  const { bookings: slotBookings } = useSignupSlotBookings(form.id);
 
   const latest = useMemo(() => latestPerStudent(responses).sort(byLastName), [responses]);
   const active = latest.filter(r => r.status !== 'withdrawn');
@@ -207,12 +210,25 @@ function SignupDetail({
   const waiting = target.filter(s => !respondedIds.has(s.id))
     .sort((a, b) => lastName(a.name).localeCompare(lastName(b.name)));
   const questions = form.questions ?? [];
+  const timeslotQuestions = useMemo(() => questions.filter(isTimeslotQuestion), [questions]);
   // A sign-up that only asks for a name and a grade has no "complete" state
   // to report — every response would read Complete, which says nothing.
   const asksForMore = !!form.signatureStatement || questions.length > 0;
   const live = signupIsOpen(form, today, now);
   const publicUrl = `${ORG.publicUrl.replace(/\/$/, '')}/signup/${form.id}`;
   const docUrl = form.formUrl ?? '';
+
+  async function freeSlot(booking: SignupSlotBooking) {
+    if (freeingId) return;
+    const who = booking.studentName;
+    if (!window.confirm(`Free ${booking.slotLabel}?${who ? ` ${who} could book it again.` : ''}`)) return;
+    setFreeingId(booking.id);
+    try {
+      await removeSlotBooking(booking);
+    } finally {
+      setFreeingId(null);
+    }
+  }
 
   async function copy(what: string, text: string) {
     if (!text) return;
@@ -309,6 +325,21 @@ function SignupDetail({
         <p className="dir-signup-hint">
           Students see a link to <a href={docUrl} target="_blank" rel="noreferrer">the official form</a> on the sign-up page.
         </p>
+      )}
+
+      {timeslotQuestions.length > 0 && (
+        <>
+          <div className="dir-signup-section"><Clock size={13} /> Interview times</div>
+          {timeslotQuestions.map(q => (
+            <SignupSlotSchedule
+              key={q.id}
+              question={q}
+              bookings={slotBookings.filter(b => b.questionId === q.id)}
+              freeingId={freeingId}
+              onFree={freeSlot}
+            />
+          ))}
+        </>
       )}
 
       {/* Responses. */}
@@ -474,6 +505,66 @@ function SignupDetail({
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Interview slot schedule (director detail) ─────────────────────────
+
+function SignupSlotSchedule({ question, bookings, freeingId, onFree }: {
+  question: SignupQuestion;
+  bookings: SignupSlotBooking[];
+  freeingId: string | null;
+  onFree: (b: SignupSlotBooking) => void;
+}) {
+  const byIndex = useMemo(() => {
+    const map = new Map<number, SignupSlotBooking>();
+    for (const b of bookings) map.set(b.slotIndex, b);
+    return map;
+  }, [bookings]);
+  const slots = question.options ?? [];
+  const booked = new Set(bookings.map(b => b.slotIndex)).size;
+  const open = Math.max(0, slots.length - booked);
+
+  return (
+    <div className="dir-signup-slots">
+      <div className="dir-signup-slots-head">
+        <span className="dir-signup-slots-title">{question.label}</span>
+        <span className="dir-signup-slots-count">
+          {booked} booked · {open} open
+        </span>
+      </div>
+      {slots.length === 0 ? (
+        <div className="dir-empty-inline">No times listed — edit the sign-up to add slots.</div>
+      ) : (
+        <div className="dir-signup-slots-grid">
+          {slots.map((label, i) => {
+            const booking = byIndex.get(i);
+            return (
+              <div key={label} className={`dir-signup-slot-row ${booking ? 'booked' : 'open'}`}>
+                <span className="dir-signup-slot-time">{label}</span>
+                <span className="dir-signup-slot-who">
+                  {booking ? (
+                    <strong>{booking.studentName}</strong>
+                  ) : (
+                    <span className="dir-signup-slot-open">Open</span>
+                  )}
+                </span>
+                {booking && (
+                  <button
+                    type="button"
+                    className="dir-tool-btn dir-signup-slot-free"
+                    disabled={freeingId === booking.id}
+                    onClick={() => void onFree(booking)}
+                  >
+                    {freeingId === booking.id ? 'Freeing…' : 'Free slot'}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

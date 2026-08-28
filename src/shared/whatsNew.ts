@@ -41,7 +41,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     bullets: [
       'Directors can add an “Interview time slot” question to any sign-up. List each time on its own line; students tap one and send.',
       'As soon as someone books a time, it shows as Taken for everyone else — no double-booking.',
-      'Staff: edit a sign-up → add a question → choose Interview time slot. Add new times at the bottom after students start signing up; don’t reorder existing lines.',
+      'Staff: open a sign-up to see every slot, who booked it, and a Free slot button if someone cancels.',
     ],
   },
   // Classes get a home on the PUBLIC site (#classes) + the juries stub grows a

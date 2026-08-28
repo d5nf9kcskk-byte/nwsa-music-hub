@@ -168,9 +168,11 @@ export function useSignupResponses() {
 }
 
 /** Staff-only: free an interview slot someone booked (or clear a stale claim). */
-export async function removeSlotBooking(id: string) {
+export async function removeSlotBooking(booking: SignupSlotBooking) {
   if (!db) return;
+  const { id, ...data } = booking;
   await deleteDoc(doc(db, 'signupSlotBookings', id));
+  offerUndo('signupSlotBookings', id, data, `Freed ${booking.slotLabel} — restore?`);
 }
 
 /**
