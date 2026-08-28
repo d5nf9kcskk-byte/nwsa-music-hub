@@ -347,7 +347,9 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
     setRoles(cur => {
       if (cur.includes(r)) {
         const next = cur.filter(x => x !== r);
-        return next.length ? next : cur; // keep at least one
+        // The Owner always keeps that level — additional roles may all be off.
+        if (isOwnerRow) return next;
+        return next.length ? next : cur;
       }
       return [...cur, r];
     });
@@ -377,6 +379,10 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
       if (!EMAIL_RE.test(id)) { setError('Enter a valid email address.'); return; }
       if (existingEmails?.includes(id)) { setError('That person is already listed.'); return; }
     }
+    if (!isOwnerRow && roles.length === 0) {
+      setError('Pick at least one access level.');
+      return;
+    }
     if (hasAssistant && !assignedEnsIds.some(id => musicEnsembles(ensembles).some(e => e.id === id))) {
       setError('Pick at least one performing ensemble the assistant takes roll for.');
       return;
@@ -390,12 +396,13 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
       await whenQueued(onSave({
         email: id,
         name: name.trim() || undefined,
-        ...(isOwnerRow ? {} : { roles, role: undefined }),
+        roles: isOwnerRow ? (['owner', ...roles] as DirectorRole[]) : roles,
+        role: undefined,
         instruments: hasTeacher
           ? instruments.split(',').map(s => s.trim()).filter(Boolean)
           : undefined,
         assignedStudentIds: hasTeacher ? assignedIds : undefined,
-        assignedEnsembleIds: hasAssistant ? assignedEnsIds : undefined,
+        assignedEnsembleIds: (hasAssistant || hasClassroom) ? assignedEnsIds : undefined,
       }));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save — try again.');
@@ -416,18 +423,14 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
         <label className="dir-label">Name</label>
         <input className="dir-input" value={name} placeholder="First captured automatically when they sign in" onChange={e => setName(e.target.value)} />
       </div>
-      {isOwnerRow ? (
-        <div className="dir-field">
-          <label className="dir-label">Access level</label>
-          <div className="dir-field-hint">
-            <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} /> Owner — assigned outside the app,
-            so there is never more than one by accident. Your name above is what shows on this list and
-            on everything you change.
-          </div>
+      {isOwnerRow && (
+        <div className="dir-field-hint" style={{ marginBottom: 8 }}>
+          <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} /> You are the Owner — that never changes.
+          Pick any <em>additional</em> levels below (e.g. Applied Teacher if you also teach private lessons).
         </div>
-      ) : (
+      )}
       <div className="dir-field">
-        <label className="dir-label">Access levels</label>
+        <label className="dir-label">{isOwnerRow ? 'Additional access levels' : 'Access levels'}</label>
         <div className="dir-checkbox-group">
           <label className={`dir-checkbox-tag ${hasDirector ? 'checked' : ''}`}>
             <input type="checkbox" checked={hasDirector} onChange={() => toggleRole('director')} />
@@ -447,16 +450,15 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
           </label>
         </div>
         <div className="dir-field-hint">
-          Pick every level that applies — e.g. a director who also teaches
-          private lessons gets Director and Applied Teacher. At least one is
-          required.
+          {isOwnerRow
+            ? 'Owner already has full Hub access. Extra levels unlock their scoped tools — My Lessons for applied teaching, class roll/docs for classroom sections, etc.'
+            : 'Pick every level that applies — e.g. a director who also teaches private lessons gets Director and Applied Teacher. At least one is required.'}
           {hasDirector && ' Director: full edit access everywhere except this screen.'}
           {hasTeacher && ' Applied Teacher: schedule and grade private lessons for assigned students.'}
           {hasClassroom && ' Classroom Teacher: roll, assignments, and documents for assigned class sections.'}
           {hasAssistant && ' Personnel Assistant: take roll for assigned performing ensembles only.'}
         </div>
       </div>
-      )}
 
       {hasAssistant && (
         <div className="dir-field">
