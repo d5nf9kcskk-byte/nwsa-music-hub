@@ -169,6 +169,21 @@
    narrow phones. Each grows to share the row; the type/sort one stays snug. */
 .pub-filter-selects { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 12px; }
 .pub-filter-selects .pub-ens-select { flex: 1 1 180px; width: auto; max-width: none; margin: 0; }
+.pub-filter-presets { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }
+.pub-filter-preset {
+  border: 1px solid var(--pub-border);
+  background: var(--pub-card);
+  color: var(--pub-muted);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.pub-filter-preset.active {
+  border-color: var(--pub-accent);
+  background: var(--pub-accent-soft);
+  color: var(--pub-accent);
+}
 .pub-type-select { flex: 0 1 auto; min-width: 150px; }
 
 /* ── Multi-select filter menu (FilterMenu) — public surface ─────────────── */

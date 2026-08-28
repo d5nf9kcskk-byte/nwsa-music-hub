@@ -31,7 +31,9 @@ const ensembles = [
   { id: 'camerata-string-orchestra', name: 'Camerata String Orchestra' },
   { id: 'philharmonic', name: 'Philharmonic' },
   { id: 'opera-orchestra', name: 'Opera Orchestra' },
-  { id: 'college-chamber-orchestra', name: 'College Chamber Orchestra' },
+  { id: 'college-chamber-orchestra', name: 'College Chamber Orchestra', collegeLevel: true, kind: 'ensemble' },
+  { id: 'college-vocal-ensemble', name: 'College Vocal Ensemble', collegeLevel: true, kind: 'ensemble' },
+  { id: 'class-college-piano-1', name: 'Class Piano 1', collegeLevel: true, kind: 'class' },
   { id: 'wind-ensemble', name: 'Wind Ensemble' },
   { id: 'jazz-ensemble', name: 'Jazz Ensemble' },
   { id: 'chamber-winds', name: 'Chamber Winds' },
@@ -47,6 +49,9 @@ const ensembles = [
 assert(bundleFeedFile(bySlug('ensembles')) === 'bundle-ensembles.ics', 'ensembles feed file');
 assert(bundleFeedFile(bySlug('classes')) === 'bundle-classes.ics', 'classes feed file');
 assert(bundleFeedFile(bySlug('arts')) === 'bundle-arts.ics', 'arts feed file');
+assert(bundleFeedFile(bySlug('college-ensembles')) === 'bundle-college-ensembles.ics', 'college ensembles feed');
+assert(bundleFeedFile(bySlug('college-classes')) === 'bundle-college-classes.ics', 'college classes feed');
+assert(bundleFeedFile(bySlug('college')) === 'bundle-college.ics', 'college feed');
 
 // ── Membership: the four named, and no orchestra, no choir, no masterclass.
 const ens = bundleEnsembleIds(bySlug('ensembles'), ensembles);
@@ -136,5 +141,20 @@ assert(bundleFeedFile({ slug: 'jazz_combos', name: 'x', description: '' }) === '
 // ── A malformed pattern in org config must not take the feed build down.
 assert(bundleEnsembleIds({ slug: 'x', name: 'x', description: '', ensembleNamePatterns: ['('] }, ensembles).length === 0,
   'a bad regex yields no members instead of throwing');
+
+// ── College bundles resolve by collegeLevel flag, not by hard-coded ids.
+const CE = bySlug('college-ensembles'), CC = bySlug('college-classes'), CA = bySlug('college');
+assert(bundleEnsembleIds(CE, ensembles).includes('college-chamber-orchestra'), 'CCO in college-ensembles');
+assert(bundleEnsembleIds(CE, ensembles).includes('college-vocal-ensemble'), 'CVE in college-ensembles');
+assert(!bundleEnsembleIds(CE, ensembles).includes('class-college-piano-1'), 'classes stay out of college-ensembles');
+assert(bundleEnsembleIds(CC, ensembles).includes('class-college-piano-1'), 'piano class in college-classes');
+assert(!bundleEnsembleIds(CC, ensembles).includes('college-chamber-orchestra'), 'ensembles stay out of college-classes');
+assert(bundleEnsembleIds(CA, ensembles).includes('college-chamber-orchestra')
+  && bundleEnsembleIds(CA, ensembles).includes('class-college-piano-1'), 'college bundle has both');
+const ccoReh = { type: 'Rehearsal', ensembleIds: ['college-chamber-orchestra'] };
+const pianoClass = { type: 'Class', ensembleIds: ['class-college-piano-1'] };
+assert(eventMatchesBundle(ccoReh, CE, ensembles), 'CCO rehearsal in college-ensembles');
+assert(eventMatchesBundle(pianoClass, CC, ensembles), 'piano class in college-classes');
+assert(eventMatchesBundle(ccoReh, CA, ensembles) && eventMatchesBundle(pianoClass, CA, ensembles), 'both in all-college');
 
 console.log('calendarBundles self-check passed');

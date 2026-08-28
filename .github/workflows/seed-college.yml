@@ -1,0 +1,43 @@
+name: Seed College Program
+
+# Creates college ensembles (Chamber Orchestra, Vocal Ensemble), dual-enrollment
+# college classes with teacher names, and their Class calendar sessions.
+# Idempotent — run dry first, then apply.
+#
+# Cloud agents can trigger by pushing a change to
+# `.github/triggers/seed-college` (see file for dry_run flag).
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List what would change without writing anything'
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - '.github/triggers/seed-college'
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm install firebase-admin --no-save
+      - name: Seed college program in Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          EXTRA=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            [ "${{ inputs.dry_run }}" = "true" ] && EXTRA="--dry-run"
+          elif [ -f .github/triggers/seed-college ]; then
+            grep -q '"dry_run"[[:space:]]*:[[:space:]]*true' .github/triggers/seed-college && EXTRA="--dry-run"
+          fi
+          node scripts/seed-college.mjs $EXTRA

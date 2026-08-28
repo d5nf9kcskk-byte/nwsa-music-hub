@@ -13,12 +13,14 @@ interface Props {
   startNew?: boolean;
   /** Default kind when creating from the Classes page. */
   defaultKind?: NonNullable<Ensemble['kind']>;
+  /** Default college flag when creating from the College page. */
+  defaultCollegeLevel?: boolean;
   /** Called with the new ensemble's id after a create, so the caller can
    *  jump straight to "add students" — the step directors kept missing. */
   onCreated?: (id: string) => void;
 }
 
-export function EnsembleManager({ onClose, startNew, defaultKind, onCreated }: Props) {
+export function EnsembleManager({ onClose, startNew, defaultKind, defaultCollegeLevel, onCreated }: Props) {
   const { ensembles, addEnsemble, updateEnsemble, deleteEnsemble } = useEnsembles();
   const { addEvent } = useEvents();
   const [editing, setEditing] = useState<Ensemble | 'new' | null>(startNew ? 'new' : null);
@@ -40,6 +42,7 @@ export function EnsembleManager({ onClose, startNew, defaultKind, onCreated }: P
       <EnsembleForm
         ensemble={editing === 'new' ? null : editing}
         defaultKind={editing === 'new' ? defaultKind : undefined}
+        defaultCollegeLevel={editing === 'new' ? defaultCollegeLevel : undefined}
         nextOrder={(ensembles.reduce((m, e) => Math.max(m, e.order), 0)) + 1}
         onSave={async data => {
           if (editing === 'new') {
@@ -114,6 +117,7 @@ export function EnsembleManager({ onClose, startNew, defaultKind, onCreated }: P
 interface FormProps {
   ensemble: Ensemble | null;
   defaultKind?: NonNullable<Ensemble['kind']>;
+  defaultCollegeLevel?: boolean;
   nextOrder: number;
   onSave: (data: Omit<Ensemble, 'id'>) => Promise<void>;
   onDelete?: () => Promise<void>;
@@ -121,7 +125,7 @@ interface FormProps {
   onClose: () => void;
 }
 
-function EnsembleForm({ ensemble, defaultKind, nextOrder, onSave, onDelete, onBack, onClose }: FormProps) {
+function EnsembleForm({ ensemble, defaultKind, defaultCollegeLevel, nextOrder, onSave, onDelete, onBack, onClose }: FormProps) {
   const [name, setName] = useState(ensemble?.name ?? '');
   const [nameEs, setNameEs] = useState(ensemble?.nameEs ?? '');
   const [conductorName, setConductorName] = useState(ensemble?.conductorName ?? '');
@@ -130,7 +134,7 @@ function EnsembleForm({ ensemble, defaultKind, nextOrder, onSave, onDelete, onBa
   const [startTime, setStartTime] = useState(ensemble?.defaultStartTime ?? '');
   const [endTime, setEndTime] = useState(ensemble?.defaultEndTime ?? '');
   const [kind, setKind] = useState<NonNullable<Ensemble['kind']>>(ensemble?.kind ?? defaultKind ?? 'ensemble');
-  const [collegeLevel, setCollegeLevel] = useState(!!ensemble?.collegeLevel);
+  const [collegeLevel, setCollegeLevel] = useState(!!(ensemble?.collegeLevel ?? defaultCollegeLevel));
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const panelRef = useModalA11y<HTMLDivElement>(onBack, true, { closeOnBack: true });
@@ -144,9 +148,7 @@ function EnsembleForm({ ensemble, defaultKind, nextOrder, onSave, onDelete, onBa
         nameEs: nameEs.trim() || undefined,
         conductorName: conductorName.trim() || undefined,
         kind,
-        // Only a class can be college-level; clearing it on an ensemble keeps
-        // a group that was switched back from being quietly flagged forever.
-        collegeLevel: kind !== 'ensemble' && collegeLevel ? true : undefined,
+        collegeLevel: collegeLevel ? true : undefined,
         order: ensemble?.order ?? nextOrder,
         color: color || undefined,
         defaultLocation: location || undefined,
@@ -206,12 +208,18 @@ function EnsembleForm({ ensemble, defaultKind, nextOrder, onSave, onDelete, onBa
                   ? 'Meets, has a roster, and takes roll. Covers units and chapters instead of repertoire, and never lands on a concert.'
                   : 'A class the students play in: each meeting picks who performs and what they bring. Rosters and roll, but no concerts.'}
             </div>
-            {kind !== 'ensemble' && (
-              <label className="dir-checkbox-row" style={{ marginTop: 8 }}>
-                <input type="checkbox" checked={collegeLevel} onChange={e => setCollegeLevel(e.target.checked)} />
-                <span>College class <span className="dir-label-hint">dual enrollment rather than high school</span></span>
-              </label>
-            )}
+            <label className="dir-checkbox-row" style={{ marginTop: 8 }}>
+              <input type="checkbox" checked={collegeLevel} onChange={e => setCollegeLevel(e.target.checked)} />
+              <span>
+                {kind === 'ensemble' ? 'College ensemble' : 'College class'}
+                {' '}
+                <span className="dir-label-hint">
+                  {kind === 'ensemble'
+                    ? 'lists under College Ensembles, not All Ensembles'
+                    : 'dual enrollment — lists under College Classes'}
+                </span>
+              </span>
+            </label>
           </div>
 
           <div className="dir-field">

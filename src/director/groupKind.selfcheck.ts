@@ -4,7 +4,10 @@
  * and that master classes list WITH the classes while behaving differently
  * inside a meeting. Both promises are one-liners to break by accident.
  */
-import { isClassGroup, isMasterClass, performingEnsembles, classGroups, musicEnsembles, groupKindLabel } from './utils';
+import {
+  isClassGroup, isMasterClass, performingEnsembles, classGroups, musicEnsembles, groupKindLabel,
+  highSchoolEnsembles, collegeEnsembles, highSchoolClasses, collegeClasses, collegeGroups,
+} from './utils';
 
 function assert(cond: unknown, msg: string): void {
   if (!cond) throw new Error(msg);
@@ -41,8 +44,6 @@ assert(musicEnsembles(groups).length === 4, 'musicEnsembles still includes class
 // groupKindLabel is the ONE spelling of what a class is — the director's
 // list and the public class list both read it, so a college master class can
 // never be "college masterclass" on one screen and "master class" on the other.
-// collegeLevel is a display flag, not a fourth kind: a college course behaves
-// exactly like an in-house class, so nothing branches on it.
 assert(groupKindLabel({ name: 'Camerata' } as never) === '', 'an ensemble has no kind label');
 assert(groupKindLabel(groups[2]) === 'class', 'a theory section reads "class"');
 assert(groupKindLabel(groups[3]) === 'master class', 'a master class reads "master class"');
@@ -54,7 +55,21 @@ assert(
   groupKindLabel({ kind: 'masterclass', collegeLevel: true }) === 'college master class',
   'both flags compose',
 );
-// collegeLevel on a performing ensemble is meaningless and must stay silent.
-assert(groupKindLabel({ kind: 'ensemble', collegeLevel: true }) === '', 'college flag never labels an ensemble');
+assert(
+  groupKindLabel({ kind: 'ensemble', collegeLevel: true }) === 'college ensemble',
+  'college flag labels a performing ensemble',
+);
+
+const withCollege = [
+  { name: 'Symphony', kind: 'ensemble' as const },
+  { name: 'College Chamber', kind: 'ensemble' as const, collegeLevel: true },
+  { name: 'AP Theory', kind: 'class' as const },
+  { name: 'Class Piano 1', kind: 'class' as const, collegeLevel: true },
+];
+assert(highSchoolEnsembles(withCollege).map(e => e.name).join('|') === 'Symphony', 'HS ensembles drop college');
+assert(collegeEnsembles(withCollege).map(e => e.name).join('|') === 'College Chamber', 'college ensembles only');
+assert(highSchoolClasses(withCollege).map(e => e.name).join('|') === 'AP Theory', 'HS classes drop college');
+assert(collegeClasses(withCollege).map(e => e.name).join('|') === 'Class Piano 1', 'college classes only');
+assert(collegeGroups(withCollege).length === 2, 'collegeGroups is ensembles + classes');
 
 console.log('groupKind.selfcheck: ok');

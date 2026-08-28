@@ -5,12 +5,12 @@ import { EnsembleRosterEditor } from './EnsembleRosterEditor';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useEvents } from '../hooks/useEvents';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, performingEnsembles } from '../utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, highSchoolEnsembles } from '../utils';
 import type { DirNavigate } from '../types-nav';
 
 /**
- * All Ensembles — performing groups only (#classes). Classes live on the
- * Classes tab; theory and master classes are not buried among the orchestras.
+ * All Ensembles — high-school performing groups only (#classes, #college).
+ * Classes live on the Classes tab; college ensembles on the College tab.
  */
 export function EnsemblesView({ onNavigate }: { onNavigate: DirNavigate }) {
   const { ensembles } = useEnsembles();
@@ -21,7 +21,7 @@ export function EnsemblesView({ onNavigate }: { onNavigate: DirNavigate }) {
 
   const today = todayStr();
   const performing = useMemo(
-    () => performingEnsembles([...ensembles].sort((a, b) => a.order - b.order)),
+    () => highSchoolEnsembles([...ensembles].sort((a, b) => a.order - b.order)),
     [ensembles],
   );
   const memberCount = (id: string) =>

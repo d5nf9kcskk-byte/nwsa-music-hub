@@ -5,7 +5,7 @@ import { EnsembleRosterEditor } from './EnsembleRosterEditor';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useStudents } from '../hooks/useStudents';
 import { useEvents } from '../hooks/useEvents';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, classGroups, isClassGroup, isMasterClass, groupKindLabel } from '../utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, highSchoolClasses, isClassGroup, isMasterClass, groupKindLabel } from '../utils';
 import { seedAcademicClasses } from '../seedAcademicClasses';
 import { seedMasterclasses } from '../seedMasterclasses';
 import { ACADEMIC_CLASSES } from '../academicClasses';
@@ -14,8 +14,8 @@ import { ORG } from '../../org';
 import type { DirNavigate } from '../types-nav';
 
 /**
- * All Classes — parallel to EnsemblesView (#classes). Theory, history, vocal
- * lit, master classes: rosters, roll, assignments, and documents — no repertoire.
+ * All Classes — high-school classes only (#classes, #college). College
+ * dual-enrollment courses live on the College tab.
  */
 export function ClassesView({ onNavigate }: { onNavigate: DirNavigate }) {
   const { ensembles } = useEnsembles();
@@ -30,7 +30,7 @@ export function ClassesView({ onNavigate }: { onNavigate: DirNavigate }) {
 
   const today = todayStr();
   const classes = useMemo(
-    () => classGroups([...ensembles].sort((a, b) => a.order - b.order)),
+    () => highSchoolClasses([...ensembles].sort((a, b) => a.order - b.order)),
     [ensembles],
   );
   const hasAcademicSet = ACADEMIC_CLASSES.every(c => ensembles.some(e => e.id === c.id));
