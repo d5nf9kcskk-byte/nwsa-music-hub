@@ -1,0 +1,6 @@
+{
+  "dry_run": true,
+  "requestedAt": "2026-08-28T11:12:00Z",
+  "requestedBy": "cloud-agent",
+  "note": "Dry run before applying academic class groups"
+}

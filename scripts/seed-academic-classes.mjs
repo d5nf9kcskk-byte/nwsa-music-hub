@@ -26,7 +26,7 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { theoryClassTitleFor, isChoirClassTitle } from '../src/director/classSchedule.ts';
-import { ACADEMIC_CLASSES, CHOIR_ENSEMBLE_ID } from '../src/director/academicClasses.ts';
+import { ACADEMIC_CLASSES, CHOIR_ENSEMBLE_ID, academicClassIdForTitle } from '../src/director/academicClasses.ts';
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!raw) { console.error('FIREBASE_SERVICE_ACCOUNT_JSON is not set — aborting.'); process.exit(1); }
@@ -89,6 +89,21 @@ for (const c of ACADEMIC_CLASSES) {
   const n = byClass[c.id].length;
   console.log(`  roster      ${c.title.padEnd(26)} ${n} student(s)${n === 0 ? '  ← fill in by hand' : ''}`);
 }
+
+// ── 3. Link Class calendar events to their group ──────────────────────
+const events = await db.collection('events').get();
+let linked = 0;
+for (const d of events.docs) {
+  const e = d.data();
+  if (e.type !== 'Class' || !e.title) continue;
+  const classId = academicClassIdForTitle(e.title);
+  if (!classId) continue;
+  if ((e.ensembleIds ?? []).includes(classId)) continue;
+  linked += 1;
+  ops.push(b => b.update(d.ref, { ensembleIds: [classId] }));
+}
+console.log(`  calendar    ${linked} Class event(s) to link to a group`);
+
 console.log(`\n${ACADEMIC_CLASSES.length} class group(s); ${enrolled} student(s) to enrol.`);
 
 if (DRY) { console.log('--dry-run: nothing written.'); process.exit(0); }

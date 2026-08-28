@@ -9,6 +9,9 @@ name: Seed Academic Classes
 # there and is created empty on purpose.
 #
 # Idempotent — run dry first, read the log, then apply.
+#
+# Cloud agents can trigger by pushing a change to
+# `.github/triggers/seed-academic-classes` (see file for dry_run flag).
 on:
   workflow_dispatch:
     inputs:
@@ -16,6 +19,10 @@ on:
         description: 'List what would change without writing anything'
         type: boolean
         default: true
+  push:
+    branches: [main]
+    paths:
+      - '.github/triggers/seed-academic-classes'
 
 permissions:
   contents: read
@@ -24,12 +31,19 @@ jobs:
   seed:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
+      - uses: actions/checkout@v7
       - run: npm install firebase-admin --no-save
       - name: Seed academic class groups in Firestore
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-        run: node scripts/seed-academic-classes.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: |
+          EXTRA=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            [ "${{ inputs.dry_run }}" = "true" ] && EXTRA="--dry-run"
+          elif [ -f .github/triggers/seed-academic-classes ]; then
+            grep -q '"dry_run"[[:space:]]*:[[:space:]]*true' .github/triggers/seed-academic-classes && EXTRA="--dry-run"
+          fi
+          node scripts/seed-academic-classes.mjs $EXTRA
