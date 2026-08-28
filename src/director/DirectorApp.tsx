@@ -41,10 +41,13 @@ import { RepertoireManager } from './repertoire/RepertoireManager';
 import { DocumentsView } from './documents/DocumentsView';
 import { TodayView } from './today/TodayView';
 import { LessonsView } from './lessons/LessonsView';
+import { MyLessonsView } from './teacher/MyLessonsView';
 import { EnsembleHubView } from './ensembles/EnsembleHubView';
 import { EnsemblesView } from './ensembles/EnsemblesView';
 import { useEnsembles } from './hooks/useEnsembles';
 import { ensembleColor, performingEnsembles, classGroups } from './utils';
+import { hasDirectorRole, isStaffMember } from './hooks/useDirectors';
+import type { CurrentDirector } from './currentDirector';
 import type { DirTab, DirNavOpts } from './types-nav';
 import { ORG } from '../org';
 
@@ -118,6 +121,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   roll:            'Take Roll',
   roster:          'Roster',
   lessons:         'Lessons',
+  myLessons:       'My Lessons',
   schedule:        'Schedule',
   scheduleChanges: 'Temporary Roster Changes',
   scheduleSwap:    'Schedule Changes',
@@ -136,7 +140,7 @@ const TAB_TITLES: Record<DirTab, string> = {
 };
 
 const VALID_TABS: readonly DirTab[] = [
-  'today', 'roll', 'lessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
+  'today', 'roll', 'lessons', 'myLessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'whosOut', 'scheduleSwap',
   'messages', 'signups', 'juries',
   // The roster URL segment follows the org kind too (#personnel), so a
@@ -160,6 +164,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   ensembles:       'Create ensembles, add students to their rosters, and open any ensemble\u2019s hub \u2014 all from here.',
   roster:          'Every student in the program. Tap a student to edit their info or which ensembles they\u2019re in.',
   lessons:         'Private lessons teachers have logged. Download CSV for the Dean\u2019s record (pay tracking later).',
+  myLessons:       'Your own private-lesson students — schedule sessions, grade each one, and adjust who is assigned to you.',
   notes:           'Private progress notes per student. Only directors ever see these.',
   repertoire:      'What each ensemble is playing, by ensemble or by concert. This feeds the printed program.',
   documents:       'Handbooks, forms, and files for families. Anything you post here shows on the public site.',
@@ -173,6 +178,29 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
     personnel: 'Everyone the orchestra engages \u2014 players, podium, and staff. Tap a person for private contact details and their contracts.',
   } : {}),
 };
+
+/** People-group nav — `myLessons` appears only for director+teacher combos. */
+function navGroups(showMyLessons: boolean): typeof NAV_GROUPS {
+  return NAV_GROUPS.map(g => {
+    if (g.head !== 'People') return g;
+    const items = [...g.items];
+    if (showMyLessons) {
+      const lessonsIdx = items.findIndex(i => i.id === 'lessons');
+      if (lessonsIdx >= 0) {
+        items.splice(lessonsIdx + 1, 0, { id: 'myLessons', label: 'My Lessons', Icon: GraduationCap });
+      }
+    }
+    return { ...g, items };
+  });
+}
+
+function pickShell(me: CurrentDirector | null): 'staff' | 'teacher' | 'assistant' {
+  if (!me) return 'staff';
+  if (isStaffMember(me)) return 'staff';
+  if (hasDirectorRole(me, 'teacher')) return 'teacher';
+  if (hasDirectorRole(me, 'assistant')) return 'assistant';
+  return 'staff';
+}
 
 export default function DirectorApp() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -208,15 +236,18 @@ export default function DirectorApp() {
   // Owner-only Directors screen (#roles): everyone else — including every
   // Director — never even sees the entry point. A Teacher never reaches this
   // shell at all (see the AuthGate render-prop below).
-  const isOwner = me?.role === 'owner';
+  const isOwner = me ? hasDirectorRole(me, 'owner') : false;
+  const showMyLessons = !!me && isStaffMember(me) && hasDirectorRole(me, 'teacher');
+  const shellNavGroups = navGroups(showMyLessons);
+  // Scheduled URGENT posts queue their Teams/email relay when their moment
+  // passes — swept from here so any open director session fires it, not just
+  // the Announcements screen. Teachers/assistants can't write the queue.
+  useUrgentRelaySweep(!!me && isStaffMember(me));
   // Hidden delight (#easter-eggs): five quick taps on the logo → note burst.
   const { cheer: logoCheer, onLogoTap } = useLogoEgg();
   const { cheer: panelCheer, show: showPanel } = useEggCheer();
   const onPanelTap = useTapN(5, 2500, () => showPanel(batonInHandLine()));
-  // Scheduled URGENT posts queue their Teams/email relay when their moment
-  // passes — swept from here so any open director session fires it, not just
-  // the Announcements screen. Teachers/assistants can't write the queue.
-  useUrgentRelaySweep(!!me && me.role !== 'teacher' && me.role !== 'assistant');
+  const shell = pickShell(me);
 
   // Tab + intent live in the URL (/director/<tab>?ensemble=…&date=…), so the
   // browser Back button steps through tabs and a reload keeps your place.
@@ -251,9 +282,9 @@ export default function DirectorApp() {
 
   return (
     <AuthGate>
-      {(user, signOut) => me?.role === 'teacher' ? (
-        <TeacherApp user={user} signOut={signOut} />
-      ) : me?.role === 'assistant' ? (
+      {(user, signOut) => shell === 'teacher' ? (
+        <TeacherApp user={user} signOut={signOut} alsoAssistant={!!me && hasDirectorRole(me, 'assistant')} />
+      ) : shell === 'assistant' ? (
         <AssistantApp user={user} signOut={signOut} />
       ) : (
         <div className="dir-app" data-dir-theme={darkMode ? 'dark' : undefined}>
@@ -278,7 +309,7 @@ export default function DirectorApp() {
                   <Icon size={18} /> {label}
                 </button>
               ))}
-              {NAV_GROUPS.map(g => (
+              {shellNavGroups.map(g => (
                 <div key={g.head} style={{ display: 'contents' }}>
                   <div className="dir-rail-head">{g.head}</div>
                   {g.items.map(({ id, label, Icon }) => (
@@ -382,6 +413,7 @@ export default function DirectorApp() {
             {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} onNavigate={go} />}
             {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} onNavigate={go} />}
             {tab === 'lessons'         && <LessonsView onNavigate={go} />}
+            {tab === 'myLessons'       && <MyLessonsView />}
             {tab === 'whosOut'         && <WhosOutView key={intentKey} initialDate={intent.date} initialEnsembleId={intent.ensembleId ?? ''} onNavigate={go} />}
             {tab === 'schedule'        && (
               <ScheduleView
@@ -419,7 +451,7 @@ export default function DirectorApp() {
           {qrOpen && <QrKitView onClose={() => setQrOpen(false)} />}
 
           {directorsOpen && isOwner && (
-            <DirectorsManager currentEmail={user.email} currentRole={me?.role ?? 'director'} onClose={() => setDirectorsOpen(false)} />
+            <DirectorsManager currentEmail={user.email} currentRole={me?.role ?? 'director'} currentRoles={me?.roles} onClose={() => setDirectorsOpen(false)} />
           )}
 
           <DirectorSearch
@@ -450,7 +482,7 @@ export default function DirectorApp() {
                     <Icon size={19} /> {label}
                   </button>
                 ))}
-                {NAV_GROUPS.map(g => (
+                {shellNavGroups.map(g => (
                   <div key={g.head}>
                     <div className="dir-menu-group-head">{g.head}</div>
                     {g.items.map(({ id, label, Icon }) => (

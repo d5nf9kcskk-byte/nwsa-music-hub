@@ -33,11 +33,17 @@ service firebase.storage {
     // fail-closed. The old check only excluded 'teacher', which let a
     // Personnel Assistant — attendance-only by design — upload, overwrite,
     // or delete the world-readable documents and assignment files (audit S5).
+    function hasRole(r) {
+      let d = directorDoc();
+      return (d.keys().hasAny(['roles']) && r in d.get('roles', []))
+        || (!d.keys().hasAny(['roles']) && d.get('role', 'director') == r);
+    }
+
     function isStaff() {
       return request.auth != null
         && request.auth.token.email_verified == true
         && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
-        && directorDoc().get('role', 'director') in ['owner', 'director'];
+        && (hasRole('owner') || hasRole('director'));
     }
 
     // Size ceiling for staff uploads: handbooks, syllabi, scores, and forms.

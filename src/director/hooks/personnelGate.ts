@@ -1,4 +1,5 @@
 import { useCurrentDirector } from '../currentDirector';
+import { isStaffMember } from './useDirectors';
 import { ORG } from '../../org';
 
 /**
@@ -30,5 +31,5 @@ export function usePersonnelGate(): PersonnelGate {
   const me = useCurrentDirector();
   if (!ORG.features.personnel) return 'blocked';
   if (!me) return 'wait';
-  return me.role === 'owner' || me.role === 'director' ? 'open' : 'blocked';
+  return isStaffMember(me) ? 'open' : 'blocked';
 }

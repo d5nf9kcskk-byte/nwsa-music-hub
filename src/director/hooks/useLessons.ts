@@ -5,7 +5,7 @@ import {
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo, trackWrite } from '../writeStatus';
-import { currentDirectorName, useCurrentDirector } from '../currentDirector';
+import { currentDirectorName, useCurrentDirector, currentDirectorHasRole, currentDirectorIsStaff } from '../currentDirector';
 import type { Lesson } from '../types';
 
 /**
@@ -25,7 +25,10 @@ export function useLessons() {
   // query. Deliberately no orderBy alongside the filter: an equality query
   // plus a sort on another field needs a composite index, and a teacher's
   // lesson list is small enough to sort here.
-  const mine = me?.role === 'teacher' ? me.email : null;
+  // Applied teachers who are NOT also directors get a scoped query only.
+  // Director+teacher combos see every lesson (Dean overview) on the Lessons
+  // tab and their own on My Lessons.
+  const mine = me && currentDirectorHasRole('teacher') && !currentDirectorIsStaff() ? me.email : null;
 
   useEffect(() => {
     if (!db) { setLoading(false); return; }

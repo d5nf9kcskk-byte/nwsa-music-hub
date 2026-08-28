@@ -23,8 +23,9 @@ rules_version = '2';
 // Mirrors are batched with each write (src/director/publicMirror.ts) and
 // converged by scripts/backfill-public-projections.mjs via the Admin SDK.
 //
-// Four access levels (#roles), stored on each directors/{email} doc's
-// `role` field:
+// Four access levels (#roles), stored on each directors/{email} doc as
+// `roles: string[]` (one person may hold several — e.g. director + teacher).
+// Legacy docs still have a single `role` field; rules read both until migrated.
 //   • owner     — exactly one account. The only one that can add/remove a
 //                 director or change anyone's role.
 //   • director  — full edit access to everything except the Directors list.
@@ -48,7 +49,7 @@ rules_version = '2';
 //                 rollTaken receipt, lesson pull-out overrides, and reading
 //                 planned absences). Never contacts, notes, grades, or any
 //                 public-collection write.
-// A doc with no `role` predates this feature and is treated as a full
+// A doc with no `role`/`roles` predates this feature and is treated as a full
 // director (see isStaff()) — nobody with existing access loses it. An
 // EXPLICIT but unrecognized role is fail-closed: beyond reading and
 // renaming its own directors doc, it can touch nothing (every data rule
@@ -100,18 +101,28 @@ service cloud.firestore {
         && request.auth.token.email == email;
     }
 
+    // Does the signed-in user's directors doc include role `r`? Reads the
+    // new `roles[]` array when present; falls back to legacy single `role`.
+    function hasRole(r) {
+      let d = myDirectorDoc();
+      return signedIn() && (
+        (d.keys().hasAny(['roles']) && r in d.get('roles', []))
+        || (!d.keys().hasAny(['roles']) && d.get('role', 'director') == r)
+      );
+    }
+
     // The Owner: the one account allowed to manage the Directors list itself.
     function isOwner() {
-      return signedIn() && myDirectorDoc().role == 'owner';
+      return hasRole('owner');
     }
 
     function isTeacherRole() {
-      return signedIn() && myDirectorDoc().role == 'teacher';
+      return hasRole('teacher');
     }
 
     // Personnel Assistant (#roles): attendance-only, for assigned ensembles.
     function isAssistantRole() {
-      return signedIn() && myDirectorDoc().role == 'assistant';
+      return hasRole('assistant');
     }
 
     // Is `ensembleId` one of the signed-in assistant's assigned ensembles?
@@ -126,8 +137,7 @@ service cloud.firestore {
     // instead of silently inheriting full director rights the way the old
     // "not teacher && not assistant" check did.
     function isStaff() {
-      return signedIn()
-        && myDirectorDoc().get('role', 'director') in ['owner', 'director'];
+      return hasRole('owner') || hasRole('director');
     }
 
     // Any of the four recognized roles (legacy no-role docs count as
@@ -136,8 +146,15 @@ service cloud.firestore {
     // role must be added here deliberately before its accounts can read
     // students, rosters, or logs.
     function isKnownRole() {
-      return signedIn()
-        && myDirectorDoc().get('role', 'director') in ['owner', 'director', 'teacher', 'assistant'];
+      return hasRole('owner') || hasRole('director') || hasRole('teacher') || hasRole('assistant');
+    }
+
+    // Sign-in / activity logs carry one `role` label — it must be one of
+    // the roles on the directors doc, not whatever the client picks.
+    function roleClaimValid(claimed) {
+      let d = myDirectorDoc();
+      return (d.keys().hasAny(['roles']) && claimed in d.get('roles', []))
+        || (!d.keys().hasAny(['roles']) && claimed == d.get('role', 'director'));
     }
 
     // ── Public read · staff write ────────────────────
@@ -841,7 +858,7 @@ service cloud.firestore {
       allow create: if isKnownRole()
         && request.resource.data.keys().hasOnly(['email', 'name', 'role', 'at'])
         && request.resource.data.email == request.auth.token.email
-        && request.resource.data.role == myDirectorDoc().get('role', 'director')
+        && roleClaimValid(request.resource.data.role)
         && request.resource.data.at is number;
       allow update, delete: if false;
     }
@@ -859,7 +876,7 @@ service cloud.firestore {
       allow create: if isKnownRole()
         && request.resource.data.keys().hasOnly(['email', 'name', 'role', 'action', 'detail', 'at'])
         && request.resource.data.email == request.auth.token.email
-        && request.resource.data.role == myDirectorDoc().get('role', 'director')
+        && roleClaimValid(request.resource.data.role)
         && request.resource.data.action is string
         && request.resource.data.at is number;
       allow update, delete: if false;

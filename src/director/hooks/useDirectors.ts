@@ -5,7 +5,25 @@ import {
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { trackWrite } from '../writeStatus';
-import type { StaffRole } from '../types';
+import {
+  directorRole,
+  directorRoles,
+  hasDirectorRole,
+  isStaffMember,
+  primaryDirectorRole,
+  directorRoleLabels,
+  type DirectorRole,
+} from '../directorRoles';
+
+export type { DirectorRole };
+export {
+  directorRole,
+  directorRoles,
+  hasDirectorRole,
+  isStaffMember,
+  primaryDirectorRole,
+  directorRoleLabels,
+};
 
 /**
  * Director allowlist, stored as data (#deploy-hang fix). Each doc's id is the
@@ -27,16 +45,22 @@ import type { StaffRole } from '../types';
  *                 ensembles in `assignedEnsembleIds` (e.g. the Orchestra
  *                 Personnel Assistant covers Camerata, Symphony, Philharmonic,
  *                 and Opera Orchestra). Nothing else in the Hub.
- * A doc with no `role` (every director created before this feature) is
- * treated as 'director' everywhere in the app — see `directorRole()`.
+ * A doc with no `role`/`roles` (every director created before this feature) is
+ * treated as ['director'] everywhere — see `directorRoles()`.
+ *
+ * Multi-role (#roles): one person may hold several levels at once (e.g.
+ * director + applied teacher). Stored as `roles: StaffRole[]`; the legacy
+ * single `role` field is still read for unmigrated docs.
  */
-export type DirectorRole = StaffRole;
 
 export interface Director {
   email: string;    // doc id
   name?: string;    // display name — auto-captured from Google profile on
                      // first sign-in (see currentDirector.ts), editable after
+  /** @deprecated Prefer `roles`. Still read for unmigrated docs. */
   role?: DirectorRole;
+  /** One or more access levels — a director who also teaches lists both. */
+  roles?: DirectorRole[];
   addedBy?: string; // email of the director who added them
   addedAt?: number; // epoch ms
   /** Applied-teacher only: instrument(s) they teach, e.g. ["Violin"]. */
@@ -50,11 +74,6 @@ export interface Director {
    *  in the app (the assistant shell only offers these) and in
    *  firestore.rules (attendance writes must name one of these ensembles). */
   assignedEnsembleIds?: string[];
-}
-
-/** A doc with no `role` predates this feature and gets full director access. */
-export function directorRole(d: Pick<Director, 'role'> | undefined | null): DirectorRole {
-  return d?.role ?? 'director';
 }
 
 /** Normalise an email to the form used as the Firestore doc id. */
@@ -79,16 +98,22 @@ export function useDirectors() {
   /** Add a new director (Owner only — enforced in firestore.rules). Role
    *  defaults to 'director'; 'owner' is never assignable from the app. */
   async function addDirector(email: string, addedBy?: string, extra?: {
-    name?: string; role?: Exclude<DirectorRole, 'owner'>; instruments?: string[];
-    assignedStudentIds?: string[]; assignedEnsembleIds?: string[];
+    name?: string;
+    roles?: Exclude<DirectorRole, 'owner'>[];
+    /** @deprecated Use `roles`. */
+    role?: Exclude<DirectorRole, 'owner'>;
+    instruments?: string[];
+    assignedStudentIds?: string[];
+    assignedEnsembleIds?: string[];
   }) {
     if (!db) return;
     const dbRef = db;
     const id = directorEmailId(email);
+    const roles = extra?.roles ?? (extra?.role ? [extra.role] : ['director']);
     await trackWrite('Director', () =>
       setDoc(doc(dbRef, 'directors', id), {
         email: id,
-        role: extra?.role ?? 'director',
+        roles,
         ...(extra?.name ? { name: extra.name } : {}),
         ...(extra?.instruments ? { instruments: extra.instruments } : {}),
         ...(extra?.assignedStudentIds ? { assignedStudentIds: extra.assignedStudentIds } : {}),

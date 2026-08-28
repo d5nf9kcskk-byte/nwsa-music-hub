@@ -7,6 +7,8 @@ import { ExternalLink, LogOut } from 'lucide-react';
 import { WriteTray } from '../components/WriteTray';
 import { StatusStrips } from '../../shared/StatusStrips';
 import { MyLessonsView } from './MyLessonsView';
+import { AttendanceView } from '../attendance/AttendanceView';
+import { useCurrentDirector } from '../currentDirector';
 import { ORG } from '../../org';
 
 /**
@@ -17,16 +19,29 @@ import { ORG } from '../../org';
  * DirectorApp owns the single AuthGate and branches to this by role once
  * signed in, so `user`/`signOut` come in as props rather than a second
  * nested auth flow.
+ *
+ * When `alsoAssistant` is set (teacher + assistant, no director), roll for
+ * assigned ensembles appears below the lesson screen.
  */
-export function TeacherApp({ user, signOut }: { user: User; signOut: () => void }) {
+export function TeacherApp({
+  user,
+  signOut,
+  alsoAssistant = false,
+}: {
+  user: User;
+  signOut: () => void;
+  alsoAssistant?: boolean;
+}) {
   const navigate = useNavigate();
+  const me = useCurrentDirector();
+  const allowed = me?.assignedEnsembleIds ?? [];
 
   return (
     <div className="dir-app">
       <div className="dir-panel-banner no-print" role="note">
         <span className="dir-panel-banner-dot" />
         <span>Applied Teacher</span>
-        <span className="dir-panel-banner-sub">· your students' lessons and grades</span>
+        <span className="dir-panel-banner-sub">· your students' lessons and grades{alsoAssistant ? ' · plus roll for your ensembles' : ''}</span>
       </div>
 
       <header className="dir-header">
@@ -35,7 +50,7 @@ export function TeacherApp({ user, signOut }: { user: User; signOut: () => void 
             <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} className="dir-header-mark" />
           </span>
           <div>
-            <div className="dir-header-title">My Lessons</div>
+            <div className="dir-header-title">{alsoAssistant ? 'Lessons & Roll' : 'My Lessons'}</div>
             <div className="dir-header-sub">
               <span className="dir-panel-tag">Applied Teacher</span> {user.displayName ?? ORG.appName}
             </div>
@@ -54,6 +69,19 @@ export function TeacherApp({ user, signOut }: { user: User; signOut: () => void 
       <main className="dir-content">
         <StatusStrips />
         <MyLessonsView />
+        {alsoAssistant && (
+          allowed.length === 0 ? (
+            <div className="dir-empty" style={{ marginTop: 24 }}>
+              <h3>No ensembles assigned for roll</h3>
+              <p>Ask a director to assign your ensembles from the Directors screen.</p>
+            </div>
+          ) : (
+            <div style={{ marginTop: 32 }}>
+              <h2 className="dir-section-title">Take Roll</h2>
+              <AttendanceView allowedEnsembleIds={allowed} assistantMode />
+            </div>
+          )
+        )}
       </main>
 
       <WriteTray />

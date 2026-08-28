@@ -33,6 +33,17 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-28-multi-role',
+    date: '2026-08-28',
+    title: 'One login, several access levels',
+    audience: 'staff' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'Directors screen: pick every level that applies — Director, Applied Teacher, Personnel Assistant — not just one.',
+      'A director who also teaches private lessons keeps the full Hub and gets a My Lessons tab for their own students.',
+    ],
+  },
+  {
     id: '2026-08-28-signup-interview-slots',
     date: '2026-08-28',
     title: 'Sign up for an interview time — taken slots stay taken',
