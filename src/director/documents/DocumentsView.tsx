@@ -235,9 +235,22 @@ function DocumentForm({ document, ensembles, onSave, onDelete, onClose }: FormPr
 
 // ── Main view ─────────────────────────────────────────────────────────
 
-export function DocumentsView({ initialEnsembleId = '' }: { initialEnsembleId?: string }) {
+export function DocumentsView({
+  initialEnsembleId = '',
+  allowedEnsembleIds,
+}: {
+  initialEnsembleId?: string;
+  /** Classroom-teacher scope: only these class sections. */
+  allowedEnsembleIds?: string[];
+}) {
   const { documents, loading, addDocument, updateDocument, deleteDocument } = useDocuments();
-  const { ensembles } = useEnsembles();
+  const { ensembles: allEnsembles } = useEnsembles();
+  const ensembles = allowedEnsembleIds
+    ? allEnsembles.filter(e => allowedEnsembleIds.includes(e.id))
+    : allEnsembles;
+  const scopedDocuments = allowedEnsembleIds
+    ? documents.filter(d => d.ensembleIds.some(id => allowedEnsembleIds.includes(id)))
+    : documents;
   const musicEns = musicEnsembles(ensembles);
   const now = useMinuteTick(); // drives the "Scheduled · posts …" chip below
 
@@ -248,14 +261,14 @@ export function DocumentsView({ initialEnsembleId = '' }: { initialEnsembleId?: 
 
   const ensName = (id: string) => ensembles.find(e => e.id === id)?.name ?? id;
 
-  const shown = useMemo(() => documents.filter(d => {
+  const shown = useMemo(() => scopedDocuments.filter(d => {
     if (filterCat && d.category !== filterCat) return false;
     if (!filterEns) return true;
     if (filterEns === GENERAL) return d.ensembleIds.length === 0;
     return d.ensembleIds.includes(filterEns);
-  }), [documents, filterEns, filterCat]);
+  }), [scopedDocuments, filterEns, filterCat]);
 
-  const editing = documents.find(d => d.id === editingId) ?? null;
+  const editing = scopedDocuments.find(d => d.id === editingId) ?? null;
 
   return (
     <div>
@@ -263,7 +276,7 @@ export function DocumentsView({ initialEnsembleId = '' }: { initialEnsembleId?: 
         <span className="dir-section-title">Document Repository</span>
       </div>
 
-      {!loading && documents.length === 0 && (
+      {!loading && scopedDocuments.length === 0 && (
         <div className="dir-empty">
           <FileText size={40} />
           <h3>No documents yet</h3>
@@ -271,7 +284,7 @@ export function DocumentsView({ initialEnsembleId = '' }: { initialEnsembleId?: 
         </div>
       )}
 
-      {documents.length > 0 && (
+      {scopedDocuments.length > 0 && (
         <div className="dir-doc-filters">
           <EnsembleFilter
             ensembles={ensembles}
@@ -291,7 +304,7 @@ export function DocumentsView({ initialEnsembleId = '' }: { initialEnsembleId?: 
       )}
 
       <div className="dir-doc-list">
-        {documents.length > 0 && shown.length === 0 && (
+        {scopedDocuments.length > 0 && shown.length === 0 && (
           <div className="dir-empty-inline">No documents match this filter.</div>
         )}
         {shown.map(d => (

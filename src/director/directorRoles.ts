@@ -13,7 +13,7 @@ export type DirectorRoleFields = {
 };
 
 /** Highest-privilege role first — used for audit attribution and log labels. */
-const ROLE_PRIORITY: DirectorRole[] = ['owner', 'director', 'teacher', 'assistant'];
+const ROLE_PRIORITY: DirectorRole[] = ['owner', 'director', 'teacher', 'classroom', 'assistant'];
 
 /** Resolved role list — supports legacy single `role` and new `roles[]`. */
 export function directorRoles(d: DirectorRoleFields | undefined | null): DirectorRole[] {

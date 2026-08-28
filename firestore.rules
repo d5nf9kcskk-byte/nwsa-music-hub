@@ -23,7 +23,7 @@ rules_version = '2';
 // Mirrors are batched with each write (src/director/publicMirror.ts) and
 // converged by scripts/backfill-public-projections.mjs via the Admin SDK.
 //
-// Four access levels (#roles), stored on each directors/{email} doc as
+// Five access levels (#roles), stored on each directors/{email} doc as
 // `roles: string[]` (one person may hold several — e.g. director + teacher).
 // Legacy docs still have a single `role` field; rules read both until migrated.
 //   • owner     — exactly one account. The only one that can add/remove a
@@ -120,15 +120,35 @@ service cloud.firestore {
       return hasRole('teacher');
     }
 
+    function isClassroomRole() {
+      return hasRole('classroom');
+    }
+
     // Personnel Assistant (#roles): attendance-only, for assigned ensembles.
     function isAssistantRole() {
       return hasRole('assistant');
     }
 
+    // Shared `assignedEnsembleIds` scoping — assistants (performing ensembles)
+    // and classroom teachers (class sections) both use this field.
+    function assignedCovers(ensembleId) {
+      return (isAssistantRole() || isClassroomRole())
+        && ensembleId in myDirectorDoc().get('assignedEnsembleIds', []);
+    }
+
     // Is `ensembleId` one of the signed-in assistant's assigned ensembles?
     function assistantCovers(ensembleId) {
-      return isAssistantRole()
-        && ensembleId in myDirectorDoc().get('assignedEnsembleIds', []);
+      return assignedCovers(ensembleId) && isAssistantRole();
+    }
+
+    function classroomCoversAny(ensembleIds) {
+      return isClassroomRole()
+        && ensembleIds.hasAny(myDirectorDoc().get('assignedEnsembleIds', []));
+    }
+
+    function classroomCoversAssignmentId(assignmentId) {
+      let a = get(/databases/$(database)/documents/assignments/$(assignmentId)).data;
+      return classroomCoversAny(a.get('ensembleIds', []));
     }
 
     // Full director privileges: Owner, Director, or a legacy doc with no
@@ -146,7 +166,8 @@ service cloud.firestore {
     // role must be added here deliberately before its accounts can read
     // students, rosters, or logs.
     function isKnownRole() {
-      return hasRole('owner') || hasRole('director') || hasRole('teacher') || hasRole('assistant');
+      return hasRole('owner') || hasRole('director') || hasRole('teacher')
+        || hasRole('classroom') || hasRole('assistant');
     }
 
     // Sign-in / activity logs carry one `role` label — it must be one of
@@ -241,15 +262,15 @@ service cloud.firestore {
       allow read: if isKnownRole();
       allow create: if isStaff()
         || (isTeacherRole() && request.resource.data.kind == 'lesson')
-        || (request.resource.data.kind == 'lesson' && assistantCovers(request.resource.data.ensembleId));
+        || (request.resource.data.kind == 'lesson' && assignedCovers(request.resource.data.ensembleId));
       allow update: if isStaff()
         || (isTeacherRole() && resource.data.kind == 'lesson' && request.resource.data.kind == 'lesson')
         || (resource.data.kind == 'lesson' && request.resource.data.kind == 'lesson'
-            && assistantCovers(resource.data.ensembleId)
+            && assignedCovers(resource.data.ensembleId)
             && request.resource.data.ensembleId == resource.data.ensembleId);
       allow delete: if isStaff()
         || (isTeacherRole() && resource.data.kind == 'lesson')
-        || (resource.data.kind == 'lesson' && assistantCovers(resource.data.ensembleId));
+        || (resource.data.kind == 'lesson' && assignedCovers(resource.data.ensembleId));
     }
     // Reason-free public mirror of rosterOverrides (#privacy): the public
     // student-schedule page shows lesson pull-out windows and sub/pull roster
@@ -278,13 +299,31 @@ service cloud.firestore {
     match /repertoire/{doc}      { allow read; allow write: if isStaff(); }
     // Assignment DEFINITIONS (title, type, due date, target) are public so
     // students see what's assigned. Individual RESULTS/grades stay private below.
-    match /assignments/{doc}     { allow read; allow write: if isStaff(); }
+    match /assignments/{doc} {
+      allow read;
+      allow create: if isStaff()
+        || classroomCoversAny(request.resource.data.get('ensembleIds', []));
+      allow update: if isStaff()
+        || (classroomCoversAny(resource.data.get('ensembleIds', []))
+            && classroomCoversAny(request.resource.data.get('ensembleIds', [])));
+      allow delete: if isStaff()
+        || classroomCoversAny(resource.data.get('ensembleIds', []));
+    }
     match /seatingCharts/{doc}   { allow read; allow write: if isStaff(); }
     match /locations/{doc}       { allow read; allow write: if isStaff(); }
     // Document repository (syllabi, handbooks, forms). Metadata is public so the
     // Documents page and per-ensemble lists can render; the files themselves
     // live in Storage. Only staff may add/edit/remove entries.
-    match /documents/{doc}       { allow read; allow write: if isStaff(); }
+    match /documents/{doc} {
+      allow read;
+      allow create: if isStaff()
+        || classroomCoversAny(request.resource.data.get('ensembleIds', []));
+      allow update: if isStaff()
+        || (classroomCoversAny(resource.data.get('ensembleIds', []))
+            && classroomCoversAny(request.resource.data.get('ensembleIds', [])));
+      allow delete: if isStaff()
+        || classroomCoversAny(resource.data.get('ensembleIds', []));
+    }
     // Sign-up FORMS (#signups): "tell me you want to do All-State, and fill
     // out the paperwork while you're here." World-readable because the public
     // sign-up page has to render the form before anyone identifies
@@ -529,28 +568,37 @@ service cloud.firestore {
     // bypasses these rules.
     match /feedSecrets/{doc}        { allow read, write: if isStaff(); }
     match /contacts/{doc}           { allow read, write: if isStaff(); }
-    // attendance: staff freely; a Personnel Assistant reads all (roll needs
-    // same-day context across periods) but writes only records for THEIR
-    // assigned ensembles.
+    // attendance: staff freely; assistants and classroom teachers read all
+    // (roll needs same-day context) but write only for assigned ensembles.
     match /attendance/{doc} {
-      allow read: if isStaff() || isAssistantRole();
-      allow create: if isStaff() || assistantCovers(request.resource.data.ensembleId);
-      // Update: the record must belong to a covered ensemble AND stay there —
-      // an assistant can't re-home a record into an ensemble they don't cover.
+      allow read: if isStaff() || isAssistantRole() || isClassroomRole();
+      allow create: if isStaff() || assignedCovers(request.resource.data.ensembleId);
       allow update: if isStaff()
-        || (assistantCovers(resource.data.ensembleId)
+        || (assignedCovers(resource.data.ensembleId)
             && request.resource.data.ensembleId == resource.data.ensembleId);
-      allow delete: if isStaff() || assistantCovers(resource.data.ensembleId);
+      allow delete: if isStaff() || assignedCovers(resource.data.ensembleId);
     }
     match /progressNotes/{doc}      { allow read, write: if isStaff(); }
-    match /assignmentResults/{doc}  { allow read, write: if isStaff(); }
+    match /assignmentResults/{doc} {
+      allow read: if isStaff()
+        || (isClassroomRole() && classroomCoversAssignmentId(resource.data.assignmentId));
+      allow create: if isStaff()
+        || (isClassroomRole() && classroomCoversAssignmentId(request.resource.data.assignmentId));
+      allow update: if isStaff()
+        || (isClassroomRole()
+            && classroomCoversAssignmentId(resource.data.assignmentId)
+            && classroomCoversAssignmentId(request.resource.data.assignmentId));
+      allow delete: if isStaff()
+        || (isClassroomRole() && classroomCoversAssignmentId(resource.data.assignmentId));
+    }
 
     // ── Student video submissions (#video-submissions) ──
     // Students submit video recordings/upload for Playing Exam assignments
     // from the public site (unauthenticated). Staff review them in the
     // grade sheet. A cron GitHub Action syncs them to Google Drive.
     match /assignmentSubmissions/{doc} {
-      allow read: if isStaff();
+      allow read: if isStaff()
+        || (isClassroomRole() && classroomCoversAssignmentId(resource.data.assignmentId));
       // Unauthenticated create with strict shape validation — same pattern
       // as plannedAbsences: must reference a real assignment that accepts
       // video, a real student from that assignment's ensembles, and

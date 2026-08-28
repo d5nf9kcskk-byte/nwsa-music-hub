@@ -631,15 +631,23 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
 
 // ── Main view ─────────────────────────────────────────────────
 
-export function AssignmentsView({ initialAssignmentId, initialEnsembleId }: {
+export function AssignmentsView({ initialAssignmentId, initialEnsembleId, allowedEnsembleIds }: {
   /** Opened straight onto one assignment — Today's "coming up" list, search,
    *  an ensemble hub. The assignment is editable from wherever it is shown. */
   initialAssignmentId?: string;
   initialEnsembleId?: string;
+  /** Classroom-teacher scope: only these ensembles appear and only their assignments. */
+  allowedEnsembleIds?: string[];
 } = {}) {
   const { assignments, loading, addAssignment, updateAssignment, deleteAssignment } = useAssignments();
   const { students } = useStudents();
-  const { ensembles } = useEnsembles();
+  const { ensembles: allEnsembles } = useEnsembles();
+  const ensembles = allowedEnsembleIds
+    ? allEnsembles.filter(e => allowedEnsembleIds.includes(e.id))
+    : allEnsembles;
+  const scopedAssignments = allowedEnsembleIds
+    ? assignments.filter(a => a.ensembleIds.some(id => allowedEnsembleIds.includes(id)))
+    : assignments;
   const musicEns = musicEnsembles(ensembles);
   const now = useMinuteTick(); // drives the "Scheduled · posts …" chip below
 
@@ -655,15 +663,15 @@ export function AssignmentsView({ initialAssignmentId, initialEnsembleId }: {
   }
   // Individual-only assignments (no ensembleIds) show only under "All".
   const shownAssignments = filterEns
-    ? assignments.filter(a => a.ensembleIds.includes(filterEns))
-    : assignments;
+    ? scopedAssignments.filter(a => a.ensembleIds.includes(filterEns))
+    : scopedAssignments;
 
   const [addingNew, setAddingNew] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [gradingId, setGradingId] = useState<string | null>(initialAssignmentId ?? null);
 
-  const editingAssignment = assignments.find(a => a.id === editingId) ?? null;
-  const gradingAssignment = assignments.find(a => a.id === gradingId) ?? null;
+  const editingAssignment = scopedAssignments.find(a => a.id === editingId) ?? null;
+  const gradingAssignment = scopedAssignments.find(a => a.id === gradingId) ?? null;
 
   return (
     <div>
@@ -671,7 +679,7 @@ export function AssignmentsView({ initialAssignmentId, initialEnsembleId }: {
         <span className="dir-section-title">Assignments &amp; Exams</span>
       </div>
 
-      {!loading && assignments.length === 0 && (
+      {!loading && scopedAssignments.length === 0 && (
         <div className="dir-empty">
           <ClipboardCheck size={40} />
           <h3>No assignments yet</h3>
@@ -679,12 +687,12 @@ export function AssignmentsView({ initialAssignmentId, initialEnsembleId }: {
         </div>
       )}
 
-      {assignments.length > 0 && (
+      {scopedAssignments.length > 0 && (
         <EnsembleFilter ensembles={ensembles} value={filterEns} onChange={pickEns} />
       )}
 
       <div style={{ padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {assignments.length > 0 && shownAssignments.length === 0 && (
+        {scopedAssignments.length > 0 && shownAssignments.length === 0 && (
           <div className="dir-empty-inline">No assignments for this ensemble.</div>
         )}
         {shownAssignments.map(a => {

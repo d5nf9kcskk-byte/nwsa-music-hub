@@ -33,6 +33,18 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-28-classroom-teacher-role',
+    date: '2026-08-28',
+    title: 'Classroom Teacher access level',
+    audience: 'staff' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'Directors screen: a new Classroom Teacher checkbox for theory sections and other class groups — separate from Applied Teacher (private lessons).',
+      'Assign their class sections; they get roll, assignments, and documents for those classes only.',
+      'Works with multi-role: someone can be Director and Classroom Teacher, or Classroom Teacher and Applied Teacher, on one login.',
+    ],
+  },
+  {
     id: '2026-08-28-multi-role',
     date: '2026-08-28',
     title: 'One login, several access levels',

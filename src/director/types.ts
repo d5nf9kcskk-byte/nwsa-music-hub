@@ -8,12 +8,16 @@
  *                 teacher (violin, cello, voice…), scoped to their own
  *                 assigned students — those students' lessons, the grades on
  *                 those lessons, and nothing else in the Hub. NOT a classroom
- *                 theory teacher; a theory section is taught by a director.
+ *                 theory teacher — that is the `classroom` role below.
+ *   • classroom — CLASSROOM TEACHER: theory sections, music appreciation,
+ *                 and other class groups (`kind === 'class'`). Scoped to
+ *                 assigned classes — roll, assignments, and documents for
+ *                 those sections only. Not a private applied-lesson teacher.
  *   • assistant — Personnel Assistant: takes roll (attendance) for their
  *                 assigned ensembles only; nothing else in the Hub.
  *
  * The STORED value stays `'teacher'` on purpose even though every label now
- * reads "Applied Teacher". That string is the `role` field on live
+ * reads "Applied Teacher". That string is the `role`/`roles` field on live
  * `directors/{email}` docs and is compared by name in firestore.rules
  * (`isTeacherRole()`, `isKnownRole()`, and the loginEvents/activityLog rules
  * that check the claimed role against the directors doc). Renaming it buys
@@ -22,7 +26,7 @@
  * set, which is the one thing #roles says not to do. Words live in
  * STAFF_ROLE_LABEL below; the wire value never moves.
  */
-export type StaffRole = 'owner' | 'director' | 'teacher' | 'assistant';
+export type StaffRole = 'owner' | 'director' | 'teacher' | 'classroom' | 'assistant';
 
 /** The ONE place each role's user-facing words live. Anything that prints a
  *  role reads this — so a future rename is a label edit, never a data one. */
@@ -30,6 +34,7 @@ export const STAFF_ROLE_LABEL: Record<StaffRole, string> = {
   owner: 'Owner',
   director: 'Director',
   teacher: 'Applied Teacher',
+  classroom: 'Classroom Teacher',
   assistant: 'Personnel Assistant',
 };
 

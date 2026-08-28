@@ -10,6 +10,7 @@ import { AuthGate } from './components/AuthGate';
 import { useCurrentDirector } from './currentDirector';
 import { TeacherApp } from './teacher/TeacherApp';
 import { AssistantApp } from './assistant/AssistantApp';
+import { ClassroomTeacherApp } from './classroom/ClassroomTeacherApp';
 import { DirectorSearch } from './components/DirectorSearch';
 import { InstallAppButton } from './components/InstallAppButton';
 import { AppVersionRow } from './components/AppVersionRow';
@@ -194,10 +195,11 @@ function navGroups(showMyLessons: boolean): typeof NAV_GROUPS {
   });
 }
 
-function pickShell(me: CurrentDirector | null): 'staff' | 'teacher' | 'assistant' {
+function pickShell(me: CurrentDirector | null): 'staff' | 'teacher' | 'classroom' | 'assistant' {
   if (!me) return 'staff';
   if (isStaffMember(me)) return 'staff';
   if (hasDirectorRole(me, 'teacher')) return 'teacher';
+  if (hasDirectorRole(me, 'classroom')) return 'classroom';
   if (hasDirectorRole(me, 'assistant')) return 'assistant';
   return 'staff';
 }
@@ -284,6 +286,8 @@ export default function DirectorApp() {
     <AuthGate>
       {(user, signOut) => shell === 'teacher' ? (
         <TeacherApp user={user} signOut={signOut} alsoAssistant={!!me && hasDirectorRole(me, 'assistant')} />
+      ) : shell === 'classroom' ? (
+        <ClassroomTeacherApp user={user} signOut={signOut} />
       ) : shell === 'assistant' ? (
         <AssistantApp user={user} signOut={signOut} />
       ) : (

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock, History, Activity, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock, History, Activity, ChevronDown, ChevronUp, BookOpen } from 'lucide-react';
 import { useDirectors, directorEmailId, directorRoles, directorRoleLabels, hasDirectorRole, primaryDirectorRole } from '../hooks/useDirectors';
 import type { Director, DirectorRole } from '../hooks/useDirectors';
 import { useLoginEvents, LOGIN_LOG_LIMIT } from '../hooks/useLoginEvents';
@@ -7,7 +7,7 @@ import { useActivityLog, ACTIVITY_LOG_LIMIT } from '../hooks/useActivityLog';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useModalA11y } from '../../shared/useModalA11y';
-import { musicEnsembles } from '../utils';
+import { musicEnsembles, classGroups } from '../utils';
 import { STAFF_ROLE_LABEL } from '../types';
 import { whenQueued } from '../writeStatus';
 
@@ -46,7 +46,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // The words for each role live in types.ts (STAFF_ROLE_LABEL) so the Applied
 // Teacher rename is one edit, not a grep. The stored value stays 'teacher'.
 const ROLE_LABEL = STAFF_ROLE_LABEL;
-const ROLE_ICON: Record<DirectorRole, typeof ShieldCheck> = { owner: ShieldCheck, director: UserCog, teacher: GraduationCap, assistant: ClipboardList };
+const ROLE_ICON: Record<DirectorRole, typeof ShieldCheck> = {
+  owner: ShieldCheck, director: UserCog, teacher: GraduationCap, classroom: BookOpen, assistant: ClipboardList,
+};
 
 /**
  * Manage who can sign in and edit the Hub, and at what level (#roles).
@@ -337,6 +339,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
   const [saving, setSaving] = useState(false);
 
   const hasTeacher = roles.includes('teacher');
+  const hasClassroom = roles.includes('classroom');
   const hasAssistant = roles.includes('assistant');
   const hasDirector = roles.includes('director');
 
@@ -374,8 +377,12 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
       if (!EMAIL_RE.test(id)) { setError('Enter a valid email address.'); return; }
       if (existingEmails?.includes(id)) { setError('That person is already listed.'); return; }
     }
-    if (hasAssistant && assignedEnsIds.length === 0) {
-      setError('Pick at least one ensemble the assistant takes roll for.');
+    if (hasAssistant && !assignedEnsIds.some(id => musicEnsembles(ensembles).some(e => e.id === id))) {
+      setError('Pick at least one performing ensemble the assistant takes roll for.');
+      return;
+    }
+    if (hasClassroom && !assignedEnsIds.some(id => classGroups(ensembles).some(e => e.id === id))) {
+      setError('Pick at least one class section the classroom teacher covers.');
       return;
     }
     setSaving(true);
@@ -430,6 +437,10 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
             <input type="checkbox" checked={hasTeacher} onChange={() => toggleRole('teacher')} />
             <GraduationCap size={14} /> Applied Teacher
           </label>
+          <label className={`dir-checkbox-tag ${hasClassroom ? 'checked' : ''}`}>
+            <input type="checkbox" checked={hasClassroom} onChange={() => toggleRole('classroom')} />
+            <BookOpen size={14} /> Classroom Teacher
+          </label>
           <label className={`dir-checkbox-tag ${hasAssistant ? 'checked' : ''}`}>
             <input type="checkbox" checked={hasAssistant} onChange={() => toggleRole('assistant')} />
             <ClipboardList size={14} /> Personnel Asst.
@@ -441,14 +452,15 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
           required.
           {hasDirector && ' Director: full edit access everywhere except this screen.'}
           {hasTeacher && ' Applied Teacher: schedule and grade private lessons for assigned students.'}
-          {hasAssistant && ' Personnel Assistant: take roll for assigned ensembles only.'}
+          {hasClassroom && ' Classroom Teacher: roll, assignments, and documents for assigned class sections.'}
+          {hasAssistant && ' Personnel Assistant: take roll for assigned performing ensembles only.'}
         </div>
       </div>
       )}
 
       {hasAssistant && (
         <div className="dir-field">
-          <label className="dir-label">Ensembles they take roll for ({assignedEnsIds.length})</label>
+          <label className="dir-label">Performing ensembles they take roll for</label>
           <div className="dir-checkbox-group">
             {musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
               <label key={e.id} className={`dir-checkbox-tag ${assignedEnsIds.includes(e.id) ? 'checked' : ''}`}>
@@ -460,6 +472,21 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
           <div className="dir-field-hint">
             e.g. the Orchestra Personnel Assistant covers Camerata, Symphony, Philharmonic, and Opera Orchestra.
           </div>
+        </div>
+      )}
+
+      {hasClassroom && (
+        <div className="dir-field">
+          <label className="dir-label">Class sections they teach</label>
+          <div className="dir-checkbox-group">
+            {classGroups([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
+              <label key={e.id} className={`dir-checkbox-tag ${assignedEnsIds.includes(e.id) ? 'checked' : ''}`}>
+                <input type="checkbox" checked={assignedEnsIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
+                {e.name}
+              </label>
+            ))}
+          </div>
+          <div className="dir-field-hint">Theory, music appreciation, college courses, and other class groups.</div>
         </div>
       )}
 

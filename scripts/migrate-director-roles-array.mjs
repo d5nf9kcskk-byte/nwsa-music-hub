@@ -30,7 +30,7 @@ try {
 if (getApps().length === 0) initializeApp({ credential: cert(serviceAccount) });
 const db = getFirestore();
 
-const KNOWN = new Set(['owner', 'director', 'teacher', 'assistant']);
+const KNOWN = new Set(['owner', 'director', 'teacher', 'classroom', 'assistant']);
 
 (async () => {
   const snap = await db.collection('directors').get();

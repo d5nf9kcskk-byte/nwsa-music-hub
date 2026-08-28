@@ -5,6 +5,7 @@ import {
   primaryDirectorRole,
   directorRoleLabels,
 } from './directorRoles';
+import { STAFF_ROLE_LABEL } from './types';
 
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg);
@@ -37,5 +38,9 @@ assert(
   primaryDirectorRole({ role: 'teacher', roles: ['director'] }) === 'director',
   'roles[] overrides role',
 );
+
+assert(hasDirectorRole({ roles: ['classroom'] }, 'classroom'), 'classroom role');
+assert(!isStaffMember({ roles: ['classroom'] }), 'classroom alone not staff');
+assert(STAFF_ROLE_LABEL.classroom === 'Classroom Teacher', 'classroom label');
 
 console.log('directorRoles.selfcheck.ts: ok');
