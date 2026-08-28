@@ -33,6 +33,28 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-28-college-area',
+    date: '2026-08-28',
+    title: 'College ensembles and classes',
+    audience: 'both' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'College Chamber Orchestra and College Vocal Ensemble live under College, not All Ensembles.',
+      'Dual-enrollment college classes (with instructor names) are on the calendar — filter for College ensembles, College classes, or All college.',
+      'Directors: College tab → Set up college program (or Calendar → Add college program) to create groups and sessions.',
+    ],
+  },
+  {
+    id: '2026-08-28-all-movements-clear',
+    date: '2026-08-28',
+    title: 'Clear all movements on a rehearsal piece',
+    audience: 'staff' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'On a multi-movement work, uncheck All movements to clear every box, then check only the movements you are playing.',
+    ],
+  },
+  {
     id: '2026-08-28-string-masterclasses-classes',
     date: '2026-08-28',
     title: 'String master classes live under Classes',

@@ -3,7 +3,10 @@ import { Link } from 'react-router';
 import { ChevronRight } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudentsPublic } from './hooks/usePublicRoster';
-import { ensembleColor, ensembleDisplayName, performingEnsembles, classGroups, groupKindLabel } from '../director/utils';
+import {
+  ensembleColor, ensembleDisplayName, groupKindLabel,
+  highSchoolEnsembles, highSchoolClasses, collegeEnsembles, collegeClasses,
+} from '../director/utils';
 import { useLang } from '../shared/i18n';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 
@@ -21,17 +24,18 @@ export function PublicEnsembles() {
     return m;
   }, [students]);
 
-  // A class is not an ensemble (#classes) — students looking for their Music
-  // Theory syllabus should not have to find it among the orchestras. Same
-  // cards, own heading; nothing here reads anything that wasn't already public.
-  const performing = performingEnsembles(ensembles);
-  const classes = classGroups(ensembles);
+  const sorted = useMemo(() => [...ensembles].sort((a, b) => a.order - b.order), [ensembles]);
+  const performing = highSchoolEnsembles(sorted);
+  const classes = highSchoolClasses(sorted);
+  const collegeEns = collegeEnsembles(sorted);
+  const collegeCls = collegeClasses(sorted);
 
   function card(e: (typeof ensembles)[number]) {
     const members = counts[e.id] ?? 0;
     const sub = [
       PUBLIC_STUDENT_INFO ? `${members} member${members !== 1 ? 's' : ''}` : '',
       groupKindLabel(e),
+      e.conductorName || '',
       e.defaultLocation || '',
     ].filter(Boolean).join(' · ');
     return (
@@ -46,12 +50,15 @@ export function PublicEnsembles() {
     );
   }
 
+  const empty = performing.length === 0 && classes.length === 0
+    && collegeEns.length === 0 && collegeCls.length === 0;
+
   return (
     <div className="pub-page">
       <h1 className="pub-h1">Ensembles</h1>
       {loading ? (
         <div className="pub-muted">Loading…</div>
-      ) : performing.length === 0 && classes.length === 0 ? (
+      ) : empty ? (
         <div className="pub-card pub-muted">No ensembles yet.</div>
       ) : (
         <>
@@ -60,6 +67,18 @@ export function PublicEnsembles() {
             <>
               <h2 className="pub-section-title" style={{ marginTop: 18 }}>Classes</h2>
               {classes.map(card)}
+            </>
+          )}
+          {(collegeEns.length > 0 || collegeCls.length > 0) && (
+            <>
+              <h2 className="pub-section-title" style={{ marginTop: 18 }}>College Ensembles</h2>
+              {collegeEns.map(card)}
+              {collegeCls.length > 0 && (
+                <>
+                  <h2 className="pub-section-title" style={{ marginTop: 18 }}>College Classes</h2>
+                  {collegeCls.map(card)}
+                </>
+              )}
             </>
           )}
         </>

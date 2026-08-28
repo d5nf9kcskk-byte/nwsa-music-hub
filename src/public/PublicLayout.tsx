@@ -17,7 +17,7 @@ import { primaryStudent, onIdentityChange } from '../shared/identity';
 import { useModalA11y } from '../shared/useModalA11y';
 import { useEffect, useReducer } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
-import { ensembleColor, ensembleDisplayName, performingEnsembles, classGroups } from '../director/utils';
+import { ensembleColor, ensembleDisplayName, highSchoolEnsembles, highSchoolClasses, collegeEnsembles, collegeClasses } from '../director/utils';
 import { ORG } from '../org';
 
 const NAV = [
@@ -45,8 +45,10 @@ export function PublicLayout() {
   // Classes list under their own heading, never among the orchestras
   // (#classes). Same order field, two headings.
   const navEnsembles = [...ensembles].sort((a, b) => a.order - b.order);
-  const navPerforming = performingEnsembles(navEnsembles);
-  const navClasses = classGroups(navEnsembles);
+  const navPerforming = highSchoolEnsembles(navEnsembles);
+  const navClasses = highSchoolClasses(navEnsembles);
+  const navCollegeEns = collegeEnsembles(navEnsembles);
+  const navCollegeCls = collegeClasses(navEnsembles);
   const [, bump] = useReducer(x => x + 1, 0);
   const menuRef = useModalA11y<HTMLElement>(() => setMenuOpen(false), menuOpen);
   useEffect(() => onIdentityChange(bump), []);
@@ -125,7 +127,40 @@ export function PublicLayout() {
                     </button>
                     {ensemblesOpen && (
                       <>
-                        {[...navPerforming, ...navClasses].map(e => (
+                        {navPerforming.map(e => (
+                          <NavLink
+                            key={e.id}
+                            to={`/ensemble/${e.id}`}
+                            className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
+                            onClick={() => setMenuOpen(false)}
+                          >
+                            <span className="pub-menu-dot" style={{ background: ensembleColor(e) }} />
+                            {ensembleDisplayName(e)}
+                          </NavLink>
+                        ))}
+                        {navClasses.map(e => (
+                          <NavLink
+                            key={e.id}
+                            to={`/ensemble/${e.id}`}
+                            className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
+                            onClick={() => setMenuOpen(false)}
+                          >
+                            <span className="pub-menu-dot" style={{ background: ensembleColor(e) }} />
+                            {ensembleDisplayName(e)}
+                          </NavLink>
+                        ))}
+                        {navCollegeEns.map(e => (
+                          <NavLink
+                            key={e.id}
+                            to={`/ensemble/${e.id}`}
+                            className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
+                            onClick={() => setMenuOpen(false)}
+                          >
+                            <span className="pub-menu-dot" style={{ background: ensembleColor(e) }} />
+                            {ensembleDisplayName(e)}
+                          </NavLink>
+                        ))}
+                        {navCollegeCls.map(e => (
                           <NavLink
                             key={e.id}
                             to={`/ensemble/${e.id}`}
@@ -204,6 +239,32 @@ export function PublicLayout() {
                 {ensembleDisplayName(e)}
               </NavLink>
             ))}
+            {(navCollegeEns.length > 0 || navCollegeCls.length > 0) && (
+              <>
+                <div className="pub-side-head">College Ensembles</div>
+                {navCollegeEns.map(e => (
+                  <NavLink
+                    key={e.id}
+                    to={`/ensemble/${e.id}`}
+                    className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}
+                  >
+                    <span className="pub-side-dot" style={{ background: ensembleColor(e) }} />
+                    {ensembleDisplayName(e)}
+                  </NavLink>
+                ))}
+                {navCollegeCls.length > 0 && <div className="pub-side-head">College Classes</div>}
+                {navCollegeCls.map(e => (
+                  <NavLink
+                    key={e.id}
+                    to={`/ensemble/${e.id}`}
+                    className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}
+                  >
+                    <span className="pub-side-dot" style={{ background: ensembleColor(e) }} />
+                    {ensembleDisplayName(e)}
+                  </NavLink>
+                ))}
+              </>
+            )}
 
             <div className="pub-side-head">{t('nav.resources')}</div>
             <NavLink to="/announcements" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>

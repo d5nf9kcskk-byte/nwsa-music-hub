@@ -486,6 +486,21 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 /* ── Multi-select filter menu (FilterMenu) — director surface ───────────── */
 .dir-multi-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 16px 8px; }
 .dir-multi-filter-label { font-size: 13px; font-weight: 700; color: var(--dir-text-muted); white-space: nowrap; }
+.dir-filter-presets { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
+.dir-filter-preset {
+  border: 1px solid var(--dir-border);
+  background: var(--dir-card);
+  color: var(--dir-text-muted);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.dir-filter-preset.active {
+  border-color: var(--dir-accent);
+  background: color-mix(in srgb, var(--dir-accent) 12%, transparent);
+  color: var(--dir-accent);
+}
 .dir-fm { position: relative; flex: 1 1 160px; min-width: 150px; max-width: 280px; }
 .dir-fm-btn {
   display: flex; align-items: center; gap: 6px; width: 100%; min-height: 40px;

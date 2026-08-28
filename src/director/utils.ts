@@ -112,16 +112,45 @@ export function classGroups<T extends Pick<Ensemble, 'name' | 'kind'>>(list: T[]
   return list.filter(e => !isDivision(e) && isClassGroup(e));
 }
 
+/** College / dual-enrollment flag — ensembles and classes both use it to list
+ *  under the College section rather than All Ensembles / All Classes. */
+export function isCollegeGroup(e: Pick<Ensemble, 'collegeLevel'>): boolean {
+  return !!e.collegeLevel;
+}
+
+/** High-school performing ensembles (excludes College Chamber, College Vocal, …). */
+export function highSchoolEnsembles<T extends Pick<Ensemble, 'name' | 'kind' | 'collegeLevel'>>(list: T[]): T[] {
+  return performingEnsembles(list).filter(e => !isCollegeGroup(e));
+}
+
+/** College performing ensembles only. */
+export function collegeEnsembles<T extends Pick<Ensemble, 'name' | 'kind' | 'collegeLevel'>>(list: T[]): T[] {
+  return performingEnsembles(list).filter(isCollegeGroup);
+}
+
+/** High-school classes (excludes dual-enrollment college courses). */
+export function highSchoolClasses<T extends Pick<Ensemble, 'name' | 'kind' | 'collegeLevel'>>(list: T[]): T[] {
+  return classGroups(list).filter(e => !isCollegeGroup(e));
+}
+
+/** College / dual-enrollment classes only. */
+export function collegeClasses<T extends Pick<Ensemble, 'name' | 'kind' | 'collegeLevel'>>(list: T[]): T[] {
+  return classGroups(list).filter(isCollegeGroup);
+}
+
+/** Every college-flagged group (ensembles + classes), for calendar presets. */
+export function collegeGroups<T extends Pick<Ensemble, 'name' | 'kind' | 'collegeLevel'>>(list: T[]): T[] {
+  return musicEnsembles(list).filter(isCollegeGroup);
+}
+
 /** What a class is, in words: "class", "master class", and the college
- *  (dual-enrollment) variants. Empty string for a performing ensemble, so a
- *  caller can append it unconditionally. `collegeLevel` is display + filtering
- *  only — it never changes who may read anything, which is why it is a flag on
- *  the class rather than a fourth `kind`: a college course behaves exactly like
- *  an in-house one (roster, roll, units, no repertoire), it is just taught for
- *  college credit. One spelling here so the director list and the public class
- *  list can never drift apart. */
+ *  (dual-enrollment) variants. Empty string for a high-school performing
+ *  ensemble; "college ensemble" when the college flag is on a performer.
+ *  `collegeLevel` is display + filtering only — it never changes who may read
+ *  anything. One spelling here so the director list and the public class list
+ *  can never drift apart. */
 export function groupKindLabel(e: Pick<Ensemble, 'kind' | 'collegeLevel'>): string {
-  if (!isClassGroup(e)) return '';
+  if (!isClassGroup(e)) return e.collegeLevel ? 'college ensemble' : '';
   const base = isMasterClass(e) ? 'master class' : 'class';
   return e.collegeLevel ? `college ${base}` : base;
 }
@@ -259,8 +288,8 @@ export function pieceDuration(piece: Pick<RepertoirePiece, 'duration' | 'movemen
 
 /**
  * The movements of `piece` actually performed on `event`, in the piece's own
- * order. If the event restricts the selection (`event.pieceMovements[piece.id]`
- * names a subset), only those movements are returned; otherwise the whole work.
+ * order. Absent `pieceMovements[piece.id]` = the whole work; an explicit `[]`
+ * = none (director cleared "All movements"); otherwise the named indices.
  * A stored index that no longer exists (a movement was deleted) is skipped.
  */
 export function eventPieceMovements(
@@ -268,24 +297,25 @@ export function eventPieceMovements(
   piece: Pick<RepertoirePiece, 'id' | 'movements'>,
 ): PieceMovement[] {
   const all = piece.movements ?? [];
-  const sel = event.pieceMovements?.[piece.id];
-  if (!sel || sel.length === 0) return all;
+  if (!Object.prototype.hasOwnProperty.call(event.pieceMovements ?? {}, piece.id)) return all;
+  const sel = event.pieceMovements![piece.id] ?? [];
   return [...sel]
     .filter(i => i >= 0 && i < all.length)
     .sort((a, b) => a - b)
     .map(i => all[i]);
 }
 
-/** True when `event` performs only a strict subset of `piece`'s movements. */
+/** True when `event` does not perform every movement of `piece` (subset or none). */
 export function eventRestrictsMovements(
   event: Pick<CalendarEvent, 'pieceMovements'>,
   piece: Pick<RepertoirePiece, 'id' | 'movements'>,
 ): boolean {
   const all = piece.movements ?? [];
-  const sel = event.pieceMovements?.[piece.id];
-  if (!sel || sel.length === 0 || all.length === 0) return false;
+  if (all.length === 0) return false;
+  if (!Object.prototype.hasOwnProperty.call(event.pieceMovements ?? {}, piece.id)) return false;
+  const sel = event.pieceMovements![piece.id] ?? [];
   const valid = sel.filter(i => i >= 0 && i < all.length);
-  return valid.length > 0 && valid.length < all.length;
+  return valid.length < all.length;
 }
 
 /**

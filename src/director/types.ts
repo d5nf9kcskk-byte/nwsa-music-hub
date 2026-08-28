@@ -76,8 +76,10 @@ export interface Ensemble {
    * "absent = ensemble" default is applied in exactly one place.
    */
   kind?: 'ensemble' | 'class' | 'masterclass';
-  /** Class-only: a college / dual-enrollment course rather than a high school
-   *  one. Display + filtering only — it never changes who may read anything. */
+  /** College / dual-enrollment group (class or performing ensemble). Display
+   *  + filtering only — College Chamber Orchestra, college theory, etc. Lists
+   *  under the College section rather than All Ensembles / All Classes. Never
+   *  changes who may read anything. */
   collegeLevel?: boolean;
   /** Assigned staff contact — synced from director assignments for the public site. */
   staff?: { name: string; mdcEmail: string; phone?: string }[];
@@ -211,11 +213,10 @@ export interface CalendarEvent {
   /**
    * Per-concert movement selection. Key = pieceId; value = the indices into
    * that piece's `movements[]` that are performed on THIS event. A piece absent
-   * from the map (or with an empty array) performs the whole work — every
-   * movement — which is the default. This lets the same piece show a different
-   * subset of movements on different concerts: e.g. Nutcracker as the full act
-   * in December, only the Waltz of the Flowers + character dances on the
-   * concerto-competition concert, and yet another subset on the October concert.
+   * from the map performs the whole work (default). An explicit empty array
+   * means none selected — so "All movements" can clear the list before the
+   * director picks a few. Same piece can show different subsets on different
+   * concerts (e.g. Nutcracker full act vs. Waltz of the Flowers only).
    */
   pieceMovements?: Record<string, number[]>;
   status: EventStatus;

@@ -118,6 +118,9 @@ jobs:
       - name: Check ensemble/class classification
         run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/groupKind.selfcheck.ts
 
+      - name: Check piece movement selection
+        run: npx tsx src/director/pieceMovements.selfcheck.ts
+
       # Applied-lesson grading (#applied): a cancelled lesson must never count,
       # an unrecognized mark must be ignored rather than scored as a zero, and
       # the letter boundary must round to the better grade. No org import, so

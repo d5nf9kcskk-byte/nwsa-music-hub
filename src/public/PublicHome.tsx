@@ -6,7 +6,7 @@ import { usePublicEvents } from './hooks/usePublicEvents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
-import { todayStr, formatTimeRange, ensembleColor, ensembleDisplayName, addDays, assignmentEmoji, performingEnsembles, isPublished, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { todayStr, formatTimeRange, ensembleColor, ensembleDisplayName, addDays, assignmentEmoji, highSchoolEnsembles, collegeEnsembles, isPublished, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { SkeletonCards, EmptyState } from './components/PageHeader';
@@ -105,7 +105,8 @@ export function PublicHome() {
     return e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]);
   }
 
-  const orderedEnsembles = performingEnsembles([...ensembles].sort((a, b) => a.order - b.order));
+  const orderedEnsembles = highSchoolEnsembles([...ensembles].sort((a, b) => a.order - b.order));
+  const orderedCollege = collegeEnsembles([...ensembles].sort((a, b) => a.order - b.order));
 
   return (
     <div className="pub-page">
@@ -269,7 +270,20 @@ export function PublicHome() {
         </>
       )}
 
-      {orderedEnsembles.length > 0 && (
+      {orderedCollege.length > 0 && (
+        <>
+          <h2 className="pub-section-title">College Ensembles</h2>
+          <div className="pub-ens-btn-grid">
+            {orderedCollege.map(en => (
+              <Link key={en.id} to={`/ensemble/${en.id}`} className="pub-ens-btn" style={{ borderLeftColor: ensembleColor(en) }}>
+                {ensembleDisplayName(en)} <ChevronRight size={15} />
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
+
+      {(orderedEnsembles.length > 0 || orderedCollege.length > 0) && (
         <Link to="/repertoire" className="pub-quick-btn" style={{ marginTop: 10 }}>
           <Music size={18} /><span>{t('rep.browseAll')}</span>
         </Link>

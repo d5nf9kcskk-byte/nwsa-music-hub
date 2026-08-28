@@ -92,24 +92,37 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
     }
   }
 
-  /** Set which movements of `pieceId` this concert performs. An empty or
-   *  full selection is normalized to "all" by dropping the key entirely. */
+  /** Set which movements of `pieceId` this concert performs.
+   *  Absent key = all; `[]` = none (so "All movements" can clear the list);
+   *  a full selection is normalized to "all" by dropping the key. */
   function setPieceMovements(pieceId: string, indices: number[], total: number) {
     if (!onMovementSelChange) return;
     const next = { ...(movementSel ?? {}) };
     const sorted = [...new Set(indices)].sort((a, b) => a - b);
-    if (sorted.length === 0 || sorted.length >= total) delete next[pieceId];
+    if (sorted.length >= total) delete next[pieceId];
     else next[pieceId] = sorted;
     onMovementSelChange(next);
   }
 
   function toggleMovement(pieceId: string, index: number, total: number) {
-    // Current effective selection: an explicit subset, else "all".
-    const current = movementSel?.[pieceId] ?? Array.from({ length: total }, (_, i) => i);
+    // Current effective selection: an explicit list (possibly empty), else "all".
+    const current = Object.prototype.hasOwnProperty.call(movementSel ?? {}, pieceId)
+      ? (movementSel![pieceId] ?? [])
+      : Array.from({ length: total }, (_, i) => i);
     const nextSet = new Set(current);
     if (nextSet.has(index)) nextSet.delete(index);
     else nextSet.add(index);
     setPieceMovements(pieceId, [...nextSet], total);
+  }
+
+  function toggleAllMovements(pieceId: string, total: number, currentlyAll: boolean) {
+    // Checked "All" → clear every box so the director can pick a few.
+    // Unchecked → restore the whole work.
+    setPieceMovements(
+      pieceId,
+      currentlyAll ? [] : Array.from({ length: total }, (_, i) => i),
+      total,
+    );
   }
 
   function move(i: number, dir: -1 | 1) {
@@ -192,10 +205,18 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
           {selected.map((p, i) => {
             const movements = p.movements ?? [];
             const hasMovements = movementsEnabled && movements.length > 0;
+            const hasExplicit = Object.prototype.hasOwnProperty.call(movementSel ?? {}, p.id);
             const sel = movementSel?.[p.id];
-            const isSubset = !!sel && sel.length > 0 && sel.length < movements.length;
-            const chosenCount = isSubset ? sel!.length : movements.length;
+            const isAll = !hasExplicit;
+            const isNone = hasExplicit && (sel?.length ?? 0) === 0;
+            const isSubset = hasExplicit && !!sel && sel.length > 0 && sel.length < movements.length;
+            const chosenCount = isAll ? movements.length : (sel?.length ?? 0);
             const open = openMovements === p.id;
+            const mvtLabel = isNone
+              ? `0 of ${movements.length} movements`
+              : isSubset
+                ? `${chosenCount} of ${movements.length} movements`
+                : `All ${movements.length} movements`;
             return (
               <div key={p.id} data-sel-row className={`dir-piece-sel-item${drag && drag.to === i ? ' dragging' : ''}`}>
                 <div className="dir-piece-sel-row">
@@ -223,14 +244,12 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
                     {hasMovements && (
                       <button
                         type="button"
-                        className={`dir-piece-mvt-toggle${isSubset ? ' subset' : ''}`}
+                        className={`dir-piece-mvt-toggle${isSubset || isNone ? ' subset' : ''}`}
                         onClick={() => setOpenMovements(open ? null : p.id)}
                         aria-expanded={open}
                       >
                         <ListMusic size={11} />
-                        {isSubset
-                          ? `${chosenCount} of ${movements.length} movements`
-                          : `All ${movements.length} movements`}
+                        {mvtLabel}
                         {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                       </button>
                     )}
@@ -247,18 +266,18 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
                 {hasMovements && open && (
                   <div className="dir-piece-mvt-panel">
                     <div className="dir-piece-mvt-hint">
-                      Which movements does this concert perform? Uncheck the ones you're not doing.
+                      Which movements? Uncheck All movements to clear, then pick the ones you&apos;re doing.
                     </div>
                     <label className="dir-piece-mvt-all">
                       <input
                         type="checkbox"
-                        checked={!isSubset}
-                        onChange={() => setPieceMovements(p.id, [], movements.length)}
+                        checked={isAll}
+                        onChange={() => toggleAllMovements(p.id, movements.length, isAll)}
                       />
                       <span>All movements</span>
                     </label>
                     {movements.map((m, mi) => {
-                      const checked = isSubset ? sel!.includes(mi) : true;
+                      const checked = isAll ? true : !!sel?.includes(mi);
                       return (
                         <label key={mi} className="dir-piece-mvt-row">
                           <input

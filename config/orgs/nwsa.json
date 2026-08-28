@@ -88,6 +88,28 @@
       "name": "Dance, Theatre & Visual Arts",
       "description": "Everything scheduled for the Dance, Theatre, and Visual Arts programs.",
       "ensembleIds": ["dance", "theatre", "visual-arts"]
+    },
+    {
+      "slug": "college-ensembles",
+      "name": "College ensembles",
+      "description": "College Chamber Orchestra, College Vocal Ensemble, and any other college-flagged performing group.",
+      "matchCollege": true,
+      "collegeKind": "ensemble"
+    },
+    {
+      "slug": "college-classes",
+      "name": "College classes",
+      "description": "Dual-enrollment college music classes (theory, piano, opera workshop, and the rest).",
+      "matchCollege": true,
+      "collegeKind": "class",
+      "types": ["Class", "Rehearsal", "Sectional", "Concert", "Event", "Assignment"]
+    },
+    {
+      "slug": "college",
+      "name": "College (ensembles & classes)",
+      "description": "Everything flagged college — ensembles and dual-enrollment classes together.",
+      "matchCollege": true,
+      "types": ["Class", "Rehearsal", "Sectional", "Concert", "Event", "Assignment"]
     }
   ],
   "breakGlassEmails": ["nwsaorchestras@gmail.com"],

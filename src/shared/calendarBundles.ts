@@ -45,6 +45,10 @@ export interface CalendarBundle {
   /** Case-insensitive regex sources matched against ensemble NAMES, so
    *  ensembles created later join automatically (e.g. '^jazz combo'). */
   ensembleNamePatterns?: string[];
+  /** Include every group flagged `collegeLevel` (resolved each build). */
+  matchCollege?: boolean;
+  /** When matchCollege, limit to performing ensembles or classes. */
+  collegeKind?: 'ensemble' | 'class';
   /**
    * Restrict to these event types. Empty/absent = every type — but note that
    * an empty list is NOT the same as listing them all: calendarView.ts
@@ -61,10 +65,16 @@ export interface CalendarBundle {
   includeSchoolWide?: boolean;
 }
 
-interface EnsembleLike { id: string; name?: string }
+interface EnsembleLike {
+  id: string;
+  name?: string;
+  kind?: string;
+  collegeLevel?: boolean;
+}
 
 /** The ensemble ids a bundle covers right now: named ids that still exist,
- *  plus every ensemble whose name matches one of its patterns. */
+ *  plus every ensemble whose name matches one of its patterns, plus college
+ *  groups when `matchCollege` is set. */
 export function bundleEnsembleIds(bundle: CalendarBundle, ensembles: EnsembleLike[]): string[] {
   const byId = new Set(ensembles.map(e => e.id));
   const named = (bundle.ensembleIds ?? []).filter(id => byId.has(id));
@@ -74,7 +84,15 @@ export function bundleEnsembleIds(bundle: CalendarBundle, ensembles: EnsembleLik
     try { re = new RegExp(src, 'i'); } catch { return []; }
     return ensembles.filter(e => e.name && re.test(e.name)).map(e => e.id);
   });
-  return [...new Set([...named, ...matched])].sort();
+  const college = bundle.matchCollege
+    ? ensembles.filter(e => {
+        if (!e.collegeLevel) return false;
+        if (bundle.collegeKind === 'ensemble') return e.kind !== 'class' && e.kind !== 'masterclass';
+        if (bundle.collegeKind === 'class') return e.kind === 'class' || e.kind === 'masterclass';
+        return true;
+      }).map(e => e.id)
+    : [];
+  return [...new Set([...named, ...matched, ...college])].sort();
 }
 
 /** The bundle expressed as an ordinary filter view, so the shared matcher in
@@ -90,8 +108,10 @@ export function bundleViewSpec(bundle: CalendarBundle, ensembles: EnsembleLike[]
 const hasEnsemble = (item: { ensembleIds?: string[] }) => (item.ensembleIds ?? []).length > 0;
 
 /** Does this bundle name its members at all (rather than being schoolOnly)? */
-const declaresEnsembles = (b: CalendarBundle) =>
-  (b.ensembleIds?.length ?? 0) > 0 || (b.ensembleNamePatterns?.length ?? 0) > 0;
+  const declaresEnsembles = (b: CalendarBundle) =>
+  (b.ensembleIds?.length ?? 0) > 0
+  || (b.ensembleNamePatterns?.length ?? 0) > 0
+  || !!b.matchCollege;
 
 /**
  * A bundle that NAMES ensembles but resolves to none matches nothing.

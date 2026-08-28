@@ -8,6 +8,7 @@ import { useAssignments } from '../director/hooks/useAssignments';
 import { useMinuteTick } from '../director/hooks/useAnnouncements';
 import { todayStr, toDateStr, parseDate, ensembleColor, ensembleDisplayName, assignmentEmoji, musicEnsembles, isPublished, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { FilterMenu } from '../shared/FilterMenu';
+import { activeCollegePreset, collegeFilterIds, type CollegeFilterPreset } from '../shared/collegeCalendarFilter';
 import { PubEventCard } from './components/PubEventCard';
 import { PageHeader, EmptyState } from './components/PageHeader';
 import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
@@ -216,6 +217,32 @@ export function PublicCalendar() {
           onChange={next => { setTypeFilters(next as TypeKey[]); noteFilter('type'); }}
         />
       </div>
+      {collegeFilterIds(ensembles, 'all').length > 0 && (
+        <div className="pub-filter-presets" role="group" aria-label="College calendar filters">
+          {([
+            ['ensembles', 'College ensembles'],
+            ['classes', 'College classes'],
+            ['all', 'All college'],
+          ] as const).map(([preset, label]) => {
+            const active = activeCollegePreset(filterEnsembleIds, ensembles) === preset;
+            return (
+              <button
+                key={preset}
+                type="button"
+                className={`pub-filter-preset${active ? ' active' : ''}`}
+                aria-pressed={active}
+                onClick={() => {
+                  const ids = collegeFilterIds(ensembles, preset as CollegeFilterPreset);
+                  setFilterEnsembleIds(active ? [] : ids);
+                  noteFilter('ens');
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="pub-subscribe-section">
         <SubscribeButton

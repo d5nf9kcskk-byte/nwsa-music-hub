@@ -15,8 +15,10 @@ import { IcsImport } from './IcsImport';
 import { QuickAddView } from './QuickAddView';
 import { FilteredCalendarSubscribe } from '../components/FilteredCalendarSubscribe';
 import { FilterMenu } from '../../shared/FilterMenu';
+import { activeCollegePreset, collegeFilterIds, type CollegeFilterPreset } from '../../shared/collegeCalendarFilter';
 import { seedCalendar, seedSchoolCalendar, seedExtraSchedule } from '../seedCalendar';
 import { seedAcademicClasses } from '../seedAcademicClasses';
+import { seedCollegeProgram } from '../seedCollege';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
 import {
   todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, EVENT_TYPE_ICON, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR,
@@ -77,6 +79,8 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   const [schoolCalError, setSchoolCalError] = useState('');
   const [classesState, setClassesState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
   const [classesMsg, setClassesMsg] = useState('');
+  const [collegeState, setCollegeState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
+  const [collegeMsg, setCollegeMsg] = useState('');
   const focusConsumed = useRef(false);
 
   useEffect(() => { recordActivity('schedule.view'); }, []);
@@ -111,6 +115,19 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
     } catch (e) {
       setClassesMsg(e instanceof Error ? e.message : String(e));
       setClassesState('error');
+    }
+  }
+
+  async function handleSeedCollege() {
+    setCollegeState('seeding');
+    setCollegeMsg('');
+    try {
+      const r = await seedCollegeProgram();
+      setCollegeMsg(`College: ${r.ensembles} ensemble(s), ${r.classes} class(es), ${r.sessions} session(s).`);
+      setCollegeState('done');
+    } catch (e) {
+      setCollegeMsg(e instanceof Error ? e.message : String(e));
+      setCollegeState('error');
     }
   }
 
@@ -374,6 +391,21 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               {classesMsg}
             </span>
           )}
+          {ORG.features.calendarSeed && events.length > 0 && collegeState !== 'done' && (
+            <button
+              className="dir-tool-btn"
+              onClick={handleSeedCollege}
+              disabled={collegeState === 'seeding'}
+              title="Add college ensembles, dual-enrollment classes, and their calendar sessions"
+            >
+              <Sparkles size={15} /> {collegeState === 'seeding' ? 'Adding…' : 'Add college program'}
+            </button>
+          )}
+          {(collegeState === 'done' || collegeState === 'error') && (
+            <span style={{ fontSize: 12, color: collegeState === 'error' ? 'var(--dir-danger)' : 'inherit', alignSelf: 'center' }}>
+              {collegeMsg}
+            </span>
+          )}
           <button className="dir-tool-btn" onClick={() => setImportingIcs(true)} title="Import ICS calendar">
             <Upload size={15} /> Import
           </button>
@@ -405,6 +437,33 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           onChange={next => setTypeFilters(next as SchedTypeKey[])}
         />
       </div>
+      {collegeFilterIds(ensembles, 'all').length > 0 && (
+        <div className="dir-filter-presets" role="group" aria-label="College calendar filters">
+          {([
+            ['ensembles', 'College ensembles'],
+            ['classes', 'College classes'],
+            ['all', 'All college'],
+          ] as const).map(([preset, label]) => {
+            // Presets set ensemble ids only (not the school sentinel).
+            const realSelected = filterEnsembleIds.filter(x => x !== SCHOOL);
+            const active = activeCollegePreset(realSelected, ensembles) === preset;
+            return (
+              <button
+                key={preset}
+                type="button"
+                className={`dir-filter-preset${active ? ' active' : ''}`}
+                aria-pressed={active}
+                onClick={() => {
+                  const ids = collegeFilterIds(ensembles, preset as CollegeFilterPreset);
+                  setFilterEnsembleIds(active ? [] : ids);
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {calView === 'month' ? (
         <div className="dir-sched-split">
