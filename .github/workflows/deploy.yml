@@ -122,6 +122,9 @@ jobs:
       - name: Check jury running order
         run: npx tsx src/director/juries/runningOrder.selfcheck.ts
 
+      - name: Check announcement archive visibility
+        run: npx tsx src/director/hooks/announcementsArchive.selfcheck.ts
+
       - name: Build
         run: npm run build
         env:

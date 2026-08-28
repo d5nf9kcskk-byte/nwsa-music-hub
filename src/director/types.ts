@@ -421,8 +421,14 @@ export interface Announcement {
   titleEs?: string;
   bodyEs?: string;
   createdAt: number;         // Date.now() — for ordering
+  /** Staff email (directors/{email} doc id) of whoever posted this. */
+  createdByEmail?: string;
+  /** Display name at post time — for the owner's cross-staff audit view. */
+  createdBy?: string;
   pinned?: boolean;
   expiresOn?: string;        // YYYY-MM-DD; hidden strictly AFTER this date if set
+  /** When set, hidden from the public site and the active director list. */
+  archivedAt?: number;
   /** Scheduled publishing: epoch ms. If set and in the future, the post is
    *  hidden from every public surface (and the director Today feed) until
    *  that moment — the Announcements screen shows it as "Scheduled".
