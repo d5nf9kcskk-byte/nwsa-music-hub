@@ -40,7 +40,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     expires: '2026-09-11',
     bullets: [
       'Add a “Time slot” question to any sign-up — auditions, meetings, callbacks, anything with a fixed window.',
-      'Pick the day on a calendar, spin the start and end times, and the Hub shows students the length of each slot. Taken times grey out for everyone else.',
+      'Describe many slots at once (“March 3-5, 3-5pm every 15 minutes”) or shift-click several days on the calendar and add the same window to all of them.',
       'Staff: open the sign-up to see who booked each slot, or tap Free slot if someone cancels.',
     ],
   },
