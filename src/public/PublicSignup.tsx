@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router';
 import { ClipboardSignature, FileText, CalendarClock, Check, Search } from 'lucide-react';
 import { db } from '../director/firebase';
-import { useSignupForms, submitSignupResponse } from '../director/hooks/useSignups';
+import { useSignupForms, submitSignupResponse, useSignupSlotBookings } from '../director/hooks/useSignups';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useStudentsPublic } from './hooks/usePublicRoster';
@@ -15,10 +15,11 @@ import { useLang } from '../shared/i18n';
 import { primaryStudent } from '../shared/identity';
 import { INSTRUMENT_FAMILY_LABEL } from '../shared/instrumentFamily';
 import { audienceLabel, eligibleForSignup, signupClosedReason, signupIsPublished } from '../shared/signupEligibility';
+import { slotClaimsForAnswers, takenSlotIndices, slotHeldByStudent, SignupSlotTakenError } from '../shared/signupSlots';
 import { getReceipt, saveReceipt } from './signupReceipt';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 import { ORG } from '../org';
-import type { SignupForm, SignupQuestion, Student } from '../director/types';
+import type { SignupForm, SignupQuestion, SignupSlotBooking, Student } from '../director/types';
 import './signup.css';
 
 /**
@@ -55,6 +56,8 @@ export function PublicSignup() {
 
   const form = forms.find(f => f.id === id);
   const questions = useMemo(() => (form ? questionsFor(form) : []), [form]);
+  const { bookings: slotBookings } = useSignupSlotBookings(id);
+  const takenSlots = useMemo(() => takenSlotIndices(slotBookings), [slotBookings]);
 
   const eligible = useMemo(() => {
     if (!form) return [];
@@ -150,6 +153,7 @@ export function PublicSignup() {
     }
     setState('saving'); setError('');
     try {
+      const slotClaims = form ? slotClaimsForAnswers(form, answers) : [];
       await submitSignupResponse({
         formId: id,
         studentId: student.id,
@@ -163,16 +167,20 @@ export function PublicSignup() {
         ...(guardianName.trim() ? { guardianName: guardianName.trim().slice(0, 120) } : {}),
         ...(guardianSignature.trim() ? { guardianSignature: guardianSignature.trim().slice(0, 120) } : {}),
         ...(guardianEmail.trim() ? { guardianEmail: guardianEmail.trim().slice(0, 254) } : {}),
-      });
+      }, slotClaims);
       saveReceipt(id, {
         studentId: student.id,
         studentName: student.name,
         complete: !missingRequired && (!needsSignature || !!signature.trim()) && (!needsGuardian || !!guardianSignature.trim()),
       });
       setState('done');
-    } catch {
+    } catch (err) {
       setState('error');
-      setError(`Could not send right now — check your connection and try again, or email ${ORG.contactEmail}.`);
+      if (err instanceof SignupSlotTakenError) {
+        setError(`That time (${err.slotLabel}) was just taken — pick another slot.`);
+      } else {
+        setError(`Could not send right now — check your connection and try again, or email ${ORG.contactEmail}.`);
+      }
     }
   }
 
@@ -356,6 +364,9 @@ export function PublicSignup() {
                         question={q}
                         value={answers[q.id] ?? ''}
                         onChange={v => setAnswers(a => ({ ...a, [q.id]: v }))}
+                        takenSlots={takenSlots.get(q.id)}
+                        studentId={student.id}
+                        slotBookings={slotBookings}
                       />
                     ))}
                   </div>
@@ -426,10 +437,13 @@ export function PublicSignup() {
 
 // ── helpers ──────────────────────────────────────────────────────────
 
-function QuestionField({ question, value, onChange }: {
+function QuestionField({ question, value, onChange, takenSlots, studentId, slotBookings }: {
   question: SignupQuestion;
   value: string;
   onChange: (v: string) => void;
+  takenSlots?: Set<number>;
+  studentId?: string;
+  slotBookings?: SignupSlotBooking[];
 }) {
   const label = (
     <label className="pub-absence-label" htmlFor={`su-q-${question.id}`}>
@@ -448,6 +462,30 @@ function QuestionField({ question, value, onChange }: {
           <option value="">Choose…</option>
           {(question.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
         </select>
+      ) : question.type === 'timeslot' ? (
+        <div className="pub-signup-slots" id={`su-q-${question.id}`} role="radiogroup" aria-label={question.label}>
+          {(question.options ?? []).map((slot, i) => {
+            const taken = takenSlots?.has(i) && !(studentId && slotBookings && slotHeldByStudent(slotBookings, question.id, i, studentId));
+            const selected = value === slot;
+            return (
+              <button
+                key={slot}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={taken}
+                className={`pub-signup-slot ${selected ? 'active' : ''} ${taken ? 'taken' : ''}`}
+                onClick={() => onChange(selected ? '' : slot)}
+              >
+                <span className="pub-signup-slot-time">{slot}</span>
+                {taken && <span className="pub-signup-slot-badge">Taken</span>}
+              </button>
+            );
+          })}
+          {(question.options ?? []).length === 0 && (
+            <div className="pub-signup-note">No times listed yet — check back soon.</div>
+          )}
+        </div>
       ) : question.type === 'yesno' ? (
         <div className="pub-signup-yesno">
           {['Yes', 'No'].map(o => (

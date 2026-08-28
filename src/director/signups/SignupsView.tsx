@@ -536,7 +536,7 @@ function SignupEditor({ initial, isNew, ensembles, onSave, onClose }: {
           .map(q => ({
             ...q,
             label: q.label.trim(),
-            options: q.type === 'choice'
+            options: (q.type === 'choice' || q.type === 'timeslot')
               ? (q.options ?? []).map(o => o.trim()).filter(Boolean)
               : undefined,
             help: q.help?.trim() || undefined,
@@ -647,6 +647,7 @@ function SignupEditor({ initial, isNew, ensembles, onSave, onClose }: {
                   <option value="short">Short answer</option>
                   <option value="long">Long answer</option>
                   <option value="choice">Pick one</option>
+                  <option value="timeslot">Interview time slot</option>
                   <option value="yesno">Yes / No</option>
                 </select>
                 <label className={`dir-checkbox-tag ${q.required ? 'checked' : ''}`}>
@@ -654,10 +655,24 @@ function SignupEditor({ initial, isNew, ensembles, onSave, onClose }: {
                   Required
                 </label>
               </div>
-              {q.type === 'choice' && (
-                <input className="dir-input" value={(q.options ?? []).join(', ')}
-                  placeholder="Choices, separated by commas"
-                  onChange={e => setQuestion(i, { options: e.target.value.split(',').map(o => o.trim()) })} />
+              {(q.type === 'choice' || q.type === 'timeslot') && (
+                q.type === 'timeslot' ? (
+                  <>
+                    <textarea className="dir-input" rows={5}
+                      value={(q.options ?? []).join('\n')}
+                      placeholder={'One time per line, e.g.\nMon, Mar 3 · 3:00 PM\nMon, Mar 3 · 3:15 PM'}
+                      onChange={e => setQuestion(i, { options: e.target.value.split('\n').map(o => o.trim()).filter(Boolean) })} />
+                    <div className="dir-signup-help">
+                      Each line is one interview slot. Once a student picks a time and sends,
+                      that slot shows as Taken for everyone else. Don&apos;t reorder lines after
+                      students start booking — add new times at the bottom instead.
+                    </div>
+                  </>
+                ) : (
+                  <input className="dir-input" value={(q.options ?? []).join(', ')}
+                    placeholder="Choices, separated by commas"
+                    onChange={e => setQuestion(i, { options: e.target.value.split(',').map(o => o.trim()).filter(Boolean) })} />
+                )
               )}
             </div>
           ))}
