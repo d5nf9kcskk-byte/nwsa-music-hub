@@ -33,6 +33,17 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-28-signup-specific-students',
+    date: '2026-08-28',
+    title: 'Sign-ups can target specific students',
+    audience: 'both' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'When creating a sign-up, choose “Specific students” instead of whole ensembles — search and add exactly who should see it.',
+      'Invite-only sign-ups stay off the Hub home page; share the link directly with those students.',
+    ],
+  },
+  {
     id: '2026-08-28-signup-time-slots-v2',
     date: '2026-08-28',
     title: 'Sign-ups can offer time slots — with a calendar to build them',

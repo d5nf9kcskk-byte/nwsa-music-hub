@@ -14,7 +14,7 @@ import { fmtLongDate } from '../shared/dates';
 import { useLang } from '../shared/i18n';
 import { primaryStudent } from '../shared/identity';
 import { INSTRUMENT_FAMILY_LABEL } from '../shared/instrumentFamily';
-import { audienceLabel, eligibleForSignup, signupClosedReason, signupIsPublished } from '../shared/signupEligibility';
+import { audienceLabel, eligibleForSignupPicker, signupClosedReason, signupIsPublished } from '../shared/signupEligibility';
 import { slotClaimsForAnswers, takenSlotIndices, slotHeldByStudent, SignupSlotTakenError } from '../shared/signupSlots';
 import { getReceipt, saveReceipt } from './signupReceipt';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
@@ -62,7 +62,7 @@ export function PublicSignup() {
   const eligible = useMemo(() => {
     if (!form) return [];
     return sortStudents(
-      students.filter(s => eligibleForSignup(s, { ensembleIds: form.ensembleIds ?? [], families: form.families ?? [] })),
+      students.filter(s => eligibleForSignupPicker(s, form)),
       'lastName',
     );
   }, [students, form]);
@@ -125,11 +125,13 @@ export function PublicSignup() {
 
   const closedReason = signupClosedReason(form, today, now);
   const docUrl = form.formUrl ?? '';
-  const who = audienceLabel(
-    { ensembleIds: form.ensembleIds ?? [], families: form.families ?? [] },
-    eid => ensembleDisplayName(ensembles.find(e => e.id === eid)),
-    f => INSTRUMENT_FAMILY_LABEL[f],
-  );
+  const who = form.audienceMode === 'students'
+    ? 'By invitation'
+    : audienceLabel(
+      { ensembleIds: form.ensembleIds ?? [], families: form.families ?? [] },
+      eid => ensembleDisplayName(ensembles.find(e => e.id === eid)),
+      f => INSTRUMENT_FAMILY_LABEL[f],
+    );
 
   const needsSignature = !!form.signatureStatement;
   const needsGuardian = !!form.guardianStatement;
@@ -178,6 +180,8 @@ export function PublicSignup() {
       setState('error');
       if (err instanceof SignupSlotTakenError) {
         setError(`That time (${err.slotLabel}) was just taken — pick another slot.`);
+      } else if (form?.audienceMode === 'students') {
+        setError(`This sign-up is by invitation — if your name isn’t on the list, email ${ORG.contactEmail}.`);
       } else {
         setError(`Could not send right now — check your connection and try again, or email ${ORG.contactEmail}.`);
       }
@@ -279,7 +283,9 @@ export function PublicSignup() {
             ) : (
               <>
                 <p className="pub-absence-hint" style={{ marginTop: 0 }}>
-                  Tap your name. Only students this sign-up is for are listed.
+                  {form.audienceMode === 'students'
+                    ? 'Tap your name. Only invited students can submit — if you’re not on the list, email your director.'
+                    : 'Tap your name. Only students this sign-up is for are listed.'}
                 </p>
                 {eligible.length > 8 && (
                   <div className="pub-search" style={{ marginBottom: 10 }}>

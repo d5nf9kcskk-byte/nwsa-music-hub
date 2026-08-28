@@ -11,7 +11,7 @@ import { fmtLongDate } from '../shared/dates';
 import { useLang } from '../shared/i18n';
 import { primaryStudent } from '../shared/identity';
 import { INSTRUMENT_FAMILY_LABEL } from '../shared/instrumentFamily';
-import { audienceLabel, eligibleForSignup, signupIsOpen, signupIsPublished } from '../shared/signupEligibility';
+import { audienceLabel, eligibleForSignup, signupIsOpen, signupIsPublished, signupShowsInAlerts } from '../shared/signupEligibility';
 import { getReceipt } from './signupReceipt';
 import type { SignupForm } from '../director/types';
 import './signup.css';
@@ -34,7 +34,7 @@ export function PublicSignups() {
   const meFull = me ? students.find(s => s.id === me.id) : undefined;
 
   const open = useMemo(
-    () => forms.filter(f => signupIsOpen(f, today, now)),
+    () => forms.filter(f => signupIsOpen(f, today, now) && signupShowsInAlerts(f)),
     [forms, today, now],
   );
   const recentlyClosed = useMemo(
@@ -54,6 +54,7 @@ export function PublicSignups() {
   const others = open.filter(f => !forMe(f));
 
   function who(f: SignupForm): string {
+    if (f.audienceMode === 'students') return 'By invitation';
     return audienceLabel(
       { ensembleIds: f.ensembleIds ?? [], families: f.families ?? [] },
       eid => ensembleDisplayName(ensembles.find(e => e.id === eid)),

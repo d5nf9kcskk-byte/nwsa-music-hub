@@ -3,7 +3,7 @@ import {
   ClipboardSignature, Plus, Users, CalendarClock, Check, Copy, Download, Printer,
   Mail, Link2, Lock, Unlock, Trash2, ChevronLeft, Sparkles, AlertTriangle, Clock,
 } from 'lucide-react';
-import { useSignupForms, useSignupResponses, useSignupSlotBookings, removeSlotBooking, latestPerStudent, parseAnswers, responseIsComplete } from '../hooks/useSignups';
+import { useSignupForms, useSignupResponses, useSignupSlotBookings, useSignupAudiences, saveSignupAudience, deleteSignupAudience, removeSlotBooking, latestPerStudent, parseAnswers, responseIsComplete } from '../hooks/useSignups';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useMinuteTick } from '../hooks/useAnnouncements';
@@ -46,13 +46,14 @@ import './signups.css';
  *                        into a chase-up message.
  */
 
-type Draft = Omit<SignupForm, 'id'>;
+type Draft = Omit<SignupForm, 'id'> & { inviteStudentIds?: string[] };
 
 export function SignupsView() {
   const now = useMinuteTick();
   const today = todayStr();
   const { forms, loading, addForm, updateForm, deleteForm } = useSignupForms();
   const { responses, setStatus, remove } = useSignupResponses();
+  const { byFormId: audiences } = useSignupAudiences();
   const { students } = useStudents();
   const { ensembles } = useEnsembles();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -66,10 +67,18 @@ export function SignupsView() {
 
   async function save(draft: Draft) {
     if (!editing) return;
-    if (editing.form) await updateForm(editing.form.id, draft);
-    else {
-      const id = await addForm(draft);
-      if (id) setOpenId(id);
+    const { inviteStudentIds, ...formDraft } = draft;
+    const mode = formDraft.audienceMode ?? 'groups';
+    if (editing.form) {
+      await updateForm(editing.form.id, formDraft);
+      if (mode === 'students') await saveSignupAudience(editing.form.id, inviteStudentIds ?? []);
+      else await deleteSignupAudience(editing.form.id);
+    } else {
+      const id = await addForm(formDraft);
+      if (id) {
+        if (mode === 'students') await saveSignupAudience(id, inviteStudentIds ?? []);
+        setOpenId(id);
+      }
     }
     setEditing(null);
   }
@@ -82,10 +91,11 @@ export function SignupsView() {
           responses={responses.filter(r => r.formId === open.id)}
           students={students}
           ensembles={ensembles}
+          audiences={audiences}
           today={today}
           now={now}
           onBack={() => setOpenId(null)}
-          onEdit={() => setEditing({ form: open, draft: toDraft(open) })}
+          onEdit={() => setEditing({ form: open, draft: toDraft(open, audiences) })}
           onToggleClosed={() => void updateForm(open.id, { closed: !open.closed })}
           onExtend={deadline => void updateForm(open.id, { deadline })}
           onSetStatus={setStatus}
@@ -97,6 +107,7 @@ export function SignupsView() {
             initial={editing.draft}
             isNew={!editing.form}
             ensembles={ensembles}
+            students={students}
             onSave={save}
             onClose={() => setEditing(null)}
           />
@@ -131,7 +142,7 @@ export function SignupsView() {
       {forms.map(f => {
         const mine = latestPerStudent(responses.filter(r => r.formId === f.id))
           .filter(r => r.status !== 'withdrawn');
-        const target = students.filter(s => eligibleForSignup(s, audienceOf(f)));
+        const target = students.filter(s => eligibleForSignup(s, audienceOf(f, audiences)));
         const complete = mine.filter(r => responseIsComplete(f, r)).length;
         const live = signupIsOpen(f, today, now);
         return (
@@ -154,7 +165,7 @@ export function SignupsView() {
               )}
             </div>
             <div className="dir-signup-card-who">
-              {audienceLabel(audienceOf(f), id => ensembles.find(e => e.id === id)?.name ?? '', fam => INSTRUMENT_FAMILY_LABEL[fam])}
+              {audienceLabel(audienceOf(f, audiences), id => ensembles.find(e => e.id === id)?.name ?? '', fam => INSTRUMENT_FAMILY_LABEL[fam])}
             </div>
           </button>
         );
@@ -165,6 +176,7 @@ export function SignupsView() {
           initial={editing.draft}
           isNew={!editing.form}
           ensembles={ensembles}
+          students={students}
           onSave={save}
           onClose={() => setEditing(null)}
         />
@@ -180,6 +192,7 @@ interface DetailProps {
   responses: SignupResponse[];
   students: Student[];
   ensembles: Ensemble[];
+  audiences: Record<string, string[]>;
   today: string;
   now: number;
   onBack: () => void;
@@ -192,7 +205,7 @@ interface DetailProps {
 }
 
 function SignupDetail({
-  form, responses, students, ensembles, today, now,
+  form, responses, students, ensembles, audiences, today, now,
   onBack, onEdit, onToggleClosed, onExtend, onSetStatus, onRemoveResponse, onDelete,
 }: DetailProps) {
   const printRef = useRef<HTMLDivElement>(null);
@@ -205,8 +218,8 @@ function SignupDetail({
   const latest = useMemo(() => latestPerStudent(responses).sort(byLastName), [responses]);
   const active = latest.filter(r => r.status !== 'withdrawn');
   const target = useMemo(
-    () => students.filter(s => eligibleForSignup(s, audienceOf(form))),
-    [students, form],
+    () => students.filter(s => eligibleForSignup(s, audienceOf(form, audiences))),
+    [students, form, audiences],
   );
   const respondedIds = new Set(active.map(r => r.studentId));
   const waiting = target.filter(s => !respondedIds.has(s.id))
@@ -277,7 +290,7 @@ function SignupDetail({
             )}
           </div>
           <div className="dir-signup-card-who">
-            {audienceLabel(audienceOf(form), id => ensembles.find(e => e.id === id)?.name ?? '', fam => INSTRUMENT_FAMILY_LABEL[fam])}
+            {audienceLabel(audienceOf(form, audiences), id => ensembles.find(e => e.id === id)?.name ?? '', fam => INSTRUMENT_FAMILY_LABEL[fam])}
           </div>
         </div>
       </div>
@@ -290,8 +303,9 @@ function SignupDetail({
         </button>
       </div>
       <p className="dir-signup-hint">
-        Students also see this on the Hub home page and on their own schedule page —
-        they don’t need the link. It stops showing once they’ve sent it.
+        {form.audienceMode === 'students'
+          ? 'This sign-up is by invitation — share the link with the students you picked. It won’t appear on the Hub home page.'
+          : 'Students also see this on the Hub home page and on their own schedule page — they don’t need the link. It stops showing once they’ve sent it.'}
       </p>
 
       {/* The workflow row. */}
@@ -573,10 +587,11 @@ function SignupSlotSchedule({ question, bookings, freeingId, onFree }: {
 
 // ── Editor ────────────────────────────────────────────────────────────
 
-function SignupEditor({ initial, isNew, ensembles, onSave, onClose }: {
+function SignupEditor({ initial, isNew, ensembles, students, onSave, onClose }: {
   initial: Draft;
   isNew: boolean;
   ensembles: Ensemble[];
+  students: Student[];
   onSave: (draft: Draft) => Promise<void>;
   onClose: () => void;
 }) {
@@ -584,10 +599,30 @@ function SignupEditor({ initial, isNew, ensembles, onSave, onClose }: {
   const [draft, setDraft] = useState<Draft>(initial);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [studentQuery, setStudentQuery] = useState('');
+  const inviteMode = draft.audienceMode === 'students';
+  const inviteIds = draft.inviteStudentIds ?? [];
 
   function set<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft(d => ({ ...d, [key]: value }));
   }
+  function setAudienceMode(mode: 'groups' | 'students') {
+    setDraft(d => ({
+      ...d,
+      audienceMode: mode === 'students' ? 'students' : undefined,
+      inviteStudentIds: mode === 'students' ? (d.inviteStudentIds ?? []) : [],
+    }));
+  }
+  function toggleInviteStudent(id: string) {
+    set('inviteStudentIds', inviteIds.includes(id)
+      ? inviteIds.filter(x => x !== id)
+      : [...inviteIds, id]);
+  }
+  const studentMatches = studentQuery.trim()
+    ? students.filter(s => s.status === 'Active'
+      && (s.name.toLowerCase().includes(studentQuery.toLowerCase())
+        || (s.preferredName ?? '').toLowerCase().includes(studentQuery.toLowerCase()))).slice(0, 8)
+    : [];
   function toggleEnsemble(id: string) {
     set('ensembleIds', draft.ensembleIds.includes(id)
       ? draft.ensembleIds.filter(x => x !== id)
@@ -614,12 +649,20 @@ function SignupEditor({ initial, isNew, ensembles, onSave, onClose }: {
 
   async function handleSave() {
     if (!draft.title.trim()) return;
+    if (inviteMode && inviteIds.length === 0) {
+      setSaveError('Pick at least one student, or switch back to ensembles.');
+      return;
+    }
     setSaving(true); setSaveError('');
     try {
       await whenQueued(onSave({
         ...draft,
         title: draft.title.trim(),
         intro: draft.intro?.trim() || undefined,
+        audienceMode: inviteMode ? 'students' : undefined,
+        ensembleIds: inviteMode ? [] : draft.ensembleIds,
+        families: inviteMode ? [] : draft.families,
+        inviteStudentIds: inviteMode ? inviteIds : [],
         // A guardian can only co-sign something the student signed first.
         guardianStatement: draft.signatureStatement?.trim() ? draft.guardianStatement?.trim() || undefined : undefined,
         signatureStatement: draft.signatureStatement?.trim() || undefined,
@@ -670,18 +713,76 @@ function SignupEditor({ initial, isNew, ensembles, onSave, onClose }: {
 
           <div className="dir-field">
             <label className="dir-label">Who is this for?</label>
-            <div className="dir-checkbox-group">
-              {musicEnsembles(ensembles).map(e => (
-                <label key={e.id} className={`dir-checkbox-tag ${draft.ensembleIds.includes(e.id) ? 'checked' : ''}`}>
-                  <input type="checkbox" checked={draft.ensembleIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
-                  <span className="dir-signup-dot" style={{ background: ensembleColor(e) }} />
-                  {e.name}
-                </label>
-              ))}
+            <div className="dir-checkbox-group" style={{ marginBottom: 10 }}>
+              <label className={`dir-checkbox-tag ${!inviteMode ? 'checked' : ''}`}>
+                <input type="radio" name="audience-mode" checked={!inviteMode}
+                  onChange={() => setAudienceMode('groups')} />
+                Ensembles / instruments
+              </label>
+              <label className={`dir-checkbox-tag ${inviteMode ? 'checked' : ''}`}>
+                <input type="radio" name="audience-mode" checked={inviteMode}
+                  onChange={() => setAudienceMode('students')} />
+                Specific students
+              </label>
             </div>
-            <div className="dir-signup-help">No ensemble ticked = everyone in the program.</div>
+
+            {inviteMode ? (
+              <>
+                <div className="dir-signup-help" style={{ marginBottom: 8 }}>
+                  Only the students you add can submit. Share the link directly — this
+                  won’t show on the Hub home page. The invite list stays staff-only.
+                </div>
+                {inviteIds.length > 0 && (
+                  <div className="dir-checkbox-group" style={{ marginBottom: 8 }}>
+                    {inviteIds.map(id => {
+                      const s = students.find(x => x.id === id);
+                      return (
+                        <label key={id} className="dir-checkbox-tag checked" onClick={() => toggleInviteStudent(id)}>
+                          {s?.name ?? id} ✕
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+                <input className="dir-input" value={studentQuery}
+                  onChange={e => setStudentQuery(e.target.value)}
+                  placeholder="Search a student to add…" />
+                {studentMatches.length > 0 && (
+                  <div className="dir-add-sub-list" style={{ marginTop: 6 }}>
+                    {studentMatches.map(s => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className="dir-ens-row dir-sc-pick"
+                        onClick={() => { toggleInviteStudent(s.id); setStudentQuery(''); }}
+                      >
+                        <div className="dir-ens-info">
+                          <div className="dir-ens-name">{s.name}</div>
+                          <div className="dir-ens-sub">{s.instrument}</div>
+                        </div>
+                        {inviteIds.includes(s.id) ? <span className="dir-sub-badge">Added</span> : <Plus size={16} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="dir-checkbox-group">
+                  {musicEnsembles(ensembles).map(e => (
+                    <label key={e.id} className={`dir-checkbox-tag ${draft.ensembleIds.includes(e.id) ? 'checked' : ''}`}>
+                      <input type="checkbox" checked={draft.ensembleIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
+                      <span className="dir-signup-dot" style={{ background: ensembleColor(e) }} />
+                      {e.name}
+                    </label>
+                  ))}
+                </div>
+                <div className="dir-signup-help">No ensemble ticked = everyone in the program.</div>
+              </>
+            )}
           </div>
 
+          {!inviteMode && (
           <div className="dir-field">
             <label className="dir-label">Narrow to instruments</label>
             <div className="dir-checkbox-group">
@@ -699,6 +800,7 @@ function SignupEditor({ initial, isNew, ensembles, onSave, onClose }: {
               the Roster first.
             </div>
           </div>
+          )}
 
           <div className="dir-field">
             <label className="dir-label">Answers needed by</label>
@@ -823,14 +925,26 @@ function SignupEditor({ initial, isNew, ensembles, onSave, onClose }: {
 
 // ── helpers ───────────────────────────────────────────────────────────
 
-function audienceOf(f: SignupForm | Draft) {
-  return { ensembleIds: f.ensembleIds ?? [], families: f.families ?? [] };
+function audienceOf(f: SignupForm | Draft, audiences: Record<string, string[]> = {}) {
+  const mode = f.audienceMode ?? 'groups';
+  return {
+    mode,
+    ensembleIds: f.ensembleIds ?? [],
+    families: f.families ?? [],
+    studentIds: mode === 'students' && 'id' in f
+      ? (audiences[f.id] ?? (f as Draft).inviteStudentIds ?? [])
+      : mode === 'students'
+        ? ((f as Draft).inviteStudentIds ?? [])
+        : undefined,
+  };
 }
 
-function toDraft(f: SignupForm): Draft {
-  const { id: _id, ...rest } = f;
-  void _id;
-  return rest;
+function toDraft(f: SignupForm, audiences: Record<string, string[]>): Draft {
+  const { id, ...rest } = f;
+  return {
+    ...rest,
+    inviteStudentIds: f.audienceMode === 'students' ? (audiences[id] ?? []) : [],
+  };
 }
 
 function blankDraft(today: string): Draft {

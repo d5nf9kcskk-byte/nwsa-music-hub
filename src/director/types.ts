@@ -872,9 +872,15 @@ export interface SignupForm {
   /** Plain text shown above the form. */
   intro?: string;
   introEs?: string;
-  /** Audience — empty ensembleIds = whole program, empty families = all. */
+  /** Audience — empty ensembleIds = whole program, empty families = all.
+   *  When `audienceMode` is `'students'`, the named list lives in the
+   *  staff-only `signupAudiences/{formId}` doc (never on this world-readable
+   *  form — see signupEligibility.ts). */
   ensembleIds: string[];
   families: InstrumentFamilyId[];
+  /** `'groups'` (default) = ensemble + instrument family filters.
+   *  `'students'` = only ids in signupAudiences may submit. */
+  audienceMode?: 'groups' | 'students';
   /** YYYY-MM-DD. Past its deadline a sign-up stops accepting responses. */
   deadline?: string;
   /** Director closed it by hand, regardless of the deadline. */
@@ -895,6 +901,12 @@ export interface SignupForm {
   createdAt: number;
   updatedAt?: number;
   updatedBy?: string; // director's display name (falls back to email)
+}
+
+/** Staff-only invite list for a sign-up (`signupAudiences/{formId}`). Never
+ *  world-readable — an explicit list would publish who was invited to what. */
+export interface SignupAudienceDoc {
+  studentIds: string[];
 }
 
 /** Where a response is in the director's workflow. Public clients may only

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, addDoc, updateDoc, deleteDoc, doc,
+  collection, addDoc, updateDoc, deleteDoc, doc, setDoc,
   runTransaction, query, where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -12,6 +12,8 @@ import {
 import { FIXTURES_ON, FIXTURE_SIGNUPS } from './fixtures';
 import { currentDirectorName } from '../currentDirector';
 import type { SignupForm, SignupResponse, SignupSlotBooking } from '../types';
+
+const MAX_SIGNUP_INVITES = 500;
 
 export type { SlotClaim } from '../../shared/signupSlots';
 
@@ -55,6 +57,7 @@ export function useSignupForms() {
     if (!db) return;
     const gone = forms.find(f => f.id === id);
     await deleteDoc(doc(db, 'signupForms', id));
+    await deleteDoc(doc(db, 'signupAudiences', id));
     if (gone) {
       const { id: _id, ...data } = gone;
       void _id;
@@ -63,6 +66,44 @@ export function useSignupForms() {
   }
 
   return { forms, loading, addForm, updateForm, deleteForm };
+}
+
+/** Staff-only: explicit student invite lists keyed by form id. */
+export function useSignupAudiences() {
+  const [byFormId, setByFormId] = useState<Record<string, string[]>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!db) { setLoading(false); return; }
+    return watchCollection(collection(db, 'signupAudiences'), 'signupAudiences', snap => {
+      const map: Record<string, string[]> = {};
+      for (const d of snap.docs) {
+        const ids = d.data().studentIds;
+        if (Array.isArray(ids)) map[d.id] = ids.filter((x): x is string => typeof x === 'string');
+      }
+      setByFormId(map);
+      setLoading(false);
+    }, () => setLoading(false));
+  }, []);
+
+  return { byFormId, loading };
+}
+
+/** Write or clear the staff-only invite list for a form. */
+export async function saveSignupAudience(formId: string, studentIds: string[]) {
+  if (!db) return;
+  const uniq = [...new Set(studentIds)].slice(0, MAX_SIGNUP_INVITES);
+  const ref = doc(db, 'signupAudiences', formId);
+  if (!uniq.length) {
+    await deleteDoc(ref);
+    return;
+  }
+  await setDoc(ref, { studentIds: uniq });
+}
+
+export async function deleteSignupAudience(formId: string) {
+  if (!db) return;
+  await deleteDoc(doc(db, 'signupAudiences', formId));
 }
 
 /** World-readable slot claims for one sign-up form — drives the "Taken" UI. */

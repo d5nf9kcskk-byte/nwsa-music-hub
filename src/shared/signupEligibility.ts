@@ -8,25 +8,29 @@ import { instrumentFamily, type InstrumentFamily } from './instrumentFamily.ts';
  * and personal-schedule alerts, and the director's Sign-ups screen (which
  * counts "3 of 14 responded" against exactly the same set).
  *
- * Two independent narrowings, ANDed:
- *   • ensembleIds — empty means the whole program.
- *   • families    — empty means every instrument. "The string players in
- *                   Camerata" is ensembleIds: ['camerata'] + families:
- *                   ['strings'].
+ * Two modes:
+ *   • groups — ensembleIds + families ANDed (empty = whole program / all).
+ *   • students — explicit studentIds (staff-only list loaded into this
+ *     object on the director side only). Never stored on the world-readable
+ *     signupForms doc.
  *
- * Deliberately NOT a list of student ids: `signupForms` is world-readable
- * (the public page has to load it before anyone identifies themselves), and
- * student doc ids are shared with `studentsPublic` — so an explicit invite
- * list would publish which named students were invited to what. Ensembles
- * and instrument families are already public facts about a student.
+ * Deliberately NOT a list of student ids on signupForms: that collection is
+ * world-readable and student doc ids are shared with studentsPublic — so an
+ * explicit invite list there would publish which named students were invited.
  */
 
+export type SignupAudienceMode = 'groups' | 'students';
+
 export interface SignupAudience {
+  mode?: SignupAudienceMode;
   ensembleIds: string[];
   families: InstrumentFamily[];
+  /** Staff-only: loaded from signupAudiences/{formId}. */
+  studentIds?: string[];
 }
 
 type EligibleStudent = {
+  id?: string;
   ensembleIds?: string[];
   instrument?: string;
   status?: string;
@@ -34,26 +38,57 @@ type EligibleStudent = {
 
 export function eligibleForSignup(student: EligibleStudent, audience: SignupAudience): boolean {
   if (student.status && student.status !== 'Active') return false;
+
+  if (audience.mode === 'students') {
+    const ids = audience.studentIds ?? [];
+    if (!ids.length || !student.id) return false;
+    return ids.includes(student.id);
+  }
+
   if (audience.ensembleIds.length
       && !audience.ensembleIds.some(id => (student.ensembleIds ?? []).includes(id))) {
     return false;
   }
   if (audience.families.length) {
     const fam = instrumentFamily(student.instrument);
-    // An unrecognized (or missing) instrument can't be proven to belong to a
-    // targeted family. Showing the form to everyone would be worse than a
-    // director fixing one roster instrument, so this fails closed.
     if (!fam || !audience.families.includes(fam)) return false;
   }
   return true;
 }
 
-/** Plain-English "who this is for", e.g. "Camerata · Strings". */
+/** Public-side name picker: group filters only (invite list is staff-only).
+ *  Submit is still enforced in firestore.rules for student-specific sign-ups. */
+export function eligibleForSignupPicker(
+  student: EligibleStudent,
+  form: { ensembleIds?: string[]; families?: InstrumentFamily[]; audienceMode?: SignupAudienceMode },
+): boolean {
+  if (form.audienceMode === 'students') {
+    if (student.status && student.status !== 'Active') return false;
+    // Full roster for name pick — rules reject non-invited submits.
+    return true;
+  }
+  return eligibleForSignup(student, {
+    mode: 'groups',
+    ensembleIds: form.ensembleIds ?? [],
+    families: form.families ?? [],
+  });
+}
+
+/** Home / schedule alerts — invite-only sign-ups need a direct link. */
+export function signupShowsInAlerts(form: { audienceMode?: SignupAudienceMode }): boolean {
+  return form.audienceMode !== 'students';
+}
+
+/** Plain-English "who this is for", e.g. "Camerata · Strings" or "12 students". */
 export function audienceLabel(
   audience: SignupAudience,
   ensembleName: (id: string) => string,
   familyLabel: (f: InstrumentFamily) => string,
 ): string {
+  if (audience.mode === 'students') {
+    const n = audience.studentIds?.length ?? 0;
+    return n ? `${n} specific student${n === 1 ? '' : 's'}` : 'Specific students (none picked yet)';
+  }
   const who = audience.ensembleIds.map(ensembleName).filter(Boolean).join(', ')
     || 'Everyone in the program';
   const what = audience.families.map(familyLabel).join(', ');
