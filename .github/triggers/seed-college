@@ -2,5 +2,5 @@
   "dry_run": false,
   "requestedAt": "2026-08-28T16:00:00Z",
   "requestedBy": "cloud-agent",
-  "note": "Seed Fall 2026 college classes + College Vocal Ensemble; flag CCO as college"
+  "note": "Re-run after fixing collegeSchedule .ts import for Node seed script"
 }

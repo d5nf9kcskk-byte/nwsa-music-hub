@@ -2,7 +2,7 @@
  * College calendar session generation — no Firebase. Shared by the in-app
  * seed (seedCollege.ts) and the admin script (scripts/seed-college.mjs).
  */
-import { COLLEGE_CLASSES } from './collegeClasses';
+import { COLLEGE_CLASSES } from './collegeClasses.ts';
 
 // MDCPS no-school days (same set as seedCalendar) — college dual-enrollment
 // students still follow many of these campus closures.
