@@ -1,6 +1,6 @@
 {
   "dry_run": false,
-  "requestedAt": "2026-08-28T11:13:00Z",
+  "requestedAt": "2026-08-28T11:14:00Z",
   "requestedBy": "cloud-agent",
-  "note": "Apply academic class groups to Firestore"
+  "note": "Retry apply after fixing empty defaultLocation"
 }
