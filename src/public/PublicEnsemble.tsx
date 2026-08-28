@@ -26,6 +26,8 @@ import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 import { ensembleMoodLine, rosterOfOneLine } from '../shared/whimsy';
 import { useEggCheer, useTapN } from '../shared/useEggCheer';
 import { NoteBurst } from '../shared/NoteBurst';
+import { PublicGroupStaffPanel } from '../director/components/GroupStaffPanel';
+import { staffForGroupPage } from '../director/groupStaff';
 
 export function PublicEnsemble() {
   useLang();
@@ -134,6 +136,7 @@ export function PublicEnsemble() {
   // came for the syllabus or the handout, not for a rehearsal list. Same block,
   // moved above the schedule — and repertoire/seating simply never apply.
   const isClass = isClassGroup(ensemble);
+  const staff = staffForGroupPage(ensemble, null, ensembles);
   const docsSection = ensDocs.length > 0 ? (
     <div>
       <div className="pub-section-row">
@@ -176,6 +179,8 @@ export function PublicEnsemble() {
           </Link>
         )}
       </GradientHero>
+
+      {staff.length > 0 && <PublicGroupStaffPanel staff={staff} />}
 
       <EnsembleAlerts
         ensembleId={id}

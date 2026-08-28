@@ -79,6 +79,8 @@ export interface Ensemble {
   /** Class-only: a college / dual-enrollment course rather than a high school
    *  one. Display + filtering only — it never changes who may read anything. */
   collegeLevel?: boolean;
+  /** Assigned staff contact — synced from director assignments for the public site. */
+  staff?: { name: string; mdcEmail: string; phone?: string }[];
 }
 
 export interface Student {

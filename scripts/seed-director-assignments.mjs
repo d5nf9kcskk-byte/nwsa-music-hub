@@ -3,7 +3,8 @@
  * seed-director-assignments.mjs
  *
  * Owner-curated conducting / teaching assignments on directors/{email}.
- * Idempotent: merges roles and assignments; never removes the Owner role.
+ * Idempotent: merges roles, assignments, and MDC contact info; never removes
+ * the Owner role. Also mirrors assigned staff onto each ensemble doc.
  *
  * Run via "Seed Director Assignments" workflow_dispatch or locally:
  *   FIREBASE_SERVICE_ACCOUNT_JSON=… node scripts/seed-director-assignments.mjs
@@ -12,6 +13,7 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { JAZZ_COMBO_NAME_PATTERN } from '../src/director/directorAssignments.ts';
+import { assignedStaffForGroup } from '../src/director/groupStaff.ts';
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!raw) {
@@ -25,19 +27,23 @@ const db = getFirestore();
 /** Match a director doc by email (lowercase) and/or display name regex. */
 const SPECS = [
   {
-    label: 'Brent Munger',
+    label: 'Brent Mounger',
     email: null,
-    nameMatch: /\bbrent\b.*\bmunger\b|\bmunger\b.*\bbrent\b/i,
+    nameMatch: /\bbrent\b.*\bmoung/i,
     addRoles: ['director', 'classroom'],
     assignedEnsembleIds: ['wind-ensemble', 'chamber-winds', 'class-ap-theory'],
+    mdcEmail: 'brent.mounger@mdc.edu',
+    phone: '305-237-3532',
   },
   {
-    label: 'Jim Geiger',
+    label: 'Jim Gasior',
     email: null,
-    nameMatch: /\bjim\b.*\bgeiger\b|\bgeiger\b.*\bjim\b|\bjames\b.*\bgeiger\b/i,
+    nameMatch: /\bjim\b.*\bgasior\b|\bgasior\b/i,
     addRoles: ['director', 'classroom'],
     assignedEnsembleIds: ['jazz-ensemble', 'class-jazz-theory'],
     assignedEnsemblePatterns: [JAZZ_COMBO_NAME_PATTERN],
+    mdcEmail: 'jgasior@mdc.edu',
+    phone: '305-237-3946',
   },
   {
     label: 'Grant Gilman',
@@ -51,6 +57,7 @@ const SPECS = [
       'opera-orchestra',
       'college-chamber-orchestra',
     ],
+    mdcEmail: 'ggilman@mdc.edu',
   },
   {
     label: 'Gisele Rios',
@@ -58,6 +65,7 @@ const SPECS = [
     nameMatch: /\bgisele\b.*\brios\b|\bgiselle\b.*\brios\b|\brios\b.*\bgise/i,
     addRoles: ['director'],
     assignedEnsembleIds: ['high-school-choir'],
+    // MDC email not on nwsa.mdc.edu faculty pages — set manually on Directors screen.
   },
 ];
 
@@ -101,11 +109,14 @@ function existingRoles(data) {
         ? { assignedEnsemblePatterns: spec.assignedEnsemblePatterns }
         : {}),
       ...(spec.label && !data.name ? { name: spec.label } : {}),
+      ...(spec.mdcEmail ? { mdcEmail: spec.mdcEmail } : {}),
+      ...(spec.phone ? { phone: spec.phone } : {}),
     };
 
     console.log(`${doc.id} (${data.name || spec.label})`);
     console.log(`  roles → ${patch.roles.join(', ')}`);
     console.log(`  groups → ${spec.assignedEnsembleIds.join(', ')}`);
+    if (spec.mdcEmail) console.log(`  mdc → ${spec.mdcEmail}`);
     if (spec.assignedEnsemblePatterns?.length) {
       console.log(`  patterns → ${spec.assignedEnsemblePatterns.join(', ')}`);
     }
@@ -116,6 +127,27 @@ function existingRoles(data) {
     }
   }
 
-  if (DRY) console.log('\n--dry-run: nothing written.');
-  else console.log(`\nUpdated ${changed} director(s).`);
+  if (DRY) {
+    console.log('\n--dry-run: nothing written.');
+    return;
+  }
+
+  console.log(`\nUpdated ${changed} director(s). Syncing ensemble staff…`);
+
+  const directors = (await db.collection('directors').get()).docs.map(d => ({ email: d.id, ...d.data() }));
+  const ensembles = (await db.collection('ensembles').get()).docs.map(d => ({ id: d.id, name: d.data().name ?? d.id }));
+  let batch = db.batch();
+  let ops = 0;
+  for (const e of ensembles) {
+    const staff = assignedStaffForGroup(e.id, directors, ensembles);
+    batch.update(db.collection('ensembles').doc(e.id), { staff });
+    ops += 1;
+    if (ops >= 400) {
+      await batch.commit();
+      batch = db.batch();
+      ops = 0;
+    }
+  }
+  if (ops > 0) await batch.commit();
+  console.log(`Synced staff on ${ensembles.length} group(s).`);
 })().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });

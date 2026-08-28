@@ -15,6 +15,8 @@ import {
   assignmentSummary,
   hasJazzComboPattern,
 } from '../directorAssignments';
+import { syncAllEnsembleStaff } from '../groupStaff';
+import { lookupMdcByLogin, lookupMdcByName } from '../staffMdcContacts';
 
 /** Human-readable label for each logged action slug. Falls back to the raw
  *  slug so a newly-added action still shows something before this map is
@@ -176,7 +178,12 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles, onCl
                 {editingEmail === d.email && (
                   <DirectorEditor
                     director={d}
-                    onSave={async patch => { await updateDirector(d.email, patch); setEditingEmail(null); }}
+                    onSave={async patch => {
+                      await updateDirector(d.email, patch);
+                      const next = directors.map(x => x.email === d.email ? { ...x, ...patch, email: d.email } : x);
+                      await syncAllEnsembleStaff(next, ensembles);
+                      setEditingEmail(null);
+                    }}
                     onClose={() => setEditingEmail(null)}
                   />
                 )}
@@ -227,7 +234,19 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles, onCl
                   instruments: data.instruments,
                   assignedStudentIds: data.assignedStudentIds,
                   assignedEnsembleIds: data.assignedEnsembleIds,
+                  mdcEmail: data.mdcEmail,
+                  phone: data.phone,
                 });
+                const added: Director = {
+                  email: data.email!,
+                  name: data.name,
+                  roles: data.roles as DirectorRole[] | undefined,
+                  assignedEnsembleIds: data.assignedEnsembleIds,
+                  assignedEnsemblePatterns: data.assignedEnsemblePatterns,
+                  mdcEmail: data.mdcEmail,
+                  phone: data.phone,
+                };
+                await syncAllEnsembleStaff([...directors, added], ensembles);
                 setAdding(false);
               }}
               onClose={() => setAdding(false)}
@@ -340,6 +359,18 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
   const [assignedIds, setAssignedIds] = useState<string[]>(director?.assignedStudentIds ?? []);
   const [assignedEnsIds, setAssignedEnsIds] = useState<string[]>(director?.assignedEnsembleIds ?? []);
   const [allJazzCombos, setAllJazzCombos] = useState(hasJazzComboPattern(director));
+  const [mdcEmail, setMdcEmail] = useState(() => {
+    if (director?.mdcEmail) return director.mdcEmail;
+    return lookupMdcByLogin(director?.email ?? '')?.mdcEmail
+      ?? lookupMdcByName(director?.name)?.mdcEmail
+      ?? '';
+  });
+  const [phone, setPhone] = useState(() => {
+    if (director?.phone) return director.phone;
+    return lookupMdcByLogin(director?.email ?? '')?.phone
+      ?? lookupMdcByName(director?.name)?.phone
+      ?? '';
+  });
   const [studentQuery, setStudentQuery] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -410,6 +441,8 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
         assignedStudentIds: hasTeacher ? assignedIds : undefined,
         assignedEnsembleIds: (hasDirector || hasAssistant || hasClassroom) ? assignedEnsIds : undefined,
         assignedEnsemblePatterns: allJazzCombos ? [JAZZ_COMBO_NAME_PATTERN] : undefined,
+        mdcEmail: mdcEmail.trim() || undefined,
+        phone: phone.trim() || undefined,
       }));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save — try again.');
@@ -429,6 +462,15 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
       <div className="dir-field">
         <label className="dir-label">Name</label>
         <input className="dir-input" value={name} placeholder="First captured automatically when they sign in" onChange={e => setName(e.target.value)} />
+      </div>
+      <div className="dir-field">
+        <label className="dir-label">MDC work email</label>
+        <input className="dir-input" type="email" value={mdcEmail} placeholder="name@mdc.edu" onChange={e => setMdcEmail(e.target.value)} />
+        <div className="dir-field-hint">Shown on ensemble and class pages — not the Gmail used to sign in.</div>
+      </div>
+      <div className="dir-field">
+        <label className="dir-label">Office phone <span className="dir-label-hint">(optional)</span></label>
+        <input className="dir-input" type="tel" value={phone} placeholder="305-237-…" onChange={e => setPhone(e.target.value)} />
       </div>
       {isOwnerRow && (
         <div className="dir-field-hint" style={{ marginBottom: 8 }}>

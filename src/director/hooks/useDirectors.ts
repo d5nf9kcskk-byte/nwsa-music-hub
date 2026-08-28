@@ -76,6 +76,9 @@ export interface Director {
   /** Name patterns (case-insensitive regex) that expand to ensemble ids at read
    *  time — e.g. every "Jazz Combo #N" joins automatically. */
   assignedEnsemblePatterns?: string[];
+  /** MDC work email — shown on ensemble/class pages instead of the Gmail login. */
+  mdcEmail?: string;
+  phone?: string;
 }
 
 /** Normalise an email to the form used as the Firestore doc id. */
@@ -107,6 +110,8 @@ export function useDirectors() {
     instruments?: string[];
     assignedStudentIds?: string[];
     assignedEnsembleIds?: string[];
+    mdcEmail?: string;
+    phone?: string;
   }) {
     if (!db) return;
     const dbRef = db;
@@ -120,6 +125,8 @@ export function useDirectors() {
         ...(extra?.instruments ? { instruments: extra.instruments } : {}),
         ...(extra?.assignedStudentIds ? { assignedStudentIds: extra.assignedStudentIds } : {}),
         ...(extra?.assignedEnsembleIds ? { assignedEnsembleIds: extra.assignedEnsembleIds } : {}),
+        ...(extra?.mdcEmail ? { mdcEmail: extra.mdcEmail } : {}),
+        ...(extra?.phone ? { phone: extra.phone } : {}),
         addedBy: addedBy ?? null,
         addedAt: Date.now(),
       }));

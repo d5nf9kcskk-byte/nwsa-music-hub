@@ -2,11 +2,13 @@ import { useMemo, useState } from 'react';
 import { ClipboardList, ClipboardCheck, Users, Calendar, Music, Megaphone, Clock, MapPin, Sparkles, Armchair, FolderOpen, UserPlus, AlertTriangle, ChevronRight } from 'lucide-react';
 import { SeatingManager } from '../seating/SeatingManager';
 import { EnsembleRosterEditor } from './EnsembleRosterEditor';
+import { GroupStaffPanel } from '../components/GroupStaffPanel';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../hooks/useAnnouncements';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, isClassGroup } from '../utils';
+import { staffForGroupPage } from '../groupStaff';
 import { groupScheduleAlerts, groupUrgentAnnouncements } from '../../shared/groupAlerts';
 import { AlertGroupSections } from '../../shared/AlertGroupSections';
 import type { DirNavigate } from '../types-nav';
@@ -57,6 +59,8 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
 
   if (!ensemble) return <div className="dir-loading">Loading…</div>;
   const color = ensembleColor(ensemble);
+  const staff = staffForGroupPage(ensemble, null, ensembles);
+  const staffHeading = isClass ? 'Teacher' : 'Director';
 
   const fmtDay = (d: string) => parseDate(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
@@ -78,6 +82,12 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           {isClass
             ? <>This class has no students yet — tap <strong>Add students</strong> above to build its roster.</>
             : <>This ensemble has no students yet — tap <strong>Add students</strong> above to build its roster.</>}
+        </div>
+      )}
+
+      {staff.length > 0 && (
+        <div className="dir-page-body" style={{ paddingTop: 0 }}>
+          <GroupStaffPanel staff={staff} heading={staff.length === 1 ? staffHeading : `${staffHeading}s`} />
         </div>
       )}
 

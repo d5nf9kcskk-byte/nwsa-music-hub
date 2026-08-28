@@ -140,6 +140,9 @@ jobs:
       - name: Check director assignment resolution
         run: npx tsx src/director/directorAssignments.selfcheck.ts
 
+      - name: Check MDC staff contact lookup
+        run: npx tsx src/director/staffMdcContacts.selfcheck.ts
+
       - name: Build
         run: npm run build
         env:

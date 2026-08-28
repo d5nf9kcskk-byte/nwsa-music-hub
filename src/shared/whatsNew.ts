@@ -44,6 +44,17 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     ],
   },
   {
+    id: '2026-08-28-group-staff-contacts',
+    date: '2026-08-28',
+    title: 'Director and teacher contact on each group page',
+    audience: 'both' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'Each ensemble and class page shows the assigned director or teacher with their MDC work email — not their Gmail sign-in.',
+      'Owner: add or edit MDC email and phone on the Directors screen; it syncs to the public site when you save assignments.',
+    ],
+  },
+  {
     id: '2026-08-28-classroom-teacher-role',
     date: '2026-08-28',
     title: 'Classroom Teacher access level',
