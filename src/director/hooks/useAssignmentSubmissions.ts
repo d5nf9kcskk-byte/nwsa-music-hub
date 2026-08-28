@@ -1,27 +1,49 @@
 import { useState, useEffect } from 'react';
 import {
   collection, addDoc, updateDoc, deleteDoc, doc,
-  query, where, orderBy,
+  query, where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { watchCollection } from '../../shared/watchCollection';
 import { deleteStoredFile } from '../storageCleanup';
 import type { AssignmentSubmission, AssignmentSubmissionStatus } from '../types';
 
+/**
+ * Sort newest-first on the client. Deliberately no orderBy in the Firestore
+ * query — equality on assignmentId + sort on submittedAt needs a composite
+ * index that is NOT in the repo, and a missing index makes onSnapshot fail
+ * forever while the grade sheet shows "No video submissions yet" (videos
+ * can still be sitting in Storage). Same posture as useLessons / the
+ * security-recommendations note on teacher lesson queries.
+ */
+export function sortSubmissionsNewestFirst(
+  list: AssignmentSubmission[],
+): AssignmentSubmission[] {
+  return [...list].sort((a, b) => (b.submittedAt ?? 0) - (a.submittedAt ?? 0));
+}
+
 export function useAssignmentSubmissions(assignmentId?: string) {
   const [submissions, setSubmissions] = useState<AssignmentSubmission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (!db || !assignmentId) { setLoading(false); return; }
+    setLoadError(false);
+    // Equality filter only — single-field index, always available.
     const q = query(
       collection(db, 'assignmentSubmissions'),
       where('assignmentId', '==', assignmentId),
-      orderBy('submittedAt', 'desc'),
     );
-    return watchCollection(q, 'assignments', snap => {
-      setSubmissions(snap.docs.map(d => ({ id: d.id, ...d.data() } as AssignmentSubmission)));
-    }, () => setLoading(false));
+    // Own status key: sharing 'assignments' with useAssignments meant a
+    // failed submissions listener was cleared the moment the assignments
+    // list loaded, so the strip never warned and the grade sheet looked empty.
+    return watchCollection(q, 'assignmentSubmissions', snap => {
+      setLoadError(false);
+      setSubmissions(sortSubmissionsNewestFirst(
+        snap.docs.map(d => ({ id: d.id, ...d.data() } as AssignmentSubmission)),
+      ));
+    }, () => setLoading(false), () => setLoadError(true));
   }, [assignmentId]);
 
   /** Mark a submission as reviewed / un-reviewed. */
@@ -49,7 +71,7 @@ export function useAssignmentSubmissions(assignmentId?: string) {
     await deleteStoredFile(gone?.videoUrl);
   }
 
-  return { submissions, loading, setReviewStatus, markDriveSynced, deleteSubmission };
+  return { submissions, loading, loadError, setReviewStatus, markDriveSynced, deleteSubmission };
 }
 
 /**

@@ -33,6 +33,17 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-28-playing-exam-videos',
+    date: '2026-08-28',
+    title: 'Playing-exam videos show up in the grade sheet',
+    audience: 'staff' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'Open the assignment → the Submissions list is open by default, and each student who turned in a video has a “Video in” link on their grade row.',
+      'If a list ever looked empty while students said they submitted, that was a Hub bug (not a delay) — refresh after this update and reopen the exam.',
+    ],
+  },
+  {
     id: '2026-08-28-string-masterclasses-classes',
     date: '2026-08-28',
     title: 'String master classes live under Classes',

@@ -390,13 +390,24 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
   const linkedPieces = (assignment.pieceIds ?? [])
     .map(pid => pieces.find(p => p.id === pid))
     .filter(p => !!p);
-  const { submissions, loading: subLoading, setReviewStatus, deleteSubmission } = useAssignmentSubmissions(assignment.id);
+  const {
+    submissions, loading: subLoading, loadError: subLoadError,
+    setReviewStatus, deleteSubmission,
+  } = useAssignmentSubmissions(assignment.id);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [gradeError, setGradeError] = useState('');
   const [sort, setSort] = useState<StudentSort>('scoreOrder');
-  const [showSubmissions, setShowSubmissions] = useState(false);
+  // Open by default — directors looking for today's playing-exam videos should
+  // not have to discover a collapsed "Show Submissions" toggle.
+  const [showSubmissions, setShowSubmissions] = useState(true);
   // Which submission is awaiting a delete confirmation (id, or '' for none).
   const [confirmDeleteSub, setConfirmDeleteSub] = useState('');
+  // Newest video per student — chip on the grade row so a submitted exam is
+  // visible without scrolling to the submissions list.
+  const submissionByStudent = new Map<string, (typeof submissions)[number]>();
+  for (const sub of submissions) {
+    if (!submissionByStudent.has(sub.studentId)) submissionByStudent.set(sub.studentId, sub);
+  }
 
   // Everyone targeted: ensemble members + any specific individuals, ordered so
   // the director can move down the section (score order) or find a name fast.
@@ -502,11 +513,30 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
             relevant.map(s => {
               const result = resultMap[s.id];
               const status: AssignmentResultStatus = result?.status ?? 'Pending';
+              const video = assignment.acceptsVideoSubmissions
+                ? submissionByStudent.get(s.id)
+                : undefined;
               return (
                 <div key={s.id} className={`dir-assign-row dir-assign-row-${status.toLowerCase()}`}>
                   <div className="dir-assign-stu">
                     <div className="dir-assign-name">{s.name}</div>
-                    <div className="dir-assign-instr">{s.instrument}</div>
+                    <div className="dir-assign-instr">
+                      {s.instrument}
+                      {video && (
+                        <>
+                          {' · '}
+                          <a
+                            href={video.videoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ color: 'var(--dir-accent)', fontWeight: 600 }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            Video in
+                          </a>
+                        </>
+                      )}
+                    </div>
                   </div>
                   <div className="dir-assign-btns">
                     {(['Pass', 'Fail', 'Exempt'] as const).map(st => (
@@ -539,6 +569,12 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
               <div className="dir-drawer-body" style={{ gap: 6, paddingTop: 0 }}>
                 {subLoading ? (
                   <div style={{ padding: 16, color: 'var(--dir-text-muted)', fontSize: 13 }}>Loading…</div>
+                ) : subLoadError && submissions.length === 0 ? (
+                  <div className="dir-empty" style={{ padding: '12px 0' }}>
+                    <p style={{ fontSize: 13, color: 'var(--dir-danger)' }}>
+                      Could not load video submissions — check your connection and try reopening this sheet.
+                    </p>
+                  </div>
                 ) : submissions.length === 0 ? (
                   <div className="dir-empty" style={{ padding: '12px 0' }}>
                     <p style={{ fontSize: 13 }}>No video submissions yet.</p>

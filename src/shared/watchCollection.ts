@@ -19,6 +19,8 @@ export function watchCollection(
   source: string,
   onSnap: (snap: QuerySnapshot<DocumentData>) => void,
   onSettled?: () => void,
+  /** Fired on each listener error (in addition to the app-wide status strip). */
+  onError?: () => void,
 ): () => void {
   let alive = true;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -30,6 +32,7 @@ export function watchCollection(
       snap => { noteLoadOk(source); onSnap(snap); onSettled?.(); },
       () => {
         noteLoadError(source);
+        onError?.();
         onSettled?.();
         if (alive) timer = setTimeout(attach, 3000); // re-subscribe until the token is ready
       },
