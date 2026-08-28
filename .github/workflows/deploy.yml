@@ -137,6 +137,9 @@ jobs:
       - name: Check multi-role resolution
         run: npx tsx src/director/directorRoles.selfcheck.ts
 
+      - name: Check director assignment resolution
+        run: npx tsx src/director/directorAssignments.selfcheck.ts
+
       - name: Build
         run: npm run build
         env:

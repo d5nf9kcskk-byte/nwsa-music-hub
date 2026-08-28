@@ -33,6 +33,17 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-28-director-assignments',
+    date: '2026-08-28',
+    title: 'Assign ensembles and classes to each director',
+    audience: 'staff' as const,
+    expires: '2026-09-11',
+    bullets: [
+      'Directors screen (Owner only): when you edit someone, pick the ensembles they conduct and the class sections they teach.',
+      'Jazz directors can tick “All Jazz Combos” so every combo — even ones added later — stays on their list automatically.',
+    ],
+  },
+  {
     id: '2026-08-28-classroom-teacher-role',
     date: '2026-08-28',
     title: 'Classroom Teacher access level',

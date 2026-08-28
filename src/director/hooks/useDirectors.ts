@@ -69,11 +69,13 @@ export interface Director {
    *  sets this when adding the teacher; the teacher may adjust it themselves
    *  afterward (firestore.rules allows a director to self-edit this field). */
   assignedStudentIds?: string[];
-  /** Assistant-only: the ensembles this Personnel Assistant may take roll
-   *  for. Set by the Owner when adding/editing the assistant; enforced both
-   *  in the app (the assistant shell only offers these) and in
-   *  firestore.rules (attendance writes must name one of these ensembles). */
+  /** Ensembles / classes this person is responsible for — conducting (director),
+   *  roll (assistant), or teaching (classroom). Jazz Combos can also match by
+   *  name pattern via `assignedEnsemblePatterns`. */
   assignedEnsembleIds?: string[];
+  /** Name patterns (case-insensitive regex) that expand to ensemble ids at read
+   *  time — e.g. every "Jazz Combo #N" joins automatically. */
+  assignedEnsemblePatterns?: string[];
 }
 
 /** Normalise an email to the form used as the Firestore doc id. */
