@@ -32,6 +32,8 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.concertsShort':    { en: 'Concerts',            es: 'Conciertos' },
   'nav.directorLogin':    { en: 'Director login',      es: 'Acceso para directores' },
   'nav.assistantLogin':   { en: 'Personnel Assistant login', es: 'Acceso para asistentes de personal' },
+  'nav.teacherLogin':     { en: 'Applied Teacher login', es: 'Acceso para maestros aplicados' },
+  'nav.classroomLogin':   { en: 'Classroom Teacher login', es: 'Acceso para maestros de clase' },
   'nav.more':             { en: 'More',                es: 'Más' },
   'nav.menu':             { en: 'Menu',                es: 'Menú' },
   'nav.closeMenu':        { en: 'Close menu',          es: 'Cerrar menú' },

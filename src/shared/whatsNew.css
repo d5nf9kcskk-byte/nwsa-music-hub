@@ -1,4 +1,4 @@
-/* One collapsed roll-up of unseen updates — bottom of staff Today / public Home. */
+/* One collapsed roll-up of unseen updates — staff Today + public menu. */
 .whats-new {
   margin: 18px 16px 0;
   background: var(--dir-surface, var(--pub-surface, #fff));
@@ -6,6 +6,11 @@
   border-left: 3px solid var(--dir-primary, var(--pub-accent, #0d7e8e));
   border-radius: 10px;
   padding: 10px 12px;
+}
+/* Compact when nested under the public hamburger / desktop sidebar. */
+.pub-menu-whats-new .whats-new,
+.pub-side-whats-new .whats-new {
+  margin: 4px 8px 8px;
 }
 .whats-new-head {
   display: flex;
