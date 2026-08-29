@@ -30,9 +30,9 @@ export function AttendanceView({ initialEnsembleId, onNavigate, allowedEnsembleI
   initialEnsembleId?: string | null;
   onNavigate?: import('../types-nav').DirNavigate;
   /** Restrict everything (periods, worklist, ad-hoc picker) to these
-   *  ensembles — the Personnel Assistant's assigned set. Omitted = all. */
+   *  ensembles — the Student Assistant's assigned set. Omitted = all. */
   allowedEnsembleIds?: string[];
-  /** Personnel Assistant shell: skips the contacts listener (firestore.rules
+  /** Student Assistant shell: skips the contacts listener (firestore.rules
    *  bars assistants from contact PII). */
   assistantMode?: boolean;
 }) {
@@ -237,7 +237,7 @@ export function AttendanceView({ initialEnsembleId, onNavigate, allowedEnsembleI
                 <div className="dir-ens-info">
                   <div className="dir-ens-name">{ens?.name ?? 'Ensemble'} · {parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
                   <div className="dir-ens-sub">
-                    {taken ? `✓ Roll taken${taken.by ? ` by ${taken.by}${taken.byRole === 'assistant' ? ' (Personnel Assistant)' : ''}` : ''}` : 'Not taken'}
+                    {taken ? `✓ Roll taken${taken.by ? ` by ${taken.by}${taken.byRole === 'assistant' ? ' (Student Assistant)' : ''}` : ''}` : 'Not taken'}
                     {e.startTime ? ` · ${formatTimeRange(e.startTime, e.endTime)}` : ''}
                   </div>
                 </div>
@@ -386,7 +386,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
 
   // Roll receipt (#22): stamp the event whenever the summary is opened —
   // including WHO finished roll, so the director side can show when it was
-  // the Personnel Assistant.
+  // the Student Assistant.
   async function stampReceipt() {
     if (!period.event) return;
     const absent = Object.values(recordMap).filter(r => r.status === 'Absent').length;
@@ -460,7 +460,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
             <div className="dir-ens-sub">{dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}</div>
             {receipt?.by && (
               <div className="dir-ens-sub">
-                ✓ Roll taken by {receipt.by}{receipt.byRole === 'assistant' ? ' (Personnel Assistant)' : ''}
+                ✓ Roll taken by {receipt.by}{receipt.byRole === 'assistant' ? ' (Student Assistant)' : ''}
               </div>
             )}
           </div>

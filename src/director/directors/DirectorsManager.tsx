@@ -6,8 +6,15 @@ import { useLoginEvents, LOGIN_LOG_LIMIT } from '../hooks/useLoginEvents';
 import { useActivityLog, ACTIVITY_LOG_LIMIT } from '../hooks/useActivityLog';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
-import { musicEnsembles, classGroups, performingEnsembles } from '../utils';
-import { STAFF_ROLE_LABEL } from '../types';
+import { musicEnsembles, classGroups, performingEnsembles, ensembleColor } from '../utils';
+import {
+  ASSISTANT_CAPABILITIES,
+  ASSISTANT_CAPABILITY_LABEL,
+  STAFF_ROLE_LABEL,
+  type AssistantCapability,
+} from '../types';
+import { assistantCapabilities } from '../directorRoles';
+import { FilterMenu } from '../../shared/FilterMenu';
 import { whenQueued } from '../writeStatus';
 import {
   JAZZ_COMBO_NAME_PATTERN,
@@ -17,6 +24,7 @@ import {
 import { syncAllEnsembleStaff } from '../groupStaff';
 import { lookupMdcByLogin, lookupMdcByName } from '../staffMdcContacts';
 import { studentMatchesQuery } from '../studentSearch';
+import '../signups/signups.css';
 
 /** Human-readable label for each logged action slug. Falls back to the raw
  *  slug so a newly-added action still shows something before this map is
@@ -110,6 +118,7 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
             instruments: data.instruments,
             assignedStudentIds: data.assignedStudentIds,
             assignedEnsembleIds: data.assignedEnsembleIds,
+            assistantCapabilities: data.assistantCapabilities,
             mdcEmail: data.mdcEmail,
             phone: data.phone,
           });
@@ -119,6 +128,7 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
             roles: data.roles as DirectorRole[] | undefined,
             assignedEnsembleIds: data.assignedEnsembleIds,
             assignedEnsemblePatterns: data.assignedEnsemblePatterns,
+            assistantCapabilities: data.assistantCapabilities,
             mdcEmail: data.mdcEmail,
             phone: data.phone,
           };
@@ -157,7 +167,7 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
           Only you (the Owner) can see or change this list. Each person can
           hold one or more access levels — and assign the ensembles they
           conduct or the class sections they teach. Applied Teachers get
-          assigned students; Personnel Assistants and Classroom Teachers get
+          assigned students; Student Assistants and Classroom Teachers get
           their groups here too.
         </p>
 
@@ -185,6 +195,9 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
                   {(hasDirectorRole(d, 'director') || hasDirectorRole(d, 'classroom') || hasDirectorRole(d, 'assistant'))
                     && (d.assignedEnsembleIds?.length || d.assignedEnsemblePatterns?.length)
                     ? ` · ${assignmentSummary(d, ensembles)}`
+                    : ''}
+                  {hasDirectorRole(d, 'assistant') && assistantCapabilities(d).length
+                    ? ` · +${assistantCapabilities(d).map(c => ASSISTANT_CAPABILITY_LABEL[c]).join(', ')}`
                     : ''}
                 </div>
               </div>
@@ -271,7 +284,7 @@ function LoginHistory() {
     return (
       <div className="dir-loc-empty">
         Nothing recorded yet. A sign-in is logged each time a director, teacher,
-        or personnel assistant opens the Hub from now on.
+        or student assistant opens the Hub from now on.
       </div>
     );
   }
@@ -330,8 +343,8 @@ function ActivityHistory() {
 }
 
 /** Add/edit form: email (add only) + name + roles + (Applied Teacher) instruments &
- *  assigned students + (Personnel Assistant) assigned ensembles. Full-page so
- *  the long checklist never fights a drawer scroller. */
+ *  assigned students + (Student Assistant) assigned ensembles & optional
+ *  capabilities. Full-page so the long checklist never fights a drawer scroller. */
 function DirectorEditor({ director, onSave, onClose, existingEmails }: {
   director?: Director;
   onSave: (data: Partial<Director> & { email?: string; role?: undefined }) => Promise<void>;
@@ -350,6 +363,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
   const [instruments, setInstruments] = useState((director?.instruments ?? []).join(', '));
   const [assignedIds, setAssignedIds] = useState<string[]>(director?.assignedStudentIds ?? []);
   const [assignedEnsIds, setAssignedEnsIds] = useState<string[]>(director?.assignedEnsembleIds ?? []);
+  const [caps, setCaps] = useState<AssistantCapability[]>(() => assistantCapabilities(director));
   const [allJazzCombos, setAllJazzCombos] = useState(hasJazzComboPattern(director));
   const [mdcEmail, setMdcEmail] = useState(() => {
     if (director?.mdcEmail) return director.mdcEmail;
@@ -371,6 +385,11 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
   const hasClassroom = roles.includes('classroom');
   const hasAssistant = roles.includes('assistant');
   const hasDirector = roles.includes('director');
+
+  const performingEns = useMemo(
+    () => performingEnsembles([...ensembles].sort((a, b) => a.order - b.order)),
+    [ensembles],
+  );
 
   function toggleRole(r: Exclude<DirectorRole, 'owner'>) {
     setRoles(cur => {
@@ -412,11 +431,11 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
       setError('Pick at least one access level.');
       return;
     }
-    if (hasAssistant && !assignedEnsIds.some(id => musicEnsembles(ensembles).some(e => e.id === id))) {
+    if (hasAssistant && !assignedEnsIds.some(eid => musicEnsembles(ensembles).some(e => e.id === eid))) {
       setError('Pick at least one performing ensemble the assistant takes roll for.');
       return;
     }
-    if (hasClassroom && !assignedEnsIds.some(id => classGroups(ensembles).some(e => e.id === id))) {
+    if (hasClassroom && !assignedEnsIds.some(eid => classGroups(ensembles).some(e => e.id === eid))) {
       setError('Pick at least one class section the classroom teacher covers.');
       return;
     }
@@ -433,6 +452,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
         assignedStudentIds: hasTeacher ? assignedIds : undefined,
         assignedEnsembleIds: (hasDirector || hasAssistant || hasClassroom) ? assignedEnsIds : undefined,
         assignedEnsemblePatterns: allJazzCombos ? [JAZZ_COMBO_NAME_PATTERN] : undefined,
+        assistantCapabilities: hasAssistant && caps.length ? caps : undefined,
         mdcEmail: mdcEmail.trim() || undefined,
         phone: phone.trim() || undefined,
       }));
@@ -498,7 +518,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
             </label>
             <label className={`dir-checkbox-tag ${hasAssistant ? 'checked' : ''}`}>
               <input type="checkbox" checked={hasAssistant} onChange={() => toggleRole('assistant')} />
-              <ClipboardList size={14} /> Personnel Asst.
+              <ClipboardList size={14} /> Student Asst.
             </label>
           </div>
           <div className="dir-field-hint">
@@ -508,7 +528,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
             {hasDirector && ' Director: full edit access everywhere except this screen.'}
             {hasTeacher && ' Applied Teacher: schedule and grade private lessons for assigned students.'}
             {hasClassroom && ' Classroom Teacher: roll, assignments, and documents for assigned class sections.'}
-            {hasAssistant && ' Personnel Assistant: take roll for assigned performing ensembles only.'}
+            {hasAssistant && ' Student Assistant: take roll for assigned ensembles; optional extras below. Never contacts, notes, or grades.'}
           </div>
         </div>
 
@@ -521,14 +541,34 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
                   ? 'Ensembles they conduct'
                   : 'Performing ensembles they take roll for'}
             </label>
-            <div className="dir-checkbox-group">
-              {performingEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
-                <label key={e.id} className={`dir-checkbox-tag ${assignedEnsIds.includes(e.id) ? 'checked' : ''}`}>
-                  <input type="checkbox" checked={assignedEnsIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
-                  {e.name}
-                </label>
-              ))}
-            </div>
+            {hasAssistant && !hasDirector ? (
+              <div className="dir-signup-audience-fm" style={{ maxWidth: 320 }}>
+                <FilterMenu
+                  prefix="dir"
+                  allLabel="Choose ensembles…"
+                  ariaLabel="Performing ensembles they take roll for"
+                  options={performingEns.map(e => ({
+                    value: e.id,
+                    label: e.name,
+                    color: ensembleColor(e),
+                  }))}
+                  selected={assignedEnsIds.filter(id => performingEns.some(e => e.id === id))}
+                  onChange={ids => {
+                    const classIds = assignedEnsIds.filter(id => classGroups(ensembles).some(e => e.id === id));
+                    setAssignedEnsIds([...ids, ...classIds]);
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="dir-checkbox-group">
+                {performingEns.map(e => (
+                  <label key={e.id} className={`dir-checkbox-tag ${assignedEnsIds.includes(e.id) ? 'checked' : ''}`}>
+                    <input type="checkbox" checked={assignedEnsIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
+                    {e.name}
+                  </label>
+                ))}
+              </div>
+            )}
             {hasDirector && (
               <label className={`dir-checkbox-tag ${allJazzCombos ? 'checked' : ''}`} style={{ marginTop: 8, display: 'inline-flex' }}>
                 <input type="checkbox" checked={allJazzCombos} onChange={() => setAllJazzCombos(v => !v)} />
@@ -537,7 +577,31 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
             )}
             <div className="dir-field-hint">
               {hasDirector && 'Pick every performing group this person leads — orchestras, bands, jazz, choir, etc.'}
-              {hasAssistant && !hasDirector && 'Personnel Assistants can take roll only for the groups selected here.'}
+              {hasAssistant && !hasDirector && 'Student Assistants can take roll only for the groups selected here.'}
+            </div>
+          </div>
+        )}
+
+        {hasAssistant && (
+          <div className="dir-field">
+            <label className="dir-label">Optional Student Assistant access</label>
+            <div className="dir-signup-audience-fm" style={{ maxWidth: 320 }}>
+              <FilterMenu
+                prefix="dir"
+                allLabel="Take roll only"
+                ariaLabel="Optional Student Assistant access"
+                options={ASSISTANT_CAPABILITIES.map(c => ({
+                  value: c,
+                  label: ASSISTANT_CAPABILITY_LABEL[c],
+                }))}
+                selected={caps}
+                onChange={ids => setCaps(ids as AssistantCapability[])}
+              />
+            </div>
+            <div className="dir-field-hint">
+              Most assistants only take roll. Add rehearsals &amp; concerts, repertoire, sign-ups,
+              or announcements when you want them to help with those. Sensitive data (contacts,
+              notes, grades) stays off-limits.
             </div>
           </div>
         )}

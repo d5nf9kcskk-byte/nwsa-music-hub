@@ -31,7 +31,7 @@ service firebase.storage {
     // firestore.rules' isStaff(). Owner and Director get full Storage access
     // (a legacy doc with no role counts as director); every other role is
     // fail-closed. The old check only excluded 'teacher', which let a
-    // Personnel Assistant — attendance-only by design — upload, overwrite,
+    // Student Assistant — attendance-scoped by design — upload, overwrite,
     // or delete the world-readable documents and assignment files (audit S5).
     function hasRole(r) {
       let d = directorDoc();

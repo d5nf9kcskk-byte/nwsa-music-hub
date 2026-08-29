@@ -8,12 +8,14 @@
  */
 import { useSyncExternalStore } from 'react';
 import {
+  assistantCapabilities,
   directorRoles,
   hasDirectorRole,
   isStaffMember,
   primaryDirectorRole,
 } from './directorRoles';
 import type { Director, DirectorRole } from './hooks/useDirectors';
+import type { AssistantCapability } from './types';
 
 export interface CurrentDirector {
   email: string;
@@ -26,8 +28,10 @@ export interface CurrentDirector {
   role: DirectorRole;
   instruments: string[];
   assignedStudentIds: string[];
-  /** Assistant-only: ensembles this Personnel Assistant may take roll for. */
+  /** Assistant-only: ensembles this Student Assistant may take roll for. */
   assignedEnsembleIds: string[];
+  /** Student Assistant only: optional extras beyond take-roll. */
+  assistantCapabilities: AssistantCapability[];
 }
 
 let current: CurrentDirector | null = null;
@@ -45,6 +49,7 @@ export function setCurrentDirector(directorDoc: Director, googleDisplayName?: st
     instruments: directorDoc.instruments ?? [],
     assignedStudentIds: directorDoc.assignedStudentIds ?? [],
     assignedEnsembleIds: directorDoc.assignedEnsembleIds ?? [],
+    assistantCapabilities: assistantCapabilities(directorDoc),
   };
   emit();
 }

@@ -43,11 +43,15 @@ const SCHED_TYPE_OPTIONS: { value: SchedTypeKey; label: string; color: string }[
   { value: 'Assignment', label: 'Assignments', color: ASSIGN_COLOR },
 ];
 
-export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = '', onNavigate }: {
+export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = '', onNavigate, assistantMode, allowedEnsembleIds }: {
   initialDate?: string;
   initialEventId?: string;
   initialEnsembleId?: string;
   onNavigate?: import('../types-nav').DirNavigate;
+  /** Student Assistant shell: hide seed/import/day-swap staff tools. */
+  assistantMode?: boolean;
+  /** When set (assistant), seed the ensemble filter to these ids. */
+  allowedEnsembleIds?: string[];
 } = {}) {
   const { ensembles } = useEnsembles();
   const { events, addEvent, updateEvent, deleteEvent } = useEvents();
@@ -64,8 +68,11 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   const [selectedDate, setSelectedDate] = useState(initialDate ?? todayStr());
   // Multi-select: filter by several ensembles AND several types at once.
   // Empty === all. `initialEnsembleId` (a deep-link from an ensemble hub) seeds
-  // the ensemble selection.
-  const [filterEnsembleIds, setFilterEnsembleIds] = useState<string[]>(initialEnsembleId ? [initialEnsembleId] : []);
+  // the ensemble selection. Assistants start scoped to their assigned set.
+  const [filterEnsembleIds, setFilterEnsembleIds] = useState<string[]>(
+    initialEnsembleId ? [initialEnsembleId]
+      : (allowedEnsembleIds?.length ? [...allowedEnsembleIds] : []),
+  );
   const [typeFilters, setTypeFilters] = useState<SchedTypeKey[]>([]);
   const [calView, setCalView] = useState<'month' | 'list'>('month');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
@@ -343,8 +350,9 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           />
           {/* One-time school-calendar import: hidden once school events exist.
               The whole seed family is NWSA-only (hardcoded MDCPS/MDC data) —
-              other orgs never see these buttons (#org-config). */}
-          {ORG.features.calendarSeed && (!hasSchoolEvents || schoolCalState === 'seeding' || schoolCalState === 'error') && (
+              other orgs never see these buttons (#org-config). Assistants never
+              seed or import — those are director tools. */}
+          {!assistantMode && ORG.features.calendarSeed && (!hasSchoolEvents || schoolCalState === 'seeding' || schoolCalState === 'error') && (
             <button
               className="dir-tool-btn"
               onClick={handleSchoolCal}
@@ -360,7 +368,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             </span>
           )}
           {/* One-time season seed: only offered while the calendar is empty */}
-          {ORG.features.calendarSeed && events.length === 0 && seedState !== 'done' && (
+          {!assistantMode && ORG.features.calendarSeed && events.length === 0 && seedState !== 'done' && (
             <button
               className="dir-tool-btn"
               onClick={handleSeed}
@@ -376,7 +384,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             </span>
           )}
           {/* Add the theory/academic classes to an already-seeded calendar. */}
-          {ORG.features.calendarSeed && events.length > 0 && classesState !== 'done' && (
+          {!assistantMode && ORG.features.calendarSeed && events.length > 0 && classesState !== 'done' && (
             <button
               className="dir-tool-btn"
               onClick={handleSeedClasses}
@@ -391,7 +399,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               {classesMsg}
             </span>
           )}
-          {ORG.features.calendarSeed && events.length > 0 && collegeState !== 'done' && (
+          {!assistantMode && ORG.features.calendarSeed && events.length > 0 && collegeState !== 'done' && (
             <button
               className="dir-tool-btn"
               onClick={handleSeedCollege}
@@ -406,9 +414,11 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               {collegeMsg}
             </span>
           )}
-          <button className="dir-tool-btn" onClick={() => setImportingIcs(true)} title="Import ICS calendar">
-            <Upload size={15} /> Import
-          </button>
+          {!assistantMode && (
+            <button className="dir-tool-btn" onClick={() => setImportingIcs(true)} title="Import ICS calendar">
+              <Upload size={15} /> Import
+            </button>
+          )}
           <button className="dir-tool-btn" onClick={() => setQuickAdding(true)} title="Describe an event in plain English">
             <Sparkles size={15} /> Quick Add
           </button>
@@ -422,8 +432,12 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           allLabel="All ensembles"
           ariaLabel="Filter by ensemble"
           options={[
-            ...musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => ({ value: e.id, label: e.name, color: ensembleColor(e) })),
-            ...(hasSchoolEvents ? [{ value: SCHOOL, label: 'School events' }] : []),
+            ...(assistantMode && allowedEnsembleIds?.length
+              ? musicEnsembles([...ensembles].sort((a, b) => a.order - b.order))
+                  .filter(e => allowedEnsembleIds.includes(e.id))
+              : musicEnsembles([...ensembles].sort((a, b) => a.order - b.order))
+            ).map(e => ({ value: e.id, label: e.name, color: ensembleColor(e) })),
+            ...(!assistantMode && hasSchoolEvents ? [{ value: SCHOOL, label: 'School events' }] : []),
           ]}
           selected={filterEnsembleIds}
           onChange={setFilterEnsembleIds}
@@ -525,7 +539,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             <div className="dir-day-detail-header">
               {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               {selectedDate === today && <span className="dir-today-badge">Today</span>}
-              {onNavigate && (eventsByDate[selectedDate] ?? []).some(e => e.ensembleIds.length > 0) && (
+              {onNavigate && !assistantMode && (eventsByDate[selectedDate] ?? []).some(e => e.ensembleIds.length > 0) && (
                 <button
                   className="dir-tool-btn"
                   style={{ marginLeft: 'auto' }}
@@ -638,7 +652,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
         />
       )}
 
-      {importingIcs && <IcsImport onClose={() => setImportingIcs(false)} />}
+      {importingIcs && !assistantMode && <IcsImport onClose={() => setImportingIcs(false)} />}
     </div>
   );
 }

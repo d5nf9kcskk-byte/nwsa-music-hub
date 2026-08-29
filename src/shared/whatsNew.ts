@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Student Assistant rename + optional extras beyond take-roll.
+  {
+    id: '2026-08-29-student-assistant',
+    date: '2026-08-29',
+    title: 'Personnel Assistant is now Student Assistant',
+    audience: 'staff' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'Same login path, new name. Most still just take roll for their assigned ensembles.',
+      'On the Directors screen, you can grant optional extras: rehearsals & concerts, repertoire, sign-ups, and announcements — pick several from a dropdown. Contacts, notes, and grades stay off-limits.',
+    ],
+  },
   // Rotations page (docs/schedule-ux-two-doors.md §4, Phase 4d). Staff-only:
   // rosterOverrides writes, nothing new is world-readable.
   {

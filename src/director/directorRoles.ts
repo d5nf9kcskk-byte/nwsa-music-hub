@@ -2,14 +2,15 @@
  * Multi-role resolution for directors/{email} docs (#roles).
  * Dependency-free so rules selfchecks and hooks can share it.
  */
-import type { StaffRole } from './types';
-import { STAFF_ROLE_LABEL } from './types';
+import type { AssistantCapability, StaffRole } from './types';
+import { ASSISTANT_CAPABILITIES, STAFF_ROLE_LABEL } from './types';
 
 export type DirectorRole = StaffRole;
 
 export type DirectorRoleFields = {
   role?: DirectorRole;
   roles?: DirectorRole[];
+  assistantCapabilities?: AssistantCapability[];
 };
 
 /** Highest-privilege role first — used for audit attribution and log labels. */
@@ -53,4 +54,21 @@ export function directorRole(d: DirectorRoleFields | undefined | null): Director
 /** Labels for the Directors list, e.g. "Director · Applied Teacher". */
 export function directorRoleLabels(d: DirectorRoleFields | undefined | null): string {
   return directorRoles(d).map(r => STAFF_ROLE_LABEL[r]).join(' · ');
+}
+
+/** Optional Student Assistant extras beyond take-roll. Unknown strings dropped. */
+export function assistantCapabilities(
+  d: DirectorRoleFields | undefined | null,
+): AssistantCapability[] {
+  const raw = d?.assistantCapabilities;
+  if (!raw?.length) return [];
+  const allowed = new Set<string>(ASSISTANT_CAPABILITIES);
+  return raw.filter((c): c is AssistantCapability => allowed.has(c));
+}
+
+export function assistantHasCapability(
+  d: DirectorRoleFields | undefined | null,
+  cap: AssistantCapability,
+): boolean {
+  return assistantCapabilities(d).includes(cap);
 }
