@@ -8,6 +8,8 @@ import {
   minutesToParts, partsToMinutes, snapMinute,
   SLOT_AMPM, SLOT_HOURS_12, SLOT_MINUTE_STEPS,
 } from '../../shared/signupSlotTimes';
+import { FilterMenu } from '../../shared/FilterMenu';
+import { SIGNUP_SLOT_GRADES } from '../../shared/signupSlots';
 import type { SignupSlotDef } from '../types';
 
 type Ampm = (typeof SLOT_AMPM)[number];
@@ -17,12 +19,21 @@ March 10, 2pm-2:30pm`;
 
 const SPLIT_OPTIONS = [0, 15, 20, 30, 45, 60] as const;
 
+const GRADE_FILTER_OPTS = SIGNUP_SLOT_GRADES.map(g => ({ value: g, label: g }));
+
 /** Build / edit bookable time slots: describe many at once, multi-day calendar,
- *  or line-by-line manual fallback. */
-export function SignupSlotBuilder({ slotDefs, manualDraft, onChange }: {
+ *  or line-by-line manual fallback. Optional per-slot grade limits (e.g. 12th
+ *  only) for lesson-time sign-ups. */
+export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, onChange }: {
   slotDefs: SignupSlotDef[];
   manualDraft: string;
-  onChange: (patch: { slotDefs?: SignupSlotDef[]; slotManualDraft?: string }) => void;
+  /** Parallel to manual lines when not using calendar defs. */
+  optionGrades?: (string[] | null)[];
+  onChange: (patch: {
+    slotDefs?: SignupSlotDef[];
+    slotManualDraft?: string;
+    optionGrades?: (string[] | null)[];
+  }) => void;
 }) {
   const today = todayStr();
   const [cursor, setCursor] = useState(() => parseDate(today));
@@ -33,6 +44,7 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, onChange }: {
   const [splitMin, setSplitMin] = useState<number>(0);
   const [nlText, setNlText] = useState('');
   const [manualOpen, setManualOpen] = useState(!!manualDraft && slotDefs.length === 0);
+  const [bulkGrades, setBulkGrades] = useState<string[]>([]);
 
   const y = cursor.getFullYear();
   const mo = cursor.getMonth();
@@ -58,23 +70,63 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, onChange }: {
     [pickedList, start, end, splitMin, blockValid],
   );
 
+  function withBulkGrades(defs: SignupSlotDef[]): SignupSlotDef[] {
+    if (!bulkGrades.length) return defs;
+    return defs.map(d => ({ ...d, grades: [...bulkGrades] }));
+  }
+
   function commitSlots(next: SignupSlotDef[]) {
-    onChange({ slotDefs: next, slotManualDraft: '' });
+    onChange({ slotDefs: next, slotManualDraft: '', optionGrades: undefined });
   }
 
   function addFromNaturalLanguage() {
     if (!nlPreview?.slots.length) return;
-    commitSlots(mergeSlotDefs(slotDefs, nlPreview.slots));
+    commitSlots(mergeSlotDefs(slotDefs, withBulkGrades(nlPreview.slots)));
     setNlText('');
   }
 
   function addFromCalendar() {
     if (!pendingCalendar.length) return;
-    commitSlots(mergeSlotDefs(slotDefs, pendingCalendar));
+    commitSlots(mergeSlotDefs(slotDefs, withBulkGrades(pendingCalendar)));
   }
 
   function removeSlot(index: number) {
     onChange({ slotDefs: slotDefs.filter((_, i) => i !== index) });
+  }
+
+  function setSlotGrades(index: number, grades: string[]) {
+    onChange({
+      slotDefs: slotDefs.map((d, i) => {
+        if (i !== index) return d;
+        if (!grades.length) {
+          const { grades: _g, ...rest } = d;
+          void _g;
+          return rest;
+        }
+        return { ...d, grades };
+      }),
+    });
+  }
+
+  function setManualLines(raw: string) {
+    const nonEmpty = raw.split('\n').map(s => s.trim()).filter(Boolean);
+    const prev = optionGrades ?? [];
+    const nextGrades: (string[] | null)[] = nonEmpty.map((_, i) => prev[i] ?? null);
+    onChange({
+      slotManualDraft: raw,
+      slotDefs: [],
+      optionGrades: nextGrades.some(g => g && g.length) ? nextGrades : undefined,
+    });
+  }
+
+  function setManualLineGrades(index: number, grades: string[]) {
+    const manualLines = manualDraft.split('\n').map(s => s.trim()).filter(Boolean);
+    const next: (string[] | null)[] = manualLines.map((_, i) => optionGrades?.[i] ?? null);
+    next[index] = grades.length ? grades : null;
+    onChange({
+      optionGrades: next.some(g => g && g.length) ? next : undefined,
+      slotDefs: [],
+    });
   }
 
   function toggleDate(date: string, shiftKey: boolean) {
@@ -103,6 +155,7 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, onChange }: {
       <div className="dir-signup-help">
         Describe many slots at once, or select several days on the calendar and add the same window to all of them.
         Shift-click a second day to select a range. Once students start booking, add new slots at the bottom only.
+        Example: open times for all violinists; mark two slots as 12th only.
       </div>
 
       {/* ── Natural language bulk ── */}
@@ -146,6 +199,21 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, onChange }: {
             </button>
           </div>
         )}
+      </div>
+
+      <div className="dir-field dir-signup-audience-fm">
+        <label className="dir-label">Limit new slots to</label>
+        <FilterMenu
+          prefix="dir"
+          allLabel="Anyone (no grade limit)"
+          options={GRADE_FILTER_OPTS}
+          selected={bulkGrades}
+          onChange={setBulkGrades}
+          ariaLabel="Grade limit for newly added slots"
+        />
+        <div className="dir-signup-help">
+          Applied when you add slots below. You can change any row afterward.
+        </div>
       </div>
 
       {/* ── Multi-day calendar ── */}
@@ -218,8 +286,18 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, onChange }: {
       {slotDefs.length > 0 && (
         <div className="dir-signup-slot-builder-list">
           {slotDefs.map((def, i) => (
-            <div key={`${def.date}-${def.startMin}-${i}`} className="dir-signup-slot-builder-row">
+            <div key={`${def.date}-${def.startMin}-${i}`} className="dir-signup-slot-builder-row dir-signup-slot-builder-row-grades">
               <span>{formatSignupSlotLabel(def)}</span>
+              <div className="dir-signup-audience-fm dir-signup-slot-grade-pick">
+                <FilterMenu
+                  prefix="dir"
+                  allLabel="Anyone"
+                  options={GRADE_FILTER_OPTS}
+                  selected={def.grades ?? []}
+                  onChange={g => setSlotGrades(i, g)}
+                  ariaLabel="Who can pick this time"
+                />
+              </div>
               <button type="button" className="dir-tool-btn dir-btn-danger" aria-label="Remove slot"
                 onClick={() => removeSlot(i)}>
                 <Trash2 size={14} />
@@ -240,11 +318,31 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, onChange }: {
             rows={5}
             value={manualDraft}
             placeholder={'One slot per line, e.g.\nMon, Mar 3 · 3:00 PM – 3:30 PM (30 min)'}
-            onChange={e => onChange({ slotManualDraft: e.target.value, slotDefs: [] })}
+            onChange={e => setManualLines(e.target.value)}
           />
           <div className="dir-signup-help">
             Manual lines replace calendar slots when you save. Press Enter for a new line.
+            Set a grade limit on each line below if needed.
           </div>
+          {manualDraft.split('\n').map(s => s.trim()).filter(Boolean).length > 0 && (
+            <div className="dir-signup-slot-builder-list">
+              {manualDraft.split('\n').map(s => s.trim()).filter(Boolean).map((line, i) => (
+                <div key={`${line}-${i}`} className="dir-signup-slot-builder-row dir-signup-slot-builder-row-grades">
+                  <span>{line}</span>
+                  <div className="dir-signup-audience-fm dir-signup-slot-grade-pick">
+                    <FilterMenu
+                      prefix="dir"
+                      allLabel="Anyone"
+                      options={GRADE_FILTER_OPTS}
+                      selected={optionGrades?.[i] ?? []}
+                      onChange={g => setManualLineGrades(i, g)}
+                      ariaLabel="Who can pick this time"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>

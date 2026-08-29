@@ -8,7 +8,9 @@ import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useMinuteTick } from '../hooks/useAnnouncements';
 import { SchedulePublishField } from '../components/SchedulePublishField';
+import { FileUpload } from '../components/FileUpload';
 import { useModalA11y } from '../../shared/useModalA11y';
+import { FilterMenu } from '../../shared/FilterMenu';
 import { whenQueued } from '../writeStatus';
 import { printViaPopup } from '../../shared/printPopup';
 import { downloadCsv } from '../attendance/attendanceCsv';
@@ -18,6 +20,7 @@ import { INSTRUMENT_FAMILIES, INSTRUMENT_FAMILY_LABEL } from '../../shared/instr
 import { audienceLabel, eligibleForSignup, signupIsOpen, signupIsPublished } from '../../shared/signupEligibility';
 import { isTimeslotQuestion } from '../../shared/signupSlots';
 import { normalizeTimeslotQuestion } from '../../shared/signupSlotTimes';
+import { deleteStoredFile } from '../storageCleanup';
 import { SignupSlotBuilder } from './SignupSlotBuilder';
 import { byLastName, emailList, exportSlug, namesList, responsesToCsv } from './signupsExport';
 import { allStateTemplate } from './signupTemplates';
@@ -107,6 +110,7 @@ export function SignupsView() {
           <SignupEditor
             initial={editing.draft}
             isNew={!editing.form}
+            formId={editing.form?.id}
             ensembles={ensembles}
             students={students}
             onSave={save}
@@ -176,6 +180,7 @@ export function SignupsView() {
         <SignupEditor
           initial={editing.draft}
           isNew={!editing.form}
+          formId={editing.form?.id}
           ensembles={ensembles}
           students={students}
           onSave={save}
@@ -588,9 +593,10 @@ function SignupSlotSchedule({ question, bookings, freeingId, onFree }: {
 
 // ── Editor ────────────────────────────────────────────────────────────
 
-function SignupEditor({ initial, isNew, ensembles, students, onSave, onClose }: {
+function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onClose }: {
   initial: Draft;
   isNew: boolean;
+  formId?: string;
   ensembles: Ensemble[];
   students: Student[];
   onSave: (draft: Draft) => Promise<void>;
@@ -601,8 +607,18 @@ function SignupEditor({ initial, isNew, ensembles, students, onSave, onClose }: 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [studentQuery, setStudentQuery] = useState('');
+  // Stable Storage folder so a file can attach before the form doc exists.
+  const [uploadId] = useState(() => formId ?? `new-${Date.now()}`);
   const inviteMode = draft.audienceMode === 'students';
   const inviteIds = draft.inviteStudentIds ?? [];
+  const ensembleOptions = useMemo(
+    () => musicEnsembles(ensembles).map(e => ({ value: e.id, label: e.name, color: ensembleColor(e) })),
+    [ensembles],
+  );
+  const familyOptions = useMemo(
+    () => INSTRUMENT_FAMILIES.map(f => ({ value: f.id, label: f.label })),
+    [],
+  );
 
   function set<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft(d => ({ ...d, [key]: value }));
@@ -622,18 +638,18 @@ function SignupEditor({ initial, isNew, ensembles, students, onSave, onClose }: 
   const studentMatches = studentQuery.trim()
     ? students.filter(s => s.status === 'Active' && studentMatchesQuery(s, studentQuery)).slice(0, 8)
     : [];
-  function toggleEnsemble(id: string) {
-    set('ensembleIds', draft.ensembleIds.includes(id)
-      ? draft.ensembleIds.filter(x => x !== id)
-      : [...draft.ensembleIds, id]);
-  }
-  function toggleFamily(f: InstrumentFamilyId) {
-    set('families', draft.families.includes(f)
-      ? draft.families.filter(x => x !== f)
-      : [...draft.families, f]);
-  }
   function setQuestion(i: number, patch: Partial<SignupQuestion>) {
     set('questions', draft.questions.map((q, n) => (n === i ? { ...q, ...patch } : q)));
+  }
+  function setQuestionReference(i: number, next: SignupQuestion['reference'] | undefined) {
+    const prev = draft.questions[i]?.reference;
+    if (prev?.url && prev.url !== next?.url) void deleteStoredFile(prev.url);
+    setQuestion(i, { reference: next });
+  }
+  function removeQuestion(i: number) {
+    const gone = draft.questions[i];
+    if (gone?.reference?.url) void deleteStoredFile(gone.reference.url);
+    set('questions', draft.questions.filter((_, n) => n !== i));
   }
   function addQuestion() {
     set('questions', [...draft.questions, { id: newQuestionId(draft.questions), label: '', type: 'short' }]);
@@ -677,6 +693,9 @@ function SignupEditor({ initial, isNew, ensembles, students, onSave, onClose }: 
                 ? (q.options ?? []).map(o => o.trim()).filter(Boolean)
                 : undefined,
               help: q.help?.trim() || undefined,
+              reference: q.reference,
+              optionGrades: undefined,
+              slotDefs: undefined,
             };
           }),
       }));
@@ -767,16 +786,17 @@ function SignupEditor({ initial, isNew, ensembles, students, onSave, onClose }: 
               </>
             ) : (
               <>
-                <div className="dir-checkbox-group">
-                  {musicEnsembles(ensembles).map(e => (
-                    <label key={e.id} className={`dir-checkbox-tag ${draft.ensembleIds.includes(e.id) ? 'checked' : ''}`}>
-                      <input type="checkbox" checked={draft.ensembleIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
-                      <span className="dir-signup-dot" style={{ background: ensembleColor(e) }} />
-                      {e.name}
-                    </label>
-                  ))}
+                <div className="dir-signup-audience-fm">
+                  <FilterMenu
+                    prefix="dir"
+                    allLabel="Whole program"
+                    options={ensembleOptions}
+                    selected={draft.ensembleIds}
+                    onChange={ids => set('ensembleIds', ids)}
+                    ariaLabel="Ensembles this sign-up is for"
+                  />
                 </div>
-                <div className="dir-signup-help">No ensemble ticked = everyone in the program.</div>
+                <div className="dir-signup-help">Whole program = everyone. Pick several ensembles to narrow.</div>
               </>
             )}
           </div>
@@ -784,16 +804,18 @@ function SignupEditor({ initial, isNew, ensembles, students, onSave, onClose }: 
           {!inviteMode && (
           <div className="dir-field">
             <label className="dir-label">Narrow to instruments</label>
-            <div className="dir-checkbox-group">
-              {INSTRUMENT_FAMILIES.map(f => (
-                <label key={f.id} className={`dir-checkbox-tag ${draft.families.includes(f.id) ? 'checked' : ''}`}>
-                  <input type="checkbox" checked={draft.families.includes(f.id)} onChange={() => toggleFamily(f.id)} />
-                  {f.label}
-                </label>
-              ))}
+            <div className="dir-signup-audience-fm">
+              <FilterMenu
+                prefix="dir"
+                allLabel="All instruments"
+                options={familyOptions}
+                selected={draft.families}
+                onChange={ids => set('families', ids as InstrumentFamilyId[])}
+                ariaLabel="Instrument families"
+              />
             </div>
             <div className="dir-signup-help">
-              Nothing ticked = every instrument. Tick Strings to reach only the string
+              All instruments = every instrument. Pick Strings to reach only the string
               players in the ensembles above — harp counts as a string. Students whose
               roster instrument is blank or unrecognized aren’t matched, so fix those on
               the Roster first.
@@ -834,7 +856,7 @@ function SignupEditor({ initial, isNew, ensembles, students, onSave, onClose }: 
                 <button className="dir-tool-btn" onClick={() => moveQuestion(i, -1)} aria-label="Move up" disabled={i === 0}>↑</button>
                 <button className="dir-tool-btn" onClick={() => moveQuestion(i, 1)} aria-label="Move down" disabled={i === draft.questions.length - 1}>↓</button>
                 <button className="dir-tool-btn dir-btn-danger" aria-label="Remove question"
-                  onClick={() => set('questions', draft.questions.filter((_, n) => n !== i))}>
+                  onClick={() => removeQuestion(i)}>
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -852,6 +874,17 @@ function SignupEditor({ initial, isNew, ensembles, students, onSave, onClose }: 
                   Required
                 </label>
               </div>
+              <input className="dir-input" value={q.help ?? ''}
+                placeholder="Hint under the question (optional)"
+                onChange={e => setQuestion(i, { help: e.target.value || undefined })} />
+              <FileUpload
+                folder={`documents/signups/${uploadId}`}
+                attachments={q.reference ? [q.reference] : []}
+                onChange={atts => setQuestionReference(i, atts[0])}
+                single
+                accept="image/*,application/pdf"
+                label="Attach picture or PDF"
+              />
               {q.type === 'choice' && (
                 <input className="dir-input" value={(q.options ?? []).join(', ')}
                   placeholder="Choices, separated by commas"
@@ -861,6 +894,7 @@ function SignupEditor({ initial, isNew, ensembles, students, onSave, onClose }: 
                 <SignupSlotBuilder
                   slotDefs={q.slotDefs ?? []}
                   manualDraft={q.slotManualDraft ?? (q.slotDefs?.length ? '' : (q.options ?? []).join('\n'))}
+                  optionGrades={q.optionGrades}
                   onChange={patch => setQuestion(i, patch)}
                 />
               )}

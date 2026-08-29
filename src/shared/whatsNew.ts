@@ -33,6 +33,18 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-29-signups-slots-grades',
+    date: '2026-08-29',
+    title: 'Sign-ups: easier targeting and lesson-time slots',
+    audience: 'both' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'Directors: “Who is this for?” and “Narrow to instruments” are compact dropdowns — pick several ensembles or instrument families without a wall of checkboxes.',
+      'Each question can include a picture or PDF for students to look at while they answer.',
+      'Time-slot sign-ups can limit individual times by grade (e.g. two Monday lessons for 12th only). After you pick your name, times that aren’t for your grade show as not available.',
+    ],
+  },
+  {
     id: '2026-08-28-college-area',
     date: '2026-08-28',
     title: 'College ensembles and classes',

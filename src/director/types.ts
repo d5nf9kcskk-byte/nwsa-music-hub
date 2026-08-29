@@ -842,6 +842,9 @@ export interface SignupSlotDef {
   date: string; // YYYY-MM-DD
   startMin: number;
   endMin: number;
+  /** When set, only these grades may book this slot (e.g. `['12th']` for
+   *  seniors-only lesson times). Empty/omit = anyone on the form audience. */
+  grades?: string[];
 }
 
 /** One director-written question on a sign-up form. `id` is stable for the
@@ -858,9 +861,14 @@ export interface SignupQuestion {
   slotDefs?: SignupSlotDef[];
   /** While editing: raw manual textarea (not persisted). */
   slotManualDraft?: string;
+  /** Parallel to `options[]` for timeslot: allowed grades per slot, or null
+   *  for anyone. Derived from `slotDefs[].grades` on save when defs exist. */
+  optionGrades?: (string[] | null)[];
   required?: boolean;
   /** Small grey line under the field. */
   help?: string;
+  /** Optional picture/PDF for the student to look at while answering. */
+  reference?: Attachment;
 }
 
 /**
