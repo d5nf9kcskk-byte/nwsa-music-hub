@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock, History, Activity, ChevronDown, ChevronUp, BookOpen } from 'lucide-react';
+import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock, History, Activity, ChevronDown, ChevronUp, BookOpen, ChevronLeft } from 'lucide-react';
 import { useDirectors, directorEmailId, directorRoles, directorRoleLabels, hasDirectorRole, primaryDirectorRole } from '../hooks/useDirectors';
 import type { Director, DirectorRole } from '../hooks/useDirectors';
 import { useLoginEvents, LOGIN_LOG_LIMIT } from '../hooks/useLoginEvents';
 import { useActivityLog, ACTIVITY_LOG_LIMIT } from '../hooks/useActivityLog';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
-import { useModalA11y } from '../../shared/useModalA11y';
 import { musicEnsembles, classGroups, performingEnsembles } from '../utils';
 import { STAFF_ROLE_LABEL } from '../types';
 import { whenQueued } from '../writeStatus';
@@ -45,7 +44,6 @@ interface Props {
   currentRole: DirectorRole;
   /** When set, used instead of currentRole for the owner check (multi-role). */
   currentRoles?: DirectorRole[];
-  onClose: () => void;
 }
 
 // Deliberately loose — just enough to catch typos, not to police valid addresses.
@@ -60,22 +58,22 @@ const ROLE_ICON: Record<DirectorRole, typeof ShieldCheck> = {
 
 /**
  * Manage who can sign in and edit the Hub, and at what level (#roles).
- * Owner-only — the app hides this screen's nav entry for everyone else, and
- * firestore.rules independently refuses any write here from a non-Owner, so
- * this is enforcement-grade, not just a UI nicety.
+ * Owner-only full page — the app hides this tab's nav entry for everyone else,
+ * and firestore.rules independently refuses any write here from a non-Owner.
+ * List and add/edit are separate page views so the long assignment form is
+ * never cramped in a side drawer (one scroll owner: .dir-content).
  */
-export function DirectorsManager({ currentEmail, currentRole, currentRoles, onClose }: Props) {
+export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Props) {
   const { directors, loading, addDirector, updateDirector, removeDirector } = useDirectors();
   const { ensembles } = useEnsembles();
-  const [adding, setAdding] = useState(false);
-  const [editingEmail, setEditingEmail] = useState<string | null>(null);
+  const [mode, setMode] = useState<'list' | 'add' | { edit: string }>('list');
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
-  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
 
   const meId = currentEmail ? directorEmailId(currentEmail) : null;
+  const isOwner = (currentRoles ?? [currentRole]).includes('owner');
 
   async function handleRemove(id: string) {
     setBusy(true);
@@ -87,174 +85,167 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles, onCl
     }
   }
 
-  const isOwner = (currentRoles ?? [currentRole]).includes('owner');
-
   if (!isOwner) {
     // Defense in depth: DirectorApp already hides the nav entry that opens
     // this, so reaching here means a stale tab/role change — say so plainly
     // rather than silently no-op'ing.
     return (
-      <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-        <div className="dir-drawer" role="dialog" aria-modal="true" aria-label="Directors" tabIndex={-1} ref={panelRef}>
-          <div className="dir-drawer-handle" />
-          <div className="dir-drawer-header">
-            <span className="dir-drawer-title"><Lock size={16} style={{ verticalAlign: '-2px' }} /> Directors</span>
-            <button className="dir-drawer-close" onClick={onClose}>×</button>
-          </div>
-          <div className="dir-drawer-body">
-            <div className="dir-loc-empty">Only the Owner can view or change who has access.</div>
+      <div className="dir-tab-page">
+        <div className="dir-page-body">
+          <div className="dir-loc-empty">
+            <Lock size={16} style={{ verticalAlign: '-2px' }} /> Only the Owner can view or change who has access.
           </div>
         </div>
       </div>
     );
   }
 
+  if (mode === 'add') {
+    return (
+      <DirectorEditor
+        onSave={async data => {
+          await addDirector(data.email!, currentEmail ?? undefined, {
+            name: data.name,
+            roles: data.roles as Exclude<DirectorRole, 'owner'>[] | undefined,
+            instruments: data.instruments,
+            assignedStudentIds: data.assignedStudentIds,
+            assignedEnsembleIds: data.assignedEnsembleIds,
+            mdcEmail: data.mdcEmail,
+            phone: data.phone,
+          });
+          const added: Director = {
+            email: data.email!,
+            name: data.name,
+            roles: data.roles as DirectorRole[] | undefined,
+            assignedEnsembleIds: data.assignedEnsembleIds,
+            assignedEnsemblePatterns: data.assignedEnsemblePatterns,
+            mdcEmail: data.mdcEmail,
+            phone: data.phone,
+          };
+          await syncAllEnsembleStaff([...directors, added], ensembles);
+          setMode('list');
+        }}
+        onClose={() => setMode('list')}
+        existingEmails={directors.map(d => d.email)}
+      />
+    );
+  }
+
+  if (typeof mode === 'object') {
+    const d = directors.find(x => x.email === mode.edit);
+    // Gone (removed elsewhere / still loading) — fall back to the list.
+    if (d) {
+      return (
+        <DirectorEditor
+          director={d}
+          onSave={async patch => {
+            await updateDirector(d.email, patch);
+            const next = directors.map(x => x.email === d.email ? { ...x, ...patch, email: d.email } : x);
+            await syncAllEnsembleStaff(next, ensembles);
+            setMode('list');
+          }}
+          onClose={() => setMode('list')}
+        />
+      );
+    }
+  }
+
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label="Directors" tabIndex={-1} ref={panelRef}>
-        <div className="dir-drawer-handle" />
-        <div className="dir-drawer-header">
-          <span className="dir-drawer-title">Directors</span>
-          <button className="dir-drawer-close" onClick={onClose}>×</button>
-        </div>
-        <div className="dir-drawer-body">
-          <p className="dir-loc-hint" style={{ marginTop: 0 }}>
-            Only you (the Owner) can see or change this list. Each person can
-            hold one or more access levels — and assign the ensembles they
-            conduct or the class sections they teach. Applied Teachers get
-            assigned students; Personnel Assistants and Classroom Teachers get
-            their groups here too.
-          </p>
+    <div className="dir-tab-page">
+      <div className="dir-page-body">
+        <p className="dir-loc-hint" style={{ marginTop: 0 }}>
+          Only you (the Owner) can see or change this list. Each person can
+          hold one or more access levels — and assign the ensembles they
+          conduct or the class sections they teach. Applied Teachers get
+          assigned students; Personnel Assistants and Classroom Teachers get
+          their groups here too.
+        </p>
 
-          {loading && directors.length === 0 && <div className="dir-loc-empty">Loading…</div>}
-          {!loading && directors.length === 0 && (
-            <div className="dir-loc-empty">No directors listed yet. Add the first one below.</div>
-          )}
+        {loading && directors.length === 0 && <div className="dir-loc-empty">Loading…</div>}
+        {!loading && directors.length === 0 && (
+          <div className="dir-loc-empty">No directors listed yet. Add the first one below.</div>
+        )}
 
-          {directors.map(d => {
-            const roles = directorRoles(d);
-            const roleLabel = directorRoleLabels(d);
-            const isSelf = d.email === meId;
-            const Icon = ROLE_ICON[primaryDirectorRole(d)];
-            return (
-              <div key={d.email}>
-                <div className="dir-loc-row" style={{ cursor: 'default' }}>
-                  <Icon size={16} className="dir-loc-pin" />
-                  <div className="dir-loc-info">
-                    <div className="dir-loc-name">
-                      {d.name || d.email}
-                      {isSelf && <span className="dir-loc-label"> — you</span>}
-                    </div>
-                    <div className="dir-ens-sub">
-                      {d.name ? `${d.email} · ` : ''}{roleLabel}
-                      {hasDirectorRole(d, 'teacher') && d.instruments?.length ? ` · ${d.instruments.join(', ')}` : ''}
-                      {(hasDirectorRole(d, 'director') || hasDirectorRole(d, 'classroom') || hasDirectorRole(d, 'assistant'))
-                        && (d.assignedEnsembleIds?.length || d.assignedEnsemblePatterns?.length)
-                        ? ` · ${assignmentSummary(d, ensembles)}`
-                        : ''}
-                    </div>
-                  </div>
-                  {confirmRemove === d.email ? (
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button className="dir-btn dir-btn-danger" onClick={() => handleRemove(d.email)} disabled={busy}>Remove</button>
-                      <button className="dir-btn dir-btn-ghost" onClick={() => setConfirmRemove(null)} disabled={busy}>Cancel</button>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button className="dir-icon-btn" onClick={() => setEditingEmail(d.email)} aria-label={`Edit ${d.email}`}>
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        className="dir-icon-btn"
-                        onClick={() => setConfirmRemove(d.email)}
-                        disabled={isSelf || roles.includes('owner')}
-                        title={isSelf ? "You can't remove yourself" : roles.includes('owner') ? 'The Owner can’t be removed' : `Remove ${d.email}`}
-                        aria-label={isSelf ? "You can't remove yourself" : `Remove ${d.email}`}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  )}
+        {directors.map(d => {
+          const roles = directorRoles(d);
+          const roleLabel = directorRoleLabels(d);
+          const isSelf = d.email === meId;
+          const Icon = ROLE_ICON[primaryDirectorRole(d)];
+          return (
+            <div key={d.email} className="dir-loc-row" style={{ cursor: 'default' }}>
+              <Icon size={16} className="dir-loc-pin" />
+              <div className="dir-loc-info">
+                <div className="dir-loc-name">
+                  {d.name || d.email}
+                  {isSelf && <span className="dir-loc-label"> — you</span>}
                 </div>
-                {editingEmail === d.email && (
-                  <DirectorEditor
-                    director={d}
-                    onSave={async patch => {
-                      await updateDirector(d.email, patch);
-                      const next = directors.map(x => x.email === d.email ? { ...x, ...patch, email: d.email } : x);
-                      await syncAllEnsembleStaff(next, ensembles);
-                      setEditingEmail(null);
-                    }}
-                    onClose={() => setEditingEmail(null)}
-                  />
-                )}
+                <div className="dir-ens-sub">
+                  {d.name ? `${d.email} · ` : ''}{roleLabel}
+                  {hasDirectorRole(d, 'teacher') && d.instruments?.length ? ` · ${d.instruments.join(', ')}` : ''}
+                  {(hasDirectorRole(d, 'director') || hasDirectorRole(d, 'classroom') || hasDirectorRole(d, 'assistant'))
+                    && (d.assignedEnsembleIds?.length || d.assignedEnsemblePatterns?.length)
+                    ? ` · ${assignmentSummary(d, ensembles)}`
+                    : ''}
+                </div>
               </div>
-            );
-          })}
+              {confirmRemove === d.email ? (
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <button className="dir-btn dir-btn-danger" onClick={() => handleRemove(d.email)} disabled={busy}>Remove</button>
+                  <button className="dir-btn dir-btn-ghost" onClick={() => setConfirmRemove(null)} disabled={busy}>Cancel</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  <button className="dir-icon-btn" onClick={() => setMode({ edit: d.email })} aria-label={`Edit ${d.email}`}>
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    className="dir-icon-btn"
+                    onClick={() => setConfirmRemove(d.email)}
+                    disabled={isSelf || roles.includes('owner')}
+                    title={isSelf ? "You can't remove yourself" : roles.includes('owner') ? 'The Owner can’t be removed' : `Remove ${d.email}`}
+                    aria-label={isSelf ? "You can't remove yourself" : `Remove ${d.email}`}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
 
-          {/* Sign-in history (#login-history): Owner-only record of who signed
-              in and when — every role: directors, teachers, assistants. */}
-          <div className="dir-menu-divider" style={{ margin: '16px 0 10px' }} />
-          <button
-            className="dir-btn dir-btn-ghost"
-            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-            onClick={() => setShowLog(s => !s)}
-            aria-expanded={showLog}
-          >
-            <History size={15} /> Sign-in history
-            {showLog ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-          {showLog && <LoginHistory />}
+        {/* Sign-in history (#login-history): Owner-only record of who signed
+            in and when — every role: directors, teachers, assistants. */}
+        <div className="dir-menu-divider" style={{ margin: '16px 0 10px' }} />
+        <button
+          className="dir-btn dir-btn-ghost"
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          onClick={() => setShowLog(s => !s)}
+          aria-expanded={showLog}
+        >
+          <History size={15} /> Sign-in history
+          {showLog ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+        {showLog && <LoginHistory />}
 
-          {/* Activity log (#activity-log): Owner-only record of notable actions
-              (opened Schedule, opened Roster, saved a rehearsal note, …) — not
-              just sign-in. */}
-          <button
-            className="dir-btn dir-btn-ghost"
-            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8 }}
-            onClick={() => setShowActivity(s => !s)}
-            aria-expanded={showActivity}
-          >
-            <Activity size={15} /> Activity log
-            {showActivity ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-          {showActivity && <ActivityHistory />}
-        </div>
+        {/* Activity log (#activity-log): Owner-only record of notable actions
+            (opened Schedule, opened Roster, saved a rehearsal note, …) — not
+            just sign-in. */}
+        <button
+          className="dir-btn dir-btn-ghost"
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8 }}
+          onClick={() => setShowActivity(s => !s)}
+          aria-expanded={showActivity}
+        >
+          <Activity size={15} /> Activity log
+          {showActivity ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+        {showActivity && <ActivityHistory />}
+      </div>
 
-        <div className="dir-drawer-footer" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-          {!adding ? (
-            <button className="dir-btn dir-btn-primary" onClick={() => setAdding(true)}>
-              <Plus size={16} style={{ verticalAlign: '-3px' }} /> Add a director, teacher, or assistant
-            </button>
-          ) : (
-            <DirectorEditor
-              onSave={async data => {
-                await addDirector(data.email!, currentEmail ?? undefined, {
-                  name: data.name,
-                  roles: data.roles as Exclude<DirectorRole, 'owner'>[] | undefined,
-                  instruments: data.instruments,
-                  assignedStudentIds: data.assignedStudentIds,
-                  assignedEnsembleIds: data.assignedEnsembleIds,
-                  mdcEmail: data.mdcEmail,
-                  phone: data.phone,
-                });
-                const added: Director = {
-                  email: data.email!,
-                  name: data.name,
-                  roles: data.roles as DirectorRole[] | undefined,
-                  assignedEnsembleIds: data.assignedEnsembleIds,
-                  assignedEnsemblePatterns: data.assignedEnsemblePatterns,
-                  mdcEmail: data.mdcEmail,
-                  phone: data.phone,
-                };
-                await syncAllEnsembleStaff([...directors, added], ensembles);
-                setAdding(false);
-              }}
-              onClose={() => setAdding(false)}
-              existingEmails={directors.map(d => d.email)}
-            />
-          )}
-        </div>
+      <div className="dir-drawer-footer">
+        <button className="dir-btn dir-btn-primary" onClick={() => setMode('add')}>
+          <Plus size={16} style={{ verticalAlign: '-3px' }} /> Add a director, teacher, or assistant
+        </button>
       </div>
     </div>
   );
@@ -339,8 +330,8 @@ function ActivityHistory() {
 }
 
 /** Add/edit form: email (add only) + name + roles + (Applied Teacher) instruments &
- *  assigned students + (Personnel Assistant) assigned ensembles. One shared
- *  shape so adding and editing stay consistent. */
+ *  assigned students + (Personnel Assistant) assigned ensembles. Full-page so
+ *  the long checklist never fights a drawer scroller. */
 function DirectorEditor({ director, onSave, onClose, existingEmails }: {
   director?: Director;
   onSave: (data: Partial<Director> & { email?: string; role?: undefined }) => Promise<void>;
@@ -453,141 +444,154 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
   }
 
   return (
-    <div className="dir-drawer-body" style={{ background: 'var(--dir-panel-alt, rgba(0,0,0,0.03))', borderRadius: 10, padding: 12, marginTop: director ? 0 : 8, marginBottom: 8 }}>
-      {!director && (
-        <div className="dir-field">
-          <label className="dir-label">Google sign-in email</label>
-          <input className="dir-input" type="email" value={email} placeholder="person@gmail.com" onChange={e => setEmail(e.target.value)} />
-        </div>
-      )}
-      <div className="dir-field">
-        <label className="dir-label">Name</label>
-        <input className="dir-input" value={name} placeholder="First captured automatically when they sign in" onChange={e => setName(e.target.value)} />
-      </div>
-      <div className="dir-field">
-        <label className="dir-label">MDC work email</label>
-        <input className="dir-input" type="email" value={mdcEmail} placeholder="name@mdc.edu" onChange={e => setMdcEmail(e.target.value)} />
-        <div className="dir-field-hint">Shown on ensemble and class pages — not the Gmail used to sign in.</div>
-      </div>
-      <div className="dir-field">
-        <label className="dir-label">Office phone <span className="dir-label-hint">(optional)</span></label>
-        <input className="dir-input" type="tel" value={phone} placeholder="305-237-…" onChange={e => setPhone(e.target.value)} />
-      </div>
-      {isOwnerRow && (
-        <div className="dir-field-hint" style={{ marginBottom: 8 }}>
-          <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} /> You are the Owner — that never changes.
-          Pick any <em>additional</em> levels below (e.g. Applied Teacher if you also teach private lessons).
-        </div>
-      )}
-      <div className="dir-field">
-        <label className="dir-label">{isOwnerRow ? 'Additional access levels' : 'Access levels'}</label>
-        <div className="dir-checkbox-group">
-          <label className={`dir-checkbox-tag ${hasDirector ? 'checked' : ''}`}>
-            <input type="checkbox" checked={hasDirector} onChange={() => toggleRole('director')} />
-            <UserCog size={14} /> Director
-          </label>
-          <label className={`dir-checkbox-tag ${hasTeacher ? 'checked' : ''}`}>
-            <input type="checkbox" checked={hasTeacher} onChange={() => toggleRole('teacher')} />
-            <GraduationCap size={14} /> Applied Teacher
-          </label>
-          <label className={`dir-checkbox-tag ${hasClassroom ? 'checked' : ''}`}>
-            <input type="checkbox" checked={hasClassroom} onChange={() => toggleRole('classroom')} />
-            <BookOpen size={14} /> Classroom Teacher
-          </label>
-          <label className={`dir-checkbox-tag ${hasAssistant ? 'checked' : ''}`}>
-            <input type="checkbox" checked={hasAssistant} onChange={() => toggleRole('assistant')} />
-            <ClipboardList size={14} /> Personnel Asst.
-          </label>
-        </div>
-        <div className="dir-field-hint">
-          {isOwnerRow
-            ? 'Owner already has full Hub access. Extra levels unlock their scoped tools — My Lessons for applied teaching, class roll/docs for classroom sections, etc.'
-            : 'Pick every level that applies — e.g. a director who also teaches private lessons gets Director and Applied Teacher. At least one is required.'}
-          {hasDirector && ' Director: full edit access everywhere except this screen.'}
-          {hasTeacher && ' Applied Teacher: schedule and grade private lessons for assigned students.'}
-          {hasClassroom && ' Classroom Teacher: roll, assignments, and documents for assigned class sections.'}
-          {hasAssistant && ' Personnel Assistant: take roll for assigned performing ensembles only.'}
-        </div>
-      </div>
-
-      {(hasDirector || hasAssistant) && (
-        <div className="dir-field">
-          <label className="dir-label">
-            {hasDirector && hasAssistant
-              ? 'Performing ensembles they conduct / take roll for'
-              : hasDirector
-                ? 'Ensembles they conduct'
-                : 'Performing ensembles they take roll for'}
-          </label>
-          <div className="dir-checkbox-group">
-            {performingEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
-              <label key={e.id} className={`dir-checkbox-tag ${assignedEnsIds.includes(e.id) ? 'checked' : ''}`}>
-                <input type="checkbox" checked={assignedEnsIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
-                {e.name}
-              </label>
-            ))}
-          </div>
-          {hasDirector && (
-            <label className={`dir-checkbox-tag ${allJazzCombos ? 'checked' : ''}`} style={{ marginTop: 8, display: 'inline-flex' }}>
-              <input type="checkbox" checked={allJazzCombos} onChange={() => setAllJazzCombos(v => !v)} />
-              All Jazz Combos (including ones added later)
-            </label>
+    <div className="dir-tab-page">
+      <div className="dir-sc-panel-head">
+        <button className="dir-drawer-back" onClick={onClose}><ChevronLeft size={18} /> Back</button>
+        <div className="dir-sc-student">
+          <div className="dir-sc-student-name">{director ? 'Edit access' : 'Add access'}</div>
+          {director && (
+            <div className="dir-ens-sub">{director.name || director.email}</div>
           )}
-          <div className="dir-field-hint">
-            {hasDirector && 'Pick every performing group this person leads — orchestras, bands, jazz, choir, etc.'}
-            {hasAssistant && !hasDirector && 'Personnel Assistants can take roll only for the groups selected here.'}
-          </div>
         </div>
-      )}
+      </div>
 
-      {hasClassroom && (
+      <div className="dir-page-body">
+        {!director && (
+          <div className="dir-field">
+            <label className="dir-label">Google sign-in email</label>
+            <input className="dir-input" type="email" value={email} placeholder="person@gmail.com" onChange={e => setEmail(e.target.value)} />
+          </div>
+        )}
         <div className="dir-field">
-          <label className="dir-label">Class sections they teach</label>
-          <div className="dir-checkbox-group">
-            {classGroups([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
-              <label key={e.id} className={`dir-checkbox-tag ${assignedEnsIds.includes(e.id) ? 'checked' : ''}`}>
-                <input type="checkbox" checked={assignedEnsIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
-                {e.name}
-              </label>
-            ))}
-          </div>
-          <div className="dir-field-hint">Theory, music appreciation, college courses, and other class groups.</div>
+          <label className="dir-label">Name</label>
+          <input className="dir-input" value={name} placeholder="First captured automatically when they sign in" onChange={e => setName(e.target.value)} />
         </div>
-      )}
-
-      {hasTeacher && (
-        <>
-          <div className="dir-field">
-            <label className="dir-label">Instrument(s) taught</label>
-            <input className="dir-input" value={instruments} placeholder="e.g. Violin, Viola" onChange={e => setInstruments(e.target.value)} />
+        <div className="dir-field">
+          <label className="dir-label">MDC work email</label>
+          <input className="dir-input" type="email" value={mdcEmail} placeholder="name@mdc.edu" onChange={e => setMdcEmail(e.target.value)} />
+          <div className="dir-field-hint">Shown on ensemble and class pages — not the Gmail used to sign in.</div>
+        </div>
+        <div className="dir-field">
+          <label className="dir-label">Office phone <span className="dir-label-hint">(optional)</span></label>
+          <input className="dir-input" type="tel" value={phone} placeholder="305-237-…" onChange={e => setPhone(e.target.value)} />
+        </div>
+        {isOwnerRow && (
+          <div className="dir-field-hint" style={{ marginBottom: 8 }}>
+            <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} /> You are the Owner — that never changes.
+            Pick any <em>additional</em> levels below (e.g. Applied Teacher if you also teach private lessons).
           </div>
+        )}
+        <div className="dir-field">
+          <label className="dir-label">{isOwnerRow ? 'Additional access levels' : 'Access levels'}</label>
+          <div className="dir-checkbox-group">
+            <label className={`dir-checkbox-tag ${hasDirector ? 'checked' : ''}`}>
+              <input type="checkbox" checked={hasDirector} onChange={() => toggleRole('director')} />
+              <UserCog size={14} /> Director
+            </label>
+            <label className={`dir-checkbox-tag ${hasTeacher ? 'checked' : ''}`}>
+              <input type="checkbox" checked={hasTeacher} onChange={() => toggleRole('teacher')} />
+              <GraduationCap size={14} /> Applied Teacher
+            </label>
+            <label className={`dir-checkbox-tag ${hasClassroom ? 'checked' : ''}`}>
+              <input type="checkbox" checked={hasClassroom} onChange={() => toggleRole('classroom')} />
+              <BookOpen size={14} /> Classroom Teacher
+            </label>
+            <label className={`dir-checkbox-tag ${hasAssistant ? 'checked' : ''}`}>
+              <input type="checkbox" checked={hasAssistant} onChange={() => toggleRole('assistant')} />
+              <ClipboardList size={14} /> Personnel Asst.
+            </label>
+          </div>
+          <div className="dir-field-hint">
+            {isOwnerRow
+              ? 'Owner already has full Hub access. Extra levels unlock their scoped tools — My Lessons for applied teaching, class roll/docs for classroom sections, etc.'
+              : 'Pick every level that applies — e.g. a director who also teaches private lessons gets Director and Applied Teacher. At least one is required.'}
+            {hasDirector && ' Director: full edit access everywhere except this screen.'}
+            {hasTeacher && ' Applied Teacher: schedule and grade private lessons for assigned students.'}
+            {hasClassroom && ' Classroom Teacher: roll, assignments, and documents for assigned class sections.'}
+            {hasAssistant && ' Personnel Assistant: take roll for assigned performing ensembles only.'}
+          </div>
+        </div>
+
+        {(hasDirector || hasAssistant) && (
           <div className="dir-field">
-            <label className="dir-label">Assigned students ({assignedIds.length})</label>
-            <input
-              className="dir-input"
-              style={{ marginBottom: 6 }}
-              placeholder="Search students…"
-              value={studentQuery}
-              onChange={e => setStudentQuery(e.target.value)}
-            />
-            <div className="dir-checkbox-group" style={{ maxHeight: 220, overflowY: 'auto' }}>
-              {filteredStudents.map(s => (
-                <label key={s.id} className={`dir-checkbox-tag ${assignedIds.includes(s.id) ? 'checked' : ''}`}>
-                  <input type="checkbox" checked={assignedIds.includes(s.id)} onChange={() => toggleStudent(s.id)} />
-                  {s.name}{s.instrument ? ` — ${s.instrument}` : ''}
+            <label className="dir-label">
+              {hasDirector && hasAssistant
+                ? 'Performing ensembles they conduct / take roll for'
+                : hasDirector
+                  ? 'Ensembles they conduct'
+                  : 'Performing ensembles they take roll for'}
+            </label>
+            <div className="dir-checkbox-group">
+              {performingEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
+                <label key={e.id} className={`dir-checkbox-tag ${assignedEnsIds.includes(e.id) ? 'checked' : ''}`}>
+                  <input type="checkbox" checked={assignedEnsIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
+                  {e.name}
                 </label>
               ))}
-              {filteredStudents.length === 0 && <div className="dir-loc-empty">No students match.</div>}
             </div>
+            {hasDirector && (
+              <label className={`dir-checkbox-tag ${allJazzCombos ? 'checked' : ''}`} style={{ marginTop: 8, display: 'inline-flex' }}>
+                <input type="checkbox" checked={allJazzCombos} onChange={() => setAllJazzCombos(v => !v)} />
+                All Jazz Combos (including ones added later)
+              </label>
+            )}
             <div className="dir-field-hint">
-              The applied teacher can adjust this list themselves later from their own lesson screen.
+              {hasDirector && 'Pick every performing group this person leads — orchestras, bands, jazz, choir, etc.'}
+              {hasAssistant && !hasDirector && 'Personnel Assistants can take roll only for the groups selected here.'}
             </div>
           </div>
-        </>
-      )}
+        )}
 
-      {error && <div className="dir-sc-error">⚠ {error}</div>}
-      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+        {hasClassroom && (
+          <div className="dir-field">
+            <label className="dir-label">Class sections they teach</label>
+            <div className="dir-checkbox-group">
+              {classGroups([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
+                <label key={e.id} className={`dir-checkbox-tag ${assignedEnsIds.includes(e.id) ? 'checked' : ''}`}>
+                  <input type="checkbox" checked={assignedEnsIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
+                  {e.name}
+                </label>
+              ))}
+            </div>
+            <div className="dir-field-hint">Theory, music appreciation, college courses, and other class groups.</div>
+          </div>
+        )}
+
+        {hasTeacher && (
+          <>
+            <div className="dir-field">
+              <label className="dir-label">Instrument(s) taught</label>
+              <input className="dir-input" value={instruments} placeholder="e.g. Violin, Viola" onChange={e => setInstruments(e.target.value)} />
+            </div>
+            <div className="dir-field">
+              <label className="dir-label">Assigned students ({assignedIds.length})</label>
+              <input
+                className="dir-input"
+                style={{ marginBottom: 6 }}
+                placeholder="Search students…"
+                value={studentQuery}
+                onChange={e => setStudentQuery(e.target.value)}
+              />
+              <div className="dir-checkbox-group">
+                {filteredStudents.map(s => (
+                  <label key={s.id} className={`dir-checkbox-tag ${assignedIds.includes(s.id) ? 'checked' : ''}`}>
+                    <input type="checkbox" checked={assignedIds.includes(s.id)} onChange={() => toggleStudent(s.id)} />
+                    {s.name}{s.instrument ? ` — ${s.instrument}` : ''}
+                  </label>
+                ))}
+                {filteredStudents.length === 0 && <div className="dir-loc-empty">No students match.</div>}
+              </div>
+              <div className="dir-field-hint">
+                The applied teacher can adjust this list themselves later from their own lesson screen.
+              </div>
+            </div>
+          </>
+        )}
+
+        {error && <div className="dir-sc-error">⚠ {error}</div>}
+      </div>
+
+      <div className="dir-drawer-footer">
         <button className="dir-btn dir-btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
         <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || (!director && !email.trim())}>
           {saving ? 'Saving…' : director ? 'Save changes' : 'Add'}

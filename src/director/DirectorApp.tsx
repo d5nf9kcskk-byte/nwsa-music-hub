@@ -154,12 +154,13 @@ const TAB_TITLES: Record<DirTab, string> = {
   signups:         'Sign-ups',
   juries:          'Juries',
   personnel:       'Personnel',
+  directors:       'Directors',
 };
 
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'lessons', 'myLessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'classes', 'college', 'whosOut', 'scheduleSwap', 'rotations',
-  'messages', 'signups', 'juries',
+  'messages', 'signups', 'juries', 'directors',
   // The roster URL segment follows the org kind too (#personnel), so a
   // school build has no /director/personnel route and an adult build no
   // /director/roster \u2014 an off-org deep link falls back to Today.
@@ -193,6 +194,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   messages:        'Messages families send through the public Contact Us form. Reply opens your own email app.',
   signups:         'Ask students to opt in \u2014 auditions, trips, anything. They pick their name, confirm their grade, answer your questions, and sign. You get the list, a spreadsheet, and printable signed forms.',
   juries:          'End-of-semester juries. Add one as soon as you know it\u2019s happening \u2014 a name is enough \u2014 and fill in the date, room, panel, and running order as each gets decided.',
+  directors:       'Who can sign in and at what level. Tap the pencil to edit roles and assignments \u2014 ensembles, class sections, or applied-lesson students.',
   // Spread-conditional so the string ships only in personnel-org bundles.
   ...(__ORG_PERSONNEL__ ? {
     personnel: 'Everyone the orchestra engages \u2014 players, podium, and staff. Tap a person for private contact details and their contracts.',
@@ -233,7 +235,6 @@ export default function DirectorApp() {
   // accordion tax once the menu is open).
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
-  const [directorsOpen, setDirectorsOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem('dir.theme') === 'dark'; } catch { return false; } });
 
   // Cmd/Ctrl+K opens the quick switcher (DirectorSearch already has full
@@ -496,7 +497,7 @@ export default function DirectorApp() {
                 <QrCode size={18} /> QR Kit
               </button>
               {isOwner && (
-                <button className="dir-rail-item" onClick={() => setDirectorsOpen(true)}>
+                <button className={`dir-rail-item${tab === 'directors' ? ' active' : ''}`} onClick={() => go('directors')}>
                   <ShieldCheck size={18} /> Directors
                 </button>
               )}
@@ -595,16 +596,15 @@ export default function DirectorApp() {
             {tab === 'ensembleHub' && intent.ensembleId && (
               <EnsembleHubView key={intentKey} ensembleId={intent.ensembleId} onNavigate={go} />
             )}
+            {tab === 'directors' && (
+              <DirectorsManager currentEmail={user.email} currentRole={me?.role ?? 'director'} currentRoles={me?.roles} />
+            )}
           </main>
 
           <WriteTray />
           <NoteBurst cheer={logoCheer || panelCheer} />
 
           {qrOpen && <QrKitView onClose={() => setQrOpen(false)} />}
-
-          {directorsOpen && isOwner && (
-            <DirectorsManager currentEmail={user.email} currentRole={me?.role ?? 'director'} currentRoles={me?.roles} onClose={() => setDirectorsOpen(false)} />
-          )}
 
           <DirectorSearch
             open={searchOpen}
@@ -764,7 +764,7 @@ export default function DirectorApp() {
                 </button>
 
                 {isOwner && (
-                  <button className="dir-menu-item" onClick={() => { setDirectorsOpen(true); setMenuOpen(false); }}>
+                  <button className={`dir-menu-item${tab === 'directors' ? ' active' : ''}`} onClick={() => go('directors')}>
                     <ShieldCheck size={19} /> Directors
                   </button>
                 )}
