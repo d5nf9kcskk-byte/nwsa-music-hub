@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { ClipboardList, MapPin, Clock, Music, GraduationCap, CalendarPlus, Users, Megaphone, ChevronRight, Plus, MessageSquarePlus } from 'lucide-react';
+import { ClipboardList, MapPin, Clock, Music, GraduationCap, CalendarPlus, Users, Megaphone, ChevronRight, Plus, MessageSquarePlus, UserCog } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../hooks/useAnnouncements';
+import { useStaffNotices, activeNotices } from '../hooks/useStaffNotices';
 import { useAllAttendance } from '../hooks/useAttendance';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -35,6 +36,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const { pieces } = useRepertoire();
   const { overrides } = useRosterOverrides();
   const { announcements, addAnnouncement } = useAnnouncements();
+  const { notices, dismissNotice } = useStaffNotices();
   const now = useMinuteTick(); // scheduled posts appear the minute they go live
   const { assignments } = useAssignments();
   const { records: allAttendance } = useAllAttendance();
@@ -176,6 +178,19 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
           <div className="dir-today-birthday">{musicHolidayOn(new Date(), 'en')}</div>
         )}
       </div>
+
+      {/* Student-move notices (#two-doors §5.1): shown until each staff
+          member dismisses their copy, and hidden once the move is past. */}
+      {activeNotices(notices, today).map(n => (
+        <div key={n.id} className="dir-staff-notice">
+          <UserCog size={16} />
+          <div className="dir-staff-notice-text">
+            {n.text}
+            {n.createdBy && <span className="dir-staff-notice-by"> — {n.createdBy}</span>}
+          </div>
+          <button className="dir-icon-btn" onClick={() => dismissNotice(n.id)} aria-label="Dismiss notice">×</button>
+        </div>
+      ))}
 
       {ensembles.length > 0 && (
         <EnsembleFilter ensembles={ensembles} value={ensembleId} onChange={pickEnsemble} />

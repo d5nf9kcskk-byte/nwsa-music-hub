@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Move a Student sentence page (docs/schedule-ux-two-doors.md, Phase 4b).
+  // Staff-only: roster moves and director notices never touch the public site.
+  {
+    id: '2026-08-29-move-a-student-sentence',
+    date: '2026-08-29',
+    title: 'Move a Student is now one sentence',
+    audience: 'staff' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'Pick the student and finish the sentence — "is with [Jazz] instead of Symphony [today]". The screen already knows where they were expected, so you only say where they\'re going.',
+      'Before you save, a card spells out exactly what happens to each roll. The student\'s active moves list right below — deleting one is the undo.',
+      'New: when a move is saved, the affected ensembles\' directors get a heads-up notice on their Today screen.',
+    ],
+  },
   // Student Assistant rename + optional extras beyond take-roll.
   {
     id: '2026-08-29-student-assistant',
