@@ -23,6 +23,7 @@ import { useLogoEgg } from '../shared/useLogoEgg';
 import { useEggCheer, useTapN } from '../shared/useEggCheer';
 import { batonInHandLine } from '../shared/whimsy';
 import '../shared/whatsNew.css';
+import { WhatsNewBanner } from '../shared/WhatsNewBanner';
 import { DIRECTOR_FEEDBACK_FORM_URL } from './feedbackForm';
 import { useUrgentRelaySweep } from './announcements/urgentRelay';
 import { AttendanceTab } from './attendance/AttendanceTab';
@@ -504,6 +505,9 @@ export default function DirectorApp() {
               <button className="dir-rail-item" onClick={() => navigate('/')}>
                 <ExternalLink size={18} /> View public site
               </button>
+              <div className="dir-rail-whats-new">
+                <WhatsNewBanner audience="staff" />
+              </div>
               <button className="dir-rail-item dir-rail-signout" onClick={signOut}>
                 <LogOut size={18} /> Sign out
               </button>
@@ -778,6 +782,10 @@ export default function DirectorApp() {
                 <InstallAppButton />
                 <AppVersionRow />
 
+                <div className="dir-menu-divider" />
+                <div className="dir-menu-whats-new">
+                  <WhatsNewBanner audience="staff" />
+                </div>
                 <div className="dir-menu-divider" />
 
                 <button className="dir-menu-item dir-menu-signout" onClick={signOut}>

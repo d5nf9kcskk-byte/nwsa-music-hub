@@ -2,7 +2,7 @@
  * Temporary "What's New" entries for Hub update summaries.
  * Leave empty when there is nothing new — the banner renders nothing.
  *
- * audience: 'staff' = director Today only; 'public' = public menu;
+ * audience: 'staff' = director menu only; 'public' = public menu;
  * 'both' = either surface when relevant.
  *
  * Launch day 2026-08-13: keep the PUBLIC home clean (no public/both entries
@@ -72,16 +72,16 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Moving a block onto an occupied time is never silent: the review leads with the collision and one-tap fixes — swap with the occupant, combine, or overlap on purpose.',
     ],
   },
-  // Staff login links + What's New moved into the public menu.
+  // What's New moved into the menu (staff rail + public hamburger).
   {
     id: '2026-08-29-menu-staff-logins',
     date: '2026-08-29',
-    title: "Staff logins and What's new are in the menu",
-    audience: 'public' as const,
+    title: "What's new is in the menu now",
+    audience: 'both' as const,
     expires: '2026-09-12',
     bullets: [
-      'Director, Personnel Assistant, Applied Teacher, and Classroom Teacher logins sit at the bottom of the menu.',
-      "What's new is just below those logins. Open it when you want the latest Hub updates.",
+      'Scroll to the bottom of the menu for Hub updates (no longer on Today / Home).',
+      'On the student site, Director, Personnel Assistant, Applied Teacher, and Classroom Teacher logins sit just above it.',
     ],
   },
   // Two-door schedule changes (docs/schedule-ux-two-doors.md, Phase 4a).
