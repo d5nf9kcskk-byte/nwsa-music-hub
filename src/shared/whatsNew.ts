@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Change a Day: the day board (docs/schedule-ux-two-doors.md, Phase 4c).
+  // Staff-only: director tooling; families just see the same red banners.
+  {
+    id: '2026-08-29-day-board',
+    date: '2026-08-29',
+    title: 'Change a Day: the day board',
+    audience: 'staff' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'The day view now shows blocks in their rehearsal periods, with ready-made options on top: swap the two periods, combine co-resident blocks, cancel the day, back to normal.',
+      'Every option opens one review — the whole day before and after, any warnings (roll already taken, stranded student moves, lesson pull-outs that no longer fit), and the exact banner text. One save, one banner.',
+      'Moving a block onto an occupied time is never silent: the review leads with the collision and one-tap fixes — swap with the occupant, combine, or overlap on purpose.',
+    ],
+  },
   // Staff login links + What's New moved into the public menu.
   {
     id: '2026-08-29-menu-staff-logins',
