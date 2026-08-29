@@ -33,8 +33,6 @@
   color: var(--dir-text, var(--pub-ink, #1e293b));
   font-size: 13px;
 }
-.whats-new-date { margin-left: 2px; }
-.whats-new-count { opacity: 0.8; }
 .whats-new-dismiss {
   margin-left: auto;
   border: none;

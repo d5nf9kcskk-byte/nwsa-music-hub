@@ -8,7 +8,7 @@ import type { StudentContact } from '../types';
 /**
  * Auth-only contact details, keyed by student id. Directors read/write here;
  * the public app never touches this collection. Pass `enabled: false` for
- * roles firestore.rules bars from contacts (the Personnel Assistant shell) —
+ * roles firestore.rules bars from contacts (the Student Assistant shell) —
  * otherwise the denied listener trips the "couldn't load" status strip.
  */
 export function useContacts(enabled: boolean = true) {

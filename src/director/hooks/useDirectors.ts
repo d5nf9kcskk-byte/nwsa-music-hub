@@ -41,10 +41,10 @@ export {
  *   • teacher   — scoped to scheduling private lessons for their own assigned
  *                 students (see Lesson / useLessons). Cannot touch rosters,
  *                 schedule, repertoire, documents, announcements, or this list.
- *   • assistant — Personnel Assistant: takes roll (attendance) ONLY for the
- *                 ensembles in `assignedEnsembleIds` (e.g. the Orchestra
- *                 Personnel Assistant covers Camerata, Symphony, Philharmonic,
- *                 and Opera Orchestra). Nothing else in the Hub.
+ *   • assistant — Student Assistant: takes roll (attendance) for the
+ *                 ensembles in `assignedEnsembleIds`. Optional extras on
+ *                 `assistantCapabilities` (schedule / repertoire / sign-ups /
+ *                 announcements) — never contacts, notes, or grades.
  * A doc with no `role`/`roles` (every director created before this feature) is
  * treated as ['director'] everywhere — see `directorRoles()`.
  *
@@ -76,6 +76,9 @@ export interface Director {
   /** Name patterns (case-insensitive regex) that expand to ensemble ids at read
    *  time — e.g. every "Jazz Combo #N" joins automatically. */
   assignedEnsemblePatterns?: string[];
+  /** Student Assistant only: optional extras beyond take-roll (see
+   *  AssistantCapability). Absent / empty = roll only. */
+  assistantCapabilities?: import('../types').AssistantCapability[];
   /** MDC work email — shown on ensemble/class pages instead of the Gmail login. */
   mdcEmail?: string;
   phone?: string;
@@ -110,6 +113,7 @@ export function useDirectors() {
     instruments?: string[];
     assignedStudentIds?: string[];
     assignedEnsembleIds?: string[];
+    assistantCapabilities?: import('../types').AssistantCapability[];
     mdcEmail?: string;
     phone?: string;
   }) {
@@ -125,6 +129,9 @@ export function useDirectors() {
         ...(extra?.instruments ? { instruments: extra.instruments } : {}),
         ...(extra?.assignedStudentIds ? { assignedStudentIds: extra.assignedStudentIds } : {}),
         ...(extra?.assignedEnsembleIds ? { assignedEnsembleIds: extra.assignedEnsembleIds } : {}),
+        ...(extra?.assistantCapabilities?.length
+          ? { assistantCapabilities: extra.assistantCapabilities }
+          : {}),
         ...(extra?.mdcEmail ? { mdcEmail: extra.mdcEmail } : {}),
         ...(extra?.phone ? { phone: extra.phone } : {}),
         addedBy: addedBy ?? null,

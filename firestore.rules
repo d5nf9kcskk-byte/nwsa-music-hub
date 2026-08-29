@@ -43,12 +43,14 @@ rules_version = '2';
 //                 block exists to prevent. Words are a UI concern
 //                 (STAFF_ROLE_LABEL in src/director/types.ts); the wire value
 //                 is a rules contract.
-//   • assistant — Personnel Assistant: reads/writes ATTENDANCE only, and only
-//                 for the ensembles named in their doc's `assignedEnsembleIds`
+//   • assistant — Student Assistant: reads/writes ATTENDANCE for the
+//                 ensembles named in their doc's `assignedEnsembleIds`
 //                 (plus the narrow side-effects of taking roll: the event's
 //                 rollTaken receipt, lesson pull-out overrides, and reading
-//                 planned absences). Never contacts, notes, grades, or any
-//                 public-collection write.
+//                 planned absences). Optional extras on
+//                 `assistantCapabilities` (schedule / repertoire / signups /
+//                 announcements) widen public-collection writes only —
+//                 never contacts, notes, grades, or other sensitive data.
 // A doc with no `role`/`roles` predates this feature and is treated as a full
 // director (see isStaff()) — nobody with existing access loses it. An
 // EXPLICIT but unrecognized role is fail-closed: beyond reading and
@@ -124,9 +126,24 @@ service cloud.firestore {
       return hasRole('classroom');
     }
 
-    // Personnel Assistant (#roles): attendance-only, for assigned ensembles.
+    // Student Assistant (#roles): take-roll baseline, plus optional
+    // `assistantCapabilities` extras on their directors doc.
     function isAssistantRole() {
       return hasRole('assistant');
+    }
+
+    // Does this assistant's directors doc list capability `c`?
+    function assistantHas(c) {
+      return isAssistantRole()
+        && c in myDirectorDoc().get('assistantCapabilities', []);
+    }
+
+    // Event ensembles must all be among the assistant's assigned set
+    // (and non-empty — school-wide events stay staff-only).
+    function assistantOwnsEnsembles(ensembleIds) {
+      return ensembleIds is list
+        && ensembleIds.size() > 0
+        && ensembleIds.hasOnly(myDirectorDoc().get('assignedEnsembleIds', []));
     }
 
     // Shared `assignedEnsembleIds` scoping — assistants (performing ensembles)
@@ -211,19 +228,33 @@ service cloud.firestore {
              ['name', 'preferredName', 'instrument', 'section', 'ensembleIds', 'status', 'grade']);
       allow delete: if isStaff();
     }
-    // events: staff edit freely. A Personnel Assistant may update ONLY the
-    // rollTaken receipt (the side-effect of finishing roll) — never the
-    // schedule itself — and only the receipt entries for THEIR ensembles.
+    // events: staff edit freely. A Student Assistant may always update ONLY
+    // the rollTaken receipt (side-effect of finishing roll) for THEIR
+    // ensembles. With `schedule`, they may create/edit/delete events whose
+    // ensembles are entirely within their assignment. With `repertoire`, they
+    // may update only `pieceIds` (linking pieces from the repertoire screen).
     match /events/{doc} {
       allow read;
-      allow create, delete: if isStaff();
+      allow create: if isStaff()
+        || (assistantHas('schedule')
+            && assistantOwnsEnsembles(request.resource.data.get('ensembleIds', [])));
+      allow delete: if isStaff()
+        || (assistantHas('schedule')
+            && assistantOwnsEnsembles(resource.data.get('ensembleIds', [])));
       allow update: if isStaff()
         || (isAssistantRole()
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rollTaken'])
             && request.resource.data.rollTaken
                  .diff(resource.data.get('rollTaken', {}))
                  .affectedKeys()
-                 .hasOnly(myDirectorDoc().get('assignedEnsembleIds', [])));
+                 .hasOnly(myDirectorDoc().get('assignedEnsembleIds', [])))
+        || (assistantHas('schedule')
+            && assistantOwnsEnsembles(resource.data.get('ensembleIds', []))
+            && assistantOwnsEnsembles(request.resource.data.get('ensembleIds', [])))
+        || (assistantHas('repertoire')
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pieceIds'])
+            && assistantOwnsEnsembles(resource.data.get('ensembleIds', []))
+            && assistantOwnsEnsembles(request.resource.data.get('ensembleIds', [])));
     }
     // Saved calendar views (#subscribe-any-view): the filter mixes the deploy
     // step turns into subscribable ICS feeds. World-readable, and written by
@@ -268,7 +299,7 @@ service cloud.firestore {
     // automatic side effect of scheduling a lesson that conflicts with a
     // rehearsal/class (see the `lessons` collection below). Teachers never
     // touch ordinary subs/pull-outs or another teacher's lesson entries.
-    // A Personnel Assistant gets the same lesson-only exception (the Lesson
+    // A Student Assistant gets the same lesson-only exception (the Lesson
     // button on Take Roll records a pull-out window) — scoped to the
     // ensembles they cover.
     match /rosterOverrides/{doc} {
@@ -311,7 +342,7 @@ service cloud.firestore {
            ]);
       allow delete: if isKnownRole();
     }
-    match /announcements/{doc}   { allow read; allow write: if isStaff(); }
+    match /announcements/{doc}   { allow read; allow write: if isStaff() || assistantHas('announcements'); }
     // Staff heads-up notices (#two-doors §5.1): saving a student move drops a
     // notice for the affected ensembles' directors. Staff-only READ — the text
     // names students. Creators mirror rosterOverrides (any known role may save
@@ -324,7 +355,7 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
       allow delete: if isStaff();
     }
-    match /repertoire/{doc}      { allow read; allow write: if isStaff(); }
+    match /repertoire/{doc}      { allow read; allow write: if isStaff() || assistantHas('repertoire'); }
     // Assignment DEFINITIONS (title, type, due date, target) are public so
     // students see what's assigned. Individual RESULTS/grades stay private below.
     match /assignments/{doc} {
@@ -359,18 +390,19 @@ service cloud.firestore {
     // director's own questions, and an audience expressed as ensembles +
     // instrument families — never a list of student ids, which would publish
     // who was invited to what (see src/shared/signupEligibility.ts).
-    match /signupForms/{doc}     { allow read; allow write: if isStaff(); }
+    match /signupForms/{doc}     { allow read; allow write: if isStaff() || assistantHas('signups'); }
 
     // Staff-only explicit invite list for a sign-up (#signups). Never
     // world-readable — publishing who was invited would leak through
-    // student doc ids shared with studentsPublic.
+    // student doc ids shared with studentsPublic. Assistants with the
+    // signups capability may manage invite lists for forms they create.
     match /signupAudiences/{formId} {
-      allow read: if isStaff();
-      allow create, update: if isStaff()
+      allow read: if isStaff() || assistantHas('signups');
+      allow create, update: if (isStaff() || assistantHas('signups'))
         && request.resource.data.keys().hasOnly(['studentIds'])
         && request.resource.data.studentIds is list
         && request.resource.data.studentIds.size() <= 500;
-      allow delete: if isStaff();
+      allow delete: if isStaff() || assistantHas('signups');
     }
 
     // Interview time slots on sign-ups (#signups): world-readable so students
@@ -406,7 +438,7 @@ service cloud.firestore {
              + request.resource.data.questionId + '__'
              + string(request.resource.data.slotIndex);
       allow update: if false;
-      allow delete: if isStaff();
+      allow delete: if isStaff() || assistantHas('signups');
     }
 
     // Planned absences (#27): anyone may SUBMIT one (create-only, shape-checked),
@@ -541,14 +573,16 @@ service cloud.firestore {
         && request.resource.data.submittedAt is number
         && request.resource.data.status == 'submitted';
       // A response names a student, their grade, a contact address and a
-      // signature — staff-eyes only, and never listable by the public side.
-      allow read: if isStaff();
-      allow update, delete: if isStaff();
+      // signature — staff-eyes only (plus assistants managing sign-ups),
+      // and never listable by the public side.
+      allow read: if isStaff() || assistantHas('signups');
+      allow update, delete: if isStaff() || assistantHas('signups');
     }
 
     // Outbound notification queue (#21): staff-only writes; Power Automate
     // reads it with a service credential (Admin SDK bypasses rules).
-    match /notifyQueue/{doc}     { allow read, write: if isStaff(); }
+    // Assistants with announcements may enqueue urgent relays.
+    match /notifyQueue/{doc}     { allow read, write: if isStaff() || assistantHas('announcements'); }
     // Ambiguous rows from the daily office Attendance Bulletin (Admin SDK
     // writes; directors read / dismiss / resolve in Who's Out).
     match /bulletinQueue/{doc}   { allow read, write: if isStaff(); }
@@ -579,7 +613,7 @@ service cloud.firestore {
     // so the grade inherits that scoping and there is no second
     // query/rule pair to keep in agreement.
     match /lessons/{doc} {
-      // Not plain signedIn(): a Personnel Assistant is attendance-only and
+      // Not plain signedIn(): a Student Assistant is attendance-scoped and
       // has no business reading who takes private lessons with whom.
       //
       // A Teacher reads only their OWN lessons (audit rec #5) — every teacher
@@ -719,7 +753,7 @@ service cloud.firestore {
     //     into a collection that carries pay is off the table, even
     //     shape-checked, because the signature IS the sensitive act.
     //   • Owner/Director ONLY — isStaff(), never isKnownRole(). A Teacher
-    //     or Personnel Assistant has no business in pay, tax, or adult
+    //     or Student Assistant has no business in pay, tax, or adult
     //     contact data. If an adult org ever needs a finer role (a
     //     bookkeeper who sees contracts but not attendance, say), that is a
     //     new fifth role added to isKnownRole() and granted access here

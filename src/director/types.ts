@@ -13,8 +13,10 @@
  *                 and other class groups (`kind === 'class'`). Scoped to
  *                 assigned classes — roll, assignments, and documents for
  *                 those sections only. Not a private applied-lesson teacher.
- *   • assistant — Personnel Assistant: takes roll (attendance) for their
- *                 assigned ensembles only; nothing else in the Hub.
+ *   • assistant — Student Assistant: takes roll (attendance) for their
+ *                 assigned ensembles. Optional extras (schedule, repertoire,
+ *                 sign-ups, announcements) live on `assistantCapabilities` —
+ *                 never contacts, notes, grades, or other sensitive data.
  *
  * The STORED value stays `'teacher'` on purpose even though every label now
  * reads "Applied Teacher". That string is the `role`/`roles` field on live
@@ -23,8 +25,9 @@
  * that check the claimed role against the directors doc). Renaming it buys
  * nothing a label can't, and costs a data migration plus a window where the
  * rules must accept BOTH strings — i.e. temporarily widening the closed role
- * set, which is the one thing #roles says not to do. Words live in
- * STAFF_ROLE_LABEL below; the wire value never moves.
+ * set, which is the one thing #roles says not to do. Same for `'assistant'`
+ * (label: Student Assistant). Words live in STAFF_ROLE_LABEL below; the
+ * wire value never moves.
  */
 export type StaffRole = 'owner' | 'director' | 'teacher' | 'classroom' | 'assistant';
 
@@ -35,7 +38,25 @@ export const STAFF_ROLE_LABEL: Record<StaffRole, string> = {
   director: 'Director',
   teacher: 'Applied Teacher',
   classroom: 'Classroom Teacher',
-  assistant: 'Personnel Assistant',
+  assistant: 'Student Assistant',
+};
+
+/**
+ * Optional extras a Student Assistant may be granted beyond take-roll
+ * (the baseline for every assistant). Stored on `directors/{email}` as
+ * `assistantCapabilities: AssistantCapability[]`. Empty / absent = roll only.
+ */
+export type AssistantCapability = 'schedule' | 'repertoire' | 'signups' | 'announcements';
+
+export const ASSISTANT_CAPABILITIES: AssistantCapability[] = [
+  'schedule', 'repertoire', 'signups', 'announcements',
+];
+
+export const ASSISTANT_CAPABILITY_LABEL: Record<AssistantCapability, string> = {
+  schedule: 'Rehearsals & concerts',
+  repertoire: 'Repertoire',
+  signups: 'Sign-ups',
+  announcements: 'Announcements',
 };
 
 export interface Ensemble {

@@ -95,7 +95,7 @@ function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, 
           )}
           {record?.updatedByRole === 'assistant' && (
             <div className="dir-marked-by">
-              ✎ Marked by {record.updatedBy || 'the Personnel Assistant'} (Personnel Assistant)
+              ✎ Marked by {record.updatedBy || 'the Student Assistant'} (Student Assistant)
             </div>
           )}
         </div>

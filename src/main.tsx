@@ -110,7 +110,7 @@ const router = createBrowserRouter(
     },
     // Staff entry points — same AuthGate + DirectorApp as /director. After
     // sign-in, pickShell() chooses the panel from the account's roles
-    // (director / applied teacher / classroom teacher / personnel assistant),
+    // (director / applied teacher / classroom teacher / student assistant),
     // regardless of which URL they used to open the sign-in screen.
     {
       path: '/assistant/*',
