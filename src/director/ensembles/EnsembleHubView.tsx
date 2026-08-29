@@ -226,7 +226,7 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
             <Megaphone size={20} /> Announcements{myAnnouncements > 0 ? ` (${myAnnouncements})` : ''}
           </button>
           <button className="dir-hub-btn" onClick={() => onNavigate('scheduleChanges', { ensembleId })}>
-            <Sparkles size={20} /> Temporary Roster Changes
+            <Sparkles size={20} /> Move a Student
           </button>
           {!isClass && (
             <button className="dir-hub-btn" onClick={() => setShowSeating(true)}>
