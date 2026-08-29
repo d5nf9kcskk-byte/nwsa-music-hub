@@ -32,6 +32,8 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.concertsShort':    { en: 'Concerts',            es: 'Conciertos' },
   'nav.directorLogin':    { en: 'Director login',      es: 'Acceso para directores' },
   'nav.assistantLogin':   { en: 'Personnel Assistant login', es: 'Acceso para asistentes de personal' },
+  'nav.teacherLogin':     { en: 'Applied Teacher login', es: 'Acceso para maestros aplicados' },
+  'nav.classroomLogin':   { en: 'Classroom Teacher login', es: 'Acceso para maestros de clase' },
   'nav.more':             { en: 'More',                es: 'Más' },
   'nav.menu':             { en: 'Menu',                es: 'Menú' },
   'nav.closeMenu':        { en: 'Close menu',          es: 'Cerrar menú' },
@@ -41,6 +43,10 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.documents':        { en: 'Documents',           es: 'Documentos' },
   'nav.signups':          { en: 'Sign-ups',            es: 'Inscripciones' },
   'nav.resources':        { en: 'Resources',           es: 'Recursos' },
+  'nav.help':             { en: 'Help',                es: 'Ayuda' },
+  'nav.college':          { en: 'College',             es: 'College' },
+  'nav.collegeEnsembles': { en: 'College Ensembles',   es: 'Ensambles de college' },
+  'nav.collegeClasses':   { en: 'College Classes',     es: 'Clases de college' },
   'nav.searchPlaceholder': { en: 'Search events, ensembles, music…', es: 'Buscar eventos, ensambles, música…' },
 
   // ── Text-size control (header "Aa") ─────────────────────────────────────

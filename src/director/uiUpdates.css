@@ -555,8 +555,12 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
    because their text is also hardcoded dark red — still look broken in dark.
    Match the public dark announcement treatment. */
 .dir-app[data-dir-theme="dark"] .dir-today-alert,
-.dir-app[data-dir-theme="dark"] .dir-conflict-banner {
-  background: #2a1518; border-color: #7f1d1d; color: #fca5a5;
+.dir-app[data-dir-theme="dark"] .dir-conflict-banner,
+.dir-app[data-dir-theme="dark"] .dir-roll-nudge.missed {
+  background: #2a1518; border-color: #7f1d1d; border-left-color: #ef4444; color: #fca5a5;
+}
+.dir-app[data-dir-theme="dark"] .dir-roll-nudge {
+  background: #2a2310; border-color: #6b5d1d; border-left-color: #f59e0b; color: #fcd34d;
 }
 .dir-app[data-dir-theme="dark"] .dir-alert-scope {
   background: rgba(255, 255, 255, 0.12); color: #fecaca;
@@ -762,6 +766,16 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   background: #fef2f2; border: 1.5px solid #fca5a5; border-left: 6px solid #ef4444;
   border-radius: 10px; padding: 11px 13px; margin-bottom: 10px;
   font-size: 13.5px; font-weight: 700; color: #b91c1c;
+}
+/* Roll reminders (§5.1): amber while the rehearsal is live, red once missed. */
+.dir-roll-nudge {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: #fffbeb; border: 1.5px solid #fcd34d; border-left: 6px solid #f59e0b;
+  border-radius: 10px; padding: 11px 13px; margin-bottom: 10px;
+  font-size: 13.5px; font-weight: 700; color: #92400e;
+}
+.dir-roll-nudge.missed {
+  background: #fef2f2; border-color: #fca5a5; border-left-color: #ef4444; color: #b91c1c;
 }
 .dir-alert-scope {
   display: inline-block;
@@ -1300,3 +1314,21 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
 .dir-staff-notice svg { flex-shrink: 0; margin-top: 2px; color: var(--dir-primary); }
 .dir-staff-notice-text { flex: 1; font-size: 13.5px; font-weight: 600; color: var(--dir-text); }
 .dir-staff-notice-by { font-weight: 500; color: var(--dir-text-muted); }
+
+/* ── Change a Day: day board + plan review (#schedule-ux-two-doors §3) ── */
+.dir-quickplan-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.dir-dayboard { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; margin-bottom: 12px; }
+@media (max-width: 600px) { .dir-dayboard { grid-template-columns: 1fr; } }
+.dir-dayboard-head {
+  font-size: 12px; font-weight: 600; color: var(--dir-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin: 2px 0 6px;
+}
+.dir-dayboard-empty {
+  border: 1px dashed var(--dir-border); border-radius: var(--dir-radius);
+  padding: 16px; text-align: center; color: var(--dir-text-muted); font-size: 13px;
+}
+.dir-plan-diff { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.dir-plan-mini { font-size: 12.5px; border: 1px solid var(--dir-border); border-radius: var(--dir-radius-sm); padding: 6px 8px; }
+.dir-plan-mini-head { font-size: 11px; font-weight: 600; color: var(--dir-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 4px 0 2px; }
+.dir-plan-mini-row { padding: 2px 4px; border-radius: 6px; color: var(--dir-text-muted); }
+.dir-plan-mini-row.changed { background: #fef3c7; color: inherit; }

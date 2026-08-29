@@ -2,7 +2,7 @@
  * Temporary "What's New" entries for Hub update summaries.
  * Leave empty when there is nothing new — the banner renders nothing.
  *
- * audience: 'staff' = director Today only; 'public' = public home;
+ * audience: 'staff' = director menu only; 'public' = public menu;
  * 'both' = either surface when relevant.
  *
  * Launch day 2026-08-13: keep the PUBLIC home clean (no public/both entries
@@ -46,6 +46,58 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'New: when a move is saved, the affected ensembles\' directors get a heads-up notice on their Today screen.',
     ],
   },
+  // Rotations page (docs/schedule-ux-two-doors.md §4, Phase 4d). Staff-only:
+  // rosterOverrides writes, nothing new is world-readable.
+  {
+    id: '2026-08-29-rotations-page',
+    date: '2026-08-29',
+    title: 'Rotations has its own page',
+    audience: 'staff' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'Every student on a standing weekly rotation is listed in one place — who rehearses where on which weekdays, with the date range.',
+      'Add, edit, or delete a rotation right there. Deleting removes only the rotation — the student stays a member of both ensembles.',
+      'Rotations cover rehearsals only: on a concert day the student plays with whichever ensemble is on stage.',
+    ],
+  },
+  // Roll reminders (§5.1). Staff-only: roll receipts are attendance-side data.
+  {
+    id: '2026-08-29-roll-reminders',
+    date: '2026-08-29',
+    title: 'Today now reminds you to take roll',
+    audience: 'staff' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'When a rehearsal starts, an amber banner on Today nudges you to take roll — tap it to jump straight there.',
+      'If a rehearsal ends (today or yesterday) with roll never taken, a red banner stays on Today until it’s done.',
+    ],
+  },
+  // Change a Day: the day board (docs/schedule-ux-two-doors.md, Phase 4c).
+  // Staff-only: director tooling; families just see the same red banners.
+  {
+    id: '2026-08-29-day-board',
+    date: '2026-08-29',
+    title: 'Change a Day: the day board',
+    audience: 'staff' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'The day view now shows blocks in their rehearsal periods, with ready-made options on top: swap the two periods, combine co-resident blocks, cancel the day, back to normal.',
+      'Every option opens one review — the whole day before and after, any warnings (roll already taken, stranded student moves, lesson pull-outs that no longer fit), and the exact banner text. One save, one banner.',
+      'Moving a block onto an occupied time is never silent: the review leads with the collision and one-tap fixes — swap with the occupant, combine, or overlap on purpose.',
+    ],
+  },
+  // What's New moved into the menu (staff rail + public hamburger).
+  {
+    id: '2026-08-29-menu-staff-logins',
+    date: '2026-08-29',
+    title: "What's new is in the menu now",
+    audience: 'both' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'Scroll to the bottom of the menu for Hub updates (no longer on Today / Home).',
+      'On the student site, Director, Personnel Assistant, Applied Teacher, and Classroom Teacher logins sit just above it.',
+    ],
+  },
   // Two-door schedule changes (docs/schedule-ux-two-doors.md, Phase 4a).
   // Staff-only: pure navigation, nothing public changed.
   {
@@ -72,6 +124,29 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Open a student to see their progressive lesson log: prior rows stay visible, then add the next line (date, grade, repertoire, technique, payroll length, your initials).',
       'Hand the phone to the student so they type their initials before you save. A family summary email is queued when the line is complete (Open in Mail is available until Power Automate is wired).',
       'Directors: the Lessons CSV download now includes initials, repertoire, technique, school grade, and payroll minutes for the Dean spreadsheet.',
+    ],
+  },
+  {
+    id: '2026-08-29-collapsible-nav',
+    date: '2026-08-29',
+    title: 'Menus fold so you see less at once',
+    audience: 'both' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'Secondary links and long ensemble/class lists sit under expandable sections — tap the heading to open.',
+      'Daily destinations stay one tap: Home, Calendar, Concerts, and My Schedule on the student side; Today and Take Roll stay at the top for directors.',
+    ],
+  },
+  {
+    id: '2026-08-29-signups-slots-grades',
+    date: '2026-08-29',
+    title: 'Sign-ups: easier targeting and lesson-time slots',
+    audience: 'both' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'Directors: “Who is this for?” and “Narrow to instruments” are compact dropdowns — pick several ensembles or instrument families without a wall of checkboxes.',
+      'Each question can include a picture or PDF for students to look at while they answer.',
+      'Time-slot sign-ups can limit individual times by grade (e.g. two Monday lessons for 12th only). After you pick your name, times that aren’t for your grade show as not available.',
     ],
   },
   {

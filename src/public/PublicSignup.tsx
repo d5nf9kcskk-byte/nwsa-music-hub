@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router';
-import { ClipboardSignature, FileText, CalendarClock, Check, Search } from 'lucide-react';
+import { ClipboardSignature, FileText, CalendarClock, Check, Search, Paperclip } from 'lucide-react';
 import { db } from '../director/firebase';
 import { useSignupForms, submitSignupResponse, useSignupSlotBookings } from '../director/hooks/useSignups';
 import { useEnsembles } from '../director/hooks/useEnsembles';
@@ -15,11 +15,15 @@ import { useLang } from '../shared/i18n';
 import { primaryStudent } from '../shared/identity';
 import { INSTRUMENT_FAMILY_LABEL } from '../shared/instrumentFamily';
 import { audienceLabel, eligibleForSignupPicker, signupClosedReason, signupIsPublished } from '../shared/signupEligibility';
-import { slotClaimsForAnswers, takenSlotIndices, slotHeldByStudent, SignupSlotTakenError } from '../shared/signupSlots';
+import {
+  slotClaimsForAnswers, takenSlotIndices, slotHeldByStudent,
+  SignupSlotTakenError, SignupSlotGradeError, assertClaimsMatchGrade,
+  gradesMatchSlot, slotBlockedReason, slotGradeAllows,
+} from '../shared/signupSlots';
 import { getReceipt, saveReceipt } from './signupReceipt';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 import { ORG } from '../org';
-import type { SignupForm, SignupQuestion, SignupSlotBooking, Student } from '../director/types';
+import type { Attachment, SignupForm, SignupQuestion, SignupSlotBooking, Student } from '../director/types';
 import './signup.css';
 
 /**
@@ -108,6 +112,28 @@ export function PublicSignup() {
   }, [answers, questions]);
   const answersTooLong = answersJson.length > ANSWERS_MAX;
 
+  // Drop a timeslot pick the moment the confirmed grade no longer allows it
+  // (e.g. Ava picked a seniors-only Monday, then her grade shows 10th).
+  useEffect(() => {
+    if (!effectiveGrade.trim()) return;
+    setAnswers(prev => {
+      let changed = false;
+      const next = { ...prev };
+      for (const q of questions) {
+        if (q.type !== 'timeslot') continue;
+        const ans = (next[q.id] ?? '').trim();
+        if (!ans) continue;
+        const idx = (q.options ?? []).indexOf(ans);
+        if (idx < 0) continue;
+        if (!slotGradeAllows(q, idx, effectiveGrade)) {
+          next[q.id] = '';
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [effectiveGrade, questions]);
+
   if (formsLoading || studentsLoading) {
     return <div className="pub-page"><div className="pub-signup-loading">Loading…</div></div>;
   }
@@ -156,6 +182,7 @@ export function PublicSignup() {
     setState('saving'); setError('');
     try {
       const slotClaims = form ? slotClaimsForAnswers(form, answers) : [];
+      if (form) assertClaimsMatchGrade(form, slotClaims, effectiveGrade.trim());
       await submitSignupResponse({
         formId: id,
         studentId: student.id,
@@ -180,6 +207,8 @@ export function PublicSignup() {
       setState('error');
       if (err instanceof SignupSlotTakenError) {
         setError(`That time (${err.slotLabel}) was just taken — pick another slot.`);
+      } else if (err instanceof SignupSlotGradeError) {
+        setError(`That time (${err.slotLabel}) isn’t available for your grade — ${err.reason}.`);
       } else if (form?.audienceMode === 'students') {
         setError(`This sign-up is by invitation — if your name isn’t on the list, email ${ORG.contactEmail}.`);
       } else {
@@ -372,6 +401,7 @@ export function PublicSignup() {
                         onChange={v => setAnswers(a => ({ ...a, [q.id]: v }))}
                         takenSlots={takenSlots.get(q.id)}
                         studentId={student.id}
+                        studentGrade={effectiveGrade}
                         slotBookings={slotBookings}
                       />
                     ))}
@@ -443,12 +473,13 @@ export function PublicSignup() {
 
 // ── helpers ──────────────────────────────────────────────────────────
 
-function QuestionField({ question, value, onChange, takenSlots, studentId, slotBookings }: {
+function QuestionField({ question, value, onChange, takenSlots, studentId, studentGrade, slotBookings }: {
   question: SignupQuestion;
   value: string;
   onChange: (v: string) => void;
   takenSlots?: Set<number>;
   studentId?: string;
+  studentGrade?: string;
   slotBookings?: SignupSlotBooking[];
 }) {
   const label = (
@@ -459,6 +490,7 @@ function QuestionField({ question, value, onChange, takenSlots, studentId, slotB
   return (
     <div className="pub-signup-q">
       {label}
+      {question.reference && <QuestionReference file={question.reference} />}
       {question.type === 'long' ? (
         <textarea id={`su-q-${question.id}`} className="pub-absence-input pub-signup-textarea"
           rows={4} maxLength={ANSWER_MAX} value={value} onChange={e => onChange(e.target.value)} />
@@ -472,19 +504,29 @@ function QuestionField({ question, value, onChange, takenSlots, studentId, slotB
         <div className="pub-signup-slots" id={`su-q-${question.id}`} role="radiogroup" aria-label={question.label}>
           {(question.options ?? []).map((slot, i) => {
             const taken = takenSlots?.has(i) && !(studentId && slotBookings && slotHeldByStudent(slotBookings, question.id, i, studentId));
+            const allowed = question.optionGrades?.[i];
+            const gradeOk = !studentGrade || gradesMatchSlot(studentGrade, allowed);
+            const blocked = !taken && !!studentGrade && !gradeOk;
+            const gradeBadge = slotBlockedReason(allowed);
             const selected = value === slot;
+            const disabled = taken || blocked;
             return (
               <button
                 key={slot}
                 type="button"
                 role="radio"
                 aria-checked={selected}
-                disabled={taken}
-                className={`pub-signup-slot ${selected ? 'active' : ''} ${taken ? 'taken' : ''}`}
-                onClick={() => onChange(selected ? '' : slot)}
+                disabled={disabled}
+                className={`pub-signup-slot ${selected ? 'active' : ''} ${taken || blocked ? 'taken' : ''}`}
+                onClick={() => { if (!disabled) onChange(selected ? '' : slot); }}
               >
                 <span className="pub-signup-slot-time">{slot}</span>
                 {taken && <span className="pub-signup-slot-badge">Taken</span>}
+                {!taken && gradeBadge && (
+                  <span className={`pub-signup-slot-badge ${blocked ? '' : 'pub-signup-slot-badge-limit'}`}>
+                    {blocked ? 'Not available' : gradeBadge}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -511,6 +553,26 @@ function QuestionField({ question, value, onChange, takenSlots, studentId, slotB
       )}
       {question.help && <div className="pub-signup-note">{question.help}</div>}
     </div>
+  );
+}
+
+function isImageAttachment(file: Attachment): boolean {
+  return /\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(file.name)
+    || /\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(file.url);
+}
+
+function QuestionReference({ file }: { file: Attachment }) {
+  if (isImageAttachment(file)) {
+    return (
+      <a className="pub-signup-ref" href={file.url} target="_blank" rel="noreferrer">
+        <img className="pub-signup-ref-img" src={file.url} alt={file.name} />
+      </a>
+    );
+  }
+  return (
+    <a className="pub-signup-ref-link" href={file.url} target="_blank" rel="noreferrer">
+      <Paperclip size={14} /> {file.name || 'Reference file'}
+    </a>
   );
 }
 

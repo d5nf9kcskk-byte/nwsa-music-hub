@@ -5,6 +5,8 @@
 import {
   slotBookingId, slotClaimFromAnswer, slotClaimsForAnswers,
   takenSlotIndices, slotHeldByStudent, parseSlotOptions,
+  gradesMatchSlot, slotBlockedReason, assertClaimsMatchGrade,
+  SignupSlotGradeError, gradeKey,
 } from './signupSlots.ts';
 
 function assert(cond: unknown, msg: string): void {
@@ -12,7 +14,11 @@ function assert(cond: unknown, msg: string): void {
 }
 
 const formId = 'formABC';
-const q = { id: 'q1', label: 'Pick a time', type: 'timeslot' as const, options: ['Mon 3:00', 'Mon 3:15', 'Mon 3:30'] };
+const q = {
+  id: 'q1', label: 'Pick a time', type: 'timeslot' as const,
+  options: ['Mon 3:00', 'Mon 3:15', 'Mon 3:30'],
+  optionGrades: [null, ['12th'], null] as (string[] | null)[],
+};
 
 assert(slotBookingId('abc', 'q1', 0) === 'abc__q1__0', 'booking id format');
 assert(slotBookingId('abc', 'q1', 12) === 'abc__q1__12', 'booking id with double-digit index');
@@ -36,5 +42,24 @@ assert(taken.get('q1')?.has(0) && taken.get('q1')?.has(2) && !taken.get('q1')?.h
 
 assert(slotHeldByStudent(bookings, 'q1', 0, 's1'), 'same student holds slot');
 assert(!slotHeldByStudent(bookings, 'q1', 0, 's9'), 'other student does not hold slot');
+
+assert(gradeKey('12th') === '12' && gradeKey('12') === '12', 'grade key');
+assert(gradesMatchSlot('10th', null), 'empty allowed → open');
+assert(gradesMatchSlot('10th', []), 'empty array → open');
+assert(gradesMatchSlot('12th', ['12th']), 'senior matches seniors-only');
+assert(gradesMatchSlot('12', ['12th']), 'digit matches 12th');
+assert(!gradesMatchSlot('10th', ['12th']), 'underclassman blocked from seniors-only');
+assert(!gradesMatchSlot('', ['12th']), 'blank grade fails closed');
+assert(slotBlockedReason(['12th']) === '12th only', 'badge copy');
+assert(slotBlockedReason(['11th', '12th']) === '11th / 12th only', 'multi badge');
+
+assertClaimsMatchGrade(form, [{ questionId: 'q1', slotIndex: 0, slotLabel: 'Mon 3:00' }], '10th');
+try {
+  assertClaimsMatchGrade(form, [{ questionId: 'q1', slotIndex: 1, slotLabel: 'Mon 3:15' }], '10th');
+  throw new Error('expected grade error');
+} catch (e) {
+  assert(e instanceof SignupSlotGradeError && e.reason === '12th only', 'grade error for underclassman');
+}
+assertClaimsMatchGrade(form, [{ questionId: 'q1', slotIndex: 1, slotLabel: 'Mon 3:15' }], '12th');
 
 console.log('signupSlots.selfcheck: ok');

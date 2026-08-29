@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { WhatsNewBanner } from '../../shared/WhatsNewBanner';
 import { ClipboardList, MapPin, Clock, Music, GraduationCap, CalendarPlus, Users, Megaphone, ChevronRight, Plus, MessageSquarePlus, UserCog } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
@@ -81,6 +80,25 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
       .filter(a => !ensembleId || a.ensembleIds.includes(ensembleId) || (a.studentIds?.length ?? 0) > 0)
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 5),
     [assignments, today, ensembleId]);
+
+  // Roll reminders (§5.1): nudge while a rehearsal is live and un-rolled, and
+  // again after it ends (through yesterday) if roll was never taken. Receipt
+  // absence is the trigger — stampReceipt() writes `rollTaken` when the roll
+  // summary is opened, so no receipt means roll was never finished.
+  const nowD = new Date(now);
+  const nowHM = `${String(nowD.getHours()).padStart(2, '0')}:${String(nowD.getMinutes()).padStart(2, '0')}`;
+  const yesterday = addDays(today, -1);
+  const rollNudges = useMemo(() => {
+    const needsRoll = (e: CalendarEvent) =>
+      (e.type === 'Rehearsal' || e.type === 'Sectional') && e.ensembleIds.length > 0 &&
+      e.status !== 'Cancelled' && !!e.startTime &&
+      Object.keys(e.rollTaken ?? {}).length === 0;
+    const candidates = events.filter(needsRoll).filter(matchesEns);
+    return {
+      live: candidates.filter(e => e.date === today && e.startTime! <= nowHM && nowHM <= (e.endTime ?? '23:59')),
+      missed: candidates.filter(e => e.date === yesterday || (e.date === today && (e.endTime ?? '23:59') < nowHM)),
+    };
+  }, [events, today, yesterday, nowHM, ensembleId]);
 
   const alerts = useMemo(() =>
     events.filter(e => e.date === today).filter(matchesEns)
@@ -193,6 +211,19 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
       </a>
 
       <div className="dir-page-body">
+        {/* Roll reminders (§5.1) */}
+        {rollNudges.live.map(e => (
+          <button key={`live-${e.id}`} className="dir-roll-nudge" onClick={() => onNavigate('roll', { ensembleId: e.ensembleIds[0] })}>
+            <ClipboardList size={15} style={{ verticalAlign: '-3px' }} /> {eventLabel(e)} is underway — take roll
+          </button>
+        ))}
+        {rollNudges.missed.map(e => (
+          <button key={`missed-${e.id}`} className="dir-roll-nudge missed" onClick={() => onNavigate('roll', { ensembleId: e.ensembleIds[0] })}>
+            ⚠ Roll was never taken for {eventLabel(e)}{e.date === yesterday ? ' yesterday' : ''}
+            {e.startTime ? ` (${formatTimeRange(e.startTime, e.endTime)})` : ''} — take it now
+          </button>
+        ))}
+
         {/* Alerts: today's cancellations / changes */}
         {alerts.length > 0 && (
           <AlertGroupSections
@@ -342,8 +373,6 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
       {showChecklist && (
         <SeasonChecklist onNavigate={onNavigate} onClose={() => setShowChecklist(false)} />
       )}
-
-      <WhatsNewBanner audience="staff" />
 
       {showFollowUps && (
         <FollowUpSheet records={followUps} students={studentsById} ensembleMap={ensembleMap} onClose={() => setShowFollowUps(false)} />

@@ -84,6 +84,14 @@ jobs:
       - name: Check combine/revert round trip
         run: node scripts/schedule-combine.selfcheck.mjs
 
+      # Day plans (#schedule-ux-two-doors §3, Phase 4c): planDayChange must
+      # report every collision (displacement is never silent), keep
+      # snapshot-once changeFrom semantics on every write, and back-to-normal
+      # must round-trip the whole day — absorbed blocks re-created under
+      # their ORIGINAL doc ids (ICS UIDs derive from doc ids, frozen).
+      - name: Check day-plan engine
+        run: node scripts/schedule-day-plan.selfcheck.mjs
+
       # Standing weekday rotations: `days` on RosterOverride decides which
       # ensemble a rotating student rehearses with, and generate-feeds.mjs
       # keeps its own copy of that predicate. This pins both, and that they

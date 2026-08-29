@@ -8,8 +8,29 @@ import { useStudents } from '../hooks/useStudents';
 import { todayStr, addDays, parseDate, toDateStr, formatTime, formatTimeRange, ensembleColor, addMinutesToTime, TIME_BLOCKS, CONCERT_COLOR } from '../utils';
 import { sharedBlockLabel } from '../../shared/sharedBlock';
 import { bannersForEvents, announceChange, captureOriginal, combineSnapshot } from './changeOps';
-import type { CalendarEvent, Ensemble } from '../types';
+import { planDayChange, applyPlan, rolledBlocks, strandedEventOverrides } from './changePlan';
+import type { DayAction, DayPlan, PlanGuard } from './changePlan';
+import type { CalendarEvent, Ensemble, RosterOverride } from '../types';
 import type { DirNavigate } from '../types-nav';
+
+/**
+ * The day board's two rehearsal periods (TIME_BLOCKS[0] and [1]). An event
+ * belongs to the period its start time falls in; the 14:25 boundary also
+ * sorts the choir variants (Choir 1 starts 13:10, Choir 2 starts 14:25).
+ * Concerts and odd-time events (outside the rehearsal afternoon) get no
+ * period and render below the grid.
+ */
+function periodOf(e: CalendarEvent): 0 | 1 | null {
+  if (!e.startTime || e.type === 'Concert') return null;
+  if (e.startTime < '12:00' || e.startTime > '17:00') return null;
+  return e.startTime < '14:25' ? 0 : 1;
+}
+
+const isChanged = (e: CalendarEvent) =>
+  !!(e.changeNote || e.changeFrom || e.changeAnnouncementId || e.status === 'Cancelled');
+
+const overrideWord = (o: RosterOverride) =>
+  o.action === 'add' ? 'sub in' : o.kind === 'lesson' ? 'lesson pull-out' : 'pull-out';
 
 /**
  * Change a Day — the TIME door (docs/schedule-ux-two-doors.md §1): whole-
@@ -26,6 +47,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
 }) {
   const { events, updateEvent, deleteEvent, revertEvent } = useEvents();
   const { ensembles } = useEnsembles();
+  const { overrides } = useRosterOverrides();
   const announcementApi = useAnnouncements();
   const { announcements, deleteAnnouncement } = announcementApi;
 
@@ -38,6 +60,9 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   const [cancelling, setCancelling] = useState<CalendarEvent | null>(null);
   const [confirmSwap, setConfirmSwap] = useState(false);
   const [confirmCombine, setConfirmCombine] = useState(false);
+  // A quick option (or an intercepted colliding move) under review — the
+  // action is the source of truth; the plan is recomputed from live data.
+  const [planAction, setPlanAction] = useState<DayAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   // Deep-linked with a date (from the calendar / Today): open on that day.
@@ -77,6 +102,99 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
       [...new Set(evts.flatMap(e => e.ensembleIds))].map(id => ensembleMap[id]?.name).filter(Boolean) as string[],
       { total: ensembles.length },
     );
+
+  // ── The day board + enumerated plans (#schedule-ux-two-doors §3) ────────
+  const boardCols = useMemo(() => {
+    const cols: [CalendarEvent[], CalendarEvent[], CalendarEvent[]] = [[], [], []];
+    for (const e of dayEvents) cols[periodOf(e) ?? 2].push(e);
+    return cols;
+  }, [dayEvents]);
+
+  const planCtx = useMemo(() => ({
+    labels: Object.fromEntries(dayEvents.map(e => [e.id, label(e)])),
+    overrides,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [dayEvents, overrides, ensembleMap]);
+
+  const planned: DayPlan | null = useMemo(
+    () => planAction ? planDayChange(dayEvents, planAction, planCtx) : null,
+    [planAction, dayEvents, planCtx],
+  );
+
+  /** Quick options: every valid whole-day plan, computed per day. */
+  const quickOptions = useMemo(() => {
+    const opts: { key: string; label: string; action: DayAction; danger?: boolean }[] = [];
+    const [p0, p1] = boardCols;
+    for (const ea of p0) for (const eb of p1) {
+      if (ea.status === 'Cancelled' || eb.status === 'Cancelled') continue;
+      if (ea.ensembleIds.some(id => eb.ensembleIds.includes(id))) continue;
+      opts.push({
+        key: `swap-${ea.id}-${eb.id}`,
+        label: p0.length === 1 && p1.length === 1 ? 'Swap the two periods' : `Swap ${label(ea)} ↔ ${label(eb)}`,
+        action: { kind: 'swap', aId: ea.id, bId: eb.id },
+      });
+    }
+    // Co-resident blocks (same period, i.e. same time slot) are combinable.
+    for (const col of [p0, p1]) {
+      for (let i = 0; i < col.length; i++) for (let j = i + 1; j < col.length; j++) {
+        if (col[i].status === 'Cancelled' || col[j].status === 'Cancelled') continue;
+        opts.push({
+          key: `combine-${col[i].id}-${col[j].id}`,
+          label: `Combine ${label(col[i])} + ${label(col[j])}`,
+          action: { kind: 'combine', hostId: col[i].id, absorbedIds: [col[j].id], groupLabel: combinedLabel([col[i], col[j]]) },
+        });
+      }
+    }
+    if (dayEvents.some(e => e.status !== 'Cancelled')) {
+      opts.push({ key: 'cancel-day', label: 'Cancel the day', action: { kind: 'cancelDay' }, danger: true });
+    }
+    if (dayEvents.some(isChanged)) {
+      opts.push({ key: 'back-to-normal', label: 'Back to normal', action: { kind: 'backToNormal' } });
+    }
+    return opts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardCols, dayEvents, ensembleMap]);
+
+  /** Revert one event and pull down every banner that belongs to it. */
+  async function revertOne(e: CalendarEvent) {
+    const strays = bannersForEvents(announcements, [e], [label(e)], date);
+    const annId = await revertEvent(e.id);
+    const gone = new Set<string>();
+    for (const s of strays) { await deleteAnnouncement(s.id); gone.add(s.id); }
+    if (annId && !gone.has(annId)) await deleteAnnouncement(annId);
+  }
+
+  /** Replay a plan through the existing changeOps machinery: the writes as
+   *  planned, then ONE banner linked from every updated event. */
+  async function commitPlan(plan: DayPlan, notify: boolean) {
+    // Never commit an unacknowledged collision (exit test, doc §6) — the
+    // review sheet swaps Save for the resolution buttons, this is the belt.
+    if (plan.guards.some(g => g.kind === 'collision')) return;
+    setBusy(true); setError('');
+    try {
+      const byId = Object.fromEntries(dayEvents.map(e => [e.id, e]));
+      const touched = plan.writes.map(w => byId[w.id]).filter(Boolean) as CalendarEvent[];
+      for (const w of plan.writes) {
+        if (w.op === 'update') await updateEvent(w.id, w.data);
+        else if (w.op === 'delete') await deleteEvent(w.id, { undoable: false });
+        else if (byId[w.id]) await revertOne(byId[w.id]);
+      }
+      if (notify && plan.bannerText && touched.length > 0) {
+        const annId = await announceChange(announcementApi, date, plan.bannerText, touched, touched.map(label));
+        if (annId) {
+          for (const w of plan.writes) {
+            if (w.op === 'update') await updateEvent(w.id, { changeAnnouncementId: annId });
+          }
+        }
+      }
+      setPlanAction(null);
+      setPick(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save the change — try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function applySwap(notify: boolean) {
     if (!a || !b) return;
@@ -155,11 +273,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
       // Pull down EVERY banner for this event, not just the linked one —
       // an event changed more than once (before one-banner-per-event) can
       // have several, and leaving strays up is what families complain about.
-      const strays = bannersForEvents(announcements, [e], [label(e)], date);
-      const annId = await revertEvent(e.id);
-      const gone = new Set<string>();
-      for (const s of strays) { await deleteAnnouncement(s.id); gone.add(s.id); }
-      if (annId && !gone.has(annId)) await deleteAnnouncement(annId);
+      await revertOne(e);
       setPick(p => {
         if (!p) return p;
         const ids = p.ids.filter(x => x !== e.id);
@@ -171,6 +285,53 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
       setBusy(false);
     }
   }
+
+  /** One block card — used in the period grid and the odd-times list. */
+  const renderRow = (e: CalendarEvent) => (
+    <div key={e.id} className={`dir-ens-row ${pick?.ids.includes(e.id) ? 'dir-swap-picked' : ''}`}>
+      <span className="dir-ens-swatch" style={{ background: e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]) }} />
+      <div className="dir-ens-info">
+        <div className="dir-ens-name">
+          {label(e)}
+          {e.status === 'Cancelled' && <span className="dir-status-badge absent" style={{ marginLeft: 8 }}>Cancelled</span>}
+        </div>
+        <div className="dir-ens-sub">
+          {formatTimeRange(e.startTime, e.endTime) || 'No time set'}
+          {e.location ? ` · ${e.location}` : ''}
+          {e.changeNote ? ` · ⚠ ${e.changeNote}` : ''}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        {isChanged(e) && (
+          <button
+            className="dir-tool-btn"
+            style={{ color: 'var(--dir-blue)' }}
+            disabled={busy}
+            onClick={() => handleRevert(e)}
+            title="Put this back to its normal schedule and clear the change banner"
+          >
+            <RotateCcw size={14} /> Revert
+          </button>
+        )}
+        {pick ? (
+          // Mid-pick: the row's one job is picking the other block(s).
+          <button
+            className={`dir-tool-btn ${pick.ids.includes(e.id) ? 'active' : ''}`}
+            onClick={() => togglePick(e.id, pick.mode)}
+            title={pick.mode === 'swap'
+              ? 'Select this and one other block to trade times'
+              : 'Add this block to the combined rehearsal'}
+          >
+            {pick.mode === 'swap' ? <><ArrowLeftRight size={14} /> Swap</> : <><Merge size={14} /> Combine</>}
+          </button>
+        ) : (
+          <button className="dir-tool-btn" onClick={() => setMenuFor(e)} title="Swap, shift, move rooms, cancel, or move a student">
+            <Pencil size={14} /> Change ▾
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="dir-tab-page">
@@ -206,7 +367,8 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
 
       <div className="dir-page-body">
         <div className="dir-field-hint">
-          Whole-ensemble changes for this day — tap <strong>Change</strong> on a block
+          Whole-ensemble changes for this day — pick a ready-made option below,
+          or tap <strong>Change</strong> on a block
           to swap, combine, move time or room, or cancel.
           Families see a red “Schedule change” banner automatically.
           {' '}Moving one student, not a whole block?{' '}
@@ -249,51 +411,40 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
               </div>
             )}
 
-            {dayEvents.map(e => (
-              <div key={e.id} className={`dir-ens-row ${pick?.ids.includes(e.id) ? 'dir-swap-picked' : ''}`}>
-                <span className="dir-ens-swatch" style={{ background: e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]) }} />
-                <div className="dir-ens-info">
-                  <div className="dir-ens-name">
-                    {label(e)}
-                    {e.status === 'Cancelled' && <span className="dir-status-badge absent" style={{ marginLeft: 8 }}>Cancelled</span>}
-                  </div>
-                  <div className="dir-ens-sub">
-                    {formatTimeRange(e.startTime, e.endTime) || 'No time set'}
-                    {e.location ? ` · ${e.location}` : ''}
-                    {e.changeNote ? ` · ⚠ ${e.changeNote}` : ''}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  {(e.changeNote || e.changeFrom || e.status === 'Cancelled') && (
-                    <button
-                      className="dir-tool-btn"
-                      style={{ color: 'var(--dir-blue)' }}
-                      disabled={busy}
-                      onClick={() => handleRevert(e)}
-                      title="Put this back to its normal schedule and clear the change banner"
-                    >
-                      <RotateCcw size={14} /> Revert
-                    </button>
-                  )}
-                  {pick ? (
-                    // Mid-pick: the row's one job is picking the other block(s).
-                    <button
-                      className={`dir-tool-btn ${pick.ids.includes(e.id) ? 'active' : ''}`}
-                      onClick={() => togglePick(e.id, pick.mode)}
-                      title={pick.mode === 'swap'
-                        ? 'Select this and one other block to trade times'
-                        : 'Add this block to the combined rehearsal'}
-                    >
-                      {pick.mode === 'swap' ? <><ArrowLeftRight size={14} /> Swap</> : <><Merge size={14} /> Combine</>}
-                    </button>
-                  ) : (
-                    <button className="dir-tool-btn" onClick={() => setMenuFor(e)} title="Swap, shift, move rooms, cancel, or move a student">
-                      <Pencil size={14} /> Change ▾
-                    </button>
-                  )}
-                </div>
+            {quickOptions.length > 0 && !pick && (
+              <div className="dir-quickplan-row">
+                {quickOptions.map(q => (
+                  <button
+                    key={q.key}
+                    className="dir-tool-btn"
+                    style={q.danger ? { color: 'var(--dir-danger)' } : undefined}
+                    onClick={() => setPlanAction(q.action)}
+                  >
+                    {q.action.kind === 'swap' ? <ArrowLeftRight size={14} />
+                      : q.action.kind === 'combine' ? <Merge size={14} />
+                      : q.action.kind === 'cancelDay' ? <XCircle size={14} />
+                      : <RotateCcw size={14} />} {q.label}
+                  </button>
+                ))}
               </div>
-            ))}
+            )}
+
+            <div className="dir-dayboard">
+              {([0, 1] as const).map(p => (
+                <div key={p}>
+                  <div className="dir-dayboard-head">{formatTimeRange(TIME_BLOCKS[p].start, TIME_BLOCKS[p].end)}</div>
+                  {boardCols[p].length === 0
+                    ? <div className="dir-dayboard-empty">Free</div>
+                    : boardCols[p].map(e => renderRow(e))}
+                </div>
+              ))}
+            </div>
+            {boardCols[2].length > 0 && (
+              <>
+                <div className="dir-dayboard-head">Concerts &amp; other times</div>
+                {boardCols[2].map(e => renderRow(e))}
+              </>
+            )}
           </>
         )}
         {error && <div className="dir-sc-error">⚠ {error}</div>}
@@ -354,6 +505,16 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
           event={editing}
           name={label(editing)}
           onApply={async (data, notifyTitle) => {
+            // Displacement is never silent (§3): a time/room move that lands
+            // on an occupied slot or breaks a lesson window routes through
+            // the day-plan review with one-tap resolutions instead of saving.
+            if (!data.status) {
+              const action: DayAction = { kind: 'move', id: editing.id, startTime: data.startTime, endTime: data.endTime, location: data.location };
+              if (planDayChange(dayEvents, action, planCtx).guards.length > 0) {
+                setPlanAction(action);
+                return;
+              }
+            }
             await updateEvent(editing.id, { ...data, ...captureOriginal(editing) });
             if (notifyTitle) {
               const annId = await announce(notifyTitle, [editing]);
@@ -361,6 +522,21 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
             }
           }}
           onClose={() => setEditing(null)}
+        />
+      )}
+
+      {planAction && planned && (
+        <PlanReviewSheet
+          action={planAction}
+          planned={planned}
+          dayEvents={dayEvents}
+          labelOf={label}
+          combineLabelOf={combinedLabel}
+          busy={busy}
+          error={error}
+          onAction={setPlanAction}
+          onConfirm={notify => commitPlan(planned, notify)}
+          onClose={() => setPlanAction(null)}
         />
       )}
     </div>
@@ -611,6 +787,178 @@ function CancelSheet({ event, name, onApply, onClose }: {
   );
 }
 
+/** Compact one-day board grouped by rehearsal period — the review sheet's
+ *  before/after halves. With a `baseline`, rows that differ are highlighted. */
+function MiniBoard({ events, labelOf, baseline }: {
+  events: CalendarEvent[];
+  labelOf: (e: CalendarEvent) => string;
+  baseline?: CalendarEvent[];
+}) {
+  const sig = (e: CalendarEvent) =>
+    [e.startTime, e.endTime, e.location, e.status, e.ensembleIds.join('+'), e.sharedBlock ? '1' : ''].join('|');
+  const base = baseline ? Object.fromEntries(baseline.map(e => [e.id, sig(e)])) : null;
+  const cols: [CalendarEvent[], CalendarEvent[], CalendarEvent[]] = [[], [], []];
+  for (const e of events) cols[periodOf(e) ?? 2].push(e);
+  return (
+    <div className="dir-plan-mini">
+      {([0, 1, 2] as const).map(p => (p === 2 && cols[2].length === 0) ? null : (
+        <div key={p}>
+          <div className="dir-plan-mini-head">{p === 2 ? 'Other' : formatTimeRange(TIME_BLOCKS[p].start, TIME_BLOCKS[p].end)}</div>
+          {cols[p].length === 0
+            ? <div className="dir-plan-mini-row">—</div>
+            : cols[p].map(e => (
+              <div key={e.id} className={`dir-plan-mini-row ${base && base[e.id] !== sig(e) ? 'changed' : ''}`}>
+                <strong>{labelOf(e)}</strong>
+                {' '}{formatTimeRange(e.startTime, e.endTime)}{e.location ? ` · ${e.location}` : ''}
+                {e.status === 'Cancelled' ? ' · Cancelled' : ''}
+              </div>
+            ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Review a whole-day plan (#schedule-ux-two-doors §3): a collision leads with
+ * one-tap resolutions (swap / combine with the occupant, or overlap anyway),
+ * then the day before → after, the guards, and the exact banner text.
+ * One save, one banner — Save is withheld until every collision is resolved
+ * or acknowledged.
+ */
+function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, busy, error, onAction, onConfirm, onClose }: {
+  action: DayAction;
+  planned: DayPlan;
+  dayEvents: CalendarEvent[];
+  labelOf: (e: CalendarEvent) => string;
+  combineLabelOf: (evts: CalendarEvent[]) => string;
+  busy: boolean;
+  error: string;
+  onAction: (a: DayAction) => void;
+  onConfirm: (notify: boolean) => void;
+  onClose: () => void;
+}) {
+  const { students } = useStudents();
+  const [notify, setNotify] = useState(true);
+  const after = useMemo(() => applyPlan(dayEvents, planned.writes), [dayEvents, planned]);
+  const byId = useMemo(() => Object.fromEntries(dayEvents.map(e => [e.id, e])), [dayEvents]);
+  const ofKind = <K extends PlanGuard['kind']>(k: K) =>
+    planned.guards.filter((g): g is Extract<PlanGuard, { kind: K }> => g.kind === k);
+  const collision = ofKind('collision')[0];
+  const mover = collision ? byId[collision.movingId] : undefined;
+  const occupant = collision ? byId[collision.occupantId] : undefined;
+  const rolled = ofKind('rollTaken');
+  const stranded = ofKind('strandedOverride');
+  const lessons = ofKind('lessonWindow');
+  const studentName = (id: string) => students.find(s => s.id === id)?.name ?? 'A student';
+
+  const titles: Record<DayAction['kind'], [React.ReactNode, string, string]> = {
+    swap: [<ArrowLeftRight key="i" size={16} style={{ verticalAlign: '-2px' }} />, 'Swap blocks', 'Swap the blocks'],
+    combine: [<Merge key="i" size={16} style={{ verticalAlign: '-2px' }} />, 'Combine blocks', 'Combine the blocks'],
+    move: [<Clock3 key="i" size={16} style={{ verticalAlign: '-2px' }} />, 'Move time / room', 'Save the change'],
+    cancelDay: [<XCircle key="i" size={16} style={{ verticalAlign: '-2px' }} />, 'Cancel the day', 'Cancel the day'],
+    backToNormal: [<RotateCcw key="i" size={16} style={{ verticalAlign: '-2px' }} />, 'Back to normal', 'Put the day back to normal'],
+  };
+  const [icon, title, saveLabel] = titles[action.kind];
+
+  return (
+    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="dir-drawer">
+        <div className="dir-drawer-handle" />
+        <div className="dir-drawer-header">
+          <span className="dir-drawer-title">{icon} {title}</span>
+          <button className="dir-drawer-close" onClick={onClose}>×</button>
+        </div>
+        <div className="dir-drawer-body">
+          {collision && mover && occupant && (
+            <>
+              <div className="dir-sc-error">
+                ⚠ <strong>{labelOf(mover)}</strong> would land on <strong>{labelOf(occupant)}</strong>’s
+                time ({formatTimeRange(occupant.startTime, occupant.endTime)}
+                {occupant.location ? ` · ${occupant.location}` : ''}). Pick how to resolve it:
+              </div>
+              <div className="dir-quickplan-row">
+                <button className="dir-tool-btn" onClick={() => onAction({ kind: 'swap', aId: mover.id, bId: occupant.id })}>
+                  <ArrowLeftRight size={14} /> Swap with {labelOf(occupant)}
+                </button>
+                <button
+                  className="dir-tool-btn"
+                  onClick={() => onAction({ kind: 'combine', hostId: occupant.id, absorbedIds: [mover.id], groupLabel: combineLabelOf([occupant, mover]) })}
+                >
+                  <Merge size={14} /> Combine with {labelOf(occupant)}
+                </button>
+                {action.kind === 'move' && (
+                  <button className="dir-tool-btn" onClick={() => onAction({ ...action, overlapAcknowledged: true })}>
+                    Overlap anyway (different rooms)
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          <div className="dir-plan-diff">
+            <div>
+              <div className="dir-label">Before</div>
+              <MiniBoard events={dayEvents} labelOf={labelOf} />
+            </div>
+            <div>
+              <div className="dir-label">After</div>
+              <MiniBoard events={after} labelOf={labelOf} baseline={dayEvents} />
+            </div>
+          </div>
+
+          {rolled.length > 0 && (
+            <div className="dir-sc-error">
+              ⚠ Roll was already taken for {rolled.map(g => byId[g.eventId] ? labelOf(byId[g.eventId]) : 'a block').join(' and ')}.
+              Those attendance records are kept (they’re stored by ensemble and date), but that
+              block’s own roll receipt goes away with it.
+            </div>
+          )}
+          {stranded.length > 0 && (
+            <div className="dir-sc-error">
+              ⚠ These per-event roster moves point at a block being absorbed and will stop applying:{' '}
+              {stranded.map(g => `${studentName(g.studentId)} (${g.action === 'add' ? 'sub in' : g.lesson ? 'lesson pull-out' : 'pull-out'})`).join(', ')}.
+              Re-add them on the combined block if they still apply.
+            </div>
+          )}
+          {lessons.length > 0 && (
+            <div className="dir-sc-error">
+              ⚠ Lesson pull-outs falling outside the new time:{' '}
+              {lessons.map(g => `${studentName(g.studentId)} (${formatTimeRange(g.startTime, g.endTime)})`).join(', ')}.
+              Pull-outs stay keyed to ensemble + date, so they still apply — adjust the lesson if it no longer fits.
+            </div>
+          )}
+
+          {planned.bannerText ? (
+            <>
+              <label className="pub-parent-toggle">
+                <input type="checkbox" checked={notify} onChange={e => setNotify(e.target.checked)} />
+                Post an urgent announcement (shows a banner on the calendar)
+              </label>
+              {notify && <div className="dir-field-hint">“{planned.bannerText}”</div>}
+            </>
+          ) : (
+            <div className="dir-field-hint">No new banner — reverting also takes down this day’s change banners.</div>
+          )}
+          {error && <div className="dir-sc-error">⚠ {error}</div>}
+        </div>
+        <div className="dir-drawer-footer">
+          <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
+          {!collision && (
+            <button
+              className={`dir-btn ${action.kind === 'cancelDay' ? 'dir-btn-danger' : 'dir-btn-primary'}`}
+              disabled={busy || planned.writes.length === 0}
+              onClick={() => onConfirm(notify)}
+            >
+              {busy ? 'Saving…' : saveLabel}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Confirm a combine (#schedule-ux-redesign §2.3): choose which block's time
  * slot (or custom), the room, and whether to notify. Also surfaces the §4.2
@@ -648,16 +996,14 @@ function CombineSheet({ events, labelOf, groupLabel, date, busy, onConfirm, onCl
   const [notify, setNotify] = useState(true);
   const [error, setError] = useState('');
 
-  // §4.2 guards. Roll receipts live on the event (`rollTaken`); event-scoped
-  // overrides pointing at an absorbed block stop applying once it's deleted.
+  // §4.2 guards — same helpers the day planner uses (changePlan.ts). Roll
+  // receipts live on the event (`rollTaken`); event-scoped overrides pointing
+  // at an absorbed block stop applying once it's deleted.
   const { overrides } = useRosterOverrides();
   const { students } = useStudents();
-  const rolled = absorbed.filter(e => Object.keys(e.rollTaken ?? {}).length > 0);
-  const absorbedIds = new Set(absorbed.map(e => e.id));
-  const stranded = overrides.filter(o => o.scope === 'event' && !!o.eventId && absorbedIds.has(o.eventId));
+  const rolled = rolledBlocks(absorbed);
+  const stranded = strandedEventOverrides(overrides, new Set(absorbed.map(e => e.id)));
   const studentName = (id: string) => students.find(s => s.id === id)?.name ?? 'A student';
-  const overrideWord = (o: (typeof stranded)[number]) =>
-    o.action === 'add' ? 'sub in' : o.kind === 'lesson' ? 'lesson pull-out' : 'pull-out';
 
   const slot = slots.find(s => s.key === slotKey);
   const startTime = slot ? slot.start : customStart || undefined;

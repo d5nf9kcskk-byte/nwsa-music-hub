@@ -55,6 +55,19 @@
     color: var(--dir-text-muted);
     padding: 14px 12px 4px;
   }
+  .dir-rail-expand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+  }
+  .dir-rail-expand.active { color: var(--dir-primary); }
 
   .dir-rail-item {
     display: flex;

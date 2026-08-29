@@ -1,5 +1,5 @@
 import { fmtLongDate } from './dates.ts';
-import { parseSlotOptions } from './signupSlots.ts';
+import { compactOptionGrades, parseSlotOptions } from './signupSlots.ts';
 import type { SignupQuestion, SignupSlotDef } from '../director/types.ts';
 
 /** Minutes since midnight → 12-hour clock parts. */
@@ -68,18 +68,32 @@ export function isValidSlotDef(def: SignupSlotDef): boolean {
     && def.endMin > def.startMin;
 }
 
+/** Strip empty grade arrays so Firestore never stores `grades: []`. */
+export function cleanSlotDefGrades(def: SignupSlotDef): SignupSlotDef {
+  const grades = def.grades?.filter(Boolean);
+  if (!grades?.length) {
+    const { grades: _drop, ...rest } = def;
+    void _drop;
+    return rest;
+  }
+  return { ...def, grades };
+}
+
 /** Strip editor-only fields and derive student-facing `options` from slot defs. */
 export function normalizeTimeslotQuestion(q: SignupQuestion): SignupQuestion {
   const { slotManualDraft, ...rest } = q;
   void slotManualDraft;
   if (q.type !== 'timeslot') return q;
-  const defs = q.slotDefs ?? [];
+  const defs = (q.slotDefs ?? []).map(cleanSlotDefGrades);
   if (defs.length > 0) {
+    const options = slotDefsToOptions(defs);
     return {
       ...rest,
       slotDefs: defs,
-      options: slotDefsToOptions(defs),
+      options,
+      optionGrades: compactOptionGrades(defs.map(d => d.grades ?? null), options.length),
       help: q.help?.trim() || undefined,
+      reference: q.reference,
     };
   }
   const manual = q.slotManualDraft?.trim();
@@ -90,6 +104,8 @@ export function normalizeTimeslotQuestion(q: SignupQuestion): SignupQuestion {
     ...rest,
     options,
     slotDefs: undefined,
+    optionGrades: compactOptionGrades(q.optionGrades, options.length),
     help: q.help?.trim() || undefined,
+    reference: q.reference,
   };
 }

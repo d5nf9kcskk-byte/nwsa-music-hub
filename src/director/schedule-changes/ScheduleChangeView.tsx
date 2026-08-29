@@ -1,19 +1,17 @@
 import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Search, UserPlus, UserMinus, Trash2, CalendarClock, GraduationCap, Clock, FileText, Repeat, CornerUpRight } from 'lucide-react';
-import { ORG } from '../../org';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useStaffNotices } from '../hooks/useStaffNotices';
 import { currentDirectorName } from '../currentDirector';
-import { resolveRoster, rotationWrites } from '../rosterResolver';
+import { resolveRoster } from '../rosterResolver';
 import { ensembleColor, parseDate, todayStr, toDateStr, formatTimeRange, addMinutesToTime, EVENT_TYPE_ICON, musicEnsembles, isClassGroup, takesAttendance, WEEKDAY_LABELS } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
 import type { DirNavigate } from '../types-nav';
-import { useModalA11y } from '../../shared/useModalA11y';
 import type { Student, Ensemble, RosterOverride, CalendarEvent } from '../types';
 import { studentMatchesQuery } from '../studentSearch';
 
@@ -295,7 +293,6 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
   onBack: () => void;
   onNavigate?: DirNavigate;
 }) {
-  const { updateStudent } = useStudents();
   const { overrides, addOverride, deleteOverride } = useRosterOverrides();
   const { addNotice } = useStaffNotices();
   const [verb, setVerb] = useState<Verb>('send');
@@ -306,7 +303,6 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
   const [lessonStart, setLessonStart] = useState('15:00');
   const [lessonEnd, setLessonEnd] = useState('15:50');
   const [reason, setReason] = useState('');
-  const [rotationOpen, setRotationOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -512,17 +508,16 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
           </button>
         </div>
 
-        <div className="dir-field-hint" style={{ marginBottom: 10 }}>
-          <button className="dir-inline-link" onClick={() => setRotationOpen(true)}>
-            <Repeat size={12} style={{ verticalAlign: '-1px' }} /> Standing weekly rotation…
-          </button>
-          {onNavigate && (
-            <>
-              {' '}· Joining or leaving an ensemble permanently is a{' '}
-              <button className="dir-inline-link" onClick={() => onNavigate('roster', { studentId: student.id })}>Roster</button> change.
-            </>
-          )}
-        </div>
+        {onNavigate && (
+          <div className="dir-field-hint" style={{ marginBottom: 10 }}>
+            {/* Every-week moves live on the Rotations page (#two-doors §4). */}
+            <button className="dir-inline-link" onClick={() => onNavigate('rotations')}>
+              <Repeat size={12} style={{ verticalAlign: '-1px' }} /> Standing weekly rotation…
+            </button>
+            {' '}· Joining or leaving an ensemble permanently is a{' '}
+            <button className="dir-inline-link" onClick={() => onNavigate('roster', { studentId: student.id })}>Roster</button> change.
+          </div>
+        )}
 
         <div className="dir-form-section-label">Active moves for {student.name}</div>
         {myOverrides.length === 0 ? (
@@ -562,137 +557,6 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
         )}
       </div>
 
-      {rotationOpen && (
-        <RotationForm
-          student={student}
-          ensembles={ensembles}
-          prefill={prefill}
-          onClose={() => setRotationOpen(false)}
-          onSave={async w => {
-            // Membership first: if a later write fails, the student is a member
-            // of both (harmless) rather than rotated out with no destination.
-            if (w.ensembleIds) await updateStudent(student.id, { ensembleIds: w.ensembleIds });
-            for (const o of w.overrides) await addOverride(o);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-/**
- * Standing rotation (#schedule-ux-redesign §2.4): a small face over
- * `rotationWrites` (rosterResolver.ts) — scripts/apply-rotations.mjs's
- * member-of-both convention, the one every live rotation uses. The save is
- * membership in BOTH ensembles plus removes carving out rehearsal days, so
- * the concert exemption keeps the student on both concert rosters.
- * Weekdays follow Ensemble.meetingDays: 0=Sun…6=Sat.
- * Reached from the sentence page's "Standing weekly rotation…" link until
- * the dedicated Rotations page ships (Phase 4d).
- */
-function RotationForm({ student, ensembles, prefill, onSave, onClose }: {
-  student: Student;
-  ensembles: Ensemble[];
-  prefill?: Prefill;
-  onSave: (writes: ReturnType<typeof rotationWrites>) => Promise<void>;
-  onClose: () => void;
-}) {
-  const memberEnsembles = ensembles.filter(e => student.ensembleIds?.includes(e.id));
-  const baseOptions = musicEnsembles(memberEnsembles.length ? memberEnsembles : ensembles);
-  const [baseId, setBaseId] = useState(() =>
-    baseOptions.some(e => e.id === prefill?.ensembleId) ? prefill!.ensembleId! : baseOptions[0]?.id ?? '');
-  const [destId, setDestId] = useState('');
-  const [days, setDays] = useState<number[]>([]);
-  const [startDate, setStartDate] = useState(prefill?.date ?? todayStr());
-  // Default end: the org's end of term, when configured. Otherwise typed.
-  const [endDate, setEndDate] = useState(ORG.termEnd ?? '');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
-
-  const base = ensembles.find(e => e.id === baseId);
-  const dest = ensembles.find(e => e.id === destId);
-  const summary = rotationSummary(base, dest, days);
-  const ready = !!baseId && !!destId && days.length > 0 && !!startDate && !!endDate && endDate >= startDate;
-
-  async function handleSave() {
-    if (!ready) return;
-    setSaving(true); setError('');
-    try {
-      await onSave(rotationWrites(student, baseId, destId, days, startDate, endDate));
-      onClose();
-    } catch (e) {
-      setSaving(false);
-      setError(e instanceof Error ? e.message : 'Could not save — try again.');
-    }
-  }
-
-  return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label="Standing weekly rotation" tabIndex={-1} ref={panelRef}>
-        <div className="dir-drawer-handle" />
-        <div className="dir-drawer-header">
-          <span className="dir-drawer-title"><Repeat size={16} style={{ verticalAlign: '-2px' }} /> Standing rotation — {student.name}</span>
-          <button className="dir-drawer-close" onClick={onClose}>×</button>
-        </div>
-        <div className="dir-drawer-body">
-          <div className="dir-field">
-            <label className="dir-label">Base ensemble</label>
-            <select className="dir-input" value={baseId} onChange={e => setBaseId(e.target.value)}>
-              {baseOptions.map(e => (
-                <option key={e.id} value={e.id}>{e.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="dir-field">
-            <label className="dir-label">But on</label>
-            <div className="dir-field-row" style={{ gap: 6, flexWrap: 'wrap' }}>
-              {WEEKDAY_LABELS.map((label, d) => (
-                <button
-                  key={d}
-                  type="button"
-                  className={`dir-tool-btn ${days.includes(d) ? 'active' : ''}`}
-                  aria-pressed={days.includes(d)}
-                  onClick={() => setDays(cur => cur.includes(d) ? cur.filter(x => x !== d) : [...cur, d])}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="dir-field">
-            <label className="dir-label">They're with</label>
-            <select className="dir-input" value={destId} onChange={e => setDestId(e.target.value)}>
-              <option value="">— pick an ensemble —</option>
-              {musicEnsembles(ensembles).filter(e => e.id !== baseId).map(e => (
-                <option key={e.id} value={e.id}>{e.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="dir-field-row">
-            <div className="dir-field">
-              <label className="dir-label">From</label>
-              <input className="dir-input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
-            </div>
-            <div className="dir-field">
-              <label className="dir-label">To</label>
-              <input className="dir-input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
-              {ORG.termEnd && <div className="dir-field-hint">Defaults to the end of term.</div>}
-            </div>
-          </div>
-          <div className="dir-field-hint">
-            Rehearsals only — on a concert day they play with whichever ensemble is on stage.
-          </div>
-          {summary && <div className="dir-sc-summary">{summary}</div>}
-          {error && <div className="dir-sc-error">⚠ {error}</div>}
-        </div>
-        <div className="dir-drawer-footer">
-          <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="dir-btn dir-btn-primary" disabled={saving || !ready} onClick={handleSave}>
-            {saving ? 'Saving…' : 'Save rotation'}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
