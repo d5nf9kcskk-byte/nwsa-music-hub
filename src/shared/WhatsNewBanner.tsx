@@ -21,7 +21,7 @@ function visibleFor(audience: WhatsNewAudience, entry: WhatsNewEntry, today: str
  * One roll-up of everything shipped that this device hasn't seen yet.
  * Collapsed it is a single line ("What's new · <newest date>"); open it lists
  * every unseen entry with the date it shipped. Dismissing marks them all seen.
- * Renders nothing when nothing is unseen. Today page only — not per-tab.
+ * Renders nothing when nothing is unseen. Staff Today + public menu.
  */
 export function WhatsNewBanner({ audience }: { audience: WhatsNewAudience }) {
   const today = todayStr();
