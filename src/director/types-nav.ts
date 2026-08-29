@@ -1,6 +1,6 @@
 import type { Tab } from './types';
 
-export type DirTab = Tab | 'scheduleChanges' | 'scheduleSwap' | 'announcements' | 'today' | 'ensembleHub' | 'ensembles' | 'classes' | 'college' | 'whosOut' | 'documents' | 'lessons' | 'myLessons' | 'messages' | 'signups' | 'personnel' | 'juries';
+export type DirTab = Tab | 'scheduleChanges' | 'scheduleSwap' | 'rotations' | 'announcements' | 'today' | 'ensembleHub' | 'ensembles' | 'classes' | 'college' | 'whosOut' | 'documents' | 'lessons' | 'myLessons' | 'messages' | 'signups' | 'personnel' | 'juries';
 
 export interface DirNavOpts {
   ensembleId?: string;

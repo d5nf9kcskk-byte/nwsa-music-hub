@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Rotations page (docs/schedule-ux-two-doors.md §4, Phase 4d). Staff-only:
+  // rosterOverrides writes, nothing new is world-readable.
+  {
+    id: '2026-08-29-rotations-page',
+    date: '2026-08-29',
+    title: 'Rotations has its own page',
+    audience: 'staff' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'Every student on a standing weekly rotation is listed in one place — who rehearses where on which weekdays, with the date range.',
+      'Add, edit, or delete a rotation right there. Deleting removes only the rotation — the student stays a member of both ensembles.',
+      'Rotations cover rehearsals only: on a concert day the student plays with whichever ensemble is on stage.',
+    ],
+  },
   // Roll reminders (§5.1). Staff-only: roll receipts are attendance-side data.
   {
     id: '2026-08-29-roll-reminders',

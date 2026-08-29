@@ -54,5 +54,31 @@ export function useRosterOverrides() {
     }
   }
 
-  return { overrides, loading, addOverride, deleteOverride };
+  /** Delete several overrides in ONE batch — a standing rotation is 1–n docs
+   *  that must go together (restoring half would strand the student in both
+   *  halves of a shared block). Pass `undoLabel` to offer a single undo that
+   *  restores every doc + mirror; omit it when replacing (edit = delete +
+   *  re-add, where an undo would duplicate the rotation). */
+  async function deleteOverrides(ids: string[], undoLabel?: string) {
+    if (!db || ids.length === 0) return;
+    const gone = overrides.filter(o => ids.includes(o.id));
+    const batch = writeBatch(db);
+    for (const id of ids) {
+      batch.delete(doc(db, 'rosterOverrides', id));
+      batch.delete(doc(db, 'rosterOverridesPublic', id));
+    }
+    await batch.commit();
+    if (undoLabel && gone.length) {
+      const [{ id: firstId, ...firstData }, ...rest] = gone;
+      offerUndo('rosterOverrides', firstId, firstData, undoLabel, [
+        { collection: 'rosterOverridesPublic', docId: firstId, data: publicOverrideFields(firstData) },
+        ...rest.flatMap(({ id, ...data }) => [
+          { collection: 'rosterOverrides', docId: id, data },
+          { collection: 'rosterOverridesPublic', docId: id, data: publicOverrideFields(data) },
+        ]),
+      ]);
+    }
+  }
+
+  return { overrides, loading, addOverride, deleteOverride, deleteOverrides };
 }
