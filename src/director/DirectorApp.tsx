@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -31,6 +31,7 @@ import { WhosOutView } from './roster/WhosOutView';
 import { ScheduleView } from './schedule/ScheduleView';
 import { ScheduleChangeView } from './schedule-changes/ScheduleChangeView';
 import { ScheduleSwapView } from './schedule/ScheduleSwapView';
+import { RotationsView } from './rotations/RotationsView';
 import { NotesView } from './notes/NotesView';
 import { AssignmentsView } from './assignments/AssignmentsView';
 import { AnnouncementManager } from './announcements/AnnouncementManager';
@@ -91,6 +92,9 @@ const NAV_TOP: NavItem[] = [
   // 1's embedded Students tab, now the student door.
   { id: 'scheduleChanges', label: 'Move a Student', Icon: UserCog       },
   { id: 'scheduleSwap',    label: 'Change a Day',   Icon: CalendarClock },
+  // The standing-rotation reference point (two-doors §4, Phase 4d) — kept
+  // beside Move a Student, whose "Every week…" verb it backs.
+  { id: 'rotations',       label: 'Rotations',      Icon: Repeat        },
   { id: 'whosOut',  label: "Who's Out", Icon: UserX         },
 ];
 const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
@@ -135,6 +139,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   schedule:        'Schedule',
   scheduleChanges: 'Move a Student',
   scheduleSwap:    'Change a Day',
+  rotations:       'Rotations',
   repertoire:      'Repertoire',
   documents:       'Documents',
   notes:           'Progress Notes',
@@ -153,7 +158,7 @@ const TAB_TITLES: Record<DirTab, string> = {
 
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'lessons', 'myLessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
-  'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'classes', 'college', 'whosOut', 'scheduleSwap',
+  'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'classes', 'college', 'whosOut', 'scheduleSwap', 'rotations',
   'messages', 'signups', 'juries',
   // The roster URL segment follows the org kind too (#personnel), so a
   // school build has no /director/personnel route and an adult build no
@@ -173,6 +178,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   whosOut:         'Every absence and pull-out in one place. Switch Day and Month to spot patterns.',
   scheduleSwap:    'Whole-ensemble changes for a day \u2014 swap blocks, combine into one room, change time or room, or cancel. Families see a red banner automatically.',
   scheduleChanges: 'One student somewhere different \u2014 with another ensemble for the day, at a lesson, or out. Staff-only: both rosters update instantly, and no family banner is posted.',
+  rotations:       'Every standing weekly rotation in one place \u2014 who rehearses where on which weekdays. Rehearsals only: on a concert day they play with whichever ensemble is on stage.',
   ensembles:       'Create ensembles, add students to their rosters, and open any ensemble\u2019s hub \u2014 schedule, roll, repertoire, and documents.',
   classes:         'Theory, history, vocal lit, and master classes \u2014 each with its own roster, roll, assignments, announcements, and documents.',
   college:         'College ensembles and dual-enrollment classes \u2014 kept separate from the high-school lists. Shared groups like Symphony stay under Ensembles.',
@@ -569,6 +575,7 @@ export default function DirectorApp() {
               />
             )}
             {tab === 'scheduleSwap'    && <ScheduleSwapView key={intentKey} initialDate={intent.date} onNavigate={go} />}
+            {tab === 'rotations'       && <RotationsView />}
             {tab === 'repertoire'      && <RepertoireManager key={intentKey} asTab ensembleId={intent.ensembleId} onClose={() => {}} />}
             {tab === 'documents'       && <DocumentsView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} />}
             {tab === 'notes'           && <NotesView />}
