@@ -1,0 +1,42 @@
+---
+description: Keep shared visual chrome consistent between director and public shells
+alwaysApply: true
+---
+
+# Director / public chrome consistency
+
+When you change **shared visual chrome** (placement, grouping, density,
+disclosure, banners, menu footers, nav patterns), do it on **both** sides in
+the same change unless the feature is truly one-audience.
+
+## Applies to
+
+- Menu / rail / hamburger structure (where sections live, dividers, what sits
+  at the bottom)
+- Cross-cutting banners and roll-ups (What's New, status strips, update toasts)
+- Collapsible vs always-open nav groups
+- Shared controls that both audiences use (theme, language, text size) when
+  the interaction pattern itself changes
+
+## Does not force mirroring
+
+- Role-only tools (Take Roll, Directors admin, lesson log)
+- Public-only destinations (student lookup, subscribe)
+- Copy that must differ by audience (staff vs family wording)
+- Data privacy boundaries (staff-only collections stay staff-only)
+
+## How to ship
+
+1. Touch both shells in one commit when the chrome is shared
+   (`src/director/DirectorApp.tsx` + `src/public/PublicLayout.tsx`, or the
+   shared component both import).
+2. If you only fix one side first, finish the other before calling the work
+   done. Do not leave "public has it, director still has the old place."
+3. Prefer one shared component over two copies when the UI is the same
+   (example: `WhatsNewBanner`).
+
+## Example (2026-08-29)
+
+What's New moved to the **bottom of the menu** on public. Directors still
+saw it on Today until the rail/menu got the same placement. That split is
+exactly what this rule forbids.
