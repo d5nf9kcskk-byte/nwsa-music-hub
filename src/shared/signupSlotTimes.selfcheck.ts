@@ -32,12 +32,23 @@ const normalized = normalizeTimeslotQuestion({
 });
 assert(normalized.options?.[0] === opts[0], 'normalize from defs');
 assert(normalized.slotDefs?.length === 1, 'keeps defs');
+assert(normalized.optionGrades === undefined, 'no grades → omit optionGrades');
+
+const seniorDef = { ...def, grades: ['12th'] };
+const withGrades = normalizeTimeslotQuestion({
+  id: 'q1b', label: 'Pick', type: 'timeslot',
+  slotDefs: [seniorDef, def],
+});
+assert(withGrades.optionGrades?.[0]?.[0] === '12th', 'derives optionGrades from defs');
+assert(withGrades.optionGrades?.[1] === null, 'open slot → null in optionGrades');
 
 const manual = normalizeTimeslotQuestion({
   id: 'q2', label: 'Pick', type: 'timeslot',
   slotManualDraft: 'Line one\n\nLine two\n',
+  optionGrades: [['12th'], null],
 });
 assert(manual.options?.join('|') === 'Line one|Line two', 'manual preserves lines on save');
+assert(manual.optionGrades?.[0]?.[0] === '12th', 'manual keeps optionGrades');
 
 const { hour12, ampm } = minutesToParts(partsToMinutes(12, 0, 'PM'));
 assert(hour12 === 12 && ampm === 'PM', 'noon');

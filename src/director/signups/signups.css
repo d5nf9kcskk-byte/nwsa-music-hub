@@ -182,6 +182,28 @@
   border-radius: var(--dir-radius-sm); font-size: 13px;
 }
 .dir-signup-slot-builder-row span { flex: 1; min-width: 0; }
+.dir-signup-slot-builder-row-grades {
+  flex-wrap: wrap; align-items: flex-start;
+}
+.dir-signup-slot-grade-pick {
+  flex: 0 1 140px; min-width: 120px; max-width: 180px;
+}
+.dir-signup-slot-grade-pick .dir-fm {
+  flex: 1 1 auto; max-width: none; width: 100%; min-width: 0;
+}
+.dir-signup-audience-fm {
+  width: 100%;
+}
+.dir-signup-audience-fm .dir-fm {
+  flex: 1 1 auto;
+  max-width: none;
+  width: 100%;
+  min-width: 0;
+}
+.dir-signup-audience-fm .dir-fm-panel {
+  z-index: 80;
+  max-width: min(100vw - 32px, 360px);
+}
 .dir-signup-slot-manual-toggle {
   background: none; border: none; padding: 6px 0; margin-top: 4px;
   font-family: inherit; font-size: 12.5px; font-weight: 700;

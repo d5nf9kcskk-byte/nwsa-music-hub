@@ -5,6 +5,57 @@ import type { SignupForm, SignupQuestion, SignupSlotBooking } from '../director/
  *  main `signupResponses` collection stays staff-only. */
 export type { SignupSlotBooking };
 
+/** Grades a director can pin on a timeslot (HS roster labels). */
+export const SIGNUP_SLOT_GRADES = ['9th', '10th', '11th', '12th'] as const;
+
+/** Normalize "12th" / "12" / "12th Grade" → a comparable digit key. */
+export function gradeKey(grade: string | undefined | null): string {
+  const m = String(grade ?? '').trim().toLowerCase().match(/^(\d{1,2})/);
+  return m ? m[1] : '';
+}
+
+/** Empty/omit allowed → anyone. Otherwise student grade must match one entry.
+ *  Blank student grade fails closed when the slot is restricted. */
+export function gradesMatchSlot(
+  studentGrade: string | undefined | null,
+  allowed: string[] | null | undefined,
+): boolean {
+  if (!allowed || allowed.length === 0) return true;
+  const key = gradeKey(studentGrade);
+  if (!key) return false;
+  return allowed.some(a => gradeKey(a) === key);
+}
+
+/** Short badge copy, or null when the slot is open to any grade. */
+export function slotBlockedReason(allowed: string[] | null | undefined): string | null {
+  if (!allowed || allowed.length === 0) return null;
+  if (allowed.length === 1) return `${allowed[0]} only`;
+  return `${allowed.join(' / ')} only`;
+}
+
+export function slotGradeAllows(
+  question: SignupQuestion,
+  slotIndex: number,
+  studentGrade: string | undefined | null,
+): boolean {
+  return gradesMatchSlot(studentGrade, question.optionGrades?.[slotIndex]);
+}
+
+/** Compact parallel array for Firestore — omit entirely when every slot is open. */
+export function compactOptionGrades(
+  grades: (string[] | null | undefined)[] | undefined,
+  len: number,
+): (string[] | null)[] | undefined {
+  const out: (string[] | null)[] = [];
+  let any = false;
+  for (let i = 0; i < len; i++) {
+    const g = grades?.[i];
+    if (g && g.length) { out.push([...g]); any = true; }
+    else out.push(null);
+  }
+  return any ? out : undefined;
+}
+
 /** Deterministic doc id — the rules pin this format so two clients cannot
  *  race two different shapes into the same slot. */
 export function slotBookingId(formId: string, questionId: string, slotIndex: number): string {
@@ -89,9 +140,39 @@ export class SignupSlotTakenError extends Error {
   }
 }
 
+/** Client-side grade gate for restricted timeslots. ponytail: Firestore rules
+ *  still only enforce form-level audience + one-booking-per-slot — nested
+ *  optionGrades checks in rules aren't worth it for this school tool. Honest
+ *  clients (and the public UI) refuse the pick; staff see grade on the response. */
+export class SignupSlotGradeError extends Error {
+  slotLabel: string;
+  reason: string;
+  constructor(slotLabel: string, reason: string) {
+    super(`Slot not for this grade: ${slotLabel}`);
+    this.name = 'SignupSlotGradeError';
+    this.slotLabel = slotLabel;
+    this.reason = reason;
+  }
+}
+
 /** Payload for atomic slot reservation on submit. */
 export type SlotClaim = {
   questionId: string;
   slotIndex: number;
   slotLabel: string;
 };
+
+/** Throw if any claim targets a grade-restricted slot the student can't take. */
+export function assertClaimsMatchGrade(
+  form: SignupForm,
+  claims: SlotClaim[],
+  studentGrade: string,
+): void {
+  for (const claim of claims) {
+    const q = (form.questions ?? []).find(x => x.id === claim.questionId);
+    if (!q || !isTimeslotQuestion(q)) continue;
+    if (slotGradeAllows(q, claim.slotIndex, studentGrade)) continue;
+    const reason = slotBlockedReason(q.optionGrades?.[claim.slotIndex]) ?? 'Not available';
+    throw new SignupSlotGradeError(claim.slotLabel, reason);
+  }
+}
