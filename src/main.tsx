@@ -108,11 +108,30 @@ const router = createBrowserRouter(
         </Suspense>
       ),
     },
+    // Staff entry points — same AuthGate + DirectorApp as /director. After
+    // sign-in, pickShell() chooses the panel from the account's roles
+    // (director / applied teacher / classroom teacher / personnel assistant),
+    // regardless of which URL they used to open the sign-in screen.
     {
-      // Personnel Assistant entry point — same sign-in and shell as /director;
-      // once signed in, the account's role decides which panel renders (an
-      // assistant gets the attendance-only Personnel Assistant panel).
       path: '/assistant/*',
+      errorElement: <AppError />,
+      element: (
+        <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading…</div>}>
+          <DirectorApp />
+        </Suspense>
+      ),
+    },
+    {
+      path: '/teacher/*',
+      errorElement: <AppError />,
+      element: (
+        <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading…</div>}>
+          <DirectorApp />
+        </Suspense>
+      ),
+    },
+    {
+      path: '/classroom/*',
       errorElement: <AppError />,
       element: (
         <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading…</div>}>
