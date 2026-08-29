@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { doc, updateDoc, deleteField } from 'firebase/firestore';
-import { Plus, Trash2, Pencil, MapPin, AlertTriangle, Search } from 'lucide-react';
+import { Plus, Trash2, Pencil, MapPin, AlertTriangle, Search, ChevronLeft, Mail } from 'lucide-react';
 import { db } from '../firebase';
 import { useCurrentDirector } from '../currentDirector';
 import { useMyDirector, directorEmailId } from '../hooks/useDirectors';
@@ -11,24 +11,32 @@ import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useLessons } from '../hooks/useLessons';
 import { findLessonConflicts } from '../lessonConflicts';
 import { LESSON_MARKS, gradeSummary, isLessonMark, needsGrade } from '../lessonGrades';
+import {
+  defaultPayrollMinutes,
+  defaultTimesForPayroll,
+  initialsOk,
+  isLogCompleteForMail,
+  lessonLengthLabel,
+  logMaterialChanged,
+  repertoireLine,
+  schoolYearLabel,
+  suggestTeacherInitials,
+  type PayrollMinutes,
+} from '../lessonLog';
+import { enqueueLessonLogMail } from '../lessonLogMail';
 import { todayStr, parseDate, formatTimeRange } from '../utils';
 import type { Lesson, Student } from '../types';
 import { studentMatchesQuery } from '../studentSearch';
 import { whenQueued } from '../writeStatus';
 
-// Stable reference so `director?.assignedStudentIds ?? EMPTY_IDS` doesn't
-// hand useMemo a fresh [] literal every render (which would defeat memoizing).
 const EMPTY_IDS: string[] = [];
 
+type LessonPayload = Omit<Lesson, 'id' | 'createdAt' | 'updatedAt' | 'updatedBy' | 'overrideId'>;
+
 /**
- * The Applied Teacher's entire world (#roles, #applied): who they're assigned
- * to teach, the private lessons they've scheduled for those students, and the
- * grade on each of those lessons. An Applied Teacher can adjust their own
- * assigned-student list (firestore.rules allows a director to self-edit ONLY
- * that field), but every other collection in the Hub stays out of reach.
- *
- * Grades need no scoping of their own: they live on the lesson doc, and the
- * lesson is already the thing the rules scope to this teacher.
+ * Applied Teacher world (#roles, #applied): per-student High School Lesson
+ * Log sheets. Prior rows stay visible; add a line, hand the phone to the
+ * student for initials, then family email is queued.
  */
 export function MyLessonsView() {
   const me = useCurrentDirector();
@@ -40,8 +48,10 @@ export function MyLessonsView() {
   const { lessons, addLesson, updateLesson, deleteLesson } = useLessons();
 
   const [editingStudents, setEditingStudents] = useState(false);
+  const [sheetStudentId, setSheetStudentId] = useState<string | null>(null);
   const [editingLesson, setEditingLesson] = useState<Lesson | null | 'new'>(null);
   const [confirmDeleteLesson, setConfirmDeleteLesson] = useState<string | null>(null);
+  const [mailBanner, setMailBanner] = useState<{ queued: boolean; mailto: string | null; name: string } | null>(null);
 
   const assignedIds = director?.assignedStudentIds ?? EMPTY_IDS;
   const assignedStudents = useMemo(
@@ -57,16 +67,19 @@ export function MyLessonsView() {
     [lessons, me],
   );
   const today = todayStr();
-  const upcoming = myLessons.filter(l => l.date >= today);
-  const past = myLessons.filter(l => l.date < today);
   const ungraded = myLessons.filter(l => needsGrade(l, today));
+  const needsInitial = myLessons.filter(l =>
+    l.status !== 'Cancelled' && isLessonMark(l.grade) && !initialsOk(l.studentInitials) && l.date <= today,
+  );
 
-  // Term grade per assigned student, from that student's own lessons. Not
-  // memoized: it is a handful of students over a handful of lessons, and
-  // myLessons is sorted in place above, which the React Compiler (rightly)
-  // refuses to memoize across.
   const summaries = Object.fromEntries(
     assignedStudents.map(s => [s.id, gradeSummary(myLessons.filter(l => l.studentId === s.id), today)]),
+  );
+
+  const sheetStudent = sheetStudentId ? studentsById[sheetStudentId] : undefined;
+  const sheetLessons = useMemo(
+    () => (sheetStudentId ? myLessons.filter(l => l.studentId === sheetStudentId) : []),
+    [myLessons, sheetStudentId],
   );
 
   async function saveAssignedStudents(ids: string[]) {
@@ -74,12 +87,7 @@ export function MyLessonsView() {
     await updateDoc(doc(db, 'directors', directorEmailId(me.email)), { assignedStudentIds: ids });
   }
 
-  /** Save a lesson (new or edit) and keep its linked pull-out override in
-   *  sync: delete the old one (if any), create a fresh one iff the teacher
-   *  just acknowledged a conflict. Simpler than diffing/updating in place. */
-  async function saveLesson(data: Omit<Lesson, 'id' | 'createdAt' | 'updatedAt' | 'updatedBy' | 'overrideId'>, existing: Lesson | null) {
-    // Clear any previously-linked override up front — updateLesson's typed
-    // payload can't carry a FieldValue, so this uses updateDoc directly.
+  async function saveLesson(data: LessonPayload, existing: Lesson | null) {
     if (existing?.overrideId) {
       await deleteOverride(existing.overrideId);
       if (db) await updateDoc(doc(db, 'lessons', existing.id), { overrideId: deleteField() });
@@ -88,13 +96,18 @@ export function MyLessonsView() {
     let lessonId: string | undefined;
     if (existing) {
       await updateLesson(existing.id, data);
-      // Firestore is initialized with ignoreUndefinedProperties, so an
-      // undefined field on an update is DROPPED, not cleared — clearing a
-      // grade the teacher set by mistake needs an explicit deleteField, the
-      // same dance overrideId does above.
       const cleared: Record<string, unknown> = {};
       if (!data.grade && existing.grade) cleared.grade = deleteField();
       if (!data.gradeNote && existing.gradeNote) cleared.gradeNote = deleteField();
+      if (!data.repertoireComposer && existing.repertoireComposer) cleared.repertoireComposer = deleteField();
+      if (!data.repertoireTitle && existing.repertoireTitle) cleared.repertoireTitle = deleteField();
+      if (!data.teacherInitials && existing.teacherInitials) cleared.teacherInitials = deleteField();
+      if (!data.studentInitials && existing.studentInitials) {
+        cleared.studentInitials = deleteField();
+        cleared.studentInitialedAt = deleteField();
+      }
+      if (!data.notes && existing.notes) cleared.notes = deleteField();
+      if (!data.location && existing.location) cleared.location = deleteField();
       if (db && Object.keys(cleared).length > 0) await updateDoc(doc(db, 'lessons', existing.id), cleared);
       lessonId = existing.id;
     } else {
@@ -117,6 +130,21 @@ export function MyLessonsView() {
       });
       if (overrideId) await updateLesson(lessonId, { overrideId });
     }
+
+    const saved: Lesson = {
+      ...data,
+      id: lessonId,
+      createdAt: existing?.createdAt ?? Date.now(),
+      overrideId: existing?.overrideId,
+    };
+    if (isLogCompleteForMail(saved)) {
+      const result = await enqueueLessonLogMail(saved, studentsById[saved.studentId]);
+      setMailBanner({
+        queued: result.queued,
+        mailto: result.mailto,
+        name: studentsById[saved.studentId]?.name ?? 'the student',
+      });
+    }
   }
 
   async function handleDeleteLesson(l: Lesson) {
@@ -127,15 +155,110 @@ export function MyLessonsView() {
 
   if (!me) return null;
 
+  // ── Per-student log sheet ──────────────────────────────────────────
+  if (sheetStudentId && sheetStudent) {
+    const g = summaries[sheetStudent.id];
+    const payrollDefault = defaultPayrollMinutes(sheetStudent.grade);
+    return (
+      <div className="dir-tab-page">
+        <div style={{ padding: '8px 16px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button className="dir-tool-btn" onClick={() => { setSheetStudentId(null); setEditingLesson(null); }}>
+            <ChevronLeft size={14} /> All students
+          </button>
+        </div>
+
+        <div className="dir-form-section-label" style={{ marginTop: 4 }}>
+          {sheetStudent.name}
+          {sheetStudent.instrument ? ` · ${sheetStudent.instrument}` : ''}
+        </div>
+        <div className="dir-page-hint" style={{ marginTop: 0 }}>
+          Grade {sheetStudent.grade ?? '—'} · {lessonLengthLabel(sheetStudent.grade)} ·{' '}
+          {schoolYearLabel(today)}
+          {g ? ` · Term ${g.letter} (${g.average.toFixed(2)}, ${g.graded} of ${g.gradable})` : ' · not graded yet'}
+        </div>
+
+        {mailBanner && (
+          <MailBanner banner={mailBanner} onDismiss={() => setMailBanner(null)} />
+        )}
+
+        <div className="dir-form-section-label">Lesson log ({sheetLessons.filter(l => l.status !== 'Cancelled').length})</div>
+        {sheetLessons.length === 0 ? (
+          <div className="dir-empty-inline">No lessons logged yet. Tap “Add lesson” after you teach.</div>
+        ) : (
+          sheetLessons.map((l, i) => (
+            <LogRow
+              key={l.id}
+              index={i + 1}
+              lesson={l}
+              today={today}
+              confirming={confirmDeleteLesson === l.id}
+              onEdit={() => setEditingLesson(l)}
+              onDeleteRequest={() => setConfirmDeleteLesson(l.id)}
+              onDeleteCancel={() => setConfirmDeleteLesson(null)}
+              onDeleteConfirm={() => handleDeleteLesson(l)}
+            />
+          ))
+        )}
+
+        <div style={{ padding: '12px 16px 80px' }}>
+          <button
+            className="dir-btn dir-btn-primary"
+            onClick={() => setEditingLesson('new')}
+            disabled={assignedStudents.length === 0}
+          >
+            <Plus size={14} /> Add lesson
+          </button>
+        </div>
+
+        {editingLesson !== null && (
+          <LessonLogForm
+            lesson={editingLesson === 'new' ? null : editingLesson}
+            lockedStudentId={sheetStudent.id}
+            teacherEmail={directorEmailId(me.email)}
+            teacherName={me.name}
+            assignedStudents={assignedStudents}
+            priorLessons={sheetLessons}
+            defaultPayroll={payrollDefault}
+            events={events}
+            students={students}
+            overrides={overrides}
+            ensembleMap={ensembleMap}
+            onSave={async data => {
+              await saveLesson(data, editingLesson === 'new' ? null : editingLesson);
+              setEditingLesson(null);
+            }}
+            onClose={() => setEditingLesson(null)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ── Student list ───────────────────────────────────────────────────
   return (
     <div className="dir-tab-page">
       <div className="dir-page-hint" style={{ marginTop: 4 }}>
-        Log each lesson you give, then grade it once it's happened. Date, times,
-        student, location, and notes are the record the Dean uses for lesson
-        tracking and pay; the grade is what turns that record into a term mark.
+        Open a student to see their lesson log. After each lesson, add a line,
+        fill the grade and comments, then have the student type their initials
+        on this device. A summary email is queued for the family when the line
+        is complete.
       </div>
 
-      {/* My students */}
+      {mailBanner && (
+        <MailBanner banner={mailBanner} onDismiss={() => setMailBanner(null)} />
+      )}
+
+      {(ungraded.length > 0 || needsInitial.length > 0) && (
+        <div className="dir-page-hint" style={{ marginTop: 4 }}>
+          {ungraded.length > 0 && (
+            <span>{ungraded.length} lesson{ungraded.length === 1 ? '' : 's'} still need a grade. </span>
+          )}
+          {needsInitial.length > 0 && (
+            <span>{needsInitial.length} graded lesson{needsInitial.length === 1 ? '' : 's'} still need student initials.</span>
+          )}
+        </div>
+      )}
+
       <div className="dir-form-section-label" style={{ marginTop: 8 }}>My students ({assignedStudents.length})</div>
       {assignedStudents.length === 0 ? (
         <div className="dir-empty-inline">
@@ -143,72 +266,47 @@ export function MyLessonsView() {
           once those are in the Hub, they will show here. You can also adjust your list below if needed.
         </div>
       ) : (
-        <div className="dir-checkbox-group" style={{ padding: '0 16px 4px' }}>
-          {assignedStudents.map(s => {
-            const g = summaries[s.id];
-            return (
-              <span key={s.id} className="dir-checkbox-tag checked" style={{ cursor: 'default' }}>
-                {s.name}{s.instrument ? ` — ${s.instrument}` : ''}
-                {g ? ` · ${g.letter} (${g.average.toFixed(2)}, ${g.graded} of ${g.gradable} graded)` : ' · not graded yet'}
-              </span>
-            );
-          })}
-        </div>
+        assignedStudents.map(s => {
+          const g = summaries[s.id];
+          const count = myLessons.filter(l => l.studentId === s.id && l.status !== 'Cancelled').length;
+          const pending = myLessons.filter(l =>
+            l.studentId === s.id && (
+              needsGrade(l, today)
+              || (isLessonMark(l.grade) && !initialsOk(l.studentInitials) && l.date <= today)
+            ),
+          ).length;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              className="dir-ens-row"
+              style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', background: 'transparent' }}
+              onClick={() => setSheetStudentId(s.id)}
+            >
+              <span className="dir-ens-swatch" style={{ background: 'var(--dir-primary, #2563eb)' }} />
+              <div className="dir-ens-info">
+                <div className="dir-ens-name">
+                  {s.name}{s.instrument ? ` · ${s.instrument}` : ''}
+                  {pending > 0 && (
+                    <span className="dir-status-badge absent" style={{ marginLeft: 8 }}>
+                      {pending} to finish
+                    </span>
+                  )}
+                </div>
+                <div className="dir-ens-sub">
+                  Grade {s.grade ?? '—'} · {count} lesson{count === 1 ? '' : 's'}
+                  {g ? ` · Term ${g.letter} (${g.average.toFixed(2)})` : ' · not graded yet'}
+                </div>
+              </div>
+            </button>
+          );
+        })
       )}
       <div style={{ padding: '4px 16px 14px' }}>
         <button className="dir-tool-btn" onClick={() => setEditingStudents(true)}>
           <Pencil size={13} /> Adjust my students
         </button>
       </div>
-
-      {/* My lessons */}
-      {ungraded.length > 0 && (
-        <div className="dir-page-hint" style={{ marginTop: 4 }}>
-          {ungraded.length} lesson{ungraded.length === 1 ? '' : 's'} still {ungraded.length === 1 ? 'needs' : 'need'} a grade —
-          open one below and pick a mark.
-        </div>
-      )}
-      <div className="dir-form-section-label">Upcoming lessons ({upcoming.length})</div>
-      {upcoming.length === 0 ? (
-        <div className="dir-empty-inline">No lessons scheduled. Tap “New lesson” to add one.</div>
-      ) : (
-        upcoming.map(l => (
-          <LessonRow
-            key={l.id}
-            lesson={l}
-            today={today}
-            student={studentsById[l.studentId]}
-            confirming={confirmDeleteLesson === l.id}
-            onEdit={() => setEditingLesson(l)}
-            onDeleteRequest={() => setConfirmDeleteLesson(l.id)}
-            onDeleteCancel={() => setConfirmDeleteLesson(null)}
-            onDeleteConfirm={() => handleDeleteLesson(l)}
-          />
-        ))
-      )}
-
-      {past.length > 0 && (
-        <>
-          <div className="dir-form-section-label">Past lessons</div>
-          {past.slice(-10).reverse().map(l => (
-            <LessonRow
-              key={l.id}
-              lesson={l}
-              today={today}
-              student={studentsById[l.studentId]}
-              confirming={confirmDeleteLesson === l.id}
-              onEdit={() => setEditingLesson(l)}
-              onDeleteRequest={() => setConfirmDeleteLesson(l.id)}
-              onDeleteCancel={() => setConfirmDeleteLesson(null)}
-              onDeleteConfirm={() => handleDeleteLesson(l)}
-            />
-          ))}
-        </>
-      )}
-
-      <button className="dir-fab" onClick={() => setEditingLesson('new')} aria-label="New lesson">
-        <Plus size={22} />
-      </button>
 
       {editingStudents && (
         <StudentAssignEditor
@@ -218,49 +316,63 @@ export function MyLessonsView() {
           onClose={() => setEditingStudents(false)}
         />
       )}
-
-      {editingLesson !== null && (
-        <LessonForm
-          lesson={editingLesson === 'new' ? null : editingLesson}
-          teacherEmail={directorEmailId(me.email)}
-          teacherName={me.name}
-          assignedStudents={assignedStudents}
-          events={events}
-          students={students}
-          overrides={overrides}
-          ensembleMap={ensembleMap}
-          onSave={async data => { await saveLesson(data, editingLesson === 'new' ? null : editingLesson); setEditingLesson(null); }}
-          onClose={() => setEditingLesson(null)}
-        />
-      )}
     </div>
   );
 }
 
-function LessonRow({ lesson, today, student, confirming, onEdit, onDeleteRequest, onDeleteCancel, onDeleteConfirm }: {
+function MailBanner({ banner, onDismiss }: {
+  banner: { queued: boolean; mailto: string | null; name: string };
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="dir-page-hint" style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+      <Mail size={14} />
+      <span>
+        {banner.queued
+          ? `Summary queued for ${banner.name}'s family email.`
+          : banner.mailto
+            ? `No queued send yet — open Mail to send ${banner.name}'s summary.`
+            : `Saved. No family email on file for ${banner.name}.`}
+      </span>
+      {banner.mailto && (
+        <a className="dir-tool-btn" href={banner.mailto}>Open in Mail</a>
+      )}
+      <button type="button" className="dir-tool-btn" onClick={onDismiss}>Dismiss</button>
+    </div>
+  );
+}
+
+function LogRow({ index, lesson, today, confirming, onEdit, onDeleteRequest, onDeleteCancel, onDeleteConfirm }: {
+  index: number;
   lesson: Lesson;
   today: string;
-  student?: Student;
   confirming: boolean;
   onEdit: () => void;
   onDeleteRequest: () => void;
   onDeleteCancel: () => void;
   onDeleteConfirm: () => void;
 }) {
+  const rep = repertoireLine(lesson);
   return (
     <div className="dir-ens-row">
       <span className="dir-ens-swatch" style={{ background: lesson.conflict ? 'var(--dir-danger)' : 'var(--dir-primary, #2563eb)' }} />
       <div className="dir-ens-info">
         <div className="dir-ens-name">
-          {student?.name ?? 'Unknown student'}
+          #{index} · {parseDate(lesson.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
           {lesson.status === 'Cancelled' && <span className="dir-status-badge absent" style={{ marginLeft: 8 }}>Cancelled</span>}
           {isLessonMark(lesson.grade) && <span className="dir-status-badge" style={{ marginLeft: 8 }}>Grade {lesson.grade}</span>}
           {needsGrade(lesson, today) && <span className="dir-status-badge absent" style={{ marginLeft: 8 }}>Needs a grade</span>}
+          {isLessonMark(lesson.grade) && !initialsOk(lesson.studentInitials) && lesson.date <= today && (
+            <span className="dir-status-badge absent" style={{ marginLeft: 8 }}>Needs initials</span>
+          )}
         </div>
         <div className="dir-ens-sub">
-          {parseDate(lesson.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {formatTimeRange(lesson.startTime, lesson.endTime)}
-          {lesson.location ? ` · ${lesson.location}` : ''}
+          {formatTimeRange(lesson.startTime, lesson.endTime)}
+          {lesson.payrollMinutes ? ` · ${lesson.payrollMinutes} min` : ''}
+          {lesson.teacherInitials ? ` · T: ${lesson.teacherInitials}` : ''}
+          {lesson.studentInitials ? ` · S: ${lesson.studentInitials}` : ''}
         </div>
+        {rep && <div className="dir-ens-sub">{rep}</div>}
         {lesson.gradeNote && <div className="dir-ens-sub">{lesson.gradeNote}</div>}
         {lesson.conflict && (
           <div className="dir-ens-sub" style={{ color: 'var(--dir-danger)' }}>
@@ -283,9 +395,6 @@ function LessonRow({ lesson, today, student, confirming, onEdit, onDeleteRequest
   );
 }
 
-/** Self-service "students assigned to me" editor — search + checkbox list
- *  over the full active roster, same interaction as the Owner's version in
- *  DirectorsManager but writing only this teacher's own doc. */
 function StudentAssignEditor({ allStudents, assignedIds, onSave, onClose }: {
   allStudents: Student[];
   assignedIds: string[];
@@ -298,7 +407,7 @@ function StudentAssignEditor({ allStudents, assignedIds, onSave, onClose }: {
 
   const active = useMemo(() => allStudents.filter(s => s.status === 'Active').sort((a, b) => a.name.localeCompare(b.name)), [allStudents]);
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     if (!q) return active;
     return active.filter(s => studentMatchesQuery(s, q));
   }, [active, query]);
@@ -341,35 +450,60 @@ function StudentAssignEditor({ allStudents, assignedIds, onSave, onClose }: {
   );
 }
 
-function LessonForm({
-  lesson, teacherEmail, teacherName, assignedStudents, events, students, overrides, ensembleMap, onSave, onClose,
+/**
+ * Two-step log form: teacher fills the official line, then the student types
+ * initials on this device. Scheduling (times / location / conflict) lives
+ * under “More.”
+ */
+function LessonLogForm({
+  lesson, lockedStudentId, teacherEmail, teacherName, assignedStudents, priorLessons,
+  defaultPayroll, events, students, overrides, ensembleMap, onSave, onClose,
 }: {
   lesson: Lesson | null;
+  lockedStudentId: string;
   teacherEmail: string;
   teacherName: string;
   assignedStudents: Student[];
+  priorLessons: Lesson[];
+  defaultPayroll: PayrollMinutes;
   events: import('../types').CalendarEvent[];
   students: Student[];
   overrides: import('../types').RosterOverride[];
   ensembleMap: Record<string, import('../types').Ensemble>;
-  onSave: (data: Omit<Lesson, 'id' | 'createdAt' | 'updatedAt' | 'updatedBy' | 'overrideId'>) => Promise<void>;
+  onSave: (data: LessonPayload) => Promise<void>;
   onClose: () => void;
 }) {
-  const [studentId, setStudentId] = useState(lesson?.studentId ?? assignedStudents[0]?.id ?? '');
+  const last = [...priorLessons].filter(l => l.status !== 'Cancelled').at(-1);
+  const times0 = lesson
+    ? { startTime: lesson.startTime, endTime: lesson.endTime }
+    : defaultTimesForPayroll(last?.payrollMinutes ?? defaultPayroll);
+
   const [date, setDate] = useState(lesson?.date ?? todayStr());
-  const [startTime, setStartTime] = useState(lesson?.startTime ?? '15:00');
-  const [endTime, setEndTime] = useState(lesson?.endTime ?? '15:30');
+  const [startTime, setStartTime] = useState(times0.startTime);
+  const [endTime, setEndTime] = useState(times0.endTime);
   const [location, setLocation] = useState(lesson?.location ?? '');
   const [notes, setNotes] = useState(lesson?.notes ?? '');
   const [grade, setGrade] = useState(isLessonMark(lesson?.grade) ? lesson!.grade! : '');
   const [gradeNote, setGradeNote] = useState(lesson?.gradeNote ?? '');
-  // A previously-acknowledged conflict starts pre-checked (re-opening an
-  // unchanged lesson shouldn't re-block on the same conflict); ANY change to
-  // a field that affects conflict detection resets the ack, since it may now
-  // be a different conflict (or none, or a new one) — see the effect below.
+  const [repertoireComposer, setRepertoireComposer] = useState(lesson?.repertoireComposer ?? '');
+  const [repertoireTitle, setRepertoireTitle] = useState(lesson?.repertoireTitle ?? '');
+  const [payrollMinutes, setPayrollMinutes] = useState<PayrollMinutes>(
+    lesson?.payrollMinutes ?? last?.payrollMinutes ?? defaultPayroll,
+  );
+  const [teacherInitials, setTeacherInitials] = useState(
+    lesson?.teacherInitials ?? last?.teacherInitials ?? suggestTeacherInitials(teacherName),
+  );
+  const [studentInitials, setStudentInitials] = useState(lesson?.studentInitials ?? '');
+  const [step, setStep] = useState<'teacher' | 'student'>(
+    lesson && isLessonMark(lesson.grade) && !initialsOk(lesson.studentInitials) ? 'student' : 'teacher',
+  );
+  const [showMore, setShowMore] = useState(!!(lesson?.location || lesson?.conflict || lesson?.notes));
   const [ackConflict, setAckConflict] = useState(!!lesson?.conflict);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const studentId = lockedStudentId;
+  const student = assignedStudents.find(s => s.id === studentId) ?? students.find(s => s.id === studentId);
 
   const conflicts = useMemo(
     () => findLessonConflicts(studentId, date, startTime, endTime, events, students, overrides),
@@ -382,32 +516,81 @@ function LessonForm({
     setAckConflict(false);
   }, [studentId, date, startTime, endTime]);
 
-  const student = assignedStudents.find(s => s.id === studentId) ?? students.find(s => s.id === studentId);
+  // Changing payroll updates default end time only for brand-new lessons that
+  // still sit on the stock start time.
+  useEffect(() => {
+    if (lesson) return;
+    const next = defaultTimesForPayroll(payrollMinutes);
+    setStartTime(next.startTime);
+    setEndTime(next.endTime);
+  }, [payrollMinutes, lesson]);
+
   const hasConflict = conflicts.length > 0;
   const validTimes = !!startTime && !!endTime && endTime > startTime;
-  const canSave = !!studentId && !!date && validTimes && (!hasConflict || ackConflict);
+  const teacherReady = !!studentId && !!date && validTimes && (!hasConflict || ackConflict)
+    && isLessonMark(grade) && initialsOk(teacherInitials)
+    && !!repertoireComposer.trim() && !!repertoireTitle.trim()
+    && !!gradeNote.trim();
 
-  async function handleSave() {
+  function buildPayload(initials: string, initialedAt?: number): LessonPayload {
+    const primary = conflicts[0];
+    return {
+      teacherEmail,
+      teacherName,
+      studentId,
+      date,
+      startTime,
+      endTime,
+      location: location.trim() || undefined,
+      notes: notes.trim() || undefined,
+      grade: grade || undefined,
+      gradeNote: grade ? gradeNote.trim() || undefined : undefined,
+      repertoireComposer: repertoireComposer.trim() || undefined,
+      repertoireTitle: repertoireTitle.trim() || undefined,
+      teacherInitials: teacherInitials.trim() || undefined,
+      studentInitials: initials.trim() || undefined,
+      studentInitialedAt: initials.trim() ? (initialedAt ?? Date.now()) : undefined,
+      payrollMinutes,
+      instrument: student?.instrument,
+      status: lesson?.status ?? 'Scheduled',
+      conflict: hasConflict && ackConflict && primary ? {
+        eventId: primary.event.id,
+        ensembleId: primary.ensembleId,
+        eventLabel: `${ensembleMap[primary.ensembleId]?.name ?? primary.event.type} (${formatTimeRange(primary.event.startTime, primary.event.endTime)})`,
+        acknowledgedAt: Date.now(),
+        acknowledgedBy: teacherName,
+      } : undefined,
+    };
+  }
+
+  function goToStudentStep() {
     setError('');
+    if (!teacherReady) {
+      setError('Fill date, grade, repertoire (composer + title), technique/comments, and your initials first.');
+      return;
+    }
     if (!validTimes) { setError('End time must be after the start time.'); return; }
+    // Material edits void a prior student initial.
+    if (lesson && initialsOk(lesson.studentInitials) && logMaterialChanged(lesson, {
+      grade, gradeNote, repertoireComposer, repertoireTitle, payrollMinutes,
+    })) {
+      setStudentInitials('');
+    }
+    setStep('student');
+  }
+
+  async function handleSaveWithInitials() {
+    setError('');
+    if (!initialsOk(studentInitials)) {
+      setError('Student initials must be at least 2 characters.');
+      return;
+    }
     setSaving(true);
     try {
-      const primary = conflicts[0];
-      await whenQueued(onSave({
-        teacherEmail, teacherName, studentId, date, startTime, endTime,
-        location: location.trim() || undefined,
-        notes: notes.trim() || undefined,
-        grade: grade || undefined,
-        gradeNote: grade ? gradeNote.trim() || undefined : undefined,
-        status: lesson?.status ?? 'Scheduled',
-        conflict: hasConflict && ackConflict && primary ? {
-          eventId: primary.event.id,
-          ensembleId: primary.ensembleId,
-          eventLabel: `${ensembleMap[primary.ensembleId]?.name ?? primary.event.type} (${formatTimeRange(primary.event.startTime, primary.event.endTime)})`,
-          acknowledgedAt: Date.now(),
-          acknowledgedBy: teacherName,
-        } : undefined,
-      }));
+      const keepAt = lesson && lesson.studentInitials === studentInitials.trim()
+        ? lesson.studentInitialedAt
+        : Date.now();
+      await whenQueued(onSave(buildPayload(studentInitials, keepAt)));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save — try again.');
       setSaving(false);
@@ -419,105 +602,174 @@ function LessonForm({
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
-          <span className="dir-drawer-title">{lesson ? 'Edit lesson' : 'New lesson'}</span>
+          <span className="dir-drawer-title">
+            {step === 'student'
+              ? 'Student initials'
+              : lesson ? 'Edit lesson log' : 'Add lesson log'}
+          </span>
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
         <div className="dir-drawer-body">
-          {assignedStudents.length === 0 ? (
-            <div className="dir-sc-error">No students are assigned to you yet — ask the Owner to assign some first.</div>
-          ) : (
-            <div className="dir-field">
-              <label className="dir-label">Student</label>
-              <select className="dir-select" value={studentId} onChange={e => setStudentId(e.target.value)}>
-                {assignedStudents.map(s => <option key={s.id} value={s.id}>{s.name}{s.instrument ? ` — ${s.instrument}` : ''}</option>)}
-              </select>
-            </div>
-          )}
-
-          <div className="dir-field">
-            <label className="dir-label">Date</label>
-            <input className="dir-input" type="date" value={date} onChange={e => setDate(e.target.value)} />
-          </div>
-          <div className="dir-field-row">
-            <div className="dir-field">
-              <label className="dir-label">Starts</label>
-              <input className="dir-input" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} />
-            </div>
-            <div className="dir-field">
-              <label className="dir-label">Ends</label>
-              <input className="dir-input" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
-            </div>
-          </div>
-          <div className="dir-field">
-            <label className="dir-label"><MapPin size={12} /> Location</label>
-            <input className="dir-input" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Practice Room 3" />
-          </div>
-          <div className="dir-field">
-            <label className="dir-label">Notes</label>
-            <input className="dir-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional" />
-          </div>
-
-          {/* Grading (#applied). Offered only once the lesson has happened —
-              a mark on a lesson nobody has given yet is not a grade. */}
-          {date <= todayStr() && (
+          {step === 'teacher' ? (
             <>
-              <div className="dir-form-section-label" style={{ paddingLeft: 0 }}>Lesson grade</div>
+              <div className="dir-page-hint" style={{ margin: '0 0 8px', padding: 0 }}>
+                {student?.name ?? 'Student'} · {lessonLengthLabel(student?.grade)}
+              </div>
+
               <div className="dir-field">
-                <label className="dir-label">Mark</label>
+                <label className="dir-label">Lesson date</label>
+                <input className="dir-input" type="date" value={date} onChange={e => setDate(e.target.value)} />
+              </div>
+
+              <div className="dir-field">
+                <label className="dir-label">Lesson grade</label>
                 <select className="dir-select" value={grade} onChange={e => setGrade(e.target.value)}>
-                  <option value="">Not graded yet</option>
+                  <option value="">Select mark</option>
                   {LESSON_MARKS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </div>
-              {grade && (
+
+              <div className="dir-field-row">
                 <div className="dir-field">
-                  <label className="dir-label">Comment</label>
-                  <input
-                    className="dir-input"
-                    value={gradeNote}
-                    onChange={e => setGradeNote(e.target.value)}
-                    placeholder="What to practise, what improved — optional"
-                  />
+                  <label className="dir-label">Composer</label>
+                  <input className="dir-input" value={repertoireComposer} onChange={e => setRepertoireComposer(e.target.value)} placeholder="Composer" />
+                </div>
+                <div className="dir-field">
+                  <label className="dir-label">Title</label>
+                  <input className="dir-input" value={repertoireTitle} onChange={e => setRepertoireTitle(e.target.value)} placeholder="Piece title" />
+                </div>
+              </div>
+
+              <div className="dir-field">
+                <label className="dir-label">Technique / comments</label>
+                <input
+                  className="dir-input"
+                  value={gradeNote}
+                  onChange={e => setGradeNote(e.target.value)}
+                  placeholder="What to practise, what improved"
+                />
+              </div>
+
+              <div className="dir-field">
+                <label className="dir-label">Payroll length</label>
+                <select
+                  className="dir-select"
+                  value={payrollMinutes}
+                  onChange={e => setPayrollMinutes(Number(e.target.value) as PayrollMinutes)}
+                >
+                  <option value={45}>45 minutes</option>
+                  <option value={60}>1 hour</option>
+                </select>
+              </div>
+
+              <div className="dir-field">
+                <label className="dir-label">Teacher initials</label>
+                <input
+                  className="dir-input"
+                  value={teacherInitials}
+                  onChange={e => setTeacherInitials(e.target.value.toUpperCase())}
+                  placeholder="Your initials"
+                  autoCapitalize="characters"
+                />
+              </div>
+
+              <button type="button" className="dir-tool-btn" onClick={() => setShowMore(v => !v)}>
+                {showMore ? 'Hide scheduling details' : 'More (times, location, notes)'}
+              </button>
+
+              {showMore && (
+                <>
+                  <div className="dir-field-row" style={{ marginTop: 8 }}>
+                    <div className="dir-field">
+                      <label className="dir-label">Starts</label>
+                      <input className="dir-input" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} />
+                    </div>
+                    <div className="dir-field">
+                      <label className="dir-label">Ends</label>
+                      <input className="dir-input" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="dir-field">
+                    <label className="dir-label"><MapPin size={12} /> Location</label>
+                    <input className="dir-input" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Practice Room 3" />
+                  </div>
+                  <div className="dir-field">
+                    <label className="dir-label">Internal notes</label>
+                    <input className="dir-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional, not on the paper log" />
+                  </div>
+                </>
+              )}
+
+              {hasConflict && (
+                <div className="dir-conflict-banner">
+                  ⚠ <strong>Scheduling conflict</strong> — {student?.name ?? 'This student'} is expected at{' '}
+                  {conflicts.map((c, i) => (
+                    <span key={c.event.id}>
+                      {i > 0 && ', '}
+                      <strong>{ensembleMap[c.ensembleId]?.name ?? c.event.type}</strong> ({formatTimeRange(c.event.startTime, c.event.endTime)})
+                    </span>
+                  ))}{' '}
+                  during this lesson time.
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 10, fontWeight: 600 }}>
+                    <input
+                      type="checkbox"
+                      checked={ackConflict}
+                      onChange={e => setAckConflict(e.target.checked)}
+                      style={{ marginTop: 3 }}
+                    />
+                    I have confirmed with the classroom teacher or ensemble director that {student?.name ?? 'the student'} will miss this time.
+                  </label>
                 </div>
               )}
             </>
-          )}
-
-          {hasConflict && (
-            <div className="dir-conflict-banner">
-              ⚠ <strong>Scheduling conflict</strong> — {student?.name ?? 'This student'} is expected at{' '}
-              {conflicts.map((c, i) => (
-                <span key={c.event.id}>
-                  {i > 0 && ', '}
-                  <strong>{ensembleMap[c.ensembleId]?.name ?? c.event.type}</strong> ({formatTimeRange(c.event.startTime, c.event.endTime)})
-                </span>
-              ))}{' '}
-              during this lesson time.
-              <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 10, fontWeight: 600 }}>
+          ) : (
+            <>
+              <div className="dir-page-hint" style={{ margin: '0 0 12px', padding: 0 }}>
+                Hand the device to {student?.name ?? 'the student'}. They type their initials to confirm this lesson log line.
+              </div>
+              <div style={{ marginBottom: 12, fontSize: 14, lineHeight: 1.4 }}>
+                <div><strong>Date:</strong> {date}</div>
+                <div><strong>Grade:</strong> {grade}</div>
+                <div><strong>Repertoire:</strong> {repertoireComposer}, {repertoireTitle}</div>
+                {gradeNote && <div><strong>Comments:</strong> {gradeNote}</div>}
+              </div>
+              <div className="dir-field">
+                <label className="dir-label">Student initials</label>
                 <input
-                  type="checkbox"
-                  checked={ackConflict}
-                  onChange={e => setAckConflict(e.target.checked)}
-                  style={{ marginTop: 3 }}
+                  className="dir-input"
+                  value={studentInitials}
+                  onChange={e => setStudentInitials(e.target.value.toUpperCase())}
+                  placeholder="Type your initials"
+                  autoCapitalize="characters"
+                  autoFocus
+                  style={{ fontSize: 28, letterSpacing: 4, textAlign: 'center', padding: '16px 12px' }}
                 />
-                I have confirmed with the classroom teacher or ensemble director that {student?.name ?? 'the student'} will miss this time.
-              </label>
-              {ackConflict && (
-                <div style={{ marginTop: 8, fontWeight: 400 }}>
-                  Reminder: {student?.name ?? 'the student'} is still expected in rehearsal up to and directly after
-                  the lesson time. Tardiness and attendance will apply as needed if that doesn't happen.
-                </div>
-              )}
-            </div>
+              </div>
+            </>
           )}
 
           {error && <div className="dir-sc-error">⚠ {error}</div>}
         </div>
         <div className="dir-drawer-footer">
-          <button className="dir-btn dir-btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="dir-btn dir-btn-primary" onClick={handleSave} disabled={saving || !canSave}>
-            {saving ? 'Saving…' : 'Save lesson'}
-          </button>
+          {step === 'teacher' ? (
+            <>
+              <button className="dir-btn dir-btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
+              <button className="dir-btn dir-btn-primary" onClick={goToStudentStep} disabled={!teacherReady}>
+                Next: student initials
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="dir-btn dir-btn-ghost" onClick={() => setStep('teacher')} disabled={saving}>Back</button>
+              <button
+                className="dir-btn dir-btn-primary"
+                onClick={handleSaveWithInitials}
+                disabled={saving || !initialsOk(studentInitials)}
+              >
+                {saving ? 'Saving…' : 'Save lesson log'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

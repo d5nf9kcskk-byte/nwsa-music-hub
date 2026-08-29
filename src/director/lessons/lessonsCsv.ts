@@ -8,9 +8,8 @@ const esc = (v: unknown): string => {
 };
 
 /**
- * Rich private-lesson CSV for directors / Dean grade and pay tracking. Grade
- * and grade note are what the applied teacher entered, empty when they have
- * not marked that lesson yet.
+ * Rich private-lesson CSV for directors / Dean grade and pay tracking.
+ * Columns match the High School Private Lesson Log plus scheduling metadata.
  */
 export function lessonsToCsv(
   lessons: Lesson[],
@@ -22,13 +21,20 @@ export function lessonsToCsv(
     'End',
     'Student',
     'Student ID',
+    'School grade',
     'Instrument',
     'Teacher',
     'Teacher email',
     'Location',
     'Status',
     'Grade',
-    'Grade note',
+    'Teacher initials',
+    'Student initials',
+    'Initialed at',
+    'Repertoire composer',
+    'Repertoire title',
+    'Technique/Comments',
+    'Payroll minutes',
     'Notes',
     'Conflict',
     'Conflict ensemble event',
@@ -52,13 +58,22 @@ export function lessonsToCsv(
         l.endTime,
         stu?.name ?? '',
         l.studentId,
+        stu?.grade ?? '',
         l.instrument ?? stu?.instrument ?? '',
         l.teacherName ?? '',
         l.teacherEmail,
         l.location ?? '',
         l.status,
         l.grade ?? '',
+        l.teacherInitials ?? '',
+        l.studentInitials ?? '',
+        l.studentInitialedAt
+          ? new Date(l.studentInitialedAt).toISOString()
+          : '',
+        l.repertoireComposer ?? '',
+        l.repertoireTitle ?? '',
         l.gradeNote ?? '',
+        l.payrollMinutes ?? '',
         l.notes ?? '',
         l.conflict ? 'Yes' : '',
         l.conflict?.eventLabel ?? '',

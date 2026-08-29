@@ -804,9 +804,22 @@ export interface Lesson {
    *  their own lessons, so they read and write only their own grades, with no
    *  second query/rule pair to keep in agreement (#roles). */
   grade?: string;
-  /** Free-text comment on the grade: what to practise, what improved. Staff
-   *  only, same as the lesson — never mirrored publicly. */
+  /** Technique/Comments on the official High School Lesson Log (and the
+   *  older "grade comment" label). Staff only — never mirrored publicly. */
   gradeNote?: string;
+  /** Repertoire line on the lesson log: composer name (free text). */
+  repertoireComposer?: string;
+  /** Repertoire line on the lesson log: piece title (free text). */
+  repertoireTitle?: string;
+  /** Teacher's typed initials on the paper form (auto-suggested from name). */
+  teacherInitials?: string;
+  /** Student's typed initials, entered in person on the teacher's device. */
+  studentInitials?: string;
+  /** When the student typed their initials (ms). Cleared if the log line
+   *  changes and they must re-initial. */
+  studentInitialedAt?: number;
+  /** Payroll length on the official form: 45 (grades 9–11) or 60 (grade 12). */
+  payrollMinutes?: 45 | 60;
   status: EventStatus;
   /** Set once the teacher has acknowledged a scheduling conflict for this
    *  lesson. Absent = no conflict was detected at save time. */

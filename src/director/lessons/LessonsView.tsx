@@ -55,9 +55,10 @@ export function LessonsView({ onNavigate }: { onNavigate?: DirNavigate } = {}) {
     <div className="dir-tab-page">
       <div className="dir-page-body">
         <p className="dir-field-hint" style={{ margin: 0 }}>
-          Applied teachers log lessons here and grade each one once it has
-          happened. Export is the record for the Dean — who taught whom, when,
-          what mark they gave, and the comment that went with it.
+          Applied teachers fill the High School Lesson Log for each student
+          (grade, repertoire, technique, teacher and student initials). Export
+          is the Dean spreadsheet: who taught whom, when, mark, initials,
+          repertoire, and payroll length.
         </p>
 
         {/* The private lessons calendar is on hold — see the note at the top
@@ -95,8 +96,8 @@ export function LessonsView({ onNavigate }: { onNavigate?: DirNavigate } = {}) {
 
         {filtered.length === 0 ? (
           <div className="dir-empty-inline">
-            No lessons in this range yet. Applied teachers add them from their Lessons
-            screen once students are assigned by the Dean.
+            No lessons in this range yet. Applied teachers add them from their Lesson
+            Log once students are assigned by the Dean.
           </div>
         ) : (
           [...filtered]
@@ -134,10 +135,23 @@ function LessonDirectorRow({ lesson, studentName, onNavigate }: {
           {parseDate(lesson.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
           {' · '}{formatTimeRange(lesson.startTime, lesson.endTime)}
           {' · '}{lesson.teacherName || lesson.teacherEmail}
+          {lesson.payrollMinutes ? ` · ${lesson.payrollMinutes} min` : ''}
           {lesson.location ? ` · ${lesson.location}` : ''}
         </div>
+        {(lesson.repertoireComposer || lesson.repertoireTitle) && (
+          <div className="dir-ens-sub">
+            {[lesson.repertoireComposer, lesson.repertoireTitle].filter(Boolean).join(', ')}
+          </div>
+        )}
+        {lesson.gradeNote && <div className="dir-ens-sub">{lesson.gradeNote}</div>}
+        {(lesson.teacherInitials || lesson.studentInitials) && (
+          <div className="dir-ens-sub">
+            {lesson.teacherInitials ? `T: ${lesson.teacherInitials}` : ''}
+            {lesson.teacherInitials && lesson.studentInitials ? ' · ' : ''}
+            {lesson.studentInitials ? `S: ${lesson.studentInitials}` : ''}
+          </div>
+        )}
         {lesson.notes && <div className="dir-ens-sub">{lesson.notes}</div>}
-        {lesson.gradeNote && <div className="dir-ens-sub">Grade note: {lesson.gradeNote}</div>}
         {lesson.conflict && (
           <div className="dir-ens-sub" style={{ color: 'var(--dir-danger)' }}>
             Pull-out: {lesson.conflict.eventLabel}

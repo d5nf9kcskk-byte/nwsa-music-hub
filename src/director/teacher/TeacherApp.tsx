@@ -41,7 +41,7 @@ export function TeacherApp({
       <div className="dir-panel-banner no-print" role="note">
         <span className="dir-panel-banner-dot" />
         <span>Applied Teacher</span>
-        <span className="dir-panel-banner-sub">· your students' lessons and grades{alsoAssistant ? ' · plus roll for your ensembles' : ''}</span>
+        <span className="dir-panel-banner-sub">· lesson log, grades, and student initials{alsoAssistant ? ' · plus roll for your ensembles' : ''}</span>
       </div>
 
       <header className="dir-header">
@@ -50,7 +50,7 @@ export function TeacherApp({
             <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} className="dir-header-mark" />
           </span>
           <div>
-            <div className="dir-header-title">{alsoAssistant ? 'Lessons & Roll' : 'My Lessons'}</div>
+            <div className="dir-header-title">{alsoAssistant ? 'Lesson Log & Roll' : 'Lesson Log'}</div>
             <div className="dir-header-sub">
               <span className="dir-panel-tag">Applied Teacher</span> {user.displayName ?? ORG.appName}
             </div>

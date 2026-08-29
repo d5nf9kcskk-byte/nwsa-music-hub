@@ -26,3 +26,31 @@ Written automatically when a director: posts an **Urgent** announcement, or uses
 A second flow, Sunday 6 pm: query `events` for the coming week + unprocessed
 `digest` items, format one email, send via Outlook connector to the opted-in
 parent list you maintain in Teams/Excel.
+
+---
+
+## Lesson-log family email (`lessonLogMailQueue`)
+
+After an Applied Teacher saves a **complete** High School Lesson Log line
+(recognized grade + student initials typed in person), the Hub writes one
+doc to **`lessonLogMailQueue`**. Recipients (student + guardian emails) are
+denormalized onto the doc at write time so the flow does not need a second
+Firestore lookup.
+
+### Doc fields
+`lessonId`, `teacherEmail`, `teacherName`, `studentId`, `studentName`,
+`date`, `grade`, `repertoire`, `technique`, `teacherInitials`,
+`studentInitials`, `payrollMinutes`, `recipients` (string array), `subject`,
+`createdAt` (ms), `processedAt` (`null` until sent).
+
+### Flow outline (every 5–10 minutes)
+1. Query `lessonLogMailQueue` where `processedAt == null` (same Firestore
+   REST + service-account pattern as `notifyQueue`).
+2. For each item → Outlook / SMTP: `To` = `recipients`, `Subject` = `subject`,
+   body = a short plain-text summary (date, teacher, grade, repertoire,
+   technique, payroll length, initials). The Hub also offers an **Open in
+   Mail** mailto fallback if this flow is not wired yet.
+3. PATCH the doc: set `processedAt` to now.
+
+Do not send when `recipients` is empty (no contact on file). Incomplete log
+rows never enqueue.

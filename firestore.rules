@@ -141,6 +141,13 @@ service cloud.firestore {
       return assignedCovers(ensembleId) && isAssistantRole();
     }
 
+    // Is `studentId` on the signed-in Applied Teacher's assigned list?
+    // Used to narrow contacts + lesson-log mail to their own studio only.
+    function teacherAssignedTo(studentId) {
+      return isTeacherRole()
+        && studentId in myDirectorDoc().get('assignedStudentIds', []);
+    }
+
     function classroomCoversAny(ensembleIds) {
       return isClassroomRole()
         && ensembleIds.hasAny(myDirectorDoc().get('assignedEnsembleIds', []));
@@ -590,7 +597,24 @@ service cloud.firestore {
     // The deploy-time feed generator reads it with the service account, which
     // bypasses these rules.
     match /feedSecrets/{doc}        { allow read, write: if isStaff(); }
-    match /contacts/{doc}           { allow read, write: if isStaff(); }
+    // Contacts: staff read/write; an Applied Teacher may READ only their
+    // assigned students' contacts (family summary email after a lesson log).
+    // Doc id === student id. Teachers never write contacts.
+    match /contacts/{studentId} {
+      allow read: if isStaff() || teacherAssignedTo(studentId);
+      allow write: if isStaff();
+    }
+    // Lesson-log family email queue (#applied). Teacher creates a summary
+    // after a complete log line; Power Automate (or mailto fallback) sends it.
+    // Staff mark processedAt. Never public.
+    match /lessonLogMailQueue/{doc} {
+      allow read: if isStaff();
+      allow create: if isStaff()
+        || (isTeacherRole()
+            && request.resource.data.teacherEmail == request.auth.token.email
+            && teacherAssignedTo(request.resource.data.studentId));
+      allow update, delete: if isStaff();
+    }
     // attendance: staff freely; assistants and classroom teachers read all
     // (roll needs same-day context) but write only for assigned ensembles.
     match /attendance/{doc} {

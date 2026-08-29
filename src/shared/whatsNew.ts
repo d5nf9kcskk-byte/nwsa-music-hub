@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // High School Private Lesson Log for Applied Teachers (#applied). Staff-only:
+  // grades and family emails never touch the public site.
+  {
+    id: '2026-08-29-applied-lesson-log',
+    date: '2026-08-29',
+    title: 'Applied Teachers: the High School Lesson Log is in the Hub',
+    audience: 'staff' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'Open a student to see their progressive lesson log: prior rows stay visible, then add the next line (date, grade, repertoire, technique, payroll length, your initials).',
+      'Hand the phone to the student so they type their initials before you save. A family summary email is queued when the line is complete (Open in Mail is available until Power Automate is wired).',
+      'Directors: the Lessons CSV download now includes initials, repertoire, technique, school grade, and payroll minutes for the Dean spreadsheet.',
+    ],
+  },
   {
     id: '2026-08-28-college-area',
     date: '2026-08-28',

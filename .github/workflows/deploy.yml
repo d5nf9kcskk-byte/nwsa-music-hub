@@ -128,6 +128,11 @@ jobs:
       - name: Check applied-lesson grading
         run: npx tsx src/director/lessonGrades.selfcheck.ts
 
+      # High School lesson log (#applied): payroll defaults, initials gate, and
+      # "do not enqueue mail for incomplete / cancelled rows."
+      - name: Check applied lesson log
+        run: npx tsx src/director/lessonLog.selfcheck.ts
+
       # Juries (#juries): a bulk add must never reshuffle an order the director
       # already sequenced, an inactive student must never enter a jury, and a
       # sort must lose nobody — including an id whose student record is gone.
