@@ -311,6 +311,26 @@ export interface RosterOverride {
   destEnsembleId?: string;
 }
 
+/**
+ * In-app heads-up for staff (#two-doors §5.1): saving a student move drops one
+ * notice naming both affected ensembles, shown on the director Today view
+ * until each staff member dismisses it. Staff-only — the text names students.
+ */
+export interface StaffNotice {
+  id: string;
+  text: string;
+  /** The ensembles whose directors this concerns (losing + gaining). */
+  ensembleIds: string[];
+  /** First day the move applies (YYYY-MM-DD) — the notice hides once stale. */
+  date: string;
+  /** Last day, when the move is a range. */
+  endDate?: string;
+  createdAt: number;
+  createdBy?: string;
+  /** Staff emails who dismissed it (per-person, not a global delete). */
+  readBy?: string[];
+}
+
 export interface AttendanceRecord {
   id: string;
   studentId: string;

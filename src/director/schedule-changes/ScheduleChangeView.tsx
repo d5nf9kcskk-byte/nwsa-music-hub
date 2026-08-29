@@ -1,32 +1,34 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Search, Plus, UserPlus, UserMinus, Trash2, CalendarClock, GraduationCap, Clock, FileText, Repeat, CornerUpRight, Pencil } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, UserPlus, UserMinus, Trash2, CalendarClock, GraduationCap, Clock, FileText, Repeat, CornerUpRight } from 'lucide-react';
 import { ORG } from '../../org';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
+import { useStaffNotices } from '../hooks/useStaffNotices';
+import { currentDirectorName } from '../currentDirector';
 import { resolveRoster, rotationWrites } from '../rosterResolver';
-import { ensembleColor, parseDate, todayStr, toDateStr, formatTimeRange, addMinutesToTime, EVENT_TYPE_ICON, musicEnsembles, WEEKDAY_LABELS } from '../utils';
+import { ensembleColor, parseDate, todayStr, toDateStr, formatTimeRange, addMinutesToTime, EVENT_TYPE_ICON, musicEnsembles, isClassGroup, takesAttendance, WEEKDAY_LABELS } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
 import type { DirNavigate } from '../types-nav';
 import { useModalA11y } from '../../shared/useModalA11y';
-import type { Student, Ensemble, RosterOverride } from '../types';
+import type { Student, Ensemble, RosterOverride, CalendarEvent } from '../types';
 import { studentMatchesQuery } from '../studentSearch';
 
-/** Prefill carried into the change form when arriving via the by-date flow. */
+/** Roster context carried into the sentence page from the by-date flow. */
 interface Prefill { ensembleId?: string; date?: string }
 
 /**
- * Move a Student — the PEOPLE door (docs/schedule-ux-two-doors.md §1), its
- * own top-level screen since Phase 4a. One student somewhere different:
- *   • PERMANENT — join/leave an ensemble (edits student.ensembleIds)
- *   • TEMPORARY — sub-in / pull-out for a day or date range (RosterOverride)
- *   • LESSON    — pulled out for PART of a rehearsal (override with a time window)
- * Everything feeds the existing rosterResolver, so attendance and every
- * schedule view update automatically. Staff-only — never a family banner.
- * Whole-ensemble time changes are the other door (`scheduleSwap`).
+ * Move a Student — the PEOPLE door (docs/schedule-ux-two-doors.md §2), the
+ * Phase 4b sentence page. Pick a student, then complete ONE sentence:
+ *   "[Student] is with [Ensemble ▾] instead of [computed] [today ▾]."
+ * The "instead of" is computed by resolveRoster — never asked. Verbs are
+ * chips that mutate the sentence in place; the write shapes are unchanged
+ * RosterOverrides, so attendance and every schedule view update
+ * automatically. Staff-only — never a family banner. Whole-ensemble time
+ * changes are the other door (`scheduleSwap`).
  */
 export function ScheduleChangeView({ initialEnsembleId = '', initialStudentId, initialMode, initialDate, initialEventId, onNavigate }: {
   initialEnsembleId?: string;
@@ -35,8 +37,8 @@ export function ScheduleChangeView({ initialEnsembleId = '', initialStudentId, i
   /** Arrived from a lesson or pull-out shown elsewhere (Today, Who's Out) —
    *  open straight onto that student rather than the picker. */
   initialStudentId?: string;
-  /** Embedded by the Schedule Changes screen (#schedule-ux-redesign):
-   *  "Move a student" on a block lands directly on that block's roster. */
+  /** Deep link from Change a Day's "Move a student…" (#two-doors §6 4a):
+   *  lands directly on that block's roster. */
   initialMode?: 'student' | 'date';
   initialDate?: string;
   initialEventId?: string;
@@ -47,7 +49,7 @@ export function ScheduleChangeView({ initialEnsembleId = '', initialStudentId, i
   const { overrides } = useRosterOverrides();
   const [mode, setMode] = useState<'student' | 'date'>(initialMode ?? 'student');
   const [selectedId, setSelectedId] = useState<string | null>(initialStudentId ?? null);
-  const [prefill, setPrefill] = useState<Prefill | null>(null);
+  const [prefill, setPrefill] = useState<Prefill | null>(initialStudentId && initialDate ? { ensembleId: initialEnsembleId || undefined, date: initialDate } : null);
   const [query, setQuery] = useState('');
   const [ensembleId, setEnsembleId] = useState(initialEnsembleId);
   const [sort, setSort] = useState<StudentSort>('lastName');
@@ -74,11 +76,14 @@ export function ScheduleChangeView({ initialEnsembleId = '', initialStudentId, i
 
   if (selected) {
     return (
-      <StudentPanel
+      <SentencePage
         student={selected}
+        students={students}
         ensembles={ensembles}
+        events={events}
+        eventsById={eventsById}
         prefill={prefill ?? undefined}
-        autoOpenForm={!!prefill}
+        onNavigate={onNavigate}
         onBack={() => { setSelectedId(null); setPrefill(null); }}
       />
     );
@@ -250,36 +255,196 @@ function pickColor(s: Student, ensembles: Ensemble[]): string {
   return first ? ensembleColor(first) : '#94a3b8';
 }
 
-function StudentPanel({ student, ensembles, onBack, prefill, autoOpenForm }: {
+/**
+ * The director's verbs (#two-doors §2) — chips that mutate the sentence in
+ * place. Each writes the same RosterOverride shape the old VERB_PRESET forms
+ * did (no new shapes):
+ *   send  → remove + destEnsembleId (one doc pulls here, subs there)
+ *   lesson→ remove, kind 'lesson', a time window on one day (partial — the
+ *           student stays on roll)
+ *   out   → remove with a required reason (the only verb that leaves the
+ *           building — pre-existing rule)
+ *   subIn → add
+ */
+type Verb = 'send' | 'lesson' | 'out' | 'subIn';
+
+const VERB_CHIPS: { verb: Verb; icon: React.ReactNode; label: string }[] = [
+  { verb: 'send',   icon: <CornerUpRight size={15} />,  label: 'With another ensemble' },
+  { verb: 'lesson', icon: <GraduationCap size={15} />,  label: 'Lesson pull-out' },
+  { verb: 'out',    icon: <UserMinus size={15} />,      label: 'Out (trip, excused)' },
+  { verb: 'subIn',  icon: <UserPlus size={15} />,       label: 'Sub in' },
+];
+
+/**
+ * Phase 4b sentence page (#two-doors §2): one page, no drawers. The sentence
+ * carries the whole change; the consequence card says what happens before
+ * save; the student's active moves list below with one-tap delete (undo =
+ * deleting one doc). Standing rotations stay a link to the existing form
+ * until the Rotations page (Phase 4d).
+ */
+function SentencePage({ student, students, ensembles, events, eventsById, prefill, onBack, onNavigate }: {
   student: Student;
+  students: Student[];
   ensembles: Ensemble[];
-  onBack: () => void;
+  events: CalendarEvent[];
+  eventsById: Record<string, CalendarEvent>;
   prefill?: Prefill;
-  autoOpenForm?: boolean;
+  onBack: () => void;
+  onNavigate?: DirNavigate;
 }) {
   const { updateStudent } = useStudents();
   const { overrides, addOverride, deleteOverride } = useRosterOverrides();
-  // "New schedule change" opens the verb menu (#schedule-ux-redesign §2.2);
-  // each verb pre-answers ChangeForm's category quiz, and "Something else…"
-  // keeps the raw form reachable for odd cases.
-  const [menuOpen, setMenuOpen] = useState(!!autoOpenForm);
-  const [verb, setVerb] = useState<Verb | null>(null);
+  const { addNotice } = useStaffNotices();
+  const [verb, setVerb] = useState<Verb>('send');
+  const [date, setDate] = useState(prefill?.date ?? todayStr());
+  const [endDate, setEndDate] = useState('');       // '' = single day (the default)
+  const [destId, setDestId] = useState('');
+  const [fromChoice, setFromChoice] = useState(prefill?.ensembleId ?? '');
+  const [lessonStart, setLessonStart] = useState('15:00');
+  const [lessonEnd, setLessonEnd] = useState('15:50');
+  const [reason, setReason] = useState('');
+  const [rotationOpen, setRotationOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
-  const memberOf = (student.ensembleIds ?? []).map(id => ensembleMap[id]).filter(Boolean) as Ensemble[];
+
+  // The "instead of" — computed, never asked (#two-doors §2): resolveRoster
+  // over that day's attendance-taking events (rotations and shared blocks
+  // included). With no calendar that far out, fall back to membership —
+  // that weekday's meeting groups first. Classes never count: pulling a
+  // student out of Music Theory is not what this door does.
+  const expectedIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const e of events.filter(e => e.date === date && takesAttendance(e.type))) {
+      for (const eid of e.ensembleIds) {
+        const ens = ensembleMap[eid];
+        if (!ens || isClassGroup(ens) || ids.includes(eid)) continue;
+        if (resolveRoster(students, overrides, { ensembleId: eid, eventId: e.id, eventsById }).some(r => r.student.id === student.id)) ids.push(eid);
+      }
+    }
+    if (ids.length) return ids;
+    const member = (student.ensembleIds ?? []).filter(id => ensembleMap[id] && !isClassGroup(ensembleMap[id]));
+    const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
+    const meets = member.filter(id => ensembleMap[id].meetingDays?.includes(wd));
+    return meets.length ? meets : member;
+  }, [events, date, students, overrides, eventsById, ensembleMap, student]);
+
+  // Overridable only on the rare day the student resolves into two rehearsals.
+  const fromId = expectedIds.includes(fromChoice) ? fromChoice : (expectedIds[0] ?? '');
+  const fromName = ensembleMap[fromId]?.name ?? '';
+  const destName = ensembleMap[destId]?.name ?? '';
+  const end = endDate && endDate > date ? endDate : date;
+  const whenText = (date === todayStr() ? 'today' : fmtLong(date)) + (end !== date ? ` → ${fmtLong(end)}` : '');
+  const needsFrom = verb !== 'subIn';
+
+  const destOptions = musicEnsembles(ensembles).filter(e => e.id !== fromId);
+  const ready = !busy
+    && (!needsFrom || !!fromId)
+    && (verb === 'send' || verb === 'subIn' ? !!destId : true)
+    && (verb === 'out' ? !!reason.trim() : true);
+
+  const consequences: string[] =
+    needsFrom && !fromId
+      ? [`No rehearsal for ${student.name} ${whenText} — nothing to pull them from. Sub in works, or pick another day.`]
+      : verb === 'send' ? [
+          `${fromName}’s roll ${whenText}: ${student.name} flagged → ${destName || '…'}, not marked absent.`,
+          ...(destId ? [`${destName}’s roll: ${student.name} as sub.`] : []),
+          `Staff-only — no family banner. Directors of ${fromName}${destId ? ` and ${destName}` : ''} get a notice.`,
+        ]
+      : verb === 'lesson' ? [
+          `${fromName}’s roll ${whenText}: ${student.name} shows a lesson badge ${fmtTime(lessonStart)}–${fmtTime(lessonEnd)} — still on the roster, present the rest of rehearsal.`,
+          `Staff-only. ${fromName}’s director gets a notice.`,
+        ]
+      : verb === 'out' ? [
+          `${fromName}’s roll ${whenText}: ${student.name} is off the roster — shows on Who’s Out with the reason.`,
+          `Staff-only — no family banner. ${fromName}’s director gets a notice.`,
+        ]
+      : [
+          `${destName || '…'}’s roll ${whenText}: ${student.name} listed as a sub.`,
+          `Their own rehearsals are unchanged.${destId ? ` ${destName}’s director gets a notice.` : ''}`,
+        ];
+
   const myOverrides = overrides
     .filter(o => o.studentId === student.id)
     .sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''));
 
-  async function removePermanent(ensembleId: string) {
+  async function handleSave() {
+    if (!ready) return;
     setBusy(true); setError('');
     try {
-      await updateStudent(student.id, { ensembleIds: (student.ensembleIds ?? []).filter(id => id !== ensembleId) });
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not save — try again.'); }
-    finally { setBusy(false); }
+      let data: Omit<RosterOverride, 'id'>;
+      if (verb === 'lesson') {
+        data = {
+          studentId: student.id, ensembleId: fromId, action: 'remove', scope: 'range',
+          startDate: date, endDate: date,
+          startTime: lessonStart,
+          // Guard against a zero/negative-length window — nudge to a 30-min minimum.
+          endTime: lessonEnd <= lessonStart ? addMinutesToTime(lessonStart, 30) : lessonEnd,
+          kind: 'lesson',
+          reason: reason.trim() || undefined,
+        };
+      } else if (verb === 'send') {
+        data = {
+          studentId: student.id, ensembleId: fromId, action: 'remove', scope: 'range',
+          startDate: date, endDate: end, destEnsembleId: destId,
+          reason: `Subbing into ${destName}`,
+        };
+      } else if (verb === 'subIn') {
+        data = { studentId: student.id, ensembleId: destId, action: 'add', scope: 'range', startDate: date, endDate: end };
+      } else {
+        data = { studentId: student.id, ensembleId: fromId, action: 'remove', scope: 'range', startDate: date, endDate: end, reason: reason.trim() };
+      }
+      await addOverride(data);
+      // §5.1: one notice for every affected director. Best-effort — the move
+      // itself is saved either way.
+      const affected = verb === 'send' ? [fromId, destId] : verb === 'subIn' ? [destId] : [fromId];
+      const noticeText =
+        verb === 'send' ? `${student.name} is with ${destName} instead of ${fromName} ${whenText}.`
+        : verb === 'lesson' ? `${student.name} — lesson pull-out from ${fromName}, ${fmtTime(lessonStart)}–${fmtTime(lessonEnd)} ${whenText}.`
+        : verb === 'out' ? `${student.name} is out ${whenText} (${reason.trim()}) — off ${fromName}.`
+        : `${student.name} subs into ${destName} ${whenText}.`;
+      const by = currentDirectorName();
+      try {
+        await addNotice({
+          text: noticeText, ensembleIds: affected, date,
+          ...(end !== date ? { endDate: end } : {}),
+          createdAt: Date.now(),
+          ...(by ? { createdBy: by } : {}),
+        });
+      } catch { /* notice is best-effort */ }
+      setReason('');
+      setDestId('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save — try again.');
+    } finally { setBusy(false); }
   }
+
+  const destSelect = (
+    <select className="dir-sent-ctl" value={destId} onChange={e => setDestId(e.target.value)} aria-label="Ensemble">
+      <option value="">ensemble…</option>
+      {destOptions.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+    </select>
+  );
+  // Computed home ensemble — only a control on the rare two-rehearsal day.
+  const fromBit = expectedIds.length > 1 ? (
+    <select className="dir-sent-ctl" value={fromId} onChange={e => setFromChoice(e.target.value)} aria-label="Instead of which rehearsal">
+      {expectedIds.map(id => <option key={id} value={id}>{ensembleMap[id]?.name ?? id}</option>)}
+    </select>
+  ) : (
+    <em className="dir-sent-fixed">{fromName || 'no rehearsal'}</em>
+  );
+  const dateBit = (
+    <>
+      <input className="dir-sent-ctl" type="date" value={date} onChange={e => setDate(e.target.value)} aria-label="Date" />
+      {verb !== 'lesson' && (endDate ? (
+        <> through <input className="dir-sent-ctl" type="date" value={endDate} min={date} onChange={e => setEndDate(e.target.value)} aria-label="Through" />
+          <button className="dir-inline-link" onClick={() => setEndDate('')}>just one day</button></>
+      ) : (
+        <button className="dir-inline-link" onClick={() => setEndDate(date)}>through…</button>
+      ))}
+    </>
+  );
 
   return (
     <div className="dir-tab-page">
@@ -294,28 +459,62 @@ function StudentPanel({ student, ensembles, onBack, prefill, autoOpenForm }: {
       <div className="dir-page-body">
         {error && <div className="dir-sc-error">⚠ {error}</div>}
 
-        <div className="dir-form-section-label">In these ensembles (permanent)</div>
-        {memberOf.length === 0 ? (
-          <div className="dir-empty-inline">Not a permanent member of any ensemble.</div>
-        ) : (
-          memberOf.map(e => (
-            <div key={e.id} className="dir-ens-row">
-              <span className="dir-ens-swatch" style={{ background: ensembleColor(e) }} />
-              <div className="dir-ens-info"><div className="dir-ens-name">{e.name}</div></div>
-              <button
-                className="dir-btn dir-btn-ghost dir-sc-small"
-                disabled={busy}
-                onClick={() => {
-                  if (window.confirm(`Remove this student from ${e.name} permanently? For one event or a date range, use a temporary change instead.`)) removePermanent(e.id);
-                }}
-              >
-                <UserMinus size={14} /> Remove
-              </button>
-            </div>
-          ))
+        <div className="dir-verb-chips" role="tablist" aria-label="What kind of move">
+          {VERB_CHIPS.map(c => (
+            <button
+              key={c.verb}
+              className={`dir-tool-btn dir-verb-chip ${verb === c.verb ? 'active' : ''}`}
+              aria-pressed={verb === c.verb}
+              onClick={() => setVerb(c.verb)}
+            >
+              {c.icon} {c.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="dir-sent">
+          <b>{student.name}</b>{student.instrument ? <span className="dir-sent-muted"> ({student.instrument.toLowerCase()})</span> : null}
+          {verb === 'send' && <> is with {destSelect} instead of {fromBit} {dateBit}.</>}
+          {verb === 'lesson' && <> is at a lesson{' '}
+            <input className="dir-sent-ctl" type="time" value={lessonStart} onChange={e => setLessonStart(e.target.value)} aria-label="Lesson starts" />–
+            <input className="dir-sent-ctl" type="time" value={lessonEnd} onChange={e => setLessonEnd(e.target.value)} aria-label="Lesson ends" />
+            {' '}instead of {fromBit} {dateBit}.</>}
+          {verb === 'out' && <> is out (trip, excused) — not at {fromBit} — {dateBit}, because{' '}
+            <input className="dir-sent-ctl dir-sent-reason" value={reason} onChange={e => setReason(e.target.value)} placeholder="field trip, released early…" aria-label="Reason" />.</>}
+          {verb === 'subIn' && <> also plays with {destSelect} as a sub {dateBit}.</>}
+        </div>
+        {verb === 'lesson' && (
+          <input
+            className="dir-input" style={{ marginBottom: 4 }}
+            value={reason} onChange={e => setReason(e.target.value)}
+            placeholder="Note (optional) — e.g. Trumpet lesson, Dr. Rivera"
+            aria-label="Lesson note"
+          />
         )}
 
-        <div className="dir-form-section-label">Temporary changes & lessons</div>
+        <div className="dir-sc-summary dir-conseq">
+          {consequences.map((line, i) => <div key={i}>{line}</div>)}
+        </div>
+
+        <div className="dir-drawer-footer" style={{ padding: '12px 0' }}>
+          <button className="dir-btn dir-btn-primary" disabled={!ready} onClick={handleSave}>
+            {busy ? 'Saving…' : 'Save move'}
+          </button>
+        </div>
+
+        <div className="dir-field-hint" style={{ marginBottom: 10 }}>
+          <button className="dir-inline-link" onClick={() => setRotationOpen(true)}>
+            <Repeat size={12} style={{ verticalAlign: '-1px' }} /> Standing weekly rotation…
+          </button>
+          {onNavigate && (
+            <>
+              {' '}· Joining or leaving an ensemble permanently is a{' '}
+              <button className="dir-inline-link" onClick={() => onNavigate('roster', { studentId: student.id })}>Roster</button> change.
+            </>
+          )}
+        </div>
+
+        <div className="dir-form-section-label">Active moves for {student.name}</div>
         {myOverrides.length === 0 ? (
           <div className="dir-empty-inline">No temporary subs, pull-outs, or lessons right now.</div>
         ) : (
@@ -353,28 +552,12 @@ function StudentPanel({ student, ensembles, onBack, prefill, autoOpenForm }: {
         )}
       </div>
 
-      <div className="dir-drawer-footer">
-        <button className="dir-btn dir-btn-primary" onClick={() => setMenuOpen(true)}>
-          <Plus size={16} style={{ verticalAlign: '-3px' }} /> New schedule change
-        </button>
-      </div>
-
-      {menuOpen && (
-        <VerbMenu
-          student={student}
-          ensembles={ensembles}
-          prefill={prefill}
-          onPick={v => { setMenuOpen(false); setVerb(v); }}
-          onClose={() => setMenuOpen(false)}
-        />
-      )}
-
-      {verb === 'rotation' ? (
+      {rotationOpen && (
         <RotationForm
           student={student}
           ensembles={ensembles}
           prefill={prefill}
-          onClose={() => setVerb(null)}
+          onClose={() => setRotationOpen(false)}
           onSave={async w => {
             // Membership first: if a later write fails, the student is a member
             // of both (harmless) rather than rotated out with no destination.
@@ -382,101 +565,7 @@ function StudentPanel({ student, ensembles, onBack, prefill, autoOpenForm }: {
             for (const o of w.overrides) await addOverride(o);
           }}
         />
-      ) : verb ? (
-        <ChangeForm
-          student={student}
-          ensembles={ensembles}
-          prefill={prefill}
-          preset={verb === 'other' ? undefined : VERB_PRESET[verb]}
-          title={verb === 'other' ? undefined : VERB_TITLE[verb]}
-          onClose={() => setVerb(null)}
-          onSavePermanent={async ensembleId => {
-            await updateStudent(student.id, { ensembleIds: Array.from(new Set([...(student.ensembleIds ?? []), ensembleId])) });
-          }}
-          onRemovePermanent={async ensembleId => {
-            await updateStudent(student.id, { ensembleIds: (student.ensembleIds ?? []).filter(id => id !== ensembleId) });
-          }}
-          onSaveTemporary={async data => { await addOverride(data); }}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-type ChangeKind = 'temporary' | 'lesson' | 'permanent';
-
-/**
- * The director's verbs (#schedule-ux-redesign §2.2). Each pre-answers
- * ChangeForm's category quiz so the segmented controls disappear for these
- * paths; 'rotation' opens its own small face (§2.4) over the same
- * RosterOverride machinery; 'other' is the raw form for odd cases.
- */
-type Verb = 'lesson' | 'send' | 'subIn' | 'out' | 'rotation' | 'other';
-
-interface Preset {
-  kind: ChangeKind;
-  action?: 'add' | 'remove';
-  dest?: 'ensemble' | 'lesson' | 'other';
-  span?: 'day' | 'range';
-}
-
-const VERB_PRESET: Record<Exclude<Verb, 'rotation' | 'other'>, Preset> = {
-  lesson: { kind: 'lesson' },
-  send:   { kind: 'temporary', action: 'remove', dest: 'ensemble', span: 'day' },
-  subIn:  { kind: 'temporary', action: 'add', span: 'day' },
-  out:    { kind: 'temporary', action: 'remove', dest: 'other', span: 'day' },
-};
-
-const VERB_TITLE: Record<Exclude<Verb, 'rotation' | 'other'>, string> = {
-  lesson: 'Lesson pull-out',
-  send:   'Send to another ensemble today',
-  subIn:  'Sub in',
-  out:    'Out today',
-};
-
-/** The five verb entries shown after tapping a student (§2.2). */
-function VerbMenu({ student, ensembles, prefill, onPick, onClose }: {
-  student: Student;
-  ensembles: Ensemble[];
-  prefill?: Prefill;
-  onPick: (v: Verb) => void;
-  onClose: () => void;
-}) {
-  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
-  const ensName = prefill?.ensembleId ? ensembles.find(e => e.id === prefill.ensembleId)?.name : undefined;
-  const items: { verb: Verb; icon: React.ReactNode; title: string; sub: string }[] = [
-    { verb: 'lesson', icon: <GraduationCap size={16} />, title: 'Lesson pull-out…', sub: 'Out for part of rehearsal — present (and on roll) the rest' },
-    { verb: 'send', icon: <CornerUpRight size={16} />, title: 'Send to another ensemble today…', sub: 'One entry — pulled from here, on the other roll for the day' },
-    { verb: 'subIn', icon: <UserPlus size={16} />, title: 'Sub someone in…', sub: `${student.name} joins an ensemble for the day` },
-    { verb: 'out', icon: <UserMinus size={16} />, title: 'Out today (trip, excused)…', sub: 'Off the roster for the day, with the reason documented' },
-    { verb: 'rotation', icon: <Repeat size={16} />, title: 'Standing weekly rotation…', sub: 'Every week — with another ensemble on set weekdays' },
-    { verb: 'other', icon: <Pencil size={16} />, title: 'Something else…', sub: 'The full form — date ranges, permanent membership' },
-  ];
-  return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label="New schedule change" tabIndex={-1} ref={panelRef}>
-        <div className="dir-drawer-handle" />
-        <div className="dir-drawer-header">
-          <span className="dir-drawer-title">{student.name}</span>
-          <button className="dir-drawer-close" onClick={onClose}>×</button>
-        </div>
-        <div className="dir-drawer-body">
-          {(ensName || prefill?.date) && (
-            <div className="dir-field-hint" style={{ marginBottom: 8 }}>
-              {[ensName, prefill?.date ? fmtLong(prefill.date) : undefined].filter(Boolean).join(' · ')}
-            </div>
-          )}
-          {items.map(it => (
-            <button key={it.verb} className="dir-ens-row dir-sc-pick" onClick={() => onPick(it.verb)}>
-              <div className="dir-ens-info">
-                <div className="dir-ens-name">{it.icon} {it.title}</div>
-                <div className="dir-ens-sub">{it.sub}</div>
-              </div>
-              <ChevronRight size={16} style={{ flexShrink: 0, opacity: 0.5 }} />
-            </button>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -488,6 +577,8 @@ function VerbMenu({ student, ensembles, prefill, onPick, onClose }: {
  * membership in BOTH ensembles plus removes carving out rehearsal days, so
  * the concert exemption keeps the student on both concert rosters.
  * Weekdays follow Ensemble.meetingDays: 0=Sun…6=Sat.
+ * Reached from the sentence page's "Standing weekly rotation…" link until
+ * the dedicated Rotations page ships (Phase 4d).
  */
 function RotationForm({ student, ensembles, prefill, onSave, onClose }: {
   student: Student;
@@ -596,255 +687,6 @@ function RotationForm({ student, ensembles, prefill, onSave, onClose }: {
   );
 }
 
-function ChangeForm({
-  student, ensembles, onClose, onSavePermanent, onRemovePermanent, onSaveTemporary, prefill, preset, title,
-}: {
-  student: Student;
-  ensembles: Ensemble[];
-  onClose: () => void;
-  onSavePermanent: (ensembleId: string) => Promise<void>;
-  onRemovePermanent: (ensembleId: string) => Promise<void>;
-  onSaveTemporary: (data: Omit<RosterOverride, 'id'>) => Promise<void>;
-  prefill?: Prefill;
-  /** A verb entry's pre-answers (§2.2) — each answered category's segmented
-   *  control is hidden, so the quiz disappears for these paths. */
-  preset?: Preset;
-  title?: string;
-}) {
-  const memberEnsembles = ensembles.filter(e => student.ensembleIds?.includes(e.id));
-  const [kind, setKind] = useState<ChangeKind>(preset?.kind ?? 'temporary');
-  // Coming from a roster (by-date flow), pulling out is the likely intent.
-  const [action, setAction] = useState<'add' | 'remove'>(preset?.action ?? (prefill ? 'remove' : 'add'));
-  const [ensembleId, setEnsembleId] = useState(prefill?.ensembleId ?? ensembles[0]?.id ?? '');
-  const [lessonEnsembleId, setLessonEnsembleId] = useState(prefill?.ensembleId ?? memberEnsembles[0]?.id ?? ensembles[0]?.id ?? '');
-  const [span, setSpan] = useState<'day' | 'range'>(preset?.span ?? 'day');
-  const [startDate, setStartDate] = useState(prefill?.date ?? todayStr());
-  const [endDate, setEndDate] = useState(prefill?.date ?? todayStr());
-  const [lessonStart, setLessonStart] = useState('15:00');
-  const [lessonEnd, setLessonEnd] = useState('15:50');
-  const [reason, setReason] = useState('');
-  // Pull-out destination: subbing into another ensemble, a lesson, or other.
-  const [dest, setDest] = useState<'ensemble' | 'lesson' | 'other'>(preset?.dest ?? 'other');
-  const [destEnsembleId, setDestEnsembleId] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
-
-  const activeEnsembleId = kind === 'lesson' ? lessonEnsembleId : ensembleId;
-  const ensembleName = ensembles.find(e => e.id === activeEnsembleId)?.name ?? 'ensemble';
-
-  async function handleSave() {
-    if (!activeEnsembleId) return;
-    setSaving(true); setError('');
-    try {
-      if (kind === 'permanent') {
-        if (action === 'add') await onSavePermanent(ensembleId);
-        else await onRemovePermanent(ensembleId);
-      } else if (kind === 'lesson') {
-        await onSaveTemporary({
-          studentId: student.id,
-          ensembleId: lessonEnsembleId,
-          action: 'remove',
-          scope: 'range',
-          startDate,
-          endDate: startDate,
-          startTime: lessonStart,
-          // Guard against a zero/negative-length window — nudge to a 30-min minimum.
-          endTime: lessonEnd <= lessonStart ? addMinutesToTime(lessonStart, 30) : lessonEnd,
-          kind: 'lesson',
-          reason: reason.trim() || undefined,
-        });
-      } else {
-        const start = startDate;
-        const end = span === 'day' ? startDate : endDate;
-        const subbingInto = action === 'remove' && dest === 'ensemble' && destEnsembleId ? destEnsembleId : undefined;
-        await onSaveTemporary({
-          studentId: student.id,
-          ensembleId,
-          action,
-          scope: 'range',
-          startDate: start,
-          endDate: end < start ? start : end,
-          reason: reason.trim() || (subbingInto ? `Subbing into ${ensembles.find(e => e.id === subbingInto)?.name ?? 'another ensemble'}` : undefined),
-          ...(subbingInto ? { destEnsembleId: subbingInto } : {}),
-        });
-      }
-      onClose();
-    } catch (e) {
-      setSaving(false);
-      setError(e instanceof Error ? e.message : 'Could not save — try again.');
-    }
-  }
-
-  const summary =
-    kind === 'permanent' ? `${student.name} will ${action === 'add' ? 'join' : 'leave'} ${ensembleName} permanently.`
-    : kind === 'lesson' ? `${student.name} has a lesson ${fmt(startDate)}, ${fmtTime(lessonStart)}–${fmtTime(lessonEnd)} — out of ${ensembleName} for that window only.`
-    : `${student.name} ${action === 'add' ? 'subbed into' : 'pulled from'} ${ensembleName} ${span === 'day' ? `on ${fmt(startDate)}` : `${fmt(startDate)} – ${fmt(endDate)}`}.`;
-
-  return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={title ?? 'New schedule change'} tabIndex={-1} ref={panelRef}>
-        <div className="dir-drawer-handle" />
-        <div className="dir-drawer-header">
-          <span className="dir-drawer-title">{title ?? 'New schedule change'}</span>
-          <button className="dir-drawer-close" onClick={onClose}>×</button>
-        </div>
-        <div className="dir-drawer-body">
-          {!preset && (
-          <div className="dir-field">
-            <label className="dir-label">Type</label>
-            <div className="dir-segment">
-              <button className={`dir-segment-btn ${kind === 'temporary' ? 'active' : ''}`} onClick={() => setKind('temporary')}>Temporary</button>
-              <button className={`dir-segment-btn ${kind === 'lesson' ? 'active' : ''}`} onClick={() => setKind('lesson')}>
-                <GraduationCap size={15} /> Lesson
-              </button>
-              <button className={`dir-segment-btn ${kind === 'permanent' ? 'active' : ''}`} onClick={() => setKind('permanent')}>Permanent</button>
-            </div>
-          </div>
-          )}
-
-          {kind === 'lesson' ? (
-            <>
-              <div className="dir-field">
-                <label className="dir-label">Out of which rehearsal</label>
-                <select className="dir-input" value={lessonEnsembleId} onChange={e => setLessonEnsembleId(e.target.value)}>
-                  {(memberEnsembles.length ? memberEnsembles : ensembles).map(e => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="dir-field">
-                <label className="dir-label">Lesson date</label>
-                <input className="dir-input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
-              </div>
-              <div className="dir-field-row">
-                <div className="dir-field">
-                  <label className="dir-label">Lesson starts</label>
-                  <input className="dir-input" type="time" value={lessonStart} onChange={e => setLessonStart(e.target.value)} />
-                </div>
-                <div className="dir-field">
-                  <label className="dir-label">Lesson ends</label>
-                  <input className="dir-input" type="time" value={lessonEnd} onChange={e => setLessonEnd(e.target.value)} />
-                </div>
-              </div>
-              <div className="dir-field">
-                <label className="dir-label">Reason *</label>
-                <input className="dir-input" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. Trumpet lesson — Dr. Rivera" />
-                <div className="dir-field-hint">Every pull-out is documented — this shows on the Roll screen and Who's Out.</div>
-              </div>
-            </>
-          ) : (
-            <>
-              {!preset?.action && (
-              <div className="dir-field">
-                <label className="dir-label">Change</label>
-                <div className="dir-segment">
-                  <button className={`dir-segment-btn ${action === 'add' ? 'active' : ''}`} onClick={() => setAction('add')}>
-                    <UserPlus size={15} /> {kind === 'permanent' ? 'Join' : 'Sub in'}
-                  </button>
-                  <button className={`dir-segment-btn ${action === 'remove' ? 'active' : ''}`} onClick={() => setAction('remove')}>
-                    <UserMinus size={15} /> {kind === 'permanent' ? 'Leave' : 'Pull out'}
-                  </button>
-                </div>
-              </div>
-              )}
-
-              <div className="dir-field">
-                <label className="dir-label">Ensemble</label>
-                <select className="dir-input" value={ensembleId} onChange={e => setEnsembleId(e.target.value)}>
-                  {musicEnsembles(ensembles).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                </select>
-              </div>
-
-              {kind === 'temporary' && (
-                <>
-                  {action === 'remove' && (
-                    <>
-                      {!preset?.dest && (
-                      <div className="dir-field">
-                        <label className="dir-label">Where are they going?</label>
-                        <div className="dir-segment">
-                          <button className={`dir-segment-btn ${dest === 'ensemble' ? 'active' : ''}`} onClick={() => setDest('ensemble')}>Another ensemble</button>
-                          <button className={`dir-segment-btn ${dest === 'lesson' ? 'active' : ''}`} onClick={() => setDest('lesson')}>Lesson</button>
-                          <button className={`dir-segment-btn ${dest === 'other' ? 'active' : ''}`} onClick={() => setDest('other')}>Other</button>
-                        </div>
-                      </div>
-                      )}
-                      {dest === 'ensemble' && (
-                        <div className="dir-field">
-                          <label className="dir-label">Subbing into</label>
-                          <select className="dir-input" value={destEnsembleId} onChange={e => setDestEnsembleId(e.target.value)}>
-                            <option value="">— pick an ensemble —</option>
-                            {musicEnsembles(ensembles).filter(e => e.id !== ensembleId).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                          </select>
-                          <div className="dir-field-hint">One entry — they're pulled from {ensembleName} and show on the other ensemble's roll for these dates.</div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {!preset?.span && (
-                  <div className="dir-field">
-                    <label className="dir-label">When</label>
-                    <div className="dir-segment">
-                      <button className={`dir-segment-btn ${span === 'day' ? 'active' : ''}`} onClick={() => setSpan('day')}>Just one day</button>
-                      <button className={`dir-segment-btn ${span === 'range' ? 'active' : ''}`} onClick={() => setSpan('range')}>Date range</button>
-                    </div>
-                  </div>
-                  )}
-                  <div className="dir-field-row">
-                    <div className="dir-field">
-                      <label className="dir-label">{span === 'day' ? 'Date' : 'From'}</label>
-                      <input className="dir-input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
-                    </div>
-                    {span === 'range' && (
-                      <div className="dir-field">
-                        <label className="dir-label">To</label>
-                        <input className="dir-input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="dir-field">
-                    <label className="dir-label">Reason {action === 'remove' && dest !== 'ensemble' ? '*' : '(recommended)'}</label>
-                    <input
-                      className="dir-input"
-                      value={reason}
-                      onChange={e => setReason(e.target.value)}
-                      placeholder={dest === 'lesson' ? 'e.g. Trumpet lesson — Dr. Rivera' : dest === 'ensemble' ? 'optional note' : 'e.g. field trip, released from school'}
-                    />
-                    {action === 'remove' && dest !== 'ensemble' && (
-                      <div className="dir-field-hint">Nobody gets pulled without a reason — this shows on the Roll screen and Who's Out.</div>
-                    )}
-                  </div>
-                </>
-              )}
-            </>
-          )}
-
-          <div className="dir-sc-summary">{summary}</div>
-        </div>
-
-        {error && <div className="dir-sc-error" style={{ padding: '4px 16px 0' }}>{error}</div>}
-        <div className="dir-drawer-footer">
-          <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
-          <button
-            className="dir-btn dir-btn-primary"
-            onClick={handleSave}
-            disabled={saving || !activeEnsembleId
-              || (kind === 'lesson' && !reason.trim())
-              || (kind === 'temporary' && action === 'remove' && dest === 'ensemble' && !destEnsembleId)
-              || (kind === 'temporary' && action === 'remove' && dest !== 'ensemble' && !reason.trim())}
-          >
-            {saving ? 'Saving…' : 'Save change'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function fmt(d: string) {
-  return parseDate(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
 function fmtTime(t: string) {
   const [h, m] = t.split(':').map(Number);
   const ampm = h >= 12 ? 'PM' : 'AM';
