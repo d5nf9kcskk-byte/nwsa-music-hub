@@ -44,6 +44,20 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'If a rehearsal ends (today or yesterday) with roll never taken, a red banner stays on Today until it’s done.',
     ],
   },
+  // Two-door schedule changes (docs/schedule-ux-two-doors.md, Phase 4a).
+  // Staff-only: pure navigation, nothing public changed.
+  {
+    id: '2026-08-29-two-doors',
+    date: '2026-08-29',
+    title: 'Schedule Changes is now two doors',
+    audience: 'staff' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'Move a Student: one student somewhere different — with another ensemble, at a lesson, or out for the day. Staff-only, both rosters update instantly.',
+      'Change a Day: whole-ensemble changes — swap blocks, combine, move time or room, or cancel. Families get the red banner automatically.',
+      'Old links still work, and each screen points to the other when you’re in the wrong one.',
+    ],
+  },
   // High School Private Lesson Log for Applied Teachers (#applied). Staff-only:
   // grades and family emails never touch the public site.
   {

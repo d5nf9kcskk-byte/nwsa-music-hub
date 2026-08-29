@@ -19,12 +19,14 @@ import { studentMatchesQuery } from '../studentSearch';
 interface Prefill { ensembleId?: string; date?: string }
 
 /**
- * A dedicated, clear home for changing a student's schedule:
+ * Move a Student — the PEOPLE door (docs/schedule-ux-two-doors.md §1), its
+ * own top-level screen since Phase 4a. One student somewhere different:
  *   • PERMANENT — join/leave an ensemble (edits student.ensembleIds)
  *   • TEMPORARY — sub-in / pull-out for a day or date range (RosterOverride)
  *   • LESSON    — pulled out for PART of a rehearsal (override with a time window)
  * Everything feeds the existing rosterResolver, so attendance and every
- * schedule view update automatically.
+ * schedule view update automatically. Staff-only — never a family banner.
+ * Whole-ensemble time changes are the other door (`scheduleSwap`).
  */
 export function ScheduleChangeView({ initialEnsembleId = '', initialStudentId, initialMode, initialDate, initialEventId, onNavigate }: {
   initialEnsembleId?: string;
@@ -103,6 +105,14 @@ export function ScheduleChangeView({ initialEnsembleId = '', initialStudentId, i
         <CalendarClock size={18} />
         {mode === 'student' ? 'Pick a student to change their schedule.' : 'Pick a day, then a rehearsal, then the student.'}
       </div>
+      {onNavigate && (
+        <div className="dir-field-hint" style={{ margin: '0 16px' }}>
+          Changing a whole block’s time or room?{' '}
+          <button className="dir-inline-link" onClick={() => onNavigate('scheduleSwap', mode === 'date' ? { date: dateSel } : undefined)}>
+            Change a Day
+          </button>
+        </div>
+      )}
 
       {/* Direction: start from a student, or start from a date on the schedule */}
       <div className="dir-mode-toggle" style={{ margin: '6px 16px 8px' }}>

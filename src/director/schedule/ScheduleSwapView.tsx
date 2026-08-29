@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, ArrowLeftRight, Clock3, MapPin, XCircle, RotateCcw, Grid3x3, CalendarDays, List, Users, UserCog, Pencil, Merge } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeftRight, Clock3, MapPin, XCircle, RotateCcw, Grid3x3, CalendarDays, List, UserCog, Pencil, Merge } from 'lucide-react';
 import { useEvents } from '../hooks/useEvents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useAnnouncements } from '../hooks/useAnnouncements';
@@ -8,19 +8,17 @@ import { useStudents } from '../hooks/useStudents';
 import { todayStr, addDays, parseDate, toDateStr, formatTime, formatTimeRange, ensembleColor, addMinutesToTime, TIME_BLOCKS, CONCERT_COLOR } from '../utils';
 import { sharedBlockLabel } from '../../shared/sharedBlock';
 import { bannersForEvents, announceChange, captureOriginal, combineSnapshot } from './changeOps';
-import { ScheduleChangeView } from '../schedule-changes/ScheduleChangeView';
 import type { CalendarEvent, Ensemble } from '../types';
 import type { DirNavigate } from '../types-nav';
 
 /**
- * Schedule Changes — everything that's different about a day, in one place
- * (#schedule-ux-redesign Phase 1). Per block: swap, shift, move rooms, cancel,
- * or move a student (which routes into the existing roster-override flow).
- * The Students tab is the by-student picker that used to be its own
- * "Temporary Roster Changes" menu item. Every ensemble-time change stamps a
- * change note (drives the public red banner) and can post an urgent
- * announcement (in-app banner). A per-row "Revert to normal" restores the
- * original schedule and clears both.
+ * Change a Day — the TIME door (docs/schedule-ux-two-doors.md §1): whole-
+ * ensemble changes only. Per block: swap, combine, move time/room, cancel.
+ * Moving a PERSON is the other door ("Move a Student", `scheduleChanges`) —
+ * the block menu's "Move a student…" deep-links there with this date and
+ * block carried over. Every change here stamps a change note (drives the
+ * public red banner) and can post an urgent announcement (in-app banner).
+ * A per-row "Revert to normal" restores the original schedule and clears both.
  */
 export function ScheduleSwapView({ initialDate, onNavigate }: {
   initialDate?: string;
@@ -38,15 +36,12 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const [menuFor, setMenuFor] = useState<CalendarEvent | null>(null);
   const [cancelling, setCancelling] = useState<CalendarEvent | null>(null);
-  // "Move a student" on a block: embed the existing roster-change flow,
-  // landed directly on that block's expected roster.
-  const [studentFlowEventId, setStudentFlowEventId] = useState<string | null>(null);
   const [confirmSwap, setConfirmSwap] = useState(false);
   const [confirmCombine, setConfirmCombine] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   // Deep-linked with a date (from the calendar / Today): open on that day.
-  const [view, setView] = useState<'day' | 'list' | 'month' | 'students'>(initialDate ? 'day' : 'month');
+  const [view, setView] = useState<'day' | 'list' | 'month'>(initialDate ? 'day' : 'month');
 
   const today = todayStr();
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
@@ -177,25 +172,6 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
     }
   }
 
-  // "Move a student" from a block's Change menu: hand over to the existing
-  // roster-change flow (the same machinery the old Temporary Roster Changes
-  // screen used), opened straight onto that block's expected roster.
-  if (studentFlowEventId) {
-    return (
-      <div className="dir-tab-page">
-        <button className="dir-drawer-back" style={{ margin: '8px 16px 0' }} onClick={() => setStudentFlowEventId(null)}>
-          <ChevronLeft size={18} /> Back to schedule changes
-        </button>
-        <ScheduleChangeView
-          initialMode="date"
-          initialDate={date}
-          initialEventId={studentFlowEventId}
-          onNavigate={onNavigate}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="dir-tab-page">
       <div className="dir-mode-toggle">
@@ -208,14 +184,9 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
         <button className={`dir-segment-btn ${view === 'month' ? 'active' : ''}`} onClick={() => setView('month')}>
           <Grid3x3 size={14} style={{ verticalAlign: '-2px' }} /> Month
         </button>
-        <button className={`dir-segment-btn ${view === 'students' ? 'active' : ''}`} onClick={() => setView('students')}>
-          <Users size={14} style={{ verticalAlign: '-2px' }} /> Students
-        </button>
       </div>
 
-      {view === 'students' ? (
-        <ScheduleChangeView onNavigate={onNavigate} />
-      ) : view === 'month' ? (
+      {view === 'month' ? (
         <SwapMonth date={date} events={events} ensembleMap={ensembleMap} onPick={d => { setDate(d); setView('day'); }} />
       ) : view === 'list' ? (
         <SwapList events={events} ensembleMap={ensembleMap} onPick={d => { setDate(d); setView('day'); }} />
@@ -235,9 +206,13 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
 
       <div className="dir-page-body">
         <div className="dir-field-hint">
-          Everything different about this day starts here — tap <strong>Change</strong> on a block
-          to swap, shift, move rooms, cancel, or move a student.
+          Whole-ensemble changes for this day — tap <strong>Change</strong> on a block
+          to swap, combine, move time or room, or cancel.
           Families see a red “Schedule change” banner automatically.
+          {' '}Moving one student, not a whole block?{' '}
+          <button className="dir-inline-link" onClick={() => onNavigate('scheduleChanges', { date })}>
+            Move a Student
+          </button>
         </div>
 
         {dayEvents.length === 0 ? (
@@ -335,7 +310,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
           onCancel={() => { setCancelling(menuFor); setMenuFor(null); }}
           onSwap={() => { togglePick(menuFor.id); setMenuFor(null); }}
           onCombine={() => { setPick({ mode: 'combine', ids: [menuFor.id] }); setMenuFor(null); }}
-          onStudent={() => { setStudentFlowEventId(menuFor.id); setMenuFor(null); }}
+          onStudent={() => { const id = menuFor.id; setMenuFor(null); onNavigate('scheduleChanges', { date, eventId: id }); }}
         />
       )}
 
@@ -534,7 +509,8 @@ function ChangeMenu({ event, name, onClose, onTimeRoom, onCancel, onSwap, onComb
     cancelled
       ? { icon: <RotateCcw size={16} />, title: 'Un-cancel…', sub: 'Put it back on as originally scheduled', run: onCancel }
       : { icon: <XCircle size={16} />, title: `Cancel this ${event.type.toLowerCase()}…`, sub: 'Families can be told automatically', run: onCancel, danger: true },
-    { icon: <UserCog size={16} />, title: 'Move a student…', sub: 'Lesson pull-out, sub, or a day with another ensemble', run: onStudent },
+    // The PEOPLE door — deep-links to Move a Student on this block's roster.
+    { icon: <UserCog size={16} />, title: 'Move a student…', sub: 'Opens Move a Student with this block’s roster', run: onStudent },
   ];
   return (
     <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>

@@ -222,10 +222,10 @@ const DIRECTOR_QA: QA[] = [
     a: (
       <>
         In the <Link to="/director">director app</Link>, open{' '}
-        <strong>{LABELS.takeRoll}</strong> and use <strong>{LABELS.scheduleChange}</strong>:
-        add or remove a student for a single event or a date range, always with a
-        reason. The base roster is untouched, and rosters, roll, and the student’s
-        public schedule all update automatically.
+        <strong>{LABELS.scheduleChange}</strong>: pick the student, then sub in or
+        pull out for a single event or a date range, always with a reason. The base
+        roster is untouched, and rosters, roll, and the student’s public schedule
+        all update automatically.
       </>
     ),
   },

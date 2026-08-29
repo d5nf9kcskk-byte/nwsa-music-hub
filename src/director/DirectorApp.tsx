@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -84,11 +84,13 @@ const NAV_TOP: NavItem[] = [
   { id: 'today',    label: 'Today',     Icon: Home          },
   { id: 'roll',     label: 'Take Roll', Icon: ClipboardList },
   { id: 'schedule', label: 'Calendar',  Icon: Calendar      },
-  // ONE door for changing the schedule (#schedule-ux-redesign): block swaps,
-  // shifts, cancels AND student moves. The old "Temporary Roster Changes"
-  // menu item retired into its Students tab; the `scheduleChanges` tab id
-  // stays valid for deep links.
-  { id: 'scheduleSwap', label: 'Schedule Changes', Icon: CalendarClock },
+  // TWO doors, named by who moves (docs/schedule-ux-two-doors.md §1):
+  // a PERSON going somewhere different vs. an ENSEMBLE meeting at a
+  // different time. Both tab ids predate the split, so old deep links keep
+  // working — `scheduleChanges` was "Temporary Roster Changes", then Phase
+  // 1's embedded Students tab, now the student door.
+  { id: 'scheduleChanges', label: 'Move a Student', Icon: UserCog       },
+  { id: 'scheduleSwap',    label: 'Change a Day',   Icon: CalendarClock },
   { id: 'whosOut',  label: "Who's Out", Icon: UserX         },
 ];
 const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
@@ -131,8 +133,8 @@ const TAB_TITLES: Record<DirTab, string> = {
   lessons:         'Lessons',
   myLessons:       'My Lessons',
   schedule:        'Schedule',
-  scheduleChanges: 'Temporary Roster Changes',
-  scheduleSwap:    'Schedule Changes',
+  scheduleChanges: 'Move a Student',
+  scheduleSwap:    'Change a Day',
   repertoire:      'Repertoire',
   documents:       'Documents',
   notes:           'Progress Notes',
@@ -169,8 +171,8 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   roll:            'Pick an ensemble, then mark who\u2019s here. Tap a student to cycle Present, Absent, and Tardy.',
   schedule:        'The full calendar of rehearsals, concerts, and events. Tap a day to see or add its events.',
   whosOut:         'Every absence and pull-out in one place. Switch Day and Month to spot patterns.',
-  scheduleSwap:    'Everything different about a day, in one place. Pick the day, then tap Change on a block to swap, shift, cancel, or move a student. Families see a red banner automatically.',
-  scheduleChanges: 'Temporary student moves \u2014 subs, pull-outs, and one-day loans between ensembles.',
+  scheduleSwap:    'Whole-ensemble changes for a day \u2014 swap blocks, combine into one room, change time or room, or cancel. Families see a red banner automatically.',
+  scheduleChanges: 'One student somewhere different \u2014 with another ensemble for the day, at a lesson, or out. Staff-only: both rosters update instantly, and no family banner is posted.',
   ensembles:       'Create ensembles, add students to their rosters, and open any ensemble\u2019s hub \u2014 schedule, roll, repertoire, and documents.',
   classes:         'Theory, history, vocal lit, and master classes \u2014 each with its own roster, roll, assignments, announcements, and documents.',
   college:         'College ensembles and dual-enrollment classes \u2014 kept separate from the high-school lists. Shared groups like Symphony stay under Ensembles.',
@@ -553,7 +555,19 @@ export default function DirectorApp() {
                 onNavigate={go}
               />
             )}
-            {tab === 'scheduleChanges' && <ScheduleChangeView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} onNavigate={go} />}
+            {tab === 'scheduleChanges' && (
+              <ScheduleChangeView
+                key={intentKey}
+                initialEnsembleId={intent.ensembleId ?? ''}
+                initialStudentId={intent.studentId}
+                // Arriving from a day/block (Change a Day's "Move a student…")
+                // lands on that block's roster rather than the name search.
+                initialMode={intent.date ? 'date' : undefined}
+                initialDate={intent.date}
+                initialEventId={intent.eventId}
+                onNavigate={go}
+              />
+            )}
             {tab === 'scheduleSwap'    && <ScheduleSwapView key={intentKey} initialDate={intent.date} onNavigate={go} />}
             {tab === 'repertoire'      && <RepertoireManager key={intentKey} asTab ensembleId={intent.ensembleId} onClose={() => {}} />}
             {tab === 'documents'       && <DocumentsView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} />}
