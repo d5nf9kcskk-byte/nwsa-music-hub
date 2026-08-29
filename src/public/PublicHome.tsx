@@ -18,8 +18,6 @@ import { composerBirthdaysOn, birthdayLine, musicHolidayOn, concertDayLine, dail
 import { useTapTempo } from '../shared/useTapTempo';
 import { useEggCheer } from '../shared/useEggCheer';
 import { NoteBurst } from '../shared/NoteBurst';
-import { WhatsNewBanner } from '../shared/WhatsNewBanner';
-import '../shared/whatsNew.css';
 import { groupScheduleAlerts } from '../shared/groupAlerts';
 import { AlertGroupSections } from '../shared/AlertGroupSections';
 import { SignupAlert } from './components/SignupAlert';
@@ -113,7 +111,7 @@ export function PublicHome() {
       <WelcomeHubBanner />
       {/* Open sign-ups this device hasn't answered yet (#signups) — stays at
           the top: a sign-up with a next-day deadline is the one thing on this
-          page that expires. The What's New roll-up sits at the bottom. */}
+          page that expires. What's New lives in the public menu (PublicLayout). */}
       <SignupAlert />
       <div
         className="pub-hero pub-hero-fancy"
@@ -288,8 +286,6 @@ export function PublicHome() {
           <Music size={18} /><span>{t('rep.browseAll')}</span>
         </Link>
       )}
-
-      <WhatsNewBanner audience="public" />
 
       <NoteBurst cheer={tempoCheer || holdCheer} />
     </div>

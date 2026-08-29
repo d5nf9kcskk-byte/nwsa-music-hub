@@ -15,10 +15,21 @@ import { NoteBurst } from '../shared/NoteBurst';
 import { useLogoEgg } from '../shared/useLogoEgg';
 import { primaryStudent, onIdentityChange } from '../shared/identity';
 import { useModalA11y } from '../shared/useModalA11y';
+import { WhatsNewBanner } from '../shared/WhatsNewBanner';
+import '../shared/whatsNew.css';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { ensembleColor, ensembleDisplayName, highSchoolEnsembles, highSchoolClasses, collegeEnsembles, collegeClasses } from '../director/utils';
 import { ORG } from '../org';
 import type { Ensemble } from '../director/types';
+
+/** Staff sign-in links — always visible; access is decided after Google auth
+ *  by the directors/{email} doc, not by whether the link is shown. */
+const STAFF_LOGINS = [
+  { to: '/director', label: 'nav.directorLogin' },
+  { to: '/assistant', label: 'nav.assistantLogin' },
+  { to: '/teacher', label: 'nav.teacherLogin' },
+  { to: '/classroom', label: 'nav.classroomLogin' },
+] as const;
 
 /** Daily destinations — always visible in the hamburger (matches tab bar set + Ensembles). */
 const NAV_TOP = [
@@ -309,12 +320,15 @@ export function PublicLayout() {
             )}
 
             <div className="pub-menu-divider" />
-            <Link to="/director" className="pub-menu-item pub-menu-director" onClick={closeMenu}>
-              {t('nav.directorLogin')}
-            </Link>
-            <Link to="/assistant" className="pub-menu-item pub-menu-director" onClick={closeMenu}>
-              {t('nav.assistantLogin')}
-            </Link>
+            {STAFF_LOGINS.map(({ to, label }) => (
+              <Link key={to} to={to} className="pub-menu-item pub-menu-director" onClick={closeMenu}>
+                {t(label)}
+              </Link>
+            ))}
+            <div className="pub-menu-divider" />
+            <div className="pub-menu-whats-new" onClick={e => e.stopPropagation()}>
+              <WhatsNewBanner audience="public" />
+            </div>
           </nav>
         </div>
       )}
@@ -425,12 +439,14 @@ export function PublicLayout() {
                 <span className="pub-side-switch">{t('nav.notYouSwitch')}</span>
               </Link>
             )}
-            <Link to="/director" className="pub-side-item pub-side-director">
-              {t('nav.directorLogin')}
-            </Link>
-            <Link to="/assistant" className="pub-side-item pub-side-director">
-              {t('nav.assistantLogin')}
-            </Link>
+            {STAFF_LOGINS.map(({ to, label }) => (
+              <Link key={to} to={to} className="pub-side-item pub-side-director">
+                {t(label)}
+              </Link>
+            ))}
+            <div className="pub-side-whats-new">
+              <WhatsNewBanner audience="public" />
+            </div>
           </div>
         </aside>
 
