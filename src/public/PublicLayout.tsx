@@ -1,7 +1,7 @@
 import './uiUpdates.css';
 import './pubShell.css';
-import { useState } from 'react';
-import { Outlet, NavLink, Link, ScrollRestoration } from 'react-router';
+import { useState, useEffect, useReducer } from 'react';
+import { Outlet, NavLink, Link, ScrollRestoration, useLocation } from 'react-router';
 import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned, FolderOpen, Mail, ClipboardSignature } from 'lucide-react';
 import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
@@ -15,32 +15,113 @@ import { NoteBurst } from '../shared/NoteBurst';
 import { useLogoEgg } from '../shared/useLogoEgg';
 import { primaryStudent, onIdentityChange } from '../shared/identity';
 import { useModalA11y } from '../shared/useModalA11y';
-import { useEffect, useReducer } from 'react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { ensembleColor, ensembleDisplayName, highSchoolEnsembles, highSchoolClasses, collegeEnsembles, collegeClasses } from '../director/utils';
 import { ORG } from '../org';
+import type { Ensemble } from '../director/types';
 
-const NAV = [
+/** Daily destinations — always visible in the hamburger (matches tab bar set + Ensembles). */
+const NAV_TOP = [
   { to: '/', label: 'nav.home', Icon: Home, end: true },
   { to: '/calendar', label: 'nav.calendar', Icon: CalendarDays, end: false },
   { to: '/concerts', label: 'nav.concerts', Icon: Ticket, end: false },
-  { to: '/announcements', label: 'nav.announcements', Icon: Megaphone, end: false },
-  { to: '/repertoire', label: 'nav.repertoire', Icon: Music, end: false },
-  { to: '/assignments', label: 'nav.assignmentsShort', Icon: ClipboardCheck, end: false },
-  { to: '/documents', label: 'nav.documents', Icon: FolderOpen, end: false },
-  { to: '/signups', label: 'nav.signups', Icon: ClipboardSignature, end: false },
   { to: '/lookup', label: 'nav.mySchedule', Icon: UserSearch, end: false },
-  // Campus map + contact form are org-gated (#org-config, #parent-messages).
-  ...(ORG.features.campusMap ? [{ to: '/map', label: 'nav.campusMap', Icon: MapPinned, end: false }] : []),
-  ...(ORG.features.contactForm ? [{ to: '/contact', label: 'nav.contact', Icon: Mail, end: false }] : []),
-  { to: '/start', label: 'nav.startHere', Icon: HelpCircle, end: false },
 ];
+
+const RESOURCE_PATHS = [
+  '/announcements',
+  '/repertoire',
+  '/assignments',
+  '/documents',
+  '/signups',
+  ...(ORG.features.campusMap ? ['/map'] : []),
+  ...(ORG.features.contactForm ? ['/contact'] : []),
+] as const;
+
+const RESOURCES = [
+  { to: '/announcements', label: 'nav.announcements', Icon: Megaphone },
+  { to: '/repertoire', label: 'nav.repertoire', Icon: Music },
+  { to: '/assignments', label: 'nav.assignmentsShort', Icon: ClipboardCheck },
+  { to: '/documents', label: 'nav.documents', Icon: FolderOpen },
+  { to: '/signups', label: 'nav.signups', Icon: ClipboardSignature },
+  ...(ORG.features.campusMap ? [{ to: '/map', label: 'nav.campusMap', Icon: MapPinned }] : []),
+  ...(ORG.features.contactForm ? [{ to: '/contact', label: 'nav.contact', Icon: Mail }] : []),
+];
+
+function pathInResources(pathname: string): boolean {
+  return RESOURCE_PATHS.some(p => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+function ensembleIdFromPath(pathname: string): string | null {
+  const m = pathname.match(/^\/ensemble\/([^/]+)/);
+  return m ? m[1] : null;
+}
+
+function ExpandChevron({ open }: { open: boolean }) {
+  return (
+    <ChevronDown
+      size={15}
+      style={{ marginLeft: 'auto', transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }}
+    />
+  );
+}
+
+function EnsembleSubLinks({
+  items,
+  onNavigate,
+}: {
+  items: Ensemble[];
+  onNavigate?: () => void;
+}) {
+  return (
+    <>
+      {items.map(e => (
+        <NavLink
+          key={e.id}
+          to={`/ensemble/${e.id}`}
+          className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
+          onClick={onNavigate}
+        >
+          <span className="pub-menu-dot" style={{ background: ensembleColor(e) }} />
+          {ensembleDisplayName(e)}
+        </NavLink>
+      ))}
+    </>
+  );
+}
+
+function SideEnsembleLinks({ items }: { items: Ensemble[] }) {
+  return (
+    <>
+      {items.map(e => (
+        <NavLink
+          key={e.id}
+          to={`/ensemble/${e.id}`}
+          className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}
+        >
+          <span className="pub-side-dot" style={{ background: ensembleColor(e) }} />
+          {ensembleDisplayName(e)}
+        </NavLink>
+      ))}
+    </>
+  );
+}
 
 export function PublicLayout() {
   useLang(); // re-render on EN/ES switch (#42)
+  const location = useLocation();
+  const pathname = location.pathname;
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
+  const [resourcesOpen, setResourcesOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  // Sidebar section expands (desktop) — separate from hamburger so phone
+  // expand state doesn't fight the always-visible rail.
+  const [sideEnsOpen, setSideEnsOpen] = useState(false);
+  const [sideClassesOpen, setSideClassesOpen] = useState(false);
+  const [sideCollegeOpen, setSideCollegeOpen] = useState(false);
+  const [sideResourcesOpen, setSideResourcesOpen] = useState(false);
   const { ensembles } = useEnsembles();
   // Classes list under their own heading, never among the orchestras
   // (#classes). Same order field, two headings.
@@ -55,6 +136,31 @@ export function PublicLayout() {
   const me = primaryStudent();
   // Hidden delight (#easter-eggs): five quick taps on the logo → note burst.
   const { cheer, onLogoTap } = useLogoEgg();
+
+  const eid = ensembleIdFromPath(pathname);
+  const onEnsemblesIndex = pathname === '/ensembles' || pathname.startsWith('/ensembles/');
+  const onEnsemblePage = !!eid;
+  const inPerforming = !!eid && navPerforming.some(e => e.id === eid);
+  const inClasses = !!eid && navClasses.some(e => e.id === eid);
+  const inCollege = !!eid && [...navCollegeEns, ...navCollegeCls].some(e => e.id === eid);
+  const onResources = pathInResources(pathname);
+  const onHelp = pathname === '/start' || pathname.startsWith('/start/');
+
+  // Auto-open the group that owns the current route (plan: default closed,
+  // open when active). Manual toggles still win until the route changes.
+  useEffect(() => {
+    if (onEnsemblesIndex || onEnsemblePage) setEnsemblesOpen(true);
+    if (onResources) setResourcesOpen(true);
+    if (onHelp) setHelpOpen(true);
+    if (inPerforming || onEnsemblesIndex) setSideEnsOpen(true);
+    if (inClasses) setSideClassesOpen(true);
+    if (inCollege) setSideCollegeOpen(true);
+    if (onResources || onHelp) setSideResourcesOpen(true);
+  }, [pathname, onEnsemblesIndex, onEnsemblePage, onResources, onHelp, inPerforming, inClasses, inCollege]);
+
+  const closeMenu = () => setMenuOpen(false);
+
+  const scheduleTo = me ? `/student/${me.id}` : '/lookup';
 
   return (
     <div className="pub-app">
@@ -87,109 +193,126 @@ export function PublicLayout() {
       </header>
 
       {menuOpen && (
-        <div className="pub-menu-overlay" onClick={() => setMenuOpen(false)}>
+        <div className="pub-menu-overlay" onClick={closeMenu}>
           <nav className="pub-menu-panel" role="dialog" aria-modal="true" aria-label={t('nav.menu')} tabIndex={-1} ref={menuRef} onClick={e => e.stopPropagation()}>
             <div className="pub-menu-header">
               <span className="pub-menu-title">{ORG.brandName}</span>
-              <button className="pub-menu-close" onClick={() => setMenuOpen(false)} aria-label={t('nav.closeMenu')}>
+              <button className="pub-menu-close" onClick={closeMenu} aria-label={t('nav.closeMenu')}>
                 <X size={20} />
               </button>
             </div>
             {me && (
-              <Link to="/lookup" className="pub-menu-item pub-menu-me" onClick={() => setMenuOpen(false)}>
+              <Link to="/lookup" className="pub-menu-item pub-menu-me" onClick={closeMenu}>
                 <UserCircle size={18} />
                 <span style={{ flex: 1, minWidth: 0 }}>{me.name}</span>
                 <span className="pub-menu-switch">{t('nav.notYouSwitch')}</span>
               </Link>
             )}
-            {NAV.map(({ to, label, Icon, end }) => (
-              <div key={to}>
+
+            {NAV_TOP.map(({ to, label, Icon, end }) => {
+              const href = to === '/lookup' ? scheduleTo : to;
+              return (
                 <NavLink
-                  to={to}
+                  key={to}
+                  to={href}
                   end={end}
                   className={({ isActive }) => `pub-menu-item ${isActive ? 'active' : ''}`}
-                  onClick={() => setMenuOpen(false)}
+                  onClick={closeMenu}
                 >
                   <Icon size={18} />
                   {t(label)}
                 </NavLink>
-                {/* Ensembles drop-down lives right after Calendar */}
-                {to === '/calendar' && (
+              );
+            })}
+
+            <button
+              className="pub-menu-item pub-menu-expand"
+              onClick={() => setEnsemblesOpen(o => !o)}
+              aria-expanded={ensemblesOpen}
+            >
+              <Users size={18} />
+              {t('nav.ensembles')}
+              <ExpandChevron open={ensemblesOpen} />
+            </button>
+            {ensemblesOpen && (
+              <>
+                {navPerforming.length > 0 && (
+                  <div className="pub-menu-subhead">{t('nav.ensembles')}</div>
+                )}
+                <EnsembleSubLinks items={navPerforming} onNavigate={closeMenu} />
+                {navClasses.length > 0 && (
+                  <div className="pub-menu-subhead">{t('docs.classes')}</div>
+                )}
+                <EnsembleSubLinks items={navClasses} onNavigate={closeMenu} />
+                {(navCollegeEns.length > 0 || navCollegeCls.length > 0) && (
                   <>
-                    <button
-                      className="pub-menu-item pub-menu-expand"
-                      onClick={() => setEnsemblesOpen(o => !o)}
-                      aria-expanded={ensemblesOpen}
-                    >
-                      <Users size={18} />
-                      {t('nav.ensembles')}
-                      <ChevronDown size={15} style={{ marginLeft: 'auto', transform: ensemblesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
-                    </button>
-                    {ensemblesOpen && (
-                      <>
-                        {navPerforming.map(e => (
-                          <NavLink
-                            key={e.id}
-                            to={`/ensemble/${e.id}`}
-                            className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
-                            onClick={() => setMenuOpen(false)}
-                          >
-                            <span className="pub-menu-dot" style={{ background: ensembleColor(e) }} />
-                            {ensembleDisplayName(e)}
-                          </NavLink>
-                        ))}
-                        {navClasses.map(e => (
-                          <NavLink
-                            key={e.id}
-                            to={`/ensemble/${e.id}`}
-                            className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
-                            onClick={() => setMenuOpen(false)}
-                          >
-                            <span className="pub-menu-dot" style={{ background: ensembleColor(e) }} />
-                            {ensembleDisplayName(e)}
-                          </NavLink>
-                        ))}
-                        {navCollegeEns.map(e => (
-                          <NavLink
-                            key={e.id}
-                            to={`/ensemble/${e.id}`}
-                            className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
-                            onClick={() => setMenuOpen(false)}
-                          >
-                            <span className="pub-menu-dot" style={{ background: ensembleColor(e) }} />
-                            {ensembleDisplayName(e)}
-                          </NavLink>
-                        ))}
-                        {navCollegeCls.map(e => (
-                          <NavLink
-                            key={e.id}
-                            to={`/ensemble/${e.id}`}
-                            className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
-                            onClick={() => setMenuOpen(false)}
-                          >
-                            <span className="pub-menu-dot" style={{ background: ensembleColor(e) }} />
-                            {ensembleDisplayName(e)}
-                          </NavLink>
-                        ))}
-                        <NavLink
-                          to="/ensembles"
-                          className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
-                          onClick={() => setMenuOpen(false)}
-                        >
-                          <span className="pub-menu-dot" style={{ background: '#94a3b8' }} />
-                          All ensembles
-                        </NavLink>
-                      </>
+                    {navCollegeEns.length > 0 && (
+                      <div className="pub-menu-subhead">{t('nav.collegeEnsembles')}</div>
                     )}
+                    <EnsembleSubLinks items={navCollegeEns} onNavigate={closeMenu} />
+                    {navCollegeCls.length > 0 && (
+                      <div className="pub-menu-subhead">{t('nav.collegeClasses')}</div>
+                    )}
+                    <EnsembleSubLinks items={navCollegeCls} onNavigate={closeMenu} />
                   </>
                 )}
-              </div>
+                <NavLink
+                  to="/ensembles"
+                  className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
+                  onClick={closeMenu}
+                >
+                  <span className="pub-menu-dot" style={{ background: '#94a3b8' }} />
+                  {t('nav.allEnsembles')}
+                </NavLink>
+              </>
+            )}
+
+            <button
+              className="pub-menu-item pub-menu-expand"
+              onClick={() => setResourcesOpen(o => !o)}
+              aria-expanded={resourcesOpen}
+            >
+              <FolderOpen size={18} />
+              {t('nav.resources')}
+              <ExpandChevron open={resourcesOpen} />
+            </button>
+            {resourcesOpen && RESOURCES.map(({ to, label, Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
+                onClick={closeMenu}
+              >
+                <Icon size={16} />
+                {t(label)}
+              </NavLink>
             ))}
+
+            <button
+              className="pub-menu-item pub-menu-expand"
+              onClick={() => setHelpOpen(o => !o)}
+              aria-expanded={helpOpen}
+            >
+              <HelpCircle size={18} />
+              {t('nav.help')}
+              <ExpandChevron open={helpOpen} />
+            </button>
+            {helpOpen && (
+              <NavLink
+                to="/start"
+                className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
+                onClick={closeMenu}
+              >
+                <HelpCircle size={16} />
+                {t('nav.startHere')}
+              </NavLink>
+            )}
+
             <div className="pub-menu-divider" />
-            <Link to="/director" className="pub-menu-item pub-menu-director" onClick={() => setMenuOpen(false)}>
+            <Link to="/director" className="pub-menu-item pub-menu-director" onClick={closeMenu}>
               {t('nav.directorLogin')}
             </Link>
-            <Link to="/assistant" className="pub-menu-item pub-menu-director" onClick={() => setMenuOpen(false)}>
+            <Link to="/assistant" className="pub-menu-item pub-menu-director" onClick={closeMenu}>
               {t('nav.assistantLogin')}
             </Link>
           </nav>
@@ -207,7 +330,7 @@ export function PublicLayout() {
             <NavLink to="/calendar" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
               <CalendarDays size={18} />{t('nav.calendar')}
             </NavLink>
-            <NavLink to={me ? `/student/${me.id}` : '/lookup'} className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+            <NavLink to={scheduleTo} className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
               <UserSearch size={18} />{t('nav.mySchedule')}
             </NavLink>
             <NavLink to="/concerts" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
@@ -217,84 +340,81 @@ export function PublicLayout() {
               <Users size={18} />{t('nav.ensembles')}
             </NavLink>
 
-            {navPerforming.length > 0 && <div className="pub-side-head">{t('nav.ensembles')}</div>}
-            {navPerforming.map(e => (
-              <NavLink
-                key={e.id}
-                to={`/ensemble/${e.id}`}
-                className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}
-              >
-                <span className="pub-side-dot" style={{ background: ensembleColor(e) }} />
-                {ensembleDisplayName(e)}
-              </NavLink>
-            ))}
-            {navClasses.length > 0 && <div className="pub-side-head">{t('docs.classes')}</div>}
-            {navClasses.map(e => (
-              <NavLink
-                key={e.id}
-                to={`/ensemble/${e.id}`}
-                className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}
-              >
-                <span className="pub-side-dot" style={{ background: ensembleColor(e) }} />
-                {ensembleDisplayName(e)}
-              </NavLink>
-            ))}
+            {navPerforming.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="pub-side-head pub-side-expand"
+                  onClick={() => setSideEnsOpen(o => !o)}
+                  aria-expanded={sideEnsOpen}
+                >
+                  {t('nav.ensembles')}
+                  <ChevronDown size={14} style={{ transform: sideEnsOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+                </button>
+                {sideEnsOpen && <SideEnsembleLinks items={navPerforming} />}
+              </>
+            )}
+            {navClasses.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="pub-side-head pub-side-expand"
+                  onClick={() => setSideClassesOpen(o => !o)}
+                  aria-expanded={sideClassesOpen}
+                >
+                  {t('docs.classes')}
+                  <ChevronDown size={14} style={{ transform: sideClassesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+                </button>
+                {sideClassesOpen && <SideEnsembleLinks items={navClasses} />}
+              </>
+            )}
             {(navCollegeEns.length > 0 || navCollegeCls.length > 0) && (
               <>
-                <div className="pub-side-head">College Ensembles</div>
-                {navCollegeEns.map(e => (
-                  <NavLink
-                    key={e.id}
-                    to={`/ensemble/${e.id}`}
-                    className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}
-                  >
-                    <span className="pub-side-dot" style={{ background: ensembleColor(e) }} />
-                    {ensembleDisplayName(e)}
-                  </NavLink>
-                ))}
-                {navCollegeCls.length > 0 && <div className="pub-side-head">College Classes</div>}
-                {navCollegeCls.map(e => (
-                  <NavLink
-                    key={e.id}
-                    to={`/ensemble/${e.id}`}
-                    className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}
-                  >
-                    <span className="pub-side-dot" style={{ background: ensembleColor(e) }} />
-                    {ensembleDisplayName(e)}
-                  </NavLink>
-                ))}
+                <button
+                  type="button"
+                  className="pub-side-head pub-side-expand"
+                  onClick={() => setSideCollegeOpen(o => !o)}
+                  aria-expanded={sideCollegeOpen}
+                >
+                  {t('nav.college')}
+                  <ChevronDown size={14} style={{ transform: sideCollegeOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+                </button>
+                {sideCollegeOpen && (
+                  <>
+                    {navCollegeEns.length > 0 && (
+                      <div className="pub-side-subhead">{t('nav.collegeEnsembles')}</div>
+                    )}
+                    <SideEnsembleLinks items={navCollegeEns} />
+                    {navCollegeCls.length > 0 && (
+                      <div className="pub-side-subhead">{t('nav.collegeClasses')}</div>
+                    )}
+                    <SideEnsembleLinks items={navCollegeCls} />
+                  </>
+                )}
               </>
             )}
 
-            <div className="pub-side-head">{t('nav.resources')}</div>
-            <NavLink to="/announcements" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-              <Megaphone size={18} />{t('nav.announcements')}
-            </NavLink>
-            <NavLink to="/repertoire" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-              <Music size={18} />{t('nav.repertoire')}
-            </NavLink>
-            <NavLink to="/assignments" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-              <ClipboardCheck size={18} />{t('nav.assignmentsShort')}
-            </NavLink>
-            <NavLink to="/documents" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-              <FolderOpen size={18} />{t('nav.documents')}
-            </NavLink>
-            <NavLink to="/signups" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-              <ClipboardSignature size={18} />{t('nav.signups')}
-            </NavLink>
-            {ORG.features.campusMap && (
-              <NavLink to="/map" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-                <MapPinned size={18} />{t('nav.campusMap')}
-              </NavLink>
+            <button
+              type="button"
+              className="pub-side-head pub-side-expand"
+              onClick={() => setSideResourcesOpen(o => !o)}
+              aria-expanded={sideResourcesOpen}
+            >
+              {t('nav.resources')}
+              <ChevronDown size={14} style={{ transform: sideResourcesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+            </button>
+            {sideResourcesOpen && (
+              <>
+                {RESOURCES.map(({ to, label, Icon }) => (
+                  <NavLink key={to} to={to} className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+                    <Icon size={18} />{t(label)}
+                  </NavLink>
+                ))}
+                <NavLink to="/start" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+                  <HelpCircle size={18} />{t('nav.startHere')}
+                </NavLink>
+              </>
             )}
-            {ORG.features.contactForm && (
-              <NavLink to="/contact" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-                <Mail size={18} />{t('nav.contact')}
-              </NavLink>
-            )}
-            <NavLink to="/start" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-              <HelpCircle size={18} />{t('nav.startHere')}
-            </NavLink>
           </nav>
 
           <div className="pub-side-bottom">
@@ -330,7 +450,7 @@ export function PublicLayout() {
           <CalendarDays size={20} /><span>{t('nav.calendar')}</span>
         </RRNavLink>
         <RRNavLink
-          to={me ? `/student/${me.id}` : '/lookup'}
+          to={scheduleTo}
           className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}
         >
           <UserSearch size={20} /><span>{t('nav.mySchedule')}</span>
