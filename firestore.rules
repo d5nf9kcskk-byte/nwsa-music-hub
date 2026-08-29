@@ -314,9 +314,16 @@ service cloud.firestore {
     match /announcements/{doc}   { allow read; allow write: if isStaff(); }
     // Staff heads-up notices (#two-doors §5.1): saving a student move drops a
     // notice for the affected ensembles' directors. Staff-only READ — the text
-    // names students. Writers mirror rosterOverrides (any known role may save
-    // a move there; update covers the per-person readBy dismiss).
-    match /staffNotices/{doc}    { allow read, write: if isKnownRole(); }
+    // names students. Creators mirror rosterOverrides (any known role may save
+    // a move there). Dismiss is PER-PERSON (readBy), so update may touch only
+    // that field — and delete stays a full-director cleanup, never a way for
+    // one account to wipe a notice off everyone else's Today.
+    match /staffNotices/{doc} {
+      allow read, create: if isKnownRole();
+      allow update: if isKnownRole()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
+      allow delete: if isStaff();
+    }
     match /repertoire/{doc}      { allow read; allow write: if isStaff(); }
     // Assignment DEFINITIONS (title, type, due date, target) are public so
     // students see what's assigned. Individual RESULTS/grades stay private below.

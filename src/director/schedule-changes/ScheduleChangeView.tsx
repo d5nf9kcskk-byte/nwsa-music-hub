@@ -98,9 +98,12 @@ export function ScheduleChangeView({ initialEnsembleId = '', initialStudentId, i
     sort,
   );
 
-  // By-date flow: that day's rehearsals/concerts → tap one → its expected roster.
+  // By-date flow: that day's rehearsals/concerts → tap one → its expected
+  // roster. Class-only events are excluded to match the sentence page, which
+  // never moves a student out of a class (that's a Roster change).
   const dayEvents = events
-    .filter(e => e.date === dateSel && e.ensembleIds.length > 0)
+    .filter(e => e.date === dateSel
+      && e.ensembleIds.some(id => ensembleMap[id] && !isClassGroup(ensembleMap[id])))
     .sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
   const dateEvent = dateEventId ? eventsById[dateEventId] : null;
 
@@ -203,7 +206,7 @@ export function ScheduleChangeView({ initialEnsembleId = '', initialStudentId, i
               <button className="dir-drawer-back" onClick={() => setDateEventId(null)} style={{ marginBottom: 8 }}>
                 <ChevronLeft size={18} /> All of {parseDate(dateSel).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </button>
-              {dateEvent.ensembleIds.map(eid => {
+              {dateEvent.ensembleIds.filter(eid => ensembleMap[eid] && !isClassGroup(ensembleMap[eid])).map(eid => {
                 const roster = sortStudents(
                   resolveRoster(students, overrides, { ensembleId: eid, date: dateSel, eventsById }).map(r => r.student),
                   sort,
@@ -334,7 +337,10 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
   const fromId = expectedIds.includes(fromChoice) ? fromChoice : (expectedIds[0] ?? '');
   const fromName = ensembleMap[fromId]?.name ?? '';
   const destName = ensembleMap[destId]?.name ?? '';
-  const end = endDate && endDate > date ? endDate : date;
+  // A lesson is always single-day — ignore any range left over from another
+  // verb (the through-date control is hidden for lessons, so stale state here
+  // would put a phantom range in the card and the notice).
+  const end = verb !== 'lesson' && endDate && endDate > date ? endDate : date;
   const whenText = (date === todayStr() ? 'today' : fmtLong(date)) + (end !== date ? ` → ${fmtLong(end)}` : '');
   const needsFrom = verb !== 'subIn';
 
@@ -350,19 +356,19 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
       : verb === 'send' ? [
           `${fromName}’s roll ${whenText}: ${student.name} flagged → ${destName || '…'}, not marked absent.`,
           ...(destId ? [`${destName}’s roll: ${student.name} as sub.`] : []),
-          `Staff-only — no family banner. Directors of ${fromName}${destId ? ` and ${destName}` : ''} get a notice.`,
+          'Staff-only — no family banner. Directors get a heads-up on Today.',
         ]
       : verb === 'lesson' ? [
           `${fromName}’s roll ${whenText}: ${student.name} shows a lesson badge ${fmtTime(lessonStart)}–${fmtTime(lessonEnd)} — still on the roster, present the rest of rehearsal.`,
-          `Staff-only. ${fromName}’s director gets a notice.`,
+          'Staff-only. Directors get a heads-up on Today.',
         ]
       : verb === 'out' ? [
           `${fromName}’s roll ${whenText}: ${student.name} is off the roster — shows on Who’s Out with the reason.`,
-          `Staff-only — no family banner. ${fromName}’s director gets a notice.`,
+          'Staff-only — no family banner. Directors get a heads-up on Today.',
         ]
       : [
           `${destName || '…'}’s roll ${whenText}: ${student.name} listed as a sub.`,
-          `Their own rehearsals are unchanged.${destId ? ` ${destName}’s director gets a notice.` : ''}`,
+          `Their own rehearsals are unchanged.${destId ? ' Directors get a heads-up on Today.' : ''}`,
         ];
 
   const myOverrides = overrides
@@ -413,8 +419,12 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
           ...(by ? { createdBy: by } : {}),
         });
       } catch { /* notice is best-effort */ }
+      // Reset the sentence to its default state — this also closes the Save
+      // gate for every verb, so a stray second tap can't write a duplicate.
+      setVerb('send');
       setReason('');
       setDestId('');
+      setEndDate('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save — try again.');
     } finally { setBusy(false); }
