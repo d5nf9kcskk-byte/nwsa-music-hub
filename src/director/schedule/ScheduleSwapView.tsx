@@ -5,7 +5,7 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useStudents } from '../hooks/useStudents';
-import { todayStr, addDays, parseDate, toDateStr, formatTime, formatTimeRange, ensembleColor, addMinutesToTime, TIME_BLOCKS, CONCERT_COLOR } from '../utils';
+import { todayStr, addDays, parseDate, toDateStr, formatTime, formatTimeRange, ensembleColor, addMinutesToTime, TIME_BLOCKS, CONCERT_COLOR, isClassGroup } from '../utils';
 import { sharedBlockLabel } from '../../shared/sharedBlock';
 import { bannersForEvents, announceChange, captureOriginal, combineSnapshot } from './changeOps';
 import { planDayChange, applyPlan, rolledBlocks, strandedEventOverrides } from './changePlan';
@@ -121,10 +121,18 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
     [planAction, dayEvents, planCtx],
   );
 
-  /** Quick options: every valid whole-day plan, computed per day. */
+  /** Quick options: every valid whole-day plan, computed per day.
+   *  Enumerated over PERFORMING rehearsal blocks only — the seeded academic
+   *  classes sit on the bell schedule, so "Swap AP Theory ↔ Choir" is not a
+   *  real verb (the same reasoning that killed the shift feature, §3), and
+   *  including them turned the board into a wall of n² chips. A class is
+   *  still changeable one at a time via its own block's Change menu. */
   const quickOptions = useMemo(() => {
     const opts: { key: string; label: string; action: DayAction; danger?: boolean }[] = [];
-    const [p0, p1] = boardCols;
+    const isRehearsalBlock = (e: CalendarEvent) =>
+      (e.type === 'Rehearsal' || e.type === 'Sectional')
+      && e.ensembleIds.some(id => { const g = ensembleMap[id]; return g && !isClassGroup(g); });
+    const [p0, p1] = boardCols.map(col => col.filter(isRehearsalBlock));
     for (const ea of p0) for (const eb of p1) {
       if (ea.status === 'Cancelled' || eb.status === 'Cancelled') continue;
       if (ea.ensembleIds.some(id => eb.ensembleIds.includes(id))) continue;
