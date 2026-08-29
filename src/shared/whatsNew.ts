@@ -33,6 +33,17 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-08-29-collapsible-nav',
+    date: '2026-08-29',
+    title: 'Menus fold so you see less at once',
+    audience: 'both' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'Secondary links and long ensemble/class lists sit under expandable sections — tap the heading to open.',
+      'Daily destinations stay one tap: Home, Calendar, Concerts, and My Schedule on the student side; Today and Take Roll stay at the top for directors.',
+    ],
+  },
+  {
     id: '2026-08-28-college-area',
     date: '2026-08-28',
     title: 'College ensembles and classes',

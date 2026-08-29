@@ -221,6 +221,9 @@ export default function DirectorApp() {
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
   const [classesOpen, setClassesOpen] = useState(false);
   const [collegeOpen, setCollegeOpen] = useState(false);
+  // Desktop rail only — phone keeps Library always expanded (podium: no
+  // accordion tax once the menu is open).
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [directorsOpen, setDirectorsOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem('dir.theme') === 'dark'; } catch { return false; } });
@@ -290,6 +293,29 @@ export default function DirectorApp() {
     setMenuOpen(false);
   }
 
+  const libraryTabIds = new Set(
+    (NAV_GROUPS.find(g => g.head === 'Library')?.items ?? []).map(i => i.id),
+  );
+  const sortedEnsembles = [...ensembles].sort((a, b) => a.order - b.order);
+  const hsEnsembles = highSchoolEnsembles(sortedEnsembles);
+  const hsClasses = highSchoolClasses(sortedEnsembles);
+  const colEnsembles = collegeEnsembles(sortedEnsembles);
+  const colClasses = collegeClasses(sortedEnsembles);
+  const inHsEnsemble = tab === 'ensembleHub' && hsEnsembles.some(e => e.id === intent.ensembleId);
+  const inHsClass = tab === 'ensembleHub' && hsClasses.some(e => e.id === intent.ensembleId);
+  const inCollegeGroup = tab === 'college'
+    || (tab === 'ensembleHub' && [...colEnsembles, ...colClasses].some(e => e.id === intent.ensembleId));
+
+  // Auto-open the accordion that owns the current tab (lists default closed).
+  useEffect(() => {
+    if (tab === 'ensembles' || inHsEnsemble) setEnsemblesOpen(true);
+    if (tab === 'classes' || inHsClass) setClassesOpen(true);
+    if (inCollegeGroup) setCollegeOpen(true);
+    if (libraryTabIds.has(tab)) setLibraryOpen(true);
+    // libraryTabIds is derived from the static NAV_GROUPS constant.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, intent.ensembleId, inHsEnsemble, inHsClass, inCollegeGroup]);
+
   const hubEnsemble = ensembles.find(e => e.id === intent.ensembleId);
   const title = tab === 'ensembleHub' && hubEnsemble ? hubEnsemble.name : TAB_TITLES[tab];
   // Remount the target view when the intent changes so preselects apply cleanly.
@@ -312,8 +338,8 @@ export default function DirectorApp() {
             <span>Director Panel</span>
             <span className="dir-panel-banner-sub">· editing area — the student side shows what you set here</span>
           </div>
-          {/* Desktop/iPad-landscape rail (≥1024px): grouped, always expanded,
-              coarse-pointer-first. Same items as the phone menu. */}
+          {/* Desktop/iPad-landscape rail (≥1024px): NAV_TOP + People always
+              shown; Library + ensemble/class/college lists accordion. */}
           <aside className="dir-rail no-print">
             <div className="dir-rail-brand">
               <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} />
@@ -326,71 +352,126 @@ export default function DirectorApp() {
                   <Icon size={18} /> {label}
                 </button>
               ))}
-              {shellNavGroups.map(g => (
-                <div key={g.head} style={{ display: 'contents' }}>
-                  <div className="dir-rail-head">{g.head}</div>
-                  {g.items.map(({ id, label, Icon }) => (
-                    <button key={id} className={`dir-rail-item ${tab === id ? 'active' : ''}`} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined}>
-                      <Icon size={18} /> {label}
-                      {id === 'messages' && newMsgCount > 0 && <span className="dir-nav-badge">{newMsgCount}</span>}
-                    </button>
-                  ))}
-                </div>
-              ))}
-              {ensembles.length > 0 && <div className="dir-rail-head">Ensembles</div>}
-              {ensembles.length > 0 && (
-                <button className={`dir-rail-item ${tab === 'ensembles' ? 'active' : ''}`} onClick={() => go('ensembles')} aria-current={tab === 'ensembles' ? 'page' : undefined}>
-                  <Music size={18} /> All Ensembles
-                </button>
-              )}
-              {highSchoolEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
-                <button
-                  key={e.id}
-                  className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
-                  onClick={() => go('ensembleHub', { ensembleId: e.id })}
-                >
-                  <span className="dir-rail-dot" style={{ background: ensembleColor(e) }} /> {e.name}
-                </button>
-              ))}
-              {highSchoolClasses(ensembles).length > 0 && <div className="dir-rail-head">Classes</div>}
-              {highSchoolClasses(ensembles).length > 0 && (
-                <button className={`dir-rail-item ${tab === 'classes' ? 'active' : ''}`} onClick={() => go('classes')} aria-current={tab === 'classes' ? 'page' : undefined}>
-                  <BookOpen size={18} /> All Classes
-                </button>
-              )}
-              {highSchoolClasses([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
-                <button
-                  key={e.id}
-                  className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
-                  onClick={() => go('ensembleHub', { ensembleId: e.id })}
-                >
-                  <span className="dir-rail-dot" style={{ background: ensembleColor(e) }} /> {e.name}
-                </button>
-              ))}
-              {(collegeEnsembles(ensembles).length > 0 || collegeClasses(ensembles).length > 0) && (
+              {shellNavGroups.map(g => {
+                const isLibrary = g.head === 'Library';
+                return (
+                  <div key={g.head} style={{ display: 'contents' }}>
+                    {isLibrary ? (
+                      <button
+                        type="button"
+                        className="dir-rail-head dir-rail-expand"
+                        onClick={() => setLibraryOpen(o => !o)}
+                        aria-expanded={libraryOpen}
+                      >
+                        {g.head}
+                        <ChevronDown size={14} style={{ transform: libraryOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+                      </button>
+                    ) : (
+                      <div className="dir-rail-head">{g.head}</div>
+                    )}
+                    {(!isLibrary || libraryOpen) && g.items.map(({ id, label, Icon }) => (
+                      <button key={id} className={`dir-rail-item ${tab === id ? 'active' : ''}`} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined}>
+                        <Icon size={18} /> {label}
+                        {id === 'messages' && newMsgCount > 0 && <span className="dir-nav-badge">{newMsgCount}</span>}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+              {hsEnsembles.length > 0 && (
                 <>
-                  <div className="dir-rail-head">College</div>
-                  <button className={`dir-rail-item ${tab === 'college' ? 'active' : ''}`} onClick={() => go('college')} aria-current={tab === 'college' ? 'page' : undefined}>
-                    <GraduationCap size={18} /> College Hub
+                  <button
+                    type="button"
+                    className={`dir-rail-head dir-rail-expand ${inHsEnsemble || tab === 'ensembles' ? 'active' : ''}`}
+                    onClick={() => setEnsemblesOpen(o => !o)}
+                    aria-expanded={ensemblesOpen}
+                  >
+                    Ensembles
+                    <ChevronDown size={14} style={{ transform: ensemblesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
                   </button>
-                  {collegeEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
-                    <button
-                      key={e.id}
-                      className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
-                      onClick={() => go('ensembleHub', { ensembleId: e.id })}
-                    >
-                      <span className="dir-rail-dot" style={{ background: ensembleColor(e) }} /> {e.name}
-                    </button>
-                  ))}
-                  {collegeClasses([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
-                    <button
-                      key={e.id}
-                      className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
-                      onClick={() => go('ensembleHub', { ensembleId: e.id })}
-                    >
-                      <span className="dir-rail-dot" style={{ background: ensembleColor(e) }} /> {e.name}
-                    </button>
-                  ))}
+                  {ensemblesOpen && (
+                    <>
+                      <button className={`dir-rail-item ${tab === 'ensembles' ? 'active' : ''}`} onClick={() => go('ensembles')} aria-current={tab === 'ensembles' ? 'page' : undefined}>
+                        <Music size={18} /> All Ensembles
+                      </button>
+                      {hsEnsembles.map(e => (
+                        <button
+                          key={e.id}
+                          className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
+                          onClick={() => go('ensembleHub', { ensembleId: e.id })}
+                        >
+                          <span className="dir-rail-dot" style={{ background: ensembleColor(e) }} /> {e.name}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+              {hsClasses.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    className={`dir-rail-head dir-rail-expand ${inHsClass || tab === 'classes' ? 'active' : ''}`}
+                    onClick={() => setClassesOpen(o => !o)}
+                    aria-expanded={classesOpen}
+                  >
+                    Classes
+                    <ChevronDown size={14} style={{ transform: classesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+                  </button>
+                  {classesOpen && (
+                    <>
+                      <button className={`dir-rail-item ${tab === 'classes' ? 'active' : ''}`} onClick={() => go('classes')} aria-current={tab === 'classes' ? 'page' : undefined}>
+                        <BookOpen size={18} /> All Classes
+                      </button>
+                      {hsClasses.map(e => (
+                        <button
+                          key={e.id}
+                          className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
+                          onClick={() => go('ensembleHub', { ensembleId: e.id })}
+                        >
+                          <span className="dir-rail-dot" style={{ background: ensembleColor(e) }} /> {e.name}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+              {(colEnsembles.length > 0 || colClasses.length > 0) && (
+                <>
+                  <button
+                    type="button"
+                    className={`dir-rail-head dir-rail-expand ${inCollegeGroup ? 'active' : ''}`}
+                    onClick={() => setCollegeOpen(o => !o)}
+                    aria-expanded={collegeOpen}
+                  >
+                    College
+                    <ChevronDown size={14} style={{ transform: collegeOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+                  </button>
+                  {collegeOpen && (
+                    <>
+                      <button className={`dir-rail-item ${tab === 'college' ? 'active' : ''}`} onClick={() => go('college')} aria-current={tab === 'college' ? 'page' : undefined}>
+                        <GraduationCap size={18} /> College Hub
+                      </button>
+                      {colEnsembles.map(e => (
+                        <button
+                          key={e.id}
+                          className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
+                          onClick={() => go('ensembleHub', { ensembleId: e.id })}
+                        >
+                          <span className="dir-rail-dot" style={{ background: ensembleColor(e) }} /> {e.name}
+                        </button>
+                      ))}
+                      {colClasses.map(e => (
+                        <button
+                          key={e.id}
+                          className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
+                          onClick={() => go('ensembleHub', { ensembleId: e.id })}
+                        >
+                          <span className="dir-rail-dot" style={{ background: ensembleColor(e) }} /> {e.name}
+                        </button>
+                      ))}
+                    </>
+                  )}
                 </>
               )}
             </nav>
@@ -548,10 +629,10 @@ export default function DirectorApp() {
                     ))}
                   </div>
                 ))}
-                {ensembles.length > 0 && (
+                {hsEnsembles.length > 0 && (
                   <>
                     <button
-                      className={`dir-menu-item ${tab === 'ensembleHub' && highSchoolEnsembles(ensembles).some(e => e.id === intent.ensembleId) ? 'active' : ''}`}
+                      className={`dir-menu-item ${inHsEnsemble ? 'active' : ''}`}
                       onClick={() => setEnsemblesOpen(o => !o)}
                       aria-expanded={ensemblesOpen}
                     >
@@ -566,7 +647,7 @@ export default function DirectorApp() {
                         <Music size={16} /> All Ensembles
                       </button>
                     )}
-                    {ensemblesOpen && highSchoolEnsembles(ensembles).map(e => (
+                    {ensemblesOpen && hsEnsembles.map(e => (
                       <button
                         key={e.id}
                         className={`dir-menu-item dir-menu-subitem ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
@@ -577,10 +658,10 @@ export default function DirectorApp() {
                     ))}
                   </>
                 )}
-                {highSchoolClasses(ensembles).length > 0 && (
+                {hsClasses.length > 0 && (
                   <>
                     <button
-                      className={`dir-menu-item ${tab === 'classes' || (tab === 'ensembleHub' && highSchoolClasses(ensembles).some(c => c.id === intent.ensembleId)) ? 'active' : ''}`}
+                      className={`dir-menu-item ${tab === 'classes' || inHsClass ? 'active' : ''}`}
                       onClick={() => setClassesOpen(o => !o)}
                       aria-expanded={classesOpen}
                     >
@@ -595,7 +676,7 @@ export default function DirectorApp() {
                         <GraduationCap size={16} /> All Classes
                       </button>
                     )}
-                    {classesOpen && highSchoolClasses(ensembles).map(e => (
+                    {classesOpen && hsClasses.map(e => (
                       <button
                         key={e.id}
                         className={`dir-menu-item dir-menu-subitem ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
@@ -606,10 +687,10 @@ export default function DirectorApp() {
                     ))}
                   </>
                 )}
-                {(
+                {(colEnsembles.length > 0 || colClasses.length > 0) && (
                   <>
                     <button
-                      className={`dir-menu-item ${tab === 'college' || (tab === 'ensembleHub' && [...collegeEnsembles(ensembles), ...collegeClasses(ensembles)].some(c => c.id === intent.ensembleId)) ? 'active' : ''}`}
+                      className={`dir-menu-item ${inCollegeGroup ? 'active' : ''}`}
                       onClick={() => setCollegeOpen(o => !o)}
                       aria-expanded={collegeOpen}
                     >
@@ -624,7 +705,7 @@ export default function DirectorApp() {
                         <GraduationCap size={16} /> College Hub
                       </button>
                     )}
-                    {collegeOpen && collegeEnsembles(ensembles).map(e => (
+                    {collegeOpen && colEnsembles.map(e => (
                       <button
                         key={e.id}
                         className={`dir-menu-item dir-menu-subitem ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
@@ -633,7 +714,7 @@ export default function DirectorApp() {
                         <span className="dir-menu-dot" style={{ background: ensembleColor(e) }} /> {e.name}
                       </button>
                     ))}
-                    {collegeOpen && collegeClasses(ensembles).map(e => (
+                    {collegeOpen && colClasses.map(e => (
                       <button
                         key={e.id}
                         className={`dir-menu-item dir-menu-subitem ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}

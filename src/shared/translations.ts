@@ -41,6 +41,10 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.documents':        { en: 'Documents',           es: 'Documentos' },
   'nav.signups':          { en: 'Sign-ups',            es: 'Inscripciones' },
   'nav.resources':        { en: 'Resources',           es: 'Recursos' },
+  'nav.help':             { en: 'Help',                es: 'Ayuda' },
+  'nav.college':          { en: 'College',             es: 'College' },
+  'nav.collegeEnsembles': { en: 'College Ensembles',   es: 'Ensambles de college' },
+  'nav.collegeClasses':   { en: 'College Classes',     es: 'Clases de college' },
   'nav.searchPlaceholder': { en: 'Search events, ensembles, music…', es: 'Buscar eventos, ensambles, música…' },
 
   // ── Text-size control (header "Aa") ─────────────────────────────────────
