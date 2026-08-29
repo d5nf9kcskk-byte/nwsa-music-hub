@@ -505,7 +505,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
         {pulledToday.length > 0 && <> · <strong>{pulledToday.length}</strong> pulled</>}
         {onNavigate && (
           <button className="dir-link-btn" style={{ marginLeft: 'auto' }} onClick={() => onNavigate('scheduleChanges', { ensembleId })}>
-            Temporary Roster Changes
+            Move a Student
           </button>
         )}
       </div>
