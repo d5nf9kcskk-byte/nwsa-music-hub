@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Roll reminders (§5.1). Staff-only: roll receipts are attendance-side data.
+  {
+    id: '2026-08-29-roll-reminders',
+    date: '2026-08-29',
+    title: 'Today now reminds you to take roll',
+    audience: 'staff' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'When a rehearsal starts, an amber banner on Today nudges you to take roll — tap it to jump straight there.',
+      'If a rehearsal ends (today or yesterday) with roll never taken, a red banner stays on Today until it’s done.',
+    ],
+  },
   // Change a Day: the day board (docs/schedule-ux-two-doors.md, Phase 4c).
   // Staff-only: director tooling; families just see the same red banners.
   {
