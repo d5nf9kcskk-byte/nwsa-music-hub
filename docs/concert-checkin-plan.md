@@ -1,7 +1,22 @@
 # Concert Check-In & Check-Out — build plan
 
-Status: **plan only, nothing built yet.** Two decisions at the bottom
-("Two things I need you to decide") need your answer before I write code.
+Status: **built and pushed** (branch `claude/concert-checkin-system-4ze065`)
+for the Monday subset — steps 1-5 below. Not yet built: the Google Drive
+photo sync, the calendar Required/Optional filter, and the student's own
+tally card (steps 6-8).
+
+Settled since this was written:
+- Accepted email domains are `students.dadeschools.net`, `mymdc.net`, and
+  `mdc.edu` — college and high school check in at the same door.
+- The CSV's photo cell is a link INTO the Hub (staff sign-in), not a
+  Firebase download URL. `getDownloadURL` mints a permanent bearer token on
+  a photograph of a student, readable by anyone the spreadsheet reached.
+  The Drive column beside it fills in when the sync ships.
+- The venue fallback is built: a per-concert switch that accepts a check-in
+  without a photo, so a camera or wifi failure costs you the picture rather
+  than stranding a student at the door.
+- Still open, and NOT built: the student-facing tally (privacy decision (a)
+  below).
 
 Requested by the director (Aug 2026): a per-concert check-in / check-out
 station for students, selfie-verified and time-stamped, with a cumulative CSV
