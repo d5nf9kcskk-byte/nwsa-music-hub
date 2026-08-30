@@ -15,7 +15,7 @@
  */
 import {
   validate, decodePhoto, photoPath, buildRecord, fail, MAX_PHOTO_BYTES,
-  resolveCheckinSettings, checkinDocId,
+  resolveCheckinSettings, checkinDocId, PHOTO_BUCKET,
 } from './concertCheckin.ts';
 import type { CheckinEventLike } from '../../src/shared/concertCheckin.ts';
 
@@ -135,6 +135,11 @@ const skipped = buildRecord({
 }) as Record<string, unknown>;
 assert(skipped.photoSkipped === true, 'a scan taken without a photo says so, rather than looking identical');
 assert(skipped.photoPath === undefined, 'and claims no photo path');
+
+/* ── The bucket is named, not guessed ── */
+
+assert(PHOTO_BUCKET === 'nwsa-hub.firebasestorage.app',
+  'photos go to the bucket the project actually has, not the appspot.com name FIREBASE_CONFIG reports');
 
 /* ── Ids line up with the shared definition ── */
 assert(checkinDocId('faculty', 'stu1', 'in') === 'faculty_stu1_in', 're-exported id matches');

@@ -118,6 +118,16 @@ export async function loadSiteSettings(db: Firestore): Promise<Partial<CheckinSe
 export const TERMS: Term[] = (ORG.terms ?? []) as Term[];
 
 /**
+ * The bucket photos go to, named in the org config rather than left to the
+ * Admin SDK's default. FIREBASE_CONFIG still reports `<project>.appspot.com`
+ * for projects created before the `.firebasestorage.app` naming, and this
+ * project's bucket is the latter — a function writing to a bucket that does
+ * not exist would fail mid-concert with a line at the door. Undefined falls
+ * back to the default, which is correct for any project where they agree.
+ */
+export const PHOTO_BUCKET: string | undefined = ORG.checkin?.storageBucket;
+
+/**
  * Validate everything that does not need to touch Storage, in the order a
  * student would hit it. Split out of the handler so the self-check can run
  * the whole decision table without a bucket.

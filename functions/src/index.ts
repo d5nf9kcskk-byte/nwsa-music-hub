@@ -5,7 +5,7 @@ import { ALLOWED_ORIGIN, buildLessonsIcs, tokenMatches, TOKEN_RE } from './lesso
 import { getStorage } from 'firebase-admin/storage';
 import {
   buildRecord, checkinDocId, decodePhoto, fail, loadSiteSettings, photoPath,
-  resolveCheckinSettings, validate,
+  resolveCheckinSettings, validate, PHOTO_BUCKET,
   type CheckinRequest,
 } from './concertCheckin.ts';
 import ORG from '../../config/orgs/nwsa.json' with { type: 'json' };
@@ -156,7 +156,8 @@ export const concertCheckin = https.onRequest(async (req, res) => {
   if (decoded) {
     storedPath = photoPath(eventId, studentId, kind, now);
     try {
-      await getStorage().bucket().file(storedPath).save(decoded.bytes, {
+      const bucket = PHOTO_BUCKET ? getStorage().bucket(PHOTO_BUCKET) : getStorage().bucket();
+      await bucket.file(storedPath).save(decoded.bytes, {
         contentType: decoded.contentType,
         // No public link, ever. /checkins has no public read rule and this
         // object gets no download token — a director reads it signed in.

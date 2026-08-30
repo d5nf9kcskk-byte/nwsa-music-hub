@@ -155,6 +155,16 @@ export interface OrgConfig {
   checkin?: {
     /** Domains a student email may end in, without the '@'. */
     emailDomains: string[];
+    /**
+     * The Cloud Storage bucket check-in photos are written to, named
+     * explicitly rather than left to the Admin SDK's default. A project
+     * created before the `.firebasestorage.app` naming still reports
+     * `<project>.appspot.com` in FIREBASE_CONFIG, and a function writing to a
+     * bucket that does not exist fails at the worst possible moment — mid
+     * concert, with a line at the door. Not a secret: the same name is in the
+     * client bundle as VITE_FIREBASE_STORAGE_BUCKET.
+     */
+    storageBucket?: string;
     opensMinutesBefore?: number;
     closesMinutesAfter?: number;
   };
