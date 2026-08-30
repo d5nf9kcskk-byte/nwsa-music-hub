@@ -50,11 +50,18 @@ export const DEFAULT_CHECKIN_SETTINGS: CheckinSettings = {
 
 /** The check-in fields carried on a CalendarEvent. All optional: an event
  *  with no `checkin` block has no station, which is every existing event. */
+/**
+ * `null` rather than `undefined` for a cleared field, throughout. Firestore is
+ * configured with ignoreUndefinedProperties, so writing `undefined` does not
+ * clear a stored value — it silently leaves the old one in place. A director
+ * setting a concert back to "not tracked" has to actually clear it, so the
+ * cleared state is a written null and every read here treats null as absent.
+ */
 export interface EventCheckinConfig {
   enabled?: boolean;
-  opensMinutesBefore?: number;
-  closesMinutesAfter?: number;
-  minStayMinutes?: number;
+  opensMinutesBefore?: number | null;
+  closesMinutesAfter?: number | null;
+  minStayMinutes?: number | null;
   photoOptional?: boolean;
 }
 
@@ -66,7 +73,7 @@ export interface CheckinEventLike {
   startTime?: string;     // HH:MM, 24h, school-local
   endTime?: string;       // HH:MM, 24h, school-local
   status?: string;
-  concertAttendance?: ConcertAttendance;
+  concertAttendance?: ConcertAttendance | null;
   checkin?: EventCheckinConfig;
 }
 

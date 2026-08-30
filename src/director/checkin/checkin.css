@@ -1,0 +1,38 @@
+/* Concert Check-In, director side (#concert-checkin). */
+
+.dir-checkin-bar { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+.dir-checkin-bar .dir-input { max-width: 22rem; }
+
+.dir-checkin-counts { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: .8rem; }
+.dir-checkin-stat {
+  display: flex; flex-direction: column; gap: .1rem;
+  padding: .6rem .9rem; border-radius: .6rem; background: var(--dir-card-alt, #f3f4f6); min-width: 7rem;
+}
+.dir-checkin-stat .n { display: flex; align-items: center; gap: .35rem; font-size: 1.4rem; font-weight: 700; }
+.dir-checkin-stat .l { font-size: .78rem; color: var(--dir-muted, #6b7280); }
+.dir-checkin-stat.warn { background: #fdf3e3; }
+
+.dir-checkin-table { width: 100%; border-collapse: collapse; }
+.dir-checkin-table td { padding: .6rem .4rem; border-bottom: 1px solid var(--dir-border, #e5e7eb); vertical-align: top; }
+.dir-checkin-table tr.open { background: #fdf9ef; }
+.dir-checkin-name { font-weight: 600; }
+.dir-checkin-times { white-space: nowrap; font-size: .88rem; }
+.dir-checkin-photos { display: flex; gap: .3rem; flex-wrap: wrap; }
+.dir-checkin-fix { text-align: right; }
+.dir-tool-btn.danger { color: #a32020; }
+
+.dir-checkin-settings { padding: 1rem; margin-bottom: 1rem; }
+.dir-checkin-goal { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; margin: .5rem 0; }
+.dir-checkin-goal > span { min-width: 8rem; font-weight: 600; }
+.dir-checkin-goal label { display: flex; align-items: center; gap: .35rem; font-size: .85rem; }
+.dir-checkin-goal .dir-input { width: 5rem; }
+
+.dir-checkin-modal {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
+  background: rgba(0,0,0,.6); padding: 1rem;
+}
+.dir-checkin-modal-body {
+  background: var(--dir-card, #fff); border-radius: .8rem; padding: 1rem;
+  max-width: 32rem; width: 100%; max-height: 90vh; overflow: auto;
+}
+.dir-checkin-modal-body img { display: block; width: 100%; border-radius: .6rem; margin: .6rem 0; }

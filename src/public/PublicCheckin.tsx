@@ -402,7 +402,7 @@ function WhoStep({ students, q, setQ, onPick }: {
 function ClosedCard({ state, title, event, win }: {
   state: 'off' | 'early' | 'closed';
   title: string;
-  event: { date: string; startTime?: string; concertAttendance?: string };
+  event: { date: string; startTime?: string };
   win: { opensAt: number } | null;
 }) {
   const opensAt = win ? new Date(win.opensAt) : null;

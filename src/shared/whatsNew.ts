@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Concert check-in (#concert-checkin). Public: it changes what a student
+  // does at a concert door, and they need to know before Monday.
+  {
+    id: '2026-08-30-concert-checkin',
+    date: '2026-08-30',
+    title: 'Concert check-in and check-out',
+    bullets: [
+      'Some concerts now ask you to check in when you arrive and check out at the end — find your name, give your school email, and take a photo with the stage behind you.',
+      'You need BOTH to get credit. Come back to the same page when the concert ends.',
+      'Concerts now say whether they are required or optional on the concert card.',
+    ],
+    audience: 'both',
+    expires: '2026-10-15',
+  },
   // Move a Student sentence page (docs/schedule-ux-two-doors.md, Phase 4b).
   // Staff-only: roster moves and director notices never touch the public site.
   {

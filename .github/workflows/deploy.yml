@@ -70,6 +70,18 @@ jobs:
       - name: Check sign-up slot parsing
         run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/signupSlotParse.selfcheck.ts
 
+      # The concert door (#concert-checkin). The window is computed in
+      # school-local time from a UTC server, whole-domain email matching keeps
+      # notstudents.dadeschools.net out, and a duplicate scan is refused by the
+      # doc id — all three are silent to break and loud to discover at a concert.
+      - name: Check concert check-in rules
+        run: npx tsx src/shared/concertCheckin.selfcheck.ts
+
+      # The cumulative CSV: one row per student per concert, and a concert
+      # counts only when BOTH scans exist.
+      - name: Check concert attendance CSV
+        run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/checkin/checkinCsv.selfcheck.ts
+
       # Shared/combined blocks: the predicate that decides whether several
       # ensembles on one event means "one room together" — and the guard that
       # the combined label never disturbs an ordinary event's VEVENT, which is

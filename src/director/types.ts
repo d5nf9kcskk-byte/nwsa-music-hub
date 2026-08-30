@@ -292,7 +292,7 @@ export interface CalendarEvent {
    * `Ensemble.kind` treatment. Drives the badge on the concert card, the
    * calendar's Required/Optional filter, and the per-semester tallies.
    */
-  concertAttendance?: ConcertAttendance;
+  concertAttendance?: ConcertAttendance | null;
   /**
    * The check-in station for this concert. Absent or `enabled: false` means
    * no station — a concert can be Required for planning without anyone
@@ -327,7 +327,7 @@ export interface ConcertCheckin {
    *  event is renamed or deleted — the row is a historical record. */
   eventTitle: string;
   eventDate: string;          // YYYY-MM-DD
-  eventAttendance?: ConcertAttendance;
+  eventAttendance?: ConcertAttendance | null;
   studentId: string;
   studentName: string;
   grade?: string;

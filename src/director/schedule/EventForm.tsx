@@ -690,6 +690,105 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             </div>
           )}
 
+          {/* Concert attendance (#concert-checkin). Two independent switches:
+              whether the concert COUNTS (and toward which pot), and whether
+              the door station is collecting check-ins. A concert can be
+              required for planning without anyone being photographed. */}
+          {(form.type === 'Concert' || form.type === 'Event') && (
+            <div className="dir-field">
+              <label className="dir-label">Concert attendance</label>
+              <div className="dir-field-hint">
+                Does this one count toward a student’s concerts for the semester?
+                Students see the badge on the concert card and can filter the
+                calendar by it.
+              </div>
+              <div className="dir-checkbox-group">
+                {([
+                  ['', 'Not tracked'],
+                  ['required', 'Required'],
+                  ['optional', 'Optional'],
+                ] as const).map(([value, label]) => (
+                  <label
+                    key={label}
+                    className={`dir-checkbox-tag ${(form.concertAttendance ?? '') === value ? 'checked' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="concertAttendance"
+                      checked={(form.concertAttendance ?? '') === value}
+                      onChange={() => set('concertAttendance', value === '' ? null : value)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+
+              <label className="dir-checkbox-row" style={{ marginTop: 12 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.checkin?.enabled)}
+                  onChange={ev => setForm(f => ({
+                    ...f,
+                    checkin: ev.target.checked
+                      ? { ...(f.checkin ?? {}), enabled: true }
+                      : { ...(f.checkin ?? {}), enabled: false },
+                  }))}
+                />
+                <span>
+                  <strong>Check-in station</strong>
+                  <div className="dir-field-hint" style={{ marginTop: 2 }}>
+                    Students check in when they arrive and check out at the end,
+                    each with a photo. Opens an hour before and closes an hour
+                    after by default.
+                  </div>
+                </span>
+              </label>
+
+              {form.checkin?.enabled && (
+                <>
+                  <label className="dir-checkbox-row" style={{ marginTop: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(form.checkin?.photoOptional)}
+                      onChange={ev => setForm(f => ({
+                        ...f,
+                        checkin: { ...(f.checkin ?? {}), enabled: true, photoOptional: ev.target.checked },
+                      }))}
+                    />
+                    <span>
+                      Accept a check-in without a photo
+                      <div className="dir-field-hint" style={{ marginTop: 2 }}>
+                        The venue fallback. Turn this on from your phone if the
+                        cameras or the wifi misbehave — you keep the attendance
+                        record and lose only the picture, instead of a student
+                        stuck at the door.
+                      </div>
+                    </span>
+                  </label>
+                  <div className="dir-field-hint" style={{ marginTop: 8 }}>
+                    Check-out opens this many minutes after the start time
+                    (blank or 0 = any time):
+                  </div>
+                  <input
+                    className="dir-input"
+                    type="number"
+                    min={0}
+                    max={600}
+                    style={{ maxWidth: 120 }}
+                    value={form.checkin?.minStayMinutes ?? ''}
+                    onChange={ev => setForm(f => ({
+                      ...f,
+                      checkin: {
+                        ...(f.checkin ?? {}), enabled: true,
+                        minStayMinutes: ev.target.value === '' ? null : Number(ev.target.value),
+                      },
+                    }))}
+                  />
+                </>
+              )}
+            </div>
+          )}
+
           {(form.type === 'Concert' || form.type === 'Event' || form.type === 'Class') && (
             <div className="dir-field">
               <label className="dir-label">Title</label>

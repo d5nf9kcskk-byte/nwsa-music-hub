@@ -134,6 +134,19 @@ assert(termIdForDate('2026-12-19', TERMS) === '2026-fall', 'the last day of a te
 assert(termIdForDate('2027-02-01', TERMS) === '2027-spring', 'spring is its own count');
 assert(termIdForDate('2026-07-04', TERMS) === '', 'summer belongs to no term');
 
+/* ── A cleared field is a written null, not undefined ── */
+
+// Firestore ignores undefined on write, so "not tracked any more" has to be a
+// value. Every read treats null as absent.
+const cleared = resolveCheckinSettings(
+  { checkin: { enabled: true, minStayMinutes: null, opensMinutesBefore: null } },
+  { emailDomains: DOMAINS, minStayMinutes: 30, opensMinutesBefore: 90 },
+);
+assert(cleared.minStayMinutes === 30, 'a null on the event falls back to the site default, it does not crash');
+assert(cleared.opensMinutesBefore === 90, 'same for the open window');
+const untracked: CheckinEventLike = { ...concert, concertAttendance: null };
+assert(!untracked.concertAttendance, 'a concert set back to "not tracked" reads as untracked');
+
 /* ── The venue fallback ── */
 
 assert(DEFAULT_CHECKIN_SETTINGS.photoOptional === false, 'the selfie is required by default');
