@@ -21,7 +21,7 @@ import {
 } from './concertCheckin.ts';
 
 function assert(cond: unknown, msg: string): asserts cond {
-  if (!cond) { console.error('FAIL:', msg); process.exit(1); }
+  if (!cond) throw new Error(msg);
 }
 
 const TZ = 'America/New_York';

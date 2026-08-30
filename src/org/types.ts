@@ -1,4 +1,5 @@
 import type { CalendarBundle } from '../shared/calendarBundles';
+import type { Term } from '../shared/concertCheckin';
 
 /**
  * Org config — the white-label surface (#org-config). One JSON file per
@@ -137,6 +138,26 @@ export interface OrgConfig {
    * Optional: an org with none simply builds no bundle feeds.
    */
   calendarBundles?: CalendarBundle[];
+  /**
+   * The school's semesters (#concert-checkin). Concert-attendance counts are
+   * per semester — a student owes so many required concerts in the fall and a
+   * fresh number in the spring — so the Hub needs to know where one term ends
+   * and the next begins. A date in no term (summer) simply counts toward
+   * nothing. Optional: an org with none tracks no terms.
+   */
+  terms?: Term[];
+  /**
+   * Concert check-in station defaults (#concert-checkin). Per-event switches
+   * on the event itself override these field by field; the accepted email
+   * domains are site-wide and live only here and in the staff-editable
+   * settings/concertAttendance doc, never hardcoded in src/.
+   */
+  checkin?: {
+    /** Domains a student email may end in, without the '@'. */
+    emailDomains: string[];
+    opensMinutesBefore?: number;
+    closesMinutesAfter?: number;
+  };
   /** Fallback allowlist used ONLY when the directors read itself fails (AuthGate). */
   breakGlassEmails: string[];
   /**
