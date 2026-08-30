@@ -115,8 +115,12 @@ export function RotationsView() {
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const groups = useMemo(() => groupRotations(students, overrides), [students, overrides]);
   const today = todayStr();
-  const active = groups.filter(g => !g.endDate || g.endDate >= today);
-  const expired = groups.filter(g => g.endDate && g.endDate < today);
+  // An archived (non-Active) student is skipped by every roster resolve, so
+  // their rotation is as inert as an expired one — fold it, don't list it live.
+  const inert = (g: RotationGroup) =>
+    (!!g.endDate && g.endDate < today) || g.student.status !== 'Active';
+  const active = groups.filter(g => !inert(g));
+  const expired = groups.filter(inert);
 
   async function handleDelete(g: RotationGroup) {
     if (!window.confirm(
@@ -142,7 +146,10 @@ export function RotationsView() {
   const renderRow = (g: RotationGroup) => (
     <div key={g.docs[0].id} className="dir-sc-ov remove">
       <div className="dir-sc-ov-body">
-        <div className="dir-sc-ov-title"><Repeat size={14} /> {g.student.name}{g.student.instrument ? ` — ${g.student.instrument}` : ''}</div>
+        <div className="dir-sc-ov-title">
+          <Repeat size={14} /> {g.student.name}{g.student.instrument ? ` — ${g.student.instrument}` : ''}
+          {g.student.status !== 'Active' && ' · archived'}
+        </div>
         <div className="dir-sc-ov-lines">
           <div className="dir-sc-ov-line">{weeklySummary(g, ensembleMap) || 'Rotation days not set'}</div>
           {g.startDate && g.endDate && (
@@ -181,7 +188,7 @@ export function RotationsView() {
         {expired.length > 0 && (
           <details style={{ marginTop: 12 }}>
             <summary className="dir-form-section-label" style={{ cursor: 'pointer' }}>
-              Expired rotations ({expired.length})
+              Expired or archived rotations ({expired.length})
             </summary>
             {expired.map(renderRow)}
           </details>
