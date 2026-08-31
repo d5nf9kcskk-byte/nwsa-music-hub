@@ -180,3 +180,28 @@
 }
 .pub-tally-warn p { margin: .25rem 0; font-size: .88rem; }
 .pub-tally-warn ul { margin: .3rem 0 0; padding-left: 1.1rem; font-size: .85rem; }
+
+/* ── The check-in index (/checkin): every concert with a station ── */
+.pub-checkin-row {
+  display: flex; align-items: center; gap: .3rem .75rem; flex-wrap: wrap;
+  padding: .85rem 1rem; margin-bottom: .5rem;
+  border: 1px solid var(--pub-border); border-radius: var(--pub-radius-md);
+  background: var(--pub-surface); color: inherit; text-decoration: none;
+}
+/* Dimmed, not disabled-looking-but-clickable: a row you cannot press yet. */
+.pub-checkin-row[aria-disabled='true'] .pub-checkin-row-title,
+.pub-checkin-row[aria-disabled='true'] .pub-checkin-row-meta { opacity: .6; }
+.pub-checkin-row.open { border-left: 4px solid var(--pub-accent, #0d7e8e); }
+.pub-checkin-row.open.done { border-left-color: #3f8f57; }
+.pub-checkin-row-body { flex: 1 1 12rem; min-width: 0; }
+.pub-checkin-row-title { font-weight: 700; }
+.pub-checkin-row-meta {
+  display: flex; flex-wrap: wrap; gap: .1rem .6rem;
+  font-size: .85rem; color: var(--pub-muted);
+}
+.pub-checkin-row-cta {
+  display: inline-flex; align-items: center; gap: .3rem; flex: 0 0 auto;
+  margin-left: auto; font-weight: 700; font-size: .9rem;
+  color: var(--pub-accent, #0d7e8e);
+}
+.pub-checkin-row-cta.muted { color: var(--pub-muted); font-weight: 600; }
