@@ -31,7 +31,7 @@ const BASE = ORG.basePath;
  * enumerated; anything else — injected script, exfiltration fetch — is
  * blocked by the browser.
  */
-function cspPlugin(authDomain: string | undefined): Plugin {
+function cspPlugin(authDomain: string | undefined, functionsOrigin: string | undefined): Plugin {
   return {
     name: 'nwsa-csp',
     apply: 'build',
@@ -57,6 +57,15 @@ function cspPlugin(authDomain: string | undefined): Plugin {
             'https://firebasestorage.googleapis.com', // uploads/downloads
             'https://www.googleapis.com',
             'https://corsproxy.io', // director ICS import
+            // The Cloud Functions host: the concert door (#concert-checkin)
+            // POSTs every check-in and check-out here, and ConcertTally reads
+            // a student's count from it. Missing until 2026-08-31, three
+            // hours before the first concert that needed it — the function
+            // answered the preflight correctly and the browser refused to
+            // send the request at all, which the page could only report as
+            // "That did not reach the Hub." A CSP omission looks exactly like
+            // bad venue wifi from the inside.
+            ...(functionsOrigin ? [functionsOrigin] : []),
             ...(authDomain ? [`https://${authDomain}`] : []),
           ].join(' '),
           // The invisible iframe signInWithPopup uses lives on authDomain.
@@ -192,6 +201,17 @@ export default defineConfig(({ mode }) => {
     loadEnv(mode, ROOT, 'VITE_').VITE_FIREBASE_AUTH_DOMAIN
     || process.env.VITE_FIREBASE_AUTH_DOMAIN;
 
+  // Same derivation the app uses (checkinSubmit.ts, ConcertTally.tsx,
+  // LessonsFeedPanel.tsx): a v1 function's host is the project id, which is
+  // the whole reason those endpoints are v1. Omitted for fixture builds with
+  // no Firebase config, exactly like the auth entries.
+  const projectId =
+    loadEnv(mode, ROOT, 'VITE_').VITE_FIREBASE_PROJECT_ID
+    || process.env.VITE_FIREBASE_PROJECT_ID;
+  const functionsOrigin = projectId
+    ? `https://us-central1-${projectId}.cloudfunctions.net`
+    : undefined;
+
   return {
   base: BASE,
   define: {
@@ -249,7 +269,7 @@ export default defineConfig(({ mode }) => {
         // its own IndexedDB offline cache; see src/director/firebase.ts).
       },
     }),
-    cspPlugin(authDomain),
+    cspPlugin(authDomain, functionsOrigin),
     swStamp(),
   ],
   };
