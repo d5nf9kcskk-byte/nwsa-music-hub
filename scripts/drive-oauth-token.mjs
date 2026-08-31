@@ -3,24 +3,50 @@
  * One-time helper: get a Drive refresh token for the account that OWNS the
  * Concert Attendance folder (#concert-checkin).
  *
- * Run it on your own machine, never in CI — it opens a Google consent screen
- * and the token it prints is a long-lived credential for that account's Drive.
+ * Run it on your own machine, never in CI.
  *
+ *   node scripts/drive-oauth-token.mjs ~/Downloads/client_secret_*.json
  *   node scripts/drive-oauth-token.mjs <client-id> <client-secret>
  *
- * Zero dependencies on purpose: node's own http and fetch are enough, so this
- * works in a fresh clone with nothing installed. Full setup: docs/drive-oauth-setup.md
+ * The JSON form is the one to use: it is the file Google's "Download JSON"
+ * button gives you when you create the OAuth client, so the client secret
+ * goes from Google to this script without being retyped, pasted into a chat,
+ * or left in shell history.
  *
- * The token is printed to YOUR terminal and nowhere else. It is not written to
- * a file, and it must never be committed — it goes straight into the
- * repository secret DRIVE_OAUTH_REFRESH_TOKEN.
+ * By default the three values are written STRAIGHT INTO the repository
+ * secrets with `gh secret set`, over stdin, and nothing is printed but a
+ * confirmation. The token is a long-lived credential for that account's
+ * Drive: it never touches the terminal, a file, or this repo. Pass --print to
+ * see it instead, if you would rather paste it into GitHub by hand.
+ *
+ * Zero dependencies on purpose: node's own http, fetch and spawn are enough,
+ * so this works in a fresh clone with nothing installed.
+ * Full setup: docs/drive-oauth-setup.md
  */
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 
-const [clientId, clientSecret] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const printOnly = args.includes('--print');
+const [first, second] = args.filter(a => a !== '--print');
+
+let clientId, clientSecret;
+if (first && first.endsWith('.json')) {
+  // Google's downloaded client file: { installed: { client_id, client_secret } }
+  const file = JSON.parse(readFileSync(first, 'utf8'));
+  const c = file.installed ?? file.web ?? file;
+  clientId = c.client_id;
+  clientSecret = c.client_secret;
+} else {
+  clientId = first;
+  clientSecret = second;
+}
+
 if (!clientId || !clientSecret) {
-  console.error('Usage: node scripts/drive-oauth-token.mjs <client-id> <client-secret>');
+  console.error('Usage: node scripts/drive-oauth-token.mjs ~/Downloads/client_secret_*.json');
+  console.error('   or: node scripts/drive-oauth-token.mjs <client-id> <client-secret>');
   console.error('Create the OAuth client (type: Desktop app) in the nwsa-hub Google Cloud project.');
   process.exit(1);
 }
@@ -83,11 +109,29 @@ async function exchange(code) {
       + ' myaccount.google.com/permissions and run this again.');
     process.exit(1);
   }
-  console.log('\nRefresh token (treat it like a password — it is Drive access to that account):\n');
-  console.log(body.refresh_token);
-  console.log('\nAdd these three as repository secrets (Settings → Secrets and variables → Actions):');
-  console.log('  DRIVE_OAUTH_CLIENT_ID');
-  console.log('  DRIVE_OAUTH_CLIENT_SECRET');
-  console.log('  DRIVE_OAUTH_REFRESH_TOKEN');
-  console.log('\nThen: gh workflow run "Sync concert photos to Drive"');
+  if (printOnly) {
+    console.log('\nRefresh token (treat it like a password — it is Drive access to that account):\n');
+    console.log(body.refresh_token);
+    console.log('\nAdd it, the client id and the client secret as repository secrets:');
+    console.log('  DRIVE_OAUTH_CLIENT_ID / DRIVE_OAUTH_CLIENT_SECRET / DRIVE_OAUTH_REFRESH_TOKEN');
+    return;
+  }
+
+  // Straight into GitHub over stdin: not an argument (process lists are
+  // readable), not a file, not the screen.
+  const secrets = {
+    DRIVE_OAUTH_CLIENT_ID: clientId,
+    DRIVE_OAUTH_CLIENT_SECRET: clientSecret,
+    DRIVE_OAUTH_REFRESH_TOKEN: body.refresh_token,
+  };
+  for (const [name, value] of Object.entries(secrets)) {
+    const r = spawnSync('gh', ['secret', 'set', name], { input: value, stdio: ['pipe', 'inherit', 'inherit'] });
+    if (r.status !== 0) {
+      console.error(`\nCould not set ${name}. Re-run with --print and add the three by hand.`);
+      process.exit(1);
+    }
+    console.log(`  set ${name}`);
+  }
+  console.log('\nDone. Nothing was printed or saved anywhere else.');
+  console.log('Next: gh workflow run "Sync concert photos to Drive"');
 }

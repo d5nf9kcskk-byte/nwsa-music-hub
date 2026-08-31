@@ -256,7 +256,7 @@ export interface CalendarEvent {
   changeLog?: string;       // one-line human diff of the last edit
   /* ── Roll receipts (#22): keyed by ensembleId for multi-ensemble events.
    *    `by`/`byRole` record who finished roll (byRole 'assistant' shows the
-   *    Personnel Assistant attribution on the director side). ── */
+   *    Student Assistant attribution on the director side). ── */
   rollTaken?: Record<string, { at: number; by?: string; byRole?: StaffRole; absent: number }>;
   /**
    * Set when today's normal schedule is altered (rescheduled, double block,
@@ -452,7 +452,7 @@ export interface AttendanceRecord {
   /** Set when the daily office Attendance Bulletin wrote this mark. */
   source?: 'office';
   /* ── Attribution: who last set/changed this mark (director-side only).
-   *    updatedByRole 'assistant' surfaces "marked by the Personnel Assistant"
+   *    updatedByRole 'assistant' surfaces "marked by the Student Assistant"
    *    on Take Roll for that day. ── */
   updatedAt?: number;
   updatedBy?: string;
