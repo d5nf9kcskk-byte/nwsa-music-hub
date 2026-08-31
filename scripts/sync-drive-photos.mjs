@@ -51,6 +51,7 @@ import { driveFolderIdFrom } from '../src/shared/concertCheckin.ts';
 import {
   escapeDriveQuery as q, concertFolderName, photoFileName, needsFiling,
 } from './lib/drivePhotoNames.mjs';
+import { driveClient } from './lib/driveAuth.mjs';
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!raw) {
@@ -88,11 +89,8 @@ const bucket = getStorage(firebaseApp).bucket();
  * A service account has no Drive of its own, so this scope grants nothing
  * beyond what somebody has deliberately shared with this account.
  */
-const driveAuth = new google.auth.GoogleAuth({
-  credentials: sa,
-  scopes: ['https://www.googleapis.com/auth/drive'],
-});
-const drive = google.drive({ version: 'v3', auth: driveAuth });
+const { drive, mode: driveMode, describe: driveDescribe } =
+  driveClient(google, sa, ['https://www.googleapis.com/auth/drive']);
 
 const CSV_NAME = 'concert-attendance.csv';
 
@@ -118,11 +116,18 @@ const ALL_DRIVES = { supportsAllDrives: true, includeItemsFromAllDrives: true };
 function explain(err) {
   const msg = String(err?.message ?? err);
   if (/storageQuotaExceeded|quota/i.test(msg)) {
-    return 'Google refused the upload for storage quota. A service account has no Drive'
-      + ' storage of its own, so it cannot own files in a personal My Drive folder.'
-      + ' Move the Concert Attendance folder into a Google Workspace SHARED DRIVE and add'
-      + ' the service account as a Content Manager — files there are owned by the drive.'
-      + ' Until then the photos are still safe in Firebase Storage and visible in the Hub.';
+    const fix = driveMode === 'oauth'
+      // Signed in as a person, so the quota being refused is theirs: a full
+      // 15 GB Drive, not the service account's zero.
+      ? 'The Google account that owns the folder is out of Drive storage. Free some'
+        + ' space, or upgrade that account, and the next run picks up everything.'
+      : 'A service account has no Drive storage of its own, so it cannot own files in a'
+        + ' personal My Drive folder — sharing the folder does not change that. Either set'
+        + ' the DRIVE_OAUTH_* secrets so the sync signs in as the folder owner'
+        + ' (docs/drive-oauth-setup.md), or move the folder into a Google Workspace SHARED'
+        + ' DRIVE and add the service account as a Content Manager.';
+    return `Google refused the write for storage quota. ${fix}`
+      + ' Meanwhile the photos are still safe in Firebase Storage and visible in the Hub.';
   }
   // Drive answers "not shared with you" with the same 404 it gives for an id
   // that doesn't exist, so a 404 has to name both — but 403 means it FOUND the
@@ -279,7 +284,7 @@ async function main() {
 
   // Preflight: one cheap read that turns every downstream failure into a
   // sentence naming the fix, instead of two hundred identical stack traces.
-  console.log(`[sync-photos] Service account: ${sa.client_email}`);
+  console.log(`[sync-photos] ${driveDescribe}`);
   try {
     const folder = await drive.files.get({ fileId: parentId, fields: 'id,name', ...ALL_DRIVES });
     console.log(`[sync-photos] Folder: "${folder.data.name}"`);
@@ -289,7 +294,15 @@ async function main() {
   }
 
   const { synced, failed } = await syncPhotos(parentId);
-  await writeCsv(parentId);
+  try {
+    await writeCsv(parentId);
+  } catch (err) {
+    // Every other Drive call explains itself; this one used to fall through to
+    // main().catch and print a raw Gaxios error, which is how a storage-quota
+    // wall read as an unhandled crash.
+    console.error(`[sync-photos] Could not write ${CSV_NAME}. ${explain(err)}`);
+    process.exit(1);
+  }
 
   console.log(`[sync-photos] Done. Filed: ${synced}, failed: ${failed}.`);
   // A failure is worth a red run — silence is how the video sync's own gap

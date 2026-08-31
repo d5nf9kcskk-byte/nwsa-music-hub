@@ -64,9 +64,20 @@ jobs:
       - name: Check the naming and escaping helpers
         run: node scripts/drive-photo-names.selfcheck.mjs
 
+      - name: Check the Drive credential choice
+        run: node scripts/drive-auth.selfcheck.mjs
+
       - run: npm install firebase-admin googleapis --no-save
 
       - name: File photos and refresh the CSV
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          # Drive is spoken to as the person who owns the folder: a service
+          # account owns what it uploads and has no storage of its own, so it
+          # cannot write into a personal My Drive folder at all
+          # (docs/drive-oauth-setup.md). Unset on other orgs, which falls back
+          # to the service account — correct for a Workspace Shared Drive.
+          DRIVE_OAUTH_CLIENT_ID: ${{ secrets.DRIVE_OAUTH_CLIENT_ID }}
+          DRIVE_OAUTH_CLIENT_SECRET: ${{ secrets.DRIVE_OAUTH_CLIENT_SECRET }}
+          DRIVE_OAUTH_REFRESH_TOKEN: ${{ secrets.DRIVE_OAUTH_REFRESH_TOKEN }}
         run: node scripts/sync-drive-photos.mjs

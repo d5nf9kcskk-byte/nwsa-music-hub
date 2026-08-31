@@ -27,6 +27,7 @@ import { Readable } from 'stream';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { google } from 'googleapis';
+import { driveClient } from './lib/driveAuth.mjs';
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!raw) {
@@ -38,14 +39,14 @@ const sa = JSON.parse(raw);
 const firebaseApp = initializeApp({ credential: cert(sa) });
 const db = getFirestore(firebaseApp);
 
-const driveAuth = new google.auth.GoogleAuth({
-  credentials: sa,
-  scopes: ['https://www.googleapis.com/auth/drive.file'],
-});
-const drive = google.drive({ version: 'v3', auth: driveAuth });
+// Same wall as the photo sync: a service account cannot own files in a
+// personal My Drive folder. One credential choice for both syncs.
+const { drive, describe: driveDescribe } =
+  driveClient(google, sa, ['https://www.googleapis.com/auth/drive.file']);
 
 async function main() {
   console.log('[sync-drive] Starting sync…');
+  console.log(`[sync-drive] ${driveDescribe}`);
 
   // 1. Find all submissions not yet synced to Drive.
   const subSnap = await db.collection('assignmentSubmissions')
