@@ -8,7 +8,7 @@
  * a personal My Drive folder — and the run would report a storage quota error
  * rather than the secret nobody set.
  */
-import { driveAuthMode, DRIVE_OAUTH_VARS } from './lib/driveAuth.mjs';
+import { driveAuthMode, driveAccountLabel, maskEmail, DRIVE_OAUTH_VARS } from './lib/driveAuth.mjs';
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -30,5 +30,41 @@ for (const k of DRIVE_OAUTH_VARS) {
 // Whitespace is not configuration — a secret pasted as a blank line must read
 // as missing, not as a credential that fails at the API.
 assert(driveAuthMode({ ...all, DRIVE_OAUTH_REFRESH_TOKEN: '   ' }).mode === 'incomplete', 'blank token is missing');
+
+/* driveAccountLabel — a verified address always wins, and an unverified one is
+ * never guessed at. The bug this pins is the one that shipped: a message that
+ * named a ROLE ("the folder owner") read as fact and sent an operator to fix
+ * an account that was never involved. */
+const SA = 'firebase-adminsdk@nwsa-hub.iam.gserviceaccount.com';
+
+/* maskEmail — this repo is PUBLIC, so its Actions logs are. A director's Gmail
+ * must never be printed whole (CLAUDE.md: "workflow logs are public too"). The
+ * mask has to survive a scraper and still tell two of your own accounts apart. */
+assert(maskEmail('nwsaorchestras@gmail.com') === 'nws***@gmail.com', 'keeps 3 chars + domain');
+assert(maskEmail('ggmuze@gmail.com') === 'ggm***@gmail.com', 'two accounts stay distinguishable');
+assert(!maskEmail('nwsaorchestras@gmail.com').includes('orchestras'), 'local part is not recoverable');
+assert(maskEmail('ab@x.com') === 'ab***@x.com', 'short local part does not over-read');
+assert(maskEmail('a@x.com') === 'a***@x.com', 'one-char local part');
+for (const bad of [undefined, null, '', '   ', 'notanemail', '@nolocal.com']) {
+  assert(maskEmail(bad) === '***', `unusable input masks entirely: ${JSON.stringify(bad)}`);
+}
+
+assert(driveAccountLabel('oauth', 'a@b.com', SA) === 'a***@b.com', 'oauth address is MASKED, never whole');
+assert(driveAccountLabel('service-account', SA, SA) === SA, 'service account address stays whole — infra identity');
+assert(!driveAccountLabel('oauth', 'nwsaorchestras@gmail.com', SA).includes('nwsaorchestras'),
+  'a personal mailbox never reaches a public log in full');
+
+// Unverified: describe the credential, never assert whose it is.
+const unknown = driveAccountLabel('oauth', null, SA);
+assert(unknown.includes('DRIVE_OAUTH_'), 'unverified oauth points at the secrets');
+assert(!/owner/i.test(unknown), 'unverified oauth never claims to be the folder owner');
+assert(driveAccountLabel('service-account', null, SA).includes(SA), 'unverified sa still names its real address');
+
+// A blank/whitespace address is not an address — it must not print as one.
+for (const empty of [undefined, null, '', '   ']) {
+  const got = driveAccountLabel('oauth', empty, SA);
+  assert(got === unknown, `blank address (${JSON.stringify(empty)}) falls back, not prints`);
+  assert(!/undefined|null/.test(got), 'never interpolates a missing address');
+}
 
 console.log('drive-auth.selfcheck: all assertions passed');
