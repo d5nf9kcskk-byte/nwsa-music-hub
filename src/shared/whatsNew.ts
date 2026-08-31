@@ -32,6 +32,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Anyone-with-the-link sign-ups (#signups) — no roster name to pick.
+  {
+    id: '2026-08-31-signup-open-audience',
+    date: '2026-08-31',
+    title: 'A sign-up can now reach people who aren’t on a roster yet',
+    audience: 'staff' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'Under “Who is this for?”, pick Anyone with the link. Whoever opens it types their own name instead of finding it on a list — for new college students, incoming freshmen, or anyone whose details you’re collecting for the first time.',
+      'Share the link yourself (email, a flyer, a QR code): an open sign-up deliberately stays off the Hub home page, and you get a list of responses rather than “3 of 14 responded”.',
+      'Time slots can’t be offered on an open sign-up — a slot is held for someone on the roster. Everything else works the same, signatures included.',
+    ],
+  },
   // Sign-up time slots sort themselves; grip-drag to override (#signups).
   {
     id: '2026-08-31-signup-slot-order',

@@ -200,7 +200,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   assignments:     'Post practice assignments and exams. Students see them on the public site.',
   announcements:   'Post news for families \u2014 school-wide or per ensemble. Urgent posts show as a red banner.',
   messages:        'Messages families send through the public Contact Us form. Reply opens your own email app.',
-  signups:         'Ask students to opt in \u2014 auditions, trips, anything. They pick their name, confirm their grade, answer your questions, and sign. You get the list, a spreadsheet, and printable signed forms.',
+  signups:         'Ask students to opt in \u2014 auditions, trips, anything. They pick their name (or type it, if you open the sign-up to anyone with the link), answer your questions, and sign. You get the list, a spreadsheet, and printable signed forms.',
   juries:          'End-of-semester juries. Add one as soon as you know it\u2019s happening \u2014 a name is enough \u2014 and fill in the date, room, panel, and running order as each gets decided.',
   directors:       'Who can sign in and at what level. Tap the pencil to edit roles and assignments \u2014 ensembles, class sections, or applied-lesson students.',
   // Spread-conditional so the string ships only in personnel-org bundles.

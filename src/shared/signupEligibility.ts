@@ -8,18 +8,21 @@ import { instrumentFamily, type InstrumentFamily } from './instrumentFamily.ts';
  * and personal-schedule alerts, and the director's Sign-ups screen (which
  * counts "3 of 14 responded" against exactly the same set).
  *
- * Two modes:
+ * Three modes:
  *   • groups — ensembleIds + families ANDed (empty = whole program / all).
  *   • students — explicit studentIds (staff-only list loaded into this
  *     object on the director side only). Never stored on the world-readable
  *     signupForms doc.
+ *   • open — anyone with the link, on the roster or not. The roster plays no
+ *     part: nobody is "eligible" and nobody is "waiting", so the director's
+ *     screen counts responses rather than "3 of 14".
  *
  * Deliberately NOT a list of student ids on signupForms: that collection is
  * world-readable and student doc ids are shared with studentsPublic — so an
  * explicit invite list there would publish which named students were invited.
  */
 
-export type SignupAudienceMode = 'groups' | 'students';
+export type SignupAudienceMode = 'groups' | 'students' | 'open';
 
 export interface SignupAudience {
   mode?: SignupAudienceMode;
@@ -37,6 +40,9 @@ type EligibleStudent = {
 };
 
 export function eligibleForSignup(student: EligibleStudent, audience: SignupAudience): boolean {
+  // Open sign-ups target nobody in particular — the audience is whoever has
+  // the link, so no roster student is "expected to respond".
+  if (audience.mode === 'open') return false;
   if (student.status && student.status !== 'Active') return false;
 
   if (audience.mode === 'students') {
@@ -62,6 +68,8 @@ export function eligibleForSignupPicker(
   student: EligibleStudent,
   form: { ensembleIds?: string[]; families?: InstrumentFamily[]; audienceMode?: SignupAudienceMode },
 ): boolean {
+  // Open sign-ups have no name picker at all — the student types their name.
+  if (form.audienceMode === 'open') return false;
   if (form.audienceMode === 'students') {
     if (student.status && student.status !== 'Active') return false;
     // Full roster for name pick — rules reject non-invited submits.
@@ -74,9 +82,12 @@ export function eligibleForSignupPicker(
   });
 }
 
-/** Home / schedule alerts — invite-only sign-ups need a direct link. */
+/** Home / schedule alerts — only group sign-ups. Invite-only ones need a
+ *  direct link, and an OPEN one is aimed at people who aren't in the Hub at
+ *  all: showing "type your name" to a student the roster already knows is
+ *  the confusion this mode exists to avoid. */
 export function signupShowsInAlerts(form: { audienceMode?: SignupAudienceMode }): boolean {
-  return form.audienceMode !== 'students';
+  return form.audienceMode !== 'students' && form.audienceMode !== 'open';
 }
 
 /** Plain-English "who this is for", e.g. "Camerata · Strings" or "12 students". */
@@ -85,6 +96,7 @@ export function audienceLabel(
   ensembleName: (id: string) => string,
   familyLabel: (f: InstrumentFamily) => string,
 ): string {
+  if (audience.mode === 'open') return 'Anyone with the link';
   if (audience.mode === 'students') {
     const n = audience.studentIds?.length ?? 0;
     return n ? `${n} specific student${n === 1 ? '' : 's'}` : 'Specific students (none picked yet)';

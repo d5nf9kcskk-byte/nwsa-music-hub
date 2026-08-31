@@ -6,7 +6,10 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // .claude/worktrees holds other sessions' checkouts of this same repo (it's
+  // gitignored). Each carries its own tsconfig.json, which makes the parser
+  // refuse to pick a tsconfigRootDir and fails EVERY file with a parse error.
+  globalIgnores(['dist', '.claude']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
