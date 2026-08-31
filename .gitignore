@@ -29,3 +29,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Per-session git worktrees (see the worktree rule at the top of CLAUDE.md).
+# Each is a full nested checkout; without this they show as untracked
+# directories in the main checkout, one `git add -A` away from being
+# committed as a gitlink.
+.claude/worktrees/

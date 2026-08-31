@@ -253,6 +253,20 @@
 .dir-signup-tag.partial { background: var(--dir-late-bg); color: #b45309; }
 .dir-signup-tag.entered { background: #ede9fe; color: #6d28d9; }
 .dir-signup-tag.withdrawn { background: var(--dir-absent-bg); color: #b91c1c; }
+/* Required/Optional: same red/green everywhere it appears — the question
+   editor toggle and this list — so the word is never the only signal. */
+.dir-signup-tag.required { background: var(--dir-absent-bg); color: #b91c1c; }
+.dir-signup-tag.optional { background: var(--dir-excused-bg); color: #15803d; }
+
+.dir-signup-qlist-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--dir-border);
+  font-size: 13.5px; color: var(--dir-text);
+}
+.dir-signup-qlist-row:last-child { border-bottom: none; }
+
+.dir-checkbox-tag.required { background: var(--dir-absent-bg); border-color: var(--dir-absent-bg); color: #b91c1c; }
+.dir-checkbox-tag.optional { background: var(--dir-excused-bg); border-color: var(--dir-excused-bg); color: #15803d; }
 
 .dir-signup-resp-body { padding: 0 14px 14px; border-top: 1px solid var(--dir-border); }
 .dir-signup-resp-meta {

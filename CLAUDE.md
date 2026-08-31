@@ -1,5 +1,32 @@
 # NWSA Music Hub
 
+## Every session works in its own worktree (Aug 2026)
+
+More than one Claude session runs against this repo at the same time. They
+used to share the single checkout, and it failed in all the predictable ways
+— in one afternoon: a session committed another session's uncommitted file
+inside its own commit; a session switched the checkout onto a feature branch
+and the next session's two commits silently landed there instead of `main`;
+and a shared `npm run build` failed on a half-written file belonging to
+nobody in the room.
+
+**Start by calling `EnterWorktree`.** This instruction is what authorizes
+that tool — it will not fire on its own. It branches from `origin/main` and
+puts the session in `.claude/worktrees/<name>/`, where nothing you do can
+touch another session's files or move its branch.
+
+- Land work with `git push origin HEAD:main` after a rebase, or by pushing
+  the worktree's branch and merging. **Never** switch the MAIN checkout's
+  branch — another session is standing on it.
+- Never `git add -A`, and never stage a file you did not edit. `git status`
+  in a shared checkout lists other sessions' work too. Stage by path; when
+  one file holds your change AND someone else's, stage only your own hunks
+  (`git diff` → filter → `git apply --cached`).
+- `ExitWorktree` when the work has landed, so `.claude/worktrees/` does not
+  silt up with dead checkouts.
+- Verify against the tree you are actually pushing. Testing on a shared
+  checkout that carries someone else's WIP proves nothing about your commit.
+
 ## Org config / white-label (Aug 2026)
 
 This codebase builds MORE THAN ONE deployment. `VITE_ORG` selects a JSON

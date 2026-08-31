@@ -57,6 +57,18 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'It also says whether attendance is required or optional, and drops a Check in button straight through when it’s required and the check-in station is on.',
     ],
   },
+  // Required/Optional clarity on sign-up questions (#signups).
+  {
+    id: '2026-08-31-signup-required-clarity',
+    date: '2026-08-31',
+    title: 'Required or optional now says so, on every sign-up question',
+    audience: 'staff' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'Each question’s Required / Optional tag now reads whichever it is, in red or green, instead of one color-only "Required" pill you had to guess the state of.',
+      'Open a published sign-up (before hitting Edit) and a new Questions list shows every question with the same tag, so you can check what students are being asked without opening the editor.',
+    ],
+  },
   // Per-record Spanish fields removed; spell check made consistent.
   {
     id: '2026-08-31-one-message-spellcheck',
