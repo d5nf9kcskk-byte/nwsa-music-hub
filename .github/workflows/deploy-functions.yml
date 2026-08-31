@@ -1,6 +1,8 @@
 name: Deploy Cloud Functions
 
-# The private lessons calendar endpoint (#lessons-feed). Kept in its own
+# The private lessons calendar endpoint (#lessons-feed), the concert door
+# (#concert-checkin), and the tally behind a student's concert count. Kept in
+# their own
 # workflow, not folded into the Pages deploy, for the reason the feature
 # exists at all: nothing this function produces may ever enter the Pages
 # artifact, which is publicly downloadable on this repo.
@@ -99,7 +101,17 @@ jobs:
           #
           # Nothing destructive rides along. --force also suppresses the
           # confirmation for deleting functions absent from the source, but
-          # --only scopes that to lessonsFeed, which is what we deploy.
+          # --only scopes that to the three functions we deploy.
+          #
+          # ALL THREE, not just the feed. This said `--only
+          # functions:lessonsFeed` from the day it was written, so
+          # concertCheckin and concertTally were exported from index.ts,
+          # guarded by a self-check that ran on every push, and never
+          # deployed. The endpoint answered Google's HTML 404 rather than a
+          # refusal, and the page turned that into "The Hub gave an answer we
+          # could not read" — found at 2:55pm on 2026-08-31, three hours
+          # before the first concert that needed it. A function added to
+          # index.ts must be added HERE too or it does not exist.
           #
           # --force alone did NOT set the policy, though. For several runs
           # it only downgraded the failure to a warning ("Failed to set up
@@ -115,7 +127,7 @@ jobs:
           # from the log and the policy now sets itself on every deploy. If
           # it ever comes back, that grant is what went missing.
           npx --yes firebase-tools@latest deploy \
-            --only functions:lessonsFeed \
+            --only functions:lessonsFeed,functions:concertCheckin,functions:concertTally \
             --project nwsa-hub \
             --non-interactive \
             --force
