@@ -133,7 +133,7 @@ export function RosterImport({ onClose }: { onClose: () => void }) {
               </div>
               <div className="dir-field">
                 <label className="dir-label">…or paste rows</label>
-                <textarea className="dir-input dir-textarea" rows={4} value={text} onChange={e => { setText(e.target.value); setPlan(null); }} placeholder="Name,Instrument,Grade,Parent Name,Parent Email,Parent Phone" />
+                <textarea className="dir-input dir-textarea" spellCheck={false} rows={4} value={text} onChange={e => { setText(e.target.value); setPlan(null); }} placeholder="Name,Instrument,Grade,Parent Name,Parent Email,Parent Phone" />
               </div>
 
               <div className="dir-field-row">
