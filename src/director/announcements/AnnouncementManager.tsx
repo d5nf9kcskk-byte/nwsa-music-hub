@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus, Pencil, Pin, ChevronLeft, Clock, Printer, Archive, Inbox, Link2, X } from 'lucide-react';
 import { useAnnouncements, useMinuteTick, isArchived } from '../hooks/useAnnouncements';
 import { queueUrgentRelay, markRelayHandled } from './urgentRelay';
@@ -7,6 +7,7 @@ import { ensembleColor, parseDate, musicEnsembles, toDateStr } from '../utils';
 import { NotesText } from '../../public/components/NotesText';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { PrintableUpdates } from './PrintableUpdates';
+import { AnnouncementPreview } from './AnnouncementPreview';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { MAX_ANNOUNCEMENT_LINKS, type Announcement, type AnnouncementLink } from '../types';
 import { RichTextArea } from '../components/RichTextArea';
@@ -29,7 +30,9 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
   const me = useCurrentDirector();
   const isOwner = me?.role === 'owner';
   const { ensembles } = useEnsembles();
+  const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const [editing, setEditing] = useState<Announcement | 'new' | null>(null);
+  const [previewing, setPreviewing] = useState<Announcement | null>(null);
   const [printing, setPrinting] = useState(false);
   const [view, setView] = useState<'active' | 'archived'>('active');
   const musicEns = musicEnsembles(ensembles);
@@ -170,7 +173,7 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
             </div>
           ) : (
             shown.map(a => (
-              <div key={a.id} className="dir-ens-row" onClick={() => setEditing(a)}>
+              <div key={a.id} className="dir-ens-row" onClick={() => setPreviewing(a)}>
                 <span className="dir-ens-swatch" style={{ background: a.ensembleId ? ensembleColor(ensembles.find(e => e.id === a.ensembleId)) : '#64748b' }} />
                 <div className="dir-ens-info">
                   <div className="dir-ens-name">
@@ -220,6 +223,7 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
       <>
         <div className="dir-tab-page">{inner}</div>
         {printing && <PrintableUpdates onClose={() => setPrinting(false)} />}
+        {previewing && <AnnouncementPreview announcement={previewing} ensembleMap={ensembleMap} onClose={() => setPreviewing(null)} />}
       </>
     );
   }
@@ -242,6 +246,7 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
         </div>
       </div>
       {printing && <PrintableUpdates onClose={() => setPrinting(false)} />}
+      {previewing && <AnnouncementPreview announcement={previewing} ensembleMap={ensembleMap} onClose={() => setPreviewing(null)} />}
     </>
   );
 }

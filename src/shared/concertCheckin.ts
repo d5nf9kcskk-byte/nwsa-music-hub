@@ -102,6 +102,17 @@ export interface CheckinEventLike {
   checkin?: EventCheckinConfig;
 }
 
+/**
+ * The patch that switches a concert's check-in station on. The ONE shape —
+ * the event editor, the director's Concert Check-In setup list, and the
+ * announcement link picker all write exactly this, merged over whatever
+ * `checkin` already held (window overrides, photoOptional), so flipping the
+ * switch from any of the three never clobbers settings set from another.
+ */
+export function enableCheckinPatch(event: Pick<CheckinEventLike, 'checkin'>): { checkin: EventCheckinConfig } {
+  return { checkin: { ...(event.checkin ?? {}), enabled: true } };
+}
+
 /** Per-event settings resolved against the org/site defaults. The event wins
  *  field by field, so changing a site default moves every concert that never
  *  overrode it. */

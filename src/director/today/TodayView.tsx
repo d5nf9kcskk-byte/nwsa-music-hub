@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ClipboardList, MapPin, Clock, Music, GraduationCap, CalendarPlus, Users, Megaphone, ChevronRight, Plus, MessageSquarePlus, UserCog } from 'lucide-react';
+import { ClipboardList, MapPin, Clock, Music, GraduationCap, CalendarPlus, Users, Megaphone, ChevronRight, Plus, MessageSquarePlus, UserCog, Pencil } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
@@ -16,11 +16,12 @@ import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster } from '../rosterResolver';
 import { isSharedBlock, sharedBlockLabel } from '../../shared/sharedBlock';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../utils';
-import type { CalendarEvent } from '../types';
+import type { Announcement, CalendarEvent } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
 import { NotesText } from '../../public/components/NotesText';
 import { EnsembleFilter } from '../components/EnsembleFilter';
+import { AnnouncementPreview } from '../announcements/AnnouncementPreview';
 import { composerBirthdaysOn, birthdayLine, musicHolidayOn } from '../../shared/whimsy';
 import { DIRECTOR_FEEDBACK_FORM_URL } from '../feedbackForm';
 import { groupScheduleAlerts } from '../../shared/groupAlerts';
@@ -44,6 +45,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const [snowDay, setSnowDay] = useState(false);
   const [showChecklist, setShowChecklist] = useState(false);
   const [showQrKit, setShowQrKit] = useState(false);
+  const [previewingAnn, setPreviewingAnn] = useState<Announcement | null>(null);
   const [ensembleId, setEnsembleId] = useState(() => {
     try { return localStorage.getItem(ENS_PREF_KEY) ?? ''; } catch { return ''; }
   });
@@ -305,16 +307,23 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
               <button className="dir-link-btn" onClick={() => onNavigate('announcements')}>Manage</button>
             </div>
             {homeAnnouncements.map(a => (
-              <button key={a.id} className="dir-ens-row dir-sc-pick dir-announce-full" onClick={() => onNavigate('announcements', { announcementId: a.id })}>
+              <div key={a.id} className="dir-ens-row dir-announce-full" onClick={() => setPreviewingAnn(a)}>
                 <span className="dir-ens-swatch" style={{ background: a.ensembleId ? ensembleColor(ensembleMap[a.ensembleId]) : '#64748b' }} />
                 <div className="dir-ens-info">
                   <div className="dir-ens-name">{a.pinned ? '📌 ' : ''}{a.title}</div>
                   {a.body && <div className="dir-announce-body"><NotesText text={a.body} /></div>}
                   <div className="dir-ens-sub">
-                    {a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide'} · tap to edit
+                    {a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide'}
                   </div>
                 </div>
-              </button>
+                <button
+                  className="dir-icon-btn"
+                  onClick={e => { e.stopPropagation(); onNavigate('announcements', { announcementId: a.id }); }}
+                  aria-label="Edit announcement"
+                >
+                  <Pencil size={16} />
+                </button>
+              </div>
             ))}
           </>
         )}
@@ -377,6 +386,10 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
 
       {showFollowUps && (
         <FollowUpSheet records={followUps} students={studentsById} ensembleMap={ensembleMap} onClose={() => setShowFollowUps(false)} />
+      )}
+
+      {previewingAnn && (
+        <AnnouncementPreview announcement={previewingAnn} ensembleMap={ensembleMap} onClose={() => setPreviewingAnn(null)} />
       )}
     </div>
   );

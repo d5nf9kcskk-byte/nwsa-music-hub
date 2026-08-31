@@ -1,25 +1,40 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, RefreshCw, Camera, Trash2, Settings, CheckCircle2, LogIn, ExternalLink, Radio, Clock } from 'lucide-react';
+import {
+  Download, RefreshCw, Camera, Trash2, Settings, CheckCircle2, LogIn, ExternalLink, Radio, Clock, Search, Plus, Pencil,
+} from 'lucide-react';
 import { ref as storageRef, getBlob } from 'firebase/storage';
 import { storage } from '../firebaseAuth';
 import { useConcertCheckins, useConcertAttendanceSettings, useConcertSyncSettings } from '../hooks/useConcertCheckins';
 import { useEvents } from '../hooks/useEvents';
+import { useEnsembles } from '../hooks/useEnsembles';
 import { downloadCsv } from '../attendance/attendanceCsv';
 import { checkinsToCsv, pairCheckins, minutesPresent, talliesByStudent, type CheckinRow } from './checkinCsv';
 import { ORG } from '../../org';
-import { checkinState, checkinWindow, checkinCutoff, domainsLabel, resolveCheckinSettings } from '../../shared/concertCheckin';
+import {
+  checkinState, checkinWindow, checkinCutoff, domainsLabel, resolveCheckinSettings, enableCheckinPatch,
+} from '../../shared/concertCheckin';
 import { fmtShortDate } from '../../shared/dates';
 import { useMinuteTick } from '../hooks/useAnnouncements';
-import type { ConcertCheckin } from '../types';
+import { checkinCandidateEvents, ensembleDisplayName, todayStr } from '../utils';
+import type { ConcertCheckin, CalendarEvent, Ensemble } from '../types';
+import type { DirNavigate } from '../types-nav';
 import './checkin.css';
+
+/** Title fallback used everywhere an event has no explicit one — same
+ *  expression as LinkPicker's eventLabel and half a dozen other screens. */
+function concertLabel(e: CalendarEvent, ensembleMap: Record<string, Ensemble>): string {
+  return e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(', ') || e.type;
+}
 
 /**
  * Concert Check-In, director side (#concert-checkin).
  *
- * Three things a director actually needs, in the order they need them:
- * during the concert, who is in and who has not checked out; afterwards, the
- * cumulative CSV; and once, at the start, the settings (accepted email
- * domains and the per-semester obligation).
+ * Four things a director actually needs, in the order they need them: find
+ * ANY concert and switch its station on (nobody should have to go find the
+ * checkbox in the event editor first); during the concert, who is in and who
+ * has not checked out; afterwards, the cumulative CSV; and once, at the
+ * start, the settings (accepted email domains and the per-semester
+ * obligation).
  *
  * The photo wall reads each image with getBlob rather than getDownloadURL:
  * getDownloadURL would mint a permanent public token on a photograph of a
@@ -27,44 +42,43 @@ import './checkin.css';
  * exists to prevent. getBlob goes through the signed-in session instead, so a
  * photo is visible to staff and to nobody else.
  */
-export function CheckinView() {
+export function CheckinView({ onNavigate }: { onNavigate?: DirNavigate }) {
   const { checkins, loading, removeCheckin } = useConcertCheckins();
   const { settings, save } = useConcertAttendanceSettings();
-  const { events } = useEvents({ types: ['Concert', 'Event'] });
+  const { events, updateEvent } = useEvents({ types: ['Concert', 'Event'] });
+  const { ensembles } = useEnsembles();
 
   const [eventId, setEventId] = useState('');
+  const [q, setQ] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [photoOf, setPhotoOf] = useState<ConcertCheckin | null>(null);
 
-  // Concerts that have ever collected a record, plus any with a station
-  // switched on — so tonight's concert is in the list before the first
-  // student arrives.
-  const concerts = useMemo(() => {
-    const seen = new Map<string, { id: string; title: string; date: string }>();
-    for (const c of checkins) {
-      if (!seen.has(c.eventId)) {
-        seen.set(c.eventId, { id: c.eventId, title: c.eventTitle || '(untitled)', date: c.eventDate });
-      }
-    }
-    for (const e of events) {
-      if (e.checkin?.enabled && !seen.has(e.id)) {
-        seen.set(e.id, { id: e.id, title: e.title || '(untitled)', date: e.date });
-      }
-    }
-    return [...seen.values()].sort((a, b) => b.date.localeCompare(a.date));
-  }, [checkins, events]);
-
-  // Every concert whose station is switched on, whatever it has collected.
-  // This panel exists because the screen used to answer "did my switch work?"
-  // with an empty table and the words "switch the station on" — which reads,
-  // to the director who just did exactly that, as if it had not worked.
   const now = useMinuteTick();
-  const armed = useMemo(
-    () => events
-      .filter(e => e.checkin?.enabled)
-      .sort((a, b) => b.date.localeCompare(a.date)),
-    [events],
+  const today = todayStr();
+  const ensembleMap = useMemo(
+    () => Object.fromEntries(ensembles.map(e => [e.id, e])) as Record<string, Ensemble>,
+    [ensembles],
   );
+
+  // Every music-division concert, whether or not it has a station yet.
+  const concerts = useMemo(() => {
+    const eligible = checkinCandidateEvents(events, ensembles);
+    const upcoming = eligible.filter(e => e.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+    const past = eligible.filter(e => e.date < today).sort((a, b) => b.date.localeCompare(a.date));
+    return [...upcoming, ...past];
+  }, [events, ensembles, today]);
+
+  const shownConcerts = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    if (!query) return concerts;
+    return concerts.filter(e => concertLabel(e, ensembleMap).toLowerCase().includes(query));
+  }, [concerts, q, ensembleMap]);
+
+  const selected = concerts.find(e => e.id === eventId);
+
+  async function addCheckin(e: CalendarEvent) {
+    await updateEvent(e.id, enableCheckinPatch(e));
+  }
 
   const shown = useMemo(
     () => (eventId ? checkins.filter(c => c.eventId === eventId) : checkins),
@@ -94,12 +108,6 @@ export function CheckinView() {
   return (
     <div className="dir-checkin">
       <div className="dir-checkin-bar">
-        <select className="dir-input" value={eventId} onChange={e => setEventId(e.target.value)}>
-          <option value="">All concerts ({checkins.length} scans)</option>
-          {concerts.map(c => (
-            <option key={c.id} value={c.id}>{fmtShortDate(c.date)} — {c.title}</option>
-          ))}
-        </select>
         <button type="button" className="dir-tool-btn" onClick={exportCsv} disabled={checkins.length === 0}>
           <Download size={16} /> Download CSV (all concerts)
         </button>
@@ -110,66 +118,48 @@ export function CheckinView() {
 
       {showSettings && <SettingsPanel settings={settings} save={save} domains={domains} />}
 
-      <section className="dir-card dir-checkin-armed">
-        <h3><Radio size={16} /> Check-in stations</h3>
-        {armed.length === 0 ? (
+      <section className="dir-card dir-checkin-concerts">
+        <h3><Radio size={16} /> Concerts</h3>
+        <div className="dir-checkin-search">
+          <Search size={14} />
+          <input
+            className="dir-input"
+            value={q}
+            onChange={ev => setQ(ev.target.value)}
+            placeholder="Search every music-division concert…"
+          />
+        </div>
+        {shownConcerts.length === 0 ? (
           <p className="dir-field-hint">
-            No concert has the station switched on. Open a concert in Schedule,
-            tick <strong>Check-in station</strong>, and it will appear here.
+            {q.trim() ? `Nothing matches "${q}".` : 'No concerts on the calendar yet.'}
           </p>
         ) : (
-          <ul>
-            {armed.map(e => {
-              const st = resolveCheckinSettings(e, {
-                emailDomains: domains,
-                ...(settings.opensMinutesBefore != null ? { opensMinutesBefore: settings.opensMinutesBefore } : {}),
-                ...(settings.closesMinutesAfter != null ? { closesMinutesAfter: settings.closesMinutesAfter } : {}),
-              });
-              const state = checkinState(e, st, ORG.timezone, now);
-              const win = checkinWindow(e, st, ORG.timezone);
-              const mine = checkins.filter(c => c.eventId === e.id);
-              const ins = new Set(mine.filter(c => c.kind === 'in').map(c => c.studentId));
-              const outs = new Set(mine.filter(c => c.kind === 'out').map(c => c.studentId));
-              const clock = (ms: number) => new Intl.DateTimeFormat('en-US', {
-                hour: 'numeric', minute: '2-digit', timeZone: ORG.timezone,
-              }).format(new Date(ms));
-              return (
-                <li key={e.id}>
-                  <div className="dir-checkin-armed-main">
-                    <strong>{e.title || '(untitled concert)'}</strong>
-                    <span className={`dir-checkin-pill ${state}`}>
-                      {state === 'open' ? 'Open now'
-                        : state === 'early' ? 'Opens later'
-                        : state === 'closed' ? 'Closed'
-                        : 'Not collecting'}
-                    </span>
-                    {e.concertAttendance && (
-                      <span className="dir-checkin-pill req">
-                        {e.concertAttendance === 'required' ? 'Required' : 'Optional'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="dir-field-hint">
-                    {fmtShortDate(e.date)}
-                    {win ? ` · station ${clock(win.opensAt)} – ${clock(win.closesAt)}` : ''}
-                    {(() => {
-                      const cut = checkinCutoff(e, st, ORG.timezone);
-                      return cut ? ` · arrivals until ${clock(cut)}` : '';
-                    })()}
-                    {' · '}{ins.size} in, {outs.size} out
-                    {st.photoOptional ? ' · photo optional' : ''}
-                  </div>
-                  {state === 'off' && e.status === 'Cancelled' && (
-                    <div className="dir-field-hint warn">
-                      <Clock size={12} /> This concert is marked Cancelled, so it collects nothing.
-                    </div>
-                  )}
-                </li>
-              );
-            })}
+          <ul className="dir-checkin-concert-list">
+            {shownConcerts.map(e => (
+              <ConcertRow
+                key={e.id}
+                event={e}
+                ensembleMap={ensembleMap}
+                checkins={checkins}
+                settings={settings}
+                domains={domains}
+                now={now}
+                selected={e.id === eventId}
+                onSelect={() => setEventId(id => (id === e.id ? '' : e.id))}
+                onAdd={() => void addCheckin(e)}
+                onEdit={onNavigate ? () => onNavigate('schedule', { eventId: e.id }) : undefined}
+              />
+            ))}
           </ul>
         )}
       </section>
+
+      {selected && (
+        <p className="dir-field-hint">
+          Showing scans for <strong>{concertLabel(selected, ensembleMap)}</strong>.{' '}
+          <button type="button" className="dir-linkish" onClick={() => setEventId('')}>Show every concert</button>
+        </p>
+      )}
 
       <div className="dir-checkin-counts">
         <Stat label="Checked in" value={inCount} icon={<LogIn size={16} />} />
@@ -188,7 +178,7 @@ export function CheckinView() {
       {loading && <p className="dir-field-hint">Loading…</p>}
       {!loading && rows.length === 0 && (
         <p className="dir-field-hint">
-          {armed.length > 0
+          {concerts.some(e => e.checkin?.enabled)
             ? 'Nobody has checked in yet. Students appear here the moment they do.'
             : 'No check-ins yet.'}
         </p>
@@ -220,6 +210,99 @@ function Stat({ label, value, icon, tone }: { label: string; value: number; icon
       <span className="n">{icon} {value}</span>
       <span className="l">{label}</span>
     </div>
+  );
+}
+
+/**
+ * One concert, whether or not it has a station yet. The row itself is the
+ * "pick this concert's scans" control (mirrors the dropdown it replaced);
+ * the station switch and the jump to the full editor are separate buttons so
+ * neither accidentally fires the other.
+ */
+function ConcertRow({ event, ensembleMap, checkins, settings, domains, now, selected, onSelect, onAdd, onEdit }: {
+  event: CalendarEvent;
+  ensembleMap: Record<string, Ensemble>;
+  checkins: ConcertCheckin[];
+  settings: { opensMinutesBefore?: number; closesMinutesAfter?: number };
+  domains: string[];
+  now: number;
+  selected: boolean;
+  onSelect: () => void;
+  onAdd: () => void;
+  onEdit?: () => void;
+}) {
+  const enabled = Boolean(event.checkin?.enabled);
+  const ensText = event.ensembleIds.length
+    ? event.ensembleIds.map(id => ensembleDisplayName(ensembleMap[id])).filter(Boolean).join(', ')
+    : 'School-wide';
+
+  const st = enabled ? resolveCheckinSettings(event, {
+    emailDomains: domains,
+    ...(settings.opensMinutesBefore != null ? { opensMinutesBefore: settings.opensMinutesBefore } : {}),
+    ...(settings.closesMinutesAfter != null ? { closesMinutesAfter: settings.closesMinutesAfter } : {}),
+  }) : null;
+  const state = st ? checkinState(event, st, ORG.timezone, now) : 'off';
+  const win = st ? checkinWindow(event, st, ORG.timezone) : null;
+  const cutoff = st ? checkinCutoff(event, st, ORG.timezone) : null;
+  const clock = (ms: number) => new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric', minute: '2-digit', timeZone: ORG.timezone,
+  }).format(new Date(ms));
+  const mine = checkins.filter(c => c.eventId === event.id);
+  const ins = new Set(mine.filter(c => c.kind === 'in').map(c => c.studentId));
+  const outs = new Set(mine.filter(c => c.kind === 'out').map(c => c.studentId));
+
+  return (
+    <li className={`dir-checkin-concert${selected ? ' selected' : ''}`}>
+      <button type="button" className="dir-checkin-concert-main" onClick={onSelect}>
+        <div className="dir-checkin-concert-head">
+          <strong>{concertLabel(event, ensembleMap)}</strong>
+          {event.concertAttendance && (
+            <span className="dir-checkin-pill req">
+              {event.concertAttendance === 'required' ? 'Required' : 'Optional'}
+            </span>
+          )}
+          {!enabled && <span className="dir-checkin-pill">No station</span>}
+        </div>
+        <div className="dir-field-hint">{fmtShortDate(event.date)} · {ensText}</div>
+        {enabled && (
+          <div className="dir-field-hint">
+            <span className={`dir-checkin-pill ${state}`}>
+              {state === 'open' ? 'Open now'
+                : state === 'early' ? 'Opens later'
+                : state === 'closed' ? 'Closed'
+                : 'Not collecting'}
+            </span>
+            {win ? ` · station ${clock(win.opensAt)} – ${clock(win.closesAt)}` : ''}
+            {cutoff ? ` · arrivals until ${clock(cutoff)}` : ''}
+            {' · '}{ins.size} in, {outs.size} out
+          </div>
+        )}
+        {!enabled && event.status === 'Cancelled' && (
+          <div className="dir-field-hint warn"><Clock size={12} /> This concert is marked Cancelled.</div>
+        )}
+      </button>
+      <div className="dir-checkin-concert-actions">
+        {!enabled && (
+          <button
+            type="button"
+            className="dir-tool-btn"
+            onClick={ev => { ev.stopPropagation(); onAdd(); }}
+          >
+            <Plus size={14} /> Add check-in
+          </button>
+        )}
+        {onEdit && (
+          <button
+            type="button"
+            className="dir-tool-btn"
+            title="Required/Optional and the window times live in the event editor"
+            onClick={ev => { ev.stopPropagation(); onEdit(); }}
+          >
+            <Pencil size={14} /> Edit
+          </button>
+        )}
+      </div>
+    </li>
   );
 }
 

@@ -32,6 +32,31 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Sign-up time slots sort themselves; grip-drag to override (#signups).
+  {
+    id: '2026-08-31-signup-slot-order',
+    date: '2026-08-31',
+    title: 'Sign-up times put themselves in order',
+    audience: 'staff' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'Time slots you add to a sign-up now land in date and time order, however you added them — described in a sentence, picked on the calendar, or both.',
+      'To put them in your own order, drag a slot by the grip on its left (arrow keys work too), or tap Sort by time to go back to chronological.',
+      'Once a student has booked one of the times, the order locks — their slot stays their slot.',
+    ],
+  },
+  // Concert-day reminder banner (#concert-day-alert), top of every page.
+  {
+    id: '2026-08-31-concert-day-banner',
+    date: '2026-08-31',
+    title: 'A concert tonight now shows up the moment you open the Hub',
+    audience: 'both' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'On any concert day, a banner sits at the top of every page — tap it for who’s playing, the time, the location, and repertoire if it’s been added.',
+      'It also says whether attendance is required or optional, and drops a Check in button straight through when it’s required and the check-in station is on.',
+    ],
+  },
   // Important/Urgent shown in words, not just color, on announcement lists.
   {
     id: '2026-08-31-announcement-priority-badge',
@@ -69,6 +94,17 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'No red underlines where they would be noise: pasted calendar text, roster spreadsheets, Quick Add, and link boxes.',
     ],
   },
+  // Announcement rows preview publicly instead of jumping to edit (#announce-preview).
+  {
+    id: '2026-08-31-announcement-preview',
+    date: '2026-08-31',
+    title: 'Tap an announcement to see it the way families do',
+    audience: 'staff' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'In Announcements and on Today, tapping a post now shows the exact public preview — the pencil icon opens it for editing.',
+    ],
+  },
   // Concert check-in as its own menu page (#concert-checkin).
   {
     id: '2026-08-31-checkin-page',
@@ -80,6 +116,20 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'There is a Concert Check-In page in the menu: open it at the venue and pick your concert instead of hunting for the right concert card.',
       'Concerts are listed with the time their check-in opens, and stay dimmed until then. The one that is open right now is at the top.',
       'The concert page still has its own check-in button \u2014 both go to the same place.',
+    ],
+  },
+  // Director-side Concert Check-In setup list + the link-picker's check-in
+  // step (#concert-checkin). Staff-only: a director-facing workflow change.
+  {
+    id: '2026-08-31-checkin-director-setup',
+    date: '2026-08-31',
+    title: 'Turn on a concert’s check-in station from Concert Check-In',
+    audience: 'staff' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'Concert Check-In now lists every concert, with or without a station — search it, and tap Add check-in to switch one on right there. No more trip to the event editor to find the checkbox.',
+      'Required/Optional and the check-in window still live in the event editor — tap Edit on a concert to jump straight there.',
+      'Linking to a check-in from an announcement now opens a second step: pick the concert from a full searchable list, station on or off, and switch it on inline if it isn’t yet.',
     ],
   },
   // Formatting toolbar: link, font, strikethrough, quote (#linking phase 1).

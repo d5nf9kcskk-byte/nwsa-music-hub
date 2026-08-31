@@ -86,6 +86,12 @@ jobs:
       - name: Check concert check-in rules
         run: npx tsx src/shared/concertCheckin.selfcheck.ts
 
+      # The concert-day banner (#concert-day-alert): today-only + non-cancelled
+      # filtering, and the check-in link only appears when required AND the
+      # station is actually on — never a fourth guess at "is this open?".
+      - name: Check concert-day banner logic
+        run: npx tsx src/shared/concertToday.selfcheck.ts
+
       # The cumulative CSV: one row per student per concert, and a concert
       # counts only when BOTH scans exist.
       # No defines shim: the CSV module takes its config as an argument so the

@@ -13,6 +13,7 @@ import { useModalA11y } from '../../shared/useModalA11y';
 import { recordActivity } from '../hooks/useActivityLog';
 import { whenQueued } from '../writeStatus';
 import { isSharedBlock, sharedBlockLabel } from '../../shared/sharedBlock';
+import { enableCheckinPatch } from '../../shared/concertCheckin';
 import { studentMatchesQuery } from '../studentSearch';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { captureOriginal, announceChange } from './changeOps';
@@ -730,7 +731,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                   onChange={ev => setForm(f => ({
                     ...f,
                     checkin: ev.target.checked
-                      ? { ...(f.checkin ?? {}), enabled: true }
+                      ? enableCheckinPatch(f).checkin
                       : { ...(f.checkin ?? {}), enabled: false },
                   }))}
                 />

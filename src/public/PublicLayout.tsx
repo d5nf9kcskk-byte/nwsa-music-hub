@@ -6,6 +6,7 @@ import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck
 import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
 import { StatusStrips } from '../shared/StatusStrips';
+import { ConcertDayBanner } from '../shared/ConcertDayBanner';
 import { SearchOverlay } from './components/SearchOverlay';
 import { TextSizeControl } from './components/TextSize';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -17,6 +18,7 @@ import { primaryStudent, onIdentityChange } from '../shared/identity';
 import { useModalA11y } from '../shared/useModalA11y';
 import { WhatsNewBanner } from '../shared/WhatsNewBanner';
 import '../shared/whatsNew.css';
+import '../shared/concertDayBanner.css';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { ensembleColor, ensembleDisplayName, highSchoolEnsembles, highSchoolClasses, collegeEnsembles, collegeClasses } from '../director/utils';
 import { ORG } from '../org';
@@ -458,6 +460,7 @@ export function PublicLayout() {
 
         <main className="pub-content">
           <StatusStrips />
+          <ConcertDayBanner checkinNav={{ to: '/checkin' }} />
           <GlobalAlerts />
           <Outlet />
         </main>

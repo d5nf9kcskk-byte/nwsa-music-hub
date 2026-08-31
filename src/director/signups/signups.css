@@ -175,7 +175,21 @@
   background: var(--dir-blue); color: #fff; font-weight: 800;
 }
 .dir-signup-slot-add { width: 100%; margin: 8px 0; justify-content: center; }
+.dir-signup-slot-list-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-top: 10px; font-size: 12px; font-weight: 700; color: var(--dir-text-muted);
+}
+.dir-signup-slot-sort {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px;
+  background: none; border: none; border-radius: 6px; cursor: pointer;
+  font: inherit; color: var(--dir-blue);
+}
+.dir-signup-slot-locked { font-weight: 600; }
 .dir-signup-slot-builder-list { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.dir-signup-slot-builder-row.dragging {
+  position: relative; z-index: 2;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
 .dir-signup-slot-builder-row {
   display: flex; align-items: center; gap: 8px; padding: 8px 10px;
   background: var(--dir-surface-2); border: 1px solid var(--dir-border);
