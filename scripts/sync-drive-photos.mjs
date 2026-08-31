@@ -129,18 +129,34 @@ function explain(err) {
     return `Google refused the write for storage quota. ${fix}`
       + ' Meanwhile the photos are still safe in Firebase Storage and visible in the Hub.';
   }
+  // Both walls below are about WHO Drive refused, so both have to name the
+  // account actually in use: under OAuth the service account is out of the
+  // picture entirely, and "share the folder with firebase-adminsdk@…" is
+  // advice that fixes nothing.
+  const oauth = driveMode === 'oauth';
+  const who = oauth
+    ? 'the account the DRIVE_OAUTH_* secrets sign in as'
+    : `the service account ${sa.client_email}`;
   // Drive answers "not shared with you" with the same 404 it gives for an id
   // that doesn't exist, so a 404 has to name both — but 403 means it FOUND the
-  // folder and the service account simply can't write, which is a different fix.
+  // folder and the write was refused, which is a different fix.
   if (/insufficientFilePermissions|403/i.test(msg)) {
-    return 'Drive found the folder but the service account cannot write to it.'
-      + ` Change its access to Editor: ${sa.client_email}`;
+    return `Drive found the folder but ${who} cannot write to it. `
+      + (oauth
+        ? 'Give that account Editor access to the folder, or re-mint the refresh token'
+          + ' as an account that has it (docs/drive-oauth-setup.md).'
+        : `Change its access to Editor: ${sa.client_email}`);
   }
   if (/File not found|notFound|404/i.test(msg)) {
-    return 'Drive says the folder is missing OR not shared with this service account —'
-      + ' it answers both the same way. If you can open the folder yourself, it is sharing:'
-      + ` share it as Editor with ${sa.client_email}. If you cannot, the folder id in`
-      + ' Concert Check-In \u2192 Settings is wrong.';
+    return `Drive says the folder is missing OR not visible to ${who} — it answers both`
+      + ' the same way. '
+      + (oauth
+        ? 'That account should be the folder\u2019s owner, so check the folder id in'
+          + ' Concert Check-In \u2192 Settings first, then whether the refresh token really'
+          + ' belongs to the account that owns the folder.'
+        : 'If you can open the folder yourself, it is sharing: share it as Editor with'
+          + ` ${sa.client_email}. If you cannot, the folder id in Concert Check-In`
+          + ' \u2192 Settings is wrong.');
   }
   return msg;
 }
