@@ -1,7 +1,11 @@
 import { Suspense, lazy, useRef, useState, type ReactNode } from 'react';
 import {
   Bold, Italic, Underline, Strikethrough, Quote, Link2, List, ListOrdered, Type, Eye, Pencil,
+  Search, X,
 } from 'lucide-react';
+// The picker's own chunk carries this stylesheet, so the loading shell below
+// would render unstyled without importing it here too. Vite dedupes it.
+import './directorSearch.css';
 import type { RichFont } from '../../shared/richTextParse';
 // Lazy on purpose. The picker reaches every Firestore hook in the app; a
 // static import would drag that whole graph into each of the dozen screens
@@ -36,6 +40,35 @@ const FONTS: { value: RichFont; label: string }[] = [
 const fontSpanRe = () => /\[([^\]\n]+)\]\(font:(?:serif|sans|mono|georgia)\)/gi;
 
 
+
+/**
+ * What the link button shows while the picker's chunk is still arriving.
+ *
+ * Same chrome as the real thing, so it is replaced in place rather than the
+ * panel appearing from nothing. Without it the button looked broken for the
+ * length of one fetch — the whole cost of loading the picker lazily.
+ */
+function LinkPickerShell({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="dir-search-overlay" role="dialog" aria-modal="true" aria-label="Insert link" onClick={onClose}>
+      <div className="dir-linkpick" onClick={e => e.stopPropagation()}>
+        <div className="dir-linkpick-head">
+          <Search size={15} className="dir-linkpick-search-icon" />
+          <input
+            className="dir-linkpick-input"
+            placeholder="Find a concert, class, document, sign-up…"
+            aria-label="Search for something to link to"
+            disabled
+          />
+          <button className="dir-linkpick-close" onClick={onClose} aria-label="Close"><X size={17} /></button>
+        </div>
+        <div className="dir-linkpick-list" aria-busy="true">
+          <div className="dir-linkpick-empty">Loading…</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /**
  * The director's formatting toolbar. What it writes is plain text with
@@ -178,7 +211,7 @@ export function RichTextArea({ value, onChange, placeholder, rows = 3, className
 
   const picker = picking
     ? (
-      <Suspense fallback={null}>
+      <Suspense fallback={<LinkPickerShell onClose={() => setPicking(false)} />}>
         <LinkPicker onPick={insertLink} onClose={() => setPicking(false)} />
       </Suspense>
     )
