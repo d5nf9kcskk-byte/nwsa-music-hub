@@ -32,6 +32,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Sign-up editor moved from a bottom sheet onto its own page (#signups).
+  {
+    id: '2026-08-31-signup-editor-page',
+    date: '2026-08-31',
+    title: 'Building a sign-up now gets the whole page',
+    audience: 'staff' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'New sign-up and Edit open as a full page instead of a sheet you had to scroll inside — one scrollbar, and long forms with a lot of time slots stay readable.',
+      'Save and Cancel now ride along the bottom of the screen, and anything that stops a save is spelled out right next to the Save button instead of at the foot of the form.',
+      'Escape inside a grade or ensemble menu closes just that menu now — it used to close the whole editor and lose what you had typed.',
+    ],
+  },
   // Anyone-with-the-link sign-ups (#signups) — no roster name to pick.
   {
     id: '2026-08-31-signup-open-audience',

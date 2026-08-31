@@ -43,13 +43,20 @@ export function FilterMenu({
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key !== 'Escape') return;
+      // CAPTURE phase + stopPropagation: useModalA11y also listens for Escape
+      // on document, and it registered first (the drawer opened before this
+      // menu did), so a bubble-phase listener here fires too late — Escape
+      // inside an open menu closed the whole editor and threw the draft away.
+      e.stopPropagation();
+      e.preventDefault();
+      setOpen(false);
     }
     document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
     return () => {
       document.removeEventListener('mousedown', onDoc);
-      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('keydown', onKey, true);
     };
   }, [open]);
 

@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { NotesText } from '../../public/components/NotesText';
 import { RichTextArea } from '../components/RichTextArea';
 import {
@@ -11,7 +11,7 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useMinuteTick } from '../hooks/useAnnouncements';
 import { SchedulePublishField } from '../components/SchedulePublishField';
 import { FileUpload } from '../components/FileUpload';
-import { useModalA11y } from '../../shared/useModalA11y';
+import { registerOverlayClose } from '../../shared/overlayBack';
 import { FilterMenu } from '../../shared/FilterMenu';
 import { whenQueued } from '../writeStatus';
 import { printViaPopup } from '../../shared/printPopup';
@@ -89,6 +89,20 @@ export function SignupsView() {
     setEditing(null);
   }
 
+  if (editing) {
+    return (
+      <SignupEditor
+        initial={editing.draft}
+        isNew={!editing.form}
+        formId={editing.form?.id}
+        ensembles={ensembles}
+        students={students}
+        onSave={save}
+        onClose={() => setEditing(null)}
+      />
+    );
+  }
+
   if (open) {
     return (
       <>
@@ -108,17 +122,6 @@ export function SignupsView() {
           onRemoveResponse={remove}
           onDelete={async () => { await deleteForm(open.id); setOpenId(null); }}
         />
-        {editing && (
-          <SignupEditor
-            initial={editing.draft}
-            isNew={!editing.form}
-            formId={editing.form?.id}
-            ensembles={ensembles}
-            students={students}
-            onSave={save}
-            onClose={() => setEditing(null)}
-          />
-        )}
       </>
     );
   }
@@ -178,17 +181,6 @@ export function SignupsView() {
         );
       })}
 
-      {editing && (
-        <SignupEditor
-          initial={editing.draft}
-          isNew={!editing.form}
-          formId={editing.form?.id}
-          ensembles={ensembles}
-          students={students}
-          onSave={save}
-          onClose={() => setEditing(null)}
-        />
-      )}
     </div>
   );
 }
@@ -620,7 +612,12 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
   onSave: (draft: Draft) => Promise<void>;
   onClose: () => void;
 }) {
-  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
+  // Deliberately NOT useModalA11y: this is a page now, so trapping Tab would
+  // fence the user out of the app's own nav, and Escape-to-close would throw
+  // away a long form on a stray keypress. Back still closes it (#back-nav).
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; });
+  useEffect(() => registerOverlayClose(() => closeRef.current()), []);
   const [draft, setDraft] = useState<Draft>(initial);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -747,14 +744,14 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={isNew ? 'New sign-up' : 'Edit sign-up'} tabIndex={-1} ref={panelRef}>
-        <div className="dir-drawer-handle" />
-        <div className="dir-drawer-header">
-          <span className="dir-drawer-title">{isNew ? 'New sign-up' : 'Edit sign-up'}</span>
-          <button className="dir-drawer-close" onClick={onClose}>×</button>
-        </div>
-        <div className="dir-drawer-body">
+    <div className="dir-tab-page">
+      <button className="dir-drawer-back" onClick={onClose}>
+        <ChevronLeft size={16} /> {isNew ? 'All sign-ups' : 'Back to this sign-up'}
+      </button>
+      <div className="dir-signup-detail-head">
+        <h2 className="dir-signup-detail-title">{isNew ? 'New sign-up' : 'Edit sign-up'}</h2>
+      </div>
+      <div className="dir-page-body">
           <div className="dir-field">
             <label className="dir-label">Title *</label>
             <input className="dir-input" value={draft.title} autoFocus
@@ -1000,10 +997,10 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
             label="Open later"
           />
 
-          {saveError && <div className="dir-signup-error">⚠ {saveError}</div>}
-
-        </div>
-        <div className="dir-drawer-footer">
+      </div>
+      <div className="dir-page-actions">
+        {saveError && <div className="dir-signup-error">⚠ {saveError}</div>}
+        <div className="dir-page-actions-row">
           <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
           <button className="dir-btn dir-btn-primary" disabled={!draft.title.trim() || saving} onClick={handleSave}>
             {saving ? 'Saving…' : isNew ? 'Create sign-up' : 'Save'}
