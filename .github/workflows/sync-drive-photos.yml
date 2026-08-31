@@ -8,13 +8,23 @@ name: Sync concert photos to Drive
 # to be signed into the Hub. Drive gives the directors a browsable archive
 # whose access is Drive's own sharing rather than a token in a URL.
 #
-# Every 15 minutes so a concert's photos are filed before anyone goes looking,
-# and on demand. A run with no Drive folder configured is a no-op, not a
+# Cadence, honestly: GitHub drops most scheduled runs on this repo. A
+# '*/15' cron produced 2 runs in its first 14 hours, and even the hourly
+# deploy cron lands every 3-7 hours. So the schedule is a floor, not a
+# promise, and the sync also rides on the back of every Deploy run (which
+# fires on each push to main as well as its own cron) to close the gap.
+# On a concert night, Run workflow is the one trigger that is immediate.
+# Nothing is at risk in the meantime: the photos are already safe in
+# Firebase Storage and visible in the Hub. Drive is the archive, not the
+# live view. A run with no Drive folder configured is a no-op, not a
 # failure — that is the normal state until a director pastes the folder id
 # into Concert Check-In → Settings.
 on:
   schedule:
     - cron: '*/15 * * * *'
+  workflow_run:
+    workflows: ['Deploy to GitHub Pages']
+    types: [completed]
   workflow_dispatch:
   # Ship the first run with the change that introduces the script, so the
   # folder starts filling without anyone remembering to trigger it.

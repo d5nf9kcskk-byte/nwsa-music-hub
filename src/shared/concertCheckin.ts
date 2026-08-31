@@ -370,3 +370,23 @@ export function termForDate(date: string, terms: Term[]): Term | null {
 export function termIdForDate(date: string, terms: Term[]): string {
   return termForDate(date, terms)?.id ?? '';
 }
+
+/**
+ * The Drive folder id, however a director pasted it (#concert-checkin).
+ *
+ * The Settings hint shows the id inside a URL, so pasting the whole URL is
+ * the natural mistake — and Drive answers a wrong id with the same 404 it
+ * gives for a folder that was never shared, which is an afternoon of looking
+ * in the wrong place. Accepts the bare id and every URL Drive's address bar
+ * and Share dialog hand out; anything that can't be a folder id comes back
+ * '' so the caller can say so instead of asking Drive about nonsense.
+ */
+export function driveFolderIdFrom(raw: string | undefined | null): string {
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  const inPath = s.match(/\/folders\/([A-Za-z0-9_-]+)/);
+  if (inPath) return inPath[1];
+  const inQuery = s.match(/[?&]id=([A-Za-z0-9_-]+)/);
+  if (inQuery) return inQuery[1];
+  return /^[A-Za-z0-9_-]{10,}$/.test(s) ? s : '';
+}

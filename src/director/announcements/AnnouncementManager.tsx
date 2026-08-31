@@ -403,7 +403,11 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
             }}
           />
         )}
-        <div className="dir-drawer-body">
+        {/* Same nested-scroller trap the list above avoids: on a full tab
+            .dir-drawer-body's overflow-y:auto + overscroll-behavior:contain
+            make a second scroll box that refuses to chain, so once the form
+            hits either end the page itself stops scrolling. */}
+        <div className={asTab ? 'dir-page-body' : 'dir-drawer-body'}>
           <div className="dir-field">
             <label className="dir-label">Title *</label>
             <input className="dir-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Bring your folder Friday" />
