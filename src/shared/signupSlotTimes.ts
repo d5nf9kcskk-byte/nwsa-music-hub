@@ -89,6 +89,22 @@ export function cleanSlotDefGrades(def: SignupSlotDef): SignupSlotDef {
   return { ...def, grades };
 }
 
+/**
+ * Does this question hold work a director would be upset to lose? The editor
+ * drops questions with a blank label — that is right for an "Add question"
+ * someone clicked and abandoned, and WRONG for a timeslot question carrying a
+ * morning of built lesson slots. Save blocks on that case instead of
+ * discarding it silently (that is how a whole slot grid went missing once).
+ */
+export function signupQuestionHasContent(q: SignupQuestion): boolean {
+  return Boolean(
+    (q.slotDefs?.length)
+    || (q.options ?? []).some(o => o.trim())
+    || q.slotManualDraft?.trim()
+    || q.help?.trim(),
+  );
+}
+
 /** Strip editor-only fields and derive student-facing `options` from slot defs. */
 export function normalizeTimeslotQuestion(q: SignupQuestion): SignupQuestion {
   const { slotManualDraft, ...rest } = q;

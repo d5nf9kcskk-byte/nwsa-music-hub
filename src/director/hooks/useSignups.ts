@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   collection, addDoc, updateDoc, deleteDoc, doc, setDoc,
-  runTransaction, query, where,
+  runTransaction, query, where, deleteField,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { offerUndo } from '../writeStatus';
@@ -48,9 +48,18 @@ export function useSignupForms() {
 
   async function updateForm(id: string, data: Partial<Omit<SignupForm, 'id'>>) {
     if (!db) return;
-    await updateDoc(doc(db, 'signupForms', id), {
+    // Explicit undefined = DELETE the field (same as useAnnouncements /
+    // useAssignments). ignoreUndefinedProperties would otherwise drop the key
+    // and the OLD value would survive every "clear" — switching a sign-up from
+    // "Specific students" back to ensembles left audienceMode: 'students' on
+    // the doc, so it stayed invisible on the public page forever.
+    const stamped: Record<string, unknown> = {
       ...data, updatedAt: Date.now(), updatedBy: currentDirectorName(),
-    });
+    };
+    const payload = Object.fromEntries(
+      Object.entries(stamped).map(([k, v]) => [k, v === undefined ? deleteField() : v]),
+    );
+    await updateDoc(doc(db, 'signupForms', id), payload);
   }
 
   async function deleteForm(id: string) {

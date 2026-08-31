@@ -5,7 +5,7 @@
 import {
   formatClockMin, formatSignupSlotLabel, formatSlotDuration,
   isValidSlotDef, minutesToParts, partsToMinutes, slotDefsToOptions,
-  normalizeTimeslotQuestion, sortSlotDefs, moveItem,
+  normalizeTimeslotQuestion, sortSlotDefs, moveItem, signupQuestionHasContent,
 } from './signupSlotTimes.ts';
 
 function assert(cond: unknown, msg: string): void {
@@ -68,5 +68,18 @@ assert(moveItem([1, 2, 3], 2, 0).join('') === '312', 'move last to front');
 assert(moveItem([1, 2, 3], 0, 1).join('') === '213', 'move down one');
 assert(moveItem([1, 2, 3], 0, 9).join('') === '123', 'out of range = unchanged');
 assert(moveItem(sorted, 0, 2).length === sorted.length, 'move loses nobody');
+
+// A built-out question is never "empty" just because its label is blank —
+// the editor filters on label, so a false here silently deletes real work.
+assert(signupQuestionHasContent({ id: 'q', label: '', type: 'timeslot', slotDefs: [def] }),
+  'slot defs count as content');
+assert(signupQuestionHasContent({ id: 'q', label: '', type: 'timeslot', slotManualDraft: '3:00 PM' }),
+  'manual slot draft counts as content');
+assert(signupQuestionHasContent({ id: 'q', label: '', type: 'choice', options: ['Yes'] }),
+  'options count as content');
+assert(!signupQuestionHasContent({ id: 'q', label: '', type: 'short' }),
+  'an untouched new question is still droppable');
+assert(!signupQuestionHasContent({ id: 'q', label: '', type: 'choice', options: ['', ' '] }),
+  'blank options are not content');
 
 console.log('signupSlotTimes.selfcheck: ok');

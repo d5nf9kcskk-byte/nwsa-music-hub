@@ -21,7 +21,7 @@ import { lastName } from '../scoreOrder';
 import { INSTRUMENT_FAMILIES, INSTRUMENT_FAMILY_LABEL } from '../../shared/instrumentFamily';
 import { audienceLabel, eligibleForSignup, signupIsOpen, signupIsPublished } from '../../shared/signupEligibility';
 import { isTimeslotQuestion } from '../../shared/signupSlots';
-import { normalizeTimeslotQuestion } from '../../shared/signupSlotTimes';
+import { normalizeTimeslotQuestion, signupQuestionHasContent } from '../../shared/signupSlotTimes';
 import { deleteStoredFile } from '../storageCleanup';
 import { SignupSlotBuilder } from './SignupSlotBuilder';
 import { byLastName, emailList, exportSlug, namesList, responsesToCsv } from './signupsExport';
@@ -672,6 +672,13 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
       setSaveError('Pick at least one student, or switch back to ensembles.');
       return;
     }
+    // A question with slots/options but no label would be filtered away below.
+    // Stop instead: silently deleting a built-out time slot grid is data loss.
+    const unnamed = draft.questions.findIndex(q => !q.label.trim() && signupQuestionHasContent(q));
+    if (unnamed >= 0) {
+      setSaveError(`Question ${unnamed + 1} has answers or time slots but no question text — name it so it isn't dropped.`);
+      return;
+    }
     setSaving(true); setSaveError('');
     try {
       await whenQueued(onSave({
@@ -687,7 +694,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
         signatureStatement: draft.signatureStatement?.trim() || undefined,
         formUrl: draft.formUrl?.trim() || undefined,
         questions: draft.questions
-          .filter(q => q.label.trim())
+          .filter(q => q.label.trim() || signupQuestionHasContent(q))
           .map(q => {
             if (q.type === 'timeslot') return normalizeTimeslotQuestion({ ...q, label: q.label.trim() });
             return {
