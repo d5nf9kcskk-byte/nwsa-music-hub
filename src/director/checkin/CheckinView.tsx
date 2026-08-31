@@ -358,9 +358,17 @@ function Row({ row, showConcert, tally, onPhoto, onRemove }: {
       <td className="dir-checkin-fix">
         {/* The one correction a concert night produces: a scan taken under the
             wrong name at the door. */}
-        {row.in && (
+        {(row.in || row.out) && (
           <button type="button" className="dir-tool-btn danger" title="Remove the check-in"
-            onClick={() => { if (confirm(`Remove ${row.studentName}'s check-in?`)) void onRemove(row.in!.id); }}>
+            onClick={() => {
+              if (!confirm(`Remove ${row.studentName}'s check-in?`)) return;
+              // BOTH scans. Removing only the arrival left the departure
+              // behind, and a row with an out and no in renders no button at
+              // all — so the leftover could never be cleared from this screen,
+              // and it still counted as a scan everywhere downstream.
+              if (row.in) void onRemove(row.in.id);
+              if (row.out) void onRemove(row.out.id);
+            }}>
             <Trash2 size={14} />
           </button>
         )}
