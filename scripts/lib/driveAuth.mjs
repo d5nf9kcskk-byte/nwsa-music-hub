@@ -60,7 +60,17 @@ export function driveClient(google, serviceAccount, saScopes, env = process.env)
     return {
       drive: google.drive({ version: 'v3', auth }),
       mode,
-      describe: 'Drive: signed in as the folder owner (OAuth). Files are owned by that account.',
+      // NOT "signed in as the folder owner" — that was a claim this function
+      // cannot make. It is inferred from three env vars being non-empty, and
+      // it is wrong the moment a token is minted as the wrong account: the
+      // consent chooser offers every account signed into the browser, and the
+      // preflight would then print a confident falsehood that every later
+      // message inherits. The service-account arm below reads a real address
+      // off the credential; this arm had only a hope, and only the hope can
+      // be wrong. Naming the actual account needs a round trip
+      // (drive.about.get) and belongs where the client is used.
+      describe: 'Drive: OAuth, as whichever account the DRIVE_OAUTH_* secrets were minted for.'
+        + ' Files are owned by that account.',
     };
   }
 
