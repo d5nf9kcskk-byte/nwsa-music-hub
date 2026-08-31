@@ -2,7 +2,7 @@ import './directorSearch.css';
 import { useMemo, useState } from 'react';
 import {
   Search, X, CalendarDays, Users, FileText, ClipboardCheck, ClipboardSignature,
-  Music, Filter, Link2, Globe,
+  Music, Filter, Link2, Globe, ScanLine,
 } from 'lucide-react';
 import { useEvents } from '../hooks/useEvents';
 import { useEnsembles } from '../hooks/useEnsembles';
@@ -55,6 +55,7 @@ const GROUP_ICON: Record<string, typeof CalendarDays> = {
   'Sign-ups': ClipboardSignature,
   Assignments: ClipboardCheck,
   Repertoire: Music,
+  'Concert check-in': ScanLine,
   Pages: Globe,
 };
 
@@ -107,6 +108,27 @@ export function LinkPicker({ onPick, onClose }: Props) {
         url: `/event/${e.id}`,
         date: e.date,
       });
+      // The check-in station gets its OWN entry (#concert-checkin), not a
+      // variant of the concert's. An announcement about a concert is exactly
+      // where a student looks for "where do I check in?", and linking the
+      // concert page instead makes them find the button themselves. Offered
+      // only where a station is actually switched on, so the list never
+      // advertises a door that isn't there.
+      if (e.checkin?.enabled) {
+        out.push({
+          key: `checkin-${e.id}`,
+          group: 'Concert check-in',
+          label: `Check in — ${eventLabel(e, ensembleMap)}`,
+          sub: [
+            formatDate(e.date, { weekday: 'short', month: 'short', day: 'numeric' }),
+            e.concertAttendance === 'required' ? 'Required'
+              : e.concertAttendance === 'optional' ? 'Optional' : '',
+            'opens shortly before the downbeat',
+          ].filter(Boolean).join(' · '),
+          url: `/checkin/${e.id}`,
+          date: e.date,
+        });
+      }
     }
     for (const e of ensembles) {
       out.push({
