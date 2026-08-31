@@ -263,8 +263,6 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
   const [title, setTitle] = useState(announcement?.title ?? '');
   const [body, setBody] = useState(announcement?.body ?? '');
   const [ensembleId, setEnsembleId] = useState<string | null>(announcement?.ensembleId ?? null);
-  const [titleEs, setTitleEs] = useState(announcement?.titleEs ?? '');
-  const [bodyEs, setBodyEs] = useState(announcement?.bodyEs ?? '');
   const [pinned, setPinned] = useState(announcement?.pinned ?? false);
   const [links, setLinks] = useState<AnnouncementLink[]>(announcement?.links ?? []);
   const [pickingLink, setPickingLink] = useState(false);
@@ -332,8 +330,6 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
         body: body.trim() || undefined,
         ensembleId,
         priority: priority === 'info' ? undefined : priority,
-        titleEs: titleEs.trim() || undefined,
-        bodyEs: bodyEs.trim() || undefined,
         pinned: pinned || undefined,
         // Undefined, not [] — Firestore stores an empty array as a real field,
         // and every other optional here follows the same rule.
@@ -444,15 +440,6 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
                 ? `That is the limit of ${MAX_ANNOUNCEMENT_LINKS} — remove one to add another.`
                 : 'Shown as buttons under the message. Use these for “here is the thing I am talking about”; links inside the message itself go in with the toolbar’s link button.'}
             </div>
-          </div>
-
-          <div className="dir-field">
-            <label className="dir-label">Spanish translation (optional)</label>
-            <input className="dir-input" value={titleEs} onChange={e => setTitleEs(e.target.value)} placeholder="Título en español" />
-            <div style={{ marginTop: 6 }}>
-              <RichTextArea value={bodyEs} onChange={setBodyEs} rows={3} placeholder="Mensaje en español (opcional)" />
-            </div>
-            <div className="dir-field-hint">Families reading in Español see this version; posts with a translation show an ES button.</div>
           </div>
 
           <div className="dir-field">

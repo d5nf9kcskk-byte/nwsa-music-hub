@@ -181,7 +181,7 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
       });
     }
 
-    const anns = rankMatches(publishedAnnouncements, q, a => [a.title, a.titleEs]);
+    const anns = rankMatches(publishedAnnouncements, q, a => [a.title]);
     if (anns.length) {
       out.push({
         label: 'Announcements', Icon: Megaphone,
@@ -194,7 +194,7 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
       });
     }
 
-    const enss = rankMatches(ensembles, q, e => [e.name, e.nameEs]);
+    const enss = rankMatches(ensembles, q, e => [e.name]);
     if (enss.length) {
       out.push({
         label: 'Ensembles', Icon: Users,

@@ -297,8 +297,6 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
 
   // ── Announcement cards ──────────────────────────────────────────────────
   'announce.all':         { en: 'All',              es: 'Todos' },
-  'announce.readEnglish': { en: 'Read in English',  es: 'Leer en inglés' },
-  'announce.readSpanish': { en: 'Read in Spanish',  es: 'Leer en español' },
 
   // ── Subscribe-to-calendar wizard ────────────────────────────────────────
   'sub.thisCalendar': { en: 'Subscribe to this calendar', es: 'Suscribirse a este calendario' },

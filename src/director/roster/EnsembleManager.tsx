@@ -127,7 +127,6 @@ interface FormProps {
 
 function EnsembleForm({ ensemble, defaultKind, defaultCollegeLevel, nextOrder, onSave, onDelete, onBack, onClose }: FormProps) {
   const [name, setName] = useState(ensemble?.name ?? '');
-  const [nameEs, setNameEs] = useState(ensemble?.nameEs ?? '');
   const [conductorName, setConductorName] = useState(ensemble?.conductorName ?? '');
   const [color, setColor] = useState(ensemble?.color ?? '');
   const [location, setLocation] = useState(ensemble?.defaultLocation ?? '');
@@ -145,7 +144,6 @@ function EnsembleForm({ ensemble, defaultKind, defaultCollegeLevel, nextOrder, o
     try {
       await whenQueued(onSave({
         name: name.trim(),
-        nameEs: nameEs.trim() || undefined,
         conductorName: conductorName.trim() || undefined,
         kind,
         collegeLevel: collegeLevel ? true : undefined,
@@ -220,13 +218,6 @@ function EnsembleForm({ ensemble, defaultKind, defaultCollegeLevel, nextOrder, o
                 </span>
               </span>
             </label>
-          </div>
-
-          <div className="dir-field">
-            <label className="dir-label">
-              Spanish name <span className="dir-label-hint">optional — shown on the public site when Español is on</span>
-            </label>
-            <input className="dir-input" value={nameEs} onChange={e => setNameEs(e.target.value)} placeholder="Leave blank to reuse the name above" />
           </div>
 
           <div className="dir-field">

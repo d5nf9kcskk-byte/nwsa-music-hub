@@ -31,7 +31,7 @@ export function urgentAlertGroupKey(a: Pick<Announcement, 'ensembleId'>): string
 
 export function alertGroupTitle(
   key: string,
-  ensembles: Pick<Ensemble, 'id' | 'name' | 'nameEs' | 'order'>[],
+  ensembles: Pick<Ensemble, 'id' | 'name' | 'order'>[],
   kind: 'announcements' | 'alerts' = 'announcements',
 ): string {
   const suffix = kind === 'announcements' ? 'announcements' : 'alerts';
@@ -78,7 +78,7 @@ export function groupAlertItems<T>(
 
 export function groupScheduleAlerts(
   events: CalendarEvent[],
-  ensembles: Pick<Ensemble, 'id' | 'name' | 'nameEs' | 'order'>[],
+  ensembles: Pick<Ensemble, 'id' | 'name' | 'order'>[],
 ): AlertGroup<CalendarEvent>[] {
   return groupAlertItems(
     events,
@@ -90,7 +90,7 @@ export function groupScheduleAlerts(
 
 export function groupUrgentAnnouncements(
   announcements: Announcement[],
-  ensembles: Pick<Ensemble, 'id' | 'name' | 'nameEs' | 'order'>[],
+  ensembles: Pick<Ensemble, 'id' | 'name' | 'order'>[],
 ): AlertGroup<Announcement>[] {
   return groupAlertItems(
     announcements,
