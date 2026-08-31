@@ -351,6 +351,20 @@ function SignupDetail({
         </p>
       )}
 
+      {questions.length > 0 && (
+        <>
+          <div className="dir-signup-section">Questions</div>
+          {questions.map(q => (
+            <div key={q.id} className="dir-signup-qlist-row">
+              <span>{q.label}</span>
+              <span className={`dir-signup-tag ${q.required ? 'required' : 'optional'}`}>
+                {q.required ? 'Required' : 'Optional'}
+              </span>
+            </div>
+          ))}
+        </>
+      )}
+
       {timeslotQuestions.length > 0 && (
         <>
           <div className="dir-signup-section"><Clock size={13} /> Time slots</div>
@@ -871,9 +885,9 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
                   <option value="timeslot">Time slot</option>
                   <option value="yesno">Yes / No</option>
                 </select>
-                <label className={`dir-checkbox-tag ${q.required ? 'checked' : ''}`}>
+                <label className={`dir-checkbox-tag ${q.required ? 'required' : 'optional'}`}>
                   <input type="checkbox" checked={!!q.required} onChange={e => setQuestion(i, { required: e.target.checked || undefined })} />
-                  Required
+                  {q.required ? 'Required' : 'Optional'}
                 </label>
               </div>
               <input className="dir-input" value={q.help ?? ''}
