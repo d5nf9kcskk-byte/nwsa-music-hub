@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "// hub-fixtures": "Runs the Hub with VITE_FIXTURES=1. With no Firebase env (no .env.local) db is null, so AuthGate signs in as a 'Fixture Director' and the director panel opens with no credentials and no real data — see src/director/hooks/fixtures.ts. Read-only: writes are no-ops.",
+      "// port": "vite does not read $PORT, so it must be passed through, or vite silently sits on 5173 while the harness reports the port it assigned. strictPort makes a clash fail loudly instead of drifting again.",
+      "name": "hub-fixtures",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "VITE_FIXTURES=1 npm run dev -- --port \"${PORT:-5173}\" --strictPort"],
+      "autoPort": true
+    }
+  ]
+}
