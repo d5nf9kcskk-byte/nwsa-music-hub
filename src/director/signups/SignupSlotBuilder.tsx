@@ -163,6 +163,7 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, onChang
         <div className="dir-signup-slot-nl-label"><Sparkles size={14} /> Describe slots</div>
         <textarea
           className="dir-input dir-signup-slot-nl-input"
+          spellCheck={false}
           rows={3}
           value={nlText}
           placeholder={NL_EXAMPLE}
@@ -315,6 +316,7 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, onChang
         <>
           <textarea
             className="dir-input dir-signup-slot-manual"
+            spellCheck={false}
             rows={5}
             value={manualDraft}
             placeholder={'One slot per line, e.g.\nMon, Mar 3 · 3:00 PM – 3:30 PM (30 min)'}

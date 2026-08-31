@@ -175,13 +175,14 @@ export function IcsImport({ onClose }: Props) {
                     onChange={e => { setUrl(e.target.value); setParsed(null); }}
                     placeholder="https://…/calendar.ics"
                     inputMode="url"
+                    spellCheck={false}
                   />
                   <div className="dir-contact-note">MDC/MDCPS calendars: go to calendar.google.com → Other Calendars → ⋮ → Settings → copy "Public address in iCal format"</div>
                 </div>
               ) : (
                 <div className="dir-field">
                   <label className="dir-label">ICS text</label>
-                  <textarea className="dir-input dir-textarea" value={text} onChange={e => { setText(e.target.value); setParsed(null); }} rows={6} placeholder="Paste the raw ICS content here…" />
+                  <textarea className="dir-input dir-textarea" spellCheck={false} value={text} onChange={e => { setText(e.target.value); setParsed(null); }} rows={6} placeholder="Paste the raw ICS content here…" />
                 </div>
               )}
 

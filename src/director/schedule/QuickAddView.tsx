@@ -63,6 +63,7 @@ export function QuickAddView({ onClose, onContinue }: Props) {
             <label className="dir-label">Describe the event</label>
             <textarea
               className="dir-input dir-textarea"
+              spellCheck={false}
               rows={2}
               autoFocus
               value={text}

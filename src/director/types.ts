@@ -70,11 +70,6 @@ export const ASSISTANT_CAPABILITY_LABEL: Record<AssistantCapability, string> = {
 export interface Ensemble {
   id: string;
   name: string;
-  /** Optional Spanish display name, shown on the public site when the ES
-   *  toggle is on. Absent = the (English) `name` is used for both languages —
-   *  most ensemble names (proper nouns like "Camerata", genre words like
-   *  "Jazz Ensemble") don't need a separate translation. */
-  nameEs?: string;
   /** Conductor/director's name as printed on concert programs (#program-template),
    *  e.g. "Hyunjee Chung" or "Dr. Hyunjee Chung". Also groups ensembles under
    *  one conductor on the cover page when several share the same name. */
@@ -565,9 +560,6 @@ export interface Announcement {
   body?: string;
   /** info = plain card · important = colored border · urgent = site-wide banner (#19) */
   priority?: AnnouncementPriority;
-  /** Optional Spanish translation shown when the ES toggle is on (#42) */
-  titleEs?: string;
-  bodyEs?: string;
   createdAt: number;         // Date.now() — for ordering
   /** Staff email (directors/{email} doc id) of whoever posted this. */
   createdByEmail?: string;
@@ -708,9 +700,6 @@ export interface Assignment {
   title: string;
   type: AssignmentType;
   description?: string;
-  /** Optional Spanish translation of the description, shown when the ES
-   *  toggle is on (mirrors Announcement.bodyEs). */
-  descriptionEs?: string;
   dueDate: string; // YYYY-MM-DD
   ensembleIds: string[];
   studentIds?: string[];  // specific individuals (in addition to whole ensembles)
@@ -880,10 +869,6 @@ export type DocumentAudience = 'All' | 'High School' | 'College';
 export interface LibraryDocument {
   id: string;
   title: string;
-  /** Optional Spanish translations, shown when the ES toggle is on (mirrors
-   *  Announcement.titleEs/bodyEs). Absent = the English fields are used. */
-  titleEs?: string;
-  descriptionEs?: string;
   category: DocumentCategory;
   /** Empty = General (school-wide, not tied to an ensemble). */
   ensembleIds: string[];
@@ -1043,10 +1028,8 @@ export interface SignupQuestion {
 export interface SignupForm {
   id: string;
   title: string;
-  titleEs?: string;
   /** Plain text shown above the form. */
   intro?: string;
-  introEs?: string;
   /** Audience — empty ensembleIds = whole program, empty families = all.
    *  When `audienceMode` is `'students'`, the named list lives in the
    *  staff-only `signupAudiences/{formId}` doc (never on this world-readable

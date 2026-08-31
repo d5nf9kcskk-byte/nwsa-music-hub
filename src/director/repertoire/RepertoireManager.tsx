@@ -587,22 +587,22 @@ function RepertoireForm({
 
           <div className="dir-field">
             <label className="dir-label">IMSLP</label>
-            <input className="dir-input" value={imslpUrl} onChange={e => setImslpUrl(e.target.value)} placeholder="https://imslp.org/wiki/…" inputMode="url" />
+            <input className="dir-input" value={imslpUrl} onChange={e => setImslpUrl(e.target.value)} placeholder="https://imslp.org/wiki/…" inputMode="url" spellCheck={false} />
           </div>
 
           <div className="dir-field">
             <label className="dir-label">Video (YouTube / recording)</label>
-            <input className="dir-input" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="https://youtube.com/watch?v=…" inputMode="url" />
+            <input className="dir-input" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="https://youtube.com/watch?v=…" inputMode="url" spellCheck={false} />
           </div>
 
           <div className="dir-field">
             <label className="dir-label">Audio</label>
-            <input className="dir-input" value={audioUrl} onChange={e => setAudioUrl(e.target.value)} placeholder="Spotify / other audio link" inputMode="url" />
+            <input className="dir-input" value={audioUrl} onChange={e => setAudioUrl(e.target.value)} placeholder="Spotify / other audio link" inputMode="url" spellCheck={false} />
           </div>
 
           <div className="dir-field">
             <label className="dir-label">Program notes (link)</label>
-            <input className="dir-input" value={programNotesUrl} onChange={e => setProgramNotesUrl(e.target.value)} placeholder="Link to external program notes" inputMode="url" />
+            <input className="dir-input" value={programNotesUrl} onChange={e => setProgramNotesUrl(e.target.value)} placeholder="Link to external program notes" inputMode="url" spellCheck={false} />
           </div>
 
           <div className="dir-form-section-label">Program notes</div>
@@ -620,12 +620,12 @@ function RepertoireForm({
 
           <div className="dir-field">
             <label className="dir-label">Shared folder / all-parts link</label>
-            <input className="dir-input" value={partsSharedUrl} onChange={e => setPartsSharedUrl(e.target.value)} placeholder="Google Drive folder or IMSLP parts page" inputMode="url" />
+            <input className="dir-input" value={partsSharedUrl} onChange={e => setPartsSharedUrl(e.target.value)} placeholder="Google Drive folder or IMSLP parts page" inputMode="url" spellCheck={false} />
           </div>
 
           <div className="dir-field">
             <label className="dir-label">Legacy single parts link</label>
-            <input className="dir-input" value={partsUrl} onChange={e => setPartsUrl(e.target.value)} placeholder="(optional — use per-instrument links below instead)" inputMode="url" />
+            <input className="dir-input" value={partsUrl} onChange={e => setPartsUrl(e.target.value)} placeholder="(optional — use per-instrument links below instead)" inputMode="url" spellCheck={false} />
           </div>
 
           <div className="dir-field">
@@ -651,6 +651,7 @@ function RepertoireForm({
                       value={l.url}
                       onChange={e => updatePartLink(i, 'url', e.target.value)}
                       inputMode="url"
+                      spellCheck={false}
                     />
                     <button className="dir-icon-btn" onClick={() => removePartLink(i)} type="button" aria-label="Remove">
                       <Trash2 size={14} />

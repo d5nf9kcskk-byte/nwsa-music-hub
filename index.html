@@ -16,7 +16,11 @@
     <link rel="icon" type="__ORG_FAVICONTYPE__" href="%BASE_URL%__ORG_FAVICONFILE__" />
     <link rel="apple-touch-icon" href="%BASE_URL%__ORG_APPLETOUCHICON__" />
   </head>
-  <body>
+  <!-- spellcheck: Firefox's default checks multi-line boxes only, so every
+       single-line Title field went unchecked there. The attribute inherits,
+       so this covers the app; fields that opt OUT (search boxes, pasted
+       blobs, addresses) set spellcheck={false} explicitly, which wins. -->
+  <body spellcheck="true">
     <!-- Dark-view choice (#dark-view): resolve Auto/Light/Dark before first
          paint so a stored choice never flashes the wrong scheme. Kept current
          after load by src/public/theme.ts. -->
