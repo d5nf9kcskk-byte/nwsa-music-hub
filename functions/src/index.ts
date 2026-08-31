@@ -9,6 +9,10 @@ import {
   type CheckinRequest,
 } from './concertCheckin.ts';
 import ORG from '../../config/orgs/nwsa.json' with { type: 'json' };
+import {
+  emailMatchesScans, loadGoals, tallyScans, NO_MATCH, TERMS as TALLY_TERMS,
+  type ScanLike, type TallyRequest,
+} from './concertTally.ts';
 
 initializeApp();
 
@@ -184,4 +188,62 @@ export const concertCheckin = https.onRequest(async (req, res) => {
   }
 
   res.status(200).json({ ok: true, kind, at: now });
+});
+
+
+/**
+ * A student's own concert count (#concert-checkin).
+ *
+ * POST { studentId, email } → per-semester Required / Optional totals.
+ *
+ * Served here rather than read from the page because `concertCheckins` is
+ * staff-only with no public projection: attendance is staff-only under the
+ * Hub's privacy model, so counting it in the browser would mean publishing
+ * it. The school email is the identity check — matched against the address on
+ * the student's OWN records — so the page answers "how many have I done"
+ * without becoming a lookup table of everybody's attendance. A wrong email
+ * and a student with nothing on file get the SAME refusal, so it cannot be
+ * walked to find out who has attended nothing.
+ */
+export const concertTally = https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+  res.set('Cache-Control', 'private, no-store');
+
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.set('Access-Control-Max-Age', '3600');
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') { res.status(405).json({ ok: false, message: NO_MATCH }); return; }
+
+  const body = (req.body ?? {}) as TallyRequest;
+  const studentId = typeof body.studentId === 'string' ? body.studentId : '';
+  const email = typeof body.email === 'string' ? body.email : '';
+  if (!studentId || !email) { res.status(200).json({ ok: false, message: NO_MATCH }); return; }
+
+  const db = getFirestore();
+  let scans: ScanLike[];
+  let goals: Record<string, { required?: number; optional?: number }>;
+  try {
+    const [snap, g] = await Promise.all([
+      db.collection('concertCheckins').where('studentId', '==', studentId).get(),
+      loadGoals(db),
+    ]);
+    scans = snap.docs.map(d => d.data() as ScanLike);
+    goals = g;
+  } catch {
+    res.status(503).json({ ok: false, message: 'The Hub is busy. Try once more.' });
+    return;
+  }
+
+  if (!emailMatchesScans(email, scans)) {
+    res.status(200).json({ ok: false, message: NO_MATCH });
+    return;
+  }
+
+  const { terms, incomplete } = tallyScans(scans, TALLY_TERMS, goals);
+  res.status(200).json({ ok: true, terms, incomplete });
 });
