@@ -74,13 +74,62 @@ const firebaseApp = initializeApp({
 const db = getFirestore(firebaseApp);
 const bucket = getStorage(firebaseApp).bucket();
 
+/**
+ * Full `drive` scope, NOT `drive.file`.
+ *
+ * `drive.file` grants access only to files the app itself created or that a
+ * user opened through the Google Picker. A folder a director makes by hand
+ * and shares with this service account is neither, so under `drive.file` the
+ * folder is simply invisible and every run reports "not found" for a folder
+ * that plainly exists. (The assignment-video sync uses `drive.file` because
+ * its folders ARE created by the app, through useGoogleDrive.ts.)
+ *
+ * A service account has no Drive of its own, so this scope grants nothing
+ * beyond what somebody has deliberately shared with this account.
+ */
 const driveAuth = new google.auth.GoogleAuth({
   credentials: sa,
-  scopes: ['https://www.googleapis.com/auth/drive.file'],
+  scopes: ['https://www.googleapis.com/auth/drive'],
 });
 const drive = google.drive({ version: 'v3', auth: driveAuth });
 
 const CSV_NAME = 'concert-attendance.csv';
+
+/** Required on every call for a Shared Drive to be reachable at all. Harmless
+ *  on an ordinary My Drive folder, and it is the difference between the
+ *  Shared-Drive remedy below working and not. */
+const ALL_DRIVES = { supportsAllDrives: true, includeItemsFromAllDrives: true };
+
+/**
+ * Two Google-side walls stand between "I shared the folder" and a working
+ * sync, and both report themselves badly. Name them, with the fix, rather
+ * than letting a director read a raw API error at 15 past the hour.
+ *
+ *   • 404 / no access — the folder id is wrong, or it was never shared with
+ *     THIS service account. (Under the old drive.file scope this happened
+ *     even when it had been shared correctly; the scope above fixes that.)
+ *   • storageQuotaExceeded — the folder is in a personal My Drive. A service
+ *     account has no storage quota of its own, and a file it uploads into a
+ *     personal folder is owned by the service account, so Google refuses it.
+ *     A Google Workspace SHARED DRIVE is the fix: files are owned by the
+ *     drive, not the uploader. Add the service account as a Content Manager.
+ */
+function explain(err) {
+  const msg = String(err?.message ?? err);
+  if (/storageQuotaExceeded|quota/i.test(msg)) {
+    return 'Google refused the upload for storage quota. A service account has no Drive'
+      + ' storage of its own, so it cannot own files in a personal My Drive folder.'
+      + ' Move the Concert Attendance folder into a Google Workspace SHARED DRIVE and add'
+      + ' the service account as a Content Manager — files there are owned by the drive.'
+      + ' Until then the photos are still safe in Firebase Storage and visible in the Hub.';
+  }
+  if (/File not found|notFound|404|insufficientFilePermissions|403/i.test(msg)) {
+    return 'Drive says the folder is missing or not shared with this service account.'
+      + ' Check the folder id in Concert Check-In \u2192 Settings, and share the folder as'
+      + ` Editor with: ${sa.client_email}`;
+  }
+  return msg;
+}
 
 /** Find a child folder by name, or make one. Cached per run so a concert with
  *  two hundred photos costs one lookup, not two hundred. */
@@ -92,12 +141,14 @@ async function folderFor(parentId, name) {
       + ` and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
     fields: 'files(id)',
     pageSize: 1,
+    ...ALL_DRIVES,
   });
   let id = found.data.files?.[0]?.id;
   if (!id) {
     const made = await drive.files.create({
       requestBody: { name, parents: [parentId], mimeType: 'application/vnd.google-apps.folder' },
       fields: 'id',
+      ...ALL_DRIVES,
     });
     id = made.data.id;
     console.log(`[sync-photos] Created folder "${name}"`);
@@ -135,6 +186,7 @@ async function syncPhotos(parentId) {
         requestBody: { name: photoFileName(rec), parents: [folderId] },
         media: { mimeType: 'image/jpeg', body: Readable.from(buffer) },
         fields: 'id,webViewLink',
+        ...ALL_DRIVES,
       });
 
       await doc.ref.update({
@@ -145,7 +197,7 @@ async function syncPhotos(parentId) {
     } catch (err) {
       // One bad object must not stop the run — the record stays unsynced and
       // the next run picks it up again.
-      console.error(`[sync-photos] Failed on ${doc.id}: ${err.message}`);
+      console.error(`[sync-photos] Failed on ${doc.id}: ${explain(err)}`);
       failed++;
     }
   }
@@ -175,18 +227,20 @@ async function writeCsv(parentId) {
     q: `'${q(parentId)}' in parents and name = '${q(CSV_NAME)}' and trashed = false`,
     fields: 'files(id)',
     pageSize: 1,
+    ...ALL_DRIVES,
   });
   const media = { mimeType: 'text/csv', body: Readable.from(Buffer.from(body, 'utf8')) };
   const fileId = existing.data.files?.[0]?.id;
 
   if (fileId) {
-    await drive.files.update({ fileId, media });
+    await drive.files.update({ fileId, media, ...ALL_DRIVES });
     console.log(`[sync-photos] Updated ${CSV_NAME} (${records.length} scans).`);
   } else {
     await drive.files.create({
       requestBody: { name: CSV_NAME, parents: [parentId] },
       media,
       fields: 'id',
+      ...ALL_DRIVES,
     });
     console.log(`[sync-photos] Created ${CSV_NAME} (${records.length} scans).`);
   }
@@ -202,6 +256,17 @@ async function main() {
     // state until a director pastes the folder id in.
     console.log('[sync-photos] No Drive folder configured (Concert Check-In → Settings). Nothing to do.');
     return;
+  }
+
+  // Preflight: one cheap read that turns every downstream failure into a
+  // sentence naming the fix, instead of two hundred identical stack traces.
+  console.log(`[sync-photos] Service account: ${sa.client_email}`);
+  try {
+    const folder = await drive.files.get({ fileId: parentId, fields: 'id,name', ...ALL_DRIVES });
+    console.log(`[sync-photos] Folder: "${folder.data.name}"`);
+  } catch (err) {
+    console.error(`[sync-photos] Cannot open the Drive folder. ${explain(err)}`);
+    process.exit(1);
   }
 
   const { synced, failed } = await syncPhotos(parentId);
