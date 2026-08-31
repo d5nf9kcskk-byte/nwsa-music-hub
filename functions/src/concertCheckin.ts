@@ -1,6 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import {
-  checkinDocId, checkinState, canCheckOut, emailProblem, normalizeEmail,
+  checkinDocId, checkinState, canCheckOut, canCheckIn, emailProblem, normalizeEmail,
   resolveCheckinSettings, termIdForDate, DEFAULT_CHECKIN_SETTINGS,
   type CheckinKind, type CheckinEventLike, type CheckinSettings, type Term,
 } from '../../src/shared/concertCheckin.ts';
@@ -41,7 +41,7 @@ export interface CheckinRequest {
 export type CheckinFailure =
   | 'bad-request' | 'unknown-event' | 'station-off' | 'too-early' | 'too-late'
   | 'unknown-student' | 'bad-email' | 'wrong-domain' | 'already' | 'no-photo'
-  | 'bad-photo' | 'too-soon' | 'not-checked-in';
+  | 'bad-photo' | 'too-soon' | 'not-checked-in' | 'arrived-late';
 
 export interface CheckinResult {
   ok: boolean;
@@ -67,6 +67,7 @@ const MESSAGES: Record<CheckinFailure, string> = {
   'bad-photo': 'That photo did not come through. Take it again.',
   'too-soon': 'It is too early to check out. Enjoy the concert.',
   'not-checked-in': 'Check in first — we have no record of you arriving.',
+  'arrived-late': 'Check-in for this concert has closed. Find a director so they can record you.',
 };
 
 export function fail(failure: CheckinFailure): CheckinResult {
@@ -168,7 +169,16 @@ export function validate(
   // this is so the page can say something true instead of "permission denied".
   if (existing[kind]) return fail('already');
 
+  if (kind === 'in' && !canCheckIn(event, settings, timeZone, now)) {
+    // The late-arrival cutoff. Refused HERE and not only in the page, or
+    // arriving on time is a suggestion.
+    return fail('arrived-late');
+  }
+
   if (kind === 'out') {
+    // Deliberately NOT gated on the arrival cutoff: a student who came late
+    // must still be able to check out, or their evening ends with one
+    // dangling scan and no credit either way.
     if (!existing.in) return fail('not-checked-in');
     if (!canCheckOut(event, settings, timeZone, now)) return fail('too-soon');
   }

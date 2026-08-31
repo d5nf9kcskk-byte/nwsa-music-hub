@@ -785,6 +785,26 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                     }))}
                   />
                   <div className="dir-field-hint" style={{ marginTop: 8 }}>
+                    Stop accepting CHECK-INS this many minutes after the start
+                    time (blank = no cut-off). Checking out stays open to the
+                    end either way, so a late arrival can still finish the pair:
+                  </div>
+                  <input
+                    className="dir-input"
+                    type="number"
+                    min={0}
+                    max={600}
+                    style={{ maxWidth: 120 }}
+                    value={form.checkin?.inClosesMinutesAfterStart ?? ''}
+                    onChange={ev => setForm(f => ({
+                      ...f,
+                      checkin: {
+                        ...(f.checkin ?? {}), enabled: true,
+                        inClosesMinutesAfterStart: ev.target.value === '' ? null : Number(ev.target.value),
+                      },
+                    }))}
+                  />
+                  <div className="dir-field-hint" style={{ marginTop: 8 }}>
                     Check-out opens this many minutes after the start time
                     (blank or 0 = any time):
                   </div>
