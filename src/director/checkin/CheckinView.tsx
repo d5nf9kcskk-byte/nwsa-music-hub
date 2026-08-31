@@ -12,6 +12,7 @@ import { checkinsToCsv, pairCheckins, minutesPresent, talliesByStudent, type Che
 import { ORG } from '../../org';
 import {
   checkinState, checkinWindow, checkinCutoff, domainsLabel, resolveCheckinSettings, enableCheckinPatch,
+  driveFolderIdFrom,
 } from '../../shared/concertCheckin';
 import { fmtShortDate } from '../../shared/dates';
 import { useMinuteTick } from '../hooks/useAnnouncements';
@@ -420,6 +421,11 @@ function SettingsPanel({ settings, save, domains }: {
   const { sync, save: saveSync } = useConcertSyncSettings();
   const [folder, setFolder] = useState('');
   const folderValue = folder || sync.driveFolderId || '';
+  // Pasting the whole folder URL is the natural mistake — the hint above the
+  // box shows one. Store the id either way, and refuse a value that can't be
+  // one rather than saving something Drive will 404 on at 15 past the hour.
+  const folderId = driveFolderIdFrom(folderValue);
+  const folderBad = !!folderValue.trim() && !folderId;
 
   return (
     <div className="dir-card dir-checkin-settings">
@@ -446,10 +452,17 @@ function SettingsPanel({ settings, save, domains }: {
           placeholder="1AbC…"
           onChange={e => setFolder(e.target.value)}
         />
-        <button type="button" className="dir-tool-btn" onClick={() => void saveSync({ driveFolderId: folderValue.trim() })}>
+        <button type="button" className="dir-tool-btn" disabled={folderBad}
+          onClick={() => void saveSync({ driveFolderId: folderId })}>
           Save folder
         </button>
       </div>
+      {folderBad && (
+        <p className="dir-field-hint dir-attach-error">
+          That doesn’t look like a folder id or a Drive link. Open the folder in Drive and
+          copy its address out of the browser’s address bar.
+        </p>
+      )}
       {sync.driveFolderId && (
         <p className="dir-field-hint">
           <a href={`https://drive.google.com/drive/folders/${sync.driveFolderId}`} target="_blank" rel="noreferrer">

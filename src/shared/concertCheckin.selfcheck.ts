@@ -17,7 +17,7 @@ import {
   checkinDocId, parseCheckinDocId, emailProblem, emailAccepted, domainsLabel,
   normalizeEmail, zonedEpoch, checkinWindow, checkinState, canCheckOut,
   canCheckIn, checkinCutoff,
-  resolveCheckinSettings, DEFAULT_CHECKIN_SETTINGS, termIdForDate,
+  resolveCheckinSettings, DEFAULT_CHECKIN_SETTINGS, termIdForDate, driveFolderIdFrom,
   type CheckinEventLike, type Term,
 } from './concertCheckin.ts';
 
@@ -200,5 +200,21 @@ assert(!untracked.concertAttendance, 'a concert set back to "not tracked" reads 
 assert(DEFAULT_CHECKIN_SETTINGS.photoOptional === false, 'the selfie is required by default');
 assert(resolveCheckinSettings({ checkin: { enabled: true, photoOptional: true } }).photoOptional === true,
   'a director can drop the selfie requirement for one concert from their phone');
+
+// 5. The Drive folder id survives however a director pasted it — the first
+//    real sync run failed on this, and Drive's 404 for a bad id is the same
+//    404 it gives for a folder that was never shared.
+const DRIVE_ID = '1AbCdEfGhIjKlMnOpQrStUvWxYz';
+assert(driveFolderIdFrom(DRIVE_ID) === DRIVE_ID, 'bare id');
+assert(driveFolderIdFrom(`  ${DRIVE_ID}  `) === DRIVE_ID, 'trims');
+assert(driveFolderIdFrom(`https://drive.google.com/drive/folders/${DRIVE_ID}`) === DRIVE_ID,
+  'folder URL');
+assert(driveFolderIdFrom(`https://drive.google.com/drive/u/0/folders/${DRIVE_ID}?usp=sharing`) === DRIVE_ID,
+  'folder URL with account prefix and share query');
+assert(driveFolderIdFrom(`https://drive.google.com/open?id=${DRIVE_ID}`) === DRIVE_ID, 'open?id= URL');
+assert(driveFolderIdFrom('') === '', 'blank stays blank');
+assert(driveFolderIdFrom(undefined) === '', 'missing stays blank');
+assert(driveFolderIdFrom('Concert Attendance') === '', 'a folder NAME is not an id');
+assert(driveFolderIdFrom('paste here') === '', 'prose is not an id');
 
 console.log('concertCheckin.selfcheck: all assertions passed');

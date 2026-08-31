@@ -47,6 +47,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { checkinsToCsv } from '../src/director/checkin/checkinCsv.ts';
+import { driveFolderIdFrom } from '../src/shared/concertCheckin.ts';
 import {
   escapeDriveQuery as q, concertFolderName, photoFileName, needsFiling,
 } from './lib/drivePhotoNames.mjs';
@@ -123,10 +124,18 @@ function explain(err) {
       + ' the service account as a Content Manager — files there are owned by the drive.'
       + ' Until then the photos are still safe in Firebase Storage and visible in the Hub.';
   }
-  if (/File not found|notFound|404|insufficientFilePermissions|403/i.test(msg)) {
-    return 'Drive says the folder is missing or not shared with this service account.'
-      + ' Check the folder id in Concert Check-In \u2192 Settings, and share the folder as'
-      + ` Editor with: ${sa.client_email}`;
+  // Drive answers "not shared with you" with the same 404 it gives for an id
+  // that doesn't exist, so a 404 has to name both — but 403 means it FOUND the
+  // folder and the service account simply can't write, which is a different fix.
+  if (/insufficientFilePermissions|403/i.test(msg)) {
+    return 'Drive found the folder but the service account cannot write to it.'
+      + ` Change its access to Editor: ${sa.client_email}`;
+  }
+  if (/File not found|notFound|404/i.test(msg)) {
+    return 'Drive says the folder is missing OR not shared with this service account —'
+      + ' it answers both the same way. If you can open the folder yourself, it is sharing:'
+      + ` share it as Editor with ${sa.client_email}. If you cannot, the folder id in`
+      + ' Concert Check-In \u2192 Settings is wrong.';
   }
   return msg;
 }
@@ -250,8 +259,18 @@ async function main() {
   console.log('[sync-photos] Starting…');
 
   const settings = await db.doc('settings/concertAttendanceSync').get();
-  const parentId = settings.exists ? settings.get('driveFolderId') : undefined;
+  const stored = settings.exists ? settings.get('driveFolderId') : undefined;
+  // Normalized here as well as in the Settings box, so a URL saved before the
+  // box knew better starts working without anyone re-pasting it.
+  const parentId = driveFolderIdFrom(stored);
   if (!parentId) {
+    if (String(stored ?? '').trim()) {
+      // Configured, but with something that cannot be a folder id. Silence
+      // here would read as "nobody has set this up yet".
+      console.error('[sync-photos] The saved Drive folder setting is not a folder id or a Drive'
+        + ' link. Re-paste it in Concert Check-In → Settings.');
+      process.exit(1);
+    }
     // Not an error: the feature works without Drive, and this is the normal
     // state until a director pastes the folder id in.
     console.log('[sync-photos] No Drive folder configured (Concert Check-In → Settings). Nothing to do.');
