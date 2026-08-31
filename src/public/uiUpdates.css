@@ -484,6 +484,11 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
 
 
 .pub-announce-important { border-left: 4px solid #f59e0b !important; }
+/* Important/Urgent said in words, not just the border color above —
+   a color-only signal is easy to miss and unreadable to colorblind readers. */
+.pub-announce-priority { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 8px; }
+.pub-announce-priority.important { background: #fef3c7; color: #92400e; }
+.pub-announce-priority.urgent { background: #fee2e2; color: #991b1b; }
 
 /* Identity chip in menu (#1) */
 .pub-menu-me { background: var(--pub-accent-soft); border-radius: 10px; margin: 0 8px 4px; font-weight: 700; }

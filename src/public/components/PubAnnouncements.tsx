@@ -30,6 +30,8 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
             <div className="pub-announce-head">
               {a.pinned && <Pin size={13} className="pub-announce-pin" />}
               <span className="pub-announce-title">{showTitle}</span>
+              {a.priority === 'urgent' && <span className="pub-announce-priority urgent">🚨 Urgent</span>}
+              {a.priority === 'important' && <span className="pub-announce-priority important">Important</span>}
               {showEnsembleTag && ens && (
                 <Link to={`/ensemble/${ens.id}`} className="pub-announce-tag" style={{ background: ensembleColor(ens) }}>
                   {ensembleDisplayName(ens)}
