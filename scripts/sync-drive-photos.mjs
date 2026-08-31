@@ -311,6 +311,13 @@ async function main() {
 }
 
 main().catch(err => {
-  console.error('[sync-photos] Fatal:', err);
+  // Through explain(), not raw: the CSV rewrite throws here rather than inside
+  // the per-photo loop, so the quota wall — the one failure explain() has a
+  // whole paragraph of remedy for — was the one arriving as a bare Gaxios
+  // stack. Anything explain() can't name falls through as its own message, and
+  // keeps the stack, because that's a code fault and not a Google-side wall.
+  const said = explain(err);
+  console.error('[sync-photos] Fatal:', said);
+  if (said === String(err?.message ?? err)) console.error(err);
   process.exit(1);
 });
