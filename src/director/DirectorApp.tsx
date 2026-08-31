@@ -18,11 +18,13 @@ import { WriteTray } from './components/WriteTray';
 import { useWriteBusy } from './writeStatus';
 import { useModalA11y } from '../shared/useModalA11y';
 import { StatusStrips } from '../shared/StatusStrips';
+import { ConcertDayBanner } from '../shared/ConcertDayBanner';
 import { NoteBurst } from '../shared/NoteBurst';
 import { useLogoEgg } from '../shared/useLogoEgg';
 import { useEggCheer, useTapN } from '../shared/useEggCheer';
 import { batonInHandLine } from '../shared/whimsy';
 import '../shared/whatsNew.css';
+import '../shared/concertDayBanner.css';
 import { WhatsNewBanner } from '../shared/WhatsNewBanner';
 import { DIRECTOR_FEEDBACK_FORM_URL } from './feedbackForm';
 import { useUrgentRelaySweep } from './announcements/urgentRelay';
@@ -555,6 +557,7 @@ export default function DirectorApp() {
 
           <main className="dir-content">
             <StatusStrips />
+            <ConcertDayBanner checkinNav={{ onClick: () => go('concertCheckin') }} />
             {TAB_HINTS[tab] && <div className="dir-page-hint no-print">{TAB_HINTS[tab]}</div>}
             {tab === 'today'           && <TodayView onNavigate={go} />}
             {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} onNavigate={go} />}

@@ -1,0 +1,42 @@
+/* Concert-day reminder (#concert-day-alert) — top of every page, staff + public. */
+.concert-day-banner {
+  margin: 12px 16px 0;
+}
+.concert-day-banner-item {
+  background: var(--dir-surface, var(--pub-surface, #fff));
+  border: 1px solid var(--dir-border, var(--pub-border, #e2e8f0));
+  border-left: 3px solid var(--dir-primary, var(--pub-accent, #0d7e8e));
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+.concert-day-banner-item summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  color: var(--dir-text, var(--pub-ink, #1e293b));
+}
+.concert-day-banner-item summary::-webkit-details-marker { display: none; }
+.concert-day-banner-detail {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--dir-border, var(--pub-border, #e2e8f0));
+  font-size: 13px;
+  color: var(--dir-text-muted, var(--pub-muted, #64748b));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.concert-day-banner-checkin {
+  align-self: flex-start;
+  margin-top: 4px;
+  border: none;
+  background: var(--dir-primary, var(--pub-accent, #0d7e8e));
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+}

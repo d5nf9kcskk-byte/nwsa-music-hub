@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Concert-day reminder banner (#concert-day-alert), top of every page.
+  {
+    id: '2026-08-31-concert-day-banner',
+    date: '2026-08-31',
+    title: 'A concert tonight now shows up the moment you open the Hub',
+    audience: 'both' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'On any concert day, a banner sits at the top of every page — tap it for who’s playing, the time, the location, and repertoire if it’s been added.',
+      'It also says whether attendance is required or optional, and drops a Check in button straight through when it’s required and the check-in station is on.',
+    ],
+  },
   // Per-record Spanish fields removed; spell check made consistent.
   {
     id: '2026-08-31-one-message-spellcheck',
