@@ -218,6 +218,23 @@
   border: none; background: transparent; color: var(--dir-text-2);
   padding: 4px; cursor: pointer;
 }
+.dir-linkpick-back {
+  flex: 0 0 auto; display: flex; align-items: center;
+  border: none; background: transparent; color: var(--dir-text-2);
+  padding: 4px; margin-left: -4px; cursor: pointer;
+}
+
+/* Step 2: every concert for a check-in link, station on or off (#concert-checkin). */
+.dir-linkpick-checkin-row { display: flex; align-items: center; gap: 4px; }
+.dir-linkpick-checkin-row .dir-linkpick-row { flex: 1 1 auto; }
+.dir-linkpick-turnon {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px;
+  margin-right: 8px; padding: 5px 8px;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+  color: var(--dir-primary); background: var(--dir-surface-2);
+  border: 1px solid var(--dir-border); border-radius: 999px; cursor: pointer;
+}
+.dir-linkpick-turnon:hover { background: var(--dir-primary); color: #fff; border-color: var(--dir-primary); }
 
 /* min-height: 0 is load-bearing, not tidiness. A flex child with
    overflow-y:auto will not shrink below its CONTENT height without it, so on a

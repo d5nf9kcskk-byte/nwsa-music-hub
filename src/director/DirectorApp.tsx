@@ -593,7 +593,7 @@ export default function DirectorApp() {
             {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} initialEnsembleId={intent.ensembleId} onClose={() => {}} />}
             {tab === 'messages'        && <MessagesView />}
             {tab === 'signups'         && <SignupsView />}
-            {tab === 'concertCheckin'  && <CheckinView />}
+            {tab === 'concertCheckin'  && <CheckinView onNavigate={go} />}
             {tab === 'juries'          && <JuriesView />}
             {tab === 'personnel' && PersonnelManager && (
               <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading personnel…</div>}>

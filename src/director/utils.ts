@@ -112,6 +112,25 @@ export function classGroups<T extends Pick<Ensemble, 'name' | 'kind'>>(list: T[]
   return list.filter(e => !isDivision(e) && isClassGroup(e));
 }
 
+/**
+ * Every event a check-in station could belong to (#concert-checkin): concert
+ * and Event-type items, but never something tied ONLY to a class — a theory
+ * presentation is not a concert, and offering it a station would sweep a
+ * class onto one. School-wide items (no ensembleIds) still qualify.
+ * performingEnsembles(), not musicEnsembles() (#division-shortcut) — the ONE
+ * definition, shared by the director's Concert Check-In list and the
+ * announcement link picker's check-in step.
+ */
+export function checkinCandidateEvents<T extends Pick<CalendarEvent, 'type' | 'ensembleIds'>>(
+  events: T[],
+  ensembles: Ensemble[],
+): T[] {
+  const ids = new Set(performingEnsembles(ensembles).map(e => e.id));
+  return events.filter(e =>
+    (e.type === 'Concert' || e.type === 'Event')
+    && (e.ensembleIds.length === 0 || e.ensembleIds.some(id => ids.has(id))));
+}
+
 /** College / dual-enrollment flag — ensembles and classes both use it to list
  *  under the College section rather than All Ensembles / All Classes. */
 export function isCollegeGroup(e: Pick<Ensemble, 'collegeLevel'>): boolean {

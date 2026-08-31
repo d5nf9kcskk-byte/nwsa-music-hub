@@ -45,6 +45,20 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'The concert page still has its own check-in button \u2014 both go to the same place.',
     ],
   },
+  // Director-side Concert Check-In setup list + the link-picker's check-in
+  // step (#concert-checkin). Staff-only: a director-facing workflow change.
+  {
+    id: '2026-08-31-checkin-director-setup',
+    date: '2026-08-31',
+    title: 'Turn on a concert’s check-in station from Concert Check-In',
+    audience: 'staff' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'Concert Check-In now lists every concert, with or without a station — search it, and tap Add check-in to switch one on right there. No more trip to the event editor to find the checkbox.',
+      'Required/Optional and the check-in window still live in the event editor — tap Edit on a concert to jump straight there.',
+      'Linking to a check-in from an announcement now opens a second step: pick the concert from a full searchable list, station on or off, and switch it on inline if it isn’t yet.',
+    ],
+  },
   // Formatting toolbar: link, font, strikethrough, quote (#linking phase 1).
   {
     id: '2026-08-31-text-links-fonts',

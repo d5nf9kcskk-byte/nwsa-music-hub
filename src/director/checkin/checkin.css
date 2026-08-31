@@ -55,3 +55,31 @@
 
 .dir-checkin-drive { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
 .dir-checkin-drive .dir-input { flex: 1 1 16rem; }
+
+/* Every music-division concert, searchable — the page's entry point (#124). */
+.dir-checkin-concerts { padding: 1rem; margin-bottom: 1rem; }
+.dir-checkin-concerts h3 { display: flex; align-items: center; gap: .4rem; margin: 0 0 .6rem; font-size: .95rem; }
+.dir-checkin-search {
+  display: flex; align-items: center; gap: .5rem;
+  margin-bottom: .7rem; color: var(--dir-text-2, #6b7280);
+}
+.dir-checkin-search .dir-input { flex: 1 1 auto; }
+
+.dir-checkin-concert-list { list-style: none; margin: 0; padding: 0; max-height: 22rem; overflow-y: auto; }
+.dir-checkin-concert {
+  display: flex; align-items: flex-start; gap: .5rem; flex-wrap: wrap;
+  padding: .6rem 0; border-top: 1px solid var(--dir-border, #e5e7eb);
+}
+.dir-checkin-concert:first-child { border-top: 0; }
+.dir-checkin-concert.selected { background: var(--dir-card-alt, #f3f4f6); }
+.dir-checkin-concert-main {
+  flex: 1 1 14rem; min-width: 0; text-align: left;
+  background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit;
+}
+.dir-checkin-concert-head { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.dir-checkin-concert-actions { display: flex; gap: .4rem; flex: 0 0 auto; flex-wrap: wrap; align-self: center; }
+
+.dir-linkish {
+  background: none; border: 0; padding: 0; font: inherit; cursor: pointer;
+  color: var(--dir-primary); text-decoration: underline;
+}
