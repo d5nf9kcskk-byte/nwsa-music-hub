@@ -1,0 +1,74 @@
+/**
+ * Which credentials the Drive syncs use — and why it is not the obvious one.
+ *
+ * A service account OWNS every file it creates and has no Drive storage of
+ * its own, so it cannot create a file inside a personal My Drive folder
+ * however that folder is shared. Editor access does not change it; Drive
+ * answers `storageQuotaExceeded` no matter what. Google's remedy is a Shared
+ * Drive, where files are owned by the drive rather than the uploader — but
+ * Shared Drives are a Google Workspace feature and this school's Google
+ * account is a consumer one, so that door is closed.
+ *
+ * So Drive is spoken to as the PERSON who owns the folder, via a long-lived
+ * OAuth refresh token: the files land in that account's own storage, owned by
+ * them, exactly as if they had dragged them in. Firestore and Storage keep
+ * using the service account — only Drive changes.
+ *
+ * `google` is injected rather than imported so this module (and its
+ * self-check) load without googleapis present; the workflows install that
+ * package only after the self-checks have run.
+ */
+
+export const DRIVE_OAUTH_VARS = [
+  'DRIVE_OAUTH_CLIENT_ID',
+  'DRIVE_OAUTH_CLIENT_SECRET',
+  'DRIVE_OAUTH_REFRESH_TOKEN',
+];
+
+/**
+ * All three set → 'oauth'. None set → 'service-account' (correct for a Shared
+ * Drive, and the honest state before anyone configures OAuth). Some set →
+ * 'incomplete', which must NOT quietly fall back: falling back would put the
+ * sync on the account that cannot write and report a quota error instead of
+ * the missing secret.
+ */
+export function driveAuthMode(env = process.env) {
+  const set = k => !!String(env[k] ?? '').trim();
+  const missing = DRIVE_OAUTH_VARS.filter(k => !set(k));
+  if (missing.length === 0) return { mode: 'oauth', missing: [] };
+  if (missing.length === DRIVE_OAUTH_VARS.length) return { mode: 'service-account', missing: [] };
+  return { mode: 'incomplete', missing };
+}
+
+/** A Drive client, plus a one-line description of whose storage files land in.
+ *  Never logs or returns any part of the credential. */
+export function driveClient(google, serviceAccount, saScopes, env = process.env) {
+  const { mode, missing } = driveAuthMode(env);
+
+  if (mode === 'incomplete') {
+    throw new Error(`Drive OAuth is half-configured — missing ${missing.join(', ')}.`
+      + ' Set all three repository secrets, or none to fall back to the service account.'
+      + ' See docs/drive-oauth-setup.md.');
+  }
+
+  if (mode === 'oauth') {
+    const auth = new google.auth.OAuth2(
+      env.DRIVE_OAUTH_CLIENT_ID.trim(),
+      env.DRIVE_OAUTH_CLIENT_SECRET.trim(),
+    );
+    auth.setCredentials({ refresh_token: env.DRIVE_OAUTH_REFRESH_TOKEN.trim() });
+    return {
+      drive: google.drive({ version: 'v3', auth }),
+      mode,
+      describe: 'Drive: signed in as the folder owner (OAuth). Files are owned by that account.',
+    };
+  }
+
+  const auth = new google.auth.GoogleAuth({ credentials: serviceAccount, scopes: saScopes });
+  return {
+    drive: google.drive({ version: 'v3', auth }),
+    mode,
+    describe: `Drive: service account ${serviceAccount.client_email}.`
+      + ' This can only write into a Shared Drive, never a personal My Drive folder.',
+  };
+}
