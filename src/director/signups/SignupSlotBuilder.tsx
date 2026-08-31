@@ -97,7 +97,11 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, locked,
 
   function onGripDown(e: React.PointerEvent<HTMLButtonElement>, displayIndex: number) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    // preventDefault stops the text selection a drag would otherwise start —
+    // and also stops the browser focusing the button, which left the arrow-key
+    // reorder promised in this grip's own aria-label unreachable by mouse.
     e.preventDefault();
+    e.currentTarget.focus();
     e.currentTarget.setPointerCapture(e.pointerId);
     setDrag({ from: displayIndex, to: displayIndex });
   }
