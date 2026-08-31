@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { RichTextArea } from '../components/RichTextArea';
 import type { Personnel, PersonnelContact, Ensemble } from '../types';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { musicEnsembles } from '../utils';
@@ -255,7 +256,7 @@ export function PersonnelForm({ person, contact, ensembles, hasContracts, onSave
 
           <div className="dir-field">
             <label className="dir-label">Notes <span className="dir-label-hint">personnel manager only</span></label>
-            <textarea className="dir-input" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="e.g. prefers early calls" />
+            <RichTextArea value={form.notes} onChange={v => set('notes', v)} rows={2} placeholder="e.g. prefers early calls" />
           </div>
 
           <div className="dir-contact-note">🔒 Contact and paperwork details are visible to signed-in directors only. Nothing on this screen is ever public.</div>

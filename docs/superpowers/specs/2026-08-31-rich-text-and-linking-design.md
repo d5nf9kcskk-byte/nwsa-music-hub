@@ -1,7 +1,7 @@
 # Rich text everywhere + linking to things — design
 
 **Date:** 2026-08-31
-**Status:** approved, phase 1 in progress
+**Status:** shipped 2026-08-31 (phases 1-4), less the two contract-text fields — see Out of scope
 
 ## The ask
 
@@ -181,3 +181,21 @@ visually.
 Nested emphasis inside a link label. Per-word font on the public site beyond
 the four listed. Any rich text in the four machine-parsed paste boxes or the
 three unauthenticated public forms.
+
+**Left out of phase 4 on purpose: the two contract-text fields** —
+`ContractForm.termsText` and `ContractTemplatesView.bodyText`. Everything else
+on the phase-4 list shipped. These two are the frozen prose of a signed
+agreement: the text is stamped verbatim at issue alongside a `templateVersion`,
+it already carries a `{{token}}` substitution layer, and `ContractSheet`
+renders it through its own paragraph splitter rather than `RichText`. Layering
+a second syntax onto versioned legal text — and changing how an
+already-issued, already-signed contract renders — is a decision of its own,
+not a rollout sweep. Nothing is at risk today either way: `features.personnel`
+is `false` for NWSA, so that surface is folded out of the build entirely.
+The personnel and contract NOTES fields (ordinary private staff prose) did
+get the toolbar.
+
+**Resolved, not deferred:** the spec worried that the `rt` styles would not
+reach the sign-up PDF packet. They do — `printViaPopup` copies every
+stylesheet from the document, and `richText.css` is bundled into the
+always-loaded `index.css`. Verified in `dist/`.

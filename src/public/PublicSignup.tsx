@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { NotesText } from './components/NotesText';
 import { useParams, Link } from 'react-router';
 import { ClipboardSignature, FileText, CalendarClock, Check, Search, Paperclip } from 'lucide-react';
 import { db } from '../director/firebase';
@@ -252,7 +253,7 @@ export function PublicSignup() {
             </span>
           )}
         </div>
-        {form.intro && <p className="pub-signup-intro">{form.intro}</p>}
+        {form.intro && <div className="pub-signup-intro"><NotesText text={form.intro} /></div>}
         {docUrl && (
           <a className="pub-signup-doc" href={docUrl} target="_blank" rel="noreferrer">
             <FileText size={15} /> Open the official form
@@ -417,7 +418,7 @@ export function PublicSignup() {
                     <div className="pub-signup-step-title">Sign</div>
                   </div>
                   <div className="pub-card">
-                    <p className="pub-signup-statement">{form.signatureStatement}</p>
+                    <div className="pub-signup-statement"><NotesText text={form.signatureStatement ?? ''} /></div>
                     <label className="pub-absence-label" htmlFor="su-sign">Type your full name to sign</label>
                     <input id="su-sign" className="pub-absence-input pub-signup-sign" maxLength={120}
                       autoComplete="off" autoCapitalize="words" value={signature}
@@ -429,7 +430,7 @@ export function PublicSignup() {
                     {needsGuardian && (
                       <>
                         <div className="pub-signup-divider" />
-                        <p className="pub-signup-statement">{form.guardianStatement}</p>
+                        <div className="pub-signup-statement"><NotesText text={form.guardianStatement ?? ''} /></div>
                         <label className="pub-absence-label" htmlFor="su-gname">Parent/guardian name</label>
                         <input id="su-gname" className="pub-absence-input" maxLength={120}
                           autoComplete="name" value={guardianName}

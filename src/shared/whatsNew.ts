@@ -43,7 +43,21 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'The formatting bar now has a link button: select some words, tap it, and paste an address — students see the words, not the raw URL.',
       'A link can point inside the Hub too (a concert, a class, a document, a sign-up), and it opens without reloading the page.',
       'Also new: a font picker (Sans, Serif, Georgia, Mono), strikethrough, and block quotes.',
+      'The same toolbar is now on every text box you write in — announcements, notes, jury notes, program notes, sign-up forms.',
+      'An announcement can also carry Related links: pick a concert or a document and it appears as a button under the message.',
       'Tap Preview to see exactly what students will read.',
+    ],
+  },
+  // Public half of the same ship: formatted posts and the link buttons.
+  {
+    id: '2026-08-31-announcement-links',
+    date: '2026-08-31',
+    title: 'Announcements can point you straight to things',
+    audience: 'public' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'Posts can now carry buttons that take you right to the concert, document, or sign-up they are about.',
+      'Directors can format a post too — headings, bold, lists — so longer notices are easier to read.',
     ],
   },
   // Student Assistant rename + optional extras beyond take-roll.

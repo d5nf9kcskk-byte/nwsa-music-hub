@@ -1,4 +1,5 @@
 import { useMemo, useRef } from 'react';
+import { NotesText } from './components/NotesText';
 import { useParams, Link } from 'react-router';
 import { Printer, Clock } from 'lucide-react';
 import { BackLink } from './components/BackLink';
@@ -8,7 +9,6 @@ import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useStudentsPublic } from './hooks/usePublicRoster';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
 import { formatTimeRange, eventPieceDuration, eventPieceMovements, pieceEnsembleIds, ensembleDisplayName, buildSections } from '../director/utils';
-import { Linkify } from '../director/components/Linkify';
 import { fmtFullDate } from '../shared/dates';
 import { printViaPopup } from '../shared/printPopup';
 import type { Ensemble, RepertoirePiece, SeatingChart } from '../director/types';
@@ -259,7 +259,7 @@ export function PublicProgram() {
                         {p.title}
                         {p.composer ? <span className="pub-program-note-by"> — {p.composer}</span> : ''}
                       </div>
-                      <p className="pub-program-note-body"><Linkify text={p.programNotes!} /></p>
+                      <div className="pub-program-note-body"><NotesText text={p.programNotes!} /></div>
                     </div>
                   ))}
                 </div>

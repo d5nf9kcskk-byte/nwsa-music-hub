@@ -429,7 +429,9 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
           <div className="dir-field">
             <label className="dir-label">Spanish translation (optional)</label>
             <input className="dir-input" value={titleEs} onChange={e => setTitleEs(e.target.value)} placeholder="Título en español" />
-            <textarea className="dir-input dir-textarea" style={{ marginTop: 6 }} value={bodyEs} onChange={e => setBodyEs(e.target.value)} rows={3} placeholder="Mensaje en español (opcional)" />
+            <div style={{ marginTop: 6 }}>
+              <RichTextArea value={bodyEs} onChange={setBodyEs} rows={3} placeholder="Mensaje en español (opcional)" />
+            </div>
             <div className="dir-field-hint">Families reading in Español see this version; posts with a translation show an ES button.</div>
           </div>
 
