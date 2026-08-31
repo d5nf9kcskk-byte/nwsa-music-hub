@@ -1,11 +1,11 @@
 import { useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowDownWideNarrow, ChevronLeft, ChevronRight, GripVertical, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { fmtMonthYear, weekdayInitials } from '../../shared/dates';
 import { parseSignupSlotText, mergeSlotDefs, slotsForDates } from '../../shared/signupSlotParse';
 import { parseDate, todayStr, toDateStr } from '../utils';
 import {
   defaultSlotTimes, formatClockMin, formatSignupSlotLabel, formatSlotDuration,
-  minutesToParts, partsToMinutes, snapMinute,
+  minutesToParts, moveItem, partsToMinutes, snapMinute, sortSlotDefs,
   SLOT_AMPM, SLOT_HOURS_12, SLOT_MINUTE_STEPS,
 } from '../../shared/signupSlotTimes';
 import { FilterMenu } from '../../shared/FilterMenu';
@@ -23,12 +23,16 @@ const GRADE_FILTER_OPTS = SIGNUP_SLOT_GRADES.map(g => ({ value: g, label: g }));
 
 /** Build / edit bookable time slots: describe many at once, multi-day calendar,
  *  or line-by-line manual fallback. Optional per-slot grade limits (e.g. 12th
- *  only) for lesson-time sign-ups. */
-export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, onChange }: {
+ *  only) for lesson-time sign-ups. New slots land in time order; drag the grip
+ *  (or arrow-key it) to override. */
+export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, locked, onChange }: {
   slotDefs: SignupSlotDef[];
   manualDraft: string;
   /** Parallel to manual lines when not using calendar defs. */
   optionGrades?: (string[] | null)[];
+  /** A student already booked one of these times — a booking points at its slot
+   *  POSITION (slotBookingId), so reordering would hand them someone else's time. */
+  locked?: boolean;
   onChange: (patch: {
     slotDefs?: SignupSlotDef[];
     slotManualDraft?: string;
@@ -45,6 +49,8 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, onChang
   const [nlText, setNlText] = useState('');
   const [manualOpen, setManualOpen] = useState(!!manualDraft && slotDefs.length === 0);
   const [bulkGrades, setBulkGrades] = useState<string[]>([]);
+  const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const y = cursor.getFullYear();
   const mo = cursor.getMonth();
@@ -76,7 +82,47 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, onChang
   }
 
   function commitSlots(next: SignupSlotDef[]) {
-    onChange({ slotDefs: next, slotManualDraft: '', optionGrades: undefined });
+    onChange({
+      slotDefs: locked ? next : sortSlotDefs(next),
+      slotManualDraft: '',
+      optionGrades: undefined,
+    });
+  }
+
+  /** Row order on screen: the saved order with any in-flight drag applied. */
+  const rowOrder = useMemo(() => {
+    const base = slotDefs.map((_, i) => i);
+    return drag ? moveItem(base, drag.from, drag.to) : base;
+  }, [slotDefs, drag]);
+
+  function onGripDown(e: React.PointerEvent<HTMLButtonElement>, displayIndex: number) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({ from: displayIndex, to: displayIndex });
+  }
+
+  function onGripMove(e: React.PointerEvent<HTMLButtonElement>) {
+    if (!drag) return;
+    const rows = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[data-slot-row]') ?? []);
+    // Rows render in pending order; drop before the first row whose midpoint is
+    // below the pointer (else at the end).
+    let to = rows.length - 1;
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i].getBoundingClientRect();
+      if (e.clientY < r.top + r.height / 2) { to = i; break; }
+    }
+    if (to !== drag.to) setDrag(d => (d ? { ...d, to } : d));
+  }
+
+  function onGripUp() {
+    if (!drag) return;
+    if (drag.from !== drag.to) onChange({ slotDefs: rowOrder.map(src => slotDefs[src]) });
+    setDrag(null);
+  }
+
+  function moveSlot(from: number, dir: -1 | 1) {
+    onChange({ slotDefs: moveItem(slotDefs, from, from + dir) });
   }
 
   function addFromNaturalLanguage() {
@@ -154,7 +200,8 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, onChang
     <div className="dir-signup-slot-builder">
       <div className="dir-signup-help">
         Describe many slots at once, or select several days on the calendar and add the same window to all of them.
-        Shift-click a second day to select a range. Once students start booking, add new slots at the bottom only.
+        Shift-click a second day to select a range. New slots sort themselves into time order — drag a slot by its grip to override.
+        Once students start booking, the order is locked so their time stays theirs.
         Example: open times for all violinists; mark two slots as 12th only.
       </div>
 
@@ -285,27 +332,64 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, onChang
       </button>
 
       {slotDefs.length > 0 && (
-        <div className="dir-signup-slot-builder-list">
-          {slotDefs.map((def, i) => (
-            <div key={`${def.date}-${def.startMin}-${i}`} className="dir-signup-slot-builder-row dir-signup-slot-builder-row-grades">
-              <span>{formatSignupSlotLabel(def)}</span>
-              <div className="dir-signup-audience-fm dir-signup-slot-grade-pick">
-                <FilterMenu
-                  prefix="dir"
-                  allLabel="Anyone"
-                  options={GRADE_FILTER_OPTS}
-                  selected={def.grades ?? []}
-                  onChange={g => setSlotGrades(i, g)}
-                  ariaLabel="Who can pick this time"
-                />
-              </div>
-              <button type="button" className="dir-tool-btn dir-btn-danger" aria-label="Remove slot"
-                onClick={() => removeSlot(i)}>
-                <Trash2 size={14} />
+        <>
+          <div className="dir-signup-slot-list-head">
+            <span>{slotDefs.length} slot{slotDefs.length === 1 ? '' : 's'}</span>
+            {locked ? (
+              <span className="dir-signup-slot-locked">Students have booked — order is fixed</span>
+            ) : slotDefs.length > 1 && (
+              <button type="button" className="dir-signup-slot-sort"
+                onClick={() => onChange({ slotDefs: sortSlotDefs(slotDefs) })}>
+                <ArrowDownWideNarrow size={13} /> Sort by time
               </button>
-            </div>
-          ))}
-        </div>
+            )}
+          </div>
+          <div className="dir-signup-slot-builder-list" ref={listRef}>
+            {rowOrder.map((src, i) => {
+              const def = slotDefs[src];
+              return (
+                <div
+                  key={`${def.date}-${def.startMin}-${src}`}
+                  data-slot-row
+                  className={`dir-signup-slot-builder-row dir-signup-slot-builder-row-grades${drag && drag.to === i ? ' dragging' : ''}`}
+                >
+                  {!locked && slotDefs.length > 1 && (
+                    <button
+                      type="button"
+                      className="dir-piece-grip"
+                      aria-label={`Reorder ${formatSignupSlotLabel(def)} — drag, or use arrow keys`}
+                      onPointerDown={e => onGripDown(e, i)}
+                      onPointerMove={onGripMove}
+                      onPointerUp={onGripUp}
+                      onPointerCancel={() => setDrag(null)}
+                      onKeyDown={e => {
+                        if (e.key === 'ArrowUp') { e.preventDefault(); moveSlot(src, -1); }
+                        if (e.key === 'ArrowDown') { e.preventDefault(); moveSlot(src, 1); }
+                      }}
+                    >
+                      <GripVertical size={16} />
+                    </button>
+                  )}
+                  <span>{formatSignupSlotLabel(def)}</span>
+                  <div className="dir-signup-audience-fm dir-signup-slot-grade-pick">
+                    <FilterMenu
+                      prefix="dir"
+                      allLabel="Anyone"
+                      options={GRADE_FILTER_OPTS}
+                      selected={def.grades ?? []}
+                      onChange={g => setSlotGrades(src, g)}
+                      ariaLabel="Who can pick this time"
+                    />
+                  </div>
+                  <button type="button" className="dir-tool-btn dir-btn-danger" aria-label="Remove slot"
+                    onClick={() => removeSlot(src)}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       <button type="button" className="dir-signup-slot-manual-toggle"

@@ -48,6 +48,16 @@ export function sortSlotDefs(defs: SignupSlotDef[]): SignupSlotDef[] {
     a.date.localeCompare(b.date) || a.startMin - b.startMin || a.endMin - b.endMin);
 }
 
+/** Move one item to another position (drag / arrow-key reorder).
+ *  Out-of-range leaves the list untouched. */
+export function moveItem<T>(list: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return list;
+  const next = [...list];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}
+
 export const SLOT_MINUTE_STEPS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] as const;
 export const SLOT_HOURS_12 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 export const SLOT_AMPM = ['AM', 'PM'] as const;

@@ -5,7 +5,7 @@
 import {
   formatClockMin, formatSignupSlotLabel, formatSlotDuration,
   isValidSlotDef, minutesToParts, partsToMinutes, slotDefsToOptions,
-  normalizeTimeslotQuestion,
+  normalizeTimeslotQuestion, sortSlotDefs, moveItem,
 } from './signupSlotTimes.ts';
 
 function assert(cond: unknown, msg: string): void {
@@ -52,5 +52,21 @@ assert(manual.optionGrades?.[0]?.[0] === '12th', 'manual keeps optionGrades');
 
 const { hour12, ampm } = minutesToParts(partsToMinutes(12, 0, 'PM'));
 assert(hour12 === 12 && ampm === 'PM', 'noon');
+
+// Order: added slots land chronologically; a manual move keeps every slot.
+const jumbled = [
+  { date: '2026-03-04', startMin: 540, endMin: 570 },
+  { date: '2026-03-03', startMin: 900, endMin: 930 },
+  { date: '2026-03-03', startMin: 840, endMin: 870 },
+];
+const sorted = sortSlotDefs(jumbled);
+assert(sorted.map(d => `${d.date}:${d.startMin}`).join('|')
+  === '2026-03-03:840|2026-03-03:900|2026-03-04:540', 'chronological sort');
+assert(jumbled[0].date === '2026-03-04', 'sort does not mutate');
+
+assert(moveItem([1, 2, 3], 2, 0).join('') === '312', 'move last to front');
+assert(moveItem([1, 2, 3], 0, 1).join('') === '213', 'move down one');
+assert(moveItem([1, 2, 3], 0, 9).join('') === '123', 'out of range = unchanged');
+assert(moveItem(sorted, 0, 2).length === sorted.length, 'move loses nobody');
 
 console.log('signupSlotTimes.selfcheck: ok');

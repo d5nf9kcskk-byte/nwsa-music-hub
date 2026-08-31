@@ -611,6 +611,8 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
   const [studentQuery, setStudentQuery] = useState('');
   // Stable Storage folder so a file can attach before the form doc exists.
   const [uploadId] = useState(() => formId ?? `new-${Date.now()}`);
+  // A booking points at a slot's POSITION, so a booked question can't be reordered.
+  const { bookings: slotBookings } = useSignupSlotBookings(formId ?? '');
   const inviteMode = draft.audienceMode === 'students';
   const inviteIds = draft.inviteStudentIds ?? [];
   const ensembleOptions = useMemo(
@@ -897,6 +899,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
                   slotDefs={q.slotDefs ?? []}
                   manualDraft={q.slotManualDraft ?? (q.slotDefs?.length ? '' : (q.options ?? []).join('\n'))}
                   optionGrades={q.optionGrades}
+                  locked={slotBookings.some(b => b.questionId === q.id)}
                   onChange={patch => setQuestion(i, patch)}
                 />
               )}

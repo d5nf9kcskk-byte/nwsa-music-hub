@@ -32,6 +32,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Sign-up time slots sort themselves; grip-drag to override (#signups).
+  {
+    id: '2026-08-31-signup-slot-order',
+    date: '2026-08-31',
+    title: 'Sign-up times put themselves in order',
+    audience: 'staff' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'Time slots you add to a sign-up now land in date and time order, however you added them — described in a sentence, picked on the calendar, or both.',
+      'To put them in your own order, drag a slot by the grip on its left (arrow keys work too), or tap Sort by time to go back to chronological.',
+      'Once a student has booked one of the times, the order locks — their slot stays their slot.',
+    ],
+  },
   // Concert-day reminder banner (#concert-day-alert), top of every page.
   {
     id: '2026-08-31-concert-day-banner',
