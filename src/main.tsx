@@ -21,6 +21,7 @@ import { PublicAssignment } from './public/PublicAssignment';
 import { PublicDocuments } from './public/PublicDocuments';
 import { PublicSignups } from './public/PublicSignups';
 import { PublicSignup } from './public/PublicSignup';
+import { PublicCheckin } from './public/PublicCheckin';
 import { StartGuide } from './public/StartGuide';
 import { SeasonPage } from './public/SeasonPage';
 import { CampusMap } from './public/CampusMap';
@@ -84,6 +85,9 @@ const router = createBrowserRouter(
         // Sign-ups (#signups): the index, and one form per sign-up.
         { path: 'signups', element: <PublicSignups /> },
         { path: 'signup/:id', element: <PublicSignup /> },
+        // The concert door (#concert-checkin) — also reachable from the
+        // concert card, the Home/Calendar banner, and a QR poster.
+        { path: 'checkin/:id', element: <PublicCheckin /> },
         { path: 'start', element: <StartGuide /> },
         { path: 'concerts', element: <SeasonPage /> },
         // Campus map is NWSA-only (hardcoded MDC Wolfson buildings) — other
@@ -110,7 +114,7 @@ const router = createBrowserRouter(
     },
     // Staff entry points — same AuthGate + DirectorApp as /director. After
     // sign-in, pickShell() chooses the panel from the account's roles
-    // (director / applied teacher / classroom teacher / personnel assistant),
+    // (director / applied teacher / classroom teacher / student assistant),
     // regardless of which URL they used to open the sign-in screen.
     {
       path: '/assistant/*',

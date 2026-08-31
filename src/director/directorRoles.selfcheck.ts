@@ -1,11 +1,13 @@
 import {
+  assistantCapabilities,
+  assistantHasCapability,
   directorRoles,
   hasDirectorRole,
   isStaffMember,
   primaryDirectorRole,
   directorRoleLabels,
 } from './directorRoles';
-import { STAFF_ROLE_LABEL } from './types';
+import { ASSISTANT_CAPABILITY_LABEL, STAFF_ROLE_LABEL } from './types';
 
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg);
@@ -42,5 +44,17 @@ assert(
 assert(hasDirectorRole({ roles: ['classroom'] }, 'classroom'), 'classroom role');
 assert(!isStaffMember({ roles: ['classroom'] }), 'classroom alone not staff');
 assert(STAFF_ROLE_LABEL.classroom === 'Classroom Teacher', 'classroom label');
+assert(STAFF_ROLE_LABEL.assistant === 'Student Assistant', 'assistant label');
+
+// Student Assistant optional capabilities
+assert(assistantCapabilities({}).length === 0, 'no caps → empty');
+assert(assistantCapabilities({ assistantCapabilities: ['schedule', 'signups'] }).join() === 'schedule,signups', 'caps list');
+assert(assistantHasCapability({ assistantCapabilities: ['repertoire'] }, 'repertoire'), 'has repertoire');
+assert(!assistantHasCapability({ assistantCapabilities: ['schedule'] }, 'signups'), 'missing signup');
+assert(
+  assistantCapabilities({ assistantCapabilities: ['schedule', 'bogus' as 'schedule'] }).join() === 'schedule',
+  'unknown caps dropped',
+);
+assert(ASSISTANT_CAPABILITY_LABEL.schedule === 'Rehearsals & concerts', 'schedule label');
 
 console.log('directorRoles.selfcheck.ts: ok');

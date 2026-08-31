@@ -56,6 +56,15 @@ jobs:
       - name: Check rich-text rendering
         run: npx tsx src/shared/richText.selfcheck.ts
 
+      # A contract is signed text: `termsText` is frozen verbatim at issue so
+      # that editing a template never changes what someone already agreed to.
+      # Now that the sheet renders that prose as RICH text, this renders the
+      # real ContractPrintSheet and pins what the document says — every
+      # starter template word for word, tokens resolved, and no javascript:
+      # href reaching a signed page.
+      - name: Contract sheet self-check (printed agreement)
+        run: npx tsx --tsconfig tsconfig.app.json --import ./scripts/vite-defines-shim.mjs src/director/personnel/contractSheet.selfcheck.tsx
+
       # Who a sign-up reaches. Drift here is silent — a director opens
       # "Camerata strings" and half the section never sees it (#signups).
       - name: Check sign-up eligibility
@@ -69,6 +78,24 @@ jobs:
 
       - name: Check sign-up slot parsing
         run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/signupSlotParse.selfcheck.ts
+
+      # The concert door (#concert-checkin). The window is computed in
+      # school-local time from a UTC server, whole-domain email matching keeps
+      # notstudents.dadeschools.net out, and a duplicate scan is refused by the
+      # doc id — all three are silent to break and loud to discover at a concert.
+      - name: Check concert check-in rules
+        run: npx tsx src/shared/concertCheckin.selfcheck.ts
+
+      # The cumulative CSV: one row per student per concert, and a concert
+      # counts only when BOTH scans exist.
+      # No defines shim: the CSV module takes its config as an argument so the
+      # Drive sync (plain node, no vite) can build the SAME file the director
+      # downloads. Running it bare here keeps that honest.
+      - name: Check concert attendance CSV
+        run: npx tsx src/director/checkin/checkinCsv.selfcheck.ts
+
+      - name: Check concert photo Drive naming
+        run: node scripts/drive-photo-names.selfcheck.mjs
 
       # Shared/combined blocks: the predicate that decides whether several
       # ensembles on one event means "one room together" — and the guard that

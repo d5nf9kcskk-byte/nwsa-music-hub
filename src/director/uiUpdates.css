@@ -1283,6 +1283,38 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
 
 
 
+/* ════════ Move a Student — Phase 4b sentence page (#two-doors §2) ════════ */
+.dir-verb-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.dir-verb-chip.active {
+  background: var(--dir-primary); border-color: var(--dir-primary); color: #fff;
+}
+.dir-sent {
+  padding: 14px; font-size: 16px; line-height: 2.1; color: var(--dir-text);
+  background: var(--dir-surface); border: 1.5px solid var(--dir-border);
+  border-radius: var(--dir-radius); margin-bottom: 10px;
+}
+.dir-sent-muted { color: var(--dir-text-muted); }
+.dir-sent-fixed { font-style: italic; font-weight: 700; }
+.dir-sent-ctl {
+  display: inline-block; margin: 0 2px; padding: 3px 8px;
+  font: inherit; font-size: 15px; font-weight: 700; line-height: 1.4;
+  color: var(--dir-primary); background: var(--dir-surface-2);
+  border: 1.5px solid var(--dir-border); border-radius: 8px;
+  max-width: 100%;
+}
+.dir-sent-reason { min-width: 180px; font-weight: 500; }
+.dir-conseq { font-weight: 500; display: flex; flex-direction: column; gap: 4px; }
+/* Staff heads-up notices on Today (#two-doors §5.1) */
+.dir-staff-notice {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 0 16px 10px; padding: 10px 12px;
+  background: var(--dir-surface); border: 1.5px solid var(--dir-border);
+  border-left: 5px solid var(--dir-primary); border-radius: var(--dir-radius);
+}
+.dir-staff-notice svg { flex-shrink: 0; margin-top: 2px; color: var(--dir-primary); }
+.dir-staff-notice-text { flex: 1; font-size: 13.5px; font-weight: 600; color: var(--dir-text); }
+.dir-staff-notice-by { font-weight: 500; color: var(--dir-text-muted); }
+
 /* ── Change a Day: day board + plan review (#schedule-ux-two-doors §3) ── */
 .dir-quickplan-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .dir-dayboard { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; margin-bottom: 12px; }

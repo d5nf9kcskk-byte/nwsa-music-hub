@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { RichTextArea } from '../components/RichTextArea';
 import { Plus, Gavel, ChevronUp, ChevronDown, X, ArrowDownWideNarrow } from 'lucide-react';
 import { useJuries } from '../hooks/useJuries';
 import { useStudents } from '../hooks/useStudents';
@@ -264,7 +265,7 @@ function JuryForm({ jury, onSave, onDelete, onClose }: {
 
           <div className="dir-field">
             <label className="dir-label">Notes</label>
-            <textarea className="dir-input" rows={4} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Anything not settled yet — requirements, scales, who still owes a form…" />
+            <RichTextArea value={notes} onChange={setNotes} rows={4} placeholder="Anything not settled yet — requirements, scales, who still owes a form…" />
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>

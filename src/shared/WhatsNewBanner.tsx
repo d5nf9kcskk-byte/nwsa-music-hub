@@ -19,9 +19,9 @@ function visibleFor(audience: WhatsNewAudience, entry: WhatsNewEntry, today: str
 
 /**
  * One roll-up of everything shipped that this device hasn't seen yet.
- * Collapsed it is a single line ("What's new · <newest date>"); open it lists
- * every unseen entry with the date it shipped. Dismissing marks them all seen.
- * Renders nothing when nothing is unseen. Staff Today + public menu.
+ * Collapsed: just "What's New". Open: each unseen entry with its ship date.
+ * Dismissing marks them all seen. Renders nothing when nothing is unseen.
+ * Staff menu + public menu.
  */
 export function WhatsNewBanner({ audience }: { audience: WhatsNewAudience }) {
   const today = todayStr();
@@ -46,9 +46,7 @@ export function WhatsNewBanner({ audience }: { audience: WhatsNewAudience }) {
     <details className="whats-new">
       <summary className="whats-new-head">
         <Sparkles size={15} aria-hidden />
-        <strong>What&apos;s new</strong>
-        <span className="whats-new-date">{entries[0].date}</span>
-        {entries.length > 1 && <span className="whats-new-count">{entries.length} updates</span>}
+        <strong>What&apos;s New</strong>
         <button
           type="button"
           className="whats-new-dismiss"
@@ -60,8 +58,8 @@ export function WhatsNewBanner({ audience }: { audience: WhatsNewAudience }) {
       </summary>
       {entries.map(e => (
         <div key={e.id} className="whats-new-item">
-          <div className="whats-new-title">{e.title}</div>
           <div className="whats-new-item-date">{e.date}</div>
+          <div className="whats-new-title">{e.title}</div>
           {e.bullets.length > 0 && (
             <ul className="whats-new-list">
               {e.bullets.map((b, i) => <li key={i}>{b}</li>)}

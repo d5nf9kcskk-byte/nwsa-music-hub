@@ -3,7 +3,9 @@ rules_version = '2';
 // NWSA Music Hub — Firebase Storage security rules
 //
 // Uploaded files back two public features: assignment attachments and the
-// document repository (syllabi, handbooks, forms). The files are world-
+// document repository (syllabi, handbooks, forms) — plus, since Aug 2026,
+// concert check-in selfies, which are the one path here that is NOT
+// world-readable (see the /checkins block). The files are world-
 // READABLE (their links are already public in Firestore), and only a
 // director/owner may upload, overwrite, or delete them (Teachers are scoped
 // to lesson scheduling only — see firestore.rules — and don't get Storage
@@ -31,7 +33,7 @@ service firebase.storage {
     // firestore.rules' isStaff(). Owner and Director get full Storage access
     // (a legacy doc with no role counts as director); every other role is
     // fail-closed. The old check only excluded 'teacher', which let a
-    // Personnel Assistant — attendance-only by design — upload, overwrite,
+    // Student Assistant — attendance-scoped by design — upload, overwrite,
     // or delete the world-readable documents and assignment files (audit S5).
     function hasRole(r) {
       let d = directorDoc();
@@ -92,6 +94,23 @@ service firebase.storage {
            ).data.get('maxVideoSizeMB', 500) * 1024 * 1024
         && request.resource.contentType.matches('video/.*');
       allow update, delete: if isStaff();
+    }
+
+    // Concert check-in selfies (#concert-checkin).
+    //
+    // The one Storage path in this file with NO public read. The assignment,
+    // document, and submission paths above are world-readable because their
+    // links are already public in Firestore; these are photographs of
+    // students taken at a concert door, and no bearer link to one may exist.
+    // The CSV export resolves a link for a signed-in director at download
+    // time instead.
+    //
+    // No public WRITE either, unlike /submissions: the concertCheckin Cloud
+    // Function uploads through the Admin SDK, which bypasses these rules, so
+    // a photo can only ever arrive attached to a record the server itself
+    // stamped and validated. A phone never writes here directly.
+    match /checkins/{allPaths=**} {
+      allow read, write: if isStaff();
     }
 
     // Deny everything else by default.

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { NotesText } from '../../public/components/NotesText';
 import { Pencil, Phone, Mail, Users, Calendar, FileText, ClipboardCheck, ExternalLink, Archive, RotateCcw } from 'lucide-react';
 import { useAttendanceHistory } from '../hooks/useAttendance';
 import { useProgressNotes } from '../hooks/useProgressNotes';
@@ -291,7 +292,7 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
                         <span className="dir-detail-note-cat">{n.category}</span>
                       )}
                     </div>
-                    <div className="dir-detail-note-content"><Linkify text={n.content} /></div>
+                    <div className="dir-detail-note-content"><NotesText text={n.content} /></div>
                   </div>
                 ))}
                 {progressNotes.length > 6 && (

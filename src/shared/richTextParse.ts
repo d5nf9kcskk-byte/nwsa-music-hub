@@ -14,16 +14,26 @@
  *   # Big heading      ## Heading      ### Small heading
  *   -# small print
  *   - bullet       1. numbered       > quote
+ *   [label](https://…)   [label](/event/abc)   [label](font:georgia)
  *
  * Anything that does not pair up stays the literal character that was typed.
  */
 
 export type RichMark = 'bold' | 'italic' | 'underline' | 'strike' | 'code';
+/** The faces the toolbar's font control offers. Deliberately a closed set —
+ *  free-form font names in world-readable text would let one announcement
+ *  make the public site look broken. */
+export type RichFont = 'serif' | 'sans' | 'mono' | 'georgia';
 export type RichBlockKind = 'p' | 'h1' | 'h2' | 'h3' | 'small' | 'quote' | 'bullet' | 'ol' | 'blank';
 
 export interface RichSegment {
   text: string;
   marks: RichMark[];
+  /** Set by `[label](url)`. Already vetted by safeHref() — the renderer may
+   *  put this straight into an href. */
+  href?: string;
+  /** Set by `[label](font:georgia)`. */
+  font?: RichFont;
 }
 
 export interface RichBlock {
@@ -53,6 +63,64 @@ const BLOCK_PREFIXES: { re: RegExp; kind: RichBlockKind }[] = [
   { re: /^\d+[.)][ \t]+/, kind: 'ol' },
 ];
 
+/**
+ * The href allowlist for `[label](target)`.
+ *
+ * Rich text is world-readable (announcements) and an assistant holding the
+ * `announcements` capability can write it, so this is fail-closed: anything
+ * not explicitly allowed is not a link at all. `javascript:` and `data:`
+ * fall through every branch, and so does protocol-relative `//evil.com` —
+ * the classic bypass of a naive "starts with a slash" check.
+ */
+export function safeHref(raw: string): string | undefined {
+  const t = raw.trim();
+  if (!t) return undefined;
+  if (t.startsWith('/') && !t.startsWith('//')) return t; // app-relative
+  if (/^https?:\/\//i.test(t)) return t;
+  if (/^mailto:[^\s@]+@[^\s@]+$/i.test(t)) return t;
+  if (/^www\./i.test(t)) return `https://${t}`;
+  return undefined;
+}
+
+export interface BracketSpan {
+  start: number;
+  end: number;
+  label: string;
+  href?: string;
+  font?: RichFont;
+}
+
+/** Label: no `]` and no newline. Target: no whitespace and no `)`. Both must
+ *  be non-empty, so "[see] (below)" written as prose is left alone. */
+const BRACKET_RE = /\[([^\]\n]+)\]\(([^)\s]+)\)/g;
+const FONT_TARGET = /^font:(serif|sans|mono|georgia)$/i;
+
+/**
+ * Find every `[label](target)` construct. A target that is neither a known
+ * font nor an href safeHref() will vouch for produces NO span — the
+ * characters stay literal rather than being silently swallowed, so nothing a
+ * director typed can vanish from the screen.
+ */
+export function findBracketSpans(text: string): BracketSpan[] {
+  const out: BracketSpan[] = [];
+  BRACKET_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = BRACKET_RE.exec(text)) !== null) {
+    const [whole, label, target] = m;
+    const font = target.match(FONT_TARGET)?.[1].toLowerCase() as RichFont | undefined;
+    const href = font ? undefined : safeHref(target);
+    if (!font && !href) continue;
+    out.push({
+      start: m.index,
+      end: m.index + whole.length,
+      label,
+      ...(href ? { href } : {}),
+      ...(font ? { font } : {}),
+    });
+  }
+  return out;
+}
+
 interface Pair { open: number; close: number; len: number; mark: RichMark }
 
 const isSpace = (ch: string | undefined) => ch === undefined || /\s/.test(ch);
@@ -75,11 +143,20 @@ const URL_AT = /(?:https?:\/\/|www\.|[a-z0-9-]+(?:\.[a-z0-9-]+)+\/)[^\s<>"']+/iy
  * asterisks back on students' screens — the very thing this renderer exists
  * to prevent.
  */
-function pairDelimiters(text: string): Pair[] {
+function pairDelimiters(text: string, spans: BracketSpan[] = []): Pair[] {
   const pairs: Pair[] = [];
   const stack: { mark: RichMark; index: number }[] = [];
+  const spanAt = new Map(spans.map(sp => [sp.start, sp]));
   let i = 0;
   while (i < text.length) {
+    // A [label](target) construct is opaque for the same reason a bare URL
+    // is: a Drive target is full of underscores, and reading those as
+    // underline markup deletes them from the address. The cost is that
+    // emphasis cannot nest INSIDE a label — **[label](/x)** works,
+    // [**label**](/x) does not.
+    const span = spanAt.get(i);
+    if (span) { i = span.end; continue; }
+
     // URLs are opaque. A Drive link to the parts is full of underscores
     // ("/d/1a__b__c/view"); treating those as underline markup deleted them
     // from the address and handed students a broken link.
@@ -165,21 +242,36 @@ function pairDelimiters(text: string): Pair[] {
   return pairs;
 }
 
-/** The text with delimiters removed, cut into runs that share a mark set. */
+type Tok =
+  | { index: number; len: number; kind: 'mark'; mark: RichMark; on: boolean }
+  | { index: number; len: number; kind: 'span'; span: BracketSpan };
+
+/** The text with delimiters removed, cut into runs that share a mark set.
+ *  A `[label](target)` construct contributes ONE segment — its label,
+ *  carrying whatever marks were open around it. */
 function toSegments(text: string): RichSegment[] {
-  const toks = pairDelimiters(text)
-    .flatMap(p => [
-      { index: p.open, len: p.len, mark: p.mark, on: true },
-      { index: p.close, len: p.len, mark: p.mark, on: false },
-    ])
-    .sort((a, b) => a.index - b.index);
+  const spans = findBracketSpans(text);
+  const toks: Tok[] = [
+    ...pairDelimiters(text, spans).flatMap((p): Tok[] => [
+      { index: p.open, len: p.len, kind: 'mark', mark: p.mark, on: true },
+      { index: p.close, len: p.len, kind: 'mark', mark: p.mark, on: false },
+    ]),
+    ...spans.map((sp): Tok => ({ index: sp.start, len: sp.end - sp.start, kind: 'span', span: sp })),
+  ].sort((a, b) => a.index - b.index);
 
   const segs: RichSegment[] = [];
   const active: RichMark[] = [];
   let pos = 0;
   for (const tk of toks) {
     if (tk.index > pos) segs.push({ text: text.slice(pos, tk.index), marks: [...active] });
-    if (tk.on) active.push(tk.mark);
+    if (tk.kind === 'span') {
+      segs.push({
+        text: tk.span.label,
+        marks: [...active],
+        ...(tk.span.href ? { href: tk.span.href } : {}),
+        ...(tk.span.font ? { font: tk.span.font } : {}),
+      });
+    } else if (tk.on) active.push(tk.mark);
     else {
       const k = active.lastIndexOf(tk.mark);
       if (k >= 0) active.splice(k, 1);
@@ -201,13 +293,18 @@ export function parseRichText(text: string): RichBlock[] {
     const parts = s.text.split('\n');
     parts.forEach((part, i) => {
       if (i > 0) lines.push([]);
-      if (part) lines[lines.length - 1].push({ text: part, marks: s.marks });
+      // Spread, don't rebuild: href/font must survive the line split or a
+      // link silently degrades to plain text.
+      if (part) lines[lines.length - 1].push({ ...s, text: part });
     });
   }
 
   return lines.map(line => {
     const head = line[0]?.text ?? '';
-    const hit = BLOCK_PREFIXES.find(b => b.re.test(head));
+    // Shorthand is only shorthand in literal text. A link labelled "- parts"
+    // is a link, not a bullet, and stripping its label would be silent.
+    const literalHead = !line[0]?.href && !line[0]?.font;
+    const hit = literalHead ? BLOCK_PREFIXES.find(b => b.re.test(head)) : undefined;
     if (!hit) {
       return line.length === 0 ? { kind: 'blank' as const, segments: [] } : { kind: 'p' as const, segments: line };
     }
@@ -221,12 +318,26 @@ export function parseRichText(text: string): RichBlock[] {
   });
 }
 
-/** Plain-text form — for ICS descriptions, previews, and anywhere markup
- *  would be noise rather than formatting. */
-export function richTextToPlain(text: string): string {
+/**
+ * Plain-text form — for ICS descriptions, previews, and anywhere markup
+ * would be noise rather than formatting.
+ *
+ * A link becomes "label (url)": dropping the address is what makes a link
+ * useless in a calendar description or a printed program. `origin`
+ * absolutizes app-relative hrefs — a feed carrying a bare "/event/x" is a
+ * broken link, and this module cannot import ORG without breaking the Node
+ * self-check that pins it.
+ */
+export function richTextToPlain(text: string, origin = ''): string {
+  const base = origin.replace(/\/$/, '');
+  const flatten = (s: RichSegment) => {
+    if (!s.href) return s.text;
+    const url = s.href.startsWith('/') ? `${base}${s.href}` : s.href;
+    return s.text === url ? url : `${s.text} (${url})`;
+  };
   return parseRichText(text)
     .map(b => {
-      const body = b.segments.map(s => s.text).join('');
+      const body = b.segments.map(flatten).join('');
       if (b.kind === 'bullet') return `• ${body}`;
       if (b.kind === 'ol') return `${b.marker}. ${body}`;
       return body;

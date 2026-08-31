@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { NotesText } from './components/NotesText';
 import { useParams, Link } from 'react-router';
 import { ExternalLink, Clock, FileText, Video, Headphones, BookOpen, Armchair } from 'lucide-react';
 import { BackLink } from './components/BackLink';
@@ -9,7 +10,6 @@ import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
 import { useStudentsPublic } from './hooks/usePublicRoster';
 import { ensembleColor, ensembleDisplayName, findPartForInstrument, pieceEnsembleIds } from '../director/utils';
 import { primaryStudent } from '../shared/identity';
-import { Linkify } from '../director/components/Linkify';
 import { GradientHero } from './components/GradientHero';
 import { SeatingChartCard } from './components/SeatingChartCard';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
@@ -201,7 +201,7 @@ export function PublicPiece() {
           <div className="pub-piece-section-title">
             <BookOpen size={14} style={{ verticalAlign: '-2px', marginRight: 5 }} />Program notes
           </div>
-          {piece.programNotes && <p className="pub-piece-body"><Linkify text={piece.programNotes} /></p>}
+          {piece.programNotes && <div className="pub-piece-body"><NotesText text={piece.programNotes} /></div>}
           {piece.programNotesUrl && (
             <a className="pub-piece-link" href={piece.programNotesUrl} target="_blank" rel="noreferrer">
               Read full notes <ExternalLink size={12} />

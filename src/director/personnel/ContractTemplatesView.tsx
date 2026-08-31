@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { RichTextArea } from '../components/RichTextArea';
 import { FileText, Plus, Trash2 } from 'lucide-react';
 import type { ContractTemplate, PositionCategory } from '../types';
 import { CONTRACT_TOKENS, STARTER_TEMPLATES } from './contractTerms';
@@ -154,11 +155,11 @@ export function ContractTemplatesView({ templates, onAdd, onUpdate, onDelete, on
 
               <div className="dir-field">
                 <label className="dir-label">Agreement text *</label>
-                <textarea
+                <RichTextArea
                   className="dir-input dir-tmpl-body"
                   rows={14}
                   value={draft.bodyText}
-                  onChange={e => setDraft(d => ({ ...d, bodyText: e.target.value }))}
+                  onChange={v => setDraft(d => ({ ...d, bodyText: v }))}
                   placeholder="The agreement prose. Use the placeholders below for anything that comes from the contract itself."
                 />
               </div>

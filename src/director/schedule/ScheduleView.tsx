@@ -15,6 +15,7 @@ import { IcsImport } from './IcsImport';
 import { QuickAddView } from './QuickAddView';
 import { FilteredCalendarSubscribe } from '../components/FilteredCalendarSubscribe';
 import { FilterMenu } from '../../shared/FilterMenu';
+import type { ConcertAttendance } from '../../shared/calendarView';
 import { activeCollegePreset, collegeFilterIds, type CollegeFilterPreset } from '../../shared/collegeCalendarFilter';
 import { seedCalendar, seedSchoolCalendar, seedExtraSchedule } from '../seedCalendar';
 import { seedAcademicClasses } from '../seedAcademicClasses';
@@ -34,6 +35,12 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 // Sentinel for the "school-wide events only" pick in the ensemble filter menu.
 const SCHOOL = '__school__';
 type SchedTypeKey = EventType | 'Assignment';
+/** Concerts that count toward a student's semester obligation. */
+const ATTENDANCE_OPTIONS = [
+  { value: 'required', label: 'Required concerts' },
+  { value: 'optional', label: 'Optional concerts' },
+];
+
 const SCHED_TYPE_OPTIONS: { value: SchedTypeKey; label: string; color: string }[] = [
   { value: 'Rehearsal', label: 'Rehearsals', color: '#2563eb' },
   { value: 'Class',     label: 'Classes',    color: '#0f766e' },
@@ -43,11 +50,15 @@ const SCHED_TYPE_OPTIONS: { value: SchedTypeKey; label: string; color: string }[
   { value: 'Assignment', label: 'Assignments', color: ASSIGN_COLOR },
 ];
 
-export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = '', onNavigate }: {
+export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = '', onNavigate, assistantMode, allowedEnsembleIds }: {
   initialDate?: string;
   initialEventId?: string;
   initialEnsembleId?: string;
   onNavigate?: import('../types-nav').DirNavigate;
+  /** Student Assistant shell: hide seed/import/day-swap staff tools. */
+  assistantMode?: boolean;
+  /** When set (assistant), seed the ensemble filter to these ids. */
+  allowedEnsembleIds?: string[];
 } = {}) {
   const { ensembles } = useEnsembles();
   const { events, addEvent, updateEvent, deleteEvent } = useEvents();
@@ -64,9 +75,15 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   const [selectedDate, setSelectedDate] = useState(initialDate ?? todayStr());
   // Multi-select: filter by several ensembles AND several types at once.
   // Empty === all. `initialEnsembleId` (a deep-link from an ensemble hub) seeds
-  // the ensemble selection.
-  const [filterEnsembleIds, setFilterEnsembleIds] = useState<string[]>(initialEnsembleId ? [initialEnsembleId] : []);
+  // the ensemble selection. Assistants start scoped to their assigned set.
+  const [filterEnsembleIds, setFilterEnsembleIds] = useState<string[]>(
+    initialEnsembleId ? [initialEnsembleId]
+      : (allowedEnsembleIds?.length ? [...allowedEnsembleIds] : []),
+  );
   const [typeFilters, setTypeFilters] = useState<SchedTypeKey[]>([]);
+  // Concert attendance (#concert-checkin). One choice, not a set — a concert
+  // is required or optional, never both — so the menu keeps the last pick.
+  const [attendance, setAttendance] = useState<ConcertAttendance | ''>('');
   const [calView, setCalView] = useState<'month' | 'list'>('month');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
   const [quickAddDraft, setQuickAddDraft] = useState<Partial<Omit<CalendarEvent, 'id'>> | undefined>(undefined);
@@ -153,8 +170,13 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   // built from, so what you subscribe to is what you're looking at.
   const realEnsIds = useMemo(() => filterEnsembleIds.filter(x => x !== SCHOOL), [filterEnsembleIds]);
   const viewSpec = useMemo(
-    () => normalizeView({ ensembleIds: realEnsIds, school: filterEnsembleIds.includes(SCHOOL), types: typeFilters }),
-    [realEnsIds, filterEnsembleIds, typeFilters],
+    () => normalizeView({
+      ensembleIds: realEnsIds,
+      school: filterEnsembleIds.includes(SCHOOL),
+      types: typeFilters,
+      ...(attendance ? { attendance } : {}),
+    }),
+    [realEnsIds, filterEnsembleIds, typeFilters, attendance],
   );
   const visibleEvents = useMemo(
     () => events.filter(e => eventMatchesView(e, viewSpec)),
@@ -343,8 +365,9 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           />
           {/* One-time school-calendar import: hidden once school events exist.
               The whole seed family is NWSA-only (hardcoded MDCPS/MDC data) —
-              other orgs never see these buttons (#org-config). */}
-          {ORG.features.calendarSeed && (!hasSchoolEvents || schoolCalState === 'seeding' || schoolCalState === 'error') && (
+              other orgs never see these buttons (#org-config). Assistants never
+              seed or import — those are director tools. */}
+          {!assistantMode && ORG.features.calendarSeed && (!hasSchoolEvents || schoolCalState === 'seeding' || schoolCalState === 'error') && (
             <button
               className="dir-tool-btn"
               onClick={handleSchoolCal}
@@ -360,7 +383,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             </span>
           )}
           {/* One-time season seed: only offered while the calendar is empty */}
-          {ORG.features.calendarSeed && events.length === 0 && seedState !== 'done' && (
+          {!assistantMode && ORG.features.calendarSeed && events.length === 0 && seedState !== 'done' && (
             <button
               className="dir-tool-btn"
               onClick={handleSeed}
@@ -376,7 +399,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             </span>
           )}
           {/* Add the theory/academic classes to an already-seeded calendar. */}
-          {ORG.features.calendarSeed && events.length > 0 && classesState !== 'done' && (
+          {!assistantMode && ORG.features.calendarSeed && events.length > 0 && classesState !== 'done' && (
             <button
               className="dir-tool-btn"
               onClick={handleSeedClasses}
@@ -391,7 +414,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               {classesMsg}
             </span>
           )}
-          {ORG.features.calendarSeed && events.length > 0 && collegeState !== 'done' && (
+          {!assistantMode && ORG.features.calendarSeed && events.length > 0 && collegeState !== 'done' && (
             <button
               className="dir-tool-btn"
               onClick={handleSeedCollege}
@@ -406,9 +429,11 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               {collegeMsg}
             </span>
           )}
-          <button className="dir-tool-btn" onClick={() => setImportingIcs(true)} title="Import ICS calendar">
-            <Upload size={15} /> Import
-          </button>
+          {!assistantMode && (
+            <button className="dir-tool-btn" onClick={() => setImportingIcs(true)} title="Import ICS calendar">
+              <Upload size={15} /> Import
+            </button>
+          )}
           <button className="dir-tool-btn" onClick={() => setQuickAdding(true)} title="Describe an event in plain English">
             <Sparkles size={15} /> Quick Add
           </button>
@@ -422,8 +447,12 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           allLabel="All ensembles"
           ariaLabel="Filter by ensemble"
           options={[
-            ...musicEnsembles([...ensembles].sort((a, b) => a.order - b.order)).map(e => ({ value: e.id, label: e.name, color: ensembleColor(e) })),
-            ...(hasSchoolEvents ? [{ value: SCHOOL, label: 'School events' }] : []),
+            ...(assistantMode && allowedEnsembleIds?.length
+              ? musicEnsembles([...ensembles].sort((a, b) => a.order - b.order))
+                  .filter(e => allowedEnsembleIds.includes(e.id))
+              : musicEnsembles([...ensembles].sort((a, b) => a.order - b.order))
+            ).map(e => ({ value: e.id, label: e.name, color: ensembleColor(e) })),
+            ...(!assistantMode && hasSchoolEvents ? [{ value: SCHOOL, label: 'School events' }] : []),
           ]}
           selected={filterEnsembleIds}
           onChange={setFilterEnsembleIds}
@@ -435,6 +464,17 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           options={SCHED_TYPE_OPTIONS}
           selected={typeFilters}
           onChange={next => setTypeFilters(next as SchedTypeKey[])}
+        />
+        <FilterMenu
+          prefix="dir"
+          allLabel="Required & optional"
+          ariaLabel="Filter by concert attendance"
+          options={ATTENDANCE_OPTIONS}
+          selected={attendance ? [attendance] : []}
+          // Keep only the newest pick: the two are mutually exclusive, and a
+          // view matching both would be every tracked concert, which is not a
+          // filter anyone asked for.
+          onChange={next => setAttendance((next[next.length - 1] as ConcertAttendance) ?? '')}
         />
       </div>
       {collegeFilterIds(ensembles, 'all').length > 0 && (
@@ -525,7 +565,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             <div className="dir-day-detail-header">
               {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               {selectedDate === today && <span className="dir-today-badge">Today</span>}
-              {onNavigate && (eventsByDate[selectedDate] ?? []).some(e => e.ensembleIds.length > 0) && (
+              {onNavigate && !assistantMode && (eventsByDate[selectedDate] ?? []).some(e => e.ensembleIds.length > 0) && (
                 <button
                   className="dir-tool-btn"
                   style={{ marginLeft: 'auto' }}
@@ -638,7 +678,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
         />
       )}
 
-      {importingIcs && <IcsImport onClose={() => setImportingIcs(false)} />}
+      {importingIcs && !assistantMode && <IcsImport onClose={() => setImportingIcs(false)} />}
     </div>
   );
 }

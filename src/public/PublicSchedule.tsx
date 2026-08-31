@@ -6,6 +6,8 @@ import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
 import { PracticeCard } from './components/PracticeCard';
 import { PlannedAbsenceButton } from './components/PlannedAbsence';
 import { SignupAlert } from './components/SignupAlert';
+import { ConcertTally } from './components/ConcertTally';
+import { CheckinStrip } from './components/CheckinStrip';
 import { BackLink } from './components/BackLink';
 import { ChevronLeft, ChevronRight, ExternalLink, LayoutList, Grid3x3, CalendarX, GraduationCap } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
@@ -192,8 +194,19 @@ export function PublicSchedule() {
         )}
       </div>
 
+      {/* Check in / check out, while a concert's window is open
+          (#concert-checkin). Top of the page and above everything else: the
+          window is ten minutes wide, so a student opening their own page at
+          6:55 must land on it rather than hunt for it. */}
+      <CheckinStrip events={events} ensembles={ensembles} />
+
       {/* Anything this student still has to answer (#signups). */}
       <SignupAlert student={student} />
+
+      {/* Their own concert count (#concert-checkin). Asks for the school email
+          they check in with — attendance is staff-only data, so this page must
+          not become a way to read a classmate's record. */}
+      <ConcertTally student={student} />
 
       {/* Personal calendar feed — the one subscription that follows THIS student. */}
       <SubscribeButton studentId={student.id} label={t('sched.subscribeMine', { name: student.name.split(' ')[0] })} />

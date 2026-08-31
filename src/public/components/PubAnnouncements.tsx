@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Pin, Megaphone } from 'lucide-react';
+import { Pin, Megaphone, Link2 as LinkIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { ensembleColor, ensembleDisplayName } from '../../director/utils';
 import type { Announcement, Ensemble } from '../../director/types';
-import { Linkify } from '../../director/components/Linkify';
+import { NotesText } from './NotesText';
 import { getLang, t, useLang } from '../../shared/i18n';
 import { fmtMonthDay } from '../../shared/dates';
 
@@ -53,7 +53,19 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
                 </button>
               )}
             </div>
-            {showBody && <div className="pub-announce-body"><Linkify text={showBody} /></div>}
+            {showBody && <div className="pub-announce-body"><NotesText text={showBody} /></div>}
+            {a.links?.length ? (
+              <div className="pub-announce-links">
+                {a.links.map((l, i) => (
+                  // In-app targets stay in the shell; anything external opens
+                  // in its own tab. Both were vetted by safeHref() on the way
+                  // in — see the link picker.
+                  l.url.startsWith('/')
+                    ? <Link key={`${l.url}-${i}`} to={l.url} className="pub-announce-link"><LinkIcon size={12} />{l.label}</Link>
+                    : <a key={`${l.url}-${i}`} href={l.url} target="_blank" rel="noopener noreferrer" className="pub-announce-link"><LinkIcon size={12} />{l.label}</a>
+                ))}
+              </div>
+            ) : null}
             <div className="pub-announce-date">
               {/* A scheduled post is "posted" when it published, not when drafted. */}
               {fmtMonthDay(new Date(a.publishAt ?? a.createdAt))}

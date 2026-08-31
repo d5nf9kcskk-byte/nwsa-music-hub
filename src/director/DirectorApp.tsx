@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -23,6 +23,7 @@ import { useLogoEgg } from '../shared/useLogoEgg';
 import { useEggCheer, useTapN } from '../shared/useEggCheer';
 import { batonInHandLine } from '../shared/whimsy';
 import '../shared/whatsNew.css';
+import { WhatsNewBanner } from '../shared/WhatsNewBanner';
 import { DIRECTOR_FEEDBACK_FORM_URL } from './feedbackForm';
 import { useUrgentRelaySweep } from './announcements/urgentRelay';
 import { AttendanceTab } from './attendance/AttendanceTab';
@@ -30,13 +31,14 @@ import { RosterView } from './roster/RosterView';
 import { WhosOutView } from './roster/WhosOutView';
 import { ScheduleView } from './schedule/ScheduleView';
 import { ScheduleChangeView } from './schedule-changes/ScheduleChangeView';
-import { RotationsView } from './schedule-changes/RotationsView';
 import { ScheduleSwapView } from './schedule/ScheduleSwapView';
+import { RotationsView } from './rotations/RotationsView';
 import { NotesView } from './notes/NotesView';
 import { AssignmentsView } from './assignments/AssignmentsView';
 import { AnnouncementManager } from './announcements/AnnouncementManager';
 import { MessagesView } from './messages/MessagesView';
 import { SignupsView } from './signups/SignupsView';
+import { CheckinView } from './checkin/CheckinView';
 import { JuriesView } from './juries/JuriesView';
 import { useParentMessages } from './hooks/useParentMessages';
 import { RepertoireManager } from './repertoire/RepertoireManager';
@@ -92,6 +94,9 @@ const NAV_TOP: NavItem[] = [
   // 1's embedded Students tab, now the student door.
   { id: 'scheduleChanges', label: 'Move a Student', Icon: UserCog       },
   { id: 'scheduleSwap',    label: 'Change a Day',   Icon: CalendarClock },
+  // The standing-rotation reference point (two-doors §4, Phase 4d) — kept
+  // beside Move a Student, whose "Every week…" verb it backs.
+  { id: 'rotations',       label: 'Rotations',      Icon: Repeat        },
   { id: 'whosOut',  label: "Who's Out", Icon: UserX         },
 ];
 const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
@@ -110,9 +115,6 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
         : [{ id: 'roster' as const, label: 'Roster', Icon: Users }]),
       { id: 'lessons', label: 'Lessons',       Icon: GraduationCap },
       { id: 'notes',  label: 'Progress Notes', Icon: FileText },
-      // The single reference point for standing weekly rotations
-      // (docs/schedule-ux-two-doors.md §4, Phase 4d).
-      { id: 'rotations', label: 'Rotations', Icon: Repeat },
     ],
   },
   {
@@ -123,6 +125,9 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
       { id: 'assignments',   label: 'Assignments',   Icon: ClipboardCheck },
       { id: 'signups',       label: 'Sign-ups',      Icon: ClipboardSignature },
       { id: 'juries',        label: 'Juries',        Icon: Gavel          },
+      // Concert check-in (#concert-checkin) — the door station's records and
+      // the cumulative CSV.
+      { id: 'concertCheckin', label: 'Concert Check-In', Icon: ScanLine },
       { id: 'announcements', label: 'Announcements', Icon: Megaphone      },
       // Parent contact-form inbox (#parent-messages) — org-gated.
       ...(ORG.features.contactForm ? [{ id: 'messages' as const, label: 'Messages', Icon: Mail }] : []),
@@ -153,13 +158,15 @@ const TAB_TITLES: Record<DirTab, string> = {
   messages:        'Messages',
   signups:         'Sign-ups',
   juries:          'Juries',
+  concertCheckin:  'Concert Check-In',
   personnel:       'Personnel',
+  directors:       'Directors',
 };
 
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'lessons', 'myLessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'classes', 'college', 'whosOut', 'scheduleSwap', 'rotations',
-  'messages', 'signups', 'juries',
+  'messages', 'signups', 'juries', 'concertCheckin', 'directors',
   // The roster URL segment follows the org kind too (#personnel), so a
   // school build has no /director/personnel route and an adult build no
   // /director/roster \u2014 an off-org deep link falls back to Today.
@@ -178,7 +185,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   whosOut:         'Every absence and pull-out in one place. Switch Day and Month to spot patterns.',
   scheduleSwap:    'Whole-ensemble changes for a day \u2014 swap blocks, combine into one room, change time or room, or cancel. Families see a red banner automatically.',
   scheduleChanges: 'One student somewhere different \u2014 with another ensemble for the day, at a lesson, or out. Staff-only: both rosters update instantly, and no family banner is posted.',
-  rotations:       'Every standing weekly rotation in one place \u2014 who rehearses where on which weekdays. Add, edit, or end one here; one-day moves stay on Move a Student.',
+  rotations:       'Every standing weekly rotation in one place \u2014 who rehearses where on which weekdays. Rehearsals only: on a concert day they play with whichever ensemble is on stage.',
   ensembles:       'Create ensembles, add students to their rosters, and open any ensemble\u2019s hub \u2014 schedule, roll, repertoire, and documents.',
   classes:         'Theory, history, vocal lit, and master classes \u2014 each with its own roster, roll, assignments, announcements, and documents.',
   college:         'College ensembles and dual-enrollment classes \u2014 kept separate from the high-school lists. Shared groups like Symphony stay under Ensembles.',
@@ -193,6 +200,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   messages:        'Messages families send through the public Contact Us form. Reply opens your own email app.',
   signups:         'Ask students to opt in \u2014 auditions, trips, anything. They pick their name, confirm their grade, answer your questions, and sign. You get the list, a spreadsheet, and printable signed forms.',
   juries:          'End-of-semester juries. Add one as soon as you know it\u2019s happening \u2014 a name is enough \u2014 and fill in the date, room, panel, and running order as each gets decided.',
+  directors:       'Who can sign in and at what level. Tap the pencil to edit roles and assignments \u2014 ensembles, class sections, or applied-lesson students.',
   // Spread-conditional so the string ships only in personnel-org bundles.
   ...(__ORG_PERSONNEL__ ? {
     personnel: 'Everyone the orchestra engages \u2014 players, podium, and staff. Tap a person for private contact details and their contracts.',
@@ -233,7 +241,6 @@ export default function DirectorApp() {
   // accordion tax once the menu is open).
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
-  const [directorsOpen, setDirectorsOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem('dir.theme') === 'dark'; } catch { return false; } });
 
   // Cmd/Ctrl+K opens the quick switcher (DirectorSearch already has full
@@ -496,13 +503,16 @@ export default function DirectorApp() {
                 <QrCode size={18} /> QR Kit
               </button>
               {isOwner && (
-                <button className="dir-rail-item" onClick={() => setDirectorsOpen(true)}>
+                <button className={`dir-rail-item${tab === 'directors' ? ' active' : ''}`} onClick={() => go('directors')}>
                   <ShieldCheck size={18} /> Directors
                 </button>
               )}
               <button className="dir-rail-item" onClick={() => navigate('/')}>
                 <ExternalLink size={18} /> View public site
               </button>
+              <div className="dir-rail-whats-new">
+                <WhatsNewBanner audience="staff" />
+              </div>
               <button className="dir-rail-item dir-rail-signout" onClick={signOut}>
                 <LogOut size={18} /> Sign out
               </button>
@@ -575,7 +585,7 @@ export default function DirectorApp() {
               />
             )}
             {tab === 'scheduleSwap'    && <ScheduleSwapView key={intentKey} initialDate={intent.date} onNavigate={go} />}
-            {tab === 'rotations'       && <RotationsView key={intentKey} initialStudentId={intent.studentId} />}
+            {tab === 'rotations'       && <RotationsView />}
             {tab === 'repertoire'      && <RepertoireManager key={intentKey} asTab ensembleId={intent.ensembleId} onClose={() => {}} />}
             {tab === 'documents'       && <DocumentsView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} />}
             {tab === 'notes'           && <NotesView />}
@@ -583,6 +593,7 @@ export default function DirectorApp() {
             {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} initialEnsembleId={intent.ensembleId} onClose={() => {}} />}
             {tab === 'messages'        && <MessagesView />}
             {tab === 'signups'         && <SignupsView />}
+            {tab === 'concertCheckin'  && <CheckinView />}
             {tab === 'juries'          && <JuriesView />}
             {tab === 'personnel' && PersonnelManager && (
               <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading personnel…</div>}>
@@ -595,16 +606,15 @@ export default function DirectorApp() {
             {tab === 'ensembleHub' && intent.ensembleId && (
               <EnsembleHubView key={intentKey} ensembleId={intent.ensembleId} onNavigate={go} />
             )}
+            {tab === 'directors' && (
+              <DirectorsManager currentEmail={user.email} currentRole={me?.role ?? 'director'} currentRoles={me?.roles} />
+            )}
           </main>
 
           <WriteTray />
           <NoteBurst cheer={logoCheer || panelCheer} />
 
           {qrOpen && <QrKitView onClose={() => setQrOpen(false)} />}
-
-          {directorsOpen && isOwner && (
-            <DirectorsManager currentEmail={user.email} currentRole={me?.role ?? 'director'} currentRoles={me?.roles} onClose={() => setDirectorsOpen(false)} />
-          )}
 
           <DirectorSearch
             open={searchOpen}
@@ -764,7 +774,7 @@ export default function DirectorApp() {
                 </button>
 
                 {isOwner && (
-                  <button className="dir-menu-item" onClick={() => { setDirectorsOpen(true); setMenuOpen(false); }}>
+                  <button className={`dir-menu-item${tab === 'directors' ? ' active' : ''}`} onClick={() => go('directors')}>
                     <ShieldCheck size={19} /> Directors
                   </button>
                 )}
@@ -778,6 +788,10 @@ export default function DirectorApp() {
                 <InstallAppButton />
                 <AppVersionRow />
 
+                <div className="dir-menu-divider" />
+                <div className="dir-menu-whats-new">
+                  <WhatsNewBanner audience="staff" />
+                </div>
                 <div className="dir-menu-divider" />
 
                 <button className="dir-menu-item dir-menu-signout" onClick={signOut}>

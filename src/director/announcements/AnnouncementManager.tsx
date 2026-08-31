@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Pin, ChevronLeft, Clock, Printer, Archive, Inbox } from 'lucide-react';
+import { Plus, Pencil, Pin, ChevronLeft, Clock, Printer, Archive, Inbox, Link2, X } from 'lucide-react';
 import { useAnnouncements, useMinuteTick, isArchived } from '../hooks/useAnnouncements';
 import { queueUrgentRelay, markRelayHandled } from './urgentRelay';
 import { useEnsembles } from '../hooks/useEnsembles';
@@ -8,7 +8,9 @@ import { NotesText } from '../../public/components/NotesText';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { PrintableUpdates } from './PrintableUpdates';
 import { useModalA11y } from '../../shared/useModalA11y';
-import type { Announcement } from '../types';
+import { MAX_ANNOUNCEMENT_LINKS, type Announcement, type AnnouncementLink } from '../types';
+import { RichTextArea } from '../components/RichTextArea';
+import { LinkPicker } from '../components/LinkPicker';
 import { whenQueued } from '../writeStatus';
 import { useCurrentDirector } from '../currentDirector';
 
@@ -95,7 +97,9 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
             && !(editing.publishAt && !editing.relayQueuedAt);
           if (id && data.priority === 'urgent' && !scheduledLater && !wasLiveUrgent) {
             try {
-              await queueUrgentRelay({ id, title: data.title, body: data.body, ensembleId: data.ensembleId });
+              await queueUrgentRelay({
+                id, title: data.title, body: data.body, ensembleId: data.ensembleId, links: data.links,
+              });
               await markRelayHandled(id);
             } catch { /* relay is best-effort; the announcement itself saved */ }
           }
@@ -115,9 +119,19 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
         {asTab && (
           <div className="dir-section-header">
             <span className="dir-section-title">Announcements</span>
-            <button className="dir-tool-btn" onClick={() => setPrinting(true)}>
-              <Printer size={14} /> Print
-            </button>
+            {/* New Announcement belongs at the TOP of the tab. It used to sit
+                only in the footer, below every post — so writing one meant
+                scrolling the whole list to reach the button, which on a phone
+                with a long list is most of the page. The drawer keeps its
+                footer button, where a sticky footer is the right shape. */}
+            <div className="dir-section-header-actions">
+              <button className="dir-btn dir-btn-primary dir-btn-sm" onClick={() => setEditing('new')}>
+                <Plus size={15} style={{ verticalAlign: '-3px' }} /> New Announcement
+              </button>
+              <button className="dir-tool-btn" onClick={() => setPrinting(true)}>
+                <Printer size={14} /> Print
+              </button>
+            </div>
           </div>
         )}
         {announcements.length > 0 && (
@@ -139,7 +153,13 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
         {announcements.length > 0 && (
           <EnsembleFilter ensembles={ensembles} value={filterEns} onChange={pickEns} />
         )}
-        <div className="dir-drawer-body">
+        {/* A drawer body is a SCROLLER; a tab body must not be. .dir-drawer-body
+            carries overflow-y:auto AND overscroll-behavior:contain, so on a full
+            tab it becomes a second scroll box that refuses to chain — once the
+            list is at its top, scrolling up does nothing and the page cannot be
+            scrolled back. .dir-page-body is the same padding and gap with no
+            nested scroll, which is what a tab wants. */}
+        <div className={asTab ? 'dir-page-body' : 'dir-drawer-body'}>
           {announcements.length === 0 ? (
             <div className="dir-empty-inline">No announcements yet. Post one to show it on the public site.</div>
           ) : shown.length === 0 ? (
@@ -181,11 +201,15 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
             ))
           )}
         </div>
-        <div className="dir-drawer-footer">
-          <button className="dir-btn dir-btn-primary" onClick={() => setEditing('new')}>
-            <Plus size={16} style={{ verticalAlign: '-3px' }} /> New Announcement
-          </button>
-        </div>
+        {/* Drawer only: on the tab the button lives in the header above, and
+            two identical buttons on one screen is a question, not a shortcut. */}
+        {!asTab && (
+          <div className="dir-drawer-footer">
+            <button className="dir-btn dir-btn-primary" onClick={() => setEditing('new')}>
+              <Plus size={16} style={{ verticalAlign: '-3px' }} /> New Announcement
+            </button>
+          </div>
+        )}
     </>
   );
 
@@ -242,6 +266,8 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
   const [titleEs, setTitleEs] = useState(announcement?.titleEs ?? '');
   const [bodyEs, setBodyEs] = useState(announcement?.bodyEs ?? '');
   const [pinned, setPinned] = useState(announcement?.pinned ?? false);
+  const [links, setLinks] = useState<AnnouncementLink[]>(announcement?.links ?? []);
+  const [pickingLink, setPickingLink] = useState(false);
   const [priority, setPriority] = useState<'info' | 'important' | 'urgent'>(announcement?.priority ?? 'info');
   const [expiresOn, setExpiresOn] = useState(announcement?.expiresOn ?? '');
   // Scheduled publishing: a date + time pair the post stays hidden until.
@@ -309,6 +335,9 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
         titleEs: titleEs.trim() || undefined,
         bodyEs: bodyEs.trim() || undefined,
         pinned: pinned || undefined,
+        // Undefined, not [] — Firestore stores an empty array as a real field,
+        // and every other optional here follows the same rule.
+        links: links.length ? links.slice(0, MAX_ANNOUNCEMENT_LINKS) : undefined,
         expiresOn: expiresOn || undefined,
         publishAt: publishAtValue(),
         createdAt: announcement?.createdAt ?? Date.now(),
@@ -361,6 +390,16 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
 
   const formInner = (
     <>
+        {pickingLink && (
+          <LinkPicker
+            onClose={() => setPickingLink(false)}
+            onPick={(label, url) => {
+              setPickingLink(false);
+              // Same address twice adds nothing but clutter.
+              setLinks(ls => (ls.some(l => l.url === url) ? ls : [...ls, { label, url }]));
+            }}
+          />
+        )}
         <div className="dir-drawer-body">
           <div className="dir-field">
             <label className="dir-label">Title *</label>
@@ -369,13 +408,50 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
 
           <div className="dir-field">
             <label className="dir-label">Message</label>
-            <textarea className="dir-input dir-textarea" value={body} onChange={e => setBody(e.target.value)} rows={4} placeholder="Optional details…" />
+            <RichTextArea value={body} onChange={setBody} rows={4} placeholder="Optional details…" />
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label">Related links</label>
+            {links.length > 0 && (
+              <div className="dir-ann-linkrow">
+                {links.map((l, i) => (
+                  <span key={`${l.url}-${i}`} className="dir-ann-linkchip">
+                    <Link2 size={12} />
+                    <span className="dir-ann-linkchip-label">{l.label}</span>
+                    <button
+                      type="button"
+                      onClick={() => setLinks(ls => ls.filter((_, j) => j !== i))}
+                      aria-label={`Remove ${l.label}`}
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              className="dir-btn dir-btn-ghost"
+              style={{ marginTop: links.length ? 8 : 0 }}
+              disabled={links.length >= MAX_ANNOUNCEMENT_LINKS}
+              onClick={() => setPickingLink(true)}
+            >
+              <Link2 size={13} /> Add a link
+            </button>
+            <div className="dir-field-hint">
+              {links.length >= MAX_ANNOUNCEMENT_LINKS
+                ? `That is the limit of ${MAX_ANNOUNCEMENT_LINKS} — remove one to add another.`
+                : 'Shown as buttons under the message. Use these for “here is the thing I am talking about”; links inside the message itself go in with the toolbar’s link button.'}
+            </div>
           </div>
 
           <div className="dir-field">
             <label className="dir-label">Spanish translation (optional)</label>
             <input className="dir-input" value={titleEs} onChange={e => setTitleEs(e.target.value)} placeholder="Título en español" />
-            <textarea className="dir-input dir-textarea" style={{ marginTop: 6 }} value={bodyEs} onChange={e => setBodyEs(e.target.value)} rows={3} placeholder="Mensaje en español (opcional)" />
+            <div style={{ marginTop: 6 }}>
+              <RichTextArea value={bodyEs} onChange={setBodyEs} rows={3} placeholder="Mensaje en español (opcional)" />
+            </div>
             <div className="dir-field-hint">Families reading in Español see this version; posts with a translation show an ES button.</div>
           </div>
 

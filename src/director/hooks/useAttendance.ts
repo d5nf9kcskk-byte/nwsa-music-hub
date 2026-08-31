@@ -85,7 +85,7 @@ export function useAttendance(date: string, ensembleId: string | null, eventId?:
     try { navigator.vibrate?.(10); } catch { /* no haptics */ }
 
     // Attribution: who set this mark (name + role). Lets the director side
-    // show when a change was made by the Personnel Assistant.
+    // show when a change was made by the Student Assistant.
     const name = currentDirectorName();
     const who = {
       updatedAt: Date.now(),

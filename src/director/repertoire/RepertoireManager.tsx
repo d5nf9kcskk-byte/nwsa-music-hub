@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo } from 'react';
+import { RichTextArea } from '../components/RichTextArea';
 import { Plus, Pencil, Music, Trash2, GripVertical } from 'lucide-react';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useEnsembles } from '../hooks/useEnsembles';
@@ -132,7 +133,10 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
         <button className={`dir-segment-btn ${groupBy === 'ensemble' ? 'active' : ''}`} onClick={() => setGroupBy('ensemble')}>By ensemble</button>
         <button className={`dir-segment-btn ${groupBy === 'concert' ? 'active' : ''}`} onClick={() => setGroupBy('concert')}>By concert</button>
       </div>
-      <div className="dir-drawer-body">
+      {/* Same nested-scroller trap as the Announcements tab: .dir-drawer-body
+          scrolls and contains overscroll, which strands a full tab at the top
+          of its own inner box. .dir-page-body is the tab equivalent. */}
+      <div className={asTab ? 'dir-page-body' : 'dir-drawer-body'}>
         {shown.length === 0 ? (
           <div className="dir-empty-inline">No repertoire yet. Add a piece below.</div>
         ) : (
@@ -604,10 +608,9 @@ function RepertoireForm({
           <div className="dir-form-section-label">Program notes</div>
 
           <div className="dir-field">
-            <textarea
-              className="dir-input dir-textarea"
+            <RichTextArea
               value={programNotes}
-              onChange={e => setProgramNotes(e.target.value)}
+              onChange={setProgramNotes}
               rows={3}
               placeholder="2–3 sentences for the concert program (or leave for AI to fill)"
             />
@@ -660,7 +663,7 @@ function RepertoireForm({
 
           <div className="dir-field">
             <label className="dir-label">Director notes</label>
-            <textarea className="dir-input dir-textarea" value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Edition, cuts, bowings, etc." />
+            <RichTextArea value={notes} onChange={setNotes} rows={2} placeholder="Edition, cuts, bowings, etc." />
           </div>
 
           <div className="dir-form-section-label">Programmed for</div>

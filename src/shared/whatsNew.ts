@@ -2,7 +2,7 @@
  * Temporary "What's New" entries for Hub update summaries.
  * Leave empty when there is nothing new — the banner renders nothing.
  *
- * audience: 'staff' = director Today only; 'public' = public menu;
+ * audience: 'staff' = director menu only; 'public' = public menu;
  * 'both' = either surface when relevant.
  *
  * Launch day 2026-08-13: keep the PUBLIC home clean (no public/both entries
@@ -32,18 +32,114 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
-  // Rotations page (docs/schedule-ux-two-doors.md §4, Phase 4d). Staff-only:
-  // rotations are roster machinery, nothing public changed.
+  // Formatting toolbar: link, font, strikethrough, quote (#linking phase 1).
   {
-    id: '2026-08-29-rotations-page',
+    id: '2026-08-31-text-links-fonts',
+    date: '2026-08-31',
+    title: 'Links and fonts in the formatting toolbar',
+    audience: 'staff' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'The formatting bar now has a link button: select some words, tap it, and paste an address — students see the words, not the raw URL.',
+      'A link can point inside the Hub too (a concert, a class, a document, a sign-up), and it opens without reloading the page.',
+      'Also new: a font picker (Sans, Serif, Georgia, Mono), strikethrough, and block quotes.',
+      'The same toolbar is now on every text box you write in — announcements, notes, jury notes, program notes, sign-up forms.',
+      'An announcement can also carry Related links: pick a concert or a document and it appears as a button under the message.',
+      'Tap Preview to see exactly what students will read.',
+    ],
+  },
+  // Public half of the same ship: formatted posts and the link buttons.
+  {
+    id: '2026-08-31-announcement-links',
+    date: '2026-08-31',
+    title: 'Announcements can point you straight to things',
+    audience: 'public' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'Posts can now carry buttons that take you right to the concert, document, or sign-up they are about.',
+      'Directors can format a post too — headings, bold, lists — so longer notices are easier to read.',
+    ],
+  },
+  // Calendar filter + the narrower check-in window (#concert-checkin).
+  {
+    id: '2026-08-31-required-optional-filter',
+    date: '2026-08-31',
+    title: 'Filter the calendar by required and optional concerts',
+    bullets: [
+      'The calendar has a new filter: Required concerts / Optional concerts, so you can see at a glance which ones you actually have to be at.',
+      'Both are subscribable calendars of their own \u2014 subscribe once and concerts join them as they are marked.',
+      'Check-in now opens 10 minutes before the downbeat rather than an hour, so check in as you find your seat.',
+    ],
+    audience: 'both',
+    expires: '2026-10-15',
+  },
+  // Drive archive for concert photos (#concert-checkin). Staff-only: it is a
+  // director's filing workflow, nothing a student or family acts on.
+  {
+    id: '2026-08-31-concert-photo-drive',
+    date: '2026-08-31',
+    title: 'Concert photos file themselves into Drive',
+    bullets: [
+      'Paste your Concert Attendance folder id in Concert Check-In \u2192 Settings and every check-in photo is filed there, one subfolder per concert.',
+      'concert-attendance.csv is kept up to date in the same folder, so the record is there whether or not anyone opens the Hub.',
+      'Share the folder with the service account as Editor first, or the sync has nowhere to write.',
+    ],
+    audience: 'staff',
+    expires: '2026-10-15',
+  },
+  // Concert check-in (#concert-checkin). Public: it changes what a student
+  // does at a concert door, and they need to know before Monday.
+  {
+    id: '2026-08-30-concert-checkin',
+    date: '2026-08-30',
+    title: 'Concert check-in and check-out',
+    bullets: [
+      'Some concerts now ask you to check in when you arrive and check out at the end — find your name, give your school email, and take a photo with the stage behind you.',
+      'You need BOTH to get credit. Come back to the same page when the concert ends.',
+      'Concerts now say whether they are required or optional on the concert card.',
+      'Your own page now shows how many required and optional concerts you have completed this semester — enter the school email you check in with.',
+    ],
+    audience: 'both',
+    expires: '2026-10-15',
+  },
+  // Move a Student sentence page (docs/schedule-ux-two-doors.md, Phase 4b).
+  // Staff-only: roster moves and director notices never touch the public site.
+  {
+    id: '2026-08-29-move-a-student-sentence',
     date: '2026-08-29',
-    title: 'Rotations have their own page',
+    title: 'Move a Student is now one sentence',
     audience: 'staff' as const,
     expires: '2026-09-12',
     bullets: [
-      'People → Rotations lists every student with a standing weekly rotation — "Mon/Wed: Camerata · Fri: Wind Ensemble" — each editable and deletable in place, plus add.',
-      'Ending a rotation removes only the rotation itself; the student stays a member of both ensembles (that’s a Roster decision).',
-      'Move a Student’s "Standing weekly rotation" now opens this page.',
+      'Pick the student and finish the sentence — "is with [Jazz] instead of Symphony [today]". The screen already knows where they were expected, so you only say where they\'re going.',
+      'Before you save, a card spells out exactly what happens to each roll. The student\'s active moves list right below — deleting one is the undo.',
+      'New: when a move is saved, the affected ensembles\' directors get a heads-up notice on their Today screen.',
+    ],
+  },
+  // Student Assistant rename + optional extras beyond take-roll.
+  {
+    id: '2026-08-29-student-assistant',
+    date: '2026-08-29',
+    title: 'Personnel Assistant is now Student Assistant',
+    audience: 'staff' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'Same login path, new name. Most still just take roll for their assigned ensembles.',
+      'On the Directors screen, you can grant optional extras: rehearsals & concerts, repertoire, sign-ups, and announcements — pick several from a dropdown. Contacts, notes, and grades stay off-limits.',
+    ],
+  },
+  // Rotations page (docs/schedule-ux-two-doors.md §4, Phase 4d). Staff-only:
+  // rosterOverrides writes, nothing new is world-readable.
+  {
+    id: '2026-08-29-rotations-page',
+    date: '2026-08-29',
+    title: 'Rotations has its own page',
+    audience: 'staff' as const,
+    expires: '2026-09-12',
+    bullets: [
+      'Every student on a standing weekly rotation is listed in one place — who rehearses where on which weekdays, with the date range.',
+      'Add, edit, or delete a rotation right there. Deleting removes only the rotation — the student stays a member of both ensembles.',
+      'Rotations cover rehearsals only: on a concert day the student plays with whichever ensemble is on stage.',
     ],
   },
   // Roll reminders (§5.1). Staff-only: roll receipts are attendance-side data.
@@ -72,16 +168,16 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Moving a block onto an occupied time is never silent: the review leads with the collision and one-tap fixes — swap with the occupant, combine, or overlap on purpose.',
     ],
   },
-  // Staff login links + What's New moved into the public menu.
+  // What's New moved into the menu (staff rail + public hamburger).
   {
     id: '2026-08-29-menu-staff-logins',
     date: '2026-08-29',
-    title: "Staff logins and What's new are in the menu",
-    audience: 'public' as const,
+    title: "What's new is in the menu now",
+    audience: 'both' as const,
     expires: '2026-09-12',
     bullets: [
-      'Director, Personnel Assistant, Applied Teacher, and Classroom Teacher logins sit at the bottom of the menu.',
-      "What's new is just below those logins. Open it when you want the latest Hub updates.",
+      'Scroll to the bottom of the menu for Hub updates (no longer on Today / Home).',
+      'On the student site, Director, Personnel Assistant, Applied Teacher, and Classroom Teacher logins sit just above it.',
     ],
   },
   // Two-door schedule changes (docs/schedule-ux-two-doors.md, Phase 4a).

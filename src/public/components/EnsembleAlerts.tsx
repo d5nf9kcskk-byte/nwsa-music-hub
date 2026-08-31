@@ -1,3 +1,4 @@
+import { announcementPreview as preview } from '../../shared/announcementPreview';
 import { Link } from 'react-router';
 import { AlertTriangle, Siren } from 'lucide-react';
 import type { Announcement, CalendarEvent } from '../../director/types';
@@ -52,7 +53,7 @@ export function EnsembleAlerts({
               </span>
               <span className="pub-ens-alert-body">
                 <Siren size={14} /> <strong>{a.title}</strong>
-                {a.body ? ` — ${a.body.slice(0, 100)}${a.body.length > 100 ? '…' : ''}` : ''}
+                {a.body ? ` — ${preview(a.body, 100)}` : ''}
               </span>
             </Link>
           );

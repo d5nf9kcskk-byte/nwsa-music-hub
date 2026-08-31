@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { RichTextArea } from '../components/RichTextArea';
 import { todayStr } from '../utils';
 import { recordActivity } from '../hooks/useActivityLog';
 import { useModalA11y } from '../../shared/useModalA11y';
@@ -106,11 +107,10 @@ export function NoteForm({ note, students, defaultStudentId, onSave, onDelete, o
 
           <div className="dir-field">
             <label className="dir-label">Note *</label>
-            <textarea
-              className="dir-textarea"
-              style={{ minHeight: 120 }}
+            <RichTextArea
               value={form.content}
-              onChange={e => set('content', e.target.value)}
+              onChange={v => set('content', v)}
+              rows={6}
               placeholder="Progress observation, goal, or feedback…"
             />
           </div>

@@ -15,6 +15,31 @@
  * GITHUB_SHA-or-'dev' rule. If the `define` block there changes, change it here.
  */
 import { readFileSync } from 'node:fs';
+import { registerHooks } from 'node:module';
+
+/**
+ * Asset imports become empty modules.
+ *
+ * A component file imports its own stylesheet (`import './richText.css'`),
+ * which Vite understands and Node does not — so a self-check that renders a
+ * real component headlessly dies on that import before the first assertion.
+ * A no-op for the checks that never touch a component.
+ */
+const ASSET = /\.(css|svg|png|jpe?g|webp|gif|woff2?)(\?.*)?$/;
+// Synchronous hooks need BOTH halves: resolve alone hands the stub URL to the
+// default loader, which tries to read it off disk.
+registerHooks({
+  resolve(specifier, context, next) {
+    if (ASSET.test(specifier)) return { url: 'stub:asset', shortCircuit: true };
+    return next(specifier, context);
+  },
+  load(url, context, next) {
+    if (url === 'stub:asset') {
+      return { format: 'module', source: 'export default {}', shortCircuit: true };
+    }
+    return next(url, context);
+  },
+});
 
 const ORG_ID = process.env.VITE_ORG || 'nwsa';
 

@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react';
+import { NotesText } from '../../public/components/NotesText';
+import { RichTextArea } from '../components/RichTextArea';
 import { Pencil, Printer, Trash2, Send, ClipboardSignature, Ban, FileText } from 'lucide-react';
 import type { Contract, ContractTemplate } from '../types';
 import { formatCents, basisSuffix, lineItemTotalCents, contractTotalCents } from './contractMoney';
@@ -104,7 +106,7 @@ export function ContractPrintSheet({ contract: c }: { contract: Contract }) {
       </dl>
       {terms && (
         <div className="contract-sheet-terms">
-          {terms.split(/\n{2,}/).map((p, i) => <p key={i}>{p}</p>)}
+          <NotesText text={terms} />
         </div>
       )}
       <div className="contract-sheet-comp">
@@ -230,7 +232,7 @@ export function ContractSheet({
             <div className="dir-detail-section-title"><FileText size={13} /> Agreement</div>
             {terms ? (
               <div className="dir-contract-terms">
-                {terms.split(/\n{2,}/).map((p, i) => <p key={i}>{p}</p>)}
+                <NotesText text={terms} />
               </div>
             ) : (
               <div style={{ fontSize: 13, color: 'var(--dir-text-muted)', marginTop: 6 }}>
@@ -290,7 +292,7 @@ export function ContractSheet({
           {/* ── Internal note — editable in every state, Void included ── */}
           <div className="dir-detail-section">
             <div className="dir-detail-section-title">Internal note <span className="dir-detail-private">never shown to the signer</span></div>
-            <textarea className="dir-input" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. superseded by the revised offer" />
+            <RichTextArea value={notes} onChange={setNotes} rows={2} placeholder="e.g. superseded by the revised offer" />
             {notes !== (c.notes ?? '') && (
               <button className="dir-tool-btn" style={{ marginTop: 6 }} disabled={busy} onClick={() => void run(() => onSaveNotes(notes))}>
                 Save note

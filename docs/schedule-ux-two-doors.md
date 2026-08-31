@@ -1,6 +1,6 @@
 # Schedule Changes: People Move, Time Moves
 
-**Status:** Phases 4a, 4c, and 4d shipped. 4b in progress.
+**Status:** Phases 4a–4d all shipped.
 **Date:** August 2026 (2026-08-29).
 **Scope:** supersedes the *navigation and screens* of
 `docs/schedule-ux-redesign.md` §2. That doc's data-model decisions (§4 —

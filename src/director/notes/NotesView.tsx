@@ -1,10 +1,10 @@
 import { useState } from 'react';
+import { NotesText } from '../../public/components/NotesText';
 import { NotebookPen, FileText } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useProgressNotes } from '../hooks/useProgressNotes';
 import { NoteForm } from './NoteForm';
 import type { ProgressNote } from '../types';
-import { Linkify } from '../components/Linkify';
 
 function formatDate(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('en-US', {
@@ -51,7 +51,7 @@ export function NotesView() {
                 <span className="dir-note-student">{studentMap[n.studentId] ?? 'Unknown'}</span>
                 <span className="dir-note-date">{formatDate(n.date)}</span>
               </div>
-              <div className="dir-note-content"><Linkify text={n.content} /></div>
+              <div className="dir-note-content"><NotesText text={n.content} /></div>
               {n.category && n.category !== 'General' && (
                 <span className="dir-note-category">{n.category}</span>
               )}

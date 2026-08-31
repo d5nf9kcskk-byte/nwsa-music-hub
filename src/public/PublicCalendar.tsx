@@ -8,6 +8,7 @@ import { useAssignments } from '../director/hooks/useAssignments';
 import { useMinuteTick } from '../director/hooks/useAnnouncements';
 import { todayStr, toDateStr, parseDate, ensembleColor, ensembleDisplayName, assignmentEmoji, musicEnsembles, isPublished, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { FilterMenu } from '../shared/FilterMenu';
+import type { ConcertAttendance } from '../shared/calendarView';
 import { activeCollegePreset, collegeFilterIds, type CollegeFilterPreset } from '../shared/collegeCalendarFilter';
 import { PubEventCard } from './components/PubEventCard';
 import { PageHeader, EmptyState } from './components/PageHeader';
@@ -64,7 +65,17 @@ export function PublicCalendar() {
   const [filterEnsembleIds, setFilterEnsembleIds] = useState<string[]>(
     () => (searchParams.get('ensemble') ?? '').split(',').map(s => s.trim()).filter(Boolean),
   );
-  const [typeFilters, setTypeFilters] = useState<TypeKey[]>([]);
+  // ?type= makes a filtered calendar fully shareable. Without it a link to
+  // "Symphony rehearsals" restored the ensemble and silently dropped the
+  // type, so the link did not show what its author was looking at.
+  const [typeFilters, setTypeFilters] = useState<TypeKey[]>(
+    () => (searchParams.get('type') ?? '')
+      .split(',').map(s => s.trim())
+      .filter((s): s is TypeKey => TYPE_OPTIONS.some(o => o.value === s)),
+  );
+  // Required vs optional concerts (#concert-checkin) — a student's own
+  // question, "which of these do I actually have to be at?"
+  const [attendance, setAttendance] = useState<ConcertAttendance | ''>('');
   const [view, setView] = useState<'month' | 'list'>('month');
   const { cheer, show } = useEggCheer();
   const filterSeq = useRef<string[]>([]);
@@ -93,19 +104,20 @@ export function PublicCalendar() {
   // pulls that month once, so the whole year is still browsable.
   useEffect(() => { ensureMonth(cursor); }, [cursor, ensureMonth]);
 
-  // Keep the ?ensemble= deep-link (comma-separated) in sync with the chosen
-  // ensembles, so a filtered calendar is shareable and survives reload.
+  // Keep the ?ensemble= / ?type= deep-link (comma-separated) in sync with the
+  // chosen filters, so a filtered calendar is shareable and survives reload.
   useEffect(() => {
-    const current = searchParams.get('ensemble') ?? '';
-    const wanted = filterEnsembleIds.join(',');
-    if (current !== wanted) {
-      const next = new URLSearchParams(searchParams);
-      if (wanted) next.set('ensemble', wanted);
-      else next.delete('ensemble');
-      setSearchParams(next, { replace: true });
+    const wantEns = filterEnsembleIds.join(',');
+    const wantType = typeFilters.join(',');
+    if ((searchParams.get('ensemble') ?? '') === wantEns && (searchParams.get('type') ?? '') === wantType) return;
+    const next = new URLSearchParams(searchParams);
+    for (const [key, want] of [['ensemble', wantEns], ['type', wantType]] as const) {
+      if (want) next.set(key, want);
+      else next.delete(key);
     }
+    setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterEnsembleIds]);
+  }, [filterEnsembleIds, typeFilters]);
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
@@ -119,8 +131,9 @@ export function PublicCalendar() {
       ensembleIds: filterEnsembleIds,
       school: false,
       types: typeFilters.flatMap(k => BUCKET_TYPES[k]),
+      ...(attendance ? { attendance } : {}),
     }),
-    [filterEnsembleIds, typeFilters],
+    [filterEnsembleIds, typeFilters, attendance],
   );
   const visible = useMemo(() => events.filter(e => eventMatchesView(e, viewSpec)), [events, viewSpec]);
 
@@ -215,6 +228,21 @@ export function PublicCalendar() {
           options={TYPE_OPTIONS.map(o => ({ value: o.value, label: t(o.labelKey), color: o.color }))}
           selected={typeFilters}
           onChange={next => { setTypeFilters(next as TypeKey[]); noteFilter('type'); }}
+        />
+        <FilterMenu
+          prefix="pub"
+          allLabel={t('cal.allConcerts')}
+          ariaLabel={t('cal.filterAttendance')}
+          options={[
+            { value: 'required', label: t('cal.requiredConcerts') },
+            { value: 'optional', label: t('cal.optionalConcerts') },
+          ]}
+          selected={attendance ? [attendance] : []}
+          // Mutually exclusive: keep the newest pick rather than both.
+          onChange={next => {
+            setAttendance((next[next.length - 1] as ConcertAttendance) ?? '');
+            noteFilter('type');
+          }}
         />
       </div>
       {collegeFilterIds(ensembles, 'all').length > 0 && (

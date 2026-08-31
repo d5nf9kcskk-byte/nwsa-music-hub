@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { todayStr } from '../utils';
+import { richTextToPlain } from '../../shared/richTextParse';
+import { ORG } from '../../org';
 import { useAnnouncements, useMinuteTick } from '../hooks/useAnnouncements';
 import type { Announcement } from '../types';
 
@@ -17,8 +19,17 @@ import type { Announcement } from '../types';
  *     every family).
  */
 
-/** Queue the relay entry for an urgent announcement, exactly once. */
-export async function queueUrgentRelay(a: Pick<Announcement, 'id' | 'title' | 'body' | 'ensembleId'>) {
+/**
+ * Queue the relay entry for an urgent announcement, exactly once.
+ *
+ * The body is flattened to plain text with ABSOLUTE addresses: Teams and
+ * email render neither the formatting markers nor an in-app chip, and a
+ * relative "/event/x" arriving in a parent's inbox is a dead link. Related
+ * links ride along as lines under the message for the same reason.
+ */
+export async function queueUrgentRelay(
+  a: Pick<Announcement, 'id' | 'title' | 'body' | 'ensembleId' | 'links'>,
+) {
   if (!db) return;
   const ref = doc(db, 'notifyQueue', `ann-${a.id}`);
   // Never overwrite: if the entry exists (processed or not), the relay for
@@ -29,11 +40,20 @@ export async function queueUrgentRelay(a: Pick<Announcement, 'id' | 'title' | 'b
   await setDoc(ref, {
     kind: 'urgent-announcement',
     title: a.title,
-    ...(a.body ? { body: a.body } : {}),
+    ...(relayBody(a) ? { body: relayBody(a) } : {}),
     ensembleIds: a.ensembleId ? [a.ensembleId] : [],
     createdAt: Date.now(),
     processedAt: null,
   });
+}
+
+/** The message as a family will actually receive it: no markers, no chips,
+ *  every address absolute. */
+function relayBody(a: Pick<Announcement, 'body' | 'links'>): string {
+  const site = ORG.publicUrl.replace(/\/$/, '');
+  const body = a.body ? richTextToPlain(a.body, site) : '';
+  const links = (a.links ?? []).map(l => `${l.label}: ${l.url.startsWith('/') ? site + l.url : l.url}`);
+  return [body, ...links].filter(Boolean).join('\n');
 }
 
 /** Stamp relayQueuedAt WITHOUT the updatedBy/updatedAt attribution — the

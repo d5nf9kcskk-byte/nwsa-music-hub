@@ -2,6 +2,17 @@ import { https } from 'firebase-functions/v1';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { ALLOWED_ORIGIN, buildLessonsIcs, tokenMatches, TOKEN_RE } from './lessonsFeed.ts';
+import { getStorage } from 'firebase-admin/storage';
+import {
+  buildRecord, checkinDocId, decodePhoto, fail, loadSiteSettings, photoPath,
+  resolveCheckinSettings, validate, PHOTO_BUCKET,
+  type CheckinRequest,
+} from './concertCheckin.ts';
+import ORG from '../../config/orgs/nwsa.json' with { type: 'json' };
+import {
+  emailMatchesScans, loadGoals, tallyScans, NO_MATCH, TERMS as TALLY_TERMS,
+  type ScanLike, type TallyRequest,
+} from './concertTally.ts';
 
 initializeApp();
 
@@ -70,4 +81,169 @@ export const lessonsFeed = https.onRequest(async (req, res) => {
   // A filename makes desktop clients name the calendar sensibly on save.
   res.set('Content-Disposition', 'inline; filename="lessons.ics"');
   res.status(200).send(body);
+});
+
+
+/**
+ * Concert check-in / check-out (#concert-checkin).
+ *
+ * POST { eventId, studentId, email, kind: 'in'|'out', photo?: dataURL }
+ *
+ * Unauthenticated by necessity — students have no accounts, which is the same
+ * reason the Hub's five public Firestore writes exist. What makes this a
+ * function rather than a sixth of those: the time is stamped HERE. An
+ * attendance record whose timestamp came from the phone of the person being
+ * marked present is not evidence of anything.
+ *
+ * Every refusal carries a plain sentence for the student, because this runs
+ * in a lobby with a line behind them: "Use your school email address" is
+ * actionable, "permission-denied" is not. Unlike the lessons feed, refusals
+ * here are not deliberately indistinguishable — there is no secret to probe
+ * for, and a student who cannot tell why they were turned away just finds a
+ * director instead.
+ */
+export const concertCheckin = https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+  res.set('Cache-Control', 'no-store');
+
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.set('Access-Control-Max-Age', '3600');
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') { res.status(405).json(fail('bad-request')); return; }
+
+  const body = (req.body ?? {}) as CheckinRequest;
+  const db = getFirestore();
+
+  // Load the concert, the student, and any scan already on file, then let
+  // validate() decide. The student is read from studentsPublic, not the
+  // staff-only students collection: a door station needs a name and a
+  // roster status, never a guardian phone number (#privacy).
+  const eventId = typeof body.eventId === 'string' ? body.eventId : '';
+  const studentId = typeof body.studentId === 'string' ? body.studentId : '';
+  const kind = body.kind === 'out' ? 'out' : 'in';
+
+  let eventDoc, studentDoc, inDoc, outDoc, site;
+  try {
+    [eventDoc, studentDoc, inDoc, outDoc, site] = await Promise.all([
+      eventId ? db.doc(`events/${eventId}`).get() : Promise.resolve(null),
+      studentId ? db.doc(`studentsPublic/${studentId}`).get() : Promise.resolve(null),
+      eventId && studentId ? db.doc(`concertCheckins/${checkinDocId(eventId, studentId, 'in')}`).get() : Promise.resolve(null),
+      eventId && studentId ? db.doc(`concertCheckins/${checkinDocId(eventId, studentId, 'out')}`).get() : Promise.resolve(null),
+      loadSiteSettings(db),
+    ]);
+  } catch {
+    res.status(503).json({ ok: false, failure: 'bad-request', message: 'The Hub is busy. Try once more.' });
+    return;
+  }
+
+  const event = eventDoc?.exists ? { id: eventDoc.id, ...eventDoc.data() } : null;
+  const student = studentDoc?.exists ? studentDoc.data() ?? null : null;
+  const settings = resolveCheckinSettings(event ?? {}, site);
+  const now = Date.now();
+
+  const verdict = validate(
+    body, event, student, settings, ORG.timezone,
+    { in: Boolean(inDoc?.exists), out: Boolean(outDoc?.exists) },
+    now,
+  );
+  if (!verdict.ok) { res.status(200).json(verdict); return; }
+
+  // The photo goes to Storage first: a record that claims a photoPath which
+  // does not exist is worse than no record at all.
+  const decoded = decodePhoto(body.photo);
+  let storedPath: string | undefined;
+  if (decoded) {
+    storedPath = photoPath(eventId, studentId, kind, now);
+    try {
+      const bucket = PHOTO_BUCKET ? getStorage().bucket(PHOTO_BUCKET) : getStorage().bucket();
+      await bucket.file(storedPath).save(decoded.bytes, {
+        contentType: decoded.contentType,
+        // No public link, ever. /checkins has no public read rule and this
+        // object gets no download token — a director reads it signed in.
+        metadata: { cacheControl: 'private, max-age=0, no-store' },
+      });
+    } catch {
+      res.status(200).json(fail('bad-photo'));
+      return;
+    }
+  }
+
+  const record = buildRecord({
+    event: event as never, student: student ?? {}, body, kind, at: now,
+    photoPath: storedPath, photoSkipped: !decoded,
+  });
+
+  try {
+    // create(), not set(): the deterministic id plus a create is what makes a
+    // duplicate scan impossible rather than merely unlikely.
+    await db.doc(`concertCheckins/${checkinDocId(eventId, studentId, kind)}`).create(record);
+  } catch {
+    res.status(200).json(fail('already'));
+    return;
+  }
+
+  res.status(200).json({ ok: true, kind, at: now });
+});
+
+
+/**
+ * A student's own concert count (#concert-checkin).
+ *
+ * POST { studentId, email } → per-semester Required / Optional totals.
+ *
+ * Served here rather than read from the page because `concertCheckins` is
+ * staff-only with no public projection: attendance is staff-only under the
+ * Hub's privacy model, so counting it in the browser would mean publishing
+ * it. The school email is the identity check — matched against the address on
+ * the student's OWN records — so the page answers "how many have I done"
+ * without becoming a lookup table of everybody's attendance. A wrong email
+ * and a student with nothing on file get the SAME refusal, so it cannot be
+ * walked to find out who has attended nothing.
+ */
+export const concertTally = https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+  res.set('Cache-Control', 'private, no-store');
+
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.set('Access-Control-Max-Age', '3600');
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') { res.status(405).json({ ok: false, message: NO_MATCH }); return; }
+
+  const body = (req.body ?? {}) as TallyRequest;
+  const studentId = typeof body.studentId === 'string' ? body.studentId : '';
+  const email = typeof body.email === 'string' ? body.email : '';
+  if (!studentId || !email) { res.status(200).json({ ok: false, message: NO_MATCH }); return; }
+
+  const db = getFirestore();
+  let scans: ScanLike[];
+  let goals: Record<string, { required?: number; optional?: number }>;
+  try {
+    const [snap, g] = await Promise.all([
+      db.collection('concertCheckins').where('studentId', '==', studentId).get(),
+      loadGoals(db),
+    ]);
+    scans = snap.docs.map(d => d.data() as ScanLike);
+    goals = g;
+  } catch {
+    res.status(503).json({ ok: false, message: 'The Hub is busy. Try once more.' });
+    return;
+  }
+
+  if (!emailMatchesScans(email, scans)) {
+    res.status(200).json({ ok: false, message: NO_MATCH });
+    return;
+  }
+
+  const { terms, incomplete } = tallyScans(scans, TALLY_TERMS, goals);
+  res.status(200).json({ ok: true, terms, incomplete });
 });

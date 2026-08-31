@@ -1,4 +1,6 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
+import { NotesText } from '../../public/components/NotesText';
+import { RichTextArea } from '../components/RichTextArea';
 import {
   ClipboardSignature, Plus, Users, CalendarClock, Check, Copy, Download, Printer,
   Mail, Link2, Lock, Unlock, Trash2, ChevronLeft, Sparkles, AlertTriangle, Clock,
@@ -503,7 +505,7 @@ function SignupDetail({
                 </dl>
                 {form.signatureStatement && (
                   <div className="signup-sheet-sign">
-                    <p className="signup-sheet-statement">{form.signatureStatement}</p>
+                    <div className="signup-sheet-statement"><NotesText text={form.signatureStatement} /></div>
                     <div className="signup-sheet-line">
                       <span className="signup-sheet-sig">{r.signature ?? '—'}</span>
                       <span className="signup-sheet-cap">Student signature (typed) · {new Date(r.submittedAt).toLocaleString()}</span>
@@ -512,7 +514,7 @@ function SignupDetail({
                 )}
                 {form.guardianStatement && (
                   <div className="signup-sheet-sign">
-                    <p className="signup-sheet-statement">{form.guardianStatement}</p>
+                    <div className="signup-sheet-statement"><NotesText text={form.guardianStatement} /></div>
                     <div className="signup-sheet-line">
                       <span className="signup-sheet-sig">{r.guardianSignature ?? '—'}</span>
                       <span className="signup-sheet-cap">
@@ -724,8 +726,8 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
 
           <div className="dir-field">
             <label className="dir-label">What students should know</label>
-            <textarea className="dir-input" rows={4} value={draft.intro ?? ''}
-              onChange={e => set('intro', e.target.value)}
+            <RichTextArea value={draft.intro ?? ''} rows={4}
+              onChange={v => set('intro', v)}
               placeholder="Dates, what auditioning involves, what happens next…" />
           </div>
 
@@ -907,8 +909,8 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
           <div className="dir-signup-section">Signature</div>
           <div className="dir-field">
             <label className="dir-label">What the student is agreeing to</label>
-            <textarea className="dir-input" rows={4} value={draft.signatureStatement ?? ''}
-              onChange={e => set('signatureStatement', e.target.value)}
+            <RichTextArea value={draft.signatureStatement ?? ''} rows={4}
+              onChange={v => set('signatureStatement', v)}
               placeholder="Leave empty to just collect names and answers — no signature." />
             <div className="dir-signup-help">
               Filled in = the student types their full name to sign, and the Hub records
@@ -918,8 +920,8 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
           {draft.signatureStatement?.trim() && (
             <div className="dir-field">
               <label className="dir-label">What a parent/guardian is agreeing to</label>
-              <textarea className="dir-input" rows={3} value={draft.guardianStatement ?? ''}
-                onChange={e => set('guardianStatement', e.target.value)}
+              <RichTextArea value={draft.guardianStatement ?? ''} rows={3}
+                onChange={v => set('guardianStatement', v)}
                 placeholder="Leave empty if no parent signature is needed." />
             </div>
           )}

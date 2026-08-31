@@ -1,4 +1,5 @@
 import { Pencil, Phone, Mail, Users, MapPin, FileText, ExternalLink, Archive, RotateCcw, ClipboardSignature, Landmark } from 'lucide-react';
+import { NotesText } from '../../public/components/NotesText';
 import type { Personnel, PersonnelContact, Contract, Ensemble } from '../types';
 import { ensembleColor, formatDate } from '../utils';
 import { formatCents, basisSuffix, contractTotalCents } from './contractMoney';
@@ -224,7 +225,7 @@ export function PersonnelDetail({ person, contact, contracts, ensembles, onEdit,
           {person.notes && (
             <div className="dir-detail-section">
               <div className="dir-detail-section-title"><FileText size={13} /> Notes</div>
-              <div style={{ fontSize: 13, marginTop: 4 }}><Linkify text={person.notes} /></div>
+              <div style={{ fontSize: 13, marginTop: 4 }}><NotesText text={person.notes} /></div>
             </div>
           )}
         </div>

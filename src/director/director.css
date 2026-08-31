@@ -244,6 +244,24 @@ html:has(.dir-app) body {
   padding: 16px 16px 8px;
 }
 
+/* Actions on the right of a section header. Wraps on a phone rather than
+   squeezing the buttons to nothing — a header with a primary action in it is
+   wider than one with only a Print button. */
+.dir-section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* A primary button sized to sit in a header row beside a tool button. */
+.dir-btn-sm {
+  padding: 7px 12px;
+  font-size: 13.5px;
+  min-height: 36px;
+}
+
 .dir-section-title {
   font-size: 13px;
   font-weight: 700;
@@ -987,6 +1005,11 @@ html:has(.dir-app) body {
 
 .dir-drawer-body {
   overflow-y: auto;
+  /* Without min-height:0 this flex child cannot shrink below its content, so a
+     long form in a 90dvh sheet overflows the sheet instead of scrolling inside
+     it — the announcement editor on a phone. Same line, same reason, as
+     .dir-content. */
+  min-height: 0;
   overscroll-behavior: contain;
   padding: 16px;
   display: flex;
@@ -2137,13 +2160,23 @@ a.dir-menu-item {
 /* ── Rich-text area toolbar ──────────────────────────── */
 .dir-rte { display: flex; flex-direction: column; gap: 0; }
 .dir-rte-toolbar {
-  display: flex; gap: 2px;
+  /* wrap: 14 controls do not fit a phone in one row. */
+  display: flex; flex-wrap: wrap; gap: 2px; align-items: center;
   padding: 4px 6px;
   background: var(--dir-surface-2);
   border: 1px solid var(--dir-border);
   border-bottom: none;
   border-radius: 8px 8px 0 0;
 }
+.dir-rte-font {
+  height: 28px; padding: 0 4px; margin-left: 2px;
+  font: inherit; font-size: 11px;
+  color: var(--dir-text-2); background: transparent;
+  border: 1px solid var(--dir-border); border-radius: 6px;
+  cursor: pointer;
+}
+.dir-rte-font:disabled { opacity: 0.4; cursor: default; }
+
 .dir-rte-btn {
   display: flex; align-items: center; justify-content: center;
   width: 28px; height: 28px; padding: 0;
@@ -2212,3 +2245,20 @@ a.dir-menu-item {
 .dir-attach-progress-fill { height: 100%; background: var(--dir-primary); border-radius: 2px; }
 .dir-attach-pct { font-size: 11px; font-weight: 700; flex-shrink: 0; }
 .dir-attach-error { font-size: 12px; color: var(--dir-danger); }
+
+/* Related-links editor on the announcement form (#linking). */
+.dir-ann-linkrow { display: flex; flex-wrap: wrap; gap: 6px; }
+.dir-ann-linkchip {
+  display: inline-flex; align-items: center; gap: 5px;
+  max-width: 100%;
+  padding: 4px 6px 4px 9px;
+  font-size: 12px;
+  color: var(--dir-text); background: var(--dir-surface-2);
+  border: 1px solid var(--dir-border); border-radius: 999px;
+}
+.dir-ann-linkchip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dir-ann-linkchip button {
+  display: flex; align-items: center;
+  border: none; background: transparent; color: var(--dir-text-2);
+  padding: 2px; cursor: pointer;
+}
