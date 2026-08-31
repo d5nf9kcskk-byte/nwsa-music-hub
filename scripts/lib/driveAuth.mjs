@@ -32,6 +32,28 @@ export const DRIVE_OAUTH_VARS = [
  * sync on the account that cannot write and report a quota error instead of
  * the missing secret.
  */
+/**
+ * Who Drive refused, for a message.
+ *
+ * `account` is the address a caller VERIFIED with `about.get`. Until someone
+ * asks, this module can only describe the credential — `driveClient()` infers
+ * OAuth from three env vars being non-empty and cannot know whose token it
+ * holds. Naming a role instead of an address is exactly what let "signed in as
+ * the folder owner" stand as a confident falsehood: the service-account arm
+ * reads a real address off the credential, the OAuth arm had only a hope, and
+ * only the hope can be wrong.
+ *
+ * So: name the address when it is known, fall back to describing the
+ * credential when it is not. Never interpolate an absent one.
+ */
+export function driveAccountLabel(mode, account, serviceAccountEmail) {
+  const verified = String(account ?? '').trim();
+  if (verified) return verified;
+  return mode === 'oauth'
+    ? 'the account the DRIVE_OAUTH_* secrets sign in as'
+    : `the service account ${serviceAccountEmail}`;
+}
+
 export function driveAuthMode(env = process.env) {
   const set = k => !!String(env[k] ?? '').trim();
   const missing = DRIVE_OAUTH_VARS.filter(k => !set(k));
