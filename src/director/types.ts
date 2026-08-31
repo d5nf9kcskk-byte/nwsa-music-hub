@@ -1042,8 +1042,12 @@ export interface SignupForm {
   ensembleIds: string[];
   families: InstrumentFamilyId[];
   /** `'groups'` (default) = ensemble + instrument family filters.
-   *  `'students'` = only ids in signupAudiences may submit. */
-  audienceMode?: 'groups' | 'students';
+   *  `'students'` = only ids in signupAudiences may submit.
+   *  `'open'` = anyone with the link, roster or not — the form IS the intake
+   *  (new college students, incoming freshmen), so there is no name to pick
+   *  and the response carries no studentId. Time slots can't be used here:
+   *  a booking is anchored to a student doc in firestore.rules. */
+  audienceMode?: 'groups' | 'students' | 'open';
   /** YYYY-MM-DD. Past its deadline a sign-up stops accepting responses. */
   deadline?: string;
   /** Director closed it by hand, regardless of the deadline. */
@@ -1091,7 +1095,9 @@ export type SignupResponseStatus = (typeof SIGNUP_RESPONSE_STATUSES)[number];
 export interface SignupResponse {
   id: string;
   formId: string;
-  studentId: string;
+  /** Absent on an `audienceMode: 'open'` sign-up — the person filling it in
+   *  has no roster record yet, which is the whole point of that mode. */
+  studentId?: string;
   studentName: string;
   grade: string;
   instrument?: string;

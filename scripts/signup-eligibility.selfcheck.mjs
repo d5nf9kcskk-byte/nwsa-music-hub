@@ -116,6 +116,26 @@ assert(!signupShowsInAlerts({ audienceMode: 'students' }), 'invite-only sign-ups
 assert(signupShowsInAlerts({ audienceMode: 'groups' }), 'group sign-ups still alert');
 assert(signupShowsInAlerts({}), 'default group sign-ups still alert');
 
+// ── Anyone-with-the-link mode ──────────────────────────────────────
+// The form IS the intake: nobody is targeted, nobody is waiting, and there is
+// no name to pick. If any of these start returning true, the director's
+// screen invents a denominator ("3 of 0 responded") and the public page goes
+// back to demanding a roster name from someone who has no roster record.
+const anyone = { mode: 'open', ensembleIds: [], families: [] };
+assert(
+  !eligibleForSignup({ id: 's1', ensembleIds: ['camerata'], instrument: 'Violin', status: 'Active' }, anyone),
+  'an open sign-up targets nobody on the roster — not even everyone',
+);
+assert(
+  !eligibleForSignupPicker({ id: 's1', status: 'Active' }, { audienceMode: 'open' }),
+  'an open sign-up has no name picker at all',
+);
+assert(
+  audienceLabel(anyone, name, fam) === 'Anyone with the link',
+  'an open audience says so in words',
+);
+assert(!signupShowsInAlerts({ audienceMode: 'open' }), 'open sign-ups stay off the Hub home page');
+
 // ── Open / closed ──────────────────────────────────────────────────
 const TODAY = '2026-08-20';
 const NOW = Date.parse('2026-08-20T12:00:00Z');

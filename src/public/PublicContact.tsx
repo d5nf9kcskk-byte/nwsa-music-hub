@@ -151,7 +151,7 @@ export function PublicContact() {
         <div className="pub-contact-count">{message.trim().length}/1000</div>
 
         {/* Honeypot — hidden from humans (and from assistive tech). */}
-        <input className="pub-contact-hp" type="text" value={honeypot} tabIndex={-1}
+        <input className="pub-hp" type="text" value={honeypot} tabIndex={-1}
           onChange={e => setHoneypot(e.target.value)} autoComplete="off"
           aria-hidden="true" placeholder="Leave this field empty" />
 

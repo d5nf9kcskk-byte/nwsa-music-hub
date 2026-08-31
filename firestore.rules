@@ -211,6 +211,24 @@ service cloud.firestore {
             && studentId in get(/databases/$(database)/documents/signupAudiences/$(formId)).data.studentIds);
     }
 
+    // Who may send a signupResponse. On an 'open' sign-up the person filling
+    // it in has no student doc yet — that IS the mode (the form is the
+    // intake), so the response must carry NO studentId at all rather than an
+    // invented one. Every other mode keeps the roster anchor.
+    function signupSubmitterAllowed(formId, data) {
+      let mode = get(/databases/$(database)/documents/signupForms/$(formId))
+                   .data.get('audienceMode', 'groups');
+      return mode == 'open'
+        ? !('studentId' in data)
+        : ('studentId' in data
+           && data.studentId is string
+           && exists(/databases/$(database)/documents/students/$(data.studentId))
+           && (mode != 'students'
+               || (exists(/databases/$(database)/documents/signupAudiences/$(formId))
+                   && data.studentId in
+                        get(/databases/$(database)/documents/signupAudiences/$(formId)).data.studentIds)));
+    }
+
     // ── Public read · staff write ────────────────────
     match /ensembles/{doc}       { allow read; allow write: if isStaff(); }
     // Full student records (pronunciation, …) are staff-eyes only
@@ -528,6 +546,13 @@ service cloud.firestore {
     // Volume rate-limiting still needs App Check or a Cloud Function and is
     // deferred, matching the stance on the other public writes
     // (docs/security-recommendations.md).
+    //
+    // An 'open' sign-up drops the roster anchor on purpose (see
+    // signupSubmitterAllowed) and so loses the brake the anchor gave the
+    // other modes. Its stand-in is the same one parentMessages uses: the
+    // exact key set below IS the honeypot — the public form only sends its
+    // hidden 'website' field when a bot fills it, and hasOnly rejects the
+    // create. A director who wants the anchor back picks a different mode.
     match /signupResponses/{doc} {
       allow create: if request.resource.data.keys().hasOnly([
             'formId', 'studentId', 'studentName', 'grade', 'instrument',
@@ -538,9 +563,7 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/signupForms/$(request.resource.data.formId))
         && get(/databases/$(database)/documents/signupForms/$(request.resource.data.formId))
              .data.get('closed', false) == false
-        && request.resource.data.studentId is string
-        && exists(/databases/$(database)/documents/students/$(request.resource.data.studentId))
-        && signupStudentAllowed(request.resource.data.formId, request.resource.data.studentId)
+        && signupSubmitterAllowed(request.resource.data.formId, request.resource.data)
         && request.resource.data.studentName is string
         && request.resource.data.studentName.size() >= 2
         && request.resource.data.studentName.size() <= 120

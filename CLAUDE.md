@@ -275,8 +275,19 @@ copies.
   workflow. Those two modules import with explicit `.ts` extensions on
   purpose — Node's type-stripping loader (the self-check) can't resolve
   extensionless relative imports.
-- Audience is **ensembles + instrument families only** — never a list of
-  student ids. `signupForms` is world-readable, and student doc ids are
+- Audience has a third mode, **`'open'` (“Anyone with the link”)**: the form
+  IS the intake, so there is no name to pick — the person types their own and
+  the response carries **no `studentId` at all** (firestore.rules requires the
+  key to be ABSENT, not blank; `signupSubmitterAllowed()`). It is the one mode
+  without the roster anchor, so its brake is the same honeypot
+  `parentMessages` uses — the exact-key-set rule. Nobody is “eligible” and
+  nobody is “waiting” (`eligibleForSignup` returns false), so the director’s
+  screen counts responses instead of “3 of 14”, and it stays off the Hub home
+  page. Time slots can’t be offered on one — a booking is anchored to a
+  student doc — and the editor refuses that combination, which is the only
+  place it could be created.
+- Audience is otherwise **ensembles + instrument families only** — never a list
+  of student ids. `signupForms` is world-readable, and student doc ids are
   shared with `studentsPublic`, so an invite list would publish who was
   invited to what. Unrecognized/blank instruments fail CLOSED.
 - `signupResponses` is the app's fifth unauthenticated write. There is

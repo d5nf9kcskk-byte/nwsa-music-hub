@@ -56,7 +56,7 @@ export function PublicSignups() {
   function who(f: SignupForm): string {
     if (f.audienceMode === 'students') return 'By invitation';
     return audienceLabel(
-      { ensembleIds: f.ensembleIds ?? [], families: f.families ?? [] },
+      { mode: f.audienceMode, ensembleIds: f.ensembleIds ?? [], families: f.families ?? [] },
       eid => ensembleDisplayName(ensembles.find(e => e.id === eid)),
       fam => INSTRUMENT_FAMILY_LABEL[fam],
     );

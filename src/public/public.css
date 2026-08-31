@@ -833,3 +833,13 @@ html:has(.pub-app) body {
   border-radius: 999px;
 }
 .pub-announce-link:hover { text-decoration: underline; }
+
+/* Honeypot for the unauthenticated forms (contact, open sign-ups): visually
+   removed but still fillable by naive bots. Not display:none — some bots skip
+   invisible fields; off-screen is stickier. Lives here rather than beside one
+   form so every page that needs it gets the rule without loading that form's
+   stylesheet. */
+.pub-hp {
+  position: absolute; left: -9999px; top: -9999px;
+  width: 1px; height: 1px; opacity: 0; pointer-events: none;
+}

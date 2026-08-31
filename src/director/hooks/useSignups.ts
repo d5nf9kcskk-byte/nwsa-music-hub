@@ -142,7 +142,10 @@ export function useSignupSlotBookings(formId: string) {
  * the response so two students cannot grab the same time slot.
  */
 export async function submitSignupResponse(
-  data: Omit<SignupResponse, 'id' | 'submittedAt' | 'status'>,
+  // `website` is the honeypot on 'open' sign-ups (same field name and same
+  // mechanism as the parent contact form): humans never see it, and the
+  // exact-key-set rule rejects the create when a bot fills it in.
+  data: Omit<SignupResponse, 'id' | 'submittedAt' | 'status'> & { website?: string },
   slotClaims: SlotClaim[] = [],
 ): Promise<string> {
   if (!db) throw new Error('Firestore not initialized');
@@ -235,8 +238,12 @@ export async function removeSlotBooking(booking: SignupSlotBooking) {
 export function latestPerStudent(responses: SignupResponse[]): SignupResponse[] {
   const best = new Map<string, SignupResponse>();
   for (const r of responses) {
-    const prev = best.get(r.studentId);
-    if (!prev || r.submittedAt > prev.submittedAt) best.set(r.studentId, r);
+    // An 'open' sign-up's responses carry no studentId — there is nobody to
+    // collapse them against, so each one stands on its own doc id. Keying
+    // them all on '' would show the director exactly one of them.
+    const key = r.studentId || r.id;
+    const prev = best.get(key);
+    if (!prev || r.submittedAt > prev.submittedAt) best.set(key, r);
   }
   return [...best.values()];
 }

@@ -161,7 +161,7 @@ export function SignupsView() {
               </span>
             </div>
             <div className="dir-signup-card-meta">
-              <span><Users size={13} /> {mine.length} of {target.length} responded</span>
+              <span><Users size={13} /> {respondedLine(f, mine.length, target.length)}</span>
               {(f.signatureStatement || (f.questions ?? []).length > 0) && (
                 <span><Check size={13} /> {complete} complete</span>
               )}
@@ -290,7 +290,7 @@ function SignupDetail({
             <span className={`dir-signup-state ${live ? 'open' : 'closed'}`}>
               {live ? 'Open' : signupIsPublished(form, now) ? 'Closed' : 'Scheduled'}
             </span>
-            <span><Users size={13} /> {active.length} of {target.length} responded</span>
+            <span><Users size={13} /> {respondedLine(form, active.length, target.length)}</span>
             {form.deadline && (
               <span className={live && form.deadline === today ? 'urgent' : undefined}>
                 <CalendarClock size={13} /> {formatDate(form.deadline)}
@@ -311,7 +311,9 @@ function SignupDetail({
         </button>
       </div>
       <p className="dir-signup-hint">
-        {form.audienceMode === 'students'
+        {form.audienceMode === 'open'
+          ? 'Anyone with this link can fill it in, roster or not — send it wherever the people you want are (email, a flyer, a QR code). It won’t appear on the Hub home page.'
+          : form.audienceMode === 'students'
           ? 'This sign-up is by invitation — share the link with the students you picked. It won’t appear on the Hub home page.'
           : 'Students also see this on the Hub home page and on their own schedule page — they don’t need the link. It stops showing once they’ve sent it.'}
       </p>
@@ -628,6 +630,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
   // A booking points at a slot's POSITION, so a booked question can't be reordered.
   const { bookings: slotBookings } = useSignupSlotBookings(formId ?? '');
   const inviteMode = draft.audienceMode === 'students';
+  const openMode = draft.audienceMode === 'open';
   const inviteIds = draft.inviteStudentIds ?? [];
   const ensembleOptions = useMemo(
     () => musicEnsembles(ensembles).map(e => ({ value: e.id, label: e.name, color: ensembleColor(e) })),
@@ -641,11 +644,15 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
   function set<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft(d => ({ ...d, [key]: value }));
   }
-  function setAudienceMode(mode: 'groups' | 'students') {
+  function setAudienceMode(mode: 'groups' | 'students' | 'open') {
     setDraft(d => ({
       ...d,
-      audienceMode: mode === 'students' ? 'students' : undefined,
+      audienceMode: mode === 'groups' ? undefined : mode,
       inviteStudentIds: mode === 'students' ? (d.inviteStudentIds ?? []) : [],
+      // An open sign-up reaches everyone with the link, so ensemble and
+      // instrument filters would be a lie sitting on the doc.
+      ensembleIds: mode === 'open' ? [] : d.ensembleIds,
+      families: mode === 'open' ? [] : d.families,
     }));
   }
   function toggleInviteStudent(id: string) {
@@ -686,6 +693,14 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
       setSaveError('Pick at least one student, or switch back to ensembles.');
       return;
     }
+    // A slot booking is anchored to a student doc in firestore.rules, and an
+    // open sign-up has no student doc to anchor to — the claim would be
+    // rejected at send time, after the student filled the whole form in.
+    // Refused here, which is the only way the combination could be created.
+    if (openMode && draft.questions.some(q => q.type === 'timeslot')) {
+      setSaveError('“Anyone with the link” sign-ups can’t offer time slots — the slot has to be held for someone on the roster. Remove the time slot question, or pick a different audience.');
+      return;
+    }
     // A question with slots/options but no label would be filtered away below.
     // Stop instead: silently deleting a built-out time slot grid is data loss.
     const unnamed = draft.questions.findIndex(q => !q.label.trim() && signupQuestionHasContent(q));
@@ -699,9 +714,9 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
         ...draft,
         title: draft.title.trim(),
         intro: draft.intro?.trim() || undefined,
-        audienceMode: inviteMode ? 'students' : undefined,
-        ensembleIds: inviteMode ? [] : draft.ensembleIds,
-        families: inviteMode ? [] : draft.families,
+        audienceMode: inviteMode ? 'students' : openMode ? 'open' : undefined,
+        ensembleIds: inviteMode || openMode ? [] : draft.ensembleIds,
+        families: inviteMode || openMode ? [] : draft.families,
         inviteStudentIds: inviteMode ? inviteIds : [],
         // A guardian can only co-sign something the student signed first.
         guardianStatement: draft.signatureStatement?.trim() ? draft.guardianStatement?.trim() || undefined : undefined,
@@ -757,8 +772,8 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
           <div className="dir-field">
             <label className="dir-label">Who is this for?</label>
             <div className="dir-checkbox-group" style={{ marginBottom: 10 }}>
-              <label className={`dir-checkbox-tag ${!inviteMode ? 'checked' : ''}`}>
-                <input type="radio" name="audience-mode" checked={!inviteMode}
+              <label className={`dir-checkbox-tag ${!inviteMode && !openMode ? 'checked' : ''}`}>
+                <input type="radio" name="audience-mode" checked={!inviteMode && !openMode}
                   onChange={() => setAudienceMode('groups')} />
                 Ensembles / instruments
               </label>
@@ -767,9 +782,22 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
                   onChange={() => setAudienceMode('students')} />
                 Specific students
               </label>
+              <label className={`dir-checkbox-tag ${openMode ? 'checked' : ''}`}>
+                <input type="radio" name="audience-mode" checked={openMode}
+                  onChange={() => setAudienceMode('open')} />
+                Anyone with the link
+              </label>
             </div>
 
-            {inviteMode ? (
+            {openMode ? (
+              <div className="dir-signup-help">
+                Nobody picks a name — whoever opens the link types their own, so this
+                reaches people who aren’t on a roster yet (new college students,
+                incoming freshmen). Share the link directly; it stays off the Hub home
+                page. Because there’s no roster behind it, you’ll see a list of
+                responses rather than “3 of 14”, and time slots can’t be used.
+              </div>
+            ) : inviteMode ? (
               <>
                 <div className="dir-signup-help" style={{ marginBottom: 8 }}>
                   Only the students you add can submit. Share the link directly — this
@@ -826,7 +854,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
             )}
           </div>
 
-          {!inviteMode && (
+          {!inviteMode && !openMode && (
           <div className="dir-field">
             <label className="dir-label">Narrow to instruments</label>
             <div className="dir-signup-audience-fm">
@@ -869,7 +897,11 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
                 Phone
               </label>
             </div>
-            <div className="dir-signup-help">Name and grade are always collected.</div>
+            <div className="dir-signup-help">
+              {openMode
+                ? 'A name is always collected. Grade or year is asked for too, but stays optional — an open sign-up reaches people for whom “9th–12th” may not be the right answer.'
+                : 'Name and grade are always collected.'}
+            </div>
           </div>
 
           <div className="dir-signup-section">Questions</div>
@@ -983,6 +1015,13 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
 }
 
 // ── helpers ───────────────────────────────────────────────────────────
+
+/** "3 of 14 responded" needs a roster to count against. An open sign-up has
+ *  none — anyone with the link may answer — so it reports what came in. */
+function respondedLine(f: SignupForm | Draft, got: number, target: number): string {
+  if (f.audienceMode === 'open') return `${got} ${got === 1 ? 'response' : 'responses'}`;
+  return `${got} of ${target} responded`;
+}
 
 function audienceOf(f: SignupForm | Draft, audiences: Record<string, string[]> = {}) {
   const mode = f.audienceMode ?? 'groups';

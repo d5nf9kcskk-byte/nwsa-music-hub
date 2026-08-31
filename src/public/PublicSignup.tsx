@@ -83,6 +83,9 @@ export function PublicSignup() {
   const [pickedId, setPickedId] = useState<string | null | undefined>(undefined);
   const studentId = pickedId !== undefined ? pickedId : savedEligible;
   const [query, setQuery] = useState('');
+  const [typedName, setTypedName] = useState('');
+  // Hidden decoy — see the honeypot note on submitSignupResponse().
+  const [honeypot, setHoneypot] = useState('');
   const [gradeTouched, setGradeTouched] = useState(false);
   const [grade, setGrade] = useState('');
   const [email, setEmail] = useState('');
@@ -96,8 +99,17 @@ export function PublicSignup() {
   const [error, setError] = useState('');
 
   const student = eligible.find(s => s.id === studentId) ?? null;
+  // 'open' sign-ups: no roster, no picker — whoever has the link types their
+  // own name, because the form IS the intake (new college students, incoming
+  // freshmen). Everything below step 1 works off `identityName` / `identified`
+  // so the rest of the page has one shape, not two.
+  const openMode = form?.audienceMode === 'open';
+  const identityName = openMode ? typedName.trim() : (student?.name ?? '');
+  const identified = openMode ? identityName.length >= 2 : !!student;
   // The roster's grade is the default; the student confirms or corrects it,
-  // which is the whole "and this is the grade I'm in" step.
+  // which is the whole "and this is the grade I'm in" step. Open sign-ups
+  // have no roster grade to default to, and reach people for whom "9th–12th"
+  // may not even be the right vocabulary — so there it's typed, and optional.
   const effectiveGrade = gradeTouched ? grade : (student?.grade ?? '');
   const receipt = useMemo(() => getReceipt(id), [id]);
 
@@ -155,7 +167,7 @@ export function PublicSignup() {
   const who = form.audienceMode === 'students'
     ? 'By invitation'
     : audienceLabel(
-      { ensembleIds: form.ensembleIds ?? [], families: form.families ?? [] },
+      { mode: form.audienceMode, ensembleIds: form.ensembleIds ?? [], families: form.families ?? [] },
       eid => ensembleDisplayName(ensembles.find(e => e.id === eid)),
       f => INSTRUMENT_FAMILY_LABEL[f],
     );
@@ -163,8 +175,8 @@ export function PublicSignup() {
   const needsSignature = !!form.signatureStatement;
   const needsGuardian = !!form.guardianStatement;
   const missingRequired = questions.some(q => q.required && !(answers[q.id] ?? '').trim());
-  const valid = !!student
-    && effectiveGrade.trim() !== ''
+  const valid = identified
+    && (openMode || effectiveGrade.trim() !== '')
     && !missingRequired
     && (!needsSignature || signature.trim().length >= 3)
     && (!needsGuardian || (guardianName.trim().length >= 2 && guardianSignature.trim().length >= 3))
@@ -174,7 +186,7 @@ export function PublicSignup() {
     && (guardianEmail.trim() === '' || /.+@.+\..+/.test(guardianEmail.trim()));
 
   async function submit() {
-    if (!db || !student || !valid || state === 'saving') return;
+    if (!db || !identified || !valid || state === 'saving') return;
     if (answersTooLong) {
       setState('error');
       setError('Your answers are longer than this form can send — please shorten them a little.');
@@ -186,10 +198,14 @@ export function PublicSignup() {
       if (form) assertClaimsMatchGrade(form, slotClaims, effectiveGrade.trim());
       await submitSignupResponse({
         formId: id,
-        studentId: student.id,
-        studentName: student.name.slice(0, 120),
+        // Omitted entirely on an open sign-up — there is no roster record to
+        // point at, and firestore.rules requires the key to be ABSENT rather
+        // than blank (an invented id would fail the students/{id} anchor).
+        ...(student ? { studentId: student.id } : {}),
+        studentName: identityName.slice(0, 120),
         grade: effectiveGrade.trim().slice(0, 40),
-        ...(student.instrument ? { instrument: student.instrument.slice(0, 60) } : {}),
+        ...(student?.instrument ? { instrument: student.instrument.slice(0, 60) } : {}),
+        ...(honeypot ? { website: honeypot } : {}),
         ...(email.trim() ? { email: email.trim().slice(0, 254) } : {}),
         ...(phone.trim() ? { phone: phone.trim().slice(0, 40) } : {}),
         ...(answersJson ? { answersJson } : {}),
@@ -199,8 +215,8 @@ export function PublicSignup() {
         ...(guardianEmail.trim() ? { guardianEmail: guardianEmail.trim().slice(0, 254) } : {}),
       }, slotClaims);
       saveReceipt(id, {
-        studentId: student.id,
-        studentName: student.name,
+        studentId: student?.id ?? '',
+        studentName: identityName,
         complete: !missingRequired && (!needsSignature || !!signature.trim()) && (!needsGuardian || !!guardianSignature.trim()),
       });
       setState('done');
@@ -225,7 +241,7 @@ export function PublicSignup() {
           <div className="pub-signup-done-mark"><Check size={30} /></div>
           <h1>You’re signed up</h1>
           <p>
-            <strong>{student?.name}</strong> · {effectiveGrade} — sent to your director.
+            <strong>{identityName}</strong>{effectiveGrade ? ` · ${effectiveGrade}` : ''} — sent to your director.
             {needsSignature && ' Your signature went with it.'}
           </p>
           <p className="pub-muted">
@@ -281,11 +297,11 @@ export function PublicSignup() {
             <a href={`mailto:${ORG.contactEmail}?subject=${encodeURIComponent(form.title)}`}>{ORG.contactEmail}</a>.
           </p>
         </div>
-      ) : !PUBLIC_STUDENT_INFO ? (
+      ) : !openMode && !PUBLIC_STUDENT_INFO ? (
         <div className="pub-card">
           <p className="pub-muted">The roster isn’t published yet, so you can’t pick your name here. Email {ORG.contactEmail}.</p>
         </div>
-      ) : eligible.length === 0 ? (
+      ) : !openMode && eligible.length === 0 ? (
         <div className="pub-card">
           <p className="pub-muted">
             Nobody on the roster matches who this sign-up is for ({who}). If that’s wrong,
@@ -300,7 +316,22 @@ export function PublicSignup() {
             <div className="pub-signup-step-title">Your name</div>
           </div>
           <div className="pub-card">
-            {student ? (
+            {openMode ? (
+              <>
+                <label className="pub-absence-label" htmlFor="su-name">Your full name</label>
+                <input id="su-name" className="pub-absence-input" maxLength={120}
+                  autoComplete="name" autoCapitalize="words" value={typedName}
+                  onChange={e => setTypedName(e.target.value)} placeholder="e.g. Maria Delgado" />
+                <div className="pub-signup-note">
+                  You don’t need to be on a roster — this sign-up is how your
+                  director gets your details in the first place.
+                </div>
+                {/* Honeypot: off-screen, never tabbed to, invisible to a human. */}
+                <input className="pub-hp" type="text" value={honeypot} tabIndex={-1}
+                  autoComplete="off" aria-hidden="true"
+                  onChange={e => setHoneypot(e.target.value)} />
+              </>
+            ) : student ? (
               <div className="pub-signup-me">
                 <div>
                   <div className="pub-signup-me-name">{student.name}</div>
@@ -343,25 +374,38 @@ export function PublicSignup() {
             )}
           </div>
 
-          {student && (
+          {identified && (
             <>
               {/* ── 2 · grade + contact ───────────────────────── */}
               <div className="pub-signup-step">
                 <div className="pub-signup-step-num">2</div>
-                <div className="pub-signup-step-title">Confirm your grade</div>
+                <div className="pub-signup-step-title">
+                  {openMode ? 'Your details' : 'Confirm your grade'}
+                </div>
               </div>
               <div className="pub-card">
-                <label className="pub-absence-label" htmlFor="su-grade">Grade you’re in</label>
-                <select
-                  id="su-grade"
-                  className="pub-absence-input"
-                  value={effectiveGrade}
-                  onChange={e => { setGradeTouched(true); setGrade(e.target.value); }}
-                >
-                  <option value="">Choose your grade…</option>
-                  {gradeChoices(student.grade).map(g => <option key={g} value={g}>{g}</option>)}
-                </select>
-                {student.grade && effectiveGrade && effectiveGrade !== student.grade && (
+                <label className="pub-absence-label" htmlFor="su-grade">
+                  {openMode
+                    ? <>Grade or year <span className="pub-signup-optional">(optional)</span></>
+                    : 'Grade you’re in'}
+                </label>
+                {openMode ? (
+                  <input id="su-grade" className="pub-absence-input" maxLength={40}
+                    value={effectiveGrade}
+                    onChange={e => { setGradeTouched(true); setGrade(e.target.value); }}
+                    placeholder="e.g. 11th, or College freshman" />
+                ) : (
+                  <select
+                    id="su-grade"
+                    className="pub-absence-input"
+                    value={effectiveGrade}
+                    onChange={e => { setGradeTouched(true); setGrade(e.target.value); }}
+                  >
+                    <option value="">Choose your grade…</option>
+                    {gradeChoices(student?.grade).map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                )}
+                {student?.grade && effectiveGrade && effectiveGrade !== student.grade && (
                   <div className="pub-signup-note">
                     The roster says {student.grade}. Your director will see that you corrected it.
                   </div>
@@ -401,7 +445,7 @@ export function PublicSignup() {
                         value={answers[q.id] ?? ''}
                         onChange={v => setAnswers(a => ({ ...a, [q.id]: v }))}
                         takenSlots={takenSlots.get(q.id)}
-                        studentId={student.id}
+                        studentId={student?.id ?? ''}
                         studentGrade={effectiveGrade}
                         slotBookings={slotBookings}
                       />
@@ -422,7 +466,7 @@ export function PublicSignup() {
                     <label className="pub-absence-label" htmlFor="su-sign">Type your full name to sign</label>
                     <input id="su-sign" className="pub-absence-input pub-signup-sign" maxLength={120}
                       autoComplete="off" autoCapitalize="words" value={signature}
-                      onChange={e => setSignature(e.target.value)} placeholder={student.name} />
+                      onChange={e => setSignature(e.target.value)} placeholder={identityName} />
                     <div className="pub-signup-note">
                       Typing your name here counts as your signature, and records the date and time.
                     </div>
@@ -458,7 +502,7 @@ export function PublicSignup() {
               </button>
               {!valid && (
                 <div className="pub-signup-note pub-signup-why">
-                  {whyNotYet({ effectiveGrade, missingRequired, needsSignature, signature, needsGuardian, guardianName, guardianSignature, collectEmail: !!form.collectEmail, email, guardianEmail })}
+                  {whyNotYet({ effectiveGrade, gradeRequired: !openMode, missingRequired, needsSignature, signature, needsGuardian, guardianName, guardianSignature, collectEmail: !!form.collectEmail, email, guardianEmail })}
                 </div>
               )}
               <p className="pub-signup-privacy">
@@ -600,12 +644,12 @@ function deadlineLine(deadline: string, today: string): string {
 /** One plain sentence naming what's still missing — better than a dead
  *  button with no explanation, which is what students actually report. */
 function whyNotYet(s: {
-  effectiveGrade: string; missingRequired: boolean;
+  effectiveGrade: string; gradeRequired: boolean; missingRequired: boolean;
   needsSignature: boolean; signature: string;
   needsGuardian: boolean; guardianName: string; guardianSignature: string;
   collectEmail: boolean; email: string; guardianEmail: string;
 }): string {
-  if (!s.effectiveGrade.trim()) return 'Pick the grade you’re in to continue.';
+  if (s.gradeRequired && !s.effectiveGrade.trim()) return 'Pick the grade you’re in to continue.';
   if (s.collectEmail && !/.+@.+\..+/.test(s.email.trim())) return 'Add your email to continue.';
   if (s.missingRequired) return 'A question above still needs an answer.';
   if (s.needsSignature && s.signature.trim().length < 3) return 'Type your full name to sign.';
