@@ -17,7 +17,7 @@ const formId = 'formABC';
 const q = {
   id: 'q1', label: 'Pick a time', type: 'timeslot' as const,
   options: ['Mon 3:00', 'Mon 3:15', 'Mon 3:30'],
-  optionGrades: [null, ['12th'], null] as (string[] | null)[],
+  optionGrades: { 1: ['12th'] } as Record<string, string[]>,
 };
 
 assert(slotBookingId('abc', 'q1', 0) === 'abc__q1__0', 'booking id format');

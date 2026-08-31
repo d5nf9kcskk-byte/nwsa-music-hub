@@ -1003,9 +1003,14 @@ export interface SignupQuestion {
   slotDefs?: SignupSlotDef[];
   /** While editing: raw manual textarea (not persisted). */
   slotManualDraft?: string;
-  /** Parallel to `options[]` for timeslot: allowed grades per slot, or null
-   *  for anyone. Derived from `slotDefs[].grades` on save when defs exist. */
-  optionGrades?: (string[] | null)[];
+  /** Allowed grades per timeslot option, keyed by the option's index in
+   *  `options[]`. A slot with no key is open to anyone. Derived from
+   *  `slotDefs[].grades` on save when defs exist.
+   *
+   *  A MAP, not a parallel array, because Firestore rejects nested arrays
+   *  outright — `(string[] | null)[]` made updateDoc throw for any sign-up
+   *  where one slot restricted grades, so the whole save failed. */
+  optionGrades?: Record<string, string[]>;
   required?: boolean;
   /** Small grey line under the field. */
   help?: string;

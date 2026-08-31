@@ -41,19 +41,33 @@ export function slotGradeAllows(
   return gradesMatchSlot(studentGrade, question.optionGrades?.[slotIndex]);
 }
 
-/** Compact parallel array for Firestore — omit entirely when every slot is open. */
+/** Grades per slot for Firestore — a sparse map keyed by option index, and
+ *  undefined when every slot is open. Never a parallel array: Firestore
+ *  rejects nested arrays, which silently broke every save of a sign-up whose
+ *  slots restricted grades. */
 export function compactOptionGrades(
   grades: (string[] | null | undefined)[] | undefined,
   len: number,
-): (string[] | null)[] | undefined {
-  const out: (string[] | null)[] = [];
-  let any = false;
+): Record<string, string[]> | undefined {
+  const out: Record<string, string[]> = {};
   for (let i = 0; i < len; i++) {
     const g = grades?.[i];
-    if (g && g.length) { out.push([...g]); any = true; }
-    else out.push(null);
+    if (g && g.length) out[i] = [...g];
   }
-  return any ? out : undefined;
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** Same, for grades already in map form — drops keys past the option count
+ *  (slots the director deleted). */
+export function trimOptionGrades(
+  grades: Record<string, string[]> | undefined,
+  len: number,
+): Record<string, string[]> | undefined {
+  if (!grades) return undefined;
+  return compactOptionGrades(
+    Array.from({ length: len }, (_, i) => grades[i]),
+    len,
+  );
 }
 
 /** Deterministic doc id — the rules pin this format so two clients cannot
