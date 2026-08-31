@@ -282,7 +282,9 @@ service cloud.firestore {
       allow read;
       allow delete: if isStaff();
       allow create, update: if request.resource.data.keys().hasOnly(
-            ['ensembleIds', 'school', 'types', 'label', 'updatedAt'])
+            ['ensembleIds', 'school', 'types', 'attendance', 'label', 'updatedAt'])
+        && (!('attendance' in request.resource.data)
+            || request.resource.data.attendance in ['required', 'optional'])
         && request.resource.data.ensembleIds is list
         && request.resource.data.ensembleIds.size() <= 40
         && request.resource.data.school is bool

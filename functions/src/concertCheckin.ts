@@ -1,7 +1,7 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import {
   checkinDocId, checkinState, canCheckOut, emailProblem, normalizeEmail,
-  resolveCheckinSettings, termIdForDate,
+  resolveCheckinSettings, termIdForDate, DEFAULT_CHECKIN_SETTINGS,
   type CheckinKind, type CheckinEventLike, type CheckinSettings, type Term,
 } from '../../src/shared/concertCheckin.ts';
 import ORG from '../../config/orgs/nwsa.json' with { type: 'json' };
@@ -95,10 +95,14 @@ export function photoPath(eventId: string, studentId: string, kind: CheckinKind,
  *  normal state before anyone opens the settings screen — the org config
  *  alone is a complete answer. */
 export async function loadSiteSettings(db: Firestore): Promise<Partial<CheckinSettings>> {
+  // Falls back to the ONE default in concertCheckin.ts rather than repeating
+  // the number here — the window default has already moved once (an hour to
+  // ten minutes) and a second copy is how the server and the page start
+  // disagreeing about when the door opens.
   const orgDefaults: Partial<CheckinSettings> = {
     emailDomains: ORG.checkin?.emailDomains ?? [],
-    opensMinutesBefore: ORG.checkin?.opensMinutesBefore ?? 60,
-    closesMinutesAfter: ORG.checkin?.closesMinutesAfter ?? 60,
+    opensMinutesBefore: ORG.checkin?.opensMinutesBefore ?? DEFAULT_CHECKIN_SETTINGS.opensMinutesBefore,
+    closesMinutesAfter: ORG.checkin?.closesMinutesAfter ?? DEFAULT_CHECKIN_SETTINGS.closesMinutesAfter,
   };
   try {
     const snap = await db.doc('settings/concertAttendance').get();

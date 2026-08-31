@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../director/firebase';
 import { ORG } from '../../org';
-import type { CheckinSettings, Term } from '../../shared/concertCheckin';
+import { DEFAULT_CHECKIN_SETTINGS, type CheckinSettings, type Term } from '../../shared/concertCheckin';
 
 /**
  * Site-wide check-in settings (#concert-checkin), read live so a director can
@@ -28,8 +28,8 @@ export interface SiteCheckinSettings extends Partial<CheckinSettings> {
 export function useCheckinSettings(): SiteCheckinSettings {
   const [state, setState] = useState<SiteCheckinSettings>(() => ({
     emailDomains: ORG.checkin?.emailDomains ?? [],
-    opensMinutesBefore: ORG.checkin?.opensMinutesBefore ?? 60,
-    closesMinutesAfter: ORG.checkin?.closesMinutesAfter ?? 60,
+    opensMinutesBefore: ORG.checkin?.opensMinutesBefore ?? DEFAULT_CHECKIN_SETTINGS.opensMinutesBefore,
+    closesMinutesAfter: ORG.checkin?.closesMinutesAfter ?? DEFAULT_CHECKIN_SETTINGS.closesMinutesAfter,
     terms: ORG.terms ?? [],
     goals: {},
     // Nothing to wait for when Firestore is not configured — the org config
@@ -49,9 +49,11 @@ export function useCheckinSettings(): SiteCheckinSettings {
             ? (d.emailDomains as string[])
             : (ORG.checkin?.emailDomains ?? []),
           opensMinutesBefore: typeof d.opensMinutesBefore === 'number'
-            ? d.opensMinutesBefore : (ORG.checkin?.opensMinutesBefore ?? 60),
+            ? d.opensMinutesBefore
+            : (ORG.checkin?.opensMinutesBefore ?? DEFAULT_CHECKIN_SETTINGS.opensMinutesBefore),
           closesMinutesAfter: typeof d.closesMinutesAfter === 'number'
-            ? d.closesMinutesAfter : (ORG.checkin?.closesMinutesAfter ?? 60),
+            ? d.closesMinutesAfter
+            : (ORG.checkin?.closesMinutesAfter ?? DEFAULT_CHECKIN_SETTINGS.closesMinutesAfter),
           goals: (d.goals as SiteCheckinSettings['goals']) ?? {},
           loading: false,
         }));

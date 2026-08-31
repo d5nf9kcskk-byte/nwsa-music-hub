@@ -28,6 +28,10 @@ export async function registerCalendarView(spec: CalendarViewSpec, label: string
     ensembleIds: view.ensembleIds,
     school: view.school,
     types: view.types,
+    // Only written when set. The doc id is the hash of the contents and the
+    // generator drops any doc whose id doesn't match, so an extra key here
+    // that the hash didn't see would silently orphan the feed.
+    ...(view.attendance ? { attendance: view.attendance } : {}),
     // Debugging convenience only — NOTHING reads this back. The feed
     // generator relabels every view from today's ensemble names, which is
     // what keeps an attacker-supplied label out of anyone's calendar now

@@ -13,12 +13,7 @@ import { t, useLang, getLang } from '../../shared/i18n';
 import { groupScheduleAlerts, groupUrgentAnnouncements } from '../../shared/groupAlerts';
 import { AlertGroupSections } from '../../shared/AlertGroupSections';
 import { allClearExtraLine } from '../../shared/whimsy';
-import { useCheckinSettings } from '../hooks/useCheckinSettings';
-import { receiptForEvent } from '../checkinReceipt';
-import { checkinState, resolveCheckinSettings } from '../../shared/concertCheckin';
-import { ORG } from '../../org';
-import { LogIn, LogOut } from 'lucide-react';
-import '../checkin.css';
+import { CheckinStrip } from './CheckinStrip';
 
 /**
  * Alert strip for the pages where schedule noise belongs: Home and Calendar.
@@ -85,34 +80,10 @@ function AlertStrip({ onHome }: { onHome: boolean }) {
   const ensName = (ids: string[]) =>
     ids.map(id => ensembleDisplayName(ensembles.find(e => e.id === id))).filter(Boolean).join(' + ') || 'School';
 
-  // The check-in strip (#concert-checkin) — door one of three. It appears on
-  // its own schedule (the concert's window), so it is rendered in BOTH exits
-  // below: an otherwise quiet night must not swallow the one banner a student
+  // The check-in strip (#concert-checkin). Rendered in BOTH exits below: an
+  // otherwise quiet night must not swallow the one banner a student standing
   // in a concert lobby actually needs.
-  const site = useCheckinSettings();
-  const openStations = useMemo(
-    () => events.filter(e => e.checkin?.enabled
-      && checkinState(e, resolveCheckinSettings(e, site), ORG.timezone, now) === 'open'),
-    [events, site, now],
-  );
-  const checkinStrip = openStations.length === 0 ? null : (
-    <div className="pub-checkin-strip-wrap">
-      {openStations.map(e => {
-        const receipt = receiptForEvent(e.id);
-        const done = Boolean(receipt?.in && receipt?.out);
-        if (done) return null;
-        const out = Boolean(receipt?.in);
-        return (
-          <Link key={e.id} to={`/checkin/${e.id}`} className="pub-checkin-strip">
-            {out ? <LogOut size={15} style={{ verticalAlign: '-2.5px' }} />
-                 : <LogIn size={15} style={{ verticalAlign: '-2.5px' }} />}{' '}
-            <strong>{out ? 'Check out' : 'Check in'}</strong>
-            {' — '}{e.title || ensName(e.ensembleIds)}
-          </Link>
-        );
-      })}
-    </div>
-  );
+  const checkinStrip = <CheckinStrip events={events} ensembles={ensembles} />;
 
   const urgentGroups = useMemo(() => groupUrgentAnnouncements(urgent, ensembles), [urgent, ensembles]);
   const problemGroups = useMemo(() => groupScheduleAlerts(problems, ensembles), [problems, ensembles]);

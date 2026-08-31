@@ -738,8 +738,8 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                   <strong>Check-in station</strong>
                   <div className="dir-field-hint" style={{ marginTop: 2 }}>
                     Students check in when they arrive and check out at the end,
-                    each with a photo. Opens an hour before and closes an hour
-                    after by default.
+                    each with a photo. Opens 10 minutes before the downbeat and
+                    closes an hour after the end, unless you change it below.
                   </div>
                 </span>
               </label>
@@ -765,6 +765,25 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                       </div>
                     </span>
                   </label>
+                  <div className="dir-field-hint" style={{ marginTop: 8 }}>
+                    Check-in opens this many minutes before the start time
+                    (blank = 10):
+                  </div>
+                  <input
+                    className="dir-input"
+                    type="number"
+                    min={0}
+                    max={480}
+                    style={{ maxWidth: 120 }}
+                    value={form.checkin?.opensMinutesBefore ?? ''}
+                    onChange={ev => setForm(f => ({
+                      ...f,
+                      checkin: {
+                        ...(f.checkin ?? {}), enabled: true,
+                        opensMinutesBefore: ev.target.value === '' ? null : Number(ev.target.value),
+                      },
+                    }))}
+                  />
                   <div className="dir-field-hint" style={{ marginTop: 8 }}>
                     Check-out opens this many minutes after the start time
                     (blank or 0 = any time):

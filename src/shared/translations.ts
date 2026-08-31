@@ -170,6 +170,12 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'cal.nothingUpcoming':  { en: 'Nothing coming up for this filter.', es: 'No hay nada próximo con este filtro.' },
   'cal.allEnsembles':     { en: 'All',                es: 'Todos' },
   'cal.allTypes':         { en: 'All types',          es: 'Todos los tipos' },
+  // Concert attendance filter (#concert-checkin) — "which of these do I
+  // actually have to be at?"
+  'cal.allConcerts':      { en: 'Required & optional', es: 'Obligatorios y opcionales' },
+  'cal.filterAttendance': { en: 'Filter by concert attendance', es: 'Filtrar por asistencia a conciertos' },
+  'cal.requiredConcerts': { en: 'Required concerts',  es: 'Conciertos obligatorios' },
+  'cal.optionalConcerts': { en: 'Optional concerts',  es: 'Conciertos opcionales' },
   'cal.filterTypes':      { en: 'Types',              es: 'Tipos' },
   'cal.clearFilter':      { en: 'Clear',              es: 'Limpiar' },
   'cal.due':              { en: 'Due',                es: 'Entrega' },
