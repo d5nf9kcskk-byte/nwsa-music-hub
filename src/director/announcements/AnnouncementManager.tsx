@@ -178,6 +178,8 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
                 <div className="dir-ens-info">
                   <div className="dir-ens-name">
                     {a.pinned && <Pin size={12} style={{ verticalAlign: '-1px', marginRight: 4 }} />}
+                    {a.priority === 'urgent' && <span className="dir-ann-priority urgent">🚨 Urgent</span>}
+                    {a.priority === 'important' && <span className="dir-ann-priority important">Important</span>}
                     {a.title}
                   </div>
                   <div className="dir-ens-sub">

@@ -57,6 +57,17 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'It also says whether attendance is required or optional, and drops a Check in button straight through when it’s required and the check-in station is on.',
     ],
   },
+  // Important/Urgent shown in words, not just color, on announcement lists.
+  {
+    id: '2026-08-31-announcement-priority-badge',
+    date: '2026-08-31',
+    title: 'Important and Urgent announcements now say so',
+    audience: 'both' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'An Important or Urgent post now carries a small labeled tag, on the director’s own announcements list and on the public site — not just a colored edge you had to already know to look for.',
+    ],
+  },
   // Required/Optional clarity on sign-up questions (#signups).
   {
     id: '2026-08-31-signup-required-clarity',
