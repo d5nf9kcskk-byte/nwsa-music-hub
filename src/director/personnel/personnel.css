@@ -138,8 +138,7 @@
   font-size: 13px;
   line-height: 1.55;
 }
-.dir-contract-terms p { margin: 0 0 10px; }
-.dir-contract-terms p:last-child { margin-bottom: 0; }
+.dir-contract-terms .rt-blank { height: 10px; }
 
 /* Compensation breakdown — shared by the sheet and the printed page.
    Integer-cents arithmetic happens in contractMoney.ts; this only lays out
@@ -159,7 +158,7 @@
 }
 .contract-sheet .contract-comp td { border-bottom-color: #ccc; }
 .contract-sheet-terms { margin: 0 0 16px; }
-.contract-sheet-terms p { margin: 0 0 9px; }
+.contract-sheet-terms .rt-blank { height: 9px; }
 .contract-sheet-comp { margin-bottom: 10px; }
 .contract-sheet-comp-title {
   font-size: 11px;

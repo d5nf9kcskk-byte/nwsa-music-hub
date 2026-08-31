@@ -1,7 +1,7 @@
 # Rich text everywhere + linking to things — design
 
 **Date:** 2026-08-31
-**Status:** shipped 2026-08-31 (phases 1-4), less the two contract-text fields — see Out of scope
+**Status:** shipped 2026-08-31 — all four phases, contract text included
 
 ## The ask
 
@@ -182,18 +182,36 @@ Nested emphasis inside a link label. Per-word font on the public site beyond
 the four listed. Any rich text in the four machine-parsed paste boxes or the
 three unauthenticated public forms.
 
-**Left out of phase 4 on purpose: the two contract-text fields** —
-`ContractForm.termsText` and `ContractTemplatesView.bodyText`. Everything else
-on the phase-4 list shipped. These two are the frozen prose of a signed
-agreement: the text is stamped verbatim at issue alongside a `templateVersion`,
-it already carries a `{{token}}` substitution layer, and `ContractSheet`
-renders it through its own paragraph splitter rather than `RichText`. Layering
-a second syntax onto versioned legal text — and changing how an
-already-issued, already-signed contract renders — is a decision of its own,
-not a rollout sweep. Nothing is at risk today either way: `features.personnel`
-is `false` for NWSA, so that surface is folded out of the build entirely.
-The personnel and contract NOTES fields (ordinary private staff prose) did
-get the toolbar.
+**The two contract-text fields shipped after all.** `ContractForm.termsText`
+and `ContractTemplatesView.bodyText` were held back on the first pass — they
+are the frozen prose of a signed agreement, stamped verbatim at issue next to
+a `templateVersion` — and the director then asked for them, so they went in
+with a guard rather than without one.
+
+`ContractSheet` no longer splits on `\n{2,}` into `<p>`; it renders
+`NotesText`. `resolveContractTokens` still runs FIRST, so the rich-text parser
+only ever sees final prose and `{{token}}` can never collide with `[label](…)`.
+The paragraph gap is pinned to the old margins (9px print, 10px on screen) so
+an issued contract still prints on the same page.
+
+The guard is `contractSheet.selfcheck.tsx`, which renders the REAL
+`ContractPrintSheet` through `react-dom/server` and asserts on the HTML: every
+starter template survives word for word with its paragraph breaks, tokens
+resolve, a known-but-empty token still prints an em dash, formatting works,
+and **no `javascript:` target ever becomes an href on a signed page**. It runs
+in the deploy workflow. `ContractPrintSheet` was already exported for headless
+checking; this is the first thing to use it.
+
+Two things that made it possible: `scripts/vite-defines-shim.mjs` gained an
+asset-stub hook (a component imports its own `.css`, which Node cannot load),
+and `RichTextArea` now lazy-loads `LinkPicker` — a static import dragged every
+Firestore hook into all thirteen screens that only wanted a text box, which is
+exactly how this self-check caught it.
+
+Residual risk, accepted knowingly: an ALREADY-ISSUED contract whose frozen
+`termsText` happens to contain paired `*` or `_` would now render as
+formatting. Nothing is at risk today — `features.personnel` is `false` for
+NWSA, so no contract has ever been issued from this codebase.
 
 **Resolved, not deferred:** the spec worried that the `rt` styles would not
 reach the sign-up PDF packet. They do — `printViaPopup` copies every

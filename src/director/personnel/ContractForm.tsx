@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { RichTextArea } from '../components/RichTextArea';
 import type {
   Contract, ContractTemplate, ContractLineItem, Personnel, PositionCategory, RateBasis,
 } from '../types';
@@ -345,11 +346,11 @@ export function ContractForm({ person, contract, templates, onSave, onClose }: P
                 ))}
               </select>
             )}
-            <textarea
+            <RichTextArea
               className="dir-input dir-tmpl-body"
               rows={8}
               value={form.termsText}
-              onChange={e => set('termsText', e.target.value)}
+              onChange={v => set('termsText', v)}
               placeholder="The agreement prose this person signs. Insert a template above, or write it here. {{placeholders}} fill in from the fields on this form."
             />
             {form.templateId && (

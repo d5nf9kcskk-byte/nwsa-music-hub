@@ -56,6 +56,15 @@ jobs:
       - name: Check rich-text rendering
         run: npx tsx src/shared/richText.selfcheck.ts
 
+      # A contract is signed text: `termsText` is frozen verbatim at issue so
+      # that editing a template never changes what someone already agreed to.
+      # Now that the sheet renders that prose as RICH text, this renders the
+      # real ContractPrintSheet and pins what the document says — every
+      # starter template word for word, tokens resolved, and no javascript:
+      # href reaching a signed page.
+      - name: Contract sheet self-check (printed agreement)
+        run: npx tsx --tsconfig tsconfig.app.json --import ./scripts/vite-defines-shim.mjs src/director/personnel/contractSheet.selfcheck.tsx
+
       # Who a sign-up reaches. Drift here is silent — a director opens
       # "Camerata strings" and half the section never sees it (#signups).
       - name: Check sign-up eligibility

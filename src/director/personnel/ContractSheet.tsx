@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { NotesText } from '../../public/components/NotesText';
 import { RichTextArea } from '../components/RichTextArea';
 import { Pencil, Printer, Trash2, Send, ClipboardSignature, Ban, FileText } from 'lucide-react';
 import type { Contract, ContractTemplate } from '../types';
@@ -105,7 +106,7 @@ export function ContractPrintSheet({ contract: c }: { contract: Contract }) {
       </dl>
       {terms && (
         <div className="contract-sheet-terms">
-          {terms.split(/\n{2,}/).map((p, i) => <p key={i}>{p}</p>)}
+          <NotesText text={terms} />
         </div>
       )}
       <div className="contract-sheet-comp">
@@ -231,7 +232,7 @@ export function ContractSheet({
             <div className="dir-detail-section-title"><FileText size={13} /> Agreement</div>
             {terms ? (
               <div className="dir-contract-terms">
-                {terms.split(/\n{2,}/).map((p, i) => <p key={i}>{p}</p>)}
+                <NotesText text={terms} />
               </div>
             ) : (
               <div style={{ fontSize: 13, color: 'var(--dir-text-muted)', marginTop: 6 }}>

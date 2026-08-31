@@ -1,9 +1,13 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useRef, useState, type ReactNode } from 'react';
 import {
   Bold, Italic, Underline, Strikethrough, Quote, Link2, List, ListOrdered, Type, Eye, Pencil,
 } from 'lucide-react';
 import type { RichFont } from '../../shared/richTextParse';
-import { LinkPicker } from './LinkPicker';
+// Lazy on purpose. The picker reaches every Firestore hook in the app; a
+// static import would drag that whole graph into each of the dozen screens
+// that only wanted a text box — and make the toolbar unrenderable outside a
+// browser, which is how the contract self-check caught it.
+const LinkPicker = lazy(() => import('./LinkPicker').then(m => ({ default: m.LinkPicker })));
 import { RichText } from '../../shared/richText';
 
 interface Props {
@@ -173,7 +177,11 @@ export function RichTextArea({ value, onChange, placeholder, rows = 3, className
   ];
 
   const picker = picking
-    ? <LinkPicker onPick={insertLink} onClose={() => setPicking(false)} />
+    ? (
+      <Suspense fallback={null}>
+        <LinkPicker onPick={insertLink} onClose={() => setPicking(false)} />
+      </Suspense>
+    )
     : null;
 
   return (
