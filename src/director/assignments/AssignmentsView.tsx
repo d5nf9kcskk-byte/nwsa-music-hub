@@ -50,7 +50,6 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
   const [title, setTitle] = useState(assignment?.title ?? '');
   const [type, setType] = useState<AssignmentType>(assignment?.type ?? 'Playing Exam');
   const [description, setDescription] = useState(assignment?.description ?? '');
-  const [descriptionEs, setDescriptionEs] = useState(assignment?.descriptionEs ?? '');
   const [dueDate, setDueDate] = useState(assignment?.dueDate ?? today);
   const [ensembleIds, setEnsembleIds] = useState<string[]>(assignment?.ensembleIds ?? []);
   const [studentIds, setStudentIds] = useState<string[]>(assignment?.studentIds ?? []);
@@ -90,7 +89,6 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
           title: title.trim(),
           type,
           description: description.trim(),
-          descriptionEs: descriptionEs.trim() || undefined,
           dueDate,
           ensembleIds,
           studentIds: studentIds.length ? studentIds : undefined,
@@ -291,18 +289,6 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
               onChange={setDescription}
               placeholder="Optional details, rubric, or instructions"
             />
-          </div>
-
-          <div className="dir-field">
-            <label className="dir-label">
-              Spanish translation <span className="dir-label-hint">optional</span>
-            </label>
-            <RichTextArea
-              value={descriptionEs}
-              onChange={setDescriptionEs}
-              placeholder="Descripción en español (opcional)"
-            />
-            <div className="dir-field-hint">Families reading in Español see this version instead.</div>
           </div>
 
           {/* Music this assignment is on. Students open the piece from the

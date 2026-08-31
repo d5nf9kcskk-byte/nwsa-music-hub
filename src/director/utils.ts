@@ -1,6 +1,5 @@
 import type { Ensemble, EventType, RepertoirePiece, PiecePartLink, PieceMovement, CalendarEvent, SeatingChart, Student } from './types';
 import { dateLocale, fmtDate } from '../shared/dates';
-import { getLang } from '../shared/i18n';
 import { scoreOrderRank, lastName } from './scoreOrder';
 
 // ── Date helpers (work in local time, store as YYYY-MM-DD) ──────────────────────
@@ -199,12 +198,15 @@ export function isPublished(item: { publishAt?: number }, now: number = Date.now
   return !item.publishAt || item.publishAt <= now;
 }
 
-/** Ensemble name in the current public-site language (#es-ensemble-names):
- *  the Spanish `nameEs` when the ES toggle is on and one was entered, else the
- *  canonical `name` — so an ensemble without a translation still renders. */
-export function ensembleDisplayName(e?: Pick<Ensemble, 'name' | 'nameEs'> | null): string {
-  if (!e) return '';
-  return getLang() === 'es' && e.nameEs ? e.nameEs : e.name;
+/**
+ * An ensemble's display name, null-safe.
+ *
+ * Kept as a function after the per-record Spanish names were removed: every
+ * caller already routes through it, so if a name ever needs decorating again
+ * there is one place to do it rather than forty call sites to find.
+ */
+export function ensembleDisplayName(e?: Pick<Ensemble, 'name'> | null): string {
+  return e?.name ?? '';
 }
 
 // ── Event type display ──────────────────────────────────────────────

@@ -10,7 +10,7 @@ import { useStudentsPublic } from './hooks/usePublicRoster';
 import { useMinuteTick } from '../director/hooks/useAnnouncements';
 import { assignmentEmoji, ensembleColor, ensembleDisplayName, isPublished } from '../director/utils';
 import { RichText } from '../shared/richText';
-import { t, useLang, getLang } from '../shared/i18n';
+import { t, useLang } from '../shared/i18n';
 import { fmtShortDate } from '../shared/dates';
 import { formatFileSize } from '../shared/duration';
 
@@ -80,7 +80,7 @@ export function PublicAssignment() {
     );
   }
 
-  const description = (getLang() === 'es' && assignment.descriptionEs) || assignment.description;
+  const description = assignment.description;
   const attachments = assignment.attachments ?? [];
 
   return (

@@ -507,14 +507,6 @@ html:has(.pub-app) body {
   padding: 2px 8px; border-radius: 8px; text-decoration: none;
 }
 .pub-announce-tag-all { background: var(--pub-muted); }
-/* ES/EN flip chip on announcements that carry a translation */
-.pub-announce-lang {
-  flex-shrink: 0; margin-left: auto; padding: 2px 8px; min-height: 24px;
-  border: 1px solid var(--pub-border); border-radius: 999px;
-  background: var(--pub-surface); color: var(--pub-accent);
-  font-size: 11px; font-weight: 800; letter-spacing: 0.04em;
-  cursor: pointer; font-family: inherit;
-}
 .pub-announce-body { font-size: 14px; color: var(--pub-ink); margin-top: 6px; white-space: pre-wrap; line-height: 1.45; }
 .pub-announce-date { font-size: 12px; color: var(--pub-muted); margin-top: 8px; }
 

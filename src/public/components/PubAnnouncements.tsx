@@ -1,10 +1,9 @@
-import { useState } from 'react';
 import { Pin, Megaphone, Link2 as LinkIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { ensembleColor, ensembleDisplayName } from '../../director/utils';
 import type { Announcement, Ensemble } from '../../director/types';
 import { NotesText } from './NotesText';
-import { getLang, t, useLang } from '../../shared/i18n';
+import { t, useLang } from '../../shared/i18n';
 import { fmtMonthDay } from '../../shared/dates';
 
 interface Props {
@@ -17,19 +16,15 @@ interface Props {
 
 /** Public announcement list. Renders nothing when there are no items. */
 export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, title = 'Announcements' }: Props) {
-  useLang(); // re-render when the EN/ES toggle flips
-  // Per-card language override (the small ES/EN chip on translated posts).
-  const [flipped, setFlipped] = useState<Record<string, boolean>>({});
+  useLang(); // re-render when the EN/ES toggle flips (chrome strings only)
   if (items.length === 0) return null;
   return (
     <>
       {title && <h2 className="pub-section-title"><Megaphone size={14} style={{ verticalAlign: '-2px', marginRight: 5 }} />{title === 'Announcements' ? t('nav.announcements') : title}</h2>}
       {items.map(a => {
         const ens = a.ensembleId ? ensembleMap[a.ensembleId] : undefined;
-        const hasEs = Boolean(a.titleEs || a.bodyEs);
-        const showEs = hasEs && (getLang() === 'es') !== Boolean(flipped[a.id]);
-        const showTitle = showEs ? (a.titleEs || a.title) : a.title;
-        const showBody = showEs ? (a.bodyEs || a.body) : a.body;
+        const showTitle = a.title;
+        const showBody = a.body;
         return (
           <div key={a.id} className={`pub-announce ${a.pinned ? 'pinned' : ''} ${a.priority === 'important' ? 'pub-announce-important' : ''} ${a.priority === 'urgent' ? 'pub-announce-urgent' : ''}`}>
             <div className="pub-announce-head">
@@ -42,15 +37,6 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
               )}
               {showEnsembleTag && a.ensembleId === null && (
                 <span className="pub-announce-tag pub-announce-tag-all">{t('announce.all')}</span>
-              )}
-              {hasEs && (
-                <button
-                  className="pub-announce-lang"
-                  onClick={() => setFlipped(f => ({ ...f, [a.id]: !f[a.id] }))}
-                  aria-label={showEs ? t('announce.readEnglish') : t('announce.readSpanish')}
-                >
-                  {showEs ? 'EN' : 'ES'}
-                </button>
               )}
             </div>
             {showBody && <div className="pub-announce-body"><NotesText text={showBody} /></div>}

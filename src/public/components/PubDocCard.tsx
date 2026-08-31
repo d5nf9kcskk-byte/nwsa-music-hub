@@ -1,7 +1,6 @@
 import { FileText, ExternalLink, Download } from 'lucide-react';
 import { DOC_CATEGORY_COLOR } from '../../shared/docMeta';
 import { NotesText } from './NotesText';
-import { getLang } from '../../shared/i18n';
 import type { LibraryDocument } from '../../director/types';
 
 /** One document as a tappable card — opens the uploaded file or external link
@@ -10,9 +9,8 @@ export function PubDocCard({ doc, ensembleNames }: { doc: LibraryDocument; ensem
   const href = doc.file?.url ?? doc.url;
   const color = DOC_CATEGORY_COLOR[doc.category];
   if (!href) return null;
-  const es = getLang() === 'es';
-  const title = (es && doc.titleEs) || doc.title;
-  const description = (es && doc.descriptionEs) || doc.description;
+  const title = doc.title;
+  const description = doc.description;
   return (
     <a className="pub-doc-card" href={href} target="_blank" rel="noreferrer">
       <span className="pub-doc-icon" style={{ color }}><FileText size={20} /></span>

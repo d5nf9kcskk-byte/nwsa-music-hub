@@ -33,13 +33,11 @@ interface FormProps {
 
 function DocumentForm({ document, ensembles, onSave, onDelete, onClose }: FormProps) {
   const [title, setTitle] = useState(document?.title ?? '');
-  const [titleEs, setTitleEs] = useState(document?.titleEs ?? '');
   const [category, setCategory] = useState<DocumentCategory>(document?.category ?? 'Handbook');
   const [audience, setAudience] = useState<DocumentAudience>(document?.audience ?? 'All');
   const [ensembleIds, setEnsembleIds] = useState<string[]>(document?.ensembleIds ?? []);
   const [url, setUrl] = useState(document?.url ?? '');
   const [description, setDescription] = useState(document?.description ?? '');
-  const [descriptionEs, setDescriptionEs] = useState(document?.descriptionEs ?? '');
   const [attachments, setAttachments] = useState<Attachment[]>(document?.file ? [document.file] : []);
   const [publishAt, setPublishAt] = useState<number | undefined>(document?.publishAt);
   const [saving, setSaving] = useState(false);
@@ -67,14 +65,12 @@ function DocumentForm({ document, ensembles, onSave, onDelete, onClose }: FormPr
       await Promise.race([
         onSave({
           title: title.trim(),
-          titleEs: titleEs.trim() || undefined,
           category,
           audience: audience === 'All' ? undefined : audience,
           ensembleIds,
           file: attachments[0] ?? undefined,
           url: url.trim() || undefined,
           description: description.trim() || undefined,
-          descriptionEs: descriptionEs.trim() || undefined,
           publishAt,
           createdAt: document?.createdAt ?? Date.now(),
           order: document?.order ?? 0,
@@ -109,13 +105,6 @@ function DocumentForm({ document, ensembles, onSave, onDelete, onClose }: FormPr
               placeholder="e.g. Student Handbook 2025–26"
               autoFocus
             />
-          </div>
-
-          <div className="dir-field">
-            <label className="dir-label">
-              Spanish title <span className="dir-label-hint">optional</span>
-            </label>
-            <input className="dir-input" value={titleEs} onChange={e => setTitleEs(e.target.value)} placeholder="Leave blank to reuse the title above" />
           </div>
 
           <div className="dir-field-row">
@@ -183,17 +172,6 @@ function DocumentForm({ document, ensembles, onSave, onDelete, onClose }: FormPr
               value={description}
               onChange={setDescription}
               placeholder="Optional — what this is, who it's for"
-            />
-          </div>
-
-          <div className="dir-field">
-            <label className="dir-label">
-              Spanish description <span className="dir-label-hint">optional</span>
-            </label>
-            <RichTextArea
-              value={descriptionEs}
-              onChange={setDescriptionEs}
-              placeholder="Descripción en español (opcional)"
             />
           </div>
 

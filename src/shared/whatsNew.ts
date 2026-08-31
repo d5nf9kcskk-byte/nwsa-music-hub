@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Per-record Spanish fields removed; spell check made consistent.
+  {
+    id: '2026-08-31-one-message-spellcheck',
+    date: '2026-08-31',
+    title: 'One message per post, and spell check everywhere',
+    audience: 'staff' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'The "Spanish translation" boxes are gone from announcements, documents, assignments and ensemble names — write the post once.',
+      'The Español button still switches the site\u2019s buttons and menus; it never translated what you typed, and nobody had filled in a translation.',
+      'Spell check now works in every box you write in, including one-line Title fields (Firefox skipped those).',
+      'No red underlines where they would be noise: pasted calendar text, roster spreadsheets, Quick Add, and link boxes.',
+    ],
+  },
   // Concert check-in as its own menu page (#concert-checkin).
   {
     id: '2026-08-31-checkin-page',
