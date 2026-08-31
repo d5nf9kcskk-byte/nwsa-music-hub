@@ -1,5 +1,5 @@
 import { fmtLongDate } from './dates.ts';
-import { compactOptionGrades, parseSlotOptions } from './signupSlots.ts';
+import { compactOptionGrades, trimOptionGrades, parseSlotOptions } from './signupSlots.ts';
 import type { SignupQuestion, SignupSlotDef } from '../director/types.ts';
 
 /** Minutes since midnight → 12-hour clock parts. */
@@ -130,7 +130,7 @@ export function normalizeTimeslotQuestion(q: SignupQuestion): SignupQuestion {
     ...rest,
     options,
     slotDefs: undefined,
-    optionGrades: compactOptionGrades(q.optionGrades, options.length),
+    optionGrades: trimOptionGrades(q.optionGrades, options.length),
     help: q.help?.trim() || undefined,
     reference: q.reference,
   };

@@ -9,7 +9,7 @@ import {
   SLOT_AMPM, SLOT_HOURS_12, SLOT_MINUTE_STEPS,
 } from '../../shared/signupSlotTimes';
 import { FilterMenu } from '../../shared/FilterMenu';
-import { SIGNUP_SLOT_GRADES } from '../../shared/signupSlots';
+import { SIGNUP_SLOT_GRADES, compactOptionGrades, trimOptionGrades } from '../../shared/signupSlots';
 import type { SignupSlotDef } from '../types';
 
 type Ampm = (typeof SLOT_AMPM)[number];
@@ -29,14 +29,14 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, locked,
   slotDefs: SignupSlotDef[];
   manualDraft: string;
   /** Parallel to manual lines when not using calendar defs. */
-  optionGrades?: (string[] | null)[];
+  optionGrades?: Record<string, string[]>;
   /** A student already booked one of these times — a booking points at its slot
    *  POSITION (slotBookingId), so reordering would hand them someone else's time. */
   locked?: boolean;
   onChange: (patch: {
     slotDefs?: SignupSlotDef[];
     slotManualDraft?: string;
-    optionGrades?: (string[] | null)[];
+    optionGrades?: Record<string, string[]>;
   }) => void;
 }) {
   const today = todayStr();
@@ -156,21 +156,18 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, locked,
 
   function setManualLines(raw: string) {
     const nonEmpty = raw.split('\n').map(s => s.trim()).filter(Boolean);
-    const prev = optionGrades ?? [];
-    const nextGrades: (string[] | null)[] = nonEmpty.map((_, i) => prev[i] ?? null);
     onChange({
       slotManualDraft: raw,
       slotDefs: [],
-      optionGrades: nextGrades.some(g => g && g.length) ? nextGrades : undefined,
+      optionGrades: trimOptionGrades(optionGrades, nonEmpty.length),
     });
   }
 
   function setManualLineGrades(index: number, grades: string[]) {
     const manualLines = manualDraft.split('\n').map(s => s.trim()).filter(Boolean);
-    const next: (string[] | null)[] = manualLines.map((_, i) => optionGrades?.[i] ?? null);
-    next[index] = grades.length ? grades : null;
+    const next = manualLines.map((_, i) => (i === index ? grades : optionGrades?.[i] ?? null));
     onChange({
-      optionGrades: next.some(g => g && g.length) ? next : undefined,
+      optionGrades: compactOptionGrades(next, manualLines.length),
       slotDefs: [],
     });
   }

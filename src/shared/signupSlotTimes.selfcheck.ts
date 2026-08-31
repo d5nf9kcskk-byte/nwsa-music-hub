@@ -40,15 +40,34 @@ const withGrades = normalizeTimeslotQuestion({
   slotDefs: [seniorDef, def],
 });
 assert(withGrades.optionGrades?.[0]?.[0] === '12th', 'derives optionGrades from defs');
-assert(withGrades.optionGrades?.[1] === null, 'open slot → null in optionGrades');
+assert(withGrades.optionGrades?.[1] === undefined, 'open slot is simply absent from the map');
 
 const manual = normalizeTimeslotQuestion({
   id: 'q2', label: 'Pick', type: 'timeslot',
   slotManualDraft: 'Line one\n\nLine two\n',
-  optionGrades: [['12th'], null],
+  optionGrades: { 0: ['12th'] },
 });
 assert(manual.options?.join('|') === 'Line one|Line two', 'manual preserves lines on save');
 assert(manual.optionGrades?.[0]?.[0] === '12th', 'manual keeps optionGrades');
+
+// The shape that goes to Firestore: nested arrays are rejected outright, so a
+// grade-restricted slot must never produce an array of arrays. That bug made
+// every save of such a sign-up throw, with the slots lost.
+function noNestedArrays(value: unknown, path = 'question'): void {
+  if (Array.isArray(value)) {
+    value.forEach((v, i) => {
+      assert(!Array.isArray(v), `nested array at ${path}[${i}] — Firestore rejects this`);
+      noNestedArrays(v, `${path}[${i}]`);
+    });
+    return;
+  }
+  if (value && typeof value === 'object') {
+    for (const [k, v] of Object.entries(value)) noNestedArrays(v, `${path}.${k}`);
+  }
+}
+noNestedArrays(withGrades);
+noNestedArrays(manual);
+assert(withGrades.optionGrades?.[0]?.[0] === '12th', 'grade map survives the shape check');
 
 const { hour12, ampm } = minutesToParts(partsToMinutes(12, 0, 'PM'));
 assert(hour12 === 12 && ampm === 'PM', 'noon');
