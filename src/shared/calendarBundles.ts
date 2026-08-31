@@ -29,6 +29,7 @@ import {
   eventMatchesView,
   normalizeView,
   type CalendarViewSpec,
+  type ConcertAttendance,
   type ViewTypeKey,
 } from './calendarView.ts';
 
@@ -63,6 +64,14 @@ export interface CalendarBundle {
    *  bundle. Off by default so several bundles can be subscribed together
    *  without repeating the same day on each one. */
   includeSchoolWide?: boolean;
+  /**
+   * Only concerts that count toward a student's obligation
+   * (#concert-checkin). This is the case a hash-addressed view cannot serve:
+   * "every required concert" has to keep the same URL while its membership
+   * changes every time a director marks another concert, which is exactly
+   * what a bundle is for.
+   */
+  attendance?: ConcertAttendance;
 }
 
 interface EnsembleLike {
@@ -99,9 +108,14 @@ export function bundleEnsembleIds(bundle: CalendarBundle, ensembles: EnsembleLik
  *  calendarView.ts decides what it contains. */
 export function bundleViewSpec(bundle: CalendarBundle, ensembles: EnsembleLike[]): CalendarViewSpec {
   return normalizeView({
-    ensembleIds: bundle.schoolOnly ? [] : bundleEnsembleIds(bundle, ensembles),
+    // An attendance bundle spans the whole program: it is defined by whether a
+    // concert counts, not by who is playing it, so it never narrows by
+    // ensemble (which would drop a required concert the moment its ensemble
+    // list changed).
+    ensembleIds: bundle.attendance ? [] : bundle.schoolOnly ? [] : bundleEnsembleIds(bundle, ensembles),
     school: Boolean(bundle.schoolOnly),
     types: bundle.types ?? [],
+    ...(bundle.attendance ? { attendance: bundle.attendance } : {}),
   });
 }
 

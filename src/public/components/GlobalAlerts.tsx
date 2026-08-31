@@ -14,6 +14,7 @@ import { t, useLang, getLang } from '../../shared/i18n';
 import { groupScheduleAlerts, groupUrgentAnnouncements } from '../../shared/groupAlerts';
 import { AlertGroupSections } from '../../shared/AlertGroupSections';
 import { allClearExtraLine } from '../../shared/whimsy';
+import { CheckinStrip } from './CheckinStrip';
 
 /**
  * Alert strip for the pages where schedule noise belongs: Home and Calendar.
@@ -80,21 +81,30 @@ function AlertStrip({ onHome }: { onHome: boolean }) {
   const ensName = (ids: string[]) =>
     ids.map(id => ensembleDisplayName(ensembles.find(e => e.id === id))).filter(Boolean).join(' + ') || 'School';
 
+  // The check-in strip (#concert-checkin). Rendered in BOTH exits below: an
+  // otherwise quiet night must not swallow the one banner a student standing
+  // in a concert lobby actually needs.
+  const checkinStrip = <CheckinStrip events={events} ensembles={ensembles} />;
+
   const urgentGroups = useMemo(() => groupUrgentAnnouncements(urgent, ensembles), [urgent, ensembles]);
   const problemGroups = useMemo(() => groupScheduleAlerts(problems, ensembles), [problems, ensembles]);
 
   if (urgent.length === 0 && (problems.length === 0 || onHome)) {
-    if (onHome || events.length === 0) return null;
+    if (onHome || events.length === 0) return checkinStrip;
     return (
+      <>
+      {checkinStrip}
       <div className="pub-allclear" role="status">
         <CheckCircle2 size={15} style={{ verticalAlign: '-2.5px' }} /> {t('alert.allClear')}{' '}
         <span className="pub-allclear-extra">{allClearExtraLine(getLang())}</span>
       </div>
+      </>
     );
   }
 
   return (
     <div role="status" aria-live="polite" className="pub-global-alert-groups">
+      {checkinStrip}
       <AlertGroupSections
         groups={urgentGroups}
         renderItem={a => (

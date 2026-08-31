@@ -133,7 +133,10 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
         <button className={`dir-segment-btn ${groupBy === 'ensemble' ? 'active' : ''}`} onClick={() => setGroupBy('ensemble')}>By ensemble</button>
         <button className={`dir-segment-btn ${groupBy === 'concert' ? 'active' : ''}`} onClick={() => setGroupBy('concert')}>By concert</button>
       </div>
-      <div className="dir-drawer-body">
+      {/* Same nested-scroller trap as the Announcements tab: .dir-drawer-body
+          scrolls and contains overscroll, which strands a full tab at the top
+          of its own inner box. .dir-page-body is the tab equivalent. */}
+      <div className={asTab ? 'dir-page-body' : 'dir-drawer-body'}>
         {shown.length === 0 ? (
           <div className="dir-empty-inline">No repertoire yet. Add a piece below.</div>
         ) : (

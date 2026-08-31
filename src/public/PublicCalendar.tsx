@@ -8,6 +8,7 @@ import { useAssignments } from '../director/hooks/useAssignments';
 import { useMinuteTick } from '../director/hooks/useAnnouncements';
 import { todayStr, toDateStr, parseDate, ensembleColor, ensembleDisplayName, assignmentEmoji, musicEnsembles, isPublished, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { FilterMenu } from '../shared/FilterMenu';
+import type { ConcertAttendance } from '../shared/calendarView';
 import { activeCollegePreset, collegeFilterIds, type CollegeFilterPreset } from '../shared/collegeCalendarFilter';
 import { PubEventCard } from './components/PubEventCard';
 import { PageHeader, EmptyState } from './components/PageHeader';
@@ -72,6 +73,9 @@ export function PublicCalendar() {
       .split(',').map(s => s.trim())
       .filter((s): s is TypeKey => TYPE_OPTIONS.some(o => o.value === s)),
   );
+  // Required vs optional concerts (#concert-checkin) — a student's own
+  // question, "which of these do I actually have to be at?"
+  const [attendance, setAttendance] = useState<ConcertAttendance | ''>('');
   const [view, setView] = useState<'month' | 'list'>('month');
   const { cheer, show } = useEggCheer();
   const filterSeq = useRef<string[]>([]);
@@ -127,8 +131,9 @@ export function PublicCalendar() {
       ensembleIds: filterEnsembleIds,
       school: false,
       types: typeFilters.flatMap(k => BUCKET_TYPES[k]),
+      ...(attendance ? { attendance } : {}),
     }),
-    [filterEnsembleIds, typeFilters],
+    [filterEnsembleIds, typeFilters, attendance],
   );
   const visible = useMemo(() => events.filter(e => eventMatchesView(e, viewSpec)), [events, viewSpec]);
 
@@ -223,6 +228,21 @@ export function PublicCalendar() {
           options={TYPE_OPTIONS.map(o => ({ value: o.value, label: t(o.labelKey), color: o.color }))}
           selected={typeFilters}
           onChange={next => { setTypeFilters(next as TypeKey[]); noteFilter('type'); }}
+        />
+        <FilterMenu
+          prefix="pub"
+          allLabel={t('cal.allConcerts')}
+          ariaLabel={t('cal.filterAttendance')}
+          options={[
+            { value: 'required', label: t('cal.requiredConcerts') },
+            { value: 'optional', label: t('cal.optionalConcerts') },
+          ]}
+          selected={attendance ? [attendance] : []}
+          // Mutually exclusive: keep the newest pick rather than both.
+          onChange={next => {
+            setAttendance((next[next.length - 1] as ConcertAttendance) ?? '');
+            noteFilter('type');
+          }}
         />
       </div>
       {collegeFilterIds(ensembles, 'all').length > 0 && (

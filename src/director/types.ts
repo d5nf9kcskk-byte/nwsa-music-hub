@@ -1,3 +1,11 @@
+// Type-only imports from the check-in definition module (#concert-checkin).
+// types.ts is otherwise a dependency-free leaf; concertCheckin.ts is pure
+// (no ORG, no Firestore, no DOM), so nothing is dragged in at runtime and
+// the event shape stays defined in one place rather than two.
+import type {
+  ConcertAttendance, EventCheckinConfig, CheckinKind,
+} from '../shared/concertCheckin';
+
 /**
  * Access levels for signed-in staff (#roles). Lives here (the dependency-free
  * leaf module) so both the directors hook and record-attribution fields can
@@ -276,8 +284,87 @@ export interface CalendarEvent {
      *  under the SAME doc ids — ICS UIDs derive from doc ids (frozen contract). */
     absorbed?: ({ id: string } & Partial<Omit<CalendarEvent, 'id'>>)[];
   };
+  /* ── Concert attendance (#concert-checkin) ── */
+  /**
+   * Whether this concert counts toward a student's concert obligation, and
+   * which pot it counts in. ABSENT = not tracked, so every event that
+   * predates this feature keeps its meaning with no migration — the
+   * `Ensemble.kind` treatment. Drives the badge on the concert card, the
+   * calendar's Required/Optional filter, and the per-semester tallies.
+   */
+  concertAttendance?: ConcertAttendance | null;
+  /**
+   * The check-in station for this concert. Absent or `enabled: false` means
+   * no station — a concert can be Required for planning without anyone
+   * being photographed at the door. Each field overrides the org/site
+   * default; semantics live in src/shared/concertCheckin.ts, which is what
+   * the public page, the director board, and the Cloud Function all read.
+   */
+  checkin?: EventCheckinConfig;
   /** Id of the announcement auto-posted for this change, so revert can pull it. */
   changeAnnouncementId?: string;
+}
+
+/**
+ * One scan at a concert door (#concert-checkin) — a student arriving or
+ * leaving. STAFF-ONLY and never mirrored publicly: this is attendance-class
+ * data, and it carries a photograph of a student, which is the most
+ * sensitive thing the Hub stores. There is no `concertCheckinsPublic`, and
+ * adding one is not a config change — it is a new, deliberately designed
+ * projection with its own pinned allowlist (the #privacy rule).
+ *
+ * The doc id is `${eventId}_${studentId}_${kind}` (checkinDocId), which is
+ * the whole duplicate guard: a second tap writes the same id, and the create
+ * rule refuses a create over an existing document.
+ *
+ * `at` is written by the SERVER, never by the phone. A client-supplied
+ * timestamp on an attendance record is not worth having.
+ */
+export interface ConcertCheckin {
+  id: string;
+  eventId: string;
+  /** Denormalized so the cumulative CSV keeps reading correctly after an
+   *  event is renamed or deleted — the row is a historical record. */
+  eventTitle: string;
+  eventDate: string;          // YYYY-MM-DD
+  eventAttendance?: ConcertAttendance | null;
+  studentId: string;
+  studentName: string;
+  grade?: string;
+  instrument?: string;
+  /** The school address the student typed, normalized. */
+  email: string;
+  kind: CheckinKind;
+  /** Server timestamp (epoch ms). */
+  at: number;
+  /** Semester this concert fell in, resolved at write time from ORG.terms. */
+  termId?: string;
+  /** Storage object path — NOT a public URL. The path is world-unreadable;
+   *  directors and the CSV export resolve a link at download time. */
+  photoPath?: string;
+  /** Set by the Drive sync once the photo is filed in the shared folder. */
+  photoDriveId?: string;
+  photoDriveLink?: string;
+  /** True when the record was taken without a selfie because a director had
+   *  turned the venue fallback on. Surfaced in the CSV so it is visible. */
+  photoSkipped?: boolean;
+}
+
+/**
+ * Site-wide concert-attendance settings (`settings/concertAttendance`),
+ * staff-editable so the numbers and the accepted domains never need a
+ * deploy. Falls back to ORG.checkin / ORG.terms when a field is unset.
+ */
+export interface ConcertAttendanceSettings {
+  emailDomains?: string[];
+  opensMinutesBefore?: number;
+  closesMinutesAfter?: number;
+  /** Per-semester obligation, keyed by term id. */
+  goals?: Record<string, { required?: number; optional?: number }>;
+  /** Google Drive folder the photo sync files into. Just a folder id. */
+  driveFolderId?: string;
+  updatedAt?: number;
+  updatedBy?: string;
 }
 
 export type OverrideScope = 'event' | 'range';
@@ -330,6 +417,26 @@ export interface RosterOverride {
    *  them into there — the resolver adds them to the destination's roster, so no
    *  second override is needed. */
   destEnsembleId?: string;
+}
+
+/**
+ * In-app heads-up for staff (#two-doors §5.1): saving a student move drops one
+ * notice naming both affected ensembles, shown on the director Today view
+ * until each staff member dismisses it. Staff-only — the text names students.
+ */
+export interface StaffNotice {
+  id: string;
+  text: string;
+  /** The ensembles whose directors this concerns (losing + gaining). */
+  ensembleIds: string[];
+  /** First day the move applies (YYYY-MM-DD) — the notice hides once stale. */
+  date: string;
+  /** Last day, when the move is a range. */
+  endDate?: string;
+  createdAt: number;
+  createdBy?: string;
+  /** Staff emails who dismissed it (per-person, not a global delete). */
+  readBy?: string[];
 }
 
 export interface AttendanceRecord {

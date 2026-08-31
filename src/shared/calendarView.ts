@@ -26,13 +26,29 @@ export interface CalendarViewSpec {
   school: boolean;
   /** Chosen types. Empty means every type. */
   types: ViewTypeKey[];
+  /**
+   * Narrow to concerts that count toward a student's obligation
+   * (#concert-checkin). Absent = no such narrowing, which is every view that
+   * existed before this filter and therefore every published feed URL.
+   *
+   * Deliberately NOT part of `types`: "Required" is not a kind of event, it
+   * is a property of one, and folding it into the type list would make
+   * "Concerts + Required" mean "concerts OR required things".
+   */
+  attendance?: ConcertAttendance;
 }
+
+/** Mirrors ConcertAttendance in concertCheckin.ts. Redeclared rather than
+ *  imported so this module stays dependency-free — the ICS generator loads it
+ *  directly and a new import here is a new file for that loader to resolve. */
+export type ConcertAttendance = 'required' | 'optional';
 
 /** Minimal shape of an event — the app's CalendarEvent and the generator's
  *  flattened Firestore doc both satisfy it. */
 interface ViewEventLike {
   type?: string;
   ensembleIds?: string[];
+  concertAttendance?: ConcertAttendance | null;
 }
 
 interface ViewAssignmentLike {
@@ -46,6 +62,10 @@ export function normalizeView(spec: CalendarViewSpec): CalendarViewSpec {
     ensembleIds: [...new Set(spec.ensembleIds)].sort(order),
     school: Boolean(spec.school),
     types: [...new Set(spec.types)].sort(order) as ViewTypeKey[],
+    // Only carried when actually set: a normalized view with no attendance
+    // filter must be structurally identical to one from before the filter
+    // existed, or every published feed URL moves.
+    ...(spec.attendance ? { attendance: spec.attendance } : {}),
   };
 }
 
@@ -64,7 +84,13 @@ export function isEveryEnsemble(spec: CalendarViewSpec): boolean {
  * Classes, in which case the director asked for them and gets them.
  */
 export function eventMatchesView(event: ViewEventLike, spec: CalendarViewSpec): boolean {
+  // Attendance is checked FIRST and short-circuits, so it cannot be widened by
+  // the school-wide ride-along below: a holiday carries no ensemble, but a
+  // holiday is not a required concert and must never appear in one of these
+  // views just because it is school-wide.
+  if (spec.attendance && event.concertAttendance !== spec.attendance) return false;
   if (spec.types.length > 0 && !spec.types.includes(event.type as ViewTypeKey)) return false;
+  if (spec.attendance) return true;
   if (isEveryEnsemble(spec)) return true;
 
   const eventEnsembles = event.ensembleIds ?? [];
@@ -76,6 +102,8 @@ export function eventMatchesView(event: ViewEventLike, spec: CalendarViewSpec): 
 
 /** Assignment due dates: ensemble-scoped, never school-wide. */
 export function assignmentMatchesView(assignment: ViewAssignmentLike, spec: CalendarViewSpec): boolean {
+  // An assignment is never a concert, so an attendance-filtered view has none.
+  if (spec.attendance) return false;
   if (spec.types.length > 0 && !spec.types.includes('Assignment')) return false;
   if (spec.ensembleIds.length === 0) return !spec.school;
   return (assignment.ensembleIds ?? []).some(id => spec.ensembleIds.includes(id));
@@ -84,7 +112,13 @@ export function assignmentMatchesView(assignment: ViewAssignmentLike, spec: Cale
 /** Canonical string form — the only input to the slug hash. */
 function canonicalView(spec: CalendarViewSpec): string {
   const n = normalizeView(spec);
-  return `e:${n.ensembleIds.join(',')}|s:${n.school ? 1 : 0}|t:${n.types.join(',')}`;
+  const base = `e:${n.ensembleIds.join(',')}|s:${n.school ? 1 : 0}|t:${n.types.join(',')}`;
+  // APPENDED ONLY WHEN SET. The slug is a subscription contract: someone's
+  // calendar app holds feeds/view-<slug>.ics and re-resolves it forever.
+  // Adding '|a:' unconditionally would rewrite every existing hash and break
+  // every existing subscription, so a view without an attendance filter
+  // hashes exactly the string it always did. Pinned in the self-check.
+  return n.attendance ? `${base}|a:${n.attendance}` : base;
 }
 
 /**
@@ -141,6 +175,12 @@ const AUTO_TYPE_SETS: ViewTypeKey[][] = [
 /** True when this view is in the always-built set (no registration needed). */
 export function isAutoView(spec: CalendarViewSpec): boolean {
   const n = normalizeView(spec);
+  // autoViewSpecs never generates an attendance-filtered view, so claiming one
+  // is pre-built would hand out a feeds/view-<slug>.ics that does not exist —
+  // and a calendar app refuses a 404 outright rather than retrying. These are
+  // registered in calendarViews and built on the next refresh, like any other
+  // wider mix.
+  if (n.attendance) return false;
   const oneGroup = n.ensembleIds.length <= 1 && !(n.school && n.ensembleIds.length > 0);
   const typeKey = n.types.join(',');
   return oneGroup && AUTO_TYPE_SETS.some(set => normalizeView({ ensembleIds: [], school: false, types: set }).types.join(',') === typeKey);

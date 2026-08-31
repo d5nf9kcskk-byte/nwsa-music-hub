@@ -8,6 +8,7 @@ import { useRepertoire } from '../director/hooks/useRepertoire';
 import { todayStr, formatTime, ensembleDisplayName } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { NotesText } from './components/NotesText';
+import { CheckinCallout } from './components/CheckinCallout';
 import { SkeletonCards } from './components/PageHeader';
 import { t, tType, useLang } from '../shared/i18n';
 import { fmtFullDate, fmtShortDate } from '../shared/dates';
@@ -176,6 +177,23 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
 
         <div className="pub-event-main">
           <PubEventCard event={event} ensembleMap={ensembleMap} piecesById={piecesById} showNotes detailLink={false} />
+
+          {/* Whether this concert counts, and toward which pot (#concert-checkin).
+              Absent on every event that predates the feature, which renders nothing. */}
+          {event.concertAttendance && (
+            <div className={`pub-card pub-attend-card ${event.concertAttendance}`}>
+              <strong>
+                {event.concertAttendance === 'required'
+                  ? 'Required concert'
+                  : 'Optional concert'}
+              </strong>{' '}
+              {event.concertAttendance === 'required'
+                ? 'Attendance at this concert counts toward your required concerts for the semester.'
+                : 'This one is optional — it counts toward your optional concerts if you come.'}
+            </div>
+          )}
+
+          <CheckinCallout event={event} />
 
           {(event.attendanceEnsembleIds ?? []).length > 0 && (
             <div className="pub-card pub-attend-card">

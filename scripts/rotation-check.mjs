@@ -123,16 +123,28 @@ const studentById = Object.fromEntries(students.map(s => [s.id, s]));
 
 // Everyone the rotation plan actually moves — a student with no rotation doc
 // has nothing to get wrong, so listing them would bury the ones that do.
-const rotators = [...new Set(overrides.filter(o => o.kind === 'rotation').map(o => o.studentId))]
+const allRotators = [...new Set(overrides.filter(o => o.kind === 'rotation').map(o => o.studentId))]
   .map(id => studentById[id])
   .filter(Boolean)
   .filter(s => !STUDENT_Q || s.name.toLowerCase().includes(STUDENT_Q))
   .sort((a, b) => a.name.localeCompare(b.name));
 
+// An archived (non-Active) student is skipped by every roster resolve, so
+// their leftover rotation docs are inert — landing "in NOTHING" is by
+// design, not a broken plan. Note them once instead of flagging every day.
+const rotators = allRotators.filter(s => s.status === 'Active');
+const archived = allRotators.filter(s => s.status !== 'Active');
+for (const s of archived) {
+  console.log(`note: ${s.name} is archived (${s.status}) but still has rotation docs — inert; delete via the Rotations page if unwanted.`);
+}
+if (archived.length) console.log('');
+
 if (rotators.length === 0) {
   console.log(STUDENT_Q
-    ? `No student on a standing rotation matches "${STUDENT_Q}".`
-    : 'No kind:"rotation" overrides exist — nobody is on a standing rotation.');
+    ? `No active student on a standing rotation matches "${STUDENT_Q}".`
+    : archived.length
+      ? 'Only archived students have rotation docs — nobody active is on a standing rotation.'
+      : 'No kind:"rotation" overrides exist — nobody is on a standing rotation.');
   process.exit(0);
 }
 

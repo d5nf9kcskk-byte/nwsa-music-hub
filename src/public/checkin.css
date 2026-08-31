@@ -1,0 +1,182 @@
+/* Concert check-in station (#concert-checkin).
+   Bigger targets and bigger type than the rest of the public site on purpose:
+   this is used one-handed, in a dim lobby, by someone who is being hurried. */
+
+.pub-checkin { max-width: 34rem; }
+
+.pub-checkin-head { margin: 0 0 1rem; }
+.pub-checkin-head h1 { margin: .25rem 0 .15rem; font-size: 1.45rem; line-height: 1.2; }
+
+.pub-checkin-kind {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font-size: .78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: .2rem .55rem; border-radius: 999px;
+  background: var(--pub-accent-soft, #e6f4f6); color: var(--pub-accent, #0d7e8e);
+}
+.pub-checkin-kind.out { background: #efe7fb; color: #5b3aa8; }
+
+.pub-attend-badge {
+  display: inline-block; margin-top: .5rem;
+  font-size: .78rem; font-weight: 700; padding: .2rem .55rem; border-radius: 999px;
+  background: #fdecec; color: #a32020;
+}
+.pub-attend-badge.optional { background: #eef3ee; color: #3f6b45; }
+
+/* Three steps, always visible, so nobody wonders how much is left. */
+.pub-checkin-steps {
+  display: flex; gap: .4rem; list-style: none; margin: 0 0 .9rem; padding: 0;
+  counter-reset: step;
+}
+.pub-checkin-steps li {
+  flex: 1; counter-increment: step; text-align: center;
+  font-size: .74rem; padding: .4rem .2rem; border-radius: .5rem;
+  background: var(--pub-card-alt, #f3f4f6); color: var(--pub-muted, #6b7280);
+}
+.pub-checkin-steps li::before { content: counter(step) ". "; font-weight: 700; }
+.pub-checkin-steps li.on { background: var(--pub-accent, #0d7e8e); color: #fff; font-weight: 700; }
+.pub-checkin-steps li.ok { background: #e6f4ea; color: #256b38; }
+
+.pub-checkin-card { padding: 1rem; }
+.pub-checkin-label {
+  display: flex; align-items: center; gap: .4rem;
+  font-weight: 700; margin: 0 0 .4rem;
+}
+.pub-checkin-hint { font-size: .85rem; color: var(--pub-muted, #6b7280); margin: .4rem 0 .8rem; }
+.pub-checkin-hint.warn { color: #a32020; font-weight: 600; }
+
+.pub-checkin-who {
+  display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+  font-weight: 600; margin: 0 0 .9rem;
+}
+.pub-linkish {
+  background: none; border: 0; padding: 0; margin-left: auto;
+  color: var(--pub-accent, #0d7e8e); text-decoration: underline; cursor: pointer; font-size: .85rem;
+}
+
+.pub-checkin-matches { list-style: none; margin: .6rem 0 0; padding: 0; }
+.pub-checkin-matches li + li { border-top: 1px solid var(--pub-border, #e5e7eb); }
+.pub-checkin-matches button {
+  display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+  width: 100%; padding: .8rem .2rem; background: none; border: 0; cursor: pointer;
+  text-align: left; font: inherit; color: inherit;
+}
+.pub-checkin-matches .name { font-weight: 600; }
+.pub-checkin-matches .meta { font-size: .8rem; color: var(--pub-muted, #6b7280); }
+
+/* The camera. A fixed frame so the layout does not jump when the stream
+   attaches, and object-fit so a portrait phone fills it. */
+.pub-selfie { margin: .2rem 0 .8rem; }
+.pub-selfie-live, .pub-selfie-shot {
+  display: block; width: 100%; aspect-ratio: 3 / 4; max-height: 55vh;
+  object-fit: cover; border-radius: .7rem; background: #111;
+}
+.pub-selfie-row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-top: .6rem; }
+.pub-selfie-ok { display: inline-flex; align-items: center; gap: .3rem; color: #256b38; font-weight: 600; font-size: .85rem; }
+.pub-selfie-error {
+  display: flex; gap: .6rem; align-items: flex-start;
+  padding: 1rem; border-radius: .7rem; background: #fdecec; color: #a32020;
+}
+.pub-selfie-error p { margin: 0; }
+
+.pub-checkin-send { width: 100%; margin-top: .6rem; padding: .9rem; font-size: 1.05rem; }
+
+.pub-checkin-error {
+  display: flex; gap: .5rem; align-items: flex-start;
+  padding: .8rem; margin-bottom: .8rem; border-radius: .6rem;
+  background: #fdecec; color: #a32020; font-weight: 600;
+}
+
+.pub-checkin-closed .pub-checkin-big { font-size: 1.2rem; font-weight: 700; }
+.pub-checkin-big { display: flex; align-items: center; gap: .4rem; font-size: 2rem; font-weight: 700; margin: .3rem 0; }
+
+.pub-checkin-done { text-align: center; padding: 2rem 1rem; }
+.pub-checkin-done h1 { margin: .8rem 0 .2rem; }
+.pub-checkin-done .pub-checkin-big { justify-content: center; }
+.pub-checkin-tick {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 5rem; height: 5rem; border-radius: 50%;
+  background: #e6f4ea; color: #256b38;
+}
+.pub-checkin-next {
+  margin: 1rem auto 0; max-width: 26rem;
+  padding: .8rem; border-radius: .6rem; background: var(--pub-card-alt, #f3f4f6);
+}
+.pub-checkin-actions { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; margin-top: 1.2rem; }
+.pub-checkin-foot {
+  margin-top: 1.4rem; font-size: .78rem; color: var(--pub-muted, #6b7280); text-align: center;
+}
+
+/* Buttons and the text field, scoped to this page. `pub-btn`, `pub-btn-ghost`
+   and `pub-input` appear elsewhere in the public tree but have never had CSS
+   behind them, so they are defined here rather than assumed — and scoped, so
+   defining them for real later cannot be broken by this file. */
+.pub-checkin .pub-btn,
+.pub-checkin .pub-btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  padding: .65rem 1rem; border-radius: .6rem; font: inherit; font-weight: 600;
+  cursor: pointer; border: 1px solid transparent; text-decoration: none;
+}
+.pub-checkin .pub-btn { background: var(--pub-accent, #0d7e8e); color: #fff; }
+.pub-checkin .pub-btn:disabled { opacity: .45; cursor: not-allowed; }
+.pub-checkin .pub-btn-ghost {
+  background: transparent; color: var(--pub-accent, #0d7e8e);
+  border-color: var(--pub-border, #d3d9dd);
+}
+.pub-checkin .pub-input {
+  width: 100%; padding: .75rem; font: inherit; font-size: 1.05rem;
+  border: 1px solid var(--pub-border, #d3d9dd); border-radius: .6rem;
+  background: var(--pub-card, #fff); color: inherit;
+}
+.pub-checkin .pub-input:focus-visible { outline: 2px solid var(--pub-accent, #0d7e8e); outline-offset: 1px; }
+
+/* The panel on a concert card and the strip on Home/Calendar. */
+.pub-checkin-callout {
+  display: flex; gap: .7rem; align-items: flex-start; padding: 1rem;
+  border-left: 4px solid var(--pub-accent, #0d7e8e);
+}
+.pub-checkin-callout p { margin: .25rem 0 .6rem; font-size: .9rem; color: var(--pub-muted, #6b7280); }
+.pub-checkin-callout.done { border-left-color: #3f8f57; }
+.pub-checkin-callout .pub-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: .6rem 1.1rem; border-radius: .6rem; font-weight: 700;
+  background: var(--pub-accent, #0d7e8e); color: #fff; text-decoration: none;
+}
+
+/* The Home / Calendar strip. Loud on purpose — it is only ever on screen
+   during the hour or two a concert is actually running. */
+.pub-checkin-strip-wrap { display: grid; gap: .4rem; margin-bottom: .5rem; }
+.pub-checkin-strip {
+  display: block; padding: .7rem .9rem; border-radius: .6rem;
+  background: var(--pub-accent, #0d7e8e); color: #fff; text-decoration: none; font-size: .92rem;
+}
+.pub-checkin-strip strong { font-weight: 800; }
+
+/* "Your concerts" — the student's own per-semester count. */
+.pub-tally { padding: 1rem; }
+.pub-tally-head { display: flex; align-items: center; gap: .4rem; margin: 0 0 .6rem; font-size: 1.05rem; }
+.pub-tally-ask { display: flex; gap: .5rem; flex-wrap: wrap; }
+.pub-tally-ask .pub-input { flex: 1 1 12rem; padding: .7rem; font: inherit;
+  border: 1px solid var(--pub-border, #d3d9dd); border-radius: .6rem;
+  background: var(--pub-card, #fff); color: inherit; }
+.pub-tally-ask .pub-btn {
+  display: inline-flex; align-items: center; padding: .7rem 1rem; border: 0;
+  border-radius: .6rem; font: inherit; font-weight: 600; cursor: pointer;
+  background: var(--pub-accent, #0d7e8e); color: #fff;
+}
+.pub-tally-ask .pub-btn:disabled { opacity: .45; cursor: not-allowed; }
+.pub-tally-term { margin-top: .9rem; }
+.pub-tally-term h3 { margin: 0 0 .4rem; font-size: .9rem; color: var(--pub-muted, #6b7280); }
+.pub-tally-rows { display: flex; gap: .6rem; flex-wrap: wrap; }
+.pub-tally-row {
+  flex: 1 1 8rem; padding: .7rem .9rem; border-radius: .6rem;
+  background: var(--pub-card-alt, #f3f4f6);
+}
+.pub-tally-row.met { background: #e6f4ea; }
+.pub-tally-n { display: flex; align-items: center; gap: .3rem; font-size: 1.5rem; font-weight: 700; }
+.pub-tally-l { font-size: .78rem; color: var(--pub-muted, #6b7280); }
+.pub-tally-warn {
+  display: flex; gap: .6rem; align-items: flex-start; margin-top: .9rem;
+  padding: .8rem; border-radius: .6rem; background: #fdf3e3;
+}
+.pub-tally-warn p { margin: .25rem 0; font-size: .88rem; }
+.pub-tally-warn ul { margin: .3rem 0 0; padding-left: 1.1rem; font-size: .85rem; }

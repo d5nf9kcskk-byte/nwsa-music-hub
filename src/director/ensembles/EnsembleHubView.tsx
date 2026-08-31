@@ -1,6 +1,6 @@
 import { announcementPreview as preview } from '../../shared/announcementPreview';
 import { useMemo, useState } from 'react';
-import { ClipboardList, ClipboardCheck, Users, Calendar, Music, Megaphone, Clock, MapPin, Sparkles, Armchair, FolderOpen, UserPlus, AlertTriangle, ChevronRight } from 'lucide-react';
+import { ClipboardList, ClipboardCheck, Users, Calendar, Music, Megaphone, Clock, MapPin, UserCog, Armchair, FolderOpen, UserPlus, AlertTriangle, ChevronRight } from 'lucide-react';
 import { SeatingManager } from '../seating/SeatingManager';
 import { EnsembleRosterEditor } from './EnsembleRosterEditor';
 import { GroupStaffPanel } from '../components/GroupStaffPanel';
@@ -227,7 +227,7 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
             <Megaphone size={20} /> Announcements{myAnnouncements > 0 ? ` (${myAnnouncements})` : ''}
           </button>
           <button className="dir-hub-btn" onClick={() => onNavigate('scheduleChanges', { ensembleId })}>
-            <Sparkles size={20} /> Move a Student
+            <UserCog size={20} /> Move a Student
           </button>
           {!isClass && (
             <button className="dir-hub-btn" onClick={() => setShowSeating(true)}>

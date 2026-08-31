@@ -312,6 +312,11 @@ function wrapCalendar(name, description, vevents) {
         ensembleIds: Array.isArray(doc.ensembleIds) ? doc.ensembleIds : [],
         school: Boolean(doc.school),
         types: Array.isArray(doc.types) ? doc.types : [],
+        // Absent stays absent: an unfiltered view must normalize to exactly
+        // the object it did before this field existed, or its id stops
+        // matching its own hash and the feed is dropped as mismatched.
+        ...(doc.attendance === 'required' || doc.attendance === 'optional'
+          ? { attendance: doc.attendance } : {}),
       });
       if (viewSlug(spec) !== doc.id) { mismatched++; continue; }
       writeViewFeed(spec);

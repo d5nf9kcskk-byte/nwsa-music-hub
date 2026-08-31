@@ -70,6 +70,24 @@ jobs:
       - name: Check sign-up slot parsing
         run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/signupSlotParse.selfcheck.ts
 
+      # The concert door (#concert-checkin). The window is computed in
+      # school-local time from a UTC server, whole-domain email matching keeps
+      # notstudents.dadeschools.net out, and a duplicate scan is refused by the
+      # doc id — all three are silent to break and loud to discover at a concert.
+      - name: Check concert check-in rules
+        run: npx tsx src/shared/concertCheckin.selfcheck.ts
+
+      # The cumulative CSV: one row per student per concert, and a concert
+      # counts only when BOTH scans exist.
+      # No defines shim: the CSV module takes its config as an argument so the
+      # Drive sync (plain node, no vite) can build the SAME file the director
+      # downloads. Running it bare here keeps that honest.
+      - name: Check concert attendance CSV
+        run: npx tsx src/director/checkin/checkinCsv.selfcheck.ts
+
+      - name: Check concert photo Drive naming
+        run: node scripts/drive-photo-names.selfcheck.mjs
+
       # Shared/combined blocks: the predicate that decides whether several
       # ensembles on one event means "one room together" — and the guard that
       # the combined label never disturbs an ordinary event's VEVENT, which is
