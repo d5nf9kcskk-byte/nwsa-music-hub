@@ -14,51 +14,8 @@ import { useAnnouncements } from '../hooks/useAnnouncements';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useAssignments } from '../hooks/useAssignments';
 import { formatDate, formatTimeRange, todayStr, pieceEnsembleIds } from '../utils';
+import { rankMatches } from '../../shared/fuzzy';
 import type { CalendarEvent, Ensemble, RosterOverride, Student } from '../types';
-
-/* ── Tiny fuzzy-search util (mirrors the public SearchOverlay) ──────────
- * Diacritic-stripped, case-insensitive matching: every whitespace-separated
- * query token must appear in the text. Word-start hits score higher than
- * mid-word substring hits; a hit at the very start scores highest.
- */
-function normalizeText(s: string): string {
-  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-}
-
-function scoreMatch(query: string, text?: string): number {
-  if (!text) return 0;
-  const t = normalizeText(text);
-  const tokens = normalizeText(query).split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return 0;
-  let total = 0;
-  for (const tok of tokens) {
-    const idx = t.indexOf(tok);
-    if (idx === -1) return 0;
-    const wordStart = idx === 0 || /[^a-z0-9]/.test(t[idx - 1]);
-    total += (wordStart ? 3 : 1) + (idx === 0 ? 1 : 0);
-  }
-  return total;
-}
-
-function rankMatches<T>(
-  list: T[],
-  query: string,
-  fields: (item: T) => (string | undefined)[],
-  max = 8,
-  tieBreak?: (a: T, b: T) => number,
-): T[] {
-  const scored: { item: T; score: number }[] = [];
-  for (const item of list) {
-    let best = 0;
-    fields(item).forEach((f, i) => {
-      const s = scoreMatch(query, f) * (i === 0 ? 2 : 1);
-      if (s > best) best = s;
-    });
-    if (best > 0) scored.push({ item, score: best });
-  }
-  scored.sort((a, b) => b.score - a.score || (tieBreak ? tieBreak(a.item, b.item) : 0));
-  return scored.slice(0, max).map(s => s.item);
-}
 
 /* ── "Where are they now" helpers ─────────────────────────────────────── */
 

@@ -3,6 +3,7 @@ import {
   Bold, Italic, Underline, Strikethrough, Quote, Link2, List, ListOrdered, Type, Eye, Pencil,
 } from 'lucide-react';
 import type { RichFont } from '../../shared/richTextParse';
+import { LinkPicker } from './LinkPicker';
 import { RichText } from '../../shared/richText';
 
 interface Props {
@@ -30,7 +31,7 @@ const FONTS: { value: RichFont; label: string }[] = [
  *  per call: a shared /g/ regex carries `lastIndex` between calls. */
 const fontSpanRe = () => /\[([^\]\n]+)\]\(font:(?:serif|sans|mono|georgia)\)/gi;
 
-const LINK_PLACEHOLDER = 'https://';
+
 
 /**
  * The director's formatting toolbar. What it writes is plain text with
@@ -42,6 +43,11 @@ const LINK_PLACEHOLDER = 'https://';
 export function RichTextArea({ value, onChange, placeholder, rows = 3, className = 'dir-textarea' }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const [preview, setPreview] = useState(false);
+  const [picking, setPicking] = useState(false);
+  /** Where the link goes back in. A textarea keeps selectionStart/End through
+   *  a blur, but the picker unmounts and remounts around it — so the range is
+   *  captured when the button is pressed, not when the picker returns. */
+  const insertAt = useRef<[number, number]>([0, 0]);
 
   function wrap(before: string, after = before) {
     const el = ref.current;
@@ -87,23 +93,29 @@ export function RichTextArea({ value, onChange, placeholder, rows = 3, className
     });
   }
 
-  /**
-   * Wrap the selection in a link. Until the entity picker lands, this writes
-   * the syntax with `https://` SELECTED, so the director's next action —
-   * pasting an address — replaces it rather than landing beside it.
-   */
-  function insertLink() {
+  /** Remember the selection, then open the picker over it. */
+  function openLinkPicker() {
     const el = ref.current;
     if (!el) return;
-    const s = el.selectionStart;
-    const e = el.selectionEnd;
-    const label = value.slice(s, e) || 'link text';
-    const snippet = `[${label}](${LINK_PLACEHOLDER})`;
+    insertAt.current = [el.selectionStart, el.selectionEnd];
+    setPicking(true);
+  }
+
+  /**
+   * Drop the chosen link in. Text the director had selected wins as the label
+   * — they already said what to call it — and the picker's own name is only
+   * the fallback.
+   */
+  function insertLink(label: string, url: string) {
+    setPicking(false);
+    const [s, e] = insertAt.current;
+    const snippet = `[${value.slice(s, e).trim() || label}](${url})`;
     onChange(value.slice(0, s) + snippet + value.slice(e));
-    const urlAt = s + label.length + 3; // "[" + label + "]("
     requestAnimationFrame(() => {
+      const el = ref.current;
+      if (!el) return;
       el.focus();
-      el.setSelectionRange(urlAt, urlAt + LINK_PLACEHOLDER.length);
+      el.setSelectionRange(s + snippet.length, s + snippet.length);
     });
   }
 
@@ -160,8 +172,13 @@ export function RichTextArea({ value, onChange, placeholder, rows = 3, className
     { title: 'Insert link', icon: <Link2 size={13} />, act: 'link' },
   ];
 
+  const picker = picking
+    ? <LinkPicker onPick={insertLink} onClose={() => setPicking(false)} />
+    : null;
+
   return (
     <div className="dir-rte">
+      {picker}
       <div className="dir-rte-toolbar">
         {TOOLS.map((tool, i) => ('sep' in tool ? (
           <span key={`sep-${i}`} className="dir-rte-sep" aria-hidden="true" />
@@ -177,7 +194,7 @@ export function RichTextArea({ value, onChange, placeholder, rows = 3, className
               e.preventDefault();
               if (tool.mark) wrap(tool.mark);
               else if (tool.line) setLinePrefix(tool.line);
-              else if (tool.act === 'link') insertLink();
+              else if (tool.act === 'link') openLinkPicker();
             }}
           >
             {tool.icon}

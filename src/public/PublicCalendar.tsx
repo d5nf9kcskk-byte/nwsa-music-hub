@@ -64,7 +64,14 @@ export function PublicCalendar() {
   const [filterEnsembleIds, setFilterEnsembleIds] = useState<string[]>(
     () => (searchParams.get('ensemble') ?? '').split(',').map(s => s.trim()).filter(Boolean),
   );
-  const [typeFilters, setTypeFilters] = useState<TypeKey[]>([]);
+  // ?type= makes a filtered calendar fully shareable. Without it a link to
+  // "Symphony rehearsals" restored the ensemble and silently dropped the
+  // type, so the link did not show what its author was looking at.
+  const [typeFilters, setTypeFilters] = useState<TypeKey[]>(
+    () => (searchParams.get('type') ?? '')
+      .split(',').map(s => s.trim())
+      .filter((s): s is TypeKey => TYPE_OPTIONS.some(o => o.value === s)),
+  );
   const [view, setView] = useState<'month' | 'list'>('month');
   const { cheer, show } = useEggCheer();
   const filterSeq = useRef<string[]>([]);
@@ -93,19 +100,20 @@ export function PublicCalendar() {
   // pulls that month once, so the whole year is still browsable.
   useEffect(() => { ensureMonth(cursor); }, [cursor, ensureMonth]);
 
-  // Keep the ?ensemble= deep-link (comma-separated) in sync with the chosen
-  // ensembles, so a filtered calendar is shareable and survives reload.
+  // Keep the ?ensemble= / ?type= deep-link (comma-separated) in sync with the
+  // chosen filters, so a filtered calendar is shareable and survives reload.
   useEffect(() => {
-    const current = searchParams.get('ensemble') ?? '';
-    const wanted = filterEnsembleIds.join(',');
-    if (current !== wanted) {
-      const next = new URLSearchParams(searchParams);
-      if (wanted) next.set('ensemble', wanted);
-      else next.delete('ensemble');
-      setSearchParams(next, { replace: true });
+    const wantEns = filterEnsembleIds.join(',');
+    const wantType = typeFilters.join(',');
+    if ((searchParams.get('ensemble') ?? '') === wantEns && (searchParams.get('type') ?? '') === wantType) return;
+    const next = new URLSearchParams(searchParams);
+    for (const [key, want] of [['ensemble', wantEns], ['type', wantType]] as const) {
+      if (want) next.set(key, want);
+      else next.delete(key);
     }
+    setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterEnsembleIds]);
+  }, [filterEnsembleIds, typeFilters]);
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
