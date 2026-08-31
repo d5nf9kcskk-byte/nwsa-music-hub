@@ -2,7 +2,7 @@ import './uiUpdates.css';
 import './pubShell.css';
 import { useState, useEffect, useReducer } from 'react';
 import { Outlet, NavLink, Link, ScrollRestoration, useLocation } from 'react-router';
-import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned, FolderOpen, Mail, ClipboardSignature } from 'lucide-react';
+import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned, FolderOpen, Mail, ClipboardSignature, ScanLine } from 'lucide-react';
 import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
 import { StatusStrips } from '../shared/StatusStrips';
@@ -36,6 +36,9 @@ const NAV_TOP = [
   { to: '/', label: 'nav.home', Icon: Home, end: true },
   { to: '/calendar', label: 'nav.calendar', Icon: CalendarDays, end: false },
   { to: '/concerts', label: 'nav.concerts', Icon: Ticket, end: false },
+  // The concert door as a destination (#concert-checkin) — a student at the
+  // venue looks for check-in in the menu, not inside a concert card.
+  { to: '/checkin', label: 'nav.checkin', Icon: ScanLine, end: true },
   { to: '/lookup', label: 'nav.mySchedule', Icon: UserSearch, end: false },
 ];
 
@@ -349,6 +352,9 @@ export function PublicLayout() {
             </NavLink>
             <NavLink to="/concerts" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
               <Ticket size={18} />{t('nav.concertsShort')}
+            </NavLink>
+            <NavLink to="/checkin" end className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+              <ScanLine size={18} />{t('nav.checkin')}
             </NavLink>
             <NavLink to="/ensembles" end className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
               <Users size={18} />{t('nav.ensembles')}

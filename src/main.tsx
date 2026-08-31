@@ -22,6 +22,7 @@ import { PublicDocuments } from './public/PublicDocuments';
 import { PublicSignups } from './public/PublicSignups';
 import { PublicSignup } from './public/PublicSignup';
 import { PublicCheckin } from './public/PublicCheckin';
+import { PublicCheckins } from './public/PublicCheckins';
 import { StartGuide } from './public/StartGuide';
 import { SeasonPage } from './public/SeasonPage';
 import { CampusMap } from './public/CampusMap';
@@ -87,6 +88,7 @@ const router = createBrowserRouter(
         { path: 'signup/:id', element: <PublicSignup /> },
         // The concert door (#concert-checkin) — also reachable from the
         // concert card, the Home/Calendar banner, and a QR poster.
+        { path: 'checkin', element: <PublicCheckins /> },
         { path: 'checkin/:id', element: <PublicCheckin /> },
         { path: 'start', element: <StartGuide /> },
         { path: 'concerts', element: <SeasonPage /> },

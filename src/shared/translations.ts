@@ -30,6 +30,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.startHere':        { en: 'Start Here',          es: 'Empieza aquí' },
   'nav.concerts':         { en: 'Concert Season',      es: 'Temporada de conciertos' },
   'nav.concertsShort':    { en: 'Concerts',            es: 'Conciertos' },
+  'nav.checkin':          { en: 'Concert Check-In',    es: 'Registro de conciertos' },
   'nav.directorLogin':    { en: 'Director login',      es: 'Acceso para directores' },
   'nav.assistantLogin':   { en: 'Student Assistant login', es: 'Acceso para asistentes estudiantiles' },
   'nav.teacherLogin':     { en: 'Applied Teacher login', es: 'Acceso para maestros aplicados' },

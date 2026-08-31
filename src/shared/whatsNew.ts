@@ -32,6 +32,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Concert check-in as its own menu page (#concert-checkin).
+  {
+    id: '2026-08-31-checkin-page',
+    date: '2026-08-31',
+    title: 'Concert Check-In is in the menu now',
+    audience: 'public' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'There is a Concert Check-In page in the menu: open it at the venue and pick your concert instead of hunting for the right concert card.',
+      'Concerts are listed with the time their check-in opens, and stay dimmed until then. The one that is open right now is at the top.',
+      'The concert page still has its own check-in button \u2014 both go to the same place.',
+    ],
+  },
   // Formatting toolbar: link, font, strikethrough, quote (#linking phase 1).
   {
     id: '2026-08-31-text-links-fonts',
