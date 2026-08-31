@@ -119,9 +119,19 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
         {asTab && (
           <div className="dir-section-header">
             <span className="dir-section-title">Announcements</span>
-            <button className="dir-tool-btn" onClick={() => setPrinting(true)}>
-              <Printer size={14} /> Print
-            </button>
+            {/* New Announcement belongs at the TOP of the tab. It used to sit
+                only in the footer, below every post — so writing one meant
+                scrolling the whole list to reach the button, which on a phone
+                with a long list is most of the page. The drawer keeps its
+                footer button, where a sticky footer is the right shape. */}
+            <div className="dir-section-header-actions">
+              <button className="dir-btn dir-btn-primary dir-btn-sm" onClick={() => setEditing('new')}>
+                <Plus size={15} style={{ verticalAlign: '-3px' }} /> New Announcement
+              </button>
+              <button className="dir-tool-btn" onClick={() => setPrinting(true)}>
+                <Printer size={14} /> Print
+              </button>
+            </div>
           </div>
         )}
         {announcements.length > 0 && (
@@ -191,11 +201,15 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
             ))
           )}
         </div>
-        <div className="dir-drawer-footer">
-          <button className="dir-btn dir-btn-primary" onClick={() => setEditing('new')}>
-            <Plus size={16} style={{ verticalAlign: '-3px' }} /> New Announcement
-          </button>
-        </div>
+        {/* Drawer only: on the tab the button lives in the header above, and
+            two identical buttons on one screen is a question, not a shortcut. */}
+        {!asTab && (
+          <div className="dir-drawer-footer">
+            <button className="dir-btn dir-btn-primary" onClick={() => setEditing('new')}>
+              <Plus size={16} style={{ verticalAlign: '-3px' }} /> New Announcement
+            </button>
+          </div>
+        )}
     </>
   );
 
