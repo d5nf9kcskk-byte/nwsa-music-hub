@@ -8,7 +8,7 @@
  * a personal My Drive folder — and the run would report a storage quota error
  * rather than the secret nobody set.
  */
-import { driveAuthMode, driveAccountLabel, DRIVE_OAUTH_VARS } from './lib/driveAuth.mjs';
+import { driveAuthMode, driveAccountLabel, maskEmail, DRIVE_OAUTH_VARS } from './lib/driveAuth.mjs';
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -37,8 +37,22 @@ assert(driveAuthMode({ ...all, DRIVE_OAUTH_REFRESH_TOKEN: '   ' }).mode === 'inc
  * an account that was never involved. */
 const SA = 'firebase-adminsdk@nwsa-hub.iam.gserviceaccount.com';
 
-assert(driveAccountLabel('oauth', 'a@b.com', SA) === 'a@b.com', 'verified address wins under oauth');
-assert(driveAccountLabel('service-account', 'a@b.com', SA) === 'a@b.com', 'verified address wins under sa too');
+/* maskEmail — this repo is PUBLIC, so its Actions logs are. A director's Gmail
+ * must never be printed whole (CLAUDE.md: "workflow logs are public too"). The
+ * mask has to survive a scraper and still tell two of your own accounts apart. */
+assert(maskEmail('nwsaorchestras@gmail.com') === 'nws***@gmail.com', 'keeps 3 chars + domain');
+assert(maskEmail('ggmuze@gmail.com') === 'ggm***@gmail.com', 'two accounts stay distinguishable');
+assert(!maskEmail('nwsaorchestras@gmail.com').includes('orchestras'), 'local part is not recoverable');
+assert(maskEmail('ab@x.com') === 'ab***@x.com', 'short local part does not over-read');
+assert(maskEmail('a@x.com') === 'a***@x.com', 'one-char local part');
+for (const bad of [undefined, null, '', '   ', 'notanemail', '@nolocal.com']) {
+  assert(maskEmail(bad) === '***', `unusable input masks entirely: ${JSON.stringify(bad)}`);
+}
+
+assert(driveAccountLabel('oauth', 'a@b.com', SA) === 'a***@b.com', 'oauth address is MASKED, never whole');
+assert(driveAccountLabel('service-account', SA, SA) === SA, 'service account address stays whole — infra identity');
+assert(!driveAccountLabel('oauth', 'nwsaorchestras@gmail.com', SA).includes('nwsaorchestras'),
+  'a personal mailbox never reaches a public log in full');
 
 // Unverified: describe the credential, never assert whose it is.
 const unknown = driveAccountLabel('oauth', null, SA);

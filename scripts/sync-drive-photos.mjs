@@ -51,7 +51,7 @@ import { driveFolderIdFrom } from '../src/shared/concertCheckin.ts';
 import {
   escapeDriveQuery as q, concertFolderName, photoFileName, needsFiling,
 } from './lib/drivePhotoNames.mjs';
-import { driveClient, driveAccountLabel } from './lib/driveAuth.mjs';
+import { driveClient, driveAccountLabel, maskEmail } from './lib/driveAuth.mjs';
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!raw) {
@@ -311,18 +311,25 @@ async function main() {
       const me = await drive.about.get({ fields: 'user(emailAddress)' });
       driveAccount = me.data.user?.emailAddress ?? null;
     } catch {
-      // Not fatal, and deliberately quiet: the sync's job is filing photos,
-      // and every message still reads correctly without a name (that is what
-      // driveAccountLabel's fallback is for). A credential broken badly
-      // enough to fail here fails again on the folder, with a better message.
+      // Not fatal: the sync's job is filing photos, and every message still
+      // reads correctly without a name (that is what driveAccountLabel's
+      // fallback is for). But it is NOT silent — a failed lookup leaves
+      // driveAccount null, which switches the owner check below off entirely.
+      // An absent check that looks fine is the exact shape of the bug this
+      // change exists to fix, so it has to say so.
+      console.log('[sync-photos] Could not confirm which account these credentials belong to;'
+        + ' skipping the folder-owner check.');
     }
   } else {
     driveAccount = sa.client_email;
   }
   // Only the OAuth line was uninformative. The service-account describe names
   // its address AND carries the Shared-Drive constraint, so it stays as it is.
+  // The OAuth line deliberately does NOT print the address: this repo is
+  // public, so its Actions logs are, and that address is a person's mailbox.
+  // Saying the comparison PASSED is more useful than the address anyway.
   console.log(`[sync-photos] ${driveMode === 'oauth' && driveAccount
-    ? `Drive: signed in as ${driveAccount} (OAuth). Files are owned by that account.`
+    ? 'Drive: OAuth credentials verified. Files are owned by the signed-in account.'
     : driveDescribe}`);
 
   try {
@@ -331,8 +338,11 @@ async function main() {
       // costs nothing extra, and it is the other half of the comparison.
       fileId: parentId, fields: 'id,name,owners(emailAddress)', ...ALL_DRIVES,
     });
+    // A file in a SHARED DRIVE has no owners at all — the drive owns it. So
+    // `owner` is legitimately null there, the check below skips, and the log
+    // line omits it rather than reporting a phantom mismatch.
     const owner = folder.data.owners?.[0]?.emailAddress ?? null;
-    console.log(`[sync-photos] Folder: "${folder.data.name}"${owner ? ` (owned by ${owner})` : ''}`);
+    console.log(`[sync-photos] Folder: "${folder.data.name}"`);
 
     // A mismatch is worth SAYING and not worth failing on: an account with
     // Editor access can file photos into someone else's folder perfectly well
@@ -340,11 +350,16 @@ async function main() {
     // which is the whole reason this sync signs in as a person. But it is also
     // the shape of a token minted as the wrong account, and that only surfaces
     // later as a quota or permission error pointing nowhere near the cause.
+    //
+    // ::warning:: rather than console.warn so it lands on the run SUMMARY:
+    // nobody opens the log of a green run, and being seen on a green run is
+    // this warning's entire value. Both addresses are masked — enough to tell
+    // two of your own accounts apart, useless to anyone scraping public logs.
     if (owner && driveAccount && owner !== driveAccount) {
-      console.warn(`[sync-photos] Note: ${driveAccount} is not the folder's owner (${owner}).`
-        + ' Fine if that account was deliberately given Editor access — its uploads use its own'
-        + ' Drive storage. If it was not, the refresh token belongs to the wrong account:'
-        + ' re-mint it as ' + owner + ' (docs/drive-oauth-setup.md).');
+      console.log(`::warning title=Drive folder owner::${maskEmail(driveAccount)} is not the`
+        + ` folder's owner (${maskEmail(owner)}). Fine if that account was deliberately given`
+        + ' Editor access — its uploads use its own Drive storage. If it was not, the refresh'
+        + ' token belongs to the wrong account: re-mint it as the owner (docs/drive-oauth-setup.md).');
     }
   } catch (err) {
     console.error(`[sync-photos] Cannot open the Drive folder. ${explain(err)}`);

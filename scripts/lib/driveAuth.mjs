@@ -33,6 +33,25 @@ export const DRIVE_OAUTH_VARS = [
  * the missing secret.
  */
 /**
+ * A personal address, safe for a PUBLIC workflow log.
+ *
+ * This repo is public, so its Actions logs are too — the same reason the
+ * lessons-feed token may never be logged. A service account address is infra
+ * identity and exists to be handed out; a director's Gmail is not, and a log
+ * line printed on every scheduled run is permanent and scrapeable.
+ *
+ * Three characters is enough to tell two of your own accounts apart, which is
+ * the entire diagnostic need — nobody reading this log learns their own
+ * address from it. It is useless to a harvester.
+ */
+export function maskEmail(address) {
+  const s = String(address ?? '').trim();
+  const at = s.lastIndexOf('@');
+  if (at < 1) return '***';
+  return `${s.slice(0, Math.min(3, at))}***${s.slice(at)}`;
+}
+
+/**
  * Who Drive refused, for a message.
  *
  * `account` is the address a caller VERIFIED with `about.get`. Until someone
@@ -48,7 +67,10 @@ export const DRIVE_OAUTH_VARS = [
  */
 export function driveAccountLabel(mode, account, serviceAccountEmail) {
   const verified = String(account ?? '').trim();
-  if (verified) return verified;
+  // Masked under OAuth (a person's mailbox, and this log is public); left
+  // whole for a service account, whose address is infra identity and is
+  // already printed by describe() below.
+  if (verified) return mode === 'oauth' ? maskEmail(verified) : verified;
   return mode === 'oauth'
     ? 'the account the DRIVE_OAUTH_* secrets sign in as'
     : `the service account ${serviceAccountEmail}`;
