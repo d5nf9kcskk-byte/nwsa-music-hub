@@ -42,6 +42,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Some concerts now ask you to check in when you arrive and check out at the end — find your name, give your school email, and take a photo with the stage behind you.',
       'You need BOTH to get credit. Come back to the same page when the concert ends.',
       'Concerts now say whether they are required or optional on the concert card.',
+      'Your own page now shows how many required and optional concerts you have completed this semester — enter the school email you check in with.',
     ],
     audience: 'both',
     expires: '2026-10-15',

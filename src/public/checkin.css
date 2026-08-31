@@ -150,3 +150,33 @@
   background: var(--pub-accent, #0d7e8e); color: #fff; text-decoration: none; font-size: .92rem;
 }
 .pub-checkin-strip strong { font-weight: 800; }
+
+/* "Your concerts" — the student's own per-semester count. */
+.pub-tally { padding: 1rem; }
+.pub-tally-head { display: flex; align-items: center; gap: .4rem; margin: 0 0 .6rem; font-size: 1.05rem; }
+.pub-tally-ask { display: flex; gap: .5rem; flex-wrap: wrap; }
+.pub-tally-ask .pub-input { flex: 1 1 12rem; padding: .7rem; font: inherit;
+  border: 1px solid var(--pub-border, #d3d9dd); border-radius: .6rem;
+  background: var(--pub-card, #fff); color: inherit; }
+.pub-tally-ask .pub-btn {
+  display: inline-flex; align-items: center; padding: .7rem 1rem; border: 0;
+  border-radius: .6rem; font: inherit; font-weight: 600; cursor: pointer;
+  background: var(--pub-accent, #0d7e8e); color: #fff;
+}
+.pub-tally-ask .pub-btn:disabled { opacity: .45; cursor: not-allowed; }
+.pub-tally-term { margin-top: .9rem; }
+.pub-tally-term h3 { margin: 0 0 .4rem; font-size: .9rem; color: var(--pub-muted, #6b7280); }
+.pub-tally-rows { display: flex; gap: .6rem; flex-wrap: wrap; }
+.pub-tally-row {
+  flex: 1 1 8rem; padding: .7rem .9rem; border-radius: .6rem;
+  background: var(--pub-card-alt, #f3f4f6);
+}
+.pub-tally-row.met { background: #e6f4ea; }
+.pub-tally-n { display: flex; align-items: center; gap: .3rem; font-size: 1.5rem; font-weight: 700; }
+.pub-tally-l { font-size: .78rem; color: var(--pub-muted, #6b7280); }
+.pub-tally-warn {
+  display: flex; gap: .6rem; align-items: flex-start; margin-top: .9rem;
+  padding: .8rem; border-radius: .6rem; background: #fdf3e3;
+}
+.pub-tally-warn p { margin: .25rem 0; font-size: .88rem; }
+.pub-tally-warn ul { margin: .3rem 0 0; padding-left: 1.1rem; font-size: .85rem; }

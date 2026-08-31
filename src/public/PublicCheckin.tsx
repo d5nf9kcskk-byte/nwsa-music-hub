@@ -197,6 +197,9 @@ export function PublicCheckin() {
                 <LogOut size={16} aria-hidden /> Check out now
               </button>
             )}
+            {student && (
+              <Link className="pub-btn-ghost" to={`/student/${student.id}`}>See my concert count</Link>
+            )}
             <Link className="pub-btn-ghost" to={`/event/${event.id}`}>Back to the concert</Link>
           </div>
         </div>
