@@ -46,3 +46,17 @@
   border-radius: 4px;
   padding: 0.05em 0.35em;
 }
+
+/* A LABELLED link ([Fall Concert](/event/x)) shares .auto-link's color so it
+   matches a pasted URL on both surfaces, but must not break mid-word the way
+   a raw address should. */
+.rt-link { word-break: normal; overflow-wrap: anywhere; }
+
+/* The four faces the toolbar offers. Three follow the platform/theme stack;
+   ponytail: `georgia` names a specific face on purpose (the director asked
+   for it), so it is the one option that cannot follow an org's brand font —
+   drop it from the toolbar list if a white-label org ever objects. */
+.rt-font-sans { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.rt-font-serif { font-family: ui-serif, Charter, Cambria, "Times New Roman", serif; }
+.rt-font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.rt-font-georgia { font-family: Georgia, "Times New Roman", serif; }

@@ -4,7 +4,7 @@
  * Pins the cases that actually went wrong on students' screens, above all
  * the multi-line bold that used to render as raw asterisks.
  */
-import { parseRichText, richTextToPlain, type RichBlock } from './richTextParse.ts';
+import { parseRichText, richTextToPlain, safeHref, type RichBlock } from './richTextParse.ts';
 
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg);
@@ -128,5 +128,85 @@ assert(
   twoBolds.segments.filter(s => s.marks.includes('bold')).map(s => s.text).join('|') === 'one|two',
   'each bold span covers only its own word',
 );
+
+// ── [label](target): links and fonts (#linking) ───────────────────────────
+
+const seg1 = (t: string) => parseRichText(t)[0].segments;
+
+// A link contributes ONE segment: the label, carrying the href.
+const linked = parseRichText('See the [Fall Concert](/event/abc123) details')[0];
+assert(flat(linked) === 'See the Fall Concert details', `link label only, got ${flat(linked)}`);
+assert(
+  linked.segments.some(s => s.href === '/event/abc123' && s.text === 'Fall Concert'),
+  'href carried on the label segment',
+);
+
+// An external link keeps its address verbatim — including the underscores
+// that the emphasis parser would otherwise eat.
+const drive = parseRichText('[Parts](https://drive.google.com/file/d/1a__b__c/view)')[0];
+assert(drive.segments[0].href === 'https://drive.google.com/file/d/1a__b__c/view', 'underscores survive in a target');
+assert(drive.segments.every(s => !s.marks.includes('underline')), 'no underline from a target');
+assert(flat(drive) === 'Parts', 'target is not shown');
+
+// Emphasis wraps a link from OUTSIDE (the toolbar's own output).
+const boldLink = parseRichText('**[Concert](/event/x)**')[0];
+assert(
+  boldLink.segments.some(s => s.marks.includes('bold') && s.href === '/event/x'),
+  'bold wraps a link',
+);
+
+// Fonts.
+assert(seg1('[Programme](font:georgia)')[0].font === 'georgia', 'georgia font');
+assert(seg1('[a](font:serif)')[0].font === 'serif', 'serif font');
+assert(seg1('[a](font:SANS)')[0].font === 'sans', 'font name is case-insensitive');
+assert(seg1('[a](font:georgia)')[0].href === undefined, 'a font span is not a link');
+// A face outside the closed list is NOT markup — the brackets stay literal.
+assert(flat(parseRichText('[a](font:comic)')[0]) === '[a](font:comic)', 'unknown font stays literal');
+
+// ── safeHref is a trust boundary: fail closed, and swallow nothing ────────
+
+for (const bad of [
+  'javascript:alert(1)',
+  'JavaScript:alert(1)',
+  'data:text/html,<script>',
+  '//evil.example.com',          // protocol-relative — the classic bypass
+  'vbscript:x',
+  'file:///etc/passwd',
+  'x',                           // bare word, not an address
+]) {
+  assert(safeHref(bad) === undefined, `safeHref rejects ${bad}`);
+  const out = parseRichText(`[click](${bad})`)[0];
+  // Rejected means NOT A LINK — and never silently swallowed, or text a
+  // director typed would vanish off the screen with no way to notice.
+  assert(out.segments.every(s => !s.href), `no href for ${bad}`);
+  assert(flat(out) === `[click](${bad})`, `rejected target stays literal, got ${flat(out)}`);
+}
+
+for (const good of ['https://x.test/a', 'http://x.test', 'mailto:a@b.test', '/event/x', '/calendar?ensemble=a,b']) {
+  assert(safeHref(good) === good, `safeHref allows ${good}`);
+}
+assert(safeHref('www.x.test/a') === 'https://www.x.test/a', 'bare www is upgraded to https');
+
+// ── Brackets that were never markup stay exactly as typed ────────────────
+assert(flat(parseRichText('[see] (below)')[0]) === '[see] (below)', 'spaced brackets are prose');
+assert(flat(parseRichText('[]()')[0]) === '[]()', 'empty construct is literal');
+assert(flat(parseRichText('Take [1] and [2]')[0]) === 'Take [1] and [2]', 'bare brackets are prose');
+
+// A block shorthand inside a LINK LABEL is part of the label, not shorthand.
+const dashLabel = parseRichText('[- parts](/documents)');
+assert(dashLabel[0].kind === 'p', 'a link label does not become a bullet');
+assert(flat(dashLabel[0]) === '- parts', 'link label kept whole');
+
+// ── Plain text (ICS, printed programs) must carry the ADDRESS ────────────
+assert(
+  richTextToPlain('See [Parts](https://x.test/p) today') === 'See Parts (https://x.test/p) today',
+  `plain text keeps the address, got ${JSON.stringify(richTextToPlain('See [Parts](https://x.test/p) today'))}`,
+);
+// An app-relative href is a broken link in a feed unless it is absolutized.
+assert(
+  richTextToPlain('[Concert](/event/x)', 'https://hub.test/') === 'Concert (https://hub.test/event/x)',
+  `origin absolutizes app paths, got ${JSON.stringify(richTextToPlain('[Concert](/event/x)', 'https://hub.test/'))}`,
+);
+assert(richTextToPlain('[Big](font:georgia) news') === 'Big news', 'font markup drops out of plain text');
 
 console.log('richText self-check passed');

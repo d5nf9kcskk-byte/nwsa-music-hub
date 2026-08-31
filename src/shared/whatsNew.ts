@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Formatting toolbar: link, font, strikethrough, quote (#linking phase 1).
+  {
+    id: '2026-08-31-text-links-fonts',
+    date: '2026-08-31',
+    title: 'Links and fonts in the formatting toolbar',
+    audience: 'staff' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'The formatting bar now has a link button: select some words, tap it, and paste an address — students see the words, not the raw URL.',
+      'A link can point inside the Hub too (a concert, a class, a document, a sign-up), and it opens without reloading the page.',
+      'Also new: a font picker (Sans, Serif, Georgia, Mono), strikethrough, and block quotes.',
+      'Tap Preview to see exactly what students will read.',
+    ],
+  },
   // Student Assistant rename + optional extras beyond take-roll.
   {
     id: '2026-08-29-student-assistant',

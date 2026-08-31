@@ -2137,13 +2137,23 @@ a.dir-menu-item {
 /* ── Rich-text area toolbar ──────────────────────────── */
 .dir-rte { display: flex; flex-direction: column; gap: 0; }
 .dir-rte-toolbar {
-  display: flex; gap: 2px;
+  /* wrap: 14 controls do not fit a phone in one row. */
+  display: flex; flex-wrap: wrap; gap: 2px; align-items: center;
   padding: 4px 6px;
   background: var(--dir-surface-2);
   border: 1px solid var(--dir-border);
   border-bottom: none;
   border-radius: 8px 8px 0 0;
 }
+.dir-rte-font {
+  height: 28px; padding: 0 4px; margin-left: 2px;
+  font: inherit; font-size: 11px;
+  color: var(--dir-text-2); background: transparent;
+  border: 1px solid var(--dir-border); border-radius: 6px;
+  cursor: pointer;
+}
+.dir-rte-font:disabled { opacity: 0.4; cursor: default; }
+
 .dir-rte-btn {
   display: flex; align-items: center; justify-content: center;
   width: 28px; height: 28px; padding: 0;

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 import { linkify } from '../director/components/Linkify';
 import { parseRichText, type RichSegment } from './richTextParse';
 import './richText.css';
@@ -10,15 +11,33 @@ import './richText.css';
  * file only turns those blocks into elements.
  */
 
+/**
+ * A `[label](target)` link. In-app targets go through react-router so a tap
+ * stays in the PWA shell (and picks up the org's basename); anything external
+ * opens in a new tab. `href` was already vetted by safeHref() in the parser,
+ * which is the only place a URL is allowed in from typed text.
+ */
+function linkTo(href: string, body: ReactNode): ReactNode {
+  if (href.startsWith('/')) return <Link to={href} className="auto-link rt-link">{body}</Link>;
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="auto-link rt-link">
+      {body}
+    </a>
+  );
+}
+
 function markUp(seg: RichSegment, key: number): ReactNode {
   // Inside a code span the text is literal — auto-linking it would defeat
-  // the point of quoting it.
-  let node: ReactNode = seg.marks.includes('code') ? seg.text : linkify(seg.text);
+  // the point of quoting it. A link's label is already a link, so it is not
+  // scanned for a second one either.
+  let node: ReactNode = seg.marks.includes('code') || seg.href ? seg.text : linkify(seg.text);
   if (seg.marks.includes('code')) node = <code className="rt-code">{node}</code>;
   if (seg.marks.includes('strike')) node = <s>{node}</s>;
   if (seg.marks.includes('underline')) node = <u>{node}</u>;
   if (seg.marks.includes('italic')) node = <em>{node}</em>;
   if (seg.marks.includes('bold')) node = <strong>{node}</strong>;
+  if (seg.font) node = <span className={`rt-font-${seg.font}`}>{node}</span>;
+  if (seg.href) node = linkTo(seg.href, node);
   return <span key={key}>{node}</span>;
 }
 
