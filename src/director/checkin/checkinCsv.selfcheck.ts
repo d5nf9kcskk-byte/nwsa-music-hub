@@ -51,7 +51,8 @@ const twoConcerts = [
   scan({ eventId: 'winter', eventTitle: 'Winter Concert', eventDate: '2026-12-05', kind: 'out', at: Date.UTC(2026, 11, 6, 1, 0) }),
 ];
 assert(pairCheckins(twoConcerts).length === 2, 'each successive concert adds rows to the same file');
-const csv = checkinsToCsv(twoConcerts, TERMS);
+const OPTS = { terms: TERMS, timeZone: 'America/New_York', publicUrl: 'https://example.test/hub/' };
+const csv = checkinsToCsv(twoConcerts, OPTS);
 assert(csv.split('\r\n').length === 3, 'header plus one row per student per concert');
 assert(csv.includes('Faculty Concert') && csv.includes('Winter Concert'), 'both concerts are in the one file');
 assert(csv.split('\r\n')[1].startsWith('Winter Concert'), 'newest concert first');
@@ -100,12 +101,12 @@ assert(Object.keys(untracked).length === 0, 'a concert marked neither required n
 
 /* ── The photo cell is never a bearer link ── */
 
-const link = photoLink(both[0]);
+const link = photoLink(both[0], OPTS.publicUrl);
 assert(link.includes('/director/checkin?photo='), 'the photo cell links INTO the Hub, where staff sign in');
 assert(!link.includes('firebasestorage') && !link.includes('token='),
   'never a storage download token — that would make a photo of a student readable by anyone the spreadsheet reached');
-assert(photoLink(scan({ kind: 'in', photoPath: undefined, photoSkipped: true })) === 'no photo (fallback)',
+assert(photoLink(scan({ kind: 'in', photoPath: undefined, photoSkipped: true }), OPTS.publicUrl) === 'no photo (fallback)',
   'a record taken under the venue fallback says so rather than looking like a missing file');
-assert(photoLink(undefined) === '', 'a missing scan has an empty cell');
+assert(photoLink(undefined, OPTS.publicUrl) === '', 'a missing scan has an empty cell');
 
 console.log('checkinCsv.selfcheck: all assertions passed');

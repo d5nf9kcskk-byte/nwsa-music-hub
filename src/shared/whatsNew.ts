@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Drive archive for concert photos (#concert-checkin). Staff-only: it is a
+  // director's filing workflow, nothing a student or family acts on.
+  {
+    id: '2026-08-31-concert-photo-drive',
+    date: '2026-08-31',
+    title: 'Concert photos file themselves into Drive',
+    bullets: [
+      'Paste your Concert Attendance folder id in Concert Check-In \u2192 Settings and every check-in photo is filed there, one subfolder per concert.',
+      'concert-attendance.csv is kept up to date in the same folder, so the record is there whether or not anyone opens the Hub.',
+      'Share the folder with the service account as Editor first, or the sync has nowhere to write.',
+    ],
+    audience: 'staff',
+    expires: '2026-10-15',
+  },
   // Concert check-in (#concert-checkin). Public: it changes what a student
   // does at a concert door, and they need to know before Monday.
   {

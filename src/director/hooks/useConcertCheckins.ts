@@ -65,3 +65,30 @@ export function useConcertAttendanceSettings() {
 
   return { settings, loading, save };
 }
+
+/**
+ * Where the photo sync files its archive (`settings/concertAttendanceSync`).
+ *
+ * Its own STAFF-ONLY document rather than a field on the world-readable
+ * `settings/concertAttendance`: the public check-in page has a legitimate
+ * need for the station's rules (domains, window, goals), and no need
+ * whatsoever to know where a director's photo archive lives.
+ */
+export function useConcertSyncSettings() {
+  const [sync, setSync] = useState<{ driveFolderId?: string }>({});
+
+  useEffect(() => {
+    if (!db) return;
+    return onSnapshot(doc(db, 'settings', 'concertAttendanceSync'),
+      snap => setSync((snap.data() ?? {}) as { driveFolderId?: string }),
+      () => { /* a settings read failure must not take the screen down */ });
+  }, []);
+
+  async function save(patch: { driveFolderId?: string }) {
+    if (!db) return;
+    await setDoc(doc(db, 'settings', 'concertAttendanceSync'),
+      { ...patch, updatedAt: Date.now() }, { merge: true });
+  }
+
+  return { sync, save };
+}
