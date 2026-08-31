@@ -15,8 +15,9 @@
  */
 import {
   validate, decodePhoto, photoPath, buildRecord, fail, MAX_PHOTO_BYTES,
-  resolveCheckinSettings, checkinDocId, PHOTO_BUCKET,
+  resolveCheckinSettings, checkinDocId, PHOTO_BUCKET, guestNameOf,
 } from './concertCheckin.ts';
+import { guestStudentId, MAX_GUEST_NAME } from '../../src/shared/concertCheckin.ts';
 import type { CheckinEventLike } from '../../src/shared/concertCheckin.ts';
 
 function assert(cond: unknown, msg: string): asserts cond {
@@ -138,7 +139,7 @@ assert(!path.includes('http') && !path.includes('token'), 'a path is not a URL a
 
 /* ── The record ── */
 const rec = buildRecord({
-  event: concert, student, body: req() as never, kind: 'in', at: OPEN,
+  event: concert, student, body: req() as never, studentId: 'stu1', kind: 'in', at: OPEN,
   photoPath: path, photoSkipped: false,
 }) as Record<string, unknown>;
 assert(rec.at === OPEN, 'the stored time is the server time');
@@ -149,10 +150,82 @@ assert(rec.eventAttendance === 'required', 'the record carries whether the conce
 assert(rec.email === 'ana@students.dadeschools.net', 'the email is normalized');
 assert(rec.photoPath === path && rec.photoSkipped === undefined, 'a photographed scan records its path');
 const skipped = buildRecord({
-  event: concert, student, body: req() as never, kind: 'in', at: OPEN, photoSkipped: true,
+  event: concert, student, body: req() as never, studentId: 'stu1', kind: 'in', at: OPEN, photoSkipped: true,
 }) as Record<string, unknown>;
 assert(skipped.photoSkipped === true, 'a scan taken without a photo says so, rather than looking identical');
 assert(skipped.photoPath === undefined, 'and claims no photo path');
+
+/* ── The college door (#concert-checkin) ──
+ *
+ * The roster search is what makes a check-in mean something on the ordinary
+ * path: you have to be someone the school already knows. The college door
+ * removes that anchor for students who are not entered yet, so the ONE thing
+ * standing in its place — the college-only domain list — gets pinned here.
+ */
+
+const guestSettings = resolveCheckinSettings(concert, {
+  emailDomains: DOMAINS, guestEmailDomains: ['mymdc.net', 'mdc.edu'],
+});
+const guestReq = (over: Record<string, unknown> = {}) => {
+  const base: Record<string, unknown> = {
+    eventId: 'faculty', guestName: 'Luis Ferrer', email: 'lferrer@mymdc.net',
+    kind: 'in', photo: 'data:image/jpeg;base64,/9j/4AAQ',
+  };
+  return { ...base, ...over };
+};
+
+const g = validate(guestReq(), concert, null, guestSettings, TZ, none, OPEN);
+assert(g.ok, 'a college student with no roster record can check in');
+
+// THE guard. Without it the college door is a way for any student to skip the
+// roster entirely: type any name, use the school address you already have.
+assert(
+  validate(guestReq({ email: 'ana@students.dadeschools.net' }), concert, null, guestSettings, TZ, none, OPEN)
+    .failure === 'guest-domain',
+  'a high school address may NOT take the college door — the roster is not optional',
+);
+assert(
+  validate(guestReq(), concert, null, settings, TZ, none, OPEN).failure === 'guest-closed',
+  'an org that has named no college domains has no college door at all (empty fails CLOSED)',
+);
+
+// A caller must never be able to name its own student id, or it can write onto
+// a roster student's record under a name it made up.
+assert(
+  validate(guestReq({ studentId: 'stu1' }), concert, null, guestSettings, TZ, none, OPEN)
+    .failure === 'bad-request',
+  'a request carrying both a typed name and a student id is refused, never guessed at',
+);
+
+assert(validate(guestReq({ guestName: ' ' }), concert, null, guestSettings, TZ, none, OPEN).failure === 'bad-name',
+  'a blank name is refused');
+assert(validate(guestReq({ guestName: 'x'.repeat(MAX_GUEST_NAME + 1) }), concert, null, guestSettings, TZ, none, OPEN)
+  .failure === 'bad-name', 'the name field is bounded — it is not a place to park text');
+assert(guestNameOf(guestReq({ guestName: '  Luis   Ferrer ' })) === 'Luis Ferrer',
+  'whitespace between two typed fields is collapsed');
+
+// The roster path is untouched: it still refuses a student it cannot find.
+assert(validate(req(), concert, null, guestSettings, TZ, none, OPEN).failure === 'unknown-student',
+  'opening the college door did not stop the roster path checking the roster');
+
+// Identity is the EMAIL. The name is a label, so a student who retypes it
+// differently at the end of the night still pairs with their own check-in.
+const gid = guestStudentId('lferrer@mymdc.net');
+assert(gid === guestStudentId('  LFerrer@MyMDC.net '), 'the id survives case and stray spaces');
+assert(!gid.includes('_'), 'a guest id never contains an underscore — parseCheckinDocId splits on it');
+assert(guestStudentId('a@mymdc.net') !== guestStudentId('b@mymdc.net'), 'different addresses are different people');
+assert(checkinDocId('faculty', gid, 'in') !== checkinDocId('faculty', gid, 'out'),
+  'a guest still writes two distinct scans');
+
+const grec = buildRecord({
+  event: concert, student: { name: 'Luis Ferrer', grade: 'College' },
+  body: guestReq() as never, studentId: gid, kind: 'in', at: OPEN, photoSkipped: true,
+}) as Record<string, unknown>;
+assert(grec.guest === true, 'a college-door record says so on its face, not only in the shape of its id');
+assert(grec.studentId === gid, 'the record carries the derived id, never one from the request');
+assert(grec.studentName === 'Luis Ferrer' && grec.grade === 'College',
+  'the typed name and College land in the columns the cumulative CSV already has');
+assert(rec.guest === undefined, 'an ordinary roster scan is not marked as a guest');
 
 /* ── The bucket is named, not guessed ── */
 

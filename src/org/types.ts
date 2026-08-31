@@ -156,6 +156,14 @@ export interface OrgConfig {
     /** Domains a student email may end in, without the '@'. */
     emailDomains: string[];
     /**
+     * Domains allowed through the COLLEGE DOOR — the check-in path for a
+     * student who is not on the roster yet and types their own name. Absent
+     * or empty means the org has no such door, which is every org but NWSA.
+     * Never the same list as `emailDomains`: see the long note on
+     * `guestEmailDomains` in src/shared/concertCheckin.ts.
+     */
+    guestEmailDomains?: string[];
+    /**
      * The Cloud Storage bucket check-in photos are written to, named
      * explicitly rather than left to the Admin SDK's default. A project
      * created before the `.firebasestorage.app` naming still reports

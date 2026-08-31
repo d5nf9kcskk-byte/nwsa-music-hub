@@ -109,4 +109,31 @@ assert(photoLink(scan({ kind: 'in', photoPath: undefined, photoSkipped: true }),
   'a record taken under the venue fallback says so rather than looking like a missing file');
 assert(photoLink(undefined, OPTS.publicUrl) === '', 'a missing scan has an empty cell');
 
+/* ── A typed name is not a formula ──
+ *
+ * The college door (#concert-checkin) lets a student type the name that lands
+ * in this file's studentName column, and a director opens the result in
+ * Excel. Every mainstream spreadsheet evaluates a cell whose text starts with
+ * = + - @, and quoting does not stop it — the quotes come off before the
+ * formula is read. csvEscape's leading apostrophe does.
+ */
+
+const evil = checkinsToCsv([
+  scan({ kind: 'in', studentName: '=HYPERLINK("http://x.test","Click")' }),
+], OPTS);
+assert(!/(^|,)"?=HYPERLINK/.test(evil),
+  'a typed name that looks like a formula never reaches a cell as one');
+assert(evil.includes("'=HYPERLINK"), 'it is marked as text with the spreadsheet\'s own escape');
+
+for (const lead of ['=', '+', '-', '@']) {
+  const row = checkinsToCsv([scan({ kind: 'in', studentName: `${lead}cmd` })], OPTS);
+  assert(row.includes(`'${lead}cmd`), `a name starting with ${lead} is neutralised too`);
+}
+
+// And the ordinary case is untouched — no stray apostrophes on real names.
+const plain = checkinsToCsv([scan({ kind: 'in', studentName: 'Ana Ruiz' })], OPTS);
+assert(plain.includes('Ana Ruiz') && !plain.includes("'Ana"), 'an ordinary name is written as it was');
+const comma = checkinsToCsv([scan({ kind: 'in', studentName: 'Ruiz, Ana' })], OPTS);
+assert(comma.includes('"Ruiz, Ana"'), 'and RFC 4180 quoting still happens');
+
 console.log('checkinCsv.selfcheck: all assertions passed');

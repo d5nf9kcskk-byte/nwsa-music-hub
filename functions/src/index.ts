@@ -6,6 +6,7 @@ import { getStorage } from 'firebase-admin/storage';
 import {
   buildRecord, checkinDocId, decodePhoto, fail, loadSiteSettings, photoPath,
   resolveCheckinSettings, validate, PHOTO_BUCKET,
+  guestNameOf, guestStudentId,
   type CheckinRequest,
 } from './concertCheckin.ts';
 import ORG from '../../config/orgs/nwsa.json' with { type: 'json' };
@@ -124,14 +125,27 @@ export const concertCheckin = https.onRequest(async (req, res) => {
   // staff-only students collection: a door station needs a name and a
   // roster status, never a guardian phone number (#privacy).
   const eventId = typeof body.eventId === 'string' ? body.eventId : '';
-  const studentId = typeof body.studentId === 'string' ? body.studentId : '';
   const kind = body.kind === 'out' ? 'out' : 'in';
+
+  // The college door (#concert-checkin). A student who is not on the roster
+  // yet sends a typed name and no student id; the id is DERIVED here from
+  // their email, never accepted from the request — a caller that could name
+  // its own student id could write onto a roster student's record. The
+  // derivation is deterministic, which is what lets the check-out twenty
+  // minutes later find the check-in.
+  const guestName = guestNameOf(body);
+  const guestEmail = guestName !== null ? String(body.email ?? '') : '';
+  const studentId = guestName !== null
+    ? guestStudentId(guestEmail)
+    : (typeof body.studentId === 'string' ? body.studentId : '');
 
   let eventDoc, studentDoc, inDoc, outDoc, site;
   try {
     [eventDoc, studentDoc, inDoc, outDoc, site] = await Promise.all([
       eventId ? db.doc(`events/${eventId}`).get() : Promise.resolve(null),
-      studentId ? db.doc(`studentsPublic/${studentId}`).get() : Promise.resolve(null),
+      // No roster read on the college path: there is nothing to find, and
+      // asking would only be a way to probe which ids exist.
+      studentId && guestName === null ? db.doc(`studentsPublic/${studentId}`).get() : Promise.resolve(null),
       eventId && studentId ? db.doc(`concertCheckins/${checkinDocId(eventId, studentId, 'in')}`).get() : Promise.resolve(null),
       eventId && studentId ? db.doc(`concertCheckins/${checkinDocId(eventId, studentId, 'out')}`).get() : Promise.resolve(null),
       loadSiteSettings(db),
@@ -174,7 +188,13 @@ export const concertCheckin = https.onRequest(async (req, res) => {
   }
 
   const record = buildRecord({
-    event: event as never, student: student ?? {}, body, kind, at: now,
+    event: event as never,
+    // A guest's "student record" is the name they typed and the fact that
+    // they are college. Grade is the honest one-word answer and it lands in
+    // the column the cumulative CSV already has, so a director reading the
+    // spreadsheet sees who these people are without a new column.
+    student: guestName !== null ? { name: guestName, grade: 'College' } : (student ?? {}),
+    body, studentId, kind, at: now,
     photoPath: storedPath, photoSkipped: !decoded,
   });
 

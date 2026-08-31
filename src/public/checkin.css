@@ -53,6 +53,21 @@
   color: var(--pub-accent, #0d7e8e); text-decoration: underline; cursor: pointer; font-size: .85rem;
 }
 
+/* The college door, offered under the roster search — deliberately quieter
+   than the search itself: a student who IS on the list should find their name
+   rather than typing a second identity for the evening. */
+.pub-checkin-college-door {
+  margin: .9rem 0 0; padding-top: .8rem;
+  border-top: 1px solid var(--pub-border, #e5e7eb);
+}
+.pub-checkin-college-door .pub-linkish {
+  margin-left: 0; display: inline-flex; align-items: center; gap: .35rem;
+}
+
+/* First and last name side by side, stacking on a narrow phone. */
+.pub-checkin-name-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+.pub-checkin-name-row .pub-input { flex: 1 1 8rem; min-width: 0; }
+
 .pub-checkin-matches { list-style: none; margin: .6rem 0 0; padding: 0; }
 .pub-checkin-matches li + li { border-top: 1px solid var(--pub-border, #e5e7eb); }
 .pub-checkin-matches button {

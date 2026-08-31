@@ -2,6 +2,8 @@ import type { Firestore } from 'firebase-admin/firestore';
 import {
   checkinDocId, checkinState, canCheckOut, canCheckIn, emailProblem, normalizeEmail,
   resolveCheckinSettings, termIdForDate, DEFAULT_CHECKIN_SETTINGS,
+  guestStudentId, guestDoorOpen, guestEmailProblem, guestNameProblem, normalizeGuestName,
+  isGuestStudentId,
   type CheckinKind, type CheckinEventLike, type CheckinSettings, type Term,
 } from '../../src/shared/concertCheckin.ts';
 import ORG from '../../config/orgs/nwsa.json' with { type: 'json' };
@@ -36,12 +38,30 @@ export interface CheckinRequest {
   email?: unknown;
   kind?: unknown;
   photo?: unknown;
+  /**
+   * The college door (#concert-checkin): a name typed by a student who is not
+   * on the roster yet. Its presence is what selects that path, and the caller
+   * does NOT send a studentId with it — the server derives one from the email
+   * (`guestStudentId`). That asymmetry is deliberate: a client that could
+   * choose its own student id could claim to be a student on the roster.
+   */
+  guestName?: unknown;
+}
+
+/** Whether this request is taking the college door, and the cleaned name if
+ *  so. One reading of the body, so the handler and validate() cannot disagree
+ *  about which door a request came through. */
+export function guestNameOf(body: CheckinRequest): string | null {
+  if (typeof body.guestName !== 'string') return null;
+  const name = normalizeGuestName(body.guestName);
+  return name ? name : null;
 }
 
 export type CheckinFailure =
   | 'bad-request' | 'unknown-event' | 'station-off' | 'too-early' | 'too-late'
   | 'unknown-student' | 'bad-email' | 'wrong-domain' | 'already' | 'no-photo'
-  | 'bad-photo' | 'too-soon' | 'not-checked-in' | 'arrived-late';
+  | 'bad-photo' | 'too-soon' | 'not-checked-in' | 'arrived-late'
+  | 'guest-closed' | 'guest-domain' | 'bad-name';
 
 export interface CheckinResult {
   ok: boolean;
@@ -68,6 +88,9 @@ const MESSAGES: Record<CheckinFailure, string> = {
   'too-soon': 'It is too early to check out. Enjoy the concert.',
   'not-checked-in': 'Check in first — we have no record of you arriving.',
   'arrived-late': 'Check-in for this concert has closed. Find a director so they can record you.',
+  'guest-closed': 'This concert only takes check-ins from the student list. Find a director.',
+  'guest-domain': 'Use your college email address. If you are on the student list, find your name instead.',
+  'bad-name': 'Type your first and last name.',
 };
 
 export function fail(failure: CheckinFailure): CheckinResult {
@@ -102,6 +125,11 @@ export async function loadSiteSettings(db: Firestore): Promise<Partial<CheckinSe
   // disagreeing about when the door opens.
   const orgDefaults: Partial<CheckinSettings> = {
     emailDomains: ORG.checkin?.emailDomains ?? [],
+    // College door domains come from the org config alone and are NOT read
+    // from settings/concertAttendance. That doc is world-readable with a
+    // pinned key allowlist in firestore.rules; widening who may take the
+    // roster-less door is a deploy, not something editable at the venue.
+    guestEmailDomains: ORG.checkin?.guestEmailDomains ?? [],
     opensMinutesBefore: ORG.checkin?.opensMinutesBefore ?? DEFAULT_CHECKIN_SETTINGS.opensMinutesBefore,
     closesMinutesAfter: ORG.checkin?.closesMinutesAfter ?? DEFAULT_CHECKIN_SETTINGS.closesMinutesAfter,
   };
@@ -148,8 +176,15 @@ export function validate(
 ): CheckinResult {
   const kind = body.kind;
   if (typeof body.eventId !== 'string' || !body.eventId) return fail('bad-request');
-  if (typeof body.studentId !== 'string' || !body.studentId) return fail('bad-request');
   if (kind !== 'in' && kind !== 'out') return fail('bad-request');
+
+  // Which door. The presence of `guestName` selects the college path, and a
+  // request carrying BOTH a name and a student id is malformed rather than a
+  // guest with a helpful hint — the server would have to pick one, and the
+  // wrong pick is a stranger writing onto a roster student's record.
+  const isGuest = body.guestName !== undefined;
+  if (isGuest && typeof body.studentId === 'string' && body.studentId) return fail('bad-request');
+  if (!isGuest && (typeof body.studentId !== 'string' || !body.studentId)) return fail('bad-request');
 
   if (!event) return fail('unknown-event');
 
@@ -158,10 +193,23 @@ export function validate(
   if (state === 'early') return fail('too-early');
   if (state === 'closed') return fail('too-late');
 
-  if (!student || (student.status && student.status !== 'Active')) return fail('unknown-student');
+  // Who this is. The roster path resolves to a real student record; the
+  // college path resolves to a typed name and nothing else, which is why its
+  // domain check below is stricter rather than the same one.
+  if (isGuest) {
+    if (!guestDoorOpen(settings)) return fail('guest-closed');
+    if (guestNameProblem(String(body.guestName ?? ''))) return fail('bad-name');
+  } else if (!student || (student.status && student.status !== 'Active')) {
+    return fail('unknown-student');
+  }
 
-  const problem = emailProblem(String(body.email ?? ''), settings.emailDomains);
-  if (problem === 'domain') return fail('wrong-domain');
+  // The college door accepts `guestEmailDomains` ONLY — never the full
+  // `emailDomains` list. A high school address goes through the roster or not
+  // at all, or the roster anchor is optional for everybody.
+  const problem = isGuest
+    ? guestEmailProblem(String(body.email ?? ''), settings)
+    : emailProblem(String(body.email ?? ''), settings.emailDomains);
+  if (problem === 'domain') return fail(isGuest ? 'guest-domain' : 'wrong-domain');
   if (problem) return fail('bad-email');
 
   // A second tap is a no-op, not an error the student has to solve, but it
@@ -196,23 +244,29 @@ export function buildRecord(args: {
   event: CheckinEventLike & { title?: string; date?: string };
   student: { name?: string; grade?: string; instrument?: string };
   body: CheckinRequest;
+  /** Resolved by the caller: the roster id, or the derived college-door id.
+   *  Never read off the body — a guest never sends one. */
+  studentId: string;
   kind: CheckinKind;
   at: number;
   photoPath?: string;
   photoSkipped: boolean;
 }): Record<string, unknown> {
-  const { event, student, body, kind, at } = args;
+  const { event, student, body, studentId, kind, at } = args;
   const rec: Record<string, unknown> = {
     eventId: String(body.eventId),
     eventTitle: event.title ?? '',
     eventDate: event.date ?? '',
-    studentId: String(body.studentId),
+    studentId,
     studentName: student.name ?? '',
     email: normalizeEmail(String(body.email ?? '')),
     kind,
     at,
     termId: termIdForDate(event.date ?? '', TERMS),
   };
+  // Marked on the record, not worked out later from the id shape: a director
+  // reading the CSV in March should not have to know what a 'g…' id means.
+  if (isGuestStudentId(studentId)) rec.guest = true;
   if (event.concertAttendance) rec.eventAttendance = event.concertAttendance;
   if (student.grade) rec.grade = student.grade;
   if (student.instrument) rec.instrument = student.instrument;
@@ -221,4 +275,4 @@ export function buildRecord(args: {
   return rec;
 }
 
-export { checkinDocId, resolveCheckinSettings };
+export { checkinDocId, resolveCheckinSettings, guestStudentId };

@@ -28,6 +28,12 @@ export interface SiteCheckinSettings extends Partial<CheckinSettings> {
 export function useCheckinSettings(): SiteCheckinSettings {
   const [state, setState] = useState<SiteCheckinSettings>(() => ({
     emailDomains: ORG.checkin?.emailDomains ?? [],
+    // Org config only, never the settings doc: `settings/concertAttendance`
+    // is world-readable with a pinned key allowlist in firestore.rules, and
+    // widening who may take the roster-less college door is a deploy rather
+    // than something a phone can change at the venue. The Cloud Function
+    // reads the same org value and ITS answer is the binding one.
+    guestEmailDomains: ORG.checkin?.guestEmailDomains ?? [],
     opensMinutesBefore: ORG.checkin?.opensMinutesBefore ?? DEFAULT_CHECKIN_SETTINGS.opensMinutesBefore,
     closesMinutesAfter: ORG.checkin?.closesMinutesAfter ?? DEFAULT_CHECKIN_SETTINGS.closesMinutesAfter,
     terms: ORG.terms ?? [],

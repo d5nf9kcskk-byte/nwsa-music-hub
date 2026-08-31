@@ -329,6 +329,16 @@ export interface ConcertCheckin {
   instrument?: string;
   /** The school address the student typed, normalized. */
   email: string;
+  /**
+   * Written through the COLLEGE DOOR (#concert-checkin): a student who is not
+   * on the roster yet, whose name is free text they typed and whose
+   * `studentId` is derived from `email` rather than being a real student doc
+   * id. Absent on every ordinary scan.
+   *
+   * It follows that `studentId` here points at NO document, and `studentName`
+   * is public input rather than staff-entered — treat both accordingly.
+   */
+  guest?: boolean;
   kind: CheckinKind;
   /** Server timestamp (epoch ms). */
   at: number;

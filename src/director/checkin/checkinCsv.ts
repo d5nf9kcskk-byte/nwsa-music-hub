@@ -5,6 +5,7 @@
 // cron on its first run.
 import { termForDate, type Term } from '../../shared/concertCheckin.ts';
 import type { ConcertCheckin } from '../types';
+import { csvEscape as esc } from '../../shared/csv.ts';
 
 /**
  * The cumulative concert-attendance CSV (#concert-checkin).
@@ -36,11 +37,6 @@ export interface CsvOptions {
   publicUrl: string;
 }
 
-/** RFC 4180, matching attendanceCsv.ts. */
-const esc = (v: unknown): string => {
-  const s = v == null ? '' : String(v);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-};
 
 export interface CheckinRow {
   key: string;

@@ -1,6 +1,7 @@
 import { parseAnswers } from '../hooks/useSignups';
 import { lastName } from '../scoreOrder';
 import type { SignupForm, SignupResponse } from '../types';
+import { csvEscape as esc } from '../../shared/csv.ts';
 
 /**
  * Getting a sign-up back OUT of the Hub (#signups). The whole reason this
@@ -15,10 +16,6 @@ import type { SignupForm, SignupResponse } from '../types';
  *   • `emailList`  — every address collected, for one mail to the group.
  */
 
-const esc = (v: unknown): string => {
-  const s = v == null ? '' : String(v);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-};
 
 export function byLastName(a: SignupResponse, b: SignupResponse): number {
   return lastName(a.studentName).localeCompare(lastName(b.studentName))

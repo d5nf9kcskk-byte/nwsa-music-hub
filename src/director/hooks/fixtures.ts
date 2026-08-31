@@ -55,6 +55,12 @@ export const FIXTURE_EVENTS: CalendarEvent[] = [
     callTime: '18:00', dress: 'Concert black', pickupTime: '21:15',
     pieceIds: ['fx-beethoven5', 'fx-holst'], status: 'Scheduled',
     notes: 'Bring your instrument, black folder, and a water bottle. Enter through the stage door on 2nd Street.',
+    // The check-in station, switched on so the door is exercisable in
+    // fixtures (#concert-checkin). The window is deliberately absurd — twelve
+    // hours before a 7pm downbeat — so the station is OPEN for anyone
+    // checking this page during a working day, rather than only after 6:50pm.
+    concertAttendance: 'required',
+    checkin: { enabled: true, opensMinutesBefore: 720, photoOptional: true },
   },
   {
     id: 'fx-rehearsal', type: 'Rehearsal', ensembleIds: ['symphony-orchestra'],

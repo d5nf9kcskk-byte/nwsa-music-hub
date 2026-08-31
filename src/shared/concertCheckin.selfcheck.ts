@@ -18,6 +18,8 @@ import {
   normalizeEmail, zonedEpoch, checkinWindow, checkinState, canCheckOut,
   canCheckIn, checkinCutoff,
   resolveCheckinSettings, DEFAULT_CHECKIN_SETTINGS, termIdForDate, driveFolderIdFrom,
+  guestStudentId, isGuestStudentId, guestDoorOpen, guestEmailProblem,
+  guestNameProblem, normalizeGuestName, MAX_GUEST_NAME,
   type CheckinEventLike, type Term,
 } from './concertCheckin.ts';
 
@@ -77,6 +79,48 @@ assert(!emailAccepted('nope', []), 'no allowlist still rejects malformed');
 
 assert(domainsLabel(['students.dadeschools.net']) === '@students.dadeschools.net', 'one domain reads plainly');
 assert(domainsLabel(DOMAINS) === '@students.dadeschools.net, @mymdc.net or @mdc.edu', 'list reads as a sentence');
+
+/* ── 2b. The college door (#concert-checkin) ──
+ *
+ * The roster search is the anchor on the ordinary path. This door removes it
+ * for students who are not in the Hub yet, so the college-only domain list is
+ * the whole of what stands in its place — and it is the one list in this file
+ * where empty means SHUT rather than "accept anything".
+ */
+
+const COLLEGE = resolveCheckinSettings({}, { emailDomains: DOMAINS, guestEmailDomains: ['mymdc.net', 'mdc.edu'] });
+const NO_DOOR = resolveCheckinSettings({}, { emailDomains: DOMAINS });
+
+assert(guestDoorOpen(COLLEGE), 'a named college domain opens the door');
+assert(!guestDoorOpen(NO_DOOR), 'no named college domain means no door — empty fails CLOSED here');
+assert(guestEmailProblem('lferrer@mymdc.net', NO_DOOR) === 'domain',
+  'a shut door refuses every address, including one that would otherwise be fine');
+
+assert(guestEmailProblem('lferrer@mymdc.net', COLLEGE) === null, 'a college address is let through');
+assert(guestEmailProblem('ana@students.dadeschools.net', COLLEGE) === 'domain',
+  'a high school address may NOT take the college door — it goes through the roster or not at all');
+assert(emailAccepted('ana@students.dadeschools.net', DOMAINS),
+  'and that same address is still perfectly good on the roster path');
+
+assert(guestNameProblem('') === 'empty' && guestNameProblem('  ') === 'empty', 'a blank name is not a name');
+assert(guestNameProblem('x'.repeat(MAX_GUEST_NAME + 1)) === 'too-long', 'the name field is bounded');
+assert(guestNameProblem('Luis Ferrer') === null, 'an ordinary name passes');
+assert(normalizeGuestName('  Luis   Ferrer ') === 'Luis Ferrer', 'two typed fields collapse to one name');
+
+// The email is the identity and the name is a label, which is why the id is
+// derived from the address alone: a student who retypes their name at the end
+// of the night must still pair with the check-in they wrote two hours earlier.
+const gid = guestStudentId('LFerrer@MyMDC.net');
+assert(gid === guestStudentId('  lferrer@mymdc.net  '), 'case and spacing cannot split one person in two');
+assert(guestStudentId('a@mymdc.net') !== guestStudentId('b@mymdc.net'), 'two addresses are two people');
+assert(isGuestStudentId(gid) && !isGuestStudentId('aB3xY'), 'a guest id is recognisable, a roster id is not one');
+
+// The reason the id is hashed rather than built from the address: doc ids are
+// split on their last two underscores, and '_' is legal in an email local part.
+assert(!gid.includes('_'), 'a guest id never contains an underscore');
+const gRound = parseCheckinDocId(checkinDocId('faculty_concert', guestStudentId('j_smith@mymdc.net'), 'out'));
+assert(gRound?.studentId === guestStudentId('j_smith@mymdc.net') && gRound?.eventId === 'faculty_concert',
+  'a guest scan round-trips even when the address had an underscore in it');
 
 /* ── 3. The window, in school-local time ── */
 

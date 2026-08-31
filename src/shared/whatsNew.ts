@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // The college door on concert check-in (#concert-checkin).
+  {
+    id: '2026-08-31-checkin-college-door',
+    date: '2026-08-31',
+    title: 'College students can check in to concerts too',
+    audience: 'both' as const,
+    expires: '2026-09-21',
+    bullets: [
+      'Concert check-in now has a second door for the dual-enrollment college students, who are not in the Hub yet: under the name search, tap “I am a college student and I am not on this list” and type your first name, last name and MDC email instead.',
+      'Use the SAME email to check out at the end of the night — the address is how the Hub matches the two, so a different one counts as a different person and neither scan gets credit.',
+      'It only accepts @mymdc.net and @mdc.edu. If you have a school address you are on the student list — go back and find your name.',
+      'Directors: these rows show up on the live board and in the attendance CSV like any other, with College in the grade column. The name is typed by the student, so check it before you rely on it.',
+    ],
+  },
   // Sign-up editor moved from a bottom sheet onto its own page (#signups).
   {
     id: '2026-08-31-signup-editor-page',

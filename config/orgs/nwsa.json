@@ -132,6 +132,7 @@
   ],
   "checkin": {
     "emailDomains": ["students.dadeschools.net", "mymdc.net", "mdc.edu"],
+    "guestEmailDomains": ["mymdc.net", "mdc.edu"],
     "storageBucket": "nwsa-hub.firebasestorage.app",
     "opensMinutesBefore": 10,
     "closesMinutesAfter": 60

@@ -25,13 +25,17 @@ export function checkinEndpoint(): string {
   return projectId ? `https://us-central1-${projectId}.cloudfunctions.net/concertCheckin` : '';
 }
 
-export async function submitCheckin(args: {
-  eventId: string;
-  studentId: string;
-  email: string;
-  kind: CheckinKind;
-  photo?: string;
-}): Promise<CheckinOutcome> {
+/**
+ * One scan. Exactly one of `studentId` (a student on the roster) and
+ * `guestName` (the college door — a student not entered in the Hub yet, who
+ * typed their own name). A guest never sends a student id: the function
+ * derives one from the email, so a caller cannot name itself.
+ */
+export type CheckinPost =
+  & { eventId: string; email: string; kind: CheckinKind; photo?: string }
+  & ({ studentId: string; guestName?: never } | { guestName: string; studentId?: never });
+
+export async function submitCheckin(args: CheckinPost): Promise<CheckinOutcome> {
   const url = checkinEndpoint();
   if (!url) {
     return { ok: false, failure: 'offline', message: 'The Hub is not configured for check-in yet.' };

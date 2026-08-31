@@ -1,11 +1,7 @@
 import type { Lesson, Student } from '../types';
 import { downloadCsv } from '../attendance/attendanceCsv';
+import { csvEscape as esc } from '../../shared/csv.ts';
 
-/** Quote a field if it contains a comma, quote, or newline (RFC 4180). */
-const esc = (v: unknown): string => {
-  const s = v == null ? '' : String(v);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-};
 
 /**
  * Rich private-lesson CSV for directors / Dean grade and pay tracking.

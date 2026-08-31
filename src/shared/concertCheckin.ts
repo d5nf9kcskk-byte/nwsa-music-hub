@@ -26,6 +26,24 @@ export type ConcertAttendance = 'required' | 'optional';
 export interface CheckinSettings {
   /** Domains a student email may end in, without the '@'. Lowercase. */
   emailDomains: string[];
+  /**
+   * Domains that may use the COLLEGE DOOR — the path for a student who is not
+   * on the roster yet and types their own name (#concert-checkin).
+   *
+   * Deliberately its own list, and deliberately NOT `emailDomains`. The
+   * roster search is the anchor that makes a check-in mean something: you
+   * have to be a person the school already knows. If the college door
+   * accepted every accepted domain, any high school student could take it
+   * with their own school address, type any name they liked, and the anchor
+   * would be gone for everybody.
+   *
+   * EMPTY MEANS THE DOOR IS SHUT. Unlike `emailDomains`, where an empty list
+   * is the deliberate "accept any well-formed address" posture, an org that
+   * has not named its college domains has no college door at all — the one
+   * place in this file where empty fails closed rather than open, because
+   * here the list is the whole of the check.
+   */
+  guestEmailDomains: string[];
   /** Minutes before the downbeat that the station opens. */
   opensMinutesBefore: number;
   /** Minutes after the END time that the station closes — both scans. */
@@ -65,6 +83,7 @@ export interface CheckinSettings {
  */
 export const DEFAULT_CHECKIN_SETTINGS: CheckinSettings = {
   emailDomains: [],
+  guestEmailDomains: [],
   opensMinutesBefore: 10,
   closesMinutesAfter: 60,
   inClosesMinutesAfterStart: null,
@@ -124,6 +143,7 @@ export function resolveCheckinSettings(
   const ev = event.checkin ?? {};
   return {
     emailDomains: base.emailDomains.map(d => d.trim().toLowerCase()).filter(Boolean),
+    guestEmailDomains: (base.guestEmailDomains ?? []).map(d => d.trim().toLowerCase().replace(/^@/, '')).filter(Boolean),
     opensMinutesBefore: ev.opensMinutesBefore ?? base.opensMinutesBefore,
     closesMinutesAfter: ev.closesMinutesAfter ?? base.closesMinutesAfter,
     inClosesMinutesAfterStart:
@@ -211,6 +231,108 @@ export function domainsLabel(domains: string[]): string {
   if (list.length === 0) return '';
   if (list.length === 1) return list[0];
   return `${list.slice(0, -1).join(', ')} or ${list[list.length - 1]}`;
+}
+
+/* ───────────────────────────── the college door ────────────────────────── */
+
+/**
+ * The second door (#concert-checkin): a student who is not on the roster yet
+ * types their own name and their college address.
+ *
+ * This exists because the dual-enrollment college students are real students
+ * playing real concerts who simply have not been entered into the Hub yet.
+ * It is a BRIDGE, not a pattern — the moment they are on the roster they
+ * should use the name search like everyone else, and the door quietly stops
+ * mattering. Compare `guestPerformers` on a master class, which is the
+ * opposite call on purpose: visiting players get a free-text name and no
+ * attendance record at all, because they are not ours to track.
+ *
+ * The whole of its access control is `guestEmailDomains`. There is no roster
+ * to check against — that is the entire point — so the domain list is not one
+ * guard among several the way it is on the roster path. It is the guard.
+ */
+
+/** Longest name the door accepts. Long enough for a full name with a couple
+ *  of surnames, short enough that the field is not a place to park text. */
+export const MAX_GUEST_NAME = 80;
+
+export type GuestNameProblem = 'empty' | 'too-long';
+
+/** Collapses the runs of whitespace a phone keyboard produces between a first
+ *  and last name typed in two fields. */
+export function normalizeGuestName(raw: string): string {
+  return (raw ?? '').replace(/\s+/g, ' ').trim();
+}
+
+export function guestNameProblem(raw: string): GuestNameProblem | null {
+  const name = normalizeGuestName(raw);
+  if (name.length < 2) return 'empty';
+  if (name.length > MAX_GUEST_NAME) return 'too-long';
+  return null;
+}
+
+/**
+ * Is the college door open at all, and is this the kind of address it takes?
+ *
+ * Both halves matter. An org with no `guestEmailDomains` has no college door,
+ * and an address outside that list is refused even when `emailDomains` would
+ * have accepted it happily — a high school address must go through the roster.
+ */
+export function guestDoorOpen(settings: Pick<CheckinSettings, 'guestEmailDomains'>): boolean {
+  return settings.guestEmailDomains.length > 0;
+}
+
+export function guestEmailProblem(
+  raw: string,
+  settings: Pick<CheckinSettings, 'guestEmailDomains'>,
+): EmailProblem | null {
+  if (!guestDoorOpen(settings)) return 'domain';
+  return emailProblem(raw, settings.guestEmailDomains);
+}
+
+/**
+ * The stable student id for someone who has no student record: derived from
+ * their email and nothing else.
+ *
+ * Derived rather than random because every promise the station makes is keyed
+ * on this string. The doc id `event_student_kind` is what makes a duplicate
+ * scan impossible; the check-out has to find the check-in written twenty
+ * minutes earlier from a page that has been reloaded since; the CSV pairs the
+ * two scans into one row; the tally counts a semester with
+ * `where('studentId', '==', ...)`. A fresh id per scan would break all four.
+ *
+ * The EMAIL is therefore the identity and the typed name is only a label — a
+ * student who writes "Ana Ruiz" on the way in and "ana ruiz" on the way out
+ * still pairs, and a student who mistypes their address is a second person for
+ * the evening. That is the trade, and it is the right way round: an address is
+ * something a phone autofills, a name is something you retype.
+ *
+ * Hex with a single leading letter, so it can never contain an underscore.
+ * `parseCheckinDocId` takes the kind and the student id off the LAST two
+ * underscores in a doc id; a synthetic id built from the raw email
+ * (`guest_j_smith@mymdc.net`) would split in the wrong place.
+ */
+export function guestStudentId(email: string): string {
+  const e = normalizeEmail(email);
+  return `g${fnv1a(e)}${fnv1a(`${e}#2`)}`;
+}
+
+/** FNV-1a, 32 bits, as eight hex digits. Not a security function — nothing is
+ *  hidden by it and the address is stored beside it in plain text. It is here
+ *  to turn an address into a short id with no separator characters in it. */
+function fnv1a(s: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+/** Whether a stored record came through the college door. Reads the id rather
+ *  than a flag so an old record and a new one answer the same way. */
+export function isGuestStudentId(studentId: string): boolean {
+  return /^g[0-9a-f]{16}$/.test(studentId ?? '');
 }
 
 /* ─────────────────────────── the open window ───────────────────────── */

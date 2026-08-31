@@ -1,10 +1,6 @@
 import type { AttendanceRecord, Student, Ensemble } from '../types';
+import { csvEscape as esc } from '../../shared/csv.ts';
 
-/** Quote a field if it contains a comma, quote, or newline (RFC 4180). */
-const esc = (v: unknown): string => {
-  const s = v == null ? '' : String(v);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-};
 
 /** Build a spreadsheet-ready CSV of attendance records, newest first. */
 export function attendanceToCsv(
