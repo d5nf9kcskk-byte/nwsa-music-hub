@@ -83,6 +83,17 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'No red underlines where they would be noise: pasted calendar text, roster spreadsheets, Quick Add, and link boxes.',
     ],
   },
+  // Announcement rows preview publicly instead of jumping to edit (#announce-preview).
+  {
+    id: '2026-08-31-announcement-preview',
+    date: '2026-08-31',
+    title: 'Tap an announcement to see it the way families do',
+    audience: 'staff' as const,
+    expires: '2026-09-14',
+    bullets: [
+      'In Announcements and on Today, tapping a post now shows the exact public preview — the pencil icon opens it for editing.',
+    ],
+  },
   // Concert check-in as its own menu page (#concert-checkin).
   {
     id: '2026-08-31-checkin-page',
