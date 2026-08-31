@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -38,6 +38,7 @@ import { AssignmentsView } from './assignments/AssignmentsView';
 import { AnnouncementManager } from './announcements/AnnouncementManager';
 import { MessagesView } from './messages/MessagesView';
 import { SignupsView } from './signups/SignupsView';
+import { CheckinView } from './checkin/CheckinView';
 import { JuriesView } from './juries/JuriesView';
 import { useParentMessages } from './hooks/useParentMessages';
 import { RepertoireManager } from './repertoire/RepertoireManager';
@@ -124,6 +125,9 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
       { id: 'assignments',   label: 'Assignments',   Icon: ClipboardCheck },
       { id: 'signups',       label: 'Sign-ups',      Icon: ClipboardSignature },
       { id: 'juries',        label: 'Juries',        Icon: Gavel          },
+      // Concert check-in (#concert-checkin) — the door station's records and
+      // the cumulative CSV.
+      { id: 'concertCheckin', label: 'Concert Check-In', Icon: ScanLine },
       { id: 'announcements', label: 'Announcements', Icon: Megaphone      },
       // Parent contact-form inbox (#parent-messages) — org-gated.
       ...(ORG.features.contactForm ? [{ id: 'messages' as const, label: 'Messages', Icon: Mail }] : []),
@@ -154,6 +158,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   messages:        'Messages',
   signups:         'Sign-ups',
   juries:          'Juries',
+  concertCheckin:  'Concert Check-In',
   personnel:       'Personnel',
   directors:       'Directors',
 };
@@ -161,7 +166,7 @@ const TAB_TITLES: Record<DirTab, string> = {
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'lessons', 'myLessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'classes', 'college', 'whosOut', 'scheduleSwap', 'rotations',
-  'messages', 'signups', 'juries', 'directors',
+  'messages', 'signups', 'juries', 'concertCheckin', 'directors',
   // The roster URL segment follows the org kind too (#personnel), so a
   // school build has no /director/personnel route and an adult build no
   // /director/roster \u2014 an off-org deep link falls back to Today.
@@ -588,6 +593,7 @@ export default function DirectorApp() {
             {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} initialEnsembleId={intent.ensembleId} onClose={() => {}} />}
             {tab === 'messages'        && <MessagesView />}
             {tab === 'signups'         && <SignupsView />}
+            {tab === 'concertCheckin'  && <CheckinView />}
             {tab === 'juries'          && <JuriesView />}
             {tab === 'personnel' && PersonnelManager && (
               <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading personnel…</div>}>

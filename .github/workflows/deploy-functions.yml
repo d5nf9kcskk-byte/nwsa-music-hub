@@ -32,7 +32,7 @@ jobs:
 
       # Runs before any credential is written: a broken guard must fail the
       # build, not deploy and then fail.
-      - name: Check the lessons endpoint's guards
+      - name: Check the lessons endpoint and concert check-in guards
         run: |
           npm --prefix functions ci
           npm --prefix functions run selfcheck

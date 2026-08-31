@@ -112,6 +112,16 @@
       "types": ["Class", "Rehearsal", "Sectional", "Concert", "Event", "Assignment"]
     }
   ],
+  "terms": [
+    { "id": "2026-fall", "name": "Fall 2026", "start": "2026-08-17", "end": "2026-12-19" },
+    { "id": "2027-spring", "name": "Spring 2027", "start": "2027-01-06", "end": "2027-06-03" }
+  ],
+  "checkin": {
+    "emailDomains": ["students.dadeschools.net", "mymdc.net", "mdc.edu"],
+    "storageBucket": "nwsa-hub.firebasestorage.app",
+    "opensMinutesBefore": 60,
+    "closesMinutesAfter": 60
+  },
   "breakGlassEmails": ["nwsaorchestras@gmail.com"],
   "ics": {
     "prodId": "-//NWSA Music//ggmuze//EN",

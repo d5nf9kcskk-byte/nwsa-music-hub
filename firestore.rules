@@ -1023,6 +1023,63 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Concert check-in / check-out (#concert-checkin) ─
+    //
+    // One document per scan: a student arriving at a concert, and the same
+    // student leaving. This is the most sensitive collection on the student
+    // side of the Hub — attendance-class data that also carries a photograph
+    // of a minor — so it is staff-only, it has NO public projection, and
+    // adding one is not a config change (the #privacy rule: a projection is
+    // designed deliberately with its own pinned allowlist, never relaxed
+    // into existence).
+    //
+    // There is deliberately NO client create path, not even a
+    // shape-checked unauthenticated one like plannedAbsences or
+    // signupResponses. Two reasons:
+    //
+    //   • The timestamp IS the record. A client-written `at` is a number the
+    //     student's phone chose, and an attendance system whose times can be
+    //     edited by the person being marked is not an attendance system.
+    //     Every record is written by the `concertCheckin` Cloud Function
+    //     through the Admin SDK (which bypasses these rules), so the time is
+    //     the server's.
+    //   • It keeps the app's five unauthenticated writes (plannedAbsences,
+    //     parentMessages, assignmentSubmissions, calendarViews,
+    //     signupResponses) at five. This route adds no sixth.
+    //
+    // Staff update/delete exist so a director can fix a scan taken under the
+    // wrong name at the door — the one correction the venue actually needs.
+    match /concertCheckins/{doc} {
+      allow read: if isStaff();
+      allow create: if false;
+      allow update, delete: if isStaff();
+    }
+
+    // Site-wide check-in settings: accepted email domains, how early the
+    // station opens, and the per-semester concert obligation. World-READABLE
+    // on purpose — the public check-in page uses exactly these values to tell
+    // a student "not open until 6pm" or "that address isn't a school one"
+    // before they take a photo, and every one of them is a rule of the
+    // station rather than anything about a person. The Cloud Function reads
+    // the same doc and its answer is the binding one.
+    match /settings/concertAttendance {
+      allow read;
+      allow write: if isStaff()
+        && request.resource.data.keys().hasOnly([
+             'emailDomains', 'opensMinutesBefore', 'closesMinutesAfter',
+             'goals', 'updatedAt', 'updatedBy'])
+        && (!('emailDomains' in request.resource.data)
+            || (request.resource.data.emailDomains is list
+                && request.resource.data.emailDomains.size() <= 20));
+    }
+
+    // The Drive folder the photo sync files into. Split out of the public
+    // settings doc above for one reason: nothing about where a director's
+    // photo archive lives belongs on a world-readable document.
+    match /settings/concertAttendanceSync {
+      allow read, write: if isStaff();
+    }
+
     // ── Deny everything else by default ─────────────────
     match /{document=**}         { allow read, write: if false; }
   }
