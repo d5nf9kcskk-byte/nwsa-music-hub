@@ -21,6 +21,7 @@ import { primaryStudent, rememberStudent } from '../shared/identity';
 import { ORG } from '../org';
 import {
   checkinState, checkinWindow, canCheckOut, checkoutBlockedUntil,
+  canCheckIn, checkinCutoff,
   domainsLabel, emailProblem, normalizeEmail, resolveCheckinSettings,
   type CheckinKind,
 } from '../shared/concertCheckin';
@@ -134,6 +135,11 @@ export function PublicCheckin() {
 
   const checkoutReady = kind === 'in' || canCheckOut(event, settings, ORG.timezone, now);
   const blockedUntil = checkoutBlockedUntil(event, settings, ORG.timezone);
+  // The late-arrival cutoff. Only ever blocks the ARRIVAL: someone who came
+  // late still checks out at the end, or their evening ends with one dangling
+  // scan and no credit either way.
+  const arrivalClosed = kind === 'in' && !canCheckIn(event, settings, ORG.timezone, now);
+  const cutoffAt = checkinCutoff(event, settings, ORG.timezone);
 
   async function send() {
     if (!student || !event) return;
@@ -315,6 +321,12 @@ export function PublicCheckin() {
             onClear={() => setPhoto(null)}
             disabled={step === 'sending'}
           />
+          {arrivalClosed && cutoffAt && (
+            <p className="pub-checkin-hint warn">
+              <Clock size={14} aria-hidden /> Check-in closed at {clockAt(cutoffAt)}.
+              Find a director so they can record you.
+            </p>
+          )}
           {!checkoutReady && blockedUntil && (
             <p className="pub-checkin-hint warn">
               <Clock size={14} aria-hidden /> Check-out opens at {clockAt(blockedUntil)}.
@@ -323,7 +335,7 @@ export function PublicCheckin() {
           <button
             type="button"
             className="pub-btn pub-checkin-send"
-            disabled={step === 'sending' || (!photo && !settings.photoOptional) || !checkoutReady}
+            disabled={step === 'sending' || (!photo && !settings.photoOptional) || !checkoutReady || arrivalClosed}
             onClick={send}
           >
             {step === 'sending'

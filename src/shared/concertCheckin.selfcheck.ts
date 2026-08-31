@@ -16,6 +16,7 @@
 import {
   checkinDocId, parseCheckinDocId, emailProblem, emailAccepted, domainsLabel,
   normalizeEmail, zonedEpoch, checkinWindow, checkinState, canCheckOut,
+  canCheckIn, checkinCutoff,
   resolveCheckinSettings, DEFAULT_CHECKIN_SETTINGS, termIdForDate,
   type CheckinEventLike, type Term,
 } from './concertCheckin.ts';
@@ -144,6 +145,42 @@ assert(termIdForDate('2026-08-31', TERMS) === '2026-fall', 'the faculty concert 
 assert(termIdForDate('2026-12-19', TERMS) === '2026-fall', 'the last day of a term is in it');
 assert(termIdForDate('2027-02-01', TERMS) === '2027-spring', 'spring is its own count');
 assert(termIdForDate('2026-07-04', TERMS) === '', 'summer belongs to no term');
+
+/* ── The late-arrival cutoff, and the trap it exists to avoid ── */
+
+// "Open 30 before, stop accepting arrivals 10 after the downbeat."
+const strict = {
+  ...concert,
+  checkin: { enabled: true, opensMinutesBefore: 30, inClosesMinutesAfterStart: 10 },
+};
+const ss = resolveCheckinSettings(strict, { emailDomains: DOMAINS });
+
+assert(checkinWindow(strict, ss, TZ)!.opensAt === Date.UTC(2026, 7, 31, 22, 30),
+  'the door opens half an hour before the downbeat');
+assert(checkinCutoff(strict, ss, TZ) === Date.UTC(2026, 7, 31, 23, 10),
+  'and stops accepting arrivals ten minutes after it');
+
+assert(canCheckIn(strict, ss, TZ, at(22, 45)), 'a student arriving early can check in');
+assert(canCheckIn(strict, ss, TZ, at(23, 5)), 'and one arriving five minutes late still can');
+assert(!canCheckIn(strict, ss, TZ, at(23, 20)), 'twenty minutes late is too late to check IN');
+
+// THE POINT. Closing the whole station ten minutes after the downbeat would
+// have made checking OUT impossible — and a concert counts only when both
+// scans exist, so "arrive on time" would have silently become "nobody gets
+// credit for anything". Check-out stays open to the end of the night.
+assert(checkinState(strict, ss, TZ, at(23, 20)) === 'open',
+  'the STATION is still open after the check-in cutoff');
+assert(canCheckOut(strict, ss, TZ, at(23, 20)), 'so a late arrival can still check out');
+assert(canCheckOut(strict, ss, TZ, Date.UTC(2026, 8, 1, 1, 30)),
+  'and everyone can still check out after the concert ends');
+assert(!canCheckIn(strict, ss, TZ, Date.UTC(2026, 8, 1, 1, 30)),
+  'while checking in that late is still refused');
+
+// No cutoff configured = the old behaviour, unchanged.
+assert(DEFAULT_CHECKIN_SETTINGS.inClosesMinutesAfterStart === null, 'no cutoff by default');
+assert(canCheckIn(concert, settings, TZ, Date.UTC(2026, 8, 1, 1, 30)),
+  'without a cutoff you can check in any time the station is open');
+assert(checkinCutoff(concert, settings, TZ) === null, 'and there is no cutoff moment to show');
 
 /* ── A cleared field is a written null, not undefined ── */
 

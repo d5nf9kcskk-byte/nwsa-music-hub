@@ -7,7 +7,7 @@ import { useEvents } from '../hooks/useEvents';
 import { downloadCsv } from '../attendance/attendanceCsv';
 import { checkinsToCsv, pairCheckins, minutesPresent, talliesByStudent, type CheckinRow } from './checkinCsv';
 import { ORG } from '../../org';
-import { checkinState, checkinWindow, domainsLabel, resolveCheckinSettings } from '../../shared/concertCheckin';
+import { checkinState, checkinWindow, checkinCutoff, domainsLabel, resolveCheckinSettings } from '../../shared/concertCheckin';
 import { fmtShortDate } from '../../shared/dates';
 import { useMinuteTick } from '../hooks/useAnnouncements';
 import type { ConcertCheckin } from '../types';
@@ -152,6 +152,10 @@ export function CheckinView() {
                   <div className="dir-field-hint">
                     {fmtShortDate(e.date)}
                     {win ? ` · station ${clock(win.opensAt)} – ${clock(win.closesAt)}` : ''}
+                    {(() => {
+                      const cut = checkinCutoff(e, st, ORG.timezone);
+                      return cut ? ` · arrivals until ${clock(cut)}` : '';
+                    })()}
                     {' · '}{ins.size} in, {outs.size} out
                     {st.photoOptional ? ' · photo optional' : ''}
                   </div>

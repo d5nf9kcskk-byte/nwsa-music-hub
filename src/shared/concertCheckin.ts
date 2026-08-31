@@ -28,8 +28,20 @@ export interface CheckinSettings {
   emailDomains: string[];
   /** Minutes before the downbeat that the station opens. */
   opensMinutesBefore: number;
-  /** Minutes after the end time that the station closes. */
+  /** Minutes after the END time that the station closes — both scans. */
   closesMinutesAfter: number;
+  /**
+   * Late-arrival cutoff for the CHECK-IN scan only, measured from the START
+   * time. Null (the default) means no cutoff: you can check in any time the
+   * station is open.
+   *
+   * Deliberately its own field rather than a smaller `closesMinutesAfter`.
+   * Closing the whole station shortly after the downbeat would make CHECKING
+   * OUT impossible, and a concert counts only when both scans exist — so
+   * "arrive on time or it doesn't count" would silently become "nobody gets
+   * credit for anything". Check-out stays open until the station closes.
+   */
+  inClosesMinutesAfterStart: number | null;
   /** Optional guard: check-out refuses until this many minutes after the
    *  start time. 0 (the default) means check out whenever. */
   minStayMinutes: number;
@@ -55,6 +67,7 @@ export const DEFAULT_CHECKIN_SETTINGS: CheckinSettings = {
   emailDomains: [],
   opensMinutesBefore: 10,
   closesMinutesAfter: 60,
+  inClosesMinutesAfterStart: null,
   minStayMinutes: 0,
   photoOptional: false,
 };
@@ -72,6 +85,7 @@ export interface EventCheckinConfig {
   enabled?: boolean;
   opensMinutesBefore?: number | null;
   closesMinutesAfter?: number | null;
+  inClosesMinutesAfterStart?: number | null;
   minStayMinutes?: number | null;
   photoOptional?: boolean;
 }
@@ -101,6 +115,8 @@ export function resolveCheckinSettings(
     emailDomains: base.emailDomains.map(d => d.trim().toLowerCase()).filter(Boolean),
     opensMinutesBefore: ev.opensMinutesBefore ?? base.opensMinutesBefore,
     closesMinutesAfter: ev.closesMinutesAfter ?? base.closesMinutesAfter,
+    inClosesMinutesAfterStart:
+      ev.inClosesMinutesAfterStart ?? base.inClosesMinutesAfterStart ?? null,
     minStayMinutes: ev.minStayMinutes ?? base.minStayMinutes,
     photoOptional: ev.photoOptional ?? base.photoOptional,
   };
@@ -267,6 +283,36 @@ export function checkinState(
   if (now < win.opensAt) return 'early';
   if (now > win.closesAt) return 'closed';
   return 'open';
+}
+
+/**
+ * When checking IN stops being accepted, or null when it never does.
+ *
+ * This is the "arrive on time" line. It is separate from the station closing
+ * because a student who came late should still be able to check OUT — their
+ * arrival is the thing in question, not their leaving.
+ */
+export function checkinCutoff(
+  event: CheckinEventLike,
+  settings: CheckinSettings,
+  timeZone: string,
+): number | null {
+  if (settings.inClosesMinutesAfterStart == null) return null;
+  const win = checkinWindow(event, settings, timeZone);
+  if (!win) return null;
+  return win.startsAt + settings.inClosesMinutesAfterStart * 60_000;
+}
+
+/** Can a student still check IN? Open, and not past the late cutoff. */
+export function canCheckIn(
+  event: CheckinEventLike,
+  settings: CheckinSettings,
+  timeZone: string,
+  now: number = Date.now(),
+): boolean {
+  if (checkinState(event, settings, timeZone, now) !== 'open') return false;
+  const cutoff = checkinCutoff(event, settings, timeZone);
+  return cutoff === null || now <= cutoff;
 }
 
 /** Check-out specifically: open, and past any minimum stay. Separated from

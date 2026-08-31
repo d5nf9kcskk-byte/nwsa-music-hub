@@ -83,6 +83,24 @@ assert(validate(req({ kind: 'out' }), concert, student, settings, TZ, none, OPEN
 assert(validate(req({ kind: 'out' }), concert, student, settings, TZ, { in: true, out: false }, OPEN).ok,
   'checking out after checking in works');
 
+/* ── The late-arrival cutoff, enforced server-side ── */
+
+const strict = { ...concert, checkin: { enabled: true, opensMinutesBefore: 30, inClosesMinutesAfterStart: 10 } };
+const st = resolveCheckinSettings(strict, { emailDomains: DOMAINS });
+const fiveLate = Date.UTC(2026, 7, 31, 23, 5);
+const twentyLate = Date.UTC(2026, 7, 31, 23, 20);
+
+assert(validate(req(), strict, student, st, TZ, none, fiveLate).ok, 'five minutes late still checks in');
+assert(validate(req(), strict, student, st, TZ, none, twentyLate).failure === 'arrived-late',
+  'twenty minutes late is refused by the SERVER, not just hidden in the page');
+
+// The whole reason this is a separate field: a late arrival must still be able
+// to check OUT, or the pair never completes and nobody gets credit at all.
+assert(validate(req({ kind: 'out' }), strict, student, st, TZ, { in: true, out: false }, twentyLate).ok,
+  'a student past the arrival cutoff can still check out');
+assert(validate(req({ kind: 'out' }), strict, student, st, TZ, { in: true, out: false }, Date.UTC(2026, 8, 1, 1, 30)).ok,
+  'and so can everyone else at the end of the concert');
+
 /* ── The minimum-stay guard ── */
 const guarded = { ...concert, checkin: { enabled: true, minStayMinutes: 45 } };
 const gs = resolveCheckinSettings(guarded, { emailDomains: DOMAINS });
@@ -145,7 +163,7 @@ assert(PHOTO_BUCKET === 'nwsa-hub.firebasestorage.app',
 assert(checkinDocId('faculty', 'stu1', 'in') === 'faculty_stu1_in', 're-exported id matches');
 
 /* ── Every refusal says something a student can act on ── */
-for (const f of ['too-early', 'wrong-domain', 'already', 'no-photo', 'not-checked-in'] as const) {
+for (const f of ['too-early', 'wrong-domain', 'already', 'no-photo', 'not-checked-in', 'arrived-late'] as const) {
   const m = fail(f).message ?? '';
   assert(m !== f && m.includes(' ') && m.trim().endsWith('.'),
     `refusal "${f}" reads as a sentence a student can act on, not a code`);
