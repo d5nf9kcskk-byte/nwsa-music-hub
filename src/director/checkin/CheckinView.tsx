@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, RefreshCw, Camera, Trash2, Settings, CheckCircle2, LogIn, ExternalLink } from 'lucide-react';
+import { Download, RefreshCw, Camera, Trash2, Settings, CheckCircle2, LogIn, ExternalLink, Radio, Clock } from 'lucide-react';
 import { ref as storageRef, getBlob } from 'firebase/storage';
 import { storage } from '../firebaseAuth';
 import { useConcertCheckins, useConcertAttendanceSettings } from '../hooks/useConcertCheckins';
@@ -7,8 +7,9 @@ import { useEvents } from '../hooks/useEvents';
 import { downloadCsv } from '../attendance/attendanceCsv';
 import { checkinsToCsv, pairCheckins, minutesPresent, talliesByStudent, type CheckinRow } from './checkinCsv';
 import { ORG } from '../../org';
-import { domainsLabel } from '../../shared/concertCheckin';
+import { checkinState, checkinWindow, domainsLabel, resolveCheckinSettings } from '../../shared/concertCheckin';
 import { fmtShortDate } from '../../shared/dates';
+import { useMinuteTick } from '../hooks/useAnnouncements';
 import type { ConcertCheckin } from '../types';
 import './checkin.css';
 
@@ -53,6 +54,18 @@ export function CheckinView() {
     return [...seen.values()].sort((a, b) => b.date.localeCompare(a.date));
   }, [checkins, events]);
 
+  // Every concert whose station is switched on, whatever it has collected.
+  // This panel exists because the screen used to answer "did my switch work?"
+  // with an empty table and the words "switch the station on" — which reads,
+  // to the director who just did exactly that, as if it had not worked.
+  const now = useMinuteTick();
+  const armed = useMemo(
+    () => events
+      .filter(e => e.checkin?.enabled)
+      .sort((a, b) => b.date.localeCompare(a.date)),
+    [events],
+  );
+
   const shown = useMemo(
     () => (eventId ? checkins.filter(c => c.eventId === eventId) : checkins),
     [checkins, eventId],
@@ -92,6 +105,63 @@ export function CheckinView() {
 
       {showSettings && <SettingsPanel settings={settings} save={save} domains={domains} />}
 
+      <section className="dir-card dir-checkin-armed">
+        <h3><Radio size={16} /> Check-in stations</h3>
+        {armed.length === 0 ? (
+          <p className="dir-field-hint">
+            No concert has the station switched on. Open a concert in Schedule,
+            tick <strong>Check-in station</strong>, and it will appear here.
+          </p>
+        ) : (
+          <ul>
+            {armed.map(e => {
+              const st = resolveCheckinSettings(e, {
+                emailDomains: domains,
+                ...(settings.opensMinutesBefore != null ? { opensMinutesBefore: settings.opensMinutesBefore } : {}),
+                ...(settings.closesMinutesAfter != null ? { closesMinutesAfter: settings.closesMinutesAfter } : {}),
+              });
+              const state = checkinState(e, st, ORG.timezone, now);
+              const win = checkinWindow(e, st, ORG.timezone);
+              const mine = checkins.filter(c => c.eventId === e.id);
+              const ins = new Set(mine.filter(c => c.kind === 'in').map(c => c.studentId));
+              const outs = new Set(mine.filter(c => c.kind === 'out').map(c => c.studentId));
+              const clock = (ms: number) => new Intl.DateTimeFormat('en-US', {
+                hour: 'numeric', minute: '2-digit', timeZone: ORG.timezone,
+              }).format(new Date(ms));
+              return (
+                <li key={e.id}>
+                  <div className="dir-checkin-armed-main">
+                    <strong>{e.title || '(untitled concert)'}</strong>
+                    <span className={`dir-checkin-pill ${state}`}>
+                      {state === 'open' ? 'Open now'
+                        : state === 'early' ? 'Opens later'
+                        : state === 'closed' ? 'Closed'
+                        : 'Not collecting'}
+                    </span>
+                    {e.concertAttendance && (
+                      <span className="dir-checkin-pill req">
+                        {e.concertAttendance === 'required' ? 'Required' : 'Optional'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="dir-field-hint">
+                    {fmtShortDate(e.date)}
+                    {win ? ` · station ${clock(win.opensAt)} – ${clock(win.closesAt)}` : ''}
+                    {' · '}{ins.size} in, {outs.size} out
+                    {st.photoOptional ? ' · photo optional' : ''}
+                  </div>
+                  {state === 'off' && e.status === 'Cancelled' && (
+                    <div className="dir-field-hint warn">
+                      <Clock size={12} /> This concert is marked Cancelled, so it collects nothing.
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
       <div className="dir-checkin-counts">
         <Stat label="Checked in" value={inCount} icon={<LogIn size={16} />} />
         <Stat label="Checked out" value={outCount} icon={<CheckCircle2 size={16} />} />
@@ -109,8 +179,9 @@ export function CheckinView() {
       {loading && <p className="dir-field-hint">Loading…</p>}
       {!loading && rows.length === 0 && (
         <p className="dir-field-hint">
-          No check-ins yet. Switch the station on for a concert in the event editor,
-          and students will appear here as they arrive.
+          {armed.length > 0
+            ? 'Nobody has checked in yet. Students appear here the moment they do.'
+            : 'No check-ins yet.'}
         </p>
       )}
 
