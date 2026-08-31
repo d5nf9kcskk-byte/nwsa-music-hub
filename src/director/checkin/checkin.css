@@ -36,3 +36,19 @@
   max-width: 32rem; width: 100%; max-height: 90vh; overflow: auto;
 }
 .dir-checkin-modal-body img { display: block; width: 100%; border-radius: .6rem; margin: .6rem 0; }
+
+/* Which stations are actually armed. The screen has to answer "did my switch
+   work?" without the director having to infer it from an empty table. */
+.dir-checkin-armed { padding: 1rem; margin-bottom: 1rem; }
+.dir-checkin-armed h3 { display: flex; align-items: center; gap: .4rem; margin: 0 0 .6rem; font-size: .95rem; }
+.dir-checkin-armed ul { list-style: none; margin: 0; padding: 0; }
+.dir-checkin-armed li + li { margin-top: .7rem; padding-top: .7rem; border-top: 1px solid var(--dir-border, #e5e7eb); }
+.dir-checkin-armed-main { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.dir-checkin-pill {
+  font-size: .72rem; font-weight: 700; padding: .12rem .45rem; border-radius: 999px;
+  background: var(--dir-card-alt, #f3f4f6); color: var(--dir-muted, #6b7280);
+}
+.dir-checkin-pill.open { background: #e6f4ea; color: #1e6b36; }
+.dir-checkin-pill.early { background: #eaf1fb; color: #24508f; }
+.dir-checkin-pill.req { background: #fdecec; color: #a32020; }
+.dir-field-hint.warn { color: #a32020; font-weight: 600; }
