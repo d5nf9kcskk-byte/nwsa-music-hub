@@ -93,6 +93,13 @@ export function PublicCheckin() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [doneAt, setDoneAt] = useState(0);
+  // Which scan the confirmation screen is confirming. It cannot be the
+  // derived `kind`: that reads the receipt, and send() has just WRITTEN the
+  // receipt, so an arrival re-derives as 'out' one render later and the
+  // student is told "You are checked out. That is everything. Thanks for
+  // coming." on the way IN — then never comes back, and a concert needs both
+  // scans to count. Pinned to what was actually sent.
+  const [doneKind, setDoneKind] = useState<CheckinKind>('in');
   const [sending, setSending] = useState(false);
 
   // What this device already knows: a receipt from earlier tonight first (it
@@ -212,6 +219,7 @@ export function PublicCheckin() {
     }
     setSending(false);
     setDoneAt(at);
+    setDoneKind(kind);
     setStepOverride('done');
   }
 
@@ -220,10 +228,10 @@ export function PublicCheckin() {
       <div className="pub-page pub-checkin">
         <div className="pub-checkin-done">
           <div className="pub-checkin-tick"><Check size={40} aria-hidden /></div>
-          <h1>{kind === 'in' ? 'You are checked in' : 'You are checked out'}</h1>
+          <h1>{doneKind === 'in' ? 'You are checked in' : 'You are checked out'}</h1>
           <p className="pub-checkin-big">{clockAt(doneAt)}</p>
           <p className="pub-muted">{whoName} · {title}</p>
-          {kind === 'in' ? (
+          {doneKind === 'in' ? (
             <p className="pub-checkin-next">
               <strong>Come back to this page when the concert ends</strong> and check out.
               You need both to get credit.
@@ -232,7 +240,7 @@ export function PublicCheckin() {
             <p className="pub-checkin-next">That is everything. Thanks for coming.</p>
           )}
           <div className="pub-checkin-actions">
-            {kind === 'in' && (
+            {doneKind === 'in' && (
               <button type="button" className="pub-btn-ghost" onClick={() => {
                 setKindOverride('out'); setPhoto(null); setStepOverride('photo'); setDoneAt(0);
               }}>
