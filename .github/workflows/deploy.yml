@@ -79,8 +79,14 @@ jobs:
 
       # The cumulative CSV: one row per student per concert, and a concert
       # counts only when BOTH scans exist.
+      # No defines shim: the CSV module takes its config as an argument so the
+      # Drive sync (plain node, no vite) can build the SAME file the director
+      # downloads. Running it bare here keeps that honest.
       - name: Check concert attendance CSV
-        run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/checkin/checkinCsv.selfcheck.ts
+        run: npx tsx src/director/checkin/checkinCsv.selfcheck.ts
+
+      - name: Check concert photo Drive naming
+        run: node scripts/drive-photo-names.selfcheck.mjs
 
       # Shared/combined blocks: the predicate that decides whether several
       # ensembles on one event means "one room together" — and the guard that

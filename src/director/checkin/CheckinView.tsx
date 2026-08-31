@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Download, RefreshCw, Camera, Trash2, Settings, CheckCircle2, LogIn, ExternalLink, Radio, Clock } from 'lucide-react';
 import { ref as storageRef, getBlob } from 'firebase/storage';
 import { storage } from '../firebaseAuth';
-import { useConcertCheckins, useConcertAttendanceSettings } from '../hooks/useConcertCheckins';
+import { useConcertCheckins, useConcertAttendanceSettings, useConcertSyncSettings } from '../hooks/useConcertCheckins';
 import { useEvents } from '../hooks/useEvents';
 import { downloadCsv } from '../attendance/attendanceCsv';
 import { checkinsToCsv, pairCheckins, minutesPresent, talliesByStudent, type CheckinRow } from './checkinCsv';
@@ -83,7 +83,12 @@ export function CheckinView() {
     // Always the WHOLE collection, never the filtered view: the file is
     // cumulative by design and a director who filtered to one concert should
     // not silently get a one-concert export.
-    downloadCsv(`concert-attendance-${new Date().toISOString().slice(0, 10)}.csv`, checkinsToCsv(checkins));
+    downloadCsv(
+      `concert-attendance-${new Date().toISOString().slice(0, 10)}.csv`,
+      checkinsToCsv(checkins, {
+        terms: ORG.terms ?? [], timeZone: ORG.timezone, publicUrl: ORG.publicUrl,
+      }),
+    );
   }
 
   return (
@@ -322,6 +327,12 @@ function SettingsPanel({ settings, save, domains }: {
   const [draft, setDraft] = useState(domains.join(', '));
   const [goals, setGoals] = useState(settings.goals ?? {});
   const terms = ORG.terms ?? [];
+  // The Drive folder id lives on its own STAFF-ONLY doc, not the
+  // world-readable settings doc: nothing about where a director's photo
+  // archive lives belongs on a document the public site can read.
+  const { sync, save: saveSync } = useConcertSyncSettings();
+  const [folder, setFolder] = useState('');
+  const folderValue = folder || sync.driveFolderId || '';
 
   return (
     <div className="dir-card dir-checkin-settings">
@@ -331,6 +342,34 @@ function SettingsPanel({ settings, save, domains }: {
         College students check in at the same door, so their domains belong here too.
       </div>
       <input className="dir-input" value={draft} onChange={e => setDraft(e.target.value)} />
+
+      <label className="dir-label" style={{ marginTop: 14 }}>Google Drive folder</label>
+      <div className="dir-field-hint">
+        Paste the folder id from the Concert Attendance folder’s URL
+        (<code>drive.google.com/drive/folders/<strong>THIS-PART</strong></code>).
+        Every photo is filed into a subfolder per concert, and
+        <code>concert-attendance.csv</code> is kept up to date beside them.
+        Share the folder with the service account as Editor first, or the sync
+        has nowhere to write.
+      </div>
+      <div className="dir-checkin-drive">
+        <input
+          className="dir-input"
+          value={folderValue}
+          placeholder="1AbC…"
+          onChange={e => setFolder(e.target.value)}
+        />
+        <button type="button" className="dir-tool-btn" onClick={() => void saveSync({ driveFolderId: folderValue.trim() })}>
+          Save folder
+        </button>
+      </div>
+      {sync.driveFolderId && (
+        <p className="dir-field-hint">
+          <a href={`https://drive.google.com/drive/folders/${sync.driveFolderId}`} target="_blank" rel="noreferrer">
+            Open the folder in Drive <ExternalLink size={12} />
+          </a>
+        </p>
+      )}
 
       <label className="dir-label" style={{ marginTop: 14 }}>Concerts owed each semester</label>
       <div className="dir-field-hint">

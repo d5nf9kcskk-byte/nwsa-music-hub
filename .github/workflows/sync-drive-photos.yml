@@ -1,0 +1,62 @@
+name: Sync concert photos to Drive
+
+# Files concert check-in selfies into the directors' shared Drive folder and
+# refreshes the cumulative attendance CSV beside them (#concert-checkin).
+#
+# The photos live in Firebase Storage under a path with NO public read, which
+# is correct for photographs of students but means the only way to see one is
+# to be signed into the Hub. Drive gives the directors a browsable archive
+# whose access is Drive's own sharing rather than a token in a URL.
+#
+# Every 15 minutes so a concert's photos are filed before anyone goes looking,
+# and on demand. A run with no Drive folder configured is a no-op, not a
+# failure — that is the normal state until a director pastes the folder id
+# into Concert Check-In → Settings.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+  # Ship the first run with the change that introduces the script, so the
+  # folder starts filling without anyone remembering to trigger it.
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/sync-drive-photos.mjs'
+      - 'scripts/lib/drivePhotoNames.mjs'
+      - '.github/workflows/sync-drive-photos.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  # Two runs would race on the same CSV and could double-upload a photo whose
+  # record had not been marked yet. One at a time; a skipped tick is free
+  # because the next one picks up everything outstanding.
+  group: sync-drive-photos
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    if: github.repository == 'd5nf9kcskk-byte/nwsa-music-hub'
+    steps:
+      - uses: actions/checkout@v7
+
+      # Node 24: the script imports src/director/checkin/checkinCsv.ts
+      # directly, so the CSV in Drive and the CSV the director downloads come
+      # from one function rather than two spellings.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # Runs before the credential is written — a broken helper must fail the
+      # run, not file two hundred photos under the wrong concert first.
+      - name: Check the naming and escaping helpers
+        run: node scripts/drive-photo-names.selfcheck.mjs
+
+      - run: npm install firebase-admin googleapis --no-save
+
+      - name: File photos and refresh the CSV
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/sync-drive-photos.mjs

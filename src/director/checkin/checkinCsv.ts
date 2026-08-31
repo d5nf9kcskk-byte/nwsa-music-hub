@@ -1,5 +1,9 @@
-import { ORG } from '../../org';
-import { termForDate, type Term } from '../../shared/concertCheckin';
+// Explicit .ts extension, on purpose: scripts/sync-drive-photos.mjs imports
+// this file under plain node, whose type-stripping loader cannot resolve an
+// extensionless relative import — the same note as instrumentFamily.ts. A
+// bare '../../shared/concertCheckin' passes tsc and vite and then fails the
+// cron on its first run.
+import { termForDate, type Term } from '../../shared/concertCheckin.ts';
 import type { ConcertCheckin } from '../types';
 
 /**
@@ -16,7 +20,21 @@ import type { ConcertCheckin } from '../types';
  * the roster. A concert renamed in March must not silently rewrite what
  * happened in September, and a student who leaves the program still attended
  * the concerts they attended.
+ *
+ * Deliberately NO `ORG` import: the nightly Drive sync
+ * (scripts/sync-drive-photos.mjs) writes the SAME file into the shared folder
+ * that the director downloads from the Hub, and it runs under plain node,
+ * where the vite `define` constants do not exist. Config is injected instead,
+ * so there is one spelling of this CSV rather than one per surface.
  */
+
+export interface CsvOptions {
+  terms: Term[];
+  /** IANA zone the times are printed in — the school's, never the reader's. */
+  timeZone: string;
+  /** Base URL of the Hub, for the photo cell's staff-only deep link. */
+  publicUrl: string;
+}
 
 /** RFC 4180, matching attendanceCsv.ts. */
 const esc = (v: unknown): string => {
@@ -77,12 +95,12 @@ export function minutesPresent(row: CheckinRow): string {
   return String(Math.max(0, Math.round((row.out.at - row.in.at) / 60000)));
 }
 
-function clock(at?: number): string {
+function clock(at: number | undefined, timeZone: string): string {
   if (!at) return '';
   return new Intl.DateTimeFormat('en-US', {
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', hour12: false,
-    timeZone: ORG.timezone,
+    timeZone,
   }).format(new Date(at));
 }
 
@@ -100,12 +118,13 @@ function clock(at?: number): string {
  * in the shared folder, where access is Drive's own sharing rather than a
  * token in a URL.
  */
-export function photoLink(rec?: ConcertCheckin): string {
+export function photoLink(rec: ConcertCheckin | undefined, publicUrl: string): string {
   if (!rec?.photoPath) return rec?.photoSkipped ? 'no photo (fallback)' : '';
-  return `${ORG.publicUrl}director/checkin?photo=${encodeURIComponent(rec.id)}`;
+  return `${publicUrl}director/checkin?photo=${encodeURIComponent(rec.id)}`;
 }
 
-export function checkinsToCsv(records: ConcertCheckin[], terms: Term[] = ORG.terms ?? []): string {
+export function checkinsToCsv(records: ConcertCheckin[], opts: CsvOptions): string {
+  const { terms, timeZone, publicUrl } = opts;
   const headers = [
     'Concert', 'Date', 'Requirement', 'Semester',
     'Student', 'Grade', 'Instrument', 'School email',
@@ -126,12 +145,12 @@ export function checkinsToCsv(records: ConcertCheckin[], terms: Term[] = ORG.ter
       row.instrument,
       row.email,
       row.in ? 'Yes' : 'No',
-      clock(row.in?.at),
-      photoLink(row.in),
+      clock(row.in?.at, timeZone),
+      photoLink(row.in, publicUrl),
       row.in?.photoDriveLink ?? '',
       row.out ? 'Yes' : 'No',
-      clock(row.out?.at),
-      photoLink(row.out),
+      clock(row.out?.at, timeZone),
+      photoLink(row.out, publicUrl),
       row.out?.photoDriveLink ?? '',
       minutesPresent(row),
       row.in && row.out ? 'Yes' : 'No',

@@ -52,3 +52,6 @@
 .dir-checkin-pill.early { background: #eaf1fb; color: #24508f; }
 .dir-checkin-pill.req { background: #fdecec; color: #a32020; }
 .dir-field-hint.warn { color: #a32020; font-weight: 600; }
+
+.dir-checkin-drive { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+.dir-checkin-drive .dir-input { flex: 1 1 16rem; }

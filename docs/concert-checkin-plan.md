@@ -1,9 +1,9 @@
 # Concert Check-In & Check-Out — build plan
 
 Status: **built and pushed** (branch `claude/concert-checkin-system-4ze065`)
-for the Monday subset — steps 1-5 below. Not yet built: the Google Drive
-photo sync, the calendar Required/Optional filter, and the student's own
-tally card (steps 6-8).
+for steps 1-5, 7 and 8. Shipped since: the student's own tally card (#119)
+and the Google Drive photo sync (this change). Still not built: the calendar
+Required/Optional filter and its two bundle feeds (step 6).
 
 Settled since this was written:
 - Accepted email domains are `students.dadeschools.net`, `mymdc.net`, and
