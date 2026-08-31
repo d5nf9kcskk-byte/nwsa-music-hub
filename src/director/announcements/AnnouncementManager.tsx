@@ -10,7 +10,7 @@ import { PrintableUpdates } from './PrintableUpdates';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { MAX_ANNOUNCEMENT_LINKS, type Announcement, type AnnouncementLink } from '../types';
 import { RichTextArea } from '../components/RichTextArea';
-import { LinkPicker } from '../components/LinkPicker';
+import { LazyLinkPicker } from '../components/LinkPickerLazy';
 import { whenQueued } from '../writeStatus';
 import { useCurrentDirector } from '../currentDirector';
 
@@ -391,7 +391,7 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
   const formInner = (
     <>
         {pickingLink && (
-          <LinkPicker
+          <LazyLinkPicker
             onClose={() => setPickingLink(false)}
             onPick={(label, url) => {
               setPickingLink(false);
