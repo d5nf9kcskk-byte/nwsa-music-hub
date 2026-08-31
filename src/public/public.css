@@ -827,3 +827,17 @@ html:has(.pub-app) body {
   .pub-program-sheet { border: none !important; border-radius: 0 !important; padding: 0 !important; box-shadow: none !important; }
   .pub-program-piece-title, .pub-program-piece-title:hover { color: #000 !important; }
 }
+
+/* Related links under an announcement (#linking) — the "here is the thing I
+   am talking about" row. */
+.pub-announce-links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.pub-announce-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px;
+  font-size: 13px; font-weight: 600; text-decoration: none;
+  color: var(--pub-accent);
+  background: var(--pub-accent-soft);
+  border: 1px solid var(--pub-border);
+  border-radius: 999px;
+}
+.pub-announce-link:hover { text-decoration: underline; }

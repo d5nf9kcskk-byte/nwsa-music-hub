@@ -439,6 +439,18 @@ export interface ProgressNote {
  */
 export type AnnouncementPriority = 'info' | 'important' | 'urgent';
 
+/** One entry in an announcement's "Related links" row (#linking). Written by
+ *  the link picker; `url` has already passed safeHref(). */
+export interface AnnouncementLink {
+  label: string;
+  url: string;
+}
+
+/** Cap on that row. A post is a notice, not a link farm — and `announcements`
+ *  is world-readable with no per-field rule, so the bound lives here and in
+ *  the form that writes it. */
+export const MAX_ANNOUNCEMENT_LINKS = 6;
+
 export interface Announcement {
   id: string;
   ensembleId: string | null; // null = school-wide
@@ -455,6 +467,10 @@ export interface Announcement {
   /** Display name at post time — for the owner's cross-staff audit view. */
   createdBy?: string;
   pinned?: boolean;
+  /** Things this post is about — concerts, documents, sign-ups, a filtered
+   *  calendar. Rendered as chips under the body, and as plain addresses
+   *  wherever a chip cannot go (print, the urgent Teams/email relay). */
+  links?: AnnouncementLink[];
   expiresOn?: string;        // YYYY-MM-DD; hidden strictly AFTER this date if set
   /** When set, hidden from the public site and the active director list. */
   archivedAt?: number;

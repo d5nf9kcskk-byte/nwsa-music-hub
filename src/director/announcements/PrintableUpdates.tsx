@@ -7,6 +7,10 @@ import { formatDate, todayStr } from '../utils';
 import { printViaPopup } from '../../shared/printPopup';
 import './printableUpdates.css';
 import { ORG } from '../../org';
+import { richTextToPlain } from '../../shared/richTextParse';
+
+/** Paper has no chips and nothing to tap — every address is printed in full. */
+const SITE = ORG.publicUrl.replace(/\/$/, '');
 
 /**
  * Director-facing printable sheet (#print-updates): today's schedule changes
@@ -98,7 +102,12 @@ export function PrintableUpdates({ onClose }: { onClose: () => void }) {
                     </span>
                     <span className="dir-print-item-ens">{ensembleName(a.ensembleId)}</span>
                   </div>
-                  {a.body && <div className="dir-print-item-note">{a.body}</div>}
+                  {a.body && <div className="dir-print-item-note">{richTextToPlain(a.body, SITE)}</div>}
+                  {a.links?.length ? (
+                    <div className="dir-print-item-note">
+                      {a.links.map(l => `${l.label}: ${l.url.startsWith('/') ? SITE + l.url : l.url}`).join('\n')}
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </section>

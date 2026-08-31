@@ -1,3 +1,4 @@
+import { announcementPreview as preview } from '../../shared/announcementPreview';
 import { useMemo, useState } from 'react';
 import { ClipboardList, ClipboardCheck, Users, Calendar, Music, Megaphone, Clock, MapPin, Sparkles, Armchair, FolderOpen, UserPlus, AlertTriangle, ChevronRight } from 'lucide-react';
 import { SeatingManager } from '../seating/SeatingManager';
@@ -114,7 +115,7 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
                   onClick={() => onNavigate('announcements', { announcementId: a.id })}
                 >
                   <span className="dir-alert-scope">{a.ensembleId == null ? 'Everyone' : ensemble.name}</span>
-                  {' '}{a.title}{a.body ? ` — ${a.body.slice(0, 80)}${a.body.length > 80 ? '…' : ''}` : ''}
+                  {' '}{a.title}{a.body ? ` — ${preview(a.body, 80)}` : ''}
                 </button>
               )}
             />

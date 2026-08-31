@@ -18,6 +18,7 @@ import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, a
 import type { CalendarEvent } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
+import { NotesText } from '../../public/components/NotesText';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { composerBirthdaysOn, birthdayLine, musicHolidayOn } from '../../shared/whimsy';
 import { DIRECTOR_FEEDBACK_FORM_URL } from '../feedbackForm';
@@ -293,7 +294,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
                 <span className="dir-ens-swatch" style={{ background: a.ensembleId ? ensembleColor(ensembleMap[a.ensembleId]) : '#64748b' }} />
                 <div className="dir-ens-info">
                   <div className="dir-ens-name">{a.pinned ? '📌 ' : ''}{a.title}</div>
-                  {a.body && <div className="dir-announce-body"><Linkify text={a.body} /></div>}
+                  {a.body && <div className="dir-announce-body"><NotesText text={a.body} /></div>}
                   <div className="dir-ens-sub">
                     {a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide'} · tap to edit
                   </div>

@@ -1,3 +1,4 @@
+import { announcementPreview as preview } from '../../shared/announcementPreview';
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { doc, getDoc } from 'firebase/firestore';
@@ -103,7 +104,7 @@ function AlertStrip({ onHome }: { onHome: boolean }) {
             className="pub-urgent-banner"
           >
             <Siren size={15} style={{ verticalAlign: '-2.5px' }} /> <strong>{a.title}</strong>
-            {a.body ? ` — ${a.body.slice(0, 90)}${a.body.length > 90 ? '…' : ''}` : ''}
+            {a.body ? ` — ${preview(a.body, 90)}` : ''}
             {isStaff ? ' · Edit' : ''}
           </Link>
         )}
