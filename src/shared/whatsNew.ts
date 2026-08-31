@@ -32,6 +32,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Calendar filter + the narrower check-in window (#concert-checkin).
+  {
+    id: '2026-08-31-required-optional-filter',
+    date: '2026-08-31',
+    title: 'Filter the calendar by required and optional concerts',
+    bullets: [
+      'The calendar has a new filter: Required concerts / Optional concerts, so you can see at a glance which ones you actually have to be at.',
+      'Both are subscribable calendars of their own \u2014 subscribe once and concerts join them as they are marked.',
+      'Check-in now opens 10 minutes before the downbeat rather than an hour, so check in as you find your seat.',
+    ],
+    audience: 'both',
+    expires: '2026-10-15',
+  },
   // Drive archive for concert photos (#concert-checkin). Staff-only: it is a
   // director's filing workflow, nothing a student or family acts on.
   {

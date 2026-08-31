@@ -105,6 +105,20 @@
       "types": ["Class", "Rehearsal", "Sectional", "Concert", "Event", "Assignment"]
     },
     {
+      "slug": "required-concerts",
+      "name": "Required concerts",
+      "description": "Every concert you are required to attend this year. New ones join automatically as they are marked.",
+      "attendance": "required",
+      "types": ["Concert", "Event"]
+    },
+    {
+      "slug": "optional-concerts",
+      "name": "Optional concerts",
+      "description": "Concerts that count toward your optional total if you come.",
+      "attendance": "optional",
+      "types": ["Concert", "Event"]
+    },
+    {
       "slug": "college",
       "name": "College (ensembles & classes)",
       "description": "Everything flagged college — ensembles and dual-enrollment classes together.",
@@ -119,7 +133,7 @@
   "checkin": {
     "emailDomains": ["students.dadeschools.net", "mymdc.net", "mdc.edu"],
     "storageBucket": "nwsa-hub.firebasestorage.app",
-    "opensMinutesBefore": 60,
+    "opensMinutesBefore": 10,
     "closesMinutesAfter": 60
   },
   "breakGlassEmails": ["nwsaorchestras@gmail.com"],

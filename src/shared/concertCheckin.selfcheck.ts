@@ -91,15 +91,26 @@ const concert: CheckinEventLike = {
   status: 'Scheduled', concertAttendance: 'required', checkin: { enabled: true },
 };
 const settings = resolveCheckinSettings(concert, { emailDomains: DOMAINS });
-assert(settings.opensMinutesBefore === 60 && settings.closesMinutesAfter === 60, 'site defaults apply');
+assert(settings.opensMinutesBefore === 10, 'the station opens TEN minutes before the downbeat by default');
+assert(settings.closesMinutesAfter === 60, 'and stays open an hour after the end');
 
 const win = checkinWindow(concert, settings, TZ)!;
-assert(win.opensAt === Date.UTC(2026, 7, 31, 22, 0), 'opens an hour before the downbeat');
+assert(win.opensAt === Date.UTC(2026, 7, 31, 22, 50), 'opens ten minutes before the downbeat');
 assert(win.closesAt === Date.UTC(2026, 8, 1, 2, 0), 'closes an hour after the end');
 
 const at = (h: number, m = 0) => Date.UTC(2026, 7, 31, h, m);
 assert(checkinState(concert, settings, TZ, at(20)) === 'early', 'closed before the window (4pm local)');
-assert(checkinState(concert, settings, TZ, at(22, 30)) === 'open', 'open at 6:30pm local');
+assert(checkinState(concert, settings, TZ, at(22, 30)) === 'early',
+  'still closed half an hour out — an hour-wide window invited a check-in from the parking lot');
+assert(checkinState(concert, settings, TZ, at(22, 55)) === 'open', 'open five minutes before the downbeat');
+
+// A concert can widen its own door without moving anyone else's.
+const early = { ...concert, checkin: { enabled: true, opensMinutesBefore: 90 } };
+const es = resolveCheckinSettings(early, { emailDomains: DOMAINS });
+assert(checkinWindow(early, es, TZ)!.opensAt === Date.UTC(2026, 7, 31, 21, 30),
+  'a concert that sets its own opensMinutesBefore overrides the default');
+assert(checkinWindow(concert, settings, TZ)!.opensAt === Date.UTC(2026, 7, 31, 22, 50),
+  'and does not move any other concert');
 assert(checkinState(concert, settings, TZ, at(23, 5)) === 'open', 'open just after the downbeat');
 assert(checkinState(concert, settings, TZ, Date.UTC(2026, 8, 1, 3)) === 'closed', 'closed an hour after the end');
 

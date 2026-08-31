@@ -157,4 +157,40 @@ assert(eventMatchesBundle(ccoReh, CE, ensembles), 'CCO rehearsal in college-ense
 assert(eventMatchesBundle(pianoClass, CC, ensembles), 'piano class in college-classes');
 assert(eventMatchesBundle(ccoReh, CA, ensembles) && eventMatchesBundle(pianoClass, CA, ensembles), 'both in all-college');
 
+// ── Attendance bundles (#concert-checkin). The case a hash-addressed view
+// cannot serve: a STABLE address whose membership grows every time a director
+// marks another concert.
+const REQ = { slug: 'required-concerts', name: 'Required concerts', description: '',
+  attendance: 'required', types: ['Concert', 'Event'] };
+const OPT = { slug: 'optional-concerts', name: 'Optional concerts', description: '',
+  attendance: 'optional', types: ['Concert', 'Event'] };
+
+const reqConcert = { type: 'Concert', ensembleIds: ['symphony-orchestra'], concertAttendance: 'required' };
+const optConcert = { type: 'Concert', ensembleIds: ['jazz-ensemble'], concertAttendance: 'optional' };
+const plainConcert = { type: 'Concert', ensembleIds: ['symphony-orchestra'] };
+const schoolDay = { type: 'Event', ensembleIds: [] };
+
+assert(eventMatchesBundle(reqConcert, REQ, ensembles), 'a required concert is in the required bundle');
+assert(!eventMatchesBundle(optConcert, REQ, ensembles), 'an optional one is not');
+assert(!eventMatchesBundle(plainConcert, REQ, ensembles), 'an untracked concert is in neither');
+assert(eventMatchesBundle(optConcert, OPT, ensembles), 'and the optional bundle has the optional one');
+assert(!eventMatchesBundle(reqConcert, OPT, ensembles), 'the two bundles do not overlap');
+assert(!eventMatchesBundle(schoolDay, REQ, ensembles),
+  'a school-wide day is not a required concert — subscribing to this must not repeat every holiday');
+
+// It spans the program: a required concert belongs whatever ensemble plays it,
+// including one the bundle never names.
+const otherEnsemble = { type: 'Concert', ensembleIds: ['a-group-nobody-listed'], concertAttendance: 'required' };
+assert(eventMatchesBundle(otherEnsemble, REQ, ensembles),
+  'a required concert counts even for an ensemble the bundle never names');
+
+// The published slugs are subscription contracts.
+assert(bundleFeedFile(REQ) === 'bundle-required-concerts.ics', 'required feed address is stable');
+assert(bundleFeedFile(OPT) === 'bundle-optional-concerts.ics', 'optional feed address is stable');
+
+// And they are wired into the shipped org config, not merely possible.
+const shippedSlugs = new Set((ORG.calendarBundles ?? []).map(b => b.slug));
+assert(shippedSlugs.has('required-concerts') && shippedSlugs.has('optional-concerts'),
+  'both attendance bundles ship in the org config');
+
 console.log('calendarBundles self-check passed');

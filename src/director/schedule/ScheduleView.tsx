@@ -15,6 +15,7 @@ import { IcsImport } from './IcsImport';
 import { QuickAddView } from './QuickAddView';
 import { FilteredCalendarSubscribe } from '../components/FilteredCalendarSubscribe';
 import { FilterMenu } from '../../shared/FilterMenu';
+import type { ConcertAttendance } from '../../shared/calendarView';
 import { activeCollegePreset, collegeFilterIds, type CollegeFilterPreset } from '../../shared/collegeCalendarFilter';
 import { seedCalendar, seedSchoolCalendar, seedExtraSchedule } from '../seedCalendar';
 import { seedAcademicClasses } from '../seedAcademicClasses';
@@ -34,6 +35,12 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 // Sentinel for the "school-wide events only" pick in the ensemble filter menu.
 const SCHOOL = '__school__';
 type SchedTypeKey = EventType | 'Assignment';
+/** Concerts that count toward a student's semester obligation. */
+const ATTENDANCE_OPTIONS = [
+  { value: 'required', label: 'Required concerts' },
+  { value: 'optional', label: 'Optional concerts' },
+];
+
 const SCHED_TYPE_OPTIONS: { value: SchedTypeKey; label: string; color: string }[] = [
   { value: 'Rehearsal', label: 'Rehearsals', color: '#2563eb' },
   { value: 'Class',     label: 'Classes',    color: '#0f766e' },
@@ -74,6 +81,9 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
       : (allowedEnsembleIds?.length ? [...allowedEnsembleIds] : []),
   );
   const [typeFilters, setTypeFilters] = useState<SchedTypeKey[]>([]);
+  // Concert attendance (#concert-checkin). One choice, not a set — a concert
+  // is required or optional, never both — so the menu keeps the last pick.
+  const [attendance, setAttendance] = useState<ConcertAttendance | ''>('');
   const [calView, setCalView] = useState<'month' | 'list'>('month');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
   const [quickAddDraft, setQuickAddDraft] = useState<Partial<Omit<CalendarEvent, 'id'>> | undefined>(undefined);
@@ -160,8 +170,13 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   // built from, so what you subscribe to is what you're looking at.
   const realEnsIds = useMemo(() => filterEnsembleIds.filter(x => x !== SCHOOL), [filterEnsembleIds]);
   const viewSpec = useMemo(
-    () => normalizeView({ ensembleIds: realEnsIds, school: filterEnsembleIds.includes(SCHOOL), types: typeFilters }),
-    [realEnsIds, filterEnsembleIds, typeFilters],
+    () => normalizeView({
+      ensembleIds: realEnsIds,
+      school: filterEnsembleIds.includes(SCHOOL),
+      types: typeFilters,
+      ...(attendance ? { attendance } : {}),
+    }),
+    [realEnsIds, filterEnsembleIds, typeFilters, attendance],
   );
   const visibleEvents = useMemo(
     () => events.filter(e => eventMatchesView(e, viewSpec)),
@@ -449,6 +464,17 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           options={SCHED_TYPE_OPTIONS}
           selected={typeFilters}
           onChange={next => setTypeFilters(next as SchedTypeKey[])}
+        />
+        <FilterMenu
+          prefix="dir"
+          allLabel="Required & optional"
+          ariaLabel="Filter by concert attendance"
+          options={ATTENDANCE_OPTIONS}
+          selected={attendance ? [attendance] : []}
+          // Keep only the newest pick: the two are mutually exclusive, and a
+          // view matching both would be every tracked concert, which is not a
+          // filter anyone asked for.
+          onChange={next => setAttendance((next[next.length - 1] as ConcertAttendance) ?? '')}
         />
       </div>
       {collegeFilterIds(ensembles, 'all').length > 0 && (

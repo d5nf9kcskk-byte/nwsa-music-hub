@@ -139,7 +139,13 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
         {announcements.length > 0 && (
           <EnsembleFilter ensembles={ensembles} value={filterEns} onChange={pickEns} />
         )}
-        <div className="dir-drawer-body">
+        {/* A drawer body is a SCROLLER; a tab body must not be. .dir-drawer-body
+            carries overflow-y:auto AND overscroll-behavior:contain, so on a full
+            tab it becomes a second scroll box that refuses to chain — once the
+            list is at its top, scrolling up does nothing and the page cannot be
+            scrolled back. .dir-page-body is the same padding and gap with no
+            nested scroll, which is what a tab wants. */}
+        <div className={asTab ? 'dir-page-body' : 'dir-drawer-body'}>
           {announcements.length === 0 ? (
             <div className="dir-empty-inline">No announcements yet. Post one to show it on the public site.</div>
           ) : shown.length === 0 ? (

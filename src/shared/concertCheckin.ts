@@ -40,9 +40,20 @@ export interface CheckinSettings {
   photoOptional: boolean;
 }
 
+/**
+ * The station opens TEN minutes before the downbeat by default (director's
+ * call, Aug 2026), not an hour: check-in is something you do as you walk in
+ * and find your seat, and an hour-wide window invites a student to check in
+ * from the parking lot and leave. A concert can widen it — see
+ * `opensMinutesBefore` on the event — but this is the number every concert
+ * gets unless someone says otherwise.
+ *
+ * The closing side stays generous on purpose: the cost of closing too early
+ * is a student who was genuinely there getting no credit.
+ */
 export const DEFAULT_CHECKIN_SETTINGS: CheckinSettings = {
   emailDomains: [],
-  opensMinutesBefore: 60,
+  opensMinutesBefore: 10,
   closesMinutesAfter: 60,
   minStayMinutes: 0,
   photoOptional: false,
