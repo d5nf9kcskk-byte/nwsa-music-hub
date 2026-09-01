@@ -57,10 +57,13 @@ Answer its prompts:
 | Prompt | Answer |
 |---|---|
 | Cloud Functions location | `us-central1` (same region as the other functions) |
+| Firestore Instance ID | `(default)` — literally, parentheses included |
+| Firestore Instance Location | `nam5` — NOT `us-central1`. `nam5` is a multi-region whose console label reads "(us-central)", which makes it look like a region; picking the region points the extension at a database that does not exist. |
+| Authentication Type | `Username & Password` |
 | SMTP connection URI | `smtps://nwsaorchestras@gmail.com@smtp.gmail.com:465` |
 | SMTP password | the App Password from step 1 |
 | Email documents collection | `mail` |
-| Default FROM address | `NWSA Music Hub <nwsaorchestras@gmail.com>` |
+| Default FROM address | `nwsaorchestras@gmail.com` (bare address — see below) |
 | Default REPLY-TO address | `nwsaorchestras@gmail.com` |
 | Users collection | *(leave blank)* |
 | Templates collection | *(leave blank)* |
@@ -68,8 +71,21 @@ Answer its prompts:
 Notes:
 
 - The **URI has the username in it and the password entered separately** —
-  that is what the extension expects. If the password contains `@` or `:`,
-  URL-encode it.
+  that is what the extension expects. The double `@` is correct and the
+  username is NOT percent-encoded; the extension's own Gmail example reads
+  `smtps://username@gmail.com@smtp.gmail.com:465`. If the PASSWORD contains
+  `@` or `:`, URL-encode that.
+- **Authentication type: Username & Password.** Every `OAuth2 …` prompt that
+  follows is optional and belongs to the other auth type — leave them blank,
+  and on their "Where would you like to store your secrets?" screens leave
+  BOTH options unselected. The one place that same screen must NOT be skipped
+  is the SMTP password, where you pick *Google Cloud Secret Manager* and enter
+  the App Password. Skipping it installs an extension that cannot authenticate.
+- **Default FROM must be the bare address**, not `Name <address>`. The
+  extension's own spec says this parameter "does not work with Gmail SMTP":
+  Gmail rewrites the From header to the authenticated account, so a display
+  name here is discarded. Sent mail shows whatever name the Google account
+  itself carries — to change it, rename that Google account, not this field.
 - `mail` must match exactly; the function writes there and nowhere else.
 - Leave templates blank. The email body is built in
   `functions/src/signupConfirmation.ts` so it can be self-checked in CI;
@@ -92,7 +108,10 @@ The extension writes its result back onto the doc as a `delivery` field:
 
 - `delivery.state: "SUCCESS"` — sent.
 - `delivery.state: "ERROR"` — read `delivery.error`. Almost always the SMTP
-  credential (wrong App Password, or 2-Step Verification not on).
+  credential: a wrong App Password, 2-Step Verification not on, or the
+  password prompt skipped during install. Fix without reinstalling:
+  `firebase ext:configure firestore-send-email --project nwsa-hub` reopens the
+  same prompts with current values pre-filled.
 - No `delivery` field at all — the extension isn't installed, or is watching a
   different collection than `mail`.
 
