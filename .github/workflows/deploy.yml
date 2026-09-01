@@ -85,6 +85,13 @@ jobs:
       - name: Check booked sign-up slots
         run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/signupBooking.selfcheck.ts
 
+      # A booked slot becomes a calendar appointment through ONE function,
+      # read by the Schedule screen and by the appointmentsFeed endpoint. If
+      # the two ever disagree, a director's subscribed calendar quietly stops
+      # matching the screen that offered it (#signup-appointments).
+      - name: Check sign-up appointments
+        run: npx tsx src/shared/signupAppointments.selfcheck.ts
+
       # The concert door (#concert-checkin). The window is computed in
       # school-local time from a UTC server, whole-domain email matching keeps
       # notstudents.dadeschools.net out, and a duplicate scan is refused by the

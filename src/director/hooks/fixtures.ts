@@ -131,6 +131,10 @@ export const FIXTURE_SIGNUPS: SignupForm[] = [
     id: 'fx-signup-allstate',
     title: 'All-State auditions — who’s in?',
     intro: 'Sign up here if you want to audition, so I can register you before the deadline.',
+    // #signup-appointments: the name a student sees, and whose calendar the
+    // booked times below land on. The owner EMAIL is not here on purpose —
+    // it lives in the staff-only signupOwners doc.
+    ownerName: 'Mr. Munger',
     ensembleIds: ['symphony-orchestra'],
     families: ['strings'],
     deadline: iso(1),

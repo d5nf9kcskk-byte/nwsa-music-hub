@@ -6,7 +6,7 @@ import {
   slotBookingId, slotClaimFromAnswer, slotClaimsForAnswers,
   takenSlotIndices, slotHeldByStudent, parseSlotOptions,
   gradesMatchSlot, slotBlockedReason, assertClaimsMatchGrade,
-  SignupSlotGradeError, gradeKey,
+  SignupSlotGradeError, gradeKey, canRemoveSlot,
 } from './signupSlots.ts';
 
 function assert(cond: unknown, msg: string): void {
@@ -61,5 +61,21 @@ try {
   assert(e instanceof SignupSlotGradeError && e.reason === '12th only', 'grade error for underclassman');
 }
 assertClaimsMatchGrade(form, [{ questionId: 'q1', slotIndex: 1, slotLabel: 'Mon 3:15' }], '12th');
+
+// ── Deleting a slot renumbers the ones after it ───────────────────────
+// A booking points at a POSITION, so the frozen region runs up to and
+// including the LAST booked index — not just the booked rows. This is the
+// bug: slot 2 booked, director deletes the empty slot 0, and that student
+// silently inherits whatever used to be slot 3.
+assert(canRemoveSlot(0, []), 'nothing booked → any slot may go');
+assert(canRemoveSlot(5, []), 'nothing booked → the last slot may go');
+assert(!canRemoveSlot(2, [2]), 'a booked slot may not be removed');
+assert(!canRemoveSlot(0, [2]), 'an EMPTY slot before a booked one may not be removed');
+assert(!canRemoveSlot(1, [2]), 'nor the one immediately before it');
+assert(canRemoveSlot(3, [2]), 'the tail past the last booking is free to delete');
+assert(!canRemoveSlot(3, [0, 4]), 'the gap between two bookings stays frozen');
+assert(canRemoveSlot(5, [0, 4]), 'past the LAST booking, not merely past the first');
+assert(canRemoveSlot(1, new Set<number>()), 'an empty Set behaves like nothing booked');
+assert(!canRemoveSlot(1, new Set([3])), 'a Set works the same as an array');
 
 console.log('signupSlots.selfcheck: ok');

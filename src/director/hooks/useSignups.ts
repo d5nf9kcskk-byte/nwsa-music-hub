@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   collection, addDoc, updateDoc, deleteDoc, doc, setDoc,
   runTransaction, query, where, deleteField,
@@ -9,6 +9,13 @@ import { watchCollection } from '../../shared/watchCollection';
 import {
   slotBookingId, SignupSlotTakenError, type SlotClaim,
 } from '../../shared/signupSlots';
+// parseAnswers / responseIsComplete live in the shared module because the
+// appointmentsFeed Cloud Function needs them and cannot import anything that
+// pulls in the Firebase SDK. Re-exported below so every call site here is
+// unchanged.
+import {
+  appointmentsForForms, parseAnswers, responseIsComplete,
+} from '../../shared/signupAppointments';
 import { FIXTURES_ON, FIXTURE_SIGNUPS } from './fixtures';
 import { currentDirectorName } from '../currentDirector';
 import type { SignupForm, SignupResponse, SignupSlotBooking } from '../types';
@@ -67,6 +74,7 @@ export function useSignupForms() {
     const gone = forms.find(f => f.id === id);
     await deleteDoc(doc(db, 'signupForms', id));
     await deleteDoc(doc(db, 'signupAudiences', id));
+    await deleteDoc(doc(db, 'signupOwners', id));
     if (gone) {
       const { id: _id, ...data } = gone;
       void _id;
@@ -113,6 +121,46 @@ export async function saveSignupAudience(formId: string, studentIds: string[]) {
 export async function deleteSignupAudience(formId: string) {
   if (!db) return;
   await deleteDoc(doc(db, 'signupAudiences', formId));
+}
+
+/**
+ * Who each sign-up belongs to (#signup-appointments) — formId → owner email.
+ *
+ * Staff-only, and the counterpart of the world-readable `ownerName` on the
+ * form itself: the name is what a student sees, the email is what routes
+ * booked slots to the right person's calendar and feed. Both are written
+ * together by saveSignupOwner + updateForm, so a form whose name and email
+ * disagree is the one state this pair exists to prevent.
+ */
+export function useSignupOwners() {
+  const [byFormId, setByFormId] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!db) { setLoading(false); return; }
+    return watchCollection(collection(db, 'signupOwners'), 'signupOwners', snap => {
+      const map: Record<string, string> = {};
+      for (const d of snap.docs) {
+        const email = d.data().email;
+        if (typeof email === 'string' && email) map[d.id] = email;
+      }
+      setByFormId(map);
+      setLoading(false);
+    }, () => setLoading(false));
+  }, []);
+
+  return { byFormId, loading };
+}
+
+/** Set (or clear) the staff member a sign-up's appointments belong to. */
+export async function saveSignupOwner(formId: string, email: string | undefined) {
+  if (!db) return;
+  const ref = doc(db, 'signupOwners', formId);
+  if (!email) {
+    await deleteDoc(ref);
+    return;
+  }
+  await setDoc(ref, { email });
 }
 
 /** World-readable slot claims for one sign-up form — drives the "Taken" UI. */
@@ -273,28 +321,53 @@ export function latestPerStudent(responses: SignupResponse[]): SignupResponse[] 
   return [...best.values()];
 }
 
-/** Answers as a plain object. Never throws: the stored JSON comes from an
- *  unauthenticated write, so a malformed value reads as "no answers". */
-export function parseAnswers(response: Pick<SignupResponse, 'answersJson'>): Record<string, string> {
-  if (!response.answersJson) return {};
-  try {
-    const parsed: unknown = JSON.parse(response.answersJson);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-      if (typeof v === 'string') out[k] = v;
-    }
-    return out;
-  } catch {
-    return {};
-  }
+/** Reading a response — the shared definitions, re-exported so this module
+ *  stays the one import site for the sign-ups screens. See
+ *  src/shared/signupAppointments.ts for why they live there. */
+export { parseAnswers, responseIsComplete };
+
+/** Every slot claim on every form — the director's calendar needs the lot,
+ *  where the sign-up detail screen only ever wants one form's. */
+export function useAllSignupSlotBookings() {
+  const [bookings, setBookings] = useState<SignupSlotBooking[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!db) { setLoading(false); return; }
+    return watchCollection(collection(db, 'signupSlotBookings'), 'signupSlotBookings', snap => {
+      setBookings(snap.docs.map(d => ({ id: d.id, ...d.data() } as SignupSlotBooking)));
+      setLoading(false);
+    }, () => setLoading(false));
+  }, []);
+
+  return { bookings, loading };
 }
 
-/** True once the student has done everything this form asks for — the
- *  distinction between "said yes" and "paperwork is in". */
-export function responseIsComplete(form: SignupForm, r: SignupResponse): boolean {
-  if (form.signatureStatement && !r.signature) return false;
-  if (form.guardianStatement && !(r.guardianName && r.guardianSignature)) return false;
-  const answers = parseAnswers(r);
-  return form.questions.every(q => !q.required || (answers[q.id] ?? '').trim() !== '');
+/**
+ * Booked time slots as calendar appointments (#signup-appointments), for the
+ * Schedule screen.
+ *
+ * Nothing new is stored: an appointment is derived from the form, the booking,
+ * and the newest response, which are three collections the Hub already reads.
+ * That is why freeing a slot makes the appointment disappear everywhere at
+ * once — there is no second copy to keep in step.
+ *
+ * `ownerEmail` narrows to one person's sign-ups. Pass undefined for all of
+ * them (an Owner looking at the whole department's day).
+ */
+export function useSignupAppointments(ownerEmail?: string) {
+  const { forms, loading: formsLoading } = useSignupForms();
+  const { bookings, loading: bookingsLoading } = useAllSignupSlotBookings();
+  const { responses, loading: responsesLoading } = useSignupResponses();
+  const { byFormId: owners, loading: ownersLoading } = useSignupOwners();
+
+  const appointments = useMemo(() => {
+    const mine = ownerEmail ? forms.filter(f => owners[f.id] === ownerEmail) : forms;
+    return appointmentsForForms(mine, bookings, responses);
+  }, [forms, bookings, responses, owners, ownerEmail]);
+
+  return {
+    appointments,
+    loading: formsLoading || bookingsLoading || responsesLoading || ownersLoading,
+  };
 }

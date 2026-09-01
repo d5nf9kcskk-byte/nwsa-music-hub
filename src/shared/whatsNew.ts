@@ -32,6 +32,23 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Booked time slots reach the OWNING director's calendar
+  // (#signup-appointments). The staff counterpart to the student-facing
+  // "the time you signed up for" entry below.
+  {
+    id: '2026-09-01-signup-appointments',
+    date: '2026-09-01',
+    title: 'Sign-up times now land on the right director’s calendar',
+    audience: 'staff' as const,
+    expires: '2026-09-22',
+    bullets: [
+      'A sign-up now has an owner — “Whose sign-up is this?” at the top of the editor. Build one for another director and the appointments are theirs, not yours. Students see the name too, so they know whose time they are booking.',
+      'Every slot a student books shows on that person’s Schedule screen, on the day itself: the time, who booked it, and whether their paperwork is finished.',
+      'You can also subscribe to them in Apple Calendar, Fantastical, or Google Calendar — the link is at the bottom of the Sign-ups screen. Each appointment carries the sign-up, the student, and everything they wrote on the form. That link has no sign-in, so treat it like a password and reset it if it gets out.',
+      'Your calendar app decides how often it checks, so a slot booked just now can take up to an hour to appear on your phone. The Hub’s own Schedule screen is instant.',
+      'Two safety changes to the slot builder: once someone has booked, you can no longer delete a time at or before theirs (it used to silently shift them onto someone else’s slot), and hand-typed slot labels now say plainly that they cannot reach a calendar — only slots built on the calendar carry a real date and time.',
+    ],
+  },
   // Standing weekly lesson time, and lessons on the student's calendar
   // (#applied). Public half is real: a student's own feed now carries it.
   {
