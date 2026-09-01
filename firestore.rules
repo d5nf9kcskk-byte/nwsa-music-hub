@@ -19,7 +19,9 @@ rules_version = '2';
 // collections are staff-only. The public site reads projection mirrors
 // instead — `studentsPublic` (name, preferred name, instrument, section,
 // ensembles, status, grade; NEVER pronunciation or contacts) and
-// `rosterOverridesPublic` (every field EXCEPT the free-text reason).
+// `rosterOverridesPublic` (every field EXCEPT the free-text reason), and
+// `lessonsPublic` (a lesson's WHEN and WHERE only — never the mark, the
+// comments, the repertoire or the initials; see #applied).
 // Mirrors are batched with each write (src/director/publicMirror.ts) and
 // converged by scripts/backfill-public-projections.mjs via the Admin SDK.
 //
@@ -661,6 +663,29 @@ service cloud.firestore {
             && request.resource.data.teacherEmail == resource.data.teacherEmail);
     }
 
+    // Public projection of the lesson SCHEDULE (#applied, #privacy) — when and
+    // where a lesson happens, and with whom. Deliberately world-readable, by
+    // the director's decision (2026-09-01), so a student's own lesson time can
+    // ride in feeds/student-<id>.ics alongside their rehearsals. That file is
+    // a public GitHub Pages artifact and student doc ids are already shared
+    // with studentsPublic, so treat everything here as fully public: this
+    // publishes who takes lessons with whom, and when.
+    //
+    // What it must NEVER carry is the rest of the lesson LOG — the mark, the
+    // technique comments, the repertoire, the initials. The key allowlist
+    // below is the enforcement, mirroring publicLessonFields() in
+    // src/director/publicMirror.ts; adding a field to `Lesson` publishes
+    // nothing until it is added in BOTH places, on purpose.
+    match /lessonsPublic/{doc} {
+      allow read;
+      allow create, update: if (isStaff() || isTeacherRole())
+        && request.resource.data.keys().hasOnly([
+             'studentId', 'date', 'startTime', 'endTime',
+             'status', 'location', 'teacherName', 'instrument',
+           ]);
+      allow delete: if isStaff() || isTeacherRole();
+    }
+
     // ── Private · staff read + write only ──────────────
     // Feed secrets (#lessons-feed): the unguessable token in the private
     // lessons calendar's URL. Staff-only — the token IS the access control on
@@ -1002,7 +1027,8 @@ service cloud.firestore {
       allow create: if isOwner();
       allow update: if isOwner()
         || (verifiedSelf(email)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'assignedStudentIds']));
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['name', 'assignedStudentIds', 'lessonSlots']));
       // The Owner may remove any OTHER director, but never their own
       // account — the app can never end up ownerless.
       allow delete: if isOwner() && request.auth.token.email != email;

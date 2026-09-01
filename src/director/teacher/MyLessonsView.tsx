@@ -23,6 +23,9 @@ import {
   suggestTeacherInitials,
   type PayrollMinutes,
 } from '../lessonLog';
+import {
+  pendingSlotDates, schoolYearEnd, slotSentence, WEEKDAY_OPTIONS, type LessonSlot,
+} from '../lessonSchedule';
 import { enqueueLessonLogMail } from '../lessonLogMail';
 import { todayStr, parseDate, formatTimeRange } from '../utils';
 import type { Lesson, Student } from '../types';
@@ -45,11 +48,14 @@ export function MyLessonsView() {
   const { events } = useEvents();
   const { ensembles } = useEnsembles();
   const { overrides, addOverride, deleteOverride } = useRosterOverrides();
-  const { lessons, addLesson, updateLesson, deleteLesson } = useLessons();
+  const { lessons, addLesson, updateLesson, deleteLesson, syncLessonMirror } = useLessons();
 
   const [editingStudents, setEditingStudents] = useState(false);
   const [sheetStudentId, setSheetStudentId] = useState<string | null>(null);
   const [editingLesson, setEditingLesson] = useState<Lesson | null | 'new'>(null);
+  const [editingSlot, setEditingSlot] = useState(false);
+  const [slotBusy, setSlotBusy] = useState(false);
+  const [slotAdded, setSlotAdded] = useState<{ count: number; conflicts: number } | null>(null);
   const [confirmDeleteLesson, setConfirmDeleteLesson] = useState<string | null>(null);
   const [mailBanner, setMailBanner] = useState<{ queued: boolean; mailto: string | null; name: string } | null>(null);
 
@@ -87,6 +93,54 @@ export function MyLessonsView() {
     await updateDoc(doc(db, 'directors', directorEmailId(me.email)), { assignedStudentIds: ids });
   }
 
+  /** The standing weekly time for one student — stored on my own director doc
+   *  beside the assignment it qualifies (#applied). `null` removes it. */
+  async function saveSlot(studentId: string, slot: LessonSlot | null) {
+    if (!db || !me) return;
+    const next = { ...(director?.lessonSlots ?? {}) };
+    if (slot) next[studentId] = slot; else delete next[studentId];
+    await updateDoc(doc(db, 'directors', directorEmailId(me.email)), { lessonSlots: next });
+  }
+
+  /**
+   * Turn the standing time into real lessons through the end of the school
+   * year. Dates that already have a lesson are skipped, cancelled ones
+   * included — see pendingSlotDates().
+   *
+   * ponytail: generates every matching weekday, holidays and breaks included.
+   * The teacher cancels the handful that don't happen. Skipping no-school days
+   * would mean the app knowing the district calendar, which it doesn't.
+   */
+  async function generateFromSlot(student: Student, slot: LessonSlot) {
+    if (!me) return;
+    setSlotBusy(true);
+    try {
+      const mine = myLessons.filter(l => l.studentId === student.id);
+      const dates = pendingSlotDates(slot, mine, today, schoolYearEnd(today));
+      let conflicts = 0;
+      for (const date of dates) {
+        conflicts += findLessonConflicts(
+          student.id, date, slot.startTime, slot.endTime, events, students, overrides,
+        ).length > 0 ? 1 : 0;
+        await addLesson({
+          teacherEmail: directorEmailId(me.email),
+          teacherName: me.name,
+          studentId: student.id,
+          date,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          status: 'Scheduled',
+          ...(slot.location ? { location: slot.location } : {}),
+          ...(student.instrument ? { instrument: student.instrument } : {}),
+          payrollMinutes: defaultPayrollMinutes(student.grade),
+        });
+      }
+      setSlotAdded({ count: dates.length, conflicts });
+    } finally {
+      setSlotBusy(false);
+    }
+  }
+
   async function saveLesson(data: LessonPayload, existing: Lesson | null) {
     if (existing?.overrideId) {
       await deleteOverride(existing.overrideId);
@@ -108,7 +162,12 @@ export function MyLessonsView() {
       }
       if (!data.notes && existing.notes) cleared.notes = deleteField();
       if (!data.location && existing.location) cleared.location = deleteField();
-      if (db && Object.keys(cleared).length > 0) await updateDoc(doc(db, 'lessons', existing.id), cleared);
+      if (db && Object.keys(cleared).length > 0) {
+        await updateDoc(doc(db, 'lessons', existing.id), cleared);
+        // A cleared `location` cannot be expressed by the merge in
+        // updateLesson — rebuild the public mirror from the doc itself.
+        await syncLessonMirror(existing.id);
+      }
       lessonId = existing.id;
     } else {
       lessonId = await addLesson(data);
@@ -180,6 +239,21 @@ export function MyLessonsView() {
         {mailBanner && (
           <MailBanner banner={mailBanner} onDismiss={() => setMailBanner(null)} />
         )}
+
+        <WeeklySlotPanel
+          student={sheetStudent}
+          slot={director?.lessonSlots?.[sheetStudent.id]}
+          lessons={sheetLessons}
+          today={today}
+          busy={slotBusy}
+          added={slotAdded}
+          editing={editingSlot}
+          onEdit={() => { setSlotAdded(null); setEditingSlot(true); }}
+          onCancelEdit={() => setEditingSlot(false)}
+          onSave={async slot => { await saveSlot(sheetStudent.id, slot); setEditingSlot(false); }}
+          onGenerate={slot => generateFromSlot(sheetStudent, slot)}
+          onDismissAdded={() => setSlotAdded(null)}
+        />
 
         <div className="dir-form-section-label">Lesson log ({sheetLessons.filter(l => l.status !== 'Cancelled').length})</div>
         {sheetLessons.length === 0 ? (
@@ -317,6 +391,154 @@ export function MyLessonsView() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * The standing weekly lesson time (#applied).
+ *
+ * Deliberately a SENTENCE and at most two buttons, not a scheduler: the whole
+ * point is that a teacher who meets a student every Friday at 2 says so once
+ * instead of typing thirty dates. Reads as "Fridays, 2:00 PM – 2:45 PM ·
+ * Room 214" with one action — put those on the calendar — and never
+ * enumerates the dates it is about to create.
+ */
+function WeeklySlotPanel({
+  student, slot, lessons, today, busy, added, editing,
+  onEdit, onCancelEdit, onSave, onGenerate, onDismissAdded,
+}: {
+  student: Student;
+  slot?: LessonSlot;
+  lessons: Lesson[];
+  today: string;
+  busy: boolean;
+  added: { count: number; conflicts: number } | null;
+  editing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (slot: LessonSlot | null) => Promise<void>;
+  onGenerate: (slot: LessonSlot) => void;
+  onDismissAdded: () => void;
+}) {
+  const through = schoolYearEnd(today);
+  const pending = slot ? pendingSlotDates(slot, lessons, today, through) : [];
+  const throughLabel = parseDate(through).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+
+  if (editing) {
+    return <SlotEditor student={student} slot={slot} onSave={onSave} onCancel={onCancelEdit} />;
+  }
+
+  return (
+    <>
+      <div className="dir-form-section-label">Weekly lesson time</div>
+      <div className="dir-page-hint" style={{ marginTop: 0 }}>
+        {slot
+          ? <>{slotSentence(slot)}. </>
+          : <>No standing time set. Set one and the Hub puts every week on {student.name}’s calendar and yours. </>}
+        <button className="dir-tool-btn" onClick={onEdit} style={{ marginLeft: 4 }}>
+          {slot ? 'Change' : 'Set weekly time'}
+        </button>
+      </div>
+
+      {slot && pending.length > 0 && (
+        <div style={{ padding: '0 16px 8px' }}>
+          <button className="dir-btn dir-btn-primary" disabled={busy} onClick={() => onGenerate(slot)}>
+            <Plus size={14} />{' '}
+            {busy
+              ? 'Adding…'
+              : `Add the remaining ${pending.length} through ${throughLabel}`}
+          </button>
+        </div>
+      )}
+      {slot && pending.length === 0 && !added && (
+        <div className="dir-page-hint" style={{ marginTop: 0 }}>
+          Every week through {throughLabel} is already on the calendar.
+        </div>
+      )}
+
+      {added && (
+        <div className="dir-page-hint" style={{ marginTop: 0, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <span>
+            Added {added.count} lesson{added.count === 1 ? '' : 's'}.
+            {added.conflicts > 0 && (
+              <> {added.conflicts} of them overlap a rehearsal or class — open those below to
+              confirm the pull-out, which is what tells the ensemble director.</>
+            )}
+          </span>
+          <button className="dir-tool-btn" onClick={onDismissAdded}>Dismiss</button>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Three fields: which day, what time, which room. Nothing else is a slot. */
+function SlotEditor({ student, slot, onSave, onCancel }: {
+  student: Student;
+  slot?: LessonSlot;
+  onSave: (slot: LessonSlot | null) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const fallback = defaultTimesForPayroll(defaultPayrollMinutes(student.grade));
+  const [weekday, setWeekday] = useState(slot?.weekday ?? 1);
+  const [startTime, setStartTime] = useState(slot?.startTime ?? fallback.startTime);
+  const [endTime, setEndTime] = useState(slot?.endTime ?? fallback.endTime);
+  const [location, setLocation] = useState(slot?.location ?? '');
+  const [saving, setSaving] = useState(false);
+  const valid = !!startTime && !!endTime && endTime > startTime;
+
+  return (
+    <>
+      <div className="dir-form-section-label">Weekly lesson time</div>
+      <div style={{ padding: '0 16px' }}>
+        <div className="dir-field">
+          <label className="dir-label">Day</label>
+          <select className="dir-select" value={weekday} onChange={e => setWeekday(Number(e.target.value))}>
+            {WEEKDAY_OPTIONS.map(d => <option key={d.weekday} value={d.weekday}>{d.label}</option>)}
+          </select>
+        </div>
+        <div className="dir-field-row">
+          <div className="dir-field">
+            <label className="dir-label">Starts</label>
+            <input className="dir-input" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} />
+          </div>
+          <div className="dir-field">
+            <label className="dir-label">Ends</label>
+            <input className="dir-input" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
+          </div>
+        </div>
+        {!valid && <div className="dir-page-hint" style={{ marginTop: 0 }}>The end time has to be after the start.</div>}
+        <div className="dir-field">
+          <label className="dir-label">Room (optional)</label>
+          <input className="dir-input" value={location} onChange={e => setLocation(e.target.value)} placeholder="Room 214" />
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '4px 0 12px' }}>
+          <button
+            className="dir-btn dir-btn-primary"
+            disabled={!valid || saving}
+            onClick={async () => {
+              setSaving(true);
+              await onSave({ weekday, startTime, endTime, ...(location.trim() ? { location: location.trim() } : {}) });
+            }}
+          >
+            Save weekly time
+          </button>
+          <button className="dir-btn dir-btn-ghost" disabled={saving} onClick={onCancel}>Cancel</button>
+          {slot && (
+            <button
+              className="dir-btn dir-btn-danger"
+              disabled={saving}
+              onClick={async () => { setSaving(true); await onSave(null); }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+        <div className="dir-page-hint" style={{ marginTop: 0 }}>
+          Removing the weekly time leaves lessons already on the calendar alone.
+        </div>
+      </div>
+    </>
   );
 }
 

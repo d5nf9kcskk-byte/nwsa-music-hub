@@ -67,8 +67,9 @@ const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_I
  * access token, which App Check does not gate.
  *
  * The #privacy invariant still governs every PUBLIC feed: those are built
- * from the public projections only — never `students`, never
- * `rosterOverrides`. Do not add a private collection to them.
+ * from the public projections only — `studentsPublic`,
+ * `rosterOverridesPublic`, `lessonsPublic` — never `students`, never
+ * `rosterOverrides`, never `lessons`. Do not add a private collection to them.
  *
  * ONE scoped exception exists (#lessons-feed): the private lessons calendar,
  * written to an unguessable `lessons-<token>.ics` and never listed in
@@ -200,7 +201,7 @@ function wrapCalendar(name, description, vevents) {
 (async () => {
   try {
     accessToken = await getAccessToken();
-    const [events, ensembles, students, overrides, pieces, assignments, views] = await Promise.all([
+    const [events, ensembles, students, overrides, pieces, assignments, views, publicLessons] = await Promise.all([
       fetchCollection('events'),
       fetchCollection('ensembles'),
       fetchCollection('studentsPublic'),
@@ -210,9 +211,15 @@ function wrapCalendar(name, description, vevents) {
       fetchOptionalCollection('repertoire'),
       fetchOptionalCollection('assignments'),
       fetchOptionalCollection('calendarViews'),
+      // The PUBLIC projection of the private-lesson schedule (#applied) — when
+      // and where only, never the mark or the log. It feeds the per-student
+      // calendars below and nothing else; the staff-only `lessons` collection
+      // is still never read here (#privacy). Optional so a project that has
+      // not backfilled the mirror yet builds normally.
+      fetchOptionalCollection('lessonsPublic'),
     ]);
 
-    console.log(`Fetched ${events.length} events, ${ensembles.length} ensembles, ${students.length} students, ${overrides.length} overrides, ${pieces.length} pieces, ${assignments.length} assignments, ${views.length} saved views`);
+    console.log(`Fetched ${events.length} events, ${ensembles.length} ensembles, ${students.length} students, ${overrides.length} overrides, ${pieces.length} pieces, ${assignments.length} assignments, ${views.length} saved views, ${publicLessons.length} lesson times`);
 
     const ensembleMap = Object.fromEntries(ensembles.map(e => [e.id, e]));
     const pieceMap = Object.fromEntries(pieces.map(p => [p.id, p]));
@@ -444,12 +451,31 @@ function wrapCalendar(name, description, vevents) {
       if ((event.attendanceStudentIds ?? []).includes(stu.id)) return true;
       return (event.attendanceEnsembleIds ?? []).some(ensId => memberIds.includes(ensId));
     };
+    // Private-lesson times, grouped by student (#applied). A student's own
+    // lesson rides in their own feed and nowhere else — no all-events feed, no
+    // ensemble feed, no view or bundle — so a lesson reaches exactly the one
+    // calendar it belongs on.
+    const lessonsByStudent = new Map();
+    for (const l of publicLessons) {
+      if (!l.studentId || !l.date) continue;
+      if (!lessonsByStudent.has(l.studentId)) lessonsByStudent.set(l.studentId, []);
+      lessonsByStudent.get(l.studentId).push(l);
+    }
+
     let studentFeeds = 0;
+    let lessonEvents = 0;
     if (PUBLIC_STUDENT_INFO) {
       for (const stu of students) {
         if (stu.status === 'Graduated' || stu.status === 'Inactive') continue;
         const mine = events.filter(e => expectedForStudent(stu, e));
-        const vevents = mine.map(e => buildVEVENT(e, lookups));
+        const myLessons = (lessonsByStudent.get(stu.id) ?? [])
+          .sort((a, b) => String(a.date).localeCompare(String(b.date))
+            || String(a.startTime ?? '').localeCompare(String(b.startTime ?? '')));
+        lessonEvents += myLessons.length;
+        const vevents = [
+          ...mine.map(e => buildVEVENT(e, lookups)),
+          ...myLessons.map(l => icsLesson({ ...l, studentName: stu.name }, BRANDING)),
+        ];
         const safeId = stu.id.replace(/[^a-z0-9-]/gi, '-');
         writeFileSync(
           `dist/feeds/student-${safeId}.ics`,
@@ -459,7 +485,7 @@ function wrapCalendar(name, description, vevents) {
       }
     }
     console.log(PUBLIC_STUDENT_INFO
-      ? `Generated ${studentFeeds} per-student feeds`
+      ? `Generated ${studentFeeds} per-student feeds (${lessonEvents} private-lesson times included)`
       : 'Skipped per-student feeds (PUBLIC_STUDENT_INFO=false)');
 
     // Index file listing all feeds (handy for debugging)

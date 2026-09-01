@@ -32,6 +32,23 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Standing weekly lesson time, and lessons on the student's calendar
+  // (#applied). Public half is real: a student's own feed now carries it.
+  {
+    id: '2026-09-01-weekly-lesson-time',
+    date: '2026-09-01',
+    title: 'Private lessons now have a weekly time — and land on your calendar',
+    audience: 'both' as const,
+    expires: '2026-09-22',
+    bullets: [
+      'Your private lesson now shows up on your own calendar alongside your rehearsals — same subscription, nothing new to add.',
+      'It carries the day, the time and the room, and updates on its own if your teacher moves it.',
+      'Applied teachers: open a student and set their weekly lesson time once — the day, the time, the room. One tap then puts every week on the calendar through the end of the school year.',
+      'Dates that already have a lesson are left alone, cancelled ones included, so you can press it again later without duplicating anything.',
+      'Holidays and breaks are still generated — cancel the handful that do not happen. Lessons that land on top of a rehearsal are counted for you; open those to confirm the pull-out, which is what tells the ensemble director.',
+      'Grades, comments, repertoire and initials stay staff-only and never leave the lesson log.',
+    ],
+  },
   // Confirmation email for a sign-up (#signups).
   {
     id: '2026-09-01-signup-confirmation-email',

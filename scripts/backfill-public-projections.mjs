@@ -8,6 +8,11 @@
  *   students        → studentsPublic        (name, preferredName, instrument,
  *                                            section, ensembleIds, status, grade)
  *   rosterOverrides → rosterOverridesPublic (all fields EXCEPT reason)
+ *   lessons         → lessonsPublic         (when/where only: studentId, date,
+ *                                            times, status, location,
+ *                                            teacherName, instrument — NEVER
+ *                                            the mark, comments, repertoire
+ *                                            or initials)
  *
  * Also deletes mirror docs whose source doc no longer exists, so re-running
  * always converges. Client writes keep the mirrors in sync day-to-day
@@ -42,6 +47,18 @@ function projectOverride(data) {
   return rest;
 }
 
+// Allowlist, deliberately — the lesson doc IS the log sheet, so a denylist
+// would publish the next field someone adds to it. Mirrors
+// publicLessonFields() in src/director/publicMirror.ts and the key allowlist
+// on /lessonsPublic in firestore.rules; all three change together.
+const PUBLIC_LESSON_KEYS = ['studentId', 'date', 'startTime', 'endTime', 'status', 'location', 'teacherName', 'instrument'];
+
+function projectLesson(data) {
+  const out = {};
+  for (const k of PUBLIC_LESSON_KEYS) if (data[k] !== undefined) out[k] = data[k];
+  return out;
+}
+
 async function syncMirror(sourceName, mirrorName, project) {
   const [source, mirror] = await Promise.all([
     db.collection(sourceName).get(),
@@ -63,4 +80,5 @@ async function syncMirror(sourceName, mirrorName, project) {
 
 await syncMirror('students', 'studentsPublic', projectStudent);
 await syncMirror('rosterOverrides', 'rosterOverridesPublic', projectOverride);
+await syncMirror('lessons', 'lessonsPublic', projectLesson);
 console.log('Public projections converged.');

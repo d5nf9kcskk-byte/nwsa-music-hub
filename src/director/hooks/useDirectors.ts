@@ -69,6 +69,12 @@ export interface Director {
    *  sets this when adding the teacher; the teacher may adjust it themselves
    *  afterward (firestore.rules allows a director to self-edit this field). */
   assignedStudentIds?: string[];
+  /** Applied-teacher only: the STANDING weekly lesson time for each assigned
+   *  student, keyed by student id (#applied). Lives here, beside the
+   *  assignment it qualifies, rather than in a collection of its own — see
+   *  src/director/lessonSchedule.ts for why, and for the expansion into
+   *  ordinary dated Lesson docs. Staff-only, like the whole directors doc. */
+  lessonSlots?: Record<string, import('../lessonSchedule').LessonSlot>;
   /** Ensembles / classes this person is responsible for — conducting (director),
    *  roll (assistant), or teaching (classroom). Jazz Combos can also match by
    *  name pattern via `assignedEnsemblePatterns`. */

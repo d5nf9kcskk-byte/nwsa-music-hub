@@ -180,6 +180,13 @@ jobs:
       - name: Check applied lesson log
         run: npx tsx src/director/lessonLog.selfcheck.ts
 
+      # Standing weekly lesson time (#applied): expansion must land on the
+      # right weekday, must never re-create a date that already has a lesson
+      # (which would resurrect a cancelled one), and must stay bounded.
+      # Imports the app's time formatter, so the org defines shim is needed.
+      - name: Check weekly lesson slots
+        run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/lessonSchedule.selfcheck.ts
+
       # Juries (#juries): a bulk add must never reshuffle an order the director
       # already sequenced, an inactive student must never enter a jury, and a
       # sort must lose nobody — including an id whose student record is gone.

@@ -89,9 +89,22 @@ How it works — do not regress this:
   pronunciation**) and `rosterOverridesPublic` (all fields **except the
   free-text `reason`**), via `src/public/hooks/usePublicRoster.ts`.
 - The field contract lives in `src/director/publicMirror.ts`. Every write in
-  `useStudents` / `useRosterOverrides` batches the mirror doc with the source
-  doc; `scripts/backfill-public-projections.mjs` (GitHub Action) converges
-  mirrors on demand.
+  `useStudents` / `useRosterOverrides` / `useLessons` batches the mirror doc
+  with the source doc; `scripts/backfill-public-projections.mjs` (GitHub
+  Action) converges mirrors on demand.
+- **A lesson's TIME is public; the rest of the lesson is not** (director's
+  decision, 2026-09-01). `lessonsPublic` mirrors only `studentId`, `date`,
+  `startTime`, `endTime`, `status`, `location`, `teacherName`, `instrument`,
+  so a student's own `feeds/student-<id>.ics` can carry their lesson beside
+  their rehearsals. This is a real widening and was chosen knowingly: that
+  file is a public Pages artifact and student doc ids are already shared with
+  `studentsPublic`, so who takes lessons with whom, and when, is now public.
+  The mark, `gradeNote`, repertoire, notes and both parties' initials are NOT,
+  and the guard is an ALLOWLIST in three places that must change together —
+  `publicLessonFields()`, the `/lessonsPublic` key allowlist in
+  `firestore.rules`, and `PUBLIC_LESSON_KEYS` in the backfill script. Adding a
+  field to `Lesson` publishes nothing until all three say so. `lessons` itself
+  stays staff-only; the private lessons Cloud Function below is unchanged.
 - `scripts/generate-feeds.mjs` must only ever fetch the public projections
   for PUBLIC feeds.
   It runs unauthenticated by default; when `FIREBASE_SERVICE_ACCOUNT_JSON` is
@@ -323,6 +336,20 @@ copies.
   so the grade inherits that scoping and there is no second query/rule pair to
   keep in agreement. Don't split grades into their own collection without
   redoing the `where('teacherEmail', ...)` treatment on both sides.
+- **A weekly lesson time is a RECIPE, not a lesson** (Sept 2026).
+  `lessonSlots` on the teacher's own `directors/{email}` doc holds one
+  `{weekday, startTime, endTime, location?}` per assigned student — beside the
+  `assignedStudentIds` it qualifies, so there is no new collection and no
+  second query/rule pair. `src/director/lessonSchedule.ts` expands it into
+  ordinary dated `Lesson` docs and nothing downstream knows a slot existed.
+  Two promises pinned by `lessonSchedule.selfcheck.ts` in the deploy workflow:
+  a date that already has a lesson is NEVER re-created (cancelled ones
+  included — re-creating one would silently undo the teacher's cancellation),
+  and the weekly walk is bounded. Generation deliberately does not know the
+  district calendar (holidays are generated, then cancelled by hand) and
+  deliberately does not auto-create `rosterOverrides` for conflicts — it
+  reports the count and the teacher confirms each pull-out, which is what
+  tells the ensemble director.
 - Roles are a CLOSED set enforced by `isKnownRole()` in `firestore.rules`
   (owner / director / teacher / assistant; a doc with no `role` = legacy
   director). Adding a new role means deliberately updating that helper and
