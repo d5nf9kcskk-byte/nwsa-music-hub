@@ -19,11 +19,27 @@
  * times with it) and `signupForms` is world-readable too — this only joins
  * two things a reader could already fetch separately.
  */
-import { formatClock24 } from './signupSlotTimes.ts';
 import { isTimeslotQuestion, slotBookingId } from './signupSlots.ts';
 import type {
   CalendarEvent, SignupForm, SignupSlotBooking, SignupSlotDef,
 } from '../director/types.ts';
+
+/**
+ * Minutes since midnight → "HH:MM" 24-hour, the shape CalendarEvent uses.
+ *
+ * Lives HERE rather than beside its siblings in signupSlotTimes.ts for one
+ * concrete reason: this module is loaded by the Cloud Function that sends the
+ * confirmation email, under Node's type-stripping loader. signupSlotTimes.ts
+ * reaches dates.ts → i18n → the org config, which needs Vite's build-time
+ * defines and cannot load in a function. Keeping this file's imports to
+ * signupSlots.ts (types only, plus two pure helpers) is what lets one
+ * definition of a booked slot serve both the browser and the server.
+ */
+export function formatClock24(min: number): string {
+  const clamped = Math.max(0, Math.min(1439, min));
+  const h = Math.floor(clamped / 60);
+  return `${String(h).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`;
+}
 
 /** One slot a student holds, with the form and slot definition behind it. */
 export interface BookedSlot {

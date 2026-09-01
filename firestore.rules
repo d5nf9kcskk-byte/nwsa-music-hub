@@ -1105,6 +1105,20 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
+    // The Trigger Email extension's send queue (#signups). The extension
+    // mails WHATEVER lands here, as the school, to whatever address the doc
+    // names — so this is the single most dangerous collection in the project
+    // to open. It is written ONLY by the signupConfirmation Cloud Function
+    // through the Admin SDK (which bypasses these rules); the extension reads
+    // and updates it with its own service credential, likewise bypassing them.
+    //
+    // No client needs access, and a public sign-up is an UNAUTHENTICATED
+    // write — a create rule here, however carefully shaped, would hand
+    // anyone on the internet the school's SMTP account. Never add one.
+    // Denied explicitly rather than left to the catch-all below, so that
+    // intent is visible at the point someone would otherwise edit it.
+    match /mail/{doc}            { allow read, write: if false; }
+
     // ── Deny everything else by default ─────────────────
     match /{document=**}         { allow read, write: if false; }
   }

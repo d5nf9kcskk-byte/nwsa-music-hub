@@ -11,10 +11,9 @@
  */
 import {
   slotDefAt, slotCalendarEvent, resolveBookedSlots, sortBookedSlots,
-  upcomingBookedSlots, type BookedSlot,
+  upcomingBookedSlots, formatClock24, type BookedSlot,
 } from './signupBooking.ts';
 import { slotBookingId } from './signupSlots.ts';
-import { formatClock24 } from './signupSlotTimes.ts';
 import type { SignupForm, SignupSlotBooking } from '../director/types.ts';
 
 function assert(cond: unknown, msg: string): void {

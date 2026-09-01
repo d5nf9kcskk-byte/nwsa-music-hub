@@ -23,14 +23,6 @@ export function formatClockMin(min: number): string {
   return `${hour12}:${String(minute).padStart(2, '0')} ${ampm}`;
 }
 
-/** Minutes since midnight → "HH:MM" 24-hour — the shape CalendarEvent uses,
- *  so a booked slot can be handed to the calendar/ICS path unchanged. */
-export function formatClock24(min: number): string {
-  const clamped = Math.max(0, Math.min(1439, min));
-  const h = Math.floor(clamped / 60);
-  return `${String(h).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`;
-}
-
 export function formatSlotDuration(startMin: number, endMin: number): string {
   const mins = Math.max(0, endMin - startMin);
   if (mins < 60) return `${mins} min`;

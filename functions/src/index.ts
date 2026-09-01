@@ -1,4 +1,4 @@
-import { https } from 'firebase-functions/v1';
+import { https, firestore } from 'firebase-functions/v1';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { ALLOWED_ORIGIN, buildLessonsIcs, tokenMatches, TOKEN_RE } from './lessonsFeed.ts';
@@ -14,6 +14,8 @@ import {
   emailMatchesScans, loadGoals, tallyScans, NO_MATCH, TERMS as TALLY_TERMS,
   type ScanLike, type TallyRequest,
 } from './concertTally.ts';
+import { buildConfirmation } from './signupConfirmation.ts';
+import type { SignupForm, SignupResponse } from '../../src/director/types.ts';
 
 initializeApp();
 
@@ -267,3 +269,58 @@ export const concertTally = https.onRequest(async (req, res) => {
   const { terms, incomplete } = tallyScans(scans, TALLY_TERMS, goals);
   res.status(200).json({ ok: true, terms, incomplete });
 });
+
+
+/**
+ * "Here is the time you signed up for", by email (#signups).
+ *
+ * Fires once per sign-up response and writes ONE doc into `mail` for the
+ * Trigger Email extension to send. Setup — including the SMTP account, the
+ * one part of this that cannot live in the repo — is in
+ * docs/signup-confirmation-email.md.
+ *
+ * This runs server-side for a security reason, not a convenience one: the
+ * extension sends whatever is written to `mail`, and a sign-up is an
+ * UNAUTHENTICATED public write. Letting the browser write that doc would hand
+ * the school's SMTP account to the internet — any recipient, any body, sent
+ * as the school. `mail` is denied to every client in firestore.rules; the
+ * Admin SDK here bypasses those rules, which is exactly why the recipient is
+ * read off the STORED response rather than taken from anything a caller said.
+ *
+ * Failures are logged and swallowed. A confirmation email is a courtesy on
+ * top of a sign-up that has ALREADY been saved — throwing would make Cloud
+ * Functions retry the trigger and send duplicates, and could never un-take
+ * the slot the student is holding.
+ */
+export const signupConfirmation = firestore
+  .document('signupResponses/{responseId}')
+  .onCreate(async (snap) => {
+    const response = snap.data() as SignupResponse | undefined;
+    if (!response?.formId) return;
+
+    try {
+      const db = getFirestore();
+      const formSnap = await db.doc(`signupForms/${response.formId}`).get();
+      if (!formSnap.exists) return;
+      const form = { id: formSnap.id, ...formSnap.data() } as SignupForm;
+
+      const mail = buildConfirmation(form, response, {
+        orgName: ORG.appName,
+        contactEmail: ORG.contactEmail,
+        ics: {
+          prodId: ORG.ics.prodId,
+          uidDomain: ORG.ics.uidDomain,
+          timezone: ORG.timezone,
+          namePrefix: ORG.ics.namePrefix,
+        },
+      });
+      // No address on the response — a form that collected none, or a student
+      // who left it blank. Nothing to send, and not an error.
+      if (!mail) return;
+
+      await db.collection('mail').add(mail);
+    } catch (err) {
+      // Logged, never rethrown — see the note above on retries.
+      console.error('signupConfirmation: could not queue the email', err);
+    }
+  });

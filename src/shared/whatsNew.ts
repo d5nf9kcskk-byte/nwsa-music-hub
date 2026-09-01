@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Confirmation email for a sign-up (#signups).
+  {
+    id: '2026-09-01-signup-confirmation-email',
+    date: '2026-09-01',
+    title: 'Sign-ups now email you a confirmation',
+    audience: 'both' as const,
+    expires: '2026-09-22',
+    bullets: [
+      'Put your email on a sign-up and the Hub sends you a confirmation naming the time you booked, so you have it in writing.',
+      'The email carries the time as a calendar file — open the attachment and it drops straight into your calendar.',
+      'If a parent or guardian signed the form, they get a copy too. One address in both places is only mailed once.',
+      'Directors: this is on for every sign-up that collects an email; there is no switch to flip. Times you typed by hand are named in the email but carry no calendar file — only slots built with the time picker have a real date on them.',
+    ],
+  },
   // Booked sign-up times are now visible after you book them (#signups).
   {
     id: '2026-09-01-signup-slot-visible',
