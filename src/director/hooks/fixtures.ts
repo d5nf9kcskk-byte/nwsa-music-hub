@@ -1,4 +1,5 @@
-import type { CalendarEvent, Ensemble, LibraryDocument, RepertoirePiece, SignupForm, Student } from '../types';
+import { slotDefsToOptions } from '../../shared/signupSlotTimes';
+import type { CalendarEvent, Ensemble, LibraryDocument, RepertoirePiece, SignupForm, SignupSlotDef, Student } from '../types';
 
 /**
  * Local development fixtures (redesign test cycle). Served ONLY when Firebase
@@ -119,6 +120,12 @@ export const FIXTURE_STUDENTS: Student[] = [
 /** One open sign-up, aimed at the string players in Symphony Orchestra —
  *  the shape #signups was built for. `deadline` is relative to today so the
  *  "closes today / by <date>" states are reachable while developing. */
+const FIXTURE_SLOT_DEFS: SignupSlotDef[] = [
+  { date: iso(6), startMin: 15 * 60, endMin: 15 * 60 + 20 },
+  { date: iso(6), startMin: 15 * 60 + 20, endMin: 15 * 60 + 40 },
+  { date: iso(7), startMin: 15 * 60, endMin: 15 * 60 + 20 },
+];
+
 export const FIXTURE_SIGNUPS: SignupForm[] = [
   {
     id: 'fx-signup-allstate',
@@ -128,6 +135,16 @@ export const FIXTURE_SIGNUPS: SignupForm[] = [
     families: ['strings'],
     deadline: iso(1),
     questions: [
+      // A built (dated) slot grid — the only kind that can reach a calendar,
+      // so the fixture carries one or nothing local exercises that path.
+      {
+        id: 'q0', label: 'Pick your audition time', type: 'timeslot', required: true,
+        // `options` is derived from the defs on save in the real editor
+        // (normalizeTimeslotQuestion) — derive it the same way here so the
+        // fixture can't drift from the labels students actually pick.
+        options: slotDefsToOptions(FIXTURE_SLOT_DEFS),
+        slotDefs: FIXTURE_SLOT_DEFS,
+      },
       { id: 'q1', label: 'What will you audition on?', type: 'short', required: true },
       { id: 'q2', label: 'Have you auditioned before?', type: 'yesno', required: true },
       { id: 'q3', label: 'Anything I should know?', type: 'long' },

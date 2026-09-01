@@ -133,6 +133,31 @@ export function useSignupSlotBookings(formId: string) {
 }
 
 /**
+ * Every slot ONE student holds, across all forms — "what times did I book?".
+ *
+ * Same world-readable collection as above, asked the other way round: by
+ * student instead of by form, so a student's own schedule page can show the
+ * times they claimed without reading staff-only `signupResponses`. The
+ * booking doc already carries the student's name publicly (it has to, so the
+ * sign-up page can grey out taken slots), so this exposes nothing new.
+ */
+export function useStudentSlotBookings(studentId: string) {
+  const [bookings, setBookings] = useState<SignupSlotBooking[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!db || !studentId) { setBookings([]); setLoading(false); return; }
+    const q = query(collection(db, 'signupSlotBookings'), where('studentId', '==', studentId));
+    return watchCollection(q, 'signupSlotBookings', snap => {
+      setBookings(snap.docs.map(d => ({ id: d.id, ...d.data() } as SignupSlotBooking)));
+      setLoading(false);
+    }, () => setLoading(false));
+  }, [studentId]);
+
+  return { bookings, loading };
+}
+
+/**
  * The public write (#signups): one student's response. Unauthenticated and
  * create-only — firestore.rules enforces the exact shape, so this is the ONE
  * place that shape is built. `submittedAt` and `status` are stamped here

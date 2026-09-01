@@ -67,7 +67,7 @@
 }
 
 .pub-signup-receipt {
-  display: flex; align-items: flex-start; gap: 8px;
+  display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap;
   margin-bottom: 12px; padding: 11px 13px;
   background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--pub-radius-md);
   font-size: 13px; line-height: 1.5; color: #14532d;
@@ -199,8 +199,56 @@
 .pub-signup-done p { font-size: 15px; line-height: 1.55; margin: 0 0 10px; }
 .pub-signup-done .pub-signup-send { max-width: 280px; margin: 20px auto 0; }
 
+/* ── The time slot(s) a student booked (#signups) ──────────────────────
+   Shown on the confirmation, on a return visit, and on their schedule —
+   the same block in all three, so a booked time reads identically
+   wherever they find it. */
+.pub-signup-booked {
+  width: 100%; margin: 12px 0 0; padding-top: 10px;
+  border-top: 1px solid var(--pub-border);
+  text-align: left;
+}
+.pub-signup-booked-head {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--pub-muted); margin-bottom: 6px;
+}
+.pub-signup-booked-row {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px 12px; padding: 3px 0;
+}
+.pub-signup-booked-when {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 14px; font-weight: 700; line-height: 1.45;
+}
+.pub-signup-booked-when svg { flex-shrink: 0; }
+
+/* Same block on the student's own schedule page. */
+.pub-booked-times { display: flex; flex-direction: column; gap: 4px; }
+.pub-booked-time {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px 12px; padding: 7px 0;
+}
+.pub-booked-time + .pub-booked-time { border-top: 1px solid var(--pub-border); }
+.pub-booked-time-info { min-width: 0; }
+.pub-booked-time-title {
+  display: block; font-size: 14px; font-weight: 800;
+  color: inherit; text-decoration: none;
+}
+.pub-booked-time-title:hover { text-decoration: underline; }
+.pub-booked-time-when {
+  display: flex; align-items: center; gap: 5px; margin-top: 2px;
+  font-size: 13px; color: var(--pub-muted);
+}
+.pub-booked-time-when svg { flex-shrink: 0; }
+
+/* Inside the green "you already signed up" banner the divider and label
+   must read as part of it, not as page furniture. */
+.pub-signup-receipt .pub-signup-booked { border-top-color: #bbf7d0; }
+.pub-signup-receipt .pub-signup-booked-head { color: inherit; opacity: 0.75; }
+
 /* ── Dark mode for the hardcoded pastels ── */
 [data-pub-theme='dark'] .pub-signup-alert.urgent { background: #2a2310; border-color: #6b5d1d; }
 [data-pub-theme='dark'] .pub-signup-receipt {
   background: #14261a; border-color: #14532d; color: #86efac;
 }
+[data-pub-theme='dark'] .pub-signup-receipt .pub-signup-booked { border-top-color: #14532d; }

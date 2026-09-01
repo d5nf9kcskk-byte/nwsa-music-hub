@@ -21,6 +21,8 @@ import {
   SignupSlotTakenError, SignupSlotGradeError, assertClaimsMatchGrade,
   gradesMatchSlot, slotBlockedReason, slotGradeAllows,
 } from '../shared/signupSlots';
+import { resolveBookedSlots, slotCalendarEvent } from '../shared/signupBooking';
+import { AddToCalendarButton } from './components/AddToCalendar';
 import { getReceipt, saveReceipt } from './signupReceipt';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 import { ORG } from '../org';
@@ -112,6 +114,27 @@ export function PublicSignup() {
   // may not even be the right vocabulary — so there it's typed, and optional.
   const effectiveGrade = gradeTouched ? grade : (student?.grade ?? '');
   const receipt = useMemo(() => getReceipt(id), [id]);
+
+  // The time(s) they just picked, read straight out of the form state rather
+  // than out of `slotBookings`: the confirmation screen has to name the time
+  // the instant the send succeeds, not one listener round-trip later.
+  const pickedSlots = useMemo(
+    () => (form ? slotClaimsForAnswers(form, answers) : []).map(c => ({
+      label: c.slotLabel,
+      event: form ? slotCalendarEvent(form, c.questionId, c.slotIndex) : null,
+    })),
+    [form, answers],
+  );
+
+  // The time(s) they already hold on a RETURN visit. Read from the booking
+  // docs, not the local receipt, so a student who comes back on a different
+  // phone still sees the slot they took.
+  const bookedSlots = useMemo(
+    () => (form && studentId
+      ? resolveBookedSlots([form], slotBookings.filter(b => b.studentId === studentId))
+      : []),
+    [form, slotBookings, studentId],
+  );
 
   // Every hook runs above the early returns below — React requires the same
   // hook order on every render, loading or not.
@@ -244,6 +267,23 @@ export function PublicSignup() {
             <strong>{identityName}</strong>{effectiveGrade ? ` · ${effectiveGrade}` : ''} — sent to your director.
             {needsSignature && ' Your signature went with it.'}
           </p>
+          {pickedSlots.length > 0 && (
+            <div className="pub-signup-booked">
+              <div className="pub-signup-booked-head">
+                {pickedSlots.length > 1 ? 'Your times' : 'Your time'}
+              </div>
+              {pickedSlots.map(s => (
+                <div key={s.label} className="pub-signup-booked-row">
+                  <span className="pub-signup-booked-when">
+                    <CalendarClock size={15} aria-hidden="true" /> {s.label}
+                  </span>
+                  {/* Hand-typed slot labels carry no date — offering a
+                      calendar button there would save the wrong day. */}
+                  {s.event && <AddToCalendarButton event={s.event} />}
+                </div>
+              ))}
+            </div>
+          )}
           <p className="pub-muted">
             Nothing else to do right now. If your director needs anything more,
             they’ll reach out{email.trim() ? ` at ${email.trim()}` : ''}.
@@ -283,6 +323,25 @@ export function PublicSignup() {
           <Check size={15} /> You already signed up as <strong>{receipt.studentName}</strong> on{' '}
           {fmtLongDate(toDateStr(new Date(receipt.at)))}.
           {!closedReason && ' Sending this form again replaces your earlier answers.'}
+          {bookedSlots.length > 0 && (
+            <div className="pub-signup-booked">
+              <div className="pub-signup-booked-head">
+                {bookedSlots.length > 1 ? 'Your times' : 'Your time'}
+              </div>
+              {bookedSlots.map(s => (
+                <div key={s.booking.id} className="pub-signup-booked-row">
+                  <span className="pub-signup-booked-when">
+                    <CalendarClock size={15} aria-hidden="true" /> {s.label}
+                  </span>
+                  {s.def && (
+                    <AddToCalendarButton
+                      event={slotCalendarEvent(s.form, s.booking.questionId, s.booking.slotIndex)!}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

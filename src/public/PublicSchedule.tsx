@@ -9,7 +9,7 @@ import { SignupAlert } from './components/SignupAlert';
 import { ConcertTally } from './components/ConcertTally';
 import { CheckinStrip } from './components/CheckinStrip';
 import { BackLink } from './components/BackLink';
-import { ChevronLeft, ChevronRight, ExternalLink, LayoutList, Grid3x3, CalendarX, GraduationCap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, LayoutList, Grid3x3, CalendarX, GraduationCap, CalendarClock } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useStudentsPublic } from './hooks/usePublicRoster';
 import { usePublicEvents } from './hooks/usePublicEvents';
@@ -17,6 +17,9 @@ import { usePublicOverrides } from './hooks/usePublicRoster';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
+import { useSignupForms, useStudentSlotBookings } from '../director/hooks/useSignups';
+import { resolveBookedSlots, upcomingBookedSlots, slotCalendarEvent } from '../shared/signupBooking';
+import { AddToCalendarButton } from './components/AddToCalendar';
 import { studentExpectation } from '../director/rosterResolver';
 import { todayStr, toDateStr, parseDate, formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, studentHasAssignment, assignmentEmoji, isPublished, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
@@ -63,6 +66,8 @@ export function PublicSchedule() {
   const now = useMinuteTick(); // scheduled posts appear the minute they go live
   const { pieces } = useRepertoire();
   const { assignments } = useAssignments();
+  const { forms: signupForms } = useSignupForms();
+  const { bookings: myBookings } = useStudentSlotBookings(id);
 
   // Plain component state on purpose: the filter and view reset every time the
   // student re-opens this page, so nothing stays silently hidden.
@@ -115,6 +120,16 @@ export function PublicSchedule() {
           .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
       : [],
     [assignments, today, now, student],
+  );
+
+  // Time slots this student BOOKED on a sign-up (#signups) — an audition
+  // time or a hearing is a real appointment, but it lives in
+  // `signupSlotBookings`, not on the calendar, so it would otherwise be
+  // invisible on the one page the student actually opens. Reads only
+  // world-readable docs; the staff-only response never comes near this page.
+  const myTimes = useMemo(
+    () => upcomingBookedSlots(resolveBookedSlots(signupForms, myBookings), today),
+    [signupForms, myBookings, today],
   );
 
   // Pieces linked to upcoming events that have a part matching this student's instrument.
@@ -232,6 +247,31 @@ export function PublicSchedule() {
       ))}
 
       <PracticeCard student={student} schedule={mySchedule} piecesById={piecesById} assignments={myAssignments} />
+
+      {myTimes.length > 0 && (
+        <>
+          <h2 className="pub-section-title">{t('sched.yourTimes')}</h2>
+          <div className="pub-card pub-booked-times">
+            {myTimes.map(slot => {
+              const ev = slotCalendarEvent(slot.form, slot.booking.questionId, slot.booking.slotIndex);
+              return (
+                <div key={slot.booking.id} className="pub-booked-time">
+                  <div className="pub-booked-time-info">
+                    <Link to={`/signup/${slot.form.id}`} className="pub-booked-time-title">
+                      {slot.form.title}
+                    </Link>
+                    <div className="pub-booked-time-when">
+                      <CalendarClock size={13} aria-hidden="true" /> {slot.label}
+                    </div>
+                  </div>
+                  {/* No button for a hand-typed slot: it has no date to save. */}
+                  {ev && <AddToCalendarButton event={ev} />}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {myAssignments.length > 0 && (
         <>

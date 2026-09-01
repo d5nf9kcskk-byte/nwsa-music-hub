@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Booked sign-up times are now visible after you book them (#signups).
+  {
+    id: '2026-09-01-signup-slot-visible',
+    date: '2026-09-01',
+    title: 'The time you signed up for now stays where you can see it',
+    audience: 'both' as const,
+    expires: '2026-09-22',
+    bullets: [
+      'Picked a time on a sign-up? The confirmation screen now tells you which one you got, instead of just “you\u2019re signed up”.',
+      'It is still there when you come back to the sign-up later — read from the booking itself, so it shows up even on a different phone.',
+      'Your own schedule page lists every time you have booked under “Your times”, with a link back to the sign-up it came from.',
+      'Tap Add to my calendar next to a time and it goes into your phone\u2019s calendar with its own reminder, the same way a rehearsal does.',
+      'Directors: this only works for slots built with the slot picker. Times typed in by hand still show as text — there is no date in them to put on a calendar.',
+    ],
+  },
   // The college door on concert check-in (#concert-checkin).
   {
     id: '2026-08-31-checkin-college-door',

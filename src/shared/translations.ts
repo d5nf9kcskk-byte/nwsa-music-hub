@@ -82,6 +82,8 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'ens.eventSchedule':      { en: 'Event schedule',           es: 'Calendario de eventos' },
   'ens.seating':            { en: 'Seating',                  es: 'Asientos' },
   'ens.roster':             { en: 'Roster',                   es: 'Lista de estudiantes' },
+  // Time slots the student booked on a sign-up (#signups).
+  'sched.yourTimes':        { en: 'Your times',              es: 'Tus horarios' },
   'sched.yourAssignments':  { en: 'Your assignments & exams', es: 'Tus tareas y exámenes' },
   'sched.yourSchedule':     { en: 'Your schedule',            es: 'Tu horario' },
   'sched.nothingToday':     { en: 'Nothing scheduled for you today.', es: 'No tienes nada programado para hoy.' },

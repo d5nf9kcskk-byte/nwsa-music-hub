@@ -79,6 +79,12 @@ jobs:
       - name: Check sign-up slot parsing
         run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/signupSlotParse.selfcheck.ts
 
+      # Reading a booked slot back (#signups). A hand-typed slot label has no
+      # date in it, so it must never produce a calendar entry — that would put
+      # a student's audition on the wrong day, silently.
+      - name: Check booked sign-up slots
+        run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/signupBooking.selfcheck.ts
+
       # The concert door (#concert-checkin). The window is computed in
       # school-local time from a UTC server, whole-domain email matching keeps
       # notstudents.dadeschools.net out, and a duplicate scan is refused by the
