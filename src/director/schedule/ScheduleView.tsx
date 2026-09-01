@@ -22,8 +22,11 @@ import { seedAcademicClasses } from '../seedAcademicClasses';
 import { seedCollegeProgram } from '../seedCollege';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
 import {
-  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, EVENT_TYPE_ICON, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR,
+  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, EVENT_TYPE_ICON, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR, APPT_COLOR,
 } from '../utils';
+import { formatClockMin } from '../../shared/signupSlotTimes';
+import { useSignupAppointments } from '../hooks/useSignups';
+import { useCurrentDirector } from '../currentDirector';
 import type { CalendarEvent, EventType } from '../types';
 import { assignmentMatchesView, eventMatchesView, normalizeView } from '../../shared/calendarView';
 import { Linkify } from '../components/Linkify';
@@ -66,6 +69,13 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   const { pieces, updatePiece } = useRepertoire();
   const { overrides } = useRosterOverrides();
   const { assignments } = useAssignments();
+  // Booked sign-up time slots (#signup-appointments) — MY sign-ups only.
+  // Deliberately a separate layer, never merged into `events`: viewSlug() and
+  // the calendar-bundle slugs are frozen subscription contracts, and a
+  // synthetic event in that array would change what every already-published
+  // feed contains.
+  const me = useCurrentDirector();
+  const { appointments } = useSignupAppointments(me?.email);
 
   const [cursor, setCursor] = useState(() => {
     const d = parseDate(initialDate ?? todayStr());
@@ -199,6 +209,16 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
     for (const a of visibleAssignments) (m[a.dueDate] ??= []).push(a);
     return m;
   }, [visibleAssignments]);
+
+  // Appointments ignore the ensemble/type filter on purpose: they belong to a
+  // PERSON, not to an ensemble, so there is nothing sensible for "Symphony
+  // Orchestra · Rehearsals" to do with them. Hiding your own 3:15 audition
+  // because you narrowed the calendar to one group would be the bug.
+  const apptByDate = useMemo(() => {
+    const m: Record<string, typeof appointments> = {};
+    for (const a of appointments) (m[a.date] ??= []).push(a);
+    return m;
+  }, [appointments]);
 
   // Build the month grid (leading blanks + days, padded to full weeks).
   const cells = useMemo(() => {
@@ -551,6 +571,16 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
                         {(assignByDate[dateStr] ?? []).slice(0, 2).map(a => (
                           <span key={a.id} className="dir-cal-dot" style={{ background: ASSIGN_COLOR }} />
                         ))}
+                        {/* One dot for the whole day, however many people
+                            booked: an audition day is twenty slots, and twenty
+                            dots would swamp every other mark in the cell. */}
+                        {(apptByDate[dateStr] ?? []).length > 0 && (
+                          <span
+                            className="dir-cal-dot"
+                            style={{ background: APPT_COLOR }}
+                            title={`${(apptByDate[dateStr] ?? []).length} booked`}
+                          />
+                        )}
                       </span>
                     </button>
                   );
@@ -576,11 +606,28 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
                 </button>
               )}
             </div>
-            {dayEvents.length === 0 && (assignByDate[selectedDate] ?? []).length === 0 ? (
+            {dayEvents.length === 0
+              && (assignByDate[selectedDate] ?? []).length === 0
+              && (apptByDate[selectedDate] ?? []).length === 0 ? (
               <div className="dir-day-empty">No events scheduled. Tap + to add one. {dailyPun('dir-sched').en}</div>
             ) : (
               <>
                 {dayEvents.map(e => <EventCard key={e.id} e={e} />)}
+                {(apptByDate[selectedDate] ?? []).map(a => (
+                  <div key={a.id} className="dir-sc-ov dir-sc-ov-appt" style={{ borderLeftColor: APPT_COLOR }}>
+                    <div className="dir-sc-ov-body">
+                      <div className="dir-sc-ov-title">
+                        🗓 {formatClockMin(a.startMin)} · {a.studentName}
+                      </div>
+                      <div className="dir-sc-ov-meta">
+                        {a.formTitle}
+                        {a.grade ? ` · ${a.grade}` : ''}
+                        {a.instrument ? ` · ${a.instrument}` : ''}
+                        {a.complete ? '' : ' · paperwork not finished'}
+                      </div>
+                    </div>
+                  </div>
+                ))}
                 {(assignByDate[selectedDate] ?? []).map(a => (
                   <div key={a.id} className="dir-sc-ov" style={{ borderLeftColor: ASSIGN_COLOR }}>
                     <div className="dir-sc-ov-body">

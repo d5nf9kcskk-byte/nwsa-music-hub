@@ -427,6 +427,22 @@ service cloud.firestore {
       allow delete: if isStaff() || assistantHas('signups');
     }
 
+    // Who a sign-up BELONGS to (#signup-appointments) — the staff member whose
+    // calendar its booked time slots land on. Staff-only, holding the email
+    // (their sign-in address). The display NAME is on the world-readable form
+    // as `ownerName`, because a student should see whose time they are
+    // booking; the email is not, because a public list of sign-in addresses is
+    // a public list of accounts worth phishing. Same split, same reasoning, as
+    // signupAudiences above.
+    match /signupOwners/{formId} {
+      allow read: if isStaff() || assistantHas('signups');
+      allow create, update: if (isStaff() || assistantHas('signups'))
+        && request.resource.data.keys().hasOnly(['email'])
+        && request.resource.data.email is string
+        && exists(/databases/$(database)/documents/directors/$(request.resource.data.email));
+      allow delete: if isStaff() || assistantHas('signups');
+    }
+
     // Interview time slots on sign-ups (#signups): world-readable so students
     // see "Taken" before they send. Create-only, one doc per slot, doc id =
     // formId__questionId__slotIndex — the client transaction checks the slot
@@ -687,12 +703,24 @@ service cloud.firestore {
     }
 
     // ── Private · staff read + write only ──────────────
-    // Feed secrets (#lessons-feed): the unguessable token in the private
-    // lessons calendar's URL. Staff-only — the token IS the access control on
-    // that feed, so it must never reach a public surface or the app bundle.
-    // The deploy-time feed generator reads it with the service account, which
-    // bypasses these rules.
-    match /feedSecrets/{doc}        { allow read, write: if isStaff(); }
+    // Feed secrets (#lessons-feed, #signup-appointments): the unguessable
+    // token in a private calendar's URL. Staff-only — the token IS the access
+    // control on those feeds, so it must never reach a public surface or the
+    // app bundle. The deploy-time feed generator reads it with the service
+    // account, which bypasses these rules.
+    //
+    // `lessons` is one calendar the whole staff shares, so any staff member
+    // may read it. An APPOINTMENTS token is one person's own calendar of who
+    // booked time with them, so it is scoped to that person — a director has
+    // no reason to hold another director's feed link, and that link carries
+    // student free text and contact details. The Owner keeps full access so a
+    // leaked link can always be revoked by someone.
+    match /feedSecrets/{doc} {
+      allow read, write: if isStaff()
+        && (doc == 'lessons'
+            || doc == 'appointments__' + request.auth.token.email
+            || isOwner());
+    }
     // Contacts: staff read/write; an Applied Teacher may READ only their
     // assigned students' contacts (family summary email after a lesson log).
     // Doc id === student id. Teachers never write contacts.

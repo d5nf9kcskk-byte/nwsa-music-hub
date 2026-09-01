@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NotesText } from './components/NotesText';
 import { useParams, Link } from 'react-router';
-import { ClipboardSignature, FileText, CalendarClock, Check, Search, Paperclip } from 'lucide-react';
+import { ClipboardSignature, FileText, CalendarClock, Check, Search, Paperclip, UserRound } from 'lucide-react';
 import { db } from '../director/firebase';
 import { useSignupForms, submitSignupResponse, useSignupSlotBookings } from '../director/hooks/useSignups';
 import { useEnsembles } from '../director/hooks/useEnsembles';
@@ -303,6 +303,11 @@ export function PublicSignup() {
         <h1>{form.title}</h1>
         <div className="pub-signup-meta">
           <span>{who}</span>
+          {/* Whose sign-up this is (#signup-appointments). The NAME only —
+              staff names are already public here (a conductor's prints on
+              every concert program); their sign-in email is not, and lives in
+              the staff-only signupOwners doc. */}
+          {form.ownerName && <span><UserRound size={13} /> {form.ownerName}</span>}
           {form.deadline && (
             <span className={`pub-signup-due ${form.deadline === today ? 'urgent' : ''}`}>
               <CalendarClock size={13} /> {deadlineLine(form.deadline, today)}

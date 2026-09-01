@@ -134,6 +134,24 @@ export function takenSlotIndices(bookings: SignupSlotBooking[]): Map<string, Set
   return out;
 }
 
+/**
+ * May the director delete the slot at this position?
+ *
+ * Deleting renumbers every slot AFTER it, and a booking points at a POSITION
+ * (`slotBookingId`), not at a time — so the frozen region is every index up to
+ * and including the last booked one, not merely the booked rows themselves.
+ * Deleting an empty 9:00 while someone holds 10:00 moves that student to 10:15
+ * silently: on the roll sheet, in the director's calendar, and in the ICS feed
+ * their phone already subscribed to.
+ *
+ * Only the tail past the last booking is safe.
+ */
+export function canRemoveSlot(index: number, bookedIndices: Iterable<number>): boolean {
+  let lastBooked = -1;
+  for (const i of bookedIndices) if (i > lastBooked) lastBooked = i;
+  return index > lastBooked;
+}
+
 /** True when this student already holds the slot (re-submit same time). */
 export function slotHeldByStudent(
   bookings: SignupSlotBooking[],

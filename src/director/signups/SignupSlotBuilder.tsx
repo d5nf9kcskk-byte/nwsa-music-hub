@@ -9,7 +9,7 @@ import {
   SLOT_AMPM, SLOT_HOURS_12, SLOT_MINUTE_STEPS,
 } from '../../shared/signupSlotTimes';
 import { FilterMenu } from '../../shared/FilterMenu';
-import { SIGNUP_SLOT_GRADES, compactOptionGrades, trimOptionGrades } from '../../shared/signupSlots';
+import { SIGNUP_SLOT_GRADES, canRemoveSlot, compactOptionGrades, trimOptionGrades } from '../../shared/signupSlots';
 import type { SignupSlotDef } from '../types';
 
 type Ampm = (typeof SLOT_AMPM)[number];
@@ -25,20 +25,31 @@ const GRADE_FILTER_OPTS = SIGNUP_SLOT_GRADES.map(g => ({ value: g, label: g }));
  *  or line-by-line manual fallback. Optional per-slot grade limits (e.g. 12th
  *  only) for lesson-time sign-ups. New slots land in time order; drag the grip
  *  (or arrow-key it) to override. */
-export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, locked, onChange }: {
+export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, bookedIndices, onChange }: {
   slotDefs: SignupSlotDef[];
   manualDraft: string;
   /** Parallel to manual lines when not using calendar defs. */
   optionGrades?: Record<string, string[]>;
-  /** A student already booked one of these times — a booking points at its slot
-   *  POSITION (slotBookingId), so reordering would hand them someone else's time. */
-  locked?: boolean;
+  /**
+   * Slot positions a student has already booked.
+   *
+   * A booking points at its slot POSITION (`slotBookingId` is
+   * `formId__questionId__slotIndex`), never at the time itself — so ANY edit
+   * that shifts positions hands someone else's time to a student who already
+   * booked. Reordering was blocked from the start; deleting was not, and
+   * `slotDefs.filter()` silently pulled every later slot down one. Slot 2's
+   * booking then pointed at what used to be slot 3, on the roll sheet, in the
+   * director's calendar, and in the subscribed ICS feed — with nothing
+   * anywhere saying it had moved.
+   */
+  bookedIndices?: Set<number>;
   onChange: (patch: {
     slotDefs?: SignupSlotDef[];
     slotManualDraft?: string;
     optionGrades?: Record<string, string[]>;
   }) => void;
 }) {
+  const locked = (bookedIndices?.size ?? 0) > 0;
   const today = todayStr();
   const [cursor, setCursor] = useState(() => parseDate(today));
   const [pickedDates, setPickedDates] = useState<Set<string>>(() => new Set([today]));
@@ -140,7 +151,11 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, locked,
     commitSlots(mergeSlotDefs(slotDefs, withBulkGrades(pendingCalendar)));
   }
 
+  /** Positional, not per-row — see canRemoveSlot() in signupSlots.ts. */
+  const removable = (index: number) => canRemoveSlot(index, bookedIndices ?? []);
+
   function removeSlot(index: number) {
+    if (!removable(index)) return;
     onChange({ slotDefs: slotDefs.filter((_, i) => i !== index) });
   }
 
@@ -337,7 +352,9 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, locked,
           <div className="dir-signup-slot-list-head">
             <span>{slotDefs.length} slot{slotDefs.length === 1 ? '' : 's'}</span>
             {locked ? (
-              <span className="dir-signup-slot-locked">Students have booked — order is fixed</span>
+              <span className="dir-signup-slot-locked">
+                Students have booked — order is fixed, and booked times can&rsquo;t be removed
+              </span>
             ) : slotDefs.length > 1 && (
               <button type="button" className="dir-signup-slot-sort"
                 onClick={() => onChange({ slotDefs: sortSlotDefs(slotDefs) })}>
@@ -382,8 +399,18 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, locked,
                       ariaLabel="Who can pick this time"
                     />
                   </div>
-                  <button type="button" className="dir-tool-btn dir-btn-danger" aria-label="Remove slot"
-                    onClick={() => removeSlot(src)}>
+                  <button
+                    type="button"
+                    className="dir-tool-btn dir-btn-danger"
+                    aria-label={removable(src) ? 'Remove slot' : 'Booked — free it on the sign-up first'}
+                    disabled={!removable(src)}
+                    title={removable(src)
+                      ? undefined
+                      : bookedIndices?.has(src)
+                        ? 'Someone booked this time. Free it on the sign-up first.'
+                        : 'A later time is booked, and removing this one would move it. Free that booking first.'}
+                    onClick={() => removeSlot(src)}
+                  >
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -393,11 +420,16 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, locked,
         </>
       )}
 
+      {/* Manual lines REPLACE slotDefs outright, which would leave every
+          existing booking pointing at a slot that no longer exists. Not
+          offered once anyone has booked. */}
+      {!locked && (
       <button type="button" className="dir-signup-slot-manual-toggle"
         onClick={() => setManualOpen(o => !o)}>
         {manualOpen ? 'Hide manual entry' : 'Type finished labels manually instead'}
       </button>
-      {manualOpen && (
+      )}
+      {!locked && manualOpen && (
         <>
           <textarea
             className="dir-input dir-signup-slot-manual"
@@ -410,6 +442,12 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, locked,
           <div className="dir-signup-help">
             Manual lines replace calendar slots when you save. Press Enter for a new line.
             Set a grade limit on each line below if needed.
+          </div>
+          <div className="dir-signup-help dir-signup-slot-manual-warn">
+            <strong>These won&rsquo;t reach anyone&rsquo;s calendar.</strong> A typed line is just
+            text — the Hub can&rsquo;t tell what day or time it means, so booked slots won&rsquo;t
+            appear on the owner&rsquo;s calendar or in a subscribed one. Build them on the
+            calendar above if you want that.
           </div>
           {manualDraft.split('\n').map(s => s.trim()).filter(Boolean).length > 0 && (
             <div className="dir-signup-slot-builder-list">

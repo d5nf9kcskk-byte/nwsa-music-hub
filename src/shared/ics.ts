@@ -227,6 +227,67 @@ export function icsLesson(lesson: IcsLessonLike, branding: IcsBranding): string 
 }
 
 /**
+ * One VEVENT for a booked sign-up time slot (#signup-appointments).
+ *
+ * Only ever written into the token-guarded `appointmentsFeed`, never into
+ * anything under `dist/feeds/`: the description carries the student's own
+ * answers, which are staff-only. See functions/src/appointmentsFeed.ts.
+ *
+ * SUMMARY leads with the PERSON, not the sign-up title, which is the reverse
+ * of how the director described it. Month view and the compact list in
+ * Fantastical truncate, and every slot on an audition day shares one title —
+ * so title-first renders six identical rows and the calendar tells you
+ * nothing. The title is still the calendar's name and the first line of the
+ * description.
+ *
+ * No ATTENDEE and no ORGANIZER: several clients read those as an invitation
+ * to email, and the addresses here belong to students.
+ */
+export function icsAppointment(appt: IcsAppointmentLike, branding: IcsBranding): string {
+  const title = appt.formTitle || 'Sign-up';
+  const detail = [
+    title,
+    [appt.grade, appt.instrument].filter(Boolean).join(' · '),
+    appt.email,
+    appt.phone,
+    ...(appt.answers ?? []).map(a => `${a.label}: ${a.value}`),
+    appt.complete ? 'Paperwork complete' : 'Paperwork not finished',
+  ].filter(Boolean) as string[];
+
+  const lines = [
+    'BEGIN:VEVENT',
+    // The booking's doc id. Stable across rebuilds, so a calendar app updates
+    // this event instead of adding a second copy on every refresh.
+    icsFold(`UID:signup-slot-${appt.id}@${branding.uidDomain}`),
+    icsFold(`SUMMARY:${icsEscape(`${appt.studentName || 'Student'} — ${title}`)}`),
+    icsFold(`DTSTART:${icsDateTime(appt.date, appt.startTime)}`),
+    icsFold(`DTEND:${icsDateTime(appt.date, appt.endTime || appt.startTime)}`),
+    'STATUS:CONFIRMED',
+  ];
+  if (appt.location) lines.push(icsFold(`LOCATION:${icsEscape(appt.location)}`));
+  lines.push(icsFold(`DESCRIPTION:${detail.map(p => icsEscape(p)).join('\\n')}`));
+  lines.push('END:VEVENT');
+  return lines.join('\r\n');
+}
+
+/** A booked sign-up time slot, as the owning director's calendar shows it. */
+export interface IcsAppointmentLike {
+  id: string;
+  formTitle?: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  studentName?: string;
+  grade?: string;
+  instrument?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  answers?: { label: string; value: string }[];
+  complete?: boolean;
+}
+
+/**
  * One all-day VEVENT for an assignment due date, so a view that includes
  * Assignments subscribes to the due dates too (they show on the calendar
  * screen, so they belong in that screen's feed).

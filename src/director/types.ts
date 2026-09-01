@@ -1045,6 +1045,20 @@ export interface SignupForm {
   title: string;
   /** Plain text shown above the form. */
   intro?: string;
+  /**
+   * Whose sign-up this is — the staff member the appointments belong to
+   * (#signup-appointments). Booked time slots land on THIS person's calendar,
+   * not the calendar of whoever happened to build the form.
+   *
+   * The display NAME only, and deliberately so: students see whose time they
+   * are booking, and staff names are already public in this app (a conductor's
+   * name prints on every concert program). The owner's EMAIL — which is their
+   * sign-in address, i.e. the allowlist — lives in the staff-only
+   * `signupOwners/{formId}` doc instead. Publishing that here would hand out a
+   * machine-readable list of exactly which accounts to phish, which is the same
+   * reasoning that keeps the invite list off this world-readable doc.
+   */
+  ownerName?: string;
   /** Audience — empty ensembleIds = whole program, empty families = all.
    *  When `audienceMode` is `'students'`, the named list lives in the
    *  staff-only `signupAudiences/{formId}` doc (never on this world-readable

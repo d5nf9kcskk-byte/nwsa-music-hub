@@ -5,9 +5,12 @@ import {
   ClipboardSignature, Plus, Users, CalendarClock, Check, Copy, Download, Printer,
   Mail, Link2, Lock, Unlock, Trash2, ChevronLeft, Sparkles, AlertTriangle, Clock,
 } from 'lucide-react';
-import { useSignupForms, useSignupResponses, useSignupSlotBookings, useSignupAudiences, saveSignupAudience, deleteSignupAudience, removeSlotBooking, latestPerStudent, parseAnswers, responseIsComplete } from '../hooks/useSignups';
+import { useSignupForms, useSignupResponses, useSignupSlotBookings, useSignupAudiences, useSignupOwners, saveSignupAudience, deleteSignupAudience, saveSignupOwner, removeSlotBooking, latestPerStudent, parseAnswers, responseIsComplete } from '../hooks/useSignups';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
+import { useDirectors } from '../hooks/useDirectors';
+import { directorRoleLabels, directorRoles } from '../directorRoles';
+import { useCurrentDirector } from '../currentDirector';
 import { useMinuteTick } from '../hooks/useAnnouncements';
 import { SchedulePublishField } from '../components/SchedulePublishField';
 import { FileUpload } from '../components/FileUpload';
@@ -20,10 +23,11 @@ import { addDays, formatDate, todayStr, musicEnsembles, ensembleColor } from '..
 import { lastName } from '../scoreOrder';
 import { INSTRUMENT_FAMILIES, INSTRUMENT_FAMILY_LABEL } from '../../shared/instrumentFamily';
 import { audienceLabel, eligibleForSignup, signupIsOpen, signupIsPublished } from '../../shared/signupEligibility';
-import { isTimeslotQuestion } from '../../shared/signupSlots';
+import { isTimeslotQuestion, takenSlotIndices } from '../../shared/signupSlots';
 import { normalizeTimeslotQuestion, signupQuestionHasContent } from '../../shared/signupSlotTimes';
 import { deleteStoredFile } from '../storageCleanup';
 import { SignupSlotBuilder } from './SignupSlotBuilder';
+import { SignupAppointmentsFeedPanel } from './SignupAppointmentsFeedPanel';
 import { byLastName, emailList, exportSlug, namesList, responsesToCsv } from './signupsExport';
 import { allStateTemplate } from './signupTemplates';
 import { ORG } from '../../org';
@@ -31,6 +35,7 @@ import { studentMatchesQuery } from '../studentSearch';
 import type {
   Ensemble, InstrumentFamilyId, SignupForm, SignupQuestion, SignupResponse, SignupSlotBooking, Student,
 } from '../types';
+import type { Director } from '../hooks/useDirectors';
 import './signups.css';
 
 /**
@@ -52,7 +57,10 @@ import './signups.css';
  *                        into a chase-up message.
  */
 
-type Draft = Omit<SignupForm, 'id'> & { inviteStudentIds?: string[] };
+/** `inviteStudentIds` and `ownerEmail` are editor-only: both land in their own
+ *  staff-only doc (signupAudiences / signupOwners), never on the
+ *  world-readable form. `ownerName` DOES go on the form — see SignupForm. */
+type Draft = Omit<SignupForm, 'id'> & { inviteStudentIds?: string[]; ownerEmail?: string };
 
 export function SignupsView() {
   const now = useMinuteTick();
@@ -60,28 +68,52 @@ export function SignupsView() {
   const { forms, loading, addForm, updateForm, deleteForm } = useSignupForms();
   const { responses, setStatus, remove } = useSignupResponses();
   const { byFormId: audiences } = useSignupAudiences();
+  const { byFormId: owners } = useSignupOwners();
   const { students } = useStudents();
   const { ensembles } = useEnsembles();
+  const { directors } = useDirectors();
+  const me = useCurrentDirector();
   const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ form: SignupForm | null; draft: Draft } | null>(null);
 
   const open = forms.find(f => f.id === openId) ?? null;
 
+  // Do any of MY sign-ups actually offer times? Hand-typed slot labels don't
+  // count — they carry no date, so nothing about them can reach a calendar.
+  const myEmail = me?.email;
+  const iOwnTimeslots = useMemo(
+    () => !!myEmail && forms.some(f =>
+      owners[f.id] === myEmail
+      && (f.questions ?? []).some(q => isTimeslotQuestion(q) && (q.slotDefs?.length ?? 0) > 0)),
+    [forms, owners, myEmail],
+  );
+
   function newSignup(draft?: Draft) {
-    setEditing({ form: null, draft: draft ?? blankDraft(today) });
+    // A new sign-up belongs to whoever is making it until they say otherwise —
+    // the common case, and it means the appointments have somewhere to go even
+    // if nobody touches the picker.
+    const base = draft ?? blankDraft(today);
+    setEditing({
+      form: null,
+      draft: { ...base, ownerEmail: base.ownerEmail ?? me?.email, ownerName: base.ownerName ?? me?.name },
+    });
   }
 
   async function save(draft: Draft) {
     if (!editing) return;
-    const { inviteStudentIds, ...formDraft } = draft;
+    const { inviteStudentIds, ownerEmail, ...formDraft } = draft;
     const mode = formDraft.audienceMode ?? 'groups';
     if (editing.form) {
       await updateForm(editing.form.id, formDraft);
+      // Name on the form, email in the staff-only doc — written together, or
+      // a sign-up says "Mr. Munger" while its appointments go to someone else.
+      await saveSignupOwner(editing.form.id, ownerEmail);
       if (mode === 'students') await saveSignupAudience(editing.form.id, inviteStudentIds ?? []);
       else await deleteSignupAudience(editing.form.id);
     } else {
       const id = await addForm(formDraft);
       if (id) {
+        await saveSignupOwner(id, ownerEmail);
         if (mode === 'students') await saveSignupAudience(id, inviteStudentIds ?? []);
         setOpenId(id);
       }
@@ -97,6 +129,7 @@ export function SignupsView() {
         formId={editing.form?.id}
         ensembles={ensembles}
         students={students}
+        directors={directors}
         onSave={save}
         onClose={() => setEditing(null)}
       />
@@ -115,7 +148,7 @@ export function SignupsView() {
           today={today}
           now={now}
           onBack={() => setOpenId(null)}
-          onEdit={() => setEditing({ form: open, draft: toDraft(open, audiences) })}
+          onEdit={() => setEditing({ form: open, draft: toDraft(open, audiences, owners) })}
           onToggleClosed={() => void updateForm(open.id, { closed: !open.closed })}
           onExtend={deadline => void updateForm(open.id, { deadline })}
           onSetStatus={setStatus}
@@ -176,11 +209,15 @@ export function SignupsView() {
             </div>
             <div className="dir-signup-card-who">
               {audienceLabel(audienceOf(f, audiences), id => ensembles.find(e => e.id === id)?.name ?? '', fam => INSTRUMENT_FAMILY_LABEL[fam])}
+              {f.ownerName && <> · for {f.ownerName}</>}
             </div>
           </button>
         );
       })}
 
+      {/* Only once there is something to put on it — a subscribe panel for an
+          empty calendar is a question nobody asked. */}
+      {iOwnTimeslots && <SignupAppointmentsFeedPanel />}
     </div>
   );
 }
@@ -603,12 +640,13 @@ function SignupSlotSchedule({ question, bookings, freeingId, onFree }: {
 
 // ── Editor ────────────────────────────────────────────────────────────
 
-function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onClose }: {
+function SignupEditor({ initial, isNew, formId, ensembles, students, directors, onSave, onClose }: {
   initial: Draft;
   isNew: boolean;
   formId?: string;
   ensembles: Ensemble[];
   students: Student[];
+  directors: Director[];
   onSave: (draft: Draft) => Promise<void>;
   onClose: () => void;
 }) {
@@ -624,8 +662,10 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
   const [studentQuery, setStudentQuery] = useState('');
   // Stable Storage folder so a file can attach before the form doc exists.
   const [uploadId] = useState(() => formId ?? `new-${Date.now()}`);
-  // A booking points at a slot's POSITION, so a booked question can't be reordered.
+  // A booking points at a slot's POSITION, so which positions are taken
+  // governs what the builder will let the director change.
   const { bookings: slotBookings } = useSignupSlotBookings(formId ?? '');
+  const bookedByQuestion = useMemo(() => takenSlotIndices(slotBookings), [slotBookings]);
   const inviteMode = draft.audienceMode === 'students';
   const openMode = draft.audienceMode === 'open';
   const inviteIds = draft.inviteStudentIds ?? [];
@@ -637,9 +677,26 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
     () => INSTRUMENT_FAMILIES.map(f => ({ value: f.id, label: f.label })),
     [],
   );
+  // Student Assistants are left out: a sign-up's owner is the person whose
+  // working day the appointments land in, and that is never a student.
+  const ownerOptions = useMemo(
+    () => directors.filter(d => directorRoles(d).some(r => r !== 'assistant')),
+    [directors],
+  );
+  const hasTimeslots = draft.questions.some(isTimeslotQuestion);
 
   function set<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft(d => ({ ...d, [key]: value }));
+  }
+  /** Name and email move together, always. The name is what students and the
+   *  calendar show; the email is what routes the appointments. */
+  function setOwner(email: string | undefined) {
+    const picked = directors.find(d => d.email === email);
+    setDraft(d => ({
+      ...d,
+      ownerEmail: email,
+      ownerName: email ? (picked?.name?.trim() || email) : undefined,
+    }));
   }
   function setAudienceMode(mode: 'groups' | 'students' | 'open') {
     setDraft(d => ({
@@ -711,6 +768,9 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
         ...draft,
         title: draft.title.trim(),
         intro: draft.intro?.trim() || undefined,
+        // Cleared together with the email, so the form can never show a name
+        // whose appointments have nowhere to go.
+        ownerName: draft.ownerEmail ? draft.ownerName?.trim() || undefined : undefined,
         audienceMode: inviteMode ? 'students' : openMode ? 'open' : undefined,
         ensembleIds: inviteMode || openMode ? [] : draft.ensembleIds,
         families: inviteMode || openMode ? [] : draft.families,
@@ -757,6 +817,37 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
             <input className="dir-input" value={draft.title} autoFocus
               onChange={e => set('title', e.target.value)}
               placeholder="e.g. All-State auditions — who's in?" />
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label" htmlFor="signup-owner">Whose sign-up is this?</label>
+            <select
+              id="signup-owner"
+              className="dir-input"
+              value={draft.ownerEmail ?? ''}
+              onChange={e => setOwner(e.target.value || undefined)}
+            >
+              <option value="">Nobody in particular</option>
+              {ownerOptions.map(d => (
+                <option key={d.email} value={d.email}>
+                  {d.name?.trim() || d.email} — {directorRoleLabels(d)}
+                </option>
+              ))}
+            </select>
+            <div className="dir-signup-help">
+              {hasTimeslots ? (
+                <>
+                  Booked times land on <strong>{draft.ownerName?.trim() || 'this person'}</strong>&rsquo;s
+                  calendar in the Hub, and in the calendar they subscribe to on their phone.
+                  Students see the name on the sign-up, so they know whose time they&rsquo;re booking.
+                </>
+              ) : (
+                <>
+                  Students see this name on the sign-up. Add a time slot question below and the
+                  booked times will land on this person&rsquo;s calendar too.
+                </>
+              )}
+            </div>
           </div>
 
           <div className="dir-field">
@@ -949,7 +1040,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, onSave, onC
                   slotDefs={q.slotDefs ?? []}
                   manualDraft={q.slotManualDraft ?? (q.slotDefs?.length ? '' : (q.options ?? []).join('\n'))}
                   optionGrades={q.optionGrades}
-                  locked={slotBookings.some(b => b.questionId === q.id)}
+                  bookedIndices={bookedByQuestion.get(q.id)}
                   onChange={patch => setQuestion(i, patch)}
                 />
               )}
@@ -1034,11 +1125,16 @@ function audienceOf(f: SignupForm | Draft, audiences: Record<string, string[]> =
   };
 }
 
-function toDraft(f: SignupForm, audiences: Record<string, string[]>): Draft {
+function toDraft(
+  f: SignupForm,
+  audiences: Record<string, string[]>,
+  owners: Record<string, string>,
+): Draft {
   const { id, ...rest } = f;
   return {
     ...rest,
     inviteStudentIds: f.audienceMode === 'students' ? (audiences[id] ?? []) : [],
+    ownerEmail: owners[id],
   };
 }
 

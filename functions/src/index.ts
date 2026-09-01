@@ -2,6 +2,10 @@ import { https, firestore } from 'firebase-functions/v1';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { ALLOWED_ORIGIN, buildLessonsIcs, tokenMatches, TOKEN_RE } from './lessonsFeed.ts';
+import {
+  buildAppointmentsIcs, parseFeedPath, tokenDocId,
+  tokenMatches as apptTokenMatches,
+} from './appointmentsFeed.ts';
 import { getStorage } from 'firebase-admin/storage';
 import {
   buildRecord, checkinDocId, decodePhoto, fail, loadSiteSettings, photoPath,
@@ -83,6 +87,71 @@ export const lessonsFeed = https.onRequest(async (req, res) => {
   res.set('Content-Type', 'text/calendar; charset=utf-8');
   // A filename makes desktop clients name the calendar sensibly on save.
   res.set('Content-Disposition', 'inline; filename="lessons.ics"');
+  res.status(200).send(body);
+});
+
+
+/**
+ * One director's sign-up appointments, served live (#signup-appointments).
+ *
+ * `GET /appointmentsFeed/<email>/<token>.ics`
+ *
+ * A director builds a sign-up with time slots — auditions, chair placements,
+ * college advising — and as students book them, each booking shows up here as
+ * a real calendar appointment: who booked it, and everything they wrote on the
+ * form. That last part is why this is a function and not a file. The answers
+ * live in the staff-only `signupResponses`, and anything published through the
+ * Pages pipeline is downloadable from a public workflow artifact (#lessons-feed
+ * learned this the hard way). Nothing here may ever enter `dist/`.
+ *
+ * Built from Firestore per request, so freeing a slot removes the appointment
+ * on the next refresh rather than the next deploy, and resetting the token is
+ * instant revocation.
+ *
+ * Per-director, unlike the lessons calendar: this one carries a student's own
+ * free text and contact details, and there is no reason for one director to
+ * hold another's link. The email in the path is what keeps the token check a
+ * direct get() plus a constant-time compare rather than a query keyed by the
+ * secret itself.
+ */
+export const appointmentsFeed = https.onRequest(async (req, res) => {
+  // Set on EVERY response, refusals included: the director's panel probes
+  // this endpoint to tell "not deployed yet" from "live", and a browser
+  // cannot read a 404 that carries no CORS header.
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+
+  // One generic refusal for every failure. A wrong email, a wrong token, a
+  // director with no token yet, and a malformed path are indistinguishable —
+  // otherwise this becomes an oracle for which staff addresses exist.
+  const deny = () => {
+    res.set('Cache-Control', 'no-store');
+    res.status(404).type('text/plain').send('Not found');
+  };
+
+  if (req.method !== 'GET' && req.method !== 'HEAD') { deny(); return; }
+
+  const parsed = parseFeedPath(req.path || '');
+  if (!parsed) { deny(); return; }
+
+  const db = getFirestore();
+  let expected: string | undefined;
+  try {
+    const snap = await db.doc(`feedSecrets/${tokenDocId(parsed.email)}`).get();
+    expected = snap.exists ? (snap.get('token') as string | undefined) : undefined;
+  } catch {
+    // A read failure must not look like a bad token, but it also must not
+    // hand out the calendar. 503 so a calendar app retries.
+    res.set('Cache-Control', 'no-store');
+    res.status(503).type('text/plain').send('Temporarily unavailable');
+    return;
+  }
+  if (!expected || !apptTokenMatches(parsed.token, expected)) { deny(); return; }
+
+  const body = await buildAppointmentsIcs(db, parsed.email);
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Content-Type', 'text/calendar; charset=utf-8');
+  res.set('Content-Disposition', 'inline; filename="appointments.ics"');
   res.status(200).send(body);
 });
 

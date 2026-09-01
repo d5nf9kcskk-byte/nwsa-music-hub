@@ -182,13 +182,18 @@ export function pieceEnsembleIds(p: Pick<RepertoirePiece, 'ensembleIds' | 'ensem
 
 // ── Ensemble colors ─────────────────────────────────────────────────────
 
-/** Concert gold + assignment violet — the two reserved semantic colors. */
+/** Concert gold, assignment violet, appointment slate — the three reserved
+ *  semantic colors. Slate is deliberately the unsaturated one: a booked
+ *  sign-up slot belongs to a PERSON rather than to an ensemble, so it should
+ *  not read as "one more group" beside the palette. Never the only signal
+ *  either — the row says what it is in words. */
 export const CONCERT_COLOR = '#ca8a04';
 export const ASSIGN_COLOR = '#7c3aed';
+export const APPT_COLOR = '#475569';
 
-// Gold (#ca8a04) is reserved for concerts and violet (#7c3aed) for assignment
-// dots on the calendars — the auto palette avoids both so an ensemble's dots
-// can never be mistaken for either.
+// Gold (#ca8a04) is reserved for concerts, violet (#7c3aed) for assignment
+// dots, and slate (#475569) for sign-up appointments — the auto palette
+// avoids all three so an ensemble's dots can never be mistaken for any of them.
 const PALETTE = [
   '#2563eb', // blue
   '#16a34a', // green
