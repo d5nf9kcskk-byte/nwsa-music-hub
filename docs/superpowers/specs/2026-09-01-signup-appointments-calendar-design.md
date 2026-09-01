@@ -1,7 +1,27 @@
 # Sign-up appointments on a director's calendar — design
 
 **Date:** 2026-09-01
-**Status:** design approved, not yet implemented
+**Status:** built 2026-09-01 — all four phases, on branch
+`worktree-signup-appointments-calendar`. Not yet merged or deployed.
+
+Two things changed during the build:
+
+- **The owner is a name AND an email**, not just an email. The decision to
+  show the owner publicly split the field: `signupForms.ownerName` is
+  world-readable, `signupOwners/{formId}.email` is not, and the two are
+  written together.
+- **A live slot-index bug turned up and was fixed here** — see "Deleting a
+  slot" below. It was in scope because this feature reads `slotIndex` to
+  decide what time an appointment is.
+- **Rebased onto four commits that landed the same afternoon**, two of them
+  in this exact area ("Show a student the time slot they signed up for",
+  "Email a student the sign-up time they booked"). Those introduced
+  `src/shared/signupBooking.ts`, which already owns the booking → `slotDef`
+  join (`slotDefAt`) and the minutes → `"HH:MM"` conversion
+  (`formatClock24`). This module had grown its own spelling of both;
+  they were deleted and it now imports theirs. `signupAppointments.ts` is
+  the join of a booking to a RESPONSE (who booked, what they wrote, is the
+  paperwork in) and nothing more.
 
 ## The ask
 
@@ -313,10 +333,21 @@ Both are required, or the feature does not exist in production:
 2. **Hand-typed slot lists produce nothing.** The editor must say so where
    the director types them, rather than silently omitting those bookings from
    a calendar the director believes is complete.
-3. **Editing a booked slot's time silently moves someone's appointment**, and
-   the ICS event moves under them with no notice. The editor already locks
-   *reorder* when a question has bookings (`locked={slotBookings.some(…)}`);
-   time edits on a booked slot should lock or warn on the same signal.
+3. **Deleting a slot moved someone's appointment — fixed here.** Individual
+   slots turned out to have no time editor at all, so the reachable version of
+   this was worse: `removeSlot()` did `slotDefs.filter()`, which renumbers
+   every slot after the deleted one. A booking points at a POSITION
+   (`formId__questionId__slotIndex`), so deleting an empty 9:00 while someone
+   held 10:00 silently moved that student to 10:15 — on the roll sheet, on the
+   calendar, and in an ICS feed their phone had already subscribed to.
+
+   The guard is positional, not per-row: `canRemoveSlot()` in
+   `signupSlots.ts` freezes every index up to and including the LAST booked
+   one, and only the tail past it may be deleted. The builder now takes
+   `bookedIndices: Set<number>` instead of a `locked` boolean, disables those
+   delete buttons with a reason, and hides the manual-entry toggle once
+   anything is booked (manual lines replace `slotDefs` outright, which would
+   orphan every booking). Pinned in `signupSlots.selfcheck.ts`.
 4. **The link is the whole access control**, and this one is more sensitive
    than the lessons feed. Reset revokes on the next fetch.
 5. **Read cost** — a few queries per poll per subscribed director. Small at
@@ -341,6 +372,23 @@ Both are required, or the feature does not exist in production:
 - **Email an `.ics` attachment on booking**, via the existing Power Automate
   relay. Instant, but one-way — freeing a slot does not retract it. A viable
   future *complement* to the feed, never a replacement.
+
+## What was verified, and what was not
+
+Verified: `tsc` clean; `eslint` clean on every changed file (the repo does not
+gate on lint, and untouched files carry the same pre-existing warnings);
+production build succeeds; the `[sw-precache]` hash is identical across two
+consecutive builds and `grep -ri asyo dist/` is empty; all four function
+self-checks and all seven calendar/sign-up self-checks pass; the generated ICS
+was rendered and inspected by hand (CRLF endings, 75-octet folding, `;` and
+`,` escaped, stable UID, 915 minutes → `T151500`).
+
+**Not verified: the new UI in a browser.** The preview tool's dev server roots
+itself at the main checkout rather than this worktree — `--root` never reaches
+vite, because the tool reads the main checkout's `.claude/launch.json` — so
+nothing served by it exercises this branch. Worth a look on a real device
+before merge, particularly the owner picker and the appointments rows on the
+Schedule screen.
 
 ## Also required in the ship commit
 
