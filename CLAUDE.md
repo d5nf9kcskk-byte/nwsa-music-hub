@@ -200,6 +200,25 @@ hand-write SW fetch/install logic. Rules that must not regress:
 - ICS text lives in `src/shared/ics.ts` and is shared with the in-app
   snapshot download, so calendar notes carry the same repertoire (free text
   AND linked pieces) either way.
+- **"My calendar" is a THIRD kind of address** (#my-calendar, Sept 2026):
+  per-person, token-guarded, and served by the `staffFeed` Cloud Function at
+  `/staffFeed/<email>/<token>.ics`. A view is addressed by the hash of its
+  filters and a bundle by a curated slug; this one is addressed by the
+  PERSON, and its membership is derived at request time from their own
+  `directors` doc (`resolveAssignedEnsembleIds`, patterns included) and run
+  through the shared `eventMatchesView()`. Gaining an ensemble changes what
+  arrives without changing the URL — the one thing a hash-addressed view
+  cannot do. A function, not a file, because it also carries the applied
+  teacher's staff-only `lessons`, scoped `where('teacherEmail','==',email)`.
+  **`school: true` in `myCalendarView()` is load-bearing, not cosmetic**: with
+  an empty ensemble list and `school:false`, `isEveryEnsemble()` is true and
+  every event in the school matches, so an applied teacher — who legitimately
+  has no ensembles — would be handed the whole calendar. `staffFeed.selfcheck.ts`
+  pins that, and pins that one teacher never sees another's studio; it runs in
+  `deploy-functions.yml`. Token doc: `feedSecrets/staff__<email>`, distinct
+  from the appointments token, and its rules clause is gated on
+  `isKnownRole()` rather than `isStaff()` on purpose — teachers, classroom
+  teachers and assistants are exactly who it is for.
 
 ## Ensembles vs. classes (Aug 2026)
 
