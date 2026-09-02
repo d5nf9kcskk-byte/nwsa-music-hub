@@ -35,6 +35,11 @@ else.
 Spend your calls on reading code, not on narrating. If you are near the
 budget, stop and write what you have.
 
+Only some tools are allowed: Read, Grep, Glob, Write, and `git log` /
+`git diff` / `git show` / `git blame` / `git grep`, `ls`, `cat`, `wc` in
+Bash. If a command is refused, do the same thing with an allowed tool and
+carry on. A refusal is never a reason to stop or to skip the output file.
+
 ## What counts as a finding
 
 - **Concrete and traceable.** Name the file and line, say what the code does
@@ -101,3 +106,8 @@ Write exactly one JSON file with the Write tool, matching
 Number ids from 001 in order of severity. An empty `findings` array is a
 valid, honest result. Do not write the file until you have finished reading,
 and do not write anything else.
+
+If the Write tool is refused, or you cannot write the file for any reason,
+end your turn with the complete JSON as your final message and nothing else:
+the workflow harvests it from there. Never end without producing the JSON
+one way or the other.

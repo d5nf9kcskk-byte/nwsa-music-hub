@@ -114,7 +114,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          show_full_output: false
+          show_full_output: true
           claude_args: >-
             --model ${{ inputs.tier == 'full' && 'claude-opus-5' || 'claude-sonnet-5' }}
             --effort ${{ matrix.effort }}
@@ -126,9 +126,9 @@ jobs:
             scripts/weekly-review/prompts/${{ matrix.lens }}.md, then packet/packet.md,
             and do what they say. Your only deliverable is the file
             findings/${{ matrix.lens }}.json.
-      - name: Record cost
+      - name: Record cost, keep the transcript, rescue the file if it was only printed
         if: always()
-        run: bash scripts/weekly-review/cost.sh "lens-${{ matrix.lens }}" "${{ steps.claude.outputs.execution_file }}" "findings/${{ matrix.lens }}.cost.json"
+        run: bash scripts/weekly-review/finish.sh "lens-${{ matrix.lens }}" "${{ steps.claude.outputs.execution_file }}" findings "${{ matrix.lens }}" "findings/${{ matrix.lens }}.json"
       - name: Check the findings file
         if: always()
         run: node scripts/weekly-review/validate.mjs "findings/${{ matrix.lens }}.json"
@@ -178,7 +178,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          show_full_output: false
+          show_full_output: true
           claude_args: >-
             --model claude-opus-5
             --effort high
@@ -191,9 +191,9 @@ jobs:
             scripts/weekly-review/prompts/verify.md, packet/packet.md, then
             findings/${{ matrix.lens }}.json — and do what verify.md says. Your only
             deliverable is the file verified/${{ matrix.lens }}.json.
-      - name: Record cost
+      - name: Record cost, keep the transcript, rescue the file if it was only printed
         if: always()
-        run: bash scripts/weekly-review/cost.sh "verify-${{ matrix.lens }}" "${{ steps.claude.outputs.execution_file }}" "verified/${{ matrix.lens }}.cost.json"
+        run: bash scripts/weekly-review/finish.sh "verify-${{ matrix.lens }}" "${{ steps.claude.outputs.execution_file }}" verified "${{ matrix.lens }}" "verified/${{ matrix.lens }}.json"
       - name: Check the verified file
         if: always()
         run: node scripts/weekly-review/validate.mjs "verified/${{ matrix.lens }}.json"
@@ -235,7 +235,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          show_full_output: false
+          show_full_output: true
           claude_args: >-
             --model claude-sonnet-5
             --effort medium
@@ -247,9 +247,9 @@ jobs:
             scripts/weekly-review/prompts/critic.md, packet/packet.md, then every
             file under verified/ — and do what critic.md says. Your only
             deliverable is the file focus/focus.md.
-      - name: Record cost
+      - name: Record cost, keep the transcript, rescue the file if it was only printed
         if: always()
-        run: bash scripts/weekly-review/cost.sh "critic" "${{ steps.claude.outputs.execution_file }}" "focus/critic.cost.json"
+        run: bash scripts/weekly-review/finish.sh critic "${{ steps.claude.outputs.execution_file }}" focus critic focus/focus.md
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -309,7 +309,7 @@ jobs:
           REVIEW_DATE: ${{ steps.date.outputs.date }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          show_full_output: false
+          show_full_output: true
           claude_args: >-
             --model claude-opus-5
             --effort high
@@ -323,9 +323,9 @@ jobs:
             names — and do what it says. Your only deliverables are
             _review/reviews/${{ steps.date.outputs.date }}.md and
             _review/reviews/open.json.
-      - name: Record cost
+      - name: Record cost, keep the transcript, rescue the report if it was only printed
         if: always()
-        run: bash scripts/weekly-review/cost.sh "report" "${{ steps.claude.outputs.execution_file }}" "focus/report.cost.json"
+        run: bash scripts/weekly-review/finish.sh report "${{ steps.claude.outputs.execution_file }}" focus report "_review/reviews/${{ steps.date.outputs.date }}.md"
       - name: File the report (commit to the caller, open the issue)
         if: always()
         env:
