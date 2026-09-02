@@ -103,9 +103,11 @@ report job uploads its files as artifacts (`packet`, `findings-<lens>`,
   change together" rule lands in CLAUDE.md. That is cheaper and more reliable
   than asking a model to notice.
 
-Expected cost at the lean tier: roughly $15–25 per week API-equivalent,
-charged as subscription usage. Each job's real `total_cost_usd` is in the
-report's Stats section; the first run calibrates the estimate.
+Measured cost at the lean tier: the first full run (2026-09-02, a 164-commit
+week) cost $26 API-equivalent across 12 model jobs and took 45 minutes; the
+frontend lens alone was $7.30. Charged as subscription usage. Each job's
+real `total_cost_usd` is in the report's Stats section. A quiet week should
+be well under that.
 
 ## Retiring the Monday bug scan
 

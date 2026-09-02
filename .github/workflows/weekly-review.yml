@@ -109,8 +109,12 @@ jobs:
           name: packet
           path: packet
       - run: mkdir -p findings
+      # continue-on-error: a lens that runs past its turn cap after writing its
+      # file (frontend did, run 1) must not paint the whole week red. finish.sh
+      # records is_error, and the report's Stats table shows it.
       - name: Review
         id: claude
+        continue-on-error: true
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -118,7 +122,7 @@ jobs:
           claude_args: >-
             --model ${{ inputs.tier == 'full' && 'claude-opus-5' || 'claude-sonnet-5' }}
             --effort ${{ matrix.effort }}
-            --max-turns 90
+            --max-turns 150
             --allowedTools "Read,Grep,Glob,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git blame:*),Bash(git grep:*),Bash(ls:*),Bash(cat:*),Bash(wc:*)"
           prompt: |
             You are the "${{ matrix.lens }}" lens of this repository's weekly review.
@@ -175,6 +179,7 @@ jobs:
       - run: mkdir -p verified
       - name: Verify
         id: claude
+        continue-on-error: true
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -182,7 +187,7 @@ jobs:
           claude_args: >-
             --model claude-opus-5
             --effort high
-            --max-turns 70
+            --max-turns 100
             --allowedTools "Read,Grep,Glob,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git blame:*),Bash(git grep:*),Bash(ls:*),Bash(cat:*),Bash(wc:*),Bash(node:*),Bash(npx tsx:*),Bash(npm run:*)"
           prompt: |
             You are the verify stage for the "${{ matrix.lens }}" lens of this
@@ -232,6 +237,7 @@ jobs:
       - run: mkdir -p focus
       - name: Critic
         id: claude
+        continue-on-error: true
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -304,6 +310,7 @@ jobs:
           mkdir -p _review/reviews
       - name: Write the report
         id: claude
+        continue-on-error: true
         uses: anthropics/claude-code-action@v1
         env:
           REVIEW_DATE: ${{ steps.date.outputs.date }}
@@ -313,7 +320,7 @@ jobs:
           claude_args: >-
             --model claude-opus-5
             --effort high
-            --max-turns 45
+            --max-turns 60
             --allowedTools "Read,Grep,Glob,Write,Bash(ls:*),Bash(cat:*)"
           prompt: |
             You are the report stage of this repository's weekly review. Today's

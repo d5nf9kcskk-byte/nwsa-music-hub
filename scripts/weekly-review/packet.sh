@@ -183,7 +183,7 @@ node scripts/weekly-review/drift.mjs >> "$P" 2>&1 || say "(drift.mjs crashed —
 # ── Carried state ────────────────────────────────────────────────────────────
 if [ -f "$REVIEW_DIR/reviews/open.json" ]; then
   say "## Open findings carried from previous weeks (verify each against today's code)" ""
-  node -e 'try{const o=require(process.argv[1]);if(!o.length)console.log("(none)");for(const f of o)console.log(`- ${f.id} [${f.category}/${f.severity}] ${f.title} — ${f.file}${f.line?":"+f.line:""} (first seen ${f.first_seen})`)}catch{console.log("(open.json unreadable)")}' "$REVIEW_DIR/reviews/open.json" >> "$P"
+  node -e 'try{const o=require(process.argv[1]);if(!o.length)console.log("(none — nothing is carried; either this is the first week or every earlier item was closed. This is normal, not a pipeline fault.)");for(const f of o)console.log(`- ${f.id} [${f.category}/${f.severity}] ${f.title} — ${f.file}${f.line?":"+f.line:""} (first seen ${f.first_seen})`)}catch{console.log("(open.json unreadable — report this in Health)")}' "$REVIEW_DIR/reviews/open.json" >> "$P"
   say ""
 fi
 

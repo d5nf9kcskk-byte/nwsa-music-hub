@@ -156,7 +156,12 @@ Verified 2026-09-02: the packet script runs locally and in CI (the caller's
 second test run, after a first run that deadlocked on a shared concurrency
 group — since removed from the called workflow); the packet artifact carries
 every section; the model stages skip with a clear warning while the secret
-is absent. NOT verified until the token is in the private repo: the five
-lens jobs, verify, critic, and report end to end, including whether
-`claude-code-action` exposes `execution_file` for the cost table. Week one
-is the proof, and it is also when cost figures become real.
+is absent. The first full run, the same evening once the token was in place, went end
+to end: 21 confirmed findings, `reviews/2026-09-02.md` committed, issue #1
+opened, $26 across 12 model jobs in 45 minutes. `execution_file` is real
+and the cost table works. Two defects surfaced and were fixed the same
+night: the backend lens stopped after one refused command and wrote nothing
+(now: transcripts kept, denials reported, a printed deliverable harvested,
+and the prompt says a refusal is never a reason to stop), and the frontend
+lens ran past its turn cap after writing its file, which marked the run
+failed (caps raised; a cap no longer fails the run).
