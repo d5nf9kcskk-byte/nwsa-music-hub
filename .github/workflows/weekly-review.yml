@@ -31,9 +31,9 @@ on:
       CLAUDE_CODE_OAUTH_TOKEN:
         required: false
 
-concurrency:
-  group: weekly-review
-  cancel-in-progress: false
+# No `concurrency:` here on purpose: the caller serializes its own runs, and a
+# called workflow sharing the caller's group is reported as a deadlock and
+# cancelled before any job starts (that was the first test run).
 
 jobs:
   # ── 1. Packet: everything a script can establish, printed once ─────────────
