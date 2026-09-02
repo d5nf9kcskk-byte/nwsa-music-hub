@@ -152,8 +152,11 @@ caller, ~20 lines), the `CLAUDE_CODE_OAUTH_TOKEN` secret, `reviews/`.
 
 ## What is verified, and what is not
 
-Verified at build time: the packet script runs locally against this
-worktree; the workflow YAML parses; the caller workflow dispatches and the
-packet job completes. NOT verified until the token is in the private repo:
-the five lens jobs, verify, critic, and report end to end. Week one is the
-proof, and it is also when cost figures become real.
+Verified 2026-09-02: the packet script runs locally and in CI (the caller's
+second test run, after a first run that deadlocked on a shared concurrency
+group — since removed from the called workflow); the packet artifact carries
+every section; the model stages skip with a clear warning while the secret
+is absent. NOT verified until the token is in the private repo: the five
+lens jobs, verify, critic, and report end to end, including whether
+`claude-code-action` exposes `execution_file` for the cost table. Week one
+is the proof, and it is also when cost figures become real.

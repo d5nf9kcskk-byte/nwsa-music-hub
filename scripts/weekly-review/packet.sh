@@ -45,7 +45,8 @@ HUB_REPO=$(git remote get-url origin 2>/dev/null | sed -E 's#.*github\.com[:/]##
 OWNER=${HUB_REPO%%/*}
 NAME=${HUB_REPO#*/}
 SITE="https://${OWNER}.github.io/${NAME}"
-PROJECT=$(node -e 'try{console.log(require("./.firebaserc").projects.default)}catch{console.log("")}' 2>/dev/null)
+# fs + JSON.parse, not require(): an extension-less file is parsed as JavaScript by require.
+PROJECT=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync(".firebaserc","utf8")).projects.default)}catch{console.log("")}' 2>/dev/null)
 FN="https://us-central1-${PROJECT}.cloudfunctions.net"
 
 say "# Week packet — $TODAY" ""

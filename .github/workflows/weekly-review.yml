@@ -74,7 +74,7 @@ jobs:
             echo "has_token=false" >> "$GITHUB_OUTPUT"
             echo "::warning::CLAUDE_CODE_OAUTH_TOKEN is not set in the calling repo — packet only, no review stages ran (docs/weekly-review.md, One-time setup)."
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: packet
           path: packet
@@ -104,7 +104,7 @@ jobs:
         with:
           repository: ${{ inputs.repo }}
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: packet
           path: packet
@@ -132,7 +132,7 @@ jobs:
       - name: Check the findings file
         if: always()
         run: node scripts/weekly-review/validate.mjs "findings/${{ matrix.lens }}.json"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: findings-${{ matrix.lens }}
@@ -163,11 +163,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: packet
           path: packet
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: findings-${{ matrix.lens }}
@@ -197,7 +197,7 @@ jobs:
       - name: Check the verified file
         if: always()
         run: node scripts/weekly-review/validate.mjs "verified/${{ matrix.lens }}.json"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: verified-${{ matrix.lens }}
@@ -219,11 +219,11 @@ jobs:
         with:
           repository: ${{ inputs.repo }}
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: packet
           path: packet
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           pattern: verified-*
@@ -250,7 +250,7 @@ jobs:
       - name: Record cost
         if: always()
         run: bash scripts/weekly-review/cost.sh "critic" "${{ steps.claude.outputs.execution_file }}" "focus/critic.cost.json"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: focus
@@ -277,23 +277,23 @@ jobs:
         uses: actions/checkout@v7
         with:
           path: _review
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: packet
           path: packet
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           pattern: findings-*
           path: findings
           merge-multiple: true
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           pattern: verified-*
           path: verified
           merge-multiple: true
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: focus
