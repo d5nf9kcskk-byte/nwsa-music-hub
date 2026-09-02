@@ -1,5 +1,6 @@
-import { initializeApp } from 'firebase/app';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { initializeApp, onLog } from 'firebase/app';
+import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { armNoPersistFallback, isQueueLatch, storageArea, wantsPersistence } from './firestoreCache';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -64,11 +65,23 @@ if (app && appCheckSiteKey) {
 // ignoreUndefinedProperties: forms build save objects with optional fields set
 // to `undefined` (e.g. composer || undefined). Without this, Firestore rejects
 // the whole write — which is what made the repertoire form hang on "Saving…".
-// persistentLocalCache (#37): reads AND queued writes survive dead zones —
-// roll taken in an auditorium basement syncs when the signal returns.
-// Multi-tab (audit A8): with the single-tab manager, a second open tab
-// silently fell back to memory-only cache and lost offline entirely.
+// Local cache: IndexedDB persistence (#37 — reads AND queued writes survive
+// dead zones, so a roll taken in an auditorium basement syncs when the signal
+// returns; multi-tab per audit A8) on STAFF devices only. Everyone else gets
+// the memory cache: one failed IndexedDB request latches the SDK for the life
+// of the page, and a student saw that latch as "INTERNAL ASSERTION FAILED
+// (ID: b815)" on Submit Video. The why and the three rules: firestoreCache.ts.
 export const db = app ? initializeFirestore(app, {
   ignoreUndefinedProperties: true,
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  localCache: wantsPersistence(storageArea('localStorage'), storageArea('sessionStorage'))
+    ? persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    : memoryLocalCache(),
 }) : null;
+
+// Rule 3: a latched queue is permanent for this page, so reload once into the
+// memory cache. The SDK's own log line is the only signal it gives.
+onLog(({ message }) => {
+  if (isQueueLatch(message) && armNoPersistFallback(storageArea('sessionStorage'))) {
+    window.location.reload();
+  }
+}, { level: 'error' });

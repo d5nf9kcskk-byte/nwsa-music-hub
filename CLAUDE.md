@@ -164,6 +164,31 @@ hand-write SW fetch/install logic. Rules that must not regress:
 - The SW must keep ignoring cross-origin requests: Firestore offline is the
   SDK's IndexedDB cache, not Cache Storage.
 
+## Firestore local cache — who gets IndexedDB (Sept 2026)
+
+One failed IndexedDB request latches the Firestore SDK for the life of the
+page: `SimpleDbTransaction.abort()` rejects with the raw browser error, the
+retry path only recognises `IndexedDbTransactionError`, and the async queue's
+failure is permanent — every later call throws `INTERNAL ASSERTION FAILED:
+Unexpected state (ID: b815)`. A student hit that on Submit Video after the
+100 MB upload had already succeeded, which is where the Storage-orphan
+submissions came from. `src/director/firestoreCache.ts` is the ONE policy:
+
+- **Public devices get `memoryLocalCache()`** — nothing on the student site
+  needs offline data, and a database the page never opens cannot fail. Do not
+  "restore offline for students"; that re-opens the bug.
+- **Staff devices keep IndexedDB persistence** (#37 dead-zone roll; multi-tab
+  per audit A8). A staff device is a browser that completed an allowlisted
+  sign-in (`AuthGate` marks `localStorage`, sign-out forgets it), so the FIRST
+  load after a fresh sign-in is memory-only and every later one persists.
+- **A latched queue reloads once** into the memory cache for that tab
+  (`sessionStorage`), triggered by the SDK's single `INTERNAL UNHANDLED ERROR`
+  log line via `onLog`. Never twice — a reload loop is worse than an error.
+
+`firestoreCache.selfcheck.ts` pins all three and runs in the deploy workflow.
+Upgrading the SDK does not remove the need: no Firestore release through
+12.18 changes the latch.
+
 ## Calendar feeds & filter views (Aug 2026)
 
 - `src/shared/calendarView.ts` is the ONE definition of what a filtered

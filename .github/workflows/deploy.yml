@@ -56,6 +56,12 @@ jobs:
       - name: Check rich-text rendering
         run: npx tsx src/shared/richText.selfcheck.ts
 
+      # Which devices open IndexedDB for Firestore: public never, staff yes,
+      # and a latched queue reloads once into memory. A regression here puts
+      # the b815 assertion back on students' phones (firestoreCache.ts).
+      - name: Check Firestore cache policy
+        run: npx tsx src/director/firestoreCache.selfcheck.ts
+
       # A contract is signed text: `termsText` is frozen verbatim at issue so
       # that editing a template never changes what someone already agreed to.
       # Now that the sheet renders that prose as RICH text, this renders the

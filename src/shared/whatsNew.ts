@@ -32,6 +32,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Firestore cache policy (b815): the public site no longer opens IndexedDB,
+  // so the latched-queue assertion cannot reach a student's Submit tap again.
+  {
+    id: '2026-09-02-video-submit-fix',
+    date: '2026-09-02',
+    title: 'Playing-exam videos: the red error some phones showed on Submit is fixed',
+    audience: 'public' as const,
+    expires: '2026-09-16',
+    bullets: [
+      'If your phone showed a long red message starting "FIRESTORE … INTERNAL ASSERTION FAILED" when you pressed Submit Video, that is fixed. Record or upload again and it will go through.',
+      'If you got that message earlier, your video did not reach your director’s grade sheet — please submit it once more.',
+    ],
+  },
   // One calendar per staff member, derived from their own assignments
   // (#my-calendar). Staff-only: it carries an applied teacher's lessons and
   // it is served by a Cloud Function, never published to the site.

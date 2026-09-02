@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc, waitForPendingWrites, terminate, clearIndexedDbPersistence } from 'firebase/firestore';
+import { forgetStaffDevice, markStaffDevice } from '../firestoreCache';
 import { Link } from 'react-router';
 import { db, isFirebaseConfigured } from '../firebase';
 import { auth } from '../firebaseAuth';
@@ -90,6 +91,7 @@ export function AuthGate({ children }: Props) {
       if (resolved) return;
       if (BREAK_GLASS_EMAILS.includes(email)) {
         setCurrentDirector({ email, role: 'owner' }, user.displayName);
+        markStaffDevice();
         recordLogin({ email, name: user.displayName?.trim() || undefined, role: 'owner' });
         setAccess('granted');
       } else {
@@ -105,6 +107,9 @@ export function AuthGate({ children }: Props) {
         if (!snap.exists()) { setAccess('denied'); return; }
         const directorDoc = { email, ...snap.data() } as Director;
         setCurrentDirector(directorDoc, user.displayName);
+        // This browser is a staff device: from the next load on, Firestore
+        // keeps its IndexedDB cache here (firestoreCache.ts).
+        markStaffDevice();
         // Sign-in log (#login-history): the Owner can review who signed in
         // and when from the Directors screen. Best-effort, once per session.
         recordLogin({
@@ -202,6 +207,7 @@ export function AuthGate({ children }: Props) {
       }
     } catch { /* best-effort — the reload below recovers regardless */ }
     finally {
+      forgetStaffDevice(); // a signed-out device is a public device again
       window.location.reload();
     }
   }
