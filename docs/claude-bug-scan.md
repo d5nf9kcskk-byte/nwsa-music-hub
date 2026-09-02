@@ -1,5 +1,10 @@
 # Claude weekly bug scan
 
+> **Being retired (decided 2026-09-02).** The Saturday *Weekly review*
+> (`docs/weekly-review.md`) supersedes this scan: five lenses instead of one,
+> a verify pass, and a private report instead of a public issue. Once the
+> weekly review has run green twice, delete this workflow and this doc.
+
 The repo's automated bug review is the *Claude weekly bug scan* workflow
 (`.github/workflows/claude-bug-scan.yml`). It replaced Cursor Bugbot in
 Aug 2026.

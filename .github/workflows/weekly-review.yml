@@ -1,0 +1,359 @@
+name: Weekly review (reusable)
+
+# The weekly review of the Hub: a deterministic packet, five independent
+# Claude lenses on separate prompts, a refute-first verify pass, a critic, and
+# one fixed-structure report. Why it is shaped this way:
+#   docs/superpowers/specs/2026-09-02-weekly-review-design.md
+# How to run, read, and tune it: docs/weekly-review.md
+#
+# This workflow is ONLY ever called from the PRIVATE repo nwsa-hub-review.
+# Never add `schedule:` or `workflow_dispatch:` here. This repo is public, and
+# a run started here would put its logs, artifacts, and the findings issue in
+# public view. A reusable workflow's logs, artifacts, and GITHUB_TOKEN belong
+# to the CALLER, which is the whole point of the split.
+
+on:
+  workflow_call:
+    inputs:
+      days:
+        description: Review range — commits on main in the last N days
+        type: number
+        default: 8
+      tier:
+        description: "lean: Sonnet 5 lenses (default). full: Opus 5 lenses."
+        type: string
+        default: lean
+      repo:
+        description: The repository under review
+        type: string
+        default: d5nf9kcskk-byte/nwsa-music-hub
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+
+concurrency:
+  group: weekly-review
+  cancel-in-progress: false
+
+jobs:
+  # ── 1. Packet: everything a script can establish, printed once ─────────────
+  packet:
+    name: Packet (deterministic)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    outputs:
+      has_token: ${{ steps.tok.outputs.has_token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.repo }}
+          fetch-depth: 0
+      - name: Check out the caller (previous metrics, open findings, focus)
+        uses: actions/checkout@v7
+        with:
+          path: _review
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build the week packet
+        run: bash scripts/weekly-review/packet.sh
+        env:
+          REVIEW_DAYS: ${{ inputs.days }}
+          GH_TOKEN: ${{ github.token }}
+      - id: tok
+        env:
+          TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then
+            echo "has_token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_token=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::CLAUDE_CODE_OAUTH_TOKEN is not set in the calling repo — packet only, no review stages ran (docs/weekly-review.md, One-time setup)."
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packet
+          path: packet
+          retention-days: 30
+
+  # ── 2. Lenses: five independent reviewers, separate processes ──────────────
+  lens:
+    name: Lens · ${{ matrix.lens }}
+    needs: packet
+    if: needs.packet.outputs.has_token == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { lens: security, effort: high }
+          - { lens: backend,  effort: high }
+          - { lens: frontend, effort: high }
+          - { lens: drift,    effort: medium }
+          - { lens: product,  effort: high }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.repo }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: packet
+          path: packet
+      - run: mkdir -p findings
+      - name: Review
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: false
+          claude_args: >-
+            --model ${{ inputs.tier == 'full' && 'claude-opus-5' || 'claude-sonnet-5' }}
+            --effort ${{ matrix.effort }}
+            --max-turns 90
+            --allowedTools "Read,Grep,Glob,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git blame:*),Bash(git grep:*),Bash(ls:*),Bash(cat:*),Bash(wc:*)"
+          prompt: |
+            You are the "${{ matrix.lens }}" lens of this repository's weekly review.
+            Read, in this order: scripts/weekly-review/prompts/common.md, then
+            scripts/weekly-review/prompts/${{ matrix.lens }}.md, then packet/packet.md,
+            and do what they say. Your only deliverable is the file
+            findings/${{ matrix.lens }}.json.
+      - name: Record cost
+        if: always()
+        run: bash scripts/weekly-review/cost.sh "lens-${{ matrix.lens }}" "${{ steps.claude.outputs.execution_file }}" "findings/${{ matrix.lens }}.cost.json"
+      - name: Check the findings file
+        if: always()
+        run: node scripts/weekly-review/validate.mjs "findings/${{ matrix.lens }}.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: findings-${{ matrix.lens }}
+          path: findings
+          retention-days: 30
+
+  # ── 3. Verify: a different reviewer tries to refute every finding ───────────
+  verify:
+    name: Verify · ${{ matrix.lens }}
+    needs: [packet, lens]
+    if: always() && needs.packet.outputs.has_token == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        lens: [security, backend, frontend, drift, product]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.repo }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: packet
+          path: packet
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: findings-${{ matrix.lens }}
+          path: findings
+      - run: mkdir -p verified
+      - name: Verify
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: false
+          claude_args: >-
+            --model claude-opus-5
+            --effort high
+            --max-turns 70
+            --allowedTools "Read,Grep,Glob,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git blame:*),Bash(git grep:*),Bash(ls:*),Bash(cat:*),Bash(wc:*),Bash(node:*),Bash(npx tsx:*),Bash(npm run:*)"
+          prompt: |
+            You are the verify stage for the "${{ matrix.lens }}" lens of this
+            repository's weekly review. Read, in this order:
+            scripts/weekly-review/prompts/common.md (the contract and the JSON shape),
+            scripts/weekly-review/prompts/verify.md, packet/packet.md, then
+            findings/${{ matrix.lens }}.json — and do what verify.md says. Your only
+            deliverable is the file verified/${{ matrix.lens }}.json.
+      - name: Record cost
+        if: always()
+        run: bash scripts/weekly-review/cost.sh "verify-${{ matrix.lens }}" "${{ steps.claude.outputs.execution_file }}" "verified/${{ matrix.lens }}.cost.json"
+      - name: Check the verified file
+        if: always()
+        run: node scripts/weekly-review/validate.mjs "verified/${{ matrix.lens }}.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verified-${{ matrix.lens }}
+          path: verified
+          retention-days: 30
+
+  # ── 4. Critic: what did nobody look at? (feeds next week's focus) ──────────
+  critic:
+    name: Critic
+    needs: [packet, verify]
+    if: always() && needs.packet.outputs.has_token == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.repo }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: packet
+          path: packet
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: verified-*
+          path: verified
+          merge-multiple: true
+      - run: mkdir -p focus
+      - name: Critic
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: false
+          claude_args: >-
+            --model claude-sonnet-5
+            --effort medium
+            --max-turns 35
+            --allowedTools "Read,Grep,Glob,Write,Bash(git log:*),Bash(git diff:*),Bash(ls:*),Bash(cat:*)"
+          prompt: |
+            You are the critic stage of this repository's weekly review. Read, in
+            this order: scripts/weekly-review/prompts/common.md,
+            scripts/weekly-review/prompts/critic.md, packet/packet.md, then every
+            file under verified/ — and do what critic.md says. Your only
+            deliverable is the file focus/focus.md.
+      - name: Record cost
+        if: always()
+        run: bash scripts/weekly-review/cost.sh "critic" "${{ steps.claude.outputs.execution_file }}" "focus/critic.cost.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: focus
+          path: focus
+          retention-days: 30
+
+  # ── 5. Report: one document, same structure every week, filed privately ────
+  report:
+    name: Report
+    needs: [packet, critic]
+    if: always() && needs.packet.outputs.has_token == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.repo }}
+          fetch-depth: 0
+      - name: Check out the caller (where the report lands)
+        uses: actions/checkout@v7
+        with:
+          path: _review
+      - uses: actions/download-artifact@v4
+        with:
+          name: packet
+          path: packet
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: findings-*
+          path: findings
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: verified-*
+          path: verified
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: focus
+          path: focus
+      - id: date
+        run: |
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+          mkdir -p _review/reviews
+      - name: Write the report
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        env:
+          REVIEW_DATE: ${{ steps.date.outputs.date }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: false
+          claude_args: >-
+            --model claude-opus-5
+            --effort high
+            --max-turns 45
+            --allowedTools "Read,Grep,Glob,Write,Bash(ls:*),Bash(cat:*)"
+          prompt: |
+            You are the report stage of this repository's weekly review. Today's
+            review date is ${{ steps.date.outputs.date }}. Read, in this order:
+            scripts/weekly-review/prompts/common.md,
+            scripts/weekly-review/prompts/report.md, then every input report.md
+            names — and do what it says. Your only deliverables are
+            _review/reviews/${{ steps.date.outputs.date }}.md and
+            _review/reviews/open.json.
+      - name: Record cost
+        if: always()
+        run: bash scripts/weekly-review/cost.sh "report" "${{ steps.claude.outputs.execution_file }}" "focus/report.cost.json"
+      - name: File the report (commit to the caller, open the issue)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DATE: ${{ steps.date.outputs.date }}
+        run: |
+          set -e
+          R="_review/reviews/$DATE.md"
+          if [ ! -f "$R" ]; then
+            {
+              echo "# Weekly review — $DATE"
+              echo
+              echo "⚠ The report stage did not produce a report (see this run's log). The packet follows so the week is not lost."
+              echo
+              cat packet/packet.md
+            } > "$R"
+          fi
+          echo >> "$R"
+          echo "- Report stage cost: $(cat focus/report.cost.json 2>/dev/null || echo unknown)" >> "$R"
+          cp packet/metrics.json _review/reviews/metrics.json
+          [ -f focus/focus.md ] && cp focus/focus.md _review/reviews/focus.md
+          [ -f _review/reviews/open.json ] || echo "[]" > _review/reviews/open.json
+          cd _review
+          git config user.name "weekly-review"
+          git config user.email "weekly-review@users.noreply.github.com"
+          git add reviews
+          git commit -m "Weekly review $DATE" || echo "nothing to commit"
+          git push
+          gh label create weekly-review --color 5319e7 --description "Automated weekly review" --force >/dev/null 2>&1 || true
+          head -c 60000 "reviews/$DATE.md" > /tmp/issue-body.md
+          gh issue create --title "Weekly review — $DATE" --label weekly-review --body-file /tmp/issue-body.md

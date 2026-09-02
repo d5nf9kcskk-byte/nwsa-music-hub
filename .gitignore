@@ -10,6 +10,9 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+# weekly review working dirs (scripts/weekly-review/packet.sh, CI checkouts)
+packet
+_review
 *.local
 
 # This repo is public. Never commit credentials, bulletins, or student data.

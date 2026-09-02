@@ -1,5 +1,9 @@
 name: Claude weekly bug scan
 
+# BEING RETIRED (decided 2026-09-02): superseded by the Saturday weekly review
+# (docs/weekly-review.md), which runs privately from nwsa-hub-review. Delete
+# this file and docs/claude-bug-scan.md once that review has run green twice.
+#
 # Replaces Cursor Bugbot (removed Aug 2026 — it was hitting Cursor usage
 # limits and spamming every PR). Once a week, Claude reviews ONLY the commits
 # that landed on main since the last scan and opens/updates a single GitHub

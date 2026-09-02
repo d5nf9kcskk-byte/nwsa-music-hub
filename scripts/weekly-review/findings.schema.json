@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Weekly review — findings file (one per lens; verify adds verdicts)",
+  "type": "object",
+  "required": ["lens", "reviewed", "findings"],
+  "properties": {
+    "lens": { "type": "string", "enum": ["security", "backend", "frontend", "drift", "product"] },
+    "reviewed": {
+      "type": "object",
+      "required": ["range", "notes"],
+      "properties": {
+        "range": { "type": "string", "description": "the git range from packet/range.txt" },
+        "deep_dive": { "type": "string", "description": "the area named in the packet" },
+        "notes": { "type": "string", "description": "what was read in full, what was skimmed, what was not read" }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "category", "severity", "title", "file", "evidence", "impact", "fix", "effort"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z]+-[0-9]{3}$", "description": "<lens>-<nnn>, e.g. security-003" },
+          "category": { "type": "string", "enum": ["broken", "security", "drift", "ux", "implement", "remove", "rework", "health"] },
+          "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+          "title": { "type": "string", "maxLength": 120 },
+          "file": { "type": "string", "description": "repo-relative path; for ideas, the file the change would start in" },
+          "line": { "type": "integer" },
+          "evidence": { "type": "string", "description": "what the code does, traced — the exact lines or calls, not a hunch" },
+          "impact": { "type": "string", "description": "what breaks, who is affected, how to see it" },
+          "fix": { "type": "string", "description": "the smallest change that resolves it" },
+          "effort": { "type": "string", "enum": ["S", "M", "L"] },
+          "verdict": { "type": "string", "enum": ["confirmed", "refuted", "unclear"], "description": "set by the verify stage only" },
+          "verify_note": { "type": "string", "description": "verify stage: the trace that confirmed or refuted it" }
+        }
+      }
+    },
+    "carry_forward": {
+      "type": "array",
+      "description": "verify stage only: last week's open items checked against today's code",
+      "items": {
+        "type": "object",
+        "required": ["id", "status", "note"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["fixed", "open", "dropped"] },
+          "note": { "type": "string" }
+        }
+      }
+    }
+  }
+}
