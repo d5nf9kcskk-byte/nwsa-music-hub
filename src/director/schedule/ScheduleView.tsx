@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, CalendarPlus, CalendarClock, MapPin, Clock, Users, Upload, Sparkles, LayoutList, Grid3x3 } from 'lucide-react';
+import { Bell, ChevronLeft, ChevronRight, CalendarPlus, CalendarClock, MapPin, Clock, Users, Upload, Sparkles, LayoutList, Grid3x3 } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
@@ -14,6 +14,7 @@ import { EventRoster } from './EventRoster';
 import { IcsImport } from './IcsImport';
 import { QuickAddView } from './QuickAddView';
 import { FilteredCalendarSubscribe } from '../components/FilteredCalendarSubscribe';
+import { MyCalendarFeedPanel } from '../components/MyCalendarFeedPanel';
 import { FilterMenu } from '../../shared/FilterMenu';
 import type { ConcertAttendance } from '../../shared/calendarView';
 import { activeCollegePreset, collegeFilterIds, type CollegeFilterPreset } from '../../shared/collegeCalendarFilter';
@@ -100,6 +101,9 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   const [rosterEvent, setRosterEvent] = useState<CalendarEvent | null>(null);
   const [importingIcs, setImportingIcs] = useState(false);
   const [quickAdding, setQuickAdding] = useState(false);
+  // "Just my things" calendar (#my-calendar) — collapsed by default; the
+  // Schedule screen's job is the schedule, not a permanent settings block.
+  const [myCalOpen, setMyCalOpen] = useState(false);
   const [seedState, setSeedState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
   const [seedError, setSeedError] = useState('');
   const [schoolCalState, setSchoolCalState] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
@@ -383,6 +387,18 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             piecesById={piecesById}
             view={viewSpec}
           />
+          {/* One calendar with only YOUR ensembles, classes and lessons
+              (#my-calendar). Separate from Subscribe above, which follows the
+              filters on screen: this one follows your assignments, so its
+              address never changes when they do. */}
+          <button
+            type="button"
+            className={`dir-tool-btn${myCalOpen ? ' active' : ''}`}
+            onClick={() => setMyCalOpen(v => !v)}
+            title="A calendar with only your own ensembles, classes and lessons"
+          >
+            <Bell size={15} /> My calendar
+          </button>
           {/* One-time school-calendar import: hidden once school events exist.
               The whole seed family is NWSA-only (hardcoded MDCPS/MDC data) —
               other orgs never see these buttons (#org-config). Assistants never
@@ -458,6 +474,8 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             <Sparkles size={15} /> Quick Add
           </button>
       </div>
+
+      {myCalOpen && <MyCalendarFeedPanel />}
 
       {/* Filters — multi-select: several ensembles AND several types at once. */}
       <div className="dir-multi-filter">

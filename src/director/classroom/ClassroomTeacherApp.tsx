@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router';
 import { ExternalLink, LogOut, ClipboardList, ClipboardCheck, FileText } from 'lucide-react';
 import { WriteTray } from '../components/WriteTray';
 import { StatusStrips } from '../../shared/StatusStrips';
+import { MyCalendarFeedPanel } from '../components/MyCalendarFeedPanel';
 import { AttendanceView } from '../attendance/AttendanceView';
 import { AssignmentsView } from '../assignments/AssignmentsView';
 import { DocumentsView } from '../documents/DocumentsView';
@@ -84,6 +85,9 @@ export function ClassroomTeacherApp({ user, signOut }: { user: User; signOut: ()
             {tab === 'documents' && <DocumentsView allowedEnsembleIds={allowed} />}
           </>
         )}
+        {/* "Just my classes, on my phone" (#my-calendar) — bottom of the page,
+            the same place every other put-this-in-my-calendar link lives. */}
+        <div style={{ marginTop: 32 }}><MyCalendarFeedPanel /></div>
       </main>
 
       <WriteTray />

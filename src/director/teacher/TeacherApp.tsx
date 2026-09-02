@@ -7,6 +7,7 @@ import { ExternalLink, LogOut } from 'lucide-react';
 import { WriteTray } from '../components/WriteTray';
 import { StatusStrips } from '../../shared/StatusStrips';
 import { MyLessonsView } from './MyLessonsView';
+import { MyCalendarFeedPanel } from '../components/MyCalendarFeedPanel';
 import { AttendanceView } from '../attendance/AttendanceView';
 import { useCurrentDirector } from '../currentDirector';
 import { ORG } from '../../org';
@@ -82,6 +83,9 @@ export function TeacherApp({
             </div>
           )
         )}
+        {/* "Just my lessons, on my phone" (#my-calendar) — the applied
+            teacher's own studio plus school-wide days, nothing else. */}
+        <div style={{ marginTop: 32 }}><MyCalendarFeedPanel /></div>
       </main>
 
       <WriteTray />

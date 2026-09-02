@@ -6,6 +6,7 @@ import {
   buildAppointmentsIcs, parseFeedPath, tokenDocId,
   tokenMatches as apptTokenMatches,
 } from './appointmentsFeed.ts';
+import { buildStaffIcs, staffTokenDocId } from './staffFeed.ts';
 import { getStorage } from 'firebase-admin/storage';
 import {
   buildRecord, checkinDocId, decodePhoto, fail, loadSiteSettings, photoPath,
@@ -152,6 +153,79 @@ export const appointmentsFeed = https.onRequest(async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
   res.set('Content-Type', 'text/calendar; charset=utf-8');
   res.set('Content-Disposition', 'inline; filename="appointments.ics"');
+  res.status(200).send(body);
+});
+
+
+/**
+ * One staff member's own schedule, served live (#my-calendar).
+ *
+ * `GET /staffFeed/<email>/<token>.ics`
+ *
+ * "Only my ensembles, my classes, my students — separate from everything I
+ * don't teach." Every role gets one: a director's conducted ensembles, a
+ * classroom teacher's class meetings, an applied teacher's private lessons, a
+ * student assistant's assigned rooms — plus the school-wide days that change
+ * everyone's schedule.
+ *
+ * A function rather than a file, for both of the reasons the Hub already has
+ * this shape:
+ *
+ *  • It carries an applied teacher's `lessons`, which are staff-only, and
+ *    anything published through the Pages pipeline is downloadable from a
+ *    public workflow artifact (#lessons-feed). Nothing here may enter `dist/`.
+ *  • Membership is resolved from the `directors` doc at REQUEST time, so
+ *    picking up an ensemble next term changes what arrives without anyone
+ *    re-subscribing. A `view-<slug>.ics` cannot do that — its address IS the
+ *    hash of its filters, so changing the filters changes the URL.
+ *
+ * Per-person, like the appointments feed and unlike the shared lessons one:
+ * this calendar is somebody's own working week, and no colleague needs to
+ * hold their link. Everything about the refusal posture below is copied from
+ * that endpoint deliberately — same parse, same constant-time compare, same
+ * single generic 404 — so a wrong address, a wrong token, and a person with
+ * no link yet stay indistinguishable and this cannot be walked to find out
+ * which staff addresses exist.
+ */
+export const staffFeed = https.onRequest(async (req, res) => {
+  // Set on EVERY response, refusals included: the panel that offers this link
+  // probes the endpoint to tell "not deployed yet" from "live", and a browser
+  // cannot read a cross-origin 404 that carries no CORS header.
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+
+  const deny = () => {
+    res.set('Cache-Control', 'no-store');
+    res.status(404).type('text/plain').send('Not found');
+  };
+
+  if (req.method !== 'GET' && req.method !== 'HEAD') { deny(); return; }
+
+  // Same `/lessonsFeed`-shaped path as the appointments feed, and the same
+  // parser: the email is validated hard before it can become a Firestore
+  // document path, because a segment carrying a slash would address a
+  // different collection entirely.
+  const parsed = parseFeedPath(req.path || '');
+  if (!parsed) { deny(); return; }
+
+  const db = getFirestore();
+  let expected: string | undefined;
+  try {
+    const snap = await db.doc(`feedSecrets/${staffTokenDocId(parsed.email)}`).get();
+    expected = snap.exists ? (snap.get('token') as string | undefined) : undefined;
+  } catch {
+    // A read failure must not look like a bad token, but it also must not
+    // hand out the calendar. 503 so a calendar app retries.
+    res.set('Cache-Control', 'no-store');
+    res.status(503).type('text/plain').send('Temporarily unavailable');
+    return;
+  }
+  if (!expected || !apptTokenMatches(parsed.token, expected)) { deny(); return; }
+
+  const body = await buildStaffIcs(db, parsed.email);
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Content-Type', 'text/calendar; charset=utf-8');
+  res.set('Content-Disposition', 'inline; filename="my-schedule.ics"');
   res.status(200).send(body);
 });
 

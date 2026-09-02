@@ -30,6 +30,11 @@ export interface CurrentDirector {
   assignedStudentIds: string[];
   /** Assistant-only: ensembles this Student Assistant may take roll for. */
   assignedEnsembleIds: string[];
+  /** Name patterns that expand to more ensemble ids at read time (every Jazz
+   *  Combo, say). Carried here so "my calendar" can show the SAME set the
+   *  staffFeed function builds — both resolve through
+   *  resolveAssignedEnsembleIds() (#my-calendar). */
+  assignedEnsemblePatterns: string[];
   /** Student Assistant only: optional extras beyond take-roll. */
   assistantCapabilities: AssistantCapability[];
 }
@@ -49,6 +54,7 @@ export function setCurrentDirector(directorDoc: Director, googleDisplayName?: st
     instruments: directorDoc.instruments ?? [],
     assignedStudentIds: directorDoc.assignedStudentIds ?? [],
     assignedEnsembleIds: directorDoc.assignedEnsembleIds ?? [],
+    assignedEnsemblePatterns: directorDoc.assignedEnsemblePatterns ?? [],
     assistantCapabilities: assistantCapabilities(directorDoc),
   };
   emit();

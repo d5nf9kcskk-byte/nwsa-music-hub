@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { WriteTray } from '../components/WriteTray';
 import { StatusStrips } from '../../shared/StatusStrips';
+import { MyCalendarFeedPanel } from '../components/MyCalendarFeedPanel';
 import { AttendanceView } from '../attendance/AttendanceView';
 import { ScheduleView } from '../schedule/ScheduleView';
 import { RepertoireManager } from '../repertoire/RepertoireManager';
@@ -124,6 +125,8 @@ export function AssistantApp({ user, signOut }: { user: User; signOut: () => voi
             {tab === 'announcements' && <AnnouncementManager asTab onClose={() => setTab('roll')} />}
           </>
         )}
+        {/* "Just my rooms, on my phone" (#my-calendar). */}
+        <div style={{ marginTop: 32 }}><MyCalendarFeedPanel /></div>
       </main>
 
       <WriteTray />

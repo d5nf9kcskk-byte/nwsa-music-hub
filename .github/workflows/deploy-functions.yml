@@ -1,7 +1,8 @@
 name: Deploy Cloud Functions
 
 # The private lessons calendar endpoint (#lessons-feed), each director's
-# sign-up appointments calendar (#signup-appointments), the concert door
+# sign-up appointments calendar (#signup-appointments), each staff member's
+# own schedule (#my-calendar), the concert door
 # (#concert-checkin), the tally behind a student's concert count, and the
 # sign-up confirmation email (#signups — it writes the `mail` doc server-side
 # precisely so the public page never can). Kept in
@@ -22,6 +23,11 @@ on:
       - 'src/shared/signupBooking.ts'
       - 'src/shared/signupSlots.ts'
       - 'src/shared/signupAppointments.ts'
+      # Bundled into staffFeed — the SHARED view filter and the SHARED
+      # assignment resolver, so "what counts as mine" cannot drift between
+      # the Schedule screen and the subscribed calendar (#my-calendar).
+      - 'src/shared/calendarView.ts'
+      - 'src/director/directorAssignments.ts'
       - 'src/director/types.ts'
       - 'config/orgs/nwsa.json'
       - '.github/workflows/deploy-functions.yml'
@@ -44,7 +50,7 @@ jobs:
 
       # Runs before any credential is written: a broken guard must fail the
       # build, not deploy and then fail.
-      - name: Check the lessons, appointments, check-in, tally, and email guards
+      - name: Check the lessons, appointments, my-calendar, check-in, tally, and email guards
         run: |
           npm --prefix functions ci
           npm --prefix functions run selfcheck
@@ -137,7 +143,7 @@ jobs:
           # from the log and the policy now sets itself on every deploy. If
           # it ever comes back, that grant is what went missing.
           npx --yes firebase-tools@latest deploy \
-            --only functions:lessonsFeed,functions:appointmentsFeed,functions:concertCheckin,functions:concertTally,functions:signupConfirmation \
+            --only functions:lessonsFeed,functions:appointmentsFeed,functions:staffFeed,functions:concertCheckin,functions:concertTally,functions:signupConfirmation \
             --project nwsa-hub \
             --non-interactive \
             --force

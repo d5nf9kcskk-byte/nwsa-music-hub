@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=lib/index.js --external:firebase-functions --external:firebase-admin",
-    "selfcheck": "node --experimental-strip-types src/lessonsFeed.selfcheck.ts && node --experimental-strip-types src/appointmentsFeed.selfcheck.ts && node --experimental-strip-types ../src/shared/signupAppointments.selfcheck.ts && node --experimental-strip-types src/concertCheckin.selfcheck.ts && node --experimental-strip-types src/concertTally.selfcheck.ts && node --experimental-strip-types src/signupConfirmation.selfcheck.ts"
+    "selfcheck": "node --experimental-strip-types src/lessonsFeed.selfcheck.ts && node --experimental-strip-types src/appointmentsFeed.selfcheck.ts && node --experimental-strip-types src/staffFeed.selfcheck.ts && node --experimental-strip-types ../src/shared/signupAppointments.selfcheck.ts && node --experimental-strip-types src/concertCheckin.selfcheck.ts && node --experimental-strip-types src/concertTally.selfcheck.ts && node --experimental-strip-types src/signupConfirmation.selfcheck.ts"
   },
   "dependencies": {
     "firebase-admin": "^13.4.0",
