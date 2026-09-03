@@ -75,6 +75,13 @@ export interface Director {
    *  src/director/lessonSchedule.ts for why, and for the expansion into
    *  ordinary dated Lesson docs. Staff-only, like the whole directors doc. */
   lessonSlots?: Record<string, import('../lessonSchedule').LessonSlot>;
+  /** Applied-teacher only: the parts of the paper High School Lesson Log that
+   *  are filled in ONCE per student per term rather than once per lesson —
+   *  the Jury Repertoire List and the three signature lines. Keyed by
+   *  `sheetKey(studentId, schoolYear, term)` so Fall and Spring are separate
+   *  sheets, as on paper. Here beside `lessonSlots` for the same reason: no
+   *  new collection and no second query/rule pair (#applied). */
+  lessonLogSheets?: Record<string, import('../lessonLog').LessonLogSheet>;
   /** Ensembles / classes this person is responsible for — conducting (director),
    *  roll (assistant), or teaching (classroom). Jazz Combos can also match by
    *  name pattern via `assignedEnsemblePatterns`. */

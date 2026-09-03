@@ -934,10 +934,11 @@ export interface Lesson {
   location?: string;
   instrument?: string;     // denormalized from the teacher's instrument(s)
   notes?: string;
-  /** The applied teacher's mark for this lesson — one of LESSON_MARKS
-   *  (src/director/lessonGrades.ts). Typed as string, not LessonMark, because
-   *  the field predates the closed set and some docs may hold free text;
-   *  `isLessonMark()` is the gate everything that COUNTS a grade goes through.
+  /** The applied teacher's grade for this lesson — a whole number 0–100, the
+   *  district scale (src/director/lessonGrades.ts). Typed as string because
+   *  the field predates the scale and older docs hold A–F letters or free
+   *  text; `lessonGradeValue()` is the ONE reader, and anything it can't read
+   *  is ignored rather than counted as a zero.
    *  Lives on the lesson doc rather than a grades collection so it inherits
    *  the lesson's own scoping — an applied teacher reads and writes only
    *  their own lessons, so they read and write only their own grades, with no

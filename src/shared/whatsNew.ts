@@ -32,6 +32,23 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // My Lessons now matches the paper High School Lesson Log blank for blank,
+  // and the lesson grade is a number (#applied).
+  {
+    id: '2026-09-03-lesson-log-full-form',
+    date: '2026-09-03',
+    title: 'My Lessons is the lesson log itself now — numeric grades, every blank, previous lessons in view',
+    audience: 'staff' as const,
+    expires: '2026-09-24',
+    bullets: [
+      'The lesson grade is a number from 0 to 100, not a letter, so it goes into the gradebook as typed. A student’s term grade is the average of those numbers.',
+      'Lessons you graded with a letter before today still show the letter, flagged “re-enter as a number”. They are left out of the average until you do — they are not counted as zeros.',
+      'The log is a spreadsheet with every blank the paper form has: lesson number, date, time, grade, teacher initial, student initial, composer, title, technique/comments, and payroll length. Time is new — the paper form only has a date.',
+      'Adding a lesson opens its own page with the term’s earlier lessons still on screen, directly above the row you are filling in and in the same columns. On lesson five you can read all four previous lines before you write.',
+      'The initials the student types are theirs, on their own line beside yours. Change the date, time, grade, repertoire, comments or payroll after they have initialled and the initials clear — they sign the corrected line.',
+      'The rest of the form is there too: Term (Fall or Spring, one sheet each, switch at the top), the five-line Jury Repertoire List, and the Faculty, Student and Dean signature and date lines.',
+    ],
+  },
   // Booked sign-up times → standing weekly lessons (#signups, #applied).
   // Staff-only: the button lives on the sign-up's owner's screen, and what it
   // creates is ordinary Lesson docs, whose TIME the student's own feed

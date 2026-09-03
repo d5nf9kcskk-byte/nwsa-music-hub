@@ -1049,9 +1049,11 @@ service cloud.firestore {
     // narrow self-service exceptions keep the app usable day-to-day:
     //   • a signed-in user may always GET their own doc (to discover
     //     whether they're a director — the app gates access on this);
-    //   • a director may UPDATE only `name` and/or `assignedStudentIds` on
-    //     their OWN doc — auto-captured display name on first sign-in, and a
-    //     Teacher adjusting their own "students assigned to me" list.
+    //   • a director may UPDATE only `name`, `assignedStudentIds`,
+    //     `lessonSlots` or `lessonLogSheets` on their OWN doc — auto-captured
+    //     display name on first sign-in, a Teacher adjusting their own
+    //     "students assigned to me" list, and their own applied-lesson
+    //     scheduling and lesson-log sheets (#applied).
     match /directors/{email} {
       // verifiedSelf, not a raw email match: the self-service paths must
       // clear the same verified-email bar as everything else, or a forged
@@ -1065,7 +1067,7 @@ service cloud.firestore {
       allow update: if isOwner()
         || (verifiedSelf(email)
             && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['name', 'assignedStudentIds', 'lessonSlots']));
+                 .hasOnly(['name', 'assignedStudentIds', 'lessonSlots', 'lessonLogSheets']));
       // The Owner may remove any OTHER director, but never their own
       // account — the app can never end up ownerless.
       allow delete: if isOwner() && request.auth.token.email != email;
