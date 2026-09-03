@@ -35,8 +35,10 @@ rules_version = '2';
 //                 teacher, scoped to their OWN assigned students — scheduling
 //                 and GRADING their own lessons (see `lessons` and the
 //                 `kind == 'lesson'` exception on `rosterOverrides` below).
-//                 Can't touch rosters, schedule, repertoire, documents,
-//                 announcements, contacts, or the Directors list.
+//                 Also runs SIGN-UPS (#signups, since 2026-09-03) — see
+//                 canManageSignups(), which is where that widening is
+//                 argued. Can't touch rosters, schedule, repertoire,
+//                 documents, announcements, contacts, or the Directors list.
 //                 The label reads "Applied Teacher" everywhere in the app;
 //                 the STORED value is still 'teacher' and must stay that way.
 //                 Renaming it would mean migrating every live directors doc
@@ -194,6 +196,31 @@ service cloud.firestore {
     function isKnownRole() {
       return hasRole('owner') || hasRole('director') || hasRole('teacher')
         || hasRole('classroom') || hasRole('assistant');
+    }
+
+    // Who may run sign-ups (#signups). The ONE definition — every sign-up
+    // collection below reads this, so the surface can be widened or narrowed
+    // in one place instead of eight.
+    //
+    // Owner and Director always. A Student Assistant when the Owner granted
+    // the 'signups' capability. And EVERY Applied Teacher, with no capability
+    // to tick — decided by the director 2026-09-03: a private studio teacher
+    // runs their own lesson-times sign-up, and "make these weekly lessons"
+    // (#signup-weekly-lessons) turns what students book into their standing
+    // lessons, so this screen is where an applied teacher's year now starts.
+    //
+    // Recorded because it is NOT obvious from the call sites: this is a real
+    // widening. An applied teacher can read every response on EVERY sign-up
+    // in the school — names, grades, phone numbers, guardian emails, and
+    // free-text answers — not only sign-ups they own. Scoping per form would
+    // need a get() on signupOwners for every response document, plus a
+    // formId-filtered query on the app side (rules match per document, so the
+    // query must narrow to the same subset — see the useLessons treatment).
+    // That was weighed and declined: the posture already reaches further,
+    // since a STUDENT assistant holding the 'signups' capability has had
+    // exactly this read since sign-ups shipped.
+    function canManageSignups() {
+      return isStaff() || assistantHas('signups') || isTeacherRole();
     }
 
     // Sign-in / activity logs carry one `role` label — it must be one of
@@ -412,19 +439,19 @@ service cloud.firestore {
     // director's own questions, and an audience expressed as ensembles +
     // instrument families — never a list of student ids, which would publish
     // who was invited to what (see src/shared/signupEligibility.ts).
-    match /signupForms/{doc}     { allow read; allow write: if isStaff() || assistantHas('signups'); }
+    match /signupForms/{doc}     { allow read; allow write: if canManageSignups(); }
 
     // Staff-only explicit invite list for a sign-up (#signups). Never
     // world-readable — publishing who was invited would leak through
     // student doc ids shared with studentsPublic. Assistants with the
     // signups capability may manage invite lists for forms they create.
     match /signupAudiences/{formId} {
-      allow read: if isStaff() || assistantHas('signups');
-      allow create, update: if (isStaff() || assistantHas('signups'))
+      allow read: if canManageSignups();
+      allow create, update: if canManageSignups()
         && request.resource.data.keys().hasOnly(['studentIds'])
         && request.resource.data.studentIds is list
         && request.resource.data.studentIds.size() <= 500;
-      allow delete: if isStaff() || assistantHas('signups');
+      allow delete: if canManageSignups();
     }
 
     // Who a sign-up BELONGS to (#signup-appointments) — the staff member whose
@@ -435,12 +462,12 @@ service cloud.firestore {
     // a public list of accounts worth phishing. Same split, same reasoning, as
     // signupAudiences above.
     match /signupOwners/{formId} {
-      allow read: if isStaff() || assistantHas('signups');
-      allow create, update: if (isStaff() || assistantHas('signups'))
+      allow read: if canManageSignups();
+      allow create, update: if canManageSignups()
         && request.resource.data.keys().hasOnly(['email'])
         && request.resource.data.email is string
         && exists(/databases/$(database)/documents/directors/$(request.resource.data.email));
-      allow delete: if isStaff() || assistantHas('signups');
+      allow delete: if canManageSignups();
     }
 
     // Interview time slots on sign-ups (#signups): world-readable so students
@@ -476,7 +503,7 @@ service cloud.firestore {
              + request.resource.data.questionId + '__'
              + string(request.resource.data.slotIndex);
       allow update: if false;
-      allow delete: if isStaff() || assistantHas('signups');
+      allow delete: if canManageSignups();
     }
 
     // Planned absences (#27): anyone may SUBMIT one (create-only, shape-checked),
@@ -623,8 +650,8 @@ service cloud.firestore {
       // A response names a student, their grade, a contact address and a
       // signature — staff-eyes only (plus assistants managing sign-ups),
       // and never listable by the public side.
-      allow read: if isStaff() || assistantHas('signups');
-      allow update, delete: if isStaff() || assistantHas('signups');
+      allow read: if canManageSignups();
+      allow update, delete: if canManageSignups();
     }
 
     // Outbound notification queue (#21): staff-only writes; Power Automate
@@ -725,6 +752,18 @@ service cloud.firestore {
         && (doc == 'lessons'
             || doc == 'appointments__' + request.auth.token.email
             || isOwner());
+      // An Applied Teacher's OWN appointments token (#signups). They run
+      // their own sign-ups now, and this calendar is what puts the times
+      // students book on their phone — without it the panel on the sign-up
+      // screen is a button that always fails. Pinned to the caller's own
+      // verified email, exactly like the staff__ clause below: it can never
+      // reach another person's token, and the Owner clause above still
+      // revokes a leaked one. NOT extended to assistants — an assistant's
+      // sign-up access is a capability the Owner grants, and a separate
+      // calendar carrying every response to a student's phone is not part
+      // of it.
+      allow read, write: if isTeacherRole()
+        && doc == 'appointments__' + request.auth.token.email;
       // "My calendar" (#my-calendar) — every recognized role gets one, and
       // only their own. Gated on isKnownRole() rather than isStaff() ON
       // PURPOSE: an Applied Teacher, a classroom teacher, and a student

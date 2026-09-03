@@ -49,6 +49,21 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Directors: nothing to redo. Your existing open sign-ups list themselves — and any response that failed with that message never arrived, so it is worth telling those students to try once more.',
     ],
   },
+  // Sign-ups opened to the Applied Teacher role (#signups, #roles). Staff-only
+  // by definition — it is a change to what a staff shell contains.
+  {
+    id: '2026-09-03-teacher-signups',
+    date: '2026-09-03',
+    title: 'Applied teachers can run their own sign-ups',
+    audience: 'staff' as const,
+    expires: '2026-09-24',
+    bullets: [
+      'If you teach private lessons, your screen now has two tabs: Lesson Log and Sign-ups. Post your own lesson-times sign-up, let students pick a slot, then press "Make these weekly lessons" — the times become your standing lessons and land on the Lesson Log tab ready to grade.',
+      'Nobody has to grant you anything. Every applied teacher has it.',
+      'Booked times also go to your appointments calendar, so you can subscribe on your phone and see who is coming when.',
+      'Worth knowing: the Sign-ups screen shows every sign-up in the music division, not only yours — the same view directors have had. Treat what students write on a form as you would anything else on a roster.',
+    ],
+  },
   // My Lessons now matches the paper High School Lesson Log blank for blank,
   // and the lesson grade is a number (#applied).
   {

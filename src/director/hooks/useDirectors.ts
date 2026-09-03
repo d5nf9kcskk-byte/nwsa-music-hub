@@ -5,6 +5,9 @@ import {
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { trackWrite } from '../writeStatus';
+// Safe direction: currentDirector.ts imports only TYPES back from this file,
+// so the edge is erased at build time and there is no runtime cycle.
+import { useCurrentDirector } from '../currentDirector';
 import {
   directorRole,
   directorRoles,
@@ -105,16 +108,25 @@ export function directorEmailId(email: string): string {
 export function useDirectors() {
   const [directors, setDirectors] = useState<Director[]>([]);
   const [loading, setLoading] = useState(true);
+  // `directors` is `allow list: if isOwner()` — LISTING the staff roster is
+  // the Owner's alone (#roles). Three screens call this hook and two of them
+  // are reachable by non-Owners (Sign-ups, Private lessons), where the
+  // listener could only ever fail: permission-denied, which raises the
+  // app-wide "couldn't load" strip over a screen that is working fine.
+  // Guarding HERE rather than at each call site is what makes that true for
+  // every caller, including the next one. A non-Owner gets an empty list,
+  // exactly what the failing listener left them with, minus the false alarm.
+  const isOwner = hasDirectorRole(useCurrentDirector(), 'owner');
 
   useEffect(() => {
-    if (!db) { setLoading(false); return; }
+    if (!db || !isOwner) { setLoading(false); return; }
     const q = query(collection(db, 'directors'), orderBy('email'));
     return onSnapshot(q, snap => {
       setDirectors(snap.docs.map(d => ({ email: d.id, ...d.data() } as Director)));
       noteLoadOk('directors');
       setLoading(false);
     }, () => { noteLoadError('directors'); setLoading(false); });
-  }, []);
+  }, [isOwner]);
 
   /** Add a new director (Owner only — enforced in firestore.rules). Role
    *  defaults to 'director'; 'owner' is never assignable from the app. */

@@ -17,7 +17,7 @@ import { useLessons } from '../hooks/useLessons';
 import { findLessonConflicts } from '../lessonConflicts';
 import { lessonPayloadsFor, schoolYearEnd } from '../lessonSchedule';
 import { planLessonsFromSignup } from '../../shared/signupToLessons';
-import { directorRoleLabels, directorRoles } from '../directorRoles';
+import { directorRoleLabels, directorRoles, hasDirectorRole, isStaffMember } from '../directorRoles';
 import { useCurrentDirector } from '../currentDirector';
 import { useMinuteTick } from '../hooks/useAnnouncements';
 import { SchedulePublishField } from '../components/SchedulePublishField';
@@ -95,6 +95,13 @@ export function SignupsView() {
       && (f.questions ?? []).some(q => isTimeslotQuestion(q) && (q.slotDefs?.length ?? 0) > 0)),
     [forms, owners, myEmail],
   );
+  // May this viewer actually hold an appointments token? `feedSecrets`
+  // allows `appointments__<their email>` to staff and to applied teachers,
+  // and deliberately not to Student Assistants — whose sign-up access is a
+  // granted capability, not a second calendar carrying every response to
+  // their phone. Without this the assistant sees a "Create my private link"
+  // button whose only possible outcome is permission-denied.
+  const canHoldAppointmentsFeed = !!me && (isStaffMember(me) || hasDirectorRole(me, 'teacher'));
 
   function newSignup(draft?: Draft) {
     // A new sign-up belongs to whoever is making it until they say otherwise —
@@ -226,7 +233,7 @@ export function SignupsView() {
 
       {/* Only once there is something to put on it — a subscribe panel for an
           empty calendar is a question nobody asked. */}
-      {iOwnTimeslots && <SignupAppointmentsFeedPanel />}
+      {iOwnTimeslots && canHoldAppointmentsFeed && <SignupAppointmentsFeedPanel />}
     </div>
   );
 }
@@ -883,6 +890,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
   const closeRef = useRef(onClose);
   useEffect(() => { closeRef.current = onClose; });
   useEffect(() => registerOverlayClose(() => closeRef.current()), []);
+  const me = useCurrentDirector();
   const [draft, setDraft] = useState<Draft>(initial);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -906,10 +914,19 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
   );
   // Student Assistants are left out: a sign-up's owner is the person whose
   // working day the appointments land in, and that is never a student.
-  const ownerOptions = useMemo(
-    () => directors.filter(d => directorRoles(d).some(r => r !== 'assistant')),
-    [directors],
-  );
+  //
+  // Listing `directors` is the Owner's alone (#roles), so for everyone else
+  // this arrives EMPTY — and an applied teacher, who now runs their own
+  // sign-ups, would see a dropdown offering only "Nobody in particular"
+  // while the draft quietly held their address. The select would show the
+  // wrong thing, and one touch of it would clear their own ownership. So
+  // when the viewer isn't in the list, they are added: the one owner they
+  // can meaningfully pick is themselves, and that is the answer they want.
+  const ownerOptions = useMemo(() => {
+    const listed = directors.filter(d => directorRoles(d).some(r => r !== 'assistant'));
+    if (!me?.email || listed.some(d => d.email === me.email)) return listed;
+    return [{ email: me.email, name: me.name, roles: me.roles } as Director, ...listed];
+  }, [directors, me]);
   const hasTimeslots = draft.questions.some(isTimeslotQuestion);
 
   function set<K extends keyof Draft>(key: K, value: Draft[K]) {
@@ -918,7 +935,10 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
   /** Name and email move together, always. The name is what students and the
    *  calendar show; the email is what routes the appointments. */
   function setOwner(email: string | undefined) {
-    const picked = directors.find(d => d.email === email);
+    // ownerOptions, not `directors` — the viewer's own row may only exist
+    // there (see above), and looking it up here is what keeps the stored
+    // NAME right for a teacher picking themselves.
+    const picked = ownerOptions.find(d => d.email === email);
     setDraft(d => ({
       ...d,
       ownerEmail: email,
