@@ -353,10 +353,30 @@ copies.
   without the roster anchor, so its brake is the same honeypot
   `parentMessages` uses — the exact-key-set rule. Nobody is “eligible” and
   nobody is “waiting” (`eligibleForSignup` returns false), so the director’s
-  screen counts responses instead of “3 of 14”, and it stays off the Hub home
-  page. Time slots can’t be offered on one — a booking is anchored to a
-  student doc — and the editor refuses that combination, which is the only
-  place it could be created.
+  screen counts responses instead of “3 of 14”. Time slots can’t be offered on
+  one — a booking is anchored to a student doc — and the editor refuses that
+  combination, which is the only place it could be created.
+- **The honeypot must never fire on a BROWSER** (Sept 2026). It did: the decoy
+  was merely parked off-screen, Chrome's autofill and password managers filled
+  it, the payload gained a `website` key, `keys().hasOnly` rejected the create,
+  and the student got “check your connection” on every retry — forever, since
+  the value never cleared. iOS Safari fills only what it can see, so the
+  college-info sign-up worked on an iPhone and nowhere else. One definition
+  now, `src/public/components/Honeypot.tsx`, used by the open sign-up AND the
+  parent contact form, with two guards that must stay together: `.pub-hp` is
+  `visibility: hidden` at zero size (autofill and password managers skip a
+  field they cannot see; a bot reading the HTML still finds it), and
+  `botFields()` discards a value the browser filled, detected via `:autofill`.
+  Do not re-inline a bare `<input className="pub-hp">` in a form — that is the
+  shape that broke. firestore.rules is unchanged and needs no change.
+- **Two audiences, two predicates.** `signupShowsInAlerts()` answers “does this
+  belong on the Hub home / schedule strip”; `signupShowsInIndex()` answers
+  “does this list on `/signups`”. They are NOT the same question: an open
+  sign-up stays off the alert strip (it targets people who aren't in the Hub)
+  but must list on the index, or it exists at its own URL and nowhere else and
+  a student who loses the link has no way back. The index reused the alerts
+  predicate until Sept 2026, which is exactly that bug. Invite-only stays off
+  both. `scripts/signup-eligibility.selfcheck.mjs` pins the pair.
 - Audience is otherwise **ensembles + instrument families only** — never a list
   of student ids. `signupForms` is world-readable, and student doc ids are
   shared with `studentsPublic`, so an invite list would publish who was

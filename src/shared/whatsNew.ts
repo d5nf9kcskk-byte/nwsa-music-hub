@@ -32,6 +32,23 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Sign-ups: the honeypot decoy on an 'open' form was being filled by
+  // browser autofill, which made the payload carry `website` and the rules
+  // reject the create — so the form went through on iOS Safari and nowhere
+  // else. Fixed in components/Honeypot.tsx; the /signups index also stopped
+  // reusing the alert-strip predicate and hiding open sign-ups outright.
+  {
+    id: '2026-09-03-open-signup-fixes',
+    date: '2026-09-03',
+    title: 'Sign-ups: “anyone with the link” forms now send from any browser, and they list on the Sign-ups page',
+    audience: 'both' as const,
+    expires: '2026-09-24',
+    bullets: [
+      'If a sign-up said “Could not send right now — check your connection” no matter how many times you pressed Send, that is fixed. It was not your connection: a hidden anti-spam field on the form was being filled in by your browser’s autofill, and the form turned itself down. iPhones did not autofill it, which is why the same form worked there and nowhere else. Please send it again.',
+      'A sign-up set to “Anyone with the link” now appears on the Sign-ups page like every other one. Before, it lived only at its own address, so anyone who lost the link had no way back to it.',
+      'Directors: nothing to redo. Your existing open sign-ups list themselves — and any response that failed with that message never arrived, so it is worth telling those students to try once more.',
+    ],
+  },
   // My Lessons now matches the paper High School Lesson Log blank for blank,
   // and the lesson grade is a number (#applied).
   {

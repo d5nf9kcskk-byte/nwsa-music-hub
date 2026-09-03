@@ -835,11 +835,20 @@ html:has(.pub-app) body {
 .pub-announce-link:hover { text-decoration: underline; }
 
 /* Honeypot for the unauthenticated forms (contact, open sign-ups): visually
-   removed but still fillable by naive bots. Not display:none — some bots skip
-   invisible fields; off-screen is stickier. Lives here rather than beside one
-   form so every page that needs it gets the rule without loading that form's
-   stylesheet. */
+   removed but still fillable by naive bots, which read the HTML and do not
+   compute styles. Lives here rather than beside one form so every page that
+   needs it gets the rule without loading that form's stylesheet.
+
+   It used to be off-screen and 1px rather than hidden, on the theory that
+   some bots skip invisible fields. That cost more than it bought: Chrome's
+   autofill and password managers will fill an off-screen field, the payload
+   then carried the decoy's key, and firestore.rules — which cannot tell
+   autofill from a bot — rejected real students' sign-ups on every browser
+   except iOS Safari (Sept 2026). Zero size plus `visibility: hidden` is what
+   every autofill implementation checks before it fills. The second half of
+   the guard is in components/Honeypot.tsx; keep them together. */
 .pub-hp {
   position: absolute; left: -9999px; top: -9999px;
-  width: 1px; height: 1px; opacity: 0; pointer-events: none;
+  width: 0; height: 0; padding: 0; border: 0;
+  visibility: hidden; opacity: 0; pointer-events: none;
 }

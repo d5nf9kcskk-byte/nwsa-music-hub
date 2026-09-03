@@ -90,6 +90,21 @@ export function signupShowsInAlerts(form: { audienceMode?: SignupAudienceMode })
   return form.audienceMode !== 'students' && form.audienceMode !== 'open';
 }
 
+/** The /signups INDEX — a wider question than the alert strip, and not the
+ *  same one (Sept 2026). The index reused `signupShowsInAlerts`, so an
+ *  "Anyone with the link" sign-up existed at its own URL and nowhere else:
+ *  a director who opened one had to hand-write an announcement to give
+ *  anybody a way in, and a student who lost the link had none.
+ *
+ *  An open sign-up belongs on the list — the title and audience are already
+ *  world-readable on `signupForms`, so listing it publishes nothing new, and
+ *  a page you can only reach if you already have the link is not a menu.
+ *  Invite-only stays off: "by invitation" means the invitation IS the route,
+ *  and the direct link is what carries it. */
+export function signupShowsInIndex(form: { audienceMode?: SignupAudienceMode }): boolean {
+  return form.audienceMode !== 'students';
+}
+
 /** Plain-English "who this is for", e.g. "Camerata · Strings" or "12 students". */
 export function audienceLabel(
   audience: SignupAudience,

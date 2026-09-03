@@ -5,6 +5,7 @@ import { db } from '../director/firebase';
 import { t, useLang } from '../shared/i18n';
 import { ORG } from '../org';
 import { PARENT_MESSAGE_TOPICS, type ParentMessageTopic } from '../director/types';
+import { useHoneypot } from './components/Honeypot';
 import './publicContact.css';
 
 /**
@@ -44,7 +45,7 @@ export function PublicContact() {
   const [studentName, setStudentName] = useState('');
   const [topic, setTopic] = useState<ParentMessageTopic>('other');
   const [message, setMessage] = useState('');
-  const [honeypot, setHoneypot] = useState('');
+  const honeypot = useHoneypot();
   const [state, setState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const [error, setError] = useState('');
 
@@ -69,9 +70,10 @@ export function PublicContact() {
         message: message.trim().slice(0, 1000),
         submittedAt: Date.now(),
         status: 'new',
-        // Honeypot: only present when a bot filled the hidden field —
-        // keys().hasOnly in the rules rejects the create.
-        ...(honeypot ? { website: honeypot } : {}),
+        // Honeypot: only present when a BOT filled the hidden field —
+        // keys().hasOnly in the rules rejects the create. A browser autofill
+        // of the decoy is discarded in Honeypot.tsx.
+        ...honeypot.botFields(),
       });
       try { localStorage.setItem(COOLDOWN_KEY, String(Date.now())); } catch { /* private mode */ }
       setState('done');
@@ -151,9 +153,7 @@ export function PublicContact() {
         <div className="pub-contact-count">{message.trim().length}/1000</div>
 
         {/* Honeypot — hidden from humans (and from assistive tech). */}
-        <input className="pub-hp" type="text" value={honeypot} tabIndex={-1}
-          onChange={e => setHoneypot(e.target.value)} autoComplete="off"
-          aria-hidden="true" placeholder="Leave this field empty" />
+        {honeypot.field}
 
         {error && <div className="pub-absence-error">⚠ {error}</div>}
 
