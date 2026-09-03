@@ -49,13 +49,14 @@ export const WHATS_NEW: WhatsNewEntry[] = [
   // (#my-calendar). Staff-only: it carries an applied teacher's lessons and
   // it is served by a Cloud Function, never published to the site.
   {
-    id: '2026-09-02-my-calendar',
-    date: '2026-09-02',
+    id: '2026-09-03-my-calendar',
+    date: '2026-09-03',
     title: 'A calendar with only your own ensembles, classes and lessons',
     audience: 'staff' as const,
-    expires: '2026-09-23',
+    expires: '2026-09-24',
     bullets: [
       'Subscribe once and get just your things: the ensembles and classes you are assigned to, the private lessons you teach, and the school-wide days — with nothing from the groups you do not teach.',
+      'Classes count, and that needed a fix: the Directors screen only ever offered PERFORMING ensembles to a director, so a director who teaches AP Theory, a college course, or a master class had no way to record it — and it could not reach their calendar. Directors and applied teachers now get the class-section list too. Tick your classes there and they appear on your calendar on their own.',
       'It follows your assignments rather than a filter you picked. Take on a group next term and it appears on the calendar by itself; you never re-subscribe. That is the difference from the Subscribe button beside it, which follows whatever filters are on screen and gets a new address when they change.',
       'Every role has one: directors, classroom teachers, student assistants, and applied teachers. Find it under "My calendar" on the Schedule screen, or at the bottom of your own screen if you sign in as a teacher or assistant.',
       'The link has no sign-in, so treat it like a password — anyone you send it to can read your whole schedule, and for an applied teacher that includes which students you teach and when. Reset it from the same panel if it gets out.',

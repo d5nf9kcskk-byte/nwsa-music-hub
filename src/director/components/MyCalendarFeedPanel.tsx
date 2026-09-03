@@ -119,6 +119,16 @@ export function MyCalendarFeedPanel() {
             re-subscribing.
           </p>
         )}
+        {/* The list above IS the audit. A group nobody ticked is invisible
+            everywhere else too — it is the same field that names the staff on
+            a class page — so say where it is set rather than leaving someone
+            to wonder why their own class is missing (#my-calendar). */}
+        <p style={{ margin: '6px 0 0' }}>
+          Something you teach not listed? It comes from your assignments on the
+          <strong> Directors</strong> screen, which only the Owner can change — ensembles
+          <em> and</em> class sections, including college courses and master classes. Once it
+          is ticked there it appears here by itself; you do not re-subscribe.
+        </p>
       </div>
 
       {!token ? (

@@ -136,13 +136,26 @@ assert(staffTokenDocId('dir@nwsa.edu') !== 'appointments__dir@nwsa.edu',
 
   const DATA: Record<string, Record<string, Record<string, unknown>>> = {
     directors: {
-      'dir@nwsa.edu': { assignedEnsembleIds: ['symphony'] },
+      // A director who ALSO teaches a college class and a master class. This
+      // shape is the whole reason the fixture exists: it was unbuildable in
+      // the Directors editor until the class picker was offered to directors,
+      // so the calendar shipped without anybody's classes on it.
+      'dir@nwsa.edu': { assignedEnsembleIds: ['symphony', 'class-college-theory-1', 'masterclass-violin'] },
       'teach@nwsa.edu': { assignedStudentIds: ['stu-1'] },
     },
-    ensembles: { symphony: { name: 'Symphony Orchestra' }, phil: { name: 'Philharmonic' } },
+    ensembles: {
+      symphony: { name: 'Symphony Orchestra' },
+      phil: { name: 'Philharmonic' },
+      'class-college-theory-1': { name: 'Music Theory 1', kind: 'class', collegeLevel: true },
+      'class-ap-theory': { name: 'AP Theory', kind: 'class' },
+      'masterclass-violin': { name: 'Violin Masterclass', kind: 'masterclass' },
+    },
     events: {
       'ev-mine': { type: 'Rehearsal', date: today, startTime: '09:00', endTime: '10:00', title: 'Symphony Rehearsal', ensembleIds: ['symphony'] },
       'ev-theirs': { type: 'Rehearsal', date: today, startTime: '09:00', endTime: '10:00', title: 'Phil Rehearsal', ensembleIds: ['phil'] },
+      'ev-college': { type: 'Class', date: today, startTime: '11:00', endTime: '12:15', title: 'Music Theory 1', ensembleIds: ['class-college-theory-1'] },
+      'ev-master': { type: 'Class', date: today, startTime: '13:00', endTime: '14:00', title: 'Violin Masterclass', ensembleIds: ['masterclass-violin'] },
+      'ev-otherclass': { type: 'Class', date: today, startTime: '11:00', endTime: '12:15', title: 'AP Theory', ensembleIds: ['class-ap-theory'] },
       'ev-school': { type: 'Event', date: today, title: 'Teacher Planning Day', ensembleIds: [] },
     },
     assignments: {},
@@ -186,6 +199,13 @@ assert(staffTokenDocId('dir@nwsa.edu') !== 'appointments__dir@nwsa.edu',
   const forDirector = await buildStaffIcs(db, 'dir@nwsa.edu');
   assert(forDirector.includes('Symphony Rehearsal'), 'the director gets their own rehearsal');
   assert(!forDirector.includes('Phil Rehearsal'), "and NOT the other director's — the whole request");
+
+  // The reported miss: a director's CLASSES — college courses and master
+  // classes included — belong on the same one calendar as their ensembles.
+  // "Everything that applies to me, whatever hat I am wearing."
+  assert(forDirector.includes('Music Theory 1'), 'their college class meets on this calendar');
+  assert(forDirector.includes('Violin Masterclass'), 'and their master class');
+  assert(!forDirector.includes('AP Theory'), "but not a class they don't teach");
   assert(forDirector.includes('Teacher Planning Day'), 'school-wide days ride along');
   assert(!forDirector.includes('Ana Reyes'), 'a director who teaches no lessons gets none');
   assert(forDirector.includes('My schedule'), 'calendar is named for its owner’s week');

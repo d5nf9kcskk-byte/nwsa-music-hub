@@ -168,7 +168,9 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
           hold one or more access levels — and assign the ensembles they
           conduct or the class sections they teach. Applied Teachers get
           assigned students; Student Assistants and Classroom Teachers get
-          their groups here too.
+          their groups here too. What is ticked here is also what lands on
+          that person&rsquo;s own calendar, so a director who teaches a class
+          should have the class ticked as well as the ensembles.
         </p>
 
         {loading && directors.length === 0 && <div className="dir-loc-empty">Loading…</div>}
@@ -450,7 +452,11 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
           ? instruments.split(',').map(s => s.trim()).filter(Boolean)
           : undefined,
         assignedStudentIds: hasTeacher ? assignedIds : undefined,
-        assignedEnsembleIds: (hasDirector || hasAssistant || hasClassroom) ? assignedEnsIds : undefined,
+        // Saved for an Applied Teacher too: a violin teacher who also runs
+        // Violin Masterclass had nowhere to record it, so the group never
+        // reached their calendar (#my-calendar).
+        assignedEnsembleIds: (hasDirector || hasAssistant || hasClassroom || hasTeacher)
+          ? assignedEnsIds : undefined,
         assignedEnsemblePatterns: allJazzCombos ? [JAZZ_COMBO_NAME_PATTERN] : undefined,
         assistantCapabilities: hasAssistant && caps.length ? caps : undefined,
         mdcEmail: mdcEmail.trim() || undefined,
@@ -606,7 +612,18 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
           </div>
         )}
 
-        {hasClassroom && (
+        {/* Class sections — offered to DIRECTORS too, not only Classroom
+            Teachers (#my-calendar). A director who teaches AP Theory, a
+            college course, or a master class had no checkbox for it anywhere
+            on this screen: the picker above lists performingEnsembles() only,
+            so `assignedEnsembleIds` could never hold a class for them. That
+            field is the ONE answer to "whose group is this" — it drives the
+            staff shown on a class page and the person's own calendar — so the
+            gap read as "the Hub doesn't know I teach this."
+            Access-neutral: every firestore.rules use of the field is gated on
+            isAssistantRole()/isClassroomRole(), so ids added for a director or
+            an applied teacher grant nothing new. */}
+        {(hasDirector || hasClassroom || hasTeacher) && (
           <div className="dir-field">
             <label className="dir-label">Class sections they teach</label>
             <div className="dir-checkbox-group">
@@ -617,7 +634,12 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
                 </label>
               ))}
             </div>
-            <div className="dir-field-hint">Theory, music appreciation, college courses, and other class groups.</div>
+            <div className="dir-field-hint">
+              Theory, music appreciation, college courses, master classes, and other class
+              groups. {hasClassroom
+                ? 'Classroom Teachers can take roll only for the sections picked here.'
+                : 'Picking them here is what puts their meetings on this person’s own calendar and names them on the class page — it grants no extra access.'}
+            </div>
           </div>
         )}
 

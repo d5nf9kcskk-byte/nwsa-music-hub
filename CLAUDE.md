@@ -244,6 +244,20 @@ Upgrading the SDK does not remove the need: no Firestore release through
   from the appointments token, and its rules clause is gated on
   `isKnownRole()` rather than `isStaff()` on purpose — teachers, classroom
   teachers and assistants are exactly who it is for.
+- **`assignedEnsembleIds` is the ONE answer to "whose group is this"** — it
+  drives the staff named on a class/ensemble page (`assignedStaffForGroup`),
+  the scoped role shells, and "my calendar". So the Directors editor must be
+  able to express every group a person actually has. It could not: the picker
+  offered `performingEnsembles()` to directors and the class list only to
+  Classroom Teachers, so a DIRECTOR who teaches AP Theory, a college course,
+  or a master class had no checkbox anywhere and their classes reached
+  nothing. Fixed Sept 2026 — directors and applied teachers now get the class
+  picker too, and the field is saved for applied teachers. Access-neutral by
+  construction: every `firestore.rules` use of the field is gated on
+  `isAssistantRole()`/`isClassroomRole()`, so ids on a director's or an
+  applied teacher's doc grant nothing. **If you add a new kind of group, check
+  the Directors editor offers it** — a group nobody can be assigned to is
+  invisible to every one of those consumers at once.
 
 ## Ensembles vs. classes (Aug 2026)
 
