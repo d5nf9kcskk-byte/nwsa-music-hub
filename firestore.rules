@@ -571,6 +571,11 @@ service cloud.firestore {
     // exact key set below IS the honeypot — the public form only sends its
     // hidden 'website' field when a bot fills it, and hasOnly rejects the
     // create. A director who wants the anchor back picks a different mode.
+    // The client half of that contract is src/public/components/Honeypot.tsx,
+    // which must never send 'website' for a value a BROWSER autofilled: this
+    // rule cannot tell autofill from a bot, so a decoy the browser filled
+    // locked real students out of the form for the life of the page (Sept
+    // 2026). Nothing here changed to fix it, and nothing here should.
     match /signupResponses/{doc} {
       allow create: if request.resource.data.keys().hasOnly([
             'formId', 'studentId', 'studentName', 'grade', 'instrument',

@@ -23,6 +23,7 @@ import {
 } from '../shared/signupSlots';
 import { resolveBookedSlots, slotCalendarEvent } from '../shared/signupBooking';
 import { AddToCalendarButton } from './components/AddToCalendar';
+import { useHoneypot } from './components/Honeypot';
 import { getReceipt, saveReceipt } from './signupReceipt';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 import { ORG } from '../org';
@@ -86,8 +87,11 @@ export function PublicSignup() {
   const studentId = pickedId !== undefined ? pickedId : savedEligible;
   const [query, setQuery] = useState('');
   const [typedName, setTypedName] = useState('');
-  // Hidden decoy — see the honeypot note on submitSignupResponse().
-  const [honeypot, setHoneypot] = useState('');
+  // Hidden decoy — see components/Honeypot.tsx and the note on
+  // submitSignupResponse(). It contributes a `website` key ONLY for a bot;
+  // a browser autofill of the decoy is discarded there, because rejecting a
+  // real student for what their browser did is the worse failure.
+  const honeypot = useHoneypot();
   const [gradeTouched, setGradeTouched] = useState(false);
   const [grade, setGrade] = useState('');
   const [email, setEmail] = useState('');
@@ -228,7 +232,7 @@ export function PublicSignup() {
         studentName: identityName.slice(0, 120),
         grade: effectiveGrade.trim().slice(0, 40),
         ...(student?.instrument ? { instrument: student.instrument.slice(0, 60) } : {}),
-        ...(honeypot ? { website: honeypot } : {}),
+        ...honeypot.botFields(),
         ...(email.trim() ? { email: email.trim().slice(0, 254) } : {}),
         ...(phone.trim() ? { phone: phone.trim().slice(0, 40) } : {}),
         ...(answersJson ? { answersJson } : {}),
@@ -251,6 +255,12 @@ export function PublicSignup() {
         setError(`That time (${err.slotLabel}) isn’t available for your grade — ${err.reason}.`);
       } else if (form?.audienceMode === 'students') {
         setError(`This sign-up is by invitation — if your name isn’t on the list, email ${ORG.contactEmail}.`);
+      } else if ((err as { code?: string })?.code === 'permission-denied') {
+        // The write reached Firestore and the rules turned it down, so
+        // "check your connection" would send the student off chasing their
+        // wifi. Name it for what it is and point at a human — that is what
+        // gets the next one of these reported to the right place.
+        setError(`This form turned that submission down — nothing you did is wrong. Email ${ORG.contactEmail} and they can take it from here.`);
       } else {
         setError(`Could not send right now — check your connection and try again, or email ${ORG.contactEmail}.`);
       }
@@ -390,10 +400,8 @@ export function PublicSignup() {
                   You don’t need to be on a roster — this sign-up is how your
                   director gets your details in the first place.
                 </div>
-                {/* Honeypot: off-screen, never tabbed to, invisible to a human. */}
-                <input className="pub-hp" type="text" value={honeypot} tabIndex={-1}
-                  autoComplete="off" aria-hidden="true"
-                  onChange={e => setHoneypot(e.target.value)} />
+                {/* Honeypot: hidden, never tabbed to, invisible to a human. */}
+                {honeypot.field}
               </>
             ) : student ? (
               <div className="pub-signup-me">

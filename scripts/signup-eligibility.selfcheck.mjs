@@ -12,7 +12,7 @@
 import { instrumentFamily } from '../src/shared/instrumentFamily.ts';
 import {
   audienceLabel, eligibleForSignup, eligibleForSignupPicker, signupClosedReason,
-  signupIsOpen, signupIsPublished, signupShowsInAlerts,
+  signupIsOpen, signupIsPublished, signupShowsInAlerts, signupShowsInIndex,
 } from '../src/shared/signupEligibility.ts';
 
 function assert(cond, msg) {
@@ -115,6 +115,7 @@ assert(
 assert(!signupShowsInAlerts({ audienceMode: 'students' }), 'invite-only sign-ups skip home alerts');
 assert(signupShowsInAlerts({ audienceMode: 'groups' }), 'group sign-ups still alert');
 assert(signupShowsInAlerts({}), 'default group sign-ups still alert');
+assert(!signupShowsInIndex({ audienceMode: 'students' }), 'invite-only stays off the /signups index too');
 
 // ── Anyone-with-the-link mode ──────────────────────────────────────
 // The form IS the intake: nobody is targeted, nobody is waiting, and there is
@@ -135,6 +136,19 @@ assert(
   'an open audience says so in words',
 );
 assert(!signupShowsInAlerts({ audienceMode: 'open' }), 'open sign-ups stay off the Hub home page');
+// ...but they must be reachable from the Sign-ups menu. Off the alert strip
+// AND off the index is how an open sign-up ended up living at its own URL and
+// nowhere else, which is the bug this pair of asserts exists to prevent.
+assert(signupShowsInIndex({ audienceMode: 'open' }), 'open sign-ups DO list on the /signups index');
+assert(signupShowsInIndex({ audienceMode: 'groups' }), 'group sign-ups list on the index');
+assert(signupShowsInIndex({}), 'a sign-up with no audienceMode lists on the index');
+// An open sign-up that still carries ensembleIds (a director switched the
+// mode after picking groups) must not float into "For you" on that index.
+assert(
+  !eligibleForSignup({ id: 's1', ensembleIds: ['camerata'], instrument: 'Violin', status: 'Active' },
+    { mode: 'open', ensembleIds: ['camerata'], families: [] }),
+  'open mode beats leftover ensembleIds — nobody is "for you"',
+);
 
 // ── Open / closed ──────────────────────────────────────────────────
 const TODAY = '2026-08-20';

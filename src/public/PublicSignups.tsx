@@ -11,7 +11,7 @@ import { fmtLongDate } from '../shared/dates';
 import { useLang } from '../shared/i18n';
 import { primaryStudent } from '../shared/identity';
 import { INSTRUMENT_FAMILY_LABEL } from '../shared/instrumentFamily';
-import { audienceLabel, eligibleForSignup, signupIsOpen, signupIsPublished, signupShowsInAlerts } from '../shared/signupEligibility';
+import { audienceLabel, eligibleForSignup, signupIsOpen, signupIsPublished, signupShowsInIndex } from '../shared/signupEligibility';
 import { getReceipt } from './signupReceipt';
 import type { SignupForm } from '../director/types';
 import './signup.css';
@@ -33,13 +33,17 @@ export function PublicSignups() {
   const me = primaryStudent();
   const meFull = me ? students.find(s => s.id === me.id) : undefined;
 
+  // signupShowsInIndex, not signupShowsInAlerts: an "Anyone with the link"
+  // sign-up is exactly the kind a student arrives at from a QR code or a
+  // forwarded message, so it has to have a home on this page even though it
+  // deliberately stays off the Hub's alert strip.
   const open = useMemo(
-    () => forms.filter(f => signupIsOpen(f, today, now) && signupShowsInAlerts(f)),
+    () => forms.filter(f => signupIsOpen(f, today, now) && signupShowsInIndex(f)),
     [forms, today, now],
   );
   const recentlyClosed = useMemo(
     () => forms
-      .filter(f => signupIsPublished(f, now) && !signupIsOpen(f, today, now))
+      .filter(f => signupIsPublished(f, now) && signupShowsInIndex(f) && !signupIsOpen(f, today, now))
       .slice(0, 4),
     [forms, today, now],
   );
@@ -47,7 +51,13 @@ export function PublicSignups() {
   function forMe(f: SignupForm): boolean {
     const target = meFull ?? (me ? { ensembleIds: me.ensembleIds, instrument: me.instrument, status: 'Active' } : null);
     if (!target) return false;
-    return eligibleForSignup(target, { ensembleIds: f.ensembleIds ?? [], families: f.families ?? [] });
+    // `mode` matters: an open sign-up is for nobody in particular, so it must
+    // never land under "For you" even if it carries leftover ensembleIds.
+    return eligibleForSignup(target, {
+      mode: f.audienceMode,
+      ensembleIds: f.ensembleIds ?? [],
+      families: f.families ?? [],
+    });
   }
 
   const mine = open.filter(forMe);
