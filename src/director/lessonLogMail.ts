@@ -10,9 +10,13 @@ import {
 } from './lessonLog';
 
 /**
- * After a complete log line is saved, queue a family summary email
- * (Power Automate drains `lessonLogMailQueue`) and return a mailto: fallback
- * the teacher can open if the flow is not wired yet.
+ * Queue a family summary email for one complete log line (Power Automate
+ * drains `lessonLogMailQueue`) and return a mailto: fallback the teacher can
+ * open if the flow is not wired yet.
+ *
+ * **Only ever called from a teacher's press** — saving a lesson does NOT send
+ * (director's call, 2026-09-03; it may become automatic later). If you find
+ * yourself calling this from a save path, that is the bug.
  */
 export async function enqueueLessonLogMail(
   lesson: Lesson,

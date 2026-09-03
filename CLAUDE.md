@@ -422,6 +422,12 @@ copies.
   every old lesson into a failure. Live docs graded before the change still
   hold letters and the log flags them "re-enter as a number"; there is no
   migration script, on purpose (only the teacher knows what the letter meant).
+- **The family email is never a side effect of saving** (director's call,
+  2026-09-03 — "that may become automatic in the future, but not right now").
+  `enqueueLessonLogMail()` is called from a teacher's PRESS and nowhere else;
+  a save only offers. `Lesson.logMailedAt` records that a line went out, so
+  the row can say "Emailed Sep 3" instead of leaving a teacher to guess and
+  double-send. If you ever wire this to a save path, that is the regression.
 - **The whole paper form is on screen** (#applied). `src/director/lessonLog.ts`
   holds the per-lesson blanks; the ONCE-A-TERM ones (Jury Repertoire List, the
   three signature lines) are a `LessonLogSheet` in `lessonLogSheets` on the

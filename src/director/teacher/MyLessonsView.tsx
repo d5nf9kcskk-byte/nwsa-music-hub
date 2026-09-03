@@ -51,6 +51,18 @@ const EMPTY_IDS: string[] = [];
 type LessonPayload = Omit<Lesson, 'id' | 'createdAt' | 'updatedAt' | 'updatedBy' | 'overrideId'>;
 
 /**
+ * The family summary is NEVER sent as a side effect of saving (director's
+ * call, 2026-09-03 — it may become automatic later, but the teacher decides
+ * per line for now). Saving a finished line only OFFERS; the mail leaves on a
+ * press, and `Lesson.logMailedAt` records that it did so a second press is a
+ * deliberate resend rather than a blind one.
+ */
+type MailState =
+  | { step: 'offer'; lesson: Lesson; name: string }
+  | { step: 'sending'; name: string }
+  | { step: 'done'; queued: boolean; mailto: string | null; name: string };
+
+/**
  * Applied Teacher world (#roles, #applied): the High School Private Lesson
  * Log, laid out the way the paper form is — header blanks, then a
  * spreadsheet of lessons, then the Jury Repertoire List and signatures.
@@ -78,7 +90,7 @@ export function MyLessonsView() {
   const [slotBusy, setSlotBusy] = useState(false);
   const [slotAdded, setSlotAdded] = useState<{ count: number; conflicts: number } | null>(null);
   const [confirmDeleteLesson, setConfirmDeleteLesson] = useState<string | null>(null);
-  const [mailBanner, setMailBanner] = useState<{ queued: boolean; mailto: string | null; name: string } | null>(null);
+  const [mail, setMail] = useState<MailState | null>(null);
 
   const assignedIds = director?.assignedStudentIds ?? EMPTY_IDS;
   const assignedStudents = useMemo(
@@ -254,14 +266,22 @@ export function MyLessonsView() {
       createdAt: existing?.createdAt ?? Date.now(),
       overrideId: existing?.overrideId,
     };
+    // OFFER only. Saving a lesson must never put mail in front of a family on
+    // its own — the teacher presses send, per line.
     if (isLogCompleteForMail(saved)) {
-      const result = await enqueueLessonLogMail(saved, studentsById[saved.studentId]);
-      setMailBanner({
-        queued: result.queued,
-        mailto: result.mailto,
-        name: studentsById[saved.studentId]?.name ?? 'the student',
-      });
+      setMail({ step: 'offer', lesson: saved, name: studentsById[saved.studentId]?.name ?? 'the student' });
+    } else {
+      setMail(null);
     }
+  }
+
+  /** The only path that queues a family email. Nothing calls it but a press. */
+  async function sendLogMail(lesson: Lesson) {
+    const name = studentsById[lesson.studentId]?.name ?? 'the student';
+    setMail({ step: 'sending', name });
+    const result = await enqueueLessonLogMail(lesson, studentsById[lesson.studentId]);
+    if (result.queued) await updateLesson(lesson.id, { logMailedAt: Date.now() });
+    setMail({ step: 'done', queued: result.queued, mailto: result.mailto, name });
   }
 
   async function handleDeleteLesson(l: Lesson) {
@@ -325,8 +345,12 @@ export function MyLessonsView() {
             : 'No lesson in this term is graded yet.'}
         </div>
 
-        {mailBanner && (
-          <MailBanner banner={mailBanner} onDismiss={() => setMailBanner(null)} />
+        {mail && (
+          <MailBanner
+            mail={mail}
+            onSend={() => { if (mail.step === 'offer') void sendLogMail(mail.lesson); }}
+            onDismiss={() => setMail(null)}
+          />
         )}
 
         <WeeklySlotPanel
@@ -364,6 +388,7 @@ export function MyLessonsView() {
                     today={today}
                     confirming={confirmDeleteLesson === l.id}
                     onEdit={() => setEditingLesson(l)}
+                    onMail={() => void sendLogMail(l)}
                     onDeleteRequest={() => setConfirmDeleteLesson(l.id)}
                     onDeleteCancel={() => setConfirmDeleteLesson(null)}
                     onDeleteConfirm={() => handleDeleteLesson(l)}
@@ -401,12 +426,16 @@ export function MyLessonsView() {
       <div className="dir-page-hint" style={{ marginTop: 4 }}>
         Open a student to see their lesson log. After each lesson, add a line,
         fill the grade and comments, then have the student type their initials
-        on this device. A summary email is queued for the family when the line
-        is complete.
+        on this device. Nothing is emailed on its own — once a line is finished
+        you can send that lesson’s summary to the family, one line at a time.
       </div>
 
-      {mailBanner && (
-        <MailBanner banner={mailBanner} onDismiss={() => setMailBanner(null)} />
+      {mail && (
+        <MailBanner
+          mail={mail}
+          onSend={() => { if (mail.step === 'offer') void sendLogMail(mail.lesson); }}
+          onDismiss={() => setMail(null)}
+        />
       )}
 
       {(ungraded.length > 0 || needsInitial.length > 0) && (
@@ -562,6 +591,9 @@ function LogHead({ withActions }: { withActions?: boolean }) {
   );
 }
 
+const mailedLabel = (ms: number) =>
+  new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
 /** A grade that isn't a whole 0–100 is shown as-is with a warning rather than
  *  hidden: the A–F letters this replaced are still on older lessons, and the
  *  teacher has to see them to know they need re-entering as numbers. */
@@ -573,13 +605,14 @@ function GradeCell({ grade }: { grade?: string }) {
 }
 
 function LogReadRow({
-  index, lesson, today, confirming, onEdit, onDeleteRequest, onDeleteCancel, onDeleteConfirm,
+  index, lesson, today, confirming, onEdit, onMail, onDeleteRequest, onDeleteCancel, onDeleteConfirm,
 }: {
   index: number;
   lesson: Lesson;
   today: string;
   confirming: boolean;
   onEdit?: () => void;
+  onMail?: () => void;
   onDeleteRequest?: () => void;
   onDeleteCancel?: () => void;
   onDeleteConfirm?: () => void;
@@ -594,6 +627,11 @@ function LogReadRow({
         {!cancelled && isLessonGrade(lesson.grade) && !initialsOk(lesson.studentInitials) && lesson.date <= today && (
           <div className="dir-log-missing">Needs initials</div>
         )}
+        {/* Said in words, not just the button's tooltip: whether a family has
+            already had this line is the thing you check before resending. */}
+        {lesson.logMailedAt
+          ? <div className="dir-log-missing">Emailed {mailedLabel(lesson.logMailedAt)}</div>
+          : !cancelled && isLogCompleteForMail(lesson) && <div className="dir-log-missing">Not emailed</div>}
       </td>
       <td>{parseDate(lesson.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</td>
       <td>{formatTimeRange(lesson.startTime, lesson.endTime)}</td>
@@ -620,9 +658,23 @@ function LogReadRow({
               <button className="dir-btn dir-btn-ghost dir-sc-small" onClick={onDeleteCancel}>Keep</button>
             </div>
           ) : (
-            <div style={{ display: 'flex', gap: 4 }}>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               <button className="dir-icon-btn" onClick={onEdit} aria-label={`Edit lesson ${index}`}><Pencil size={15} /></button>
               <button className="dir-icon-btn" onClick={onDeleteRequest} aria-label={`Delete lesson ${index}`}><Trash2 size={15} /></button>
+              {onMail && isLogCompleteForMail(lesson) && (
+                <button
+                  className="dir-icon-btn"
+                  onClick={onMail}
+                  title={lesson.logMailedAt
+                    ? `Already emailed ${mailedLabel(lesson.logMailedAt)} — send it again`
+                    : 'Email this line to the family'}
+                  aria-label={lesson.logMailedAt
+                    ? `Email lesson ${index} to the family again`
+                    : `Email lesson ${index} to the family`}
+                >
+                  <Mail size={15} />
+                </button>
+              )}
             </div>
           )}
         </td>
@@ -779,24 +831,45 @@ function SlotEditor({ student, slot, onSave, onCancel }: {
   );
 }
 
-function MailBanner({ banner, onDismiss }: {
-  banner: { queued: boolean; mailto: string | null; name: string };
+/**
+ * Nothing here sends on its own. After a finished line is saved this offers
+ * the family summary and waits; the teacher presses, or dismisses and the
+ * mail never goes. The row keeps an "Email family" button either way, so
+ * dismissing is not a decision you can't take back.
+ */
+function MailBanner({ mail, onSend, onDismiss }: {
+  mail: MailState;
+  onSend: () => void;
   onDismiss: () => void;
 }) {
   return (
     <div className="dir-page-hint" style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
       <Mail size={14} />
-      <span>
-        {banner.queued
-          ? `Summary queued for ${banner.name}'s family email.`
-          : banner.mailto
-            ? `No queued send yet — open Mail to send ${banner.name}'s summary.`
-            : `Saved. No family email on file for ${banner.name}.`}
-      </span>
-      {banner.mailto && (
-        <a className="dir-tool-btn" href={banner.mailto}>Open in Mail</a>
+      {mail.step === 'offer' && (
+        <>
+          <span>
+            Saved. Nothing has been sent — send {mail.name}’s family the summary of this lesson?
+          </span>
+          <button type="button" className="dir-btn dir-btn-primary dir-sc-small" onClick={onSend}>
+            Email the family
+          </button>
+          <button type="button" className="dir-tool-btn" onClick={onDismiss}>Not now</button>
+        </>
       )}
-      <button type="button" className="dir-tool-btn" onClick={onDismiss}>Dismiss</button>
+      {mail.step === 'sending' && <span>Sending {mail.name}’s summary…</span>}
+      {mail.step === 'done' && (
+        <>
+          <span>
+            {mail.queued
+              ? `Summary queued for ${mail.name}'s family email.`
+              : mail.mailto
+                ? `Not queued — open Mail to send ${mail.name}'s summary yourself.`
+                : `No family email on file for ${mail.name}, so nothing was sent.`}
+          </span>
+          {mail.mailto && <a className="dir-tool-btn" href={mail.mailto}>Open in Mail</a>}
+          <button type="button" className="dir-tool-btn" onClick={onDismiss}>Dismiss</button>
+        </>
+      )}
     </div>
   );
 }

@@ -31,11 +31,17 @@ parent list you maintain in Teams/Excel.
 
 ## Lesson-log family email (`lessonLogMailQueue`)
 
-After an Applied Teacher saves a **complete** High School Lesson Log line
-(recognized grade + student initials typed in person), the Hub writes one
-doc to **`lessonLogMailQueue`**. Recipients (student + guardian emails) are
-denormalized onto the doc at write time so the flow does not need a second
-Firestore lookup.
+**Sending is a deliberate press, not a save side effect** (director's call,
+2026-09-03 — it may become automatic later). Once an Applied Teacher has a
+**complete** High School Lesson Log line (a 0–100 grade + student initials
+typed in person), the Hub *offers* to send it: saving shows an "Email the
+family" button, and every finished row keeps one in its actions. Only that
+press writes a doc to **`lessonLogMailQueue`**, and the lesson is stamped
+`logMailedAt` so the row reads "Emailed Sep 3" rather than leaving the
+teacher guessing whether a family already had it.
+
+Recipients (student + guardian emails) are denormalized onto the queue doc at
+write time so the flow does not need a second Firestore lookup.
 
 ### Doc fields
 `lessonId`, `teacherEmail`, `teacherName`, `studentId`, `studentName`,

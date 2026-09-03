@@ -958,6 +958,11 @@ export interface Lesson {
   /** When the student typed their initials (ms). Cleared if the log line
    *  changes and they must re-initial. */
   studentInitialedAt?: number;
+  /** When the teacher CHOSE to send the family summary for this line (ms).
+   *  Sending is a deliberate press, never a side effect of saving — see
+   *  MyLessonsView.sendLogMail(). Absent = never sent. Staff-only: it is not
+   *  in PUBLIC_LESSON_KEYS, so it is never mirrored. */
+  logMailedAt?: number;
   /** Payroll length on the official form: 45 (grades 9–11) or 60 (grade 12). */
   payrollMinutes?: 45 | 60;
   status: EventStatus;
