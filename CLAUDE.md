@@ -394,6 +394,25 @@ copies.
   so the grade inherits that scoping and there is no second query/rule pair to
   keep in agreement. Don't split grades into their own collection without
   redoing the `where('teacherEmail', ...)` treatment on both sides.
+  **The grade is a whole number 0–100** (director's call, Sept 2026 — the
+  paper log's column is numeric and the district gradebook is a percentage).
+  `lessonGradeValue()` is the ONE reader; anything it can't read — blank, a
+  fraction, or one of the A–F letters this replaced — is IGNORED rather than
+  scored as a zero, which is the only reason retiring the letters didn't turn
+  every old lesson into a failure. Live docs graded before the change still
+  hold letters and the log flags them "re-enter as a number"; there is no
+  migration script, on purpose (only the teacher knows what the letter meant).
+- **The whole paper form is on screen** (#applied). `src/director/lessonLog.ts`
+  holds the per-lesson blanks; the ONCE-A-TERM ones (Jury Repertoire List, the
+  three signature lines) are a `LessonLogSheet` in `lessonLogSheets` on the
+  teacher's own `directors/{email}` doc — same home and same reason as
+  `lessonSlots` below — keyed by `sheetKey(studentId, schoolYear, term)` so
+  Fall and Spring are separate sheets, as on paper. Adding a key there means
+  adding it to the `hasOnly([...])` self-update list in `firestore.rules` in
+  the SAME change, or the write silently starts failing. The log form is a
+  full PAGE, not a drawer, because the term's earlier rows must stay on screen
+  above the row being written (`logRowsWithDraft()`); don't put it back in a
+  drawer.
 - **A weekly lesson time is a RECIPE, not a lesson** (Sept 2026).
   `lessonSlots` on the teacher's own `directors/{email}` doc holds one
   `{weekday, startTime, endTime, location?}` per assigned student — beside the
