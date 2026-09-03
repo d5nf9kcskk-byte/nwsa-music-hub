@@ -200,6 +200,14 @@ jobs:
       - name: Check weekly lesson slots
         run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/lessonSchedule.selfcheck.ts
 
+      # Booked sign-up time → standing weekly lesson (#signups, #applied). A
+      # weekday derived one day off puts a student in the wrong room every
+      # week for a year and nothing complains; a hand-typed slot label must
+      # never be guessed onto a day; and a booking that converts to nothing
+      # must say so rather than vanish.
+      - name: Check sign-up times → weekly lessons
+        run: npx tsx src/shared/signupToLessons.selfcheck.ts
+
       # Juries (#juries): a bulk add must never reshuffle an order the director
       # already sequenced, an inactive student must never enter a jury, and a
       # sort must lose nobody — including an id whose student record is gone.

@@ -3,12 +3,20 @@ import { NotesText } from '../../public/components/NotesText';
 import { RichTextArea } from '../components/RichTextArea';
 import {
   ClipboardSignature, Plus, Users, CalendarClock, Check, Copy, Download, Printer,
-  Mail, Link2, Lock, Unlock, Trash2, ChevronLeft, Sparkles, AlertTriangle, Clock,
+  Mail, Link2, Lock, Unlock, Trash2, ChevronLeft, Sparkles, AlertTriangle, Clock, Repeat,
 } from 'lucide-react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import { useSignupForms, useSignupResponses, useSignupSlotBookings, useSignupAudiences, useSignupOwners, saveSignupAudience, deleteSignupAudience, saveSignupOwner, removeSlotBooking, latestPerStudent, parseAnswers, responseIsComplete } from '../hooks/useSignups';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
-import { useDirectors } from '../hooks/useDirectors';
+import { useDirectors, useMyDirector, directorEmailId } from '../hooks/useDirectors';
+import { useEvents } from '../hooks/useEvents';
+import { useRosterOverrides } from '../hooks/useRosterOverrides';
+import { useLessons } from '../hooks/useLessons';
+import { findLessonConflicts } from '../lessonConflicts';
+import { lessonPayloadsFor, schoolYearEnd } from '../lessonSchedule';
+import { planLessonsFromSignup } from '../../shared/signupToLessons';
 import { directorRoleLabels, directorRoles } from '../directorRoles';
 import { useCurrentDirector } from '../currentDirector';
 import { useMinuteTick } from '../hooks/useAnnouncements';
@@ -143,6 +151,7 @@ export function SignupsView() {
           form={open}
           responses={responses.filter(r => r.formId === open.id)}
           students={students}
+          iOwn={!!myEmail && owners[open.id] === myEmail}
           ensembles={ensembles}
           audiences={audiences}
           today={today}
@@ -228,6 +237,10 @@ interface DetailProps {
   form: SignupForm;
   responses: SignupResponse[];
   students: Student[];
+  /** Is the signed-in staff member this sign-up's owner? Gates "make these
+   *  weekly lessons": firestore.rules only lets you write your OWN director
+   *  doc, so the standing times can only ever land on your own account. */
+  iOwn: boolean;
   ensembles: Ensemble[];
   audiences: Record<string, string[]>;
   today: string;
@@ -242,7 +255,7 @@ interface DetailProps {
 }
 
 function SignupDetail({
-  form, responses, students, ensembles, audiences, today, now,
+  form, responses, students, iOwn, ensembles, audiences, today, now,
   onBack, onEdit, onToggleClosed, onExtend, onSetStatus, onRemoveResponse, onDelete,
 }: DetailProps) {
   const printRef = useRef<HTMLDivElement>(null);
@@ -408,6 +421,16 @@ function SignupDetail({
               onFree={freeSlot}
             />
           ))}
+          {/* Hooks live inside, so a director looking at someone else's
+              sign-up never opens the lesson listeners at all. */}
+          {iOwn && (
+            <SignupLessonConverter
+              form={form}
+              bookings={slotBookings}
+              students={students}
+              today={today}
+            />
+          )}
         </>
       )}
 
@@ -633,6 +656,210 @@ function SignupSlotSchedule({ question, bookings, freeingId, onFree }: {
             );
           })}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Make these weekly lessons" (#signups, #applied).
+ *
+ * A booked slot already reaches this director's calendar as a ONE-OFF, with
+ * no button at all — that is what `appointmentsFeed` has always done, and it
+ * is the right answer for an audition or a fitting. This is the other case:
+ * the sign-up WAS the scheduling, and every booking is meant to repeat every
+ * week for the rest of the year.
+ *
+ * It writes the same `lessonSlots` the teacher's own sheet writes, then
+ * expands them through `lessonPayloadsFor()` — the identical builder — so a
+ * lesson born here is indistinguishable from one set by hand, and everything
+ * downstream (the grade, the log, the student's own ICS feed) needs to know
+ * nothing about sign-ups.
+ *
+ * Only the sign-up's OWNER sees this. `directors/{email}` is self-write in
+ * firestore.rules, so the standing times can only land on your own account;
+ * a picker would offer a write the rules refuse.
+ *
+ * ponytail: for the first week, a converted time shows on BOTH of this
+ * director's calendars — once as a sign-up appointment, once as a lesson.
+ * Suppressing the appointment means marking the booking converted, and
+ * `signupSlotBookings` is `allow update: if false` — deliberately, because it
+ * takes unauthenticated writes. Widening that rule to spare one week of
+ * overlap is the wrong trade. Revisit if directors actually complain.
+ */
+function SignupLessonConverter({ form, bookings, students, today }: {
+  form: SignupForm;
+  bookings: SignupSlotBooking[];
+  students: Student[];
+  today: string;
+}) {
+  const me = useCurrentDirector();
+  const { director } = useMyDirector(me?.email);
+  const { events } = useEvents();
+  const { overrides } = useRosterOverrides();
+  const { lessons, addLesson } = useLessons();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState<
+    { people: number; lessons: number; conflicts: number; replaced: number } | null
+  >(null);
+
+  const plan = useMemo(
+    () => planLessonsFromSignup(form, bookings, students),
+    [form, bookings, students],
+  );
+  const through = schoolYearEnd(today);
+  const myId = me ? directorEmailId(me.email) : '';
+
+  // A standing time this director already set for one of these students, and
+  // that the sign-up disagrees with. Worth saying out loud before replacing.
+  const replacing = plan.planned.filter(p => {
+    const held = director?.lessonSlots?.[p.student.id];
+    return !!held && (held.weekday !== p.slot.weekday || held.startTime !== p.slot.startTime);
+  });
+
+  if (plan.planned.length === 0 && plan.skipped.length === 0) return null;
+
+  async function convert() {
+    if (!db || !me || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      // One write for every standing time, not one per student: the slots and
+      // the assignments they qualify live on the same doc.
+      const nextSlots = { ...(director?.lessonSlots ?? {}) };
+      const nextAssigned = new Set(director?.assignedStudentIds ?? []);
+      for (const p of plan.planned) {
+        nextSlots[p.student.id] = p.slot;
+        // Without this the lessons exist but the student is absent from the
+        // teacher's own sheet, so the standing time is invisible where it is
+        // meant to be edited.
+        nextAssigned.add(p.student.id);
+      }
+      await updateDoc(doc(db, 'directors', directorEmailId(me.email)), {
+        lessonSlots: nextSlots,
+        assignedStudentIds: [...nextAssigned],
+      });
+
+      let made = 0;
+      let conflicts = 0;
+      for (const p of plan.planned) {
+        const mine = lessons.filter(l => l.teacherEmail === myId && l.studentId === p.student.id);
+        // Never backfill: a booked date that has already passed starts the
+        // series today instead. Creating lessons in the past would file
+        // ungraded sheets for weeks nobody taught.
+        const from = p.firstDate > today ? p.firstDate : today;
+        const payloads = lessonPayloadsFor(
+          p.slot, p.student, { email: myId, name: me.name }, mine, from, through,
+        );
+        for (const payload of payloads) {
+          if (findLessonConflicts(
+            p.student.id, payload.date, payload.startTime, payload.endTime,
+            events, students, overrides,
+          ).length > 0) conflicts++;
+          await addLesson(payload);
+          made++;
+        }
+      }
+      setResult({
+        people: plan.planned.length,
+        lessons: made,
+        conflicts,
+        replaced: replacing.length,
+      });
+      setConfirming(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not add the lessons.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="dir-signup-slots">
+      <div className="dir-signup-slots-head">
+        <span className="dir-signup-slots-title"><Repeat size={13} /> Weekly lessons</span>
+      </div>
+
+      {result ? (
+        <>
+          <p className="dir-field-hint" style={{ margin: '0 0 6px' }}>
+            Added <strong>{result.people}</strong> standing {result.people === 1 ? 'time' : 'times'} and{' '}
+            <strong>{result.lessons}</strong> {result.lessons === 1 ? 'lesson' : 'lessons'} through {formatDate(through)}.
+            {result.replaced > 0 && ` ${result.replaced} replaced a time you had already set.`}
+          </p>
+          {result.conflicts > 0 && (
+            <p className="dir-signup-hint">
+              <AlertTriangle size={13} /> {result.conflicts}{' '}
+              {result.conflicts === 1 ? 'lands' : 'land'} during a rehearsal or class that student
+              is expected at. Open My Lessons to cancel or move those — the Hub does not pull
+              anyone out of an ensemble on its own.
+            </p>
+          )}
+          <p className="dir-field-hint" style={{ margin: 0 }}>
+            They are on your lessons calendar now, and each student&rsquo;s own calendar feed
+            picks up the time on its next refresh — nobody has to subscribe to anything new.
+          </p>
+        </>
+      ) : (
+        <>
+          {plan.planned.length > 0 && (
+            <p className="dir-field-hint" style={{ margin: '0 0 8px' }}>
+              Booked times are already on your appointments calendar as one-off events. This
+              turns them into <strong>repeating lessons</strong> instead: the same day and time
+              every week, from each student&rsquo;s booked date through {formatDate(through)}.
+            </p>
+          )}
+
+          {plan.skipped.length > 0 && (
+            <div className="dir-empty-inline">
+              {plan.skipped.length} {plan.skipped.length === 1 ? 'booking cannot' : 'bookings cannot'} repeat:{' '}
+              {plan.skipped.map(s => `${s.booking.studentName} — ${s.reason}`).join('; ')}.
+            </div>
+          )}
+
+          {plan.planned.length > 0 && (confirming ? (
+            <>
+              <p className="dir-signup-hint">
+                <strong>{plan.planned.length}</strong>{' '}
+                {plan.planned.length === 1 ? 'student' : 'students'}, weekly through{' '}
+                {formatDate(through)}. Holidays and breaks are included — cancel those on your
+                own sheet. Dates that already have a lesson are left alone, cancelled ones
+                included.
+                {replacing.length > 0 && (
+                  <> {replacing.length} of them already {replacing.length === 1 ? 'has' : 'have'} a
+                  different standing time with you, which this replaces:{' '}
+                  {replacing.map(p => p.student.name).join(', ')}.</>
+                )}
+              </p>
+              <div className="dir-lessons-feed-actions">
+                <button
+                  type="button"
+                  className="dir-btn dir-btn-primary"
+                  disabled={busy}
+                  onClick={() => void convert()}
+                >
+                  {busy ? 'Adding…' : 'Add them'}
+                </button>
+                <button
+                  type="button"
+                  className="dir-btn dir-btn-ghost"
+                  disabled={busy}
+                  onClick={() => setConfirming(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <button type="button" className="dir-btn dir-btn-primary" onClick={() => setConfirming(true)}>
+              <Repeat size={15} /> Make these weekly lessons
+            </button>
+          ))}
+
+          {error && <div className="dir-sc-error" style={{ margin: '8px 0 0' }}>⚠ {error}</div>}
+        </>
       )}
     </div>
   );

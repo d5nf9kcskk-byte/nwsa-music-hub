@@ -24,7 +24,7 @@ import {
   type PayrollMinutes,
 } from '../lessonLog';
 import {
-  pendingSlotDates, schoolYearEnd, slotSentence, WEEKDAY_OPTIONS, type LessonSlot,
+  lessonPayloadsFor, pendingSlotDates, schoolYearEnd, slotSentence, WEEKDAY_OPTIONS, type LessonSlot,
 } from '../lessonSchedule';
 import { enqueueLessonLogMail } from '../lessonLogMail';
 import { todayStr, parseDate, formatTimeRange } from '../utils';
@@ -116,26 +116,19 @@ export function MyLessonsView() {
     setSlotBusy(true);
     try {
       const mine = myLessons.filter(l => l.studentId === student.id);
-      const dates = pendingSlotDates(slot, mine, today, schoolYearEnd(today));
+      const payloads = lessonPayloadsFor(
+        slot, student,
+        { email: directorEmailId(me.email), name: me.name },
+        mine, today, schoolYearEnd(today),
+      );
       let conflicts = 0;
-      for (const date of dates) {
+      for (const payload of payloads) {
         conflicts += findLessonConflicts(
-          student.id, date, slot.startTime, slot.endTime, events, students, overrides,
+          student.id, payload.date, slot.startTime, slot.endTime, events, students, overrides,
         ).length > 0 ? 1 : 0;
-        await addLesson({
-          teacherEmail: directorEmailId(me.email),
-          teacherName: me.name,
-          studentId: student.id,
-          date,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          status: 'Scheduled',
-          ...(slot.location ? { location: slot.location } : {}),
-          ...(student.instrument ? { instrument: student.instrument } : {}),
-          payrollMinutes: defaultPayrollMinutes(student.grade),
-        });
+        await addLesson(payload);
       }
-      setSlotAdded({ count: dates.length, conflicts });
+      setSlotAdded({ count: payloads.length, conflicts });
     } finally {
       setSlotBusy(false);
     }

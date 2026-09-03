@@ -1,28 +1,11 @@
-import type { Lesson } from './types';
+import { defaultPayrollMinutes } from './lessonLog';
+import type { Lesson, LessonSlot, Student } from './types';
 import { formatTimeRange } from './utils';
 
-/**
- * A teacher's STANDING weekly lesson time for one student (#applied).
- *
- * The Hub's lessons are, and stay, one dated doc per lesson — that is what
- * carries the grade, the log line and the initials, and what every feed and
- * roll screen already reads. A slot is not a second kind of lesson; it is
- * the recipe the teacher stops retyping. `pendingSlotDates()` turns it into
- * ordinary Lesson docs, and from that moment nothing downstream knows or
- * cares that a slot existed.
- *
- * Stored on the teacher's own `directors/{email}` doc, keyed by student id,
- * right beside `assignedStudentIds` — the assignment it qualifies. No new
- * collection means no second rule pair to keep in agreement with a query.
- */
-export interface LessonSlot {
-  /** 0 = Sunday … 6 = Saturday, matching Date#getUTCDay(). */
-  weekday: number;
-  /** "HH:MM", 24h — same shape as Lesson.startTime/endTime. */
-  startTime: string;
-  endTime: string;
-  location?: string;
-}
+/** The standing weekly time itself lives in types.ts so src/shared can build
+ *  one (see signupToLessons.ts); this module owns everything you DO with it.
+ *  Re-exported so every existing `from './lessonSchedule'` import still works. */
+export type { LessonSlot };
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -95,3 +78,37 @@ export function slotSentence(slot: LessonSlot): string {
 }
 
 export const WEEKDAY_OPTIONS = DAY_NAMES.map((label, weekday) => ({ weekday, label }));
+
+/** A lesson as it goes in — the shape `addLesson()` takes. */
+export type NewLesson = Omit<Lesson, 'id' | 'createdAt' | 'updatedAt' | 'updatedBy' | 'overrideId'>;
+
+/**
+ * Every lesson a standing time still owes, ready to write.
+ *
+ * Two screens expand a slot now — the teacher's own sheet, and "make these
+ * weekly lessons" on a sign-up (#signups). Both call THIS, so a lesson born
+ * from a booked sign-up time is indistinguishable from one the teacher set by
+ * hand: same payroll band, same instrument, same location, same skip rule.
+ * A second spelling would drift the moment either side gained a field.
+ */
+export function lessonPayloadsFor(
+  slot: LessonSlot,
+  student: Pick<Student, 'id' | 'grade' | 'instrument'>,
+  teacher: { email: string; name: string },
+  existing: Pick<Lesson, 'date'>[],
+  from: string,
+  through: string,
+): NewLesson[] {
+  return pendingSlotDates(slot, existing, from, through).map(date => ({
+    teacherEmail: teacher.email,
+    teacherName: teacher.name,
+    studentId: student.id,
+    date,
+    startTime: slot.startTime,
+    endTime: slot.endTime,
+    status: 'Scheduled',
+    ...(slot.location ? { location: slot.location } : {}),
+    ...(student.instrument ? { instrument: student.instrument } : {}),
+    payrollMinutes: defaultPayrollMinutes(student.grade),
+  }));
+}

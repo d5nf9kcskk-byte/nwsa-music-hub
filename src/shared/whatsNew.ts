@@ -32,6 +32,24 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Booked sign-up times → standing weekly lessons (#signups, #applied).
+  // Staff-only: the button lives on the sign-up's owner's screen, and what it
+  // creates is ordinary Lesson docs, whose TIME the student's own feed
+  // already carried before this shipped.
+  {
+    id: '2026-09-03-signup-weekly-lessons',
+    date: '2026-09-03',
+    title: 'Turn booked lesson times into weekly lessons in one press',
+    audience: 'staff' as const,
+    expires: '2026-09-24',
+    bullets: [
+      'Run a sign-up where students pick a lesson time, then press "Make these weekly lessons" under Time slots. Every booking becomes a standing weekly time and real lessons through the end of the school year — no retyping fourteen students into your sheet.',
+      'The students are added to your assigned list at the same time, so they are on your My Lessons sheet ready to grade.',
+      'Nobody has to subscribe to anything new. The lessons appear on your own lessons calendar, and the time appears in each student’s existing calendar feed beside their rehearsals.',
+      'It tells you what it did: how many lessons it made, and how many land during a rehearsal or class that student is expected at. It never pulls anyone out of an ensemble on its own — you cancel or move those. Holidays are included too; cancel the handful that do not happen.',
+      'Nothing is created twice. A date that already has a lesson is left alone, cancelled ones included, so pressing it again after a few more students sign up only adds the new ones.',
+    ],
+  },
   // Firestore cache policy (b815): the public site no longer opens IndexedDB,
   // so the latched-queue assertion cannot reach a student's Submit tap again.
   {
