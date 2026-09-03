@@ -49,6 +49,41 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Directors: nothing to redo. Your existing open sign-ups list themselves — and any response that failed with that message never arrived, so it is worth telling those students to try once more.',
     ],
   },
+  // My Lessons now matches the paper High School Lesson Log blank for blank,
+  // and the lesson grade is a number (#applied).
+  {
+    id: '2026-09-03-lesson-log-full-form',
+    date: '2026-09-03',
+    title: 'My Lessons is the lesson log itself now — numeric grades, every blank, previous lessons in view',
+    audience: 'staff' as const,
+    expires: '2026-09-24',
+    bullets: [
+      'The lesson grade is a number from 0 to 100, not a letter, so it goes into the gradebook as typed. A student’s term grade is the average of those numbers.',
+      'Lessons you graded with a letter before today still show the letter, flagged “re-enter as a number”. They are left out of the average until you do — they are not counted as zeros.',
+      'The log is a spreadsheet with every blank the paper form has: lesson number, date, time, grade, teacher initial, student initial, composer, title, technique/comments, and payroll length. Time is new — the paper form only has a date.',
+      'Adding a lesson opens its own page with the term’s earlier lessons still on screen, directly above the row you are filling in and in the same columns. On lesson five you can read all four previous lines before you write.',
+      'The initials the student types are theirs, on their own line beside yours. Change the date, time, grade, repertoire, comments or payroll after they have initialled and the initials clear — they sign the corrected line.',
+      'The rest of the form is there too: Term (Fall or Spring, one sheet each, switch at the top), the five-line Jury Repertoire List, and the Faculty, Student and Dean signature and date lines.',
+    ],
+  },
+  // Booked sign-up times → standing weekly lessons (#signups, #applied).
+  // Staff-only: the button lives on the sign-up's owner's screen, and what it
+  // creates is ordinary Lesson docs, whose TIME the student's own feed
+  // already carried before this shipped.
+  {
+    id: '2026-09-03-signup-weekly-lessons',
+    date: '2026-09-03',
+    title: 'Turn booked lesson times into weekly lessons in one press',
+    audience: 'staff' as const,
+    expires: '2026-09-24',
+    bullets: [
+      'Run a sign-up where students pick a lesson time, then press "Make these weekly lessons" under Time slots. Every booking becomes a standing weekly time and real lessons through the end of the school year — no retyping fourteen students into your sheet.',
+      'The students are added to your assigned list at the same time, so they are on your My Lessons sheet ready to grade.',
+      'Nobody has to subscribe to anything new. The lessons appear on your own lessons calendar, and the time appears in each student’s existing calendar feed beside their rehearsals.',
+      'It tells you what it did: how many lessons it made, and how many land during a rehearsal or class that student is expected at. It never pulls anyone out of an ensemble on its own — you cancel or move those. Holidays are included too; cancel the handful that do not happen.',
+      'Nothing is created twice. A date that already has a lesson is left alone, cancelled ones included, so pressing it again after a few more students sign up only adds the new ones.',
+    ],
+  },
   // Firestore cache policy (b815): the public site no longer opens IndexedDB,
   // so the latched-queue assertion cannot reach a student's Submit tap again.
   {

@@ -1,10 +1,17 @@
 import type { Lesson, Student, StudentContact } from './types';
-import { isLessonMark } from './lessonGrades';
+import { isLessonGrade } from './lessonGrades';
 
 /**
  * High School Private Lesson Log helpers (#applied). Pure functions over the
- * Lesson doc fields that match the paper template: repertoire, technique
- * (gradeNote), teacher/student initials, and payroll length.
+ * paper template's blanks, in the two shapes the form actually has:
+ *
+ *   • per LESSON — date, time, grade, teacher initial, student initial,
+ *     repertoire (composer + title), technique/comments, payroll length.
+ *     These live on the `Lesson` doc.
+ *   • per SHEET — the header's Term, the Jury Repertoire List, and the three
+ *     signature lines at the foot. Filled in once a term, not once a lesson,
+ *     so they live in `LessonLogSheet` on the teacher's own directors doc
+ *     (see the `lessonLogSheets` note in hooks/useDirectors.ts).
  */
 
 export type PayrollMinutes = 45 | 60;
@@ -38,6 +45,101 @@ export function schoolYearLabel(isoDate: string): string {
   return m >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 }
 
+/** The form's "Term: SELECT ONE". The repertoire-confirmation deadlines
+ *  printed on it are Fall and Spring, so those are the two. */
+export const LESSON_TERMS = ['Fall', 'Spring'] as const;
+export type LessonTerm = (typeof LESSON_TERMS)[number];
+
+/** Fall runs August–December, Spring January–July (same cut as the school
+ *  year label above, so a sheet and its year can never disagree). */
+export function termForDate(isoDate: string): LessonTerm {
+  return Number(isoDate.slice(5, 7)) >= 8 ? 'Fall' : 'Spring';
+}
+
+/** The paper form prints five Jury Repertoire lines. */
+export const JURY_REPERTOIRE_SLOTS = 5;
+
+export interface JuryPiece {
+  composer: string;
+  title: string;
+}
+
+/**
+ * The blanks that are filled in ONCE per student per term rather than once
+ * per lesson: the Jury Repertoire List and the three signature lines.
+ * Signatures are typed names plus the date, exactly like a sign-up's — this
+ * is a staff screen, so only staff can type into them.
+ */
+export interface LessonLogSheet {
+  juryRepertoire?: JuryPiece[];
+  facultySignature?: string;
+  facultySignedDate?: string;
+  studentSignature?: string;
+  studentSignedDate?: string;
+  deanSignature?: string;
+  deanSignedDate?: string;
+}
+
+/** One sheet per student per term — the paper form IS a term sheet, and a
+ *  student's Fall jury list must not be overwritten by their Spring one.
+ *  A map key, so no dots: `|` is safe where `.` would read as a field path. */
+export function sheetKey(studentId: string, schoolYear: string, term: LessonTerm): string {
+  return `${studentId}|${schoolYear}|${term}`;
+}
+
+/** Which printed sheet is on screen. */
+export interface TermRef {
+  schoolYear: string;
+  term: LessonTerm;
+}
+
+export const termOf = (isoDate: string): TermRef => ({
+  schoolYear: schoolYearLabel(isoDate),
+  term: termForDate(isoDate),
+});
+
+export const sameTerm = (a: TermRef, b: TermRef): boolean =>
+  a.schoolYear === b.schoolYear && a.term === b.term;
+
+/** Sortable, so a term picker can list newest first without a comparator. */
+export const termRank = (t: TermRef): string => `${t.schoolYear}-${t.term === 'Fall' ? '1' : '2'}`;
+
+/**
+ * The term's sheet with the row being written punched out — `null` marks
+ * where the blanks being filled in go, so the form can render prior rows
+ * ABOVE it in the same columns. That is the whole point of the log page: on
+ * lesson five, the four earlier lines are on screen while you write.
+ *
+ * A new lesson lands at the bottom. An edit keeps its own place in the
+ * sequence, so lesson 2 stays lesson 2 and the rows above the draft really
+ * are the earlier ones.
+ */
+export function logRowsWithDraft<T extends { id: string }>(termLessons: T[], editingId?: string): (T | null)[] {
+  const at = editingId ? termLessons.findIndex(l => l.id === editingId) : -1;
+  return at >= 0 ? termLessons.map((l, i) => (i === at ? null : l)) : [...termLessons, null];
+}
+
+/** 0-based position of the draft row; +1 is its printed lesson number. */
+export const draftRowIndex = <T,>(rows: (T | null)[]): number => rows.indexOf(null);
+
+/** Always exactly JURY_REPERTOIRE_SLOTS rows to render, padded with blanks. */
+export function juryRows(sheet?: LessonLogSheet): JuryPiece[] {
+  const rows = sheet?.juryRepertoire ?? [];
+  return Array.from({ length: JURY_REPERTOIRE_SLOTS }, (_, i) => ({
+    composer: rows[i]?.composer ?? '',
+    title: rows[i]?.title ?? '',
+  }));
+}
+
+/** Trim before saving so Firestore doesn't carry five empty objects because
+ *  the teacher listed two pieces. Blanks BETWEEN entries are kept — dropping
+ *  them would renumber the list under the teacher. */
+export function trimJuryRows(rows: JuryPiece[]): JuryPiece[] {
+  const kept = rows.map(r => ({ composer: r.composer.trim(), title: r.title.trim() }));
+  while (kept.length > 0 && !kept[kept.length - 1]!.composer && !kept[kept.length - 1]!.title) kept.pop();
+  return kept;
+}
+
 /** Default start/end for a new log line from payroll length. */
 export function defaultTimesForPayroll(mins: PayrollMinutes): { startTime: string; endTime: string } {
   return mins === 60
@@ -52,20 +154,27 @@ export function initialsOk(v: unknown): boolean {
 }
 
 /**
- * A row is complete for family email when it happened, carries a recognized
- * mark, and the student has initialed in person. Cancelled / incomplete rows
- * must never enqueue mail.
+ * A row is complete for family email when it happened, carries a readable
+ * number, and the student has initialed in person. Cancelled / incomplete
+ * rows must never enqueue mail.
  */
 export function isLogCompleteForMail(l: Pick<Lesson, 'status' | 'grade' | 'studentInitials'>): boolean {
-  return l.status !== 'Cancelled' && isLessonMark(l.grade) && initialsOk(l.studentInitials);
+  return l.status !== 'Cancelled' && isLessonGrade(l.grade) && initialsOk(l.studentInitials);
 }
 
-/** Fields whose change voids a prior student initial (must re-initial). */
-export function logMaterialChanged(
-  before: Pick<Lesson, 'grade' | 'gradeNote' | 'repertoireComposer' | 'repertoireTitle' | 'payrollMinutes'>,
-  after: Pick<Lesson, 'grade' | 'gradeNote' | 'repertoireComposer' | 'repertoireTitle' | 'payrollMinutes'>,
-): boolean {
-  return (before.grade ?? '') !== (after.grade ?? '')
+/** Every blank the student's initial actually attests to. Change one after
+ *  they initialed and the initial is void — they must sign the new line.
+ *  Date and time are in here because the log records WHEN the lesson was, not
+ *  only that it happened. */
+export type LogMaterialFields = Pick<Lesson,
+  'date' | 'startTime' | 'endTime' | 'grade' | 'gradeNote'
+  | 'repertoireComposer' | 'repertoireTitle' | 'payrollMinutes'>;
+
+export function logMaterialChanged(before: LogMaterialFields, after: LogMaterialFields): boolean {
+  return (before.date ?? '') !== (after.date ?? '')
+    || (before.startTime ?? '') !== (after.startTime ?? '')
+    || (before.endTime ?? '') !== (after.endTime ?? '')
+    || (before.grade ?? '') !== (after.grade ?? '')
     || (before.gradeNote ?? '') !== (after.gradeNote ?? '')
     || (before.repertoireComposer ?? '') !== (after.repertoireComposer ?? '')
     || (before.repertoireTitle ?? '') !== (after.repertoireTitle ?? '')

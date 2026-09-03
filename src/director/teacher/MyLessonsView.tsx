@@ -10,36 +10,55 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useLessons } from '../hooks/useLessons';
 import { findLessonConflicts } from '../lessonConflicts';
-import { LESSON_MARKS, gradeSummary, isLessonMark, needsGrade } from '../lessonGrades';
 import {
+  LESSON_GRADE_MAX, LESSON_GRADE_MIN, gradeSummary, isLessonGrade, lessonGradeValue, needsGrade,
+} from '../lessonGrades';
+import {
+  LESSON_TERMS,
   defaultPayrollMinutes,
   defaultTimesForPayroll,
+  draftRowIndex,
   initialsOk,
   isLogCompleteForMail,
+  juryRows,
   lessonLengthLabel,
   logMaterialChanged,
-  repertoireLine,
+  logRowsWithDraft,
+  sameTerm,
   schoolYearLabel,
+  sheetKey,
   suggestTeacherInitials,
+  termOf,
+  termRank,
+  trimJuryRows,
+  type JuryPiece,
+  type LessonLogSheet,
   type PayrollMinutes,
+  type TermRef,
 } from '../lessonLog';
 import {
-  pendingSlotDates, schoolYearEnd, slotSentence, WEEKDAY_OPTIONS, type LessonSlot,
+  lessonPayloadsFor, pendingSlotDates, schoolYearEnd, slotSentence, WEEKDAY_OPTIONS, type LessonSlot,
 } from '../lessonSchedule';
 import { enqueueLessonLogMail } from '../lessonLogMail';
 import { todayStr, parseDate, formatTimeRange } from '../utils';
 import type { Lesson, Student } from '../types';
 import { studentMatchesQuery } from '../studentSearch';
 import { whenQueued } from '../writeStatus';
+import './lessonLog.css';
 
 const EMPTY_IDS: string[] = [];
 
 type LessonPayload = Omit<Lesson, 'id' | 'createdAt' | 'updatedAt' | 'updatedBy' | 'overrideId'>;
 
 /**
- * Applied Teacher world (#roles, #applied): per-student High School Lesson
- * Log sheets. Prior rows stay visible; add a line, hand the phone to the
- * student for initials, then family email is queued.
+ * Applied Teacher world (#roles, #applied): the High School Private Lesson
+ * Log, laid out the way the paper form is — header blanks, then a
+ * spreadsheet of lessons, then the Jury Repertoire List and signatures.
+ *
+ * Adding a lesson opens a FULL PAGE rather than a drawer, and that page keeps
+ * every earlier row of the term on screen with the new row directly beneath
+ * them, column for column: on lesson five the teacher can read all four
+ * previous lines before writing this one.
  */
 export function MyLessonsView() {
   const me = useCurrentDirector();
@@ -50,8 +69,10 @@ export function MyLessonsView() {
   const { overrides, addOverride, deleteOverride } = useRosterOverrides();
   const { lessons, addLesson, updateLesson, deleteLesson, syncLessonMirror } = useLessons();
 
+  const today = todayStr();
   const [editingStudents, setEditingStudents] = useState(false);
   const [sheetStudentId, setSheetStudentId] = useState<string | null>(null);
+  const [activeTerm, setActiveTerm] = useState<TermRef>(() => termOf(todayStr()));
   const [editingLesson, setEditingLesson] = useState<Lesson | null | 'new'>(null);
   const [editingSlot, setEditingSlot] = useState(false);
   const [slotBusy, setSlotBusy] = useState(false);
@@ -72,10 +93,9 @@ export function MyLessonsView() {
       .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)),
     [lessons, me],
   );
-  const today = todayStr();
   const ungraded = myLessons.filter(l => needsGrade(l, today));
   const needsInitial = myLessons.filter(l =>
-    l.status !== 'Cancelled' && isLessonMark(l.grade) && !initialsOk(l.studentInitials) && l.date <= today,
+    l.status !== 'Cancelled' && isLessonGrade(l.grade) && !initialsOk(l.studentInitials) && l.date <= today,
   );
 
   const summaries = Object.fromEntries(
@@ -87,6 +107,42 @@ export function MyLessonsView() {
     () => (sheetStudentId ? myLessons.filter(l => l.studentId === sheetStudentId) : []),
     [myLessons, sheetStudentId],
   );
+
+  /** Both terms of the current school year, plus every term this student has
+   *  a lesson in, newest first. Both halves matter: the current year so next
+   *  term's jury list can be filled in early, and the lessons so switching
+   *  terms can never hide a lesson that exists. */
+  const termOptions = useMemo(() => {
+    const seen = new Map<string, TermRef>();
+    for (const term of LESSON_TERMS) {
+      const t = { schoolYear: schoolYearLabel(today), term };
+      seen.set(termRank(t), t);
+    }
+    for (const l of sheetLessons) {
+      const t = termOf(l.date);
+      seen.set(termRank(t), t);
+    }
+    return [...seen.values()].sort((a, b) => termRank(b).localeCompare(termRank(a)));
+  }, [sheetLessons, today]);
+
+  const termLessons = useMemo(
+    () => sheetLessons.filter(l => sameTerm(termOf(l.date), activeTerm)),
+    [sheetLessons, activeTerm],
+  );
+  const termSummary = gradeSummary(termLessons, today);
+
+  const activeSheetKey = sheetStudentId
+    ? sheetKey(sheetStudentId, activeTerm.schoolYear, activeTerm.term)
+    : '';
+  const activeSheet = director?.lessonLogSheets?.[activeSheetKey];
+
+  /** Open a student on the sheet their newest lesson is on, so a teacher who
+   *  looks in June doesn't land on an empty Fall page. */
+  function openStudent(id: string) {
+    const last = myLessons.filter(l => l.studentId === id).at(-1);
+    setActiveTerm(termOf(last?.date ?? today));
+    setSheetStudentId(id);
+  }
 
   async function saveAssignedStudents(ids: string[]) {
     if (!db || !me) return;
@@ -100,6 +156,15 @@ export function MyLessonsView() {
     const next = { ...(director?.lessonSlots ?? {}) };
     if (slot) next[studentId] = slot; else delete next[studentId];
     await updateDoc(doc(db, 'directors', directorEmailId(me.email)), { lessonSlots: next });
+  }
+
+  /** The once-a-term half of the form — jury repertoire and signatures. Same
+   *  home as `lessonSlots`, keyed by student + school year + term. */
+  async function saveSheet(key: string, sheet: LessonLogSheet) {
+    if (!db || !me) return;
+    const next = { ...(director?.lessonLogSheets ?? {}) };
+    next[key] = sheet;
+    await updateDoc(doc(db, 'directors', directorEmailId(me.email)), { lessonLogSheets: next });
   }
 
   /**
@@ -116,26 +181,19 @@ export function MyLessonsView() {
     setSlotBusy(true);
     try {
       const mine = myLessons.filter(l => l.studentId === student.id);
-      const dates = pendingSlotDates(slot, mine, today, schoolYearEnd(today));
+      const payloads = lessonPayloadsFor(
+        slot, student,
+        { email: directorEmailId(me.email), name: me.name },
+        mine, today, schoolYearEnd(today),
+      );
       let conflicts = 0;
-      for (const date of dates) {
+      for (const payload of payloads) {
         conflicts += findLessonConflicts(
-          student.id, date, slot.startTime, slot.endTime, events, students, overrides,
+          student.id, payload.date, slot.startTime, slot.endTime, events, students, overrides,
         ).length > 0 ? 1 : 0;
-        await addLesson({
-          teacherEmail: directorEmailId(me.email),
-          teacherName: me.name,
-          studentId: student.id,
-          date,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          status: 'Scheduled',
-          ...(slot.location ? { location: slot.location } : {}),
-          ...(student.instrument ? { instrument: student.instrument } : {}),
-          payrollMinutes: defaultPayrollMinutes(student.grade),
-        });
+        await addLesson(payload);
       }
-      setSlotAdded({ count: dates.length, conflicts });
+      setSlotAdded({ count: payloads.length, conflicts });
     } finally {
       setSlotBusy(false);
     }
@@ -214,10 +272,35 @@ export function MyLessonsView() {
 
   if (!me) return null;
 
+  // ── The lesson-log form, as its own page ───────────────────────────
+  // Prior rows of this term stay above the row being written, in the same
+  // columns — the whole reason this is a page and not a drawer.
+  if (sheetStudentId && sheetStudent && editingLesson !== null) {
+    const existing = editingLesson === 'new' ? null : editingLesson;
+    return (
+      <LessonLogPage
+        student={sheetStudent}
+        term={activeTerm}
+        termLessons={termLessons}
+        lesson={existing}
+        teacherEmail={directorEmailId(me.email)}
+        teacherName={me.name}
+        defaultPayroll={defaultPayrollMinutes(sheetStudent.grade)}
+        events={events}
+        students={students}
+        overrides={overrides}
+        ensembleMap={ensembleMap}
+        onSave={async data => {
+          await saveLesson(data, existing);
+          setEditingLesson(null);
+        }}
+        onClose={() => setEditingLesson(null)}
+      />
+    );
+  }
+
   // ── Per-student log sheet ──────────────────────────────────────────
   if (sheetStudentId && sheetStudent) {
-    const g = summaries[sheetStudent.id];
-    const payrollDefault = defaultPayrollMinutes(sheetStudent.grade);
     return (
       <div className="dir-tab-page">
         <div style={{ padding: '8px 16px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -227,13 +310,19 @@ export function MyLessonsView() {
         </div>
 
         <div className="dir-form-section-label" style={{ marginTop: 4 }}>
-          {sheetStudent.name}
-          {sheetStudent.instrument ? ` · ${sheetStudent.instrument}` : ''}
+          High School Private Lesson Log
         </div>
+        <SheetHeader
+          teacherName={me.name}
+          student={sheetStudent}
+          term={activeTerm}
+          termOptions={termOptions}
+          onTermChange={setActiveTerm}
+        />
         <div className="dir-page-hint" style={{ marginTop: 0 }}>
-          Grade {sheetStudent.grade ?? '—'} · {lessonLengthLabel(sheetStudent.grade)} ·{' '}
-          {schoolYearLabel(today)}
-          {g ? ` · Term ${g.letter} (${g.average.toFixed(2)}, ${g.graded} of ${g.gradable})` : ' · not graded yet'}
+          {termSummary
+            ? `Term grade ${termSummary.rounded} (average ${termSummary.average.toFixed(1)} over ${termSummary.graded} of ${termSummary.gradable} lessons).`
+            : 'No lesson in this term is graded yet.'}
         </div>
 
         {mailBanner && (
@@ -255,55 +344,53 @@ export function MyLessonsView() {
           onDismissAdded={() => setSlotAdded(null)}
         />
 
-        <div className="dir-form-section-label">Lesson log ({sheetLessons.filter(l => l.status !== 'Cancelled').length})</div>
-        {sheetLessons.length === 0 ? (
-          <div className="dir-empty-inline">No lessons logged yet. Tap “Add lesson” after you teach.</div>
+        <div className="dir-form-section-label">
+          Lesson log — {activeTerm.term} {activeTerm.schoolYear} ({termLessons.length})
+        </div>
+        {termLessons.length === 0 ? (
+          <div className="dir-empty-inline">
+            No lessons on this term’s sheet yet. Tap “Add lesson” after you teach.
+          </div>
         ) : (
-          sheetLessons.map((l, i) => (
-            <LogRow
-              key={l.id}
-              index={i + 1}
-              lesson={l}
-              today={today}
-              confirming={confirmDeleteLesson === l.id}
-              onEdit={() => setEditingLesson(l)}
-              onDeleteRequest={() => setConfirmDeleteLesson(l.id)}
-              onDeleteCancel={() => setConfirmDeleteLesson(null)}
-              onDeleteConfirm={() => handleDeleteLesson(l)}
-            />
-          ))
+          <div className="dir-log-scroll">
+            <table className="dir-log-table">
+              <LogHead withActions />
+              <tbody>
+                {termLessons.map((l, i) => (
+                  <LogReadRow
+                    key={l.id}
+                    index={i + 1}
+                    lesson={l}
+                    today={today}
+                    confirming={confirmDeleteLesson === l.id}
+                    onEdit={() => setEditingLesson(l)}
+                    onDeleteRequest={() => setConfirmDeleteLesson(l.id)}
+                    onDeleteCancel={() => setConfirmDeleteLesson(null)}
+                    onDeleteConfirm={() => handleDeleteLesson(l)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
-        <div style={{ padding: '12px 16px 80px' }}>
-          <button
-            className="dir-btn dir-btn-primary"
-            onClick={() => setEditingLesson('new')}
-            disabled={assignedStudents.length === 0}
-          >
+        <div style={{ padding: '4px 16px 8px' }}>
+          <button className="dir-btn dir-btn-primary" onClick={() => setEditingLesson('new')}>
             <Plus size={14} /> Add lesson
           </button>
         </div>
 
-        {editingLesson !== null && (
-          <LessonLogForm
-            lesson={editingLesson === 'new' ? null : editingLesson}
-            lockedStudentId={sheetStudent.id}
-            teacherEmail={directorEmailId(me.email)}
-            teacherName={me.name}
-            assignedStudents={assignedStudents}
-            priorLessons={sheetLessons}
-            defaultPayroll={payrollDefault}
-            events={events}
-            students={students}
-            overrides={overrides}
-            ensembleMap={ensembleMap}
-            onSave={async data => {
-              await saveLesson(data, editingLesson === 'new' ? null : editingLesson);
-              setEditingLesson(null);
-            }}
-            onClose={() => setEditingLesson(null)}
-          />
-        )}
+        <SheetExtrasPanel
+          key={activeSheetKey}
+          sheet={activeSheet}
+          studentName={sheetStudent.name}
+          onSave={sheet => saveSheet(activeSheetKey, sheet)}
+        />
+
+        <div className="dir-page-hint" style={{ marginBottom: 80 }}>
+          Repertoire confirmation deadlines: Fall, Friday October 18; Spring, Friday February 28
+          (see the division handbook for details).
+        </div>
       </div>
     );
   }
@@ -346,7 +433,7 @@ export function MyLessonsView() {
           const pending = myLessons.filter(l =>
             l.studentId === s.id && (
               needsGrade(l, today)
-              || (isLessonMark(l.grade) && !initialsOk(l.studentInitials) && l.date <= today)
+              || (isLessonGrade(l.grade) && !initialsOk(l.studentInitials) && l.date <= today)
             ),
           ).length;
           return (
@@ -355,7 +442,7 @@ export function MyLessonsView() {
               type="button"
               className="dir-ens-row"
               style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', background: 'transparent' }}
-              onClick={() => setSheetStudentId(s.id)}
+              onClick={() => openStudent(s.id)}
             >
               <span className="dir-ens-swatch" style={{ background: 'var(--dir-primary, #2563eb)' }} />
               <div className="dir-ens-info">
@@ -369,7 +456,7 @@ export function MyLessonsView() {
                 </div>
                 <div className="dir-ens-sub">
                   Grade {s.grade ?? '—'} · {count} lesson{count === 1 ? '' : 's'}
-                  {g ? ` · Term ${g.letter} (${g.average.toFixed(2)})` : ' · not graded yet'}
+                  {g ? ` · average ${g.rounded}` : ' · not graded yet'}
                 </div>
               </div>
             </button>
@@ -391,6 +478,156 @@ export function MyLessonsView() {
         />
       )}
     </div>
+  );
+}
+
+/** The blanks printed across the top of the form: Teacher, Student Name,
+ *  Grade, Instrument or Voice, Lesson Length, School Year, Term. Term is the
+ *  only one the teacher picks — the rest are already known here. */
+function SheetHeader({ teacherName, student, term, termOptions, onTermChange }: {
+  teacherName?: string;
+  student: Student;
+  term: TermRef;
+  termOptions: TermRef[];
+  onTermChange: (t: TermRef) => void;
+}) {
+  return (
+    <dl className="dir-log-header">
+      <div>
+        <dt>Teacher</dt>
+        <dd>{teacherName || '—'}</dd>
+      </div>
+      <div>
+        <dt>Student name</dt>
+        <dd>{student.name}</dd>
+      </div>
+      <div>
+        <dt>Grade</dt>
+        <dd>{student.grade ?? '—'}</dd>
+      </div>
+      <div>
+        <dt>Instrument or voice</dt>
+        <dd>{student.instrument ?? '—'}</dd>
+      </div>
+      <div>
+        <dt>Lesson length</dt>
+        <dd>{lessonLengthLabel(student.grade)}</dd>
+      </div>
+      <div>
+        <dt>School year</dt>
+        <dd>{term.schoolYear}</dd>
+      </div>
+      <div>
+        <dt><label htmlFor="dir-log-term">Term</label></dt>
+        <dd>
+          <select
+            id="dir-log-term"
+            className="dir-select"
+            value={termRank(term)}
+            onChange={e => {
+              const next = termOptions.find(t => termRank(t) === e.target.value);
+              if (next) onTermChange(next);
+            }}
+          >
+            {termOptions.map(t => (
+              <option key={termRank(t)} value={termRank(t)}>{t.term} {t.schoolYear}</option>
+            ))}
+          </select>
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
+/** One definition of the log's columns, in the order the paper form prints
+ *  them. Time is ours: the form only has a date, but a lesson log that can't
+ *  say when the lesson was is no use for a pull-out or a payroll question. */
+function LogHead({ withActions }: { withActions?: boolean }) {
+  return (
+    <thead>
+      <tr>
+        <th className="dir-log-num">Lesson</th>
+        <th className="dir-log-date">Lesson date</th>
+        <th className="dir-log-time">Time</th>
+        <th className="dir-log-grade">Lesson grade</th>
+        <th className="dir-log-initial">Teacher initial</th>
+        <th className="dir-log-initial">Student initial</th>
+        <th className="dir-log-composer">Composer</th>
+        <th className="dir-log-title">Title</th>
+        <th className="dir-log-comments">Technique / comments</th>
+        <th className="dir-log-payroll">Payroll</th>
+        {withActions && <th className="dir-log-actions">Edit</th>}
+      </tr>
+    </thead>
+  );
+}
+
+/** A grade that isn't a whole 0–100 is shown as-is with a warning rather than
+ *  hidden: the A–F letters this replaced are still on older lessons, and the
+ *  teacher has to see them to know they need re-entering as numbers. */
+function GradeCell({ grade }: { grade?: string }) {
+  const n = lessonGradeValue(grade);
+  if (n !== null) return <>{n}</>;
+  if ((grade ?? '').trim()) return <span className="dir-log-missing">{grade} — re-enter as a number</span>;
+  return <span className="dir-log-missing">—</span>;
+}
+
+function LogReadRow({
+  index, lesson, today, confirming, onEdit, onDeleteRequest, onDeleteCancel, onDeleteConfirm,
+}: {
+  index: number;
+  lesson: Lesson;
+  today: string;
+  confirming: boolean;
+  onEdit?: () => void;
+  onDeleteRequest?: () => void;
+  onDeleteCancel?: () => void;
+  onDeleteConfirm?: () => void;
+}) {
+  const cancelled = lesson.status === 'Cancelled';
+  return (
+    <tr className={cancelled ? 'cancelled' : undefined}>
+      <td className="dir-log-num">
+        <span>{index}</span>
+        {cancelled && <div className="dir-log-missing">Cancelled</div>}
+        {!cancelled && needsGrade(lesson, today) && <div className="dir-log-missing">Needs a grade</div>}
+        {!cancelled && isLessonGrade(lesson.grade) && !initialsOk(lesson.studentInitials) && lesson.date <= today && (
+          <div className="dir-log-missing">Needs initials</div>
+        )}
+      </td>
+      <td>{parseDate(lesson.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</td>
+      <td>{formatTimeRange(lesson.startTime, lesson.endTime)}</td>
+      <td><GradeCell grade={lesson.grade} /></td>
+      <td>{lesson.teacherInitials || <span className="dir-log-missing">—</span>}</td>
+      <td>{lesson.studentInitials || <span className="dir-log-missing">—</span>}</td>
+      <td>{lesson.repertoireComposer || <span className="dir-log-missing">—</span>}</td>
+      <td>{lesson.repertoireTitle || <span className="dir-log-missing">—</span>}</td>
+      <td>
+        {lesson.gradeNote || <span className="dir-log-missing">—</span>}
+        {lesson.location && <div className="dir-log-missing"><MapPin size={10} style={{ verticalAlign: '-1px' }} /> {lesson.location}</div>}
+        {lesson.conflict && (
+          <div style={{ color: 'var(--dir-danger)' }}>
+            <AlertTriangle size={11} style={{ verticalAlign: '-1px' }} /> Misses {lesson.conflict.eventLabel} — confirmed
+          </div>
+        )}
+      </td>
+      <td>{lesson.payrollMinutes === 60 ? '1 hr' : lesson.payrollMinutes ? '45 min' : <span className="dir-log-missing">—</span>}</td>
+      {onEdit && (
+        <td className="dir-log-actions">
+          {confirming ? (
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              <button className="dir-btn dir-btn-danger dir-sc-small" onClick={onDeleteConfirm}>Delete</button>
+              <button className="dir-btn dir-btn-ghost dir-sc-small" onClick={onDeleteCancel}>Keep</button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button className="dir-icon-btn" onClick={onEdit} aria-label={`Edit lesson ${index}`}><Pencil size={15} /></button>
+              <button className="dir-icon-btn" onClick={onDeleteRequest} aria-label={`Delete lesson ${index}`}><Trash2 size={15} /></button>
+            </div>
+          )}
+        </td>
+      )}
+    </tr>
   );
 }
 
@@ -564,55 +801,126 @@ function MailBanner({ banner, onDismiss }: {
   );
 }
 
-function LogRow({ index, lesson, today, confirming, onEdit, onDeleteRequest, onDeleteCancel, onDeleteConfirm }: {
-  index: number;
-  lesson: Lesson;
-  today: string;
-  confirming: boolean;
-  onEdit: () => void;
-  onDeleteRequest: () => void;
-  onDeleteCancel: () => void;
-  onDeleteConfirm: () => void;
+/**
+ * The foot of the paper form: the five-line Jury Repertoire List and the
+ * Faculty / Student / Dean signature-and-date lines. Filled in once a term,
+ * so one Save covers the lot rather than a write per keystroke.
+ */
+function SheetExtrasPanel({ sheet, studentName, onSave }: {
+  sheet?: LessonLogSheet;
+  studentName: string;
+  onSave: (sheet: LessonLogSheet) => Promise<void>;
 }) {
-  const rep = repertoireLine(lesson);
+  const [rows, setRows] = useState<JuryPiece[]>(() => juryRows(sheet));
+  const [faculty, setFaculty] = useState(sheet?.facultySignature ?? '');
+  const [facultyDate, setFacultyDate] = useState(sheet?.facultySignedDate ?? '');
+  const [studentSig, setStudentSig] = useState(sheet?.studentSignature ?? '');
+  const [studentDate, setStudentDate] = useState(sheet?.studentSignedDate ?? '');
+  const [dean, setDean] = useState(sheet?.deanSignature ?? '');
+  const [deanDate, setDeanDate] = useState(sheet?.deanSignedDate ?? '');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  function setRow(i: number, patch: Partial<JuryPiece>) {
+    setSaved(false);
+    setRows(cur => cur.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  }
+
+  const build = (): LessonLogSheet => {
+    const jury = trimJuryRows(rows);
+    return {
+      ...(jury.length ? { juryRepertoire: jury } : {}),
+      ...(faculty.trim() ? { facultySignature: faculty.trim() } : {}),
+      ...(facultyDate ? { facultySignedDate: facultyDate } : {}),
+      ...(studentSig.trim() ? { studentSignature: studentSig.trim() } : {}),
+      ...(studentDate ? { studentSignedDate: studentDate } : {}),
+      ...(dean.trim() ? { deanSignature: dean.trim() } : {}),
+      ...(deanDate ? { deanSignedDate: deanDate } : {}),
+    };
+  };
+
   return (
-    <div className="dir-ens-row">
-      <span className="dir-ens-swatch" style={{ background: lesson.conflict ? 'var(--dir-danger)' : 'var(--dir-primary, #2563eb)' }} />
-      <div className="dir-ens-info">
-        <div className="dir-ens-name">
-          #{index} · {parseDate(lesson.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-          {lesson.status === 'Cancelled' && <span className="dir-status-badge absent" style={{ marginLeft: 8 }}>Cancelled</span>}
-          {isLessonMark(lesson.grade) && <span className="dir-status-badge" style={{ marginLeft: 8 }}>Grade {lesson.grade}</span>}
-          {needsGrade(lesson, today) && <span className="dir-status-badge absent" style={{ marginLeft: 8 }}>Needs a grade</span>}
-          {isLessonMark(lesson.grade) && !initialsOk(lesson.studentInitials) && lesson.date <= today && (
-            <span className="dir-status-badge absent" style={{ marginLeft: 8 }}>Needs initials</span>
-          )}
-        </div>
-        <div className="dir-ens-sub">
-          {formatTimeRange(lesson.startTime, lesson.endTime)}
-          {lesson.payrollMinutes ? ` · ${lesson.payrollMinutes} min` : ''}
-          {lesson.teacherInitials ? ` · T: ${lesson.teacherInitials}` : ''}
-          {lesson.studentInitials ? ` · S: ${lesson.studentInitials}` : ''}
-        </div>
-        {rep && <div className="dir-ens-sub">{rep}</div>}
-        {lesson.gradeNote && <div className="dir-ens-sub">{lesson.gradeNote}</div>}
-        {lesson.conflict && (
-          <div className="dir-ens-sub" style={{ color: 'var(--dir-danger)' }}>
-            <AlertTriangle size={11} style={{ verticalAlign: '-1px' }} /> Conflicts with {lesson.conflict.eventLabel} — confirmed
-          </div>
-        )}
+    <>
+      <div className="dir-form-section-label">Jury repertoire list</div>
+      <div className="dir-page-hint" style={{ marginTop: 0 }}>
+        The five pieces {studentName} brings to jury this term. Saved with this term’s sheet,
+        so the other term keeps its own list.
       </div>
-      {confirming ? (
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button className="dir-btn dir-btn-danger dir-sc-small" onClick={onDeleteConfirm}>Delete</button>
-          <button className="dir-btn dir-btn-ghost dir-sc-small" onClick={onDeleteCancel}>Cancel</button>
+      {rows.map((r, i) => (
+        <div className="dir-jury-row" key={i}>
+          <span className="dir-jury-num">{i + 1}.</span>
+          <input
+            className="dir-input"
+            value={r.composer}
+            onChange={e => setRow(i, { composer: e.target.value })}
+            placeholder="Composer"
+            aria-label={`Jury piece ${i + 1} composer`}
+          />
+          <input
+            className="dir-input"
+            value={r.title}
+            onChange={e => setRow(i, { title: e.target.value })}
+            placeholder="Title"
+            aria-label={`Jury piece ${i + 1} title`}
+          />
         </div>
-      ) : (
-        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-          <button className="dir-icon-btn" onClick={onEdit} aria-label="Edit lesson"><Pencil size={15} /></button>
-          <button className="dir-icon-btn" onClick={onDeleteRequest} aria-label="Delete lesson"><Trash2 size={15} /></button>
-        </div>
-      )}
+      ))}
+
+      <div className="dir-form-section-label">Signatures</div>
+      <SignatureRow
+        label="Faculty signature" name={faculty} date={facultyDate}
+        onName={v => { setSaved(false); setFaculty(v); }} onDate={v => { setSaved(false); setFacultyDate(v); }}
+      />
+      <SignatureRow
+        label="Student signature" name={studentSig} date={studentDate}
+        onName={v => { setSaved(false); setStudentSig(v); }} onDate={v => { setSaved(false); setStudentDate(v); }}
+      />
+      <SignatureRow
+        label="Dean signature" name={dean} date={deanDate}
+        onName={v => { setSaved(false); setDean(v); }} onDate={v => { setSaved(false); setDeanDate(v); }}
+      />
+
+      <div style={{ padding: '0 16px 12px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          className="dir-btn dir-btn-primary"
+          disabled={saving}
+          onClick={async () => {
+            setSaving(true);
+            try {
+              await onSave(build());
+              setSaved(true);
+            } finally {
+              setSaving(false);
+            }
+          }}
+        >
+          {saving ? 'Saving…' : 'Save jury list and signatures'}
+        </button>
+        {saved && <span className="dir-page-hint" style={{ margin: 0, padding: 0 }}>Saved.</span>}
+      </div>
+    </>
+  );
+}
+
+/** A typed name plus the date it was typed — the same signature the sign-up
+ *  packets use. Nobody draws on glass here. */
+function SignatureRow({ label, name, date, onName, onDate }: {
+  label: string;
+  name: string;
+  date: string;
+  onName: (v: string) => void;
+  onDate: (v: string) => void;
+}) {
+  return (
+    <div className="dir-sig-row">
+      <div className="dir-field" style={{ margin: 0 }}>
+        <label className="dir-label">{label}</label>
+        <input className="dir-input" value={name} onChange={e => onName(e.target.value)} placeholder="Type full name" />
+      </div>
+      <div className="dir-field" style={{ margin: 0 }}>
+        <label className="dir-label">Date</label>
+        <input className="dir-input" type="date" value={date} onChange={e => onDate(e.target.value)} />
+      </div>
     </div>
   );
 }
@@ -673,20 +981,24 @@ function StudentAssignEditor({ allStudents, assignedIds, onSave, onClose }: {
 }
 
 /**
- * Two-step log form: teacher fills the official line, then the student types
- * initials on this device. Scheduling (times / location / conflict) lives
- * under “More.”
+ * The log form as its own page (#applied). Every earlier row of the term sits
+ * above the row being filled in, in the same columns — write the fifth lesson
+ * with the first four still on screen.
+ *
+ * Two steps, as before: the teacher fills the official line, then hands the
+ * device over and the student types their initials. The table stays visible
+ * through both, which is what the student is actually confirming.
  */
-function LessonLogForm({
-  lesson, lockedStudentId, teacherEmail, teacherName, assignedStudents, priorLessons,
+function LessonLogPage({
+  student, term, termLessons, lesson, teacherEmail, teacherName,
   defaultPayroll, events, students, overrides, ensembleMap, onSave, onClose,
 }: {
+  student: Student;
+  term: TermRef;
+  termLessons: Lesson[];
   lesson: Lesson | null;
-  lockedStudentId: string;
   teacherEmail: string;
-  teacherName: string;
-  assignedStudents: Student[];
-  priorLessons: Lesson[];
+  teacherName?: string;
   defaultPayroll: PayrollMinutes;
   events: import('../types').CalendarEvent[];
   students: Student[];
@@ -695,7 +1007,11 @@ function LessonLogForm({
   onSave: (data: LessonPayload) => Promise<void>;
   onClose: () => void;
 }) {
-  const last = [...priorLessons].filter(l => l.status !== 'Cancelled').at(-1);
+  const rows = logRowsWithDraft(termLessons, lesson?.id);
+  const draftIndex = draftRowIndex(rows);
+  const rowNumber = draftIndex + 1;
+  const above = termLessons.slice(0, draftIndex);
+  const last = [...above].filter(l => l.status !== 'Cancelled').at(-1);
   const times0 = lesson
     ? { startTime: lesson.startTime, endTime: lesson.endTime }
     : defaultTimesForPayroll(last?.payrollMinutes ?? defaultPayroll);
@@ -705,10 +1021,12 @@ function LessonLogForm({
   const [endTime, setEndTime] = useState(times0.endTime);
   const [location, setLocation] = useState(lesson?.location ?? '');
   const [notes, setNotes] = useState(lesson?.notes ?? '');
-  const [grade, setGrade] = useState(isLessonMark(lesson?.grade) ? lesson!.grade! : '');
+  const [grade, setGrade] = useState(lesson?.grade ?? '');
   const [gradeNote, setGradeNote] = useState(lesson?.gradeNote ?? '');
-  const [repertoireComposer, setRepertoireComposer] = useState(lesson?.repertoireComposer ?? '');
-  const [repertoireTitle, setRepertoireTitle] = useState(lesson?.repertoireTitle ?? '');
+  const [repertoireComposer, setRepertoireComposer] = useState(
+    lesson?.repertoireComposer ?? last?.repertoireComposer ?? '',
+  );
+  const [repertoireTitle, setRepertoireTitle] = useState(lesson?.repertoireTitle ?? last?.repertoireTitle ?? '');
   const [payrollMinutes, setPayrollMinutes] = useState<PayrollMinutes>(
     lesson?.payrollMinutes ?? last?.payrollMinutes ?? defaultPayroll,
   );
@@ -717,15 +1035,14 @@ function LessonLogForm({
   );
   const [studentInitials, setStudentInitials] = useState(lesson?.studentInitials ?? '');
   const [step, setStep] = useState<'teacher' | 'student'>(
-    lesson && isLessonMark(lesson.grade) && !initialsOk(lesson.studentInitials) ? 'student' : 'teacher',
+    lesson && isLessonGrade(lesson.grade) && !initialsOk(lesson.studentInitials) ? 'student' : 'teacher',
   );
   const [showMore, setShowMore] = useState(!!(lesson?.location || lesson?.conflict || lesson?.notes));
   const [ackConflict, setAckConflict] = useState(!!lesson?.conflict);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const studentId = lockedStudentId;
-  const student = assignedStudents.find(s => s.id === studentId) ?? students.find(s => s.id === studentId);
+  const studentId = student.id;
 
   const conflicts = useMemo(
     () => findLessonConflicts(studentId, date, startTime, endTime, events, students, overrides),
@@ -738,19 +1055,21 @@ function LessonLogForm({
     setAckConflict(false);
   }, [studentId, date, startTime, endTime]);
 
-  // Changing payroll updates default end time only for brand-new lessons that
-  // still sit on the stock start time.
-  useEffect(() => {
+  /** Changing payroll length re-times a BRAND-NEW row (45 min and an hour end
+   *  at different times). An existing lesson keeps the times it was taught at
+   *  — the log records what happened, not what the length implies. */
+  function changePayroll(mins: PayrollMinutes) {
+    setPayrollMinutes(mins);
     if (lesson) return;
-    const next = defaultTimesForPayroll(payrollMinutes);
+    const next = defaultTimesForPayroll(mins);
     setStartTime(next.startTime);
     setEndTime(next.endTime);
-  }, [payrollMinutes, lesson]);
+  }
 
   const hasConflict = conflicts.length > 0;
   const validTimes = !!startTime && !!endTime && endTime > startTime;
-  const teacherReady = !!studentId && !!date && validTimes && (!hasConflict || ackConflict)
-    && isLessonMark(grade) && initialsOk(teacherInitials)
+  const teacherReady = !!date && validTimes && (!hasConflict || ackConflict)
+    && isLessonGrade(grade) && initialsOk(teacherInitials)
     && !!repertoireComposer.trim() && !!repertoireTitle.trim()
     && !!gradeNote.trim();
 
@@ -765,15 +1084,15 @@ function LessonLogForm({
       endTime,
       location: location.trim() || undefined,
       notes: notes.trim() || undefined,
-      grade: grade || undefined,
-      gradeNote: grade ? gradeNote.trim() || undefined : undefined,
+      grade: grade.trim() || undefined,
+      gradeNote: grade.trim() ? gradeNote.trim() || undefined : undefined,
       repertoireComposer: repertoireComposer.trim() || undefined,
       repertoireTitle: repertoireTitle.trim() || undefined,
       teacherInitials: teacherInitials.trim() || undefined,
       studentInitials: initials.trim() || undefined,
       studentInitialedAt: initials.trim() ? (initialedAt ?? Date.now()) : undefined,
       payrollMinutes,
-      instrument: student?.instrument,
+      instrument: student.instrument,
       status: lesson?.status ?? 'Scheduled',
       conflict: hasConflict && ackConflict && primary ? {
         eventId: primary.event.id,
@@ -787,14 +1106,17 @@ function LessonLogForm({
 
   function goToStudentStep() {
     setError('');
+    if (!validTimes) { setError('End time must be after the start time.'); return; }
     if (!teacherReady) {
-      setError('Fill date, grade, repertoire (composer + title), technique/comments, and your initials first.');
+      setError(
+        `Fill every blank first: date, time, a lesson grade from ${LESSON_GRADE_MIN} to ${LESSON_GRADE_MAX}, `
+        + 'composer, title, technique/comments, and your initials.',
+      );
       return;
     }
-    if (!validTimes) { setError('End time must be after the start time.'); return; }
     // Material edits void a prior student initial.
     if (lesson && initialsOk(lesson.studentInitials) && logMaterialChanged(lesson, {
-      grade, gradeNote, repertoireComposer, repertoireTitle, payrollMinutes,
+      date, startTime, endTime, grade, gradeNote, repertoireComposer, repertoireTitle, payrollMinutes,
     })) {
       setStudentInitials('');
     }
@@ -820,175 +1142,201 @@ function LessonLogForm({
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer">
-        <div className="dir-drawer-handle" />
-        <div className="dir-drawer-header">
-          <span className="dir-drawer-title">
-            {step === 'student'
-              ? 'Student initials'
-              : lesson ? 'Edit lesson log' : 'Add lesson log'}
-          </span>
-          <button className="dir-drawer-close" onClick={onClose}>×</button>
-        </div>
-        <div className="dir-drawer-body">
-          {step === 'teacher' ? (
-            <>
-              <div className="dir-page-hint" style={{ margin: '0 0 8px', padding: 0 }}>
-                {student?.name ?? 'Student'} · {lessonLengthLabel(student?.grade)}
-              </div>
+    <div className="dir-tab-page">
+      <div style={{ padding: '8px 16px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button className="dir-tool-btn" onClick={onClose} disabled={saving}>
+          <ChevronLeft size={14} /> Back to the log
+        </button>
+      </div>
 
-              <div className="dir-field">
-                <label className="dir-label">Lesson date</label>
-                <input className="dir-input" type="date" value={date} onChange={e => setDate(e.target.value)} />
-              </div>
+      <div className="dir-form-section-label" style={{ marginTop: 4 }}>
+        {lesson ? `Edit lesson ${rowNumber}` : `Lesson ${rowNumber}`} — {student.name}
+      </div>
+      <div className="dir-page-hint" style={{ marginTop: 0 }}>
+        {term.term} {term.schoolYear} · {lessonLengthLabel(student.grade)} ·{' '}
+        {above.length === 0
+          ? 'first lesson on this sheet'
+          : `${above.length} earlier lesson${above.length === 1 ? '' : 's'} shown above this row`}
+      </div>
 
-              <div className="dir-field">
-                <label className="dir-label">Lesson grade</label>
-                <select className="dir-select" value={grade} onChange={e => setGrade(e.target.value)}>
-                  <option value="">Select mark</option>
-                  {LESSON_MARKS.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-
-              <div className="dir-field-row">
-                <div className="dir-field">
-                  <label className="dir-label">Composer</label>
-                  <input className="dir-input" value={repertoireComposer} onChange={e => setRepertoireComposer(e.target.value)} placeholder="Composer" />
-                </div>
-                <div className="dir-field">
-                  <label className="dir-label">Title</label>
-                  <input className="dir-input" value={repertoireTitle} onChange={e => setRepertoireTitle(e.target.value)} placeholder="Piece title" />
-                </div>
-              </div>
-
-              <div className="dir-field">
-                <label className="dir-label">Technique / comments</label>
+      <div className="dir-log-scroll">
+        <table className="dir-log-table">
+          <LogHead />
+          <tbody>
+            {rows.map((l, i) => l ? (
+              <LogReadRow key={l.id} index={i + 1} lesson={l} today={todayStr()} confirming={false} />
+            ) : (
+            <tr className="editing" key="draft">
+              <td className="dir-log-num">
+                {rowNumber}
+                <div className="dir-log-missing">Now</div>
+              </td>
+              <td>
+                <input
+                  className="dir-input" type="date" value={date}
+                  onChange={e => setDate(e.target.value)} aria-label="Lesson date"
+                />
+              </td>
+              <td>
+                <input
+                  className="dir-input" type="time" value={startTime}
+                  onChange={e => setStartTime(e.target.value)} aria-label="Start time"
+                />
+                <input
+                  className="dir-input" type="time" value={endTime}
+                  onChange={e => setEndTime(e.target.value)} aria-label="End time" style={{ marginTop: 4 }}
+                />
+              </td>
+              <td>
                 <input
                   className="dir-input"
-                  value={gradeNote}
-                  onChange={e => setGradeNote(e.target.value)}
-                  placeholder="What to practise, what improved"
+                  type="number"
+                  inputMode="numeric"
+                  min={LESSON_GRADE_MIN}
+                  max={LESSON_GRADE_MAX}
+                  step={1}
+                  value={grade}
+                  onChange={e => setGrade(e.target.value)}
+                  placeholder="0–100"
+                  aria-label="Lesson grade out of 100"
                 />
-              </div>
-
-              <div className="dir-field">
-                <label className="dir-label">Payroll length</label>
-                <select
-                  className="dir-select"
-                  value={payrollMinutes}
-                  onChange={e => setPayrollMinutes(Number(e.target.value) as PayrollMinutes)}
-                >
-                  <option value={45}>45 minutes</option>
-                  <option value={60}>1 hour</option>
-                </select>
-              </div>
-
-              <div className="dir-field">
-                <label className="dir-label">Teacher initials</label>
+              </td>
+              <td>
                 <input
                   className="dir-input"
                   value={teacherInitials}
                   onChange={e => setTeacherInitials(e.target.value.toUpperCase())}
-                  placeholder="Your initials"
                   autoCapitalize="characters"
+                  aria-label="Teacher initials"
                 />
-              </div>
-
-              <button type="button" className="dir-tool-btn" onClick={() => setShowMore(v => !v)}>
-                {showMore ? 'Hide scheduling details' : 'More (times, location, notes)'}
-              </button>
-
-              {showMore && (
-                <>
-                  <div className="dir-field-row" style={{ marginTop: 8 }}>
-                    <div className="dir-field">
-                      <label className="dir-label">Starts</label>
-                      <input className="dir-input" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} />
-                    </div>
-                    <div className="dir-field">
-                      <label className="dir-label">Ends</label>
-                      <input className="dir-input" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="dir-field">
-                    <label className="dir-label"><MapPin size={12} /> Location</label>
-                    <input className="dir-input" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Practice Room 3" />
-                  </div>
-                  <div className="dir-field">
-                    <label className="dir-label">Internal notes</label>
-                    <input className="dir-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional, not on the paper log" />
-                  </div>
-                </>
-              )}
-
-              {hasConflict && (
-                <div className="dir-conflict-banner">
-                  ⚠ <strong>Scheduling conflict</strong> — {student?.name ?? 'This student'} is expected at{' '}
-                  {conflicts.map((c, i) => (
-                    <span key={c.event.id}>
-                      {i > 0 && ', '}
-                      <strong>{ensembleMap[c.ensembleId]?.name ?? c.event.type}</strong> ({formatTimeRange(c.event.startTime, c.event.endTime)})
-                    </span>
-                  ))}{' '}
-                  during this lesson time.
-                  <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 10, fontWeight: 600 }}>
-                    <input
-                      type="checkbox"
-                      checked={ackConflict}
-                      onChange={e => setAckConflict(e.target.checked)}
-                      style={{ marginTop: 3 }}
-                    />
-                    I have confirmed with the classroom teacher or ensemble director that {student?.name ?? 'the student'} will miss this time.
-                  </label>
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="dir-page-hint" style={{ margin: '0 0 12px', padding: 0 }}>
-                Hand the device to {student?.name ?? 'the student'}. They type their initials to confirm this lesson log line.
-              </div>
-              <div style={{ marginBottom: 12, fontSize: 14, lineHeight: 1.4 }}>
-                <div><strong>Date:</strong> {date}</div>
-                <div><strong>Grade:</strong> {grade}</div>
-                <div><strong>Repertoire:</strong> {repertoireComposer}, {repertoireTitle}</div>
-                {gradeNote && <div><strong>Comments:</strong> {gradeNote}</div>}
-              </div>
-              <div className="dir-field">
-                <label className="dir-label">Student initials</label>
+              </td>
+              <td>
+                {initialsOk(studentInitials)
+                  ? studentInitials
+                  : <span className="dir-log-missing">The student types these below</span>}
+              </td>
+              <td>
                 <input
-                  className="dir-input"
-                  value={studentInitials}
-                  onChange={e => setStudentInitials(e.target.value.toUpperCase())}
-                  placeholder="Type your initials"
-                  autoCapitalize="characters"
-                  autoFocus
-                  style={{ fontSize: 28, letterSpacing: 4, textAlign: 'center', padding: '16px 12px' }}
+                  className="dir-input" value={repertoireComposer}
+                  onChange={e => setRepertoireComposer(e.target.value)}
+                  placeholder="Composer" aria-label="Repertoire composer"
                 />
-              </div>
-            </>
-          )}
+              </td>
+              <td>
+                <input
+                  className="dir-input" value={repertoireTitle}
+                  onChange={e => setRepertoireTitle(e.target.value)}
+                  placeholder="Title" aria-label="Repertoire title"
+                />
+              </td>
+              <td>
+                <textarea
+                  className="dir-input" rows={3} value={gradeNote}
+                  onChange={e => setGradeNote(e.target.value)}
+                  placeholder="What to practise, what improved"
+                  aria-label="Technique and comments"
+                />
+              </td>
+              <td>
+                <select
+                  className="dir-select"
+                  value={payrollMinutes}
+                  onChange={e => changePayroll(Number(e.target.value) as PayrollMinutes)}
+                  aria-label="Payroll length"
+                >
+                  <option value={45}>45 min</option>
+                  <option value={60}>1 hr</option>
+                </select>
+              </td>
+            </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-          {error && <div className="dir-sc-error">⚠ {error}</div>}
-        </div>
-        <div className="dir-drawer-footer">
+      <div style={{ padding: '0 16px' }}>
+        <button type="button" className="dir-tool-btn" onClick={() => setShowMore(v => !v)}>
+          {showMore ? 'Hide location and notes' : 'More (location, internal notes)'}
+        </button>
+
+        {showMore && (
+          <>
+            <div className="dir-field" style={{ marginTop: 8 }}>
+              <label className="dir-label"><MapPin size={12} /> Location</label>
+              <input className="dir-input" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Practice Room 3" />
+            </div>
+            <div className="dir-field">
+              <label className="dir-label">Internal notes</label>
+              <input className="dir-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional, not on the paper log" />
+            </div>
+          </>
+        )}
+
+        {hasConflict && (
+          <div className="dir-conflict-banner">
+            ⚠ <strong>Scheduling conflict</strong> — {student.name} is expected at{' '}
+            {conflicts.map((c, i) => (
+              <span key={c.event.id}>
+                {i > 0 && ', '}
+                <strong>{ensembleMap[c.ensembleId]?.name ?? c.event.type}</strong> ({formatTimeRange(c.event.startTime, c.event.endTime)})
+              </span>
+            ))}{' '}
+            during this lesson time.
+            <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 10, fontWeight: 600 }}>
+              <input
+                type="checkbox"
+                checked={ackConflict}
+                onChange={e => setAckConflict(e.target.checked)}
+                style={{ marginTop: 3 }}
+              />
+              I have confirmed with the classroom teacher or ensemble director that {student.name} will miss this time.
+            </label>
+          </div>
+        )}
+
+        {step === 'student' && (
+          <>
+            <div className="dir-form-section-label" style={{ paddingLeft: 0 }}>Student initials</div>
+            <div className="dir-page-hint" style={{ margin: '0 0 12px', padding: 0 }}>
+              Hand the device to {student.name}. The row above is what they are confirming — their
+              initials go on this line, beside yours.
+            </div>
+            <div className="dir-field">
+              <input
+                className="dir-input"
+                value={studentInitials}
+                onChange={e => setStudentInitials(e.target.value.toUpperCase())}
+                placeholder="Type your initials"
+                aria-label="Student initials"
+                autoCapitalize="characters"
+                autoFocus
+                style={{ fontSize: 28, letterSpacing: 4, textAlign: 'center', padding: '16px 12px' }}
+              />
+            </div>
+          </>
+        )}
+
+        {error && <div className="dir-sc-error">⚠ {error}</div>}
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '12px 0 80px' }}>
           {step === 'teacher' ? (
             <>
-              <button className="dir-btn dir-btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
               <button className="dir-btn dir-btn-primary" onClick={goToStudentStep} disabled={!teacherReady}>
                 Next: student initials
               </button>
+              <button className="dir-btn dir-btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
             </>
           ) : (
             <>
-              <button className="dir-btn dir-btn-ghost" onClick={() => setStep('teacher')} disabled={saving}>Back</button>
               <button
                 className="dir-btn dir-btn-primary"
                 onClick={handleSaveWithInitials}
                 disabled={saving || !initialsOk(studentInitials)}
               >
                 {saving ? 'Saving…' : 'Save lesson log'}
+              </button>
+              <button className="dir-btn dir-btn-ghost" onClick={() => setStep('teacher')} disabled={saving}>
+                Back to the line
               </button>
             </>
           )}

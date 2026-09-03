@@ -1,0 +1,125 @@
+/* The High School Lesson Log the way the paper form reads: a spreadsheet.
+   Every prior lesson stays on screen above the one being filled in, column
+   for column, so the teacher can see what was said last time before writing
+   this time. The table is wider than a phone on purpose — it scrolls
+   sideways inside its own box rather than squeezing ten blanks into 380px. */
+
+.dir-log-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 16px 8px;
+}
+
+.dir-log-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 980px;
+  background: var(--dir-surface);
+}
+
+.dir-log-table th,
+.dir-log-table td {
+  border: 1px solid var(--dir-border);
+  padding: 6px 8px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.dir-log-table th {
+  background: var(--dir-surface-2);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--dir-text-muted);
+  white-space: nowrap;
+}
+
+/* Column widths, in the order the paper form prints them. */
+.dir-log-num      { width: 60px; white-space: nowrap; font-weight: 700; }
+.dir-log-date     { width: 110px; }
+.dir-log-time     { width: 130px; }
+.dir-log-grade    { width: 80px; }
+.dir-log-initial  { width: 78px; }
+.dir-log-composer { width: 150px; }
+.dir-log-title    { width: 170px; }
+.dir-log-comments { min-width: 240px; }
+.dir-log-payroll  { width: 112px; white-space: nowrap; }
+.dir-log-actions  { width: 84px; white-space: nowrap; }
+
+/* A cancelled lesson keeps its row number — the paper form's rows are a
+   sequence, and a gap would make the log look tampered with. It reads as
+   cancelled from the word, not only the strike-through. */
+.dir-log-table tr.cancelled td { color: var(--dir-text-muted); }
+/* Strike the NUMBER, not the cell: a line-through on an ancestor is painted
+   across its descendants whatever they declare, which struck out the word
+   "Cancelled" sitting under it. */
+.dir-log-table tr.cancelled .dir-log-num > span { text-decoration: line-through; }
+
+/* The row being written now. Marked by the word "Now" in the number cell as
+   well as the tint — colour alone is not a state. */
+.dir-log-table tr.editing > td {
+  background: var(--dir-lesson-bg);
+  border-color: var(--dir-lesson);
+}
+
+.dir-log-table td .dir-input,
+.dir-log-table td .dir-select {
+  width: 100%;
+  min-width: 0;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.dir-log-missing { color: var(--dir-text-muted); }
+
+/* The header blanks at the top of the form: Teacher, Student Name, Grade,
+   Instrument or Voice, Lesson Length, School Year, Term. */
+.dir-log-header {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 16px;
+  padding: 0 16px 10px;
+}
+.dir-log-header dt {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--dir-text-muted);
+}
+.dir-log-header dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dir-text);
+}
+
+/* Jury Repertoire List: five numbered composer/title pairs, as printed. */
+.dir-jury-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 0 16px 8px;
+}
+.dir-jury-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dir-text-muted);
+}
+@media (max-width: 520px) {
+  .dir-jury-row { grid-template-columns: 24px 1fr; }
+  .dir-jury-row > :last-child { grid-column: 2; }
+}
+
+/* Faculty / Student / Dean signature + date, at the foot of the form. */
+.dir-sig-row {
+  display: grid;
+  grid-template-columns: 1fr 150px;
+  gap: 8px;
+  padding: 0 16px 10px;
+}
+@media (max-width: 520px) {
+  .dir-sig-row { grid-template-columns: 1fr; }
+}

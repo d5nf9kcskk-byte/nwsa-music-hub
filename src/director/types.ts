@@ -934,10 +934,11 @@ export interface Lesson {
   location?: string;
   instrument?: string;     // denormalized from the teacher's instrument(s)
   notes?: string;
-  /** The applied teacher's mark for this lesson — one of LESSON_MARKS
-   *  (src/director/lessonGrades.ts). Typed as string, not LessonMark, because
-   *  the field predates the closed set and some docs may hold free text;
-   *  `isLessonMark()` is the gate everything that COUNTS a grade goes through.
+  /** The applied teacher's grade for this lesson — a whole number 0–100, the
+   *  district scale (src/director/lessonGrades.ts). Typed as string because
+   *  the field predates the scale and older docs hold A–F letters or free
+   *  text; `lessonGradeValue()` is the ONE reader, and anything it can't read
+   *  is ignored rather than counted as a zero.
    *  Lives on the lesson doc rather than a grades collection so it inherits
    *  the lesson's own scoping — an applied teacher reads and writes only
    *  their own lessons, so they read and write only their own grades, with no
@@ -975,6 +976,34 @@ export interface Lesson {
   createdAt: number;
   updatedAt?: number;
   updatedBy?: string; // director's display name (falls back to email)
+}
+
+/**
+ * A teacher's STANDING weekly lesson time for one student (#applied).
+ *
+ * The Hub's lessons are, and stay, one dated doc per lesson — that is what
+ * carries the grade, the log line and the initials, and what every feed and
+ * roll screen already reads. A slot is not a second kind of lesson; it is
+ * the recipe the teacher stops retyping. `pendingSlotDates()` in
+ * lessonSchedule.ts turns it into ordinary Lesson docs, and from that moment
+ * nothing downstream knows or cares that a slot existed.
+ *
+ * Stored on the teacher's own `directors/{email}` doc, keyed by student id,
+ * right beside `assignedStudentIds` — the assignment it qualifies. No new
+ * collection means no second rule pair to keep in agreement with a query.
+ *
+ * Declared HERE rather than in lessonSchedule.ts (which owns the logic and
+ * re-exports this) because src/shared may import `director/types` and nothing
+ * else from the director bundle — and src/shared/signupToLessons.ts builds
+ * one of these from a booked sign-up slot.
+ */
+export interface LessonSlot {
+  /** 0 = Sunday … 6 = Saturday, matching Date#getUTCDay(). */
+  weekday: number;
+  /** "HH:MM", 24h — same shape as Lesson.startTime/endTime. */
+  startTime: string;
+  endTime: string;
+  location?: string;
 }
 
 // ── Sign-ups (#signups) ────────────────────────────────────────────────

@@ -4,42 +4,55 @@ import type { Lesson } from './types';
  * Applied-lesson grading (#applied). A studio teacher marks each lesson they
  * gave; the Dean wants a term average per student out the other end.
  *
+ * The mark is a NUMBER on the district's 0–100 scale (Sept 2026, director's
+ * call): the paper High School Lesson Log's "Lesson Grade" column is numeric
+ * and the district gradebook is a percentage, so a letter had to be converted
+ * by hand at both ends. Letters are gone. Anything that is not a whole 0–100
+ * fails closed and is ignored rather than counted as a zero, which is also
+ * what retires the A–F values still sitting on lessons graded before this.
+ *
  * The grade lives on the Lesson doc, NOT in a grades collection — see the
  * note on `Lesson.grade`. So this module is pure arithmetic over lessons the
  * caller already has, with no Firestore of its own.
  */
 
-/** Best → worst. Index IS the letter's distance from an A, which is what
- *  makes `points` and `letterFor` below one line each. */
-export const LESSON_MARKS = ['A', 'B', 'C', 'D', 'F'] as const;
-export type LessonMark = (typeof LESSON_MARKS)[number];
+export const LESSON_GRADE_MIN = 0;
+export const LESSON_GRADE_MAX = 100;
 
-/** A=4 … F=0, the ordinary 4-point scale. */
-export const markPoints = (m: LessonMark): number => 4 - LESSON_MARKS.indexOf(m);
-
-export function isLessonMark(v: unknown): v is LessonMark {
-  return typeof v === 'string' && (LESSON_MARKS as readonly string[]).includes(v);
+/**
+ * The ONE reader of `Lesson.grade`. Returns the number, or null for anything
+ * that is not a whole 0–100 — blank, a legacy letter, "95.5", "-5", "1000".
+ * The field stays a string on the doc because it always was one.
+ */
+export function lessonGradeValue(v: unknown): number | null {
+  const s = typeof v === 'number' ? String(v) : typeof v === 'string' ? v.trim() : '';
+  if (!/^\d{1,3}$/.test(s)) return null;
+  const n = Number(s);
+  return n >= LESSON_GRADE_MIN && n <= LESSON_GRADE_MAX ? n : null;
 }
 
-/** A lesson counts toward a grade only if it actually happened and carries a
- *  recognized mark. Cancelled lessons never drag an average down, and the
- *  free-text values the reserved `grade` field allowed before the closed set
- *  existed are ignored rather than crashing the average. */
-export const isGraded = (l: Lesson): boolean => l.status !== 'Cancelled' && isLessonMark(l.grade);
+export function isLessonGrade(v: unknown): boolean {
+  return lessonGradeValue(v) !== null;
+}
 
-/** A past, non-cancelled lesson with no mark on it — the teacher's to-do. */
+/** A lesson counts toward a term average only if it actually happened and
+ *  carries a number. Cancelled lessons never drag an average down. */
+export const isGraded = (l: Lesson): boolean => l.status !== 'Cancelled' && isLessonGrade(l.grade);
+
+/** A past, non-cancelled lesson with no number on it — the teacher's to-do. */
 export const needsGrade = (l: Lesson, today: string): boolean =>
-  l.status !== 'Cancelled' && l.date <= today && !isLessonMark(l.grade);
+  l.status !== 'Cancelled' && l.date <= today && !isLessonGrade(l.grade);
 
 export interface GradeSummary {
   /** Lessons that counted. */
   graded: number;
   /** Non-cancelled lessons up to `today` — the denominator the teacher sees. */
   gradable: number;
-  /** Mean of the counted lessons' points, 0–4. */
+  /** Mean of the counted lessons' grades, 0–100. */
   average: number;
-  /** `average` snapped back to a letter, ties rounding to the BETTER grade. */
-  letter: LessonMark;
+  /** `average` to the nearest whole number — what goes in a gradebook, and
+   *  the ONE rounding so two screens can't show 89 and 90 for one student. */
+  rounded: number;
 }
 
 /**
@@ -47,16 +60,9 @@ export interface GradeSummary {
  * Returns null when nothing has been graded — an empty average is not a zero.
  */
 export function gradeSummary(lessons: Lesson[], today: string): GradeSummary | null {
-  const counted = lessons.filter(isGraded);
+  const counted = lessons.map(l => (isGraded(l) ? lessonGradeValue(l.grade) : null)).filter((n): n is number => n !== null);
   const gradable = lessons.filter(l => l.status !== 'Cancelled' && l.date <= today).length;
   if (counted.length === 0) return null;
-  const average = counted.reduce((sum, l) => sum + markPoints(l.grade as LessonMark), 0) / counted.length;
-  return { graded: counted.length, gradable, average, letter: letterFor(average) };
-}
-
-/** Points → letter. A half-point is the boundary and goes to the better
- *  letter (3.5 is an A, 3.4 a B) — the usual classroom convention. */
-export function letterFor(average: number): LessonMark {
-  const i = Math.ceil(4 - average - 0.5);
-  return LESSON_MARKS[Math.min(LESSON_MARKS.length - 1, Math.max(0, i))];
+  const average = counted.reduce((sum, n) => sum + n, 0) / counted.length;
+  return { graded: counted.length, gradable, average, rounded: Math.round(average) };
 }

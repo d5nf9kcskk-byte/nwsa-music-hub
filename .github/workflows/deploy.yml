@@ -181,15 +181,17 @@ jobs:
       - name: Check piece movement selection
         run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/pieceMovements.selfcheck.ts
 
-      # Applied-lesson grading (#applied): a cancelled lesson must never count,
-      # an unrecognized mark must be ignored rather than scored as a zero, and
-      # the letter boundary must round to the better grade. No org import, so
-      # no defines shim needed.
+      # Applied-lesson grading (#applied): the grade is a whole 0–100, a
+      # cancelled lesson must never count, anything unreadable (including the
+      # retired A–F letters) must be ignored rather than scored as a zero, and
+      # the displayed average must round in exactly one place. No org import,
+      # so no defines shim needed.
       - name: Check applied-lesson grading
         run: npx tsx src/director/lessonGrades.selfcheck.ts
 
-      # High School lesson log (#applied): payroll defaults, initials gate, and
-      # "do not enqueue mail for incomplete / cancelled rows."
+      # High School lesson log (#applied): payroll defaults, initials gate,
+      # "do not enqueue mail for incomplete / cancelled rows", one sheet per
+      # student per term, and the five-line jury list.
       - name: Check applied lesson log
         run: npx tsx src/director/lessonLog.selfcheck.ts
 
@@ -199,6 +201,14 @@ jobs:
       # Imports the app's time formatter, so the org defines shim is needed.
       - name: Check weekly lesson slots
         run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/lessonSchedule.selfcheck.ts
+
+      # Booked sign-up time → standing weekly lesson (#signups, #applied). A
+      # weekday derived one day off puts a student in the wrong room every
+      # week for a year and nothing complains; a hand-typed slot label must
+      # never be guessed onto a day; and a booking that converts to nothing
+      # must say so rather than vanish.
+      - name: Check sign-up times → weekly lessons
+        run: npx tsx src/shared/signupToLessons.selfcheck.ts
 
       # Juries (#juries): a bulk add must never reshuffle an order the director
       # already sequenced, an inactive student must never enter a jury, and a
