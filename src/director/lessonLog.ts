@@ -30,11 +30,37 @@ export function lessonLengthLabel(schoolGrade?: string): string {
     : '45 minutes (9th–11th grade)';
 }
 
-/** First letters of each word in the teacher's display name. */
+/** Titles that lead a name. "Dr. Grant Gilman" initials GG, never DGG — an
+ *  honorific is not part of a name and has never been initialled. The Music
+ *  Division is full of doctorates, so this is the common case, not an edge. */
+const HONORIFICS = new Set([
+  'dr', 'doctor', 'mr', 'mrs', 'ms', 'miss', 'mx', 'prof', 'professor',
+  'rev', 'reverend', 'fr', 'father', 'sr', 'sister', 'br', 'brother',
+  'rabbi', 'imam', 'cantor', 'maestro', 'maestra', 'coach', 'hon', 'sir', 'dame',
+]);
+
+/** Generational suffixes and degrees that trail a name. Deliberately short:
+ *  the ambiguous two-letter degrees (MA, MM, BA) are LEFT OUT because they
+ *  collide with real surnames — Yo-Yo Ma would initial as "Y". */
+const SUFFIXES = new Set([
+  'jr', 'sr', 'ii', 'iii', 'iv', 'esq', 'phd', 'edd', 'dma', 'dmus', 'mfa', 'mmus',
+]);
+
+const nameKey = (part: string) => part.replace(/[^a-z]/gi, '').toLowerCase();
+
+/**
+ * First letters of the teacher's actual NAME. Titles are dropped only where
+ * they actually occur — an honorific at the FRONT, a suffix at the BACK — so
+ * a middle initial can never be mistaken for a credential ("Grant V. Gilman"
+ * stays GVG). A name that is nothing but titles falls back to the raw words
+ * rather than returning nothing.
+ */
 export function suggestTeacherInitials(name?: string): string {
-  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '';
-  return parts.map(p => p[0]!.toUpperCase()).join('');
+  const parts = (name ?? '').trim().split(/\s+/).filter(p => nameKey(p).length > 0);
+  const named = [...parts];
+  while (named.length > 1 && HONORIFICS.has(nameKey(named[0]!))) named.shift();
+  while (named.length > 1 && SUFFIXES.has(nameKey(named[named.length - 1]!))) named.pop();
+  return named.map(p => nameKey(p)[0]!.toUpperCase()).join('');
 }
 
 /** School year label like 2025-2026 from a YYYY-MM-DD (Aug–Jul). */
@@ -181,9 +207,14 @@ export function logMaterialChanged(before: LogMaterialFields, after: LogMaterial
     || (before.payrollMinutes ?? null) !== (after.payrollMinutes ?? null);
 }
 
+/** Composer and title as ONE line, for the places that only have one — the
+ *  family email, a summary row. Both fields hold several pieces on separate
+ *  lines, so the breaks collapse to "; " rather than escaping into a
+ *  header-style body where each field is its own line. */
 export function repertoireLine(l: Pick<Lesson, 'repertoireComposer' | 'repertoireTitle'>): string {
-  const c = (l.repertoireComposer ?? '').trim();
-  const t = (l.repertoireTitle ?? '').trim();
+  const flat = (v?: string) => (v ?? '').split(/\r?\n/).map(s => s.trim()).filter(Boolean).join('; ');
+  const c = flat(l.repertoireComposer);
+  const t = flat(l.repertoireTitle);
   if (c && t) return `${c}, ${t}`;
   return c || t || '';
 }
@@ -253,7 +284,8 @@ export function lessonLogMailBody(f: LessonLogMailFields): string {
     `Teacher: ${f.teacherName}`,
     `Lesson grade: ${f.grade}`,
     f.repertoire ? `Repertoire: ${f.repertoire}` : null,
-    f.technique ? `Technique / comments: ${f.technique}` : null,
+    // Its own block, not an inline value: comments run to several lines now.
+    f.technique ? `Technique / comments:\n${f.technique}` : null,
     `Payroll length: ${f.payrollMinutes} minutes`,
     f.teacherInitials ? `Teacher initials: ${f.teacherInitials}` : null,
     f.studentInitials ? `Student initials: ${f.studentInitials}` : null,

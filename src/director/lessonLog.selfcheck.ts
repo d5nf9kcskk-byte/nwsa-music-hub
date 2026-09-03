@@ -40,6 +40,23 @@ assert(suggestTeacherInitials('Grant Gilman') === 'GG', 'teacher initials');
 assert(suggestTeacherInitials('Madonna') === 'M', 'single-name initials');
 assert(suggestTeacherInitials('') === '', 'empty name → empty initials');
 
+// An honorific is NOT part of a name and never reaches the initials. This is
+// the common case in the Music Division, not an edge case.
+assert(suggestTeacherInitials('Dr. Grant Gilman') === 'GG', 'Dr. Grant Gilman is GG, not DGG');
+assert(suggestTeacherInitials('Dr Daniel Andai') === 'DA', 'Dr Daniel Andai is DA, not DDA');
+assert(suggestTeacherInitials('DR. GRANT GILMAN') === 'GG', 'case and punctuation do not matter');
+assert(suggestTeacherInitials('Professor Ada Lovelace') === 'AL', 'Professor drops too');
+assert(suggestTeacherInitials('Mrs. Jane Roe') === 'JR', 'so does Mrs.');
+// Trailing degrees and generational suffixes are not initials either.
+assert(suggestTeacherInitials('Dr. Daniel Andai, D.M.A.') === 'DA', 'a trailing doctorate drops');
+assert(suggestTeacherInitials('Grant Gilman Jr.') === 'GG', 'so does Jr.');
+assert(suggestTeacherInitials('Henry Ford III') === 'HF', 'and a generational numeral');
+// …but only where they actually occur, so real names survive.
+assert(suggestTeacherInitials('Grant V. Gilman') === 'GVG', 'a middle initial is not a suffix');
+assert(suggestTeacherInitials('Yo-Yo Ma') === 'YM', 'a surname that reads like a degree is still a surname');
+assert(suggestTeacherInitials('Mary-Jane Watson') === 'MW', 'a hyphenated first name is one part');
+assert(suggestTeacherInitials('Dr.') === 'D', 'a name that is nothing but a title still yields something');
+
 assert(schoolYearLabel('2025-09-01') === '2025-2026', 'fall school year');
 assert(schoolYearLabel('2026-03-01') === '2025-2026', 'spring school year');
 assert(schoolYearLabel('2026-08-15') === '2026-2027', 'August rolls forward');
@@ -122,6 +139,17 @@ assert(stray.length === 5 && draftRowIndex(stray) === 4, 'an unknown id adds a r
 
 assert(repertoireLine({ repertoireComposer: 'Bach', repertoireTitle: 'Suite' }) === 'Bach, Suite', 'repertoire line');
 assert(repertoireLine({ repertoireTitle: 'Suite' }) === 'Suite', 'title only');
+// Several pieces per lesson, one per line in the box — but the family email
+// has ONE line for repertoire, so the breaks collapse instead of escaping.
+assert(
+  repertoireLine({ repertoireComposer: 'Bach\nKreutzer', repertoireTitle: 'Suite No. 1\nEtude 8' })
+    === 'Bach; Kreutzer, Suite No. 1; Etude 8',
+  'multi-line repertoire collapses to one line',
+);
+assert(
+  repertoireLine({ repertoireComposer: 'Bach\n\n  Kreutzer  \n' }) === 'Bach; Kreutzer',
+  'blank lines and stray spacing are dropped',
+);
 
 const contact: StudentContact = {
   id: 's1',

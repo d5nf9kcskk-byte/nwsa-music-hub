@@ -62,6 +62,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Lessons you graded with a letter before today still show the letter, flagged “re-enter as a number”. They are left out of the average until you do — they are not counted as zeros.',
       'The log is a spreadsheet with every blank the paper form has: lesson number, date, time, grade, teacher initial, student initial, composer, title, technique/comments, and payroll length. Time is new — the paper form only has a date.',
       'Adding a lesson opens its own page with the term’s earlier lessons still on screen, directly above the row you are filling in and in the same columns. On lesson five you can read all four previous lines before you write.',
+      'Repertoire and technique/comments are proper writing boxes that grow as you type — several pieces, one per line, and as many notes as the lesson needed. Earlier lessons keep those line breaks, so you can read back exactly what you worked on last time.',
       'The initials the student types are theirs, on their own line beside yours. Change the date, time, grade, repertoire, comments or payroll after they have initialled and the initials clear — they sign the corrected line.',
       'The rest of the form is there too: Term (Fall or Spring, one sheet each, switch at the top), the five-line Jury Repertoire List, and the Faculty, Student and Dean signature and date lines.',
     ],

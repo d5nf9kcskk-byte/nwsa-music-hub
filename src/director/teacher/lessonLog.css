@@ -35,17 +35,25 @@
   white-space: nowrap;
 }
 
-/* Column widths, in the order the paper form prints them. */
+/* Column widths, in the order the paper form prints them. Repertoire and
+   comments get the room because that is where the writing goes — a lesson
+   carries several pieces and several notes, and the teacher reads the last
+   ones back before adding this week's. */
 .dir-log-num      { width: 60px; white-space: nowrap; font-weight: 700; }
 .dir-log-date     { width: 110px; }
 .dir-log-time     { width: 130px; }
 .dir-log-grade    { width: 80px; }
 .dir-log-initial  { width: 78px; }
-.dir-log-composer { width: 150px; }
-.dir-log-title    { width: 170px; }
-.dir-log-comments { min-width: 240px; }
+.dir-log-composer { width: 180px; }
+.dir-log-title    { width: 220px; }
+.dir-log-comments { min-width: 340px; }
 .dir-log-payroll  { width: 112px; white-space: nowrap; }
 .dir-log-actions  { width: 84px; white-space: nowrap; }
+
+/* Typed line breaks are content in these three — several pieces, several
+   comments — so a read-only row must show them rather than running the whole
+   lesson together into one paragraph. */
+.dir-log-composer, .dir-log-title, .dir-log-comments { white-space: pre-wrap; }
 
 /* A cancelled lesson keeps its row number — the paper form's rows are a
    sequence, and a gap would make the log look tampered with. It reads as
@@ -70,6 +78,21 @@
   font-size: 13px;
   padding: 6px 8px;
 }
+
+/* Repertoire and comments are where the lesson actually gets written, and
+   there is never just one line of it. The box GROWS with what is typed
+   (`field-sizing: content`, native — no resize observer) so nothing the
+   teacher wrote is hidden behind an inner scrollbar. `min-height` is the
+   starting size and the fallback where field-sizing isn't supported yet. */
+.dir-log-table td textarea.dir-input {
+  field-sizing: content;
+  resize: vertical;
+  line-height: 1.4;
+  overflow: hidden auto;
+}
+.dir-log-composer textarea.dir-input,
+.dir-log-title textarea.dir-input { min-height: 4.6em; }
+.dir-log-comments textarea.dir-input { min-height: 7em; }
 
 .dir-log-missing { color: var(--dir-text-muted); }
 

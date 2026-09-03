@@ -600,9 +600,9 @@ function LogReadRow({
       <td><GradeCell grade={lesson.grade} /></td>
       <td>{lesson.teacherInitials || <span className="dir-log-missing">—</span>}</td>
       <td>{lesson.studentInitials || <span className="dir-log-missing">—</span>}</td>
-      <td>{lesson.repertoireComposer || <span className="dir-log-missing">—</span>}</td>
-      <td>{lesson.repertoireTitle || <span className="dir-log-missing">—</span>}</td>
-      <td>
+      <td className="dir-log-composer">{lesson.repertoireComposer || <span className="dir-log-missing">—</span>}</td>
+      <td className="dir-log-title">{lesson.repertoireTitle || <span className="dir-log-missing">—</span>}</td>
+      <td className="dir-log-comments">
         {lesson.gradeNote || <span className="dir-log-missing">—</span>}
         {lesson.location && <div className="dir-log-missing"><MapPin size={10} style={{ verticalAlign: '-1px' }} /> {lesson.location}</div>}
         {lesson.conflict && (
@@ -1030,8 +1030,11 @@ function LessonLogPage({
   const [payrollMinutes, setPayrollMinutes] = useState<PayrollMinutes>(
     lesson?.payrollMinutes ?? last?.payrollMinutes ?? defaultPayroll,
   );
+  // A teacher's own initials come from their own NAME, not from the last row:
+  // carrying the previous line forward meant one wrong value (an honorific
+  // that used to leak in) reappeared on every lesson after it.
   const [teacherInitials, setTeacherInitials] = useState(
-    lesson?.teacherInitials ?? last?.teacherInitials ?? suggestTeacherInitials(teacherName),
+    lesson?.teacherInitials ?? suggestTeacherInitials(teacherName),
   );
   const [studentInitials, setStudentInitials] = useState(lesson?.studentInitials ?? '');
   const [step, setStep] = useState<'teacher' | 'student'>(
@@ -1215,25 +1218,25 @@ function LessonLogPage({
                   ? studentInitials
                   : <span className="dir-log-missing">The student types these below</span>}
               </td>
-              <td>
-                <input
-                  className="dir-input" value={repertoireComposer}
-                  onChange={e => setRepertoireComposer(e.target.value)}
-                  placeholder="Composer" aria-label="Repertoire composer"
-                />
-              </td>
-              <td>
-                <input
-                  className="dir-input" value={repertoireTitle}
-                  onChange={e => setRepertoireTitle(e.target.value)}
-                  placeholder="Title" aria-label="Repertoire title"
-                />
-              </td>
-              <td>
+              <td className="dir-log-composer">
                 <textarea
-                  className="dir-input" rows={3} value={gradeNote}
+                  className="dir-input" rows={3} value={repertoireComposer}
+                  onChange={e => setRepertoireComposer(e.target.value)}
+                  placeholder={'Composer\nOne per line'} aria-label="Repertoire composer"
+                />
+              </td>
+              <td className="dir-log-title">
+                <textarea
+                  className="dir-input" rows={3} value={repertoireTitle}
+                  onChange={e => setRepertoireTitle(e.target.value)}
+                  placeholder={'Title\nOne per line, matching the composers'} aria-label="Repertoire title"
+                />
+              </td>
+              <td className="dir-log-comments">
+                <textarea
+                  className="dir-input" rows={5} value={gradeNote}
                   onChange={e => setGradeNote(e.target.value)}
-                  placeholder="What to practise, what improved"
+                  placeholder={'What you worked on, what to practise, what improved.\nAs many lines as you need — the box grows.'}
                   aria-label="Technique and comments"
                 />
               </td>
