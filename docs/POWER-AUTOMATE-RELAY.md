@@ -29,34 +29,18 @@ parent list you maintain in Teams/Excel.
 
 ---
 
-## Lesson-log family email (`lessonLogMailQueue`)
+## Lesson-log family email — NOT a Power Automate flow any more
 
-**Sending is a deliberate press, not a save side effect** (director's call,
-2026-09-03 — it may become automatic later). Once an Applied Teacher has a
-**complete** High School Lesson Log line (a 0–100 grade + student initials
-typed in person), the Hub *offers* to send it: saving shows an "Email the
-family" button, and every finished row keeps one in its actions. Only that
-press writes a doc to **`lessonLogMailQueue`**, and the lesson is stamped
-`logMailedAt` so the row reads "Emailed Sep 3" rather than leaving the
-teacher guessing whether a family already had it.
+This used to specify a flow that polled `lessonLogMailQueue`. **Don't build
+it.** That flow was never written, so every summary a teacher sent sat in the
+queue and no family received one; it is now a Cloud Function plus the Trigger
+Email extension, exactly like the sign-up confirmation. Same SMTP account, no
+service-account key, no polling.
 
-Recipients (student + guardian emails) are denormalized onto the queue doc at
-write time so the flow does not need a second Firestore lookup.
+See **[docs/lesson-log-email.md](lesson-log-email.md)**.
 
-### Doc fields
-`lessonId`, `teacherEmail`, `teacherName`, `studentId`, `studentName`,
-`date`, `grade`, `repertoire`, `technique`, `teacherInitials`,
-`studentInitials`, `payrollMinutes`, `recipients` (string array), `subject`,
-`createdAt` (ms), `processedAt` (`null` until sent).
-
-### Flow outline (every 5–10 minutes)
-1. Query `lessonLogMailQueue` where `processedAt == null` (same Firestore
-   REST + service-account pattern as `notifyQueue`).
-2. For each item → Outlook / SMTP: `To` = `recipients`, `Subject` = `subject`,
-   body = a short plain-text summary (date, teacher, grade, repertoire,
-   technique, payroll length, initials). The Hub also offers an **Open in
-   Mail** mailto fallback if this flow is not wired yet.
-3. PATCH the doc: set `processedAt` to now.
-
-Do not send when `recipients` is empty (no contact on file). Incomplete log
-rows never enqueue.
+The one thing to carry over if you ever revisit this: `lessonLogMailQueue` is
+written by a signed-in teacher who controls every field on it, `recipients`
+included. Anything that turns those docs into email must re-derive the
+recipients from the student's own `contacts` record rather than trusting the
+queue doc, or a teacher can make the school's SMTP account mail anyone.

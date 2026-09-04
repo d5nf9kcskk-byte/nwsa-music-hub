@@ -20,7 +20,10 @@ import {
   type ScanLike, type TallyRequest,
 } from './concertTally.ts';
 import { buildConfirmation } from './signupConfirmation.ts';
-import type { SignupForm, SignupResponse } from '../../src/director/types.ts';
+import { buildLessonLogMail, isDocId, queueRequestOk } from './lessonLogMail.ts';
+import type {
+  Lesson, SignupForm, SignupResponse, Student, StudentContact,
+} from '../../src/director/types.ts';
 
 initializeApp();
 
@@ -465,5 +468,70 @@ export const signupConfirmation = firestore
     } catch (err) {
       // Logged, never rethrown — see the note above on retries.
       console.error('signupConfirmation: could not queue the email', err);
+    }
+  });
+
+
+/**
+ * The lesson-log family email (#applied).
+ *
+ * An Applied Teacher finishes a High School Lesson Log line and PRESSES send
+ * — never a side effect of saving — which writes one doc to
+ * `lessonLogMailQueue`. This turns that request into a real email.
+ *
+ * It replaces an external Power Automate flow that was specified but never
+ * built, so until now every summary a teacher sent sat in the queue and no
+ * family received one. Same shape as `signupConfirmation` above, same
+ * extension, same SMTP account: there was no reason for a second system.
+ *
+ * The queue doc is a REQUEST and nothing in it is trusted — a signed-in
+ * teacher wrote it and controls every field, `recipients` included. The
+ * lesson id is the only thing read out of it; the content comes from the
+ * stored lesson, the addresses from the student's own contact record, and
+ * `queueRequestOk()` makes the stored lesson agree with the student
+ * firestore.rules already bound the request to.
+ *
+ * The mail doc's id IS the queue doc's id, and it is created rather than
+ * added: Cloud Functions deliver a trigger at least once, and a retry must
+ * not mail a family the same lesson twice.
+ */
+export const lessonLogMailSend = firestore
+  .document('lessonLogMailQueue/{queueId}')
+  .onCreate(async (snap) => {
+    const queued = (snap.data() ?? {}) as { lessonId?: unknown; studentId?: unknown };
+    if (!isDocId(queued.lessonId)) return;
+
+    try {
+      const db = getFirestore();
+      const lessonSnap = await db.doc(`lessons/${queued.lessonId}`).get();
+      if (!lessonSnap.exists) return;
+      const lesson = { id: lessonSnap.id, ...lessonSnap.data() } as Lesson;
+      if (!queueRequestOk(queued, lesson) || !isDocId(lesson.studentId)) return;
+
+      // The name comes from studentsPublic, not the staff-only students
+      // collection — the same choice the lessons feed makes. An email needs a
+      // name, never a guardian's phone number. The contact record is the one
+      // staff-only read, and it is the ONLY source of addresses.
+      const [studentSnap, contactSnap] = await Promise.all([
+        db.doc(`studentsPublic/${lesson.studentId}`).get(),
+        db.doc(`contacts/${lesson.studentId}`).get(),
+      ]);
+
+      const mail = buildLessonLogMail(
+        lesson,
+        studentSnap.exists ? ({ id: studentSnap.id, ...studentSnap.data() } as Student) : undefined,
+        contactSnap.exists ? ({ id: contactSnap.id, ...contactSnap.data() } as StudentContact) : null,
+      );
+      // No address on file, or a line that is not actually complete. Nothing
+      // to send, and not an error.
+      if (!mail) return;
+
+      await db.doc(`mail/${snap.id}`).create(mail);
+      await snap.ref.update({ processedAt: Date.now() });
+    } catch (err) {
+      // Logged, never rethrown. A rethrow makes Cloud Functions retry the
+      // trigger, and the failure mode of retrying an email is a family
+      // receiving the same lesson several times.
+      console.error('lessonLogMailSend: could not queue the email', err);
     }
   });

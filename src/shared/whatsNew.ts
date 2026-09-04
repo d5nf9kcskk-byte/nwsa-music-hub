@@ -80,7 +80,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Repertoire and technique/comments are proper writing boxes that grow as you type — several pieces, one per line, and as many notes as the lesson needed. Earlier lessons keep those line breaks, so you can read back exactly what you worked on last time.',
       'The initials the student types are theirs, on their own line beside yours. Change the date, time, grade, repertoire, comments or payroll after they have initialled and the initials clear — they sign the corrected line.',
       'The rest of the form is there too: Term (Fall or Spring, one sheet each, switch at the top), the five-line Jury Repertoire List, and the Faculty, Student and Dean signature and date lines.',
-      'The family email is yours to send, per line. Saving a finished lesson only offers it — press "Email the family" and it goes, or say Not now and it does not. Every finished row keeps an envelope button, and the row says "Emailed Sep 3" or "Not emailed" so you never have to guess whether a family already had it.',
+      'The family email is yours to send, per line, and it now actually sends. Saving a finished lesson only offers it — press "Email the family" and the student and their guardians get that lesson by email, or say Not now and nothing goes. Every finished row keeps an envelope button, and the row says "Emailed Sep 3" or "Not emailed" so you never have to guess whether a family already had it.',
     ],
   },
   // Booked sign-up times → standing weekly lessons (#signups, #applied).

@@ -1,5 +1,8 @@
 import type { Lesson, Student, StudentContact } from './types';
-import { isLessonGrade } from './lessonGrades';
+// Explicit .ts on purpose: this module is imported by the lesson-log Cloud
+// Function, whose self-check runs under Node's type-stripping loader, and
+// that loader cannot resolve an extensionless relative import.
+import { isLessonGrade } from './lessonGrades.ts';
 
 /**
  * High School Private Lesson Log helpers (#applied). Pure functions over the

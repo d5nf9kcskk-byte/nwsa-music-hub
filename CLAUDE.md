@@ -428,6 +428,15 @@ copies.
   a save only offers. `Lesson.logMailedAt` records that a line went out, so
   the row can say "Emailed Sep 3" instead of leaving a teacher to guess and
   double-send. If you ever wire this to a save path, that is the regression.
+  The press writes `lessonLogMailQueue`; the `lessonLogMailSend` Cloud
+  Function turns that into a `mail` doc for the Trigger Email extension —
+  **not** the Power Automate flow the old runbook described, which was never
+  built (`docs/lesson-log-email.md`). That queue doc is written by a
+  signed-in teacher who controls every field on it, `recipients` included, so
+  the function trusts NOTHING in it but `lessonId`: content comes from the
+  stored lesson, addresses from `contacts/{studentId}`, and
+  `queueRequestOk()` makes the lesson agree with the student the rules bound
+  the request to. `mail` stays denied to every client.
 - **The whole paper form is on screen** (#applied). `src/director/lessonLog.ts`
   holds the per-lesson blanks; the ONCE-A-TERM ones (Jury Repertoire List, the
   three signature lines) are a `LessonLogSheet` in `lessonLogSheets` on the
