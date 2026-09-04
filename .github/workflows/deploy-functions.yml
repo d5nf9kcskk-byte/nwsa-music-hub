@@ -28,6 +28,11 @@ on:
       # the Schedule screen and the subscribed calendar (#my-calendar).
       - 'src/shared/calendarView.ts'
       - 'src/director/directorAssignments.ts'
+      # Bundled into lessonLogMailSend — the subject and body a family reads
+      # come from these, shared with the in-app "Open in Mail" fallback so the
+      # two cannot tell a family different things (#applied).
+      - 'src/director/lessonLog.ts'
+      - 'src/director/lessonGrades.ts'
       - 'src/director/types.ts'
       - 'config/orgs/nwsa.json'
       - '.github/workflows/deploy-functions.yml'
@@ -143,7 +148,7 @@ jobs:
           # from the log and the policy now sets itself on every deploy. If
           # it ever comes back, that grant is what went missing.
           npx --yes firebase-tools@latest deploy \
-            --only functions:lessonsFeed,functions:appointmentsFeed,functions:staffFeed,functions:concertCheckin,functions:concertTally,functions:signupConfirmation \
+            --only functions:lessonsFeed,functions:appointmentsFeed,functions:staffFeed,functions:concertCheckin,functions:concertTally,functions:signupConfirmation,functions:lessonLogMailSend \
             --project nwsa-hub \
             --non-interactive \
             --force

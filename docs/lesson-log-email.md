@@ -69,8 +69,19 @@ firebase functions:list --project nwsa-hub
 ```
 
 `lessonLogMailSend` should be in that list. A function present in this repo
-and absent from that output has not been deployed — that has happened before
-(`concertCheckin`), and the symptom is silence, not an error.
+and absent from that output has not been deployed — the symptom is silence,
+not an error. It has now happened twice: `concertCheckin` in August, and this
+function on its own first deploy. Both times the cause was the same, and it
+is not the code:
+
+> `deploy-functions.yml` deploys `--only functions:<a>,<b>,…`, an explicit
+> list. **A function added to `index.ts` must be added to that list too, or
+> it does not exist.** The deploy still reports green, because deploying the
+> other six succeeded.
+
+Anything the function bundles must also be in the workflow's `paths:` filter
+(`src/director/lessonLog.ts`, `lessonGrades.ts`, `types.ts`), or editing the
+email's own wording redeploys nothing.
 
 ## When a family reports getting nothing
 
