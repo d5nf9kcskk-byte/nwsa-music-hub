@@ -15,7 +15,7 @@
 | If the whole school piles in | About $371 a month on Opus 5, $182 on Sonnet 5, with a daily cap raised to fit |
 | A bot on an uncapped public endpoint | $156,838 a month. With the day-one caps it is $364. With the kill switch it is $0. |
 | What a paying org costs me after Phase 0 | $14 to $42 a month, most of it model tokens; $9.36 with Ask for staff only |
-| Breakeven | At $1,000 a year per org, 2 paying orgs cover a Max 5x plan, Sentry Team and a domain |
+| Breakeven | At $1,000 a year per org, 6 paying orgs cover your Max 20x plan, Sentry Team and a domain; at $1,500 a year it is 3 |
 
 Plain reading: the tokens are cheap, the bill is dominated by my own subscription until there are customers, and the only number that can hurt is an uncapped public endpoint. The caps are a day of work.
 
@@ -28,7 +28,7 @@ Plain reading: the tokens are cheap, the bill is dominated by my own subscriptio
 | Domain | $0 (github.io) | verified |
 | Email | $0 (Gmail SMTP through the Trigger Email extension, about 500 a day) | verified: docs/signup-confirmation-email.md |
 | Error reporting, uptime | $0 (none exist) | verified: no Sentry, no uptime checks in the repo |
-| Your Claude plan | $20 Pro, $100 Max 5x, or the Max 20x price (not on the fetched page) | verified: claude.com/pricing, read 2026-09-04. Tell me which plan you are on. |
+| Your Claude plan | $200 a month, Max 20x | your statement, 2026-09-04; Pro $20 and Max 5x $100 verified on claude.com/pricing the same day |
 | Weekly review runs | $0 extra; each run is about $26 API-equivalent charged as subscription usage | verified: docs/weekly-review.md |
 
 Assumed roster for "today": 100 music students, 120 parents, 10 staff. The repo names no enrollment; 80 and 94 students appear in the UI study as roster sizes. Change the sliders if you know better.
@@ -84,11 +84,11 @@ What each one costs a month, Opus 5 as the planner:
 | Cloud Functions | $0 | $0 | $0 | $36 |
 | Email | $0 | $0 | $0 | $0 |
 | Per org | **$5.73** | **$21** | **$371** | **$156,876** |
-| Shared: Max 5x plan, Sentry, domain | $101 | $101 | $101 | $127 |
-| Monthly total | **$107** | **$122** | **$473** | **$157,003** |
-| Yearly | $1,283 | $1,468 | $5,671 | $1,884,040 |
+| Shared: Max 20x plan, Sentry, domain | $201 | $201 | $201 | $227 |
+| Monthly total | **$207** | **$222** | **$573** | **$157,103** |
+| Yearly | $2,483 | $2,668 | $6,871 | $1,885,240 |
 | All-in per question | 0.9¢ | 0.7¢ | 0.5¢ | $258.59 |
-| Same on Sonnet 5, monthly | $103 | $111 | $283 | $63,358 |
+| Same on Sonnet 5, monthly | $203 | $211 | $383 | $63,458 |
 
 Reads per cold visit are 850 (the spec's 700 to 1,000). Every public visit is cold because public devices run the memory cache, a deliberate choice from September 2026 that fixed a worse bug. Firestore in nam5 bills $0.06 per 100,000 reads, twice the single-region rate the August doc used as a floor.
 
@@ -96,10 +96,10 @@ What the spec's caps and App Check do to the abused case:
 
 | Control in place | Monthly | What changed |
 |---|---|---|
-| Nothing | $157,003 | 12.96M model calls and 1.28 billion reads |
-| Per-org daily hard cap of 1,000 model calls | $1,255 | tokens fall to $361; bot reads still cost $765 |
-| Cap plus App Check enforced on Firestore | $465 | headless scrapers lose the REST door; $361 of tokens is the ceiling |
-| Kill switch flipped | $103 | the endpoint answers 503; tier zero keeps working on the device |
+| Nothing | $157,103 | 12.96M model calls and 1.28 billion reads |
+| Per-org daily hard cap of 1,000 model calls | $1,355 | tokens fall to $361; bot reads still cost $765 |
+| Cap plus App Check enforced on Firestore | $565 | headless scrapers lose the REST door; $361 of tokens is the ceiling |
+| Kill switch flipped | $203 | the endpoint answers 503; tier zero keeps working on the device |
 
 App Check is not a wall. A real browser with a valid token still counts, so the daily cap and the per-device bucket are the controls that bound the bill. App Check removes the cheap attack (curl in a loop) and the read scraping.
 
@@ -124,7 +124,7 @@ GitHub Actions if the repo goes private: three hourly deploy crons exist today (
 
 The Blaze trial: on 2026-11-13 the credit ends. Converting is adding a card. If it lapses, billing detaches and Storage stops, which takes the document repository down mid-semester. The bill after conversion at today's usage is a few cents to $2 a month.
 
-My own Claude usage to build this: the weekly review already costs about $26 API-equivalent a run on the subscription. Phases 0 to 5 of the spec are, at a guess, 40 to 80 Claude Code sessions of the size of this one. On Pro that will hit the limit most days; on Max 5x it fits with headroom; on Max 20x it is not a constraint. Tell me which plan you are on and I will put a number on it. This is an assumption, not a measurement.
+My own Claude usage to build this: you are on Max 20x at $200 a month. The weekly review already costs about $26 API-equivalent a run and rides on that plan. Phases 0 to 5 of the spec are, at a guess, 40 to 80 Claude Code sessions of the size of this one, roughly $1,000 to $4,800 API-equivalent, which the 20x plan absorbs without a per-token bill. So the build's cash cost is the plan you already pay: about $200 a month for however many months it takes, $600 for a three-month build. The plan is the single largest line in every scenario until there are paying orgs. The session count is an assumption, not a measurement.
 
 ## 5. What a paying org costs me after Phase 0
 
@@ -142,15 +142,15 @@ After Phase 0 an org runs on its own Firebase project, on Firebase Hosting, with
 
 Whose card pays the org's Firebase project is an open decision in the spec. The table assumes mine. If the org's project sits on its own billing account, the per-org line for me is the model tokens only, because the API key is mine.
 
-Breakeven against the pricing strawman. The spec gives no number, only "a flat yearly price under typical procurement thresholds" for K-12 and "family-band pricing plus setup" for youth orchestras. Fixed cost for me: Max 5x $100, Sentry Team $26, domain $1.17, together $127 a month ($21 on Pro without Sentry).
+Breakeven against the pricing strawman. The spec gives no number, only "a flat yearly price under typical procurement thresholds" for K-12 and "family-band pricing plus setup" for youth orchestras. Fixed cost for me: Max 20x $200, Sentry Team $26, domain $1.17, together $227 a month ($127 if you ever drop to Max 5x, $21 on Pro without Sentry).
 
-| Price per org per year | Margin per org a month at $42 cost | Orgs to cover $127 a month | Net a year with 5 orgs | Net a year with 10 orgs |
+| Price per org per year | Margin per org a month at $42 cost | Orgs to cover $227 a month | Net a year with 5 orgs | Net a year with 10 orgs |
 |---|---|---|---|---|
-| $500 | $0.07 | never | $1,530 | $1,534 |
-| $1,000 | $42 | 4 | $970 | $3,466 |
-| $1,500 | $83 | 2 | $3,470 | $8,466 |
-| $2,500 | $167 | 1 | $8,470 | $18,466 |
-| $5,000 | $375 | 1 | $20,970 | $43,466 |
+| $500 | $0.07 | never | $2,730 | $2,734 |
+| $1,000 | $42 | 6 | $230 | $2,266 |
+| $1,500 | $83 | 3 | $2,270 | $7,266 |
+| $2,500 | $167 | 2 | $7,270 | $17,266 |
+| $5,000 | $375 | 1 | $19,770 | $42,266 |
 
 The margin barely moves with the price of tokens. What moves it is the price you can charge, and whether the org's Firebase bill is yours or theirs.
 
@@ -180,7 +180,7 @@ Verified on 2026-09-04 from the provider's own page or the repo:
 
 - Claude Opus 5 $5 / $25, Sonnet 5 $2 / $10, Haiku 4.5 $1 / $5 per MTok; cache read 0.1x, 5-minute write 1.25x, 1-hour write 2x; Batch 50%; Opus 5 minimum cacheable prefix 512, Sonnet 5 1,024, Haiku 4.5 4,096. Sonnet 5's introductory price is now permanent.
 - Firestore nam5: $0.06 per 100k reads, $0.18 per 100k writes; free 50k reads and 20k writes a day. Cloud Functions 1st gen: $0.40 per million invocations after 2M free. Storage $0.020 per GB-month after 5 GB, egress $0.12 per GB after 100 GB. Hosting free to 360 MB a day. Uptime checks free to 1M executions. Sentry free to 5,000 events, Team $26. Resend free to 3,000 a month, Pro $20. GitHub Actions free on public repos, 2,000 free minutes private, $0.006 a Linux minute.
-- Claude plans: Pro $20 ($17 annual), Max 5x $100, Team $25 / $125 a seat. The Max 20x price was not in the fetched page.
+- Claude plans: Pro $20 ($17 annual), Max 5x $100, Team $25 / $125 a seat from the page; Max 20x $200 from your own statement.
 - Repo facts: 25 workflows, three hourly deploy crons, deploy run 1.3 minutes, observed cadence about 165 runs a month; 7 Cloud Functions on the v1 API; email through Gmail SMTP at about 500 a day; App Check implemented but dormant; no rate limiting on the five public writes; no error reporting and no uptime checks; video default cap 500 MB; check-in photos about 200 KB with a 2 MB ceiling and no deletion; the Blaze trial ends 2026-11-13; public devices use the memory cache.
 
 Assumed:
