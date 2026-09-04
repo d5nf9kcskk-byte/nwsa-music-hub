@@ -1,4 +1,5 @@
 import type { Student, RosterOverride, Lesson } from './types';
+import type { PublicLessonKey } from '../shared/publicLesson';
 
 /**
  * Public-projection field lists (#privacy). The `students` and
@@ -61,6 +62,19 @@ export function publicOverrideFields(
 const PUBLIC_LESSON_KEYS = [
   'studentId', 'date', 'startTime', 'endTime', 'status', 'location', 'teacherName', 'instrument',
 ] as const;
+
+/**
+ * The reader's view of the same contract lives in src/shared/publicLesson.ts
+ * — public code may not import from src/director beyond types, so the type
+ * the student's schedule page consumes cannot live here. These two lines are
+ * what stop the pair drifting: they fail to compile unless the allowlist
+ * above and `PublicLessonKey` name exactly the same fields, so adding one
+ * without the other is a build error rather than a field that quietly does or
+ * does not reach a public page.
+ */
+type Exactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
+const _publicLessonKeysAgree: Exactly<(typeof PUBLIC_LESSON_KEYS)[number], PublicLessonKey> = true;
+void _publicLessonKeysAgree;
 
 export function publicLessonFields(
   data: Partial<Omit<Lesson, 'id'>>,

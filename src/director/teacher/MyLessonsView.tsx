@@ -37,10 +37,11 @@ import {
   type TermRef,
 } from '../lessonLog';
 import {
-  lessonPayloadsFor, pendingSlotDates, schoolYearEnd, slotSentence, WEEKDAY_OPTIONS, type LessonSlot,
+  lessonPayloadsFor, lessonsOffSlot, pendingSlotDates, planHasWork, schoolYearEnd, slotChangePlan,
+  slotSentence, WEEKDAY_OPTIONS, type LessonSlot, type SlotChangePlan,
 } from '../lessonSchedule';
 import { enqueueLessonLogMail } from '../lessonLogMail';
-import { todayStr, parseDate, formatTimeRange } from '../utils';
+import { todayStr, parseDate, formatTime, formatTimeRange } from '../utils';
 import type { Lesson, Student } from '../types';
 import { studentMatchesQuery } from '../studentSearch';
 import { whenQueued } from '../writeStatus';
@@ -89,6 +90,11 @@ export function MyLessonsView() {
   const [editingSlot, setEditingSlot] = useState(false);
   const [slotBusy, setSlotBusy] = useState(false);
   const [slotAdded, setSlotAdded] = useState<{ count: number; conflicts: number } | null>(null);
+  // What a just-saved change to the standing time implies for the lessons
+  // already on the calendar, and what happened when the teacher pressed it.
+  // Both live here rather than in the panel so switching students clears them.
+  const [slotPlan, setSlotPlan] = useState<{ slot: LessonSlot; plan: SlotChangePlan } | null>(null);
+  const [slotMoved, setSlotMoved] = useState<{ moved: number; pullouts: number } | null>(null);
   const [confirmDeleteLesson, setConfirmDeleteLesson] = useState<string | null>(null);
   const [mail, setMail] = useState<MailState | null>(null);
 
@@ -154,6 +160,15 @@ export function MyLessonsView() {
     const last = myLessons.filter(l => l.studentId === id).at(-1);
     setActiveTerm(termOf(last?.date ?? today));
     setSheetStudentId(id);
+    clearSlotBanners();
+  }
+
+  /** Every banner about the weekly time belongs to ONE student. Leaving one up
+   *  across a switch would offer to move somebody else's lessons. */
+  function clearSlotBanners() {
+    setSlotAdded(null);
+    setSlotPlan(null);
+    setSlotMoved(null);
   }
 
   async function saveAssignedStudents(ids: string[]) {
@@ -161,13 +176,78 @@ export function MyLessonsView() {
     await updateDoc(doc(db, 'directors', directorEmailId(me.email)), { assignedStudentIds: ids });
   }
 
-  /** The standing weekly time for one student — stored on my own director doc
-   *  beside the assignment it qualifies (#applied). `null` removes it. */
+  /**
+   * The standing weekly time for one student — stored on my own director doc
+   * beside the assignment it qualifies (#applied). `null` removes it.
+   *
+   * Saving the recipe is only half of a CHANGE. The lessons already on the
+   * calendar were written from the old one and do not follow it: before this,
+   * moving a 2:00 lesson to 3:00 confirmed the edit, changed nothing anybody
+   * could see, and — because the year's dates were all still taken — left the
+   * panel reporting that every week was already scheduled. So work out what
+   * the change implies and OFFER it. Nothing moves without a press: re-timing
+   * thirty lessons is not something to do behind somebody's back.
+   */
   async function saveSlot(studentId: string, slot: LessonSlot | null) {
     if (!db || !me) return;
+    const before = director?.lessonSlots?.[studentId];
     const next = { ...(director?.lessonSlots ?? {}) };
     if (slot) next[studentId] = slot; else delete next[studentId];
     await updateDoc(doc(db, 'directors', directorEmailId(me.email)), { lessonSlots: next });
+
+    setSlotAdded(null);
+    setSlotMoved(null);
+    if (!slot) { setSlotPlan(null); return; }
+    const plan = slotChangePlan(
+      before, slot,
+      myLessons.filter(l => l.studentId === studentId),
+      today, schoolYearEnd(today),
+    );
+    setSlotPlan(planHasWork(plan) ? { slot, plan } : null);
+  }
+
+  /**
+   * Move the lessons the old standing time produced onto the new one.
+   *
+   * Three things travel with a move and are easy to leave behind:
+   *  • the public mirror, or the student's own calendar keeps the old time;
+   *  • a cleared room, which `updateLesson`'s merge cannot express;
+   *  • a confirmed pull-out, which still names the rehearsal the lesson USED
+   *    to collide with. That one is dropped rather than re-pointed — the
+   *    override is how an ensemble director learns a student will be out, and
+   *    only the teacher can confirm the new time with them.
+   */
+  async function applySlotPlan(slot: LessonSlot, plan: SlotChangePlan) {
+    setSlotBusy(true);
+    try {
+      let pullouts = 0;
+      for (const m of plan.move) {
+        await updateLesson(m.id, {
+          date: m.toDate,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          ...(slot.location ? { location: slot.location } : {}),
+        });
+        const cleared: Record<string, unknown> = {};
+        if (!slot.location) cleared.location = deleteField();
+        if (m.overrideId) {
+          await deleteOverride(m.overrideId);
+          cleared.overrideId = deleteField();
+          cleared.conflict = deleteField();
+          pullouts++;
+        }
+        if (db && Object.keys(cleared).length > 0) {
+          await updateDoc(doc(db, 'lessons', m.id), cleared);
+          // Rebuild the mirror from the doc itself: a removed field is the one
+          // thing the batched merge in updateLesson cannot say.
+          await syncLessonMirror(m.id);
+        }
+      }
+      setSlotMoved({ moved: plan.move.length, pullouts });
+      setSlotPlan(null);
+    } finally {
+      setSlotBusy(false);
+    }
   }
 
   /** The once-a-term half of the form — jury repertoire and signatures. Same
@@ -324,7 +404,10 @@ export function MyLessonsView() {
     return (
       <div className="dir-tab-page">
         <div style={{ padding: '8px 16px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button className="dir-tool-btn" onClick={() => { setSheetStudentId(null); setEditingLesson(null); }}>
+          <button
+            className="dir-tool-btn"
+            onClick={() => { setSheetStudentId(null); setEditingLesson(null); clearSlotBanners(); }}
+          >
             <ChevronLeft size={14} /> All students
           </button>
         </div>
@@ -360,12 +443,15 @@ export function MyLessonsView() {
           today={today}
           busy={slotBusy}
           added={slotAdded}
+          plan={slotPlan}
+          moved={slotMoved}
           editing={editingSlot}
-          onEdit={() => { setSlotAdded(null); setEditingSlot(true); }}
+          onEdit={() => { clearSlotBanners(); setEditingSlot(true); }}
           onCancelEdit={() => setEditingSlot(false)}
           onSave={async slot => { await saveSlot(sheetStudent.id, slot); setEditingSlot(false); }}
           onGenerate={slot => generateFromSlot(sheetStudent, slot)}
-          onDismissAdded={() => setSlotAdded(null)}
+          onApplyPlan={(slot, plan) => applySlotPlan(slot, plan)}
+          onDismissAdded={clearSlotBanners}
         />
 
         <div className="dir-form-section-label">
@@ -693,8 +779,8 @@ function LogReadRow({
  * enumerates the dates it is about to create.
  */
 function WeeklySlotPanel({
-  student, slot, lessons, today, busy, added, editing,
-  onEdit, onCancelEdit, onSave, onGenerate, onDismissAdded,
+  student, slot, lessons, today, busy, added, plan, moved, editing,
+  onEdit, onCancelEdit, onSave, onGenerate, onApplyPlan, onDismissAdded,
 }: {
   student: Student;
   slot?: LessonSlot;
@@ -702,15 +788,24 @@ function WeeklySlotPanel({
   today: string;
   busy: boolean;
   added: { count: number; conflicts: number } | null;
+  plan: { slot: LessonSlot; plan: SlotChangePlan } | null;
+  moved: { moved: number; pullouts: number } | null;
   editing: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
   onSave: (slot: LessonSlot | null) => Promise<void>;
   onGenerate: (slot: LessonSlot) => void;
+  onApplyPlan: (slot: LessonSlot, plan: SlotChangePlan) => void;
   onDismissAdded: () => void;
 }) {
   const through = schoolYearEnd(today);
   const pending = slot ? pendingSlotDates(slot, lessons, today, through) : [];
+  // Lessons still to come that do NOT sit where the standing time says. This
+  // is the number the panel used to be blind to: it counted DATES, so a time
+  // change on the same weekday left it announcing that the year was handled
+  // while every row still read the old time.
+  const offSlot = lessonsOffSlot(slot, lessons, today);
+  const scheduled = lessons.filter(l => l.date >= today && l.status !== 'Cancelled').length;
   const throughLabel = parseDate(through).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
 
   if (editing) {
@@ -729,8 +824,82 @@ function WeeklySlotPanel({
         </button>
       </div>
 
+      {/* The offer made straight after a change is saved. Says what will move
+          and what will not, before anything is written. */}
+      {plan && (
+        <div className="dir-conflict-banner" style={{ margin: '0 16px 8px' }}>
+          <strong>Saved — but the lessons already on the calendar have not moved yet.</strong>
+          <div style={{ marginTop: 6 }}>
+            {plan.plan.move.length > 0 && (
+              <>
+                {plan.plan.move.length} upcoming lesson{plan.plan.move.length === 1 ? '' : 's'} still
+                sit{plan.plan.move.length === 1 ? 's' : ''} at the old time
+                {plan.plan.move[0] && (
+                  <> (the next on {parseDate(plan.plan.move[0].fromDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  {' at '}{formatTime(plan.plan.move[0].fromStartTime)})</>
+                )}.
+              </>
+            )}
+            {plan.plan.move.length === 0 && plan.plan.create.length > 0 && (
+              <>Nothing on the calendar matches the old time, so there is nothing to move.</>
+            )}
+          </div>
+          {(plan.plan.keptGraded > 0 || plan.plan.keptCancelled > 0 || plan.plan.keptOther > 0) && (
+            <div style={{ marginTop: 6 }}>
+              Left alone:{' '}
+              {[
+                plan.plan.keptGraded > 0 ? `${plan.plan.keptGraded} already graded` : '',
+                plan.plan.keptCancelled > 0 ? `${plan.plan.keptCancelled} cancelled` : '',
+                plan.plan.keptOther > 0 ? `${plan.plan.keptOther} set by hand` : '',
+              ].filter(Boolean).join(', ')}. Those stay where they are — change them on their own row.
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+            {plan.plan.move.length > 0 && (
+              <button
+                className="dir-btn dir-btn-primary dir-sc-small"
+                disabled={busy}
+                onClick={() => onApplyPlan(plan.slot, plan.plan)}
+              >
+                {busy ? 'Moving…' : `Move ${plan.plan.move.length} lesson${plan.plan.move.length === 1 ? '' : 's'} to ${slotSentence(plan.slot)}`}
+              </button>
+            )}
+            <button className="dir-tool-btn" disabled={busy} onClick={onDismissAdded}>
+              Leave them where they are
+            </button>
+          </div>
+        </div>
+      )}
+
+      {moved && (
+        <div className="dir-page-hint" style={{ marginTop: 0, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <span>
+            Moved {moved.moved} lesson{moved.moved === 1 ? '' : 's'} to the new time.
+            {' '}{student.name}’s own schedule and your calendar both follow it.
+            {moved.pullouts > 0 && (
+              <> {moved.pullouts} of them had a confirmed pull-out from a rehearsal at the OLD
+              time — that has been withdrawn, so re-open those rows to confirm the new one.
+              Confirming is what tells the ensemble director.</>
+            )}
+          </span>
+          <button className="dir-tool-btn" onClick={onDismissAdded}>Dismiss</button>
+        </div>
+      )}
+
       {slot && pending.length > 0 && (
         <div style={{ padding: '0 16px 8px' }}>
+          {/* The step that is easy to miss, and the likeliest reason a teacher
+              finds their own calendar empty after setting a time: the standing
+              time is a recipe, and NOTHING is on any calendar until this
+              button is pressed. Said out loud only when it is actually true of
+              this student, so it does not become wallpaper. */}
+          {scheduled === 0 && (
+            <div className="dir-page-hint" style={{ margin: '0 0 6px', padding: 0 }}>
+              Nothing is on {student.name}’s calendar yet. The weekly time on its own does not
+              put lessons anywhere — this button is what does, and it is what makes the lesson
+              show on your calendar and on {student.name}’s schedule.
+            </div>
+          )}
           <button className="dir-btn dir-btn-primary" disabled={busy} onClick={() => onGenerate(slot)}>
             <Plus size={14} />{' '}
             {busy
@@ -739,9 +908,23 @@ function WeeklySlotPanel({
           </button>
         </div>
       )}
-      {slot && pending.length === 0 && !added && (
+      {/* "Every week is scheduled" and "every week is scheduled at the WRONG
+          time" are the same date count, and the panel used to report both as
+          the first one. */}
+      {slot && pending.length === 0 && !added && !plan && !moved && (
         <div className="dir-page-hint" style={{ marginTop: 0 }}>
-          Every week through {throughLabel} is already on the calendar.
+          {offSlot.length > 0
+            ? <>Every week through {throughLabel} has a lesson, but {offSlot.length} of
+              them {offSlot.length === 1 ? 'is' : 'are'} not at {slotSentence(slot)}. Press
+              Change and save the time again to be offered the move, or fix one on its own row.</>
+            : <>Every week through {throughLabel} is on the calendar at this time.</>}
+        </div>
+      )}
+      {!slot && scheduled === 0 && (
+        <div className="dir-page-hint" style={{ marginTop: 0 }}>
+          Nothing is on {student.name}’s calendar. Setting the weekly time is step one; the
+          Hub then offers to put the individual weeks on, and only then does the lesson reach
+          your calendar and {student.name}’s schedule.
         </div>
       )}
 
