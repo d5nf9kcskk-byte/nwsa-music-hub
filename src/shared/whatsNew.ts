@@ -32,6 +32,23 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Lesson times reach the people they are about (#applied). Two separate
+  // holes, reported together: changing a standing weekly time never moved the
+  // lessons it had already created, and `lessonsPublic` had no reader on the
+  // public site at all — so a student's own schedule page showed nothing.
+  {
+    id: '2026-09-04-lesson-times-visible',
+    date: '2026-09-04',
+    title: 'Your lesson time now shows on your schedule — and changing one actually moves the lessons',
+    audience: 'both' as const,
+    expires: '2026-09-25',
+    bullets: [
+      'Students: your private lesson times are on your own schedule page now — today’s beside your rehearsals, and the rest under “Your lessons”, with the room and who you have it with. Each one has an Add to calendar button. Before this they only reached you if you had subscribed to your personal calendar feed, so most people never saw them at all.',
+      'Applied teachers: changing a weekly lesson time used to save the new time and leave every lesson already on the calendar sitting at the old one — and the screen then told you the whole year was already scheduled. Now the Hub counts what is affected and offers to move it, in one press. It never touches a lesson you already graded, one you cancelled, or one you set by hand.',
+      'If moving a lesson withdraws a pull-out you had confirmed for a rehearsal, the Hub says so — re-open that row and confirm the new time, because that confirmation is what tells the ensemble director.',
+      'Applied teachers: a weekly time on its own has never put lessons on anyone’s calendar — the “Add the remaining …” button is what does that. The screen now says which of the two situations you are in instead of leaving both looking the same.',
+    ],
+  },
   // Sign-ups: the honeypot decoy on an 'open' form was being filled by
   // browser autofill, which made the payload carry `website` and the rules
   // reject the create — so the form went through on iOS Safari and nowhere

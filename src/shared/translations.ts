@@ -270,6 +270,16 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'sched.studentNotFound':{ en: 'Student not found.',         es: 'No encontramos a ese estudiante.' },
   'sched.subscribeMine':  { en: "Subscribe · {name}'s calendar", es: 'Suscribirse · calendario de {name}' },
   'sched.part':           { en: 'Part',                       es: 'Partitura' },
+  // A student's own private-lesson times (#applied). Read from lessonsPublic,
+  // which carries when and where only — never the grade or the comments.
+  'sched.yourLessons':    { en: 'Your lessons',                es: 'Tus clases particulares' },
+  'sched.lesson':         { en: 'Private lesson',              es: 'Clase particular' },
+  'sched.lessonWithInstrument': { en: '{instrument} lesson',   es: 'Clase de {instrument}' },
+  'sched.lessonWith':     { en: 'with {teacher}',              es: 'con {teacher}' },
+  'sched.noLessons':      {
+    en: 'No lesson times yet. Your applied teacher sets these in the Hub.',
+    es: 'Aún no hay horarios de clases particulares. Tu maestro de instrumento los programa en el Hub.',
+  },
   'sched.lessonOverride': {
     en: "Lesson today{time} overrides {ensemble} — you're excused for that window only, then expected back.",
     es: 'Clase particular hoy{time} en lugar de {ensemble} — estás excusado solo en ese horario y después se te espera de vuelta.',
