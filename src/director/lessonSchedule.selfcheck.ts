@@ -17,7 +17,7 @@
  * announcing that the whole year was handled.
  */
 import {
-  isLessonSlot, lessonMatchesSlot, lessonsOffSlot, pendingSlotDates, planHasWork, schoolYearEnd,
+  doubledUpOffSlot, isLessonSlot, lessonMatchesSlot, lessonsOffSlot, pendingSlotDates, planHasWork, schoolYearEnd,
   skippedNoSchoolDates, slotChangePlan, slotDates, slotSentence, type LessonSlot,
 } from './lessonSchedule';
 import { MDCPS_NO_SCHOOL } from '../shared/academicCalendars.ts';
@@ -153,6 +153,85 @@ assert(careful.move.length === 1 && careful.move[0].id === 'plain',
   `only the untouched Friday moves, got ${careful.move.map(m => m.id).join(',') || 'none'}`);
 assert(careful.keptGraded === 1 && careful.keptCancelled === 1 && careful.keptOther === 1,
   `each kind is counted and reported, got ${JSON.stringify(careful)}`);
+
+// TWO PARALLEL SERIES. The reported case: the old weekly time still had a full
+// series, the new time already had one too (Add ran before Move), and every
+// move was refused as a collision and filed as "set by hand" — leaving the
+// student down for two lessons a week with nothing on screen offering a way
+// out. A blocked move whose blocker sits ON THE NEW TIME is the old series
+// left behind, and is offered for removal instead.
+{
+  const oldMon: LessonSlot = { weekday: 1, startTime: '15:30', endTime: '16:20', location: '4103' };
+  const newTue: LessonSlot = { weekday: 2, startTime: '18:00', endTime: '18:50' };
+  const both = [
+    lesson({ id: 'mon-04', date: '2027-01-04', startTime: '15:30', endTime: '16:20', location: '4103' }),
+    lesson({ id: 'tue-05', date: '2027-01-05', startTime: '18:00', endTime: '18:50', location: undefined }),
+    lesson({ id: 'mon-11', date: '2027-01-11', startTime: '15:30', endTime: '16:20', location: '4103' }),
+    lesson({ id: 'tue-12', date: '2027-01-12', startTime: '18:00', endTime: '18:50', location: undefined }),
+  ];
+  const p = slotChangePlan(oldMon, newTue, both, '2027-01-01', '2027-01-31');
+  assert(p.move.length === 0, `nothing can move, the new days are taken, got ${p.move.length}`);
+  assert(p.supersede.map(s => s.id).sort().join(',') === 'mon-04,mon-11',
+    `both Mondays are superseded, got ${p.supersede.map(s => s.id).join(',') || 'none'}`);
+  assert(p.keptOther === 0, `a superseded lesson is NOT "set by hand", got keptOther ${p.keptOther}`);
+  assert(p.supersede[0].coveredBy === '2027-01-05', 'names the lesson that covers that week');
+  assert(planHasWork(p), 'a plan that only removes doubles is still work to offer');
+}
+
+// A blocker that is NOT on the new time is somebody's own arrangement: the old
+// lesson stays put and is reported as such, never silently deleted.
+{
+  const oldMon: LessonSlot = { weekday: 1, startTime: '15:30', endTime: '16:20' };
+  const newTue: LessonSlot = { weekday: 2, startTime: '18:00', endTime: '18:50' };
+  const p = slotChangePlan(oldMon, newTue, [
+    lesson({ id: 'mon', date: '2027-01-04', startTime: '15:30', endTime: '16:20' }),
+    lesson({ id: 'makeup', date: '2027-01-05', startTime: '09:00', endTime: '09:45' }),
+  ], '2027-01-01', '2027-01-10');
+  assert(p.supersede.length === 0, 'a 9am makeup does not supersede anything');
+  // Two, and both are right: the Monday because its target week is blocked by
+  // something that is not the standing time, and the makeup because it belongs
+  // to neither recipe. Both are somebody's own arrangement.
+  assert(p.keptOther === 2, `the Monday and the makeup are both left alone, got ${p.keptOther}`);
+}
+
+// Never a graded or cancelled lesson, however doubled up it looks.
+{
+  const oldMon: LessonSlot = { weekday: 1, startTime: '15:30', endTime: '16:20' };
+  const newTue: LessonSlot = { weekday: 2, startTime: '18:00', endTime: '18:50' };
+  const p = slotChangePlan(oldMon, newTue, [
+    lesson({ id: 'graded', date: '2027-01-04', startTime: '15:30', endTime: '16:20', grade: '95' }),
+    lesson({ id: 'cancelled', date: '2027-01-11', startTime: '15:30', endTime: '16:20', status: 'Cancelled' }),
+    lesson({ id: 'tue-05', date: '2027-01-05', startTime: '18:00', endTime: '18:50' }),
+    lesson({ id: 'tue-12', date: '2027-01-12', startTime: '18:00', endTime: '18:50' }),
+  ], '2027-01-01', '2027-01-31');
+  assert(p.supersede.length === 0, 'a graded or cancelled lesson is never offered for removal');
+  assert(p.keptGraded === 1 && p.keptCancelled === 1, 'both are reported in their own bucket');
+}
+
+// The standing version, keyed on the CURRENT time alone. This is the one that
+// rescues a sheet where the stored recipe already matches the series being
+// kept, so "what was the old recipe" can no longer answer anything.
+{
+  const monday: LessonSlot = { weekday: 1, startTime: '15:30', endTime: '16:20', location: '4103' };
+  const twoSeries = [
+    lesson({ id: 'mon-04', date: '2027-01-04', startTime: '15:30', endTime: '16:20', location: '4103' }),
+    lesson({ id: 'tue-05', date: '2027-01-05', startTime: '18:00', endTime: '18:50', location: undefined }),
+    lesson({ id: 'mon-11', date: '2027-01-11', startTime: '15:30', endTime: '16:20', location: '4103' }),
+    lesson({ id: 'tue-12', date: '2027-01-12', startTime: '18:00', endTime: '18:50', location: undefined }),
+  ];
+  const dup = doubledUpOffSlot(monday, twoSeries, '2027-01-01');
+  assert(dup.map(d => d.id).join(',') === 'tue-05,tue-12',
+    `the off-slot series is offered, oldest first, got ${dup.map(d => d.id).join(',') || 'none'}`);
+  assert(dup[0].coveredBy === '2027-01-04', 'names the lesson being kept that week');
+  // A week with only the off-slot lesson is NOT doubled up — there is nothing
+  // covering it, and removing it would leave that week with no lesson at all.
+  assert(doubledUpOffSlot(monday, [twoSeries[1]], '2027-01-01').length === 0,
+    'a lone off-slot lesson is never offered for removal');
+  // The keeper itself is never offered.
+  assert(!dup.some(d => d.id.startsWith('mon-')), 'the lesson on the standing time is kept');
+  assert(doubledUpOffSlot(undefined, twoSeries, '2027-01-01').length === 0, 'no slot, no opinion');
+  assert(doubledUpOffSlot(monday, twoSeries, '2027-02-01').length === 0, 'the past is never touched');
+}
 
 // A move never lands on a date that already holds a lesson.
 const collide = slotChangePlan(friday, wednesday, [

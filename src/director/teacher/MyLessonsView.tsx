@@ -37,7 +37,7 @@ import {
   type TermRef,
 } from '../lessonLog';
 import {
-  lessonPayloadsFor, lessonsOffSlot, pendingSlotDates, planHasWork, schoolYearEnd, skippedNoSchoolDates, slotChangePlan,
+  doubledUpOffSlot, lessonPayloadsFor, lessonsOffSlot, pendingSlotDates, planHasWork, schoolYearEnd, skippedNoSchoolDates, slotChangePlan,
   slotSentence, WEEKDAY_OPTIONS, type LessonSlot, type SlotChangePlan,
 } from '../lessonSchedule';
 import { enqueueLessonLogMail } from '../lessonLogMail';
@@ -94,7 +94,7 @@ export function MyLessonsView() {
   // already on the calendar, and what happened when the teacher pressed it.
   // Both live here rather than in the panel so switching students clears them.
   const [slotPlan, setSlotPlan] = useState<{ slot: LessonSlot; plan: SlotChangePlan } | null>(null);
-  const [slotMoved, setSlotMoved] = useState<{ moved: number; pullouts: number } | null>(null);
+  const [slotMoved, setSlotMoved] = useState<{ moved: number; pullouts: number; dropped: number } | null>(null);
   const [confirmDeleteLesson, setConfirmDeleteLesson] = useState<string | null>(null);
   const [mail, setMail] = useState<MailState | null>(null);
 
@@ -217,9 +217,30 @@ export function MyLessonsView() {
    *    override is how an ensemble director learns a student will be out, and
    *    only the teacher can confirm the new time with them.
    */
-  async function applySlotPlan(slot: LessonSlot, plan: SlotChangePlan) {
+  async function applySlotPlan(studentId: string, slot: LessonSlot, shown: SlotChangePlan) {
     setSlotBusy(true);
     try {
+      // RECOMPUTE against the lessons as they are NOW, not as they were when
+      // the offer was drawn. The two are not the same moment: after a time
+      // change the panel shows this button AND "Add the remaining N", and
+      // pressing Add first fills the very dates this plan wants to move onto.
+      // Applying the stale plan then put two lessons on one day. `shown` is
+      // kept only to compare against, so a plan that grew between the draw and
+      // the press cannot quietly do more than the teacher agreed to.
+      const before = director?.lessonSlots?.[studentId];
+      const live = slotChangePlan(
+        before, slot,
+        myLessons.filter(l => l.studentId === studentId),
+        today, schoolYearEnd(today),
+      );
+      const agreedMoves = new Set(shown.move.map(m => m.id));
+      const agreedDrops = new Set(shown.supersede.map(s => s.id));
+      const plan = {
+        ...live,
+        move: live.move.filter(m => agreedMoves.has(m.id)),
+        supersede: live.supersede.filter(s => agreedDrops.has(s.id)),
+      };
+
       let pullouts = 0;
       for (const m of plan.move) {
         await updateLesson(m.id, {
@@ -243,8 +264,46 @@ export function MyLessonsView() {
           await syncLessonMirror(m.id);
         }
       }
-      setSlotMoved({ moved: plan.move.length, pullouts });
+      // Remove the old series the new one already replaced. Only ever lessons
+      // the plan classified as superseded: future, ungraded, uncancelled, and
+      // sitting on the OLD standing time in a week the NEW time already
+      // covers. Each goes through the same path as the row's own delete, so
+      // the public mirror and any confirmed pull-out go with it.
+      let dropped = 0;
+      for (const s of plan.supersede) {
+        const gone = myLessons.find(l => l.id === s.id);
+        if (gone?.overrideId) await deleteOverride(gone.overrideId);
+        await deleteLesson(s.id);
+        dropped++;
+      }
+
+      setSlotMoved({ moved: plan.move.length, pullouts, dropped });
       setSlotPlan(null);
+    } finally {
+      setSlotBusy(false);
+    }
+  }
+
+  /**
+   * Collapse two parallel weekly series back into one, keeping the standing
+   * time. Recomputed at the press for the same reason applySlotPlan is: the
+   * list on screen was drawn from an earlier snapshot, and a lesson added or
+   * graded since must not be swept up by a button pressed after the fact.
+   */
+  async function removeDoubled(studentId: string, slot: LessonSlot) {
+    setSlotBusy(true);
+    try {
+      const live = doubledUpOffSlot(
+        slot, myLessons.filter(l => l.studentId === studentId), today,
+      );
+      let dropped = 0;
+      for (const s of live) {
+        const gone = myLessons.find(l => l.id === s.id);
+        if (gone?.overrideId) await deleteOverride(gone.overrideId);
+        await deleteLesson(s.id);
+        dropped++;
+      }
+      setSlotMoved({ moved: 0, pullouts: 0, dropped });
     } finally {
       setSlotBusy(false);
     }
@@ -454,7 +513,8 @@ export function MyLessonsView() {
           onCancelEdit={() => setEditingSlot(false)}
           onSave={async slot => { await saveSlot(sheetStudent.id, slot); setEditingSlot(false); }}
           onGenerate={slot => generateFromSlot(sheetStudent, slot)}
-          onApplyPlan={(slot, plan) => applySlotPlan(slot, plan)}
+          onApplyPlan={(slot, plan) => applySlotPlan(sheetStudent.id, slot, plan)}
+          onRemoveDoubled={slot => removeDoubled(sheetStudent.id, slot)}
           onDismissAdded={clearSlotBanners}
         />
 
@@ -784,7 +844,7 @@ function LogReadRow({
  */
 function WeeklySlotPanel({
   student, slot, lessons, today, busy, added, plan, moved, editing,
-  onEdit, onCancelEdit, onSave, onGenerate, onApplyPlan, onDismissAdded,
+  onEdit, onCancelEdit, onSave, onGenerate, onApplyPlan, onRemoveDoubled, onDismissAdded,
 }: {
   student: Student;
   slot?: LessonSlot;
@@ -793,13 +853,14 @@ function WeeklySlotPanel({
   busy: boolean;
   added: { count: number; conflicts: number; skipped: number } | null;
   plan: { slot: LessonSlot; plan: SlotChangePlan } | null;
-  moved: { moved: number; pullouts: number } | null;
+  moved: { moved: number; pullouts: number; dropped: number } | null;
   editing: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
   onSave: (slot: LessonSlot | null) => Promise<void>;
   onGenerate: (slot: LessonSlot) => void;
   onApplyPlan: (slot: LessonSlot, plan: SlotChangePlan) => void;
+  onRemoveDoubled: (slot: LessonSlot) => void;
   onDismissAdded: () => void;
 }) {
   const through = schoolYearEnd(today);
@@ -808,6 +869,12 @@ function WeeklySlotPanel({
   // press as well as after, so "add the remaining 31" is not quietly three
   // short of the 34 Fridays a teacher counted on a wall calendar.
   const noSchool = slot ? skippedNoSchoolDates(slot, lessons, today, through).length : 0;
+  // Weeks this student is down for TWO lessons: one on the standing time and
+  // one that is not. Shown whenever it is true, not only in the moment after
+  // an edit — by the time anyone notices, the stored time usually already
+  // matches the series being kept, and the post-change offer has scrolled
+  // away or was never taken.
+  const doubled = doubledUpOffSlot(slot, lessons, today);
   // Lessons still to come that do NOT sit where the standing time says. This
   // is the number the panel used to be blind to: it counted DATES, so a time
   // change on the same weekday left it announcing that the year was handled
@@ -848,10 +915,25 @@ function WeeklySlotPanel({
                 )}.
               </>
             )}
-            {plan.plan.move.length === 0 && plan.plan.create.length > 0 && (
+            {plan.plan.move.length === 0 && plan.plan.supersede.length === 0 && plan.plan.create.length > 0 && (
               <>Nothing on the calendar matches the old time, so there is nothing to move.</>
             )}
           </div>
+          {/* The two-parallel-series case. A lesson at the old time cannot move
+              onto a week the new time already fills, so before this it was
+              filed as "set by hand" and the teacher was left with both series
+              and no way to say which one was real. */}
+          {plan.plan.supersede.length > 0 && (
+            <div style={{ marginTop: 6 }}>
+              <strong>{plan.plan.supersede.length} lesson{plan.plan.supersede.length === 1 ? '' : 's'} at
+              the old time {plan.plan.supersede.length === 1 ? 'is' : 'are'} now doubled up</strong> —
+              {plan.plan.supersede.length === 1 ? ' that week' : ' those weeks'} already
+              {plan.plan.supersede.length === 1 ? ' has' : ' have'} a lesson at {slotSentence(plan.slot)},
+              so {student.name} is down for two. Removing the old
+              {plan.plan.supersede.length === 1 ? ' one' : ' ones'} leaves exactly one lesson a week.
+              None of them is graded or cancelled.
+            </div>
+          )}
           {(plan.plan.keptGraded > 0 || plan.plan.keptCancelled > 0 || plan.plan.keptOther > 0) && (
             <div style={{ marginTop: 6 }}>
               Left alone:{' '}
@@ -863,13 +945,19 @@ function WeeklySlotPanel({
             </div>
           )}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-            {plan.plan.move.length > 0 && (
+            {(plan.plan.move.length > 0 || plan.plan.supersede.length > 0) && (
               <button
                 className="dir-btn dir-btn-primary dir-sc-small"
                 disabled={busy}
                 onClick={() => onApplyPlan(plan.slot, plan.plan)}
               >
-                {busy ? 'Moving…' : `Move ${plan.plan.move.length} lesson${plan.plan.move.length === 1 ? '' : 's'} to ${slotSentence(plan.slot)}`}
+                {busy
+                  ? 'Working…'
+                  : plan.plan.move.length > 0 && plan.plan.supersede.length > 0
+                    ? `Move ${plan.plan.move.length} and remove ${plan.plan.supersede.length} doubled-up`
+                    : plan.plan.move.length > 0
+                      ? `Move ${plan.plan.move.length} lesson${plan.plan.move.length === 1 ? '' : 's'} to ${slotSentence(plan.slot)}`
+                      : `Remove ${plan.plan.supersede.length} doubled-up lesson${plan.plan.supersede.length === 1 ? '' : 's'} at the old time`}
               </button>
             )}
             <button className="dir-tool-btn" disabled={busy} onClick={onDismissAdded}>
@@ -879,11 +967,44 @@ function WeeklySlotPanel({
         </div>
       )}
 
+      {/* The standing warning. A student down for two lessons in the same week
+          is wrong however it happened, and it stays wrong until someone acts,
+          so this does not depend on having just edited the time. */}
+      {slot && doubled.length > 0 && !plan && !moved && (
+        <div className="dir-conflict-banner" style={{ margin: '0 16px 8px' }}>
+          <strong>{student.name} is down for two lessons in {doubled.length === 1 ? 'a week' : `${doubled.length} weeks`}.</strong>
+          <div style={{ marginTop: 6 }}>
+            {doubled.length === 1 ? 'One week has' : 'Those weeks each have'} a lesson
+            at {slotSentence(slot)} and another that is not — the next
+            on {parseDate(doubled[0].date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            {' at '}{formatTime(doubled[0].startTime)}. That is what a time change looks like when the
+            new weeks were added before the old ones were moved. Removing the extra
+            {doubled.length === 1 ? ' one' : ' ones'} leaves exactly one lesson a week.
+            None is graded or cancelled.
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+            <button
+              className="dir-btn dir-btn-primary dir-sc-small"
+              disabled={busy}
+              onClick={() => onRemoveDoubled(slot)}
+            >
+              {busy
+                ? 'Removing…'
+                : `Remove ${doubled.length} extra lesson${doubled.length === 1 ? '' : 's'}, keep ${slotSentence(slot)}`}
+            </button>
+          </div>
+        </div>
+      )}
+
       {moved && (
         <div className="dir-page-hint" style={{ marginTop: 0, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
           <span>
-            Moved {moved.moved} lesson{moved.moved === 1 ? '' : 's'} to the new time.
-            {' '}{student.name}’s own schedule and your calendar both follow it.
+            {moved.moved > 0 && <>Moved {moved.moved} lesson{moved.moved === 1 ? '' : 's'} to the new time. </>}
+            {moved.dropped > 0 && (
+              <>Removed {moved.dropped} doubled-up lesson{moved.dropped === 1 ? '' : 's'} that sat
+              at the old time in a week the new time already covers. </>
+            )}
+            {student.name}’s own schedule and your calendar both follow it.
             {moved.pullouts > 0 && (
               <> {moved.pullouts} of them had a confirmed pull-out from a rehearsal at the OLD
               time — that has been withdrawn, so re-open those rows to confirm the new one.
