@@ -217,11 +217,73 @@ export interface SlotMove {
   overrideId?: string;
 }
 
+/** An old-recipe lesson the NEW series already covers — the leftover half of a
+ *  time change where the new weeks got generated before the move ran. */
+export interface SupersededLesson {
+  id: string;
+  date: string;
+  startTime: string;
+  /** The date, in the same week, that already holds a lesson at the new time. */
+  coveredBy: string;
+}
+
+/**
+ * Future lessons that are doubled up against the standing time: a week that
+ * already holds a lesson AT the weekly time, plus another one that is not.
+ *
+ * Deliberately independent of what the PREVIOUS weekly time was. The reported
+ * case had a full Monday series and a full Tuesday series running in parallel,
+ * and by the time anyone noticed, the stored recipe matched one of them — so a
+ * rule keyed on "the old recipe" could not see the other. The question that
+ * actually matters is "is this student down for two lessons this week", and
+ * that is answerable from the current time alone, at any moment, not just in
+ * the seconds after an edit.
+ *
+ * Never a graded or cancelled lesson: those are settled records. And never the
+ * lesson that IS on the standing time — that is the one being kept.
+ *
+ * This is an OFFER, never automatic. A studio that genuinely teaches twice in
+ * a week will show up here, which is exactly why the panel lists the count and
+ * waits for a press instead of quietly deleting.
+ */
+export function doubledUpOffSlot(
+  slot: LessonSlot | undefined,
+  lessons: Lesson[],
+  from: string,
+): SupersededLesson[] {
+  if (!isLessonSlot(slot)) return [];
+  const byWeek = new Map<string, Lesson[]>();
+  for (const l of lessons) {
+    if (l.date < from) continue;
+    const w = weekOf(l.date);
+    const at = byWeek.get(w);
+    if (at) at.push(l); else byWeek.set(w, [l]);
+  }
+  const out: SupersededLesson[] = [];
+  for (const week of byWeek.values()) {
+    const keeper = week.find(l => l.status !== 'Cancelled' && lessonMatchesSlot(slot, l));
+    if (!keeper) continue;
+    for (const l of week) {
+      if (l.id === keeper.id) continue;
+      if (l.status === 'Cancelled') continue;
+      if ((l.grade ?? '').trim()) continue;
+      if (lessonMatchesSlot(slot, l)) continue;
+      out.push({ id: l.id, date: l.date, startTime: l.startTime, coveredBy: keeper.date });
+    }
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 export interface SlotChangePlan {
   /** Future lessons that came from the old recipe and belong at a new time. */
   move: SlotMove[];
   /** Dates the new recipe calls for that have no lesson at all. */
   create: string[];
+  /** Old-recipe lessons made redundant by a lesson already at the new time in
+   *  the same week. Removing these is what collapses two parallel weekly
+   *  series back into one. Never graded and never cancelled — both are
+   *  classified out above this ever being reached. */
+  supersede: SupersededLesson[];
   /** Left alone on purpose, and counted so the teacher is told rather than
    *  left to notice. */
   keptGraded: number;
@@ -229,7 +291,9 @@ export interface SlotChangePlan {
   keptOther: number;
 }
 
-const EMPTY_PLAN: SlotChangePlan = { move: [], create: [], keptGraded: 0, keptCancelled: 0, keptOther: 0 };
+const EMPTY_PLAN: SlotChangePlan = {
+  move: [], create: [], supersede: [], keptGraded: 0, keptCancelled: 0, keptOther: 0,
+};
 
 /**
  * What changing the standing time should do to the lessons already on the
@@ -253,11 +317,20 @@ export function slotChangePlan(
   const newDates = slotDates(after, from, through);
   const newDateByWeek = new Map(newDates.map(d => [weekOf(d), d]));
 
-  const plan: SlotChangePlan = { move: [], create: [], keptGraded: 0, keptCancelled: 0, keptOther: 0 };
+  const plan: SlotChangePlan = {
+    move: [], create: [], supersede: [], keptGraded: 0, keptCancelled: 0, keptOther: 0,
+  };
   // Dates that will hold a lesson once the moves land — so a move never
   // collides with a lesson already sitting on the target date, and `create`
   // never doubles one up.
   const occupied = new Set(future.map(l => l.date));
+  // Who is sitting on each date, so a blocked move can tell WHY it is blocked.
+  // A date can legitimately hold more than one lesson, so this is a list.
+  const byDate = new Map<string, Lesson[]>();
+  for (const l of future) {
+    const at = byDate.get(l.date);
+    if (at) at.push(l); else byDate.set(l.date, [l]);
+  }
 
   for (const l of future) {
     if (!sitsOnSlot(before, l)) { if (!lessonMatchesSlot(after, l)) plan.keptOther++; continue; }
@@ -268,7 +341,17 @@ export function slotChangePlan(
     // No matching week (the new day falls outside the horizon, say) — leave it
     // where it is rather than guessing at a date nobody chose.
     if (!target) { plan.keptOther++; continue; }
-    if (target !== l.date && occupied.has(target)) { plan.keptOther++; continue; }
+    // Blocked by a lesson already on the target date. If that blocker is the
+    // new standing time itself, this lesson is a leftover and `supersede`
+    // (computed below, over the whole window) will offer it for removal — so
+    // it is not counted as "set by hand" here, which is what made two parallel
+    // series look like a teacher's own arrangement.
+    if (target !== l.date && occupied.has(target)) {
+      const coveredByNewSlot = (byDate.get(target) ?? [])
+        .some(o => o.status !== 'Cancelled' && lessonMatchesSlot(after, o));
+      if (!coveredByNewSlot) plan.keptOther++;
+      continue;
+    }
     if (lessonMatchesSlot(after, l)) continue; // already right — nothing to do
 
     occupied.delete(l.date);
@@ -283,13 +366,20 @@ export function slotChangePlan(
   }
 
   plan.create = newDates.filter(d => !occupied.has(d));
+  // Computed over the whole window from the NEW time alone, not from what the
+  // old recipe happened to be — one definition, shared with the panel's
+  // standing offer so the two can never disagree about what is doubled up.
+  // Anything the moves are about to fix is excluded: those lessons are being
+  // relocated onto the standing time, not left as duplicates.
+  const moving = new Set(plan.move.map(m => m.id));
+  plan.supersede = doubledUpOffSlot(after, future, from).filter(s => !moving.has(s.id));
   return plan;
 }
 
 /** Is there anything for the teacher to press? An empty plan must never be
  *  offered as if it were work. */
 export function planHasWork(plan: SlotChangePlan): boolean {
-  return plan.move.length > 0 || plan.create.length > 0;
+  return plan.move.length > 0 || plan.create.length > 0 || plan.supersede.length > 0;
 }
 
 /**

@@ -32,6 +32,23 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Reported: a student left with a full Monday series AND a full Tuesday
+  // series after a time change. Every move was refused as a collision and
+  // filed as "set by hand", so the screen offered no way out of a mess it had
+  // helped make.
+  {
+    id: '2026-09-07-doubled-up-lessons',
+    date: '2026-09-07',
+    title: 'Two lessons in the same week? The Hub now says so, and clears it in one press',
+    audience: 'staff' as const,
+    expires: '2026-09-28',
+    bullets: [
+      'Applied teachers: if a student ends up with two lessons in the same week — one at their weekly time and one that is not — their sheet now says so at the top and offers to remove the extra ones, keeping the weekly time. It shows the count and the next date before you press, and it never touches a lesson that is graded or cancelled.',
+      'This is what a time change looks like when the new weeks got added before the old ones were moved. Previously those leftovers were labelled “set by hand” and left alone, which meant a full old series could sit alongside a full new one with nothing on screen offering to fix it.',
+      'The warning is standing, not just a message after an edit. Open any student and if the weeks are doubled up, it is there.',
+      'Moving a weekly time is also safer now: what actually gets written is worked out at the moment you press, not when the offer first appeared. Pressing “Add the remaining …” first can no longer leave the move stale and put two lessons on one day.',
+    ],
+  },
   // Sign-up responses go straight into the roster (#signups). An open sign-up
   // is the intake for people who have no student record yet, and the second
   // half of that job was a human retyping every name on the Roster screen.
