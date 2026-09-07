@@ -419,6 +419,46 @@ copies.
   let anyone overwrite someone else's signed form. A student who comes back
   creates a second doc; `latestPerStudent()` keeps the newest. Keep it that
   way.
+- **An open sign-up is an INTAKE, so it feeds the roster** (Sept 2026).
+  `src/shared/signupRosterIntake.ts` is the ONE definition of what a response
+  becomes: who is new, who is already on the roster, and field by field what
+  each record ends up saying. College forced it — a dual-enrollment student
+  reaches the school through the form and nothing else, so whatever they typed
+  is the only record there will ever be, and all of it has to land. Split by
+  sensitivity, not convenience: name / instrument / grade / ensembles on the
+  `students` doc, and email, phone, the guardian and every free-text answer in
+  `contacts` (answers under `contacts.extra`, the bucket that already exists
+  to lose nothing) — because the student doc is mirrored to the
+  world-readable `studentsPublic` and an address typed into a public form must
+  never ride along. The plan is shown in full before any write, since a typed
+  name is the only anchor an open response has. Four promises pinned by
+  `signupRosterIntake.selfcheck.ts` in the deploy workflow: an import never
+  REMOVES an ensemble or blanks a field, an ambiguous name resolves to NOBODY
+  rather than to the wrong student, an existing guardian is never replaced by
+  the one who signed (a guardian is a person, not a value — it merges by name
+  or address and adds otherwise), and `status`/`schoolId` are never written
+  from a response. Writes go through `useStudents`/`useContacts` so the public
+  mirror stays batched with its source doc.
+  A college student's YEAR is a grade: `grade` is the app's one answer to
+  "what year is this person in", so dual-enrollment students carry
+  `College Freshman`/`Sophomore`/`Junior`/`Senior` (`COLLEGE_YEAR_GRADES`),
+  read per student from whichever question asks for it (`yearQuestionId` +
+  `collegeYearGrade()`), never a flat `College` for the whole cohort. Those
+  strings all START with "College" on purpose — the roster search is a
+  substring match, so the cohort is still one search — and none of them
+  matches the high-school branches (`startsWith('12')` for seniors,
+  `startsWith('9')` for theory placement), which is correct: a college senior
+  is not a graduating 12th grader. An answer it cannot read falls back to the
+  plain grade rather than guessing, and the raw text stays in `extra`.
+  A family is not one parent: the signature block holds ONE guardian, so the
+  others arrive as questions the director wrote, and `guardianQuestion()`
+  reads a label naming both a person (mother / father / guardian / parent 2 /
+  emergency contact) and a detail (name / email / phone / relation) into
+  another `contacts.guardians` entry. That list is already unlimited — read
+  the questions, don't add a field. It under-claims on purpose: a label with
+  only one of the two, or one that smells like a consent line, stays an
+  ordinary answer in `extra`. `mergeGuardian()` is the ONE way an entry joins
+  that list, and it never displaces anybody.
 - Answers ride in ONE bounded `answersJson` string, not a map: rules can
   bound a string's length but can't reach inside a map to bound its values.
   Read it with `parseAnswers()`, which never throws.

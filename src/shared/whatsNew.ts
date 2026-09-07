@@ -32,6 +32,25 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Sign-up responses go straight into the roster (#signups). An open sign-up
+  // is the intake for people who have no student record yet, and the second
+  // half of that job was a human retyping every name on the Roster screen.
+  {
+    id: '2026-09-07-signup-roster-intake',
+    date: '2026-09-07',
+    title: 'Sign-up responses can go straight into the roster',
+    audience: 'staff' as const,
+    expires: '2026-09-28',
+    bullets: [
+      'Open a sign-up and look under the responses: “Add to the roster” turns everyone who answered into student records, in one press. Tick the groups they all join — Symphony and College Chamber for the college cohort, a theory section next term — and they join those and keep every group they are already in.',
+      'Everything they filled in comes across, not just the name: instrument and grade onto the student, and email, phone, the parents/guardians and the answers to your questions onto their contact record, which stays staff-only.',
+      'College students get their own year, not a flat “College”. Point the import at the question that asks what year they are in and each one lands as College Freshman, Sophomore, Junior or Senior — “1st year”, “Soph”, “JR”, “Year 4” all read correctly. Anything it can’t read keeps the plain grade rather than guessing, and what they typed stays on their record. Searching the roster for “College” still returns everybody.',
+      'A family can have more than one parent on file. The Hub reads your own questions — “Mother’s email”, “Father cell phone”, “Parent 2 name” — and makes each person their own entry, added beside anyone already recorded rather than replacing them. Ask for a third and you get a third. Signature and consent lines are left alone.',
+      'You see the whole plan before anything is written: who is new, who is already on the roster and what changes on their record, and who already has all of it. Running it twice adds nobody twice.',
+      'People who already exist are matched by the name they typed, so that row says so. Where the roster and the form disagree about a field, you pick which one is right — the fuller answer is chosen for you, so you are only flipping the exceptions. If two students on the roster have the same name the Hub refuses to guess and offers a new record instead.',
+      'Everyone imported gets marked “In the system”, so the tick you used to set by hand after typing a name is already done. Nothing gets blanked: an existing guardian is kept and the signed-up one added beside them, and no status or school ID is ever written from a form.',
+    ],
+  },
   // The no-school skip already shipped; this is the other half of it. Dropping
   // weeks without saying so reads as a broken generator, not a holiday.
   {
