@@ -9,6 +9,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useSignupForms, useSignupResponses, useSignupSlotBookings, useSignupAudiences, useSignupOwners, saveSignupAudience, deleteSignupAudience, saveSignupOwner, removeSlotBooking, latestPerStudent, parseAnswers, responseIsComplete } from '../hooks/useSignups';
 import { useStudents } from '../hooks/useStudents';
+import { useContacts } from '../hooks/useContacts';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useDirectors, useMyDirector, directorEmailId } from '../hooks/useDirectors';
 import { useEvents } from '../hooks/useEvents';
@@ -36,12 +37,13 @@ import { normalizeTimeslotQuestion, signupQuestionHasContent } from '../../share
 import { deleteStoredFile } from '../storageCleanup';
 import { SignupSlotBuilder } from './SignupSlotBuilder';
 import { SignupAppointmentsFeedPanel } from './SignupAppointmentsFeedPanel';
+import { SignupRosterIntake } from './SignupRosterIntake';
 import { byLastName, emailList, exportSlug, namesList, responsesToCsv } from './signupsExport';
 import { allStateTemplate } from './signupTemplates';
 import { ORG } from '../../org';
 import { studentMatchesQuery } from '../studentSearch';
 import type {
-  Ensemble, InstrumentFamilyId, SignupForm, SignupQuestion, SignupResponse, SignupSlotBooking, Student,
+  Ensemble, InstrumentFamilyId, SignupForm, SignupQuestion, SignupResponse, SignupSlotBooking, Student, StudentContact,
 } from '../types';
 import type { Director } from '../hooks/useDirectors';
 import './signups.css';
@@ -77,10 +79,16 @@ export function SignupsView() {
   const { responses, setStatus, remove } = useSignupResponses();
   const { byFormId: audiences } = useSignupAudiences();
   const { byFormId: owners } = useSignupOwners();
-  const { students } = useStudents();
+  const { students, addStudent, updateStudent } = useStudents();
   const { ensembles } = useEnsembles();
   const { directors } = useDirectors();
   const me = useCurrentDirector();
+  // The roster intake writes contacts as well as students, so it needs both.
+  // Gated on the same check that offers the panel: firestore.rules bars a
+  // Student Assistant from `contacts`, and an unwanted listener there trips
+  // the "couldn't load" strip for a screen they can otherwise use.
+  const canManageRoster = isStaffMember(me);
+  const { contacts, saveContact } = useContacts(canManageRoster);
   const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ form: SignupForm | null; draft: Draft } | null>(null);
 
@@ -168,6 +176,11 @@ export function SignupsView() {
           onToggleClosed={() => void updateForm(open.id, { closed: !open.closed })}
           onExtend={deadline => void updateForm(open.id, { deadline })}
           onSetStatus={setStatus}
+          canManageRoster={canManageRoster}
+          contacts={contacts}
+          onAddStudent={addStudent}
+          onUpdateStudent={updateStudent}
+          onSaveContact={saveContact}
           onRemoveResponse={remove}
           onDelete={async () => { await deleteForm(open.id); setOpenId(null); }}
         />
@@ -257,12 +270,21 @@ interface DetailProps {
   onToggleClosed: () => void;
   onExtend: (deadline: string) => void;
   onSetStatus: (id: string, status: SignupResponse['status']) => Promise<void>;
+  /** May this viewer write the roster? Student Assistants read sign-ups but
+   *  never create students — firestore.rules would refuse the write, so the
+   *  intake panel is not offered to them. */
+  canManageRoster: boolean;
+  contacts: Record<string, StudentContact>;
+  onAddStudent: (data: Omit<Student, 'id'>) => Promise<string | undefined>;
+  onUpdateStudent: (id: string, data: Partial<Omit<Student, 'id'>>) => Promise<void>;
+  onSaveContact: (studentId: string, data: Omit<StudentContact, 'id'>) => Promise<void>;
   onRemoveResponse: (id: string) => Promise<void>;
   onDelete: () => Promise<void>;
 }
 
 function SignupDetail({
   form, responses, students, iOwn, ensembles, audiences, today, now,
+  canManageRoster, contacts, onAddStudent, onUpdateStudent, onSaveContact,
   onBack, onEdit, onToggleClosed, onExtend, onSetStatus, onRemoveResponse, onDelete,
 }: DetailProps) {
   const printRef = useRef<HTMLDivElement>(null);
@@ -521,6 +543,22 @@ function SignupDetail({
           </article>
         );
       })}
+
+      {/* Straight into the roster (#signups). Only the responses that still
+          count: a withdrawn one is a person who took their name back. */}
+      {canManageRoster && (
+        <SignupRosterIntake
+          form={form}
+          responses={active}
+          students={students}
+          contacts={contacts}
+          ensembles={ensembles}
+          onAddStudent={onAddStudent}
+          onUpdateStudent={onUpdateStudent}
+          onSaveContact={onSaveContact}
+          onSetStatus={onSetStatus}
+        />
+      )}
 
       {/* Who hasn't answered — the chase-up list. */}
       {waiting.length > 0 && (

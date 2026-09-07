@@ -98,6 +98,12 @@ jobs:
       - name: Check sign-up appointments
         run: npx tsx src/shared/signupAppointments.selfcheck.ts
 
+      # Turning responses into roster students writes to real student records
+      # on a typed name. Never removes an ensemble, never resolves an
+      # ambiguous name to a victim, never makes one person twice (#signups).
+      - name: Check sign-up roster intake
+        run: npx tsx src/shared/signupRosterIntake.selfcheck.ts
+
       # The concert door (#concert-checkin). The window is computed in
       # school-local time from a UTC server, whole-domain email matching keeps
       # notstudents.dadeschools.net out, and a duplicate scan is refused by the
