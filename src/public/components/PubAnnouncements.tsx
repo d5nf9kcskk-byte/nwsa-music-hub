@@ -1,10 +1,18 @@
-import { Pin, Megaphone, Link2 as LinkIcon } from 'lucide-react';
+import { Pin, Megaphone, Link2 as LinkIcon, Paperclip } from 'lucide-react';
 import { Link } from 'react-router';
 import { ensembleColor, ensembleDisplayName } from '../../director/utils';
 import type { Announcement, Ensemble } from '../../director/types';
 import { NotesText } from './NotesText';
 import { t, useLang } from '../../shared/i18n';
 import { fmtMonthDay } from '../../shared/dates';
+
+/** KB under a megabyte, MB above — a families-facing size, not a byte count. */
+function fileSize(bytes: number): string {
+  if (!bytes) return '';
+  return bytes >= 1024 * 1024
+    ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
 
 interface Props {
   items: Announcement[];
@@ -42,6 +50,29 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
               )}
             </div>
             {showBody && <div className="pub-announce-body"><NotesText text={showBody} /></div>}
+            {a.images?.length ? (
+              <div className="pub-announce-images">
+                {a.images.map((img, i) => (
+                  // Full size on the page, and the original a tap away — a
+                  // flyer or a screenshot of audition times has to be
+                  // readable on a phone without downloading anything.
+                  <a key={`${img.url}-${i}`} href={img.url} target="_blank" rel="noopener noreferrer" className="pub-announce-image-link">
+                    <img src={img.url} alt={img.name} className="pub-announce-image" loading="lazy" />
+                  </a>
+                ))}
+              </div>
+            ) : null}
+            {a.files?.length ? (
+              <div className="pub-announce-files">
+                {a.files.map((f, i) => (
+                  <a key={`${f.url}-${i}`} href={f.url} target="_blank" rel="noopener noreferrer" className="pub-announce-file">
+                    <Paperclip size={12} />
+                    <span className="pub-announce-file-name">{f.name}</span>
+                    <span className="pub-announce-file-size">{fileSize(f.size)}</span>
+                  </a>
+                ))}
+              </div>
+            ) : null}
             {a.links?.length ? (
               <div className="pub-announce-links">
                 {a.links.map((l, i) => (
