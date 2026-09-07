@@ -262,11 +262,9 @@ export function MyLessonsView() {
   /**
    * Turn the standing time into real lessons through the end of the school
    * year. Dates that already have a lesson are skipped, cancelled ones
-   * included — see pendingSlotDates().
-   *
-   * ponytail: generates every matching weekday, holidays and breaks included.
-   * The teacher cancels the handful that don't happen. Skipping no-school days
-   * would mean the app knowing the district calendar, which it doesn't.
+   * included — see pendingSlotDates(). MDCPS no-school days are skipped too
+   * (see slotDates() in lessonSchedule.ts) — a lesson never generates onto a
+   * day off, holiday, or break.
    */
   async function generateFromSlot(student: Student, slot: LessonSlot) {
     if (!me) return;

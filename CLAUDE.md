@@ -259,6 +259,39 @@ Upgrading the SDK does not remove the need: no Firestore release through
   the Directors editor offers it** — a group nobody can be assigned to is
   invisible to every one of those consumers at once.
 
+## College and high school calendars are separate dependencies (Sept 2026, #college-hs-calendar-deps)
+
+MDCPS (K-12) and Miami Dade College run their own academic calendars and they
+do not line up — a MDCPS teacher-planning day or grading-period boundary is a
+normal class day at MDC, and vice versa. `src/shared/academicCalendars.ts` is
+the ONE place both calendars are defined, as two INDEPENDENTLY sourced sets:
+`MDCPS_NO_SCHOOL` and `MDC_NO_SCHOOL`. Never derive one from the other, and
+never let a college-facing generator fall back to the MDCPS set (or the
+reverse) — that was the bug: `collegeSchedule.ts` used to reuse the MDCPS set
+wholesale (labeled "college dual-enrollment students still follow many of
+these campus closures"), so a dual-enrollment class went missing on every
+MDCPS teacher-planning day even though MDC was in full session that day.
+
+- **College groups depend on `MDC_NO_SCHOOL`** — `isCollegeSessionDay()` in
+  `src/director/collegeSchedule.ts`, which also owns the MDC term-boundary
+  logic (fall/spring start, finals, winter/spring break as date ranges, so
+  `MDC_NO_SCHOOL` itself only needs holidays that fall INSIDE a term).
+  Consumed by `seedCollegeProgram()` and `scripts/seed-college.mjs`.
+- **High school groups depend on `MDCPS_NO_SCHOOL`** — the rehearsal/class
+  generation in `src/director/seedCalendar.ts`, and the standing weekly
+  lesson-time expansion in `src/director/lessonSchedule.ts` (`slotDates()`
+  skips MDCPS no-school days when it expands a `lessonSlots` recipe into
+  dated `Lesson` docs — see the RECIPE entry below). `scripts/add-ensembles.mjs`
+  also depends on it for the College Chamber Orchestra's Thursday rehearsal,
+  which is correctly MDCPS-scoped even though the ensemble is college-level:
+  that rehearsal happens ON the NWSA campus during the high school's own
+  schedule, not at MDC.
+- A rehearsal or class held on NWSA's campus follows MDCPS regardless of
+  which students or which `collegeLevel` flag it involves. Only an actual MDC
+  course (`COLLEGE_CLASSES`, meeting per the MDC schedule) depends on
+  `MDC_NO_SCHOOL`. Don't pick the dependency by "is this a college thing" —
+  pick it by which campus's calendar governs whether the room is open.
+
 ## Ensembles vs. classes (Aug 2026)
 
 `Ensemble.kind` splits the one `ensembles` collection into performing groups
@@ -454,14 +487,19 @@ copies.
   `assignedStudentIds` it qualifies, so there is no new collection and no
   second query/rule pair. `src/director/lessonSchedule.ts` expands it into
   ordinary dated `Lesson` docs and nothing downstream knows a slot existed.
-  Two promises pinned by `lessonSchedule.selfcheck.ts` in the deploy workflow:
-  a date that already has a lesson is NEVER re-created (cancelled ones
-  included — re-creating one would silently undo the teacher's cancellation),
-  and the weekly walk is bounded. Generation deliberately does not know the
-  district calendar (holidays are generated, then cancelled by hand) and
-  deliberately does not auto-create `rosterOverrides` for conflicts — it
-  reports the count and the teacher confirms each pull-out, which is what
-  tells the ensemble director.
+  Three promises pinned by `lessonSchedule.selfcheck.ts` in the deploy
+  workflow: a date that already has a lesson is NEVER re-created (cancelled
+  ones included — re-creating one would silently undo the teacher's
+  cancellation), the weekly walk is bounded, and generation skips MDCPS
+  no-school days (`MDCPS_NO_SCHOOL` in `src/shared/academicCalendars.ts` —
+  see #college-hs-calendar-deps above). It changed from "generates every
+  matching weekday, the teacher cancels the handful that don't happen" once
+  the app had a real MDCPS calendar to check against (Sept 2026) — a lesson
+  landing on a holiday was a bug, not a feature, once skipping it was
+  possible. It still deliberately does not auto-create `rosterOverrides` for
+  conflicts with OTHER events (rehearsals, sectionals) — it reports the count
+  and the teacher confirms each pull-out, which is what tells the ensemble
+  director.
 - Roles are a CLOSED set enforced by `isKnownRole()` in `firestore.rules`
   (owner / director / teacher / assistant; a doc with no `role` = legacy
   director). Adding a new role means deliberately updating that helper and

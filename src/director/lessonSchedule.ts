@@ -1,6 +1,7 @@
 import { defaultPayrollMinutes } from './lessonLog';
 import type { Lesson, LessonSlot, Student } from './types';
 import { formatTimeRange } from './utils';
+import { isMdcpsSchoolDay } from '../shared/academicCalendars.ts';
 
 /** The standing weekly time itself lives in types.ts so src/shared can build
  *  one (see signupToLessons.ts); this module owns everything you DO with it.
@@ -38,7 +39,9 @@ export function schoolYearEnd(iso: string): string {
   return `${m >= 8 ? y + 1 : y}-05-31`;
 }
 
-/** Every date the slot falls on in [from, through], inclusive of both ends. */
+/** Every date the slot falls on in [from, through], inclusive of both ends,
+ *  skipping MDCPS no-school days — a standing weekly time is a school-day
+ *  recipe, and MDCPS is the calendar a lesson at NWSA actually runs on. */
 export function slotDates(slot: LessonSlot, from: string, through: string): string[] {
   if (!isLessonSlot(slot) || from > through) return [];
   let d = from;
@@ -46,7 +49,9 @@ export function slotDates(slot: LessonSlot, from: string, through: string): stri
   for (let i = 0; i < 7 && dayOf(d) !== slot.weekday; i++) d = addDays(d, 1);
   const out: string[] = [];
   // Bounded so a bad `through` can never spin: a school year is ~40 weeks.
-  for (let i = 0; d <= through && i < 120; i++, d = addDays(d, 7)) out.push(d);
+  for (let i = 0; d <= through && i < 120; i++, d = addDays(d, 7)) {
+    if (isMdcpsSchoolDay(d)) out.push(d);
+  }
   return out;
 }
 
