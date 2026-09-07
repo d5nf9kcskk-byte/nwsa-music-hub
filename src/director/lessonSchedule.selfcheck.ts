@@ -4,8 +4,9 @@
  * EXPANDING one: it lands on the right weekday (a slot that drifts a day puts
  * a student in the wrong room all year), a date that already HAS a lesson is
  * never re-created (that would silently resurrect a cancelled lesson and
- * duplicate a graded one), and the walk is bounded (a bad horizon must not
- * spin).
+ * duplicate a graded one), the walk is bounded (a bad horizon must not spin),
+ * and generation skips MDCPS no-school days (a lesson must never land on a
+ * day off, holiday, or break).
  *
  * CHANGING one: the change reaches the lessons already on the calendar, it
  * never overrules a lesson somebody decided about (graded, cancelled, typed
@@ -19,6 +20,7 @@ import {
   isLessonSlot, lessonMatchesSlot, lessonsOffSlot, pendingSlotDates, planHasWork, schoolYearEnd,
   slotChangePlan, slotDates, slotSentence, type LessonSlot,
 } from './lessonSchedule';
+import { MDCPS_NO_SCHOOL } from '../shared/academicCalendars.ts';
 import type { Lesson } from './types';
 
 function assert(cond: unknown, msg: string): void {
@@ -40,8 +42,18 @@ assert(slotDates(friday, '2026-09-04', '2026-09-04')[0] === '2026-09-04', 'from-
 assert(slotDates(friday, '2026-09-01', '2026-09-03').length === 0, 'no Friday before Sep 4');
 
 // Bounded: an absurd horizon returns a capped list rather than running away.
-assert(slotDates(friday, '2026-09-01', '2099-01-01').length === 120, 'walk is capped at 120 weeks');
+// Starts after the last MDCPS_NO_SCHOOL entry so the cap is measured on its
+// own, with no no-school skips in the way.
+assert(slotDates(friday, '2027-06-01', '2099-01-01').length === 120, 'walk is capped at 120 weeks');
 assert(slotDates(friday, '2026-09-30', '2026-09-01').length === 0, 'reversed range is empty');
+
+// MDCPS no-school days are skipped — a lesson never lands on a day off.
+// 2026-09-07 (Labor Day) is itself the first Monday on/after Sep 1, so the
+// walk's very first candidate is the one that must be dropped.
+const monday: LessonSlot = { weekday: 1, startTime: '14:00', endTime: '14:45' };
+assert(MDCPS_NO_SCHOOL.has('2026-09-07'), 'fixture assumption: Labor Day is in MDCPS_NO_SCHOOL');
+const laborWeek = slotDates(monday, '2026-09-01', '2026-09-14');
+assert(laborWeek.join(',') === '2026-09-14', `Labor Day Monday is skipped, got ${laborWeek.join(',')}`);
 
 // A date that already has a lesson is never offered again — cancelled included.
 const existing: Pick<Lesson, 'date'>[] = [{ date: '2026-09-04' }, { date: '2026-09-18' }];

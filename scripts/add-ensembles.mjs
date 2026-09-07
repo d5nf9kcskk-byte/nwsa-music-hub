@@ -18,6 +18,7 @@
 
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { MDCPS_NO_SCHOOL as NO_SCHOOL } from '../src/shared/academicCalendars.ts';
 
 const SERVICE_ACCOUNT_JSON = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!SERVICE_ACCOUNT_JSON) {
@@ -54,19 +55,6 @@ const ENSEMBLES = [
   },
   { id: 'opera-orchestra',   name: 'Opera Orchestra',   order: 8 },
 ];
-
-// Same MDCPS 2026-27 no-school set as src/director/seedCalendar.ts.
-const NO_SCHOOL = new Set([
-  '2026-08-10', '2026-08-11', '2026-08-12',
-  '2026-09-07', '2026-09-21', '2026-11-03', '2026-11-11',
-  '2026-11-23', '2026-11-24', '2026-11-25', '2026-11-26', '2026-11-27',
-  '2026-12-18',
-  '2026-12-21', '2026-12-22', '2026-12-23', '2026-12-24', '2026-12-25',
-  '2026-12-28', '2026-12-29', '2026-12-30', '2026-12-31', '2027-01-01',
-  '2027-01-15', '2027-01-18', '2027-02-15', '2027-03-10',
-  '2027-03-22', '2027-03-23', '2027-03-24', '2027-03-25', '2027-03-26',
-  '2027-03-29', '2027-05-31',
-]);
 
 (async () => {
   const batchDocs = [];
