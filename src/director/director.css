@@ -752,6 +752,21 @@ html:has(.dir-app) body {
   color: #fff;
 }
 
+/* MDCPS no-school day in the sign-up slot builder. Dimmed AND struck through:
+   a colour difference alone disappears on a phone in a hallway and says
+   nothing to a screen reader, so the strike carries the meaning and the
+   button's own aria-label names the day. Never disabled — a director may
+   legitimately hold auditions on a teacher planning day. */
+.dir-cal-cell.no-school .dir-cal-day {
+  color: var(--dir-text-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.dir-cal-cell.no-school.selected .dir-cal-day {
+  color: #fff;
+  text-decoration-color: #fff;
+}
+
 .dir-cal-dots {
   display: flex;
   gap: 2px;

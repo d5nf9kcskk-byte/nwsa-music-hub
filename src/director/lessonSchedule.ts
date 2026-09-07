@@ -39,20 +39,30 @@ export function schoolYearEnd(iso: string): string {
   return `${m >= 8 ? y + 1 : y}-05-31`;
 }
 
-/** Every date the slot falls on in [from, through], inclusive of both ends,
- *  skipping MDCPS no-school days — a standing weekly time is a school-day
- *  recipe, and MDCPS is the calendar a lesson at NWSA actually runs on. */
-export function slotDates(slot: LessonSlot, from: string, through: string): string[] {
+/**
+ * Every date the slot's weekday lands on in [from, through], school calendar
+ * ignored. Nothing calls this directly: it is the ONE bounded walk that both
+ * `slotDates()` (the days a lesson is created on) and
+ * `skippedNoSchoolDates()` (the days it deliberately was not) are filtered
+ * out of, so the two can never disagree about which weeks the slot covers.
+ * A second walk would drift the moment either side gained a rule.
+ */
+function everySlotWeekday(slot: LessonSlot, from: string, through: string): string[] {
   if (!isLessonSlot(slot) || from > through) return [];
   let d = from;
   // Walk at most a week to reach the first matching weekday, then step by 7.
   for (let i = 0; i < 7 && dayOf(d) !== slot.weekday; i++) d = addDays(d, 1);
   const out: string[] = [];
   // Bounded so a bad `through` can never spin: a school year is ~40 weeks.
-  for (let i = 0; d <= through && i < 120; i++, d = addDays(d, 7)) {
-    if (isMdcpsSchoolDay(d)) out.push(d);
-  }
+  for (let i = 0; d <= through && i < 120; i++, d = addDays(d, 7)) out.push(d);
   return out;
+}
+
+/** Every date the slot falls on in [from, through], inclusive of both ends,
+ *  skipping MDCPS no-school days — a standing weekly time is a school-day
+ *  recipe, and MDCPS is the calendar a lesson at NWSA actually runs on. */
+export function slotDates(slot: LessonSlot, from: string, through: string): string[] {
+  return everySlotWeekday(slot, from, through).filter(isMdcpsSchoolDay);
 }
 
 /**
@@ -69,6 +79,32 @@ export function pendingSlotDates(
 ): string[] {
   const taken = new Set(lessons.map(l => l.date));
   return slotDates(slot, from, through).filter(d => !taken.has(d));
+}
+
+/**
+ * The weeks the standing time covers that got no lesson because MDCPS is
+ * closed — what `slotDates()` dropped on the floor.
+ *
+ * Skipping silently is its own bug. A teacher who asks for "the rest of the
+ * year" and is handed 31 lessons instead of 34 has no way to tell a holiday
+ * from a bug in the generator, and the honest reading of a smaller number is
+ * that something went wrong. So the count is reported, both before the press
+ * and after it.
+ *
+ * A date that ALREADY has a lesson is not counted: nothing was skipped there.
+ * The teacher put a lesson on that day themselves, which is allowed — some
+ * studios do run through a teacher-planning day — and calling that "skipped"
+ * would be flatly wrong.
+ */
+export function skippedNoSchoolDates(
+  slot: LessonSlot,
+  lessons: Pick<Lesson, 'date'>[],
+  from: string,
+  through: string,
+): string[] {
+  const taken = new Set(lessons.map(l => l.date));
+  return everySlotWeekday(slot, from, through)
+    .filter(d => !isMdcpsSchoolDay(d) && !taken.has(d));
 }
 
 /**

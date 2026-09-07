@@ -37,7 +37,7 @@ import {
   type TermRef,
 } from '../lessonLog';
 import {
-  lessonPayloadsFor, lessonsOffSlot, pendingSlotDates, planHasWork, schoolYearEnd, slotChangePlan,
+  lessonPayloadsFor, lessonsOffSlot, pendingSlotDates, planHasWork, schoolYearEnd, skippedNoSchoolDates, slotChangePlan,
   slotSentence, WEEKDAY_OPTIONS, type LessonSlot, type SlotChangePlan,
 } from '../lessonSchedule';
 import { enqueueLessonLogMail } from '../lessonLogMail';
@@ -89,7 +89,7 @@ export function MyLessonsView() {
   const [editingLesson, setEditingLesson] = useState<Lesson | null | 'new'>(null);
   const [editingSlot, setEditingSlot] = useState(false);
   const [slotBusy, setSlotBusy] = useState(false);
-  const [slotAdded, setSlotAdded] = useState<{ count: number; conflicts: number } | null>(null);
+  const [slotAdded, setSlotAdded] = useState<{ count: number; conflicts: number; skipped: number } | null>(null);
   // What a just-saved change to the standing time implies for the lessons
   // already on the calendar, and what happened when the teacher pressed it.
   // Both live here rather than in the panel so switching students clears them.
@@ -265,16 +265,22 @@ export function MyLessonsView() {
    * included — see pendingSlotDates(). MDCPS no-school days are skipped too
    * (see slotDates() in lessonSchedule.ts) — a lesson never generates onto a
    * day off, holiday, or break.
+   *
+   * The no-school skips are COUNTED and reported. Silently handing back 31
+   * lessons when the year has 34 Fridays reads as a bug, not a holiday, and
+   * the teacher has no way to tell which from the screen.
    */
   async function generateFromSlot(student: Student, slot: LessonSlot) {
     if (!me) return;
     setSlotBusy(true);
     try {
       const mine = myLessons.filter(l => l.studentId === student.id);
+      const through = schoolYearEnd(today);
+      const skipped = skippedNoSchoolDates(slot, mine, today, through).length;
       const payloads = lessonPayloadsFor(
         slot, student,
         { email: directorEmailId(me.email), name: me.name },
-        mine, today, schoolYearEnd(today),
+        mine, today, through,
       );
       let conflicts = 0;
       for (const payload of payloads) {
@@ -283,7 +289,7 @@ export function MyLessonsView() {
         ).length > 0 ? 1 : 0;
         await addLesson(payload);
       }
-      setSlotAdded({ count: payloads.length, conflicts });
+      setSlotAdded({ count: payloads.length, conflicts, skipped });
     } finally {
       setSlotBusy(false);
     }
@@ -785,7 +791,7 @@ function WeeklySlotPanel({
   lessons: Lesson[];
   today: string;
   busy: boolean;
-  added: { count: number; conflicts: number } | null;
+  added: { count: number; conflicts: number; skipped: number } | null;
   plan: { slot: LessonSlot; plan: SlotChangePlan } | null;
   moved: { moved: number; pullouts: number } | null;
   editing: boolean;
@@ -798,6 +804,10 @@ function WeeklySlotPanel({
 }) {
   const through = schoolYearEnd(today);
   const pending = slot ? pendingSlotDates(slot, lessons, today, through) : [];
+  // The weeks this slot covers that MDCPS is closed for. Said BEFORE the
+  // press as well as after, so "add the remaining 31" is not quietly three
+  // short of the 34 Fridays a teacher counted on a wall calendar.
+  const noSchool = slot ? skippedNoSchoolDates(slot, lessons, today, through).length : 0;
   // Lessons still to come that do NOT sit where the standing time says. This
   // is the number the panel used to be blind to: it counted DATES, so a time
   // change on the same weekday left it announcing that the year was handled
@@ -904,6 +914,17 @@ function WeeklySlotPanel({
               ? 'Adding…'
               : `Add the remaining ${pending.length} through ${throughLabel}`}
           </button>
+          {/* Say the number BEFORE the press. A teacher who counted the
+              Fridays on a wall calendar and is offered three fewer needs to
+              know it is Thanksgiving and not a broken generator. */}
+          {noSchool > 0 && (
+            <div className="dir-page-hint" style={{ margin: '6px 0 0', padding: 0 }}>
+              {noSchool} more {noSchool === 1 ? 'week is' : 'weeks are'} skipped —
+              MDCPS is closed {noSchool === 1 ? 'that day' : 'those days'} (holiday, break,
+              or a teacher planning day). Add one by hand from “Add lesson” if you teach
+              through it.
+            </div>
+          )}
         </div>
       )}
       {/* "Every week is scheduled" and "every week is scheduled at the WRONG
@@ -930,6 +951,12 @@ function WeeklySlotPanel({
         <div className="dir-page-hint" style={{ marginTop: 0, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
           <span>
             Added {added.count} lesson{added.count === 1 ? '' : 's'}.
+            {added.skipped > 0 && (
+              <> Skipped {added.skipped} — MDCPS is closed
+              {added.skipped === 1 ? ' that day' : ' those days'} (holiday, break, or a
+              teacher planning day), so no lesson was put on
+              {added.skipped === 1 ? ' it' : ' them'}.</>
+            )}
             {added.conflicts > 0 && (
               <> {added.conflicts} of them overlap a rehearsal or class — open those below to
               confirm the pull-out, which is what tells the ensemble director.</>
