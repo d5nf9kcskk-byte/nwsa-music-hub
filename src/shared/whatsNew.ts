@@ -45,6 +45,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'That number is why “add the remaining 31” can be fewer than the Fridays you counted on a wall calendar. Fewer lessons than weeks is the school year, not a bug.',
       'If you do teach through a day off, add that lesson by hand from “Add lesson” — and a lesson you already put on a closure day is left alone, never counted as skipped.',
       'The same count appears when you turn booked sign-up times into weekly lessons.',
+      'Sign-ups: the time-slot builder now marks MDCPS no-school days in its calendar and warns you if the days you picked include one. It also tells you when a form is ALREADY offering times on a day off, which is how a booked audition ends up on a calendar for a day nobody is at school. It warns rather than blocks — you may well mean to meet on a teacher planning day.',
     ],
   },
   // Lesson times reach the people they are about (#applied). Two separate
