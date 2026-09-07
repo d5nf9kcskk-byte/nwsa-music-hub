@@ -563,6 +563,12 @@ export interface AnnouncementLink {
  *  the form that writes it. */
 export const MAX_ANNOUNCEMENT_LINKS = 6;
 
+/** Caps on the picture and file rows, for the same reason as the link cap: a
+ *  post is a notice, not an album. `announcements` is world-readable with no
+ *  per-field rule, so the bound lives here and in the form that writes it. */
+export const MAX_ANNOUNCEMENT_IMAGES = 4;
+export const MAX_ANNOUNCEMENT_FILES = 4;
+
 export interface Announcement {
   id: string;
   ensembleId: string | null; // null = school-wide
@@ -580,6 +586,16 @@ export interface Announcement {
    *  calendar. Rendered as chips under the body, and as plain addresses
    *  wherever a chip cannot go (print, the urgent Teams/email relay). */
   links?: AnnouncementLink[];
+  /** Pictures shown at full width inside the post — a flyer, an audition-times
+   *  screenshot, a seating photo. Uploaded to Storage under `announcements/`
+   *  (see storage.rules), so the URL is world-readable exactly like the post
+   *  itself: never put a picture here that isn't fit for the public site. */
+  images?: Attachment[];
+  /** Files attached to the post (PDF, Word, whatever) — shown as a download
+   *  row under the message. Same world-readable warning as `images`. Use
+   *  `links` instead when the thing already lives somewhere (Drive, a Hub
+   *  page); this is for "here is the actual file". */
+  files?: Attachment[];
   expiresOn?: string;        // YYYY-MM-DD; hidden strictly AFTER this date if set
   /** When set, hidden from the public site and the active director list. */
   archivedAt?: number;

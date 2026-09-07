@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Announcements can carry pictures and files (#announce-attachments). The
+  // ask: a full-size screenshot of the all-state audition times, readable on a
+  // phone, instead of a link out to a site families have to pinch and zoom.
+  {
+    id: '2026-09-07-announcement-pictures',
+    date: '2026-09-07',
+    title: 'Announcements can carry pictures and files',
+    audience: 'both' as const,
+    expires: '2026-09-28',
+    bullets: [
+      'Posting an announcement now takes up to four pictures and four files. A picture shows full width inside the post, so a flyer or a screenshot of an audition-times list is readable on a phone without downloading anything, and tapping it opens the original.',
+      'Files show as a download row under the message with the file size, for the PDF or form you want families to actually have. Use the existing “Related links” row when the thing already lives somewhere else.',
+      'Anything you attach is public, exactly like the post it is on. The Hub deletes a picture or file for real when you remove it from the post or delete the post.',
+    ],
+  },
   // Reported: a student left with a full Monday series AND a full Tuesday
   // series after a time change. Every move was refused as a collision and
   // filed as "set by hand", so the screen offered no way out of a mess it had
