@@ -17,8 +17,9 @@
  *   • `status` and `schoolId` are never written from a response.
  */
 import {
-  COLLEGE_GRADE, answerKey, contactWrite, guardianQuestion, intakeSummary, matchStudent, nameKey,
-  planRosterIntake, studentWrite, tidyName,
+  COLLEGE_GRADE, COLLEGE_YEAR_GRADES, answerKey, collegeYearGrade, contactWrite, guardianQuestion,
+  intakeSummary, looksLikeYearQuestion, matchStudent, nameKey, planRosterIntake, studentWrite,
+  tidyName,
 } from './signupRosterIntake.ts';
 import type {
   SignupForm, SignupResponse, Student, StudentContact,
@@ -224,6 +225,82 @@ assert(tidyName('diMaggio Rossi') === 'diMaggio Rossi', 'casing left alone');
     assert(!(answerKey(many.title, label) in rows[0].answers),
       `${label} left extra — it is a guardian detail now`);
   }
+}
+
+// ── the college YEAR is a grade, one per student ───────────────────────
+{
+  const withYear: Pick<SignupForm, 'title' | 'questions'> = {
+    title: 'College Student Information',
+    questions: [{ id: 'yr', label: 'What year are you in?', type: 'short' }],
+  };
+  const answer = (v: string) => JSON.stringify({ yr: v });
+  const rows = planRosterIntake(
+    [
+      resp({ id: 'a', studentName: 'Ada Lovelace', answersJson: answer('Freshman') }),
+      resp({ id: 'b', studentName: 'Ben Britten', answersJson: answer('2nd year') }),
+      resp({ id: 'c', studentName: 'Cyd Charisse', answersJson: answer('JR') }),
+      resp({ id: 'd', studentName: 'Dai Fujikura', answersJson: answer('Year 4') }),
+      resp({ id: 'e', studentName: 'Eva Cassidy', answersJson: answer('transfer, not sure') }),
+      resp({ id: 'f', studentName: 'Fay Wray', answersJson: answer('') }),
+    ],
+    [],
+    { ensembleIds: [], form: withYear, yearQuestionId: 'yr' },
+  );
+  const grades = rows.map(r => studentWrite(r, []).grade);
+  assert(grades[0] === 'College Freshman', 'Freshman');
+  assert(grades[1] === 'College Sophomore', '"2nd year" is a sophomore');
+  assert(grades[2] === 'College Junior', '"JR" is a junior');
+  assert(grades[3] === 'College Senior', '"Year 4" is a senior');
+  assert(grades[4] === COLLEGE_GRADE, 'an answer nobody anticipated falls back, never guesses');
+  assert(grades[5] === COLLEGE_GRADE, 'and so does a blank');
+  // Whatever they typed is still on the record — the fallback loses nothing.
+  assert(rows[4].answers[answerKey(withYear.title, 'What year are you in?')] === 'transfer, not sure',
+    'the raw answer is kept regardless');
+  // One import, four different grades: the whole point.
+  assert(new Set(grades).size === 5, 'the cohort does not share one grade');
+  // Every college grade still reads as College, so the roster search that
+  // finds the cohort keeps working.
+  for (const g of COLLEGE_YEAR_GRADES) assert(g.startsWith(COLLEGE_GRADE), `${g} starts with College`);
+  // And none of them trips the high-school branches.
+  for (const g of COLLEGE_YEAR_GRADES) {
+    assert(!g.startsWith('12') && !g.startsWith('9'), `${g} is not a high-school grade`);
+  }
+}
+
+// ── reading the year out of what students actually type ────────────────
+{
+  const cases: [string, string | null][] = [
+    ['freshman', 'College Freshman'], ['1st year', 'College Freshman'],
+    ['First Year', 'College Freshman'], ['1', 'College Freshman'],
+    ['Sophomore', 'College Sophomore'], ['soph', 'College Sophomore'],
+    ['Year 2', 'College Sophomore'], ['2', 'College Sophomore'],
+    ['junior', 'College Junior'], ['3rd year', 'College Junior'],
+    ['senior', 'College Senior'], ['Sr.', 'College Senior'], ['4', 'College Senior'],
+    ['', null], ['n/a', null], ['grad student', null],
+  ];
+  for (const [input, want] of cases) {
+    assert(collegeYearGrade(input) === want, `"${input}" → ${want ?? 'null'}`);
+  }
+  assert(looksLikeYearQuestion('What year are you in?'), 'a year question is spotted');
+  assert(looksLikeYearQuestion('College classification'), 'so is "classification"');
+  assert(!looksLikeYearQuestion('What instrument do you play?'), 'an instrument question is not');
+}
+
+// ── a year the FIRST response left blank is filled by a later one ──────
+{
+  const withYear: Pick<SignupForm, 'title' | 'questions'> = {
+    title: 'College Student Information',
+    questions: [{ id: 'yr', label: 'What year are you in?', type: 'short' }],
+  };
+  const rows = planRosterIntake(
+    [
+      resp({ id: 'r1', answersJson: JSON.stringify({ yr: '' }) }),
+      resp({ id: 'r2', answersJson: JSON.stringify({ yr: 'Sophomore' }) }),
+    ],
+    [],
+    { ensembleIds: [], form: withYear, yearQuestionId: 'yr' },
+  );
+  assert(studentWrite(rows[0], []).grade === 'College Sophomore', 'the second send supplies the year');
 }
 
 // ── reading a question label ───────────────────────────────────────────

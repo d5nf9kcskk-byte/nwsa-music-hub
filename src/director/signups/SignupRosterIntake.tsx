@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { UserPlus, AlertTriangle, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import {
-  COLLEGE_GRADE, contactWrite, intakeSummary, planRosterIntake, studentWrite,
+  COLLEGE_GRADE, contactWrite, intakeSummary, looksLikeYearQuestion, planRosterIntake, studentWrite,
   type IntakeChoice, type IntakeChoices, type IntakeFieldKey, type IntakeRow,
 } from '../../shared/signupRosterIntake';
 import { classGroups, ensembleColor, performingEnsembles } from '../utils';
@@ -46,6 +46,11 @@ export function SignupRosterIntake({
 }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [grade, setGrade] = useState(COLLEGE_GRADE);
+  // Preselect the question that asks for the year, so the common case — a
+  // college intake form that has one — needs no configuration at all.
+  const [yearQuestionId, setYearQuestionId] = useState(
+    () => (form.questions ?? []).find(q => looksLikeYearQuestion(q.label))?.id ?? '',
+  );
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState('');
@@ -63,10 +68,11 @@ export function SignupRosterIntake({
     () => planRosterIntake(responses, students, {
       ensembleIds: picked,
       grade: grade.trim() || COLLEGE_GRADE,
+      yearQuestionId: yearQuestionId || undefined,
       form,
       contacts,
     }),
-    [responses, students, contacts, picked, grade, form],
+    [responses, students, contacts, picked, grade, yearQuestionId, form],
   );
   const counts = intakeSummary(rows);
   const nothingToDo = counts.create === 0 && counts.update === 0;
@@ -168,7 +174,27 @@ export function SignupRosterIntake({
           </div>
 
           <div className="dir-field dir-signup-intake-grade">
-            <label htmlFor="intake-grade">Grade to record</label>
+            <label htmlFor="intake-year-q">Year each student is in</label>
+            <select
+              id="intake-year-q"
+              className="dir-input"
+              value={yearQuestionId}
+              onChange={ev => setYearQuestionId(ev.target.value)}
+            >
+              <option value="">Everyone gets the same grade</option>
+              {(form.questions ?? []).map(q => (
+                <option key={q.id} value={q.id}>Read it from “{q.label}”</option>
+              ))}
+            </select>
+            <div className="dir-signup-help">
+              {yearQuestionId
+                ? `Freshman, sophomore, junior and senior are read from each student’s own answer — “1st year”, “Soph”, “Year 3” and the rest all land in the right place. Anyone whose answer isn’t one of the four gets “${grade}”, and what they typed stays on their contact record either way.`
+                : 'Pick the question that asks what year they are in and each student gets their own grade, instead of the whole cohort sharing one.'}
+            </div>
+          </div>
+
+          <div className="dir-field dir-signup-intake-grade">
+            <label htmlFor="intake-grade">{yearQuestionId ? 'Grade when the year is missing' : 'Grade to record'}</label>
             <input
               id="intake-grade"
               className="dir-input"
@@ -241,12 +267,20 @@ function IntakeRowView({ row, choices, expanded, onToggle, onChoose }: {
     return !!value && value !== f.current;
   });
   const answers = Object.entries(row.answers);
+  const gradeField = row.fields.find(f => f.key === 'grade');
+  const gradeGoing = gradeField
+    ? ((choices?.grade ?? gradeField.choice) === 'incoming' ? gradeField.incoming : gradeField.current)
+    : '';
 
   return (
     <div className={`dir-signup-intake-row ${row.action}`}>
       <button className="dir-signup-intake-head" onClick={onToggle} aria-expanded={expanded}>
         {expanded ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
         <span className="who">{row.name}</span>
+        {/* The grade on the headline, because with a year question in play
+            these differ person to person and the whole point is seeing that
+            without opening twenty rows. */}
+        {gradeGoing && <span className="dir-signup-intake-grade-chip">{gradeGoing}</span>}
         <span className="what">
           {row.action === 'create' && 'New student'}
           {row.action === 'update' && 'Already on the roster'}

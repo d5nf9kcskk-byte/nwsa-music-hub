@@ -51,6 +51,58 @@ import { parseAnswers } from './signupAppointments';
  *  the concert check-in list and the CSV all read the same word. */
 export const COLLEGE_GRADE = 'College';
 
+/**
+ * A college student HAS a year, and it belongs in `grade` (#signups).
+ *
+ * `grade` is the app's one answer to "what year is this person in", and the
+ * privacy model already makes it public (session note, 2026-08-13). A college
+ * freshman and a college senior are no more the same thing than a 9th and a
+ * 12th grader, so stamping every dual-enrollment student a flat "College"
+ * throws away something the form asked for and the director needs — who
+ * graduates this spring, who is here for three more years.
+ *
+ * These strings all START with "College" on purpose: the roster search matches
+ * a substring, so searching "College" still returns the whole cohort, and the
+ * high-school branches elsewhere (`grade.startsWith('12')` for seniors,
+ * `startsWith('9')` for theory placement) keep missing them, which is correct
+ * — a college senior is not a graduating 12th grader.
+ */
+export const COLLEGE_YEAR_GRADES = [
+  'College Freshman', 'College Sophomore', 'College Junior', 'College Senior',
+] as const;
+export type CollegeYearGrade = (typeof COLLEGE_YEAR_GRADES)[number];
+
+/** How students actually answer "which year are you in". Ordered longest-
+ *  first within each year so "2nd year" is not read by the "1" rule. */
+const COLLEGE_YEAR_PATTERNS: [RegExp, CollegeYearGrade][] = [
+  [/fresh(man|men)?|\bfr\b|first[\s-]*year|1st[\s-]*year|\byear\s*1\b|^\s*1\s*$/i, 'College Freshman'],
+  [/soph(omore)?|\bso\b|second[\s-]*year|2nd[\s-]*year|\byear\s*2\b|^\s*2\s*$/i, 'College Sophomore'],
+  [/junior|\bjr\b|third[\s-]*year|3rd[\s-]*year|\byear\s*3\b|^\s*3\s*$/i, 'College Junior'],
+  [/senior|\bsr\b|fourth[\s-]*year|4th[\s-]*year|\byear\s*4\b|^\s*4\s*$/i, 'College Senior'],
+];
+
+/**
+ * Read a typed college year into a grade, or `null` when the answer is not one
+ * this recognises. Null is not a failure: the student keeps the fallback grade
+ * the director set, and the raw answer stays on their contact record either
+ * way, so nothing said on the form is lost by a wording nobody anticipated.
+ */
+export function collegeYearGrade(answer: string): CollegeYearGrade | null {
+  const a = (answer ?? '').trim();
+  if (!a) return null;
+  // "Senior" beats "Freshman" in "Senior (was Freshman last year)" only by
+  // being the first match found, so scan in order and take the first hit.
+  for (const [re, grade] of COLLEGE_YEAR_PATTERNS) if (re.test(a)) return grade;
+  return null;
+}
+
+/** Does this question look like it asks for the college year? Used to preselect
+ *  the right question so the common case needs no configuration. */
+export function looksLikeYearQuestion(label: string): boolean {
+  return /\b(year|classification|standing|grade\s*level)\b/i.test(label)
+    || /fresh(man|men)|sophomore/i.test(label);
+}
+
 /** How a guardian arriving from a sign-up is labelled. The form asks for a
  *  name and an address, not a relation. */
 export const SIGNUP_GUARDIAN_RELATION = 'Parent/Guardian';
@@ -134,8 +186,14 @@ export interface IntakeRow {
 export interface IntakePlanOptions {
   /** Groups every imported student joins — ensembles and/or classes. */
   ensembleIds: string[];
-  /** Grade to stamp. Defaults to `COLLEGE_GRADE`. */
+  /** Grade to stamp when the year cannot be read from an answer. Defaults to
+   *  `COLLEGE_GRADE`. */
   grade?: string;
+  /** Question whose answer carries the student's college year. When set, each
+   *  student's grade is read from THEIR answer (`collegeYearGrade`) and only
+   *  falls back to `grade` when the answer is blank or unrecognised — so one
+   *  import can produce four different grades, which is the point. */
+  yearQuestionId?: string;
   /** The form, for question labels and the namespace answers are filed under. */
   form?: Pick<SignupForm, 'title' | 'questions'>;
   /** Existing contact docs, keyed by student id. */
@@ -311,7 +369,7 @@ export function planRosterIntake(
   students: Student[],
   opts: IntakePlanOptions,
 ): IntakeRow[] {
-  const grade = (opts.grade ?? COLLEGE_GRADE).trim() || COLLEGE_GRADE;
+  const fallbackGrade = (opts.grade ?? COLLEGE_GRADE).trim() || COLLEGE_GRADE;
   const wanted = opts.ensembleIds.filter(Boolean);
   const contacts = opts.contacts ?? {};
   const rows: IntakeRow[] = [];
@@ -326,9 +384,15 @@ export function planRosterIntake(
     const key = nameKey(name);
     const earlier = key ? claimed.get(key) : undefined;
     const { answers, guardians: extraGuardians } = splitAnswers(response, opts.form);
+    // THEIR year, not the cohort's. A blank or a wording this doesn't know
+    // falls back rather than guessing — and the raw answer is on the contact
+    // record regardless, so the director can see what they actually typed.
+    const grade = (opts.yearQuestionId
+      ? collegeYearGrade(parseAnswers(response)[opts.yearQuestionId] ?? '')
+      : null) ?? fallbackGrade;
 
     if (earlier !== undefined) {
-      mergeLaterResponse(rows[earlier], response, answers, extraGuardians);
+      mergeLaterResponse(rows[earlier], response, answers, extraGuardians, grade, fallbackGrade);
       rows.push({
         response, action: 'same', name, match: rows[earlier].match,
         addedEnsembleIds: [], fields: [], answers: {}, extraGuardians: [],
@@ -395,7 +459,15 @@ function mergeLaterResponse(
   later: SignupResponse,
   answers: Record<string, string>,
   guardians: Guardian[],
+  grade: string,
+  fallbackGrade: string,
 ): void {
+  // A year the first response left blank is exactly the kind of gap a second
+  // send exists to fill, so an actual year beats the fallback here too.
+  const gradeField = first.fields.find(f => f.key === 'grade');
+  if (gradeField && grade !== fallbackGrade && gradeField.incoming === fallbackGrade) {
+    gradeField.incoming = grade;
+  }
   const from: Record<IntakeFieldKey, string> = {
     instrument: later.instrument ?? '',
     grade: '',
