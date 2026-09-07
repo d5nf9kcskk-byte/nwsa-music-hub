@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // The no-school skip already shipped; this is the other half of it. Dropping
+  // weeks without saying so reads as a broken generator, not a holiday.
+  {
+    id: '2026-09-07-no-school-skips-counted',
+    date: '2026-09-07',
+    title: 'Lesson generation says how many weeks it skipped for holidays',
+    audience: 'staff' as const,
+    expires: '2026-09-28',
+    bullets: [
+      'Applied teachers: weekly lesson generation already skips MDCPS closures, so no lesson lands on Labor Day, Thanksgiving, winter or spring break, or a teacher planning day. It now tells you how many weeks it skipped, both on the button before you press it and in the confirmation after.',
+      'That number is why “add the remaining 31” can be fewer than the Fridays you counted on a wall calendar. Fewer lessons than weeks is the school year, not a bug.',
+      'If you do teach through a day off, add that lesson by hand from “Add lesson” — and a lesson you already put on a closure day is left alone, never counted as skipped.',
+      'The same count appears when you turn booked sign-up times into weekly lessons.',
+    ],
+  },
   // Lesson times reach the people they are about (#applied). Two separate
   // holes, reported together: changing a standing weekly time never moved the
   // lessons it had already created, and `lessonsPublic` had no reader on the

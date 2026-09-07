@@ -15,7 +15,7 @@ import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useLessons } from '../hooks/useLessons';
 import { findLessonConflicts } from '../lessonConflicts';
-import { lessonPayloadsFor, schoolYearEnd } from '../lessonSchedule';
+import { lessonPayloadsFor, schoolYearEnd, skippedNoSchoolDates } from '../lessonSchedule';
 import { planLessonsFromSignup } from '../../shared/signupToLessons';
 import { directorRoleLabels, directorRoles, hasDirectorRole, isStaffMember } from '../directorRoles';
 import { useCurrentDirector } from '../currentDirector';
@@ -709,7 +709,7 @@ function SignupLessonConverter({ form, bookings, students, today }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<
-    { people: number; lessons: number; conflicts: number; replaced: number } | null
+    { people: number; lessons: number; conflicts: number; replaced: number; skipped: number } | null
   >(null);
 
   const plan = useMemo(
@@ -751,12 +751,17 @@ function SignupLessonConverter({ form, bookings, students, today }: {
 
       let made = 0;
       let conflicts = 0;
+      let skipped = 0;
       for (const p of plan.planned) {
         const mine = lessons.filter(l => l.teacherEmail === myId && l.studentId === p.student.id);
         // Never backfill: a booked date that has already passed starts the
         // series today instead. Creating lessons in the past would file
         // ungraded sheets for weeks nobody taught.
         const from = p.firstDate > today ? p.firstDate : today;
+        // Counted per person and summed: the same skip the teacher's own
+        // sheet reports, for the same reason. A booking that yields fewer
+        // lessons than weeks must say why.
+        skipped += skippedNoSchoolDates(p.slot, mine, from, through).length;
         const payloads = lessonPayloadsFor(
           p.slot, p.student, { email: myId, name: me.name }, mine, from, through,
         );
@@ -774,6 +779,7 @@ function SignupLessonConverter({ form, bookings, students, today }: {
         lessons: made,
         conflicts,
         replaced: replacing.length,
+        skipped,
       });
       setConfirming(false);
     } catch (e) {
@@ -795,6 +801,7 @@ function SignupLessonConverter({ form, bookings, students, today }: {
             Added <strong>{result.people}</strong> standing {result.people === 1 ? 'time' : 'times'} and{' '}
             <strong>{result.lessons}</strong> {result.lessons === 1 ? 'lesson' : 'lessons'} through {formatDate(through)}.
             {result.replaced > 0 && ` ${result.replaced} replaced a time you had already set.`}
+            {result.skipped > 0 && ` Skipped ${result.skipped} ${result.skipped === 1 ? 'week' : 'weeks'} MDCPS is closed.`}
           </p>
           {result.conflicts > 0 && (
             <p className="dir-signup-hint">

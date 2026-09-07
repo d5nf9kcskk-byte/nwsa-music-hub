@@ -18,7 +18,7 @@
  */
 import {
   isLessonSlot, lessonMatchesSlot, lessonsOffSlot, pendingSlotDates, planHasWork, schoolYearEnd,
-  slotChangePlan, slotDates, slotSentence, type LessonSlot,
+  skippedNoSchoolDates, slotChangePlan, slotDates, slotSentence, type LessonSlot,
 } from './lessonSchedule';
 import { MDCPS_NO_SCHOOL } from '../shared/academicCalendars.ts';
 import type { Lesson } from './types';
@@ -54,6 +54,32 @@ const monday: LessonSlot = { weekday: 1, startTime: '14:00', endTime: '14:45' };
 assert(MDCPS_NO_SCHOOL.has('2026-09-07'), 'fixture assumption: Labor Day is in MDCPS_NO_SCHOOL');
 const laborWeek = slotDates(monday, '2026-09-01', '2026-09-14');
 assert(laborWeek.join(',') === '2026-09-14', `Labor Day Monday is skipped, got ${laborWeek.join(',')}`);
+
+// ...and the skip is COUNTABLE. Dropping a week silently reads as a broken
+// generator, so every consumer can say how many and why.
+const laborSkips = skippedNoSchoolDates(monday, [], '2026-09-01', '2026-09-14');
+assert(laborSkips.join(',') === '2026-09-07', `Labor Day is reported as skipped, got ${laborSkips.join(',')}`);
+
+// The two halves partition the walk: every weekday the slot lands on is
+// either generated or reported as skipped, never both and never neither.
+// This is what a second, independent walk would eventually break.
+{
+  const from = '2026-09-01';
+  const through = '2027-05-31';
+  const kept = slotDates(monday, from, through);
+  const dropped = skippedNoSchoolDates(monday, [], from, through);
+  const all = new Set([...kept, ...dropped]);
+  assert(all.size === kept.length + dropped.length, 'kept and skipped never overlap');
+  assert(kept.every(d => !dropped.includes(d)), 'a generated date is never also reported skipped');
+  assert(dropped.length > 0, 'a full school year hits at least one MDCPS closure');
+  assert(dropped.every(d => MDCPS_NO_SCHOOL.has(d)), 'every skipped date is a real MDCPS closure');
+}
+
+// A date that already HAS a lesson was not skipped — the teacher put it there
+// on purpose, and some studios do teach through a planning day. Counting it
+// as skipped would tell them the Hub refused something it never touched.
+assert(skippedNoSchoolDates(monday, [{ date: '2026-09-07' }], '2026-09-01', '2026-09-14').length === 0,
+  'a hand-made lesson on a closure day is not a skip');
 
 // A date that already has a lesson is never offered again — cancelled included.
 const existing: Pick<Lesson, 'date'>[] = [{ date: '2026-09-04' }, { date: '2026-09-18' }];
