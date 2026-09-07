@@ -36,6 +36,7 @@ import { normalizeTimeslotQuestion, signupQuestionHasContent } from '../../share
 import { deleteStoredFile } from '../storageCleanup';
 import { SignupSlotBuilder } from './SignupSlotBuilder';
 import { SignupAppointmentsFeedPanel } from './SignupAppointmentsFeedPanel';
+import { SignupRosterIntake } from './SignupRosterIntake';
 import { byLastName, emailList, exportSlug, namesList, responsesToCsv } from './signupsExport';
 import { allStateTemplate } from './signupTemplates';
 import { ORG } from '../../org';
@@ -77,7 +78,7 @@ export function SignupsView() {
   const { responses, setStatus, remove } = useSignupResponses();
   const { byFormId: audiences } = useSignupAudiences();
   const { byFormId: owners } = useSignupOwners();
-  const { students } = useStudents();
+  const { students, addStudent, updateStudent } = useStudents();
   const { ensembles } = useEnsembles();
   const { directors } = useDirectors();
   const me = useCurrentDirector();
@@ -168,6 +169,9 @@ export function SignupsView() {
           onToggleClosed={() => void updateForm(open.id, { closed: !open.closed })}
           onExtend={deadline => void updateForm(open.id, { deadline })}
           onSetStatus={setStatus}
+          canManageRoster={isStaffMember(me)}
+          onAddStudent={addStudent}
+          onUpdateStudent={updateStudent}
           onRemoveResponse={remove}
           onDelete={async () => { await deleteForm(open.id); setOpenId(null); }}
         />
@@ -257,12 +261,19 @@ interface DetailProps {
   onToggleClosed: () => void;
   onExtend: (deadline: string) => void;
   onSetStatus: (id: string, status: SignupResponse['status']) => Promise<void>;
+  /** May this viewer write the roster? Student Assistants read sign-ups but
+   *  never create students — firestore.rules would refuse the write, so the
+   *  intake panel is not offered to them. */
+  canManageRoster: boolean;
+  onAddStudent: (data: Omit<Student, 'id'>) => Promise<string | undefined>;
+  onUpdateStudent: (id: string, data: Partial<Omit<Student, 'id'>>) => Promise<void>;
   onRemoveResponse: (id: string) => Promise<void>;
   onDelete: () => Promise<void>;
 }
 
 function SignupDetail({
   form, responses, students, iOwn, ensembles, audiences, today, now,
+  canManageRoster, onAddStudent, onUpdateStudent,
   onBack, onEdit, onToggleClosed, onExtend, onSetStatus, onRemoveResponse, onDelete,
 }: DetailProps) {
   const printRef = useRef<HTMLDivElement>(null);
@@ -521,6 +532,19 @@ function SignupDetail({
           </article>
         );
       })}
+
+      {/* Straight into the roster (#signups). Only the responses that still
+          count: a withdrawn one is a person who took their name back. */}
+      {canManageRoster && (
+        <SignupRosterIntake
+          responses={active}
+          students={students}
+          ensembles={ensembles}
+          onAddStudent={onAddStudent}
+          onUpdateStudent={onUpdateStudent}
+          onSetStatus={onSetStatus}
+        />
+      )}
 
       {/* Who hasn't answered — the chase-up list. */}
       {waiting.length > 0 && (

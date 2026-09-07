@@ -32,6 +32,22 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Sign-up responses go straight into the roster (#signups). An open sign-up
+  // is the intake for people who have no student record yet, and the second
+  // half of that job was a human retyping every name on the Roster screen.
+  {
+    id: '2026-09-07-signup-roster-intake',
+    date: '2026-09-07',
+    title: 'Sign-up responses can go straight into the roster',
+    audience: 'staff' as const,
+    expires: '2026-09-28',
+    bullets: [
+      'Open a sign-up and look under the responses: “Add to the roster” turns everyone who answered into student records, in one press. Tick the groups they all join — Symphony and College Chamber for the college cohort, a theory section next term — and they join those and keep every group they are already in.',
+      'You see the whole plan before anything is written: who is new, who is already on the roster and what changes on their record, and who already has all of it. Running it twice adds nobody twice.',
+      'People who already exist are matched by the name they typed, so that row says so. If two students on the roster have the same name the Hub refuses to guess and offers a new record instead — check that one yourself.',
+      'Everyone imported gets marked “In the system”, so the tick you used to set by hand after typing a name is already done. Nothing else on their record is touched: no status change, no school ID, no contacts.',
+    ],
+  },
   // Lesson times reach the people they are about (#applied). Two separate
   // holes, reported together: changing a standing weekly time never moved the
   // lessons it had already created, and `lessonsPublic` had no reader on the
