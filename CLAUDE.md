@@ -439,6 +439,17 @@ copies.
   or address and adds otherwise), and `status`/`schoolId` are never written
   from a response. Writes go through `useStudents`/`useContacts` so the public
   mirror stays batched with its source doc.
+  A college student's YEAR is a grade: `grade` is the app's one answer to
+  "what year is this person in", so dual-enrollment students carry
+  `College Freshman`/`Sophomore`/`Junior`/`Senior` (`COLLEGE_YEAR_GRADES`),
+  read per student from whichever question asks for it (`yearQuestionId` +
+  `collegeYearGrade()`), never a flat `College` for the whole cohort. Those
+  strings all START with "College" on purpose — the roster search is a
+  substring match, so the cohort is still one search — and none of them
+  matches the high-school branches (`startsWith('12')` for seniors,
+  `startsWith('9')` for theory placement), which is correct: a college senior
+  is not a graduating 12th grader. An answer it cannot read falls back to the
+  plain grade rather than guessing, and the raw text stays in `extra`.
   A family is not one parent: the signature block holds ONE guardian, so the
   others arrive as questions the director wrote, and `guardianQuestion()`
   reads a label naming both a person (mother / father / guardian / parent 2 /

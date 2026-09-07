@@ -443,3 +443,12 @@
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
   color: var(--dir-text-muted);
 }
+
+/* The grade going onto each row, on the headline: with a year question in
+ * play these differ person to person (#signups). */
+.dir-signup-intake-grade-chip {
+  padding: 2px 7px; font-size: 11.5px; white-space: nowrap;
+  color: var(--dir-text-muted);
+  background: var(--dir-surface-2);
+  border: 1px solid var(--dir-border); border-radius: 999px;
+}
