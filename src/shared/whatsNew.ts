@@ -43,9 +43,10 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     expires: '2026-09-28',
     bullets: [
       'Open a sign-up and look under the responses: “Add to the roster” turns everyone who answered into student records, in one press. Tick the groups they all join — Symphony and College Chamber for the college cohort, a theory section next term — and they join those and keep every group they are already in.',
+      'Everything they filled in comes across, not just the name: instrument and grade onto the student, and email, phone, the parent/guardian and the answers to your questions onto their contact record, which stays staff-only.',
       'You see the whole plan before anything is written: who is new, who is already on the roster and what changes on their record, and who already has all of it. Running it twice adds nobody twice.',
-      'People who already exist are matched by the name they typed, so that row says so. If two students on the roster have the same name the Hub refuses to guess and offers a new record instead — check that one yourself.',
-      'Everyone imported gets marked “In the system”, so the tick you used to set by hand after typing a name is already done. Nothing else on their record is touched: no status change, no school ID, no contacts.',
+      'People who already exist are matched by the name they typed, so that row says so. Where the roster and the form disagree about a field, you pick which one is right — the fuller answer is chosen for you, so you are only flipping the exceptions. If two students on the roster have the same name the Hub refuses to guess and offers a new record instead.',
+      'Everyone imported gets marked “In the system”, so the tick you used to set by hand after typing a name is already done. Nothing gets blanked: an existing guardian is kept and the signed-up one added beside them, and no status or school ID is ever written from a form.',
     ],
   },
   // Lesson times reach the people they are about (#applied). Two separate

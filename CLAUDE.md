@@ -386,6 +386,26 @@ copies.
   let anyone overwrite someone else's signed form. A student who comes back
   creates a second doc; `latestPerStudent()` keeps the newest. Keep it that
   way.
+- **An open sign-up is an INTAKE, so it feeds the roster** (Sept 2026).
+  `src/shared/signupRosterIntake.ts` is the ONE definition of what a response
+  becomes: who is new, who is already on the roster, and field by field what
+  each record ends up saying. College forced it — a dual-enrollment student
+  reaches the school through the form and nothing else, so whatever they typed
+  is the only record there will ever be, and all of it has to land. Split by
+  sensitivity, not convenience: name / instrument / grade / ensembles on the
+  `students` doc, and email, phone, the guardian and every free-text answer in
+  `contacts` (answers under `contacts.extra`, the bucket that already exists
+  to lose nothing) — because the student doc is mirrored to the
+  world-readable `studentsPublic` and an address typed into a public form must
+  never ride along. The plan is shown in full before any write, since a typed
+  name is the only anchor an open response has. Four promises pinned by
+  `signupRosterIntake.selfcheck.ts` in the deploy workflow: an import never
+  REMOVES an ensemble or blanks a field, an ambiguous name resolves to NOBODY
+  rather than to the wrong student, an existing guardian is never replaced by
+  the one who signed (a guardian is a person, not a value — it merges by name
+  or address and adds otherwise), and `status`/`schoolId` are never written
+  from a response. Writes go through `useStudents`/`useContacts` so the public
+  mirror stays batched with its source doc.
 - Answers ride in ONE bounded `answersJson` string, not a map: rules can
   bound a string's length but can't reach inside a map to bound its values.
   Read it with `parseAnswers()`, which never throws.
