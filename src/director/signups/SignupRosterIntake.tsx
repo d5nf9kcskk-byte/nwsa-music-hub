@@ -152,8 +152,9 @@ export function SignupRosterIntake({
         <div className="dir-signup-intake">
           <div className="dir-signup-help">
             Everyone imported joins the groups you tick and keeps every group they are already in.
-            Email, phone, the parent/guardian and the answers to your questions go to their contact
-            record, which stays staff-only.
+            Email, phone, every parent/guardian the form names — the one who signed and any your own
+            questions ask about — and the rest of the answers go to their contact record, which stays
+            staff-only.
           </div>
 
           <div className="dir-signup-intake-groups" role="group" aria-label="Groups these students join">
@@ -307,6 +308,25 @@ function IntakeRowView({ row, choices, expanded, onToggle, onChoose }: {
             );
           })}
 
+          {row.extraGuardians.length > 0 && (
+            <>
+              <div className="dir-signup-intake-line subhead">
+                Parents/guardians from your questions ({row.extraGuardians.length})
+              </div>
+              {row.extraGuardians.map((g, i) => (
+                <div key={`${g.relation ?? ''}-${i}`} className="dir-signup-intake-line">
+                  <span className="k">{g.relation ?? 'Parent/guardian'}</span>
+                  <span className="v">
+                    {[g.name, g.email, g.phone].filter(Boolean).join(' · ')}
+                  </span>
+                </div>
+              ))}
+              <div className="dir-signup-intake-line note">
+                Added beside anyone already recorded — nobody is replaced.
+              </div>
+            </>
+          )}
+
           {answers.length > 0 && (
             <>
               <div className="dir-signup-intake-line subhead">
@@ -326,7 +346,7 @@ function IntakeRowView({ row, choices, expanded, onToggle, onChoose }: {
             </>
           )}
 
-          {row.action === 'same' && !writes.length && !answers.length && (
+          {row.action === 'same' && !writes.length && !answers.length && !row.extraGuardians.length && (
             <div className="dir-signup-intake-line note">Nothing to write — this record already says all of it.</div>
           )}
         </div>

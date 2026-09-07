@@ -122,6 +122,10 @@ export interface IntakeRow {
   fields: IntakeField[];
   /** Free-text answers, keyed as they will appear in `contacts.extra`. */
   answers: Record<string, string>;
+  /** Guardians beyond the one on the signature block, read out of the form's
+   *  own questions ("Mother's email", "Parent 2 phone"). Each is merged into
+   *  `contacts.guardians` on its own — a family can have as many as it has. */
+  extraGuardians: Guardian[];
   /** Answer keys already on the contact doc with a DIFFERENT value — the one
    *  part of `extra` this import overwrites, so the screen can say so. */
   answersOverwritten: string[];
@@ -198,17 +202,99 @@ export function answerKey(formTitle: string, label: string): string {
   return `${form} — ${label.trim()}`;
 }
 
-function answersFor(
+/**
+ * A family is not one parent (#signups). The signature block on a sign-up has
+ * room for exactly one guardian, so any others reach us as ordinary questions
+ * the director wrote — "Mother's email", "Father — cell", "Parent 2 name" —
+ * and dumping those into `contacts.extra` as loose text would mean the second
+ * parent is on the record but not reachable from the place that lists
+ * parents. `StudentContact.guardians` is already unlimited, so the fix is to
+ * READ the questions rather than to add a field: every question that names a
+ * person and a detail becomes another entry in that list.
+ *
+ * Matching is on the label the director typed, so it is a heuristic, and it
+ * is built to under-claim: a question has to name BOTH a person (mother,
+ * father, guardian, parent 2, emergency contact …) and a detail (name, email,
+ * phone, relation) before it is read as a guardian. Anything else — and
+ * anything that smells like a consent line rather than a contact — stays in
+ * `extra` exactly as before. The director sees every guardian this produced
+ * in the plan before a word of it is written.
+ */
+const GUARDIAN_PERSON_WORDS: [RegExp, string][] = [
+  [/step\s*-?\s*(mother|mom)/, 'Stepmother'],
+  [/step\s*-?\s*(father|dad)/, 'Stepfather'],
+  [/\b(mother|mom|mum)\b/, 'Mother'],
+  [/\b(father|dad)\b/, 'Father'],
+  [/\bgrand\s*-?\s*(mother|ma)\b/, 'Grandmother'],
+  [/\bgrand\s*-?\s*(father|pa)\b/, 'Grandfather'],
+  [/\bemergency\s+contact\b/, 'Emergency contact'],
+  [/\bguardian\b/, 'Guardian'],
+  [/\bparent\b/, 'Parent'],
+];
+
+const GUARDIAN_DETAIL_WORDS: [RegExp, keyof Guardian][] = [
+  [/\be-?mail\b/, 'email'],
+  [/\b(phone|cell|mobile|telephone)\b/, 'phone'],
+  [/\brelation(ship)?\b/, 'relation'],
+  [/\bname\b/, 'name'],
+];
+
+/** A consent line is not a contact detail, whoever it names. */
+const NOT_A_CONTACT = /signature|signed|consent|permission|agree|initial|acknowledg|authoriz/;
+
+interface GuardianQuestion {
+  /** Which person this answer is about: "Mother", "Parent 2", … */
+  person: string;
+  detail: keyof Guardian;
+}
+
+/** Read a question label as "which guardian, which detail", or `null` when it
+ *  is not about a guardian at all. Exported for the self-check. */
+export function guardianQuestion(label: string): GuardianQuestion | null {
+  const l = label.toLowerCase();
+  if (NOT_A_CONTACT.test(l)) return null;
+  const person = GUARDIAN_PERSON_WORDS.find(([re]) => re.test(l));
+  if (!person) return null;
+  const detail = GUARDIAN_DETAIL_WORDS.find(([re]) => re.test(l));
+  if (!detail) return null;
+  // "Parent 2", "Guardian #3" — the number is what separates one person from
+  // the next when the director used the same word twice.
+  const n = l.match(/\b(?:#\s*)?([2-9])\b/);
+  return { person: n ? `${person[1]} ${n[1]}` : person[1], detail: detail[1] };
+}
+
+/**
+ * Split a response's answers into the guardians they describe and everything
+ * else. An answer read as a guardian detail leaves `extra` — it is on the
+ * record in a better place, and keeping both would have the second parent's
+ * phone number in two spellings that can then drift.
+ */
+function splitAnswers(
   response: SignupResponse,
   form: IntakePlanOptions['form'],
-): Record<string, string> {
+): { answers: Record<string, string>; guardians: Guardian[] } {
   const values = parseAnswers(response);
-  const out: Record<string, string> = {};
+  const answers: Record<string, string> = {};
+  const byPerson = new Map<string, Guardian>();
+
   for (const q of (form?.questions ?? []) as SignupQuestion[]) {
     const v = (values[q.id] ?? '').trim();
-    if (v) out[answerKey(form?.title ?? '', q.label)] = v;
+    if (!v) continue;
+    const g = guardianQuestion(q.label);
+    if (!g) {
+      answers[answerKey(form?.title ?? '', q.label)] = v;
+      continue;
+    }
+    const entry = byPerson.get(g.person) ?? { relation: g.person };
+    // First answer wins per detail: two questions claiming the same slot for
+    // the same person is the director's ambiguity, not ours to resolve.
+    if (entry[g.detail] === undefined) entry[g.detail] = v;
+    byPerson.set(g.person, entry);
   }
-  return out;
+
+  // A row with nothing but the relation we inferred is not a person.
+  const guardians = [...byPerson.values()].filter(g => g.name || g.email || g.phone);
+  return { answers, guardians };
 }
 
 /**
@@ -239,13 +325,14 @@ export function planRosterIntake(
     const name = tidyName(response.studentName ?? '');
     const key = nameKey(name);
     const earlier = key ? claimed.get(key) : undefined;
-    const answers = answersFor(response, opts.form);
+    const { answers, guardians: extraGuardians } = splitAnswers(response, opts.form);
 
     if (earlier !== undefined) {
-      mergeLaterResponse(rows[earlier], response, answers);
+      mergeLaterResponse(rows[earlier], response, answers, extraGuardians);
       rows.push({
         response, action: 'same', name, match: rows[earlier].match,
-        addedEnsembleIds: [], fields: [], answers: {}, answersOverwritten: [],
+        addedEnsembleIds: [], fields: [], answers: {}, extraGuardians: [],
+        answersOverwritten: [],
       });
       continue;
     }
@@ -287,6 +374,7 @@ export function planRosterIntake(
       addedEnsembleIds,
       fields,
       answers,
+      extraGuardians,
       answersOverwritten,
     };
     row.action = rowAction(row);
@@ -306,6 +394,7 @@ function mergeLaterResponse(
   first: IntakeRow,
   later: SignupResponse,
   answers: Record<string, string>,
+  guardians: Guardian[],
 ): void {
   const from: Record<IntakeFieldKey, string> = {
     instrument: later.instrument ?? '',
@@ -325,7 +414,33 @@ function mergeLaterResponse(
   for (const [k, v] of Object.entries(answers)) {
     if (!first.answers[k]) first.answers[k] = v;
   }
+  for (const g of guardians) first.extraGuardians = mergeGuardian(first.extraGuardians, g);
   first.action = rowAction(first);
+}
+
+/**
+ * Add one guardian to a list without ever displacing somebody. The incoming
+ * entry updates the one it matches — same address, or same name — and joins
+ * the list otherwise, so a family with three guardians ends up with three.
+ * Blank details on the incoming entry never overwrite details already there.
+ */
+export function mergeGuardian(list: Guardian[], incoming: Guardian): Guardian[] {
+  const email = (incoming.email ?? '').toLowerCase();
+  const key = nameKey(incoming.name ?? '');
+  const at = list.findIndex(g =>
+    (!!email && (g.email ?? '').toLowerCase() === email)
+    || (!!key && nameKey(g.name ?? '') === key));
+  const clean: Guardian = {};
+  for (const [k, v] of Object.entries(incoming) as [keyof Guardian, string | undefined][]) {
+    if (v) clean[k] = v;
+  }
+  if (at < 0) return [...list, clean];
+  const out = [...list];
+  // Details from the form win — that is the point of importing them — except
+  // the relation, where one already recorded beats one this module inferred
+  // from the wording of a question.
+  out[at] = { ...out[at], ...clean, relation: out[at].relation ?? clean.relation };
+  return out;
 }
 
 /** Is there anything left to write for this row? */
@@ -336,7 +451,10 @@ function rowAction(row: IntakeRow): IntakeAction {
     return !!value && value !== f.current;
   });
   const writesAnAnswer = Object.keys(row.answers).length > 0;
-  return row.addedEnsembleIds.length || writesAField || writesAnAnswer ? 'update' : 'same';
+  const writesAGuardian = row.extraGuardians.length > 0;
+  return row.addedEnsembleIds.length || writesAField || writesAnAnswer || writesAGuardian
+    ? 'update'
+    : 'same';
 }
 
 /** The director's overrides for one row: field key → which side wins. */
@@ -402,27 +520,29 @@ export function contactWrite(
   const gEmail = chosen(row, 'guardianEmail', choices);
   const answers = row.answers;
 
-  if (!email && !phone && !gName && !gEmail && !Object.keys(answers).length) return null;
+  const signer: Guardian | null = gName || gEmail
+    ? { relation: SIGNUP_GUARDIAN_RELATION, ...(gName ? { name: gName } : {}), ...(gEmail ? { email: gEmail } : {}) }
+    : null;
+  const incoming = [...(signer ? [signer] : []), ...row.extraGuardians];
+
+  if (!email && !phone && !incoming.length && !Object.keys(answers).length) return null;
 
   const out: Omit<StudentContact, 'id'> = {};
   if (email) out.email = email;
   if (phone) out.phone = phone;
 
-  if (gName || gEmail) {
-    const incoming: Guardian = { relation: SIGNUP_GUARDIAN_RELATION };
-    if (gName) incoming.name = gName;
-    if (gEmail) incoming.email = gEmail;
-    const list = [...(existing?.guardians ?? [])];
-    const at = list.findIndex(g =>
-      (gEmail && (g.email ?? '').toLowerCase() === gEmail.toLowerCase())
-      || (gName && nameKey(g.name ?? '') === nameKey(gName)));
-    if (at >= 0) list[at] = { ...list[at], ...incoming };
-    else list.unshift(incoming);
+  if (incoming.length) {
+    // Every guardian the form named, merged one at a time. Nobody on the
+    // record is displaced: an incoming entry updates the one it matches by
+    // address or name and joins the list otherwise, so a family with three
+    // guardians keeps three.
+    let list = [...(existing?.guardians ?? [])];
+    for (const g of incoming) list = mergeGuardian(list, g);
     out.guardians = list;
     // `parentEmail` is the back-compat mirror of guardians[0] (see
     // StudentContact) — keep it pointing at whoever that ends up being, not
     // at whoever happened to sign this form.
-    if (list[0].email) out.parentEmail = list[0].email;
+    if (list[0]?.email) out.parentEmail = list[0].email;
   }
 
   if (Object.keys(answers).length) {

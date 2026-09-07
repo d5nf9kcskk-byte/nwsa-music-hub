@@ -17,7 +17,7 @@
  *   • `status` and `schoolId` are never written from a response.
  */
 import {
-  COLLEGE_GRADE, answerKey, contactWrite, intakeSummary, matchStudent, nameKey,
+  COLLEGE_GRADE, answerKey, contactWrite, guardianQuestion, intakeSummary, matchStudent, nameKey,
   planRosterIntake, studentWrite, tidyName,
 } from './signupRosterIntake.ts';
 import type {
@@ -170,7 +170,93 @@ assert(tidyName('diMaggio Rossi') === 'diMaggio Rossi', 'casing left alone');
   const c = contactWrite(rows[0], contacts.s1)!;
   assert(c.guardians?.length === 2, 'a second guardian is added, not substituted');
   assert(c.guardians?.some(g => g.name === 'William King'), 'the existing guardian survives');
+  assert(c.parentEmail === 'wk@example.com', 'parentEmail keeps mirroring guardians[0]');
+}
+
+// ── a family with more than one guardian on the form ───────────────────
+{
+  const many: Pick<SignupForm, 'title' | 'questions'> = {
+    title: 'College Student Information',
+    questions: [
+      { id: 'q1', label: "Mother's name", type: 'short' },
+      { id: 'q2', label: "Mother's email", type: 'short' },
+      { id: 'q3', label: 'Father — name', type: 'short' },
+      { id: 'q4', label: 'Father cell phone', type: 'short' },
+      { id: 'q5', label: 'Guardian 2 name', type: 'short' },
+      { id: 'q6', label: 'Parent signature', type: 'short' },
+      { id: 'q7', label: 'Major', type: 'short' },
+    ],
+  };
+  const rows = planRosterIntake(
+    [resp({
+      guardianName: 'Anne Byron', guardianEmail: 'anne@example.com',
+      answersJson: JSON.stringify({
+        q1: 'Judith Blunt', q2: 'judith@example.com',
+        q3: 'William King', q4: '305-555-0199',
+        q5: 'Ralph Milbanke',
+        q6: 'Anne Byron', q7: 'Music Education',
+      }),
+    })],
+    [],
+    { ensembleIds: [], form: many },
+  );
+  assert(rows[0].extraGuardians.length === 3, 'mother, father and a second guardian all read');
+  const mother = rows[0].extraGuardians.find(g => g.relation === 'Mother');
+  assert(mother?.name === 'Judith Blunt' && mother.email === 'judith@example.com',
+    'two questions about one person make ONE guardian');
+  const father = rows[0].extraGuardians.find(g => g.relation === 'Father');
+  assert(father?.phone === '305-555-0199', 'a phone question lands on the phone');
+  assert(rows[0].extraGuardians.some(g => g.relation === 'Guardian 2'), 'a numbered guardian is its own person');
+
+  const c = contactWrite(rows[0], undefined)!;
+  assert(c.guardians?.length === 4, 'the signer plus all three');
+  assert(c.guardians?.[0].name === 'Anne Byron', 'the person who signed leads the list');
   assert(c.parentEmail === 'anne@example.com', 'parentEmail mirrors guardians[0]');
+
+  // A consent line is not a contact detail, and an ordinary question is still
+  // an ordinary answer.
+  assert(!rows[0].extraGuardians.some(g => g.name === 'Anne Byron' && g.relation === 'Parent'),
+    '"Parent signature" is not read as a guardian');
+  assert(rows[0].answers[answerKey(many.title, 'Parent signature')] === 'Anne Byron',
+    'and stays an answer');
+  assert(rows[0].answers[answerKey(many.title, 'Major')] === 'Music Education', 'unrelated answers untouched');
+  for (const label of ["Mother's name", 'Father cell phone']) {
+    assert(!(answerKey(many.title, label) in rows[0].answers),
+      `${label} left extra — it is a guardian detail now`);
+  }
+}
+
+// ── reading a question label ───────────────────────────────────────────
+{
+  assert(guardianQuestion("Mother's email")?.detail === 'email', 'email detail');
+  assert(guardianQuestion('Parent 2 phone')?.person === 'Parent 2', 'numbered person');
+  assert(guardianQuestion('Guardian relationship')?.detail === 'relation', 'relation detail');
+  assert(guardianQuestion('Emergency contact name')?.person === 'Emergency contact', 'emergency contact');
+  // Under-claims on purpose: a person with no detail, or a detail with no
+  // person, is an ordinary answer.
+  assert(guardianQuestion('Mother') === null, 'a person alone is not enough');
+  assert(guardianQuestion('Your email') === null, 'a detail alone is not enough');
+  assert(guardianQuestion('Parent consent') === null, 'consent is never a contact detail');
+  assert(guardianQuestion('Guardian signature') === null, 'nor is a signature');
+}
+
+// ── the same guardian arriving twice is still one person ───────────────
+{
+  const dup: Pick<SignupForm, 'title' | 'questions'> = {
+    title: 'College Student Information',
+    questions: [{ id: 'q1', label: 'Parent name', type: 'short' }],
+  };
+  const rows = planRosterIntake(
+    [resp({
+      guardianName: 'Anne Byron', guardianEmail: 'anne@example.com',
+      answersJson: JSON.stringify({ q1: 'Anne  BYRON' }),
+    })],
+    [],
+    { ensembleIds: [], form: dup },
+  );
+  const c = contactWrite(rows[0], undefined)!;
+  assert(c.guardians?.length === 1, 'the signature block and the question are the same person');
+  assert(c.guardians?.[0].email === 'anne@example.com', 'and the details are pooled');
 }
 
 // ── an existing answer is only overwritten when it actually differs ────

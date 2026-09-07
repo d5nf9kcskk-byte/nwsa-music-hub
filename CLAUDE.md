@@ -406,6 +406,15 @@ copies.
   or address and adds otherwise), and `status`/`schoolId` are never written
   from a response. Writes go through `useStudents`/`useContacts` so the public
   mirror stays batched with its source doc.
+  A family is not one parent: the signature block holds ONE guardian, so the
+  others arrive as questions the director wrote, and `guardianQuestion()`
+  reads a label naming both a person (mother / father / guardian / parent 2 /
+  emergency contact) and a detail (name / email / phone / relation) into
+  another `contacts.guardians` entry. That list is already unlimited — read
+  the questions, don't add a field. It under-claims on purpose: a label with
+  only one of the two, or one that smells like a consent line, stays an
+  ordinary answer in `extra`. `mergeGuardian()` is the ONE way an entry joins
+  that list, and it never displaces anybody.
 - Answers ride in ONE bounded `answersJson` string, not a map: rules can
   bound a string's length but can't reach inside a map to bound its values.
   Read it with `parseAnswers()`, which never throws.
