@@ -582,6 +582,51 @@ copies.
   the session record for all of the above is
   `docs/session-notes-2026-08-04-pwa-hardening.md`.
 
+## Playing-exam grading — one line, one rubric (Sept 2026, #exam-rubric)
+
+The grade sheet used to be two lists of the SAME people: a roster row that
+said "Submitted", and a separate "Video submissions" section further down
+carrying everything a grader actually needed. You read a name twice to grade
+it once, and the video opened in another tab. It is one list now — the row IS
+the submission, and opening it plays the video with the rubric under it
+(`src/director/assignments/GradeRow.tsx`). Two things must not regress:
+
+- **`preload="none"`, and only the OPEN row renders a `<video>`.** A playing
+  exam is up to 500 MB per student. A player on every row would start pulling
+  a roster's worth of video because a page rendered.
+- **A submission from someone no longer on the roster still shows** (the
+  "Videos from students not on this list" fold). Merging a submission-anchored
+  list into a roster-anchored one is exactly where those would have vanished.
+
+`src/director/examRubric.ts` is the ONE definition of what a rubric is and
+what it adds up to; `examRubric.selfcheck.ts` pins it in the deploy workflow.
+
+- **The rubric belongs to the EXAM, not to the app.** Another director weights
+  a playing exam their own way, and a scale check is not a concerto jury. It
+  is `Assignment.rubric`, seeded from the grader's own `directors/{email}`
+  `examRubric`, edited on the assignment.
+- **Three states, all meaningful.** ABSENT = nobody chose, so
+  `rubricForAssignment()` falls back to the grader's default (Playing Exam
+  only) — which is the whole reason exams created before this need no
+  migration. A LIST is the exam's own. **EMPTY is not absent** — it means the
+  director turned rubric grading off for that exam and must never be
+  re-defaulted.
+- **`examRubric` is in the directors self-update `hasOnly([...])` list in
+  `firestore.rules`.** Same trap as `lessonSlots`/`lessonLogSheets`: drop it
+  and saving a default starts failing silently.
+- **An unscored line is not a zero.** A partial rubric produces no grade at
+  all (`rubricScores()` returns null) and Confirm stays disabled. A rubric
+  that shows 58 because four of six boxes are filled is a failing grade
+  nobody gave.
+- **A confirmed grade snapshots its own lines** (`AssignmentResult.rubric`
+  carries each line's label, worth AND points). Re-weighting the exam
+  afterwards therefore cannot rewrite a grade already filed; the row says it
+  was given on an earlier rubric instead. `score` stays the whole-number
+  percent, so a rubric that totals 60 still files a gradebook number.
+- Grades are staff-only and have no public projection — `assignmentResults`
+  never reaches the student site. Showing a student their own breakdown would
+  be a NEW mirror with its own pinned allowlist, never a loosened read rule.
+
 ## What's New banner (auto)
 
 Product/UX changes that affect all staff or the public student site must

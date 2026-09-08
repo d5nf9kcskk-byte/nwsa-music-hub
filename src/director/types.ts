@@ -5,6 +5,9 @@
 import type {
   ConcertAttendance, EventCheckinConfig, CheckinKind,
 } from '../shared/concertCheckin';
+// Same posture: examRubric.ts is pure arithmetic over its own shapes, so the
+// rubric stays defined in one place instead of being restated here.
+import type { RubricCriterion, RubricScore } from './examRubric';
 
 /**
  * Access levels for signed-in staff (#roles). Lives here (the dependency-free
@@ -749,6 +752,13 @@ export interface Assignment {
    *  is the whole reason the link exists. Public, like the rest of an
    *  assignment; a piece carries no personal data. */
   pieceIds?: string[];
+  /** How this exam is scored, line by line (#exam-rubric). Three states, all
+   *  meaningful — see `resolveRubric` in src/director/examRubric.ts:
+   *  ABSENT means nobody chose, so the grader's own default rubric answers
+   *  (which is why every assignment made before the feature needs no
+   *  migration); a LIST is this exam's own rubric; an EMPTY list means rubric
+   *  grading is deliberately off here and the plain score box comes back. */
+  rubric?: RubricCriterion[];
   createdAt: number;
   attachments?: Attachment[];
   /** Scheduled publishing (mirrors Announcement.publishAt): epoch ms. If set
@@ -787,6 +797,14 @@ export interface AssignmentResult {
   /** Numeric (or free-text) grade — e.g. "92". Optional; Pass/Fail/Exempt stay
    *  available as quick marks alongside a score. */
   score?: string;
+  /** The rubric breakdown behind `score` (#exam-rubric), SNAPSHOTTED at
+   *  Confirm — each line's name and worth travel with its points. Re-weighting
+   *  the assignment's rubric afterwards therefore never rewrites a grade that
+   *  was already given; the grade sheet just flags that it was given on an
+   *  earlier rubric. When present, `score` is the whole-number percent this
+   *  breakdown adds up to. Staff-only, like the rest of assignmentResults —
+   *  there is no public projection of a grade. */
+  rubric?: RubricScore[];
   notes?: string;
   gradedAt?: string; // YYYY-MM-DD
 }

@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Playing exams grade in one place now (#exam-rubric). The ask: the roster
+  // row and the video row were two lists of the same people, and grading meant
+  // opening the video in another tab and coming back to type a number.
+  {
+    id: '2026-09-08-playing-exam-rubric',
+    date: '2026-09-08',
+    title: 'Grade a playing exam while you watch it',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'A playing exam’s grade sheet is one line per student now. The line says whether they sent a video and when, and opening it plays the video right there. The separate “Video submissions” list underneath is gone, along with reading every name twice.',
+      'Under the video is your rubric: pick a number for each line and the Hub adds them up. Nothing saves until you press Confirm, and Confirm also marks the video watched and drops you on the next student still owed a grade. “Full marks” fills every line so a strong player takes two presses.',
+      'The rubric belongs to the exam, not to the Hub. Edit it on the assignment, press “Save as my default” to start every future exam from it, and it stays yours — another director’s exams keep their own. A grade also remembers the lines it was given, so re-weighting an exam later never quietly changes a grade you already filed.',
+    ],
+  },
   // Announcements can carry pictures and files (#announce-attachments). The
   // ask: a full-size screenshot of the all-state audition times, readable on a
   // phone, instead of a link out to a site families have to pinch and zoom.
