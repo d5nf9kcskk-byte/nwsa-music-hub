@@ -18,6 +18,7 @@ import { RichTextArea } from '../components/RichTextArea';
 import { LazyLinkPicker } from '../components/LinkPickerLazy';
 import { whenQueued } from '../writeStatus';
 import { useCurrentDirector } from '../currentDirector';
+import { announcementPictures, announcementDownloads } from '../../shared/announcementMedia';
 
 interface Props {
   onClose: () => void;
@@ -202,6 +203,21 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
                     {isArchived(a) && a.archivedAt ? ` · archived ${new Date(a.archivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
                   </div>
                   {a.body && <div className="dir-ann-body"><NotesText text={a.body} /></div>}
+                  {/* The list is where a director checks their own post. A
+                      picture that shows only on the public site is a picture
+                      they cannot proof-read from here. */}
+                  {announcementPictures(a).length > 0 && (
+                    <div className="dir-ann-thumbs">
+                      {announcementPictures(a).map((img, i) => (
+                        <img key={`${img.url}-${i}`} src={img.url} alt={img.name} className="dir-ann-thumb" loading="lazy" />
+                      ))}
+                    </div>
+                  )}
+                  {announcementDownloads(a).length > 0 && (
+                    <div className="dir-ens-sub">
+                      {announcementDownloads(a).map(f => f.name).join(' · ')}
+                    </div>
+                  )}
                 </div>
                 <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing(a); }} aria-label="Edit">
                   <Pencil size={16} />
