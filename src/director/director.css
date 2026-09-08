@@ -241,8 +241,15 @@ html:has(.dir-app) body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   padding: 16px 16px 8px;
 }
+
+/* The title takes the slack; the actions keep their own width. Without this
+   the title and the action group both sit in the flow at their natural size
+   and a long button label runs into the title on a phone. */
+.dir-section-header > .dir-section-title { flex: 1 1 auto; min-width: 0; }
 
 /* Actions on the right of a section header. Wraps on a phone rather than
    squeezing the buttons to nothing — a header with a primary action in it is
@@ -252,14 +259,23 @@ html:has(.dir-app) body {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  flex-shrink: 0;
   justify-content: flex-end;
 }
 
-/* A primary button sized to sit in a header row beside a tool button. */
+/* A primary button sized to sit in a header row beside a tool button.
+   `.dir-btn` is shaped for a DRAWER FOOTER — `flex: 1` so two buttons split
+   the row, and a fixed 48px height. Both are wrong in a header: the button
+   stretched to fill, its label wrapped to two lines inside a box that could
+   not grow, and the overflow ran into the section title beside it. Reset
+   both here and keep the label on one line. */
 .dir-btn-sm {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 36px;
   padding: 7px 12px;
   font-size: 13.5px;
-  min-height: 36px;
+  white-space: nowrap;
 }
 
 .dir-section-title {
@@ -2237,6 +2253,31 @@ a.dir-menu-item {
   font-size: 13px;
 }
 .dir-attach-icon { color: var(--dir-text-muted); flex-shrink: 0; }
+
+/* An attached picture previews in the form instead of reading as a filename. */
+.dir-attach-img-item { align-items: flex-start; gap: 10px; }
+.dir-attach-thumb-link { flex-shrink: 0; line-height: 0; }
+.dir-attach-thumb {
+  width: 68px; height: 68px; object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--dir-border);
+  background: #fff;
+}
+.dir-attach-img-meta {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+  padding-top: 2px;
+}
+.dir-attach-img-meta .dir-attach-name { flex: 0 0 auto; color: var(--dir-text); }
+
+/* Pictures on an announcement row in the director list. */
+.dir-ann-thumbs { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.dir-ann-thumb {
+  width: 56px; height: 56px; object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--dir-border);
+  background: #fff;
+}
 .dir-attach-name {
   flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; color: var(--dir-primary); text-decoration: none;

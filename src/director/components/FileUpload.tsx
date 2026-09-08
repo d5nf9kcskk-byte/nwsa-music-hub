@@ -3,6 +3,7 @@ import { Paperclip, X } from 'lucide-react';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseAuth';
 import type { Attachment } from '../types';
+import { isImageAttachment } from '../../shared/announcementMedia';
 
 interface Props {
   attachments: Attachment[];
@@ -64,6 +65,29 @@ export function FileUpload({ attachments, onChange, folder, assignmentId, single
   return (
     <div className="dir-attach">
       {attachments.map((a, i) => (
+        // A picture shows as a picture. It used to render as a filename link
+        // like any other file, so after uploading a flyer the only proof it
+        // worked was the name — and no way to see you had picked the wrong
+        // screenshot until it was already on the public site.
+        isImageAttachment(a) ? (
+          <div key={i} className="dir-attach-item dir-attach-img-item">
+            <a href={a.url} target="_blank" rel="noreferrer" className="dir-attach-thumb-link">
+              <img src={a.url} alt={a.name} className="dir-attach-thumb" />
+            </a>
+            <div className="dir-attach-img-meta">
+              <span className="dir-attach-name">{a.name}</span>
+              <span className="dir-attach-size">{(a.size / 1024).toFixed(0)} KB</span>
+            </div>
+            <button
+              type="button"
+              className="dir-attach-remove"
+              onClick={() => onChange(attachments.filter((_, j) => j !== i))}
+              aria-label={`Remove ${a.name}`}
+            >
+              <X size={11} />
+            </button>
+          </div>
+        ) : (
         <div key={i} className="dir-attach-item">
           <Paperclip size={12} className="dir-attach-icon" />
           <a href={a.url} target="_blank" rel="noreferrer" className="dir-attach-name">{a.name}</a>
@@ -77,6 +101,7 @@ export function FileUpload({ attachments, onChange, folder, assignmentId, single
             <X size={11} />
           </button>
         </div>
+        )
       ))}
 
       {progress !== null ? (

@@ -5,6 +5,7 @@ import type { Announcement, Ensemble } from '../../director/types';
 import { NotesText } from './NotesText';
 import { t, useLang } from '../../shared/i18n';
 import { fmtMonthDay } from '../../shared/dates';
+import { announcementPictures, announcementDownloads } from '../../shared/announcementMedia';
 
 /** KB under a megabyte, MB above — a families-facing size, not a byte count. */
 function fileSize(bytes: number): string {
@@ -33,6 +34,10 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
         const ens = a.ensembleId ? ensembleMap[a.ensembleId] : undefined;
         const showTitle = a.title;
         const showBody = a.body;
+        // A picture attached in either field renders as a picture; only a
+        // genuine non-image file gets the download row.
+        const pictures = announcementPictures(a);
+        const downloads = announcementDownloads(a);
         return (
           <div key={a.id} className={`pub-announce ${a.pinned ? 'pinned' : ''} ${a.priority === 'important' ? 'pub-announce-important' : ''} ${a.priority === 'urgent' ? 'pub-announce-urgent' : ''}`}>
             <div className="pub-announce-head">
@@ -50,9 +55,9 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
               )}
             </div>
             {showBody && <div className="pub-announce-body"><NotesText text={showBody} /></div>}
-            {a.images?.length ? (
+            {pictures.length ? (
               <div className="pub-announce-images">
-                {a.images.map((img, i) => (
+                {pictures.map((img, i) => (
                   // Full size on the page, and the original a tap away — a
                   // flyer or a screenshot of audition times has to be
                   // readable on a phone without downloading anything.
@@ -62,9 +67,9 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
                 ))}
               </div>
             ) : null}
-            {a.files?.length ? (
+            {downloads.length ? (
               <div className="pub-announce-files">
-                {a.files.map((f, i) => (
+                {downloads.map((f, i) => (
                   <a key={`${f.url}-${i}`} href={f.url} target="_blank" rel="noopener noreferrer" className="pub-announce-file">
                     <Paperclip size={12} />
                     <span className="pub-announce-file-name">{f.name}</span>
