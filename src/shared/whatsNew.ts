@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // The last mile of the rubric ship: the breakdown existed on screen and
+  // nowhere else, so getting grades into the district gradebook meant reading
+  // numbers off a monitor.
+  {
+    id: '2026-09-08-assignment-grades-csv',
+    date: '2026-09-08',
+    title: 'Download an assignment’s grades as a spreadsheet',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'Any assignment’s grade sheet now has a CSV button next to Edit. It downloads one row per student — name, instrument, status, score, the date you graded, and your notes — ready to open in Excel or Sheets and paste into the district gradebook.',
+      'On an exam graded with a rubric you also get a column per line, headed with what the line is worth, plus the raw total. Students you have not graded yet come down as blank cells rather than zeros, so importing the file never files a grade nobody gave.',
+      'A grade you filed before re-weighting the exam still shows its own numbers and is marked “Scored on an earlier rubric”, and any line that no longer matches is left blank instead of being dropped into the wrong column. Videos from students no longer on the list come along too, marked as such.',
+    ],
+  },
   // Playing exams grade in one place now (#exam-rubric). The ask: the roster
   // row and the video row were two lists of the same people, and grading meant
   // opening the video in another tab and coming back to type a number.

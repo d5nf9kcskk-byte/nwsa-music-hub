@@ -204,6 +204,16 @@ jobs:
       - name: Check playing-exam rubric
         run: npx tsx src/director/examRubric.selfcheck.ts
 
+      # The grade sheet's CSV export: a hostile student name must be quoted AND
+      # formula-neutralised, rubric points must land under the line they were
+      # given for (matched by criterion id, never by position), a grade
+      # snapshotted on an EARLIER rubric must leave non-matching cells blank
+      # rather than misalign into the wrong column, and an ungraded student
+      # must export blank — an unscored line is not a zero. No org import, so
+      # no defines shim.
+      - name: Check assignment grades CSV
+        run: npx tsx src/director/assignments/assignmentGradesCsv.selfcheck.ts
+
       # High School lesson log (#applied): payroll defaults, initials gate,
       # "do not enqueue mail for incomplete / cancelled rows", one sheet per
       # student per term, and the five-line jury list.

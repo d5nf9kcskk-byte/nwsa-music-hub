@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Plus, Clock, Video, Music } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Download, Plus, Clock, Video, Music } from 'lucide-react';
 import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
 import { useMyDirector, saveMyExamRubric } from '../hooks/useDirectors';
 import { useCurrentDirector } from '../currentDirector';
@@ -24,6 +24,10 @@ import { richTextToPlain } from '../../shared/richTextParse';
 import { DEFAULT_VIDEO_MAX_MB } from '../types';
 import type { Assignment, AssignmentType, AssignmentResultStatus, Student, Ensemble, Attachment } from '../types';
 import { normalizeRubric, rubricForAssignment, rubricProblem, type RubricCriterion } from '../examRubric';
+import { downloadCsv } from '../attendance/attendanceCsv';
+import {
+  assignmentGradesToCsv, gradesCsvFilename, type GradeCsvPerson,
+} from './assignmentGradesCsv';
 import { RubricEditor } from './RubricEditor';
 import { GradeRow, type ConfirmArgs } from './GradeRow';
 import { describeDuration, formatClock, formatFileSize, minutesToSeconds, secondsToMinutes } from '../../shared/duration';
@@ -463,6 +467,46 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
   const onRoster = new Set(relevant.map(s => s.id));
   const strays = submissions.filter(sub => !onRoster.has(sub.studentId));
 
+  /**
+   * The export's rows: the roster in the order shown, then the people behind
+   * that fold. A stray gets a row from the name on their OWN submission —
+   * they have no roster record to read one out of, and inventing a roster row
+   * for someone who is not on the roster would be worse than leaving them out.
+   * `submissions` is newest-first, so a student who re-recorded under a
+   * corrected name is carried by their latest take.
+   */
+  const strayPeople: GradeCsvPerson[] = [];
+  const straySeen = new Set<string>();
+  for (const sub of strays) {
+    if (straySeen.has(sub.studentId)) continue;
+    straySeen.add(sub.studentId);
+    strayPeople.push({
+      studentId: sub.studentId,
+      name: sub.studentName,
+      instrument: '',
+      onRoster: false,
+    });
+  }
+
+  /** Download the sheet as a CSV for the district gradebook. A browser
+   *  download and nothing else — grades are staff-only and never published. */
+  function handleExport() {
+    const csv = assignmentGradesToCsv({
+      criteria,
+      people: [
+        ...relevant.map(s => ({
+          studentId: s.id,
+          name: s.name,
+          instrument: s.instrument,
+          onRoster: true,
+        })),
+        ...strayPeople,
+      ],
+      resultMap,
+    });
+    downloadCsv(gradesCsvFilename(assignment.title, todayStr()), csv);
+  }
+
   async function handleStatus(studentId: string, status: AssignmentResultStatus) {
     const existing = resultMap[studentId];
     // Tapping the active grade again clears it back to Pending — same
@@ -564,7 +608,22 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
         <button type="button" className="dir-drawer-back" onClick={onClose}>
           <ChevronLeft size={16} /> All assignments
         </button>
-        <button type="button" className="dir-tool-btn" onClick={onEdit}>Edit</button>
+        <div className="dir-assign-page-tools">
+          {/* Hidden rather than disabled when there is nobody on the sheet:
+              `.dir-tool-btn` has no disabled styling, so a greyed-out button
+              would look pressable and do nothing. */}
+          {(relevant.length > 0 || strayPeople.length > 0) && (
+            <button
+              type="button"
+              className="dir-tool-btn"
+              onClick={handleExport}
+              title="Download this grade sheet as a CSV"
+            >
+              <Download size={15} /> CSV
+            </button>
+          )}
+          <button type="button" className="dir-tool-btn" onClick={onEdit}>Edit</button>
+        </div>
       </div>
 
       <header className="dir-assign-page-head">
