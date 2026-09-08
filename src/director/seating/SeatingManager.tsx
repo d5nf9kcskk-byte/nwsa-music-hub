@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
-import { Plus, Trash2, Pencil, ChevronLeft, Armchair, GripVertical, ChevronUp, ChevronDown, ArrowDownWideNarrow, Megaphone, X } from 'lucide-react';
+import { Plus, Trash2, Pencil, ChevronLeft, Armchair, GripVertical, ChevronUp, ChevronDown, ArrowDownWideNarrow, Megaphone, X, Link2, Check } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useSeatingCharts } from '../hooks/useSeatingCharts';
@@ -11,6 +11,7 @@ import { SeatingChartCard } from '../../public/components/SeatingChartCard';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { whenQueued } from '../writeStatus';
 import { studentMatchesQuery } from '../studentSearch';
+import { seatingChartPath, seatingChartUrl } from './seatingLink';
 
 /** Director seating editor for one ensemble. Charts are per-piece playing-exam
  *  seating: seat 1 = principal. Published charts show on the public ensemble page. */
@@ -48,7 +49,7 @@ export function SeatingManager({ ensembleId, ensembleName, onClose }: {
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay dir-drawer-full" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
@@ -66,6 +67,7 @@ export function SeatingManager({ ensembleId, ensembleName, onClose }: {
                   <div className="dir-ens-name">{c.title}</div>
                   <div className="dir-ens-sub">{c.sections.reduce((n, s) => n + s.seats.length, 0)} seats{c.date ? ` · ${parseDate(c.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}</div>
                 </div>
+                <CopyLinkButton chartId={c.id} />
                 <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing(c); }}><Pencil size={15} /></button>
               </div>
             ))
@@ -81,6 +83,30 @@ export function SeatingManager({ ensembleId, ensembleName, onClose }: {
   );
 }
 
+
+/** Copy a chart's public address to the clipboard (#seating-link). The URL is
+ *  also shown in full in the editor, so a device with no clipboard permission
+ *  is never stuck. */
+function CopyLinkButton({ chartId }: { chartId: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      className="dir-icon-btn"
+      aria-label={copied ? 'Link copied' : 'Copy link to this seating chart'}
+      title="Copy link"
+      onClick={async e => {
+        e.stopPropagation();
+        try {
+          await navigator.clipboard.writeText(seatingChartUrl(chartId));
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1600);
+        } catch { /* clipboard unavailable — the URL is shown in the editor */ }
+      }}
+    >
+      {copied ? <Check size={15} /> : <Link2 size={15} />}
+    </button>
+  );
+}
 
 function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPieces, onSave, onDelete, onBack }: {
   chart: SeatingChart | null;
@@ -312,6 +338,9 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
         body: annBody.trim() || undefined,
         priority: 'info',
         pinned: annPinned || undefined,
+        // The post carries the chart's own address, so "here is the seating"
+        // is a button under the message rather than a place to go looking.
+        links: chart ? [{ label: 'Seating chart', url: seatingChartPath(chart.id) }] : undefined,
         createdAt: Date.now(),
       }));
       setAnnPosted(true);
@@ -339,7 +368,7 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onBack()}>
+    <div className="dir-drawer-overlay dir-drawer-full" onClick={e => e.target === e.currentTarget && onBack()}>
       <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={chart ? 'Edit Seating' : 'New Seating'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
@@ -352,6 +381,25 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
             <button type="button" className={`dir-segment-btn ${!editing ? 'active' : ''}`} onClick={() => setEditing(false)}>Student view</button>
             <button type="button" className={`dir-segment-btn ${editing ? 'active' : ''}`} onClick={() => setEditing(true)}>Edit</button>
           </div>
+
+          {/* The chart's own address (#seating-link). Shown in BOTH views —
+              the reason to reach for a link is usually while looking at the
+              student view, not while editing. A chart that has never been
+              saved has no id and therefore no address yet. */}
+          {chart ? (
+            <div className="dir-seat-share">
+              <div className="dir-seat-share-label"><Link2 size={13} /> Link to this seating chart</div>
+              <div className="dir-seat-share-row">
+                <div className="dir-seat-share-url">{seatingChartUrl(chart.id)}</div>
+                <CopyLinkButton chartId={chart.id} />
+              </div>
+              <div className="dir-field-hint">Anyone with this address can read it — the same names students already see on the ensemble page.</div>
+            </div>
+          ) : (
+            <div className="dir-field-hint" style={{ marginTop: 10 }}>
+              Publish this chart and it gets its own link, to share or to attach to an announcement.
+            </div>
+          )}
           {editing ? (
           <>
           <div className="dir-field">
@@ -578,6 +626,11 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
                   <input type="checkbox" checked={annPinned} onChange={e => setAnnPinned(e.target.checked)} />
                   Pin to the top of their page
                 </label>
+                <div className="dir-field-hint">
+                  {chart
+                    ? 'A \u201cSeating chart\u201d button linking straight to this chart goes out with the post.'
+                    : 'Publish the chart first if you want the post to link to it.'}
+                </div>
                 {annErr && <div className="dir-sc-error">{annErr}</div>}
                 <div className="dir-seat-announce-actions">
                   <button type="button" className="dir-btn dir-btn-ghost dir-sc-small" onClick={() => setAnnOpen(false)}>Cancel</button>

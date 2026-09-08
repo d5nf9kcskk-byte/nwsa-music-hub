@@ -885,6 +885,22 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 }
 .dir-seat-piece-list { margin-top: 6px; max-height: 260px; overflow-y: auto; }
 
+/* A chart's public address, shown in both the student view and the editor. */
+.dir-seat-share {
+  margin: 12px 0 4px; padding: 10px 12px;
+  background: var(--dir-surface-2); border: 1px solid var(--dir-border); border-radius: 12px;
+}
+.dir-seat-share-label {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 700; color: var(--dir-text-muted);
+  text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px;
+}
+.dir-seat-share-row { display: flex; align-items: center; gap: 6px; }
+.dir-seat-share-url {
+  flex: 1; min-width: 0; font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--dir-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 /* Announce-to-this-group composer inside the seating editor. */
 .dir-seat-announce {
   margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--dir-border);

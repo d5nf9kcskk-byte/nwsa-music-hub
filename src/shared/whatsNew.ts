@@ -46,7 +46,21 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'The chair number beside a name is a box you can type in. Put 5 next to a player and they move to chair 5; everyone else shuffles around them. Dragging the \u2261 grip still works.',
       'The \u201cFor piece\u201d picker starts with the ensemble\u2019s own repertoire, but typing now searches every piece in the library \u2014 useful for a combined concert or a piece not filed under this group yet.',
       'There is an \u201cAnnounce this to \u2026\u201d button in the chart editor. It posts straight to that ensemble\u2019s page without a trip to Announcements.',
+      'Every seating chart now has its own link. Copy it from the chart editor, or from the \u2261 button beside a chart in the list, and paste it into a text, an email, or an announcement. The \u201cAnnounce this to \u2026\u201d button attaches it for you.',
+      'Seating opens full screen now instead of in a narrow panel down the side.',
       'Charts you already published have had their sections put into score order for you. Chair order inside each section was left exactly as you set it.',
+    ],
+  },
+  // Students get an address for seating too (#seating-link) — /seating/<id>.
+  {
+    id: '2026-09-08-seating-link-public',
+    date: '2026-09-08',
+    title: 'Seating charts have their own page',
+    audience: 'public' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'A seating chart is now a page you can bookmark or be sent a link to, instead of something you have to find part-way down your ensemble page. Your own name is still highlighted on it.',
+      'Nothing new is being shown. It is the same chart, at an address that can be shared.',
     ],
   },
   // Sign-ups: the honeypot decoy on an 'open' form was being filled by
