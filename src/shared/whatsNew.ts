@@ -32,6 +32,23 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Seating editor (#seating-sections): sections can be reordered, chair
+  // numbers are typeable, the piece picker reaches the whole library, and a
+  // chart can announce itself to its group.
+  {
+    id: '2026-09-08-seating-sections',
+    date: '2026-09-08',
+    title: 'Seating charts: put the sections in the right order, and type chair numbers straight in',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'Sections can be moved now. Use the up and down arrows beside a section name, or press \u201cScore order\u201d to drop all of them into full-score order at once \u2014 so a Violin 2 you added later sits right after Violin 1 instead of under the basses.',
+      'The chair number beside a name is a box you can type in. Put 5 next to a player and they move to chair 5; everyone else shuffles around them. Dragging the \u2261 grip still works.',
+      'The \u201cFor piece\u201d picker starts with the ensemble\u2019s own repertoire, but typing now searches every piece in the library \u2014 useful for a combined concert or a piece not filed under this group yet.',
+      'There is an \u201cAnnounce this to \u2026\u201d button in the chart editor. It posts straight to that ensemble\u2019s page without a trip to Announcements.',
+      'Charts you already published have had their sections put into score order for you. Chair order inside each section was left exactly as you set it.',
+    ],
+  },
   // Sign-ups: the honeypot decoy on an 'open' form was being filled by
   // browser autofill, which made the payload carry `website` and the rules
   // reject the create — so the form went through on iOS Safari and nowhere

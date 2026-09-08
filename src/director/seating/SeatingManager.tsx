@@ -1,9 +1,11 @@
 import { useState, useMemo, useRef } from 'react';
-import { Plus, Trash2, Pencil, ChevronLeft, Armchair, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Pencil, ChevronLeft, Armchair, GripVertical, ChevronUp, ChevronDown, ArrowDownWideNarrow, Megaphone, X } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useSeatingCharts } from '../hooks/useSeatingCharts';
+import { useAnnouncements } from '../hooks/useAnnouncements';
 import { todayStr, parseDate, pieceEnsembleIds, buildSections } from '../utils';
+import { scoreOrderRank } from '../scoreOrder';
 import type { SeatingChart, Student } from '../types';
 import { SeatingChartCard } from '../../public/components/SeatingChartCard';
 import { useModalA11y } from '../../shared/useModalA11y';
@@ -24,15 +26,20 @@ export function SeatingManager({ ensembleId, ensembleName, onClose }: {
     () => students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(ensembleId)),
     [students, ensembleId],
   );
-  const ensemblePieces = pieces.filter(p => pieceEnsembleIds(p).includes(ensembleId));
+  const ensemblePieces = useMemo(
+    () => pieces.filter(p => pieceEnsembleIds(p).includes(ensembleId)),
+    [pieces, ensembleId],
+  );
 
   if (editing) {
     return (
       <SeatingEditor
         chart={editing === 'new' ? null : editing}
         ensembleId={ensembleId}
+        ensembleName={ensembleName}
         roster={roster}
         pieces={ensemblePieces}
+        allPieces={pieces}
         onSave={async data => { if (editing === 'new') await addChart(data); else await updateChart(editing.id, data); setEditing(null); }}
         onDelete={editing !== 'new' ? async () => { await deleteChart(editing.id); setEditing(null); } : undefined}
         onBack={() => setEditing(null)}
@@ -75,11 +82,16 @@ export function SeatingManager({ ensembleId, ensembleName, onClose }: {
 }
 
 
-function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, onBack }: {
+function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPieces, onSave, onDelete, onBack }: {
   chart: SeatingChart | null;
   ensembleId: string;
+  ensembleName: string;
   roster: Student[];
+  /** The ensemble's own repertoire — the DEFAULT list in the piece picker. */
   pieces: { id: string; title: string }[];
+  /** Every piece in the library, reachable by searching (#seating-sections):
+   *  a chart is often made for a piece that isn't on this ensemble's list yet. */
+  allPieces: { id: string; title: string }[];
   onSave: (data: Omit<SeatingChart, 'id'>) => Promise<void>;
   onDelete?: () => Promise<void>;
   onBack: () => void;
@@ -102,6 +114,10 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
   // moving a seat to a DIFFERENT section is a separate action (the per-seat
   // "move to" select below), not a cross-section drag.
   const [drag, setDrag] = useState<{ si: number; from: number; to: number } | null>(null);
+  // The chair number is TYPEABLE (#seating-sections): while a box is focused
+  // its own text is held here so a half-typed "1" of "12" doesn't reshuffle
+  // the section on every keystroke. Committed on blur / Enter, dropped on Esc.
+  const [seatNumDraft, setSeatNumDraft] = useState<{ si: number; idx: number; value: string } | null>(null);
   const sectionRefs = useRef(new Map<number, HTMLDivElement>());
 
   // Seats shown for section `si`, with any live drag in that section applied.
@@ -179,6 +195,44 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
     });
   }
 
+  /** Move a SEAT to an explicit chair number (#seating-sections). Typing 5 in
+   *  the box beside a name puts that player in chair 5 and shuffles the rest
+   *  up or down — the fastest way to enter an audition result, since the
+   *  director already has the numbers on paper. Out-of-range numbers clamp
+   *  rather than dropping anyone. */
+  function moveSeatToIndex(si: number, from: number, to: number) {
+    setSections(prev => {
+      const seats = prev[si]?.seats;
+      if (!seats) return prev;
+      const dest = Math.max(0, Math.min(seats.length - 1, to));
+      if (dest === from || from < 0 || from >= seats.length) return prev;
+      const next = prev.map((s, i) => i === si ? { ...s, seats: [...s.seats] } : s);
+      const [moved] = next[si].seats.splice(from, 1);
+      next[si].seats.splice(dest, 0, moved);
+      return next;
+    });
+  }
+
+  /** Reorder the SECTIONS themselves (#seating-sections). A section added by
+   *  hand — "Violin 2" after the fact — landed at the bottom with no way to
+   *  lift it, so the published chart read Violin 1, Viola, Cello, Violin 2. */
+  function moveSection(si: number, dir: -1 | 1) {
+    setSections(prev => {
+      const j = si + dir;
+      if (j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[si], next[j]] = [next[j], next[si]];
+      return next;
+    });
+  }
+  /** One press to put every section back in full-score order (the same ranking
+   *  buildSections() uses, so a hand-added "Violin 2" lands right after
+   *  "Violin 1"). Seats inside each section are untouched. */
+  function sortSectionsIntoScoreOrder() {
+    setSections(prev => [...prev].sort((a, b) =>
+      scoreOrderRank(a.section) - scoreOrderRank(b.section) || a.section.localeCompare(b.section)));
+  }
+
   // Custom categories (#seating-sections): the director isn't limited to
   // whatever buildSections() auto-derived from instruments — a 3rd sax part
   // or an obscure percussion part gets its own named section.
@@ -210,6 +264,63 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
     setSections(prev => prev.map((s, i) => i === si ? { ...s, seats: [...s.seats, { studentId }] } : s));
     setAddingSeatSection(null);
     setSeatQuery('');
+  }
+
+  // Piece picker (#seating-sections): the ensemble's own repertoire is the
+  // DEFAULT list, but a chart is often made for a piece that lives on another
+  // group's list (a combined concert, a piece not filed here yet), so typing
+  // searches the WHOLE library. Selecting is still one id on the chart.
+  const [pieceQuery, setPieceQuery] = useState('');
+  const [pieceOpen, setPieceOpen] = useState(false);
+  const selectedPieceTitle = useMemo(
+    () => allPieces.find(p => p.id === pieceId)?.title ?? '',
+    [allPieces, pieceId],
+  );
+  const pieceResults = useMemo(() => {
+    const q = pieceQuery.trim().toLowerCase();
+    if (!q) return pieces.slice(0, 12);
+    return allPieces.filter(p => p.title.toLowerCase().includes(q)).slice(0, 12);
+  }, [pieceQuery, pieces, allPieces]);
+
+  // Post an announcement to THIS ensemble without leaving the chart
+  // (#seating-sections). Publishing seating and telling the group about it are
+  // one action in the director's head; they were two screens in the app.
+  const { addAnnouncement } = useAnnouncements();
+  const [annOpen, setAnnOpen] = useState(false);
+  const [annTitle, setAnnTitle] = useState('');
+  const [annBody, setAnnBody] = useState('');
+  const [annPinned, setAnnPinned] = useState(false);
+  const [annPosting, setAnnPosting] = useState(false);
+  const [annPosted, setAnnPosted] = useState(false);
+  const [annErr, setAnnErr] = useState('');
+
+  function openAnnouncement() {
+    setAnnTitle(title.trim() ? title.trim() + ' \u2014 seating posted' : ensembleName + ' seating posted');
+    setAnnBody('');
+    setAnnPosted(false);
+    setAnnErr('');
+    setAnnOpen(true);
+  }
+
+  async function postAnnouncement() {
+    if (!annTitle.trim()) { setAnnErr('Give the announcement a title.'); return; }
+    setAnnPosting(true); setAnnErr('');
+    try {
+      await whenQueued(addAnnouncement({
+        ensembleId,                     // scoped to this group, never school-wide
+        title: annTitle.trim(),
+        body: annBody.trim() || undefined,
+        priority: 'info',
+        pinned: annPinned || undefined,
+        createdAt: Date.now(),
+      }));
+      setAnnPosted(true);
+      setAnnOpen(false);
+    } catch (e) {
+      setAnnErr(e instanceof Error ? e.message : 'Could not post.');
+    } finally {
+      setAnnPosting(false);
+    }
   }
 
   async function save() {
@@ -248,12 +359,44 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
             <input className="dir-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Fall Concert seating" autoFocus />
           </div>
           <div className="dir-field-row">
-            <div className="dir-field">
+            <div className="dir-field dir-seat-piece">
               <label className="dir-label">For piece (optional)</label>
-              <select className="dir-input" value={pieceId} onChange={e => setPieceId(e.target.value)}>
-                <option value="">— any / general —</option>
-                {pieces.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-              </select>
+              {pieceId && !pieceOpen ? (
+                <div className="dir-seat-piece-chosen">
+                  <span className="dir-seat-piece-title">{selectedPieceTitle || pieceId}</span>
+                  <button type="button" className="dir-icon-btn" onClick={() => { setPieceId(''); setPieceQuery(''); }} aria-label="Clear piece"><X size={14} /></button>
+                </div>
+              ) : (
+                <input
+                  className="dir-input"
+                  value={pieceQuery}
+                  onChange={e => { setPieceQuery(e.target.value); setPieceOpen(true); }}
+                  onFocus={() => setPieceOpen(true)}
+                  placeholder="Any / general — or search every piece…"
+                />
+              )}
+              {pieceOpen && (
+                <div className="dir-add-sub-list dir-seat-piece-list">
+                  {!pieceQuery.trim() && (
+                    <div className="dir-field-hint" style={{ padding: '2px 4px 4px' }}>
+                      {pieces.length > 0 ? 'On this ensemble\u2019s list \u2014 type to search every piece.' : 'Type to search every piece in the library.'}
+                    </div>
+                  )}
+                  {pieceResults.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="dir-ens-row dir-sc-pick"
+                      onClick={() => { setPieceId(p.id); setPieceOpen(false); setPieceQuery(''); }}
+                    >
+                      <div className="dir-ens-info"><div className="dir-ens-name">{p.title}</div></div>
+                      <Plus size={15} />
+                    </button>
+                  ))}
+                  {pieceResults.length === 0 && <div className="dir-empty-inline">No piece matches that.</div>}
+                  <button type="button" className="dir-btn dir-btn-ghost dir-sc-small" style={{ marginTop: 6 }} onClick={() => { setPieceOpen(false); setPieceQuery(''); }}>Done</button>
+                </div>
+              )}
             </div>
             <div className="dir-field" style={{ flex: '0 0 130px' }}>
               <label className="dir-label">Date</label>
@@ -261,7 +404,15 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
             </div>
           </div>
 
-          <div className="dir-field-hint">Seat 1 = principal. Drag ≡ to set the order after a playing exam.</div>
+          <div className="dir-field-hint">Seat 1 = principal. Drag ≡ to set the order after a playing exam, or type a chair number over the one beside a name.</div>
+          {sections.length > 1 && (
+            <div className="dir-seat-section-tools">
+              <span className="dir-field-hint" style={{ margin: 0 }}>Use ↑ ↓ beside a section name to reorder the sections.</span>
+              <button type="button" className="dir-tool-btn" onClick={sortSectionsIntoScoreOrder}>
+                <ArrowDownWideNarrow size={13} /> Score order
+              </button>
+            </div>
+          )}
 
           {sections.map((sec, si) => {
             const seats = displaySeats(si);
@@ -274,6 +425,24 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
                     onChange={e => renameSection(si, e.target.value)}
                     placeholder="Section name"
                   />
+                  <button
+                    type="button"
+                    className="dir-icon-btn"
+                    onClick={() => moveSection(si, -1)}
+                    disabled={si === 0}
+                    aria-label={`Move ${sec.section || 'section'} up`}
+                  >
+                    <ChevronUp size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className="dir-icon-btn"
+                    onClick={() => moveSection(si, 1)}
+                    disabled={si === sections.length - 1}
+                    aria-label={`Move ${sec.section || 'section'} down`}
+                  >
+                    <ChevronDown size={15} />
+                  </button>
                   <button
                     type="button"
                     className="dir-icon-btn"
@@ -305,7 +474,27 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
                       >
                         <GripVertical size={15} />
                       </button>
-                      <span className="dir-seat-num">{seatIdx + 1}</span>
+                      <input
+                        className="dir-seat-num dir-seat-num-input"
+                        type="text"
+                        inputMode="numeric"
+                        value={seatNumDraft?.si === si && seatNumDraft.idx === seatIdx ? seatNumDraft.value : String(seatIdx + 1)}
+                        aria-label={`Chair number for ${nameById[seat.studentId] ?? seat.studentId}`}
+                        onFocus={e => { setSeatNumDraft({ si, idx: seatIdx, value: String(seatIdx + 1) }); e.currentTarget.select(); }}
+                        onChange={e => setSeatNumDraft({ si, idx: seatIdx, value: e.target.value.replace(/[^0-9]/g, '') })}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+                          if (e.key === 'Escape') { setSeatNumDraft(null); e.currentTarget.blur(); }
+                        }}
+                        onBlur={() => {
+                          const draft = seatNumDraft;
+                          setSeatNumDraft(null);
+                          if (!draft || draft.si !== si || draft.idx !== seatIdx) return;
+                          const n = parseInt(draft.value, 10);
+                          if (Number.isNaN(n)) return;
+                          moveSeatToIndex(si, seatIdx, n - 1);
+                        }}
+                      />
                       <div className="dir-seat-body">
                         <div className="dir-seat-name">{nameById[seat.studentId] ?? seat.studentId}</div>
                         <input className="dir-input dir-seat-note" value={seat.note ?? ''} onChange={e => setNote(si, seat.studentId, e.target.value)} placeholder="note (e.g. Principal)" />
@@ -373,6 +562,36 @@ function SeatingEditor({ chart, ensembleId, roster, pieces, onSave, onDelete, on
             <button type="button" className="dir-btn dir-btn-ghost" onClick={addSection} disabled={!newSectionName.trim()}>
               <Plus size={15} /> Add
             </button>
+          </div>
+
+          <div className="dir-seat-announce">
+            {annOpen ? (
+              <>
+                <div className="dir-field">
+                  <label className="dir-label">Announcement to {ensembleName}</label>
+                  <input className="dir-input" value={annTitle} onChange={e => setAnnTitle(e.target.value)} placeholder="Title" />
+                </div>
+                <div className="dir-field">
+                  <textarea className="dir-input" rows={3} value={annBody} onChange={e => setAnnBody(e.target.value)} placeholder="Anything they should know (optional)" />
+                </div>
+                <label className="dir-check-row">
+                  <input type="checkbox" checked={annPinned} onChange={e => setAnnPinned(e.target.checked)} />
+                  Pin to the top of their page
+                </label>
+                {annErr && <div className="dir-sc-error">{annErr}</div>}
+                <div className="dir-seat-announce-actions">
+                  <button type="button" className="dir-btn dir-btn-ghost dir-sc-small" onClick={() => setAnnOpen(false)}>Cancel</button>
+                  <button type="button" className="dir-btn dir-btn-primary dir-sc-small" onClick={postAnnouncement} disabled={annPosting}>
+                    {annPosting ? 'Posting\u2026' : 'Post announcement'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <button type="button" className="dir-tool-btn" onClick={openAnnouncement}>
+                <Megaphone size={13} /> {annPosted ? 'Post another announcement to ' + ensembleName : 'Announce this to ' + ensembleName}
+              </button>
+            )}
+            {annPosted && !annOpen && <div className="dir-field-hint">Posted to {ensembleName}.</div>}
           </div>
 
           {onDelete && (
