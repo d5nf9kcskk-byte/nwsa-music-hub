@@ -112,12 +112,15 @@ post will not link anywhere until the chart exists.
 
 ## Still open / worth a look
 
-- **The Camerata charts are fixed by a workflow run, not by this session.**
-  There is no Firestore credential in a Claude session, so
-  `scripts/reorder-seating-sections.mjs` runs from
-  `.github/workflows/reorder-seating-sections.yml` on merge. It is idempotent
-  and logs the before/after section order per chart. **Confirm that run went
-  green** — if it did not, the same fix is three clicks in the editor now.
+- **The Camerata charts were fixed by the workflow, not by this session** —
+  there is no Firestore credential in a Claude session, so
+  `scripts/reorder-seating-sections.mjs` ran from
+  `.github/workflows/reorder-seating-sections.yml` on the merge. Run 1
+  (`34252733198`) succeeded and reordered 2 of 2 charts, both from
+  `Harp/Piano · Violin 1 · Viola · Cello · Bass · Violin 2` to
+  `Harp/Piano · Violin 1 · Violin 2 · Viola · Cello · Bass`. Nothing further is
+  needed; the workflow stays for the next time a chart drifts, and a re-run is
+  a no-op on a chart already in order.
 - **"Score order" only recognizes section names that look like instruments.** A
   section renamed to "Front stand" or "Wind machine" ranks 998/999 and sorts to
   the end. That is deliberate (the alternative is guessing), and the arrows
