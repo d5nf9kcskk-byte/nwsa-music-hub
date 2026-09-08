@@ -204,6 +204,15 @@ jobs:
       - name: Check playing-exam rubric
         run: npx tsx src/director/examRubric.selfcheck.ts
 
+      # The grade row's video element (#exam-rubric): ONE player, belonging to
+      # the open row alone, and an explicit preload="metadata". Omitting the
+      # attribute lets the browser pull a 500 MB exam nobody asked for;
+      # preload="none" renders a player that reads as unplayable and sends the
+      # grader back to the link. Both are JSX attributes with no runtime
+      # handle, so this checks the source text.
+      - name: Check grade-row video element
+        run: node scripts/grade-video.selfcheck.mjs
+
       # High School lesson log (#applied): payroll defaults, initials gate,
       # "do not enqueue mail for incomplete / cancelled rows", one sheet per
       # student per term, and the five-line jury list.

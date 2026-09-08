@@ -125,17 +125,25 @@ export function GradeRow({
         <div className="dir-grade-body">
           {showing && (
             <div className="dir-grade-video-wrap">
-              {/* preload="none" is load-bearing: a full roster of 100 MB
-                  playing-exam videos must never start downloading because a
-                  page rendered. Only the open row has a <video> at all, and
-                  it fetches nothing until the director presses play. */}
+              {/* Only the OPEN row renders a <video> at all — that is the
+                  guard that keeps a roster of 500 MB playing-exam videos from
+                  downloading because a page rendered, and it must not change.
+                  `preload` is a separate question, and "none" was the wrong
+                  answer: the element then sits at readyState 0 with duration
+                  NaN, so the player is a dead black rectangle reading 0:00
+                  with no total time and no first frame. It reads as broken,
+                  and directors went back to opening the link. "metadata"
+                  fetches the header and stops — measured at ~7 MB of a 40 MB
+                  file, bounded by the browser's own forward buffer — which
+                  buys a real duration, a scrubbable timeline and a poster
+                  frame on a row the director deliberately opened. */}
               <video
                 key={showing.id}
                 className="dir-grade-video"
                 src={showing.videoUrl}
                 poster={showing.videoThumbnailUrl}
                 controls
-                preload="none"
+                preload="metadata"
                 playsInline
               />
               {takes.length > 1 && (
