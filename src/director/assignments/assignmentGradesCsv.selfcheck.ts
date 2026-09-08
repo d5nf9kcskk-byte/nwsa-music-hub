@@ -133,6 +133,52 @@ assert(cellAt(headers, oldRow, 'Rubric points') === '47'
 assert(cellAt(headers, oldRow, 'Flags') === 'Scored on an earlier rubric',
   'and the row SAYS so, so blank cells are never read as "not scored"');
 
+/* ── 3b. A line ADDED after the fact is the other direction of the same bug ──
+   Every line Ada was graded on still matches, so nothing is left over — but
+   the exam has since gained a line she was never scored for. Counting only
+   leftover snapshot lines missed this, and her blank Tempo cell read as
+   "skipped" rather than "graded before this line existed". */
+
+const WITH_TEMPO: RubricCriterion[] = [...CRITERIA, { id: 'tempo', label: 'Tempo', max: 10 }];
+const addedHeaders = gradeCsvHeaders(WITH_TEMPO);
+const addedRow = gradeCsvRow(
+  person({ studentId: 'ada', name: 'Ada Kemper' }),
+  result({
+    studentId: 'ada', score: '86', gradedAt: '2026-09-08',
+    rubric: [
+      { id: 'intonation', label: 'Intonation', max: 25, points: 22 },
+      { id: 'rhythm',     label: 'Rhythm',     max: 20, points: 17 },
+      { id: 'musicality', label: 'Musicality', max: 20, points: 17 },
+    ],
+  }),
+  WITH_TEMPO,
+);
+assert(cellAt(addedHeaders, addedRow, 'Intonation /25') === '22'
+  && cellAt(addedHeaders, addedRow, 'Rhythm /20') === '17'
+  && cellAt(addedHeaders, addedRow, 'Musicality /20') === '17',
+  'the lines she WAS graded on keep their cells');
+assert(cellAt(addedHeaders, addedRow, 'Tempo /10') === '',
+  'the line added later is blank — she was never scored for it');
+assert(cellAt(addedHeaders, addedRow, 'Flags') === 'Scored on an earlier rubric',
+  'and the row SAYS so — an unflagged blank reads as "skipped", which is a different story');
+assert(cellAt(addedHeaders, addedRow, 'Rubric out of') === '65',
+  'her total is still out of the 65 she was actually graded on, not the 75 the exam now carries');
+
+// The flag must not fire when nothing drifted, in either direction — including
+// on a snapshot that says the same thing in a different ORDER, since the cells
+// are matched by id and the flag is answered the same way.
+assert(cellAt(headers, gradedRow, 'Flags') === '',
+  'a shuffled but otherwise identical snapshot is NOT an earlier rubric');
+const exactRow = gradeCsvRow(
+  person({ studentId: 'eve', name: 'Eve Larsen' }),
+  result({
+    studentId: 'eve', score: '90',
+    rubric: CRITERIA.map(c => ({ ...c, points: c.max })),
+  }),
+  CRITERIA,
+);
+assert(cellAt(headers, exactRow, 'Flags') === '', 'and neither is an exact match');
+
 /* ── 4. Ungraded is blank, never zero ── */
 
 const blankRow = gradeCsvRow(person({ studentId: 'cy', name: 'Cy Delgado' }), undefined, CRITERIA);
