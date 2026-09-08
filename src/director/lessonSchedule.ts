@@ -67,9 +67,18 @@ export function slotDates(slot: LessonSlot, from: string, through: string): stri
 
 /**
  * The dates the slot calls for that have no lesson yet — what "add these"
- * actually creates. Any existing lesson on that date for that student wins,
- * cancelled ones included: a cancelled lesson is a decision the teacher
- * already made, and re-creating it would silently undo it.
+ * actually creates. Any existing lesson wins, cancelled ones included: a
+ * cancelled lesson is a decision the teacher already made, and re-creating it
+ * would silently undo it.
+ *
+ * A week is spoken for by ANY lesson in it, not only one sitting on the
+ * recipe's own date. The recipe means one lesson a week, and once a change
+ * can be dated forward — "Thursdays, starting after winter break" — the old
+ * term's Mondays stay put and every Thursday before that date is empty
+ * forever. Matching on date alone, this offered to add all of them, on top of
+ * the very lessons the teacher had just chosen to keep. Matching on the week
+ * closes that, and closes the same hole for a plain same-day change whose
+ * move offer was declined.
  */
 export function pendingSlotDates(
   slot: LessonSlot,
@@ -77,8 +86,8 @@ export function pendingSlotDates(
   from: string,
   through: string,
 ): string[] {
-  const taken = new Set(lessons.map(l => l.date));
-  return slotDates(slot, from, through).filter(d => !taken.has(d));
+  const weeksTaken = new Set(lessons.map(l => weekOf(l.date)));
+  return slotDates(slot, from, through).filter(d => !weeksTaken.has(weekOf(d)));
 }
 
 /**
@@ -91,10 +100,11 @@ export function pendingSlotDates(
  * that something went wrong. So the count is reported, both before the press
  * and after it.
  *
- * A date that ALREADY has a lesson is not counted: nothing was skipped there.
- * The teacher put a lesson on that day themselves, which is allowed — some
- * studios do run through a teacher-planning day — and calling that "skipped"
- * would be flatly wrong.
+ * A week that ALREADY has a lesson is not counted: nothing was skipped there.
+ * The teacher either taught through the closure or made the week up on
+ * another day, both of which are allowed, and calling that "skipped" would be
+ * flatly wrong — the hint tells them to add one by hand, which is the last
+ * thing they need when the week is already covered.
  */
 export function skippedNoSchoolDates(
   slot: LessonSlot,
@@ -102,9 +112,9 @@ export function skippedNoSchoolDates(
   from: string,
   through: string,
 ): string[] {
-  const taken = new Set(lessons.map(l => l.date));
+  const weeksTaken = new Set(lessons.map(l => weekOf(l.date)));
   return everySlotWeekday(slot, from, through)
-    .filter(d => !isMdcpsSchoolDay(d) && !taken.has(d));
+    .filter(d => !isMdcpsSchoolDay(d) && !weeksTaken.has(weekOf(d)));
 }
 
 /**
@@ -287,6 +297,17 @@ export interface SlotChangePlan {
    * only safe source for "what was it before" is this field.
    */
   before?: LessonSlot;
+  /**
+   * The date the new time takes effect. Lessons BEFORE it keep the old time;
+   * this is what makes "Thursdays, starting after winter break" expressible
+   * rather than every change being "from today, forever".
+   *
+   * Travels on the plan for the same reason `before` does: the apply path
+   * must recompute against the exact same window the teacher was shown, and
+   * re-deriving it from `today` would silently widen a change they had
+   * deliberately dated forward.
+   */
+  from: string;
   /** Future lessons that came from the old recipe and belong at a new time. */
   move: SlotMove[];
   /** Dates the new recipe calls for that have no lesson at all. */
@@ -304,7 +325,7 @@ export interface SlotChangePlan {
 }
 
 const EMPTY_PLAN: SlotChangePlan = {
-  move: [], create: [], supersede: [], keptGraded: 0, keptCancelled: 0, keptOther: 0,
+  from: "", move: [], create: [], supersede: [], keptGraded: 0, keptCancelled: 0, keptOther: 0,
 };
 
 /**
@@ -330,7 +351,7 @@ export function slotChangePlan(
   const newDateByWeek = new Map(newDates.map(d => [weekOf(d), d]));
 
   const plan: SlotChangePlan = {
-    before, move: [], create: [], supersede: [], keptGraded: 0, keptCancelled: 0, keptOther: 0,
+    before, from, move: [], create: [], supersede: [], keptGraded: 0, keptCancelled: 0, keptOther: 0,
   };
   // Dates that will hold a lesson once the moves land — so a move never
   // collides with a lesson already sitting on the target date, and `create`

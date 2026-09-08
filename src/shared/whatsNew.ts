@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // A time change is not always "from now on" — a studio moves a student after
+  // winter break, or fixes a time that was entered wrong three weeks ago. Both
+  // were the same button, and it always meant today.
+  {
+    id: '2026-09-08-weekly-time-start-date',
+    date: '2026-09-08',
+    title: 'Change a weekly lesson time from a date you pick',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'Applied teachers: changing a student’s weekly time now has a “New time starts” date on it. Leave it on today and it behaves exactly as before. Put it after winter break and the lessons between now and then keep the old time — only the ones from that date on are offered for the move. Put it back a few weeks and the rows already on the sheet are offered too, which is how a time entered wrong gets corrected without editing each row by hand.',
+      'The offer that follows says which window it covers, so a change dated forward does not read as one that missed half the year.',
+      'A week that already has a lesson is no longer offered a second one. “Add the remaining …” used to count days rather than weeks, so a student kept on Mondays for the fall and moved to Thursdays in January would have been offered a Thursday on top of every one of those Mondays.',
+    ],
+  },
   // Everything term-shaped now opens on the term we are in. The lesson log was
   // landing on SPRING in September, because generating a standing weekly time
   // in August writes lessons through May and the sheet followed the newest one.
