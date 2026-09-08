@@ -48,7 +48,22 @@ function cspPlugin(authDomain: string | undefined, functionsOrigin: string | und
           // React style attributes need unsafe-inline; no external styles.
           "style-src 'self' 'unsafe-inline'",
           // googleusercontent: Google-account avatars in the director header.
-          "img-src 'self' data: https://*.googleusercontent.com",
+          // firebasestorage: every picture the app itself stores — announcement
+          // images, sign-up reference files, attachment thumbnails. blob: is the
+          // local preview of a file someone just picked, before it is uploaded.
+          // Without these the browser refuses the image and the page shows an
+          // empty box, which reads as "the upload didn't work" (see the
+          // media-src note below — this is the same omission, one directive up).
+          "img-src 'self' data: blob: https://*.googleusercontent.com https://firebasestorage.googleapis.com",
+          // MEDIA IS ITS OWN DIRECTIVE and does NOT fall back to connect-src.
+          // Storage was already listed for connect-src (that is the upload), so
+          // submitting a playing exam worked and playing one back did not: the
+          // browser refused the media against default-src and the <video> just
+          // sat there, no error banner, no "cannot play this format" — the same
+          // "looks like bad wifi from the inside" failure as the functions
+          // origin below. blob: is the student's own recording, previewed
+          // before they send it.
+          "media-src 'self' blob: https://firebasestorage.googleapis.com",
           'connect-src ' + [
             "'self'",
             'https://firestore.googleapis.com', // live data + offline sync

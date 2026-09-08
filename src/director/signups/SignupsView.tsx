@@ -9,13 +9,14 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useSignupForms, useSignupResponses, useSignupSlotBookings, useSignupAudiences, useSignupOwners, saveSignupAudience, deleteSignupAudience, saveSignupOwner, removeSlotBooking, latestPerStudent, parseAnswers, responseIsComplete } from '../hooks/useSignups';
 import { useStudents } from '../hooks/useStudents';
+import { useContacts } from '../hooks/useContacts';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useDirectors, useMyDirector, directorEmailId } from '../hooks/useDirectors';
 import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useLessons } from '../hooks/useLessons';
 import { findLessonConflicts } from '../lessonConflicts';
-import { lessonPayloadsFor, schoolYearEnd } from '../lessonSchedule';
+import { lessonPayloadsFor, schoolYearEnd, skippedNoSchoolDates } from '../lessonSchedule';
 import { planLessonsFromSignup } from '../../shared/signupToLessons';
 import { directorRoleLabels, directorRoles, hasDirectorRole, isStaffMember } from '../directorRoles';
 import { useCurrentDirector } from '../currentDirector';
@@ -36,12 +37,13 @@ import { normalizeTimeslotQuestion, signupQuestionHasContent } from '../../share
 import { deleteStoredFile } from '../storageCleanup';
 import { SignupSlotBuilder } from './SignupSlotBuilder';
 import { SignupAppointmentsFeedPanel } from './SignupAppointmentsFeedPanel';
+import { SignupRosterIntake } from './SignupRosterIntake';
 import { byLastName, emailList, exportSlug, namesList, responsesToCsv } from './signupsExport';
 import { allStateTemplate } from './signupTemplates';
 import { ORG } from '../../org';
 import { studentMatchesQuery } from '../studentSearch';
 import type {
-  Ensemble, InstrumentFamilyId, SignupForm, SignupQuestion, SignupResponse, SignupSlotBooking, Student,
+  Ensemble, InstrumentFamilyId, SignupForm, SignupQuestion, SignupResponse, SignupSlotBooking, Student, StudentContact,
 } from '../types';
 import type { Director } from '../hooks/useDirectors';
 import './signups.css';
@@ -77,10 +79,16 @@ export function SignupsView() {
   const { responses, setStatus, remove } = useSignupResponses();
   const { byFormId: audiences } = useSignupAudiences();
   const { byFormId: owners } = useSignupOwners();
-  const { students } = useStudents();
+  const { students, addStudent, updateStudent } = useStudents();
   const { ensembles } = useEnsembles();
   const { directors } = useDirectors();
   const me = useCurrentDirector();
+  // The roster intake writes contacts as well as students, so it needs both.
+  // Gated on the same check that offers the panel: firestore.rules bars a
+  // Student Assistant from `contacts`, and an unwanted listener there trips
+  // the "couldn't load" strip for a screen they can otherwise use.
+  const canManageRoster = isStaffMember(me);
+  const { contacts, saveContact } = useContacts(canManageRoster);
   const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ form: SignupForm | null; draft: Draft } | null>(null);
 
@@ -168,6 +176,11 @@ export function SignupsView() {
           onToggleClosed={() => void updateForm(open.id, { closed: !open.closed })}
           onExtend={deadline => void updateForm(open.id, { deadline })}
           onSetStatus={setStatus}
+          canManageRoster={canManageRoster}
+          contacts={contacts}
+          onAddStudent={addStudent}
+          onUpdateStudent={updateStudent}
+          onSaveContact={saveContact}
           onRemoveResponse={remove}
           onDelete={async () => { await deleteForm(open.id); setOpenId(null); }}
         />
@@ -257,12 +270,21 @@ interface DetailProps {
   onToggleClosed: () => void;
   onExtend: (deadline: string) => void;
   onSetStatus: (id: string, status: SignupResponse['status']) => Promise<void>;
+  /** May this viewer write the roster? Student Assistants read sign-ups but
+   *  never create students — firestore.rules would refuse the write, so the
+   *  intake panel is not offered to them. */
+  canManageRoster: boolean;
+  contacts: Record<string, StudentContact>;
+  onAddStudent: (data: Omit<Student, 'id'>) => Promise<string | undefined>;
+  onUpdateStudent: (id: string, data: Partial<Omit<Student, 'id'>>) => Promise<void>;
+  onSaveContact: (studentId: string, data: Omit<StudentContact, 'id'>) => Promise<void>;
   onRemoveResponse: (id: string) => Promise<void>;
   onDelete: () => Promise<void>;
 }
 
 function SignupDetail({
   form, responses, students, iOwn, ensembles, audiences, today, now,
+  canManageRoster, contacts, onAddStudent, onUpdateStudent, onSaveContact,
   onBack, onEdit, onToggleClosed, onExtend, onSetStatus, onRemoveResponse, onDelete,
 }: DetailProps) {
   const printRef = useRef<HTMLDivElement>(null);
@@ -522,6 +544,22 @@ function SignupDetail({
         );
       })}
 
+      {/* Straight into the roster (#signups). Only the responses that still
+          count: a withdrawn one is a person who took their name back. */}
+      {canManageRoster && (
+        <SignupRosterIntake
+          form={form}
+          responses={active}
+          students={students}
+          contacts={contacts}
+          ensembles={ensembles}
+          onAddStudent={onAddStudent}
+          onUpdateStudent={onUpdateStudent}
+          onSaveContact={onSaveContact}
+          onSetStatus={onSetStatus}
+        />
+      )}
+
       {/* Who hasn't answered — the chase-up list. */}
       {waiting.length > 0 && (
         <>
@@ -709,7 +747,7 @@ function SignupLessonConverter({ form, bookings, students, today }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<
-    { people: number; lessons: number; conflicts: number; replaced: number } | null
+    { people: number; lessons: number; conflicts: number; replaced: number; skipped: number } | null
   >(null);
 
   const plan = useMemo(
@@ -751,12 +789,17 @@ function SignupLessonConverter({ form, bookings, students, today }: {
 
       let made = 0;
       let conflicts = 0;
+      let skipped = 0;
       for (const p of plan.planned) {
         const mine = lessons.filter(l => l.teacherEmail === myId && l.studentId === p.student.id);
         // Never backfill: a booked date that has already passed starts the
         // series today instead. Creating lessons in the past would file
         // ungraded sheets for weeks nobody taught.
         const from = p.firstDate > today ? p.firstDate : today;
+        // Counted per person and summed: the same skip the teacher's own
+        // sheet reports, for the same reason. A booking that yields fewer
+        // lessons than weeks must say why.
+        skipped += skippedNoSchoolDates(p.slot, mine, from, through).length;
         const payloads = lessonPayloadsFor(
           p.slot, p.student, { email: myId, name: me.name }, mine, from, through,
         );
@@ -774,6 +817,7 @@ function SignupLessonConverter({ form, bookings, students, today }: {
         lessons: made,
         conflicts,
         replaced: replacing.length,
+        skipped,
       });
       setConfirming(false);
     } catch (e) {
@@ -795,6 +839,7 @@ function SignupLessonConverter({ form, bookings, students, today }: {
             Added <strong>{result.people}</strong> standing {result.people === 1 ? 'time' : 'times'} and{' '}
             <strong>{result.lessons}</strong> {result.lessons === 1 ? 'lesson' : 'lessons'} through {formatDate(through)}.
             {result.replaced > 0 && ` ${result.replaced} replaced a time you had already set.`}
+            {result.skipped > 0 && ` Skipped ${result.skipped} ${result.skipped === 1 ? 'week' : 'weeks'} MDCPS is closed.`}
           </p>
           {result.conflicts > 0 && (
             <p className="dir-signup-hint">

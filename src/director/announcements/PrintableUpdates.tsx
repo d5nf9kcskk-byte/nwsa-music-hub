@@ -103,6 +103,17 @@ export function PrintableUpdates({ onClose }: { onClose: () => void }) {
                     <span className="dir-print-item-ens">{ensembleName(a.ensembleId)}</span>
                   </div>
                   {a.body && <div className="dir-print-item-note">{richTextToPlain(a.body, SITE)}</div>}
+                  {/* This sheet is a text bulletin taped to a door, so an
+                      attached picture or file can't ride along — say it is
+                      there and where to find it. */}
+                  {(a.images?.length || a.files?.length) ? (
+                    <div className="dir-print-item-note">
+                      {[
+                        a.images?.length ? `${a.images.length} picture${a.images.length > 1 ? 's' : ''}` : '',
+                        ...(a.files ?? []).map(f => f.name),
+                      ].filter(Boolean).join(', ')} — see this post on {SITE}
+                    </div>
+                  ) : null}
                   {a.links?.length ? (
                     <div className="dir-print-item-note">
                       {a.links.map(l => `${l.label}: ${l.url.startsWith('/') ? SITE + l.url : l.url}`).join('\n')}

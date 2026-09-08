@@ -3,6 +3,7 @@ import { db } from './firebase';
 import type { EventType } from './types';
 import { ACADEMIC_CLASSES, academicClassIdForTitle } from './academicClasses';
 import { MASTERCLASS_SECTIONS, masterclassIdForTitle } from './masterclassSections';
+import { MDCPS_NO_SCHOOL as NO_SCHOOL } from '../shared/academicCalendars.ts';
 
 // Stable ensemble slugs — match the IDs written by seedRoster().
 const ENS = {
@@ -14,41 +15,6 @@ const ENS = {
   collegeChamber: 'college-chamber-orchestra',
   choir:     'high-school-choir',
 } as const;
-
-// MDCPS 2026-2027: every weekday on which students do NOT attend school.
-const NO_SCHOOL = new Set([
-  // Teacher planning days before school opens
-  '2026-08-10', '2026-08-11', '2026-08-12',
-  // Labor Day
-  '2026-09-07',
-  // Teacher planning
-  '2026-09-21',
-  // District-wide Professional Learning Day
-  '2026-11-03',
-  // Veterans Day
-  '2026-11-11',
-  // Thanksgiving recess + holiday
-  '2026-11-23', '2026-11-24', '2026-11-25', '2026-11-26', '2026-11-27',
-  // Teacher planning
-  '2026-12-18',
-  // Winter recess (Dec 21 – Jan 1)
-  '2026-12-21', '2026-12-22', '2026-12-23', '2026-12-24', '2026-12-25',
-  '2026-12-28', '2026-12-29', '2026-12-30', '2026-12-31', '2027-01-01',
-  // Teacher planning
-  '2027-01-15',
-  // MLK Day
-  '2027-01-18',
-  // Presidents Day
-  '2027-02-15',
-  // Teacher planning
-  '2027-03-10',
-  // Spring recess
-  '2027-03-22', '2027-03-23', '2027-03-24', '2027-03-25', '2027-03-26',
-  // Teacher planning
-  '2027-03-29',
-  // Memorial Day
-  '2027-05-31',
-]);
 
 /**
  * MDCPS (K-12) and Miami Dade College run separate academic calendars — NWSA

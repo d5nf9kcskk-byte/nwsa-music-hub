@@ -21,6 +21,7 @@ import {
   guestStudentId, isGuestStudentId, guestDoorOpen, guestEmailProblem,
   guestNameProblem, normalizeGuestName, MAX_GUEST_NAME,
   type CheckinEventLike, type Term,
+  currentTerm, termsNewestFirst,
 } from './concertCheckin.ts';
 
 function assert(cond: unknown, msg: string): asserts cond {
@@ -178,6 +179,32 @@ assert(checkinState(guarded, gs, TZ, at(23, 10)) === 'open', 'check-IN is unaffe
 assert(!canCheckOut(guarded, gs, TZ, at(23, 10)), 'cannot check out ten minutes in');
 assert(canCheckOut(guarded, gs, TZ, at(23, 50)), 'can check out after the stay guard');
 assert(canCheckOut(concert, settings, TZ, at(23, 10)), 'no guard set means check out whenever');
+
+/* ── Which semester are we in (#current-term) ── */
+
+const TERMS_CFG: Term[] = [
+  { id: '2026-fall',   name: 'Fall 2026',   start: '2026-08-17', end: '2026-12-19' },
+  { id: '2027-spring', name: 'Spring 2027', start: '2027-01-06', end: '2027-06-03' },
+];
+
+assert(currentTerm(TERMS_CFG, '2026-09-08')?.id === '2026-fall',
+  'a date inside a term IS that term — the whole point');
+assert(currentTerm(TERMS_CFG, '2026-08-17')?.id === '2026-fall', 'the first day counts');
+assert(currentTerm(TERMS_CFG, '2026-12-19')?.id === '2026-fall', 'and the last');
+assert(currentTerm(TERMS_CFG, '2027-03-01')?.id === '2027-spring', 'spring in spring');
+// The gaps. A hardcoded "August means Fall" would get all three of these
+// wrong, which is why the org's real dates are the source.
+assert(currentTerm(TERMS_CFG, '2026-08-01')?.id === '2026-fall',
+  'before the first term starts, the term being prepared');
+assert(currentTerm(TERMS_CFG, '2026-12-28')?.id === '2026-fall',
+  'the winter gap belongs to the term that just ended, not the one not yet begun');
+assert(currentTerm(TERMS_CFG, '2027-07-15')?.id === '2027-spring',
+  'summer closes out the spring — that is where the grades are');
+assert(currentTerm([], '2026-09-08') === null,
+  'an org with no terms configured has no current term, and its screens show everything');
+assert(termsNewestFirst(TERMS_CFG).map(t => t.id).join(',') === '2027-spring,2026-fall',
+  'a picker lists the newest first');
+assert(termsNewestFirst(TERMS_CFG) !== TERMS_CFG, 'and never sorts the caller’s array in place');
 
 /* ── Semesters ── */
 
