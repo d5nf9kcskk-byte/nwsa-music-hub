@@ -275,6 +275,18 @@ export function doubledUpOffSlot(
 }
 
 export interface SlotChangePlan {
+  /**
+   * The recipe this plan was computed AGAINST — the standing time as it was
+   * before the change. It travels WITH the plan on purpose.
+   *
+   * Re-deriving it at apply time is a trap that has already been fallen into:
+   * `saveSlot()` writes the new slot onto `directors/<email>.lessonSlots`
+   * before the offer is even drawn, so a later read of that field returns the
+   * NEW time, `slotChangePlan(new, new, …)` recognises nothing as the old
+   * recipe's, and the button silently moves and removes nothing at all. The
+   * only safe source for "what was it before" is this field.
+   */
+  before?: LessonSlot;
   /** Future lessons that came from the old recipe and belong at a new time. */
   move: SlotMove[];
   /** Dates the new recipe calls for that have no lesson at all. */
@@ -318,7 +330,7 @@ export function slotChangePlan(
   const newDateByWeek = new Map(newDates.map(d => [weekOf(d), d]));
 
   const plan: SlotChangePlan = {
-    move: [], create: [], supersede: [], keptGraded: 0, keptCancelled: 0, keptOther: 0,
+    before, move: [], create: [], supersede: [], keptGraded: 0, keptCancelled: 0, keptOther: 0,
   };
   // Dates that will hold a lesson once the moves land — so a move never
   // collides with a lesson already sitting on the target date, and `create`

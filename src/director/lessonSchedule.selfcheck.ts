@@ -233,6 +233,30 @@ assert(careful.keptGraded === 1 && careful.keptCancelled === 1 && careful.keptOt
   assert(doubledUpOffSlot(monday, twoSeries, '2027-02-01').length === 0, 'the past is never touched');
 }
 
+// THE PLAN REMEMBERS WHAT IT WAS COMPUTED AGAINST. This is not decoration.
+// saveSlot() writes the new time onto the director doc before the offer is
+// drawn, so any apply path that re-reads "the current slot" to learn the OLD
+// one gets the new time back, compares it against itself, recognises nothing,
+// and silently does nothing. That shipped in #147 and broke the move button
+// outright. Carrying `before` on the plan is what makes the correct value
+// travel to the press.
+{
+  const oldMon: LessonSlot = { weekday: 1, startTime: '15:30', endTime: '16:20' };
+  const newThu: LessonSlot = { weekday: 4, startTime: '11:30', endTime: '12:20' };
+  const mondays = [
+    lesson({ id: 'm1', date: '2026-09-14', startTime: '15:30', endTime: '16:20' }),
+    lesson({ id: 'm2', date: '2026-09-28', startTime: '15:30', endTime: '16:20' }),
+  ];
+  const p = slotChangePlan(oldMon, newThu, mondays, '2026-09-08', '2026-10-31');
+  assert(p.before === oldMon, 'the plan carries the recipe it was computed against');
+  assert(p.move.length === 2, `both Mondays move to Thursday, got ${p.move.length}`);
+  // The exact shape of the bug: recomputing with the NEW slot as `before`
+  // finds nothing, which is why re-deriving it is never allowed.
+  const wrong = slotChangePlan(newThu, newThu, mondays, '2026-09-08', '2026-10-31');
+  assert(wrong.move.length === 0,
+    'comparing the new time against itself moves nothing — the regression, pinned');
+}
+
 // A move never lands on a date that already holds a lesson.
 const collide = slotChangePlan(friday, wednesday, [
   lesson({ id: 'fri', date: '2026-09-04' }),

@@ -227,9 +227,15 @@ export function MyLessonsView() {
       // Applying the stale plan then put two lessons on one day. `shown` is
       // kept only to compare against, so a plan that grew between the draw and
       // the press cannot quietly do more than the teacher agreed to.
-      const before = director?.lessonSlots?.[studentId];
+      //
+      // The OLD recipe comes off the plan, never off the director doc. That
+      // doc's `lessonSlots` was overwritten with the new time by saveSlot()
+      // before this offer existed, so reading it here compared the new time
+      // against itself, matched nothing as the old recipe's, and made this
+      // button do nothing at all. Shipped that way in #147 and reported the
+      // same evening on a Monday-to-Thursday change.
       const live = slotChangePlan(
-        before, slot,
+        shown.before, slot,
         myLessons.filter(l => l.studentId === studentId),
         today, schoolYearEnd(today),
       );
