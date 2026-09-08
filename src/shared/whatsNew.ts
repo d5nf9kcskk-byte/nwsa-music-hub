@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Everything term-shaped now opens on the term we are in. The lesson log was
+  // landing on SPRING in September, because generating a standing weekly time
+  // in August writes lessons through May and the sheet followed the newest one.
+  {
+    id: '2026-09-08-default-to-this-semester',
+    date: '2026-09-08',
+    title: 'Lessons and assignments open on this semester',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'Assignments now open filtered to the semester you are in, with a Semester picker above the list if you need last term or “All semesters”. It uses the school’s real dates, so Fall starts on the day Fall actually starts, not the first of August.',
+      'The lesson log opens a student on this term’s sheet. If you set up a student’s weekly time back in August, their lessons run through May, and the log was landing you on the spring sheet — blank jury list, blank signatures, none of this term’s lessons in sight. A student with nothing yet this term still opens where their lessons are.',
+      'A new jury starts with the current semester filled in.',
+    ],
+  },
   // The last mile of the rubric ship: the breakdown existed on screen and
   // nowhere else, so getting grades into the district gradebook meant reading
   // numbers off a monitor.

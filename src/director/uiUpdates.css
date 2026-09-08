@@ -1582,3 +1582,31 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
   gap: 6px;
   margin-top: 8px;
 }
+
+/* Semester filter on the assignments list (#current-term). Sits under the
+   ensemble filter, same row rhythm. */
+.dir-assign-term-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px 0;
+}
+.dir-assign-term-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--dir-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.dir-assign-term-select {
+  height: 34px;
+  font-size: 13px;
+  font-weight: 700;
+  width: auto;
+  min-width: 10rem;
+}
+.dir-assign-term-hidden {
+  font-size: 11px;
+  color: var(--dir-text-muted);
+}
