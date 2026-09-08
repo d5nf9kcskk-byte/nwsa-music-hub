@@ -297,6 +297,15 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
 
+      # The CSP is generated into index.html at build time, so it can only be
+      # checked here, against the built file. It has shipped broken twice and
+      # both times it failed silently: connect-src missing the functions
+      # origin (read as "that did not reach the Hub"), then media-src missing
+      # entirely, which let a playing exam upload and refused to let it play
+      # back. Nothing throws; the feature is just dead in the browser.
+      - name: Check Content-Security-Policy
+        run: node scripts/csp.selfcheck.mjs
+
       - name: Generate ICS calendar feeds
         run: node scripts/generate-feeds.mjs
         env:
