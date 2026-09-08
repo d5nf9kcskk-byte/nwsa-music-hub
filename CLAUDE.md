@@ -591,9 +591,17 @@ it once, and the video opened in another tab. It is one list now — the row IS
 the submission, and opening it plays the video with the rubric under it
 (`src/director/assignments/GradeRow.tsx`). Two things must not regress:
 
-- **`preload="none"`, and only the OPEN row renders a `<video>`.** A playing
-  exam is up to 500 MB per student. A player on every row would start pulling
-  a roster's worth of video because a page rendered.
+- **Only the OPEN row renders a `<video>`.** A playing exam is up to 500 MB
+  per student, and a player on every row would start pulling a roster's worth
+  of video because a page rendered. THAT is the invariant; the `preload` value
+  is not, and `preload="none"` was tried and reverted the same day. It leaves
+  the element at `readyState` 0 with `duration` NaN, so the player is a dead
+  black rectangle reading 0:00 with no total time and no first frame — it
+  reads as "not playable" and the grader goes back to the link, which is the
+  whole thing this screen replaced. `preload="metadata"` fetches the header
+  and stops (measured: ~7 MB of a 40 MB file, bounded by the browser's own
+  forward buffer) on a row the director deliberately opened. Do not "save
+  bandwidth" by putting it back to none.
 - **A submission from someone no longer on the roster still shows** (the
   "Videos from students not on this list" fold). Merging a submission-anchored
   list into a roster-anchored one is exactly where those would have vanished.
