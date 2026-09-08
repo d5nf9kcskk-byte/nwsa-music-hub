@@ -4,7 +4,14 @@ import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
 import { currentDirectorEmail, currentDirectorName } from '../currentDirector';
-import type { Announcement } from '../types';
+import { deleteStoredFile } from '../storageCleanup';
+import type { Announcement, Attachment } from '../types';
+
+/** Every uploaded file a post points at (pictures + attachments). */
+function uploadedUrls(a: Partial<Announcement> | undefined): string[] {
+  const list: Attachment[] = [...(a?.images ?? []), ...(a?.files ?? [])];
+  return list.map(f => f.url).filter(Boolean);
+}
 
 /**
  * Real-time listener for director-posted announcements. Sorted client-side
@@ -50,7 +57,18 @@ export function useAnnouncements() {
     const payload = Object.fromEntries(
       Object.entries(stamped).map(([k, v]) => [k, v === undefined ? deleteField() : v]),
     );
+    // A picture or file the director removed in this edit is now referenced by
+    // nothing, so delete the object rather than leaving it readable forever at
+    // its old Storage URL (the same rule the document repository follows).
+    // Only for the keys this save actually sent, and only AFTER it succeeds —
+    // cancelling an edit must never delete a live file.
+    const before = announcements.find(x => x.id === id);
+    const touchesFiles = 'images' in data || 'files' in data;
+    const dropped = touchesFiles
+      ? uploadedUrls(before).filter(url => !uploadedUrls(data).includes(url))
+      : [];
     await updateDoc(doc(db, 'announcements', id), payload);
+    for (const url of dropped) void deleteStoredFile(url);
   }
 
   async function deleteAnnouncement(id: string) {
@@ -60,7 +78,10 @@ export function useAnnouncements() {
     await deleteDoc(doc(db, 'announcements', id));
     if (gone) {
       const { id: _id, ...data } = gone;
-      offerUndo('announcements', id, data, `Deleted announcement — restore?`);
+      // Once the undo window lapses the delete is final, so the uploaded
+      // pictures and files go with it.
+      offerUndo('announcements', id, data, `Deleted announcement — restore?`, undefined,
+        () => { for (const url of uploadedUrls(gone)) void deleteStoredFile(url); });
     }
   }
 

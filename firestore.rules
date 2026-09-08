@@ -1111,7 +1111,7 @@ service cloud.firestore {
       allow update: if isOwner()
         || (verifiedSelf(email)
             && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['name', 'assignedStudentIds', 'lessonSlots', 'lessonLogSheets']));
+                 .hasOnly(['name', 'assignedStudentIds', 'lessonSlots', 'lessonLogSheets', 'examRubric']));
       // The Owner may remove any OTHER director, but never their own
       // account — the app can never end up ownerless.
       allow delete: if isOwner() && request.auth.token.email != email;

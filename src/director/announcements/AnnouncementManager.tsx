@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Pencil, Pin, ChevronLeft, Clock, Printer, Archive, Inbox, Link2, X } from 'lucide-react';
+import { Plus, Pencil, Pin, ChevronLeft, Clock, Printer, Archive, Inbox, Link2, X, Image as ImageIcon, Paperclip } from 'lucide-react';
 import { useAnnouncements, useMinuteTick, isArchived } from '../hooks/useAnnouncements';
 import { queueUrgentRelay, markRelayHandled } from './urgentRelay';
 import { useEnsembles } from '../hooks/useEnsembles';
@@ -9,11 +9,16 @@ import { EnsembleFilter } from '../components/EnsembleFilter';
 import { PrintableUpdates } from './PrintableUpdates';
 import { AnnouncementPreview } from './AnnouncementPreview';
 import { useModalA11y } from '../../shared/useModalA11y';
-import { MAX_ANNOUNCEMENT_LINKS, type Announcement, type AnnouncementLink } from '../types';
+import {
+  MAX_ANNOUNCEMENT_LINKS, MAX_ANNOUNCEMENT_IMAGES, MAX_ANNOUNCEMENT_FILES,
+  type Announcement, type AnnouncementLink, type Attachment,
+} from '../types';
+import { FileUpload } from '../components/FileUpload';
 import { RichTextArea } from '../components/RichTextArea';
 import { LazyLinkPicker } from '../components/LinkPickerLazy';
 import { whenQueued } from '../writeStatus';
 import { useCurrentDirector } from '../currentDirector';
+import { announcementPictures, announcementDownloads } from '../../shared/announcementMedia';
 
 interface Props {
   onClose: () => void;
@@ -198,6 +203,21 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
                     {isArchived(a) && a.archivedAt ? ` · archived ${new Date(a.archivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
                   </div>
                   {a.body && <div className="dir-ann-body"><NotesText text={a.body} /></div>}
+                  {/* The list is where a director checks their own post. A
+                      picture that shows only on the public site is a picture
+                      they cannot proof-read from here. */}
+                  {announcementPictures(a).length > 0 && (
+                    <div className="dir-ann-thumbs">
+                      {announcementPictures(a).map((img, i) => (
+                        <img key={`${img.url}-${i}`} src={img.url} alt={img.name} className="dir-ann-thumb" loading="lazy" />
+                      ))}
+                    </div>
+                  )}
+                  {announcementDownloads(a).length > 0 && (
+                    <div className="dir-ens-sub">
+                      {announcementDownloads(a).map(f => f.name).join(' · ')}
+                    </div>
+                  )}
                 </div>
                 <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing(a); }} aria-label="Edit">
                   <Pencil size={16} />
@@ -272,6 +292,8 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
   const [ensembleId, setEnsembleId] = useState<string | null>(announcement?.ensembleId ?? null);
   const [pinned, setPinned] = useState(announcement?.pinned ?? false);
   const [links, setLinks] = useState<AnnouncementLink[]>(announcement?.links ?? []);
+  const [images, setImages] = useState<Attachment[]>(announcement?.images ?? []);
+  const [files, setFiles] = useState<Attachment[]>(announcement?.files ?? []);
   const [pickingLink, setPickingLink] = useState(false);
   const [priority, setPriority] = useState<'info' | 'important' | 'urgent'>(announcement?.priority ?? 'info');
   const [expiresOn, setExpiresOn] = useState(announcement?.expiresOn ?? '');
@@ -341,6 +363,8 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
         // Undefined, not [] — Firestore stores an empty array as a real field,
         // and every other optional here follows the same rule.
         links: links.length ? links.slice(0, MAX_ANNOUNCEMENT_LINKS) : undefined,
+        images: images.length ? images.slice(0, MAX_ANNOUNCEMENT_IMAGES) : undefined,
+        files: files.length ? files.slice(0, MAX_ANNOUNCEMENT_FILES) : undefined,
         expiresOn: expiresOn || undefined,
         publishAt: publishAtValue(),
         createdAt: announcement?.createdAt ?? Date.now(),
@@ -450,6 +474,37 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
               {links.length >= MAX_ANNOUNCEMENT_LINKS
                 ? `That is the limit of ${MAX_ANNOUNCEMENT_LINKS} — remove one to add another.`
                 : 'Shown as buttons under the message. Use these for “here is the thing I am talking about”; links inside the message itself go in with the toolbar’s link button.'}
+            </div>
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label"><ImageIcon size={13} style={{ verticalAlign: '-2px', marginRight: 4 }} />Pictures</label>
+            <FileUpload
+              attachments={images}
+              onChange={next => setImages(next.slice(0, MAX_ANNOUNCEMENT_IMAGES))}
+              folder={`announcements/${announcement?.id ?? 'new'}`}
+              accept="image/*"
+              label="Add a picture"
+            />
+            <div className="dir-field-hint">
+              {images.length >= MAX_ANNOUNCEMENT_IMAGES
+                ? `That is the limit of ${MAX_ANNOUNCEMENT_IMAGES} — remove one to add another.`
+                : 'Shown full width inside the post, tap to open the original. Good for a flyer or a screenshot of a times list. Families can read it without downloading anything.'}
+            </div>
+          </div>
+
+          <div className="dir-field">
+            <label className="dir-label"><Paperclip size={13} style={{ verticalAlign: '-2px', marginRight: 4 }} />Attachments</label>
+            <FileUpload
+              attachments={files}
+              onChange={next => setFiles(next.slice(0, MAX_ANNOUNCEMENT_FILES))}
+              folder={`announcements/${announcement?.id ?? 'new'}`}
+              label="Attach a file"
+            />
+            <div className="dir-field-hint">
+              {files.length >= MAX_ANNOUNCEMENT_FILES
+                ? `That is the limit of ${MAX_ANNOUNCEMENT_FILES} — remove one to add another.`
+                : 'A PDF or form to download. Anything you attach is public, the same as the post itself.'}
             </div>
           </div>
 

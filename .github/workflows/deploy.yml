@@ -195,6 +195,41 @@ jobs:
       - name: Check applied-lesson grading
         run: npx tsx src/director/lessonGrades.selfcheck.ts
 
+      # Which semester a screen opens on (#current-term): a date inside a term
+      # IS that term, the gaps (summer, the winter break, before the first term
+      # starts) resolve to something sensible rather than nothing, and an org
+      # with no terms configured has no current term so its screens show
+      # everything. Covered by the concert check-in self-check, which already
+      # owns the term definition — listed here so the dependency is visible.
+
+      # Playing-exam rubric (#exam-rubric): a half-filled rubric must produce
+      # NO grade (an unscored line is not a zero), an EMPTY rubric on an exam
+      # means "graded without one" and must never be re-defaulted, a confirmed
+      # grade snapshots its own lines so re-weighting the exam cannot rewrite
+      # it, and the percent must round in exactly one place. No org import, so
+      # no defines shim needed.
+      - name: Check playing-exam rubric
+        run: npx tsx src/director/examRubric.selfcheck.ts
+
+      # The grade sheet's CSV export: a hostile student name must be quoted AND
+      # formula-neutralised, rubric points must land under the line they were
+      # given for (matched by criterion id, never by position), a grade
+      # snapshotted on an EARLIER rubric must leave non-matching cells blank
+      # rather than misalign into the wrong column, and an ungraded student
+      # must export blank — an unscored line is not a zero. No org import, so
+      # no defines shim.
+      - name: Check assignment grades CSV
+        run: npx tsx src/director/assignments/assignmentGradesCsv.selfcheck.ts
+
+      # The grade row's video element (#exam-rubric): ONE player, belonging to
+      # the open row alone, and an explicit preload="metadata". Omitting the
+      # attribute lets the browser pull a 500 MB exam nobody asked for;
+      # preload="none" renders a player that reads as unplayable and sends the
+      # grader back to the link. Both are JSX attributes with no runtime
+      # handle, so this checks the source text.
+      - name: Check grade-row video element
+        run: node scripts/grade-video.selfcheck.mjs
+
       # High School lesson log (#applied): payroll defaults, initials gate,
       # "do not enqueue mail for incomplete / cancelled rows", one sheet per
       # student per term, and the five-line jury list.

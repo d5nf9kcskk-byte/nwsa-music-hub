@@ -582,6 +582,90 @@ copies.
   the session record for all of the above is
   `docs/session-notes-2026-08-04-pwa-hardening.md`.
 
+## Playing-exam grading — one line, one rubric (Sept 2026, #exam-rubric)
+
+The grade sheet used to be two lists of the SAME people: a roster row that
+said "Submitted", and a separate "Video submissions" section further down
+carrying everything a grader actually needed. You read a name twice to grade
+it once, and the video opened in another tab. It is one list now — the row IS
+the submission, and opening it plays the video with the rubric under it
+(`src/director/assignments/GradeRow.tsx`). Two things must not regress:
+
+- **Only the OPEN row renders a `<video>`.** A playing exam is up to 500 MB
+  per student, and a player on every row would start pulling a roster's worth
+  of video because a page rendered. THAT is the invariant; the `preload` value
+  is not, and `preload="none"` was tried and reverted the same day. It leaves
+  the element at `readyState` 0 with `duration` NaN, so the player is a dead
+  black rectangle reading 0:00 with no total time and no first frame — it
+  reads as "not playable" and the grader goes back to the link, which is the
+  whole thing this screen replaced. `preload="metadata"` fetches the header
+  and stops (measured: ~7 MB of a 40 MB file, bounded by the browser's own
+  forward buffer) on a row the director deliberately opened. Do not "save
+  bandwidth" by putting it back to none.
+- **A submission from someone no longer on the roster still shows** (the
+  "Videos from students not on this list" fold). Merging a submission-anchored
+  list into a roster-anchored one is exactly where those would have vanished.
+
+`src/director/examRubric.ts` is the ONE definition of what a rubric is and
+what it adds up to; `examRubric.selfcheck.ts` pins it in the deploy workflow.
+
+- **The rubric belongs to the EXAM, not to the app.** Another director weights
+  a playing exam their own way, and a scale check is not a concerto jury. It
+  is `Assignment.rubric`, seeded from the grader's own `directors/{email}`
+  `examRubric`, edited on the assignment.
+- **Three states, all meaningful.** ABSENT = nobody chose, so
+  `rubricForAssignment()` falls back to the grader's default (Playing Exam
+  only) — which is the whole reason exams created before this need no
+  migration. A LIST is the exam's own. **EMPTY is not absent** — it means the
+  director turned rubric grading off for that exam and must never be
+  re-defaulted.
+- **`examRubric` is in the directors self-update `hasOnly([...])` list in
+  `firestore.rules`.** Same trap as `lessonSlots`/`lessonLogSheets`: drop it
+  and saving a default starts failing silently.
+- **An unscored line is not a zero.** A partial rubric produces no grade at
+  all (`rubricScores()` returns null) and Confirm stays disabled. A rubric
+  that shows 58 because four of six boxes are filled is a failing grade
+  nobody gave.
+- **A confirmed grade snapshots its own lines** (`AssignmentResult.rubric`
+  carries each line's label, worth AND points). Re-weighting the exam
+  afterwards therefore cannot rewrite a grade already filed; the row says it
+  was given on an earlier rubric instead. `score` stays the whole-number
+  percent, so a rubric that totals 60 still files a gradebook number.
+- Grades are staff-only and have no public projection — `assignmentResults`
+  never reaches the student site. Showing a student their own breakdown would
+  be a NEW mirror with its own pinned allowlist, never a loosened read rule.
+
+## "Which semester is it" — one answer (Sept 2026, #current-term)
+
+`currentTerm(terms, today)` in `src/shared/concertCheckin.ts` is the ONE
+answer, beside `termForDate` where a term is already defined. Every screen
+that opens on a term defaults through it: the Assignments list, and a new
+jury's term. Do NOT add month arithmetic anywhere in `src/` — a term's dates
+are ORG CONFIG (`ORG.terms`, editable in Settings) because Fall does not start
+on the first of August. At NWSA it starts Aug 17, and the hardcoded ">= month
+8" guess is wrong for Aug 1-16, the winter gap, and all of June-July.
+
+- Outside every term, `currentTerm` answers with the most recent term that has
+  STARTED — in July that is the spring just finished, which is where the
+  grades still being closed out are. Before the first term, the first one.
+- An org with no `terms` configured (every org but NWSA today) gets `null`,
+  and a screen with no term to show must show EVERYTHING rather than nothing.
+  The Assignments filter renders only when `terms` is non-empty.
+- An assignment due outside every term shows under "All semesters" only. It is
+  never filed into the nearest term — a July make-up exam did not happen in a
+  term nobody gave it in.
+- **The applied-lesson log is deliberately NOT on this.** Its `TermRef`
+  (`schoolYear` + Fall/Spring, month arithmetic in `src/director/lessonLog.ts`)
+  is the identity of a stored `lessonLogSheets` key via `sheetKey()`. Those
+  keys are live data; re-deriving them from `ORG.terms` would strand every
+  sheet already written. It answers a different question — which printed sheet
+  is this — and keeps its own math on purpose.
+- `landingTerm()` decides which sheet a student opens on: the term we are in,
+  falling back to their newest lesson's term only when this term has none.
+  Following the newest lesson unconditionally was the bug — a standing weekly
+  time generated in August writes lessons through May, so every student opened
+  in September landed on the spring sheet. Pinned in `lessonLog.selfcheck.ts`.
+
 ## What's New banner (auto)
 
 Product/UX changes that affect all staff or the public student site must

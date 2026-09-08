@@ -134,6 +134,25 @@ export const sameTerm = (a: TermRef, b: TermRef): boolean =>
 export const termRank = (t: TermRef): string => `${t.schoolYear}-${t.term === 'Fall' ? '1' : '2'}`;
 
 /**
+ * Which term's sheet to open a student on: the one we are IN, unless they have
+ * no lessons in it, in which case their newest lesson's term.
+ *
+ * Opening straight onto the newest lesson's term was a bug. A teacher who
+ * generates a student's standing weekly time in August gets lessons dated
+ * through May, so the newest lesson is a SPRING one and every student opened
+ * in September landed on the spring sheet — blank jury list, blank signature
+ * block, this term's lessons nowhere on screen. The fallback still matters
+ * and is kept: a student whose lessons are all in another term opens where
+ * their work actually is, rather than on an empty page.
+ */
+export function landingTerm(lessonDates: string[], today: string): TermRef {
+  const here = termOf(today);
+  if (lessonDates.some(d => sameTerm(termOf(d), here))) return here;
+  const newest = [...lessonDates].sort().at(-1);
+  return termOf(newest ?? today);
+}
+
+/**
  * The term's sheet with the row being written punched out — `null` marks
  * where the blanks being filled in go, so the form can render prior rows
  * ABOVE it in the same columns. That is the whole point of the log page: on

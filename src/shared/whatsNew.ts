@@ -32,6 +32,66 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Everything term-shaped now opens on the term we are in. The lesson log was
+  // landing on SPRING in September, because generating a standing weekly time
+  // in August writes lessons through May and the sheet followed the newest one.
+  {
+    id: '2026-09-08-default-to-this-semester',
+    date: '2026-09-08',
+    title: 'Lessons and assignments open on this semester',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'Assignments now open filtered to the semester you are in, with a Semester picker above the list if you need last term or “All semesters”. It uses the school’s real dates, so Fall starts on the day Fall actually starts, not the first of August.',
+      'The lesson log opens a student on this term’s sheet. If you set up a student’s weekly time back in August, their lessons run through May, and the log was landing you on the spring sheet — blank jury list, blank signatures, none of this term’s lessons in sight. A student with nothing yet this term still opens where their lessons are.',
+      'A new jury starts with the current semester filled in.',
+    ],
+  },
+  // The last mile of the rubric ship: the breakdown existed on screen and
+  // nowhere else, so getting grades into the district gradebook meant reading
+  // numbers off a monitor.
+  {
+    id: '2026-09-08-assignment-grades-csv',
+    date: '2026-09-08',
+    title: 'Download an assignment’s grades as a spreadsheet',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'Any assignment’s grade sheet now has a CSV button next to Edit. It downloads one row per student — name, instrument, status, score, the date you graded, and your notes — ready to open in Excel or Sheets and paste into the district gradebook.',
+      'On an exam graded with a rubric you also get a column per line, headed with what the line is worth, plus the raw total. Students you have not graded yet come down as blank cells rather than zeros, so importing the file never files a grade nobody gave.',
+      'A grade you filed before re-weighting the exam still shows its own numbers and is marked “Scored on an earlier rubric”, and any line that no longer matches is left blank instead of being dropped into the wrong column. Videos from students no longer on the list come along too, marked as such.',
+    ],
+  },
+  // Playing exams grade in one place now (#exam-rubric). The ask: the roster
+  // row and the video row were two lists of the same people, and grading meant
+  // opening the video in another tab and coming back to type a number.
+  {
+    id: '2026-09-08-playing-exam-rubric',
+    date: '2026-09-08',
+    title: 'Grade a playing exam while you watch it',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'A playing exam’s grade sheet is one line per student now. The line says whether they sent a video and when, and opening it plays the video right there. The separate “Video submissions” list underneath is gone, along with reading every name twice.',
+      'Under the video is your rubric: pick a number for each line and the Hub adds them up. Nothing saves until you press Confirm, and Confirm also marks the video watched and drops you on the next student still owed a grade. “Full marks” fills every line so a strong player takes two presses.',
+      'The rubric belongs to the exam, not to the Hub. Edit it on the assignment, press “Save as my default” to start every future exam from it, and it stays yours — another director’s exams keep their own. A grade also remembers the lines it was given, so re-weighting an exam later never quietly changes a grade you already filed.',
+    ],
+  },
+  // Announcements can carry pictures and files (#announce-attachments). The
+  // ask: a full-size screenshot of the all-state audition times, readable on a
+  // phone, instead of a link out to a site families have to pinch and zoom.
+  {
+    id: '2026-09-07-announcement-pictures',
+    date: '2026-09-07',
+    title: 'Announcements can carry pictures and files',
+    audience: 'both' as const,
+    expires: '2026-09-28',
+    bullets: [
+      'Posting an announcement now takes up to four pictures and four files. A picture shows full width inside the post, so a flyer or a screenshot of an audition-times list is readable on a phone without downloading anything, and tapping it opens the original.',
+      'Files show as a download row under the message with the file size, for the PDF or form you want families to actually have. Use the existing “Related links” row when the thing already lives somewhere else.',
+      'Anything you attach is public, exactly like the post it is on. The Hub deletes a picture or file for real when you remove it from the post or delete the post.',
+    ],
+  },
   // Reported: a student left with a full Monday series AND a full Tuesday
   // series after a time change. Every move was refused as a collision and
   // filed as "set by hand", so the screen offered no way out of a mess it had

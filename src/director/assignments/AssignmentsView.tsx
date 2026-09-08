@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Plus, Clock, Video, Music } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Download, Plus, Clock, Video, Music } from 'lucide-react';
 import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
+import { useMyDirector, saveMyExamRubric } from '../hooks/useDirectors';
+import { useCurrentDirector } from '../currentDirector';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useAssignmentSubmissions } from '../hooks/useAssignmentSubmissions';
 import { useGoogleDrive } from '../hooks/useGoogleDrive';
@@ -21,9 +23,18 @@ import { NotesText } from '../../public/components/NotesText';
 import { richTextToPlain } from '../../shared/richTextParse';
 import { DEFAULT_VIDEO_MAX_MB } from '../types';
 import type { Assignment, AssignmentType, AssignmentResultStatus, Student, Ensemble, Attachment } from '../types';
+import { normalizeRubric, rubricForAssignment, rubricProblem, type RubricCriterion } from '../examRubric';
+import { downloadCsv } from '../attendance/attendanceCsv';
+import {
+  assignmentGradesToCsv, gradesCsvFilename, type GradeCsvPerson,
+} from './assignmentGradesCsv';
+import { RubricEditor } from './RubricEditor';
+import { GradeRow, type ConfirmArgs } from './GradeRow';
 import { describeDuration, formatClock, formatFileSize, minutesToSeconds, secondsToMinutes } from '../../shared/duration';
 import { ORG } from '../../org';
 import { studentMatchesQuery } from '../studentSearch';
+import { currentTerm, termIdForDate, termsNewestFirst } from '../../shared/concertCheckin';
+import { useCheckinSettings } from '../../public/hooks/useCheckinSettings';
 
 const ASSIGNMENT_TYPES: AssignmentType[] = ['Playing Exam', 'Written Test', 'Performance', 'Other'];
 
@@ -64,11 +75,22 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
   const [pieceIds, setPieceIds] = useState<string[]>(assignment?.pieceIds ?? []);
   const [attachments, setAttachments] = useState<Attachment[]>(assignment?.attachments ?? []);
   const [publishAt, setPublishAt] = useState<number | undefined>(assignment?.publishAt);
+  // null = this exam's rubric has not been chosen HERE, so the editor shows
+  // whatever it would actually grade with (this director's default, for a
+  // Playing Exam). It becomes a real value the moment the editor is touched,
+  // and only then does saving write the field — so opening someone else's
+  // exam to fix a typo never quietly stamps your rubric onto it.
+  const [rubricEdit, setRubricEdit] = useState<RubricCriterion[] | null>(assignment?.rubric ?? null);
+  const [savingDefault, setSavingDefault] = useState(false);
+  const [savedDefault, setSavedDefault] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
   const drive = useGoogleDrive();
+  const me = useCurrentDirector();
+  const { director } = useMyDirector(me?.email);
+  const rubric = rubricEdit ?? rubricForAssignment({ type }, director?.examRubric);
 
   function toggleEnsemble(id: string) {
     setEnsembleIds(prev => prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]);
@@ -82,6 +104,8 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
 
   async function handleSave() {
     if (!title.trim()) return;
+    const badRubric = rubricProblem(rubric);
+    if (badRubric) { setSaveError(badRubric); return; }
     setSaving(true);
     setSaveError('');
     try {
@@ -105,6 +129,9 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
           maxVideoSizeMB,
           googleDriveFolderId: googleDriveFolderId || undefined,
           pieceIds: pieceIds.length ? pieceIds : undefined,
+          // Untouched stays untouched: undefined here means the key is
+          // cleared, and an exam with no stored rubric has nothing to clear.
+          rubric: rubricEdit !== null ? normalizeRubric(rubricEdit) : undefined,
           createdAt: assignment?.createdAt ?? Date.now(),
           attachments,
           publishAt,
@@ -282,6 +309,29 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
             )}
           </div>
 
+          {/* How this exam is scored. Per-assignment on purpose: another
+              director weights a playing exam their own way, and a scale check
+              is not weighted like a concerto jury. */}
+          <RubricEditor
+            value={rubric}
+            onChange={setRubricEdit}
+            myDefault={director?.examRubric}
+            savingDefault={savingDefault}
+            savedDefault={savedDefault}
+            onSaveDefault={me?.email ? async criteria => {
+              setSavingDefault(true);
+              setSaveError('');
+              try {
+                await saveMyExamRubric(me.email, normalizeRubric(criteria));
+                setSavedDefault(true);
+              } catch (err) {
+                setSaveError(err instanceof Error ? err.message : 'Could not save your default rubric.');
+              } finally {
+                setSavingDefault(false);
+              }
+            } : undefined}
+          />
+
           <div className="dir-field">
             <label className="dir-label">Description / Instructions</label>
             <RichTextArea
@@ -373,6 +423,8 @@ interface GradeSheetProps {
 function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) {
   const { resultMap, saveResult, clearResult } = useAssignmentResults(assignment.id);
   const { pieces } = useRepertoire();
+  const me = useCurrentDirector();
+  const { director } = useMyDirector(me?.email);
   const linkedPieces = (assignment.pieceIds ?? [])
     .map(pid => pieces.find(p => p.id === pid))
     .filter(p => !!p);
@@ -383,23 +435,79 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
   const [savingId, setSavingId] = useState<string | null>(null);
   const [gradeError, setGradeError] = useState('');
   const [sort, setSort] = useState<StudentSort>('scoreOrder');
-  // Both folds start open — the page scrolls, so neither fights the other for
-  // a fixed drawer height. Collapse whichever you are not using.
-  const [showGrades, setShowGrades] = useState(true);
-  const [showSubmissions, setShowSubmissions] = useState(true);
-  const [confirmDeleteSub, setConfirmDeleteSub] = useState('');
-  // Newest video per student — badge on the grade row so a submitted exam is
-  // visible without opening the submissions fold.
-  const submissionByStudent = new Map<string, (typeof submissions)[number]>();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [showStrays, setShowStrays] = useState(false);
+
+  // The rubric this exam grades with. An exam that never chose one falls back
+  // to THIS director's default, which is what lets every playing exam that
+  // predates the feature grade with a rubric and needs no migration.
+  const criteria = rubricForAssignment(assignment, director?.examRubric);
+
+  // Every take a student sent, newest first — one line per student, not one
+  // line per upload. `submissions` is already sorted newest-first.
+  const takesByStudent = new Map<string, typeof submissions>();
   for (const sub of submissions) {
-    if (!submissionByStudent.has(sub.studentId)) submissionByStudent.set(sub.studentId, sub);
+    const list = takesByStudent.get(sub.studentId);
+    if (list) list.push(sub);
+    else takesByStudent.set(sub.studentId, [sub]);
   }
 
   const relevant = sortStudents(
     students.filter(s => s.status === 'Active' && studentHasAssignment(assignment, s.id, s.ensembleIds)),
     sort,
   );
-  const submittedCount = relevant.filter(s => submissionByStudent.has(s.id)).length;
+  const submittedCount = relevant.filter(s => takesByStudent.has(s.id)).length;
+  const gradedCount = relevant.filter(s => {
+    const r = resultMap[s.id];
+    return !!r && (r.status !== 'Pending' || !!r.score);
+  }).length;
+
+  // A video from someone the roster no longer offers — a student who went
+  // Inactive, or was moved out of the ensemble after submitting. Merging the
+  // old submissions list into the roster is exactly where those would have
+  // vanished, so they get their own small fold instead.
+  const onRoster = new Set(relevant.map(s => s.id));
+  const strays = submissions.filter(sub => !onRoster.has(sub.studentId));
+
+  /**
+   * The export's rows: the roster in the order shown, then the people behind
+   * that fold. A stray gets a row from the name on their OWN submission —
+   * they have no roster record to read one out of, and inventing a roster row
+   * for someone who is not on the roster would be worse than leaving them out.
+   * `submissions` is newest-first, so a student who re-recorded under a
+   * corrected name is carried by their latest take.
+   */
+  const strayPeople: GradeCsvPerson[] = [];
+  const straySeen = new Set<string>();
+  for (const sub of strays) {
+    if (straySeen.has(sub.studentId)) continue;
+    straySeen.add(sub.studentId);
+    strayPeople.push({
+      studentId: sub.studentId,
+      name: sub.studentName,
+      instrument: '',
+      onRoster: false,
+    });
+  }
+
+  /** Download the sheet as a CSV for the district gradebook. A browser
+   *  download and nothing else — grades are staff-only and never published. */
+  function handleExport() {
+    const csv = assignmentGradesToCsv({
+      criteria,
+      people: [
+        ...relevant.map(s => ({
+          studentId: s.id,
+          name: s.name,
+          instrument: s.instrument,
+          onRoster: true,
+        })),
+        ...strayPeople,
+      ],
+      resultMap,
+    });
+    downloadCsv(gradesCsvFilename(assignment.title, todayStr()), csv);
+  }
 
   async function handleStatus(studentId: string, status: AssignmentResultStatus) {
     const existing = resultMap[studentId];
@@ -442,6 +550,51 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
     }
   }
 
+  /** Confirm a rubric grade: file the score and the breakdown together, mark
+   *  the take watched so that is not a second press, and move to the next
+   *  student still owed a grade. */
+  async function handleConfirm(student: Student, args: ConfirmArgs) {
+    const existing = resultMap[student.id];
+    // A comment on its own is not a grade. Only a rubric or a score defaults a
+    // Pending row to Pass — otherwise jotting "watch the shifting" on a
+    // student nobody has heard yet would file them as passing.
+    const grading = args.rubric.length > 0 || !!args.score;
+    const status = existing?.status && existing.status !== 'Pending'
+      ? existing.status
+      : grading ? 'Pass' : 'Pending';
+    setSavingId(student.id);
+    setGradeError('');
+    try {
+      await saveResult(student.id, status, {
+        score: args.score || null,
+        rubric: args.rubric.length ? args.rubric : null,
+        notes: args.notes,
+      });
+      const take = takesByStudent.get(student.id)?.[0];
+      if (take && take.status !== 'reviewed' && args.rubric.length) {
+        await setReviewStatus(take.id, 'reviewed');
+      }
+      if (args.rubric.length) setOpenId(nextToGrade(student.id));
+    } catch (e) {
+      setGradeError(e instanceof Error ? e.message : 'Could not save grade — try again.');
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  /** The next student after this one with a video and no grade yet — so a
+   *  Confirm lands you on the next exam instead of back at the top. */
+  function nextToGrade(afterId: string): string | null {
+    const from = relevant.findIndex(s => s.id === afterId);
+    for (let i = from + 1; i < relevant.length; i++) {
+      const s = relevant[i];
+      const r = resultMap[s.id];
+      const graded = !!r && (r.status !== 'Pending' || !!r.score);
+      if (!graded && takesByStudent.has(s.id)) return s.id;
+    }
+    return null;
+  }
+
   const counts = relevant.reduce(
     (acc, s) => {
       const st = resultMap[s.id]?.status ?? 'Pending';
@@ -457,7 +610,22 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
         <button type="button" className="dir-drawer-back" onClick={onClose}>
           <ChevronLeft size={16} /> All assignments
         </button>
-        <button type="button" className="dir-tool-btn" onClick={onEdit}>Edit</button>
+        <div className="dir-assign-page-tools">
+          {/* Hidden rather than disabled when there is nobody on the sheet:
+              `.dir-tool-btn` has no disabled styling, so a greyed-out button
+              would look pressable and do nothing. */}
+          {(relevant.length > 0 || strayPeople.length > 0) && (
+            <button
+              type="button"
+              className="dir-tool-btn"
+              onClick={handleExport}
+              title="Download this grade sheet as a CSV"
+            >
+              <Download size={15} /> CSV
+            </button>
+          )}
+          <button type="button" className="dir-tool-btn" onClick={onEdit}>Edit</button>
+        </div>
       </div>
 
       <header className="dir-assign-page-head">
@@ -465,8 +633,9 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
         <div className="dir-assign-page-meta">
           {assignment.type} · Due {formatDate(assignment.dueDate, { month: 'short', day: 'numeric', year: 'numeric' })}
           {assignment.acceptsVideoSubmissions && (
-            <> · {submissions.length} video{submissions.length === 1 ? '' : 's'}</>
+            <> · {submittedCount} of {relevant.length} submitted</>
           )}
+          {' · '}{gradedCount} of {relevant.length} graded
         </div>
       </header>
 
@@ -509,197 +678,100 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
         ))}
       </div>
 
-      <section className="dir-assign-fold">
-        <button
-          type="button"
-          className="dir-assign-fold-btn"
-          aria-expanded={showGrades}
-          onClick={() => setShowGrades(v => !v)}
-        >
-          {showGrades ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-          <span className="dir-assign-fold-label">Students &amp; grades</span>
-          <span className="dir-assign-fold-count">
-            {relevant.length}
-            {assignment.acceptsVideoSubmissions && submittedCount > 0 && (
-              <> · {submittedCount} submitted</>
-            )}
+      {/* ONE list. The roster row and the video row used to be two sections
+          over the same people — you read a name in the top half to find out
+          they had submitted, then found the same name again in the bottom half
+          to watch it. Now the row is the submission, and opening it grades in
+          place. */}
+      <div className="dir-assign-sort-row">
+        <SortToggle value={sort} onChange={setSort} />
+        {assignment.acceptsVideoSubmissions && subLoadError && submissions.length === 0 && (
+          <span className="dir-grade-loadfail">
+            Videos didn’t load — check your connection.
           </span>
-        </button>
-        {showGrades && (
-          <div className="dir-assign-fold-body">
-            <div className="dir-assign-sort-row">
-              <SortToggle value={sort} onChange={setSort} />
-            </div>
-            {relevant.length === 0 ? (
-              <div className="dir-empty">
-                <p>No active students in these ensembles.</p>
-              </div>
-            ) : (
-              relevant.map(s => {
-                const result = resultMap[s.id];
-                const status: AssignmentResultStatus = result?.status ?? 'Pending';
-                const video = assignment.acceptsVideoSubmissions
-                  ? submissionByStudent.get(s.id)
-                  : undefined;
-                return (
-                  <div key={s.id} className={`dir-assign-row dir-assign-row-${status.toLowerCase()}`}>
-                    <div className="dir-assign-stu">
-                      <div className="dir-assign-name-row">
-                        <span className="dir-assign-name">{s.name}</span>
-                        {video && (
-                          <a
-                            className="dir-assign-submitted"
-                            href={video.videoUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            title="Watch submission"
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <Video size={12} /> Submitted
-                          </a>
-                        )}
-                      </div>
-                      <div className="dir-assign-instr">{s.instrument}</div>
-                    </div>
-                    <div className="dir-assign-grade-controls">
-                      <input
-                        className="dir-assign-score"
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="#"
-                        aria-label={`Score for ${s.name}`}
-                        key={`${s.id}-${result?.score ?? ''}`}
-                        defaultValue={result?.score ?? ''}
-                        disabled={savingId === s.id}
-                        onBlur={e => { void handleScore(s.id, e.target.value.trim()); }}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                        }}
-                      />
-                      <div className="dir-assign-btns">
-                        {(['Pass', 'Fail', 'Exempt'] as const).map(st => (
-                          <button
-                            key={st}
-                            type="button"
-                            className={`dir-assign-btn dir-assign-btn-${st.toLowerCase()} ${status === st ? 'active' : ''}`}
-                            onClick={() => handleStatus(s.id, st)}
-                            disabled={savingId === s.id}
-                          >
-                            {st}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
         )}
-      </section>
+      </div>
 
-      {assignment.acceptsVideoSubmissions && (
+      {relevant.length === 0 ? (
+        <div className="dir-empty">
+          <p>No active students in these ensembles.</p>
+        </div>
+      ) : (
+        <div className="dir-grade-list">
+          {relevant.map(s => (
+            <GradeRow
+              key={s.id}
+              student={s}
+              result={resultMap[s.id]}
+              criteria={criteria}
+              takes={assignment.acceptsVideoSubmissions ? (takesByStudent.get(s.id) ?? []) : []}
+              open={openId === s.id}
+              onToggle={() => setOpenId(openId === s.id ? null : s.id)}
+              saving={savingId === s.id}
+              onConfirm={args => handleConfirm(s, args)}
+              onStatus={st => handleStatus(s.id, st)}
+              onScore={raw => handleScore(s.id, raw)}
+              onSetReviewed={(sub, reviewed) => setReviewStatus(sub.id, reviewed ? 'reviewed' : 'submitted')}
+              onDeleteTake={sub => deleteSubmission(sub.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {assignment.acceptsVideoSubmissions && subLoading && submissions.length === 0 && (
+        <div className="dir-assign-fold-muted">Loading videos…</div>
+      )}
+
+      {strays.length > 0 && (
         <section className="dir-assign-fold">
           <button
             type="button"
             className="dir-assign-fold-btn"
-            aria-expanded={showSubmissions}
-            onClick={() => setShowSubmissions(v => !v)}
+            aria-expanded={showStrays}
+            onClick={() => setShowStrays(v => !v)}
           >
-            {showSubmissions ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-            <span className="dir-assign-fold-label">Video submissions</span>
-            <span className="dir-assign-fold-count">{submissions.length}</span>
+            {showStrays ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+            <span className="dir-assign-fold-label">Videos from students not on this list</span>
+            <span className="dir-assign-fold-count">{strays.length}</span>
           </button>
-          {showSubmissions && (
+          {showStrays && (
             <div className="dir-assign-fold-body">
-              {subLoading ? (
-                <div className="dir-assign-fold-muted">Loading…</div>
-              ) : subLoadError && submissions.length === 0 ? (
-                <div className="dir-empty" style={{ padding: '12px 0' }}>
-                  <p style={{ fontSize: 13, color: 'var(--dir-danger)' }}>
-                    Could not load video submissions — check your connection and try again.
-                  </p>
-                </div>
-              ) : submissions.length === 0 ? (
-                <div className="dir-empty" style={{ padding: '12px 0' }}>
-                  <p style={{ fontSize: 13 }}>No video submissions yet.</p>
-                </div>
-              ) : (
-                submissions.map(sub => (
-                  <div key={sub.id} className="dir-submission-row">
-                    <div className="dir-submission-info">
-                      <div className="dir-submission-name">{sub.studentName}</div>
-                      <div className="dir-submission-meta">
-                        {/* 0 means the browser could not read the file's
-                            length, not a zero-length video. */}
-                        {sub.videoDurationSeconds > 0 ? formatClock(sub.videoDurationSeconds) : 'length unknown'}
-                        {' · '}{formatFileSize(sub.fileSize)}
-                        {' · '}{new Date(sub.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                      </div>
-                      {sub.notes && <div className="dir-submission-notes">{sub.notes}</div>}
+              <div className="dir-field-hint" style={{ marginBottom: 8 }}>
+                Sent by someone who has since left this ensemble or gone inactive. Kept here so a
+                video is never lost just because a roster changed.
+              </div>
+              {strays.map(sub => (
+                <div key={sub.id} className="dir-submission-row">
+                  <div className="dir-submission-info">
+                    <div className="dir-submission-name">{sub.studentName}</div>
+                    <div className="dir-submission-meta">
+                      {sub.videoDurationSeconds > 0 ? formatClock(sub.videoDurationSeconds) : 'length unknown'}
+                      {' · '}{formatFileSize(sub.fileSize)}
+                      {' · '}{new Date(sub.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                     </div>
-                    <div className="dir-submission-actions">
-                      <a
-                        className="dir-tool-btn"
-                        href={sub.videoUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ fontSize: 12, textDecoration: 'none' }}
-                      >
-                        Watch
-                      </a>
-                      <button
-                        type="button"
-                        className={`dir-tool-btn ${sub.status === 'reviewed' ? 'dir-submission-reviewed' : ''}`}
-                        style={{ fontSize: 12 }}
-                        onClick={() => setReviewStatus(sub.id, sub.status === 'reviewed' ? 'submitted' : 'reviewed')}
-                      >
-                        {sub.status === 'reviewed' ? '✓ Reviewed' : 'Mark reviewed'}
-                      </button>
-                      {/* Removing a wrong take also deletes the video itself so
-                          a student's recording never lingers at its public
-                          Storage URL. Two-step confirm. */}
-                      {confirmDeleteSub === sub.id ? (
-                        <>
-                          <button
-                            type="button"
-                            className="dir-tool-btn"
-                            style={{
-                              fontSize: 12,
-                              background: 'var(--dir-absent)',
-                              borderColor: 'var(--dir-absent)',
-                              color: '#fff',
-                            }}
-                            onClick={async () => {
-                              await deleteSubmission(sub.id);
-                              setConfirmDeleteSub('');
-                            }}
-                          >
-                            Confirm delete
-                          </button>
-                          <button
-                            type="button"
-                            className="dir-tool-btn"
-                            style={{ fontSize: 12 }}
-                            onClick={() => setConfirmDeleteSub('')}
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          className="dir-tool-btn"
-                          style={{ fontSize: 12 }}
-                          onClick={() => setConfirmDeleteSub(sub.id)}
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
+                    {sub.notes && <div className="dir-submission-notes">{sub.notes}</div>}
                   </div>
-                ))
-              )}
+                  <div className="dir-submission-actions">
+                    <a
+                      className="dir-tool-btn"
+                      href={sub.videoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: 12, textDecoration: 'none' }}
+                    >
+                      Watch
+                    </a>
+                    <button
+                      type="button"
+                      className="dir-tool-btn"
+                      style={{ fontSize: 12 }}
+                      onClick={() => { void deleteSubmission(sub.id); }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -707,6 +779,7 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
     </div>
   );
 }
+
 
 // ── Main view ─────────────────────────────────────────────────
 
@@ -730,6 +803,22 @@ export function AssignmentsView({ initialAssignmentId, initialEnsembleId, allowe
   const musicEns = musicEnsembles(ensembles);
   const now = useMinuteTick(); // drives the "Scheduled · posts …" chip below
 
+  // Which semester the list opens on. The term list is the school's own
+  // (org config, editable in Settings) rather than month arithmetic, because
+  // Fall does not start on the first of August — at NWSA it starts Aug 17.
+  // An org that configures no terms gets no filter and sees everything.
+  const { terms } = useCheckinSettings();
+  const today = todayStr();
+  const thisTerm = currentTerm(terms, today);
+  // Deliberately NOT remembered across visits, unlike the ensemble filter
+  // beside it: "default to the semester we are in" is the whole request, and
+  // a remembered Spring would quietly defeat it every August.
+  // '' = untouched, so the current semester answers. 'all' is the explicit
+  // escape hatch, and has to be its own value: an empty string would be read
+  // as "untouched" and snap straight back to the current term.
+  const [termId, setTermId] = useState<string>('');
+  const activeTermId = termId === 'all' ? '' : (termId || thisTerm?.id || '');
+
   // Remember the director's last ensemble filter so Repertoire/Assignments/
   // Announcements each reopen scoped the way they left them.
   const [filterEns, setFilterEns] = useState(() => {
@@ -741,9 +830,16 @@ export function AssignmentsView({ initialAssignmentId, initialEnsembleId, allowe
     try { localStorage.setItem('dir.assignments.ensemble', id); } catch { /* private mode */ }
   }
   // Individual-only assignments (no ensembleIds) show only under "All".
-  const shownAssignments = filterEns
+  const byEnsemble = filterEns
     ? scopedAssignments.filter(a => a.ensembleIds.includes(filterEns))
     : scopedAssignments;
+  // An assignment due outside every term (summer) belongs to no semester and
+  // shows under "All terms" only — it is not silently filed into the nearest
+  // one, which would put a July make-up exam in a term nobody gave it in.
+  const shownAssignments = activeTermId
+    ? byEnsemble.filter(a => termIdForDate(a.dueDate, terms) === activeTermId)
+    : byEnsemble;
+  const hiddenByTerm = byEnsemble.length - shownAssignments.length;
 
   const [addingNew, setAddingNew] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -799,9 +895,37 @@ export function AssignmentsView({ initialAssignmentId, initialEnsembleId, allowe
         <EnsembleFilter ensembles={ensembles} value={filterEns} onChange={pickEns} />
       )}
 
+      {scopedAssignments.length > 0 && terms.length > 0 && (
+        <div className="dir-assign-term-row">
+          <label className="dir-assign-term-label" htmlFor="dir-assign-term">Semester</label>
+          <select
+            id="dir-assign-term"
+            className="dir-select dir-assign-term-select"
+            value={termId === 'all' ? 'all' : activeTermId}
+            onChange={e => setTermId(e.target.value)}
+          >
+            {termsNewestFirst(terms).map(t => (
+              <option key={t.id} value={t.id}>
+                {t.name}{t.id === thisTerm?.id ? ' · now' : ''}
+              </option>
+            ))}
+            <option value="all">All semesters</option>
+          </select>
+          {hiddenByTerm > 0 && (
+            <span className="dir-assign-term-hidden">
+              {hiddenByTerm} from other semesters hidden
+            </span>
+          )}
+        </div>
+      )}
+
       <div style={{ padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {scopedAssignments.length > 0 && shownAssignments.length === 0 && (
-          <div className="dir-empty-inline">No assignments for this ensemble.</div>
+          <div className="dir-empty-inline">
+            {byEnsemble.length > 0
+              ? 'No assignments this semester — pick another above, or “All semesters”.'
+              : 'No assignments for this ensemble.'}
+          </div>
         )}
         {shownAssignments.map(a => {
           const ensembleNames = a.ensembleIds

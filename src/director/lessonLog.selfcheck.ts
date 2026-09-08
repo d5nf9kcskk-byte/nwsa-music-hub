@@ -12,6 +12,7 @@ import {
   initialsOk,
   repertoireLine,
   termForDate,
+  landingTerm,
   sheetKey,
   juryRows,
   trimJuryRows,
@@ -95,6 +96,25 @@ assert(sheetKey('s1', '2026-2027', 'Fall') !== sheetKey('s1', '2026-2027', 'Spri
 assert(sheetKey('s1', '2026-2027', 'Fall') !== sheetKey('s2', '2026-2027', 'Fall'), 'one sheet per student');
 assert(sheetKey('s1', '2025-2026', 'Fall') !== sheetKey('s1', '2026-2027', 'Fall'), 'one sheet per school year');
 assert(!sheetKey('s1', '2026-2027', 'Fall').includes('.'), 'no dots in a map key');
+
+// Which sheet a student opens on (#current-term). Landing on the newest
+// lesson's term put every student on SPRING in September, because generating a
+// standing weekly time in August writes lessons all the way to May.
+const YEAR_OF_LESSONS = ['2026-09-03', '2026-09-10', '2027-01-14', '2027-05-20'];
+assert(landingTerm(YEAR_OF_LESSONS, '2026-09-08').term === 'Fall',
+  'a student with lessons this term opens on THIS term, not on next May');
+assert(landingTerm(YEAR_OF_LESSONS, '2027-02-02').term === 'Spring',
+  'and in spring, on spring');
+assert(landingTerm(YEAR_OF_LESSONS, '2026-09-08').schoolYear === '2026-2027',
+  'with the school year that goes with it');
+// The fallback the old behaviour existed for, kept: a student with nothing
+// this term opens where their work actually is rather than on a blank page.
+assert(landingTerm(['2027-03-01', '2027-05-20'], '2026-09-08').term === 'Spring',
+  'no lessons this term → their newest lesson’s term');
+assert(landingTerm([], '2026-09-08').term === 'Fall',
+  'a student with no lessons at all opens on today’s term');
+assert(landingTerm(['2027-05-20', '2027-03-01'], '2026-09-08').term === 'Spring',
+  'the fallback sorts by date rather than trusting the caller’s order');
 
 // The jury list always renders five rows, and saves only what was filled in.
 assert(juryRows().length === JURY_REPERTOIRE_SLOTS, 'an empty sheet still renders five rows');

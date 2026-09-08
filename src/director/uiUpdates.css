@@ -1149,6 +1149,12 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
   gap: 10px;
   padding: 10px 16px 0;
 }
+/* Export + Edit sit together at the right end of the grade sheet's top row. */
+.dir-assign-page-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .dir-assign-page-head {
   padding: 10px 16px 12px;
 }
@@ -1342,3 +1348,265 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
 .dir-plan-mini-head { font-size: 11px; font-weight: 600; color: var(--dir-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 4px 0 2px; }
 .dir-plan-mini-row { padding: 2px 4px; border-radius: 6px; color: var(--dir-text-muted); }
 .dir-plan-mini-row.changed { background: #fef3c7; color: inherit; }
+
+/* ── Playing-exam grade sheet: one line per student (#exam-rubric) ──
+   The roster row and the video row used to be two sections over the same
+   people. Now the row IS the submission, and it opens into the video with
+   the rubric beside it. */
+
+.dir-grade-list {
+  border: 1px solid var(--dir-border);
+  border-radius: var(--dir-radius);
+  overflow: hidden;
+  background: var(--dir-surface);
+}
+
+.dir-grade-row { border-bottom: 1px solid var(--dir-border); }
+.dir-grade-row:last-child { border-bottom: none; }
+.dir-grade-row.open { box-shadow: inset 3px 0 0 var(--dir-primary); }
+
+.dir-grade-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 10px 6px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.dir-grade-head:active { background: var(--dir-surface-2); }
+
+.dir-grade-caret {
+  display: flex;
+  align-items: center;
+  color: var(--dir-text-muted);
+  flex-shrink: 0;
+}
+.dir-grade-who { flex: 1; min-width: 0; }
+.dir-grade-who .dir-assign-name { display: block; }
+.dir-grade-who .dir-assign-instr {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dir-grade-sub-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #0f766e;
+  font-weight: 700;
+}
+.dir-grade-nosub { color: var(--dir-text-muted); font-style: italic; }
+.dir-app[data-dir-theme="dark"] .dir-grade-sub-inline { color: #5eead4; }
+
+.dir-grade-mark { flex-shrink: 0; }
+.dir-grade-score {
+  display: inline-block;
+  min-width: 2.6rem;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+  border: 1.5px solid var(--dir-border);
+  background: var(--dir-surface-2);
+  color: var(--dir-text-muted);
+}
+.dir-grade-score-pass   { background: #16a34a; border-color: #16a34a; color: #fff; }
+.dir-grade-score-fail   { background: #dc2626; border-color: #dc2626; color: #fff; }
+.dir-grade-score-exempt { background: #64748b; border-color: #64748b; color: #fff; }
+
+.dir-grade-body {
+  padding: 4px 12px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dir-grade-video-wrap { display: flex; flex-direction: column; gap: 6px; }
+.dir-grade-video {
+  width: 100%;
+  max-height: 52vh;
+  border-radius: var(--dir-radius-sm);
+  background: #000;
+}
+.dir-grade-takes { display: flex; flex-wrap: wrap; gap: 6px; }
+.dir-grade-take-on {
+  border-color: var(--dir-primary) !important;
+  color: var(--dir-primary) !important;
+  font-weight: 800;
+}
+.dir-grade-video-meta { font-size: 11px; color: var(--dir-text-muted); }
+.dir-grade-loadfail { font-size: 12px; color: var(--dir-danger); }
+
+/* ── Scoring, while the video plays ── */
+
+.dir-rubric {
+  border: 1px solid var(--dir-border);
+  border-radius: var(--dir-radius-sm);
+  background: var(--dir-surface-2);
+  padding: 10px;
+}
+.dir-rubric-stale {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--dir-gold-text);
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 8px;
+}
+.dir-app[data-dir-theme="dark"] .dir-rubric-stale {
+  color: #fde68a;
+  background: rgba(180, 130, 10, 0.18);
+  border-color: rgba(253, 230, 138, 0.4);
+}
+
+.dir-rubric-lines { display: flex; flex-direction: column; gap: 6px; }
+/* On a laptop the six lines go two-up, so the whole rubric sits under the
+   video without scrolling and no label is a screen-width away from its
+   pulldown. */
+@media (min-width: 720px) {
+  .dir-rubric-lines {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 20px;
+  }
+}
+.dir-rubric-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+}
+.dir-rubric-line-label { font-size: 14px; font-weight: 700; }
+.dir-rubric-line-max { font-weight: 500; color: var(--dir-text-muted); }
+.dir-rubric-pick {
+  width: 5.2rem;
+  height: 38px;
+  flex-shrink: 0;
+  font-weight: 800;
+  text-align: center;
+}
+
+.dir-rubric-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--dir-border);
+}
+.dir-rubric-running {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--dir-text-muted);
+}
+.dir-rubric-running strong { font-size: 20px; color: var(--dir-text); }
+.dir-rubric-confirm {
+  /* .dir-btn is flex:1 by default, which stretched Confirm across a desktop
+     row and put the label a screen away from the numbers it totals. */
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 42px;
+  min-width: 8.5rem;
+  font-size: 14px;
+  padding: 9px 16px;
+}
+.dir-rubric-confirm:disabled { opacity: 0.55; }
+
+.dir-grade-plain { display: flex; align-items: center; gap: 10px; }
+.dir-grade-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dir-grade-note { flex: 1; min-width: 180px; font-size: 13px; }
+.dir-grade-sub-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.dir-grade-danger {
+  background: var(--dir-absent) !important;
+  border-color: var(--dir-absent) !important;
+  color: #fff !important;
+}
+
+/* ── Rubric editor, in the assignment drawer ── */
+
+.dir-rubric-edit {
+  border: 1px solid var(--dir-border);
+  border-radius: var(--dir-radius-sm);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dir-rubric-edit-row { display: flex; align-items: center; gap: 6px; }
+.dir-rubric-edit-label { flex: 1; min-width: 0; }
+.dir-rubric-edit-pts { width: 4.4rem; flex-shrink: 0; text-align: center; }
+.dir-rubric-edit-x {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--dir-border);
+  border-radius: 8px;
+  background: var(--dir-surface);
+  color: var(--dir-text-muted);
+  cursor: pointer;
+}
+.dir-rubric-edit-x:hover { color: var(--dir-danger); border-color: var(--dir-danger); }
+.dir-rubric-edit-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+.dir-rubric-total {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 800;
+}
+.dir-rubric-total.ok { color: #16a34a; }
+.dir-rubric-total.off { color: var(--dir-text-muted); }
+.dir-rubric-problem { color: var(--dir-danger); }
+.dir-rubric-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* Semester filter on the assignments list (#current-term). Sits under the
+   ensemble filter, same row rhythm. */
+.dir-assign-term-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px 0;
+}
+.dir-assign-term-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--dir-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.dir-assign-term-select {
+  height: 34px;
+  font-size: 13px;
+  font-weight: 700;
+  width: auto;
+  min-width: 10rem;
+}
+.dir-assign-term-hidden {
+  font-size: 11px;
+  color: var(--dir-text-muted);
+}
