@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // The exam video never played in the row: the page's security policy had no
+  // rule for media, so the browser refused the file without saying so. Same
+  // omission hid announcement pictures and every upload preview.
+  {
+    id: '2026-09-08-video-and-pictures-load',
+    date: '2026-09-08',
+    title: 'Exam videos play, and pictures show up again',
+    audience: 'both' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'Playing-exam videos now actually play inside the grade sheet instead of sitting on a black frame. The page had a security rule that quietly refused to load video from our own storage, so the player appeared but never got the file, and there was no error to tell you why.',
+      'The same rule was hiding pictures attached to announcements and sign-ups, and the preview of a video or photo you just picked before you send it. Those all show again.',
+      'Nothing changed about who can see what. The fix names our own storage as an allowed source for pictures and video; every other protection on the page is unchanged.',
+    ],
+  },
   // Everything term-shaped now opens on the term we are in. The lesson log was
   // landing on SPRING in September, because generating a standing weekly time
   // in August writes lessons through May and the sheet followed the newest one.

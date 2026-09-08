@@ -666,6 +666,40 @@ on the first of August. At NWSA it starts Aug 17, and the hardcoded ">= month
   time generated in August writes lessons through May, so every student opened
   in September landed on the spring sheet. Pinned in `lessonLog.selfcheck.ts`.
 
+## The CSP is generated, and it fails silently (Sept 2026, #csp)
+
+`cspPlugin` in `vite.config.ts` injects a `<meta http-equiv>` policy at build
+time — GitHub Pages cannot send headers, so this is the only delivery. It has
+now shipped broken TWICE, and both times the failure looked like something
+else entirely:
+
+- `connect-src` was missing the Cloud Functions origin until three hours
+  before the first concert that needed it. The function answered correctly and
+  the browser refused to send the request; the page could only say "That did
+  not reach the Hub."
+- **`media-src` was missing altogether.** Storage was already listed for
+  `connect-src`, so UPLOADING a playing exam worked and PLAYING one back did
+  not: `<video>` fell through to `default-src 'self'`, the browser refused the
+  media, and the player sat there with no error and no "cannot play" banner.
+  The reported symptom was "it won't play, it won't load, nothing", and two
+  plausible theories (the `preload` value, then a stale service worker) were
+  both wrong before anyone looked at the policy.
+
+**A CSP omission looks exactly like bad wifi from the inside.** Nothing
+throws, no test fails, the feature is simply dead in the browser. So:
+
+- **Every sink needs naming separately.** `media-src` does NOT fall back to
+  `connect-src`; it falls back to `default-src`. Allowing Storage for one sink
+  allows it for no other. Adding a feature that renders a NEW kind of remote
+  resource means adding its directive in the SAME change.
+- `blob:` must be listed explicitly wherever the app previews something a
+  person just picked or recorded — `default-src 'self'` does not cover it.
+- `scripts/csp.selfcheck.mjs` runs in `deploy.yml` AFTER the build (the
+  policy only exists in the built `dist/index.html`) and pins the directives
+  the app cannot work without, plus the guards that must not erode:
+  `object-src 'none'`, `base-uri 'self'`, and no `'unsafe-inline'` in
+  `script-src` (the two inline boot scripts are allowed by sha256 hash).
+
 ## What's New banner (auto)
 
 Product/UX changes that affect all staff or the public student site must
