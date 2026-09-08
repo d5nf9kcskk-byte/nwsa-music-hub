@@ -12,6 +12,7 @@ import { PublicEnsemble } from './public/PublicEnsemble';
 import { PublicLookup } from './public/PublicLookup';
 import { PublicSchedule } from './public/PublicSchedule';
 import { PublicPiece } from './public/PublicPiece';
+import { PublicSeating } from './public/PublicSeating';
 import { PublicProgram } from './public/PublicProgram';
 import { PublicEvent } from './public/PublicEvent';
 import { PublicAnnouncementsPage } from './public/PublicAnnouncements';
@@ -73,6 +74,7 @@ const router = createBrowserRouter(
         { path: 'lookup', element: <PublicLookup /> },
         { path: 'student/:id', element: <PublicSchedule /> },
         { path: 'piece/:id', element: <PublicPiece /> },
+        { path: 'seating/:id', element: <PublicSeating /> },
         { path: 'event/:id', element: <PublicEvent /> },
         { path: 'announcements', element: <PublicAnnouncementsPage /> },
         { path: 'assignments', element: <PublicAssignments /> },

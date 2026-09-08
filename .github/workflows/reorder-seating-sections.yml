@@ -1,0 +1,29 @@
+name: Reorder Seating Sections
+
+# One-shot admin task: puts the SECTIONS of existing seating charts back into
+# full-score order (a hand-added "Violin 2" used to be stuck at the bottom).
+# Idempotent — a chart already in order is left alone, so re-running is safe.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/reorder-seating-sections.mjs'
+      - '.github/workflows/reorder-seating-sections.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  reorder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm install firebase-admin --no-save
+      - name: Reorder seating chart sections
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/reorder-seating-sections.mjs
