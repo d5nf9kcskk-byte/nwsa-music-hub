@@ -494,6 +494,35 @@ export function termIdForDate(date: string, terms: Term[]): string {
 }
 
 /**
+ * The semester the school is IN — the ONE answer to "which term should this
+ * screen open on". Lives here beside `termForDate` because this is where a
+ * term is defined; a second month-arithmetic guess elsewhere in `src/` would
+ * be a second calendar, and the real one is org config (`ORG.terms`, editable
+ * in Settings) precisely because Fall does not begin on the first of August.
+ *
+ * Outside every term — summer, or the gap between semesters — it answers with
+ * the most recent term that has STARTED, which in July is the spring just
+ * finished and is where the grades a director is still closing out live.
+ * Before the first configured term has begun, the first one, which is what
+ * they are preparing. Null only when the org configures no terms at all, and
+ * a screen with no term to show simply shows everything.
+ */
+export function currentTerm(terms: Term[], today: string): Term | null {
+  if (!terms.length) return null;
+  const inTerm = termForDate(today, terms);
+  if (inTerm) return inTerm;
+  const byStart = [...terms].sort((a, b) => a.start.localeCompare(b.start));
+  const started = byStart.filter(t => t.start <= today);
+  return started.length ? started[started.length - 1] : byStart[0];
+}
+
+/** Terms newest first — the order a term picker lists them in, so the one you
+ *  most likely want is not at the bottom. */
+export function termsNewestFirst(terms: Term[]): Term[] {
+  return [...terms].sort((a, b) => b.start.localeCompare(a.start));
+}
+
+/**
  * The Drive folder id, however a director pasted it (#concert-checkin).
  *
  * The Settings hint shows the id inside a URL, so pasting the whole URL is

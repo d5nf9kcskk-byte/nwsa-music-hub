@@ -635,6 +635,37 @@ what it adds up to; `examRubric.selfcheck.ts` pins it in the deploy workflow.
   never reaches the student site. Showing a student their own breakdown would
   be a NEW mirror with its own pinned allowlist, never a loosened read rule.
 
+## "Which semester is it" — one answer (Sept 2026, #current-term)
+
+`currentTerm(terms, today)` in `src/shared/concertCheckin.ts` is the ONE
+answer, beside `termForDate` where a term is already defined. Every screen
+that opens on a term defaults through it: the Assignments list, and a new
+jury's term. Do NOT add month arithmetic anywhere in `src/` — a term's dates
+are ORG CONFIG (`ORG.terms`, editable in Settings) because Fall does not start
+on the first of August. At NWSA it starts Aug 17, and the hardcoded ">= month
+8" guess is wrong for Aug 1-16, the winter gap, and all of June-July.
+
+- Outside every term, `currentTerm` answers with the most recent term that has
+  STARTED — in July that is the spring just finished, which is where the
+  grades still being closed out are. Before the first term, the first one.
+- An org with no `terms` configured (every org but NWSA today) gets `null`,
+  and a screen with no term to show must show EVERYTHING rather than nothing.
+  The Assignments filter renders only when `terms` is non-empty.
+- An assignment due outside every term shows under "All semesters" only. It is
+  never filed into the nearest term — a July make-up exam did not happen in a
+  term nobody gave it in.
+- **The applied-lesson log is deliberately NOT on this.** Its `TermRef`
+  (`schoolYear` + Fall/Spring, month arithmetic in `src/director/lessonLog.ts`)
+  is the identity of a stored `lessonLogSheets` key via `sheetKey()`. Those
+  keys are live data; re-deriving them from `ORG.terms` would strand every
+  sheet already written. It answers a different question — which printed sheet
+  is this — and keeps its own math on purpose.
+- `landingTerm()` decides which sheet a student opens on: the term we are in,
+  falling back to their newest lesson's term only when this term has none.
+  Following the newest lesson unconditionally was the bug — a standing weekly
+  time generated in August writes lessons through May, so every student opened
+  in September landed on the spring sheet. Pinned in `lessonLog.selfcheck.ts`.
+
 ## What's New banner (auto)
 
 Product/UX changes that affect all staff or the public student site must

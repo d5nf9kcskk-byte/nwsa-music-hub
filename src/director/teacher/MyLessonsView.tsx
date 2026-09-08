@@ -25,6 +25,7 @@ import {
   logMaterialChanged,
   logRowsWithDraft,
   sameTerm,
+  landingTerm,
   schoolYearLabel,
   sheetKey,
   suggestTeacherInitials,
@@ -154,11 +155,10 @@ export function MyLessonsView() {
     : '';
   const activeSheet = director?.lessonLogSheets?.[activeSheetKey];
 
-  /** Open a student on the sheet their newest lesson is on, so a teacher who
-   *  looks in June doesn't land on an empty Fall page. */
+  /** Open a student on the term we are in — see `landingTerm`. */
   function openStudent(id: string) {
-    const last = myLessons.filter(l => l.studentId === id).at(-1);
-    setActiveTerm(termOf(last?.date ?? today));
+    const mine = myLessons.filter(l => l.studentId === id);
+    setActiveTerm(landingTerm(mine.map(l => l.date), today));
     setSheetStudentId(id);
     clearSlotBanners();
   }

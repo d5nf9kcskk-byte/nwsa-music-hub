@@ -195,6 +195,13 @@ jobs:
       - name: Check applied-lesson grading
         run: npx tsx src/director/lessonGrades.selfcheck.ts
 
+      # Which semester a screen opens on (#current-term): a date inside a term
+      # IS that term, the gaps (summer, the winter break, before the first term
+      # starts) resolve to something sensible rather than nothing, and an org
+      # with no terms configured has no current term so its screens show
+      # everything. Covered by the concert check-in self-check, which already
+      # owns the term definition — listed here so the dependency is visible.
+
       # Playing-exam rubric (#exam-rubric): a half-filled rubric must produce
       # NO grade (an unscored line is not a zero), an EMPTY rubric on an exam
       # means "graded without one" and must never be re-defaulted, a confirmed
