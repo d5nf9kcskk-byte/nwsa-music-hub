@@ -128,8 +128,25 @@ export function gradeCsvRow(
   // rubric that does not total 100 it cannot stand in for the raw points.
   const tally = tallyScores(result?.rubric);
 
+  // The flag has to agree with the CELLS, and it is answered the same way they
+  // are: by id, so a snapshot that says the same thing in a different order is
+  // not "earlier". It fires in BOTH directions, because a rubric can drift
+  // either way and each leaves a cell a reader would misread:
+  //
+  //   • matched < scores.length — the snapshot carries a line no column wants
+  //     (the line was dropped, or its worth changed). Those points appear
+  //     nowhere, and only the flag says why.
+  //   • matched < criteria.length — a column nothing filled (the line was
+  //     ADDED after this student was graded). Without the flag that blank
+  //     reads as "you skipped this one" rather than "this grade predates the
+  //     line", which is a different and wronger story about a real student.
+  //
+  // Checking only the first was the bug: adding a line to an exam left every
+  // grade already filed with a silent blank column.
   const flags: string[] = [];
-  if (scores.length && matched < scores.length) flags.push(FLAG_EARLIER_RUBRIC);
+  if (scores.length && (matched < scores.length || matched < criteria.length)) {
+    flags.push(FLAG_EARLIER_RUBRIC);
+  }
   if (!person.onRoster) flags.push(FLAG_OFF_ROSTER);
 
   return [
