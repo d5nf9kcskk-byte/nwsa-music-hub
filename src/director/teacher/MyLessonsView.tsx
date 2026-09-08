@@ -188,7 +188,7 @@ export function MyLessonsView() {
    * the change implies and OFFER it. Nothing moves without a press: re-timing
    * thirty lessons is not something to do behind somebody's back.
    */
-  async function saveSlot(studentId: string, slot: LessonSlot | null) {
+  async function saveSlot(studentId: string, slot: LessonSlot | null, effectiveFrom: string) {
     if (!db || !me) return;
     const before = director?.lessonSlots?.[studentId];
     const next = { ...(director?.lessonSlots ?? {}) };
@@ -198,10 +198,15 @@ export function MyLessonsView() {
     setSlotAdded(null);
     setSlotMoved(null);
     if (!slot) { setSlotPlan(null); return; }
+    // The window starts where the teacher said it does, not at today. A change
+    // dated after winter break must leave this term alone; one dated back to
+    // the start of term is how a time entered wrong gets corrected across the
+    // rows already on the sheet.
+    const from = effectiveFrom || today;
     const plan = slotChangePlan(
       before, slot,
       myLessons.filter(l => l.studentId === studentId),
-      today, schoolYearEnd(today),
+      from, schoolYearEnd(today),
     );
     setSlotPlan(planHasWork(plan) ? { slot, plan } : null);
   }
@@ -237,7 +242,7 @@ export function MyLessonsView() {
       const live = slotChangePlan(
         shown.before, slot,
         myLessons.filter(l => l.studentId === studentId),
-        today, schoolYearEnd(today),
+        shown.from || today, schoolYearEnd(today),
       );
       const agreedMoves = new Set(shown.move.map(m => m.id));
       const agreedDrops = new Set(shown.supersede.map(s => s.id));
@@ -517,7 +522,7 @@ export function MyLessonsView() {
           editing={editingSlot}
           onEdit={() => { clearSlotBanners(); setEditingSlot(true); }}
           onCancelEdit={() => setEditingSlot(false)}
-          onSave={async slot => { await saveSlot(sheetStudent.id, slot); setEditingSlot(false); }}
+          onSave={async (slot, from) => { await saveSlot(sheetStudent.id, slot, from); setEditingSlot(false); }}
           onGenerate={slot => generateFromSlot(sheetStudent, slot)}
           onApplyPlan={(slot, plan) => applySlotPlan(sheetStudent.id, slot, plan)}
           onRemoveDoubled={slot => removeDoubled(sheetStudent.id, slot)}
@@ -863,7 +868,7 @@ function WeeklySlotPanel({
   editing: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
-  onSave: (slot: LessonSlot | null) => Promise<void>;
+  onSave: (slot: LessonSlot | null, effectiveFrom: string) => Promise<void>;
   onGenerate: (slot: LessonSlot) => void;
   onApplyPlan: (slot: LessonSlot, plan: SlotChangePlan) => void;
   onRemoveDoubled: (slot: LessonSlot) => void;
@@ -890,7 +895,7 @@ function WeeklySlotPanel({
   const throughLabel = parseDate(through).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
 
   if (editing) {
-    return <SlotEditor student={student} slot={slot} onSave={onSave} onCancel={onCancelEdit} />;
+    return <SlotEditor student={student} slot={slot} today={today} onSave={onSave} onCancel={onCancelEdit} />;
   }
 
   return (
@@ -910,6 +915,17 @@ function WeeklySlotPanel({
       {plan && (
         <div className="dir-conflict-banner" style={{ margin: '0 16px 8px' }}>
           <strong>Saved — but the lessons already on the calendar have not moved yet.</strong>
+          {/* Which window this offer covers. Silent, it reads as "everything",
+              and a change deliberately dated forward would look like it had
+              missed half the year. */}
+          {plan.plan.from && plan.plan.from !== today && (
+            <div style={{ marginTop: 4 }}>
+              Counting from {parseDate(plan.plan.from).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              {plan.plan.from > today
+                ? ' — earlier weeks keep the old time.'
+                : ' — including weeks already on the sheet.'}
+            </div>
+          )}
           <div style={{ marginTop: 6 }}>
             {plan.plan.move.length > 0 && (
               <>
@@ -1097,10 +1113,11 @@ function WeeklySlotPanel({
 }
 
 /** Three fields: which day, what time, which room. Nothing else is a slot. */
-function SlotEditor({ student, slot, onSave, onCancel }: {
+function SlotEditor({ student, slot, today, onSave, onCancel }: {
   student: Student;
   slot?: LessonSlot;
-  onSave: (slot: LessonSlot | null) => Promise<void>;
+  today: string;
+  onSave: (slot: LessonSlot | null, effectiveFrom: string) => Promise<void>;
   onCancel: () => void;
 }) {
   const fallback = defaultTimesForPayroll(defaultPayrollMinutes(student.grade));
@@ -1108,8 +1125,15 @@ function SlotEditor({ student, slot, onSave, onCancel }: {
   const [startTime, setStartTime] = useState(slot?.startTime ?? fallback.startTime);
   const [endTime, setEndTime] = useState(slot?.endTime ?? fallback.endTime);
   const [location, setLocation] = useState(slot?.location ?? '');
+  // When the new time starts. Defaults to today, which is what a plain "we
+  // move to Thursdays now" means and what every change did before this field
+  // existed. Dated forward, the weeks in between keep the old time — "we
+  // switch after winter break" without hand-editing a term's worth of rows.
+  const [effectiveFrom, setEffectiveFrom] = useState(today);
   const [saving, setSaving] = useState(false);
   const valid = !!startTime && !!endTime && endTime > startTime;
+  const startsLater = effectiveFrom > today;
+  const startsEarlier = effectiveFrom < today;
 
   return (
     <>
@@ -1136,13 +1160,37 @@ function SlotEditor({ student, slot, onSave, onCancel }: {
           <label className="dir-label">Room (optional)</label>
           <input className="dir-input" value={location} onChange={e => setLocation(e.target.value)} placeholder="Room 214" />
         </div>
+        {/* Only offered when there IS an old time to keep before the switch.
+            On a first-time setup there is nothing to date from. */}
+        {slot && (
+          <div className="dir-field">
+            <label className="dir-label">New time starts</label>
+            <input
+              className="dir-input"
+              type="date"
+              value={effectiveFrom}
+              onChange={e => setEffectiveFrom(e.target.value || today)}
+              aria-label="Date the new weekly time takes effect"
+            />
+            <div style={{ fontSize: 12.5, lineHeight: 1.45, color: 'var(--dir-text-muted)' }}>
+              {startsLater
+                ? <>Lessons before this date keep {slotSentence(slot)}. Only the ones on or after it are offered for the move.</>
+                : startsEarlier
+                  ? <>This is in the past, so lessons already on the sheet back to that date are offered for the move too. Anything graded or cancelled is still left alone.</>
+                  : <>Today. Lessons from today on are offered for the move; earlier ones stay as a record of what happened.</>}
+            </div>
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '4px 0 12px' }}>
           <button
             className="dir-btn dir-btn-primary"
             disabled={!valid || saving}
             onClick={async () => {
               setSaving(true);
-              await onSave({ weekday, startTime, endTime, ...(location.trim() ? { location: location.trim() } : {}) });
+              await onSave(
+                { weekday, startTime, endTime, ...(location.trim() ? { location: location.trim() } : {}) },
+                effectiveFrom,
+              );
             }}
           >
             Save weekly time
@@ -1152,7 +1200,7 @@ function SlotEditor({ student, slot, onSave, onCancel }: {
             <button
               className="dir-btn dir-btn-danger"
               disabled={saving}
-              onClick={async () => { setSaving(true); await onSave(null); }}
+              onClick={async () => { setSaving(true); await onSave(null, effectiveFrom); }}
             >
               Remove
             </button>

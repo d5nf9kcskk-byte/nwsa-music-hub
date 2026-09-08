@@ -88,6 +88,32 @@ assert(pending.join(',') === '2026-09-11,2026-09-25', `pending skips taken dates
 assert(pendingSlotDates(friday, sept.map(date => ({ date })), '2026-09-01', '2026-09-30').length === 0,
   'a fully-scheduled month has nothing pending');
 
+// A week that already has a lesson is spoken for, whatever day it fell on.
+// This is what keeps a dated-forward change safe: after "Thursdays, starting
+// January 4" is applied, the fall's Mondays stay put and every Thursday
+// before January is empty for good. Matching on DATE, the panel would offer
+// to add all of them — stacking a second lesson onto each of the very weeks
+// the teacher chose to keep. The same hole is there for a plain same-day
+// change whose move offer was declined, which is how it would have been hit
+// first.
+{
+  const mondaysKept = ['2026-09-14', '2026-09-21', '2026-09-28'].map(date => ({ date }));
+  const thursday: LessonSlot = { weekday: 4, startTime: '11:30', endTime: '12:20' };
+  const stillPending = pendingSlotDates(thursday, mondaysKept, '2026-09-01', '2026-09-30');
+  assert(!stillPending.some(d => ['2026-09-17', '2026-09-24'].includes(d)),
+    `a week with a lesson on another day is not pending, got ${stillPending.join(',')}`);
+  // Sept 3 is the Thursday of the week BEFORE the first kept Monday, so it is
+  // genuinely open and must still be offered — the rule is "one a week", not
+  // "stop offering once anything exists".
+  assert(stillPending.includes('2026-09-03'),
+    `an untouched week is still offered, got ${stillPending.join(',')}`);
+}
+
+// Same rule for the closure count: a week made up on another day was not
+// skipped, and telling the teacher to add one by hand would be wrong.
+assert(skippedNoSchoolDates(monday, [{ date: '2026-09-09' }], '2026-09-01', '2026-09-14').length === 0,
+  'a week made up on another day is not reported as a skipped closure');
+
 // School year ends the following May for August-or-later dates.
 assert(schoolYearEnd('2026-09-01') === '2027-05-31', 'Sept 2026 → May 2027');
 assert(schoolYearEnd('2027-02-01') === '2027-05-31', 'Feb 2027 → May 2027');
@@ -255,6 +281,36 @@ assert(careful.keptGraded === 1 && careful.keptCancelled === 1 && careful.keptOt
   const wrong = slotChangePlan(newThu, newThu, mondays, '2026-09-08', '2026-10-31');
   assert(wrong.move.length === 0,
     'comparing the new time against itself moves nothing — the regression, pinned');
+}
+
+// THE CHANGE HAS AN EFFECTIVE DATE. "Thursdays, starting after winter break"
+// has to be expressible, or every change is "from today, forever" and a term
+// already taught gets dragged along with one that has not started.
+{
+  const oldMon: LessonSlot = { weekday: 1, startTime: '15:30', endTime: '16:20' };
+  const newThu: LessonSlot = { weekday: 4, startTime: '11:30', endTime: '12:20' };
+  const mondays = [
+    lesson({ id: 'sep', date: '2026-09-14', startTime: '15:30', endTime: '16:20' }),
+    lesson({ id: 'oct', date: '2026-10-12', startTime: '15:30', endTime: '16:20' }),
+    lesson({ id: 'jan', date: '2027-01-11', startTime: '15:30', endTime: '16:20' }),
+  ];
+  // Dated forward: this term is left completely alone.
+  const later = slotChangePlan(oldMon, newThu, mondays, '2027-01-04', '2027-05-31');
+  assert(later.from === '2027-01-04', 'the plan carries the date it was computed from');
+  assert(later.move.map(m => m.id).join(',') === 'jan',
+    `only January moves, got ${later.move.map(m => m.id).join(',') || 'none'}`);
+
+  // Dated back: rows already on the sheet come along. This is the same control
+  // answering "the time was entered wrong all term" — no second mechanism.
+  const back = slotChangePlan(oldMon, newThu, mondays, '2026-09-01', '2027-05-31');
+  assert(back.move.length === 3, `all three move when dated back, got ${back.move.length}`);
+
+  // A graded lesson is STILL never touched, however far back the date reaches.
+  const graded = slotChangePlan(oldMon, newThu, [
+    lesson({ id: 'g', date: '2026-09-14', startTime: '15:30', endTime: '16:20', grade: '91' }),
+  ], '2026-09-01', '2027-05-31');
+  assert(graded.move.length === 0 && graded.keptGraded === 1,
+    'dating the change backwards never overrules a grade');
 }
 
 // A move never lands on a date that already holds a lesson.
