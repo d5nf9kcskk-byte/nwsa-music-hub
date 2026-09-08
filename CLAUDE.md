@@ -345,6 +345,41 @@ instead (doc id `${studentId}_${date}`, so re-running a bulletin updates one
 record). Take Roll shows it as a chip beside the name — context, never a mark.
 Staff-only, never mirrored publicly: it is attendance-class data.
 
+## Seating charts (Sept 2026, #seating-sections / #seating-link)
+
+A chart's `sections` array is rendered in STORED ORDER by `SeatingChartCard` —
+there is no sort on the way out. That is the whole reason section order is an
+editable thing: `buildSections()` seeds it in score order, but anything the
+director adds afterwards is appended, and a "Violin 2" created after the fact
+published below Cello and Bass on the page students read.
+
+- **`scoreOrderRank()` in `src/director/scoreOrder.ts` is the ONE ranking**, for
+  seats, sections, and jury running order alike. The editor's "Score order"
+  button and `scripts/reorder-seating-sections.mjs` both defer to it (the script
+  imports the `.ts` directly — Node strips types). Never add a second instrument
+  spelling list; add a pattern to that table.
+- **A script may reorder SECTIONS; it must never reorder SEATS.** Chair order
+  inside a section is the director's audition result. The migration script is
+  idempotent and skips a chart already in order, so `updatedAt` does not churn.
+- **`src/director/seating/seatingLink.ts` is the ONE spelling of a chart's
+  address** (`/seating/<id>`, `PublicSeating.tsx`, routed in `main.tsx`). The
+  editor's copy button, the announcement a chart posts about itself, and the
+  LinkPicker's Seating group all read it from there. Do not write the path out
+  by hand. It lives in its own module rather than in `SeatingManager.tsx`
+  because a non-component export there trips `react-refresh/only-export-components`.
+- Giving a chart an address published NOTHING new: `seatingCharts` is already a
+  world read and the page's names come from `studentsPublic`, the same
+  projection `PublicEnsemble` uses. Keep it that way — a chart page must never
+  reach `students`. (#privacy)
+- **`dir-drawer-full` on a drawer OVERLAY takes it edge to edge** at every
+  width, beating the ≥1024px right-pane rules in `dirShell.css` on specificity
+  alone (no `!important`). Reach for it when a drawer holds a ROSTER rather than
+  one decision — a whole seating chart in a 540px column pinned to the right
+  edge is what it was added for. The cost is that there is no dimmed margin to
+  click outside, so the panel needs its own ×/Cancel and `useModalA11y`.
+
+Session record: `docs/session-notes-2026-09-08-seating-sections-and-links.md`.
+
 ## Juries (Aug 2026) — a deliberate stub
 
 `juries` + `src/director/juries/` exist to hold what is known as it firms up.
