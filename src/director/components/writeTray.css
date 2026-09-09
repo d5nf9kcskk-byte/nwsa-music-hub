@@ -10,6 +10,7 @@
   box-shadow: 0 6px 20px rgba(0,0,0,0.3);
 }
 .dir-tray-item.error { background: #7f1d1d; }
+.dir-tray-item.note { background: #1e3a5f; }
 .dir-tray-item svg { flex-shrink: 0; }
 .dir-tray-label { flex: 1; min-width: 0; }
 .dir-tray-action {

@@ -334,6 +334,46 @@ place: `isClassGroup()` / `isMasterClass()` / `performingEnsembles()` /
 - `scripts/../src/director/groupKind.selfcheck.ts` pins all of the above and
   runs in the deploy workflow.
 
+## Student Assistant sign-off (Sept 2026, #approvals)
+
+A Student Assistant's four optional capabilities (`schedule` / `repertoire` /
+`signups` / `announcements`) no longer write anything. They raise a request in
+`pendingActions`, a director approves it on the Approvals screen, and the write
+happens then. `src/director/pendingActions.ts` is the ONE definition of what a
+request is and what applying one does; `pendingActions.selfcheck.ts` pins it in
+the deploy workflow.
+
+- **Roll is never gated.** Attendance is the assistant's job and it is
+  time-sensitive; a rehearsal's roll sitting unapplied until a director looks
+  is worse than no gate. The `rollTaken` receipt on an event is the one thing
+  an assistant still writes straight through, and `firestore.rules` says so.
+- **A request carries no authority, and nothing privileged applies one.**
+  Approving hands the decoded write back to the DIRECTOR'S OWN browser, which
+  performs it through the same hooks a director's save uses — so the rules
+  still judge the real write on its merits. A Cloud Function applying these
+  with the Admin SDK would be a back door: the payload is written by the
+  assistant, and admin credentials would apply whatever it said. Do not
+  "simplify" it into one.
+- **The gate is in the RULES, not only the app.** `announcements`,
+  `repertoire`, `signupForms` and event create/delete/edit dropped their
+  `assistantHas(...)` clauses in the same change — the queue is the only path,
+  so a devtools console cannot walk around it. The capability still matters:
+  it is what a queued request is checked against (`pendingCapabilityFor`).
+- **A cleared field is encoded, not dropped.** These hooks read an explicit
+  `undefined` as DELETE THIS FIELD, and `JSON.stringify` drops it — which is
+  exactly the "the old value survived every clear" bug their comments describe.
+  Clears ride as the `CLEAR` sentinel and decode back to `undefined`.
+- **Query and rule agree**: an assistant may read only their OWN requests, and
+  `usePendingActions` issues the matching `where('byEmail', ...)`. Change one
+  and you must change the other.
+- Adding a fifth gated collection means changing `GATED_COLLECTIONS`,
+  `pendingCapabilityFor()` in `firestore.rules`, and the `runPlan` switch in
+  `ApprovalsView` together — and dropping that collection's direct assistant
+  write, or the gate is decoration.
+- Known gap, deliberately not closed here: `storage.rules` never let an
+  assistant upload, so an assistant's announcement is text and links only.
+  Widening Storage to them is its own decision.
+
 ## School-day tardies vs. class attendance (Aug 2026)
 
 Late to SCHOOL is **not** an attendance mark. The office bulletin's `TARDY`

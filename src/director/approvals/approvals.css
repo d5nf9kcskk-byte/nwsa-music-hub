@@ -1,0 +1,77 @@
+/* Sign-off queue (#approvals). Deliberately close to the messages inbox —
+   same card rhythm, so a director reading one already knows how to read the
+   other. */
+
+.dir-approvals { display: flex; flex-direction: column; gap: 10px; }
+
+.dir-approval {
+  border: 1px solid var(--dir-border, #e2e2e6);
+  border-radius: 10px;
+  background: var(--dir-card-bg, #fff);
+  overflow: hidden;
+}
+.dir-approval.waiting { border-left: 4px solid var(--dir-accent, #b8892b); }
+.dir-approval.decided { opacity: 0.72; }
+
+.dir-approval-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+.dir-approval-head.as-row { cursor: default; }
+
+.dir-approval-kind {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--dir-chip-bg, #f1f1f4);
+  white-space: nowrap;
+}
+.dir-approval-label { flex: 1 1 240px; font-weight: 600; }
+.dir-approval-who { font-size: 12px; opacity: 0.8; }
+.dir-approval-when { font-size: 12px; opacity: 0.6; white-space: nowrap; }
+
+.dir-approval-body { padding: 0 12px 10px; }
+.dir-approval-fields { margin: 0; display: grid; gap: 4px; }
+.dir-approval-fields > div { display: flex; gap: 10px; align-items: baseline; }
+.dir-approval-fields dt {
+  min-width: 120px;
+  font-size: 12px;
+  opacity: 0.65;
+  text-transform: none;
+}
+.dir-approval-fields dd {
+  margin: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  /* A long announcement body must not push the card wider than the screen. */
+  max-height: 8em;
+  overflow-y: auto;
+}
+
+.dir-approval-actions { display: flex; gap: 8px; padding: 0 12px 12px; }
+.dir-approval-yes { font-weight: 600; }
+
+.dir-approval-warn,
+.dir-approval-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.dir-approval-warn { color: var(--dir-danger, #a8321f); }
+.dir-approval-note { opacity: 0.8; font-style: italic; }
+
+.dir-approvals-more { align-self: flex-start; margin-top: 6px; }

@@ -11,7 +11,7 @@ import { db } from './firebase';
 
 export interface TrayItem {
   id: string;
-  kind: 'undo' | 'error';
+  kind: 'undo' | 'error' | 'note';
   label: string;
   /** undo: restores the doc · error: retries the failed write */
   action?: () => Promise<void>;
@@ -95,6 +95,19 @@ export function whenQueued<T>(write: Promise<T>, timeoutMs = 2500): Promise<'sav
     settled,
     new Promise<'queued'>(resolve => setTimeout(() => resolve('queued'), timeoutMs)),
   ]);
+}
+
+/**
+ * A neutral "we took that in" toast (#approvals). A Student Assistant's save
+ * looks exactly like a director's from inside the form — it closes and
+ * nothing errors — so without this they would go looking for their post on
+ * the public site and not find it.
+ */
+export function noteQueued(label: string) {
+  const id = `n${++seq}`;
+  items = [...items, { id, kind: 'note', label, expiresAt: Date.now() + 6_000 }];
+  emit();
+  setTimeout(() => dismissTray(id), 6_500);
 }
 
 /** Report a failed write with a retry thunk — stays until acted on. */

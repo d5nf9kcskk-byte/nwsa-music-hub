@@ -10,6 +10,7 @@ import {
 import { WriteTray } from '../components/WriteTray';
 import { StatusStrips } from '../../shared/StatusStrips';
 import { MyCalendarFeedPanel } from '../components/MyCalendarFeedPanel';
+import { MyRequestsPanel } from './MyRequestsPanel';
 import { AttendanceView } from '../attendance/AttendanceView';
 import { ScheduleView } from '../schedule/ScheduleView';
 import { RepertoireManager } from '../repertoire/RepertoireManager';
@@ -45,7 +46,7 @@ export function AssistantApp({ user, signOut }: { user: User; signOut: () => voi
   const sub =
     caps.length === 0
       ? '· attendance for your assigned ensembles'
-      : '· roll plus the extras your director granted';
+      : '· roll saves right away; everything else goes to a director to approve';
 
   return (
     <div className="dir-app">
@@ -125,6 +126,8 @@ export function AssistantApp({ user, signOut }: { user: User; signOut: () => voi
             {tab === 'announcements' && <AnnouncementManager asTab onClose={() => setTab('roll')} />}
           </>
         )}
+        {/* What went up for approval and what came back (#approvals). */}
+        {caps.length > 0 && <div style={{ marginTop: 28 }}><MyRequestsPanel /></div>}
         {/* "Just my rooms, on my phone" (#my-calendar). */}
         <div style={{ marginTop: 32 }}><MyCalendarFeedPanel /></div>
       </main>

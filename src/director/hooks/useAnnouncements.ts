@@ -6,6 +6,7 @@ import { offerUndo } from '../writeStatus';
 import { currentDirectorEmail, currentDirectorName } from '../currentDirector';
 import { deleteStoredFile } from '../storageCleanup';
 import type { Announcement, Attachment } from '../types';
+import { proposeWrite } from './usePendingActions';
 
 /** Every uploaded file a post points at (pictures + attachments). */
 function uploadedUrls(a: Partial<Announcement> | undefined): string[] {
@@ -40,6 +41,13 @@ export function useAnnouncements() {
 
   async function addAnnouncement(data: Omit<Announcement, 'id'>): Promise<string | undefined> {
     if (!db) return;
+    // A Student Assistant's post waits for a director (#approvals). Returns
+    // no id on purpose — there is no doc yet, and a caller that needs one
+    // (nothing does today) must not be handed a made-up one.
+    if (await proposeWrite({
+      collection: 'announcements', op: 'create', data,
+      label: `Post announcement: “${data.title}”`,
+    })) return;
     const ref = await addDoc(collection(db, 'announcements'), {
       ...data,
       createdByEmail: data.createdByEmail ?? currentDirectorEmail(),
@@ -63,6 +71,10 @@ export function useAnnouncements() {
     // Only for the keys this save actually sent, and only AFTER it succeeds —
     // cancelling an edit must never delete a live file.
     const before = announcements.find(x => x.id === id);
+    if (await proposeWrite({
+      collection: 'announcements', op: 'update', docId: id, data,
+      label: `Edit announcement: “${before?.title ?? id}”`,
+    })) return;
     const touchesFiles = 'images' in data || 'files' in data;
     const dropped = touchesFiles
       ? uploadedUrls(before).filter(url => !uploadedUrls(data).includes(url))
@@ -75,6 +87,10 @@ export function useAnnouncements() {
     if (!db) return;
     // Undo (#38): capture the doc, delete, offer 10s restore with the same id.
     const gone = announcements.find(x => x.id === id);
+    if (await proposeWrite({
+      collection: 'announcements', op: 'delete', docId: id,
+      label: `Delete announcement: “${gone?.title ?? id}”`,
+    })) return;
     await deleteDoc(doc(db, 'announcements', id));
     if (gone) {
       const { id: _id, ...data } = gone;
