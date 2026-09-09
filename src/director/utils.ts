@@ -1,6 +1,7 @@
 import type { Ensemble, EventType, RepertoirePiece, PiecePartLink, PieceMovement, CalendarEvent, SeatingChart, Student } from './types';
 import { dateLocale, fmtDate } from '../shared/dates';
 import { scoreOrderRank, lastName } from './scoreOrder';
+import { isClassGroup, isMasterClass } from './groupKind';
 
 // ── Date helpers (work in local time, store as YYYY-MM-DD) ──────────────────────
 
@@ -87,18 +88,10 @@ export const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // One place decides what `kind` means, so the "absent = ensemble" default for
 // every group created before the field existed is applied exactly once.
 
-/** A class (theory, music appreciation, master class, college course) — has a
- *  roster and takes roll, but rehearses no repertoire and plays no concerts.
- *  Covers BOTH class kinds: everywhere a list is shown they belong together. */
-export function isClassGroup(e: Pick<Ensemble, 'kind'>): boolean {
-  return e.kind === 'class' || e.kind === 'masterclass';
-}
-
-/** A master class specifically — a class whose students PLAY in it, so a
- *  meeting picks performers and their pieces instead of a unit/chapter. */
-export function isMasterClass(e: Pick<Ensemble, 'kind'>): boolean {
-  return e.kind === 'masterclass';
-}
+/** The two predicates that read `Ensemble.kind` live in `groupKind.ts` so that
+ *  Node-side code (the feed generator) can import them without pulling in the
+ *  org config. Re-exported here so this stays the one import site. */
+export { isClassGroup, isMasterClass };
 
 /** Music groups that actually rehearse and perform — the list that belongs in
  *  repertoire pickers, concert programs, and the public "our ensembles" grid. */
@@ -239,13 +232,10 @@ export function ensembleDisplayName(e?: Pick<Ensemble, 'name'> | null): string {
 // ensemble/section — with Concert/Event (no roll) after.
 export const EVENT_TYPES: EventType[] = ['Rehearsal', 'Class', 'Sectional', 'Concert', 'Event'];
 
-export const EVENT_TYPE_ICON: Record<EventType, string> = {
-  Rehearsal: '🎵',
-  Class: '📚',
-  Concert: '🎭',
-  Sectional: '🎻',
-  Event: '📌',
-};
+/** Lives in groupIcon.ts so that module — which upgrades a master class to its
+ *  instrument — needs nothing from this one, and can therefore load under
+ *  Node's type-stripping loader. Re-exported here, the historic import site. */
+export { EVENT_TYPE_ICON } from './groupIcon';
 
 /**
  * Event types the director takes roll for. A class meets on a schedule and its

@@ -4,7 +4,8 @@ import { useStudents } from '../hooks/useStudents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster, overrideApplies } from '../rosterResolver';
 import { isSharedBlock, mergeSharedRoster, sharedBlockLabel } from '../../shared/sharedBlock';
-import { formatDate, formatTimeRange, EVENT_TYPE_ICON } from '../utils';
+import { formatDate, formatTimeRange } from '../utils';
+import { eventIcon } from '../groupIcon';
 import type { CalendarEvent, Ensemble, RosterOverride } from '../types';
 import type { DirNavigate } from '../types-nav';
 
@@ -86,7 +87,7 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
         <div className="dir-drawer-body">
-          <div className="dir-roster-event-name">{EVENT_TYPE_ICON[event.type]} {eventName}</div>
+          <div className="dir-roster-event-name">{eventIcon(event.type, eventEnsembles)} {eventName}</div>
           <div className="dir-roster-sub-date">
             {event.type} · {formatDate(event.date)}{timeLabel ? ` · ${timeLabel}` : ''}
           </div>

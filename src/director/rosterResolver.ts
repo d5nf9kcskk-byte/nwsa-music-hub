@@ -136,7 +136,21 @@ export function studentExpectation(
   students: Student[],
   overrides: RosterOverride[],
   eventsById: Record<string, CalendarEvent>,
+  /**
+   * Event ids this student booked a master class slot at
+   * (#masterclass-performers). Its own route in, because a student who signs
+   * up to play is very often NOT on the master class roster — that is what the
+   * sign-up is for — so neither membership nor `studentIds` would reach them.
+   * Optional: a caller with no sign-up data to hand behaves exactly as before.
+   * Resolve it with `bookedPerformersForEvent` in src/shared/eventPerformers.ts,
+   * the same join `scripts/generate-feeds.mjs` uses for the personal .ics, so
+   * the schedule screen and the subscribed calendar cannot disagree.
+   */
+  bookedEventIds?: ReadonlySet<string>,
 ): { expected: boolean; ensembleIds: string[]; isSub: boolean; attendanceOnly: boolean } {
+  if (bookedEventIds?.has(event.id)) {
+    return { expected: true, ensembleIds: event.ensembleIds.slice(0, 1), isSub: false, attendanceOnly: false };
+  }
   const ensembleIds: string[] = [];
   let isSub = false;
   for (const ensId of event.ensembleIds) {

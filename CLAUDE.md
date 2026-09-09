@@ -380,6 +380,61 @@ published below Cello and Bass on the page students read.
 
 Session record: `docs/session-notes-2026-09-08-seating-sections-and-links.md`.
 
+## Who is playing at a master class (Sept 2026, #masterclass-performers)
+
+`src/shared/eventPerformers.ts` is the ONE answer to "who plays at this
+event" — the public event page, the .ics DESCRIPTION, the personal student
+feed, and the student's own schedule screen all read it, or they drift.
+
+- **The join is by the CLOCK, and by nothing else.** A booking points at a
+  `slotDef` with a date and a start minute; a slot whose start falls inside the
+  meeting's window is a performance in that meeting. There is no stored link
+  and no new field, which is exactly why the master classes already on the
+  calendar and the sign-ups already booked lit up with no migration — the
+  director had already done the work once. It is also the only thing that could
+  put a WRONG name on a running order, so `eventPerformers.selfcheck.ts` pins
+  the containment rule and runs in the deploy workflow.
+- **Bookings are joined for a `kind: 'masterclass'` group and for nothing
+  else.** Sign-ups schedule lesson times, fittings and interest lists too, and
+  a slot that happens to fall during a rehearsal must never make the rehearsal
+  announce that somebody is playing at it.
+- **An event with no start AND no end matches nothing.** Reading "no end" as
+  "the rest of the day" would sweep in every later sign-up on that date. A
+  missing section beats a wrong name.
+- **A booked slot is its own route onto a student's schedule** — in
+  `studentExpectation()` (optional `bookedEventIds`) and in the per-student feed
+  in `scripts/generate-feeds.mjs`. It has to be: a student who signs up to play
+  is usually NOT on the master class roster (that is what the sign-up is for),
+  so neither membership nor `studentIds` reaches them, and the one event they
+  personally committed to would be the one missing from their calendar. The two
+  sides must keep using the same join.
+- Nothing here widened what is public (#privacy). `signupSlotBookings` is
+  already `allow read` — the public sign-up page greys out taken times with it
+  — and each booking already carries `studentName`; `signupForms` is
+  world-readable too. Named performers resolve through `studentsPublic`, never
+  the staff-only `students`, and a doc id with no public record is DROPPED
+  rather than printed.
+- `guestPerformers` and `studentIds` on an event were write-only before this —
+  saved by the Event form and rendered nowhere. They render now.
+- **`icsDescription` gets performers through `lookups.performers`**, a function,
+  not a field on the event: the answer is a join the event doc holds only half
+  of. The sign-up confirmation email omits it (no roster to hand) and renders
+  no performer line at all. The in-app snapshot download and `staffFeed` do not
+  pass it yet — if you wire either up, use this module.
+
+**Icons (#masterclass-icons).** `src/director/groupIcon.ts` upgrades a master
+class from the class book to its instrument, read out of the group's own NAME
+through `scoreOrderRank` — the ONE ranking table, so there is no second list of
+instrument spellings and a "Flute Masterclass" created next term needs no edit.
+🎻 for violin/viola, 🎸 for cello/bass (Unicode has no cello and no double
+bass). A name the ranking cannot read keeps `EVENT_TYPE_ICON` rather than
+guessing. `EVENT_TYPE_ICON` itself moved here from `utils.ts` and is re-exported
+there, so this module reaches nothing that needs the org config and its
+self-check runs without the Vite defines shim. Watch `Bass Masterclass`: the
+ranking anchors the string bass as `^bass$` so Bassoon stays a woodwind, which
+is why the class words come off the name before the rank is asked for.
+`groupIcon.selfcheck.ts` pins all four sections and runs in the deploy workflow.
+
 ## Juries (Aug 2026) — a deliberate stub
 
 `juries` + `src/director/juries/` exist to hold what is known as it firms up.

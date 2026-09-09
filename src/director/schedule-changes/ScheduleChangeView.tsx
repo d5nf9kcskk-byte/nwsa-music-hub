@@ -7,7 +7,8 @@ import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useStaffNotices } from '../hooks/useStaffNotices';
 import { currentDirectorName } from '../currentDirector';
 import { resolveRoster } from '../rosterResolver';
-import { ensembleColor, parseDate, todayStr, toDateStr, formatTimeRange, addMinutesToTime, EVENT_TYPE_ICON, musicEnsembles, isClassGroup, takesAttendance, WEEKDAY_LABELS } from '../utils';
+import { ensembleColor, parseDate, todayStr, toDateStr, formatTimeRange, addMinutesToTime, musicEnsembles, isClassGroup, takesAttendance, WEEKDAY_LABELS } from '../utils';
+import { eventIcon } from '../groupIcon';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
@@ -189,7 +190,7 @@ export function ScheduleChangeView({ initialEnsembleId = '', initialStudentId, i
                   <span className="dir-ens-swatch" style={{ background: ensembleColor(ensembleMap[e.ensembleIds[0]]) }} />
                   <div className="dir-ens-info">
                     <div className="dir-ens-name">
-                      {EVENT_TYPE_ICON[e.type]} {e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(', ') || e.type}
+                      {eventIcon(e.type, e.ensembleIds.map(id => ensembleMap[id]))} {e.title || e.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(', ') || e.type}
                     </div>
                     <div className="dir-ens-sub">
                       {formatTimeRange(e.startTime, e.endTime) || 'No time set'}{e.location ? ` · ${e.location}` : ''}
