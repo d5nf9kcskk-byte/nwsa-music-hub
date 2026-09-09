@@ -121,3 +121,36 @@
   line-height: 1.2;
   padding: 9px 12px;
 }
+
+/* "Playing today" — the master class running order (#masterclass-performers).
+   A name and its booked time on one row, so a student can find themselves by
+   scanning the left edge rather than reading every line. */
+.pub-playing-list { list-style: none; margin: 0; padding: 0; }
+.pub-playing-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--pub-hairline, rgba(0, 0, 0, 0.07));
+}
+.pub-playing-row:last-child { border-bottom: none; }
+.pub-playing-name { flex: 1; min-width: 0; font-weight: 600; }
+.pub-playing-time {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--pub-muted);
+}
+.pub-playing-guest {
+  flex: none;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pub-muted);
+}
+.pub-playing-foot {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--pub-muted);
+}

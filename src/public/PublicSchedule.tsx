@@ -21,9 +21,10 @@ import { useSignupForms, useStudentSlotBookings } from '../director/hooks/useSig
 import { useStudentLessons } from './hooks/usePublicLessons';
 import { LessonTimes } from './components/LessonTimes';
 import { resolveBookedSlots, upcomingBookedSlots, slotCalendarEvent } from '../shared/signupBooking';
+import { bookedPerformersForEvent } from '../shared/eventPerformers';
 import { AddToCalendarButton } from './components/AddToCalendar';
 import { studentExpectation } from '../director/rosterResolver';
-import { todayStr, toDateStr, parseDate, formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, studentHasAssignment, assignmentEmoji, isPublished, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { todayStr, toDateStr, parseDate, formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, studentHasAssignment, assignmentEmoji, isPublished, isMasterClass, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubSelect } from './components/PubSelect';
 import { PubAnnouncements } from './components/PubAnnouncements';
@@ -86,16 +87,31 @@ export function PublicSchedule() {
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
 
+  // Master classes this student booked a slot at (#masterclass-performers).
+  // Signing up to play is its own way onto the schedule: the sign-up exists
+  // precisely because these students are not on the master class roster, so
+  // without this the one event they personally committed to is the one event
+  // missing from their schedule. Same join the personal .ics feed uses, so the
+  // page and the subscribed calendar say the same thing.
+  const myBookedEventIds = useMemo(() => {
+    const out = new Set<string>();
+    for (const e of events) {
+      if (!e.ensembleIds.some(eid => ensembleMap[eid] && isMasterClass(ensembleMap[eid]))) continue;
+      if (bookedPerformersForEvent(e, signupForms, myBookings).some(p => p.studentId === id)) out.add(e.id);
+    }
+    return out;
+  }, [events, ensembleMap, signupForms, myBookings, id]);
+
   // Upcoming events where this student is expected — performing (base member
   // or sub, minus pulls) OR required in the audience (attendanceEnsembleIds).
   const mySchedule = useMemo(() => {
     if (!student) return [];
     return events
       .filter(e => e.date >= today)
-      .map(e => ({ event: e, exp: studentExpectation(id, e, students, overrides, eventsById) }))
+      .map(e => ({ event: e, exp: studentExpectation(id, e, students, overrides, eventsById, myBookedEventIds) }))
       .filter(x => x.exp.expected)
       .sort((a, b) => a.event.date.localeCompare(b.event.date) || (a.event.startTime ?? '99').localeCompare(b.event.startTime ?? '99'));
-  }, [student, events, students, overrides, eventsById, id, today]);
+  }, [student, events, students, overrides, eventsById, id, today, myBookedEventIds]);
 
   const todayItems = mySchedule.filter(x => x.event.date === today);
   const { nowHM, isPast } = usePastDimming();

@@ -15,8 +15,9 @@ import { QrKitView } from '../qr/QrKitView';
 import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster } from '../rosterResolver';
 import { isSharedBlock, sharedBlockLabel } from '../../shared/sharedBlock';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, addDays, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../utils';
-import type { Announcement, CalendarEvent } from '../types';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, addDays, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../utils';
+import { eventIcon } from '../groupIcon';
+import type { Announcement, CalendarEvent, Ensemble } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
 import { NotesText } from '../../public/components/NotesText';
@@ -399,7 +400,11 @@ function TodayCard({
   event, ensembleMap, piecesById, expected, markedCount = 0, onNavigate,
 }: {
   event: CalendarEvent;
-  ensembleMap: Record<string, { id: string; name: string; order: number; color?: string }>;
+  // `kind` is load-bearing, not decoration: eventIcon() reads it to give a
+  // string master class its instrument instead of the class book (#masterclass-icons).
+  // It is optional on Ensemble, so leaving it out of this shape would still
+  // typecheck and quietly render the wrong icon forever.
+  ensembleMap: Record<string, { id: string; name: string; order: number; color?: string; kind?: Ensemble['kind'] }>;
   piecesById: Record<string, { id: string; title: string }>;
   expected: number | null;
   markedCount?: number;
@@ -425,7 +430,7 @@ function TodayCard({
             still do their own jobs. */}
         <button type="button" className="dir-today-open" onClick={openEvent}>
           <span className="dir-today-name">
-            <span className="dir-today-icon">{EVENT_TYPE_ICON[event.type]}</span> {name}
+            <span className="dir-today-icon">{eventIcon(event.type, event.ensembleIds.map(id => ensembleMap[id]))}</span> {name}
             {cancelled && <span className="dir-today-tag cancelled">Cancelled</span>}
             {!cancelled && event.changeNote && <span className="dir-today-tag changed">Changed</span>}
             <ChevronRight size={15} className="dir-today-open-chev" />

@@ -32,6 +32,22 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Master class sign-ups reach the class itself (#masterclass-performers):
+  // the booked students are listed on the meeting, ride into their own
+  // personal calendar, and the four string sections stop wearing the 📚 icon.
+  {
+    id: '2026-09-09-masterclass-playing-today',
+    date: '2026-09-09',
+    title: 'Master classes now say who is playing',
+    audience: 'both' as const,
+    expires: '2026-09-30',
+    bullets: [
+      'Open a master class on the calendar and it lists everyone playing, under “Playing today”, in the order the times were booked. The list is built from the sign-up itself — book a slot and your name appears, free the slot and it goes away. Nothing to type in twice.',
+      'Students who signed up to play get the class on their own schedule and in their subscribed calendar, even if they are not on the master class roster. The calendar entry carries the same list in its notes, so it is there on a phone without opening the Hub.',
+      'Guest performers the director added — visiting players who are on no roster — are listed too, marked as guests.',
+      'The four string master classes wear their instrument on the schedule instead of the class book: 🎻 for Violin and Viola, 🎸 for Cello and Bass. Four Tuesday afternoon rows you can finally tell apart at a glance.',
+    ],
+  },
   // Seating editor (#seating-sections): sections can be reordered, chair
   // numbers are typeable, the piece picker reaches the whole library, and a
   // chart can announce itself to its group.

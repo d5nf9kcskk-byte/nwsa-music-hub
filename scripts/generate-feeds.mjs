@@ -30,6 +30,10 @@ import {
   viewFeedFile, viewLabel, viewSlug,
 } from '../src/shared/calendarView.ts';
 import { icsAssignment, icsCalendar, icsEvent, icsLesson } from '../src/shared/ics.ts';
+// The ONE join of a booked sign-up slot to the meeting it happens in. Imported
+// as .ts — Node strips the types, the same way calendarView.ts is loaded here.
+import { performersForEvent, performerNames, bookedPerformersForEvent } from '../src/shared/eventPerformers.ts';
+import { isMasterClass } from '../src/director/groupKind.ts';
 import {
   assignmentMatchesBundle, bundleEnsembleIds, bundleFeedFile, eventMatchesBundle,
 } from '../src/shared/calendarBundles.ts';
@@ -219,13 +223,33 @@ function wrapCalendar(name, description, vevents) {
       fetchOptionalCollection('lessonsPublic'),
     ]);
 
+    // Who is playing at a master class (#masterclass-performers). Both of
+    // these are already `allow read` in firestore.rules — the public sign-up
+    // page fetches them to grey out times another student took — so this reads
+    // nothing a browser on the student site could not already fetch, and no
+    // staff-only collection is touched (#privacy). Optional so a project with
+    // no sign-ups yet builds normally.
+    const [signupForms, slotBookings] = await Promise.all([
+      fetchOptionalCollection('signupForms'),
+      fetchOptionalCollection('signupSlotBookings'),
+    ]);
+
     console.log(`Fetched ${events.length} events, ${ensembles.length} ensembles, ${students.length} students, ${overrides.length} overrides, ${pieces.length} pieces, ${assignments.length} assignments, ${views.length} saved views, ${publicLessons.length} lesson times`);
 
     const ensembleMap = Object.fromEntries(ensembles.map(e => [e.id, e]));
     const pieceMap = Object.fromEntries(pieces.map(p => [p.id, p]));
+    const studentNameById = new Map(students.map(s => [s.id, (s.preferredName || '').trim() || s.name]));
     const lookups = {
       ensembleName: id => ensembleMap[id]?.name,
       piece: id => pieceMap[id],
+      // "Playing today:" in the calendar notes — the reason a student
+      // subscribes to a master class at all (#masterclass-performers).
+      performers: event => performerNames(performersForEvent(event, {
+        masterClass: (event.ensembleIds ?? []).some(id => isMasterClass(ensembleMap[id] ?? {})),
+        forms: signupForms,
+        bookings: slotBookings,
+        studentName: id => studentNameById.get(id),
+      })),
     };
 
     // Assignment due dates only belong in a feed once they are public: a
@@ -431,8 +455,27 @@ function wrapCalendar(name, description, vevents) {
       if (o.days?.length) return o.days.includes(new Date(`${event.date}T00:00:00Z`).getUTCDay());
       return true;
     };
+    // Booking a master class slot puts that class on your own calendar
+    // (#masterclass-performers). It has to be its own route into the feed: a
+    // student who signs up to play is very often NOT on the master class
+    // roster — that is what the sign-up is for — so neither ensemble
+    // membership nor `studentIds` would reach them, and the one event they
+    // personally committed to would be the one event missing from the
+    // calendar they subscribed to.
+    const bookedEventIds = new Map();
+    for (const e of events) {
+      const isMc = (e.ensembleIds ?? []).some(id => isMasterClass(ensembleMap[id] ?? {}));
+      if (!isMc) continue;
+      for (const p of bookedPerformersForEvent(e, signupForms, slotBookings)) {
+        if (!p.studentId) continue;
+        if (!bookedEventIds.has(p.studentId)) bookedEventIds.set(p.studentId, new Set());
+        bookedEventIds.get(p.studentId).add(e.id);
+      }
+    }
+
     const expectedForStudent = (stu, event) => {
       const memberIds = stu.ensembleIds ?? [];
+      if (bookedEventIds.get(stu.id)?.has(event.id)) return true;
       if ((event.studentIds ?? []).includes(stu.id)) return true;
       for (const ensId of event.ensembleIds ?? []) {
         const isMember = memberIds.includes(ensId);
