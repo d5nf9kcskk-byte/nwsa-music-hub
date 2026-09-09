@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { RotateCcw, X, AlertTriangle } from 'lucide-react';
+import { RotateCcw, X, AlertTriangle, Clock } from 'lucide-react';
 import { useTray, dismissTray } from '../writeStatus';
 import './writeTray.css';
 
-/** Bottom tray: 10s Undo toasts for deletes + persistent failed-write retries. */
+/** Bottom tray: 10s Undo toasts for deletes, persistent failed-write retries,
+ *  and the "sent for approval" note a Student Assistant gets on save. */
 export function WriteTray() {
   const items = useTray();
   const [busy, setBusy] = useState('');
@@ -14,6 +15,7 @@ export function WriteTray() {
       {items.map(it => (
         <div key={it.id} className={`dir-tray-item ${it.kind}`}>
           {it.kind === 'error' && <AlertTriangle size={15} />}
+          {it.kind === 'note' && <Clock size={15} />}
           <span className="dir-tray-label">{it.label}</span>
           {it.action && (
             <button

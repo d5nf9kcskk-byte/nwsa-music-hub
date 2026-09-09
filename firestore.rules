@@ -55,6 +55,12 @@ rules_version = '2';
 //                 `assistantCapabilities` (schedule / repertoire / signups /
 //                 announcements) widen public-collection writes only —
 //                 never contacts, notes, grades, or other sensitive data.
+//                 Since 2026-09-09 those four extras are also GATED: the app
+//                 diverts the write into `pendingActions` and a director
+//                 approves it (#approvals, below). Roll is not gated. The
+//                 direct write rules stay in place because the gate is the
+//                 app's, not the database's — an assistant's own capability
+//                 is what the queued request is checked against.
 // A doc with no `role`/`roles` predates this feature and is treated as a full
 // director (see isStaff()) — nobody with existing access loses it. An
 // EXPLICIT but unrecognized role is fail-closed: beyond reading and
@@ -142,24 +148,11 @@ service cloud.firestore {
         && c in myDirectorDoc().get('assistantCapabilities', []);
     }
 
-    // Event ensembles must all be among the assistant's assigned set
-    // (and non-empty — school-wide events stay staff-only).
-    function assistantOwnsEnsembles(ensembleIds) {
-      return ensembleIds is list
-        && ensembleIds.size() > 0
-        && ensembleIds.hasOnly(myDirectorDoc().get('assignedEnsembleIds', []));
-    }
-
     // Shared `assignedEnsembleIds` scoping — assistants (performing ensembles)
     // and classroom teachers (class sections) both use this field.
     function assignedCovers(ensembleId) {
       return (isAssistantRole() || isClassroomRole())
         && ensembleId in myDirectorDoc().get('assignedEnsembleIds', []);
-    }
-
-    // Is `ensembleId` one of the signed-in assistant's assigned ensembles?
-    function assistantCovers(ensembleId) {
-      return assignedCovers(ensembleId) && isAssistantRole();
     }
 
     // Is `studentId` on the signed-in Applied Teacher's assigned list?
@@ -223,6 +216,15 @@ service cloud.firestore {
       return isStaff() || assistantHas('signups') || isTeacherRole();
     }
 
+    // Who may write the world-readable FORM itself. Narrower than
+    // canManageSignups() since #approvals: an assistant still runs a sign-up
+    // day to day — reading responses, managing the invite list and the
+    // bookings — but creating, editing or deleting the public form goes
+    // through /pendingActions for a director to approve.
+    function canPublishSignups() {
+      return isStaff() || isTeacherRole();
+    }
+
     // Sign-in / activity logs carry one `role` label — it must be one of
     // the roles on the directors doc, not whatever the client picks.
     function roleClaimValid(claimed) {
@@ -275,33 +277,28 @@ service cloud.firestore {
              ['name', 'preferredName', 'instrument', 'section', 'ensembleIds', 'status', 'grade']);
       allow delete: if isStaff();
     }
-    // events: staff edit freely. A Student Assistant may always update ONLY
-    // the rollTaken receipt (side-effect of finishing roll) for THEIR
-    // ensembles. With `schedule`, they may create/edit/delete events whose
-    // ensembles are entirely within their assignment. With `repertoire`, they
-    // may update only `pieceIds` (linking pieces from the repertoire screen).
+    // events: staff edit freely. A Student Assistant may update ONLY the
+    // rollTaken receipt (side-effect of finishing roll) for THEIR ensembles.
+    // Their `schedule` and `repertoire` capabilities used to write here
+    // directly; since #approvals they raise a /pendingActions request that a
+    // director approves, and the approval is applied by the DIRECTOR'S own
+    // session — which is why this rule needs no assistant clause for it.
     match /events/{doc} {
       allow read;
-      allow create: if isStaff()
-        || (assistantHas('schedule')
-            && assistantOwnsEnsembles(request.resource.data.get('ensembleIds', [])));
-      allow delete: if isStaff()
-        || (assistantHas('schedule')
-            && assistantOwnsEnsembles(resource.data.get('ensembleIds', [])));
+      allow create: if isStaff();
+      allow delete: if isStaff();
+      // The ROLL RECEIPT is the one thing an assistant still writes straight
+      // to an event: it is the side-effect of finishing roll, not a schedule
+      // change, and queueing it would leave every rehearsal they took roll
+      // for looking un-rolled until a director signed off. Their schedule and
+      // repertoire edits go through /pendingActions instead (#approvals).
       allow update: if isStaff()
         || (isAssistantRole()
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rollTaken'])
             && request.resource.data.rollTaken
                  .diff(resource.data.get('rollTaken', {}))
                  .affectedKeys()
-                 .hasOnly(myDirectorDoc().get('assignedEnsembleIds', [])))
-        || (assistantHas('schedule')
-            && assistantOwnsEnsembles(resource.data.get('ensembleIds', []))
-            && assistantOwnsEnsembles(request.resource.data.get('ensembleIds', [])))
-        || (assistantHas('repertoire')
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pieceIds'])
-            && assistantOwnsEnsembles(resource.data.get('ensembleIds', []))
-            && assistantOwnsEnsembles(request.resource.data.get('ensembleIds', [])));
+                 .hasOnly(myDirectorDoc().get('assignedEnsembleIds', [])));
     }
     // Saved calendar views (#subscribe-any-view): the filter mixes the deploy
     // step turns into subscribable ICS feeds. World-readable, and written by
@@ -391,7 +388,74 @@ service cloud.firestore {
            ]);
       allow delete: if isKnownRole();
     }
-    match /announcements/{doc}   { allow read; allow write: if isStaff() || assistantHas('announcements'); }
+    // An assistant with the `announcements` capability writes through
+    // /pendingActions (#approvals), never here — the gate is enforced by this
+    // rule, not only by the app.
+    match /announcements/{doc}   { allow read; allow write: if isStaff(); }
+
+    // ── Student Assistant sign-off queue (#approvals) ────────────────────
+    // A Student Assistant's write to one of the four capability collections
+    // is diverted here instead of landing. A director then approves it and
+    // THEIR OWN browser performs the real write, judged by the rules above
+    // on its own merits — so a doc in here carries no authority whatsoever.
+    // Nothing in this collection is ever applied by a privileged process; see
+    // src/director/pendingActions.ts for why that must not change.
+    //
+    // Taking roll is deliberately NOT routed through here: attendance is the
+    // assistant's job and cannot wait on a director. The four collections
+    // below must stay in step with GATED_COLLECTIONS in that same file.
+    function pendingCapabilityFor(c) {
+      return c == 'announcements' ? 'announcements'
+        : c == 'events' ? 'schedule'
+        : c == 'repertoire' ? 'repertoire'
+        : c == 'signupForms' ? 'signups'
+        : 'no-such-capability';
+    }
+    match /pendingActions/{doc} {
+      // Never public and never another assistant's: a proposal names its
+      // author and can carry a whole unpublished announcement.
+      allow read: if isStaff()
+        || (isAssistantRole() && resource.data.byEmail == request.auth.token.email);
+      // Only an assistant who actually HOLDS the matching capability may
+      // queue that kind of write — the gate replaces the direct write, it
+      // does not become a way to ask for one they were never granted.
+      // `answersJson`'s reasoning applies to `dataJson`: rules can bound a
+      // string's length but cannot reach inside a map to bound its values.
+      allow create: if isAssistantRole()
+        && request.resource.data.byEmail == request.auth.token.email
+        && request.resource.data.status == 'pending'
+        && assistantHas(pendingCapabilityFor(request.resource.data.collection))
+        && request.resource.data.op in ['create', 'update', 'delete']
+        && request.resource.data.dataJson is string
+        && request.resource.data.dataJson.size() <= 20000
+        && request.resource.data.label is string
+        && request.resource.data.label.size() <= 200
+        && request.resource.data.byName is string
+        && request.resource.data.byName.size() <= 120
+        && request.resource.data.submittedAt is number
+        && request.resource.data.keys().hasOnly([
+             'collection', 'op', 'docId', 'dataJson', 'label',
+             'byEmail', 'byName', 'submittedAt', 'status',
+           ]);
+      // Deciding is staff-only, and a decision may never rewrite the request
+      // it is deciding on — the director approves what was actually
+      // submitted, not an edited version of it.
+      allow update: if (isStaff()
+            && request.resource.data.status in ['approved', 'declined']
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                 'status', 'decidedAt', 'decidedBy', 'decidedByEmail',
+                 'note', 'appliedAt', 'applyError',
+               ]))
+        // The assistant's one update: taking their own request back before
+        // anyone has acted on it. Never a re-edit, and never someone else's.
+        || (isAssistantRole()
+            && resource.data.byEmail == request.auth.token.email
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'withdrawn'
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['status', 'decidedAt']));
+      allow delete: if isStaff();
+    }
     // Staff heads-up notices (#two-doors §5.1): saving a student move drops a
     // notice for the affected ensembles' directors. Staff-only READ — the text
     // names students. Creators mirror rosterOverrides (any known role may save
@@ -404,7 +468,9 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
       allow delete: if isStaff();
     }
-    match /repertoire/{doc}      { allow read; allow write: if isStaff() || assistantHas('repertoire'); }
+    // Same as announcements: the `repertoire` capability now reaches this
+    // collection only through an approved /pendingActions request.
+    match /repertoire/{doc}      { allow read; allow write: if isStaff(); }
     // Assignment DEFINITIONS (title, type, due date, target) are public so
     // students see what's assigned. Individual RESULTS/grades stay private below.
     match /assignments/{doc} {
@@ -439,7 +505,7 @@ service cloud.firestore {
     // director's own questions, and an audience expressed as ensembles +
     // instrument families — never a list of student ids, which would publish
     // who was invited to what (see src/shared/signupEligibility.ts).
-    match /signupForms/{doc}     { allow read; allow write: if canManageSignups(); }
+    match /signupForms/{doc}     { allow read; allow write: if canPublishSignups(); }
 
     // Staff-only explicit invite list for a sign-up (#signups). Never
     // world-readable — publishing who was invited would leak through
@@ -657,7 +723,9 @@ service cloud.firestore {
     // Outbound notification queue (#21): staff-only writes; Power Automate
     // reads it with a service credential (Admin SDK bypasses rules).
     // Assistants with announcements may enqueue urgent relays.
-    match /notifyQueue/{doc}     { allow read, write: if isStaff() || assistantHas('announcements'); }
+    // Staff-only since #approvals: an assistant can no longer create the
+    // urgent post this queue relays, so they have nothing to put in it.
+    match /notifyQueue/{doc}     { allow read, write: if isStaff(); }
     // Ambiguous rows from the daily office Attendance Bulletin (Admin SDK
     // writes; directors read / dismiss / resolve in Who's Out).
     match /bulletinQueue/{doc}   { allow read, write: if isStaff(); }

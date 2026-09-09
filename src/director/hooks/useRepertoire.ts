@@ -6,6 +6,7 @@ import { offerUndo } from '../writeStatus';
 import { currentDirectorName } from '../currentDirector';
 import type { RepertoirePiece } from '../types';
 import { FIXTURES_ON, FIXTURE_PIECES } from './fixtures';
+import { proposeWrite } from './usePendingActions';
 
 /**
  * Real-time listener for repertoire pieces. Sorted client-side by order then
@@ -28,6 +29,10 @@ export function useRepertoire() {
 
   async function addPiece(data: Omit<RepertoirePiece, 'id'>): Promise<string | undefined> {
     if (!db) return;
+    if (await proposeWrite({
+      collection: 'repertoire', op: 'create', data,
+      label: `Add repertoire: “${data.title}”`,
+    })) return;
     const ref = await addDoc(collection(db, 'repertoire'), data);
     return ref.id;
   }
@@ -39,6 +44,10 @@ export function useRepertoire() {
     // DROPS those keys from the patch — the stored value survived every
     // "clear" (this is what kept a piece glued to a concert after unchecking
     // its last "Programmed for" box). Explicit undefined now means DELETE.
+    if (await proposeWrite({
+      collection: 'repertoire', op: 'update', docId: id, data,
+      label: `Edit repertoire: “${pieces.find(p => p.id === id)?.title ?? id}”`,
+    })) return;
     const stamped: Record<string, unknown> = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
     const payload = Object.fromEntries(
       Object.entries(stamped).map(([k, v]) => [k, v === undefined ? deleteField() : v]),
@@ -50,6 +59,10 @@ export function useRepertoire() {
     if (!db) return;
     // Undo (#38): capture the doc, delete, offer 10s restore with the same id.
     const gone = pieces.find(x => x.id === id);
+    if (await proposeWrite({
+      collection: 'repertoire', op: 'delete', docId: id,
+      label: `Delete repertoire: “${gone?.title ?? id}”`,
+    })) return;
     await deleteDoc(doc(db, 'repertoire', id));
     if (gone) {
       const { id: _id, ...data } = gone;

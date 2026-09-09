@@ -226,6 +226,14 @@ jobs:
       - name: Check playing-exam rubric
         run: npx tsx src/director/examRubric.selfcheck.ts
 
+      # Student Assistant approval gate (#approvals): taking roll must never
+      # be queued, a director's own write must never be diverted (or approving
+      # would queue itself), a field the assistant CLEARED must survive the
+      # JSON round trip, and an already-decided request must never apply a
+      # second time. No org import, so no defines shim needed.
+      - name: Check the assistant approval gate
+        run: npx tsx src/director/pendingActions.selfcheck.ts
+
       # The grade sheet's CSV export: a hostile student name must be quoted AND
       # formula-neutralised, rubric points must land under the line they were
       # given for (matched by criterion id, never by position), a grade

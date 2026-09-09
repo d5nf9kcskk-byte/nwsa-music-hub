@@ -39,6 +39,9 @@ import { NotesView } from './notes/NotesView';
 import { AssignmentsView } from './assignments/AssignmentsView';
 import { AnnouncementManager } from './announcements/AnnouncementManager';
 import { MessagesView } from './messages/MessagesView';
+import { ApprovalsView } from './approvals/ApprovalsView';
+import { usePendingActions } from './hooks/usePendingActions';
+import { pendingCount } from './pendingActions';
 import { SignupsView } from './signups/SignupsView';
 import { CheckinView } from './checkin/CheckinView';
 import { JuriesView } from './juries/JuriesView';
@@ -131,6 +134,9 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
       // the cumulative CSV.
       { id: 'concertCheckin', label: 'Concert Check-In', Icon: ScanLine },
       { id: 'announcements', label: 'Announcements', Icon: Megaphone      },
+      // Student Assistant sign-off queue (#approvals) — staff-only, and
+      // rendered only for staff shells, so a Teacher never sees the entry.
+      { id: 'approvals',     label: 'Approvals',     Icon: ShieldCheck    },
       // Parent contact-form inbox (#parent-messages) — org-gated.
       ...(ORG.features.contactForm ? [{ id: 'messages' as const, label: 'Messages', Icon: Mail }] : []),
     ],
@@ -161,6 +167,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   signups:         'Sign-ups',
   juries:          'Juries',
   concertCheckin:  'Concert Check-In',
+  approvals:       'Approvals',
   personnel:       'Personnel',
   directors:       'Directors',
 };
@@ -168,7 +175,7 @@ const TAB_TITLES: Record<DirTab, string> = {
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'lessons', 'myLessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'classes', 'college', 'whosOut', 'scheduleSwap', 'rotations',
-  'messages', 'signups', 'juries', 'concertCheckin', 'directors',
+  'messages', 'signups', 'juries', 'concertCheckin', 'approvals', 'directors',
   // The roster URL segment follows the org kind too (#personnel), so a
   // school build has no /director/personnel route and an adult build no
   // /director/roster \u2014 an off-org deep link falls back to Today.
@@ -202,6 +209,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   messages:        'Messages families send through the public Contact Us form. Reply opens your own email app.',
   signups:         'Ask students to opt in \u2014 auditions, trips, anything. They pick their name (or type it, if you open the sign-up to anyone with the link), answer your questions, and sign. You get the list, a spreadsheet, and printable signed forms.',
   juries:          'End-of-semester juries. Add one as soon as you know it\u2019s happening \u2014 a name is enough \u2014 and fill in the date, room, panel, and running order as each gets decided.',
+  approvals:       'Everything a Student Assistant has submitted, waiting on you. Nothing they send reaches families until you approve it here \u2014 taking roll is the exception and still lands right away.',
   directors:       'Who can sign in and at what level. Tap the pencil to edit roles and assignments \u2014 ensembles, class sections, or applied-lesson students.',
   // Spread-conditional so the string ships only in personnel-org bundles.
   ...(__ORG_PERSONNEL__ ? {
@@ -265,6 +273,9 @@ export default function DirectorApp() {
   // orgs with the contact form enabled.
   const { messages: parentMsgs } = useParentMessages(ORG.features.contactForm);
   const newMsgCount = parentMsgs.filter(m => m.status === 'new').length;
+  // Student Assistant requests waiting on a director (#approvals).
+  const { actions: pendingActions } = usePendingActions();
+  const approvalCount = pendingCount(pendingActions);
   const writeBusy = useWriteBusy();
   const menuRef = useModalA11y<HTMLElement>(() => setMenuOpen(false), menuOpen);
   const me = useCurrentDirector();
@@ -390,6 +401,7 @@ export default function DirectorApp() {
                       <button key={id} className={`dir-rail-item ${tab === id ? 'active' : ''}`} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined}>
                         <Icon size={18} /> {label}
                         {id === 'messages' && newMsgCount > 0 && <span className="dir-nav-badge">{newMsgCount}</span>}
+                        {id === 'approvals' && approvalCount > 0 && <span className="dir-nav-badge">{approvalCount}</span>}
                       </button>
                     ))}
                   </div>
@@ -595,6 +607,7 @@ export default function DirectorApp() {
             {tab === 'assignments'     && <AssignmentsView key={intentKey} initialAssignmentId={intent.assignmentId} initialEnsembleId={intent.ensembleId} />}
             {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} initialEnsembleId={intent.ensembleId} onClose={() => {}} />}
             {tab === 'messages'        && <MessagesView />}
+            {tab === 'approvals'       && <ApprovalsView />}
             {tab === 'signups'         && <SignupsView />}
             {tab === 'concertCheckin'  && <CheckinView onNavigate={go} />}
             {tab === 'juries'          && <JuriesView />}
@@ -659,6 +672,7 @@ export default function DirectorApp() {
                       >
                         <Icon size={19} /> {label}
                         {id === 'messages' && newMsgCount > 0 && <span className="dir-nav-badge">{newMsgCount}</span>}
+                        {id === 'approvals' && approvalCount > 0 && <span className="dir-nav-badge">{approvalCount}</span>}
                       </button>
                     ))}
                   </div>

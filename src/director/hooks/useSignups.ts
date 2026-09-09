@@ -19,6 +19,7 @@ import {
 import { FIXTURES_ON, FIXTURE_SIGNUPS } from './fixtures';
 import { currentDirectorName } from '../currentDirector';
 import type { SignupForm, SignupResponse, SignupSlotBooking } from '../types';
+import { proposeWrite } from './usePendingActions';
 
 const MAX_SIGNUP_INVITES = 500;
 
@@ -49,6 +50,10 @@ export function useSignupForms() {
 
   async function addForm(data: Omit<SignupForm, 'id'>) {
     if (!db) return;
+    if (await proposeWrite({
+      collection: 'signupForms', op: 'create', data,
+      label: `Open sign-up: “${data.title}”`,
+    })) return;
     const ref = await addDoc(collection(db, 'signupForms'), data);
     return ref.id;
   }
@@ -60,6 +65,10 @@ export function useSignupForms() {
     // and the OLD value would survive every "clear" — switching a sign-up from
     // "Specific students" back to ensembles left audienceMode: 'students' on
     // the doc, so it stayed invisible on the public page forever.
+    if (await proposeWrite({
+      collection: 'signupForms', op: 'update', docId: id, data,
+      label: `Edit sign-up: “${forms.find(f => f.id === id)?.title ?? id}”`,
+    })) return;
     const stamped: Record<string, unknown> = {
       ...data, updatedAt: Date.now(), updatedBy: currentDirectorName(),
     };
@@ -72,6 +81,10 @@ export function useSignupForms() {
   async function deleteForm(id: string) {
     if (!db) return;
     const gone = forms.find(f => f.id === id);
+    if (await proposeWrite({
+      collection: 'signupForms', op: 'delete', docId: id,
+      label: `Delete sign-up: “${gone?.title ?? id}”`,
+    })) return;
     await deleteDoc(doc(db, 'signupForms', id));
     await deleteDoc(doc(db, 'signupAudiences', id));
     await deleteDoc(doc(db, 'signupOwners', id));

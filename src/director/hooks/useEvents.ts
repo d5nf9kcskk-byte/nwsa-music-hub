@@ -10,6 +10,7 @@ import { currentDirectorName } from '../currentDirector';
 import { revertPlan } from '../schedule/changePlan';
 import type { CalendarEvent, EventType } from '../types';
 import { FIXTURES_ON, FIXTURE_EVENTS } from './fixtures';
+import { proposeWrite } from './usePendingActions';
 
 /**
  * Heal legacy events seeded before their category became its own event type —
@@ -71,6 +72,10 @@ export function useEvents(filter?: EventFilter) {
 
   async function addEvent(data: Omit<CalendarEvent, 'id'>): Promise<string | undefined> {
     if (!db) return;
+    if (await proposeWrite({
+      collection: 'events', op: 'create', data,
+      label: `Add to the calendar: “${data.title || data.type}” on ${data.date}`,
+    })) return;
     const dbRef = db;
     const ref = await trackWrite('Event', () => addDoc(collection(dbRef, 'events'), data));
     return ref?.id;
@@ -83,7 +88,15 @@ export function useEvents(filter?: EventFilter) {
     // falsely flag the rehearsal "Updated" on the public site after every roll.
     const keys = Object.keys(data);
     const bookkeepingOnly = keys.length > 0 && keys.every(k => k === 'rollTaken');
+    // The roll receipt is the assistant's own job landing, not a schedule
+    // change, so it is never queued — gating it would leave every rehearsal
+    // they took roll for looking un-rolled until a director signed off.
     if (!bookkeepingOnly) {
+      const e = events.find(x => x.id === id);
+      if (await proposeWrite({
+        collection: 'events', op: 'update', docId: id, data,
+        label: `Change “${e?.title || e?.type || id}”${e?.date ? ` on ${e.date}` : ''}`,
+      })) return;
       data = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
     }
     const dbRef = db;
@@ -99,6 +112,10 @@ export function useEvents(filter?: EventFilter) {
     if (!db) return;
     // Undo (#38): capture the doc, delete, offer 10s restore with the same id.
     const gone = events.find(x => x.id === id);
+    if (await proposeWrite({
+      collection: 'events', op: 'delete', docId: id,
+      label: `Remove “${gone?.title || gone?.type || id}”${gone?.date ? ` from ${gone.date}` : ''}`,
+    })) return;
     await deleteDoc(doc(db, 'events', id));
     if (gone && opts?.undoable !== false) {
       const { id: _id, ...data } = gone;

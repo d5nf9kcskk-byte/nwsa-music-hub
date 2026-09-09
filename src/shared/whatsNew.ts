@@ -32,6 +32,22 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Student Assistant approvals (#approvals): the four optional capabilities
+  // now submit for a director's sign-off instead of publishing. Roll is
+  // unchanged and still lands immediately.
+  {
+    id: '2026-09-09-assistant-approvals',
+    date: '2026-09-09',
+    title: 'Student assistants can now submit work for your approval',
+    audience: 'staff' as const,
+    expires: '2026-09-30',
+    bullets: [
+      'Give a student assistant any of the four extras — rehearsals and concerts, repertoire, sign-ups, announcements — and what they do there comes to you first. Nothing they write reaches families until you say yes.',
+      'A new Approvals screen in the menu carries a count of what is waiting. Open a request to see exactly what it changes, then approve it or decline it with a note back to them.',
+      'Taking roll is not on this list. Attendance still saves the moment they mark it, the way it always has.',
+      'Assistants see their own requests on their screen — waiting, approved, or declined with your note — and can take one back before you get to it.',
+    ],
+  },
   // Master class sign-ups reach the class itself (#masterclass-performers):
   // the booked students are listed on the meeting, ride into their own
   // personal calendar, and the four string sections stop wearing the 📚 icon.
