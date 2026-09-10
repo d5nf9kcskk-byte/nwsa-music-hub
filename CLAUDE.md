@@ -374,6 +374,8 @@ the deploy workflow.
   assistant upload, so an assistant's announcement is text and links only.
   Widening Storage to them is its own decision.
 
+Session record: `docs/session-notes-2026-09-09-assistant-approvals.md`.
+
 ## School-day tardies vs. class attendance (Aug 2026)
 
 Late to SCHOOL is **not** an attendance mark. The office bulletin's `TARDY`
