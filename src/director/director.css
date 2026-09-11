@@ -2320,9 +2320,15 @@ a.dir-menu-item {
 }
 
 /* ---- Roster email (#roster-email) ------------------------------------- */
-/* Tick students, then hand the director's own mail app a BCC message. The bar
-   is sticky rather than fixed so it never covers the last row of the roster,
-   and it clears the bottom nav and the FAB on a phone. */
+/* Tick students, then hand the director's own mail app a BCC message.
+
+   FIXED, not sticky. Sticky was the first attempt and it was wrong: the bar
+   sits near the END of the document, so on a roster of any length it was
+   below the fold — tick a student at the top of three hundred names and the
+   Email bar you just summoned was nowhere on screen. Sticky pins an element
+   while it is IN the viewport; it does not bring it in. The spacer below
+   buys back the height the fixed bar covers, so the last roster rows stay
+   reachable. */
 .dir-roster-check {
   width: 20px;
   height: 20px;
@@ -2332,10 +2338,13 @@ a.dir-menu-item {
 }
 
 .dir-roster-mailbar {
-  position: sticky;
+  position: fixed;
+  left: 12px;
+  right: 12px;
   bottom: calc(var(--dir-nav) + 8px + env(safe-area-inset-bottom));
-  z-index: 5;
-  margin: 16px 16px 8px;
+  z-index: 30;
+  max-width: 680px;
+  margin-inline: auto;
   padding: 12px 14px;
   display: grid;
   gap: 10px;
@@ -2387,3 +2396,7 @@ a.dir-menu-item {
   line-height: 1.45;
   color: var(--dir-text-muted);
 }
+
+/* Buys back the height the fixed bar covers, so the last rows of the roster
+   can still be scrolled to and tapped while a selection is open. */
+.dir-roster-mailbar-spacer { height: 210px; }

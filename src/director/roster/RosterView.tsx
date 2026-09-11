@@ -245,9 +245,14 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
 
       <ContactsImportPanel students={students} />
 
-      <button className="dir-fab" onClick={() => setEditingStudent('new')} aria-label="Add student">
-        <UserPlus size={22} />
-      </button>
+      {/* The email bar is fixed to the same corner, and "add a student" is not
+          what anyone is doing mid-selection — so the FAB stands down while
+          students are ticked rather than sitting on top of the bar. */}
+      {selectedIds.size === 0 && (
+        <button className="dir-fab" onClick={() => setEditingStudent('new')} aria-label="Add student">
+          <UserPlus size={22} />
+        </button>
+      )}
 
       {viewingStudent !== null && (
         <StudentDetail

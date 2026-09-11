@@ -51,15 +51,19 @@ export function RosterEmailBar({ selected, contacts, onClear }: {
   }
 
   return (
-    <div className="dir-roster-mailbar" role="region" aria-label="Email selected students">
-      <div className="dir-roster-mailbar-head">
-        <strong>{selected.length} selected</strong>
-        <span className="dir-roster-mailbar-count">
-          {addresses.length} address{addresses.length === 1 ? '' : 'es'}
-        </span>
-        <button className="dir-roster-mailbar-clear" onClick={onClear} aria-label="Clear selection">
-          <X size={15} /> Clear
-        </button>
+    <>
+      {/* The bar is fixed, so the roster needs this much room at the bottom
+          for its last rows to stay reachable underneath it. */}
+      <div className="dir-roster-mailbar-spacer" aria-hidden="true" />
+      <div className="dir-roster-mailbar" role="region" aria-label="Email selected students">
+        <div className="dir-roster-mailbar-head">
+          <strong>{selected.length} selected</strong>
+          <span className="dir-roster-mailbar-count">
+            {addresses.length} address{addresses.length === 1 ? '' : 'es'}
+          </span>
+          <button className="dir-roster-mailbar-clear" onClick={onClear} aria-label="Clear selection">
+            <X size={15} /> Clear
+          </button>
       </div>
 
       <div className="dir-roster-mailbar-row">
@@ -129,6 +133,7 @@ export function RosterEmailBar({ selected, contacts, onClear }: {
           or add contacts on each student.
         </p>
       )}
-    </div>
+      </div>
+    </>
   );
 }
