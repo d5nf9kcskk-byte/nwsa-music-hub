@@ -2262,3 +2262,72 @@ a.dir-menu-item {
   border: none; background: transparent; color: var(--dir-text-2);
   padding: 2px; cursor: pointer;
 }
+
+/* ---- Roster email (#roster-email) ------------------------------------- */
+/* Tick students, then hand the director's own mail app a BCC message. The bar
+   is sticky rather than fixed so it never covers the last row of the roster,
+   and it clears the bottom nav and the FAB on a phone. */
+.dir-roster-check {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  accent-color: var(--dir-blue);
+  cursor: pointer;
+}
+
+.dir-roster-mailbar {
+  position: sticky;
+  bottom: calc(var(--dir-nav) + 8px + env(safe-area-inset-bottom));
+  z-index: 5;
+  margin: 16px 16px 8px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 10px;
+  background: var(--dir-surface);
+  border: 1.5px solid var(--dir-border);
+  border-radius: var(--dir-radius-sm);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.16);
+}
+
+.dir-roster-mailbar-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.dir-roster-mailbar-count {
+  color: var(--dir-text-muted);
+  font-size: 12.5px;
+}
+
+.dir-roster-mailbar-clear {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--dir-text-muted);
+  font: inherit;
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.dir-roster-mailbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.dir-roster-mailbar-row .dir-input { flex: 1 1 160px; min-width: 0; }
+
+.dir-roster-mailbar .dir-tool-btn[data-done='yes'] { opacity: 0.55; }
+
+.dir-roster-mailbar-note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--dir-text-muted);
+}

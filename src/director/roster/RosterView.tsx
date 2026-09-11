@@ -17,6 +17,7 @@ import { EnsembleFilter } from '../components/EnsembleFilter';
 import { importContactsFile } from '../contactsImport';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
+import { RosterEmailBar } from './RosterEmailBar';
 import type { Student } from '../types';
 
 export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigate }: { initialEnsembleId?: string; initialStudentId?: string; onNavigate?: import('../types-nav').DirNavigate }) {
@@ -54,6 +55,21 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
   const [managingRepertoire, setManagingRepertoire] = useState(false);
   const [managingLocations, setManagingLocations] = useState(false);
   const [importing, setImporting] = useState(false);
+  // Tick students to email them (#roster-email). Ids rather than records, so a
+  // selection survives searching, re-sorting, and switching ensemble chips —
+  // picking three players out of Camerata and then two out of Jazz Band is the
+  // normal case, and re-filtering must not quietly drop the first three.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toggleOne = (id: string) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const setMany = (ids: string[], on: boolean) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    for (const id of ids) { if (on) next.add(id); else next.delete(id); }
+    return next;
+  });
 
   const loading = ensemblesLoading || studentsLoading;
   const isEmpty = !loading && students.length === 0;
@@ -79,6 +95,7 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
       students: sortStudents(filtered.filter(s => s.ensembleIds?.includes(e.id)), sort),
     }));
   const unassigned = filterEnsembleId ? [] : sortStudents(filtered.filter(s => !s.ensembleIds?.length), sort);
+  const selectedStudents = students.filter(s => selectedIds.has(s.id));
 
   return (
     <div>
@@ -145,13 +162,26 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
         grp.length === 0 ? null : (
           <div key={ensemble.id} className="dir-roster-group">
             <div className="dir-roster-group-header">
+              <GroupSelect
+                ids={grp.map(s => s.id)}
+                selected={selectedIds}
+                onChange={on => setMany(grp.map(s => s.id), on)}
+                label={ensemble.name}
+              />
               <span className="dir-roster-swatch" style={{ background: ensembleColor(ensemble) }} />
               {ensemble.name}
               <span className="dir-roster-count">{grp.length}</span>
             </div>
             <div className="dir-roster-list">
               {grp.map(s => (
-                <StudentRow key={s.id} student={s} absences={absenceCounts[s.id] ?? 0} onEdit={() => setViewingStudent(s)} />
+                <StudentRow
+                  key={s.id}
+                  student={s}
+                  absences={absenceCounts[s.id] ?? 0}
+                  checked={selectedIds.has(s.id)}
+                  onToggle={() => toggleOne(s.id)}
+                  onEdit={() => setViewingStudent(s)}
+                />
               ))}
             </div>
           </div>
@@ -161,12 +191,25 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
       {unassigned.length > 0 && (
         <div className="dir-roster-group">
           <div className="dir-roster-group-header">
+            <GroupSelect
+              ids={unassigned.map(s => s.id)}
+              selected={selectedIds}
+              onChange={on => setMany(unassigned.map(s => s.id), on)}
+              label="Unassigned"
+            />
             Unassigned
             <span className="dir-roster-count">{unassigned.length}</span>
           </div>
           <div className="dir-roster-list">
             {unassigned.map(s => (
-              <StudentRow key={s.id} student={s} absences={absenceCounts[s.id] ?? 0} onEdit={() => setViewingStudent(s)} />
+              <StudentRow
+                key={s.id}
+                student={s}
+                absences={absenceCounts[s.id] ?? 0}
+                checked={selectedIds.has(s.id)}
+                onToggle={() => toggleOne(s.id)}
+                onEdit={() => setViewingStudent(s)}
+              />
             ))}
           </div>
         </div>
@@ -193,6 +236,12 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
           <p>No students match "{search}".</p>
         </div>
       )}
+
+      <RosterEmailBar
+        selected={selectedStudents}
+        contacts={contacts}
+        onClear={() => setSelectedIds(new Set())}
+      />
 
       <ContactsImportPanel students={students} />
 
@@ -325,9 +374,39 @@ function RotateOutSeniors({ seniors, onRotate }: {
   );
 }
 
-function StudentRow({ student, absences, onEdit }: { student: Student; absences: number; onEdit: () => void }) {
+/** Tick every student in a group at once — "email the whole ensemble" without
+ *  forty taps. Indeterminate when only part of the group is ticked. */
+function GroupSelect({ ids, selected, onChange, label }: {
+  ids: string[]; selected: Set<string>; onChange: (on: boolean) => void; label: string;
+}) {
+  const on = ids.length > 0 && ids.every(id => selected.has(id));
+  const some = !on && ids.some(id => selected.has(id));
+  return (
+    <input
+      type="checkbox"
+      className="dir-roster-check"
+      checked={on}
+      ref={el => { if (el) el.indeterminate = some; }}
+      onChange={e => onChange(e.target.checked)}
+      onClick={e => e.stopPropagation()}
+      aria-label={`Select everyone in ${label}`}
+    />
+  );
+}
+
+function StudentRow({ student, absences, checked, onToggle, onEdit }: {
+  student: Student; absences: number; checked: boolean; onToggle: () => void; onEdit: () => void;
+}) {
   return (
     <div className="dir-roster-card" onClick={onEdit}>
+      <input
+        type="checkbox"
+        className="dir-roster-check"
+        checked={checked}
+        onChange={onToggle}
+        onClick={e => e.stopPropagation()}
+        aria-label={`Select ${student.name}`}
+      />
       <div className={`dir-status-dot ${student.status}`} />
       <div className="dir-roster-info">
         <div className="dir-roster-name">{student.name}</div>

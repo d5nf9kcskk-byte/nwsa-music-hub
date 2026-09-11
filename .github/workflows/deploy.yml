@@ -243,6 +243,9 @@ jobs:
       - name: Check student search fields
         run: npx tsx src/director/studentSearch.selfcheck.ts
 
+      - name: Check roster email recipients and mailto batching
+        run: npx tsx src/director/rosterEmail.selfcheck.ts
+
       - name: Build
         run: npm run build
         env:
