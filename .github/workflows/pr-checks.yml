@@ -1,0 +1,102 @@
+# Run the repository's own checks on a pull request.
+#
+# Until this existed, NOTHING ran on a pull request — every self-check, the
+# typecheck and the build only ran in `deploy.yml`, on a push to `main`. So a
+# broken invariant was caught after it had already merged and started
+# deploying to the live site, which is the wrong end of the process for a
+# guard whose entire job is to catch a silent regression before anyone
+# depends on it.
+#
+# The self-check list is NOT copied here — it lives in
+# `.github/actions/self-checks`, shared with the deploy workflow, so the two
+# cannot drift apart. Add a new self-check there and both get it.
+#
+# Deliberately NOT a lint gate. `npm run lint` currently reports pre-existing
+# errors across the repo, so making it blocking here would turn every pull
+# request red on work that has nothing to do with the change in it. Cleaning
+# lint up is its own job; when it is clean, add it as a step.
+name: PR checks
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A new push to the same pull request makes the previous run's answer
+# irrelevant, so don't spend a runner finishing it.
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - uses: ./.github/actions/self-checks
+
+      # The Firebase values are build-time `VITE_` defines, and every one of
+      # them is a PUBLIC client identifier — the same strings the deployed
+      # site already ships. They are passed so this build matches the deploy
+      # build; a fork's pull request gets them empty, which still builds,
+      # because the app treats them as optional at build time.
+      - name: Build
+        run: npm run build
+        env:
+          VITE_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_RECAPTCHA_SITE_KEY }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+
+      # The CSP only exists in the BUILT index.html — GitHub Pages cannot send
+      # headers, so a `<meta http-equiv>` injected at build time is the whole
+      # delivery. It has shipped broken twice and both times failed silently.
+      # This is the first point in a pull request where it can be read at all.
+      - name: Check Content-Security-Policy
+        run: node scripts/csp.selfcheck.mjs
+
+      # dist/sw.js must be byte-identical for unchanged source: the deploy
+      # cron rebuilds hourly to refresh ICS feeds, and a nondeterministic
+      # service worker would pop the update toast in every open tab, every
+      # hour. Building twice here is the only way to catch a change that
+      # breaks that — a single build always looks fine.
+      - name: Check the service worker build is deterministic
+        run: |
+          first=$(sha256sum dist/sw.js | cut -d' ' -f1)
+          npm run build
+          second=$(sha256sum dist/sw.js | cut -d' ' -f1)
+          if [ "$first" != "$second" ]; then
+            echo "::error::dist/sw.js is not deterministic ($first vs $second) — every open tab would be toasted on each hourly feed rebuild."
+            exit 1
+          fi
+          echo "sw.js is stable across two builds: $first"
+        env:
+          VITE_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_RECAPTCHA_SITE_KEY }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+
+      # The NWSA build must carry no trace of another org's config.
+      - name: Check the NWSA build has no demo-org strings
+        run: |
+          if grep -rqi asyo dist/; then
+            echo "::error::dist/ contains 'asyo' — the default build must be NWSA-only."
+            grep -ril asyo dist/ | head
+            exit 1
+          fi

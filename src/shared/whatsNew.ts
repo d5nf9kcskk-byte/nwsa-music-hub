@@ -32,6 +32,22 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Roster email (#roster-email): tick students or whole ensembles and hand
+  // the director's own mail app a prefilled BCC message. Staff-only — it is a
+  // change to what the roster screen does, and the public site has no roster.
+  {
+    id: '2026-09-11-roster-email',
+    date: '2026-09-11',
+    title: 'Email people straight from the roster',
+    audience: 'staff' as const,
+    expires: '2026-10-02',
+    bullets: [
+      'Tick students on the Roster — search for them, or tick an ensemble’s header to take the whole group — and an Email bar appears at the bottom. Press Email and your own mail app opens with everyone already in the blind copy line. The Hub does not send anything; you write and send it yourself, from your own address.',
+      'Choose parents/guardians, students, or both. A parent with three children in the program is listed once, not three times.',
+      'If a very long list will not fit in one mail window, you get “Open 1 of 3” and so on — phones and school laptops quietly cut a long address list off partway, so it is split instead. There is also Copy addresses for a device whose mail is a browser tab.',
+      'Anyone selected with no email on file is named on the bar rather than quietly skipped, so you always know who did not get it.',
+    ],
+  },
   // Student Assistant approvals (#approvals): the four optional capabilities
   // now submit for a director's sign-off instead of publishing. Roll is
   // unchanged and still lands immediately.
