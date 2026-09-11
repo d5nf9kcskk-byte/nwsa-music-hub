@@ -6,7 +6,9 @@ import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { whenQueued } from '../writeStatus';
-import { parseDate, formatTimeRange, musicEnsembles } from '../utils';
+import { parseDate, formatTimeRange, musicEnsembles, todayStr } from '../utils';
+import { currentTerm } from '../../shared/concertCheckin';
+import { ORG } from '../../org';
 import { appendInScoreOrder, sortIntoScoreOrder } from './runningOrder';
 import type { Jury } from '../types';
 import { studentMatchesQuery } from '../studentSearch';
@@ -91,7 +93,11 @@ function JuryForm({ jury, onSave, onDelete, onClose }: {
   const { students } = useStudents();
   const { ensembles } = useEnsembles();
   const [name, setName] = useState(jury?.name ?? '');
-  const [term, setTerm] = useState(jury?.term ?? '');
+  // A NEW jury lands in the semester we are in; an existing one keeps whatever
+  // was typed on it. Free text on purpose (it always was) — this only fills
+  // the blank, and a director who runs juries in a term of their own naming
+  // types over it.
+  const [term, setTerm] = useState(jury?.term ?? currentTerm(ORG.terms ?? [], todayStr())?.name ?? '');
   const [date, setDate] = useState(jury?.date ?? '');
   const [startTime, setStartTime] = useState(jury?.startTime ?? '');
   const [endTime, setEndTime] = useState(jury?.endTime ?? '');

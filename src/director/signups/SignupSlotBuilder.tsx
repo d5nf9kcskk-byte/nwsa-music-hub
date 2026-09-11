@@ -10,6 +10,7 @@ import {
 } from '../../shared/signupSlotTimes';
 import { FilterMenu } from '../../shared/FilterMenu';
 import { SIGNUP_SLOT_GRADES, canRemoveSlot, compactOptionGrades, trimOptionGrades } from '../../shared/signupSlots';
+import { isMdcpsSchoolDay } from '../../shared/academicCalendars.ts';
 import type { SignupSlotDef } from '../types';
 
 type Ampm = (typeof SLOT_AMPM)[number];
@@ -20,6 +21,12 @@ March 10, 2pm-2:30pm`;
 const SPLIT_OPTIONS = [0, 15, 20, 30, 45, 60] as const;
 
 const GRADE_FILTER_OPTS = SIGNUP_SLOT_GRADES.map(g => ({ value: g, label: g }));
+
+/** "Mon, Sep 7" — how a closure is named in a warning, short enough to list
+ *  several of them in one sentence. */
+function fmtClosure(date: string): string {
+  return parseDate(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
 
 /** Build / edit bookable time slots: describe many at once, multi-day calendar,
  *  or line-by-line manual fallback. Optional per-slot grade limits (e.g. 12th
@@ -78,6 +85,15 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, bookedI
   const nlPreview = useMemo(() => (nlText.trim() ? parseSignupSlotText(nlText) : null), [nlText]);
 
   const pickedList = useMemo(() => [...pickedDates].sort(), [pickedDates]);
+  /** Days picked in the calendar that MDCPS is closed for. */
+  const pickedClosures = useMemo(() => pickedList.filter(d => !isMdcpsSchoolDay(d)), [pickedList]);
+  /** Slots ALREADY on the form that sit on a closure — the ones that are
+   *  wrong right now, as opposed to about to be. Without this the warning
+   *  only ever catches the next mistake, never the one already saved. */
+  const savedClosures = useMemo(
+    () => [...new Set(slotDefs.map(d => d.date).filter(d => d && !isMdcpsSchoolDay(d)))].sort(),
+    [slotDefs],
+  );
   const duration = formatSlotDuration(start, end);
   const blockValid = end > start;
   const pendingCalendar = useMemo(
@@ -301,6 +317,20 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, bookedI
             </button>
           )}
         </div>
+        {/* Warn, never block. Offering a time on a day off is usually a slip —
+            a bookable slot on Labor Day is how an appointment ends up on a
+            calendar nobody is at school for — but a director may genuinely
+            hold auditions on a teacher planning day, and this screen does not
+            get to overrule them. Same posture as a lesson conflict: say it
+            plainly, let them decide. */}
+        {pickedClosures.length > 0 && (
+          <div className="dir-signup-slot-nl-warn">
+            {pickedClosures.length === 1
+              ? `${fmtClosure(pickedClosures[0])} is an MDCPS no-school day.`
+              : `${pickedClosures.length} of the days you picked are MDCPS no-school days (${pickedClosures.map(fmtClosure).join(', ')}).`}
+            {' '}Students are not in the building. Offer times there only if you mean to.
+          </div>
+        )}
         <div className="dir-cal-weekdays">
           {weekdayInitials().map((d, i) => <div key={i} className="dir-cal-weekday">{d}</div>)}
         </div>
@@ -311,8 +341,14 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, bookedI
             <button
               key={i}
               type="button"
-              className={`dir-cal-cell ${pickedDates.has(d) ? 'selected' : ''} ${d === today ? 'today' : ''}`}
+              className={`dir-cal-cell ${pickedDates.has(d) ? 'selected' : ''} ${d === today ? 'today' : ''} ${isMdcpsSchoolDay(d) ? '' : 'no-school'}`}
               onClick={e => toggleDate(d, e.shiftKey)}
+              // Named on the button itself, not just coloured: the whole point
+              // is that a closure is invisible on a bare grid of numbers, and
+              // colour alone reaches neither a screen reader nor a phone in
+              // sunlight.
+              title={isMdcpsSchoolDay(d) ? undefined : 'MDCPS no-school day'}
+              aria-label={isMdcpsSchoolDay(d) ? undefined : `${fmtClosure(d)} — MDCPS no-school day`}
             >
               <span className="dir-cal-day">{parseDate(d).getDate()}</span>
             </button>
@@ -349,6 +385,18 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, bookedI
 
       {slotDefs.length > 0 && (
         <>
+          {/* The slots already saved that fall on a closure. The calendar
+              warning above only catches the NEXT mistake; this catches the one
+              a form is carrying right now, which is the one students book. */}
+          {savedClosures.length > 0 && (
+            <div className="dir-signup-slot-nl-warn">
+              This form already offers times on {savedClosures.length === 1 ? 'an' : ''} MDCPS
+              no-school {savedClosures.length === 1 ? 'day' : 'days'}:{' '}
+              {savedClosures.map(fmtClosure).join(', ')}. Remove those slots unless you mean to
+              meet on {savedClosures.length === 1 ? 'it' : 'them'} — a time booked there puts an
+              appointment on a day nobody is at school.
+            </div>
+          )}
           <div className="dir-signup-slot-list-head">
             <span>{slotDefs.length} slot{slotDefs.length === 1 ? '' : 's'}</span>
             {locked ? (

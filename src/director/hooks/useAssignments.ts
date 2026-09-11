@@ -10,6 +10,7 @@ import { watchCollection } from '../../shared/watchCollection';
 import { todayStr } from '../utils';
 import { currentDirectorName } from '../currentDirector';
 import type { Assignment, AssignmentResult, AssignmentResultStatus } from '../types';
+import type { RubricScore } from '../examRubric';
 
 export function useAssignments() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -86,7 +87,7 @@ export function useAssignmentResults(assignmentId: string) {
   async function saveResult(
     studentId: string,
     status: AssignmentResultStatus,
-    opts?: { score?: string | null },
+    opts?: { score?: string | null; rubric?: RubricScore[] | null; notes?: string | null },
   ) {
     if (!db) return;
     const existing = resultMap[studentId];
@@ -96,14 +97,25 @@ export function useAssignmentResults(assignmentId: string) {
       status,
       gradedAt: todayStr(),
     };
-    if (opts && 'score' in opts) {
-      // Explicit null/'' clears the field; omit opts.score to leave it alone.
-      data.score = opts.score ? opts.score : deleteField();
-    }
+    // Present-and-empty CLEARS the field; leaving the key out of `opts`
+    // leaves it alone. Clearing matters for the rubric: taking a rubric grade
+    // back to a plain Pass must not strand the old breakdown on the doc,
+    // still claiming to explain a score that is gone.
+    const cleared = new Set<string>();
+    const put = (key: string, value: unknown) => {
+      if (value) { data[key] = value; return; }
+      data[key] = deleteField();
+      cleared.add(key);
+    };
+    if (opts && 'score' in opts) put('score', opts.score);
+    if (opts && 'rubric' in opts) put('rubric', opts.rubric?.length ? opts.rubric : null);
+    if (opts && 'notes' in opts) put('notes', opts.notes?.trim() || null);
     if (existing) {
       await updateDoc(doc(db, 'assignmentResults', existing.id), data);
     } else {
-      if (!opts?.score) delete data.score;
+      // deleteField() has nothing to delete on a doc that does not exist yet,
+      // and Firestore rejects it in a create — drop the cleared keys instead.
+      for (const key of cleared) delete data[key];
       await addDoc(collection(db, 'assignmentResults'), data);
     }
   }

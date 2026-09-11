@@ -48,6 +48,228 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Anyone selected with no email on file is named on the bar rather than quietly skipped, so you always know who did not get it.',
     ],
   },
+  // Student Assistant approvals (#approvals): the four optional capabilities
+  // now submit for a director's sign-off instead of publishing. Roll is
+  // unchanged and still lands immediately.
+  {
+    id: '2026-09-09-assistant-approvals',
+    date: '2026-09-09',
+    title: 'Student assistants can now submit work for your approval',
+    audience: 'staff' as const,
+    expires: '2026-09-30',
+    bullets: [
+      'Give a student assistant any of the four extras — rehearsals and concerts, repertoire, sign-ups, announcements — and what they do there comes to you first. Nothing they write reaches families until you say yes.',
+      'A new Approvals screen in the menu carries a count of what is waiting. Open a request to see exactly what it changes, then approve it or decline it with a note back to them.',
+      'Taking roll is not on this list. Attendance still saves the moment they mark it, the way it always has.',
+      'Assistants see their own requests on their screen — waiting, approved, or declined with your note — and can take one back before you get to it.',
+    ],
+  },
+  // Master class sign-ups reach the class itself (#masterclass-performers):
+  // the booked students are listed on the meeting, ride into their own
+  // personal calendar, and the four string sections stop wearing the 📚 icon.
+  {
+    id: '2026-09-09-masterclass-playing-today',
+    date: '2026-09-09',
+    title: 'Master classes now say who is playing',
+    audience: 'both' as const,
+    expires: '2026-09-30',
+    bullets: [
+      'Open a master class on the calendar and it lists everyone playing, under “Playing today”, in the order the times were booked. The list is built from the sign-up itself — book a slot and your name appears, free the slot and it goes away. Nothing to type in twice.',
+      'Students who signed up to play get the class on their own schedule and in their subscribed calendar, even if they are not on the master class roster. The calendar entry carries the same list in its notes, so it is there on a phone without opening the Hub.',
+      'Guest performers the director added — visiting players who are on no roster — are listed too, marked as guests.',
+      'The four string master classes wear their instrument on the schedule instead of the class book: 🎻 for Violin and Viola, 🎸 for Cello and Bass. Four Tuesday afternoon rows you can finally tell apart at a glance.',
+    ],
+  },
+  // Seating editor (#seating-sections): sections can be reordered, chair
+  // numbers are typeable, the piece picker reaches the whole library, and a
+  // chart can announce itself to its group.
+  {
+    id: '2026-09-08-seating-sections',
+    date: '2026-09-08',
+    title: 'Seating charts: put the sections in the right order, and type chair numbers straight in',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'Sections can be moved now. Use the up and down arrows beside a section name, or press \u201cScore order\u201d to drop all of them into full-score order at once \u2014 so a Violin 2 you added later sits right after Violin 1 instead of under the basses.',
+      'The chair number beside a name is a box you can type in. Put 5 next to a player and they move to chair 5; everyone else shuffles around them. Dragging the \u2261 grip still works.',
+      'The \u201cFor piece\u201d picker starts with the ensemble\u2019s own repertoire, but typing now searches every piece in the library \u2014 useful for a combined concert or a piece not filed under this group yet.',
+      'There is an \u201cAnnounce this to \u2026\u201d button in the chart editor. It posts straight to that ensemble\u2019s page without a trip to Announcements.',
+      'Every seating chart now has its own link. Copy it from the chart editor, or from the link button beside a chart in the list, and paste it into a text, an email, or an announcement. The \u201cAnnounce this to \u2026\u201d button attaches it for you.',
+      'Seating opens full screen now instead of in a narrow panel down the side.',
+      'Charts you already published have had their sections put into score order for you. Chair order inside each section was left exactly as you set it.',
+    ],
+  },
+  // Students get an address for seating too (#seating-link) — /seating/<id>.
+  {
+    id: '2026-09-08-seating-link-public',
+    date: '2026-09-08',
+    title: 'Seating charts have their own page',
+    audience: 'public' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'A seating chart is now a page you can bookmark or be sent a link to, instead of something you have to find part-way down your ensemble page. Your own name is still highlighted on it.',
+      'Nothing new is being shown. It is the same chart, at an address that can be shared.',
+    ],
+  },
+  // A time change is not always "from now on" — a studio moves a student after
+  // winter break, or fixes a time that was entered wrong three weeks ago. Both
+  // were the same button, and it always meant today.
+  {
+    id: '2026-09-08-weekly-time-start-date',
+    date: '2026-09-08',
+    title: 'Change a weekly lesson time from a date you pick',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'Applied teachers: changing a student’s weekly time now has a “New time starts” date on it. Leave it on today and it behaves exactly as before. Put it after winter break and the lessons between now and then keep the old time — only the ones from that date on are offered for the move. Put it back a few weeks and the rows already on the sheet are offered too, which is how a time entered wrong gets corrected without editing each row by hand.',
+      'The offer that follows says which window it covers, so a change dated forward does not read as one that missed half the year.',
+      'A week that already has a lesson is no longer offered a second one. “Add the remaining …” used to count days rather than weeks, so a student kept on Mondays for the fall and moved to Thursdays in January would have been offered a Thursday on top of every one of those Mondays.',
+    ],
+  },
+  // The exam video never played in the row: the page's security policy had no
+  // rule for media, so the browser refused the file without saying so. Same
+  // omission hid announcement pictures and every upload preview.
+  {
+    id: '2026-09-08-video-and-pictures-load',
+    date: '2026-09-08',
+    title: 'Exam videos play, and pictures show up again',
+    audience: 'both' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'Playing-exam videos now actually play inside the grade sheet instead of sitting on a black frame. The page had a security rule that quietly refused to load video from our own storage, so the player appeared but never got the file, and there was no error to tell you why.',
+      'The same rule was hiding pictures attached to announcements and sign-ups, and the preview of a video or photo you just picked before you send it. Those all show again.',
+      'Nothing changed about who can see what. The fix names our own storage as an allowed source for pictures and video; every other protection on the page is unchanged.',
+    ],
+  },
+  // Everything term-shaped now opens on the term we are in. The lesson log was
+  // landing on SPRING in September, because generating a standing weekly time
+  // in August writes lessons through May and the sheet followed the newest one.
+  {
+    id: '2026-09-08-default-to-this-semester',
+    date: '2026-09-08',
+    title: 'Lessons and assignments open on this semester',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'Assignments now open filtered to the semester you are in, with a Semester picker above the list if you need last term or “All semesters”. It uses the school’s real dates, so Fall starts on the day Fall actually starts, not the first of August.',
+      'The lesson log opens a student on this term’s sheet. If you set up a student’s weekly time back in August, their lessons run through May, and the log was landing you on the spring sheet — blank jury list, blank signatures, none of this term’s lessons in sight. A student with nothing yet this term still opens where their lessons are.',
+      'A new jury starts with the current semester filled in.',
+    ],
+  },
+  // The last mile of the rubric ship: the breakdown existed on screen and
+  // nowhere else, so getting grades into the district gradebook meant reading
+  // numbers off a monitor.
+  {
+    id: '2026-09-08-assignment-grades-csv',
+    date: '2026-09-08',
+    title: 'Download an assignment’s grades as a spreadsheet',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'Any assignment’s grade sheet now has a CSV button next to Edit. It downloads one row per student — name, instrument, status, score, the date you graded, and your notes — ready to open in Excel or Sheets and paste into the district gradebook.',
+      'On an exam graded with a rubric you also get a column per line, headed with what the line is worth, plus the raw total. Students you have not graded yet come down as blank cells rather than zeros, so importing the file never files a grade nobody gave.',
+      'A grade you filed before re-weighting the exam still shows its own numbers and is marked “Scored on an earlier rubric”, and any line that no longer matches is left blank instead of being dropped into the wrong column. Videos from students no longer on the list come along too, marked as such.',
+    ],
+  },
+  // Playing exams grade in one place now (#exam-rubric). The ask: the roster
+  // row and the video row were two lists of the same people, and grading meant
+  // opening the video in another tab and coming back to type a number.
+  {
+    id: '2026-09-08-playing-exam-rubric',
+    date: '2026-09-08',
+    title: 'Grade a playing exam while you watch it',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'A playing exam’s grade sheet is one line per student now. The line says whether they sent a video and when, and opening it plays the video right there. The separate “Video submissions” list underneath is gone, along with reading every name twice.',
+      'Under the video is your rubric: pick a number for each line and the Hub adds them up. Nothing saves until you press Confirm, and Confirm also marks the video watched and drops you on the next student still owed a grade. “Full marks” fills every line so a strong player takes two presses.',
+      'The rubric belongs to the exam, not to the Hub. Edit it on the assignment, press “Save as my default” to start every future exam from it, and it stays yours — another director’s exams keep their own. A grade also remembers the lines it was given, so re-weighting an exam later never quietly changes a grade you already filed.',
+    ],
+  },
+  // Announcements can carry pictures and files (#announce-attachments). The
+  // ask: a full-size screenshot of the all-state audition times, readable on a
+  // phone, instead of a link out to a site families have to pinch and zoom.
+  {
+    id: '2026-09-07-announcement-pictures',
+    date: '2026-09-07',
+    title: 'Announcements can carry pictures and files',
+    audience: 'both' as const,
+    expires: '2026-09-28',
+    bullets: [
+      'Posting an announcement now takes up to four pictures and four files. A picture shows full width inside the post, so a flyer or a screenshot of an audition-times list is readable on a phone without downloading anything, and tapping it opens the original.',
+      'Files show as a download row under the message with the file size, for the PDF or form you want families to actually have. Use the existing “Related links” row when the thing already lives somewhere else.',
+      'Anything you attach is public, exactly like the post it is on. The Hub deletes a picture or file for real when you remove it from the post or delete the post.',
+    ],
+  },
+  // Reported: a student left with a full Monday series AND a full Tuesday
+  // series after a time change. Every move was refused as a collision and
+  // filed as "set by hand", so the screen offered no way out of a mess it had
+  // helped make.
+  {
+    id: '2026-09-07-doubled-up-lessons',
+    date: '2026-09-07',
+    title: 'Two lessons in the same week? The Hub now says so, and clears it in one press',
+    audience: 'staff' as const,
+    expires: '2026-09-28',
+    bullets: [
+      'Applied teachers: if a student ends up with two lessons in the same week — one at their weekly time and one that is not — their sheet now says so at the top and offers to remove the extra ones, keeping the weekly time. It shows the count and the next date before you press, and it never touches a lesson that is graded or cancelled.',
+      'This is what a time change looks like when the new weeks got added before the old ones were moved. Previously those leftovers were labelled “set by hand” and left alone, which meant a full old series could sit alongside a full new one with nothing on screen offering to fix it.',
+      'The warning is standing, not just a message after an edit. Open any student and if the weeks are doubled up, it is there.',
+      'Moving a weekly time is also safer now: what actually gets written is worked out at the moment you press, not when the offer first appeared. Pressing “Add the remaining …” first can no longer leave the move stale and put two lessons on one day.',
+    ],
+  },
+  // Sign-up responses go straight into the roster (#signups). An open sign-up
+  // is the intake for people who have no student record yet, and the second
+  // half of that job was a human retyping every name on the Roster screen.
+  {
+    id: '2026-09-07-signup-roster-intake',
+    date: '2026-09-07',
+    title: 'Sign-up responses can go straight into the roster',
+    audience: 'staff' as const,
+    expires: '2026-09-28',
+    bullets: [
+      'Open a sign-up and look under the responses: “Add to the roster” turns everyone who answered into student records, in one press. Tick the groups they all join — Symphony and College Chamber for the college cohort, a theory section next term — and they join those and keep every group they are already in.',
+      'Everything they filled in comes across, not just the name: instrument and grade onto the student, and email, phone, the parents/guardians and the answers to your questions onto their contact record, which stays staff-only.',
+      'College students get their own year, not a flat “College”. Point the import at the question that asks what year they are in and each one lands as College Freshman, Sophomore, Junior or Senior — “1st year”, “Soph”, “JR”, “Year 4” all read correctly. Anything it can’t read keeps the plain grade rather than guessing, and what they typed stays on their record. Searching the roster for “College” still returns everybody.',
+      'A family can have more than one parent on file. The Hub reads your own questions — “Mother’s email”, “Father cell phone”, “Parent 2 name” — and makes each person their own entry, added beside anyone already recorded rather than replacing them. Ask for a third and you get a third. Signature and consent lines are left alone.',
+      'You see the whole plan before anything is written: who is new, who is already on the roster and what changes on their record, and who already has all of it. Running it twice adds nobody twice.',
+      'People who already exist are matched by the name they typed, so that row says so. Where the roster and the form disagree about a field, you pick which one is right — the fuller answer is chosen for you, so you are only flipping the exceptions. If two students on the roster have the same name the Hub refuses to guess and offers a new record instead.',
+      'Everyone imported gets marked “In the system”, so the tick you used to set by hand after typing a name is already done. Nothing gets blanked: an existing guardian is kept and the signed-up one added beside them, and no status or school ID is ever written from a form.',
+    ],
+  },
+  // The no-school skip already shipped; this is the other half of it. Dropping
+  // weeks without saying so reads as a broken generator, not a holiday.
+  {
+    id: '2026-09-07-no-school-skips-counted',
+    date: '2026-09-07',
+    title: 'Lesson generation says how many weeks it skipped for holidays',
+    audience: 'staff' as const,
+    expires: '2026-09-28',
+    bullets: [
+      'Applied teachers: weekly lesson generation already skips MDCPS closures, so no lesson lands on Labor Day, Thanksgiving, winter or spring break, or a teacher planning day. It now tells you how many weeks it skipped, both on the button before you press it and in the confirmation after.',
+      'That number is why “add the remaining 31” can be fewer than the Fridays you counted on a wall calendar. Fewer lessons than weeks is the school year, not a bug.',
+      'If you do teach through a day off, add that lesson by hand from “Add lesson” — and a lesson you already put on a closure day is left alone, never counted as skipped.',
+      'The same count appears when you turn booked sign-up times into weekly lessons.',
+      'Sign-ups: the time-slot builder now marks MDCPS no-school days in its calendar and warns you if the days you picked include one. It also tells you when a form is ALREADY offering times on a day off, which is how a booked audition ends up on a calendar for a day nobody is at school. It warns rather than blocks — you may well mean to meet on a teacher planning day.',
+    ],
+  },
+  // Lesson times reach the people they are about (#applied). Two separate
+  // holes, reported together: changing a standing weekly time never moved the
+  // lessons it had already created, and `lessonsPublic` had no reader on the
+  // public site at all — so a student's own schedule page showed nothing.
+  {
+    id: '2026-09-04-lesson-times-visible',
+    date: '2026-09-04',
+    title: 'Your lesson time now shows on your schedule — and changing one actually moves the lessons',
+    audience: 'both' as const,
+    expires: '2026-09-25',
+    bullets: [
+      'Students: your private lesson times are on your own schedule page now — today’s beside your rehearsals, and the rest under “Your lessons”, with the room and who you have it with. Each one has an Add to calendar button. Before this they only reached you if you had subscribed to your personal calendar feed, so most people never saw them at all.',
+      'Applied teachers: changing a weekly lesson time used to save the new time and leave every lesson already on the calendar sitting at the old one — and the screen then told you the whole year was already scheduled. Now the Hub counts what is affected and offers to move it, in one press. It never touches a lesson you already graded, one you cancelled, or one you set by hand.',
+      'If moving a lesson withdraws a pull-out you had confirmed for a rehearsal, the Hub says so — re-open that row and confirm the new time, because that confirmation is what tells the ensemble director.',
+      'Applied teachers: a weekly time on its own has never put lessons on anyone’s calendar — the “Add the remaining …” button is what does that. The screen now says which of the two situations you are in instead of leaving both looking the same.',
+    ],
+  },
   // Sign-ups: the honeypot decoy on an 'open' form was being filled by
   // browser autofill, which made the payload carry `website` and the rules
   // reject the create — so the form went through on iOS Safari and nowhere

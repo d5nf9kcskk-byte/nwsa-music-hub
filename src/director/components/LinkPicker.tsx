@@ -2,7 +2,7 @@ import './directorSearch.css';
 import { useMemo, useState } from 'react';
 import {
   Search, X, CalendarDays, Users, FileText, ClipboardCheck, ClipboardSignature,
-  Music, Filter, Link2, Globe, ScanLine, ChevronLeft, Plus,
+  Music, Filter, Link2, Globe, ScanLine, ChevronLeft, Plus, Armchair,
 } from 'lucide-react';
 import { useEvents } from '../hooks/useEvents';
 import { useEnsembles } from '../hooks/useEnsembles';
@@ -10,6 +10,8 @@ import { useDocuments } from '../hooks/useDocuments';
 import { useSignupForms } from '../hooks/useSignups';
 import { useAssignments } from '../hooks/useAssignments';
 import { useRepertoire } from '../hooks/useRepertoire';
+import { useSeatingCharts } from '../hooks/useSeatingCharts';
+import { seatingChartPath } from '../seating/seatingLink';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { rankMatches } from '../../shared/fuzzy';
 import { safeHref } from '../../shared/richTextParse';
@@ -62,6 +64,7 @@ const GROUP_ICON: Record<string, typeof CalendarDays> = {
   Assignments: ClipboardCheck,
   Repertoire: Music,
   'Concert check-in': ScanLine,
+  Seating: Armchair,
   Pages: Globe,
 };
 
@@ -103,6 +106,9 @@ export function LinkPicker({ onPick, onClose }: Props) {
   const { forms } = useSignupForms();
   const { assignments } = useAssignments();
   const { pieces } = useRepertoire();
+  // Every published seating chart (#seating-link) — a chart is addressable at
+  // /seating/<id>, so "here is where you are sitting" is a link like any other.
+  const { charts: seatingCharts } = useSeatingCharts();
 
   const today = todayStr();
   const ensembleMap = useMemo(
@@ -164,11 +170,21 @@ export function LinkPicker({ onPick, onClose }: Props) {
     for (const p of pieces) {
       out.push({ key: `pc-${p.id}`, group: 'Repertoire', label: p.title, sub: p.composer, url: `/piece/${p.id}` });
     }
+    for (const c of seatingCharts) {
+      out.push({
+        key: `seat-${c.id}`,
+        group: 'Seating',
+        label: c.title,
+        sub: [ensembleMap[c.ensembleId]?.name, c.date && formatDate(c.date, { month: 'short', day: 'numeric' })]
+          .filter(Boolean).join(' \u00b7 '),
+        url: seatingChartPath(c.id),
+      });
+    }
     for (const p of PAGES) {
       out.push({ key: `pg-${p.url}`, group: 'Pages', label: p.label, sub: p.sub, url: p.url });
     }
     return out;
-  }, [events, ensembles, documents, forms, assignments, pieces, ensembleMap]);
+  }, [events, ensembles, documents, forms, assignments, pieces, seatingCharts, ensembleMap]);
 
   const shown = useMemo(() => {
     if (!q.trim()) {

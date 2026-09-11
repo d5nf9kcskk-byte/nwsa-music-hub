@@ -98,6 +98,27 @@ jobs:
       - name: Check sign-up appointments
         run: npx tsx src/shared/signupAppointments.selfcheck.ts
 
+      # A master class says who is playing by matching booked sign-up slots to
+      # the meeting's own clock window — no stored link, so nothing warns you
+      # when the match goes wrong. A slot pulled in from the wrong event, or a
+      # rehearsal that starts announcing performers, is a wrong name on a
+      # running order (#masterclass-performers).
+      - name: Check event performers
+        run: npx tsx src/shared/eventPerformers.selfcheck.ts
+
+      # A master class is iconed by the instrument read out of its own name,
+      # through the one score-order ranking. "Bass Masterclass" is the case
+      # that silently regresses: the ranking anchors the string bass as ^bass$,
+      # so the class words have to come off the name first (#masterclass-icons).
+      - name: Check group icons
+        run: npx tsx src/director/groupIcon.selfcheck.ts
+
+      # Turning responses into roster students writes to real student records
+      # on a typed name. Never removes an ensemble, never resolves an
+      # ambiguous name to a victim, never makes one person twice (#signups).
+      - name: Check sign-up roster intake
+        run: npx tsx src/shared/signupRosterIntake.selfcheck.ts
+
       # The concert door (#concert-checkin). The window is computed in
       # school-local time from a UTC server, whole-domain email matching keeps
       # notstudents.dadeschools.net out, and a duplicate scan is refused by the
@@ -189,6 +210,49 @@ jobs:
       - name: Check applied-lesson grading
         run: npx tsx src/director/lessonGrades.selfcheck.ts
 
+      # Which semester a screen opens on (#current-term): a date inside a term
+      # IS that term, the gaps (summer, the winter break, before the first term
+      # starts) resolve to something sensible rather than nothing, and an org
+      # with no terms configured has no current term so its screens show
+      # everything. Covered by the concert check-in self-check, which already
+      # owns the term definition — listed here so the dependency is visible.
+
+      # Playing-exam rubric (#exam-rubric): a half-filled rubric must produce
+      # NO grade (an unscored line is not a zero), an EMPTY rubric on an exam
+      # means "graded without one" and must never be re-defaulted, a confirmed
+      # grade snapshots its own lines so re-weighting the exam cannot rewrite
+      # it, and the percent must round in exactly one place. No org import, so
+      # no defines shim needed.
+      - name: Check playing-exam rubric
+        run: npx tsx src/director/examRubric.selfcheck.ts
+
+      # Student Assistant approval gate (#approvals): taking roll must never
+      # be queued, a director's own write must never be diverted (or approving
+      # would queue itself), a field the assistant CLEARED must survive the
+      # JSON round trip, and an already-decided request must never apply a
+      # second time. No org import, so no defines shim needed.
+      - name: Check the assistant approval gate
+        run: npx tsx src/director/pendingActions.selfcheck.ts
+
+      # The grade sheet's CSV export: a hostile student name must be quoted AND
+      # formula-neutralised, rubric points must land under the line they were
+      # given for (matched by criterion id, never by position), a grade
+      # snapshotted on an EARLIER rubric must leave non-matching cells blank
+      # rather than misalign into the wrong column, and an ungraded student
+      # must export blank — an unscored line is not a zero. No org import, so
+      # no defines shim.
+      - name: Check assignment grades CSV
+        run: npx tsx src/director/assignments/assignmentGradesCsv.selfcheck.ts
+
+      # The grade row's video element (#exam-rubric): ONE player, belonging to
+      # the open row alone, and an explicit preload="metadata". Omitting the
+      # attribute lets the browser pull a 500 MB exam nobody asked for;
+      # preload="none" renders a player that reads as unplayable and sends the
+      # grader back to the link. Both are JSX attributes with no runtime
+      # handle, so this checks the source text.
+      - name: Check grade-row video element
+        run: node scripts/grade-video.selfcheck.mjs
+
       # High School lesson log (#applied): payroll defaults, initials gate,
       # "do not enqueue mail for incomplete / cancelled rows", one sheet per
       # student per term, and the five-line jury list.
@@ -258,6 +322,15 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+
+      # The CSP is generated into index.html at build time, so it can only be
+      # checked here, against the built file. It has shipped broken twice and
+      # both times it failed silently: connect-src missing the functions
+      # origin (read as "that did not reach the Hub"), then media-src missing
+      # entirely, which let a playing exam upload and refused to let it play
+      # back. Nothing throws; the feature is just dead in the browser.
+      - name: Check Content-Security-Policy
+        run: node scripts/csp.selfcheck.mjs
 
       - name: Generate ICS calendar feeds
         run: node scripts/generate-feeds.mjs

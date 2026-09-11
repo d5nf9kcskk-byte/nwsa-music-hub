@@ -18,10 +18,13 @@ import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../direct
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { useSignupForms, useStudentSlotBookings } from '../director/hooks/useSignups';
+import { useStudentLessons } from './hooks/usePublicLessons';
+import { LessonTimes } from './components/LessonTimes';
 import { resolveBookedSlots, upcomingBookedSlots, slotCalendarEvent } from '../shared/signupBooking';
+import { bookedPerformersForEvent } from '../shared/eventPerformers';
 import { AddToCalendarButton } from './components/AddToCalendar';
 import { studentExpectation } from '../director/rosterResolver';
-import { todayStr, toDateStr, parseDate, formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, studentHasAssignment, assignmentEmoji, isPublished, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { todayStr, toDateStr, parseDate, formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, studentHasAssignment, assignmentEmoji, isPublished, isMasterClass, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubSelect } from './components/PubSelect';
 import { PubAnnouncements } from './components/PubAnnouncements';
@@ -68,6 +71,7 @@ export function PublicSchedule() {
   const { assignments } = useAssignments();
   const { forms: signupForms } = useSignupForms();
   const { bookings: myBookings } = useStudentSlotBookings(id);
+  const { lessons: myLessons } = useStudentLessons(id);
 
   // Plain component state on purpose: the filter and view reset every time the
   // student re-opens this page, so nothing stays silently hidden.
@@ -83,16 +87,31 @@ export function PublicSchedule() {
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
 
+  // Master classes this student booked a slot at (#masterclass-performers).
+  // Signing up to play is its own way onto the schedule: the sign-up exists
+  // precisely because these students are not on the master class roster, so
+  // without this the one event they personally committed to is the one event
+  // missing from their schedule. Same join the personal .ics feed uses, so the
+  // page and the subscribed calendar say the same thing.
+  const myBookedEventIds = useMemo(() => {
+    const out = new Set<string>();
+    for (const e of events) {
+      if (!e.ensembleIds.some(eid => ensembleMap[eid] && isMasterClass(ensembleMap[eid]))) continue;
+      if (bookedPerformersForEvent(e, signupForms, myBookings).some(p => p.studentId === id)) out.add(e.id);
+    }
+    return out;
+  }, [events, ensembleMap, signupForms, myBookings, id]);
+
   // Upcoming events where this student is expected — performing (base member
   // or sub, minus pulls) OR required in the audience (attendanceEnsembleIds).
   const mySchedule = useMemo(() => {
     if (!student) return [];
     return events
       .filter(e => e.date >= today)
-      .map(e => ({ event: e, exp: studentExpectation(id, e, students, overrides, eventsById) }))
+      .map(e => ({ event: e, exp: studentExpectation(id, e, students, overrides, eventsById, myBookedEventIds) }))
       .filter(x => x.exp.expected)
       .sort((a, b) => a.event.date.localeCompare(b.event.date) || (a.event.startTime ?? '99').localeCompare(b.event.startTime ?? '99'));
-  }, [student, events, students, overrides, eventsById, id, today]);
+  }, [student, events, students, overrides, eventsById, id, today, myBookedEventIds]);
 
   const todayItems = mySchedule.filter(x => x.event.date === today);
   const { nowHM, isPast } = usePastDimming();
@@ -102,6 +121,21 @@ export function PublicSchedule() {
   const myAnnouncements = useMemo(
     () => student ? visibleAnnouncements(announcements, today, student.ensembleIds ?? [], now) : [],
     [announcements, today, student, now],
+  );
+
+  // The student's own lesson times (#applied). Split the same way the rest of
+  // the page is: today's sit in the Today block beside their rehearsals, and
+  // the rest get their own section. Cancelled ones stay VISIBLE — "your
+  // lesson is off this week" is the single most useful thing this section can
+  // tell somebody, and dropping it silently is how a student walks to an
+  // empty room.
+  const lessonsToday = useMemo(
+    () => myLessons.filter(l => l.date === today),
+    [myLessons, today],
+  );
+  const lessonsUpcoming = useMemo(
+    () => myLessons.filter(l => (l.date ?? '') > today),
+    [myLessons, today],
   );
 
   // Conflict explainer (#10): today's lesson windows that override a rehearsal.
@@ -273,6 +307,10 @@ export function PublicSchedule() {
         </>
       )}
 
+      {/* Private-lesson times (#applied). Above assignments on purpose: this
+          is a place to be at a time, and the student has to plan around it. */}
+      <LessonTimes lessons={lessonsUpcoming} studentName={student.name} heading />
+
       {myAssignments.length > 0 && (
         <>
           <h2 className="pub-section-title">{t('sched.yourAssignments')}</h2>
@@ -288,7 +326,10 @@ export function PublicSchedule() {
       <h2 className="pub-section-title">
         {t('cal.today')} · {fmtDayHeader(today)}
       </h2>
-      {todayItems.length === 0 ? (
+      {/* A lesson counts as something scheduled today — the empty state has to
+          know about it, or a student with a lesson and no rehearsal is told
+          they have nothing on. */}
+      {todayItems.length === 0 && lessonsToday.length === 0 ? (
         <EmptyState icon={<CalendarX size={24} />}>
           {t('sched.nothingToday')} {say(dailyPun('my-sched'), getLang())}
         </EmptyState>
@@ -303,6 +344,7 @@ export function PublicSchedule() {
             </Fragment>
           ))}
           {todayNowIdx === todayItems.length && todayItems.length > 0 && <NowLine />}
+          <LessonTimes lessons={lessonsToday} studentName={student.name} />
         </>
       )}
 

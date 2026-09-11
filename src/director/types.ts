@@ -5,6 +5,9 @@
 import type {
   ConcertAttendance, EventCheckinConfig, CheckinKind,
 } from '../shared/concertCheckin';
+// Same posture: examRubric.ts is pure arithmetic over its own shapes, so the
+// rubric stays defined in one place instead of being restated here.
+import type { RubricCriterion, RubricScore } from './examRubric';
 
 /**
  * Access levels for signed-in staff (#roles). Lives here (the dependency-free
@@ -563,6 +566,12 @@ export interface AnnouncementLink {
  *  the form that writes it. */
 export const MAX_ANNOUNCEMENT_LINKS = 6;
 
+/** Caps on the picture and file rows, for the same reason as the link cap: a
+ *  post is a notice, not an album. `announcements` is world-readable with no
+ *  per-field rule, so the bound lives here and in the form that writes it. */
+export const MAX_ANNOUNCEMENT_IMAGES = 4;
+export const MAX_ANNOUNCEMENT_FILES = 4;
+
 export interface Announcement {
   id: string;
   ensembleId: string | null; // null = school-wide
@@ -580,6 +589,16 @@ export interface Announcement {
    *  calendar. Rendered as chips under the body, and as plain addresses
    *  wherever a chip cannot go (print, the urgent Teams/email relay). */
   links?: AnnouncementLink[];
+  /** Pictures shown at full width inside the post — a flyer, an audition-times
+   *  screenshot, a seating photo. Uploaded to Storage under `announcements/`
+   *  (see storage.rules), so the URL is world-readable exactly like the post
+   *  itself: never put a picture here that isn't fit for the public site. */
+  images?: Attachment[];
+  /** Files attached to the post (PDF, Word, whatever) — shown as a download
+   *  row under the message. Same world-readable warning as `images`. Use
+   *  `links` instead when the thing already lives somewhere (Drive, a Hub
+   *  page); this is for "here is the actual file". */
+  files?: Attachment[];
   expiresOn?: string;        // YYYY-MM-DD; hidden strictly AFTER this date if set
   /** When set, hidden from the public site and the active director list. */
   archivedAt?: number;
@@ -733,6 +752,13 @@ export interface Assignment {
    *  is the whole reason the link exists. Public, like the rest of an
    *  assignment; a piece carries no personal data. */
   pieceIds?: string[];
+  /** How this exam is scored, line by line (#exam-rubric). Three states, all
+   *  meaningful — see `resolveRubric` in src/director/examRubric.ts:
+   *  ABSENT means nobody chose, so the grader's own default rubric answers
+   *  (which is why every assignment made before the feature needs no
+   *  migration); a LIST is this exam's own rubric; an EMPTY list means rubric
+   *  grading is deliberately off here and the plain score box comes back. */
+  rubric?: RubricCriterion[];
   createdAt: number;
   attachments?: Attachment[];
   /** Scheduled publishing (mirrors Announcement.publishAt): epoch ms. If set
@@ -771,6 +797,14 @@ export interface AssignmentResult {
   /** Numeric (or free-text) grade — e.g. "92". Optional; Pass/Fail/Exempt stay
    *  available as quick marks alongside a score. */
   score?: string;
+  /** The rubric breakdown behind `score` (#exam-rubric), SNAPSHOTTED at
+   *  Confirm — each line's name and worth travel with its points. Re-weighting
+   *  the assignment's rubric afterwards therefore never rewrites a grade that
+   *  was already given; the grade sheet just flags that it was given on an
+   *  earlier rubric. When present, `score` is the whole-number percent this
+   *  breakdown adds up to. Staff-only, like the rest of assignmentResults —
+   *  there is no public projection of a grade. */
+  rubric?: RubricScore[];
   notes?: string;
   gradedAt?: string; // YYYY-MM-DD
 }

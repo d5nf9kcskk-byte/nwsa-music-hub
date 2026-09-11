@@ -8,6 +8,7 @@ import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useAssignments } from '../hooks/useAssignments';
 import { recordActivity } from '../hooks/useActivityLog';
 import { resolveRoster, overrideSummary } from '../rosterResolver';
+import { eventIcon } from '../groupIcon';
 import { isSharedBlock, sharedBlockLabel } from '../../shared/sharedBlock';
 import { EventForm } from './EventForm';
 import { EventRoster } from './EventRoster';
@@ -23,7 +24,7 @@ import { seedAcademicClasses } from '../seedAcademicClasses';
 import { seedCollegeProgram } from '../seedCollege';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
 import {
-  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, EVENT_TYPE_ICON, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR, APPT_COLOR,
+  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR, APPT_COLOR,
 } from '../utils';
 import { formatClockMin } from '../../shared/signupSlotTimes';
 import { useSignupAppointments } from '../hooks/useSignups';
@@ -308,7 +309,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
         <div className="dir-event-body">
           <div className="dir-event-tap" onClick={() => setEditing(e)}>
             <div className="dir-event-title">
-              <span className="dir-event-type">{EVENT_TYPE_ICON[e.type]}</span>
+              <span className="dir-event-type">{eventIcon(e.type, e.ensembleIds.map(id => ensembleMap[id]))}</span>
               {eventLabel(e)}
               {e.status !== 'Scheduled' && <span className={`dir-event-status ${e.status}`}>{e.status}</span>}
               {e.status === 'Scheduled' && e.changeNote && <span className="dir-today-tag changed">Changed</span>}

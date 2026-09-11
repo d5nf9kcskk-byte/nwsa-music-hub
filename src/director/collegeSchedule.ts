@@ -3,25 +3,15 @@
  * seed (seedCollege.ts) and the admin script (scripts/seed-college.mjs).
  */
 import { COLLEGE_CLASSES } from './collegeClasses.ts';
-
-// MDCPS no-school days (same set as seedCalendar) — college dual-enrollment
-// students still follow many of these campus closures.
-const NO_SCHOOL = new Set([
-  '2026-08-10', '2026-08-11', '2026-08-12',
-  '2026-09-07', '2026-09-21', '2026-11-03', '2026-11-11',
-  '2026-11-23', '2026-11-24', '2026-11-25', '2026-11-26', '2026-11-27',
-  '2026-12-18',
-  '2026-12-21', '2026-12-22', '2026-12-23', '2026-12-24', '2026-12-25',
-  '2026-12-28', '2026-12-29', '2026-12-30', '2026-12-31', '2027-01-01',
-  '2027-01-15', '2027-01-18', '2027-02-15', '2027-03-10',
-  '2027-03-22', '2027-03-23', '2027-03-24', '2027-03-25', '2027-03-26',
-  '2027-03-29', '2027-05-31',
-]);
+import { MDC_NO_SCHOOL } from '../shared/academicCalendars.ts';
 
 /** MDC Fall 2026 begins Aug 24; after fall finals (Dec 11) through winter
- *  break until Spring 2027 starts Jan 4; spring break Mar 22–29. */
+ *  break until Spring 2027 starts Jan 4; spring break Mar 22–29. Depends on
+ *  MDC's own calendar (`MDC_NO_SCHOOL`) — NEVER the MDCPS one. MDCPS closes
+ *  campus for teacher-planning days and grading-period boundaries that don't
+ *  touch MDC at all, and college classes must not go missing on those days. */
 export function isCollegeSessionDay(dateStr: string): boolean {
-  if (NO_SCHOOL.has(dateStr)) return false;
+  if (MDC_NO_SCHOOL.has(dateStr)) return false;
   if (dateStr < '2026-08-24') return false;
   if (dateStr > '2026-12-11' && dateStr < '2027-01-04') return false;
   if (dateStr >= '2027-03-22' && dateStr <= '2027-03-29') return false;

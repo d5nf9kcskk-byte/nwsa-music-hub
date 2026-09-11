@@ -5,7 +5,8 @@ import { BackLink } from './components/BackLink';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvent } from '../director/hooks/useEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
-import { todayStr, formatTime, ensembleDisplayName } from '../director/utils';
+import { todayStr, formatTime, ensembleDisplayName, isMasterClass } from '../director/utils';
+import { PlayingToday } from './components/PlayingToday';
 import { PubEventCard } from './components/PubEventCard';
 import { NotesText } from './components/NotesText';
 import { CheckinCallout } from './components/CheckinCallout';
@@ -58,15 +59,24 @@ export function PublicEvent() {
   const primaryEnsembleName = ensembleDisplayName(ensembleMap[event.ensembleIds[0] ?? '']) || undefined;
   const shortDate = fmtShortDate(event.date);
 
+  // A master class is the one kind of meeting whose roster is "who plays"
+  // (#masterclass-performers). Deciding it here keeps PlayingToday — and the
+  // two extra listeners it opens — off every other event page.
+  const masterClass = event.ensembleIds.some(eid => {
+    const ens = ensembleMap[eid];
+    return Boolean(ens && isMasterClass(ens));
+  });
+
   return <EventBody event={event} cancelled={cancelled} primaryEnsembleName={primaryEnsembleName}
     shortDate={shortDate} dateLabel={dateLabel} heroTitle={heroTitle} isToday={isToday}
-    ensembleMap={ensembleMap} piecesById={piecesById} />;
+    ensembleMap={ensembleMap} piecesById={piecesById} masterClass={masterClass} />;
 }
 
-function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel, heroTitle, isToday, ensembleMap, piecesById }: {
+function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel, heroTitle, isToday, ensembleMap, piecesById, masterClass }: {
   event: CalendarEvent; cancelled: boolean; primaryEnsembleName?: string; shortDate: string; dateLabel: string;
   heroTitle: string; isToday: boolean; ensembleMap: Record<string, import('../director/types').Ensemble>;
   piecesById: Record<string, import('../director/types').RepertoirePiece>;
+  masterClass: boolean;
 }) {
   useLang();
   // Dock the action bar flush against the real rendered tab bar — its height
@@ -192,6 +202,10 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
                 : 'This one is optional — it counts toward your optional concerts if you come.'}
             </div>
           )}
+
+          {/* The running order for a master class (#masterclass-performers) —
+              booked sign-up times first, then anyone the director named. */}
+          {masterClass && <PlayingToday event={event} />}
 
           <CheckinCallout event={event} />
 

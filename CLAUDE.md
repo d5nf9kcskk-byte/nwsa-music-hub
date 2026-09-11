@@ -259,6 +259,39 @@ Upgrading the SDK does not remove the need: no Firestore release through
   the Directors editor offers it** — a group nobody can be assigned to is
   invisible to every one of those consumers at once.
 
+## College and high school calendars are separate dependencies (Sept 2026, #college-hs-calendar-deps)
+
+MDCPS (K-12) and Miami Dade College run their own academic calendars and they
+do not line up — a MDCPS teacher-planning day or grading-period boundary is a
+normal class day at MDC, and vice versa. `src/shared/academicCalendars.ts` is
+the ONE place both calendars are defined, as two INDEPENDENTLY sourced sets:
+`MDCPS_NO_SCHOOL` and `MDC_NO_SCHOOL`. Never derive one from the other, and
+never let a college-facing generator fall back to the MDCPS set (or the
+reverse) — that was the bug: `collegeSchedule.ts` used to reuse the MDCPS set
+wholesale (labeled "college dual-enrollment students still follow many of
+these campus closures"), so a dual-enrollment class went missing on every
+MDCPS teacher-planning day even though MDC was in full session that day.
+
+- **College groups depend on `MDC_NO_SCHOOL`** — `isCollegeSessionDay()` in
+  `src/director/collegeSchedule.ts`, which also owns the MDC term-boundary
+  logic (fall/spring start, finals, winter/spring break as date ranges, so
+  `MDC_NO_SCHOOL` itself only needs holidays that fall INSIDE a term).
+  Consumed by `seedCollegeProgram()` and `scripts/seed-college.mjs`.
+- **High school groups depend on `MDCPS_NO_SCHOOL`** — the rehearsal/class
+  generation in `src/director/seedCalendar.ts`, and the standing weekly
+  lesson-time expansion in `src/director/lessonSchedule.ts` (`slotDates()`
+  skips MDCPS no-school days when it expands a `lessonSlots` recipe into
+  dated `Lesson` docs — see the RECIPE entry below). `scripts/add-ensembles.mjs`
+  also depends on it for the College Chamber Orchestra's Thursday rehearsal,
+  which is correctly MDCPS-scoped even though the ensemble is college-level:
+  that rehearsal happens ON the NWSA campus during the high school's own
+  schedule, not at MDC.
+- A rehearsal or class held on NWSA's campus follows MDCPS regardless of
+  which students or which `collegeLevel` flag it involves. Only an actual MDC
+  course (`COLLEGE_CLASSES`, meeting per the MDC schedule) depends on
+  `MDC_NO_SCHOOL`. Don't pick the dependency by "is this a college thing" —
+  pick it by which campus's calendar governs whether the room is open.
+
 ## Ensembles vs. classes (Aug 2026)
 
 `Ensemble.kind` splits the one `ensembles` collection into performing groups
@@ -301,6 +334,48 @@ place: `isClassGroup()` / `isMasterClass()` / `performingEnsembles()` /
 - `scripts/../src/director/groupKind.selfcheck.ts` pins all of the above and
   runs in the deploy workflow.
 
+## Student Assistant sign-off (Sept 2026, #approvals)
+
+A Student Assistant's four optional capabilities (`schedule` / `repertoire` /
+`signups` / `announcements`) no longer write anything. They raise a request in
+`pendingActions`, a director approves it on the Approvals screen, and the write
+happens then. `src/director/pendingActions.ts` is the ONE definition of what a
+request is and what applying one does; `pendingActions.selfcheck.ts` pins it in
+the deploy workflow.
+
+- **Roll is never gated.** Attendance is the assistant's job and it is
+  time-sensitive; a rehearsal's roll sitting unapplied until a director looks
+  is worse than no gate. The `rollTaken` receipt on an event is the one thing
+  an assistant still writes straight through, and `firestore.rules` says so.
+- **A request carries no authority, and nothing privileged applies one.**
+  Approving hands the decoded write back to the DIRECTOR'S OWN browser, which
+  performs it through the same hooks a director's save uses — so the rules
+  still judge the real write on its merits. A Cloud Function applying these
+  with the Admin SDK would be a back door: the payload is written by the
+  assistant, and admin credentials would apply whatever it said. Do not
+  "simplify" it into one.
+- **The gate is in the RULES, not only the app.** `announcements`,
+  `repertoire`, `signupForms` and event create/delete/edit dropped their
+  `assistantHas(...)` clauses in the same change — the queue is the only path,
+  so a devtools console cannot walk around it. The capability still matters:
+  it is what a queued request is checked against (`pendingCapabilityFor`).
+- **A cleared field is encoded, not dropped.** These hooks read an explicit
+  `undefined` as DELETE THIS FIELD, and `JSON.stringify` drops it — which is
+  exactly the "the old value survived every clear" bug their comments describe.
+  Clears ride as the `CLEAR` sentinel and decode back to `undefined`.
+- **Query and rule agree**: an assistant may read only their OWN requests, and
+  `usePendingActions` issues the matching `where('byEmail', ...)`. Change one
+  and you must change the other.
+- Adding a fifth gated collection means changing `GATED_COLLECTIONS`,
+  `pendingCapabilityFor()` in `firestore.rules`, and the `runPlan` switch in
+  `ApprovalsView` together — and dropping that collection's direct assistant
+  write, or the gate is decoration.
+- Known gap, deliberately not closed here: `storage.rules` never let an
+  assistant upload, so an assistant's announcement is text and links only.
+  Widening Storage to them is its own decision.
+
+Session record: `docs/session-notes-2026-09-09-assistant-approvals.md`.
+
 ## School-day tardies vs. class attendance (Aug 2026)
 
 Late to SCHOOL is **not** an attendance mark. The office bulletin's `TARDY`
@@ -311,6 +386,96 @@ Camerata late" indistinguishable. `mapBulletinToAttendance()` now returns
 instead (doc id `${studentId}_${date}`, so re-running a bulletin updates one
 record). Take Roll shows it as a chip beside the name — context, never a mark.
 Staff-only, never mirrored publicly: it is attendance-class data.
+
+## Seating charts (Sept 2026, #seating-sections / #seating-link)
+
+A chart's `sections` array is rendered in STORED ORDER by `SeatingChartCard` —
+there is no sort on the way out. That is the whole reason section order is an
+editable thing: `buildSections()` seeds it in score order, but anything the
+director adds afterwards is appended, and a "Violin 2" created after the fact
+published below Cello and Bass on the page students read.
+
+- **`scoreOrderRank()` in `src/director/scoreOrder.ts` is the ONE ranking**, for
+  seats, sections, and jury running order alike. The editor's "Score order"
+  button and `scripts/reorder-seating-sections.mjs` both defer to it (the script
+  imports the `.ts` directly — Node strips types). Never add a second instrument
+  spelling list; add a pattern to that table.
+- **A script may reorder SECTIONS; it must never reorder SEATS.** Chair order
+  inside a section is the director's audition result. The migration script is
+  idempotent and skips a chart already in order, so `updatedAt` does not churn.
+- **`src/director/seating/seatingLink.ts` is the ONE spelling of a chart's
+  address** (`/seating/<id>`, `PublicSeating.tsx`, routed in `main.tsx`). The
+  editor's copy button, the announcement a chart posts about itself, and the
+  LinkPicker's Seating group all read it from there. Do not write the path out
+  by hand. It lives in its own module rather than in `SeatingManager.tsx`
+  because a non-component export there trips `react-refresh/only-export-components`.
+- Giving a chart an address published NOTHING new: `seatingCharts` is already a
+  world read and the page's names come from `studentsPublic`, the same
+  projection `PublicEnsemble` uses. Keep it that way — a chart page must never
+  reach `students`. (#privacy)
+- **`dir-drawer-full` on a drawer OVERLAY takes it edge to edge** at every
+  width, beating the ≥1024px right-pane rules in `dirShell.css` on specificity
+  alone (no `!important`). Reach for it when a drawer holds a ROSTER rather than
+  one decision — a whole seating chart in a 540px column pinned to the right
+  edge is what it was added for. The cost is that there is no dimmed margin to
+  click outside, so the panel needs its own ×/Cancel and `useModalA11y`.
+
+Session record: `docs/session-notes-2026-09-08-seating-sections-and-links.md`.
+
+## Who is playing at a master class (Sept 2026, #masterclass-performers)
+
+`src/shared/eventPerformers.ts` is the ONE answer to "who plays at this
+event" — the public event page, the .ics DESCRIPTION, the personal student
+feed, and the student's own schedule screen all read it, or they drift.
+
+- **The join is by the CLOCK, and by nothing else.** A booking points at a
+  `slotDef` with a date and a start minute; a slot whose start falls inside the
+  meeting's window is a performance in that meeting. There is no stored link
+  and no new field, which is exactly why the master classes already on the
+  calendar and the sign-ups already booked lit up with no migration — the
+  director had already done the work once. It is also the only thing that could
+  put a WRONG name on a running order, so `eventPerformers.selfcheck.ts` pins
+  the containment rule and runs in the deploy workflow.
+- **Bookings are joined for a `kind: 'masterclass'` group and for nothing
+  else.** Sign-ups schedule lesson times, fittings and interest lists too, and
+  a slot that happens to fall during a rehearsal must never make the rehearsal
+  announce that somebody is playing at it.
+- **An event with no start AND no end matches nothing.** Reading "no end" as
+  "the rest of the day" would sweep in every later sign-up on that date. A
+  missing section beats a wrong name.
+- **A booked slot is its own route onto a student's schedule** — in
+  `studentExpectation()` (optional `bookedEventIds`) and in the per-student feed
+  in `scripts/generate-feeds.mjs`. It has to be: a student who signs up to play
+  is usually NOT on the master class roster (that is what the sign-up is for),
+  so neither membership nor `studentIds` reaches them, and the one event they
+  personally committed to would be the one missing from their calendar. The two
+  sides must keep using the same join.
+- Nothing here widened what is public (#privacy). `signupSlotBookings` is
+  already `allow read` — the public sign-up page greys out taken times with it
+  — and each booking already carries `studentName`; `signupForms` is
+  world-readable too. Named performers resolve through `studentsPublic`, never
+  the staff-only `students`, and a doc id with no public record is DROPPED
+  rather than printed.
+- `guestPerformers` and `studentIds` on an event were write-only before this —
+  saved by the Event form and rendered nowhere. They render now.
+- **`icsDescription` gets performers through `lookups.performers`**, a function,
+  not a field on the event: the answer is a join the event doc holds only half
+  of. The sign-up confirmation email omits it (no roster to hand) and renders
+  no performer line at all. The in-app snapshot download and `staffFeed` do not
+  pass it yet — if you wire either up, use this module.
+
+**Icons (#masterclass-icons).** `src/director/groupIcon.ts` upgrades a master
+class from the class book to its instrument, read out of the group's own NAME
+through `scoreOrderRank` — the ONE ranking table, so there is no second list of
+instrument spellings and a "Flute Masterclass" created next term needs no edit.
+🎻 for violin/viola, 🎸 for cello/bass (Unicode has no cello and no double
+bass). A name the ranking cannot read keeps `EVENT_TYPE_ICON` rather than
+guessing. `EVENT_TYPE_ICON` itself moved here from `utils.ts` and is re-exported
+there, so this module reaches nothing that needs the org config and its
+self-check runs without the Vite defines shim. Watch `Bass Masterclass`: the
+ranking anchors the string bass as `^bass$` so Bassoon stays a woodwind, which
+is why the class words come off the name before the rank is asked for.
+`groupIcon.selfcheck.ts` pins all four sections and runs in the deploy workflow.
 
 ## Juries (Aug 2026) — a deliberate stub
 
@@ -386,6 +551,46 @@ copies.
   let anyone overwrite someone else's signed form. A student who comes back
   creates a second doc; `latestPerStudent()` keeps the newest. Keep it that
   way.
+- **An open sign-up is an INTAKE, so it feeds the roster** (Sept 2026).
+  `src/shared/signupRosterIntake.ts` is the ONE definition of what a response
+  becomes: who is new, who is already on the roster, and field by field what
+  each record ends up saying. College forced it — a dual-enrollment student
+  reaches the school through the form and nothing else, so whatever they typed
+  is the only record there will ever be, and all of it has to land. Split by
+  sensitivity, not convenience: name / instrument / grade / ensembles on the
+  `students` doc, and email, phone, the guardian and every free-text answer in
+  `contacts` (answers under `contacts.extra`, the bucket that already exists
+  to lose nothing) — because the student doc is mirrored to the
+  world-readable `studentsPublic` and an address typed into a public form must
+  never ride along. The plan is shown in full before any write, since a typed
+  name is the only anchor an open response has. Four promises pinned by
+  `signupRosterIntake.selfcheck.ts` in the deploy workflow: an import never
+  REMOVES an ensemble or blanks a field, an ambiguous name resolves to NOBODY
+  rather than to the wrong student, an existing guardian is never replaced by
+  the one who signed (a guardian is a person, not a value — it merges by name
+  or address and adds otherwise), and `status`/`schoolId` are never written
+  from a response. Writes go through `useStudents`/`useContacts` so the public
+  mirror stays batched with its source doc.
+  A college student's YEAR is a grade: `grade` is the app's one answer to
+  "what year is this person in", so dual-enrollment students carry
+  `College Freshman`/`Sophomore`/`Junior`/`Senior` (`COLLEGE_YEAR_GRADES`),
+  read per student from whichever question asks for it (`yearQuestionId` +
+  `collegeYearGrade()`), never a flat `College` for the whole cohort. Those
+  strings all START with "College" on purpose — the roster search is a
+  substring match, so the cohort is still one search — and none of them
+  matches the high-school branches (`startsWith('12')` for seniors,
+  `startsWith('9')` for theory placement), which is correct: a college senior
+  is not a graduating 12th grader. An answer it cannot read falls back to the
+  plain grade rather than guessing, and the raw text stays in `extra`.
+  A family is not one parent: the signature block holds ONE guardian, so the
+  others arrive as questions the director wrote, and `guardianQuestion()`
+  reads a label naming both a person (mother / father / guardian / parent 2 /
+  emergency contact) and a detail (name / email / phone / relation) into
+  another `contacts.guardians` entry. That list is already unlimited — read
+  the questions, don't add a field. It under-claims on purpose: a label with
+  only one of the two, or one that smells like a consent line, stays an
+  ordinary answer in `extra`. `mergeGuardian()` is the ONE way an entry joins
+  that list, and it never displaces anybody.
 - Answers ride in ONE bounded `answersJson` string, not a map: rules can
   bound a string's length but can't reach inside a map to bound its values.
   Read it with `parseAnswers()`, which never throws.
@@ -454,14 +659,19 @@ copies.
   `assignedStudentIds` it qualifies, so there is no new collection and no
   second query/rule pair. `src/director/lessonSchedule.ts` expands it into
   ordinary dated `Lesson` docs and nothing downstream knows a slot existed.
-  Two promises pinned by `lessonSchedule.selfcheck.ts` in the deploy workflow:
-  a date that already has a lesson is NEVER re-created (cancelled ones
-  included — re-creating one would silently undo the teacher's cancellation),
-  and the weekly walk is bounded. Generation deliberately does not know the
-  district calendar (holidays are generated, then cancelled by hand) and
-  deliberately does not auto-create `rosterOverrides` for conflicts — it
-  reports the count and the teacher confirms each pull-out, which is what
-  tells the ensemble director.
+  Three promises pinned by `lessonSchedule.selfcheck.ts` in the deploy
+  workflow: a date that already has a lesson is NEVER re-created (cancelled
+  ones included — re-creating one would silently undo the teacher's
+  cancellation), the weekly walk is bounded, and generation skips MDCPS
+  no-school days (`MDCPS_NO_SCHOOL` in `src/shared/academicCalendars.ts` —
+  see #college-hs-calendar-deps above). It changed from "generates every
+  matching weekday, the teacher cancels the handful that don't happen" once
+  the app had a real MDCPS calendar to check against (Sept 2026) — a lesson
+  landing on a holiday was a bug, not a feature, once skipping it was
+  possible. It still deliberately does not auto-create `rosterOverrides` for
+  conflicts with OTHER events (rehearsals, sectionals) — it reports the count
+  and the teacher confirms each pull-out, which is what tells the ensemble
+  director.
 - Roles are a CLOSED set enforced by `isKnownRole()` in `firestore.rules`
   (owner / director / teacher / assistant; a doc with no `role` = legacy
   director). Adding a new role means deliberately updating that helper and
@@ -503,6 +713,124 @@ copies.
 - Deferred security work is tracked in `docs/security-recommendations.md`;
   the session record for all of the above is
   `docs/session-notes-2026-08-04-pwa-hardening.md`.
+
+## Playing-exam grading — one line, one rubric (Sept 2026, #exam-rubric)
+
+The grade sheet used to be two lists of the SAME people: a roster row that
+said "Submitted", and a separate "Video submissions" section further down
+carrying everything a grader actually needed. You read a name twice to grade
+it once, and the video opened in another tab. It is one list now — the row IS
+the submission, and opening it plays the video with the rubric under it
+(`src/director/assignments/GradeRow.tsx`). Two things must not regress:
+
+- **Only the OPEN row renders a `<video>`.** A playing exam is up to 500 MB
+  per student, and a player on every row would start pulling a roster's worth
+  of video because a page rendered. THAT is the invariant; the `preload` value
+  is not, and `preload="none"` was tried and reverted the same day. It leaves
+  the element at `readyState` 0 with `duration` NaN, so the player is a dead
+  black rectangle reading 0:00 with no total time and no first frame — it
+  reads as "not playable" and the grader goes back to the link, which is the
+  whole thing this screen replaced. `preload="metadata"` fetches the header
+  and stops (measured: ~7 MB of a 40 MB file, bounded by the browser's own
+  forward buffer) on a row the director deliberately opened. Do not "save
+  bandwidth" by putting it back to none.
+- **A submission from someone no longer on the roster still shows** (the
+  "Videos from students not on this list" fold). Merging a submission-anchored
+  list into a roster-anchored one is exactly where those would have vanished.
+
+`src/director/examRubric.ts` is the ONE definition of what a rubric is and
+what it adds up to; `examRubric.selfcheck.ts` pins it in the deploy workflow.
+
+- **The rubric belongs to the EXAM, not to the app.** Another director weights
+  a playing exam their own way, and a scale check is not a concerto jury. It
+  is `Assignment.rubric`, seeded from the grader's own `directors/{email}`
+  `examRubric`, edited on the assignment.
+- **Three states, all meaningful.** ABSENT = nobody chose, so
+  `rubricForAssignment()` falls back to the grader's default (Playing Exam
+  only) — which is the whole reason exams created before this need no
+  migration. A LIST is the exam's own. **EMPTY is not absent** — it means the
+  director turned rubric grading off for that exam and must never be
+  re-defaulted.
+- **`examRubric` is in the directors self-update `hasOnly([...])` list in
+  `firestore.rules`.** Same trap as `lessonSlots`/`lessonLogSheets`: drop it
+  and saving a default starts failing silently.
+- **An unscored line is not a zero.** A partial rubric produces no grade at
+  all (`rubricScores()` returns null) and Confirm stays disabled. A rubric
+  that shows 58 because four of six boxes are filled is a failing grade
+  nobody gave.
+- **A confirmed grade snapshots its own lines** (`AssignmentResult.rubric`
+  carries each line's label, worth AND points). Re-weighting the exam
+  afterwards therefore cannot rewrite a grade already filed; the row says it
+  was given on an earlier rubric instead. `score` stays the whole-number
+  percent, so a rubric that totals 60 still files a gradebook number.
+- Grades are staff-only and have no public projection — `assignmentResults`
+  never reaches the student site. Showing a student their own breakdown would
+  be a NEW mirror with its own pinned allowlist, never a loosened read rule.
+
+## "Which semester is it" — one answer (Sept 2026, #current-term)
+
+`currentTerm(terms, today)` in `src/shared/concertCheckin.ts` is the ONE
+answer, beside `termForDate` where a term is already defined. Every screen
+that opens on a term defaults through it: the Assignments list, and a new
+jury's term. Do NOT add month arithmetic anywhere in `src/` — a term's dates
+are ORG CONFIG (`ORG.terms`, editable in Settings) because Fall does not start
+on the first of August. At NWSA it starts Aug 17, and the hardcoded ">= month
+8" guess is wrong for Aug 1-16, the winter gap, and all of June-July.
+
+- Outside every term, `currentTerm` answers with the most recent term that has
+  STARTED — in July that is the spring just finished, which is where the
+  grades still being closed out are. Before the first term, the first one.
+- An org with no `terms` configured (every org but NWSA today) gets `null`,
+  and a screen with no term to show must show EVERYTHING rather than nothing.
+  The Assignments filter renders only when `terms` is non-empty.
+- An assignment due outside every term shows under "All semesters" only. It is
+  never filed into the nearest term — a July make-up exam did not happen in a
+  term nobody gave it in.
+- **The applied-lesson log is deliberately NOT on this.** Its `TermRef`
+  (`schoolYear` + Fall/Spring, month arithmetic in `src/director/lessonLog.ts`)
+  is the identity of a stored `lessonLogSheets` key via `sheetKey()`. Those
+  keys are live data; re-deriving them from `ORG.terms` would strand every
+  sheet already written. It answers a different question — which printed sheet
+  is this — and keeps its own math on purpose.
+- `landingTerm()` decides which sheet a student opens on: the term we are in,
+  falling back to their newest lesson's term only when this term has none.
+  Following the newest lesson unconditionally was the bug — a standing weekly
+  time generated in August writes lessons through May, so every student opened
+  in September landed on the spring sheet. Pinned in `lessonLog.selfcheck.ts`.
+
+## The CSP is generated, and it fails silently (Sept 2026, #csp)
+
+`cspPlugin` in `vite.config.ts` injects a `<meta http-equiv>` policy at build
+time — GitHub Pages cannot send headers, so this is the only delivery. It has
+now shipped broken TWICE, and both times the failure looked like something
+else entirely:
+
+- `connect-src` was missing the Cloud Functions origin until three hours
+  before the first concert that needed it. The function answered correctly and
+  the browser refused to send the request; the page could only say "That did
+  not reach the Hub."
+- **`media-src` was missing altogether.** Storage was already listed for
+  `connect-src`, so UPLOADING a playing exam worked and PLAYING one back did
+  not: `<video>` fell through to `default-src 'self'`, the browser refused the
+  media, and the player sat there with no error and no "cannot play" banner.
+  The reported symptom was "it won't play, it won't load, nothing", and two
+  plausible theories (the `preload` value, then a stale service worker) were
+  both wrong before anyone looked at the policy.
+
+**A CSP omission looks exactly like bad wifi from the inside.** Nothing
+throws, no test fails, the feature is simply dead in the browser. So:
+
+- **Every sink needs naming separately.** `media-src` does NOT fall back to
+  `connect-src`; it falls back to `default-src`. Allowing Storage for one sink
+  allows it for no other. Adding a feature that renders a NEW kind of remote
+  resource means adding its directive in the SAME change.
+- `blob:` must be listed explicitly wherever the app previews something a
+  person just picked or recorded — `default-src 'self'` does not cover it.
+- `scripts/csp.selfcheck.mjs` runs in `deploy.yml` AFTER the build (the
+  policy only exists in the built `dist/index.html`) and pins the directives
+  the app cannot work without, plus the guards that must not erode:
+  `object-src 'none'`, `base-uri 'self'`, and no `'unsafe-inline'` in
+  `script-src` (the two inline boot scripts are allowed by sha256 hash).
 
 ## What's New banner (auto)
 

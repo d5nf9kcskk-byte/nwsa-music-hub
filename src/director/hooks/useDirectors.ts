@@ -95,9 +95,31 @@ export interface Director {
   /** Student Assistant only: optional extras beyond take-roll (see
    *  AssistantCapability). Absent / empty = roll only. */
   assistantCapabilities?: import('../types').AssistantCapability[];
+  /** This person's OWN default playing-exam rubric (#exam-rubric). A new
+   *  Playing Exam starts from it, and an exam that never chose one grades
+   *  with it, so two directors on the same Hub weight their exams their own
+   *  way without either one editing the other's. Here on the staff doc for
+   *  the same reason as `lessonSlots` above: no new collection and no second
+   *  query/rule pair. Self-editable — which means `examRubric` is in the
+   *  directors self-update hasOnly list in firestore.rules, and must stay
+   *  there or saving a default starts failing silently. */
+  examRubric?: import('../examRubric').RubricCriterion[];
   /** MDC work email — shown on ensemble/class pages instead of the Gmail login. */
   mdcEmail?: string;
   phone?: string;
+}
+
+/**
+ * Save this person's OWN default playing-exam rubric (#exam-rubric). A plain
+ * self-update, allowed by the `examRubric` entry in the directors self-update
+ * hasOnly list in firestore.rules — that entry and this call ship together.
+ */
+export async function saveMyExamRubric(
+  email: string,
+  criteria: import('../examRubric').RubricCriterion[],
+): Promise<void> {
+  if (!db) return;
+  await updateDoc(doc(db, 'directors', directorEmailId(email)), { examRubric: criteria });
 }
 
 /** Normalise an email to the form used as the Firestore doc id. */

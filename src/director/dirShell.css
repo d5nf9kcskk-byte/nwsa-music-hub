@@ -166,6 +166,44 @@
   to { transform: none; opacity: 1; }
 }
 
+/* ── Full-screen drawers (#seating-link) ────────────────────────────────
+   A drawer is the right shape for "confirm this one thing". It is the wrong
+   shape for a seating chart: a whole roster in a 540px column pinned to the
+   right edge, with the ensemble page it belongs to still visible and useless
+   beside it. `dir-drawer-full` on the OVERLAY takes the same components edge
+   to edge instead. The compound selector outranks the 1024px pane rules
+   above on specificity, so it wins at every width without !important.
+
+   The content still runs in a readable column — full-bleed text at 2000px is
+   its own kind of unreadable — but the SURFACE is the whole screen. */
+.dir-drawer-overlay.dir-drawer-full {
+  flex-direction: column;
+  justify-content: stretch;
+  align-items: stretch;
+  background: var(--dir-bg);
+}
+.dir-drawer-overlay.dir-drawer-full .dir-drawer {
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: 100dvh;
+  border-radius: 0;
+  animation: dir-fade-in 0.15s ease-out;
+}
+.dir-drawer-overlay.dir-drawer-full .dir-drawer-handle { display: none; }
+.dir-drawer-overlay.dir-drawer-full .dir-drawer-header,
+.dir-drawer-overlay.dir-drawer-full .dir-drawer-footer {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.dir-drawer-overlay.dir-drawer-full .dir-drawer-body {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  flex: 1;
+}
+
 /*/* ── Schedule two-pane at >=1100px (redesign Phase 5; iPad landscape included) ──
    Month grid left, selected-day panel sticky right — the day detail no
    longer lives below the fold on wide screens. */

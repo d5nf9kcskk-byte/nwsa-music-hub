@@ -97,6 +97,17 @@ export interface IcsLookups {
   ensembleName: (id: string) => string | undefined;
   /** Linked repertoire piece by id (missing ids are dropped). */
   piece?: (id: string) => IcsPieceLike | undefined;
+  /**
+   * Who is playing at this event, already resolved and in running order
+   * (#masterclass-performers). A function rather than a field on the event
+   * because the answer is a JOIN across the sign-up forms and their bookings
+   * — see src/shared/eventPerformers.ts — and the event doc itself carries
+   * only half of it.
+   *
+   * Omitted by callers that have no roster to hand (the sign-up confirmation
+   * email), which renders no performer line at all rather than an empty one.
+   */
+  performers?: (event: IcsEventLike) => string[];
 }
 
 /** "Title — Composer", or just the title when the composer is unknown. */
@@ -130,6 +141,14 @@ export function icsDescription(event: IcsEventLike, lookups: IcsLookups): string
   // own label — a subscriber reading "Repertoire: Chapter 7" would be
   // reasonably confused about what they are meant to bring.
   if (event.unitInfo) parts.push(`Unit: ${event.unitInfo}`);
+
+  // Who is playing (#masterclass-performers). This is the whole reason a
+  // student subscribes to a master class: the calendar entry has to say that
+  // the time they booked is theirs. One name per line, because a subscribed
+  // calendar shows DESCRIPTION as plain text and a comma list of a dozen
+  // names is unreadable on a phone.
+  const performers = lookups.performers?.(event) ?? [];
+  if (performers.length) parts.push(['Playing today:', ...performers.map(n => `• ${n}`)].join('\n'));
 
   // Notes are typed with the formatting toolbar, so they can carry block
   // markers ("# Warm-up order", "-# Bring your folder"). A calendar app shows

@@ -4,7 +4,15 @@ import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
 import { currentDirectorEmail, currentDirectorName } from '../currentDirector';
-import type { Announcement } from '../types';
+import { deleteStoredFile } from '../storageCleanup';
+import type { Announcement, Attachment } from '../types';
+import { proposeWrite } from './usePendingActions';
+
+/** Every uploaded file a post points at (pictures + attachments). */
+function uploadedUrls(a: Partial<Announcement> | undefined): string[] {
+  const list: Attachment[] = [...(a?.images ?? []), ...(a?.files ?? [])];
+  return list.map(f => f.url).filter(Boolean);
+}
 
 /**
  * Real-time listener for director-posted announcements. Sorted client-side
@@ -33,6 +41,13 @@ export function useAnnouncements() {
 
   async function addAnnouncement(data: Omit<Announcement, 'id'>): Promise<string | undefined> {
     if (!db) return;
+    // A Student Assistant's post waits for a director (#approvals). Returns
+    // no id on purpose — there is no doc yet, and a caller that needs one
+    // (nothing does today) must not be handed a made-up one.
+    if (await proposeWrite({
+      collection: 'announcements', op: 'create', data,
+      label: `Post announcement: “${data.title}”`,
+    })) return;
     const ref = await addDoc(collection(db, 'announcements'), {
       ...data,
       createdByEmail: data.createdByEmail ?? currentDirectorEmail(),
@@ -50,17 +65,39 @@ export function useAnnouncements() {
     const payload = Object.fromEntries(
       Object.entries(stamped).map(([k, v]) => [k, v === undefined ? deleteField() : v]),
     );
+    // A picture or file the director removed in this edit is now referenced by
+    // nothing, so delete the object rather than leaving it readable forever at
+    // its old Storage URL (the same rule the document repository follows).
+    // Only for the keys this save actually sent, and only AFTER it succeeds —
+    // cancelling an edit must never delete a live file.
+    const before = announcements.find(x => x.id === id);
+    if (await proposeWrite({
+      collection: 'announcements', op: 'update', docId: id, data,
+      label: `Edit announcement: “${before?.title ?? id}”`,
+    })) return;
+    const touchesFiles = 'images' in data || 'files' in data;
+    const dropped = touchesFiles
+      ? uploadedUrls(before).filter(url => !uploadedUrls(data).includes(url))
+      : [];
     await updateDoc(doc(db, 'announcements', id), payload);
+    for (const url of dropped) void deleteStoredFile(url);
   }
 
   async function deleteAnnouncement(id: string) {
     if (!db) return;
     // Undo (#38): capture the doc, delete, offer 10s restore with the same id.
     const gone = announcements.find(x => x.id === id);
+    if (await proposeWrite({
+      collection: 'announcements', op: 'delete', docId: id,
+      label: `Delete announcement: “${gone?.title ?? id}”`,
+    })) return;
     await deleteDoc(doc(db, 'announcements', id));
     if (gone) {
       const { id: _id, ...data } = gone;
-      offerUndo('announcements', id, data, `Deleted announcement — restore?`);
+      // Once the undo window lapses the delete is final, so the uploaded
+      // pictures and files go with it.
+      offerUndo('announcements', id, data, `Deleted announcement — restore?`, undefined,
+        () => { for (const url of uploadedUrls(gone)) void deleteStoredFile(url); });
     }
   }
 
