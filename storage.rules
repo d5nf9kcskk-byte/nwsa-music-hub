@@ -93,10 +93,21 @@ service firebase.storage {
     // the assignment doc, falling back to 500 MB when unset. Enforcing it here
     // rather than only in the upload form means the limit is real: the path is
     // submissions/{assignmentId}/{studentId}/{file}, so the assignment is
-    // known. A submission for an assignment that does not exist is refused.
-    match /submissions/{assignmentId}/{allPaths=**} {
+    // known. A submission for an assignment that does not exist is refused —
+    // and, since studentId is now its own path segment, so is one for a
+    // student who does not exist: the Firestore write below already anchors
+    // assignmentSubmissions.studentId to a real students/{id}, but the Storage
+    // object was uploadable first, so nothing stopped a caller from parking a
+    // video under an invented or someone-else's id before that write ever ran
+    // (or without it running at all). Checked against the staff-only
+    // `students` collection, not the public mirror: firestore.exists() from
+    // Storage rules bypasses Firestore rules entirely (same cross-service read
+    // isStaff() above already relies on), so there's no reason to read the
+    // narrower projection.
+    match /submissions/{assignmentId}/{studentId}/{allPaths=**} {
       allow read;
       allow create: if firestore.exists(/databases/(default)/documents/assignments/$(assignmentId))
+        && firestore.exists(/databases/(default)/documents/students/$(studentId))
         && request.resource.size < firestore.get(
              /databases/(default)/documents/assignments/$(assignmentId)
            ).data.get('maxVideoSizeMB', 500) * 1024 * 1024
