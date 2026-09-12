@@ -385,6 +385,13 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'vid.submitted':      { en: 'Submitted!',                    es: '¡Enviado!' },
   'vid.submittedDesc':  { en: 'Your video has been submitted. You can close this page.', es: 'Tu video ha sido enviado. Puedes cerrar esta página.' },
   'vid.noStudents':     { en: 'No students assigned to this exam.', es: 'No hay estudiantes asignados a este examen.' },
+  'vid.recordAgain':    { en: 'Record again',                      es: 'Grabar de nuevo' },
+  'vid.recoveredFound': {
+    en: 'We found a recording that did not finish sending.',
+    es: 'Encontramos una grabación que no terminó de enviarse.',
+  },
+  'vid.recoveredResume': { en: 'Resume it',                        es: 'Continuar' },
+  'vid.recoveredDiscard': { en: 'Start fresh',                     es: 'Empezar de nuevo' },
   'vid.alreadySubmitted': { en: 'Submitted {date}.',               es: 'Enviado el {date}.' },
   'vid.uploadAnother':  { en: 'Upload another version?',           es: '¿Subir otra versión?' },
   'vid.submittedBadge': { en: 'Submitted',                         es: 'Enviado' },
