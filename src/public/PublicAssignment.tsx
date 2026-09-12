@@ -7,6 +7,8 @@ import { useAssignments } from '../director/hooks/useAssignments';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useStudentsPublic } from './hooks/usePublicRoster';
+import { usePublicSubmissionReceipts } from './hooks/usePublicSubmissionReceipts';
+import { primaryStudent } from '../shared/identity';
 import { useMinuteTick } from '../director/hooks/useAnnouncements';
 import { assignmentEmoji, ensembleColor, ensembleDisplayName, isPublished } from '../director/utils';
 import { RichText } from '../shared/richText';
@@ -32,6 +34,14 @@ export function PublicAssignment() {
   const { pieces } = useRepertoire();
   const { students, loading: loadingStudents } = useStudentsPublic();
   const now = useMinuteTick(); // a scheduled assignment opens the minute it publishes
+
+  // A lightweight "already submitted" cue in the section header, from the
+  // SAME remembered identity SubmissionForm uses to gate its own picker
+  // (#video-upload-reliability Phase 1) — reads the receipt independently
+  // rather than threading it down as a prop, matching how the rest of the
+  // public site reads identity/roster state directly wherever it's needed.
+  const remembered = primaryStudent();
+  const { receipts } = usePublicSubmissionReceipts(remembered?.id);
 
   const assignment = assignments.find(a => a.id === id);
   const loading = loadingAssignments || loadingStudents;
@@ -170,6 +180,9 @@ export function PublicAssignment() {
         <section className="pub-card pub-assign-section" id="assign-submit">
           <h2 className="pub-assign-section-title">
             <Video size={15} /> {t('vid.submit')}
+            {receipts.some(r => r.assignmentId === assignment.id) && (
+              <span className="pub-assign-submitted-badge">✓ {t('vid.submittedBadge')}</span>
+            )}
           </h2>
           {/* The section itself always renders — it is the #assign-submit
               scroll target — but the form waits for the roster, or it would

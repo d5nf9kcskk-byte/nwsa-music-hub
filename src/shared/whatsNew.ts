@@ -32,6 +32,22 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Submission receipts (#video-upload-reliability Phase 1): a student who
+  // closes the tab mid-upload had no way to tell whether their video landed.
+  // A tiny world-readable receipt, written only by the Cloud Function that
+  // sees the real submission arrive, now answers that on return visits.
+  {
+    id: '2026-09-12-submission-receipt',
+    date: '2026-09-12',
+    title: 'The Hub remembers what you submitted',
+    audience: 'public' as const,
+    expires: '2026-09-26',
+    bullets: [
+      'Submit a video for a Playing Exam, and the next time you open that assignment it says "Submitted" instead of showing a blank upload box again.',
+      'The Hub also remembers your name on this device, so you don’t have to pick it from the list every visit.',
+      'Want to send a better take? "Upload another version?" is right there — whatever you send most recently is what your director sees.',
+    ],
+  },
   // Roster email (#roster-email): tick students or whole ensembles and hand
   // the director's own mail app a prefilled BCC message. Staff-only — it is a
   // change to what the roster screen does, and the public site has no roster.

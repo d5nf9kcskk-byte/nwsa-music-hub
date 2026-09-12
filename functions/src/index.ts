@@ -21,6 +21,7 @@ import {
 } from './concertTally.ts';
 import { buildConfirmation } from './signupConfirmation.ts';
 import { buildLessonLogMail, isDocId, queueRequestOk } from './lessonLogMail.ts';
+import { buildSubmissionReceipt, submissionReceiptId } from './submissionReceipt.ts';
 import type {
   Lesson, SignupForm, SignupResponse, Student, StudentContact,
 } from '../../src/director/types.ts';
@@ -533,5 +534,41 @@ export const lessonLogMailSend = firestore
       // trigger, and the failure mode of retrying an email is a family
       // receiving the same lesson several times.
       console.error('lessonLogMailSend: could not queue the email', err);
+    }
+  });
+
+
+/**
+ * The public "yes, it uploaded" receipt (#video-upload-reliability Phase 1).
+ *
+ * Fires on every new `assignmentSubmissions` doc — the Phase 0 direct write,
+ * the Phase 2 chunked-upload function's own Admin SDK create, and the repair
+ * script all create that doc, so one trigger here covers every path with no
+ * extra wiring on any of them.
+ *
+ * Written through the Admin SDK specifically so no client can forge a
+ * receipt: `submissionReceiptsPublic` denies every client write in
+ * firestore.rules, so a receipt existing is proof that a real
+ * assignmentSubmissions doc triggered it, not just that a browser claims one
+ * exists. `.set()`, not `.create()` — a later submission for the same
+ * (assignment, student) pair OVERWRITES the receipt with its own
+ * submittedAt, which is what lets the submit page show the most recent
+ * upload's date after "Upload another version?".
+ */
+export const submissionReceipt = firestore
+  .document('assignmentSubmissions/{submissionId}')
+  .onCreate(async (snap) => {
+    const receipt = buildSubmissionReceipt(snap.data() ?? {});
+    if (!receipt) return;
+
+    try {
+      const db = getFirestore();
+      const id = submissionReceiptId(receipt.assignmentId, receipt.studentId);
+      await db.doc(`submissionReceiptsPublic/${id}`).set(receipt);
+    } catch (err) {
+      // Logged, never rethrown — see the note on the mail triggers above. The
+      // submission itself already saved; a receipt that fails to write is a
+      // missed "Submitted" message next visit, not a lost video.
+      console.error('submissionReceipt: could not write the public receipt', err);
     }
   });
