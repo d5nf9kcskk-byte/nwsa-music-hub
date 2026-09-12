@@ -22,6 +22,7 @@ import {
 import { buildConfirmation } from './signupConfirmation.ts';
 import { buildLessonLogMail, isDocId, queueRequestOk } from './lessonLogMail.ts';
 import { buildSubmissionReceipt, submissionReceiptId } from './submissionReceipt.ts';
+import { composeSubmission as runComposeSubmission } from './composeSubmission.ts';
 import type {
   Lesson, SignupForm, SignupResponse, Student, StudentContact,
 } from '../../src/director/types.ts';
@@ -572,3 +573,50 @@ export const submissionReceipt = firestore
       console.error('submissionReceipt: could not write the public receipt', err);
     }
   });
+
+
+/**
+ * Finalize a chunked video upload (#video-upload-reliability Phase 2).
+ *
+ * POST { sessionId, assignmentId, studentId, studentName, fileName,
+ *        contentType, chunkCount, totalSize, videoDurationSeconds,
+ *        videoThumbnailUrl?, notes? }
+ *
+ * The browser has already uploaded every chunk directly to
+ * submissions-parts/{assignmentId}/{studentId}/{sessionId}/{index} (an
+ * unauthenticated Storage write, same posture as the five public Firestore
+ * writes) — this is what turns those pieces into a real submission. It has
+ * to be a function and not a client-side compose(): a GCS compose call
+ * needs a service credential the browser never holds, and the combined-size
+ * check against the assignment's real maxVideoSizeMB has to be real code —
+ * storage.rules can only ever bound ONE chunk's size, never the sum.
+ *
+ * Unauthenticated for the same reason concertCheckin is: students have no
+ * accounts. Refusals carry a plain sentence, same posture as concertCheckin
+ * — a student mid-upload needs to know whether to try again, not decode a
+ * generic 403.
+ */
+export const composeSubmission = https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+  res.set('Cache-Control', 'no-store');
+
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.set('Access-Control-Max-Age', '3600');
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ ok: false, failure: 'bad-request', message: 'That did not reach the Hub correctly.' });
+    return;
+  }
+
+  const outcome = await runComposeSubmission(req.body, {
+    db: getFirestore(),
+    bucket: getStorage().bucket(),
+    now: Date.now,
+  });
+  res.status(200).json(outcome);
+});

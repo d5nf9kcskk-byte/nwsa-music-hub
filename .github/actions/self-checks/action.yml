@@ -298,6 +298,24 @@ runs:
       run: node scripts/assignment-submissions.selfcheck.mjs
       shell: bash
 
+    # Chunked resumable upload primitives (#video-upload-reliability
+    # Phase 2): the zero-padded chunk path both the client and
+    # composeSubmission agree on, and the session-id-derived submission doc
+    # id that makes a retried finalize call idempotent. The fold/idempotency
+    # logic that consumes these is pinned in
+    # functions/src/composeSubmission.selfcheck.ts, run separately by
+    # deploy-functions.yml alongside every other Cloud Function guard.
+    - name: Check chunked-upload path and doc-id conventions
+      run: npx tsx src/shared/submissionChunks.selfcheck.ts
+      shell: bash
+
+    # The age cutoff behind the hourly sweep for abandoned chunked-upload
+    # parts (#video-upload-reliability Phase 2) — a chunk composeSubmission
+    # never got to delete because the student gave up mid-upload.
+    - name: Check abandoned-chunk cleanup cutoff
+      run: node scripts/cleanup-abandoned-chunks.selfcheck.mjs
+      shell: bash
+
     - name: Check attendance status labels (Late Excused)
       run: node scripts/attendance-status.selfcheck.mjs
       shell: bash

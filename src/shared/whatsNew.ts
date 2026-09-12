@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Chunked resumable upload (#video-upload-reliability Phase 2): a video
+  // submission now survives a closed tab or a killed app mid-upload instead
+  // of having to start over from byte zero.
+  {
+    id: '2026-09-12-resumable-upload',
+    date: '2026-09-12',
+    title: 'Submitting a video is sturdier now',
+    audience: 'public' as const,
+    expires: '2026-09-26',
+    bullets: [
+      'A video now uploads in pieces, so a dropped connection only has to retry the piece that failed — not the whole video.',
+      'If a tab closes or an app gets killed right after you finish recording, the Hub can pick the recording back up next time you open the assignment, instead of losing it.',
+    ],
+  },
   // Submission receipts (#video-upload-reliability Phase 1): a student who
   // closes the tab mid-upload had no way to tell whether their video landed.
   // A tiny world-readable receipt, written only by the Cloud Function that

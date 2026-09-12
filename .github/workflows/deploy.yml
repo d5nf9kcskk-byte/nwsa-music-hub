@@ -80,6 +80,17 @@ jobs:
       - name: Verify ICS feeds
         run: grep -q BEGIN:VEVENT dist/feeds/all.ics || echo "::error::ICS feed generation produced no events"
 
+      # Abandoned chunked-upload parts (#video-upload-reliability Phase 2):
+      # composeSubmission deletes a session's chunks itself right after a
+      # successful compose, so anything still under submissions-parts/ after
+      # 48 hours was never finished and is safe to sweep. Same cadence and
+      # same "never fails the deploy" posture as the feed generation above —
+      # this cleans up Storage housekeeping, not the site being deployed.
+      - name: Clean up abandoned chunked-upload parts
+        run: node scripts/cleanup-abandoned-chunks.mjs
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+
       - uses: actions/configure-pages@v6
 
       - uses: actions/upload-pages-artifact@v5

@@ -115,6 +115,37 @@ service firebase.storage {
       allow update, delete: if isStaff();
     }
 
+    // Temp chunk storage for the client-side chunked resumable upload
+    // (#video-upload-reliability Phase 2). The browser uploads each ~16 MiB
+    // piece here directly, unauthenticated — same posture as /submissions
+    // above. composeSubmission (functions/src/composeSubmission.ts) is the
+    // only thing that ever reads one back, through the Admin SDK, which
+    // bypasses these rules entirely — so there is NO `allow read` here at
+    // all, for anyone, staff included: write-only for the public, closed
+    // outright to everyone else. A chunk on its own is not a usable video
+    // (GCS compose is what turns a full set of them into the real
+    // submissions/ object), so there is nothing to gain by reading one
+    // back, and no reason to ever hand out a bearer link to a fragment of
+    // an in-progress upload.
+    //
+    // Same anchors as /submissions: a real assignment, a real student. The
+    // size ceiling here bounds ONE chunk only (~16 MiB client-side, plus
+    // headroom) — it can never bound the SUM across chunks, which is
+    // exactly why composeSubmission re-checks the combined size in real
+    // code, against the assignment's actual maxVideoSizeMB, before
+    // composing anything.
+    //
+    // No update/delete path for anyone either: composeSubmission deletes
+    // chunks itself (Admin SDK) after a successful compose, and the
+    // scheduled cleanup (scripts/cleanup-abandoned-chunks.mjs, also Admin
+    // SDK) deletes anything left behind by an upload nobody ever finished.
+    match /submissions-parts/{assignmentId}/{studentId}/{sessionId}/{index} {
+      allow read, update, delete: if false;
+      allow create: if firestore.exists(/databases/(default)/documents/assignments/$(assignmentId))
+        && firestore.exists(/databases/(default)/documents/students/$(studentId))
+        && request.resource.size < 20 * 1024 * 1024;
+    }
+
     // Concert check-in selfies (#concert-checkin).
     //
     // The one Storage path in this file with NO public read. The assignment,
