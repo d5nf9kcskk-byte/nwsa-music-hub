@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, addDoc, updateDoc, deleteDoc, doc,
+  collection, updateDoc, deleteDoc, doc, setDoc,
   query, where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -75,15 +75,34 @@ export function useAssignmentSubmissions(assignmentId?: string) {
 }
 
 /**
+ * A fresh, unused assignmentSubmissions doc id. Generate it once before an
+ * upload starts so a submitAssignmentVideo call that needs to retry can pass
+ * the SAME id back in each time — see submitAssignmentVideo below.
+ */
+export function newSubmissionId(): string {
+  if (!db) throw new Error('Firestore not initialized');
+  return doc(collection(db, 'assignmentSubmissions')).id;
+}
+
+/**
  * Public-facing submit hook — used by the unauthenticated submission page.
  * Writes directly to Firestore (gated by security rules shape validation)
  * and returns the new doc id on success.
+ *
+ * Takes the doc id rather than generating one with addDoc, so a caller that
+ * retries a failed attempt can pass the SAME id back in — a retry then lands
+ * on setDoc, which just re-writes the identical doc, instead of addDoc
+ * minting a second submission for the one take the student actually sent.
  */
 export async function submitAssignmentVideo(
   data: Omit<AssignmentSubmission, 'id' | 'status' | 'googleDriveFileId' | 'googleDriveFolderId'>,
+  submissionId?: string,
 ): Promise<string> {
   if (!db) throw new Error('Firestore not initialized');
-  const ref = await addDoc(collection(db, 'assignmentSubmissions'), {
+  const ref = submissionId
+    ? doc(db, 'assignmentSubmissions', submissionId)
+    : doc(collection(db, 'assignmentSubmissions'));
+  await setDoc(ref, {
     ...data,
     status: 'submitted',
     submittedAt: Date.now(),

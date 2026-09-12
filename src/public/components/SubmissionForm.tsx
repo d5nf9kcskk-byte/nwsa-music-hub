@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { storage } from '../../director/firebaseAuth';
 import { VideoRecorder } from '../../shared/components/VideoRecorder';
-import { submitAssignmentVideo } from '../../director/hooks/useAssignmentSubmissions';
+import { submitAssignmentVideo, newSubmissionId } from '../../director/hooks/useAssignmentSubmissions';
 import { t, useLang } from '../../shared/i18n';
 import { describeDuration, formatClock, formatFileSize, MB } from '../../shared/duration';
 import { DEFAULT_VIDEO_MAX_MB } from '../../director/types';
@@ -47,6 +47,23 @@ function probeDuration(file: Blob): Promise<number> {
   });
 }
 
+/** Retries a flaky async step a few times with backoff before giving up.
+ *  Built for the Firestore write after the video is already in Storage: the
+ *  upload itself is the expensive, unrepeatable part, so a network blip on
+ *  the small write right after it shouldn't cost the student the whole take
+ *  and shouldn't leave the video behind as an orphan for the repair script
+ *  to find later. */
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3, baseDelayMs = 1000): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (attempt >= attempts) throw e;
+      await new Promise(resolve => setTimeout(resolve, baseDelayMs * 2 ** (attempt - 1)));
+    }
+  }
+}
+
 export function SubmissionForm({ assignment, students, onSubmitted }: SubmissionFormProps) {
   useLang();
 
@@ -65,7 +82,7 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
     assignment.ensembleIds.some(eid => s.ensembleIds?.includes(eid)),
   );
 
-  const maxDuration = assignment.maxVideoDurationSeconds ?? 300;
+  const maxDuration = assignment.maxVideoDurationSeconds ?? 240;
   const maxSizeMB = assignment.maxVideoSizeMB ?? DEFAULT_VIDEO_MAX_MB;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef('');
@@ -73,6 +90,19 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
   useEffect(() => () => {
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
   }, []);
+
+  // A closed tab mid-upload is exactly how a video lands in Storage with no
+  // Firestore doc to show for it — the repair script's whole reason to
+  // exist. Warn before that happens; the browser supplies its own wording.
+  useEffect(() => {
+    if (!uploading) return;
+    const warnBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [uploading]);
 
   function clearStaged() {
     if (previewUrlRef.current) {
@@ -146,7 +176,10 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
     setUploadProgress(0);
     try {
       const { url, size } = await uploadToStorage(staged.blob, staged.fileName);
-      await submitAssignmentVideo({
+      // Generated up front so every retry below writes the SAME doc instead
+      // of minting a new one each attempt.
+      const submissionId = newSubmissionId();
+      await withRetry(() => submitAssignmentVideo({
         assignmentId: assignment.id,
         studentId: selectedStudentId,
         studentName: students.find(s => s.id === selectedStudentId)?.name ?? selectedStudentId,
@@ -157,7 +190,7 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
         fileSize: size,
         notes: notes.trim() || undefined,
         submittedAt: Date.now(),
-      });
+      }, submissionId));
       clearStaged();
       setSubmitted(true);
       onSubmitted();
@@ -229,20 +262,23 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
       </div>
 
       {!staged && (
-        <div className="sf-mode-toggle">
-          <button
-            className={`sf-mode-btn ${mode === 'record' ? 'active' : ''}`}
-            onClick={() => setMode('record')}
-          >
-            {t('vid.record')}
-          </button>
-          <button
-            className={`sf-mode-btn ${mode === 'upload' ? 'active' : ''}`}
-            onClick={() => setMode('upload')}
-          >
-            {t('vid.upload')}
-          </button>
-        </div>
+        <>
+          <div className="sf-mode-toggle">
+            <button
+              className={`sf-mode-btn ${mode === 'record' ? 'active' : ''}`}
+              onClick={() => setMode('record')}
+            >
+              {t('vid.record')}
+            </button>
+            <button
+              className={`sf-mode-btn ${mode === 'upload' ? 'active' : ''}`}
+              onClick={() => setMode('upload')}
+            >
+              {t('vid.upload')}
+            </button>
+          </div>
+          <div className="sf-mode-hint">{t('vid.recordPreferred')}</div>
+        </>
       )}
 
       {mode === 'record' ? (

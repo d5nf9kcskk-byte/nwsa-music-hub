@@ -365,6 +365,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'vid.submit':         { en: 'Submit Video',                  es: 'Enviar video' },
   'vid.record':         { en: 'Record Video',                  es: 'Grabar video' },
   'vid.upload':         { en: 'Upload Video',                  es: 'Subir video' },
+  'vid.recordPreferred': { en: 'Recording here is usually faster and more reliable than uploading a file you already have — try that first if you can.', es: 'Grabar aquí suele ser más rápido y confiable que subir un archivo que ya tienes — intenta eso primero si puedes.' },
   'vid.chooseFile':     { en: 'Choose video file',             es: 'Elegir archivo de video' },
   'vid.fileHint':       { en: 'MP4, MOV, or WebM — up to {size} MB', es: 'MP4, MOV o WebM — hasta {size} MB' },
   'vid.limits':         { en: 'Up to {minutes}, {size} MB max.', es: 'Hasta {minutes}, máximo {size} MB.' },
