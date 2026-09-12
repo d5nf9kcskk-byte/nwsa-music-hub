@@ -12,7 +12,14 @@
  * Default is dry-run. Pass --apply to write.
  *
  * Scope: optional --assignment <id> (repeatable). Default: all assignments
- * that accept video submissions.
+ * that accept video submissions, minus LOOKBACK_DAYS below.
+ *
+ * Runs hourly via .github/workflows/repair-assignment-submissions.yml, so an
+ * assignment's Storage prefix gets rescanned every hour for the rest of the
+ * school year unless something bounds it. LOOKBACK_DAYS skips any assignment
+ * whose dueDate is further in the past than that — an explicit --assignment
+ * still reaches it, since that's a director asking for one by name, not the
+ * hourly sweep.
  */
 import { createRequire } from 'node:module';
 
@@ -26,6 +33,14 @@ for (let i = 0; i < process.argv.length; i++) {
     onlyIds.push(process.argv[++i]);
   }
 }
+
+// Bounds the hourly run's cost: an assignment nobody has needed to repair in
+// a month is one Storage scan the sweep can stop paying for. Doesn't apply
+// when --assignment names it explicitly.
+const LOOKBACK_DAYS = 30;
+const cutoffDate = new Date();
+cutoffDate.setDate(cutoffDate.getDate() - LOOKBACK_DAYS);
+const cutoffStr = cutoffDate.toISOString().slice(0, 10); // YYYY-MM-DD, matches Assignment.dueDate
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!raw) {
@@ -67,10 +82,18 @@ async function main() {
   let created = 0;
   let skipped = 0;
   let scanned = 0;
+  let outOfWindow = 0;
 
   for (const aDoc of assignSnap.docs) {
     const assignmentId = aDoc.id;
-    const title = aDoc.data().title || assignmentId;
+    const data = aDoc.data();
+    const title = data.title || assignmentId;
+
+    if (!onlyIds.length && data.dueDate && data.dueDate < cutoffStr) {
+      outOfWindow++;
+      continue;
+    }
+
     const [files] = await bucket.getFiles({ prefix: `submissions/${assignmentId}/` });
     const subSnap = await db.collection('assignmentSubmissions')
       .where('assignmentId', '==', assignmentId)
@@ -142,6 +165,7 @@ async function main() {
   }
 
   console.log(`\nScanned ${scanned} file(s). ${APPLY ? 'Created' : 'Would create'} ${created}, skipped ${skipped}.`);
+  if (outOfWindow > 0) console.log(`${outOfWindow} assignment(s) skipped: due more than ${LOOKBACK_DAYS} days ago.`);
   if (!APPLY && created > 0) console.log('Re-run with --apply to write.');
 }
 

@@ -1492,6 +1492,9 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
   color: var(--dir-primary) !important;
   font-weight: 800;
 }
+.dir-grade-take-notes { display: flex; flex-direction: column; gap: 2px; }
+.dir-grade-take-note { font-size: 12px; color: var(--dir-text); font-style: italic; }
+.dir-grade-take-note strong { font-style: normal; }
 .dir-grade-video-meta { font-size: 11px; color: var(--dir-text-muted); }
 .dir-grade-loadfail { font-size: 12px; color: var(--dir-danger); }
 

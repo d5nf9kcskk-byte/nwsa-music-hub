@@ -68,7 +68,7 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
   const [formUrl, setFormUrl] = useState(assignment?.formUrl ?? '');
   const [acceptsVideo, setAcceptsVideo] = useState(assignment?.acceptsVideoSubmissions ?? false);
   const [maxVideoMinutes, setMaxVideoMinutes] = useState(
-    secondsToMinutes(assignment?.maxVideoDurationSeconds ?? 300),
+    secondsToMinutes(assignment?.maxVideoDurationSeconds ?? 240),
   );
   const [maxVideoSizeMB, setMaxVideoSizeMB] = useState(assignment?.maxVideoSizeMB ?? DEFAULT_VIDEO_MAX_MB);
   const [googleDriveFolderId, setGoogleDriveFolderId] = useState(assignment?.googleDriveFolderId ?? '');
@@ -246,14 +246,14 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
                   className="dir-input"
                   type="number"
                   value={maxVideoMinutes}
-                  onChange={e => setMaxVideoMinutes(Math.max(1, Math.min(60, Number(e.target.value) || 5)))}
+                  onChange={e => setMaxVideoMinutes(Math.max(1, Math.min(60, Number(e.target.value) || 4)))}
                   min={1}
                   max={60}
                   step={1}
                   style={{ width: 120 }}
                 />
                 <div className="dir-field-hint">
-                  1–60 minutes. Default: 5. In-app recording stops on its own at this limit, and an
+                  1–60 minutes. Default: 4. In-app recording stops on its own at this limit, and an
                   uploaded video longer than {describeDuration(minutesToSeconds(maxVideoMinutes))} is turned away.
                 </div>
 

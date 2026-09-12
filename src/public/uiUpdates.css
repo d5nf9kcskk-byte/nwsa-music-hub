@@ -871,6 +871,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
 .sf-mode-toggle { display: flex; gap: 0; border: 1px solid var(--pub-border); border-radius: 10px; overflow: hidden; }
 .sf-mode-btn { flex: 1; padding: 12px; border: none; background: var(--pub-surface); color: var(--pub-ink); font-size: 14px; font-weight: 600; cursor: pointer; }
 .sf-mode-btn.active { background: var(--pub-purple); color: #fff; }
+.sf-mode-hint { font-size: 12px; color: var(--pub-muted); }
 .sf-upload-area { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px; border: 2px dashed var(--pub-border); border-radius: 14px; }
 .sf-upload-btn { padding: 12px 24px; border: none; border-radius: 20px; background: var(--pub-purple); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; }
 .sf-upload-btn:disabled { opacity: 0.5; cursor: default; }

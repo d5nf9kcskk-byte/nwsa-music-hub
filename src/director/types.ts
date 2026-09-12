@@ -719,10 +719,13 @@ export interface Attachment {
   size: number; // bytes
 }
 
-/** Default upload ceiling in MB — matches the cap in storage.rules, so the
- *  form can refuse an oversized file with a sentence instead of letting the
- *  upload fail on a rules rejection. */
-export const DEFAULT_VIDEO_MAX_MB = 500;
+/** Default upload ceiling in MB, and the top of the range the assignment
+ *  form lets a director configure. Lower than the 500 MB storage.rules
+ *  falls back to for an assignment with no `maxVideoSizeMB` at all
+ *  (#video-upload-reliability) — most of what lands as an orphaned Storage
+ *  object with no Firestore doc is a huge phone-quality file that timed out
+ *  partway; a smaller ceiling means fewer of those. */
+export const DEFAULT_VIDEO_MAX_MB = 400;
 
 export interface Assignment {
   id: string;
@@ -739,7 +742,7 @@ export interface Assignment {
   acceptsVideoSubmissions?: boolean;
   /** Max video duration when recording in-app, STORED in seconds (existing
    *  assignments depend on it) but always set and shown in minutes. Default
-   *  300 (5 minutes). */
+   *  240 (4 minutes). */
   maxVideoDurationSeconds?: number;
   /** Max size of an uploaded video file, in MB. Default `DEFAULT_VIDEO_MAX_MB`;
    *  the Storage rules cap every upload at 500 MB regardless. */
