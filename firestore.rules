@@ -928,6 +928,25 @@ service cloud.firestore {
       allow update, delete: if isStaff();
     }
 
+    // Public "yes, it uploaded" receipt (#video-upload-reliability Phase 1).
+    // Exactly three fields — assignmentId, studentId, submittedAt — written
+    // ONLY by the submissionReceipt Cloud Function's onCreate trigger on
+    // assignmentSubmissions, through the Admin SDK (which bypasses these
+    // rules — so this allowlist, unlike studentsPublic/rosterOverridesPublic
+    // above, isn't what enforces the three-field shape; buildSubmissionReceipt()
+    // in src/shared/submissionReceipts.ts is). No client create/update path
+    // at all, deliberately: a receipt a browser could write itself would not
+    // prove anything actually uploaded. Reading a submission's own receipt is
+    // what lets the submit page show "Submitted <date>. Upload another
+    // version?" instead of a blank picker, with no videoUrl, notes, filename,
+    // or student name ever exposed. Doc id is `${assignmentId}_${studentId}`;
+    // the trigger OVERWRITES it on every new submission for that pair, so a
+    // second take always reads back as the latest one.
+    match /submissionReceiptsPublic/{doc} {
+      allow read;
+      allow write: if false;
+    }
+
     // ── Paid roster & contracts (#personnel — Fair Copy adult orgs) ─────
     // The adult professional roster (Alpharetta Symphony demo, and any
     // future per-service org). The app gates these screens on

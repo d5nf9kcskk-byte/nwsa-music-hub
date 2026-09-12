@@ -3,7 +3,10 @@ import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebas
 import { storage } from '../../director/firebaseAuth';
 import { VideoRecorder } from '../../shared/components/VideoRecorder';
 import { submitAssignmentVideo, newSubmissionId } from '../../director/hooks/useAssignmentSubmissions';
+import { usePublicSubmissionReceipts } from '../hooks/usePublicSubmissionReceipts';
+import { primaryStudent, rememberStudent } from '../../shared/identity';
 import { t, useLang } from '../../shared/i18n';
+import { fmtShortDate } from '../../shared/dates';
 import { describeDuration, formatClock, formatFileSize, MB } from '../../shared/duration';
 import { DEFAULT_VIDEO_MAX_MB } from '../../director/types';
 import type { Student, Assignment } from '../../director/types';
@@ -67,20 +70,40 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 3, baseDelayMs = 10
 export function SubmissionForm({ assignment, students, onSubmitted }: SubmissionFormProps) {
   useLang();
 
+  // Only show students who belong to this assignment's ensembles
+  const eligible = students.filter(s =>
+    s.status === 'Active' &&
+    assignment.ensembleIds.some(eid => s.ensembleIds?.includes(eid)),
+  );
+
+  // Remember-me identity (#video-upload-reliability Phase 1): a device that
+  // already told the Hub who it belongs to shouldn't have to pick a name
+  // again every visit. Only pre-fills when the remembered student is
+  // actually eligible HERE — a device remembered for a different ensemble's
+  // exam still gets a blank picker, same as before.
+  const remembered = primaryStudent();
+  const prefillId = remembered && eligible.some(s => s.id === remembered.id) ? remembered.id : '';
+
   const [mode, setMode] = useState<Mode>('record');
-  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [selectedStudentId, setSelectedStudentId] = useState(prefillId);
   const [notes, setNotes] = useState('');
   const [staged, setStaged] = useState<StagedVideo | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  // Set once the student taps "Upload another version?" on the receipt
+  // gate below — stays true for the rest of this visit so re-submitting
+  // doesn't just bounce back to the same gate.
+  const [forceNewUpload, setForceNewUpload] = useState(false);
 
-  // Only show students who belong to this assignment's ensembles
-  const eligible = students.filter(s =>
-    s.status === 'Active' &&
-    assignment.ensembleIds.some(eid => s.ensembleIds?.includes(eid)),
-  );
+  // "Submitted <date>. Upload another version?" (#video-upload-reliability
+  // Phase 1) instead of a blank picker, once a real receipt exists for this
+  // exact assignment — a receipt only exists because the submissionReceipt
+  // Cloud Function actually saw an assignmentSubmissions doc land, so this
+  // can't be fooled by a browser that merely THINKS it uploaded.
+  const { receipts } = usePublicSubmissionReceipts(selectedStudentId || undefined);
+  const existingReceipt = receipts.find(r => r.assignmentId === assignment.id);
 
   const maxDuration = assignment.maxVideoDurationSeconds ?? 240;
   const maxSizeMB = assignment.maxVideoSizeMB ?? DEFAULT_VIDEO_MAX_MB;
@@ -191,6 +214,17 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
         notes: notes.trim() || undefined,
         submittedAt: Date.now(),
       }, submissionId));
+      // The device now knows this student, so their next visit to any
+      // assignment pre-fills the picker AND can show them their own receipt
+      // (#video-upload-reliability Phase 1).
+      const who = students.find(s => s.id === selectedStudentId);
+      if (who) {
+        rememberStudent({
+          id: who.id, name: who.name,
+          ensembleIds: who.ensembleIds ?? [],
+          ...(who.instrument ? { instrument: who.instrument } : {}),
+        });
+      }
       clearStaged();
       setSubmitted(true);
       onSubmitted();
@@ -234,6 +268,19 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
     return (
       <div className="sf-empty">
         <p>{t('vid.noStudents')}</p>
+      </div>
+    );
+  }
+
+  if (existingReceipt && !forceNewUpload) {
+    return (
+      <div className="sf-already">
+        <p className="sf-already-line">
+          {t('vid.alreadySubmitted', { date: fmtShortDate(new Date(existingReceipt.submittedAt)) })}
+        </p>
+        <button className="sf-already-btn" onClick={() => setForceNewUpload(true)}>
+          {t('vid.uploadAnother')}
+        </button>
       </div>
     );
   }
