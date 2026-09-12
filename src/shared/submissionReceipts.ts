@@ -42,10 +42,12 @@ export function submissionReceiptId(assignmentId: string, studentId: string): st
 
 /** Build the receipt from a submission, keeping ONLY the three allowed
  *  fields regardless of what else the submission doc carries — this is what
- *  makes it structurally impossible for a video URL or a note to ride along. */
-export function buildSubmissionReceipt(
-  sub: Pick<{ assignmentId: unknown; studentId: unknown; submittedAt: unknown }, 'assignmentId' | 'studentId' | 'submittedAt'>,
-): SubmissionReceipt | null {
+ *  makes it structurally impossible for a video URL or a note to ride along.
+ *  Takes a plain index-signature bag (a Firestore DocumentData is exactly
+ *  that — no named property is ever guaranteed present on its TYPE) rather
+ *  than a Pick<> of named-but-unknown fields, which a real snapshot's
+ *  `.data()` does not structurally satisfy. */
+export function buildSubmissionReceipt(sub: Record<string, unknown>): SubmissionReceipt | null {
   if (typeof sub.assignmentId !== 'string' || !sub.assignmentId) return null;
   if (typeof sub.studentId !== 'string' || !sub.studentId) return null;
   if (typeof sub.submittedAt !== 'number') return null;

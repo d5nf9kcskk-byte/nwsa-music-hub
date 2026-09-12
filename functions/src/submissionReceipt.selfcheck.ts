@@ -50,7 +50,7 @@ const full = buildSubmissionReceipt({
   notes: 'please watch the second half',
   studentName: 'Ruiz, Maya',
   status: 'submitted',
-} as never);
+});
 assert(full !== null, 'a well-formed submission produces a receipt');
 assert(Object.keys(full!).sort().join(',') === 'assignmentId,studentId,submittedAt',
   'the built receipt carries ONLY the three allowed fields — no videoUrl, thumbnail, notes, filename, or name');
@@ -64,7 +64,7 @@ for (const bad of [
   { assignmentId: '', studentId: 's', submittedAt: 1 }, // blank assignmentId
   { assignmentId: 'a', studentId: 's', submittedAt: 'now' }, // wrong type
 ]) {
-  assert(buildSubmissionReceipt(bad as never) === null, `malformed input produces no receipt: ${JSON.stringify(bad)}`);
+  assert(buildSubmissionReceipt(bad) === null, `malformed input produces no receipt: ${JSON.stringify(bad)}`);
 }
 
 // ── 3: the doc id ──────────────────────────────────────────────────────────
