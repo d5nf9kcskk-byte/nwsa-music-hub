@@ -11,6 +11,8 @@ import {
   contactRecipients,
   initialsOk,
   repertoireLine,
+  repertoireLines,
+  joinRepertoireLines,
   termForDate,
   landingTerm,
   sheetKey,
@@ -129,6 +131,41 @@ assert(
   'a gap between pieces is kept, trailing blanks are dropped',
 );
 assert(trimJuryRows([{ composer: ' Bach ', title: ' Suite ' }])[0]!.composer === 'Bach', 'saved pieces are trimmed');
+
+// ── One box per piece (#applied, combined composer/title) ──────────────
+// A lesson logged before this change stored two newline-joined strings,
+// matched by line. repertoireLines() has to read that back combined onto
+// one line each, or reopening an old lesson would look like it lost half
+// its repertoire.
+assert(repertoireLines('Bach', 'Minuet in G').length === 1
+  && repertoireLines('Bach', 'Minuet in G')[0] === 'Bach, Minuet in G',
+  'old composer+title lines combine with the same ", " repertoireLine() uses');
+{
+  const multi = repertoireLines('Bach\nMozart', 'Minuet in G\nSonata No. 11');
+  assert(multi.length === 2 && multi[0] === 'Bach, Minuet in G' && multi[1] === 'Mozart, Sonata No. 11',
+    'multiple pieces combine line by line, in order');
+}
+assert(repertoireLines('Bach', undefined)[0] === 'Bach', 'composer alone passes through unchanged');
+assert(repertoireLines(undefined, 'Minuet in G')[0] === 'Minuet in G', 'title alone passes through unchanged');
+assert(repertoireLines(undefined, undefined).length === 1 && repertoireLines(undefined, undefined)[0] === '',
+  'no pieces logged yet still renders one blank line to type into');
+// A line already saved in the new one-box shape (composer holds the whole
+// "Composer, Title" text, title absent) must round-trip unchanged, not be
+// re-combined into "Composer, Title, undefined" or similar.
+assert(repertoireLines('Bach, Minuet in G', undefined)[0] === 'Bach, Minuet in G',
+  'an already-combined line is not combined again');
+
+assert(joinRepertoireLines(['Bach, Minuet in G', 'Mozart, Sonata No. 11']) === 'Bach, Minuet in G\nMozart, Sonata No. 11',
+  'lines rejoin as one newline-joined string, written to repertoireComposer alone');
+assert(joinRepertoireLines(['Bach, Minuet in G', '', '  ']) === 'Bach, Minuet in G',
+  'trailing blank rows are dropped, same as trimJuryRows');
+assert(joinRepertoireLines(['Bach, Minuet in G', '', 'Mozart, Sonata No. 11']) === 'Bach, Minuet in G\n\nMozart, Sonata No. 11',
+  'a blank BETWEEN entries is kept — only the tail is trimmed');
+
+// Once repertoireTitle stops being written, repertoireLine() (the mail body)
+// must still read the combined text with nothing missing or duplicated.
+assert(repertoireLine({ repertoireComposer: 'Bach, Minuet in G', repertoireTitle: undefined }) === 'Bach, Minuet in G',
+  'repertoireLine() reads a new-shape (composer-only) lesson correctly');
 
 // A term bundles a school year with Fall or Spring, and two dates in the same
 // half of the same year land on the same sheet.
