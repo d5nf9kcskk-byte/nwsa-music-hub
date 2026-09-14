@@ -832,6 +832,112 @@ throws, no test fails, the feature is simply dead in the browser. So:
   `object-src 'none'`, `base-uri 'self'`, and no `'unsafe-inline'` in
   `script-src` (the two inline boot scripts are allowed by sha256 hash).
 
+## Quarter grades and the district report (Sept 2026, #gradebook)
+
+The Gradebook decides a quarter grade and builds the tables the teacher of
+record is emailed. Four modules, three of them pure and pinned by a self-check
+in `.github/actions/self-checks`.
+
+- **The Hub does NOT grade attendance. The director does** (director's call,
+  2026-09-14). An excused absence costs nothing and is a record only; an
+  unexcused absence or lateness informs the Preparation mark, and by how much
+  is a judgement made with the counts in view. So every category is a typed
+  number, with the Hub's own records printed on the same line. Do not
+  "finish the job" by computing one: roll here is exception-only, there is no
+  Present record, and a rate resting on a denominator the director did not
+  know they were creating is worse than a number they chose.
+- **Two categories carry a computed SUGGESTION** (Playing Exams, Required
+  Performance Attendance) because those are countable rather than observed. A
+  suggestion is a placeholder, never a saved value, until Fill is pressed.
+  `fillValueFor()` is the ONE answer to what Fill writes: the suggestion where
+  there is one, `FULL_MARKS` on a judgement category, and **nothing at all**
+  when a computed category has no suggestion. Filling an ungraded exam at 100
+  is exactly as wrong as counting it a zero.
+- **Re-normalize over scored categories** — the workbook's formula verbatim, so
+  an unscored category leaves numerator and denominator both and an interim in
+  week three is not dragged down by an exam that has not happened. A blank is
+  never a zero (`gradeValue`, same fail-closed shape as `lessonGradeValue`).
+  Below `COVERAGE_FLOOR` of the plan there is **no percent at all**: a
+  confident 94 built from one category, arriving in a district gradebook, is
+  the worst thing this code can produce.
+- **`meetingsHeld` is the ROLL RECEIPT, not the calendar.** A rehearsal that
+  was cancelled, moved, or never rolled is not a meeting anybody missed. It
+  follows that skipping roll shrinks the number for everyone in the group,
+  which is correct and is why the screen prints it beside the absences rather
+  than hiding it inside a percentage.
+- **School-day tardies are not attendance** and must never reach this module
+  (#tardies). The four roll marks stay in SEPARATE buckets, because the
+  director grades unexcused and excused differently and summing them would
+  take that choice away.
+- **`parseName()` is the ONE name parser, and the roster stores names BOTH
+  ways.** Checked live 2026-09-14: 120 of 142 active students as
+  "Rose, William F." and 22 as "Vincent T. Blades", with every student on the
+  two district tables in the comma form. A parser that assumed one of them put
+  the middle initial in the district's Last Name column and sorted the whole
+  table by it. A comma is the signal and it is the only reliable one, since a
+  two-word surname is indistinguishable from a middle name without being told.
+- **The grading calendar is org config; there are NO interim dates.** The
+  M-DCPS calendar publishes grading-period boundaries, a school-day count per
+  quarter, and the days with no students. It publishes no interim date for any
+  quarter. What exists is the teacher of record asking for the numbers by a
+  given morning, which is a request and not a deadline this repo gets to
+  store. An earlier pass derived one by back-solving a percentage through the
+  quarter from one such request; it gave Sep 22 for Q1 and the real ask was a
+  week earlier. `defaultCutoff` opens an interim on TODAY and the person
+  running the report moves it.
+  `gradingPeriods.selfcheck.ts` proves the configured boundaries plus
+  `MDCPS_NO_SCHOOL` reproduce the district's printed counts exactly (45 / 46 /
+  42 / 47, totalling 180). That only passes if the boundaries AND every
+  no-school day are right, which is what makes it a test rather than a
+  restatement.
+- **An interim covers the QUARTER TO DATE**, never the weeks since the last
+  report. Getting this wrong produces numbers that are individually plausible
+  and collectively wrong.
+- **Every district-specific string is org config** (`ORG.grading`): the
+  weights, the comment codes, the comment triggers (79 or lower, effort 3,
+  conduct C or lower), the standing request shown at the top of the screen,
+  and the three table layouts. Camerata carries a Last Name column and says
+  "Behavior"; Symphony drops it and says "Conduct". That is a fact about the
+  course SECTION, not anybody's preference, which is why it travels on the
+  layout and not in `src/`.
+- **`gradeMarks` is staff-only with no public projection, and is not getting
+  one.** `assignmentResults` has none either; showing a student their own
+  breakdown would be a NEW mirror with its own pinned allowlist, never a
+  loosened read rule (#privacy). The doc id is
+  `${groupKey}_${periodId}_${studentId}` and `firestore.rules` requires the
+  key fields to MATCH it, so a document cannot claim to be about a group or a
+  period it is not filed under.
+- The applied table is the teacher's STUDIO: the union of `assignedStudentIds`
+  with anyone they actually taught in the window. A student with no lesson
+  logged still appears and shows an honest blank rather than dropping off the
+  report.
+- **`checkin.entryOnly` credits a concert on the ARRIVAL scan alone**, for the
+  night the check-out station fails. `scansCredited()` in `concertCheckin.ts`
+  is the ONE answer, called by the director's board, the grade evidence, and
+  the Cloud Function behind the student's own tally — if those disagree, the
+  student is holding the wrong number. Per event, with no site default: a
+  default would quietly retire the check-out everywhere.
+  Which concerts have it is `config/entry-only-concerts.json`, applied by the
+  *Set concert entry-only* workflow, so the exemption and its reason are a diff
+  rather than somebody's shell history.
+
+Design record: `docs/superpowers/specs/2026-09-14-gradebook-design.md`.
+Session record: `docs/session-notes-2026-09-14-gradebook.md`.
+
+## Student data never leaves the app (Sept 2026)
+
+A roster write is not a candidate for the trigger-file workflow pattern. This
+repo is PUBLIC, so a committed list and an Actions log are both public, and a
+doc id is not anonymous — anyone can map it to a name through `studentsPublic`.
+Archiving a student, editing a grade, changing a contact: those happen in the
+authenticated app, where the rules apply and nothing lands outside Firestore.
+
+The concert exemption above is fine to route that way because a concert is a
+public event. A student's withdrawal is a record about a minor. When an agent
+is asked to make a roster change directly, the answer is the app, and the
+useful thing it can do instead is VERIFY afterwards from `studentsPublic`,
+which is world-readable already and so exposes nothing new.
+
 ## What's New banner (auto)
 
 Product/UX changes that affect all staff or the public student site must
