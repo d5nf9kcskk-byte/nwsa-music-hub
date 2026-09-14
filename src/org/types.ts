@@ -1,5 +1,34 @@
 import type { CalendarBundle } from '../shared/calendarBundles';
 import type { Term } from '../shared/concertCheckin';
+import type { CommentRules, GradeCategory } from '../shared/ensembleGrades';
+import type { GradingPeriod } from '../shared/gradingPeriods';
+import type { ReportLayout } from '../shared/interimReport';
+
+/**
+ * The grading surface of the org config (#gradebook). Split out of
+ * `OrgConfig` only for readability — it is one optional field there.
+ */
+export interface OrgGrading {
+  /** The district's grading periods, in order. */
+  periods: GradingPeriod[];
+  /**
+   * Weighted plans. `default` answers for any group without its own, which
+   * is the reason existing ensembles need no migration; `byGroupKey` holds a
+   * course that grades differently, keyed by ensemble id or by the pseudo-id
+   * of a non-ensemble report such as `applied`. An entry present but EMPTY means
+   * grading is deliberately off for that group and must never be
+   * re-defaulted (the `Assignment.rubric` three-state rule).
+   */
+  plans: { default: GradeCategory[]; byGroupKey?: Record<string, GradeCategory[]> };
+  /** When the district requires a written reason alongside a grade. */
+  commentRules: CommentRules;
+  /** The district's comment code list: code → what it means. */
+  commentCodes: Record<string, string>;
+  /** The standing wording of the submission email. */
+  email: { recipientName: string; subjectSuffix: string; intro: string };
+  /** The tables that email carries, in the order they appear in it. */
+  reports: ReportLayout[];
+}
 
 /**
  * Org config — the white-label surface (#org-config). One JSON file per
@@ -146,6 +175,18 @@ export interface OrgConfig {
    * nothing. Optional: an org with none tracks no terms.
    */
   terms?: Term[];
+  /**
+   * Grading periods, the weighted plan, the district's comment codes, and the
+   * report layouts the teacher of record is emailed (#gradebook).
+   *
+   * Optional: an org that does not report grades through the Hub simply has
+   * none, and the Gradebook screen hides itself rather than showing an empty
+   * shell. Everything here is district- or org-specific by definition — the
+   * comment codes are MDCPS's list, the column headings are what those
+   * particular course sections ask for — which is exactly why none of it is
+   * spelled out in `src/`.
+   */
+  grading?: OrgGrading;
   /**
    * Concert check-in station defaults (#concert-checkin). Per-event switches
    * on the event itself override these field by field; the accepted email

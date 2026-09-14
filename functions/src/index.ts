@@ -16,7 +16,7 @@ import {
 } from './concertCheckin.ts';
 import ORG from '../../config/orgs/nwsa.json' with { type: 'json' };
 import {
-  emailMatchesScans, loadGoals, tallyScans, NO_MATCH, TERMS as TALLY_TERMS,
+  emailMatchesScans, loadEntryOnlyEventIds, loadGoals, tallyScans, NO_MATCH, TERMS as TALLY_TERMS,
   type ScanLike, type TallyRequest,
 } from './concertTally.ts';
 import { buildConfirmation } from './signupConfirmation.ts';
@@ -397,13 +397,16 @@ export const concertTally = https.onRequest(async (req, res) => {
   const db = getFirestore();
   let scans: ScanLike[];
   let goals: Record<string, { required?: number; optional?: number }>;
+  let entryOnly: Set<string>;
   try {
-    const [snap, g] = await Promise.all([
+    const [snap, g, eo] = await Promise.all([
       db.collection('concertCheckins').where('studentId', '==', studentId).get(),
       loadGoals(db),
+      loadEntryOnlyEventIds(db),
     ]);
     scans = snap.docs.map(d => d.data() as ScanLike);
     goals = g;
+    entryOnly = eo;
   } catch {
     res.status(503).json({ ok: false, message: 'The Hub is busy. Try once more.' });
     return;
@@ -414,7 +417,7 @@ export const concertTally = https.onRequest(async (req, res) => {
     return;
   }
 
-  const { terms, incomplete } = tallyScans(scans, TALLY_TERMS, goals);
+  const { terms, incomplete } = tallyScans(scans, TALLY_TERMS, goals, entryOnly);
   res.status(200).json({ ok: true, terms, incomplete });
 });
 

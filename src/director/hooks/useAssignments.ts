@@ -146,3 +146,27 @@ export function useStudentAssignmentResults(studentId?: string) {
 
   return { results };
 }
+
+/**
+ * Every graded result, for the Gradebook's Playing Exams column (#gradebook).
+ *
+ * Deliberately the whole collection rather than a per-assignment listener: a
+ * quarter grade reads across every exam in the window at once, and an `in`
+ * query would have to be chunked and re-issued each time the window moves.
+ * `assignmentResults` is one row per student per assignment for one school, so
+ * this is small, and it is staff-only with no public projection either way.
+ */
+export function useAllAssignmentResults() {
+  const [results, setResults] = useState<AssignmentResult[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!db) { setLoading(false); return; }
+    return watchCollection(query(collection(db, 'assignmentResults')), 'assignments', snap => {
+      setResults(snap.docs.map(d => ({ id: d.id, ...d.data() } as AssignmentResult)));
+      setLoading(false);
+    }, () => setLoading(false));
+  }, []);
+
+  return { results, loading };
+}

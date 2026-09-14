@@ -1,5 +1,5 @@
 import type { Firestore } from 'firebase-admin/firestore';
-import { normalizeEmail, termForDate, type Term } from '../../src/shared/concertCheckin.ts';
+import { normalizeEmail, scansCredited, termForDate, type Term } from '../../src/shared/concertCheckin.ts';
 import ORG from '../../config/orgs/nwsa.json' with { type: 'json' };
 
 /**
@@ -77,6 +77,11 @@ export function tallyScans(
   scans: ScanLike[],
   terms: Term[],
   goals: Record<string, { required?: number; optional?: number }> = {},
+  /** Concerts whose event says `checkin.entryOnly` — credited on the arrival
+   *  scan alone. Empty by default, so nothing changes for any other concert.
+   *  Mirrors the `entryOnlyEventIds` argument on the director's
+   *  `talliesByStudent()`; both defer to `scansCredited`. */
+  entryOnlyEventIds: ReadonlySet<string> = new Set(),
 ): { terms: TermTally[]; incomplete: { eventTitle: string; eventDate: string }[] } {
   const byConcert = new Map<string, { in?: ScanLike; out?: ScanLike }>();
   for (const s of scans) {
@@ -94,7 +99,8 @@ export function tallyScans(
     if (!any) continue;
     const attendance = pair.in?.eventAttendance ?? pair.out?.eventAttendance;
     if (attendance !== 'required' && attendance !== 'optional') continue;
-    if (!pair.in || !pair.out) {
+    const entryOnly = entryOnlyEventIds.has(any.eventId ?? '');
+    if (!scansCredited(Boolean(pair.in), Boolean(pair.out), entryOnly)) {
       incomplete.push({ eventTitle: any.eventTitle ?? '', eventDate: any.eventDate ?? '' });
       continue;
     }
@@ -134,6 +140,21 @@ export function emailMatchesScans(email: string, scans: ScanLike[]): boolean {
 }
 
 /** Per-semester goals from the settings doc, with an empty default. */
+/**
+ * Event ids whose check-in is credited on arrival alone. One small query
+ * against a single-field index; a failure answers with an EMPTY set, which is
+ * the strict reading (both scans) rather than the generous one — a lookup
+ * error must never hand out credit nobody earned.
+ */
+export async function loadEntryOnlyEventIds(db: Firestore): Promise<Set<string>> {
+  try {
+    const snap = await db.collection('events').where('checkin.entryOnly', '==', true).get();
+    return new Set(snap.docs.map(d => d.id));
+  } catch {
+    return new Set();
+  }
+}
+
 export async function loadGoals(
   db: Firestore,
 ): Promise<Record<string, { required?: number; optional?: number }>> {

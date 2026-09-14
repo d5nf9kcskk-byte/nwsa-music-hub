@@ -75,6 +75,28 @@ t = tallyScans([
 ], TERMS);
 assert(t.terms.every(r => r.required === 0), 'a concert in no term does not land in a real semester');
 
+/* ── 1b. Entry-only concerts (#gradebook) ── */
+
+// The default is unchanged: an arrival with no departure is still incomplete.
+const arrivedOnly = [scan({ eventId: 'faculty', kind: 'in' })];
+t = tallyScans(arrivedOnly, TERMS);
+assert(t.terms[0].required === 0, 'without the flag, an arrival alone earns nothing');
+assert(t.incomplete.length === 1, 'and is reported as an unfinished pair');
+
+// With the flag, the same scan counts — the station failed at the door on the
+// way out, and the students did nothing wrong.
+t = tallyScans(arrivedOnly, TERMS, {}, new Set(['faculty']));
+assert(t.terms[0].required === 1, 'an entry-only concert credits the arrival scan');
+assert(t.incomplete.length === 0, 'and stops nagging the student about a check-out that never worked');
+
+// The flag reaches ONE concert. Every other night still needs both scans.
+t = tallyScans(
+  [...arrivedOnly, scan({ eventId: 'other', kind: 'in' })],
+  TERMS, {}, new Set(['faculty']),
+);
+assert(t.terms[0].required === 1, 'only the flagged concert is credited');
+assert(t.incomplete.length === 1 && t.incomplete[0].eventTitle !== '', 'the other is still incomplete');
+
 /* ── 2. It cannot be used to read someone else's attendance ── */
 
 assert(emailMatchesScans('ana@students.dadeschools.net', complete), 'the student sees their own count');
