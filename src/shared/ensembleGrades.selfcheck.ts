@@ -9,7 +9,7 @@
 import {
   COVERAGE_FLOOR, FULL_MARKS, attendanceByStudent, byLastName, commentReasons, concertSuggestion,
   conductValue, effortValue, examEvidence, fillValueFor, gradeValue, lastFirst, lastName,
-  meetingsHeld, planProblem, rowReadiness, tallyGrade,
+  displayName, meetingsHeld, parseName, planProblem, rowReadiness, tallyGrade,
   type GradeCategory, type MarkLike,
 } from './ensembleGrades.ts';
 
@@ -211,13 +211,42 @@ assert(concertSuggestion(4, 3) === 100, 'credit beyond the requirement does not 
 
 /* ── names, and the order the district asks for ────────────────────────── */
 
+// The roster stores names BOTH ways. Verified against the live data on
+// 2026-09-14: 120 of 142 active students as "Rose, William F." and 22 as
+// "Vincent T. Blades", with every student on the two district tables in the
+// comma form. A parser that handled only one of them put the middle initial
+// in the Last Name column and sorted the whole table by it.
+
+// "Last, First" — the form the district tables are actually stored in.
+assert(parseName('Rose, William F.').last === 'Rose', 'comma form: surname before the comma');
+assert(parseName('Rose, William F.').first === 'William F.', 'comma form: the rest after it');
+assert(displayName('Rose, William F.') === 'William F. Rose', 'Full Name reads First Last');
+assert(lastName('Beyra, Benjamin A.') === 'Beyra', 'the Last Name column is the SURNAME');
+assert(
+  lastName('Beyra, Benjamin A.') !== 'A.',
+  'and emphatically not the middle initial, which is what the old parser printed',
+);
+assert(lastFirst('Rose, William F.') === 'Rose, William F.', 'already Last, First stays put');
+
+// "First Last" — the other 22.
+assert(parseName('Vincent T. Blades').last === 'Blades', 'space form: the last word is the surname');
+assert(displayName('Vincent T. Blades') === 'Vincent T. Blades', 'and it displays unchanged');
 assert(lastFirst('Emily Block') === 'Block, Emily', 'Last, First');
 assert(lastFirst('Flavio Adamo Carrillo') === 'Carrillo, Flavio Adamo', 'middle names stay with the first');
-assert(lastFirst('Prince') === 'Prince', 'a single-word name keeps all of itself');
 assert(lastName('Isabella Chander') === 'Chander', 'the surname alone');
+
+// Edges.
+assert(lastFirst('Prince') === 'Prince', 'a single-word name keeps all of itself');
+assert(lastName('Prince') === 'Prince', 'and sorts as a surname rather than as nothing');
+assert(displayName('') === '' && lastName('') === '', 'an empty name never throws');
+assert(parseName('  Rose ,  William  F.  ').first === 'William F.', 'stray spacing is forgiven');
+
+// Both forms sort into ONE list, which is the case that actually matters: a
+// mixed roster must not put every comma-stored name in a separate block.
 assert(
-  ['Ryu Chan', 'David Antia', 'Emily Block'].sort(byLastName).join(' / ') === 'David Antia / Emily Block / Ryu Chan',
-  'alphabetical by surname is requirement number one',
+  ['Chan, Ryu', 'David Antia', 'Block, Emily', 'Vincent T. Blades'].sort(byLastName).join(' / ')
+    === 'David Antia / Vincent T. Blades / Block, Emily / Chan, Ryu',
+  'alphabetical by surname across both storage forms — requirement number one',
 );
 
 /* ── plan validation ───────────────────────────────────────────────────── */
