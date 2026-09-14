@@ -188,41 +188,50 @@ export function trimJuryRows(rows: JuryPiece[]): JuryPiece[] {
   return kept;
 }
 
-/**
- * A per-LESSON piece list, in the same paired shape as the jury list above —
- * reusing `JuryPiece` rather than a second type, since it's the same two
- * blanks either way.
- *
- * `Lesson.repertoireComposer`/`repertoireTitle` are stored as two newline-
- * joined strings (one composer, one title, matched by line) because the
- * paper log prints them as two columns. Editing them as two INDEPENDENT
- * textareas is what made the form "terrible": nothing kept line 2 of one box
- * lined up with line 2 of the other, so a two-piece lesson was two counts of
- * blind faith. `lessonPieces()`/`joinPieces()` are the seam — the editor
- * works on paired rows, and only these two functions ever touch the
- * newline-joined strings the doc, the CSV, the Dean's LessonsView display and
- * repertoireLine() (the mail body) all still read exactly as before.
- */
-export function lessonPieces(composer?: string, title?: string): JuryPiece[] {
-  const c = (composer ?? '').split(/\r?\n/);
-  const t = (title ?? '').split(/\r?\n/);
-  const rows = Array.from({ length: Math.max(c.length, t.length, 1) }, (_, i) => ({
-    composer: (c[i] ?? '').trim(),
-    title: (t[i] ?? '').trim(),
-  }));
-  const trimmed = trimJuryRows(rows);
-  // Never zero rows: the editor always needs a first line to type into, the
-  // same reason juryRows() pads up rather than starting empty.
-  return trimmed.length > 0 ? trimmed : [{ composer: '', title: '' }];
+/** Drop trailing blank lines, the flat-array analogue of trimJuryRows()
+ *  above — blanks BETWEEN entries are kept, only the tail is dropped. */
+function trimBlankLines(lines: string[]): string[] {
+  const kept = lines.map(l => l.trim());
+  while (kept.length > 0 && !kept[kept.length - 1]) kept.pop();
+  return kept;
 }
 
-/** The reverse of lessonPieces() — back to the two strings the doc stores. */
-export function joinPieces(pieces: JuryPiece[]): { composer: string; title: string } {
-  const trimmed = trimJuryRows(pieces);
-  return {
-    composer: trimmed.map(p => p.composer).join('\n'),
-    title: trimmed.map(p => p.title).join('\n'),
-  };
+/**
+ * A per-LESSON piece list: ONE free-text line per piece — "Composer, Title"
+ * typed as a single blank, not two.
+ *
+ * It was two independent boxes before (composer lines, title lines, matched
+ * by position) because `Lesson.repertoireComposer`/`repertoireTitle` are two
+ * newline-joined strings on the doc. That split is exactly what made the form
+ * "terrible" — nothing kept line 2 of one box lined up with line 2 of the
+ * other. One box per piece removes the chance of drift entirely, so
+ * `repertoireLines()` reads the OLD two-string shape by combining each pair
+ * with ", " (the same separator repertoireLine() below already joins with,
+ * so a freshly-combined line reads exactly like the mail body always has) —
+ * a lesson logged before this change opens with its composer and title
+ * already on one line, nothing retyped, nothing lost. Going forward only
+ * `repertoireComposer` is written; `repertoireTitle` is cleared on next save
+ * (saveLesson's existing clear-on-falsy handling does this for free) — see
+ * `joinRepertoireLines()`.
+ */
+export function repertoireLines(composer?: string, title?: string): string[] {
+  const c = (composer ?? '').split(/\r?\n/);
+  const t = (title ?? '').split(/\r?\n/);
+  const lines = Array.from({ length: Math.max(c.length, t.length, 1) }, (_, i) => {
+    const cc = (c[i] ?? '').trim();
+    const tt = (t[i] ?? '').trim();
+    return cc && tt ? `${cc}, ${tt}` : cc || tt;
+  });
+  const trimmed = trimBlankLines(lines);
+  // Never zero rows: the editor always needs a first line to type into, the
+  // same reason juryRows() pads up rather than starting empty.
+  return trimmed.length > 0 ? trimmed : [''];
+}
+
+/** The reverse of repertoireLines() — one newline-joined string, written to
+ *  `repertoireComposer` only. `repertoireTitle` is never populated again. */
+export function joinRepertoireLines(lines: string[]): string {
+  return trimBlankLines(lines).join('\n');
 }
 
 /** Default start/end for a new log line from payroll length. */

@@ -44,16 +44,15 @@
 .dir-log-time     { width: 130px; }
 .dir-log-grade    { width: 80px; }
 .dir-log-initial  { width: 78px; }
-.dir-log-composer { width: 180px; }
-.dir-log-title    { width: 220px; }
-.dir-log-comments { min-width: 340px; }
+.dir-log-repertoire { width: 340px; }
+.dir-log-comments   { min-width: 340px; }
 .dir-log-payroll  { width: 112px; white-space: nowrap; }
 .dir-log-actions  { width: 84px; white-space: nowrap; }
 
-/* Typed line breaks are content in these three — several pieces, several
-   comments — so a read-only row must show them rather than running the whole
-   lesson together into one paragraph. */
-.dir-log-composer, .dir-log-title, .dir-log-comments { white-space: pre-wrap; }
+/* Typed line breaks are content in both — several pieces, several comments —
+   so a read-only row must show them rather than running the whole lesson
+   together into one paragraph. */
+.dir-log-repertoire, .dir-log-comments { white-space: pre-wrap; }
 
 /* A cancelled lesson keeps its row number — the paper form's rows are a
    sequence, and a gap would make the log look tampered with. It reads as
@@ -90,8 +89,6 @@
   line-height: 1.4;
   overflow: hidden auto;
 }
-.dir-log-composer textarea.dir-input,
-.dir-log-title textarea.dir-input { min-height: 4.6em; }
 .dir-log-comments textarea.dir-input { min-height: 7em; }
 
 .dir-log-missing { color: var(--dir-text-muted); }

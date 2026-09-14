@@ -20,14 +20,15 @@ import {
   draftRowIndex,
   initialsOk,
   isLogCompleteForMail,
-  joinPieces,
+  joinRepertoireLines,
   juryRows,
   lessonLengthLabel,
-  lessonPieces,
   logMaterialChanged,
   logRowsWithDraft,
   sameTerm,
   landingTerm,
+  repertoireLine,
+  repertoireLines,
   schoolYearLabel,
   sheetKey,
   suggestTeacherInitials,
@@ -781,8 +782,7 @@ function LogHead({ withActions }: { withActions?: boolean }) {
         <th className="dir-log-grade">Lesson grade</th>
         <th className="dir-log-initial">Teacher initial</th>
         <th className="dir-log-initial">Student initial</th>
-        <th className="dir-log-composer">Composer</th>
-        <th className="dir-log-title">Title</th>
+        <th className="dir-log-repertoire">Composer, Title</th>
         <th className="dir-log-comments">Technique / comments</th>
         <th className="dir-log-payroll">Payroll</th>
         {withActions && <th className="dir-log-actions">Edit</th>}
@@ -839,8 +839,7 @@ function LogReadRow({
       <td><GradeCell grade={lesson.grade} /></td>
       <td>{lesson.teacherInitials || <span className="dir-log-missing">—</span>}</td>
       <td>{lesson.studentInitials || <span className="dir-log-missing">—</span>}</td>
-      <td className="dir-log-composer">{lesson.repertoireComposer || <span className="dir-log-missing">—</span>}</td>
-      <td className="dir-log-title">{lesson.repertoireTitle || <span className="dir-log-missing">—</span>}</td>
+      <td className="dir-log-repertoire">{repertoireLine(lesson) || <span className="dir-log-missing">—</span>}</td>
       <td className="dir-log-comments">
         {lesson.gradeNote || <span className="dir-log-missing">—</span>}
         {lesson.location && <div className="dir-log-missing"><MapPin size={10} style={{ verticalAlign: '-1px' }} /> {lesson.location}</div>}
@@ -1550,17 +1549,29 @@ function LessonLogPage({
   // Empty by default — NOT carried forward from last lesson. A blind copy
   // risks a teacher not noticing and logging last week's piece as this
   // week's. "Same as last lesson" (below) makes the suggestion an explicit
-  // tap instead, for repertoire and for technique/comments alike.
-  const [pieces, setPieces] = useState<JuryPiece[]>(
-    () => lessonPieces(lesson?.repertoireComposer, lesson?.repertoireTitle),
+  // tap instead, for repertoire and for technique/comments alike. Old data
+  // logged as separate composer/title lines is combined onto one line each
+  // here, so it opens already in the new shape with nothing lost.
+  const [pieces, setPieces] = useState<string[]>(
+    () => repertoireLines(lesson?.repertoireComposer, lesson?.repertoireTitle),
   );
   // Not useMemo: `last` itself is a plain per-render const (see `last` above,
   // derived fresh from `above` each time), so memoizing on it would never
   // actually cache anything — and confuses the React Compiler's own
   // memoization pass, which wants a dependency it can prove is stable.
-  const lastPieces = lessonPieces(last?.repertoireComposer, last?.repertoireTitle)
-    .filter(p => p.composer || p.title);
-  const joinedPieces = useMemo(() => joinPieces(pieces), [pieces]);
+  const lastPieces = repertoireLines(last?.repertoireComposer, last?.repertoireTitle)
+    .filter(Boolean);
+  const combinedRepertoire = useMemo(() => joinRepertoireLines(pieces), [pieces]);
+  // The lesson's ORIGINAL repertoire, run through the same combine step, so
+  // "did the teacher actually change anything" compares like with like. A
+  // lesson graded under the old two-field shape combines to the identical
+  // string here as it does in `pieces` above when untouched — comparing
+  // against the raw old fields instead would see every old-format lesson as
+  // "changed" the moment its format migrates, and void a student initial
+  // that nothing about the content actually invalidated.
+  const originalRepertoireCombined = lesson
+    ? joinRepertoireLines(repertoireLines(lesson.repertoireComposer, lesson.repertoireTitle))
+    : '';
   const [payrollMinutes, setPayrollMinutes] = useState<PayrollMinutes>(
     lesson?.payrollMinutes ?? last?.payrollMinutes ?? defaultPayroll,
   );
@@ -1603,11 +1614,11 @@ function LessonLogPage({
     setEndTime(next.endTime);
   }
 
-  function setPieceField(i: number, field: 'composer' | 'title', value: string) {
-    setPieces(cur => cur.map((p, j) => (j === i ? { ...p, [field]: value } : p)));
+  function setPieceLine(i: number, value: string) {
+    setPieces(cur => cur.map((p, j) => (j === i ? value : p)));
   }
   function addPieceRow() {
-    setPieces(cur => [...cur, { composer: '', title: '' }]);
+    setPieces(cur => [...cur, '']);
   }
   function removePieceRow(i: number) {
     setPieces(cur => (cur.length > 1 ? cur.filter((_, j) => j !== i) : cur));
@@ -1615,14 +1626,14 @@ function LessonLogPage({
   /** Explicit tap, not automatic — see the note on the `pieces` state above. */
   function useLastPieces() {
     if (lastPieces.length === 0) return;
-    setPieces(lastPieces.map(p => ({ ...p })));
+    setPieces([...lastPieces]);
   }
 
   const hasConflict = conflicts.length > 0;
   const validTimes = !!startTime && !!endTime && endTime > startTime;
   const teacherReady = !!date && validTimes && (!hasConflict || ackConflict)
     && isLessonGrade(grade) && initialsOk(teacherInitials)
-    && !!joinedPieces.composer && !!joinedPieces.title
+    && !!combinedRepertoire
     && !!gradeNote.trim();
 
   function buildPayload(initials: string, initialedAt?: number): LessonPayload {
@@ -1638,8 +1649,11 @@ function LessonLogPage({
       notes: notes.trim() || undefined,
       grade: grade.trim() || undefined,
       gradeNote: grade.trim() ? gradeNote.trim() || undefined : undefined,
-      repertoireComposer: joinedPieces.composer || undefined,
-      repertoireTitle: joinedPieces.title || undefined,
+      repertoireComposer: combinedRepertoire || undefined,
+      // Never written again — repertoireLines() reads the old two-field
+      // shape on load, and saveLesson's clear-on-falsy handling drops any
+      // leftover title on the very next save of this lesson.
+      repertoireTitle: undefined,
       teacherInitials: teacherInitials.trim() || undefined,
       studentInitials: initials.trim() || undefined,
       studentInitialedAt: initials.trim() ? (initialedAt ?? Date.now()) : undefined,
@@ -1662,16 +1676,22 @@ function LessonLogPage({
     if (!teacherReady) {
       setError(
         `Fill every blank first: date, time, a lesson grade from ${LESSON_GRADE_MIN} to ${LESSON_GRADE_MAX}, `
-        + 'composer, title, technique/comments, and your initials.',
+        + 'repertoire, technique/comments, and your initials.',
       );
       return;
     }
-    // Material edits void a prior student initial.
-    if (lesson && initialsOk(lesson.studentInitials) && logMaterialChanged(lesson, {
-      date, startTime, endTime, grade, gradeNote,
-      repertoireComposer: joinedPieces.composer, repertoireTitle: joinedPieces.title,
-      payrollMinutes,
-    })) {
+    // Material edits void a prior student initial. Repertoire compares
+    // combined-to-combined (see originalRepertoireCombined above) so a
+    // lesson merely migrating from the old two-field shape doesn't read as
+    // a change.
+    if (lesson && initialsOk(lesson.studentInitials) && logMaterialChanged(
+      { ...lesson, repertoireComposer: originalRepertoireCombined, repertoireTitle: undefined },
+      {
+        date, startTime, endTime, grade, gradeNote,
+        repertoireComposer: combinedRepertoire, repertoireTitle: undefined,
+        payrollMinutes,
+      },
+    )) {
       setStudentInitials('');
     }
     setStep('student');
@@ -1833,27 +1853,15 @@ function LessonLogPage({
                   ? studentInitials
                   : <span className="dir-log-missing">The student types these below</span>}
               </td>
-              <td className="dir-log-composer">
-                {pieces.map((p, i) => (
-                  <input
-                    key={i}
-                    className="dir-input" style={{ marginBottom: 4 }}
-                    list="piece-composer-suggestions"
-                    value={p.composer} disabled={step === 'student'}
-                    onChange={e => setPieceField(i, 'composer', e.target.value)}
-                    placeholder="Composer" aria-label={`Piece ${i + 1} composer`}
-                  />
-                ))}
-              </td>
-              <td className="dir-log-title">
-                {pieces.map((p, i) => (
+              <td className="dir-log-repertoire">
+                {pieces.map((line, i) => (
                   <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
                     <input
                       className="dir-input"
-                      list="piece-title-suggestions"
-                      value={p.title} disabled={step === 'student'}
-                      onChange={e => setPieceField(i, 'title', e.target.value)}
-                      placeholder="Title" aria-label={`Piece ${i + 1} title`}
+                      list="piece-suggestions"
+                      value={line} disabled={step === 'student'}
+                      onChange={e => setPieceLine(i, e.target.value)}
+                      placeholder="Composer, Title" aria-label={`Piece ${i + 1}`}
                     />
                     {step === 'teacher' && pieces.length > 1 && (
                       <button
@@ -1879,11 +1887,8 @@ function LessonLogPage({
                 )}
                 {/* Suggestions only, never a silent pre-fill — the piece a
                     teacher logs is a compliance record, not a guess. */}
-                <datalist id="piece-composer-suggestions">
-                  {lastPieces.map((p, i) => p.composer && <option key={i} value={p.composer} />)}
-                </datalist>
-                <datalist id="piece-title-suggestions">
-                  {lastPieces.map((p, i) => p.title && <option key={i} value={p.title} />)}
+                <datalist id="piece-suggestions">
+                  {lastPieces.map((line, i) => <option key={i} value={line} />)}
                 </datalist>
               </td>
               <td className="dir-log-comments">
