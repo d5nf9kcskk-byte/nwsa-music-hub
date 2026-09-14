@@ -32,6 +32,24 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Gradebook follow-ups the same evening (#gradebook): fill at full marks,
+  // the standing request on screen, the whole studio on the applied table, and
+  // the faculty recital credited on arrival.
+  {
+    id: '2026-09-14-gradebook-fill',
+    date: '2026-09-14',
+    title: 'Gradebook: start at full marks and adjust down',
+    audience: 'staff' as const,
+    expires: '2026-10-05',
+    bullets: [
+      'Every column now has a Fill button. Attendance, Preparation, Performance and Professionalism fill at 100 so you can adjust down from there, the same way you take roll by marking the exceptions. Playing Exams and Required Performance Attendance still fill with their computed number.',
+      'One press at the bottom fills every empty box on the table. Nothing you have already typed is ever overwritten, so filling twice is safe and filling after you adjust somebody does not undo it.',
+      'Worth knowing: once a column is filled, a student you never looked at reads the same as one you considered and left at 100. Blank used to be the signal that a row still needed you.',
+      'The standing request sits at the top of the screen now: alphabetical, 0 to 100 with no letters, effort 1 to 3, conduct A to F, and a comment for anyone at 79 or lower, effort 3, or conduct C or lower. All 25 district comment codes are listed there too.',
+      'The Applied tab lists every violin student assigned to you, whether or not a lesson has been logged this quarter. One with no graded lessons yet says so and leaves the box blank rather than dropping off the report.',
+      'The NWSA Music Faculty Recital on Aug 31 now counts on the arrival scan alone, because the check-out station failed that night. It is the only required concert so far this quarter, so that was 15% of the grade reading as zero for anyone who did not check out.',
+    ],
+  },
   // Quarter grades and the district report (#gradebook). Staff-only: grades
   // are staff-only data, `gradeMarks` has no public projection, and nothing
   // on the student site changed.

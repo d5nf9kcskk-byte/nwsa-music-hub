@@ -186,6 +186,19 @@
       "49": "No final grade assigned due to limited time of enrollment",
       "50": "Grade earned at another location"
     },
+    "instructions": {
+      "title": "What the teacher of record asks for, every interim and every quarter",
+      "items": [
+        "Every student, in alphabetical order.",
+        "An academic grade 0 to 100. No letter grades.",
+        "An effort grade, 1 (best) to 3 (worst).",
+        "A conduct grade: A, B, C, D or F.",
+        "A comment for any student scoring 79 or lower academically.",
+        "A comment for any student with an effort grade of 3.",
+        "A comment for any student with a conduct grade of C or lower."
+      ],
+      "note": "Alphabetical order and blank-not-zero are handled for you. The three comment rules are flagged on the row the moment they apply."
+    },
     "email": {
       "recipientName": "Brent Mounger",
       "subjectSuffix": "Grades (HS)",

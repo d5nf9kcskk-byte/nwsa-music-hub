@@ -176,3 +176,46 @@
   .dir-gb-table th.dir-gb-name,
   .dir-gb-table td.dir-gb-name { min-width: 180px; }
 }
+
+/* The teacher of record's standing request, at the top of the screen. It is
+   the specification this whole page is built against, so it belongs in front
+   of the person filling the page in. Collapsible, because on the fifth visit
+   you know it by heart. */
+.dir-gb-brief {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--dir-border, #e2e8f0);
+  border-left: 3px solid var(--dir-accent, #0d7e8e);
+  border-radius: 8px;
+  background: var(--dir-card, #fff);
+  font-size: 13px;
+}
+.dir-gb-brief > summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style-position: outside;
+}
+.dir-gb-brief-list { margin: 8px 0 0; padding-left: 20px; line-height: 1.6; }
+.dir-gb-brief-note {
+  margin: 8px 0 0;
+  color: var(--dir-muted, #64748b);
+  line-height: 1.5;
+}
+.dir-gb-codes-ref { margin-top: 8px; }
+.dir-gb-codes-ref > summary {
+  cursor: pointer;
+  color: var(--dir-accent, #0d7e8e);
+  font-size: 12px;
+}
+.dir-gb-codes-ref ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--dir-muted, #64748b);
+}
+
+.dir-gb-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.dir-gb-actions .dir-tool-btn { display: inline-flex; align-items: center; gap: 6px; }

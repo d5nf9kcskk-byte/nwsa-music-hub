@@ -1,0 +1,46 @@
+name: Set concert entry-only
+
+# Credits the concerts listed in config/entry-only-concerts.json on the ARRIVAL
+# scan alone, for a night whose check-out station failed (#gradebook).
+#
+# The list is committed, so which concerts got the exemption and why is visible
+# in the diff rather than in somebody's shell history. This workflow only
+# applies it. Cloud agents trigger via a push to
+# `.github/triggers/set-concert-entry-only`, matching every other admin-write
+# workflow in this repo.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List what would change without writing anything'
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - '.github/triggers/set-concert-entry-only'
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Apply entry-only to the listed concerts
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          EXTRA=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            [ "${{ inputs.dry_run }}" = "true" ] && EXTRA="--dry-run"
+          elif [ -f .github/triggers/set-concert-entry-only ]; then
+            grep -q '"dry_run"[[:space:]]*:[[:space:]]*true' .github/triggers/set-concert-entry-only && EXTRA="--dry-run"
+          fi
+          node scripts/set-concert-entry-only.mjs $EXTRA
