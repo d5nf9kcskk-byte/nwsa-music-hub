@@ -32,6 +32,25 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Quarter grades and the district report (#gradebook). Staff-only: grades
+  // are staff-only data, `gradeMarks` has no public projection, and nothing
+  // on the student site changed.
+  {
+    id: '2026-09-14-gradebook',
+    date: '2026-09-14',
+    title: 'Grade a quarter, and build the report in one press',
+    audience: 'staff' as const,
+    expires: '2026-10-05',
+    bullets: [
+      'New Gradebook tab. Pick the quarter and whether it is the interim or the end of it, and every student on that section comes up with what the Hub already knows on the same line: unexcused absences, excused absences, lateness, how many rehearsals actually took roll, every playing exam score, and required concerts credited.',
+      'You type the category scores. The Hub does not grade attendance for you — an excused absence costs nothing and is a record, and how much an unexcused one weighs on Preparation is your call, made with the count in front of you.',
+      'Playing Exams and Required Performance Attendance arrive with a suggested number in grey, worked out from the exams you have already graded and the concerts that were held. Take it, type over it, or use Fill to drop it into every empty box in the column at once.',
+      'A category you have not scored leaves the average entirely, so an interim in week three is not dragged down by an exam that has not happened. Until half the plan is scored there is no number at all, because a 94 built from one category is not a grade.',
+      'Effort, conduct and the district comment codes are on the same row, and the row tells you when a comment is required: 79 or lower, an effort of 3, or a conduct of C or lower. The footer counts what is still missing before you send anything.',
+      'Build the email and all three tables come out in the layouts the district expects, alphabetical by surname, with Camerata saying Behavior and Orchestra saying Conduct. One button copies them with their borders and header colours, so they paste straight into Outlook. A student you have not graded arrives as a blank cell, never a zero.',
+      'Concerts: a concert can now be set to count on the arrival scan alone, on the Event form, for the night the check-out did not work. It is per concert on purpose — everywhere else both scans still matter.',
+    ],
+  },
   // Chunked resumable upload (#video-upload-reliability Phase 2): a video
   // submission now survives a closed tab or a killed app mid-upload instead
   // of having to start over from byte zero.

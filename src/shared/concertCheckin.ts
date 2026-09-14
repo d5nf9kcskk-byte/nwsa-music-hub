@@ -107,6 +107,31 @@ export interface EventCheckinConfig {
   inClosesMinutesAfterStart?: number | null;
   minStayMinutes?: number | null;
   photoOptional?: boolean;
+  /**
+   * Credit this concert on the ARRIVAL scan alone (#gradebook, Sept 2026).
+   *
+   * A concert normally counts only when both scans exist, because checking in
+   * and wandering off is the case the check-out was built to catch. But the
+   * station can fail at the door on the way out — a queue at the end, a dead
+   * phone, an adult sending everyone home — and when it does, the students
+   * did nothing wrong and the record is all the school has. The director
+   * turns this on for THAT concert, and only that one.
+   *
+   * Deliberately per-event and deliberately not a site default: a default
+   * would quietly retire the check-out everywhere, which is the opposite of
+   * what it is for. Absent means both scans, which is every concert that
+   * predates this field.
+   */
+  entryOnly?: boolean;
+}
+
+/**
+ * Whether a student's scans earn credit for a concert — the ONE answer, so
+ * the director's tally, the student's own "2 of 3", and the grade evidence
+ * can never disagree about whether a night counted.
+ */
+export function scansCredited(hasIn: boolean, hasOut: boolean, entryOnly: boolean): boolean {
+  return entryOnly ? hasIn : hasIn && hasOut;
 }
 
 /** Minimal event shape — the app's CalendarEvent and the function's raw

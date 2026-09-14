@@ -130,6 +130,94 @@
     { "id": "2026-fall", "name": "Fall 2026", "start": "2026-08-17", "end": "2026-12-19" },
     { "id": "2027-spring", "name": "Spring 2027", "start": "2027-01-06", "end": "2027-06-03" }
   ],
+  "grading": {
+    "periods": [
+      { "id": "2026-q1", "termId": "2026-fall", "name": "Quarter 1", "ordinal": "1st Quarter", "short": "Q1",
+        "start": "2026-08-13", "end": "2026-10-16", "interim": "2026-09-15" },
+      { "id": "2026-q2", "termId": "2026-fall", "name": "Quarter 2", "ordinal": "2nd Quarter", "short": "Q2",
+        "start": "2026-10-19", "end": "2027-01-14", "interim": "2026-12-03", "interimEstimated": true },
+      { "id": "2027-q3", "termId": "2027-spring", "name": "Quarter 3", "ordinal": "3rd Quarter", "short": "Q3",
+        "start": "2027-01-19", "end": "2027-03-19", "interim": "2027-02-23", "interimEstimated": true },
+      { "id": "2027-q4", "termId": "2027-spring", "name": "Quarter 4", "ordinal": "4th Quarter", "short": "Q4",
+        "start": "2027-03-30", "end": "2027-06-03", "interim": "2027-05-06" }
+    ],
+    "plans": {
+      "byGroupKey": {
+        "applied": [
+          { "id": "lessons", "label": "Lesson average", "weight": 100, "suggest": "lessons" }
+        ]
+      },
+      "default": [
+        { "id": "attendance", "label": "Attendance & Punctuality", "weight": 30 },
+        { "id": "prep", "label": "Preparation & Participation", "weight": 10 },
+        { "id": "exams", "label": "Playing Exams", "weight": 15, "suggest": "exams" },
+        { "id": "performance", "label": "Performance", "weight": 20 },
+        { "id": "concerts", "label": "Required Performance Attendance", "weight": 15, "suggest": "concerts" },
+        { "id": "professionalism", "label": "Professionalism", "weight": 10 }
+      ]
+    },
+    "commentRules": { "academicAtOrBelow": 79, "effortAtOrAbove": 3, "conductAtOrBelow": "C" },
+    "commentCodes": {
+      "03": "Please arrange for a parent/teacher conference",
+      "04": "Understands and accepts responsibility",
+      "06": "Demonstrates qualities of a model student",
+      "07": "Puts forth maximum effort; very cooperative",
+      "08": "Requires close supervision",
+      "09": "Requires special help in following directions",
+      "10": "Needs improvement in classroom behavior",
+      "11": "Absences/Tardies have seriously affect progress",
+      "12": "Possesses leadership qualities",
+      "13": "Is very self-directed; can work independently",
+      "14": "Fails to complete required assignments",
+      "15": "Shows excellent class attitude",
+      "16": "Much improvement shown this grading period",
+      "17": "Well prepared for class",
+      "18": "Does not participate",
+      "19": "Unprepared for class",
+      "20": "Working below proficiency level as measured by benchmark testing",
+      "29": "Grade withheld pending parent/teacher conference",
+      "31": "Insufficient attendance for grade",
+      "32": "Summer school recommended",
+      "33": "Requires progress monitoring for this academic year",
+      "39": "No grade received because of limitations in evaluating progress",
+      "41": "Receiving academic assistance in this subject",
+      "42": "Needs to be supervised when completing homework",
+      "47": "Requires assistance and/or prompting to complete tasks",
+      "49": "No final grade assigned due to limited time of enrollment",
+      "50": "Grade earned at another location"
+    },
+    "email": {
+      "recipientName": "Brent Mounger",
+      "subjectSuffix": "Grades (HS)",
+      "intro": "Orchestra, Camerata, and Applied grades:"
+    },
+    "reports": [
+      {
+        "id": "camerata",
+        "title": "Camerata",
+        "source": { "kind": "ensemble", "ensembleId": "camerata-string-orchestra" },
+        "headerColor": "#548235",
+        "conductLabel": "Behavior",
+        "columns": ["fullName", "lastName", "grade", "effort", "conduct", "codes"]
+      },
+      {
+        "id": "applied",
+        "title": "Applied",
+        "source": { "kind": "appliedLessons", "instrumentPattern": "violin" },
+        "headerColor": "#a6a6a6",
+        "conductLabel": "Behavior",
+        "columns": ["lastFirst", "instrument", "grade", "effort", "conduct"]
+      },
+      {
+        "id": "orchestra",
+        "title": "Orchestra",
+        "source": { "kind": "ensemble", "ensembleId": "symphony-orchestra" },
+        "headerColor": "#4472c4",
+        "conductLabel": "Conduct",
+        "columns": ["fullName", "grade", "effort", "conduct", "codes"]
+      }
+    ]
+  },
   "checkin": {
     "emailDomains": ["students.dadeschools.net", "mymdc.net", "mdc.edu"],
     "guestEmailDomains": ["mymdc.net", "mdc.edu"],

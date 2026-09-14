@@ -1,8 +1,12 @@
 # Grades in the Hub, and the half-quarter report to the teacher of record
 
 **Date:** 2026-09-14
-**Status:** design. Nothing built. Supersedes the 11 Sep "Gradebook in the Hub"
-recommendation, whose verdict I keep and whose build plan I am replacing.
+**Status:** BUILT, same day, once the four syllabi, the district's comment
+codes and the workbook itself turned up. See "What changed once the real
+documents arrived" at the end: three of the decisions below were corrected by
+those documents, and one of them (attendance) was narrowed by the director on
+purpose. Supersedes the 11 Sep "Gradebook in the Hub" recommendation, whose
+verdict I keep and whose build plan I replaced.
 
 The 11 Sep note asked the right question (build it here, or wire Excel to
 Firestore?) and answered it correctly: **build it here, and make the
@@ -506,3 +510,113 @@ and is not getting one by accident. A student seeing their own breakdown would
 be a new mirror with its own pinned allowlist and its own decision, never a
 loosened read rule. Out of scope here, and worth deciding deliberately, because
 the answer changes what the marks screen is for.
+
+
+---
+
+## What changed once the real documents arrived
+
+Written the same evening, after the four Fall 2026 syllabi, the district's
+comment-code list, Brent's standing request email and the Excel workbook all
+turned up. Four corrections, and they are the reason this section exists
+rather than the plan above being treated as finished.
+
+### The weights were wrong in the plan above, and right in the workbook
+
+Camerata and MUN 1210 Symphony carry the SAME five categories, verbatim:
+Attendance & Punctuality 30, Preparation & Participation 25, Performance 20,
+Required Performance Attendance 15, Professionalism 10. There is no Playing
+Exams category at all. Both syllabi put exams inside Preparation: "your
+development will be monitored through rehearsal performance, playing exams,
+and conductor observation."
+
+The workbook had already resolved this, on the director's own instruction, by
+carving 15 points out of Preparation into a Playing Exams line, leaving Prep
+at 10. That is what shipped, because it is what the director decided and
+because it is what makes "use the exam grades the app already has" mean
+anything. The syllabus split is one config edit away if it should read the
+other way.
+
+The two college classes are a different shape entirely and are NOT built yet:
+String Pedagogy is six weighted assessments with expected counts and a
+drop-the-lowest rule, Music History is 40/40/20 with the same rule. **Expected
+count** and **drop lowest N** are real requirements that no category in this
+design carries. They are the college phase's first job.
+
+### The Hub does not grade attendance. The director does.
+
+The director's call: an excused absence costs nothing and is a record only; an
+unexcused absence or lateness informs the Preparation mark, and by how much is
+a judgement made with the counts in view.
+
+That deletes the whole `MarkCost` deduction table proposed above, and it is a
+better answer than the one I argued for. Roll here is exception-only, so a
+computed rate would have rested on a denominator the director never knew they
+were creating. What shipped instead: every category is a typed number, with
+the Hub's records printed on the same line, and two categories (Playing Exams,
+Required Performance Attendance) arriving with a computed suggestion in grey
+because those are countable rather than observed.
+
+The attendance module still exists and still matters. It just feeds a person
+rather than a formula, and it keeps every bucket apart (unexcused, excused,
+late, late excused, lesson pull-out) precisely because the director grades
+them differently.
+
+### The grading calendar was half in the Hub already
+
+`src/director/seedCalendar.ts` has carried the MDCPS grading-period boundaries
+since the season was seeded, and they are correct: Q1 Aug 13 to Oct 16, Q2 Oct
+19 to Jan 14, Q3 Jan 19 to Mar 19, Q4 Mar 30 to Jun 3. What is nowhere in the
+Hub, or in the district's published calendar, is an INTERIM date. The workbook
+derived its four by taking the one confirmed deadline (Brent's Q4 email, Wed
+May 6) as 60% through that quarter's school days and applying the same
+fraction to the others.
+
+That model gives Sep 22 for Q1. The real Q1 interim is Sep 15. So the model is
+wrong, and the file now says so: `interim` is a published date where one is
+known (Q1 and Q4), flagged `interimEstimated` where it is not (Q2 and Q3), and
+the screen prints the warning rather than letting an estimate pass as a
+deadline. `defaultCutoff` never invents one.
+
+Two calendar facts worth a look, both unresolved: `ORG.terms` says Fall 2026
+starts **Aug 17**, while MDCPS started Aug 13 and MDC starts Aug 24, and that
+field is what concert tallies count against. And the Camerata and Symphony
+syllabi both run 08/24 to 12/11, the MDC term, while the students on them are
+graded on the MDCPS quarters.
+
+### Concert credit, for the night the check-out failed
+
+The first faculty concert took arrivals and then the station failed at the
+door on the way out. `tallyScans()` credits a concert only when both scans
+exist, so every one of those students reads as having attended nothing.
+
+`checkin.entryOnly` on the event fixes it, and the rule lives in ONE place,
+`scansCredited()` in `concertCheckin.ts`, called by the director's board, by
+the Gradebook evidence, and by the Cloud Function behind the student's own
+"2 of 3". If those two ever disagree, the student is the one holding the wrong
+number. It is per concert and deliberately has no site default: a default
+would quietly retire the check-out everywhere, which is the opposite of what
+it is for.
+
+### What shipped
+
+- `src/shared/gradingPeriods.ts`: the calendar, and the rule that an interim
+  covers the quarter TO DATE rather than the weeks since the last one.
+- `src/shared/ensembleGrades.ts`: the arithmetic, the fail-closed readers,
+  the coverage floor, the evidence tallies, and the district's comment rules.
+- `src/shared/interimReport.ts`: the three tables, alphabetical by surname,
+  with each section's own column headings, as HTML that survives a paste into
+  Outlook.
+- `src/director/grades/GradebookView.tsx`: the screen.
+- `gradeMarks` in `firestore.rules`: staff-only, key fields pinned to the doc
+  id, no public projection and not getting one.
+- Three self-checks in the shared CI action.
+
+### Still open
+
+- Q2 and Q3 interim dates.
+- The two college classes: expected counts and drop-the-lowest.
+- Whether the report should SEND rather than be pasted. Everything above is
+  built for it, `interimReport.ts` is pure and runs in the Functions bundle,
+  but nothing sends yet, and the send is where the rules in "The send" above
+  become load-bearing rather than theoretical.
