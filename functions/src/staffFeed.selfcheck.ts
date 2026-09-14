@@ -162,6 +162,9 @@ assert(staffTokenDocId('dir@nwsa.edu') !== 'appointments__dir@nwsa.edu',
     lessons: {
       'les-mine': { teacherEmail: 'teach@nwsa.edu', studentId: 'stu-1', date: today, startTime: '15:00', endTime: '15:30' },
       'les-theirs': { teacherEmail: 'other@nwsa.edu', studentId: 'stu-2', date: today, startTime: '16:00', endTime: '16:30' },
+      // Cancelled, but still this teacher's and still inside the window —
+      // the case a status-only guard would miss.
+      'les-cancelled': { teacherEmail: 'teach@nwsa.edu', studentId: 'stu-1', date: today, startTime: '17:00', endTime: '17:30', status: 'Cancelled' },
     },
     studentsPublic: { 'stu-1': { name: 'Ana Reyes' }, 'stu-2': { name: 'Ben Ortiz' } },
     repertoire: {},
@@ -213,6 +216,12 @@ assert(staffTokenDocId('dir@nwsa.edu') !== 'appointments__dir@nwsa.edu',
   const forTeacher = await buildStaffIcs(db, 'teach@nwsa.edu');
   assert(forTeacher.includes('Ana Reyes'), 'the applied teacher gets their own student’s lesson');
   assert(!forTeacher.includes('Ben Ortiz'), "and NEVER another teacher's studio");
+  // A cancelled lesson gets NO VEVENT at all — omitted, not merely labeled.
+  // STATUS:CANCELLED alone is not enough: several phone calendar apps ignore
+  // it on a subscribed feed (icsSummary's own #30 comment), so a status-only
+  // guard would still leave the lesson visible on someone's calendar.
+  assert(!forTeacher.includes('lesson-les-cancelled@'), 'a cancelled lesson never gets a VEVENT');
+  assert((forTeacher.match(/UID:lesson-/g) ?? []).length === 1, 'only the one live lesson produced a VEVENT');
   assert(!forTeacher.includes('Symphony Rehearsal') && !forTeacher.includes('Phil Rehearsal'),
     'an unassigned teacher gets nobody’s rehearsals — not even by the school-wide ride-along');
   assert(forTeacher.includes('Teacher Planning Day'), 'but still the days that move everyone');

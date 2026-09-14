@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine, FileSpreadsheet } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -118,7 +118,12 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
       ...(__ORG_PERSONNEL__
         ? [{ id: 'personnel' as const, label: 'Personnel', Icon: Users }]
         : [{ id: 'roster' as const, label: 'Roster', Icon: Users }]),
-      { id: 'lessons', label: 'Lessons',       Icon: GraduationCap },
+      // Distinct icon/label from 'myLessons' on purpose: this is the Dean
+      // overview of every applied teacher's log (payroll/grade tracking,
+      // LessonsView.tsx), not a teacher's own studio. Both used to share
+      // GraduationCap and sit adjacent in this same list, which read as two
+      // copies of one screen — reported directly as confusing.
+      { id: 'lessons', label: 'All Lessons',   Icon: FileSpreadsheet },
       { id: 'notes',  label: 'Progress Notes', Icon: FileText },
     ],
   },
@@ -147,7 +152,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   today:           'Today',
   roll:            'Take Roll',
   roster:          'Roster',
-  lessons:         'Lessons',
+  lessons:         'All Lessons',
   myLessons:       'My Lessons',
   schedule:        'Schedule',
   scheduleChanges: 'Move a Student',
@@ -398,7 +403,7 @@ export default function DirectorApp() {
                       <div className="dir-rail-head">{g.head}</div>
                     )}
                     {(!isLibrary || libraryOpen) && g.items.map(({ id, label, Icon }) => (
-                      <button key={id} className={`dir-rail-item ${tab === id ? 'active' : ''}`} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined}>
+                      <button key={id} className={`dir-rail-item ${tab === id ? 'active' : ''}`} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined} title={TAB_HINTS[id]}>
                         <Icon size={18} /> {label}
                         {id === 'messages' && newMsgCount > 0 && <span className="dir-nav-badge">{newMsgCount}</span>}
                         {id === 'approvals' && approvalCount > 0 && <span className="dir-nav-badge">{approvalCount}</span>}
@@ -669,6 +674,7 @@ export default function DirectorApp() {
                         className={`dir-menu-item ${tab === id ? 'active' : ''}`}
                         onClick={() => go(id)}
                         aria-current={tab === id ? 'page' : undefined}
+                        title={TAB_HINTS[id]}
                       >
                         <Icon size={19} /> {label}
                         {id === 'messages' && newMsgCount > 0 && <span className="dir-nav-badge">{newMsgCount}</span>}

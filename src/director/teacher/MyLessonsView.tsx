@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { doc, updateDoc, deleteField } from 'firebase/firestore';
-import { Plus, Trash2, Pencil, MapPin, AlertTriangle, Search, ChevronLeft, Mail } from 'lucide-react';
+import { Plus, Trash2, Pencil, MapPin, AlertTriangle, Search, ChevronLeft, Mail, CalendarOff } from 'lucide-react';
 import { db } from '../firebase';
 import { useCurrentDirector } from '../currentDirector';
 import { useMyDirector, directorEmailId } from '../hooks/useDirectors';
@@ -20,8 +20,10 @@ import {
   draftRowIndex,
   initialsOk,
   isLogCompleteForMail,
+  joinPieces,
   juryRows,
   lessonLengthLabel,
+  lessonPieces,
   logMaterialChanged,
   logRowsWithDraft,
   sameTerm,
@@ -39,7 +41,7 @@ import {
 } from '../lessonLog';
 import {
   doubledUpOffSlot, lessonPayloadsFor, lessonsOffSlot, pendingSlotDates, planHasWork, schoolYearEnd, skippedNoSchoolDates, slotChangePlan,
-  slotSentence, WEEKDAY_OPTIONS, type LessonSlot, type SlotChangePlan,
+  slotSentence, weekOf, WEEKDAY_OPTIONS, type LessonSlot, type SlotChangePlan,
 } from '../lessonSchedule';
 import { enqueueLessonLogMail } from '../lessonLogMail';
 import { todayStr, parseDate, formatTime, formatTimeRange } from '../utils';
@@ -81,7 +83,7 @@ export function MyLessonsView() {
   const { events } = useEvents();
   const { ensembles } = useEnsembles();
   const { overrides, addOverride, deleteOverride } = useRosterOverrides();
-  const { lessons, addLesson, updateLesson, deleteLesson, syncLessonMirror } = useLessons();
+  const { lessons, addLesson, updateLesson, deleteLesson, cancelLesson, syncLessonMirror } = useLessons();
 
   const today = todayStr();
   const [editingStudents, setEditingStudents] = useState(false);
@@ -212,6 +214,32 @@ export function MyLessonsView() {
   }
 
   /**
+   * Drop a lesson's confirmed pull-out — the override doc itself, and the
+   * `overrideId`/`conflict` fields on the lesson. The lesson survives; only
+   * the override does not.
+   *
+   * One helper, three callers (here via `applySlotPlan`, plus `cancelLesson`
+   * and the quick-reschedule path below): whenever a lesson stops meaning
+   * what the override was confirmed against — moved, cancelled, or
+   * rescheduled — the old collision it names may no longer apply, and only
+   * the teacher can confirm a new one with the ensemble director. Dropping it
+   * here rather than leaving it in place is what `applySlotPlan` already did
+   * for a recipe-level move; this is that same promise, written once instead
+   * of copied by hand at each new call site (a hand copy is exactly how one
+   * of them would quietly drift — see `handleDeleteLesson`, which does NOT
+   * need this, since its doc is deleted whole and there is nothing left to
+   * clear).
+   */
+  async function clearLessonOverride(lessonId: string, overrideId: string) {
+    await deleteOverride(overrideId);
+    if (!db) return;
+    await updateDoc(doc(db, 'lessons', lessonId), { overrideId: deleteField(), conflict: deleteField() });
+    // Rebuild the mirror from the doc itself: a removed field is the one
+    // thing the batched merge in updateLesson cannot say.
+    await syncLessonMirror(lessonId);
+  }
+
+  /**
    * Move the lessons the old standing time produced onto the new one.
    *
    * Three things travel with a move and are easy to leave behind:
@@ -260,18 +288,12 @@ export function MyLessonsView() {
           endTime: slot.endTime,
           ...(slot.location ? { location: slot.location } : {}),
         });
-        const cleared: Record<string, unknown> = {};
-        if (!slot.location) cleared.location = deleteField();
         if (m.overrideId) {
-          await deleteOverride(m.overrideId);
-          cleared.overrideId = deleteField();
-          cleared.conflict = deleteField();
+          await clearLessonOverride(m.id, m.overrideId);
           pullouts++;
         }
-        if (db && Object.keys(cleared).length > 0) {
-          await updateDoc(doc(db, 'lessons', m.id), cleared);
-          // Rebuild the mirror from the doc itself: a removed field is the one
-          // thing the batched merge in updateLesson cannot say.
+        if (!slot.location && db) {
+          await updateDoc(doc(db, 'lessons', m.id), { location: deleteField() });
           await syncLessonMirror(m.id);
         }
       }
@@ -386,6 +408,12 @@ export function MyLessonsView() {
       }
       if (!data.notes && existing.notes) cleared.notes = deleteField();
       if (!data.location && existing.location) cleared.location = deleteField();
+      // Pre-existing gap, closed here: the overrideId clear above drops the
+      // roster override, but `conflict` is a separate object on the lesson
+      // itself and was never in this list — so a lesson edited off a
+      // collision (new time, no new acknowledgement) kept showing "Misses
+      // <old rehearsal> — confirmed" on its row with no override behind it.
+      if (!data.conflict && existing.conflict) cleared.conflict = deleteField();
       if (db && Object.keys(cleared).length > 0) {
         await updateDoc(doc(db, 'lessons', existing.id), cleared);
         // A cleared `location` cannot be expressed by the merge in
@@ -444,6 +472,15 @@ export function MyLessonsView() {
     setConfirmDeleteLesson(null);
   }
 
+  /** Cross-hook wrapper (#applied): drop any confirmed pull-out this lesson
+   *  carried — the collision it names may no longer apply once the lesson
+   *  itself isn't happening — then cancel. See clearLessonOverride's comment
+   *  for why this is not deleteOverride() called inline. */
+  async function handleCancelLesson(l: Lesson) {
+    if (l.overrideId) await clearLessonOverride(l.id, l.overrideId);
+    await cancelLesson(l);
+  }
+
   if (!me) return null;
 
   // ── The lesson-log form, as its own page ───────────────────────────
@@ -457,6 +494,7 @@ export function MyLessonsView() {
         term={activeTerm}
         termLessons={termLessons}
         lesson={existing}
+        slot={director?.lessonSlots?.[sheetStudent.id]}
         teacherEmail={directorEmailId(me.email)}
         teacherName={me.name}
         defaultPayroll={defaultPayrollMinutes(sheetStudent.grade)}
@@ -550,6 +588,7 @@ export function MyLessonsView() {
                     confirming={confirmDeleteLesson === l.id}
                     onEdit={() => setEditingLesson(l)}
                     onMail={() => void sendLogMail(l)}
+                    onCancel={() => void handleCancelLesson(l)}
                     onDeleteRequest={() => setConfirmDeleteLesson(l.id)}
                     onDeleteCancel={() => setConfirmDeleteLesson(null)}
                     onDeleteConfirm={() => handleDeleteLesson(l)}
@@ -766,7 +805,7 @@ function GradeCell({ grade }: { grade?: string }) {
 }
 
 function LogReadRow({
-  index, lesson, today, confirming, onEdit, onMail, onDeleteRequest, onDeleteCancel, onDeleteConfirm,
+  index, lesson, today, confirming, onEdit, onMail, onCancel, onDeleteRequest, onDeleteCancel, onDeleteConfirm,
 }: {
   index: number;
   lesson: Lesson;
@@ -774,6 +813,7 @@ function LogReadRow({
   confirming: boolean;
   onEdit?: () => void;
   onMail?: () => void;
+  onCancel?: () => void;
   onDeleteRequest?: () => void;
   onDeleteCancel?: () => void;
   onDeleteConfirm?: () => void;
@@ -821,7 +861,24 @@ function LogReadRow({
           ) : (
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               <button className="dir-icon-btn" onClick={onEdit} aria-label={`Edit lesson ${index}`}><Pencil size={15} /></button>
-              <button className="dir-icon-btn" onClick={onDeleteRequest} aria-label={`Delete lesson ${index}`}><Trash2 size={15} /></button>
+              {!cancelled && onCancel && (
+                <button
+                  className="dir-icon-btn"
+                  onClick={onCancel}
+                  aria-label={`Cancel lesson ${index}`}
+                  title="This date isn't happening — the weekly time and every other row are untouched"
+                >
+                  <CalendarOff size={15} />
+                </button>
+              )}
+              <button
+                className="dir-icon-btn"
+                onClick={onDeleteRequest}
+                aria-label={`Delete lesson ${index}`}
+                title="Erase this row completely — unlike Cancel, the weekly time will schedule over it again"
+              >
+                <Trash2 size={15} />
+              </button>
               {onMail && isLogCompleteForMail(lesson) && (
                 <button
                   className="dir-icon-btn"
@@ -909,6 +966,13 @@ function WeeklySlotPanel({
           {slot ? 'Change' : 'Set weekly time'}
         </button>
       </div>
+      {slot && (
+        <div className="dir-page-hint" style={{ marginTop: 0 }}>
+          This is a standing recipe, not a single lesson — changing or removing it here never touches
+          a lesson already on the calendar. To skip or move just one date, use Cancel or Edit on that
+          date’s own row in the log below.
+        </div>
+      )}
 
       {/* The offer made straight after a change is saved. Says what will move
           and what will not, before anything is written. */}
@@ -1446,13 +1510,17 @@ function StudentAssignEditor({ allStudents, assignedIds, onSave, onClose }: {
  * through both, which is what the student is actually confirming.
  */
 function LessonLogPage({
-  student, term, termLessons, lesson, teacherEmail, teacherName,
+  student, term, termLessons, lesson, slot, teacherEmail, teacherName,
   defaultPayroll, events, students, overrides, ensembleMap, onSave, onClose,
 }: {
   student: Student;
   term: TermRef;
   termLessons: Lesson[];
   lesson: Lesson | null;
+  /** This student's standing weekly time, if any — used only to warn before
+   *  a quick reschedule would move a lesson into a different week than
+   *  pendingSlotDates() already accounts for. See saveScheduleOnly() below. */
+  slot?: LessonSlot;
   teacherEmail: string;
   teacherName?: string;
   defaultPayroll: PayrollMinutes;
@@ -1479,10 +1547,20 @@ function LessonLogPage({
   const [notes, setNotes] = useState(lesson?.notes ?? '');
   const [grade, setGrade] = useState(lesson?.grade ?? '');
   const [gradeNote, setGradeNote] = useState(lesson?.gradeNote ?? '');
-  const [repertoireComposer, setRepertoireComposer] = useState(
-    lesson?.repertoireComposer ?? last?.repertoireComposer ?? '',
+  // Empty by default — NOT carried forward from last lesson. A blind copy
+  // risks a teacher not noticing and logging last week's piece as this
+  // week's. "Same as last lesson" (below) makes the suggestion an explicit
+  // tap instead, for repertoire and for technique/comments alike.
+  const [pieces, setPieces] = useState<JuryPiece[]>(
+    () => lessonPieces(lesson?.repertoireComposer, lesson?.repertoireTitle),
   );
-  const [repertoireTitle, setRepertoireTitle] = useState(lesson?.repertoireTitle ?? last?.repertoireTitle ?? '');
+  // Not useMemo: `last` itself is a plain per-render const (see `last` above,
+  // derived fresh from `above` each time), so memoizing on it would never
+  // actually cache anything — and confuses the React Compiler's own
+  // memoization pass, which wants a dependency it can prove is stable.
+  const lastPieces = lessonPieces(last?.repertoireComposer, last?.repertoireTitle)
+    .filter(p => p.composer || p.title);
+  const joinedPieces = useMemo(() => joinPieces(pieces), [pieces]);
   const [payrollMinutes, setPayrollMinutes] = useState<PayrollMinutes>(
     lesson?.payrollMinutes ?? last?.payrollMinutes ?? defaultPayroll,
   );
@@ -1525,11 +1603,26 @@ function LessonLogPage({
     setEndTime(next.endTime);
   }
 
+  function setPieceField(i: number, field: 'composer' | 'title', value: string) {
+    setPieces(cur => cur.map((p, j) => (j === i ? { ...p, [field]: value } : p)));
+  }
+  function addPieceRow() {
+    setPieces(cur => [...cur, { composer: '', title: '' }]);
+  }
+  function removePieceRow(i: number) {
+    setPieces(cur => (cur.length > 1 ? cur.filter((_, j) => j !== i) : cur));
+  }
+  /** Explicit tap, not automatic — see the note on the `pieces` state above. */
+  function useLastPieces() {
+    if (lastPieces.length === 0) return;
+    setPieces(lastPieces.map(p => ({ ...p })));
+  }
+
   const hasConflict = conflicts.length > 0;
   const validTimes = !!startTime && !!endTime && endTime > startTime;
   const teacherReady = !!date && validTimes && (!hasConflict || ackConflict)
     && isLessonGrade(grade) && initialsOk(teacherInitials)
-    && !!repertoireComposer.trim() && !!repertoireTitle.trim()
+    && !!joinedPieces.composer && !!joinedPieces.title
     && !!gradeNote.trim();
 
   function buildPayload(initials: string, initialedAt?: number): LessonPayload {
@@ -1545,8 +1638,8 @@ function LessonLogPage({
       notes: notes.trim() || undefined,
       grade: grade.trim() || undefined,
       gradeNote: grade.trim() ? gradeNote.trim() || undefined : undefined,
-      repertoireComposer: repertoireComposer.trim() || undefined,
-      repertoireTitle: repertoireTitle.trim() || undefined,
+      repertoireComposer: joinedPieces.composer || undefined,
+      repertoireTitle: joinedPieces.title || undefined,
       teacherInitials: teacherInitials.trim() || undefined,
       studentInitials: initials.trim() || undefined,
       studentInitialedAt: initials.trim() ? (initialedAt ?? Date.now()) : undefined,
@@ -1575,7 +1668,9 @@ function LessonLogPage({
     }
     // Material edits void a prior student initial.
     if (lesson && initialsOk(lesson.studentInitials) && logMaterialChanged(lesson, {
-      date, startTime, endTime, grade, gradeNote, repertoireComposer, repertoireTitle, payrollMinutes,
+      date, startTime, endTime, grade, gradeNote,
+      repertoireComposer: joinedPieces.composer, repertoireTitle: joinedPieces.title,
+      payrollMinutes,
     })) {
       setStudentInitials('');
     }
@@ -1588,12 +1683,74 @@ function LessonLogPage({
       setError('Student initials must be at least 2 characters.');
       return;
     }
+    // Belt-and-suspenders alongside the disabled draft fields above: the
+    // teacher-side requirements (grade, repertoire, technique, teacher
+    // initials) must still hold at the moment of save, not just at the
+    // moment "Next" was pressed. Without this, a still-live field edited
+    // after reaching this step could save under a student initial that no
+    // longer describes what's on the row.
+    if (!teacherReady) {
+      setError('Something in the lesson details changed — check the row above before saving.');
+      setStep('teacher');
+      return;
+    }
     setSaving(true);
     try {
       const keepAt = lesson && lesson.studentInitials === studentInitials.trim()
         ? lesson.studentInitialedAt
         : Date.now();
       await whenQueued(onSave(buildPayload(studentInitials, keepAt)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save — try again.');
+      setSaving(false);
+    }
+  }
+
+  /**
+   * A future lesson that hasn't been graded OR initialed yet is still purely
+   * a SCHEDULE entry — asking a teacher to invent a grade and hand the device
+   * to the student just to fix a date/time typo is exactly the "no clear way
+   * to change the schedule" complaint. Gated on BOTH grade and initials
+   * (not grade alone): a live pre-existing gap lets a saved lesson carry an
+   * invalid grade while still holding a stale but valid student initial, and
+   * checking grade alone here could land this shortcut on a record where a
+   * date edit ought to void that initial but structurally can't.
+   */
+  const scheduleOnlyEligible = !!lesson && !isLessonGrade(lesson.grade) && !initialsOk(lesson.studentInitials);
+
+  /**
+   * `pendingSlotDates()` marks a WEEK as handled if any lesson — cancelled
+   * included — sits anywhere in it; it has no memory beyond that. A same-week
+   * date/time edit is safe: weekOf() is unchanged by definition, so the week
+   * stays correctly "taken". Moving into a DIFFERENT week is not: the
+   * original week loses its only lesson, looks never-scheduled again, and
+   * "Add the remaining N" on the panel below will quietly re-create a
+   * duplicate there. Rather than teach pendingSlotDates a second kind of
+   * bookkeeping for one ad hoc edit, route a real week-to-week move through
+   * Cancel (keeps the original week accounted for) + Add lesson (a fresh doc
+   * on its own new date) — two features that are each already correct alone.
+   */
+  const crossesWeek = !!(slot && lesson && date !== lesson.date && weekOf(date) !== weekOf(lesson.date));
+
+  async function saveScheduleOnly() {
+    setError('');
+    if (!validTimes) { setError('End time must be after the start time.'); return; }
+    if (hasConflict && !ackConflict) {
+      setError('Acknowledge the scheduling conflict above, or change the time to clear it.');
+      return;
+    }
+    if (crossesWeek) {
+      setError(
+        `That lands in a different week than the standing ${slotSentence(slot!)} time. `
+        + 'Cancel this lesson and use "Add lesson" for a one-off on the new date instead — '
+        + 'moving it here would leave this week looking unscheduled, and the standing time '
+        + 'would quietly fill it back in.',
+      );
+      return;
+    }
+    setSaving(true);
+    try {
+      await whenQueued(onSave(buildPayload('', undefined)));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save — try again.');
       setSaving(false);
@@ -1632,17 +1789,17 @@ function LessonLogPage({
               </td>
               <td>
                 <input
-                  className="dir-input" type="date" value={date}
+                  className="dir-input" type="date" value={date} disabled={step === 'student'}
                   onChange={e => setDate(e.target.value)} aria-label="Lesson date"
                 />
               </td>
               <td>
                 <input
-                  className="dir-input" type="time" value={startTime}
+                  className="dir-input" type="time" value={startTime} disabled={step === 'student'}
                   onChange={e => setStartTime(e.target.value)} aria-label="Start time"
                 />
                 <input
-                  className="dir-input" type="time" value={endTime}
+                  className="dir-input" type="time" value={endTime} disabled={step === 'student'}
                   onChange={e => setEndTime(e.target.value)} aria-label="End time" style={{ marginTop: 4 }}
                 />
               </td>
@@ -1655,6 +1812,7 @@ function LessonLogPage({
                   max={LESSON_GRADE_MAX}
                   step={1}
                   value={grade}
+                  disabled={step === 'student'}
                   onChange={e => setGrade(e.target.value)}
                   placeholder="0–100"
                   aria-label="Lesson grade out of 100"
@@ -1664,6 +1822,7 @@ function LessonLogPage({
                 <input
                   className="dir-input"
                   value={teacherInitials}
+                  disabled={step === 'student'}
                   onChange={e => setTeacherInitials(e.target.value.toUpperCase())}
                   autoCapitalize="characters"
                   aria-label="Teacher initials"
@@ -1675,31 +1834,79 @@ function LessonLogPage({
                   : <span className="dir-log-missing">The student types these below</span>}
               </td>
               <td className="dir-log-composer">
-                <textarea
-                  className="dir-input" rows={3} value={repertoireComposer}
-                  onChange={e => setRepertoireComposer(e.target.value)}
-                  placeholder={'Composer\nOne per line'} aria-label="Repertoire composer"
-                />
+                {pieces.map((p, i) => (
+                  <input
+                    key={i}
+                    className="dir-input" style={{ marginBottom: 4 }}
+                    list="piece-composer-suggestions"
+                    value={p.composer} disabled={step === 'student'}
+                    onChange={e => setPieceField(i, 'composer', e.target.value)}
+                    placeholder="Composer" aria-label={`Piece ${i + 1} composer`}
+                  />
+                ))}
               </td>
               <td className="dir-log-title">
-                <textarea
-                  className="dir-input" rows={3} value={repertoireTitle}
-                  onChange={e => setRepertoireTitle(e.target.value)}
-                  placeholder={'Title\nOne per line, matching the composers'} aria-label="Repertoire title"
-                />
+                {pieces.map((p, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+                    <input
+                      className="dir-input"
+                      list="piece-title-suggestions"
+                      value={p.title} disabled={step === 'student'}
+                      onChange={e => setPieceField(i, 'title', e.target.value)}
+                      placeholder="Title" aria-label={`Piece ${i + 1} title`}
+                    />
+                    {step === 'teacher' && pieces.length > 1 && (
+                      <button
+                        type="button" className="dir-icon-btn" onClick={() => removePieceRow(i)}
+                        aria-label={`Remove piece ${i + 1}`}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {step === 'teacher' && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button type="button" className="dir-tool-btn" onClick={addPieceRow}>
+                      <Plus size={12} /> Add piece
+                    </button>
+                    {lastPieces.length > 0 && (
+                      <button type="button" className="dir-tool-btn" onClick={useLastPieces}>
+                        Same as last lesson
+                      </button>
+                    )}
+                  </div>
+                )}
+                {/* Suggestions only, never a silent pre-fill — the piece a
+                    teacher logs is a compliance record, not a guess. */}
+                <datalist id="piece-composer-suggestions">
+                  {lastPieces.map((p, i) => p.composer && <option key={i} value={p.composer} />)}
+                </datalist>
+                <datalist id="piece-title-suggestions">
+                  {lastPieces.map((p, i) => p.title && <option key={i} value={p.title} />)}
+                </datalist>
               </td>
               <td className="dir-log-comments">
                 <textarea
-                  className="dir-input" rows={5} value={gradeNote}
+                  className="dir-input" rows={5} value={gradeNote} disabled={step === 'student'}
                   onChange={e => setGradeNote(e.target.value)}
                   placeholder={'What you worked on, what to practise, what improved.\nAs many lines as you need — the box grows.'}
                   aria-label="Technique and comments"
                 />
+                {step === 'teacher' && last?.gradeNote && (
+                  <button
+                    type="button" className="dir-tool-btn" style={{ marginTop: 4 }}
+                    onClick={() => setGradeNote(last.gradeNote ?? '')}
+                  >
+                    Same as last lesson
+                  </button>
+                )}
               </td>
               <td>
                 <select
                   className="dir-select"
                   value={payrollMinutes}
+                  disabled={step === 'student'}
                   onChange={e => changePayroll(Number(e.target.value) as PayrollMinutes)}
                   aria-label="Payroll length"
                 >
@@ -1753,6 +1960,17 @@ function LessonLogPage({
           </div>
         )}
 
+        {step === 'teacher' && scheduleOnlyEligible && crossesWeek && (
+          <div className="dir-conflict-banner">
+            That date is in a different week than the standing {slotSentence(slot!)} time.
+            <div style={{ marginTop: 6 }}>
+              Saving it here would leave this week looking unscheduled, and the weekly time would
+              quietly fill it back in later. Instead: Cancel this lesson, then use "Add lesson" for
+              a one-off on the new date.
+            </div>
+          </div>
+        )}
+
         {step === 'student' && (
           <>
             <div className="dir-form-section-label" style={{ paddingLeft: 0 }}>Student initials</div>
@@ -1783,6 +2001,16 @@ function LessonLogPage({
               <button className="dir-btn dir-btn-primary" onClick={goToStudentStep} disabled={!teacherReady}>
                 Next: student initials
               </button>
+              {scheduleOnlyEligible && (
+                <button
+                  className="dir-btn dir-btn-ghost"
+                  onClick={saveScheduleOnly}
+                  disabled={saving || !validTimes || (hasConflict && !ackConflict) || crossesWeek}
+                  title="Save just the date, time, and location — no grade or initials needed yet"
+                >
+                  {saving ? 'Saving…' : 'Save schedule only'}
+                </button>
+              )}
               <button className="dir-btn dir-btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
             </>
           ) : (

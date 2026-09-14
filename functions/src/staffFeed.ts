@@ -139,6 +139,13 @@ export async function buildStaffIcs(db: Firestore, email: string): Promise<strin
 
   for (const d of lessonSnap.docs) {
     const l = d.data() as Record<string, unknown>;
+    // Omit rather than rely on STATUS:CANCELLED: icsSummary's own comment
+    // already documents that several phone calendar apps ignore it on a
+    // subscribed feed (#30) — this app's established deletion story for
+    // every other feed is "absent from the next build", not a status flag,
+    // and METHOD:PUBLISH (icsCalendar) is exactly the full-reconcile
+    // subscription semantics that makes omission the reliable signal here.
+    if (l.status === 'Cancelled') continue;
     const date = String(l.date ?? '');
     if (!withinWindow(date, from, to)) continue;
     vevents.push(icsLesson({
