@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, onSnapshot, writeBatch, doc,
+  collection, onSnapshot, writeBatch, doc, deleteField,
   query, orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -56,7 +56,21 @@ export function useStudents(ensembleId?: string) {
   async function updateStudent(id: string, data: Partial<Omit<Student, 'id'>>) {
     if (!db) return;
     const dbRef = db;
-    const payload = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
+    const payload: Record<string, unknown> = {
+      ...data, updatedAt: Date.now(), updatedBy: currentDirectorName(),
+    };
+    // Putting a student BACK on the roster clears the archive stamp, and the
+    // clear has to be an explicit deleteField(): Firestore here runs with
+    // ignoreUndefinedProperties, so `archivedAt: undefined` drops the key and
+    // leaves the stored value exactly where it was — a current student still
+    // carrying the date they left. Same trap the lesson hooks describe.
+    //
+    // It lives here rather than in the form because every caller that flips a
+    // status should get it, not only the one screen that remembered.
+    if (data.status === 'Active') {
+      payload.archivedAt = deleteField();
+      payload.archivedLabel = deleteField();
+    }
     const existing = students.find(s => s.id === id);
     await trackWrite('Student update', async () => {
       const batch = writeBatch(dbRef);

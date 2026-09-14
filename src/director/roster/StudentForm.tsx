@@ -109,6 +109,28 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
     setContactForm(f => ({ ...f, extra: { ...f.extra, [key]: v } }));
   }
 
+  /**
+   * Changing status stamps the archive metadata, because setting it by hand
+   * and stamping it by hand are not two separate decisions (#roster).
+   *
+   * Only the bulk "graduate the seniors" flow used to stamp `archivedAt`, so a
+   * student withdrawn through this form went Inactive carrying no date and no
+   * reason, and the archive could not say when they left or why. Going back to
+   * Active clears both rather than leaving a stale date on a current student.
+   */
+  function setStatus(status: Student['status']) {
+    setForm(f => ({
+      ...f,
+      status,
+      // Going back to Active empties the boxes here; the stored fields are
+      // deleted by `updateStudent`, because `undefined` cannot clear a
+      // Firestore field under ignoreUndefinedProperties.
+      ...(status === 'Active'
+        ? { archivedAt: undefined, archivedLabel: undefined }
+        : { archivedAt: f.archivedAt ?? Date.now() }),
+    }));
+  }
+
   function toggleEnsemble(id: string) {
     setForm(f => ({
       ...f,
@@ -201,12 +223,30 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
 
           <div className="dir-field">
             <label className="dir-label">Status</label>
-            <select className="dir-select" value={form.status} onChange={e => set('status', e.target.value as Student['status'])}>
+            <select className="dir-select" value={form.status} onChange={e => setStatus(e.target.value as Student['status'])}>
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
               <option value="Graduated">Graduated</option>
             </select>
           </div>
+
+          {form.status !== 'Active' && (
+            <div className="dir-field">
+              <label className="dir-label">Why they left</label>
+              <input
+                className="dir-input"
+                value={form.archivedLabel ?? ''}
+                onChange={e => set('archivedLabel', e.target.value)}
+                placeholder="e.g. Withdrew September 2026"
+              />
+              <div className="dir-field-hint">
+                Shown beside their name in the archive. Leaving it blank records only the
+                status, so a year from now nobody can tell a withdrawal from a transfer.
+                They come off every active roster either way, this quarter&rsquo;s grade
+                report included.
+              </div>
+            </div>
+          )}
 
           <div className="dir-contact-note">🔒 Visible to signed-in directors here in the roster. Never shown on the public site.</div>
 

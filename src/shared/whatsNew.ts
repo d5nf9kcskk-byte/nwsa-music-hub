@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Roster names and archiving (#gradebook, #roster). The name parser assumed
+  // "First Last" and the live roster stores most students "Last, First", which
+  // put the middle initial in the district's Last Name column.
+  {
+    id: '2026-09-14-roster-names-archive',
+    date: '2026-09-14',
+    title: 'Grade tables read your roster\u2019s names correctly, and archiving says why',
+    audience: 'staff' as const,
+    expires: '2026-10-05',
+    bullets: [
+      'The grade report was reading names wrongly. Most of your roster is stored "Beyra, Benjamin A." and the report assumed "Benjamin A. Beyra", so the Last Name column printed the middle initial and the tables sorted by it. Both storage styles now read correctly: Full Name prints as first-then-last, Last Name is the surname, and one alphabetical list covers the whole roster however each name happens to be typed.',
+      'Archiving a student now asks why. Set someone to Inactive or Graduated and a "Why they left" box appears \u2014 "Withdrew September 2026" \u2014 saved with the date, so a year from now the archive can tell a withdrawal from a transfer. Putting them back to Active clears both.',
+      'Until now only the bulk "graduate the seniors" button recorded a date. A student archived one at a time got no date and no reason at all.',
+    ],
+  },
   // Gradebook follow-ups the same evening (#gradebook): fill at full marks,
   // the standing request on screen, the whole studio on the applied table, and
   // the faculty recital credited on arrival.

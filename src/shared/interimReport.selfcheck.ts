@@ -80,6 +80,24 @@ assert(cell('conduct', row('A B', 90, '2', null)) === '', 'no conduct prints bla
 assert(cell('codes', row('A B', 90, '2', 'A', ['14', '20'])) === '14, 20', 'codes are comma separated');
 assert(cell('codes', row('A B', 90)) === '', 'no codes prints blank');
 
+/* ── the roster's own storage format never reaches the table ───────────── */
+
+// Real shapes from the live roster: Camerata and Symphony are stored
+// "Last, First", other groups are stored "First Last", and Brent's tables want
+// Full Name as First Last with a separate surname column either way.
+const asStored = buildTable(CAMERATA, 'Q1i', [
+  row('Beyra, Benjamin A.', 88),
+  row('Vincent T. Blades', 91),
+]);
+assert(asStored.rows[0][0] === 'Benjamin A. Beyra', 'a comma-stored name prints as First Last');
+assert(asStored.rows[0][1] === 'Beyra', 'and its Last Name column is the SURNAME, not the initial');
+assert(asStored.rows[1][0] === 'Vincent T. Blades', 'a space-stored name prints unchanged');
+assert(asStored.rows[1][1] === 'Blades', 'with the same surname treatment');
+assert(
+  buildTable(APPLIED, 'Q1i', [row('Chander, Isabella C.', 95)]).rows[0][0] === 'Chander, Isabella C.',
+  'and the Applied column stays Last, First without doubling the comma',
+);
+
 /* ── the rows come out alphabetical by surname, always ─────────────────── */
 
 const table = buildTable(CAMERATA, INTERIM.prefix, [

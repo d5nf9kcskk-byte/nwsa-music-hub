@@ -20,7 +20,7 @@
  * inline, because a mail client strips a stylesheet and keeps an attribute.
  */
 import {
-  byLastName, lastFirst, lastName,
+  byLastName, displayName, lastFirst, lastName,
   type ConductGrade, type EffortGrade,
 } from './ensembleGrades.ts';
 import type { ReportingWindow } from './gradingPeriods.ts';
@@ -54,7 +54,9 @@ export interface ReportLayout {
 /** One person's line, already graded. */
 export interface ReportRow {
   studentId: string;
-  /** "Emily Block", as the roster spells it. */
+  /** The roster's own spelling, either "Rose, William F." or "William F.
+   *  Rose". Every column renders through `parseName`, so which one it is does
+   *  not reach the table. */
   name: string;
   instrument?: string;
   percent: number | null;
@@ -95,7 +97,7 @@ export function columnHeader(
  *  gave. */
 export function cell(column: ReportColumn, row: ReportRow): string {
   switch (column) {
-    case 'fullName':   return row.name;
+    case 'fullName':   return displayName(row.name);
     case 'lastName':   return lastName(row.name);
     case 'lastFirst':  return lastFirst(row.name);
     case 'instrument': return row.instrument ?? '';
