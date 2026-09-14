@@ -50,6 +50,24 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'The NWSA Music Faculty Recital on Aug 31 now counts on the arrival scan alone, because the check-out station failed that night. It is the only required concert so far this quarter, so that was 15% of the grade reading as zero for anyone who did not check out.',
     ],
   },
+  // Lesson scheduling (#applied): a real Cancel for one date, a
+  // schedule-only save for a future ungraded lesson, cancelled lessons
+  // dropping out of both calendar feeds instead of just being labeled, the
+  // Lessons/My Lessons nav split getting its own icon, and repertoire entry
+  // redone as paired rows with an explicit "same as last lesson" suggestion.
+  {
+    id: '2026-09-14-lesson-scheduling',
+    date: '2026-09-14',
+    title: 'Lesson scheduling: cancel one date, reschedule without grading it, and a clearer calendar',
+    audience: 'staff' as const,
+    expires: '2026-10-05',
+    bullets: [
+      'Each lesson row has a Cancel button beside Edit and Delete now. Cancel skips just that one date — your weekly time and every other row are untouched — and a cancelled lesson drops off "My calendar" and the student’s own calendar completely instead of only showing [CANCELLED]. Delete still exists, but means what it always did: gone completely, including from the weekly time’s memory of that week, so it can schedule right back over an empty one.',
+      'A future lesson that has not been graded yet can be rescheduled with a "Save schedule only" button — no need to invent a grade or hand the student the device just to fix a date or time.',
+      '"Lessons" in the menu is now "All Lessons" with its own icon, so it reads at a glance as the Dean’s overview of every teacher’s log, not a second copy of "My Lessons".',
+      'Composer and title are one paired row per piece now, with a "Same as last lesson" button for repertoire and for technique/comments — instead of two separate boxes you had to keep lined up yourself by counting lines.',
+    ],
+  },
   // Quarter grades and the district report (#gradebook). Staff-only: grades
   // are staff-only data, `gradeMarks` has no public projection, and nothing
   // on the student site changed.

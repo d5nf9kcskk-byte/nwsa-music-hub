@@ -120,5 +120,27 @@ export function useLessons() {
     }
   }
 
-  return { lessons, loading, addLesson, updateLesson, deleteLesson, syncLessonMirror };
+  /**
+   * Skip a single date without deleting the record (#applied). The doc
+   * SURVIVES with status:'Cancelled' — that's the whole point: a
+   * cancelled-but-present lesson is what keeps `pendingSlotDates()` in
+   * lessonSchedule.ts from treating the week as never-scheduled and
+   * silently re-creating it the next time the standing time is expanded.
+   * Delete does not have that property, which is why it is a separate,
+   * more destructive action from the caller's point of view, not a synonym.
+   *
+   * Offers the same undo `deleteLesson` does, restoring the whole prior doc
+   * (status included) rather than just flipping the field back — symmetric
+   * with how the cancel itself is one write, not a diff.
+   */
+  async function cancelLesson(l: Lesson) {
+    await updateLesson(l.id, { status: 'Cancelled' });
+    const { id: _id, ...data } = l;
+    void _id;
+    offerUndo('lessons', l.id, data, 'Cancelled — undo?', [
+      { collection: 'lessonsPublic', docId: l.id, data: publicLessonFields(data) },
+    ]);
+  }
+
+  return { lessons, loading, addLesson, updateLesson, deleteLesson, cancelLesson, syncLessonMirror };
 }

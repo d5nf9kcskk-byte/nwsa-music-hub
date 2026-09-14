@@ -183,8 +183,11 @@ export function lessonPayloadsFor(
 
 /** Sunday of the UTC week containing `iso` — how an old date and its new one
  *  are paired when the weekday moves. "Monday the 5th" becomes "Thursday the
- *  8th", not "next Thursday". */
-function weekOf(iso: string): string {
+ *  8th", not "next Thursday". Exported so a single-lesson quick-reschedule
+ *  (MyLessonsView.tsx) can tell whether a date edit stays inside the same
+ *  week `pendingSlotDates()` already accounts for, or crosses into a week
+ *  that edit would silently empty out. */
+export function weekOf(iso: string): string {
   return addDays(iso, -dayOf(iso));
 }
 
