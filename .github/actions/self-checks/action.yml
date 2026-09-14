@@ -53,6 +53,22 @@ runs:
       run: npx tsx --tsconfig tsconfig.app.json --import ./scripts/vite-defines-shim.mjs src/director/personnel/contractSheet.selfcheck.tsx
       shell: bash
 
+    # Quarter grades (#gradebook). Every assertion in these three is a rule
+    # whose wrong answer is a grade in a district gradebook: a blank counted
+    # as a zero, an interim computed over the wrong span, a report row put in
+    # the wrong order or given the other section's column heading.
+    - name: Check the grading calendar
+      run: npx tsx src/shared/gradingPeriods.selfcheck.ts
+      shell: bash
+
+    - name: Check ensemble grading arithmetic
+      run: npx tsx src/shared/ensembleGrades.selfcheck.ts
+      shell: bash
+
+    - name: Check the submitted grade report
+      run: npx tsx src/shared/interimReport.selfcheck.ts
+      shell: bash
+
     # Who a sign-up reaches. Drift here is silent — a director opens
     # "Camerata strings" and half the section never sees it (#signups).
     - name: Check sign-up eligibility
@@ -296,6 +312,24 @@ runs:
 
     - name: Check assignment submission query (no composite index)
       run: node scripts/assignment-submissions.selfcheck.mjs
+      shell: bash
+
+    # Chunked resumable upload primitives (#video-upload-reliability
+    # Phase 2): the zero-padded chunk path both the client and
+    # composeSubmission agree on, and the session-id-derived submission doc
+    # id that makes a retried finalize call idempotent. The fold/idempotency
+    # logic that consumes these is pinned in
+    # functions/src/composeSubmission.selfcheck.ts, run separately by
+    # deploy-functions.yml alongside every other Cloud Function guard.
+    - name: Check chunked-upload path and doc-id conventions
+      run: npx tsx src/shared/submissionChunks.selfcheck.ts
+      shell: bash
+
+    # The age cutoff behind the hourly sweep for abandoned chunked-upload
+    # parts (#video-upload-reliability Phase 2) — a chunk composeSubmission
+    # never got to delete because the student gave up mid-upload.
+    - name: Check abandoned-chunk cleanup cutoff
+      run: node scripts/cleanup-abandoned-chunks.selfcheck.mjs
       shell: bash
 
     - name: Check attendance status labels (Late Excused)

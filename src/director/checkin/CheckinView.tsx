@@ -86,7 +86,13 @@ export function CheckinView({ onNavigate }: { onNavigate?: DirNavigate }) {
     [checkins, eventId],
   );
   const rows = useMemo(() => pairCheckins(shown), [shown]);
-  const tallies = useMemo(() => talliesByStudent(checkins), [checkins]);
+  // Concerts credited on the arrival scan alone, so the board's per-student
+  // tally answers the same as the student's own page (#gradebook).
+  const entryOnlyIds = useMemo(
+    () => new Set(events.filter(e => e.checkin?.entryOnly).map(e => e.id)),
+    [events],
+  );
+  const tallies = useMemo(() => talliesByStudent(checkins, entryOnlyIds), [checkins, entryOnlyIds]);
 
   const inCount = rows.filter(r => r.in).length;
   const outCount = rows.filter(r => r.out).length;

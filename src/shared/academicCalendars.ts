@@ -49,6 +49,10 @@ export const MDCPS_NO_SCHOOL = new Set([
   '2027-03-29',
   // Memorial Day
   '2027-05-31',
+  // Teacher planning day after the last day of school (June 3). Outside every
+  // grading period, so it changes no day count; listed because the district
+  // lists it and this set is meant to BE the district's list.
+  '2027-06-04',
 ]);
 
 /**

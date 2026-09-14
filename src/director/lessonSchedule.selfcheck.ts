@@ -42,9 +42,21 @@ assert(slotDates(friday, '2026-09-04', '2026-09-04')[0] === '2026-09-04', 'from-
 assert(slotDates(friday, '2026-09-01', '2026-09-03').length === 0, 'no Friday before Sep 4');
 
 // Bounded: an absurd horizon returns a capped list rather than running away.
-// Starts after the last MDCPS_NO_SCHOOL entry so the cap is measured on its
-// own, with no no-school skips in the way.
-assert(slotDates(friday, '2027-06-01', '2099-01-01').length === 120, 'walk is capped at 120 weeks');
+//
+// The probe has to start after EVERY no-school day, or it stops measuring the
+// cap and starts measuring the skip. That start used to be a typed date, and
+// adding one day to MDCPS_NO_SCHOOL (2027-06-04, the teacher planning day
+// after the last day of school) landed on the probe's own weekday and turned
+// the 120 into a 119. So it is derived from the set now, and cannot rot again.
+const lastNoSchool = [...MDCPS_NO_SCHOOL].sort().pop() ?? '';
+assert(lastNoSchool !== '', 'fixture assumption: MDCPS_NO_SCHOOL is not empty');
+const dayAfterClosures = new Date(`${lastNoSchool}T00:00:00Z`);
+dayAfterClosures.setUTCDate(dayAfterClosures.getUTCDate() + 1);
+const capProbeFrom = dayAfterClosures.toISOString().slice(0, 10);
+assert(
+  slotDates(friday, capProbeFrom, '2099-01-01').length === 120,
+  `walk is capped at 120 weeks (probed from ${capProbeFrom})`,
+);
 assert(slotDates(friday, '2026-09-30', '2026-09-01').length === 0, 'reversed range is empty');
 
 // MDCPS no-school days are skipped — a lesson never lands on a day off.

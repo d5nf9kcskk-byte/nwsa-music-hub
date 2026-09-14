@@ -50,6 +50,55 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Composer and title are one paired row per piece now, with a "Same as last lesson" button for repertoire and for technique/comments — instead of two separate boxes you had to keep lined up yourself by counting lines.',
     ],
   },
+  // Quarter grades and the district report (#gradebook). Staff-only: grades
+  // are staff-only data, `gradeMarks` has no public projection, and nothing
+  // on the student site changed.
+  {
+    id: '2026-09-14-gradebook',
+    date: '2026-09-14',
+    title: 'Grade a quarter, and build the report in one press',
+    audience: 'staff' as const,
+    expires: '2026-10-05',
+    bullets: [
+      'New Gradebook tab. Pick the quarter and whether it is the interim or the end of it, and every student on that section comes up with what the Hub already knows on the same line: unexcused absences, excused absences, lateness, how many rehearsals actually took roll, every playing exam score, and required concerts credited. The district publishes quarter boundaries and no interim dates, so an interim opens on today and the cutoff is yours to set to whatever you were asked for.',
+      'You type the category scores. The Hub does not grade attendance for you — an excused absence costs nothing and is a record, and how much an unexcused one weighs on Preparation is your call, made with the count in front of you.',
+      'Playing Exams and Required Performance Attendance arrive with a suggested number in grey, worked out from the exams you have already graded and the concerts that were held. Take it, type over it, or use Fill to drop it into every empty box in the column at once.',
+      'A category you have not scored leaves the average entirely, so an interim in week three is not dragged down by an exam that has not happened. Until half the plan is scored there is no number at all, because a 94 built from one category is not a grade.',
+      'Effort, conduct and the district comment codes are on the same row, and the row tells you when a comment is required: 79 or lower, an effort of 3, or a conduct of C or lower. The footer counts what is still missing before you send anything.',
+      'Build the email and all three tables come out in the layouts the district expects, alphabetical by surname, with Camerata saying Behavior and Orchestra saying Conduct. One button copies them with their borders and header colours, so they paste straight into Outlook. A student you have not graded arrives as a blank cell, never a zero.',
+      'Concerts: a concert can now be set to count on the arrival scan alone, on the Event form, for the night the check-out did not work. It is per concert on purpose — everywhere else both scans still matter.',
+    ],
+  },
+  // Chunked resumable upload (#video-upload-reliability Phase 2): a video
+  // submission now survives a closed tab or a killed app mid-upload instead
+  // of having to start over from byte zero.
+  {
+    id: '2026-09-12-resumable-upload',
+    date: '2026-09-12',
+    title: 'Submitting a video is sturdier now',
+    audience: 'public' as const,
+    expires: '2026-09-26',
+    bullets: [
+      'A video now uploads in pieces, so a dropped connection only has to retry the piece that failed — not the whole video.',
+      'If a tab closes or an app gets killed right after you finish recording, the Hub can pick the recording back up next time you open the assignment, instead of losing it.',
+    ],
+  },
+  // Submission receipts (#video-upload-reliability Phase 1): a student who
+  // closes the tab mid-upload had no way to tell whether their video landed.
+  // A tiny world-readable receipt, written only by the Cloud Function that
+  // sees the real submission arrive, now answers that on return visits.
+  {
+    id: '2026-09-12-submission-receipt',
+    date: '2026-09-12',
+    title: 'The Hub remembers what you submitted',
+    audience: 'public' as const,
+    expires: '2026-09-26',
+    bullets: [
+      'Submit a video for a Playing Exam, and the next time you open that assignment it says "Submitted" instead of showing a blank upload box again.',
+      'The Hub also remembers your name on this device, so you don’t have to pick it from the list every visit.',
+      'Want to send a better take? "Upload another version?" is right there — whatever you send most recently is what your director sees.',
+    ],
+  },
   // Roster email (#roster-email): tick students or whole ensembles and hand
   // the director's own mail app a prefilled BCC message. Staff-only — it is a
   // change to what the roster screen does, and the public site has no roster.

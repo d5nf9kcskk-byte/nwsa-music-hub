@@ -45,6 +45,7 @@ import { pendingCount } from './pendingActions';
 import { SignupsView } from './signups/SignupsView';
 import { CheckinView } from './checkin/CheckinView';
 import { JuriesView } from './juries/JuriesView';
+import { GradebookView } from './grades/GradebookView';
 import { useParentMessages } from './hooks/useParentMessages';
 import { RepertoireManager } from './repertoire/RepertoireManager';
 import { DocumentsView } from './documents/DocumentsView';
@@ -135,6 +136,10 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
       { id: 'assignments',   label: 'Assignments',   Icon: ClipboardCheck },
       { id: 'signups',       label: 'Sign-ups',      Icon: ClipboardSignature },
       { id: 'juries',        label: 'Juries',        Icon: Gavel          },
+      // Quarter grades and the report the district collects (#gradebook).
+      // Org-gated: an org with no grading periods configured has no such
+      // report to build, so the entry does not render at all.
+      ...(ORG.grading ? [{ id: 'gradebook' as const, label: 'Gradebook', Icon: GraduationCap }] : []),
       // Concert check-in (#concert-checkin) — the door station's records and
       // the cumulative CSV.
       { id: 'concertCheckin', label: 'Concert Check-In', Icon: ScanLine },
@@ -172,6 +177,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   signups:         'Sign-ups',
   juries:          'Juries',
   concertCheckin:  'Concert Check-In',
+  gradebook:       'Gradebook',
   approvals:       'Approvals',
   personnel:       'Personnel',
   directors:       'Directors',
@@ -180,7 +186,7 @@ const TAB_TITLES: Record<DirTab, string> = {
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'lessons', 'myLessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'classes', 'college', 'whosOut', 'scheduleSwap', 'rotations',
-  'messages', 'signups', 'juries', 'concertCheckin', 'approvals', 'directors',
+  'messages', 'signups', 'juries', 'concertCheckin', 'gradebook', 'approvals', 'directors',
   // The roster URL segment follows the org kind too (#personnel), so a
   // school build has no /director/personnel route and an adult build no
   // /director/roster \u2014 an off-org deep link falls back to Today.
@@ -214,6 +220,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   messages:        'Messages families send through the public Contact Us form. Reply opens your own email app.',
   signups:         'Ask students to opt in \u2014 auditions, trips, anything. They pick their name (or type it, if you open the sign-up to anyone with the link), answer your questions, and sign. You get the list, a spreadsheet, and printable signed forms.',
   juries:          'End-of-semester juries. Add one as soon as you know it\u2019s happening \u2014 a name is enough \u2014 and fill in the date, room, panel, and running order as each gets decided.',
+  gradebook:       'Quarter grades, and the tables the district collects. Type each category with the Hub\u2019s own attendance, exam and concert records printed beside the name, then build the email and paste it.',
   approvals:       'Everything a Student Assistant has submitted, waiting on you. Nothing they send reaches families until you approve it here \u2014 taking roll is the exception and still lands right away.',
   directors:       'Who can sign in and at what level. Tap the pencil to edit roles and assignments \u2014 ensembles, class sections, or applied-lesson students.',
   // Spread-conditional so the string ships only in personnel-org bundles.
@@ -576,6 +583,7 @@ export default function DirectorApp() {
             <StatusStrips />
             <ConcertDayBanner checkinNav={{ onClick: () => go('concertCheckin') }} />
             {TAB_HINTS[tab] && <div className="dir-page-hint no-print">{TAB_HINTS[tab]}</div>}
+            {tab === 'gradebook'       && <GradebookView />}
             {tab === 'today'           && <TodayView onNavigate={go} />}
             {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} onNavigate={go} />}
             {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} onNavigate={go} />}

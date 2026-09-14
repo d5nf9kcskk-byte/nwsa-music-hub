@@ -16,11 +16,13 @@ import {
 } from './concertCheckin.ts';
 import ORG from '../../config/orgs/nwsa.json' with { type: 'json' };
 import {
-  emailMatchesScans, loadGoals, tallyScans, NO_MATCH, TERMS as TALLY_TERMS,
+  emailMatchesScans, loadEntryOnlyEventIds, loadGoals, tallyScans, NO_MATCH, TERMS as TALLY_TERMS,
   type ScanLike, type TallyRequest,
 } from './concertTally.ts';
 import { buildConfirmation } from './signupConfirmation.ts';
 import { buildLessonLogMail, isDocId, queueRequestOk } from './lessonLogMail.ts';
+import { buildSubmissionReceipt, submissionReceiptId } from './submissionReceipt.ts';
+import { composeSubmission as runComposeSubmission } from './composeSubmission.ts';
 import type {
   Lesson, SignupForm, SignupResponse, Student, StudentContact,
 } from '../../src/director/types.ts';
@@ -395,13 +397,16 @@ export const concertTally = https.onRequest(async (req, res) => {
   const db = getFirestore();
   let scans: ScanLike[];
   let goals: Record<string, { required?: number; optional?: number }>;
+  let entryOnly: Set<string>;
   try {
-    const [snap, g] = await Promise.all([
+    const [snap, g, eo] = await Promise.all([
       db.collection('concertCheckins').where('studentId', '==', studentId).get(),
       loadGoals(db),
+      loadEntryOnlyEventIds(db),
     ]);
     scans = snap.docs.map(d => d.data() as ScanLike);
     goals = g;
+    entryOnly = eo;
   } catch {
     res.status(503).json({ ok: false, message: 'The Hub is busy. Try once more.' });
     return;
@@ -412,7 +417,7 @@ export const concertTally = https.onRequest(async (req, res) => {
     return;
   }
 
-  const { terms, incomplete } = tallyScans(scans, TALLY_TERMS, goals);
+  const { terms, incomplete } = tallyScans(scans, TALLY_TERMS, goals, entryOnly);
   res.status(200).json({ ok: true, terms, incomplete });
 });
 
@@ -535,3 +540,86 @@ export const lessonLogMailSend = firestore
       console.error('lessonLogMailSend: could not queue the email', err);
     }
   });
+
+
+/**
+ * The public "yes, it uploaded" receipt (#video-upload-reliability Phase 1).
+ *
+ * Fires on every new `assignmentSubmissions` doc — the Phase 0 direct write,
+ * the Phase 2 chunked-upload function's own Admin SDK create, and the repair
+ * script all create that doc, so one trigger here covers every path with no
+ * extra wiring on any of them.
+ *
+ * Written through the Admin SDK specifically so no client can forge a
+ * receipt: `submissionReceiptsPublic` denies every client write in
+ * firestore.rules, so a receipt existing is proof that a real
+ * assignmentSubmissions doc triggered it, not just that a browser claims one
+ * exists. `.set()`, not `.create()` — a later submission for the same
+ * (assignment, student) pair OVERWRITES the receipt with its own
+ * submittedAt, which is what lets the submit page show the most recent
+ * upload's date after "Upload another version?".
+ */
+export const submissionReceipt = firestore
+  .document('assignmentSubmissions/{submissionId}')
+  .onCreate(async (snap) => {
+    const receipt = buildSubmissionReceipt(snap.data() ?? {});
+    if (!receipt) return;
+
+    try {
+      const db = getFirestore();
+      const id = submissionReceiptId(receipt.assignmentId, receipt.studentId);
+      await db.doc(`submissionReceiptsPublic/${id}`).set(receipt);
+    } catch (err) {
+      // Logged, never rethrown — see the note on the mail triggers above. The
+      // submission itself already saved; a receipt that fails to write is a
+      // missed "Submitted" message next visit, not a lost video.
+      console.error('submissionReceipt: could not write the public receipt', err);
+    }
+  });
+
+
+/**
+ * Finalize a chunked video upload (#video-upload-reliability Phase 2).
+ *
+ * POST { sessionId, assignmentId, studentId, studentName, fileName,
+ *        contentType, chunkCount, totalSize, videoDurationSeconds,
+ *        videoThumbnailUrl?, notes? }
+ *
+ * The browser has already uploaded every chunk directly to
+ * submissions-parts/{assignmentId}/{studentId}/{sessionId}/{index} (an
+ * unauthenticated Storage write, same posture as the five public Firestore
+ * writes) — this is what turns those pieces into a real submission. It has
+ * to be a function and not a client-side compose(): a GCS compose call
+ * needs a service credential the browser never holds, and the combined-size
+ * check against the assignment's real maxVideoSizeMB has to be real code —
+ * storage.rules can only ever bound ONE chunk's size, never the sum.
+ *
+ * Unauthenticated for the same reason concertCheckin is: students have no
+ * accounts. Refusals carry a plain sentence, same posture as concertCheckin
+ * — a student mid-upload needs to know whether to try again, not decode a
+ * generic 403.
+ */
+export const composeSubmission = https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+  res.set('Cache-Control', 'no-store');
+
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.set('Access-Control-Max-Age', '3600');
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ ok: false, failure: 'bad-request', message: 'That did not reach the Hub correctly.' });
+    return;
+  }
+
+  const outcome = await runComposeSubmission(req.body, {
+    db: getFirestore(),
+    bucket: getStorage().bucket(),
+    now: Date.now,
+  });
+  res.status(200).json(outcome);
+});

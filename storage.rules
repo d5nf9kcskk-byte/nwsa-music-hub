@@ -93,15 +93,57 @@ service firebase.storage {
     // the assignment doc, falling back to 500 MB when unset. Enforcing it here
     // rather than only in the upload form means the limit is real: the path is
     // submissions/{assignmentId}/{studentId}/{file}, so the assignment is
-    // known. A submission for an assignment that does not exist is refused.
-    match /submissions/{assignmentId}/{allPaths=**} {
+    // known. A submission for an assignment that does not exist is refused —
+    // and, since studentId is now its own path segment, so is one for a
+    // student who does not exist: the Firestore write below already anchors
+    // assignmentSubmissions.studentId to a real students/{id}, but the Storage
+    // object was uploadable first, so nothing stopped a caller from parking a
+    // video under an invented or someone-else's id before that write ever ran
+    // (or without it running at all). Checked against the staff-only
+    // `students` collection, not the public mirror: firestore.exists() from
+    // Storage rules bypasses Firestore rules entirely (same cross-service read
+    // isStaff() above already relies on), so there's no reason to read the
+    // narrower projection.
+    match /submissions/{assignmentId}/{studentId}/{allPaths=**} {
       allow read;
       allow create: if firestore.exists(/databases/(default)/documents/assignments/$(assignmentId))
+        && firestore.exists(/databases/(default)/documents/students/$(studentId))
         && request.resource.size < firestore.get(
              /databases/(default)/documents/assignments/$(assignmentId)
            ).data.get('maxVideoSizeMB', 500) * 1024 * 1024
         && request.resource.contentType.matches('video/.*');
       allow update, delete: if isStaff();
+    }
+
+    // Temp chunk storage for the client-side chunked resumable upload
+    // (#video-upload-reliability Phase 2). The browser uploads each ~16 MiB
+    // piece here directly, unauthenticated — same posture as /submissions
+    // above. composeSubmission (functions/src/composeSubmission.ts) is the
+    // only thing that ever reads one back, through the Admin SDK, which
+    // bypasses these rules entirely — so there is NO `allow read` here at
+    // all, for anyone, staff included: write-only for the public, closed
+    // outright to everyone else. A chunk on its own is not a usable video
+    // (GCS compose is what turns a full set of them into the real
+    // submissions/ object), so there is nothing to gain by reading one
+    // back, and no reason to ever hand out a bearer link to a fragment of
+    // an in-progress upload.
+    //
+    // Same anchors as /submissions: a real assignment, a real student. The
+    // size ceiling here bounds ONE chunk only (~16 MiB client-side, plus
+    // headroom) — it can never bound the SUM across chunks, which is
+    // exactly why composeSubmission re-checks the combined size in real
+    // code, against the assignment's actual maxVideoSizeMB, before
+    // composing anything.
+    //
+    // No update/delete path for anyone either: composeSubmission deletes
+    // chunks itself (Admin SDK) after a successful compose, and the
+    // scheduled cleanup (scripts/cleanup-abandoned-chunks.mjs, also Admin
+    // SDK) deletes anything left behind by an upload nobody ever finished.
+    match /submissions-parts/{assignmentId}/{studentId}/{sessionId}/{index} {
+      allow read, update, delete: if false;
+      allow create: if firestore.exists(/databases/(default)/documents/assignments/$(assignmentId))
+        && firestore.exists(/databases/(default)/documents/students/$(studentId))
+        && request.resource.size < 20 * 1024 * 1024;
     }
 
     // Concert check-in selfies (#concert-checkin).

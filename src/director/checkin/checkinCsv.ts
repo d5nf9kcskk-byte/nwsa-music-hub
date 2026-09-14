@@ -3,7 +3,7 @@
 // extensionless relative import — the same note as instrumentFamily.ts. A
 // bare '../../shared/concertCheckin' passes tsc and vite and then fails the
 // cron on its first run.
-import { termForDate, type Term } from '../../shared/concertCheckin.ts';
+import { scansCredited, termForDate, type Term } from '../../shared/concertCheckin.ts';
 import type { ConcertCheckin } from '../types';
 import { csvEscape as esc } from '../../shared/csv.ts';
 
@@ -163,10 +163,17 @@ export interface Tally { required: number; optional: number }
 
 export function talliesByStudent(
   records: ConcertCheckin[],
+  /** Concerts credited on the arrival scan alone (`checkin.entryOnly`). Empty
+   *  by default, so every concert needs both scans exactly as before. Passed
+   *  through to `scansCredited`, the ONE answer, which the Cloud Function
+   *  behind the student's own tally calls too — if these two ever disagree,
+   *  the student's number and the director's number disagree, and the student
+   *  is the one holding the wrong one. */
+  entryOnlyEventIds: ReadonlySet<string> = new Set(),
 ): Record<string, Record<string, Tally>> {
   const out: Record<string, Record<string, Tally>> = {};
   for (const row of pairCheckins(records)) {
-    if (!row.in || !row.out) continue;
+    if (!scansCredited(Boolean(row.in), Boolean(row.out), entryOnlyEventIds.has(row.eventId))) continue;
     if (row.attendance !== 'required' && row.attendance !== 'optional') continue;
     const byTerm = out[row.studentId] ??= {};
     const tally = byTerm[row.termId] ??= { required: 0, optional: 0 };

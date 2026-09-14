@@ -766,6 +766,26 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                       </div>
                     </span>
                   </label>
+                  <label className="dir-checkbox-row" style={{ marginTop: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(form.checkin?.entryOnly)}
+                      onChange={ev => setForm(f => ({
+                        ...f,
+                        checkin: { ...(f.checkin ?? {}), enabled: true, entryOnly: ev.target.checked },
+                      }))}
+                    />
+                    <span>
+                      Count this concert on the arrival scan alone
+                      <div className="dir-field-hint" style={{ marginTop: 2 }}>
+                        For the night the check-out did not work — a queue at
+                        the door, a dead phone, everyone sent home. The students
+                        did nothing wrong and the arrival record is all the
+                        school has. Leave it off everywhere else, or the
+                        check-out stops meaning anything.
+                      </div>
+                    </span>
+                  </label>
                   <div className="dir-field-hint" style={{ marginTop: 8 }}>
                     Check-in opens this many minutes before the start time
                     (blank = 10):

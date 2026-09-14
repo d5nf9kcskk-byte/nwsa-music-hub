@@ -160,6 +160,19 @@ export function GradeRow({
                   ))}
                 </div>
               )}
+              {/* Every take's note, not just the one currently playing — a
+                  student's "sorry, background noise, this is my good one" on
+                  take 1 is exactly what a director needs BEFORE picking which
+                  take to watch, not after switching to it. */}
+              {takes.length > 1 && takes.some(t => t.notes) && (
+                <div className="dir-grade-take-notes">
+                  {takes.map((t, i) => t.notes && (
+                    <div key={t.id} className="dir-grade-take-note">
+                      <strong>{i === 0 ? 'Latest' : `Take ${takes.length - i}`}:</strong> "{t.notes}"
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="dir-grade-video-meta">
                 Sent {longDate(showing.submittedAt)} · {formatFileSize(showing.fileSize)}
                 {showing.videoDurationSeconds > 0 && <> · {formatClock(showing.videoDurationSeconds)}</>}
