@@ -369,8 +369,11 @@ export function GradebookView() {
       <div className="dir-gb-note">
         Covering {reportSpan.label}, from <b>{period.start}</b> through <b>{reportSpan.through}</b>.
         {' '}An interim covers the whole quarter so far, never only the weeks since the last one.
-        {kind === 'interim' && period.interimEstimated && (
-          <> This period&rsquo;s deadline is an <b>estimate</b> until the teacher of record sends it.</>
+        {kind === 'interim' && (
+          <>
+            {' '}The district publishes quarter boundaries and nothing else, so the cutoff is
+            yours: set it to whatever you were asked for.
+          </>
         )}
       </div>
 

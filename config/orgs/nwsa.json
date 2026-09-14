@@ -133,13 +133,13 @@
   "grading": {
     "periods": [
       { "id": "2026-q1", "termId": "2026-fall", "name": "Quarter 1", "ordinal": "1st Quarter", "short": "Q1",
-        "start": "2026-08-13", "end": "2026-10-16", "interim": "2026-09-15" },
+        "start": "2026-08-13", "end": "2026-10-16", "schoolDays": 45 },
       { "id": "2026-q2", "termId": "2026-fall", "name": "Quarter 2", "ordinal": "2nd Quarter", "short": "Q2",
-        "start": "2026-10-19", "end": "2027-01-14", "interim": "2026-12-03", "interimEstimated": true },
+        "start": "2026-10-19", "end": "2027-01-14", "schoolDays": 46 },
       { "id": "2027-q3", "termId": "2027-spring", "name": "Quarter 3", "ordinal": "3rd Quarter", "short": "Q3",
-        "start": "2027-01-19", "end": "2027-03-19", "interim": "2027-02-23", "interimEstimated": true },
+        "start": "2027-01-19", "end": "2027-03-19", "schoolDays": 42 },
       { "id": "2027-q4", "termId": "2027-spring", "name": "Quarter 4", "ordinal": "4th Quarter", "short": "Q4",
-        "start": "2027-03-30", "end": "2027-06-03", "interim": "2027-05-06" }
+        "start": "2027-03-30", "end": "2027-06-03", "schoolDays": 47 }
     ],
     "plans": {
       "byGroupKey": {

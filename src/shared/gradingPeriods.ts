@@ -16,13 +16,21 @@
  *      produce numbers that are individually plausible and collectively
  *      wrong, which is the worst failure mode available here. `windowFor()`
  *      therefore always starts at the period's own `start`.
- *   2. **A report date is typed, never computed.** Halving a quarter lands
- *      the interim on whatever day the arithmetic picks, which is sooner or
- *      later a teacher planning day or the week after a hurricane closure.
- *      The district publishes the deadline in an email each period; the dates
- *      here are what that email said, or a clearly-labelled estimate until it
- *      arrives. Same reasoning that put term boundaries in config rather than
- *      a `month >= 8` guess (#current-term).
+ *   2. **There is no such thing as a stored interim date.** The M-DCPS
+ *      2026-2027 calendar publishes grading-period boundaries, the day count
+ *      in each, and the days with no students. It publishes NO interim date,
+ *      for any quarter. What exists instead is the teacher of record asking
+ *      for the numbers by a particular morning, which is a request and not a
+ *      district deadline, and which arrives by email each period. So the
+ *      cutoff is set by the person running the report, defaulting to today,
+ *      and nothing here derives one. A calculated interim would be a guess
+ *      wearing a deadline's clothes: the 60%-through model that produced one
+ *      said Sep 22 for Q1, and the real ask was a week earlier.
+ *
+ * `schoolDays` is the district's own published count for each quarter (45,
+ * 46, 42, 47, totalling 180). It is carried here so the self-check can prove
+ * the configured boundaries and `MDCPS_NO_SCHOOL` actually reproduce the
+ * printed calendar, rather than merely looking plausible.
  */
 
 /** One MDCPS grading period. Dates are verbatim from the district calendar. */
@@ -39,14 +47,13 @@ export interface GradingPeriod {
   start: string;  // YYYY-MM-DD, inclusive
   end: string;    // YYYY-MM-DD, inclusive
   /**
-   * Submission deadline for the mid-quarter interim, when it is known.
-   * OPTIONAL on purpose: the district publishes no interim dates and the
-   * authority is the teacher-of-record's email each period. A period with
-   * none simply offers no interim default, which is honest.
+   * The district's own published count of school days in this quarter. Not
+   * used in any arithmetic — it exists so the self-check can verify that
+   * these boundaries plus `MDCPS_NO_SCHOOL` reproduce the printed calendar
+   * exactly. If a boundary or a no-school day is ever edited wrongly, that
+   * count stops matching and CI says so.
    */
-  interim?: string;
-  /** True when `interim` is an estimate rather than a date somebody sent. */
-  interimEstimated?: boolean;
+  schoolDays?: number;
 }
 
 /** Which report is being produced: the mid-quarter interim, or the quarter. */
@@ -127,9 +134,13 @@ export function windowFor(
 }
 
 /**
- * The cutoff a screen should open on for this period and kind: the published
- * deadline when there is one, otherwise today clamped into the period. Never
- * invents an interim date — a period with no `interim` opens on today.
+ * The cutoff a screen should open on: the end of the quarter for a quarter
+ * report, and TODAY, clamped into the period, for an interim.
+ *
+ * Deliberately no stored interim date to prefer. The district publishes none
+ * (see rule 2 in the file header), so an interim covers the quarter up to the
+ * day the person sits down to write it, and the person moves the date if they
+ * were asked for something else.
  */
 export function defaultCutoff(
   period: GradingPeriod,
@@ -137,7 +148,6 @@ export function defaultCutoff(
   today: string,
 ): string {
   if (kind === 'quarter') return today > period.end ? period.end : today;
-  if (period.interim) return period.interim;
   return today < period.start ? period.start : today > period.end ? period.end : today;
 }
 

@@ -20,7 +20,7 @@ function assert(cond: unknown, msg: string): void {
 
 const Q1: GradingPeriod = {
   id: 'q1', name: 'Quarter 1', ordinal: '1st Quarter', short: 'Q1',
-  start: '2026-08-13', end: '2026-10-16', interim: '2026-09-15',
+  start: '2026-08-13', end: '2026-10-16', schoolDays: 45,
 };
 const INTERIM = windowFor(Q1, 'interim', '2026-09-15');
 const QUARTER = windowFor(Q1, 'quarter', '2026-10-16');

@@ -42,7 +42,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     audience: 'staff' as const,
     expires: '2026-10-05',
     bullets: [
-      'New Gradebook tab. Pick the quarter and whether it is the interim or the end of it, and every student on that section comes up with what the Hub already knows on the same line: unexcused absences, excused absences, lateness, how many rehearsals actually took roll, every playing exam score, and required concerts credited.',
+      'New Gradebook tab. Pick the quarter and whether it is the interim or the end of it, and every student on that section comes up with what the Hub already knows on the same line: unexcused absences, excused absences, lateness, how many rehearsals actually took roll, every playing exam score, and required concerts credited. The district publishes quarter boundaries and no interim dates, so an interim opens on today and the cutoff is yours to set to whatever you were asked for.',
       'You type the category scores. The Hub does not grade attendance for you — an excused absence costs nothing and is a record, and how much an unexcused one weighs on Preparation is your call, made with the count in front of you.',
       'Playing Exams and Required Performance Attendance arrive with a suggested number in grey, worked out from the exams you have already graded and the concerts that were held. Take it, type over it, or use Fill to drop it into every empty box in the column at once.',
       'A category you have not scored leaves the average entirely, so an interim in week three is not dragged down by an exam that has not happened. Until half the plan is scored there is no number at all, because a 94 built from one category is not a grade.',

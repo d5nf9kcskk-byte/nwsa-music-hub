@@ -562,21 +562,43 @@ rather than a formula, and it keeps every bucket apart (unexcused, excused,
 late, late excused, lesson pull-out) precisely because the director grades
 them differently.
 
-### The grading calendar was half in the Hub already
+### The grading calendar was already right, and there are no interim dates
 
 `src/director/seedCalendar.ts` has carried the MDCPS grading-period boundaries
-since the season was seeded, and they are correct: Q1 Aug 13 to Oct 16, Q2 Oct
-19 to Jan 14, Q3 Jan 19 to Mar 19, Q4 Mar 30 to Jun 3. What is nowhere in the
-Hub, or in the district's published calendar, is an INTERIM date. The workbook
-derived its four by taking the one confirmed deadline (Brent's Q4 email, Wed
-May 6) as 60% through that quarter's school days and applying the same
-fraction to the others.
+since the season was seeded, and they are correct. I checked them against the
+official M-DCPS 2026-2027 School Calendar (Elementary and Secondary) rather
+than taking them on trust, and the check is now permanent: counting weekdays
+between each configured boundary, minus `MDCPS_NO_SCHOOL`, has to land on the
+district's own printed day count beside that quarter.
 
-That model gives Sep 22 for Q1. The real Q1 interim is Sep 15. So the model is
-wrong, and the file now says so: `interim` is a published date where one is
-known (Q1 and Q4), flagged `interimEstimated` where it is not (Q2 and Q3), and
-the screen prints the warning rather than letting an estimate pass as a
-deadline. `defaultCutoff` never invents one.
+| Quarter | Boundaries | District prints | Hub counts |
+|---|---|---|---|
+| Q1 | Aug 13 to Oct 16 | 45 | 45 |
+| Q2 | Oct 19 to Jan 14 | 46 | 46 |
+| Q3 | Jan 19 to Mar 19 | 42 | 42 |
+| Q4 | Mar 30 to Jun 3 | 47 | 47 |
+| | | **180** | **180** |
+
+That is a real test rather than a restatement: it only passes if both the
+boundaries AND every no-school day are right, and both of those quietly change
+how many rehearsals a student is measured against. It found one omission,
+June 4 (teacher planning, no students), now in `MDCPS_NO_SCHOOL`. It sits
+outside every quarter, so no count moved.
+
+**The calendar publishes no interim date. For any quarter.** It publishes
+boundaries, day counts, and the days with no students, and that is the whole
+of it. What actually happens is that the teacher of record asks for the
+numbers by a particular morning, by email, each period. That is a request, not
+a district deadline, and the difference matters: an earlier pass here stored a
+"due" date derived by treating one such request as the 60% point of its
+quarter and applying the same fraction to the others. That model produced Sep
+22 for Q1 and the real ask was a week earlier.
+
+So nothing stores an interim date now. `defaultCutoff` opens an interim on
+TODAY, clamped into the quarter, and the person moves it if they were asked
+for something else. The screen says as much rather than presenting a guess as
+a deadline, and the self-check asserts that no configured period carries an
+`interim` field at all.
 
 Two calendar facts worth a look, both unresolved: `ORG.terms` says Fall 2026
 starts **Aug 17**, while MDCPS started Aug 13 and MDC starts Aug 24, and that
@@ -614,7 +636,8 @@ it is for.
 
 ### Still open
 
-- Q2 and Q3 interim dates.
+- Nothing about interim dates: there are none to find. Each period's ask
+  arrives by email and the cutoff box is where it goes.
 - The two college classes: expected counts and drop-the-lowest.
 - Whether the report should SEND rather than be pasted. Everything above is
   built for it, `interimReport.ts` is pure and runs in the Functions bundle,
