@@ -109,9 +109,8 @@ frontend lens alone was $7.30. Charged as subscription usage. Each job's
 real `total_cost_usd` is in the report's Stats section. A quiet week should
 be well under that.
 
-## Retiring the Monday bug scan
+## The Monday bug scan is retired
 
-`claude-bug-scan.yml` (Mondays, diff-only, public issue) is a shallow subset
-of this review. **After the Saturday review has run green twice**, delete
-`.github/workflows/claude-bug-scan.yml` and `docs/claude-bug-scan.md`, and
-close the `claude-bug-scan` issue if one exists. Decided 2026-09-02.
+`claude-bug-scan.yml` (Mondays, diff-only, public issue) was a shallow
+subset of this review. Decided 2026-09-02, retired 2026-09-14 after the
+Saturday review ran green twice (2026-09-05, 2026-09-12).
