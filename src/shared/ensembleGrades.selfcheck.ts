@@ -7,9 +7,9 @@
  * afternoon and nobody would notice until a parent asked.
  */
 import {
-  COVERAGE_FLOOR, attendanceByStudent, byLastName, commentReasons, concertSuggestion,
-  conductValue, effortValue, examEvidence, gradeValue, lastFirst, lastName, meetingsHeld,
-  planProblem, rowReadiness, tallyGrade,
+  COVERAGE_FLOOR, FULL_MARKS, attendanceByStudent, byLastName, commentReasons, concertSuggestion,
+  conductValue, effortValue, examEvidence, fillValueFor, gradeValue, lastFirst, lastName,
+  meetingsHeld, planProblem, rowReadiness, tallyGrade,
   type GradeCategory, type MarkLike,
 } from './ensembleGrades.ts';
 
@@ -78,6 +78,35 @@ assert(COVERAGE_FLOOR === 0.5, 'the floor is half the plan');
 assert(
   tallyGrade(PLAN, { attendance: 90, performance: 90 }).percent === 90,
   'exactly at the floor (50 of 100) does produce a grade',
+);
+
+/* ── what the Fill button writes ───────────────────────────────────────── */
+
+const attendanceCat = PLAN[0];
+const examsCat = PLAN[2];
+
+assert(
+  fillValueFor(attendanceCat, null) === FULL_MARKS,
+  'a judgement category fills at FULL MARKS, and the director adjusts down — the same '
+  + 'exception-only shape as taking roll',
+);
+assert(FULL_MARKS === 100, 'full marks is 100');
+assert(
+  fillValueFor({ ...attendanceCat, fillWith: 85 }, null) === 85,
+  'a category can name its own starting value',
+);
+assert(
+  fillValueFor({ ...attendanceCat, fillWith: 0 }, null) === 0,
+  'including zero, which must not be read as "unset"',
+);
+assert(
+  fillValueFor(examsCat, 88) === 88,
+  'a computed category fills with its suggestion, never with full marks',
+);
+assert(
+  fillValueFor(examsCat, null) === null,
+  'and fills NOTHING when there is no suggestion — an ungraded exam must never be '
+  + 'filled at 100 any more than it is counted as a zero',
 );
 
 /* ── effort and conduct read the district's scales, and nothing else ───── */

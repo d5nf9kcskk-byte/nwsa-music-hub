@@ -50,9 +50,42 @@ export interface GradeCategory {
    *   • 'exams'    — mean of this quarter's graded playing exams.
    *   • 'concerts' — required concerts credited over required concerts held.
    *   • 'lessons'  — the applied teacher's own term average for this student.
-   *   • absent     — nothing to suggest; the director types it.
+   *   • absent     — nothing to compute; see `fillWith`.
    */
   suggest?: 'exams' | 'concerts' | 'lessons';
+  /**
+   * The value the column's Fill button writes when there is nothing to
+   * compute (director's call, 2026-09-14): start the observed categories at
+   * full marks and adjust down from there, which is the same exception-only
+   * shape as taking roll.
+   *
+   * `FULL_MARKS` when absent, so every judgement category gets the button
+   * without config having to say so. Set it explicitly to start a category
+   * somewhere other than 100.
+   *
+   * The cost is real and worth stating: once a column is filled, a student
+   * you never looked at is indistinguishable from one you considered and
+   * left at 100. Blank was the signal that a row still needed you. Fill
+   * trades that signal for speed, deliberately, and only when pressed.
+   */
+  fillWith?: number;
+}
+
+/** What an unadjusted judgement category is worth. */
+export const FULL_MARKS = 100;
+
+/**
+ * What this column's Fill button writes for one student: the computed
+ * suggestion where there is one, otherwise full marks. Null means there is
+ * nothing to write — an exam nobody has graded suggests nothing, and filling
+ * a zero there would be a grade nobody gave.
+ */
+export function fillValueFor(
+  category: GradeCategory,
+  suggested: number | null,
+): number | null {
+  if (category.suggest) return suggested;
+  return category.fillWith ?? FULL_MARKS;
 }
 
 export const GRADE_MIN = 0;

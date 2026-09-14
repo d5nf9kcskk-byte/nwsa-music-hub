@@ -3,7 +3,7 @@ import { ClipboardCopy, Check, Wand2 } from 'lucide-react';
 import { ORG } from '../../org';
 import {
   CONDUCT_GRADES, EFFORT_GRADES, EMPTY_ATTENDANCE, attendanceByStudent, commentReasons,
-  concertSuggestion, conductValue, effortValue, examEvidence, gradeValue, meetingsHeld,
+  concertSuggestion, conductValue, effortValue, examEvidence, fillValueFor, gradeValue, meetingsHeld,
   rowReadiness, tallyGrade,
   type AttendanceEvidence, type GradeCategory,
 } from '../../shared/ensembleGrades';
@@ -68,17 +68,27 @@ function groupKeyFor(layout: ReportLayout): string {
 /**
  * Who belongs on one table.
  *
- * An ensemble table is its roster. The applied table is NOT a roster: it is
- * whoever this teacher actually gave a lesson to inside the window, which is
- * the only list that stays right when a student is picked up or handed on
- * mid-quarter. `lessons` is already scoped to the signed-in teacher by its
- * own query and rules, so this cannot reach another teacher's studio.
+ * An ensemble table is its roster. The applied table is the teacher's STUDIO,
+ * and it is the union of two lists because neither one alone is right:
+ *
+ *   • `assignedStudentIds` on the teacher's own directors doc — everyone in
+ *     the studio, whether or not a lesson has been logged yet. A student who
+ *     has had no lesson this quarter still has to appear, or they are missing
+ *     from the report entirely rather than showing an honest blank.
+ *   • anyone this teacher actually gave a lesson to inside the window, which
+ *     catches a student picked up mid-quarter before the assignment list
+ *     caught up.
+ *
+ * Both are already scoped to the signed-in teacher (`lessons` by its own query
+ * and rules, `assignedStudentIds` by being their own doc), so this can never
+ * reach another teacher's studio.
  */
 function rosterFor(
   layout: ReportLayout,
   students: Student[],
   lessons: Lesson[],
   myEmail: string | undefined,
+  assignedStudentIds: string[],
   reportSpan: ReportingWindow,
   hsOnly: boolean,
 ): GroupRoster {
@@ -90,16 +100,28 @@ function rosterFor(
       .map(s => ({ student: s, instrument: s.instrument ?? '' }));
   }
   const pattern = layout.source.instrumentPattern?.toLowerCase() ?? '';
+  const matches = (instrument: string) => !pattern || instrument.toLowerCase().includes(pattern);
   const byId = new Map<string, string>();
+
+  // Everyone assigned to this teacher, lesson or no lesson.
+  for (const id of assignedStudentIds) {
+    const student = students.find(s => s.id === id);
+    const instrument = (student?.instrument ?? '').trim();
+    if (!matches(instrument)) continue;
+    byId.set(id, instrument);
+  }
+  // Plus anyone they actually taught in the window. A lesson's own instrument
+  // wins over the roster's, since it is what was taught on the day.
   for (const l of lessons) {
     if (myEmail && l.teacherEmail !== myEmail) continue;
     if (l.date < reportSpan.from || l.date > reportSpan.through) continue;
     if (l.status === 'Cancelled') continue;
     const student = students.find(s => s.id === l.studentId);
     const instrument = (l.instrument || student?.instrument || '').trim();
-    if (pattern && !instrument.toLowerCase().includes(pattern)) continue;
-    if (!byId.has(l.studentId)) byId.set(l.studentId, instrument);
+    if (!matches(instrument)) continue;
+    byId.set(l.studentId, instrument);
   }
+
   return active
     .filter(s => byId.has(s.id))
     .map(s => ({ student: s, instrument: byId.get(s.id) || (s.instrument ?? '') }));
@@ -145,7 +167,9 @@ export function GradebookView() {
   }, [grading, groupKey]);
 
   const roster: GroupRoster = useMemo(
-    () => (layout && reportSpan ? rosterFor(layout, students, lessons, me?.email, reportSpan, hsOnly) : []),
+    () => (layout && reportSpan
+      ? rosterFor(layout, students, lessons, me?.email, me?.assignedStudentIds ?? [], reportSpan, hsOnly)
+      : []),
     [layout, reportSpan, students, lessons, me, hsOnly],
   );
 
@@ -272,7 +296,9 @@ export function GradebookView() {
       const key = groupKeyFor(r);
       const cats = grading.plans.byGroupKey?.[key] ?? grading.plans.default;
       const groupMarks = byGroup[key] ?? {};
-      const reportRows: ReportRow[] = rosterFor(r, students, lessons, me?.email, reportSpan, hsOnly)
+      const reportRows: ReportRow[] = rosterFor(
+        r, students, lessons, me?.email, me?.assignedStudentIds ?? [], reportSpan, hsOnly,
+      )
         .map(({ student, instrument }) => {
           const m = groupMarks[student.id];
           const t = tallyGrade(cats, m?.scores);
@@ -321,18 +347,47 @@ export function GradebookView() {
     setTimeout(() => setCopied(false), 2500);
   }
 
-  /** Fill every EMPTY box in one column with its suggestion. Never overwrites
-   *  a number the director already typed. */
+  /**
+   * Fill every EMPTY box in one column: the computed suggestion where there is
+   * one, full marks on the observed categories. Never overwrites a number
+   * already in the box, so pressing it twice is safe and pressing it after you
+   * have adjusted somebody does not undo the adjustment.
+   */
   async function fillColumn(cat: GradeCategory) {
     for (const r of rows) {
       if (gradeValue(marks[r.student.id]?.scores?.[cat.id]) !== null) continue;
-      const s = suggestion(cat, r.student.id);
-      if (s !== null) await saveScore(groupKey, r.student.id, cat.id, s);
+      const value = fillValueFor(cat, suggestion(cat, r.student.id));
+      if (value !== null) await saveScore(groupKey, r.student.id, cat.id, value);
     }
+  }
+
+  /** Fill every empty box on the whole table, one press. */
+  async function fillEverything() {
+    for (const cat of plan) await fillColumn(cat);
   }
 
   return (
     <div className="dir-gradebook">
+      {grading.instructions && (
+        <details className="dir-gb-brief" open>
+          <summary>{grading.instructions.title}</summary>
+          <ol className="dir-gb-brief-list">
+            {grading.instructions.items.map(item => <li key={item}>{item}</li>)}
+          </ol>
+          {grading.instructions.note && (
+            <p className="dir-gb-brief-note">{grading.instructions.note}</p>
+          )}
+          <details className="dir-gb-codes-ref">
+            <summary>Comment codes ({Object.keys(grading.commentCodes).length})</summary>
+            <ul>
+              {Object.entries(grading.commentCodes).map(([code, text]) => (
+                <li key={code}><b>{code}</b> {text}</li>
+              ))}
+            </ul>
+          </details>
+        </details>
+      )}
+
       <div className="dir-filter-bar dir-gb-controls">
         <select
           className="dir-input"
@@ -375,6 +430,9 @@ export function GradebookView() {
             yours: set it to whatever you were asked for.
           </>
         )}
+        {' '}<b>Fill</b> starts a column at full marks (or at the suggested number where there is
+        one) and never overwrites a box you have already touched. Once a column is filled, a
+        student you never looked at reads the same as one you considered and left alone.
       </div>
 
       <div className="dir-segment dir-gb-tabs">
@@ -398,15 +456,15 @@ export function GradebookView() {
                 <th key={c.id}>
                   <div>{c.label}</div>
                   <div className="dir-gb-weight">{c.weight} pts</div>
-                  {c.suggest && (
-                    <button
-                      className="dir-gb-fill"
-                      onClick={() => void fillColumn(c)}
-                      title="Fill every empty box in this column with the suggested number"
-                    >
-                      <Wand2 size={12} /> Fill
-                    </button>
-                  )}
+                  <button
+                    className="dir-gb-fill"
+                    onClick={() => void fillColumn(c)}
+                    title={c.suggest
+                      ? 'Fill every empty box in this column with the suggested number'
+                      : `Start every empty box in this column at ${c.fillWith ?? 100}, then adjust down`}
+                  >
+                    <Wand2 size={12} /> {c.suggest ? 'Fill' : `Fill ${c.fillWith ?? 100}`}
+                  </button>
                 </th>
               ))}
               <th>{reportSpan.prefix} Grade</th>
@@ -445,9 +503,9 @@ export function GradebookView() {
                     ) : (
                       <>
                         <span>{r.instrument}</span>
-                        {lessonAverages[r.student.id] !== undefined && (
-                          <span>Lesson average {lessonAverages[r.student.id]}</span>
-                        )}
+                        {lessonAverages[r.student.id] !== undefined
+                          ? <span>Lesson average {lessonAverages[r.student.id]}</span>
+                          : <span>No graded lessons this quarter yet</span>}
                       </>
                     )}
                   </div>
@@ -566,9 +624,14 @@ export function GradebookView() {
             ? <>Every row on this table is ready to submit.</>
             : <><b>{notReady.length}</b> of {rows.length} rows still need something: {summarize(notReady)}.</>}
         </div>
-        <button className="dir-tool-btn" onClick={() => setShowEmail(s => !s)}>
-          {showEmail ? 'Hide the email' : 'Build the email'}
-        </button>
+        <div className="dir-gb-actions">
+          <button className="dir-tool-btn" onClick={() => void fillEverything()}>
+            <Wand2 size={14} /> Fill every empty box
+          </button>
+          <button className="dir-tool-btn" onClick={() => setShowEmail(s => !s)}>
+            {showEmail ? 'Hide the email' : 'Build the email'}
+          </button>
+        </div>
       </div>
 
       {showEmail && (

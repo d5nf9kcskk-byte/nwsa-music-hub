@@ -24,6 +24,13 @@ export interface OrgGrading {
   commentRules: CommentRules;
   /** The district's comment code list: code → what it means. */
   commentCodes: Record<string, string>;
+  /**
+   * The teacher of record's standing request, shown at the top of the
+   * Gradebook. It is the same list every period and it is the specification
+   * this screen is built against, so it belongs in front of the person filling
+   * the screen in rather than in a commit message.
+   */
+  instructions?: { title: string; items: string[]; note?: string };
   /** The standing wording of the submission email. */
   email: { recipientName: string; subjectSuffix: string; intro: string };
   /** The tables that email carries, in the order they appear in it. */
