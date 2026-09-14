@@ -501,6 +501,11 @@ function wrapCalendar(name, description, vevents) {
     const lessonsByStudent = new Map();
     for (const l of publicLessons) {
       if (!l.studentId || !l.date) continue;
+      // Same reasoning as staffFeed.ts: omit rather than lean on
+      // STATUS:CANCELLED, which several calendar apps ignore on a
+      // subscribed feed (#30) — this is the same "absent from the next
+      // build" story every other deletion in this generator already uses.
+      if (l.status === 'Cancelled') continue;
       if (!lessonsByStudent.has(l.studentId)) lessonsByStudent.set(l.studentId, []);
       lessonsByStudent.get(l.studentId).push(l);
     }

@@ -188,6 +188,43 @@ export function trimJuryRows(rows: JuryPiece[]): JuryPiece[] {
   return kept;
 }
 
+/**
+ * A per-LESSON piece list, in the same paired shape as the jury list above —
+ * reusing `JuryPiece` rather than a second type, since it's the same two
+ * blanks either way.
+ *
+ * `Lesson.repertoireComposer`/`repertoireTitle` are stored as two newline-
+ * joined strings (one composer, one title, matched by line) because the
+ * paper log prints them as two columns. Editing them as two INDEPENDENT
+ * textareas is what made the form "terrible": nothing kept line 2 of one box
+ * lined up with line 2 of the other, so a two-piece lesson was two counts of
+ * blind faith. `lessonPieces()`/`joinPieces()` are the seam — the editor
+ * works on paired rows, and only these two functions ever touch the
+ * newline-joined strings the doc, the CSV, the Dean's LessonsView display and
+ * repertoireLine() (the mail body) all still read exactly as before.
+ */
+export function lessonPieces(composer?: string, title?: string): JuryPiece[] {
+  const c = (composer ?? '').split(/\r?\n/);
+  const t = (title ?? '').split(/\r?\n/);
+  const rows = Array.from({ length: Math.max(c.length, t.length, 1) }, (_, i) => ({
+    composer: (c[i] ?? '').trim(),
+    title: (t[i] ?? '').trim(),
+  }));
+  const trimmed = trimJuryRows(rows);
+  // Never zero rows: the editor always needs a first line to type into, the
+  // same reason juryRows() pads up rather than starting empty.
+  return trimmed.length > 0 ? trimmed : [{ composer: '', title: '' }];
+}
+
+/** The reverse of lessonPieces() — back to the two strings the doc stores. */
+export function joinPieces(pieces: JuryPiece[]): { composer: string; title: string } {
+  const trimmed = trimJuryRows(pieces);
+  return {
+    composer: trimmed.map(p => p.composer).join('\n'),
+    title: trimmed.map(p => p.title).join('\n'),
+  };
+}
+
 /** Default start/end for a new log line from payroll length. */
 export function defaultTimesForPayroll(mins: PayrollMinutes): { startTime: string; endTime: string } {
   return mins === 60
