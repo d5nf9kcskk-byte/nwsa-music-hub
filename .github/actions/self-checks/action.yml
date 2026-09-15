@@ -75,6 +75,14 @@ runs:
       run: node scripts/signup-eligibility.selfcheck.mjs
       shell: bash
 
+    # Roll-scoping for reported absences (#absence-report): a report naming
+    # specific ensembles must show ONLY on those rolls, and the two
+    # pre-existing writers (which never set ensembleIds) must keep showing on
+    # every roll, exactly as before this form existed.
+    - name: Check absence report scoping and category contract
+      run: node scripts/absence-report.selfcheck.mjs
+      shell: bash
+
     - name: Check sign-up interview slots
       run: npx tsx src/shared/signupSlots.selfcheck.ts
       shell: bash

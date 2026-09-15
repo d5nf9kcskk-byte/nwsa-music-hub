@@ -836,8 +836,27 @@ export interface AssignmentSubmission {
   googleDriveFolderId?: string;
 }
 
-/** Student/parent-submitted planned absence (#27). Create-only from the public
- *  side; the director converts it to Excused or dismisses it at roll time. */
+/** The three doors on the /absence report form (#absence-report). A closed
+ *  set — firestore.rules enforces the same list on create. Every field below
+ *  that only one category fills in stays OPTIONAL in the type and the rules:
+ *  the two pre-existing writers (PlannedAbsenceButton, apply-absence-email.mjs)
+ *  send none of them and must keep working unmodified. */
+export const ABSENCE_CATEGORIES = ['leaving-early', 'full-day-absence', 'parent-signout'] as const;
+export type AbsenceCategory = (typeof ABSENCE_CATEGORIES)[number];
+
+/** The ONE spelling of each category — Take Roll's chip, Who's Out, and the
+ *  confirmation email (functions/src/plannedAbsenceConfirmation.ts, imported
+ *  from here) all read this rather than keeping their own copy. */
+export const ABSENCE_CATEGORY_LABEL: Record<AbsenceCategory, string> = {
+  'leaving-early': 'Leaving early',
+  'full-day-absence': 'Full-day absence',
+  'parent-signout': 'Parent sign-out',
+};
+
+/** Student/parent-submitted planned absence (#27, widened #absence-report).
+ *  Create-only from the public side; the director converts it to Excused or
+ *  dismisses it at roll time. Two writers: the PlannedAbsenceButton modal
+ *  (date + reason only) and the /absence report form (everything below). */
 export interface PlannedAbsence {
   id: string;
   studentId: string;
@@ -846,6 +865,28 @@ export interface PlannedAbsence {
   reason: string;
   submittedAt: number;
   status?: 'pending' | 'approved' | 'dismissed';
+  // #absence-report — all optional; absent on every doc the two older
+  // writers create.
+  email?: string;
+  /** Which ensembles/classes this covers. Absent or empty = every rehearsal
+   *  that day (the original button's meaning) — NOT "no ensembles", the
+   *  opposite convention from calendarView.ts's filters. */
+  ensembleIds?: string[];
+  category?: AbsenceCategory;
+  timeWindow?: 'full' | 'specific';
+  startTime?: string;   // "HH:MM", only when timeWindow === 'specific'
+  endTime?: string;
+  /** Storage path under absenceExcusePhotos/{this doc's id}/ — only for
+   *  category 'leaving-early'. */
+  photoPath?: string;
+  parentName?: string;
+  parentContact?: string;  // phone or email, free text
+  signOutTime?: string;    // "HH:MM"
+  /** Did the student check the policy-responsibility box? Enforced
+   *  client-side only — see the rules comment on why this can never become
+   *  a server-side `== true` requirement. */
+  acknowledged?: boolean;
+  notes?: string;
 }
 
 /** Topics a parent can pick on the public contact form (#parent-messages).

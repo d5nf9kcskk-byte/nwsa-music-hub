@@ -1,0 +1,50 @@
+/* /absence (#absence-report) — the one piece of UI here with no existing
+   precedent to reuse: a 3-way category picker. Everything else on the page
+   is .pub-signup-*, .pub-absence-* (plannedAbsence.css) and .pub-selfie*
+   (checkin.css), imported by PublicAbsence.tsx rather than duplicated. */
+
+.pub-absence-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.pub-absence-cat {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--pub-border, #d3d9dd);
+  border-radius: var(--pub-radius-md);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.pub-absence-cat.active {
+  border-color: var(--pub-accent, #0d7e8e);
+  background: var(--pub-accent-soft, #e6f4f6);
+}
+
+.pub-absence-cat svg { flex: none; margin-top: 2px; color: var(--pub-accent, #0d7e8e); }
+
+.pub-absence-cat-label { display: block; font-weight: 600; }
+
+.pub-absence-cat-desc { display: block; font-size: 0.85em; opacity: 0.75; margin-top: 2px; }
+
+.pub-absence-branch {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--pub-border, #d3d9dd);
+}
+
+.pub-absence-times {
+  display: flex;
+  gap: 10px;
+}
+
+.pub-absence-times > div { flex: 1; min-width: 0; }

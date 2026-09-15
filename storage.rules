@@ -48,6 +48,17 @@ service firebase.storage {
         && hasRole('classroom');
     }
 
+    // Mirrors isClassroom() above — this file had no assistant-role helper
+    // before #absence-report needed one for the excuse-slip photo read gate,
+    // matching firestore.rules' own isStaff() || isAssistantRole() on
+    // plannedAbsences itself.
+    function isAssistant() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
+        && hasRole('assistant');
+    }
+
     function isStaff() {
       return request.auth != null
         && request.auth.token.email_verified == true
@@ -161,6 +172,33 @@ service firebase.storage {
     // stamped and validated. A phone never writes here directly.
     match /checkins/{allPaths=**} {
       allow read, write: if isStaff();
+    }
+
+    // Excuse-slip photos for the "Leaving Early (Office Note)" category on
+    // the /absence report form (#absence-report). Anchored to the
+    // plannedAbsences doc's OWN id: the client generates the doc ref locally
+    // (no network yet), writes the Firestore doc FIRST — which is what this
+    // rule's existence check reads — then uploads the photo to the path that
+    // doc's own photoPath field already names. Same existence-anchor + size +
+    // content-type shape as /submissions above, but NOT world-readable: an
+    // office excuse slip photographs a minor's name and handwriting, the same
+    // sensitivity tier plannedAbsences' own free-text `reason` already gets
+    // (staff/assistant read, never public — see firestore.rules).
+    //
+    // Doc-first, photo-second also means a submission is never silently lost
+    // if the upload step fails after the Firestore write lands: the report
+    // still exists, with a photoPath the director can chase up directly,
+    // rather than an orphaned Storage object with no record at all (the
+    // reverse ordering is exactly the failure mode #video-upload-reliability
+    // exists to fix for assignment videos — no reason to reintroduce it here
+    // for one photo).
+    match /absenceExcusePhotos/{plannedAbsenceId}/{file} {
+      allow read: if isStaff() || isAssistant();
+      allow create: if firestore.exists(/databases/(default)/documents/plannedAbsences/$(plannedAbsenceId))
+        && firestore.get(/databases/(default)/documents/plannedAbsences/$(plannedAbsenceId)).data.get('category', '') == 'leaving-early'
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+      allow update, delete: if isStaff();
     }
 
     // Deny everything else by default.

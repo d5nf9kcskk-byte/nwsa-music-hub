@@ -572,9 +572,10 @@ service cloud.firestore {
       allow delete: if canManageSignups();
     }
 
-    // Planned absences (#27): anyone may SUBMIT one (create-only, shape-checked),
-    // but only staff can read the queue or change/delete entries — so the
-    // public side can't enumerate or tamper with other students' reports.
+    // Planned absences (#27, widened #absence-report): anyone may SUBMIT one
+    // (create-only, shape-checked), but only staff can read the queue or
+    // change/delete entries — so the public side can't enumerate or tamper
+    // with other students' reports.
     match /plannedAbsences/{doc} {
       // Hardened shape (audit S4): the student must actually exist (no
       // spam-for-invented-ids), the date must be a real YYYY-MM-DD string,
@@ -582,7 +583,22 @@ service cloud.firestore {
       // unauthenticated write in the app and set the standard the other four
       // (parentMessages, assignmentSubmissions, calendarViews,
       // signupResponses) are held to.
-      allow create: if request.resource.data.keys().hasOnly(['studentId', 'studentName', 'date', 'reason', 'submittedAt', 'status'])
+      //
+      // #absence-report (Sept 2026) widened the shape from 6 keys to 18 for
+      // the /absence report form's category picker, ensemble multi-select,
+      // time window, and excuse-slip photo. Every new field is OPTIONAL here,
+      // the same `!('x' in data) || (...)` shape signupResponses already uses
+      // for ITS optional fields (guardian name/signature/email) — the two
+      // pre-existing writers (PlannedAbsenceButton.tsx,
+      // scripts/apply-absence-email.mjs) send only the original 6 keys and
+      // must keep working forever. In particular `acknowledged` (the policy
+      // checkbox) can NEVER become an unconditional `== true` requirement —
+      // that would break both of them on their very next write. The policy
+      // acknowledgment is enforced client-side only, in PublicAbsence.tsx.
+      allow create: if request.resource.data.keys().hasOnly([
+            'studentId', 'studentName', 'date', 'reason', 'submittedAt', 'status',
+            'email', 'ensembleIds', 'category', 'timeWindow', 'startTime', 'endTime',
+            'photoPath', 'parentName', 'parentContact', 'signOutTime', 'acknowledged', 'notes'])
         && request.resource.data.studentId is string
         && exists(/databases/$(database)/documents/students/$(request.resource.data.studentId))
         && request.resource.data.studentName is string
@@ -592,7 +608,33 @@ service cloud.firestore {
         && request.resource.data.reason is string
         && request.resource.data.reason.size() <= 300
         && request.resource.data.submittedAt is number
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && (!('email' in request.resource.data)
+            || (request.resource.data.email is string
+                && request.resource.data.email.size() <= 254
+                && request.resource.data.email.matches('.+@.+\\..+')))
+        && (!('ensembleIds' in request.resource.data)
+            || (request.resource.data.ensembleIds is list
+                && request.resource.data.ensembleIds.size() <= 20))
+        && (!('category' in request.resource.data)
+            || request.resource.data.category in ['leaving-early', 'full-day-absence', 'parent-signout'])
+        && (!('timeWindow' in request.resource.data)
+            || request.resource.data.timeWindow in ['full', 'specific'])
+        && (!('startTime' in request.resource.data)
+            || (request.resource.data.startTime is string && request.resource.data.startTime.matches('\\d{2}:\\d{2}')))
+        && (!('endTime' in request.resource.data)
+            || (request.resource.data.endTime is string && request.resource.data.endTime.matches('\\d{2}:\\d{2}')))
+        && (!('photoPath' in request.resource.data)
+            || (request.resource.data.photoPath is string && request.resource.data.photoPath.size() <= 200))
+        && (!('parentName' in request.resource.data)
+            || (request.resource.data.parentName is string && request.resource.data.parentName.size() <= 120))
+        && (!('parentContact' in request.resource.data)
+            || (request.resource.data.parentContact is string && request.resource.data.parentContact.size() <= 120))
+        && (!('signOutTime' in request.resource.data)
+            || (request.resource.data.signOutTime is string && request.resource.data.signOutTime.matches('\\d{2}:\\d{2}')))
+        && (!('acknowledged' in request.resource.data) || request.resource.data.acknowledged is bool)
+        && (!('notes' in request.resource.data)
+            || (request.resource.data.notes is string && request.resource.data.notes.size() <= 500));
       // Assistants read the queue too — Take Roll shows "reported ahead"
       // chips so they can accept a planned absence as Excused.
       allow read: if isStaff() || isAssistantRole();
