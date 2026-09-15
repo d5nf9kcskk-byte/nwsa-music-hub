@@ -21,7 +21,7 @@ export const MASTERCLASS_SECTIONS: MasterclassSectionSpec[] = [
   { id: 'masterclass-violin', name: 'Violin Masterclass', instrument: 'Violin',
     room: '4210', conductorName: 'Dr. Grant Gilman', order: 10, days: [2], start: '14:30', end: '15:45' },
   { id: 'masterclass-viola', name: 'Viola Masterclass', instrument: 'Viola',
-    room: '4105', conductorName: 'Richard Fleischmann', order: 11, days: [2], start: '14:30', end: '15:45' },
+    room: '4105', conductorName: 'Richard Fleischman', order: 11, days: [2], start: '14:30', end: '15:45' },
   { id: 'masterclass-cello', name: 'Cello Masterclass', instrument: 'Cello',
     room: '4304', conductorName: 'Germán Marcano', order: 12, days: [2], start: '14:30', end: '15:45' },
   { id: 'masterclass-bass', name: 'Bass Masterclass', instrument: 'Bass',

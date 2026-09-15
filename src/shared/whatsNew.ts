@@ -39,11 +39,11 @@ export const WHATS_NEW: WhatsNewEntry[] = [
   {
     id: '2026-09-15-between-the-lines',
     date: '2026-09-15',
-    title: 'Mr. Fleischmann performs — and reads his own writing — Saturday',
+    title: 'Mr. Fleischman performs — and reads his own writing — Saturday',
     audience: 'both' as const,
     expires: '2026-09-19',
     bullets: [
-      'Richard Fleischmann, who teaches viola here, is playing viola AND reading from his own writing in “Between the Lines” — a concert built around the musician as storyteller.',
+      'Richard Fleischman, who teaches viola here, is playing viola AND reading from his own writing in “Between the Lines” — a concert built around the musician as storyteller.',
       'Saturday, September 19: reception at 4:00 PM, concert 4:30–6:00 PM, at The Gallery at The Betsy Hotel in Miami Beach.',
       'He plays Schubert, Schumann and Brahms with Marina Radiushina (piano), Nathan Meltzer (violin) and Vicky Wang (cello).',
       'Tickets and the flyer are on the announcement — open Announcements to find them.',
