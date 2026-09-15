@@ -11,6 +11,7 @@ import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
 import { formatTimeRange, eventPieceDuration, eventPieceMovements, pieceEnsembleIds, ensembleDisplayName, buildSections } from '../director/utils';
 import { fmtFullDate } from '../shared/dates';
 import { printViaPopup } from '../shared/printPopup';
+import { concertChartFor } from '../shared/concertRosters';
 import type { Ensemble, RepertoirePiece, SeatingChart } from '../director/types';
 import './programTemplate.css';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
@@ -108,14 +109,13 @@ export function PublicProgram() {
     [programPieces, event],
   );
 
-  /** Roster sections for one performing ensemble: its most recently
-   *  published seating chart (same "current chart" convention used
-   *  everywhere else this app shows a roster order), or — absent any chart
-   *  — the active roster auto-grouped by instrument. */
+  /** Roster sections for one performing ensemble: the chart this concert
+   *  attached (the designated one when two cover the same ensemble), else its
+   *  most recently published chart — the "current chart" convention used
+   *  everywhere else this app shows a roster order — else the active roster
+   *  auto-grouped by instrument. `concertChartFor` owns that whole decision. */
   function rosterSectionsFor(ensembleId: string): SeatingChart['sections'] {
-    const chart = charts
-      .filter(c => c.ensembleId === ensembleId)
-      .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.createdAt - a.createdAt)[0];
+    const chart = concertChartFor(event, ensembleId, charts);
     if (chart) return chart.sections;
     const roster = students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(ensembleId));
     return buildSections(roster);

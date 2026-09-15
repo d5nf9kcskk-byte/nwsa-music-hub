@@ -4,6 +4,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useEvents } from '../hooks/useEvents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
+import { useSeatingCharts } from '../hooks/useSeatingCharts';
 import { resolveRoster } from '../rosterResolver';
 import { EVENT_TYPES, TIME_BLOCKS, performingEnsembles, classGroups, isClassGroup, isMasterClass, parseDate, toDateStr, WEEKDAY_LABELS } from '../utils';
 import { PiecePicker } from '../repertoire/PiecePicker';
@@ -17,6 +18,7 @@ import { enableCheckinPatch } from '../../shared/concertCheckin';
 import { studentMatchesQuery } from '../studentSearch';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { captureOriginal, announceChange } from './changeOps';
+import { concertChartFor } from '../../shared/concertRosters';
 import type { CalendarEvent, Ensemble, EventType, EventStatus } from '../types';
 
 interface Props {
@@ -63,10 +65,28 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     dress: '',
     venueAddress: '',
     pickupTime: '',
+    seatingChartIds: [],
+    programChartId: '',
     ...initialDraft,
   });
 
   const [form, setForm] = useState<Omit<CalendarEvent, 'id'>>(blank);
+
+  // Seating charts a concert can print as its roster pages (#concert-rosters).
+  const { charts: seatingCharts } = useSeatingCharts();
+  const concertCharts = useMemo(
+    () => seatingCharts.filter(c => form.ensembleIds.includes(c.ensembleId)),
+    [seatingCharts, form.ensembleIds],
+  );
+  function toggleChart(id: string) {
+    setForm(f => {
+      const cur = f.seatingChartIds ?? [];
+      const next = cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id];
+      // Un-attaching the designated chart drops the designation with it —
+      // a pointer to a chart this concert no longer prints is just a trap.
+      return { ...f, seatingChartIds: next, programChartId: next.includes(f.programChartId ?? '') ? f.programChartId : '' };
+    });
+  }
 
   // Cross-ensemble conflict radar (#48): students on THIS event who are also
   // expected somewhere else at an overlapping time that day.
@@ -985,6 +1005,74 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                   onMovementSelChange={sel => set('pieceMovements', sel)}
                 />
               </div>
+
+              {/* Roster pages (#concert-rosters). Sits with the pieces because
+                  it is the other half of the printed program: the order the
+                  works go in, and the list of who played them. Attaching
+                  nothing keeps the old behaviour exactly — each ensemble's
+                  most recent chart. `concertChartFor` owns that decision for
+                  both this form's preview line and the program itself. */}
+              {form.type === 'Concert' && (
+                <div className="dir-field">
+                  <label className="dir-label">Roster pages in the program</label>
+                  <div className="dir-field-hint" style={{ marginBottom: 6 }}>
+                    Attach a seating chart to print it as this concert's roster page — the
+                    names, in your order. Attach nothing and the program prints each
+                    ensemble's most recent chart, the way it always has.
+                  </div>
+                  {form.ensembleIds.length === 0 ? (
+                    <div className="dir-empty-inline">Pick the ensembles above first.</div>
+                  ) : concertCharts.length === 0 ? (
+                    <div className="dir-empty-inline">
+                      No seating charts yet for these ensembles. Make one under the
+                      ensemble's Seating; the program lists the active roster until then.
+                    </div>
+                  ) : (
+                    concertCharts.map(c => {
+                      const attached = (form.seatingChartIds ?? []).includes(c.id);
+                      const ensName = ensembles.find(e => e.id === c.ensembleId)?.name ?? '';
+                      // The designation only has a job when TWO attached charts
+                      // cover the same ensemble; on a lone chart it would read
+                      // as a second switch that changes nothing.
+                      const sibling = concertCharts.some(
+                        o => o.id !== c.id && o.ensembleId === c.ensembleId
+                          && (form.seatingChartIds ?? []).includes(o.id),
+                      );
+                      // Checked = what would actually print, undesignated
+                      // charts included — the same call the program makes.
+                      const printing = concertChartFor(form, c.ensembleId, concertCharts)?.id === c.id;
+                      return (
+                        <div key={c.id} className="dir-checkbox-row" style={{ marginTop: 6 }}>
+                          <input
+                            type="checkbox"
+                            id={`chart-${c.id}`}
+                            checked={attached}
+                            onChange={() => toggleChart(c.id)}
+                          />
+                          <span>
+                            <label htmlFor={`chart-${c.id}`}>
+                              <strong>{c.title || 'Seating'}</strong>
+                              {ensName && <> — {ensName}</>}
+                              {c.date && <> · {c.date}</>}
+                            </label>
+                            {attached && sibling && (
+                              <label className="dir-field-hint" style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                                <input
+                                  type="radio"
+                                  name={`programChart-${c.ensembleId}`}
+                                  checked={printing}
+                                  onChange={() => set('programChartId', c.id)}
+                                />
+                                <span>Print this one for {ensName || 'this ensemble'}</span>
+                              </label>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
             </>
           )}
 

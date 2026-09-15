@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Roster pages on a concert (#concert-rosters) — staff-only: the printed
+  // program looks the same to families unless a director attaches a chart.
+  {
+    id: '2026-09-15-concert-rosters',
+    date: '2026-09-15',
+    title: 'Pick which roster prints in a concert program',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'Open a concert and scroll to “Roster pages in the program”, right under the pieces. Tick a seating chart to print that one as the roster page.',
+      'Attach one per ensemble if you like. If two charts for the SAME ensemble are attached, a “Print this one” choice appears so you say which.',
+      'Attach nothing and nothing changes — the program still prints each ensemble’s most recent chart, as it always has.',
+    ],
+  },
   // Concerts tab (#concerts) — staff-only: the public season page already
   // existed and is unchanged, so there is nothing here for families.
   {

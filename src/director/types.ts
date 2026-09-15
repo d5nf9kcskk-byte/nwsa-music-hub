@@ -277,6 +277,18 @@ export interface CalendarEvent {
   pieceMovements?: Record<string, number[]>;
   status: EventStatus;
   notes?: string;
+  /**
+   * Seating charts attached to this concert (#concert-rosters). The printed
+   * program prints an attached chart as an ensemble's roster page in place of
+   * that ensemble's most recent one; `programChartId` picks which when two
+   * attached charts cover the SAME ensemble. Every other attached chart still
+   * serves its own ensemble — a designation never crosses ensembles. Attach
+   * nothing and the program prints exactly what it always did. The one
+   * definition of that resolution is `concertChartFor()` in
+   * src/shared/concertRosters.ts; never re-implement it.
+   */
+  seatingChartIds?: string[];
+  programChartId?: string;
   /* ── Concert Hub (#9): the day-sheet answers, in one place ── */
   callTime?: string;        // "HH:MM" — when performers arrive
   dress?: string;           // dress code description

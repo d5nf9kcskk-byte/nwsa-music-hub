@@ -158,6 +158,15 @@ runs:
       run: npx tsx src/director/checkin/checkinCsv.selfcheck.ts
       shell: bash
 
+    # Which seating chart the printed program uses as each ensemble's roster
+    # page (#concert-rosters). Silent to break and only discovered on paper:
+    # a concert that attached nothing must print exactly what it printed
+    # before the feature existed, and no chart may ever appear under another
+    # ensemble's name.
+    - name: Check concert roster pages
+      run: npx tsx src/shared/concertRosters.selfcheck.ts
+      shell: bash
+
     - name: Check concert photo Drive naming
       run: node scripts/drive-photo-names.selfcheck.mjs
       shell: bash
