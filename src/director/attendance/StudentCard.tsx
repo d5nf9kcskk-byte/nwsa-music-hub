@@ -3,6 +3,7 @@ import { GraduationCap, Image } from 'lucide-react';
 import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseAuth';
 import { formatTimeRange } from '../utils';
+import { lastFirst } from '../../shared/personName';
 import {
   ATTENDANCE_BTN_LABEL,
   ATTENDANCE_STATUS_LABEL,
@@ -62,10 +63,10 @@ function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, 
                 onClick={() => onOpenStudent(student.id)}
                 title="Open student attendance card"
               >
-                {student.name}
+                {lastFirst(student.name)}
               </button>
             ) : (
-              student.name
+              lastFirst(student.name)
             )}
             {student.preferredName && <span className="dir-goesby">"{student.preferredName}"</span>}
             {isSub && <span className="dir-sub-badge">Sub</span>}

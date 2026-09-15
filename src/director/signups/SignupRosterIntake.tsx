@@ -4,7 +4,8 @@ import {
   COLLEGE_GRADE, contactWrite, intakeSummary, looksLikeYearQuestion, planRosterIntake, studentWrite,
   type IntakeChoice, type IntakeChoices, type IntakeFieldKey, type IntakeRow,
 } from '../../shared/signupRosterIntake';
-import { classGroups, ensembleColor, performingEnsembles } from '../utils';
+import { classGroups, ensembleColor, isCollegeGroup, performingEnsembles } from '../utils';
+import { lastFirst } from '../../shared/personName';
 import type { Ensemble, SignupForm, SignupResponse, Student, StudentContact } from '../types';
 
 /**
@@ -64,6 +65,17 @@ export function SignupRosterIntake({
     ...classGroups(ensembles),
   ], [ensembles]);
 
+  // A college group means a college cohort, and college students are adults:
+  // no guardian is collected, and each record is stamped so the roster stops
+  // drawing a parents section they will never have.
+  const adults = useMemo(
+    () => picked.some(id => {
+      const e = ensembles.find(x => x.id === id);
+      return !!e && isCollegeGroup(e);
+    }),
+    [picked, ensembles],
+  );
+
   const rows = useMemo(
     () => planRosterIntake(responses, students, {
       ensembleIds: picked,
@@ -71,8 +83,9 @@ export function SignupRosterIntake({
       yearQuestionId: yearQuestionId || undefined,
       form,
       contacts,
+      adults,
     }),
-    [responses, students, contacts, picked, grade, yearQuestionId, form],
+    [responses, students, contacts, picked, grade, yearQuestionId, form, adults],
   );
   const counts = intakeSummary(rows);
   const nothingToDo = counts.create === 0 && counts.update === 0;
@@ -157,10 +170,17 @@ export function SignupRosterIntake({
       {open && (
         <div className="dir-signup-intake">
           <div className="dir-signup-help">
-            Everyone imported joins the groups you tick and keeps every group they are already in.
-            Email, phone, every parent/guardian the form names — the one who signed and any your own
-            questions ask about — and the rest of the answers go to their contact record, which stays
-            staff-only.
+            {adults
+              ? <>Everyone imported joins the groups you tick and keeps every group they are already in.
+                  These are <strong>college students, so they are their own contact</strong>: their email
+                  and their phone go on their record, no parent or guardian is collected, and the
+                  signature is theirs. Anything they typed that the roster has a box for — what they go
+                  by, their section — fills that box; the rest goes to their contact record, which
+                  stays staff-only.</>
+              : <>Everyone imported joins the groups you tick and keeps every group they are already in.
+                  Email, phone, every parent/guardian the form names — the one who signed and any your own
+                  questions ask about — and the rest of the answers go to their contact record, which stays
+                  staff-only.</>}
           </div>
 
           <div className="dir-signup-intake-groups" role="group" aria-label="Groups these students join">
@@ -276,7 +296,7 @@ function IntakeRowView({ row, choices, expanded, onToggle, onChoose }: {
     <div className={`dir-signup-intake-row ${row.action}`}>
       <button className="dir-signup-intake-head" onClick={onToggle} aria-expanded={expanded}>
         {expanded ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
-        <span className="who">{row.name}</span>
+        <span className="who">{lastFirst(row.name)}</span>
         {/* The grade on the headline, because with a year question in play
             these differ person to person and the whole point is seeing that
             without opening twenty rows. */}

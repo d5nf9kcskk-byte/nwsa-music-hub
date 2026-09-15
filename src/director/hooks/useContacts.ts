@@ -34,6 +34,9 @@ export function useContacts(enabled: boolean = true) {
       parentEmail: data.parentEmail || '',
       phone: data.phone || '',
     };
+    // Only when the caller carries it, so an older form that knows nothing
+    // about the student's own phone can never blank one somebody typed.
+    if (data.studentPhone !== undefined) clean.studentPhone = data.studentPhone;
     if (data.guardians !== undefined) clean.guardians = data.guardians;
     if (data.extra !== undefined) clean.extra = data.extra;
     try {

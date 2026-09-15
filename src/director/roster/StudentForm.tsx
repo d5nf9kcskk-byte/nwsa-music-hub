@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { Student, StudentContact, Guardian, Ensemble } from '../types';
 import { useModalA11y } from '../../shared/useModalA11y';
-import { musicEnsembles } from '../utils';
+import { isAdultStudent, musicEnsembles } from '../utils';
 import { whenQueued } from '../writeStatus';
 
-/** Editable contact: the student email plus an unlimited list of guardians and
- *  any extra columns carried over from the spreadsheet import. */
+/** Editable contact: the student's own email and phone, plus an unlimited list
+ *  of guardians and any extra columns carried over from the spreadsheet
+ *  import. */
 export interface ContactDraft {
   email: string;
+  studentPhone: string;
   guardians: Guardian[];
   extra: Record<string, string>;
 }
@@ -35,6 +37,9 @@ function normalizeContact(draft: ContactDraft): Omit<StudentContact, 'id'> {
   const g0 = guardians[0];
   return {
     email: draft.email.trim(),
+    // The student's OWN number, which has nowhere else to live: `phone` is
+    // and stays the guardian mirror (see StudentContact).
+    studentPhone: draft.studentPhone.trim(),
     parentEmail: g0?.email ?? '',
     phone: g0?.phone ?? '',
     guardians,
@@ -62,7 +67,7 @@ const BLANK: Omit<Student, 'id'> = {
   status: 'Active',
 };
 
-const BLANK_CONTACT: ContactDraft = { email: '', guardians: [], extra: {} };
+const BLANK_CONTACT: ContactDraft = { email: '', studentPhone: '', guardians: [], extra: {} };
 
 export function StudentForm({ student, contact, ensembles, onSave, onDelete, onClose }: Props) {
   const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
@@ -81,6 +86,7 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
     }
     setContactForm({
       email: contact?.email ?? '',
+      studentPhone: contact?.studentPhone ?? '',
       // Prefer the imported guardians[]; fall back to synthesizing one guardian
       // from the legacy flat parentEmail/phone for pre-import records.
       guardians: contact?.guardians?.length
@@ -130,6 +136,11 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
         : { archivedAt: f.archivedAt ?? Date.now() }),
     }));
   }
+
+  /** Adults are their own contact and have no guardian section. Derived from
+   *  the groups they are in, until a director says otherwise — after which
+   *  the stored flag wins, both ways. */
+  const isAdult = isAdultStudent(form, ensembles);
 
   function toggleEnsemble(id: string) {
     setForm(f => ({
@@ -250,14 +261,51 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
 
           <div className="dir-contact-note">🔒 Visible to signed-in directors here in the roster. Never shown on the public site.</div>
 
+          <label className="dir-checkbox-row">
+            <input
+              type="checkbox"
+              checked={isAdult}
+              onChange={e => set('adult', e.target.checked)}
+            />
+            <span>
+              Adult student — their own contact
+              <span className="dir-field-hint" style={{ display: 'block', marginTop: 2 }}>
+                {form.adult === undefined
+                  ? 'Ticked automatically for anyone in a college group. Tick or untick to decide it yourself.'
+                  : 'Set by hand. The email and phone below are theirs, and no parent or guardian is recorded.'}
+              </span>
+            </span>
+          </label>
+
           <div className="dir-field">
             <label className="dir-label">Student Email</label>
             <input className="dir-input" type="email" inputMode="email" autoComplete="email" value={contactForm.email} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))} placeholder="optional" />
           </div>
 
           <div className="dir-field">
+            <label className="dir-label">Student Phone</label>
+            <input
+              className="dir-input"
+              type="tel"
+              inputMode="tel"
+              value={contactForm.studentPhone}
+              onChange={e => setContactForm(f => ({ ...f, studentPhone: e.target.value }))}
+              placeholder="optional"
+            />
+            <div className="dir-field-hint">Theirs, not a parent's — this is the number a text to the class goes to.</div>
+          </div>
+
+          {/* An adult has no guardian section. Records already on the doc stay
+              visible so nothing is trapped where it cannot be removed. */}
+          <div className="dir-field" hidden={isAdult && contactForm.guardians.length === 0}>
             <label className="dir-label">Parents / Guardians</label>
-            {contactForm.guardians.length === 0 && (
+            {isAdult && contactForm.guardians.length > 0 && (
+              <div className="dir-field-hint" style={{ marginBottom: 6 }}>
+                Not used for an adult student — nothing here is written to. Remove any that
+                aren't theirs.
+              </div>
+            )}
+            {!isAdult && contactForm.guardians.length === 0 && (
               <div className="dir-field-hint" style={{ marginBottom: 6 }}>No parents or guardians on file yet.</div>
             )}
             {contactForm.guardians.map((g, i) => (
@@ -290,9 +338,11 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
                 </div>
               </div>
             ))}
-            <button type="button" className="dir-btn dir-btn-ghost dir-guardian-add" onClick={addGuardian}>
-              <Plus size={14} /> Add parent / guardian
-            </button>
+            {!isAdult && (
+              <button type="button" className="dir-btn dir-btn-ghost dir-guardian-add" onClick={addGuardian}>
+                <Plus size={14} /> Add parent / guardian
+              </button>
+            )}
           </div>
 
           {Object.keys(contactForm.extra).length > 0 && (

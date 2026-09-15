@@ -8,7 +8,7 @@ import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useStudentAssignmentResults, useAssignments } from '../hooks/useAssignments';
 import { useStudents } from '../hooks/useStudents';
 import { studentExpectation } from '../rosterResolver';
-import { todayStr, ensembleColor, formatDate } from '../utils';
+import { todayStr, ensembleColor, formatDate, isAdultStudent } from '../utils';
 import type { Student, StudentContact, Ensemble } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
@@ -125,15 +125,20 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
           <div className="dir-detail-section">
             <div className="dir-detail-section-title"><Mail size={13} /> Contact <span className="dir-detail-private">directors only</span></div>
             {(() => {
+              // An adult student is their own contact — no guardian rows at
+              // all, whatever an old import may have left on the record.
+              const adult = isAdultStudent(student, ensembles);
               // Prefer the full guardians[] list from the spreadsheet import; fall
               // back to the flat parent mirror for records created before import.
-              const guardians = contact?.guardians?.length
-                ? contact.guardians
-                : (contact?.parentEmail || contact?.phone)
-                  ? [{ email: contact?.parentEmail, phone: contact?.phone }]
-                  : [];
+              const guardians = adult
+                ? []
+                : contact?.guardians?.length
+                  ? contact.guardians
+                  : (contact?.parentEmail || contact?.phone)
+                    ? [{ email: contact?.parentEmail, phone: contact?.phone }]
+                    : [];
               const extras = contact?.extra ? Object.entries(contact.extra).filter(([, v]) => v) : [];
-              if (!(contact?.email || guardians.length > 0 || extras.length > 0)) {
+              if (!(contact?.email || contact?.studentPhone || guardians.length > 0 || extras.length > 0)) {
                 return (
                   <button className="dir-btn dir-btn-ghost" style={{ marginTop: 6 }} onClick={onEdit}>
                     <Pencil size={13} /> Add contact info
@@ -146,6 +151,13 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
                     <a href={`mailto:${contact.email}`} className="dir-detail-contact-row">
                       <Mail size={13} />
                       <span>{contact.email}</span>
+                      <ExternalLink size={11} className="dir-detail-ext" />
+                    </a>
+                  )}
+                  {contact?.studentPhone && (
+                    <a href={`tel:${contact.studentPhone}`} className="dir-detail-contact-row">
+                      <Phone size={13} />
+                      <span>{contact.studentPhone}</span>
                       <ExternalLink size={11} className="dir-detail-ext" />
                     </a>
                   )}

@@ -586,7 +586,7 @@ export default function DirectorApp() {
             {tab === 'gradebook'       && <GradebookView />}
             {tab === 'today'           && <TodayView onNavigate={go} />}
             {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} onNavigate={go} />}
-            {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} onNavigate={go} />}
+            {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} initialSelectAll={intent.selectAll} onNavigate={go} />}
             {tab === 'lessons'         && <LessonsView onNavigate={go} />}
             {tab === 'myLessons'       && <MyLessonsView />}
             {tab === 'whosOut'         && <WhosOutView key={intentKey} initialDate={intent.date} initialEnsembleId={intent.ensembleId ?? ''} onNavigate={go} />}

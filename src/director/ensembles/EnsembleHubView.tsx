@@ -1,6 +1,6 @@
 import { announcementPreview as preview } from '../../shared/announcementPreview';
 import { useMemo, useState } from 'react';
-import { ClipboardList, ClipboardCheck, Users, Calendar, Music, Megaphone, Clock, MapPin, UserCog, Armchair, FolderOpen, UserPlus, AlertTriangle, ChevronRight } from 'lucide-react';
+import { ClipboardList, ClipboardCheck, Users, Calendar, Music, Megaphone, Clock, MapPin, UserCog, Armchair, FolderOpen, UserPlus, AlertTriangle, ChevronRight, Mail } from 'lucide-react';
 import { SeatingManager } from '../seating/SeatingManager';
 import { EnsembleRosterEditor } from './EnsembleRosterEditor';
 import { GroupStaffPanel } from '../components/GroupStaffPanel';
@@ -73,9 +73,22 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           <div className="dir-today-title">{ensemble.name}</div>
           <div className="dir-ens-sub">{rosterCount} active students</div>
         </div>
-        <button className="dir-btn dir-btn-primary dir-sc-small" style={{ marginLeft: 'auto', flexShrink: 0 }} onClick={() => setAddingStudents(true)}>
-          <UserPlus size={14} style={{ verticalAlign: '-2px' }} /> Add students
-        </button>
+        <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {/* Contacting people lives on the roster, where the addresses are —
+              this arrives there with the whole group already ticked, which is
+              the only difference between "two taps" and "go find them". */}
+          {rosterCount > 0 && (
+            <button
+              className="dir-btn dir-btn-ghost dir-sc-small"
+              onClick={() => onNavigate('roster', { ensembleId, selectAll: true })}
+            >
+              <Mail size={14} style={{ verticalAlign: '-2px' }} /> Email / text
+            </button>
+          )}
+          <button className="dir-btn dir-btn-primary dir-sc-small" onClick={() => setAddingStudents(true)}>
+            <UserPlus size={14} style={{ verticalAlign: '-2px' }} /> Add students
+          </button>
+        </div>
       </div>
 
       {rosterCount === 0 && (

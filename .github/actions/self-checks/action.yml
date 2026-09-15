@@ -372,6 +372,11 @@ runs:
       run: npx tsx src/director/studentSearch.selfcheck.ts
       shell: bash
 
+    # Recipients, mailto batching, group texts, and the adult rule: a college
+    # student is their own contact, so "Parents / guardians" must resolve to
+    # THEM rather than reporting that nobody has an address (#roster-contact).
+    # Needs the defines shim now — it reaches `isAdultStudent` in utils.ts,
+    # which transitively imports src/org and its __ORG_CONFIG__ define.
     - name: Check roster email recipients and mailto batching
-      run: npx tsx src/director/rosterEmail.selfcheck.ts
+      run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/rosterEmail.selfcheck.ts
       shell: bash

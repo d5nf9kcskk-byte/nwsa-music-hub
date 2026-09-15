@@ -15,10 +15,12 @@ import { StudentCard } from './StudentCard';
 import { StudentDetail } from '../roster/StudentDetail';
 import { SortToggle } from '../components/SortToggle';
 import { sortStudents, type StudentSort } from '../scoreOrder';
+import { lastFirst, lastName } from '../../shared/personName';
+import { rosterRecipients, rosterNumbers } from '../rosterEmail';
 import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, takesAttendance, plannedAbsenceAppliesToRoll } from '../utils';
 import { currentDirectorName, currentDirectorRole } from '../currentDirector';
 import { recordActivity } from '../hooks/useActivityLog';
-import type { AttendanceStatus, Student, Ensemble, CalendarEvent } from '../types';
+import type { AttendanceStatus, Student, StudentContact, Ensemble, CalendarEvent } from '../types';
 import { ATTENDANCE_STATUS_LABEL, isAbsentMark, isRollException } from '../attendanceStatus';
 
 interface Period {
@@ -575,7 +577,11 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
                     <div key={seat.studentId} className={`dir-chart-seat ${st ? st.toLowerCase() : 'present'}`}>
                       <button type="button" className="dir-chart-seat-main" onClick={cycle}>
                         <span className="dir-chart-seat-num">{j + 1}</span>
-                        <span className="dir-chart-seat-name">{stu?.preferredName || stu?.name?.split(',')[0] || '—'}</span>
+                        {/* A seat is too small for a whole name, so it is the
+                            surname — through the one parser, not a split on
+                            the comma, which printed the middle initial for
+                            the roster's "First Last" records. */}
+                        <span className="dir-chart-seat-name">{stu?.preferredName || (stu && lastName(stu.name)) || '—'}</span>
                         {st && <span className="dir-chart-seat-status">{ATTENDANCE_STATUS_LABEL[st]}</span>}
                       </button>
                       {stu && (
@@ -643,6 +649,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
           records={Object.values(recordMap)}
           students={allStudents}
           contacts={contacts}
+          ensembles={allEnsembles}
           ensembleName={ensemble?.name ?? ''}
           dateLabel={dateLabel}
           onClose={() => setShowSummary(false)}
@@ -737,10 +744,11 @@ function LessonSheet({ student, defaultStart, onClose, onSave }: {
 }
 
 /** Post-roll absentee summary (#23): who's out, one tap to act on it. */
-function AbsenteeSummary({ records, students, contacts, ensembleName, dateLabel, onClose }: {
+function AbsenteeSummary({ records, students, contacts, ensembles, ensembleName, dateLabel, onClose }: {
   records: { studentId: string; status: string; startTime?: string; endTime?: string }[];
   students: Student[];
-  contacts: Record<string, { email?: string; parentEmail?: string; phone?: string } | undefined>;
+  contacts: Record<string, StudentContact>;
+  ensembles: Ensemble[];
   ensembleName: string;
   dateLabel: string;
   onClose: () => void;
@@ -781,21 +789,32 @@ function AbsenteeSummary({ records, students, contacts, ensembleName, dateLabel,
             <div className="dir-empty-inline">🎉 Everyone present. Nothing to follow up.</div>
           ) : (
             flagged.map(r => {
-              const c = contacts[r.studentId];
+              const stu = students.find(s => s.id === r.studentId);
+              // Who to chase about THIS student's absence — the family for a
+              // minor, the student themselves for an adult, decided in the one
+              // place that decides it (#roster-contact). This used to be
+              // `parentEmail || email`, which for a college student wrote to a
+              // parent who does not exist.
+              const to = stu
+                ? rosterRecipients([stu], contacts, 'guardians', ensembles).addresses[0]
+                : undefined;
+              const call = stu
+                ? rosterNumbers([stu], contacts, 'guardians', ensembles).numbers[0]
+                : undefined;
               return (
                 <div key={r.studentId} className="dir-sub-row">
                   <div className="dir-sub-info">
-                    <div className="dir-sub-name">{nameOf(r.studentId)}</div>
+                    <div className="dir-sub-name">{lastFirst(nameOf(r.studentId))}</div>
                     <div className="dir-sub-instr">{ATTENDANCE_STATUS_LABEL[r.status as AttendanceStatus] ?? r.status}</div>
                   </div>
-                  {c?.phone && (
-                    <a className="dir-icon-btn" href={`tel:${c.phone}`} aria-label="Call"><Phone size={15} /></a>
+                  {call && (
+                    <a className="dir-icon-btn" href={`tel:${call}`} aria-label="Call"><Phone size={15} /></a>
                   )}
-                  {(c?.parentEmail || c?.email) && (
+                  {to && (
                     <a
                       className="dir-icon-btn"
                       aria-label="Email"
-                      href={`mailto:${c.parentEmail || c.email}?subject=${encodeURIComponent(`${ensembleName} attendance — ${dateLabel}`)}&body=${encodeURIComponent(`Hello,\n\n${nameOf(r.studentId)} was marked ${ATTENDANCE_STATUS_LABEL[r.status as AttendanceStatus]?.toLowerCase() ?? r.status.toLowerCase()} at today's ${ensembleName} rehearsal (${dateLabel}). `)}`}
+                      href={`mailto:${to}?subject=${encodeURIComponent(`${ensembleName} attendance — ${dateLabel}`)}&body=${encodeURIComponent(`Hello,\n\n${nameOf(r.studentId)} was marked ${ATTENDANCE_STATUS_LABEL[r.status as AttendanceStatus]?.toLowerCase() ?? r.status.toLowerCase()} at today's ${ensembleName} rehearsal (${dateLabel}). `)}`}
                     >
                       <Mail size={15} />
                     </a>

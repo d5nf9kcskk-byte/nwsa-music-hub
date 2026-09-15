@@ -130,6 +130,23 @@ export interface Student {
   instrument: string;
   section?: string;
   grade?: string;
+  /**
+   * This student is an ADULT: they are their own contact, and there are no
+   * parents or guardians on their record (#roster-contact).
+   *
+   * Absent means "work it out from their groups" — membership in any
+   * `collegeLevel` ensemble or class makes someone an adult, which is right
+   * for the dual-enrollment cohort and needs nobody to tick anything. This
+   * flag is the manual override for the cases that derivation cannot see: a
+   * college student enrolled only in shared high-school groups, or an
+   * 18-year-old senior who handles their own paperwork. Read it through
+   * `isAdultStudent()` in utils.ts, never directly.
+   *
+   * It changes DISPLAY and where contact details land, never who may read
+   * anything — and it is deliberately NOT mirrored to `studentsPublic`:
+   * whether a student has guardians is nobody's business publicly.
+   */
+  adult?: boolean;
   status: 'Active' | 'Inactive' | 'Graduated';
   /** When the student was archived (Date.now()); stamped when status leaves
    *  'Active'. Display metadata for the Archived view only — never the filter
@@ -158,6 +175,18 @@ export interface Guardian {
 export interface StudentContact {
   id: string; // === student id
   email?: string;       // student email
+  /**
+   * The STUDENT'S OWN phone (#roster-contact).
+   *
+   * `phone` below is the guardian mirror and always was, so until this field
+   * existed the only box anyone could type a phone number into was inside a
+   * "Parent / Guardian" block — which for the college cohort put every adult's
+   * own cell number under somebody else's name. `phone` is not reused for
+   * this: the CSV import, Take Roll and Who's Out all read it as the
+   * guardian's, and quietly changing what it means would send an absence text
+   * to the student instead of the family.
+   */
+  studentPhone?: string;
   parentEmail?: string; // mirror of guardians[0]?.email (back-compat)
   phone?: string;       // mirror of guardians[0]?.phone (back-compat)
   /** All parent/guardian contacts (unlimited), added by the spreadsheet

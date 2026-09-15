@@ -8,6 +8,7 @@ import { useDayAttendance, useAllAttendance } from '../hooks/useAttendance';
 import { usePlannedAbsences } from '../hooks/usePlannedAbsences';
 import { useBulletinQueue } from '../hooks/useBulletinQueue';
 import { useAbsenceEmailQueue } from '../hooks/useAbsenceEmailQueue';
+import { lastFirst } from '../../shared/personName';
 import { lessonsFor, resolveRoster, overrideApplies } from '../rosterResolver';
 import { todayStr, addDays, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
@@ -183,7 +184,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
               <div key={a.id} className="dir-sub-row">
                 <div className="dir-sub-info">
                   <div className="dir-sub-name">
-                    {a.studentName}
+                    {lastFirst(a.studentName)}
                     {a.category && <span className="dir-office-badge">{ABSENCE_CATEGORY_LABEL[a.category]}</span>}
                     {a.status === 'approved'
                       ? <span className="dir-status-badge excused" style={{ marginLeft: 8 }}>Excused</span>
@@ -286,7 +287,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
               >
                 <div className="dir-sub-info">
                   <div className="dir-sub-name">
-                    {r.student!.name}
+                    {lastFirst(r.student!.name)}
                     {r.source === 'office' && <span className="dir-office-badge">Office</span>}
                   </div>
                   <div className="dir-sub-instr">
@@ -326,7 +327,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
                 onClick={() => onNavigate('roster', { studentId: o.studentId })}
               >
                 <div className="dir-sub-info">
-                  <div className="dir-sub-name">{o.student!.name}</div>
+                  <div className="dir-sub-name">{lastFirst(o.student!.name)}</div>
                   <div className="dir-sub-instr">
                     Pulled {o.startDate === o.endDate ? '' : `${o.startDate} → ${o.endDate} `}— {o.reason || 'no reason recorded'}
                   </div>
@@ -344,7 +345,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
                 onClick={() => onNavigate('roster', { studentId: student.id })}
               >
                 <div className="dir-sub-info">
-                  <div className="dir-sub-name">{student.name}</div>
+                  <div className="dir-sub-name">{lastFirst(student.name)}</div>
                   <div className="dir-sub-instr">{student.instrument} · guest today (schedule change)</div>
                 </div>
                 <span className="dir-status-badge excused">Guest</span>

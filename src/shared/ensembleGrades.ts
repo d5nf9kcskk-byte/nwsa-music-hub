@@ -411,64 +411,11 @@ export function rowReadiness(
 /* ────────────────────────────── names ──────────────────────────────────── */
 
 /**
- * A roster name, split into the two halves the district's tables need.
- *
- * The roster stores names BOTH WAYS, and pretending otherwise is how a report
- * goes out wrong. Checked against the live roster on 2026-09-14: 120 of 142
- * active students are stored "Rose, William F." and 22 are stored
- * "Vincent T. Blades". Every student on the Camerata and Symphony tables is in
- * the first form, so a parser that assumed the second printed the middle
- * initial in the Last Name column ("Beyra, Benjamin A." → "A.") and sorted the
- * whole table by it.
- *
- * A COMMA is the reliable signal, and it is the only one: it is unambiguous
- * about where the surname ends, which the space-separated form is not.
- * "Nelisa Ochoa Rojas" is parsed as Ochoa/first, Rojas/last, and that is a
- * guess — a two-word surname is indistinguishable from a middle name without
- * being told. Storing every name "Last, First" removes the guess entirely, and
- * is worth doing for that reason alone.
+ * Name parsing moved to `personName.ts` so the roster and these report tables
+ * share ONE definition of a surname (they used to disagree). Re-exported here
+ * because this module's own callers — and its self-check — ask for them by
+ * name.
  */
-export interface ParsedName {
-  first: string;
-  last: string;
-}
-
-export function parseName(raw: string): ParsedName {
-  const s = (raw ?? '').trim().replace(/\s+/g, ' ');
-  if (!s) return { first: '', last: '' };
-
-  const comma = s.indexOf(',');
-  if (comma > 0) {
-    return { last: s.slice(0, comma).trim(), first: s.slice(comma + 1).trim() };
-  }
-
-  const parts = s.split(' ');
-  // A single word is a surname, not a first name: it is what an alphabetical
-  // list has to sort on, and printing nothing in the Last Name column would be
-  // worse than printing the only word there is.
-  if (parts.length < 2) return { first: '', last: s };
-  return { last: parts[parts.length - 1], first: parts.slice(0, -1).join(' ') };
-}
-
-/** "William F. Rose" — the Full Name column, however the roster stores it. */
-export function displayName(name: string): string {
-  const { first, last } = parseName(name);
-  return first ? `${first} ${last}` : last;
-}
-
-/** "Rose, William F." — the Applied table's Name column, and the sort key for
- *  every table, because the district wants alphabetical by last name. */
-export function lastFirst(name: string): string {
-  const { first, last } = parseName(name);
-  return first ? `${last}, ${first}` : last;
-}
-
-/** Just the surname, for Camerata's own Last Name column. */
-export function lastName(name: string): string {
-  return parseName(name).last;
-}
-
-/** Alphabetical by surname, then by the rest — requirement number one. */
-export function byLastName(a: string, b: string): number {
-  return lastFirst(a).localeCompare(lastFirst(b), undefined, { sensitivity: 'base' });
-}
+export {
+  parseName, displayName, lastFirst, lastName, byLastName, type ParsedName,
+} from './personName';

@@ -4,9 +4,12 @@
  * reaches fewer people than they think, or more people than they meant.
  */
 import {
-  rosterRecipients, mailtoBatches, copyList, isEmailish, MAILTO_MAX,
+  rosterRecipients, rosterNumbers, mailtoBatches, smsLink, copyList, copyNumbers,
+  isEmailish, isPhonish, MAILTO_MAX,
 } from './rosterEmail';
-import type { Student, StudentContact } from './types';
+import { isAdultStudent } from './utils';
+import { lastFirst } from '../shared/personName';
+import type { Ensemble, Student, StudentContact } from './types';
 
 function assert(cond: unknown, msg: string): void {
   if (!cond) throw new Error(msg);
@@ -76,5 +79,104 @@ assert(mailtoBatches([]).length === 0, 'no addresses means no mail window');
 assert(mailtoBatches([`${'x'.repeat(MAILTO_MAX)}@y.test`]).length === 1, 'an over-long single address is still sent, not dropped');
 
 assert(copyList(['a@b.test', 'c@d.test']) === 'a@b.test, c@d.test', 'the clipboard fallback is a plain list');
+
+/* ─────────────────── adults are their own contact (#roster-contact) ─────── */
+
+/**
+ * 6. The bug this was written for: a college class where every student had an
+ *    email on file reported "nobody has an address", because the bar opens on
+ *    "Parents / guardians" and college students have none.
+ */
+const ensembles = [
+  { id: 'symphony', collegeLevel: false },
+  { id: 'college-chamber', collegeLevel: true },
+] as Pick<Ensemble, 'id' | 'collegeLevel'>[];
+
+const collegian = {
+  id: 'c1', name: 'Rose, William F.', ensembleIds: ['symphony', 'college-chamber'], status: 'Active',
+} as Student;
+const teen = { id: 't1', name: 'Emily Block', ensembleIds: ['symphony'], status: 'Active' } as Student;
+
+assert(isAdultStudent(collegian, ensembles), 'a college group makes an adult');
+assert(!isAdultStudent(teen, ensembles), 'a high-school student is not an adult');
+assert(isAdultStudent({ adult: true, ensembleIds: [] }, ensembles), 'the checkbox alone makes an adult');
+assert(
+  !isAdultStudent({ adult: false, ensembleIds: ['college-chamber'] }, ensembles),
+  'an explicit false OVERRIDES the derivation — the director gets the last word',
+);
+
+const adultContacts: Record<string, StudentContact> = {
+  c1: contact('c1', {
+    email: 'william@mdc.edu',
+    studentPhone: '(305) 555-0142',
+    // Left on the record by an old import. It must never be written to.
+    parentEmail: 'someone@family.test',
+    phone: '305-555-0000',
+    guardians: [{ name: 'Not A Parent', email: 'someone@family.test', phone: '305-555-0000' }],
+  }),
+};
+for (const audience of ['guardians', 'students', 'both'] as const) {
+  const r = rosterRecipients([collegian], adultContacts, audience, ensembles);
+  assert(
+    r.addresses.join() === 'william@mdc.edu',
+    `an adult is reached at their OWN address on the "${audience}" audience, and nowhere else`,
+  );
+  assert(r.missing.length === 0, `an adult with an address is never "missing" on "${audience}"`);
+  const p = rosterNumbers([collegian], adultContacts, audience, ensembles);
+  assert(
+    p.numbers.join() === '(305) 555-0142',
+    `an adult's number is their own studentPhone on "${audience}", never the guardian mirror`,
+  );
+}
+
+// Without the ensembles list nothing is derivable — the old behaviour, which
+// every caller that has not been taught about groups still gets.
+assert(
+  rosterRecipients([collegian], adultContacts, 'guardians').addresses.join() === 'someone@family.test',
+  'the ensembles argument is what makes adulthood visible; omitting it is the old behaviour',
+);
+
+/* ────────────────────────────── numbers and texts ───────────────────────── */
+
+assert(isPhonish('305-555-0142') && isPhonish('+13055550142'), 'a real number is usable');
+assert(!isPhonish('') && !isPhonish(undefined) && !isPhonish('n/a') && !isPhonish('555'),
+  'blanks and junk are not numbers');
+
+const teenContacts: Record<string, StudentContact> = {
+  t1: contact('t1', {
+    email: 'emily@student.test',
+    studentPhone: '305-555-0101',
+    parentEmail: 'mom@family.test',
+    phone: '305-555-0199',
+    guardians: [{ name: 'Ana Block', email: 'mom@family.test', phone: '(305) 555-0199' }],
+  }),
+};
+assert(
+  rosterNumbers([teen], teenContacts, 'students', ensembles).numbers.join() === '305-555-0101',
+  'a minor on the students audience is their own number',
+);
+assert(
+  rosterNumbers([teen], teenContacts, 'guardians', ensembles).numbers.join() === '305-555-0199',
+  'a minor on the guardians audience is the family number, deduped across the mirror and the '
+  + 'guardian entry even though they are punctuated differently',
+);
+
+const groupText = smsLink(
+  rosterNumbers([teen, collegian], { ...teenContacts, ...adultContacts }, 'both', ensembles).numbers,
+  'No class Friday',
+);
+assert(
+  groupText === 'sms:3055550101,3055550199,3055550142?&body=No%20class%20Friday',
+  `a group text is digits, comma-joined, with the iOS-and-Android body spelling (got ${groupText})`,
+);
+assert(smsLink([]) === null, 'no numbers means no link at all, rather than one that opens a blank text');
+assert(copyNumbers(['(305) 555-0142']) === '3055550142', 'the clipboard fallback is dialable digits');
+
+/* ───────────────────── a name in a list reads surname-first ─────────────── */
+
+assert(lastFirst('Emily Block') === 'Block, Emily', 'a stored "First Last" flips');
+assert(lastFirst('Rose, William F.') === 'Rose, William F.', 'a stored "Last, First" stays put');
+assert(lastFirst('Prince') === 'Prince', 'a one-word name keeps all of itself');
+assert(lastFirst('') === '', 'an empty name never throws');
 
 console.log('rosterEmail.selfcheck: OK');

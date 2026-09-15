@@ -22,12 +22,23 @@
  * workflow).
  *
  * Where each piece lands, and why:
- *   • name / instrument / grade / ensembles → the `students` doc.
+ *   • name / instrument / grade / ensembles → the `students` doc, and so do
+ *     the answers with a real roster column: "goes by" and the section/part
+ *     (`ROSTER_FIELD_QUESTIONS`). Those used to land in `extra` as loose
+ *     text, which put them ON the record but not in the box the roster card
+ *     reads, so a director retyped them by hand.
  *   • email / phone / guardian             → `contacts`, never `students`.
  *     A student doc is mirrored to the world-readable `studentsPublic`
  *     (#privacy); an address typed into a public form must not ride along.
+ *     The phone the student typed is the STUDENT'S (`studentPhone`) — not
+ *     `contacts.phone`, which is and stays the guardian mirror.
  *   • every other answer                   → `contacts.extra`, the bucket
  *     that already exists to keep what nothing else has a column for.
+ *
+ * An ADULT cohort (`opts.adults`, i.e. a college one) collects NO guardian at
+ * all: the signature block is the student signing for themselves, and reading
+ * that as a parent filed every college student's own name and address under a
+ * guardian who does not exist.
  *
  * What it deliberately does NOT do:
  *   • It never removes an ensemble. A student already in Symphony who signs
@@ -134,8 +145,40 @@ export function tidyName(name: string): string {
  *  whole free-text tail as one unit — the questions differ per form, so they
  *  cannot each be a named field here. */
 export type IntakeFieldKey =
-  | 'instrument' | 'grade'
+  | 'instrument' | 'grade' | 'preferredName' | 'section'
   | 'email' | 'phone' | 'guardianName' | 'guardianEmail';
+
+/**
+ * Questions whose answer has a REAL COLUMN on the roster (#roster-contact).
+ *
+ * Everything a sign-up asks used to land in one of three places: the four
+ * first-class response fields, a guardian, or `contacts.extra` as loose text
+ * keyed by the question's own wording. That last bucket is where "Preferred
+ * name" and "Voice part" ended up — on the record, but not in the box the
+ * roster card reads, so the director retyped them by hand. These two have
+ * columns; fill them.
+ *
+ * Deliberately short. A question only earns a place here when the roster
+ * already has the field, and `schoolId` is NOT one of them however a form
+ * words it — the school-issued ID is staff work and a public form cannot be
+ * trusted with it (see the module header).
+ */
+const ROSTER_FIELD_QUESTIONS: [RegExp, 'preferredName' | 'section'][] = [
+  [/preferred\s*(first\s*)?name|\bgo(es)?\s*by\b|nick\s*-?\s*name|what.*call you/i, 'preferredName'],
+  [/\b(voice\s*part|section|part|chair|voice\s*type)\b/i, 'section'],
+];
+
+/** Which roster column this question fills, or `null` for the `extra` bucket.
+ *  Exported for the self-check. */
+export function rosterFieldQuestion(label: string): 'preferredName' | 'section' | null {
+  const l = (label ?? '').toLowerCase();
+  // A consent line is not a roster field, whatever it names — same guard the
+  // guardian reader uses, for the same reason.
+  if (NOT_A_CONTACT.test(l)) return null;
+  // "Mother's preferred name" is about a guardian, not the student.
+  if (GUARDIAN_PERSON_WORDS.some(([re]) => re.test(l))) return null;
+  return ROSTER_FIELD_QUESTIONS.find(([re]) => re.test(label ?? ''))?.[1] ?? null;
+}
 
 /** Which side of a conflict wins. Defaults are computed by `planRosterIntake`
  *  and the director may flip any of them before the import runs. */
@@ -174,6 +217,9 @@ export interface IntakeRow {
   fields: IntakeField[];
   /** Free-text answers, keyed as they will appear in `contacts.extra`. */
   answers: Record<string, string>;
+  /** These people are their own contact: no guardian is written, and the
+   *  student doc is stamped `adult`. */
+  adult: boolean;
   /** Guardians beyond the one on the signature block, read out of the form's
    *  own questions ("Mother's email", "Parent 2 phone"). Each is merged into
    *  `contacts.guardians` on its own — a family can have as many as it has. */
@@ -197,7 +243,19 @@ export interface IntakePlanOptions {
   /** The form, for question labels and the namespace answers are filed under. */
   form?: Pick<SignupForm, 'title' | 'questions'>;
   /** Existing contact docs, keyed by student id. */
-  contacts?: Record<string, Pick<StudentContact, 'email' | 'parentEmail' | 'phone' | 'guardians' | 'extra'>>;
+  contacts?: Record<string, Pick<StudentContact, 'email' | 'parentEmail' | 'phone' | 'studentPhone' | 'guardians' | 'extra'>>;
+  /**
+   * These people are ADULTS — the college case this whole module was written
+   * for (#roster-contact).
+   *
+   * It changes two things, both of which were wrong before. The signature
+   * block is the STUDENT signing for themselves, not a parent, so it must not
+   * become a guardian entry carrying their own name and address; and every
+   * imported student is stamped `adult: true`, so the roster stops drawing a
+   * parents section they will never have. The caller sets it from the groups
+   * being joined — a college group means a college cohort.
+   */
+  adults?: boolean;
 }
 
 /**
@@ -330,14 +388,27 @@ export function guardianQuestion(label: string): GuardianQuestion | null {
 function splitAnswers(
   response: SignupResponse,
   form: IntakePlanOptions['form'],
-): { answers: Record<string, string>; guardians: Guardian[] } {
+): {
+  answers: Record<string, string>;
+  guardians: Guardian[];
+  rosterFields: Partial<Record<'preferredName' | 'section', string>>;
+} {
   const values = parseAnswers(response);
   const answers: Record<string, string> = {};
   const byPerson = new Map<string, Guardian>();
+  const rosterFields: Partial<Record<'preferredName' | 'section', string>> = {};
 
   for (const q of (form?.questions ?? []) as SignupQuestion[]) {
     const v = (values[q.id] ?? '').trim();
     if (!v) continue;
+    // A question with a real roster column fills that column instead of the
+    // loose `extra` bucket. First answer wins, as with guardians: two
+    // questions claiming one column is the director's ambiguity.
+    const column = rosterFieldQuestion(q.label);
+    if (column) {
+      if (rosterFields[column] === undefined) rosterFields[column] = v;
+      continue;
+    }
     const g = guardianQuestion(q.label);
     if (!g) {
       answers[answerKey(form?.title ?? '', q.label)] = v;
@@ -352,7 +423,7 @@ function splitAnswers(
 
   // A row with nothing but the relation we inferred is not a person.
   const guardians = [...byPerson.values()].filter(g => g.name || g.email || g.phone);
-  return { answers, guardians };
+  return { answers, guardians, rosterFields };
 }
 
 /**
@@ -383,20 +454,21 @@ export function planRosterIntake(
     const name = tidyName(response.studentName ?? '');
     const key = nameKey(name);
     const earlier = key ? claimed.get(key) : undefined;
-    const { answers, guardians: extraGuardians } = splitAnswers(response, opts.form);
+    const { answers, guardians: extraGuardians, rosterFields } = splitAnswers(response, opts.form);
     // THEIR year, not the cohort's. A blank or a wording this doesn't know
     // falls back rather than guessing — and the raw answer is on the contact
     // record regardless, so the director can see what they actually typed.
+    const adult = !!opts.adults;
     const grade = (opts.yearQuestionId
       ? collegeYearGrade(parseAnswers(response)[opts.yearQuestionId] ?? '')
       : null) ?? fallbackGrade;
 
     if (earlier !== undefined) {
-      mergeLaterResponse(rows[earlier], response, answers, extraGuardians, grade, fallbackGrade);
+      mergeLaterResponse(rows[earlier], response, answers, extraGuardians, rosterFields, grade, fallbackGrade);
       rows.push({
         response, action: 'same', name, match: rows[earlier].match,
         addedEnsembleIds: [], fields: [], answers: {}, extraGuardians: [],
-        answersOverwritten: [],
+        answersOverwritten: [], adult,
       });
       continue;
     }
@@ -409,15 +481,28 @@ export function planRosterIntake(
     const fields = [
       field('instrument', 'Instrument', 'student', match?.instrument ?? '', response.instrument ?? ''),
       field('grade', 'Grade', 'student', match?.grade ?? '', grade),
+      // Answers with a real roster column, filled from the questions the
+      // director wrote rather than left as loose text in `extra`.
+      field('preferredName', 'Goes by', 'student', match?.preferredName ?? '', rosterFields.preferredName ?? ''),
+      field('section', 'Section / part', 'student', match?.section ?? '', rosterFields.section ?? ''),
       field('email', 'Student email', 'contact', contact?.email ?? '', response.email ?? ''),
-      field('phone', 'Phone', 'contact', contact?.phone ?? '', response.phone ?? ''),
+      // The number the STUDENT typed is the student's own, and it goes in the
+      // student's own field. `contacts.phone` is the guardian mirror, and
+      // writing here used to file every college student's cell number under a
+      // parent who does not exist.
+      field('phone', 'Student phone', 'contact', contact?.studentPhone ?? '', response.phone ?? ''),
       // A guardian is a PERSON, not a value on the student — so these two are
       // never a conflict. A family can have three guardians, and the name on
       // this form is not a competing answer to the name already recorded: it
       // is either the same person (merged by name or address in
       // `contactWrite`) or another one, and either way nobody is replaced.
-      field('guardianName', 'Parent/guardian', 'contact', '', response.guardianName ?? ''),
-      field('guardianEmail', 'Parent/guardian email', 'contact', '', response.guardianEmail ?? ''),
+      // On an ADULT cohort they are not collected at all: the signature is the
+      // student signing for themselves, and turning that into a "parent" put
+      // their own name and address in the guardian list.
+      ...(adult ? [] : [
+        field('guardianName', 'Parent/guardian', 'contact', '', response.guardianName ?? ''),
+        field('guardianEmail', 'Parent/guardian email', 'contact', '', response.guardianEmail ?? ''),
+      ]),
     ];
 
     // The grade is the point of the import, not a suggestion: a college
@@ -438,8 +523,11 @@ export function planRosterIntake(
       addedEnsembleIds,
       fields,
       answers,
-      extraGuardians,
+      // A guardian question on an adult's form is not a guardian either — the
+      // same reason the signature block is not.
+      extraGuardians: adult ? [] : extraGuardians,
       answersOverwritten,
+      adult,
     };
     row.action = rowAction(row);
     rows.push(row);
@@ -459,6 +547,7 @@ function mergeLaterResponse(
   later: SignupResponse,
   answers: Record<string, string>,
   guardians: Guardian[],
+  rosterFields: Partial<Record<'preferredName' | 'section', string>>,
   grade: string,
   fallbackGrade: string,
 ): void {
@@ -471,6 +560,8 @@ function mergeLaterResponse(
   const from: Record<IntakeFieldKey, string> = {
     instrument: later.instrument ?? '',
     grade: '',
+    preferredName: rosterFields.preferredName ?? '',
+    section: rosterFields.section ?? '',
     email: later.email ?? '',
     phone: later.phone ?? '',
     guardianName: later.guardianName ?? '',
@@ -486,7 +577,11 @@ function mergeLaterResponse(
   for (const [k, v] of Object.entries(answers)) {
     if (!first.answers[k]) first.answers[k] = v;
   }
-  for (const g of guardians) first.extraGuardians = mergeGuardian(first.extraGuardians, g);
+  // An adult collects no guardians at all, and a second response does not
+  // change that.
+  if (!first.adult) {
+    for (const g of guardians) first.extraGuardians = mergeGuardian(first.extraGuardians, g);
+  }
   first.action = rowAction(first);
 }
 
@@ -551,12 +646,19 @@ export function studentWrite(
 ): Partial<Omit<Student, 'id'>> {
   const instrument = chosen(row, 'instrument', choices);
   const grade = chosen(row, 'grade', choices);
+  const preferredName = chosen(row, 'preferredName', choices);
+  const section = chosen(row, 'section', choices);
 
   if (!row.match) {
     return {
       name: row.name,
       instrument,
       grade,
+      ...(preferredName ? { preferredName } : {}),
+      ...(section ? { section } : {}),
+      // An adult cohort is stamped rather than derived, so the record says so
+      // even if they are later moved out of every college group.
+      ...(row.adult ? { adult: true } : {}),
       ensembleIds: [...wantedEnsembleIds],
       status: 'Active',
     };
@@ -568,6 +670,11 @@ export function studentWrite(
   if (added.length) out.ensembleIds = [...have, ...added];
   if (instrument && instrument !== (row.match.instrument ?? '')) out.instrument = instrument;
   if (grade && grade !== (row.match.grade ?? '')) out.grade = grade;
+  if (preferredName && preferredName !== (row.match.preferredName ?? '')) out.preferredName = preferredName;
+  if (section && section !== (row.match.section ?? '')) out.section = section;
+  // Never un-set it: a director who ticked "adult" by hand on an existing
+  // record outranks what this import happens to know.
+  if (row.adult && row.match.adult !== true) out.adult = true;
   return out;
 }
 
@@ -601,7 +708,10 @@ export function contactWrite(
 
   const out: Omit<StudentContact, 'id'> = {};
   if (email) out.email = email;
-  if (phone) out.phone = phone;
+  // The student's OWN number — `phone` is the guardian mirror (see
+  // StudentContact), and a number the student typed about themselves is not
+  // their parent's.
+  if (phone) out.studentPhone = phone;
 
   if (incoming.length) {
     // Every guardian the form named, merged one at a time. Nobody on the

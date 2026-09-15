@@ -47,6 +47,25 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Directors: Take Roll’s "Reported ahead" chip now shows the category and a photo link when there is one, and a report naming specific ensembles only shows on those rolls. Older reports (and ones from the absence-email pipeline) keep showing on every roll for that day, exactly as before.',
     ],
   },
+  // Contacting a roster (#roster-contact). Reported from a college class:
+  // "select everyone and it says there are no addresses", while every student
+  // plainly had one — the bar opens on Parents / guardians and college
+  // students have none.
+  {
+    id: '2026-09-15-roster-contact',
+    date: '2026-09-15',
+    title: 'Email or text a whole class, and college students are their own contact',
+    audience: 'staff' as const,
+    expires: '2026-10-06',
+    bullets: [
+      'A college class that said "nobody has an address on file" now reaches everyone. Every student had an email; the bar was asking for their parents, and college students do not have any. An adult student is now their own contact everywhere — their email and their phone, no guardian, and a guardian left on the record by an old import is never written to.',
+      'Adult is ticked for you for anyone in a college group, and there is a checkbox on the student to decide it yourself either way — for a dual-enrollment student who is only in shared high-school groups, or a senior who handles their own paperwork.',
+      'Students have their own phone number box at last. Until now the only place to type a phone was inside a "Parent / Guardian" block, which filed every college student’s own cell under a parent who does not exist.',
+      'Every ensemble and class page has an Email / text button that opens the roster with that whole group already ticked. From there: one blind-copied email, one group text, Share… for WhatsApp or anything else your phone offers, or copy the addresses or numbers. Nothing is sent by the Hub — your own mail and messaging apps open with the message ready.',
+      'Names read surname-first in every list — roster cards, Take Roll, Who’s Out, class rosters — however each one happens to be stored.',
+      'Importing a sign-up into the roster now puts everything where it belongs: what they go by and their section fill those boxes instead of sitting as loose text, the phone they typed is theirs, and a college intake collects no guardian at all, because the signature on it is the student’s own.',
+    ],
+  },
   // Roster names and archiving (#gradebook, #roster). The name parser assumed
   // "First Last" and the live roster stores most students "Last, First", which
   // put the middle initial in the district's Last Name column.

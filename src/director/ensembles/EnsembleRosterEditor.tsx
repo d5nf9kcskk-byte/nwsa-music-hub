@@ -3,6 +3,7 @@ import { Search, UserPlus } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { studentMatchesQuery } from '../studentSearch';
+import { lastFirst } from '../../shared/personName';
 import type { DirNavigate } from '../types-nav';
 
 /**
@@ -92,7 +93,7 @@ export function EnsembleRosterEditor({ ensembleId, ensembleName, onNavigate, onC
                     style={{ width: 18, height: 18, flexShrink: 0 }}
                   />
                   <div className="dir-ens-info">
-                    <div className="dir-ens-name">{s.name}</div>
+                    <div className="dir-ens-name">{lastFirst(s.name)}</div>
                     <div className="dir-ens-sub">
                       {s.instrument}{s.grade ? ` · Grade ${s.grade}` : ''}
                     </div>

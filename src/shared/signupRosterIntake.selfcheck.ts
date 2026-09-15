@@ -18,8 +18,8 @@
  */
 import {
   COLLEGE_GRADE, COLLEGE_YEAR_GRADES, answerKey, collegeYearGrade, contactWrite, guardianQuestion,
-  intakeSummary, looksLikeYearQuestion, matchStudent, nameKey, planRosterIntake, studentWrite,
-  tidyName,
+  intakeSummary, looksLikeYearQuestion, matchStudent, nameKey, planRosterIntake,
+  rosterFieldQuestion, studentWrite, tidyName,
 } from './signupRosterIntake.ts';
 import type {
   SignupForm, SignupResponse, Student, StudentContact,
@@ -94,7 +94,12 @@ assert(tidyName('diMaggio Rossi') === 'diMaggio Rossi', 'casing left alone');
 
   const c = contactWrite(rows[0], undefined);
   assert(c?.email === 'ada@example.edu', 'student email → contacts');
-  assert(c?.phone === '305-555-0134', 'phone → contacts');
+  // The STUDENT'S number, in the student's own field. `contacts.phone` is
+  // the guardian mirror, and a number somebody typed about themselves is
+  // not their parent's — filing it there is what put every college
+  // student's cell under a guardian who does not exist.
+  assert(c?.studentPhone === '305-555-0134', 'the phone they typed → studentPhone');
+  assert(c?.phone === undefined, 'and never onto the guardian mirror');
   assert(c?.parentEmail === 'anne@example.com', 'guardian address mirrored to parentEmail');
   assert(c?.guardians?.length === 1 && c.guardians[0].name === 'Anne Byron', 'guardian recorded');
   assert(c?.extra?.[MAJOR] === 'Music Education', 'answer filed under its question');
@@ -424,5 +429,79 @@ assert(tidyName('diMaggio Rossi') === 'diMaggio Rossi', 'casing left alone');
   const rows = planRosterIntake([resp({ answersJson: 'not json' })], [], OPTS);
   assert(Object.keys(rows[0].answers).length === 0, 'unparseable answers are simply absent');
 }
+
+// ── an ADULT cohort has no guardians (#roster-contact) ─────────────────
+//
+// The bug: a college sign-up's signature block is the STUDENT signing for
+// themselves. Reading that as a parent filed every college student's own name
+// and address under a guardian who does not exist, and left the roster drawing
+// a parents section they will never have.
+{
+  const collegeForm: Pick<SignupForm, 'title' | 'questions'> = {
+    title: 'College Student Information',
+    questions: [
+      { id: 'q1', label: 'Major', type: 'short' },
+      { id: 'q2', label: 'Preferred name', type: 'short' },
+      { id: 'q3', label: 'Voice part / section', type: 'short' },
+      { id: 'q4', label: "Mother's email", type: 'short' },
+    ],
+  };
+  const r = resp({
+    instrument: 'Cello', email: 'ada@mdc.edu', phone: '(305) 555-0142',
+    // They signed it themselves — the form has one signature block and an
+    // adult uses it.
+    guardianName: 'Ada Lovelace', guardianEmail: 'ada@mdc.edu',
+    answersJson: JSON.stringify({
+      q1: 'Music Performance', q2: 'Addy', q3: 'Section leader', q4: 'mom@example.com',
+    }),
+  });
+  const rows = planRosterIntake([r], [], { ensembleIds: [CCO], form: collegeForm, adults: true });
+  assert(rows[0].adult, 'the row knows it is an adult');
+
+  const st = studentWrite(rows[0], [CCO]);
+  assert(st.adult === true, 'an adult record is STAMPED, not only derived from its groups');
+  assert(st.preferredName === 'Addy', '"Preferred name" fills the roster column, not the extra bucket');
+  assert(st.section === 'Section leader', 'and so does the section question');
+
+  const c = contactWrite(rows[0], undefined);
+  assert(c?.email === 'ada@mdc.edu' && c?.studentPhone === '(305) 555-0142', 'their own details');
+  assert(!c?.guardians?.length, 'NO guardian is written for an adult — not even the one who signed');
+  assert(c?.parentEmail === undefined, 'and nothing lands on the parent mirror');
+  assert(!rows[0].fields.some(f => f.key.startsWith('guardian')), 'the screen offers no guardian fields');
+  assert(rows[0].extraGuardians.length === 0, 'a guardian QUESTION is not a guardian either');
+  assert(c?.extra?.[answerKey(collegeForm.title, 'Major')] === 'Music Performance',
+    'everything without a column still lands in extra');
+  assert(
+    c?.extra?.[answerKey(collegeForm.title, 'Preferred name')] === undefined,
+    'an answer that filled a roster column is NOT also left as loose text — one spelling, which '
+    + 'cannot then drift from the other',
+  );
+}
+
+// ── a high-school cohort is unchanged: guardians are still collected ───
+{
+  const rows = planRosterIntake(
+    [resp({ guardianName: 'Anne Byron', guardianEmail: 'anne@example.com' })],
+    [], { ...OPTS, grade: '10th' },
+  );
+  assert(!rows[0].adult, 'no college group, no adult stamp');
+  const c = contactWrite(rows[0], undefined);
+  assert(c?.guardians?.[0].name === 'Anne Byron', 'a minor still gets their guardian');
+  assert(studentWrite(rows[0], OPTS.ensembleIds).adult === undefined, 'and is not stamped adult');
+}
+
+// ── which questions own a roster column ────────────────────────────────
+assert(rosterFieldQuestion('Preferred name') === 'preferredName', 'preferred name');
+assert(rosterFieldQuestion('What do you go by?') === 'preferredName', 'however it is worded');
+assert(rosterFieldQuestion('Voice part') === 'section', 'voice part is the section');
+assert(rosterFieldQuestion('Major') === null, 'a major has no roster column — it stays in extra');
+assert(
+  rosterFieldQuestion("Mother's preferred name") === null,
+  'a guardian question is about the GUARDIAN, never the student’s own column',
+);
+assert(
+  rosterFieldQuestion('Parent signature name') === null,
+  'and a consent line is not a roster field, whoever it names',
+);
 
 console.log('signupRosterIntake.selfcheck: OK');

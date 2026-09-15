@@ -1,4 +1,5 @@
 import type { Student } from './types';
+import { lastName } from '../shared/personName';
 
 /**
  * Standard full-score order, merged across orchestra / concert band / jazz so
@@ -49,11 +50,10 @@ export function scoreOrderRank(instrument: string | undefined): number {
   return 998;
 }
 
-/** "Ana María de la Cruz" → "de la Cruz" is ambitious; use simple last word. */
-export function lastName(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  return parts[parts.length - 1] ?? name;
-}
+/** The surname. ONE definition for the whole app — this used to be "the last
+ *  whitespace-separated word", which filed the 120 roster names stored
+ *  "Beyra, Benjamin A." under their middle initial. See `personName.ts`. */
+export { lastName };
 
 export type StudentSort = 'lastName' | 'scoreOrder';
 

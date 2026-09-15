@@ -18,9 +18,10 @@ import { importContactsFile } from '../contactsImport';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { SortToggle } from '../components/SortToggle';
 import { RosterEmailBar } from './RosterEmailBar';
+import { lastFirst } from '../../shared/personName';
 import type { Student } from '../types';
 
-export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigate }: { initialEnsembleId?: string; initialStudentId?: string; onNavigate?: import('../types-nav').DirNavigate }) {
+export function RosterView({ initialEnsembleId = '', initialStudentId, initialSelectAll, onNavigate }: { initialEnsembleId?: string; initialStudentId?: string; initialSelectAll?: boolean; onNavigate?: import('../types-nav').DirNavigate }) {
   const { ensembles, loading: ensemblesLoading } = useEnsembles();
   const { students, loading: studentsLoading, addStudent, updateStudent, deleteStudent } = useStudents();
   const { records } = useAllAttendance();
@@ -70,6 +71,18 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
     for (const id of ids) { if (on) next.add(id); else next.delete(id); }
     return next;
   });
+  // Arrived from a group page's "Email / text this class": tick that group's
+  // active roster once the students load, so the bar is already up. Guarded by
+  // the consumed id, the same adjust-state-during-render pattern the deep-link
+  // above uses — the director may then untick anyone.
+  const [consumedSelectAll, setConsumedSelectAll] = useState(false);
+  if (initialSelectAll && !consumedSelectAll && students.length > 0) {
+    setConsumedSelectAll(true);
+    setSelectedIds(new Set(students
+      .filter(s => s.status === 'Active'
+        && (!initialEnsembleId || s.ensembleIds?.includes(initialEnsembleId)))
+      .map(s => s.id)));
+  }
 
   const loading = ensemblesLoading || studentsLoading;
   const isEmpty = !loading && students.length === 0;
@@ -83,7 +96,8 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
     if (view === 'seniors') return (s.grade ?? '').startsWith('12');
     if (view === 'missing') {
       const c = contacts[s.id];
-      return !s.grade || !s.instrument || !c || (!c.email && !c.parentEmail && !c.phone && !c.guardians?.length);
+      return !s.grade || !s.instrument || !c
+        || (!c.email && !c.studentPhone && !c.parentEmail && !c.phone && !c.guardians?.length);
     }
     return true;
   });
@@ -240,6 +254,7 @@ export function RosterView({ initialEnsembleId = '', initialStudentId, onNavigat
       <RosterEmailBar
         selected={selectedStudents}
         contacts={contacts}
+        ensembles={ensembles}
         onClear={() => setSelectedIds(new Set())}
       />
 
@@ -414,7 +429,7 @@ function StudentRow({ student, absences, checked, onToggle, onEdit }: {
       />
       <div className={`dir-status-dot ${student.status}`} />
       <div className="dir-roster-info">
-        <div className="dir-roster-name">{student.name}</div>
+        <div className="dir-roster-name">{lastFirst(student.name)}</div>
         <div className="dir-roster-detail">
           {[student.instrument, student.section, student.grade].filter(Boolean).join(' · ')}
           {student.status !== 'Active' && ` · ${student.archivedLabel || student.status}`}
