@@ -1,0 +1,39 @@
+name: Fix One Field
+
+# Corrects one text field on one document that already exists — a typo in a
+# name, a room, a title. For when re-running a seed script would drag other
+# changes along with the fix (see scripts/set-doc-field.mjs).
+#
+# Run dry first, read the before/after in the log, then apply.
+on:
+  workflow_dispatch:
+    inputs:
+      collection: { description: 'Collection (e.g. ensembles)', required: true }
+      doc_id:     { description: 'Document id (e.g. masterclass-viola)', required: true }
+      field:      { description: 'Field name (e.g. conductorName)', required: true }
+      value:      { description: 'New value', required: true }
+      dry_run:
+        description: 'Show the before/after without writing anything'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm install firebase-admin --no-save
+      - name: Set the field in Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          DOC_COLLECTION: ${{ inputs.collection }}
+          DOC_ID:         ${{ inputs.doc_id }}
+          DOC_FIELD:      ${{ inputs.field }}
+          DOC_VALUE:      ${{ inputs.value }}
+        run: node scripts/set-doc-field.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
