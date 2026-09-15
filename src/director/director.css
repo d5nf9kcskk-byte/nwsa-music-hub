@@ -2187,6 +2187,15 @@ a.dir-menu-item {
 }
 .dir-list-date-header:first-child { border-top: none; }
 .dir-list-date-header.today { color: var(--dir-blue); }
+/* Divider between what's coming and what already happened (#concerts). */
+.dir-list-past-header {
+  margin-top: 20px;
+  padding: 14px 12px 6px;
+  font-size: 13px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.6px; color: var(--dir-text-muted);
+  border-top: 2px solid var(--dir-border);
+}
+.dir-list-past-header + div .dir-list-date-header:first-child { border-top: none; }
 
 /* ── Rich-text area toolbar ──────────────────────────── */
 .dir-rte { display: flex; flex-direction: column; gap: 0; }

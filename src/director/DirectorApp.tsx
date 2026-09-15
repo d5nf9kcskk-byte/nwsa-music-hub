@@ -218,7 +218,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   lessons:         'Private lessons teachers have logged. Download CSV for the Dean\u2019s record (pay tracking later).',
   myLessons:       'Your own private-lesson students — schedule sessions, grade each one, and adjust who is assigned to you.',
   notes:           'Private progress notes per student. Only directors ever see these.',
-  concerts:        'Every concert on the calendar, soonest first. Tap one to fix its date, time, place, who is playing, and the program — the pieces and the order they go in.',
+  concerts:        'Every concert on the calendar — what’s coming up first, then everything earlier under “Earlier”. Tap one to fix its date, time, place, who is playing, and the program — the pieces and the order they go in.',
   repertoire:      'What each ensemble is playing, by ensemble or by concert. This feeds the printed program.',
   documents:       'Handbooks, forms, and files for families. Anything you post here shows on the public site.',
   assignments:     'Post practice assignments and exams. Students see them on the public site.',
@@ -613,6 +613,7 @@ export default function DirectorApp() {
                 initialEnsembleId={intent.ensembleId ?? ''}
                 initialTypeFilters={['Concert']}
                 initialCalView="list"
+                listIncludesPast
                 onNavigate={go}
               />
             )}

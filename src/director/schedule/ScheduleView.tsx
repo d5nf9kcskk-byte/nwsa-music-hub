@@ -55,7 +55,7 @@ const SCHED_TYPE_OPTIONS: { value: SchedTypeKey; label: string; color: string }[
   { value: 'Assignment', label: 'Assignments', color: ASSIGN_COLOR },
 ];
 
-export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = '', initialTypeFilters, initialCalView, onNavigate, assistantMode, allowedEnsembleIds }: {
+export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = '', initialTypeFilters, initialCalView, listIncludesPast, onNavigate, assistantMode, allowedEnsembleIds }: {
   initialDate?: string;
   initialEventId?: string;
   initialEnsembleId?: string;
@@ -64,6 +64,11 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
    *  director can widen it from there. */
   initialTypeFilters?: SchedTypeKey[];
   initialCalView?: 'month' | 'list';
+  /** List view also shows what already happened, newest first, under an
+   *  "Earlier" heading (#concerts). Off for the Calendar tab, whose list is
+   *  a what's-coming-up view; on for Concerts, where last month's program is
+   *  still something you go back and fix. */
+  listIncludesPast?: boolean;
   onNavigate?: import('../types-nav').DirNavigate;
   /** Student Assistant shell: hide seed/import/day-swap staff tools. */
   assistantMode?: boolean;
@@ -267,6 +272,16 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
       .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
   }, [visibleEvents, today]);
 
+  // Newest first: going back to a program you just gave is the common case,
+  // and a season's worth of history read oldest-first buries it.
+  const pastEvents = useMemo(() => {
+    if (!listIncludesPast) return [];
+    const t = today;
+    return [...visibleEvents]
+      .filter(e => e.date < t)
+      .sort((a, b) => b.date.localeCompare(a.date) || (b.startTime ?? '99').localeCompare(a.startTime ?? '99'));
+  }, [visibleEvents, today, listIncludesPast]);
+
   function expectedCount(e: CalendarEvent) {
     const set = new Set<string>();
     for (const ensId of e.ensembleIds) {
@@ -288,6 +303,31 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
     // every ensemble in the program, and 17 names is not a calendar chip.
     if (isSharedBlock(e)) return sharedBlockLabel(names, { total: ensembles.length });
     return names.join(', ') || e.type;
+  }
+
+  /** A date-sorted run of events with one date heading per day. */
+  function dayGroupedList(list: CalendarEvent[]) {
+    let lastDate = '';
+    return list.map(e => {
+      const showHeader = e.date !== lastDate;
+      lastDate = e.date;
+      return (
+        <div key={e.id}>
+          {showHeader && (
+            <div className={`dir-list-date-header${e.date === today ? ' today' : ''}`}>
+              {parseDate(e.date).toLocaleDateString('en-US', {
+                weekday: 'short', month: 'short', day: 'numeric',
+                // Last season's concerts are in this list too — a bare
+                // "Sat, Jun 7" would not say which June.
+                ...(e.date.slice(0, 4) === today.slice(0, 4) ? {} : { year: 'numeric' }),
+              })}
+              {e.date === today && <span className="dir-today-badge">Today</span>}
+            </div>
+          )}
+          <EventCard e={e} />
+        </div>
+      );
+    });
   }
 
   function EventCard({ e }: { e: CalendarEvent }) {
@@ -665,28 +705,25 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           </div>
         </div>
       ) : (
-        /* List view — upcoming events from today */
+        /* List view — upcoming from today, then (Concerts tab) what already
+           happened, so a program can still be corrected after the fact. */
         <div className="dir-list-view">
-          {upcomingEvents.length === 0 ? (
+          {upcomingEvents.length === 0 && pastEvents.length === 0 ? (
             <div className="dir-day-empty">No upcoming events.</div>
-          ) : (() => {
-            let lastDate = '';
-            return upcomingEvents.map(e => {
-              const showHeader = e.date !== lastDate;
-              lastDate = e.date;
-              return (
-                <div key={e.id}>
-                  {showHeader && (
-                    <div className={`dir-list-date-header${e.date === today ? ' today' : ''}`}>
-                      {parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                      {e.date === today && <span className="dir-today-badge">Today</span>}
-                    </div>
-                  )}
-                  <EventCard e={e} />
-                </div>
-              );
-            });
-          })()}
+          ) : (
+            <>
+              {upcomingEvents.length === 0 && (
+                <div className="dir-day-empty">Nothing coming up.</div>
+              )}
+              {dayGroupedList(upcomingEvents)}
+              {pastEvents.length > 0 && (
+                <>
+                  <div className="dir-list-past-header">Earlier</div>
+                  {dayGroupedList(pastEvents)}
+                </>
+              )}
+            </>
+          )}
         </div>
       )}
 

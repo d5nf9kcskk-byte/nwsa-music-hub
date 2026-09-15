@@ -41,7 +41,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     audience: 'staff' as const,
     expires: '2026-09-29',
     bullets: [
-      'Library → Concerts lists every upcoming concert, soonest first. No hunting for the date on the calendar first.',
+      'Library → Concerts lists what’s coming up, soonest first, with everything earlier in the season under “Earlier”. No hunting for the date on the calendar first.',
       'Tap one to open the same concert form as always — date, time, place, who is playing, and the program with its pieces in order.',
       'The filter chips are still live, so you can widen it back out to rehearsals or a single ensemble without leaving the screen.',
     ],
