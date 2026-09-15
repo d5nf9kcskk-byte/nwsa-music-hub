@@ -1,0 +1,52 @@
+name: Post Announcement
+
+# Posts one announcement to the Hub from the Actions tab — the same doc the
+# Director Panel writes, for when a post has to go up and nobody is at a
+# signed-in browser. The Director Panel remains the normal way to post.
+#
+# Body line breaks: type "\n" where you want one (the input boxes here are
+# single-line). Links: one per line is impossible in this box too, so use
+# "Label | https://…" separated by "\n" as well.
+on:
+  workflow_dispatch:
+    inputs:
+      title:        { description: 'Headline', required: true }
+      body:         { description: 'Message (use \n for line breaks)', required: false }
+      priority:
+        description: 'info = plain card · important = colored border · urgent = site-wide banner'
+        required: false
+        default: 'info'
+        type: choice
+        options: [info, important, urgent]
+      links:        { description: 'Buttons: "Label | https://…", separated by \n', required: false }
+      expires_on:   { description: 'Hide after this date (YYYY-MM-DD)', required: false }
+      ensemble_id:  { description: 'Ensemble id — blank posts school-wide', required: false }
+      pinned:       { description: 'Pin to the top', required: false, type: boolean, default: false }
+      author:       { description: 'Posted by (display name)', required: false }
+      author_email: { description: 'Posted by (staff email, for the audit view)', required: false }
+
+permissions:
+  contents: read
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - run: npm install firebase-admin --no-save
+      - name: Write announcement to Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          ANN_TITLE:        ${{ inputs.title }}
+          ANN_BODY:         ${{ inputs.body }}
+          ANN_PRIORITY:     ${{ inputs.priority }}
+          ANN_LINKS:        ${{ inputs.links }}
+          ANN_EXPIRES_ON:   ${{ inputs.expires_on }}
+          ANN_ENSEMBLE_ID:  ${{ inputs.ensemble_id }}
+          ANN_PINNED:       ${{ inputs.pinned }}
+          ANN_AUTHOR:       ${{ inputs.author }}
+          ANN_AUTHOR_EMAIL: ${{ inputs.author_email }}
+        run: node scripts/post-announcement.mjs

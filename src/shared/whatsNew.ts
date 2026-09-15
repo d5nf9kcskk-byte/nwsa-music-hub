@@ -32,6 +32,23 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // A CONCERT, not a Hub change — `.cursor/rules/whats-new.mdc` normally
+  // excludes content a director posts. Here by the director's explicit ask
+  // (2026-09-15): faculty are playing four days out and he wanted it on this
+  // surface too. Expires the day of, so the banner cleans itself up.
+  {
+    id: '2026-09-15-between-the-lines',
+    date: '2026-09-15',
+    title: 'Mr. Fleischmann performs — and reads his own writing — Saturday',
+    audience: 'both' as const,
+    expires: '2026-09-19',
+    bullets: [
+      'Richard Fleischmann, who teaches viola here, is playing viola AND reading from his own writing in “Between the Lines” — a concert built around the musician as storyteller.',
+      'Saturday, September 19: reception at 4:00 PM, concert 4:30–6:00 PM, at The Gallery at The Betsy Hotel in Miami Beach.',
+      'He plays Schubert, Schumann and Brahms with Marina Radiushina (piano), Nathan Meltzer (violin) and Vicky Wang (cello).',
+      'Tickets and the flyer are on the announcement — open Announcements to find them.',
+    ],
+  },
   // Rehearsal absence report (#absence-report): a native form replacing what
   // was scoped as an external Google Form, built on the existing
   // plannedAbsences collection and PlannedAbsenceButton pattern.
