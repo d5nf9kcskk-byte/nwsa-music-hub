@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine, FileSpreadsheet } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine, FileSpreadsheet, Ticket } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -131,6 +131,10 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
   {
     head: 'Library',
     items: [
+      // Concerts (#concerts) — the season as its own door. It is the Calendar
+      // filtered to Concerts, not a second editor: same event form, same
+      // two-sided piece links, so the program can only be edited one way.
+      { id: 'concerts',      label: 'Concerts',      Icon: Ticket         },
       { id: 'repertoire',    label: 'Repertoire',    Icon: Music          },
       { id: 'documents',     label: 'Documents',     Icon: FolderOpen     },
       { id: 'assignments',   label: 'Assignments',   Icon: ClipboardCheck },
@@ -176,6 +180,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   messages:        'Messages',
   signups:         'Sign-ups',
   juries:          'Juries',
+  concerts:        'Concerts',
   concertCheckin:  'Concert Check-In',
   gradebook:       'Gradebook',
   approvals:       'Approvals',
@@ -186,7 +191,7 @@ const TAB_TITLES: Record<DirTab, string> = {
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'lessons', 'myLessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'classes', 'college', 'whosOut', 'scheduleSwap', 'rotations',
-  'messages', 'signups', 'juries', 'concertCheckin', 'gradebook', 'approvals', 'directors',
+  'messages', 'signups', 'juries', 'concerts', 'concertCheckin', 'gradebook', 'approvals', 'directors',
   // The roster URL segment follows the org kind too (#personnel), so a
   // school build has no /director/personnel route and an adult build no
   // /director/roster \u2014 an off-org deep link falls back to Today.
@@ -213,6 +218,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   lessons:         'Private lessons teachers have logged. Download CSV for the Dean\u2019s record (pay tracking later).',
   myLessons:       'Your own private-lesson students — schedule sessions, grade each one, and adjust who is assigned to you.',
   notes:           'Private progress notes per student. Only directors ever see these.',
+  concerts:        'Every concert on the calendar, soonest first. Tap one to fix its date, time, place, who is playing, and the program — the pieces and the order they go in.',
   repertoire:      'What each ensemble is playing, by ensemble or by concert. This feeds the printed program.',
   documents:       'Handbooks, forms, and files for families. Anything you post here shows on the public site.',
   assignments:     'Post practice assignments and exams. Students see them on the public site.',
@@ -596,6 +602,17 @@ export default function DirectorApp() {
                 initialDate={intent.date}
                 initialEventId={intent.eventId}
                 initialEnsembleId={intent.ensembleId ?? ''}
+                onNavigate={go}
+              />
+            )}
+            {tab === 'concerts'        && (
+              <ScheduleView
+                key={intentKey}
+                initialDate={intent.date}
+                initialEventId={intent.eventId}
+                initialEnsembleId={intent.ensembleId ?? ''}
+                initialTypeFilters={['Concert']}
+                initialCalView="list"
                 onNavigate={go}
               />
             )}

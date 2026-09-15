@@ -55,10 +55,15 @@ const SCHED_TYPE_OPTIONS: { value: SchedTypeKey; label: string; color: string }[
   { value: 'Assignment', label: 'Assignments', color: ASSIGN_COLOR },
 ];
 
-export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = '', onNavigate, assistantMode, allowedEnsembleIds }: {
+export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = '', initialTypeFilters, initialCalView, onNavigate, assistantMode, allowedEnsembleIds }: {
   initialDate?: string;
   initialEventId?: string;
   initialEnsembleId?: string;
+  /** Seed the type filter — how the Concerts tab (#concerts) is nothing but
+   *  this screen pointed at one type. The filter chips stay live, so the
+   *  director can widen it from there. */
+  initialTypeFilters?: SchedTypeKey[];
+  initialCalView?: 'month' | 'list';
   onNavigate?: import('../types-nav').DirNavigate;
   /** Student Assistant shell: hide seed/import/day-swap staff tools. */
   assistantMode?: boolean;
@@ -92,11 +97,11 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
     initialEnsembleId ? [initialEnsembleId]
       : (allowedEnsembleIds?.length ? [...allowedEnsembleIds] : []),
   );
-  const [typeFilters, setTypeFilters] = useState<SchedTypeKey[]>([]);
+  const [typeFilters, setTypeFilters] = useState<SchedTypeKey[]>(initialTypeFilters ?? []);
   // Concert attendance (#concert-checkin). One choice, not a set — a concert
   // is required or optional, never both — so the menu keeps the last pick.
   const [attendance, setAttendance] = useState<ConcertAttendance | ''>('');
-  const [calView, setCalView] = useState<'month' | 'list'>('month');
+  const [calView, setCalView] = useState<'month' | 'list'>(initialCalView ?? 'month');
   const [editing, setEditing] = useState<CalendarEvent | null | 'new'>(null);
   const [quickAddDraft, setQuickAddDraft] = useState<Partial<Omit<CalendarEvent, 'id'>> | undefined>(undefined);
   const [rosterEvent, setRosterEvent] = useState<CalendarEvent | null>(null);

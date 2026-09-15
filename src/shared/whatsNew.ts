@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Concerts tab (#concerts) — staff-only: the public season page already
+  // existed and is unchanged, so there is nothing here for families.
+  {
+    id: '2026-09-15-director-concerts',
+    date: '2026-09-15',
+    title: 'Concerts now has its own entry in the Library menu',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'Library → Concerts lists every upcoming concert, soonest first. No hunting for the date on the calendar first.',
+      'Tap one to open the same concert form as always — date, time, place, who is playing, and the program with its pieces in order.',
+      'The filter chips are still live, so you can widen it back out to rehearsals or a single ensemble without leaving the screen.',
+    ],
+  },
   // A CONCERT, not a Hub change — `.cursor/rules/whats-new.mdc` normally
   // excludes content a director posts. Here by the director's explicit ask
   // (2026-09-15): faculty are playing four days out and he wanted it on this
