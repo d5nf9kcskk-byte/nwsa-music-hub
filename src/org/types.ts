@@ -136,6 +136,14 @@ export interface OrgConfig {
     /** Public parent→admin contact form + director Messages inbox. */
     contactForm: boolean;
     /**
+     * The /absence report form (leaving early w/ office note, full-day
+     * absence, parent sign-out). A K-12 school-day bureaucracy model — it
+     * assumes the student is being released from a normal school day, which
+     * is why this is a toggle rather than universal: an evening/weekend
+     * youth-orchestra org has no "office" to get a slip from.
+     */
+    absenceReport: boolean;
+    /**
      * Paid-roster mode: `Musician`/`Contract` records instead of the
      * `Student`/`Guardian` model, and the personnel + contracts surfaces
      * built on them. TRUE for adult professional and semi-professional

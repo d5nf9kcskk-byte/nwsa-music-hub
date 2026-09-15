@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Rehearsal absence report (#absence-report): a native form replacing what
+  // was scoped as an external Google Form, built on the existing
+  // plannedAbsences collection and PlannedAbsenceButton pattern.
+  {
+    id: '2026-09-15-absence-report',
+    date: '2026-09-15',
+    title: 'Report a rehearsal absence from your phone — no schedule page needed first',
+    audience: 'both' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'There’s a new "Report an Absence" page in the menu. Pick your name, the ensembles or classes it affects, and what’s going on — leaving early with a photo of your office note, out for the whole day, or a parent signing you out. Each asks for exactly what your director needs, nothing more.',
+      'Put your email on it and you get a confirmation back — proof you sent it, in writing.',
+      'Directors: Take Roll’s "Reported ahead" chip now shows the category and a photo link when there is one, and a report naming specific ensembles only shows on those rolls. Older reports (and ones from the absence-email pipeline) keep showing on every roll for that day, exactly as before.',
+    ],
+  },
   // Roster names and archiving (#gradebook, #roster). The name parser assumed
   // "First Last" and the live roster stores most students "Last, First", which
   // put the middle initial in the district's Last Name column.

@@ -14,6 +14,7 @@ import { EnsembleFilter } from '../components/EnsembleFilter';
 import type { DirNavigate } from '../types-nav';
 import { emptyWhosOutLine } from '../../shared/whimsy';
 import { isRollException, ATTENDANCE_STATUS_LABEL } from '../attendanceStatus';
+import { ABSENCE_CATEGORY_LABEL } from '../types';
 
 /**
  * Who's Out (replaces the printable "sub sheet"): one live page answering
@@ -183,11 +184,17 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
                 <div className="dir-sub-info">
                   <div className="dir-sub-name">
                     {a.studentName}
+                    {a.category && <span className="dir-office-badge">{ABSENCE_CATEGORY_LABEL[a.category]}</span>}
                     {a.status === 'approved'
                       ? <span className="dir-status-badge excused" style={{ marginLeft: 8 }}>Excused</span>
                       : <span className="dir-status-badge late" style={{ marginLeft: 8 }}>Pending</span>}
                   </div>
-                  <div className="dir-sub-instr">{a.reason}</div>
+                  <div className="dir-sub-instr">
+                    {a.reason}
+                    {a.ensembleIds && a.ensembleIds.length > 0 && (
+                      <> · {a.ensembleIds.map(id => ensembles.find(e => e.id === id)?.name).filter(Boolean).join(', ')}</>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

@@ -2,6 +2,7 @@ import type { Ensemble, EventType, RepertoirePiece, PiecePartLink, PieceMovement
 import { dateLocale, fmtDate } from '../shared/dates';
 import { scoreOrderRank, lastName } from './scoreOrder';
 import { isClassGroup, isMasterClass } from './groupKind';
+import { plannedAbsenceAppliesToRoll } from './plannedAbsenceScope';
 
 // ── Date helpers (work in local time, store as YYYY-MM-DD) ──────────────────────
 
@@ -92,6 +93,8 @@ export const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
  *  Node-side code (the feed generator) can import them without pulling in the
  *  org config. Re-exported here so this stays the one import site. */
 export { isClassGroup, isMasterClass };
+/** Same reason as above — plannedAbsenceScope.ts stays Node-importable. */
+export { plannedAbsenceAppliesToRoll };
 
 /** Music groups that actually rehearse and perform — the list that belongs in
  *  repertoire pickers, concert programs, and the public "our ensembles" grid. */

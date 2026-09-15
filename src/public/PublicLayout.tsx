@@ -2,7 +2,7 @@ import './uiUpdates.css';
 import './pubShell.css';
 import { useState, useEffect, useReducer } from 'react';
 import { Outlet, NavLink, Link, ScrollRestoration, useLocation } from 'react-router';
-import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned, FolderOpen, Mail, ClipboardSignature, ScanLine } from 'lucide-react';
+import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned, FolderOpen, Mail, ClipboardSignature, ScanLine, CalendarX } from 'lucide-react';
 import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
 import { StatusStrips } from '../shared/StatusStrips';
@@ -52,6 +52,7 @@ const RESOURCE_PATHS = [
   '/signups',
   ...(ORG.features.campusMap ? ['/map'] : []),
   ...(ORG.features.contactForm ? ['/contact'] : []),
+  ...(ORG.features.absenceReport ? ['/absence'] : []),
 ] as const;
 
 const RESOURCES = [
@@ -62,6 +63,7 @@ const RESOURCES = [
   { to: '/signups', label: 'nav.signups', Icon: ClipboardSignature },
   ...(ORG.features.campusMap ? [{ to: '/map', label: 'nav.campusMap', Icon: MapPinned }] : []),
   ...(ORG.features.contactForm ? [{ to: '/contact', label: 'nav.contact', Icon: Mail }] : []),
+  ...(ORG.features.absenceReport ? [{ to: '/absence', label: 'nav.absence', Icon: CalendarX }] : []),
 ];
 
 function pathInResources(pathname: string): boolean {

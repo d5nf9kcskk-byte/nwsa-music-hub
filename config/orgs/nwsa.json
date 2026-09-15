@@ -43,6 +43,7 @@
     "campusMap": true,
     "calendarSeed": true,
     "contactForm": false,
+    "absenceReport": true,
     "personnel": false
   },
   "program": {

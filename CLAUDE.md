@@ -938,6 +938,58 @@ is asked to make a roster change directly, the answer is the app, and the
 useful thing it can do instead is VERIFY afterwards from `studentsPublic`,
 which is world-readable already and so exposes nothing new.
 
+## Rehearsal absence reports (Sept 2026)
+
+`/absence` (org-gated: `features.absenceReport`, true for NWSA, false for
+ASYO — a K-12 school-day bureaucracy model that assumes an office and a
+normal school day, which doesn't fit an evening/weekend youth orchestra)
+replaced what was first scoped as an external Google Form. It widens the
+existing `plannedAbsences` collection (#27) rather than adding a new one —
+that collection already had two unauthenticated writers (the
+`PlannedAbsenceButton` modal on `/student/:id`, and
+`scripts/apply-absence-email.mjs`'s Mail.app parser), and every new field is
+OPTIONAL in `firestore.rules` so both keep working, forever, sending only
+the original 6 keys. `acknowledged` (the policy checkbox) can never become
+an unconditional `== true` requirement for the same reason.
+
+- Three categories (`AbsenceCategory` in `src/director/types.ts`): Leaving
+  Early (Office Note) requires a photo; Full-Day Absence and Parent Sign-Out
+  reuse the existing `reason` field rather than adding a second one. The
+  category list is hand-duplicated in `firestore.rules`'s `category in [...]`
+  check — `scripts/absence-report.selfcheck.mjs` pins the TypeScript side and
+  names the risk, but can't close the loop on the rules file automatically.
+- **Ensemble scoping**: a report naming specific `ensembleIds` shows on
+  Take Roll's "reported ahead" chip only for THOSE rolls
+  (`plannedAbsenceAppliesToRoll()` in `src/director/plannedAbsenceScope.ts` —
+  zero imports, like `groupKind.ts`, so the self-check can import it under
+  Node without pulling in the org config). Absent/empty `ensembleIds` is the
+  original button's meaning ("out for every rehearsal today"), and both
+  older writers never set the field, so they keep matching every roll.
+- **The excuse-slip photo needs no Cloud Function.** The client generates the
+  `plannedAbsences` doc's id locally, writes the Firestore doc FIRST, then
+  uploads straight to `absenceExcusePhotos/{that doc's id}/excuse.jpg` —
+  `storage.rules` anchors the upload on that doc already existing (same
+  existence-anchor + size + content-type shape as `/submissions`), so no
+  function is needed, and doc-first ordering means a failed upload never
+  loses the report itself, only the photo (the director can chase that up
+  directly). Read is staff/assistant-only, never public — an office excuse
+  slip is at least as sensitive as the free-text `reason` field
+  `plannedAbsences` already keeps staff-eyes-only.
+- **No director-facing email, at any cadence — not even a digest.** This
+  repo has no scheduled Cloud Function anywhere, and its only cron-like
+  mechanism (GitHub Actions `schedule:`) is self-documented as unreliable
+  (see `sync-drive-photos.yml`'s header). More fundamentally, nothing in this
+  app emails staff synchronously off a public form submission — not
+  `parentMessages`, not `signupResponses`, not a lesson pull-out (the
+  structurally identical "known-ahead partial absence" case). Director
+  awareness here is the same as everywhere else: live in-app reads (Take
+  Roll's chip, Who's Out), never email. The student DOES get a confirmation
+  email (`functions/src/plannedAbsenceConfirmation.ts`, mirroring
+  `signupConfirmation.ts` field-for-field) — that one is a receipt for them,
+  not a notification to staff.
+- `scripts/absence-report.selfcheck.mjs` runs in the deploy workflow (see
+  `.github/actions/self-checks/action.yml`).
+
 ## What's New banner (auto)
 
 Product/UX changes that affect all staff or the public student site must

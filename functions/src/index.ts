@@ -20,11 +20,12 @@ import {
   type ScanLike, type TallyRequest,
 } from './concertTally.ts';
 import { buildConfirmation } from './signupConfirmation.ts';
+import { buildAbsenceReceipt } from './plannedAbsenceConfirmation.ts';
 import { buildLessonLogMail, isDocId, queueRequestOk } from './lessonLogMail.ts';
 import { buildSubmissionReceipt, submissionReceiptId } from './submissionReceipt.ts';
 import { composeSubmission as runComposeSubmission } from './composeSubmission.ts';
 import type {
-  Lesson, SignupForm, SignupResponse, Student, StudentContact,
+  Lesson, PlannedAbsence, SignupForm, SignupResponse, Student, StudentContact,
 } from '../../src/director/types.ts';
 
 initializeApp();
@@ -473,6 +474,39 @@ export const signupConfirmation = firestore
     } catch (err) {
       // Logged, never rethrown — see the note above on retries.
       console.error('signupConfirmation: could not queue the email', err);
+    }
+  });
+
+
+/**
+ * The absence-report confirmation email (#absence-report).
+ *
+ * Fires on every new `plannedAbsences` doc — both the original
+ * PlannedAbsenceButton shape and the /absence report form's wider one, since
+ * they are the same collection. `buildAbsenceReceipt` returns null for the
+ * ordinary case (no email on the report, which is every doc the two older
+ * writers create), and this function does nothing further when it does.
+ */
+export const plannedAbsenceConfirmation = firestore
+  .document('plannedAbsences/{reportId}')
+  .onCreate(async (snap) => {
+    const report = snap.data() as PlannedAbsence | undefined;
+    if (!report) return;
+
+    try {
+      const mail = buildAbsenceReceipt(report, {
+        orgName: ORG.appName,
+        contactEmail: ORG.contactEmail,
+      });
+      if (!mail) return;
+
+      const db = getFirestore();
+      await db.collection('mail').add(mail);
+    } catch (err) {
+      // Logged, never rethrown — see the note on signupConfirmation above. The
+      // report itself already saved; a receipt that fails to send is a missed
+      // email, not a lost report.
+      console.error('plannedAbsenceConfirmation: could not queue the email', err);
     }
   });
 

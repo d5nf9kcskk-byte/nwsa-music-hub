@@ -15,7 +15,7 @@ import { StudentCard } from './StudentCard';
 import { StudentDetail } from '../roster/StudentDetail';
 import { SortToggle } from '../components/SortToggle';
 import { sortStudents, type StudentSort } from '../scoreOrder';
-import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, takesAttendance } from '../utils';
+import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, takesAttendance, plannedAbsenceAppliesToRoll } from '../utils';
 import { currentDirectorName, currentDirectorRole } from '../currentDirector';
 import { recordActivity } from '../hooks/useActivityLog';
 import type { AttendanceStatus, Student, Ensemble, CalendarEvent } from '../types';
@@ -280,9 +280,16 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
       .map(o => ({ o, student: allStudents.find(st => st.id === o.studentId) }));
   }, [overrides, ensembleId, date, eventId, eventsById, allStudents]);
 
+  // #absence-report: a report naming specific ensembles only shows on THOSE
+  // rolls. Absent/empty ensembleIds is the original button's meaning ("out
+  // for the day") and both pre-existing writers never set the field at all,
+  // so they keep showing on every roll for that student and date, exactly as
+  // before this widening.
   const plannedByStudent = useMemo(() => Object.fromEntries(
-    plannedAbsences.filter(a => a.date === date && a.status !== 'dismissed').map(a => [a.studentId, a]),
-  ), [plannedAbsences, date]);
+    plannedAbsences
+      .filter(a => a.date === date && a.status !== 'dismissed' && plannedAbsenceAppliesToRoll(a.ensembleIds, ensembleId))
+      .map(a => [a.studentId, a]),
+  ), [plannedAbsences, date, ensembleId]);
 
   // Late to school today (#tardies). Shown as a chip beside the name, never as
   // a mark: a student can be late to the building and still walk into this
