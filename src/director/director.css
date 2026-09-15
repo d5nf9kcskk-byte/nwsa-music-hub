@@ -597,6 +597,23 @@ html:has(.dir-app) body {
   gap: 6px;
 }
 
+/* A group heading that opens something (#concerts): a button, but it must
+   still read as the heading it replaced — no button chrome, full width so
+   the tap target covers the row. */
+button.dir-roster-group-link {
+  width: 100%;
+  background: none;
+  border: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* Hover tints the row rather than underlining: the heading is a flex row and
+   an underline would run through the count pill too. */
+button.dir-roster-group-link:hover { background: var(--dir-surface-2); }
+button.dir-roster-group-link:hover .dir-group-open-hint { opacity: 1; }
+.dir-group-open-hint { margin-left: auto; opacity: 0.55; flex: none; }
+
 .dir-roster-count {
   background: var(--dir-primary);
   color: #fff;

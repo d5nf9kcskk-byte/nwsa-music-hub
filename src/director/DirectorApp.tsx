@@ -632,7 +632,7 @@ export default function DirectorApp() {
             )}
             {tab === 'scheduleSwap'    && <ScheduleSwapView key={intentKey} initialDate={intent.date} onNavigate={go} />}
             {tab === 'rotations'       && <RotationsView />}
-            {tab === 'repertoire'      && <RepertoireManager key={intentKey} asTab ensembleId={intent.ensembleId} onClose={() => {}} />}
+            {tab === 'repertoire'      && <RepertoireManager key={intentKey} asTab ensembleId={intent.ensembleId} onNavigate={go} onClose={() => {}} />}
             {tab === 'documents'       && <DocumentsView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} />}
             {tab === 'notes'           && <NotesView />}
             {tab === 'assignments'     && <AssignmentsView key={intentKey} initialAssignmentId={intent.assignmentId} initialEnsembleId={intent.ensembleId} />}

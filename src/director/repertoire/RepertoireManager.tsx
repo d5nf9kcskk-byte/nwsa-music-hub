@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from 'react';
 import { RichTextArea } from '../components/RichTextArea';
-import { Plus, Pencil, Music, Trash2, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Music, Trash2, GripVertical, ChevronRight } from 'lucide-react';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
@@ -14,6 +14,9 @@ interface Props {
   onClose: () => void;
   ensembleId?: string;
   asTab?: boolean;
+  /** Tab mode: lets a "By concert" heading open that concert (#concerts).
+   *  Absent in drawer mode, where navigating away would strand the drawer. */
+  onNavigate?: import('../types-nav').DirNavigate;
 }
 
 /** A piece is "on" a concert via EITHER linkage — the piece's own eventIds, or
@@ -22,7 +25,7 @@ interface Props {
 const pieceOnConcert = (p: RepertoirePiece, c: CalendarEvent) =>
   (p.eventIds ?? []).includes(c.id) || (c.pieceIds ?? []).includes(p.id);
 
-export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
+export function RepertoireManager({ onClose, ensembleId, asTab, onNavigate }: Props) {
   const { pieces, addPiece, updatePiece, deletePiece } = useRepertoire();
   const { ensembles } = useEnsembles();
   const { events, updateEvent } = useEvents();
@@ -51,17 +54,17 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
       const concerts = events
         .filter(e => e.type === 'Concert')
         .sort((a, b) => a.date.localeCompare(b.date));
-      const out: { key: string; label: string; color: string; pieces: typeof shown }[] = [];
+      const out: { key: string; label: string; color: string; eventId?: string; pieces: typeof shown }[] = [];
       for (const c of concerts) {
         const ps = shown.filter(p => pieceOnConcert(p, c));
-        if (ps.length) out.push({ key: c.id, label: c.title || 'Concert', color: ensembleColor(ensembleMap[c.ensembleIds[0]]), pieces: ps });
+        if (ps.length) out.push({ key: c.id, label: c.title || 'Concert', color: ensembleColor(ensembleMap[c.ensembleIds[0]]), eventId: c.id, pieces: ps });
       }
       const unassigned = shown.filter(p => !concerts.some(c => pieceOnConcert(p, c)));
       if (unassigned.length) out.push({ key: '_none', label: 'Not on a concert yet', color: '#94a3b8', pieces: unassigned });
       return out;
     }
     // by ensemble — a shared piece appears under each of its ensembles
-    const out: { key: string; label: string; color: string; pieces: typeof shown }[] = [];
+    const out: { key: string; label: string; color: string; eventId?: string; pieces: typeof shown }[] = [];
     for (const e of musicEnsembles([...ensembles].sort((a, b) => a.order - b.order))) {
       const ps = shown.filter(p => pieceEnsembleIds(p).includes(e.id));
       if (ps.length) out.push({ key: e.id, label: e.name, color: ensembleColor(e), pieces: ps });
@@ -140,16 +143,38 @@ export function RepertoireManager({ onClose, ensembleId, asTab }: Props) {
         {shown.length === 0 ? (
           <div className="dir-empty-inline">No repertoire yet. Add a piece below.</div>
         ) : (
-          groups.map(g => (
-            <div key={g.key} className="dir-roster-group">
-              <div className="dir-roster-group-header">
+          groups.map(g => {
+            // A concert heading opens that concert, so "the order is wrong
+            // here" is one tap from where you noticed it (#concerts). The
+            // ensemble headings and "Not on a concert yet" stay plain text —
+            // there is nothing to open.
+            const openable = !!(g.eventId && onNavigate);
+            const header = (
+              <>
                 <span className="dir-roster-swatch" style={{ background: g.color }} />
                 {g.label}
                 <span className="dir-roster-count">{g.pieces.length}</span>
+                {openable && <ChevronRight size={15} className="dir-group-open-hint" />}
+              </>
+            );
+            return (
+              <div key={g.key} className="dir-roster-group">
+                {openable ? (
+                  <button
+                    type="button"
+                    className="dir-roster-group-header dir-roster-group-link"
+                    onClick={() => onNavigate?.('concerts', { eventId: g.eventId })}
+                    title={`Open ${g.label}`}
+                  >
+                    {header}
+                  </button>
+                ) : (
+                  <div className="dir-roster-group-header">{header}</div>
+                )}
+                {g.pieces.map(pieceRow)}
               </div>
-              {g.pieces.map(pieceRow)}
-            </div>
-          ))
+            );
+          })
         )}
       </div>
       <div className="dir-drawer-footer">
