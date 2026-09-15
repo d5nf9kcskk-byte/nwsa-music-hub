@@ -1,6 +1,6 @@
 import { doc, writeBatch, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { MASTERCLASS_SECTIONS } from './masterclassSections';
+import { MASTERCLASS_SECTIONS, masterclassSectionFor } from './masterclassSections';
 import { publicStudentFields } from './publicMirror';
 import type { CalendarEvent, Student } from './types';
 
@@ -38,7 +38,7 @@ export async function seedMasterclasses(): Promise<{ groups: number; enrolled: n
   for (const d of studentsSnap.docs) {
     const data = d.data() as Student;
     if (data.status !== 'Active') continue;
-    const sec = MASTERCLASS_SECTIONS.find(s => s.instrument === data.instrument);
+    const sec = masterclassSectionFor(data);
     if (!sec) continue;
     const have = data.ensembleIds ?? [];
     if (have.includes(sec.id)) continue;

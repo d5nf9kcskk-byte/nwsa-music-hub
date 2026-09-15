@@ -6,8 +6,9 @@
  * needs four rosters and four attendance sheets — one per section. This script:
  *
  *   1. creates/updates the four masterclass groups (kind: masterclass);
- *   2. adds each string player to their section by instrument
- *      (Violin / Viola / Cello / Bass — nobody else);
+ *   2. adds each HIGH SCHOOL string player to their section by instrument
+ *      (Violin / Viola / Cello / Bass — nobody else; the dual-enrollment
+ *      college players are not in these classes — masterclassSectionFor());
  *   3. replaces each generic "String Masterclass" Class event with four
  *      section events at the same date/time, each in its own room.
  *
@@ -22,7 +23,7 @@
  */
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { MASTERCLASS_SECTIONS } from '../src/director/masterclassSections.ts';
+import { MASTERCLASS_SECTIONS, masterclassSectionFor } from '../src/director/masterclassSections.ts';
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!raw) { console.error('FIREBASE_SERVICE_ACCOUNT_JSON is not set — aborting.'); process.exit(1); }
@@ -57,7 +58,7 @@ const bySection = Object.fromEntries(MASTERCLASS_SECTIONS.map(s => [s.id, []]));
 for (const d of students.docs) {
   const data = d.data();
   if (data.status !== 'Active') continue;
-  const sec = MASTERCLASS_SECTIONS.find(s => s.instrument === data.instrument);
+  const sec = masterclassSectionFor(data);
   if (!sec) continue;
   bySection[sec.id].push(data.name);
   const have = data.ensembleIds ?? [];

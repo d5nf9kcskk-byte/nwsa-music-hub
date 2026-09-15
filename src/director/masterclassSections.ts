@@ -35,3 +35,27 @@ export function masterclassIdForTitle(title: string): string | undefined {
 export function masterclassSectionForId(id: string): MasterclassSectionSpec | undefined {
   return MASTERCLASS_SECTIONS.find(s => s.id === id);
 }
+
+/**
+ * The section a student belongs in — the ONE answer to "who is enrolled by
+ * instrument", shared by the in-app setup (seedMasterclasses.ts) and the
+ * seed-masterclass workflow. Both used to match on instrument alone.
+ *
+ * String master class is a HIGH SCHOOL class. The dual-enrollment college
+ * string players have their own groups (College Chamber Orchestra), and none
+ * of them has ever been on a master class roster — but they play the same
+ * four instruments, so an instrument-only match swept all seven of them in.
+ * Caught 2026-09-15 by a dry run that wanted "7 student roster add(s)".
+ *
+ * Grade 9-12 is an ALLOWLIST, not a "College…" denylist: a blank or
+ * unfamiliar grade stays OUT rather than being swept in. Reading the leading
+ * number rather than matching labels keeps "9th", "12" and "12th Grade" all
+ * working, while "College Senior" has no leading number and is excluded.
+ */
+export function masterclassSectionFor(
+  student: { instrument?: string; grade?: string },
+): MasterclassSectionSpec | undefined {
+  const year = Number(String(student.grade ?? '').trim().match(/^\d{1,2}/)?.[0]);
+  if (!(year >= 9 && year <= 12)) return undefined;
+  return MASTERCLASS_SECTIONS.find(s => s.instrument === student.instrument);
+}
