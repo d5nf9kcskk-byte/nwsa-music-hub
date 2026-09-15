@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Per-piece rosters (#piece-rosters) — staff-only: a family sees no change
+  // unless a director seats a work, and then it is just another program page.
+  {
+    id: '2026-09-15-piece-rosters',
+    date: '2026-09-15',
+    title: 'A single work can have its own roster page',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'The winds-only Mozart, the chamber players out of the full orchestra: seat just those players in a chart, then open the piece in Repertoire and tick it under “Roster for this piece”.',
+      'The program prints that chart as its own page, headed by the work, beside the ensemble’s full roster page.',
+      'Tick nothing and nothing changes — the program lists the whole ensemble, the way it always has.',
+    ],
+  },
   // Roster pages on a concert (#concert-rosters) — staff-only: the printed
   // program looks the same to families unless a director attaches a chart.
   {

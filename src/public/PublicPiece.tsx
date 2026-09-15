@@ -15,6 +15,7 @@ import { SeatingChartCard } from './components/SeatingChartCard';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 import { t, tType, useLang } from '../shared/i18n';
 import { fmtMonthDay } from '../shared/dates';
+import { concertChartFor, pieceChartsFor } from '../shared/concertRosters';
 
 export function PublicPiece() {
   useLang();
@@ -47,11 +48,9 @@ export function PublicPiece() {
   // Applied seating: a chart tied to this piece if one exists, else the
   // ensemble's current (newest) published chart.
   const studentName = (sid: string) => allStudents.find(s => s.id === sid)?.name ?? '—';
-  const pieceCharts = seatingCharts
-    .filter(c => c.pieceId === piece.id)
-    .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+  const pieceCharts = pieceChartsFor(piece.id, seatingCharts);
   const appliedChart = pieceCharts[0]
-    ?? [...seatingCharts].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))[0]
+    ?? concertChartFor(undefined, pieceEnsembleIds(piece)[0] ?? '', seatingCharts)
     ?? null;
 
   return (

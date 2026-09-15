@@ -118,6 +118,17 @@
 
 /* ── Roster pages ── */
 
+/* A piece roster page is headed by the work; this names the group under it,
+   so "Violin I" on the Mozart page is read as the Mozart's violins and not
+   the whole orchestra's (#piece-rosters). */
+.pub-program-roster-subtitle {
+  text-align: center;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--pub-muted);
+  margin: -12px 0 18px;
+}
+
 .pub-program-roster-cols {
   column-count: 2;
   column-gap: 32px;

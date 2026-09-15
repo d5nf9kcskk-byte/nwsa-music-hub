@@ -8,7 +8,7 @@
  * designated chart must beat a newer attached one, and no chart may ever
  * appear on another ensemble's roster page.
  */
-import { concertChartFor, newestChart } from './concertRosters';
+import { concertChartFor, newestChart, pieceChartsFor, pieceChartFor } from './concertRosters';
 import type { ChartLike } from './concertRosters';
 
 function assert(cond: unknown, msg: string): void {
@@ -59,5 +59,27 @@ assert(concertChartFor({ seatingChartIds: ['gone'], programChartId: 'gone' }, 'o
   'a deleted attachment falls back to the newest chart');
 assert(concertChartFor({ seatingChartIds: ['old'], programChartId: 'new' }, 'orch', ALL)?.id === 'old',
   'a designation that was never attached does not win');
+
+// ── Piece rosters (#piece-rosters) ────────────────────────────────────────
+const windsForMozart: ChartLike = { id: 'winds', ensembleId: 'orch', pieceId: 'mozart', date: '2026-06-01', createdAt: 0 };
+const bandMozart: ChartLike = { id: 'bandmoz', ensembleId: 'band', pieceId: 'mozart', date: '2026-04-01', createdAt: 0 };
+const WITH_PIECES = [...ALL, windsForMozart, bandMozart];
+
+assert(pieceChartsFor('mozart', WITH_PIECES).map(c => c.id).join() === 'winds,bandmoz',
+  'every chart tied to the piece, newest first — a work two groups play gets a page each');
+assert(pieceChartFor('mozart', WITH_PIECES)?.id === 'winds', 'the one to show where only one fits');
+assert(pieceChartsFor('nothing', WITH_PIECES).length === 0, 'a piece with no chart has no roster page');
+assert(pieceChartsFor('', WITH_PIECES).length === 0, 'a blank id matches nothing — never every unlinked chart');
+
+// A piece roster must NOT hijack the ensemble's own page just by being the
+// newest chart: 'winds' is newer than every general orchestra chart here.
+assert(concertChartFor(undefined, 'orch', WITH_PIECES)?.id === 'new',
+  'the ensemble page prints the ensemble roster, not the newest piece roster');
+// ...but attaching one deliberately is the director saying so, and a group
+// with nothing BUT piece charts still gets a page rather than none.
+assert(concertChartFor({ seatingChartIds: ['winds'] }, 'orch', WITH_PIECES)?.id === 'winds',
+  'an attached piece chart still wins — attaching it is the instruction');
+assert(concertChartFor(undefined, 'band', [bandMozart])?.id === 'bandmoz',
+  'only piece charts exist: print one rather than nothing');
 
 console.log('concertRosters.selfcheck: ok');

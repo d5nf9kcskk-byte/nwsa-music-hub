@@ -4,11 +4,12 @@ import { Plus, Pencil, Music, Trash2, GripVertical, ChevronRight } from 'lucide-
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
+import { useSeatingCharts } from '../hooks/useSeatingCharts';
 import { ensembleColor, parseDate, musicEnsembles, pieceEnsembleIds } from '../utils';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { EditedByLine } from '../components/EditedByLine';
 import { useModalA11y } from '../../shared/useModalA11y';
-import type { RepertoirePiece, CalendarEvent, Ensemble, PieceMovement, PiecePartLink } from '../types';
+import type { RepertoirePiece, CalendarEvent, Ensemble, PieceMovement, PiecePartLink, SeatingChart } from '../types';
 
 interface Props {
   onClose: () => void;
@@ -29,6 +30,7 @@ export function RepertoireManager({ onClose, ensembleId, asTab, onNavigate }: Pr
   const { pieces, addPiece, updatePiece, deletePiece } = useRepertoire();
   const { ensembles } = useEnsembles();
   const { events, updateEvent } = useEvents();
+  const { charts, updateChart } = useSeatingCharts();
   const [editing, setEditing] = useState<RepertoirePiece | 'new' | null>(null);
 
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
@@ -86,10 +88,24 @@ export function RepertoireManager({ onClose, ensembleId, asTab, onNavigate }: Pr
         events={events}
         lockedEnsembleId={ensembleId}
         nextOrder={nextOrder}
-        onSave={async data => {
+        charts={charts}
+        onSave={async (data, rosterChartIds) => {
           let pieceId: string | undefined;
           if (editing === 'new') pieceId = await addPiece(data);
           else { await updatePiece(editing.id, data); pieceId = editing.id; }
+          // Piece rosters (#piece-rosters) are the same two-sided-link problem
+          // as the concerts below: the link lives on the CHART (`pieceId`),
+          // which is what the seating editor and both public readers already
+          // use, so the piece form writes that field rather than inventing a
+          // second one to drift from it. Cleared with '' — `undefined` is
+          // dropped by ignoreUndefinedProperties and would leave the link.
+          if (pieceId) {
+            for (const c of charts) {
+              const wanted = rosterChartIds.includes(c.id);
+              if (wanted && c.pieceId !== pieceId) await updateChart(c.id, { pieceId });
+              else if (!wanted && c.pieceId === pieceId) await updateChart(c.id, { pieceId: '' });
+            }
+          }
           // Keep each concert's pieceIds in sync with the piece's "Programmed
           // for" selection, so the concert-side and piece-side links never drift.
           if (pieceId) {
@@ -209,17 +225,25 @@ interface FormProps {
   piece: RepertoirePiece | null;
   ensembles: Ensemble[];
   events: CalendarEvent[];
+  charts: SeatingChart[];
   lockedEnsembleId?: string;
   nextOrder: number;
-  onSave: (data: Omit<RepertoirePiece, 'id'>) => Promise<void>;
+  /** `rosterChartIds` is the piece's own personnel (#piece-rosters). It is NOT
+   *  a field on the piece — the link lives on each chart as `pieceId`, the one
+   *  spelling the seating editor already writes — so the caller syncs it onto
+   *  the charts the way it already syncs `eventIds` onto the concerts. */
+  onSave: (data: Omit<RepertoirePiece, 'id'>, rosterChartIds: string[]) => Promise<void>;
   onDelete?: () => Promise<void>;
   onBack: () => void;
 }
 
 function RepertoireForm({
-  piece, ensembles, events, lockedEnsembleId, nextOrder,
+  piece, ensembles, events, charts, lockedEnsembleId, nextOrder,
   onSave, onDelete, onBack,
 }: FormProps) {
+  const [rosterChartIds, setRosterChartIds] = useState<string[]>(
+    () => (piece ? charts.filter(c => c.pieceId === piece.id).map(c => c.id) : []),
+  );
   const [ensembleIds, setEnsembleIds] = useState<string[]>(() => {
     const init = piece ? pieceEnsembleIds(piece) : (lockedEnsembleId ? [lockedEnsembleId] : []);
     return init.length ? init : (ensembles[0] ? [ensembles[0].id] : []);
@@ -275,6 +299,20 @@ function RepertoireForm({
 
   function toggleEvent(id: string) {
     setEventIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
+  }
+
+  /** Seating charts this piece could use as its own personnel: the ones
+   *  belonging to an ensemble that plays it, minus any already claimed by a
+   *  DIFFERENT piece — a chart has one `pieceId`, so offering someone else's
+   *  would quietly take it off their program page. */
+  const linkableCharts = useMemo(
+    () => charts
+      .filter(c => ensembleIds.includes(c.ensembleId) && (!c.pieceId || c.pieceId === piece?.id))
+      .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.createdAt - a.createdAt),
+    [charts, ensembleIds, piece?.id],
+  );
+  function toggleRosterChart(id: string) {
+    setRosterChartIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
   }
   function toggleEnsemble(id: string) {
     setEnsembleIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
@@ -401,7 +439,7 @@ function RepertoireForm({
     setSaveError('');
     try {
       await Promise.race([
-        onSave(buildData()),
+        onSave(buildData(), rosterChartIds),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Save timed out — check your connection')), 15_000)
         ),
@@ -705,6 +743,43 @@ function RepertoireForm({
                 </label>
               ))}
             </div>
+          )}
+
+          {/* Who played THIS work (#piece-rosters) — the winds for the Mozart,
+              the chamber players out of the full orchestra. Ticking a chart
+              here prints it as its own roster page in the concert program,
+              headed by the piece, beside the ensemble's own page. Nothing
+              ticked prints nothing extra. */}
+          <div className="dir-form-section-label">Roster for this piece</div>
+          {linkableCharts.length === 0 ? (
+            <div className="dir-empty-inline">
+              No seating charts for this piece's ensembles yet. Make one under the
+              ensemble's Seating — seat just the players this work uses — then come back.
+            </div>
+          ) : (
+            <>
+              <div className="dir-checklist">
+                {linkableCharts.map(c => (
+                  <label key={c.id} className="dir-check-row">
+                    <input
+                      type="checkbox"
+                      checked={rosterChartIds.includes(c.id)}
+                      onChange={() => toggleRosterChart(c.id)}
+                    />
+                    <span>
+                      {c.title || 'Seating'}
+                      {ensembles.find(e => e.id === c.ensembleId)?.name
+                        ? ` · ${ensembles.find(e => e.id === c.ensembleId)?.name}` : ''}
+                      {c.date ? ` · ${c.date}` : ''}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="dir-field-hint" style={{ marginTop: 4 }}>
+                Prints as a roster page under this work's title in the program. Leave
+                every box clear and the program just lists the full ensemble, as before.
+              </div>
+            </>
           )}
 
           {piece && onDelete && (

@@ -29,6 +29,11 @@
 export interface ChartLike {
   id: string;
   ensembleId: string;
+  /** Set = this chart is ONE PIECE's personnel ("winds only, for the
+   *  Mozart"), not the ensemble's roster. The link lives here, on the chart,
+   *  and the piece editor writes this same field from the other side — one
+   *  spelling, so the two screens cannot drift. */
+  pieceId?: string;
   date?: string;
   createdAt: number;
 }
@@ -56,7 +61,34 @@ export function concertChartFor<T extends ChartLike>(
   const attachedIds = concert?.seatingChartIds ?? [];
   const attached = forEnsemble.filter(c => attachedIds.includes(c.id));
   const designated = attached.find(c => c.id === concert?.programChartId);
+  // Falling back, a PIECE roster is not the ensemble's roster: seating the
+  // winds for one work must not hijack the whole orchestra's page just by
+  // being the newest chart. Attaching one deliberately still works — that is
+  // the director saying so. If a group only ever has piece charts, the newest
+  // still beats printing nothing.
+  const general = forEnsemble.filter(c => !c.pieceId);
   // A deleted or un-attached designation falls through rather than blanking
   // the roster page — the program still prints something sensible.
-  return designated ?? newestChart(attached) ?? newestChart(forEnsemble);
+  return designated ?? newestChart(attached) ?? newestChart(general) ?? newestChart(forEnsemble);
+}
+
+/**
+ * The charts that are ONE PIECE's personnel, newest first (#piece-rosters).
+ *
+ * A concert program prints one of these per programmed piece, in addition to
+ * the ensemble roster pages — the "winds only for the Mozart" case, where the
+ * people who played a work are a subset of the group that filled the stage.
+ * More than one chart may point at a piece (a work two ensembles both play);
+ * each is its own page, headed by its own ensemble.
+ */
+export function pieceChartsFor<T extends ChartLike>(pieceId: string, charts: T[]): T[] {
+  if (!pieceId) return [];
+  return [...charts.filter(c => c.pieceId === pieceId)].sort(
+    (a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.createdAt - a.createdAt,
+  );
+}
+
+/** The one chart to show where there is room for only one (a piece page). */
+export function pieceChartFor<T extends ChartLike>(pieceId: string, charts: T[]): T | undefined {
+  return pieceChartsFor(pieceId, charts)[0];
 }

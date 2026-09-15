@@ -359,7 +359,12 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
       await whenQueued(onSave({
         ensembleId,
         title: title.trim(),
-        pieceId: pieceId || undefined,
+        // '' rather than undefined: Firestore is initialised with
+        // ignoreUndefinedProperties, so an undefined here is DROPPED from the
+        // update and un-picking the piece left the old link in place. Harmless
+        // while nothing read it; since #piece-rosters that stale link prints a
+        // roster page under a work this chart is no longer for.
+        pieceId: pieceId || '',
         date: date || undefined,
         sections: sections.filter(s => s.seats.length > 0),
         createdAt: chart?.createdAt ?? Date.now(),

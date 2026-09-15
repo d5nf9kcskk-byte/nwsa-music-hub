@@ -11,7 +11,7 @@ import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
 import { formatTimeRange, eventPieceDuration, eventPieceMovements, pieceEnsembleIds, ensembleDisplayName, buildSections } from '../director/utils';
 import { fmtFullDate } from '../shared/dates';
 import { printViaPopup } from '../shared/printPopup';
-import { concertChartFor } from '../shared/concertRosters';
+import { concertChartFor, pieceChartsFor } from '../shared/concertRosters';
 import type { Ensemble, RepertoirePiece, SeatingChart } from '../director/types';
 import './programTemplate.css';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
@@ -288,6 +288,35 @@ export function PublicProgram() {
             </section>
           );
         })}
+
+        {/* ── Piece roster page(s) (#piece-rosters) ──────────────────
+            A work whose personnel are a SUBSET of the group on stage — the
+            winds for the Mozart, the chamber players out of the full
+            orchestra. Only pieces with a chart of their own get a page, so a
+            concert that seats nothing per piece prints exactly as before. */}
+        {PUBLIC_STUDENT_INFO && programPieces.flatMap(p =>
+          pieceChartsFor(p.id, charts).map(chart => {
+            const ens = ensembles.find(e => e.id === chart.ensembleId);
+            return (
+              <section key={`${p.id}-${chart.id}`} className="pub-program-page pub-program-roster-page">
+                <h2 className="pub-program-page-title">{p.fullTitle || p.title}</h2>
+                <div className="pub-program-roster-subtitle">
+                  {ens ? ensembleDisplayName(ens) : 'Personnel for this work'}
+                </div>
+                <div className="pub-program-roster-cols">
+                  {chart.sections.map((sec, i) => (
+                    <div key={i} className="pub-program-roster-section">
+                      <div className="pub-program-roster-section-name">{sec.section}</div>
+                      {sec.seats.map(seat => (
+                        <div key={seat.studentId} className="pub-program-roster-name">{studentName(seat.studentId)}</div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          }),
+        )}
       </div>
     </div>
   );
