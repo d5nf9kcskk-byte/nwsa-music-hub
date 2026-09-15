@@ -418,4 +418,4 @@ export function rowReadiness(
  */
 export {
   parseName, displayName, lastFirst, lastName, byLastName, type ParsedName,
-} from './personName';
+} from './personName.ts';

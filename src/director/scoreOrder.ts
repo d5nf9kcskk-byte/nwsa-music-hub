@@ -1,5 +1,9 @@
 import type { Student } from './types';
-import { lastName } from '../shared/personName';
+// Explicit .ts on purpose: this module is reached by the plain-node
+// self-checks (scripts/*.selfcheck.mjs), whose type-stripping loader cannot
+// resolve an extensionless relative import. Same rule as signupEligibility.ts
+// and instrumentFamily.ts — see CLAUDE.md.
+import { lastName } from '../shared/personName.ts';
 
 /**
  * Standard full-score order, merged across orchestra / concert band / jazz so
