@@ -117,6 +117,12 @@ export function PubEventCard({
               : <span>{tType(e.type)}</span>}
         </div>
 
+        {/* Our slot inside someone else's show — directly under the title,
+            because it qualifies what "this concert" even means. Same string
+            the Concert Season sheet prints; it lives on the event, not in
+            two places that can drift. */}
+        {e.slot && <div className="pub-event-slot">{e.slot}</div>}
+
         {e.changeNote && <div className="pub-event-change">⚠ {e.changeNote}</div>}
 
         {e.title && ensembleObjs.length > 0 && (

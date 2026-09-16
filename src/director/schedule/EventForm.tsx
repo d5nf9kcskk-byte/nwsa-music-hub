@@ -65,6 +65,10 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     dress: '',
     venueAddress: '',
     pickupTime: '',
+    // Empty STRING, not undefined: clearing the box has to write something
+    // that overwrites the old value, and `undefined` is dropped from the
+    // update instead of clearing the field.
+    slot: '',
     seatingChartIds: [],
     programChartId: '',
     ...initialDraft,
@@ -967,6 +971,20 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                   onChange={e => set('dress', e.target.value)}
                   placeholder="e.g. Concert black — long sleeves, black shoes"
                 />
+              </div>
+              <div className="dir-field">
+                <label className="dir-label">Our slot</label>
+                <input
+                  className="dir-input"
+                  value={form.slot ?? ''}
+                  onChange={e => set('slot', e.target.value)}
+                  placeholder="e.g. Opens the show · 20 minutes"
+                />
+                <div className="dir-field-hint">
+                  Only when the date belongs to someone else and we are part
+                  of it. Shows on the Concert Season sheet, the event page and
+                  subscribed calendars. Leave blank for our own concerts.
+                </div>
               </div>
             </>
           )}

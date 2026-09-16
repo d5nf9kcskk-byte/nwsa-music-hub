@@ -55,6 +55,13 @@
 }
 .pub-season-meta > span { display: inline-flex; align-items: center; gap: 4px; }
 
+/* Our slot inside someone else's show. Reads as an aside, not a heading —
+   it qualifies the concert above it rather than competing with the title. */
+.pub-season-slot {
+  display: block; margin-top: 3px;
+  font-size: 13px; font-style: italic; color: var(--pub-muted);
+}
+
 .pub-season-cancelled-tag {
   margin-left: 7px; font-size: 11px; font-weight: 800; text-transform: uppercase;
   color: #b91c1c; background: #fee2e2; padding: 2px 7px; border-radius: 8px;

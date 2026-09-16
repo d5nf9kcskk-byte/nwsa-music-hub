@@ -32,6 +32,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // "Our slot" — a new field on a concert, so staff-facing, but it prints on
+  // the public Concert Season sheet the moment one is set, hence 'both'.
+  {
+    id: '2026-09-16-concert-slot',
+    date: '2026-09-16',
+    title: 'Concerts can say what part of the night is ours',
+    audience: 'both' as const,
+    expires: '2026-09-30',
+    bullets: [
+      'Some dates belong to someone else and we are one part of them. A concert now has an “Our slot” line — “Opens the show · 20 minutes” — set it on the event and leave it blank for our own concerts.',
+      'It prints on the Concert Season sheet, the event page, and anyone’s subscribed calendar, so nobody reads a two-hour block and assumes we play all of it.',
+    ],
+  },
   // Shared piece rosters (#piece-rosters). Staff-only: nothing a family sees
   // changes unless a director seats a work, and then it is a program page.
   {

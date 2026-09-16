@@ -59,6 +59,9 @@ function buildIcs(event: CalendarEvent, ensembleName?: string): string {
 
   const descParts: string[] = [];
   if (event.changeNote) descParts.push(`⚠ Changed: ${event.changeNote}`);
+  // Before the logistics: whoever saves this to their phone needs to know the
+  // block is not all ours before they read a call time against it.
+  if (event.slot) descParts.push(event.slot);
   if (event.callTime) descParts.push(`Call time: ${formatTime(event.callTime)}`);
   if (event.type === 'Concert' && event.callTime && event.startTime) {
     descParts.push(`Concert starts: ${formatTime(event.startTime)}`);
@@ -127,6 +130,7 @@ function googleCalendarUrl(event: CalendarEvent, ensembleName?: string): string 
   }
 
   const descParts: string[] = [];
+  if (event.slot) descParts.push(event.slot);
   if (event.callTime) descParts.push(`Call time: ${formatTime(event.callTime)}`);
   if (event.type === 'Concert' && event.callTime && event.startTime) descParts.push(`Concert starts: ${formatTime(event.startTime)}`);
   if (event.dress) descParts.push(`Dress: ${event.dress}`);

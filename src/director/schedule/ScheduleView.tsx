@@ -360,6 +360,9 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               {e.status === 'Scheduled' && e.changeNote && <span className="dir-today-tag changed">Changed</span>}
             </div>
             {e.changeNote && <div className="dir-today-change">⚠ {e.changeNote}</div>}
+            {/* Our slot inside someone else's show — above the meta row,
+                because it changes how to read the time and venue under it. */}
+            {e.slot && <div className="dir-event-slot">{e.slot}</div>}
             <div className="dir-event-meta">
               {formatTimeRange(e.startTime, e.endTime)
                 ? <span><Clock size={12} /> {formatTimeRange(e.startTime, e.endTime)}</span>

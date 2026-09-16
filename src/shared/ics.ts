@@ -70,6 +70,8 @@ interface IcsEventLike {
   status?: string;
   notes?: string;
   changeNote?: string;
+  /** Our slot inside someone else's show — see CalendarEvent.slot. */
+  slot?: string;
   repertoire?: string;
   /** Class meetings carry a unit/chapter instead of repertoire (#classes). */
   unitInfo?: string;
@@ -128,6 +130,9 @@ export function icsDescription(event: IcsEventLike, lookups: IcsLookups): string
   const ensNames = (event.ensembleIds ?? []).map(lookups.ensembleName).filter(Boolean).join(', ');
   if (ensNames) parts.push(isSharedBlock(event) ? `Combined block: ${ensNames}` : ensNames);
   if (event.changeNote) parts.push(`⚠ Changed: ${event.changeNote}`);
+  // High up, right under who is playing: a subscriber looking at a two-hour
+  // block in their calendar needs to know we are on for twenty minutes of it.
+  if (event.slot) parts.push(event.slot);
 
   const pieces = (event.pieceIds ?? [])
     .map(id => lookups.piece?.(id))

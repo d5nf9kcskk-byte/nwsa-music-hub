@@ -125,7 +125,10 @@ const EVENTS = [
   // kept in step by hand.
   ev('freedom-tower-oct', 'Concert', ['symphony-orchestra'], '2026-10-04', undefined, V.moad,
     'Freedom Tower Concert (working title)',
-    'A Spanish and American celebration. Hosted by Madeline Pumariega, President, Miami Dade College. The NWSA Symphony Orchestra OPENS the show: one 20-minute set, then the orchestra leaves the stage. Plan as given by the Dean on Sep 15, 2026 and still provisional. Time TBA — the show’s start time, the final title, the performance order and ticketing are all still to be confirmed.'),
+    'A Spanish and American celebration. Hosted by Madeline Pumariega, President, Miami Dade College. Our slot is the Dean’s plan as of Sep 15, 2026 and still provisional. Time TBA — the show’s start time, the final title, the performance order and ticketing are all still to be confirmed.',
+    // The 20 minutes lives HERE, not in the notes above, so the Concert
+    // Season sheet can print it. One fact, one field.
+    { slot: 'Opens the show · 20 minutes, then off' }),
   ev('so-concert-oct', 'Concert', ['symphony-orchestra'], '2026-10-06', '19:00', V.chapman,
     'Symphony Orchestra Concert', T10_5),
   ev('hs-voice-oct', 'Concert', ['high-school-choir'], '2026-10-19', '19:00', V.wolfsonAud,

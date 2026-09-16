@@ -909,6 +909,14 @@ button.dir-roster-group-link:hover .dir-group-open-hint { opacity: 1; }
   color: var(--dir-text);
   margin-top: 6px;
 }
+/* Our slot inside someone else's show. Quiet context, not an alert —
+   .dir-today-change above it is the one that shouts. */
+.dir-event-slot {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--dir-text-muted);
+  margin: 3px 0 1px;
+}
 
 /* ── Progress notes ── */
 

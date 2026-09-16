@@ -294,6 +294,28 @@ export interface CalendarEvent {
   dress?: string;           // dress code description
   venueAddress?: string;    // full address for maps link
   pickupTime?: string;      // "HH:MM" — when parents collect
+  /**
+   * Our SLOT inside someone else's event, as one short line — "Opens the
+   * show · 20 minutes", "Second half", "Processional only".
+   *
+   * Exists because a concert we do not run is not described by a start time
+   * and a venue. The Oct 4 Freedom Tower date is MDC's show; NWSA opens it,
+   * plays twenty minutes and leaves, and none of that fits `startTime`
+   * (which is the SHOW's clock, not ours and often unknown when the slot is
+   * already agreed) or `callTime`/`dress` (day-sheet logistics, not billing).
+   * It lived in `notes` first, which put it on the event page but never on
+   * the Concert Season sheet — one line per concert, and no line for this.
+   *
+   * ABSENT = an ordinary concert that is entirely ours, so every event that
+   * predates this field keeps its meaning with no migration (the
+   * `Ensemble.kind` treatment). Free text on purpose: "20 minutes" and
+   * "three numbers before intermission" are both answers, and enumerating
+   * them would be an option wall for a field used a few times a year.
+   *
+   * NOT related to `lessonSlots` on a director doc, which is a recurring
+   * weekly lesson time. Same word, different thing.
+   */
+  slot?: string;
   /* ── Change tracking (#17, #40) ── */
   updatedAt?: number;       // Date.now() of last edit
   updatedBy?: string;       // director email

@@ -161,6 +161,11 @@ function SeasonRow({ e, ensembleMap, past }: {
             {e.location && <span><MapPin size={12} /> {e.location}</span>}
           </span>
         )}
+        {/* Our slot inside someone else's show. Its own line rather than a
+            third chip in the meta row: on a printed season sheet the meta row
+            is the where-and-when, and "Opens the show · 20 minutes" is
+            neither. Absent on an ordinary concert, which is most of them. */}
+        {e.slot && <span className="pub-season-slot">{e.slot}</span>}
       </span>
     </Link>
   );
