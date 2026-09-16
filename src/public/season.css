@@ -88,4 +88,8 @@
   .pub-season-date { background: none; border: 1px solid #ccc; color: #000; }
   .pub-season-tag { color: #000; background: none !important; border: 1px solid #999; padding: 1px 6px; }
   .pub-season-month-title { color: #000; border-bottom: 2px solid #000; padding-bottom: 3px; }
+  /* The muted lines take an explicit print colour. `--pub-muted` is a pale
+     grey in dark mode, and a sheet printed from a dark-themed screen put the
+     time, the venue and our slot on white paper in near-white text. */
+  .pub-season-meta, .pub-season-slot { color: #333 !important; }
 }
