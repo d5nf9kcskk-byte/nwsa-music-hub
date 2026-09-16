@@ -1,15 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
 import { currentDirectorName } from '../currentDirector';
 import type { SeatingChart } from '../types';
+import { FIXTURES_ON, FIXTURE_SEATING_CHARTS } from './fixtures';
 
 /** Published seating charts. Public-readable (students see where they sit). */
 export function useSeatingCharts(ensembleId?: string) {
   const [charts, setCharts] = useState<SeatingChart[]>([]);
   const [loading, setLoading] = useState(true);
+  // Fixtures are DERIVED, not pushed into state by the effect: `ensembleId`
+  // can change between renders, and a setState in the effect would both lag
+  // that and add a cascading-render lint error the live path does not have.
+  const fixtures = useMemo(
+    () => (db || !FIXTURES_ON ? null : FIXTURE_SEATING_CHARTS
+      .filter(c => !ensembleId || c.ensembleId === ensembleId)
+      .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.createdAt - a.createdAt)),
+    [ensembleId],
+  );
 
   useEffect(() => {
     if (!db) { setLoading(false); return; }
@@ -44,5 +54,5 @@ export function useSeatingCharts(ensembleId?: string) {
     }
   }
 
-  return { charts, loading, addChart, updateChart, deleteChart };
+  return { charts: fixtures ?? charts, loading, addChart, updateChart, deleteChart };
 }

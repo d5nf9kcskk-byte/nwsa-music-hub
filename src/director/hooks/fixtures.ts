@@ -1,5 +1,5 @@
 import { slotDefsToOptions } from '../../shared/signupSlotTimes';
-import type { CalendarEvent, Ensemble, LibraryDocument, RepertoirePiece, SignupForm, SignupSlotDef, Student } from '../types';
+import type { CalendarEvent, Ensemble, LibraryDocument, RepertoirePiece, SeatingChart, SignupForm, SignupSlotDef, Student } from '../types';
 
 /**
  * Local development fixtures (redesign test cycle). Served ONLY when Firebase
@@ -115,6 +115,52 @@ export const FIXTURE_STUDENTS: Student[] = [
   { id: 'fx-s6', name: 'Fernandez, Lucia', instrument: 'Flute', grade: '9th', status: 'Active', ensembleIds: ['wind-ensemble'] },
   { id: 'fx-s7', name: 'Garcia, Mateo', instrument: 'Bass', grade: '11th', status: 'Active', ensembleIds: ['symphony-orchestra', 'jazz-ensemble'] },
   { id: 'fx-s8', name: 'Hernandez, Isabella', instrument: 'Percussion', grade: '10th', status: 'Active', ensembleIds: ['wind-ensemble', 'symphony-orchestra'] },
+];
+
+/**
+ * Seating charts, which the roster-page features (#concert-rosters,
+ * #piece-rosters) are entirely about and which nothing could exercise
+ * locally before: every one of those screens fell straight to its empty
+ * state, so the checkbox lists, the "print this one" designation and the
+ * piece/general split had never been seen outside the code.
+ *
+ * Three charts on purpose, covering the three cases the feature exists for:
+ * the orchestra's own roster, one work's smaller personnel, and one chart
+ * shared by two works.
+ */
+export const FIXTURE_SEATING_CHARTS: SeatingChart[] = [
+  {
+    id: 'fx-chart-orch', ensembleId: 'symphony-orchestra', title: 'Winter Concert seating',
+    date: iso(-7), createdAt: 1_700_000_100_000,
+    sections: [
+      { section: 'Violin I', seats: [{ studentId: 'fx-s1', note: 'Concertmaster' }] },
+      { section: 'Cello', seats: [{ studentId: 'fx-s3' }] },
+      { section: 'Bass', seats: [{ studentId: 'fx-s7' }] },
+      { section: 'Percussion', seats: [{ studentId: 'fx-s8' }] },
+    ],
+  },
+  {
+    // One work's personnel, smaller than the group on stage.
+    id: 'fx-chart-beethoven-strings', ensembleId: 'symphony-orchestra',
+    title: 'Strings only', pieceIds: ['fx-beethoven5'],
+    date: iso(-5), createdAt: 1_700_000_200_000,
+    sections: [
+      { section: 'Violin I', seats: [{ studentId: 'fx-s1' }] },
+      { section: 'Cello', seats: [{ studentId: 'fx-s3' }] },
+      { section: 'Bass', seats: [{ studentId: 'fx-s7' }] },
+    ],
+  },
+  {
+    // The case the single `pieceId` could not express: ONE chart, two works.
+    id: 'fx-chart-winds-half', ensembleId: 'wind-ensemble',
+    title: 'Reduced winds — first half', pieceIds: ['fx-holst', 'fx-basie'],
+    date: iso(-4), createdAt: 1_700_000_300_000,
+    sections: [
+      { section: 'Flute', seats: [{ studentId: 'fx-s6' }] },
+      { section: 'Clarinet', seats: [{ studentId: 'fx-s4' }] },
+      { section: 'Trumpet', seats: [{ studentId: 'fx-s2' }] },
+    ],
+  },
 ];
 
 /** One open sign-up, aimed at the string players in Symphony Orchestra —
