@@ -96,7 +96,12 @@ export function PubEventCard({
         <div className="pub-ev2-timerow">
           {startLabel
             ? <span className="pub-ev2-start">{startLabel}</span>
-            : <span className="pub-ev2-start allday">{t('card.allDay')}</span>}
+            : <span className="pub-ev2-start allday">
+                {/* No time on a CONCERT means the time isn't set yet — a
+                    concert never runs all day. Festival days, holidays and
+                    other genuinely untimed items keep "All day". */}
+                {t(e.type === 'Concert' ? 'card.timeTba' : 'card.allDay')}
+              </span>}
           {endLabel && <span className="pub-ev2-end">– {endLabel}</span>}
           {e.type === 'Concert' && e.callTime && (
             <span className="pub-ev2-call">{t('card.call')} {formatTime(e.callTime)}</span>

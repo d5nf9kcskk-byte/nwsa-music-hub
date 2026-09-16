@@ -213,6 +213,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
 
   // ── Event cards (shared) ────────────────────────────────────────────────
   'card.allDay':             { en: 'All day',             es: 'Todo el día' },
+  'card.timeTba':            { en: 'Time TBA',            es: 'Hora por confirmar' },
   'card.cancelled':          { en: 'Cancelled',           es: 'Cancelado' },
   'card.changed':            { en: 'Changed',             es: 'Cambiado' },
   'card.updated':            { en: 'Updated',             es: 'Actualizado' },

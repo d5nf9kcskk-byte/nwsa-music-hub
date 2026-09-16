@@ -361,9 +361,12 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             </div>
             {e.changeNote && <div className="dir-today-change">⚠ {e.changeNote}</div>}
             <div className="dir-event-meta">
-              {formatTimeRange(e.startTime, e.endTime) && (
-                <span><Clock size={12} /> {formatTimeRange(e.startTime, e.endTime)}</span>
-              )}
+              {formatTimeRange(e.startTime, e.endTime)
+                ? <span><Clock size={12} /> {formatTimeRange(e.startTime, e.endTime)}</span>
+                /* A concert with no time is one whose time isn't settled —
+                   say so, rather than leaving a blank that reads the same as
+                   an untimed all-day item. */
+                : e.type === 'Concert' && <span><Clock size={12} /> Time TBA</span>}
               {e.location && <span><MapPin size={12} /> {e.location}</span>}
               {e.ensembleIds.length > 0 && <span><Users size={12} /> {expectedCount(e)} expected</span>}
             </div>
