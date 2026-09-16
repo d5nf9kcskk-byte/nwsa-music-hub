@@ -126,7 +126,9 @@ function SeasonRow({ e, ensembleMap, past }: {
   useLang(); // date + tags follow the EN/ES toggle
   const ens = e.ensembleIds.map(id => ensembleMap[id]).filter(Boolean) as Ensemble[];
   const d = parseDate(e.date);
-  const time = formatTimeRange(e.startTime, e.endTime);
+  // Every row on this page is a concert, and a concert with no time is one
+  // whose time isn't settled — same wording as the event card.
+  const time = formatTimeRange(e.startTime, e.endTime) || t('card.timeTba');
   const cancelled = e.status === 'Cancelled';
 
   return (
