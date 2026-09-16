@@ -85,7 +85,11 @@ function ev(slug, type, ensembleIds, date, startTime, venue, title, notes, extra
   n += 1;
   return {
     id: `oc26-${slug}`,
-    type, ensembleIds, date, startTime,
+    // A time that isn't set yet is OMITTED, never stored as a fake clock:
+    // firebase-admin throws on an `undefined` value, and every reader
+    // (Schedule, public Home/calendar, printed program, ICS) already treats
+    // a missing startTime as "no time yet" rather than midnight.
+    type, ensembleIds, date, ...(startTime ? { startTime } : {}),
     location: venue.location, venueAddress: venue.venueAddress,
     title, notes, status: 'Scheduled', ...extra,
   };
@@ -109,6 +113,13 @@ const EVENTS = [
   ev('workshop-1-nutcracker', 'Concert', ['symphony-orchestra'], '2026-10-03', '14:00', V.chapman,
     'Workshop I — The Nutcracker Project',
     "Day-long workshop for the NWSA Symphony Orchestra and guest ensembles, built around Tchaikovsky's The Nutcracker. Workshop 2:00–5:45pm; combined concert 6:00pm. Partners: SFYS, MMP Leaders, Krop HS, Palmetto HS."),
+  // Freedom Tower (Oct 4): also absent from the printed brochure. Working
+  // title and no start time yet — the time is deliberately left OFF the doc
+  // rather than guessed; see the `ev` helper. Retitle and add `startTime`
+  // here once both are confirmed.
+  ev('freedom-tower-oct', 'Concert', ['symphony-orchestra'], '2026-10-04', undefined, V.moad,
+    'Freedom Tower Concert (working title)',
+    'A Spanish and American celebration. Hosted by Madeline Pumariega, President, Miami Dade College. Time TBA — working title; start time, program order and ticketing still to be confirmed.'),
   ev('so-concert-oct', 'Concert', ['symphony-orchestra'], '2026-10-06', '19:00', V.chapman,
     'Symphony Orchestra Concert', T10_5),
   ev('hs-voice-oct', 'Concert', ['high-school-choir'], '2026-10-19', '19:00', V.wolfsonAud,

@@ -66,7 +66,10 @@ piece('rp26-star-spangled-banner', {
   duration: 2,
   programNotes:
     'Francis Scott Key’s lyric on Smith’s Anacreontic melody is here in Igor Stravinsky’s 1941 harmonization and orchestration (Mercury), finished July 4, 1941: full orchestra with SATB chorus and Stravinsky’s unmistakable voice-leading on the national anthem.',
-  eventIds: ['oc26-hs-pops'],
+  // Freedom Tower reuses this library entry; the arrangement performed there
+  // is not settled (the Stravinsky orchestration above is the Pops reading),
+  // which is recorded on the event, not forked into a second anthem doc.
+  eventIds: ['oc26-hs-pops', 'oc26-freedom-tower-oct'],
 });
 
 piece('rp26-american-salute', {
@@ -83,7 +86,7 @@ piece('rp26-american-salute', {
   duration: 6,
   programNotes:
     'Gould wrote American Salute in 1942 as a wartime concert showpiece built on the Civil War song “When Johnny Comes Marching Home.” The 1943 published orchestration keeps the tune in constant transformation—fanfare, march, and jazz-tinged episode—before a broad closing statement.',
-  eventIds: ['oc26-hs-pops'],
+  eventIds: ['oc26-hs-pops', 'oc26-freedom-tower-oct'],
 });
 
 piece('rp26-hoe-down', {
@@ -150,7 +153,7 @@ piece('rp26-stars-and-stripes', {
   duration: 4,
   programNotes:
     'Sousa’s 1896 march—later designated the National March of the United States—pairs a swaggering trio with the famous piccolo obligato. Tonight it closes the Pops as an encore for Orchestra, Wind Ensemble, and Chorus together.',
-  eventIds: ['oc26-hs-pops'],
+  eventIds: ['oc26-hs-pops', 'oc26-freedom-tower-oct'],
 });
 
 /* ─── Sept 29 — College Chamber Orchestra ─────────────────────────────── */
@@ -276,7 +279,45 @@ piece('rp26-nutcracker-ballet', {
     'oc26-concerto-winners',
     'oc26-nutcracker-mat',
     'oc26-nutcracker-eve',
+    // Freedom Tower takes ONE number from Act II — Chocolate (Spanish Dance),
+    // index 2 — via pieceMovements below. No second Nutcracker doc.
+    'oc26-freedom-tower-oct',
   ],
+});
+
+/* ─── Oct 4 — Freedom Tower (working title) ───────────────────────────────
+ * Two new entries only. The anthem, Stars and Stripes, American Salute and
+ * the Nutcracker Spanish Dance are the EXISTING library docs above, linked
+ * to this concert as well. Parts come through Copista, so `partsLinks` stays
+ * empty here and program notes are deliberately unwritten.
+ */
+
+piece('rp26-falla-ritual-fire-dance', {
+  order: 205,
+  ensembleIds: [SO],
+  title: 'Ritual Fire Dance',
+  fullTitle: 'Danza ritual del fuego (Ritual Fire Dance), from El amor brujo',
+  composer: 'Manuel de Falla',
+  composerDates: '1876–1946',
+  catalogNumber: 'from El amor brujo',
+  year: '1915; rev. 1916, 1925',
+  partsLinks: [],
+  notes: 'Freedom Tower — Spanish half of the program. Edition/version and duration TBD; parts via Copista.',
+  eventIds: ['oc26-freedom-tower-oct'],
+});
+
+piece('rp26-bizet-les-toreadors', {
+  order: 210,
+  ensembleIds: [SO],
+  title: 'Les Toréadors',
+  fullTitle: 'Les Toréadors, from Carmen Suite No. 1',
+  composer: 'Georges Bizet',
+  composerDates: '1838–1875',
+  catalogNumber: 'Carmen Suite No. 1, final movement',
+  year: '1875',
+  partsLinks: [],
+  notes: 'Freedom Tower — Spanish-theme selection. Duration TBD; parts via Copista.',
+  eventIds: ['oc26-freedom-tower-oct'],
 });
 
 /* ─── Oct 6 — Sleep No More ───────────────────────────────────────────── */
@@ -554,6 +595,21 @@ const CONCERTS = {
     title: 'Festival I — The Nutcracker Project',
     pieceIds: ['rp26-nutcracker-ballet'],
     // All Act II movements available; no subset locked for the workshop day.
+  },
+  // Listed order, not final performance order (director, Sept 2026).
+  'oc26-freedom-tower-oct': {
+    pieceIds: [
+      'rp26-star-spangled-banner',
+      'rp26-stars-and-stripes',
+      'rp26-american-salute',
+      'rp26-falla-ritual-fire-dance',
+      'rp26-nutcracker-ballet',
+      'rp26-bizet-les-toreadors',
+    ],
+    pieceMovements: {
+      // Chocolate (Spanish Dance) only.
+      'rp26-nutcracker-ballet': [2],
+    },
   },
   'oc26-so-concert-oct': {
     title: 'Sleep No More',
