@@ -823,7 +823,14 @@ export interface SeatingChart {
   id: string;
   ensembleId: string;
   title: string;              // e.g. "Fall Concert — Rip Van Winkle"
-  pieceId?: string;           // optional linked repertoire piece
+  /** @deprecated The single link, on charts written before one chart could
+   *  serve several works. Still read — never rewritten — via `chartPieceIds`
+   *  in `src/shared/concertRosters.ts`. Write `pieceIds`. */
+  pieceId?: string;
+  /** The works this chart is the personnel for. Empty/absent = the ensemble's
+   *  own roster. Read it through `chartPieceIds`, never directly, so the
+   *  legacy `pieceId` above keeps resolving. */
+  pieceIds?: string[];
   date?: string;              // YYYY-MM-DD published/effective
   // Ordered seats grouped by section label (e.g. "Violin I", "Trumpet").
   sections: { section: string; seats: { studentId: string; note?: string }[] }[];

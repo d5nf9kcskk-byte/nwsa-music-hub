@@ -23,6 +23,8 @@ import { GradientHero } from './components/GradientHero';
 import { fmtShortDate } from '../shared/dates';
 import { t, tn, useLang, getLang } from '../shared/i18n';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
+import { chartPieceIds } from '../shared/concertRosters';
+import type { SeatingChart } from '../director/types';
 import { ensembleMoodLine, rosterOfOneLine } from '../shared/whimsy';
 import { useEggCheer, useTapN } from '../shared/useEggCheer';
 import { NoteBurst } from '../shared/NoteBurst';
@@ -299,6 +301,12 @@ function SeatingSection({ ensembleId, studentName, pieceTitle }: {
   if (charts.length === 0) return null;
   // Newest first; the newest published chart is the one in effect.
   const ordered = [...charts].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+  // One chart can be several works' personnel (a whole reduced-orchestra
+  // half), so the label names all of them.
+  const chartWorks = (c: SeatingChart) => {
+    const titles = chartPieceIds(c).map(pieceTitle).filter(Boolean);
+    return titles.length ? `For: ${titles.join(', ')}` : '';
+  };
   return (
     <div>
       <h2 className="pub-section-title"><Armchair size={15} style={{ verticalAlign: '-2px' }} /> Seating</h2>
@@ -308,7 +316,7 @@ function SeatingSection({ ensembleId, studentName, pieceTitle }: {
           chart={c}
           studentName={studentName}
           current={ordered.length > 1 && ci === 0}
-          subtitle={c.pieceId && pieceTitle(c.pieceId) ? `For: ${pieceTitle(c.pieceId)}` : undefined}
+          subtitle={chartWorks(c) || undefined}
         />
       ))}
     </div>

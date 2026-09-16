@@ -12,6 +12,7 @@ import { useModalA11y } from '../../shared/useModalA11y';
 import { whenQueued } from '../writeStatus';
 import { studentMatchesQuery } from '../studentSearch';
 import { seatingChartPath, seatingChartUrl } from './seatingLink';
+import { chartPieceIds } from '../../shared/concertRosters';
 
 /** Director seating editor for one ensemble. Charts are per-piece playing-exam
  *  seating: seat 1 = principal. Published charts show on the public ensemble page. */
@@ -124,7 +125,10 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
 }) {
   const nameById = useMemo(() => Object.fromEntries(roster.map(s => [s.id, s.name])), [roster]);
   const [title, setTitle] = useState(chart?.title ?? '');
-  const [pieceId, setPieceId] = useState(chart?.pieceId ?? '');
+  // A chart can be the personnel for SEVERAL works — the reduced orchestra
+  // that plays a whole first half is one chart, not one per work. Read
+  // through `chartPieceIds` so charts written before this still resolve.
+  const [pieceIds, setPieceIds] = useState<string[]>(() => (chart ? chartPieceIds(chart) : []));
   const [date, setDate] = useState(chart?.date ?? todayStr());
   const [sections, setSections] = useState<SeatingChart['sections']>(chart?.sections ?? buildSections(roster));
   const [saving, setSaving] = useState(false);
@@ -295,18 +299,16 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
   // Piece picker (#seating-sections): the ensemble's own repertoire is the
   // DEFAULT list, but a chart is often made for a piece that lives on another
   // group's list (a combined concert, a piece not filed here yet), so typing
-  // searches the WHOLE library. Selecting is still one id on the chart.
+  // searches the WHOLE library. Picking ADDS to the list — several works can
+  // share one chart.
   const [pieceQuery, setPieceQuery] = useState('');
   const [pieceOpen, setPieceOpen] = useState(false);
-  const selectedPieceTitle = useMemo(
-    () => allPieces.find(p => p.id === pieceId)?.title ?? '',
-    [allPieces, pieceId],
-  );
+  const pieceTitle = (id: string) => allPieces.find(p => p.id === id)?.title ?? id;
   const pieceResults = useMemo(() => {
     const q = pieceQuery.trim().toLowerCase();
-    if (!q) return pieces.slice(0, 12);
-    return allPieces.filter(p => p.title.toLowerCase().includes(q)).slice(0, 12);
-  }, [pieceQuery, pieces, allPieces]);
+    const pool = q ? allPieces.filter(p => p.title.toLowerCase().includes(q)) : pieces;
+    return pool.filter(p => !pieceIds.includes(p.id)).slice(0, 12);
+  }, [pieceQuery, pieces, allPieces, pieceIds]);
 
   // Post an announcement to THIS ensemble without leaving the chart
   // (#seating-sections). Publishing seating and telling the group about it are
@@ -359,12 +361,15 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
       await whenQueued(onSave({
         ensembleId,
         title: title.trim(),
+        pieceIds,
         // '' rather than undefined: Firestore is initialised with
         // ignoreUndefinedProperties, so an undefined here is DROPPED from the
         // update and un-picking the piece left the old link in place. Harmless
         // while nothing read it; since #piece-rosters that stale link prints a
-        // roster page under a work this chart is no longer for.
-        pieceId: pieceId || '',
+        // roster page under a work this chart is no longer for. Writing it
+        // blank also retires the legacy field on any chart saved from here,
+        // so `pieceIds` above is the only link this doc still carries.
+        pieceId: '',
         date: date || undefined,
         sections: sections.filter(s => s.seats.length > 0),
         createdAt: chart?.createdAt ?? Date.now(),
@@ -413,20 +418,32 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
           </div>
           <div className="dir-field-row">
             <div className="dir-field dir-seat-piece">
-              <label className="dir-label">For piece (optional)</label>
-              {pieceId && !pieceOpen ? (
-                <div className="dir-seat-piece-chosen">
-                  <span className="dir-seat-piece-title">{selectedPieceTitle || pieceId}</span>
-                  <button type="button" className="dir-icon-btn" onClick={() => { setPieceId(''); setPieceQuery(''); }} aria-label="Clear piece"><X size={14} /></button>
+              <label className="dir-label">For which works (optional)</label>
+              {pieceIds.map(id => (
+                <div key={id} className="dir-seat-piece-chosen">
+                  <span className="dir-seat-piece-title">{pieceTitle(id)}</span>
+                  <button
+                    type="button"
+                    className="dir-icon-btn"
+                    onClick={() => setPieceIds(ids => ids.filter(x => x !== id))}
+                    aria-label={`Remove ${pieceTitle(id)}`}
+                  ><X size={14} /></button>
                 </div>
-              ) : (
+              ))}
+              {!pieceOpen && (
                 <input
                   className="dir-input"
                   value={pieceQuery}
                   onChange={e => { setPieceQuery(e.target.value); setPieceOpen(true); }}
                   onFocus={() => setPieceOpen(true)}
-                  placeholder="Any / general — or search every piece…"
+                  placeholder={pieceIds.length ? 'Add another work…' : 'Leave blank for the whole ensemble — or search…'}
                 />
+              )}
+              {pieceIds.length > 0 && !pieceOpen && (
+                <div className="dir-field-hint" style={{ marginTop: 4 }}>
+                  This chart is these works' personnel, not the ensemble's roster. It
+                  prints under each of them in a program that attaches it.
+                </div>
               )}
               {pieceOpen && (
                 <div className="dir-add-sub-list dir-seat-piece-list">
@@ -440,7 +457,7 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
                       key={p.id}
                       type="button"
                       className="dir-ens-row dir-sc-pick"
-                      onClick={() => { setPieceId(p.id); setPieceOpen(false); setPieceQuery(''); }}
+                      onClick={() => { setPieceIds(ids => [...ids, p.id]); setPieceQuery(''); }}
                     >
                       <div className="dir-ens-info"><div className="dir-ens-name">{p.title}</div></div>
                       <Plus size={15} />
@@ -664,7 +681,7 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
           </>
           ) : (
             <SeatingChartCard
-              chart={{ id: chart?.id ?? 'preview', ensembleId, title: title || 'Seating', pieceId: pieceId || undefined, date: date || undefined, sections: sections.filter(s => s.seats.length > 0), createdAt: chart?.createdAt ?? 0 }}
+              chart={{ id: chart?.id ?? 'preview', ensembleId, title: title || 'Seating', pieceIds, date: date || undefined, sections: sections.filter(s => s.seats.length > 0), createdAt: chart?.createdAt ?? 0 }}
               studentName={sid => nameById[sid] ?? sid}
             />
           )}

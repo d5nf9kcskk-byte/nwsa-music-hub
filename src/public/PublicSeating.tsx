@@ -8,6 +8,7 @@ import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useStudentsPublic } from './hooks/usePublicRoster';
 import { ensembleColor, ensembleDisplayName } from '../director/utils';
 import { useLang } from '../shared/i18n';
+import { chartPieceIds } from '../shared/concertRosters';
 
 /**
  * ONE seating chart at an address of its own (#seating-link).
@@ -46,7 +47,12 @@ export function PublicSeating() {
   }
 
   const ensemble = ensembles.find(e => e.id === chart.ensembleId);
-  const pieceTitle = chart.pieceId ? pieces.find(p => p.id === chart.pieceId)?.title : undefined;
+  // A chart can be several works' personnel — the reduced orchestra that
+  // plays a whole half — so this names every one of them.
+  const pieceTitle = chartPieceIds(chart)
+    .map(id => pieces.find(p => p.id === id)?.title)
+    .filter(Boolean)
+    .join(', ') || undefined;
   const studentName = (sid: string) => students.find(s => s.id === sid)?.name ?? '—';
 
   return (

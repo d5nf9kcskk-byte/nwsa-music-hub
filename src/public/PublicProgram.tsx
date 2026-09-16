@@ -295,7 +295,10 @@ export function PublicProgram() {
             orchestra. Only pieces with a chart of their own get a page, so a
             concert that seats nothing per piece prints exactly as before. */}
         {PUBLIC_STUDENT_INFO && programPieces.flatMap(p =>
-          pieceChartsFor(p.id, charts).map(chart => {
+          // `event` scopes the lookup to THIS concert's attached charts, so a
+          // work played again in a later season prints that season's players
+          // here and this season's there (#piece-rosters).
+          pieceChartsFor(p.id, charts, event).map(chart => {
             const ens = ensembles.find(e => e.id === chart.ensembleId);
             return (
               <section key={`${p.id}-${chart.id}`} className="pub-program-page pub-program-roster-page">
