@@ -21,6 +21,8 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 // `--selfcheck` exercises fixEventPieces() with no credentials and no writes.
 const SELFCHECK = process.argv.includes('--selfcheck');
+// `--sweep-only` skips the seed and runs only the events pass (see run()).
+const SWEEP_ONLY = process.argv.includes('--sweep-only');
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!raw && !SELFCHECK) {
@@ -696,7 +698,32 @@ function fixEventPieces(e) {
   return same ? null : { pieceIds, pieceMovements: pm };
 }
 
+/** Apply fixEventPieces() across `events`; returns how many docs were written. */
+async function sweepEvents() {
+  const allEvents = await db.collection('events').get();
+  let n = 0;
+  for (const d of allEvents.docs) {
+    const fix = fixEventPieces(d.data());
+    if (!fix) continue;
+    await d.ref.update(fix);
+    n++;
+    console.log(`  swept ${d.id}`);
+  }
+  console.log(`Swept ${n} of ${allEvents.size} events.`);
+  return n;
+}
+
 async function run() {
+  // `--sweep-only` runs the events pass and NOTHING else. The CONCERTS table
+  // above is the season as seeded, not as programmed since: a director who
+  // re-programs a concert in the app (oc26-cco-concert-sep, Sept 2026) has
+  // the newer truth, and a full re-run would hand the concert back its
+  // seeded program. Use this when the reason to run is the sweep.
+  if (SWEEP_ONLY) {
+    console.log('sweep-only: repertoire upserts and concert links skipped.');
+    return sweepEvents();
+  }
+
   const writer = db.bulkWriter();
   let nPieces = 0;
   for (const [id, data] of Object.entries(PIECES)) {
@@ -730,15 +757,7 @@ async function run() {
 
   await writer.close();
 
-  const allEvents = await db.collection('events').get();
-  let nMigrated = 0;
-  for (const d of allEvents.docs) {
-    const fix = fixEventPieces(d.data());
-    if (!fix) continue;
-    await d.ref.update(fix);
-    nMigrated++;
-    console.log(`  migrated ${d.id}`);
-  }
+  const nMigrated = await sweepEvents();
 
   console.log(`Upserted ${nPieces} repertoire pieces; linked ${nConcerts} concerts; migrated/swept ${nMigrated} events.`);
 }

@@ -6,8 +6,21 @@ name: Seed season repertoire
 #
 # Manual only — repertoire is a deliberate act, not something that should fire
 # on every push to main.
+#
+# `sweep-only` runs neither the piece upserts nor the concert links — just the
+# events pass that drops `pieceMovements` keys for pieces an event no longer
+# programs. Use it when the reason to run is the sweep: the CONCERTS table in
+# the script is the season AS SEEDED, and a concert re-programmed in the app
+# since (oc26-cco-concert-sep, Sept 2026) would be handed its seeded program
+# back by a full run.
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: What to run
+        type: choice
+        default: full
+        options: [full, sweep-only]
 
 permissions:
   contents: read
@@ -24,4 +37,4 @@ jobs:
       - name: Upsert season repertoire
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-        run: node scripts/seed-season-repertoire.mjs
+        run: node scripts/seed-season-repertoire.mjs ${{ inputs.mode == 'sweep-only' && '--sweep-only' || '' }}
