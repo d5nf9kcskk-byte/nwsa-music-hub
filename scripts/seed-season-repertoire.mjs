@@ -315,8 +315,9 @@ piece('rp26-falla-ritual-fire-dance', {
   composerDates: '1876–1946',
   catalogNumber: 'from El amor brujo',
   year: '1915; rev. 1916, 1925',
+  duration: 4,
   partsLinks: [],
-  notes: 'Freedom Tower — Spanish half of the program. Edition/version and duration TBD; parts via Copista.',
+  notes: 'Freedom Tower — Spanish half of the program. Standard published duration; time it in rehearsal, the set has a hard 20-minute cap. Edition/version TBD; parts via Copista.',
   eventIds: ['oc26-freedom-tower-oct'],
 });
 
@@ -329,8 +330,9 @@ piece('rp26-bizet-les-toreadors', {
   composerDates: '1838–1875',
   catalogNumber: 'Carmen Suite No. 1, final movement',
   year: '1875',
+  duration: 2,
   partsLinks: [],
-  notes: 'Freedom Tower — Spanish-theme selection. Duration TBD; parts via Copista.',
+  notes: 'Freedom Tower — Spanish-theme selection. Standard published duration; time it in rehearsal, the set has a hard 20-minute cap. Parts via Copista.',
   eventIds: ['oc26-freedom-tower-oct'],
 });
 

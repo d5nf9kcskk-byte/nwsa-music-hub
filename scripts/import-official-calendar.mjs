@@ -115,11 +115,17 @@ const EVENTS = [
     "Day-long workshop for the NWSA Symphony Orchestra and guest ensembles, built around Tchaikovsky's The Nutcracker. Workshop 2:00–5:45pm; combined concert 6:00pm. Partners: SFYS, MMP Leaders, Krop HS, Palmetto HS."),
   // Freedom Tower (Oct 4): also absent from the printed brochure. Working
   // title and no start time yet — the time is deliberately left OFF the doc
-  // rather than guessed; see the `ev` helper. Retitle and add `startTime`
-  // here once both are confirmed.
+  // rather than guessed; see the `ev` helper. The Symphony OPENS a larger
+  // show and plays a fixed 20-minute set, so knowing the slot still doesn't
+  // give us a clock time: that arrives with the show's own start time.
+  // Retitle and add `startTime` here once both are confirmed. NOTE: this
+  // script never updates a doc that already exists, so changing the text
+  // below does not change Firestore — the live doc is edited in the Hub's
+  // Schedule editor or via the "Fix One Field" workflow, and this string is
+  // kept in step by hand.
   ev('freedom-tower-oct', 'Concert', ['symphony-orchestra'], '2026-10-04', undefined, V.moad,
     'Freedom Tower Concert (working title)',
-    'A Spanish and American celebration. Hosted by Madeline Pumariega, President, Miami Dade College. Time TBA — working title; start time, program order and ticketing still to be confirmed.'),
+    'A Spanish and American celebration. Hosted by Madeline Pumariega, President, Miami Dade College. The NWSA Symphony Orchestra OPENS the show: one 20-minute set, then the orchestra leaves the stage. Plan as given by the Dean on Sep 15, 2026 and still provisional. Time TBA — the show’s start time, the final title, the performance order and ticketing are all still to be confirmed.'),
   ev('so-concert-oct', 'Concert', ['symphony-orchestra'], '2026-10-06', '19:00', V.chapman,
     'Symphony Orchestra Concert', T10_5),
   ev('hs-voice-oct', 'Concert', ['high-school-choir'], '2026-10-19', '19:00', V.wolfsonAud,
