@@ -19,13 +19,19 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
+// `--selfcheck` exercises fixEventPieces() with no credentials and no writes.
+const SELFCHECK = process.argv.includes('--selfcheck');
+
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-if (!raw) {
+if (!raw && !SELFCHECK) {
   console.error('FIREBASE_SERVICE_ACCOUNT_JSON not set — aborting.');
   process.exit(1);
 }
-if (getApps().length === 0) initializeApp({ credential: cert(JSON.parse(raw)) });
-const db = getFirestore();
+let db;
+if (!SELFCHECK) {
+  if (getApps().length === 0) initializeApp({ credential: cert(JSON.parse(raw)) });
+  db = getFirestore();
+}
 
 const NOW = Date.now();
 const BY = 'Grant Gilman (season seed)';
@@ -659,6 +665,37 @@ const CONCERTS = {
   },
 };
 
+// Remap events still pointing at the retired Act II doc, and drop any
+// pieceMovements key for a piece the event does not program.
+// Old Act II indices → new ballet Act II list (opening scenes + full Pas de Deux inserted).
+const OLD_TO_NEW = { 0: 2, 1: 3, 2: 4, 3: 5, 4: 6, 5: 7, 6: 8, 7: 9, 8: 12, 9: 13 };
+const OLD = 'rp26-nutcracker-act-ii';
+const NEW = 'rp26-nutcracker-ballet';
+
+/**
+ * The corrected { pieceIds, pieceMovements } for one event doc, or null when
+ * it is already correct (so a sweep doesn't churn every event's updatedAt).
+ * Stale keys are inert to every reader — they all look movements up by a piece
+ * that is in `pieceIds` — so this is tidying, not a fix for a visible bug.
+ * @param {{ pieceIds?: string[], pieceMovements?: Record<string, number[]> }} e
+ */
+function fixEventPieces(e) {
+  const ids = e.pieceIds || [];
+  const pieceIds = [...new Set(ids.map(id => (id === OLD ? NEW : id)))];
+  const pm = { ...(e.pieceMovements || {}) };
+  // Only an event still LISTING the retired doc carries a movement selection
+  // worth remapping. A stray key on an event whose pieceIds already moved on
+  // is stale data and is dropped below — never remapped over the real one.
+  if (ids.includes(OLD) && pm[OLD]) {
+    pm[NEW] = [...new Set(pm[OLD].map(i => OLD_TO_NEW[i] ?? i))].sort((a, b) => a - b);
+  }
+  for (const k of Object.keys(pm)) if (!pieceIds.includes(k)) delete pm[k];
+  const same =
+    JSON.stringify(pieceIds) === JSON.stringify(ids) &&
+    JSON.stringify(pm) === JSON.stringify(e.pieceMovements || {});
+  return same ? null : { pieceIds, pieceMovements: pm };
+}
+
 async function run() {
   const writer = db.bulkWriter();
   let nPieces = 0;
@@ -677,43 +714,80 @@ async function run() {
       console.warn(`Concert ${eventId} missing — skipping piece link (import calendar first).`);
       continue;
     }
-    // Always replace pieceMovements (merge would leave stale keys from old piece IDs).
     const update = {
       pieceIds: patch.pieceIds,
       pieceMovements: patch.pieceMovements || {},
     };
     if (patch.title) update.title = patch.title;
-    writer.set(ref, update, { merge: true });
+    // mergeFields, NOT { merge: true }: merge builds its update mask from the
+    // LEAVES of the data, so `pieceMovements` deep-merges and keys from retired
+    // piece ids survive every run (which is the opposite of what this write
+    // wants, and is how oc26-so-concert-oct collected two of them). mergeFields
+    // masks the named field itself, so the whole map is replaced.
+    writer.set(ref, update, { mergeFields: Object.keys(update) });
     nConcerts++;
   }
 
   await writer.close();
 
-  // Remap rehearsals (and any other events) still pointing at the retired Act II doc.
-  // Old Act II indices → new ballet Act II list (opening scenes + full Pas de Deux inserted).
-  const OLD_TO_NEW = { 0: 2, 1: 3, 2: 4, 3: 5, 4: 6, 5: 7, 6: 8, 7: 9, 8: 12, 9: 13 };
-  const OLD = 'rp26-nutcracker-act-ii';
-  const NEW = 'rp26-nutcracker-ballet';
   const allEvents = await db.collection('events').get();
   let nMigrated = 0;
   for (const d of allEvents.docs) {
-    const e = d.data();
-    const ids = e.pieceIds || [];
-    if (!ids.includes(OLD)) continue;
-    const pieceIds = [...new Set(ids.map(id => (id === OLD ? NEW : id)))];
-    const pm = { ...(e.pieceMovements || {}) };
-    if (pm[OLD]) {
-      pm[NEW] = [...new Set(pm[OLD].map(i => OLD_TO_NEW[i] ?? i))].sort((a, b) => a - b);
-      delete pm[OLD];
-    }
-    await d.ref.update({ pieceIds, pieceMovements: pm });
+    const fix = fixEventPieces(d.data());
+    if (!fix) continue;
+    await d.ref.update(fix);
     nMigrated++;
     console.log(`  migrated ${d.id}`);
   }
 
-  console.log(`Upserted ${nPieces} repertoire pieces; linked ${nConcerts} concerts; migrated ${nMigrated} events off Act II doc.`);
+  console.log(`Upserted ${nPieces} repertoire pieces; linked ${nConcerts} concerts; migrated/swept ${nMigrated} events.`);
 }
 
-run()
-  .then(() => { console.log('Done.'); process.exit(0); })
-  .catch((e) => { console.error(e); process.exit(1); });
+function selfcheck() {
+  const eq = (a, b, msg) => {
+    if (JSON.stringify(a) !== JSON.stringify(b)) {
+      console.error(`FAIL ${msg}\n  got      ${JSON.stringify(a)}\n  expected ${JSON.stringify(b)}`);
+      process.exit(1);
+    }
+  };
+
+  // The live oc26-so-concert-oct shape: the seeded key plus two stale ones.
+  eq(
+    fixEventPieces({
+      pieceIds: ['rp26-chadwick-rip-van-winkle', NEW],
+      pieceMovements: { [NEW]: [9, 12, 13], O5i8gpy6DG3rCQ4sh6BT: [10, 11], [OLD]: [7, 8, 9] },
+    }),
+    { pieceIds: ['rp26-chadwick-rip-van-winkle', NEW], pieceMovements: { [NEW]: [9, 12, 13] } },
+    'stale keys dropped, seeded selection untouched',
+  );
+
+  // A stray OLD key must never be remapped OVER the real selection.
+  eq(
+    fixEventPieces({ pieceIds: [NEW], pieceMovements: { [NEW]: [2], [OLD]: [0] } }),
+    { pieceIds: [NEW], pieceMovements: { [NEW]: [2] } },
+    'stray Act II key does not clobber the ballet selection',
+  );
+
+  // An event still LISTING the retired doc is migrated, indices remapped.
+  eq(
+    fixEventPieces({ pieceIds: [OLD], pieceMovements: { [OLD]: [0, 8] } }),
+    { pieceIds: [NEW], pieceMovements: { [NEW]: [2, 12] } },
+    'Act II migration',
+  );
+
+  // Already correct → no write (an events-wide sweep must not churn updatedAt).
+  eq(fixEventPieces({ pieceIds: [NEW], pieceMovements: { [NEW]: [2] } }), null, 'unchanged = null');
+  eq(fixEventPieces({}), null, 'empty event = null');
+  // Absent pieceMovements means "every movement" — never invent an empty map.
+  eq(fixEventPieces({ pieceIds: [NEW] }), null, 'no movement map = null');
+
+  console.log('seed-season-repertoire.selfcheck: ok');
+}
+
+if (SELFCHECK) {
+  selfcheck();
+} else {
+  run()
+    .then(() => { console.log('Done.'); process.exit(0); })
+    .catch((e) => { console.error(e); process.exit(1); });
+}

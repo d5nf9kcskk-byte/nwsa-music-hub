@@ -389,3 +389,11 @@ runs:
     - name: Check roster email recipients and mailto batching
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/rosterEmail.selfcheck.ts
       shell: bash
+
+    # The season seed's events sweep: it rewrites `pieceMovements` on every
+    # event doc, so its two dangerous mistakes are remapping a retired piece's
+    # movement list over the real one, and writing docs that were already
+    # correct. Runs with no credentials and writes nothing.
+    - name: Check the season repertoire event sweep
+      run: node scripts/seed-season-repertoire.mjs --selfcheck
+      shell: bash
