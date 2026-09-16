@@ -285,7 +285,7 @@ piece('rp26-nutcracker-ballet', {
   duration: 42,
   movements: NUT_MOVEMENTS,
   programNotes:
-    'Act II of The Nutcracker opens in the Kingdom of Sweets. Clara is entertained by a divertissement of character dances and the Waltz of the Flowers before the Pas de Deux for the Sugar Plum Fairy and her Cavalier and the Final Waltz and Apotheosis. One library entry covers every Act II number; each concert or rehearsal picks the subset performed that day (Festival I, Sleep No More, Concerto Competition, December Fillmore shows with Armour Dance, or a Camerata strings sectional).',
+    'Act II of The Nutcracker opens in the Kingdom of Sweets. Clara is entertained by a divertissement of character dances and the Waltz of the Flowers before the Pas de Deux for the Sugar Plum Fairy and her Cavalier and the Final Waltz and Apotheosis. One library entry covers every Act II number; each concert or rehearsal picks the subset performed that day (Festival I, Midnight Ball, Concerto Competition, December Fillmore shows with Armour Dance, or a Camerata strings sectional).',
   imslpUrl: 'https://imslp.org/wiki/The_Nutcracker_(ballet),_Op.71_(Tchaikovsky,_Pyotr)',
   eventIds: [
     'oc26-workshop-1-nutcracker',
@@ -336,7 +336,7 @@ piece('rp26-bizet-les-toreadors', {
   eventIds: ['oc26-freedom-tower-oct'],
 });
 
-/* ─── Oct 6 — Sleep No More ───────────────────────────────────────────── */
+/* ─── Oct 6 — Midnight Ball ───────────────────────────────────────────── */
 
 piece('rp26-chadwick-rip-van-winkle', {
   order: 220,
@@ -633,7 +633,7 @@ const CONCERTS = {
     },
   },
   'oc26-so-concert-oct': {
-    title: 'Sleep No More',
+    title: 'Midnight Ball',
     pieceIds: [
       'rp26-chadwick-rip-van-winkle',
       'rp26-rhapsody-in-blue-1942',
