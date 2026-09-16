@@ -18,8 +18,8 @@ import { enableCheckinPatch } from '../../shared/concertCheckin';
 import { studentMatchesQuery } from '../studentSearch';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { captureOriginal, announceChange } from './changeOps';
-import { concertChartFor } from '../../shared/concertRosters';
-import type { CalendarEvent, Ensemble, EventType, EventStatus } from '../types';
+import { concertChartFor, chartPieceIds, isPieceChart } from '../../shared/concertRosters';
+import type { CalendarEvent, Ensemble, EventType, EventStatus, SeatingChart } from '../types';
 
 interface Props {
   event: CalendarEvent | null;
@@ -78,6 +78,14 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     () => seatingCharts.filter(c => form.ensembleIds.includes(c.ensembleId)),
     [seatingCharts, form.ensembleIds],
   );
+  // Two different jobs, so two lists (#piece-rosters). A general chart is THE
+  // concert's roster — pick it once and every work on the program prints
+  // under it. A piece chart is one work's own personnel and prints as an
+  // extra page under that work; attaching one never makes it the concert's
+  // roster. That split is what "same roster for everything, except these
+  // two" looks like on screen.
+  const generalCharts = useMemo(() => concertCharts.filter(c => !isPieceChart(c)), [concertCharts]);
+  const pieceCharts = useMemo(() => concertCharts.filter(c => isPieceChart(c)), [concertCharts]);
   function toggleChart(id: string) {
     setForm(f => {
       const cur = f.seatingChartIds ?? [];
@@ -206,6 +214,10 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   // render unchecked here, and saving ANY edit would destroy that link
   // through the reverse sync. Merge is add-only and runs once per event.
   const { pieces } = useRepertoire();
+  /** The works a piece chart is the personnel for — one chart can cover a
+   *  whole reduced-orchestra half, so this names all of them. */
+  const chartWorks = (c: SeatingChart) =>
+    chartPieceIds(c).map(id => pieces.find(p => p.id === id)?.title).filter(Boolean).join(', ');
   const mergedForEventId = useRef<string | null>(null);
   useEffect(() => {
     if (!event || pieces.length === 0 || mergedForEventId.current === event.id) return;
@@ -1014,27 +1026,27 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                   both this form's preview line and the program itself. */}
               {form.type === 'Concert' && (
                 <div className="dir-field">
-                  <label className="dir-label">Roster pages in the program</label>
+                  <label className="dir-label">Roster for this concert</label>
                   <div className="dir-field-hint" style={{ marginBottom: 6 }}>
-                    Attach a seating chart to print it as this concert's roster page — the
-                    names, in your order. Attach nothing and the program prints each
-                    ensemble's most recent chart, the way it always has.
+                    Pick one chart and every work on the program prints under it. Pick
+                    nothing and the program uses each ensemble's most recent chart, the
+                    way it always has.
                   </div>
                   {form.ensembleIds.length === 0 ? (
                     <div className="dir-empty-inline">Pick the ensembles above first.</div>
-                  ) : concertCharts.length === 0 ? (
+                  ) : generalCharts.length === 0 ? (
                     <div className="dir-empty-inline">
                       No seating charts yet for these ensembles. Make one under the
                       ensemble's Seating; the program lists the active roster until then.
                     </div>
                   ) : (
-                    concertCharts.map(c => {
+                    generalCharts.map(c => {
                       const attached = (form.seatingChartIds ?? []).includes(c.id);
                       const ensName = ensembles.find(e => e.id === c.ensembleId)?.name ?? '';
                       // The designation only has a job when TWO attached charts
                       // cover the same ensemble; on a lone chart it would read
                       // as a second switch that changes nothing.
-                      const sibling = concertCharts.some(
+                      const sibling = generalCharts.some(
                         o => o.id !== c.id && o.ensembleId === c.ensembleId
                           && (form.seatingChartIds ?? []).includes(o.id),
                       );
@@ -1070,6 +1082,44 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                         </div>
                       );
                     })
+                  )}
+
+                  {/* The exceptions. A chart made for one work is never the
+                      concert's roster (`concertChartFor` skips piece charts
+                      when anything general is attached) — it prints as an
+                      extra page under its own work, which is what makes
+                      "everything the same, except these two" one tick each. */}
+                  {pieceCharts.length > 0 && (
+                    <>
+                      <div className="dir-label" style={{ marginTop: 12 }}>Works with their own roster</div>
+                      <div className="dir-field-hint" style={{ marginBottom: 6 }}>
+                        These seat fewer players than the full group. Tick one and it
+                        prints as an extra page under its own work; the rest of the
+                        program still uses the concert roster above.
+                      </div>
+                      {pieceCharts.map(c => {
+                        const ensName = ensembles.find(e => e.id === c.ensembleId)?.name ?? '';
+                        const works = chartWorks(c);
+                        return (
+                          <div key={c.id} className="dir-checkbox-row" style={{ marginTop: 6 }}>
+                            <input
+                              type="checkbox"
+                              id={`chart-${c.id}`}
+                              checked={(form.seatingChartIds ?? []).includes(c.id)}
+                              onChange={() => toggleChart(c.id)}
+                            />
+                            <span>
+                              <label htmlFor={`chart-${c.id}`}>
+                                <strong>{works || c.title || 'Seating'}</strong>
+                                {works && c.title ? <> — {c.title}</> : null}
+                                {ensName && <> · {ensName}</>}
+                                {c.date && <> · {c.date}</>}
+                              </label>
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </>
                   )}
                 </div>
               )}

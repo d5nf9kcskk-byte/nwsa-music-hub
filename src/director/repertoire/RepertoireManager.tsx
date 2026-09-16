@@ -9,6 +9,7 @@ import { ensembleColor, parseDate, musicEnsembles, pieceEnsembleIds } from '../u
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { EditedByLine } from '../components/EditedByLine';
 import { useModalA11y } from '../../shared/useModalA11y';
+import { chartPieceIds } from '../../shared/concertRosters';
 import type { RepertoirePiece, CalendarEvent, Ensemble, PieceMovement, PiecePartLink, SeatingChart } from '../types';
 
 interface Props {
@@ -94,16 +95,22 @@ export function RepertoireManager({ onClose, ensembleId, asTab, onNavigate }: Pr
           if (editing === 'new') pieceId = await addPiece(data);
           else { await updatePiece(editing.id, data); pieceId = editing.id; }
           // Piece rosters (#piece-rosters) are the same two-sided-link problem
-          // as the concerts below: the link lives on the CHART (`pieceId`),
+          // as the concerts below: the link lives on the CHART (`pieceIds`),
           // which is what the seating editor and both public readers already
           // use, so the piece form writes that field rather than inventing a
-          // second one to drift from it. Cleared with '' — `undefined` is
-          // dropped by ignoreUndefinedProperties and would leave the link.
+          // second one to drift from it. This piece is added to or removed
+          // from each chart's list — a chart other works also use keeps them.
           if (pieceId) {
             for (const c of charts) {
+              const current = chartPieceIds(c);
               const wanted = rosterChartIds.includes(c.id);
-              if (wanted && c.pieceId !== pieceId) await updateChart(c.id, { pieceId });
-              else if (!wanted && c.pieceId === pieceId) await updateChart(c.id, { pieceId: '' });
+              if (wanted === current.includes(pieceId)) continue;
+              const next = wanted ? [...current, pieceId] : current.filter(id => id !== pieceId);
+              // Writing the list also retires this doc's legacy single
+              // `pieceId`, so the two spellings can never disagree. '' rather
+              // than undefined — ignoreUndefinedProperties drops undefined
+              // and would leave the old link standing.
+              await updateChart(c.id, { pieceIds: next, pieceId: '' });
             }
           }
           // Keep each concert's pieceIds in sync with the piece's "Programmed
@@ -242,7 +249,7 @@ function RepertoireForm({
   onSave, onDelete, onBack,
 }: FormProps) {
   const [rosterChartIds, setRosterChartIds] = useState<string[]>(
-    () => (piece ? charts.filter(c => c.pieceId === piece.id).map(c => c.id) : []),
+    () => (piece ? charts.filter(c => chartPieceIds(c).includes(piece.id)).map(c => c.id) : []),
   );
   const [ensembleIds, setEnsembleIds] = useState<string[]>(() => {
     const init = piece ? pieceEnsembleIds(piece) : (lockedEnsembleId ? [lockedEnsembleId] : []);
@@ -301,16 +308,20 @@ function RepertoireForm({
     setEventIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
   }
 
-  /** Seating charts this piece could use as its own personnel: the ones
-   *  belonging to an ensemble that plays it, minus any already claimed by a
-   *  DIFFERENT piece — a chart has one `pieceId`, so offering someone else's
-   *  would quietly take it off their program page. */
+  /** Seating charts this piece could use as its own personnel: every chart
+   *  belonging to an ensemble that plays it. A chart another work already
+   *  uses is still offered — several works can share one reduced orchestra,
+   *  and ticking it here adds this piece rather than taking it from them. */
   const linkableCharts = useMemo(
     () => charts
-      .filter(c => ensembleIds.includes(c.ensembleId) && (!c.pieceId || c.pieceId === piece?.id))
+      .filter(c => ensembleIds.includes(c.ensembleId))
       .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.createdAt - a.createdAt),
-    [charts, ensembleIds, piece?.id],
+    [charts, ensembleIds],
   );
+  /** The concert a chart is attached to, which is what tells this year's
+   *  personnel apart from the same work's chart two seasons ago. */
+  const chartConcert = (chartId: string) =>
+    events.find(e => (e.seatingChartIds ?? []).includes(chartId));
   function toggleRosterChart(id: string) {
     setRosterChartIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
   }
@@ -748,36 +759,56 @@ function RepertoireForm({
           {/* Who played THIS work (#piece-rosters) — the winds for the Mozart,
               the chamber players out of the full orchestra. Ticking a chart
               here prints it as its own roster page in the concert program,
-              headed by the piece, beside the ensemble's own page. Nothing
-              ticked prints nothing extra. */}
+              headed by the piece, beside the ensemble's own page.
+
+              Nothing ticked is the NORMAL case and the one the copy leads
+              with: the work prints under the concert's own roster, which is
+              chosen once on the concert. This section is only for the works
+              that differ from it. */}
           <div className="dir-form-section-label">Roster for this piece</div>
+          <div className="dir-field-hint" style={{ marginBottom: 6 }}>
+            Leave every box clear and this work prints under the concert's roster,
+            like everything else on the program. Tick a chart only when fewer — or
+            different — players perform this one.
+          </div>
           {linkableCharts.length === 0 ? (
             <div className="dir-empty-inline">
-              No seating charts for this piece's ensembles yet. Make one under the
-              ensemble's Seating — seat just the players this work uses — then come back.
+              No seating charts yet for {ensembleIds.length === 1 ? 'this ensemble' : 'these ensembles'}.
+              Make one under the ensemble's Seating — seat just the players this work
+              uses — then come back. Until then it prints under the concert's roster.
             </div>
           ) : (
             <>
               <div className="dir-checklist">
-                {linkableCharts.map(c => (
-                  <label key={c.id} className="dir-check-row">
-                    <input
-                      type="checkbox"
-                      checked={rosterChartIds.includes(c.id)}
-                      onChange={() => toggleRosterChart(c.id)}
-                    />
-                    <span>
-                      {c.title || 'Seating'}
-                      {ensembles.find(e => e.id === c.ensembleId)?.name
-                        ? ` · ${ensembles.find(e => e.id === c.ensembleId)?.name}` : ''}
-                      {c.date ? ` · ${c.date}` : ''}
-                    </span>
-                  </label>
-                ))}
+                {linkableCharts.map(c => {
+                  const concert = chartConcert(c.id);
+                  return (
+                    <label key={c.id} className="dir-check-row">
+                      <input
+                        type="checkbox"
+                        checked={rosterChartIds.includes(c.id)}
+                        onChange={() => toggleRosterChart(c.id)}
+                      />
+                      <span>
+                        {c.title || 'Seating'}
+                        {ensembles.find(e => e.id === c.ensembleId)?.name
+                          ? ` · ${ensembles.find(e => e.id === c.ensembleId)?.name}` : ''}
+                        {/* The concert, not just the date: two charts for this
+                            same work are two different years, and the concert
+                            each is attached to is what tells them apart. */}
+                        {concert
+                          ? ` · ${concert.title || concert.type} ${parseDate(concert.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                          : c.date ? ` · ${c.date}` : ''}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
               <div className="dir-field-hint" style={{ marginTop: 4 }}>
-                Prints as a roster page under this work's title in the program. Leave
-                every box clear and the program just lists the full ensemble, as before.
+                Prints as a roster page under this work's title. A chart other works
+                also use is fine — ticking it here adds this piece, it does not take
+                the chart from them. Playing this work at more than one concert? Tick
+                each concert's chart; every program prints its own.
               </div>
             </>
           )}

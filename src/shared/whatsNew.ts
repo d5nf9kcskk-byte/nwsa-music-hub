@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Shared piece rosters (#piece-rosters). Staff-only: nothing a family sees
+  // changes unless a director seats a work, and then it is a program page.
+  {
+    id: '2026-09-15-shared-piece-rosters',
+    date: '2026-09-15',
+    title: 'One roster for the whole concert — or a different one per work',
+    audience: 'staff' as const,
+    expires: '2026-09-29',
+    bullets: [
+      'A concert now leads with “Roster for this concert”: pick one chart and every work on the program prints under it. Pick nothing and it still uses each ensemble’s most recent chart, as always.',
+      'A seating chart can be several works’ personnel now — the reduced orchestra that plays a whole half is one chart, ticked on each of those works, instead of one chart per piece.',
+      'A chart another work already uses is no longer hidden from you. Ticking it adds your piece; it does not take the chart away from theirs.',
+      'Playing a work again in a later season? Make that season’s chart, attach it to that concert, and each program prints its own personnel.',
+    ],
+  },
   // Per-piece rosters (#piece-rosters) — staff-only: a family sees no change
   // unless a director seats a work, and then it is just another program page.
   {

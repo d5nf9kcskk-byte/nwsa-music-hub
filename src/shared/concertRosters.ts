@@ -1,6 +1,7 @@
 /**
  * Which seating chart a concert prints as an ensemble's roster page
- * (#concert-rosters).
+ * (#concert-rosters), and which chart stands for an individual work
+ * (#piece-rosters).
  *
  * Before this, the printed program always took each ensemble's MOST RECENT
  * chart — fine until the director seats a spring chart while last night's
@@ -14,13 +15,23 @@
  * chart never leaks onto another ensemble's roster page — the ensemble match
  * comes first, always.
  *
- * Resolution, per ensemble:
+ * Resolution of the CONCERT'S roster, per ensemble:
  *   1. the designated chart, if it belongs to this ensemble and is attached
- *   2. otherwise the newest attached chart for this ensemble
- *   3. otherwise the newest chart for this ensemble (the pre-existing rule,
- *      so every concert that attaches nothing prints exactly as it did)
+ *   2. otherwise the newest attached chart that is not a single work's
+ *      personnel — attaching "winds, for the Mozart" must not become the
+ *      whole orchestra's page
+ *   3. otherwise the newest attached chart at all (a group whose only
+ *      attached chart is a piece chart still gets a page)
+ *   4. otherwise the newest chart for this ensemble, preferring a general one
+ *      (the pre-existing rule, so every concert that attaches nothing prints
+ *      exactly as it did)
  * ...and the caller falls back to the auto-grouped active roster when there
  * is no chart at all.
+ *
+ * That resolution IS "one roster for the whole concert": it is chosen once, on
+ * the concert, and every work prints under it unless the work has personnel of
+ * its own. Nothing is stamped onto the individual pieces, so a per-work
+ * exception stays one tick and un-picking it stays one tick.
  *
  * Pinned by concertRosters.selfcheck.ts.
  */
@@ -29,11 +40,17 @@
 export interface ChartLike {
   id: string;
   ensembleId: string;
-  /** Set = this chart is ONE PIECE's personnel ("winds only, for the
-   *  Mozart"), not the ensemble's roster. The link lives here, on the chart,
-   *  and the piece editor writes this same field from the other side — one
-   *  spelling, so the two screens cannot drift. */
+  /** Legacy single link, still live on charts written before sharing existed.
+   *  Read it through `chartPieceIds` and never directly. */
   pieceId?: string;
+  /** The works this chart is the personnel for ("winds only, for the
+   *  Mozart"). A chart may serve SEVERAL works — a concert whose whole first
+   *  half is one reduced orchestra is one chart, ticked on each of those
+   *  works — and a work may have several charts, one per concert it is played
+   *  at, because the players change between years. The link lives here, on
+   *  the chart, and the piece editor writes this same field from the other
+   *  side — one spelling, so the two screens cannot drift. */
+  pieceIds?: string[];
   date?: string;
   createdAt: number;
 }
@@ -42,6 +59,21 @@ export interface ChartLike {
 export interface ConcertLike {
   seatingChartIds?: string[];
   programChartId?: string;
+}
+
+/** The works a chart is the personnel for, whichever way the link was
+ *  written. `pieceIds` is the current spelling; `pieceId` is what charts made
+ *  before sharing existed still carry, and reading both here is why none of
+ *  them needed rewriting. */
+export function chartPieceIds(chart: ChartLike): string[] {
+  if (chart.pieceIds) return chart.pieceIds.filter(Boolean);
+  return chart.pieceId ? [chart.pieceId] : [];
+}
+
+/** True when this chart is ONE OR MORE works' personnel rather than the
+ *  ensemble's own roster. */
+export function isPieceChart(chart: ChartLike): boolean {
+  return chartPieceIds(chart).length > 0;
 }
 
 /** The app's "current chart" convention: newest published date wins, then
@@ -61,34 +93,61 @@ export function concertChartFor<T extends ChartLike>(
   const attachedIds = concert?.seatingChartIds ?? [];
   const attached = forEnsemble.filter(c => attachedIds.includes(c.id));
   const designated = attached.find(c => c.id === concert?.programChartId);
-  // Falling back, a PIECE roster is not the ensemble's roster: seating the
-  // winds for one work must not hijack the whole orchestra's page just by
-  // being the newest chart. Attaching one deliberately still works — that is
-  // the director saying so. If a group only ever has piece charts, the newest
-  // still beats printing nothing.
-  const general = forEnsemble.filter(c => !c.pieceId);
+  // A PIECE roster is not the ensemble's roster: seating the winds for one
+  // work must not hijack the whole orchestra's page, whether by being the
+  // newest chart or by being attached so it can print as that work's own
+  // page. Designating one deliberately still works — that is the director
+  // saying so. If a group only ever has piece charts, the newest still beats
+  // printing nothing.
+  const general = forEnsemble.filter(c => !isPieceChart(c));
+  const attachedGeneral = attached.filter(c => !isPieceChart(c));
   // A deleted or un-attached designation falls through rather than blanking
   // the roster page — the program still prints something sensible.
-  return designated ?? newestChart(attached) ?? newestChart(general) ?? newestChart(forEnsemble);
+  return designated
+    ?? newestChart(attachedGeneral)
+    ?? newestChart(attached)
+    ?? newestChart(general)
+    ?? newestChart(forEnsemble);
 }
 
 /**
- * The charts that are ONE PIECE's personnel, newest first (#piece-rosters).
+ * The charts that are THIS WORK's personnel at THIS concert (#piece-rosters).
  *
  * A concert program prints one of these per programmed piece, in addition to
  * the ensemble roster pages — the "winds only for the Mozart" case, where the
  * people who played a work are a subset of the group that filled the stage.
- * More than one chart may point at a piece (a work two ensembles both play);
- * each is its own page, headed by its own ensemble.
+ *
+ * The same work played in two different years has a chart per year, so the
+ * concert decides which one is its own: a chart the concert ATTACHED wins. A
+ * concert that attaches none of them falls back to the newest chart per
+ * ensemble, so a work two ensembles both play still gets a page each, and a
+ * second year's chart never prints beside the first year's on one program.
  */
-export function pieceChartsFor<T extends ChartLike>(pieceId: string, charts: T[]): T[] {
+export function pieceChartsFor<T extends ChartLike>(
+  pieceId: string,
+  charts: T[],
+  concert?: ConcertLike,
+): T[] {
   if (!pieceId) return [];
-  return [...charts.filter(c => c.pieceId === pieceId)].sort(
+  const forPiece = [...charts.filter(c => chartPieceIds(c).includes(pieceId))].sort(
     (a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.createdAt - a.createdAt,
   );
+  const attachedIds = concert?.seatingChartIds ?? [];
+  const attached = forPiece.filter(c => attachedIds.includes(c.id));
+  if (attached.length) return attached;
+  const seen = new Set<string>();
+  return forPiece.filter(c => {
+    if (seen.has(c.ensembleId)) return false;
+    seen.add(c.ensembleId);
+    return true;
+  });
 }
 
 /** The one chart to show where there is room for only one (a piece page). */
-export function pieceChartFor<T extends ChartLike>(pieceId: string, charts: T[]): T | undefined {
-  return pieceChartsFor(pieceId, charts)[0];
+export function pieceChartFor<T extends ChartLike>(
+  pieceId: string,
+  charts: T[],
+  concert?: ConcertLike,
+): T | undefined {
+  return pieceChartsFor(pieceId, charts, concert)[0];
 }
