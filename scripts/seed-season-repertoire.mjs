@@ -164,7 +164,11 @@ piece('rp26-stars-and-stripes', {
   eventIds: ['oc26-hs-pops', 'oc26-freedom-tower-oct'],
 });
 
-/* ─── Sept 29 — College Chamber Orchestra ─────────────────────────────── */
+/* ─── Sept 29 — College Chamber Orchestra ─────────────────────────────────
+ * Re-programmed in the app 2026-09-16: Mozart 33 and the Boccherini came off
+ * the concert, and three works Grant added in the app went on. They stay in
+ * the library with `eventIds: []` — dropped from the PROGRAM, not retired.
+ */
 
 piece('rp26-mozart-33', {
   order: 100,
@@ -186,7 +190,8 @@ piece('rp26-mozart-33', {
   programNotes:
     'Mozart completed K. 319 in Salzburg in July 1779, scoring it for the lean Classical wind choir of two oboes, two bassoons, and two horns with strings. The four-movement design balances a bright opening Allegro with a gracious Andante, a courtly Menuetto, and a sparkling finale; tonight’s timing assumes few or no repeats.',
   imslpUrl: 'https://imslp.org/wiki/Symphony_No.33_in_B-flat_major,_K.319_(Mozart,_Wolfgang_Amadeus)',
-  eventIds: ['oc26-cco-concert-sep'],
+  // Off the Sept 29 program as of 2026-09-16 (see the section note above).
+  eventIds: [],
 });
 
 piece('rp26-down-a-country-lane', {
@@ -218,7 +223,8 @@ piece('rp26-boccherini-musica-notturna', {
   programNotes:
     'Boccherini’s “Night Music of the Streets of Madrid” is a programmatic string quintet that stages an evening on the Spanish capital’s streets—military tattoo, beggars’ Ave Maria, the paseo, and the retreat. Performed here in the original one-to-a-part quintet scoring (2 violins, viola, 2 cellos).',
   imslpUrl: 'https://imslp.org/wiki/6_String_Quintets,_G.319-324_(Op.30)_(Boccherini,_Luigi)',
-  eventIds: ['oc26-cco-concert-sep'],
+  // Off the Sept 29 program as of 2026-09-16 (see the section note above).
+  eventIds: [],
 });
 
 piece('rp26-souvenir-de-florence', {
@@ -591,12 +597,17 @@ const CONCERTS = {
       'rp26-stars-and-stripes',
     ],
   },
+  // The live program as Grant set it in the app on 2026-09-16, in his order.
+  // Three of these are app-created library docs, so they have random ids
+  // rather than `rp26-*` ones and are NOT in PIECES above — the app owns them
+  // and this table only links them. Titles given so the ids are readable.
   'oc26-cco-concert-sep': {
     pieceIds: [
-      'rp26-mozart-33',
       'rp26-down-a-country-lane',
-      'rp26-boccherini-musica-notturna',
+      'TuVUQa7drXuOP1eCAQA6', // Beethoven — Symphony 7, II. Allegretto
+      '8wMBzJ7UvbJRGasgt4je', // Borodin — Polovtsian Dances, 1st Theme
       'rp26-souvenir-de-florence',
+      'AGOE3ctJFoCoaQBvHhwd', // Prokofiev — Marche from The Love for Three Oranges
     ],
   },
   'oc26-workshop-1-nutcracker': {
