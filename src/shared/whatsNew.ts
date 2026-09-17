@@ -32,6 +32,17 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  {
+    id: '2026-09-17-phone-menu-college',
+    date: '2026-09-17',
+    title: 'Classes and College are their own menu items on a phone',
+    audience: 'public' as const,
+    expires: '2026-10-08',
+    bullets: [
+      'Tap the menu (☰) and you now see Ensembles, Classes, and College as separate headings — the same four the computer version has. Tap one to open it.',
+      'Classes and College used to be buried inside Ensembles, below every orchestra, so on a phone you had to scroll a long way to find them.',
+    ],
+  },
   // "Our slot" — a new field on a concert, so staff-facing, but it prints on
   // the public Concert Season sheet the moment one is set, hence 'both'.
   {

@@ -2,7 +2,7 @@ import './uiUpdates.css';
 import './pubShell.css';
 import { useState, useEffect, useReducer } from 'react';
 import { Outlet, NavLink, Link, ScrollRestoration, useLocation } from 'react-router';
-import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned, FolderOpen, Mail, ClipboardSignature, ScanLine, CalendarX } from 'lucide-react';
+import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned, FolderOpen, Mail, ClipboardSignature, ScanLine, CalendarX, BookOpen, GraduationCap } from 'lucide-react';
 import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
 import { StatusStrips } from '../shared/StatusStrips';
@@ -131,7 +131,15 @@ export function PublicLayout() {
   const pathname = location.pathname;
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // The drawer carries the SAME four groups as the desktop rail below
+  // (Ensembles / Classes / College / Resources). They used to be three, with
+  // Classes and College buried as subheads inside Ensembles — so a phone
+  // student never saw the words until they opened a 39-item list and scrolled
+  // past every orchestra. A group students are told to look for has to be a
+  // row they can see.
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
+  const [classesOpen, setClassesOpen] = useState(false);
+  const [collegeOpen, setCollegeOpen] = useState(false);
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   // Sidebar section expands (desktop) — separate from hamburger so phone
@@ -157,7 +165,6 @@ export function PublicLayout() {
 
   const eid = ensembleIdFromPath(pathname);
   const onEnsemblesIndex = pathname === '/ensembles' || pathname.startsWith('/ensembles/');
-  const onEnsemblePage = !!eid;
   const inPerforming = !!eid && navPerforming.some(e => e.id === eid);
   const inClasses = !!eid && navClasses.some(e => e.id === eid);
   const inCollege = !!eid && [...navCollegeEns, ...navCollegeCls].some(e => e.id === eid);
@@ -166,15 +173,16 @@ export function PublicLayout() {
 
   // Auto-open the group that owns the current route (plan: default closed,
   // open when active). Manual toggles still win until the route changes.
+  // Drawer and rail open the SAME group for the same route — a class page
+  // opens Classes, not Ensembles, on both.
   useEffect(() => {
-    if (onEnsemblesIndex || onEnsemblePage) setEnsemblesOpen(true);
+    if (inPerforming || onEnsemblesIndex) { setEnsemblesOpen(true); setSideEnsOpen(true); }
+    if (inClasses) { setClassesOpen(true); setSideClassesOpen(true); }
+    if (inCollege) { setCollegeOpen(true); setSideCollegeOpen(true); }
     if (onResources) setResourcesOpen(true);
     if (onHelp) setHelpOpen(true);
-    if (inPerforming || onEnsemblesIndex) setSideEnsOpen(true);
-    if (inClasses) setSideClassesOpen(true);
-    if (inCollege) setSideCollegeOpen(true);
     if (onResources || onHelp) setSideResourcesOpen(true);
-  }, [pathname, onEnsemblesIndex, onEnsemblePage, onResources, onHelp, inPerforming, inClasses, inCollege]);
+  }, [pathname, onEnsemblesIndex, onResources, onHelp, inPerforming, inClasses, inCollege]);
 
   const closeMenu = () => setMenuOpen(false);
 
@@ -254,15 +262,45 @@ export function PublicLayout() {
             </button>
             {ensemblesOpen && (
               <>
-                {navPerforming.length > 0 && (
-                  <div className="pub-menu-subhead">{t('nav.ensembles')}</div>
-                )}
                 <EnsembleSubLinks items={navPerforming} onNavigate={closeMenu} />
-                {navClasses.length > 0 && (
-                  <div className="pub-menu-subhead">{t('docs.classes')}</div>
-                )}
-                <EnsembleSubLinks items={navClasses} onNavigate={closeMenu} />
-                {(navCollegeEns.length > 0 || navCollegeCls.length > 0) && (
+                <NavLink
+                  to="/ensembles"
+                  className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
+                  onClick={closeMenu}
+                >
+                  <span className="pub-menu-dot" style={{ background: '#94a3b8' }} />
+                  {t('nav.allEnsembles')}
+                </NavLink>
+              </>
+            )}
+
+            {navClasses.length > 0 && (
+              <>
+                <button
+                  className="pub-menu-item pub-menu-expand"
+                  onClick={() => setClassesOpen(o => !o)}
+                  aria-expanded={classesOpen}
+                >
+                  <BookOpen size={18} />
+                  {t('docs.classes')}
+                  <ExpandChevron open={classesOpen} />
+                </button>
+                {classesOpen && <EnsembleSubLinks items={navClasses} onNavigate={closeMenu} />}
+              </>
+            )}
+
+            {(navCollegeEns.length > 0 || navCollegeCls.length > 0) && (
+              <>
+                <button
+                  className="pub-menu-item pub-menu-expand"
+                  onClick={() => setCollegeOpen(o => !o)}
+                  aria-expanded={collegeOpen}
+                >
+                  <GraduationCap size={18} />
+                  {t('nav.college')}
+                  <ExpandChevron open={collegeOpen} />
+                </button>
+                {collegeOpen && (
                   <>
                     {navCollegeEns.length > 0 && (
                       <div className="pub-menu-subhead">{t('nav.collegeEnsembles')}</div>
@@ -274,14 +312,6 @@ export function PublicLayout() {
                     <EnsembleSubLinks items={navCollegeCls} onNavigate={closeMenu} />
                   </>
                 )}
-                <NavLink
-                  to="/ensembles"
-                  className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
-                  onClick={closeMenu}
-                >
-                  <span className="pub-menu-dot" style={{ background: '#94a3b8' }} />
-                  {t('nav.allEnsembles')}
-                </NavLink>
               </>
             )}
 
