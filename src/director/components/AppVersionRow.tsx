@@ -23,7 +23,12 @@ const MESSAGE: Record<UpdateCheck, string> = {
  * So the running build has to be visible, and re-checkable, from the phone
  * itself: compare this SHA against the repo, or tap Check for updates.
  */
-export function AppVersionRow() {
+/** `rail` renders the desktop sidebar's skin instead of the phone drawer's.
+ *  Both surfaces show this row (#one-nav): the rail used to omit it, and the
+ *  hamburger that opens the drawer is hidden at ≥1024px, so a director on a
+ *  laptop had no way to see which build they were running — the one question
+ *  this row exists to answer. */
+export function AppVersionRow({ rail = false }: { rail?: boolean } = {}) {
   const [status, setStatus] = useState<UpdateCheck | 'checking' | null>(null);
 
   async function check() {
@@ -33,10 +38,10 @@ export function AppVersionRow() {
 
   return (
     <>
-      <button className="dir-menu-item" onClick={check} disabled={status === 'checking'}>
-        <RefreshCw size={19} /> App version · {BUILD_ID}
+      <button className={rail ? 'dir-rail-item' : 'dir-menu-item'} onClick={check} disabled={status === 'checking'}>
+        <RefreshCw size={rail ? 18 : 19} /> App version · {BUILD_ID}
       </button>
-      <div style={{ padding: '0 16px 10px 50px', fontSize: 13, lineHeight: 1.45, opacity: 0.85 }}>
+      <div style={{ padding: rail ? '0 12px 10px 40px' : '0 16px 10px 50px', fontSize: 13, lineHeight: 1.45, opacity: 0.85 }}>
         {status === null ? 'Tap to check for updates.'
           : status === 'checking' ? 'Checking…'
             : MESSAGE[status]}

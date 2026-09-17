@@ -33,15 +33,18 @@ const STAFF_LOGINS = [
   { to: '/classroom', label: 'nav.classroomLogin' },
 ] as const;
 
-/** Daily destinations — always visible in the hamburger (matches tab bar set + Ensembles). */
+/** Daily destinations — the ONE list, mapped by the phone drawer AND the
+ *  desktop rail (#one-nav). The rail used to type these out again by hand in a
+ *  different order with a different label for /concerts; that is the shape the
+ *  College bug grew in. Order here is the order everywhere. */
 const NAV_TOP = [
   { to: '/', label: 'nav.home', Icon: Home, end: true },
   { to: '/calendar', label: 'nav.calendar', Icon: CalendarDays, end: false },
+  { to: '/lookup', label: 'nav.mySchedule', Icon: UserSearch, end: false },
   { to: '/concerts', label: 'nav.concerts', Icon: Ticket, end: false },
   // The concert door as a destination (#concert-checkin) — a student at the
   // venue looks for check-in in the menu, not inside a concert card.
   { to: '/checkin', label: 'nav.checkin', Icon: ScanLine, end: true },
-  { to: '/lookup', label: 'nav.mySchedule', Icon: UserSearch, end: false },
 ];
 
 const RESOURCE_PATHS = [
@@ -131,12 +134,12 @@ export function PublicLayout() {
   const pathname = location.pathname;
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  // The drawer carries the SAME four groups as the desktop rail below
-  // (Ensembles / Classes / College / Resources). They used to be three, with
-  // Classes and College buried as subheads inside Ensembles — so a phone
-  // student never saw the words until they opened a 39-item list and scrolled
-  // past every orchestra. A group students are told to look for has to be a
-  // row they can see.
+  // The drawer and the rail carry the SAME five groups — Ensembles / Classes /
+  // College / Resources / Help (#one-nav). The drawer used to have three, with
+  // Classes and College buried as subheads inside Ensembles, so a phone student
+  // never saw the words until they opened a 39-item list and scrolled past
+  // every orchestra; the rail had no Help heading at all. A group somebody is
+  // told to look for has to be a row they can see, at every width.
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
   const [classesOpen, setClassesOpen] = useState(false);
   const [collegeOpen, setCollegeOpen] = useState(false);
@@ -148,6 +151,7 @@ export function PublicLayout() {
   const [sideClassesOpen, setSideClassesOpen] = useState(false);
   const [sideCollegeOpen, setSideCollegeOpen] = useState(false);
   const [sideResourcesOpen, setSideResourcesOpen] = useState(false);
+  const [sideHelpOpen, setSideHelpOpen] = useState(false);
   const { ensembles } = useEnsembles();
   // Classes list under their own heading, never among the orchestras
   // (#classes). Same order field, two headings.
@@ -179,9 +183,8 @@ export function PublicLayout() {
     if (inPerforming || onEnsemblesIndex) { setEnsemblesOpen(true); setSideEnsOpen(true); }
     if (inClasses) { setClassesOpen(true); setSideClassesOpen(true); }
     if (inCollege) { setCollegeOpen(true); setSideCollegeOpen(true); }
-    if (onResources) setResourcesOpen(true);
-    if (onHelp) setHelpOpen(true);
-    if (onResources || onHelp) setSideResourcesOpen(true);
+    if (onResources) { setResourcesOpen(true); setSideResourcesOpen(true); }
+    if (onHelp) { setHelpOpen(true); setSideHelpOpen(true); }
   }, [pathname, onEnsemblesIndex, onResources, onHelp, inPerforming, inClasses, inCollege]);
 
   const closeMenu = () => setMenuOpen(false);
@@ -375,24 +378,16 @@ export function PublicLayout() {
       <div className="pub-shell">
         <aside className="pub-sidebar no-print">
           <nav aria-label={t('nav.menu')} style={{ display: 'contents' }}>
-            <NavLink to="/" end className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-              <Home size={18} />{t('nav.home')}
-            </NavLink>
-            <NavLink to="/calendar" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-              <CalendarDays size={18} />{t('nav.calendar')}
-            </NavLink>
-            <NavLink to={scheduleTo} className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-              <UserSearch size={18} />{t('nav.mySchedule')}
-            </NavLink>
-            <NavLink to="/concerts" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-              <Ticket size={18} />{t('nav.concertsShort')}
-            </NavLink>
-            <NavLink to="/checkin" end className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-              <ScanLine size={18} />{t('nav.checkin')}
-            </NavLink>
-            <NavLink to="/ensembles" end className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-              <Users size={18} />{t('nav.ensembles')}
-            </NavLink>
+            {NAV_TOP.map(({ to, label, Icon, end }) => (
+              <NavLink
+                key={to}
+                to={to === '/lookup' ? scheduleTo : to}
+                end={end}
+                className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}
+              >
+                <Icon size={18} />{t(label)}
+              </NavLink>
+            ))}
 
             {navPerforming.length > 0 && (
               <>
@@ -405,7 +400,15 @@ export function PublicLayout() {
                   {t('nav.ensembles')}
                   <ChevronDown size={14} style={{ transform: sideEnsOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
                 </button>
-                {sideEnsOpen && <SideEnsembleLinks items={navPerforming} />}
+                {sideEnsOpen && (
+                  <>
+                    <SideEnsembleLinks items={navPerforming} />
+                    <NavLink to="/ensembles" end className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+                      <span className="pub-side-dot" style={{ background: '#94a3b8' }} />
+                      {t('nav.allEnsembles')}
+                    </NavLink>
+                  </>
+                )}
               </>
             )}
             {navClasses.length > 0 && (
@@ -457,17 +460,25 @@ export function PublicLayout() {
               {t('nav.resources')}
               <ChevronDown size={14} style={{ transform: sideResourcesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
             </button>
-            {sideResourcesOpen && (
-              <>
-                {RESOURCES.map(({ to, label, Icon }) => (
-                  <NavLink key={to} to={to} className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-                    <Icon size={18} />{t(label)}
-                  </NavLink>
-                ))}
-                <NavLink to="/start" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-                  <HelpCircle size={18} />{t('nav.startHere')}
-                </NavLink>
-              </>
+            {sideResourcesOpen && RESOURCES.map(({ to, label, Icon }) => (
+              <NavLink key={to} to={to} className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+                <Icon size={18} />{t(label)}
+              </NavLink>
+            ))}
+
+            <button
+              type="button"
+              className="pub-side-head pub-side-expand"
+              onClick={() => setSideHelpOpen(o => !o)}
+              aria-expanded={sideHelpOpen}
+            >
+              {t('nav.help')}
+              <ChevronDown size={14} style={{ transform: sideHelpOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+            </button>
+            {sideHelpOpen && (
+              <NavLink to="/start" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+                <HelpCircle size={18} />{t('nav.startHere')}
+              </NavLink>
             )}
           </nav>
 

@@ -990,6 +990,50 @@ an unconditional `== true` requirement for the same reason.
 - `scripts/absence-report.selfcheck.mjs` runs in the deploy workflow (see
   `.github/actions/self-checks/action.yml`).
 
+## One nav, every width (Sept 2026, #one-nav)
+
+**A change to what a person SEES is not shipped until it is visible at every
+width.** Not the width you happened to check — every one.
+
+This app has no responsive JavaScript: nothing branches on viewport size, so
+"phone" and "desktop" are the same React tree with different CSS. Except in the
+two shells, which write their nav out TWICE by hand — `PublicLayout.tsx` as the
+phone drawer (`.pub-menu-panel`) and the desktop rail (`.pub-sidebar`, hidden
+below 1024px by `pubShell.css`), and `DirectorApp.tsx` as `.dir-menu-panel` and
+`.dir-rail`. Two hand-written trees over the same arrays is the whole trap, and
+it has now bitten twice:
+
+- `t('nav.college')` existed in the public rail ALONE, so the word "College"
+  was invisible on every phone in the school. It shipped, and nobody noticed
+  for weeks, because everybody who looked was on a laptop.
+- `InstallAppButton` and `AppVersionRow` were in the director DRAWER alone —
+  and `dirShell.css` hides the hamburger that opens it at ≥1024px. A director
+  on a laptop could not install the app and could not see which build they were
+  running, which is the one question those rows exist to answer.
+
+Both fixed here; the rules that keep them fixed:
+
+- **A destination goes in ONE list, mapped by both surfaces.** `NAV_TOP` and
+  `RESOURCES` have never drifted. Everything typed out twice has. When a row
+  legitimately needs a different skin per surface, that is a prop on ONE
+  component (`<AppVersionRow rail />`), never a second copy.
+- **`scripts/one-nav.selfcheck.mjs` pins the public nav** in the deploy
+  workflow: every `t('…')` key in one tree must be in the other. It has **no
+  exemption list on purpose** — the sets are exactly equal today, and an
+  exemption list is how a check like this rots into a formality. A genuine
+  one-sided row means writing the reason in that file's header, not adding a
+  name to an array.
+- **Nothing here renders a component in CI** — no vitest, jest, jsdom or
+  playwright, and adding one for this is not worth it. So the check covers the
+  public nav's labels and NOTHING else. Everything past that is a person
+  looking at 375×812 and again at ≥1024px. `preview_start` ignores worktrees,
+  so look at the landed or deployed tree, not a local preview.
+- **Still written twice, currently in agreement, so watch them**: the director
+  rail's group accordions (`DirectorApp.tsx` ~408-520) against the drawer's
+  (~734-810), and the event page's address + Get Directions block
+  (`PublicEvent.tsx` ~164-181 in the desktop-only side panel, ~275-314 in the
+  main flow). Change one, change the other in the same commit.
+
 ## What's New banner (auto)
 
 Product/UX changes that affect all staff or the public student site must

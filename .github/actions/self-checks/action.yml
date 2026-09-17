@@ -296,6 +296,17 @@ runs:
       run: node scripts/grade-video.selfcheck.mjs
       shell: bash
 
+    # One nav, every width (#one-nav). PublicLayout.tsx writes the public nav
+    # twice — the phone drawer and the desktop rail — and they drifted seven
+    # ways before anyone noticed, because t('nav.college') existed in the rail
+    # alone and everybody who looked was on a laptop. There is no runtime
+    # handle for "a group you only render above 1024px": at any moment the
+    # browser is one width and renders one tree. Source text, like the grade
+    # row's video element above.
+    - name: Check the public nav matches at every width
+      run: node scripts/one-nav.selfcheck.mjs
+      shell: bash
+
     # High School lesson log (#applied): payroll defaults, initials gate,
     # "do not enqueue mail for incomplete / cancelled rows", one sheet per
     # student per term, and the five-line jury list.

@@ -15,22 +15,25 @@ function isStandalone(): boolean {
  * Renders nothing when already installed, or when neither path applies
  * (e.g. desktop Firefox).
  */
-export function InstallAppButton() {
+export function InstallAppButton({ rail = false }: { rail?: boolean } = {}) {
   const prompt = useSyncExternalStore(subscribeInstallPrompt, getInstallPrompt);
   const [showIosHint, setShowIosHint] = useState(false);
+  // One row, two skins (#one-nav) — the rail used to omit this entirely.
+  const cls = rail ? 'dir-rail-item' : 'dir-menu-item';
+  const size = rail ? 18 : 19;
 
   if (isStandalone()) return null;
 
   if (prompt) {
     return (
       <button
-        className="dir-menu-item"
+        className={cls}
         onClick={() => {
           prompt.prompt();
           prompt.userChoice.finally(consumeInstallPrompt);
         }}
       >
-        <Download size={19} /> Install app
+        <Download size={size} /> Install app
       </button>
     );
   }
@@ -38,11 +41,11 @@ export function InstallAppButton() {
   if (detectPlatform() === 'ios') {
     return (
       <>
-        <button className="dir-menu-item" onClick={() => setShowIosHint(h => !h)} aria-expanded={showIosHint}>
-          <Download size={19} /> Install app
+        <button className={cls} onClick={() => setShowIosHint(h => !h)} aria-expanded={showIosHint}>
+          <Download size={size} /> Install app
         </button>
         {showIosHint && (
-          <div style={{ padding: '4px 16px 10px 50px', fontSize: 13, lineHeight: 1.45, opacity: 0.85 }}>
+          <div style={{ padding: rail ? '4px 12px 10px 40px' : '4px 16px 10px 50px', fontSize: 13, lineHeight: 1.45, opacity: 0.85 }}>
             In Safari: tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.
             The Hub opens full-screen and works offline.
           </div>

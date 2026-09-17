@@ -542,6 +542,16 @@ export default function DirectorApp() {
               <button className="dir-rail-item" onClick={() => navigate('/')}>
                 <ExternalLink size={18} /> View public site
               </button>
+              {/* These three were in the phone drawer ONLY, and dirShell.css
+                  hides the hamburger that opens it at ≥1024px — so a director
+                  on a laptop could not reach the start guide, could not install
+                  the app, and had no way to see which version they were running
+                  (#one-nav). */}
+              <button className="dir-rail-item" onClick={() => navigate('/start?staff=1')}>
+                <HelpCircle size={18} /> Start guide (all audiences)
+              </button>
+              <InstallAppButton rail />
+              <AppVersionRow rail />
               <div className="dir-rail-whats-new">
                 <WhatsNewBanner audience="staff" />
               </div>

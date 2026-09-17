@@ -33,6 +33,17 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-09-17-menu-same-everywhere',
+    date: '2026-09-17',
+    title: 'The menu now says the same thing on a phone and a computer',
+    audience: 'both' as const,
+    expires: '2026-10-08',
+    bullets: [
+      'Ensembles, Classes, College, Resources and Help are the same five headings at any screen size, in the same order.',
+      'Directors: Install app, App version and the Start guide are in the left sidebar now. They used to be in the phone menu only — and the phone menu is hidden on a laptop, so on a computer there was no way to reach them.',
+    ],
+  },
+  {
     id: '2026-09-17-phone-menu-college',
     date: '2026-09-17',
     title: 'Classes and College are their own menu items on a phone',
