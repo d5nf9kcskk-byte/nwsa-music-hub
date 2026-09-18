@@ -1136,6 +1136,125 @@ button.dir-roster-group-link:hover .dir-group-open-hint { opacity: 1; }
   gap: 8px;
 }
 
+/* ── Group picker (#group-picker) ──
+   A dropdown list of ensembles AND classes, multi-select, in place of the
+   forty wrapping pills that came before. Native <details>, so there is no
+   click-outside handler to get wrong. */
+.dir-group-picker {
+  border: 1.5px solid var(--dir-border);
+  border-radius: var(--dir-radius-sm);
+  background: var(--dir-surface);
+}
+
+.dir-group-picker-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  font-size: 15px;
+  color: var(--dir-text);
+  cursor: pointer;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dir-group-picker-summary::-webkit-details-marker { display: none; }
+
+/* The disclosure caret, drawn rather than relying on the platform marker so
+   it sits on the right where the <select> arrow it replaces used to be. */
+.dir-group-picker-summary::after {
+  content: '';
+  margin-left: auto;
+  width: 8px; height: 8px;
+  border-right: 2px solid var(--dir-text-muted);
+  border-bottom: 2px solid var(--dir-text-muted);
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.dir-group-picker[open] > .dir-group-picker-summary::after {
+  transform: rotate(-135deg) translate(-2px, -2px);
+}
+
+.dir-group-picker-count {
+  min-width: 24px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--dir-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.dir-group-picker-names {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dir-text-muted);
+  font-weight: 600;
+}
+
+.dir-group-picker[open] > .dir-group-picker-summary {
+  border-bottom: 1.5px solid var(--dir-border);
+}
+
+.dir-group-picker-list {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 6px 0 8px;
+}
+
+.dir-group-picker-bucket + .dir-group-picker-bucket { margin-top: 4px; }
+
+.dir-group-picker-bucket-label {
+  position: sticky;
+  top: 0;
+  padding: 7px 13px 4px;
+  background: var(--dir-surface-2);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dir-text-muted);
+}
+
+.dir-group-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 13px;
+  font-size: 15px;
+  color: var(--dir-text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dir-group-picker-row:active { background: var(--dir-surface-2); }
+
+.dir-group-picker-row input {
+  width: 18px; height: 18px;
+  accent-color: var(--dir-primary);
+  flex-shrink: 0;
+}
+
+.dir-group-picker-row input:checked + .dir-group-picker-name { font-weight: 700; }
+
+.dir-group-picker-clear {
+  margin: 6px 13px 0;
+  padding: 6px 10px;
+  border: 1.5px solid var(--dir-border);
+  border-radius: var(--dir-radius-sm);
+  background: none;
+  color: var(--dir-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
 /* Shared/combined block (#shared-block): a wide checkbox row for a choice that
    needs a sentence of explanation, unlike the pill-shaped tags below. */
 .dir-checkbox-row {

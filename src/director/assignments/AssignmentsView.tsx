@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Download, Plus, Clock, Video, Music } from 'lucide-react';
 import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
 import { useMyDirector, saveMyExamRubric } from '../hooks/useDirectors';
@@ -17,7 +17,6 @@ import { RichTextArea } from '../components/RichTextArea';
 import { PiecePicker } from '../repertoire/PiecePicker';
 import { FileUpload } from '../components/FileUpload';
 import { SchedulePublishField } from '../components/SchedulePublishField';
-import { useModalA11y } from '../../shared/useModalA11y';
 import { whenQueued } from '../writeStatus';
 import { NotesText } from '../../public/components/NotesText';
 import { richTextToPlain } from '../../shared/richTextParse';
@@ -31,6 +30,11 @@ import {
 import { RubricEditor } from './RubricEditor';
 import { GradeRow, type ConfirmArgs } from './GradeRow';
 import { QuizPanel } from './QuizPanel';
+import {
+  assignmentDraftKey, clearDraft, draftAge, readDraft, writeDraft, type AssignmentDraft,
+} from './assignmentDraft';
+import { GroupPicker } from '../components/GroupPicker';
+import { registerOverlayClose } from '../../shared/overlayBack';
 import { describeDuration, formatClock, formatFileSize, minutesToSeconds, secondsToMinutes } from '../../shared/duration';
 import { ORG } from '../../org';
 import { studentMatchesQuery } from '../studentSearch';
@@ -46,7 +50,7 @@ const TYPE_COLORS: Record<AssignmentType, string> = {
   'Other':        '#64748b',
 };
 
-// ── Assignment form drawer ────────────────────────────────────────────
+// ── Assignment form (full page, #assignment-page) ─────────────────────
 
 interface FormProps {
   assignment: Assignment | null;
@@ -59,23 +63,37 @@ interface FormProps {
 
 function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onClose }: FormProps) {
   const today = todayStr();
-  const [title, setTitle] = useState(assignment?.title ?? '');
-  const [type, setType] = useState<AssignmentType>(assignment?.type ?? 'Playing Exam');
-  const [description, setDescription] = useState(assignment?.description ?? '');
-  const [dueDate, setDueDate] = useState(assignment?.dueDate ?? today);
-  const [ensembleIds, setEnsembleIds] = useState<string[]>(assignment?.ensembleIds ?? []);
-  const [studentIds, setStudentIds] = useState<string[]>(assignment?.studentIds ?? []);
-  const [studentQuery, setStudentQuery] = useState('');
-  const [formUrl, setFormUrl] = useState(assignment?.formUrl ?? '');
-  const [acceptsVideo, setAcceptsVideo] = useState(assignment?.acceptsVideoSubmissions ?? false);
-  const [maxVideoMinutes, setMaxVideoMinutes] = useState(
-    secondsToMinutes(assignment?.maxVideoDurationSeconds ?? 240),
+  // Whatever was typed before the tab died, the phone rang, or the browser
+  // reloaded. Keyed by assignment so editing one exam never restores another's
+  // draft, and cleared the moment the real save lands (#assignment-draft).
+  const draftKey = assignmentDraftKey(assignment?.id);
+  const [restored] = useState(() => readDraft(draftKey));
+  const from = <K extends keyof AssignmentDraft>(key: K, fallback: AssignmentDraft[K]) =>
+    (restored && restored[key] !== undefined ? restored[key] : fallback) as AssignmentDraft[K];
+
+  const [title, setTitle] = useState(from('title', assignment?.title ?? ''));
+  // A stored value is only as good as the storage — anything that is not one
+  // of the four real types falls back rather than reaching TYPE_COLORS.
+  const draftType = from('type', assignment?.type ?? 'Playing Exam');
+  const [type, setType] = useState<AssignmentType>(
+    ASSIGNMENT_TYPES.includes(draftType) ? draftType : 'Playing Exam',
   );
-  const [maxVideoSizeMB, setMaxVideoSizeMB] = useState(assignment?.maxVideoSizeMB ?? DEFAULT_VIDEO_MAX_MB);
-  const [googleDriveFolderId, setGoogleDriveFolderId] = useState(assignment?.googleDriveFolderId ?? '');
-  const [pieceIds, setPieceIds] = useState<string[]>(assignment?.pieceIds ?? []);
+  const [description, setDescription] = useState(from('description', assignment?.description ?? ''));
+  const [dueDate, setDueDate] = useState(from('dueDate', assignment?.dueDate ?? today));
+  const [ensembleIds, setEnsembleIds] = useState<string[]>(from('ensembleIds', assignment?.ensembleIds ?? []));
+  const [studentIds, setStudentIds] = useState<string[]>(from('studentIds', assignment?.studentIds ?? []));
+  const [studentQuery, setStudentQuery] = useState('');
+  const [formUrl, setFormUrl] = useState(from('formUrl', assignment?.formUrl ?? ''));
+  const [acceptsVideo, setAcceptsVideo] = useState(from('acceptsVideo', assignment?.acceptsVideoSubmissions ?? false));
+  const [maxVideoMinutes, setMaxVideoMinutes] = useState(
+    from('maxVideoMinutes', secondsToMinutes(assignment?.maxVideoDurationSeconds ?? 240)),
+  );
+  const [maxVideoSizeMB, setMaxVideoSizeMB] = useState(from('maxVideoSizeMB', assignment?.maxVideoSizeMB ?? DEFAULT_VIDEO_MAX_MB));
+  const [googleDriveFolderId, setGoogleDriveFolderId] = useState(from('googleDriveFolderId', assignment?.googleDriveFolderId ?? ''));
+  const [pieceIds, setPieceIds] = useState<string[]>(from('pieceIds', assignment?.pieceIds ?? []));
   const [attachments, setAttachments] = useState<Attachment[]>(assignment?.attachments ?? []);
   const [publishAt, setPublishAt] = useState<number | undefined>(assignment?.publishAt);
+  const [draftNoticeOpen, setDraftNoticeOpen] = useState(!!restored);
   // null = this exam's rubric has not been chosen HERE, so the editor shows
   // whatever it would actually grade with (this director's default, for a
   // Playing Exam). It becomes a real value the moment the editor is touched,
@@ -87,15 +105,38 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
   const drive = useGoogleDrive();
   const me = useCurrentDirector();
   const { director } = useMyDirector(me?.email);
   const rubric = rubricEdit ?? rubricForAssignment({ type }, director?.examRubric);
 
-  function toggleEnsemble(id: string) {
-    setEnsembleIds(prev => prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]);
+  // Every keystroke, straight to localStorage. No focus trap and no Escape
+  // key: this is a PAGE now, not a modal — the Hub's own nav has to stay
+  // reachable, because an assignment is written while looking things up in it.
+  const draft: Omit<AssignmentDraft, 'savedAt'> = {
+    title, type, description, dueDate, ensembleIds, studentIds, formUrl,
+    acceptsVideo, maxVideoMinutes, maxVideoSizeMB, googleDriveFolderId, pieceIds,
+  };
+  const draftJson = JSON.stringify(draft);
+  // Nothing is stored until something is actually typed, so opening the form
+  // and backing straight out does not leave a "picked up where you left off"
+  // banner waiting for next time.
+  const pristine = useRef(draftJson);
+  useEffect(() => {
+    if (draftJson === pristine.current) return;
+    writeDraft(draftKey, JSON.parse(draftJson) as Omit<AssignmentDraft, 'savedAt'>);
+  }, [draftKey, draftJson]);
+
+  // The phone's back gesture returns to the list instead of leaving the app.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
+  useEffect(() => registerOverlayClose(() => onCloseRef.current()), []);
+
+  function discardDraft() {
+    clearDraft(draftKey);
+    setDraftNoticeOpen(false);
   }
+
   function toggleStudent(id: string) {
     setStudentIds(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   }
@@ -140,6 +181,9 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
         // 15-second race reported "Save timed out" for saves that synced
         // fine a moment later (audit rec #4).
         }));
+      // Only once the write is actually queued — a draft cleared before the
+      // save went through would be the very loss this exists to prevent.
+      clearDraft(draftKey);
       onClose();
     } catch (err) {
       setSaving(false);
@@ -148,14 +192,36 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={assignment ? 'Edit Assignment' : 'New Assignment'} tabIndex={-1} ref={panelRef}>
-        <div className="dir-drawer-handle" />
-        <div className="dir-drawer-header">
-          <span className="dir-drawer-title">{assignment ? 'Edit Assignment' : 'New Assignment'}</span>
-          <button className="dir-drawer-close" onClick={onClose}>×</button>
+    // A PAGE, not a drawer. There is no backdrop to click by accident, so a
+    // drag-select that overshoots can no longer throw the exam away — and the
+    // Hub's own header and nav stay put, because an assignment is written
+    // while looking up a date, a roster or a piece inside the app.
+    <div className="dir-tab-page dir-assign-page dir-assign-form-page">
+      <div className="dir-assign-page-top">
+        <button type="button" className="dir-drawer-back" onClick={onClose}>
+          <ChevronLeft size={16} /> {assignment ? 'Back' : 'All assignments'}
+        </button>
+      </div>
+
+      <header className="dir-assign-page-head">
+        <div className="dir-assign-page-title">{assignment ? 'Edit Assignment' : 'New Assignment'}</div>
+        <div className="dir-assign-page-meta">
+          Saved on this device as you type — leaving will not lose it.
         </div>
-        <div className="dir-drawer-body">
+      </header>
+
+      {draftNoticeOpen && (
+        <div className="dir-assign-draft-note">
+          <span>
+            Picked up where you left off{restored?.savedAt ? ` — last typed ${draftAge(restored.savedAt)}` : ''}.
+          </span>
+          <button type="button" className="dir-tool-btn" onClick={() => { discardDraft(); onClose(); }}>
+            Start over
+          </button>
+        </div>
+      )}
+
+      <div className="dir-page-body">
           <div className="dir-field">
             <label className="dir-label">Title *</label>
             <input
@@ -180,15 +246,10 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
           </div>
 
           <div className="dir-field">
-            <label className="dir-label">Ensembles</label>
-            <div className="dir-checkbox-group">
-              {ensembles.map(e => (
-                <label key={e.id} className={`dir-checkbox-tag ${ensembleIds.includes(e.id) ? 'checked' : ''}`}>
-                  <input type="checkbox" checked={ensembleIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
-                  {e.name}
-                </label>
-              ))}
-            </div>
+            <label className="dir-label">
+              Ensembles &amp; classes <span className="dir-label-hint">pick as many as this goes to</span>
+            </label>
+            <GroupPicker ensembles={ensembles} value={ensembleIds} onChange={setEnsembleIds} />
           </div>
 
           <div className="dir-field">
@@ -380,7 +441,7 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
                 <button
                   className="dir-btn dir-btn-danger"
                   style={{ flex: 1 }}
-                  onClick={async () => { await onDelete(); onClose(); }}
+                  onClick={async () => { await onDelete(); discardDraft(); onClose(); }}
                   disabled={saving}
                 >
                   Confirm Delete
@@ -393,20 +454,23 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
               </button>
             )
           )}
-        </div>
-        {saveError && (
-          <div style={{ padding: '4px 16px 0', fontSize: 13, color: 'var(--dir-danger)' }}>{saveError}</div>
-        )}
-        <div className="dir-drawer-footer">
-          <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
-          <button
-            className="dir-btn dir-btn-primary"
-            onClick={handleSave}
-            disabled={saving || !title.trim()}
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
+      </div>
+      {saveError && (
+        <div style={{ padding: '4px 16px 0', fontSize: 13, color: 'var(--dir-danger)' }}>{saveError}</div>
+      )}
+      {/* Sticky, because the page is long: on a phone the Save button used to
+          be a drawer footer and must not become a scroll hunt. Cancel keeps
+          the draft on purpose — "not now" is not "throw it away", and Start
+          over at the top is the one control that discards. */}
+      <div className="dir-assign-form-footer">
+        <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
+        <button
+          className="dir-btn dir-btn-primary"
+          onClick={handleSave}
+          disabled={saving || !title.trim()}
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
       </div>
     </div>
   );
@@ -854,31 +918,45 @@ export function AssignmentsView({ initialAssignmentId, initialEnsembleId, allowe
   const gradingAssignment = scopedAssignments.find(a => a.id === gradingId) ?? null;
 
   // Full page replaces the list — no side drawer fighting for vertical space.
+  // The editor is a page too now (#assignment-page), so it takes the screen
+  // ahead of the grade sheet and Back returns to whichever one opened it.
+  if (editingAssignment) {
+    return (
+      <AssignmentForm
+        assignment={editingAssignment}
+        ensembles={musicEns}
+        students={students}
+        onSave={data => updateAssignment(editingAssignment.id, data)}
+        onDelete={async () => {
+          await deleteAssignment(editingAssignment.id);
+          setEditingId(null);
+          setGradingId(null);
+        }}
+        onClose={() => setEditingId(null)}
+      />
+    );
+  }
+
+  if (addingNew) {
+    return (
+      <AssignmentForm
+        assignment={null}
+        ensembles={musicEns}
+        students={students}
+        onSave={addAssignment}
+        onClose={() => setAddingNew(false)}
+      />
+    );
+  }
+
   if (gradingAssignment) {
     return (
-      <>
-        <GradeSheet
-          assignment={gradingAssignment}
-          students={students}
-          onEdit={() => setEditingId(gradingAssignment.id)}
-          onClose={() => setGradingId(null)}
-        />
-        {editingAssignment && (
-          <AssignmentForm
-            assignment={editingAssignment}
-            ensembles={musicEns}
-            students={students}
-            onSave={async data => {
-              await updateAssignment(editingAssignment.id, data);
-            }}
-            onDelete={async () => {
-              await deleteAssignment(editingAssignment.id);
-              setGradingId(null);
-            }}
-            onClose={() => setEditingId(null)}
-          />
-        )}
-      </>
+      <GradeSheet
+        assignment={gradingAssignment}
+        students={students}
+        onEdit={() => setEditingId(gradingAssignment.id)}
+        onClose={() => setGradingId(null)}
+      />
     );
   }
 
@@ -972,27 +1050,6 @@ export function AssignmentsView({ initialAssignmentId, initialEnsembleId, allowe
       <button className="dir-fab" onClick={() => setAddingNew(true)} aria-label="New assignment">
         <Plus size={22} />
       </button>
-
-      {addingNew && (
-        <AssignmentForm
-          assignment={null}
-          ensembles={musicEns}
-          students={students}
-          onSave={addAssignment}
-          onClose={() => setAddingNew(false)}
-        />
-      )}
-
-      {editingAssignment && (
-        <AssignmentForm
-          assignment={editingAssignment}
-          ensembles={musicEns}
-          students={students}
-          onSave={data => updateAssignment(editingAssignment.id, data)}
-          onDelete={() => deleteAssignment(editingAssignment.id)}
-          onClose={() => setEditingId(null)}
-        />
-      )}
     </div>
   );
 }

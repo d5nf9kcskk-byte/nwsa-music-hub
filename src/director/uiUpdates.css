@@ -1193,6 +1193,45 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
 .dir-assign-page {
   padding-bottom: 32px;
 }
+
+/* ── The assignment editor, as a page (#assignment-page) ──
+   It was a drawer over a dimmed backdrop, and a drag-select that overshot the
+   panel closed it and took the draft with it. A page has no backdrop to
+   overshoot onto, and it leaves the Hub's header and nav reachable — which
+   matters, because a playing exam is written while looking up dates, rosters
+   and repertoire in the app. */
+.dir-assign-form-page {
+  /* Room for the sticky footer so the last field is never under it. */
+  padding-bottom: 88px;
+}
+
+.dir-assign-draft-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 16px 4px;
+  padding: 9px 12px;
+  border-radius: var(--dir-radius-sm);
+  background: rgba(13, 126, 142, 0.08);
+  border: 1.5px solid rgba(13, 126, 142, 0.3);
+  font-size: 13px;
+  color: var(--dir-text);
+}
+
+/* Sticky rather than a drawer footer: the form is long, and on a phone Save
+   must not be a scroll hunt at the bottom of eighteen instrument parts. */
+.dir-assign-form-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--dir-border);
+  background: var(--dir-surface);
+}
 .dir-assign-page-top {
   display: flex;
   align-items: center;

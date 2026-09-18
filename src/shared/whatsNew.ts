@@ -47,6 +47,19 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     ],
   },
   {
+    id: '2026-09-17-assignment-page',
+    date: '2026-09-17',
+    title: 'Writing an assignment no longer loses what you typed',
+    audience: 'staff' as const,
+    expires: '2026-10-15',
+    bullets: [
+      'New and Edit Assignment open as a full page instead of a side panel, so the Hub stays open beside you while you write — and there is no longer an edge to click past by accident.',
+      'Everything you type is kept on your device as you go. Leave the page, close the tab, or lose the browser, and it is still there when you come back.',
+      'Ensembles are a dropdown list now, grouped into Ensembles, Master classes, Classes, College ensembles and College classes, with checkboxes for as many as you need.',
+      'Everywhere else in the Hub: selecting text inside a panel and releasing outside it no longer closes the panel.',
+    ],
+  },
+  {
     id: '2026-09-17-menu-same-everywhere',
     date: '2026-09-17',
     title: 'The menu now says the same thing on a phone and a computer',
