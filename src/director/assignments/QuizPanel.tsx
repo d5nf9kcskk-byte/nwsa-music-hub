@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Copy, Download, FileUp } from 'lucide-react';
-import { saveQuizFile, setQuizOpen, useQuizKey, useQuizSubmissions } from '../hooks/useQuiz';
+import { saveQuizFile, setQuizOpen, useQuizKey, type QuizSubmissionState } from '../hooks/useQuiz';
 import { downloadCsv } from '../attendance/attendanceCsv';
 import { todayStr } from '../utils';
 import { ORG } from '../../org';
@@ -18,10 +18,12 @@ import './quizPanel.css';
  * written answers ride along in the sheet with an empty score column, because
  * a person grades those and a blank must never read as a zero.
  */
-export function QuizPanel({ assignment }: { assignment: Assignment }) {
+export function QuizPanel({ assignment, state }: { assignment: Assignment; state: QuizSubmissionState }) {
   const quiz = assignment.quiz;
   const { key, loading: keyLoading } = useQuizKey(assignment.id);
-  const { submissions, loading, loadError, deleteSubmission } = useQuizSubmissions(assignment.id);
+  // The submissions listener lives on the grade sheet, so the roster rows and
+  // this panel read ONE subscription rather than two of the same query.
+  const { submissions, loading, loadError, deleteSubmission } = state;
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');

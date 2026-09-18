@@ -30,6 +30,8 @@ import {
 import { RubricEditor } from './RubricEditor';
 import { GradeRow, type ConfirmArgs } from './GradeRow';
 import { QuizPanel } from './QuizPanel';
+import { useQuizSubmissions } from '../hooks/useQuiz';
+import { latestPerStudent } from '../../shared/quiz';
 import {
   assignmentDraftKey, clearDraft, draftAge, readDraft, writeDraft, type AssignmentDraft,
 } from './assignmentDraft';
@@ -497,6 +499,19 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
     submissions, loading: subLoading, loadError: subLoadError,
     setReviewStatus, deleteSubmission,
   } = useAssignmentSubmissions(assignment.id);
+  // One listener for the whole screen: the panel below and every roster row
+  // read the same online-test submissions (#online-test).
+  const quizState = useQuizSubmissions(assignment.quiz ? assignment.id : undefined);
+  const testByStudent = new Map(
+    latestPerStudent(quizState.submissions)
+      .map(l => [l.submission.studentId ?? '', l.submission] as const)
+      .filter(([id]) => !!id),
+  );
+  // What "nothing yet" is called on THIS exam. A written test has no video,
+  // and an exam graded in the room collects nothing at all, so it says nothing.
+  const missingLabel = assignment.acceptsVideoSubmissions
+    ? 'no video'
+    : assignment.quiz ? 'nothing submitted' : null;
   const [savingId, setSavingId] = useState<string | null>(null);
   const [gradeError, setGradeError] = useState('');
   const [sort, setSort] = useState<StudentSort>('scoreOrder');
@@ -521,7 +536,7 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
     students.filter(s => s.status === 'Active' && studentHasAssignment(assignment, s.id, s.ensembleIds)),
     sort,
   );
-  const submittedCount = relevant.filter(s => takesByStudent.has(s.id)).length;
+  const submittedCount = relevant.filter(s => takesByStudent.has(s.id) || testByStudent.has(s.id)).length;
   const gradedCount = relevant.filter(s => {
     const r = resultMap[s.id];
     return !!r && (r.status !== 'Pending' || !!r.score);
@@ -697,7 +712,7 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
         <div className="dir-assign-page-title">{assignment.title}</div>
         <div className="dir-assign-page-meta">
           {assignment.type} · Due {formatDate(assignment.dueDate, { month: 'short', day: 'numeric', year: 'numeric' })}
-          {assignment.acceptsVideoSubmissions && (
+          {(assignment.acceptsVideoSubmissions || assignment.quiz) && (
             <> · {submittedCount} of {relevant.length} submitted</>
           )}
           {' · '}{gradedCount} of {relevant.length} graded
@@ -731,7 +746,7 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
 
       {/* Online test (#online-test). Offered on a Written Test, and shown on
           anything that already carries one. */}
-      {(assignment.type === 'Written Test' || assignment.quiz) && <QuizPanel assignment={assignment} />}
+      {(assignment.type === 'Written Test' || assignment.quiz) && <QuizPanel assignment={assignment} state={quizState} />}
 
       <div className="dir-assign-summary-bar">
         {[
@@ -774,6 +789,8 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
               result={resultMap[s.id]}
               criteria={criteria}
               takes={assignment.acceptsVideoSubmissions ? (takesByStudent.get(s.id) ?? []) : []}
+              testSubmission={testByStudent.get(s.id) ?? null}
+              noSubmissionLabel={missingLabel}
               open={openId === s.id}
               onToggle={() => setOpenId(openId === s.id ? null : s.id)}
               saving={savingId === s.id}

@@ -45,9 +45,16 @@ export async function submitQuiz(
   return ref.id;
 }
 
+export interface QuizSubmissionState {
+  submissions: QuizSubmission[];
+  loading: boolean;
+  loadError: boolean;
+  deleteSubmission: (id: string) => Promise<void>;
+}
+
 /** Staff: every submission for one assignment. Equality filter only, so no
  *  composite index is needed (same posture as useAssignmentSubmissions). */
-export function useQuizSubmissions(assignmentId?: string) {
+export function useQuizSubmissions(assignmentId?: string): QuizSubmissionState {
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);

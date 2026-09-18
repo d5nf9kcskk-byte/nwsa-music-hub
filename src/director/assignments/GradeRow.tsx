@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Check, ChevronDown, ChevronRight, Video } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, FileText, Video } from 'lucide-react';
 import {
   rubricChangedSince, rubricScores, scoresToPicks, tallyRubric,
   type RubricCriterion, type RubricScore,
 } from '../examRubric';
 import { formatClock, formatFileSize } from '../../shared/duration';
 import type { AssignmentResult, AssignmentResultStatus, AssignmentSubmission, Student } from '../types';
+import type { QuizSubmission } from '../../shared/quiz';
 
 const STATUSES: AssignmentResultStatus[] = ['Pass', 'Fail', 'Exempt'];
 
@@ -22,6 +23,14 @@ interface Props {
   criteria: RubricCriterion[];
   /** Every take this student sent, newest first. */
   takes: AssignmentSubmission[];
+  /** This student's newest online-test submission, when the exam has one
+   *  (#online-test). A written test has no video, so the row says what it is
+   *  actually missing rather than "no video". */
+  testSubmission?: QuizSubmission | null;
+  /** What to call nothing-yet on THIS exam: "no video", "nothing submitted",
+   *  or null on an exam that collects nothing in the app (graded in the room),
+   *  where an accusing grey chip on every row is just noise. */
+  noSubmissionLabel?: string | null;
   open: boolean;
   onToggle: () => void;
   saving: boolean;
@@ -32,6 +41,8 @@ interface Props {
   onDeleteTake: (sub: AssignmentSubmission) => Promise<void>;
 }
 
+const shortTime = (ms: number) =>
+  new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 const shortDate = (ms: number) =>
   new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 const longDate = (ms: number) =>
@@ -45,7 +56,7 @@ const longDate = (ms: number) =>
  * and opening it grades in place while the video plays beside the rubric.
  */
 export function GradeRow({
-  student, result, criteria, takes, open, onToggle, saving,
+  student, result, criteria, takes, testSubmission, noSubmissionLabel, open, onToggle, saving,
   onConfirm, onStatus, onScore, onSetReviewed, onDeleteTake,
 }: Props) {
   const status: AssignmentResultStatus = result?.status ?? 'Pending';
@@ -105,9 +116,16 @@ export function GradeRow({
                   {newest.status === 'reviewed' && <> · watched</>}
                 </span>
               </>
-            ) : (
-              <> · <span className="dir-grade-nosub">no video</span></>
-            )}
+            ) : testSubmission ? (
+              <>
+                {' · '}
+                <span className="dir-grade-sub-inline">
+                  <FileText size={11} /> test sent {shortTime(testSubmission.submittedAt)}
+                </span>
+              </>
+            ) : noSubmissionLabel ? (
+              <> · <span className="dir-grade-nosub">{noSubmissionLabel}</span></>
+            ) : null}
           </span>
         </span>
         <span className="dir-grade-mark">
