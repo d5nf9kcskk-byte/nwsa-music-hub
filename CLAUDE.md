@@ -1092,6 +1092,78 @@ Both fixed here; the rules that keep them fixed:
   desktop-only side panel, ~275-314 in the main flow). Change one, change the
   other in the same commit.
 
+## Overlays, and the editor that is a page (Sept 2026, #backdrop-drag / #assignment-page)
+
+**`src/shared/backdropClose.ts` is the ONE spelling of click-outside-to-close.**
+Never write `onClick={e => e.target === e.currentTarget && onClose()}` on a
+backdrop again — that shipped in 49 places and threw work away. A `click` fires
+on the nearest COMMON ancestor of press and release, so a drag-select that
+starts in a textarea and releases past the panel edge arrives as a click ON the
+backdrop and the test passes. The helper closes only when both ends of the
+gesture were the backdrop. Its remembered target is MODULE state, not a closure
+(handlers are rebuilt between `pointerdown` and `click` whenever a controlled
+input re-renders), and it listens on `pointerdown` so mouse, touch and pen are
+one path. `backdropClose.selfcheck.ts` rebuilds the handlers mid-gesture to pin
+exactly that, and runs in the deploy workflow.
+
+**The assignment editor is a PAGE, not a drawer**, with no focus trap and no
+Escape — an assignment is written while looking things up in the Hub, so the
+shell's nav has to stay reachable. Its draft lives in `localStorage`
+(`assignments/assignmentDraft.ts`), keyed per assignment, cleared only once a
+save is QUEUED; Cancel keeps it and only "Start over" discards. Deliberately
+not Firestore: `assignments` is world-readable, so a half-written exam there is
+a published exam. `attachments`, `publishAt` and `rubric` stay OUT of the draft
+— the last two carry a meaningful "not set" that JSON cannot tell from absent
+(the CLEAR-sentinel trap), and guessing wrong changes when an exam posts or how
+it is scored.
+
+## Picking groups (Sept 2026, #group-picker)
+
+`GroupPicker` + `src/director/groupBuckets.ts` are how every screen that picks
+ensembles/classes does it: Events (×2), Students, Repertoire, Documents,
+Personnel, Directors (×2). Not Sign-ups (uses `FilterMenu`), and not the
+STUDENT pickers in My Lessons / Directors.
+
+- **`groupBuckets()` buckets exactly what it is handed and FILTERS NOTHING.**
+  Load-bearing: the Event form deliberately offers Dance, Theater and Visual
+  Arts because the calendar covers every division, while the roster and
+  repertoire forms hand over `musicEnsembles(...)`. A picker that decided for
+  itself would drop three divisions off the Event form in silence — nothing
+  throws, the group is just un-pickable. Anything matching no named section
+  comes out in a trailing bucket. Deciding WHICH groups a screen offers stays
+  with the screen. `groupBuckets.selfcheck.ts` pins losslessness.
+- **`FilterMenu` is not a substitute** — there empty means ALL, which in an
+  editor field reads as "every group" when the director meant school-wide.
+- **`EventForm` has no `toggleEnsemble`, and must not get one back.** Picking
+  the FIRST group pre-fills a blank location and start/end time from that
+  group's defaults; `setEnsembleIds` keeps that by reading the newly-ticked id
+  as the one in the new list that was not in the old.
+- **`assignedEnsembleIds` is ONE field edited by TWO pickers** on the Directors
+  screen, each blind to the other's kind of group. The merge is
+  `directors/assignedSlices.ts` — used by both pickers AND the assistant
+  `FilterMenu` branch — with a third slice for ids belonging to neither (a
+  group renamed or deleted) that is CARRIED, never cleaned up. That field is
+  the one answer to "whose group is this" (#my-calendar), so a lost id is not a
+  display bug. `assignedSlices.selfcheck.ts` pins it.
+
+## Posting an assignment without a browser (Sept 2026)
+
+`scripts/post-assignment.mjs` + the *Post Assignment* workflow write one
+assignment from `config/assignments/*.json`. The text is a FILE, not a workflow
+input: eighteen instrument parts do not fit in the Actions tab, and a file is a
+reviewable diff rather than somebody's shell history (as
+`config/entry-only-concerts.json` already is). Fine to route this way because
+an assignment is world-readable coursework — a roster write still is not
+(#student-data). The doc id is stable so a re-run updates rather than
+duplicating, and it carries forward every field the APP owns:
+`googleDriveFolderId` above all, since that folder is created by the Connect
+Google Drive button (a Google popup no agent can drive) and a blind overwrite
+would silently unhook it from a live exam. It refuses an ensemble or piece id
+that does not exist — otherwise the exam posts, reaches nobody, and links to no
+music, with no error anywhere.
+
+Session record: `docs/session-notes-2026-09-17-assignment-editor-and-group-picker.md`.
+
 ## What's New banner (auto)
 
 Product/UX changes that affect all staff or the public student site must
