@@ -69,6 +69,13 @@ runs:
       run: npx tsx src/shared/interimReport.selfcheck.ts
       shell: bash
 
+    # Online tests (#online-test). A wrong answer here is a leaked answer key
+    # (the public assignment doc carrying one) or a wrong grade (a blank
+    # written answer scored as zero, an answer filed under the wrong question).
+    - name: Check online tests
+      run: npx tsx src/shared/quiz.selfcheck.ts
+      shell: bash
+
     # Who a sign-up reaches. Drift here is silent — a director opens
     # "Camerata strings" and half the section never sees it (#signups).
     - name: Check sign-up eligibility

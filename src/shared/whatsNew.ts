@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Online tests (#online-test). Staff-only: students only meet one when a
+  // director opens it in class, and the page explains itself then.
+  {
+    id: '2026-09-17-online-tests',
+    date: '2026-09-17',
+    title: 'Written tests can be taken online',
+    audience: 'staff' as const,
+    expires: '2026-10-01',
+    bullets: [
+      'Open a Written Test and use “Load test file”. Students take it on the assignment page with their name, on any phone.',
+      'Press “Open test” when class starts and “Close test” when time is up. Closed means closed: no late submissions get in.',
+      'Choice questions grade themselves. “Results sheet” downloads everything for Excel, with written answers and an empty column for your score.',
+    ],
+  },
   {
     id: '2026-09-17-menu-same-everywhere',
     date: '2026-09-17',

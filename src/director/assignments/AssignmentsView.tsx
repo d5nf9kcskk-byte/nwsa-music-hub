@@ -30,6 +30,7 @@ import {
 } from './assignmentGradesCsv';
 import { RubricEditor } from './RubricEditor';
 import { GradeRow, type ConfirmArgs } from './GradeRow';
+import { QuizPanel } from './QuizPanel';
 import { describeDuration, formatClock, formatFileSize, minutesToSeconds, secondsToMinutes } from '../../shared/duration';
 import { ORG } from '../../org';
 import { studentMatchesQuery } from '../studentSearch';
@@ -663,6 +664,10 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
           )}
         </div>
       )}
+
+      {/* Online test (#online-test). Offered on a Written Test, and shown on
+          anything that already carries one. */}
+      {(assignment.type === 'Written Test' || assignment.quiz) && <QuizPanel assignment={assignment} />}
 
       <div className="dir-assign-summary-bar">
         {[

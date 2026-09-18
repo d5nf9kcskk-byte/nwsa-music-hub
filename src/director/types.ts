@@ -8,6 +8,8 @@ import type {
 // Same posture: examRubric.ts is pure arithmetic over its own shapes, so the
 // rubric stays defined in one place instead of being restated here.
 import type { RubricCriterion, RubricScore } from './examRubric';
+// Same again: quiz.ts is pure (#online-test).
+import type { QuizDefinition } from '../shared/quiz';
 
 /**
  * Access levels for signed-in staff (#roles). Lives here (the dependency-free
@@ -825,6 +827,13 @@ export interface Assignment {
    *  migration); a LIST is this exam's own rubric; an EMPTY list means rubric
    *  grading is deliberately off here and the plain score box comes back. */
   rubric?: RubricCriterion[];
+  /** An online test students take on the public assignment page (#online-test).
+   *  QUESTIONS ONLY: this doc is world-readable, so the answer key lives in the
+   *  staff-only `assignmentKeys/{id}`. Written by `splitQuizFile()`, never by hand. */
+  quiz?: QuizDefinition;
+  /** The test is open for submissions. firestore.rules checks this on every
+   *  create, so turning it off at the end of class actually stops them. */
+  acceptsQuizSubmissions?: boolean;
   createdAt: number;
   attachments?: Attachment[];
   /** Scheduled publishing (mirrors Announcement.publishAt): epoch ms. If set

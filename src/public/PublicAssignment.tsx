@@ -1,8 +1,9 @@
 import { useEffect, useMemo } from 'react';
 import { useParams, useLocation, Link } from 'react-router';
-import { Calendar, ClipboardCheck, Download, ExternalLink, Music, Paperclip, Video } from 'lucide-react';
+import { Calendar, ClipboardCheck, Download, ExternalLink, FileText, Music, Paperclip, Video } from 'lucide-react';
 import { BackLink } from './components/BackLink';
 import { SubmissionForm } from './components/SubmissionForm';
+import { QuizForm } from './components/QuizForm';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useRepertoire } from '../director/hooks/useRepertoire';
@@ -128,6 +129,22 @@ export function PublicAssignment() {
             <ClipboardCheck size={15} /> {t('assign.instructions')}
           </h2>
           <RichText text={description} className="pub-assign-body" />
+        </section>
+      )}
+
+      {/* An online test (#online-test). The questions render only while the
+          director has it open, so the page is not a preview of the test the
+          night before; the key is never on this page at all. */}
+      {assignment.quiz && (
+        <section className="pub-card pub-assign-section" id="assign-test">
+          <h2 className="pub-assign-section-title">
+            <FileText size={15} /> Take the test
+          </h2>
+          {assignment.acceptsQuizSubmissions
+            ? (loadingStudents
+              ? <div className="pub-muted" style={{ padding: '8px 0' }}>{t('misc.loading')}</div>
+              : <QuizForm assignment={assignment} quiz={assignment.quiz} students={students} />)
+            : <p className="pub-quiz-closed">The test is not open right now. Your teacher opens it in class.</p>}
         </section>
       )}
 
