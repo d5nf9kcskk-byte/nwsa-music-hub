@@ -45,9 +45,16 @@ export async function submitQuiz(
   return ref.id;
 }
 
+export interface QuizSubmissionState {
+  submissions: QuizSubmission[];
+  loading: boolean;
+  loadError: boolean;
+  deleteSubmission: (id: string) => Promise<void>;
+}
+
 /** Staff: every submission for one assignment. Equality filter only, so no
  *  composite index is needed (same posture as useAssignmentSubmissions). */
-export function useQuizSubmissions(assignmentId?: string) {
+export function useQuizSubmissions(assignmentId?: string): QuizSubmissionState {
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -118,6 +125,16 @@ export async function saveQuizFile(assignmentId: string, fileText: string): Prom
   await setDoc(doc(db, 'assignmentKeys', assignmentId), { answers: key, updatedAt: Date.now(), updatedBy });
   await updateDoc(doc(db, 'assignments', assignmentId), { quiz, updatedAt: Date.now(), updatedBy });
   return { questions: quiz.sections.reduce((n, s) => n + s.questions.length, 0) };
+}
+
+/** Staff: choose which of the bank's questions are on this exam. */
+export async function setQuizSelection(assignmentId: string, ids: string[]): Promise<void> {
+  if (!db) return;
+  await updateDoc(doc(db, 'assignments', assignmentId), {
+    quizSelection: ids,
+    updatedAt: Date.now(),
+    updatedBy: currentDirectorName(),
+  });
 }
 
 /** Staff: open or close the test. The rules read this flag on every create. */

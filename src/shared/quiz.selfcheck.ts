@@ -7,12 +7,15 @@
  */
 import {
   QUIZ_TEXT_MAX, QuizFileError, cleanAnswers, latestPerStudent, nameKey, parseAnswers,
-  quizResultsToCsv, scoreQuiz, splitQuizFile, type QuizSubmission,
+  quizResultsToCsv, quizTotalPoints, scoreQuiz, selectedQuiz, splitQuizFile, type QuizSubmission,
 } from './quiz.ts';
 
 function assert(cond: unknown, msg: string): void {
   if (!cond) throw new Error(msg);
 }
+
+const allIds = (q: { sections: { questions: { id: string }[] }[] }) =>
+  q.sections.flatMap(s => s.questions.map(x => x.id));
 
 const FILE = {
   sections: [
@@ -83,6 +86,19 @@ assert(r.autoEarned === 12, 'reordering questions does not move answers');
 
 assert(Object.keys(parseAnswers('not json')).length === 0, 'garbage answers parse to nothing');
 assert(Object.keys(parseAnswers('{"a":1,"b":"x"}')).join() === 'b', 'non-string answers are ignored');
+
+/* ── the bank is not the test: what the director ticked is ─────────────── */
+
+assert(allIds(selectedQuiz(quiz, undefined)).length === 5, 'no selection means the whole bank, so old tests are unchanged');
+assert(selectedQuiz(quiz, []).sections.length === 0, 'an empty selection is a real answer: nothing is on the test');
+const three = selectedQuiz(quiz, ['L-A', 'S1', 'S2']);
+assert(allIds(three).join() === 'L-A,S1,S2', 'only the ticked questions are on the test');
+assert(three.sections.length === 2 && three.sections[0].questions.length === 1, 'a section with nothing ticked drops off');
+assert(three.sections[1].choose === undefined, 'choose-2 of two remaining questions is not a choice at all');
+assert(quizTotalPoints(three) === 46, 'points count what is on the test (6 + 20 + 20)');
+assert(quizTotalPoints(selectedQuiz(quiz, ['S1', 'S2', 'S3'])) === 40, 'a choose-2 section counts two answers, not three');
+const pickedScore = scoreQuiz(selectedQuiz(quiz, ['L-A']), key, { 'L-A': 'Three', 'L-B': 'One' });
+assert(pickedScore.autoPossible === 6 && pickedScore.autoEarned === 6, 'a question left off the test is not scored');
 
 /* ── one row per student, newest wins ──────────────────────────────────── */
 

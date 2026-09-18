@@ -834,6 +834,11 @@ export interface Assignment {
   /** The test is open for submissions. firestore.rules checks this on every
    *  create, so turning it off at the end of class actually stops them. */
   acceptsQuizSubmissions?: boolean;
+  /** Which of the test bank's questions are on THIS exam (#online-test).
+   *  Absent = the whole bank, which is what tests loaded before the picker
+   *  existed keep doing. Empty = nothing chosen yet, and the student form says
+   *  so — it is a real state, not a missing one. */
+  quizSelection?: string[];
   createdAt: number;
   attachments?: Attachment[];
   /** Scheduled publishing (mirrors Announcement.publishAt): epoch ms. If set
