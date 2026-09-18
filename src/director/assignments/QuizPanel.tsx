@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Copy, Download, FileUp } from 'lucide-react';
-import { saveQuizFile, setQuizOpen, useQuizKey, type QuizSubmissionState } from '../hooks/useQuiz';
+import { saveQuizFile, setQuizOpen, setQuizSelection, useQuizKey, type QuizSubmissionState } from '../hooks/useQuiz';
 import { downloadCsv } from '../attendance/attendanceCsv';
 import { todayStr } from '../utils';
 import { ORG } from '../../org';
 import {
-  QuizFileError, allQuestions, latestPerStudent, parseAnswers, quizCsvFilename, quizResultsToCsv, scoreQuiz,
+  QuizFileError, allQuestions, latestPerStudent, parseAnswers, quizCsvFilename, quizResultsToCsv,
+  quizTotalPoints, scoreQuiz, selectedQuiz,
 } from '../../shared/quiz';
 import type { Assignment } from '../types';
 import './quizPanel.css';
@@ -30,6 +31,7 @@ export function QuizPanel({ assignment, state }: { assignment: Assignment; state
   const [err, setErr] = useState('');
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [picking, setPicking] = useState(false);
 
   const link = `${ORG.publicUrl.replace(/\/$/, '')}/assignments/${assignment.id}`;
   const open = !!assignment.acceptsQuizSubmissions;
@@ -62,7 +64,7 @@ export function QuizPanel({ assignment, state }: { assignment: Assignment; state
 
   function exportCsv() {
     if (!quiz) return;
-    const csv = quizResultsToCsv(quiz, key ?? {}, submissions, ms =>
+    const csv = quizResultsToCsv(onTest, key ?? {}, submissions, ms =>
       new Date(ms).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }));
     downloadCsv(quizCsvFilename(assignment.title, todayStr()), csv);
   }
@@ -105,10 +107,28 @@ export function QuizPanel({ assignment, state }: { assignment: Assignment; state
     );
   }
 
-  const questionsAll = allQuestions(quiz);
-  const questionCount = questionsAll.length;
-  const autoPoints = questionsAll.filter(q => q.kind === 'choice').reduce((n, q) => n + q.points, 0);
-  const writtenPoints = scoreQuiz(quiz, key ?? {}, {}).toGrade;
+  const bank = allQuestions(quiz);
+  // Nothing ticked yet means the whole bank, so a test loaded before the
+  // picker existed behaves exactly as it did.
+  const selection = assignment.quizSelection;
+  const picked = new Set(selection ?? bank.map(q => q.id));
+  const onTest = selectedQuiz(quiz, selection);
+  const onTestQuestions = allQuestions(onTest);
+  const autoPoints = onTestQuestions.filter(q => q.kind === 'choice').reduce((n, q) => n + q.points, 0);
+  const writtenPoints = scoreQuiz(onTest, key ?? {}, {}).toGrade;
+
+  async function toggleQuestion(id: string) {
+    const next = new Set(picked);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setBusy(true); setErr('');
+    try {
+      await setQuizSelection(assignment.id, bank.map(q => q.id).filter(qid => next.has(qid)));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not save that.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <section className="dir-quiz">
@@ -118,14 +138,46 @@ export function QuizPanel({ assignment, state }: { assignment: Assignment; state
             Online test <span className={`dir-quiz-state ${open ? 'open' : ''}`}>{open ? 'Open' : 'Closed'}</span>
           </div>
           <div className="dir-field-hint">
-            {questionCount} questions · {autoPoints} points grade themselves
-            {writtenPoints > 0 && ` · ${writtenPoints} written points for you`}
+            {onTestQuestions.length} of {bank.length} questions on the test · {quizTotalPoints(onTest)} points
+            {autoPoints > 0 && ` · ${autoPoints} grade themselves`}
+            {writtenPoints > 0 && ` · ${writtenPoints} written for you`}
           </div>
         </div>
         <button type="button" className={`dir-quiz-toggle ${open ? 'open' : ''}`} disabled={busy} onClick={toggleOpen}>
           {open ? 'Close test' : 'Open test'}
         </button>
       </div>
+
+      <div className="dir-quiz-picker-bar">
+        <button type="button" className="dir-tool-btn" onClick={() => setPicking(v => !v)}>
+          {picking ? 'Done choosing' : 'Choose questions'}
+        </button>
+        {onTestQuestions.length === 0 && (
+          <span className="dir-quiz-warn">Nothing is on the test yet.</span>
+        )}
+      </div>
+
+      {picking && (
+        <div className="dir-quiz-picker">
+          {quiz.sections.map(section => (
+            <div key={section.id} className="dir-quiz-picker-sec">
+              <div className="dir-quiz-picker-head">{section.title}</div>
+              {section.questions.map(q => (
+                <label key={q.id} className={`dir-quiz-pick ${picked.has(q.id) ? 'on' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={picked.has(q.id)}
+                    disabled={busy}
+                    onChange={() => { void toggleQuestion(q.id); }}
+                  />
+                  <span className="dir-quiz-pick-text">{q.prompt}</span>
+                  <span className="dir-quiz-pick-pts">{q.points}</span>
+                </label>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="dir-quiz-link">
         <span className="dir-quiz-link-url">{link}</span>
@@ -163,7 +215,7 @@ export function QuizPanel({ assignment, state }: { assignment: Assignment; state
         <div className="dir-quiz-list">
           {rows.map(({ submission, count }) => {
             const answers = parseAnswers(submission.answersJson);
-            const score = scoreQuiz(quiz, key ?? {}, answers);
+            const score = scoreQuiz(onTest, key ?? {}, answers);
             const expanded = openRow === submission.id;
             return (
               <div key={submission.id} className="dir-quiz-row">
@@ -184,7 +236,7 @@ export function QuizPanel({ assignment, state }: { assignment: Assignment; state
                     {score.sections.filter(s => s.possible > 0).map(s => (
                       <div key={s.sectionId} className="dir-quiz-detail-line">{s.title}: {s.earned}/{s.possible}</div>
                     ))}
-                    {allQuestions(quiz).filter(q => q.kind === 'text' && answers[q.id]).map(q => (
+                    {onTestQuestions.filter(q => q.kind === 'text' && answers[q.id]).map(q => (
                       <div key={q.id} className="dir-quiz-written">
                         <div className="dir-quiz-written-q">{q.prompt}</div>
                         <div className="dir-quiz-written-a">{answers[q.id]}</div>

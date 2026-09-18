@@ -133,6 +133,34 @@ export function allQuestions(quiz: QuizDefinition): QuizQuestion[] {
   return quiz.sections.flatMap(s => s.questions);
 }
 
+/**
+ * The test as it will actually be taken (#online-test).
+ *
+ * A test file is a BANK: every listening item and every study question the
+ * unit covers. The director ticks what goes on this exam, and `selection` is
+ * that list of question ids. ABSENT means nobody has chosen, so the whole bank
+ * is the test — which is what every test loaded before this feature keeps
+ * doing. An EMPTY list is a real answer too: nothing is on the exam yet, and
+ * the student form says so rather than quietly showing all of it.
+ */
+export function selectedQuiz(quiz: QuizDefinition, selection?: string[]): QuizDefinition {
+  if (!selection) return quiz;
+  const keep = new Set(selection);
+  const sections = quiz.sections
+    .map(s => ({ ...s, questions: s.questions.filter(q => keep.has(q.id)) }))
+    .filter(s => s.questions.length > 0)
+    .map(s => (s.choose && s.choose >= s.questions.length ? { ...s, choose: undefined } : s));
+  return { sections };
+}
+
+/** Points on the test as selected. */
+export function quizTotalPoints(quiz: QuizDefinition): number {
+  return quiz.sections.reduce((total, s) => {
+    const pts = s.questions.map(q => q.points).sort((a, b) => b - a);
+    return total + (s.choose ? pts.slice(0, s.choose) : pts).reduce((a, b) => a + b, 0);
+  }, 0);
+}
+
 /** The answers a student is allowed to send: known ids only, choice answers
  *  from the option list, text trimmed and bounded, and no more than `choose`
  *  written answers in a choose-N section (the first ones they wrote win). */

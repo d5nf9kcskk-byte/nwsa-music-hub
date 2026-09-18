@@ -42,3 +42,16 @@
 .dir-quiz-written-q { font-weight: 700; margin-bottom: 3px; }
 .dir-quiz-written-a { white-space: pre-wrap; line-height: 1.45; }
 .dir-quiz-del { margin-top: 6px; font-size: 12px; }
+
+/* Choosing what is on the test (#online-test). */
+.dir-quiz-picker-bar { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.dir-quiz-warn { font-size: 13px; font-weight: 700; color: var(--dir-danger); }
+.dir-quiz-picker { margin-top: 10px; border: 1px solid var(--dir-border); border-radius: var(--dir-radius-sm); padding: 8px 10px; max-height: 420px; overflow-y: auto; }
+.dir-quiz-picker-sec + .dir-quiz-picker-sec { margin-top: 12px; }
+.dir-quiz-picker-head { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--dir-text-muted); margin-bottom: 6px; }
+.dir-quiz-pick { display: flex; align-items: flex-start; gap: 8px; padding: 7px 6px; border-radius: 8px; font-size: 13.5px; line-height: 1.35; cursor: pointer; }
+.dir-quiz-pick:hover { background: var(--dir-bg); }
+.dir-quiz-pick.on { background: var(--dir-excused-bg); }
+.dir-quiz-pick input { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--dir-primary); flex-shrink: 0; }
+.dir-quiz-pick-text { flex: 1; min-width: 0; }
+.dir-quiz-pick-pts { font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 700; color: var(--dir-text-muted); }

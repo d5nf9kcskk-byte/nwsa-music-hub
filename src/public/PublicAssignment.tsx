@@ -4,6 +4,7 @@ import { Calendar, ClipboardCheck, Download, ExternalLink, FileText, Music, Pape
 import { BackLink } from './components/BackLink';
 import { SubmissionForm } from './components/SubmissionForm';
 import { QuizForm } from './components/QuizForm';
+import { selectedQuiz } from '../shared/quiz';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useRepertoire } from '../director/hooks/useRepertoire';
@@ -143,7 +144,7 @@ export function PublicAssignment() {
           {assignment.acceptsQuizSubmissions
             ? (loadingStudents
               ? <div className="pub-muted" style={{ padding: '8px 0' }}>{t('misc.loading')}</div>
-              : <QuizForm assignment={assignment} quiz={assignment.quiz} students={students} />)
+              : <QuizForm assignment={assignment} quiz={selectedQuiz(assignment.quiz, assignment.quizSelection)} students={students} />)
             : <p className="pub-quiz-closed">The test is not open right now. Your teacher opens it in class.</p>}
         </section>
       )}

@@ -127,6 +127,16 @@ export async function saveQuizFile(assignmentId: string, fileText: string): Prom
   return { questions: quiz.sections.reduce((n, s) => n + s.questions.length, 0) };
 }
 
+/** Staff: choose which of the bank's questions are on this exam. */
+export async function setQuizSelection(assignmentId: string, ids: string[]): Promise<void> {
+  if (!db) return;
+  await updateDoc(doc(db, 'assignments', assignmentId), {
+    quizSelection: ids,
+    updatedAt: Date.now(),
+    updatedBy: currentDirectorName(),
+  });
+}
+
 /** Staff: open or close the test. The rules read this flag on every create. */
 export async function setQuizOpen(assignmentId: string, open: boolean): Promise<void> {
   if (!db) return;
