@@ -92,4 +92,66 @@ const railMapsNavTop = /NAV_TOP\.map\(/.test(rail);
 assert(railMapsNavTop, 'the desktop rail must map NAV_TOP, not hand-write the top destinations');
 assert(/NAV_TOP\.map\(/.test(drawer), 'the phone drawer must map NAV_TOP, not hand-write the top destinations');
 
-console.log(`one-nav self-check OK — ${inDrawer.size} labels, identical in both navs`);
+// ── The director shell ────────────────────────────────────────────────────
+//
+// Same disease, same file shape: DirectorApp.tsx wrote its Ensembles /
+// Classes / College accordions out TWICE, ~300 lines apart, once for the rail
+// and once for the drawer. They had drifted two ways before anyone looked —
+// the drawer's "All Classes" row wore the GraduationCap (College's icon) and
+// only the rail lit its Ensembles heading on the All-Ensembles tab. Nobody
+// could see it, because only one of the two is on screen at any width.
+//
+// Both surfaces now render src/director/DirNavGroup.tsx over ONE spec. These
+// three class names belong to a group ROW, so their presence back in
+// DirectorApp.tsx means somebody started hand-writing a tree again.
+//
+// `dir-rail-head` and `dir-rail-expand` are deliberately NOT on this list: the
+// Library accordion legitimately uses them and is rail-only on purpose (the
+// phone keeps Library expanded — "no accordion tax once the menu is open").
+const shell = readFileSync(new URL('../src/director/DirectorApp.tsx', import.meta.url), 'utf8');
+for (const c of ['dir-rail-dot', 'dir-menu-dot', 'dir-menu-subitem']) {
+  assert(
+    !shell.includes(c),
+    `DirectorApp.tsx writes "${c}" — a nav group row belongs in DirNavGroup.tsx,\n`
+    + '  or the rail and the drawer start drifting again.',
+  );
+}
+
+// ONE renderer inside the component: the heading, the group's own hub row, and
+// the per-ensemble row. A rail-only or drawer-only special case cannot be
+// added without a fourth <button>, so it cannot be added without turning this
+// red. Per-surface differences belong in the RAIL / DRAWER skins.
+const groupSrc = readFileSync(new URL('../src/director/DirNavGroup.tsx', import.meta.url), 'utf8')
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  // Line comments too, or a comment NAMING a class trips the scan below.
+  .replace(/\/\/[^\n]*/g, '');
+const buttons = (groupSrc.match(/<button\b/g) ?? []).length;
+assert(
+  buttons === 3,
+  `DirNavGroup.tsx renders ${buttons} <button> elements, expected 3 (heading, "All …" row, ensemble row).\n`
+  + '  A fourth usually means a per-surface special case that belongs in a skin.',
+);
+
+// And the markup below the skins must not name a surface class DIRECTLY.
+// Found by deliberately breaking it: hardcoding `className="dir-menu-dot"` on
+// the ensemble row passes every check above, renders correctly in the drawer,
+// and silently gives the RAIL the drawer's dot — invisible to whoever is
+// looking, which is this whole bug's signature. Strip the two skin literals,
+// and no surface class may remain.
+const belowSkins = groupSrc
+  .replace(/const RAIL: Skin = \{[\s\S]*?\};/, '')
+  .replace(/const DRAWER: Skin = \{[\s\S]*?\};/, '');
+// Backticks count: className={`dir-menu-dot`} is the same mistake wearing a
+// different quote, and matching only ' and " would wave it straight through.
+const hardcoded = belowSkins.match(/['"`]dir-(?:rail|menu)-[\w -]*['"`]/g) ?? [];
+assert(
+  hardcoded.length === 0,
+  `DirNavGroup.tsx hardcodes ${hardcoded.join(', ')} outside the RAIL/DRAWER skins.\n`
+  + '  A class named in the markup is the same class on both surfaces, so one of\n'
+  + '  them silently gets the other\'s styling. Put it in the two skins instead.',
+);
+
+console.log(
+  `one-nav self-check OK — public nav: ${inDrawer.size} labels identical in both navs;`
+  + ' director nav: one renderer, two skins',
+);

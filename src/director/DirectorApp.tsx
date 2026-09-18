@@ -58,12 +58,13 @@ import { ClassesView } from './ensembles/ClassesView';
 import { CollegeView } from './ensembles/CollegeView';
 import { useEnsembles } from './hooks/useEnsembles';
 import {
-  ensembleColor, highSchoolEnsembles, highSchoolClasses,
+  highSchoolEnsembles, highSchoolClasses,
   collegeEnsembles, collegeClasses,
 } from './utils';
 import { hasDirectorRole, isStaffMember } from './hooks/useDirectors';
 import type { CurrentDirector } from './currentDirector';
 import type { DirTab, DirNavOpts } from './types-nav';
+import { DirNavGroup, type DirNavGroupSpec } from './DirNavGroup';
 import { ORG } from '../org';
 
 // ORG.features.personnel as a bare build-time boolean (vite.config.ts
@@ -352,6 +353,47 @@ export default function DirectorApp() {
   const inCollegeGroup = tab === 'college'
     || (tab === 'ensembleHub' && [...colEnsembles, ...colClasses].some(e => e.id === intent.ensembleId));
 
+  // The ONE description of the shell's three group accordions (#one-nav). The
+  // rail and the drawer each render this list through <DirNavGroup>; they used
+  // to write it out twice by hand and had already drifted two ways (the
+  // drawer's "All Classes" wore College's cap, and only the rail lit its
+  // Ensembles heading on the All-Ensembles tab). Only one surface is on screen
+  // at any width, so nobody could see the difference.
+  const groupAccordions: DirNavGroupSpec[] = [
+    ...(hsEnsembles.length > 0 ? [{
+      key: 'ensembles',
+      label: 'Ensembles',
+      Icon: Users,
+      headActive: inHsEnsemble || tab === 'ensembles',
+      open: ensemblesOpen,
+      toggle: () => setEnsemblesOpen(o => !o),
+      all: { tab: 'ensembles' as DirTab, label: 'All Ensembles', Icon: Music },
+      items: hsEnsembles,
+    }] : []),
+    ...(hsClasses.length > 0 ? [{
+      key: 'classes',
+      label: 'Classes',
+      Icon: BookOpen,
+      headActive: inHsClass || tab === 'classes',
+      open: classesOpen,
+      toggle: () => setClassesOpen(o => !o),
+      all: { tab: 'classes' as DirTab, label: 'All Classes', Icon: BookOpen },
+      items: hsClasses,
+    }] : []),
+    ...(colEnsembles.length > 0 || colClasses.length > 0 ? [{
+      key: 'college',
+      label: 'College',
+      Icon: GraduationCap,
+      headActive: inCollegeGroup,
+      open: collegeOpen,
+      toggle: () => setCollegeOpen(o => !o),
+      all: { tab: 'college' as DirTab, label: 'College Hub', Icon: GraduationCap },
+      // Both surfaces already rendered these two lists back to back with no
+      // heading between them; concatenating is the same output.
+      items: [...colEnsembles, ...colClasses],
+    }] : []),
+  ];
+
   // Auto-open the accordion that owns the current tab (lists default closed).
   useEffect(() => {
     if (tab === 'ensembles' || inHsEnsemble) setEnsemblesOpen(true);
@@ -425,102 +467,9 @@ export default function DirectorApp() {
                   </div>
                 );
               })}
-              {hsEnsembles.length > 0 && (
-                <>
-                  <button
-                    type="button"
-                    className={`dir-rail-head dir-rail-expand ${inHsEnsemble || tab === 'ensembles' ? 'active' : ''}`}
-                    onClick={() => setEnsemblesOpen(o => !o)}
-                    aria-expanded={ensemblesOpen}
-                  >
-                    Ensembles
-                    <ChevronDown size={14} style={{ transform: ensemblesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
-                  </button>
-                  {ensemblesOpen && (
-                    <>
-                      <button className={`dir-rail-item ${tab === 'ensembles' ? 'active' : ''}`} onClick={() => go('ensembles')} aria-current={tab === 'ensembles' ? 'page' : undefined}>
-                        <Music size={18} /> All Ensembles
-                      </button>
-                      {hsEnsembles.map(e => (
-                        <button
-                          key={e.id}
-                          className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
-                          onClick={() => go('ensembleHub', { ensembleId: e.id })}
-                        >
-                          <span className="dir-rail-dot" style={{ background: ensembleColor(e) }} /> {e.name}
-                        </button>
-                      ))}
-                    </>
-                  )}
-                </>
-              )}
-              {hsClasses.length > 0 && (
-                <>
-                  <button
-                    type="button"
-                    className={`dir-rail-head dir-rail-expand ${inHsClass || tab === 'classes' ? 'active' : ''}`}
-                    onClick={() => setClassesOpen(o => !o)}
-                    aria-expanded={classesOpen}
-                  >
-                    Classes
-                    <ChevronDown size={14} style={{ transform: classesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
-                  </button>
-                  {classesOpen && (
-                    <>
-                      <button className={`dir-rail-item ${tab === 'classes' ? 'active' : ''}`} onClick={() => go('classes')} aria-current={tab === 'classes' ? 'page' : undefined}>
-                        <BookOpen size={18} /> All Classes
-                      </button>
-                      {hsClasses.map(e => (
-                        <button
-                          key={e.id}
-                          className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
-                          onClick={() => go('ensembleHub', { ensembleId: e.id })}
-                        >
-                          <span className="dir-rail-dot" style={{ background: ensembleColor(e) }} /> {e.name}
-                        </button>
-                      ))}
-                    </>
-                  )}
-                </>
-              )}
-              {(colEnsembles.length > 0 || colClasses.length > 0) && (
-                <>
-                  <button
-                    type="button"
-                    className={`dir-rail-head dir-rail-expand ${inCollegeGroup ? 'active' : ''}`}
-                    onClick={() => setCollegeOpen(o => !o)}
-                    aria-expanded={collegeOpen}
-                  >
-                    College
-                    <ChevronDown size={14} style={{ transform: collegeOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
-                  </button>
-                  {collegeOpen && (
-                    <>
-                      <button className={`dir-rail-item ${tab === 'college' ? 'active' : ''}`} onClick={() => go('college')} aria-current={tab === 'college' ? 'page' : undefined}>
-                        <GraduationCap size={18} /> College Hub
-                      </button>
-                      {colEnsembles.map(e => (
-                        <button
-                          key={e.id}
-                          className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
-                          onClick={() => go('ensembleHub', { ensembleId: e.id })}
-                        >
-                          <span className="dir-rail-dot" style={{ background: ensembleColor(e) }} /> {e.name}
-                        </button>
-                      ))}
-                      {colClasses.map(e => (
-                        <button
-                          key={e.id}
-                          className={`dir-rail-item ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
-                          onClick={() => go('ensembleHub', { ensembleId: e.id })}
-                        >
-                          <span className="dir-rail-dot" style={{ background: ensembleColor(e) }} /> {e.name}
-                        </button>
-                      ))}
-                    </>
-                  )}
-                </>
-              )}
+              {groupAccordions.map(g => (
+                <DirNavGroup key={g.key} group={g} rail tab={tab} activeEnsembleId={intent.ensembleId} go={go} />
+              ))}
             </nav>
             <div className="dir-rail-bottom">
               <a
@@ -719,102 +668,9 @@ export default function DirectorApp() {
                     ))}
                   </div>
                 ))}
-                {hsEnsembles.length > 0 && (
-                  <>
-                    <button
-                      className={`dir-menu-item ${inHsEnsemble ? 'active' : ''}`}
-                      onClick={() => setEnsemblesOpen(o => !o)}
-                      aria-expanded={ensemblesOpen}
-                    >
-                      <Users size={19} /> Ensembles
-                      <ChevronDown size={16} style={{ marginLeft: 'auto', transform: ensemblesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
-                    </button>
-                    {ensemblesOpen && (
-                      <button
-                        className={`dir-menu-item dir-menu-subitem ${tab === 'ensembles' ? 'active' : ''}`}
-                        onClick={() => go('ensembles')}
-                      >
-                        <Music size={16} /> All Ensembles
-                      </button>
-                    )}
-                    {ensemblesOpen && hsEnsembles.map(e => (
-                      <button
-                        key={e.id}
-                        className={`dir-menu-item dir-menu-subitem ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
-                        onClick={() => go('ensembleHub', { ensembleId: e.id })}
-                      >
-                        <span className="dir-menu-dot" style={{ background: ensembleColor(e) }} /> {e.name}
-                      </button>
-                    ))}
-                  </>
-                )}
-                {hsClasses.length > 0 && (
-                  <>
-                    <button
-                      className={`dir-menu-item ${tab === 'classes' || inHsClass ? 'active' : ''}`}
-                      onClick={() => setClassesOpen(o => !o)}
-                      aria-expanded={classesOpen}
-                    >
-                      <BookOpen size={19} /> Classes
-                      <ChevronDown size={16} style={{ marginLeft: 'auto', transform: classesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
-                    </button>
-                    {classesOpen && (
-                      <button
-                        className={`dir-menu-item dir-menu-subitem ${tab === 'classes' ? 'active' : ''}`}
-                        onClick={() => go('classes')}
-                      >
-                        <GraduationCap size={16} /> All Classes
-                      </button>
-                    )}
-                    {classesOpen && hsClasses.map(e => (
-                      <button
-                        key={e.id}
-                        className={`dir-menu-item dir-menu-subitem ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
-                        onClick={() => go('ensembleHub', { ensembleId: e.id })}
-                      >
-                        <span className="dir-menu-dot" style={{ background: ensembleColor(e) }} /> {e.name}
-                      </button>
-                    ))}
-                  </>
-                )}
-                {(colEnsembles.length > 0 || colClasses.length > 0) && (
-                  <>
-                    <button
-                      className={`dir-menu-item ${inCollegeGroup ? 'active' : ''}`}
-                      onClick={() => setCollegeOpen(o => !o)}
-                      aria-expanded={collegeOpen}
-                    >
-                      <GraduationCap size={19} /> College
-                      <ChevronDown size={16} style={{ marginLeft: 'auto', transform: collegeOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
-                    </button>
-                    {collegeOpen && (
-                      <button
-                        className={`dir-menu-item dir-menu-subitem ${tab === 'college' ? 'active' : ''}`}
-                        onClick={() => go('college')}
-                      >
-                        <GraduationCap size={16} /> College Hub
-                      </button>
-                    )}
-                    {collegeOpen && colEnsembles.map(e => (
-                      <button
-                        key={e.id}
-                        className={`dir-menu-item dir-menu-subitem ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
-                        onClick={() => go('ensembleHub', { ensembleId: e.id })}
-                      >
-                        <span className="dir-menu-dot" style={{ background: ensembleColor(e) }} /> {e.name}
-                      </button>
-                    ))}
-                    {collegeOpen && colClasses.map(e => (
-                      <button
-                        key={e.id}
-                        className={`dir-menu-item dir-menu-subitem ${tab === 'ensembleHub' && intent.ensembleId === e.id ? 'active' : ''}`}
-                        onClick={() => go('ensembleHub', { ensembleId: e.id })}
-                      >
-                        <span className="dir-menu-dot" style={{ background: ensembleColor(e) }} /> {e.name}
-                      </button>
-                    ))}
-                  </>
-                )}
+                {groupAccordions.map(g => (
+                  <DirNavGroup key={g.key} group={g} tab={tab} activeEnsembleId={intent.ensembleId} go={go} />
+                ))}
 
                 <div className="dir-menu-divider" />
 

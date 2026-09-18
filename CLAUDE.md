@@ -1060,22 +1060,37 @@ Both fixed here; the rules that keep them fixed:
   `RESOURCES` have never drifted. Everything typed out twice has. When a row
   legitimately needs a different skin per surface, that is a prop on ONE
   component (`<AppVersionRow rail />`), never a second copy.
-- **`scripts/one-nav.selfcheck.mjs` pins the public nav** in the deploy
-  workflow: every `t('…')` key in one tree must be in the other. It has **no
+- **The director's Ensembles / Classes / College accordions are ONE component**
+  — `src/director/DirNavGroup.tsx`, rendered by the rail and the drawer over
+  the single `groupAccordions` spec in `DirectorApp.tsx`. Written twice, they
+  had already drifted: the drawer's "All Classes" wore College's GraduationCap
+  while the rail's wore BookOpen, and only the rail lit its Ensembles heading
+  on the All-Ensembles tab. What differs per surface is class names and icon
+  sizes, and that lives in the `RAIL` / `DRAWER` skins — **never a class name
+  written into the markup**, which would hand one surface the other's styling
+  with nobody able to see it. The Library accordion stays rail-only on purpose
+  (the phone keeps Library expanded — no accordion tax once the menu is open).
+- **`scripts/one-nav.selfcheck.mjs` pins both shells** in the deploy workflow.
+  Public: every `t('…')` key in one tree must be in the other, with **no
   exemption list on purpose** — the sets are exactly equal today, and an
-  exemption list is how a check like this rots into a formality. A genuine
-  one-sided row means writing the reason in that file's header, not adding a
-  name to an array.
+  exemption list is how a check like this rots into a formality. Director:
+  `DirectorApp.tsx` may not write a group-row class (`dir-rail-dot`,
+  `dir-menu-dot`, `dir-menu-subitem`), and `DirNavGroup.tsx` must keep exactly
+  three `<button>`s and name no surface class outside its skins. That last one
+  exists because it was found by deliberately breaking it: a hardcoded
+  `dir-menu-dot` on the ensemble row passes every other check, looks right in
+  the drawer, and silently gives the rail the wrong dot. A genuine one-sided
+  row means writing the reason in that file's header, not adding a name to an
+  array.
 - **Nothing here renders a component in CI** — no vitest, jest, jsdom or
   playwright, and adding one for this is not worth it. So the check covers the
   public nav's labels and NOTHING else. Everything past that is a person
   looking at 375×812 and again at ≥1024px. `preview_start` ignores worktrees,
   so look at the landed or deployed tree, not a local preview.
-- **Still written twice, currently in agreement, so watch them**: the director
-  rail's group accordions (`DirectorApp.tsx` ~408-520) against the drawer's
-  (~734-810), and the event page's address + Get Directions block
-  (`PublicEvent.tsx` ~164-181 in the desktop-only side panel, ~275-314 in the
-  main flow). Change one, change the other in the same commit.
+- **Still written twice, currently in agreement, so watch it**: the event
+  page's address + Get Directions block (`PublicEvent.tsx` ~164-181 in the
+  desktop-only side panel, ~275-314 in the main flow). Change one, change the
+  other in the same commit.
 
 ## What's New banner (auto)
 
