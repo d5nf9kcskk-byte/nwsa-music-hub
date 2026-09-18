@@ -11,6 +11,7 @@ import { ensembleColor, ensembleDisplayName, musicEnsembles } from '../director/
 import { PubEnsembleSelect } from './components/PubEnsembleSelect';
 import type { Student } from '../director/types';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
+import { backdropClose } from '../shared/backdropClose';
 
 /** Diacritic-stripped lowercase for forgiving matching (#3): José → jose. */
 function fold(s: string): string {
@@ -192,7 +193,7 @@ export function PublicLookup() {
 
       {/* "Is this you?" confirm card (#3) — prevents the two-Sofias problem */}
       {confirming && (
-        <div className="pub-confirm-overlay" onClick={e => e.target === e.currentTarget && setConfirming(null)}>
+        <div className="pub-confirm-overlay" {...backdropClose(() => setConfirming(null))}>
           <div className="pub-confirm-card">
             <div className="pub-confirm-title">{identity.parentMode ? t('lookup.isThisYourStudent') : t('lookup.isThisYou')}</div>
             <div className="pub-confirm-name">{confirming.name}</div>

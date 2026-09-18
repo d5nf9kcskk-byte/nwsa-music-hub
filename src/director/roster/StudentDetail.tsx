@@ -14,6 +14,7 @@ import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
 import { EditedByLine } from '../components/EditedByLine';
 import { useModalA11y } from '../../shared/useModalA11y';
+import { backdropClose } from '../../shared/backdropClose';
 
 interface Props {
   student: Student;
@@ -74,7 +75,7 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
     .slice(0, 6);
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={student.name}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

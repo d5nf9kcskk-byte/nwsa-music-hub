@@ -8,6 +8,7 @@ import { printViaPopup } from '../../shared/printPopup';
 import './printableUpdates.css';
 import { ORG } from '../../org';
 import { richTextToPlain } from '../../shared/richTextParse';
+import { backdropClose } from '../../shared/backdropClose';
 
 /** Paper has no chips and nothing to tap — every address is printed in full. */
 const SITE = ORG.publicUrl.replace(/\/$/, '');
@@ -56,7 +57,7 @@ export function PrintableUpdates({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

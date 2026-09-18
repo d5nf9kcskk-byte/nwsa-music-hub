@@ -11,6 +11,7 @@ import { EditedByLine } from '../components/EditedByLine';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { chartPieceIds } from '../../shared/concertRosters';
 import type { RepertoirePiece, CalendarEvent, Ensemble, PieceMovement, PiecePartLink, SeatingChart } from '../types';
+import { backdropClose } from '../../shared/backdropClose';
 
 interface Props {
   onClose: () => void;
@@ -213,7 +214,7 @@ export function RepertoireManager({ onClose, ensembleId, asTab, onNavigate }: Pr
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
@@ -472,7 +473,7 @@ function RepertoireForm({
   const canSave = title.trim() && ensembleIds.length > 0;
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onBack()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onBack)}>
       <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={piece ? 'Edit Piece' : 'New Piece'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

@@ -6,6 +6,7 @@ import { useModalA11y } from '../../shared/useModalA11y';
 import { todayStr, addDays, formatDate, formatTimeRange } from '../utils';
 import { scoreOrderRank, lastName } from '../scoreOrder';
 import type { Ensemble, Personnel, ServiceAttendanceStatus } from '../types';
+import { backdropClose } from '../../shared/backdropClose';
 
 /**
  * Roll at ONE service, for the paid roster (#personnel — build-plan Step 5).
@@ -85,7 +86,7 @@ export function ServiceAttendanceSheet({ personnel, ensembles, onClose }: Props)
   const absent = roster.filter(p => recordMap[p.id]?.status === 'Absent').length;
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Service attendance">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

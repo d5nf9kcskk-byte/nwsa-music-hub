@@ -6,6 +6,7 @@ import { formatCents, basisSuffix, contractTotalCents } from './contractMoney';
 import { Linkify } from '../components/Linkify';
 import { EditedByLine } from '../components/EditedByLine';
 import { useModalA11y } from '../../shared/useModalA11y';
+import { backdropClose } from '../../shared/backdropClose';
 
 /**
  * Read-only profile sheet for one person on the paid roster (#personnel) —
@@ -61,7 +62,7 @@ export function PersonnelDetail({ person, contact, contracts, ensembles, onEdit,
   ].filter(Boolean).join(' · ');
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={person.name}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

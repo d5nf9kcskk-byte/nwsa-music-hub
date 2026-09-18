@@ -8,6 +8,7 @@ import { resolveContractTokens } from './contractTerms';
 import { printViaPopup } from '../../shared/printPopup';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { ORG } from '../../org';
+import { backdropClose } from '../../shared/backdropClose';
 
 /**
  * One contract (#personnel): the rendered agreement, the lifecycle actions,
@@ -163,7 +164,7 @@ export function ContractSheet({
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Contract — ${c.personnelName}`}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

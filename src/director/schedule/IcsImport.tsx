@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import type { CalendarEvent } from '../types';
+import { backdropClose } from '../../shared/backdropClose';
 
 interface Props { onClose: () => void; }
 
@@ -145,7 +146,7 @@ export function IcsImport({ onClose }: Props) {
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

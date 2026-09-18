@@ -20,6 +20,7 @@ import { useAnnouncements } from '../hooks/useAnnouncements';
 import { captureOriginal, announceChange } from './changeOps';
 import { concertChartFor, chartPieceIds, isPieceChart } from '../../shared/concertRosters';
 import type { CalendarEvent, Ensemble, EventType, EventStatus, SeatingChart } from '../types';
+import { backdropClose } from '../../shared/backdropClose';
 
 interface Props {
   event: CalendarEvent | null;
@@ -415,7 +416,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={event ? 'Edit event' : 'New event'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

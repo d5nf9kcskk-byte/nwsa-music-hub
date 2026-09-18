@@ -12,6 +12,7 @@ import { planDayChange, applyPlan, rolledBlocks, strandedEventOverrides } from '
 import type { DayAction, DayPlan, PlanGuard } from './changePlan';
 import type { CalendarEvent, Ensemble, RosterOverride } from '../types';
 import type { DirNavigate } from '../types-nav';
+import { backdropClose } from '../../shared/backdropClose';
 
 /**
  * The day board's two rehearsal periods (TIME_BLOCKS[0] and [1]). An event
@@ -697,7 +698,7 @@ function ChangeMenu({ event, name, onClose, onTimeRoom, onCancel, onSwap, onComb
     { icon: <UserCog size={16} />, title: 'Move a student…', sub: 'Opens Move a Student with this block’s roster', run: onStudent },
   ];
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
@@ -763,7 +764,7 @@ function CancelSheet({ event, name, onApply, onClose }: {
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
@@ -870,7 +871,7 @@ function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, 
   const [icon, title, saveLabel] = titles[action.kind];
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
@@ -1028,7 +1029,7 @@ function CombineSheet({ events, labelOf, groupLabel, date, busy, onConfirm, onCl
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
@@ -1111,7 +1112,7 @@ function SwapConfirm({ a, b, labelA, labelB, busy, onConfirm, onClose }: {
 }) {
   const [notify, setNotify] = useState(true);
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
@@ -1182,7 +1183,7 @@ function TimeChangeSheet({ event, name, onApply, onClose }: {
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

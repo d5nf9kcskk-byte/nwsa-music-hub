@@ -28,6 +28,7 @@ import { DIRECTOR_FEEDBACK_FORM_URL } from '../feedbackForm';
 import { groupScheduleAlerts } from '../../shared/groupAlerts';
 import { AlertGroupSections } from '../../shared/AlertGroupSections';
 import { ORG } from '../../org';
+import { backdropClose } from '../../shared/backdropClose';
 
 const ENS_PREF_KEY = 'dir.today.ensemble';
 
@@ -514,7 +515,7 @@ function SnowDaySheet({ defaultDate, onConfirm, onClose }: {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
@@ -565,7 +566,7 @@ function FollowUpSheet({ records, students, ensembleMap, onClose }: {
     } finally { setBusyId(''); }
   }
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

@@ -15,6 +15,7 @@ import { DOC_CATEGORIES, DOC_AUDIENCES, DOC_CATEGORY_COLOR } from '../../shared/
 import type {
   LibraryDocument, DocumentCategory, DocumentAudience, Ensemble, Attachment,
 } from '../types';
+import { backdropClose } from '../../shared/backdropClose';
 
 const CATEGORY_COLOR = DOC_CATEGORY_COLOR;
 
@@ -87,7 +88,7 @@ function DocumentForm({ document, ensembles, onSave, onDelete, onClose }: FormPr
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={document ? 'Edit Document' : 'New Document'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

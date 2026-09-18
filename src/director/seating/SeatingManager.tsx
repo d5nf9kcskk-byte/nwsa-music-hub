@@ -13,6 +13,7 @@ import { whenQueued } from '../writeStatus';
 import { studentMatchesQuery } from '../studentSearch';
 import { seatingChartPath, seatingChartUrl } from './seatingLink';
 import { chartPieceIds } from '../../shared/concertRosters';
+import { backdropClose } from '../../shared/backdropClose';
 
 /** Director seating editor for one ensemble. Charts are per-piece playing-exam
  *  seating: seat 1 = principal. Published charts show on the public ensemble page. */
@@ -50,7 +51,7 @@ export function SeatingManager({ ensembleId, ensembleName, onClose }: {
   }
 
   return (
-    <div className="dir-drawer-overlay dir-drawer-full" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay dir-drawer-full" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
@@ -378,7 +379,7 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
   }
 
   return (
-    <div className="dir-drawer-overlay dir-drawer-full" onClick={e => e.target === e.currentTarget && onBack()}>
+    <div className="dir-drawer-overlay dir-drawer-full" {...backdropClose(onBack)}>
       <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={chart ? 'Edit Seating' : 'New Seating'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

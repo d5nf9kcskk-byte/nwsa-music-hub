@@ -4,6 +4,7 @@ import type { Student, StudentContact, Guardian, Ensemble } from '../types';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { isAdultStudent, musicEnsembles } from '../utils';
 import { whenQueued } from '../writeStatus';
+import { backdropClose } from '../../shared/backdropClose';
 
 /** Editable contact: the student's own email and phone, plus an unlimited list
  *  of guardians and any extra columns carried over from the spreadsheet
@@ -178,7 +179,7 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={student ? 'Edit student' : 'New student'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

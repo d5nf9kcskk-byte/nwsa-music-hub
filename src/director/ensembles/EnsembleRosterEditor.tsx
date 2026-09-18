@@ -5,6 +5,7 @@ import { useModalA11y } from '../../shared/useModalA11y';
 import { studentMatchesQuery } from '../studentSearch';
 import { lastFirst } from '../../shared/personName';
 import type { DirNavigate } from '../types-nav';
+import { backdropClose } from '../../shared/backdropClose';
 
 /**
  * "Add students to this ensemble" — the one obvious place to build a newly
@@ -48,7 +49,7 @@ export function EnsembleRosterEditor({ ensembleId, ensembleName, onNavigate, onC
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={`Add students to ${ensembleName}`} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

@@ -8,6 +8,7 @@ import { rotationWrites } from '../rosterResolver';
 import { todayStr, musicEnsembles, WEEKDAY_LABELS, parseDate } from '../utils';
 import { useModalA11y } from '../../shared/useModalA11y';
 import type { Student, Ensemble, RosterOverride } from '../types';
+import { backdropClose } from '../../shared/backdropClose';
 
 /**
  * Rotations — the single reference point for standing weekly rotations
@@ -259,7 +260,7 @@ function RotationDrawer({ students, ensembles, editing, onSave, onClose }: {
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={editing ? 'Edit rotation' : 'New rotation'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

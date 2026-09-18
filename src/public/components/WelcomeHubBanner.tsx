@@ -5,6 +5,7 @@ import { t, useLang } from '../../shared/i18n';
 import { HubSaveGuide } from './HubSaveGuide';
 import { welcomeBannerKind, type WelcomeBannerKind } from '../welcomeHubSchedule';
 import './welcomeHub.css';
+import { backdropClose } from '../../shared/backdropClose';
 
 /**
  * Animated welcome strip on Home only, during scheduled windows:
@@ -81,7 +82,7 @@ function WelcomeSheet({
   onDone: () => void;
 }) {
   return (
-    <div className="pub-welcome-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="pub-welcome-overlay" {...backdropClose(onClose)}>
       <div
         className="pub-welcome-sheet"
         role="dialog"

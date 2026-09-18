@@ -5,6 +5,7 @@ import { recordActivity } from '../hooks/useActivityLog';
 import { useModalA11y } from '../../shared/useModalA11y';
 import type { ProgressNote, Student } from '../types';
 import { whenQueued } from '../writeStatus';
+import { backdropClose } from '../../shared/backdropClose';
 
 interface Props {
   note: ProgressNote | null;
@@ -77,7 +78,7 @@ export function NoteForm({ note, students, defaultStudentId, onSave, onDelete, o
   const activeStudents = students.filter(s => s.status === 'Active');
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={note ? 'Edit Note' : 'New Note'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

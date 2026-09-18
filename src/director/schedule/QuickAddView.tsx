@@ -6,6 +6,7 @@ import { parseQuickAdd, type QuickAddDraft } from '../quickAdd';
 import { musicEnsembles, formatDate, formatTimeRange, EVENT_TYPE_ICON } from '../utils';
 import { useModalA11y } from '../../shared/useModalA11y';
 import type { CalendarEvent } from '../types';
+import { backdropClose } from '../../shared/backdropClose';
 
 interface Props {
   onClose: () => void;
@@ -51,7 +52,7 @@ export function QuickAddView({ onClose, onContinue }: Props) {
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" role="dialog" aria-modal="true" aria-label="Quick Add" tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

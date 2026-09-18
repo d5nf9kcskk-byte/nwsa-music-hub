@@ -50,6 +50,7 @@ import type { Lesson, Student } from '../types';
 import { studentMatchesQuery } from '../studentSearch';
 import { whenQueued } from '../writeStatus';
 import './lessonLog.css';
+import { backdropClose } from '../../shared/backdropClose';
 
 const EMPTY_IDS: string[] = [];
 
@@ -1466,7 +1467,7 @@ function StudentAssignEditor({ allStudents, assignedIds, onSave, onClose }: {
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

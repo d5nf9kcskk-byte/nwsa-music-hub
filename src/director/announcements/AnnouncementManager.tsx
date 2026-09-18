@@ -19,6 +19,7 @@ import { LazyLinkPicker } from '../components/LinkPickerLazy';
 import { whenQueued } from '../writeStatus';
 import { useCurrentDirector } from '../currentDirector';
 import { announcementPictures, announcementDownloads } from '../../shared/announcementMedia';
+import { backdropClose } from '../../shared/backdropClose';
 
 interface Props {
   onClose: () => void;
@@ -250,7 +251,7 @@ export function AnnouncementManager({ onClose, asTab, initialId, initialEnsemble
 
   return (
     <>
-      <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
         <div className="dir-drawer">
           <div className="dir-drawer-handle" />
           <div className="dir-drawer-header">
@@ -621,7 +622,7 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={announcement ? 'Edit Announcement' : 'New Announcement'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

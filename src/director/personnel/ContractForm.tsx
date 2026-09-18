@@ -9,6 +9,7 @@ import {
 import { parseCentsInput, formatCents } from './contractMoney';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { whenQueued } from '../writeStatus';
+import { backdropClose } from '../../shared/backdropClose';
 
 /**
  * Draft/edit one contract (#personnel) — the working document, editable only
@@ -212,7 +213,7 @@ export function ContractForm({ person, contract, templates, onSave, onClose }: P
   const templateChoices = templates; // all categories — the tag says which it's written for
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={contract ? 'Edit contract' : 'New contract'}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

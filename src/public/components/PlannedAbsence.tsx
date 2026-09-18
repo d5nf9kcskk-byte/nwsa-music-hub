@@ -8,6 +8,7 @@ import { fmtLongDate } from '../../shared/dates';
 import type { Student } from '../../director/types';
 import { ORG } from '../../org';
 import './plannedAbsence.css';
+import { backdropClose } from '../../shared/backdropClose';
 
 /**
  * Planned-absence pre-report (#27): a student/parent tells the director ahead
@@ -50,7 +51,7 @@ export function PlannedAbsenceButton({ student }: { student: Student }) {
       </button>
 
       {open && (
-        <div className="pub-confirm-overlay" onClick={e => e.target === e.currentTarget && setOpen(false)}>
+        <div className="pub-confirm-overlay" {...backdropClose(() => setOpen(false))}>
           <div className="pub-confirm-card" style={{ textAlign: 'left' }}>
             {state === 'done' ? (
               <>

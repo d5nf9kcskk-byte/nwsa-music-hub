@@ -22,6 +22,7 @@ import { currentDirectorName, currentDirectorRole } from '../currentDirector';
 import { recordActivity } from '../hooks/useActivityLog';
 import type { AttendanceStatus, Student, StudentContact, Ensemble, CalendarEvent } from '../types';
 import { ATTENDANCE_STATUS_LABEL, isAbsentMark, isRollException } from '../attendanceStatus';
+import { backdropClose } from '../../shared/backdropClose';
 
 interface Period {
   event: CalendarEvent | null;   // null = ad-hoc roll (no scheduled rehearsal)
@@ -697,7 +698,7 @@ function LessonSheet({ student, defaultStart, onClose, onSave }: {
   const [saving, setSaving] = useState(false);
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
@@ -777,7 +778,7 @@ function AbsenteeSummary({ records, students, contacts, ensembles, ensembleName,
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

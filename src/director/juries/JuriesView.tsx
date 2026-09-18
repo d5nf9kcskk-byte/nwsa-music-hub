@@ -12,6 +12,7 @@ import { ORG } from '../../org';
 import { appendInScoreOrder, sortIntoScoreOrder } from './runningOrder';
 import type { Jury } from '../types';
 import { studentMatchesQuery } from '../studentSearch';
+import { backdropClose } from '../../shared/backdropClose';
 
 /**
  * Juries (#juries) — a place to start getting organized, on purpose.
@@ -153,7 +154,7 @@ function JuryForm({ jury, onSave, onDelete, onClose }: {
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={jury ? 'Edit jury' : 'New jury'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

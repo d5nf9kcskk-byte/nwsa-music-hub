@@ -8,6 +8,7 @@ import { useRepertoire } from '../hooks/useRepertoire';
 import { todayStr, addDays } from '../utils';
 import type { DirNavigate } from '../types-nav';
 import './seasonChecklist.css';
+import { backdropClose } from '../../shared/backdropClose';
 
 /**
  * New-term checklist (#47): the error-prone mid-August setup, computed LIVE
@@ -86,7 +87,7 @@ export function SeasonChecklist({ onNavigate, onClose }: { onNavigate: DirNaviga
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

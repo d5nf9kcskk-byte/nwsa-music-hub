@@ -5,6 +5,7 @@ import type { ContractTemplate, PositionCategory } from '../types';
 import { CONTRACT_TOKENS, STARTER_TEMPLATES } from './contractTerms';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { whenQueued } from '../writeStatus';
+import { backdropClose } from '../../shared/backdropClose';
 
 /**
  * Editor for the reusable agreement prose (#personnel — `contractTemplates`).
@@ -97,7 +98,7 @@ export function ContractTemplatesView({ templates, onAdd, onUpdate, onDelete, on
   const inEditor = editing !== null && (editing === 'new' ? true : current !== null);
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Contract templates">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

@@ -8,6 +8,7 @@ import type { Ensemble } from '../types';
 import './qrKit.css';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { ORG } from '../../org';
+import { backdropClose } from '../../shared/backdropClose';
 
 /** Public site root the QR codes point at — per-org (config/orgs/*.json). */
 const SITE_URL = ORG.publicUrl;
@@ -204,7 +205,7 @@ export function QrKitView({ onClose }: { onClose?: () => void }) {
   }
 
   return (
-    <div className="dir-drawer-overlay dir-qrkit-overlay" onClick={e => { if (e.target === e.currentTarget) onClose?.(); }}>
+    <div className="dir-drawer-overlay dir-qrkit-overlay" {...backdropClose(() => onClose?.())}>
       <div className="dir-drawer dir-qrkit" ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="QR kit">
         <div className="dir-drawer-header dir-qrkit-noprint">
           <span className="dir-drawer-title">

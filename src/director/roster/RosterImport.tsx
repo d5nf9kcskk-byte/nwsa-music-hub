@@ -8,6 +8,7 @@ import {
   parseDelimited, looksBinary, autoMapHeaders, buildImportRows, planMerge, contactFromRow,
   type ColMap, type MergePlan,
 } from './rosterCsv';
+import { backdropClose } from '../../shared/backdropClose';
 
 /**
  * Roster spreadsheet import (beta). Parses a CSV/TSV of students + parent
@@ -106,7 +107,7 @@ export function RosterImport({ onClose }: { onClose: () => void }) {
     .filter(Boolean);
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Import roster">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

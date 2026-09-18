@@ -8,6 +8,7 @@ import { formatDate, formatTimeRange } from '../utils';
 import { eventIcon } from '../groupIcon';
 import type { CalendarEvent, Ensemble, RosterOverride } from '../types';
 import type { DirNavigate } from '../types-nav';
+import { backdropClose } from '../../shared/backdropClose';
 
 interface Props {
   event: CalendarEvent;
@@ -79,7 +80,7 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
   const timeLabel = formatTimeRange(event.startTime, event.endTime);
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

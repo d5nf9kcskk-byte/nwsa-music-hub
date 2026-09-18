@@ -6,6 +6,7 @@ import { useModalA11y } from '../../shared/useModalA11y';
 import type { CampusLocation } from '../types';
 import './locations.css';
 import { whenQueued } from '../writeStatus';
+import { backdropClose } from '../../shared/backdropClose';
 
 interface Props {
   onClose: () => void;
@@ -36,7 +37,7 @@ export function LocationsManager({ onClose }: Props) {
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
@@ -127,7 +128,7 @@ function LocationForm({ location, onSave, onDelete, onBack, onClose }: FormProps
   }
 
   return (
-    <div className="dir-drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={location ? 'Edit Location' : 'New Location'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">

@@ -36,6 +36,14 @@ runs:
       run: npx tsx src/shared/richText.selfcheck.ts
       shell: bash
 
+    # Click-outside-to-close, on every overlay in the app (#backdrop-drag).
+    # The version this replaced closed the drawer when a drag-select released
+    # past the panel edge, discarding whatever was being typed. Valid code
+    # doing the wrong thing for one gesture — a build can't see it.
+    - name: Check overlay click-outside
+      run: npx tsx src/shared/backdropClose.selfcheck.ts
+      shell: bash
+
     # Which devices open IndexedDB for Firestore: public never, staff yes,
     # and a latched queue reloads once into memory. A regression here puts
     # the b815 assertion back on students' phones (firestoreCache.ts).
