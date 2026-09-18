@@ -339,6 +339,18 @@ runs:
       run: node scripts/one-nav.selfcheck.mjs
       shell: bash
 
+    # Director nav intent survives the round trip (#nav-intent). Every
+    # DirNavOpts field must be named in go(), in the intent object, and in
+    # intentKey. `selectAll` was declared, documented, consumed by RosterView
+    # and called by the "Email / text" button on every group page — and named
+    # at none of the three, so it was dropped on the way out and the button
+    # landed the director on a roster with nothing ticked. Every field is
+    # optional, so TypeScript cannot see the omission; it is source text or
+    # it is nothing.
+    - name: Check director nav intent round-trips
+      run: node scripts/nav-intent.selfcheck.mjs
+      shell: bash
+
     # High School lesson log (#applied): payroll defaults, initials gate,
     # "do not enqueue mail for incomplete / cancelled rows", one sheet per
     # student per term, and the five-line jury list.

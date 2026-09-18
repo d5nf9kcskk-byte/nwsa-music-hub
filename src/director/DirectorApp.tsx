@@ -325,6 +325,7 @@ export default function DirectorApp() {
     studentId: searchParams.get('student') ?? undefined,
     announcementId: searchParams.get('announcement') ?? undefined,
     assignmentId: searchParams.get('assignment') ?? undefined,
+    selectAll: searchParams.get('selectall') === '1' || undefined,
   };
 
   function go(t: DirTab, opts?: DirNavOpts) {
@@ -335,6 +336,7 @@ export default function DirectorApp() {
     if (opts?.studentId) p.set('student', opts.studentId);
     if (opts?.announcementId) p.set('announcement', opts.announcementId);
     if (opts?.assignmentId) p.set('assignment', opts.assignmentId);
+    if (opts?.selectAll) p.set('selectall', '1');
     const qs = p.toString();
     navigate(`/director${t === 'today' ? '' : `/${t}`}${qs ? `?${qs}` : ''}`);
     setMenuOpen(false);
@@ -407,7 +409,9 @@ export default function DirectorApp() {
   const hubEnsemble = ensembles.find(e => e.id === intent.ensembleId);
   const title = tab === 'ensembleHub' && hubEnsemble ? hubEnsemble.name : TAB_TITLES[tab];
   // Remount the target view when the intent changes so preselects apply cleanly.
-  const intentKey = `${intent.ensembleId ?? ''}|${intent.date ?? ''}|${intent.eventId ?? ''}|${intent.studentId ?? ''}|${intent.announcementId ?? ''}|${intent.assignmentId ?? ''}`;
+  // Every DirNavOpts field belongs here, or a screen keyed on it will not
+  // remount when that field is the only thing that changed.
+  const intentKey = `${intent.ensembleId ?? ''}|${intent.date ?? ''}|${intent.eventId ?? ''}|${intent.studentId ?? ''}|${intent.announcementId ?? ''}|${intent.assignmentId ?? ''}|${intent.selectAll ? '1' : ''}`;
 
   return (
     <AuthGate>
