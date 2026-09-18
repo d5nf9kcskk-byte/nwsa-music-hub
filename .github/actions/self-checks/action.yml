@@ -44,6 +44,23 @@ runs:
       run: npx tsx src/shared/backdropClose.selfcheck.ts
       shell: bash
 
+    # The group picker's sections (#group-picker). It must offer back exactly
+    # the list each screen hands it — the Event form deliberately includes
+    # Dance, Theater and Visual Arts. A group that falls into no section is
+    # simply un-pickable, with nothing thrown and nothing failing to build.
+    - name: Check group picker sections
+      run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/groupBuckets.selfcheck.ts
+      shell: bash
+
+    # `assignedEnsembleIds` is one field edited by two pickers that each see
+    # only their own kind of group. Whichever is saved must carry the other's
+    # ids through, or a director who teaches AP Theory loses Symphony — and
+    # that field decides staff on a class page, the role shells, and what
+    # lands in a person's own calendar feed (#my-calendar).
+    - name: Check assigned-group slices
+      run: npx tsx src/director/directors/assignedSlices.selfcheck.ts
+      shell: bash
+
     # Which devices open IndexedDB for Firestore: public never, staff yes,
     # and a latched queue reloads once into memory. A regression here puts
     # the b815 assertion back on students' phones (firestoreCache.ts).

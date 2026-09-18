@@ -5,6 +5,7 @@ import { useModalA11y } from '../../shared/useModalA11y';
 import { musicEnsembles } from '../utils';
 import { whenQueued } from '../writeStatus';
 import { backdropClose } from '../../shared/backdropClose';
+import { GroupPicker } from '../components/GroupPicker';
 
 /**
  * Add/edit one person on the paid roster (#personnel) — the StudentForm
@@ -135,15 +136,6 @@ export function PersonnelForm({ person, contact, ensembles, hasContracts, onSave
     setContactForm(f => ({ ...f, [k]: v }));
   }
 
-  function toggleEnsemble(id: string) {
-    setForm(f => ({
-      ...f,
-      ensembleIds: f.ensembleIds.includes(id)
-        ? f.ensembleIds.filter(e => e !== id)
-        : [...f.ensembleIds, id],
-    }));
-  }
-
   async function handleSave() {
     if (!form.name.trim()) return;
     setSaving(true);
@@ -235,14 +227,12 @@ export function PersonnelForm({ person, contact, ensembles, hasContracts, onSave
           {musicEnsembles(ensembles).length > 0 && (
             <div className="dir-field">
               <label className="dir-label">Ensembles / series</label>
-              <div className="dir-checkbox-group">
-                {musicEnsembles(ensembles).map(e => (
-                  <label key={e.id} className={`dir-checkbox-tag ${form.ensembleIds.includes(e.id) ? 'checked' : ''}`}>
-                    <input type="checkbox" checked={form.ensembleIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
-                    {e.name}
-                  </label>
-                ))}
-              </div>
+              <GroupPicker
+                ensembles={musicEnsembles(ensembles)}
+                value={form.ensembleIds}
+                onChange={ids => setForm(f => ({ ...f, ensembleIds: ids }))}
+                label="Ensembles and series they play"
+              />
             </div>
           )}
 

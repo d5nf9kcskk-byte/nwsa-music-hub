@@ -12,6 +12,7 @@ import { useModalA11y } from '../../shared/useModalA11y';
 import { chartPieceIds } from '../../shared/concertRosters';
 import type { RepertoirePiece, CalendarEvent, Ensemble, PieceMovement, PiecePartLink, SeatingChart } from '../types';
 import { backdropClose } from '../../shared/backdropClose';
+import { GroupPicker } from '../components/GroupPicker';
 
 interface Props {
   onClose: () => void;
@@ -326,10 +327,6 @@ function RepertoireForm({
   function toggleRosterChart(id: string) {
     setRosterChartIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
   }
-  function toggleEnsemble(id: string) {
-    setEnsembleIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
-  }
-
   // Movements
   function addMovement() {
     setMovements(ms => [...ms, { title: '' }]);
@@ -487,14 +484,12 @@ function RepertoireForm({
           {!lockedEnsembleId && (
             <div className="dir-field">
               <label className="dir-label">Ensembles *</label>
-              <div className="dir-checkbox-group">
-                {ensembles.map(e => (
-                  <label key={e.id} className={`dir-checkbox-tag ${ensembleIds.includes(e.id) ? 'checked' : ''}`}>
-                    <input type="checkbox" checked={ensembleIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
-                    {e.name}
-                  </label>
-                ))}
-              </div>
+              <GroupPicker
+                ensembles={ensembles}
+                value={ensembleIds}
+                onChange={setEnsembleIds}
+                label="Ensembles that play this piece"
+              />
               <div className="dir-field-hint">Pick every ensemble that plays this piece — e.g. Wind Ensemble + Symphony + Choir.</div>
             </div>
           )}

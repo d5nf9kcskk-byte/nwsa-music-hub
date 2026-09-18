@@ -21,6 +21,7 @@ import { captureOriginal, announceChange } from './changeOps';
 import { concertChartFor, chartPieceIds, isPieceChart } from '../../shared/concertRosters';
 import type { CalendarEvent, Ensemble, EventType, EventStatus, SeatingChart } from '../types';
 import { backdropClose } from '../../shared/backdropClose';
+import { GroupPicker } from '../components/GroupPicker';
 
 interface Props {
   event: CalendarEvent | null;
@@ -239,14 +240,17 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     setForm(f => ({ ...f, [k]: v }));
   }
 
-  function toggleEnsemble(id: string) {
+  /** Not a plain setter: picking the FIRST group pre-fills a blank location
+   *  and start/end time from that group's own defaults, which is most of what
+   *  makes adding a rehearsal quick. Kept when this became a multi-select —
+   *  the picker hands over the whole list, so the newly-ticked group is the
+   *  one in `ids` that was not there before. */
+  function setEnsembleIds(ids: string[]) {
     setForm(f => {
-      const has = f.ensembleIds.includes(id);
-      const ensembleIds = has ? f.ensembleIds.filter(e => e !== id) : [...f.ensembleIds, id];
-      // When adding the first ensemble, pre-fill blank location/time from its defaults.
-      const next = { ...f, ensembleIds };
-      if (!has && f.ensembleIds.length === 0) {
-        const ens = ensembles.find(e => e.id === id);
+      const next = { ...f, ensembleIds: ids };
+      const added = ids.find(id => !f.ensembleIds.includes(id));
+      if (f.ensembleIds.length === 0 && added) {
+        const ens = ensembles.find(e => e.id === added);
         if (ens) {
           if (!f.location && ens.defaultLocation) next.location = ens.defaultLocation;
           if (!f.startTime && ens.defaultStartTime) next.startTime = ens.defaultStartTime;
@@ -254,13 +258,6 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
         }
       }
       return next;
-    });
-  }
-
-  function toggleAttendanceEnsemble(id: string) {
-    setForm(f => {
-      const cur = f.attendanceEnsembleIds ?? [];
-      return { ...f, attendanceEnsembleIds: cur.includes(id) ? cur.filter(e => e !== id) : [...cur, id] };
     });
   }
 
@@ -323,6 +320,9 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   // all-school events still need them selectable (see musicEnsembles).
   const ensembleChoices = useMemo(() => ensembles.filter(e => !isClassGroup(e)), [ensembles]);
   const classChoices = useMemo(() => classGroups(ensembles), [ensembles]);
+  /** Exactly what the two stacked pill rows offered between them, so the
+   *  switch to one sectioned list can neither add a group nor lose one. */
+  const groupChoices = useMemo(() => [...ensembleChoices, ...classChoices], [ensembleChoices, classChoices]);
   const masterClassEvent = selectedGroups.some(isMasterClass);
   const classEvent = !masterClassEvent
     && (selectedGroups.length > 0 ? selectedGroups.every(isClassGroup) : form.type === 'Class');
@@ -508,56 +508,31 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             <label className="dir-label">
               Ensemble{form.type === 'Concert' ? 's' : ''} {needsEnsemble && '*'}
             </label>
-            {musicIds.length > 0 && (
-              <button
-                type="button"
-                className={`dir-tool-btn dir-division-btn${allMusicSelected ? ' active' : ''}`}
-                onClick={toggleWholeMusicDivision}
-              >
-                {allMusicSelected ? '✓ Whole Music Division' : 'Whole Music Division'}
-              </button>
-            )}
-            {/* Ensembles and classes are listed apart (#classes) — a master
-                class sitting between Camerata and Symphony reads as another
-                orchestra, which is exactly the confusion this splits up. Both
-                stay selectable together: a class CAN be combined with another
-                class (violas joining the violin master class when a teacher
-                is out), which is what sharedBlock below is for. */}
-            <div className="dir-checkbox-group">
-              {ensembleChoices.map(e => (
-                <label
-                  key={e.id}
-                  className={`dir-checkbox-tag ${form.ensembleIds.includes(e.id) ? 'checked' : ''}`}
+            {/* Ensembles and classes stay apart (#classes) — a master class
+                sitting between Camerata and Symphony reads as another
+                orchestra — but they are now sections of ONE list rather than
+                two stacks of pills. Both stay selectable together: a class CAN
+                be combined with another class (violas joining the violin
+                master class when a teacher is out), which is what sharedBlock
+                below is for. `groupChoices` is the same union the two stacks
+                offered, divisions included: the calendar covers Dance, Theater
+                and Visual Arts too. */}
+            <GroupPicker
+              ensembles={groupChoices}
+              value={form.ensembleIds}
+              onChange={setEnsembleIds}
+              label="Ensembles and classes this is for"
+              emptyLabel="None — a school-wide item"
+              tools={musicIds.length > 0 ? (
+                <button
+                  type="button"
+                  className={`dir-tool-btn dir-division-btn${allMusicSelected ? ' active' : ''}`}
+                  onClick={toggleWholeMusicDivision}
                 >
-                  <input
-                    type="checkbox"
-                    checked={form.ensembleIds.includes(e.id)}
-                    onChange={() => toggleEnsemble(e.id)}
-                  />
-                  {e.name}
-                </label>
-              ))}
-            </div>
-            {classChoices.length > 0 && (
-              <>
-                <div className="dir-field-hint" style={{ marginTop: 8 }}>Classes</div>
-                <div className="dir-checkbox-group">
-                  {classChoices.map(e => (
-                    <label
-                      key={e.id}
-                      className={`dir-checkbox-tag ${form.ensembleIds.includes(e.id) ? 'checked' : ''}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={form.ensembleIds.includes(e.id)}
-                        onChange={() => toggleEnsemble(e.id)}
-                      />
-                      {e.name}
-                    </label>
-                  ))}
-                </div>
-              </>
-            )}
+                  {allMusicSelected ? '✓ Whole Music Division' : 'Whole Music Division'}
+                </button>
+              ) : undefined}
+            />
             {form.ensembleIds.length >= 2 && (
               <label className="dir-checkbox-row" style={{ marginTop: 8 }}>
                 <input
@@ -664,30 +639,24 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                 Members of these ensembles — or specific students — must be in the audience.
                 It shows on their schedules as “attendance required.”
               </div>
-              {attendanceMusicIds.length > 0 && (
-                <button
-                  type="button"
-                  className={`dir-tool-btn dir-division-btn${allAttendanceMusicSelected ? ' active' : ''}`}
-                  onClick={toggleWholeMusicDivisionAttendance}
-                >
-                  {allAttendanceMusicSelected ? '✓ Whole Music Division' : 'Whole Music Division'}
-                </button>
-              )}
-              <div className="dir-checkbox-group">
-                {ensembles.filter(e => !form.ensembleIds.includes(e.id)).map(e => (
-                  <label
-                    key={e.id}
-                    className={`dir-checkbox-tag ${(form.attendanceEnsembleIds ?? []).includes(e.id) ? 'checked' : ''}`}
+              {/* A group already performing is not also "in the audience", so
+                  it drops out of this list the moment it is picked above. */}
+              <GroupPicker
+                ensembles={ensembles.filter(e => !form.ensembleIds.includes(e.id))}
+                value={form.attendanceEnsembleIds ?? []}
+                onChange={ids => setForm(f => ({ ...f, attendanceEnsembleIds: ids }))}
+                label="Groups required to attend"
+                emptyLabel="Nobody else required"
+                tools={attendanceMusicIds.length > 0 ? (
+                  <button
+                    type="button"
+                    className={`dir-tool-btn dir-division-btn${allAttendanceMusicSelected ? ' active' : ''}`}
+                    onClick={toggleWholeMusicDivisionAttendance}
                   >
-                    <input
-                      type="checkbox"
-                      checked={(form.attendanceEnsembleIds ?? []).includes(e.id)}
-                      onChange={() => toggleAttendanceEnsemble(e.id)}
-                    />
-                    {e.name}
-                  </label>
-                ))}
-              </div>
+                    {allAttendanceMusicSelected ? '✓ Whole Music Division' : 'Whole Music Division'}
+                  </button>
+                ) : undefined}
+              />
               <div className="dir-field-hint" style={{ marginTop: 8 }}>Or add individual students (attend only)</div>
               {(form.attendanceStudentIds ?? []).length > 0 && (
                 <div className="dir-checkbox-group" style={{ marginBottom: 8 }}>

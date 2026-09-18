@@ -1201,10 +1201,35 @@ button.dir-roster-group-link:hover .dir-group-open-hint { opacity: 1; }
   border-bottom: 1.5px solid var(--dir-border);
 }
 
+.dir-group-picker-panel { padding-bottom: 8px; }
+
+/* Tools and search stay put; only the list scrolls, so "Whole Music Division"
+   and the search box do not scroll away from the rows they act on. */
+.dir-group-picker-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 13px 0;
+}
+
+.dir-group-picker-search {
+  display: block;
+  width: calc(100% - 26px);
+  margin: 8px 13px 2px;
+  padding: 8px 11px;
+  font-size: 14px;
+}
+
 .dir-group-picker-list {
   max-height: 340px;
   overflow-y: auto;
-  padding: 6px 0 8px;
+  padding: 6px 0 0;
+}
+
+.dir-group-picker-none {
+  padding: 12px 13px;
+  font-size: 13.5px;
+  color: var(--dir-text-muted);
 }
 
 .dir-group-picker-bucket + .dir-group-picker-bucket { margin-top: 4px; }

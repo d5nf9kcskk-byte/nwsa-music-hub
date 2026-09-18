@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  {
+    id: '2026-09-17-group-picker-everywhere',
+    date: '2026-09-17',
+    title: 'Picking ensembles is a list everywhere now, not a wall of buttons',
+    audience: 'staff' as const,
+    expires: '2026-10-15',
+    bullets: [
+      'Events, students, repertoire, documents, personnel and staff assignments all use the same dropdown the assignment editor got: sections for Ensembles, Master classes, Classes, College and the other divisions, with a search box once there are more than eight.',
+      'Tick as many as you need — nothing clears your other picks. The closed row tells you what is chosen without opening it.',
+      'On the Directors screen, the ensembles someone conducts and the classes they teach are still two separate lists, and saving one no longer has any way to disturb the other.',
+    ],
+  },
   // Online tests (#online-test). Staff-only: students only meet one when a
   // director opens it in class, and the page explains itself then.
   {

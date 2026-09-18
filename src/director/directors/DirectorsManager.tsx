@@ -25,6 +25,8 @@ import { syncAllEnsembleStaff } from '../groupStaff';
 import { lookupMdcByLogin, lookupMdcByName } from '../staffMdcContacts';
 import { studentMatchesQuery } from '../studentSearch';
 import '../signups/signups.css';
+import { GroupPicker } from '../components/GroupPicker';
+import { splitAssigned, withClasses, withPerforming } from './assignedSlices';
 
 /** Human-readable label for each logged action slug. Falls back to the raw
  *  slug so a newly-added action still shows something before this map is
@@ -418,9 +420,20 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
   function toggleStudent(id: string) {
     setAssignedIds(cur => cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]);
   }
-  function toggleEnsemble(id: string) {
-    setAssignedEnsIds(cur => cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]);
-  }
+  /** `assignedEnsembleIds` is ONE stored field that TWO controls each own a
+   *  slice of — the performing picker above and the class picker below. The
+   *  merge that keeps one from wiping the other lives in `assignedSlices.ts`
+   *  and is pinned by its self-check; see that file for why. */
+  const classIdSet = useMemo(() => new Set(classGroups(ensembles).map(e => e.id)), [ensembles]);
+  const performingIdSet = useMemo(() => new Set(performingEns.map(e => e.id)), [performingEns]);
+  const slices = splitAssigned(
+    assignedEnsIds,
+    id => classIdSet.has(id),
+    id => performingIdSet.has(id),
+  );
+
+  const setPerformingIds = (ids: string[]) => setAssignedEnsIds(withPerforming(slices, ids));
+  const setClassIds = (ids: string[]) => setAssignedEnsIds(withClasses(slices, ids));
 
   async function handleSave() {
     setError('');
@@ -558,22 +571,18 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
                     label: e.name,
                     color: ensembleColor(e),
                   }))}
-                  selected={assignedEnsIds.filter(id => performingEns.some(e => e.id === id))}
-                  onChange={ids => {
-                    const classIds = assignedEnsIds.filter(id => classGroups(ensembles).some(e => e.id === id));
-                    setAssignedEnsIds([...ids, ...classIds]);
-                  }}
+                  selected={slices.performing}
+                  onChange={setPerformingIds}
                 />
               </div>
             ) : (
-              <div className="dir-checkbox-group">
-                {performingEns.map(e => (
-                  <label key={e.id} className={`dir-checkbox-tag ${assignedEnsIds.includes(e.id) ? 'checked' : ''}`}>
-                    <input type="checkbox" checked={assignedEnsIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
-                    {e.name}
-                  </label>
-                ))}
-              </div>
+              <GroupPicker
+                ensembles={performingEns}
+                value={slices.performing}
+                onChange={setPerformingIds}
+                label="Performing ensembles they are assigned to"
+                emptyLabel="None chosen — tap to pick"
+              />
             )}
             {hasDirector && (
               <label className={`dir-checkbox-tag ${allJazzCombos ? 'checked' : ''}`} style={{ marginTop: 8, display: 'inline-flex' }}>
@@ -626,14 +635,13 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
         {(hasDirector || hasClassroom || hasTeacher) && (
           <div className="dir-field">
             <label className="dir-label">Class sections they teach</label>
-            <div className="dir-checkbox-group">
-              {classGroups([...ensembles].sort((a, b) => a.order - b.order)).map(e => (
-                <label key={e.id} className={`dir-checkbox-tag ${assignedEnsIds.includes(e.id) ? 'checked' : ''}`}>
-                  <input type="checkbox" checked={assignedEnsIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
-                  {e.name}
-                </label>
-              ))}
-            </div>
+            <GroupPicker
+              ensembles={classGroups([...ensembles].sort((a, b) => a.order - b.order))}
+              value={slices.classes}
+              onChange={setClassIds}
+              label="Class sections they teach"
+              emptyLabel="None chosen — tap to pick"
+            />
             <div className="dir-field-hint">
               Theory, music appreciation, college courses, master classes, and other class
               groups. {hasClassroom

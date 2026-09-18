@@ -5,6 +5,7 @@ import { useModalA11y } from '../../shared/useModalA11y';
 import { isAdultStudent, musicEnsembles } from '../utils';
 import { whenQueued } from '../writeStatus';
 import { backdropClose } from '../../shared/backdropClose';
+import { GroupPicker } from '../components/GroupPicker';
 
 /** Editable contact: the student's own email and phone, plus an unlimited list
  *  of guardians and any extra columns carried over from the spreadsheet
@@ -143,15 +144,6 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
    *  the stored flag wins, both ways. */
   const isAdult = isAdultStudent(form, ensembles);
 
-  function toggleEnsemble(id: string) {
-    setForm(f => ({
-      ...f,
-      ensembleIds: f.ensembleIds.includes(id)
-        ? f.ensembleIds.filter(e => e !== id)
-        : [...f.ensembleIds, id],
-    }));
-  }
-
   async function handleSave() {
     if (!form.name.trim()) return;
     setSaving(true);
@@ -193,18 +185,13 @@ export function StudentForm({ student, contact, ensembles, onSave, onDelete, onC
           </div>
 
           <div className="dir-field">
-            <label className="dir-label">Ensembles</label>
-            <div className="dir-checkbox-group">
-              {musicEnsembles(ensembles).map(e => (
-                <label
-                  key={e.id}
-                  className={`dir-checkbox-tag ${form.ensembleIds.includes(e.id) ? 'checked' : ''}`}
-                >
-                  <input type="checkbox" checked={form.ensembleIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
-                  {e.name}
-                </label>
-              ))}
-            </div>
+            <label className="dir-label">Ensembles &amp; classes</label>
+            <GroupPicker
+              ensembles={musicEnsembles(ensembles)}
+              value={form.ensembleIds}
+              onChange={ids => setForm(f => ({ ...f, ensembleIds: ids }))}
+              label="Ensembles and classes this student is in"
+            />
           </div>
 
           <div className="dir-field">

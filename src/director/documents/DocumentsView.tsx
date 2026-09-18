@@ -16,6 +16,7 @@ import type {
   LibraryDocument, DocumentCategory, DocumentAudience, Ensemble, Attachment,
 } from '../types';
 import { backdropClose } from '../../shared/backdropClose';
+import { GroupPicker } from '../components/GroupPicker';
 
 const CATEGORY_COLOR = DOC_CATEGORY_COLOR;
 
@@ -49,10 +50,6 @@ function DocumentForm({ document, ensembles, onSave, onDelete, onClose }: FormPr
   // Stable folder for uploads so a file can be attached while still creating the
   // doc — the folder id is independent of the Firestore document id.
   const [uploadId] = useState(() => document?.id ?? `new-${Date.now()}`);
-
-  function toggleEnsemble(id: string) {
-    setEnsembleIds(prev => prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]);
-  }
 
   async function handleSave() {
     if (!title.trim()) { setSaveError('Give the document a title.'); return; }
@@ -125,16 +122,15 @@ function DocumentForm({ document, ensembles, onSave, onDelete, onClose }: FormPr
 
           <div className="dir-field">
             <label className="dir-label">
-              Ensembles <span className="dir-label-hint">leave empty for a General (school-wide) document</span>
+              Ensembles &amp; classes <span className="dir-label-hint">leave empty for a General (school-wide) document</span>
             </label>
-            <div className="dir-checkbox-group">
-              {ensembles.map(e => (
-                <label key={e.id} className={`dir-checkbox-tag ${ensembleIds.includes(e.id) ? 'checked' : ''}`}>
-                  <input type="checkbox" checked={ensembleIds.includes(e.id)} onChange={() => toggleEnsemble(e.id)} />
-                  {e.name}
-                </label>
-              ))}
-            </div>
+            <GroupPicker
+              ensembles={ensembles}
+              value={ensembleIds}
+              onChange={setEnsembleIds}
+              label="Groups this document is for"
+              emptyLabel="Everyone — a General document"
+            />
             {ensembleIds.length === 0 && (
               <div className="dir-field-hint">Tagged <strong>General</strong> — shown to everyone under General documents.</div>
             )}
