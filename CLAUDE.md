@@ -215,9 +215,9 @@ Upgrading the SDK does not remove the need: no Firestore release through
   subscription contract — never rename one.
   `scripts/calendar-bundles.selfcheck.mjs` pins both promises and runs in the
   deploy workflow.
-- `calendarViews` is one of the app's five unauthenticated writes (with
+- `calendarViews` is one of the app's unauthenticated writes (with
   `plannedAbsences`, `parentMessages`, `assignmentSubmissions`,
-  `signupResponses`) — students
+  `signupResponses`, `quizSubmissions`) — students
   subscribing to their OWN mix is the point of the feature. It is safe only
   because of two structural guards: the doc ID is the hash of the filters,
   and the generator ignores any doc whose ID doesn't match its contents.
@@ -937,6 +937,49 @@ public event. A student's withdrawal is a record about a minor. When an agent
 is asked to make a roster change directly, the answer is the app, and the
 useful thing it can do instead is VERIFY afterwards from `studentsPublic`,
 which is world-readable already and so exposes nothing new.
+
+## Online tests (Sept 2026, #online-test)
+
+A Written Test can carry a test students take on the public assignment page,
+picking their name off the class roster. Built for a college history exam: listening
+identification, terms, and short answers, taken on phones in class, results
+into Excel. `src/shared/quiz.ts` is the ONE definition of a test, a key, a
+score, and the results sheet; `quiz.selfcheck.ts` pins it in the self-checks.
+
+- **The key is never public.** `assignments` is a world read, so
+  `Assignment.quiz` holds QUESTIONS ONLY and the answers live in the
+  staff-only `assignmentKeys/{assignmentId}`. `splitQuizFile()` is the only
+  place a test file is divided, and the director loads it in the app, never
+  through a seed script or workflow: this repo and its Actions logs are
+  public. Do not commit a test file with answers in it.
+- **A written answer is not a zero.** Choice questions score against the key;
+  text questions are graded by a person, so the auto total covers choice
+  points only and its header says so. The results sheet carries the written
+  text with an EMPTY score column. A missing key scores as not-yet
+  (`unkeyed`), never as wrong.
+- **Answers match by question id, never by position** — a re-ordered test must
+  not move one student's answer under another question.
+- **The class roster is the gate, not the link.** Students have no accounts and
+  an assignment URL is public, so "only this class can take it" is enforced
+  where it can be: the form offers ONLY that assignment's roster
+  (`studentsPublic`, filtered by the assignment's `ensembleIds` plus anyone
+  named in `studentIds`), and `quizSubmitterAllowed()` in `firestore.rules`
+  re-checks that membership on every create. A student in another class is
+  refused by the rules, not just by the screen. The consequence to live with:
+  somebody missing from the Hub roster cannot submit, so the roster has to be
+  right before the test opens.
+- `quizSubmissions` is the app's sixth unauthenticated create. Same shape as
+  `signupResponses`: exact key set (which is also the honeypot, via
+  `Honeypot.tsx`), a students/{id} anchor, one bounded `answersJson` string,
+  and NO public update — a second send is a second doc and
+  `latestPerStudent()` keeps the newest.
+- **Open/closed is enforced in the rules**: a create requires the assignment's
+  `acceptsQuizSubmissions == true`. The public page also hides the questions
+  while the test is closed, but that is courtesy, not security — the doc is
+  world-readable either way.
+- The public form drafts answers into `localStorage` so a reloaded phone loses
+  nothing, and DELETES the draft on a successful send so a shared computer
+  never opens onto the last student's name and answers.
 
 ## Rehearsal absence reports (Sept 2026)
 

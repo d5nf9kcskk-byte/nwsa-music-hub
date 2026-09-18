@@ -172,6 +172,18 @@ service cloud.firestore {
       return classroomCoversAny(a.get('ensembleIds', []));
     }
 
+    // Is this student on the roster the test was given to (#online-test)?
+    // Membership is read from `studentsPublic`, the world-readable projection
+    // the public page itself lists names from — never the staff-only
+    // `students`, which an unauthenticated writer cannot read. The existence
+    // of the real student doc is checked separately by the caller.
+    function quizSubmitterAllowed(assignmentId, studentId) {
+      let a = get(/databases/$(database)/documents/assignments/$(assignmentId)).data;
+      let s = get(/databases/$(database)/documents/studentsPublic/$(studentId)).data;
+      return s.get('ensembleIds', []).hasAny(a.get('ensembleIds', []))
+        || studentId in a.get('studentIds', []);
+    }
+
     // Full director privileges: Owner, Director, or a legacy doc with no
     // role set (every director created before roles existed — the default
     // fills in 'director' for those). Fail-CLOSED for anything else,
@@ -1006,6 +1018,60 @@ service cloud.firestore {
         && request.resource.data.submittedAt is number;
       // Only staff may update (review status, Drive sync fields) or delete.
       allow update, delete: if isStaff();
+    }
+
+    // ── Online tests (#online-test) ──
+    // A Written Test can carry a test students take on the public assignment
+    // page. They pick their name off the CLASS ROSTER, and this rule checks
+    // that membership again on the write — the link is not a secret (students
+    // have no accounts), so the roster is the gate. The app's sixth
+    // unauthenticated create, with the same strictest-validation treatment as
+    // signupResponses:
+    //   • exact key set, which doubles as the honeypot (Honeypot.tsx sends
+    //     'website' only when a bot fills the decoy);
+    //   • the assignment must exist AND have its test OPEN
+    //     (`acceptsQuizSubmissions == true`), checked here and not only in
+    //     the UI, so closing the test at the end of class stops submissions;
+    //   • the submitter must be a real student who is IN one of that
+    //     assignment's groups, or named on it individually
+    //     (`quizSubmitterAllowed`) — a student in another class, or nobody at
+    //     all, is refused;
+    //   • answers ride in ONE bounded `answersJson` string, because rules can
+    //     bound a string but cannot reach inside a map;
+    //   • NO public update: a student who submits twice creates a second doc
+    //     and the director's sheet keeps the newest (latestPerStudent in
+    //     src/shared/quiz.ts).
+    // Volume rate-limiting is deferred with the other public writes
+    // (docs/security-recommendations.md).
+    match /quizSubmissions/{doc} {
+      allow create: if request.resource.data.keys().hasOnly([
+            'assignmentId', 'studentId', 'studentName', 'answersJson', 'submittedAt', 'status'])
+        && request.resource.data.assignmentId is string
+        && exists(/databases/$(database)/documents/assignments/$(request.resource.data.assignmentId))
+        && get(/databases/$(database)/documents/assignments/$(request.resource.data.assignmentId))
+             .data.get('acceptsQuizSubmissions', false) == true
+        && request.resource.data.studentId is string
+        && exists(/databases/$(database)/documents/students/$(request.resource.data.studentId))
+        && quizSubmitterAllowed(request.resource.data.assignmentId, request.resource.data.studentId)
+        && request.resource.data.studentName is string
+        && request.resource.data.studentName.size() >= 2
+        && request.resource.data.studentName.size() <= 120
+        && request.resource.data.answersJson is string
+        && request.resource.data.answersJson.size() <= 20000
+        && request.resource.data.submittedAt is number
+        && request.resource.data.status == 'submitted';
+      allow read, update, delete: if isStaff()
+        || (isClassroomRole() && classroomCoversAssignmentId(resource.data.assignmentId));
+    }
+
+    // An online test's ANSWER KEY (#online-test). Staff-only with no public
+    // projection, and never getting one: the assignment doc is world-readable,
+    // so it carries the questions and this doc carries the answers. Doc id is
+    // the assignment id. `splitQuizFile()` in src/shared/quiz.ts is the one
+    // place a test file is divided between the two.
+    match /assignmentKeys/{assignmentId} {
+      allow read, write: if isStaff()
+        || (isClassroomRole() && classroomCoversAssignmentId(assignmentId));
     }
 
     // Public "yes, it uploaded" receipt (#video-upload-reliability Phase 1).
