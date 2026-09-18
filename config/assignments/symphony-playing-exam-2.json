@@ -1,0 +1,31 @@
+{
+  "_comment": [
+    "Symphony Playing Exam #2, posted by the Post Assignment workflow.",
+    "The piece is Tchaikovsky's NUTCRACKER — No. 14 is the Pas de deux and",
+    "No. 15 the Final Waltz, which is what the movement numbers below are.",
+    "An earlier draft of the handout said The Sleeping Beauty; it has neither",
+    "of those movements and is in no Hub repertoire list. Do not 'correct'",
+    "this back.",
+    "",
+    "`id` is a stable doc id so re-running this file updates the same exam",
+    "rather than posting a second one. googleDriveFolderId is deliberately",
+    "absent: that folder is created by the Connect Google Drive button in the",
+    "app, which needs the director's own Google sign-in. Video submissions",
+    "work without it (they land in Firebase Storage either way)."
+  ],
+  "id": "symphony-playing-exam-2",
+  "title": "Symphony Playing Exam #2",
+  "type": "Playing Exam",
+  "dueDate": "2026-09-23",
+  "ensembleIds": ["symphony-orchestra"],
+  "acceptsVideoSubmissions": true,
+  "maxVideoDurationSeconds": 240,
+  "maxVideoSizeMB": 500,
+  "pieceIds": [
+    "rp26-nutcracker-ballet",
+    "rp26-rhapsody-in-blue-1942",
+    "rp26-delibes-cortege",
+    "rp26-marche-des-princesses"
+  ],
+  "description": "This playing exam is due **Wednesday, September 23rd, by the end of the day.** Late exams cannot be submitted or accepted through any other method except this hub.\n\nState your name and grade level at the beginning of your video. Points will be deducted if this is not done. Your video must show the entire playing area and cannot be edited with cuts.\n\n__Violin 1__\nTchaikovsky, *The Nutcracker*, Coda (No. 15): measure 35 through the end of the coda.\n\n__Violin 2__\nTchaikovsky, *The Nutcracker*, Coda (No. 15): measure 50 through the end of the coda.\n\n__Viola__\nTchaikovsky, *The Nutcracker*, Final Waltz (No. 15): beginning through the downbeat of measure 65.\n\n__Cello__\nTchaikovsky, *The Nutcracker*, Pas de Deux (No. 14): measures 4–25.\n\n__Bass__\nTchaikovsky, *The Nutcracker*, Coda (No. 15): measure 50 through the end of the coda.\n\n__Flute__\nTchaikovsky, *The Nutcracker*, Coda (No. 15): measure 35 through the end of the coda. All play Flute 1.\n\n__Oboe__\nTchaikovsky, *The Nutcracker*, Pas de Deux (No. 14): pickup to measure 26 through measure 67.\n\n__Clarinet__\nTchaikovsky, *The Nutcracker*, Pas de Deux (No. 14): measures 47–67. All play Clarinet 1.\n\n__Bassoon__\nTchaikovsky, *The Nutcracker*, Final Waltz (No. 15): measures 49–95. Both play Bassoon 1.\n\n__Piano/Celesta__\nTchaikovsky, *The Nutcracker*, Final Waltz (No. 15): measures 128–144.\n\n__Percussion__\nTchaikovsky, *The Nutcracker*, Coda (No. 14): measure 57 through the end of the coda. Cymbal part.\n\n__Horn__\nGershwin, *Rhapsody in Blue*: Rehearsal 34 through Rehearsal 37.\n\n__Trumpet__\nDelibes, *Sylvia*, Cortège de Bacchus: Letter O to the end. All play Cornet 1.\n\n__Tenor Trombone__\nGershwin, *Rhapsody in Blue*: Rehearsal 34 through Rehearsal 37. Trombone 1 part.\n\n__Bass Trombone/Tuba__\nGershwin, *Rhapsody in Blue*: Rehearsal 36 through Rehearsal 37.\n\n__Tenor Saxophone__\nGershwin, *Rhapsody in Blue*: pickup to Rehearsal 12 through Rehearsal 18.\n\n__Banjo/Guitar__\nGershwin, *Rhapsody in Blue*: Rehearsal 37 through the end.\n\n__Harp__\nMassenet, *Cendrillon*, Marche des Princesses: Rehearsal 333–335."
+}
