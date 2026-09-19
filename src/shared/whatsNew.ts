@@ -32,19 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
-  // Cancelling a day now asks WHICH campus (#college-hs-calendar-deps).
-  // Staff-only: what a family sees is unchanged — the same red banner for the
-  // same blocks — and the college classes that stopped being cancelled were
-  // never cancelled in the first place as far as MDC's calendar is concerned.
+  // The college classes that were missing, and cancelling the right day
+  // (#college-hs-calendar-deps). Staff-only: the restored classes show up on
+  // the public calendar on their own, and nothing about what a family sees
+  // when a day is cancelled has changed.
   {
-    id: '2026-09-19-cancel-the-right-day',
+    id: '2026-09-19-college-calendar-restored',
     date: '2026-09-19',
-    title: 'Cancelling a day asks which school is closed',
+    title: 'The missing college classes are back, and cancelling a day asks which school',
     audience: 'staff' as const,
     expires: '2026-10-20',
     bullets: [
-      'MDCPS and Miami Dade College run separate calendars, and they do not line up: Monday Sep 21 is a teacher planning day at the high school and an ordinary Monday at MDC. “Cancel the day” used to take everything, so the nine dual-enrollment classes that were still meeting were cancelled with it.',
-      'On a day with both, Change a Day now offers “Cancel the high school day” and “Cancel the college day” separately, and says at the top which one is actually closed. “Cancel everything” is still there for the days that close both. Putting a day back is split the same way, so one press un-cancels the college classes without putting the high school afternoon back on.',
+      'Miami Dade College runs its own calendar and it does not line up with MDCPS: Monday Sep 21 is a teacher planning day at the high school and an ordinary Monday at MDC. Fifty-one college class sessions across seven of those dates had never been put on the calendar at all. They are on it now — Sep 21, Nov 3, Nov 23, Nov 24, Nov 25, Jan 15 and Mar 10.',
+      'On a day with both, Change a Day now offers “Cancel the high school day” and “Cancel the college day” separately, and says at the top which one is actually closed. “Cancel everything” is still there for the days that close both, and putting a day back is split the same way.',
+      'College Chamber Orchestra is a college ensemble, so it follows MDC now — it used to be generated on the high school calendar, which put rehearsals inside MDC’s winter break. A master class is a high school class and follows MDCPS. The two programs do not cross over.',
       'Cancelling a day now cancels that day’s private lessons too. They were being left behind — a rehearsal-free Monday with one violin lesson still on it — and the weekly time could not clean that up afterwards, because a week that holds a lesson counts as covered. A lesson you already graded is left alone and named, and Back to normal only restores the lessons the day cancel took, never one a teacher cancelled themselves.',
     ],
   },

@@ -82,3 +82,20 @@ export function collegeClassIdForTitle(title: string): string | undefined {
 export function collegeClassForId(id: string): CollegeClassSpec | undefined {
   return COLLEGE_CLASSES.find(c => c.id === id);
 }
+
+/**
+ * Every group id this program creates with `collegeLevel: true` — the ONE
+ * list, and the same one `scripts/seed-college.mjs` writes the flag from.
+ *
+ * It exists for the GENERATORS (#college-hs-calendar-deps). They run from
+ * these hardcoded specs, before there is any `ensembles` doc to read
+ * `collegeLevel` off, so they cannot call `campusForGroup()` — and a
+ * generator that hardcodes "which of these is the college one" a second time
+ * is exactly how the College Chamber Orchestra ended up generated against the
+ * MDCPS calendar while `collegeChamberRehearsalPatches()` patched it against
+ * MDC's.
+ */
+export const COLLEGE_GROUP_IDS: ReadonlySet<string> = new Set<string>([
+  ...COLLEGE_CLASSES.map(c => c.id),
+  ...COLLEGE_ENSEMBLES.map(e => e.id),
+]);

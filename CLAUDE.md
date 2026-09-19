@@ -281,30 +281,51 @@ MDCPS teacher-planning day even though MDC was in full session that day.
   generation in `src/director/seedCalendar.ts`, and the standing weekly
   lesson-time expansion in `src/director/lessonSchedule.ts` (`slotDates()`
   skips MDCPS no-school days when it expands a `lessonSlots` recipe into
-  dated `Lesson` docs — see the RECIPE entry below). `scripts/add-ensembles.mjs`
-  also depends on it for the College Chamber Orchestra's Thursday rehearsal,
-  which is correctly MDCPS-scoped even though the ensemble is college-level:
-  that rehearsal happens ON the NWSA campus during the high school's own
-  schedule, not at MDC.
-- A rehearsal or class held on NWSA's campus follows MDCPS regardless of
-  which students or which `collegeLevel` flag it involves. Only an actual MDC
-  course (`COLLEGE_CLASSES`, meeting per the MDC schedule) depends on
-  `MDC_NO_SCHOOL`. Don't pick the dependency by "is this a college thing" —
-  pick it by which campus's calendar governs whether the room is open.
+  dated `Lesson` docs — see the RECIPE entry below).
+- **`collegeLevel` decides, and nothing else does** (director's correction,
+  2026-09-19). MDC decides college; MDCPS decides high school; there is **no
+  crossover in either direction**. An MDC day off cancels the college groups
+  and nothing else; an MDCPS day off cancels the high school groups and
+  nothing else. In particular:
+  - **College Chamber Orchestra is a college ensemble.** It follows MDC. It
+    has no high school connection, and an MDCPS teacher-planning day does not
+    touch it. `scripts/add-ensembles.mjs` and the `slotsForDay` entry in
+    `seedCalendar.ts` used to gate its Thursday rehearsal on `MDCPS_NO_SCHOOL`
+    — generating it straight through MDC's winter break while
+    `collegeChamberRehearsalPatches()` patched those same doc ids against
+    `isCollegeSessionDay`. Both now gate per GROUP, never per day.
+  - **A master class is a high school class.** It follows MDCPS and has no
+    college connection.
+  Do NOT pick the dependency by where the room is, by which campus the class
+  physically sits on, or by `kind`. An earlier pass reasoned from the room and
+  put College Chamber Orchestra on the MDCPS calendar; that is wrong. The
+  question is only ever "is this group college-level", and `isCollegeGroup()`
+  is the app's ONE answer — it lives in `groupKind.ts` (re-exported by
+  `utils.ts`) so Node-side code and `campusCalendar.ts` can read it without
+  the org config.
 - **`src/director/campusCalendar.ts` is that rule as code**, for everything
-  that is not a generator. A generator knows at the call site which calendar it
-  is building against; a SCREEN does not, and "Cancel the day" is the proof —
-  it swept 2026-09-21 and cancelled nine dual-enrollment classes that were
-  meeting, the same bug `collegeSchedule.ts` fixed, reached through a different
-  door. `campusForGroup()` reads MDC from `kind: 'class'` **plus**
-  `collegeLevel` and nothing else, so College Chamber Orchestra
-  (`kind: 'ensemble'`) and a college master class (`kind: 'masterclass'`) stay
-  MDCPS — they are in NWSA rooms. `campusForEvent()` needs EVERY group on the
-  block to be an MDC course, and an unresolvable group reads MDCPS, because
-  under-cancelling is invisible and over-cancelling is on the review sheet.
-  `splitClosure()` is what a screen leads with. `campusCalendar.selfcheck.ts`
-  pins the disagreement in BOTH directions (Sep 21: MDCPS off, MDC open;
-  Dec 14: MDC's term over, MDCPS in session) and runs in the deploy workflow.
+  that is not a generator. A generator knows at the call site what it is
+  building; a SCREEN does not, and "Cancel the day" is the proof — it sweeps a
+  whole date with no idea what is on it. `campusForGroup()` is exactly
+  `isCollegeGroup` → MDC, else MDCPS. `campusForEvent()` needs EVERY group on
+  the block to be a college group (a block mixing the two programs should not
+  exist, so that is a fail-safe, not a rule about mixing), and an unresolvable
+  group reads MDCPS, because under-cancelling is invisible and over-cancelling
+  is on the review sheet. `campusForGroupId()` is the same answer for the
+  SEED generators, which run from the hardcoded specs in `collegeClasses.ts`
+  before any `ensembles` doc exists — `COLLEGE_GROUP_IDS` there is the ONE
+  list, and the self-check pins that the two agree. `splitClosure()` is what a
+  screen leads with. `campusCalendar.selfcheck.ts` pins the disagreement in
+  BOTH directions (Sep 21: MDCPS off, MDC open; Dec 14: MDC's term over,
+  MDCPS in session) and runs in the deploy workflow.
+- **Fixing the generator does not fix the data.** The Sept 2026
+  `collegeSchedule.ts` fix landed and `scripts/seed-college.mjs` was never
+  re-run, so 51 college class sessions across 7 dates — every one an
+  MDCPS-only closure — simply did not exist in Firestore until 2026-09-19.
+  The director reported it as "you cancelled the college classes"; they had
+  never been created. After changing which calendar a generator asks, re-run
+  that generator (`Seed College Program` is idempotent and `workflow_dispatch`)
+  and verify against the live data, which is world-readable for `events`.
 - **A cancelled day takes the day's private LESSONS with it.** They are in
   another collection and were never in `dayEvents`, so a cancelled Monday used
   to look empty with a violin lesson still on it. It cannot be tidied up
@@ -313,9 +334,12 @@ MDCPS teacher-planning day even though MDC was in full session that day.
   is the receipt the day plan leaves — "Back to normal" restores only the
   lessons IT cancelled, never one a teacher cancelled for their own reasons,
   and a graded lesson is reported and left alone rather than rewritten. An
-  MDC-scoped cancel takes no lessons at all (`LESSON_CAMPUS`): a lesson is
-  taught in an NWSA room whatever year the student is in, which is the same
-  reason `slotDates()` generates against `MDCPS_NO_SCHOOL`.
+  MDC-scoped cancel takes no lessons at all (`LESSON_CAMPUS = 'mdcps'`): the
+  applied lesson program IS the high school one — `lessonLog.ts` builds the
+  official High School Lesson Log and `slotDates()` already generates every
+  lesson against `MDCPS_NO_SCHOOL`. If applied lessons are ever offered to
+  dual-enrollment students on MDC's calendar, `LESSON_CAMPUS` and
+  `slotDates()` change together or they drift.
 
 ## Ensembles vs. classes (Aug 2026)
 

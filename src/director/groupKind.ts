@@ -27,3 +27,19 @@ export function isClassGroup(e: Pick<Ensemble, 'kind'>): boolean {
 export function isMasterClass(e: Pick<Ensemble, 'kind'>): boolean {
   return e.kind === 'masterclass';
 }
+
+/**
+ * College / dual-enrollment. Independent of `kind`: a college ENSEMBLE
+ * (College Chamber Orchestra) and a college CLASS are both college, and a
+ * master class is not.
+ *
+ * It lives here beside the kind predicates, rather than in `utils.ts` where it
+ * started, because it decides more than a list heading now: `campusCalendar.ts`
+ * reads it to pick which academic calendar governs a group
+ * (#college-hs-calendar-deps), and that module has to load under Node's
+ * type-stripping loader, which `utils.ts` cannot. `utils.ts` re-exports it, so
+ * every existing caller is unchanged and there is still ONE spelling.
+ */
+export function isCollegeGroup(e: Pick<Ensemble, 'collegeLevel'>): boolean {
+  return !!e.collegeLevel;
+}

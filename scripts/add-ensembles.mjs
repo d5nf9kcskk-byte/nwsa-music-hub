@@ -18,7 +18,7 @@
 
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { MDCPS_NO_SCHOOL as NO_SCHOOL } from '../src/shared/academicCalendars.ts';
+import { isCollegeSessionDay } from '../src/director/collegeSchedule.ts';
 
 const SERVICE_ACCOUNT_JSON = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!SERVICE_ACCOUNT_JSON) {
@@ -63,7 +63,15 @@ const ENSEMBLES = [
     batchDocs.push({ col: 'ensembles', id, data });
   }
 
-  // College Chamber Orchestra: Thursdays, Aug 13 2026 → Jun 3 2027.
+  // College Chamber Orchestra: Thursdays, on MIAMI DADE COLLEGE's calendar
+  // (#college-hs-calendar-deps). It is a college ensemble — `collegeLevel` on
+  // its `ensembles` doc, listed under College in the app — so MDC decides
+  // whether it meets, and MDCPS's teacher planning days and grading-period
+  // boundaries have nothing to do with it. This used to gate on
+  // `MDCPS_NO_SCHOOL`, which generated rehearsals right through MDC's winter
+  // break and disagreed with `collegeChamberRehearsalPatches()` in
+  // collegeSchedule.ts, which has always patched these same doc ids against
+  // `isCollegeSessionDay`.
   const startMs = Date.UTC(2026, 7, 13);
   const endMs   = Date.UTC(2027, 5, 3);
   let cco = 0;
@@ -71,7 +79,7 @@ const ENSEMBLES = [
     const d = new Date(ms);
     if (d.getUTCDay() !== 4) continue; // Thursdays only
     const dateStr = d.toISOString().slice(0, 10);
-    if (NO_SCHOOL.has(dateStr)) continue;
+    if (!isCollegeSessionDay(dateStr)) continue;
     batchDocs.push({
       col: 'events',
       id: `reh-${dateStr}-college-chamber-orchestra-1430`,

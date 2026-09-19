@@ -19,16 +19,17 @@
  *    absorbed blocks re-created under their ORIGINAL doc ids (ICS UIDs
  *    derive from doc ids, a frozen subscription contract).
  *
- * 4. A CANCELLED DAY CANCELS THE RIGHT CAMPUS, AND TAKES THE LESSONS WITH IT
+ * 4. A CANCELLED DAY CANCELS THE RIGHT PROGRAM, AND TAKES THE LESSONS WITH IT
  *    (#college-hs-calendar-deps). MDCPS and Miami Dade College run separate
  *    calendars: on 2026-09-21, an MDCPS teacher planning day, MDC is in full
- *    session. A campus-scoped cancel must leave the other campus's classes
- *    alone, and an unscoped one must still cancel everything (a hurricane
- *    closes both). Either way the day's private LESSONS go with the MDCPS
- *    day — they are in another collection, were never in `dayEvents`, and a
- *    lesson left behind cannot be swept up later, because `pendingSlotDates()`
- *    reads the week as already covered. Back to normal puts back only the
- *    lessons the day plan itself cancelled, never one a teacher cancelled.
+ *    session. MDC decides college, MDCPS decides high school, with no
+ *    crossover — so a scoped cancel must leave the other program alone, and
+ *    an unscoped one must still cancel everything (a hurricane closes both).
+ *    Either way the day's private LESSONS go with the MDCPS day — they are in
+ *    another collection, were never in `dayEvents`, and a lesson left behind
+ *    cannot be swept up later, because `pendingSlotDates()` reads the week as
+ *    already covered. Back to normal puts back only the lessons the day plan
+ *    itself cancelled, never one a teacher cancelled.
  *
  * Run: node scripts/schedule-day-plan.selfcheck.mjs
  */
@@ -167,11 +168,16 @@ const labels = { 'evt-we': 'Wind Ensemble', 'evt-so': 'Symphony Orchestra' };
   eqDeep(applyPlan(afterCancel, back.writes), day, 'cancel → back-to-normal restores the day byte-for-byte');
 }
 
-// ── cancelling the RIGHT campus's day (#college-hs-calendar-deps) ─────
+// ── cancelling the RIGHT calendar's day (#college-hs-calendar-deps) ───
 //
 // 2026-09-21 is an MDCPS teacher planning day and an ordinary Monday at
-// Miami Dade College. The reported bug: "Cancel the day" cancelled nine
+// Miami Dade College. The reported bug: "Cancel the day" cancelled the
 // dual-enrollment classes that were still meeting.
+//
+// MDC decides college, MDCPS decides high school, and there is no crossover:
+// College Chamber Orchestra is a college ENSEMBLE and goes with the college
+// day; a master class is a high school class and goes with the high school
+// day.
 {
   const M = '2026-09-21';
   const hsReh = { id: 'evt-hs', type: 'Rehearsal', ensembleIds: ['we'], date: M, startTime: '13:10', endTime: '14:25', status: 'Scheduled' };
@@ -182,32 +188,31 @@ const labels = { 'evt-we': 'Wind Ensemble', 'evt-so': 'Symphony Orchestra' };
   const groups = {
     we: { kind: 'ensemble' },
     'class-college-piano-1': { kind: 'class', collegeLevel: true },
-    // College-LEVEL but on NWSA's campus: MDCPS governs the room.
     'college-chamber-orchestra': { kind: 'ensemble', collegeLevel: true },
-    'masterclass-violin': { kind: 'masterclass', collegeLevel: true },
+    'masterclass-violin': { kind: 'masterclass' },
   };
   const mlabels = { 'evt-hs': 'Wind Ensemble', 'evt-mdc': 'Class Piano 1', 'evt-cco': 'College Chamber Orchestra', 'evt-mc': 'Violin Masterclass' };
 
   const hs = planDayChange(mday, { kind: 'cancelDay', campus: 'mdcps' }, { labels: mlabels, groups });
-  eqDeep(hs.writes.map(w => w.id).sort(), ['evt-cco', 'evt-hs', 'evt-mc'],
-    'the high school day cancels every block in an NWSA room — the college ENSEMBLE and the master class included — and never an MDC course');
+  eqDeep(hs.writes.map(w => w.id).sort(), ['evt-hs', 'evt-mc'],
+    'the high school day cancels the high school rehearsal and the master class — and never a college group');
 
   const mdc = planDayChange(mday, { kind: 'cancelDay', campus: 'mdc' }, { labels: mlabels, groups });
-  eqDeep(mdc.writes.map(w => w.id), ['evt-mdc'], 'the college day cancels the MDC course alone');
+  eqDeep(mdc.writes.map(w => w.id).sort(), ['evt-cco', 'evt-mdc'],
+    'the college day cancels the college class AND the College Chamber Orchestra rehearsal — it is a college ensemble, not a high school one');
 
   const both = planDayChange(mday, { kind: 'cancelDay' }, { labels: mlabels, groups });
   eqDeep(both.writes.map(w => w.id).sort(), ['evt-cco', 'evt-hs', 'evt-mc', 'evt-mdc'],
-    'an UNSCOPED cancel still closes both campuses — a hurricane is a real verb');
+    'an UNSCOPED cancel still closes both programs — a hurricane is a real verb');
 
-  // A shared block carrying one high school ensemble is a block in an NWSA
-  // room, whoever else is in it.
+  // Should not exist: the two programs are separate. Fail-safe, not a rule.
   const shared = { id: 'evt-mix', type: 'Rehearsal', ensembleIds: ['class-college-piano-1', 'we'], date: M, startTime: '10:00', endTime: '11:00', status: 'Scheduled' };
   eqDeep(planDayChange([shared], { kind: 'cancelDay', campus: 'mdc' }, { groups }).writes, [],
-    'a block mixing an MDC course with a high school group is NOT the college day\'s to cancel');
+    'a block that somehow mixes the two programs is not the college day\'s to cancel');
 
   // No groups handed over at all: everything reads MDCPS, so the high school
-  // day still closes the room and the college day touches nothing. Failing
-  // the other way would leave a block running on a day just cancelled.
+  // day still closes them and the college day touches nothing. Failing the
+  // other way would leave a block running on a day just cancelled.
   eqDeep(planDayChange(mday, { kind: 'cancelDay', campus: 'mdcps' }, {}).writes.map(w => w.id).sort(),
     ['evt-cco', 'evt-hs', 'evt-mc', 'evt-mdc'], 'an unresolvable group reads as MDCPS, never as college');
 }
