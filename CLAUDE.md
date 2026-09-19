@@ -291,6 +291,31 @@ MDCPS teacher-planning day even though MDC was in full session that day.
   course (`COLLEGE_CLASSES`, meeting per the MDC schedule) depends on
   `MDC_NO_SCHOOL`. Don't pick the dependency by "is this a college thing" —
   pick it by which campus's calendar governs whether the room is open.
+- **`src/director/campusCalendar.ts` is that rule as code**, for everything
+  that is not a generator. A generator knows at the call site which calendar it
+  is building against; a SCREEN does not, and "Cancel the day" is the proof —
+  it swept 2026-09-21 and cancelled nine dual-enrollment classes that were
+  meeting, the same bug `collegeSchedule.ts` fixed, reached through a different
+  door. `campusForGroup()` reads MDC from `kind: 'class'` **plus**
+  `collegeLevel` and nothing else, so College Chamber Orchestra
+  (`kind: 'ensemble'`) and a college master class (`kind: 'masterclass'`) stay
+  MDCPS — they are in NWSA rooms. `campusForEvent()` needs EVERY group on the
+  block to be an MDC course, and an unresolvable group reads MDCPS, because
+  under-cancelling is invisible and over-cancelling is on the review sheet.
+  `splitClosure()` is what a screen leads with. `campusCalendar.selfcheck.ts`
+  pins the disagreement in BOTH directions (Sep 21: MDCPS off, MDC open;
+  Dec 14: MDC's term over, MDCPS in session) and runs in the deploy workflow.
+- **A cancelled day takes the day's private LESSONS with it.** They are in
+  another collection and were never in `dayEvents`, so a cancelled Monday used
+  to look empty with a violin lesson still on it. It cannot be tidied up
+  afterwards either: `pendingSlotDates()` reads a week holding any lesson as
+  covered, so the standing weekly time will never notice. `Lesson.changeFrom`
+  is the receipt the day plan leaves — "Back to normal" restores only the
+  lessons IT cancelled, never one a teacher cancelled for their own reasons,
+  and a graded lesson is reported and left alone rather than rewritten. An
+  MDC-scoped cancel takes no lessons at all (`LESSON_CAMPUS`): a lesson is
+  taught in an NWSA room whatever year the student is in, which is the same
+  reason `slotDates()` generates against `MDCPS_NO_SCHOOL`.
 
 ## Ensembles vs. classes (Aug 2026)
 

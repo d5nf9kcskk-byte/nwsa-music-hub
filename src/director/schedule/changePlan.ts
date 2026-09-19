@@ -5,9 +5,11 @@
  * under plain Node the way generate-feeds.mjs loads calendarView. Everything
  * that touches Firestore (banners, the notify relay) stays in changeOps.ts.
  */
-import type { CalendarEvent, RosterOverride } from '../types';
+import type { CalendarEvent, Ensemble, Lesson, RosterOverride } from '../types';
 import { formatTime, formatTimeRange, parseDate } from '../utils';
 import { lessonsFor } from '../rosterResolver';
+import { campusForEvent, LESSON_CAMPUS } from '../campusCalendar';
+import type { Campus } from '../campusCalendar';
 
 type ChangeFrom = NonNullable<CalendarEvent['changeFrom']>;
 
@@ -100,8 +102,27 @@ export type DayAction =
   | { kind: 'swap'; aId: string; bId: string }
   | { kind: 'combine'; hostId: string; absorbedIds: string[]; startTime?: string; endTime?: string; location?: string; groupLabel?: string }
   | { kind: 'move'; id: string; startTime?: string; endTime?: string; location?: string; overlapAcknowledged?: boolean }
-  | { kind: 'cancelDay' }
-  | { kind: 'backToNormal' };
+  /**
+   * Cancel everything on the date — scoped to ONE campus when `campus` is set
+   * (#college-hs-calendar-deps).
+   *
+   * Unscoped is a real verb and stays available: a hurricane closes both
+   * campuses. But most closures are one campus's alone, and the unscoped
+   * sweep is what cancelled nine dual-enrollment classes on an MDCPS teacher
+   * planning day while Miami Dade College was in full session. The day board
+   * offers the scoped plan FIRST whenever `splitClosure()` names a campus.
+   */
+  | { kind: 'cancelDay'; campus?: Campus }
+  /**
+   * Undo every change on the date, scoped to ONE campus when `campus` is set.
+   *
+   * The scope is not decoration: the day this was written for had nine
+   * dual-enrollment classes wrongly cancelled alongside a legitimate high
+   * school closure, and an unscoped revert would have put the high school
+   * afternoon back on too. Un-cancelling nine blocks one at a time is the
+   * alternative, and it is the kind of chore that gets half-finished.
+   */
+  | { kind: 'backToNormal'; campus?: Campus };
 
 export type PlanWrite =
   /** `data` goes through updateEvent — undefined values are IGNORED
@@ -110,7 +131,20 @@ export type PlanWrite =
   | { op: 'delete'; id: string }
   /** Replayed through revertEvent (revertPlan): restores the snapshot,
    *  re-creates absorbed events under their ORIGINAL doc ids, pulls banners. */
-  | { op: 'revert'; id: string };
+  | { op: 'revert'; id: string }
+  /**
+   * A private lesson on the cancelled day, replayed through useLessons.
+   * Separate ops rather than an `update` with a collection tag, because they
+   * land in a DIFFERENT collection with a different mirror (`lessonsPublic`)
+   * and a different undo — `applyPlan` previews the day's BLOCKS and must
+   * skip these rather than guess at them.
+   */
+  | { op: 'cancelLesson'; id: string }
+  | { op: 'revertLesson'; id: string };
+
+/** Event-collection ops — the ones `applyPlan` can preview on the day board. */
+const isEventWrite = (w: PlanWrite): w is Extract<PlanWrite, { op: 'update' | 'delete' | 'revert' }> =>
+  w.op === 'update' || w.op === 'delete' || w.op === 'revert';
 
 export type PlanGuard =
   /** BLOCKING until resolved or acknowledged — displacement is never silent. */
@@ -118,7 +152,12 @@ export type PlanGuard =
   | { kind: 'rollTaken'; eventId: string }
   | { kind: 'strandedOverride'; overrideId: string; studentId: string; eventId: string; action: 'add' | 'remove'; lesson: boolean }
   /** A lesson pull-out window that no longer fits inside the block's new time. */
-  | { kind: 'lessonWindow'; overrideId: string; studentId: string; eventId: string; startTime: string; endTime: string };
+  | { kind: 'lessonWindow'; overrideId: string; studentId: string; eventId: string; startTime: string; endTime: string }
+  /** A private lesson the day's cancel deliberately left alone: it already
+   *  carries a grade, so it is a record of a lesson that HAPPENED. Reported
+   *  rather than cancelled — and reported rather than skipped in silence,
+   *  which is the same rule `skippedNoSchoolDates()` follows. */
+  | { kind: 'gradedLesson'; lessonId: string; studentId: string };
 
 export interface DayPlan {
   writes: PlanWrite[];
@@ -137,11 +176,23 @@ export const strandedEventOverrides = (overrides: RosterOverride[], goneIds: Set
 export function planDayChange(
   dayEvents: CalendarEvent[],
   action: DayAction,
-  ctx: { labels?: Record<string, string>; overrides?: RosterOverride[] } = {},
+  ctx: {
+    labels?: Record<string, string>;
+    overrides?: RosterOverride[];
+    /** Groups by id — how a block's campus is read (#college-hs-calendar-deps).
+     *  Absent means every block reads as MDCPS, which is what a scoped cancel
+     *  fails TOWARDS: see campusForGroup(). */
+    groups?: Record<string, Pick<Ensemble, 'kind' | 'collegeLevel'> | undefined>;
+    /** The private lessons on this date. Absent = the caller has none to
+     *  offer, and a cancel touches only the blocks, exactly as before. */
+    lessons?: Lesson[];
+  } = {},
 ): DayPlan {
   const byId = Object.fromEntries(dayEvents.map(e => [e.id, e]));
   const label = (e: CalendarEvent) => ctx.labels?.[e.id] ?? e.title ?? e.type;
   const overrides = ctx.overrides ?? [];
+  const groups = ctx.groups ?? {};
+  const dayLessons = ctx.lessons ?? [];
   const date = dayEvents[0]?.date ?? '';
   const when = date
     ? parseDate(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -239,17 +290,54 @@ export function planDayChange(
       break;
     }
     case 'cancelDay': {
-      const live = dayEvents.filter(e => e.status !== 'Cancelled');
+      // Scoped to one campus when asked. Reading the campus off each BLOCK
+      // rather than off the date is what keeps this honest: the date only
+      // says who is closed, the block says whose room it is.
+      const live = dayEvents.filter(e =>
+        e.status !== 'Cancelled'
+        && (!action.campus || campusForEvent(e, groups) === action.campus));
       for (const e of live) {
         writes.push({ op: 'update', id: e.id, data: { status: 'Cancelled', changeNote: 'Cancelled', ...captureOriginal(e) } });
       }
+      // The day's private lessons go with it. They are not events and were
+      // never in `dayEvents`, so a cancelled day used to leave a student's
+      // violin lesson sitting alone on an empty calendar — and the standing
+      // weekly time cannot fix that later, because `pendingSlotDates()`
+      // treats the week as already covered. An MDC-scoped cancel takes none
+      // of them: a lesson is taught in an NWSA room (LESSON_CAMPUS).
+      if (!action.campus || action.campus === LESSON_CAMPUS) {
+        for (const l of dayLessons) {
+          if (l.status === 'Cancelled') continue;
+          // A graded lesson is a record of one that happened — say so, never
+          // rewrite it. Same rule as slotChangePlan's keptGraded.
+          if ((l.grade ?? '').trim()) {
+            guards.push({ kind: 'gradedLesson', lessonId: l.id, studentId: l.studentId });
+            continue;
+          }
+          writes.push({ op: 'cancelLesson', id: l.id });
+        }
+      }
+      // Blocks only. The banner is the PUBLIC "schedule change" notice, and a
+      // lesson announces itself through the student's own feed — the cancelled
+      // lesson drops out of feeds/student-<id>.ics, which reaches exactly the
+      // one family it concerns instead of the whole school.
       if (live.length > 0) bannerText = `🚫 ${live.map(label).join(', ')}: CANCELLED ${when}`;
       break;
     }
     case 'backToNormal': {
       for (const e of dayEvents) {
+        if (action.campus && campusForEvent(e, groups) !== action.campus) continue;
         if (e.changeNote || e.changeFrom || e.changeAnnouncementId || e.status === 'Cancelled') {
           writes.push({ op: 'revert', id: e.id });
+        }
+      }
+      // ONLY the lessons a day cancel took: `changeFrom` is the receipt it
+      // left. A lesson the teacher cancelled themselves carries none, and
+      // putting the day back must not overrule them. Scoped to MDC, none of
+      // them are in scope at all — a lesson is taught in an NWSA room.
+      if (!action.campus || action.campus === LESSON_CAMPUS) {
+        for (const l of dayLessons) {
+          if (l.changeFrom) writes.push({ op: 'revertLesson', id: l.id });
         }
       }
       break;
@@ -263,10 +351,14 @@ export function planDayChange(
  * selfcheck's round-trip both apply writes exactly the way commit will:
  * update = merge (undefined ignored), delete = gone, revert = revertPlan
  * (undefined clears the field; absorbed events re-created, original ids).
+ *
+ * The day board shows BLOCKS, so lesson writes are skipped rather than drawn:
+ * a private lesson is not an event and has never had a card here. The review
+ * sheet counts them in its own line instead (#college-hs-calendar-deps).
  */
 export function applyPlan(dayEvents: CalendarEvent[], writes: PlanWrite[]): CalendarEvent[] {
   let out = dayEvents.map(e => ({ ...e }));
-  for (const w of writes) {
+  for (const w of writes.filter(isEventWrite)) {
     if (w.op === 'delete') {
       out = out.filter(e => e.id !== w.id);
     } else if (w.op === 'update') {

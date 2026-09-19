@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   collection, onSnapshot, doc, query, orderBy, where, writeBatch, getDoc,
+  updateDoc, deleteField,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
@@ -22,7 +23,21 @@ import type { Lesson } from '../types';
  * when, where, and with whom, and nothing else. publicLessonFields() is the
  * allowlist; every write below carries the mirror with it.
  */
-export function useLessons() {
+export function useLessons(opts: {
+  /**
+   * Narrow the listener to ONE date. The day board needs the handful of
+   * lessons on the day it is showing, not a school year of them — about 1,400
+   * docs for a studio of forty, pulled on a screen opened from a "change
+   * today's schedule" button. A single equality filter needs no composite
+   * index, and the sort is done here either way.
+   *
+   * An Applied Teacher's listener is already scoped by `teacherEmail`, and
+   * adding a second equality clause to THAT would need a composite index — so
+   * their query is left alone and the date is filtered in memory.
+   */
+  date?: string;
+} = {}) {
+  const { date: onDate } = opts;
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
   const me = useCurrentDirector();
@@ -43,15 +58,20 @@ export function useLessons() {
     if (!me) return;
     const q = mine
       ? query(collection(db, 'lessons'), where('teacherEmail', '==', mine))
-      : query(collection(db, 'lessons'), orderBy('date'));
+      : onDate
+        ? query(collection(db, 'lessons'), where('date', '==', onDate))
+        : query(collection(db, 'lessons'), orderBy('date'));
     return onSnapshot(q, snap => {
-      const rows = snap.docs.map(d => ({ id: d.id, ...d.data() } as Lesson));
-      if (mine) rows.sort((a, b) => a.date.localeCompare(b.date));
+      let rows = snap.docs.map(d => ({ id: d.id, ...d.data() } as Lesson));
+      // The teacher's query could not carry the date clause; apply it here so
+      // both roles hand back the same list for the same arguments.
+      if (mine && onDate) rows = rows.filter(l => l.date === onDate);
+      if (mine || onDate) rows.sort((a, b) => a.date.localeCompare(b.date));
       setLessons(rows);
       noteLoadOk('lessons');
       setLoading(false);
     }, () => { noteLoadError('lessons'); setLoading(false); });
-  }, [me, mine]);
+  }, [me, mine, onDate]);
 
   async function addLesson(data: Omit<Lesson, 'id' | 'createdAt' | 'updatedAt' | 'updatedBy'>): Promise<string | undefined> {
     if (!db) return;
@@ -142,5 +162,45 @@ export function useLessons() {
     ]);
   }
 
-  return { lessons, loading, addLesson, updateLesson, deleteLesson, cancelLesson, syncLessonMirror };
+  /**
+   * Cancel a lesson because the whole DAY was cancelled
+   * (#college-hs-calendar-deps) — the same write as `cancelLesson`, plus the
+   * `changeFrom` receipt that tells "Back to normal" this one is the day
+   * plan's to put back. Snapshot-once, exactly like an event's: a second
+   * cancel must never overwrite the original status.
+   *
+   * No `offerUndo`: a day cancel writes a dozen of these at once and a dozen
+   * undo toasts fighting each other is not an undo. The whole plan reverses
+   * in one press from the same screen, which is where a bulk change belongs.
+   */
+  async function cancelLessonForDay(l: Lesson) {
+    await updateLesson(l.id, {
+      status: 'Cancelled',
+      ...(l.changeFrom ? {} : { changeFrom: { status: l.status } }),
+    });
+  }
+
+  /**
+   * Put a day-cancelled lesson back where it was. Mirrors revertEvent: the
+   * snapshot decides the status, the receipt is cleared with deleteField (an
+   * `undefined` would be dropped by ignoreUndefinedProperties and the lesson
+   * would look day-cancelled forever), and the public mirror is rebuilt from
+   * the source doc so the student's feed carries it again.
+   */
+  async function revertLessonForDay(id: string, from: Lesson['changeFrom']) {
+    if (!db) return;
+    const dbRef = db;
+    await trackWrite('Lesson revert', () => updateDoc(doc(dbRef, 'lessons', id), {
+      status: from?.status ?? 'Scheduled',
+      changeFrom: deleteField(),
+      updatedAt: Date.now(),
+      updatedBy: currentDirectorName(),
+    }));
+    await syncLessonMirror(id);
+  }
+
+  return {
+    lessons, loading, addLesson, updateLesson, deleteLesson, cancelLesson,
+    cancelLessonForDay, revertLessonForDay, syncLessonMirror,
+  };
 }

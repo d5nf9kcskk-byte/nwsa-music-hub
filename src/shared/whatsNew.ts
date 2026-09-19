@@ -32,6 +32,22 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Cancelling a day now asks WHICH campus (#college-hs-calendar-deps).
+  // Staff-only: what a family sees is unchanged — the same red banner for the
+  // same blocks — and the college classes that stopped being cancelled were
+  // never cancelled in the first place as far as MDC's calendar is concerned.
+  {
+    id: '2026-09-19-cancel-the-right-day',
+    date: '2026-09-19',
+    title: 'Cancelling a day asks which school is closed',
+    audience: 'staff' as const,
+    expires: '2026-10-20',
+    bullets: [
+      'MDCPS and Miami Dade College run separate calendars, and they do not line up: Monday Sep 21 is a teacher planning day at the high school and an ordinary Monday at MDC. “Cancel the day” used to take everything, so the nine dual-enrollment classes that were still meeting were cancelled with it.',
+      'On a day with both, Change a Day now offers “Cancel the high school day” and “Cancel the college day” separately, and says at the top which one is actually closed. “Cancel everything” is still there for the days that close both. Putting a day back is split the same way, so one press un-cancels the college classes without putting the high school afternoon back on.',
+      'Cancelling a day now cancels that day’s private lessons too. They were being left behind — a rehearsal-free Monday with one violin lesson still on it — and the weekly time could not clean that up afterwards, because a week that holds a lesson counts as covered. A lesson you already graded is left alone and named, and Back to normal only restores the lessons the day cancel took, never one a teacher cancelled themselves.',
+    ],
+  },
   {
     id: '2026-09-17-group-picker-everywhere',
     date: '2026-09-17',
