@@ -341,6 +341,11 @@ MDCPS teacher-planning day even though MDC was in full session that day.
   dual-enrollment students on MDC's calendar, `LESSON_CAMPUS` and
   `slotDates()` change together or they drift.
 
+Session record: `docs/session-notes-2026-09-19-college-hs-calendar.md` — the
+director's correction verbatim, why reasoning from "where the room is" gave
+the wrong answer, and the read-only audit that has to precede re-running a
+seed that `set`s rather than merges.
+
 ## Ensembles vs. classes (Aug 2026)
 
 `Ensemble.kind` splits the one `ensembles` collection into performing groups
