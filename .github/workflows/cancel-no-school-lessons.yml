@@ -1,0 +1,53 @@
+name: Cancel No-School Lessons
+
+# Cancels applied lessons sitting on a day MDCPS is closed
+# (#college-hs-calendar-deps).
+#
+# `slotDates()` learned to skip MDCPS no-school days in Sept 2026, so nothing
+# generated since can land on one — but every lesson generated BEFORE that is
+# still sitting on Thanksgiving, Christmas Eve and Memorial Day, and nothing in
+# the app ever looks. Re-running a generator cannot fix it either:
+# `pendingSlotDates()` reads a week holding any lesson as already covered.
+#
+# Writes BOTH `lessons` and its `lessonsPublic` mirror in one batch — which is
+# exactly why `set-doc-field.mjs` refuses this collection.
+#
+# Leaves alone: anything already cancelled, anything GRADED (it happened), and
+# anything before `from` (default today — a past lesson either happened or did
+# not, and this cannot tell). Never deletes: a cancelled lesson is what stops
+# the standing weekly time re-creating it.
+#
+# Run dry first and read the counts, then apply.
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: 'Only lessons on or after this date (YYYY-MM-DD). Blank = today.'
+        required: false
+      dry_run:
+        description: 'List what would change without writing anything'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm install firebase-admin --no-save
+      - name: Cancel no-school lessons in Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          INPUT_FROM: ${{ inputs.from }}
+          INPUT_DRY: ${{ inputs.dry_run }}
+        run: |
+          ARGS=""
+          [ "$INPUT_DRY" = "true" ] && ARGS="$ARGS --dry-run"
+          [ -n "$INPUT_FROM" ] && ARGS="$ARGS --from=$INPUT_FROM"
+          node scripts/cancel-no-school-lessons.mjs $ARGS

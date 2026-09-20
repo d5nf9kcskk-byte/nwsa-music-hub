@@ -4,6 +4,25 @@ import type { EventType } from './types';
 import { ACADEMIC_CLASSES, academicClassIdForTitle } from './academicClasses';
 import { MASTERCLASS_SECTIONS, masterclassIdForTitle } from './masterclassSections';
 import { MDCPS_NO_SCHOOL as NO_SCHOOL } from '../shared/academicCalendars.ts';
+import { campusForGroupId, isCampusClosed } from './campusCalendar.ts';
+
+/**
+ * Is this group meeting on this date? (#college-hs-calendar-deps)
+ *
+ * Asked PER GROUP, never per day. MDC decides college and MDCPS decides high
+ * school, with no crossover, and this loop generates both: every high school
+ * rehearsal and class, plus the College Chamber Orchestra's Thursday
+ * rehearsal. Gating the whole day on `MDCPS_NO_SCHOOL` — which is what this
+ * did — put a college ensemble's rehearsals on the high school's calendar,
+ * so they were generated across MDC's own winter break and skipped on days
+ * MDC was in session. `collegeChamberRehearsalPatches()` in
+ * collegeSchedule.ts has always patched those same doc ids against
+ * `isCollegeSessionDay`, so the generator and the patcher disagreed about
+ * which Thursdays exist at all.
+ */
+function groupMeetsOn(ensId: string, dateStr: string): boolean {
+  return !isCampusClosed(campusForGroupId(ensId), dateStr);
+}
 
 // Stable ensemble slugs — match the IDs written by seedRoster().
 const ENS = {
@@ -160,7 +179,6 @@ function classEventDocs(): { id: string; data: SeedEventData }[] {
     const dow = d.getUTCDay();
     if (dow === 0 || dow === 6) continue;
     const dateStr = d.toISOString().slice(0, 10);
-    if (NO_SCHOOL.has(dateStr)) continue;
     for (const cls of CLASSES) {
       if (!cls.days.includes(dow)) continue;
       // Id keeps the original seed clock suffix so re-runs stay idempotent
@@ -171,6 +189,12 @@ function classEventDocs(): { id: string; data: SeedEventData }[] {
         : cls.start.replace(':', '');
       const idSlug = cls.groupId ?? classSlug(cls.title);
       const ensId = cls.groupId ?? academicClassIdForTitle(cls.title) ?? masterclassIdForTitle(cls.title);
+      // Per group, like the rehearsal loop. Everything in CLASSES is a high
+      // school class today — the academic classes and the four master
+      // classes — so this changes nothing now; it is here so that adding a
+      // college entry to the list later cannot silently put it on MDCPS's
+      // calendar, which is the bug this pass fixed elsewhere in this file.
+      if (!groupMeetsOn(ensId ?? '', dateStr)) continue;
       docs.push({
         id: `class-${dateStr}-${idSlug}-${idClock}`,
         data: {
@@ -199,7 +223,7 @@ function choirRehearsalDocs(): { id: string; data: SeedEventData }[] {
     const dow = d.getUTCDay();
     if (dow === 0 || dow === 6) continue;
     const dateStr = d.toISOString().slice(0, 10);
-    if (NO_SCHOOL.has(dateStr)) continue;
+    if (!groupMeetsOn(ENS.choir, dateStr)) continue;
     docs.push({
       // Keep -1430 in the id (legacy seed key); clock time is choir Block 2.
       id: `reh-${dateStr}-${ENS.choir}-1430`,
@@ -253,9 +277,11 @@ export async function seedCalendar(): Promise<{ rehearsals: number; classes: num
     const dow = d.getUTCDay();
     if (dow === 0 || dow === 6) continue; // skip weekends
     const dateStr = d.toISOString().slice(0, 10);
-    if (NO_SCHOOL.has(dateStr)) continue;
 
     for (const slot of slotsForDay(dow)) {
+      // Per group, not per day: the College Chamber Orchestra slot follows
+      // MDC's calendar, every other slot here follows MDCPS's.
+      if (!groupMeetsOn(slot.ensId, dateStr)) continue;
       const id = `reh-${dateStr}-${slot.ensId}-${slot.start.replace(':', '')}`;
       allDocs.push({
         id,

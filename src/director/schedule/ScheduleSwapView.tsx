@@ -5,11 +5,14 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useStudents } from '../hooks/useStudents';
+import { useLessons } from '../hooks/useLessons';
 import { todayStr, addDays, parseDate, toDateStr, formatTime, formatTimeRange, ensembleColor, addMinutesToTime, TIME_BLOCKS, CONCERT_COLOR, isClassGroup } from '../utils';
 import { sharedBlockLabel } from '../../shared/sharedBlock';
 import { bannersForEvents, announceChange, captureOriginal, combineSnapshot } from './changeOps';
 import { planDayChange, applyPlan, rolledBlocks, strandedEventOverrides } from './changePlan';
 import type { DayAction, DayPlan, PlanGuard } from './changePlan';
+import { campusForEvent, splitClosure, isCampusClosed, LESSON_CAMPUS, CAMPUS_LABEL, CAMPUS_FULL_NAME } from '../campusCalendar';
+import type { Campus } from '../campusCalendar';
 import type { CalendarEvent, Ensemble, RosterOverride } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { backdropClose } from '../../shared/backdropClose';
@@ -53,6 +56,13 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   const { announcements, deleteAnnouncement } = announcementApi;
 
   const [date, setDate] = useState(initialDate ?? todayStr());
+  /**
+   * The private lessons on the day being shown — what a whole-day cancel has
+   * to take with it (#college-hs-calendar-deps). Scoped to the date in the
+   * listener itself, so stepping through days costs one small query each
+   * rather than a school year of lesson docs up front.
+   */
+  const { lessons: dayLessons, cancelLessonForDay, revertLessonForDay } = useLessons({ date });
   // Pick-mode: tapping blocks to swap (exactly two) or combine (host first,
   // then any number of blocks to absorb). One grammar for both (#2.3).
   const [pick, setPick] = useState<{ mode: 'swap' | 'combine'; ids: string[] } | null>(null);
@@ -114,8 +124,10 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   const planCtx = useMemo(() => ({
     labels: Object.fromEntries(dayEvents.map(e => [e.id, label(e)])),
     overrides,
+    groups: ensembleMap,
+    lessons: dayLessons,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [dayEvents, overrides, ensembleMap]);
+  }), [dayEvents, overrides, ensembleMap, dayLessons]);
 
   const planned: DayPlan | null = useMemo(
     () => planAction ? planDayChange(dayEvents, planAction, planCtx) : null,
@@ -154,15 +166,108 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
         });
       }
     }
-    if (dayEvents.some(e => e.status !== 'Cancelled')) {
+    // Cancelling the day (#college-hs-calendar-deps). ONE chip when the day's
+    // blocks all answer to the same campus — which is every ordinary day. Two
+    // campuses on the board means two verbs, and the campus whose calendar is
+    // actually shut that day leads, because the unscoped sweep is what
+    // cancelled nine dual-enrollment classes on an MDCPS planning day.
+    //
+    // Private lessons count towards MDCPS, because that is the campus that
+    // cancels them. Leaving them out is a trap that showed up while testing
+    // the recovery from the reported bug: put the wrongly-cancelled college
+    // classes back and the day is nine live college blocks plus one live
+    // lesson, which without this reads as a single-campus day — and the one
+    // chip on offer would be the unscoped sweep that cancels them again.
+    const liveByCampus = new Map<Campus, number>();
+    const bump = (c: Campus) => liveByCampus.set(c, (liveByCampus.get(c) ?? 0) + 1);
+    for (const e of dayEvents) if (e.status !== 'Cancelled') bump(campusForEvent(e, ensembleMap));
+    for (const l of dayLessons) if (l.status !== 'Cancelled') bump(LESSON_CAMPUS);
+
+    if (liveByCampus.size > 1) {
+      const shut = splitClosure(date);
+      const order: Campus[] = shut ? [shut, shut === 'mdcps' ? 'mdc' : 'mdcps'] : ['mdcps', 'mdc'];
+      for (const c of order) {
+        const n = liveByCampus.get(c) ?? 0;
+        if (n === 0) continue;
+        opts.push({
+          key: `cancel-day-${c}`,
+          label: `Cancel the ${CAMPUS_LABEL[c]} day (${n})`,
+          action: { kind: 'cancelDay', campus: c },
+          danger: true,
+        });
+      }
+      opts.push({ key: 'cancel-day', label: 'Cancel everything', action: { kind: 'cancelDay' }, danger: true });
+    } else if (liveByCampus.size === 1) {
       opts.push({ key: 'cancel-day', label: 'Cancel the day', action: { kind: 'cancelDay' }, danger: true });
     }
-    if (dayEvents.some(isChanged)) {
-      opts.push({ key: 'back-to-normal', label: 'Back to normal', action: { kind: 'backToNormal' } });
+    // Putting it back, same shape. A day whose two campuses were changed
+    // together — which is how the college classes got cancelled in the first
+    // place — needs to be separable again, or the only way out is nine
+    // per-block un-cancels.
+    const changedByCampus = new Map<Campus, number>();
+    const bumpChanged = (c: Campus) => changedByCampus.set(c, (changedByCampus.get(c) ?? 0) + 1);
+    for (const e of dayEvents) if (isChanged(e)) bumpChanged(campusForEvent(e, ensembleMap));
+    for (const l of dayLessons) if (l.changeFrom) bumpChanged(LESSON_CAMPUS);
+    if (changedByCampus.size > 1) {
+      for (const c of ['mdcps', 'mdc'] as Campus[]) {
+        const n = changedByCampus.get(c) ?? 0;
+        if (n === 0) continue;
+        opts.push({
+          key: `back-to-normal-${c}`,
+          label: `Put the ${CAMPUS_LABEL[c]} day back (${n})`,
+          action: { kind: 'backToNormal', campus: c },
+        });
+      }
+    }
+    if (changedByCampus.size > 0) {
+      opts.push({
+        key: 'back-to-normal',
+        label: changedByCampus.size > 1 ? 'Put everything back' : 'Back to normal',
+        action: { kind: 'backToNormal' },
+      });
     }
     return opts;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boardCols, dayEvents, ensembleMap]);
+  }, [boardCols, dayEvents, dayLessons, date, ensembleMap]);
+
+  /**
+   * "Sep 21 is a day off at the high school (MDCPS). Miami Dade College is in
+   * session." — said out loud, on the screen where the mistake gets made
+   * (#college-hs-calendar-deps).
+   *
+   * The two calendars are independently sourced and genuinely disagree, in
+   * both directions: MDCPS closes for teacher planning days MDC has never
+   * heard of, and MDC's fall term ends a week before MDCPS breaks up. A
+   * director looking at one date cannot be expected to hold both, and the
+   * cost of guessing is a cancelled class that was actually meeting.
+   * Shown whenever the day splits and there is anything on the board to
+   * cancel, whether or not both campuses are represented — the missing
+   * campus is itself worth noticing.
+   */
+  const closureHint = useMemo(() => {
+    const shut = splitClosure(date);
+    if (!shut || (dayEvents.length === 0 && dayLessons.length === 0)) return null;
+    const open: Campus = shut === 'mdcps' ? 'mdc' : 'mdcps';
+    const when = parseDate(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const openName = CAMPUS_FULL_NAME[open];
+    return `${when} is a day off at ${CAMPUS_FULL_NAME[shut]}. `
+      + `${openName[0].toUpperCase()}${openName.slice(1)} is in session — those classes still meet.`;
+  }, [date, dayEvents.length, dayLessons.length]);
+
+  /**
+   * "2 private lessons are still on the calendar for a day the high school is
+   * closed." Lessons have no card on this board — they are not events — so a
+   * day that is entirely cancelled still LOOKS empty while a violin lesson
+   * sits underneath it, which is exactly what was reported.
+   *
+   * Said whenever the lesson campus is shut, not only when a cancel is being
+   * planned: a lesson generated before `slotDates()` learned to skip MDCPS
+   * closures (Sept 2026) is stale data that nothing else ever points at.
+   */
+  const strandedLessons = useMemo(
+    () => (isCampusClosed(LESSON_CAMPUS, date) ? dayLessons.filter(l => l.status !== 'Cancelled') : []),
+    [date, dayLessons],
+  );
 
   /** Revert one event and pull down every banner that belongs to it. */
   async function revertOne(e: CalendarEvent) {
@@ -182,10 +287,16 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
     setBusy(true); setError('');
     try {
       const byId = Object.fromEntries(dayEvents.map(e => [e.id, e]));
+      const lessonById = Object.fromEntries(dayLessons.map(l => [l.id, l]));
       const touched = plan.writes.map(w => byId[w.id]).filter(Boolean) as CalendarEvent[];
       for (const w of plan.writes) {
         if (w.op === 'update') await updateEvent(w.id, w.data);
         else if (w.op === 'delete') await deleteEvent(w.id, { undoable: false });
+        // Lessons live in their own collection with their own mirror, so they
+        // go through useLessons rather than the event machinery. Skipped if
+        // the lesson vanished between planning and pressing.
+        else if (w.op === 'cancelLesson') { const l = lessonById[w.id]; if (l) await cancelLessonForDay(l); }
+        else if (w.op === 'revertLesson') { const l = lessonById[w.id]; if (l) await revertLessonForDay(l.id, l.changeFrom); }
         else if (byId[w.id]) await revertOne(byId[w.id]);
       }
       if (notify && plan.bannerText && touched.length > 0) {
@@ -386,7 +497,17 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
           </button>
         </div>
 
-        {dayEvents.length === 0 ? (
+        {closureHint && <div className="dir-att-summary" style={{ borderRadius: 10 }}>{closureHint}</div>}
+        {strandedLessons.length > 0 && (
+          <div className="dir-sc-error">
+            ⚠ {strandedLessons.length} private lesson{strandedLessons.length === 1 ? '' : 's'}{' '}
+            {strandedLessons.length === 1 ? 'is' : 'are'} still on the calendar for a day
+            {' '}{CAMPUS_FULL_NAME[LESSON_CAMPUS]} is closed. Cancelling the day takes
+            {strandedLessons.length === 1 ? ' it' : ' them'} too.
+          </div>
+        )}
+
+        {dayEvents.length === 0 && dayLessons.length === 0 ? (
           <div className="dir-empty-inline">
             No ensemble events this day.
             <button className="dir-btn dir-btn-ghost dir-sc-small" style={{ marginLeft: 8 }} onClick={() => onNavigate('schedule', { date })}>
@@ -859,7 +980,19 @@ function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, 
   const rolled = ofKind('rollTaken');
   const stranded = ofKind('strandedOverride');
   const lessons = ofKind('lessonWindow');
+  const gradedLessons = ofKind('gradedLesson');
   const studentName = (id: string) => students.find(s => s.id === id)?.name ?? 'A student';
+  // Private lessons in this plan. They are in another collection and have no
+  // card on the day board, so the "after" boards cannot show them — this line
+  // is the only place the director sees them before pressing.
+  const lessonsCancelled = planned.writes.filter(w => w.op === 'cancelLesson').length;
+  const lessonsRestored = planned.writes.filter(w => w.op === 'revertLesson').length;
+  // Live blocks this plan does NOT touch — read off the plan itself, so the
+  // sheet cannot claim one thing while the writes do another.
+  const untouched = useMemo(() => {
+    const ids = new Set(planned.writes.map(w => w.id));
+    return dayEvents.filter(e => e.status !== 'Cancelled' && !ids.has(e.id));
+  }, [dayEvents, planned]);
 
   const titles: Record<DayAction['kind'], [React.ReactNode, string, string]> = {
     swap: [<ArrowLeftRight key="i" size={16} style={{ verticalAlign: '-2px' }} />, 'Swap blocks', 'Swap the blocks'],
@@ -868,7 +1001,15 @@ function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, 
     cancelDay: [<XCircle key="i" size={16} style={{ verticalAlign: '-2px' }} />, 'Cancel the day', 'Cancel the day'],
     backToNormal: [<RotateCcw key="i" size={16} style={{ verticalAlign: '-2px' }} />, 'Back to normal', 'Put the day back to normal'],
   };
-  const [icon, title, saveLabel] = titles[action.kind];
+  const [icon, baseTitle, baseSave] = titles[action.kind];
+  // A scoped cancel has to say WHICH day it is cancelling, on the sheet and on
+  // the button — "Cancel the day" is the wording that caused the trouble.
+  const scoped =
+    action.kind === 'cancelDay' && action.campus ? `Cancel the ${CAMPUS_LABEL[action.campus]} day`
+    : action.kind === 'backToNormal' && action.campus ? `Put the ${CAMPUS_LABEL[action.campus]} day back`
+    : null;
+  const title = scoped ?? baseTitle;
+  const saveLabel = scoped ?? baseSave;
 
   return (
     <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
@@ -937,6 +1078,37 @@ function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, 
               Pull-outs stay keyed to ensemble + date, so they still apply — adjust the lesson if it no longer fits.
             </div>
           )}
+          {action.kind === 'cancelDay' && action.campus && untouched.length > 0 && (
+            <div className="dir-field-hint">
+              Still meeting: {untouched.map(labelOf).join(', ')} —{' '}
+              {CAMPUS_FULL_NAME[action.campus === 'mdcps' ? 'mdc' : 'mdcps']} runs its own
+              calendar and is in session.
+            </div>
+          )}
+          {lessonsCancelled > 0 && (
+            <div className="dir-field-hint">
+              {lessonsCancelled === 1
+                ? 'The one private lesson that day is cancelled too, and drops off'
+                : `All ${lessonsCancelled} private lessons that day are cancelled too, and drop off`}{' '}
+              the student’s own calendar. No banner is posted for them.
+            </div>
+          )}
+          {lessonsRestored > 0 && (
+            <div className="dir-field-hint">
+              {lessonsRestored === 1
+                ? 'The private lesson cancelled with this day goes'
+                : `The ${lessonsRestored} private lessons cancelled with this day go`}{' '}
+              back on. Lessons a teacher cancelled themselves are left alone.
+            </div>
+          )}
+          {gradedLessons.length > 0 && (
+            <div className="dir-sc-error">
+              ⚠ Already graded, so left on the calendar:{' '}
+              {gradedLessons.map(g => studentName(g.studentId)).join(', ')}.
+              A graded lesson is a record of one that happened — cancel it from the teacher’s
+              own sheet if it really didn’t.
+            </div>
+          )}
 
           {planned.bannerText ? (
             <>
@@ -946,8 +1118,13 @@ function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, 
               </label>
               {notify && <div className="dir-field-hint">“{planned.bannerText}”</div>}
             </>
-          ) : (
+          ) : action.kind === 'backToNormal' ? (
             <div className="dir-field-hint">No new banner — reverting also takes down this day’s change banners.</div>
+          ) : (
+            // A plan whose only writes are lessons has no banner to offer:
+            // nothing public changed, and a lesson tells its own family
+            // through the student's calendar feed.
+            <div className="dir-field-hint">No banner — nothing on the public calendar changes.</div>
           )}
           {error && <div className="dir-sc-error">⚠ {error}</div>}
         </div>

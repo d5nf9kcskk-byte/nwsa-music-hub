@@ -1128,6 +1128,14 @@ export interface Lesson {
   /** Payroll length on the official form: 45 (grades 9–11) or 60 (grade 12). */
   payrollMinutes?: 45 | 60;
   status: EventStatus;
+  /** Pre-change snapshot, written ONLY when a whole-day cancel took this
+   *  lesson with it (#college-hs-calendar-deps). Same shape and same job as
+   *  `CalendarEvent.changeFrom`: it is what lets "Back to normal" put back the
+   *  lessons the day plan itself cancelled and leave alone the ones a teacher
+   *  cancelled for their own reasons — without it the two are the same doc in
+   *  the same state, and restoring the day would overrule a teacher.
+   *  Staff-only: not in PUBLIC_LESSON_KEYS, so it is never mirrored. */
+  changeFrom?: { status: EventStatus };
   /** Set once the teacher has acknowledged a scheduling conflict for this
    *  lesson. Absent = no conflict was detected at save time. */
   conflict?: {

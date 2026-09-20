@@ -1,7 +1,7 @@
 import type { Ensemble, EventType, RepertoirePiece, PiecePartLink, PieceMovement, CalendarEvent, SeatingChart, Student } from './types';
 import { dateLocale, fmtDate } from '../shared/dates';
 import { scoreOrderRank, lastName } from './scoreOrder';
-import { isClassGroup, isMasterClass } from './groupKind';
+import { isClassGroup, isMasterClass, isCollegeGroup } from './groupKind';
 import { plannedAbsenceAppliesToRoll } from './plannedAbsenceScope';
 
 // ── Date helpers (work in local time, store as YYYY-MM-DD) ──────────────────────
@@ -127,10 +127,10 @@ export function checkinCandidateEvents<T extends Pick<CalendarEvent, 'type' | 'e
 }
 
 /** College / dual-enrollment flag — ensembles and classes both use it to list
- *  under the College section rather than All Ensembles / All Classes. */
-export function isCollegeGroup(e: Pick<Ensemble, 'collegeLevel'>): boolean {
-  return !!e.collegeLevel;
-}
+ *  under the College section rather than All Ensembles / All Classes, and it
+ *  is what picks a group's academic calendar (#college-hs-calendar-deps).
+ *  Defined in groupKind.ts; re-exported here so this stays the import site. */
+export { isCollegeGroup };
 
 /**
  * Is this student an adult — their own contact, with no parents or guardians

@@ -219,11 +219,26 @@ runs:
       run: node scripts/schedule-combine.selfcheck.mjs
       shell: bash
 
+    # Which campus's calendar governs a block (#college-hs-calendar-deps).
+    # MDCPS and Miami Dade College disagree in BOTH directions — a teacher
+    # planning day is a normal Monday at MDC, and MDC's fall term ends a week
+    # before MDCPS breaks up. Nothing throws when the wrong calendar is
+    # consulted: a class simply goes missing, or gets cancelled while it is
+    # still meeting, which is exactly what happened on 2026-09-21.
+    - name: Check campus calendar scoping
+      run: npx tsx src/director/campusCalendar.selfcheck.ts
+      shell: bash
+
     # Day plans (#schedule-ux-two-doors §3, Phase 4c): planDayChange must
     # report every collision (displacement is never silent), keep
     # snapshot-once changeFrom semantics on every write, and back-to-normal
     # must round-trip the whole day — absorbed blocks re-created under
     # their ORIGINAL doc ids (ICS UIDs derive from doc ids, frozen).
+    # Also (#college-hs-calendar-deps): a campus-scoped cancel must leave the
+    # other campus's classes alone, an unscoped one must still close both, and
+    # the day's private LESSONS must go with the MDCPS day — a lesson left
+    # behind on a cancelled day cannot be swept up later, because
+    # pendingSlotDates() reads its week as already covered.
     - name: Check day-plan engine
       run: node scripts/schedule-day-plan.selfcheck.mjs
       shell: bash
