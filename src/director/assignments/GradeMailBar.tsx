@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Copy, Mail, X } from 'lucide-react';
-import { gradeMailDigest, type GradeMailPlan } from './gradeEmail';
+import { Copy, Mail, Send, X } from 'lucide-react';
+import { gradeMailDigest, type GradeMailPlan } from './gradeMailLinks';
 import { lastFirst } from '../../shared/personName';
 
 /**
@@ -30,11 +30,38 @@ import { lastFirst } from '../../shared/personName';
  * account, which is not incidental — a grade arriving from an address nobody
  * recognises is a different thing entirely.
  */
-export function GradeMailBar({ plan, onClose }: { plan: GradeMailPlan; onClose: () => void }) {
+export function GradeMailBar({ plan, onClose, onSendAll }: {
+  plan: GradeMailPlan;
+  onClose: () => void;
+  /** Hand the whole list to the Hub's own mail pipeline. Absent when the
+   *  director has no signed-in address to attribute the send to. */
+  onSendAll?: (ids: string[]) => Promise<void>;
+}) {
   const [opened, setOpened] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
 
   const { items, noAddress, ungraded } = plan;
+  // Already sent by the Hub. Offered again only behind a second press, because
+  // the failure mode is a family reading the same marks twice.
+  const unsent = items.filter(i => !i.sentAt);
+  const alreadySent = items.length - unsent.length;
+
+  async function sendAll(list: typeof items) {
+    if (!onSendAll || list.length === 0) return;
+    setSending(true);
+    setSendError('');
+    try {
+      await onSendAll(list.map(i => i.studentId));
+      setConfirming(false);
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : 'Could not queue those — try again.');
+    } finally {
+      setSending(false);
+    }
+  }
 
   async function copyAll() {
     const text = gradeMailDigest(items);
@@ -67,6 +94,48 @@ export function GradeMailBar({ plan, onClose }: { plan: GradeMailPlan; onClose: 
             <X size={15} /> Close
           </button>
         </div>
+
+        {/* The Hub's own pipeline — the Trigger Email extension, the same one
+            behind the lesson log and the sign-up confirmation. It goes out AS
+            THE SCHOOL, not from this director's mailbox, which is the whole
+            difference from the stepped links below and the reason it asks
+            twice. */}
+        {onSendAll && items.length > 0 && (
+          <div className="dir-roster-mailbar-row">
+            {confirming ? (
+              <>
+                <button
+                  className="dir-btn dir-btn-primary"
+                  disabled={sending}
+                  onClick={() => { void sendAll(unsent); }}
+                >
+                  {sending ? 'Sending…' : `Yes — send ${unsent.length} now`}
+                </button>
+                <button className="dir-tool-btn" disabled={sending} onClick={() => setConfirming(false)}>
+                  Cancel
+                </button>
+                <span className="dir-roster-mailbar-note">
+                  Sent by the Hub, from the school’s address. There is no undo.
+                </span>
+              </>
+            ) : (
+              <button
+                className="dir-tool-btn"
+                disabled={unsent.length === 0}
+                onClick={() => setConfirming(true)}
+              >
+                <Send size={15} /> Send {unsent.length} from the Hub
+              </button>
+            )}
+            {alreadySent > 0 && !confirming && (
+              <span className="dir-roster-mailbar-note">
+                {alreadySent} already sent — not included.
+              </span>
+            )}
+          </div>
+        )}
+
+        {sendError && <p className="dir-roster-mailbar-note">⚠ {sendError}</p>}
 
         {items.length > 0 && (
           <div className="dir-roster-mailbar-row">
@@ -102,7 +171,8 @@ export function GradeMailBar({ plan, onClose }: { plan: GradeMailPlan; onClose: 
 
         <p className="dir-roster-mailbar-note">
           One message per student — each carries their own marks, so they cannot go out
-          together. Opening one fills in your mail app; nothing is sent until you send it.
+          together. {onSendAll ? 'Send from the Hub, or open each in your own mail app to edit it first.'
+            : 'Opening one fills in your mail app; nothing is sent until you send it.'}
         </p>
 
         {items.some(i => i.overLong) && (

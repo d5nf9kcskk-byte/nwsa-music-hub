@@ -6,7 +6,8 @@
  * out of the building, a mark that isn't the one that was given, or a message
  * that silently never opens.
  */
-import { gradeEmailBody, gradeEmailSubject, gradeMailDigest, gradeMailPlan, hasGradeToSend } from './gradeEmail.ts';
+import { gradeEmailBody, gradeEmailSubject, gradeRecipients, hasGradeToSend } from './gradeEmail.ts';
+import { gradeMailDigest, gradeMailPlan } from './gradeMailLinks.ts';
 import { personalMailto, MAILTO_MAX } from '../rosterEmail.ts';
 
 function assert(cond: unknown, msg: string): void {
@@ -114,6 +115,35 @@ assert(personalMailto(['not an address'], 'x', 'y') === null, 'and a junk addres
 const huge = personalMailto(['a@b.co'], 'Grades', 'x'.repeat(MAILTO_MAX * 2))!;
 assert(huge.overLong, 'a body past the cap is REPORTED — an over-long mailto opens empty and reports nothing on its own');
 assert(huge.href.length > MAILTO_MAX, 'and the link is still returned, so Copy has something to hand over');
+
+/* ── who a grade reaches: the rule the FUNCTION shares ─────────────────── */
+// Both the mailto link and the Cloud Function call this. If they ever answered
+// differently, a college student's marks would go to a stranger from one path
+// and to them from the other.
+
+const FAMILY = {
+  id: 's', email: 'student@school.edu', parentEmail: 'mum@example.com',
+  guardians: [{ name: 'Dad', email: 'dad@example.com' }, { name: 'Gran', email: '   ' }],
+};
+const teenTo = gradeRecipients(FAMILY, false);
+assert(teenTo.join() === 'student@school.edu,mum@example.com,dad@example.com',
+  'a school-age student reaches the student and every guardian with an address');
+assert(!teenTo.includes(''), 'a blank guardian address is dropped, not sent to');
+
+const adultTo = gradeRecipients(FAMILY, true);
+assert(adultTo.join() === 'student@school.edu',
+  'an ADULT student is their own contact — no guardian on the record is written to, however it got there');
+
+assert(gradeRecipients(null, false).length === 0, 'no contact record reaches nobody');
+assert(gradeRecipients({ parentEmail: 'nope' }, false).length === 0, 'a junk address is not an address');
+assert(
+  gradeRecipients({ email: 'A@b.co', parentEmail: 'a@B.CO' }, false).length === 1,
+  'one address written two ways is one recipient',
+);
+assert(
+  gradeRecipients({ guardians: Array.from({ length: 30 }, (_, i) => ({ email: `g${i}@x.co` })) }, false).length === 10,
+  'a family, not a mailing list — the ceiling holds',
+);
 
 /* ── emailing the whole sheet ──────────────────────────────────────────── */
 // A wrong answer here is a family who was not written to while the director

@@ -914,6 +914,27 @@ service cloud.firestore {
             && teacherAssignedTo(request.resource.data.studentId));
       allow update, delete: if isStaff();
     }
+    /**
+     * Grade-email queue (#grade-email). A director presses Send on a grade
+     * sheet; the `gradeMailSend` Cloud Function turns each request into a
+     * `mail` doc. Never public, and `mail` itself stays denied to every client.
+     *
+     * The doc is a REQUEST and the function trusts none of its content — it
+     * re-reads the marks from `assignmentResults`, the addresses from
+     * `contacts`, and the signature from the requester's own `directors` doc.
+     * What these rules decide is WHOSE exam may be named: a classroom teacher
+     * is held to the assignments their groups cover, the same gate
+     * `assignmentKeys` uses, and `byEmail` is bound to the caller so the
+     * signature cannot be somebody else's.
+     */
+    match /gradeMailQueue/{doc} {
+      allow read: if isStaff() || isClassroomRole();
+      allow create: if request.resource.data.byEmail == request.auth.token.email
+        && (isStaff()
+            || (isClassroomRole()
+                && classroomCoversAssignmentId(request.resource.data.assignmentId)));
+      allow update, delete: if isStaff();
+    }
     // attendance: staff freely; assistants and classroom teachers read all
     // (roll needs same-day context) but write only for assigned ensembles.
     match /attendance/{doc} {

@@ -39,6 +39,14 @@ on:
       # two cannot tell a family different things (#applied).
       - 'src/director/lessonLog.ts'
       - 'src/director/lessonGrades.ts'
+      # Bundled into gradeMailSend — the subject, body and RECIPIENTS a family
+      # gets, shared with the in-app mailto fallback so the two cannot tell one
+      # family two different things about the same exam (#grade-email).
+      # groupKind.ts carries isAdultStudent, which decides whether a college
+      # student's marks go to them or to a guardian on their record.
+      - 'src/director/assignments/gradeEmail.ts'
+      - 'src/director/groupKind.ts'
+      - 'src/director/examRubric.ts'
       # Bundled into submissionReceipt — the ONE definition of the receipt's
       # shape, shared with the public-site hook that reads it, so the two
       # cannot drift (#video-upload-reliability Phase 1).
@@ -69,7 +77,7 @@ jobs:
 
       # Runs before any credential is written: a broken guard must fail the
       # build, not deploy and then fail.
-      - name: Check the lessons, appointments, my-calendar, check-in, tally, the two email guards, the submission receipt, and the chunk compose step
+      - name: Check the lessons, appointments, my-calendar, check-in, tally, the three email guards, the submission receipt, and the chunk compose step
         run: |
           npm --prefix functions ci
           npm --prefix functions run selfcheck

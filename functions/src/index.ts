@@ -22,10 +22,12 @@ import {
 import { buildConfirmation } from './signupConfirmation.ts';
 import { buildAbsenceReceipt } from './plannedAbsenceConfirmation.ts';
 import { buildLessonLogMail, isDocId, queueRequestOk } from './lessonLogMail.ts';
+import { buildGradeMail, queueRequestOk as gradeRequestOk } from './gradeMail.ts';
 import { buildSubmissionReceipt, submissionReceiptId } from './submissionReceipt.ts';
 import { composeSubmission as runComposeSubmission } from './composeSubmission.ts';
 import type {
-  Lesson, PlannedAbsence, SignupForm, SignupResponse, Student, StudentContact,
+  Assignment, AssignmentResult, Ensemble, Lesson, PlannedAbsence, SignupForm,
+  SignupResponse, Student, StudentContact,
 } from '../../src/director/types.ts';
 
 initializeApp();
@@ -572,6 +574,90 @@ export const lessonLogMailSend = firestore
       // trigger, and the failure mode of retrying an email is a family
       // receiving the same lesson several times.
       console.error('lessonLogMailSend: could not queue the email', err);
+    }
+  });
+
+
+/**
+ * The grade email (#grade-email), really sent.
+ *
+ * Same shape as `lessonLogMailSend` above and for the same reasons: the queue
+ * doc is written by a signed-in staff member who controls every field on it,
+ * so it is a REQUEST and the content is rebuilt here from stored documents.
+ * The marks come from `assignmentResults`, the exam from `assignments`, the
+ * name from `studentsPublic` (never the staff-only `students` — an email needs
+ * a name, not a home address), and the addresses from `contacts`.
+ *
+ * `ensembles` is read for one reason: `isAdultStudent`. A dual-enrollment
+ * student is their own contact, and getting that wrong here would post a
+ * college student's marks to a guardian an old import left on their record.
+ * It is the same predicate the app uses, imported rather than re-spelled.
+ */
+export const gradeMailSend = firestore
+  .document('gradeMailQueue/{queueId}')
+  .onCreate(async (snap) => {
+    const queued = (snap.data() ?? {}) as {
+      assignmentId?: unknown; studentId?: unknown; resultId?: unknown; byEmail?: unknown;
+    };
+    if (!isDocId(queued.resultId) || !isDocId(queued.assignmentId) || !isDocId(queued.studentId)) return;
+
+    try {
+      const db = getFirestore();
+      const resultSnap = await db.doc(`assignmentResults/${queued.resultId}`).get();
+      if (!resultSnap.exists) return;
+      const result = { id: resultSnap.id, ...resultSnap.data() } as AssignmentResult;
+      // The stored row has to BE the one the request claims. `assignmentResults`
+      // ids are random, so without this a request could name any row at all.
+      if (!gradeRequestOk(queued, result)) return;
+
+      // The signature is read from the requester's own directors doc, NOT from
+      // the queue doc. It is the one piece of the body a client could otherwise
+      // choose, and a staff member signing a family email as a colleague is not
+      // a thing the school's mail account should make possible. The rules bind
+      // `byEmail` to the caller's own token.
+      const byEmail = typeof queued.byEmail === 'string' ? queued.byEmail : '';
+      const [assignmentSnap, studentSnap, contactSnap, ensemblesSnap, directorSnap] = await Promise.all([
+        db.doc(`assignments/${result.assignmentId}`).get(),
+        db.doc(`studentsPublic/${result.studentId}`).get(),
+        db.doc(`contacts/${result.studentId}`).get(),
+        db.collection('ensembles').get(),
+        byEmail ? db.doc(`directors/${byEmail}`).get() : Promise.resolve(null),
+      ]);
+      if (!assignmentSnap.exists) return;
+      const assignment = assignmentSnap.data() as Assignment;
+      const ensembles = ensemblesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Ensemble));
+      const groupName = (assignment.ensembleIds ?? [])
+        .map(eid => ensembles.find(e => e.id === eid)?.name)
+        .filter(Boolean)
+        .join(', ');
+
+      const mail = buildGradeMail({
+        assignment,
+        result,
+        student: studentSnap.exists ? ({ id: studentSnap.id, ...studentSnap.data() } as Student) : undefined,
+        contact: contactSnap.exists ? ({ id: contactSnap.id, ...contactSnap.data() } as StudentContact) : null,
+        ensembles,
+        groupName: groupName || undefined,
+        fromName: typeof directorSnap?.data()?.name === 'string'
+          ? String(directorSnap.data()!.name).slice(0, 80)
+          : undefined,
+      });
+      // No address on file, or a row that is not actually graded. Nothing to
+      // send, and not an error.
+      if (!mail) return;
+
+      // `create`, not `set`: the queue doc's id is the mail doc's id, so a
+      // trigger that somehow fires twice for one request cannot send a family
+      // the same marks twice.
+      await db.doc(`mail/${snap.id}`).create(mail);
+      // A RECEIPT — it exists only because the mail doc was really written.
+      await resultSnap.ref.update({ gradeMailedAt: Date.now() });
+      await snap.ref.update({ processedAt: Date.now() });
+    } catch (err) {
+      // Logged, never rethrown. A rethrow makes Cloud Functions retry the
+      // trigger, and the failure mode of retrying an email is a family
+      // receiving the same grade several times.
+      console.error('gradeMailSend: could not queue the email', err);
     }
   });
 

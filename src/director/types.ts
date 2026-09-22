@@ -927,6 +927,16 @@ export interface AssignmentResult {
   rubric?: RubricScore[];
   notes?: string;
   gradedAt?: string; // YYYY-MM-DD
+  /**
+   * When the Hub actually emailed this grade out (#grade-email), epoch ms.
+   *
+   * Written by the `gradeMailSend` Cloud Function through the Admin SDK and by
+   * nothing else, so it is a RECEIPT rather than a claim: it exists only if a
+   * `mail` doc was really created. Same job `Lesson.logMailedAt` does for the
+   * lesson log — the row can say "Emailed Sep 22" instead of leaving a director
+   * to guess and send a family the same marks twice.
+   */
+  gradeMailedAt?: number;
 }
 
 export type AssignmentSubmissionStatus = 'submitted' | 'reviewed';

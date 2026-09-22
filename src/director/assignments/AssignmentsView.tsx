@@ -39,8 +39,11 @@ import {
 } from './assignmentDraft';
 import { GroupPicker } from '../components/GroupPicker';
 import { useContacts } from '../hooks/useContacts';
-import { personalMailto, rosterRecipients } from '../rosterEmail';
-import { gradeEmailBody, gradeEmailSubject, gradeMailPlan, hasGradeToSend } from './gradeEmail';
+import { personalMailto } from '../rosterEmail';
+import { gradeEmailBody, gradeEmailSubject, gradeRecipients, hasGradeToSend } from './gradeEmail';
+import { gradeMailPlan } from './gradeMailLinks';
+import { enqueueGradeMail } from '../hooks/useGradeMail';
+import { isAdultStudent } from '../groupKind';
 import { GradeMailBar } from './GradeMailBar';
 import { registerOverlayClose } from '../../shared/overlayBack';
 import { describeDuration, formatClock, formatFileSize, minutesToSeconds, secondsToMinutes } from '../../shared/duration';
@@ -565,7 +568,10 @@ function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeS
     // 'both' reaches the student and their guardians; for an ADULT student
     // `rosterRecipients` resolves that to the student alone, which is the
     // right answer for the college cohort and not a special case here.
-    const { addresses } = rosterRecipients([student], contacts, 'both', ensembles);
+    // The SAME answer the Cloud Function reaches for the same student, so the
+    // per-row link and the Hub's own send cannot disagree about who a grade
+    // goes to (#grade-email).
+    const addresses = gradeRecipients(contacts[student.id], isAdultStudent(student, ensembles));
     const body = gradeEmailBody({
       studentName: student.name,
       assignmentTitle: assignment.title,
@@ -973,7 +979,27 @@ function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeS
         </section>
       )}
 
-      {mailPlan && <GradeMailBar plan={mailPlan} onClose={() => setMailBarOpen(false)} />}
+      {mailPlan && (
+        <GradeMailBar
+          plan={mailPlan}
+          onClose={() => setMailBarOpen(false)}
+          // Only offered to someone the Hub can attribute the send to: the
+          // rules bind the request to the caller's own address, and the
+          // function reads the signature off that person's directors doc.
+          onSendAll={me?.email ? async studentIds => {
+            for (const studentId of studentIds) {
+              const result = resultMap[studentId];
+              if (!result) continue;
+              await enqueueGradeMail({
+                assignmentId: assignment.id,
+                studentId,
+                resultId: result.id,
+                byEmail: me.email,
+              });
+            }
+          } : undefined}
+        />
+      )}
     </div>
   );
 }

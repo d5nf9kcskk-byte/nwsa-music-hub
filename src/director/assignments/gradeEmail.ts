@@ -1,11 +1,15 @@
 /**
- * "Email this student their grade" from the grade sheet (#grade-email).
+ * What a grade email SAYS and who it reaches (#grade-email).
  *
- * The Hub does not send this. It hands the director's OWN mail app a filled-in
- * message, the same posture as the roster's Email button (`rosterEmail.ts`,
- * which stays the ONE answer to who a message reaches and how the link is
- * built) and the same posture as the lesson log: **a grade is never mailed as
- * a side effect of saving it.** This builds text off a press and nothing else.
+ * The words are built here once and used twice: by the `mailto:` link that
+ * fills in the director's own mail app (`gradeMailLinks.ts`), and by the
+ * `gradeMailSend` Cloud Function that really sends through the Trigger Email
+ * extension. Two builders would eventually tell one family two different
+ * things about the same exam, so there is one.
+ *
+ * **A grade is never mailed as a side effect of saving it** — the director's
+ * rule for the lesson log (2026-09-03), and it holds either way round: Confirm
+ * files a grade and offers nothing. Both paths run off a press.
  *
  * Two things in here are not formatting preferences:
  *
@@ -22,10 +26,27 @@
  * clients render in a proportional font and a carefully aligned table arrives
  * as a ragged one. Bullets and an em dash survive every client.
  */
-import { tallyScores } from '../examRubric';
-import { personalMailto, rosterRecipients } from '../rosterEmail';
-import { fmtShortDate } from '../../shared/dates';
-import type { AssignmentResult, Ensemble, Student, StudentContact } from '../types';
+import { tallyScores } from '../examRubric.ts';
+import type { AssignmentResult, StudentContact } from '../types.ts';
+
+/**
+ * This module is BUNDLED INTO A CLOUD FUNCTION (`gradeMailSend`), so its
+ * imports are load-bearing: `examRubric.ts` has none of its own, and nothing
+ * else is reached. In particular it must never import `../../shared/dates`,
+ * which reaches `i18n.ts` and through it React and `localStorage` — neither
+ * exists in a function, and the failure would be at import time, taking every
+ * grade email with it. Same discipline `lessonLog.ts` keeps for the same
+ * reason. Hence the date formatter below rather than `fmtShortDate`.
+ *
+ * Fixed en-US, deliberately: the body's own words ("Points by section",
+ * "Final score") are English, and a function has no viewer whose language it
+ * could follow. A Spanish date inside an English email was the odd one out.
+ */
+function shortDate(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
 
 /**
  * A rubric line's name is printed WHOLE.
@@ -71,7 +92,7 @@ export function gradeEmailBody(input: GradeEmailInput): string {
   const lines: string[] = [];
 
   lines.push(assignmentTitle);
-  const sub = [assignmentType, groupName, dueDate ? `due ${fmtShortDate(dueDate)}` : ''].filter(Boolean);
+  const sub = [assignmentType, groupName, dueDate ? `due ${shortDate(dueDate)}` : ''].filter(Boolean);
   if (sub.length) lines.push(sub.join(' · '));
   lines.push('');
   lines.push(studentName);
@@ -121,86 +142,49 @@ export function hasGradeToSend(result: Pick<AssignmentResult, 'status' | 'score'
   return !!result.score || !!result.rubric?.length || (!!result.status && result.status !== 'Pending');
 }
 
-/* ───────────────────────── emailing the whole sheet ──────────────────────── */
+/** Deliberately loose — a mail server is the real validator — but it refuses
+ *  blanks, spaces, and the half-typed entries a spreadsheet import leaves.
+ *  Same shape `rosterEmail.isEmailish` uses; duplicated rather than imported
+ *  because that module cannot be bundled into a function (it reaches
+ *  `utils.ts` → `dates.ts` → React). */
+const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
 
-export interface GradeMailItem {
-  studentId: string;
-  studentName: string;
-  to: string[];
-  subject: string;
-  body: string;
-  href: string;
-  overLong: boolean;
-}
-
-export interface GradeMailPlan {
-  /** One message per student, in the order the roster was handed over. */
-  items: GradeMailItem[];
-  /** Graded, but with nobody to send to. REPORTED, never silently dropped —
-   *  believing you told 40 families when you told 31 is the failure the roster
-   *  bar exists to avoid, and a grade is worse to get wrong than a notice. */
-  noAddress: { id: string; name: string }[];
-  /** On the sheet with no grade filed. Not a problem — it is most of the
-   *  roster on the day an exam is set — but the count is what tells a director
-   *  they are about to write to nine of twenty-three. */
-  ungraded: number;
-}
+/** A family, not a mailing list — the same ceiling the lesson-log mail holds.
+ *  More than this is a sign something is wrong, and the school's mail account
+ *  should not be the thing that finds out. */
+export const MAX_GRADE_RECIPIENTS = 10;
 
 /**
- * Every graded student's message, built in one pass (#grade-email).
+ * Who one student's grade reaches — **the ONE answer, shared by the app and by
+ * the Cloud Function that actually sends it.**
  *
- * **One mail per student, never one mail to everybody.** A grade email's whole
- * content is that student's own marks, so there is no shared body to BCC — the
- * roster bar's `mailtoBatches` is for a message that is the same for everyone,
- * and this is the opposite case. The caller steps through these one at a time.
- *
- * Addresses come from `rosterRecipients` with the 'both' audience, which is
- * what makes an ADULT student their own recipient rather than a guardian an old
- * import left on their record (#roster-contact). Nothing about who a message
- * reaches is re-decided here.
+ * The two must not each decide this. An ADULT student is their own contact, so
+ * their grade goes to them and NOT to a guardian an old import left on their
+ * record (#roster-contact); a second copy of that rule server-side is exactly
+ * how a college student's marks end up in a stranger's inbox. `adult` is
+ * passed in rather than derived here so this module stays free of
+ * `isAdultStudent`'s imports — both callers get it from `groupKind.ts`.
  */
-export function gradeMailPlan(args: {
-  /** The roster as the sheet shows it — order is preserved into `items`. */
-  students: Student[];
-  resultMap: Record<string, AssignmentResult | undefined>;
-  contacts: Record<string, StudentContact>;
-  ensembles: Pick<Ensemble, 'id' | 'collegeLevel'>[];
-  assignment: { title: string; type: string; dueDate?: string };
-  groupName?: string;
-  fromName?: string;
-}): GradeMailPlan {
-  const { students, resultMap, contacts, ensembles, assignment, groupName, fromName } = args;
-  const items: GradeMailItem[] = [];
-  const noAddress: { id: string; name: string }[] = [];
-  let ungraded = 0;
-
-  for (const student of students) {
-    const result = resultMap[student.id];
-    if (!hasGradeToSend(result)) { ungraded++; continue; }
-    const { addresses } = rosterRecipients([student], contacts, 'both', ensembles);
-    const input: GradeEmailInput = {
-      studentName: student.name,
-      assignmentTitle: assignment.title,
-      assignmentType: assignment.type,
-      dueDate: assignment.dueDate,
-      groupName,
-      result: result!,
-      fromName,
-    };
-    const subject = gradeEmailSubject(input);
-    const body = gradeEmailBody(input);
-    const link = personalMailto(addresses, subject, body);
-    if (!link) { noAddress.push({ id: student.id, name: student.name }); continue; }
-    items.push({ studentId: student.id, studentName: student.name, to: addresses, subject, body, ...link });
+export function gradeRecipients(
+  contact: Pick<StudentContact, 'email' | 'parentEmail' | 'guardians'> | null | undefined,
+  adult: boolean,
+): string[] {
+  if (!contact) return [];
+  const out: string[] = [];
+  const add = (v: string | undefined) => {
+    const t = (v ?? '').trim();
+    if (!t || t.length > 254 || !EMAIL_RE.test(t)) return;
+    if (out.some(e => e.toLowerCase() === t.toLowerCase())) return;
+    out.push(t);
+  };
+  add(contact.email);
+  if (!adult) {
+    // `parentEmail` is the back-compat mirror of guardians[0]; listing both is
+    // harmless because this dedupes, and it is the only address a record made
+    // before the guardians array carries.
+    add(contact.parentEmail);
+    for (const g of contact.guardians ?? []) add(g.email);
   }
-  return { items, noAddress, ungraded };
+  return out.slice(0, MAX_GRADE_RECIPIENTS);
 }
 
-/** Every message as one block of text — the escape hatch for a device whose
- *  mail app is a browser tab the OS will not route to, and the only way to get
- *  a record of what was sent. Same role `copyList` plays on the roster bar. */
-export function gradeMailDigest(items: GradeMailItem[]): string {
-  return items
-    .map(i => `To: ${i.to.join(', ')}\nSubject: ${i.subject}\n\n${i.body}`)
-    .join('\n\n' + '─'.repeat(60) + '\n\n');
-}

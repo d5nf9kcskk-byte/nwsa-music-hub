@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // The Hub can now send a grade itself (#grade-email). Staff-only: nothing a
+  // student sees changed, and grades still have no public projection.
+  {
+    id: '2026-09-22-grade-mail-send',
+    date: '2026-09-22',
+    title: 'The Hub can send grades for you now',
+    audience: 'staff' as const,
+    expires: '2026-10-23',
+    bullets: [
+      '“Email grades” on a grade sheet has a Send button: the Hub emails every graded student itself, from the school’s address, instead of you stepping through one mail window at a time.',
+      'It asks twice, and there is no undo. A student already sent is left out of the next run, and their row says so.',
+      'Opening each one in your own mail app still works, and is still the way to edit a message before it goes.',
+      'Same rules as before: your staff-only comment never travels, an adult student is written to directly rather than a guardian on their record, and a student with no email on file is named rather than skipped quietly.',
+    ],
+  },
   // One index per menu group, on both shells (#one-nav). 'both': the public
   // menu gains Classes and College pages, the director menu loses three
   // duplicate rows.

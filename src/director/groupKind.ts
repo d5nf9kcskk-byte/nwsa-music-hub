@@ -13,7 +13,7 @@
  * `utils.ts` re-exports both, so it stays the import site for everything that
  * already reads them. Never read `kind` directly anywhere else.
  */
-import type { Ensemble } from './types.ts';
+import type { Ensemble, Student } from './types.ts';
 
 /** A class (theory, music appreciation, master class, college course) — has a
  *  roster and takes roll, but rehearses no repertoire and plays no concerts.
@@ -42,4 +42,38 @@ export function isMasterClass(e: Pick<Ensemble, 'kind'>): boolean {
  */
 export function isCollegeGroup(e: Pick<Ensemble, 'collegeLevel'>): boolean {
   return !!e.collegeLevel;
+}
+
+/**
+ * Is this student an adult — their own contact, with no parents or guardians
+ * on the record (#roster-contact)?
+ *
+ * Derived from their GROUPS first, because that needs nobody to tick
+ * anything: a dual-enrollment student is in at least one `collegeLevel` group
+ * (that is what puts them on the College screen at all), and college students
+ * do not have guardians. `Student.adult` is the manual override on top, for
+ * the two cases derivation cannot see — a college student enrolled only in
+ * shared high-school groups, and an adult who is in no college group at all.
+ * An explicit `false` wins over the derivation, so a director can always say
+ * "no, this one's family is the contact".
+ *
+ * This is display + where-contact-details-land only. It never changes who may
+ * read anything, and `adult` is not in the public mirror's allowlist.
+ *
+ * It lives HERE rather than in `utils.ts`, where it started, for the reason
+ * `isCollegeGroup` moved and one more: the grade email's Cloud Function has to
+ * answer "who does this reach" with exactly the answer the app gives, and
+ * `utils.ts` reaches `dates.ts` → `i18n.ts` → React and `localStorage`, none
+ * of which exist in a function. A second copy of this rule server-side would
+ * send a college student's grade to a guardian an old import left on their
+ * record — the precise bug this predicate was written to fix. `utils.ts`
+ * re-exports it, so every existing caller is unchanged.
+ */
+export function isAdultStudent(
+  student: Pick<Student, 'adult' | 'ensembleIds'>,
+  ensembles: Pick<Ensemble, 'id' | 'collegeLevel'>[],
+): boolean {
+  if (student.adult !== undefined) return student.adult;
+  const college = new Set(ensembles.filter(isCollegeGroup).map(e => e.id));
+  return (student.ensembleIds ?? []).some(id => college.has(id));
 }

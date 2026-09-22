@@ -1,7 +1,7 @@
 import type { Ensemble, EventType, RepertoirePiece, PiecePartLink, PieceMovement, CalendarEvent, SeatingChart, Student } from './types';
 import { dateLocale, fmtDate } from '../shared/dates';
 import { scoreOrderRank, lastName } from './scoreOrder';
-import { isClassGroup, isMasterClass, isCollegeGroup } from './groupKind';
+import { isClassGroup, isMasterClass, isCollegeGroup, isAdultStudent } from './groupKind';
 import { plannedAbsenceAppliesToRoll } from './plannedAbsenceScope';
 
 // ── Date helpers (work in local time, store as YYYY-MM-DD) ──────────────────────
@@ -132,30 +132,12 @@ export function checkinCandidateEvents<T extends Pick<CalendarEvent, 'type' | 'e
  *  Defined in groupKind.ts; re-exported here so this stays the import site. */
 export { isCollegeGroup };
 
-/**
- * Is this student an adult — their own contact, with no parents or guardians
- * on the record (#roster-contact)?
- *
- * Derived from their GROUPS first, because that needs nobody to tick
- * anything: a dual-enrollment student is in at least one `collegeLevel` group
- * (that is what puts them on the College screen at all), and college students
- * do not have guardians. `Student.adult` is the manual override on top, for
- * the two cases derivation cannot see — a college student enrolled only in
- * shared high-school groups, and an adult who is in no college group at all.
- * An explicit `false` wins over the derivation, so a director can always say
- * "no, this one's family is the contact".
- *
- * This is display + where-contact-details-land only. It never changes who may
- * read anything, and `adult` is not in the public mirror's allowlist.
- */
-export function isAdultStudent(
-  student: Pick<Student, 'adult' | 'ensembleIds'>,
-  ensembles: Pick<Ensemble, 'id' | 'collegeLevel'>[],
-): boolean {
-  if (student.adult !== undefined) return student.adult;
-  const college = new Set(ensembles.filter(isCollegeGroup).map(e => e.id));
-  return (student.ensembleIds ?? []).some(id => college.has(id));
-}
+/** Is this student their own contact, with no guardians on the record
+ *  (#roster-contact)? Defined in `groupKind.ts` — the grade-email Cloud
+ *  Function needs this exact answer and cannot reach `utils.ts` — and
+ *  re-exported here so this stays the import site for everything that already
+ *  reads it. */
+export { isAdultStudent };
 
 /** High-school performing ensembles (excludes College Chamber, College Vocal, …). */
 export function highSchoolEnsembles<T extends Pick<Ensemble, 'name' | 'kind' | 'collegeLevel'>>(list: T[]): T[] {
