@@ -1,0 +1,53 @@
+name: Audit Calendar Closures
+
+# Does the LIVE calendar agree with the two academic calendars?
+# (#college-hs-calendar-deps). Read-only — this workflow writes nothing.
+#
+# Run it after seeding, after editing either calendar in
+# src/shared/academicCalendars.ts or the MDC term boundaries in
+# collegeSchedule.ts, and when setting up a new school year. Fixing a
+# generator does not fix the data it already wrote, and nothing in the app
+# ever looks back: a college class that is missing and a lesson stranded on
+# Thanksgiving both look exactly like a normal calendar.
+#
+# No secrets. `events`, `ensembles` and `lessonsPublic` are all `allow read`
+# in firestore.rules, so this needs no service account and no npm install —
+# just Node, whose type-stripping loader reads the two calendars straight
+# from the .ts sources. It prints no student names; Actions logs here are
+# public (#student-data).
+#
+# Deliberately NOT in .github/actions/self-checks: those are pure and offline
+# and gate every build. This one needs the network and live data, so it stays
+# on demand.
+on:
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'Findings on or after this date fail (YYYY-MM-DD). Blank = today.'
+        required: false
+      strict:
+        description: 'Fail on findings in the past too (stale records, not schedules)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Audit the live calendar against both academic calendars
+        env:
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          INPUT_SINCE: ${{ inputs.since }}
+          INPUT_STRICT: ${{ inputs.strict }}
+        run: |
+          ARGS=""
+          [ -n "$INPUT_SINCE" ] && ARGS="$ARGS --since=$INPUT_SINCE"
+          [ "$INPUT_STRICT" = "true" ] && ARGS="$ARGS --strict"
+          node scripts/calendar-closures-audit.mjs $ARGS
