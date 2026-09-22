@@ -156,6 +156,18 @@ jobs:
           # before the first concert that needed it. A function added to
           # index.ts must be added HERE too or it does not exist.
           #
+          # It happened again on 2026-09-22 with gradeMailSend, on a deploy
+          # that reported green: nine functions updated, the new one absent,
+          # and nothing in the log said so. Reading the list against
+          # `grep '^export const' functions/src/index.ts` is the check.
+          #
+          # STILL MISSING, deliberately not added here: plannedAbsenceConfirmation.
+          # It is exported, self-checked, and has never been deployed, so no
+          # student filing an absence has received the receipt #absence-report
+          # describes. Adding it STARTS sending mail that has never gone out,
+          # which is the director's call and not a line to slip into an
+          # unrelated change.
+          #
           # --force alone did NOT set the policy, though. For several runs
           # it only downgraded the failure to a warning ("Failed to set up
           # cleanup policy for repositories in region us-central1"), which
@@ -170,7 +182,7 @@ jobs:
           # from the log and the policy now sets itself on every deploy. If
           # it ever comes back, that grant is what went missing.
           npx --yes firebase-tools@latest deploy \
-            --only functions:lessonsFeed,functions:appointmentsFeed,functions:staffFeed,functions:concertCheckin,functions:concertTally,functions:signupConfirmation,functions:lessonLogMailSend,functions:submissionReceipt,functions:composeSubmission \
+            --only functions:lessonsFeed,functions:appointmentsFeed,functions:staffFeed,functions:concertCheckin,functions:concertTally,functions:signupConfirmation,functions:lessonLogMailSend,functions:gradeMailSend,functions:submissionReceipt,functions:composeSubmission \
             --project nwsa-hub \
             --non-interactive \
             --force
