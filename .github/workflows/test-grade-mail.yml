@@ -1,0 +1,52 @@
+name: Test Grade Email
+
+# Sends ONE real grade email, to an address you type, through the whole live
+# path: the gradeMailSend trigger, then the Trigger Email extension.
+#
+# The self-checks prove what the message says and who it may reach. They
+# cannot prove that mail actually leaves the building. This can, and it is the
+# only way to find out short of emailing a family.
+#
+# It writes a throwaway student (Inactive, no ensembles), a throwaway contact
+# holding ONLY the address given, and a fake grade — then deletes all three.
+# No real student is read, written or emailed. The one world-readable doc it
+# creates is `studentsPublic/__gradeMailTest`, which exists for a few seconds.
+on:
+  workflow_dispatch:
+    inputs:
+      to:
+        description: 'Where to send it (one address — use your own)'
+        required: true
+        type: string
+      assignment:
+        description: 'Assignment doc id to build the email from (read-only)'
+        required: true
+        type: string
+        default: ZQQe9scXDkCB6BCSvoC6
+      keep_fixture:
+        description: 'Leave the throwaway student behind for inspection'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm install firebase-admin --no-save
+      - name: Send one grade email
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          EXTRA=""
+          [ "${{ inputs.keep_fixture }}" = "true" ] && EXTRA="--keep"
+          node scripts/test-grade-mail.mjs \
+            --to "${{ inputs.to }}" \
+            --assignment "${{ inputs.assignment }}" \
+            $EXTRA
