@@ -1,0 +1,32 @@
+name: Mail Delivery Audit
+
+# Did the Hub's email actually leave? READ-ONLY — sends nothing, writes nothing.
+#
+# Every message the Hub produces ends as a `mail` doc the Trigger Email
+# extension picks up, and the extension's own `delivery` field is the only
+# place the answer lives. A queued message the extension then failed to send
+# looks exactly like a sent one from every screen in the app.
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'How many mail docs to examine'
+        type: string
+        default: '50'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm install firebase-admin --no-save
+      - name: Audit mail delivery
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/mail-delivery-audit.mjs --limit "${{ inputs.limit }}"
