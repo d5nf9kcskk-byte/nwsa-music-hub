@@ -6,7 +6,7 @@
  * out of the building, a mark that isn't the one that was given, or a message
  * that silently never opens.
  */
-import { gradeEmailBody, gradeEmailSubject, hasGradeToSend, GRADE_EMAIL_LABEL_MAX } from './gradeEmail.ts';
+import { gradeEmailBody, gradeEmailSubject, hasGradeToSend } from './gradeEmail.ts';
 import { personalMailto, MAILTO_MAX } from '../rosterEmail.ts';
 
 function assert(cond: unknown, msg: string): void {
@@ -55,11 +55,19 @@ const outOf60 = gradeEmailBody({
 });
 assert(outOf60.includes('Final score — 45 of 60 (75%)'), 'a rubric not out of 100 prints the percent, because the number is not obvious');
 
-/* ── a long question is cut, not wrapped into mush ─────────────────────── */
+/* ── a question is printed WHOLE ───────────────────────────────────────── */
 
 const longLine = body.split('\n').find(l => l.includes('Gregorian'))!;
-assert(longLine.includes('…'), 'an exam question too long for a line is elided');
-assert(longLine.length < GRADE_EMAIL_LABEL_MAX + 20, 'and the elision actually bounds it');
+assert(longLine.includes('with a Roman brand name?'),
+  'a long exam question is printed to its last word — elided, it names the question only to someone who already remembers it');
+assert(!longLine.includes('…'), 'nothing is cut');
+assert(body.split('\n').filter(l => l.startsWith('  • ')).length === 3,
+  'and each one stays ONE bullet — a prompt with a line break in it must not read as two questions');
+const wrapped = gradeEmailBody({
+  studentName: 'X', assignmentTitle: 'T', assignmentType: 'Written Test',
+  result: { status: 'Pass', rubric: [{ id: 'a', label: 'First line\n\nsecond line', max: 10, points: 9 }] },
+});
+assert(wrapped.includes('• First line second line — 9 of 10'), 'a typed line break is flattened, not obeyed');
 
 /* ── grades that are not numbers ───────────────────────────────────────── */
 
@@ -68,13 +76,21 @@ const plain = gradeEmailBody({
   result: { status: 'Pass', score: '92' },
 });
 assert(plain.includes('Final score — 92'), 'an exam with no rubric still sends its score');
-assert(plain.includes('Result — Pass'), 'and its mark');
+assert(!plain.includes('Result — Pass'),
+  'a score is the message — "92" followed by "Pass" says it twice, and the second saying sounds like a verdict');
+assert(!body.includes('Result —'), 'nor beside a rubric total');
 
 const exempt = gradeEmailBody({
   studentName: 'Chris Lee', assignmentTitle: 'Jury', assignmentType: 'Performance',
   result: { status: 'Exempt' },
 });
-assert(exempt.includes('Result — Exempt') && !exempt.includes('Final score'), 'Exempt is a result with no score, and says so');
+assert(exempt.includes('Result — Exempt') && !exempt.includes('Final score'),
+  'an exam with NO number keeps its mark — it is the only grade there is, and dropping it would send a family their child\'s name and nothing else');
+const failNoScore = gradeEmailBody({
+  studentName: 'Chris Lee', assignmentTitle: 'Jury', assignmentType: 'Performance',
+  result: { status: 'Fail' },
+});
+assert(failNoScore.includes('Result — Fail'), 'same for an unscored Fail');
 
 /* ── nothing to send is not an empty email ─────────────────────────────── */
 
