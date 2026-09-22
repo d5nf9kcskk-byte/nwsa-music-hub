@@ -42,8 +42,11 @@ export function PracticeCard({ student, schedule, piecesById, assignments }: {
     return [...ids].map(id => piecesById[id]).filter(Boolean);
   }, [schedule, piecesById, today, horizon]);
 
+  // `assignments` arrives already filtered by isAssignmentOpen, so this is only
+  // the two-week horizon. No lower bound on purpose: an exam that is past its
+  // date and still taking answers is exactly the one left to practise for.
   const exams = useMemo(
-    () => assignments.filter(a => a.dueDate >= today && a.dueDate <= addDays(today, 14)),
+    () => assignments.filter(a => a.dueDate <= addDays(today, 14)),
     [assignments, today],
   );
 

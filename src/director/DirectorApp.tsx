@@ -110,9 +110,12 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
   {
     head: 'People',
     items: [
-      { id: 'ensembles', label: 'Ensembles',   Icon: Music    },
-      { id: 'classes',   label: 'Classes',     Icon: BookOpen },
-      { id: 'college',   label: 'College',     Icon: GraduationCap },
+      // Ensembles / Classes / College are NOT here (#one-nav). They were, and
+      // they went to the very same tabs as the group accordions' "All
+      // Ensembles" / "All Classes" / "College Hub" rows — two differently
+      // named menu rows a few inches apart in the same rail, landing on one
+      // screen. The accordions win because they also list the groups
+      // themselves, so the hub sits with the thing it is a hub for.
       // One roster surface per org kind (#personnel): the paid adult roster
       // for orgs with the flag, the student roster for everyone else. The
       // student screens' grade/guardian assumptions and the paid roster's
@@ -361,8 +364,13 @@ export default function DirectorApp() {
   // drawer's "All Classes" wore College's cap, and only the rail lit its
   // Ensembles heading on the All-Ensembles tab). Only one surface is on screen
   // at any width, so nobody could see the difference.
+  // Each accordion ALWAYS renders its heading and its "All …" row; only the
+  // per-group items are conditional. It used to drop out entirely when its
+  // list was empty, which was fine while People carried duplicate rows to the
+  // same tabs — now that those are gone, a school with no classes yet would
+  // have had no door to the Classes tab and so no way to create its first one.
   const groupAccordions: DirNavGroupSpec[] = [
-    ...(hsEnsembles.length > 0 ? [{
+    ...([{
       key: 'ensembles',
       label: 'Ensembles',
       Icon: Users,
@@ -371,8 +379,8 @@ export default function DirectorApp() {
       toggle: () => setEnsemblesOpen(o => !o),
       all: { tab: 'ensembles' as DirTab, label: 'All Ensembles', Icon: Music },
       items: hsEnsembles,
-    }] : []),
-    ...(hsClasses.length > 0 ? [{
+    }]),
+    ...([{
       key: 'classes',
       label: 'Classes',
       Icon: BookOpen,
@@ -381,8 +389,8 @@ export default function DirectorApp() {
       toggle: () => setClassesOpen(o => !o),
       all: { tab: 'classes' as DirTab, label: 'All Classes', Icon: BookOpen },
       items: hsClasses,
-    }] : []),
-    ...(colEnsembles.length > 0 || colClasses.length > 0 ? [{
+    }]),
+    ...([{
       key: 'college',
       label: 'College',
       Icon: GraduationCap,
@@ -393,7 +401,7 @@ export default function DirectorApp() {
       // Both surfaces already rendered these two lists back to back with no
       // heading between them; concatenating is the same output.
       items: [...colEnsembles, ...colClasses],
-    }] : []),
+    }]),
   ];
 
   // Auto-open the accordion that owns the current tab (lists default closed).

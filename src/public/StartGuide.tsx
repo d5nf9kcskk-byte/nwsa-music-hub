@@ -56,8 +56,9 @@ const STUDENT_QA: QA[] = [
     a: (
       <>
         Published seating charts live on your ensemble’s page — pick yours under{' '}
-        <Link to="/ensembles">{LABELS.ensembles}</Link>. Seat 1 in a section is the{' '}
-        <strong>principal</strong> (first chair).
+        <Link to="/ensembles">{LABELS.ensembles}</Link>, or under{' '}
+        <Link to="/college">College</Link> for College Chamber Orchestra. Seat 1
+        in a section is the <strong>principal</strong> (first chair).
       </>
     ),
   },

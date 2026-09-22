@@ -14,7 +14,7 @@
  */
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { COLLEGE_CLASSES, COLLEGE_ENSEMBLES } from '../src/director/collegeClasses.ts';
+import { COLLEGE_CLASSES, COLLEGE_ENSEMBLES, COLLEGE_TERM } from '../src/director/collegeClasses.ts';
 import { collegeChamberRehearsalPatches, collegeClassEventDocs } from '../src/director/collegeSchedule.ts';
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -50,6 +50,7 @@ for (const c of COLLEGE_CLASSES) {
     // registered under. A class with no code in the spec leaves the field
     // alone rather than blanking one typed in the editor.
     ...(c.courseCode ? { courseCode: c.courseCode } : {}),
+    term: c.term ?? COLLEGE_TERM,
     defaultStartTime: c.start,
     defaultEndTime: c.end,
     meetingDays: c.days,
@@ -58,8 +59,12 @@ for (const c of COLLEGE_CLASSES) {
 
 const sessions = collegeClassEventDocs();
 console.log(`  sessions    ${sessions.length} class calendar events`);
+// { merge: true } is load-bearing — see the same line in src/director/seedCollege.ts.
+// A bare set() REPLACED each session doc, so a re-run wiped every college class
+// meeting's `status: 'Cancelled'` and `changeNote`, putting cancelled classes
+// back on students' calendars. The patches loop below already merged.
 for (const { id, data } of sessions) {
-  ops.push(b => b.set(db.collection('events').doc(id), data));
+  ops.push(b => b.set(db.collection('events').doc(id), data, { merge: true }));
 }
 
 const patches = collegeChamberRehearsalPatches();

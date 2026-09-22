@@ -85,8 +85,10 @@ export function CollegeView({ onNavigate }: { onNavigate: DirNavigate }) {
             {e.name} <ChevronRight size={14} style={{ verticalAlign: '-2px', opacity: 0.5 }} />
           </div>
           <div className="dir-ens-sub">
+            {e.courseCode ? `${e.courseCode} · ` : ''}
             {kind ? `${kind} · ` : ''}
             {count} student{count === 1 ? '' : 's'}
+            {e.term ? ` · ${e.term}` : ''}
             {e.conductorName ? ` · ${e.conductorName}` : ''}
             {next && ` · next ${parseDate(next.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}${next.startTime ? ` ${formatTimeRange(next.startTime, next.endTime)}` : ''}`}
           </div>

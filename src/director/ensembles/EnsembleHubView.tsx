@@ -8,7 +8,9 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../hooks/useAnnouncements';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, isClassGroup } from '../utils';
+import { useAssignments } from '../hooks/useAssignments';
+import { useDocuments } from '../hooks/useDocuments';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, EVENT_TYPE_ICON, isClassGroup, isCollegeGroup, isPublished, isAssignmentOpen, byDueDateOpenFirst, assignmentEmoji, groupKindLabel, WEEKDAY_LABELS } from '../utils';
 import { staffForGroupPage } from '../groupStaff';
 import { groupScheduleAlerts, groupUrgentAnnouncements } from '../../shared/groupAlerts';
 import { AlertGroupSections } from '../../shared/AlertGroupSections';
@@ -20,6 +22,8 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
   const { events } = useEvents();
   const { students } = useStudents();
   const { announcements } = useAnnouncements();
+  const { assignments } = useAssignments();
+  const { documents } = useDocuments();
   const now = useMinuteTick();
 
   const ensemble = ensembles.find(e => e.id === ensembleId);
@@ -40,6 +44,21 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
   const upcomingConcerts = mine.filter(e => isClass ? e.type !== 'Class' && e.type !== 'Rehearsal' : e.type !== 'Rehearsal').slice(0, 5);
   const rosterCount = students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(ensembleId)).length;
   const myAnnouncements = announcements.filter(a => a.ensembleId === null || a.ensembleId === ensembleId).length;
+
+  // The same three things the group's PUBLIC page lists (#one-nav): what is
+  // due, the handouts, the notices. This screen showed three buttons and a
+  // count, so a director could not see what a student sees without leaving it.
+  const groupAssignments = useMemo(
+    () => assignments
+      .filter(a => a.ensembleIds.includes(ensembleId) && isAssignmentOpen(a, today, now))
+      .sort(byDueDateOpenFirst(today))
+      .slice(0, 5),
+    [assignments, ensembleId, today, now],
+  );
+  const groupDocs = useMemo(
+    () => documents.filter(d => d.ensembleIds.includes(ensembleId) && isPublished(d, now)).slice(0, 5),
+    [documents, ensembleId, now],
+  );
 
   const scheduleAlerts = useMemo(() =>
     events
@@ -71,7 +90,19 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
         <span className="dir-ens-swatch" style={{ background: color, height: 44 }} />
         <div>
           <div className="dir-today-title">{ensemble.name}</div>
-          <div className="dir-ens-sub">{rosterCount} active students</div>
+          <div className="dir-ens-sub">
+            {[
+              `${rosterCount} active student${rosterCount === 1 ? '' : 's'}`,
+              groupKindLabel(ensemble),
+              // Course number and semester read the same here as on the public
+              // page, which is where a director goes to check them.
+              (isClass || isCollegeGroup(ensemble)) ? ensemble.courseCode : '',
+              (isClass || isCollegeGroup(ensemble)) ? ensemble.term : '',
+              ensemble.defaultLocation,
+              (ensemble.meetingDays ?? []).map(d => WEEKDAY_LABELS[d]).join(' '),
+              formatTimeRange(ensemble.defaultStartTime, ensemble.defaultEndTime),
+            ].filter(Boolean).join(' · ')}
+          </div>
         </div>
         <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {/* Contacting people lives on the roster, where the addresses are —
@@ -203,6 +234,36 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
               <div className="dir-ens-info">
                 <div className="dir-ens-name">{c.title || c.type}</div>
                 <div className="dir-ens-sub">{fmtDay(c.date)}{c.startTime ? ` · ${formatTimeRange(c.startTime, c.endTime)}` : ''}{c.location ? ` · ${c.location}` : ''}</div>
+              </div>
+            </button>
+          ))
+        )}
+
+        <div className="dir-form-section-label">Assignments &amp; exams</div>
+        {groupAssignments.length === 0 ? (
+          <div className="dir-empty-inline">Nothing assigned right now.</div>
+        ) : (
+          groupAssignments.map(a => (
+            <button key={a.id} className="dir-ens-row dir-sc-pick" onClick={() => onNavigate('assignments', { assignmentId: a.id })}>
+              <span className="dir-today-icon">{assignmentEmoji(a.type)}</span>
+              <div className="dir-ens-info">
+                <div className="dir-ens-name">{a.title}</div>
+                <div className="dir-ens-sub">{a.type} · due {fmtDay(a.dueDate)}</div>
+              </div>
+            </button>
+          ))
+        )}
+
+        <div className="dir-form-section-label">Documents</div>
+        {groupDocs.length === 0 ? (
+          <div className="dir-empty-inline">No documents for this group yet.</div>
+        ) : (
+          groupDocs.map(d => (
+            <button key={d.id} className="dir-ens-row dir-sc-pick" onClick={() => onNavigate('documents', { ensembleId })}>
+              <span className="dir-today-icon"><FolderOpen size={16} /></span>
+              <div className="dir-ens-info">
+                <div className="dir-ens-name">{d.title}</div>
+                <div className="dir-ens-sub">{d.category}</div>
               </div>
             </button>
           ))

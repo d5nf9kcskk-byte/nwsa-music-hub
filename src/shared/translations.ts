@@ -28,6 +28,8 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.mySchedule':       { en: 'My Schedule',         es: 'Mi horario' },
   'nav.ensembles':        { en: 'Ensembles',           es: 'Ensambles' },
   'nav.allEnsembles':     { en: 'All ensembles',       es: 'Todos los ensambles' },
+  'nav.allClasses':       { en: 'All classes',         es: 'Todas las clases' },
+  'nav.allCollege':       { en: 'All college groups',  es: 'Todo el college' },
   'nav.startHere':        { en: 'Start Here',          es: 'Empieza aquí' },
   'nav.concerts':         { en: 'Concert Season',      es: 'Temporada de conciertos' },
   'nav.concertsShort':    { en: 'Concerts',            es: 'Conciertos' },

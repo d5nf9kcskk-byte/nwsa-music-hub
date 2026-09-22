@@ -177,6 +177,17 @@ export function collegeClasses<T extends Pick<Ensemble, 'name' | 'kind' | 'colle
   return classGroups(list).filter(isCollegeGroup);
 }
 
+/**
+ * Which public index a group belongs to (#one-nav) — the ONE answer, so a
+ * Back link, a menu row and a help page cannot send three different ways.
+ * College wins over kind: a college class lists under College, not Classes.
+ */
+export function groupIndexPath(e?: Pick<Ensemble, 'name' | 'kind' | 'collegeLevel'> | null): string {
+  if (!e) return '/ensembles';
+  if (isCollegeGroup(e)) return '/college';
+  return isClassGroup(e) ? '/classes' : '/ensembles';
+}
+
 /** Every college-flagged group (ensembles + classes), for calendar presets. */
 export function collegeGroups<T extends Pick<Ensemble, 'name' | 'kind' | 'collegeLevel'>>(list: T[]): T[] {
   return musicEnsembles(list).filter(isCollegeGroup);
@@ -241,6 +252,52 @@ export const ENSEMBLE_PALETTE = PALETTE;
  *  announcement scheduling gate (visibleAnnouncements in useAnnouncements.ts). */
 export function isPublished(item: { publishAt?: number }, now: number = Date.now()): boolean {
   return !item.publishAt || item.publishAt <= now;
+}
+
+/**
+ * Should this assignment still show in a list a student browses?
+ *
+ * Published, and either not yet due OR still taking submissions. The browse
+ * lists used to drop anything past its due date, so an online test that was
+ * still open left the home page, the assignments index, the calendar and a
+ * student's own schedule the morning after it was due, while the test itself
+ * went on accepting answers. (Its own page never hid — `PublicAssignment`
+ * gates on `isPublished` alone — so the link kept working; it was the browsing
+ * that broke.)
+ *
+ * `acceptsQuizSubmissions` ONLY, never `acceptsVideoSubmissions`.
+ * `acceptsVideoSubmissions` reads like a twin and is not one: it is the MODE
+ * flag that says this exam collects video at all, set once when the assignment
+ * is created and never cleared, and it is what `firestore.rules` and
+ * `composeSubmission` gate uploads on — so a director cannot switch it off
+ * without breaking grading, and every playing exam ever set carries it
+ * forever. Treating it as "still open" would pin every past exam to the top of
+ * a list that sorts soonest-first and slices to four. `acceptsQuizSubmissions`
+ * is a real toggle with a real Close button (`setQuizOpen`).
+ */
+export function isAssignmentOpen(
+  a: { publishAt?: number; dueDate: string; acceptsQuizSubmissions?: boolean },
+  today: string,
+  now: number = Date.now(),
+): boolean {
+  return isPublished(a, now) && (a.dueDate >= today || !!a.acceptsQuizSubmissions);
+}
+
+/**
+ * Sort comparator for a list built with `isAssignmentOpen`: soonest first, but
+ * anything already overdue goes LAST.
+ *
+ * Without this the fix is worse than the bug. Every one of these lists sorts
+ * by due date ascending, so an overdue-but-still-open test sorts ABOVE
+ * everything real and stays there until somebody closes it — and the home page
+ * shows five, the assignments index four.
+ */
+export function byDueDateOpenFirst(today: string) {
+  return (a: { dueDate: string }, b: { dueDate: string }): number => {
+    const aLate = a.dueDate < today, bLate = b.dueDate < today;
+    if (aLate !== bLate) return aLate ? 1 : -1;
+    return a.dueDate.localeCompare(b.dueDate);
+  };
 }
 
 /**

@@ -143,6 +143,13 @@ export function PubEventCard({
 
         {e.repertoire && <div className="pub-event-rep"><Linkify text={e.repertoire} /></div>}
 
+        {/* What a CLASS meeting covers — its answer to repertoire (#classes).
+            The Event form has asked for it since classes existed and it
+            rendered in exactly one place: the .ics DESCRIPTION. So a class's
+            schedule read as bare dates on the site while a calendar
+            subscription carried the unit. */}
+        {e.unitInfo && <div className="pub-event-rep">Unit: <Linkify text={e.unitInfo} /></div>}
+
         {showNotes && e.notes && (
           <div className="pub-event-notes-inline">
             <StickyNote size={12} /> <Linkify text={e.notes} />

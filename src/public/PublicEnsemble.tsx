@@ -32,8 +32,6 @@ import { useEggCheer, useTapN } from '../shared/useEggCheer';
 import { NoteBurst } from '../shared/NoteBurst';
 import { PublicGroupStaffPanel } from '../director/components/GroupStaffPanel';
 import { staffForGroupPage } from '../director/groupStaff';
-import { currentTerm } from '../shared/concertCheckin';
-import { useCheckinSettings } from './hooks/useCheckinSettings';
 
 /** "Tue · Thu" from the stored weekday numbers, or nothing when a group has no
  *  standing pattern. Sunday-first, matching `WEEKDAY_LABELS`. */
@@ -57,9 +55,6 @@ export function PublicEnsemble() {
   const { documents } = useDocuments();
   const { assignments } = useAssignments();
   const [showAllPast, setShowAllPast] = useState(false);
-  // Which semester we are in — the school's own configured terms, never month
-  // arithmetic (#current-term).
-  const { terms } = useCheckinSettings();
 
   const ensemble = ensembles.find(e => e.id === id);
   const today = todayStr();
@@ -180,7 +175,14 @@ export function PublicEnsemble() {
   // came for the syllabus or the handout, not for a rehearsal list. Same block,
   // moved above the schedule — and repertoire/seating simply never apply.
   const isClass = isClassGroup(ensemble);
-  const term = currentTerm(terms, today);
+  // The group's OWN semester, stored on the group (see Ensemble.term).
+  // `currentTerm(terms, today)` was wrong here twice over: it answers "what
+  // term is it now" rather than "when does this course run", so every class
+  // printed the same string; and `terms` is the MDCPS calendar, while a
+  // dual-enrollment course's fall ends Dec 11 rather than Dec 19
+  // (#college-hs-calendar-deps). `terms` is still read above for orgs that
+  // have configured one — a group with no term of its own says nothing.
+  const term = ensemble?.term?.trim() || '';
   const staff = staffForGroupPage(ensemble, null, ensembles);
   const docsSection = ensDocs.length > 0 ? (
     <div>
@@ -251,10 +253,10 @@ export function PublicEnsemble() {
             formatTimeRange(ensemble.defaultStartTime, ensemble.defaultEndTime) || null,
           ].filter(Boolean).join(' · ')}
         </div>
-        {/* The semester, from the school's own configured terms rather than
-            month arithmetic (#current-term) — an org with no terms configured
-            simply shows none. */}
-        {term && <div className="pub-ghero-meta">{term.name}</div>}
+        {/* The semester this group runs, stored on the group — a class with
+            none says nothing rather than borrowing the district's current
+            term, which is the wrong calendar for a college course. */}
+        {term && <div className="pub-ghero-meta">{term}</div>}
         {members.length === 1 && PUBLIC_STUDENT_INFO && (
           <div className="pub-ghero-meta">{rosterOfOneLine(getLang())}</div>
         )}

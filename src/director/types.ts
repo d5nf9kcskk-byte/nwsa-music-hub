@@ -121,6 +121,28 @@ export interface Ensemble {
    * too. Never gates anything.
    */
   courseCode?: string;
+  /**
+   * Which semester this group runs, as words: "Fall 2026".
+   *
+   * A STORED STRING, and it has to be (#college-hs-calendar-deps). The class
+   * page first showed `currentTerm(ORG.terms, today)`, which is wrong twice
+   * over for a dual-enrollment course. `ORG.terms` is the MDCPS calendar — its
+   * term ids carry the district's grading periods and
+   * `gradingPeriods.selfcheck.ts` pins them against `MDCPS_NO_SCHOOL` — while
+   * an MDC course's fall ends Dec 11, not Dec 19, and its spring starts Jan 4,
+   * not Jan 6. So between those dates the page stated a semester the college
+   * was not in, or none at all. And `currentTerm` answers "what term is it
+   * now", not "when does this course run", so every class printed the same
+   * thing and a spring-only course read "Fall 2026" all autumn.
+   *
+   * Nor can it be read off the group's own meetings: `collegeClassEventDocs()`
+   * generates every college class from 2026-08-24 to 2027-06-03 with no term
+   * filter, so all sixteen span both semesters and would answer identically.
+   * A fall course and a spring course differ only because somebody says so,
+   * which is what this field is. Absent = say nothing, which is right for
+   * every high-school ensemble.
+   */
+  term?: string;
   /** Assigned staff contact — synced from director assignments for the public site. */
   staff?: { name: string; mdcEmail: string; phone?: string }[];
 }

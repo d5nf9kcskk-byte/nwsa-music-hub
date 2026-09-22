@@ -17,7 +17,20 @@ export interface CollegeClassSpec {
   order: number;
   /** Instructor — stored as conductorName on the group. */
   teacher: string;
+  /** Overrides COLLEGE_TERM for a course that does not run this semester. */
+  term?: string;
 }
+
+/**
+ * The semester this list describes, stored on each group as `Ensemble.term`.
+ *
+ * It has to be SAID rather than worked out. `ORG.terms` is the MDCPS calendar
+ * (its term ids carry the district's grading periods), while these courses run
+ * on MDC's — and `collegeClassEventDocs()` generates every class across the
+ * whole year with no term filter, so every one of them has meetings in both
+ * semesters and no derivation could tell a fall course from a spring one.
+ */
+export const COLLEGE_TERM = 'Fall 2026';
 
 export const COLLEGE_CLASSES: CollegeClassSpec[] = [
   { id: 'class-college-piano-1', title: 'Class Piano 1', courseCode: 'MVK 1111',

@@ -1,6 +1,6 @@
 import { doc, writeBatch } from 'firebase/firestore';
 import { db } from './firebase';
-import { COLLEGE_CLASSES, COLLEGE_ENSEMBLES } from './collegeClasses';
+import { COLLEGE_CLASSES, COLLEGE_ENSEMBLES, COLLEGE_TERM } from './collegeClasses';
 import { collegeChamberRehearsalPatches, collegeClassEventDocs } from './collegeSchedule';
 
 const CHUNK = 499;
@@ -37,15 +37,23 @@ export async function seedCollegeProgram(): Promise<{
       order: c.order,
       conductorName: c.teacher,
       ...(c.room ? { defaultLocation: c.room } : {}),
+      ...(c.courseCode ? { courseCode: c.courseCode } : {}),
+      term: c.term ?? COLLEGE_TERM,
       defaultStartTime: c.start,
       defaultEndTime: c.end,
       meetingDays: c.days,
     }, { merge: true }));
   }
 
+  // { merge: true } is load-bearing, not tidiness. A bare set() here REPLACED
+  // each session doc, so re-running this — which the "Set up college program"
+  // button does, in one click — wiped every college class meeting's
+  // `status: 'Cancelled'` and `changeNote`, silently putting cancelled classes
+  // back on students' calendars. The group writes above already merged, and so
+  // does collegeChamberRehearsalPatches below; this one line was the outlier.
   const sessions = collegeClassEventDocs();
   for (const { id, data } of sessions) {
-    ops.push(batch => batch.set(doc(dbRef, 'events', id), data));
+    ops.push(batch => batch.set(doc(dbRef, 'events', id), data, { merge: true }));
   }
 
   for (const { id, data } of collegeChamberRehearsalPatches()) {

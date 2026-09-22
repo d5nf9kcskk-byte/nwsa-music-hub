@@ -24,7 +24,7 @@ import { resolveBookedSlots, upcomingBookedSlots, slotCalendarEvent } from '../s
 import { bookedPerformersForEvent } from '../shared/eventPerformers';
 import { AddToCalendarButton } from './components/AddToCalendar';
 import { studentExpectation } from '../director/rosterResolver';
-import { todayStr, toDateStr, parseDate, formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, studentHasAssignment, assignmentEmoji, isPublished, isMasterClass, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { todayStr, toDateStr, parseDate, formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, studentHasAssignment, assignmentEmoji, isAssignmentOpen, byDueDateOpenFirst, isMasterClass, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubSelect } from './components/PubSelect';
 import { PubAnnouncements } from './components/PubAnnouncements';
@@ -150,8 +150,8 @@ export function PublicSchedule() {
   const myAssignments = useMemo(
     () => student
       ? assignments
-          .filter(a => a.dueDate >= today && isPublished(a, now) && studentHasAssignment(a, student.id, student.ensembleIds))
-          .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+          .filter(a => isAssignmentOpen(a, today, now) && studentHasAssignment(a, student.id, student.ensembleIds))
+          .sort(byDueDateOpenFirst(today))
       : [],
     [assignments, today, now, student],
   );

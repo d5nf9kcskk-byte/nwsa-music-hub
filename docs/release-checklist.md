@@ -8,10 +8,15 @@ shipped incident, not a style bug.
 ## URLs (never change — printed on QR posters and saved as bookmarks)
 
 - [ ] Router basename `/nwsa-music-hub` (vite.config.ts `base` + main.tsx)
-- [ ] All public routes resolve: `/`, `/calendar`, `/ensembles`, `/ensemble/:id`,
+- [ ] All public routes resolve: `/`, `/calendar`, `/ensembles`, `/classes`,
+      `/college`, `/ensemble/:id`,
       `/repertoire`, `/lookup`, `/student/:id`, `/piece/:id`, `/event/:id`,
       `/announcements`, `/assignments`, `/documents`, `/signups`, `/signup/:id`,
       `/start`, `/concerts`, `/map`, `/program/:id`
+- [ ] One index per menu group (#one-nav): `/ensembles` lists HIGH-SCHOOL
+      performing groups only, `/classes` the high-school classes, `/college`
+      both college lists. If `/ensembles` ever lists a class again, every class
+      has two doors and the menu is back to where it started.
 - [ ] Vanity slugs redirect: `/so /we /wind /jazz /cam /choir /opera /cco`
 - [ ] Hash anchors scroll: `/ensemble/:id#repertoire`, `/map#<anchor>`
 - [ ] Query deep links work: `?ensemble=`, `?focus=`, `?staff=1`, director

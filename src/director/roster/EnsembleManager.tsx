@@ -135,6 +135,7 @@ function EnsembleForm({ ensemble, defaultKind, defaultCollegeLevel, nextOrder, o
   const [kind, setKind] = useState<NonNullable<Ensemble['kind']>>(ensemble?.kind ?? defaultKind ?? 'ensemble');
   const [collegeLevel, setCollegeLevel] = useState(!!(ensemble?.collegeLevel ?? defaultCollegeLevel));
   const [courseCode, setCourseCode] = useState(ensemble?.courseCode ?? '');
+  const [term, setTerm] = useState(ensemble?.term ?? '');
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const panelRef = useModalA11y<HTMLDivElement>(onBack, true, { closeOnBack: true });
@@ -148,7 +149,11 @@ function EnsembleForm({ ensemble, defaultKind, defaultCollegeLevel, nextOrder, o
         conductorName: conductorName.trim() || undefined,
         kind,
         collegeLevel: collegeLevel ? true : undefined,
-        courseCode: courseCode.trim() || undefined,
+        // Empty string, not undefined: these hooks drop an undefined from the
+        // update rather than clearing the field, so a course number or a
+        // semester the director deletes would otherwise survive forever.
+        courseCode: courseCode.trim(),
+        term: term.trim(),
         order: ensemble?.order ?? nextOrder,
         color: color || undefined,
         defaultLocation: location || undefined,
@@ -232,12 +237,24 @@ function EnsembleForm({ ensemble, defaultKind, defaultCollegeLevel, nextOrder, o
           {/* Shown on a class page beside the room and the time. A college
               student is registered under this number and is asked for it by
               everyone outside this building. */}
-          {kind !== 'ensemble' && (
-            <div className="dir-field">
-              <label className="dir-label">
-                Course number <span className="dir-label-hint">optional — shown on the class page, e.g. "MUH 3211"</span>
-              </label>
-              <input className="dir-input" value={courseCode} onChange={e => setCourseCode(e.target.value)} placeholder="e.g. MUH 3211" />
+          {/* `collegeLevel ||`, not kind alone: College Chamber Orchestra and
+              College Vocal Ensemble are kind:'ensemble', and a dual-enrollment
+              ensemble has a catalog number and a semester like any other
+              course. */}
+          {(collegeLevel || kind !== 'ensemble') && (
+            <div className="dir-field-row">
+              <div className="dir-field">
+                <label className="dir-label">
+                  Course number <span className="dir-label-hint">optional, e.g. "MUH 3211"</span>
+                </label>
+                <input className="dir-input" value={courseCode} onChange={e => setCourseCode(e.target.value)} placeholder="e.g. MUH 3211" />
+              </div>
+              <div className="dir-field">
+                <label className="dir-label">
+                  Semester <span className="dir-label-hint">optional, e.g. "Fall 2026"</span>
+                </label>
+                <input className="dir-input" value={term} onChange={e => setTerm(e.target.value)} placeholder="e.g. Fall 2026" />
+              </div>
             </div>
           )}
 

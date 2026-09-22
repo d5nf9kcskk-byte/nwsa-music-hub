@@ -111,6 +111,33 @@ function EnsembleSubLinks({
   );
 }
 
+/** The "All …" row that closes a nav group — one index per group (#one-nav).
+ *  Two components rather than one skinned pair, matching EnsembleSubLinks /
+ *  SideEnsembleLinks directly above; one-nav.selfcheck.mjs pins that both
+ *  surfaces render the same t() keys. */
+function AllGroupsLink({ to, label, onNavigate }: { to: string; label: string; onNavigate?: () => void }) {
+  return (
+    <NavLink
+      to={to}
+      end
+      className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
+      onClick={onNavigate}
+    >
+      <span className="pub-menu-dot" style={{ background: '#94a3b8' }} />
+      {t(label)}
+    </NavLink>
+  );
+}
+
+function SideAllGroupsLink({ to, label }: { to: string; label: string }) {
+  return (
+    <NavLink to={to} end className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
+      <span className="pub-side-dot" style={{ background: '#94a3b8' }} />
+      {t(label)}
+    </NavLink>
+  );
+}
+
 function SideEnsembleLinks({ items }: { items: Ensemble[] }) {
   return (
     <>
@@ -168,7 +195,11 @@ export function PublicLayout() {
   const { cheer, onLogoTap } = useLogoEgg();
 
   const eid = ensembleIdFromPath(pathname);
+  // One index per group, so each opens ITS OWN accordion. Without the last two
+  // entries /classes and /college would open Ensembles.
   const onEnsemblesIndex = pathname === '/ensembles' || pathname.startsWith('/ensembles/');
+  const onClassesIndex = pathname === '/classes';
+  const onCollegeIndex = pathname === '/college';
   const inPerforming = !!eid && navPerforming.some(e => e.id === eid);
   const inClasses = !!eid && navClasses.some(e => e.id === eid);
   const inCollege = !!eid && [...navCollegeEns, ...navCollegeCls].some(e => e.id === eid);
@@ -181,11 +212,11 @@ export function PublicLayout() {
   // opens Classes, not Ensembles, on both.
   useEffect(() => {
     if (inPerforming || onEnsemblesIndex) { setEnsemblesOpen(true); setSideEnsOpen(true); }
-    if (inClasses) { setClassesOpen(true); setSideClassesOpen(true); }
-    if (inCollege) { setCollegeOpen(true); setSideCollegeOpen(true); }
+    if (inClasses || onClassesIndex) { setClassesOpen(true); setSideClassesOpen(true); }
+    if (inCollege || onCollegeIndex) { setCollegeOpen(true); setSideCollegeOpen(true); }
     if (onResources) { setResourcesOpen(true); setSideResourcesOpen(true); }
     if (onHelp) { setHelpOpen(true); setSideHelpOpen(true); }
-  }, [pathname, onEnsemblesIndex, onResources, onHelp, inPerforming, inClasses, inCollege]);
+  }, [pathname, onEnsemblesIndex, onClassesIndex, onCollegeIndex, onResources, onHelp, inPerforming, inClasses, inCollege]);
 
   const closeMenu = () => setMenuOpen(false);
 
@@ -266,14 +297,7 @@ export function PublicLayout() {
             {ensemblesOpen && (
               <>
                 <EnsembleSubLinks items={navPerforming} onNavigate={closeMenu} />
-                <NavLink
-                  to="/ensembles"
-                  className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
-                  onClick={closeMenu}
-                >
-                  <span className="pub-menu-dot" style={{ background: '#94a3b8' }} />
-                  {t('nav.allEnsembles')}
-                </NavLink>
+                <AllGroupsLink to="/ensembles" label="nav.allEnsembles" onNavigate={closeMenu} />
               </>
             )}
 
@@ -288,7 +312,12 @@ export function PublicLayout() {
                   {t('docs.classes')}
                   <ExpandChevron open={classesOpen} />
                 </button>
-                {classesOpen && <EnsembleSubLinks items={navClasses} onNavigate={closeMenu} />}
+                {classesOpen && (
+                  <>
+                    <EnsembleSubLinks items={navClasses} onNavigate={closeMenu} />
+                    <AllGroupsLink to="/classes" label="nav.allClasses" onNavigate={closeMenu} />
+                  </>
+                )}
               </>
             )}
 
@@ -313,6 +342,7 @@ export function PublicLayout() {
                       <div className="pub-menu-subhead">{t('nav.collegeClasses')}</div>
                     )}
                     <EnsembleSubLinks items={navCollegeCls} onNavigate={closeMenu} />
+                    <AllGroupsLink to="/college" label="nav.allCollege" onNavigate={closeMenu} />
                   </>
                 )}
               </>
@@ -403,10 +433,7 @@ export function PublicLayout() {
                 {sideEnsOpen && (
                   <>
                     <SideEnsembleLinks items={navPerforming} />
-                    <NavLink to="/ensembles" end className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
-                      <span className="pub-side-dot" style={{ background: '#94a3b8' }} />
-                      {t('nav.allEnsembles')}
-                    </NavLink>
+                    <SideAllGroupsLink to="/ensembles" label="nav.allEnsembles" />
                   </>
                 )}
               </>
@@ -422,7 +449,12 @@ export function PublicLayout() {
                   {t('docs.classes')}
                   <ChevronDown size={14} style={{ transform: sideClassesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
                 </button>
-                {sideClassesOpen && <SideEnsembleLinks items={navClasses} />}
+                {sideClassesOpen && (
+                  <>
+                    <SideEnsembleLinks items={navClasses} />
+                    <SideAllGroupsLink to="/classes" label="nav.allClasses" />
+                  </>
+                )}
               </>
             )}
             {(navCollegeEns.length > 0 || navCollegeCls.length > 0) && (
@@ -446,6 +478,7 @@ export function PublicLayout() {
                       <div className="pub-side-subhead">{t('nav.collegeClasses')}</div>
                     )}
                     <SideEnsembleLinks items={navCollegeCls} />
+                    <SideAllGroupsLink to="/college" label="nav.allCollege" />
                   </>
                 )}
               </>

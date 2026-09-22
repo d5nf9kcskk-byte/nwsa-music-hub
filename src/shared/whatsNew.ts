@@ -32,6 +32,23 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // One index per menu group, on both shells (#one-nav). 'both': the public
+  // menu gains Classes and College pages, the director menu loses three
+  // duplicate rows.
+  {
+    id: '2026-09-22-one-way-into-each-group',
+    date: '2026-09-22',
+    title: 'One way into every group, on both sides of the Hub',
+    audience: 'both' as const,
+    expires: '2026-10-23',
+    bullets: [
+      'Ensembles, Classes and College each have their own page now. “All ensembles” used to list every group in the school under headings, so a class or a college course had two different ways in that looked nothing alike.',
+      'Staff: the Ensembles, Classes and College rows under People are gone. They went to exactly the same screens as “All Ensembles”, “All Classes” and “College Hub” in the lists below them — two differently named rows, inches apart, landing on one page.',
+      'A class or ensemble with nobody enrolled still appears everywhere, and says its roster has not been built yet rather than looking broken.',
+      'A class meeting now shows the unit or chapter written on it. That has been typed on the event form since classes existed and only ever appeared inside a calendar subscription, so a class schedule read as a list of bare dates.',
+      'A college course shows the semester IT runs, set on the group. It used to show whichever semester the high school was currently in — the wrong calendar for a dual-enrollment course, whose term starts and ends on different days.',
+    ],
+  },
   // The class page finally shows the work set on it, and a grade can be
   // emailed from the row it was given on. 'both': students genuinely gain a
   // section on their own class page, and staff gain the email button.

@@ -69,7 +69,12 @@ const router = createBrowserRouter(
       children: [
         { index: true, element: <PublicHome /> },
         { path: 'calendar', element: <PublicCalendar /> },
-        { path: 'ensembles', element: <PublicEnsembles /> },
+        // One index per menu group (#one-nav). /ensembles used to list every
+        // group in the school, which made it a second door to every class and
+        // every college course.
+        { path: 'ensembles', element: <PublicEnsembles section="ensembles" /> },
+        { path: 'classes', element: <PublicEnsembles section="classes" /> },
+        { path: 'college', element: <PublicEnsembles section="college" /> },
         { path: 'ensemble/:id', element: <PublicEnsemble /> },
         { path: 'repertoire', element: <PublicRepertoire /> },
         { path: 'lookup', element: <PublicLookup /> },

@@ -48,7 +48,12 @@ const PAGES: { label: string; url: string; sub: string }[] = [
   { label: 'Sign-ups', url: '/signups', sub: 'Open sign-up forms' },
   { label: 'Announcements', url: '/announcements', sub: 'Every post' },
   { label: 'Assignments', url: '/assignments', sub: 'What is assigned' },
-  { label: 'Ensembles', url: '/ensembles', sub: 'Every performing group' },
+  // One index per group (#one-nav) — /ensembles is high-school performing
+  // groups only, so a link meant for a class or a college course has to name
+  // its own page or it lands somewhere that does not list the group.
+  { label: 'Ensembles', url: '/ensembles', sub: 'High school performing groups' },
+  { label: 'Classes', url: '/classes', sub: 'Theory, history and other classes' },
+  { label: 'College', url: '/college', sub: 'Dual-enrollment groups and courses' },
   { label: 'Repertoire', url: '/repertoire', sub: 'What everyone is playing' },
   { label: 'Getting started', url: '/start', sub: 'How to use the Hub' },
 ];

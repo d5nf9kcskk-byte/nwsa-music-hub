@@ -6,7 +6,7 @@ import { usePublicEvents } from './hooks/usePublicEvents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
-import { todayStr, formatTimeRange, ensembleColor, ensembleDisplayName, addDays, assignmentEmoji, highSchoolEnsembles, collegeEnsembles, isPublished, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { todayStr, formatTimeRange, ensembleColor, ensembleDisplayName, addDays, assignmentEmoji, highSchoolEnsembles, collegeEnsembles, isAssignmentOpen, byDueDateOpenFirst, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { SkeletonCards, EmptyState } from './components/PageHeader';
@@ -84,7 +84,7 @@ export function PublicHome() {
   const upcomingConcerts = capWholeDays(future.filter(e => e.type === 'Concert').sort(byDateTime), 5);
   const upcomingEvents = capWholeDays(future.filter(e => e.type === 'Event').sort(byDateTime), 6);
   const upcomingAssignments = useMemo(
-    () => assignments.filter(a => a.dueDate >= today && isPublished(a, now)).sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 5),
+    () => assignments.filter(a => isAssignmentOpen(a, today, now)).sort(byDueDateOpenFirst(today)).slice(0, 5),
     [assignments, today, now],
   );
 
