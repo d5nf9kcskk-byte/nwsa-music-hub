@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  addDoc, collection, deleteDoc, doc, onSnapshot, query, setDoc, updateDoc, where,
+  addDoc, collection, deleteDoc, deleteField, doc, onSnapshot, query, setDoc, updateDoc, where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { watchCollection } from '../../shared/watchCollection';
@@ -125,6 +125,35 @@ export async function saveQuizFile(assignmentId: string, fileText: string): Prom
   await setDoc(doc(db, 'assignmentKeys', assignmentId), { answers: key, updatedAt: Date.now(), updatedBy });
   await updateDoc(doc(db, 'assignments', assignmentId), { quiz, updatedAt: Date.now(), updatedBy });
   return { questions: quiz.sections.reduce((n, s) => n + s.questions.length, 0) };
+}
+
+/**
+ * Staff: set — or clear — the correct answer to ONE choice question.
+ *
+ * A test file has to name an answer for every choice question, but the right
+ * answer is not always known when the file is written. Three listening
+ * excerpts share one list of works, and which excerpt was played is decided in
+ * the room on the morning of the exam; whatever the file guessed is not it.
+ *
+ * Safe to do while an exam is being taken, and safe to do after: a submission
+ * stores the student's ANSWERS and no score, so every test already sent
+ * re-grades itself against the key the moment this lands.
+ */
+export async function setQuizAnswer(
+  assignmentId: string,
+  questionId: string,
+  answer: string,
+): Promise<void> {
+  if (!db) return;
+  await setDoc(doc(db, 'assignmentKeys', assignmentId), {
+    // A deep merge is exactly what is wanted here and nowhere else: this
+    // question's answer is replaced and every other question's is left alone.
+    // Clearing rides as deleteField() — an `undefined` would be dropped on the
+    // way out and the old answer would survive the clear.
+    answers: { [questionId]: answer || deleteField() },
+    updatedAt: Date.now(),
+    updatedBy: currentDirectorName(),
+  }, { merge: true });
 }
 
 /** Staff: choose which of the bank's questions are on this exam. */

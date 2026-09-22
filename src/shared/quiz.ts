@@ -235,6 +235,118 @@ export function scoreQuiz(quiz: QuizDefinition, key: QuizKey, answers: QuizAnswe
   };
 }
 
+/**
+ * Grading a test on the roster row (#online-test).
+ *
+ * The grade sheet already knows how to mark a rubric: named lines, points per
+ * line, one total, one Confirm that snapshots what it gave. A test's questions
+ * ARE those lines — so a test grades through the same machinery rather than a
+ * second set of totals that could disagree with it. The choice questions of a
+ * section collapse into one line the answer key fills in; every written
+ * question is a line the director marks.
+ *
+ * Shaped structurally (`id` / `label` / `max`) rather than by importing the
+ * director layer's `RubricCriterion`: this module stays free of anything the
+ * public site can't have, and the rubric keeps living where rubrics live.
+ */
+export interface QuizGradeLine {
+  id: string;
+  label: string;
+  max: number;
+}
+
+/** A line id that is a whole section's choice questions, not one question.
+ *  Prefixed so it can never collide with a question id from a test file. */
+export const QUIZ_AUTO_PREFIX = 'auto:';
+
+/**
+ * The lines this test is graded on, in the order it is laid out.
+ *
+ * `answers` is a student's own answers, and matters only for a choose-N
+ * section: there the lines are the questions THAT STUDENT answered, because a
+ * question they were told they could skip must not sit on their sheet as an
+ * unscored line dragging their denominator up. Called without answers it
+ * returns every line the test can produce — which is what the export's
+ * columns need, since one sheet covers everybody.
+ */
+export function quizGradeLines(quiz: QuizDefinition, answers?: QuizAnswers): QuizGradeLine[] {
+  const out: QuizGradeLine[] = [];
+  for (const section of quiz.sections) {
+    const choicePoints = section.questions
+      .filter(q => q.kind === 'choice')
+      .reduce((n, q) => n + q.points, 0);
+    if (choicePoints > 0) {
+      out.push({ id: QUIZ_AUTO_PREFIX + section.id, label: section.title, max: choicePoints });
+    }
+    const text = section.questions.filter(q => q.kind === 'text');
+    const lines = section.choose && answers
+      ? text.filter(q => (answers[q.id] ?? '').trim()).slice(0, section.choose)
+      : text;
+    for (const q of lines) out.push({ id: q.id, label: q.prompt, max: q.points });
+  }
+  return out;
+}
+
+/**
+ * What the answer key already knows, as a starting score for the auto lines.
+ *
+ * A section holding ANY choice question the key has no answer for is left out
+ * entirely rather than seeded with the points the rest of it earned. An
+ * unanswered key is not a wrong answer (`scoreQuiz` says the same with
+ * `unkeyed`), and a line seeded two-thirds low would be confirmed as a real
+ * grade by anyone who didn't stop to check. Left blank, it blocks Confirm and
+ * the director goes and sets the answer.
+ */
+export function quizAutoPicks(
+  quiz: QuizDefinition,
+  key: QuizKey,
+  answers: QuizAnswers,
+): Record<string, number> {
+  const picks: Record<string, number> = {};
+  for (const section of quiz.sections) {
+    const choice = section.questions.filter(q => q.kind === 'choice');
+    if (choice.length === 0 || choice.some(q => !(q.id in key))) continue;
+    picks[QUIZ_AUTO_PREFIX + section.id] = choice
+      .reduce((n, q) => n + (answers[q.id] === key[q.id] ? q.points : 0), 0);
+  }
+  return picks;
+}
+
+/**
+ * What to show the grader under each line: a written answer verbatim, and for
+ * an auto line the choices behind its number, so a score arrives with its
+ * working shown rather than as a figure to trust. A section the key can't
+ * score says so instead of printing ticks and crosses it hasn't earned.
+ */
+export function quizLineNotes(
+  quiz: QuizDefinition,
+  answers: QuizAnswers,
+  key: QuizKey | null,
+): Record<string, string> {
+  const notes: Record<string, string> = {};
+  for (const section of quiz.sections) {
+    const choice = section.questions.filter(q => q.kind === 'choice');
+    if (choice.length > 0) {
+      const unkeyed = !key || choice.some(q => !(q.id in key));
+      notes[QUIZ_AUTO_PREFIX + section.id] = unkeyed
+        ? 'Not scored yet — set the correct answers on the answer key below.'
+        : choice
+          .map(q => `${answers[q.id] === key[q.id] ? '✓' : '✗'} ${q.prompt}: ${answers[q.id] || '(blank)'}`)
+          .join('\n');
+    }
+    for (const q of section.questions) {
+      if (q.kind === 'text' && answers[q.id]) notes[q.id] = answers[q.id];
+    }
+  }
+  return notes;
+}
+
+/** Choice questions on this test the key has no answer for. They score as
+ *  not-yet, so the panel can say what is still missing. */
+export function unkeyedQuestions(quiz: QuizDefinition, key: QuizKey | null): QuizQuestion[] {
+  return allQuestions(quiz).filter(q => q.kind === 'choice' && !(key && q.id in key));
+}
+
 /** Case, spacing and punctuation don't make two people. Used only where a
  *  submission has no roster id to group by. */
 export function nameKey(name: string): string {

@@ -32,6 +32,22 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Grading an online test where you grade everything else (#online-test).
+  // Staff-only: nothing about taking a test changed, and a grade has never
+  // been visible to a student.
+  {
+    id: '2026-09-22-test-answer-key-and-grading',
+    date: '2026-09-22',
+    title: 'Online tests: set the answers yourself, and grade the writing in the row',
+    audience: 'staff' as const,
+    expires: '2026-10-23',
+    bullets: [
+      'Answer key: on a test, tap “Answer key” to set what the correct answer actually was — which listening excerpt you played is decided in the room, not when the test file was written.',
+      'Changing an answer re-scores every test already sent, including ones taken before you changed it. A submission stores the student’s answers and never a score.',
+      'The grade sheet row is now the whole exam: open a student and their written answers are there, each with its own mark box, with the multiple-choice part already scored from the key.',
+      'The two add up to one grade, the way a playing exam’s rubric does. A part the key can’t score yet is left blank rather than counted as zero.',
+    ],
+  },
   // The college classes that were missing, and cancelling the right day
   // (#college-hs-calendar-deps). Staff-only: the restored classes show up on
   // the public calendar on their own, and nothing about what a family sees

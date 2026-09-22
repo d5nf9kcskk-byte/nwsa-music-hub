@@ -30,8 +30,10 @@ import {
 import { RubricEditor } from './RubricEditor';
 import { GradeRow, type ConfirmArgs } from './GradeRow';
 import { QuizPanel } from './QuizPanel';
-import { useQuizSubmissions } from '../hooks/useQuiz';
-import { latestPerStudent } from '../../shared/quiz';
+import { useQuizKey, useQuizSubmissions } from '../hooks/useQuiz';
+import {
+  latestPerStudent, parseAnswers, quizAutoPicks, quizGradeLines, quizLineNotes, selectedQuiz,
+} from '../../shared/quiz';
 import {
   assignmentDraftKey, clearDraft, draftAge, readDraft, writeDraft, type AssignmentDraft,
 } from './assignmentDraft';
@@ -502,6 +504,9 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
   // One listener for the whole screen: the panel below and every roster row
   // read the same online-test submissions (#online-test).
   const quizState = useQuizSubmissions(assignment.quiz ? assignment.id : undefined);
+  // The key too: the roster rows score against it and the panel below edits
+  // it, so one listener answers both rather than two copies drifting apart.
+  const { key: quizKey, loading: keyLoading } = useQuizKey(assignment.quiz ? assignment.id : undefined);
   const testByStudent = new Map(
     latestPerStudent(quizState.submissions)
       .map(l => [l.submission.studentId ?? '', l.submission] as const)
@@ -521,7 +526,19 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
   // The rubric this exam grades with. An exam that never chose one falls back
   // to THIS director's default, which is what lets every playing exam that
   // predates the feature grade with a rubric and needs no migration.
-  const criteria = rubricForAssignment(assignment, director?.examRubric);
+  //
+  // An online test brings its own lines (#online-test): the choice questions of
+  // a section arrive already scored from the answer key, and every written
+  // question is a line to mark with the student's writing under it. Same
+  // rubric machinery, so the auto part and the written part add up once — there
+  // is no second total that could disagree with this one. An exam somebody gave
+  // an explicit rubric keeps it.
+  const onTest = assignment.quiz && !assignment.rubric
+    ? selectedQuiz(assignment.quiz, assignment.quizSelection)
+    : null;
+  const criteria = onTest
+    ? quizGradeLines(onTest)
+    : rubricForAssignment(assignment, director?.examRubric);
 
   // Every take a student sent, newest first — one line per student, not one
   // line per upload. `submissions` is already sorted newest-first.
@@ -670,7 +687,9 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
       const s = relevant[i];
       const r = resultMap[s.id];
       const graded = !!r && (r.status !== 'Pending' || !!r.score);
-      if (!graded && takesByStudent.has(s.id)) return s.id;
+      // A test counts as something to grade too, or a Confirm on a written
+      // exam would collapse the row and leave you hunting for the next name.
+      if (!graded && (takesByStudent.has(s.id) || testByStudent.has(s.id))) return s.id;
     }
     return null;
   }
@@ -746,7 +765,9 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
 
       {/* Online test (#online-test). Offered on a Written Test, and shown on
           anything that already carries one. */}
-      {(assignment.type === 'Written Test' || assignment.quiz) && <QuizPanel assignment={assignment} state={quizState} />}
+      {(assignment.type === 'Written Test' || assignment.quiz) && (
+        <QuizPanel assignment={assignment} state={quizState} quizKey={quizKey} keyLoading={keyLoading} />
+      )}
 
       <div className="dir-assign-summary-bar">
         {[
@@ -782,14 +803,22 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
         </div>
       ) : (
         <div className="dir-grade-list">
-          {relevant.map(s => (
+          {relevant.map(s => {
+            const test = testByStudent.get(s.id) ?? null;
+            // Read once per row: the answers drive the lines (a choose-N
+            // section only puts up the questions this student answered), what
+            // the key already scored, and the writing shown under each line.
+            const answers = onTest && test ? parseAnswers(test.answersJson) : null;
+            return (
             <GradeRow
               key={s.id}
               student={s}
               result={resultMap[s.id]}
-              criteria={criteria}
+              criteria={onTest && answers ? quizGradeLines(onTest, answers) : criteria}
+              seedPicks={onTest && answers && quizKey ? quizAutoPicks(onTest, quizKey, answers) : undefined}
+              lineNotes={onTest && answers ? quizLineNotes(onTest, answers, quizKey) : undefined}
               takes={assignment.acceptsVideoSubmissions ? (takesByStudent.get(s.id) ?? []) : []}
-              testSubmission={testByStudent.get(s.id) ?? null}
+              testSubmission={test}
               noSubmissionLabel={missingLabel}
               open={openId === s.id}
               onToggle={() => setOpenId(openId === s.id ? null : s.id)}
@@ -800,7 +829,8 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
               onSetReviewed={(sub, reviewed) => setReviewStatus(sub.id, reviewed ? 'reviewed' : 'submitted')}
               onDeleteTake={sub => deleteSubmission(sub.id)}
             />
-          ))}
+            );
+          })}
         </div>
       )}
 

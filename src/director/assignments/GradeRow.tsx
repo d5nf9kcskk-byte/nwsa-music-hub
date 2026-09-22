@@ -31,6 +31,15 @@ interface Props {
    *  or null on an exam that collects nothing in the app (graded in the room),
    *  where an accusing grey chip on every row is just noise. */
   noSubmissionLabel?: string | null;
+  /** Text to show under a rubric line, keyed by line id: on an online test,
+   *  the student's written answer, and under an auto-scored line the choices
+   *  behind its number (#online-test). A video row passes none. Display only —
+   *  nothing here is snapshotted onto the grade. */
+  lineNotes?: Record<string, string>;
+  /** Points a line starts at before anybody has scored it — the part of an
+   *  online test the answer key grades on its own. Used ONLY while no grade is
+   *  stored; the moment one is filed, that snapshot wins. */
+  seedPicks?: Record<string, number>;
   open: boolean;
   onToggle: () => void;
   saving: boolean;
@@ -56,8 +65,8 @@ const longDate = (ms: number) =>
  * and opening it grades in place while the video plays beside the rubric.
  */
 export function GradeRow({
-  student, result, criteria, takes, testSubmission, noSubmissionLabel, open, onToggle, saving,
-  onConfirm, onStatus, onScore, onSetReviewed, onDeleteTake,
+  student, result, criteria, takes, testSubmission, noSubmissionLabel, lineNotes, seedPicks,
+  open, onToggle, saving, onConfirm, onStatus, onScore, onSetReviewed, onDeleteTake,
 }: Props) {
   const status: AssignmentResultStatus = result?.status ?? 'Pending';
   const newest = takes[0];
@@ -69,7 +78,13 @@ export function GradeRow({
   const storedKey = `${result?.id ?? ''}|${(result?.rubric ?? []).map(s => `${s.id}=${s.points}`).join(',')}|${result?.notes ?? ''}`;
   const [draft, setDraft] = useState<{ key: string; picks: Record<string, number>; notes: string } | null>(null);
   const live = draft && draft.key === storedKey;
-  const picks = live ? draft.picks : scoresToPicks(result?.rubric);
+  // An ungraded row starts from whatever is already known — on an online test,
+  // the part the answer key scored. A row that has a filed grade starts from
+  // that grade instead, so re-opening it shows what was actually given rather
+  // than quietly re-seeding over it.
+  const picks = live ? draft.picks
+    : result?.rubric ? scoresToPicks(result.rubric)
+    : { ...(seedPicks ?? {}) };
   const notes = live ? draft.notes : (result?.notes ?? '');
   const edit = (next: Partial<{ picks: Record<string, number>; notes: string }>) =>
     setDraft({ key: storedKey, picks, notes, ...next });
@@ -82,6 +97,13 @@ export function GradeRow({
   const tally = tallyRubric(criteria, picks);
   const scores = hasRubric ? rubricScores(criteria, picks) : null;
   const changed = rubricChangedSince(result?.rubric, criteria);
+  // The answer key moved after this grade was filed — set which excerpt was
+  // actually played, and the part the key scores comes to a different number
+  // than the one on this student's record. A filed snapshot is never rewritten
+  // underneath a director, so the row has to say so or the old number just
+  // sits there looking right.
+  const autoStale = !!result?.rubric && !!seedPicks
+    && result.rubric.some(s => s.id in seedPicks && s.points !== seedPicks[s.id]);
   const dirty = !!live && !!result?.rubric
     && (result.rubric.length !== tally.of || result.rubric.some(s => picks[s.id] !== s.points));
 
@@ -207,15 +229,29 @@ export function GradeRow({
                   re-score to move it onto the current one.
                 </div>
               )}
+              {autoStale && !dirty && (
+                <div className="dir-rubric-stale">
+                  The answer key changed after this was graded — the scored part now comes to a
+                  different number. The grade below is what was filed; re-score to bring it up to date.
+                </div>
+              )}
               <div className="dir-rubric-lines">
                 {criteria.map(c => {
                   const picked = picks[c.id];
+                  // On an online test this is the student's own writing, sitting
+                  // under the question it answers and above the box it is marked
+                  // in. The grade sheet used to make you read a name in the
+                  // roster and find it again in a list further down to see what
+                  // they wrote — the same two-lists-of-one-person problem the
+                  // video row already fixed (#exam-rubric).
+                  const note = lineNotes?.[c.id];
                   return (
-                    <label key={c.id} className="dir-rubric-line">
+                    <label key={c.id} className={`dir-rubric-line ${note ? 'has-note' : ''}`}>
                       <span className="dir-rubric-line-label">
                         {c.label}
                         <span className="dir-rubric-line-max"> / {c.max}</span>
                       </span>
+                      {note && <span className="dir-rubric-line-note">{note}</span>}
                       <select
                         className="dir-select dir-rubric-pick"
                         value={picked === undefined ? '' : String(picked)}

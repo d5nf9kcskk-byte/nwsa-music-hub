@@ -1580,6 +1580,29 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
 }
 .dir-rubric-line-label { font-size: 14px; font-weight: 700; }
 .dir-rubric-line-max { font-weight: 500; color: var(--dir-text-muted); }
+/* A line that carries the student's own writing (#online-test). The note
+   wraps onto its own full-width row under the question and its mark box, so a
+   paragraph is read where it is graded instead of in a second list. */
+.dir-rubric-line.has-note { flex-wrap: wrap; align-items: flex-start; }
+/* A test question is a whole sentence, not "Intonation" — let it wrap and
+   take the row rather than squeezing the mark box off the edge of a phone. */
+.dir-rubric-line.has-note .dir-rubric-line-label { flex: 1 1 12rem; min-width: 0; line-height: 1.4; }
+.dir-rubric-line-note {
+  order: 3;
+  flex-basis: 100%;
+  margin-top: 6px;
+  padding: 9px 11px;
+  border-left: 3px solid var(--dir-accent);
+  border-radius: var(--dir-radius-sm);
+  background: var(--dir-surface-2);
+  color: var(--dir-text);
+  font-size: 13.5px;
+  font-weight: 400;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  max-height: 20rem;
+  overflow: auto;
+}
 .dir-rubric-pick {
   width: 5.2rem;
   height: 38px;

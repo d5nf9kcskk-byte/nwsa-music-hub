@@ -55,3 +55,13 @@
 .dir-quiz-pick input { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--dir-primary); flex-shrink: 0; }
 .dir-quiz-pick-text { flex: 1; min-width: 0; }
 .dir-quiz-pick-pts { font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 700; color: var(--dir-text-muted); }
+
+/* The answer key, editable in the app: which work each listening excerpt
+   actually was is decided in the room, not when the test file was written. */
+.dir-quiz-key { margin-top: 10px; border: 1px solid var(--dir-border); border-radius: var(--dir-radius-sm); padding: 10px; }
+.dir-quiz-keyrow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 4px; font-size: 13.5px; }
+.dir-quiz-keyrow + .dir-quiz-keyrow { border-top: 1px solid var(--dir-border); }
+.dir-quiz-keyrow-q { flex: 1 1 10rem; min-width: 0; font-weight: 700; }
+.dir-quiz-keypick { flex: 2 1 18rem; min-width: 0; height: 38px; }
+.dir-quiz-keyrow.unset .dir-quiz-keypick { border-color: var(--dir-danger); }
+.dir-quiz-keyrow.unset .dir-quiz-keyrow-q::after { content: ' • no answer set'; color: var(--dir-danger); font-weight: 800; }

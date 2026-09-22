@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Copy, Download, FileUp } from 'lucide-react';
-import { saveQuizFile, setQuizOpen, setQuizSelection, useQuizKey, type QuizSubmissionState } from '../hooks/useQuiz';
+import { saveQuizFile, setQuizAnswer, setQuizOpen, setQuizSelection, type QuizSubmissionState } from '../hooks/useQuiz';
 import { downloadCsv } from '../attendance/attendanceCsv';
 import { todayStr } from '../utils';
 import { ORG } from '../../org';
 import {
   QuizFileError, allQuestions, latestPerStudent, parseAnswers, quizCsvFilename, quizResultsToCsv,
-  quizTotalPoints, scoreQuiz, selectedQuiz,
+  quizTotalPoints, scoreQuiz, selectedQuiz, unkeyedQuestions, type QuizKey,
 } from '../../shared/quiz';
 import type { Assignment } from '../types';
 import './quizPanel.css';
@@ -19,9 +19,17 @@ import './quizPanel.css';
  * written answers ride along in the sheet with an empty score column, because
  * a person grades those and a blank must never read as a zero.
  */
-export function QuizPanel({ assignment, state }: { assignment: Assignment; state: QuizSubmissionState }) {
+interface PanelProps {
+  assignment: Assignment;
+  state: QuizSubmissionState;
+  /** The answer key, read once on the grade sheet and handed down — the
+   *  roster rows score against the same listener this panel edits. */
+  quizKey: QuizKey | null;
+  keyLoading: boolean;
+}
+
+export function QuizPanel({ assignment, state, quizKey: key, keyLoading }: PanelProps) {
   const quiz = assignment.quiz;
-  const { key, loading: keyLoading } = useQuizKey(assignment.id);
   // The submissions listener lives on the grade sheet, so the roster rows and
   // this panel read ONE subscription rather than two of the same query.
   const { submissions, loading, loadError, deleteSubmission } = state;
@@ -32,6 +40,7 @@ export function QuizPanel({ assignment, state }: { assignment: Assignment; state
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [keying, setKeying] = useState(false);
 
   const link = `${ORG.publicUrl.replace(/\/$/, '')}/assignments/${assignment.id}`;
   const open = !!assignment.acceptsQuizSubmissions;
@@ -117,6 +126,8 @@ export function QuizPanel({ assignment, state }: { assignment: Assignment; state
   const autoPoints = onTestQuestions.filter(q => q.kind === 'choice').reduce((n, q) => n + q.points, 0);
   const writtenPoints = scoreQuiz(onTest, key ?? {}, {}).toGrade;
 
+  const unkeyed = unkeyedQuestions(onTest, key);
+
   async function toggleQuestion(id: string) {
     const next = new Set(picked);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -125,6 +136,17 @@ export function QuizPanel({ assignment, state }: { assignment: Assignment; state
       await setQuizSelection(assignment.id, bank.map(q => q.id).filter(qid => next.has(qid)));
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not save that.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveAnswer(id: string, answer: string) {
+    setBusy(true); setErr(''); setMsg('');
+    try {
+      await setQuizAnswer(assignment.id, id, answer);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not save that answer.');
     } finally {
       setBusy(false);
     }
@@ -152,10 +174,49 @@ export function QuizPanel({ assignment, state }: { assignment: Assignment; state
         <button type="button" className="dir-tool-btn" onClick={() => setPicking(v => !v)}>
           {picking ? 'Done choosing' : 'Choose questions'}
         </button>
+        {onTestQuestions.some(q => q.kind === 'choice') && (
+          <button type="button" className="dir-tool-btn" onClick={() => setKeying(v => !v)}>
+            {keying ? 'Done with the key' : 'Answer key'}
+          </button>
+        )}
         {onTestQuestions.length === 0 && (
           <span className="dir-quiz-warn">Nothing is on the test yet.</span>
         )}
+        {unkeyed.length > 0 && !keying && (
+          <span className="dir-quiz-warn">
+            {unkeyed.length === 1 ? '1 question has no answer set' : `${unkeyed.length} questions have no answer set`}
+            {' '}— not scored until you set it.
+          </span>
+        )}
       </div>
+
+      {keying && (
+        <div className="dir-quiz-key">
+          {/* The answer to a listening excerpt is decided in the room, not when
+              the test file was written — three excerpts share one list of
+              works and only you know which one you played. Changing an answer
+              here re-scores every test already sent, including the ones
+              sitting on this page right now: a submission stores the student's
+              answers and never a score. */}
+          <div className="dir-field-hint">
+            Set what the correct answer actually was. Every test already sent is re-scored the moment you change it.
+          </div>
+          {onTestQuestions.filter(q => q.kind === 'choice').map(q => (
+            <label key={q.id} className={`dir-quiz-keyrow ${key && q.id in key ? '' : 'unset'}`}>
+              <span className="dir-quiz-keyrow-q">{q.prompt}</span>
+              <select
+                className="dir-select dir-quiz-keypick"
+                value={key?.[q.id] ?? ''}
+                disabled={busy || keyLoading}
+                onChange={e => { void saveAnswer(q.id, e.target.value); }}
+              >
+                <option value="">Not set — not scored</option>
+                {(q.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </label>
+          ))}
+        </div>
+      )}
 
       {picking && (
         <div className="dir-quiz-picker">
@@ -187,7 +248,9 @@ export function QuizPanel({ assignment, state }: { assignment: Assignment; state
       </div>
 
       {!keyLoading && !key && (
-        <div className="dir-quiz-err">⚠ No answer key is stored for this test. Load the test file again.</div>
+        <div className="dir-quiz-err">
+          ⚠ No answer key is stored for this test. Set the answers under “Answer key”, or load the test file again.
+        </div>
       )}
       {msg && <div className="dir-quiz-msg">{msg}</div>}
       {err && <div className="dir-quiz-err">⚠ {err}</div>}
