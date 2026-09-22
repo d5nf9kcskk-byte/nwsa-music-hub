@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Download, Plus, Clock, Video, Music } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Download, Mail, Plus, Clock, Video, Music } from 'lucide-react';
 import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
 import { useMyDirector, saveMyExamRubric } from '../hooks/useDirectors';
 import { useCurrentDirector } from '../currentDirector';
@@ -40,7 +40,8 @@ import {
 import { GroupPicker } from '../components/GroupPicker';
 import { useContacts } from '../hooks/useContacts';
 import { personalMailto, rosterRecipients } from '../rosterEmail';
-import { gradeEmailBody, gradeEmailSubject, hasGradeToSend } from './gradeEmail';
+import { gradeEmailBody, gradeEmailSubject, gradeMailPlan, hasGradeToSend } from './gradeEmail';
+import { GradeMailBar } from './GradeMailBar';
 import { registerOverlayClose } from '../../shared/overlayBack';
 import { describeDuration, formatClock, formatFileSize, minutesToSeconds, secondsToMinutes } from '../../shared/duration';
 import { ORG } from '../../org';
@@ -530,6 +531,7 @@ function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeS
   const [sort, setSort] = useState<StudentSort>('scoreOrder');
   const [openId, setOpenId] = useState<string | null>(null);
   const [showStrays, setShowStrays] = useState(false);
+  const [mailBarOpen, setMailBarOpen] = useState(false);
 
   // The rubric this exam grades with. An exam that never chose one falls back
   // to THIS director's default, which is what lets every playing exam that
@@ -583,6 +585,7 @@ function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeS
     return { ...link, body, to: addresses };
   }
 
+
   // Every take a student sent, newest first — one line per student, not one
   // line per upload. `submissions` is already sorted newest-first.
   const takesByStudent = new Map<string, typeof submissions>();
@@ -596,6 +599,23 @@ function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeS
     students.filter(s => s.status === 'Active' && studentHasAssignment(assignment, s.id, s.ensembleIds)),
     sort,
   );
+
+  // The whole sheet at once (#grade-email), built only while the bar is open —
+  // it is one message per student, and there is no reason to compose thirty of
+  // them because a page rendered. In the order the sheet is sorted, so the
+  // list you step through is the list you are looking at.
+  const mailPlan = mailBarOpen
+    ? gradeMailPlan({
+      students: relevant,
+      resultMap,
+      contacts,
+      ensembles,
+      assignment,
+      groupName: mailGroupName || undefined,
+      fromName: director?.name || me?.name,
+    })
+    : null;
+
   const submittedCount = relevant.filter(s => takesByStudent.has(s.id) || testByStudent.has(s.id)).length;
   const gradedCount = relevant.filter(s => {
     const r = resultMap[s.id];
@@ -764,6 +784,18 @@ function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeS
               title="Download this grade sheet as a CSV"
             >
               <Download size={15} /> CSV
+            </button>
+          )}
+          {/* Hidden until somebody has a grade, for the same reason as CSV:
+              a greyed-out `.dir-tool-btn` looks pressable and does nothing. */}
+          {gradedCount > 0 && (
+            <button
+              type="button"
+              className="dir-tool-btn"
+              onClick={() => setMailBarOpen(v => !v)}
+              title="Fill in one email per graded student, in your own mail app"
+            >
+              <Mail size={15} /> {mailBarOpen ? 'Done emailing' : 'Email grades'}
             </button>
           )}
           <button type="button" className="dir-tool-btn" onClick={onEdit}>Edit</button>
@@ -940,6 +972,8 @@ function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeS
           )}
         </section>
       )}
+
+      {mailPlan && <GradeMailBar plan={mailPlan} onClose={() => setMailBarOpen(false)} />}
     </div>
   );
 }

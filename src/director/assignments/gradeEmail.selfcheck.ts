@@ -6,7 +6,7 @@
  * out of the building, a mark that isn't the one that was given, or a message
  * that silently never opens.
  */
-import { gradeEmailBody, gradeEmailSubject, hasGradeToSend } from './gradeEmail.ts';
+import { gradeEmailBody, gradeEmailSubject, gradeMailDigest, gradeMailPlan, hasGradeToSend } from './gradeEmail.ts';
 import { personalMailto, MAILTO_MAX } from '../rosterEmail.ts';
 
 function assert(cond: unknown, msg: string): void {
@@ -114,5 +114,68 @@ assert(personalMailto(['not an address'], 'x', 'y') === null, 'and a junk addres
 const huge = personalMailto(['a@b.co'], 'Grades', 'x'.repeat(MAILTO_MAX * 2))!;
 assert(huge.overLong, 'a body past the cap is REPORTED — an over-long mailto opens empty and reports nothing on its own');
 assert(huge.href.length > MAILTO_MAX, 'and the link is still returned, so Copy has something to hand over');
+
+/* ── emailing the whole sheet ──────────────────────────────────────────── */
+// A wrong answer here is a family who was not written to while the director
+// believed they had been.
+
+const ENSEMBLES = [{ id: 'symphony', collegeLevel: false }, { id: 'mdc', collegeLevel: true }];
+const stu = (id: string, name: string, ensembleIds: string[] = ['symphony']) =>
+  ({ id, name, ensembleIds, instrument: 'Violin', status: 'Active' } as never);
+
+const plan = gradeMailPlan({
+  students: [
+    stu('a', 'Rose, William'),      // graded, has an address
+    stu('b', 'Blades, Vincent'),    // graded, NO address
+    stu('c', 'Lee, Chris'),         // not graded
+    stu('d', 'Pérez, Ana', ['mdc']), // graded, adult (college) — their own address
+  ],
+  resultMap: {
+    a: { id: 'r1', assignmentId: 'x', studentId: 'a', status: 'Pass', score: '88' },
+    b: { id: 'r2', assignmentId: 'x', studentId: 'b', status: 'Pass', score: '71' },
+    c: { id: 'r3', assignmentId: 'x', studentId: 'c', status: 'Pending' },
+    d: { id: 'r4', assignmentId: 'x', studentId: 'd', status: 'Pass', score: '95' },
+  },
+  contacts: {
+    a: { id: 'a', parentEmail: 'mum@example.com' },
+    // b has a record with nothing usable on it
+    b: { id: 'b', parentEmail: 'not an address' },
+    c: { id: 'c', parentEmail: 'irrelevant@example.com' },
+    d: { id: 'd', email: 'ana@mdc.edu', parentEmail: 'old-import-guardian@example.com' },
+  },
+  ensembles: ENSEMBLES,
+  assignment: { title: 'Symphony Playing Exam #2', type: 'Playing Exam', dueDate: '2026-09-23' },
+  groupName: 'Symphony Orchestra',
+  fromName: 'Dr. Grant Gilman',
+});
+
+assert(plan.items.length === 2, 'one message per graded student who can be reached — not one message to everybody');
+assert(plan.items[0].studentId === 'a' && plan.items[1].studentId === 'd', 'in the order the roster was handed over');
+assert(plan.noAddress.length === 1 && plan.noAddress[0].id === 'b',
+  'a graded student nobody can be written to is REPORTED — silently sending 31 of 40 is the whole failure this guards');
+assert(plan.ungraded === 1, 'and the ungraded are counted, so "23 of 32" is on screen');
+assert(!plan.items.some(i => i.studentId === 'c'), 'a Pending row is never mailed');
+
+assert(plan.items[1].to.join() === 'ana@mdc.edu',
+  "an ADULT student's grade goes to THEM, not to a guardian an old import left on the record");
+assert(!plan.items[1].to.some(a => a.includes('old-import-guardian')), 'and that guardian is not written to at all');
+
+assert(plan.items.every(i => i.href.startsWith('mailto:') && !i.href.includes('bcc=')),
+  'each is addressed to its own student — there is no shared body to blind-copy');
+assert(plan.items[0].body.includes('Rose, William') && !plan.items[0].body.includes('Pérez'),
+  "one student's message carries only their own name");
+assert(plan.items[0].subject.includes('Symphony Playing Exam #2'), 'and names the exam');
+
+const digest = gradeMailDigest(plan.items);
+assert(digest.includes('mum@example.com') && digest.includes('ana@mdc.edu'), 'the copy-all fallback carries every recipient');
+assert(digest.includes('Rose, William') && digest.includes('Pérez, Ana'), 'and every message');
+
+const nobody = gradeMailPlan({
+  students: [stu('z', 'Nobody Graded')],
+  resultMap: {}, contacts: {}, ensembles: ENSEMBLES,
+  assignment: { title: 'T', type: 'Playing Exam' },
+});
+assert(nobody.items.length === 0 && nobody.noAddress.length === 0 && nobody.ungraded === 1,
+  'nobody graded is not the same as nobody reachable, and the bar says which');
 
 console.log('grade email self-check: ok');
