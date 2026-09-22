@@ -1,13 +1,19 @@
-name: Backfill Course Codes
+name: Backfill Course Codes and Semesters
 
-# Puts each college class's catalog number (MUH 3211, MUT 1111, …) onto its
-# ensemble doc, so the class page can print it. One field, on at most a dozen
-# ensemble docs.
+# Puts each college class's catalog number (MUH 3211, MUT 1111, …) and the
+# semester it runs onto its ensemble doc, so the class page can print them.
+# Two fields, on at most a dozen ensemble docs.
 #
-# Deliberately NOT part of Seed College: that seed rewrites every class session
+# The semester is STORED rather than worked out (#college-hs-calendar-deps):
+# the class page first derived it from ORG.terms, which is the MDCPS calendar,
+# while an MDC course's fall ends Dec 11 rather than Dec 19 — and it derived
+# the CURRENT term at that, so every class printed the same string.
+#
+# Deliberately NOT part of Seed College: that seed rewrote every class session
 # event with set() and no merge, so re-running it to pick up one new field
-# would flatten cancellations and change notes on individual meetings. This
-# cannot reach an event at all.
+# would flatten cancellations and change notes on individual meetings. (That
+# bare set() is fixed now, but this is still the smaller blast radius — it
+# cannot reach an event at all.)
 #
 # Idempotent — a doc that already says the right thing is skipped. Run dry
 # first, then apply.
@@ -31,7 +37,7 @@ jobs:
         with:
           node-version: 22
       - run: npm install firebase-admin --no-save
-      - name: Backfill course codes in Firestore
+      - name: Backfill course codes and semesters in Firestore
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
         run: |
