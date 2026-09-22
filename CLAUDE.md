@@ -326,6 +326,19 @@ MDCPS teacher-planning day even though MDC was in full session that day.
   never been created. After changing which calendar a generator asks, re-run
   that generator (`Seed College Program` is idempotent and `workflow_dispatch`)
   and verify against the live data, which is world-readable for `events`.
+- **`scripts/calendar-closures-audit.mjs` is that verification**, as a command
+  (*Audit Calendar Closures*, `workflow_dispatch`). It asks the live project
+  whether every closure agrees with both calendars, in BOTH directions: no
+  live high school block or lesson on an MDCPS closure, every college class
+  present on the MDCPS-only ones, and no live college block on an MDC closure.
+  Read-only and credential-free — `events`, `ensembles` and `lessonsPublic` are
+  all `allow read` — so it can run from anywhere, and it prints no student
+  names. Findings in the FUTURE fail; findings in the past are printed and do
+  not, because a stale block on a date that already happened is a record, not
+  a schedule (`--since` moves that line, `--strict` fails on both). It is NOT
+  in `.github/actions/self-checks`: those are pure and offline and gate every
+  build, and this one needs the network and live data. Run it after a seed,
+  after editing either calendar, and when setting up a new school year.
 - **A cancelled day takes the day's private LESSONS with it.** They are in
   another collection and were never in `dayEvents`, so a cancelled Monday used
   to look empty with a violin lesson still on it. It cannot be tidied up
