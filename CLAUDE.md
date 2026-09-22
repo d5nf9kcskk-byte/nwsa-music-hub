@@ -1059,6 +1059,8 @@ score, and the results sheet; `quiz.selfcheck.ts` pins it in the self-checks.
   underneath a director — fixing the key afterwards makes the row SAY the
   scored part moved (`autoStale`), and re-scoring is the director's press.
 
+Session record: `docs/session-notes-2026-09-22-online-test-key-and-grading.md`.
+
 ## Rehearsal absence reports (Sept 2026)
 
 `/absence` (org-gated: `features.absenceReport`, true for NWSA, false for
