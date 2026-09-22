@@ -53,7 +53,9 @@ export const WHATS_NEW: WhatsNewEntry[] = [
   // emailed from the row it was given on. 'both': students genuinely gain a
   // section on their own class page, and staff gain the email button.
   {
-    id: '2026-09-22-class-page-work-and-grade-email',
+    // Bumped when the whole-sheet bullet was added: the card shipped hours
+    // ago, and a director who dismissed it would never see the new line.
+    id: '2026-09-22-class-page-work-and-grade-email-2',
     date: '2026-09-22',
     title: 'Your class page now shows its assignments — and grades can be emailed from the grade sheet',
     audience: 'both' as const,
@@ -63,6 +65,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Assignments no longer disappear the day after they are due — recently due work stays on the Assignments page for three weeks, folded up.',
       'Class pages carry the course number, the days they meet and the semester, beside the room and time.',
       'Staff: open a student on a grade sheet and “Email grade” hands your own mail app a clean summary — points on each section and the final score. Nothing is sent by the Hub, and your staff-only comment never travels with it.',
+      'Staff: “Email grades” at the top of a sheet does the whole class, one message at a time, and tells you who has a grade but no email on file.',
     ],
   },
   // Grading an online test where you grade everything else (#online-test).
