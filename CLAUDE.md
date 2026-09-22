@@ -1034,6 +1034,30 @@ score, and the results sheet; `quiz.selfcheck.ts` pins it in the self-checks.
 - The public form drafts answers into `localStorage` so a reloaded phone loses
   nothing, and DELETES the draft on a successful send so a shared computer
   never opens onto the last student's name and answers.
+- **The key is EDITABLE in the app, per question** (`setQuizAnswer`, the
+  panel's Answer key list). A test file must name an answer for every choice
+  question, but three listening excerpts share one option list and which one
+  was played is decided in the room — whatever the file guessed is not it.
+  Safe at any time because **a submission stores the student's ANSWERS and
+  never a score**: scoring is computed on read, so changing an answer
+  re-scores every test already sent. Keep it that way; caching a score onto a
+  submission would freeze the first, possibly wrong, key.
+- **A test grades on the ROSTER ROW, through the rubric machinery**
+  (`quizGradeLines` / `quizAutoPicks` / `quizLineNotes` in `src/shared/quiz.ts`,
+  rendered by `GradeRow`'s `lineNotes` + `seedPicks`). Each section's choice
+  questions collapse into ONE line the key fills in; every written question is
+  a line to mark with the student's words under it. One total, one Confirm, one
+  snapshot — do NOT add a second sum for tests, it could only disagree with
+  this one. Those functions are shaped structurally (`id`/`label`/`max`) rather
+  than importing `RubricCriterion`, so `quiz.ts` stays free of the director
+  layer. Three promises pinned by `quiz.selfcheck.ts`:
+  a section holding ANY unkeyed question **seeds nothing** (an unset answer is
+  not a wrong answer, and a line seeded two-thirds low gets confirmed by
+  someone not stopping to check); a choose-N section raises lines only for the
+  questions THAT student answered (a question they were told they could skip
+  must not inflate their denominator); and a filed grade is never rewritten
+  underneath a director — fixing the key afterwards makes the row SAY the
+  scored part moved (`autoStale`), and re-scoring is the director's press.
 
 ## Rehearsal absence reports (Sept 2026)
 
