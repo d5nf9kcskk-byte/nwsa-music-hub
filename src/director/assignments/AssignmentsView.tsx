@@ -860,7 +860,11 @@ function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeS
               criteria={onTest && answers ? quizGradeLines(onTest, answers) : criteria}
               seedPicks={onTest && answers && quizKey ? quizAutoPicks(onTest, quizKey, answers) : undefined}
               lineNotes={onTest && answers ? quizLineNotes(onTest, answers, quizKey) : undefined}
-              gradeMail={gradeMailFor(s)}
+              // Only the OPEN row, for the same reason only the open row
+              // renders a video: the button is not on screen otherwise, and
+              // building it means encoding a whole message per student on
+              // every render of a 140-name roster.
+              gradeMail={openId === s.id ? gradeMailFor(s) : null}
               takes={assignment.acceptsVideoSubmissions ? (takesByStudent.get(s.id) ?? []) : []}
               testSubmission={test}
               noSubmissionLabel={missingLabel}
