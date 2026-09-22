@@ -110,6 +110,17 @@ export interface Ensemble {
    *  under the College section rather than All Ensembles / All Classes. Never
    *  changes who may read anything. */
   collegeLevel?: boolean;
+  /**
+   * Catalog number, display-only — "MUH 3211", or "MUO 1501 / MUO 3652" for a
+   * course cross-listed at two levels. It is what a dual-enrollment student is
+   * registered under at Miami Dade College and what they are asked for by
+   * everyone outside this building, so the class page has to be able to print
+   * it. `CollegeClassSpec.courseCode` has carried it since the college classes
+   * were seeded, but only as far as an event's `notes` string — this is where
+   * it lands on the group itself. Not college-only: an AP course has a number
+   * too. Never gates anything.
+   */
+  courseCode?: string;
   /** Assigned staff contact — synced from director assignments for the public site. */
   staff?: { name: string; mdcEmail: string; phone?: string }[];
 }

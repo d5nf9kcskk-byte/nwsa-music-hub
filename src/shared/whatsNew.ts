@@ -32,6 +32,22 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // The class page finally shows the work set on it, and a grade can be
+  // emailed from the row it was given on. 'both': students genuinely gain a
+  // section on their own class page, and staff gain the email button.
+  {
+    id: '2026-09-22-class-page-work-and-grade-email',
+    date: '2026-09-22',
+    title: 'Your class page now shows its assignments — and grades can be emailed from the grade sheet',
+    audience: 'both' as const,
+    expires: '2026-10-23',
+    bullets: [
+      'A class or ensemble page now lists its own assignments and exams, with recent ones kept under “Past”. They were only ever on the Assignments page before, which is why an exam could look missing.',
+      'Assignments no longer disappear the day after they are due — recently due work stays on the Assignments page for three weeks, folded up.',
+      'Class pages carry the course number, the days they meet and the semester, beside the room and time.',
+      'Staff: open a student on a grade sheet and “Email grade” hands your own mail app a clean summary — points on each section and the final score. Nothing is sent by the Hub, and your staff-only comment never travels with it.',
+    ],
+  },
   // Grading an online test where you grade everything else (#online-test).
   // Staff-only: nothing about taking a test changed, and a grade has never
   // been visible to a student.

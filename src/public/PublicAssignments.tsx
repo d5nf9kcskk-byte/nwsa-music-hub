@@ -1,19 +1,25 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ClipboardCheck } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { useStudentsPublic } from './hooks/usePublicRoster';
 import { useMinuteTick } from '../director/hooks/useAnnouncements';
-import { todayStr, ensembleColor, ensembleDisplayName, musicEnsembles, isPublished } from '../director/utils';
+import { todayStr, addDays, ensembleColor, ensembleDisplayName, musicEnsembles, isPublished } from '../director/utils';
 import { AssignmentCard } from './components/AssignmentCard';
 import { PageHeader, SkeletonCards, EmptyState } from './components/PageHeader';
 import { t, useLang, getLang } from '../shared/i18n';
 import { dailyPun, say } from '../shared/whimsy';
-import type { Assignment } from '../director/types';
+import type { Assignment, Ensemble } from '../director/types';
+
+/** How far back "recently due" reaches. Three weeks covers a test still being
+ *  chased and the exam a student missed while out sick, without turning the
+ *  page into an archive of the year. */
+const PAST_WINDOW_DAYS = 21;
 
 /**
- * Public list of upcoming assignments & exams, grouped by ensemble.
+ * Public list of assignments & exams, grouped by ensemble — what is coming,
+ * and behind a fold what was recently due.
  *
  * Every card here is a SUMMARY that opens the assignment's own page
  * (`/assignments/:id`) — instructions, the music it's on, files, and the
@@ -21,6 +27,7 @@ import type { Assignment } from '../director/types';
  */
 export function PublicAssignments() {
   useLang();
+  const [showPast, setShowPast] = useState(false);
   const { ensembles } = useEnsembles();
   const { assignments, loading } = useAssignments();
   const { students } = useStudentsPublic();
@@ -50,6 +57,25 @@ export function PublicAssignments() {
     [assignments, today, now],
   );
 
+  /**
+   * Recently due, newest first, behind a fold.
+   *
+   * This page used to drop an assignment the instant its due date passed, so a
+   * written test vanished from the whole site the morning after it was due —
+   * while the director was still chasing the people who had not sent it, and
+   * while a student who missed it had nowhere left to look up what it was.
+   * A due date says when work is DUE, not when it stops existing.
+   *
+   * Bounded by days rather than by count: the cut-off is "still current", and
+   * last term's exams are not, however few of them there are.
+   */
+  const past = useMemo(() => {
+    const cutoff = addDays(today, -PAST_WINDOW_DAYS);
+    return assignments
+      .filter(a => a.dueDate < today && a.dueDate >= cutoff && isPublished(a, now))
+      .sort((a, b) => b.dueDate.localeCompare(a.dueDate));
+  }, [assignments, today, now]);
+
   const byEnsemble = useMemo(() => {
     const m: Record<string, Assignment[]> = {};
     const individual: Assignment[] = [];
@@ -72,9 +98,14 @@ export function PublicAssignments() {
       {loading ? (
         <SkeletonCards n={3} slim />
       ) : upcoming.length === 0 ? (
-        <EmptyState icon={<ClipboardCheck size={26} />}>
-          {t('assign.nothingDue')} {say(dailyPun('assign'), getLang())}
-        </EmptyState>
+        <>
+          <EmptyState icon={<ClipboardCheck size={26} />}>
+            {t('assign.nothingDue')} {say(dailyPun('assign'), getLang())}
+          </EmptyState>
+          {/* Nothing DUE is not nothing to see: the exam from last week is
+              still the thing a student came here to look up. */}
+          <PastWork items={past} ensembles={ensembles} open={showPast} onOpen={() => setShowPast(true)} />
+        </>
       ) : (
         <>
           {/* Soonest first, across all ensembles — the by-ensemble groups follow */}
@@ -108,7 +139,31 @@ export function PublicAssignments() {
               ))}
             </div>
           )}
+          <PastWork items={past} ensembles={ensembles} open={showPast} onOpen={() => setShowPast(true)} />
         </>
+      )}
+    </div>
+  );
+}
+
+/** Recently due work, folded shut. Shut by default because this page is about
+ *  what is coming; present at all because it used to be absent. */
+function PastWork({ items, ensembles, open, onOpen }: {
+  items: Assignment[];
+  ensembles: Ensemble[];
+  open: boolean;
+  onOpen: () => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <h2 className="pub-section-title">Recently due</h2>
+      {open ? (
+        items.map(a => <AssignmentCard key={`past-${a.id}`} assignment={a} ensembles={ensembles} withAnchor={false} />)
+      ) : (
+        <button className="pub-showall-btn" onClick={onOpen}>
+          {t('misc.showAll', { count: items.length })}
+        </button>
       )}
     </div>
   );

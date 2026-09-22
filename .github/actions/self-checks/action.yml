@@ -101,6 +101,14 @@ runs:
       run: npx tsx src/shared/quiz.selfcheck.ts
       shell: bash
 
+    # Emailing a student their grade (#grade-email). A wrong answer here is
+    # something a FAMILY reads: the staff-only comment posted out of the
+    # building, a mark that is not the one that was given, or a mailto past the
+    # length cap, which opens an empty window and reports nothing.
+    - name: Check the grade email
+      run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/assignments/gradeEmail.selfcheck.ts
+      shell: bash
+
     # Who a sign-up reaches. Drift here is silent — a director opens
     # "Camerata strings" and half the section never sees it (#signups).
     - name: Check sign-up eligibility

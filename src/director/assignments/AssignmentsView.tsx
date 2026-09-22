@@ -38,6 +38,9 @@ import {
   assignmentDraftKey, clearDraft, draftAge, readDraft, writeDraft, type AssignmentDraft,
 } from './assignmentDraft';
 import { GroupPicker } from '../components/GroupPicker';
+import { useContacts } from '../hooks/useContacts';
+import { personalMailto, rosterRecipients } from '../rosterEmail';
+import { gradeEmailBody, gradeEmailSubject, hasGradeToSend } from './gradeEmail';
 import { registerOverlayClose } from '../../shared/overlayBack';
 import { describeDuration, formatClock, formatFileSize, minutesToSeconds, secondsToMinutes } from '../../shared/duration';
 import { ORG } from '../../org';
@@ -485,15 +488,20 @@ function AssignmentForm({ assignment, ensembles, students, onSave, onDelete, onC
 interface GradeSheetProps {
   assignment: Assignment;
   students: Student[];
+  /** For `isAdultStudent` when a grade mail is addressed: a college student is
+   *  their own home contact, so their grade goes to them and not to a guardian
+   *  an old import left on the record (#roster-contact). */
+  ensembles: Ensemble[];
   onEdit: () => void;
   onClose: () => void;
 }
 
-function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) {
+function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeSheetProps) {
   const { resultMap, saveResult, clearResult } = useAssignmentResults(assignment.id);
   const { pieces } = useRepertoire();
   const me = useCurrentDirector();
   const { director } = useMyDirector(me?.email);
+  const { contacts } = useContacts();
   const linkedPieces = (assignment.pieceIds ?? [])
     .map(pid => pieces.find(p => p.id === pid))
     .filter(p => !!p);
@@ -539,6 +547,41 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
   const criteria = onTest
     ? quizGradeLines(onTest)
     : rubricForAssignment(assignment, director?.examRubric);
+
+  // "Email this student their grade" (#grade-email). The Hub fills in the
+  // director's OWN mail window and sends nothing itself — the same posture as
+  // the roster's Email button and the lesson log. Built per row because the
+  // breakdown, the addresses and whether there is a grade at all are all
+  // per student.
+  const mailGroupName = assignment.ensembleIds
+    .map(eid => ensembles.find(e => e.id === eid)?.name)
+    .filter(Boolean)
+    .join(', ');
+  function gradeMailFor(student: Student) {
+    const result = resultMap[student.id];
+    if (!hasGradeToSend(result)) return null;
+    // 'both' reaches the student and their guardians; for an ADULT student
+    // `rosterRecipients` resolves that to the student alone, which is the
+    // right answer for the college cohort and not a special case here.
+    const { addresses } = rosterRecipients([student], contacts, 'both', ensembles);
+    const body = gradeEmailBody({
+      studentName: student.name,
+      assignmentTitle: assignment.title,
+      assignmentType: assignment.type,
+      dueDate: assignment.dueDate,
+      groupName: mailGroupName || undefined,
+      result: result!,
+      fromName: director?.name || me?.name,
+    });
+    const link = personalMailto(addresses, gradeEmailSubject({
+      studentName: student.name,
+      assignmentTitle: assignment.title,
+      assignmentType: assignment.type,
+      result: result!,
+    }), body);
+    if (!link) return null;
+    return { ...link, body, to: addresses };
+  }
 
   // Every take a student sent, newest first — one line per student, not one
   // line per upload. `submissions` is already sorted newest-first.
@@ -817,6 +860,7 @@ function GradeSheet({ assignment, students, onEdit, onClose }: GradeSheetProps) 
               criteria={onTest && answers ? quizGradeLines(onTest, answers) : criteria}
               seedPicks={onTest && answers && quizKey ? quizAutoPicks(onTest, quizKey, answers) : undefined}
               lineNotes={onTest && answers ? quizLineNotes(onTest, answers, quizKey) : undefined}
+              gradeMail={gradeMailFor(s)}
               takes={assignment.acceptsVideoSubmissions ? (takesByStudent.get(s.id) ?? []) : []}
               testSubmission={test}
               noSubmissionLabel={missingLabel}
@@ -1001,6 +1045,7 @@ export function AssignmentsView({ initialAssignmentId, initialEnsembleId, allowe
       <GradeSheet
         assignment={gradingAssignment}
         students={students}
+        ensembles={allEnsembles}
         onEdit={() => setEditingId(gradingAssignment.id)}
         onClose={() => setGradingId(null)}
       />

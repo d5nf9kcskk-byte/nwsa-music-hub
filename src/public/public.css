@@ -192,6 +192,16 @@ html:has(.pub-app) body {
   color: var(--pub-muted);
   margin: 22px 0 10px;
 }
+/* A heading INSIDE a section ("Past" under Assignments) — quieter than the
+   section it sits in, so it reads as a divider and not a second section. */
+.pub-subsection-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--pub-muted);
+  margin: 16px 0 8px;
+  opacity: 0.85;
+}
 
 .pub-card {
   background: var(--pub-surface);

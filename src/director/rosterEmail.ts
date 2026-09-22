@@ -229,6 +229,37 @@ function buildMailto(addresses: string[], subject: string): string {
   return `mailto:?bcc=${bcc}${subj}`;
 }
 
+export interface PersonalMail {
+  href: string;
+  /** Past `MAILTO_MAX`. The link is still returned — the caller offers Copy
+   *  beside it rather than dropping a message on the floor — but it must be
+   *  SAID, because an over-long mailto opens a half-filled window or no window
+   *  at all and reports nothing either way. */
+  overLong: boolean;
+}
+
+/**
+ * One person's own message: **TO, with a body** (#grade-email).
+ *
+ * The BCC rule above exists because a ROSTER's addresses must not be published
+ * to each other. These addresses are one student's own household — the student
+ * and their guardians, or, for an adult student, only themselves — who already
+ * know each other, and a grade mail that arrives from nobody in particular
+ * reads as spam. So this one addresses them openly.
+ *
+ * It lives here and not beside its caller because this module is the one place
+ * a `mailto:` is built in this app, and the length ceiling it guards is the
+ * whole reason: a body pushes a link past the cap far faster than addresses do.
+ */
+export function personalMailto(addresses: string[], subject: string, body: string): PersonalMail | null {
+  const to = addresses.filter(isEmailish).map(a => a.trim());
+  if (to.length === 0) return null;
+  const parts = [`subject=${encodeURIComponent(subject.trim())}`];
+  if (body.trim()) parts.push(`body=${encodeURIComponent(body)}`);
+  const href = `mailto:${encodeURIComponent(to.join(','))}?${parts.join('&')}`;
+  return { href, overLong: href.length > MAILTO_MAX };
+}
+
 /**
  * One or more `mailto:` links, each within `MAILTO_MAX`, together covering
  * every address exactly once and in order. A single address longer than the

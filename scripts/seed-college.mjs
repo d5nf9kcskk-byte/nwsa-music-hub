@@ -44,6 +44,12 @@ for (const c of COLLEGE_CLASSES) {
     order: c.order,
     conductorName: c.teacher,
     ...(c.room ? { defaultLocation: c.room } : {}),
+    // The catalog number, onto the GROUP. It has been in COLLEGE_CLASSES since
+    // these were seeded but only ever reached an event's `notes` string, so the
+    // class page could not print the one number a dual-enrollment student is
+    // registered under. A class with no code in the spec leaves the field
+    // alone rather than blanking one typed in the editor.
+    ...(c.courseCode ? { courseCode: c.courseCode } : {}),
     defaultStartTime: c.start,
     defaultEndTime: c.end,
     meetingDays: c.days,

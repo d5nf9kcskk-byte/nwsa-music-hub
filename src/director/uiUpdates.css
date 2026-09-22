@@ -1642,6 +1642,10 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
 .dir-rubric-confirm:disabled { opacity: 0.55; }
 
 .dir-grade-plain { display: flex; align-items: center; gap: 10px; }
+/* "Email grade" — hands the director's own mail app a filled-in message
+   (#grade-email). The Hub sends nothing itself. */
+.dir-grade-mail { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.dir-grade-mail-warn { font-size: 12px; font-weight: 600; color: var(--dir-text-muted); }
 .dir-grade-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .dir-grade-note { flex: 1; min-width: 180px; font-size: 13px; }
 .dir-grade-sub-actions { display: flex; flex-wrap: wrap; gap: 6px; }

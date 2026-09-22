@@ -134,6 +134,7 @@ function EnsembleForm({ ensemble, defaultKind, defaultCollegeLevel, nextOrder, o
   const [endTime, setEndTime] = useState(ensemble?.defaultEndTime ?? '');
   const [kind, setKind] = useState<NonNullable<Ensemble['kind']>>(ensemble?.kind ?? defaultKind ?? 'ensemble');
   const [collegeLevel, setCollegeLevel] = useState(!!(ensemble?.collegeLevel ?? defaultCollegeLevel));
+  const [courseCode, setCourseCode] = useState(ensemble?.courseCode ?? '');
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const panelRef = useModalA11y<HTMLDivElement>(onBack, true, { closeOnBack: true });
@@ -147,6 +148,7 @@ function EnsembleForm({ ensemble, defaultKind, defaultCollegeLevel, nextOrder, o
         conductorName: conductorName.trim() || undefined,
         kind,
         collegeLevel: collegeLevel ? true : undefined,
+        courseCode: courseCode.trim() || undefined,
         order: ensemble?.order ?? nextOrder,
         color: color || undefined,
         defaultLocation: location || undefined,
@@ -226,6 +228,18 @@ function EnsembleForm({ ensemble, defaultKind, defaultCollegeLevel, nextOrder, o
             </label>
             <input className="dir-input" value={conductorName} onChange={e => setConductorName(e.target.value)} placeholder="e.g. Hyunjee Chung" />
           </div>
+
+          {/* Shown on a class page beside the room and the time. A college
+              student is registered under this number and is asked for it by
+              everyone outside this building. */}
+          {kind !== 'ensemble' && (
+            <div className="dir-field">
+              <label className="dir-label">
+                Course number <span className="dir-label-hint">optional — shown on the class page, e.g. "MUH 3211"</span>
+              </label>
+              <input className="dir-input" value={courseCode} onChange={e => setCourseCode(e.target.value)} placeholder="e.g. MUH 3211" />
+            </div>
+          )}
 
           <div className="dir-field">
             <label className="dir-label">Color</label>

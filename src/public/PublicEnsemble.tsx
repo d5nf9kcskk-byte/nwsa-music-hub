@@ -1,15 +1,17 @@
 import { useMemo, useRef, useEffect, useState } from 'react';
 import { useParams, useLocation, Link } from 'react-router';
-import { CalendarDays, Armchair, ChevronRight } from 'lucide-react';
+import { CalendarDays, Armchair, ChevronRight, ClipboardCheck } from 'lucide-react';
 import { BackLink } from './components/BackLink';
 import { useEnsembles } from '../director/hooks/useEnsembles';
+import { useAssignments } from '../director/hooks/useAssignments';
+import { AssignmentCard } from './components/AssignmentCard';
 import { useStudentsPublic } from './hooks/usePublicRoster';
 import { usePublicEvents } from './hooks/usePublicEvents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useDocuments } from '../director/hooks/useDocuments';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
-import { todayStr, formatTimeRange, formatTime, ensembleColor, ensembleDisplayName, pieceEnsembleIds, isPublished, isClassGroup, groupKindLabel } from '../director/utils';
+import { todayStr, formatTimeRange, formatTime, ensembleColor, ensembleDisplayName, pieceEnsembleIds, isPublished, isClassGroup, groupKindLabel, WEEKDAY_LABELS } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { EnsembleAlerts } from './components/EnsembleAlerts';
@@ -30,6 +32,16 @@ import { useEggCheer, useTapN } from '../shared/useEggCheer';
 import { NoteBurst } from '../shared/NoteBurst';
 import { PublicGroupStaffPanel } from '../director/components/GroupStaffPanel';
 import { staffForGroupPage } from '../director/groupStaff';
+import { currentTerm } from '../shared/concertCheckin';
+import { useCheckinSettings } from './hooks/useCheckinSettings';
+
+/** "Tue · Thu" from the stored weekday numbers, or nothing when a group has no
+ *  standing pattern. Sunday-first, matching `WEEKDAY_LABELS`. */
+function meetingDaysLabel(days: number[] | undefined): string | null {
+  const valid = (days ?? []).filter(d => d >= 0 && d <= 6);
+  if (valid.length === 0) return null;
+  return [...new Set(valid)].sort((a, b) => a - b).map(d => WEEKDAY_LABELS[d]).join(' · ');
+}
 
 export function PublicEnsemble() {
   useLang();
@@ -43,6 +55,11 @@ export function PublicEnsemble() {
   const now = useMinuteTick(); // scheduled posts appear the minute they go live
   const { pieces } = useRepertoire();
   const { documents } = useDocuments();
+  const { assignments } = useAssignments();
+  const [showAllPast, setShowAllPast] = useState(false);
+  // Which semester we are in — the school's own configured terms, never month
+  // arithmetic (#current-term).
+  const { terms } = useCheckinSettings();
 
   const ensemble = ensembles.find(e => e.id === id);
   const today = todayStr();
@@ -121,6 +138,31 @@ export function PublicEnsemble() {
     [documents, id, now],
   );
 
+  /**
+   * This group's assignments and exams.
+   *
+   * The page had NO assignments section at all — a class page showed
+   * announcements, documents, schedule and roster, and a student sent to their
+   * class to find the exam found everything except the exam. It was tagged
+   * correctly and published; the page simply never asked.
+   *
+   * Past ones are kept, behind a fold. A due date is when work is DUE, not
+   * when it stops existing: a written test can still be chased days later, and
+   * a student looking up what they missed has nowhere else to look.
+   */
+  const { upcomingWork, pastWork } = useMemo(() => {
+    const mine = assignments
+      .filter(a => a.ensembleIds.includes(id) && isPublished(a, now));
+    return {
+      upcomingWork: mine
+        .filter(a => a.dueDate >= today)
+        .sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
+      pastWork: mine
+        .filter(a => a.dueDate < today)
+        .sort((a, b) => b.dueDate.localeCompare(a.dueDate)),
+    };
+  }, [assignments, id, today, now]);
+
   if (!ensemble) {
     return (
       <div className="pub-page">
@@ -138,6 +180,7 @@ export function PublicEnsemble() {
   // came for the syllabus or the handout, not for a rehearsal list. Same block,
   // moved above the schedule — and repertoire/seating simply never apply.
   const isClass = isClassGroup(ensemble);
+  const term = currentTerm(terms, today);
   const staff = staffForGroupPage(ensemble, null, ensembles);
   const docsSection = ensDocs.length > 0 ? (
     <div>
@@ -148,6 +191,40 @@ export function PublicEnsemble() {
       <div className="pub-doc-list">
         {ensDocs.map(d => <PubDocCard key={d.id} doc={d} />)}
       </div>
+    </div>
+  ) : null;
+
+  // Assignments & exams. A class leads with these and its documents — the
+  // student opening Survey Music History came for the exam, not for a
+  // rehearsal list — so on a class page this sits straight under Documents
+  // and above the schedule.
+  const workSection = (upcomingWork.length > 0 || pastWork.length > 0) ? (
+    <div>
+      <div className="pub-section-row">
+        <h2 className="pub-section-title">
+          <ClipboardCheck size={15} style={{ verticalAlign: '-2px' }} /> {t('nav.assignments')}
+        </h2>
+        <Link to="/assignments" className="pub-section-link">{t('nav.assignments')}</Link>
+      </div>
+      {upcomingWork.length === 0 && (
+        <div className="pub-muted">Nothing due right now.</div>
+      )}
+      {upcomingWork.map(a => (
+        <AssignmentCard key={a.id} assignment={a} ensembles={ensembles} showEnsembles={false} />
+      ))}
+      {pastWork.length > 0 && (
+        <>
+          <h3 className="pub-subsection-title">Past</h3>
+          {(showAllPast ? pastWork : pastWork.slice(0, 3)).map(a => (
+            <AssignmentCard key={a.id} assignment={a} ensembles={ensembles} showEnsembles={false} withAnchor={false} />
+          ))}
+          {!showAllPast && pastWork.length > 3 && (
+            <button className="pub-showall-btn" onClick={() => setShowAllPast(true)}>
+              {t('misc.showAll', { count: pastWork.length })}
+            </button>
+          )}
+        </>
+      )}
     </div>
   ) : null;
 
@@ -164,10 +241,20 @@ export function PublicEnsemble() {
           {[
             PUBLIC_STUDENT_INFO ? tn('ens.members', members.length) : null,
             groupKindLabel(ensemble) || null,
+            // The catalog number a dual-enrollment student is registered
+            // under, and the one everyone outside this building asks them for.
+            ensemble.courseCode || null,
             ensemble.defaultLocation || null,
+            // Which days it meets — "Tue · Thu" is half of "when is my class",
+            // and the page only ever carried the other half.
+            meetingDaysLabel(ensemble.meetingDays),
             formatTimeRange(ensemble.defaultStartTime, ensemble.defaultEndTime) || null,
           ].filter(Boolean).join(' · ')}
         </div>
+        {/* The semester, from the school's own configured terms rather than
+            month arithmetic (#current-term) — an org with no terms configured
+            simply shows none. */}
+        {term && <div className="pub-ghero-meta">{term.name}</div>}
         {members.length === 1 && PUBLIC_STUDENT_INFO && (
           <div className="pub-ghero-meta">{rosterOfOneLine(getLang())}</div>
         )}
@@ -194,6 +281,7 @@ export function PublicEnsemble() {
       <PubAnnouncements items={ensAnnouncements} ensembleMap={ensembleMap} showEnsembleTag />
 
       {isClass && docsSection}
+      {isClass && workSection}
 
       <div className="pub-section-row">
         <h2 className="pub-section-title">Schedule &amp; concerts</h2>
@@ -254,6 +342,7 @@ export function PublicEnsemble() {
         </div>
       )}
 
+      {!isClass && workSection}
       {!isClass && docsSection}
 
       {PUBLIC_STUDENT_INFO && !isClass && (

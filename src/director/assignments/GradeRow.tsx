@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, ChevronDown, ChevronRight, FileText, Video } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, FileText, Mail, Video } from 'lucide-react';
 import {
   rubricChangedSince, rubricScores, scoresToPicks, tallyRubric,
   type RubricCriterion, type RubricScore,
@@ -40,6 +40,10 @@ interface Props {
    *  online test the answer key grades on its own. Used ONLY while no grade is
    *  stored; the moment one is filed, that snapshot wins. */
   seedPicks?: Record<string, number>;
+  /** Hand this student's grade to the director's own mail app (#grade-email).
+   *  Absent when nobody on this student's record has an address, so the row
+   *  offers nothing it cannot do. */
+  gradeMail?: { href: string; overLong: boolean; body: string; to: string[] } | null;
   open: boolean;
   onToggle: () => void;
   saving: boolean;
@@ -66,8 +70,9 @@ const longDate = (ms: number) =>
  */
 export function GradeRow({
   student, result, criteria, takes, testSubmission, noSubmissionLabel, lineNotes, seedPicks,
-  open, onToggle, saving, onConfirm, onStatus, onScore, onSetReviewed, onDeleteTake,
+  gradeMail, open, onToggle, saving, onConfirm, onStatus, onScore, onSetReviewed, onDeleteTake,
 }: Props) {
+  const [copiedMail, setCopiedMail] = useState(false);
   const status: AssignmentResultStatus = result?.status ?? 'Pending';
   const newest = takes[0];
 
@@ -348,6 +353,40 @@ export function GradeRow({
                 </button>
               ))}
             </div>
+            {/* Emailing a grade is a PRESS and never a side effect of saving
+                one — same rule the lesson log keeps. The Hub fills in the
+                director's own mail window; it does not send. */}
+            {gradeMail && (
+              <span className="dir-grade-mail">
+                <a
+                  className="dir-tool-btn"
+                  href={gradeMail.href}
+                  title={`To: ${gradeMail.to.join(', ')}`}
+                >
+                  <Mail size={14} /> Email grade
+                </a>
+                {gradeMail.overLong && (
+                  <button
+                    type="button"
+                    className="dir-tool-btn"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(gradeMail.body);
+                        setCopiedMail(true);
+                        setTimeout(() => setCopiedMail(false), 1800);
+                      } catch { /* clipboard unavailable; the mail link still works */ }
+                    }}
+                  >
+                    {copiedMail ? 'Copied' : 'Copy text'}
+                  </button>
+                )}
+                {gradeMail.overLong && (
+                  <span className="dir-grade-mail-warn">
+                    Long for a mail link — if the window opens empty, paste instead.
+                  </span>
+                )}
+              </span>
+            )}
             <input
               className="dir-input dir-grade-note"
               value={notes}
