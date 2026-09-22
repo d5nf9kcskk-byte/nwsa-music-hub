@@ -360,7 +360,16 @@ export function PublicEnsemble() {
           <h2 className="pub-section-title">Roster</h2>
           <div className="pub-card pub-roster">
             {members.length === 0 ? (
-              <div className="pub-muted">No members listed.</div>
+              // A group with no roster is listed everywhere on purpose: the
+              // class exists and is on the calendar whether or not anybody has
+              // been enrolled yet, and staff need to see it is there and
+              // available. Seven of the sixteen college classes are in exactly
+              // this state today. "No members listed" read like a failure.
+              <div className="pub-muted">
+                {isClass
+                  ? 'The roster for this class has not been built yet.'
+                  : 'No members listed yet.'}
+              </div>
             ) : (
               (showAllRoster ? members : members.slice(0, 12)).map(s => (
                 <Link key={s.id} to={`/student/${s.id}`} className="pub-roster-row pub-lookup-row">
