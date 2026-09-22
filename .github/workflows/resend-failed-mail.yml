@@ -1,0 +1,53 @@
+name: Re-send Failed Mail
+
+# Re-sends the emails that never left, after the Trigger Email extension's SMTP
+# configuration is fixed. Defaults to the lesson-log summaries — teachers
+# pressed Send on those and the app says "Emailed", so a family not receiving
+# one is a record nobody knows is missing.
+#
+# It re-sends the ORIGINAL mail docs (delivery.state = RETRY), so what arrives
+# is exactly what was written at the time and there is no duplicate.
+#
+# It tries ONE first and STOPS unless that one actually arrives. Running this
+# while SMTP is still broken would otherwise produce more silent failures and
+# look like it worked. There is no force flag.
+#
+# Run dry first, then apply.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List what would be re-sent without sending anything'
+        type: boolean
+        default: true
+      match:
+        description: 'Only subjects containing this (blank = every failed message)'
+        type: string
+        default: 'Lesson log —'
+      limit:
+        description: 'Maximum to re-send'
+        type: string
+        default: '100'
+
+permissions:
+  contents: read
+
+jobs:
+  resend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm install firebase-admin --no-save
+      - name: Re-send failed mail
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          EXTRA=""
+          [ "${{ inputs.dry_run }}" = "true" ] && EXTRA="--dry-run"
+          node scripts/resend-failed-mail.mjs \
+            --match "${{ inputs.match }}" \
+            --limit "${{ inputs.limit }}" \
+            $EXTRA
