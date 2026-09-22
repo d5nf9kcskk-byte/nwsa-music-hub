@@ -1,0 +1,40 @@
+name: Backfill Course Codes
+
+# Puts each college class's catalog number (MUH 3211, MUT 1111, …) onto its
+# ensemble doc, so the class page can print it. One field, on at most a dozen
+# ensemble docs.
+#
+# Deliberately NOT part of Seed College: that seed rewrites every class session
+# event with set() and no merge, so re-running it to pick up one new field
+# would flatten cancellations and change notes on individual meetings. This
+# cannot reach an event at all.
+#
+# Idempotent — a doc that already says the right thing is skipped. Run dry
+# first, then apply.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List what would change without writing anything'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm install firebase-admin --no-save
+      - name: Backfill course codes in Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          EXTRA=""
+          [ "${{ inputs.dry_run }}" = "true" ] && EXTRA="--dry-run"
+          node scripts/backfill-course-codes.mjs $EXTRA
