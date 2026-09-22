@@ -38,11 +38,36 @@ there are. The class page keeps all of its own, three shown.
 
 `courseCode` has been in `COLLEGE_CLASSES` since those classes were seeded, and
 only ever reached an event's `notes` string. It lands on the group now
-(`Ensemble.courseCode`), with an editor field on class kinds and a write in the
-seed. Beside it: the days it meets — `meetingDays` was already stored and the
-page printed only the time, which is half of "when is my class" — and the
-semester, from `currentTerm` over the school's own configured terms
-(#current-term), never month arithmetic.
+(`Ensemble.courseCode`), with an editor field and a write in the seed. Beside
+it: the days it meets — `meetingDays` was already stored and the page printed
+only the time, which is half of "when is my class" — and the semester.
+
+### The semester shipped WRONG, and was fixed an hour later by another session
+
+This note originally recorded the semester as `currentTerm(ORG.terms, today)`.
+That was wrong twice over, and `3d7d492` replaced it with a stored
+`Ensemble.term`:
+
+- **`ORG.terms` is the MDCPS calendar**, not Miami Dade College's — its term
+  ids carry the district's grading periods and `gradingPeriods.selfcheck.ts`
+  pins them against `MDCPS_NO_SCHOOL`. An MDC fall ends Dec 11 rather than
+  Dec 19 and its spring starts Jan 4 rather than Jan 6, so between those dates
+  the page named a semester the college was not in, or none at all. This is
+  exactly the rule `#college-hs-calendar-deps` already states — never let a
+  college-facing thing fall back to the MDCPS set — and it was violated anyway.
+- **`currentTerm` answers which term it is NOW**, not which term this course
+  runs in, so all sixteen classes printed the same string.
+- It **cannot** be derived: `collegeClassEventDocs()` generates every college
+  class from 2026-08-24 to 2027-06-03 with no term filter, so all sixteen span
+  both semesters. It has to be said, not worked out.
+
+Two more defects in the same pass, also fixed there: the editor's catalog
+fields were gated on `kind !== 'ensemble'`, which excluded College Chamber
+Orchestra and College Vocal Ensemble (`kind: 'ensemble'`, `collegeLevel: true`);
+and they were saved as `courseCode.trim() || undefined`, which never CLEARS —
+these hooks drop an undefined from the update, so a deleted course number
+survived forever. Both are written down elsewhere in this repo and were got
+wrong here anyway.
 
 **The backfill is its own script, deliberately.** `scripts/seed-college.mjs`
 rewrites every class SESSION event with `set()` and no merge, so re-running it
@@ -95,18 +120,31 @@ The public half was opened in a browser at 1024px and again at 375×812
 hero reads "6 members · college class · MUH 3211 · Room 4309 · Tue · Thu · 9:50
 AM – 11:05 AM / Fall 2026". Deploys green on each commit, none superseded.
 
+Worth noting how the semester bug got through that: **the page LOOKED right.**
+On 22 September, `currentTerm(ORG.terms, today)` and the course's real term both
+read "Fall 2026", so a browser check confirmed a string that happened to agree
+with the correct answer on the day it was taken. Seeing it render is not seeing
+it be right.
+
 **The grade email has not been clicked.** It is a staff screen behind Google
 sign-in. It is covered by its self-check, the build and the type check, and by
 nothing else — in particular no real mail client has opened one of these links.
 
-## Not done
+## Left open here, closed by `3d7d492`
 
-**"More than one way into college classes."** `/ensembles` still lists College
-Ensembles and College Classes that the nav's College accordion also reaches.
-Closing it means deciding whether a `/college` index should exist — there is no
-such route today, which is why `BackLink fallback="/ensembles"` is currently
-correct rather than a third inconsistency — and any answer has to land in both
-hand-written nav trees (#one-nav). Left for a decision rather than guessed at.
+**"More than one way into college classes."** This session left it, on the
+grounds that closing it meant deciding whether a `/college` index should exist
+and that any answer has to land in both hand-written nav trees (#one-nav). The
+parallel session decided it: `/ensembles` is now high-school performing groups,
+`/classes` the high-school classes, `/college` both college lists — matching the
+director shell's existing All Ensembles / All Classes / College Hub — and it
+moved the five things that pointed at the old everything-list, including both
+Back links and the accordion auto-open. It found the same duplication in the
+DIRECTOR rail, where `NAV_GROUPS` carried flat Ensembles / Classes / College
+rows going to the same tabs as the accordion rows inches away.
+
+Read that commit's message before touching any of this; it is the fuller
+account of the nav.
 
 ## Files
 
