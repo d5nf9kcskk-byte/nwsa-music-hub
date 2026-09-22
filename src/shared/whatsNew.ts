@@ -36,7 +36,9 @@ export const WHATS_NEW: WhatsNewEntry[] = [
   // Staff-only: nothing about taking a test changed, and a grade has never
   // been visible to a student.
   {
-    id: '2026-09-22-test-answer-key-and-grading',
+    // Bumped when the chosen-answer bullets were added below: the card shipped
+    // earlier today, so anyone who already dismissed it would never see them.
+    id: '2026-09-22-test-answer-key-and-grading-2',
     date: '2026-09-22',
     title: 'Online tests: set the answers yourself, and grade the writing in the row',
     audience: 'staff' as const,
@@ -46,6 +48,8 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Changing an answer re-scores every test already sent, including ones taken before you changed it. A submission stores the student’s answers and never a score.',
       'The grade sheet row is now the whole exam: open a student and their written answers are there, each with its own mark box, with the multiple-choice part already scored from the key.',
       'The two add up to one grade, the way a playing exam’s rubric does. A part the key can’t score yet is left blank rather than counted as zero.',
+      'A missed multiple-choice question now names the right answer beside what the student put — “✗ Excerpt 2: Hildegard — correct: Léonin” — instead of leaving you to go and look it up.',
+      'The results sheet says the same thing. Each column is headed with the question itself and the correct answer; it used to read “L1 answer”, which told you nothing without the test file open beside it, and the key was nowhere in the sheet at all. The sortable right/wrong column is still there for finding everyone who missed the same question.',
     ],
   },
   // The college classes that were missing, and cancelling the right day

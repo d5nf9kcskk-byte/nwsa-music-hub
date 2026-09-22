@@ -8,7 +8,7 @@
 import {
   QUIZ_AUTO_PREFIX, QUIZ_TEXT_MAX, QuizFileError, cleanAnswers, latestPerStudent, nameKey,
   parseAnswers, quizAutoPicks, quizGradeLines, quizLineNotes, quizResultsToCsv, quizTotalPoints,
-  scoreQuiz, selectedQuiz, splitQuizFile, unkeyedQuestions, type QuizSubmission,
+  reviewAnswers, scoreQuiz, selectedQuiz, splitQuizFile, unkeyedQuestions, type QuizSubmission,
 } from './quiz.ts';
 
 function assert(cond: unknown, msg: string): void {
@@ -124,6 +124,16 @@ const lines = csv.split('\r\n');
 assert(lines.length === 3, 'header plus one row per student');
 assert(lines[0].includes('Auto total (of 12)') && lines[0].includes('Written score (of 40)'), 'the header says what the totals cover');
 assert(!csv.includes(',=HYPERLINK'), 'a typed formula is neutralised in the sheet');
+// The sheet must say what each column ASKED and what the right answer was. It
+// used to head them `L-A answer`, which is unreadable without the test file
+// open beside it, and the key was in the file nowhere at all.
+assert(lines[0].includes('Excerpt A'), 'the column header carries the question, not just its id');
+assert(lines[0].includes('key: Three'), 'the column header carries the correct answer');
+assert(lines[0].includes('L-A correct?'), 'the sortable right/wrong column is still there');
+assert(lines.find(l => l.startsWith('Ana Perez'))?.includes(',Three,yes'),
+  "the sheet prints the student's chosen option beside the verdict");
+assert(quizResultsToCsv(quiz, {}, subs, ms => String(ms)).split('\r\n')[0].includes('(no key)'),
+  'an unkeyed question says so in the header rather than printing a blank key');
 assert(lines.some(l => l.startsWith('Ana Perez,200,2,6,,6,')), 'the newest answer is the one scored');
 
 /* ── grading a test on the roster row ──────────────────────────────────── */
@@ -159,6 +169,32 @@ assert(notes[QUIZ_AUTO_PREFIX + 'listening'].includes('✓') && notes[QUIZ_AUTO_
   'an auto line shows the working behind its number');
 const halfNotes = quizLineNotes(quiz, { 'L-A': 'Three' }, halfKey);
 assert(!halfNotes[QUIZ_AUTO_PREFIX + 'listening'].includes('✓'), 'an unkeyed section prints no ticks it has not earned');
+// A ✗ that does not name the right answer leaves the grader to go and look it
+// up, which is the thing this screen exists to stop.
+assert(notes[QUIZ_AUTO_PREFIX + 'listening'].includes('Two') && notes[QUIZ_AUTO_PREFIX + 'listening'].includes('correct: One'),
+  'a missed line names what the student chose AND what the answer was');
+assert(!notes[QUIZ_AUTO_PREFIX + 'listening'].includes('✓ Excerpt A: Three — correct'),
+  'a right answer IS the key, so it does not repeat it');
+
+/* ── what the student CHOSE, not just whether it was right ─────────────── */
+//
+// reviewAnswers is the ONE join behind the ✓/✗ lines above AND the results
+// sheet's columns, so a screen and a spreadsheet cannot disagree about
+// somebody's answer.
+
+const rev = reviewAnswers(quiz, key, { 'L-A': 'Three', 'L-B': 'Two', S1: 'an essay' });
+const byId = Object.fromEntries(rev.map(r => [r.id, r]));
+assert(rev.map(r => r.id).join() === 'L-A,L-B,S1,S2,S3', 'reviews come back in section and question order');
+assert(byId['L-A'].chose === 'Three' && byId['L-A'].verdict === 'right', 'a right answer says what was chosen');
+assert(byId['L-B'].chose === 'Two', 'a wrong answer still reports what the student chose');
+assert(byId['L-B'].correct === 'One' && byId['L-B'].verdict === 'wrong', 'a wrong answer names the correct option');
+assert(byId.S1.verdict === 'written' && byId.S1.chose === 'an essay', 'a written answer is carried verbatim, never scored');
+assert(byId.S2.verdict === 'blank' && byId.S2.correct === '', 'an unanswered written question has no correct answer to show');
+assert(reviewAnswers(quiz, key, {}).every(r => r.verdict === 'blank'),
+  'a blank paper is blank throughout, never a wall of wrong answers');
+assert(reviewAnswers(quiz, {}, { 'L-A': 'Three' }).find(r => r.id === 'L-A')?.verdict === 'unkeyed',
+  'a missing key is not-yet, never a wrong answer — the same posture scoreQuiz takes');
+assert(reviewAnswers(selectedQuiz(quiz, ['L-A']), key, {}).length === 1, 'a question left off the test is not reviewed');
 
 // The lines and the CSV read the same test, so one screen can never disagree
 // with the other about what the exam is worth.

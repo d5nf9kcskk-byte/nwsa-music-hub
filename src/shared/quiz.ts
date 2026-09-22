@@ -330,8 +330,13 @@ export function quizLineNotes(
       const unkeyed = !key || choice.some(q => !(q.id in key));
       notes[QUIZ_AUTO_PREFIX + section.id] = unkeyed
         ? 'Not scored yet — set the correct answers on the answer key below.'
-        : choice
-          .map(q => `${answers[q.id] === key[q.id] ? '✓' : '✗'} ${q.prompt}: ${answers[q.id] || '(blank)'}`)
+        // Through reviewAnswers, so this and the results sheet cannot disagree
+        // about what somebody picked. A wrong line names the right answer too:
+        // "✗ Excerpt 2: Hildegard" says they missed it and leaves the grader
+        // to go and look up what it should have been.
+        : reviewAnswers({ sections: [{ ...section, questions: choice }] }, key, answers)
+          .map(r => `${r.verdict === 'right' ? '✓' : '✗'} ${r.prompt}: ${r.chose || '(blank)'}`
+            + (r.verdict === 'right' ? '' : ` — correct: ${r.correct}`))
           .join('\n');
     }
     for (const q of section.questions) {
@@ -345,6 +350,52 @@ export function quizLineNotes(
  *  not-yet, so the panel can say what is still missing. */
 export function unkeyedQuestions(quiz: QuizDefinition, key: QuizKey | null): QuizQuestion[] {
   return allQuestions(quiz).filter(q => q.kind === 'choice' && !(key && q.id in key));
+}
+
+/**
+ * One question as a GRADER needs to read it: what was asked, what this student
+ * actually put, and what the key says.
+ *
+ * `scoreQuiz` answers "how many points" and nothing else, so a choice question
+ * reached the results sheet as a bare column headed with its id and no key
+ * anywhere in the file — a director could see that somebody got three of five
+ * and not which three, what they chose, or what the right answer had been.
+ *
+ * This is the ONE join behind both renderings: `quizLineNotes` turns it into
+ * the ✓/✗ lines under a grade row, and `quizResultsToCsv` into columns. They
+ * cannot disagree about a student's answer because neither one decides it.
+ *
+ * Like `scoreQuiz` it is driven by the quiz AS SELECTED, and matched by
+ * question id, never position.
+ */
+export interface AnswerReview {
+  id: string;
+  sectionTitle: string;
+  prompt: string;
+  kind: QuizQuestionKind;
+  points: number;
+  /** What the student chose or typed, verbatim. '' when they left it blank. */
+  chose: string;
+  /** The key's answer. Choice questions the key covers only; '' otherwise —
+   *  a text question has no correct answer, a person grades it. */
+  correct: string;
+  /** 'unkeyed' is not wrong (the key has no entry) and 'blank' is not wrong
+   *  either — the same posture `scoreQuiz` takes, which counts neither
+   *  against a student. */
+  verdict: 'right' | 'wrong' | 'blank' | 'unkeyed' | 'written';
+}
+
+export function reviewAnswers(quiz: QuizDefinition, key: QuizKey, answers: QuizAnswers): AnswerReview[] {
+  return quiz.sections.flatMap(section => section.questions.map(q => {
+    const chose = answers[q.id] ?? '';
+    const correct = q.kind === 'choice' ? (key[q.id] ?? '') : '';
+    const verdict: AnswerReview['verdict'] =
+      q.kind === 'text' ? (chose ? 'written' : 'blank')
+        : !(q.id in key) ? 'unkeyed'
+          : !chose ? 'blank'
+            : chose === correct ? 'right' : 'wrong';
+    return { id: q.id, sectionTitle: section.title, prompt: q.prompt, kind: q.kind, points: q.points, chose, correct, verdict };
+  }));
 }
 
 /** Case, spacing and punctuation don't make two people. Used only where a
@@ -389,7 +440,6 @@ export function quizResultsToCsv(
   subs: QuizSubmission[],
   fmtTime: (ms: number) => string,
 ): string {
-  const qs = allQuestions(quiz);
   const header: string[] = ['Name', 'Submitted', 'Times submitted'];
   for (const section of quiz.sections) {
     header.push(`${section.title} (auto)`);
@@ -397,9 +447,19 @@ export function quizResultsToCsv(
   const score0 = scoreQuiz(quiz, key, {});
   header.push(`Auto total (of ${score0.autoPossible})`);
   if (score0.toGrade > 0) header.push(`Written score (of ${score0.toGrade})`);
-  for (const q of qs) {
-    if (q.kind === 'choice') header.push(`${q.id} answer`, `${q.id} correct?`);
-    else header.push(`${q.id} written`);
+  // The question's own words in the column head, not just its id: a sheet of
+  // `L1 answer, L2 answer` cannot be read without the test file open beside
+  // it, and three listening excerpts share one option list. The KEY rides in
+  // the header rather than in a third column — it is the same for every
+  // student, so repeating it down thirty rows buys nothing and costs a column
+  // per question.
+  for (const r of reviewAnswers(quiz, key, {})) {
+    const label = `${r.id} · ${shortPrompt(r.prompt)}`;
+    if (r.kind === 'choice') {
+      header.push(r.correct ? `${label} — chose (key: ${r.correct})` : `${label} — chose (no key)`, `${r.id} correct?`);
+    } else {
+      header.push(`${label} — written`);
+    }
   }
 
   const rows = latestPerStudent(subs).map(({ submission, count }) => {
@@ -409,19 +469,25 @@ export function quizResultsToCsv(
     for (const s of score.sections) row.push(s.possible > 0 ? s.earned : '');
     row.push(score.autoEarned);
     if (score0.toGrade > 0) row.push('');
-    for (const q of qs) {
-      const a = answers[q.id] ?? '';
-      if (q.kind === 'choice') {
-        const verdict = !a ? 'blank' : !(q.id in key) ? '' : a === key[q.id] ? 'yes' : 'no';
-        row.push(a, verdict);
+    for (const r of reviewAnswers(quiz, key, answers)) {
+      if (r.kind === 'choice') {
+        const verdict = r.verdict === 'unkeyed' ? '' : r.verdict === 'blank' ? 'blank' : r.verdict === 'right' ? 'yes' : 'no';
+        row.push(r.chose, verdict);
       } else {
-        row.push(a);
+        row.push(r.chose);
       }
     }
     return row;
   });
 
   return [header, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
+}
+
+/** Enough of the question to recognise the column, short enough to read as a
+ *  heading — a listening prompt runs to a paragraph. */
+function shortPrompt(prompt: string): string {
+  const one = prompt.replace(/\s+/g, ' ').trim();
+  return one.length > 60 ? `${one.slice(0, 57)}…` : one;
 }
 
 export function quizCsvFilename(title: string, today: string): string {
