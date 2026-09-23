@@ -24,6 +24,10 @@ on:
         description: 'Only subjects containing this (blank = every failed message)'
         type: string
         default: 'Lesson log —'
+      since:
+        description: 'Only messages you pressed Send on, on or after this date (YYYY-MM-DD). Blank = no date limit.'
+        type: string
+        default: ''
       limit:
         description: 'Maximum to re-send'
         type: string
@@ -47,7 +51,9 @@ jobs:
         run: |
           EXTRA=""
           [ "${{ inputs.dry_run }}" = "true" ] && EXTRA="--dry-run"
+          SINCE=""
+          [ -n "${{ inputs.since }}" ] && SINCE='--since ${{ inputs.since }}'
           node scripts/resend-failed-mail.mjs \
             --match "${{ inputs.match }}" \
             --limit "${{ inputs.limit }}" \
-            $EXTRA
+            $SINCE $EXTRA

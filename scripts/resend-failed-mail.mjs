@@ -24,6 +24,11 @@
  * Options:
  *   --match <text>   Only subjects containing this. Default "Lesson log —".
  *                    Pass "" for every failed message.
+ *   --since <date>   Only messages FIRST ATTEMPTED on or after this
+ *                    YYYY-MM-DD. This is when the teacher pressed Send, not
+ *                    the lesson's own date — "re-send what I sent this week"
+ *                    is a question about the press, and one press can carry a
+ *                    catch-up log for an earlier lesson.
  *   --limit <n>      Cap the number re-sent (default 100).
  */
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
@@ -36,6 +41,12 @@ const arg = (n) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? p
 const DRY = process.argv.includes('--dry-run');
 const MATCH = arg('match') ?? 'Lesson log —';
 const LIMIT = Math.min(Number(arg('limit')) || 100, 300);
+const SINCE = arg('since') || '';
+if (SINCE && !/^\d{4}-\d{2}-\d{2}$/.test(SINCE)) {
+  console.error('--since must be YYYY-MM-DD.'); process.exit(1);
+}
+// Local midnight, matching how a person means "since Monday".
+const SINCE_MS = SINCE ? new Date(`${SINCE}T00:00:00`).getTime() : 0;
 
 if (getApps().length === 0) initializeApp({ credential: cert(JSON.parse(raw)) });
 const db = getFirestore();
@@ -61,7 +72,16 @@ const failed = snap.docs
     // ERROR, or never picked up at all. SUCCESS and PROCESSING are left alone.
     if (state === 'SUCCESS' || state === 'PROCESSING' || state === 'PENDING') return false;
     const subject = String(m.data.message?.subject ?? '');
-    return MATCH === '' || subject.includes(MATCH);
+    if (MATCH !== '' && !subject.includes(MATCH)) return false;
+    if (SINCE_MS) {
+      // When it was first ATTEMPTED — the moment the teacher pressed Send.
+      // A message with no timestamp at all was never picked up, so its send
+      // date is unknown; it is EXCLUDED rather than guessed at, because the
+      // cost of guessing wrong is a family getting mail nobody meant to send.
+      const t = m.data.delivery?.startTime?.toDate?.()?.getTime?.();
+      if (!t || t < SINCE_MS) return false;
+    }
+    return true;
   })
   .sort((a, b) => {
     const t = (m) => m.data.delivery?.startTime?.toDate?.()?.getTime?.() ?? 0;
@@ -69,10 +89,12 @@ const failed = snap.docs
   })
   .slice(0, LIMIT);
 
-console.log(`Matching "${MATCH || '(everything failed)'}": ${failed.length} message(s)\n`);
+console.log(`Matching "${MATCH || '(everything failed)'}"${SINCE ? `, sent on/after ${SINCE}` : ''}: ${failed.length} message(s)\n`);
 for (const m of failed) {
+  const t = m.data.delivery?.startTime?.toDate?.();
   console.log(`  ${m.id}  →  ${(m.data.to ?? []).join(', ')}`);
   console.log(`      ${String(m.data.message?.subject ?? '').slice(0, 76)}`);
+  console.log(`      sent ${t ? t.toISOString().slice(0, 16).replace('T', ' ') : '(unknown)'}`);
 }
 if (failed.length === 0) { console.log('\nNothing to re-send.'); process.exit(0); }
 
