@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // The Hub now says when an email did NOT arrive (#mail-status). Staff-only:
+  // it corrects a claim only staff ever saw.
+  {
+    id: '2026-09-23-mail-failure-warning',
+    date: '2026-09-23',
+    title: 'The Hub now tells you when an email did not arrive',
+    audience: 'staff' as const,
+    expires: '2026-10-24',
+    bullets: [
+      'A lesson-log row used to say “Emailed” the moment you pressed send, whether or not the message ever left. It now waits for the mail server and says “⚠ Not delivered” with the reason if it failed.',
+      'A failed send goes back to reading “Not emailed”, because that is the truth — so a row you still need to send looks like one.',
+      'Same on a grade sheet: a grade the Hub could not send is counted as unsent, not as done.',
+      'This was found the hard way — messages had been failing silently since early September. If you see the warning, the reason line says who needs to fix what.',
+    ],
+  },
   // The Hub can now send a grade itself (#grade-email). Staff-only: nothing a
   // student sees changed, and grades still have no public projection.
   {

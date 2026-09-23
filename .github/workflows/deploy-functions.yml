@@ -182,7 +182,7 @@ jobs:
           # from the log and the policy now sets itself on every deploy. If
           # it ever comes back, that grant is what went missing.
           npx --yes firebase-tools@latest deploy \
-            --only functions:lessonsFeed,functions:appointmentsFeed,functions:staffFeed,functions:concertCheckin,functions:concertTally,functions:signupConfirmation,functions:lessonLogMailSend,functions:gradeMailSend,functions:submissionReceipt,functions:composeSubmission \
+            --only functions:lessonsFeed,functions:appointmentsFeed,functions:staffFeed,functions:concertCheckin,functions:concertTally,functions:signupConfirmation,functions:lessonLogMailSend,functions:gradeMailSend,functions:mailStatusWriteback,functions:submissionReceipt,functions:composeSubmission \
             --project nwsa-hub \
             --non-interactive \
             --force

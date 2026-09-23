@@ -831,9 +831,18 @@ function LogReadRow({
         )}
         {/* Said in words, not just the button's tooltip: whether a family has
             already had this line is the thing you check before resending. */}
+        {/* A failed send WITHDREW its own "Emailed" — the function deletes
+            `logMailedAt` — so this row is back to "Not emailed", which is
+            true, and the reason sits under it. Before #mail-status the row
+            said "Emailed Sep 22" for three weeks while nothing left the
+            building. */}
+        {lesson.logMailError && (
+          <div className="dir-log-mailfail">⚠ Not delivered: {lesson.logMailError}</div>
+        )}
         {lesson.logMailedAt
           ? <div className="dir-log-missing">Emailed {mailedLabel(lesson.logMailedAt)}</div>
-          : !cancelled && isLogCompleteForMail(lesson) && <div className="dir-log-missing">Not emailed</div>}
+          : !lesson.logMailError && !cancelled && isLogCompleteForMail(lesson)
+            && <div className="dir-log-missing">Not emailed</div>}
       </td>
       <td>{parseDate(lesson.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</td>
       <td>{formatTimeRange(lesson.startTime, lesson.endTime)}</td>

@@ -92,6 +92,14 @@
 .dir-log-comments textarea.dir-input { min-height: 7em; }
 
 .dir-log-missing { color: var(--dir-text-muted); }
+/* A send that did not arrive (#mail-status). Louder than the muted "Not
+   emailed" beside it on purpose: the whole failure this repairs is one that
+   nobody noticed for three weeks. */
+.dir-log-mailfail {
+  color: var(--dir-danger);
+  font-weight: 700;
+  line-height: 1.35;
+}
 
 /* The header blanks at the top of the form: Teacher, Student Name, Grade,
    Instrument or Voice, Lesson Length, School Year, Term. */

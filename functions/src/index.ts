@@ -1,6 +1,6 @@
 import { https, firestore } from 'firebase-functions/v1';
 import { initializeApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { ALLOWED_ORIGIN, buildLessonsIcs, tokenMatches, TOKEN_RE } from './lessonsFeed.ts';
 import {
   buildAppointmentsIcs, parseFeedPath, tokenDocId,
@@ -23,6 +23,9 @@ import { buildConfirmation } from './signupConfirmation.ts';
 import { buildAbsenceReceipt } from './plannedAbsenceConfirmation.ts';
 import { buildLessonLogMail, isDocId, queueRequestOk } from './lessonLogMail.ts';
 import { buildGradeMail, queueRequestOk as gradeRequestOk } from './gradeMail.ts';
+import {
+  DELETE, WRITEBACK_TARGETS, isDocId as isMailDocId, mailVerdict, writebackFields,
+} from './mailStatus.ts';
 import { buildSubmissionReceipt, submissionReceiptId } from './submissionReceipt.ts';
 import { composeSubmission as runComposeSubmission } from './composeSubmission.ts';
 import type {
@@ -658,6 +661,72 @@ export const gradeMailSend = firestore
       // trigger, and the failure mode of retrying an email is a family
       // receiving the same grade several times.
       console.error('gradeMailSend: could not queue the email', err);
+    }
+  });
+
+
+/**
+ * Carrying the mail server's verdict back to the record that claimed to send
+ * (#mail-status).
+ *
+ * Every sending screen reported success the instant the `mail` doc was
+ * written. The Trigger Email extension's answer arrives afterwards, on that
+ * same doc, and `mail` is denied to every client — so no screen could read it
+ * and none did. 36 messages failed between 2026-09-02 and 2026-09-23 with
+ * `Missing credentials for "PLAIN"`, every one reported to its teacher as
+ * emailed, including lesson summaries three families never received.
+ *
+ * A failure WITHDRAWS the claim rather than annotating it: `logMailedAt` is
+ * deleted, so the row goes back to saying "Not emailed", which is true, and
+ * the error beside it says why in words a teacher can act on.
+ *
+ * `onUpdate`, because the extension STAMPS an existing doc — the create is our
+ * own write and carries no verdict. It writes only to `lessons` and
+ * `assignmentResults`, never back to `mail`, so there is no trigger loop.
+ */
+export const mailStatusWriteback = firestore
+  .document('mail/{mailId}')
+  .onUpdate(async (change) => {
+    const verdict = mailVerdict(change.after.data()?.delivery);
+    // Still in flight. PENDING and PROCESSING are what every message looks
+    // like for its first seconds; withdrawing "Emailed" for those would
+    // flicker a warning at a teacher who did nothing wrong.
+    if (!verdict) return;
+
+    // Unchanged verdict — the extension touches the doc more than once, and
+    // re-writing the same answer would churn `updatedAt` on a lesson for
+    // nothing.
+    const before = mailVerdict(change.before.data()?.delivery);
+    if (before && before.sent === verdict.sent && before.error === verdict.error) return;
+
+    const mailId = change.after.id;
+    if (!isMailDocId(mailId)) return;
+
+    try {
+      const db = getFirestore();
+      // The mail doc's id IS its queue doc's id, by construction in every
+      // sender. A message from a sender with no queue — a sign-up
+      // confirmation — matches nothing here and writes nothing, which is
+      // right: no screen claims a sign-up receipt was emailed.
+      for (const target of WRITEBACK_TARGETS) {
+        const queueSnap = await db.doc(`${target.queue}/${mailId}`).get();
+        if (!queueSnap.exists) continue;
+        const recordId = queueSnap.get(target.idField);
+        if (!isMailDocId(recordId)) continue;
+
+        const fields = writebackFields(target, verdict, Date.now());
+        const patch: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(fields)) {
+          patch[k] = v === DELETE ? FieldValue.delete() : v;
+        }
+        // The record may have been deleted since — a lesson removed, a grade
+        // cleared. Nothing to correct, and not an error.
+        await db.doc(`${target.collection}/${recordId}`).update(patch).catch(() => {});
+        return;
+      }
+    } catch (err) {
+      // Logged, never rethrown: a retry here would re-write the same status.
+      console.error('mailStatusWriteback: could not record the delivery result', err);
     }
   });
 

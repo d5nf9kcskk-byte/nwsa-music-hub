@@ -27,6 +27,9 @@ export interface GradeMailItem {
   /** Already sent by the Hub, and when. The row says so rather than leaving a
    *  director to guess and send a family the same marks twice. */
   sentAt?: number;
+  /** Why the last Hub send did not arrive (#mail-status). Set means the
+   *  function withdrew `gradeMailedAt`, so this item is unsent again. */
+  error?: string;
 }
 
 export interface GradeMailPlan {
@@ -91,6 +94,7 @@ export function gradeMailPlan(args: {
       body,
       ...link,
       sentAt: result!.gradeMailedAt,
+      error: result!.gradeMailError,
     });
   }
   return { items, noAddress, ungraded };

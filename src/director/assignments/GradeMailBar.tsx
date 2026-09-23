@@ -48,6 +48,7 @@ export function GradeMailBar({ plan, onClose, onSendAll }: {
   // the failure mode is a family reading the same marks twice.
   const unsent = items.filter(i => !i.sentAt);
   const alreadySent = items.length - unsent.length;
+  const failed = items.filter(i => i.error);
 
   async function sendAll(list: typeof items) {
     if (!onSendAll || list.length === 0) return;
@@ -136,6 +137,17 @@ export function GradeMailBar({ plan, onClose, onSendAll }: {
         )}
 
         {sendError && <p className="dir-roster-mailbar-note">⚠ {sendError}</p>}
+
+        {/* A send the mail server rejected (#mail-status). The function
+            withdrew its own `gradeMailedAt`, so these are already back in the
+            unsent list above — this says WHY, so a second press is not the
+            same press again. */}
+        {failed.length > 0 && (
+          <p className="dir-roster-mailbar-note">
+            ⚠ {failed.length} did not arrive: {failed[0].error}
+            {failed.length > 1 && ` (and ${failed.length - 1} more)`}
+          </p>
+        )}
 
         {items.length > 0 && (
           <div className="dir-roster-mailbar-row">

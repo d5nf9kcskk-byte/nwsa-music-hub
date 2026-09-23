@@ -937,6 +937,10 @@ export interface AssignmentResult {
    * to guess and send a family the same marks twice.
    */
   gradeMailedAt?: number;
+  /** Why the last attempt to email this grade did not arrive (#mail-status).
+   *  Written by `mailStatusWriteback` alone; when it is set, `gradeMailedAt`
+   *  has been deleted in the same write. Cleared by a successful send. */
+  gradeMailError?: string;
 }
 
 export type AssignmentSubmissionStatus = 'submitted' | 'reviewed';
@@ -1168,6 +1172,16 @@ export interface Lesson {
    *  MyLessonsView.sendLogMail(). Absent = never sent. Staff-only: it is not
    *  in PUBLIC_LESSON_KEYS, so it is never mirrored. */
   logMailedAt?: number;
+  /**
+   * Why the last attempt to email this line did not arrive (#mail-status).
+   *
+   * Written by the `mailStatusWriteback` Cloud Function and nothing else, off
+   * the Trigger Email extension's own verdict. When it is set, `logMailedAt`
+   * has been DELETED in the same write — a failure withdraws the claim rather
+   * than sitting beside it, so the row reads "Not emailed", which is true.
+   * A later successful send clears this field.
+   */
+  logMailError?: string;
   /** Payroll length on the official form: 45 (grades 9–11) or 60 (grade 12). */
   payrollMinutes?: 45 | 60;
   status: EventStatus;
