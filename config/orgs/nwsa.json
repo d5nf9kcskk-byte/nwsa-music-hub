@@ -132,6 +132,24 @@
     { "id": "2026-fall", "name": "Fall 2026", "start": "2026-08-17", "end": "2026-12-19" },
     { "id": "2027-spring", "name": "Spring 2027", "start": "2027-01-06", "end": "2027-06-03" }
   ],
+  "personalize": {
+    "header": [
+      { "id": "navy", "color": "#1f3a5f", "label": { "en": "Navy", "es": "Azul marino" } },
+      { "id": "plum", "color": "#6b2d68", "label": { "en": "Plum", "es": "Ciruela" } },
+      { "id": "charcoal", "color": "#2b3038", "label": { "en": "Charcoal", "es": "Carbón" } }
+    ],
+    "sidebar": [
+      { "id": "cream", "color": "#f6f0e1", "label": { "en": "Cream", "es": "Crema" } },
+      { "id": "teal", "color": "#0a6675", "label": { "en": "Teal", "es": "Verde azulado" } },
+      { "id": "navy", "color": "#1f3a5f", "label": { "en": "Navy", "es": "Azul marino" } },
+      { "id": "plum", "color": "#6b2d68", "label": { "en": "Plum", "es": "Ciruela" } },
+      { "id": "charcoal", "color": "#2b3038", "label": { "en": "Charcoal", "es": "Carbón" } }
+    ],
+    "background": [
+      { "id": "warm", "light": "#fef8ea", "dark": "#17130c", "label": { "en": "Warm", "es": "Cálido" } },
+      { "id": "mist", "light": "#f0fafb", "dark": "#0a1619", "label": { "en": "Mist", "es": "Bruma" } }
+    ]
+  },
   "grading": {
     "periods": [
       { "id": "2026-q1", "termId": "2026-fall", "name": "Quarter 1", "ordinal": "1st Quarter", "short": "Q1",

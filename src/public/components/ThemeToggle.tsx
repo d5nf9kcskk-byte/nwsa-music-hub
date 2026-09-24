@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Moon, Sun, SunMoon } from 'lucide-react';
+import { Check, Moon, Palette, Sun, SunMoon } from 'lucide-react';
 import { t, useLang, getLang } from '../../shared/i18n';
 import { usePubTheme, setPubTheme, resolvedPubTheme } from '../theme';
 import type { PubThemeChoice } from '../theme';
@@ -16,9 +16,10 @@ const OPTIONS: { value: PubThemeChoice; labelKey: string; Icon: typeof Sun }[] =
 /**
  * Dark-view control (#dark-view), styled and structured like the "Aa"
  * text-size pill next to it: a labeled menu — Automatic / Light / Dark —
- * remembered per device.
+ * remembered per device. `onCustomize` adds "Colors & background…" (#look)
+ * under the three choices; the layout passes it only when the org has a palette.
  */
-export function ThemeToggle() {
+export function ThemeToggle({ onCustomize }: { onCustomize?: () => void }) {
   useLang(); // re-render the menu labels on EN/ES switch
   const choice = usePubTheme();
   const [open, setOpen] = useState(false);
@@ -73,6 +74,15 @@ export function ThemeToggle() {
               {choice === value && <Check size={15} className="pub-textsize-check" />}
             </button>
           ))}
+          {onCustomize && (
+            <>
+              <div className="pub-textsize-sep" role="separator" />
+              <button role="menuitem" className="pub-textsize-opt" onClick={() => { setOpen(false); onCustomize(); }}>
+                <span className="pub-textsize-sample"><Palette size={16} /></span>
+                <span className="pub-textsize-optlabel">{t('look.open')}</span>
+              </button>
+            </>
+          )}
         </div>
       )}
       <NoteBurst cheer={cheer} />

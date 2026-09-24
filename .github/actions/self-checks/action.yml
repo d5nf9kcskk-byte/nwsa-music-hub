@@ -375,6 +375,14 @@ runs:
       run: node scripts/one-nav.selfcheck.mjs
       shell: bash
 
+    # A student's own colors (#look). Every palette color in config/orgs/
+    # must keep the header, the menu and the page as readable as the stock
+    # theme — a light header color or a dark page tint would ship unreadable
+    # text and build perfectly well.
+    - name: Check the Colors & background palette stays readable
+      run: npx tsx src/public/look.selfcheck.ts
+      shell: bash
+
     # Director nav intent survives the round trip (#nav-intent). Every
     # DirNavOpts field must be named in go(), in the intent object, and in
     # intentKey. `selectAll` was declared, documented, consumed by RosterView

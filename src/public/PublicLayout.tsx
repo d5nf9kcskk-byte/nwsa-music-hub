@@ -10,6 +10,7 @@ import { ConcertDayBanner } from '../shared/ConcertDayBanner';
 import { SearchOverlay } from './components/SearchOverlay';
 import { TextSizeControl } from './components/TextSize';
 import { ThemeToggle } from './components/ThemeToggle';
+import { LookSheet } from './components/LookSheet';
 import { t, useLang } from '../shared/i18n';
 import { LangToggle } from './components/LangToggle';
 import { NoteBurst } from '../shared/NoteBurst';
@@ -161,6 +162,7 @@ export function PublicLayout() {
   const pathname = location.pathname;
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [lookOpen, setLookOpen] = useState(false);
   // The drawer and the rail carry the SAME five groups — Ensembles / Classes /
   // College / Resources / Help (#one-nav). The drawer used to have three, with
   // Classes and College buried as subheads inside Ensembles, so a phone student
@@ -238,7 +240,7 @@ export function PublicLayout() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <LangToggle />
           <TextSizeControl />
-          <ThemeToggle />
+          <ThemeToggle onCustomize={ORG.personalize ? () => setLookOpen(true) : undefined} />
           <button className="pub-hamburger" onClick={() => setSearchOpen(true)} aria-label={t('nav.search')}>
             <Search size={20} />
           </button>
@@ -562,6 +564,7 @@ export function PublicLayout() {
       </nav>
 
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+      {lookOpen && <LookSheet onClose={() => setLookOpen(false)} />}
       <NoteBurst cheer={cheer} />
       {/* Reset/restore window scroll on route change (deep pages otherwise open mid-scroll) */}
       <ScrollRestoration />

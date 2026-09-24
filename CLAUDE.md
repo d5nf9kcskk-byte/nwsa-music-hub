@@ -1303,6 +1303,26 @@ music, with no error anywhere.
 
 Session record: `docs/session-notes-2026-09-17-assignment-editor-and-group-picker.md`.
 
+## Colors & background (Sept 2026, #look)
+
+Students pick a top-bar color, a menu color and a page background from the
+Appearance (sun/moon) menu → "Colors & background…". Per device, in
+`localStorage` (`pub.look`), like the Light/Dark choice — there are no student
+accounts to hang it on. `src/public/look.ts` applies it; `look.css` is
+everything it changes.
+
+- **A curated palette, never a color picker.** The colors are org config
+  (`personalize` in `config/orgs/*.json`); absent = the feature is off. What's
+  stored is palette IDS, so a retired color reads as Default.
+- **Readability is pinned, not hoped for** (`look.selfcheck.ts`, in the
+  self-checks). Header colors must carry the header's white text. Menu text
+  takes whichever of white/ink reads (`inkOn`), and every shade `look.css`
+  derives from it must pass AA. A page tint may never read worse than the
+  stock background, in either theme. Cards keep their own surface.
+- **The menu color covers the rail AND the phone drawer** (#one-nav).
+- Public site only. The director panel has its own theme switch and is not
+  touched; the tint rule is scoped to `:has(.pub-app)` for that reason.
+
 ## What's New banner (auto)
 
 Product/UX changes that affect all staff or the public student site must

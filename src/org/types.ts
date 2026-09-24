@@ -37,6 +37,11 @@ export interface OrgGrading {
   reports: ReportLayout[];
 }
 
+/** One color on the "Colors & background" sheet (#look). `color` is #rrggbb. */
+export interface LookSwatch { id: string; color: string; label: { en: string; es: string } }
+/** A page-background tint: one #rrggbb per theme. */
+export interface LookTint { id: string; light: string; dark: string; label: { en: string; es: string } }
+
 /**
  * Org config — the white-label surface (#org-config). One JSON file per
  * organization lives in config/orgs/; vite.config.ts picks one by the
@@ -190,6 +195,24 @@ export interface OrgConfig {
    * nothing. Optional: an org with none tracks no terms.
    */
   terms?: Term[];
+  /**
+   * The public site's "Colors & background" choices (#look) — a CURATED
+   * palette, never a free color picker, so a student can make the site theirs
+   * without leaving the brand. Saved per device (src/public/look.ts). Absent
+   * = the feature is off and the menu item never renders.
+   *
+   * `header` colors carry white text (the wordmark and header controls are
+   * white by design), so they must all be dark; `sidebar` colors may be light
+   * or dark — the text flips automatically. `background` tints give a color
+   * for each theme. `look.selfcheck.ts` pins the contrast of every entry.
+   * An org with `brand` overrides would need applyBrand() to cover the
+   * sidebar subtree too before turning this on.
+   */
+  personalize?: {
+    header: LookSwatch[];
+    sidebar: LookSwatch[];
+    background: LookTint[];
+  };
   /**
    * Grading periods, the weighted plan, the district's comment codes, and the
    * report layouts the teacher of record is emailed (#gradebook).

@@ -1,0 +1,122 @@
+/* ═══════════════════════════════════════════════════════════════
+   "Colors & background" (#look) — src/public/look.ts sets the
+   attributes and --look-* values on <html>; this file is everything
+   they change. Nothing here applies until a student picks something.
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Top bar: always white text, so the palette offers dark colors only. */
+html[data-pub-look-header] .pub-header {
+  background: linear-gradient(110deg, transparent 0%, rgb(0 0 0 / 0.22) 100%), var(--look-header);
+}
+
+/* ── Menu: the desktop rail AND the phone drawer — one choice, every width
+   (#one-nav). Every token the menu reads is re-derived from the ink that
+   contrasts with the chosen color (inkOn), so a dark menu gets light text
+   and a light one gets dark text, in either theme. Nested cards (What's New)
+   read the same tokens and flip with it. The alphas are pinned by
+   look.selfcheck.ts — change them there too. */
+html[data-pub-look-side] :is(.pub-sidebar, .pub-menu-panel) {
+  background: var(--look-side);
+  color: var(--pub-ink);
+  --pub-ink: rgb(var(--look-side-ink));
+  --pub-text: rgb(var(--look-side-ink));
+  --pub-muted: rgb(var(--look-side-ink) / 0.78);
+  --pub-accent: rgb(var(--look-side-ink));
+  --pub-accent-soft: rgb(var(--look-side-ink) / 0.14);
+  --pub-bg: rgb(var(--look-side-ink) / 0.08);
+  --pub-border: rgb(var(--look-side-ink) / 0.16);
+  --pub-surface: var(--look-side);
+}
+/* The rail is only as tall as its links; a colored one must reach the bottom
+   of the window or it reads as a box floating in the page (pubShell.css). */
+html[data-pub-look-side] .pub-sidebar { min-height: calc(100dvh - 59px); }
+
+/* ── Page background: a tint replaces --pub-bg (one color per theme); a
+   pattern draws over the stock one. Scoped to the public shell so the
+   director panel never picks it up. Cards keep their own surface, so the
+   content on them reads exactly as before. */
+html[data-pub-look-bg='tint']:has(.pub-app) { --pub-bg: var(--look-bg-light); }
+html[data-pub-theme='dark'][data-pub-look-bg='tint']:has(.pub-app) { --pub-bg: var(--look-bg-dark); }
+
+:root {
+  --look-pat: rgb(24 33 47 / 0.075);
+  /* Five hairlines and a gap: a staff, ruled faintly across the page. */
+  --look-img-staff: linear-gradient(to bottom,
+    transparent 0 36px,
+    var(--look-pat) 36px 37px, transparent 37px 46px,
+    var(--look-pat) 46px 47px, transparent 47px 56px,
+    var(--look-pat) 56px 57px, transparent 57px 66px,
+    var(--look-pat) 66px 67px, transparent 67px 76px,
+    var(--look-pat) 76px 77px, transparent 77px);
+  /* A sparse dot grid. Patterns are hairlines and dots, never an all-over
+     texture: an even grain dark enough to see darkens the whole page behind
+     the text, and one light enough not to is invisible (tried, Sept 2026). */
+  --look-img-dots: radial-gradient(circle, var(--look-pat-dot) 1.3px, transparent 1.8px);
+  --look-pat-dot: rgb(24 33 47 / 0.2);
+}
+:root[data-pub-theme='dark'] { --look-pat: rgb(231 236 242 / 0.06); --look-pat-dot: rgb(231 236 242 / 0.16); }
+
+html[data-pub-look-bg='staff'] .pub-app,
+.pub-look-thumb.staff { background-image: var(--look-img-staff); background-size: 100% 112px; }
+html[data-pub-look-bg='dots'] .pub-app,
+.pub-look-thumb.dots { background-image: var(--look-img-dots); background-size: 20px 20px; }
+
+/* ── The sheet (opened from the Appearance menu). The backdrop is barely
+   dimmed on purpose: every tap previews on the page behind it. */
+.pub-subw-overlay.pub-look-overlay { background: rgb(0 0 0 / 0.12); }
+.pub-look-hint { margin: -6px 0 14px; font-size: 13px; color: var(--pub-muted); }
+.pub-look-row { margin-bottom: 16px; }
+.pub-look-row-title {
+  margin-bottom: 8px; font-size: 12px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--pub-muted);
+}
+.pub-look-options { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.pub-look-swatch {
+  position: relative; width: 44px; height: 44px; padding: 0;
+  border: 1px solid var(--pub-border); border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.pub-look-swatch.header-default { background: linear-gradient(110deg, var(--pub-accent), var(--pub-accent-deep, #0a6675)); }
+.pub-look-swatch.side-default { background: var(--pub-surface); }
+
+.pub-look-thumb-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 0; border: none; background: none; cursor: pointer;
+  font-family: inherit; font-size: 12px; font-weight: 600; color: var(--pub-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+.pub-look-thumb {
+  position: relative; width: 58px; height: 44px;
+  border: 1px solid var(--pub-border); border-radius: 10px;
+  background-color: var(--pub-surface);
+  display: grid; place-items: center;
+}
+.pub-look-thumb.staff { background-position: 0 -30px; }
+
+.pub-look-swatch[aria-pressed='true'],
+.pub-look-thumb-btn[aria-pressed='true'] .pub-look-thumb {
+  outline: 2.5px solid var(--pub-purple); outline-offset: 2px;
+}
+.pub-look-swatch:focus-visible,
+.pub-look-thumb-btn:focus-visible .pub-look-thumb { outline: 2.5px solid var(--pub-accent); outline-offset: 2px; }
+.pub-look-thumb-btn:focus-visible { outline: none; }
+/* The check sits on its own dark disc so it reads on any swatch. */
+.pub-look-check {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgb(0 0 0 / 0.55); color: #fff;
+}
+
+.pub-look-actions { display: flex; gap: 10px; margin-top: 4px; }
+.pub-look-actions button {
+  flex: 1; min-height: 44px; border-radius: 12px;
+  font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.pub-look-reset { border: 1px solid var(--pub-border); background: var(--pub-surface); color: var(--pub-ink); }
+.pub-look-reset:disabled { color: var(--pub-muted); cursor: default; }
+.pub-look-done { border: none; background: var(--pub-purple); color: #fff; }
+
+/* A rule between the theme choices and the "Colors & background…" item. */
+.pub-textsize-sep { height: 1px; margin: 4px 6px; background: var(--pub-border); }
