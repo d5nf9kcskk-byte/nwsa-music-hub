@@ -6,12 +6,14 @@ import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo } from '../writeStatus';
 import { publicOverrideFields } from '../publicMirror';
+import { FIXTURES_ON, FIXTURE_ROSTER_OVERRIDES } from './fixtures';
 import type { RosterOverride } from '../types';
 
 /** Real-time listener for all temporary roster moves (subs / pulls). */
 export function useRosterOverrides() {
-  const [overrides, setOverrides] = useState<RosterOverride[]>([]);
+  const [loaded, setOverrides] = useState<RosterOverride[]>([]);
   const [loading, setLoading] = useState(true);
+  const overrides = !db && FIXTURES_ON ? FIXTURE_ROSTER_OVERRIDES : loaded;
 
   useEffect(() => {
     if (!db) { setLoading(false); return; }

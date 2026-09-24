@@ -1730,3 +1730,20 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
   font-size: 11px;
   color: var(--dir-text-muted);
 }
+
+/* Concert excusal (#concert-excusals): a pasted email keeps its line breaks. */
+.dir-excusal-textarea { resize: vertical; min-height: 180px; }
+.dir-excusal-record {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: var(--dir-radius-sm);
+  background: var(--dir-bg);
+  border: 1px solid var(--dir-border);
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--dir-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow-y: auto;
+}

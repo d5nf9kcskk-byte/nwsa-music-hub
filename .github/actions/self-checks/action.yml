@@ -291,6 +291,12 @@ runs:
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/groupKind.selfcheck.ts
       shell: bash
 
+    # Excused from a concert (#concert-excusals): off the named concerts only,
+    # the reason never on a pull-out or public mirror, the chart never edited.
+    - name: Check concert excusals
+      run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/concertExcusal.selfcheck.ts
+      shell: bash
+
     - name: Check piece movement selection
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/pieceMovements.selfcheck.ts
       shell: bash

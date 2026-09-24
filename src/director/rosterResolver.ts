@@ -79,6 +79,36 @@ export function rotationWrites(
   return { ensembleIds: missing.length ? [...have, ...missing] : undefined, overrides };
 }
 
+/**
+ * Students pulled OFF an ensemble in this context. Lesson pull-outs are
+ * PARTIAL (a time window) — the student is still on the roster and takes roll;
+ * the lesson shows as a badge instead — so they never count here. The ONE
+ * answer, shared by resolveRoster and every screen that starts from a list the
+ * resolver never saw (a seating chart on a concert program).
+ */
+export function removedIds(overrides: RosterOverride[], ctx: RosterContext): Set<string> {
+  return new Set(overrides
+    .filter(o => o.ensembleId === ctx.ensembleId && o.action === 'remove' && o.kind !== 'lesson' && overrideApplies(o, ctx))
+    .map(o => o.studentId));
+}
+
+/**
+ * Is this student off an event they would otherwise play (#concert-excusals)?
+ * True only when every ensemble they belong to on that event has pulled them —
+ * a bassist in both Symphony and Camerata on a shared concert, pulled from one,
+ * is still on stage with the other.
+ */
+export function pulledFromEvent(
+  student: Pick<Student, 'id' | 'ensembleIds'>,
+  event: CalendarEvent,
+  overrides: RosterOverride[],
+  eventsById: Record<string, CalendarEvent>,
+): boolean {
+  const mine = event.ensembleIds.filter(id => student.ensembleIds?.includes(id));
+  return mine.length > 0
+    && mine.every(id => removedIds(overrides, { ensembleId: id, eventId: event.id, eventsById }).has(student.id));
+}
+
 export interface ResolvedStudent {
   student: Student;
   isSub: boolean; // present via an 'add' override rather than base membership
@@ -95,9 +125,7 @@ export function resolveRoster(
   ctx: RosterContext,
 ): ResolvedStudent[] {
   const relevant = overrides.filter(o => o.ensembleId === ctx.ensembleId && overrideApplies(o, ctx));
-  // Lesson pull-outs are PARTIAL (a time window) — the student is still on the
-  // roster and takes roll; the lesson shows as a badge instead.
-  const removed = new Set(relevant.filter(o => o.action === 'remove' && o.kind !== 'lesson').map(o => o.studentId));
+  const removed = removedIds(overrides, ctx);
   const added = new Set(relevant.filter(o => o.action === 'add').map(o => o.studentId));
   // A pull-out that names a destination ensemble subs the student INTO this one
   // (same entry, no separate 'add' override needed). Matched by date/event.

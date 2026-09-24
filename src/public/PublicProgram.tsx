@@ -6,12 +6,13 @@ import { BackLink } from './components/BackLink';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { usePublicEvents } from './hooks/usePublicEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
-import { useStudentsPublic } from './hooks/usePublicRoster';
+import { useStudentsPublic, usePublicOverrides } from './hooks/usePublicRoster';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
+import { removedIds } from '../director/rosterResolver';
 import { formatTimeRange, eventPieceDuration, eventPieceMovements, pieceEnsembleIds, ensembleDisplayName, buildSections } from '../director/utils';
 import { fmtFullDate } from '../shared/dates';
 import { printViaPopup } from '../shared/printPopup';
-import { concertChartFor, pieceChartsFor } from '../shared/concertRosters';
+import { concertChartFor, pieceChartsFor, seatsPlaying } from '../shared/concertRosters';
 import type { Ensemble, RepertoirePiece, SeatingChart } from '../director/types';
 import './programTemplate.css';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
@@ -59,6 +60,7 @@ export function PublicProgram() {
   const { pieces } = useRepertoire();
   const { students } = useStudentsPublic();
   const { charts } = useSeatingCharts();
+  const { overrides } = usePublicOverrides();
 
   const sheetRef = useRef<HTMLDivElement>(null);
   function handlePrint() {
@@ -68,6 +70,7 @@ export function PublicProgram() {
 
   const event = events.find(e => e.id === id);
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
+  const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
   const studentName = (sid: string) => students.find(s => s.id === sid)?.name ?? '—';
 
   const programPieces = useMemo(() => {
@@ -115,10 +118,17 @@ export function PublicProgram() {
    *  everywhere else this app shows a roster order — else the active roster
    *  auto-grouped by instrument. `concertChartFor` owns that whole decision. */
   function rosterSectionsFor(ensembleId: string): SeatingChart['sections'] {
+    const out = notPlaying(ensembleId);
     const chart = concertChartFor(event, ensembleId, charts);
-    if (chart) return chart.sections;
-    const roster = students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(ensembleId));
+    if (chart) return seatsPlaying(chart.sections, out);
+    const roster = students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(ensembleId) && !out.has(s.id));
     return buildSections(roster);
+  }
+
+  /** Who is off THIS concert for this ensemble — excused or pulled
+   *  (#concert-excusals). Same rule the director's roster uses. */
+  function notPlaying(ensembleId: string): Set<string> {
+    return event ? removedIds(overrides, { ensembleId, eventId: event.id, eventsById }) : new Set();
   }
 
   function renderPiece(p: RepertoirePiece) {
@@ -307,7 +317,7 @@ export function PublicProgram() {
                   {ens ? ensembleDisplayName(ens) : 'Personnel for this work'}
                 </div>
                 <div className="pub-program-roster-cols">
-                  {chart.sections.map((sec, i) => (
+                  {seatsPlaying(chart.sections, notPlaying(chart.ensembleId)).map((sec, i) => (
                     <div key={i} className="pub-program-roster-section">
                       <div className="pub-program-roster-section-name">{sec.section}</div>
                       {sec.seats.map(seat => (

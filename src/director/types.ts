@@ -525,6 +525,35 @@ export interface RosterOverride {
   destEnsembleId?: string;
 }
 
+export type ExcusalCategory = 'religious' | 'medical' | 'family' | 'other';
+
+/**
+ * A student excused from one or more concerts (#concert-excusals), and the
+ * paper trail for it. The roster effect is ordinary event-scoped pull-outs
+ * (`overrideIds`), so every screen that already honours a pull-out drops the
+ * student with no special case. The WHY lives only here: `concertExcusals` is
+ * readable by directors and applied teachers alone, never by assistants and
+ * never mirrored publicly — a religious or medical reason is not roster data.
+ * No update rule: the record is kept as filed; delete and re-file to change it.
+ */
+export interface ConcertExcusal {
+  id: string;
+  studentId: string;
+  eventIds: string[];
+  category: ExcusalCategory;
+  /** The request word for word (a pasted email) plus anything else on file. */
+  record: string;
+  requestedOn?: string;   // YYYY-MM-DD
+  requestedBy?: string;   // free text: "Jonathan (student email)", "Mother"
+  approvedBy?: string;
+  /** The rosterOverrides docs this excusal wrote — deleted with it. */
+  overrideIds: string[];
+  createdAt: number;
+  /** Who filed it, stamped by the app (name, else email). Not matched against
+   *  the writer in the rules, so a second director's Undo can restore it. */
+  createdBy: string;
+}
+
 /**
  * In-app heads-up for staff (#two-doors §5.1): saving a student move drops one
  * notice naming both affected ensembles, shown on the director Today view

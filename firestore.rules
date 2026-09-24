@@ -377,6 +377,28 @@ service cloud.firestore {
         || (isTeacherRole() && resource.data.kind == 'lesson')
         || (resource.data.kind == 'lesson' && assignedCovers(resource.data.ensembleId));
     }
+    // Concert excusals (#concert-excusals): WHY a student is off a concert —
+    // religious, medical, family — plus the request word for word. Directors
+    // and applied teachers read; assistants do NOT (a student assistant must
+    // never read a classmate's medical or religious reason), and there is no
+    // public mirror. The roster effect rides on ordinary rosterOverrides that
+    // carry only a generic reason. Directors file and delete; no update, so a
+    // record stays as filed.
+    match /concertExcusals/{doc} {
+      allow read: if isStaff() || isTeacherRole();
+      allow create: if isStaff()
+        && request.resource.data.keys().hasOnly([
+             'studentId', 'eventIds', 'category', 'record', 'requestedOn',
+             'requestedBy', 'approvedBy', 'overrideIds', 'createdAt', 'createdBy',
+           ])
+        && request.resource.data.studentId is string
+        && request.resource.data.eventIds is list
+        && request.resource.data.overrideIds is list
+        && request.resource.data.category in ['religious', 'medical', 'family', 'other']
+        && request.resource.data.record is string
+        && request.resource.data.record.size() <= 50000;
+      allow delete: if isStaff();
+    }
     // Reason-free public mirror of rosterOverrides (#privacy): the public
     // student-schedule page shows lesson pull-out windows and sub/pull roster
     // effects from here. Writers are the same clients that write the source

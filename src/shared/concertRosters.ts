@@ -151,3 +151,20 @@ export function pieceChartFor<T extends ChartLike>(
 ): T | undefined {
   return pieceChartsFor(pieceId, charts, concert)[0];
 }
+
+/**
+ * A chart's seats minus the players who are NOT on this concert — excused,
+ * or pulled for a trip (#concert-excusals). The chart itself is never edited:
+ * it is the ensemble's audition order and serves every concert it is attached
+ * to, so a student off Oct 3 must stay seated for Oct 17. Chair order is kept;
+ * a section left with nobody in it is dropped rather than printed empty.
+ */
+export function seatsPlaying<S extends { seats: { studentId: string }[] }>(
+  sections: S[],
+  notPlaying: ReadonlySet<string>,
+): S[] {
+  if (notPlaying.size === 0) return sections;
+  return sections
+    .map(sec => ({ ...sec, seats: sec.seats.filter(seat => !notPlaying.has(seat.studentId)) }))
+    .filter(sec => sec.seats.length > 0);
+}

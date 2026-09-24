@@ -1,5 +1,5 @@
 import { slotDefsToOptions } from '../../shared/signupSlotTimes';
-import type { CalendarEvent, Ensemble, LibraryDocument, RepertoirePiece, SeatingChart, SignupForm, SignupSlotDef, Student } from '../types';
+import type { CalendarEvent, ConcertExcusal, Ensemble, LibraryDocument, RepertoirePiece, RosterOverride, SeatingChart, SignupForm, SignupSlotDef, Student } from '../types';
 
 /**
  * Local development fixtures (redesign test cycle). Served ONLY when Firebase
@@ -160,6 +160,28 @@ export const FIXTURE_SEATING_CHARTS: SeatingChart[] = [
       { section: 'Clarinet', seats: [{ studentId: 'fx-s4' }] },
       { section: 'Trumpet', seats: [{ studentId: 'fx-s2' }] },
     ],
+  },
+];
+
+/**
+ * One concert excusal (#concert-excusals) and the pull-out it filed, so the
+ * roster drawer's Excused section, the student page's record and the printed
+ * program's missing bass can all be seen locally. The bassist is on the
+ * orchestra chart above — the program must drop him, the chart must not.
+ */
+export const FIXTURE_ROSTER_OVERRIDES: RosterOverride[] = [
+  {
+    id: 'fx-ov-excused', studentId: 'fx-s7', ensembleId: 'symphony-orchestra',
+    action: 'remove', scope: 'event', eventId: 'fx-winter-concert',
+  },
+];
+
+export const FIXTURE_CONCERT_EXCUSALS: ConcertExcusal[] = [
+  {
+    id: 'fx-excusal', studentId: 'fx-s7', eventIds: ['fx-winter-concert'], category: 'religious',
+    record: 'From: student (school email), sent the morning of the request.\n\n"That evening is a religious holiday and I will be at services with my family. The same restrictions apply all day."\n\nSpoke with the student after rehearsal; parent confirmed by phone.',
+    requestedOn: iso(-3), requestedBy: 'the student, by email', approvedBy: 'Fixture Director',
+    overrideIds: ['fx-ov-excused'], createdAt: 1_700_000_400_000, createdBy: 'Fixture Director',
   },
 ];
 

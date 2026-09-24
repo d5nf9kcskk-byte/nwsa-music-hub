@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { NotesText } from '../../public/components/NotesText';
-import { Pencil, Phone, Mail, Users, Calendar, FileText, ClipboardCheck, ExternalLink, Archive, RotateCcw } from 'lucide-react';
+import { Pencil, Phone, Mail, Users, Calendar, FileText, ClipboardCheck, ExternalLink, Archive, RotateCcw, UserCheck } from 'lucide-react';
+import { useConcertExcusals } from '../hooks/useConcertExcusals';
+import { ExcusalCard } from '../schedule-changes/ConcertExcusal';
 import { useAttendanceHistory } from '../hooks/useAttendance';
 import { useProgressNotes } from '../hooks/useProgressNotes';
 import { useEvents } from '../hooks/useEvents';
@@ -48,6 +50,9 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
   const today = todayStr();
 
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
+  const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
+  const { excusals } = useConcertExcusals();
+  const myExcusals = excusals.filter(x => x.studentId === student.id).sort((a, b) => b.createdAt - a.createdAt);
 
   const upcomingEvents = useMemo(() => {
     return events
@@ -237,6 +242,18 @@ export function StudentDetail({ student, students, contact, ensembles, onEdit, o
               </div>
             )}
           </div>
+
+          {/* ── Concert excusals (#concert-excusals) — the paper trail ── */}
+          {myExcusals.length > 0 && (
+            <div className="dir-detail-section">
+              <div className="dir-detail-section-title">
+                <UserCheck size={13} /> Excused from concerts <span className="dir-detail-private">directors & applied teachers</span>
+              </div>
+              {myExcusals.map(x => (
+                <ExcusalCard key={x.id} excusal={x} eventsById={eventsById} ensembleMap={ensembleMap} />
+              ))}
+            </div>
+          )}
 
           {/* ── Upcoming events ── */}
           {upcomingEvents.length > 0 && (

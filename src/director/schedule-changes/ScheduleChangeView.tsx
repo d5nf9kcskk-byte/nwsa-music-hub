@@ -1,5 +1,8 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Search, UserPlus, UserMinus, Trash2, CalendarClock, GraduationCap, Clock, FileText, Repeat, CornerUpRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, UserPlus, UserMinus, UserCheck, Trash2, CalendarClock, GraduationCap, Clock, FileText, Repeat, CornerUpRight } from 'lucide-react';
+import { useConcertExcusals } from '../hooks/useConcertExcusals';
+import { excusalOverrideIds } from '../concertExcusal';
+import { ConcertExcusalForm } from './ConcertExcusal';
 import { useStudents } from '../hooks/useStudents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
@@ -267,14 +270,17 @@ function pickColor(s: Student, ensembles: Ensemble[]): string {
  *   out   → remove with a required reason (the only verb that leaves the
  *           building — pre-existing rule)
  *   subIn → add
+ *   excuse→ a concertExcusals record + event-scoped removes, filed together
+ *           by ConcertExcusalForm (#concert-excusals) — directors only
  */
-type Verb = 'send' | 'lesson' | 'out' | 'subIn';
+type Verb = 'send' | 'lesson' | 'out' | 'subIn' | 'excuse';
 
 const VERB_CHIPS: { verb: Verb; icon: React.ReactNode; label: string }[] = [
   { verb: 'send',   icon: <CornerUpRight size={15} />,  label: 'With another ensemble' },
   { verb: 'lesson', icon: <GraduationCap size={15} />,  label: 'Lesson pull-out' },
   { verb: 'out',    icon: <UserMinus size={15} />,      label: 'Out (trip, excused)' },
   { verb: 'subIn',  icon: <UserPlus size={15} />,       label: 'Sub in' },
+  { verb: 'excuse', icon: <UserCheck size={15} />,      label: 'Excused from a concert' },
 ];
 
 /**
@@ -295,6 +301,7 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
   onNavigate?: DirNavigate;
 }) {
   const { overrides, addOverride, deleteOverride } = useRosterOverrides();
+  const { excusals, canFile } = useConcertExcusals();
   const { addNotice } = useStaffNotices();
   const [verb, setVerb] = useState<Verb>('send');
   const [date, setDate] = useState(prefill?.date ?? todayStr());
@@ -368,8 +375,11 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
           `Their own rehearsals are unchanged.${destId ? ' Directors get a heads-up on Today.' : ''}`,
         ];
 
+  // An excusal's pull-outs list as the excusal (with its record) under the
+  // Excused chip — deleting one alone here would strand the record.
+  const excusalOwned = excusalOverrideIds(excusals);
   const myOverrides = overrides
-    .filter(o => o.studentId === student.id)
+    .filter(o => o.studentId === student.id && !excusalOwned.has(o.id))
     .sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''));
 
   async function handleSave() {
@@ -467,7 +477,7 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
         {error && <div className="dir-sc-error">⚠ {error}</div>}
 
         <div className="dir-verb-chips" role="tablist" aria-label="What kind of move">
-          {VERB_CHIPS.map(c => (
+          {VERB_CHIPS.filter(c => c.verb !== 'excuse' || canFile).map(c => (
             <button
               key={c.verb}
               className={`dir-tool-btn dir-verb-chip ${verb === c.verb ? 'active' : ''}`}
@@ -479,6 +489,9 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
           ))}
         </div>
 
+        {verb === 'excuse' ? (
+          <ConcertExcusalForm student={student} students={students} events={events} eventsById={eventsById} ensembleMap={ensembleMap} />
+        ) : (<>
         <div className="dir-sent">
           <b>{student.name}</b>{student.instrument ? <span className="dir-sent-muted"> ({student.instrument.toLowerCase()})</span> : null}
           {verb === 'send' && <> is with {destSelect} instead of {fromBit} {dateBit}.</>}
@@ -508,6 +521,7 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
             {busy ? 'Saving…' : 'Save move'}
           </button>
         </div>
+        </>)}
 
         {onNavigate && (
           <div className="dir-field-hint" style={{ marginBottom: 10 }}>

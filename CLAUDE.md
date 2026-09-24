@@ -443,6 +443,39 @@ the deploy workflow.
 
 Session record: `docs/session-notes-2026-09-09-assistant-approvals.md`.
 
+## Excused from a concert (Sept 2026, #concert-excusals)
+
+Roll → Subs & Pull-outs → a student → **Excused from a concert**. Built for
+religious observance (the first case: a bassist out Oct 3–4, 2026 for Shabbat
+and Simchat Torah), and for medical, family and other reasons.
+
+- **The roster effect is ordinary event-scoped pull-outs**, one per concert
+  per ensemble the student plays with on it. That is the whole trick: every
+  screen that already honours a pull-out drops them (event roster, Take Roll,
+  Who's Out, the student's schedule and .ics). Do not add an "excused" branch
+  to the resolver.
+- **The WHY never rides on the pull-out.** The override's `reason` is the
+  generic `EXCUSAL_REASON` because every Hub role (assistants included) reads
+  `rosterOverrides`, and the public mirror carries no reason at all. Category
+  and the request word for word live on `concertExcusals`, read by directors
+  and applied teachers only (director's call, 2026-09-24), written and deleted
+  by directors only, with **no update rule** — a record is kept as filed.
+  The record, its pull-outs and their mirrors are written and deleted in ONE
+  batch (`useConcertExcusals`), so there is never a pull-out without a record
+  or a record without the pull-out.
+- **The seating chart is never edited.** A chart is the ensemble's audition
+  order and serves every concert it is attached to. The program's roster pages
+  filter per concert through `removedIds()` + `seatsPlaying()`
+  (`src/shared/concertRosters.ts`), so a student off Oct 3 stays seated for
+  Oct 17. This applies to ANY pull-out on the concert, not only excusals.
+- **The Gradebook's required-concert count** subtracts, per student, the
+  concerts they were pulled from (`pulledFromEvent()` — true only when every
+  ensemble they play with on it pulled them). The student's own "2 of 3"
+  tally (`concertTally` function) is against a fixed semester GOAL, not
+  concerts held, and is deliberately unchanged.
+- `concertExcusal.selfcheck.ts` pins all four promises (and reads the rules
+  file for the read clause) in the deploy workflow.
+
 ## School-day tardies vs. class attendance (Aug 2026)
 
 Late to SCHOOL is **not** an attendance mark. The office bulletin's `TARDY`

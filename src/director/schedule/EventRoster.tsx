@@ -6,6 +6,10 @@ import { resolveRoster, overrideApplies } from '../rosterResolver';
 import { isSharedBlock, mergeSharedRoster, sharedBlockLabel } from '../../shared/sharedBlock';
 import { formatDate, formatTimeRange } from '../utils';
 import { eventIcon } from '../groupIcon';
+import { useConcertExcusals } from '../hooks/useConcertExcusals';
+import { useEvents } from '../hooks/useEvents';
+import { excusalOverrideIds } from '../concertExcusal';
+import { ExcusalCard } from '../schedule-changes/ConcertExcusal';
 import type { CalendarEvent, Ensemble, RosterOverride } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { backdropClose } from '../../shared/backdropClose';
@@ -27,6 +31,16 @@ interface Props {
 export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
   const { students } = useStudents();
   const { overrides } = useRosterOverrides();
+  // Excusals are unreadable to assistants (the listener stays off for them),
+  // so for them the pull-out simply lists under "Pulled out" with its generic
+  // reason. Directors and applied teachers see the excusal and its record.
+  const { excusals } = useConcertExcusals();
+  const excused = excusals.filter(x => x.eventIds.includes(event.id));
+  const excusalOwned = excusalOverrideIds(excused);
+  const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
+  // An excusal can name several concerts; the card lists them all.
+  const { events: allEvents } = useEvents();
+  const allEventsById = useMemo(() => Object.fromEntries(allEvents.map(e => [e.id, e])), [allEvents]);
 
   const eventEnsembles = ensembles.filter(e => event.ensembleIds.includes(e.id));
   const [ensembleId, setEnsembleId] = useState(event.ensembleIds[0] ?? '');
@@ -61,7 +75,7 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
     return overrideApplies(o, { ensembleId: o.ensembleId, eventId: event.id, eventsById });
   }
   const pulled = overrides
-    .filter(o => o.action === 'remove' && !o.kind && applies(o))
+    .filter(o => o.action === 'remove' && !o.kind && !excusalOwned.has(o.id) && applies(o))
     .map(o => ({ o, student: students.find(s => s.id === o.studentId) }))
     .filter(x => x.student);
   const lessons = overrides
@@ -155,6 +169,21 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
                     </span>
                   </div>
                 </div>
+              ))}
+            </>
+          )}
+
+          {excused.length > 0 && (
+            <>
+              <div className="dir-roster-section-title">Excused</div>
+              {excused.map(x => (
+                <ExcusalCard
+                  key={x.id}
+                  excusal={x}
+                  eventsById={allEventsById}
+                  ensembleMap={ensembleMap}
+                  studentName={students.find(s => s.id === x.studentId)?.name ?? 'A student'}
+                />
               ))}
             </>
           )}

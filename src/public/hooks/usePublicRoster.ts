@@ -3,7 +3,7 @@ import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '../../director/firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import type { Student, RosterOverride } from '../../director/types';
-import { FIXTURES_ON, FIXTURE_STUDENTS } from '../../director/hooks/fixtures';
+import { FIXTURES_ON, FIXTURE_STUDENTS, FIXTURE_ROSTER_OVERRIDES } from '../../director/hooks/fixtures';
 import { PUBLIC_STUDENT_INFO } from '../publicStudentInfo';
 
 /**
@@ -70,5 +70,6 @@ export function usePublicOverrides() {
     }, () => { noteLoadError('rosterOverridesPublic'); setLoading(false); });
   }, []);
 
-  return { overrides, loading };
+  // Fixtures are derived, not set in the effect (see useSeatingCharts).
+  return { overrides: !db && FIXTURES_ON && PUBLIC_STUDENT_INFO ? FIXTURE_ROSTER_OVERRIDES : overrides, loading };
 }

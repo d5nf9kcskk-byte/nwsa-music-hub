@@ -20,6 +20,8 @@ import { useStudents } from '../hooks/useStudents';
 import { useEvents } from '../hooks/useEvents';
 import { useAllAttendance } from '../hooks/useAttendance';
 import { useConcertCheckins } from '../hooks/useConcertCheckins';
+import { useRosterOverrides } from '../hooks/useRosterOverrides';
+import { pulledFromEvent } from '../rosterResolver';
 import { useAssignments, useAllAssignmentResults } from '../hooks/useAssignments';
 import { useLessons } from '../hooks/useLessons';
 import { useGradeMarks, type GradeMarks } from '../hooks/useGradeMarks';
@@ -152,6 +154,7 @@ export function GradebookView() {
   const { events } = useEvents();
   const { records } = useAllAttendance();
   const { checkins } = useConcertCheckins();
+  const { overrides } = useRosterOverrides();
   const { assignments } = useAssignments();
   const { results } = useAllAssignmentResults();
   const { lessons } = useLessons();
@@ -204,7 +207,10 @@ export function GradebookView() {
 
   /** Required concerts held in the window, and what each student was credited. */
   const concerts = useMemo(() => {
-    const empty = { held: 0, credited: {} as Record<string, number>, incomplete: {} as Record<string, number> };
+    const empty = {
+      held: 0, heldFor: () => 0,
+      credited: {} as Record<string, number>, incomplete: {} as Record<string, number>, excused: {} as Record<string, number>,
+    };
     if (!reportSpan) return empty;
     const entryOnly = new Set(events.filter(e => e.checkin?.entryOnly).map(e => e.id));
     const required = new Set(
@@ -231,8 +237,21 @@ export function GradebookView() {
         incomplete[p.studentId] = (incomplete[p.studentId] ?? 0) + 1;
       }
     }
-    return { held: required.size, credited, incomplete };
-  }, [events, checkins, reportSpan]);
+    // Excused, or pulled for a trip (#concert-excusals): that concert leaves
+    // THIS student's denominator. The director's call, 2026-09-24 — an
+    // excused concert must not read as one they skipped.
+    const excused: Record<string, number> = {};
+    const eventsById = Object.fromEntries(events.map(e => [e.id, e]));
+    for (const id of required) {
+      for (const { student } of roster) {
+        if (pulledFromEvent(student, eventsById[id], overrides, eventsById)) {
+          excused[student.id] = (excused[student.id] ?? 0) + 1;
+        }
+      }
+    }
+    const heldFor = (studentId: string) => required.size - (excused[studentId] ?? 0);
+    return { held: required.size, heldFor, credited, incomplete, excused };
+  }, [events, checkins, reportSpan, roster, overrides]);
 
   /** This teacher's own lesson average per student, inside the window. */
   const lessonAverages = useMemo(() => {
@@ -259,7 +278,7 @@ export function GradebookView() {
       return examEvidence(examsByStudent[studentId] ?? [], windowExams.length).suggested;
     }
     if (cat.suggest === 'concerts') {
-      return concertSuggestion(concerts.credited[studentId] ?? 0, concerts.held);
+      return concertSuggestion(concerts.credited[studentId] ?? 0, concerts.heldFor(studentId));
     }
     if (cat.suggest === 'lessons') return lessonAverages[studentId] ?? null;
     return null;
@@ -493,7 +512,12 @@ export function GradebookView() {
                             {' '}({r.exams.scores.length} of {r.exams.of})
                           </span>
                         )}
-                        {concerts.held > 0 && <span>Concerts {r.creditedConcerts} of {concerts.held}</span>}
+                        {concerts.held > 0 && (
+                          <span>
+                            Concerts {r.creditedConcerts} of {concerts.heldFor(r.student.id)}
+                            {concerts.excused[r.student.id] ? ` · ${concerts.excused[r.student.id]} excused` : ''}
+                          </span>
+                        )}
                         {r.incompleteConcerts > 0 && (
                           <span className="bad" title="Checked in but never out, so it earned no credit">
                             {r.incompleteConcerts} no check-out

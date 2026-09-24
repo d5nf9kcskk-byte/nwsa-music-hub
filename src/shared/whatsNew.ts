@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Excused from a concert (#concert-excusals). Staff-only: the public site
+  // only ever sees that a student isn't playing, never why.
+  {
+    id: '2026-09-24-concert-excusals',
+    date: '2026-09-24',
+    title: 'Excuse a student from a concert — with the paper trail',
+    audience: 'staff' as const,
+    expires: '2026-10-25',
+    bullets: [
+      'Roll → Subs & Pull-outs → pick the student → “Excused from a concert”. Tick the concerts, pick Religious, Medical, Family or Other, and paste the request word for word.',
+      'They come off the roster, the printed program and its seating page for those concerts only. Their ensembles, their seating chart and every other date stay as they are.',
+      'An excused required concert doesn’t count against them in the Gradebook.',
+      'The reason and the record are visible to directors and applied teachers only, on the student’s page and the concert’s roster. Assistants and the public see just that they aren’t playing.',
+    ],
+  },
   // The Hub now says when an email did NOT arrive (#mail-status). Staff-only:
   // it corrects a claim only staff ever saw.
   {
