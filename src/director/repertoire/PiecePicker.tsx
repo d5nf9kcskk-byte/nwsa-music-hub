@@ -12,9 +12,11 @@ interface Props {
   value: string[];
   onChange: (ids: string[]) => void;
   /**
-   * Per-piece movement selection for THIS concert. Key = pieceId, value =
-   * indices into that piece's movements[]. A piece absent from the map performs
-   * every movement. Optional: when omitted, the movement UI is hidden.
+   * Per-piece movement selection for THIS event. Key = pieceId, value =
+   * indices into that piece's movements[], in PERFORMANCE order (the list's
+   * order is the order they are played or rehearsed). A piece absent from the
+   * map performs every movement in score order. Optional: when omitted, the
+   * movement UI is hidden.
    */
   movementSel?: Record<string, number[]>;
   onMovementSelChange?: (sel: Record<string, number[]>) => void;
@@ -92,27 +94,44 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
     }
   }
 
-  /** Set which movements of `pieceId` this concert performs.
-   *  Absent key = all; `[]` = none (so "All movements" can clear the list);
-   *  a full selection is normalized to "all" by dropping the key. */
+  /** Set which movements of `pieceId` this event does, in the order given
+   *  (that order IS the performance/rehearsal order). Absent key = all in
+   *  score order; `[]` = none (so "All movements" can clear the list); every
+   *  movement in score order is normalized to "all" by dropping the key — but
+   *  every movement REORDERED is kept, since the order is the point. */
   function setPieceMovements(pieceId: string, indices: number[], total: number) {
     if (!onMovementSelChange) return;
     const next = { ...(movementSel ?? {}) };
-    const sorted = [...new Set(indices)].sort((a, b) => a - b);
-    if (sorted.length >= total) delete next[pieceId];
-    else next[pieceId] = sorted;
+    const ordered = [...new Set(indices)];
+    if (ordered.length >= total && ordered.every((v, i) => v === i)) delete next[pieceId];
+    else next[pieceId] = ordered;
     onMovementSelChange(next);
   }
 
-  function toggleMovement(pieceId: string, index: number, total: number) {
-    // Current effective selection: an explicit list (possibly empty), else "all".
-    const current = Object.prototype.hasOwnProperty.call(movementSel ?? {}, pieceId)
+  /** Current effective selection in playing order: the explicit list, else all. */
+  function currentMovements(pieceId: string, total: number): number[] {
+    return Object.prototype.hasOwnProperty.call(movementSel ?? {}, pieceId)
       ? (movementSel![pieceId] ?? [])
       : Array.from({ length: total }, (_, i) => i);
-    const nextSet = new Set(current);
-    if (nextSet.has(index)) nextSet.delete(index);
-    else nextSet.add(index);
-    setPieceMovements(pieceId, [...nextSet], total);
+  }
+
+  function toggleMovement(pieceId: string, index: number, total: number) {
+    // Unchecking keeps everyone else's place; checking adds it at the end.
+    const current = currentMovements(pieceId, total);
+    setPieceMovements(
+      pieceId,
+      current.includes(index) ? current.filter(i => i !== index) : [...current, index],
+      total,
+    );
+  }
+
+  /** Move the movement at playing position `pos` one place earlier/later. */
+  function moveMovement(pieceId: string, pos: number, dir: -1 | 1, total: number) {
+    const next = [...currentMovements(pieceId, total)];
+    const j = pos + dir;
+    if (j < 0 || j >= next.length) return;
+    [next[pos], next[j]] = [next[j], next[pos]];
+    setPieceMovements(pieceId, next, total);
   }
 
   function toggleAllMovements(pieceId: string, total: number, currentlyAll: boolean) {
@@ -205,18 +224,19 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
           {selected.map((p, i) => {
             const movements = p.movements ?? [];
             const hasMovements = movementsEnabled && movements.length > 0;
-            const hasExplicit = Object.prototype.hasOwnProperty.call(movementSel ?? {}, p.id);
-            const sel = movementSel?.[p.id];
-            const isAll = !hasExplicit;
-            const isNone = hasExplicit && (sel?.length ?? 0) === 0;
-            const isSubset = hasExplicit && !!sel && sel.length > 0 && sel.length < movements.length;
-            const chosenCount = isAll ? movements.length : (sel?.length ?? 0);
+            const playing = currentMovements(p.id, movements.length)
+              .filter(i => i >= 0 && i < movements.length);
+            const isAll = playing.length >= movements.length;
+            const isNone = playing.length === 0;
+            const isSubset = !isNone && !isAll;
+            const reordered = playing.some((v, k) => k > 0 && v < playing[k - 1]);
+            const chosenCount = playing.length;
             const open = openMovements === p.id;
-            const mvtLabel = isNone
+            const mvtLabel = (isNone
               ? `0 of ${movements.length} movements`
               : isSubset
                 ? `${chosenCount} of ${movements.length} movements`
-                : `All ${movements.length} movements`;
+                : `All ${movements.length} movements`) + (reordered ? ' · reordered' : '');
             return (
               <div key={p.id} data-sel-row className={`dir-piece-sel-item${drag && drag.to === i ? ' dragging' : ''}`}>
                 <div className="dir-piece-sel-row">
@@ -244,7 +264,7 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
                     {hasMovements && (
                       <button
                         type="button"
-                        className={`dir-piece-mvt-toggle${isSubset || isNone ? ' subset' : ''}`}
+                        className={`dir-piece-mvt-toggle${isSubset || isNone || reordered ? ' subset' : ''}`}
                         onClick={() => setOpenMovements(open ? null : p.id)}
                         aria-expanded={open}
                       >
@@ -282,7 +302,7 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
                       </div>
                     )}
                     {movements.map((m, mi) => {
-                      const checked = isAll ? true : !!sel?.includes(mi);
+                      const checked = playing.includes(mi);
                       return (
                         <label key={mi} className="dir-piece-mvt-row">
                           <input
@@ -295,6 +315,40 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
                         </label>
                       );
                     })}
+                    {playing.length > 1 && (
+                      <div className="dir-piece-mvt-order">
+                        <div className="dir-piece-mvt-hint">
+                          Playing order{reordered ? '' : ' (score order)'} — use the arrows to change it.
+                        </div>
+                        <ol>
+                          {playing.map((mi, pos) => (
+                            <li key={mi} className="dir-piece-mvt-order-row">
+                              <span className="dir-piece-mvt-name">
+                                {mi + 1}. {movements[mi].title || `Movement ${mi + 1}`}
+                              </span>
+                              <button
+                                type="button"
+                                className="dir-piece-mvt-move"
+                                disabled={pos === 0}
+                                onClick={() => moveMovement(p.id, pos, -1, movements.length)}
+                                aria-label={`Play ${movements[mi].title || `movement ${mi + 1}`} earlier`}
+                              >
+                                <ChevronUp size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className="dir-piece-mvt-move"
+                                disabled={pos === playing.length - 1}
+                                onClick={() => moveMovement(p.id, pos, 1, movements.length)}
+                                aria-label={`Play ${movements[mi].title || `movement ${mi + 1}`} later`}
+                              >
+                                <ChevronDown size={14} />
+                              </button>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

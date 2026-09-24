@@ -370,10 +370,12 @@ export function pieceDuration(piece: Pick<RepertoirePiece, 'duration' | 'movemen
 }
 
 /**
- * The movements of `piece` actually performed on `event`, in the piece's own
- * order. Absent `pieceMovements[piece.id]` = the whole work; an explicit `[]`
- * = none (director cleared "All movements"); otherwise the named indices.
- * A stored index that no longer exists (a movement was deleted) is skipped.
+ * The movements of `piece` actually performed on `event`, in PERFORMANCE
+ * order — the stored list's own order, which the director can rearrange
+ * (III before I on a concert). Absent `pieceMovements[piece.id]` = the whole
+ * work in score order; an explicit `[]` = none (director cleared "All
+ * movements"); otherwise the named indices, in the order named. A stored
+ * index that no longer exists (a movement was deleted) is skipped.
  */
 export function eventPieceMovements(
   event: Pick<CalendarEvent, 'pieceMovements'>,
@@ -382,9 +384,8 @@ export function eventPieceMovements(
   const all = piece.movements ?? [];
   if (!Object.prototype.hasOwnProperty.call(event.pieceMovements ?? {}, piece.id)) return all;
   const sel = event.pieceMovements![piece.id] ?? [];
-  return [...sel]
+  return [...new Set(sel)]
     .filter(i => i >= 0 && i < all.length)
-    .sort((a, b) => a - b)
     .map(i => all[i]);
 }
 
@@ -397,8 +398,8 @@ export function eventRestrictsMovements(
   if (all.length === 0) return false;
   if (!Object.prototype.hasOwnProperty.call(event.pieceMovements ?? {}, piece.id)) return false;
   const sel = event.pieceMovements![piece.id] ?? [];
-  const valid = sel.filter(i => i >= 0 && i < all.length);
-  return valid.length < all.length;
+  const valid = new Set(sel.filter(i => i >= 0 && i < all.length));
+  return valid.size < all.length;
 }
 
 /**

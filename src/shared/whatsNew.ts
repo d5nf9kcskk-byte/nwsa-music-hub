@@ -32,6 +32,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Movement order on an event (#pieceMovements): stored list order is the
+  // playing order.
+  {
+    id: '2026-09-24-movement-order',
+    date: '2026-09-24',
+    title: 'Play movements in any order',
+    audience: 'staff' as const,
+    expires: '2026-10-25',
+    bullets: [
+      'On a rehearsal or concert, open a piece’s movements and use the arrows under “Playing order” to put them in the order you’ll play or rehearse them — e.g. Carmen III, then I.',
+      'The program, the event page and students’ schedules list the movements in that order.',
+    ],
+  },
   // A student's repertoire is only what they play (#student-repertoire).
   {
     id: '2026-09-24-my-repertoire-only',
