@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from 'react';
 import { Search, Plus, Check, ChevronUp, ChevronDown, X, ListMusic, GripVertical } from 'lucide-react';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { pieceEnsembleIds } from '../utils';
+import { MovementOrder, OrderNumber } from './MovementOrder';
 import type { Ensemble } from '../types';
 
 interface Props {
@@ -125,14 +126,6 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
     );
   }
 
-  /** Move the movement at playing position `pos` one place earlier/later. */
-  function moveMovement(pieceId: string, pos: number, dir: -1 | 1, total: number) {
-    const next = [...currentMovements(pieceId, total)];
-    const j = pos + dir;
-    if (j < 0 || j >= next.length) return;
-    [next[pos], next[j]] = [next[j], next[pos]];
-    setPieceMovements(pieceId, next, total);
-  }
 
   function toggleAllMovements(pieceId: string, total: number, currentlyAll: boolean) {
     // Checked "All" → clear every box so the director can pick a few.
@@ -149,6 +142,14 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
     if (j < 0 || j >= value.length) return;
     const next = [...value];
     [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  }
+
+  /** Move the piece at program place `from` to place `to` (typed number). */
+  function moveTo(from: number, to: number) {
+    const next = [...value];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
     onChange(next);
   }
 
@@ -219,7 +220,7 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
           <div className="dir-piece-selected-head">
             {selected.length > 1 ? 'Program order' : 'Selected'}
             <span className="dir-piece-selected-count">{selected.length}</span>
-            {selected.length > 1 && <span className="dir-piece-selected-hint">drag ≡ to reorder</span>}
+            {selected.length > 1 && <span className="dir-piece-selected-hint">drag ≡ or type a number</span>}
           </div>
           {selected.map((p, i) => {
             const movements = p.movements ?? [];
@@ -257,7 +258,9 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
                       <GripVertical size={16} />
                     </button>
                   )}
-                  <span className="dir-piece-sel-num">{i + 1}</span>
+                  {selected.length > 1
+                    ? <OrderNumber pos={i} count={selected.length} label={p.title} onMove={to => moveTo(i, to)} />
+                    : <span className="dir-piece-sel-num">1</span>}
                   <span className="dir-piece-sel-info">
                     <span className="dir-piece-title">{p.title}</span>
                     {p.composer && <span className="dir-piece-composer">{p.composer}</span>}
@@ -318,35 +321,13 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
                     {playing.length > 1 && (
                       <div className="dir-piece-mvt-order">
                         <div className="dir-piece-mvt-hint">
-                          Playing order{reordered ? '' : ' (score order)'} — use the arrows to change it.
+                          Playing order{reordered ? '' : ' (score order)'} — drag ≡ or type a number.
                         </div>
-                        <ol>
-                          {playing.map((mi, pos) => (
-                            <li key={mi} className="dir-piece-mvt-order-row">
-                              <span className="dir-piece-mvt-name">
-                                {mi + 1}. {movements[mi].title || `Movement ${mi + 1}`}
-                              </span>
-                              <button
-                                type="button"
-                                className="dir-piece-mvt-move"
-                                disabled={pos === 0}
-                                onClick={() => moveMovement(p.id, pos, -1, movements.length)}
-                                aria-label={`Play ${movements[mi].title || `movement ${mi + 1}`} earlier`}
-                              >
-                                <ChevronUp size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                className="dir-piece-mvt-move"
-                                disabled={pos === playing.length - 1}
-                                onClick={() => moveMovement(p.id, pos, 1, movements.length)}
-                                aria-label={`Play ${movements[mi].title || `movement ${mi + 1}`} later`}
-                              >
-                                <ChevronDown size={14} />
-                              </button>
-                            </li>
-                          ))}
-                        </ol>
+                        <MovementOrder
+                          order={playing}
+                          titles={movements.map((m, mi) => `${mi + 1}. ${m.title || `Movement ${mi + 1}`}`)}
+                          onChange={next => setPieceMovements(p.id, next, movements.length)}
+                        />
                       </div>
                     )}
                   </div>

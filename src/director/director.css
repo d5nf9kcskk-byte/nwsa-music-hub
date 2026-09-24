@@ -2066,16 +2066,23 @@ button.dir-roster-group-link:hover .dir-group-open-hint { opacity: 1; }
 .dir-piece-mvt-name { flex: 1; min-width: 0; }
 .dir-piece-mvt-dur { font-size: 11px; color: var(--dir-text-muted); flex-shrink: 0; }
 .dir-piece-mvt-order { margin-top: 8px; padding-top: 6px; border-top: 1px solid #e0c4e4; }
-.dir-piece-mvt-order ol { margin: 4px 0 0; padding-left: 20px; }
-.dir-piece-mvt-order-row { font-size: 13px; color: var(--dir-text); padding: 2px 0; }
-.dir-piece-mvt-order-row > * { vertical-align: middle; }
-.dir-piece-mvt-order-row .dir-piece-mvt-name { display: inline-block; width: calc(100% - 84px); }
-.dir-piece-mvt-move {
-  width: 36px; height: 32px; border: 1px solid #e0c4e4; border-radius: 6px;
-  background: transparent; color: var(--dir-text); cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center; margin-left: 4px;
+.dir-mvt-order { list-style: none; margin: 4px 0 0; padding: 0; }
+.dir-mvt-order-row {
+  display: flex; align-items: center; gap: 6px; padding: 2px 0;
+  font-size: 13px; color: var(--dir-text); border-radius: 8px;
 }
-.dir-piece-mvt-move:disabled { opacity: 0.35; cursor: default; }
+.dir-mvt-order-row.dragging {
+  position: relative; z-index: 2; background: var(--dir-surface);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+/* A place number you can type over (#movement-order): program pieces and
+   movements both. Looks like the old number badge until focused. */
+.dir-order-num {
+  flex-shrink: 0; width: 30px; height: 26px; padding: 0; border-radius: 13px;
+  border: 1px solid var(--dir-blue); background: var(--dir-blue); color: #fff;
+  font-size: 12px; font-weight: 800; text-align: center;
+}
+.dir-order-num:focus { background: var(--dir-surface); color: var(--dir-text); outline: 2px solid var(--dir-blue); }
 
 /* ── Header icon buttons (announce + site link) ── */
 
