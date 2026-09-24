@@ -325,7 +325,7 @@ export function PiecePicker({ ensembleIds, ensembles, value, onChange, movementS
                         </div>
                         <MovementOrder
                           order={playing}
-                          titles={movements.map((m, mi) => `${mi + 1}. ${m.title || `Movement ${mi + 1}`}`)}
+                          titles={movements.map(m => m.title ?? '')}
                           onChange={next => setPieceMovements(p.id, next, movements.length)}
                         />
                       </div>
