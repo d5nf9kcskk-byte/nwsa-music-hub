@@ -76,7 +76,11 @@ export function ConcertExcusalForm({ student, students, events, eventsById, ense
         <b>{student.name}</b> is excused from:
       </div>
       {concerts.length === 0 ? (
-        <div className="dir-empty-inline">No upcoming concerts for {student.name}.</div>
+        <div className="dir-empty-inline">
+          {mine.length
+            ? `No upcoming concerts left to excuse ${student.name} from — the ones already excused are listed below.`
+            : `${student.name} isn’t on stage for any upcoming concert.`}
+        </div>
       ) : concerts.map(({ event }) => (
         <label key={event.id} className="dir-checkbox-row">
           <input
