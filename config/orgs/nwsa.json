@@ -136,14 +136,16 @@
     "header": [
       { "id": "navy", "color": "#1f3a5f", "label": { "en": "Navy", "es": "Azul marino" } },
       { "id": "plum", "color": "#6b2d68", "label": { "en": "Plum", "es": "Ciruela" } },
-      { "id": "charcoal", "color": "#2b3038", "label": { "en": "Charcoal", "es": "Carbón" } }
+      { "id": "charcoal", "color": "#2b3038", "label": { "en": "Charcoal", "es": "Carbón" } },
+      { "id": "neon", "color": "#0b0d12", "neon": "#3cf2ff", "label": { "en": "Neon", "es": "Neón" } }
     ],
     "sidebar": [
       { "id": "cream", "color": "#f6f0e1", "label": { "en": "Cream", "es": "Crema" } },
       { "id": "teal", "color": "#0a6675", "label": { "en": "Teal", "es": "Verde azulado" } },
       { "id": "navy", "color": "#1f3a5f", "label": { "en": "Navy", "es": "Azul marino" } },
       { "id": "plum", "color": "#6b2d68", "label": { "en": "Plum", "es": "Ciruela" } },
-      { "id": "charcoal", "color": "#2b3038", "label": { "en": "Charcoal", "es": "Carbón" } }
+      { "id": "charcoal", "color": "#2b3038", "label": { "en": "Charcoal", "es": "Carbón" } },
+      { "id": "neon", "color": "#0b0d12", "neon": "#3cf2ff", "label": { "en": "Neon", "es": "Neón" } }
     ],
     "background": [
       { "id": "warm", "light": "#fef8ea", "dark": "#17130c", "label": { "en": "Warm", "es": "Cálido" } },

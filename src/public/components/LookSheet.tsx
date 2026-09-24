@@ -1,5 +1,6 @@
 import { Check, Palette, X } from 'lucide-react';
 import { ORG } from '../../org';
+import type { LookSwatch } from '../../org/types';
 import { t, useLang } from '../../shared/i18n';
 import { backdropClose } from '../../shared/backdropClose';
 import { useModalA11y } from '../../shared/useModalA11y';
@@ -24,13 +25,14 @@ export function LookSheet({ onClose }: { onClose: () => void }) {
   const dark = resolvedPubTheme(choice) === 'dark';
   const tick = <span className="pub-look-check"><Check size={13} strokeWidth={3} /></span>;
 
-  const swatch = (key: 'header' | 'side', id: string | undefined, label: string, color?: string) => {
+  const swatch = (key: 'header' | 'side', id: string | undefined, label: string, s?: LookSwatch) => {
     const on = look[key] === id;
     return (
       <button
         key={id ?? 'default'}
-        className={`pub-look-swatch ${color ? '' : `${key}-default`}`}
-        style={color ? { background: color } : undefined}
+        className={`pub-look-swatch ${s ? '' : `${key}-default`}`}
+        // a neon swatch shows its glow as a lit ring around the dark disc
+        style={s ? { background: s.color, boxShadow: s.neon && `inset 0 0 0 3px ${s.neon}, 0 0 10px ${s.neon}` } : undefined}
         aria-pressed={on}
         aria-label={label}
         title={label}
@@ -68,7 +70,7 @@ export function LookSheet({ onClose }: { onClose: () => void }) {
           <div className="pub-look-row-title">{t('look.header')}</div>
           <div className="pub-look-options">
             {swatch('header', undefined, def)}
-            {p.header.map(s => swatch('header', s.id, s.label[lang], s.color))}
+            {p.header.map(s => swatch('header', s.id, s.label[lang], s))}
           </div>
         </div>
 
@@ -76,7 +78,7 @@ export function LookSheet({ onClose }: { onClose: () => void }) {
           <div className="pub-look-row-title">{t('look.side')}</div>
           <div className="pub-look-options">
             {swatch('side', undefined, def)}
-            {p.sidebar.map(s => swatch('side', s.id, s.label[lang], s.color))}
+            {p.sidebar.map(s => swatch('side', s.id, s.label[lang], s))}
           </div>
         </div>
 

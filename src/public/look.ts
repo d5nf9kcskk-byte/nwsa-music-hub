@@ -11,13 +11,14 @@
  *
  * Readability is enforced by construction, and pinned by look.selfcheck.ts:
  * menu text takes whichever of white or ink contrasts more with the chosen
- * color (inkOn), header colors must all carry white text, and a background
+ * color (inkOn) unless the swatch is neon, header colors must all carry white
+ * (or their neon) text, and a background
  * tint may never read worse than the stock page background.
  *
  * No ORG import on purpose: the self-check runs this under plain Node.
  */
 import { useSyncExternalStore } from 'react';
-import type { OrgConfig } from '../org/types';
+import type { LookSwatch, OrgConfig } from '../org/types';
 
 export type LookPalette = NonNullable<OrgConfig['personalize']>;
 
@@ -52,6 +53,17 @@ export function inkOn(bg: string): string {
   return contrast(LIGHT_INK, bg) >= contrast(DARK_INK, bg) ? LIGHT_INK : DARK_INK;
 }
 
+/** What words and icons on a swatch are drawn in: its neon, else inkOn. */
+export function inkFor(s: LookSwatch): string {
+  return s.neon ?? inkOn(s.color);
+}
+
+// '#3cf2ff' → '60 242 255', so look.css can derive translucent shades.
+function channels(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `${n >> 16} ${(n >> 8) & 255} ${n & 255}`;
+}
+
 /** Keep only ids the palette actually offers; anything else is Default. */
 export function parseLook(raw: string | null, p: LookPalette): Look {
   let v: unknown;
@@ -74,20 +86,21 @@ export function applyLook(look: Look, p: LookPalette): void {
   const tint = p.background.find(s => s.id === look.bg);
   const pattern = PATTERNS.find(x => x === look.bg);
 
+  // 'glow' = a neon swatch: look.css adds the glow to its words and icons.
+  const kind = (s: LookSwatch | undefined) => s && (s.neon ? 'glow' : 'on');
   const attrs: Record<string, string | undefined> = {
-    'data-pub-look-header': header && 'on',
-    'data-pub-look-side': side && 'on',
+    'data-pub-look-header': kind(header),
+    'data-pub-look-side': kind(side),
     'data-pub-look-bg': tint ? 'tint' : pattern,
   };
   for (const [k, v] of Object.entries(attrs)) {
     if (v) root.setAttribute(k, v); else root.removeAttribute(k);
   }
-  const ink = side && parseInt(inkOn(side.color).slice(1), 16);
   const vars: Record<string, string | undefined> = {
     '--look-header': header?.color,
+    '--look-header-ink': header?.neon && channels(header.neon),
     '--look-side': side?.color,
-    // space-separated channels so look.css can derive translucent shades
-    '--look-side-ink': ink === undefined ? undefined : `${ink >> 16} ${(ink >> 8) & 255} ${ink & 255}`,
+    '--look-side-ink': side && channels(inkFor(side)),
     '--look-bg-light': tint?.light,
     '--look-bg-dark': tint?.dark,
   };

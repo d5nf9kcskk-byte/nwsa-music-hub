@@ -37,8 +37,12 @@ export interface OrgGrading {
   reports: ReportLayout[];
 }
 
-/** One color on the "Colors & background" sheet (#look). `color` is #rrggbb. */
-export interface LookSwatch { id: string; color: string; label: { en: string; es: string } }
+/**
+ * One color on the "Colors & background" sheet (#look). `color` is #rrggbb.
+ * `neon`, when set, replaces the automatic white/ink: every word AND icon on
+ * that surface takes this color and glows.
+ */
+export interface LookSwatch { id: string; color: string; neon?: string; label: { en: string; es: string } }
 /** A page-background tint: one #rrggbb per theme. */
 export interface LookTint { id: string; light: string; dark: string; label: { en: string; es: string } }
 

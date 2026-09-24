@@ -41,6 +41,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     expires: '2026-10-08',
     bullets: [
       'Tap the sun/moon button at the top, then “Colors & background…”, to choose a color for the top bar and the menu, and a background for the page.',
+      'Try Neon: the words and icons glow.',
       'Every choice stays easy to read, and it’s saved on this device only. “Reset to default” puts everything back.',
     ],
   }] : []),

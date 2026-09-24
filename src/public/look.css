@@ -4,10 +4,30 @@
    they change. Nothing here applies until a student picks something.
 ═══════════════════════════════════════════════════════════════ */
 
-/* ── Top bar: always white text, so the palette offers dark colors only. */
+/* ── Top bar: white text (or a neon, below), so the palette offers dark colors only. */
 html[data-pub-look-header] .pub-header {
   background: linear-gradient(110deg, transparent 0%, rgb(0 0 0 / 0.22) 100%), var(--look-header);
 }
+
+/* ── Neon top bar: every word and icon on it — the name, search, EN|ES, Aa,
+   the sun/moon and ☰ — drawn in the neon and glowing. Those controls
+   hardcode white (their own stylesheets), so each is named here. A control
+   that is "on" (the active language, a non-default Aa) flips to a solid
+   neon pill with the bar's own dark color as its text. */
+html[data-pub-look-header='glow'] .pub-header :is(.pub-brand, .pub-hamburger, .pub-textsize, .pub-lang-btn, .pub-header-search) {
+  color: rgb(var(--look-header-ink));
+  text-shadow: 0 0 6px rgb(var(--look-header-ink) / 0.6);
+}
+html[data-pub-look-header='glow'] .pub-header :is(.pub-hamburger, .pub-textsize, .pub-lang-toggle, .pub-header-search) {
+  border-color: rgb(var(--look-header-ink) / 0.5);
+  background: rgb(var(--look-header-ink) / 0.08);
+}
+html[data-pub-look-header='glow'] .pub-header :is(.pub-textsize.adjusted, .pub-lang-btn.active) {
+  background: rgb(var(--look-header-ink));
+  color: var(--look-header);
+  text-shadow: none;
+}
+html[data-pub-look-header='glow'] .pub-header svg { filter: drop-shadow(0 0 3px rgb(var(--look-header-ink) / 0.7)); }
 
 /* ── Menu: the desktop rail AND the phone drawer — one choice, every width
    (#one-nav). Every token the menu reads is re-derived from the ink that
@@ -27,6 +47,10 @@ html[data-pub-look-side] :is(.pub-sidebar, .pub-menu-panel) {
   --pub-border: rgb(var(--look-side-ink) / 0.16);
   --pub-surface: var(--look-side);
 }
+/* A neon menu: the tokens above already draw every word and icon in the
+   neon (icons are stroked in currentColor); this adds the glow. */
+html[data-pub-look-side='glow'] :is(.pub-sidebar, .pub-menu-panel) { text-shadow: 0 0 6px rgb(var(--look-side-ink) / 0.55); }
+html[data-pub-look-side='glow'] :is(.pub-sidebar, .pub-menu-panel) svg { filter: drop-shadow(0 0 3px rgb(var(--look-side-ink) / 0.7)); }
 /* The rail is only as tall as its links; a colored one must reach the bottom
    of the window or it reads as a box floating in the page (pubShell.css). */
 html[data-pub-look-side] .pub-sidebar { min-height: calc(100dvh - 59px); }
@@ -70,10 +94,11 @@ html[data-pub-look-bg='dots'] .pub-app,
   margin-bottom: 8px; font-size: 12px; font-weight: 800;
   text-transform: uppercase; letter-spacing: 0.05em; color: var(--pub-muted);
 }
-.pub-look-options { display: flex; flex-wrap: wrap; gap: 10px; }
+/* Seven 42px swatches + gaps = 336px: one row inside a 375px phone's sheet. */
+.pub-look-options { display: flex; flex-wrap: wrap; gap: 7px; }
 
 .pub-look-swatch {
-  position: relative; width: 44px; height: 44px; padding: 0;
+  position: relative; width: 42px; height: 42px; padding: 0;
   border: 1px solid var(--pub-border); border-radius: 50%;
   display: grid; place-items: center; cursor: pointer;
   -webkit-tap-highlight-color: transparent;

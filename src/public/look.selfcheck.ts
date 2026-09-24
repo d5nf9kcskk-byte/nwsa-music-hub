@@ -7,7 +7,7 @@
  */
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { contrast, DARK_INK, inkOn, LIGHT_INK, parseLook, PATTERNS, type LookPalette } from './look';
+import { contrast, DARK_INK, inkFor, inkOn, LIGHT_INK, parseLook, PATTERNS, type LookPalette } from './look';
 
 const read = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8');
 const css = read('./look.css');
@@ -38,18 +38,24 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
   }
   for (const s of p.background) assert.ok(!PATTERNS.some(x => x === s.id), at(`tint ${s.id} collides with a pattern id`));
 
-  // 1. The header's wordmark and controls are white — every header color must carry white text.
+  for (const s of [...p.header, ...p.sidebar]) if (s.neon !== undefined) assert.match(s.neon, HEX, at(`${s.id} neon`));
+
+  // 1. The header's wordmark and controls are white (or the swatch's neon) —
+  //    every header color must be dark enough to carry them, and a neon must
+  //    read on it both ways round (neon words on the bar, bar-colored words
+  //    on a solid neon pill: the same pair).
   for (const s of p.header) {
     assert.match(s.color, HEX, at(`header ${s.id}`));
     assert.equal(inkOn(s.color), LIGHT_INK, at(`header ${s.id} is too light for the white header text`));
-    assert.ok(contrast(LIGHT_INK, s.color) >= AA, at(`header ${s.id}`));
+    assert.ok(contrast(inkFor(s), s.color) >= AA, at(`header ${s.id}`));
   }
 
-  // 2. The menu flips its text to whichever ink reads, and every shade look.css
-  //    derives from that ink still passes AA: plain, muted, and the active row.
+  // 2. The menu flips its text to whichever ink reads (or its neon), and every
+  //    shade look.css derives from that ink still passes AA: plain, muted,
+  //    and the active row.
   for (const s of p.sidebar) {
     assert.match(s.color, HEX, at(`menu ${s.id}`));
-    const ink = inkOn(s.color);
+    const ink = inkFor(s);
     assert.ok(contrast(ink, s.color) >= AA, at(`menu ${s.id} text`));
     assert.ok(contrast(over(ink, alpha('--pub-muted'), s.color), s.color) >= AA, at(`menu ${s.id} muted text`));
     assert.ok(contrast(ink, over(ink, alpha('--pub-accent-soft'), s.color)) >= AA, at(`menu ${s.id} active row`));
@@ -82,6 +88,7 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
   checked++;
 }
 
+assert.equal(inkFor({ id: 'x', color: '#000000', neon: '#3cf2ff', label: { en: 'x', es: 'x' } }), '#3cf2ff');
 assert.equal(inkOn('#ffffff'), DARK_INK);
 assert.equal(inkOn('#000000'), LIGHT_INK);
 assert.ok(checked > 0, 'no org has a palette — nothing was checked');
