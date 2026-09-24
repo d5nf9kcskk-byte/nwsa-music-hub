@@ -1,25 +1,38 @@
-import { Check, Palette, X } from 'lucide-react';
+import { useRef, useState, type ChangeEvent, type CSSProperties } from 'react';
+import { Check, ImagePlus, Palette, X } from 'lucide-react';
 import { ORG } from '../../org';
 import type { LookSwatch } from '../../org/types';
 import { t, useLang } from '../../shared/i18n';
 import { backdropClose } from '../../shared/backdropClose';
 import { useModalA11y } from '../../shared/useModalA11y';
-import { PATTERNS, setLook, useLook, type Look } from '../look';
+import { choosePhoto, lookPhoto, PATTERNS, PHOTO, resetLook, setLook, useLook, type Look } from '../look';
 import { resolvedPubTheme, usePubTheme } from '../theme';
 import './subscribeButton.css'; // the shared bottom-sheet shell (.pub-subw-*)
 
 /**
  * "Colors & background" sheet (#look). Every tap applies and saves at once —
  * the barely-dimmed backdrop is so the page behind it IS the preview — and
- * Reset to default clears all three. Opened from the Appearance menu.
+ * Reset to default clears all three, the student's own photo included.
+ * Opened from the Appearance menu.
  */
 export function LookSheet({ onClose }: { onClose: () => void }) {
   const lang = useLang();
   const choice = usePubTheme();
   const look = useLook();
   const ref = useModalA11y<HTMLDivElement>(onClose);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [photoNote, setPhotoNote] = useState<string | null>(null);
   const p = ORG.personalize;
   if (!p) return null;
+
+  const photo = lookPhoto();
+  async function onFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // so choosing the same picture again still fires
+    if (!file) return;
+    const r = await choosePhoto(file);
+    setPhotoNote(r === 'ok' ? null : t(r === 'bad' ? 'look.photo.bad' : 'look.photo.unsaved'));
+  }
 
   const pick = (patch: Look) => setLook({ ...look, ...patch });
   const dark = resolvedPubTheme(choice) === 'dark';
@@ -43,11 +56,11 @@ export function LookSheet({ onClose }: { onClose: () => void }) {
     );
   };
 
-  const thumb = (id: string | undefined, label: string, extra?: { className?: string; color?: string }) => {
+  const thumb = (id: string | undefined, label: string, extra?: { className?: string; style?: CSSProperties }) => {
     const on = look.bg === id;
     return (
       <button key={id ?? 'default'} className="pub-look-thumb-btn" aria-pressed={on} onClick={() => pick({ bg: id })}>
-        <span className={`pub-look-thumb ${extra?.className ?? ''}`} style={extra?.color ? { backgroundColor: extra.color } : undefined}>
+        <span className={`pub-look-thumb ${extra?.className ?? ''}`} style={extra?.style}>
           {on && tick}
         </span>
         {label}
@@ -68,7 +81,7 @@ export function LookSheet({ onClose }: { onClose: () => void }) {
 
         <div className="pub-look-row" role="group" aria-label={t('look.header')}>
           <div className="pub-look-row-title">{t('look.header')}</div>
-          <div className="pub-look-options">
+          <div className="pub-look-options swatches">
             {swatch('header', undefined, def)}
             {p.header.map(s => swatch('header', s.id, s.label[lang], s))}
           </div>
@@ -76,7 +89,7 @@ export function LookSheet({ onClose }: { onClose: () => void }) {
 
         <div className="pub-look-row" role="group" aria-label={t('look.side')}>
           <div className="pub-look-row-title">{t('look.side')}</div>
-          <div className="pub-look-options">
+          <div className="pub-look-options swatches">
             {swatch('side', undefined, def)}
             {p.sidebar.map(s => swatch('side', s.id, s.label[lang], s))}
           </div>
@@ -86,13 +99,25 @@ export function LookSheet({ onClose }: { onClose: () => void }) {
           <div className="pub-look-row-title">{t('look.bg')}</div>
           <div className="pub-look-options">
             {thumb(undefined, def)}
-            {p.background.map(s => thumb(s.id, s.label[lang], { color: dark ? s.dark : s.light }))}
+            {p.background.map(s => thumb(s.id, s.label[lang], { style: { backgroundColor: dark ? s.dark : s.light } }))}
             {PATTERNS.map(id => thumb(id, t(`look.pattern.${id}`), { className: id }))}
+          </div>
+          <div className="pub-look-photo">
+            {photo && thumb(PHOTO, t('look.photo'), { className: 'photo', style: { '--look-photo': `url("${photo}")` } as CSSProperties })}
+            <div>
+              <button className="pub-look-photo-pick" onClick={() => fileRef.current?.click()}>
+                <ImagePlus size={16} /> {t(photo ? 'look.photo.change' : 'look.photo.add')}
+              </button>
+              <div className={`pub-look-photo-note ${photoNote ? 'warn' : ''}`} role={photoNote ? 'alert' : undefined}>
+                {photoNote ?? t('look.photo.private')}
+              </div>
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
           </div>
         </div>
 
         <div className="pub-look-actions">
-          <button className="pub-look-reset" disabled={!Object.keys(look).length} onClick={() => setLook({})}>
+          <button className="pub-look-reset" disabled={!Object.keys(look).length && !photo} onClick={() => { resetLook(); setPhotoNote(null); }}>
             {t('look.reset')}
           </button>
           <button className="pub-look-done" onClick={onClose}>{t('look.done')}</button>

@@ -7,7 +7,7 @@
  */
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { contrast, DARK_INK, inkFor, inkOn, LIGHT_INK, parseLook, PATTERNS, type LookPalette } from './look';
+import { contrast, DARK_INK, inkFor, inkOn, LIGHT_INK, parseLook, PATTERNS, PHOTO, type LookPalette } from './look';
 
 const read = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8');
 const css = read('./look.css');
@@ -25,6 +25,28 @@ function over(fg: string, a: number, bg: string): string {
 const HEX = /^#[0-9a-f]{6}$/i;
 const AA = 4.5;
 let checked = 0;
+const stock = {
+  light: { bg: token(light, '--pub-bg'), ink: token(light, '--pub-ink'), muted: token(light, '--pub-muted') },
+  dark: { bg: token(dark, '--pub-bg'), ink: token(dark, '--pub-ink'), muted: token(dark, '--pub-muted') },
+};
+
+// 0. A personal photo can be anything, so judge the worst one there could
+//    be: pure black under the light page, pure white under the dark one. The
+//    veil (the page color at --look-veil's strength) must still leave the
+//    page's ink AND its gray captions — darkened while a photo is on — at AA.
+{
+  const veil = Number(css.match(/--look-veil: color-mix\(in srgb, var\(--pub-bg\) ([\d.]+)%, transparent\)/)![1]) / 100;
+  const photoMuted = css.match(/html\[data-pub-look-bg='photo'\]:not\(\[data-pub-theme='dark'\]\):has\(\.pub-app\) \{ --pub-muted: (#[0-9a-f]{6}); \}/i)![1];
+  const worst = { light: over(stock.light.bg, veil, '#000000'), dark: over(stock.dark.bg, veil, '#ffffff') };
+  for (const [mode, muted] of [['light', photoMuted], ['dark', stock.dark.muted]] as const) {
+    for (const text of [stock[mode].ink, muted]) {
+      assert.ok(contrast(text, worst[mode]) >= AA,
+        `photo (${mode}): ${text} over the worst photo (${worst[mode]}) is ${contrast(text, worst[mode]).toFixed(2)}`);
+    }
+  }
+  assert.ok(contrast(photoMuted, '#ffffff') >= AA, 'the photo-mode gray must still read inside a white card');
+  assert.ok(veil >= 0.85, 'a photo under a thinner veil than 85% distracts from the page');
+}
 
 for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) {
   const p: LookPalette | undefined = JSON.parse(read(`../../config/orgs/${file}`)).personalize;
@@ -63,10 +85,6 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
 
   // 3. A tint may never make text on the page read worse than the stock
   //    background does, in either theme.
-  const stock = {
-    light: { bg: token(light, '--pub-bg'), ink: token(light, '--pub-ink'), muted: token(light, '--pub-muted') },
-    dark: { bg: token(dark, '--pub-bg'), ink: token(dark, '--pub-ink'), muted: token(dark, '--pub-muted') },
-  };
   for (const s of p.background) {
     for (const mode of ['light', 'dark'] as const) {
       const bg = s[mode], k = stock[mode];
@@ -82,6 +100,7 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
   const h = p.header[0].id, m = p.sidebar[0].id, b = p.background[0].id;
   assert.deepEqual(parseLook(JSON.stringify({ header: h, side: m, bg: b }), p), { header: h, side: m, bg: b });
   assert.deepEqual(parseLook(JSON.stringify({ bg: PATTERNS[0] }), p), { bg: PATTERNS[0] });
+  assert.deepEqual(parseLook(JSON.stringify({ bg: PHOTO }), p), { bg: PHOTO });
   assert.deepEqual(parseLook(JSON.stringify({ header: 'retired', side: '#ff00ff', bg: 42 }), p), {}, 'unknown ids read as Default');
   assert.deepEqual(parseLook(JSON.stringify({ header: m }), p).header, p.header.some(s => s.id === m) ? m : undefined);
   for (const junk of [null, '', 'not json', '[1,2]', 'null', '"navy"']) assert.deepEqual(parseLook(junk, p), {}, `junk ${junk}`);

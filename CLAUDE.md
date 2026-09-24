@@ -1319,6 +1319,12 @@ everything it changes.
   takes whichever of white/ink reads (`inkOn`), and every shade `look.css`
   derives from it must pass AA. A page tint may never read worse than the
   stock background, in either theme. Cards keep their own surface.
+- **A student's own photo never leaves the device.** It is shrunk in a canvas
+  and kept in `localStorage` (`pub.look.photo`) — never Firestore, never
+  Storage, never an upload of any kind: many students are minors and this
+  site is public. It shows under a veil of the page color (92%), gray
+  captions darken while it is on, and the self-check pins both against the
+  darkest/brightest photo there could be. Reset deletes it.
 - **The menu color covers the rail AND the phone drawer** (#one-nav).
 - Public site only. The director panel has its own theme switch and is not
   touched; the tint rule is scoped to `:has(.pub-app)` for that reason.

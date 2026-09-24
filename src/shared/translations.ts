@@ -74,6 +74,12 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'look.default':        { en: 'Default',              es: 'Predeterminado' },
   'look.pattern.staff':  { en: 'Staff lines',          es: 'Pentagrama' },
   'look.pattern.dots':   { en: 'Dots',                 es: 'Puntos' },
+  'look.photo':          { en: 'Your photo',           es: 'Tu foto' },
+  'look.photo.add':      { en: 'Use your own photo…',  es: 'Usar tu propia foto…' },
+  'look.photo.change':   { en: 'Change photo…',        es: 'Cambiar foto…' },
+  'look.photo.private':  { en: 'Stays on this device — never uploaded. Shown faded.', es: 'Se queda en este dispositivo; nunca se sube. Se ve tenue.' },
+  'look.photo.bad':      { en: 'That file couldn’t be used — try another picture.', es: 'No se pudo usar ese archivo; prueba con otra foto.' },
+  'look.photo.unsaved':  { en: 'Showing now, but too big to keep on this device.', es: 'Se ve ahora, pero es demasiado grande para guardarla en este dispositivo.' },
   'look.reset':          { en: 'Reset to default',     es: 'Restablecer' },
   'look.done':           { en: 'Done',                 es: 'Listo' },
 

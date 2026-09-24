@@ -34,15 +34,16 @@ export interface WhatsNewEntry {
 export const WHATS_NEW: WhatsNewEntry[] = [
   // A student's own colors (#look). NWSA-only palette, so the entry is too.
   ...(ORG.personalize ? [{
-    id: '2026-09-24-colors-and-background',
+    id: '2026-09-24-colors-and-background-2',
     date: '2026-09-24',
-    title: 'Pick your own colors',
+    title: 'Pick your own colors — or your own photo',
     audience: 'public' as const,
     expires: '2026-10-08',
     bullets: [
       'Tap the sun/moon button at the top, then “Colors & background…”, to choose a color for the top bar and the menu, and a background for the page.',
-      'Try Neon: the words and icons glow.',
-      'Every choice stays easy to read, and it’s saved on this device only. “Reset to default” puts everything back.',
+      'Try Aqua neon or Pink neon: the words and icons glow.',
+      'Or use a photo of your own as the background. It’s shown faded so the page stays easy to read, and it never leaves your device.',
+      'Everything is saved on this device only. “Reset to default” puts it all back and deletes your photo.',
     ],
   }] : []),
   // Movement order on an event (#pieceMovements): stored list order is the

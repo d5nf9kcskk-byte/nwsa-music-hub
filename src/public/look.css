@@ -85,6 +85,34 @@ html[data-pub-look-bg='staff'] .pub-app,
 html[data-pub-look-bg='dots'] .pub-app,
 .pub-look-thumb.dots { background-image: var(--look-img-dots); background-size: 20px 20px; }
 
+/* ── A personal photo, under a veil of the page's own color so it shows at a
+   twelfth of its strength: a wash behind the page, never a picture competing
+   with it. The veil IS the page color, so it follows Light/Dark by itself.
+   Inside @supports so a browser that can't build the veil shows no photo at
+   all rather than an unveiled one. Gray captions sitting straight on the
+   page get darker while a photo is on — the veil and that gray are pinned by
+   look.selfcheck.ts against the darkest (and, in dark mode, brightest)
+   photo there could be. The photo itself never leaves the device (look.ts). */
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  :root {
+    --look-veil: color-mix(in srgb, var(--pub-bg) 92%, transparent);
+    /* the sheet's thumbnail is veiled less, so a student recognises it */
+    --look-thumb-veil: color-mix(in srgb, var(--pub-surface) 45%, transparent);
+  }
+  html[data-pub-look-bg='photo'] .pub-app {
+    background-image: linear-gradient(var(--look-veil), var(--look-veil)), var(--look-photo);
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed; /* desktop: the photo stays put while the page scrolls */
+  }
+  .pub-look-thumb.photo {
+    background-image: linear-gradient(var(--look-thumb-veil), var(--look-thumb-veil)), var(--look-photo);
+    background-size: cover;
+    background-position: center;
+  }
+  html[data-pub-look-bg='photo']:not([data-pub-theme='dark']):has(.pub-app) { --pub-muted: #525c6a; }
+}
+
 /* ── The sheet (opened from the Appearance menu). The backdrop is barely
    dimmed on purpose: every tap previews on the page behind it. */
 .pub-subw-overlay.pub-look-overlay { background: rgb(0 0 0 / 0.12); }
@@ -94,11 +122,13 @@ html[data-pub-look-bg='dots'] .pub-app,
   margin-bottom: 8px; font-size: 12px; font-weight: 800;
   text-transform: uppercase; letter-spacing: 0.05em; color: var(--pub-muted);
 }
-/* Seven 42px swatches + gaps = 336px: one row inside a 375px phone's sheet. */
 .pub-look-options { display: flex; flex-wrap: wrap; gap: 7px; }
+/* A color row never wraps one lonely swatch onto a second line: every column
+   is at most 42px and shrinks to fit (eight fit a 375px phone at ~37px). */
+.pub-look-options.swatches { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 42px); gap: 6px; }
 
 .pub-look-swatch {
-  position: relative; width: 42px; height: 42px; padding: 0;
+  position: relative; width: 100%; aspect-ratio: 1; padding: 0;
   border: 1px solid var(--pub-border); border-radius: 50%;
   display: grid; place-items: center; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -133,6 +163,15 @@ html[data-pub-look-bg='dots'] .pub-app,
   display: grid; place-items: center;
   background: rgb(0 0 0 / 0.55); color: #fff;
 }
+
+.pub-look-photo { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.pub-look-photo-pick {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 8px 14px;
+  border: 1.5px dashed var(--pub-border); border-radius: 12px; background: var(--pub-surface);
+  font-family: inherit; font-size: 14px; font-weight: 700; color: var(--pub-ink); cursor: pointer;
+}
+.pub-look-photo-note { margin-top: 4px; font-size: 12px; color: var(--pub-muted); }
+.pub-look-photo-note.warn { color: var(--pub-ink); font-weight: 700; }
 
 .pub-look-actions { display: flex; gap: 10px; margin-top: 4px; }
 .pub-look-actions button {
