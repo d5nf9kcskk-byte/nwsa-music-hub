@@ -476,6 +476,19 @@ and Simchat Torah), and for medical, family and other reasons.
 - `concertExcusal.selfcheck.ts` pins all four promises (and reads the rules
   file for the read clause) in the deploy workflow.
 
+## A student's repertoire is what they PLAY (Sept 2026, #student-repertoire)
+
+Being on a concert is not playing on it. `src/shared/studentRepertoire.ts` is
+the ONE answer to "is this piece mine" for the student's schedule page (the
+practice card, "My parts", and each event card's pieces). An audience-only
+concert (`attendanceOnly`) contributes nothing; on a shared program a student
+gets only pieces played by an ensemble they play with on that event (a piece
+naming no ensemble is kept; a NAMED performer is never trimmed); and a work
+with its own personnel chart on that concert drops a student it does not seat.
+Reported by the director when a Symphony student required to hear College
+Chamber Orchestra was handed its whole program to practise.
+`studentRepertoire.selfcheck.ts` pins it in the self-checks.
+
 ## School-day tardies vs. class attendance (Aug 2026)
 
 Late to SCHOOL is **not** an attendance mark. The office bulletin's `TARDY`

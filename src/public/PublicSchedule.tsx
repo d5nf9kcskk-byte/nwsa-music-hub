@@ -16,6 +16,8 @@ import { usePublicEvents } from './hooks/usePublicEvents';
 import { usePublicOverrides } from './hooks/usePublicRoster';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
+import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
+import { studentEventPieces } from '../shared/studentRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { useSignupForms, useStudentSlotBookings } from '../director/hooks/useSignups';
 import { useStudentLessons } from './hooks/usePublicLessons';
@@ -68,6 +70,7 @@ export function PublicSchedule() {
   const { announcements } = useAnnouncements();
   const now = useMinuteTick(); // scheduled posts appear the minute they go live
   const { pieces } = useRepertoire();
+  const { charts } = useSeatingCharts();
   const { assignments } = useAssignments();
   const { forms: signupForms } = useSignupForms();
   const { bookings: myBookings } = useStudentSlotBookings(id);
@@ -166,32 +169,30 @@ export function PublicSchedule() {
     [signupForms, myBookings, today],
   );
 
-  // Pieces linked to upcoming events that have a part matching this student's instrument.
+  // The pieces this student PLAYS at each upcoming event (#student-repertoire).
+  // An audience-only concert contributes none, and a shared program
+  // contributes only their own ensemble's works.
+  const myPiecesByEvent = useMemo(() => {
+    const out: Record<string, Set<string>> = {};
+    for (const { event: e, exp } of mySchedule) {
+      out[e.id] = new Set(studentEventPieces(id, e, exp, piecesById, charts).map(p => p.id));
+    }
+    return out;
+  }, [mySchedule, piecesById, charts, id]);
+
+  // Pieces the student plays at upcoming events that have a part for their instrument.
   const myParts = useMemo(() => {
     if (!student) return [];
-    const upcomingEventIds = new Set(mySchedule.map(x => x.event.id));
-    const piecesFromEvents = new Set(
-      mySchedule.flatMap(x => x.event.pieceIds ?? []),
-    );
     const result: { piece: typeof pieces[0]; partUrl: string; eventTitles: string[] }[] = [];
     for (const p of pieces) {
       const partLink = findPartForInstrument(p, student.instrument);
       if (!partLink) continue;
-      const linkedEventIds = new Set([
-        ...(p.eventIds ?? []).filter(eid => upcomingEventIds.has(eid)),
-        ...(piecesFromEvents.has(p.id)
-          ? mySchedule.filter(x => (x.event.pieceIds ?? []).includes(p.id)).map(x => x.event.id)
-          : []),
-      ]);
-      if (linkedEventIds.size === 0) continue;
-      const eventTitles = [...linkedEventIds]
-        .map(eid => eventsById[eid])
-        .filter(Boolean)
-        .map(e => e.title || e.type);
-      result.push({ piece: p, partUrl: partLink.url, eventTitles });
+      const linked = mySchedule.filter(x => myPiecesByEvent[x.event.id]?.has(p.id));
+      if (linked.length === 0) continue;
+      result.push({ piece: p, partUrl: partLink.url, eventTitles: linked.map(x => x.event.title || x.event.type) });
     }
     return result;
-  }, [student, mySchedule, pieces, eventsById]);
+  }, [student, mySchedule, pieces, myPiecesByEvent]);
 
   if (!PUBLIC_STUDENT_INFO) {
     return (
@@ -280,7 +281,7 @@ export function PublicSchedule() {
         </div>
       ))}
 
-      <PracticeCard student={student} schedule={mySchedule} piecesById={piecesById} assignments={myAssignments} />
+      <PracticeCard student={student} schedule={mySchedule} piecesById={piecesById} assignments={myAssignments} charts={charts} />
 
       {myTimes.length > 0 && (
         <>
@@ -339,7 +340,7 @@ export function PublicSchedule() {
             <Fragment key={e.id}>
               {i === todayNowIdx && <NowLine />}
               <div className={isPast(e) ? 'pub-past-dim' : undefined}>
-                <PubEventCard event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showNotes />
+                <PubEventCard event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} onlyPieceIds={myPiecesByEvent[e.id]} showNotes />
               </div>
             </Fragment>
           ))}
@@ -377,6 +378,7 @@ export function PublicSchedule() {
           ensembleMap={ensembleMap}
           piecesById={piecesById}
           studentInstrument={student.instrument}
+          myPiecesByEvent={myPiecesByEvent}
           onMonth={ensureMonth}
         />
       ) : upcomingItems.length === 0 ? (
@@ -386,7 +388,7 @@ export function PublicSchedule() {
       ) : (
         <>
           {(showAllUpcoming ? upcomingItems : upcomingItems.slice(0, 20)).map(({ event: e, exp }) => (
-            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showDate showNotes />
+            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} onlyPieceIds={myPiecesByEvent[e.id]} showDate showNotes />
           ))}
           {!showAllUpcoming && upcomingItems.length > 20 && (
             <button className="pub-view-toggle" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setShowAllUpcoming(true)}>
@@ -422,12 +424,13 @@ export function PublicSchedule() {
 }
 
 /** Personal month calendar: dots on days with this student's events; tap a day for details. */
-function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInstrument, onMonth }: {
+function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInstrument, myPiecesByEvent, onMonth }: {
   items: { event: CalendarEvent; exp: ReturnType<typeof studentExpectation> }[];
   assignments: import('../director/types').Assignment[];
   ensembleMap: Record<string, import('../director/types').Ensemble>;
   piecesById: Record<string, import('../director/types').RepertoirePiece>;
   studentInstrument?: string;
+  myPiecesByEvent: Record<string, Set<string>>;
   /** Load the month being viewed — only a window around today is live (#reads). */
   onMonth: (cursor: Date) => void;
 }) {
@@ -523,7 +526,7 @@ function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInst
       ) : (
         <>
           {dayItems.map(({ event: e, exp }) => (
-            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={studentInstrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} showNotes />
+            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={studentInstrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} onlyPieceIds={myPiecesByEvent[e.id]} showNotes />
           ))}
           {(assignByDate[selectedDate] ?? []).map(a => (
             <Link key={a.id} to={`/assignments/${a.id}`} className="pub-assign-card pub-assign-link">

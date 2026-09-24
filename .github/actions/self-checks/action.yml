@@ -297,6 +297,13 @@ runs:
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/concertExcusal.selfcheck.ts
       shell: bash
 
+    # A student's practice list holds only what they PLAY (#student-repertoire):
+    # nothing from a concert they only attend, nothing from another
+    # ensemble's half of a shared program.
+    - name: Check student repertoire
+      run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/studentRepertoire.selfcheck.ts
+      shell: bash
+
     - name: Check piece movement selection
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/pieceMovements.selfcheck.ts
       shell: bash

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Music, Target, Check } from 'lucide-react';
-import type { CalendarEvent, RepertoirePiece, Assignment, Student } from '../../director/types';
+import type { CalendarEvent, RepertoirePiece, Assignment, Student, SeatingChart } from '../../director/types';
+import { studentEventPieces, type PlayingOn } from '../../shared/studentRepertoire';
 import { todayStr, findPartForInstrument, addDays } from '../../director/utils';
 import { t, useLang, getLang } from '../../shared/i18n';
 import { practiceCompleteLine } from '../../shared/whimsy';
@@ -13,9 +14,10 @@ import './practiceCard.css';
  * student's next rehearsals with upcoming exam deadlines. Check-off is local
  * to the device (localStorage) — a personal practice list, not a grade.
  */
-export function PracticeCard({ student, schedule, piecesById, assignments }: {
+export function PracticeCard({ student, schedule, piecesById, assignments, charts }: {
   student: Student;
-  schedule: { event: CalendarEvent }[];
+  schedule: { event: CalendarEvent; exp: PlayingOn }[];
+  charts: SeatingChart[];
   piecesById: Record<string, RepertoirePiece>;
   assignments: Assignment[];
 }) {
@@ -27,20 +29,17 @@ export function PracticeCard({ student, schedule, piecesById, assignments }: {
     try { return JSON.parse(localStorage.getItem(storageKey) ?? '{}'); } catch { return {}; }
   });
 
+  // Only what the student PLAYS (#student-repertoire): a concert they must
+  // attend as audience, or another ensemble's half of a shared program, is
+  // not theirs to practise.
   const pieces = useMemo(() => {
-    const ids = new Set<string>();
-    const weekEventIds = new Set<string>();
-    for (const { event: e } of schedule) {
+    const out = new Map<string, RepertoirePiece>();
+    for (const { event: e, exp } of schedule) {
       if (e.date < today || e.date > horizon) continue;
-      weekEventIds.add(e.id);
-      for (const pid of e.pieceIds ?? []) ids.add(pid);
+      for (const p of studentEventPieces(student.id, e, exp, piecesById, charts)) out.set(p.id, p);
     }
-    // Pieces linked from the other direction (piece.eventIds) count too.
-    for (const p of Object.values(piecesById)) {
-      if ((p.eventIds ?? []).some(eid => weekEventIds.has(eid))) ids.add(p.id);
-    }
-    return [...ids].map(id => piecesById[id]).filter(Boolean);
-  }, [schedule, piecesById, today, horizon]);
+    return [...out.values()];
+  }, [schedule, piecesById, today, horizon, student.id, charts]);
 
   // `assignments` arrives already filtered by isAssignmentOpen, so this is only
   // the two-week horizon. No lower bound on purpose: an exam that is past its

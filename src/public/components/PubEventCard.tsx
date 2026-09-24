@@ -9,6 +9,7 @@ import { Linkify } from '../../director/components/Linkify';
 import { EventChip } from './EventChip';
 import { LocationText } from './LocationText';
 import { AddToCalendarButton } from './AddToCalendar';
+import { eventPieces } from '../../shared/studentRepertoire';
 import './pubEventCard.css';
 
 interface Props {
@@ -30,6 +31,10 @@ interface Props {
   studentInstrument?: string;
   /** Show a "Details" link to the event's own page (default true). */
   detailLink?: boolean;
+  /** On a student's own schedule: the pieces on this event THEY play
+   *  (`studentEventPieces`). Anything else on the program is left off the
+   *  card, so an audience-only concert shows no repertoire at all. */
+  onlyPieceIds?: ReadonlySet<string>;
 }
 
 /**
@@ -39,7 +44,7 @@ interface Props {
  * (#31). Cancellation grammar (#30): struck title, red tag, dimmed time.
  */
 export function PubEventCard({
-  event: e, ensembleMap, showDate, showNotes, isSub, attendanceOnly, ensembleIds, piecesById, studentInstrument, detailLink = true,
+  event: e, ensembleMap, showDate, showNotes, isSub, attendanceOnly, ensembleIds, piecesById, studentInstrument, detailLink = true, onlyPieceIds,
 }: Props) {
   useLang(); // tags/labels re-render on EN/ES switch
   const navigate = useNavigate();
@@ -59,17 +64,10 @@ export function PubEventCard({
     navigate(`/event/${e.id}`);
   }
 
-  // Pieces linked to this event from either direction: the event's pieceIds
-  // (in program order) plus any piece that names this event in its eventIds.
-  const pieces: RepertoirePiece[] = (() => {
-    if (!piecesById) return [];
-    const ordered = (e.pieceIds ?? []).map(id => piecesById[id]).filter(Boolean) as RepertoirePiece[];
-    const seen = new Set(ordered.map(p => p.id));
-    const extra = Object.values(piecesById).filter(
-      p => !seen.has(p.id) && (p.eventIds ?? []).includes(e.id),
-    );
-    return [...ordered, ...extra];
-  })();
+  // Pieces linked to this event from either direction (program order first).
+  const pieces: RepertoirePiece[] = piecesById
+    ? eventPieces(e, piecesById).filter(p => !onlyPieceIds || onlyPieceIds.has(p.id))
+    : [];
 
   const showAddToCal = !cancelled && Boolean(e.date);
 

@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // A student's repertoire is only what they play (#student-repertoire).
+  {
+    id: '2026-09-24-my-repertoire-only',
+    date: '2026-09-24',
+    title: 'Your practice list is only your music',
+    audience: 'public' as const,
+    expires: '2026-10-15',
+    bullets: [
+      'A concert you are only required to attend no longer adds its music to your practice list or “My parts”.',
+      'On a concert shared by several ensembles, you see just the pieces your ensemble plays.',
+    ],
+  },
   // Excused from a concert (#concert-excusals). Staff-only: the public site
   // only ever sees that a student isn't playing, never why.
   {
