@@ -32,6 +32,29 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Music copy requests (#copy-requests).
+  {
+    id: '2026-09-25-copy-requests',
+    date: '2026-09-25',
+    title: 'Ask for a copy of your music',
+    audience: 'public' as const,
+    expires: '2026-10-09',
+    bullets: [
+      'Need a practice copy, a fix for a bad page turn, or a bigger print? Resources → Request Music Copies.',
+      'Pick the piece, type your exact part (like “Violin 2” or “Horn 3 in F”), and it goes straight to your director.',
+    ],
+  },
+  {
+    id: '2026-09-25-copy-requests-staff',
+    date: '2026-09-25',
+    title: 'Copy Requests',
+    audience: 'staff' as const,
+    expires: '2026-10-09',
+    bullets: [
+      'Students can now ask for a copy of a part from the public site. Their requests land on Library → Copy Requests, with a badge for the ones in your groups.',
+      'Each request names the piece, the exact part, pages, and when they need it. Mark it copied once it’s in the folder.',
+    ],
+  },
   // Grade-level excusal from an audience requirement (#audience-excusal).
   {
     id: '2026-09-25-seniors-excused',

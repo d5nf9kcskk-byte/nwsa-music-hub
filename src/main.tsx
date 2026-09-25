@@ -31,6 +31,7 @@ import { SeasonPage } from './public/SeasonPage';
 import { CampusMap } from './public/CampusMap';
 import { PublicContact } from './public/PublicContact';
 import { PublicAbsence } from './public/PublicAbsence';
+import { PublicCopyRequest } from './public/PublicCopyRequest';
 import { VanityRedirect } from './public/VanityRedirect';
 import { NotFound } from './public/NotFound';
 import { VANITY_SLUGS } from './shared/vanity';
@@ -111,6 +112,8 @@ const router = createBrowserRouter(
         // org-gated: a K-12 school-day bureaucracy model that assumes a
         // normal school day and an office, which doesn't fit every org.
         ...(ORG.features.absenceReport ? [{ path: 'absence', element: <PublicAbsence /> }] : []),
+        // Ask a director for a copy of a part (#copy-requests).
+        { path: 'copies', element: <PublicCopyRequest /> },
         { path: 'program/:id', element: <PublicProgram /> },
         // Vanity short links (#5) — per-org list in config/orgs/*.json.
         ...VANITY_SLUGS.map(v => ({ path: v.slug, element: <VanityRedirect slug={v.slug} /> })),
