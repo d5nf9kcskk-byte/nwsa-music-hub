@@ -34,6 +34,7 @@ import { icsAssignment, icsCalendar, icsEvent, icsLesson } from '../src/shared/i
 // as .ts — Node strips the types, the same way calendarView.ts is loaded here.
 import { performersForEvent, performerNames, bookedPerformersForEvent } from '../src/shared/eventPerformers.ts';
 import { isMasterClass } from '../src/director/groupKind.ts';
+import { gradeExcusedFromAudience } from '../src/shared/audienceExcusal.ts';
 import {
   assignmentMatchesBundle, bundleEnsembleIds, bundleFeedFile, eventMatchesBundle,
 } from '../src/shared/calendarBundles.ts';
@@ -492,6 +493,9 @@ function wrapCalendar(name, description, vevents) {
       }
       // Audience requirement: member of an attendance-required ensemble, or named individually.
       if ((event.attendanceStudentIds ?? []).includes(stu.id)) return true;
+      // A grade the event excuses (seniors, #audience-excusal) — the same
+      // rule studentExpectation() applies on the schedule screen.
+      if (gradeExcusedFromAudience(stu.grade, event)) return false;
       return (event.attendanceEnsembleIds ?? []).some(ensId => memberIds.includes(ensId));
     };
     // Private-lesson times, grouped by student (#applied). A student's own

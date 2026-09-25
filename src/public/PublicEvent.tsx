@@ -20,6 +20,7 @@ import { getLang } from '../shared/i18n';
 import { useEggCheer } from '../shared/useEggCheer';
 import { NoteBurst } from '../shared/NoteBurst';
 import type { CalendarEvent } from '../director/types';
+import { seniorsExcused } from '../shared/audienceExcusal';
 import './pubDaySheet.css';
 import './pubEventShell.css';
 
@@ -219,6 +220,7 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
                   .join(', '),
                 type: tType(event.type).toLowerCase(),
               })}
+              {seniorsExcused(event) && <> {t('event.attendanceSeniorsExcused')}</>}
             </div>
           )}
 

@@ -14,6 +14,7 @@ import { useModalA11y } from '../../shared/useModalA11y';
 import { recordActivity } from '../hooks/useActivityLog';
 import { whenQueued } from '../writeStatus';
 import { isSharedBlock, sharedBlockLabel } from '../../shared/sharedBlock';
+import { SENIOR_GRADE, gradeExcusedFromAudience, seniorsExcused } from '../../shared/audienceExcusal';
 import { enableCheckinPatch } from '../../shared/concertCheckin';
 import { studentMatchesQuery } from '../studentSearch';
 import { useAnnouncements } from '../hooks/useAnnouncements';
@@ -159,11 +160,11 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     }
     for (const ensId of form.attendanceEnsembleIds ?? []) {
       for (const s of students) {
-        if (s.status === 'Active' && s.ensembleIds?.includes(ensId)) ids.add(s.id);
+        if (s.status === 'Active' && s.ensembleIds?.includes(ensId) && !gradeExcusedFromAudience(s.grade, { attendanceExcusedGrades: form.attendanceExcusedGrades })) ids.add(s.id);
       }
     }
     return students.filter(s => ids.has(s.id));
-  }, [students, overrides, form.ensembleIds, form.attendanceEnsembleIds, form.studentIds, form.attendanceStudentIds, form.date, event?.id, liveEvents]);
+  }, [students, overrides, form.ensembleIds, form.attendanceEnsembleIds, form.attendanceExcusedGrades, form.studentIds, form.attendanceStudentIds, form.date, event?.id, liveEvents]);
 
   const [performerQuery, setPerformerQuery] = useState('');
   const [guestQuery, setGuestQuery] = useState('');
@@ -657,6 +658,26 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                   </button>
                 ) : undefined}
               />
+              {(form.attendanceEnsembleIds ?? []).length > 0 && (
+                <label className="dir-checkbox-row" style={{ marginTop: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={seniorsExcused(form)}
+                    onChange={ev => setForm(f => ({
+                      ...f,
+                      attendanceExcusedGrades: ev.target.checked
+                        ? [...(f.attendanceExcusedGrades ?? []).filter(g => g !== SENIOR_GRADE), SENIOR_GRADE]
+                        : (f.attendanceExcusedGrades ?? []).filter(g => g !== SENIOR_GRADE),
+                    }))}
+                  />
+                  <span>
+                    <strong>Seniors are excused</strong>
+                    <div className="dir-field-hint" style={{ marginTop: 2 }}>
+                      12th graders in these groups come off the requirement: their schedules, calendars and the Gradebook's required-concert count. A senior who performs, or one you add by name below, is still expected.
+                    </div>
+                  </span>
+                </label>
+              )}
               <div className="dir-field-hint" style={{ marginTop: 8 }}>Or add individual students (attend only)</div>
               {(form.attendanceStudentIds ?? []).length > 0 && (
                 <div className="dir-checkbox-group" style={{ marginBottom: 8 }}>
