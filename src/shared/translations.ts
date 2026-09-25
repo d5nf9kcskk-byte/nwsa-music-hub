@@ -25,6 +25,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.assignmentsShort': { en: 'Assignments',         es: 'Tareas' },
   'nav.contact':          { en: 'Contact Us',          es: 'Contáctanos' },
   'nav.absence':          { en: 'Report an Absence',   es: 'Reportar una ausencia' },
+  'nav.copies':           { en: 'Request Music Copies', es: 'Pedir copias de música' },
   'nav.mySchedule':       { en: 'My Schedule',         es: 'Mi horario' },
   'nav.ensembles':        { en: 'Ensembles',           es: 'Ensambles' },
   'nav.allEnsembles':     { en: 'All ensembles',       es: 'Todos los ensambles' },

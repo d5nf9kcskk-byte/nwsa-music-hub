@@ -710,6 +710,52 @@ service cloud.firestore {
       allow update, delete: if isStaff();
     }
 
+    // Music copy requests (#copy-requests): a student asking for a fresh copy
+    // of a part (practice, a bad page turn, a crop too small to read). The
+    // app's seventh unauthenticated create, with the same treatment as
+    // plannedAbsences: exact key set (also the honeypot), a real students/{id}
+    // anchor AND a real ensembles/{id} anchor, a closed reason enum, and a
+    // ceiling on every free-text field. The ceilings and the reason list are
+    // src/shared/copyRequest.ts, pinned against this clause by
+    // copyRequest.selfcheck.ts. Staff-only read: a request names a student.
+    // No public update, same as signupResponses.
+    match /copyRequests/{doc} {
+      allow create: if request.resource.data.keys().hasOnly([
+            'studentId', 'studentName', 'ensembleId', 'pieceId', 'pieceTitle', 'composer',
+            'part', 'pages', 'reason', 'neededBy', 'notes', 'submittedAt', 'status'])
+        && request.resource.data.studentId is string
+        && exists(/databases/$(database)/documents/students/$(request.resource.data.studentId))
+        && request.resource.data.studentName is string
+        && request.resource.data.studentName.size() <= 120
+        && request.resource.data.ensembleId is string
+        && exists(/databases/$(database)/documents/ensembles/$(request.resource.data.ensembleId))
+        && (!('pieceId' in request.resource.data)
+            || (request.resource.data.pieceId is string
+                && request.resource.data.pieceId.size() <= 100))
+        && request.resource.data.pieceTitle is string
+        && request.resource.data.pieceTitle.size() >= 1
+        && request.resource.data.pieceTitle.size() <= 200
+        && (!('composer' in request.resource.data)
+            || (request.resource.data.composer is string
+                && request.resource.data.composer.size() <= 120))
+        && request.resource.data.part is string
+        && request.resource.data.part.size() >= 2
+        && request.resource.data.part.size() <= 120
+        && (!('pages' in request.resource.data)
+            || (request.resource.data.pages is string
+                && request.resource.data.pages.size() <= 200))
+        && request.resource.data.reason in ['practice', 'page-turn', 'too-small', 'lost', 'other']
+        && (!('neededBy' in request.resource.data)
+            || (request.resource.data.neededBy is string
+                && request.resource.data.neededBy.matches('\\d{4}-\\d{2}-\\d{2}')))
+        && (!('notes' in request.resource.data)
+            || (request.resource.data.notes is string
+                && request.resource.data.notes.size() <= 500))
+        && request.resource.data.submittedAt is number
+        && request.resource.data.status == 'new';
+      allow read, update, delete: if isStaff();
+    }
+
     // Sign-up RESPONSES (#signups): a student saying "yes, I want to do this",
     // plus whatever the form asked for and a typed signature. The app's fifth
     // unauthenticated create (with plannedAbsences, parentMessages,

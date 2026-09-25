@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { NotesText } from './components/NotesText';
 import { useParams, Link } from 'react-router';
-import { ExternalLink, Clock, FileText, Video, Headphones, BookOpen, Armchair } from 'lucide-react';
+import { ExternalLink, Clock, FileText, Video, Headphones, BookOpen, Armchair, Copy } from 'lucide-react';
 import { BackLink } from './components/BackLink';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useEnsembles } from '../director/hooks/useEnsembles';
@@ -140,6 +140,12 @@ export function PublicPiece() {
           )}
         </div>
       )}
+
+      {/* A clean copy of a part (#copy-requests) — shown whether or not parts
+          are posted, since a bad page turn is a problem with the paper copy. */}
+      <Link className="pub-piece-link" to={`/copies?piece=${encodeURIComponent(piece.id)}`} style={{ marginBottom: 14, display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+        <Copy size={13} /> Request a copy of my part
+      </Link>
 
       {/* Media links */}
       {(piece.imslpUrl || piece.videoUrl || piece.audioUrl) && (

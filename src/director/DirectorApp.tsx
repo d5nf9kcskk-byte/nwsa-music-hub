@@ -1,9 +1,9 @@
 import './director.css';
 import './uiUpdates.css';
 import './dirShell.css';
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine, FileSpreadsheet, Ticket } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine, FileSpreadsheet, Ticket, Copy } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -40,6 +40,7 @@ import { AssignmentsView } from './assignments/AssignmentsView';
 import { AnnouncementManager } from './announcements/AnnouncementManager';
 import { MessagesView } from './messages/MessagesView';
 import { ApprovalsView } from './approvals/ApprovalsView';
+import { CopyRequestsView } from './copies/CopyRequestsView';
 import { usePendingActions } from './hooks/usePendingActions';
 import { pendingCount } from './pendingActions';
 import { SignupsView } from './signups/SignupsView';
@@ -47,6 +48,7 @@ import { CheckinView } from './checkin/CheckinView';
 import { JuriesView } from './juries/JuriesView';
 import { GradebookView } from './grades/GradebookView';
 import { useParentMessages } from './hooks/useParentMessages';
+import { useCopyRequests, copyRequestMineFilter } from './hooks/useCopyRequests';
 import { RepertoireManager } from './repertoire/RepertoireManager';
 import { DocumentsView } from './documents/DocumentsView';
 import { TodayView } from './today/TodayView';
@@ -140,6 +142,9 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
       // two-sided piece links, so the program can only be edited one way.
       { id: 'concerts',      label: 'Concerts',      Icon: Ticket         },
       { id: 'repertoire',    label: 'Repertoire',    Icon: Music          },
+      // Students asking for a copy of a part (#copy-requests), from the
+      // public Resources menu. Badge = open requests for MY groups.
+      { id: 'copyRequests',  label: 'Copy Requests', Icon: Copy           },
       { id: 'documents',     label: 'Documents',     Icon: FolderOpen     },
       { id: 'assignments',   label: 'Assignments',   Icon: ClipboardCheck },
       { id: 'signups',       label: 'Sign-ups',      Icon: ClipboardSignature },
@@ -172,6 +177,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   scheduleSwap:    'Change a Day',
   rotations:       'Rotations',
   repertoire:      'Repertoire',
+  copyRequests:    'Copy Requests',
   documents:       'Documents',
   notes:           'Progress Notes',
   assignments:     'Assignments',
@@ -195,7 +201,7 @@ const TAB_TITLES: Record<DirTab, string> = {
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'lessons', 'myLessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'classes', 'college', 'whosOut', 'scheduleSwap', 'rotations',
-  'messages', 'signups', 'juries', 'concerts', 'concertCheckin', 'gradebook', 'approvals', 'directors',
+  'messages', 'copyRequests', 'signups', 'juries', 'concerts', 'concertCheckin', 'gradebook', 'approvals', 'directors',
   // The roster URL segment follows the org kind too (#personnel), so a
   // school build has no /director/personnel route and an adult build no
   // /director/roster \u2014 an off-org deep link falls back to Today.
@@ -223,6 +229,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   myLessons:       'Your own private-lesson students — schedule sessions, grade each one, and adjust who is assigned to you.',
   notes:           'Private progress notes per student. Only directors ever see these.',
   concerts:        'Every concert on the calendar — what’s coming up first, then everything earlier under “Earlier”. Tap one to fix its date, time, place, who is playing, and the program — the pieces and the order they go in.',
+  copyRequests:    'Students asking for a copy of their part \u2014 to practise from, a bad page turn, or music printed too small. Opens on your own groups; mark each one copied when it\u2019s in the folder.',
   repertoire:      'What each ensemble is playing, by ensemble or by concert. This feeds the printed program.',
   documents:       'Handbooks, forms, and files for families. Anything you post here shows on the public site.',
   assignments:     'Post practice assignments and exams. Students see them on the public site.',
@@ -301,6 +308,11 @@ export default function DirectorApp() {
   const writeBusy = useWriteBusy();
   const menuRef = useModalA11y<HTMLElement>(() => setMenuOpen(false), menuOpen);
   const me = useCurrentDirector();
+  // Open copy requests for MY groups (#copy-requests); staff-only collection,
+  // so other shells skip the listener rather than collect a denial.
+  const { requests: copyRequests } = useCopyRequests(!!me && isStaffMember(me));
+  const copyMine = useMemo(() => copyRequestMineFilter(me, ensembles), [me, ensembles]);
+  const copyCount = copyRequests.filter(r => r.status === 'new' && copyMine(r)).length;
   // Owner-only Directors screen (#roles): everyone else — including every
   // Director — never even sees the entry point. A Teacher never reaches this
   // shell at all (see the AuthGate render-prop below).
@@ -474,6 +486,7 @@ export default function DirectorApp() {
                         <Icon size={18} /> {label}
                         {id === 'messages' && newMsgCount > 0 && <span className="dir-nav-badge">{newMsgCount}</span>}
                         {id === 'approvals' && approvalCount > 0 && <span className="dir-nav-badge">{approvalCount}</span>}
+                        {id === 'copyRequests' && copyCount > 0 && <span className="dir-nav-badge">{copyCount}</span>}
                       </button>
                     ))}
                   </div>
@@ -610,6 +623,7 @@ export default function DirectorApp() {
             {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} initialEnsembleId={intent.ensembleId} onClose={() => {}} />}
             {tab === 'messages'        && <MessagesView />}
             {tab === 'approvals'       && <ApprovalsView />}
+            {tab === 'copyRequests'    && <CopyRequestsView />}
             {tab === 'signups'         && <SignupsView />}
             {tab === 'concertCheckin'  && <CheckinView onNavigate={go} />}
             {tab === 'juries'          && <JuriesView />}
@@ -676,6 +690,7 @@ export default function DirectorApp() {
                         <Icon size={19} /> {label}
                         {id === 'messages' && newMsgCount > 0 && <span className="dir-nav-badge">{newMsgCount}</span>}
                         {id === 'approvals' && approvalCount > 0 && <span className="dir-nav-badge">{approvalCount}</span>}
+                        {id === 'copyRequests' && copyCount > 0 && <span className="dir-nav-badge">{copyCount}</span>}
                       </button>
                     ))}
                   </div>

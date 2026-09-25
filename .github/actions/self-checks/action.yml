@@ -310,6 +310,13 @@ runs:
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/studentRepertoire.selfcheck.ts
       shell: bash
 
+    # Music copy requests (#copy-requests): a request reaches its group's
+    # director (or everyone, when nobody is assigned), and the rules clause
+    # carries the same reasons and ceilings as the form.
+    - name: Check copy requests
+      run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/copyRequest.selfcheck.ts
+      shell: bash
+
     - name: Check piece movement selection
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/pieceMovements.selfcheck.ts
       shell: bash

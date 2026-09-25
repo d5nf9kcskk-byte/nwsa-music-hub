@@ -1172,6 +1172,28 @@ an unconditional `== true` requirement for the same reason.
 - `scripts/absence-report.selfcheck.mjs` runs in the deploy workflow (see
   `.github/actions/self-checks/action.yml`).
 
+## Music copy requests (Sept 2026, #copy-requests)
+
+Public Resources → **Request Music Copies** (`/copies`, `PublicCopyRequest.tsx`;
+every piece page links to it with `?piece=<id>`). A student picks their name,
+the ensemble, and the piece off the posted repertoire, or types the title when
+the director has not posted it. The PART is typed and required; a part with no
+number ("Violin") gets a non-blocking "which one?" warning (`partLooksVague`).
+Directors work the list at Library → **Copy Requests**, with a nav badge.
+
+- `src/shared/copyRequest.ts` is the ONE definition: reasons, field ceilings,
+  and `copyRequestIsMine()`. A request is MINE when it is for a group I am
+  assigned to (`resolveAssignedEnsembleIds`), when its group has nobody
+  assigned (synced `staff` empty and no `conductorName`), or when I have no
+  groups at all. A request nobody owns is a copy nobody makes. The badge and
+  the screen both go through `copyRequestMineFilter()` so they cannot disagree.
+- `copyRequests` is the app's seventh unauthenticated create: exact key set
+  (also the honeypot), a real `students/{id}` AND `ensembles/{id}` anchor, a
+  closed reason enum, ceilings everywhere, no public update, staff-only read
+  (a request names a student). `copyRequest.selfcheck.ts` pins the reason list
+  and ceilings against the rules clause; change both together.
+- In-app only, no email to staff, same stance as `plannedAbsences`.
+
 ## One nav, every width (Sept 2026, #one-nav)
 
 **A change to what a person SEES is not shipped until it is visible at every
