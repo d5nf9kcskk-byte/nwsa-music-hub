@@ -32,7 +32,16 @@
  *      overwrite A's snapshot.
  *   C  reh-…-symphony-orchestra-1430 NEW, 2:30–3:45, Symphony off stage.
  *   D  reh-…-pops-combined-1545      NEW, 3:45–5:30, all three.
- *   oc26-hs-pops                     callTime 18:30.
+ *   oc26-hs-pops                     call 6:30, ends 9:00 (the director: "say
+ *      the concert is 2 hours"), pickup 9:15, and the strike line added to
+ *      whatever the notes already say — appended, never replacing, so the
+ *      ticket prices and any edit made in the app since stay put.
+ *   Dr. Gilman's own lessons that day (2:30 and 3:30; he is in Chapman).
+ *      Cancelled the way the app's `cancelLesson` does it — status only, NO
+ *      `changeFrom` — because this is the teacher cancelling his own lessons,
+ *      not a day plan, and "Back to normal" must not bring them back. Source
+ *      and `lessonsPublic` mirror in the same batch. A graded lesson is left
+ *      alone. Logs times only, never a student (#student-data).
  *
  * C and D are ADDED blocks (Symphony has no Monday rehearsal to change), so
  * "Back to normal" clears their change note and leaves them standing. Delete
@@ -47,7 +56,7 @@
  * added by hand in the app would double-book students). Idempotent: a doc
  * already in its target state is skipped, so a re-run writes nothing.
  *
- * Preview needs no credentials (`events` is a world read):
+ * Preview needs no credentials (`events` and `lessonsPublic` are world reads):
  *   node scripts/pops-dress-2026-09-28.mjs --dry-run
  * Apply:
  *   FIREBASE_SERVICE_ACCOUNT_JSON=… node scripts/pops-dress-2026-09-28.mjs
@@ -85,7 +94,17 @@ const DAY = [
   '3:45 to 5:30: Everyone on stage, college students back',
   '6:30: Call time',
   '7:00: Concert',
+  '9:00: Concert ends. Everyone strikes the stage',
+  '9:15: Pickup',
 ].join('\n');
+
+// The director's words, verbatim.
+const STRIKE = 'ALL are responsible for striking the performance area, and NO ONE will be released until all equipment is taken care of.';
+
+// Whose lessons to cancel. The name, not the email: it is what the public
+// mirror carries, so the credential-free preview can find the same lessons
+// the real run cancels.
+const TEACHER = 'Dr. Grant Gilman';
 
 const COLLEGE = 'College students: you are released at 2:25 so you can get to class. Be back in Chapman by 3:45 for the full rehearsal.';
 
@@ -136,7 +155,13 @@ const TARGET = {
       DAY,
     ].join('\n\n'),
   },
-  [ID.concert]: { callTime: '18:30' },
+  // `notes` is filled in from the live doc once it is read (see withStrike).
+  [ID.concert]: { callTime: '18:30', endTime: '21:00', pickupTime: '21:15' },
+};
+
+const withStrike = (notes) => {
+  const cur = (notes ?? '').trim();
+  return cur.includes(STRIKE) ? cur : [cur, STRIKE].filter(Boolean).join('\n\n');
 };
 
 const DRY = process.argv.includes('--dry-run');
@@ -154,23 +179,28 @@ if (todayNY > DATE) {
 
 // ── Read the day ─────────────────────────────────────────────────────
 let db = null;
-async function readDay() {
-  if (raw) {
-    const { initializeApp, cert, getApps } = await import('firebase-admin/app');
-    const { getFirestore } = await import('firebase-admin/firestore');
-    if (getApps().length === 0) initializeApp({ credential: cert(JSON.parse(raw)) });
-    db = getFirestore();
-    const snap = await db.collection('events').where('date', '==', DATE).get();
+if (raw) {
+  const { initializeApp, cert, getApps } = await import('firebase-admin/app');
+  const { getFirestore } = await import('firebase-admin/firestore');
+  if (getApps().length === 0) initializeApp({ credential: cert(JSON.parse(raw)) });
+  db = getFirestore();
+}
+
+/** Every doc in `collection` dated DATE. With a credential that is the real
+ *  collection; without one, the preview reads over unauthenticated REST, so
+ *  it can only ask world-readable collections (`events`, `lessonsPublic`). */
+async function onDate(collection) {
+  if (db) {
+    const snap = await db.collection(collection).where('date', '==', DATE).get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   }
-  // Unauthenticated REST: `events` is `allow read` in firestore.rules.
   const project = process.env.VITE_FIREBASE_PROJECT_ID || 'nwsa-hub';
   const url = `https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/documents:runQuery`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ structuredQuery: {
-      from: [{ collectionId: 'events' }],
+      from: [{ collectionId: collection }],
       where: { fieldFilter: { field: { fieldPath: 'date' }, op: 'EQUAL', value: { stringValue: DATE } } },
     } }),
   });
@@ -192,8 +222,9 @@ async function readDay() {
   }));
 }
 
-const before = await readDay();
+const before = await onDate('events');
 const byId = Object.fromEntries(before.map(e => [e.id, e]));
+const myLessons = (await onDate(db ? 'lessons' : 'lessonsPublic')).filter(l => l.teacherName === TEACHER);
 
 // ── Guards ───────────────────────────────────────────────────────────
 const fail = (msg) => { console.error(`ABORT: ${msg}`); process.exit(1); };
@@ -212,6 +243,7 @@ if (strays.length > 0) {
 }
 
 // ── Plan ─────────────────────────────────────────────────────────────
+TARGET[ID.concert].notes = withStrike(byId[ID.concert].notes);
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const writes = [];
 for (const [id, target] of Object.entries(TARGET)) {
@@ -220,6 +252,16 @@ for (const [id, target] of Object.entries(TARGET)) {
   if (live && changed.length === 0) { console.log(`  ok      ${id}`); continue; }
   writes.push({ id, create: !live, data: { ...target, updatedAt: Date.now(), updatedBy: BY } });
   console.log(`  ${live ? 'update' : 'create'}  ${id}${live ? `  (${changed.join(', ')})` : ''}`);
+}
+
+// Times only in the log: a lesson is a record about a student.
+const lessonCancels = [];
+for (const l of [...myLessons].sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''))) {
+  const when = `${TEACHER} lesson ${l.startTime}-${l.endTime}`;
+  if (l.status === 'Cancelled') { console.log(`  ok      ${when} (already cancelled)`); continue; }
+  if (String(l.grade ?? '').trim()) { console.log(`  keep    ${when} (graded, so it happened)`); continue; }
+  lessonCancels.push(l.id);
+  console.log(`  cancel  ${when}`);
 }
 
 // ── The day after, and who is where ──────────────────────────────────
@@ -236,7 +278,8 @@ console.log(`\n${DATE} after this runs (rehearsals and the concert):`);
 for (const e of after.filter(e => e.type === 'Rehearsal' || e.type === 'Concert')) {
   const tag = e.status === 'Cancelled' ? ' [CANCELLED]' : '';
   const call = e.callTime ? `  call ${t(e.callTime)}` : '';
-  console.log(`  ${t(e.startTime)}-${t(e.endTime)}  ${(e.title || (e.ensembleIds ?? []).join(' + '))}  @ ${e.location ?? ''}${call}${tag}`);
+  const pickup = e.pickupTime ? `  pickup ${t(e.pickupTime)}` : '';
+  console.log(`  ${t(e.startTime)}-${t(e.endTime)}  ${(e.title || (e.ensembleIds ?? []).join(' + '))}  @ ${e.location ?? ''}${call}${pickup}${tag}`);
 }
 
 let overlap = false;
@@ -250,8 +293,9 @@ for (const ens of POPS) {
 }
 if (overlap) fail('the result would book an ensemble into two blocks at once.');
 
-if (writes.length === 0) { console.log('\nAlready applied. Nothing to write.'); process.exit(0); }
-if (DRY) { console.log(`\nDry run: ${writes.length} write(s) planned, none made.`); process.exit(0); }
+const planned = `${writes.length} event write(s), ${lessonCancels.length} lesson cancel(s)`;
+if (writes.length === 0 && lessonCancels.length === 0) { console.log('\nAlready applied. Nothing to write.'); process.exit(0); }
+if (DRY) { console.log(`\nDry run: ${planned} planned, none made.`); process.exit(0); }
 
 // One batch: the day is either the old shape or the new one, never half.
 const batch = db.batch();
@@ -260,5 +304,11 @@ for (const w of writes) {
   if (w.create) batch.set(ref, w.data);
   else batch.update(ref, w.data);
 }
+for (const id of lessonCancels) {
+  // Same write as useLessons.cancelLesson, and its mirror in the same batch
+  // so the student's feed stops carrying the lesson at the same moment.
+  batch.update(db.collection('lessons').doc(id), { status: 'Cancelled', updatedAt: Date.now(), updatedBy: BY });
+  batch.set(db.collection('lessonsPublic').doc(id), { status: 'Cancelled' }, { merge: true });
+}
 await batch.commit();
-console.log(`\nWrote ${writes.length} doc(s).`);
+console.log(`\nWrote ${planned}.`);
