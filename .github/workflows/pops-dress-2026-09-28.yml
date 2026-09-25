@@ -1,0 +1,43 @@
+name: Pops dress day (Sep 28)
+
+# Splits the Sept 28 Pops dress rehearsal into the director's four blocks and
+# sets the 6:30 call time (scripts/pops-dress-2026-09-28.mjs). One-off: the
+# script refuses to run once the date has passed. Cloud agents trigger via a
+# push to `.github/triggers/pops-dress-2026-09-28`, matching every other
+# admin-write workflow in this repo.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Show the day before/after without writing anything'
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - '.github/triggers/pops-dress-2026-09-28'
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Apply the Sept 28 schedule
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          EXTRA=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            [ "${{ inputs.dry_run }}" = "true" ] && EXTRA="--dry-run"
+          elif [ -f .github/triggers/pops-dress-2026-09-28 ]; then
+            grep -q '"dry_run"[[:space:]]*:[[:space:]]*true' .github/triggers/pops-dress-2026-09-28 && EXTRA="--dry-run"
+          fi
+          node scripts/pops-dress-2026-09-28.mjs $EXTRA
