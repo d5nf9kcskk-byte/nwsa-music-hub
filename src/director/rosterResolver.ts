@@ -2,6 +2,7 @@ import type { Student, RosterOverride, CalendarEvent } from './types';
 import { isChoirClassTitle, academicClassTitlesFor } from './classSchedule';
 import { CHOIR_ENSEMBLE_ID } from './academicClasses';
 import { takesAttendance } from './utils';
+import { gradeExcusedFromAudience } from '../shared/audienceExcusal';
 
 export interface RosterContext {
   ensembleId: string;
@@ -199,7 +200,12 @@ export function studentExpectation(
   // Not performing — but membership in an attendance-required ensemble still
   // puts the event on this student's schedule (audience requirement).
   const student = students.find(st => st.id === studentId);
-  const attends = (event.attendanceEnsembleIds ?? []).filter(ensId => student?.ensembleIds?.includes(ensId));
+  // A grade the event excuses (seniors, #audience-excusal) drops out here and
+  // only here: performers returned above, and a student named one at a time
+  // below is still named.
+  const attends = gradeExcusedFromAudience(student?.grade, event)
+    ? []
+    : (event.attendanceEnsembleIds ?? []).filter(ensId => student?.ensembleIds?.includes(ensId));
   if (attends.length > 0) return { expected: true, ensembleIds: attends, isSub: false, attendanceOnly: true };
 
   // Named individual audience attendees.

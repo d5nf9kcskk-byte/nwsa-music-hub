@@ -32,6 +32,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Grade-level excusal from an audience requirement (#audience-excusal).
+  {
+    id: '2026-09-25-seniors-excused',
+    date: '2026-09-25',
+    title: 'Excuse the seniors from a required concert',
+    audience: 'staff' as const,
+    expires: '2026-10-25',
+    bullets: [
+      'On a concert with groups “required to attend”, tick “Seniors are excused” to take every 12th grader in those groups off the requirement.',
+      'It comes off their schedules, their calendar feeds and the Gradebook’s required-concert count. A senior who performs, or one you add by name, is still expected.',
+      'The concert page tells everyone seniors are excused.',
+    ],
+  },
   // A student's own colors (#look). NWSA-only palette, so the entry is too.
   ...(ORG.personalize ? [{
     id: '2026-09-24-colors-and-background-2',

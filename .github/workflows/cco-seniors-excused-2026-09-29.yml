@@ -1,0 +1,44 @@
+name: "CCO concert, seniors excused (Sep 29)"
+
+# Excuses the high school seniors from the audience requirement on the Sept 29
+# College Chamber Orchestra concert, adds the line to the concert's notes, and
+# posts the announcement to Symphony and Camerata
+# (scripts/cco-seniors-excused-2026-09-29.mjs). One-off: the script refuses to
+# run once the date has passed. Cloud agents trigger via a push to
+# `.github/triggers/cco-seniors-excused-2026-09-29`.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Show the before/after without writing anything'
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - '.github/triggers/cco-seniors-excused-2026-09-29'
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Excuse seniors from the Sept 29 concert
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          EXTRA=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            [ "${{ inputs.dry_run }}" = "true" ] && EXTRA="--dry-run"
+          elif [ -f .github/triggers/cco-seniors-excused-2026-09-29 ]; then
+            grep -q '"dry_run"[[:space:]]*:[[:space:]]*true' .github/triggers/cco-seniors-excused-2026-09-29 && EXTRA="--dry-run"
+          fi
+          node scripts/cco-seniors-excused-2026-09-29.mjs $EXTRA

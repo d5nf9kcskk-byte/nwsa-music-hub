@@ -297,6 +297,12 @@ runs:
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/concertExcusal.selfcheck.ts
       shell: bash
 
+    # Seniors excused from an audience requirement (#audience-excusal): off
+    # the requirement, never off a stage, never off a by-name list.
+    - name: Check audience excusals
+      run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/audienceExcusal.selfcheck.ts
+      shell: bash
+
     # A student's practice list holds only what they PLAY (#student-repertoire):
     # nothing from a concert they only attend, nothing from another
     # ensemble's half of a shared program.

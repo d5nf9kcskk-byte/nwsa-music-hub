@@ -22,6 +22,7 @@ import { useAllAttendance } from '../hooks/useAttendance';
 import { useConcertCheckins } from '../hooks/useConcertCheckins';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { pulledFromEvent } from '../rosterResolver';
+import { gradeExcusedFromAudience } from '../../shared/audienceExcusal';
 import { useAssignments, useAllAssignmentResults } from '../hooks/useAssignments';
 import { useLessons } from '../hooks/useLessons';
 import { useGradeMarks, type GradeMarks } from '../hooks/useGradeMarks';
@@ -244,7 +245,15 @@ export function GradebookView() {
     const eventsById = Object.fromEntries(events.map(e => [e.id, e]));
     for (const id of required) {
       for (const { student } of roster) {
-        if (pulledFromEvent(student, eventsById[id], overrides, eventsById)) {
+        const ev = eventsById[id];
+        // Seniors excused from an audience requirement (#audience-excusal)
+        // leave the denominator too, unless they play on it or were named.
+        const performs = ev.ensembleIds.some(e => student.ensembleIds?.includes(e))
+          || (ev.studentIds ?? []).includes(student.id);
+        const gradeExcused = !performs
+          && !(ev.attendanceStudentIds ?? []).includes(student.id)
+          && gradeExcusedFromAudience(student.grade, ev);
+        if (gradeExcused || pulledFromEvent(student, ev, overrides, eventsById)) {
           excused[student.id] = (excused[student.id] ?? 0) + 1;
         }
       }

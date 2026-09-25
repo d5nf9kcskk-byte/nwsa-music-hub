@@ -268,6 +268,13 @@ export interface CalendarEvent {
    */
   attendanceStudentIds?: string[];
   /**
+   * Grade prefixes excused from the `attendanceEnsembleIds` requirement
+   * (#audience-excusal) — `['12']` = seniors excused. Never touches a
+   * performer or a student named in `attendanceStudentIds`. Semantics live in
+   * src/shared/audienceExcusal.ts.
+   */
+  attendanceExcusedGrades?: string[];
+  /**
    * The ensembles in `ensembleIds` meet TOGETHER — one room, one downbeat
    * (a combined pops rehearsal, a full-department call). Without this, a
    * rehearsal tagged with several ensembles is ambiguous, and a genuine

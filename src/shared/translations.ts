@@ -274,6 +274,10 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
     en: 'members of {ensembles} must attend this {type} even though they are not performing.',
     es: 'los integrantes de {ensembles} deben asistir aunque no vayan a tocar.',
   },
+  'event.attendanceSeniorsExcused': {
+    en: 'Seniors (12th grade) are excused.',
+    es: 'Los estudiantes de 12.º grado están excusados.',
+  },
 
   // ── Season page ─────────────────────────────────────────────────────────
   'season.intro': {
