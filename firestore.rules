@@ -651,7 +651,7 @@ service cloud.firestore {
             || (request.resource.data.ensembleIds is list
                 && request.resource.data.ensembleIds.size() <= 20))
         && (!('category' in request.resource.data)
-            || request.resource.data.category in ['leaving-early', 'full-day-absence', 'parent-signout'])
+            || request.resource.data.category in ['leaving-early', 'full-day-absence', 'parent-signout', 'arriving-late'])
         && (!('timeWindow' in request.resource.data)
             || request.resource.data.timeWindow in ['full', 'specific'])
         && (!('startTime' in request.resource.data)

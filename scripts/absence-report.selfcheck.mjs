@@ -53,7 +53,7 @@ assert(
 // `category in [...]` allowlist must change in the SAME commit or the app
 // and the rules silently disagree about what a valid report looks like.
 assert(
-  JSON.stringify(ABSENCE_CATEGORIES) === JSON.stringify(['leaving-early', 'full-day-absence', 'parent-signout']),
+  JSON.stringify(ABSENCE_CATEGORIES) === JSON.stringify(['leaving-early', 'full-day-absence', 'parent-signout', 'arriving-late']),
   'the three-category contract matches firestore.rules — update both together if this ever changes',
 );
 for (const c of ABSENCE_CATEGORIES) {

@@ -94,6 +94,18 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'On a concert shared by several ensembles, you see just the pieces your ensemble plays.',
     ],
   },
+  // Arriving late heads-up (#arriving-late). Staff-only.
+  {
+    id: '2026-09-29-arriving-late',
+    date: '2026-09-29',
+    title: 'Tell roll a student is arriving late',
+    audience: 'staff' as const,
+    expires: '2026-10-29',
+    bullets: [
+      'Roll → Subs & Pull-outs → pick the student → “Arriving late”. Set the date, about when they will arrive, and why (SAT testing, an appointment).',
+      'Take Roll shows an “Arriving late” note under their name. They stay on the roster and are never pre-marked absent.',
+    ],
+  },
   // Excused from a concert (#concert-excusals). Staff-only: the public site
   // only ever sees that a student isn't playing, never why.
   {
