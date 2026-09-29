@@ -90,7 +90,9 @@ function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, 
           {plannedAbsence && !record && (
             <div className="dir-prereport">
               📋 Reported ahead{plannedAbsence.category ? ` · ${ABSENCE_CATEGORY_LABEL[plannedAbsence.category]}` : ''}:
-              {' '}{plannedAbsence.reason} — tap Absent (Excused) to accept
+              {' '}{plannedAbsence.reason}{plannedAbsence.category === 'arriving-late'
+                ? ' — not absent; mark Late (Excused) only if they arrive after the start'
+                : ' — tap Absent (Excused) to accept'}
               {plannedAbsence.photoPath && (
                 <button
                   type="button"

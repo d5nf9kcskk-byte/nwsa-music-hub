@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, updateDoc, deleteDoc, addDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { PlannedAbsence } from '../types';
 
@@ -24,5 +24,13 @@ export function usePlannedAbsences() {
     await deleteDoc(doc(db, 'plannedAbsences', id));
   }
 
-  return { absences, setStatus, remove };
+  /** Staff filing a heads-up on a family's behalf ("arriving late"). Goes
+   *  through the same create rule the public writers use, so it must carry the
+   *  same shape: status 'pending', a real student, bounded strings. */
+  async function addReport(report: Omit<PlannedAbsence, 'id' | 'submittedAt' | 'status'>) {
+    if (!db) return;
+    await addDoc(collection(db, 'plannedAbsences'), { ...report, submittedAt: Date.now(), status: 'pending' });
+  }
+
+  return { absences, setStatus, remove, addReport };
 }

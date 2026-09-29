@@ -8,6 +8,7 @@ import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useStaffNotices } from '../hooks/useStaffNotices';
+import { usePlannedAbsences } from '../hooks/usePlannedAbsences';
 import { currentDirectorName } from '../currentDirector';
 import { resolveRoster } from '../rosterResolver';
 import { ensembleColor, parseDate, todayStr, toDateStr, formatTimeRange, addMinutesToTime, musicEnsembles, isClassGroup, takesAttendance, WEEKDAY_LABELS } from '../utils';
@@ -270,16 +271,20 @@ function pickColor(s: Student, ensembles: Ensemble[]): string {
  *   out   → remove with a required reason (the only verb that leaves the
  *           building — pre-existing rule)
  *   subIn → add
+ *   late  → NOT a roster change: a plannedAbsences heads-up (category
+ *           'arriving-late') that shows as a chip on Take Roll. They stay on
+ *           the roster and are never pre-marked absent.
  *   excuse→ a concertExcusals record + event-scoped removes, filed together
  *           by ConcertExcusalForm (#concert-excusals) — directors only
  */
-type Verb = 'send' | 'lesson' | 'out' | 'subIn' | 'excuse';
+type Verb = 'send' | 'lesson' | 'out' | 'subIn' | 'excuse' | 'late';
 
 const VERB_CHIPS: { verb: Verb; icon: React.ReactNode; label: string }[] = [
   { verb: 'send',   icon: <CornerUpRight size={15} />,  label: 'With another ensemble' },
   { verb: 'lesson', icon: <GraduationCap size={15} />,  label: 'Lesson pull-out' },
   { verb: 'out',    icon: <UserMinus size={15} />,      label: 'Out (trip, excused)' },
   { verb: 'subIn',  icon: <UserPlus size={15} />,       label: 'Sub in' },
+  { verb: 'late',   icon: <Clock size={15} />,          label: 'Arriving late' },
   { verb: 'excuse', icon: <UserCheck size={15} />,      label: 'Excused from a concert' },
 ];
 
@@ -303,6 +308,8 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
   const { overrides, addOverride, deleteOverride } = useRosterOverrides();
   const { excusals, canFile } = useConcertExcusals();
   const { addNotice } = useStaffNotices();
+  const { addReport } = usePlannedAbsences();
+  const [arriveTime, setArriveTime] = useState('');
   const [verb, setVerb] = useState<Verb>('send');
   const [date, setDate] = useState(prefill?.date ?? todayStr());
   const [endDate, setEndDate] = useState('');       // '' = single day (the default)
@@ -352,7 +359,8 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
   const ready = !busy
     && (!needsFrom || !!fromId)
     && (verb === 'send' || verb === 'subIn' ? !!destId : true)
-    && (verb === 'out' ? !!reason.trim() : true);
+    && (verb === 'out' ? !!reason.trim() : true)
+    && (verb === 'late' ? !!arriveTime : true);
 
   const consequences: string[] =
     needsFrom && !fromId
@@ -365,6 +373,10 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
       : verb === 'lesson' ? [
           `${fromName}’s roll ${whenText}: ${student.name} shows a lesson badge ${fmtTime(lessonStart)}–${fmtTime(lessonEnd)} — still on the roster, present the rest of rehearsal.`,
           'Staff-only. Directors get a heads-up on Today.',
+        ]
+      : verb === 'late' ? [
+          `${fromName}’s roll ${whenText}: ${student.name} shows “Arriving late” with the time and reason — still on the roster, never pre-marked absent.`,
+          'Mark them Late (Excused) if they arrive after the start, or leave them Present if they’re there on time.',
         ]
       : verb === 'out' ? [
           `${fromName}’s roll ${whenText}: ${student.name} is off the roster — shows on Who’s Out with the reason.`,
@@ -386,6 +398,16 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
     if (!ready) return;
     setBusy(true); setError('');
     try {
+      if (verb === 'late') {
+        await addReport({
+          studentId: student.id, studentName: student.name, date,
+          reason: `Arriving about ${fmtTime(arriveTime)}${reason.trim() ? ` — ${reason.trim()}` : ''}`.slice(0, 300),
+          category: 'arriving-late', timeWindow: 'specific', endTime: arriveTime,
+          ensembleIds: [fromId],
+        });
+        setVerb('send'); setReason(''); setArriveTime('');
+        return;
+      }
       let data: Omit<RosterOverride, 'id'>;
       if (verb === 'lesson') {
         data = {
@@ -454,7 +476,7 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
   const dateBit = (
     <>
       <input className="dir-sent-ctl" type="date" value={date} onChange={e => setDate(e.target.value)} aria-label="Date" />
-      {verb !== 'lesson' && (endDate ? (
+      {verb !== 'lesson' && verb !== 'late' && (endDate ? (
         <> through <input className="dir-sent-ctl" type="date" value={endDate} min={date} onChange={e => setEndDate(e.target.value)} aria-label="Through" />
           <button className="dir-inline-link" onClick={() => setEndDate('')}>just one day</button></>
       ) : (
@@ -501,6 +523,10 @@ function SentencePage({ student, students, ensembles, events, eventsById, prefil
             {' '}instead of {fromBit} {dateBit}.</>}
           {verb === 'out' && <> is out (trip, excused) — not at {fromBit} — {dateBit}, because{' '}
             <input className="dir-sent-ctl dir-sent-reason" value={reason} onChange={e => setReason(e.target.value)} placeholder="field trip, released early…" aria-label="Reason" />.</>}
+          {verb === 'late' && <> is arriving late to {fromBit} {dateBit}, about{' '}
+            <input className="dir-sent-ctl" type="time" value={arriveTime} onChange={e => setArriveTime(e.target.value)} aria-label="Expected arrival" />
+            {' '}because{' '}
+            <input className="dir-sent-ctl dir-sent-reason" value={reason} onChange={e => setReason(e.target.value)} placeholder="SAT testing…" aria-label="Reason" />.</>}
           {verb === 'subIn' && <> also plays with {destSelect} as a sub {dateBit}.</>}
         </div>
         {verb === 'lesson' && (

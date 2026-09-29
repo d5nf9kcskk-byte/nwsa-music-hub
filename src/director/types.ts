@@ -1001,7 +1001,7 @@ export interface AssignmentSubmission {
  *  that only one category fills in stays OPTIONAL in the type and the rules:
  *  the two pre-existing writers (PlannedAbsenceButton, apply-absence-email.mjs)
  *  send none of them and must keep working unmodified. */
-export const ABSENCE_CATEGORIES = ['leaving-early', 'full-day-absence', 'parent-signout'] as const;
+export const ABSENCE_CATEGORIES = ['leaving-early', 'full-day-absence', 'parent-signout', 'arriving-late'] as const;
 export type AbsenceCategory = (typeof ABSENCE_CATEGORIES)[number];
 
 /** The ONE spelling of each category — Take Roll's chip, Who's Out, and the
@@ -1011,6 +1011,7 @@ export const ABSENCE_CATEGORY_LABEL: Record<AbsenceCategory, string> = {
   'leaving-early': 'Leaving early',
   'full-day-absence': 'Full-day absence',
   'parent-signout': 'Parent sign-out',
+  'arriving-late': 'Arriving late',
 };
 
 /** Student/parent-submitted planned absence (#27, widened #absence-report).
