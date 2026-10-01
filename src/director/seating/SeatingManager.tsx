@@ -431,15 +431,15 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
                   ><X size={14} /></button>
                 </div>
               ))}
-              {!pieceOpen && (
-                <input
-                  className="dir-input"
-                  value={pieceQuery}
-                  onChange={e => { setPieceQuery(e.target.value); setPieceOpen(true); }}
-                  onFocus={() => setPieceOpen(true)}
-                  placeholder={pieceIds.length ? 'Add another work…' : 'Leave blank for the whole ensemble — or search…'}
-                />
-              )}
+              {/* Always rendered: it used to unmount the moment it was focused
+                  (focus sets pieceOpen), leaving nowhere to type. */}
+              <input
+                className="dir-input"
+                value={pieceQuery}
+                onChange={e => { setPieceQuery(e.target.value); setPieceOpen(true); }}
+                onFocus={() => setPieceOpen(true)}
+                placeholder={pieceIds.length ? 'Add another work…' : 'Leave blank for the whole ensemble — or search…'}
+              />
               {pieceIds.length > 0 && !pieceOpen && (
                 <div className="dir-field-hint" style={{ marginTop: 4 }}>
                   This chart is these works' personnel, not the ensemble's roster. It
