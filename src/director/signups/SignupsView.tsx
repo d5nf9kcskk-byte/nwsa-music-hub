@@ -3,8 +3,10 @@ import { NotesText } from '../../public/components/NotesText';
 import { RichTextArea } from '../components/RichTextArea';
 import {
   ClipboardSignature, Plus, Users, CalendarClock, Check, Copy, Download, Printer,
-  Mail, Link2, Lock, Unlock, Trash2, ChevronLeft, Sparkles, AlertTriangle, Clock, Repeat,
+  Mail, Link2, Lock, Unlock, Trash2, ChevronLeft, Sparkles, AlertTriangle, Clock, Repeat, FileText,
 } from 'lucide-react';
+import { ref as storageRef, getBlob } from 'firebase/storage';
+import { storage } from '../firebaseAuth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useSignupForms, useSignupResponses, useSignupSlotBookings, useSignupAudiences, useSignupOwners, saveSignupAudience, deleteSignupAudience, saveSignupOwner, removeSlotBooking, latestPerStudent, parseAnswers, responseIsComplete } from '../hooks/useSignups';
@@ -227,7 +229,7 @@ export function SignupsView() {
             </div>
             <div className="dir-signup-card-meta">
               <span><Users size={13} /> {respondedLine(f, mine.length, target.length)}</span>
-              {(f.signatureStatement || (f.questions ?? []).length > 0) && (
+              {(f.signatureStatement || f.signPdf || (f.questions ?? []).length > 0) && (
                 <span><Check size={13} /> {complete} complete</span>
               )}
               {f.deadline && (
@@ -307,7 +309,53 @@ function SignupDetail({
   const timeslotQuestions = useMemo(() => questions.filter(isTimeslotQuestion), [questions]);
   // A sign-up that only asks for a name and a grade has no "complete" state
   // to report — every response would read Complete, which says nothing.
-  const asksForMore = !!form.signatureStatement || questions.length > 0;
+  const asksForMore = !!form.signatureStatement || !!form.signPdf || questions.length > 0;
+  const signedPdfs = active.filter(r => r.signedPdfPath);
+  const [pdfBusy, setPdfBusy] = useState('');
+  const [pdfError, setPdfError] = useState('');
+
+  // Signed forms are read through the signed-in session (getBlob), never a
+  // download URL — a URL would be a permanent public link to a child's
+  // medical notes. Same reasoning as the check-in photo wall.
+  async function signedBytes(path: string): Promise<Blob> {
+    if (!storage) throw new Error('Storage not initialized');
+    return getBlob(storageRef(storage, path));
+  }
+  function saveBlob(blob: Blob, name: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name.replace(/[\\/:*?"<>|]+/g, '-');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+  async function openSigned(r: SignupResponse) {
+    if (!r.signedPdfPath || pdfBusy) return;
+    setPdfBusy(r.id); setPdfError('');
+    try {
+      saveBlob(await signedBytes(r.signedPdfPath), `${form.title} - ${r.studentName}.pdf`);
+    } catch {
+      setPdfError('That signed form could not be opened. Only directors can open signed forms; if you are one, check your connection and try again.');
+    } finally {
+      setPdfBusy('');
+    }
+  }
+  async function downloadAllSigned() {
+    if (!signedPdfs.length || pdfBusy) return;
+    setPdfBusy('all'); setPdfError('');
+    try {
+      const { mergePdfs } = await import('../../shared/pdfStamp');
+      const files = await Promise.all(signedPdfs.map(async r => (await signedBytes(r.signedPdfPath!)).arrayBuffer()));
+      const merged = await mergePdfs(files);
+      saveBlob(new Blob([merged as BlobPart], { type: 'application/pdf' }), `${form.title} - signed forms (${signedPdfs.length}).pdf`);
+    } catch {
+      setPdfError('The signed forms could not be put together. Check your connection and try again, or open them one at a time.');
+    } finally {
+      setPdfBusy('');
+    }
+  }
   const live = signupIsOpen(form, today, now);
   const publicUrl = `${ORG.publicUrl.replace(/\/$/, '')}/signup/${form.id}`;
   const docUrl = form.formUrl ?? '';
@@ -401,9 +449,15 @@ function SignupDetail({
         >
           <Download size={15} /> CSV
         </button>
-        <button className="dir-tool-btn" disabled={!active.length} onClick={printPacket}>
-          <Printer size={15} /> Print / save PDF
-        </button>
+        {form.signPdf ? (
+          <button className="dir-tool-btn" disabled={!signedPdfs.length || !!pdfBusy} onClick={() => void downloadAllSigned()}>
+            <FileText size={15} /> {pdfBusy === 'all' ? 'Gathering…' : `Download all signed forms (${signedPdfs.length})`}
+          </button>
+        ) : (
+          <button className="dir-tool-btn" disabled={!active.length} onClick={printPacket}>
+            <Printer size={15} /> Print / save PDF
+          </button>
+        )}
         <a className={`dir-tool-btn${emailList(active) ? '' : ' dir-signup-disabled'}`} href={mailto()}>
           <Mail size={15} /> Email everyone
         </a>
@@ -417,6 +471,14 @@ function SignupDetail({
         )}
         <button className="dir-tool-btn" onClick={onEdit}>Edit sign-up</button>
       </div>
+
+      {pdfError && <div className="dir-signup-warn"><AlertTriangle size={13} /> {pdfError}</div>}
+      {form.signPdf && (
+        <p className="dir-signup-hint">
+          Families fill in and sign <a href={form.signPdf.url} target="_blank" rel="noreferrer">this PDF</a> on
+          the sign-up page. Each response below carries their signed copy.
+        </p>
+      )}
 
       {docUrl && (
         <p className="dir-signup-hint">
@@ -483,6 +545,7 @@ function SignupDetail({
                 {asksForMore && (complete
                   ? <span className="dir-signup-tag done"><Check size={12} /> Complete</span>
                   : <span className="dir-signup-tag partial">Interest only</span>)}
+                {form.signPdf && !r.signedPdfPath && <span className="dir-signup-tag partial">No signed PDF</span>}
                 {r.status === 'entered' && <span className="dir-signup-tag entered">In the system</span>}
                 {r.status === 'withdrawn' && <span className="dir-signup-tag withdrawn">Withdrawn</span>}
               </span>
@@ -519,6 +582,11 @@ function SignupDetail({
                   </div>
                 )}
                 <div className="dir-signup-resp-actions">
+                  {r.signedPdfPath && (
+                    <button className="dir-tool-btn" disabled={!!pdfBusy} onClick={() => void openSigned(r)}>
+                      <FileText size={15} /> {pdfBusy === r.id ? 'Opening…' : 'Open signed form'}
+                    </button>
+                  )}
                   <button
                     className="dir-tool-btn"
                     onClick={() => void onSetStatus(r.id, r.status === 'entered' ? 'submitted' : 'entered')}
@@ -1047,6 +1115,12 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
       setSaveError('“Anyone with the link” sign-ups can’t offer time slots — the slot has to be held for someone on the roster. Remove the time slot question, or pick a different audience.');
       return;
     }
+    // Same anchor problem for a signed PDF (#sign-pdf): storage.rules files it
+    // under a student doc, and an open sign-up has none.
+    if (openMode && draft.signPdf) {
+      setSaveError('“Anyone with the link” sign-ups can’t collect a signed PDF — the signed form is filed under a student on the roster. Remove the PDF, or pick a different audience.');
+      return;
+    }
     // A question with slots/options but no label would be filtered away below.
     // Stop instead: silently deleting a built-out time slot grid is data loss.
     const unnamed = draft.questions.findIndex(q => !q.label.trim() && signupQuestionHasContent(q));
@@ -1071,6 +1145,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
         guardianStatement: draft.signatureStatement?.trim() ? draft.guardianStatement?.trim() || undefined : undefined,
         signatureStatement: draft.signatureStatement?.trim() || undefined,
         formUrl: draft.formUrl?.trim() || undefined,
+        signPdf: draft.signPdf ?? undefined,
         questions: draft.questions
           .filter(q => q.label.trim() || signupQuestionHasContent(q))
           .map(q => {
@@ -1341,6 +1416,28 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
           <button className="dir-btn dir-btn-ghost" onClick={addQuestion}>
             <Plus size={15} /> Add a question
           </button>
+
+          <div className="dir-signup-section">The official form, signed on the page</div>
+          <div className="dir-field">
+            <FileUpload
+              folder={`documents/signups/${uploadId}`}
+              attachments={draft.signPdf ? [draft.signPdf] : []}
+              onChange={atts => {
+                const prev = draft.signPdf;
+                set('signPdf', atts[0]);
+                if (prev?.url && prev.url !== atts[0]?.url) void deleteStoredFile(prev.url);
+              }}
+              single
+              accept="application/pdf"
+              label="Attach the PDF to sign"
+            />
+            <div className="dir-signup-help">
+              For paperwork that has to come back as the real document — a field trip
+              permission form. Families see the PDF, type into its blanks, sign with a
+              finger and date it, and you get their filled-in PDF back. Only directors
+              can open the signed copies.
+            </div>
+          </div>
 
           <div className="dir-signup-section">Signature</div>
           <div className="dir-field">

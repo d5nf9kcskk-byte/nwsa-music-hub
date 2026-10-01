@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { NotesText } from './components/NotesText';
 import { useParams, Link } from 'react-router';
 import { ClipboardSignature, FileText, CalendarClock, Check, Search, Paperclip, UserRound } from 'lucide-react';
-import { db } from '../director/firebase';
+import { app, db } from '../director/firebase';
 import { useSignupForms, submitSignupResponse, useSignupSlotBookings } from '../director/hooks/useSignups';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useMinuteTick } from '../director/hooks/useAnnouncements';
@@ -28,6 +28,7 @@ import { getReceipt, saveReceipt } from './signupReceipt';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 import { ORG } from '../org';
 import type { Attachment, SignupForm, SignupQuestion, SignupSlotBooking, Student } from '../director/types';
+import type { PdfMark } from '../shared/pdfStamp';
 import './signup.css';
 
 /**
@@ -42,6 +43,10 @@ import './signup.css';
  */
 
 const GRADE_OPTIONS = ['9th', '10th', '11th', '12th'];
+
+// pdf.js and pdf-lib are big, and only a sign-the-PDF form needs them
+// (#sign-pdf) — loaded on that page and nowhere else.
+const PdfSigner = lazy(() => import('./components/PdfSigner'));
 
 /** Answers ride to Firestore as one bounded JSON string (see SignupResponse).
  *  Anything past the rules ceiling would be rejected, so trim to fit here and
@@ -103,6 +108,12 @@ export function PublicSignup() {
   const [guardianEmail, setGuardianEmail] = useState('');
   const [state, setState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const [error, setError] = useState('');
+  // The official PDF this sign-up is signed ON (#sign-pdf), the marks the
+  // family put on it, and — after Send — their own copy to keep.
+  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
+  const [pdfLoadError, setPdfLoadError] = useState(false);
+  const [marks, setMarks] = useState<PdfMark[]>([]);
+  const [myCopy, setMyCopy] = useState('');
 
   const student = eligible.find(s => s.id === studentId) ?? null;
   // 'open' sign-ups: no roster, no picker — whoever has the link types their
@@ -152,6 +163,17 @@ export function PublicSignup() {
   }, [answers, questions]);
   const answersTooLong = answersJson.length > ANSWERS_MAX;
 
+  const signUrl = form?.signPdf?.url ?? '';
+  useEffect(() => {
+    if (!signUrl) return;
+    let dead = false;
+    fetch(signUrl)
+      .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.arrayBuffer(); })
+      .then(b => { if (!dead) setPdfBytes(new Uint8Array(b)); })
+      .catch(() => { if (!dead) setPdfLoadError(true); });
+    return () => { dead = true; };
+  }, [signUrl]);
+
   // Drop a timeslot pick the moment the confirmed grade no longer allows it
   // (e.g. Ava picked a seniors-only Monday, then her grade shows 10th).
   useEffect(() => {
@@ -200,6 +222,9 @@ export function PublicSignup() {
     );
 
   const needsSignature = !!form.signatureStatement;
+  // An open sign-up has no student doc for the stored file to hang off.
+  const signsPdf = !!form.signPdf && !openMode;
+  const pdfSigned = marks.some(m => m.kind === 'ink');
   const needsGuardian = !!form.guardianStatement;
   const missingRequired = questions.some(q => q.required && !(answers[q.id] ?? '').trim());
   const valid = identified
@@ -207,6 +232,7 @@ export function PublicSignup() {
     && !missingRequired
     && (!needsSignature || signature.trim().length >= 3)
     && (!needsGuardian || (guardianName.trim().length >= 2 && guardianSignature.trim().length >= 3))
+    && (!signsPdf || (!!pdfBytes && pdfSigned))
     && (!form.collectEmail || /.+@.+\..+/.test(email.trim()))
     // Optional, but if they typed one it has to parse — the rules reject a
     // malformed address and the student would never see why.
@@ -223,6 +249,22 @@ export function PublicSignup() {
     try {
       const slotClaims = form ? slotClaimsForAnswers(form, answers) : [];
       if (form) assertClaimsMatchGrade(form, slotClaims, effectiveGrade.trim());
+      // The signed PDF goes up FIRST, so a response that says "submitted"
+      // always has its form behind it. storage.rules anchors the upload on
+      // the sign-up and the student, not on this response.
+      let signedPdfPath: string | undefined;
+      if (signsPdf && student && pdfBytes) {
+        if (!app) throw new Error('Firebase not initialized');
+        // Loaded here, not at the top: Storage and pdf-lib stay out of the
+        // public bundle for every page that is not sending a signed form.
+        const [{ stampPdf, signedPdfPathFor }, { getStorage, ref: storageRef, uploadBytes }] =
+          await Promise.all([import('../shared/pdfStamp'), import('firebase/storage')]);
+        const signed = await stampPdf(pdfBytes, marks,
+          `Filled in and signed on the ${ORG.brandName} for ${student.name} · ${new Date().toLocaleString()}`);
+        signedPdfPath = signedPdfPathFor(id, student.id);
+        await uploadBytes(storageRef(getStorage(app), signedPdfPath), signed, { contentType: 'application/pdf' });
+        setMyCopy(URL.createObjectURL(new Blob([signed as BlobPart], { type: 'application/pdf' })));
+      }
       await submitSignupResponse({
         formId: id,
         // Omitted entirely on an open sign-up — there is no roster record to
@@ -240,6 +282,7 @@ export function PublicSignup() {
         ...(guardianName.trim() ? { guardianName: guardianName.trim().slice(0, 120) } : {}),
         ...(guardianSignature.trim() ? { guardianSignature: guardianSignature.trim().slice(0, 120) } : {}),
         ...(guardianEmail.trim() ? { guardianEmail: guardianEmail.trim().slice(0, 254) } : {}),
+        ...(signedPdfPath ? { signedPdfPath } : {}),
       }, slotClaims);
       saveReceipt(id, {
         studentId: student?.id ?? '',
@@ -276,7 +319,13 @@ export function PublicSignup() {
           <p>
             <strong>{identityName}</strong>{effectiveGrade ? ` · ${effectiveGrade}` : ''} — sent to your director.
             {needsSignature && ' Your signature went with it.'}
+            {signsPdf && ' Your signed form went with it.'}
           </p>
+          {myCopy && (
+            <a className="pub-signup-doc" href={myCopy} download={`${form?.title ?? 'Signed form'}.pdf`}>
+              <FileText size={15} /> Save a copy of your signed form
+            </a>
+          )}
           {pickedSlots.length > 0 && (
             <div className="pub-signup-booked">
               <div className="pub-signup-booked-head">
@@ -526,6 +575,30 @@ export function PublicSignup() {
                 </>
               )}
 
+              {/* ── 3 · the official PDF, filled in on the page (#sign-pdf) ── */}
+              {signsPdf && (
+                <>
+                  <div className="pub-signup-step">
+                    <div className="pub-signup-step-num">3</div>
+                    <div className="pub-signup-step-title">Fill in, sign and date the form</div>
+                  </div>
+                  <div className="pub-card">
+                    {pdfLoadError ? (
+                      <div className="pub-absence-error">
+                        ⚠ The form could not be loaded. Check your connection and reload the page,
+                        or email {ORG.contactEmail}.
+                      </div>
+                    ) : pdfBytes ? (
+                      <Suspense fallback={<div className="pub-signup-loading">Opening the form…</div>}>
+                        <PdfSigner bytes={pdfBytes} marks={marks} onMarks={setMarks} />
+                      </Suspense>
+                    ) : (
+                      <div className="pub-signup-loading">Opening the form…</div>
+                    )}
+                  </div>
+                </>
+              )}
+
               {/* ── 4 · signature ──────────────────────────────── */}
               {needsSignature && (
                 <>
@@ -570,11 +643,13 @@ export function PublicSignup() {
               {error && <div className="pub-absence-error">⚠ {error}</div>}
 
               <button className="pub-signup-send" disabled={!valid || state === 'saving'} onClick={submit}>
-                {state === 'saving' ? 'Sending…' : needsSignature ? 'Sign and send' : 'Send to my director'}
+                {state === 'saving' ? 'Sending…' : signsPdf ? 'Send the signed form' : needsSignature ? 'Sign and send' : 'Send to my director'}
               </button>
               {!valid && (
                 <div className="pub-signup-note pub-signup-why">
-                  {whyNotYet({ effectiveGrade, gradeRequired: !openMode, missingRequired, needsSignature, signature, needsGuardian, guardianName, guardianSignature, collectEmail: !!form.collectEmail, email, guardianEmail })}
+                  {signsPdf && !pdfSigned && effectiveGrade.trim()
+                    ? 'The form still needs a signature — tap Signature, then tap the signature line.'
+                    : whyNotYet({ effectiveGrade, gradeRequired: !openMode, missingRequired, needsSignature, signature, needsGuardian, guardianName, guardianSignature, collectEmail: !!form.collectEmail, email, guardianEmail })}
                 </div>
               )}
               <p className="pub-signup-privacy">

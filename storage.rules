@@ -201,6 +201,32 @@ service firebase.storage {
       allow update, delete: if isStaff();
     }
 
+    // A family's filled-in, signed copy of a sign-up's official PDF
+    // (#sign-pdf) — a field-trip permission form, carrying the parent's
+    // signature, phone numbers, insurance policy and the child's medical
+    // notes. So: NO public read and no assistant or teacher read either;
+    // directors only, and the app reads it with getBlob through the signed-in
+    // session, never a download URL (the same posture as /checkins).
+    //
+    // Uploaded BEFORE its signupResponses doc (a response that says
+    // "submitted" must always have its form behind it), so the anchor is the
+    // sign-up — which must exist, offer a PDF to sign, and be open — and a
+    // real student doc, exactly the folder signupResponses' signedPdfPath
+    // rule pins. Create-only: a second send is a second file, never an
+    // overwrite of the first.
+    match /signupSignedForms/{formId}/{studentId}/{file} {
+      allow read, delete: if isStaff();
+      allow create: if resource == null && signPdfOpen(formId)
+        && firestore.exists(/databases/(default)/documents/students/$(studentId))
+        && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+    }
+
+    function signPdfOpen(formId) {
+      let form = firestore.get(/databases/(default)/documents/signupForms/$(formId)).data;
+      return form.get('signPdf', null) != null && form.get('closed', false) == false;
+    }
+
     // Deny everything else by default.
     match /{allPaths=**}             { allow read, write: if false; }
   }

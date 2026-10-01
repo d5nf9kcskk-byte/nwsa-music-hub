@@ -72,6 +72,7 @@ export function parseAnswers(response: Pick<SignupResponse, 'answersJson'>): Rec
 
 /** True once the student has done everything this form asks for. */
 export function responseIsComplete(form: SignupForm, r: SignupResponse): boolean {
+  if (form.signPdf && !r.signedPdfPath) return false;
   if (form.signatureStatement && !r.signature) return false;
   if (form.guardianStatement && !(r.guardianName && r.guardianSignature)) return false;
   const answers = parseAnswers(r);

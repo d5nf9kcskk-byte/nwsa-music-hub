@@ -796,7 +796,7 @@ service cloud.firestore {
             'formId', 'studentId', 'studentName', 'grade', 'instrument',
             'email', 'phone', 'answersJson', 'signature',
             'guardianName', 'guardianSignature', 'guardianEmail',
-            'submittedAt', 'status'])
+            'signedPdfPath', 'submittedAt', 'status'])
         && request.resource.data.formId is string
         && exists(/databases/$(database)/documents/signupForms/$(request.resource.data.formId))
         && get(/databases/$(database)/documents/signupForms/$(request.resource.data.formId))
@@ -833,6 +833,17 @@ service cloud.firestore {
             || (request.resource.data.guardianEmail is string
                 && request.resource.data.guardianEmail.size() <= 254
                 && request.resource.data.guardianEmail.matches('.+@.+\\..+')))
+        // The family's signed PDF (#sign-pdf). It may only point inside its
+        // OWN sign-up's and student's folder, which is what storage.rules
+        // anchors the upload on — so a response cannot claim somebody
+        // else's signed form as its own.
+        && (!('signedPdfPath' in request.resource.data)
+            || ('studentId' in request.resource.data
+                && request.resource.data.signedPdfPath is string
+                && request.resource.data.signedPdfPath.size() <= 200
+                && request.resource.data.signedPdfPath.matches(
+                     'signupSignedForms/' + request.resource.data.formId + '/'
+                     + request.resource.data.studentId + '/[A-Za-z0-9]+[.]pdf')))
         && request.resource.data.submittedAt is number
         && request.resource.data.status == 'submitted';
       // A response names a student, their grade, a contact address and a

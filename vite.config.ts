@@ -269,7 +269,10 @@ export default defineConfig(({ mode }) => {
         // screenshots/** are read once by the OS install prompt, never by the
         // app — precaching ~200 KB of them would cost every visitor bytes
         // they never use.
-        globIgnores: ['feeds/**', 'sw-cleanup.js', 'screenshots/**'],
+        // The PDF signer's chunks (pdf.js + pdf-lib, ~330 KB gzipped, #sign-pdf)
+        // serve one sign-up page that needs the network to send anyway —
+        // precaching them would cost every visitor bytes they never use.
+        globIgnores: ['feeds/**', 'sw-cleanup.js', 'screenshots/**', 'assets/PdfSigner-*', 'assets/pdfStamp-*'],
         // Legacy-cache migration runs inside the SW's own activate (see
         // public/sw-cleanup.js) — never from the page, where it would race
         // the still-controlling old SW's offline fallback.

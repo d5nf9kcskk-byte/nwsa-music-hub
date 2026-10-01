@@ -723,6 +723,38 @@ copies.
   packet — no PDF dependency, and it's why `.dir-signup-print-host` is
   positioned off-screen rather than `display: none`.
 
+## Signing the official PDF (Oct 2026, #sign-pdf)
+
+Some paperwork must come back as the district's OWN document — the M-DCPS
+field-trip parent permission form, first for Freedom Tower 2026-10-04 — not as
+answers to Hub questions (director's call, 2026-10-01: "they have to put it in
+themselves, sign it themselves, and date it themselves"). `SignupForm.signPdf`
+turns a sign-up into that: the public page renders the PDF
+(`PdfSigner.tsx`, pdf.js legacy build for older phones), the family types on
+it, signs with a finger, dates it, and `src/shared/pdfStamp.ts` stamps exactly
+those marks onto the original file. Everything else — audience, deadline,
+"Still waiting", roster gate — is the ordinary sign-up machinery.
+
+- **The signed PDF is staff-only and has no URL.** It carries medical,
+  insurance and phone details. `storage.rules` `/signupSignedForms/{formId}/
+  {studentId}/{file}`: directors read (not assistants, not teachers), the
+  director screen reads with `getBlob`, never `getDownloadURL` (a permanent
+  bearer link to a minor's medical notes) — same posture as `/checkins`.
+- **Upload FIRST, then the response.** A response that says submitted must
+  have its form behind it, so the Storage anchor is the sign-up (exists, has
+  `signPdf`, not closed) + a real student doc, and `signedPdfPath` on the
+  response is pinned by `firestore.rules` to that same folder and the
+  `signedPdfPathFor()` file shape. Create-only (`resource == null`): a second
+  send is a second file and `latestPerStudent()` keeps the newest.
+- **Not on an 'open' sign-up** — no student doc to file under; the editor
+  refuses it.
+- pdf.js + pdf-lib are lazy chunks kept OUT of the precache (`globIgnores`).
+- Marks are PDF points from the top-left; `pdfStamp.ts` flips once.
+  `pdfStamp.selfcheck.ts` pins: an undrawable name degrades a letter rather
+  than losing the form, page counts survive stamping and merging.
+- A sign-up can be created without a browser: `scripts/post-signup.mjs` +
+  *Post Sign-up* from `config/signups/*.json` (world-readable content only).
+
 ## Roles & Firestore rules — invariants (Aug 2026, PR #44)
 
 - **The `teacher` role is the Applied Teacher** (Aug 2026) — a private

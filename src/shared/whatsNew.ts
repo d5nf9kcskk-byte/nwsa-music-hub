@@ -44,6 +44,18 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'An iPad with several Hub tabs open could show empty lists (no ensembles, no My Lessons). The Hub now notices and reloads that tab on its own.',
     ],
   },
+  // Sign the official PDF on the page (#sign-pdf).
+  {
+    id: '2026-10-01-sign-pdf',
+    date: '2026-10-01',
+    title: 'Sign-ups can collect a signed PDF',
+    audience: 'staff' as const,
+    expires: '2026-10-22',
+    bullets: [
+      'Sign-ups → Edit → “Attach the PDF to sign”. Families see the real form, type into its blanks, sign with a finger, date it, and send.',
+      'Each response carries their filled-in PDF — Open signed form, or Download all signed forms as one file for the office. Only directors can open them.',
+    ],
+  },
   // Duplicate a seating chart (#seating-duplicate).
   {
     id: '2026-10-01-seating-duplicate',

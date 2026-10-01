@@ -1387,6 +1387,13 @@ export interface SignupForm {
   /** Optional link to the official paperwork (Drive, district site, or a
    *  Hub document's own URL), shown on the sign-up page above the form. */
   formUrl?: string;
+  /** The official PDF itself, filled in, signed and dated ON THE PAGE by the
+   *  family (#sign-pdf) — a field-trip permission form the district wants
+   *  back as its own document, not as the Hub's answers to questions. Set =
+   *  the sign-up page shows the PDF with Text / Signature / Date tools and
+   *  every response carries the stamped file (`signedPdfPath`). Not offered
+   *  on an 'open' sign-up: the stored file is anchored to a student doc. */
+  signPdf?: Attachment;
   createdAt: number;
   updatedAt?: number;
   updatedBy?: string; // director's display name (falls back to email)
@@ -1436,6 +1443,11 @@ export interface SignupResponse {
   guardianName?: string;
   guardianSignature?: string;
   guardianEmail?: string;
+  /** Storage path of the family's filled-in, signed PDF (#sign-pdf):
+   *  `signupSignedForms/<formId>/<studentId>/<file>.pdf`. Staff-only in
+   *  storage.rules — it carries medical and insurance details — and read with
+   *  getBlob, never a download URL, so no bearer link to it ever exists. */
+  signedPdfPath?: string;
   submittedAt: number;
   status: SignupResponseStatus;
 }

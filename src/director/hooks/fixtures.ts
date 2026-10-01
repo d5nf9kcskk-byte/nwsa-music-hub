@@ -195,6 +195,23 @@ const FIXTURE_SLOT_DEFS: SignupSlotDef[] = [
 ];
 
 export const FIXTURE_SIGNUPS: SignupForm[] = [
+  // #sign-pdf: the official PDF, filled in and signed on the page. The real
+  // blank form ships as a site asset, so local runs open the same page.
+  {
+    id: 'fx-signup-fieldtrip',
+    title: 'Freedom Tower Field Trip — Permission Form',
+    intro: 'Fill in the form, sign it, date it, and send it.',
+    ensembleIds: ['symphony-orchestra'],
+    families: [],
+    deadline: iso(1),
+    questions: [],
+    signPdf: {
+      name: 'Parent Permission Form.pdf',
+      url: `${import.meta.env.BASE_URL}field-trip-freedom-tower-2026-10-04.pdf`,
+      size: 455057,
+    },
+    createdAt: 1_700_000_020_000,
+  },
   {
     id: 'fx-signup-allstate',
     title: 'All-State auditions — who’s in?',

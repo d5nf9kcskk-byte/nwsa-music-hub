@@ -127,6 +127,13 @@ runs:
       run: npx tsx src/shared/signupSlots.selfcheck.ts
       shell: bash
 
+    # A signed field-trip form (#sign-pdf): a name the PDF font cannot draw
+    # never loses the form, stamping keeps every page, a drawn signature
+    # embeds, and "download all" keeps every page of every form in order.
+    - name: Check signed-PDF stamping
+      run: npx tsx src/shared/pdfStamp.selfcheck.ts
+      shell: bash
+
     - name: Check sign-up slot times
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/signupSlotTimes.selfcheck.ts
       shell: bash
