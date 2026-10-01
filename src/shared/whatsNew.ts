@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // One menu arrangement at every width (#one-nav) + the iPad empty-lists fix.
+  {
+    id: '2026-10-01-same-menu-everywhere',
+    date: '2026-10-01',
+    title: 'Same menu on iPad, laptop and phone',
+    audience: 'staff' as const,
+    expires: '2026-10-15',
+    bullets: [
+      'The side menu on an iPad or laptop now lists everything in the same order as the phone menu, with Library always open, so a screen is in the same place on every device.',
+      'An iPad with several Hub tabs open could show empty lists (no ensembles, no My Lessons). The Hub now notices and reloads that tab on its own.',
+    ],
+  },
   // Duplicate a seating chart (#seating-duplicate).
   {
     id: '2026-10-01-seating-duplicate',

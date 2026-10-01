@@ -3,7 +3,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, ChevronDown, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine, FileSpreadsheet, Ticket, Copy } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine, FileSpreadsheet, Ticket, Copy } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -276,9 +276,6 @@ export default function DirectorApp() {
   const [ensemblesOpen, setEnsemblesOpen] = useState(false);
   const [classesOpen, setClassesOpen] = useState(false);
   const [collegeOpen, setCollegeOpen] = useState(false);
-  // Desktop rail only — phone keeps Library always expanded (podium: no
-  // accordion tax once the menu is open).
-  const [libraryOpen, setLibraryOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem('dir.theme') === 'dark'; } catch { return false; } });
 
@@ -357,9 +354,6 @@ export default function DirectorApp() {
     setMenuOpen(false);
   }
 
-  const libraryTabIds = new Set(
-    (NAV_GROUPS.find(g => g.head === 'Library')?.items ?? []).map(i => i.id),
-  );
   const sortedEnsembles = [...ensembles].sort((a, b) => a.order - b.order);
   const hsEnsembles = highSchoolEnsembles(sortedEnsembles);
   const hsClasses = highSchoolClasses(sortedEnsembles);
@@ -421,9 +415,6 @@ export default function DirectorApp() {
     if (tab === 'ensembles' || inHsEnsemble) setEnsemblesOpen(true);
     if (tab === 'classes' || inHsClass) setClassesOpen(true);
     if (inCollegeGroup) setCollegeOpen(true);
-    if (libraryTabIds.has(tab)) setLibraryOpen(true);
-    // libraryTabIds is derived from the static NAV_GROUPS constant.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, intent.ensembleId, inHsEnsemble, inHsClass, inCollegeGroup]);
 
   const hubEnsemble = ensembles.find(e => e.id === intent.ensembleId);
@@ -450,8 +441,8 @@ export default function DirectorApp() {
             <span>Director Panel</span>
             <span className="dir-panel-banner-sub">· editing area — the student side shows what you set here</span>
           </div>
-          {/* Desktop/iPad-landscape rail (≥1024px): NAV_TOP + People always
-              shown; Library + ensemble/class/college lists accordion. */}
+          {/* Desktop/iPad-landscape rail (≥1024px): the phone drawer's list in
+              the phone drawer's order, just always on screen. */}
           <aside className="dir-rail no-print">
             <div className="dir-rail-brand">
               <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} />
@@ -464,34 +455,22 @@ export default function DirectorApp() {
                   <Icon size={18} /> {label}
                 </button>
               ))}
-              {shellNavGroups.map(g => {
-                const isLibrary = g.head === 'Library';
-                return (
-                  <div key={g.head} style={{ display: 'contents' }}>
-                    {isLibrary ? (
-                      <button
-                        type="button"
-                        className="dir-rail-head dir-rail-expand"
-                        onClick={() => setLibraryOpen(o => !o)}
-                        aria-expanded={libraryOpen}
-                      >
-                        {g.head}
-                        <ChevronDown size={14} style={{ transform: libraryOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
-                      </button>
-                    ) : (
-                      <div className="dir-rail-head">{g.head}</div>
-                    )}
-                    {(!isLibrary || libraryOpen) && g.items.map(({ id, label, Icon }) => (
-                      <button key={id} className={`dir-rail-item ${tab === id ? 'active' : ''}`} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined} title={TAB_HINTS[id]}>
-                        <Icon size={18} /> {label}
-                        {id === 'messages' && newMsgCount > 0 && <span className="dir-nav-badge">{newMsgCount}</span>}
-                        {id === 'approvals' && approvalCount > 0 && <span className="dir-nav-badge">{approvalCount}</span>}
-                        {id === 'copyRequests' && copyCount > 0 && <span className="dir-nav-badge">{copyCount}</span>}
-                      </button>
-                    ))}
-                  </div>
-                );
-              })}
+              {/* Library is always open here, as it is in the phone drawer: one
+                  arrangement at every width, so moving between phone and iPad
+                  never means relearning where a screen lives (#one-nav). */}
+              {shellNavGroups.map(g => (
+                <div key={g.head} style={{ display: 'contents' }}>
+                  <div className="dir-rail-head">{g.head}</div>
+                  {g.items.map(({ id, label, Icon }) => (
+                    <button key={id} className={`dir-rail-item ${tab === id ? 'active' : ''}`} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined} title={TAB_HINTS[id]}>
+                      <Icon size={18} /> {label}
+                      {id === 'messages' && newMsgCount > 0 && <span className="dir-nav-badge">{newMsgCount}</span>}
+                      {id === 'approvals' && approvalCount > 0 && <span className="dir-nav-badge">{approvalCount}</span>}
+                      {id === 'copyRequests' && copyCount > 0 && <span className="dir-nav-badge">{copyCount}</span>}
+                    </button>
+                  ))}
+                </div>
+              ))}
               {groupAccordions.map(g => (
                 <DirNavGroup key={g.key} group={g} rail tab={tab} activeEnsembleId={intent.ensembleId} go={go} />
               ))}

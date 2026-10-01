@@ -185,7 +185,18 @@ submissions came from. `src/director/firestoreCache.ts` is the ONE policy:
   (`sessionStorage`), triggered by the SDK's single `INTERNAL UNHANDLED ERROR`
   log line via `onLog`. Never twice — a reload loop is worse than an error.
 
-`firestoreCache.selfcheck.ts` pins all three and runs in the deploy workflow.
+- **A SILENT hang reloads once too** (Oct 2026, the iPad incident). Multi-tab
+  persistence shares one connection through IndexedDB, and iPad Safari
+  freezes background tabs: with several Hub tabs open, the visible one showed
+  "No ensembles yet", no My Lessons, and NO load-error strip — nothing threw.
+  Closing the other tabs fixed it, which is the proof. `firebase.ts` now
+  watches for a first server snapshot; after `STUCK_CACHE_MS` of VISIBLE time
+  with none, it probes `firestore.googleapis.com`, and only if the network
+  answers does it take the same one-shot memory fallback. The clock restarts
+  on every `visibilitychange` (a frozen timer fires on wake and proves
+  nothing), and a dead zone fails the probe and keeps its cache (#37).
+
+`firestoreCache.selfcheck.ts` pins all four and runs in the deploy workflow.
 Upgrading the SDK does not remove the need: no Firestore release through
 12.18 changes the latch.
 
@@ -1229,8 +1240,11 @@ Both fixed here; the rules that keep them fixed:
   on the All-Ensembles tab. What differs per surface is class names and icon
   sizes, and that lives in the `RAIL` / `DRAWER` skins — **never a class name
   written into the markup**, which would hand one surface the other's styling
-  with nobody able to see it. The Library accordion stays rail-only on purpose
-  (the phone keeps Library expanded — no accordion tax once the menu is open).
+  with nobody able to see it. Library is always expanded on BOTH surfaces
+  (Oct 2026): the rail used to fold it shut while the phone kept it open, and
+  a director moving between iPad and phone had to relearn where every
+  Library screen lived. Same list, same order, same open/closed state — the
+  only difference by width is whether the menu is always showing.
 - **`scripts/one-nav.selfcheck.mjs` pins both shells** in the deploy workflow.
   Public: every `t('…')` key in one tree must be in the other, with **no
   exemption list on purpose** — the sets are exactly equal today, and an

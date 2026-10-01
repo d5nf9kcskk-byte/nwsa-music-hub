@@ -1,6 +1,6 @@
 import { initializeApp, onLog } from 'firebase/app';
-import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
-import { armNoPersistFallback, isQueueLatch, storageArea, wantsPersistence } from './firestoreCache';
+import { collection, initializeFirestore, limit, memoryLocalCache, onSnapshot, persistentLocalCache, persistentMultipleTabManager, query } from 'firebase/firestore';
+import { armNoPersistFallback, isQueueLatch, STUCK_CACHE_MS, storageArea, stuckCacheVerdict, wantsPersistence } from './firestoreCache';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -71,9 +71,10 @@ if (app && appCheckSiteKey) {
 // the memory cache: one failed IndexedDB request latches the SDK for the life
 // of the page, and a student saw that latch as "INTERNAL ASSERTION FAILED
 // (ID: b815)" on Submit Video. The why and the three rules: firestoreCache.ts.
+const persisting = wantsPersistence(storageArea('localStorage'), storageArea('sessionStorage'));
 export const db = app ? initializeFirestore(app, {
   ignoreUndefinedProperties: true,
-  localCache: wantsPersistence(storageArea('localStorage'), storageArea('sessionStorage'))
+  localCache: persisting
     ? persistentLocalCache({ tabManager: persistentMultipleTabManager() })
     : memoryLocalCache(),
 }) : null;
@@ -85,3 +86,33 @@ onLog(({ message }) => {
     window.location.reload();
   }
 }, { level: 'error' });
+
+// Rule 4: a persistent cache can also hang with NO error — iPad Safari froze
+// the tab holding the shared connection and the visible tab showed empty
+// lists forever. If the server has not answered in a visible tab, and the
+// network does, reload once into memory. A dead zone fails the probe and
+// keeps its cache (#37). Why and the verdict: firestoreCache.ts.
+if (db && persisting) {
+  let heard = false;
+  const stop = onSnapshot(query(collection(db, 'ensembles'), limit(1)), { includeMetadataChanges: true },
+    snap => { if (!snap.metadata.fromCache) { heard = true; stop(); } },
+    () => { heard = true; }, // an error is not a hang; the status strip reports it
+  );
+  // The clock runs only while the tab is visible: a timer frozen in the
+  // background fires the moment the tab wakes, which proves nothing.
+  let timer: number | undefined;
+  const judge = async () => {
+    const verdict = stuckCacheVerdict(heard, document.visibilityState === 'visible');
+    if (verdict !== 'probe') return; // 'wait' restarts from visibilitychange
+    const reachable = await fetch('https://firestore.googleapis.com/', { mode: 'no-cors', cache: 'no-store' })
+      .then(() => true, () => false);
+    if (heard) return;
+    if (!reachable) { timer = window.setTimeout(judge, STUCK_CACHE_MS); return; }
+    if (armNoPersistFallback(storageArea('sessionStorage'))) window.location.reload();
+  };
+  document.addEventListener('visibilitychange', () => {
+    window.clearTimeout(timer);
+    if (!heard && document.visibilityState === 'visible') timer = window.setTimeout(judge, STUCK_CACHE_MS);
+  });
+  timer = window.setTimeout(judge, STUCK_CACHE_MS);
+}

@@ -6,7 +6,7 @@
  * Submit Video button.
  */
 import {
-  wantsPersistence, isQueueLatch, armNoPersistFallback,
+  wantsPersistence, isQueueLatch, armNoPersistFallback, stuckCacheVerdict,
   STAFF_DEVICE_KEY, NO_PERSIST_KEY,
 } from './firestoreCache';
 
@@ -56,5 +56,12 @@ assert(session.getItem(NO_PERSIST_KEY) === '1', 'arming must mark the tab');
 assert(!armNoPersistFallback(session), 'second latch must not reload again');
 assert(!armNoPersistFallback(null), 'no sessionStorage must mean no reload (it could loop)');
 assert(!armNoPersistFallback(broken), 'throwing sessionStorage must mean no reload');
+
+// 5. A silent hang is judged only in a visible tab, and only if the server
+//    has never answered. (The network probe itself is in firebase.ts.)
+assert(stuckCacheVerdict(true, true) === 'fine', 'a cache that heard from the server is never stuck');
+assert(stuckCacheVerdict(true, false) === 'fine', 'a cache that heard from the server is never stuck');
+assert(stuckCacheVerdict(false, false) === 'wait', 'a hidden tab must not be judged: its timers were frozen');
+assert(stuckCacheVerdict(false, true) === 'probe', 'a visible tab with no server answer must check the network');
 
 console.log('firestoreCache.selfcheck: ok');

@@ -71,6 +71,28 @@ export function armNoPersistFallback(session: Store | null): boolean {
   }
 }
 
+/**
+ * Rule 4 (Oct 2026, the iPad incident): a persistent cache can also hang
+ * WITHOUT an error. Multi-tab persistence shares one network connection
+ * through IndexedDB, and iPad Safari freezes background tabs — with a pile of
+ * Hub tabs open, the visible one rendered "No ensembles yet", no My Lessons,
+ * and no load-error strip, until the other tabs were closed. A cache that has
+ * not heard from the server after this long, in a VISIBLE tab, on a network
+ * that answers, is stuck rather than offline: reload once into memory (the
+ * same one-shot as rule 3). A dead zone stays on IndexedDB (#37), because
+ * there the network probe fails.
+ */
+export const STUCK_CACHE_MS = 15_000;
+
+export type StuckCacheVerdict = 'fine' | 'wait' | 'probe';
+
+/** After STUCK_CACHE_MS: nothing to do, wait until the tab is visible again
+ *  (a frozen timer firing on wake proves nothing), or probe the network. */
+export function stuckCacheVerdict(heardFromServer: boolean, tabVisible: boolean): StuckCacheVerdict {
+  if (heardFromServer) return 'fine';
+  return tabVisible ? 'probe' : 'wait';
+}
+
 export function markStaffDevice(): void {
   try { storageArea('localStorage')?.setItem(STAFF_DEVICE_KEY, '1'); } catch { /* private mode */ }
 }
