@@ -844,6 +844,15 @@ service cloud.firestore {
                 && request.resource.data.signedPdfPath.matches(
                      'signupSignedForms/' + request.resource.data.formId + '/'
                      + request.resource.data.studentId + '/[A-Za-z0-9]+[.]pdf')))
+        // And a sign-the-PDF sign-up REQUIRES it. A phone still running a
+        // build from before #sign-pdf (prompt-flow updates: it waits for the
+        // refresh tap) renders this sign-up with no PDF step at all, and its
+        // Send would otherwise file a name with no signed form behind it —
+        // a "Submitted" that is not. Refused, that old page tells the family
+        // to email the director instead of pretending it worked.
+        && (get(/databases/$(database)/documents/signupForms/$(request.resource.data.formId))
+              .data.get('signPdf', null) == null
+            || 'signedPdfPath' in request.resource.data)
         && request.resource.data.submittedAt is number
         && request.resource.data.status == 'submitted';
       // A response names a student, their grade, a contact address and a
