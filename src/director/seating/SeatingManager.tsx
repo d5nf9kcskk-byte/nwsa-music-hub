@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
-import { Plus, Trash2, Pencil, ChevronLeft, Armchair, GripVertical, ChevronUp, ChevronDown, ArrowDownWideNarrow, Megaphone, X, Link2, Check } from 'lucide-react';
+import { Plus, Trash2, Pencil, ChevronLeft, Armchair, GripVertical, ChevronUp, ChevronDown, ArrowDownWideNarrow, Megaphone, X, Link2, Check, Copy } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useSeatingCharts } from '../hooks/useSeatingCharts';
@@ -23,7 +23,10 @@ export function SeatingManager({ ensembleId, ensembleName, onClose }: {
   const { charts, addChart, updateChart, deleteChart } = useSeatingCharts(ensembleId);
   const { students } = useStudents();
   const { pieces } = useRepertoire();
-  const [editing, setEditing] = useState<SeatingChart | 'new' | null>(null);
+  // `copyOf` is an UNSAVED chart seeded from another (#seating-duplicate):
+  // Publish creates a new doc and the original is never touched.
+  const [editing, setEditing] = useState<SeatingChart | 'new' | { copyOf: SeatingChart } | null>(null);
+  const existing = editing && editing !== 'new' && !('copyOf' in editing) ? editing : null;
 
   const roster = useMemo(
     () => students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(ensembleId)),
@@ -37,14 +40,17 @@ export function SeatingManager({ ensembleId, ensembleName, onClose }: {
   if (editing) {
     return (
       <SeatingEditor
-        chart={editing === 'new' ? null : editing}
+        key={existing ? existing.id : 'unsaved'}
+        chart={existing}
+        copyFrom={editing !== 'new' && 'copyOf' in editing ? editing.copyOf : undefined}
         ensembleId={ensembleId}
         ensembleName={ensembleName}
         roster={roster}
         pieces={ensemblePieces}
         allPieces={pieces}
-        onSave={async data => { if (editing === 'new') await addChart(data); else await updateChart(editing.id, data); setEditing(null); }}
-        onDelete={editing !== 'new' ? async () => { await deleteChart(editing.id); setEditing(null); } : undefined}
+        onSave={async data => { if (existing) await updateChart(existing.id, data); else await addChart(data); setEditing(null); }}
+        onDelete={existing ? async () => { await deleteChart(existing.id); setEditing(null); } : undefined}
+        onDuplicate={existing ? current => setEditing({ copyOf: current }) : undefined}
         onBack={() => setEditing(null)}
       />
     );
@@ -70,7 +76,8 @@ export function SeatingManager({ ensembleId, ensembleName, onClose }: {
                   <div className="dir-ens-sub">{c.sections.reduce((n, s) => n + s.seats.length, 0)} seats{c.date ? ` · ${parseDate(c.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}</div>
                 </div>
                 <CopyLinkButton chartId={c.id} />
-                <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing(c); }}><Pencil size={15} /></button>
+                <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing({ copyOf: c }); }} aria-label={`Duplicate ${c.title}`} title="Duplicate"><Copy size={15} /></button>
+                <button className="dir-icon-btn" onClick={e => { e.stopPropagation(); setEditing(c); }} aria-label={`Edit ${c.title}`}><Pencil size={15} /></button>
               </div>
             ))
           )}
@@ -110,8 +117,10 @@ function CopyLinkButton({ chartId }: { chartId: string }) {
   );
 }
 
-function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPieces, onSave, onDelete, onBack }: {
+function SeatingEditor({ chart, copyFrom, ensembleId, ensembleName, roster, pieces, allPieces, onSave, onDelete, onDuplicate, onBack }: {
   chart: SeatingChart | null;
+  /** Seed a NEW chart from this one's seats, sections and works. */
+  copyFrom?: SeatingChart;
   ensembleId: string;
   ensembleName: string;
   roster: Student[];
@@ -122,20 +131,24 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
   allPieces: { id: string; title: string }[];
   onSave: (data: Omit<SeatingChart, 'id'>) => Promise<void>;
   onDelete?: () => Promise<void>;
+  /** Hands over what is ON SCREEN, unsaved edits included. */
+  onDuplicate?: (current: SeatingChart) => void;
   onBack: () => void;
 }) {
+  const seed = chart ?? copyFrom;
   const nameById = useMemo(() => Object.fromEntries(roster.map(s => [s.id, s.name])), [roster]);
-  const [title, setTitle] = useState(chart?.title ?? '');
+  const [title, setTitle] = useState(chart?.title ?? (copyFrom ? `${copyFrom.title} (copy)` : ''));
   // A chart can be the personnel for SEVERAL works — the reduced orchestra
   // that plays a whole first half is one chart, not one per work. Read
   // through `chartPieceIds` so charts written before this still resolve.
-  const [pieceIds, setPieceIds] = useState<string[]>(() => (chart ? chartPieceIds(chart) : []));
+  const [pieceIds, setPieceIds] = useState<string[]>(() => (seed ? chartPieceIds(seed) : []));
   const [date, setDate] = useState(chart?.date ?? todayStr());
-  const [sections, setSections] = useState<SeatingChart['sections']>(chart?.sections ?? buildSections(roster));
+  const [sections, setSections] = useState<SeatingChart['sections']>(() =>
+    seed ? seed.sections.map(s => ({ ...s, seats: s.seats.map(x => ({ ...x })) })) : buildSections(roster));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   // Student-view-first: an existing chart opens in the read-only student view;
-  // a brand-new chart opens straight into edit.
+  // a brand-new chart (or a copy) opens straight into edit.
   const [editing, setEditing] = useState(!chart);
   const panelRef = useModalA11y<HTMLDivElement>(onBack, true, { closeOnBack: true });
 
@@ -384,7 +397,7 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
-          <span className="dir-drawer-title">{chart ? 'Edit Seating' : 'New Seating'}</span>
+          <span className="dir-drawer-title">{chart ? 'Edit Seating' : copyFrom ? 'Copy of Seating' : 'New Seating'}</span>
           <button className="dir-drawer-close" onClick={onBack}>×</button>
         </div>
         <div className="dir-drawer-body">
@@ -670,6 +683,16 @@ function SeatingEditor({ chart, ensembleId, ensembleName, roster, pieces, allPie
             {annPosted && !annOpen && <div className="dir-field-hint">Posted to {ensembleName}.</div>}
           </div>
 
+          {onDuplicate && chart && (
+            <button
+              type="button"
+              className="dir-btn dir-btn-ghost"
+              style={{ marginTop: 16, marginRight: 8 }}
+              onClick={() => onDuplicate({ ...chart, title, pieceIds, date: date || undefined, sections })}
+            >
+              <Copy size={14} style={{ verticalAlign: '-2px' }} /> Duplicate as a new chart
+            </button>
+          )}
           {onDelete && (
             <button
               className="dir-btn dir-btn-danger"

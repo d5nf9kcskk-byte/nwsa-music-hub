@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Duplicate a seating chart (#seating-duplicate).
+  {
+    id: '2026-10-01-seating-duplicate',
+    date: '2026-10-01',
+    title: 'Duplicate a seating chart',
+    audience: 'staff' as const,
+    expires: '2026-10-15',
+    bullets: [
+      'Seating → the copy icon beside a chart starts a new chart with the same seats, sections and works. Adjust it and press Publish; the original stays as it was.',
+      'Searching for a work under “For which works” now lets you type again.',
+    ],
+  },
   // Music copy requests (#copy-requests).
   {
     id: '2026-09-25-copy-requests',
