@@ -38,6 +38,8 @@
  *      gradebook, is the worst thing this module could produce.
  */
 
+import { scansCredited } from './concertCheckin.ts';
+
 /** One weighted line of a course's grading plan. */
 export interface GradeCategory {
   /** Stable key, independent of the label, so renaming a line keeps its marks. */
@@ -348,6 +350,65 @@ export function concertSuggestion(
 ): number | null {
   if (held <= 0) return null;
   return Math.max(0, Math.min(100, Math.round((credited / held) * 100)));
+}
+
+/* ──────────────── item columns: one concert, one exam, one grade ────────── */
+
+/**
+ * A director can add a column to the Gradebook for ONE concert or ONE playing
+ * exam (director's request, 2026-10-01). The column's numbers live in the
+ * same `scores` map as the categories, under a prefixed key —
+ * `concert:<eventId>` or `exam:<assignmentId>` — so there is no new
+ * collection, no rules change, and `tallyGrade` (which reads only plan ids)
+ * cannot be fooled into counting a column as a category of its own.
+ *
+ * Once a category HAS columns, the category is their average: that is what
+ * `itemAverage` answers, and what the screen writes into the category box.
+ */
+export type ItemKind = 'concert' | 'exam';
+
+/** Which item kind feeds which suggesting category. */
+export const ITEM_KIND_FOR: Partial<Record<NonNullable<GradeCategory['suggest']>, ItemKind>> = {
+  concerts: 'concert',
+  exams: 'exam',
+};
+
+export function itemKey(kind: ItemKind, id: string): string {
+  return `${kind}:${id}`;
+}
+
+export function parseItemKey(key: string): { kind: ItemKind; id: string } | null {
+  const m = /^(concert|exam):(.+)$/.exec(key);
+  return m ? { kind: m[1] as ItemKind, id: m[2] } : null;
+}
+
+/**
+ * One student's grade for one concert, from the check-in scans.
+ *   checked in AND out (or the arrival scan on an entry-only night) → 100
+ *   one scan only                                                   → 50
+ *   no scan                                                         → 0
+ * A student who PERFORMED on the concert is credited by the syllabus and
+ * never scans, so they get 100. Excused students get no number at all —
+ * the caller skips them, because an excused concert is not a zero.
+ */
+export function concertItemScore(s: {
+  hasIn: boolean; hasOut: boolean; entryOnly: boolean; performs: boolean;
+}): number {
+  if (s.performs) return 100;
+  if (scansCredited(s.hasIn, s.hasOut, s.entryOnly)) return 100;
+  if (s.hasIn || s.hasOut) return 50;
+  return 0;
+}
+
+/** Mean of a student's columns of one kind, or null when they have none. */
+export function itemAverage(scores: Record<string, unknown> | undefined, kind: ItemKind): number | null {
+  const vals: number[] = [];
+  for (const [k, v] of Object.entries(scores ?? {})) {
+    if (parseItemKey(k)?.kind !== kind) continue;
+    const n = gradeValue(v);
+    if (n !== null) vals.push(n);
+  }
+  return vals.length ? Math.round(vals.reduce((s, n) => s + n, 0) / vals.length) : null;
 }
 
 /* ─────────────────────── what the district asks alongside ───────────────── */

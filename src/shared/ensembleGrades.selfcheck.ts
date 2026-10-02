@@ -7,7 +7,8 @@
  * afternoon and nobody would notice until a parent asked.
  */
 import {
-  COVERAGE_FLOOR, FULL_MARKS, attendanceByStudent, byLastName, commentReasons, concertSuggestion,
+  COVERAGE_FLOOR, FULL_MARKS, attendanceByStudent, byLastName, commentReasons, concertItemScore,
+  concertSuggestion, itemAverage, itemKey, parseItemKey,
   conductValue, effortValue, examEvidence, fillValueFor, gradeValue, lastFirst, lastName,
   displayName, meetingsHeld, parseName, planProblem, rowReadiness, tallyGrade,
   type GradeCategory, type MarkLike,
@@ -259,5 +260,26 @@ assert(
   planProblem([{ id: 'a', label: 'A', weight: 10 }, { id: 'a', label: 'B', weight: 10 }]) !== null,
   'two categories sharing an id would put one score in the other row',
 );
+
+/* ── item columns: one concert or exam per column ─────────────────────── */
+
+const scan = (hasIn: boolean, hasOut: boolean, entryOnly = false, performs = false) =>
+  concertItemScore({ hasIn, hasOut, entryOnly, performs });
+assert(scan(true, true) === 100, 'checked in and out is 100');
+assert(scan(true, false) === 50, 'checked in, never out, is 50');
+assert(scan(false, false) === 0, 'no scan at all is 0');
+assert(scan(true, false, true) === 100, 'an entry-only night credits the arrival scan alone');
+assert(scan(false, false, false, true) === 100, 'a performer never scans and is credited by the syllabus');
+
+assert(parseItemKey(itemKey('concert', 'abc_1'))?.id === 'abc_1', 'an item key round-trips');
+assert(parseItemKey('concerts') === null && parseItemKey('exams') === null,
+  'a CATEGORY id is never read as a column');
+
+const withItems = { exams: 70, 'exam:a': 80, 'exam:b': 91, 'concert:x': 50, 'exam:c': '' };
+assert(itemAverage(withItems, 'exam') === 86, 'exam columns average, a blank column is not a zero');
+assert(itemAverage(withItems, 'concert') === 50, 'kinds do not mix');
+assert(itemAverage({ exams: 70 }, 'exam') === null, 'no columns means no average, not the category');
+assert(tallyGrade(PLAN, { ...withItems, exams: 86 }).scored === 1,
+  'tallyGrade counts plan categories only — a column is never a seventh category');
 
 console.log('ensembleGrades.selfcheck: all assertions passed');

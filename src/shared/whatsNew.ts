@@ -32,6 +32,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // One concert / one playing exam as its own Gradebook column (#gradebook-columns).
+  {
+    id: '2026-10-01-gradebook-columns',
+    date: '2026-10-01',
+    title: 'Concerts and playing exams as Gradebook columns',
+    audience: 'staff' as const,
+    expires: '2026-10-22',
+    bullets: [
+      'In the Gradebook, "+ Add a concert" under Required Performance Attendance makes a column for that concert from the check-in scans: in and out 100, in only 50, no scan 0. Excused students are left blank, and students who played on it get 100.',
+      '"+ Add an exam" under Playing Exams makes a column from the grades you confirmed on that exam. A student nobody graded stays blank, not zero.',
+      'The category box becomes the average of its columns. Any column box can be corrected by hand, and Remove takes a column back off.',
+    ],
+  },
   // One menu arrangement at every width (#one-nav) + the iPad empty-lists fix.
   {
     id: '2026-10-01-same-menu-everywhere',

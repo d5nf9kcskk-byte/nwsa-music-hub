@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { collection, doc, query, setDoc, where } from 'firebase/firestore';
+import { collection, deleteField, doc, query, setDoc, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { watchCollection } from '../../shared/watchCollection';
 import { reportWriteError } from '../writeStatus';
@@ -102,20 +102,32 @@ export function useGradeMarks(periodId: string) {
     }
   }
 
-  /** Set or CLEAR one category's score. An empty box means NOT SCORED, which
-   *  is not the same as a zero, so the key is removed rather than set to 0. */
+  /**
+   * Set or CLEAR several scores on one student's record in ONE write. An
+   * empty box means NOT SCORED, which is not the same as a zero, so a null
+   * removes the key — with `deleteField()`, because a `merge: true` save
+   * deep-merges maps and a key merely left out of the patch survives forever.
+   * Keys not named in the patch are untouched.
+   */
+  async function saveScores(
+    groupKey: string,
+    studentId: string,
+    patch: Record<string, number | null>,
+  ) {
+    const scores: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(patch)) scores[k] = v === null ? deleteField() : v;
+    await saveMark(groupKey, studentId, { scores: scores as Record<string, number> });
+  }
+
+  /** Set or CLEAR one score. */
   async function saveScore(
     groupKey: string,
     studentId: string,
     categoryId: string,
     value: number | null,
   ) {
-    const current = byGroup[groupKey]?.[studentId]?.scores ?? {};
-    const next = { ...current };
-    if (value === null) delete next[categoryId];
-    else next[categoryId] = value;
-    await saveMark(groupKey, studentId, { scores: next });
+    await saveScores(groupKey, studentId, { [categoryId]: value });
   }
 
-  return { marks, byGroup, loading, saveMark, saveScore };
+  return { marks, byGroup, loading, saveMark, saveScore, saveScores };
 }

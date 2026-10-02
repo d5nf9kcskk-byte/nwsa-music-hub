@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { ClipboardCopy, Check, Wand2 } from 'lucide-react';
+import { ClipboardCopy, Check, Wand2, X } from 'lucide-react';
 import { ORG } from '../../org';
 import {
   CONDUCT_GRADES, EFFORT_GRADES, EMPTY_ATTENDANCE, attendanceByStudent, commentReasons,
-  concertSuggestion, conductValue, effortValue, examEvidence, fillValueFor, gradeValue, meetingsHeld,
-  rowReadiness, tallyGrade,
-  type AttendanceEvidence, type GradeCategory,
+  concertItemScore, concertSuggestion, conductValue, effortValue, examEvidence, fillValueFor, gradeValue,
+  ITEM_KIND_FOR, itemAverage, itemKey, meetingsHeld, parseItemKey, rowReadiness, tallyGrade,
+  type AttendanceEvidence, type GradeCategory, type ItemKind,
 } from '../../shared/ensembleGrades';
 import {
   currentGradingPeriod, defaultCutoff, sortPeriods, windowFor,
@@ -29,7 +29,7 @@ import { useGradeMarks, type GradeMarks } from '../hooks/useGradeMarks';
 import { useCurrentDirector } from '../currentDirector';
 import { gradeSummary } from '../lessonGrades';
 import { todayStr } from '../utils';
-import type { Lesson, Student } from '../types';
+import type { CalendarEvent, Lesson, Student } from '../types';
 import './gradebook.css';
 
 /**
@@ -159,7 +159,7 @@ export function GradebookView() {
   const { assignments } = useAssignments();
   const { results } = useAllAssignmentResults();
   const { lessons } = useLessons();
-  const { byGroup, saveMark, saveScore } = useGradeMarks(period?.id ?? '');
+  const { byGroup, saveMark, saveScore, saveScores } = useGradeMarks(period?.id ?? '');
 
   const groupKey = layout ? groupKeyFor(layout) : '';
   const marks: Record<string, GradeMarks> = useMemo(() => byGroup[groupKey] ?? {}, [byGroup, groupKey]);
@@ -206,6 +206,28 @@ export function GradebookView() {
     return out;
   }, [results, windowExams]);
 
+  const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
+
+  /** Whether this student plays on this event (ensemble or named performer). */
+  function performsOn(student: Student, ev: CalendarEvent): boolean {
+    return ev.ensembleIds.some(e => student.ensembleIds?.includes(e))
+      || (ev.studentIds ?? []).includes(student.id);
+  }
+
+  /**
+   * Excused, or pulled for a trip (#concert-excusals): that concert leaves
+   * THIS student's denominator. The director's call, 2026-09-24 — an excused
+   * concert must not read as one they skipped. Seniors excused from an
+   * audience requirement (#audience-excusal) are out too, unless they play on
+   * it or were named.
+   */
+  function excusedFrom(student: Student, ev: CalendarEvent): boolean {
+    const gradeExcused = !performsOn(student, ev)
+      && !(ev.attendanceStudentIds ?? []).includes(student.id)
+      && gradeExcusedFromAudience(student.grade, ev);
+    return gradeExcused || pulledFromEvent(student, ev, overrides, eventsById);
+  }
+
   /** Required concerts held in the window, and what each student was credited. */
   const concerts = useMemo(() => {
     const empty = {
@@ -238,29 +260,17 @@ export function GradebookView() {
         incomplete[p.studentId] = (incomplete[p.studentId] ?? 0) + 1;
       }
     }
-    // Excused, or pulled for a trip (#concert-excusals): that concert leaves
-    // THIS student's denominator. The director's call, 2026-09-24 — an
-    // excused concert must not read as one they skipped.
     const excused: Record<string, number> = {};
-    const eventsById = Object.fromEntries(events.map(e => [e.id, e]));
     for (const id of required) {
       for (const { student } of roster) {
-        const ev = eventsById[id];
-        // Seniors excused from an audience requirement (#audience-excusal)
-        // leave the denominator too, unless they play on it or were named.
-        const performs = ev.ensembleIds.some(e => student.ensembleIds?.includes(e))
-          || (ev.studentIds ?? []).includes(student.id);
-        const gradeExcused = !performs
-          && !(ev.attendanceStudentIds ?? []).includes(student.id)
-          && gradeExcusedFromAudience(student.grade, ev);
-        if (gradeExcused || pulledFromEvent(student, ev, overrides, eventsById)) {
-          excused[student.id] = (excused[student.id] ?? 0) + 1;
-        }
+        if (excusedFrom(student, eventsById[id])) excused[student.id] = (excused[student.id] ?? 0) + 1;
       }
     }
     const heldFor = (studentId: string) => required.size - (excused[studentId] ?? 0);
     return { held: required.size, heldFor, credited, incomplete, excused };
-  }, [events, checkins, reportSpan, roster, overrides]);
+    // excusedFrom reads only overrides and eventsById, both listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, eventsById, checkins, reportSpan, roster, overrides]);
 
   /** This teacher's own lesson average per student, inside the window. */
   const lessonAverages = useMemo(() => {
@@ -281,8 +291,116 @@ export function GradebookView() {
     return out;
   }, [lessons, me, reportSpan]);
 
+  /* ── item columns: one concert or one exam each (#gradebook-columns) ── */
+
+  /** The columns already on this table, per kind, oldest first. */
+  const itemColumns = useMemo(() => {
+    const keys = new Set<string>();
+    for (const m of Object.values(marks)) for (const k of Object.keys(m.scores ?? {})) keys.add(k);
+    const out: Record<ItemKind, { key: string; id: string; label: string; date: string }[]> = { concert: [], exam: [] };
+    for (const key of keys) {
+      const p = parseItemKey(key);
+      if (!p) continue;
+      if (p.kind === 'concert') {
+        const ev = eventsById[p.id];
+        out.concert.push({ key, id: p.id, date: ev?.date ?? '', label: ev ? concertLabel(ev) : 'Deleted concert' });
+      } else {
+        const a = assignments.find(x => x.id === p.id);
+        out.exam.push({ key, id: p.id, date: a?.dueDate ?? '', label: a?.title ?? 'Deleted exam' });
+      }
+    }
+    out.concert.sort((a, b) => a.date.localeCompare(b.date));
+    out.exam.sort((a, b) => a.date.localeCompare(b.date));
+    return out;
+  }, [marks, eventsById, assignments]);
+
+  /** What can still be added as a column this quarter. */
+  const addable = useMemo(() => {
+    if (!period) return { concert: [] as CalendarEvent[], exam: [] as typeof assignments };
+    const have = new Set([...itemColumns.concert, ...itemColumns.exam].map(c => c.key));
+    const inPeriod = (d: string) => d >= period.start && d <= period.end;
+    return {
+      concert: events
+        .filter(e => e.concertAttendance === 'required' && e.status !== 'Cancelled'
+          && inPeriod(e.date) && e.date <= today && !have.has(itemKey('concert', e.id)))
+        .sort((a, b) => a.date.localeCompare(b.date)),
+      exam: ensembleId
+        ? assignments
+          .filter(a => a.type === 'Playing Exam' && a.ensembleIds?.includes(ensembleId)
+            && inPeriod(a.dueDate) && !have.has(itemKey('exam', a.id)))
+          .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+        : [],
+    };
+  }, [period, itemColumns, events, assignments, ensembleId, today]);
+
+  /** This student's number for one concert, or null when they were excused. */
+  function concertScoreFor(student: Student, ev: CalendarEvent): number | null {
+    if (excusedFrom(student, ev)) return null;
+    let hasIn = false;
+    let hasOut = false;
+    for (const c of checkins) {
+      if (c.eventId !== ev.id || c.studentId !== student.id) continue;
+      if (c.kind === 'out') hasOut = true; else hasIn = true;
+    }
+    return concertItemScore({
+      hasIn, hasOut, entryOnly: !!ev.checkin?.entryOnly, performs: performsOn(student, ev),
+    });
+  }
+
+  /** This student's confirmed exam score, or null when nobody graded it. */
+  function examScoreFor(studentId: string, assignmentId: string): number | null {
+    const r = results.find(x => x.assignmentId === assignmentId && x.studentId === studentId);
+    return gradeValue(r?.score);
+  }
+
+  /** The category a kind of column rolls up into on this table's plan. */
+  function categoryFor(kind: ItemKind): GradeCategory | undefined {
+    return plan.find(c => c.suggest && ITEM_KIND_FOR[c.suggest] === kind);
+  }
+
+  /**
+   * Write one student's column changes AND the category they roll up into,
+   * in one save. Once a category has columns, its box IS their average — so a
+   * number typed into that box by hand is replaced the next time a column
+   * changes. A student left with no column numbers keeps whatever the box had.
+   */
+  async function saveItems(studentId: string, kind: ItemKind, patch: Record<string, number | null>) {
+    const cat = categoryFor(kind);
+    const next: Record<string, unknown> = { ...(marks[studentId]?.scores ?? {}) };
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null) delete next[k]; else next[k] = v;
+    }
+    const avg = itemAverage(next, kind);
+    const full: Record<string, number | null> = { ...patch };
+    if (cat && avg !== null) full[cat.id] = avg;
+    await saveScores(groupKey, studentId, full);
+  }
+
+  /** The button: add one concert or exam as a column for everyone on this table. */
+  async function addColumn(kind: ItemKind, id: string) {
+    const key = itemKey(kind, id);
+    const ev = kind === 'concert' ? eventsById[id] : undefined;
+    for (const { student } of roster) {
+      const v = kind === 'concert'
+        ? (ev ? concertScoreFor(student, ev) : null)
+        : examScoreFor(student.id, id);
+      // Excused, or an exam nobody graded: no number at all, never a zero.
+      if (v === null) continue;
+      await saveItems(student.id, kind, { [key]: v });
+    }
+  }
+
+  async function removeColumn(kind: ItemKind, key: string, label: string) {
+    if (!window.confirm(`Remove the "${label}" column from this table?`)) return;
+    for (const [studentId, m] of Object.entries(marks)) {
+      if (m.scores && key in m.scores) await saveItems(studentId, kind, { [key]: null });
+    }
+  }
+
   /** What a category would suggest for this student, or null for nothing. */
   function suggestion(cat: GradeCategory, studentId: string): number | null {
+    const kind = cat.suggest ? ITEM_KIND_FOR[cat.suggest] : undefined;
+    if (kind && itemColumns[kind].length > 0) return itemAverage(marks[studentId]?.scores, kind);
     if (cat.suggest === 'exams') {
       return examEvidence(examsByStudent[studentId] ?? [], windowExams.length).suggested;
     }
@@ -389,6 +507,15 @@ export function GradebookView() {
     }
   }
 
+  function kindOf(c: GradeCategory): ItemKind | undefined {
+    return c.suggest ? ITEM_KIND_FOR[c.suggest] : undefined;
+  }
+
+  function columnsUnder(c: GradeCategory) {
+    const k = kindOf(c);
+    return k ? itemColumns[k] : [];
+  }
+
   /** Fill every empty box on the whole table, one press. */
   async function fillEverything() {
     for (const cat of plan) await fillColumn(cat);
@@ -480,7 +607,7 @@ export function GradebookView() {
           <thead>
             <tr>
               <th className="dir-gb-name">Student</th>
-              {plan.map(c => (
+              {plan.flatMap(c => [
                 <th key={c.id}>
                   <div>{c.label}</div>
                   <div className="dir-gb-weight">{c.weight} pts</div>
@@ -493,8 +620,34 @@ export function GradebookView() {
                   >
                     <Wand2 size={12} /> {c.suggest ? 'Fill' : `Fill ${c.fillWith ?? 100}`}
                   </button>
-                </th>
-              ))}
+                  {kindOf(c) && (
+                    <select
+                      className="dir-gb-pick dir-gb-addcol"
+                      value=""
+                      aria-label={`Add a ${kindOf(c)} as its own column`}
+                      onChange={e => { if (e.target.value) void addColumn(kindOf(c)!, e.target.value); }}
+                    >
+                      <option value="">+ Add {kindOf(c) === 'concert' ? 'a concert' : 'an exam'}…</option>
+                      {kindOf(c) === 'concert'
+                        ? addable.concert.map(ev => <option key={ev.id} value={ev.id}>{concertLabel(ev)}</option>)
+                        : addable.exam.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
+                    </select>
+                  )}
+                </th>,
+                ...columnsUnder(c).map(col => (
+                  <th key={col.key} className="dir-gb-itemcol">
+                    <div>{col.label}</div>
+                    <div className="dir-gb-weight">in {c.label}</div>
+                    <button
+                      className="dir-gb-fill"
+                      onClick={() => void removeColumn(kindOf(c)!, col.key, col.label)}
+                      title="Remove this column"
+                    >
+                      <X size={12} /> Remove
+                    </button>
+                  </th>
+                )),
+              ])}
               <th>{reportSpan.prefix} Grade</th>
               <th>Effort</th>
               <th>{layout.conductLabel}</th>
@@ -544,10 +697,10 @@ export function GradebookView() {
                   </div>
                 </td>
 
-                {plan.map(c => {
+                {plan.flatMap(c => {
                   const saved = marks[r.student.id]?.scores?.[c.id];
                   const sug = suggestion(c, r.student.id);
-                  return (
+                  return [
                     <td key={c.id}>
                       <input
                         className="dir-gb-score"
@@ -568,8 +721,35 @@ export function GradebookView() {
                           else e.target.value = saved === undefined ? '' : String(saved);
                         }}
                       />
-                    </td>
-                  );
+                    </td>,
+                    ...columnsUnder(c).map(col => {
+                      const itemSaved = marks[r.student.id]?.scores?.[col.key];
+                      return (
+                        <td key={col.key} className="dir-gb-itemcol">
+                          <input
+                            className="dir-gb-score"
+                            type="number"
+                            min={0}
+                            max={100}
+                            inputMode="numeric"
+                            aria-label={`${r.student.name}, ${col.label}`}
+                            key={`${r.student.id}:${col.key}:${itemSaved ?? ''}`}
+                            defaultValue={itemSaved ?? ''}
+                            onBlur={e => {
+                              const raw = e.target.value.trim();
+                              const v = raw === '' ? null : gradeValue(raw);
+                              if (raw !== '' && v === null) {
+                                e.target.value = itemSaved === undefined ? '' : String(itemSaved);
+                                return;
+                              }
+                              if (v === (itemSaved ?? null)) return;
+                              void saveItems(r.student.id, kindOf(c)!, { [col.key]: v });
+                            }}
+                          />
+                        </td>
+                      );
+                    }),
+                  ];
                 })}
 
                 <td className="dir-gb-grade">
@@ -707,6 +887,12 @@ export function GradebookView() {
       )}
     </div>
   );
+}
+
+/** "Winter Concert · 12/10" — a concert column's heading. */
+function concertLabel(ev: CalendarEvent): string {
+  const [, m, d] = ev.date.split('-');
+  return `${ev.title || 'Concert'} · ${Number(m)}/${Number(d)}`;
 }
 
 /** "4 with no grade yet, 2 with a comment code the district requires". */

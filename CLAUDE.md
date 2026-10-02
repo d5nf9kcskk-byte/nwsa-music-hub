@@ -1108,6 +1108,19 @@ in `.github/actions/self-checks`.
   *Set concert entry-only* workflow, so the exemption and its reason are a diff
   rather than somebody's shell history.
 
+- **One concert or one playing exam can be its own column** (#gradebook-columns,
+  2026-10-01). The column's numbers ride in the same `gradeMarks.scores` map
+  under `concert:<eventId>` / `exam:<assignmentId>`, so there is no new
+  collection and no rules change, and `tallyGrade` (plan ids only) can never
+  count a column as a category. Once a category has columns, its box is
+  their average (`itemAverage`), rewritten whenever a column changes. Concert
+  scores: in+out (or `scansCredited`) 100, one scan 50, none 0, a performer
+  100, an excused student BLANK (`excusedFrom`, the same rule as the concert
+  count). An exam column copies the confirmed `assignmentResults` score; an
+  ungraded student is blank, never zero. Clearing a score uses
+  `deleteField()` — a merge save deep-merges maps, so a key merely left out
+  survives (the old `saveScore` never actually cleared a box).
+
 Design record: `docs/superpowers/specs/2026-09-14-gradebook-design.md`.
 Session record: `docs/session-notes-2026-09-14-gradebook.md`.
 

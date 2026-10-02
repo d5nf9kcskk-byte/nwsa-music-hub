@@ -80,6 +80,12 @@
 }
 .dir-gb-fill:hover { background: rgba(13, 126, 142, 0.08); }
 
+/* One concert / one exam (#gradebook-columns): a sub-column of the category
+   to its left, tinted so it does not read as a seventh weighted category. */
+.dir-gb-table .dir-gb-itemcol { background: rgba(13, 126, 142, 0.04); }
+.dir-gb-table thead th.dir-gb-itemcol { background: color-mix(in srgb, var(--dir-card, #fff) 93%, #0d7e8e); font-weight: 500; }
+.dir-gb-addcol { display: block; margin-top: 4px; max-width: 160px; font-size: 12px; }
+
 .dir-gb-student { font-weight: 600; }
 .dir-gb-evidence {
   margin-top: 2px;
