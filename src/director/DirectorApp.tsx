@@ -1,4 +1,5 @@
 import './director.css';
+import { SeasonButton } from './SeasonButton';
 import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
@@ -539,6 +540,7 @@ export default function DirectorApp() {
               >
                 {darkMode ? <Sun size={20} /> : <Moon size={20} />}
               </button>
+              <SeasonButton className="dir-hamburger" />
               <button className="dir-hamburger" onClick={() => setSearchOpen(true)} aria-label="Search">
                 <Search size={22} />
               </button>

@@ -1,4 +1,5 @@
 import '../director.css';
+import { SeasonButton } from '../SeasonButton';
 import '../uiUpdates.css';
 import '../dirShell.css';
 import { useState } from 'react';
@@ -70,6 +71,7 @@ export function TeacherApp({
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <SeasonButton />
           <button className="dir-header-site-btn" onClick={() => navigate('/')}>
             <ExternalLink size={14} /> Public site
           </button>

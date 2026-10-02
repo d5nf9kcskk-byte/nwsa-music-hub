@@ -32,6 +32,28 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Seasonal looks (#seasons). NWSA-only (the seasons are org config).
+  ...(ORG.personalize?.seasons ? [{
+    id: '2026-10-02-seasonal-looks',
+    date: '2026-10-02',
+    title: 'The Hub dresses up for the season',
+    audience: 'public' as const,
+    expires: '2026-10-16',
+    bullets: [
+      'Right now it’s Autumn Leaves 🍂 — matching colors, with falling leaves whose stems are note stems. New looks arrive through the year: Danse Macabre for Halloween, Nutcracker in December, Jazz Month in April, and more.',
+      'Rather have your own colors? Tap the sun/moon button and untick the season. Your own setup comes right back, and it comes back by itself when the season ends.',
+    ],
+  }, {
+    id: '2026-10-02-seasonal-looks-staff',
+    date: '2026-10-02',
+    title: 'Seasonal colors on the staff side too',
+    audience: 'staff' as const,
+    expires: '2026-10-16',
+    bullets: [
+      'The header, menu and page take on this time of year’s look — Autumn Leaves 🍂 now, with a new one every few weeks through the year. Students see the same look on the public site.',
+      'Tap the 🍂 button in the header for the standard colors; tap it again to bring the season back. It only changes this device.',
+    ],
+  }] : []),
   // One concert / one playing exam as its own Gradebook column (#gradebook-columns).
   {
     id: '2026-10-01-gradebook-columns',

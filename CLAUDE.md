@@ -1438,6 +1438,31 @@ everything it changes.
   deletes any leftover `pub.look.photo` from a device. Do not re-add an
   upload of any kind.
 - **The menu color covers the rail AND the phone drawer** (#one-nav).
+- **Seasonal looks (#seasons, Oct 2026)** — a matched top bar, menu, page tint
+  and music-themed drawing for a stretch of the year (Autumn Leaves, Danse
+  Macabre, Harvest Overture, Nutcracker, Auld Lang Syne, Love Song, Music In
+  Our Schools Month, Rite of Spring, Jazz Appreciation Month, Finale, Steel
+  Pan Summer). Director's calls, 2026-10-01: **seasons and secular
+  celebrations only, never a religious holiday**; **ON for everyone by
+  default**; one tap off (the sun/moon menu on the public site, the emoji
+  button in every staff header); **when it ends or is turned off, the
+  person's own setup comes back**; the staff side gets it too.
+  - `personalize.seasons` in the org config holds the colors and dates; the
+    LIST ORDER is the priority (first window holding today wins — short ones
+    sit above long ones). Dates are `MM-DD`, `easter` or `thanksgiving`.
+  - `src/shared/seasons.ts` decides; `src/shared/seasons.css` draws (and
+    holds the staff-side rules, scoped to `.dir-app`). A season PAINTS ON TOP
+    and never writes over a saved look — that is what makes "back the way it
+    was" free. The only thing stored is the season INSTANCE someone turned
+    off (`pub.season.off` / `dir.season.off` = `<id>:<start>`), so next year's
+    comes back on. `?season=<id>` previews one out of its dates.
+  - `seasons.selfcheck.ts` pins Easter/Thanksgiving, the calendar (every
+    season must win days every year, so the order can't bury one), and
+    readability on both sides in both themes — including every drawn mark,
+    which dark mode lays twice. A new drawing keeps one color and one
+    opacity per `<g>` so the check can read it.
+  - The staff header keeps WHITE text in every season (no neon there), and
+    the Director Panel banner is never recolored.
 - Public site only. The director panel has its own theme switch and is not
   touched; the tint rule is scoped to `:has(.pub-app)` for that reason.
 

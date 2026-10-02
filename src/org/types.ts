@@ -45,6 +45,23 @@ export interface OrgGrading {
 export interface LookSwatch { id: string; color: string; neon?: string; label: { en: string; es: string } }
 /** A page-background tint: one #rrggbb per theme. */
 export interface LookTint { id: string; light: string; dark: string; label: { en: string; es: string } }
+/**
+ * A seasonal look (#seasons, src/shared/seasons.ts): a matched top bar, menu,
+ * page tint and pattern, shown to everyone from `from` to `to` ('MM-DD',
+ * 'easter' or 'thanksgiving'). `pattern` names a drawing in seasons.css.
+ */
+export interface LookSeason {
+  id: string;
+  label: { en: string; es: string };
+  icon: string;
+  from: string;
+  to: string;
+  header: { color: string; neon?: string };
+  side: { color: string; neon?: string };
+  light: string;
+  dark: string;
+  pattern: string;
+}
 
 /**
  * Org config — the white-label surface (#org-config). One JSON file per
@@ -216,6 +233,8 @@ export interface OrgConfig {
     header: LookSwatch[];
     sidebar: LookSwatch[];
     background: LookTint[];
+    /** In priority order: the first whose window holds today wins. */
+    seasons?: LookSeason[];
   };
   /**
    * Grading periods, the weighted plan, the district's comment codes, and the

@@ -4,7 +4,9 @@ import { createBrowserRouter, RouterProvider } from 'react-router';
 import './base.css';
 import './public/public.css';
 import './public/look.css';
+import './shared/seasons.css';
 import { initLook } from './public/look';
+import { initDirSeason } from './shared/seasons';
 
 import { PublicLayout } from './public/PublicLayout';
 import { PublicHome } from './public/PublicHome';
@@ -170,8 +172,11 @@ const router = createBrowserRouter(
 
 // Org brand palette (no-op for NWSA — empty maps inject nothing).
 applyBrand();
-// A student's own colors (#look), before the first render so they never flash.
+// A student's own colors (#look) and this time of year's look (#seasons),
+// before the first render so they never flash. The staff shells get the
+// season too, on their own on/off switch.
 initLook(ORG.personalize);
+initDirSeason(ORG.personalize?.seasons);
 
 // Offline app shell (#43) — registered after load so it never delays startup.
 // When a NEW version installs under an open tab, src/pwa.ts shows a one-tap

@@ -3,6 +3,7 @@ import { Check, Moon, Palette, Sun, SunMoon } from 'lucide-react';
 import { t, useLang, getLang } from '../../shared/i18n';
 import { usePubTheme, setPubTheme, resolvedPubTheme } from '../theme';
 import type { PubThemeChoice } from '../theme';
+import { setPubSeasonOn, useLook } from '../look';
 import { darkModeToastLine, eggOnce } from '../../shared/whimsy';
 import { useEggCheer } from '../../shared/useEggCheer';
 import { NoteBurst } from '../../shared/NoteBurst';
@@ -20,8 +21,9 @@ const OPTIONS: { value: PubThemeChoice; labelKey: string; Icon: typeof Sun }[] =
  * under the three choices; the layout passes it only when the org has a palette.
  */
 export function ThemeToggle({ onCustomize }: { onCustomize?: () => void }) {
-  useLang(); // re-render the menu labels on EN/ES switch
+  const lang = useLang(); // re-render the menu labels on EN/ES switch
   const choice = usePubTheme();
+  const { season, seasonOn } = useLook();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const { cheer, show } = useEggCheer();
@@ -77,6 +79,20 @@ export function ThemeToggle({ onCustomize }: { onCustomize?: () => void }) {
           {onCustomize && (
             <>
               <div className="pub-textsize-sep" role="separator" />
+              {/* The season's one-tap off switch (#seasons): off puts the
+                  student's own colors straight back. */}
+              {season && (
+                <button
+                  role="menuitemcheckbox"
+                  aria-checked={seasonOn}
+                  className={`pub-textsize-opt ${seasonOn ? 'active' : ''}`}
+                  onClick={() => { setPubSeasonOn(!seasonOn); setOpen(false); }}
+                >
+                  <span className="pub-textsize-sample" aria-hidden="true">{season.season.icon}</span>
+                  <span className="pub-textsize-optlabel">{t('season.menuOn', { name: season.season.label[lang] })}</span>
+                  {seasonOn && <Check size={15} className="pub-textsize-check" />}
+                </button>
+              )}
               <button role="menuitem" className="pub-textsize-opt" onClick={() => { setOpen(false); onCustomize(); }}>
                 <span className="pub-textsize-sample"><Palette size={16} /></span>
                 <span className="pub-textsize-optlabel">{t('look.open')}</span>

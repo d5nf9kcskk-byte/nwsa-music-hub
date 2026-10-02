@@ -59,8 +59,8 @@ html[data-pub-look-side] .pub-sidebar { min-height: calc(100dvh - 59px); }
    pattern draws over the stock one. Scoped to the public shell so the
    director panel never picks it up. Cards keep their own surface, so the
    content on them reads exactly as before. */
-html[data-pub-look-bg='tint']:has(.pub-app) { --pub-bg: var(--look-bg-light); }
-html[data-pub-theme='dark'][data-pub-look-bg='tint']:has(.pub-app) { --pub-bg: var(--look-bg-dark); }
+html[data-pub-look-tint]:has(.pub-app) { --pub-bg: var(--look-bg-light); }
+html[data-pub-theme='dark'][data-pub-look-tint]:has(.pub-app) { --pub-bg: var(--look-bg-dark); }
 
 :root {
   --look-pat: rgb(24 33 47 / 0.075);
@@ -116,6 +116,28 @@ html[data-pub-look-bg='vinyl'] .pub-app { background-image: var(--look-img-vinyl
 .pub-subw-overlay.pub-look-overlay { background: rgb(0 0 0 / 0.12); }
 .pub-look-hint { margin: -6px 0 14px; font-size: 13px; color: var(--pub-muted); }
 .pub-look-row { margin-bottom: 16px; }
+
+/* The season card (#seasons): a little picture of the whole look — its page
+   and pattern with its top bar across the top — and the one switch. */
+.pub-season-card {
+  display: grid; grid-template-columns: auto 1fr; gap: 10px 12px; align-items: center;
+  margin-bottom: 16px; padding: 12px;
+  border: 1px solid var(--pub-border); border-radius: 14px; background: var(--pub-bg);
+}
+.pub-season-thumb {
+  position: relative; width: 64px; height: 64px; overflow: hidden;
+  border: 2px solid; border-radius: 12px;
+}
+.pub-season-bar { position: absolute; inset: 0 0 auto; height: 14px; }
+.pub-season-card:not(.on) .pub-season-thumb { filter: grayscale(0.85); opacity: 0.7; }
+.pub-season-name { font-size: 16px; font-weight: 800; color: var(--pub-ink); }
+.pub-season-note { margin-top: 2px; font-size: 12.5px; color: var(--pub-muted); }
+.pub-season-toggle {
+  grid-column: 1 / -1; min-height: 42px; border-radius: 12px;
+  border: 1px solid var(--pub-border); background: var(--pub-surface); color: var(--pub-ink);
+  font-family: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer;
+}
+.pub-season-toggle[aria-pressed='false'] { border: none; background: var(--pub-purple); color: #fff; }
 .pub-look-row-title {
   margin-bottom: 8px; font-size: 12px; font-weight: 800;
   text-transform: uppercase; letter-spacing: 0.05em; color: var(--pub-muted);

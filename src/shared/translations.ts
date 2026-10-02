@@ -81,6 +81,13 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'look.pattern.vinyl':  { en: 'Vinyl',                es: 'Vinilo' },
   'look.pattern.eq':     { en: 'Equalizer',            es: 'Ecualizador' },
   'look.reset':          { en: 'Reset to default',     es: 'Restablecer' },
+  // Seasonal looks (#seasons); the season names live in the org config.
+  'season.this':         { en: 'This season',          es: 'Esta temporada' },
+  'season.until':        { en: 'On for everyone until {date}, then it puts itself away.', es: 'Activo para todos hasta el {date}; luego se retira solo.' },
+  'season.offNote':      { en: 'Off on this device — you’re seeing your own colors.', es: 'Desactivado en este dispositivo: ves tus propios colores.' },
+  'season.turnOff':      { en: 'Use my own colors',    es: 'Usar mis colores' },
+  'season.turnOn':       { en: 'Turn it back on',      es: 'Volver a activarlo' },
+  'season.menuOn':       { en: '{name} look',          es: 'Estilo {name}' },
   'look.done':           { en: 'Done',                 es: 'Listo' },
 
   // ── Home headings + quick actions ───────────────────────────────────────

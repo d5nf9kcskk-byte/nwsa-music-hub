@@ -5,20 +5,21 @@ import type { LookSwatch } from '../../org/types';
 import { t, useLang } from '../../shared/i18n';
 import { backdropClose } from '../../shared/backdropClose';
 import { useModalA11y } from '../../shared/useModalA11y';
-import { PATTERNS, resetLook, setLook, useLook, type Look } from '../look';
+import { PATTERNS, resetLook, setLook, setPubSeasonOn, useLook, type Look } from '../look';
 import { resolvedPubTheme, usePubTheme } from '../theme';
 import './subscribeButton.css'; // the shared bottom-sheet shell (.pub-subw-*)
 
 /**
  * "Colors & background" sheet (#look). Every tap applies and saves at once —
  * the barely-dimmed backdrop is so the page behind it IS the preview — and
- * Reset to default clears all three.
+ * Reset to default clears all three. While a season is on (#seasons) it leads
+ * the sheet, and picking any color of your own switches it off.
  * Opened from the Appearance menu.
  */
 export function LookSheet({ onClose }: { onClose: () => void }) {
   const lang = useLang();
   const choice = usePubTheme();
-  const look = useLook();
+  const { look, season, seasonOn } = useLook();
   const ref = useModalA11y<HTMLDivElement>(onClose);
   const p = ORG.personalize;
   if (!p) return null;
@@ -28,7 +29,8 @@ export function LookSheet({ onClose }: { onClose: () => void }) {
   const tick = <span className="pub-look-check"><Check size={13} strokeWidth={3} /></span>;
 
   const swatch = (key: 'header' | 'side', id: string | undefined, label: string, s?: LookSwatch) => {
-    const on = look[key] === id;
+    // while the season shows, none of the student's own choices is on screen
+    const on = !seasonOn && look[key] === id;
     return (
       <button
         key={id ?? 'default'}
@@ -46,7 +48,7 @@ export function LookSheet({ onClose }: { onClose: () => void }) {
   };
 
   const thumb = (id: string | undefined, label: string, extra?: { className?: string; style?: CSSProperties }) => {
-    const on = look.bg === id;
+    const on = !seasonOn && look.bg === id;
     return (
       <button key={id ?? 'default'} className="pub-look-thumb-btn" aria-pressed={on} onClick={() => pick({ bg: id })}>
         <span className={`pub-look-thumb ${extra?.className ?? ''}`} style={extra?.style}>
@@ -67,6 +69,28 @@ export function LookSheet({ onClose }: { onClose: () => void }) {
           <button className="pub-subw-close" onClick={onClose} aria-label={t('sub.close')}><X size={18} /></button>
         </div>
         <p className="pub-look-hint">{t('look.hint')}</p>
+
+        {season && (
+          <div className={`pub-season-card ${seasonOn ? 'on' : ''}`}>
+            <span
+              className={`pub-season-thumb ${season.season.pattern}`}
+              style={{ backgroundColor: dark ? season.season.dark : season.season.light, borderColor: season.season.header.color }}
+              aria-hidden="true"
+            >
+              <span className="pub-season-bar" style={{ background: season.season.header.color }} />
+            </span>
+            <div className="pub-season-text">
+              <div className="pub-look-row-title">{t('season.this')}</div>
+              <div className="pub-season-name">{season.season.icon} {season.season.label[lang]}</div>
+              <div className="pub-season-note">
+                {seasonOn ? t('season.until', { date: fmtUntil(season.until, lang) }) : t('season.offNote')}
+              </div>
+            </div>
+            <button className="pub-season-toggle" aria-pressed={seasonOn} onClick={() => setPubSeasonOn(!seasonOn)}>
+              {t(seasonOn ? 'season.turnOff' : 'season.turnOn')}
+            </button>
+          </div>
+        )}
 
         <div className="pub-look-row" role="group" aria-label={t('look.header')}>
           <div className="pub-look-row-title">{t('look.header')}</div>
@@ -94,7 +118,7 @@ export function LookSheet({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="pub-look-actions">
-          <button className="pub-look-reset" disabled={!Object.keys(look).length} onClick={resetLook}>
+          <button className="pub-look-reset" disabled={!Object.keys(look).length && !seasonOn} onClick={resetLook}>
             {t('look.reset')}
           </button>
           <button className="pub-look-done" onClick={onClose}>{t('look.done')}</button>
@@ -102,4 +126,10 @@ export function LookSheet({ onClose }: { onClose: () => void }) {
       </div>
     </div>
   );
+}
+
+/** '2026-11-30' → 'Nov 30' / '30 nov' — the season's last day, for the card. */
+function fmtUntil(iso: string, lang: 'en' | 'es'): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(lang === 'es' ? 'es' : 'en-US', { month: 'short', day: 'numeric' });
 }
