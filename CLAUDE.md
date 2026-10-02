@@ -769,6 +769,13 @@ those marks onto the original file. Everything else — audience, deadline,
   three phone numbers) and `extra` (the optional fold) are the whole grammar.
   A field with `maxWidth` shrinks a long answer to its blank
   (`fitTextSize`, same math on screen and in the stamp).
+- **The emergency-contacts spreadsheet reads the PDFs** (`pdfFieldRead.ts`,
+  `signups/emergencyContacts.ts`), in the director's browser, because the
+  answers are stored nowhere else. Do not "fix" it by saving the answers to
+  Firestore — that is the copy the design avoids. It subtracts the blank
+  form's own text, then assigns each run to the blank on its line; a blank
+  ends where the next one on its line starts. `pdfFieldRead.selfcheck.ts` is
+  a real stamp → pdf.js round trip.
 - `highSchoolOnly` (groups mode) drops `College …` grades via
   `isCollegeGrade()` in `signupEligibility.ts` — the district form is not for
   the dual-enrollment students in a mixed ensemble.

@@ -271,8 +271,13 @@ export default defineConfig(({ mode }) => {
         // they never use.
         // The PDF signer's chunks (pdf.js + pdf-lib, ~330 KB gzipped, #sign-pdf)
         // serve one sign-up page that needs the network to send anyway —
-        // precaching them would cost every visitor bytes they never use.
-        globIgnores: ['feeds/**', 'sw-cleanup.js', 'screenshots/**', 'assets/PdfSigner-*', 'assets/pdfStamp-*'],
+        // precaching them would cost every visitor bytes they never use. Once a
+        // second page (the emergency-contacts reader) shared pdf.js, Rollup
+        // split it into its own chunk, which it names after the worker file.
+        globIgnores: [
+          'feeds/**', 'sw-cleanup.js', 'screenshots/**',
+          'assets/PdfSigner-*', 'assets/pdfStamp-*', 'assets/emergencyContacts-*', 'assets/pdf.worker.min-*',
+        ],
         // Legacy-cache migration runs inside the SW's own activate (see
         // public/sw-cleanup.js) — never from the page, where it would race
         // the still-controlling old SW's offline fallback.

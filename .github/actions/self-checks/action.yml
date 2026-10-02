@@ -134,6 +134,12 @@ runs:
       run: npx tsx src/shared/pdfStamp.selfcheck.ts
       shell: bash
 
+    # The emergency-contacts spreadsheet reads each answer back off the right
+    # blank of a signed PDF — a stamp → pdf.js round trip.
+    - name: Check reading answers back out of a signed PDF
+      run: npx tsx src/shared/pdfFieldRead.selfcheck.ts
+      shell: bash
+
     - name: Check sign-up slot times
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/signupSlotTimes.selfcheck.ts
       shell: bash

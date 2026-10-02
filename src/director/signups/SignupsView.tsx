@@ -362,6 +362,21 @@ function SignupDetail({
       setPdfBusy('');
     }
   }
+  // Emergency contacts, read back out of the signed PDFs (#sign-pdf) — the
+  // only place those answers are kept.
+  async function downloadEmergencyContacts() {
+    if (!active.length || pdfBusy) return;
+    setPdfBusy('contacts'); setPdfError('');
+    try {
+      const { emergencyContactsCsv } = await import('./emergencyContacts');
+      downloadCsv(`${exportSlug(form)}-emergency-contacts-${today}.csv`,
+        await emergencyContactsCsv(form, active, signedBytes));
+    } catch {
+      setPdfError('The emergency contacts could not be gathered. Check your connection and try again.');
+    } finally {
+      setPdfBusy('');
+    }
+  }
   const live = signupIsOpen(form, today, now);
   const publicUrl = `${ORG.publicUrl.replace(/\/$/, '')}/signup/${form.id}`;
   const docUrl = form.formUrl ?? '';
@@ -455,6 +470,11 @@ function SignupDetail({
         >
           <Download size={15} /> CSV
         </button>
+        {form.signPdf && (form.signPdfFields ?? []).length > 0 && (
+          <button className="dir-tool-btn" disabled={!active.length || !!pdfBusy} onClick={() => void downloadEmergencyContacts()}>
+            <Download size={15} /> {pdfBusy === 'contacts' ? 'Reading the forms…' : 'Emergency contacts (spreadsheet)'}
+          </button>
+        )}
         {form.signPdf ? (
           <button className="dir-tool-btn" disabled={!signedPdfs.length || !!pdfBusy} onClick={() => void downloadAllSigned()}>
             <FileText size={15} /> {pdfBusy === 'all' ? 'Gathering…' : `Download all signed forms (${signedPdfs.length})`}
