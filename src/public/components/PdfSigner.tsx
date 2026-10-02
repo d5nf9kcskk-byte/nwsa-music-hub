@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as Reac
 import { Type, PenLine, CalendarDays, ZoomIn, ZoomOut, X, Minus, Plus, Move } from 'lucide-react';
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
-import { LINE_HEIGHT, type InkMark, type PdfMark, type TextMark } from '../../shared/pdfStamp';
+import { fitTextSize, LINE_HEIGHT, type InkMark, type PdfMark, type TextMark } from '../../shared/pdfStamp';
 import './pdfSigner.css';
 
 /**
@@ -28,6 +28,15 @@ const TEXT_SIZE = 9;
 const ZOOMS = [1, 1.5, 2, 3];
 /** iOS refuses canvases much past ~16M pixels; stay well under. */
 const MAX_CANVAS_EDGE = 4096;
+
+/** Helvetica width on screen, for the same shrink-to-fit the stamp does. */
+let measureCtx: CanvasRenderingContext2D | null = null;
+function measure(text: string, size: number): number {
+  measureCtx ??= document.createElement('canvas').getContext('2d');
+  if (!measureCtx) return 0;
+  measureCtx.font = `${size}px Helvetica, Arial, sans-serif`;
+  return measureCtx.measureText(text).width;
+}
 
 let nextId = 0;
 const newId = () => `m${Date.now().toString(36)}${(nextId++).toString(36)}`;
@@ -221,7 +230,8 @@ export default function PdfSigner({ bytes, marks, onMarks, fixed = [] }: {
               {fixed.filter(m => m.page === i && m.kind === 'text').map(m => (
                 <span key={m.id} className="pub-pdf-fixed" style={{
                   left: m.x * scale, top: m.y * scale,
-                  fontSize: (m as TextMark).size * scale,
+                  // Shrunk on screen exactly as the stamp will shrink it.
+                  fontSize: fitTextSize((m as TextMark).text, (m as TextMark).size, (m as TextMark).maxWidth, measure) * scale,
                   lineHeight: `${(m as TextMark).size * LINE_HEIGHT * scale}px`,
                 }}>{(m as TextMark).text}</span>
               ))}

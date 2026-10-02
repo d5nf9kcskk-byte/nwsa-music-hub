@@ -759,8 +759,16 @@ those marks onto the original file. Everything else — audience, deadline,
   answer fills both Section I and Section III. Find a blank's position with
   `pdftotext -bbox` and confirm it by stamping and rendering with `pdftoppm`
   before shipping. The school ID lands only in the staff-only PDF, never on
-  the response doc. The rest (emergency contacts) is typed on the page;
-  signature then date, and the signer hands over to Date after each signature.
+  the response doc. Signature then date, and the signer hands over to Date
+  after each signature.
+- **Emergency contacts and medical notes are `signPdfQuestions`** (field
+  `source: 'question'`), which print onto the PDF and are stored NOWHERE else
+  — never in `answersJson`, which assistants and applied teachers read. Keep it
+  that way: phone numbers and a child's medications belong only in the
+  directors-only signed PDF. `required`, `oneOf` (at least one of a group — the
+  three phone numbers) and `extra` (the optional fold) are the whole grammar.
+  A field with `maxWidth` shrinks a long answer to its blank
+  (`fitTextSize`, same math on screen and in the stamp).
 - `highSchoolOnly` (groups mode) drops `College …` grades via
   `isCollegeGrade()` in `signupEligibility.ts` — the district form is not for
   the dual-enrollment students in a mixed ensemble.

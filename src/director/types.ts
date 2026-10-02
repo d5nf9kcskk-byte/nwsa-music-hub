@@ -1339,12 +1339,40 @@ export interface SignupQuestion {
  * and add the real form to the same sign-up tomorrow.
  */
 export interface SignPdfField {
-  source: 'studentName' | 'studentId' | 'grade';
+  /** 'question' = the answer to `signPdfQuestions[questionId]`. */
+  source: 'studentName' | 'studentId' | 'grade' | 'question';
+  questionId?: string;
   page: number;
   x: number;
   y: number;
   /** Font size in points; 9 when absent. */
   size?: number;
+  /** The blank's length in points: a longer answer shrinks to fit it
+   *  rather than running over the next label. */
+  maxWidth?: number;
+}
+
+/**
+ * A question whose answer is printed onto `signPdf` and NOWHERE ELSE
+ * (#sign-pdf) — the emergency-contact and medical section of a field-trip
+ * form. Deliberately not a `SignupQuestion`: those land in `answersJson`,
+ * which every role that manages sign-ups reads, and a child's medications and
+ * a parent's phone numbers belong only in the directors-only signed PDF.
+ */
+export interface SignPdfQuestion {
+  id: string;
+  label: string;
+  /** Must be answered. */
+  required?: boolean;
+  /** At least one question sharing this key must be answered
+   *  (home / work / cell phone). */
+  oneOf?: string;
+  /** Shown under the "optional" fold rather than up front. */
+  extra?: boolean;
+  /** A heading printed above this question (and the ones after it). */
+  section?: string;
+  type?: 'text' | 'tel';
+  maxLength?: number;
 }
 
 export interface SignupForm {
@@ -1408,6 +1436,8 @@ export interface SignupForm {
    *  each printed at every spot listed (a field-trip form asks for the name
    *  and ID twice). Positions are PDF points from the page's top-left. */
   signPdfFields?: SignPdfField[];
+  /** Questions printed onto the PDF only — see SignPdfQuestion. */
+  signPdfQuestions?: SignPdfQuestion[];
   /** Groups-mode only: leave college students out (grade "College …") — a
    *  district field-trip form is for the high schoolers in a mixed ensemble. */
   highSchoolOnly?: boolean;

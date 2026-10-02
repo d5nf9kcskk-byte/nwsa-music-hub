@@ -254,4 +254,13 @@
 [data-pub-theme='dark'] .pub-signup-receipt .pub-signup-booked { border-top-color: #14532d; }
 
 /* Questions that print onto the signed PDF (#sign-pdf). */
+.pub-signup-pdf-section {
+  margin: 18px 0 2px; font-size: 13px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--pub-muted);
+}
+.pub-signup-pdf-extra { margin-top: 16px; }
+.pub-signup-pdf-extra > summary {
+  cursor: pointer; font-weight: 600; color: var(--pub-accent);
+  min-height: 44px; display: flex; align-items: center;
+}
 .pub-signup-pdf-fields { margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--pub-border); }

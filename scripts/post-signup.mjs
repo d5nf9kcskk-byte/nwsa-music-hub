@@ -44,10 +44,16 @@ if (!spec.id || !/^[a-z0-9][a-z0-9-]*$/.test(spec.id)) fail('`id` must be a lowe
 if (!spec.title?.trim()) fail('`title` is required');
 if (!Array.isArray(spec.ensembleIds) || spec.ensembleIds.length === 0) fail('`ensembleIds` must name at least one group');
 if (spec.deadline && !/^\d{4}-\d{2}-\d{2}$/.test(spec.deadline)) fail('`deadline` must be YYYY-MM-DD');
-const FIELD_SOURCES = ['studentName', 'studentId', 'grade'];
+const FIELD_SOURCES = ['studentName', 'studentId', 'grade', 'question'];
+const questionIds = new Set((spec.signPdfQuestions ?? []).map(q => q.id));
+for (const q of spec.signPdfQuestions ?? []) {
+  if (!q.id || !q.label) fail('signPdfQuestions: every question needs an `id` and a `label`');
+}
 for (const f of spec.signPdfFields ?? []) {
   if (!spec.signPdf) fail('`signPdfFields` needs a `signPdf`');
   if (!FIELD_SOURCES.includes(f.source)) fail(`signPdfFields: source must be one of ${FIELD_SOURCES.join(', ')}`);
+  // A field pointing at no question would print nothing, silently.
+  if (f.source === 'question' && !questionIds.has(f.questionId)) fail(`signPdfFields: no question \`${f.questionId}\``);
   if (![f.page, f.x, f.y].every(n => typeof n === 'number' && n >= 0)) fail('signPdfFields: page, x, y must be numbers ≥ 0');
 }
 if (spec.signPdf) {
@@ -69,6 +75,7 @@ const doc = {
   ...(spec.ownerName ? { ownerName: spec.ownerName } : {}),
   ...(spec.highSchoolOnly ? { highSchoolOnly: true } : {}),
   ...(spec.signPdfFields ? { signPdfFields: spec.signPdfFields } : {}),
+  ...(spec.signPdfQuestions ? { signPdfQuestions: spec.signPdfQuestions } : {}),
   updatedAt: Date.now(),
   updatedBy: spec.updatedBy ?? 'Hub (post-signup workflow)',
 };

@@ -9,7 +9,7 @@
  */
 import assert from 'node:assert/strict';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
-import { drawableText, mergePdfs, stampPdf, type PdfMark } from './pdfStamp.ts';
+import { drawableText, fitTextSize, mergePdfs, stampPdf, MIN_FIT_SIZE, type PdfMark } from './pdfStamp.ts';
 
 // A 1×1 transparent PNG.
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
@@ -38,6 +38,17 @@ const marks: PdfMark[] = [
 const stamped = await stampPdf(await blank(2), marks, 'Signed on the Hub · Oct 1, 2026');
 const back = await PDFDocument.load(stamped);
 assert.equal(back.getPageCount(), 2, 'stamping must not add or drop pages');
+
+// 5 — a long answer shrinks to its blank; a short one is left alone; and
+// nothing goes below the readable floor.
+const w = (t: string, s: number) => font.widthOfTextAtSize(t, s);
+assert.equal(fitTextSize('Penicillin', 9, 200, w), 9);
+const long = 'Penicillin, peanuts, tree nuts, shellfish, latex, bee stings, dust';
+const fitted = fitTextSize(long, 9, 200, w);
+assert.ok(fitted < 9 && w(long, fitted) <= 200, 'a long answer fits its blank');
+assert.equal(fitTextSize(long.repeat(6), 9, 200, w), MIN_FIT_SIZE);
+assert.equal(fitTextSize(long, 9, undefined, w), 9, 'no maxWidth = no shrink');
+await stampPdf(await blank(1), [{ kind: 'text', id: 'l', page: 0, x: 10, y: 10, text: long, size: 9, maxWidth: 50 }]);
 
 // 4 — merge keeps order and count.
 const merged = await PDFDocument.load(await mergePdfs([stamped, await blank(1), await blank(3)]));

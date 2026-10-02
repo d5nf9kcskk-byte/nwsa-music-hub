@@ -29,6 +29,8 @@ export interface TextMark {
   text: string;
   /** Font size in points. */
   size: number;
+  /** Shrink to fit this width (points) instead of overrunning the blank. */
+  maxWidth?: number;
 }
 
 export interface InkMark {
@@ -44,6 +46,18 @@ export interface InkMark {
 }
 
 export type PdfMark = TextMark | InkMark;
+
+/** The size that fits `text` in `maxWidth`: the requested size, or smaller
+ *  down to MIN_FIT_SIZE (below that it is unreadable on paper, and running a
+ *  little long beats vanishing). `widthAt` measures text at a size — pdf-lib's
+ *  font when stamping, a canvas on screen — so both sides shrink alike. */
+export const MIN_FIT_SIZE = 5;
+export function fitTextSize(text: string, size: number, maxWidth: number | undefined, widthAt: (t: string, s: number) => number): number {
+  if (!maxWidth || !text) return size;
+  const w = widthAt(text, size);
+  if (w <= maxWidth) return size;
+  return Math.max(MIN_FIT_SIZE, Math.floor((size * maxWidth / w) * 4) / 4);
+}
 
 /** A text box is LINE_HEIGHT × size tall, and its baseline sits BASELINE ×
  *  size under the box's top edge — what Helvetica/Arial does in a CSS line box
@@ -99,10 +113,13 @@ export async function stampPdf(original: ArrayBuffer | Uint8Array, marks: PdfMar
     if (m.kind === 'text') {
       const text = drawableText(m.text, font).trim();
       if (!text) continue;
+      const size = fitTextSize(text, m.size, m.maxWidth, (t, s) => font.widthOfTextAtSize(t, s));
       page.drawText(text, {
         x: m.x,
+        // Same BASELINE as the requested size: a shrunk answer still sits on
+        // the line rather than floating up toward the label above.
         y: height - m.y - m.size * BASELINE,
-        size: m.size,
+        size,
         font,
         color: rgb(0.05, 0.05, 0.25),
       });

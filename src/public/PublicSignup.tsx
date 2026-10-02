@@ -27,7 +27,7 @@ import { useHoneypot } from './components/Honeypot';
 import { getReceipt, saveReceipt } from './signupReceipt';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 import { ORG } from '../org';
-import type { Attachment, SignupForm, SignupQuestion, SignupSlotBooking, Student } from '../director/types';
+import type { Attachment, SignPdfQuestion, SignupForm, SignupQuestion, SignupSlotBooking, Student } from '../director/types';
 import type { PdfMark } from '../shared/pdfStamp';
 import './signup.css';
 
@@ -117,6 +117,9 @@ export function PublicSignup() {
   // The blanks the Hub fills from questions (`signPdfFields`). The name
   // defaults to the roster's until they type over it (null = untouched).
   const [pdfName, setPdfName] = useState<string | null>(null);
+  // Answers that print onto the PDF and are stored nowhere else
+  // (`signPdfQuestions` — emergency contacts, medical notes).
+  const [pdfAnswers, setPdfAnswers] = useState<Record<string, string>>({});
   const [pdfSchoolId, setPdfSchoolId] = useState('');
 
   const student = eligible.find(s => s.id === studentId) ?? null;
@@ -236,11 +239,20 @@ export function PublicSignup() {
   const asksFor = (src: string) => pdfFields.some(f => f.source === src);
   const formName = (pdfName ?? identityName).trim();
   const fieldValue = { studentName: formName, studentId: pdfSchoolId.trim(), grade: effectiveGrade.trim() };
+  const pdfQuestions = signsPdf ? form.signPdfQuestions ?? [] : [];
+  const answerOf = (qid: string) => (pdfAnswers[qid] ?? '').trim();
   const fieldMarks: PdfMark[] = pdfFields.map((f, i) => ({
-    kind: 'text', id: `field-${i}`, page: f.page, x: f.x, y: f.y, size: f.size ?? 9, text: fieldValue[f.source],
+    kind: 'text', id: `field-${i}`, page: f.page, x: f.x, y: f.y, size: f.size ?? 9, maxWidth: f.maxWidth,
+    text: f.source === 'question' ? answerOf(f.questionId ?? '') : fieldValue[f.source],
   }));
+  // Required ones answered, and at least one of every "oneOf" group (the
+  // home / business / cell phone line asks for "at least one").
+  const oneOfGroups = [...new Set(pdfQuestions.map(q => q.oneOf).filter(Boolean))] as string[];
+  const pdfQuestionsMissing = pdfQuestions.some(q => q.required && !answerOf(q.id))
+    || oneOfGroups.some(g => !pdfQuestions.some(q => q.oneOf === g && answerOf(q.id)));
   const fieldsMissing = (asksFor('studentName') && formName.length < 2)
-    || (asksFor('studentId') && fieldValue.studentId.length < 3);
+    || (asksFor('studentId') && fieldValue.studentId.length < 3)
+    || pdfQuestionsMissing;
   const needsGuardian = !!form.guardianStatement;
   const missingRequired = questions.some(q => q.required && !(answers[q.id] ?? '').trim());
   const valid = identified
@@ -620,9 +632,18 @@ export function PublicSignup() {
                         {asksFor('grade') && (
                           <div className="pub-signup-note">Grade: {effectiveGrade || '—'} (from step 2).</div>
                         )}
+                        <PdfQuestions questions={pdfQuestions.filter(q => !q.extra)}
+                          answers={pdfAnswers} onAnswer={(qid, v) => setPdfAnswers(a => ({ ...a, [qid]: v }))} />
+                        {pdfQuestions.some(q => q.extra) && (
+                          <details className="pub-signup-pdf-extra">
+                            <summary>Add insurance, doctor or medical information (optional)</summary>
+                            <PdfQuestions questions={pdfQuestions.filter(q => q.extra)}
+                              answers={pdfAnswers} onAnswer={(qid, v) => setPdfAnswers(a => ({ ...a, [qid]: v }))} />
+                          </details>
+                        )}
                         <div className="pub-signup-note">
-                          These print on the form for you (shaded below). Then fill in the
-                          emergency contact section, sign, and date it.
+                          Your answers print on the form for you (shaded below), and go only into
+                          the signed form your director receives. Then sign it and date it on the form.
                         </div>
                       </div>
                     )}
@@ -691,7 +712,9 @@ export function PublicSignup() {
               {!valid && (
                 <div className="pub-signup-note pub-signup-why">
                   {signsPdf && fieldsMissing && effectiveGrade.trim()
-                    ? 'Add the student’s name and ID number above the form.'
+                    ? (pdfQuestionsMissing
+                      ? 'Answer the required questions above the form — the parent’s name, at least one phone number, and a backup contact.'
+                      : 'Add the student’s name and ID number above the form.')
                     : signsPdf && !pdfSigned && effectiveGrade.trim()
                     ? 'The form still needs a signature — tap Signature, then tap the signature line.'
                     : whyNotYet({ effectiveGrade, gradeRequired: !openMode, missingRequired, needsSignature, signature, needsGuardian, guardianName, guardianSignature, collectEmail: !!form.collectEmail, email, guardianEmail })}
@@ -709,6 +732,32 @@ export function PublicSignup() {
 }
 
 // ── helpers ──────────────────────────────────────────────────────────
+
+/** Questions whose answers print onto the signed PDF (#sign-pdf). */
+function PdfQuestions({ questions, answers, onAnswer }: {
+  questions: SignPdfQuestion[];
+  answers: Record<string, string>;
+  onAnswer: (id: string, v: string) => void;
+}) {
+  return (
+    <>
+      {questions.map(q => (
+        <div key={q.id}>
+          {q.section && <div className="pub-signup-pdf-section">{q.section}</div>}
+          <label className="pub-absence-label" htmlFor={`su-pdfq-${q.id}`}>
+            {q.label}
+            {q.oneOf ? <span className="pub-signup-optional"> (at least one phone)</span>
+              : !q.required && <span className="pub-signup-optional"> (optional)</span>}
+          </label>
+          <input id={`su-pdfq-${q.id}`} className="pub-absence-input"
+            type={q.type === 'tel' ? 'tel' : 'text'} inputMode={q.type === 'tel' ? 'tel' : undefined}
+            autoComplete="off" maxLength={q.maxLength ?? 80}
+            value={answers[q.id] ?? ''} onChange={e => onAnswer(q.id, e.target.value)} />
+        </div>
+      ))}
+    </>
+  );
+}
 
 function QuestionField({ question, value, onChange, takenSlots, studentId, studentGrade, slotBookings }: {
   question: SignupQuestion;
