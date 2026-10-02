@@ -1,12 +1,20 @@
 {
   "id": "freedom-tower-2026-10-04",
   "title": "Freedom Tower Field Trip — Permission Form",
-  "intro": "Symphony Orchestra performs the opening set at MOAD Freedom Tower on Sunday, October 4 (9:00am–2:00pm). Every student needs this M-DCPS parent permission form, filled in and signed by a parent or guardian. Do it right here: tap a blank and type, sign with your finger, add the date, and send. Due Friday, October 2.",
+  "intro": "Symphony Orchestra performs the opening set at MOAD Freedom Tower on Sunday, October 4 (9:00am–2:00pm). Every high school student needs this M-DCPS parent permission form, filled in and signed by a parent or guardian. Do it right here: answer the three questions, fill in the emergency contact section, sign with your finger, add the date, and send. Due Friday, October 2. College students do not need this form.",
   "ensembleIds": ["symphony-orchestra"],
   "families": [],
+  "highSchoolOnly": true,
   "deadline": "2026-10-02",
   "signPdf": {
     "name": "Parent Permission Form - Freedom Tower 10-4-26.pdf",
     "url": "https://d5nf9kcskk-byte.github.io/nwsa-music-hub/field-trip-freedom-tower-2026-10-04.pdf"
-  }
+  },
+  "signPdfFields": [
+    { "source": "studentName", "page": 0, "x": 115, "y": 125.2 },
+    { "source": "studentId", "page": 0, "x": 434, "y": 125.2 },
+    { "source": "grade", "page": 0, "x": 535, "y": 125.2 },
+    { "source": "studentName", "page": 0, "x": 182, "y": 433.4 },
+    { "source": "studentId", "page": 0, "x": 466, "y": 433.4 }
+  ]
 }

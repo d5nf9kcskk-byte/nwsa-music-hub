@@ -252,3 +252,6 @@
   background: #14261a; border-color: #14532d; color: #86efac;
 }
 [data-pub-theme='dark'] .pub-signup-receipt .pub-signup-booked { border-top-color: #14532d; }
+
+/* Questions that print onto the signed PDF (#sign-pdf). */
+.pub-signup-pdf-fields { margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--pub-border); }

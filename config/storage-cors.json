@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://d5nf9kcskk-byte.github.io"],
+    "method": ["GET", "HEAD"],
+    "responseHeader": ["Content-Type", "Content-Length", "Content-Range", "Content-Disposition"],
+    "maxAgeSeconds": 3600
+  }
+]

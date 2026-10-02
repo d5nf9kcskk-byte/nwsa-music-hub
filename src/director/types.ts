@@ -1338,6 +1338,15 @@ export interface SignupQuestion {
  * is optional, so a director can open an interest list in one minute today
  * and add the real form to the same sign-up tomorrow.
  */
+export interface SignPdfField {
+  source: 'studentName' | 'studentId' | 'grade';
+  page: number;
+  x: number;
+  y: number;
+  /** Font size in points; 9 when absent. */
+  size?: number;
+}
+
 export interface SignupForm {
   id: string;
   title: string;
@@ -1394,6 +1403,14 @@ export interface SignupForm {
    *  every response carries the stamped file (`signedPdfPath`). Not offered
    *  on an 'open' sign-up: the stored file is anchored to a student doc. */
   signPdf?: Attachment;
+  /** Blanks on `signPdf` the Hub fills in from questions instead of the family
+   *  typing on the page (#sign-pdf): the student's name, school ID and grade,
+   *  each printed at every spot listed (a field-trip form asks for the name
+   *  and ID twice). Positions are PDF points from the page's top-left. */
+  signPdfFields?: SignPdfField[];
+  /** Groups-mode only: leave college students out (grade "College …") — a
+   *  district field-trip form is for the high schoolers in a mixed ensemble. */
+  highSchoolOnly?: boolean;
   createdAt: number;
   updatedAt?: number;
   updatedBy?: string; // director's display name (falls back to email)

@@ -319,7 +319,13 @@ function SignupDetail({
   // medical notes. Same reasoning as the check-in photo wall.
   async function signedBytes(path: string): Promise<Blob> {
     if (!storage) throw new Error('Storage not initialized');
-    return getBlob(storageRef(storage, path));
+    // The Storage SDK reads a blocked download as a network blip and retries
+    // for two minutes, which is what "Opening…" forever was (the bucket had no
+    // CORS policy — config/storage-cors.json). Give up after 30s and say so.
+    return Promise.race([
+      getBlob(storageRef(storage, path)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 30_000)),
+    ]);
   }
   function saveBlob(blob: Blob, name: string) {
     const url = URL.createObjectURL(blob);
@@ -1140,6 +1146,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
         audienceMode: inviteMode ? 'students' : openMode ? 'open' : undefined,
         ensembleIds: inviteMode || openMode ? [] : draft.ensembleIds,
         families: inviteMode || openMode ? [] : draft.families,
+        highSchoolOnly: inviteMode || openMode ? undefined : draft.highSchoolOnly || undefined,
         inviteStudentIds: inviteMode ? inviteIds : [],
         // A guardian can only co-sign something the student signed first.
         guardianStatement: draft.signatureStatement?.trim() ? draft.guardianStatement?.trim() || undefined : undefined,
@@ -1328,6 +1335,15 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
               roster instrument is blank or unrecognized aren’t matched, so fix those on
               the Roster first.
             </div>
+            <label className={`dir-checkbox-tag ${draft.highSchoolOnly ? 'checked' : ''}`} style={{ marginTop: 10 }}>
+              <input type="checkbox" checked={!!draft.highSchoolOnly}
+                onChange={e => set('highSchoolOnly', e.target.checked || undefined)} />
+              High school students only
+            </label>
+            <div className="dir-signup-help">
+              Leaves out college students (a grade starting with “College”) — for a district
+              form like a field-trip permission slip.
+            </div>
           </div>
           )}
 
@@ -1506,6 +1522,7 @@ function audienceOf(f: SignupForm | Draft, audiences: Record<string, string[]> =
     mode,
     ensembleIds: f.ensembleIds ?? [],
     families: f.families ?? [],
+    highSchoolOnly: mode === 'groups' ? f.highSchoolOnly : undefined,
     studentIds: mode === 'students' && 'id' in f
       ? (audiences[f.id] ?? (f as Draft).inviteStudentIds ?? [])
       : mode === 'students'

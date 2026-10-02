@@ -1,0 +1,30 @@
+name: Set Storage CORS
+
+# Applies config/storage-cors.json to the Storage bucket, so the Hub's own
+# pages can download from Storage in the browser (getBlob). Grants no access —
+# storage.rules still decides who reads what. See scripts/set-storage-cors.mjs.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Print the current and new policy without writing'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  cors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install firebase-admin --no-save
+      - name: Apply the CORS policy
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          STORAGE_BUCKET: nwsa-hub.firebasestorage.app
+        run: node scripts/set-storage-cors.mjs ${{ inputs.dry_run && '--dry-run' || '' }}

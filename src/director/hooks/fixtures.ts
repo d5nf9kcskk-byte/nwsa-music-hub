@@ -210,6 +210,14 @@ export const FIXTURE_SIGNUPS: SignupForm[] = [
       url: `${import.meta.env.BASE_URL}field-trip-freedom-tower-2026-10-04.pdf`,
       size: 455057,
     },
+    highSchoolOnly: true,
+    signPdfFields: [
+      { source: 'studentName', page: 0, x: 115, y: 125.2 },
+      { source: 'studentId', page: 0, x: 434, y: 125.2 },
+      { source: 'grade', page: 0, x: 535, y: 125.2 },
+      { source: 'studentName', page: 0, x: 182, y: 433.4 },
+      { source: 'studentId', page: 0, x: 466, y: 433.4 },
+    ],
     createdAt: 1_700_000_020_000,
   },
   {

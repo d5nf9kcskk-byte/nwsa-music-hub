@@ -165,4 +165,15 @@ assert(signupClosedReason({ deadline: '2026-08-19' }, TODAY, NOW) === 'deadline'
 assert(signupClosedReason({ closed: true }, TODAY, NOW) === 'closed', 'closed-by-hand reason');
 assert(signupClosedReason({ deadline: '2026-08-21' }, TODAY, NOW) === null, 'no reason while open');
 
+// High school only (#sign-pdf): a district field-trip form skips the college
+// students in a mixed ensemble — on the waiting list AND in the name picker.
+const symHs = { ensembleIds: ['symphony'], families: [], highSchoolOnly: true };
+const sym = (grade) => ({ ensembleIds: ['symphony'], instrument: 'Violin', status: 'Active', grade });
+assert(eligibleForSignup(sym('11th'), symHs), 'a high schooler is in');
+assert(!eligibleForSignup(sym('College Freshman'), symHs), 'a college freshman is out');
+assert(!eligibleForSignup(sym('College'), symHs), 'a bare "College" grade is out');
+assert(eligibleForSignup(sym(undefined), symHs), 'a blank grade stays in (never hide a student from a form they need)');
+assert(eligibleForSignup(sym('College Senior'), { ...symHs, highSchoolOnly: false }), 'off by default');
+assert(!eligibleForSignupPicker(sym('College Junior'), { ensembleIds: ['symphony'], highSchoolOnly: true }), 'the picker agrees');
+
 console.log('signup eligibility self-check OK');

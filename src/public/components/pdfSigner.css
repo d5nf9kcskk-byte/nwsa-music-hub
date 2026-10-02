@@ -33,6 +33,12 @@
 .pub-pdf-layer { position: absolute; inset: 0; cursor: crosshair; }
 
 .pub-pdf-mark { position: absolute; }
+/* Filled in from the questions above the form — shown where it prints. */
+.pub-pdf-fixed {
+  position: absolute; white-space: nowrap; pointer-events: none;
+  font-family: Helvetica, Arial, sans-serif; color: #0d0d40;
+  background: rgba(13, 126, 142, .14);
+}
 .pub-pdf-text {
   display: block; padding: 0; margin: 0; border: 0; min-width: 2em;
   font-family: Helvetica, Arial, sans-serif; color: #0d0d40;

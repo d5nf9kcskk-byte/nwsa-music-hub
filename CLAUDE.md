@@ -754,6 +754,21 @@ those marks onto the original file. Everything else — audience, deadline,
   than losing the form, page counts survive stamping and merging.
 - A sign-up can be created without a browser: `scripts/post-signup.mjs` +
   *Post Sign-up* from `config/signups/*.json` (world-readable content only).
+- **Name, school ID and grade are QUESTIONS, not hand-typed** (director,
+  2026-10-01): `signPdfFields` lists every spot each answer prints, so one
+  answer fills both Section I and Section III. Find a blank's position with
+  `pdftotext -bbox` and confirm it by stamping and rendering with `pdftoppm`
+  before shipping. The school ID lands only in the staff-only PDF, never on
+  the response doc. The rest (emergency contacts) is typed on the page;
+  signature then date, and the signer hands over to Date after each signature.
+- `highSchoolOnly` (groups mode) drops `College …` grades via
+  `isCollegeGrade()` in `signupEligibility.ts` — the district form is not for
+  the dual-enrollment students in a mixed ensemble.
+- **The Storage bucket needs a CORS policy** (`config/storage-cors.json`,
+  *Set Storage CORS* workflow) or every in-browser Storage download (getBlob,
+  fetch) silently hangs: the SDK retries a CORS refusal as a network blip for
+  two minutes. That was "Open signed form" stuck on "Opening…". CORS grants no
+  access; storage.rules still does.
 
 ## Roles & Firestore rules — invariants (Aug 2026, PR #44)
 

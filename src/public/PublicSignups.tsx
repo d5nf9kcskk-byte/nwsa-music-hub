@@ -57,6 +57,7 @@ export function PublicSignups() {
       mode: f.audienceMode,
       ensembleIds: f.ensembleIds ?? [],
       families: f.families ?? [],
+      highSchoolOnly: f.highSchoolOnly,
     });
   }
 

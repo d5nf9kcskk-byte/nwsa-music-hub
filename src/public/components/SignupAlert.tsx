@@ -45,7 +45,7 @@ export function SignupAlert({ student }: { student?: Pick<Student, 'id' | 'ensem
 
   const relevant = useMemo(() => {
     const pool = target
-      ? open.filter(f => eligibleForSignup(target, { ensembleIds: f.ensembleIds ?? [], families: f.families ?? [] }))
+      ? open.filter(f => eligibleForSignup(target, { ensembleIds: f.ensembleIds ?? [], families: f.families ?? [], highSchoolOnly: f.highSchoolOnly }))
       : open;
     // Already sent from this device → not a to-do any more.
     return pool.filter(f => !getReceipt(f.id));

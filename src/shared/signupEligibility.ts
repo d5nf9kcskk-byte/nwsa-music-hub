@@ -30,6 +30,17 @@ export interface SignupAudience {
   families: InstrumentFamily[];
   /** Staff-only: loaded from signupAudiences/{formId}. */
   studentIds?: string[];
+  /** Groups mode: leave college students out (a district field-trip form is
+   *  for the high schoolers in a mixed ensemble). */
+  highSchoolOnly?: boolean;
+}
+
+/** A college year is stored as "College Freshman" … "College Senior" (or a
+ *  bare "College"), so a high schooler is anyone whose grade does not start
+ *  there. A blank grade reads as high school: under-excluding shows a name on
+ *  the waiting list; over-excluding hides a student from a form they need. */
+export function isCollegeGrade(grade: string | undefined): boolean {
+  return (grade ?? '').trim().toLowerCase().startsWith('college');
 }
 
 type EligibleStudent = {
@@ -37,6 +48,7 @@ type EligibleStudent = {
   ensembleIds?: string[];
   instrument?: string;
   status?: string;
+  grade?: string;
 };
 
 export function eligibleForSignup(student: EligibleStudent, audience: SignupAudience): boolean {
@@ -59,6 +71,7 @@ export function eligibleForSignup(student: EligibleStudent, audience: SignupAudi
     const fam = instrumentFamily(student.instrument);
     if (!fam || !audience.families.includes(fam)) return false;
   }
+  if (audience.highSchoolOnly && isCollegeGrade(student.grade)) return false;
   return true;
 }
 
@@ -66,7 +79,7 @@ export function eligibleForSignup(student: EligibleStudent, audience: SignupAudi
  *  Submit is still enforced in firestore.rules for student-specific sign-ups. */
 export function eligibleForSignupPicker(
   student: EligibleStudent,
-  form: { ensembleIds?: string[]; families?: InstrumentFamily[]; audienceMode?: SignupAudienceMode },
+  form: { ensembleIds?: string[]; families?: InstrumentFamily[]; audienceMode?: SignupAudienceMode; highSchoolOnly?: boolean },
 ): boolean {
   // Open sign-ups have no name picker at all — the student types their name.
   if (form.audienceMode === 'open') return false;
@@ -79,6 +92,7 @@ export function eligibleForSignupPicker(
     mode: 'groups',
     ensembleIds: form.ensembleIds ?? [],
     families: form.families ?? [],
+    highSchoolOnly: form.highSchoolOnly,
   });
 }
 
@@ -119,7 +133,8 @@ export function audienceLabel(
   const who = audience.ensembleIds.map(ensembleName).filter(Boolean).join(', ')
     || 'Everyone in the program';
   const what = audience.families.map(familyLabel).join(', ');
-  return what ? `${who} · ${what}` : who;
+  const label = what ? `${who} · ${what}` : who;
+  return audience.highSchoolOnly ? `${label} · high school only` : label;
 }
 
 /** Has this sign-up gone live yet? Mirrors `isPublished` for announcements

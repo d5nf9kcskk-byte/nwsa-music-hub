@@ -37,8 +37,11 @@ function todayLabel(): string {
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
-export default function PdfSigner({ bytes, marks, onMarks }: {
+export default function PdfSigner({ bytes, marks, onMarks, fixed = [] }: {
   bytes: Uint8Array;
+  /** Text the Hub fills in from the family's answers (name, ID, grade) —
+   *  shown where it will print, but edited in the questions, not here. */
+  fixed?: PdfMark[];
   marks: PdfMark[];
   onMarks: (next: PdfMark[]) => void;
 }) {
@@ -49,6 +52,8 @@ export default function PdfSigner({ bytes, marks, onMarks }: {
   const [zoomIdx, setZoomIdx] = useState(0);
   const [width, setWidth] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
+  /** Just placed a signature: the date goes next, beside it. */
+  const [justSigned, setJustSigned] = useState(false);
   /** Where a new signature goes once the pad is done. */
   const [padAt, setPadAt] = useState<{ page: number; x: number; y: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -138,6 +143,7 @@ export default function PdfSigner({ bytes, marks, onMarks }: {
     };
     onMarks([...marks, m]);
     setSelected(m.id);
+    setJustSigned(false);
   }
 
   function placeSignature(png: string, aspect: number) {
@@ -148,8 +154,13 @@ export default function PdfSigner({ bytes, marks, onMarks }: {
     // The tap is the signature LINE: the ink sits on it, not centred over it.
     const m: InkMark = { kind: 'ink', id: newId(), page: padAt.page, x: padAt.x, y: padAt.y + 4 - h, w, h, png };
     onMarks([...marks, m]);
-    setSelected(m.id);
+    // Signature first, then its date (director's order, 2026-10-01): hand
+    // over to the Date tool with nothing selected, so the very next tap on
+    // the date line places the date instead of just putting the ink down.
+    setSelected(null);
     setPadAt(null);
+    setTool('date');
+    setJustSigned(true);
   }
 
   /** Drag a mark by its move handle (or a signature by itself). */
@@ -181,7 +192,7 @@ export default function PdfSigner({ bytes, marks, onMarks }: {
         ] as const).map(([t, icon, label]) => (
           <button key={t} type="button" aria-pressed={tool === t}
             className={`pub-pdf-tool ${tool === t ? 'active' : ''}`}
-            onClick={() => { setTool(t); setSelected(null); }}>
+            onClick={() => { setTool(t); setSelected(null); setJustSigned(false); }}>
             {icon} {label}
           </button>
         ))}
@@ -195,7 +206,9 @@ export default function PdfSigner({ bytes, marks, onMarks }: {
       <p className="pub-pdf-hint">
         {tool === 'text' && 'Tap a blank on the form, then type.'}
         {tool === 'sign' && 'Tap the signature line, then sign with your finger.'}
-        {tool === 'date' && 'Tap the date line to put today’s date there.'}
+        {tool === 'date' && (justSigned
+          ? 'Now tap the DATE line beside that signature to date it.'
+          : 'Tap the date line to put today’s date there.')}
         {' '}Zoom in to reach small blanks. Tap anything you added to move, resize or remove it.
       </p>
 
@@ -205,6 +218,13 @@ export default function PdfSigner({ bytes, marks, onMarks }: {
           <div key={i} className="pub-pdf-page" style={{ width: s.w * scale, height: s.h * scale }}>
             <canvas ref={el => { canvases.current[i] = el; }} className="pub-pdf-canvas" aria-label={`Page ${i + 1} of the form`} />
             <div className="pub-pdf-layer" onClick={e => tapPage(e, i)}>
+              {fixed.filter(m => m.page === i && m.kind === 'text').map(m => (
+                <span key={m.id} className="pub-pdf-fixed" style={{
+                  left: m.x * scale, top: m.y * scale,
+                  fontSize: (m as TextMark).size * scale,
+                  lineHeight: `${(m as TextMark).size * LINE_HEIGHT * scale}px`,
+                }}>{(m as TextMark).text}</span>
+              ))}
               {marks.filter(m => m.page === i).map(m => (
                 <MarkView key={m.id} mark={m} scale={scale} selected={selected === m.id}
                   onSelect={() => setSelected(m.id)}

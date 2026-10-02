@@ -114,6 +114,10 @@ export function PublicSignup() {
   const [pdfLoadError, setPdfLoadError] = useState(false);
   const [marks, setMarks] = useState<PdfMark[]>([]);
   const [myCopy, setMyCopy] = useState('');
+  // The blanks the Hub fills from questions (`signPdfFields`). The name
+  // defaults to the roster's until they type over it (null = untouched).
+  const [pdfName, setPdfName] = useState<string | null>(null);
+  const [pdfSchoolId, setPdfSchoolId] = useState('');
 
   const student = eligible.find(s => s.id === studentId) ?? null;
   // 'open' sign-ups: no roster, no picker — whoever has the link types their
@@ -216,7 +220,7 @@ export function PublicSignup() {
   const who = form.audienceMode === 'students'
     ? 'By invitation'
     : audienceLabel(
-      { mode: form.audienceMode, ensembleIds: form.ensembleIds ?? [], families: form.families ?? [] },
+      { mode: form.audienceMode, ensembleIds: form.ensembleIds ?? [], families: form.families ?? [], highSchoolOnly: form.highSchoolOnly },
       eid => ensembleDisplayName(ensembles.find(e => e.id === eid)),
       f => INSTRUMENT_FAMILY_LABEL[f],
     );
@@ -225,6 +229,18 @@ export function PublicSignup() {
   // An open sign-up has no student doc for the stored file to hang off.
   const signsPdf = !!form.signPdf && !openMode;
   const pdfSigned = marks.some(m => m.kind === 'ink');
+  // Questions → blanks on the PDF (#sign-pdf). Each answer prints at every
+  // spot the form asks for it, so the name and ID typed once at the top also
+  // land in Section III's "child's name" and "Student I.D. No.".
+  const pdfFields = signsPdf ? form.signPdfFields ?? [] : [];
+  const asksFor = (src: string) => pdfFields.some(f => f.source === src);
+  const formName = (pdfName ?? identityName).trim();
+  const fieldValue = { studentName: formName, studentId: pdfSchoolId.trim(), grade: effectiveGrade.trim() };
+  const fieldMarks: PdfMark[] = pdfFields.map((f, i) => ({
+    kind: 'text', id: `field-${i}`, page: f.page, x: f.x, y: f.y, size: f.size ?? 9, text: fieldValue[f.source],
+  }));
+  const fieldsMissing = (asksFor('studentName') && formName.length < 2)
+    || (asksFor('studentId') && fieldValue.studentId.length < 3);
   const needsGuardian = !!form.guardianStatement;
   const missingRequired = questions.some(q => q.required && !(answers[q.id] ?? '').trim());
   const valid = identified
@@ -232,7 +248,7 @@ export function PublicSignup() {
     && !missingRequired
     && (!needsSignature || signature.trim().length >= 3)
     && (!needsGuardian || (guardianName.trim().length >= 2 && guardianSignature.trim().length >= 3))
-    && (!signsPdf || (!!pdfBytes && pdfSigned))
+    && (!signsPdf || (!!pdfBytes && pdfSigned && !fieldsMissing))
     && (!form.collectEmail || /.+@.+\..+/.test(email.trim()))
     // Optional, but if they typed one it has to parse — the rules reject a
     // malformed address and the student would never see why.
@@ -259,7 +275,7 @@ export function PublicSignup() {
         // public bundle for every page that is not sending a signed form.
         const [{ stampPdf, signedPdfPathFor }, { getStorage, ref: storageRef, uploadBytes }] =
           await Promise.all([import('../shared/pdfStamp'), import('firebase/storage')]);
-        const signed = await stampPdf(pdfBytes, marks,
+        const signed = await stampPdf(pdfBytes, [...fieldMarks, ...marks],
           `Filled in and signed on the ${ORG.brandName} for ${student.name} · ${new Date().toLocaleString()}`);
         signedPdfPath = signedPdfPathFor(id, student.id);
         await uploadBytes(storageRef(getStorage(app), signedPdfPath), signed, { contentType: 'application/pdf' });
@@ -583,6 +599,33 @@ export function PublicSignup() {
                     <div className="pub-signup-step-title">Fill in, sign and date the form</div>
                   </div>
                   <div className="pub-card">
+                    {pdfFields.length > 0 && (
+                      <div className="pub-signup-pdf-fields">
+                        {asksFor('studentName') && (
+                          <>
+                            <label className="pub-absence-label" htmlFor="su-pdf-name">Student’s name</label>
+                            <input id="su-pdf-name" className="pub-absence-input" maxLength={80}
+                              autoCapitalize="words" value={pdfName ?? identityName}
+                              onChange={e => setPdfName(e.target.value)} />
+                          </>
+                        )}
+                        {asksFor('studentId') && (
+                          <>
+                            <label className="pub-absence-label" htmlFor="su-pdf-id">Student ID number</label>
+                            <input id="su-pdf-id" className="pub-absence-input" maxLength={20}
+                              inputMode="numeric" autoComplete="off" value={pdfSchoolId}
+                              onChange={e => setPdfSchoolId(e.target.value)} placeholder="Your school ID" />
+                          </>
+                        )}
+                        {asksFor('grade') && (
+                          <div className="pub-signup-note">Grade: {effectiveGrade || '—'} (from step 2).</div>
+                        )}
+                        <div className="pub-signup-note">
+                          These print on the form for you (shaded below). Then fill in the
+                          emergency contact section, sign, and date it.
+                        </div>
+                      </div>
+                    )}
                     {pdfLoadError ? (
                       <div className="pub-absence-error">
                         ⚠ The form could not be loaded. Check your connection and reload the page,
@@ -590,7 +633,7 @@ export function PublicSignup() {
                       </div>
                     ) : pdfBytes ? (
                       <Suspense fallback={<div className="pub-signup-loading">Opening the form…</div>}>
-                        <PdfSigner bytes={pdfBytes} marks={marks} onMarks={setMarks} />
+                        <PdfSigner bytes={pdfBytes} marks={marks} onMarks={setMarks} fixed={fieldMarks} />
                       </Suspense>
                     ) : (
                       <div className="pub-signup-loading">Opening the form…</div>
@@ -647,7 +690,9 @@ export function PublicSignup() {
               </button>
               {!valid && (
                 <div className="pub-signup-note pub-signup-why">
-                  {signsPdf && !pdfSigned && effectiveGrade.trim()
+                  {signsPdf && fieldsMissing && effectiveGrade.trim()
+                    ? 'Add the student’s name and ID number above the form.'
+                    : signsPdf && !pdfSigned && effectiveGrade.trim()
                     ? 'The form still needs a signature — tap Signature, then tap the signature line.'
                     : whyNotYet({ effectiveGrade, gradeRequired: !openMode, missingRequired, needsSignature, signature, needsGuardian, guardianName, guardianSignature, collectEmail: !!form.collectEmail, email, guardianEmail })}
                 </div>
