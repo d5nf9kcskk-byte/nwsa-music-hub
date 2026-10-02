@@ -45,6 +45,18 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'The category box becomes the average of its columns. Any column box can be corrected by hand, and Remove takes a column back off.',
     ],
   },
+  // Today shows every group's announcements (#today-announcements).
+  {
+    id: '2026-10-02-today-all-announcements',
+    date: '2026-10-02',
+    title: 'Today now shows every announcement',
+    audience: 'staff' as const,
+    expires: '2026-10-16',
+    bullets: [
+      'The Announcements list on Today shows the same posts students see, for every ensemble and class, even when the picker at the top is set to one group. Before, it showed only that group’s posts.',
+      'It shows three at a time. Tap Show all to see the rest.',
+    ],
+  },
   // One menu arrangement at every width (#one-nav) + the iPad empty-lists fix.
   {
     id: '2026-10-01-same-menu-everywhere',

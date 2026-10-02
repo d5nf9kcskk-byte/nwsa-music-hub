@@ -48,6 +48,7 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
   const [showChecklist, setShowChecklist] = useState(false);
   const [showQrKit, setShowQrKit] = useState(false);
   const [previewingAnn, setPreviewingAnn] = useState<Announcement | null>(null);
+  const [showAllAnn, setShowAllAnn] = useState(false);
   const [ensembleId, setEnsembleId] = useState(() => {
     try { return localStorage.getItem(ENS_PREF_KEY) ?? ''; } catch { return ''; }
   });
@@ -111,9 +112,13 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
     [events, today, ensembleId]);
   const alertGroups = useMemo(() => groupScheduleAlerts(alerts, ensembles), [alerts, ensembles]);
 
-  const homeAnnouncements = useMemo(
-    () => visibleAnnouncements(announcements, today, ensembleId ? [ensembleId] : 'all', now).slice(0, 3),
-    [announcements, today, ensembleId, now]);
+  // Every ensemble's announcements, whatever the picker above says: a director
+  // sees the same posts the student site shows (the picker narrows the day's
+  // schedule, not what was announced). Three at a time, the rest one tap away.
+  const allAnnouncements = useMemo(
+    () => visibleAnnouncements(announcements, today, 'all', now),
+    [announcements, today, now]);
+  const homeAnnouncements = showAllAnn ? allAnnouncements : allAnnouncements.slice(0, 3);
 
   const lessonsToday = useMemo(() =>
     overrides
@@ -327,6 +332,11 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
                 </button>
               </div>
             ))}
+            {allAnnouncements.length > 3 && (
+              <button className="dir-link-btn" onClick={() => setShowAllAnn(s => !s)}>
+                {showAllAnn ? 'Show fewer' : `Show all ${allAnnouncements.length}`}
+              </button>
+            )}
           </>
         )}
 
