@@ -32,7 +32,6 @@
   color: var(--pub-ink); text-decoration: none;
 }
 .pub-signup-row.highlight { border-color: var(--pub-accent); border-width: 1.5px; }
-.pub-signup-row.closed { opacity: 0.6; }
 .pub-signup-row-body { flex: 1; min-width: 0; }
 .pub-signup-row-title { font-size: 15px; font-weight: 700; }
 .pub-signup-row-meta {

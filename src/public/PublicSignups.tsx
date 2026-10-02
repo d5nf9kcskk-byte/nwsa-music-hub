@@ -11,7 +11,7 @@ import { fmtLongDate } from '../shared/dates';
 import { useLang } from '../shared/i18n';
 import { primaryStudent } from '../shared/identity';
 import { INSTRUMENT_FAMILY_LABEL } from '../shared/instrumentFamily';
-import { audienceLabel, eligibleForSignup, signupIsOpen, signupIsPublished, signupShowsInIndex } from '../shared/signupEligibility';
+import { audienceLabel, eligibleForSignup, signupIsOpen, signupShowsInIndex } from '../shared/signupEligibility';
 import { getReceipt } from './signupReceipt';
 import type { SignupForm } from '../director/types';
 import './signup.css';
@@ -21,6 +21,10 @@ import './signup.css';
  * has identified as (identity.ts) floats to the top as "for you" — the rest
  * still list, because a student who has never used Find My Schedule must
  * still be able to reach their form from a link or a QR code.
+ *
+ * OPEN ONLY (director's call, 2026-10-01): a closed or past sign-up is
+ * archived — directors still see it on their screen, the public list does
+ * not. A direct link to a closed one still opens and says it is closed.
  */
 export function PublicSignups() {
   useLang();
@@ -39,12 +43,6 @@ export function PublicSignups() {
   // deliberately stays off the Hub's alert strip.
   const open = useMemo(
     () => forms.filter(f => signupIsOpen(f, today, now) && signupShowsInIndex(f)),
-    [forms, today, now],
-  );
-  const recentlyClosed = useMemo(
-    () => forms
-      .filter(f => signupIsPublished(f, now) && signupShowsInIndex(f) && !signupIsOpen(f, today, now))
-      .slice(0, 4),
     [forms, today, now],
   );
 
@@ -67,7 +65,7 @@ export function PublicSignups() {
   function who(f: SignupForm): string {
     if (f.audienceMode === 'students') return 'By invitation';
     return audienceLabel(
-      { mode: f.audienceMode, ensembleIds: f.ensembleIds ?? [], families: f.families ?? [] },
+      { mode: f.audienceMode, ensembleIds: f.ensembleIds ?? [], families: f.families ?? [], highSchoolOnly: f.highSchoolOnly },
       eid => ensembleDisplayName(ensembles.find(e => e.id === eid)),
       fam => INSTRUMENT_FAMILY_LABEL[fam],
     );
@@ -99,22 +97,6 @@ export function PublicSignups() {
         <>
           {mine.length > 0 && <div className="pub-section-title">Also open</div>}
           {others.map(f => <SignupRow key={f.id} form={f} who={who(f)} today={today} />)}
-        </>
-      )}
-
-      {recentlyClosed.length > 0 && (
-        <>
-          <div className="pub-section-title">Closed</div>
-          {recentlyClosed.map(f => (
-            <div key={f.id} className="pub-signup-row closed">
-              <div className="pub-signup-row-body">
-                <div className="pub-signup-row-title">{f.title}</div>
-                <div className="pub-muted">
-                  {f.deadline ? `Closed after ${fmtLongDate(f.deadline)}` : 'Closed by your director'}
-                </div>
-              </div>
-            </div>
-          ))}
         </>
       )}
     </div>
