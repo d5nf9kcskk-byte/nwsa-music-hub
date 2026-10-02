@@ -197,6 +197,7 @@ submissions came from. `src/director/firestoreCache.ts` is the ONE policy:
   nothing), and a dead zone fails the probe and keeps its cache (#37).
 
 `firestoreCache.selfcheck.ts` pins all four and runs in the deploy workflow.
+Session record for rule 4: `docs/session-notes-2026-10-01-ipad-nav.md`.
 Upgrading the SDK does not remove the need: no Firestore release through
 12.18 changes the latch.
 
