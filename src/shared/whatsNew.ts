@@ -57,6 +57,20 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'It shows three at a time. Tap Show all to see the rest.',
     ],
   },
+  // A student's own colors (#look), back without the personal photo.
+  // NWSA-only palette, so the entry is too.
+  ...(ORG.personalize ? [{
+    id: '2026-10-01-colors-and-background-back',
+    date: '2026-10-01',
+    title: 'Pick your own colors again — with five new backgrounds',
+    audience: 'public' as const,
+    expires: '2026-10-15',
+    bullets: [
+      'Tap the sun/moon button at the top, then “Colors & background…”, to choose a color for the top bar and the menu, and a background for the page.',
+      'New backgrounds: Piano keys, Eighth notes, Sound waves, Vinyl and Equalizer. Aqua neon and Pink neon are back too.',
+      'Everything is saved on this device only. “Reset to default” puts it all back.',
+    ],
+  }] : []),
   // One menu arrangement at every width (#one-nav) + the iPad empty-lists fix.
   {
     id: '2026-10-01-same-menu-everywhere',

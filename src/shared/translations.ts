@@ -65,6 +65,23 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'theme.auto':  { en: 'Automatic (device)', es: 'Automática (dispositivo)' },
   'theme.light': { en: 'Light',              es: 'Clara' },
   'theme.dark':  { en: 'Dark',               es: 'Oscura' },
+  // "Colors & background" sheet (#look); color names live in the org palette.
+  'look.open':           { en: 'Colors & background…', es: 'Colores y fondo…' },
+  'look.title':          { en: 'Colors & background',  es: 'Colores y fondo' },
+  'look.hint':           { en: 'Tap to try — it’s saved on this device only.', es: 'Toca para probar: se guarda solo en este dispositivo.' },
+  'look.header':         { en: 'Top bar',              es: 'Barra superior' },
+  'look.side':           { en: 'Menu',                 es: 'Menú' },
+  'look.bg':             { en: 'Background',           es: 'Fondo' },
+  'look.default':        { en: 'Default',              es: 'Predeterminado' },
+  'look.pattern.staff':  { en: 'Staff lines',          es: 'Pentagrama' },
+  'look.pattern.dots':   { en: 'Dots',                 es: 'Puntos' },
+  'look.pattern.keys':   { en: 'Piano keys',           es: 'Teclado' },
+  'look.pattern.notes':  { en: 'Eighth notes',         es: 'Corcheas' },
+  'look.pattern.waves':  { en: 'Sound waves',          es: 'Ondas sonoras' },
+  'look.pattern.vinyl':  { en: 'Vinyl',                es: 'Vinilo' },
+  'look.pattern.eq':     { en: 'Equalizer',            es: 'Ecualizador' },
+  'look.reset':          { en: 'Reset to default',     es: 'Restablecer' },
+  'look.done':           { en: 'Done',                 es: 'Listo' },
 
   // ── Home headings + quick actions ───────────────────────────────────────
   'home.todayAt':               { en: `Today at ${ORG.brandName}`,          es: `Hoy en ${ORG.brandName}` },
