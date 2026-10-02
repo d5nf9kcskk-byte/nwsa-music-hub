@@ -92,7 +92,11 @@ const router = createBrowserRouter(
         { path: 'assignments/:id', element: <PublicAssignment /> },
         { path: 'assignments/:id/submit', element: <PublicAssignment /> },
         { path: 'documents', element: <PublicDocuments /> },
-        // Sign-ups (#signups): the index, and one form per sign-up.
+        // Forms (#forms, formerly "Sign-ups"): the index, and one page per
+        // form. The old /signups addresses stay mounted forever — they are in
+        // announcements, QR codes and texts already sent (src/shared/formLink.ts).
+        { path: 'forms', element: <PublicSignups /> },
+        { path: 'form/:id', element: <PublicSignup /> },
         { path: 'signups', element: <PublicSignups /> },
         { path: 'signup/:id', element: <PublicSignup /> },
         // The concert door (#concert-checkin) — also reachable from the

@@ -723,6 +723,25 @@ copies.
   packet — no PDF dependency, and it's why `.dir-signup-print-host` is
   positioned off-screen rather than `display: none`.
 
+## "Sign-ups" is called "Forms" (Oct 2026, #forms)
+
+Director's call, 2026-10-01, landed after the Freedom Tower trip: the
+section holds permission slips and registrations as well as sign-ups, so
+every WORD a person sees says "Forms" (en) / "Formularios" (es). Nothing
+else was renamed, on purpose: the collections stay `signupForms` /
+`signupResponses`, the code stays `Signup…`, the director tab id stays
+`'signups'`, the i18n key stays `nav.signups`, and the assistant capability
+stays `'signups'` (it is stored on live `directors` docs). New public links
+come from `src/shared/formLink.ts` (`/forms`, `/form/<id>`); the old
+`/signups` and `/signup/<id>` routes stay mounted forever — they are in
+announcements, QR codes and texts already sent.
+
+- `formKind` (`src/shared/formKind.ts`) — Sign-up / Permission slip /
+  Registration / Open form — is a LABEL and a starting template, never
+  behavior. Absent on old forms; read it with `formKindOf()`.
+- **The public list shows open forms only.** Closed and past ones are the
+  archive: on the director's list under "Closed", never on the public page.
+
 ## Signing the official PDF (Oct 2026, #sign-pdf)
 
 Some paperwork must come back as the district's OWN document — the M-DCPS

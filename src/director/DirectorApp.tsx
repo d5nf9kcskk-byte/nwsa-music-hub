@@ -147,7 +147,7 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
       { id: 'copyRequests',  label: 'Copy Requests', Icon: Copy           },
       { id: 'documents',     label: 'Documents',     Icon: FolderOpen     },
       { id: 'assignments',   label: 'Assignments',   Icon: ClipboardCheck },
-      { id: 'signups',       label: 'Sign-ups',      Icon: ClipboardSignature },
+      { id: 'signups',       label: 'Forms',         Icon: ClipboardSignature },
       { id: 'juries',        label: 'Juries',        Icon: Gavel          },
       // Quarter grades and the report the district collects (#gradebook).
       // Org-gated: an org with no grading periods configured has no such
@@ -188,7 +188,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   college:         'College',
   whosOut:         'Who\u2019s Out',
   messages:        'Messages',
-  signups:         'Sign-ups',
+  signups:         'Forms',
   juries:          'Juries',
   concerts:        'Concerts',
   concertCheckin:  'Concert Check-In',
@@ -235,7 +235,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   assignments:     'Post practice assignments and exams. Students see them on the public site.',
   announcements:   'Post news for families \u2014 school-wide or per ensemble. Urgent posts show as a red banner.',
   messages:        'Messages families send through the public Contact Us form. Reply opens your own email app.',
-  signups:         'Ask students to opt in \u2014 auditions, trips, anything. They pick their name (or type it, if you open the sign-up to anyone with the link), answer your questions, and sign. You get the list, a spreadsheet, and printable signed forms.',
+  signups:         'Sign-ups, permission slips, registrations \u2014 anything students or families fill out. They pick their name (or type it, on a form open to anyone with the link), answer your questions, and sign. You see who has and hasn\u2019t, and get a spreadsheet and the signed forms.',
   juries:          'End-of-semester juries. Add one as soon as you know it\u2019s happening \u2014 a name is enough \u2014 and fill in the date, room, panel, and running order as each gets decided.',
   gradebook:       'Quarter grades, and the tables the district collects. Type each category with the Hub\u2019s own attendance, exam and concert records printed beside the name, then build the email and paste it.',
   approvals:       'Everything a Student Assistant has submitted, waiting on you. Nothing they send reaches families until you approve it here \u2014 taking roll is the exception and still lands right away.',

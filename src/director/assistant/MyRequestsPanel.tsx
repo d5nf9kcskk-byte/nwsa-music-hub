@@ -26,7 +26,7 @@ export function MyRequestsPanel() {
         My requests{waiting.length > 0 ? ` · ${waiting.length} waiting` : ''}
       </h3>
       <p className="dir-approval-note" style={{ padding: '0 0 6px' }}>
-        Announcements, calendar changes, repertoire and sign-ups go to a director
+        Announcements, calendar changes, repertoire and forms go to a director
         first. Taking roll is not on this list — that saves right away.
       </p>
       {actions.slice(0, 25).map(a => (

@@ -1,4 +1,5 @@
 import './directorSearch.css';
+import { FORMS_PATH, formPath } from '../../shared/formLink';
 import { useMemo, useState } from 'react';
 import {
   Search, X, CalendarDays, Users, FileText, ClipboardCheck, ClipboardSignature,
@@ -45,7 +46,7 @@ const PAGES: { label: string; url: string; sub: string }[] = [
   { label: 'Calendar', url: '/calendar', sub: 'The whole schedule' },
   { label: 'Concerts', url: '/concerts', sub: 'The season page' },
   { label: 'Documents', url: '/documents', sub: 'Handouts and forms' },
-  { label: 'Sign-ups', url: '/signups', sub: 'Open sign-up forms' },
+  { label: 'Forms', url: FORMS_PATH, sub: 'Open forms — sign-ups, permission slips, registrations' },
   { label: 'Announcements', url: '/announcements', sub: 'Every post' },
   { label: 'Assignments', url: '/assignments', sub: 'What is assigned' },
   // One index per group (#one-nav) — /ensembles is high-school performing
@@ -65,7 +66,7 @@ const GROUP_ICON: Record<string, typeof CalendarDays> = {
   Events: CalendarDays,
   'Ensembles & classes': Users,
   Documents: FileText,
-  'Sign-ups': ClipboardSignature,
+  'Forms': ClipboardSignature,
   Assignments: ClipboardCheck,
   Repertoire: Music,
   'Concert check-in': ScanLine,
@@ -161,7 +162,7 @@ export function LinkPicker({ onPick, onClose }: Props) {
       out.push({ key: `doc-${d.id}`, group: 'Documents', label: d.title, sub: d.category, url: href });
     }
     for (const f of forms) {
-      out.push({ key: `su-${f.id}`, group: 'Sign-ups', label: f.title, url: `/signup/${f.id}` });
+      out.push({ key: `su-${f.id}`, group: 'Forms', label: f.title, url: formPath(f.id) });
     }
     for (const a of assignments) {
       out.push({
@@ -279,7 +280,7 @@ export function LinkPicker({ onPick, onClose }: Props) {
             autoFocus
             value={view === 'checkin' ? checkinQ : q}
             onChange={e => (view === 'checkin' ? setCheckinQ : setQ)(e.target.value)}
-            placeholder={view === 'checkin' ? 'Find a concert…' : 'Find a concert, class, document, sign-up…'}
+            placeholder={view === 'checkin' ? 'Find a concert…' : 'Find a concert, class, document, form…'}
             aria-label={view === 'checkin' ? 'Search concerts for a check-in link' : 'Search for something to link to'}
           />
           <button className="dir-linkpick-close" onClick={onClose} aria-label="Close"><X size={17} /></button>
