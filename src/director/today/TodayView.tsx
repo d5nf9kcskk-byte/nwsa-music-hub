@@ -15,7 +15,7 @@ import { QrKitView } from '../qr/QrKitView';
 import { useAssignments } from '../hooks/useAssignments';
 import { resolveRoster } from '../rosterResolver';
 import { isSharedBlock, sharedBlockLabel } from '../../shared/sharedBlock';
-import { todayStr, parseDate, formatTimeRange, ensembleColor, addDays, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../utils';
+import { todayStr, parseDate, formatTimeRange, ensembleColor, addDays, assignmentEmoji, rollTarget, CONCERT_COLOR, ASSIGN_COLOR } from '../utils';
 import { eventIcon } from '../groupIcon';
 import type { Announcement, CalendarEvent, Ensemble } from '../types';
 import type { DirNavigate } from '../types-nav';
@@ -87,16 +87,17 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 5),
     [assignments, today, ensembleId]);
 
-  // Roll reminders (§5.1): nudge while a rehearsal is live and un-rolled, and
-  // again after it ends (through yesterday) if roll was never taken. Receipt
-  // absence is the trigger — stampReceipt() writes `rollTaken` when the roll
-  // summary is opened, so no receipt means roll was never finished.
+  // Roll reminders (§5.1): nudge while a rehearsal or concert is live and
+  // un-rolled (#concert-roll), and again after it ends (through yesterday) if
+  // roll was never taken. Receipt absence is the trigger — stampReceipt()
+  // writes `rollTaken` when the roll summary is opened, so no receipt means
+  // roll was never finished.
   const nowD = new Date(now);
   const nowHM = `${String(nowD.getHours()).padStart(2, '0')}:${String(nowD.getMinutes()).padStart(2, '0')}`;
   const yesterday = addDays(today, -1);
   const rollNudges = useMemo(() => {
     const needsRoll = (e: CalendarEvent) =>
-      (e.type === 'Rehearsal' || e.type === 'Sectional') && e.ensembleIds.length > 0 &&
+      (e.type === 'Rehearsal' || e.type === 'Sectional' || e.type === 'Concert') && e.ensembleIds.length > 0 &&
       e.status !== 'Cancelled' && !!e.startTime &&
       Object.keys(e.rollTaken ?? {}).length === 0;
     const candidates = events.filter(needsRoll).filter(matchesEns);
@@ -223,12 +224,12 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
       <div className="dir-page-body">
         {/* Roll reminders (§5.1) */}
         {rollNudges.live.map(e => (
-          <button key={`live-${e.id}`} className="dir-roll-nudge" onClick={() => onNavigate('roll', { ensembleId: e.ensembleIds[0] })}>
+          <button key={`live-${e.id}`} className="dir-roll-nudge" onClick={() => onNavigate('roll', rollTarget(e))}>
             <ClipboardList size={15} style={{ verticalAlign: '-3px' }} /> {eventLabel(e)} is underway — take roll
           </button>
         ))}
         {rollNudges.missed.map(e => (
-          <button key={`missed-${e.id}`} className="dir-roll-nudge missed" onClick={() => onNavigate('roll', { ensembleId: e.ensembleIds[0] })}>
+          <button key={`missed-${e.id}`} className="dir-roll-nudge missed" onClick={() => onNavigate('roll', rollTarget(e))}>
             ⚠ Roll was never taken for {eventLabel(e)}{e.date === yesterday ? ' yesterday' : ''}
             {e.startTime ? ` (${formatTimeRange(e.startTime, e.endTime)})` : ''} — take it now
           </button>
@@ -426,7 +427,9 @@ function TodayCard({
     || event.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(' + ')
     || 'School';
   const linkedPieces = (event.pieceIds ?? []).map(id => piecesById[id]?.title).filter(Boolean);
-  const isRehearsal = (event.type === 'Rehearsal' || event.type === 'Sectional') && event.ensembleIds.length > 0;
+  // A rehearsal, a sectional or a concert (#concert-roll): the events with a
+  // roll to take. A concert with no group on it (a faculty recital) has none.
+  const rolls = (event.type === 'Rehearsal' || event.type === 'Sectional' || event.type === 'Concert') && event.ensembleIds.length > 0;
   const cancelled = event.status === 'Cancelled';
 
   const openEvent = () => onNavigate('schedule', { date: event.date, eventId: event.id });
@@ -478,7 +481,7 @@ function TodayCard({
               : <em>No repertoire chosen yet</em>}
         </div>
         {/* Roll receipt (#22) */}
-        {isRehearsal && !cancelled && (
+        {rolls && !cancelled && (
           (() => {
             const receipts = event.ensembleIds.map(id => ({ id, r: event.rollTaken?.[id] }));
             const taken = receipts.filter(x => x.r);
@@ -495,12 +498,12 @@ function TodayCard({
           })()
         )}
         <div className="dir-today-actions">
-          {isRehearsal && !cancelled && (
-            <button className="dir-btn dir-btn-primary dir-today-action" onClick={() => onNavigate('roll', { ensembleId: event.ensembleIds[0] })}>
+          {rolls && !cancelled && (
+            <button className="dir-btn dir-btn-primary dir-today-action" onClick={() => onNavigate('roll', rollTarget(event))}>
               <ClipboardList size={15} /> Take Roll
             </button>
           )}
-          {isRehearsal && !cancelled && (
+          {rolls && !cancelled && (
             <button
               className="dir-btn dir-btn-ghost dir-today-action"
               onClick={() => onNavigate('whosOut', { date: event.date, ensembleId: event.ensembleIds[0] })}

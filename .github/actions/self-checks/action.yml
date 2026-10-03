@@ -310,6 +310,14 @@ runs:
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/concertExcusal.selfcheck.ts
       shell: bash
 
+    # Concerts take roll (#concert-roll): on Take Roll, yet still not a
+    # rehearsal for rotations and lesson conflicts, and "Take Roll" opens on the
+    # right roll. The roll's say in the Gradebook is pinned in the grading
+    # self-check above.
+    - name: Check concert roll
+      run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/concertRoll.selfcheck.ts
+      shell: bash
+
     # Seniors excused from an audience requirement (#audience-excusal): off
     # the requirement, never off a stage, never off a by-name list.
     - name: Check audience excusals

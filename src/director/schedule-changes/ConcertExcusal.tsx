@@ -5,7 +5,9 @@ import { useConcertExcusals } from '../hooks/useConcertExcusals';
 import { currentDirectorName, currentDirectorEmail } from '../currentDirector';
 import { EXCUSAL_CATEGORIES, excusableConcerts, excusalCategoryLabel, excusalOverrides } from '../concertExcusal';
 import { formatDate, parseDate, todayStr } from '../utils';
-import type { CalendarEvent, ConcertExcusal, Ensemble, ExcusalCategory, Student } from '../types';
+import { displayName } from '../../shared/personName';
+import { backdropClose } from '../../shared/backdropClose';
+import type { CalendarEvent, ConcertExcusal, Ensemble, ExcusalCategory, RosterOverride, Student } from '../types';
 
 function concertLabel(e: CalendarEvent | undefined, ensembleMap: Record<string, Ensemble>) {
   if (!e) return 'A concert that has since been deleted';
@@ -136,6 +138,121 @@ export function ConcertExcusalForm({ student, students, events, eventsById, ense
   );
 }
 
+/**
+ * The short door to an excusal (#concert-roll): one concert, a reason, an
+ * optional note — opened from a concert's roll and from its Roster. It files
+ * exactly what the full form above files, through the same hook, so the record
+ * and its pull-outs land in one batch and everything that already honours an
+ * excusal (the program, the seating page, the Gradebook) follows with no second
+ * path to keep in step. The long form stays for the paper trail a director
+ * wants in full: who asked, when, who approved.
+ *
+ * Everything it needs is handed in. `overrides` in particular is the whole
+ * rosterOverrides collection, which every listener loads in full, so a sheet
+ * that opened its own would re-read it each time it was opened.
+ */
+export function QuickExcusalSheet({ student, event, students, overrides, eventsById, fileExcusal, onClose }: {
+  student: Student;
+  event: CalendarEvent;
+  students: Student[];
+  overrides: RosterOverride[];
+  eventsById: Record<string, CalendarEvent>;
+  fileExcusal: ReturnType<typeof useConcertExcusals>['fileExcusal'];
+  onClose: () => void;
+}) {
+  const [category, setCategory] = useState<ExcusalCategory | ''>('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const picks = useMemo(
+    () => excusableConcerts(student, [event], students, overrides, eventsById, todayStr()),
+    [student, event, students, overrides, eventsById],
+  );
+  const ready = !busy && picks.length > 0 && !!category;
+  const who = displayName(student.name);
+
+  async function handleSave() {
+    if (!ready || !category) return;
+    setBusy(true); setError('');
+    try {
+      const by = currentDirectorName();
+      await fileExcusal({
+        studentId: student.id,
+        eventIds: [event.id],
+        category,
+        record: note.trim(),
+        ...(by ? { approvedBy: by } : {}),
+        createdAt: Date.now(),
+        createdBy: by ?? currentDirectorEmail() ?? 'unknown',
+      }, excusalOverrides(student.id, picks));
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save — try again.');
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
+      <div className="dir-drawer">
+        <div className="dir-drawer-handle" />
+        <div className="dir-drawer-header">
+          <span className="dir-drawer-title"><UserCheck size={17} style={{ verticalAlign: '-3px' }} /> Excuse {who}</span>
+          <button className="dir-drawer-close" onClick={onClose} aria-label="Close">×</button>
+        </div>
+        <div className="dir-drawer-body">
+          {error && <div className="dir-sc-error">⚠ {error}</div>}
+          <div className="dir-roster-event-name">{event.title || 'This concert'}</div>
+          <div className="dir-field-hint" style={{ marginBottom: 10 }}>{formatDate(event.date)}</div>
+          {picks.length === 0 ? (
+            <div className="dir-empty-inline">
+              {who} isn’t on stage for this concert, or it has already happened — an absence from a past
+              concert is marked on that concert’s roll.
+            </div>
+          ) : (
+            <>
+              <div className="dir-label">Reason</div>
+              <div className="dir-verb-chips" role="group" aria-label="Reason">
+                {EXCUSAL_CATEGORIES.map(c => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    className={`dir-tool-btn dir-verb-chip ${category === c.value ? 'active' : ''}`}
+                    aria-pressed={category === c.value}
+                    onClick={() => setCategory(c.value)}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              <label className="dir-label" htmlFor="quick-excusal-note">The request, word for word — optional</label>
+              <textarea
+                id="quick-excusal-note"
+                className="dir-input dir-textarea"
+                rows={4}
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder="Paste the email, or write who asked and what they said."
+              />
+              <div className="dir-sc-summary dir-conseq">
+                <div>{who} comes off the roster, the printed program and the seating for this concert only. Their ensembles and every other rehearsal and concert are unchanged.</div>
+                <div>An excused required concert doesn’t count against them in the Gradebook.</div>
+                <div>The reason and note are for directors and applied teachers only.</div>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="dir-drawer-footer">
+          <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="dir-btn dir-btn-primary" disabled={!ready} onClick={handleSave}>
+            {busy ? 'Saving…' : 'Save excusal'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** One excusal and its whole record. Shared by the Move-a-Student page, the
  *  student's detail page, and a concert's roster. */
 export function ExcusalCard({ excusal: x, eventsById, ensembleMap, studentName }: {
@@ -167,7 +284,7 @@ export function ExcusalCard({ excusal: x, eventsById, ensembleMap, studentName }
             <ShieldCheck size={12} /> Filed by {x.createdBy}, {filed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {filed.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
           </div>
         </div>
-        <div className="dir-excusal-record">{x.record}</div>
+        {x.record && <div className="dir-excusal-record">{x.record}</div>}
       </div>
       {canFile && (
         <button

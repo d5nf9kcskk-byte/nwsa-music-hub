@@ -488,6 +488,62 @@ and Simchat Torah), and for medical, family and other reasons.
 - `concertExcusal.selfcheck.ts` pins all four promises (and reads the rules
   file for the read clause) in the deploy workflow.
 
+## Concerts take roll (Oct 2026, #concert-roll)
+
+Director, 2026-10-02: concert days need a way to take attendance, because
+missing a concert is grounds for failing the semester. Until then Take Roll
+skipped concerts on purpose, the door check-in was on for only a few concerts
+(mostly ones students attend as audience), and the Gradebook credited anyone
+who performs — so a performer who simply did not show left no record anywhere.
+
+- **`takesRoll(event)` in `src/director/utils.ts` is the list Take Roll is
+  built from**: everything `takesAttendance` covers plus a non-cancelled
+  concert. A SEPARATE question from `takesAttendance` on purpose — that one
+  also decides what a standing rotation and a lesson conflict apply to, and a
+  rotation says nothing about a performance; widening it drops every Wed/Thu
+  rotator off a Jazz concert (`overrideApplies`). `concertRoll.selfcheck.ts`
+  pins both halves.
+- One roll per (concert × ensemble): the same `attendance` docs tagged with
+  the concert's `eventId`, the same `rollTaken` receipt. No new collection and
+  no rules change — the `attendance` rules and the assistant's receipt write
+  never looked at event type. A concert's roll has no Lesson button.
+- **`rollTarget(event)` is where every "Take Roll" button lands**: onto the
+  roll when one group plays, onto that day's list when a concert has several
+  (the Showcase has nine) so each director picks their own, and always with
+  the date and event id. The date matters beyond concerts: the "roll was never
+  taken yesterday" nudge used to open TODAY's roll.
+- **"Excuse…" is the short door to the existing excusal, not a second
+  mechanism.** `QuickExcusalSheet` (`schedule-changes/ConcertExcusal.tsx`)
+  files exactly what the Move-a-Student form files, through the same
+  `fileExcusal` hook — one batch holding the record and its event-scoped
+  pull-outs — so the program, the seating page and the Gradebook follow with
+  no new branch. Directors only (`canFile`) and only for a concert still to
+  come (`excusableConcerts` refuses a past one: there is no seat to vacate;
+  afterwards, mark Absent (Excused) on that concert's roll). Offered on the
+  concert's roll and on its Roster (`EventRoster`). The note is optional; the
+  long form on Move a Student stays for a full paper trail.
+- **The Gradebook reads the roll for a concert marked Required** — and only
+  then; `concertAttendance === 'required'` is still the one switch for "this
+  concert counts" (most performing concerts are NOT flagged yet — it is a
+  dropdown in the event editor). `concertRoll()` / `rollEffect()` in
+  `src/shared/ensembleGrades.ts` are the ONE answer: Absent = no credit, stays
+  in the denominator; Absent (Excused) = out of the denominator, same as a
+  pull-out; no mark after roll was finished = credited; roll never finished =
+  exactly as before, because a roll nobody took cannot call anyone present.
+  A completed pair of scans outranks an Absent or Excused mark. Marks are
+  facts and count even if "Finish roll" was never pressed; only "no mark means
+  present" needs the receipt. Pinned in `ensembleGrades.selfcheck.ts`.
+- **Concert marks stay out of the rehearsal evidence.** `attendanceByStudent`
+  skips marks whose `eventId` is a concert and `meetingsHeld` skips
+  `type === 'Concert'`, so one absence is never counted twice and the rehearsal
+  denominator does not grow.
+- Not here, on purpose: roll for groups required to ATTEND as audience
+  (`attendanceEnsembleIds` — the door check-in is that tool), and adding one
+  individual performer to a concert (the event's Individual performers and
+  "Sub in" already do it).
+
+Session record: `docs/session-notes-2026-10-02-concert-roll.md`.
+
 ## A student's repertoire is what they PLAY (Sept 2026, #student-repertoire)
 
 Being on a concert is not playing on it. `src/shared/studentRepertoire.ts` is

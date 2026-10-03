@@ -4,13 +4,13 @@ import { useStudents } from '../hooks/useStudents';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { resolveRoster, overrideApplies } from '../rosterResolver';
 import { isSharedBlock, mergeSharedRoster, sharedBlockLabel } from '../../shared/sharedBlock';
-import { formatDate, formatTimeRange } from '../utils';
+import { formatDate, formatTimeRange, todayStr } from '../utils';
 import { eventIcon } from '../groupIcon';
 import { useConcertExcusals } from '../hooks/useConcertExcusals';
 import { useEvents } from '../hooks/useEvents';
 import { excusalOverrideIds } from '../concertExcusal';
-import { ExcusalCard } from '../schedule-changes/ConcertExcusal';
-import type { CalendarEvent, Ensemble, RosterOverride } from '../types';
+import { ExcusalCard, QuickExcusalSheet } from '../schedule-changes/ConcertExcusal';
+import type { CalendarEvent, Ensemble, RosterOverride, Student } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { backdropClose } from '../../shared/backdropClose';
 
@@ -23,10 +23,12 @@ interface Props {
 }
 
 /**
- * Read-only roster viewer for an event: who's expected, who's a guest, who
- * was pulled and WHY. Changes happen in one place — the Roll area (Take Roll
- * for marks, Subs & Pull-outs for roster moves) — so nothing here silently
- * edits a student's schedule.
+ * Roster viewer for an event: who's expected, who's a guest, who was pulled
+ * and WHY. Changes happen in one place — the Roll area (Take Roll for marks,
+ * Subs & Pull-outs for roster moves) — so nothing here silently edits a
+ * student's schedule. The one exception is a concert still to come, where a
+ * director can excuse a student right from this list (#concert-roll): the same
+ * excusal Move a Student files, through a short sheet.
  */
 export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
   const { students } = useStudents();
@@ -34,7 +36,12 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
   // Excusals are unreadable to assistants (the listener stays off for them),
   // so for them the pull-out simply lists under "Pulled out" with its generic
   // reason. Directors and applied teachers see the excusal and its record.
-  const { excusals } = useConcertExcusals();
+  const { excusals, canFile, fileExcusal } = useConcertExcusals();
+  const canExcuse = canFile && event.type === 'Concert' && event.status !== 'Cancelled' && event.date >= todayStr();
+  const [excusing, setExcusing] = useState<Student | null>(null);
+  const excuseButton = (student: Student) => canExcuse && (
+    <button type="button" className="dir-link-btn" onClick={() => setExcusing(student)}>Excuse…</button>
+  );
   const excused = excusals.filter(x => x.eventIds.includes(event.id));
   const excusalOwned = excusalOverrideIds(excused);
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
@@ -94,6 +101,7 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
   const timeLabel = formatTimeRange(event.startTime, event.endTime);
 
   return (
+    <>
     <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
       <div className="dir-drawer">
         <div className="dir-drawer-handle" />
@@ -138,6 +146,7 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
                       {ensembleIds.map(id => ensembles.find(e => e.id === id)?.name ?? id).join(' · ')}
                     </span>
                   </div>
+                  {excuseButton(student)}
                 </div>
               ))}
             </>
@@ -151,6 +160,7 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
                 {isSub && <span className="dir-sub-badge">Sub</span>}
                 <span className="dir-sub-instr">{student.instrument}</span>
               </div>
+              {excuseButton(student)}
             </div>
           ))}
           </>
@@ -215,5 +225,19 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
         </div>
       </div>
     </div>
+    {/* Beside the roster's overlay rather than inside it, so it stacks above as
+        a plain later sibling and the two never share a backdrop. */}
+    {excusing && (
+      <QuickExcusalSheet
+        student={excusing}
+        event={event}
+        students={students}
+        overrides={overrides}
+        eventsById={allEventsById}
+        fileExcusal={fileExcusal}
+        onClose={() => setExcusing(null)}
+      />
+    )}
+    </>
   );
 }

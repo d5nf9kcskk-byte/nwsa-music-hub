@@ -42,13 +42,18 @@ interface Props {
   isSub?: boolean;
   /** Scheduled lesson pull-out (time window) for this student today, if any. */
   lesson?: RosterOverride;
-  /** Tap on the Lesson chip: opens the time sheet (or clears an existing lesson). */
-  onLesson: (student: Student) => void;
+  /** Tap on the Lesson chip: opens the time sheet (or clears an existing lesson).
+   *  Omitted on a concert's roll — a lesson pull-out is a rehearsal-time thing. */
+  onLesson?: (student: Student) => void;
+  /** "Excuse…" in the Lesson chip's place on a concert's roll (#concert-roll):
+   *  a roster change with a record, not a mark. Omitted for anyone who cannot
+   *  file an excusal, and for a concert that has already happened. */
+  onExcuse?: (student: Student) => void;
   /** Open the student's attendance / roster card (name tap). */
   onOpenStudent?: (studentId: string) => void;
 }
 
-function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, plannedAbsence, schoolTardy, dayContext, history, onOpenStudent }: Props) {
+function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, onExcuse, plannedAbsence, schoolTardy, dayContext, history, onOpenStudent }: Props) {
   const status = record?.status;
 
   return (
@@ -150,13 +155,25 @@ function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, 
             {ATTENDANCE_BTN_LABEL[s]}
           </button>
         ))}
-        <button
-          type="button"
-          className={`dir-att-btn lesson-btn${lesson || status === 'Lesson' ? ' active' : ''}`}
-          onClick={() => onLesson(student)}
-        >
-          Lesson
-        </button>
+        {onLesson && (
+          <button
+            type="button"
+            className={`dir-att-btn lesson-btn${lesson || status === 'Lesson' ? ' active' : ''}`}
+            onClick={() => onLesson(student)}
+          >
+            Lesson
+          </button>
+        )}
+        {onExcuse && (
+          <button
+            type="button"
+            className="dir-att-btn excuse-btn"
+            title="Excuse from this concert — off the roster, the program and the Gradebook count"
+            onClick={() => onExcuse(student)}
+          >
+            Excuse…
+          </button>
+        )}
       </div>
     </div>
   );

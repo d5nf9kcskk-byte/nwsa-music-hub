@@ -227,6 +227,8 @@ export interface MarkLike {
   ensembleId: string;
   date: string;
   status: string;
+  /** The rehearsal or concert the roll was taken for (absent on an old mark). */
+  eventId?: string;
 }
 
 /**
@@ -240,16 +242,24 @@ export interface MarkLike {
  * School-day tardies are deliberately NOT here and must never be merged in:
  * arriving late to the BUILDING says nothing about walking into Camerata on
  * time, and conflating the two was a real bug in Aug 2026 (#tardies).
+ *
+ * `excludeEventIds` is how concerts stay out (#concert-roll): a concert takes
+ * roll now, and an absence from it is the evidence of the CONCERTS category,
+ * which `concertRoll` / `rollEffect` read. Counted here as well, one absence
+ * would cost twice. Omitted = nothing skipped, which is every caller that
+ * predates concert roll.
  */
 export function attendanceByStudent(
   marks: MarkLike[],
   ensembleId: string,
   window: { from: string; through: string },
+  excludeEventIds?: ReadonlySet<string>,
 ): Record<string, AttendanceEvidence> {
   const out: Record<string, AttendanceEvidence> = {};
   for (const m of marks) {
     if (m.ensembleId !== ensembleId) continue;
     if (m.date < window.from || m.date > window.through) continue;
+    if (m.eventId && excludeEventIds?.has(m.eventId)) continue;
     const e = (out[m.studentId] ??= { ...EMPTY_ATTENDANCE });
     if (m.status === 'Absent') e.absent += 1;
     else if (m.status === 'Excused') e.excused += 1;
@@ -263,6 +273,7 @@ export function attendanceByStudent(
 /** Minimal event shape for counting meetings held. */
 export interface MeetingLike {
   date: string;
+  type?: string;
   rollTaken?: Record<string, unknown> | null;
 }
 
@@ -275,6 +286,10 @@ export interface MeetingLike {
  * director who skips roll shrinks this number, which is correct and is why
  * the screen prints it beside the absences rather than hiding it inside a
  * percentage.
+ *
+ * A concert is a performance, not a meeting (#concert-roll): it takes roll
+ * now, and counting its receipt here would enlarge the denominator the
+ * rehearsal absences are read against.
  */
 export function meetingsHeld(
   events: MeetingLike[],
@@ -283,6 +298,7 @@ export function meetingsHeld(
 ): number {
   let n = 0;
   for (const e of events) {
+    if (e.type === 'Concert') continue;
     if (e.date < window.from || e.date > window.through) continue;
     if (e.rollTaken && Object.prototype.hasOwnProperty.call(e.rollTaken, ensembleId)) n += 1;
   }
@@ -383,19 +399,70 @@ export function parseItemKey(key: string): { kind: ItemKind; id: string } | null
 }
 
 /**
+ * What a concert's ROLL says about one student (#concert-roll).
+ *   'absent'  — marked Absent. No credit, and it stays in their denominator.
+ *   'excused' — marked Absent (Excused). Not counted against them.
+ *   'present' — roll was finished and they carry no absence. Roll is
+ *               exception-only, so "no mark" IS present; Late and Late
+ *               (Excused) were there too — punctuality is the director's
+ *               judgement in another category, not a missed concert.
+ *   null      — roll was never finished and nothing was marked, so nobody can
+ *               be called present and the concert says nothing about them.
+ *
+ * A mark is a fact; only "no mark means present" needs the roll to have been
+ * finished (`rollTaken` on the event), so a mark the director actually tapped
+ * counts even if they never pressed Finish.
+ */
+export type ConcertRoll = 'present' | 'absent' | 'excused' | null;
+
+export function concertRoll(rolled: boolean, status: string | undefined): ConcertRoll {
+  if (status === 'Absent') return 'absent';
+  if (status === 'Excused') return 'excused';
+  return rolled ? 'present' : null;
+}
+
+/**
+ * What the roll adds to one student's count for one REQUIRED concert — the
+ * roll-up half of #concert-roll (the per-concert column reads `concertRoll`
+ * through `concertItemScore`).
+ *   'credit'  — they played and were there: one more concert credited.
+ *   'excused' — it leaves their denominator, same as a pull-out does.
+ *   'none'    — the roll has nothing to add.
+ *
+ * A pair of scans that already earned credit is never counted a second time,
+ * and it outranks an excused mark: a student who checked in and out was there.
+ * Roll never credits someone who does not play on the concert — an audience
+ * requirement is the door scan's business, not roll's.
+ */
+export function rollEffect(i: {
+  scanCredited: boolean; performs: boolean; roll: ConcertRoll;
+}): 'credit' | 'excused' | 'none' {
+  if (i.scanCredited) return 'none';
+  if (i.roll === 'excused') return 'excused';
+  if (i.roll === 'present' && i.performs) return 'credit';
+  return 'none';
+}
+
+/**
  * One student's grade for one concert, from the check-in scans.
  *   checked in AND out (or the arrival scan on an entry-only night) → 100
  *   one scan only                                                   → 50
  *   no scan                                                         → 0
  * A student who PERFORMED on the concert is credited by the syllabus and
- * never scans, so they get 100. Excused students get no number at all —
- * the caller skips them, because an excused concert is not a zero.
+ * never scans, so they get 100 — unless the concert's roll marked them Absent
+ * (`roll`, #concert-roll), when the syllabus credit is exactly what they did
+ * not earn. A completed pair of scans still wins over an Absent mark: it is
+ * physical proof they were there. Omit `roll` and the answer is the one this
+ * returned before roll existed.
+ * Excused students get no number at all — the caller skips them, because an
+ * excused concert is not a zero.
  */
 export function concertItemScore(s: {
   hasIn: boolean; hasOut: boolean; entryOnly: boolean; performs: boolean;
+  roll?: ConcertRoll;
 }): number {
-  if (s.performs) return 100;
   if (scansCredited(s.hasIn, s.hasOut, s.entryOnly)) return 100;
+  if (s.performs && s.roll !== 'absent') return 100;
   if (s.hasIn || s.hasOut) return 50;
   return 0;
 }

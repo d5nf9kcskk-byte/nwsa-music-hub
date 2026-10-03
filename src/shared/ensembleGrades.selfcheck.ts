@@ -8,10 +8,10 @@
  */
 import {
   COVERAGE_FLOOR, FULL_MARKS, attendanceByStudent, byLastName, commentReasons, concertItemScore,
-  concertSuggestion, itemAverage, itemKey, parseItemKey,
+  concertRoll, concertSuggestion, itemAverage, itemKey, parseItemKey, rollEffect,
   conductValue, effortValue, examEvidence, fillValueFor, gradeValue, lastFirst, lastName,
   displayName, meetingsHeld, parseName, planProblem, rowReadiness, tallyGrade,
-  type GradeCategory, type MarkLike,
+  type ConcertRoll, type GradeCategory, type MarkLike,
 } from './ensembleGrades.ts';
 
 function assert(cond: unknown, msg: string): void {
@@ -281,5 +281,60 @@ assert(itemAverage(withItems, 'concert') === 50, 'kinds do not mix');
 assert(itemAverage({ exams: 70 }, 'exam') === null, 'no columns means no average, not the category');
 assert(tallyGrade(PLAN, { ...withItems, exams: 86 }).scored === 1,
   'tallyGrade counts plan categories only — a column is never a seventh category');
+
+/* ── concert roll (#concert-roll): the roll's say in a concert's credit ─── */
+
+// Marks are facts; "no mark" only means PRESENT once roll was actually finished.
+assert(concertRoll(true, 'Absent') === 'absent', 'marked Absent is an absence');
+assert(concertRoll(true, 'Excused') === 'excused', 'Absent (Excused) is excused');
+assert(concertRoll(true, undefined) === 'present', 'roll is exception-only: after roll, no mark IS present');
+assert(concertRoll(true, 'Late') === 'present' && concertRoll(true, 'LateExcused') === 'present',
+  'late is still there — punctuality is the director\'s judgement elsewhere, not a missed concert');
+assert(concertRoll(false, undefined) === null,
+  'roll never finished: nobody can be called present, so the concert says nothing');
+assert(concertRoll(false, 'Absent') === 'absent' && concertRoll(false, 'Excused') === 'excused',
+  'but a mark the director actually tapped counts even if they never pressed Finish');
+
+const fx = (scanCredited: boolean, performs: boolean, roll: ConcertRoll) =>
+  rollEffect({ scanCredited, performs, roll });
+assert(fx(false, true, 'present') === 'credit', 'a performer who was there is credited');
+assert(fx(false, true, 'absent') === 'none',
+  'a performer marked Absent earns nothing — and stays in their denominator');
+assert(fx(false, true, 'excused') === 'excused', 'an excused absence leaves the denominator');
+assert(fx(false, true, null) === 'none', 'no roll, no verdict: exactly as before roll existed');
+assert(fx(true, true, 'present') === 'none', 'already credited by a pair of scans — never counted twice');
+assert(fx(true, true, 'excused') === 'none', 'physical proof of attendance beats an excused mark');
+assert(fx(false, false, 'present') === 'none', 'roll never credits someone who does not play on it');
+
+const onRoll = (roll: ConcertRoll, hasIn = false, hasOut = false) =>
+  concertItemScore({ hasIn, hasOut, entryOnly: false, performs: true, roll });
+assert(onRoll('present') === 100 && onRoll(null) === 100, 'present, or no roll at all, is the old syllabus 100');
+assert(onRoll('absent') === 0, 'a performer marked Absent no longer gets the syllabus 100');
+assert(onRoll('absent', true, true) === 100, 'a completed check-in and check-out is proof they were there');
+assert(onRoll('absent', true, false) === 50, 'half a scan is still half');
+assert(concertItemScore({ hasIn: false, hasOut: false, entryOnly: false, performs: true }) === 100,
+  'a caller that does not pass roll gets exactly the old answer');
+
+// Concert marks are the CONCERTS category's evidence. Counting them as a missed
+// rehearsal as well would make one absence cost twice.
+const concertMarks: MarkLike[] = [
+  mark('s1', '2026-08-20', 'Absent'),
+  { ...mark('s1', '2026-08-22', 'Absent'), eventId: 'concert1' },
+  { ...mark('s1', '2026-08-22', 'Excused', 'cam'), eventId: 'concert1' },
+  { ...mark('s2', '2026-08-22', 'Late'), eventId: 'concert1' },
+];
+const rehearsalOnly = attendanceByStudent(concertMarks, 'cam', WINDOW, new Set(['concert1']));
+assert(rehearsalOnly.s1.absent === 1 && rehearsalOnly.s1.excused === 0,
+  'a concert\'s marks never also count as a missed rehearsal');
+assert(!rehearsalOnly.s2, 'a student whose only mark was at the concert has no rehearsal tally at all');
+assert(attendanceByStudent(concertMarks, 'cam', WINDOW).s1.absent === 2,
+  'with no concert ids given nothing is skipped — the old behaviour');
+assert(
+  meetingsHeld([
+    { date: '2026-08-20', type: 'Rehearsal', rollTaken: { cam: { at: 1, absent: 0 } } },
+    { date: '2026-08-22', type: 'Concert', rollTaken: { cam: { at: 1, absent: 0 } } },
+  ], 'cam', WINDOW) === 1,
+  'a concert is a performance, not a rehearsal meeting — it never enlarges the denominator of meetings held',
+);
 
 console.log('ensembleGrades.selfcheck: all assertions passed');

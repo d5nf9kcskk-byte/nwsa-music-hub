@@ -4,7 +4,12 @@ import { TrackerView } from './TrackerView';
 
 type Mode = 'roll' | 'tracker';
 
-export function AttendanceTab({ initialEnsembleId, onNavigate }: { initialEnsembleId?: string | null; onNavigate?: import('../types-nav').DirNavigate }) {
+export function AttendanceTab({ initialEnsembleId, initialDate, initialEventId, onNavigate }: {
+  initialEnsembleId?: string | null;
+  initialDate?: string;
+  initialEventId?: string;
+  onNavigate?: import('../types-nav').DirNavigate;
+}) {
   const [mode, setMode] = useState<Mode>('roll');
 
   return (
@@ -17,7 +22,9 @@ export function AttendanceTab({ initialEnsembleId, onNavigate }: { initialEnsemb
           Tracker
         </button>
       </div>
-      {mode === 'roll' ? <AttendanceView initialEnsembleId={initialEnsembleId} onNavigate={onNavigate} /> : <TrackerView onNavigate={onNavigate} />}
+      {mode === 'roll'
+        ? <AttendanceView initialEnsembleId={initialEnsembleId} initialDate={initialDate} initialEventId={initialEventId} onNavigate={onNavigate} />
+        : <TrackerView onNavigate={onNavigate} />}
     </div>
   );
 }

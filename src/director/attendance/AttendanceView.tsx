@@ -9,18 +9,21 @@ import { useSchoolDayTardies } from '../hooks/useSchoolDayTardies';
 import { useSeatingCharts } from '../hooks/useSeatingCharts';
 import { useEvents } from '../hooks/useEvents';
 import { useContacts } from '../hooks/useContacts';
-import { resolveRoster, lessonsFor, overrideApplies } from '../rosterResolver';
+import { resolveRoster, lessonsFor, overrideApplies, removedIds } from '../rosterResolver';
 import { isSharedBlock } from '../../shared/sharedBlock';
+import { seatsPlaying } from '../../shared/concertRosters';
+import { useConcertExcusals } from '../hooks/useConcertExcusals';
+import { QuickExcusalSheet } from '../schedule-changes/ConcertExcusal';
 import { StudentCard } from './StudentCard';
 import { StudentDetail } from '../roster/StudentDetail';
 import { SortToggle } from '../components/SortToggle';
 import { sortStudents, type StudentSort } from '../scoreOrder';
 import { lastFirst, lastName } from '../../shared/personName';
 import { rosterRecipients, rosterNumbers } from '../rosterEmail';
-import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, takesAttendance, plannedAbsenceAppliesToRoll } from '../utils';
+import { todayStr, addDays, addMinutesToTime, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, takesRoll, plannedAbsenceAppliesToRoll } from '../utils';
 import { currentDirectorName, currentDirectorRole } from '../currentDirector';
 import { recordActivity } from '../hooks/useActivityLog';
-import type { AttendanceStatus, Student, StudentContact, Ensemble, CalendarEvent } from '../types';
+import type { AttendanceStatus, Student, StudentContact, Ensemble, CalendarEvent, RosterOverride } from '../types';
 import { ATTENDANCE_STATUS_LABEL, isAbsentMark, isRollException } from '../attendanceStatus';
 import { backdropClose } from '../../shared/backdropClose';
 
@@ -29,8 +32,25 @@ interface Period {
   ensembleId: string;
 }
 
-export function AttendanceView({ initialEnsembleId, onNavigate, allowedEnsembleIds, assistantMode }: {
+/** A concert's roll carries no lesson pull-outs; one shared empty answer keeps
+ *  the memo's identity stable. */
+const NO_LESSONS: Record<string, RosterOverride> = {};
+
+/** What a period is called under the ensemble's name: a concert says so and
+ *  carries its title ("Concert — Midnight Ball"); a rehearsal keeps its own
+ *  wording, so a rehearsal's row reads exactly as it did before concert roll. */
+function concertTag(e: CalendarEvent | null): string {
+  return e?.type === 'Concert' ? `Concert${e.title ? ` — ${e.title}` : ''}` : '';
+}
+
+export function AttendanceView({ initialEnsembleId, initialDate, initialEventId, onNavigate, allowedEnsembleIds, assistantMode }: {
   initialEnsembleId?: string | null;
+  /** Open on this day (a "roll was never taken yesterday" nudge lands on
+   *  yesterday, not today). */
+  initialDate?: string;
+  /** With `initialEnsembleId`: open this exact block, not merely that group's
+   *  first one of the day — a concert night often has a dress rehearsal too. */
+  initialEventId?: string;
   onNavigate?: import('../types-nav').DirNavigate;
   /** Restrict everything (periods, worklist, ad-hoc picker) to these
    *  ensembles — the Student Assistant's assigned set. Omitted = all. */
@@ -41,10 +61,10 @@ export function AttendanceView({ initialEnsembleId, onNavigate, allowedEnsembleI
 }) {
   const { ensembles: allEnsembles, loading: ensLoading } = useEnsembles();
   const { events, loading: eventsLoading } = useEvents();
-  const [date, setDate] = useState(todayStr);
+  const [date, setDate] = useState(() => initialDate ?? todayStr());
   const [showCal, setShowCal] = useState(false);
   const [period, setPeriod] = useState<Period | null>(null);
-  const [calCursor, setCalCursor] = useState(() => { const d = parseDate(todayStr()); d.setDate(1); return d; });
+  const [calCursor, setCalCursor] = useState(() => { const d = parseDate(initialDate ?? todayStr()); d.setDate(1); return d; });
 
   const ensembles = useMemo(
     () => allowedEnsembleIds ? allEnsembles.filter(e => allowedEnsembleIds.includes(e.id)) : allEnsembles,
@@ -54,12 +74,12 @@ export function AttendanceView({ initialEnsembleId, onNavigate, allowedEnsembleI
   const isToday = date === todayStr();
 
   // Periods for the selected day: one per (roll-taking event × ensemble) —
-  // rehearsals, sectionals, and classes.
+  // rehearsals, sectionals, classes, and concerts (#concert-roll).
   const periods = useMemo<Period[]>(() => {
     const out: Period[] = [];
     for (const e of events) {
       if (e.date !== date) continue;
-      if (!takesAttendance(e.type)) continue;
+      if (!takesRoll(e)) continue;
       for (const ensId of e.ensembleIds) {
         if (allowedEnsembleIds && !allowedEnsembleIds.includes(ensId)) continue;
         out.push({ event: e, ensembleId: ensId });
@@ -76,7 +96,7 @@ export function AttendanceView({ initialEnsembleId, onNavigate, allowedEnsembleI
     const from = addDays(todayStr(), -21), to = addDays(todayStr(), 90);
     const rows: { event: CalendarEvent; ensembleId: string }[] = [];
     for (const e of events) {
-      if (!takesAttendance(e.type)) continue;
+      if (!takesRoll(e)) continue;
       if (e.date < from || e.date > to) continue;
       for (const ensId of e.ensembleIds) {
         if (allowedEnsembleIds && !allowedEnsembleIds.includes(ensId)) continue;
@@ -87,14 +107,18 @@ export function AttendanceView({ initialEnsembleId, onNavigate, allowedEnsembleI
     return rows;
   }, [events, allowedEnsembleIds]);
 
-  // If arriving from a "Take Roll" jump, open that ensemble's period for today —
-  // but only after events have loaded, otherwise we'd land in ad-hoc (untagged)
+  // If arriving from a "Take Roll" jump, open that ensemble's period for the day
+  // — but only after events have loaded, otherwise we'd land in ad-hoc (untagged)
   // roll even when a rehearsal IS scheduled, defeating per-period attendance.
+  // With an event id the exact block opens; without one, the group's first.
   useEffect(() => {
     if (!initialEnsembleId || eventsLoading) return;
-    setPeriod(prev => prev ?? (periods.find(x => x.ensembleId === initialEnsembleId) ?? { event: null, ensembleId: initialEnsembleId }));
+    setPeriod(prev => prev ?? (
+      periods.find(x => x.ensembleId === initialEnsembleId && (!initialEventId || x.event?.id === initialEventId))
+      ?? { event: null, ensembleId: initialEnsembleId }
+    ));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialEnsembleId, eventsLoading, periods.length]);
+  }, [initialEnsembleId, initialEventId, eventsLoading, periods.length]);
 
   if (ensLoading) return <div className="dir-loading">Loading…</div>;
   if (ensembles.length === 0) {
@@ -132,7 +156,7 @@ export function AttendanceView({ initialEnsembleId, onNavigate, allowedEnsembleI
     return out;
   })();
   const daysWithRehearsal = new Set(events
-    .filter(e => takesAttendance(e.type)
+    .filter(e => takesRoll(e)
       && (!allowedEnsembleIds || e.ensembleIds.some(id => allowedEnsembleIds.includes(id))))
     .map(e => e.date));
   const dateLabel = parseDate(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -179,9 +203,9 @@ export function AttendanceView({ initialEnsembleId, onNavigate, allowedEnsembleI
       )}
 
       {/* Periods for the day */}
-      <div className="dir-form-section-label" style={{ padding: '4px 16px' }}>Rehearsals this day — tap to take roll</div>
+      <div className="dir-form-section-label" style={{ padding: '4px 16px' }}>Rehearsals and concerts this day — tap to take roll</div>
       {periods.length === 0 ? (
-        <div className="dir-empty-inline" style={{ margin: '0 16px 12px' }}>No rehearsals scheduled. Pick an ensemble below to take roll anyway.</div>
+        <div className="dir-empty-inline" style={{ margin: '0 16px 12px' }}>No rehearsals or concerts scheduled. Pick an ensemble below to take roll anyway.</div>
       ) : (
         <div style={{ padding: '0 16px' }}>
           {periods.map((p, i) => {
@@ -192,7 +216,8 @@ export function AttendanceView({ initialEnsembleId, onNavigate, allowedEnsembleI
                 <div className="dir-ens-info">
                   <div className="dir-ens-name"><ClipboardList size={13} style={{ verticalAlign: '-2px', marginRight: 4 }} />{ens?.name ?? 'Ensemble'}</div>
                   <div className="dir-ens-sub">
-                    {p.event?.startTime ? <><Clock size={11} style={{ verticalAlign: '-1px' }} /> {formatTimeRange(p.event.startTime, p.event.endTime)}</> : 'Rehearsal'}
+                    {concertTag(p.event) && <>{concertTag(p.event)}{p.event?.startTime ? ' · ' : ''}</>}
+                    {p.event?.startTime ? <><Clock size={11} style={{ verticalAlign: '-1px' }} /> {formatTimeRange(p.event.startTime, p.event.endTime)}</> : (concertTag(p.event) ? '' : 'Rehearsal')}
                     {p.event?.location ? ` · ${p.event.location}` : ''}
                   </div>
                   {p.event && isSharedBlock(p.event) && (
@@ -228,9 +253,9 @@ export function AttendanceView({ initialEnsembleId, onNavigate, allowedEnsembleI
       </>
       ) : (
         <div style={{ padding: '0 16px' }}>
-          <div className="dir-form-section-label" style={{ padding: '4px 0' }}>Rehearsals — tap to take roll</div>
+          <div className="dir-form-section-label" style={{ padding: '4px 0' }}>Rehearsals and concerts — tap to take roll</div>
           {rollWorklist.length === 0 ? (
-            <div className="dir-empty-inline">No rehearsals in this window.</div>
+            <div className="dir-empty-inline">No rehearsals or concerts in this window.</div>
           ) : rollWorklist.map(({ event: e, ensembleId }, i) => {
             const ens = ensembleMap[ensembleId];
             const taken = e.rollTaken?.[ensembleId];
@@ -240,6 +265,7 @@ export function AttendanceView({ initialEnsembleId, onNavigate, allowedEnsembleI
                 <div className="dir-ens-info">
                   <div className="dir-ens-name">{ens?.name ?? 'Ensemble'} · {parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
                   <div className="dir-ens-sub">
+                    {concertTag(e) ? `${concertTag(e)} · ` : ''}
                     {taken ? `✓ Roll taken${taken.by ? ` by ${taken.by}${taken.byRole === 'assistant' ? ' (Student Assistant)' : ''}` : ''}` : 'Not taken'}
                     {e.startTime ? ` · ${formatTimeRange(e.startTime, e.endTime)}` : ''}
                   </div>
@@ -271,6 +297,15 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
   const eventId = period.event?.id ?? null;
   const ensembleId = period.ensembleId;
+  // A concert takes the same four marks as a rehearsal (#concert-roll). What
+  // differs: no lesson pull-outs (those are rehearsal-time), and directors get
+  // "Excuse…" — an advance, recorded excusal — for a concert still to come.
+  // An assistant or applied teacher cannot file one (`canFile`), so for them
+  // the row is simply the four marks.
+  const isConcert = period.event?.type === 'Concert';
+  const { canFile, fileExcusal } = useConcertExcusals();
+  const canExcuse = isConcert && canFile && !!period.event && period.event.date >= todayStr();
+  const [excusing, setExcusing] = useState<Student | null>(null);
   const { recordMap, toggleAttendance } = useAttendance(date, ensembleId, eventId);
   const { absences: plannedAbsences } = usePlannedAbsences();
   const { tardies } = useSchoolDayTardies();
@@ -311,7 +346,10 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
       .map(student => ({ student, isSub: false }));
     return [...base, ...extras];
   }, [allStudents, overrides, ensembleId, date, eventId, eventsById, period.event?.studentIds]);
-  const lessons = useMemo(() => lessonsFor(overrides, ctx), [overrides, ensembleId, date, eventId, eventsById]);
+  const lessons = useMemo(
+    () => (isConcert ? NO_LESSONS : lessonsFor(overrides, { ensembleId, date, eventId: eventId ?? undefined, eventsById })),
+    [isConcert, overrides, ensembleId, date, eventId, eventsById],
+  );
 
   const [toggleError, setToggleError] = useState('');
   // Status-strip highlight filter (redesign Phase 6). Dims non-matching rows
@@ -333,6 +371,18 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
   }, [resolved, sort]);
   const { charts } = useSeatingCharts(ensembleId);
   const latestChart = charts[0] ?? null;
+  // On a concert, an excused student's seat must not still be there to tap
+  // (#concert-roll). The chart itself is never edited — it is the ensemble's
+  // audition order and serves every concert it is attached to — so the seat is
+  // filtered on the way out, exactly as the printed program does it.
+  const chartSections = useMemo(
+    () => {
+      if (!latestChart) return [];
+      if (!isConcert) return latestChart.sections;
+      return seatsPlaying(latestChart.sections, removedIds(overrides, { ensembleId, date, eventId: eventId ?? undefined, eventsById }));
+    },
+    [latestChart, isConcert, overrides, ensembleId, date, eventId, eventsById],
+  );
 
   // Instrumentation-gap warning (#29): every player of an instrument is out.
   const gapWarning = useMemo(() => {
@@ -468,6 +518,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
           <div>
             <div className="dir-sc-student-name" style={{ fontSize: 17 }}>{ensemble?.name ?? 'Roll'}</div>
             <div className="dir-ens-sub">{dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}</div>
+            {isConcert && <div className="dir-ens-sub">{concertTag(period.event)}</div>}
             {receipt?.by && (
               <div className="dir-ens-sub">
                 ✓ Roll taken by {receipt.by}{receipt.byRole === 'assistant' ? ' (Student Assistant)' : ''}
@@ -562,7 +613,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
           <div className="dir-field-hint" style={{ padding: '0 16px 8px' }}>
             Tap a chair: Present → Absent → Late → Present.
           </div>
-          {latestChart.sections.map((sec, i) => (
+          {chartSections.map((sec, i) => (
             <div key={i} className="dir-chart-section">
               <div className="dir-form-section-label" style={{ padding: '0 16px' }}>{sec.section}</div>
               <div className="dir-chart-seats">
@@ -621,7 +672,8 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
               onToggle={handleToggle}
               isSub={isSub}
               lesson={lessons[student.id]}
-              onLesson={handleLessonTap}
+              onLesson={isConcert ? undefined : handleLessonTap}
+              onExcuse={canExcuse ? setExcusing : undefined}
               plannedAbsence={plannedByStudent[student.id]}
               schoolTardy={tardyByStudent[student.id]}
               dayContext={dayContext[student.id]}
@@ -653,7 +705,20 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
           ensembles={allEnsembles}
           ensembleName={ensemble?.name ?? ''}
           dateLabel={dateLabel}
+          occasion={isConcert ? 'concert' : 'rehearsal'}
           onClose={() => setShowSummary(false)}
+        />
+      )}
+
+      {excusing && period.event && (
+        <QuickExcusalSheet
+          student={excusing}
+          event={period.event}
+          students={allStudents}
+          overrides={overrides}
+          eventsById={eventsById}
+          fileExcusal={fileExcusal}
+          onClose={() => setExcusing(null)}
         />
       )}
 
@@ -745,13 +810,16 @@ function LessonSheet({ student, defaultStart, onClose, onSave }: {
 }
 
 /** Post-roll absentee summary (#23): who's out, one tap to act on it. */
-function AbsenteeSummary({ records, students, contacts, ensembles, ensembleName, dateLabel, onClose }: {
+function AbsenteeSummary({ records, students, contacts, ensembles, ensembleName, dateLabel, occasion, onClose }: {
   records: { studentId: string; status: string; startTime?: string; endTime?: string }[];
   students: Student[];
   contacts: Record<string, StudentContact>;
   ensembles: Ensemble[];
   ensembleName: string;
   dateLabel: string;
+  /** What the roll was for — the email to a family names it ("…at today's
+   *  Symphony concert"), and a concert absence must not read as a rehearsal. */
+  occasion: 'rehearsal' | 'concert';
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -815,7 +883,7 @@ function AbsenteeSummary({ records, students, contacts, ensembles, ensembleName,
                     <a
                       className="dir-icon-btn"
                       aria-label="Email"
-                      href={`mailto:${to}?subject=${encodeURIComponent(`${ensembleName} attendance — ${dateLabel}`)}&body=${encodeURIComponent(`Hello,\n\n${nameOf(r.studentId)} was marked ${ATTENDANCE_STATUS_LABEL[r.status as AttendanceStatus]?.toLowerCase() ?? r.status.toLowerCase()} at today's ${ensembleName} rehearsal (${dateLabel}). `)}`}
+                      href={`mailto:${to}?subject=${encodeURIComponent(`${ensembleName} attendance — ${dateLabel}`)}&body=${encodeURIComponent(`Hello,\n\n${nameOf(r.studentId)} was marked ${ATTENDANCE_STATUS_LABEL[r.status as AttendanceStatus]?.toLowerCase() ?? r.status.toLowerCase()} at today's ${ensembleName} ${occasion} (${dateLabel}). `)}`}
                     >
                       <Mail size={15} />
                     </a>

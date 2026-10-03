@@ -1,4 +1,4 @@
-import type { Ensemble, EventType, RepertoirePiece, PiecePartLink, PieceMovement, CalendarEvent, SeatingChart, Student } from './types';
+import type { Ensemble, EventType, EventStatus, RepertoirePiece, PiecePartLink, PieceMovement, CalendarEvent, SeatingChart, Student } from './types';
 import { dateLocale, fmtDate } from '../shared/dates';
 import { scoreOrderRank, lastName } from './scoreOrder';
 import { isClassGroup, isMasterClass, isCollegeGroup, isAdultStudent } from './groupKind';
@@ -312,6 +312,34 @@ export { EVENT_TYPE_ICON } from './groupIcon';
  */
 export function takesAttendance(type: EventType): boolean {
   return type === 'Rehearsal' || type === 'Sectional' || type === 'Class';
+}
+
+/**
+ * Events that appear on Take Roll (#concert-roll): everything `takesAttendance`
+ * covers, plus concerts — missing one is grounds for failing the semester, and
+ * until this the Hub kept no record of who did.
+ *
+ * A SEPARATE question from `takesAttendance` on purpose. That one also decides
+ * what a standing rotation and a lesson conflict apply to, and neither says
+ * anything about a performance: widening it would drop every Wed/Thu rotator
+ * off a Jazz concert (rosterResolver.overrideApplies). A cancelled concert has
+ * nobody to call.
+ */
+export function takesRoll(e: { type: EventType; status?: EventStatus }): boolean {
+  return takesAttendance(e.type) || (e.type === 'Concert' && e.status !== 'Cancelled');
+}
+
+/**
+ * Where Take Roll should open for an event. Straight onto its roll when one
+ * group plays; onto that day's list when a concert has several (the Showcase
+ * has nine), so each group's director picks their own rather than landing on
+ * whichever group happens to be first. The date and event id go too, so a
+ * "roll was never taken yesterday" nudge opens yesterday's roll and not
+ * today's, and a day with two blocks for one group opens the right one.
+ */
+export function rollTarget(e: Pick<CalendarEvent, 'id' | 'date' | 'type' | 'ensembleIds'>): { date: string; eventId: string; ensembleId?: string } {
+  const single = e.type !== 'Concert' || e.ensembleIds.length === 1;
+  return { date: e.date, eventId: e.id, ...(single && e.ensembleIds[0] ? { ensembleId: e.ensembleIds[0] } : {}) };
 }
 
 // ── Repertoire helpers ─────────────────────────────────────────────────

@@ -556,7 +556,7 @@ export default function DirectorApp() {
             {TAB_HINTS[tab] && <div className="dir-page-hint no-print">{TAB_HINTS[tab]}</div>}
             {tab === 'gradebook'       && <GradebookView />}
             {tab === 'today'           && <TodayView onNavigate={go} />}
-            {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} onNavigate={go} />}
+            {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} initialDate={intent.date} initialEventId={intent.eventId} onNavigate={go} />}
             {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} initialSelectAll={intent.selectAll} onNavigate={go} />}
             {tab === 'lessons'         && <LessonsView onNavigate={go} />}
             {tab === 'myLessons'       && <MyLessonsView />}

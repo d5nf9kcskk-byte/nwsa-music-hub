@@ -517,6 +517,11 @@ html:has(.dir-app) body {
   color: #fff;
 }
 
+/* "Excuse…" on a concert's roll (#concert-roll): a roster change with a
+   record, not a mark — dashed so it never reads as a fifth status. */
+.dir-att-btn.excuse-btn { border-style: dashed; }
+.dir-att-btn.excuse-btn:hover { border-color: var(--dir-excused); color: var(--dir-excused); }
+
 /* ── Empty state ── */
 
 .dir-empty {

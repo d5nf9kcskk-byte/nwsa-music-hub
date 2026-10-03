@@ -3,8 +3,8 @@ import { ClipboardCopy, Check, Wand2, X } from 'lucide-react';
 import { ORG } from '../../org';
 import {
   CONDUCT_GRADES, EFFORT_GRADES, EMPTY_ATTENDANCE, attendanceByStudent, commentReasons,
-  concertItemScore, concertSuggestion, conductValue, effortValue, examEvidence, fillValueFor, gradeValue,
-  ITEM_KIND_FOR, itemAverage, itemKey, meetingsHeld, parseItemKey, rowReadiness, tallyGrade,
+  concertItemScore, concertRoll, concertSuggestion, conductValue, effortValue, examEvidence, fillValueFor, gradeValue,
+  ITEM_KIND_FOR, itemAverage, itemKey, meetingsHeld, parseItemKey, rollEffect, rowReadiness, tallyGrade,
   type AttendanceEvidence, type GradeCategory, type ItemKind,
 } from '../../shared/ensembleGrades';
 import {
@@ -178,9 +178,16 @@ export function GradebookView() {
   );
 
   /* ── the evidence, per student ──────────────────────────────────────── */
+  // A concert takes roll now (#concert-roll). Its marks are the CONCERTS
+  // category's evidence below, so they stay out of the rehearsal tally —
+  // otherwise one absence would be counted twice.
+  const concertIds = useMemo(
+    () => new Set(events.filter(e => e.type === 'Concert').map(e => e.id)),
+    [events],
+  );
   const attendance = useMemo(
-    () => (reportSpan && ensembleId ? attendanceByStudent(records, ensembleId, reportSpan) : {}),
-    [records, ensembleId, reportSpan],
+    () => (reportSpan && ensembleId ? attendanceByStudent(records, ensembleId, reportSpan, concertIds) : {}),
+    [records, ensembleId, reportSpan, concertIds],
   );
   const meetings = useMemo(
     () => (reportSpan && ensembleId ? meetingsHeld(events, ensembleId, reportSpan) : 0),
@@ -253,9 +260,11 @@ export function GradebookView() {
     }
     const credited: Record<string, number> = {};
     const incomplete: Record<string, number> = {};
+    const scanCreditedKeys = new Set<string>();
     for (const p of pairs.values()) {
       if (scansCredited(p.in, p.out, entryOnly.has(p.eventId))) {
         credited[p.studentId] = (credited[p.studentId] ?? 0) + 1;
+        scanCreditedKeys.add(`${p.eventId}__${p.studentId}`);
       } else {
         incomplete[p.studentId] = (incomplete[p.studentId] ?? 0) + 1;
       }
@@ -266,11 +275,37 @@ export function GradebookView() {
         if (excusedFrom(student, eventsById[id])) excused[student.id] = (excused[student.id] ?? 0) + 1;
       }
     }
+    // What the concert's ROLL adds (#concert-roll): a performer who was there
+    // is credited, one marked Absent (Excused) leaves their denominator, one
+    // marked Absent earns nothing and stays in it. Scans already credited are
+    // never counted twice. Roll is per ensemble, so a table with no ensemble
+    // (the applied studio) has none to read.
+    if (ensembleId) {
+      const marks = new Map<string, string>();
+      for (const r of records) {
+        if (r.ensembleId === ensembleId && r.eventId && required.has(r.eventId)) marks.set(`${r.eventId}__${r.studentId}`, r.status);
+      }
+      for (const id of required) {
+        const ev = eventsById[id];
+        const rolled = !!ev.rollTaken?.[ensembleId];
+        for (const { student } of roster) {
+          if (excusedFrom(student, ev)) continue; // already out of their denominator
+          const key = `${id}__${student.id}`;
+          const effect = rollEffect({
+            scanCredited: scanCreditedKeys.has(key),
+            performs: performsOn(student, ev),
+            roll: concertRoll(rolled, marks.get(key)),
+          });
+          if (effect === 'credit') credited[student.id] = (credited[student.id] ?? 0) + 1;
+          else if (effect === 'excused') excused[student.id] = (excused[student.id] ?? 0) + 1;
+        }
+      }
+    }
     const heldFor = (studentId: string) => required.size - (excused[studentId] ?? 0);
     return { held: required.size, heldFor, credited, incomplete, excused };
-    // excusedFrom reads only overrides and eventsById, both listed.
+    // excusedFrom and performsOn read only overrides and eventsById, both listed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, eventsById, checkins, reportSpan, roster, overrides]);
+  }, [events, eventsById, checkins, records, ensembleId, reportSpan, roster, overrides]);
 
   /** This teacher's own lesson average per student, inside the window. */
   const lessonAverages = useMemo(() => {
@@ -342,9 +377,18 @@ export function GradebookView() {
       if (c.eventId !== ev.id || c.studentId !== student.id) continue;
       if (c.kind === 'out') hasOut = true; else hasIn = true;
     }
-    return concertItemScore({
-      hasIn, hasOut, entryOnly: !!ev.checkin?.entryOnly, performs: performsOn(student, ev),
-    });
+    const entryOnly = !!ev.checkin?.entryOnly;
+    const performs = performsOn(student, ev);
+    // The concert's roll (#concert-roll): marked Absent (Excused) is not a zero,
+    // and marked Absent costs a performer the syllabus 100 they'd otherwise get.
+    const roll = concertRoll(
+      !!(ensembleId && ev.rollTaken?.[ensembleId]),
+      ensembleId
+        ? records.find(r => r.eventId === ev.id && r.studentId === student.id && r.ensembleId === ensembleId)?.status
+        : undefined,
+    );
+    if (rollEffect({ scanCredited: scansCredited(hasIn, hasOut, entryOnly), performs, roll }) === 'excused') return null;
+    return concertItemScore({ hasIn, hasOut, entryOnly, performs, roll });
   }
 
   /** This student's confirmed exam score, or null when nobody graded it. */

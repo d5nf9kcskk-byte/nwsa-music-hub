@@ -54,6 +54,19 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Tap the 🍂 button in the header for the standard colors; tap it again to bring the season back. It only changes this device.',
     ],
   }] : []),
+  // Concerts take roll; excuse a student from one in two taps (#concert-roll).
+  {
+    id: '2026-10-02-concert-roll',
+    date: '2026-10-02',
+    title: 'Concerts take roll, and you can excuse a student from one',
+    audience: 'staff' as const,
+    expires: '2026-10-16',
+    bullets: [
+      'Take Roll now lists concerts beside rehearsals — one roll per ensemble playing, with the same four marks. A concert on Today has a Take Roll button, and Today reminds you when a concert’s roll was never taken.',
+      'On a concert still to come, tap Excuse… beside a student — on its roll, or on its Roster from the calendar — and pick Religious, Medical, Family or Other. They come off that concert only (roster, printed program, seating page), and the reason stays private to directors and applied teachers.',
+      'In the Gradebook, a performer marked Absent at a Required concert no longer gets full credit, and an excused student isn’t counted against them. A concert counts only when it is set to Required in its editor.',
+    ],
+  },
   // One concert / one playing exam as its own Gradebook column (#gradebook-columns).
   {
     id: '2026-10-01-gradebook-columns',
