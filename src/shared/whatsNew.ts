@@ -106,6 +106,30 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Everything is saved on this device only. “Reset to default” puts it all back.',
     ],
   }] : []),
+  // "Sign-ups" became "Forms" (#forms) — landed Monday after the Freedom
+  // Tower trip on purpose, so nothing moved while families were mid-form.
+  {
+    id: '2026-10-05-forms',
+    date: '2026-10-05',
+    title: 'Sign-ups are now called Forms',
+    audience: 'public' as const,
+    expires: '2026-10-19',
+    bullets: [
+      'Resources → Forms holds everything your director needs you or your family to fill out: sign-ups, permission slips and registrations.',
+      'Forms waiting for you are at the top; ones you have sent are under Done. Old sign-up links still work.',
+    ],
+  },
+  {
+    id: '2026-10-05-forms-staff',
+    date: '2026-10-05',
+    title: 'Sign-ups are now Forms',
+    audience: 'staff' as const,
+    expires: '2026-10-19',
+    bullets: [
+      'Same screen, new name. New form asks what kind — Sign-up, Permission slip, Registration or Open form — and starts you from the right template.',
+      'Your list is grouped Open / Scheduled / Closed. Closed forms stay here with everything collected but no longer show to students.',
+    ],
+  },
   // One menu arrangement at every width (#one-nav) + the iPad empty-lists fix.
   {
     id: '2026-10-01-same-menu-everywhere',

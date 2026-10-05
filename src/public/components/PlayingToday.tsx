@@ -53,7 +53,7 @@ export function PlayingToday({ event }: { event: PerformerEventLike }) {
         </ul>
         <div className="pub-playing-foot">
           <Music2 size={13} style={{ verticalAlign: '-2px' }} />{' '}
-          Booked a time on the sign-up? Your name appears here, and on this
+          Booked a time on a sign-up form? Your name appears here, and on this
           event in your subscribed calendar.
         </div>
       </div>

@@ -450,12 +450,12 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, bookedI
                   <button
                     type="button"
                     className="dir-tool-btn dir-btn-danger"
-                    aria-label={removable(src) ? 'Remove slot' : 'Booked — free it on the sign-up first'}
+                    aria-label={removable(src) ? 'Remove slot' : 'Booked — free it on the form first'}
                     disabled={!removable(src)}
                     title={removable(src)
                       ? undefined
                       : bookedIndices?.has(src)
-                        ? 'Someone booked this time. Free it on the sign-up first.'
+                        ? 'Someone booked this time. Free it on the form first.'
                         : 'A later time is booked, and removing this one would move it. Free that booking first.'}
                     onClick={() => removeSlot(src)}
                   >

@@ -13,11 +13,14 @@ import { primaryStudent } from '../shared/identity';
 import { INSTRUMENT_FAMILY_LABEL } from '../shared/instrumentFamily';
 import { audienceLabel, eligibleForSignup, signupIsOpen, signupShowsInIndex } from '../shared/signupEligibility';
 import { getReceipt } from './signupReceipt';
+import { formPath } from '../shared/formLink';
+import { FORM_KIND_LABEL, formKindOf } from '../shared/formKind';
 import type { SignupForm } from '../director/types';
 import './signup.css';
 
 /**
- * Everything currently open for sign-up (#signups). Whatever this device
+ * The public Forms page (#forms, formerly "Sign-ups") — everything currently
+ * open. Whatever this device
  * has identified as (identity.ts) floats to the top as "for you" — the rest
  * still list, because a student who has never used Find My Schedule must
  * still be able to reach their form from a link or a QR code.
@@ -59,8 +62,13 @@ export function PublicSignups() {
     });
   }
 
-  const mine = open.filter(forMe);
-  const others = open.filter(f => !forMe(f));
+  // Waiting for you → done (sent from this device) → anything else open.
+  // "Open to anyone" forms get their own heading: they are for people the
+  // roster doesn't know yet, which is a different question from "is it mine".
+  const waiting = open.filter(f => forMe(f) && !getReceipt(f.id));
+  const done = open.filter(f => !!getReceipt(f.id));
+  const anyone = open.filter(f => f.audienceMode === 'open' && !getReceipt(f.id));
+  const others = open.filter(f => !forMe(f) && f.audienceMode !== 'open' && !getReceipt(f.id));
 
   function who(f: SignupForm): string {
     if (f.audienceMode === 'students') return 'By invitation';
@@ -74,29 +82,43 @@ export function PublicSignups() {
   return (
     <div className="pub-page">
       <PageHeader
-        title={<><ClipboardSignature size={20} style={{ verticalAlign: '-3px' }} /> Sign-ups</>}
-        intro="Auditions, trips, and anything else your director needs you to opt into. Tap one, find your name, and you’re done."
+        title={<><ClipboardSignature size={20} style={{ verticalAlign: '-3px' }} /> Forms</>}
+        intro="Sign-ups, permission slips, registrations — anything your director needs you or your family to fill out. Tap one, find your name, and you’re done."
       />
 
       {loading && <SkeletonCards n={2} />}
 
       {!loading && open.length === 0 && (
         <EmptyState icon={<ClipboardSignature size={30} />}>
-          Nothing open right now. When your director opens one, it shows up here and on the Hub home page.
+          Nothing to fill out right now. When your director opens a form, it shows up here and on the Hub home page.
         </EmptyState>
       )}
 
-      {mine.length > 0 && (
+      {waiting.length > 0 && (
         <>
-          <div className="pub-section-title">For you</div>
-          {mine.map(f => <SignupRow key={f.id} form={f} who={who(f)} today={today} highlight />)}
+          <div className="pub-section-title">Waiting for you</div>
+          {waiting.map(f => <SignupRow key={f.id} form={f} who={who(f)} today={today} highlight />)}
         </>
       )}
 
       {others.length > 0 && (
         <>
-          {mine.length > 0 && <div className="pub-section-title">Also open</div>}
+          {(waiting.length > 0 || done.length > 0) && <div className="pub-section-title">Also open</div>}
           {others.map(f => <SignupRow key={f.id} form={f} who={who(f)} today={today} />)}
+        </>
+      )}
+
+      {anyone.length > 0 && (
+        <>
+          <div className="pub-section-title">Open to anyone</div>
+          {anyone.map(f => <SignupRow key={f.id} form={f} who={who(f)} today={today} />)}
+        </>
+      )}
+
+      {done.length > 0 && (
+        <>
+          <div className="pub-section-title">Done</div>
+          {done.map(f => <SignupRow key={f.id} form={f} who={who(f)} today={today} />)}
         </>
       )}
     </div>
@@ -111,10 +133,11 @@ function SignupRow({ form, who, today, highlight }: {
 }) {
   const receipt = getReceipt(form.id);
   return (
-    <Link to={`/signup/${form.id}`} className={`pub-signup-row${highlight ? ' highlight' : ''}`}>
+    <Link to={formPath(form.id)} className={`pub-signup-row${highlight ? ' highlight' : ''}`}>
       <div className="pub-signup-row-body">
         <div className="pub-signup-row-title">{form.title}</div>
         <div className="pub-signup-row-meta">
+          <span className="pub-form-kind">{FORM_KIND_LABEL[formKindOf(form)]}</span>
           <span>{who}</span>
           {form.deadline && (
             <span className={form.deadline === today ? 'urgent' : undefined}>

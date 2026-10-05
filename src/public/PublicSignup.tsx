@@ -1,4 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { FORMS_PATH } from '../shared/formLink';
+import { FORM_KIND_LABEL, formKindOf } from '../shared/formKind';
 import { NotesText } from './components/NotesText';
 import { useParams, Link } from 'react-router';
 import { ClipboardSignature, FileText, CalendarClock, Check, Search, Paperclip, UserRound } from 'lucide-react';
@@ -210,9 +212,9 @@ export function PublicSignup() {
   if (!form || !signupIsPublished(form, now)) {
     return (
       <div className="pub-page">
-        <BackLink fallback="/signups" label="Sign-ups" />
+        <BackLink fallback={FORMS_PATH} label="Forms" />
         <EmptyState icon={<ClipboardSignature size={30} />}>
-          That sign-up isn’t available. It may have been taken down, or the link may be out of date.
+          That form isn’t available. It may have been taken down, or the link may be out of date.
         </EmptyState>
       </div>
     );
@@ -325,7 +327,7 @@ export function PublicSignup() {
       } else if (err instanceof SignupSlotGradeError) {
         setError(`That time (${err.slotLabel}) isn’t available for your grade — ${err.reason}.`);
       } else if (form?.audienceMode === 'students') {
-        setError(`This sign-up is by invitation — if your name isn’t on the list, email ${ORG.contactEmail}.`);
+        setError(`This form is by invitation — if your name isn’t on the list, email ${ORG.contactEmail}.`);
       } else if ((err as { code?: string })?.code === 'permission-denied') {
         // The write reached Firestore and the rules turned it down, so
         // "check your connection" would send the student off chasing their
@@ -343,7 +345,7 @@ export function PublicSignup() {
       <div className="pub-page">
         <div className="pub-signup-done">
           <div className="pub-signup-done-mark"><Check size={30} /></div>
-          <h1>You’re signed up</h1>
+          <h1>{formKindOf(form ?? {}) === 'signup' ? 'You’re signed up' : 'Sent'}</h1>
           <p>
             <strong>{identityName}</strong>{effectiveGrade ? ` · ${effectiveGrade}` : ''} — sent to your director.
             {needsSignature && ' Your signature went with it.'}
@@ -383,10 +385,10 @@ export function PublicSignup() {
 
   return (
     <div className="pub-page">
-      <BackLink fallback="/signups" label="Sign-ups" />
+      <BackLink fallback={FORMS_PATH} label="Forms" />
 
       <header className="pub-signup-head">
-        <div className="pub-signup-kicker"><ClipboardSignature size={14} /> Sign-up</div>
+        <div className="pub-signup-kicker"><ClipboardSignature size={14} /> {FORM_KIND_LABEL[formKindOf(form)]}</div>
         <h1>{form.title}</h1>
         <div className="pub-signup-meta">
           <span>{who}</span>
@@ -412,7 +414,7 @@ export function PublicSignup() {
       {/* `state === 'done'` returned above, so this only shows before a send. */}
       {receipt && (
         <div className="pub-signup-receipt">
-          <Check size={15} /> You already signed up as <strong>{receipt.studentName}</strong> on{' '}
+          <Check size={15} /> You already sent this as <strong>{receipt.studentName}</strong> on{' '}
           {fmtLongDate(toDateStr(new Date(receipt.at)))}.
           {!closedReason && ' Sending this form again replaces your earlier answers.'}
           {bookedSlots.length > 0 && (
@@ -439,11 +441,11 @@ export function PublicSignup() {
 
       {closedReason ? (
         <div className="pub-card pub-signup-closed">
-          <h2>Sign-ups are closed</h2>
+          <h2>This form is closed</h2>
           <p>
             {closedReason === 'deadline' && form.deadline
               ? `This closed after ${fmtLongDate(form.deadline)}.`
-              : 'Your director has closed this sign-up.'}
+              : 'Your director has closed this form.'}
             {' '}If you still want in, email{' '}
             <a href={`mailto:${ORG.contactEmail}?subject=${encodeURIComponent(form.title)}`}>{ORG.contactEmail}</a>.
           </p>
@@ -455,7 +457,7 @@ export function PublicSignup() {
       ) : !openMode && eligible.length === 0 ? (
         <div className="pub-card">
           <p className="pub-muted">
-            Nobody on the roster matches who this sign-up is for ({who}). If that’s wrong,
+            Nobody on the roster matches who this form is for ({who}). If that’s wrong,
             let your director know — they can widen it in a tap.
           </p>
         </div>
@@ -474,7 +476,7 @@ export function PublicSignup() {
                   autoComplete="name" autoCapitalize="words" value={typedName}
                   onChange={e => setTypedName(e.target.value)} placeholder="e.g. Maria Delgado" />
                 <div className="pub-signup-note">
-                  You don’t need to be on a roster — this sign-up is how your
+                  You don’t need to be on a roster — this form is how your
                   director gets your details in the first place.
                 </div>
                 {/* Honeypot: hidden, never tabbed to, invisible to a human. */}
@@ -495,7 +497,7 @@ export function PublicSignup() {
                 <p className="pub-absence-hint" style={{ marginTop: 0 }}>
                   {form.audienceMode === 'students'
                     ? 'Tap your name. Only invited students can submit — if you’re not on the list, email your director.'
-                    : 'Tap your name. Only students this sign-up is for are listed.'}
+                    : 'Tap your name. Only students this form is for are listed.'}
                 </p>
                 {eligible.length > 8 && (
                   <div className="pub-search" style={{ marginBottom: 10 }}>

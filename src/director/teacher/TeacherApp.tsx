@@ -53,7 +53,7 @@ export function TeacherApp({
       <div className="dir-panel-banner no-print" role="note">
         <span className="dir-panel-banner-dot" />
         <span>Applied Teacher</span>
-        <span className="dir-panel-banner-sub">· lesson log, grades, student initials, and your own sign-ups{alsoAssistant ? ' · plus roll for your ensembles' : ''}</span>
+        <span className="dir-panel-banner-sub">· lesson log, grades, student initials, and your own forms{alsoAssistant ? ' · plus roll for your ensembles' : ''}</span>
       </div>
 
       <header className="dir-header">
@@ -63,7 +63,7 @@ export function TeacherApp({
           </span>
           <div>
             <div className="dir-header-title">
-              {tab === 'signups' ? 'Sign-ups' : alsoAssistant ? 'Lesson Log & Roll' : 'Lesson Log'}
+              {tab === 'signups' ? 'Forms' : alsoAssistant ? 'Lesson Log & Roll' : 'Lesson Log'}
             </div>
             <div className="dir-header-sub">
               <span className="dir-panel-tag">Applied Teacher</span> {user.displayName ?? ORG.appName}
@@ -98,7 +98,7 @@ export function TeacherApp({
           className={`dir-segment-btn ${tab === 'signups' ? 'active' : ''}`}
           onClick={() => setTab('signups')}
         >
-          <ClipboardSignature size={14} /> Sign-ups
+          <ClipboardSignature size={14} /> Forms
         </button>
       </nav>
 

@@ -452,3 +452,20 @@
   background: var(--dir-surface-2);
   border: 1px solid var(--dir-border); border-radius: 999px;
 }
+
+/* Kinds of form (#forms): the New-form picker, the per-card chip, the filter. */
+.dir-form-kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.dir-form-kind {
+  display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 12px 14px;
+  background: var(--dir-surface); border: 1px solid var(--dir-border); border-radius: var(--dir-radius);
+  font-family: inherit; color: var(--dir-text); cursor: pointer;
+}
+.dir-form-kind:hover, .dir-form-kind:focus-visible { border-color: var(--dir-accent, currentColor); }
+.dir-form-kind-name { font-weight: 700; }
+.dir-form-kind-hint { font-size: 13px; color: var(--dir-text-muted); }
+.dir-form-kind-chip {
+  flex-shrink: 0; margin-left: auto; padding: 2px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; background: var(--dir-border); color: var(--dir-text-muted);
+}
+.dir-form-kind-chip + .dir-signup-state { margin-left: 0; }
+.dir-form-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }

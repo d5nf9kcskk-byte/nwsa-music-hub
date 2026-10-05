@@ -614,7 +614,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
               />
             </div>
             <div className="dir-field-hint">
-              Most assistants only take roll. Add rehearsals &amp; concerts, repertoire, sign-ups,
+              Most assistants only take roll. Add rehearsals &amp; concerts, repertoire, forms,
               or announcements when you want them to help with those. Sensitive data (contacts,
               notes, grades) stays off-limits.
             </div>

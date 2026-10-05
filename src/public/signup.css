@@ -252,6 +252,9 @@
 }
 [data-pub-theme='dark'] .pub-signup-receipt .pub-signup-booked { border-top-color: #14532d; }
 
+/* The kind of form, on its row in the Forms list (#forms). */
+.pub-form-kind { font-weight: 700; color: var(--pub-accent); }
+
 /* Questions that print onto the signed PDF (#sign-pdf). */
 .pub-signup-pdf-section {
   margin: 18px 0 2px; font-size: 13px; font-weight: 700; letter-spacing: .04em;

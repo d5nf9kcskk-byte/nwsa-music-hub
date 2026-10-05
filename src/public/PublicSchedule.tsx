@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, Fragment } from 'react';
+import { formPath } from '../shared/formLink';
 import { useParams, Link } from 'react-router';
 import { useMonthSwipe } from '../shared/useMonthSwipe';
 import { NowNext } from './components/NowNext';
@@ -292,7 +293,7 @@ export function PublicSchedule() {
               return (
                 <div key={slot.booking.id} className="pub-booked-time">
                   <div className="pub-booked-time-info">
-                    <Link to={`/signup/${slot.form.id}`} className="pub-booked-time-title">
+                    <Link to={formPath(slot.form.id)} className="pub-booked-time-title">
                       {slot.form.title}
                     </Link>
                     <div className="pub-booked-time-when">

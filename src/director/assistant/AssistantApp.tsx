@@ -41,7 +41,7 @@ export function AssistantApp({ user, signOut }: { user: User; signOut: () => voi
     tab === 'roll' ? 'Take Roll'
     : tab === 'schedule' ? 'Schedule'
       : tab === 'repertoire' ? 'Repertoire'
-        : tab === 'signups' ? 'Sign-ups'
+        : tab === 'signups' ? 'Forms'
           : 'Announcements';
 
   const sub =
@@ -97,7 +97,7 @@ export function AssistantApp({ user, signOut }: { user: User; signOut: () => voi
           )}
           {assistantHasCapability(me, 'signups') && (
             <button type="button" className={`dir-segment-btn ${tab === 'signups' ? 'active' : ''}`} onClick={() => setTab('signups')}>
-              <ClipboardSignature size={14} /> Sign-ups
+              <ClipboardSignature size={14} /> Forms
             </button>
           )}
           {assistantHasCapability(me, 'announcements') && (

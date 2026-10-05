@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { formPath } from '../../shared/formLink';
 import { Link } from 'react-router';
 import { ClipboardSignature, ChevronRight } from 'lucide-react';
 import { useSignupForms } from '../../director/hooks/useSignups';
@@ -58,11 +59,13 @@ export function SignupAlert({ student }: { student?: Pick<Student, 'id' | 'ensem
   const dueToday = first.deadline === today;
 
   return (
-    <Link to={`/signup/${first.id}`} className={`pub-signup-alert${dueToday ? ' urgent' : ''}`}>
+    <Link to={formPath(first.id)} className={`pub-signup-alert${dueToday ? ' urgent' : ''}`}>
       <ClipboardSignature size={18} />
       <div className="pub-signup-alert-body">
         <div className="pub-signup-alert-title">
-          {target ? 'Your director needs an answer' : 'Sign-ups are open'}
+          {target
+            ? `You have ${relevant.length === 1 ? 'a form' : `${relevant.length} forms`} to fill out`
+            : 'Forms are open'}
         </div>
         <div className="pub-signup-alert-sub">
           {first.title}

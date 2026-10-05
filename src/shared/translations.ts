@@ -46,7 +46,8 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.notYouSwitch':     { en: 'Not you? Switch',     es: '¿No eres tú? Cambiar' },
   'nav.campusMap':        { en: 'Campus Map',          es: 'Mapa del campus' },
   'nav.documents':        { en: 'Documents',           es: 'Documentos' },
-  'nav.signups':          { en: 'Sign-ups',            es: 'Inscripciones' },
+  // Key kept from when the section was "Sign-ups" (#forms); only the words moved.
+  'nav.signups':          { en: 'Forms',               es: 'Formularios' },
   'nav.resources':        { en: 'Resources',           es: 'Recursos' },
   'nav.help':             { en: 'Help',                es: 'Ayuda' },
   'nav.college':          { en: 'College',             es: 'College' },

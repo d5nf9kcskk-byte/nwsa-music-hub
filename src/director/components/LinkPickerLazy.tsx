@@ -34,7 +34,7 @@ function LinkPickerShell({ onClose }: { onClose: () => void }) {
           <Search size={15} className="dir-linkpick-search-icon" />
           <input
             className="dir-linkpick-input"
-            placeholder="Find a concert, class, document, sign-up…"
+            placeholder="Find a concert, class, document, form…"
             aria-label="Search for something to link to"
             disabled
           />

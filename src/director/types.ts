@@ -10,6 +10,7 @@ import type {
 import type { RubricCriterion, RubricScore } from './examRubric';
 // Same again: quiz.ts is pure (#online-test).
 import type { QuizDefinition } from '../shared/quiz';
+import type { FormKind } from '../shared/formKind';
 
 /**
  * Access levels for signed-in staff (#roles). Lives here (the dependency-free
@@ -68,7 +69,7 @@ export const ASSISTANT_CAPABILITIES: AssistantCapability[] = [
 export const ASSISTANT_CAPABILITY_LABEL: Record<AssistantCapability, string> = {
   schedule: 'Rehearsals & concerts',
   repertoire: 'Repertoire',
-  signups: 'Sign-ups',
+  signups: 'Forms',
   announcements: 'Announcements',
 };
 
@@ -1441,6 +1442,9 @@ export interface SignupForm {
   /** Groups-mode only: leave college students out (grade "College …") — a
    *  district field-trip form is for the high schoolers in a mixed ensemble. */
   highSchoolOnly?: boolean;
+  /** What kind of form this is (#forms) — a label and a starting template.
+   *  Absent on forms made before kinds existed; read it with formKindOf(). */
+  formKind?: FormKind;
   createdAt: number;
   updatedAt?: number;
   updatedBy?: string; // director's display name (falls back to email)

@@ -121,7 +121,7 @@ export function ApprovalsView() {
           <h3>Nothing waiting on you</h3>
           <p>
             When a Student Assistant posts an announcement, changes the calendar,
-            edits repertoire, or opens a sign-up, it lands here first. Nothing they
+            edits repertoire, or opens a form, it lands here first. Nothing they
             submit reaches the public site until you approve it.
           </p>
         </div>

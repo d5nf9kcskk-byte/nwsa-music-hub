@@ -1,4 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { formPath } from '../../shared/formLink';
+import { FORM_KINDS, FORM_KIND_HINT, FORM_KIND_LABEL, FORM_KIND_PLURAL, formKindOf, type FormKind } from '../../shared/formKind';
 import { NotesText } from '../../public/components/NotesText';
 import { RichTextArea } from '../components/RichTextArea';
 import {
@@ -93,6 +95,9 @@ export function SignupsView() {
   const { contacts, saveContact } = useContacts(canManageRoster);
   const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ form: SignupForm | null; draft: Draft } | null>(null);
+  // "New form" first asks what kind (#forms); the kind picks the template.
+  const [picking, setPicking] = useState(false);
+  const [kindFilter, setKindFilter] = useState<FormKind | 'all'>('all');
 
   const open = forms.find(f => f.id === openId) ?? null;
 
@@ -112,6 +117,13 @@ export function SignupsView() {
   // their phone. Without this the assistant sees a "Create my private link"
   // button whose only possible outcome is permission-denied.
   const canHoldAppointmentsFeed = !!me && (isStaffMember(me) || hasDirectorRole(me, 'teacher'));
+
+  function newForm(kind: FormKind) {
+    setPicking(false);
+    newSignup(kind === 'registration'
+      ? { ...registrationDraft(today), formKind: kind }
+      : { ...blankDraft(today), formKind: kind, ...(kind === 'open' ? { audienceMode: 'open' as const } : {}) });
+  }
 
   function newSignup(draft?: Draft) {
     // A new sign-up belongs to whoever is making it until they say otherwise —
@@ -193,27 +205,63 @@ export function SignupsView() {
   return (
     <div className="dir-signups">
       <div className="dir-signups-toolbar">
-        <button className="dir-btn dir-btn-primary" onClick={() => newSignup()}>
-          <Plus size={15} /> New sign-up
+        <button className="dir-btn dir-btn-primary" onClick={() => setPicking(p => !p)} aria-expanded={picking}>
+          <Plus size={15} /> New form
         </button>
-        <button className="dir-btn dir-btn-ghost" onClick={() => newSignup(allStateTemplate(addDays(today, 1)))}>
+        <button className="dir-btn dir-btn-ghost" onClick={() => newSignup({ ...allStateTemplate(addDays(today, 1)), formKind: 'registration' })}>
           <Sparkles size={15} /> All-State template
         </button>
       </div>
 
+      {picking && (
+        <div className="dir-form-kinds" role="group" aria-label="What kind of form?">
+          {FORM_KINDS.map(k => (
+            <button key={k} className="dir-form-kind" onClick={() => newForm(k)}>
+              <span className="dir-form-kind-name">{FORM_KIND_LABEL[k]}</span>
+              <span className="dir-form-kind-hint">{FORM_KIND_HINT[k]}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Only the kinds actually in use get a chip — a filter for a kind
+          nobody has made is a question nobody asked. */}
+      {new Set(forms.map(formKindOf)).size > 1 && (
+        <div className="dir-form-filter" role="group" aria-label="Show">
+          {(['all', ...FORM_KINDS.filter(k => forms.some(f => formKindOf(f) === k))] as const).map(k => (
+            <button key={k} className={`dir-checkbox-tag ${kindFilter === k ? 'checked' : ''}`}
+              aria-pressed={kindFilter === k} onClick={() => setKindFilter(k)}>
+              {k === 'all' ? 'All' : FORM_KIND_PLURAL[k]}
+            </button>
+          ))}
+        </div>
+      )}
+
       {!loading && forms.length === 0 && (
         <div className="dir-empty">
           <ClipboardSignature size={40} />
-          <h3>No sign-ups yet</h3>
+          <h3>No forms yet</h3>
           <p>
-            A sign-up asks students to say yes and fill out the paperwork in one place —
+            A form asks students to say yes or fill out the paperwork in one place —
             you get their names, grades, and signatures without chasing email.
             The All-State template sets one up in about a minute.
           </p>
         </div>
       )}
 
-      {forms.map(f => {
+      {/* Open, then scheduled, then closed. Closed forms are the ARCHIVE:
+          kept here for directors with everything they collected, and gone
+          from the public list (director's call, 2026-10-01). */}
+      {(['open', 'scheduled', 'closed'] as const).map(group => {
+        const inGroup = forms.filter(f => (kindFilter === 'all' || formKindOf(f) === kindFilter)
+          && formGroup(f, today, now) === group);
+        if (!inGroup.length) return null;
+        return (
+          <Fragment key={group}>
+            <div className="dir-signup-section">
+              {group === 'open' ? 'Open' : group === 'scheduled' ? 'Scheduled' : 'Closed — archived, not shown to students'}
+            </div>
+            {inGroup.map(f => {
         const mine = latestPerStudent(responses.filter(r => r.formId === f.id))
           .filter(r => r.status !== 'withdrawn');
         const target = students.filter(s => eligibleForSignup(s, audienceOf(f, audiences)));
@@ -223,6 +271,7 @@ export function SignupsView() {
           <button key={f.id} className="dir-signup-card" onClick={() => setOpenId(f.id)}>
             <div className="dir-signup-card-head">
               <span className="dir-signup-card-title">{f.title}</span>
+              <span className="dir-form-kind-chip">{FORM_KIND_LABEL[formKindOf(f)]}</span>
               <span className={`dir-signup-state ${live ? 'open' : 'closed'}`}>
                 {live ? 'Open' : signupIsPublished(f, now) ? 'Closed' : 'Scheduled'}
               </span>
@@ -243,6 +292,9 @@ export function SignupsView() {
               {f.ownerName && <> · for {f.ownerName}</>}
             </div>
           </button>
+        );
+            })}
+          </Fragment>
         );
       })}
 
@@ -378,7 +430,7 @@ function SignupDetail({
     }
   }
   const live = signupIsOpen(form, today, now);
-  const publicUrl = `${ORG.publicUrl.replace(/\/$/, '')}/signup/${form.id}`;
+  const publicUrl = `${ORG.publicUrl.replace(/\/$/, '')}${formPath(form.id)}`;
   const docUrl = form.formUrl ?? '';
 
   async function freeSlot(booking: SignupSlotBooking) {
@@ -420,7 +472,7 @@ function SignupDetail({
   return (
     <div className="dir-signups">
       <button className="dir-drawer-back" onClick={onBack}>
-        <ChevronLeft size={16} /> All sign-ups
+        <ChevronLeft size={16} /> All forms
       </button>
 
       <div className="dir-signup-detail-head">
@@ -454,7 +506,7 @@ function SignupDetail({
         {form.audienceMode === 'open'
           ? 'Anyone with this link can fill it in, roster or not — send it wherever the people you want are (email, a flyer, a QR code). It won’t appear on the Hub home page.'
           : form.audienceMode === 'students'
-          ? 'This sign-up is by invitation — share the link with the students you picked. It won’t appear on the Hub home page.'
+          ? 'This form is by invitation — share the link with the students you picked. It won’t appear on the Hub home page.'
           : 'Students also see this on the Hub home page and on their own schedule page — they don’t need the link. It stops showing once they’ve sent it.'}
       </p>
 
@@ -495,7 +547,7 @@ function SignupDetail({
             <CalendarClock size={15} /> Give one more day
           </button>
         )}
-        <button className="dir-tool-btn" onClick={onEdit}>Edit sign-up</button>
+        <button className="dir-tool-btn" onClick={onEdit}>Edit form</button>
       </div>
 
       {pdfError && <div className="dir-signup-warn"><AlertTriangle size={13} /> {pdfError}</div>}
@@ -508,7 +560,7 @@ function SignupDetail({
 
       {docUrl && (
         <p className="dir-signup-hint">
-          Students see a link to <a href={docUrl} target="_blank" rel="noreferrer">the official form</a> on the sign-up page.
+          Students see a link to <a href={docUrl} target="_blank" rel="noreferrer">the official form</a> on the form’s page.
         </p>
       )}
 
@@ -676,13 +728,13 @@ function SignupDetail({
       <div className="dir-signup-danger">
         {confirmDelete ? (
           <>
-            <span>Delete this sign-up? Responses stay in the database but you won’t see them here.</span>
+            <span>Delete this form? Responses stay in the database but you won’t see them here.</span>
             <button className="dir-btn dir-btn-danger" onClick={() => void onDelete()}>Delete</button>
             <button className="dir-btn dir-btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
           </>
         ) : (
           <button className="dir-btn dir-btn-ghost" onClick={() => setConfirmDelete(true)}>
-            <Trash2 size={15} /> Delete sign-up
+            <Trash2 size={15} /> Delete form
           </button>
         )}
       </div>
@@ -766,7 +818,7 @@ function SignupSlotSchedule({ question, bookings, freeingId, onFree }: {
         </span>
       </div>
       {slots.length === 0 ? (
-        <div className="dir-empty-inline">No times listed — edit the sign-up to add slots.</div>
+        <div className="dir-empty-inline">No times listed — edit the form to add slots.</div>
       ) : (
         <div className="dir-signup-slots-grid">
           {slots.map((label, i) => {
@@ -1138,13 +1190,13 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
     // rejected at send time, after the student filled the whole form in.
     // Refused here, which is the only way the combination could be created.
     if (openMode && draft.questions.some(q => q.type === 'timeslot')) {
-      setSaveError('“Anyone with the link” sign-ups can’t offer time slots — the slot has to be held for someone on the roster. Remove the time slot question, or pick a different audience.');
+      setSaveError('“Anyone with the link” forms can’t offer time slots — the slot has to be held for someone on the roster. Remove the time slot question, or pick a different audience.');
       return;
     }
     // Same anchor problem for a signed PDF (#sign-pdf): storage.rules files it
     // under a student doc, and an open sign-up has none.
     if (openMode && draft.signPdf) {
-      setSaveError('“Anyone with the link” sign-ups can’t collect a signed PDF — the signed form is filed under a student on the roster. Remove the PDF, or pick a different audience.');
+      setSaveError('“Anyone with the link” forms can’t collect a signed PDF — the signed form is filed under a student on the roster. Remove the PDF, or pick a different audience.');
       return;
     }
     // A question with slots/options but no label would be filtered away below.
@@ -1200,12 +1252,21 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
   return (
     <div className="dir-tab-page">
       <button className="dir-drawer-back" onClick={onClose}>
-        <ChevronLeft size={16} /> {isNew ? 'All sign-ups' : 'Back to this sign-up'}
+        <ChevronLeft size={16} /> {isNew ? 'All forms' : 'Back to this form'}
       </button>
       <div className="dir-signup-detail-head">
-        <h2 className="dir-signup-detail-title">{isNew ? 'New sign-up' : 'Edit sign-up'}</h2>
+        <h2 className="dir-signup-detail-title">{isNew ? 'New form' : 'Edit form'}</h2>
       </div>
       <div className="dir-page-body">
+          <div className="dir-field">
+            <label className="dir-label" htmlFor="form-kind">Kind of form</label>
+            <select id="form-kind" className="dir-select" value={formKindOf(draft)}
+              onChange={e => set('formKind', e.target.value as FormKind)}>
+              {FORM_KINDS.map(k => <option key={k} value={k}>{FORM_KIND_LABEL[k]}</option>)}
+            </select>
+            <div className="dir-signup-help">{FORM_KIND_HINT[formKindOf(draft)]} A label for students and for your list — it changes nothing else.</div>
+          </div>
+
           <div className="dir-field">
             <label className="dir-label">Title *</label>
             <input className="dir-input" value={draft.title} autoFocus
@@ -1214,7 +1275,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
           </div>
 
           <div className="dir-field">
-            <label className="dir-label" htmlFor="signup-owner">Whose sign-up is this?</label>
+            <label className="dir-label" htmlFor="signup-owner">Whose form is this?</label>
             <select
               id="signup-owner"
               className="dir-input"
@@ -1233,11 +1294,11 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
                 <>
                   Booked times land on <strong>{draft.ownerName?.trim() || 'this person'}</strong>&rsquo;s
                   calendar in the Hub, and in the calendar they subscribe to on their phone.
-                  Students see the name on the sign-up, so they know whose time they&rsquo;re booking.
+                  Students see the name on the form, so they know whose time they&rsquo;re booking.
                 </>
               ) : (
                 <>
-                  Students see this name on the sign-up. Add a time slot question below and the
+                  Students see this name on the form. Add a time slot question below and the
                   booked times will land on this person&rsquo;s calendar too.
                 </>
               )}
@@ -1328,7 +1389,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
                     options={ensembleOptions}
                     selected={draft.ensembleIds}
                     onChange={ids => set('ensembleIds', ids)}
-                    ariaLabel="Ensembles this sign-up is for"
+                    ariaLabel="Ensembles this form is for"
                   />
                 </div>
                 <div className="dir-signup-help">Whole program = everyone. Pick several ensembles to narrow.</div>
@@ -1372,7 +1433,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
             <input className="dir-input" type="date" value={draft.deadline ?? ''}
               onChange={e => set('deadline', e.target.value || undefined)} />
             <div className="dir-signup-help">
-              The sign-up stops taking answers after this day. You can always give it one more day.
+              The form stops taking answers after this day. You can always give it one more day.
             </div>
           </div>
 
@@ -1390,7 +1451,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
             </div>
             <div className="dir-signup-help">
               {openMode
-                ? 'A name is always collected. Grade or year is asked for too, but stays optional — an open sign-up reaches people for whom “9th–12th” may not be the right answer.'
+                ? 'A name is always collected. Grade or year is asked for too, but stays optional — an open form reaches people for whom “9th–12th” may not be the right answer.'
                 : 'Name and grade are always collected.'}
             </div>
           </div>
@@ -1502,7 +1563,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
               onChange={e => set('formUrl', e.target.value)}
               placeholder="https://… (Drive, district site, FMEA)" />
             <div className="dir-signup-help">
-              Shown on the sign-up page so students can read the real paperwork
+              Shown on the form’s page so students can read the real paperwork
               before they sign here.
             </div>
           </div>
@@ -1519,7 +1580,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
         <div className="dir-page-actions-row">
           <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
           <button className="dir-btn dir-btn-primary" disabled={!draft.title.trim() || saving} onClick={handleSave}>
-            {saving ? 'Saving…' : isNew ? 'Create sign-up' : 'Save'}
+            {saving ? 'Saving…' : isNew ? 'Create form' : 'Save'}
           </button>
         </div>
       </div>
@@ -1561,6 +1622,22 @@ function toDraft(
     ...rest,
     inviteStudentIds: f.audienceMode === 'students' ? (audiences[id] ?? []) : [],
     ownerEmail: owners[id],
+  };
+}
+
+/** Open / scheduled / closed — the director list's three groups. */
+function formGroup(f: SignupForm, today: string, now: number): 'open' | 'scheduled' | 'closed' {
+  if (signupIsOpen(f, today, now)) return 'open';
+  return signupIsPublished(f, now) ? 'closed' : 'scheduled';
+}
+
+/** A registration: questions plus a student and a parent signature. Every
+ *  word is the director's to change before anything is saved. */
+function registrationDraft(today: string): Draft {
+  return {
+    ...blankDraft(today),
+    signatureStatement: 'Everything I have entered above is correct, and I will meet every deadline my director gives me.',
+    guardianStatement: 'I am the parent or guardian of the student above, and I give permission for them to take part.',
   };
 }
 
