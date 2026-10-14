@@ -8,7 +8,7 @@ import { usePublicEvents } from './hooks/usePublicEvents';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useStudentsPublic, usePublicOverrides } from './hooks/usePublicRoster';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
-import { removedIds } from '../director/rosterResolver';
+import { removedIds, resolveRoster } from '../director/rosterResolver';
 import { formatTimeRange, eventPieceDuration, eventPieceMovements, pieceEnsembleIds, ensembleDisplayName, buildSections } from '../director/utils';
 import { fmtFullDate } from '../shared/dates';
 import { printViaPopup } from '../shared/printPopup';
@@ -121,7 +121,13 @@ export function PublicProgram() {
     const out = notPlaying(ensembleId);
     const chart = concertChartFor(event, ensembleId, charts);
     if (chart) return seatsPlaying(chart.sections, out);
-    const roster = students.filter(s => s.status === 'Active' && s.ensembleIds?.includes(ensembleId) && !out.has(s.id));
+    // resolveRoster is the director roster's own rule: base members, minus
+    // anyone pulled from this concert, PLUS anyone subbed in for it. Filtering
+    // on `ensembleIds` alone printed a roster with every sub-in missing (the
+    // Oct 2026 Opera Scenes program, 6 high schoolers short).
+    const roster = resolveRoster(students, overrides, { ensembleId, eventId: event?.id, eventsById })
+      .map(r => r.student)
+      .filter(s => !out.has(s.id));
     return buildSections(roster);
   }
 
