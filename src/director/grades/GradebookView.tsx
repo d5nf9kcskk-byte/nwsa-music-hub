@@ -3,7 +3,7 @@ import { ClipboardCopy, Check, RotateCcw, Wand2, X } from 'lucide-react';
 import { ORG } from '../../org';
 import {
   CONDUCT_GRADES, EFFORT_GRADES, commentReasons, conductValue, effortValue, fillValueFor, gradeValue,
-  rowReadiness, tallyGrade, tallyCount, type GradeCategory,
+  itemKey, rowReadiness, tallyGrade, tallyCount, type GradeCategory,
 } from '../../shared/ensembleGrades';
 import {
   currentGradingPeriod, defaultCutoff, sortPeriods, windowFor,
@@ -338,8 +338,8 @@ export function GradebookView() {
     const total = pins.students.length + pins.cells.length;
     if (total === 0) return;
     if (!window.confirm(
-      `Switch ${total} typed number${total === 1 ? '' : 's'} in "${c.label}" back to the Hub's live numbers? `
-      + 'What you typed there is replaced.',
+      `Switch ${total} typed number${total === 1 ? '' : 's'} in "${c.label}" back to `
+      + `${c.suggest ? 'the Hub’s live numbers' : 'the average of its columns'}? What you typed there is replaced.`,
     )) return;
     const byStudent = new Map<string, CellPatch>();
     for (const id of pins.students) byStudent.set(id, { ...(byStudent.get(id) ?? {}), [c.id]: REMOVE });
@@ -522,8 +522,13 @@ export function GradebookView() {
               ))}
               {examsLeftOut.length > 0 && (
                 <span className="dir-gb-warn">
-                  {' '}Not counting yet: {examsLeftOut.map(o => o.assignment.title).join(', ')}. Add{' '}
-                  {examsLeftOut.length === 1 ? 'it' : 'them'} as a column to include {examsLeftOut.length === 1 ? 'it' : 'them'}.
+                  {' '}Not counting yet: {examsLeftOut.map(o => o.assignment.title).join(', ')}.{' '}
+                  <button
+                    className="dir-gb-inline"
+                    onClick={() => void addColumns(examsLeftOut.map(o => itemKey('exam', o.assignment.id)))}
+                  >
+                    Add {examsLeftOut.length === 1 ? 'it' : `all ${examsLeftOut.length}`} as a column
+                  </button>
                 </span>
               )}
             </li>
@@ -541,8 +546,13 @@ export function GradebookView() {
                     roll marks them absent; someone in the audience is credited by the door check-in.</>}
               {concertsLeftOut.length > 0 && (
                 <span className="dir-gb-warn">
-                  {' '}Not counting yet: {concertsLeftOut.map(o => concertLabel(o.event)).join('; ')}. Add{' '}
-                  {concertsLeftOut.length === 1 ? 'it' : 'them'} as a column to include {concertsLeftOut.length === 1 ? 'it' : 'them'}.
+                  {' '}Not counting yet: {concertsLeftOut.map(o => concertLabel(o.event)).join('; ')}.{' '}
+                  <button
+                    className="dir-gb-inline"
+                    onClick={() => void addColumns(concertsLeftOut.map(o => itemKey('concert', o.event.id)))}
+                  >
+                    Add {concertsLeftOut.length === 1 ? 'it' : `all ${concertsLeftOut.length}`} as a column
+                  </button>
                 </span>
               )}
             </li>
@@ -592,9 +602,11 @@ export function GradebookView() {
                       <button
                         className="dir-gb-fill"
                         onClick={() => void followHub(c)}
-                        title="Replace the numbers you typed in this box with the Hub’s live ones"
+                        title={c.suggest
+                          ? 'Replace the numbers you typed in this box with the Hub’s live ones'
+                          : 'Replace the numbers you typed in this box with the average of its columns'}
                       >
-                        <RotateCcw size={12} /> Follow the Hub ({pinned})
+                        <RotateCcw size={12} /> {c.suggest ? 'Follow the Hub' : 'Use the average'} ({pinned})
                       </button>
                     )}
                   </th>,
@@ -702,8 +714,8 @@ export function GradebookView() {
                         {res.typed !== null && res.derived !== null && (
                           <button
                             className="dir-gb-follow"
-                            title={`You typed ${res.typed}; the Hub says ${res.derived}. Click to follow the Hub.`}
-                            aria-label={`Use the Hub’s ${res.derived} for ${r.student.name}, ${c.label}`}
+                            title={`You typed ${res.typed}; ${c.suggest ? 'the Hub says' : 'its columns average'} ${res.derived}. Click to use ${res.derived}.`}
+                            aria-label={`Use ${res.derived} for ${r.student.name}, ${c.label}`}
                             onClick={() => void saveScore(groupKey, r.student.id, c.id, null)}
                           >
                             ↺ {res.derived}
@@ -783,7 +795,7 @@ export function GradebookView() {
                             {cell.typed !== null && cell.live !== null && (
                               <button
                                 className="dir-gb-follow"
-                                title={`You typed ${cell.typed}; the Hub says ${cell.live}. Click to follow the Hub.`}
+                                title={`You typed ${cell.typed}; the Hub says ${cell.live}. Click to use the Hub’s number.`}
                                 aria-label={`Use the Hub’s ${cell.live} for ${r.student.name}, ${col.label}`}
                                 onClick={() => void writeCells(groupKey, [{ studentId: r.student.id, patch: { [col.key]: null } }])}
                               >

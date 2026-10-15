@@ -53,7 +53,8 @@ export function AddColumnBar({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const playsOrNeeded = concertOptions.filter(o => o.relation !== 'other');
+  // "All" never sweeps in a concert the director marked Optional.
+  const playsOrNeeded = concertOptions.filter(o => o.relation !== 'other' && o.event.concertAttendance !== 'optional');
   const byRelation = (r: ConcertOption['relation']) => concertOptions.filter(o => o.relation === r);
 
   function describe(o: ConcertOption): string {
@@ -115,7 +116,7 @@ export function AddColumnBar({
 
       {what === 'exam' && (
         <select className="dir-gb-pick" value={pick} aria-label="Which exam" onChange={e => setPick(e.target.value)}>
-          <option value="">{examOptions.length ? 'Choose an exam…' : 'Every exam this quarter is already a column'}</option>
+          <option value="">{examOptions.length ? 'Choose an exam…' : 'No exams left to add'}</option>
           {examOptions.length > 1 && <option value={ALL}>All {examOptions.length} exams this quarter</option>}
           {examOptions.map(o => (
             <option key={o.assignment.id} value={o.assignment.id}>
@@ -128,7 +129,7 @@ export function AddColumnBar({
 
       {what === 'concert' && (
         <select className="dir-gb-pick" value={pick} aria-label="Which concert" onChange={e => setPick(e.target.value)}>
-          <option value="">{concertOptions.length ? 'Choose a concert…' : 'Every concert this quarter is already a column'}</option>
+          <option value="">{concertOptions.length ? 'Choose a concert…' : 'No concerts left to add'}</option>
           {playsOrNeeded.length > 1 && <option value={ALL}>All {playsOrNeeded.length} that {groupTitle} plays or must attend</option>}
           {byRelation('performs').length > 0 && (
             <optgroup label={`${groupTitle} plays`}>

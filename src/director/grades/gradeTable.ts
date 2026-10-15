@@ -87,8 +87,11 @@ export interface ExamOption {
 
 export interface ConcertOption {
   event: CalendarEvent;
-  /** 'performs' = someone on this table plays on it; 'required' = it is
-   *  required of someone on this table in the audience; 'other' = neither. */
+  /** How the table's GROUP relates to it — not any one student, so a drummer
+   *  who also plays in the Wind Ensemble never makes the Wind concert "the
+   *  Orchestra's". 'performs' = the group plays on it; 'required' = the group
+   *  is required in the audience (and the concert is marked Required);
+   *  'other' = neither. */
   relation: 'performs' | 'required' | 'other';
 }
 
@@ -105,7 +108,8 @@ export interface TableModel {
   meetings: number;
   /** Playing exams due in the window — what a box with no exam columns averages. */
   windowExams: ExamOption[];
-  /** Concerts in the window that are required of at least one student here. */
+  /** Concerts in the window that are required of this GROUP (see
+   *  `ConcertOption.relation`) — what a box with no concert columns averages. */
   requiredConcerts: CalendarEvent[];
   /** Concerts this quarter that could still be added as a column. */
   concertOptions: ConcertOption[];
@@ -186,6 +190,17 @@ export function buildTable(i: TableInput): TableModel {
     return gradeValue(resultScore.get(`${assignmentId}|${studentId}`));
   }
 
+  /** How this table's group (not any one student) relates to a concert. */
+  function groupRelation(ev: CalendarEvent): ConcertOption['relation'] {
+    if (!ensembleId) return 'other';
+    if (ev.ensembleIds?.includes(ensembleId)) return 'performs';
+    const audience = ev.attendanceEnsembleIds ?? [];
+    const listsNobody = !(ev.ensembleIds ?? []).length && !(ev.studentIds ?? []).length
+      && !audience.length && !(ev.attendanceStudentIds ?? []).length;
+    return ev.concertAttendance === 'required' && (audience.includes(ensembleId) || listsNobody)
+      ? 'required' : 'other';
+  }
+
   function liveConcert(student: Student, ev: CalendarEvent): number | null {
     const role = concertRole(student, ev);
     if (role === null) return null;
@@ -246,14 +261,13 @@ export function buildTable(i: TableInput): TableModel {
   /* ── per student ── */
   const pinned: Record<string, PinnedList> = {};
   for (const c of plan) pinned[c.id] = { students: [], cells: [] };
-  const requiredEverywhere = new Set<string>();
 
   const rows: StudentGrades[] = roster.map(({ student, instrument }) => {
     const stored = (marks[student.id]?.scores ?? {}) as Record<string, unknown>;
 
+    // Per STUDENT: a drummer in two groups is required at both groups' concerts.
     const required = concertsInSpan.filter(ev => concertRequiredOf(student, ev));
     const concertLives = required.map(ev => liveConcert(student, ev));
-    for (const ev of required) requiredEverywhere.add(ev.id);
     const concerts = { held: 0, credited: 0, incomplete: 0, excused: 0 };
     for (const v of concertLives) {
       if (v === null) { concerts.excused += 1; continue; }
@@ -342,11 +356,7 @@ export function buildTable(i: TableInput): TableModel {
       .filter(e => e.type === 'Concert' && e.status !== 'Cancelled'
         && e.date >= period.start && e.date <= offerThrough && !have.has(itemKey('concert', e.id)))
       .sort((a, b) => a.date.localeCompare(b.date))
-      .map(event => {
-        const plays = roster.some(r => concertRole(r.student, event) === 'performer');
-        const needed = !plays && roster.some(r => concertRequiredOf(r.student, event));
-        return { event, relation: plays ? 'performs' as const : needed ? 'required' as const : 'other' as const };
-      })
+      .map(event => ({ event, relation: groupRelation(event) }))
     : [];
 
   const examOptions: ExamOption[] = examCat && ensembleId
@@ -362,7 +372,10 @@ export function buildTable(i: TableInput): TableModel {
     rows,
     meetings,
     windowExams: windowExamList.sort((a, b) => a.dueDate.localeCompare(b.dueDate)).map(graded),
-    requiredConcerts: concertsInSpan.filter(ev => requiredEverywhere.has(ev.id)),
+    requiredConcerts: concertsInSpan.filter(ev => {
+      const rel = groupRelation(ev);
+      return ev.concertAttendance !== 'optional' && (rel === 'performs' || rel === 'required');
+    }),
     concertOptions,
     examOptions,
     pinned,

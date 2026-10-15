@@ -238,6 +238,16 @@ assert(opts.concertOptions.find(o => o.event.id === 'cco')?.relation === 'requir
 assert(opts.concertOptions.find(o => o.event.id === 'wind-only')?.relation === 'other',
   'another group\'s concert is offered last, as "other" — the director decides');
 
+// A drummer in two groups: the Wind concert is theirs to attend, but it is never "the Symphony's".
+const drummer = student('drummer', [SYM, 'wind']);
+const tDual = table({ roster: [...roster, { student: drummer, instrument: 'Percussion' }] });
+assert(tDual.concertOptions.find(o => o.event.id === 'wind-only')?.relation === 'other'
+  && !tDual.requiredConcerts.some(e => e.id === 'wind-only'),
+  'one student who also plays in another group must not turn that group\'s concert into the Symphony\'s');
+assert(row(tDual, 'drummer').concerts.held === 6 && row(tDual, 'drummer').concerts.credited === 4,
+  'but it still counts for THEM: required at both groups\' concerts (4 of 6 credited, the recital and the CCO concert unscanned)');
+assert(row(tDual, 's1').concerts.held === 5, 'and nobody else on the table is affected');
+
 const early = table({ today: '2026-09-29', span: { from: '2026-08-13', through: '2026-09-29' } });
 assert(!early.concertOptions.some(o => o.event.id === 'fest') && early.concertOptions.some(o => o.event.id === 'cco'),
   'a concert that has not happened by the cutoff cannot be added yet');

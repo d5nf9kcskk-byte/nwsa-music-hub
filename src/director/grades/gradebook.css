@@ -153,6 +153,16 @@
 .dir-gb-counting > summary { cursor: pointer; font-weight: 600; }
 .dir-gb-counting ul { margin: 8px 0 0; padding-left: 20px; line-height: 1.6; }
 .dir-gb-warn { color: #b45309; }
+.dir-gb-inline {
+  padding: 1px 8px;
+  font-size: 12px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dir-accent, #0d7e8e);
+  cursor: pointer;
+}
+.dir-gb-inline:hover { background: rgba(13, 126, 142, 0.08); }
 .dir-gb-nudge {
   margin: 0 0 12px;
   padding: 10px 14px;
