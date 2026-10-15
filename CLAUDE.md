@@ -1233,7 +1233,9 @@ in `.github/actions/self-checks`.
   only ever a grey suggestion on screen never reached the district.
 
 Design record: `docs/superpowers/specs/2026-09-14-gradebook-design.md`.
-Session record: `docs/session-notes-2026-09-14-gradebook.md`.
+Session records: `docs/session-notes-2026-09-14-gradebook.md`, and for the live
+boxes, columns and the Q1 concert/exam diagnosis
+`docs/session-notes-2026-10-14-gradebook-live-columns.md`.
 
 ## Student data never leaves the app (Sept 2026)
 
