@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { useStudents } from '../hooks/useStudents';
 import { useEvents } from '../hooks/useEvents';
 import { useRepertoire } from '../hooks/useRepertoire';
@@ -78,6 +78,21 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
   });
 
   const [form, setForm] = useState<Omit<CalendarEvent, 'id'>>(blank);
+  // Part books (#part-books): stable React keys for the editable rows, the
+  // same scheme as a piece's part rows. Local to this form and never saved.
+  const bookSeq = useRef(0);
+  const [bookKeys, setBookKeys] = useState<number[]>(() => (event?.partBooks ?? []).map((_, i) => i + 1000));
+  function addBook() {
+    setForm(f => ({ ...f, partBooks: [...(f.partBooks ?? []), { instrument: '', url: '' }] }));
+    setBookKeys(ks => [...ks, bookSeq.current++]);
+  }
+  function updateBook(i: number, field: 'instrument' | 'url', value: string) {
+    setForm(f => ({ ...f, partBooks: (f.partBooks ?? []).map((b, j) => (j === i ? { ...b, [field]: value } : b)) }));
+  }
+  function removeBook(i: number) {
+    setForm(f => ({ ...f, partBooks: (f.partBooks ?? []).filter((_, j) => j !== i) }));
+    setBookKeys(ks => ks.filter((_, j) => j !== i));
+  }
 
   // Seating charts a concert can print as its roster pages (#concert-rosters).
   const { charts: seatingCharts } = useSeatingCharts();
@@ -371,6 +386,16 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
       // `true` left behind after the second ensemble was unchecked is still
       // misleading data for anything reading the raw doc.
       const data: Omit<CalendarEvent, 'id'> = { ...form, sharedBlock: isSharedBlock(form) };
+      // Part books (#part-books): a half-filled row is not a book. Touched
+      // only when the event has them or the director added some, so saving
+      // any other event writes no part-book fields at all; clearing every row
+      // writes an empty list, which overwrites (undefined would be dropped).
+      if (form.partBooks !== undefined) {
+        data.partBooks = form.partBooks
+          .map(b => ({ instrument: b.instrument.trim(), url: b.url.trim() }))
+          .filter(b => b.instrument && b.url);
+      }
+      if (form.partBooksSharedUrl !== undefined) data.partBooksSharedUrl = form.partBooksSharedUrl.trim();
       if (cancellingNow && event) {
         // Same guarantees as a cancel on Schedule Changes: snapshot for
         // revert, a change note (drives the public red-banner day), and
@@ -976,6 +1001,51 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                   of it. Shows on the Concert Season sheet, the event page and
                   subscribed calendars. Leave blank for our own concerts.
                 </div>
+              </div>
+              <div className="dir-field">
+                <div className="dir-label-row">
+                  <label className="dir-label">Part books</label>
+                  <button className="dir-link-btn" onClick={addBook} type="button">+ Add</button>
+                </div>
+                <div className="dir-field-hint" style={{ marginBottom: 6 }}>
+                  One PDF per player with all of their music for this concert,
+                  in program order. Listed on the concert's public page; each
+                  musician also gets a My book link on their own schedule.
+                </div>
+                {(form.partBooks ?? []).length > 0 && (
+                  <div className="dir-parts-list">
+                    {(form.partBooks ?? []).map((b, i) => (
+                      <div key={bookKeys[i] ?? `b${i}`} className="dir-part-row">
+                        <input
+                          className="dir-input dir-part-instr"
+                          placeholder="Player e.g. Violin I"
+                          value={b.instrument}
+                          onChange={e => updateBook(i, 'instrument', e.target.value)}
+                        />
+                        <input
+                          className="dir-input dir-part-url"
+                          placeholder="Link to the PDF"
+                          value={b.url}
+                          onChange={e => updateBook(i, 'url', e.target.value)}
+                          inputMode="url"
+                          spellCheck={false}
+                        />
+                        <button className="dir-icon-btn" onClick={() => removeBook(i)} type="button" aria-label="Remove book">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <input
+                  className="dir-input"
+                  style={{ marginTop: 6 }}
+                  value={form.partBooksSharedUrl ?? ''}
+                  onChange={e => set('partBooksSharedUrl', e.target.value)}
+                  placeholder="Folder with every book (optional)"
+                  inputMode="url"
+                  spellCheck={false}
+                />
               </div>
             </>
           )}

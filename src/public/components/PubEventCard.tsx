@@ -1,4 +1,4 @@
-import { MapPin, Music, ExternalLink, ScrollText, ChevronRight, StickyNote } from 'lucide-react';
+import { MapPin, Music, ExternalLink, ScrollText, ChevronRight, StickyNote, BookOpen } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
 import { formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, CONCERT_COLOR, eventPieceMovements } from '../../director/utils';
@@ -10,6 +10,7 @@ import { EventChip } from './EventChip';
 import { LocationText } from './LocationText';
 import { AddToCalendarButton } from './AddToCalendar';
 import { eventPieces } from '../../shared/studentRepertoire';
+import { hasPartBooks, myPartBook } from '../../shared/partBooks';
 import './pubEventCard.css';
 
 interface Props {
@@ -70,6 +71,14 @@ export function PubEventCard({
     : [];
 
   const showAddToCal = !cancelled && Boolean(e.date);
+
+  // Part books (#part-books): a player's whole program as one PDF. On a
+  // student's own schedule this card already lists only what they PLAY
+  // (`onlyPieceIds`), so an audience-only concert reaches here with no pieces
+  // and offers no book; a performer gets their own book when one matches,
+  // and everyone else a link to the full list on the event page.
+  const books = !cancelled && !attendanceOnly && hasPartBooks(e);
+  const myBook = books && studentInstrument ? myPartBook(e, studentInstrument) : undefined;
 
   return (
     <div
@@ -181,6 +190,15 @@ export function PubEventCard({
                 </div>
               );
             })}
+            {myBook ? (
+              <a className="pub-event-program-link" href={myBook.url} target="_blank" rel="noreferrer">
+                <BookOpen size={12} /> {t('card.myBook')} <ExternalLink size={10} />
+              </a>
+            ) : books && (
+              <Link to={`/event/${e.id}#part-books`} className="pub-event-program-link">
+                <BookOpen size={12} /> {t('card.partBooks')}
+              </Link>
+            )}
             {e.type === 'Concert' && (
               <Link to={`/program/${e.id}`} className="pub-event-program-link">
                 <ScrollText size={12} /> {t('card.viewProgram')}

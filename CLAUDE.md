@@ -558,6 +558,32 @@ Reported by the director when a Symphony student required to hear College
 Chamber Orchestra was handed its whole program to practise.
 `studentRepertoire.selfcheck.ts` pins it in the self-checks.
 
+## Part books on a concert (Oct 2026, #part-books)
+
+Director, 2026-10-15: "publish books as part books somewhere on the concert
+card so they can download all of their parts as one single book". A part book
+is one PDF per player with every piece they play on the concert, in program
+order. `CalendarEvent.partBooks` (label + link per book, in the order shown)
+and `partBooksSharedUrl` (the folder) hold them; absent = no books, which is
+every older event, and nothing renders. `src/shared/partBooks.ts` is the ONE
+reader, pinned by `partBooks.selfcheck.ts` in the self-checks.
+
+- **A student's own book uses the SAME matcher as a piece's own part**
+  (`findPartForInstrument`), so the two can never disagree about a student's
+  chair. Do not write a second matcher for books.
+- **Only a performer is offered their own book.** The concert card on a
+  student's schedule already lists only what they play (#student-repertoire),
+  so an audience-only concert shows no book link at all; the event page offers
+  "My book" only when the saved student is named on the event or plays in one
+  of its ensembles, never through `attendanceEnsembleIds`.
+- The event page lists every book (`PartBooks.tsx`, anchor `#part-books`, one
+  copy in the main column at every width); every other concert card links to
+  that anchor. The Event form edits them under the concert day sheet, and
+  writes the fields only when the event has books or the director adds some,
+  so saving any other event writes nothing new.
+- Books are not a substitute for a piece's parts: the per-piece links stay the
+  source for "My part", copy requests and the piece page.
+
 ## School-day tardies vs. class attendance (Aug 2026)
 
 Late to SCHOOL is **not** an attendance mark. The office bulletin's `TARDY`

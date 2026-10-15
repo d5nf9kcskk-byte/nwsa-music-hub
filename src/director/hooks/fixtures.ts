@@ -62,6 +62,16 @@ export const FIXTURE_EVENTS: CalendarEvent[] = [
     // checking this page during a working day, rather than only after 6:50pm.
     concertAttendance: 'required',
     checkin: { enabled: true, opensMinutesBefore: 720, photoOptional: true },
+    // Part books (#part-books), so the concert page, its card and the Event
+    // form all have some to show.
+    partBooks: [
+      { instrument: 'Flute', url: 'https://example.org/books/flute.pdf' },
+      { instrument: 'Clarinet', url: 'https://example.org/books/clarinet.pdf' },
+      { instrument: 'Violin I', url: 'https://example.org/books/violin-1.pdf' },
+      { instrument: 'Violin II', url: 'https://example.org/books/violin-2.pdf' },
+      { instrument: 'Cello', url: 'https://example.org/books/cello.pdf' },
+    ],
+    partBooksSharedUrl: 'https://example.org/books/',
   },
   {
     id: 'fx-rehearsal', type: 'Rehearsal', ensembleIds: ['symphony-orchestra'],

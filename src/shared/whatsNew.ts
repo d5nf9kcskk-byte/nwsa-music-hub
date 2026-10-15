@@ -32,6 +32,29 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Part books on a concert (#part-books): one PDF per player, whole program.
+  {
+    id: '2026-10-15-part-books',
+    date: '2026-10-15',
+    title: 'Your whole concert in one PDF',
+    audience: 'public' as const,
+    expires: '2026-10-29',
+    bullets: [
+      'A concert can now carry part books: one PDF for each player with every piece you play, in program order, so you download one file instead of opening every piece.',
+      'Open the concert and look for Part books, or tap My book on the concert in your own schedule.',
+    ],
+  },
+  {
+    id: '2026-10-15-part-books-staff',
+    date: '2026-10-15',
+    title: 'Part books on concerts',
+    audience: 'staff' as const,
+    expires: '2026-10-29',
+    bullets: [
+      'A concert’s Event form has a Part books list under the day sheet: one PDF link per player, plus an optional folder link. Students see the list on the concert page, and a My book link on their own schedule.',
+      'Only performers get a My book link; students who are only required to attend the concert do not.',
+    ],
+  },
   // Seasonal looks (#seasons). NWSA-only (the seasons are org config).
   ...(ORG.personalize?.seasons ? [{
     id: '2026-10-02-seasonal-looks',

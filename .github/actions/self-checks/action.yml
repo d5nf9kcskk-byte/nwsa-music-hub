@@ -52,6 +52,14 @@ runs:
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/groupBuckets.selfcheck.ts
       shell: bash
 
+    # Part books on a concert (#part-books): a student's own book must come
+    # from the same matcher as a piece's own part ("Bass" never gets the
+    # Bassoon book), blank rows never render, and only a performer is offered
+    # a book of their own — an ensemble required to attend plays nothing.
+    - name: Check part books
+      run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/partBooks.selfcheck.ts
+      shell: bash
+
     # `assignedEnsembleIds` is one field edited by two pickers that each see
     # only their own kind of group. Whichever is saved must carry the other's
     # ids through, or a director who teaches AP Theory loses Symphony — and

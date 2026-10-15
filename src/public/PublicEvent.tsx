@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useCallback } from 'react';
-import { useParams, Link } from 'react-router';
+import { useParams, Link, useLocation } from 'react-router';
 import { CalendarPlus, MapPin, ScrollText, XCircle, AlertTriangle, Music } from 'lucide-react';
 import { BackLink } from './components/BackLink';
 import { useEnsembles } from '../director/hooks/useEnsembles';
@@ -10,6 +10,8 @@ import { PlayingToday } from './components/PlayingToday';
 import { PubEventCard } from './components/PubEventCard';
 import { NotesText } from './components/NotesText';
 import { CheckinCallout } from './components/CheckinCallout';
+import { PartBooks } from './components/PartBooks';
+import { hasPartBooks } from '../shared/partBooks';
 import { SkeletonCards } from './components/PageHeader';
 import { t, tType, useLang } from '../shared/i18n';
 import { fmtFullDate, fmtShortDate } from '../shared/dates';
@@ -90,6 +92,12 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
     if (now - lastCancelTap.current < 500) show(cancelledNotPersonalLine(getLang()));
     lastCancelTap.current = now;
   }, [show]);
+  // The concert card's "Part books" link lands on /event/<id>#part-books
+  // (#part-books); SPA navigation does not scroll to a fragment by itself.
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash === '#part-books') document.getElementById('part-books')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [hash, event.id]);
   useEffect(() => {
     const tab = document.querySelector('.pub-tabbar') as HTMLElement | null;
     const bar = barRef.current;
@@ -188,6 +196,9 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
 
         <div className="pub-event-main">
           <PubEventCard event={event} ensembleMap={ensembleMap} piecesById={piecesById} showNotes detailLink={false} />
+
+          {/* One PDF per player with the whole program (#part-books). */}
+          {!cancelled && hasPartBooks(event) && <PartBooks event={event} />}
 
           {/* Whether this concert counts, and toward which pot (#concert-checkin).
               Absent on every event that predates the feature, which renders nothing. */}

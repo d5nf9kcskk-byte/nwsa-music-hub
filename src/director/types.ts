@@ -359,6 +359,22 @@ export interface CalendarEvent {
    * weekly lesson time. Same word, different thing.
    */
   slot?: string;
+  /**
+   * Part books (#part-books): one PDF per player holding ALL of their music
+   * for this concert, in program order, so a musician downloads one file
+   * instead of opening every piece on the program. Director's call,
+   * 2026-10-15. Each entry is a book's label (the player's chair: "Flute",
+   * "Violin I", "Percussion 2") and its link, in the order they show.
+   * A student's own book is found with the same matcher as a piece's own
+   * part (`findPartForInstrument`), through `src/shared/partBooks.ts`.
+   *
+   * ABSENT = no books, which is every event that predates the field, and
+   * nothing renders. An empty list is what clearing them in the Event form
+   * writes, and reads the same as absent.
+   */
+  partBooks?: PiecePartLink[];
+  /** The folder holding every book (a Google Drive folder), shown beside them. */
+  partBooksSharedUrl?: string;
   /* ── Change tracking (#17, #40) ── */
   updatedAt?: number;       // Date.now() of last edit
   updatedBy?: string;       // director email

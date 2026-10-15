@@ -251,6 +251,9 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'card.sub':                { en: 'Sub',                 es: 'Suplente' },
   'card.attendanceRequired': { en: 'Attendance required', es: 'Asistencia obligatoria' },
   'card.call':               { en: 'Call',                es: 'Llegada' },
+  // Part books on a concert (#part-books): one PDF per player, whole program.
+  'card.myBook':             { en: 'My book',             es: 'Mi libro' },
+  'card.partBooks':          { en: 'Part books',          es: 'Libros de partituras' },
 
   // ── Event page / Concert Day Sheet ──────────────────────────────────────
   'event.back':             { en: 'Back',                        es: 'Volver' },
@@ -268,6 +271,13 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'event.openMaps':         { en: 'Open in Maps',                es: 'Abrir en Maps' },
   'event.detailsComing':    { en: 'Details coming — check back soon.', es: 'Pronto habrá más detalles — vuelve a revisar.' },
   'event.printableProgram': { en: 'View the printable program',  es: 'Ver el programa para imprimir' },
+  'event.partBooks':        { en: 'Part books',                  es: 'Libros de partituras' },
+  'event.partBooksIntro':   {
+    en: 'All of your music for this concert in one PDF, in program order. Tap your instrument.',
+    es: 'Toda tu música para este concierto en un solo PDF, en el orden del programa. Toca tu instrumento.',
+  },
+  'event.myBook':           { en: 'My book ({instrument})',      es: 'Mi libro ({instrument})' },
+  'event.partBooksFolder':  { en: 'All books (shared folder)',   es: 'Todos los libros (carpeta compartida)' },
   'event.notesDirections':  { en: 'Notes & directions',          es: 'Notas e indicaciones' },
   'event.seeFullCalendar':  { en: 'See the full calendar',       es: 'Ver el calendario completo' },
   'event.scheduleChange':   { en: 'Schedule change:',            es: 'Cambio de horario:' },

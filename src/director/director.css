@@ -1888,8 +1888,10 @@ button.dir-roster-group-link:hover .dir-group-open-hint { opacity: 1; }
 .dir-parts-list { display: flex; flex-direction: column; gap: 6px; }
 
 .dir-part-row { display: flex; align-items: center; gap: 6px; }
-.dir-part-instr { flex: 0 0 140px; }
-.dir-part-url { flex: 1; }
+/* min-width: 0, or an input's built-in ~20-character minimum outranks the
+   flex basis and the row runs off the drawer, Remove button and all. */
+.dir-part-instr { flex: 0 0 140px; min-width: 0; }
+.dir-part-url { flex: 1; min-width: 0; }
 
 /* Piece picker (in EventForm) */
 .dir-piece-picker {
