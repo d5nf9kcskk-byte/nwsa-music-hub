@@ -11,7 +11,9 @@ import {
   concertRoll, concertSuggestion, itemAverage, itemKey, parseItemKey, rollEffect,
   conductValue, effortValue, examEvidence, fillValueFor, gradeValue, lastFirst, lastName,
   displayName, meetingsHeld, parseName, planProblem, rowReadiness, tallyGrade,
-  type ConcertRoll, type GradeCategory, type MarkLike,
+  categoryResult, cleanLabel, concertRequiredOf, concertRole, concertScore, customKey,
+  parseColumnKey, tallyCount, tallyKey,
+  type ConcertLike, type ConcertRoll, type GradeCategory, type MarkLike,
 } from './ensembleGrades.ts';
 
 function assert(cond: unknown, msg: string): void {
@@ -336,5 +338,129 @@ assert(
   ], 'cam', WINDOW) === 1,
   'a concert is a performance, not a rehearsal meeting — it never enlarges the denominator of meetings held',
 );
+
+/* ── columns of the director's own (Oct 2026): a grade, and a thing that costs points ── */
+
+assert(cleanLabel('  Phone   in class ') === 'Phone in class', 'spacing is tidied');
+assert(cleanLabel('a.b/c\\d[e]f*g~h`i:j') === 'a b c d e f g h i j',
+  'characters a Firestore field name would need escaped never reach one');
+assert(cleanLabel('x'.repeat(80)).length === 40, 'a label is capped at 40 characters');
+assert(cleanLabel(' . / ') === '', 'a label of only punctuation is empty');
+
+const own = customKey('prep', 'Sight reading');
+assert(own === 'x:prep:Sight reading', 'a graded column of the director\'s own');
+assert(customKey('prep', '  ') === null, 'a column with no name is refused');
+const costly = tallyKey('professionalism', 2, 'Phone out in class');
+assert(costly === 'd:professionalism:2:Phone out in class', 'an incident column carries its cost');
+assert(tallyKey('prep', 0, 'x') === null && tallyKey('prep', 101, 'x') === null && tallyKey('prep', 1.5, 'x') === null,
+  'a cost is a whole number of points, 1 to 100');
+assert(tallyKey('prep', 2, ':') === null, 'and the column still needs a name');
+
+assert(parseColumnKey(own!)?.kind === 'custom' && parseColumnKey(own!)?.categoryId === 'prep'
+  && parseColumnKey(own!)?.id === 'Sight reading', 'a custom key reads back whole');
+const parsedTally = parseColumnKey(costly!);
+assert(parsedTally?.kind === 'tally' && parsedTally.points === 2 && parsedTally.categoryId === 'professionalism'
+  && parsedTally.id === 'Phone out in class', 'an incident key reads back its category, cost and label');
+assert(parseColumnKey('concert:abc')?.kind === 'concert' && parseColumnKey('exam:abc')?.kind === 'exam',
+  'the older Hub columns still parse');
+for (const bad of ['prep', 'exams', 'concerts', 'x:prep', 'x::name', 'd:prep:0:Phone', 'd:prep:2', 'd:prep:abc:Phone', 'y:prep:z']) {
+  assert(parseColumnKey(bad) === null, `"${bad}" is not a column — a CATEGORY id must never be read as one`);
+}
+assert(tallyGrade(PLAN, { prep: 80, [own!]: 10, [costly!]: 9 }).scored === 1,
+  'tallyGrade still counts plan categories only — a column of any kind is never a seventh category');
+
+assert(tallyCount(3) === 3 && tallyCount('2') === 2, 'a count reads');
+assert(tallyCount('') === 0 && tallyCount(null) === 0 && tallyCount('lots') === 0 && tallyCount(-2) === 0,
+  'a blank or unreadable count is NO incident — only a number somebody wrote can mark a student down');
+
+/* ── what a category's box adds up to ── */
+
+const box = (typed: unknown, inputs: Array<number | null>, penalty = 0) =>
+  categoryResult({ typed, inputs, penalty });
+
+assert(box(null, [90, 80]).value === 85, 'with nothing typed the box is the average of its columns');
+assert(box(null, [90, null, 80]).value === 85, 'a blank column is skipped — never counted as a zero');
+assert(box(null, [90, 81]).value === 86, 'the average rounds in exactly one place (85.5 → 86)');
+assert(box(null, [null, null]).value === null && box(null, []).value === null,
+  'nothing to average is NOT scored — not a zero');
+assert(box(70, [90, 80]).value === 70 && box(70, [90, 80]).derived === 85,
+  'a typed number overrides the average, and the average is still reported so the screen can offer it back');
+assert(box(0, [90]).value === 0, 'a typed zero is a real zero, not "nothing typed"');
+assert(box('B', [90]).value === 90 && box('B', [90]).typed === null, 'an unreadable typed value is ignored, not scored');
+
+assert(box(100, [], 4).value === 96, 'fill at 100, log two phones at 2 points each, and the box reads 96');
+assert(box(null, [90, 80], 5).value === 80, 'a penalty comes off the average too');
+assert(box(null, [], 4).value === null,
+  'a penalty never CREATES a score: an incident with nothing else to grade is not a 96');
+assert(box(5, [], 30).value === 0, 'a penalty cannot take a score below zero');
+assert(box(100, [], 0).value === 100 && box(100, [], -3).value === 100, 'a negative penalty is no penalty');
+
+/* ── which concerts are required of whom (the Q1 2026 calendar, as it is) ── */
+
+const SYM = 'symphony-orchestra';
+const CAM = 'camerata-string-orchestra';
+const CCO = 'college-chamber-orchestra';
+const WIND = 'wind-ensemble';
+const symStudent = { id: 'sym1', ensembleIds: [SYM] };
+const camStudent = { id: 'cam1', ensembleIds: [CAM] };
+const ccoStudent = { id: 'cco1', ensembleIds: [CCO] };
+const windStudent = { id: 'wind1', ensembleIds: [WIND] };
+const both = { id: 'both1', ensembleIds: [SYM, CAM] };
+
+const pops: ConcertLike = { ensembleIds: [SYM, WIND, 'choir'] };                 // not flagged
+const ccoConcert: ConcertLike = {
+  ensembleIds: [CCO], attendanceEnsembleIds: [SYM, CAM], concertAttendance: 'required',
+};
+const facultyRecital: ConcertLike = {
+  ensembleIds: [], attendanceEnsembleIds: [SYM, CAM, WIND, CCO], concertAttendance: 'required',
+};
+const voiceConcert: ConcertLike = { ensembleIds: ['choir'], concertAttendance: 'optional' };
+
+assert(concertRole(symStudent, pops) === 'performer', 'a Symphony member performs at the Pops concert');
+assert(concertRequiredOf(symStudent, pops),
+  'and it is REQUIRED of them although nobody ticked Required — playing in it is the requirement');
+assert(concertRole(camStudent, pops) === null && !concertRequiredOf(camStudent, pops),
+  'a Camerata student has no part in a Symphony concert, so it is not theirs to miss');
+assert(concertRole(symStudent, ccoConcert) === 'audience' && concertRequiredOf(symStudent, ccoConcert),
+  'the College Chamber Orchestra concert is required of Symphony members in the audience');
+assert(concertRequiredOf(camStudent, ccoConcert) && concertRole(ccoStudent, ccoConcert) === 'performer',
+  'and of Camerata, and the CCO students play on it');
+assert(!concertRequiredOf(windStudent, ccoConcert) && concertRole(windStudent, ccoConcert) === null,
+  'a group the audience list does not name has nothing to attend');
+assert(concertRequiredOf(both, ccoConcert) && concertRequiredOf(both, pops),
+  'a student in two groups is required by either');
+assert(concertRequiredOf(windStudent, facultyRecital), 'the faculty recital names every music group');
+assert(!concertRequiredOf(symStudent, voiceConcert) && concertRole(symStudent, voiceConcert) === null,
+  'another group\'s optional concert is nothing to a Symphony member');
+assert(!concertRequiredOf({ id: 'c1', ensembleIds: ['choir'] }, voiceConcert),
+  'marking a concert Optional wins, even for the people playing on it');
+const listedButUnflagged: ConcertLike = { ensembleIds: [CCO], attendanceEnsembleIds: [SYM] };
+assert(concertRole(symStudent, listedButUnflagged) === 'audience' && !concertRequiredOf(symStudent, listedButUnflagged),
+  'an audience listing is only a requirement the Gradebook can grade once the concert is marked Required — '
+  + 'the door check-in is the only evidence an audience member leaves');
+const named: ConcertLike = { ensembleIds: [CCO], studentIds: ['guest1'], attendanceStudentIds: ['aud1'], concertAttendance: 'required' };
+assert(concertRole({ id: 'guest1' }, named) === 'performer', 'a student named as an individual performer performs');
+assert(concertRole({ id: 'aud1' }, named) === 'audience' && concertRequiredOf({ id: 'aud1' }, named),
+  'a student named into the audience attends');
+const schoolWide: ConcertLike = { ensembleIds: [], concertAttendance: 'required' };
+assert(concertRequiredOf(symStudent, schoolWide) && concertRequiredOf(camStudent, schoolWide),
+  'a Required concert that lists nobody is school-wide, as every concert that predates the audience lists was');
+assert(!concertRequiredOf(symStudent, { ensembleIds: [] }), 'and an unflagged one that lists nobody is nothing');
+
+/* ── one concert's number for one student ── */
+
+const cs = (over: Partial<Parameters<typeof concertScore>[0]> = {}) => concertScore({
+  role: 'performer', excused: false, hasIn: false, hasOut: false, entryOnly: false, roll: null, ...over,
+});
+assert(cs() === 100, 'a performer with no roll taken is credited by the syllabus');
+assert(cs({ roll: 'absent' }) === 0, 'a performer marked Absent earns nothing');
+assert(cs({ roll: 'excused' }) === null, 'Absent (Excused) leaves the denominator: blank, never zero');
+assert(cs({ excused: true }) === null, 'a pull-out or a senior excusal is blank');
+assert(cs({ role: null }) === null, 'a concert that is not theirs says nothing — blank, never a zero');
+assert(cs({ role: 'audience' }) === 0 && cs({ role: 'audience', hasIn: true }) === 50
+  && cs({ role: 'audience', hasIn: true, hasOut: true }) === 100, 'audience: none 0, one scan 50, both 100');
+assert(cs({ role: 'audience', hasIn: true, entryOnly: true }) === 100, 'an entry-only night credits the arrival alone');
+assert(cs({ role: 'audience', roll: 'excused' }) === null, 'an audience member excused on a roll is blank');
+assert(cs({ roll: 'absent', hasIn: true, hasOut: true }) === 100, 'a completed pair of scans outranks an Absent mark');
 
 console.log('ensembleGrades.selfcheck: all assertions passed');

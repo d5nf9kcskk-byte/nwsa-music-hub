@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { collection, deleteField, doc, query, setDoc, where } from 'firebase/firestore';
+import { useEffect, useMemo, useState } from 'react';
+import { collection, deleteField, doc, query, setDoc, where, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { watchCollection } from '../../shared/watchCollection';
 import { reportWriteError } from '../writeStatus';
@@ -28,8 +28,13 @@ export interface GradeMarks {
   groupKey: string;
   periodId: string;
   studentId: string;
-  /** Category id → the typed 0-100. Absent means NOT SCORED, never zero. */
-  scores?: Record<string, number>;
+  /**
+   * Category id → the typed 0-100, and the table's COLUMNS under prefixed keys
+   * (`concert:`, `exam:`, `x:`, `d:` — see `parseColumnKey`). Absent means NOT
+   * SCORED, never zero. A column key holding `null` is a column nobody has
+   * typed a number into yet: the key is what makes the column exist.
+   */
+  scores?: Record<string, number | null>;
   /** '1' | '2' | '3' — the district's effort scale, stored as typed. */
   effort?: string;
   /** 'A' | 'B' | 'C' | 'D' | 'F'. */
@@ -45,6 +50,13 @@ export interface GradeMarks {
 export function markDocId(groupKey: string, periodId: string, studentId: string): string {
   return `${groupKey}_${periodId}_${studentId}`;
 }
+
+/** In a `writeCells` patch: delete this key from the doc. */
+export const REMOVE = Symbol('remove');
+
+/** What `writeCells` takes per student: a number sets the cell, null clears
+ *  it (the column stays), REMOVE deletes the key. */
+export type CellPatch = Record<string, number | null | typeof REMOVE>;
 
 /**
  * Every mark for one grading period, across every group.
@@ -67,11 +79,14 @@ export function useGradeMarks(periodId: string) {
     }, () => setLoading(false));
   }, [periodId]);
 
-  /** groupKey → studentId → the record. */
-  const byGroup: Record<string, Record<string, GradeMarks>> = {};
-  for (const m of marks) {
-    (byGroup[m.groupKey] ??= {})[m.studentId] = m;
-  }
+  /** groupKey → studentId → the record. Memoised: the screen builds a whole
+   *  table's arithmetic from it, and a fresh object every render would redo
+   *  that on each keystroke. */
+  const byGroup = useMemo(() => {
+    const out: Record<string, Record<string, GradeMarks>> = {};
+    for (const m of marks) (out[m.groupKey] ??= {})[m.studentId] = m;
+    return out;
+  }, [marks]);
 
   /**
    * Merge a patch onto one student's record. `setDoc(..., { merge: true })`
@@ -129,5 +144,47 @@ export function useGradeMarks(periodId: string) {
     await saveScores(groupKey, studentId, { [categoryId]: value });
   }
 
-  return { marks, byGroup, loading, saveMark, saveScore, saveScores };
+  /**
+   * Set or CLEAR cells of a column, for many students in batches.
+   *   • a number sets the cell;
+   *   • `null` writes a literal null — the column stays, the cell has no
+   *     number, and a linked column goes back to following the Hub;
+   *   • `REMOVE` deletes the key, which is how a column leaves a doc.
+   * A column exists because some doc holds its key, so clearing a cell must
+   * write null and never REMOVE it: one cleared cell must not be able to
+   * delete the last key a column had.
+   */
+  async function writeCells(
+    groupKey: string,
+    ops: { studentId: string; patch: CellPatch }[],
+  ) {
+    if (!db || !groupKey || !periodId || ops.length === 0) return;
+    const firestore = db;
+    try {
+      for (let n = 0; n < ops.length; n += 400) {
+        const batch = writeBatch(firestore);
+        for (const { studentId, patch } of ops.slice(n, n + 400)) {
+          const scores: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(patch)) scores[k] = v === REMOVE ? deleteField() : v;
+          batch.set(
+            doc(firestore, 'gradeMarks', markDocId(groupKey, periodId, studentId)),
+            {
+              groupKey,
+              periodId,
+              studentId,
+              scores,
+              updatedAt: Date.now(),
+              updatedBy: currentDirectorName() ?? '',
+            },
+            { merge: true },
+          );
+        }
+        await batch.commit();
+      }
+    } catch {
+      reportWriteError('Grades not saved — check your connection and try again');
+    }
+  }
+
+  return { marks, byGroup, loading, saveMark, saveScore, saveScores, writeCells };
 }

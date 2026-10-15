@@ -378,8 +378,12 @@ export function concertSuggestion(
  * collection, no rules change, and `tallyGrade` (which reads only plan ids)
  * cannot be fooled into counting a column as a category of its own.
  *
- * Once a category HAS columns, the category is their average: that is what
- * `itemAverage` answers, and what the screen writes into the category box.
+ * A column FOLLOWS the Hub until a director types over it (Oct 2026): a blank
+ * cell is the live number — the exam's confirmed grade, the concert's scans
+ * and roll — and a typed number is a deliberate override. Nothing is copied
+ * into the cell when the column is added, because a copy goes stale the day
+ * an exam is regraded or a roll is finished. `categoryResult` below is what a
+ * category's box adds up to.
  */
 export type ItemKind = 'concert' | 'exam';
 
@@ -476,6 +480,223 @@ export function itemAverage(scores: Record<string, unknown> | undefined, kind: I
     if (n !== null) vals.push(n);
   }
   return vals.length ? Math.round(vals.reduce((s, n) => s + n, 0) / vals.length) : null;
+}
+
+/* ───────────── columns of the director's own (#gradebook-columns) ─────────── */
+
+/**
+ * A director can also add a column that is not in the Hub at all (director's
+ * request, 2026-10-14): a grade given on paper, extra credit, or a thing that
+ * COSTS points — a phone out in class, acting out. They ride in the same
+ * `scores` map, under a key that carries everything the column is:
+ *
+ *   x:<categoryId>:<label>            a grade of their own (0-100), averaged
+ *                                     with the category's other columns.
+ *   d:<categoryId>:<points>:<label>   an incident count. Each one takes
+ *                                     `points` off the category: the count is
+ *                                     the evidence, the points are the
+ *                                     director's rule for it.
+ *
+ * No new collection and no rules change (`scores` is an open map in
+ * firestore.rules). A column that nobody has scored yet still exists, because
+ * adding it writes a literal `null` for the roster — a column is the union of
+ * the keys across the table's docs, and a key holding null is still a key.
+ *
+ * The label is part of a Firestore field name, so `cleanLabel` keeps it to
+ * characters a field name never needs escaped.
+ */
+export type ColumnKind = ItemKind | 'custom' | 'tally';
+
+export const COLUMN_LABEL_MAX = 40;
+export const TALLY_POINTS_MAX = 100;
+
+/** Characters a Firestore field name is happiest without, plus ':' which the
+ *  key format itself uses to separate its parts. */
+const LABEL_UNSAFE = '.\\/[]*~`:';
+
+export function cleanLabel(raw: string): string {
+  return Array.from(raw)
+    .map(ch => (ch.charCodeAt(0) < 32 || ch.charCodeAt(0) === 127 || LABEL_UNSAFE.includes(ch) ? ' ' : ch))
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, COLUMN_LABEL_MAX)
+    .trim();
+}
+
+/** The key of a director's own graded column, or null when the label is empty. */
+export function customKey(categoryId: string, label: string): string | null {
+  const clean = cleanLabel(label);
+  return clean ? `x:${categoryId}:${clean}` : null;
+}
+
+/** The key of an incident column, or null for an empty label or a cost that
+ *  is not a whole number of points, 1 to 100. */
+export function tallyKey(categoryId: string, points: number, label: string): string | null {
+  const clean = cleanLabel(label);
+  if (!clean || !Number.isInteger(points) || points < 1 || points > TALLY_POINTS_MAX) return null;
+  return `d:${categoryId}:${points}:${clean}`;
+}
+
+export interface ParsedColumn {
+  kind: ColumnKind;
+  /** A concert or exam: the event / assignment id. Otherwise the label. */
+  id: string;
+  /** Custom and incident columns say which category they belong to. */
+  categoryId?: string;
+  /** Incident columns: what each one costs. */
+  points?: number;
+}
+
+/** Every kind of column key, or null for anything else in `scores` — which
+ *  includes every category id, so a category is never read as a column. */
+export function parseColumnKey(key: string): ParsedColumn | null {
+  const item = parseItemKey(key);
+  if (item) return { kind: item.kind, id: item.id };
+  const own = /^x:([A-Za-z0-9_-]+):(.+)$/.exec(key);
+  if (own) return { kind: 'custom', categoryId: own[1], id: own[2] };
+  const tally = /^d:([A-Za-z0-9_-]+):(\d{1,3}):(.+)$/.exec(key);
+  if (tally) {
+    const points = Number(tally[2]);
+    if (points >= 1 && points <= TALLY_POINTS_MAX) {
+      return { kind: 'tally', categoryId: tally[1], points, id: tally[3] };
+    }
+  }
+  return null;
+}
+
+/**
+ * An incident count. Unlike a grade, an unreadable or blank count is ZERO:
+ * "no incident recorded" is the safe reading, and the only way a student could
+ * be marked down is by a number somebody actually wrote.
+ */
+export function tallyCount(v: unknown): number {
+  return gradeValue(v) ?? 0;
+}
+
+/**
+ * What one category's box adds up to for one student (Oct 2026).
+ *
+ *   derived  the average of whatever the Hub and the director's columns say
+ *            (`inputs`: a blank input is skipped, never a zero)
+ *   typed    a number written into the box itself — it OVERRIDES derived,
+ *            exactly as typing over a formula does in a spreadsheet
+ *   base     typed, else derived
+ *   penalty  the incident columns' total
+ *   value    base minus penalty, held to 0-100 — the number the grade uses
+ *
+ * Two promises: a penalty never CREATES a score (no base means no value, so a
+ * student with an incident and nothing else is not suddenly graded at 96), and
+ * a typed number is still marked down by an incident column — the director
+ * who fills a box at 100 and then logs two phones expects 96, not 100.
+ */
+export interface CategoryResult {
+  typed: number | null;
+  derived: number | null;
+  penalty: number;
+  base: number | null;
+  value: number | null;
+}
+
+export function categoryResult(i: {
+  typed: unknown;
+  inputs: Array<number | null>;
+  penalty: number;
+}): CategoryResult {
+  const typed = gradeValue(i.typed);
+  const have = i.inputs.filter((n): n is number => n !== null);
+  const derived = have.length ? Math.round(have.reduce((s, n) => s + n, 0) / have.length) : null;
+  const penalty = Math.max(0, Math.round(i.penalty));
+  const base = typed ?? derived;
+  const value = base === null ? null : Math.max(GRADE_MIN, Math.min(GRADE_MAX, base - penalty));
+  return { typed, derived, penalty, base, value };
+}
+
+/* ─────────────────── which concerts are required of a student ───────────── */
+
+/** The fields of a calendar event that say who it is for. */
+export interface ConcertLike {
+  ensembleIds: string[];
+  studentIds?: string[];
+  attendanceEnsembleIds?: string[];
+  attendanceStudentIds?: string[];
+  concertAttendance?: 'required' | 'optional' | null;
+}
+
+export interface StudentLike {
+  id: string;
+  ensembleIds?: string[];
+}
+
+/** 'performer' plays on it; 'audience' is required in the seats; null is
+ *  neither — the concert has nothing to say about this student. */
+export type ConcertRole = 'performer' | 'audience' | null;
+
+/**
+ * How a student relates to a concert, from the event's own lists — the same
+ * three lists `studentExpectation` reads for a student's schedule, so the
+ * Gradebook cannot disagree with the page that told the student to be there.
+ *
+ * An event that lists NOBODY (no performers, no audience) is school-wide:
+ * the Required flag alone means "everyone", which is how every concert that
+ * predates the audience lists was entered.
+ *
+ * Grade excusals (seniors, #audience-excusal) and pull-outs are deliberately
+ * NOT here: they are a separate verdict the caller applies, so the evidence
+ * line can still say "1 excused" rather than pretending it never applied.
+ */
+export function concertRole(s: StudentLike, ev: ConcertLike): ConcertRole {
+  const mine = s.ensembleIds ?? [];
+  if ((ev.ensembleIds ?? []).some(e => mine.includes(e)) || (ev.studentIds ?? []).includes(s.id)) {
+    return 'performer';
+  }
+  const groups = ev.attendanceEnsembleIds ?? [];
+  const named = ev.attendanceStudentIds ?? [];
+  if (groups.some(e => mine.includes(e)) || named.includes(s.id)) return 'audience';
+  const listsNobody = !(ev.ensembleIds ?? []).length && !(ev.studentIds ?? []).length
+    && !groups.length && !named.length;
+  return listsNobody ? 'audience' : null;
+}
+
+/**
+ * Is this concert REQUIRED of this student, for the Required Performance
+ * Attendance category?
+ *   • a performer: yes — playing in it is the requirement — unless the
+ *     director marked the concert Optional;
+ *   • in the audience: only when the concert is marked Required, because the
+ *     Required flag is also what turns on the door check-in that is the only
+ *     evidence an audience member leaves;
+ *   • anyone else: no.
+ * Marking a concert Optional wins over everything.
+ */
+export function concertRequiredOf(s: StudentLike, ev: ConcertLike): boolean {
+  const role = concertRole(s, ev);
+  const flag = ev.concertAttendance ?? null;
+  if (role === null || flag === 'optional') return false;
+  return role === 'performer' ? true : flag === 'required';
+}
+
+/**
+ * One student's number for one concert, or null when the concert has nothing
+ * to say about them: not theirs to attend, excused, or marked Absent
+ * (Excused) on the roll. A null is never a zero.
+ */
+export function concertScore(i: {
+  role: ConcertRole;
+  /** A grade excusal or a pull-out — decided by the caller. */
+  excused: boolean;
+  hasIn: boolean;
+  hasOut: boolean;
+  entryOnly: boolean;
+  roll: ConcertRoll;
+}): number | null {
+  if (i.role === null || i.excused) return null;
+  const performs = i.role === 'performer';
+  const scanCredited = scansCredited(i.hasIn, i.hasOut, i.entryOnly);
+  if (rollEffect({ scanCredited, performs, roll: i.roll }) === 'excused') return null;
+  return concertItemScore({
+    hasIn: i.hasIn, hasOut: i.hasOut, entryOnly: i.entryOnly, performs, roll: i.roll,
+  });
 }
 
 /* ─────────────────────── what the district asks alongside ───────────────── */

@@ -65,6 +65,21 @@
 
 .dir-gb-weight { font-weight: 400; font-size: 11px; color: var(--dir-muted, #64748b); }
 
+/* A box and the columns it averages read as one group: the box opens the
+   group with a rule on its left, its columns are tinted, and its heading says
+   in words what it is made of. */
+.dir-gb-table th.dir-gb-cat,
+.dir-gb-table td.dir-gb-cat { border-left: 2px solid var(--dir-border, #cbd5e1); }
+.dir-gb-avg {
+  max-width: 150px;
+  margin-top: 2px;
+  font-weight: 400;
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: normal;
+  color: var(--dir-muted, #64748b);
+}
+
 .dir-gb-fill {
   margin-top: 4px;
   display: inline-flex;
@@ -84,7 +99,69 @@
    to its left, tinted so it does not read as a seventh weighted category. */
 .dir-gb-table .dir-gb-itemcol { background: rgba(13, 126, 142, 0.04); }
 .dir-gb-table thead th.dir-gb-itemcol { background: color-mix(in srgb, var(--dir-card, #fff) 93%, #0d7e8e); font-weight: 500; }
-.dir-gb-addcol { display: block; margin-top: 4px; max-width: 160px; font-size: 12px; }
+
+/* Add a column (#gradebook-columns): one bar above the table, four kinds. */
+.dir-gb-addbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--dir-border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--dir-card, #fff);
+}
+.dir-gb-addlabel { font-size: 13px; font-weight: 600; }
+.dir-gb-addbar .dir-gb-pick { max-width: 340px; }
+.dir-gb-addname { width: auto; min-width: 240px; }
+.dir-gb-addcost { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.dir-gb-addcost .dir-input { width: 64px; min-width: 0; }
+.dir-gb-adderr { color: #b91c1c; font-size: 12px; font-weight: 600; }
+
+/* A number the Hub works out by itself (Oct 2026). It is a real part of the
+   grade, so it must not read as "empty": slanted, tinted and dashed, against a
+   typed number's plain solid box. */
+.dir-gb-cellwrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.dir-gb-score.auto { background: rgba(13, 126, 142, 0.07); border-style: dashed; }
+.dir-gb-score.auto::placeholder { color: inherit; opacity: 0.8; font-style: italic; }
+.dir-gb-follow,
+.dir-gb-plus {
+  padding: 1px 7px;
+  font-size: 11px;
+  border: 1px solid var(--dir-border, #e2e8f0);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dir-accent, #0d7e8e);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dir-gb-follow:hover,
+.dir-gb-plus:hover { background: rgba(13, 126, 142, 0.08); }
+.dir-gb-penalty { font-size: 11px; font-weight: 600; color: #b45309; white-space: nowrap; }
+
+/* "What is counting toward each box" — the answer to "why isn't my concert here". */
+.dir-gb-counting {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--dir-border, #e2e8f0);
+  border-left: 3px solid var(--dir-accent, #0d7e8e);
+  border-radius: 8px;
+  background: var(--dir-card, #fff);
+  font-size: 13px;
+}
+.dir-gb-counting > summary { cursor: pointer; font-weight: 600; }
+.dir-gb-counting ul { margin: 8px 0 0; padding-left: 20px; line-height: 1.6; }
+.dir-gb-warn { color: #b45309; }
+.dir-gb-nudge {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.1);
+  font-size: 13px;
+  line-height: 1.5;
+}
 
 .dir-gb-student { font-weight: 600; }
 .dir-gb-evidence {

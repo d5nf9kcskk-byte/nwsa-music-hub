@@ -90,6 +90,15 @@ runs:
       run: npx tsx src/shared/ensembleGrades.selfcheck.ts
       shell: bash
 
+    # What every Gradebook box adds up to (#gradebook-columns): exams, concerts
+    # and the applied lesson average FOLLOW the Hub instead of being copied into
+    # a box, a typed number overrides, a column of the director's own averages
+    # in, and an incident column takes points off but never creates a score.
+    # The screen and the district email both read this, so they cannot disagree.
+    - name: Check the Gradebook table arithmetic
+      run: npx tsx src/director/grades/gradeTable.selfcheck.ts
+      shell: bash
+
     - name: Check the submitted grade report
       run: npx tsx src/shared/interimReport.selfcheck.ts
       shell: bash

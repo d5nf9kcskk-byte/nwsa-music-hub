@@ -64,20 +64,21 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     bullets: [
       'Take Roll now lists concerts beside rehearsals — one roll per ensemble playing, with the same four marks. A concert on Today has a Take Roll button, and Today reminds you when a concert’s roll was never taken.',
       'On a concert still to come, tap Excuse… beside a student — on its roll, or on its Roster from the calendar — and pick Religious, Medical, Family or Other. They come off that concert only (roster, printed program, seating page), and the reason stays private to directors and applied teachers.',
-      'In the Gradebook, a performer marked Absent at a Required concert no longer gets full credit, and an excused student isn’t counted against them. A concert counts only when it is set to Required in its editor.',
+      'In the Gradebook, a performer marked Absent at a concert no longer gets full credit, and an excused student isn’t counted against them.',
     ],
   },
-  // One concert / one playing exam as its own Gradebook column (#gradebook-columns).
+  // The Gradebook follows the Hub, and takes columns of your own (#gradebook-columns).
   {
-    id: '2026-10-01-gradebook-columns',
-    date: '2026-10-01',
-    title: 'Concerts and playing exams as Gradebook columns',
+    id: '2026-10-14-gradebook-live-columns',
+    date: '2026-10-14',
+    title: 'Gradebook: numbers that follow the Hub, and columns of your own',
     audience: 'staff' as const,
-    expires: '2026-10-22',
+    expires: '2026-10-28',
     bullets: [
-      'In the Gradebook, "+ Add a concert" under Required Performance Attendance makes a column for that concert from the check-in scans: in and out 100, in only 50, no scan 0. Excused students are left blank, and students who played on it get 100.',
-      '"+ Add an exam" under Playing Exams makes a column from the grades you confirmed on that exam. A student nobody graded stays blank, not zero.',
-      'The category box becomes the average of its columns. Any column box can be corrected by hand, and Remove takes a column back off.',
+      'Exams, concerts and the lesson average now FOLLOW the Hub instead of being copied into a box. They show as slanted grey numbers and move by themselves when a lesson is graded, an exam is regraded or a roll is finished. Type over one to replace it; ↺ brings the Hub’s number back, and “Follow the Hub” does it for a whole box.',
+      'Add a column offers every exam and every concert of the quarter — not only concerts marked Required. A concert a group plays in counts as required of that group unless you mark it Optional; a concert in the audience still needs Required.',
+      'Add a grade of your own (a quiz, extra credit) and it averages into its box. Add something that costs points — a phone out, acting out — name it, set the points, and tap +1 beside each student: every one takes those points off the box.',
+      'Each box says what it is made of, and “What is counting toward each box” lists the exams and concerts behind it. For final grades choose End of quarter — what you entered at the interim carries over, it is the same grades.',
     ],
   },
   // Today shows every group's announcements (#today-announcements).

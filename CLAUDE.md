@@ -522,10 +522,11 @@ who performs — so a performer who simply did not show left no record anywhere.
   afterwards, mark Absent (Excused) on that concert's roll). Offered on the
   concert's roll and on its Roster (`EventRoster`). The note is optional; the
   long form on Move a Student stays for a full paper trail.
-- **The Gradebook reads the roll for a concert marked Required** — and only
-  then; `concertAttendance === 'required'` is still the one switch for "this
-  concert counts" (most performing concerts are NOT flagged yet — it is a
-  dropdown in the event editor). `concertRoll()` / `rollEffect()` in
+- **The Gradebook reads the roll for a concert that is required of the
+  student** — a performer's concert counts unless it is marked Optional, an
+  audience concert only when it is marked Required (`concertRequiredOf()`, see
+  the Gradebook section; it used to be "only when marked Required", which left
+  every performing concert out). `concertRoll()` / `rollEffect()` in
   `src/shared/ensembleGrades.ts` are the ONE answer: Absent = no credit, stays
   in the denominator; Absent (Excused) = out of the denominator, same as a
   pull-out; no mark after roll was finished = credited; roll never finished =
@@ -1108,13 +1109,23 @@ in `.github/actions/self-checks`.
   "finish the job" by computing one: roll here is exception-only, there is no
   Present record, and a rate resting on a denominator the director did not
   know they were creating is worse than a number they chose.
-- **Two categories carry a computed SUGGESTION** (Playing Exams, Required
-  Performance Attendance) because those are countable rather than observed. A
-  suggestion is a placeholder, never a saved value, until Fill is pressed.
-  `fillValueFor()` is the ONE answer to what Fill writes: the suggestion where
-  there is one, `FULL_MARKS` on a judgement category, and **nothing at all**
-  when a computed category has no suggestion. Filling an ungraded exam at 100
-  is exactly as wrong as counting it a zero.
+- **A box FOLLOWS the Hub until a director types over it** (the spreadsheet
+  model, director 2026-10-14: "it should be continuously updating since it's
+  all the same grades"). Playing Exams, Required Performance Attendance and the
+  applied Lesson average are countable rather than observed, so they are LIVE:
+  `buildTable()` in `src/director/grades/gradeTable.ts` works them out on every
+  render from the exams, rolls, scans and lessons as they stand. They used to be
+  a grey SUGGESTION that Fill COPIED into the box, and a copy is a snapshot —
+  the lesson grades logged after the interim never reached the final, and an
+  exam regraded after being added as a column never moved. Now a number typed
+  into a box OVERRIDES the live one (as typing over a formula does);
+  `categoryResult()` says which is which, and the screen offers ↺ per box and
+  "Follow the Hub" per category to hand a box back. **Never write a live number
+  into a box** — that is the snapshot bug again. `fillValueFor()` is still the
+  ONE answer to what Fill writes, and Fill is offered only on JUDGEMENT boxes,
+  where nothing in the Hub can speak: full marks, never a computed value.
+  Marks are keyed by PERIOD, not by interim-or-final, so what was entered at
+  the interim is already there at the end of the quarter.
 - **Re-normalize over scored categories** — the workbook's formula verbatim, so
   an unscored category leaves numerator and denominator both and an interim in
   week three is not dragged down by an exam that has not happened. A blank is
@@ -1183,18 +1194,43 @@ in `.github/actions/self-checks`.
   *Set concert entry-only* workflow, so the exemption and its reason are a diff
   rather than somebody's shell history.
 
-- **One concert or one playing exam can be its own column** (#gradebook-columns,
-  2026-10-01). The column's numbers ride in the same `gradeMarks.scores` map
-  under `concert:<eventId>` / `exam:<assignmentId>`, so there is no new
-  collection and no rules change, and `tallyGrade` (plan ids only) can never
-  count a column as a category. Once a category has columns, its box is
-  their average (`itemAverage`), rewritten whenever a column changes. Concert
-  scores: in+out (or `scansCredited`) 100, one scan 50, none 0, a performer
-  100, an excused student BLANK (`excusedFrom`, the same rule as the concert
-  count). An exam column copies the confirmed `assignmentResults` score; an
-  ungraded student is blank, never zero. Clearing a score uses
-  `deleteField()` — a merge save deep-merges maps, so a key merely left out
-  survives (the old `saveScore` never actually cleared a box).
+- **Columns** (#gradebook-columns; one concert or exam 2026-10-01, rebuilt
+  2026-10-14). A table's columns are the union of the keys its
+  `gradeMarks.scores` docs hold, so there is no new collection and no rules
+  change (`scores` is an open map), and `tallyGrade` (plan ids only) can never
+  count a column as a category. `parseColumnKey()` is the ONE reader of four
+  kinds: `concert:<eventId>` / `exam:<assignmentId>` (LINKED — blank is the
+  Hub's live number, a typed number overrides), `x:<categoryId>:<label>` (a
+  grade of the director's own, 0-100, averaged in) and
+  `d:<categoryId>:<points>:<label>` (an INCIDENT count — a phone out, acting
+  out — each one takes `points` off the box). A box is the average of its
+  columns, or with no exam / concert columns of its live source; incident
+  columns come off afterwards and **never create a score** (no base, no value),
+  and a typed box is marked down too.
+  A column exists because some doc holds its key, so ADDING one writes a
+  literal `null` for the roster and CLEARING a cell writes `null` — never a
+  delete, which could remove the last key a column had. Only Remove deletes
+  (`REMOVE` in `useGradeMarks.writeCells`, which is also how a merge save
+  clears: it deep-merges maps, so a key merely left out of a patch survives).
+  The label is part of a field name, so `cleanLabel()` strips the characters a
+  field name wants escaped. Concert numbers are `concertScore()`: in+out (or
+  `scansCredited`) 100, one scan 50, none 0, a performer 100 unless the roll
+  marked them Absent, and BLANK — never zero — for a concert that is not theirs,
+  an excusal, or Absent (Excused).
+- **Which concerts are required of a student** is `concertRole()` /
+  `concertRequiredOf()`, reading the same three lists `studentExpectation` uses
+  for a student's schedule: a PERFORMER is required unless the concert is marked
+  Optional (playing in it is the requirement); someone in the AUDIENCE
+  (`attendanceEnsembleIds` / `attendanceStudentIds`) only when it is marked
+  Required, because that flag is also what turns on the door check-in, the only
+  evidence an audience member leaves; an event that lists nobody is school-wide.
+  This replaced "the Required flag is the one switch for 'this concert
+  counts'": the Symphony's own concerts were never flagged, so they appeared in
+  no list and counted for nothing, and no screen said why.
+- **The screen and the email read ONE model.** `GradebookView` builds a
+  `TableModel` for EVERY layout and the email's tables come from those same
+  rows. They used to be built from whatever had been TYPED, so a number that was
+  only ever a grey suggestion on screen never reached the district.
 
 Design record: `docs/superpowers/specs/2026-09-14-gradebook-design.md`.
 Session record: `docs/session-notes-2026-09-14-gradebook.md`.
