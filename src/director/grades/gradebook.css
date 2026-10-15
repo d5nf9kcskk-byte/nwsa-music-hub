@@ -145,7 +145,6 @@
   margin: 0 0 12px;
   padding: 10px 14px;
   border: 1px solid var(--dir-border, #e2e8f0);
-  border-left: 3px solid var(--dir-accent, #0d7e8e);
   border-radius: 8px;
   background: var(--dir-card, #fff);
   font-size: 13px;
