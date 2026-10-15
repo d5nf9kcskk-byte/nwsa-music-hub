@@ -68,25 +68,32 @@ export type CellPatch = Record<string, number | null | typeof REMOVE>;
  */
 export function useGradeMarks(periodId: string) {
   const [marks, setMarks] = useState<GradeMarks[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Which period the listener has last ANSWERED for (a snapshot, an error, or
+  // "nothing to listen to"). Loading is "that is not the period asked for" —
+  // a boolean flipped once would stay false across a period change, while
+  // `marks` still held the previous period's docs.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!db || !periodId) { setMarks([]); setLoading(false); return; }
+    if (!db || !periodId) { setMarks([]); setLoadedFor(periodId); return; }
     const q = query(collection(db, 'gradeMarks'), where('periodId', '==', periodId));
     return watchCollection(q, 'gradeMarks', snap => {
       setMarks(snap.docs.map(d => ({ id: d.id, ...d.data() } as GradeMarks)));
-      setLoading(false);
-    }, () => setLoading(false));
+      setLoadedFor(periodId);
+    }, () => setLoadedFor(periodId));
   }, [periodId]);
+  const loading = loadedFor !== periodId;
 
   /** groupKey → studentId → the record. Memoised: the screen builds a whole
    *  table's arithmetic from it, and a fresh object every render would redo
-   *  that on each keystroke. */
+   *  that on each keystroke. Docs from another period are never read as this
+   *  one's: right after a period change `marks` still holds the previous
+   *  period's until the new snapshot lands. */
   const byGroup = useMemo(() => {
     const out: Record<string, Record<string, GradeMarks>> = {};
-    for (const m of marks) (out[m.groupKey] ??= {})[m.studentId] = m;
+    for (const m of marks) if (m.periodId === periodId) (out[m.groupKey] ??= {})[m.studentId] = m;
     return out;
-  }, [marks]);
+  }, [marks, periodId]);
 
   /**
    * Merge a patch onto one student's record. `setDoc(..., { merge: true })`

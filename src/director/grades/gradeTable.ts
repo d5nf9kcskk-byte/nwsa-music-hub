@@ -163,11 +163,10 @@ export function buildTable(i: TableInput): TableModel {
     if (c.kind === 'out') p.out = true; else p.in = true;
     scans.set(k, p);
   }
-  const rollMarks = new Map<string, string>();                                // `${eventId}|${studentId}` → status
-  if (ensembleId) {
-    for (const r of i.records) {
-      if (r.ensembleId === ensembleId && r.eventId) rollMarks.set(`${r.eventId}|${r.studentId}`, r.status);
-    }
+  // A concert's roll is one per (concert × ensemble), so the key carries the ensemble.
+  const rollMarks = new Map<string, string>();                                // `${eventId}|${studentId}|${ensembleId}` → status
+  for (const r of i.records) {
+    if (r.eventId) rollMarks.set(`${r.eventId}|${r.studentId}|${r.ensembleId}`, r.status);
   }
   const resultScore = new Map<string, unknown>();                             // `${assignmentId}|${studentId}`
   for (const r of i.results) resultScore.set(`${r.assignmentId}|${r.studentId}`, r.score);
@@ -177,8 +176,14 @@ export function buildTable(i: TableInput): TableModel {
   const attendance = ensembleId ? attendanceByStudent(i.records, ensembleId, span, concertIds) : {};
   const meetings = ensembleId ? meetingsHeld(events, ensembleId, span) : 0;
 
+  // A concert is a Concert — or any event marked Required, as the Gradebook has
+  // always counted (an Event-typed item can carry the flag and a door station,
+  // and the student's own tally counts its scans whatever its type).
+  const isConcertLike = (e: CalendarEvent) => e.type === 'Concert' || e.concertAttendance === 'required';
+  const inSpan = (date: string) => date >= span.from && date <= span.through;
+
   const concertsInSpan = events
-    .filter(e => e.type === 'Concert' && e.status !== 'Cancelled' && e.date >= span.from && e.date <= span.through)
+    .filter(e => isConcertLike(e) && e.status !== 'Cancelled' && inSpan(e.date))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const windowExamList = ensembleId
@@ -201,21 +206,43 @@ export function buildTable(i: TableInput): TableModel {
       ? 'required' : 'other';
   }
 
+  /**
+   * One student's live number for one concert. Blank (null) is never a zero:
+   *   • a cancelled concert says nothing about anyone;
+   *   • someone in the AUDIENCE is only measurable when the concert is marked
+   *     Required, because the Required flag is what turns on the door check-in —
+   *     with no station there is no scan to find, and "no scan" must not read as
+   *     "did not come".
+   */
   function liveConcert(student: Student, ev: CalendarEvent): number | null {
+    if (ev.status === 'Cancelled') return null;
     const role = concertRole(student, ev);
     if (role === null) return null;
+    if (role === 'audience' && ev.concertAttendance !== 'required') return null;
     const named = (ev.attendanceStudentIds ?? []).includes(student.id);
     const excused = (role !== 'performer' && !named && gradeExcusedFromAudience(student.grade, ev))
       || i.pulledFrom(student, ev);
     const scan = scans.get(`${ev.id}|${student.id}`);
-    const rolled = !!(ensembleId && ev.rollTaken?.[ensembleId]);
+
+    // A performer's roll is the one their OWN director took: this table's group
+    // when it plays on the concert, otherwise the groups the student plays with
+    // there (a drummer in two groups is on the other group's roll at ITS concert).
+    // Reading only this table's group made the two district tables disagree about
+    // one student at one concert.
+    const rollGroups = role !== 'performer' ? []
+      : ensembleId && ev.ensembleIds?.includes(ensembleId) ? [ensembleId]
+        : (ev.ensembleIds ?? []).filter(e => student.ensembleIds?.includes(e));
+    const rolled = rollGroups.some(e => !!ev.rollTaken?.[e]);
+    const marks = rollGroups.map(e => rollMarks.get(`${ev.id}|${student.id}|${e}`));
+    const status = marks.includes('Absent') ? 'Absent' : marks.includes('Excused') ? 'Excused' : marks.find(Boolean);
+
     return concertScore({
       role,
       excused,
       hasIn: !!scan?.in,
       hasOut: !!scan?.out,
       entryOnly: !!ev.checkin?.entryOnly,
-      roll: concertRoll(rolled, rollMarks.get(`${ev.id}|${student.id}`)),
+      roll: concertRoll(rolled, status),
     });
   }
 
@@ -234,7 +261,8 @@ export function buildTable(i: TableInput): TableModel {
       const ev = eventsById.get(p.id);
       columns.push({
         key, kind: 'concert', categoryId: concertCat.id, refId: p.id,
-        label: ev ? concertLabel(ev) : 'Deleted concert', date: ev?.date ?? '',
+        label: ev ? `${concertLabel(ev)}${ev.status === 'Cancelled' ? ' (cancelled)' : ''}` : 'Deleted concert',
+        date: ev?.date ?? '',
       });
     } else if (p.kind === 'exam') {
       if (!examCat) continue;
@@ -288,11 +316,17 @@ export function buildTable(i: TableInput): TableModel {
     for (const col of columns) {
       if (col.kind === 'tally') { counts[col.key] = tallyCount(stored[col.key]); continue; }
       const typed = gradeValue(stored[col.key]);
+      // A linked column follows the Hub only inside the report's window: an
+      // interim "as of" an earlier date must not already hold a concert that had
+      // not happened or an exam not yet due (the live fallback already works that
+      // way). A number TYPED into such a cell still counts.
       let live: number | null = null;
-      if (col.kind === 'exam' && col.refId) live = liveExam(student.id, col.refId);
-      else if (col.kind === 'concert' && col.refId) {
+      if (col.kind === 'exam' && col.refId) {
+        const a = assignmentsById.get(col.refId);
+        live = a && inSpan(a.dueDate) ? liveExam(student.id, col.refId) : null;
+      } else if (col.kind === 'concert' && col.refId) {
         const ev = eventsById.get(col.refId);
-        live = ev ? liveConcert(student, ev) : null;
+        live = ev && inSpan(ev.date) ? liveConcert(student, ev) : null;
       }
       cells[col.key] = { typed, live, value: typed ?? live };
     }
@@ -353,7 +387,7 @@ export function buildTable(i: TableInput): TableModel {
 
   const concertOptions: ConcertOption[] = concertCat
     ? events
-      .filter(e => e.type === 'Concert' && e.status !== 'Cancelled'
+      .filter(e => isConcertLike(e) && e.status !== 'Cancelled'
         && e.date >= period.start && e.date <= offerThrough && !have.has(itemKey('concert', e.id)))
       .sort((a, b) => a.date.localeCompare(b.date))
       .map(event => ({ event, relation: groupRelation(event) }))
@@ -362,7 +396,7 @@ export function buildTable(i: TableInput): TableModel {
   const examOptions: ExamOption[] = examCat && ensembleId
     ? assignments
       .filter(a => a.ensembleIds?.includes(ensembleId)
-        && a.dueDate >= period.start && a.dueDate <= period.end && !have.has(itemKey('exam', a.id)))
+        && a.dueDate >= period.start && a.dueDate <= offerThrough && !have.has(itemKey('exam', a.id)))
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
       .map(graded)
     : [];

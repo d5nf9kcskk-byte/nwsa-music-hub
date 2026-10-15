@@ -292,4 +292,72 @@ const tSenior = table({
 assert(row(tSenior, 's3').cells[itemKey('concert', 'senior-perf')].value === 100,
   'a senior excused from an AUDIENCE requirement still plays when they perform on it');
 
+/* ── 9. What an independent review found ─────────────────────────────── */
+
+// (a) A drummer in two groups: the roll that counts at the Wind concert is the
+// Wind roll, on EITHER group's table. Reading only the table's own group made
+// the two district tables disagree about one student at one concert.
+const WIND = 'wind';
+const windGig = ev('wind-gig', '2026-09-30', { ensembleIds: [WIND], rollTaken: { [WIND]: { at: 1, absent: 1 } } } as Partial<CalendarEvent>);
+const drummer2 = student('drummer2', [SYM, WIND]);
+const windAbsent = [{ id: 'w1', studentId: 'drummer2', ensembleId: WIND, eventId: 'wind-gig', date: '2026-09-30', status: 'Absent' }] as unknown as AttendanceRecord[];
+const gigKey = itemKey('concert', 'wind-gig');
+const dual = {
+  events: [...events, windGig],
+  records: [...records, ...windAbsent],
+  roster: [{ student: drummer2, instrument: 'Percussion' }],
+  marks: { drummer2: { scores: { [gigKey]: null } } },
+};
+assert(row(table(dual), 'drummer2').cells[gigKey].live === 0,
+  'marked Absent on the Wind roll: a zero on the Symphony table, where the drummer is also a member');
+assert(row(buildTable({ ...base, ...dual, ensembleId: WIND }), 'drummer2').cells[gigKey].live === 0,
+  'and the same zero on the Wind table — the two district tables cannot disagree about one student at one concert');
+
+// (b) A cancelled concert says nothing about anyone, and its column says so.
+const cancelledKey = itemKey('concert', 'cancelled');
+const tCancelled = table({ marks: { s1: { scores: { [cancelledKey]: null } } } });
+assert(row(tCancelled, 's1').cells[cancelledKey].live === null,
+  'a column for a concert that was later cancelled reads blank — never 100 for a performer, never 0 for the audience');
+assert(tCancelled.columns[0].label.includes('(cancelled)'), 'and its heading says it was cancelled');
+assert(row(tCancelled, 's1').cats.concerts.value === null, 'so it adds nothing to the box');
+
+// (c) The Gradebook has always counted any event marked Required, whatever its type.
+const assembly = { id: 'assembly', type: 'Event', ensembleIds: [], attendanceEnsembleIds: [SYM], date: '2026-09-17', status: 'Scheduled', concertAttendance: 'required', checkin: { enabled: true } } as unknown as CalendarEvent;
+const club = { id: 'club', type: 'Event', ensembleIds: [SYM], date: '2026-09-18', status: 'Scheduled' } as unknown as CalendarEvent;
+const tEvent = table({ events: [...events, assembly, club] });
+assert(tEvent.requiredConcerts.some(e => e.id === 'assembly')
+  && tEvent.concertOptions.find(o => o.event.id === 'assembly')?.relation === 'required',
+  'an Event-typed item marked Required still counts and is still offered (the student\'s own tally counts its scans too)');
+assert(!tEvent.requiredConcerts.some(e => e.id === 'club') && !tEvent.concertOptions.some(o => o.event.id === 'club'),
+  'while an ordinary unflagged Event is not a concert at all');
+
+// (d) A column respects the report's "as of" date, like the live fallback does.
+const ex3 = exam('ex3', '2026-10-10');
+const tInterim = table({
+  span: { from: '2026-08-13', through: '2026-10-01' },
+  assignments: [...assignments, ex3],
+  marks: {
+    s1: { scores: { [itemKey('concert', 'ball')]: null, [itemKey('concert', 'fest')]: null, [itemKey('exam', 'ex2')]: null } },
+    s2: { scores: { [itemKey('concert', 'ball')]: 77 } },
+  },
+});
+assert(row(tInterim, 's1').cells[itemKey('concert', 'ball')].live === null
+  && row(tInterim, 's1').cells[itemKey('concert', 'fest')].live === null,
+  'an interim as of Oct 1 does not already hold the Oct 3 and Oct 6 concerts');
+assert(row(tInterim, 's1').cells[itemKey('exam', 'ex2')].live === 80, 'but an exam due before the cutoff is live');
+assert(row(tInterim, 's2').cells[itemKey('concert', 'ball')].value === 77,
+  'and a number TYPED into a cell past the cutoff is still the director\'s number');
+assert(!tInterim.examOptions.some(o => o.assignment.id === 'ex3')
+  && table({ assignments: [...assignments, ex3] }).examOptions.some(o => o.assignment.id === 'ex3'),
+  'the exam menu stops at the cutoff the way the concert menu does');
+
+// (e) Someone in the AUDIENCE is measurable only when the concert is marked Required.
+const unflagged = ev('aud-unflagged', '2026-09-12', { ensembleIds: [CCO], attendanceEnsembleIds: [SYM] } as Partial<CalendarEvent>);
+const unflaggedKey = itemKey('concert', 'aud-unflagged');
+const tAudience = table({ events: [...events, unflagged], marks: { s1: { scores: { [unflaggedKey]: null } } } });
+assert(row(tAudience, 's1').cells[unflaggedKey].live === null,
+  'no Required flag means no door station, so "no scan" is blank — it must not read as "did not come"');
+assert(row(table({ marks: { s2: { scores: { [itemKey('concert', 'recital')]: null } } } }), 's2').cells[itemKey('concert', 'recital')].live === 0,
+  'while a Required concert with no scan is a real zero');
+
 console.log('gradeTable self-check: ok');

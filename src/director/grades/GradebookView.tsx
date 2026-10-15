@@ -164,15 +164,21 @@ export function GradebookView() {
     grading?.reports.find(r => r.id === reportId) ?? grading?.reports[0];
 
   /* ── everything the evidence is read from ───────────────────────────── */
-  const { students } = useStudents();
-  const { events } = useEvents();
-  const { records } = useAllAttendance();
-  const { checkins } = useConcertCheckins();
-  const { overrides } = useRosterOverrides();
-  const { assignments } = useAssignments();
-  const { results } = useAllAssignmentResults();
-  const { lessons } = useLessons();
-  const { byGroup, saveMark, saveScore, writeCells } = useGradeMarks(period?.id ?? '');
+  const { students, loading: studentsLoading } = useStudents();
+  const { events, loading: eventsLoading } = useEvents();
+  const { records, loading: recordsLoading } = useAllAttendance();
+  const { checkins, loading: checkinsLoading } = useConcertCheckins();
+  const { overrides, loading: overridesLoading } = useRosterOverrides();
+  const { assignments, loading: assignmentsLoading } = useAssignments();
+  const { results, loading: resultsLoading } = useAllAssignmentResults();
+  const { lessons, loading: lessonsLoading } = useLessons();
+  const { byGroup, loading: marksLoading, saveMark, saveScore, writeCells } = useGradeMarks(period?.id ?? '');
+
+  /** Every record the numbers are built from. Until all eight listeners have
+   *  answered, a table is incomplete — a missing check-in reads as a concert
+   *  not attended — so nothing that WRITES from it or COPIES it may run. */
+  const loadingRecords = studentsLoading || eventsLoading || recordsLoading || checkinsLoading
+    || overridesLoading || assignmentsLoading || resultsLoading || lessonsLoading || marksLoading;
 
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
   const pulledFrom = useCallback(
@@ -383,13 +389,18 @@ export function GradebookView() {
   /* ── what is counting, in words ─────────────────────────────────────── */
   const examCols = model.columns.filter(c => c.kind === 'exam');
   const concertCols = model.columns.filter(c => c.kind === 'concert');
-  const requiredIds = new Set(model.requiredConcerts.map(e => e.id));
-  const windowExamIds = new Set(model.windowExams.map(o => o.assignment.id));
+  const columnKeys = new Set(model.columns.map(c => c.key));
+  // What SHOULD be counting but is not. Until a box has columns of its own every
+  // expected exam and concert counts by itself, so nothing is left out; after,
+  // only the expected ones missing from the columns are named. Optional concerts,
+  // written tests and exams past the cutoff are never nagged: following the nudge
+  // must never LOWER a grade for something that was not required.
   const examsLeftOut = examCols.length > 0
-    ? model.examOptions
-    : model.examOptions.filter(o => !windowExamIds.has(o.assignment.id));
-  const concertsLeftOut = model.concertOptions.filter(o =>
-    o.relation !== 'other' && (concertCols.length > 0 || !requiredIds.has(o.event.id)));
+    ? model.windowExams.filter(o => !columnKeys.has(itemKey('exam', o.assignment.id)))
+    : [];
+  const concertsLeftOut = concertCols.length > 0
+    ? model.requiredConcerts.filter(ev => !columnKeys.has(itemKey('concert', ev.id)))
+    : [];
   const ownColumns = model.columns.filter(c => c.kind === 'custom' || c.kind === 'tally');
   const catLabel = (id: string) => plan.find(c => c.id === id)?.label ?? id;
 
@@ -456,6 +467,13 @@ export function GradebookView() {
         </div>
       )}
 
+      {loadingRecords && (
+        <div className="dir-gb-nudge" role="status">
+          Loading the Hub’s records… the numbers below can change for a moment, so Fill, Follow the
+          Hub, Add column and the email wait until everything has arrived.
+        </div>
+      )}
+
       <div className="dir-gb-note">
         Covering {reportSpan.label}, from <b>{period.start}</b> through <b>{reportSpan.through}</b>.
         {' '}A report covers the whole quarter so far, never only the weeks since the last one.
@@ -492,6 +510,7 @@ export function GradebookView() {
         canLinkExams={!!examCat && !!ensembleId}
         canLinkConcerts={!!concertCat && !!ensembleId}
         existing={model.columns}
+        disabled={loadingRecords}
         onAdd={addColumns}
       />
 
@@ -525,6 +544,7 @@ export function GradebookView() {
                   {' '}Not counting yet: {examsLeftOut.map(o => o.assignment.title).join(', ')}.{' '}
                   <button
                     className="dir-gb-inline"
+                    disabled={loadingRecords}
                     onClick={() => void addColumns(examsLeftOut.map(o => itemKey('exam', o.assignment.id)))}
                   >
                     Add {examsLeftOut.length === 1 ? 'it' : `all ${examsLeftOut.length}`} as a column
@@ -546,10 +566,11 @@ export function GradebookView() {
                     roll marks them absent; someone in the audience is credited by the door check-in.</>}
               {concertsLeftOut.length > 0 && (
                 <span className="dir-gb-warn">
-                  {' '}Not counting yet: {concertsLeftOut.map(o => concertLabel(o.event)).join('; ')}.{' '}
+                  {' '}Not counting yet: {concertsLeftOut.map(ev => concertLabel(ev)).join('; ')}.{' '}
                   <button
                     className="dir-gb-inline"
-                    onClick={() => void addColumns(concertsLeftOut.map(o => itemKey('concert', o.event.id)))}
+                    disabled={loadingRecords}
+                    onClick={() => void addColumns(concertsLeftOut.map(ev => itemKey('concert', ev.id)))}
                   >
                     Add {concertsLeftOut.length === 1 ? 'it' : `all ${concertsLeftOut.length}`} as a column
                   </button>
@@ -592,6 +613,7 @@ export function GradebookView() {
                     {fillable(c) && (
                       <button
                         className="dir-gb-fill"
+                        disabled={loadingRecords}
                         onClick={() => void fill([c])}
                         title={`Start every empty box in this column at ${c.fillWith ?? 100}, then adjust down`}
                       >
@@ -601,6 +623,7 @@ export function GradebookView() {
                     {pinned > 0 && (
                       <button
                         className="dir-gb-fill"
+                        disabled={loadingRecords}
                         onClick={() => void followHub(c)}
                         title={c.suggest
                           ? 'Replace the numbers you typed in this box with the Hub’s live ones'
@@ -620,6 +643,7 @@ export function GradebookView() {
                       </div>
                       <button
                         className="dir-gb-fill"
+                        disabled={loadingRecords}
                         onClick={() => void removeColumn(col)}
                         title="Remove this column"
                       >
@@ -759,6 +783,7 @@ export function GradebookView() {
                               />
                               <button
                                 className="dir-gb-plus"
+                                disabled={loadingRecords}
                                 title={`One more: ${col.label}`}
                                 aria-label={`Add one ${col.label} for ${r.student.name}`}
                                 onClick={() => void writeCells(groupKey, [{
@@ -895,10 +920,10 @@ export function GradebookView() {
             : <><b>{notReady.length}</b> of {rows.length} rows still need something: {summarize(notReady)}.</>}
         </div>
         <div className="dir-gb-actions">
-          <button className="dir-tool-btn" onClick={() => void fill(plan.filter(fillable))}>
+          <button className="dir-tool-btn" disabled={loadingRecords} onClick={() => void fill(plan.filter(fillable))}>
             <Wand2 size={14} /> Fill every empty judgement box
           </button>
-          <button className="dir-tool-btn" onClick={() => setShowEmail(s => !s)}>
+          <button className="dir-tool-btn" disabled={loadingRecords} onClick={() => setShowEmail(s => !s)}>
             {showEmail ? 'Hide the email' : 'Build the email'}
           </button>
         </div>
@@ -910,7 +935,7 @@ export function GradebookView() {
             <span className="dir-gb-label">Subject</span>
             <code>{subject}</code>
           </div>
-          <button className="dir-tool-btn dir-gb-copy" onClick={() => void copyEmail()}>
+          <button className="dir-tool-btn dir-gb-copy" disabled={loadingRecords} onClick={() => void copyEmail()}>
             {copied
               ? <><Check size={14} /> Copied</>
               : <><ClipboardCopy size={14} /> Copy all {tables.length} tables</>}

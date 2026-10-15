@@ -32,6 +32,9 @@ interface Props {
   canLinkExams: boolean;
   canLinkConcerts: boolean;
   existing: GradeColumn[];
+  /** The records behind the table are still arriving — adding a column writes
+   *  for the roster, and a half-loaded roster would write for half of it. */
+  disabled?: boolean;
   /** Add these column keys (each one a `null` marker for the roster). */
   onAdd: (keys: string[]) => Promise<void>;
 }
@@ -42,7 +45,7 @@ const md = (iso: string) => {
 };
 
 export function AddColumnBar({
-  plan, groupTitle, concertOptions, examOptions, canLinkExams, canLinkConcerts, existing, onAdd,
+  plan, groupTitle, concertOptions, examOptions, canLinkExams, canLinkConcerts, existing, disabled, onAdd,
 }: Props) {
   const first: What = canLinkExams ? 'exam' : canLinkConcerts ? 'concert' : 'own';
   const [what, setWhat] = useState<What>(first);
@@ -181,7 +184,7 @@ export function AddColumnBar({
         </>
       )}
 
-      <button className="dir-tool-btn" type="submit" disabled={busy}>
+      <button className="dir-tool-btn" type="submit" disabled={busy || disabled}>
         <Plus size={14} /> {busy ? 'Adding…' : 'Add column'}
       </button>
       {error && <span className="dir-gb-adderr" role="alert">{error}</span>}

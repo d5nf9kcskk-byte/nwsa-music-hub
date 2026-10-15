@@ -146,6 +146,7 @@ export function useAllAttendance() {
     const q = query(collection(db, 'attendance'));
     return watchCollection(q, 'attendance', snap => {
       setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord)));
+      setLoading(false);
     }, () => setLoading(false));
   }, []);
 

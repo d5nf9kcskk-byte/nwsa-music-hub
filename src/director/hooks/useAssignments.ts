@@ -22,6 +22,7 @@ export function useAssignments() {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Assignment));
       list.sort((a, b) => b.dueDate.localeCompare(a.dueDate));
       setAssignments(list);
+      setLoading(false);
     }, () => setLoading(false));
   }, []);
 

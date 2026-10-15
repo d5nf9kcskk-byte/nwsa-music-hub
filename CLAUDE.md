@@ -1217,6 +1217,24 @@ in `.github/actions/self-checks`.
   `scansCredited`) 100, one scan 50, none 0, a performer 100 unless the roll
   marked them Absent, and BLANK — never zero — for a concert that is not theirs,
   an excusal, or Absent (Excused).
+  Four more rules, each found by an independent review of the first version
+  (`gradeTable.selfcheck.ts` §9 pins them): a linked column follows the Hub only
+  INSIDE the report's window (a concert dated after the "As of" date, or an exam
+  due after it, is blank — a typed number there still counts) and the Add menus
+  stop at the same cutoff; a CANCELLED concert's column is blank and says
+  "(cancelled)"; someone in the AUDIENCE is measurable only when the concert is
+  marked Required (no Required flag means no door station, and "no scan" must not
+  read as "did not come"); and a performer's roll is read from the group whose
+  concert it is — the table's own group when it plays, else the groups the
+  student plays with there — so two district tables never disagree about one
+  student at one concert. Any event marked Required counts whatever its type.
+- **The screen waits for its records.** Numbers are built from eight listeners
+  (students, events, roll, check-ins, overrides, assignments, results, lessons)
+  plus `gradeMarks`; until all have answered a table is incomplete (a missing
+  check-in reads as a concert not attended), so Fill, Follow the Hub, Add/Remove
+  column, +1 and the email are disabled behind a "Loading" banner.
+  `useGradeMarks` keeps the previous period's docs until the new snapshot lands,
+  so it excludes them and reports `loading` meanwhile.
 - **Which concerts are required of a student** is `concertRole()` /
   `concertRequiredOf()`, reading the same three lists `studentExpectation` uses
   for a student's schedule: a PERFORMER is required unless the concert is marked
