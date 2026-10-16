@@ -1,8 +1,10 @@
-import { Pin, Megaphone, Link2 as LinkIcon, Paperclip } from 'lucide-react';
+import { useState } from 'react';
+import { Pin, Megaphone, ChevronDown, ChevronUp, Link2 as LinkIcon, Paperclip } from 'lucide-react';
 import { Link } from 'react-router';
 import { ensembleColor, ensembleDisplayName } from '../../director/utils';
 import type { Announcement, Ensemble } from '../../director/types';
 import { NotesText } from './NotesText';
+import { ClampedText } from '../../shared/ClampedText';
 import { t, useLang } from '../../shared/i18n';
 import { fmtMonthDay } from '../../shared/dates';
 import { announcementPictures, announcementDownloads } from '../../shared/announcementMedia';
@@ -21,16 +23,23 @@ interface Props {
   /** When false, the ensemble tag is hidden (already on that ensemble's page). */
   showEnsembleTag?: boolean;
   title?: string;
+  /** Home pages: show this many, the rest behind a "Show N more" toggle, and
+   *  clamp long bodies to a few lines with "Read more". */
+  collapseAfter?: number;
 }
 
 /** Public announcement list. Renders nothing when there are no items. */
-export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, title = 'Announcements' }: Props) {
+export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, title = 'Announcements', collapseAfter }: Props) {
   useLang(); // re-render when the EN/ES toggle flips (chrome strings only)
+  const [expanded, setExpanded] = useState(false);
   if (items.length === 0) return null;
+  const hidden = collapseAfter != null && !expanded ? Math.max(0, items.length - collapseAfter) : 0;
+  const shown = hidden ? items.slice(0, collapseAfter) : items;
+  const canCollapse = collapseAfter != null && items.length > collapseAfter;
   return (
     <>
       {title && <h2 className="pub-section-title"><Megaphone size={14} style={{ verticalAlign: '-2px', marginRight: 5 }} />{title === 'Announcements' ? t('nav.announcements') : title}</h2>}
-      {items.map(a => {
+      {shown.map(a => {
         const ens = a.ensembleId ? ensembleMap[a.ensembleId] : undefined;
         const showTitle = a.title;
         const showBody = a.body;
@@ -54,7 +63,9 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
                 <span className="pub-announce-tag pub-announce-tag-all">{t('announce.all')}</span>
               )}
             </div>
-            {showBody && <div className="pub-announce-body"><NotesText text={showBody} /></div>}
+            {showBody && (collapseAfter != null
+              ? <ClampedText className="pub-announce-body" moreLabel={t('announce.readMore')} lessLabel={t('announce.showLess')}><NotesText text={showBody} /></ClampedText>
+              : <div className="pub-announce-body"><NotesText text={showBody} /></div>)}
             {pictures.length ? (
               <div className="pub-announce-images">
                 {pictures.map((img, i) => (
@@ -97,6 +108,13 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
           </div>
         );
       })}
+      {canCollapse && (
+        <button type="button" className="clamped-text-toggle pub-announce-more" onClick={() => setExpanded(e => !e)} aria-expanded={expanded}>
+          {expanded
+            ? <><ChevronUp size={14} /> {t('announce.showFewer')}</>
+            : <><ChevronDown size={14} /> {t('announce.showMore', { n: hidden })}</>}
+        </button>
+      )}
     </>
   );
 }

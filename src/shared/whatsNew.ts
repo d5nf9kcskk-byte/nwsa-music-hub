@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Announcements first on both home pages (#announcements-first).
+  {
+    id: '2026-10-16-announcements-first',
+    date: '2026-10-16',
+    title: 'Announcements are now at the top of Home',
+    audience: 'both' as const,
+    bullets: [
+      'Announcements are the first thing on the home page and on Today, including ensemble announcements.',
+      'Two show at a time. Tap "Show more" for the rest, and "Read more" to open a long one.',
+    ],
+    expires: '2026-10-30',
+  },
   // Part books on a concert (#part-books): one PDF per player, whole program.
   {
     id: '2026-10-15-part-books',

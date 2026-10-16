@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { ClipboardList, MapPin, Clock, Music, GraduationCap, CalendarPlus, Users, Megaphone, ChevronRight, Plus, MessageSquarePlus, UserCog, Pencil } from 'lucide-react';
+import { ClipboardList, MapPin, Clock, Music, GraduationCap, CalendarPlus, Users, Megaphone, ChevronRight, ChevronDown, ChevronUp, Plus, MessageSquarePlus, UserCog, Pencil } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
-import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../hooks/useAnnouncements';
+import { useAnnouncements, visibleAnnouncements, useMinuteTick, homeAnnouncementOrder } from '../hooks/useAnnouncements';
 import { useStaffNotices, activeNotices } from '../hooks/useStaffNotices';
 import { useAllAttendance } from '../hooks/useAttendance';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -22,6 +22,7 @@ import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
 import { NotesText } from '../../public/components/NotesText';
 import { EnsembleFilter } from '../components/EnsembleFilter';
+import { ClampedText } from '../../shared/ClampedText';
 import { AnnouncementPreview } from '../announcements/AnnouncementPreview';
 import { composerBirthdaysOn, birthdayLine, musicHolidayOn } from '../../shared/whimsy';
 import { DIRECTOR_FEEDBACK_FORM_URL } from '../feedbackForm';
@@ -115,11 +116,12 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
 
   // Every ensemble's announcements, whatever the picker above says: a director
   // sees the same posts the student site shows (the picker narrows the day's
-  // schedule, not what was announced). Three at a time, the rest one tap away.
+  // schedule, not what was announced). Two at a time, the rest one tap away,
+  // and they sit at the very top of Today.
   const allAnnouncements = useMemo(
-    () => visibleAnnouncements(announcements, today, 'all', now),
+    () => homeAnnouncementOrder(visibleAnnouncements(announcements, today, 'all', now)),
     [announcements, today, now]);
-  const homeAnnouncements = showAllAnn ? allAnnouncements : allAnnouncements.slice(0, 3);
+  const homeAnnouncements = showAllAnn ? allAnnouncements : allAnnouncements.slice(0, 2);
 
   const lessonsToday = useMemo(() =>
     overrides
@@ -189,6 +191,40 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
           <div className="dir-today-birthday">{musicHolidayOn(new Date(), 'en')}</div>
         )}
       </div>
+
+      {/* Announcements: first thing on Today, two at a time. */}
+      {homeAnnouncements.length > 0 && (
+        <div className="dir-page-body dir-today-announce">
+          <div className="dir-section-head">
+            <span><Megaphone size={14} /> Announcements</span>
+            <button className="dir-link-btn" onClick={() => onNavigate('announcements')}>Manage</button>
+          </div>
+          {homeAnnouncements.map(a => (
+            <div key={a.id} className="dir-ens-row dir-announce-full" onClick={() => setPreviewingAnn(a)}>
+              <span className="dir-ens-swatch" style={{ background: a.ensembleId ? ensembleColor(ensembleMap[a.ensembleId]) : '#64748b' }} />
+              <div className="dir-ens-info">
+                <div className="dir-ens-name">{a.pinned ? '📌 ' : ''}{a.title}</div>
+                {a.body && <ClampedText className="dir-announce-body"><NotesText text={a.body} /></ClampedText>}
+                <div className="dir-ens-sub">
+                  {a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide'}
+                </div>
+              </div>
+              <button
+                className="dir-icon-btn"
+                onClick={e => { e.stopPropagation(); onNavigate('announcements', { announcementId: a.id }); }}
+                aria-label="Edit announcement"
+              >
+                <Pencil size={16} />
+              </button>
+            </div>
+          ))}
+          {allAnnouncements.length > 2 && (
+            <button className="dir-link-btn" onClick={() => setShowAllAnn(s => !s)}>
+              {showAllAnn ? <><ChevronUp size={14} /> Show fewer</> : <><ChevronDown size={14} /> Show {allAnnouncements.length - 2} more</>}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Student-move notices (#two-doors §5.1): shown until each staff
           member dismisses their copy, and hidden once the move is past. */}
@@ -306,41 +342,6 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
             🔔 {followUps.length} unexcused absence{followUps.length !== 1 ? 's' : ''} this week — review
           </button>
         )}
-
-        {/* Announcements */}
-        {homeAnnouncements.length > 0 && (
-          <>
-            <div className="dir-section-head">
-              <span><Megaphone size={14} /> Announcements</span>
-              <button className="dir-link-btn" onClick={() => onNavigate('announcements')}>Manage</button>
-            </div>
-            {homeAnnouncements.map(a => (
-              <div key={a.id} className="dir-ens-row dir-announce-full" onClick={() => setPreviewingAnn(a)}>
-                <span className="dir-ens-swatch" style={{ background: a.ensembleId ? ensembleColor(ensembleMap[a.ensembleId]) : '#64748b' }} />
-                <div className="dir-ens-info">
-                  <div className="dir-ens-name">{a.pinned ? '📌 ' : ''}{a.title}</div>
-                  {a.body && <div className="dir-announce-body"><NotesText text={a.body} /></div>}
-                  <div className="dir-ens-sub">
-                    {a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide'}
-                  </div>
-                </div>
-                <button
-                  className="dir-icon-btn"
-                  onClick={e => { e.stopPropagation(); onNavigate('announcements', { announcementId: a.id }); }}
-                  aria-label="Edit announcement"
-                >
-                  <Pencil size={16} />
-                </button>
-              </div>
-            ))}
-            {allAnnouncements.length > 3 && (
-              <button className="dir-link-btn" onClick={() => setShowAllAnn(s => !s)}>
-                {showAllAnn ? 'Show fewer' : `Show all ${allAnnouncements.length}`}
-              </button>
-            )}
-          </>
-        )}
-
 
         {/* Quick actions */}
         <div className="dir-today-quick">

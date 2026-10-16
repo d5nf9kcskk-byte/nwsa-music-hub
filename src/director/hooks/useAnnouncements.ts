@@ -143,6 +143,17 @@ export function visibleAnnouncements(
 }
 
 /**
+ * Order for the top of a home page: urgent first, then pinned, then
+ * school-wide, otherwise as given — so the two shown before "Show more" are
+ * the two that matter most.
+ */
+export function homeAnnouncementOrder(list: Announcement[]): Announcement[] {
+  const rank = (a: Announcement) =>
+    a.priority === 'urgent' ? 0 : a.pinned ? 1 : a.ensembleId === null ? 2 : 3;
+  return [...list].sort((a, b) => rank(a) - rank(b));
+}
+
+/**
  * Re-renders the caller every ~30s and returns the current epoch ms — so a
  * scheduled announcement pops in (and its "Scheduled" chip flips) while the
  * page is open, not just on the next reload.

@@ -353,6 +353,10 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
 
   // ── Announcement cards ──────────────────────────────────────────────────
   'announce.all':         { en: 'All',              es: 'Todos' },
+  'announce.readMore':    { en: 'Read more',        es: 'Leer más' },
+  'announce.showLess':    { en: 'Show less',        es: 'Ver menos' },
+  'announce.showMore':    { en: 'Show {n} more',    es: 'Ver {n} más' },
+  'announce.showFewer':   { en: 'Show fewer',       es: 'Ver menos' },
 
   // ── Subscribe-to-calendar wizard ────────────────────────────────────────
   'sub.thisCalendar': { en: 'Subscribe to this calendar', es: 'Suscribirse a este calendario' },

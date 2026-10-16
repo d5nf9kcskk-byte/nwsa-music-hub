@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { CalendarDays, UserSearch, Megaphone, Music, ChevronRight, Ticket, HelpCircle, Music2, AlertTriangle } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { usePublicEvents } from './hooks/usePublicEvents';
-import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
+import { useAnnouncements, visibleAnnouncements, useMinuteTick, homeAnnouncementOrder } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { todayStr, formatTimeRange, ensembleColor, ensembleDisplayName, addDays, assignmentEmoji, highSchoolEnsembles, collegeEnsembles, isAssignmentOpen, byDueDateOpenFirst, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
@@ -89,7 +89,10 @@ export function PublicHome() {
   );
 
   const homeAnnouncements = useMemo(
-    () => visibleAnnouncements(announcements, today, 'all', now).filter(a => a.ensembleId === null || a.pinned),
+    // Every group's posts, not only school-wide ones: announcements are the
+    // first thing on this page, and an ensemble post that only shows on the
+    // ensemble's own page is one most students never see.
+    () => homeAnnouncementOrder(visibleAnnouncements(announcements, today, 'all', now)),
     [announcements, today, now],
   );
 
@@ -108,11 +111,6 @@ export function PublicHome() {
 
   return (
     <div className="pub-page">
-      <WelcomeHubBanner />
-      {/* Open sign-ups this device hasn't answered yet (#signups) — stays at
-          the top: a sign-up with a next-day deadline is the one thing on this
-          page that expires. What's New lives in the public menu (PublicLayout). */}
-      <SignupAlert />
       <div
         className="pub-hero pub-hero-fancy"
         onPointerDown={onHeroHoldStart}
@@ -123,6 +121,16 @@ export function PublicHome() {
         <div className="pub-hero-date" onClick={onDateTap}>{fmtLongDate(today)}</div>
         <h1><Music2 size={22} style={{ verticalAlign: '-3px' }} /> {t('home.todayAt')}</h1>
       </div>
+
+      {/* Announcements are the first thing on the page — two, the rest one
+          tap away, long ones folded to a few lines. */}
+      <PubAnnouncements items={homeAnnouncements} ensembleMap={ensembleMap} collapseAfter={2} />
+
+      <WelcomeHubBanner />
+      {/* Open sign-ups this device hasn't answered yet (#signups) — stays at
+          the top: a sign-up with a next-day deadline is the one thing on this
+          page that expires. What's New lives in the public menu (PublicLayout). */}
+      <SignupAlert />
 
       {showPinnedHubGuide(today) && <PinnedHubGuide />}
 
@@ -162,8 +170,6 @@ export function PublicHome() {
           />
         </div>
       )}
-
-      <PubAnnouncements items={homeAnnouncements} ensembleMap={ensembleMap} />
 
       {loading ? (
         <SkeletonCards n={3} />
