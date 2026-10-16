@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { NotesText } from './components/NotesText';
+import { soloistLine } from '../shared/soloistLine';
 import { useParams, Link } from 'react-router';
 import { ExternalLink, Clock, FileText, Video, Headphones, BookOpen, Armchair, Copy } from 'lucide-react';
 import { BackLink } from './components/BackLink';
@@ -92,12 +93,8 @@ export function PublicPiece() {
           {piece.composerDates && ` (${piece.composerDates})`}
           {piece.arranger && ` · arr. ${piece.arranger}`}
         </div>
-        {(piece.soloistName || piece.soloistInstrument) && (
-          <div className="pub-ghero-meta">
-            {piece.soloistName}
-            {piece.soloistName && piece.soloistInstrument ? ', ' : ''}
-            {piece.soloistInstrument}
-          </div>
+        {soloistLine(piece) && (
+          <div className="pub-ghero-meta">{soloistLine(piece)}</div>
         )}
       </GradientHero>
       <div className="pub-piece-meta-row" style={{ marginTop: -8, marginBottom: 14 }}>

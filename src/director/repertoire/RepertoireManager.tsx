@@ -272,8 +272,12 @@ function RepertoireForm({
   const [movementKeys, setMovementKeys] = useState<number[]>(() => (piece?.movements ?? []).map((_, i) => i));
   const [mvtDrag, setMvtDrag] = useState<{ from: number; to: number } | null>(null);
   const mvtListRef = useRef<HTMLDivElement>(null);
-  const [soloistName, setSoloistName] = useState(piece?.soloistName ?? '');
-  const [soloistInstrument, setSoloistInstrument] = useState(piece?.soloistInstrument ?? '');
+  const [soloists, setSoloists] = useState<{ name: string; instrument: string }[]>(() =>
+    piece?.soloists?.length ? piece.soloists
+      : piece?.soloistName || piece?.soloistInstrument
+        ? [{ name: piece.soloistName ?? '', instrument: piece.soloistInstrument ?? '' }]
+        : []);
+  const [soloistKeys, setSoloistKeys] = useState<number[]>(() => soloists.map((_, i) => -1 - i));
   const [programNotes, setProgramNotes] = useState(piece?.programNotes ?? '');
   const [programNotesUrl, setProgramNotesUrl] = useState(piece?.programNotesUrl ?? '');
   const [imslpUrl, setImslpUrl] = useState(piece?.imslpUrl ?? '');
@@ -409,7 +413,22 @@ function RepertoireForm({
     setPartKeys(ks => ks.filter((_, idx) => idx !== i));
   }
 
+  function addSoloist() {
+    setSoloists(ls => [...ls, { name: '', instrument: '' }]);
+    setSoloistKeys(ks => [...ks, rowSeq.current++]);
+  }
+  function updateSoloist(i: number, field: 'name' | 'instrument', val: string) {
+    setSoloists(ls => ls.map((l, idx) => idx === i ? { ...l, [field]: val } : l));
+  }
+  function removeSoloist(i: number) {
+    setSoloists(ls => ls.filter((_, idx) => idx !== i));
+    setSoloistKeys(ks => ks.filter((_, idx) => idx !== i));
+  }
+
   function buildData(): Omit<RepertoirePiece, 'id'> {
+    const cleanSoloists = soloists
+      .map(x => ({ name: x.name.trim(), instrument: x.instrument.trim() }))
+      .filter(x => x.name || x.instrument);
     const cleanMovements = movements.filter(m => m.title.trim());
     const cleanParts = partsLinks.filter(l => l.instrument.trim() && l.url.trim());
     return {
@@ -426,8 +445,11 @@ function RepertoireForm({
       percussion: percussion.trim() || undefined,
       duration: duration ? Number(duration) : undefined,
       movements: cleanMovements.length ? cleanMovements : undefined,
-      soloistName: soloistName.trim() || undefined,
-      soloistInstrument: soloistInstrument.trim() || undefined,
+      // The first soloist also fills the legacy pair, for older readers;
+      // an empty list sends undefined for all three, which the hook deletes.
+      soloists: cleanSoloists.length ? cleanSoloists : undefined,
+      soloistName: cleanSoloists[0]?.name || undefined,
+      soloistInstrument: cleanSoloists[0]?.instrument || undefined,
       programNotes: programNotes.trim() || undefined,
       programNotesUrl: programNotesUrl.trim() || undefined,
       imslpUrl: imslpUrl.trim() || undefined,
@@ -629,25 +651,36 @@ function RepertoireForm({
             )}
           </div>
 
-          <div className="dir-field-row">
-            <div className="dir-field">
-              <label className="dir-label">Soloist</label>
-              <input
-                className="dir-input"
-                value={soloistName}
-                onChange={e => setSoloistName(e.target.value)}
-                placeholder="Name as printed on the program"
-              />
+          <div className="dir-field">
+            <div className="dir-label-row">
+              <label className="dir-label">Soloists</label>
+              <button className="dir-link-btn" onClick={addSoloist} type="button">+ Add soloist</button>
             </div>
-            <div className="dir-field">
-              <label className="dir-label">Solo instrument</label>
-              <input
-                className="dir-input"
-                value={soloistInstrument}
-                onChange={e => setSoloistInstrument(e.target.value)}
-                placeholder="e.g. violin, piano"
-              />
-            </div>
+            {soloists.length > 0 && (
+              <div className="dir-parts-list">
+                {soloists.map((l, i) => (
+                  <div key={soloistKeys[i] ?? i} className="dir-part-row">
+                    <input
+                      className="dir-input dir-part-url"
+                      placeholder="Name as printed on the program"
+                      aria-label={`Soloist ${i + 1} name`}
+                      value={l.name}
+                      onChange={e => updateSoloist(i, 'name', e.target.value)}
+                    />
+                    <input
+                      className="dir-input dir-part-instr"
+                      placeholder="e.g. violin, piano"
+                      aria-label={`Soloist ${i + 1} instrument`}
+                      value={l.instrument}
+                      onChange={e => updateSoloist(i, 'instrument', e.target.value)}
+                    />
+                    <button className="dir-icon-btn" onClick={() => removeSoloist(i)} type="button" aria-label={`Remove soloist ${i + 1}`}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="dir-field-hint" style={{ marginTop: -6 }}>
             Shown on the public concert program whenever this piece is programmed.

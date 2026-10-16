@@ -811,6 +811,9 @@ export interface RepertoirePiece {
   soloistName?: string;
   /** Soloist's instrument as printed on the program, e.g. "violin", "piano". */
   soloistInstrument?: string;
+  /** Several soloists. When present it wins; the two fields above are then
+   *  a copy of the first entry, kept for older readers. */
+  soloists?: { name: string; instrument: string }[];
   programNotes?: string;      // text suitable for a concert program
   programNotesUrl?: string;   // link to external program notes
   imslpUrl?: string;          // IMSLP score/parts page

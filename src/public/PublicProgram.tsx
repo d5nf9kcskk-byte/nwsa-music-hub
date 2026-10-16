@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react';
 import { NotesText } from './components/NotesText';
+import { soloistLine } from '../shared/soloistLine';
 import { useParams, Link } from 'react-router';
 import { Printer, Clock } from 'lucide-react';
 import { BackLink } from './components/BackLink';
@@ -153,12 +154,8 @@ export function PublicProgram() {
           {p.composerDates && <span className="pub-program-piece-dates"> ({p.composerDates})</span>}
           {p.arranger && <span> · arr. {p.arranger}</span>}
         </div>
-        {(p.soloistName || p.soloistInstrument) && (
-          <div className="pub-program-soloist">
-            {p.soloistName}
-            {p.soloistName && p.soloistInstrument ? ', ' : ''}
-            {p.soloistInstrument}
-          </div>
+        {soloistLine(p) && (
+          <div className="pub-program-soloist">{soloistLine(p)}</div>
         )}
         {mvts.length > 0 && (
           <ol className="pub-program-movements">
