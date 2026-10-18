@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, deleteField, query, orderBy,
+  arrayUnion, arrayRemove,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
@@ -104,6 +105,13 @@ export interface Director {
    *  directors self-update hasOnly list in firestore.rules, and must stay
    *  there or saving a default starts failing silently. */
   examRubric?: import('../examRubric').RubricCriterion[];
+  /** One-off events on this person's "my calendar" beyond their assigned
+   *  groups — a rehearsal or class they were pulled into for a day
+   *  (#my-calendar-extras). Lives HERE, on the staff-only doc, and never on the
+   *  event: `events` is world-readable and a staff email on it would publish
+   *  who works here. Self-editable — `extraEventIds` is in the directors
+   *  self-update hasOnly list in firestore.rules. */
+  extraEventIds?: string[];
   /** MDC work email — shown on ensemble/class pages instead of the Gmail login. */
   mdcEmail?: string;
   phone?: string;
@@ -120,6 +128,16 @@ export async function saveMyExamRubric(
 ): Promise<void> {
   if (!db) return;
   await updateDoc(doc(db, 'directors', directorEmailId(email)), { examRubric: criteria });
+}
+
+/** Put one event on (or take it off) this person's OWN "my calendar"
+ *  (#my-calendar-extras). The staffFeed function picks it up on the next
+ *  refresh; nothing about the event itself changes. */
+export async function setEventOnMyCalendar(email: string, eventId: string, on: boolean): Promise<void> {
+  if (!db) return;
+  await updateDoc(doc(db, 'directors', directorEmailId(email)), {
+    extraEventIds: on ? arrayUnion(eventId) : arrayRemove(eventId),
+  });
 }
 
 /** Normalise an email to the form used as the Firestore doc id. */

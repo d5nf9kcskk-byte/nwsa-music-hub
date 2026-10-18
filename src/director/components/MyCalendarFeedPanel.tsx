@@ -102,6 +102,12 @@ export function MyCalendarFeedPanel() {
               ({classes.map(e => groupKindLabel(e)).filter((l, i, a) => a.indexOf(l) === i).join(' / ')})
             </li>
           )}
+          {(me?.extraEventIds.length ?? 0) > 0 && (
+            <li>
+              {me!.extraEventIds.length === 1 ? 'One meeting' : `${me!.extraEventIds.length} meetings`} you
+              added with <strong>+ My calendar</strong> on the Schedule
+            </li>
+          )}
           {teaches && <li>Your own private lessons — the ones you teach, nobody else&rsquo;s</li>}
           <li>School-wide days: holidays, early release, planning days</li>
         </ul>

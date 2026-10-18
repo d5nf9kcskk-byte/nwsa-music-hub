@@ -12,7 +12,7 @@
  * whoever reads someone else's schedule.
  */
 import type { Firestore } from 'firebase-admin/firestore';
-import { buildStaffIcs, isoOffset, myCalendarView, staffTokenDocId, withinWindow } from './staffFeed.ts';
+import { buildStaffIcs, isoOffset, myCalendarView, onMyCalendar, staffTokenDocId, withinWindow } from './staffFeed.ts';
 import {
   assignmentMatchesView, eventMatchesView, isEveryEnsemble,
 } from '../../src/shared/calendarView.ts';
@@ -108,6 +108,18 @@ assert(staffTokenDocId('dir@nwsa.edu') !== 'appointments__dir@nwsa.edu',
   for (const type of ['Rehearsal', 'Sectional', 'Concert', 'Class', 'Event']) {
     assert(eventMatchesView({ type, ensembleIds: ['symphony'] }, mine), `${type} is mine too`);
   }
+}
+
+// ── A one-off event added by hand rides along, and only that one ──────
+{
+  const mine = myCalendarView({ assignedEnsembleIds: ['symphony'] }, ENSEMBLES);
+  const opera = { id: 'opera-1019', type: 'Class', ensembleIds: ['theory-1'] };
+  assert(!onMyCalendar(opera, mine, undefined), 'not mine without the extra');
+  assert(onMyCalendar(opera, mine, ['opera-1019']), 'the added event is on it');
+  assert(!onMyCalendar({ ...opera, id: 'opera-1026' }, mine, ['opera-1019']),
+    'the extra is ONE meeting, not the whole class');
+  assert(onMyCalendar({ id: 'x', type: 'Rehearsal', ensembleIds: ['symphony'] }, mine, []),
+    'an empty extra list takes nothing away');
 }
 
 // ── The window is bounded on BOTH sides ───────────────────────────────

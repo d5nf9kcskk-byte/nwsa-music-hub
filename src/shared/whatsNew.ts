@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // One-off meetings on My calendar (#my-calendar-extras).
+  {
+    id: '2026-10-18-my-calendar-extras',
+    date: '2026-10-18',
+    title: 'Covering a class for a day? Add just that meeting to My calendar',
+    audience: 'staff' as const,
+    bullets: [
+      'On the Schedule, a rehearsal or class that is not one of your groups now has a + My calendar button. Tap it and that one meeting goes on your synced calendar.',
+      'Tap it again (✓ On my calendar) to take it off. Your phone picks up the change on its next calendar refresh.',
+    ],
+    expires: '2026-11-01',
+  },
   // Announcements first on both home pages (#announcements-first).
   {
     id: '2026-10-16-announcements-first',

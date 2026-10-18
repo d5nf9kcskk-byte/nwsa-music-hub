@@ -29,6 +29,8 @@ import {
 import { formatClockMin } from '../../shared/signupSlotTimes';
 import { useSignupAppointments } from '../hooks/useSignups';
 import { useCurrentDirector } from '../currentDirector';
+import { resolveAssignedEnsembleIds } from '../directorAssignments';
+import { setEventOnMyCalendar } from '../hooks/useDirectors';
 import type { CalendarEvent, EventType } from '../types';
 import { assignmentMatchesView, eventMatchesView, normalizeView } from '../../shared/calendarView';
 import { Linkify } from '../components/Linkify';
@@ -88,6 +90,10 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   // feed contains.
   const me = useCurrentDirector();
   const { appointments } = useSignupAppointments(me?.email);
+  const myGroupIds = useMemo(() => new Set(resolveAssignedEnsembleIds(
+    { assignedEnsembleIds: me?.assignedEnsembleIds, assignedEnsemblePatterns: me?.assignedEnsemblePatterns },
+    ensembles,
+  )), [me?.assignedEnsembleIds, me?.assignedEnsemblePatterns, ensembles]);
 
   const [cursor, setCursor] = useState(() => {
     const d = parseDate(initialDate ?? todayStr());
@@ -402,6 +408,22 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               Change
             </button>
           )}
+          {/* One-off "I'm in this one" (#my-calendar-extras): only for a
+              meeting that is NOT already on your calendar through your
+              assigned groups, and saved on your own staff doc, never the event. */}
+          {me?.email && !assistantMode && e.ensembleIds.length > 0
+            && !e.ensembleIds.some(id => myGroupIds.has(id)) && (() => {
+            const on = me.extraEventIds.includes(e.id);
+            return (
+              <button
+                className={`dir-event-roster-btn${on ? ' active' : ''}`}
+                onClick={() => void setEventOnMyCalendar(me.email, e.id, !on)}
+                title={on ? 'Take this one meeting off your calendar' : 'Add just this meeting to your schedule and My calendar'}
+              >
+                {on ? '✓ On my calendar' : '+ My calendar'}
+              </button>
+            );
+          })()}
           {e.ensembleIds.length > 0 && (
             <button className="dir-event-roster-btn" onClick={() => setRosterEvent(e)}>
               Roster

@@ -256,6 +256,12 @@ Upgrading the SDK does not remove the need: no Firestore release through
   from the appointments token, and its rules clause is gated on
   `isKnownRole()` rather than `isStaff()` on purpose — teachers, classroom
   teachers and assistants are exactly who it is for.
+- **One-off meetings ride on `extraEventIds`** (#my-calendar-extras, Oct
+  2026): the Schedule card's "+ My calendar" adds ONE event id to the
+  person's OWN `directors` doc (self-update `hasOnly` list), and `staffFeed`
+  adds it via `onMyCalendar()`. Never put staff on the event itself —
+  `events` is world-readable and would publish who works here. It never
+  widens the view; it only adds the listed meetings.
 - **`assignedEnsembleIds` is the ONE answer to "whose group is this"** — it
   drives the staff named on a class/ensemble page (`assignedStaffForGroup`),
   the scoped role shells, and "my calendar". So the Directors editor must be

@@ -35,6 +35,10 @@ export interface CurrentDirector {
    *  staffFeed function builds — both resolve through
    *  resolveAssignedEnsembleIds() (#my-calendar). */
   assignedEnsemblePatterns: string[];
+  /** One-off events this person was added to without owning the group (a
+   *  class they are covering tomorrow, say). Carried for "my calendar" and the
+   *  Schedule screen's On-my-calendar button (#my-calendar-extras). */
+  extraEventIds: string[];
   /** Student Assistant only: optional extras beyond take-roll. */
   assistantCapabilities: AssistantCapability[];
 }
@@ -55,6 +59,7 @@ export function setCurrentDirector(directorDoc: Director, googleDisplayName?: st
     assignedStudentIds: directorDoc.assignedStudentIds ?? [],
     assignedEnsembleIds: directorDoc.assignedEnsembleIds ?? [],
     assignedEnsemblePatterns: directorDoc.assignedEnsemblePatterns ?? [],
+    extraEventIds: directorDoc.extraEventIds ?? [],
     assistantCapabilities: assistantCapabilities(directorDoc),
   };
   emit();

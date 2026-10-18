@@ -69,6 +69,20 @@ export function myCalendarView(
 }
 
 /**
+ * Does this event go on the person's calendar? Their assigned groups (the
+ * view), OR an event they were added to by hand for a day
+ * (`extraEventIds` on their own directors doc, #my-calendar-extras). The
+ * extra list only ADDS — it can never widen the view itself.
+ */
+export function onMyCalendar(
+  event: Parameters<typeof eventMatchesView>[0] & { id: string },
+  view: CalendarViewSpec,
+  extraEventIds: readonly string[] | undefined,
+): boolean {
+  return eventMatchesView(event, view) || (extraEventIds ?? []).includes(event.id);
+}
+
+/**
  * The calendar body, read at request time.
  *
  * Reads the staff-only `lessons`, scoped to this person's OWN studio by
@@ -108,6 +122,9 @@ export async function buildStaffIcs(db: Firestore, email: string): Promise<strin
     ensembles,
   );
 
+  const extraRaw = directorSnap.exists ? directorSnap.get('extraEventIds') : undefined;
+  const extraEventIds: string[] = Array.isArray(extraRaw) ? extraRaw.filter(x => typeof x === 'string') : [];
+
   const nameById = new Map(ensembles.map(e => [e.id, e.name]));
   const pieceById = new Map(pieceSnap.docs.map(d => [d.id, d.data() as { title?: string; composer?: string }]));
   const lookups = {
@@ -119,7 +136,7 @@ export async function buildStaffIcs(db: Firestore, email: string): Promise<strin
 
   for (const d of eventSnap.docs) {
     const event = { id: d.id, ...(d.data() as object) } as Parameters<typeof icsEvent>[0];
-    if (eventMatchesView(event, view)) vevents.push(icsEvent(event, lookups, BRANDING));
+    if (onMyCalendar(event, view, extraEventIds)) vevents.push(icsEvent(event, lookups, BRANDING));
   }
 
   // Due dates for the classes this person teaches. Deliberately NOT gated on
