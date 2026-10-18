@@ -1,6 +1,7 @@
 import './directorSearch.css';
 import { FORMS_PATH, formPath } from '../../shared/formLink';
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Search, X, CalendarDays, Users, FileText, ClipboardCheck, ClipboardSignature,
   Music, Filter, Link2, Globe, ScanLine, ChevronLeft, Plus, Armchair,
@@ -265,7 +266,10 @@ export function LinkPicker({ onPick, onClose }: Props) {
     await updateEvent(e.id, enableCheckinPatch(e));
   }
 
-  return (
+  // Portaled to <body>: opened from inside the announcement form, a drawer
+  // ancestor made `position: fixed` resolve against it, and on a phone the
+  // shell header covered the search row entirely.
+  return createPortal(
     <div className="dir-search-overlay" role="dialog" aria-modal="true" aria-label="Insert link" onClick={onClose}>
       <div className="dir-linkpick" ref={panelRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="dir-linkpick-head">
@@ -419,6 +423,7 @@ export function LinkPicker({ onPick, onClose }: Props) {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
