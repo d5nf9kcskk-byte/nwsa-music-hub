@@ -1525,6 +1525,12 @@ a published exam. `attachments`, `publishAt` and `rubric` stay OUT of the draft
 (the CLEAR-sentinel trap), and guessing wrong changes when an exam posts or how
 it is scored.
 
+**Overlays opened from inside a drawer portal to `<body>`** (Oct 2026,
+#link-picker). `LinkPicker`'s fixed overlay, rendered inside the announcement
+form, resolved against the drawer and the phone header hid its search row.
+It now uses `createPortal(..., document.body)`; do the same for any new
+full-screen overlay. Record: `docs/session-notes-2026-10-18-link-picker-search.md`.
+
 ## Picking groups (Sept 2026, #group-picker)
 
 `GroupPicker` + `src/director/groupBuckets.ts` are how every screen that picks
