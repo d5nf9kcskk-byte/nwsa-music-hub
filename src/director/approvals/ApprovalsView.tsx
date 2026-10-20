@@ -5,6 +5,8 @@ import { useAnnouncements } from '../hooks/useAnnouncements';
 import { useEvents } from '../hooks/useEvents';
 import { useRepertoire } from '../hooks/useRepertoire';
 import { useSignupForms } from '../hooks/useSignups';
+import { useReadAloudItems } from '../hooks/useReadAloudItems';
+import type { ReadAloudItem } from '../readAloudBoard';
 import { applyPlan, COLLECTION_LABEL, OP_VERB, decodeProposalData } from '../pendingActions';
 import type { PendingAction } from '../pendingActions';
 import type { Announcement, CalendarEvent, RepertoirePiece, SignupForm } from '../types';
@@ -48,6 +50,7 @@ export function ApprovalsView() {
   const { addEvent, updateEvent, deleteEvent } = useEvents();
   const { addPiece, updatePiece, deletePiece } = useRepertoire();
   const { addForm, updateForm, deleteForm } = useSignupForms();
+  const { addItem: addReadAloud, deleteItem: deleteReadAloud } = useReadAloudItems();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
@@ -79,6 +82,12 @@ export function ApprovalsView() {
         if (op === 'create') await addForm(data as unknown as Omit<SignupForm, 'id'>);
         else if (op === 'update') await updateForm(docId!, data as Partial<SignupForm>);
         else await deleteForm(docId!);
+        return;
+      case 'readAloudItems':
+        // Points are added or taken down, never edited in place.
+        if (op === 'create') await addReadAloud(data as unknown as Omit<ReadAloudItem, 'id'>);
+        else if (op === 'delete') await deleteReadAloud(docId!);
+        else throw new Error('A read-aloud point cannot be edited; add a new one instead.');
         return;
     }
   }
@@ -121,7 +130,7 @@ export function ApprovalsView() {
           <h3>Nothing waiting on you</h3>
           <p>
             When a Student Assistant posts an announcement, changes the calendar,
-            edits repertoire, or opens a form, it lands here first. Nothing they
+            edits repertoire, opens a form, or adds a read-aloud point, it lands here first. Nothing they
             submit reaches the public site until you approve it.
           </p>
         </div>

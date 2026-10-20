@@ -32,6 +32,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Read-Aloud board for Student Assistants (#read-aloud).
+  {
+    id: '2026-10-20-read-aloud',
+    date: '2026-10-20',
+    title: 'New: Read-Aloud, what your Student Assistants announce at rehearsal',
+    audience: 'staff' as const,
+    bullets: [
+      'Each ensemble gets a numbered list to read out. Recent announcements for that ensemble and for everyone in music show up on their own.',
+      'Add your own points under Library → Read-Aloud. When an assistant adds one, it waits for you under Approvals.',
+      'Every item carries its Hub links, and the bottom of the list says where students go with questions.',
+    ],
+    expires: '2026-11-03',
+  },
   // One-off meetings on My calendar (#my-calendar-extras).
   {
     id: '2026-10-18-my-calendar-extras',

@@ -12,7 +12,7 @@
  *     proposal can never ask for something no capability grants.
  */
 import {
-  GATED_COLLECTIONS, GATED_COLLECTION_IDS, isGatedCollection,
+  GATED_COLLECTIONS, GATED_COLLECTION_IDS, EVERY_ASSISTANT, isGatedCollection,
   encodeProposalData, decodeProposalData, CLEAR,
   proposalsApplyTo, applyPlan, pendingCount,
   type PendingAction,
@@ -27,13 +27,16 @@ function assert(cond: unknown, msg: string): void {
 assert(!isGatedCollection('attendance'), 'attendance must never be gated: roll cannot wait on an approval');
 assert(!isGatedCollection('lessons') && !isGatedCollection('contacts') && !isGatedCollection('students'),
   'a proposal must never name a collection an assistant could not write anyway');
-assert(GATED_COLLECTION_IDS.length === 4, 'the four capability collections, no more');
+assert(GATED_COLLECTION_IDS.length === 5, 'the four capability collections plus Read-Aloud, no more');
 
 // 5. Each gated collection maps to a real capability.
 for (const [col, cap] of Object.entries(GATED_COLLECTIONS)) {
-  assert((ASSISTANT_CAPABILITIES as readonly string[]).includes(cap),
+  assert(cap === EVERY_ASSISTANT || (ASSISTANT_CAPABILITIES as readonly string[]).includes(cap),
     `${col} maps to ${cap}, which is not an assistant capability`);
 }
+
+assert(GATED_COLLECTIONS.readAloudItems === EVERY_ASSISTANT,
+  'any assistant may propose a talking point; it still waits for a director');
 
 // 2. Who gets diverted.
 assert(proposalsApplyTo(['assistant'], false), 'an assistant proposes');

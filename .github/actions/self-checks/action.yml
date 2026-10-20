@@ -394,6 +394,13 @@ runs:
       run: npx tsx src/director/pendingActions.selfcheck.ts
       shell: bash
 
+    # Read-Aloud board (#read-aloud): a group sees its own posts and the
+    # division's, never another group's; archived, scheduled and expired
+    # posts stay off; urgent first. No org import, so no defines shim needed.
+    - name: Check the Read-Aloud board
+      run: npx tsx src/director/readAloudBoard.selfcheck.ts
+      shell: bash
+
     # The grade sheet's CSV export: a hostile student name must be quoted AND
     # formula-neutralised, rubric points must land under the line they were
     # given for (matched by criterion id, never by position), a grade

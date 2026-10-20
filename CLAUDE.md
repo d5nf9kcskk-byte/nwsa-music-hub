@@ -461,6 +461,28 @@ the deploy workflow.
 
 Session record: `docs/session-notes-2026-09-09-assistant-approvals.md`.
 
+## Read-Aloud board (Oct 2026, #read-aloud)
+
+Director, 2026-10-20: one place a Student Assistant reads announcements to
+their ensemble from. Director side: Library → Read-Aloud; assistant side: a
+baseline tab beside Take Roll (no capability needed).
+`src/director/readAloudBoard.ts` is the ONE answer to what is on a group's
+board, pinned by `readAloudBoard.selfcheck.ts` in the self-checks.
+
+- **Announcements are read live, never copied.** A post for that group or
+  school-wide (`ensembleId: null`) rides along for `ANNOUNCEMENT_WINDOW_DAYS`;
+  urgent ones for as long as they are live.
+- **Talking points live in `readAloudItems`**: staff and assistants read,
+  staff write. Not public, no mirror. Audience is ensemble ids only; empty =
+  everyone in music.
+- **An assistant's point goes through `pendingActions`** as the fifth gated
+  collection, gated on `EVERY_ASSISTANT` rather than a capability (reading to
+  the ensemble is the baseline job). `GATED_COLLECTIONS`,
+  `pendingCapabilityFor()` in `firestore.rules` and the `runPlan` switch in
+  `ApprovalsView` were changed together; keep them that way.
+- "Said" ticks are per device, per day, in `localStorage`. A scratch pad, not
+  a record.
+
 ## Excused from a concert (Sept 2026, #concert-excusals)
 
 Roll → Subs & Pull-outs → a student → **Excused from a concert**. Built for
