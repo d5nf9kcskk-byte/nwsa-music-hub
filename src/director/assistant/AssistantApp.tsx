@@ -6,7 +6,7 @@ import { useState } from 'react';
 import type { User } from 'firebase/auth';
 import { useNavigate } from 'react-router';
 import {
-  ExternalLink, LogOut, ClipboardList, CalendarDays, Music, ClipboardSignature, Megaphone,
+  ExternalLink, LogOut, ClipboardList, CalendarDays, Music, ClipboardSignature, Megaphone, Mic,
 } from 'lucide-react';
 import { WriteTray } from '../components/WriteTray';
 import { StatusStrips } from '../../shared/StatusStrips';
@@ -17,12 +17,13 @@ import { ScheduleView } from '../schedule/ScheduleView';
 import { RepertoireManager } from '../repertoire/RepertoireManager';
 import { SignupsView } from '../signups/SignupsView';
 import { AnnouncementManager } from '../announcements/AnnouncementManager';
+import { ReadAloudView } from '../readAloud/ReadAloudView';
 import { useCurrentDirector } from '../currentDirector';
 import { assistantHasCapability } from '../directorRoles';
 import type { AssistantCapability } from '../types';
 import { ORG } from '../../org';
 
-type AsstTab = 'roll' | AssistantCapability;
+type AsstTab = 'roll' | 'readAloud' | AssistantCapability;
 
 /**
  * Student Assistant shell (#roles). Baseline is take-roll for assigned
@@ -39,6 +40,7 @@ export function AssistantApp({ user, signOut }: { user: User; signOut: () => voi
 
   const title =
     tab === 'roll' ? 'Take Roll'
+    : tab === 'readAloud' ? 'Read-Aloud'
     : tab === 'schedule' ? 'Schedule'
       : tab === 'repertoire' ? 'Repertoire'
         : tab === 'signups' ? 'Forms'
@@ -46,7 +48,7 @@ export function AssistantApp({ user, signOut }: { user: User; signOut: () => voi
 
   const sub =
     caps.length === 0
-      ? '· attendance for your assigned ensembles'
+      ? '· roll for your ensembles, and what to announce to them'
       : '· roll saves right away; everything else goes to a director to approve';
 
   return (
@@ -80,37 +82,39 @@ export function AssistantApp({ user, signOut }: { user: User; signOut: () => voi
         </div>
       </header>
 
-      {caps.length > 0 && (
-        <nav className="dir-classroom-tabs no-print" aria-label="Assistant sections" style={{ display: 'flex', gap: 8, padding: '8px 12px', flexWrap: 'wrap' }}>
-          <button type="button" className={`dir-segment-btn ${tab === 'roll' ? 'active' : ''}`} onClick={() => setTab('roll')}>
-            <ClipboardList size={14} /> Take Roll
+      {/* Roll and Read-Aloud are every assistant's baseline (#read-aloud). */}
+      <nav className="dir-classroom-tabs no-print" aria-label="Assistant sections" style={{ display: 'flex', gap: 8, padding: '8px 12px', flexWrap: 'wrap' }}>
+        <button type="button" className={`dir-segment-btn ${tab === 'roll' ? 'active' : ''}`} onClick={() => setTab('roll')}>
+          <ClipboardList size={14} /> Take Roll
+        </button>
+        <button type="button" className={`dir-segment-btn ${tab === 'readAloud' ? 'active' : ''}`} onClick={() => setTab('readAloud')}>
+          <Mic size={14} /> Read-Aloud
+        </button>
+        {assistantHasCapability(me, 'schedule') && (
+          <button type="button" className={`dir-segment-btn ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')}>
+            <CalendarDays size={14} /> Schedule
           </button>
-          {assistantHasCapability(me, 'schedule') && (
-            <button type="button" className={`dir-segment-btn ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')}>
-              <CalendarDays size={14} /> Schedule
-            </button>
-          )}
-          {assistantHasCapability(me, 'repertoire') && (
-            <button type="button" className={`dir-segment-btn ${tab === 'repertoire' ? 'active' : ''}`} onClick={() => setTab('repertoire')}>
-              <Music size={14} /> Repertoire
-            </button>
-          )}
-          {assistantHasCapability(me, 'signups') && (
-            <button type="button" className={`dir-segment-btn ${tab === 'signups' ? 'active' : ''}`} onClick={() => setTab('signups')}>
-              <ClipboardSignature size={14} /> Forms
-            </button>
-          )}
-          {assistantHasCapability(me, 'announcements') && (
-            <button type="button" className={`dir-segment-btn ${tab === 'announcements' ? 'active' : ''}`} onClick={() => setTab('announcements')}>
-              <Megaphone size={14} /> Announcements
-            </button>
-          )}
-        </nav>
-      )}
+        )}
+        {assistantHasCapability(me, 'repertoire') && (
+          <button type="button" className={`dir-segment-btn ${tab === 'repertoire' ? 'active' : ''}`} onClick={() => setTab('repertoire')}>
+            <Music size={14} /> Repertoire
+          </button>
+        )}
+        {assistantHasCapability(me, 'signups') && (
+          <button type="button" className={`dir-segment-btn ${tab === 'signups' ? 'active' : ''}`} onClick={() => setTab('signups')}>
+            <ClipboardSignature size={14} /> Forms
+          </button>
+        )}
+        {assistantHasCapability(me, 'announcements') && (
+          <button type="button" className={`dir-segment-btn ${tab === 'announcements' ? 'active' : ''}`} onClick={() => setTab('announcements')}>
+            <Megaphone size={14} /> Announcements
+          </button>
+        )}
+      </nav>
 
       <main className="dir-content">
         <StatusStrips />
-        {allowed.length === 0 && (tab === 'roll' || tab === 'schedule') ? (
+        {allowed.length === 0 && (tab === 'roll' || tab === 'schedule' || tab === 'readAloud') ? (
           <div className="dir-empty">
             <h3>No ensembles assigned yet</h3>
             <p>
@@ -122,6 +126,7 @@ export function AssistantApp({ user, signOut }: { user: User; signOut: () => voi
         ) : (
           <>
             {tab === 'roll' && <AttendanceView allowedEnsembleIds={allowed} assistantMode />}
+            {tab === 'readAloud' && <ReadAloudView allowedEnsembleIds={allowed} />}
             {tab === 'schedule' && <ScheduleView assistantMode allowedEnsembleIds={allowed} />}
             {tab === 'repertoire' && <RepertoireManager asTab onClose={() => setTab('roll')} />}
             {tab === 'signups' && <SignupsView />}
@@ -129,7 +134,9 @@ export function AssistantApp({ user, signOut }: { user: User; signOut: () => voi
           </>
         )}
         {/* What went up for approval and what came back (#approvals). */}
-        {caps.length > 0 && <div style={{ marginTop: 28 }}><MyRequestsPanel /></div>}
+        {/* Every assistant can send a read-aloud point now, so every one
+            sees what came back. */}
+        <div style={{ marginTop: 28 }}><MyRequestsPanel /></div>
         {/* "Just my rooms, on my phone" (#my-calendar). */}
         <div style={{ marginTop: 32 }}><MyCalendarFeedPanel /></div>
       </main>

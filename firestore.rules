@@ -427,6 +427,16 @@ service cloud.firestore {
     // rule, not only by the app.
     match /announcements/{doc}   { allow read; allow write: if isStaff(); }
 
+    // Read-Aloud talking points (#read-aloud): what an assistant says to
+    // their ensemble. Not public — things to say, not things to publish.
+    // Assistants read every point (the board filters by group, and a point
+    // carries no student data); only staff write. An assistant's own point
+    // arrives through /pendingActions and a director's browser writes it.
+    match /readAloudItems/{doc} {
+      allow read: if isStaff() || isAssistantRole();
+      allow write: if isStaff();
+    }
+
     // ── Student Assistant sign-off queue (#approvals) ────────────────────
     // A Student Assistant's write to one of the four capability collections
     // is diverted here instead of landing. A director then approves it and
@@ -436,13 +446,14 @@ service cloud.firestore {
     // src/director/pendingActions.ts for why that must not change.
     //
     // Taking roll is deliberately NOT routed through here: attendance is the
-    // assistant's job and cannot wait on a director. The four collections
+    // assistant's job and cannot wait on a director. The collections
     // below must stay in step with GATED_COLLECTIONS in that same file.
     function pendingCapabilityFor(c) {
       return c == 'announcements' ? 'announcements'
         : c == 'events' ? 'schedule'
         : c == 'repertoire' ? 'repertoire'
         : c == 'signupForms' ? 'signups'
+        : c == 'readAloudItems' ? 'every-assistant'
         : 'no-such-capability';
     }
     match /pendingActions/{doc} {
@@ -458,7 +469,8 @@ service cloud.firestore {
       allow create: if isAssistantRole()
         && request.resource.data.byEmail == request.auth.token.email
         && request.resource.data.status == 'pending'
-        && assistantHas(pendingCapabilityFor(request.resource.data.collection))
+        && (pendingCapabilityFor(request.resource.data.collection) == 'every-assistant'
+            || assistantHas(pendingCapabilityFor(request.resource.data.collection)))
         && request.resource.data.op in ['create', 'update', 'delete']
         && request.resource.data.dataJson is string
         && request.resource.data.dataJson.size() <= 20000

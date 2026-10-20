@@ -30,6 +30,10 @@
  */
 import type { AssistantCapability } from './types';
 
+/** Gate value for a collection any assistant may propose to, capability or
+ *  not. Spelled the same in `pendingCapabilityFor()` in firestore.rules. */
+export const EVERY_ASSISTANT = 'every-assistant';
+
 /** Collections an assistant's write is diverted from. Attendance is absent on
  *  purpose (see the header) and so is everything sensitive — an assistant
  *  could never write contacts, lessons or grades in the first place, and a
@@ -39,7 +43,10 @@ export const GATED_COLLECTIONS = {
   events: 'schedule',
   repertoire: 'repertoire',
   signupForms: 'signups',
-} as const satisfies Record<string, AssistantCapability>;
+  // Read-Aloud talking points (#read-aloud): every assistant may PROPOSE one,
+  // since reading the board to their ensemble is part of the baseline job.
+  readAloudItems: EVERY_ASSISTANT,
+} as const satisfies Record<string, AssistantCapability | typeof EVERY_ASSISTANT>;
 
 export type GatedCollection = keyof typeof GATED_COLLECTIONS;
 
@@ -152,6 +159,7 @@ export const COLLECTION_LABEL: Record<GatedCollection, string> = {
   events: 'Calendar',
   repertoire: 'Repertoire',
   signupForms: 'Sign-up',
+  readAloudItems: 'Read-Aloud',
 };
 
 export function pendingCount(list: readonly PendingAction[]): number {

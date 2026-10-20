@@ -4,7 +4,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine, FileSpreadsheet, Ticket, Copy } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine, FileSpreadsheet, Ticket, Copy, Mic } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -41,6 +41,7 @@ import { AssignmentsView } from './assignments/AssignmentsView';
 import { AnnouncementManager } from './announcements/AnnouncementManager';
 import { MessagesView } from './messages/MessagesView';
 import { ApprovalsView } from './approvals/ApprovalsView';
+import { ReadAloudView } from './readAloud/ReadAloudView';
 import { CopyRequestsView } from './copies/CopyRequestsView';
 import { usePendingActions } from './hooks/usePendingActions';
 import { pendingCount } from './pendingActions';
@@ -158,6 +159,8 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
       // the cumulative CSV.
       { id: 'concertCheckin', label: 'Concert Check-In', Icon: ScanLine },
       { id: 'announcements', label: 'Announcements', Icon: Megaphone      },
+      // What Student Assistants read out at rehearsal (#read-aloud).
+      { id: 'readAloud',     label: 'Read-Aloud',    Icon: Mic            },
       // Student Assistant sign-off queue (#approvals) — staff-only, and
       // rendered only for staff shells, so a Teacher never sees the entry.
       { id: 'approvals',     label: 'Approvals',     Icon: ShieldCheck    },
@@ -183,6 +186,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   notes:           'Progress Notes',
   assignments:     'Assignments',
   announcements:   'Announcements',
+  readAloud:       'Read-Aloud',
   ensembleHub:     'Ensemble',
   ensembles:       'Ensembles',
   classes:         'Classes',
@@ -201,7 +205,7 @@ const TAB_TITLES: Record<DirTab, string> = {
 
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'lessons', 'myLessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
-  'notes', 'assignments', 'announcements', 'ensembleHub', 'ensembles', 'classes', 'college', 'whosOut', 'scheduleSwap', 'rotations',
+  'notes', 'assignments', 'announcements', 'readAloud', 'ensembleHub', 'ensembles', 'classes', 'college', 'whosOut', 'scheduleSwap', 'rotations',
   'messages', 'copyRequests', 'signups', 'juries', 'concerts', 'concertCheckin', 'gradebook', 'approvals', 'directors',
   // The roster URL segment follows the org kind too (#personnel), so a
   // school build has no /director/personnel route and an adult build no
@@ -235,6 +239,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   documents:       'Handbooks, forms, and files for families. Anything you post here shows on the public site.',
   assignments:     'Post practice assignments and exams. Students see them on the public site.',
   announcements:   'Post news for families \u2014 school-wide or per ensemble. Urgent posts show as a red banner.',
+  readAloud:       'What your Student Assistants read out at rehearsal \u2014 recent announcements for each ensemble and for everyone in music fill in on their own. Add your own points here; an assistant\u2019s point waits for you under Approvals.',
   messages:        'Messages families send through the public Contact Us form. Reply opens your own email app.',
   signups:         'Sign-ups, permission slips, registrations \u2014 anything students or families fill out. They pick their name (or type it, on a form open to anyone with the link), answer your questions, and sign. You see who has and hasn\u2019t, and get a spreadsheet and the signed forms.',
   juries:          'End-of-semester juries. Add one as soon as you know it\u2019s happening \u2014 a name is enough \u2014 and fill in the date, room, panel, and running order as each gets decided.',
@@ -604,6 +609,7 @@ export default function DirectorApp() {
             {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} initialEnsembleId={intent.ensembleId} onClose={() => {}} />}
             {tab === 'messages'        && <MessagesView />}
             {tab === 'approvals'       && <ApprovalsView />}
+            {tab === 'readAloud'       && <ReadAloudView />}
             {tab === 'copyRequests'    && <CopyRequestsView />}
             {tab === 'signups'         && <SignupsView />}
             {tab === 'concertCheckin'  && <CheckinView onNavigate={go} />}
