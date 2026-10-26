@@ -1,4 +1,4 @@
-import { MapPin, Music, ExternalLink, ScrollText, ChevronRight, StickyNote, BookOpen } from 'lucide-react';
+import { MapPin, Music, ExternalLink, ScrollText, ChevronRight, StickyNote, BookOpen, Armchair } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
 import { formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, CONCERT_COLOR, eventPieceMovements } from '../../director/utils';
@@ -11,6 +11,8 @@ import { LocationText } from './LocationText';
 import { AddToCalendarButton } from './AddToCalendar';
 import { eventPieces } from '../../shared/studentRepertoire';
 import { hasPartBooks, myPartBook } from '../../shared/partBooks';
+import { audienceEnsembleIds } from '../../shared/requiredAudience';
+import { seniorsExcused } from '../../shared/audienceExcusal';
 import './pubEventCard.css';
 
 interface Props {
@@ -80,6 +82,14 @@ export function PubEventCard({
   const books = !cancelled && !attendanceOnly && hasPartBooks(e);
   const myBook = books && studentInstrument ? myPartBook(e, studentInstrument) : undefined;
 
+  // Groups that must come and LISTEN (#required-audience). On the card itself,
+  // not only the event page: the card is what Home, the Calendar and an
+  // ensemble page show, and it used to name only the groups that play, so a
+  // Symphony member had no reason to think "Opera Scenes" was theirs.
+  const audience = cancelled
+    ? []
+    : audienceEnsembleIds(e).map(id => ensembleMap[id]).filter(Boolean) as Ensemble[];
+
   return (
     <div
       className={`pub-event pub-ev2 ${cancelled ? 'cancelled' : ''} ${detailLink ? 'tappable' : ''} ${isSub ? 'pub-temp' : ''}`}
@@ -139,6 +149,23 @@ export function PubEventCard({
                 <EnsembleLink ensemble={en} className="pub-ens-tag-link" />
               </span>
             ))}
+          </div>
+        )}
+
+        {audience.length > 0 && (
+          <div className="pub-event-audience">
+            <Armchair size={15} aria-hidden="true" />
+            <span>
+              <strong>{t('card.audienceRequired')}</strong>{' '}
+              {audience.map((en, i) => (
+                <span key={en.id}>
+                  {i > 0 && ', '}
+                  <EnsembleLink ensemble={en} className="pub-event-audience-link" />
+                </span>
+              ))}{' '}
+              {t('card.audienceBody')}
+              {seniorsExcused(e) && <> {t('event.attendanceSeniorsExcused')}</>}
+            </span>
           </div>
         )}
 

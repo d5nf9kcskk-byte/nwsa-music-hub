@@ -56,6 +56,13 @@ runs:
     # from the same matcher as a piece's own part ("Bass" never gets the
     # Bassoon book), blank rows never render, and only a performer is offered
     # a book of their own — an ensemble required to attend plays nothing.
+    # Required Concerts (#required-audience): a group that only PLAYS a
+    # concert is never listed as required to attend it, and a concert with no
+    # audience list never appears.
+    - name: Check required-audience concerts
+      run: npx tsx src/shared/requiredAudience.selfcheck.ts
+      shell: bash
+
     - name: Check part books
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/partBooks.selfcheck.ts
       shell: bash

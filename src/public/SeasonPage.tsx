@@ -1,7 +1,7 @@
 import './season.css';
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { Clock, MapPin, Printer, Ticket } from 'lucide-react';
+import { Armchair, Clock, MapPin, Printer, Ticket } from 'lucide-react';
 import { usePublicEvents } from './hooks/usePublicEvents';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { t, tType, useLang } from '../shared/i18n';
@@ -64,6 +64,10 @@ export function SeasonPage() {
           </span>
         )}
       </p>
+
+      <Link to="/required-concerts" className="pub-required-link no-print">
+        <Armchair size={15} /> {t('season.requiredLink')}
+      </Link>
 
       {concertEnsembles.length > 1 && (
         <PubEnsembleSelect ensembles={concertEnsembles} value={filter} onChange={setFilter} allLabel={t('nav.allEnsembles')} />

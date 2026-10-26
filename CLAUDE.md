@@ -586,6 +586,21 @@ Reported by the director when a Symphony student required to hear College
 Chamber Orchestra was handed its whole program to practise.
 `studentRepertoire.selfcheck.ts` pins it in the self-checks.
 
+## Required to attend, without playing (Oct 2026, #required-audience)
+
+Students, 2026-10-26: it was not obvious when a group had to be in the
+AUDIENCE for a concert it does not play (Symphony at Opera Scenes). The
+requirement lived in one box low on the event page; every concert card said
+only who plays. Now every `PubEventCard` carries a purple "Required to attend:"
+line, the event page's hero repeats it (on a phone the card starts below the
+day sheet), a group's own page lists the concerts it must attend, and
+`/required-concerts` (top-level nav, beside Concert Season) lists them all as
+ordinary concert cards. `src/shared/requiredAudience.ts` is the ONE reader,
+pinned by `requiredAudience.selfcheck.ts`. Nothing new is stored: it reads
+`attendanceEnsembleIds` / `attendanceStudentIds`, and a group that also PLAYS
+the concert is never called audience. The page's "Mine" view answers through
+`studentExpectation()`, so a senior an event excuses is not told to come.
+
 ## Part books on a concert (Oct 2026, #part-books)
 
 Director, 2026-10-15: "publish books as part books somewhere on the concert

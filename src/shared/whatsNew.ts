@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Concerts to attend without playing (#required-audience).
+  {
+    id: '2026-10-26-required-concerts',
+    date: '2026-10-26',
+    title: 'New: Required Concerts, the ones you have to attend even when you are not playing',
+    audience: 'public' as const,
+    bullets: [
+      'Every concert card now says right on it which groups have to be in the audience.',
+      'Open Required Concerts in the menu to see the whole list. If your name is saved, it opens on yours.',
+    ],
+    expires: '2026-11-09',
+  },
   // Read-Aloud board for Student Assistants (#read-aloud).
   {
     id: '2026-10-20-read-aloud',

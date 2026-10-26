@@ -30,6 +30,7 @@ import { PublicCheckin } from './public/PublicCheckin';
 import { PublicCheckins } from './public/PublicCheckins';
 import { StartGuide } from './public/StartGuide';
 import { SeasonPage } from './public/SeasonPage';
+import { RequiredConcertsPage } from './public/RequiredConcertsPage';
 import { CampusMap } from './public/CampusMap';
 import { PublicContact } from './public/PublicContact';
 import { PublicAbsence } from './public/PublicAbsence';
@@ -109,6 +110,8 @@ const router = createBrowserRouter(
         { path: 'checkin/:id', element: <PublicCheckin /> },
         { path: 'start', element: <StartGuide /> },
         { path: 'concerts', element: <SeasonPage /> },
+        // Concerts a group must attend without playing (#required-audience).
+        { path: 'required-concerts', element: <RequiredConcertsPage /> },
         // Campus map is NWSA-only (hardcoded MDC Wolfson buildings) — other
         // orgs drop the route entirely (#org-config).
         ...(ORG.features.campusMap ? [{ path: 'map', element: <CampusMap /> }] : []),

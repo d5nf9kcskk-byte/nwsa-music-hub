@@ -13,6 +13,7 @@ import { useDocuments } from '../director/hooks/useDocuments';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
 import { todayStr, formatTimeRange, formatTime, ensembleColor, ensembleDisplayName, pieceEnsembleIds, isPublished, isClassGroup, groupKindLabel, WEEKDAY_LABELS } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
+import { audienceEnsembleIds } from '../shared/requiredAudience';
 import { PubAnnouncements } from './components/PubAnnouncements';
 import { EnsembleAlerts } from './components/EnsembleAlerts';
 import { PubRepertoire } from './components/PubRepertoire';
@@ -72,8 +73,11 @@ export function PublicEnsemble() {
   // Cap per SECTION (after splitting by type) so a far-off concert is never
   // pushed out of view by a long run of rehearsals.
   const { upcomingRehearsals, upcomingClasses, upcomingConcerts, upcomingOther } = useMemo(() => {
+    // A concert this group must ATTEND without playing is on its page too
+    // (#required-audience) — it is on every member's schedule, so leaving it
+    // off the group's own page was how it got missed.
     const mine = events
-      .filter(e => e.ensembleIds.includes(id) && e.date >= today)
+      .filter(e => (e.ensembleIds.includes(id) || (e.type === 'Concert' && audienceEnsembleIds(e).includes(id))) && e.date >= today)
       .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99'));
     return {
       upcomingRehearsals: mine.filter(e => e.type === 'Rehearsal' || e.type === 'Sectional').slice(0, 10),
@@ -313,9 +317,10 @@ export function PublicEnsemble() {
       {upcomingConcerts.length > 0 && (
         <>
           <h2 className="pub-section-title">Concert schedule</h2>
-          {upcomingConcerts.map(e => (
-            <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showDate showNotes ensembleIds={[id]} />
-          ))}
+          {upcomingConcerts.map(e => e.ensembleIds.includes(id)
+            ? <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showDate showNotes ensembleIds={[id]} />
+            // Audience only: name the groups that PLAY, never this one.
+            : <PubEventCard key={e.id} event={e} ensembleMap={ensembleMap} piecesById={piecesById} showDate showNotes attendanceOnly />)}
         </>
       )}
 

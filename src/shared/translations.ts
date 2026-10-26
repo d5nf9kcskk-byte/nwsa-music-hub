@@ -33,6 +33,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.allCollege':       { en: 'All college groups',  es: 'Todo el college' },
   'nav.startHere':        { en: 'Start Here',          es: 'Empieza aquí' },
   'nav.concerts':         { en: 'Concert Season',      es: 'Temporada de conciertos' },
+  'nav.requiredConcerts': { en: 'Required Concerts',   es: 'Conciertos obligatorios' },
   'nav.concertsShort':    { en: 'Concerts',            es: 'Conciertos' },
   'nav.checkin':          { en: 'Concert Check-In',    es: 'Registro de conciertos' },
   'nav.directorLogin':    { en: 'Director login',      es: 'Acceso para directores' },
@@ -250,6 +251,8 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'card.viewProgram':        { en: 'View concert program', es: 'Ver el programa del concierto' },
   'card.sub':                { en: 'Sub',                 es: 'Suplente' },
   'card.attendanceRequired': { en: 'Attendance required', es: 'Asistencia obligatoria' },
+  'card.audienceRequired':   { en: 'Required to attend:', es: 'Deben asistir como público:' },
+  'card.audienceBody':       { en: 'must be in the audience, even though they are not performing.', es: '(aunque no toquen).' },
   'card.call':               { en: 'Call',                es: 'Llegada' },
   // Part books on a concert (#part-books): one PDF per player, whole program.
   'card.myBook':             { en: 'My book',             es: 'Mi libro' },
@@ -287,11 +290,6 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   // "concierto" masculine, so a single templated sentence can't agree with
   // both. The generic "evento" always agrees.
   'event.isCancelled':      { en: 'This {type} is cancelled.',   es: 'Este evento está cancelado.' },
-  'event.attendanceLabel':  { en: 'Attendance required:',        es: 'Asistencia obligatoria:' },
-  'event.attendanceBody':   {
-    en: 'members of {ensembles} must attend this {type} even though they are not performing.',
-    es: 'los integrantes de {ensembles} deben asistir aunque no vayan a tocar.',
-  },
   'event.attendanceSeniorsExcused': {
     en: 'Seniors (12th grade) are excused.',
     es: 'Los estudiantes de 12.º grado están excusados.',
@@ -302,6 +300,15 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
     en: 'Every concert this year, at a glance. Tap one for call time, dress, and directions.',
     es: 'Todos los conciertos del año, de un vistazo. Toca uno para ver hora de llegada, vestimenta e indicaciones.',
   },
+  'season.requiredLink': { en: 'Concerts you must attend without playing', es: 'Conciertos a los que debes asistir sin tocar' },
+  'required.title':      { en: 'Required Attendance Concerts', es: 'Conciertos de asistencia obligatoria' },
+  'required.intro': {
+    en: 'Concerts you have to be at in the audience, even when your group is not playing. Tap one for the time, place and details.',
+    es: 'Conciertos a los que debes asistir como público, aunque tu grupo no toque. Toca uno para ver la hora, el lugar y los detalles.',
+  },
+  'required.mine':       { en: 'Mine ({name})',        es: 'Los míos ({name})' },
+  'required.none':       { en: 'No required-attendance concerts coming up.', es: 'No hay conciertos de asistencia obligatoria próximos.' },
+  'required.noneMine':   { en: 'Nothing coming up that you have to attend without playing. Pick a group above to see the others.', es: 'No tienes conciertos próximos a los que debas asistir sin tocar. Elige un grupo arriba para ver los demás.' },
   'season.print':       { en: 'Print season', es: 'Imprimir temporada' },
   'season.none':        { en: 'No concerts on the calendar yet.', es: 'Aún no hay conciertos en el calendario.' },
   'season.noUpcoming':  { en: 'No upcoming concerts — the rest of the season is below.', es: 'No hay conciertos próximos — el resto de la temporada está abajo.' },

@@ -2,7 +2,7 @@ import './uiUpdates.css';
 import './pubShell.css';
 import { useState, useEffect, useReducer } from 'react';
 import { Outlet, NavLink, Link, ScrollRestoration, useLocation } from 'react-router';
-import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned, FolderOpen, Mail, ClipboardSignature, ScanLine, CalendarX, BookOpen, GraduationCap, Copy } from 'lucide-react';
+import { Home, CalendarDays, Users, Music, UserSearch, Megaphone, ClipboardCheck, Menu, X, ChevronDown, UserCircle, Ticket, HelpCircle, Search, MapPinned, FolderOpen, Mail, ClipboardSignature, ScanLine, CalendarX, BookOpen, GraduationCap, Copy, Armchair } from 'lucide-react';
 import { NavLink as RRNavLink } from 'react-router';
 import { GlobalAlerts } from './components/GlobalAlerts';
 import { StatusStrips } from '../shared/StatusStrips';
@@ -43,6 +43,9 @@ const NAV_TOP = [
   { to: '/calendar', label: 'nav.calendar', Icon: CalendarDays, end: false },
   { to: '/lookup', label: 'nav.mySchedule', Icon: UserSearch, end: false },
   { to: '/concerts', label: 'nav.concerts', Icon: Ticket, end: false },
+  // Concerts to attend without playing (#required-audience) — top level, not
+  // under Resources, because "I didn't know I had to be there" is the problem.
+  { to: '/required-concerts', label: 'nav.requiredConcerts', Icon: Armchair, end: false },
   // The concert door as a destination (#concert-checkin) — a student at the
   // venue looks for check-in in the menu, not inside a concert card.
   { to: '/checkin', label: 'nav.checkin', Icon: ScanLine, end: true },

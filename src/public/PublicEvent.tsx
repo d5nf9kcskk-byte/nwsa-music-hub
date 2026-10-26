@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, Link, useLocation } from 'react-router';
-import { CalendarPlus, MapPin, ScrollText, XCircle, AlertTriangle, Music } from 'lucide-react';
+import { CalendarPlus, MapPin, ScrollText, XCircle, AlertTriangle, Music, Armchair } from 'lucide-react';
 import { BackLink } from './components/BackLink';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { useEvent } from '../director/hooks/useEvents';
@@ -22,7 +22,7 @@ import { getLang } from '../shared/i18n';
 import { useEggCheer } from '../shared/useEggCheer';
 import { NoteBurst } from '../shared/NoteBurst';
 import type { CalendarEvent } from '../director/types';
-import { seniorsExcused } from '../shared/audienceExcusal';
+import { audienceEnsembleIds } from '../shared/requiredAudience';
 import './pubDaySheet.css';
 import './pubEventShell.css';
 
@@ -82,6 +82,7 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
   masterClass: boolean;
 }) {
   useLang();
+  const audienceNames = audienceEnsembleIds(event).map(id => ensembleDisplayName(ensembleMap[id])).filter(Boolean);
   // Dock the action bar flush against the real rendered tab bar — its height
   // varies with safe-area insets, the Aa zoom level, and label wrapping.
   const barRef = useRef<HTMLDivElement>(null);
@@ -130,6 +131,14 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
               .map(id => ensembleDisplayName(ensembleMap[id]))
               .filter(Boolean)
               .join(' + ')}
+          </div>
+        )}
+        {/* Who must come and listen (#required-audience), in the hero because
+            on a phone the concert card starts below the day sheet. */}
+        {!cancelled && audienceNames.length > 0 && (
+          <div className="pub-hero-audience">
+            <Armchair size={15} aria-hidden="true" />
+            <span><strong>{t('card.audienceRequired')}</strong> {audienceNames.join(', ')} {t('card.audienceBody')}</span>
           </div>
         )}
       </div>
@@ -220,20 +229,6 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
           {masterClass && <PlayingToday event={event} />}
 
           <CheckinCallout event={event} />
-
-          {(event.attendanceEnsembleIds ?? []).length > 0 && (
-            <div className="pub-card pub-attend-card">
-              <strong>{t('event.attendanceLabel')}</strong>{' '}
-              {t('event.attendanceBody', {
-                ensembles: (event.attendanceEnsembleIds ?? [])
-                  .map(id => ensembleDisplayName(ensembleMap[id]))
-                  .filter(Boolean)
-                  .join(', '),
-                type: tType(event.type).toLowerCase(),
-              })}
-              {seniorsExcused(event) && <> {t('event.attendanceSeniorsExcused')}</>}
-            </div>
-          )}
 
           {event.notes && (
             <>
