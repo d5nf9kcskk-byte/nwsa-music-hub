@@ -672,7 +672,7 @@ export function MyLessonsView() {
               key={s.id}
               type="button"
               className="dir-ens-row"
-              style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', background: 'transparent' }}
+              style={{ textAlign: 'left', cursor: 'pointer', font: 'inherit', color: 'inherit' }}
               onClick={() => openStudent(s.id)}
             >
               <span className="dir-ens-swatch" style={{ background: 'var(--dir-primary, #2563eb)' }} />

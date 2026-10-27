@@ -1691,7 +1691,23 @@ so every section was bare text on the season's bats. Rules for every screen:
   `CheckinView` swaps the list for one concert's page (back button, top of
   page, and the phone's Back gesture via `registerOverlayClose`). Do the same
   for any list → detail screen.
-- Check it at 390px wide before shipping (#one-nav).
+- Check it at 390px wide before shipping (#one-nav). Part 2 (same day) walked
+  every screen in all four staff shells plus the public site with a probe
+  listing visible text that has no surface behind it, and fixed the shared
+  pieces it found once in `director.css` / `public.css`: empty states
+  (`.dir-empty`, `.dir-empty-inline`, `.dir-loc-empty`) are dashed panels; the
+  "Coming up" lists (`.dir-up-row`, `.pub-upcoming`) are stacked panels; month
+  calendars, Gradebook notes and the Read-Aloud header are cards; and the
+  roots that had no side gutter (`.dir-ra`, `.dir-signups`, `.dir-messages`,
+  `.dir-gradebook`) have 16px. **Never cancel a card from inline style**
+  (`background: 'inherit' | 'transparent'`, `border: 'none'` on a `*-row` /
+  `*-card` element). That is how Who's Out and My Lessons lost theirs.
+- **Schedule on a phone opens a tapped date as its own page** (below 1100px:
+  `.day-open` hides the grid, a "‹ Month" row and day arrows appear, and Back
+  returns). At 1100px+ the two-pane split is unchanged.
+- **Fixtures can show every shell**: a `VITE_FIXTURES=1` build takes
+  `?role=teacher|classroom|assistant` (AuthGate, fixtures only), so a layout
+  change can be looked at as each kind of user without signing in.
 
 ## What's New banner (auto)
 

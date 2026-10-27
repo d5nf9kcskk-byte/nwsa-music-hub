@@ -894,3 +894,18 @@ html:has(.pub-app) body {
   width: 0; height: 0; padding: 0; border: 0;
   visibility: hidden; opacity: 0; pointer-events: none;
 }
+
+/* "Coming up" lists on Home: one stacked panel per group instead of hairlines
+   on the season pattern (#clear-cards). Same shape as the staff Today list. */
+.pub-upcoming {
+  padding-inline: 12px;
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: 0;
+}
+.pub-upcoming + .pub-upcoming { border-top: 0; }
+:not(.pub-upcoming) + .pub-upcoming { border-top-left-radius: var(--pub-radius-sm); border-top-right-radius: var(--pub-radius-sm); }
+.pub-upcoming:not(:has(+ .pub-upcoming)) {
+  border-bottom-left-radius: var(--pub-radius-sm); border-bottom-right-radius: var(--pub-radius-sm);
+  box-shadow: var(--pub-shadow-1);
+}

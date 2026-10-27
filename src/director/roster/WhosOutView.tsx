@@ -282,7 +282,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
                 key={r.id}
                 type="button"
                 className="dir-sub-row"
-                style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', background: 'inherit' }}
+                style={{ width: '100%', textAlign: 'left', cursor: 'pointer', font: 'inherit', color: 'inherit' }}
                 onClick={() => onNavigate('roster', { studentId: r.student!.id })}
               >
                 <div className="dir-sub-info">
@@ -323,7 +323,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
                 key={o.id}
                 type="button"
                 className="dir-sub-row"
-                style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', background: 'inherit' }}
+                style={{ width: '100%', textAlign: 'left', cursor: 'pointer', font: 'inherit', color: 'inherit' }}
                 onClick={() => onNavigate('roster', { studentId: o.studentId })}
               >
                 <div className="dir-sub-info">
@@ -341,7 +341,7 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
                 key={student.id}
                 type="button"
                 className="dir-sub-row"
-                style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', background: 'inherit' }}
+                style={{ width: '100%', textAlign: 'left', cursor: 'pointer', font: 'inherit', color: 'inherit' }}
                 onClick={() => onNavigate('roster', { studentId: student.id })}
               >
                 <div className="dir-sub-info">

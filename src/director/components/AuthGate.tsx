@@ -60,7 +60,11 @@ export function AuthGate({ children }: Props) {
   // identity directly (role/name gating elsewhere reads currentDirector.ts).
   useEffect(() => {
     if (!isFirebaseConfigured && FIXTURES_ON) {
-      setCurrentDirector({ email: 'fixtures@local', role: 'director' }, 'Fixture Director');
+      // ?role=teacher|classroom|assistant previews another shell, so a layout
+      // change can be checked in all four (#clear-cards). Fixtures only.
+      const asked = new URLSearchParams(window.location.search).get('role');
+      const role = asked === 'teacher' || asked === 'classroom' || asked === 'assistant' ? asked : 'director';
+      setCurrentDirector({ email: 'fixtures@local', role, assignedEnsembleIds: ['symphony-orchestra'] }, 'Fixture Director');
     }
   }, []);
 

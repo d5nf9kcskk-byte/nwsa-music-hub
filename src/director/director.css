@@ -2631,3 +2631,68 @@ a.dir-menu-item {
     .dir-grade-list, .dir-lessons-feed, .dir-staff-notice, .dir-page-hint, .dir-quiz, .dir-search-item) {
   box-shadow: var(--dir-card-shadow);
 }
+
+/* ── #clear-cards, part 2: every staff shell (Oct 2026) ────────────────────
+   Found by walking all 29 director screens plus the Applied Teacher,
+   Classroom Teacher and Student Assistant shells at 390px with a probe that
+   lists any visible text with no surface behind it. These are the shared
+   pieces it turned up; fixing the piece fixes every screen that uses it. */
+
+/* Page roots that had no side gutter, so their text touched the glass. */
+.dir-ra, .dir-signups, .dir-messages, .dir-gradebook { padding-inline: 16px; }
+.dir-ra { padding-top: 12px; }
+.dir-tab-page > :is(.dir-form-section-label, .dir-empty-inline) { margin-inline: 16px; }
+
+/* Empty states: a dashed panel that reads as "this box is empty", not a line
+   of grey words floating on the season pattern. */
+.dir-content :is(.dir-empty, .dir-empty-inline) {
+  background: var(--dir-surface);
+  border: 1.5px dashed var(--dir-border);
+  border-radius: var(--dir-radius);
+}
+.dir-content .dir-empty { margin: 12px 16px; padding: 32px 20px; }
+.dir-content .dir-empty-inline { margin-block: 8px; padding: 14px 16px; }
+.dir-content :is(.dir-ra, .dir-gradebook, .dir-page-body, .dir-signups, .dir-messages) .dir-empty { margin-inline: 0; }
+
+/* Today's "Coming up" lists: one stacked panel per group, not hairlines on
+   the background. */
+.dir-up-row {
+  padding: 11px 12px;
+  background: var(--dir-surface);
+  border: 1px solid var(--dir-border);
+  border-radius: 0;
+}
+.dir-up-row + .dir-up-row { border-top: 0; }
+:not(.dir-up-row) + .dir-up-row { border-top-left-radius: var(--dir-radius-sm); border-top-right-radius: var(--dir-radius-sm); }
+.dir-up-row:not(:has(+ .dir-up-row)) {
+  border-bottom-left-radius: var(--dir-radius-sm); border-bottom-right-radius: var(--dir-radius-sm);
+  box-shadow: var(--dir-card-shadow);
+}
+.dir-up-row:active { background: var(--dir-surface-2); }
+
+/* Month calendars (Change a Day, the Schedule's month grid). */
+.dir-cal, .dir-sched-cal-col {
+  background: var(--dir-surface);
+  border: 1px solid var(--dir-border);
+  border-radius: var(--dir-radius);
+  box-shadow: var(--dir-card-shadow);
+}
+.dir-cal { margin: 8px 16px; padding: 8px; }
+.dir-sched-cal-col { padding: 8px; margin: 0 16px 12px; }
+/* The Schedule's grid sits inside its column card: one card, not two. */
+.dir-sched-cal-col .dir-cal { margin: 0; padding: 0; background: none; border: 0; box-shadow: none; }
+
+/* Explanations and headers that were bare paragraphs. */
+.dir-gb-note, .dir-ra-head {
+  background: var(--dir-surface);
+  border: 1px solid var(--dir-border);
+  border-radius: var(--dir-radius);
+  box-shadow: var(--dir-card-shadow);
+  padding: 12px 14px;
+}
+.dir-ra-head { align-items: center; }
+.dir-ra-questions { background: var(--dir-surface); box-shadow: var(--dir-card-shadow); }
+.dir-content .dir-loc-empty {
+  margin: 12px 16px; padding: 14px 16px;
+  background: var(--dir-surface); border: 1.5px dashed var(--dir-border); border-radius: var(--dir-radius);
+}

@@ -36,12 +36,13 @@ export const WHATS_NEW: WhatsNewEntry[] = [
   {
     id: '2026-10-27-clear-cards',
     date: '2026-10-27',
-    title: 'Concert Check-In: each concert opens on its own page',
+    title: 'Clearer screens: concerts and days open on their own page',
     audience: 'staff' as const,
     bullets: [
       'Tap a concert to open its page: who checked in, who checked out, and who is still inside. Back (or swipe back) returns to the list.',
       'Tap a count to show just those students. Still inside is the one to check before everyone leaves.',
       'Cards across the Hub now have clearer edges, and the seasonal background is lighter so it stays behind what you are reading.',
+      'On a phone, tapping a date on the Schedule opens that day on its own page. Use the arrows for the next day, or Back for the month.',
     ],
     expires: '2026-11-10',
   },

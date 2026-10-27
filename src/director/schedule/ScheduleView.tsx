@@ -24,7 +24,7 @@ import { seedAcademicClasses } from '../seedAcademicClasses';
 import { seedCollegeProgram } from '../seedCollege';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
 import {
-  todayStr, toDateStr, parseDate, formatTimeRange, ensembleColor, musicEnsembles, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR, APPT_COLOR,
+  todayStr, toDateStr, parseDate, addDays, formatTimeRange, ensembleColor, musicEnsembles, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR, APPT_COLOR,
 } from '../utils';
 import { formatClockMin } from '../../shared/signupSlotTimes';
 import { useSignupAppointments } from '../hooks/useSignups';
@@ -36,6 +36,7 @@ import { assignmentMatchesView, eventMatchesView, normalizeView } from '../../sh
 import { Linkify } from '../components/Linkify';
 import { dailyPun } from '../../shared/whimsy';
 import { ORG } from '../../org';
+import { registerOverlayClose } from '../../shared/overlayBack';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -266,6 +267,35 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
     setCursor(new Date(d.getFullYear(), d.getMonth(), 1));
     setSelectedDate(today);
   }
+
+  // On a phone the selected day used to render BELOW the month grid, off the
+  // bottom of the screen, so tapping a date looked like it did nothing
+  // (#clear-cards). Tapping a date now opens that day as its own page: below
+  // 1100px dirShell.css hides the grid while `dayOpen` is set, the page starts
+  // at the day, and Back (button or gesture) returns to the month. At 1100px
+  // and up the two sit side by side and `dayOpen` changes nothing.
+  const [dayOpen, setDayOpen] = useState(false);
+  const calColRef = useRef<HTMLDivElement>(null);
+  const dayRef = useRef<HTMLDivElement>(null);
+  function openDay(dateStr: string) {
+    setSelectedDate(dateStr);
+    setDayOpen(true);
+  }
+  function stepDay(n: number) {
+    const next = addDays(selectedDate, n);
+    setSelectedDate(next);
+    const d = parseDate(next);
+    setCursor(new Date(d.getFullYear(), d.getMonth(), 1));
+  }
+  useEffect(() => {
+    if (!dayOpen) return;
+    // Only when the grid is actually hidden (the phone layout): a laptop has
+    // both panes on screen and must not get a Back entry that does nothing.
+    const col = calColRef.current;
+    if (!col || getComputedStyle(col).display !== 'none') return;
+    dayRef.current?.scrollIntoView({ block: 'start' });
+    return registerOverlayClose(() => setDayOpen(false));
+  }, [dayOpen]);
 
   const dayEvents = (eventsByDate[selectedDate] ?? [])
     .slice()
@@ -618,8 +648,8 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
       )}
 
       {calView === 'month' ? (
-        <div className="dir-sched-split">
-          <div className="dir-sched-cal-col">
+        <div className={`dir-sched-split${dayOpen ? ' day-open' : ''}`}>
+          <div className="dir-sched-cal-col" ref={calColRef}>
           {/* Month navigation — directly above the grid it controls */}
           <div className="dir-cal-nav">
             <button className="dir-date-nav-btn" onClick={() => shiftMonth(-1)} aria-label="Previous month">
@@ -653,7 +683,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
                     <button
                       key={i}
                       className={`dir-cal-cell ${isSel ? 'selected' : ''} ${isToday ? 'today' : ''}`}
-                      onClick={() => setSelectedDate(dateStr)}
+                      onClick={() => openDay(dateStr)}
                     >
                       <span className="dir-cal-day">{parseDate(dateStr).getDate()}</span>
                       <span className="dir-cal-dots">
@@ -683,7 +713,16 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
           </div>
 
           {/* Selected-day detail */}
-          <div className="dir-day-detail">
+          <div className="dir-day-detail" ref={dayRef}>
+            <div className="dir-day-back-row">
+              <button type="button" className="dir-day-back" onClick={() => setDayOpen(false)}>
+                <ChevronLeft size={18} /> {monthLabel}
+              </button>
+              <span className="dir-day-step">
+                <button type="button" className="dir-date-nav-btn" onClick={() => stepDay(-1)} aria-label="Previous day"><ChevronLeft size={18} /></button>
+                <button type="button" className="dir-date-nav-btn" onClick={() => stepDay(1)} aria-label="Next day"><ChevronRight size={18} /></button>
+              </span>
+            </div>
             <div className="dir-day-detail-header">
               {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               {selectedDate === today && <span className="dir-today-badge">Today</span>}
