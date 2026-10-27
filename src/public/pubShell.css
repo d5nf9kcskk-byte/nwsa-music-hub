@@ -184,3 +184,10 @@
   white-space: nowrap;
 }
 .pub-header > div:last-child { flex: none; }
+/* On a phone the controls leave the wordmark one letter wide ("N..."), which
+   reads as broken. The logo chip already names the site there (#clear-cards,
+   iPhone check 2026-10-27); the ellipsis above still covers the in-between
+   widths. */
+@media (max-width: 520px) {
+  .pub-header .pub-brand > span:last-child { display: none; }
+}

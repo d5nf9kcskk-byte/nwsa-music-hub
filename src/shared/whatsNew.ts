@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Student schedule leads with today (#clear-cards).
+  {
+    id: '2026-10-27-my-schedule-today-first',
+    date: '2026-10-27',
+    title: 'My Schedule now opens on today',
+    audience: 'public' as const,
+    bullets: [
+      'Where you need to be today is the first thing on your schedule page. Announcements, practice and assignments come right after.',
+      'Long announcements show a short preview. Tap Read more for the whole thing.',
+    ],
+    expires: '2026-11-10',
+  },
   // Clearer cards everywhere + Check-In concert pages (#clear-cards).
   {
     id: '2026-10-27-clear-cards',

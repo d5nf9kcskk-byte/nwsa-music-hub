@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { firstName } from '../../shared/personName';
 import { CalendarX } from 'lucide-react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../director/firebase';
@@ -57,7 +58,7 @@ export function PlannedAbsenceButton({ student }: { student: Student }) {
               <>
                 <div className="pub-confirm-name" style={{ fontSize: 18 }}>✓ Sent to your director</div>
                 <p className="pub-absence-hint">
-                  {student.name.split(' ')[0]} is reported out on{' '}
+                  {firstName(student.name)} is reported out on{' '}
                   <strong>{fmtLongDate(date)}</strong>.
                   They'll see it when they take roll that day. No reply needed.
                 </p>

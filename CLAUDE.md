@@ -1715,6 +1715,16 @@ so every section was bare text on the season's bats. Rules for every screen:
 - **A page-level `.dir-btn` is `flex: 0 0 auto`.** The class is shaped for
   drawer footers (`flex: 1`), and in a column-stacked page that collapsed it to
   a sliver (Juries' New Jury).
+- **A student's schedule page leads with TODAY** (`PublicSchedule.tsx`,
+  iPhone check 2026-10-27). On a real student it started five screens down,
+  under the concert-count form, the subscribe/absence buttons and every
+  announcement printed in full. Order now: check-in, forms owed, Now/Next,
+  Today, announcements (`collapseAfter={2}`, as Home), subscribe/absence,
+  practice, times, assignments, concert count, the full schedule. Keep the
+  day above the tools.
+- **Greet a person with `firstName()`** (`src/shared/personName.ts`), never
+  `name.split(' ')[0]`, which said "Tous,'s calendar" for every student
+  stored "Last, First".
 - **Fixtures can show every shell**: a `VITE_FIXTURES=1` build takes
   `?role=teacher|classroom|assistant` (AuthGate, fixtures only), so a layout
   change can be looked at as each kind of user without signing in.

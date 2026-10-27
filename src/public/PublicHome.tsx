@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useReducer, useRef } from 'react';
+import { firstName } from '../shared/personName';
 import { Link } from 'react-router';
 import { CalendarDays, UserSearch, Megaphone, Music, ChevronRight, Ticket, HelpCircle, Music2, AlertTriangle } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
@@ -189,7 +190,7 @@ export function PublicHome() {
         <div className="pub-quick">
           {savedStudents.map(s => (
             <Link key={s.id} to={`/student/${s.id}`} className="pub-quick-btn">
-              <UserSearch size={22} /><span>{t('home.studentSchedule', { name: s.name.split(' ')[0] })}</span>
+              <UserSearch size={22} /><span>{t('home.studentSchedule', { name: firstName(s.name) })}</span>
             </Link>
           ))}
           <Link to="/lookup" className="pub-quick-btn">

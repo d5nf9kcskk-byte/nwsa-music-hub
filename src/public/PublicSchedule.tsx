@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, Fragment } from 'react';
+import { firstName } from '../shared/personName';
 import { formPath } from '../shared/formLink';
 import { useParams, Link } from 'react-router';
 import { useMonthSwipe } from '../shared/useMonthSwipe';
@@ -224,7 +225,7 @@ export function PublicSchedule() {
         <div className="pub-chips" style={{ paddingBottom: 6 }}>
           {getIdentity().students.map(s => (
             <Link key={s.id} to={`/student/${s.id}`} className={`pub-chip ${s.id === student.id ? 'active' : ''}`}>
-              {s.name.split(' ')[0]}
+              {firstName(s.name)}
             </Link>
           ))}
         </div>
@@ -254,17 +255,11 @@ export function PublicSchedule() {
       {/* Anything this student still has to answer (#signups). */}
       <SignupAlert student={student} />
 
-      {/* Their own concert count (#concert-checkin). Asks for the school email
-          they check in with — attendance is staff-only data, so this page must
-          not become a way to read a classmate's record. */}
-      <ConcertTally student={student} />
-
-      {/* Personal calendar feed — the one subscription that follows THIS student. */}
-      <SubscribeButton studentId={student.id} label={t('sched.subscribeMine', { name: student.name.split(' ')[0] })} />
-      <PlannedAbsenceButton student={student} />
-
-      <PubAnnouncements items={myAnnouncements} ensembleMap={ensembleMap} />
-
+      {/* Order (#clear-cards, iPhone check 2026-10-27): what this page is FOR
+          comes first. Today and what's next, then this student's own
+          announcements, practice, times and work, then the full schedule;
+          the tools (subscribe, report an absence, concert count) sit below
+          the day instead of above it. */}
       <NowNext items={mySchedule} />
 
       {/* Hidden delight (#easter-eggs): a line for your own instrument, one a day. */}
@@ -281,6 +276,39 @@ export function PublicSchedule() {
           })}
         </div>
       ))}
+
+      <h2 className="pub-section-title">
+        {t('cal.today')} · {fmtDayHeader(today)}
+      </h2>
+      {/* A lesson counts as something scheduled today — the empty state has to
+          know about it, or a student with a lesson and no rehearsal is told
+          they have nothing on. */}
+      {todayItems.length === 0 && lessonsToday.length === 0 ? (
+        <EmptyState icon={<CalendarX size={24} />}>
+          {t('sched.nothingToday')} {say(dailyPun('my-sched'), getLang())}
+        </EmptyState>
+      ) : (
+        <>
+          {todayItems.map(({ event: e, exp }, i) => (
+            <Fragment key={e.id}>
+              {i === todayNowIdx && <NowLine />}
+              <div className={isPast(e) ? 'pub-past-dim' : undefined}>
+                <PubEventCard event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} onlyPieceIds={myPiecesByEvent[e.id]} showNotes />
+              </div>
+            </Fragment>
+          ))}
+          {todayNowIdx === todayItems.length && todayItems.length > 0 && <NowLine />}
+          <LessonTimes lessons={lessonsToday} studentName={student.name} />
+        </>
+      )}
+
+      {/* Short previews, as on Home: printed in full they pushed today's
+          schedule five screens down on a phone (#clear-cards). */}
+      <PubAnnouncements items={myAnnouncements} ensembleMap={ensembleMap} collapseAfter={2} />
+
+      {/* Personal calendar feed — the one subscription that follows THIS student. */}
+      <SubscribeButton studentId={student.id} label={t('sched.subscribeMine', { name: firstName(student.name) })} />
+      <PlannedAbsenceButton student={student} />
 
       <PracticeCard student={student} schedule={mySchedule} piecesById={piecesById} assignments={myAssignments} charts={charts} />
 
@@ -325,30 +353,10 @@ export function PublicSchedule() {
         </>
       )}
 
-      <h2 className="pub-section-title">
-        {t('cal.today')} · {fmtDayHeader(today)}
-      </h2>
-      {/* A lesson counts as something scheduled today — the empty state has to
-          know about it, or a student with a lesson and no rehearsal is told
-          they have nothing on. */}
-      {todayItems.length === 0 && lessonsToday.length === 0 ? (
-        <EmptyState icon={<CalendarX size={24} />}>
-          {t('sched.nothingToday')} {say(dailyPun('my-sched'), getLang())}
-        </EmptyState>
-      ) : (
-        <>
-          {todayItems.map(({ event: e, exp }, i) => (
-            <Fragment key={e.id}>
-              {i === todayNowIdx && <NowLine />}
-              <div className={isPast(e) ? 'pub-past-dim' : undefined}>
-                <PubEventCard event={e} ensembleMap={ensembleMap} piecesById={piecesById} studentInstrument={student.instrument} ensembleIds={exp.ensembleIds} isSub={exp.isSub} attendanceOnly={exp.attendanceOnly} onlyPieceIds={myPiecesByEvent[e.id]} showNotes />
-              </div>
-            </Fragment>
-          ))}
-          {todayNowIdx === todayItems.length && todayItems.length > 0 && <NowLine />}
-          <LessonTimes lessons={lessonsToday} studentName={student.name} />
-        </>
-      )}
+      {/* Their own concert count (#concert-checkin). Asks for the school email
+          they check in with — attendance is staff-only data, so this page must
+          not become a way to read a classmate's record. */}
+      <ConcertTally student={student} />
 
       <div className="pub-section-row">
         <h2 className="pub-section-title">{t('sched.yourSchedule')}</h2>

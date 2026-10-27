@@ -50,6 +50,14 @@ export function parseName(raw: string): ParsedName {
 }
 
 /** "William F. Rose" — the Full Name column, however the roster stores it. */
+/** The name to greet someone by: the first word of the first name, either
+ *  storage order. "Tous, Adam B." and "Adam B. Tous" both give "Adam".
+ *  `name.split(' ')[0]` gave "Tous," for every comma-stored student. */
+export function firstName(name: string): string {
+  const { first, last } = parseName(name);
+  return first.split(' ')[0] || last;
+}
+
 export function displayName(name: string): string {
   const { first, last } = parseName(name);
   return first ? `${first} ${last}` : last;
