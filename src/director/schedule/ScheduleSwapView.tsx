@@ -425,7 +425,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
         {isChanged(e) && (
           <button
             className="dir-tool-btn"
-            style={{ color: 'var(--dir-blue)' }}
+            style={{ color: 'var(--dir-blue-text)' }}
             disabled={busy}
             onClick={() => handleRevert(e)}
             title="Put this back to its normal schedule and clear the change banner"

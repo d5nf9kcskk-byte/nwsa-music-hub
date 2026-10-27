@@ -7,6 +7,10 @@
 :root {
   --dir-primary: #0d7e8e;   /* logo teal — header & structural chrome */
   --dir-blue: #7b3578;      /* logo purple — interactive accent */
+  /* Purple used as TEXT (links, labels). Same as --dir-blue on light; a lighter
+     tint in dark mode, where the logo purple on #1a1f28 was unreadable. Fills
+     with white text keep --dir-blue. */
+  --dir-blue-text: var(--dir-blue);
   --dir-gold: #c8a52a;      /* logo gold — highlights */
   --dir-gold-text: #5c4a00; /* readable text on gold */
   --dir-bg: #f1f5f9;
@@ -161,7 +165,7 @@ html:has(.dir-app) body {
 }
 
 .dir-nav-btn.active {
-  color: var(--dir-blue);
+  color: var(--dir-blue-text);
 }
 
 .dir-nav-btn svg {
@@ -1597,7 +1601,7 @@ button.dir-roster-group-link:hover .dir-group-open-hint { opacity: 1; }
   transition: background 0.12s;
 }
 
-.dir-ensemble-gen-btn:active { background: var(--dir-bg); color: var(--dir-blue); }
+.dir-ensemble-gen-btn:active { background: var(--dir-bg); color: var(--dir-blue-text); }
 
 /* ── Rehearsal generator / ICS import ── */
 
@@ -1819,7 +1823,7 @@ button.dir-roster-group-link:hover .dir-group-open-hint { opacity: 1; }
 
 .dir-form-section-label {
   font-size: 11px; font-weight: 800; letter-spacing: 0.7px; text-transform: uppercase;
-  color: var(--dir-blue); margin: 18px 0 8px; padding-top: 14px;
+  color: var(--dir-blue-text); margin: 18px 0 8px; padding-top: 14px;
   border-top: 1px solid var(--dir-border);
 }
 
@@ -1829,7 +1833,7 @@ button.dir-roster-group-link:hover .dir-group-open-hint { opacity: 1; }
 .dir-label-row .dir-label { margin-bottom: 0; }
 
 .dir-link-btn {
-  font-size: 13px; font-weight: 700; color: var(--dir-blue);
+  font-size: 13px; font-weight: 700; color: var(--dir-blue-text);
   background: none; border: none; cursor: pointer; padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
@@ -1920,7 +1924,7 @@ button.dir-roster-group-link:hover .dir-group-open-hint { opacity: 1; }
 .dir-piece-add-btn {
   width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
   background: var(--dir-surface-2); border: none; border-left: 1px solid var(--dir-border);
-  color: var(--dir-blue); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  color: var(--dir-blue-text); cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .dir-piece-add-btn:active { background: #f5edf6; }
 
@@ -1984,7 +1988,7 @@ button.dir-roster-group-link:hover .dir-group-open-hint { opacity: 1; }
 .dir-piece-selected-head {
   display: flex; align-items: center; gap: 7px;
   font-size: 11px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;
-  color: var(--dir-blue); padding: 8px 10px 4px;
+  color: var(--dir-blue-text); padding: 8px 10px 4px;
 }
 .dir-piece-selected-count {
   font-size: 10px; font-weight: 800; color: #fff; background: var(--dir-blue);
@@ -2017,7 +2021,7 @@ button.dir-roster-group-link:hover .dir-group-open-hint { opacity: 1; }
   color: var(--dir-text-muted); cursor: grab;
   touch-action: none; -webkit-tap-highlight-color: transparent;
 }
-.dir-piece-grip:active { cursor: grabbing; color: var(--dir-blue); }
+.dir-piece-grip:active { cursor: grabbing; color: var(--dir-blue-text); }
 .dir-piece-sel-item.dragging {
   position: relative; z-index: 2;
   background: var(--dir-surface);
@@ -2263,7 +2267,7 @@ a.dir-menu-item {
   -webkit-tap-highlight-color: transparent;
 }
 .dir-detail-contact-row:active { background: #e8d0eb; }
-.dir-detail-contact-row svg { flex-shrink: 0; color: var(--dir-blue); }
+.dir-detail-contact-row svg { flex-shrink: 0; color: var(--dir-blue-text); }
 .dir-detail-contact-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dir-detail-ext { opacity: 0.5; flex-shrink: 0; }
 
@@ -2382,7 +2386,7 @@ a.dir-menu-item {
   border-top: 1px solid var(--dir-border);
 }
 .dir-list-date-header:first-child { border-top: none; }
-.dir-list-date-header.today { color: var(--dir-blue); }
+.dir-list-date-header.today { color: var(--dir-blue-text); }
 /* Divider between what's coming and what already happened (#concerts). */
 .dir-list-past-header {
   margin-top: 20px;
@@ -2696,3 +2700,8 @@ a.dir-menu-item {
   margin: 12px 16px; padding: 14px 16px;
   background: var(--dir-surface); border: 1.5px dashed var(--dir-border); border-radius: var(--dir-radius);
 }
+
+/* A page-level .dir-btn is never stretched or squashed: the class is shaped
+   for drawer footers (`flex: 1` to split a row), and in a column-stacked page
+   that flex-basis of 0 collapsed it to a sliver (Juries' "New Jury"). */
+:is(.dir-page-body, .dir-tab-page) > .dir-btn { flex: 0 0 auto; }

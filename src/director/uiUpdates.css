@@ -61,7 +61,7 @@
 .dir-menu-item svg { color: var(--dir-text-muted); flex-shrink: 0; }
 .dir-menu-item:active { background: var(--dir-bg); }
 .dir-menu-item.active { background: #f3eaf6; color: var(--dir-blue); }
-.dir-menu-item.active svg { color: var(--dir-blue); }
+.dir-menu-item.active svg { color: var(--dir-blue-text); }
 .dir-menu-signout { color: var(--dir-danger); }
 .dir-menu-signout svg { color: var(--dir-danger); }
 .dir-menu-divider { height: 1px; background: var(--dir-border); margin: 8px 10px; }
@@ -179,7 +179,7 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   width: 100%; margin-top: 8px; padding: 9px 12px;
   border: 1.5px solid var(--dir-border); border-radius: 10px;
   background: var(--dir-surface-2);
-  font-size: 13.5px; font-weight: 700; color: var(--dir-blue);
+  font-size: 13.5px; font-weight: 700; color: var(--dir-blue-text);
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .dir-event-roster-btn:active { background: var(--dir-border); }
@@ -424,7 +424,7 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-today-open:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 3px; }
 .dir-today-open-chev { color: var(--dir-text-muted); opacity: 0.55; margin-left: auto; flex-shrink: 0; }
 @media (hover: hover) {
-  .dir-today-open:hover .dir-today-open-chev { opacity: 1; color: var(--dir-blue); }
+  .dir-today-open:hover .dir-today-open-chev { opacity: 1; color: var(--dir-blue-text); }
 }
 /* Each ensemble on the event, straight to its hub. */
 .dir-today-ens-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -464,7 +464,7 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-hub-btn {
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   padding: 16px 8px; border: 1.5px solid var(--dir-border); border-radius: var(--dir-radius);
-  background: var(--dir-surface); color: var(--dir-blue);
+  background: var(--dir-surface); color: var(--dir-blue-text);
   font-size: 13px; font-weight: 700; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -557,6 +557,7 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   --dir-late-bg: #38301a;
   --dir-excused-bg: #17301f;
   --dir-lesson-bg: #241f38;
+  --dir-blue-text: #d9a7d5;
 }
 .dir-app[data-dir-theme="dark"] .dir-gen-preview-date.dir-muted,
 .dir-app[data-dir-theme="dark"] .dir-detail-assign-exempt {
@@ -717,7 +718,7 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   text-transform: uppercase; letter-spacing: 0.04em; color: var(--dir-text-muted);
 }
 .dir-section-head span { display: inline-flex; align-items: center; gap: 6px; }
-.dir-link-btn { border: none; background: none; color: var(--dir-blue); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.dir-link-btn { border: none; background: none; color: var(--dir-blue-text); font-size: 12.5px; font-weight: 700; cursor: pointer; }
 /* A section heading that opens what it names (Who's Out per-ensemble), and
    the group that keeps it beside its own detail rather than letting
    space-between push the two apart. */
@@ -728,12 +729,12 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   font: inherit; letter-spacing: inherit; text-transform: inherit;
   color: inherit; text-align: left;
 }
-.dir-head-link:hover { color: var(--dir-blue); }
+.dir-head-link:hover { color: var(--dir-blue-text); }
 /* An ensemble / event / assignment name shown inside a line of text that
    opens its own editor. Reads as text until you look for it. */
 .dir-inline-link {
   border: none; background: none; padding: 0; margin: 0;
-  font: inherit; color: var(--dir-blue); font-weight: 700;
+  font: inherit; color: var(--dir-blue-text); font-weight: 700;
   cursor: pointer; text-align: left;
 }
 .dir-inline-link:hover { text-decoration: underline; }
@@ -746,7 +747,7 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 }
 .dir-detail-row-tappable:disabled { cursor: default; }
 .dir-detail-row-tappable:not(:disabled):hover .dir-detail-event-title,
-.dir-detail-row-tappable:not(:disabled):hover .dir-detail-assign-title { color: var(--dir-blue); }
+.dir-detail-row-tappable:not(:disabled):hover .dir-detail-assign-title { color: var(--dir-blue-text); }
 .dir-alert-group { margin-bottom: 10px; }
 .dir-alert-group-title {
   font-size: 11px;
@@ -805,10 +806,10 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-quick-btn {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   padding: 14px 6px; border: 1.5px solid var(--dir-border); border-radius: 12px;
-  background: var(--dir-surface); color: var(--dir-blue);
+  background: var(--dir-surface); color: var(--dir-blue-text);
   font-size: 12px; font-weight: 700; cursor: pointer; text-align: center;
 }
-.dir-quick-btn svg { color: var(--dir-blue); }
+.dir-quick-btn svg { color: var(--dir-blue-text); }
 .dir-quick-btn:active { background: var(--dir-surface-2); }
 .dir-up-row {
   display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
@@ -851,7 +852,7 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   color: var(--dir-text-muted); cursor: grab;
   touch-action: none; -webkit-tap-highlight-color: transparent;
 }
-.dir-seat-grip:active { cursor: grabbing; color: var(--dir-blue); }
+.dir-seat-grip:active { cursor: grabbing; color: var(--dir-blue-text); }
 .dir-seat-row.dragging {
   position: relative; z-index: 2;
   background: var(--dir-surface);
@@ -941,7 +942,7 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 }
 
 /* Preferred name / pronunciation (#46) + planned-absence pre-badge (#27) */
-.dir-goesby { margin-left: 6px; font-size: 12.5px; font-weight: 700; color: var(--dir-blue); }
+.dir-goesby { margin-left: 6px; font-size: 12.5px; font-weight: 700; color: var(--dir-blue-text); }
 .dir-pronounce { color: var(--dir-text-muted); }
 .dir-prereport {
   margin-top: 6px; padding: 7px 10px; border-radius: 8px;
@@ -1185,7 +1186,7 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--dir-blue);
+  color: var(--dir-blue-text);
   text-decoration: none;
 }
 .dir-hub-staff-link:hover { text-decoration: underline; }

@@ -598,7 +598,7 @@ function FollowUpSheet({ records, students, ensembleMap, onClose }: {
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="dir-pull-btn" style={{ color: 'var(--dir-excused)' }} disabled={busyId === r.id} onClick={() => act(r.id, 'excuse')}>Excuse</button>
-                <button className="dir-pull-btn" style={{ color: 'var(--dir-blue)' }} disabled={busyId === r.id} onClick={() => act(r.id, 'contacted')}>Contacted</button>
+                <button className="dir-pull-btn" style={{ color: 'var(--dir-blue-text)' }} disabled={busyId === r.id} onClick={() => act(r.id, 'contacted')}>Contacted</button>
                 <button className="dir-pull-btn" disabled={busyId === r.id} onClick={() => act(r.id, 'dismissed')}>Dismiss</button>
               </div>
             </div>

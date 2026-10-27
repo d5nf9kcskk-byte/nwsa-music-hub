@@ -1705,6 +1705,16 @@ so every section was bare text on the season's bats. Rules for every screen:
 - **Schedule on a phone opens a tapped date as its own page** (below 1100px:
   `.day-open` hides the grid, a "‹ Month" row and day arrows appear, and Back
   returns). At 1100px+ the two-pane split is unchanged.
+- **Purple TEXT is `--dir-blue-text`, never `--dir-blue`** (Oct 2026). The
+  logo purple was unreadable as text in dark mode ("Open roll", the section
+  labels). `--dir-blue-text` equals `--dir-blue` in light and is a lighter tint
+  in dark; fills with white text keep `--dir-blue`. The exception is a rule
+  that also hardcodes a LIGHT background (the active menu item, note
+  category chips): those keep `--dir-blue`, since their background is light
+  in both themes.
+- **A page-level `.dir-btn` is `flex: 0 0 auto`.** The class is shaped for
+  drawer footers (`flex: 1`), and in a column-stacked page that collapsed it to
+  a sliver (Juries' New Jury).
 - **Fixtures can show every shell**: a `VITE_FIXTURES=1` build takes
   `?role=teacher|classroom|assistant` (AuthGate, fixtures only), so a layout
   change can be looked at as each kind of user without signing in.
