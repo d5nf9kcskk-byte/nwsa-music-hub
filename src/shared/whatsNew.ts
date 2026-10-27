@@ -32,6 +32,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Clearer cards everywhere + Check-In concert pages (#clear-cards).
+  {
+    id: '2026-10-27-clear-cards',
+    date: '2026-10-27',
+    title: 'Concert Check-In: each concert opens on its own page',
+    audience: 'staff' as const,
+    bullets: [
+      'Tap a concert to open its page: who checked in, who checked out, and who is still inside. Back (or swipe back) returns to the list.',
+      'Tap a count to show just those students. Still inside is the one to check before everyone leaves.',
+      'Cards across the Hub now have clearer edges, and the seasonal background is lighter so it stays behind what you are reading.',
+    ],
+    expires: '2026-11-10',
+  },
   // Concerts to attend without playing (#required-audience).
   {
     id: '2026-10-26-required-concerts',

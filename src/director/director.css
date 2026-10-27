@@ -14,7 +14,9 @@
   --dir-surface-2: #f8fafc;
   --dir-text: #1e293b;
   --dir-text-muted: #64748b;
-  --dir-border: #e2e8f0;
+  /* Strong enough to see a card's edge on a tinted season page (#clear-cards). */
+  --dir-border: #d3dbe5;
+  --dir-card-shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 2px 6px rgb(15 23 42 / 0.05);
   --dir-danger: #ef4444;
   --dir-absent: #ef4444;
   --dir-absent-bg: #fef2f2;
@@ -2603,3 +2605,29 @@ a.dir-menu-item {
 /* Buys back the height the fixed bar covers, so the last rows of the roster
    can still be scrolled to and tapped while a selection is open. */
 .dir-roster-mailbar-spacer { height: 210px; }
+
+/* ── Clear cards, everywhere (#clear-cards, Oct 2026) ──────────────────────
+   Director, 2026-10-27, on an iPhone: "it all blurs together". On a tinted
+   season page with a drawn pattern, a white card with a pale border did not
+   read as a card, and the Check-In screen's ".dir-card" had no style at all,
+   so its sections were bare text on the bats. Two rules, for every screen:
+   anything that holds content is a SURFACE with a visible edge and a lift,
+   and nothing important sits straight on the page background.
+   `.dir-card` is the generic one for a new screen — use it rather than
+   inventing another unstyled class. */
+.dir-card {
+  background: var(--dir-surface);
+  color: var(--dir-text);
+  border: 1px solid var(--dir-border);
+  border-radius: var(--dir-radius);
+  box-shadow: var(--dir-card-shadow);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.dir-card > h3:first-child { margin-top: 0; }
+:is(.dir-student-card, .dir-roster-card, .dir-event-card, .dir-note-card, .dir-announce-card,
+    .dir-rep-card, .dir-assign-card, .dir-ensemble-row, .dir-ens-row, .dir-today-card, .dir-hub-hero,
+    .dir-schedule, .dir-tracker-summary, .dir-signup-card, .dir-ra-card, .dir-doc-card, .dir-setup-box,
+    .dir-grade-list, .dir-lessons-feed, .dir-staff-notice, .dir-page-hint, .dir-quiz, .dir-search-item) {
+  box-shadow: var(--dir-card-shadow);
+}

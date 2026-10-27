@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Download, RefreshCw, Camera, Trash2, Settings, CheckCircle2, LogIn, ExternalLink, Radio, Clock, Search, Plus, Pencil,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { ref as storageRef, getBlob } from 'firebase/storage';
 import { storage } from '../firebaseAuth';
@@ -16,10 +17,16 @@ import {
 } from '../../shared/concertCheckin';
 import { fmtShortDate } from '../../shared/dates';
 import { useMinuteTick } from '../hooks/useAnnouncements';
-import { checkinCandidateEvents, ensembleDisplayName, todayStr } from '../utils';
+import { addDays, checkinCandidateEvents, ensembleDisplayName, todayStr } from '../utils';
 import type { ConcertCheckin, CalendarEvent, Ensemble } from '../types';
 import type { DirNavigate } from '../types-nav';
+import { registerOverlayClose } from '../../shared/overlayBack';
 import './checkin.css';
+
+/** The eventId that means "every concert's scans" rather than one concert. */
+const EVERY = '__every';
+/** Past concerts this recent stay unfolded in the list. */
+const RECENT_DAYS = 14;
 
 /** Title fallback used everywhere an event has no explicit one — same
  *  expression as LinkPicker's eventLabel and half a dozen other screens. */
@@ -49,10 +56,12 @@ export function CheckinView({ onNavigate }: { onNavigate?: DirNavigate }) {
   const { events, updateEvent } = useEvents({ types: ['Concert', 'Event'] });
   const { ensembles } = useEnsembles();
 
+  // '' = the list of concerts; a concert id or EVERY = that concert's own page.
   const [eventId, setEventId] = useState('');
   const [q, setQ] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [photoOf, setPhotoOf] = useState<ConcertCheckin | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const now = useMinuteTick();
   const today = todayStr();
@@ -62,27 +71,46 @@ export function CheckinView({ onNavigate }: { onNavigate?: DirNavigate }) {
   );
 
   // Every music-division concert, whether or not it has a station yet.
-  const concerts = useMemo(() => {
+  // Last night's concert is the one a director opens the next morning, so the
+  // last two weeks stay open; anything older folds away.
+  const { upcoming, recent, past } = useMemo(() => {
     const eligible = checkinCandidateEvents(events, ensembles);
-    const upcoming = eligible.filter(e => e.date >= today).sort((a, b) => a.date.localeCompare(b.date));
-    const past = eligible.filter(e => e.date < today).sort((a, b) => b.date.localeCompare(a.date));
-    return [...upcoming, ...past];
+    const recentFrom = addDays(today, -RECENT_DAYS);
+    const before = eligible.filter(e => e.date < today).sort((a, b) => b.date.localeCompare(a.date));
+    return {
+      upcoming: eligible.filter(e => e.date >= today).sort((a, b) => a.date.localeCompare(b.date)),
+      recent: before.filter(e => e.date >= recentFrom),
+      past: before.filter(e => e.date < recentFrom),
+    };
   }, [events, ensembles, today]);
+  const concerts = useMemo(() => [...upcoming, ...recent, ...past], [upcoming, recent, past]);
 
-  const shownConcerts = useMemo(() => {
+  const matches = (e: CalendarEvent) => {
     const query = q.trim().toLowerCase();
-    if (!query) return concerts;
-    return concerts.filter(e => concertLabel(e, ensembleMap).toLowerCase().includes(query));
-  }, [concerts, q, ensembleMap]);
+    return !query || concertLabel(e, ensembleMap).toLowerCase().includes(query);
+  };
+  const shownUpcoming = upcoming.filter(matches);
+  const shownRecent = recent.filter(matches);
+  const shownPast = past.filter(matches);
 
   const selected = concerts.find(e => e.id === eventId);
+
+  // A concert opens as its OWN page (a phone shows one thing at a time), so
+  // the page starts at the top and the phone's Back gesture returns to the
+  // list instead of leaving Check-In.
+  const open = eventId !== '';
+  useEffect(() => {
+    if (!open) return;
+    rootRef.current?.closest('.dir-content')?.scrollTo({ top: 0 });
+    return registerOverlayClose(() => setEventId(''));
+  }, [open, eventId]);
 
   async function addCheckin(e: CalendarEvent) {
     await updateEvent(e.id, enableCheckinPatch(e));
   }
 
   const shown = useMemo(
-    () => (eventId ? checkins.filter(c => c.eventId === eventId) : checkins),
+    () => (eventId && eventId !== EVERY ? checkins.filter(c => c.eventId === eventId) : checkins),
     [checkins, eventId],
   );
   const rows = useMemo(() => pairCheckins(shown), [shown]);
@@ -93,10 +121,6 @@ export function CheckinView({ onNavigate }: { onNavigate?: DirNavigate }) {
     [events],
   );
   const tallies = useMemo(() => talliesByStudent(checkins, entryOnlyIds), [checkins, entryOnlyIds]);
-
-  const inCount = rows.filter(r => r.in).length;
-  const outCount = rows.filter(r => r.out).length;
-  const openCount = rows.filter(r => r.in && !r.out).length;
 
   const domains = settings.emailDomains?.length ? settings.emailDomains : (ORG.checkin?.emailDomains ?? []);
 
@@ -112,8 +136,49 @@ export function CheckinView({ onNavigate }: { onNavigate?: DirNavigate }) {
     );
   }
 
+  const rowProps = (e: CalendarEvent) => ({
+    event: e,
+    ensembleMap,
+    checkins,
+    settings,
+    domains,
+    now,
+    onAdd: () => void addCheckin(e),
+    onEdit: onNavigate ? () => onNavigate('schedule', { eventId: e.id }) : undefined,
+  });
+
+  if (open) {
+    return (
+      <div className="dir-checkin" ref={rootRef}>
+        <button type="button" className="dir-checkin-back" onClick={() => setEventId('')}>
+          <ChevronLeft size={18} /> All concerts
+        </button>
+
+        <section className="dir-card dir-checkin-head">
+          {selected
+            ? <ConcertInfo {...rowProps(selected)} big />
+            : <h2 className="dir-checkin-title">Every concert</h2>}
+          {selected && <ConcertActions {...rowProps(selected)} />}
+        </section>
+
+        <ScanBoard
+          key={eventId}
+          rows={rows}
+          loading={loading}
+          showConcert={!selected}
+          tallies={tallies}
+          stationOn={selected ? Boolean(selected.checkin?.enabled) : concerts.some(e => e.checkin?.enabled)}
+          onPhoto={setPhotoOf}
+          onRemove={removeCheckin}
+        />
+
+        {photoOf && <PhotoModal record={photoOf} onClose={() => setPhotoOf(null)} />}
+      </div>
+    );
+  }
+
   return (
-    <div className="dir-checkin">
+    <div className="dir-checkin" ref={rootRef}>
       <div className="dir-checkin-bar">
         <button type="button" className="dir-tool-btn" onClick={exportCsv} disabled={checkins.length === 0}>
           <Download size={16} /> Download CSV (all concerts)
@@ -127,6 +192,7 @@ export function CheckinView({ onNavigate }: { onNavigate?: DirNavigate }) {
 
       <section className="dir-card dir-checkin-concerts">
         <h3><Radio size={16} /> Concerts</h3>
+        <p className="dir-field-hint">Tap a concert to see who checked in.</p>
         <div className="dir-checkin-search">
           <Search size={14} />
           <input
@@ -136,108 +202,176 @@ export function CheckinView({ onNavigate }: { onNavigate?: DirNavigate }) {
             placeholder="Search every music-division concert…"
           />
         </div>
-        {shownConcerts.length === 0 ? (
+        {shownUpcoming.length + shownRecent.length + shownPast.length === 0 ? (
           <p className="dir-field-hint">
             {q.trim() ? `Nothing matches "${q}".` : 'No concerts on the calendar yet.'}
           </p>
         ) : (
-          <ul className="dir-checkin-concert-list">
-            {shownConcerts.map(e => (
-              <ConcertRow
-                key={e.id}
-                event={e}
-                ensembleMap={ensembleMap}
-                checkins={checkins}
-                settings={settings}
-                domains={domains}
-                now={now}
-                selected={e.id === eventId}
-                onSelect={() => setEventId(id => (id === e.id ? '' : e.id))}
-                onAdd={() => void addCheckin(e)}
-                onEdit={onNavigate ? () => onNavigate('schedule', { eventId: e.id }) : undefined}
-              />
-            ))}
-          </ul>
+          <>
+            {shownUpcoming.length > 0 && (
+              <>
+                <h4 className="dir-checkin-group">Today and coming up</h4>
+                <ul className="dir-checkin-concert-list">
+                  {shownUpcoming.map(e => (
+                    <ConcertRow key={e.id} {...rowProps(e)} onSelect={() => setEventId(e.id)} />
+                  ))}
+                </ul>
+              </>
+            )}
+            {shownRecent.length > 0 && (
+              <>
+                <h4 className="dir-checkin-group">Recent</h4>
+                <ul className="dir-checkin-concert-list">
+                  {shownRecent.map(e => (
+                    <ConcertRow key={e.id} {...rowProps(e)} onSelect={() => setEventId(e.id)} />
+                  ))}
+                </ul>
+              </>
+            )}
+            {shownPast.length > 0 && (
+              <details className="dir-checkin-past" open={q.trim() !== '' || shownUpcoming.length + shownRecent.length === 0}>
+                <summary className="dir-checkin-group">Earlier concerts ({shownPast.length})</summary>
+                <ul className="dir-checkin-concert-list">
+                  {shownPast.map(e => (
+                    <ConcertRow key={e.id} {...rowProps(e)} onSelect={() => setEventId(e.id)} />
+                  ))}
+                </ul>
+              </details>
+            )}
+          </>
+        )}
+        {checkins.length > 0 && (
+          <button type="button" className="dir-checkin-every" onClick={() => setEventId(EVERY)}>
+            <span>Every concert’s check-ins ({pairCheckins(checkins).length})</span>
+            <ChevronRight size={18} />
+          </button>
         )}
       </section>
+    </div>
+  );
+}
 
-      {selected && (
-        <p className="dir-field-hint">
-          Showing scans for <strong>{concertLabel(selected, ensembleMap)}</strong>.{' '}
-          <button type="button" className="dir-linkish" onClick={() => setEventId('')}>Show every concert</button>
-        </p>
-      )}
+/** The scan board for one concert (or every concert): the counts, which
+ *  double as filters, then one card holding a row per student. */
+function ScanBoard({ rows, loading, showConcert, tallies, stationOn, onPhoto, onRemove }: {
+  rows: CheckinRow[];
+  loading: boolean;
+  showConcert: boolean;
+  tallies: ReturnType<typeof talliesByStudent>;
+  stationOn: boolean;
+  onPhoto: (r: ConcertCheckin) => void;
+  onRemove: (id: string) => Promise<void>;
+}) {
+  const [filter, setFilter] = useState<'all' | 'out' | 'open'>('all');
+  const [name, setName] = useState('');
 
+  const inCount = rows.filter(r => r.in).length;
+  const outCount = rows.filter(r => r.out).length;
+  const openCount = rows.filter(r => r.in && !r.out).length;
+
+  const query = name.trim().toLowerCase();
+  const list = rows
+    .filter(r => filter === 'all' || (filter === 'out' ? Boolean(r.out) : Boolean(r.in && !r.out)))
+    .filter(r => !query || r.studentName.toLowerCase().includes(query));
+
+  const pick = (f: 'all' | 'out' | 'open') => setFilter(cur => (cur === f && f !== 'all' ? 'all' : f));
+  const heading = filter === 'open' ? 'Still inside' : filter === 'out' ? 'Checked out' : 'Students';
+
+  return (
+    <>
       <div className="dir-checkin-counts">
-        <Stat label="Checked in" value={inCount} icon={<LogIn size={16} />} />
-        <Stat label="Checked out" value={outCount} icon={<CheckCircle2 size={16} />} />
-        <Stat label="Still inside" value={openCount} tone={openCount > 0 ? 'warn' : undefined} />
+        <Stat label="Checked in" value={inCount} icon={<LogIn size={16} />} active={filter === 'all'} onClick={() => pick('all')} />
+        <Stat label="Checked out" value={outCount} icon={<CheckCircle2 size={16} />} active={filter === 'out'} onClick={() => pick('out')} />
+        <Stat label="Still inside" value={openCount} tone={openCount > 0 ? 'warn' : undefined} active={filter === 'open'} onClick={() => pick('open')} />
       </div>
 
       {openCount > 0 && (
-        <p className="dir-field-hint">
+        <div className="dir-checkin-alert">
           {openCount} {openCount === 1 ? 'student has' : 'students have'} checked in but not out.
           They get no credit until they do — worth an announcement from the stage
           before everyone leaves.
-        </p>
+        </div>
       )}
 
-      {loading && <p className="dir-field-hint">Loading…</p>}
-      {!loading && rows.length === 0 && (
-        <p className="dir-field-hint">
-          {concerts.some(e => e.checkin?.enabled)
-            ? 'Nobody has checked in yet. Students appear here the moment they do.'
-            : 'No check-ins yet.'}
-        </p>
-      )}
+      <section className="dir-card dir-checkin-people">
+        <div className="dir-checkin-people-head">
+          <h3>{heading} <span className="dir-checkin-count">{list.length}</span></h3>
+          {rows.length > 8 && (
+            <div className="dir-checkin-search">
+              <Search size={14} />
+              <input className="dir-input" value={name} onChange={ev => setName(ev.target.value)} placeholder="Find a student…" />
+            </div>
+          )}
+        </div>
 
-      <table className="dir-checkin-table">
-        <tbody>
-          {rows.map(row => (
+        {loading && <p className="dir-field-hint">Loading…</p>}
+        {!loading && list.length === 0 && (
+          <p className="dir-field-hint">
+            {rows.length > 0
+              ? 'Nobody here matches.'
+              : stationOn
+                ? 'Nobody has checked in yet. Students appear here the moment they do.'
+                : 'No check-ins yet.'}
+          </p>
+        )}
+
+        <ul className="dir-checkin-rows">
+          {list.map(row => (
             <Row
               key={row.key}
               row={row}
-              showConcert={!eventId}
+              showConcert={showConcert}
               tally={tallies[row.studentId]?.[row.termId]}
-              onPhoto={setPhotoOf}
-              onRemove={removeCheckin}
+              onPhoto={onPhoto}
+              onRemove={onRemove}
             />
           ))}
-        </tbody>
-      </table>
-
-      {photoOf && <PhotoModal record={photoOf} onClose={() => setPhotoOf(null)} />}
-    </div>
+        </ul>
+      </section>
+    </>
   );
 }
 
-function Stat({ label, value, icon, tone }: { label: string; value: number; icon?: React.ReactNode; tone?: 'warn' }) {
+function Stat({ label, value, icon, tone, active, onClick }: {
+  label: string; value: number; icon?: React.ReactNode; tone?: 'warn'; active?: boolean; onClick?: () => void;
+}) {
   return (
-    <div className={`dir-checkin-stat ${tone ?? ''}`}>
+    <button type="button" className={`dir-checkin-stat ${tone ?? ''}${active ? ' active' : ''}`} onClick={onClick} aria-pressed={active}>
       <span className="n">{icon} {value}</span>
       <span className="l">{label}</span>
-    </div>
+    </button>
   );
 }
 
-/**
- * One concert, whether or not it has a station yet. The row itself is the
- * "pick this concert's scans" control (mirrors the dropdown it replaced);
- * the station switch and the jump to the full editor are separate buttons so
- * neither accidentally fires the other.
- */
-function ConcertRow({ event, ensembleMap, checkins, settings, domains, now, selected, onSelect, onAdd, onEdit }: {
+interface ConcertProps {
   event: CalendarEvent;
   ensembleMap: Record<string, Ensemble>;
   checkins: ConcertCheckin[];
   settings: { opensMinutesBefore?: number; closesMinutesAfter?: number };
   domains: string[];
   now: number;
-  selected: boolean;
-  onSelect: () => void;
   onAdd: () => void;
   onEdit?: () => void;
-}) {
+}
+
+/**
+ * One concert in the list, whether or not it has a station yet. The row is
+ * the way into that concert's own page; the station switch and the jump to
+ * the full editor are separate buttons so neither fires the other.
+ */
+function ConcertRow(props: ConcertProps & { onSelect: () => void }) {
+  return (
+    <li className="dir-checkin-concert">
+      <button type="button" className="dir-checkin-concert-main" onClick={props.onSelect}>
+        <ConcertInfo {...props} />
+        <ChevronRight size={20} className="dir-checkin-chev" aria-hidden="true" />
+      </button>
+      <ConcertActions {...props} />
+    </li>
+  );
+}
+
+function ConcertInfo({ event, ensembleMap, checkins, settings, domains, now, big }: ConcertProps & { big?: boolean }) {
   const enabled = Boolean(event.checkin?.enabled);
   const ensText = event.ensembleIds.length
     ? event.ensembleIds.map(id => ensembleDisplayName(ensembleMap[id])).filter(Boolean).join(', ')
@@ -259,57 +393,60 @@ function ConcertRow({ event, ensembleMap, checkins, settings, domains, now, sele
   const outs = new Set(mine.filter(c => c.kind === 'out').map(c => c.studentId));
 
   return (
-    <li className={`dir-checkin-concert${selected ? ' selected' : ''}`}>
-      <button type="button" className="dir-checkin-concert-main" onClick={onSelect}>
-        <div className="dir-checkin-concert-head">
-          <strong>{concertLabel(event, ensembleMap)}</strong>
-          {event.concertAttendance && (
-            <span className="dir-checkin-pill req">
-              {event.concertAttendance === 'required' ? 'Required' : 'Optional'}
-            </span>
-          )}
-          {!enabled && <span className="dir-checkin-pill">No station</span>}
-        </div>
-        <div className="dir-field-hint">{fmtShortDate(event.date)} · {ensText}</div>
-        {enabled && (
-          <div className="dir-field-hint">
-            <span className={`dir-checkin-pill ${state}`}>
-              {state === 'open' ? 'Open now'
-                : state === 'early' ? 'Opens later'
-                : state === 'closed' ? 'Closed'
-                : 'Not collecting'}
-            </span>
-            {win ? ` · station ${clock(win.opensAt)} – ${clock(win.closesAt)}` : ''}
-            {cutoff ? ` · arrivals until ${clock(cutoff)}` : ''}
-            {' · '}{ins.size} in, {outs.size} out
-          </div>
+    <div className="dir-checkin-info">
+      <div className="dir-checkin-concert-head">
+        {big
+          ? <h2 className="dir-checkin-title">{concertLabel(event, ensembleMap)}</h2>
+          : <strong>{concertLabel(event, ensembleMap)}</strong>}
+        {event.concertAttendance && (
+          <span className="dir-checkin-pill req">
+            {event.concertAttendance === 'required' ? 'Required' : 'Optional'}
+          </span>
         )}
-        {!enabled && event.status === 'Cancelled' && (
-          <div className="dir-field-hint warn"><Clock size={12} /> This concert is marked Cancelled.</div>
-        )}
-      </button>
-      <div className="dir-checkin-concert-actions">
-        {!enabled && (
-          <button
-            type="button"
-            className="dir-tool-btn"
-            onClick={ev => { ev.stopPropagation(); onAdd(); }}
-          >
-            <Plus size={14} /> Add check-in
-          </button>
-        )}
-        {onEdit && (
-          <button
-            type="button"
-            className="dir-tool-btn"
-            title="Required/Optional and the window times live in the event editor"
-            onClick={ev => { ev.stopPropagation(); onEdit(); }}
-          >
-            <Pencil size={14} /> Edit
-          </button>
-        )}
+        {!enabled && <span className="dir-checkin-pill">No station</span>}
       </div>
-    </li>
+      <div className="dir-field-hint">{fmtShortDate(event.date)} · {ensText}</div>
+      {enabled && (
+        <div className="dir-field-hint">
+          <span className={`dir-checkin-pill ${state}`}>
+            {state === 'open' ? 'Open now'
+              : state === 'early' ? 'Opens later'
+              : state === 'closed' ? 'Closed'
+              : 'Not collecting'}
+          </span>
+          {win ? ` · station ${clock(win.opensAt)} – ${clock(win.closesAt)}` : ''}
+          {cutoff ? ` · arrivals until ${clock(cutoff)}` : ''}
+          {!big && <> · <strong>{ins.size} in, {outs.size} out</strong></>}
+        </div>
+      )}
+      {!enabled && event.status === 'Cancelled' && (
+        <div className="dir-field-hint warn"><Clock size={12} /> This concert is marked Cancelled.</div>
+      )}
+    </div>
+  );
+}
+
+function ConcertActions({ event, onAdd, onEdit }: ConcertProps) {
+  const enabled = Boolean(event.checkin?.enabled);
+  if (enabled && !onEdit) return null;
+  return (
+    <div className="dir-checkin-concert-actions">
+      {!enabled && (
+        <button type="button" className="dir-tool-btn" onClick={onAdd}>
+          <Plus size={14} /> Add check-in
+        </button>
+      )}
+      {onEdit && (
+        <button
+          type="button"
+          className="dir-tool-btn"
+          title="Required/Optional and the window times live in the event editor"
+          onClick={onEdit}
+        >
+          <Pencil size={14} /> Edit
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -324,22 +461,26 @@ function Row({ row, showConcert, tally, onPhoto, onRemove }: {
     ? new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: ORG.timezone }).format(new Date(at))
     : '—';
   return (
-    <tr className={row.in && !row.out ? 'open' : ''}>
-      <td>
+    <li className={`dir-checkin-person${row.in && !row.out ? ' open' : ''}`}>
+      <div className="dir-checkin-who">
         <div className="dir-checkin-name">{row.studentName}</div>
         <div className="dir-field-hint">
           {[row.grade, row.instrument].filter(Boolean).join(' · ')}
           {showConcert ? ` · ${row.eventTitle}` : ''}
           {row.attendance ? ` · ${row.attendance === 'required' ? 'Required' : 'Optional'}` : ''}
         </div>
-        <div className="dir-field-hint">{row.email}</div>
-      </td>
-      <td className="dir-checkin-times">
+        <div className="dir-field-hint dir-checkin-email">{row.email}</div>
+        {tally && (
+          <div className="dir-field-hint">This semester: {tally.required} required · {tally.optional} optional</div>
+        )}
+      </div>
+      <div className="dir-checkin-times">
         <div>In <strong>{time(row.in?.at)}</strong></div>
         <div>Out <strong>{time(row.out?.at)}</strong></div>
         {row.in && row.out && <div className="dir-field-hint">{minutesPresent(row)} min</div>}
-      </td>
-      <td className="dir-checkin-photos">
+        {row.in && !row.out && <div className="dir-checkin-pill early">Still inside</div>}
+      </div>
+      <div className="dir-checkin-tools">
         {row.in?.photoPath && (
           <button type="button" className="dir-tool-btn" onClick={() => onPhoto(row.in!)}>
             <Camera size={14} /> In
@@ -353,19 +494,11 @@ function Row({ row, showConcert, tally, onPhoto, onRemove }: {
         {(row.in?.photoSkipped || row.out?.photoSkipped) && (
           <span className="dir-field-hint">no photo (fallback)</span>
         )}
-      </td>
-      <td>
-        {tally && (
-          <span className="dir-field-hint">
-            {tally.required} req · {tally.optional} opt
-          </span>
-        )}
-      </td>
-      <td className="dir-checkin-fix">
         {/* The one correction a concert night produces: a scan taken under the
             wrong name at the door. */}
         {(row.in || row.out) && (
-          <button type="button" className="dir-tool-btn danger" title="Remove the check-in"
+          <button type="button" className="dir-tool-btn danger dir-checkin-remove" title="Remove the check-in"
+            aria-label={`Remove ${row.studentName}'s check-in`}
             onClick={() => {
               if (!confirm(`Remove ${row.studentName}'s check-in?`)) return;
               // BOTH scans. Removing only the arrival left the departure
@@ -378,8 +511,8 @@ function Row({ row, showConcert, tally, onPhoto, onRemove }: {
             <Trash2 size={14} />
           </button>
         )}
-      </td>
-    </tr>
+      </div>
+    </li>
   );
 }
 

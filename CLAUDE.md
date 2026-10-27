@@ -1672,6 +1672,27 @@ everything it changes.
 - Public site only. The director panel has its own theme switch and is not
   touched; the tint rule is scoped to `:has(.pub-app)` for that reason.
 
+## Clear cards, and a page per concert (Oct 2026, #clear-cards)
+
+Director, 2026-10-27, on an iPhone: Check-In "all blurs together and looks like
+a 1990s website". Tapping a concert revealed its scans BELOW the fold with no
+sign anything happened, and `.dir-card` (used only there) had no style at all,
+so every section was bare text on the season's bats. Rules for every screen:
+
+- **Anything that holds content is a surface with a visible edge.**
+  `.dir-card` (director.css) is the generic one; the named card classes share
+  `--dir-card-shadow`; public cards use `--pub-shadow-1`. Never ship a class
+  that only LOOKS like it should be a card, and never sit a section's content
+  straight on the page background.
+- **The season drawing is texture.** `seasons.css` lays a `--season-wash` of
+  the page's own tint OVER the pattern on both sides. Do not remove the wash
+  to make a season "pop"; that is what made the page unreadable.
+- **On a phone, a drill-down is its own page, not a reveal below.**
+  `CheckinView` swaps the list for one concert's page (back button, top of
+  page, and the phone's Back gesture via `registerOverlayClose`). Do the same
+  for any list → detail screen.
+- Check it at 390px wide before shipping (#one-nav).
+
 ## What's New banner (auto)
 
 Product/UX changes that affect all staff or the public student site must

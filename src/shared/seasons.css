@@ -61,8 +61,12 @@ html[data-dir-season='steelpan'] .dir-content,
 .pub-season-thumb.steelpan { --season-img: var(--season-img-steelpan); }
 
 /* ── Public site: look.ts sets data-pub-season to the season's pattern. */
-html[data-pub-season] .pub-app { background-image: var(--season-img); }
-html[data-pub-theme='dark'][data-pub-season] .pub-app { background-image: var(--season-img), var(--season-img); }
+/* A wash of the page's own tint lies OVER the drawing (#clear-cards): at full
+   strength the pattern competed with the cards on a phone and nobody could
+   tell page from panel. Half strength keeps the season and loses the noise. */
+html[data-pub-season] .pub-app { --season-wash: linear-gradient(color-mix(in srgb, var(--pub-bg) 55%, transparent), color-mix(in srgb, var(--pub-bg) 55%, transparent)); }
+html[data-pub-season] .pub-app { background-image: var(--season-wash), var(--season-img); }
+html[data-pub-theme='dark'][data-pub-season] .pub-app { background-image: var(--season-wash), var(--season-img), var(--season-img); }
 /* The sheet's season card: the season's own page tint under its pattern. */
 .pub-season-thumb { background-image: var(--season-img); }
 :root[data-pub-theme='dark'] .pub-season-thumb { background-image: var(--season-img), var(--season-img); }
@@ -75,8 +79,9 @@ html[data-pub-theme='dark'][data-pub-season] .pub-app { background-image: var(--
    colors are all dark (pinned). */
 html[data-dir-season] .dir-app { --dir-bg: var(--dir-season-light); }
 html[data-dir-season] .dir-app[data-dir-theme="dark"] { --dir-bg: var(--dir-season-dark); }
-html[data-dir-season] .dir-content { background-image: var(--season-img); }
-html[data-dir-season] .dir-app[data-dir-theme="dark"] .dir-content { background-image: var(--season-img), var(--season-img); }
+html[data-dir-season] .dir-content { --season-wash: linear-gradient(color-mix(in srgb, var(--dir-bg) 55%, transparent), color-mix(in srgb, var(--dir-bg) 55%, transparent)); }
+html[data-dir-season] .dir-content { background-image: var(--season-wash), var(--season-img); }
+html[data-dir-season] .dir-app[data-dir-theme="dark"] .dir-content { background-image: var(--season-wash), var(--season-img), var(--season-img); }
 html[data-dir-season] .dir-header {
   background: linear-gradient(110deg, transparent 0%, rgb(0 0 0 / 0.22) 100%), var(--dir-season-header);
 }

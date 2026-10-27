@@ -551,7 +551,8 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   --dir-surface-2: #232a36;
   --dir-text: #e9ecf1;
   --dir-text-muted: #9aa4b2;
-  --dir-border: #2b3240;
+  --dir-border: #364052;
+  --dir-card-shadow: 0 1px 2px rgb(0 0 0 / 0.45);
   --dir-absent-bg: #3a1f1f;
   --dir-late-bg: #38301a;
   --dir-excused-bg: #17301f;

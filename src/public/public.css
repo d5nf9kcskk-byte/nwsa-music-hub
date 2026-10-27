@@ -9,7 +9,7 @@
   --pub-ink: #18212f;
   --pub-text: #18212f; /* alias — several rules reference --pub-text */
   --pub-muted: #6b7686;
-  --pub-border: #e6e9ef;
+  --pub-border: #d9dfe7; /* visible card edge on a tinted season page (#clear-cards) */
   --pub-accent: #0d7e8e;       /* logo teal */
   --pub-accent-soft: #e6f2f3;
   --pub-purple: #7b3578;        /* logo purple — selection accent (matches director) */
@@ -32,7 +32,7 @@
   --pub-danger: #dc2626;
 
   /* Elevation scale: raised card / menu / modal */
-  --pub-shadow-1: 0 1px 3px rgba(15, 40, 60, 0.08);
+  --pub-shadow-1: 0 1px 2px rgba(15, 40, 60, 0.07), 0 2px 6px rgba(15, 40, 60, 0.06);
   --pub-shadow-2: 0 8px 24px rgba(15, 40, 60, 0.16);
   --pub-shadow-3: 0 16px 48px rgba(15, 40, 60, 0.26);
 }
@@ -207,6 +207,7 @@ html:has(.pub-app) body {
   background: var(--pub-surface);
   border: 1px solid var(--pub-border);
   border-radius: var(--pub-radius);
+  box-shadow: var(--pub-shadow-1);
   padding: 16px;
 }
 
@@ -229,6 +230,7 @@ html:has(.pub-app) body {
   background: var(--pub-surface);
   border: 1px solid var(--pub-border);
   border-radius: var(--pub-radius);
+  box-shadow: var(--pub-shadow-1);
   overflow: hidden;
   margin-bottom: 10px;
 }
