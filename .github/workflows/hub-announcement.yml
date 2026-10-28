@@ -1,0 +1,47 @@
+name: Hub Announcement
+
+# Post, edit, archive, restore or delete an announcement from the Actions tab,
+# with the Announcements screen's options: priority, pin, links, expiry,
+# "publish at" scheduling, and the urgent Teams / family alert. The Director
+# Panel remains the normal way to post; *Post Announcement* still works for a
+# plain post typed into its boxes.
+#
+# The request is one JSON object; every op and field is documented at the top
+# of scripts/hub-announcement.mjs and in docs/hub-tools.md. Example:
+#   {"op":"post","title":"Sectionals tomorrow","priority":"important","pinned":true}
+#
+# PREVIEW BY DEFAULT. With "apply" unticked the run prints every write it
+# WOULD make and writes nothing. Tick "apply" only after reading a preview.
+#
+# This repo is public, and so is this input box and the run log. Never put
+# student names or any other student data in a request (CLAUDE.md).
+on:
+  workflow_dispatch:
+    inputs:
+      request: { description: 'The request, as JSON (see docs/hub-tools.md)', required: true }
+      apply:   { description: 'Write it (unticked = preview only)', required: false, type: boolean, default: false }
+
+permissions:
+  contents: read
+
+# One Hub-tool run at a time, shared with Hub Calendar.
+concurrency:
+  group: hub-tools
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: ${{ inputs.apply && 'Apply' || 'Preview' }}
+        env:
+          TZ: America/New_York
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          HUB_REQUEST: ${{ inputs.request }}
+        run: node scripts/hub-announcement.mjs ${{ inputs.apply && '--apply' || '' }}
