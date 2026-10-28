@@ -1,0 +1,48 @@
+name: Hub Calendar
+
+# Add, edit, move, cancel, restore ("Back to normal") or delete a calendar
+# event from the Actions tab, the way the Director Panel's Schedule does it:
+# a move or cancel posts the same red banner and the same Teams / family
+# alert, and a restore takes them down again. The Director Panel remains the
+# normal way to do this.
+#
+# The request is one JSON object; every op and field is documented at the top
+# of scripts/hub-calendar.mjs and in docs/hub-tools.md. Example:
+#   {"op":"cancel","id":"<event id>","expect":{"date":"2026-11-03"}}
+#
+# PREVIEW BY DEFAULT. With "apply" unticked the run prints every write it
+# WOULD make and writes nothing. Tick "apply" only after reading a preview.
+#
+# This repo is public, and so is this input box and the run log. Never put
+# student names or any other student data in a request (CLAUDE.md).
+on:
+  workflow_dispatch:
+    inputs:
+      request: { description: 'The request, as JSON (see docs/hub-tools.md)', required: true }
+      apply:   { description: 'Write it (unticked = preview only)', required: false, type: boolean, default: false }
+
+permissions:
+  contents: read
+
+# One Hub-tool run at a time, so two requests never plan against the same
+# stale read.
+concurrency:
+  group: hub-tools
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: ${{ inputs.apply && 'Apply' || 'Preview' }}
+        env:
+          TZ: America/New_York
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          HUB_REQUEST: ${{ inputs.request }}
+        run: node scripts/hub-calendar.mjs ${{ inputs.apply && '--apply' || '' }}

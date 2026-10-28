@@ -1621,6 +1621,33 @@ music, with no error anywhere.
 
 Session record: `docs/session-notes-2026-09-17-assignment-editor-and-group-picker.md`.
 
+## Calendar and announcements without a browser (Oct 2026, #hub-tools)
+
+*Hub Calendar* and *Hub Announcement* (`scripts/hub-calendar.mjs`,
+`scripts/hub-announcement.mjs`, plumbing in `scripts/lib/hubTool.mjs`) change
+events and announcements from the Actions tab, one JSON request per run.
+Usage: `docs/hub-tools.md`. Rules that keep them safe:
+
+- **Preview by default.** Nothing is written without `--apply` (the
+  workflow's "apply" box) AND the service account. A preview reads the
+  world-readable collections over public REST, so it runs anywhere.
+- **The app's own logic, imported, never copied.** A move or cancel goes
+  through `captureOriginal` / `planDayChange` / `bannersForEvents`, so the
+  snapshot, the one-banner-per-event rule and "Back to normal" behave exactly
+  as on the Schedule screen. `loadAppModules()` stubs the CLIENT Firebase SDK
+  to `db = null`; nothing here may write through it.
+- **Every op but add/post names its target twice** — id plus an `expect`
+  (date for events, title for posts) — and refuses on a mismatch.
+- **The urgent alert follows `urgentRelay.ts`**: queued now for a post made
+  now, left to the Hub's sweep for a scheduled one, never re-sent by an edit,
+  `notifyQueue/ann-<id>` created and never overwritten. `"alert": false`
+  stamps `relayQueuedAt` so the sweep skips it too. Change the relay's entry
+  shape and this tool together.
+- **No student data, ever** (#student-data): the input box and the log are
+  public. Neither tool writes pull-outs, performers, audience lists, lessons
+  or anything on `students`; a day cancel that must take private lessons
+  stays in the app. `delete` refuses an event with roll or a roster move on it.
+
 ## Colors & background (Sept 2026, #look)
 
 Students pick a top-bar color, a menu color and a page background from the
