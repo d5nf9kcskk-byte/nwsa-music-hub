@@ -69,6 +69,10 @@ export function SignupAppointmentsFeedPanel() {
             the sign-up, who booked it, and what they wrote on the form. It keeps itself up
             to date, and a freed slot disappears on its own.
           </p>
+          <p className="dir-field-hint" style={{ margin: '0 0 8px' }}>
+            Already subscribed to <strong>My calendar</strong> (Schedule screen)? These bookings
+            sync there automatically, so you don&rsquo;t need this one too.
+          </p>
           <p className="dir-lessons-feed-warn">
             Read this first: calendar feeds have no sign-in, so the link itself is the only
             thing protecting it. Anyone you send it to — or anyone they forward it to — can

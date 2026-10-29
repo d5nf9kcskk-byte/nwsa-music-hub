@@ -99,26 +99,24 @@ export function withinWindow(date: string, from: string, to: string): boolean {
 }
 
 /**
- * The calendar body, read at request time.
+ * Every booked slot on the sign-ups this person owns, as VEVENTs, inside the
+ * feed window.
  *
- * Reads the staff-only `signupResponses` — that is the point of the endpoint,
- * and the reason it cannot be a file in the Pages artifact. Everything shown
- * is derived through `appointmentsForForms()`, the same function the director's
- * own Schedule screen uses, so the subscribed calendar and the screen that
- * offered it can never disagree.
+ * Shared by this feed AND the person's "My calendar" (`staffFeed`,
+ * #my-calendar-slots): a director who subscribed to My calendar in Fantastical
+ * expected the times people booked with them to be there, and they were only
+ * in this second calendar nobody knew to add. One reader, so the two can
+ * never disagree about what was booked.
+ *
+ * Reads the staff-only `signupResponses` — that is the point, and the reason
+ * neither calendar can be a file in the Pages artifact. Everything shown is
+ * derived through `appointmentsForForms()`, the same function the director's
+ * own Schedule screen uses.
  */
-export async function buildAppointmentsIcs(db: Firestore, email: string): Promise<string> {
+export async function appointmentVevents(db: Firestore, email: string): Promise<string[]> {
   const ownerSnap = await db.collection('signupOwners').where('email', '==', email).get();
   const formIds = ownerSnap.docs.map(d => d.id);
-
-  if (formIds.length === 0) {
-    return icsCalendar(
-      `${ORG.ics.namePrefix} · My appointments`,
-      'Time slots students booked on your sign-ups.',
-      [],
-      BRANDING,
-    );
-  }
+  if (formIds.length === 0) return [];
 
   const idChunks = chunk(formIds);
   const [formGroups, bookingGroups, responseGroups] = await Promise.all([
@@ -140,7 +138,7 @@ export async function buildAppointmentsIcs(db: Firestore, email: string): Promis
   const from = isoOffset(-DAYS_BACK);
   const to = isoOffset(DAYS_AHEAD);
 
-  const vevents = appointmentsForForms(forms, bookings, responses)
+  return appointmentsForForms(forms, bookings, responses)
     .filter(a => withinWindow(a.date, from, to))
     .map(a => icsAppointment({
       id: a.id,
@@ -156,11 +154,14 @@ export async function buildAppointmentsIcs(db: Firestore, email: string): Promis
       answers: a.answers,
       complete: a.complete,
     }, BRANDING));
+}
 
+/** The appointments-only calendar, read at request time. */
+export async function buildAppointmentsIcs(db: Firestore, email: string): Promise<string> {
   return icsCalendar(
     `${ORG.ics.namePrefix} · My appointments`,
     'Time slots students booked on your sign-ups. Staff only.',
-    vevents,
+    await appointmentVevents(db, email),
     BRANDING,
   );
 }

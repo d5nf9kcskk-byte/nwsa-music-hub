@@ -109,6 +109,11 @@ export function MyCalendarFeedPanel() {
             </li>
           )}
           {teaches && <li>Your own private lessons — the ones you teach, nobody else&rsquo;s</li>}
+          <li>
+            Times people book on your forms (any form with a time slot question that names
+            you as its owner): who booked, what the meeting is for, and what they wrote.{' '}
+            <strong>These sync to your calendar automatically</strong> — nothing to add by hand.
+          </li>
           <li>School-wide days: holidays, early release, planning days</li>
         </ul>
         {groups.length === 0 && classes.length === 0 && !teaches && (

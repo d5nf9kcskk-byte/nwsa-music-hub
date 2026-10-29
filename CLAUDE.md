@@ -256,6 +256,12 @@ Upgrading the SDK does not remove the need: no Firestore release through
   from the appointments token, and its rules clause is gated on
   `isKnownRole()` rather than `isStaff()` on purpose — teachers, classroom
   teachers and assistants are exactly who it is for.
+- **Booked form times ride on it too** (#my-calendar-slots, Oct 2026): every
+  slot booked on a form whose `signupOwners` email is this person, through
+  `appointmentVevents()` in `functions/src/appointmentsFeed.ts` — the ONE
+  reader both feeds use, same UIDs. The director had subscribed to My calendar
+  in Fantastical and the bookings lived only in the separate appointments
+  calendar nobody knew to add. Pinned in `staffFeed.selfcheck.ts`.
 - **One-off meetings ride on `extraEventIds`** (#my-calendar-extras, Oct
   2026): the Schedule card's "+ My calendar" adds ONE event id to the
   person's OWN `directors` doc (self-update `hasOnly` list), and `staffFeed`

@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Booked form times ride on My calendar (#my-calendar-slots).
+  {
+    id: '2026-10-29-booked-times-my-calendar',
+    date: '2026-10-29',
+    title: 'Booked form times now sync to My calendar',
+    audience: 'staff' as const,
+    bullets: [
+      'When someone books a time on a form you own, it shows up on your subscribed My calendar (Apple Calendar, Fantastical, Google) automatically, with who booked and what the meeting is for.',
+      'New forms are yours by default. To check an older one, open it and look at "Whose form is this?"',
+    ],
+    expires: '2026-11-12',
+  },
   // Student schedule leads with today (#clear-cards).
   {
     id: '2026-10-27-my-schedule-today-first',

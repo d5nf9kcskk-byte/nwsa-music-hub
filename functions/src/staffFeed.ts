@@ -6,6 +6,7 @@ import {
 import {
   resolveAssignedEnsembleIds, type DirectorAssignmentFields,
 } from '../../src/director/directorAssignments.ts';
+import { appointmentVevents } from './appointmentsFeed.ts';
 import ORG from '../../config/orgs/nwsa.json' with { type: 'json' };
 
 /** The doc holding one staff member's "my calendar" token. Also the shape
@@ -101,7 +102,7 @@ export async function buildStaffIcs(db: Firestore, email: string): Promise<strin
   const from = isoOffset(-DAYS_BACK);
   const to = isoOffset(DAYS_AHEAD);
 
-  const [directorSnap, ensembleSnap, eventSnap, assignmentSnap, lessonSnap, studentSnap, pieceSnap] =
+  const [directorSnap, ensembleSnap, eventSnap, assignmentSnap, lessonSnap, studentSnap, pieceSnap, bookedSlots] =
     await Promise.all([
       db.doc(`directors/${email}`).get(),
       db.collection('ensembles').get(),
@@ -114,6 +115,12 @@ export async function buildStaffIcs(db: Firestore, email: string): Promise<strin
       db.collection('lessons').where('teacherEmail', '==', email).get(),
       db.collection('studentsPublic').get(),
       db.collection('repertoire').get(),
+      // Time slots people booked on the forms this person owns
+      // (#my-calendar-slots). The same VEVENTs, same UIDs, as the separate
+      // appointments calendar, so this is the one subscription that has a
+      // director's whole week — the bookings were missing from it, and nobody
+      // knew there was a second calendar to add.
+      appointmentVevents(db, email),
     ]);
 
   const ensembles = ensembleSnap.docs.map(d => ({ id: d.id, name: String(d.get('name') ?? d.id) }));
@@ -179,9 +186,11 @@ export async function buildStaffIcs(db: Firestore, email: string): Promise<strin
     }, BRANDING));
   }
 
+  vevents.push(...bookedSlots);
+
   return icsCalendar(
     `${ORG.ics.namePrefix} · My schedule`,
-    'Your ensembles, your classes, your lessons, and school-wide days. Staff only.',
+    'Your ensembles, your classes, your lessons, times booked on your forms, and school-wide days. Staff only.',
     vevents,
     BRANDING,
   );

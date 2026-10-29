@@ -1292,8 +1292,9 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
             <div className="dir-signup-help">
               {hasTimeslots ? (
                 <>
-                  Booked times land on <strong>{draft.ownerName?.trim() || 'this person'}</strong>&rsquo;s
-                  calendar in the Hub, and in the calendar they subscribe to on their phone.
+                  Booked times sync automatically to <strong>{draft.ownerName?.trim() || 'this person'}</strong>&rsquo;s
+                  calendar: in the Hub, and in their subscribed <strong>My calendar</strong>{' '}
+                  (Apple Calendar, Fantastical, Google), with who booked and what the meeting is for.
                   Students see the name on the form, so they know whose time they&rsquo;re booking.
                 </>
               ) : (

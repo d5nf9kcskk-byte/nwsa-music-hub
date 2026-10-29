@@ -180,6 +180,31 @@ assert(staffTokenDocId('dir@nwsa.edu') !== 'appointments__dir@nwsa.edu',
     },
     studentsPublic: { 'stu-1': { name: 'Ana Reyes' }, 'stu-2': { name: 'Ben Ortiz' } },
     repertoire: {},
+    // #my-calendar-slots: a time-slot form the director owns, and one owned by
+    // somebody else. Booked times on the first belong on this calendar; the
+    // second's never do.
+    signupOwners: {
+      'form-mine': { email: 'dir@nwsa.edu' },
+      'form-theirs': { email: 'other@nwsa.edu' },
+    },
+    signupForms: {
+      'form-mine': { title: 'Concerto winners meeting', questions: [
+        { id: 'q1', label: 'Pick a time', type: 'timeslot', options: ['a'],
+          slotDefs: [{ date: today, startMin: 660, endMin: 690 }] },
+        { id: 'q2', label: 'Which concerto?', type: 'text' },
+      ] },
+      'form-theirs': { title: 'Jazz audition', questions: [
+        { id: 'q1', label: 'Pick a time', type: 'timeslot', options: ['a'],
+          slotDefs: [{ date: today, startMin: 720, endMin: 735 }] },
+      ] },
+    },
+    signupSlotBookings: {
+      'form-mine__q1__0': { formId: 'form-mine', questionId: 'q1', slotIndex: 0, studentId: 'stu-9', studentName: 'Cara Lin', submittedAt: 1 },
+      'form-theirs__q1__0': { formId: 'form-theirs', questionId: 'q1', slotIndex: 0, studentId: 'stu-8', studentName: 'Dev Patel', submittedAt: 1 },
+    },
+    signupResponses: {
+      'r-1': { formId: 'form-mine', studentId: 'stu-9', submittedAt: 2, answersJson: JSON.stringify({ q2: 'Bruch' }) },
+    },
   };
 
   const snapOf = (name: string, filter?: (d: Record<string, unknown>) => boolean) => {
@@ -199,13 +224,29 @@ assert(staffTokenDocId('dir@nwsa.edu') !== 'appointments__dir@nwsa.edu',
       // Only equality on teacherEmail changes the result set here; the date
       // range is applied by the real query and re-applied in JS by
       // withinWindow, which the fixtures all sit inside.
+      // `in` is how the sign-up reader batches form ids; `__name__` is the
+      // doc id.
       let eq: { field: string; value: unknown } | null = null;
+      let inList: { field: string; values: unknown[] } | null = null;
       const q = {
         where(field: string, op: string, value: unknown) {
           if (op === '==') eq = { field, value };
+          if (op === 'in') inList = { field, values: value as unknown[] };
           return q;
         },
-        get: async () => snapOf(name, eq ? d => d[eq!.field] === eq!.value : undefined),
+        get: async () => {
+          const ids = Object.keys(DATA[name] ?? {});
+          const snap = snapOf(name, d => {
+            if (eq && d[eq.field] !== eq.value) return false;
+            if (inList) {
+              const id = ids.find(k => DATA[name][k] === d);
+              const v = inList.field === '__name__' ? id : d[inList.field];
+              if (!inList.values.includes(v)) return false;
+            }
+            return true;
+          });
+          return snap;
+        },
       };
       return q;
     },
@@ -225,6 +266,16 @@ assert(staffTokenDocId('dir@nwsa.edu') !== 'appointments__dir@nwsa.edu',
   assert(!forDirector.includes('Ana Reyes'), 'a director who teaches no lessons gets none');
   assert(forDirector.includes('My schedule'), 'calendar is named for its owner’s week');
 
+  // The reported miss (#my-calendar-slots): a director subscribed to My
+  // calendar in Fantastical, people booked their time-slot form, and nothing
+  // arrived — the bookings lived only in a second calendar.
+  assert(forDirector.includes('UID:signup-slot-form-mine__q1__0@'), 'a time booked on MY form is on my calendar');
+  assert(forDirector.includes('Cara Lin') && forDirector.includes('Concerto winners meeting'),
+    'with who booked it and what the meeting is for');
+  assert(forDirector.includes('Which concerto?: Bruch'), 'and what they wrote on the form');
+  assert(!forDirector.includes('Dev Patel') && !forDirector.includes('Jazz audition'),
+    "someone else's form's bookings stay off it");
+
   const forTeacher = await buildStaffIcs(db, 'teach@nwsa.edu');
   assert(forTeacher.includes('Ana Reyes'), 'the applied teacher gets their own student’s lesson');
   assert(!forTeacher.includes('Ben Ortiz'), "and NEVER another teacher's studio");
@@ -237,6 +288,8 @@ assert(staffTokenDocId('dir@nwsa.edu') !== 'appointments__dir@nwsa.edu',
   assert(!forTeacher.includes('Symphony Rehearsal') && !forTeacher.includes('Phil Rehearsal'),
     'an unassigned teacher gets nobody’s rehearsals — not even by the school-wide ride-along');
   assert(forTeacher.includes('Teacher Planning Day'), 'but still the days that move everyone');
+
+  assert(!forTeacher.includes('signup-slot-'), 'a person who owns no forms gets no bookings');
 
   assert(forTeacher.startsWith('BEGIN:VCALENDAR'), 'a real calendar comes out the other end');
   assert(forTeacher.trimEnd().endsWith('END:VCALENDAR'), 'and it is closed');
