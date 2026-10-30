@@ -32,6 +32,29 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // One inbox for student requests (#requests).
+  {
+    id: '2026-10-30-requests-inbox',
+    date: '2026-10-30',
+    title: 'Student requests now come to you',
+    audience: 'staff' as const,
+    bullets: [
+      'Absence requests and copy requests are together on one screen: Requests, in the menu. The number beside it counts the ones for your groups, and Today tells you when any are waiting.',
+      'Approve an absence and the student is marked excused on that day’s roll. Decline it with a note. Either way, the student gets your answer by email.',
+    ],
+    expires: '2026-11-13',
+  },
+  {
+    id: '2026-10-30-requests-answered',
+    date: '2026-10-30',
+    title: 'You’ll hear back about your requests',
+    audience: 'public' as const,
+    bullets: [
+      'When you report an absence, your director now approves or declines it, and you get the answer by email.',
+      'Asking for a music copy? Add your email and you’ll hear back if your director can’t make it.',
+    ],
+    expires: '2026-11-13',
+  },
   // Booked form times ride on My calendar (#my-calendar-slots).
   {
     id: '2026-10-29-booked-times-my-calendar',

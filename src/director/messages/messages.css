@@ -41,3 +41,10 @@
 .dir-msg-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .dir-msg-actions .dir-tool-btn { text-decoration: none; }
 .dir-msg-delete { color: #b91c1c; }
+
+/* On a phone the topic chip (an absence's kind and date, #requests) would
+   ellipsize down to one letter; wrap the head instead. */
+@media (max-width: 560px) {
+  .dir-msg-head { flex-wrap: wrap; row-gap: 6px; }
+  .dir-msg-topic { white-space: normal; }
+}

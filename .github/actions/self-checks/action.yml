@@ -147,6 +147,12 @@ runs:
       run: node scripts/absence-report.selfcheck.mjs
       shell: bash
 
+    # What YES on an absence request writes to the roll (#requests): only the
+    # blocks and groups it covers, never downgrading a mark already there.
+    - name: Check absence request decisions
+      run: node --experimental-strip-types src/director/absenceDecision.selfcheck.ts
+      shell: bash
+
     - name: Check sign-up interview slots
       run: npx tsx src/shared/signupSlots.selfcheck.ts
       shell: bash

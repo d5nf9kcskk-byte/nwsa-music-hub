@@ -1,7 +1,6 @@
 import { memo } from 'react';
 import { GraduationCap, Image } from 'lucide-react';
-import { ref as storageRef, getDownloadURL } from 'firebase/storage';
-import { storage } from '../firebaseAuth';
+import { openExcusePhoto } from '../excusePhoto';
 import { formatTimeRange } from '../utils';
 import { lastFirst } from '../../shared/personName';
 import {
@@ -12,24 +11,12 @@ import {
 import { ABSENCE_CATEGORY_LABEL } from '../types';
 import type { Student, AttendanceRecord, AttendanceStatus, RosterOverride, PlannedAbsence } from '../types';
 
-/** Resolved lazily, on tap — most rows have no photo, and this list runs to
- *  80+ students, so nothing here should fetch a Storage URL up front. */
-async function openExcusePhoto(path: string) {
-  if (!storage) return;
-  try {
-    const url = await getDownloadURL(storageRef(storage, path));
-    window.open(url, '_blank', 'noopener');
-  } catch {
-    window.alert("That photo couldn't be opened — it may not have finished uploading. Ask the student to try again.");
-  }
-}
-
 interface Props {
   student: Student;
   /** Pending planned absence submitted by the student/parent (#27), already
    *  scoped by AttendanceView to reports that name THIS ensemble (or name
    *  none, the original button's "every rehearsal today" meaning). */
-  plannedAbsence?: Pick<PlannedAbsence, 'reason' | 'category' | 'photoPath'>;
+  plannedAbsence?: Pick<PlannedAbsence, 'reason' | 'category' | 'photoPath' | 'status'>;
   /** Late to SCHOOL today, per the office bulletin (#tardies). Context only —
    *  it is deliberately NOT a class mark, so it never sets a status here. */
   schoolTardy?: { time?: string | null };
@@ -89,15 +76,18 @@ function StudentCardInner({ student, record, onToggle, isSub, lesson, onLesson, 
             {[student.instrument, student.section].filter(Boolean).join(' · ')}
             {student.pronunciation && <span className="dir-pronounce"> · 🗣 {student.pronunciation}</span>}
           </div>
-          {record?.source === 'office' && record.reason && (
+          {(record?.source === 'office' || record?.source === 'request') && record.reason && (
             <div className="dir-office-reason">{record.reason}</div>
           )}
           {plannedAbsence && !record && (
             <div className="dir-prereport">
-              📋 Reported ahead{plannedAbsence.category ? ` · ${ABSENCE_CATEGORY_LABEL[plannedAbsence.category]}` : ''}:
-              {' '}{plannedAbsence.reason}{plannedAbsence.category === 'arriving-late'
-                ? ' — not absent; mark Late (Excused) only if they arrive after the start'
-                : ' — tap Absent (Excused) to accept'}
+              📋 {plannedAbsence.status === 'declined' ? 'Asked ahead, declined' : 'Reported ahead'}
+              {plannedAbsence.category ? ` · ${ABSENCE_CATEGORY_LABEL[plannedAbsence.category]}` : ''}:
+              {' '}{plannedAbsence.reason}{plannedAbsence.status === 'declined'
+                ? ' — mark them as you see fit'
+                : plannedAbsence.category === 'arriving-late'
+                  ? ' — not absent; mark Late (Excused) only if they arrive after the start'
+                  : ' — tap Absent (Excused) to accept'}
               {plannedAbsence.photoPath && (
                 <button
                   type="button"

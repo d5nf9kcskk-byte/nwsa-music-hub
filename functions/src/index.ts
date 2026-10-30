@@ -21,6 +21,8 @@ import {
 } from './concertTally.ts';
 import { buildConfirmation } from './signupConfirmation.ts';
 import { buildAbsenceReceipt } from './plannedAbsenceConfirmation.ts';
+import { buildAbsenceDecision, buildCopyDecline } from './requestDecision.ts';
+import type { CopyRequest } from '../../src/shared/copyRequest.ts';
 import { buildLessonLogMail, isDocId, queueRequestOk } from './lessonLogMail.ts';
 import { buildGradeMail, queueRequestOk as gradeRequestOk } from './gradeMail.ts';
 import {
@@ -512,6 +514,40 @@ export const plannedAbsenceConfirmation = firestore
       // report itself already saved; a receipt that fails to send is a missed
       // email, not a lost report.
       console.error('plannedAbsenceConfirmation: could not queue the email', err);
+    }
+  });
+
+
+/**
+ * The answer to an absence request, mailed to the student (#requests).
+ * Fires on every update; `buildAbsenceDecision` returns null for everything
+ * that is not a decision made on the Requests screen.
+ */
+export const absenceDecisionMail = firestore
+  .document('plannedAbsences/{reportId}')
+  .onUpdate(async (change) => {
+    try {
+      const mail = buildAbsenceDecision(
+        change.before.data() as PlannedAbsence, change.after.data() as PlannedAbsence,
+        { orgName: ORG.appName, contactEmail: ORG.contactEmail });
+      if (mail) await getFirestore().collection('mail').add(mail);
+    } catch (err) {
+      console.error('absenceDecisionMail: could not queue the email', err);
+    }
+  });
+
+/** A copy request the director cannot make, mailed when the student left an
+ *  address (#requests). "Copied" is not mailed. */
+export const copyDeclineMail = firestore
+  .document('copyRequests/{requestId}')
+  .onUpdate(async (change) => {
+    try {
+      const mail = buildCopyDecline(
+        change.before.data() as CopyRequest, change.after.data() as CopyRequest,
+        { orgName: ORG.appName, contactEmail: ORG.contactEmail });
+      if (mail) await getFirestore().collection('mail').add(mail);
+    } catch (err) {
+      console.error('copyDeclineMail: could not queue the email', err);
     }
   });
 

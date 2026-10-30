@@ -613,8 +613,10 @@ export interface AttendanceRecord {
   minutesLate?: number;
   /** Follow-up triage (#26): director contacted the family or dismissed it. */
   followUp?: 'contacted' | 'dismissed';
-  /** Set when the daily office Attendance Bulletin wrote this mark. */
-  source?: 'office';
+  /** Set when the daily office Attendance Bulletin wrote this mark, or
+   *  'request' when a director approved the student's absence request
+   *  (#requests). `reason` says which, either way. */
+  source?: 'office' | 'request';
   /* ── Attribution: who last set/changed this mark (director-side only).
    *    updatedByRole 'assistant' surfaces "marked by the Student Assistant"
    *    on Take Roll for that day. ── */
@@ -1052,7 +1054,14 @@ export interface PlannedAbsence {
   date: string;          // YYYY-MM-DD
   reason: string;
   submittedAt: number;
-  status?: 'pending' | 'approved' | 'dismissed';
+  /** 'dismissed' is the pre-#requests "hide it" and no longer written. */
+  status?: 'pending' | 'approved' | 'declined' | 'dismissed';
+  /** The answer, set on the Requests screen (#requests). A change of status
+   *  with `decidedAt` set is what emails the student the decision. */
+  decidedAt?: number;
+  decidedBy?: string;
+  /** Required on a decline: what the student is told. */
+  decisionNote?: string;
   // #absence-report — all optional; absent on every doc the two older
   // writers create.
   email?: string;

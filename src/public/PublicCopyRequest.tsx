@@ -25,7 +25,7 @@ import './absence.css';
 /**
  * Request a copy of your music (#copy-requests). A public, unauthenticated
  * create into `copyRequests`, anchored to a real student and a real ensemble
- * (firestore.rules), landing on the Copy Requests screen of the director who
+ * (firestore.rules), landing on the Requests screen of the director who
  * looks after that ensemble (copyRequestIsMine in src/shared/copyRequest.ts).
  *
  * The piece comes off the site's own repertoire when the director has posted
@@ -71,6 +71,7 @@ export function PublicCopyRequest() {
   const [reason, setReason] = useState<CopyRequestReason | ''>('');
   const [neededBy, setNeededBy] = useState('');
   const [notes, setNotes] = useState('');
+  const [email, setEmail] = useState('');
   const [state, setState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const [error, setError] = useState('');
 
@@ -122,8 +123,10 @@ export function PublicCopyRequest() {
     : [];
   const vague = partLooksVague(part);
 
+  // Same bar the rules hold `email` to; blank is fine, it is optional.
+  const emailOk = !email.trim() || /.+@.+\..+/.test(email.trim());
   const valid = !!student && !!ensembleId && !!choice && pieceTitle.length > 0
-    && part.trim().length >= COPY_LIMITS.partMin && !!reason;
+    && part.trim().length >= COPY_LIMITS.partMin && !!reason && emailOk;
 
   function whyNotYet(): string {
     if (!student) return 'Find your name to continue.';
@@ -132,6 +135,7 @@ export function PublicCopyRequest() {
     if (!pieceTitle) return 'Type the name of the piece.';
     if (part.trim().length < COPY_LIMITS.partMin) return 'Type the exact part you play.';
     if (!reason) return 'Tell your director why you need the copy.';
+    if (!emailOk) return 'Check your email address, or leave it blank.';
     return '';
   }
 
@@ -155,6 +159,7 @@ export function PublicCopyRequest() {
         reason,
         ...(neededBy ? { neededBy } : {}),
         ...(notes.trim() ? { notes: notes.trim().slice(0, COPY_LIMITS.notes) } : {}),
+        ...(email.trim() ? { email: email.trim().slice(0, COPY_LIMITS.email) } : {}),
         submittedAt: Date.now(),
         status: 'new',
         // Present only when a BOT filled the hidden field; the rules' exact
@@ -425,6 +430,12 @@ export function PublicCopyRequest() {
                 <textarea id="cr-notes" className="pub-absence-input pub-signup-textarea" rows={2}
                   maxLength={COPY_LIMITS.notes} value={notes} onChange={e => setNotes(e.target.value)}
                   placeholder="e.g. Please enlarge to 11×17, or put pages 2 and 3 side by side" />
+
+                <label className="pub-absence-label" htmlFor="cr-email">
+                  Your email <span className="pub-signup-optional">(optional, so your director can tell you if they can’t make this copy)</span>
+                </label>
+                <input id="cr-email" className="pub-absence-input" type="email" inputMode="email"
+                  autoComplete="email" maxLength={COPY_LIMITS.email} value={email} onChange={e => setEmail(e.target.value)} />
               </div>
 
               {error && <div className="pub-absence-error">⚠ {error}</div>}

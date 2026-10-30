@@ -207,7 +207,7 @@ export function PublicAbsence() {
           <h1>Sent to your director</h1>
           <p><strong>{student?.name}</strong> — reported for <strong>{fmtLongDate(date)}</strong>.</p>
           <p className="pub-muted">
-            They'll see it before rehearsal. No reply needed{email.trim() ? ` — a copy went to ${email.trim()}` : ''}.
+            Your director will approve or decline it{email.trim() ? `, and the answer will be emailed to ${email.trim()}` : ''}.
           </p>
           <Link className="pub-signup-send" to="/">Back to the Hub</Link>
         </div>

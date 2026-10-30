@@ -2,7 +2,7 @@
  * Music copy requests (#copy-requests). A student asks for a fresh copy of a
  * part: to practise from, to fix a bad page turn, or because the crop left
  * the music too small to read. The public form writes `copyRequests`; the
- * director who looks after that ensemble sees it on the Copy Requests screen.
+ * director who looks after that ensemble sees it on the Requests screen (#requests).
  *
  * This module is the ONE definition of what a request is, which director it
  * belongs to, and when a part name is too vague to copy from. The limits are
@@ -24,7 +24,9 @@ export const COPY_REASON_LABEL: Record<CopyRequestReason, string> = {
   other: 'Something else',
 };
 
-export type CopyRequestStatus = 'new' | 'done';
+/** 'declined' = "can't do", with a `decisionNote` the student is emailed
+ *  when they left an address (#requests). */
+export type CopyRequestStatus = 'new' | 'done' | 'declined';
 
 export interface CopyRequest {
   id: string;
@@ -45,10 +47,14 @@ export interface CopyRequest {
   /** YYYY-MM-DD, when the student needs it by. */
   neededBy?: string;
   notes?: string;
+  /** Optional: where a "can't do" is sent. Without it a decline reaches
+   *  nobody, and the screen says so. */
+  email?: string;
   submittedAt: number;
   status: CopyRequestStatus;
   doneAt?: number;
   doneBy?: string;
+  decisionNote?: string;
 }
 
 /** Field ceilings, mirrored in firestore.rules. */
@@ -60,6 +66,7 @@ export const COPY_LIMITS = {
   part: 120,
   pages: 200,
   notes: 500,
+  email: 254,
 } as const;
 
 /**

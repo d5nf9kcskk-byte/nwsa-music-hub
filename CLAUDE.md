@@ -1457,11 +1457,12 @@ an unconditional `== true` requirement for the same reason.
   app emails staff synchronously off a public form submission — not
   `parentMessages`, not `signupResponses`, not a lesson pull-out (the
   structurally identical "known-ahead partial absence" case). Director
-  awareness here is the same as everywhere else: live in-app reads (Take
-  Roll's chip, Who's Out), never email. The student DOES get a confirmation
-  email (`functions/src/plannedAbsenceConfirmation.ts`, mirroring
-  `signupConfirmation.ts` field-for-field) — that one is a receipt for them,
-  not a notification to staff.
+  awareness here is the same as everywhere else: live in-app reads (the
+  Requests screen and its badge — #requests below — Take Roll's chip, Who's
+  Out), never email. A receipt-on-submit email for the student exists
+  (`functions/src/plannedAbsenceConfirmation.ts`) but is **not deployed**
+  (`NOT_DEPLOYED` in `deployList.selfcheck.ts`, the director's call). The
+  student's email that DOES go out is the director's ANSWER (#requests).
 - `scripts/absence-report.selfcheck.mjs` runs in the deploy workflow (see
   `.github/actions/self-checks/action.yml`).
 
@@ -1472,20 +1473,63 @@ every piece page links to it with `?piece=<id>`). A student picks their name,
 the ensemble, and the piece off the posted repertoire, or types the title when
 the director has not posted it. The PART is typed and required; a part with no
 number ("Violin") gets a non-blocking "which one?" warning (`partLooksVague`).
-Directors work the list at Library → **Copy Requests**, with a nav badge.
+Directors work the list on the **Requests** screen (#requests below).
 
 - `src/shared/copyRequest.ts` is the ONE definition: reasons, field ceilings,
   and `copyRequestIsMine()`. A request is MINE when it is for a group I am
   assigned to (`resolveAssignedEnsembleIds`), when its group has nobody
   assigned (synced `staff` empty and no `conductorName`), or when I have no
   groups at all. A request nobody owns is a copy nobody makes. The badge and
-  the screen both go through `copyRequestMineFilter()` so they cannot disagree.
+  the screen both go through `requestMineFilter()` so they cannot disagree.
 - `copyRequests` is the app's seventh unauthenticated create: exact key set
   (also the honeypot), a real `students/{id}` AND `ensembles/{id}` anchor, a
   closed reason enum, ceilings everywhere, no public update, staff-only read
   (a request names a student). `copyRequest.selfcheck.ts` pins the reason list
   and ceilings against the rules clause; change both together.
 - In-app only, no email to staff, same stance as `plannedAbsences`.
+
+## Requests — one inbox for what students ask (Oct 2026, #requests)
+
+The director reported getting NO absence requests: `plannedAbsences` had no
+badge and no list (only Who's Out, one day at a time), and no screen called
+`setStatus`, so every report ever filed sat "pending" with nobody able to
+answer it. **Requests** (`src/director/requests/RequestsView.tsx`, top of the
+director menu beside Take Roll, old `/director/copyRequests` URL aliased) is
+now the ONE place a student request is answered: absences and copies today,
+and a future kind is one more `Kind` on that screen, not a new screen.
+
+- **One count.** The nav badge, the Today line ("N student requests waiting")
+  and the screen's "Waiting" list all go through `requestMineFilter()`
+  (`hooks/useCopyRequests.ts`) and `absenceAwaiting()`
+  (`src/director/absenceDecision.ts`). `DirectorApp` computes the number once
+  and hands it to `TodayView`; badges render through ONE `navBadge(id)` in
+  both rail and drawer. An absence naming no group (older writers) is
+  everyone's. A pending absence for a day already past is NOT waiting — it
+  sits under "Answered & past", where it can still be approved.
+- **YES does the thing.** Approving an absence writes the excused roll marks
+  and the answer in ONE batch (`usePlannedAbsences.approve`), planned by
+  `absenceExcuseMarks()`: one mark per roll-taking block that day, per group
+  the student named (or every group they are in, for an older report),
+  limited to the time window; arriving late → `LateExcused`, everything else
+  → `Excused` (there is no "left early" mark; the reason line says what it
+  was). **Never a downgrade**: Absent/Late become excused, an excused mark or
+  a Lesson is left alone. Marks carry `source: 'request'` + `reason`, shown
+  on Take Roll. Blocks not yet on the calendar get nothing — the roll chip
+  still shows the request. `absenceDecision.selfcheck.ts` pins all of it.
+- **NO needs a note.** `status: 'declined'` + `decisionNote`; nothing on the
+  roll changes, and Take Roll's chip reads "Asked ahead, declined". Copy
+  requests gained "Can't do" the same way.
+- **The student is emailed the answer** — `absenceDecisionMail` (approve or
+  decline) and `copyDeclineMail` (decline only; "copied" is not mailed), both
+  in `functions/src/requestDecision.ts`, both on the `--only` list. They fire
+  only on a status CHANGE that carries `decidedAt`, which only the Requests
+  screen writes — a staff-filed "arriving late" heads-up (`addReport`) is
+  marked approved without it and is never mailed, and never reaches the
+  inbox. The copy form gained an OPTIONAL `email` (rules key + ceiling,
+  pinned by `copyRequest.selfcheck.ts`); without one a decline reaches nobody
+  and the decline box says so. `requestDecision.selfcheck.ts` pins the mail.
+- Nothing became more readable: both collections keep their read rules, and
+  the staff `update` they already had covers every new field.
 
 ## One nav, every width (Sept 2026, #one-nav)
 

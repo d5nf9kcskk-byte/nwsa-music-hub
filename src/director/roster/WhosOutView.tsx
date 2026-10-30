@@ -188,7 +188,9 @@ export function WhosOutView({ initialDate, initialEnsembleId = '', onNavigate }:
                     {a.category && <span className="dir-office-badge">{ABSENCE_CATEGORY_LABEL[a.category]}</span>}
                     {a.status === 'approved'
                       ? <span className="dir-status-badge excused" style={{ marginLeft: 8 }}>Excused</span>
-                      : <span className="dir-status-badge late" style={{ marginLeft: 8 }}>Pending</span>}
+                      : a.status === 'declined'
+                        ? <span className="dir-status-badge absent" style={{ marginLeft: 8 }}>Declined</span>
+                        : <span className="dir-status-badge late" style={{ marginLeft: 8 }}>Pending</span>}
                   </div>
                   <div className="dir-sub-instr">
                     {a.reason}

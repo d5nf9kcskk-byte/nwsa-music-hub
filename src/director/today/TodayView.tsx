@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ClipboardList, MapPin, Clock, Music, GraduationCap, CalendarPlus, Users, Megaphone, ChevronRight, ChevronDown, ChevronUp, Plus, MessageSquarePlus, UserCog, Pencil } from 'lucide-react';
+import { ClipboardList, MapPin, Clock, Music, GraduationCap, CalendarPlus, Users, Megaphone, ChevronRight, ChevronDown, ChevronUp, Plus, MessageSquarePlus, UserCog, Pencil, Inbox } from 'lucide-react';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useEvents } from '../hooks/useEvents';
 import { useStudents } from '../hooks/useStudents';
@@ -33,8 +33,10 @@ import { backdropClose } from '../../shared/backdropClose';
 
 const ENS_PREF_KEY = 'dir.today.ensemble';
 
-/** Director landing page: same shape as the public home, plus editing jumps. */
-export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
+/** Director landing page: same shape as the public home, plus editing jumps.
+ *  `requestCount` is the nav badge's number (#requests), handed down so the
+ *  two can never disagree; on a phone the badge is behind the ☰. */
+export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNavigate; requestCount?: number }) {
   const { ensembles } = useEnsembles();
   const { events, updateEvent } = useEvents();
   const { students } = useStudents();
@@ -258,6 +260,11 @@ export function TodayView({ onNavigate }: { onNavigate: DirNavigate }) {
       </a>
 
       <div className="dir-page-body">
+        {requestCount > 0 && (
+          <button className="dir-roll-nudge" onClick={() => onNavigate('requests')}>
+            <Inbox size={15} style={{ verticalAlign: '-3px' }} /> {requestCount} student request{requestCount === 1 ? '' : 's'} waiting for your answer
+          </button>
+        )}
         {/* Roll reminders (§5.1) */}
         {rollNudges.live.map(e => (
           <button key={`live-${e.id}`} className="dir-roll-nudge" onClick={() => onNavigate('roll', rollTarget(e))}>

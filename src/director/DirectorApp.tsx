@@ -4,7 +4,7 @@ import './uiUpdates.css';
 import './dirShell.css';
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine, FileSpreadsheet, Ticket, Copy, Mic } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine, FileSpreadsheet, Ticket, Inbox, Mic } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -42,7 +42,7 @@ import { AnnouncementManager } from './announcements/AnnouncementManager';
 import { MessagesView } from './messages/MessagesView';
 import { ApprovalsView } from './approvals/ApprovalsView';
 import { ReadAloudView } from './readAloud/ReadAloudView';
-import { CopyRequestsView } from './copies/CopyRequestsView';
+import { RequestsView } from './requests/RequestsView';
 import { usePendingActions } from './hooks/usePendingActions';
 import { pendingCount } from './pendingActions';
 import { SignupsView } from './signups/SignupsView';
@@ -50,7 +50,9 @@ import { CheckinView } from './checkin/CheckinView';
 import { JuriesView } from './juries/JuriesView';
 import { GradebookView } from './grades/GradebookView';
 import { useParentMessages } from './hooks/useParentMessages';
-import { useCopyRequests, copyRequestMineFilter } from './hooks/useCopyRequests';
+import { useCopyRequests, requestMineFilter } from './hooks/useCopyRequests';
+import { usePlannedAbsences } from './hooks/usePlannedAbsences';
+import { absenceAwaiting } from './absenceDecision';
 import { RepertoireManager } from './repertoire/RepertoireManager';
 import { DocumentsView } from './documents/DocumentsView';
 import { TodayView } from './today/TodayView';
@@ -63,7 +65,7 @@ import { CollegeView } from './ensembles/CollegeView';
 import { useEnsembles } from './hooks/useEnsembles';
 import {
   highSchoolEnsembles, highSchoolClasses,
-  collegeEnsembles, collegeClasses,
+  collegeEnsembles, collegeClasses, todayStr,
 } from './utils';
 import { hasDirectorRole, isStaffMember } from './hooks/useDirectors';
 import type { CurrentDirector } from './currentDirector';
@@ -97,6 +99,10 @@ type NavItem = { id: DirTab; label: string; Icon: typeof ClipboardList };
 const NAV_TOP: NavItem[] = [
   { id: 'today',    label: 'Today',     Icon: Home          },
   { id: 'roll',     label: 'Take Roll', Icon: ClipboardList },
+  // Every student request waiting on a director — absences and copies
+  // (#requests). Up here, not in Library: a request nobody sees is the bug
+  // this screen was built for. Badge = waiting requests for MY groups.
+  { id: 'requests', label: 'Requests',  Icon: Inbox         },
   { id: 'schedule', label: 'Calendar',  Icon: Calendar      },
   // TWO doors, named by who moves (docs/schedule-ux-two-doors.md §1):
   // a PERSON going somewhere different vs. an ENSEMBLE meeting at a
@@ -144,9 +150,6 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
       // two-sided piece links, so the program can only be edited one way.
       { id: 'concerts',      label: 'Concerts',      Icon: Ticket         },
       { id: 'repertoire',    label: 'Repertoire',    Icon: Music          },
-      // Students asking for a copy of a part (#copy-requests), from the
-      // public Resources menu. Badge = open requests for MY groups.
-      { id: 'copyRequests',  label: 'Copy Requests', Icon: Copy           },
       { id: 'documents',     label: 'Documents',     Icon: FolderOpen     },
       { id: 'assignments',   label: 'Assignments',   Icon: ClipboardCheck },
       { id: 'signups',       label: 'Forms',         Icon: ClipboardSignature },
@@ -181,7 +184,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   scheduleSwap:    'Change a Day',
   rotations:       'Rotations',
   repertoire:      'Repertoire',
-  copyRequests:    'Copy Requests',
+  requests:        'Requests',
   documents:       'Documents',
   notes:           'Progress Notes',
   assignments:     'Assignments',
@@ -206,7 +209,7 @@ const TAB_TITLES: Record<DirTab, string> = {
 const VALID_TABS: readonly DirTab[] = [
   'today', 'roll', 'lessons', 'myLessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'readAloud', 'ensembleHub', 'ensembles', 'classes', 'college', 'whosOut', 'scheduleSwap', 'rotations',
-  'messages', 'copyRequests', 'signups', 'juries', 'concerts', 'concertCheckin', 'gradebook', 'approvals', 'directors',
+  'messages', 'requests', 'signups', 'juries', 'concerts', 'concertCheckin', 'gradebook', 'approvals', 'directors',
   // The roster URL segment follows the org kind too (#personnel), so a
   // school build has no /director/personnel route and an adult build no
   // /director/roster \u2014 an off-org deep link falls back to Today.
@@ -234,7 +237,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   myLessons:       'Your own private-lesson students — schedule sessions, grade each one, and adjust who is assigned to you.',
   notes:           'Private progress notes per student. Only directors ever see these.',
   concerts:        'Every concert on the calendar — what’s coming up first, then everything earlier under “Earlier”. Tap one to fix its date, time, place, who is playing, and the program — the pieces and the order they go in.',
-  copyRequests:    'Students asking for a copy of their part \u2014 to practise from, a bad page turn, or music printed too small. Opens on your own groups; mark each one copied when it\u2019s in the folder.',
+  requests:        'What students have asked you for \u2014 a rehearsal off, or a copy of their part. Opens on your own groups. Approving an absence marks it excused on the roll; declining needs a note, and the student is emailed your answer.',
   repertoire:      'What each ensemble is playing, by ensemble or by concert. This feeds the printed program.',
   documents:       'Handbooks, forms, and files for families. Anything you post here shows on the public site.',
   assignments:     'Post practice assignments and exams. Students see them on the public site.',
@@ -313,9 +316,21 @@ export default function DirectorApp() {
   const me = useCurrentDirector();
   // Open copy requests for MY groups (#copy-requests); staff-only collection,
   // so other shells skip the listener rather than collect a denial.
-  const { requests: copyRequests } = useCopyRequests(!!me && isStaffMember(me));
-  const copyMine = useMemo(() => copyRequestMineFilter(me, ensembles), [me, ensembles]);
-  const copyCount = copyRequests.filter(r => r.status === 'new' && copyMine(r)).length;
+  // …and absence requests waiting on an answer (#requests): ONE count for the
+  // badge and the Today line, through the same filter the screen opens on.
+  const isStaffShell = !!me && isStaffMember(me);
+  const { requests: copyRequests } = useCopyRequests(isStaffShell);
+  const { absences: absenceRequests } = usePlannedAbsences(isStaffShell);
+  const requestMine = useMemo(() => requestMineFilter(me, ensembles), [me, ensembles]);
+  const todayForCount = todayStr();
+  const requestCount =
+    copyRequests.filter(r => r.status === 'new' && requestMine([r.ensembleId])).length
+    + absenceRequests.filter(a => absenceAwaiting(a, todayForCount) && requestMine(a.ensembleIds)).length;
+  // ONE badge per screen, the same in the rail and the phone drawer (#one-nav).
+  const navBadge = (id: DirTab) => {
+    const n = id === 'messages' ? newMsgCount : id === 'approvals' ? approvalCount : id === 'requests' ? requestCount : 0;
+    return n > 0 ? <span className="dir-nav-badge">{n}</span> : null;
+  };
   // Owner-only Directors screen (#roles): everyone else — including every
   // Director — never even sees the entry point. A Teacher never reaches this
   // shell at all (see the AuthGate render-prop below).
@@ -334,7 +349,10 @@ export default function DirectorApp() {
 
   // Tab + intent live in the URL (/director/<tab>?ensemble=…&date=…), so the
   // browser Back button steps through tabs and a reload keeps your place.
-  const seg = location.pathname.split('/')[2] ?? '';
+  // /director/copyRequests was this screen's address before #requests folded
+  // it into Requests; a bookmark to it still lands there.
+  const rawSeg = location.pathname.split('/')[2] ?? '';
+  const seg = rawSeg === 'copyRequests' ? 'requests' : rawSeg;
   const tab: DirTab = (VALID_TABS as readonly string[]).includes(seg) ? (seg as DirTab) : 'today';
   const intent: DirNavOpts = {
     ensembleId: searchParams.get('ensemble') ?? undefined,
@@ -458,7 +476,7 @@ export default function DirectorApp() {
             <nav aria-label="Director navigation" style={{ display: 'contents' }}>
               {NAV_TOP.map(({ id, label, Icon }) => (
                 <button key={id} className={`dir-rail-item ${tab === id ? 'active' : ''}`} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined}>
-                  <Icon size={18} /> {label}
+                  <Icon size={18} /> {label}{navBadge(id)}
                 </button>
               ))}
               {/* Library is always open here, as it is in the phone drawer: one
@@ -470,9 +488,7 @@ export default function DirectorApp() {
                   {g.items.map(({ id, label, Icon }) => (
                     <button key={id} className={`dir-rail-item ${tab === id ? 'active' : ''}`} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined} title={TAB_HINTS[id]}>
                       <Icon size={18} /> {label}
-                      {id === 'messages' && newMsgCount > 0 && <span className="dir-nav-badge">{newMsgCount}</span>}
-                      {id === 'approvals' && approvalCount > 0 && <span className="dir-nav-badge">{approvalCount}</span>}
-                      {id === 'copyRequests' && copyCount > 0 && <span className="dir-nav-badge">{copyCount}</span>}
+                      {navBadge(id)}
                     </button>
                   ))}
                 </div>
@@ -560,7 +576,7 @@ export default function DirectorApp() {
             <ConcertDayBanner checkinNav={{ onClick: () => go('concertCheckin') }} />
             {TAB_HINTS[tab] && <div className="dir-page-hint no-print">{TAB_HINTS[tab]}</div>}
             {tab === 'gradebook'       && <GradebookView />}
-            {tab === 'today'           && <TodayView onNavigate={go} />}
+            {tab === 'today'           && <TodayView onNavigate={go} requestCount={requestCount} />}
             {tab === 'roll'            && <AttendanceTab key={intentKey} initialEnsembleId={intent.ensembleId ?? null} initialDate={intent.date} initialEventId={intent.eventId} onNavigate={go} />}
             {tab === 'roster'          && <RosterView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} initialStudentId={intent.studentId} initialSelectAll={intent.selectAll} onNavigate={go} />}
             {tab === 'lessons'         && <LessonsView onNavigate={go} />}
@@ -610,7 +626,7 @@ export default function DirectorApp() {
             {tab === 'messages'        && <MessagesView />}
             {tab === 'approvals'       && <ApprovalsView />}
             {tab === 'readAloud'       && <ReadAloudView />}
-            {tab === 'copyRequests'    && <CopyRequestsView />}
+            {tab === 'requests'        && <RequestsView />}
             {tab === 'signups'         && <SignupsView />}
             {tab === 'concertCheckin'  && <CheckinView onNavigate={go} />}
             {tab === 'juries'          && <JuriesView />}
@@ -660,7 +676,7 @@ export default function DirectorApp() {
                     onClick={() => go(id)}
                     aria-current={tab === id ? 'page' : undefined}
                   >
-                    <Icon size={19} /> {label}
+                    <Icon size={19} /> {label}{navBadge(id)}
                   </button>
                 ))}
                 {shellNavGroups.map(g => (
@@ -675,9 +691,7 @@ export default function DirectorApp() {
                         title={TAB_HINTS[id]}
                       >
                         <Icon size={19} /> {label}
-                        {id === 'messages' && newMsgCount > 0 && <span className="dir-nav-badge">{newMsgCount}</span>}
-                        {id === 'approvals' && approvalCount > 0 && <span className="dir-nav-badge">{approvalCount}</span>}
-                        {id === 'copyRequests' && copyCount > 0 && <span className="dir-nav-badge">{copyCount}</span>}
+                        {navBadge(id)}
                       </button>
                     ))}
                   </div>
