@@ -83,11 +83,11 @@ requires('connect-src', 'https://firestore.googleapis.com', 'All live data.');
 // just reports every real visitor as unverified, and enforcing on that
 // evidence would lock the school out of its own Hub.
 requires('script-src', 'https://www.google.com/recaptcha/',
-  'App Check loads reCAPTCHA v3 from here.');
+  'App Check loads the Fraud Defense (reCAPTCHA Enterprise) script from here.');
 requires('script-src', 'https://www.gstatic.com/recaptcha/',
-  'reCAPTCHA v3 pulls the rest of its code from here.');
+  'reCAPTCHA pulls the rest of its code from here.');
 requires('frame-src', 'https://www.google.com/recaptcha/',
-  'reCAPTCHA v3 runs inside an iframe from this path.');
+  'reCAPTCHA runs inside an iframe from this path.');
 requires('connect-src', 'https://content-firebaseappcheck.googleapis.com',
   'App Check exchanges the reCAPTCHA answer for its token here.');
 

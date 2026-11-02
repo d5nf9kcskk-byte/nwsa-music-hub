@@ -31,7 +31,7 @@ const BASE = ORG.basePath;
  * enumerated; anything else — injected script, exfiltration fetch — is
  * blocked by the browser.
  */
-/** App Check's reCAPTCHA v3 script origins (see script-src below). */
+/** App Check's reCAPTCHA (Fraud Defense) script origins (see script-src below). */
 const RECAPTCHA = ['https://www.google.com/recaptcha/', 'https://www.gstatic.com/recaptcha/'];
 
 function cspPlugin(authDomain: string | undefined, functionsOrigin: string | undefined): Plugin {
@@ -47,8 +47,9 @@ function cspPlugin(authDomain: string | undefined, functionsOrigin: string | und
         const policy = [
           "default-src 'self'",
           // apis.google.com: loaded by the Firebase Auth popup helper.
-          // The two /recaptcha/ paths are App Check's reCAPTCHA v3 loader
-          // (docs/security-recommendations.md #1). Listed ALWAYS, not only
+          // The two /recaptcha/ paths are App Check's reCAPTCHA loader, the
+          // Fraud Defense (reCAPTCHA Enterprise) script and the files it pulls
+          // in (docs/security-recommendations.md #1). Listed ALWAYS, not only
           // when VITE_RECAPTCHA_SITE_KEY is set: App Check runs in watch-only
           // mode first, and a key added to a build whose policy refuses the
           // script fails silently. The metrics would then show every real
@@ -97,7 +98,7 @@ function cspPlugin(authDomain: string | undefined, functionsOrigin: string | und
             'https://content-firebaseappcheck.googleapis.com',
           ].join(' '),
           // The invisible iframe signInWithPopup uses lives on authDomain;
-          // reCAPTCHA v3 runs its challenge in an iframe of its own.
+          // reCAPTCHA runs its scoring in an iframe of its own.
           'frame-src ' + [
             ...(authDomain ? [`https://${authDomain}`] : []),
             'https://www.google.com/recaptcha/',
