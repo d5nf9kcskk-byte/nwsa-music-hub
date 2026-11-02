@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Hub 2.0 Phase 1: the stress forms in Spanish, starting with /absence.
+  {
+    id: '2026-11-02-absence-spanish',
+    date: '2026-11-02',
+    title: 'Report an Absence, now in Spanish',
+    audience: 'public' as const,
+    bullets: [
+      'Tap ES at the top of the Hub and the whole absence form reads in Spanish, photo step included.',
+      'Toca ES arriba y todo el formulario de ausencia aparece en español, incluida la foto del justificante.',
+    ],
+    expires: '2026-11-16',
+  },
   // One inbox for student requests (#requests).
   {
     id: '2026-10-30-requests-inbox',

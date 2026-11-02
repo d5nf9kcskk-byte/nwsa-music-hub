@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Camera, RefreshCw, Check, ImageOff } from 'lucide-react';
+import { t, useLang } from '../../shared/i18n';
 
 /**
  * One photo of an office excuse slip (#absence-report), picked with the
@@ -25,6 +26,7 @@ interface ExcusePhotoUploadProps {
 }
 
 export function ExcusePhotoUpload({ onCapture, onClear, photo, disabled }: ExcusePhotoUploadProps) {
+  useLang(); // re-render when the EN|ES toggle flips
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
 
@@ -32,7 +34,7 @@ export function ExcusePhotoUpload({ onCapture, onClear, photo, disabled }: Excus
     setError('');
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      setError('That file is not a photo — pick an image.');
+      setError(t('photo.notPhoto'));
       return;
     }
     const img = new Image();
@@ -44,17 +46,17 @@ export function ExcusePhotoUpload({ onCapture, onClear, photo, disabled }: Excus
       canvas.width = Math.round(img.width * scale);
       canvas.height = Math.round(img.height * scale);
       const ctx = canvas.getContext('2d');
-      if (!ctx) { setError('This browser could not read the photo. Try a different one.'); return; }
+      if (!ctx) { setError(t('photo.unreadable')); return; }
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       try {
         onCapture(canvas.toDataURL('image/jpeg', JPEG_QUALITY));
       } catch {
-        setError('This browser could not read the photo. Try a different one.');
+        setError(t('photo.unreadable'));
       }
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      setError('That file could not be opened as a photo.');
+      setError(t('photo.cantOpen'));
     };
     img.src = url;
     // Let the same input re-fire onChange if the student picks the same file
@@ -65,12 +67,12 @@ export function ExcusePhotoUpload({ onCapture, onClear, photo, disabled }: Excus
   if (photo) {
     return (
       <div className="pub-selfie">
-        <img className="pub-selfie-shot" src={photo} alt="Your office excuse slip" />
+        <img className="pub-selfie-shot" src={photo} alt={t('photo.slipAlt')} />
         <div className="pub-selfie-row">
           <button type="button" className="pub-btn-ghost" onClick={onClear} disabled={disabled}>
-            <RefreshCw size={16} aria-hidden /> Choose a different photo
+            <RefreshCw size={16} aria-hidden /> {t('photo.chooseOther')}
           </button>
-          <span className="pub-selfie-ok"><Check size={16} aria-hidden /> Photo ready</span>
+          <span className="pub-selfie-ok"><Check size={16} aria-hidden /> {t('photo.ready')}</span>
         </div>
       </div>
     );
@@ -100,7 +102,7 @@ export function ExcusePhotoUpload({ onCapture, onClear, photo, disabled }: Excus
           disabled={disabled}
           onClick={() => inputRef.current?.click()}
         >
-          <Camera size={16} aria-hidden /> Take or choose a photo
+          <Camera size={16} aria-hidden /> {t('photo.take')}
         </button>
       </div>
     </div>
