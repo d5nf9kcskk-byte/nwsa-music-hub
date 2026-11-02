@@ -693,8 +693,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'cis.comingUp':        { en: 'Coming up', es: 'Próximos' },
   'cis.opensAt':         { en: 'Opens at {time}', es: 'Abre a las {time}' },
   'cis.opensOn':         { en: 'Opens {date}, {time}', es: 'Abre el {date}, {time}' },
-  // The English for a concert with no start time reads oddly; kept word for word.
-  'cis.opensAtBefore':   { en: 'Opens at before the concert', es: 'Abre antes del concierto' },
+  'cis.opensAtBefore':   { en: 'Opens before the concert', es: 'Abre antes del concierto' },
   'cis.opensOnBefore':   { en: 'Opens {date}, before the concert', es: 'Abre el {date}, antes del concierto' },
   'ci.checkIn':          { en: 'Check in', es: 'Registrar llegada' },
   'ci.checkOut':         { en: 'Check out', es: 'Registrar salida' },
