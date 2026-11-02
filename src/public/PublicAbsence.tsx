@@ -64,6 +64,9 @@ const CATEGORY_INFO: { value: AbsenceCategory; label: string; desc: string; Icon
   },
 ];
 
+/** Shortest reason a Full-Day Absence will accept. Shown under the box too. */
+const REASON_MIN_CHARS = 10;
+
 export function PublicAbsence() {
   const { students, loading: studentsLoading } = useStudentsPublic();
   const { ensembles } = useEnsembles();
@@ -114,7 +117,7 @@ export function PublicAbsence() {
   const emailOk = /.+@.+\..+/.test(email.trim());
   const timeOk = timeWindow === 'full' || (!!startTime && !!endTime && startTime < endTime);
   const categoryOk = category === 'leaving-early' ? !!photo
-    : category === 'full-day-absence' ? reason.trim().length >= 10
+    : category === 'full-day-absence' ? reason.trim().length >= REASON_MIN_CHARS
     : category === 'parent-signout'
       ? reason.trim().length > 0 && parentName.trim().length >= 2 && parentContact.trim().length > 0 && !!signOutTime
       : false;
@@ -130,7 +133,7 @@ export function PublicAbsence() {
     if (timeWindow === 'specific' && !timeOk) return 'Add a start and end time, with the end after the start.';
     if (!category) return "Choose what's happening.";
     if (category === 'leaving-early' && !photo) return 'Attach a photo of your office note to continue.';
-    if (category === 'full-day-absence' && reason.trim().length < 10) return 'Add a few words about why you were out.';
+    if (category === 'full-day-absence' && reason.trim().length < REASON_MIN_CHARS) return `Write at least one complete sentence about why you were out (${REASON_MIN_CHARS} characters minimum).`;
     if (category === 'parent-signout') {
       if (!reason.trim()) return 'Add a reason for the sign-out.';
       if (parentName.trim().length < 2) return "Add the parent or guardian's name.";
@@ -370,6 +373,9 @@ export function PublicAbsence() {
                 <textarea id="ab-reason-b" className="pub-absence-input pub-signup-textarea" rows={3}
                   maxLength={300} value={reason} onChange={e => setReason(e.target.value)}
                   placeholder="e.g. Family emergency, out of state" />
+                <p className="pub-signup-note">
+                  Write at least one complete sentence, even if it is just a few words. Minimum {REASON_MIN_CHARS} characters.
+                </p>
               </div>
             )}
 
