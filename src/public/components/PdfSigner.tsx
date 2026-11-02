@@ -3,6 +3,7 @@ import { Type, PenLine, CalendarDays, ZoomIn, ZoomOut, X, Minus, Plus, Move } fr
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import { fitTextSize, LINE_HEIGHT, type InkMark, type PdfMark, type TextMark } from '../../shared/pdfStamp';
+import { t, useLang } from '../../shared/i18n';
 import './pdfSigner.css';
 
 /**
@@ -54,9 +55,10 @@ export default function PdfSigner({ bytes, marks, onMarks, fixed = [] }: {
   marks: PdfMark[];
   onMarks: (next: PdfMark[]) => void;
 }) {
+  useLang(); // re-render when the EN|ES toggle flips
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
   const [sizes, setSizes] = useState<PageSize[]>([]);
-  const [loadError, setLoadError] = useState('');
+  const [loadError, setLoadError] = useState(false);
   const [tool, setTool] = useState<Tool>('text');
   const [zoomIdx, setZoomIdx] = useState(0);
   const [width, setWidth] = useState(0);
@@ -82,7 +84,7 @@ export default function PdfSigner({ bytes, marks, onMarks, fixed = [] }: {
       if (dead) return;
       setDoc(d);
       setSizes(out);
-    }).catch(() => { if (!dead) setLoadError('The form could not be opened on this device.'); });
+    }).catch(() => { if (!dead) setLoadError(true); });
     return () => { dead = true; void task.destroy(); };
   }, [bytes]);
 
@@ -189,43 +191,43 @@ export default function PdfSigner({ bytes, marks, onMarks, fixed = [] }: {
     else update(m.id, { w: m.w * factor, h: m.h * factor });
   }
 
-  if (loadError) return <div className="pub-absence-error">⚠ {loadError}</div>;
+  if (loadError) return <div className="pub-absence-error">⚠ {t('pdf.cantOpen')}</div>;
 
   return (
     <div className="pub-pdf">
-      <div className="pub-pdf-tools" role="toolbar" aria-label="Fill in the form">
+      <div className="pub-pdf-tools" role="toolbar" aria-label={t('pdf.toolbar')}>
         {([
-          ['text', <Type size={16} key="i" />, 'Text'],
-          ['sign', <PenLine size={16} key="i" />, 'Signature'],
-          ['date', <CalendarDays size={16} key="i" />, 'Date'],
-        ] as const).map(([t, icon, label]) => (
-          <button key={t} type="button" aria-pressed={tool === t}
-            className={`pub-pdf-tool ${tool === t ? 'active' : ''}`}
-            onClick={() => { setTool(t); setSelected(null); setJustSigned(false); }}>
-            {icon} {label}
+          ['text', <Type size={16} key="i" />, 'pdf.text'],
+          ['sign', <PenLine size={16} key="i" />, 'pdf.sign'],
+          ['date', <CalendarDays size={16} key="i" />, 'abs.date'],
+        ] as const).map(([id, icon, label]) => (
+          <button key={id} type="button" aria-pressed={tool === id}
+            className={`pub-pdf-tool ${tool === id ? 'active' : ''}`}
+            onClick={() => { setTool(id); setSelected(null); setJustSigned(false); }}>
+            {icon} {t(label)}
           </button>
         ))}
         <span className="pub-pdf-zoom">
-          <button type="button" className="pub-pdf-tool" aria-label="Zoom out" disabled={zoomIdx === 0}
+          <button type="button" className="pub-pdf-tool" aria-label={t('pdf.zoomOut')} disabled={zoomIdx === 0}
             onClick={() => setZoomIdx(i => Math.max(0, i - 1))}><ZoomOut size={16} /></button>
-          <button type="button" className="pub-pdf-tool" aria-label="Zoom in" disabled={zoomIdx === ZOOMS.length - 1}
+          <button type="button" className="pub-pdf-tool" aria-label={t('pdf.zoomIn')} disabled={zoomIdx === ZOOMS.length - 1}
             onClick={() => setZoomIdx(i => Math.min(ZOOMS.length - 1, i + 1))}><ZoomIn size={16} /></button>
         </span>
       </div>
       <p className="pub-pdf-hint">
-        {tool === 'text' && 'Tap a blank on the form, then type.'}
-        {tool === 'sign' && 'Tap the signature line, then sign with your finger.'}
+        {tool === 'text' && t('pdf.hint.text')}
+        {tool === 'sign' && t('pdf.hint.sign')}
         {tool === 'date' && (justSigned
-          ? 'Now tap the DATE line beside that signature to date it.'
-          : 'Tap the date line to put today’s date there.')}
-        {' '}Zoom in to reach small blanks. Tap anything you added to move, resize or remove it.
+          ? t('pdf.hint.dateNext')
+          : t('pdf.hint.date'))}
+        {' '}{t('pdf.hint.general')}
       </p>
 
       <div className="pub-pdf-scroll" ref={scrollRef}>
-        {!doc && <div className="pub-signup-loading">Opening the form…</div>}
+        {!doc && <div className="pub-signup-loading">{t('su.opening')}</div>}
         {doc && scale > 0 && sizes.map((s, i) => (
           <div key={i} className="pub-pdf-page" style={{ width: s.w * scale, height: s.h * scale }}>
-            <canvas ref={el => { canvases.current[i] = el; }} className="pub-pdf-canvas" aria-label={`Page ${i + 1} of the form`} />
+            <canvas ref={el => { canvases.current[i] = el; }} className="pub-pdf-canvas" aria-label={t('pdf.page', { n: i + 1 })} />
             <div className="pub-pdf-layer" onClick={e => tapPage(e, i)}>
               {fixed.filter(m => m.page === i && m.kind === 'text').map(m => (
                 <span key={m.id} className="pub-pdf-fixed" style={{
@@ -258,15 +260,16 @@ function MarkView({ mark: m, scale, selected, onSelect, onText, onDrag, onResize
   onSelect: () => void; onText: (t: string) => void; onDrag: (e: ReactPointerEvent) => void;
   onResize: (factor: number) => void; onRemove: () => void;
 }) {
+  useLang(); // re-render when the EN|ES toggle flips
   const style = { left: m.x * scale, top: m.y * scale };
   return (
     <div className={`pub-pdf-mark ${selected ? 'selected' : ''}`} style={style}>
       {selected && (
         <div className="pub-pdf-mark-bar" onClick={e => e.stopPropagation()}>
-          <button type="button" aria-label="Move" className="pub-pdf-mark-btn pub-pdf-move" onPointerDown={onDrag}><Move size={14} /></button>
-          <button type="button" aria-label="Smaller" className="pub-pdf-mark-btn" onClick={() => onResize(0.85)}><Minus size={14} /></button>
-          <button type="button" aria-label="Bigger" className="pub-pdf-mark-btn" onClick={() => onResize(1.18)}><Plus size={14} /></button>
-          <button type="button" aria-label="Remove" className="pub-pdf-mark-btn" onClick={onRemove}><X size={14} /></button>
+          <button type="button" aria-label={t('pdf.move')} className="pub-pdf-mark-btn pub-pdf-move" onPointerDown={onDrag}><Move size={14} /></button>
+          <button type="button" aria-label={t('pdf.smaller')} className="pub-pdf-mark-btn" onClick={() => onResize(0.85)}><Minus size={14} /></button>
+          <button type="button" aria-label={t('pdf.bigger')} className="pub-pdf-mark-btn" onClick={() => onResize(1.18)}><Plus size={14} /></button>
+          <button type="button" aria-label={t('pdf.remove')} className="pub-pdf-mark-btn" onClick={onRemove}><X size={14} /></button>
         </div>
       )}
       {m.kind === 'text' ? (
@@ -277,7 +280,7 @@ function MarkView({ mark: m, scale, selected, onSelect, onText, onDrag, onResize
           maxLength={200}
           onFocus={onSelect}
           onChange={e => onText(e.target.value)}
-          aria-label="Text on the form"
+          aria-label={t('pdf.textAria')}
           style={{
             fontSize: m.size * scale,
             height: m.size * LINE_HEIGHT * scale,
@@ -288,7 +291,7 @@ function MarkView({ mark: m, scale, selected, onSelect, onText, onDrag, onResize
           }}
         />
       ) : (
-        <img className="pub-pdf-ink" src={m.png} alt="Signature" draggable={false}
+        <img className="pub-pdf-ink" src={m.png} alt={t('pdf.sign')} draggable={false}
           style={{ width: m.w * scale, height: m.h * scale }}
           onPointerDown={onDrag} />
       )}
@@ -298,6 +301,7 @@ function MarkView({ mark: m, scale, selected, onSelect, onText, onDrag, onResize
 
 /** A finger (or mouse) signature, trimmed to the ink. */
 function SignaturePad({ onCancel, onDone }: { onCancel: () => void; onDone: (png: string, aspect: number) => void }) {
+  useLang(); // re-render when the EN|ES toggle flips
   const ref = useRef<HTMLCanvasElement>(null);
   const [inked, setInked] = useState(false);
 
@@ -363,16 +367,16 @@ function SignaturePad({ onCancel, onDone }: { onCancel: () => void; onDone: (png
   }
 
   return (
-    <div className="pub-pdf-pad-back" role="dialog" aria-modal="true" aria-label="Sign here">
+    <div className="pub-pdf-pad-back" role="dialog" aria-modal="true" aria-label={t('pdf.padAria')}>
       <div className="pub-pdf-pad">
-        <div className="pub-pdf-pad-title">Sign with your finger</div>
+        <div className="pub-pdf-pad-title">{t('pdf.padTitle')}</div>
         <canvas ref={ref} className="pub-pdf-pad-canvas"
           onPointerDown={down} onPointerMove={move} />
         <div className="pub-pdf-pad-line" aria-hidden="true" />
         <div className="pub-pdf-pad-row">
-          <button type="button" className="pub-pdf-btn" onClick={onCancel}>Cancel</button>
-          <button type="button" className="pub-pdf-btn" onClick={clear} disabled={!inked}>Clear</button>
-          <button type="button" className="pub-pdf-btn primary" onClick={done} disabled={!inked}>Use this signature</button>
+          <button type="button" className="pub-pdf-btn" onClick={onCancel}>{t('pdf.cancel')}</button>
+          <button type="button" className="pub-pdf-btn" onClick={clear} disabled={!inked}>{t('pdf.clear')}</button>
+          <button type="button" className="pub-pdf-btn primary" onClick={done} disabled={!inked}>{t('pdf.use')}</button>
         </div>
       </div>
     </div>
