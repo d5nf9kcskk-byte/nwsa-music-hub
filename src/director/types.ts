@@ -375,6 +375,16 @@ export interface CalendarEvent {
   partBooks?: PiecePartLink[];
   /** The folder holding every book (a Google Drive folder), shown beside them. */
   partBooksSharedUrl?: string;
+  /**
+   * Related links shown as chips at the bottom of the event card, in the
+   * same shape and rendering as an announcement's `links` (#linking):
+   * in-app targets start with `/` and stay in the shell; external ones open
+   * in a new tab. For events we do not run (a festival, a conference) this
+   * is how the card points at the organizer's own pages — the raw address
+   * must never go in `notes`, where the card's plain-text linkifier wraps
+   * it a character at a time.
+   */
+  links?: AnnouncementLink[];
   /* ── Change tracking (#17, #40) ── */
   updatedAt?: number;       // Date.now() of last edit
   updatedBy?: string;       // director email

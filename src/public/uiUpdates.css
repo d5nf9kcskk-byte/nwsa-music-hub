@@ -137,6 +137,10 @@
   font-size: 13px; line-height: 1.45;
 }
 .pub-event-notes-inline svg { flex-shrink: 0; margin-top: 2px; color: var(--pub-accent); }
+/* The notes themselves ride in one flex child so the rich-text blocks stack
+   vertically; bare text and links as direct flex items get squeezed into
+   one-character columns beside the icon. */
+.pub-event-notes-body { flex: 1 1 auto; min-width: 0; }
 
 /* Show more days (Coming up) */
 .pub-show-more {

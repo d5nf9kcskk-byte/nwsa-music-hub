@@ -1,4 +1,4 @@
-import { MapPin, Music, ExternalLink, ScrollText, ChevronRight, StickyNote, BookOpen, Armchair } from 'lucide-react';
+import { MapPin, Music, ExternalLink, ScrollText, ChevronRight, StickyNote, BookOpen, Armchair, Link2 as LinkIcon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
 import { formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, CONCERT_COLOR, eventPieceMovements } from '../../director/utils';
@@ -6,6 +6,7 @@ import { t, tType, useLang } from '../../shared/i18n';
 import { fmtShortDate } from '../../shared/dates';
 import { EnsembleLink, EnsembleLinks } from './EnsembleLink';
 import { Linkify } from '../../director/components/Linkify';
+import { NotesText } from './NotesText';
 import { EventChip } from './EventChip';
 import { LocationText } from './LocationText';
 import { AddToCalendarButton } from './AddToCalendar';
@@ -186,7 +187,11 @@ export function PubEventCard({
 
         {showNotes && e.notes && (
           <div className="pub-event-notes-inline">
-            <StickyNote size={12} /> <Linkify text={e.notes} />
+            <StickyNote size={12} />
+            {/* Rich text, not the plain linkifier: paragraphs, bullets and
+                headings survive, and a pasted address can no longer be
+                squeezed into a one-character column by the flex row. */}
+            <div className="pub-event-notes-body"><NotesText text={e.notes} /></div>
           </div>
         )}
 
@@ -233,6 +238,19 @@ export function PubEventCard({
             )}
           </div>
         )}
+
+        {/* Related links (#linking): the same chips an announcement renders,
+            at the bottom of the card. In-app targets stay in the shell;
+            external ones open in a new tab. */}
+        {e.links?.length ? (
+          <div className="pub-announce-links">
+            {e.links.map((l, i) => (
+              l.url.startsWith('/')
+                ? <Link key={`${l.url}-${i}`} to={l.url} className="pub-announce-link"><LinkIcon size={12} />{l.label}</Link>
+                : <a key={`${l.url}-${i}`} href={l.url} target="_blank" rel="noopener noreferrer" className="pub-announce-link"><LinkIcon size={12} />{l.label}</a>
+            ))}
+          </div>
+        ) : null}
 
         {(showAddToCal || detailLink) && (
           <div className="pub-ev2-foot">
