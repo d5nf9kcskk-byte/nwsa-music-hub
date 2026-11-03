@@ -2,11 +2,12 @@ import './startGuide.css';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { GraduationCap, Users, Music2, ChevronDown, Printer, BookOpen } from 'lucide-react';
+import { GraduationCap, Users, Music2, ChevronDown, Printer, BookOpen, Smartphone } from 'lucide-react';
 import { LABELS } from '../shared/labels';
 import { PageHeader } from './components/PageHeader';
 import { printViaPopup } from '../shared/printPopup';
 import { ORG } from '../org';
+import { t, useLang } from '../shared/i18n';
 
 type Audience = 'students' | 'parents' | 'directors';
 
@@ -318,6 +319,7 @@ export function StartGuide() {
   const TABS = staffView ? ALL_TABS : ALL_TABS.filter(t => t.key !== 'directors');
   const [tab, setTab] = useState<Audience>(staffView ? 'directors' : 'students');
   const pageRef = useRef<HTMLDivElement>(null);
+  useLang(); // the Home Screen step is translated (EN/ES)
   function handlePrint() {
     if (pageRef.current) printViaPopup(`${ORG.brandName} — Start Here Guide`, pageRef.current.outerHTML);
     else window.print();
@@ -337,6 +339,21 @@ export function StartGuide() {
         New to {ORG.brandName}? Pick who you are, then tap any question. Every answer links
         straight to the right page.
       </p>
+
+      {/* Step one for everyone (#push): on iPhone, the Home Screen icon is the
+          only way alerts can reach the phone at all, and it is what makes the
+          Hub work offline. Outside the tabs so it prints for every audience. */}
+      <section className="pub-sg-a2hs" aria-labelledby="sg-a2hs-title">
+        <h2 className="pub-sg-a2hs-title" id="sg-a2hs-title">
+          <Smartphone size={17} /> {t('a2hs.title')}
+        </h2>
+        <p className="pub-sg-a2hs-why">{t('a2hs.why')}</p>
+        <ul className="pub-sg-a2hs-steps">
+          <li>{t('a2hs.iphone')}</li>
+          <li>{t('a2hs.android')}</li>
+        </ul>
+        <p className="pub-sg-a2hs-why">{t('a2hs.then')}</p>
+      </section>
 
       <div className="pub-sg-tabs" role="tablist" aria-label="Who are you?">
         {TABS.map(({ key, label, Icon }) => (

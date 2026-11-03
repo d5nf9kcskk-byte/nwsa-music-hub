@@ -96,6 +96,14 @@ function cspPlugin(authDomain: string | undefined, functionsOrigin: string | und
             ...(authDomain ? [`https://${authDomain}`] : []),
             // App Check trades the reCAPTCHA answer for a token here.
             'https://content-firebaseappcheck.googleapis.com',
+            // Web push (#push). getToken() registers the device with FCM in
+            // two calls: an installation id from Firebase Installations, then
+            // the token from the FCM registration API. Refused by the policy,
+            // "Turn on alerts" would just spin — the same silent failure as
+            // every other line in this list.
+            'https://firebaseinstallations.googleapis.com',
+            'https://fcmregistrations.googleapis.com',
+            'https://fcm.googleapis.com',
           ].join(' '),
           // The invisible iframe signInWithPopup uses lives on authDomain;
           // reCAPTCHA runs its scoring in an iframe of its own.
@@ -294,13 +302,19 @@ export default defineConfig(({ mode }) => {
         // second page (the emergency-contacts reader) shared pdf.js, Rollup
         // split it into its own chunk, which it names after the worker file.
         globIgnores: [
-          'feeds/**', 'sw-cleanup.js', 'screenshots/**',
+          'feeds/**', 'sw-cleanup.js', 'push-handler.js', 'screenshots/**',
+          // Web push (#push): the FCM SDK and the subscribe code load only when
+          // someone taps "Turn on alerts". Precaching them would make every
+          // visitor download what only the opted-in few use.
+          'assets/fcmLazy-*', 'assets/pushClient-*',
           'assets/PdfSigner-*', 'assets/pdfStamp-*', 'assets/emergencyContacts-*', 'assets/pdf.worker.min-*',
         ],
         // Legacy-cache migration runs inside the SW's own activate (see
         // public/sw-cleanup.js) — never from the page, where it would race
         // the still-controlling old SW's offline fallback.
-        importScripts: ['sw-cleanup.js'],
+        // push-handler.js is the web-push display + tap handler (#push): a
+        // static file, so the generated sw.js stays deterministic.
+        importScripts: ['sw-cleanup.js', 'push-handler.js'],
         navigateFallback: `${BASE}index.html`,
         // Never serve the SPA shell for feeds or for anything with a file
         // extension (real files should 404 honestly, not render the app).

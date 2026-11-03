@@ -23,6 +23,7 @@ import { groupScheduleAlerts } from '../shared/groupAlerts';
 import { AlertGroupSections } from '../shared/AlertGroupSections';
 import { publicAlertGroupTitle, publicMoreLabels } from './alertGroupTitle';
 import { SignupAlert } from './components/SignupAlert';
+import { FamilyAlertsButton } from './components/FamilyAlertsButton';
 import { WelcomeHubBanner } from './components/WelcomeHubBanner';
 import { PinnedHubGuide } from './components/PinnedHubGuide';
 import { showPinnedHubGuide } from './welcomeHubSchedule';
@@ -189,6 +190,7 @@ export function PublicHome() {
       {/* Find my schedule — the #1 student action, front and center.
           Returning visitors get a direct link to their own schedule instead. */}
       {savedStudents.length > 0 ? (
+        <>
         <div className="pub-quick">
           {savedStudents.map(s => (
             <Link key={s.id} to={`/student/${s.id}`} className="pub-quick-btn">
@@ -199,6 +201,9 @@ export function PublicHome() {
             <UserSearch size={22} /><span>{t('home.findSomeoneElse')}</span>
           </Link>
         </div>
+        {/* Invisible until a director opens alerts to families (#push). */}
+        <FamilyAlertsButton students={savedStudents} />
+        </>
       ) : (
         <Link to="/lookup" className="pub-cta-btn">
           <UserSearch size={22} /> {t('home.findMySchedule')}

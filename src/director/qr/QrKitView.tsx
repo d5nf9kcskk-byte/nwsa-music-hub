@@ -103,7 +103,26 @@ const QR_PRINT_CSS = `
   .dir-qr-launch-cta-url {
     font-size: 12.5pt; font-weight: 800; word-break: break-all; color: #fff; line-height: 1.35;
   }
+
+  /* Step 1: Home Screen (#push) */
+  .dir-qr-a2hs { margin: 0.18in auto 0; max-width: 5.6in; padding: 8px 12px; border: 1.5px solid #bbb;
+    border-radius: 10px; font-size: 11pt; line-height: 1.4; color: #222; text-align: left; }
+  .dir-qr-a2hs strong { display: block; font-size: 12pt; margin-bottom: 2px; }
+  .dir-qr-launch .dir-qr-a2hs { border-color: rgba(255,255,255,0.6); color: #fff; }
 `;
+
+/** Step one on every poster (#push): on iPhone the Home Screen icon is the
+ *  only way schedule-change alerts reach the phone, and it makes the Hub work
+ *  offline. Plain text, so it prints from the popup without app CSS. */
+function HomeScreenStep() {
+  return (
+    <div className="dir-qr-a2hs">
+      <strong>Step 1: put it on your Home Screen</strong>
+      iPhone: Safari → Share → Add to Home Screen. Android: Chrome → ⋮ → Install app.
+      It opens like an app and still works when the signal drops.
+    </div>
+  );
+}
 
 /** Bright campus flyer announcing the new Hub (one letter page). */
 function LaunchPosterPage() {
@@ -121,6 +140,7 @@ function LaunchPosterPage() {
       </p>
       <div className="dir-qr-launch-qr" dangerouslySetInnerHTML={{ __html: svg }} />
       <p className="dir-qr-launch-scan">Scan to open</p>
+      <HomeScreenStep />
       <div className="dir-qr-launch-spacer" aria-hidden="true" />
       <div className="dir-qr-launch-cta">
         <div className="dir-qr-launch-cta-label">Or type this address</div>
@@ -142,6 +162,7 @@ function PosterPage({ name, tagline, url, urlLabel, accent }: {
       <p className="dir-qr-poster-tag">{tagline}</p>
       <div className="dir-qr-poster-code" dangerouslySetInnerHTML={{ __html: svg }} />
       <div className="dir-qr-poster-url">{urlLabel}</div>
+      <HomeScreenStep />
     </section>
   );
 }
