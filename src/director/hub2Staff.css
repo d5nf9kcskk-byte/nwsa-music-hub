@@ -1,0 +1,252 @@
+/* ═══════════════════════════════════════════════════════════════
+   Hub 2.0 look, STAFF screens (#hub2-look). The token mapping lives in
+   src/shared/hub2.css; this file is what tokens alone cannot say: soft
+   surfaces, big numbers, Concert Hall titles, Spotlight on concert night,
+   and motion. Imported by all four staff shells after their own CSS.
+
+   Rules every line here keeps:
+   - Scoped under :root[data-hub2="on"] .dir-app, so with the owner's preview
+     off NOTHING here matches (hub2.selfcheck.ts pins it). The hooks the
+     components carry for it (data-event-type, data-hub2-spotlight,
+     .dir-today-time, .dir-roll-concert, .dir-hall-title) are read by no
+     other rule.
+   - Colors come from tokens only, never a literal (also pinned).
+   - Everything sits inside @media screen, so a print (the Gradebook tables,
+     the lesson log, rosters, the sign-up packet, seating, the QR kit) comes
+     out exactly as it does without the preview.
+   - Motion sits inside prefers-reduced-motion: no-preference.
+   - The header and the Director Panel banner are not touched (#seasons).
+
+   Specificity: :root[data-hub2] .dir-app .x is (0,4,0), above the stock dark
+   rules (.dir-app[data-dir-theme="dark"] .x, 0,3,0). A season still paints on
+   top because it works through the --dir-* tokens these rules read.
+═══════════════════════════════════════════════════════════════ */
+
+@media screen {
+
+/* ── Studio Bright: soft cards with an edge, 18px cards / 12px rows ── */
+:root[data-hub2="on"] .dir-app .dir-today-card,
+:root[data-hub2="on"] .dir-app .dir-event-card {
+  border-width: 1px;
+  box-shadow: var(--dir-card-shadow);
+}
+:root[data-hub2="on"] .dir-app .dir-roll-nudge,
+:root[data-hub2="on"] .dir-app .dir-today-alert,
+:root[data-hub2="on"] .dir-app .dir-checkin-stat,
+:root[data-hub2="on"] .dir-app .dir-checkin-concert-list {
+  border-radius: var(--dir-radius-sm);
+}
+
+/* Big bold times and numbers */
+:root[data-hub2="on"] .dir-app .dir-today-name { font-size: 17px; letter-spacing: -.01em; }
+:root[data-hub2="on"] .dir-app .dir-today-time {
+  font-size: 16px; font-weight: 800; color: var(--dir-text);
+  font-variant-numeric: tabular-nums; letter-spacing: -.01em;
+}
+:root[data-hub2="on"] .dir-app .dir-att-chip strong {
+  font-size: 1.15em; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+:root[data-hub2="on"] .dir-app .dir-checkin-stat .n {
+  font-size: 1.6rem; letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+}
+:root[data-hub2="on"] .dir-app .dir-gb-grade {
+  font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+:root[data-hub2="on"] .dir-app .dir-gb-score,
+:root[data-hub2="on"] .dir-app .dir-gb-avg { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Sun for what is owed or waiting (light only: the stock dark amber already
+   reads, and the sun fill under white-ish dark text would not). */
+:root[data-hub2="on"] .dir-app:not([data-dir-theme="dark"]) .dir-roll-nudge:not(.missed),
+:root[data-hub2="on"] .dir-app:not([data-dir-theme="dark"]) .dir-roll-receipt:not(.done) {
+  background: color-mix(in srgb, var(--hub2-sun) 22%, var(--dir-surface));
+  border-color: var(--hub2-sun);
+  color: var(--dir-text);
+}
+:root[data-hub2="on"] .dir-app:not([data-dir-theme="dark"]) .dir-roll-nudge:not(.missed) {
+  border-left-color: var(--hub2-sun);
+}
+:root[data-hub2="on"] .dir-app .dir-nav-badge {
+  background: var(--hub2-sun); color: var(--hub2-ink);
+}
+
+/* ── Concert Hall: a concert's title in Newsreader, a gold hairline ── */
+:root[data-hub2="on"] .dir-app .dir-event-card[data-event-type="Concert"] .dir-event-title,
+:root[data-hub2="on"] .dir-app .dir-up-row[data-event-type="Concert"] .dir-up-label,
+:root[data-hub2="on"] .dir-app .dir-drawer[data-event-type="Concert"] .dir-roster-event-name,
+:root[data-hub2="on"] .dir-app .dir-roll-concert,
+:root[data-hub2="on"] .dir-app .dir-checkin:not([data-hub2-spotlight]) .dir-checkin-title {
+  font-family: var(--hub2-font-title);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+:root[data-hub2="on"] .dir-app .dir-event-card[data-event-type="Concert"] .dir-event-title { font-size: 17px; }
+:root[data-hub2="on"] .dir-app .dir-drawer[data-event-type="Concert"] .dir-roster-event-name { font-size: 20px; }
+:root[data-hub2="on"] .dir-app .dir-roll-concert { font-size: 15px; color: var(--dir-text); }
+/* The concert's title in its own edit drawer is the Title field. */
+:root[data-hub2="on"] .dir-app .dir-drawer[data-event-type="Concert"] .dir-hall-title {
+  font-family: var(--hub2-font-title); font-size: 18px;
+}
+/* The hairline: under each section label of a concert's drawer (its width is
+   the label's own, so a long form is not ruled off line by line), and under
+   the head of a concert's roll. */
+:root[data-hub2="on"] .dir-app .dir-drawer[data-event-type="Concert"] .dir-label {
+  text-decoration: underline 1px var(--hub2-hall-gold);
+  text-underline-offset: 6px;
+}
+:root[data-hub2="on"] .dir-app .dir-roll-sticky-top[data-event-type="Concert"] .dir-sc-panel-head {
+  border-bottom: 1px solid var(--hub2-hall-gold);
+}
+
+/* ── Spotlight: concert night ──
+   Today's card for a concert (Today only ever lists today), and Check-In on a
+   concert's own day. A dark stage that sets its own tokens, so everything
+   inside that reads --dir-* follows. Readability of spot ink and gold on the
+   stage is pinned in look.selfcheck.ts. */
+:root[data-hub2="on"] .dir-app .dir-today-card[data-event-type="Concert"]:not(.cancelled),
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] {
+  --dir-bg: var(--hub2-spot-bg);
+  --dir-surface: var(--hub2-spot-surface);
+  --dir-surface-2: color-mix(in srgb, var(--hub2-spot-ink) 5%, transparent);
+  --dir-text: var(--hub2-spot-ink);
+  --dir-text-muted: color-mix(in srgb, var(--hub2-spot-ink) 72%, var(--hub2-spot-bg));
+  --dir-border: color-mix(in srgb, var(--hub2-spot-ink) 16%, transparent);
+  --dir-primary: var(--hub2-spot-gold);
+  --dir-blue: var(--hub2-spot-gold);
+  --dir-blue-text: var(--hub2-spot-gold);
+  --dir-late: var(--hub2-spot-gold);
+  --dir-late-bg: color-mix(in srgb, var(--hub2-spot-gold) 14%, transparent);
+  --dir-card-shadow: 0 0 0 1px color-mix(in srgb, var(--hub2-spot-ink) 8%, transparent);
+  color: var(--dir-text);
+  font-family: var(--hub2-font-spot-body);
+  background:
+    radial-gradient(120% 80% at 0% 0%, var(--hub2-spot-teal-glow), transparent 60%),
+    radial-gradient(120% 90% at 100% 100%, var(--hub2-spot-plum-glow), transparent 60%),
+    var(--hub2-spot-bg);
+  border-color: transparent;
+  box-shadow: 0 8px 28px var(--hub2-spot-plum-glow);
+}
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] {
+  max-width: none;
+  margin: 8px;
+  border-radius: var(--hub2-radius-card);
+  min-height: calc(100vh - var(--dir-header) - 16px);
+}
+@media (min-width: 800px) {
+  :root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] { max-width: 760px; }
+}
+/* Glass cards on the stage */
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-card,
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-checkin-stat,
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-checkin-back {
+  background: var(--dir-surface);
+  border: 1px solid var(--dir-border);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-checkin-people-head { background: var(--dir-surface-2); }
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-checkin-count,
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-checkin-pill {
+  background: var(--dir-surface-2); color: var(--dir-text); border-color: var(--dir-border);
+}
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-checkin-pill.req,
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-checkin-pill.early,
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-checkin-pill.open {
+  border-color: var(--hub2-spot-gold); color: var(--hub2-spot-gold);
+}
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-checkin-stat.warn {
+  background: var(--dir-late-bg); border-color: var(--hub2-spot-gold);
+}
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-field-hint.warn,
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-tool-btn.danger { color: var(--hub2-spot-gold); }
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-input {
+  background: var(--dir-surface-2); color: var(--dir-text); border-color: var(--dir-border);
+}
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-input::placeholder { color: var(--dir-text-muted); }
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-tool-btn,
+:root[data-hub2="on"] .dir-app .dir-today-card[data-event-type="Concert"]:not(.cancelled) .dir-btn-ghost {
+  background: transparent; color: var(--dir-text); border: 1px solid var(--dir-border);
+}
+/* Display type */
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-checkin-title,
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-checkin-stat .n,
+:root[data-hub2="on"] .dir-app .dir-today-card[data-event-type="Concert"]:not(.cancelled) .dir-today-name,
+:root[data-hub2="on"] .dir-app .dir-today-card[data-event-type="Concert"]:not(.cancelled) .dir-today-time {
+  font-family: var(--hub2-font-spot-display);
+  color: var(--dir-text);
+}
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-checkin-title { font-size: 1.5rem; letter-spacing: -.01em; }
+/* Gold primary buttons, dark type on the gold */
+:root[data-hub2="on"] .dir-app .dir-today-card[data-event-type="Concert"]:not(.cancelled) .dir-btn-primary,
+:root[data-hub2="on"] .dir-app .dir-checkin[data-hub2-spotlight] .dir-btn-primary {
+  background: var(--hub2-spot-gold); color: var(--hub2-spot-bg);
+  box-shadow: 0 0 18px var(--hub2-spot-teal-glow);
+}
+/* The Today card's own pieces on the stage */
+:root[data-hub2="on"] .dir-app .dir-today-card[data-event-type="Concert"]:not(.cancelled) .dir-today-open-chev { color: var(--dir-text-muted); }
+:root[data-hub2="on"] .dir-app .dir-today-card[data-event-type="Concert"]:not(.cancelled) .dir-today-ens-chip {
+  /* The chip's text is the ensemble's own color, chosen for a light ground. */
+  background: var(--hub2-spot-ink);
+}
+:root[data-hub2="on"] .dir-app .dir-today-card[data-event-type="Concert"]:not(.cancelled) .dir-today-change,
+:root[data-hub2="on"] .dir-app .dir-today-card[data-event-type="Concert"]:not(.cancelled) .dir-today-tag,
+:root[data-hub2="on"] .dir-app .dir-today-card[data-event-type="Concert"]:not(.cancelled) .dir-roll-receipt {
+  background: var(--dir-surface-2); color: var(--hub2-spot-gold); border-color: var(--dir-border);
+}
+:root[data-hub2="on"] .dir-app .dir-today-card[data-event-type="Concert"]:not(.cancelled) .dir-roll-receipt.done { color: var(--dir-text); }
+:root[data-hub2="on"] .dir-app .dir-today-card[data-event-type="Concert"]:not(.cancelled) .dir-today-rep,
+:root[data-hub2="on"] .dir-app .dir-today-card[data-event-type="Concert"]:not(.cancelled) .dir-today-meta { color: var(--dir-text-muted); }
+:root[data-hub2="on"] .dir-app .dir-today-card[data-event-type="Concert"]:not(.cancelled) a { color: var(--hub2-spot-gold); }
+
+} /* @media screen */
+
+/* ── Motion: off entirely under reduced motion ── */
+@media screen and (prefers-reduced-motion: no-preference) {
+  @keyframes hub2-slide-in { from { transform: translateX(28px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes hub2-rise { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  /* A drill-down page slides in: Check-In's one-concert page, Schedule's day
+     page below 1100px. */
+  :root[data-hub2="on"] .dir-app .dir-checkin:has(> .dir-checkin-back) {
+    animation: hub2-slide-in var(--hub2-slide-ms) var(--hub2-ease) both;
+  }
+  @media (max-width: 1099.98px) {
+    :root[data-hub2="on"] .dir-app .dir-sched-split.day-open > :not(.dir-sched-cal-col) {
+      animation: hub2-slide-in var(--hub2-slide-ms) var(--hub2-ease) both;
+    }
+  }
+
+  /* Lists stagger in, 30ms apart, the first ten only. */
+  :root[data-hub2="on"] .dir-app .dir-today-card,
+  :root[data-hub2="on"] .dir-app .dir-event-card,
+  :root[data-hub2="on"] .dir-app .dir-checkin-concert {
+    animation: hub2-rise var(--hub2-slide-ms) var(--hub2-ease) both;
+  }
+  :root[data-hub2="on"] .dir-app .dir-today-card:nth-child(2),
+  :root[data-hub2="on"] .dir-app .dir-event-card:nth-child(2),
+  :root[data-hub2="on"] .dir-app .dir-checkin-concert:nth-child(2) { animation-delay: calc(var(--hub2-stagger-ms) * 1); }
+  :root[data-hub2="on"] .dir-app .dir-today-card:nth-child(3),
+  :root[data-hub2="on"] .dir-app .dir-event-card:nth-child(3),
+  :root[data-hub2="on"] .dir-app .dir-checkin-concert:nth-child(3) { animation-delay: calc(var(--hub2-stagger-ms) * 2); }
+  :root[data-hub2="on"] .dir-app .dir-today-card:nth-child(4),
+  :root[data-hub2="on"] .dir-app .dir-event-card:nth-child(4),
+  :root[data-hub2="on"] .dir-app .dir-checkin-concert:nth-child(4) { animation-delay: calc(var(--hub2-stagger-ms) * 3); }
+  :root[data-hub2="on"] .dir-app .dir-today-card:nth-child(5),
+  :root[data-hub2="on"] .dir-app .dir-event-card:nth-child(5),
+  :root[data-hub2="on"] .dir-app .dir-checkin-concert:nth-child(5) { animation-delay: calc(var(--hub2-stagger-ms) * 4); }
+  :root[data-hub2="on"] .dir-app .dir-today-card:nth-child(n+6),
+  :root[data-hub2="on"] .dir-app .dir-event-card:nth-child(n+6),
+  :root[data-hub2="on"] .dir-app .dir-checkin-concert:nth-child(n+6) { animation-delay: calc(var(--hub2-stagger-ms) * 5); }
+
+  /* A press dips to 97%. No transition of our own: the staff CSS already
+     transitions transform on these, and replacing their list would drop
+     their color fades. */
+  :root[data-hub2="on"] .dir-app .dir-btn:active,
+  :root[data-hub2="on"] .dir-app .dir-tool-btn:active,
+  :root[data-hub2="on"] .dir-app .dir-att-chip:active,
+  :root[data-hub2="on"] .dir-app .dir-checkin-stat:active,
+  :root[data-hub2="on"] .dir-app .dir-roll-nudge:active,
+  :root[data-hub2="on"] .dir-app .dir-quick-btn:active {
+    transform: scale(var(--hub2-press-scale));
+  }
+}

@@ -2,6 +2,7 @@ import './director.css';
 import { SeasonButton } from './SeasonButton';
 import './uiUpdates.css';
 import './dirShell.css';
+import './hub2Staff.css';
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
 import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine, FileSpreadsheet, Ticket, Inbox, Mic } from 'lucide-react';

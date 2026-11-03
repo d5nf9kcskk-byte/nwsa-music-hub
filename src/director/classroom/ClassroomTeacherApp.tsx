@@ -2,6 +2,7 @@ import '../director.css';
 import { SeasonButton } from '../SeasonButton';
 import '../uiUpdates.css';
 import '../dirShell.css';
+import '../hub2Staff.css';
 import { useState } from 'react';
 import type { User } from 'firebase/auth';
 import { useNavigate } from 'react-router';

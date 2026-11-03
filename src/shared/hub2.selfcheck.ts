@@ -179,4 +179,84 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
   checked++;
 }
 assert.ok(checked > 0, 'no org has a Hub 2.0 look — nothing was checked');
+// 6. Staff screens (src/director/hub2Staff.css). Every rule sits under the
+//    preview and inside @media screen (prints never change), takes its colors
+//    from tokens, and is loaded by all four staff shells. The hooks the
+//    components carry for it are read by no other stylesheet, which is what
+//    makes adding them to markup safe with the preview off.
+const staffCss = strip(read('../director/hub2Staff.css'));
+assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(staffCss), 'hub2Staff.css must take every color from tokens');
+{
+  let depth = 0;
+  let staffRules = 0;
+  for (const m of staffCss.matchAll(/([^{}]*)([{}])/g)) {
+    const head = m[1].trim();
+    if (m[2] === '}') { depth--; continue; }
+    if (depth === 0) assert.match(head, /^@media screen\b/, `hub2Staff.css: "${head}" is outside @media screen`);
+    else if (!head.startsWith('@') && !/^(from|to|\d+%)$/.test(head)) {
+      for (const sel of head.split(',').map(x => x.trim())) {
+        assert.ok(sel.startsWith(':root[data-hub2="on"] .dir-app'), `hub2Staff.css selector ${sel} is not scoped under the preview`);
+      }
+      staffRules++;
+    }
+    depth++;
+  }
+  assert.equal(depth, 0, 'hub2Staff.css braces do not balance');
+  assert.ok(staffRules > 10, 'hub2Staff.css has suspiciously few rules');
+  assert.match(staffCss, /prefers-reduced-motion: no-preference/, 'staff motion must be off under reduced motion');
+  assert.ok(!/animation|transition/.test(staffCss.split('prefers-reduced-motion: no-preference')[0]),
+    'every animation and transition belongs in the no-preference block');
+}
+for (const shell of ['./DirectorApp.tsx', './teacher/TeacherApp.tsx', './classroom/ClassroomTeacherApp.tsx', './assistant/AssistantApp.tsx']) {
+  const src = read(`../director/${shell}`);
+  assert.ok(src.includes("import './hub2Staff.css';") || src.includes("import '../hub2Staff.css';"),
+    `${shell} must import hub2Staff.css`);
+}
+{
+  const hooks = /data-event-type|data-hub2-spotlight|dir-today-time|dir-roll-concert|dir-hall-title/;
+  const walk = (dir: URL): string[] => readdirSync(dir, { withFileTypes: true }).flatMap(d =>
+    d.isDirectory() ? walk(new URL(`${d.name}/`, dir)) : d.name.endsWith('.css') ? [new URL(d.name, dir).pathname] : []);
+  for (const f of walk(new URL('../', import.meta.url))) {
+    if (f.endsWith('/director/hub2Staff.css')) continue;
+    assert.ok(!hooks.test(strip(readFileSync(f, 'utf8'))), `${f} styles a Hub 2.0 hook; with the preview off it must change nothing`);
+  }
+}
+// Staff prints never take the preview: hub2.css maps the --dir-* tokens on
+// screen only and hands print back the stock font, which is only the stock
+// font while an org with a hub2 look sets no --org-font of its own.
+{
+  const screenAt = css.indexOf('@media screen {');
+  assert.ok(screenAt >= 0, 'hub2.css: the staff mapping must sit in @media screen');
+  assert.ok(!css.slice(0, screenAt).includes('.dir-app'), 'hub2.css: a staff rule sits outside @media screen, so it would print');
+  assert.match(css, /@media print \{\s*\[data-hub2="on"\] \.dir-app \{ --org-font: initial; \}/, 'hub2.css: staff print must get the stock font back');
+  for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) {
+    const org = JSON.parse(read(`../../config/orgs/${file}`));
+    if (org.hub2) assert.ok(!org.brand?.['--org-font'], `${file}: a brand --org-font would be lost from staff prints under the preview`);
+  }
+}
+// The staff --dir-primary is the accent darkened by a share of the ink: text
+// on the page (4.5:1) and the header fill under white (4.5:1) must both read.
+{
+  const mix = css.match(/--dir-primary:\s*color-mix\(in srgb, var\(--hub2-accent\) (\d+)%, var\(--hub2-ink\)\)/);
+  assert.ok(mix, 'hub2.css: the staff --dir-primary must be the accent mixed with the ink');
+  const share = Number(mix[1]) / 100;
+  const hex = (h: string) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const lum = (c: number[]) => {
+    const [r, g, b] = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a: number[], b: number[]) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) {
+    const look: Hub2Look | undefined = JSON.parse(read(`../../config/orgs/${file}`)).hub2;
+    if (!look) continue;
+    const a = hex(look.light.accent);
+    const ink = hex(look.light.ink);
+    const teal = a.map((v, i) => v * share + ink[i] * (1 - share));
+    for (const [name, ground] of [['page', look.light.bg], ['card', look.light.surface], ['white header text', '#ffffff']] as const) {
+      const r = ratio(teal, hex(ground));
+      assert.ok(r >= 4.5, `${file}: staff teal on ${name} is ${r.toFixed(2)}:1`);
+    }
+  }
+}
+
 console.log(`hub2 self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${fontImports.length} font files, ${pubSelectors.length} public rules, ${fills} accent fills covered)`);
