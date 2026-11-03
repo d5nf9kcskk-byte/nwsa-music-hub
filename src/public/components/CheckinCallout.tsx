@@ -4,7 +4,7 @@ import { useMinuteTick } from '../../director/hooks/useAnnouncements';
 import { useCheckinSettings } from '../hooks/useCheckinSettings';
 import { receiptForEvent } from '../checkinReceipt';
 import { ORG } from '../../org';
-import { formatTime } from '../../director/utils';
+import { clockAt } from '../checkinClock';
 import { t, useLang } from '../../shared/i18n';
 import { checkinState, checkinWindow, resolveCheckinSettings } from '../../shared/concertCheckin';
 import type { CalendarEvent } from '../../director/types';
@@ -35,11 +35,6 @@ export function CheckinCallout({ event }: { event: CalendarEvent }) {
   const receipt = receiptForEvent(event.id);
   const checkedIn = Boolean(receipt?.in);
   const checkedOut = Boolean(receipt?.out);
-  // The org's wall clock as "HH:MM", then the app's one time formatter, so
-  // the time reads "6:50 p.m." in Spanish like every other time on the page.
-  const clock = (ms: number) => formatTime(new Intl.DateTimeFormat('en-US', {
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: ORG.timezone,
-  }).format(new Date(ms)));
 
   if (checkedIn && checkedOut) {
     return (
@@ -58,7 +53,7 @@ export function CheckinCallout({ event }: { event: CalendarEvent }) {
       <div className="pub-card pub-checkin-callout">
         <Clock size={18} aria-hidden />
         <div>
-          <strong>{win ? t('cic.opensAt', { time: clock(win.opensAt) }) : t('cic.opensAtConcert')}</strong>
+          <strong>{win ? t('cic.opensAt', { time: clockAt(win.opensAt) }) : t('cic.opensAtConcert')}</strong>
           <p>{t('cic.earlyBody')}</p>
         </div>
       </div>
@@ -84,7 +79,7 @@ export function CheckinCallout({ event }: { event: CalendarEvent }) {
         <strong>{checkedIn ? t('cic.outTitle') : t('cic.inTitle')}</strong>
         <p>
           {checkedIn
-            ? t('cic.inAt', { time: clock(receipt!.in!) })
+            ? t('cic.inAt', { time: clockAt(receipt!.in!) })
             : t('cic.howTo')}
         </p>
         <Link className="pub-btn" to={`/checkin/${event.id}`}>
