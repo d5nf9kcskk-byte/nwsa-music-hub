@@ -3,8 +3,8 @@
 The director asked for a redesign plan and then for the Hub 2.0 plan (the
 cross-examined spec, which is not in this repo) to be built in full, phase
 by phase, without check-ins, asking only about choices that change what
-people see. This is the record of what shipped, what is
-switched off on purpose, and what is left for the director.
+people see. This is the record of what shipped, what is switched off on
+purpose, and what is left for the director.
 
 ## The director's decisions
 
@@ -57,6 +57,12 @@ Phase 3, director tools:
   warning, and receipts on Event form edits and `hub-calendar.mjs` edits.
 - #212 the Today screen's "School closed" leaves a receipt too, so Back to
   normal can undo the day.
+- #215 the Spanish banner drafter, built and switched off. `changeNoteEs`
+  holds the director's confirmed Spanish note; `changeNoteFor()` is the one
+  choice of note on every public surface, and `reconcileChangeNoteEs()`
+  clears a Spanish note whenever the English one changes. The
+  `draftChangeNoteEs` function sends only the note text and is in
+  `NOT_DEPLOYED`. Turning it on: `docs/banner-drafter.md`.
 
 Phase 4, lessons:
 
@@ -68,7 +74,10 @@ The look:
 
 - #206 the owner-only preview switch, the tokens in `config/orgs/nwsa.json`
   (`hub2`) and the self-hosted fonts, loaded only while the preview is on.
-- #211 the public site under the preview.
+- #211 the public site and #213 the staff screens under the preview:
+  Studio Bright, Concert Hall titles on concerts, Spotlight on concert night,
+  and the motion, all screen-only so every printout matches the stock site.
+  One teal, `#0E7585`, about 5:1 as text on the page.
 
 Found and fixed on the way:
 
@@ -109,7 +118,8 @@ performers plus audience, with pull-outs not subtracted.
 - **Family push:** off until `pushSettings/global.familiesOpen` is set from
   Menu → Phone alerts, after App Check enforcement and the staff trial.
 - **The Spanish banner drafter:** built and off. It needs an
-  `ANTHROPIC_API_KEY` secret and `features.bannerDrafter`.
+  `ANTHROPIC_API_KEY` secret, a line in the deploy list and
+  `features.bannerDrafter` (`docs/banner-drafter.md`).
 - **The new look for everyone:** off. Only the owner's own device sees it.
 
 ## For the director
