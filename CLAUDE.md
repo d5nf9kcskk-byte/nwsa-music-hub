@@ -384,6 +384,32 @@ director's correction verbatim, why reasoning from "where the room is" gave
 the wrong answer, and the read-only audit that has to precede re-running a
 seed that `set`s rather than merges.
 
+## Change a Day: typed changes, room clashes, receipts (Nov 2026)
+
+- **"Type what changed"** (#day-change-parse): `parseDayChange()` in
+  `src/director/schedule/dayChangeParse.ts` reads one sentence into ONE
+  `DayAction` — the same object a chip builds — and the screen opens the same
+  review sheet on the day it names. It writes nothing. chrono-node for dates
+  and times, group names plus `ORG.vanitySlugs` for groups, Locations for
+  rooms. It REFUSES rather than guesses: an unknown group, a name matching two
+  blocks that day, a move to another day, and every whole-day verb (those stay
+  on the campus-scoped chips, #college-hs-calendar-deps). Single-block cancel
+  is DayAction `cancel` (same writes as the block's Cancel sheet, no lessons).
+  No model call: `DAY_CHANGE_MODEL_FALLBACK` is the named seam and stays
+  `null` until a provider key and the school's vendor approval exist.
+  `dayChangeParse.selfcheck.ts` pins it.
+- **`roomClash`** is a `planDayChange` guard: after the plan, two live blocks on
+  the same date, overlapping times, same `normalizeRoom(location)`. There is no
+  rooms collection; the typed string is the room. Only clashes the plan
+  CREATES are reported, and it warns rather than blocks.
+- **Receipts outside Change a Day** (#change-receipts): `changeReceipt()` in
+  `changePlan.ts` is what the Event form (edits, not repeats or creates) and
+  `hub-calendar.mjs` `edit` add to a write that moves date, time, room or
+  status — snapshot-once, like `captureOriginal`. A date move adds
+  `changeFrom.date`, which `revertPlan` restores. Not covered on purpose: the
+  Today screen's "School closed" cancel (`TodayView`), which still writes no
+  receipt. Both pinned in `scripts/schedule-day-plan.selfcheck.mjs`.
+
 ## Ensembles vs. classes (Aug 2026)
 
 `Ensemble.kind` splits the one `ensembles` collection into performing groups

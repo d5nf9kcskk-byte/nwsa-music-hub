@@ -31,6 +31,15 @@
  *    already covered. Back to normal puts back only the lessons the day plan
  *    itself cancelled, never one a teacher cancelled.
  *
+ * 5. A ROOM CLASH IS SAID OUT LOUD (#room-clash). Same date, overlapping
+ *    time, same `location` once normalized: there is no rooms collection, so
+ *    the typed string is the room. Only a clash the plan CREATES is reported.
+ *
+ * 6. AN EDIT OUTSIDE CHANGE A DAY LEAVES THE SAME RECEIPT (#change-receipts).
+ *    `changeReceipt()` is what the Event form and hub-calendar `edit` write:
+ *    snapshot-once, only when date/time/room/status actually move, and a date
+ *    move is put back by "Back to normal".
+ *
  * Run: node scripts/schedule-day-plan.selfcheck.mjs
  */
 import { registerHooks } from 'node:module';
@@ -51,7 +60,7 @@ registerHooks({
 globalThis.__ORG_CONFIG__ = JSON.parse(
   readFileSync(new URL('../config/orgs/nwsa.json', import.meta.url), 'utf8'));
 
-const { planDayChange, applyPlan } = await import('../src/director/schedule/changePlan.ts');
+const { planDayChange, applyPlan, changeReceipt, revertPlan, normalizeRoom } = await import('../src/director/schedule/changePlan.ts');
 
 let failures = 0;
 function assert(cond, msg) {
@@ -258,6 +267,64 @@ const labels = { 'evt-we': 'Wind Ensemble', 'evt-so': 'Symphony Orchestra' };
   const back = planDayChange(applyPlan([hsReh, collegeCls], p.writes), { kind: 'backToNormal' }, { groups, lessons: afterCancel });
   eqDeep(back.writes.filter(w => w.op === 'revertLesson'), [{ op: 'revertLesson', id: 'les-1' }],
     'back-to-normal puts back only the lesson the day plan cancelled — a teacher\'s own cancellation is theirs');
+}
+
+// ── cancel named blocks (the typed box's "Cancel Camerata today") ─────
+{
+  const p = planDayChange(day, { kind: 'cancel', ids: ['evt-we'] }, { labels, lessons: [{ id: 'les-x', studentId: 's', date: D, status: 'Scheduled' }] });
+  eqDeep(p.writes, [{ op: 'update', id: 'evt-we', data: { status: 'Cancelled', changeNote: 'Cancelled', changeFrom: { status: 'Scheduled', startTime: '13:10', endTime: '14:25', location: 'Band Room' } } }],
+    'cancelling one block writes exactly what its Cancel sheet writes — and takes no lessons');
+  assert(p.bannerText === '🚫 Wind Ensemble: CANCELLED Fri, Sep 4', `block cancel banner is exact (got "${p.bannerText}")`);
+  const after = applyPlan(day, p.writes);
+  eqDeep(applyPlan(after, planDayChange(after, { kind: 'backToNormal' }).writes), day, 'cancel one block → back to normal restores the day');
+}
+
+// ── room clash (#room-clash) ──────────────────────────────────────────
+{
+  assert(normalizeRoom('  Recital  Hall. ') === normalizeRoom('recital hall'), 'room names compare loosely');
+  const choir = { id: 'evt-ch', type: 'Rehearsal', ensembleIds: ['ch'], date: D, startTime: '13:10', endTime: '14:25', location: 'Recital Hall', status: 'Scheduled' };
+  const d3 = [we, so, choir];
+  const into = planDayChange(d3, { kind: 'move', id: 'evt-we', startTime: '13:10', endTime: '14:25', location: 'recital hall' }, { labels });
+  eqDeep(into.guards.filter(g => g.kind === 'roomClash'), [{ kind: 'roomClash', eventId: 'evt-we', otherId: 'evt-ch', location: 'recital hall' }],
+    'moving into an occupied room at an overlapping time raises roomClash');
+  const later = planDayChange(d3, { kind: 'move', id: 'evt-so', startTime: '14:30', endTime: '15:45', location: 'Recital Hall' }, { labels });
+  eqDeep(later.guards, [], 'the same room at a time that does not overlap is no clash');
+  const ack = planDayChange(d3, { kind: 'move', id: 'evt-we', startTime: '13:30', endTime: '14:25', location: 'Recital Hall', overlapAcknowledged: true }, { labels });
+  assert(ack.guards.some(g => g.kind === 'roomClash'), '"overlap anyway (different rooms)" in the SAME room still says so');
+  const offRoom = planDayChange([we, so, { ...choir, status: 'Cancelled' }], { kind: 'move', id: 'evt-we', startTime: '13:10', endTime: '14:25', location: 'Recital Hall' }, { labels });
+  eqDeep(offRoom.guards, [], 'a cancelled block holds no room');
+  const shared = [we, { ...choir, location: 'Band Room' }];
+  eqDeep(planDayChange(shared, { kind: 'move', id: 'evt-we', startTime: '13:15', endTime: '14:25', location: 'Band Room', overlapAcknowledged: true }, { labels }).guards, [],
+    'two groups that already shared a room are not news');
+  const comb = planDayChange(d3, { kind: 'combine', hostId: 'evt-we', absorbedIds: ['evt-so'], location: 'Recital Hall' }, { labels });
+  assert(comb.guards.some(g => g.kind === 'roomClash' && g.otherId === 'evt-ch'), 'a combine into an occupied room raises roomClash too');
+  eqDeep(planDayChange([we, { ...choir, location: '' }], { kind: 'move', id: 'evt-we', startTime: '13:10', endTime: '14:25', location: '' }, { labels }).guards.filter(g => g.kind === 'roomClash'), [],
+    'no room typed is no clash');
+}
+
+// ── receipts for edits outside Change a Day (#change-receipts) ────────
+{
+  eqDeep(changeReceipt(we, { title: 'Renamed', pieceIds: ['p1'] }), {}, 'a content edit leaves no receipt');
+  eqDeep(changeReceipt(we, { startTime: '13:10', location: 'Band Room' }), {}, 'saving the same values leaves no receipt');
+  eqDeep(changeReceipt({ ...we, location: undefined }, { location: '' }), {}, 'blank and missing are the same room');
+  eqDeep(changeReceipt(we, { startTime: '15:00' }), { changeFrom: { status: 'Scheduled', startTime: '13:10', endTime: '14:25', location: 'Band Room' } },
+    'a time edit snapshots the original schedule');
+  eqDeep(changeReceipt(we, { status: 'Cancelled' }), { changeFrom: { status: 'Scheduled', startTime: '13:10', endTime: '14:25', location: 'Band Room' } },
+    'a status edit snapshots too');
+  const moved = { ...we, startTime: '15:00', changeFrom: { status: 'Scheduled', startTime: '13:10', endTime: '14:25', location: 'Band Room' } };
+  eqDeep(changeReceipt(moved, { startTime: '16:00' }), {}, 'snapshot-once: a second edit keeps the ORIGINAL');
+  eqDeep(changeReceipt(moved, { date: '2026-09-05' }), { changeFrom: { ...moved.changeFrom, date: D } },
+    'a first date move adds the original date to an existing snapshot');
+  // Date move → revert puts it back on its day, byte for byte.
+  const r = changeReceipt(we, { date: '2026-09-11', startTime: '15:00' });
+  const edited = { ...we, date: '2026-09-11', startTime: '15:00', ...r };
+  const { fields } = revertPlan(edited);
+  assert(fields.date === D, 'revert restores a moved date');
+  const restored = { ...edited };
+  for (const [k, v] of Object.entries(fields)) { if (v === undefined) delete restored[k]; else restored[k] = v; }
+  eqDeep(restored, we, 'edit (date + time) → back to normal restores the event byte-for-byte');
+  assert(!('date' in revertPlan({ ...we, startTime: '15:00', changeFrom: { status: 'Scheduled', startTime: '13:10' } }).fields),
+    'a snapshot with no date never touches the date');
 }
 
 // ── back to normal with nothing changed does nothing ──────────────────
