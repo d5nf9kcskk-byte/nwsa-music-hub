@@ -385,7 +385,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
     }
 
     return (
-      <div className={`dir-event-card ${e.status === 'Cancelled' ? 'cancelled' : ''}`}>
+      <div className={`dir-event-card ${e.status === 'Cancelled' ? 'cancelled' : ''}`} data-event-type={e.type}>
         <span className="dir-event-bar" style={{ background: eventColor(e) }} />
         <div className="dir-event-body">
           <div className="dir-event-tap" onClick={() => setEditing(e)}>

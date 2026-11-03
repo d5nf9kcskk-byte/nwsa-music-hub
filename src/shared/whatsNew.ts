@@ -32,6 +32,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Lessons (Hub 2.0, Phase 4, #lesson-attachments). Applied teachers.
+  {
+    id: '2026-11-03-lesson-attachments',
+    date: '2026-11-03',
+    title: 'Attach a file to a lesson',
+    audience: 'staff' as const,
+    bullets: [
+      'My Lessons → open a student → Attach on any lesson line. Add a PDF, a picture or an audio clip, up to three per lesson. Only you and the directors can open them.',
+      'When you email that lesson to the family, each file can go with it as a 30-day link. Until that’s switched on, the email asks the family to get the file from you.',
+      'My Lessons now opens with a line for the week: how many lessons you have and how many still need a grade or initials.',
+    ],
+    expires: '2026-11-24',
+  },
   // Hub 2.0, Phase 3: director tools on Change a Day.
   {
     id: '2026-11-03-type-what-changed',

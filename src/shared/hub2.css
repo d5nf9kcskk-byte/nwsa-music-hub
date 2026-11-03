@@ -19,6 +19,8 @@
    hub2.selfcheck.ts pins these selectors.
 ═══════════════════════════════════════════════════════════════ */
 
+/* Screen only: paper prints exactly as without the preview (#hub2-look). */
+@media screen {
 :root[data-hub2="on"],
 :root[data-hub2="on"][data-pub-theme='dark'] {
   --pub-bg: var(--hub2-bg);
@@ -45,24 +47,38 @@
 :root[data-hub2="on"]:not([data-pub-theme='dark']) {
   --pub-shadow-1: var(--hub2-shadow);
 }
+} /* @media screen: the public mapping stops at paper (hub2Public.css header) */
 
-[data-hub2="on"] .dir-app,
-[data-hub2="on"] .dir-app[data-dir-theme="dark"] {
-  --dir-bg: var(--hub2-bg);
-  --dir-surface: var(--hub2-surface);
-  --dir-text: var(--hub2-ink);
-  --dir-text-muted: var(--hub2-muted);
-  --dir-border: var(--hub2-line);
-  --dir-blue: var(--hub2-plum);
-  --dir-radius: var(--hub2-radius-card);
-  --dir-radius-sm: var(--hub2-radius-row);
+/* Staff: screen only. A staff print (the in-page fallback when a print popup
+   is blocked) must come out exactly as it does without the preview, so the
+   mapping stops at the screen, and the body font the public mapping puts on
+   :root is handed back to the stock stack (NWSA sets no --org-font of its
+   own; hub2.selfcheck.ts pins that an org with a hub2 look sets none). */
+@media screen {
+  [data-hub2="on"] .dir-app,
+  [data-hub2="on"] .dir-app[data-dir-theme="dark"] {
+    --dir-bg: var(--hub2-bg);
+    --dir-surface: var(--hub2-surface);
+    --dir-text: var(--hub2-ink);
+    --dir-text-muted: var(--hub2-muted);
+    --dir-border: var(--hub2-line);
+    --dir-blue: var(--hub2-plum);
+    --dir-radius: var(--hub2-radius-card);
+    --dir-radius-sm: var(--hub2-radius-row);
+  }
+  /* Light only. --dir-primary is the header fill under WHITE text, so it keeps
+     the light teal in dark mode (the dark accent would fail white text), and
+     --dir-blue-text keeps its own lighter dark-mode tint.
+     It is also TEXT straight on the page (back buttons, links). The org's
+     light accent is chosen to read there (4.5:1+) and under white, so the
+     public and staff teal are one color; hub2.selfcheck.ts pins both. */
+  [data-hub2="on"] .dir-app:not([data-dir-theme="dark"]) {
+    --dir-primary: var(--hub2-accent);
+    --dir-card-shadow: var(--hub2-shadow);
+  }
 }
-/* Light only. --dir-primary is the header fill under WHITE text, so it keeps
-   the light teal in dark mode (the dark accent would fail white text), and
-   --dir-blue-text keeps its own lighter dark-mode tint. */
-[data-hub2="on"] .dir-app:not([data-dir-theme="dark"]) {
-  --dir-primary: var(--hub2-accent);
-  --dir-card-shadow: var(--hub2-shadow);
+@media print {
+  [data-hub2="on"] .dir-app { --org-font: initial; }
 }
 
 @media (prefers-reduced-motion: reduce) {

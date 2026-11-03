@@ -172,7 +172,7 @@ export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNav
   };
 
   const upRow = (e: CalendarEvent) => (
-    <button key={e.id} className="dir-up-row" onClick={() => onNavigate('schedule', { date: e.date, eventId: e.id })}>
+    <button key={e.id} className="dir-up-row" data-event-type={e.type} onClick={() => onNavigate('schedule', { date: e.date, eventId: e.id })}>
       <span className="dir-up-date">{parseDate(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
       <span className="dir-up-dot" style={{ background: e.type === 'Concert' ? CONCERT_COLOR : ensembleColor(ensembleMap[e.ensembleIds[0]]) }} />
       <span className="dir-up-label">
@@ -445,7 +445,7 @@ function TodayCard({
   const openEvent = () => onNavigate('schedule', { date: event.date, eventId: event.id });
 
   return (
-    <div className={`dir-today-card ${cancelled ? 'cancelled' : ''}`}>
+    <div className={`dir-today-card ${cancelled ? 'cancelled' : ''}`} data-event-type={event.type}>
       <div className="dir-today-stripe" style={{ background: firstEns ? ensembleColor(firstEns) : '#94a3b8' }} />
       <div className="dir-today-body">
         {/* The card itself opens the event for editing — a director tapping a
@@ -461,7 +461,7 @@ function TodayCard({
           </span>
         </button>
         <div className="dir-today-meta">
-          {event.startTime && <span><Clock size={13} /> {formatTimeRange(event.startTime, event.endTime)}</span>}
+          {event.startTime && <span className="dir-today-time"><Clock size={13} /> {formatTimeRange(event.startTime, event.endTime)}</span>}
           {event.location && <span><MapPin size={13} /> {event.location}</span>}
           {expected != null && <span><Users size={13} /> {expected} expected</span>}
         </div>

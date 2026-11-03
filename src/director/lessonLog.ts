@@ -2,7 +2,7 @@ import type { Lesson, Student, StudentContact } from './types';
 // Explicit .ts on purpose: this module is imported by the lesson-log Cloud
 // Function, whose self-check runs under Node's type-stripping loader, and
 // that loader cannot resolve an extensionless relative import.
-import { isLessonGrade } from './lessonGrades.ts';
+import { isLessonGrade, needsGrade } from './lessonGrades.ts';
 
 /**
  * High School Private Lesson Log helpers (#applied). Pure functions over the
@@ -254,6 +254,34 @@ export function initialsOk(v: unknown): boolean {
  */
 export function isLogCompleteForMail(l: Pick<Lesson, 'status' | 'grade' | 'studentInitials'>): boolean {
   return l.status !== 'Cancelled' && isLessonGrade(l.grade) && initialsOk(l.studentInitials);
+}
+
+/** Monday and Sunday of the week holding `today` (YYYY-MM-DD, local date
+ *  strings in and out). Lessons are dated by day, so this never touches a
+ *  clock or a time zone. */
+export function weekBounds(today: string): { start: string; end: string } {
+  const [y, m, d] = today.split('-').map(Number);
+  const base = Date.UTC(y!, m! - 1, d!);
+  const dow = new Date(base).getUTCDay(); // 0 = Sunday
+  const back = (dow + 6) % 7;             // days since Monday
+  const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  return { start: iso(base - back * 86_400_000), end: iso(base + (6 - back) * 86_400_000) };
+}
+
+/** Has this log line still got a blank the teacher owes? A past lesson with
+ *  no number, or a number the student has not initialed. The SAME two tests
+ *  the student list's "to finish" badge and the row's "Needs …" lines use. */
+export function lessonNeedsLogging(l: Lesson, today: string): boolean {
+  if (l.status === 'Cancelled' || l.date > today) return false;
+  return needsGrade(l, today) || (isLessonGrade(l.grade) && !initialsOk(l.studentInitials));
+}
+
+/** "This week: N lessons, M to log" on the applied teacher's landing. Counts
+ *  only the lessons handed in — the screen's own list, so no new query. */
+export function thisWeekCounts(lessons: Lesson[], today: string): { lessons: number; toLog: number } {
+  const { start, end } = weekBounds(today);
+  const week = lessons.filter(l => l.status !== 'Cancelled' && l.date >= start && l.date <= end);
+  return { lessons: week.length, toLog: week.filter(l => lessonNeedsLogging(l, today)).length };
 }
 
 /** Every blank the student's initial actually attests to. Change one after

@@ -3,7 +3,13 @@ import {
   collection, onSnapshot, doc, query, orderBy, where, writeBatch, getDoc,
   updateDoc, deleteField,
 } from 'firebase/firestore';
+import { ref as storageRef, uploadBytes } from 'firebase/storage';
 import { db } from '../firebase';
+import { storage } from '../firebaseAuth';
+import { deleteStoredPaths } from '../storageCleanup';
+import {
+  attachmentProblem, lessonAttachmentPath, lessonAttachmentsOf, type LessonAttachment,
+} from '../lessonAttachments';
 import { noteLoadError, noteLoadOk } from '../../shared/appStatus';
 import { offerUndo, trackWrite } from '../writeStatus';
 import { publicLessonFields } from '../publicMirror';
@@ -134,10 +140,63 @@ export function useLessons(opts: {
     if (gone) {
       const { id: _id, ...data } = gone;
       void _id;
+      // Its files go only once the undo window lapses: deleting them now
+      // would hand a restored lesson links to nothing (audit rec #6).
+      const paths = lessonAttachmentsOf(gone).map(a => a.path);
       offerUndo('lessons', id, data, `Deleted lesson — restore?`, [
         { collection: 'lessonsPublic', docId: id, data: publicLessonFields(data) },
-      ]);
+      ], paths.length ? () => { void deleteStoredPaths(paths); } : undefined);
     }
+  }
+
+  /**
+   * Attach one file to a lesson (#lesson-attachments). Upload FIRST, then
+   * the doc: storage.rules anchors the upload on the lesson existing and on
+   * the uploader being its teacher or a director, and `teacherEmail` rides
+   * as metadata so the teacher can still clean the file up once the lesson
+   * itself is deleted. If the doc write fails the object is removed again,
+   * so no file sits in the bucket that no lesson names.
+   */
+  async function attachLessonFile(l: Lesson, file: File): Promise<string | null> {
+    const current = lessonAttachmentsOf(l);
+    const problem = attachmentProblem(file, current.length);
+    if (problem) return problem;
+    if (!db || !storage) return 'Uploads are not available right now.';
+    const path = lessonAttachmentPath(l.id, file.name, Date.now());
+    try {
+      await uploadBytes(storageRef(storage, path), file, {
+        contentType: file.type,
+        customMetadata: { teacherEmail: l.teacherEmail },
+      });
+    } catch {
+      return 'That file did not upload. Check your connection and try again.';
+    }
+    const entry: LessonAttachment = { name: file.name.slice(0, 200), path, contentType: file.type, size: file.size };
+    try {
+      await updateDoc(doc(db, 'lessons', l.id), {
+        attachments: [...current, entry],
+        updatedAt: Date.now(),
+        updatedBy: currentDirectorName(),
+      });
+    } catch {
+      await deleteStoredPaths([path]);
+      return 'The file uploaded but could not be saved on the lesson. Try again.';
+    }
+    return null;
+  }
+
+  /** Take one file off a lesson: the doc first, then the object, so a
+   *  failed delete leaves an orphan rather than a link to nothing. */
+  async function removeLessonAttachment(l: Lesson, path: string) {
+    if (!db) return;
+    const dbRef = db;
+    const rest = lessonAttachmentsOf(l).filter(a => a.path !== path);
+    await trackWrite('Lesson attachment', () => updateDoc(doc(dbRef, 'lessons', l.id), {
+      attachments: rest.length ? rest : deleteField(),
+      updatedAt: Date.now(),
+      updatedBy: currentDirectorName(),
+    }));
+    await deleteStoredPaths([path]);
   }
 
   /**
@@ -202,5 +261,6 @@ export function useLessons(opts: {
   return {
     lessons, loading, addLesson, updateLesson, deleteLesson, cancelLesson,
     cancelLessonForDay, revertLessonForDay, syncLessonMirror,
+    attachLessonFile, removeLessonAttachment,
   };
 }

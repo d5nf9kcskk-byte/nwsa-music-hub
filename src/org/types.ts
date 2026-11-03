@@ -74,6 +74,13 @@ export interface Hub2Palette {
   /** Light only; dark keeps the light value (the stock dark site never re-tinted it). */
   plum?: string;
   sun?: string;
+  /** A teal FILL under white text. Dark needs its own: the dark accent is a
+   *  light teal for teal TEXT on a dark page, and white on it fails AA. */
+  accentFill?: string;
+  /** Plum as TEXT (a selected tab). Dark needs a lighter one than the fill. */
+  plumText?: string;
+  /** Text on a sun chip. Light only; the chip is sun in both themes. */
+  sunInk?: string;
 }
 
 /**
@@ -215,6 +222,16 @@ export interface OrgConfig {
      * personnel surface in an org with this false.
      */
     personnel: boolean;
+    /**
+     * The Spanish banner drafter (#banner-drafter): a "Spanish" box and a
+     * "Draft Spanish" button under the change note in the Event form and in
+     * Change a Day's review sheet. The draft comes from the
+     * `draftChangeNoteEs` Cloud Function, which needs the ANTHROPIC_API_KEY
+     * secret and is not deployed until someone turns this on
+     * (docs/banner-drafter.md). FALSE everywhere today: with it off nothing
+     * renders and no write carries a Spanish note.
+     */
+    bannerDrafter: boolean;
   };
   /** Printed concert program (src/public/PublicProgram.tsx). */
   program: {

@@ -33,6 +33,9 @@ const PALETTE_VARS: Record<keyof Hub2Palette, string> = {
   accent: '--hub2-accent',
   plum: '--hub2-plum',
   sun: '--hub2-sun',
+  accentFill: '--hub2-accent-fill',
+  plumText: '--hub2-plum-text',
+  sunInk: '--hub2-ink-on-sun',
 };
 
 function palette(p: Hub2Palette): string[] {

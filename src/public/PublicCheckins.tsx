@@ -53,7 +53,7 @@ export function PublicCheckins() {
     || tType('Concert');
 
   return (
-    <div className="pub-page">
+    <div className="pub-page pub-checkins">
       <PageHeader
         title={<><ScanLine size={20} style={{ verticalAlign: '-3px' }} /> {t('nav.checkin')}</>}
         intro={t('cis.intro')}

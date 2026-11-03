@@ -386,7 +386,7 @@ export function PublicSignup() {
   }
 
   return (
-    <div className="pub-page">
+    <div className="pub-page pub-drill">
       <BackLink fallback={FORMS_PATH} label={t('nav.signups')} />
 
       <header className="pub-signup-head">

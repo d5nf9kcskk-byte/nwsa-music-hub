@@ -14,7 +14,8 @@ import { PartBooks } from './components/PartBooks';
 import { hasPartBooks } from '../shared/partBooks';
 import { SkeletonCards } from './components/PageHeader';
 import { t, tType, useLang } from '../shared/i18n';
-import { fmtFullDate, fmtShortDate } from '../shared/dates';
+import { fmtFullDate, fmtShortDate, formatLang } from '../shared/dates';
+import { changeNoteFor } from '../shared/changeNoteEs';
 import { isSharedBlock, sharedBlockLabel } from '../shared/sharedBlock';
 import { AddToCalendarButton } from './components/AddToCalendar';
 import { concertDayLine, cancelledNotPersonalLine } from '../shared/whimsy';
@@ -118,7 +119,7 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
     : t('event.infoEvent');
 
   return (
-    <div className="pub-page pub-page-wide">
+    <div className="pub-page pub-page-wide pub-hall pub-drill">
       <BackLink fallback="/calendar" label={t('event.back')} className="pub-back-link" />
 
       <div className="pub-hero">
@@ -152,13 +153,13 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
         <div className="pub-alert-banner" onClick={onCancelTap} style={{ cursor: 'pointer' }}>
           <XCircle size={15} style={{ verticalAlign: '-2px' }} />{' '}
           <strong>{t('event.isCancelled', { type: tType(event.type).toLowerCase() })}</strong>
-          {event.changeNote ? <div className="pub-alert-note">{event.changeNote}</div> : null}
+          {event.changeNote ? <div className="pub-alert-note">{changeNoteFor(event, formatLang())}</div> : null}
         </div>
       )}
       {!cancelled && event.changeNote && (
         <div className="pub-alert-banner changed">
           <AlertTriangle size={14} style={{ verticalAlign: '-2px' }} /> <strong>{t('event.scheduleChange')}</strong>
-          <div className="pub-alert-note">{event.changeNote}</div>
+          <div className="pub-alert-note">{changeNoteFor(event, formatLang())}</div>
         </div>
       )}
 
