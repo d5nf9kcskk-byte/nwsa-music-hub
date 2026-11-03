@@ -48,6 +48,12 @@
     font-family: inherit; cursor: pointer;
   }
 
+  /* A bare <a> inside a page (the seating chart's "on the Symphony
+     Orchestra page") had no rule at all and fell to the browser's own blue,
+     which clashes in light and reads ~2:1 on a dark card. Teal is pinned at
+     AA on a card in both themes. */
+  :root[data-hub2="on"] .pub-page a:not([class]) { color: var(--pub-accent); font-weight: 600; }
+
   /* ── Studio Bright: surfaces. Cards are 18px (the token), rows 12px. ── */
   :root[data-hub2="on"] .pub-signup-row,
   :root[data-hub2="on"] .pub-checkin-row,
