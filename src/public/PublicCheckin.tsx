@@ -18,6 +18,7 @@ import { formatTime, ensembleDisplayName } from '../director/utils';
 import { sortStudents } from '../director/scoreOrder';
 import { fmtFullDate } from '../shared/dates';
 import { t, tType, useLang } from '../shared/i18n';
+import { clockAt } from './checkinClock';
 import { TRANSLATIONS } from '../shared/translations';
 import { primaryStudent, rememberStudent } from '../shared/identity';
 import { ORG } from '../org';
@@ -42,12 +43,6 @@ function refusalMessage(failure: string | undefined, message: string | undefined
   const key = `ckerr.srv.${failure ?? ''}`;
   if (failure && TRANSLATIONS[key]) return t(key);
   return message ?? t('ci.fallbackErr');
-}
-
-function clockAt(epoch: number): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric', minute: '2-digit', timeZone: ORG.timezone,
-  }).format(new Date(epoch));
 }
 
 /**
@@ -166,7 +161,7 @@ export function PublicCheckin() {
     || tType('Concert');
   const win = checkinWindow(event, settings, ORG.timezone);
   const domains = settings.emailDomains;
-  const hint = domainsLabel(domains);
+  const hint = domainsLabel(domains, t('misc.or'));
 
   /* ── The station is not taking records ── */
 
@@ -558,7 +553,7 @@ function CollegeStep({ settings, first, setFirst, last, setLast, email, setEmail
   const name = normalizeGuestName(`${first} ${last}`);
   const nameBad = guestNameProblem(name);
   const emailBad = guestEmailProblem(email, settings);
-  const hint = domainsLabel(settings.guestEmailDomains);
+  const hint = domainsLabel(settings.guestEmailDomains, t('misc.or'));
 
   return (
     <section className="pub-card pub-checkin-card">

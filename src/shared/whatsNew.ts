@@ -44,8 +44,10 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Forms (sign-ups, permission slips, signing the official PDF) and Concert Check-In read in Spanish too. What your director wrote stays as they wrote it.',
       'Toca ES arriba y todo el formulario de ausencia aparece en español, incluida la foto del justificante.',
       'Los formularios (inscripciones, permisos, firmar el PDF oficial) y el registro de conciertos también aparecen en español. Lo que escribió tu director se queda tal como lo escribió.',
+      'The banners at the top of the page follow ES too: concert tonight, cancellations and changes, check in and check out, forms you still owe, and your concert count.',
+      'Los avisos de arriba también cambian a español: concierto esta noche, cancelaciones y cambios, registrar llegada y salida, formularios pendientes y tu conteo de conciertos.',
     ],
-    expires: '2026-11-16',
+    expires: '2026-11-17',
   },
   // One inbox for student requests (#requests).
   {

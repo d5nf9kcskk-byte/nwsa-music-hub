@@ -21,6 +21,7 @@ import { useEggCheer } from '../shared/useEggCheer';
 import { NoteBurst } from '../shared/NoteBurst';
 import { groupScheduleAlerts } from '../shared/groupAlerts';
 import { AlertGroupSections } from '../shared/AlertGroupSections';
+import { publicAlertGroupTitle, publicMoreLabels } from './alertGroupTitle';
 import { SignupAlert } from './components/SignupAlert';
 import { WelcomeHubBanner } from './components/WelcomeHubBanner';
 import { PinnedHubGuide } from './components/PinnedHubGuide';
@@ -67,7 +68,7 @@ export function PublicHome() {
 
   // Anything unusual today → red banner up top.
   const alerts = todayEvents.filter(e => e.status === 'Cancelled' || e.changeNote);
-  const alertGroups = groupScheduleAlerts(alerts, ensembles);
+  const alertGroups = groupScheduleAlerts(alerts, ensembles, publicAlertGroupTitle(ensembles));
 
   // Coming up: whole days only — never cut off in the middle of a day.
   const [lookaheadDays, setLookaheadDays] = useState(LOOKAHEAD_DAYS);
@@ -160,6 +161,7 @@ export function PublicHome() {
           <AlertGroupSections
             groups={alertGroups}
             sectionClassName="pub-alert-group pub-alert-group-in-banner"
+            labels={publicMoreLabels()}
             renderItem={e => (
               <Link key={e.id} to={`/event/${e.id}`} className="pub-alert-row">
                 <strong>{label(e)}</strong>

@@ -10,6 +10,7 @@ import { receiptForEvent } from './checkinReceipt';
 import { addDays, ensembleDisplayName, formatTime, todayStr } from '../director/utils';
 import { fmtLongDate } from '../shared/dates';
 import { t, tType, useLang } from '../shared/i18n';
+import { clockAt } from './checkinClock';
 import { ORG } from '../org';
 import { checkinState, checkinWindow, resolveCheckinSettings } from '../shared/concertCheckin';
 import type { CalendarEvent } from '../director/types';
@@ -93,12 +94,6 @@ export function PublicCheckins() {
 function opensLine(date: string | null, time: string | null): string {
   if (date === null) return time ? t('cis.opensAt', { time }) : t('cis.opensAtBefore');
   return time ? t('cis.opensOn', { date, time }) : t('cis.opensOnBefore', { date });
-}
-
-function clockAt(ms: number): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric', minute: '2-digit', timeZone: ORG.timezone,
-  }).format(new Date(ms));
 }
 
 function When({ event }: { event: CalendarEvent }) {

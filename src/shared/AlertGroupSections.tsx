@@ -1,6 +1,16 @@
 import { useState, type ReactNode } from 'react';
 import { ALERT_GROUP_PREVIEW, type AlertGroup } from './groupAlerts';
 
+export interface MoreLabels {
+  fewer: string;
+  all: (count: number) => string;
+}
+
+const ENGLISH_LABELS: MoreLabels = {
+  fewer: 'Show fewer',
+  all: count => `Show all ${count}`,
+};
+
 /**
  * Renders alert groups with headings; shows the first N cards, then "Show all".
  * Each item stays a separate card via `renderItem`.
@@ -12,6 +22,7 @@ export function AlertGroupSections<T>({
   headingClassName = 'pub-alert-group-title',
   sectionClassName = 'pub-alert-group',
   moreClassName = 'pub-alert-group-more',
+  labels = ENGLISH_LABELS,
 }: {
   groups: AlertGroup<T>[];
   renderItem: (item: T) => ReactNode;
@@ -19,6 +30,9 @@ export function AlertGroupSections<T>({
   headingClassName?: string;
   sectionClassName?: string;
   moreClassName?: string;
+  /** The show-more button's words. English by default (the director shell);
+   *  the public site passes translated ones. */
+  labels?: MoreLabels;
 }) {
   if (groups.length === 0) return null;
   return (
@@ -33,6 +47,7 @@ export function AlertGroupSections<T>({
           headingClassName={headingClassName}
           sectionClassName={sectionClassName}
           moreClassName={moreClassName}
+          labels={labels}
         />
       ))}
     </>
@@ -47,6 +62,7 @@ function AlertGroupSection<T>({
   headingClassName,
   sectionClassName,
   moreClassName,
+  labels,
 }: {
   title: string;
   items: T[];
@@ -55,6 +71,7 @@ function AlertGroupSection<T>({
   headingClassName: string;
   sectionClassName: string;
   moreClassName: string;
+  labels: MoreLabels;
 }) {
   const [open, setOpen] = useState(false);
   const hidden = items.length - preview;
@@ -71,7 +88,7 @@ function AlertGroupSection<T>({
           onClick={() => setOpen(o => !o)}
           aria-expanded={open}
         >
-          {open ? 'Show fewer' : `Show all ${items.length}`}
+          {open ? labels.fewer : labels.all(items.length)}
         </button>
       )}
     </div>

@@ -55,8 +55,18 @@ export function useLang(): Lang {
  * a stray "{count}" in the UI is a louder bug report than a silent blank.
  */
 export function t(key: string, params?: Record<string, string | number>): string {
+  return tIn(getLang(), key, params);
+}
+
+/**
+ * `t()` in a named language. For components shared with the director shell,
+ * which has no EN|ES toggle and must stay English whatever this device last
+ * chose on the public site: the public caller passes `useLang()`, the
+ * director caller 'en'.
+ */
+export function tIn(lang: Lang, key: string, params?: Record<string, string | number>): string {
   const entry = TRANSLATIONS[key];
-  let s = !entry ? key : getLang() === 'es' ? entry.es : entry.en;
+  let s = !entry ? key : lang === 'es' ? entry.es : entry.en;
   if (params) {
     for (const [name, value] of Object.entries(params)) {
       s = s.replaceAll(`{${name}}`, String(value));
