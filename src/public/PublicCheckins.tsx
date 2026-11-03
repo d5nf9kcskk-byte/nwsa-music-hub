@@ -8,7 +8,7 @@ import { useCheckinSettings } from './hooks/useCheckinSettings';
 import { PageHeader, EmptyState, SkeletonCards } from './components/PageHeader';
 import { receiptForEvent } from './checkinReceipt';
 import { addDays, ensembleDisplayName, formatTime, todayStr } from '../director/utils';
-import { fmtLongDate } from '../shared/dates';
+import { fmtLongDate, fmtLongDateInline } from '../shared/dates';
 import { t, tType, useLang } from '../shared/i18n';
 import { clockAt } from './checkinClock';
 import { ORG } from '../org';
@@ -80,7 +80,7 @@ export function PublicCheckins() {
               title={title(r.event)}
               when={r.state === 'closed'
                 ? t('ci.closedTitle')
-                : opensLine(r.event.date === today ? null : fmtLongDate(r.event.date), r.win ? clockAt(r.win.opensAt) : null)}
+                : opensLine(r.event.date === today ? null : fmtLongDateInline(r.event.date), r.win ? clockAt(r.win.opensAt) : null)}
             />
           ))}
         </>

@@ -13,7 +13,7 @@ import { FilterMenu } from '../shared/FilterMenu';
 import { ExcusePhotoUpload } from './components/ExcusePhotoUpload';
 import { BackLink } from './components/BackLink';
 import { primaryStudent } from '../shared/identity';
-import { fmtLongDate } from '../shared/dates';
+import { fmtLongDateInline } from '../shared/dates';
 import { ORG } from '../org';
 import { t, useLang } from '../shared/i18n';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
@@ -196,7 +196,7 @@ export function PublicAbsence() {
         <div className="pub-signup-done">
           <div className="pub-signup-done-mark"><Check size={30} /></div>
           <h1>{t('abs.done.title')}</h1>
-          <p><strong>{student?.name}</strong> — {t('abs.done.reportedFor')} <strong>{fmtLongDate(date)}</strong>.</p>
+          <p><strong>{student?.name}</strong> — {t('abs.done.reportedFor')} <strong>{fmtLongDateInline(date)}</strong>.</p>
           <p className="pub-muted">
             {email.trim()
               ? t('abs.done.willEmail', { email: email.trim() })

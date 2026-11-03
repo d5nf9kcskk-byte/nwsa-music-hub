@@ -5,7 +5,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../director/firebase';
 import { todayStr } from '../../director/utils';
 import { t, useLang } from '../../shared/i18n';
-import { fmtLongDate } from '../../shared/dates';
+import { fmtLongDateInline } from '../../shared/dates';
 import type { Student } from '../../director/types';
 import { ORG } from '../../org';
 import './plannedAbsence.css';
@@ -41,7 +41,7 @@ export function PlannedAbsenceButton({ student }: { student: Student }) {
     } catch (e) {
       setState('error');
       void e;
-      setError(`Could not send right now — check your connection and try again, or email ${ORG.contactEmail}.`);
+      setError(t('abs.err.send', { email: ORG.contactEmail }));
     }
   }
 
@@ -56,30 +56,27 @@ export function PlannedAbsenceButton({ student }: { student: Student }) {
           <div className="pub-confirm-card" style={{ textAlign: 'left' }}>
             {state === 'done' ? (
               <>
-                <div className="pub-confirm-name" style={{ fontSize: 18 }}>✓ Sent to your director</div>
+                <div className="pub-confirm-name" style={{ fontSize: 18 }}>✓ {t('abs.done.title')}</div>
                 <p className="pub-absence-hint">
-                  {firstName(student.name)} is reported out on{' '}
-                  <strong>{fmtLongDate(date)}</strong>.
-                  They'll see it when they take roll that day. No reply needed.
+                  {firstName(student.name)} {t('pab.reportedOn')}{' '}
+                  <strong>{fmtLongDateInline(date)}</strong>.{' '}
+                  {t('pab.seenAtRoll')}
                 </p>
-                <button className="pub-confirm-yes" style={{ width: '100%' }} onClick={() => setOpen(false)}>Done</button>
+                <button className="pub-confirm-yes" style={{ width: '100%' }} onClick={() => setOpen(false)}>{t('look.done')}</button>
               </>
             ) : (
               <>
-                <div className="pub-confirm-title">Planned absence — {student.name.split(',')[0]}</div>
-                <p className="pub-absence-hint">
-                  For things known ahead of time: field trips, college auditions, appointments.
-                  Your director sees it before rehearsal instead of finding out at roll.
-                </p>
-                <label className="pub-absence-label">Date you'll be out</label>
+                <div className="pub-confirm-title">{t('pab.title', { name: student.name.split(',')[0] })}</div>
+                <p className="pub-absence-hint">{t('pab.hint')}</p>
+                <label className="pub-absence-label">{t('pab.date')}</label>
                 <input className="pub-absence-input" type="date" min={todayStr()} value={date} onChange={e => setDate(e.target.value)} />
-                <label className="pub-absence-label">Reason</label>
-                <input className="pub-absence-input" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. UF audition trip" maxLength={300} />
+                <label className="pub-absence-label">{t('abs.reason')}</label>
+                <input className="pub-absence-input" value={reason} onChange={e => setReason(e.target.value)} placeholder={t('pab.reasonPh')} maxLength={300} />
                 {error && <div className="pub-absence-error">⚠ {error}</div>}
                 <div className="pub-confirm-actions">
-                  <button className="pub-confirm-no" onClick={() => setOpen(false)}>Cancel</button>
+                  <button className="pub-confirm-no" onClick={() => setOpen(false)}>{t('pdf.cancel')}</button>
                   <button className="pub-confirm-yes" disabled={state === 'saving' || !reason.trim()} onClick={submit}>
-                    {state === 'saving' ? 'Sending…' : 'Send to director'}
+                    {state === 'saving' ? t('vid.sending') : t('abs.send')}
                   </button>
                 </div>
               </>

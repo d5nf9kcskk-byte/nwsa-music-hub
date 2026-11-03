@@ -13,10 +13,20 @@
  * in numeric contexts, 12-hour clocks) while giving Spanish month and weekday
  * names.
  */
-import { getLang } from './i18n';
+import { getLang, type Lang } from './i18n';
+import { onStaffShell } from './staffShell';
+
+/**
+ * The language dates and times are formatted in. The staff shells have no
+ * EN|ES toggle, so they are always English whatever this device last chose
+ * on the public site (#staff-english); the public site follows the toggle.
+ */
+export function formatLang(): Lang {
+  return onStaffShell() ? 'en' : getLang();
+}
 
 export function dateLocale(): string {
-  return getLang() === 'es' ? 'es-US' : 'en-US';
+  return formatLang() === 'es' ? 'es-US' : 'en-US';
 }
 
 /** Accepts a Date or a "YYYY-MM-DD" string (parsed at local noon, which
@@ -48,6 +58,14 @@ export const fmtDayHeader = (d: Date | string) =>
 /** "Monday, September 28" · "Lunes, 28 de septiembre" — hero + day detail. */
 export const fmtLongDate = (d: Date | string) =>
   capFirst(fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' }));
+
+/** The same date INSIDE a sentence: "by Monday, September 28" ·
+ *  "hasta el lunes, 28 de septiembre". Spanish does not capitalize a weekday
+ *  or a month mid-sentence; `fmtLongDate` puts the capital on because it is
+ *  a heading, so a date dropped into a `t()` string after other words uses
+ *  this one instead. English reads the same either way. */
+export const fmtLongDateInline = (d: Date | string) =>
+  fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' });
 
 /** "Monday, September 28, 2026" · "Lunes, 28 de septiembre de 2026". */
 export const fmtFullDate = (d: Date | string) =>

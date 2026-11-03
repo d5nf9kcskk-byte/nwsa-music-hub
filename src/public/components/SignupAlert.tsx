@@ -5,7 +5,7 @@ import { ClipboardSignature, ChevronRight } from 'lucide-react';
 import { useSignupForms } from '../../director/hooks/useSignups';
 import { useMinuteTick } from '../../director/hooks/useAnnouncements';
 import { todayStr } from '../../director/utils';
-import { fmtLongDate } from '../../shared/dates';
+import { fmtLongDateInline } from '../../shared/dates';
 import { t, tn, useLang } from '../../shared/i18n';
 import { primaryStudent } from '../../shared/identity';
 import { eligibleForSignup, signupIsOpen, signupShowsInAlerts } from '../../shared/signupEligibility';
@@ -69,7 +69,7 @@ export function SignupAlert({ student }: { student?: Pick<Student, 'id' | 'ensem
         </div>
         <div className="pub-signup-alert-sub">
           {first.title}
-          {first.deadline && (dueToday ? t('sa.closesToday') : t('sa.by', { date: fmtLongDate(first.deadline) }))}
+          {first.deadline && (dueToday ? t('sa.closesToday') : t('sa.by', { date: fmtLongDateInline(first.deadline) }))}
           {relevant.length > 1 && t('sa.more', { count: relevant.length - 1 })}
         </div>
       </div>

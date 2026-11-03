@@ -342,6 +342,13 @@ runs:
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/whimsyEggs.selfcheck.ts
       shell: bash
 
+    # Staff shells format dates/times in English whatever the device chose
+    # on the public site, and a Spanish weekday is lowercase mid-sentence
+    # (#staff-english, #inline-dates).
+    - name: Check date/time language
+      run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/dateLang.selfcheck.ts
+      shell: bash
+
     - name: Check ensemble/class classification
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/groupKind.selfcheck.ts
       shell: bash

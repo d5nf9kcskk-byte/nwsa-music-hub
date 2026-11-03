@@ -7,7 +7,7 @@ import { useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useStudentsPublic } from './hooks/usePublicRoster';
 import { PageHeader, EmptyState, SkeletonCards } from './components/PageHeader';
 import { todayStr, ensembleDisplayName } from '../director/utils';
-import { fmtLongDate } from '../shared/dates';
+import { fmtLongDateInline } from '../shared/dates';
 import { t, useLang } from '../shared/i18n';
 import { primaryStudent } from '../shared/identity';
 import { INSTRUMENT_FAMILY_LABEL } from '../shared/instrumentFamily';
@@ -144,7 +144,7 @@ function SignupRow({ form, who, today, highlight }: {
           {form.deadline && (
             <span className={form.deadline === today ? 'urgent' : undefined}>
               <CalendarClock size={12} />{' '}
-              {form.deadline === today ? t('su.closesToday') : t('su.by', { date: fmtLongDate(form.deadline) })}
+              {form.deadline === today ? t('su.closesToday') : t('su.by', { date: fmtLongDateInline(form.deadline) })}
             </span>
           )}
         </div>
