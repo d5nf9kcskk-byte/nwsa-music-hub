@@ -5,7 +5,8 @@ import { ensembleColor, ensembleDisplayName } from '../../director/utils';
 import type { Announcement, Ensemble } from '../../director/types';
 import { NotesText } from './NotesText';
 import { ClampedText } from '../../shared/ClampedText';
-import { t, useLang } from '../../shared/i18n';
+import { tIn, useLang } from '../../shared/i18n';
+import { onStaffShell } from '../../shared/staffShell';
 import { fmtMonthDay } from '../../shared/dates';
 import { announcementPictures, announcementDownloads } from '../../shared/announcementMedia';
 
@@ -30,7 +31,12 @@ interface Props {
 
 /** Public announcement list. Renders nothing when there are no items. */
 export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, title = 'Announcements', collapseAfter }: Props) {
-  useLang(); // re-render when the EN/ES toggle flips (chrome strings only)
+  // Re-render when the EN/ES toggle flips (chrome strings only). The
+  // director's announcement preview renders this too, and the staff shells
+  // stay English (#staff-english).
+  const deviceLang = useLang();
+  const lang = onStaffShell() ? 'en' : deviceLang;
+  const t = (key: string, params?: Record<string, string | number>) => tIn(lang, key, params);
   const [expanded, setExpanded] = useState(false);
   if (items.length === 0) return null;
   const hidden = collapseAfter != null && !expanded ? Math.max(0, items.length - collapseAfter) : 0;
@@ -52,8 +58,8 @@ export function PubAnnouncements({ items, ensembleMap, showEnsembleTag = true, t
             <div className="pub-announce-head">
               {a.pinned && <Pin size={13} className="pub-announce-pin" />}
               <span className="pub-announce-title">{showTitle}</span>
-              {a.priority === 'urgent' && <span className="pub-announce-priority urgent">🚨 Urgent</span>}
-              {a.priority === 'important' && <span className="pub-announce-priority important">Important</span>}
+              {a.priority === 'urgent' && <span className="pub-announce-priority urgent">🚨 {t('announce.urgent')}</span>}
+              {a.priority === 'important' && <span className="pub-announce-priority important">{t('announce.important')}</span>}
               {showEnsembleTag && ens && (
                 <Link to={`/ensemble/${ens.id}`} className="pub-announce-tag" style={{ background: ensembleColor(ens) }}>
                   {ensembleDisplayName(ens)}

@@ -19,7 +19,7 @@ import { t, tn, useLang, getLang } from '../shared/i18n';
 import { dailyPun, say, fridayFinaleEmpty, emptyDayHoldLine, daCapoTodayLine, codaFoundLine, alreadyFfLine } from '../shared/whimsy';
 import { useEggCheer, useTapN } from '../shared/useEggCheer';
 import { NoteBurst } from '../shared/NoteBurst';
-import { fmtDayHeader, fmtLongDate, fmtMonthYear, fmtShortDate, weekdayInitials } from '../shared/dates';
+import { fmtDayHeader, fmtLongDate, fmtLongDateInline, fmtMonthYear, fmtShortDate, weekdayInitials } from '../shared/dates';
 import { assignmentMatchesView, eventMatchesView, normalizeView, type ViewTypeKey } from '../shared/calendarView';
 import type { CalendarEvent } from '../director/types';
 
@@ -246,11 +246,11 @@ export function PublicCalendar() {
         />
       </div>
       {collegeFilterIds(ensembles, 'all').length > 0 && (
-        <div className="pub-filter-presets" role="group" aria-label="College calendar filters">
+        <div className="pub-filter-presets" role="group" aria-label={t('cal.collegeFilters')}>
           {([
-            ['ensembles', 'College ensembles'],
-            ['classes', 'College classes'],
-            ['all', 'All college'],
+            ['ensembles', t('cal.collegeEnsembles')],
+            ['classes', t('cal.collegeClasses')],
+            ['all', t('cal.allCollege')],
           ] as const).map(([preset, label]) => {
             const active = activeCollegePreset(filterEnsembleIds, ensembles) === preset;
             return (
@@ -320,7 +320,7 @@ export function PublicCalendar() {
       <>
       {/* Month header — directly above the grid it controls */}
       <div className="pub-cal-nav" style={{ marginTop: 4 }}>
-        <button className="pub-cal-arrow" onClick={() => shiftMonth(-1)} aria-label="Previous month"><ChevronLeft size={18} /></button>
+        <button className="pub-cal-arrow" onClick={() => shiftMonth(-1)} aria-label={t('cal.prevMonth')}><ChevronLeft size={18} /></button>
         <button
           className="pub-cal-month-btn"
           onClick={jumpMonthToToday}
@@ -328,7 +328,7 @@ export function PublicCalendar() {
         >
           {monthLabel}
         </button>
-        <button className="pub-cal-arrow" onClick={() => shiftMonth(1)} aria-label="Next month"><ChevronRight size={18} /></button>
+        <button className="pub-cal-arrow" onClick={() => shiftMonth(1)} aria-label={t('cal.nextMonth')}><ChevronRight size={18} /></button>
       </div>
 
       {/* Calendar grid — same compact grid + swipe as the rest of the public app */}
@@ -401,7 +401,7 @@ export function PublicCalendar() {
             onPointerDown={e => {
               // Long-press empty day → tacet line (#easter-eggs).
               const id = window.setTimeout(() => {
-                show(emptyDayHoldLine(fmtLongDate(selectedDate), getLang()));
+                show(emptyDayHoldLine(fmtLongDateInline(selectedDate), getLang()));
               }, 550);
               const clear = () => window.clearTimeout(id);
               e.currentTarget.addEventListener('pointerup', clear, { once: true });

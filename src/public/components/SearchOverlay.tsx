@@ -12,7 +12,7 @@ import { useAssignments } from '../../director/hooks/useAssignments';
 import { formatDate, formatTimeRange, todayStr, pieceEnsembleIds, ensembleDisplayName, isPublished } from '../../director/utils';
 import type { CalendarEvent, Ensemble } from '../../director/types';
 import { searchEgg } from '../../shared/whimsy';
-import { getLang } from '../../shared/i18n';
+import { getLang, t, useLang } from '../../shared/i18n';
 
 /* ── Tiny fuzzy-search util ──────────────────────────────────────────────
  * Diacritic-stripped, case-insensitive matching: every whitespace-separated
@@ -97,6 +97,7 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
 }
 
 function SearchOverlayInner({ onClose }: { onClose: () => void }) {
+  const lang = useLang();
   const navigate = useNavigate();
   const { events } = usePublicEvents();
   const { pieces } = useRepertoire();
@@ -154,7 +155,7 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
     });
     if (evs.length) {
       out.push({
-        label: 'Events', Icon: CalendarDays,
+        label: t('cal.events'), Icon: CalendarDays,
         items: evs.map(e => ({
           key: `ev-${e.id}`,
           label: eventLabel(e, ensembleMap),
@@ -171,7 +172,7 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
     const reps = rankMatches(pieces, q, p => [p.title, p.composer, p.fullTitle]);
     if (reps.length) {
       out.push({
-        label: 'Repertoire', Icon: Music,
+        label: t('nav.repertoire'), Icon: Music,
         items: reps.map(p => ({
           key: `rep-${p.id}`,
           label: p.title,
@@ -184,11 +185,11 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
     const anns = rankMatches(publishedAnnouncements, q, a => [a.title]);
     if (anns.length) {
       out.push({
-        label: 'Announcements', Icon: Megaphone,
+        label: t('nav.announcements'), Icon: Megaphone,
         items: anns.map(a => ({
           key: `ann-${a.id}`,
           label: a.title,
-          sub: a.ensembleId ? ensembleDisplayName(ensembleMap[a.ensembleId]) : 'School-wide',
+          sub: a.ensembleId ? ensembleDisplayName(ensembleMap[a.ensembleId]) : t('search.schoolWide'),
           to: '/announcements',
         })),
       });
@@ -197,7 +198,7 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
     const enss = rankMatches(ensembles, q, e => [e.name]);
     if (enss.length) {
       out.push({
-        label: 'Ensembles', Icon: Users,
+        label: t('nav.ensembles'), Icon: Users,
         items: enss.map(e => ({
           key: `ens-${e.id}`,
           label: ensembleDisplayName(e),
@@ -210,18 +211,21 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
     const asgs = rankMatches(publishedAssignments, q, a => [a.title, a.type]);
     if (asgs.length) {
       out.push({
-        label: 'Assignments', Icon: ClipboardCheck,
+        label: t('cal.assignments'), Icon: ClipboardCheck,
         items: asgs.map(a => ({
           key: `asg-${a.id}`,
           label: a.title,
-          sub: [a.type, `Due ${formatDate(a.dueDate, { month: 'short', day: 'numeric' })}`].join(' · '),
+          sub: [a.type, `${t('cal.due')} ${formatDate(a.dueDate, { month: 'short', day: 'numeric' })}`].join(' · '),
           to: '/assignments',
         })),
       });
     }
 
     return out;
-  }, [q, events, pieces, publishedAnnouncements, ensembles, publishedAssignments, ensembleMap]);
+    // `lang` is read through t(), which the linter cannot see: the labels
+    // must rebuild when the EN|ES toggle flips.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, events, pieces, publishedAnnouncements, ensembles, publishedAssignments, ensembleMap, lang]);
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups]);
 
@@ -258,14 +262,14 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
 
   let idx = -1;
   return (
-    <div className="pub-search-overlay" role="dialog" aria-modal="true" aria-label="Search" onClick={onClose}>
+    <div className="pub-search-overlay" role="dialog" aria-modal="true" aria-label={t('nav.search')} onClick={onClose}>
       <div className="pub-search-panel" onClick={e => e.stopPropagation()}>
         <div className="pub-search-inputrow">
           <Search size={17} className="pub-search-glyph" />
           <input
             className="pub-search-input"
             type="search"
-            placeholder="Search events, music, announcements…"
+            placeholder={t('search.placeholder')}
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={onInputKeyDown}
@@ -273,9 +277,9 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
             autoComplete="off" enterKeyHint="search"
             autoCorrect="off"
             spellCheck={false}
-            aria-label="Search"
+            aria-label={t('nav.search')}
           />
-          <button className="pub-search-close" onClick={onClose} aria-label="Close search">
+          <button className="pub-search-close" onClick={onClose} aria-label={t('search.close')}>
             <X size={18} />
           </button>
         </div>
@@ -283,11 +287,11 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
         <div className="pub-search-results" ref={listRef}>
           {q.length < 2 && (
             <div className="pub-search-hint">
-              Find events, repertoire, announcements, ensembles, and assignments.
+              {t('search.hint')}
             </div>
           )}
           {q.length >= 2 && flat.length === 0 && !egg && (
-            <div className="pub-search-empty">No matches for “{q}”.</div>
+            <div className="pub-search-empty">{t('search.noMatches', { q })}</div>
           )}
           {egg && <div className="pub-search-egg">{egg}</div>}
           {groups.map(g => (

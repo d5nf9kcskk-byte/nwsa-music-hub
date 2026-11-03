@@ -154,14 +154,14 @@ export function PublicLookup() {
         <input
           autoFocus={identity.students.length === 0}
           className="pub-search-input"
-          placeholder="Type your name (nicknames OK)…"
+          placeholder={t('lookup.typeYourName')}
           value={q}
           onChange={e => { setQ(e.target.value); setLetter(''); }}
         />
       </div>
 
       {/* A–Z rail (#3) */}
-      <div className="pub-az-rail" role="group" aria-label="Jump to letter">
+      <div className="pub-az-rail" role="group" aria-label={t('lookup.jumpToLetter')}>
         {AZ.map(L => (
           <button
             key={L}
@@ -176,13 +176,13 @@ export function PublicLookup() {
       <PubEnsembleSelect ensembles={orderedEns} value={ensembleId} onChange={setEnsembleId} />
 
       <div className="pub-filter-row" style={{ marginTop: -4 }}>
-        <button className={`pub-filter-btn ${sort === 'lastName' ? 'active' : ''}`} onClick={() => setSort('lastName')}>By last name</button>
-        <button className={`pub-filter-btn ${sort === 'scoreOrder' ? 'active' : ''}`} onClick={() => setSort('scoreOrder')}>By score order</button>
+        <button className={`pub-filter-btn ${sort === 'lastName' ? 'active' : ''}`} onClick={() => setSort('lastName')}>{t('lookup.byLastName')}</button>
+        <button className={`pub-filter-btn ${sort === 'scoreOrder' ? 'active' : ''}`} onClick={() => setSort('scoreOrder')}>{t('lookup.byScoreOrder')}</button>
       </div>
 
       <div className="pub-card pub-roster">
         {matches.length === 0 ? (
-          <div className="pub-muted">{q || ensembleId || letter ? 'No matching names — try fewer letters, or your formal name.' : 'Start typing, or tap a letter above.'}</div>
+          <div className="pub-muted">{q || ensembleId || letter ? t('lookup.noMatches') : t('lookup.startTyping')}</div>
         ) : (
           matches.map(s => (
             <button key={s.id} className="pub-roster-row pub-lookup-row" onClick={() => setConfirming(s)}>
