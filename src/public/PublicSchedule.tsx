@@ -4,6 +4,7 @@ import { formPath } from '../shared/formLink';
 import { useParams, Link } from 'react-router';
 import { useMonthSwipe } from '../shared/useMonthSwipe';
 import { NowNext } from './components/NowNext';
+import { NextDue, ASSIGNMENTS_ANCHOR } from './components/NextDue';
 import { NowLine, nowLineIndex, usePastDimming } from './components/NowLine';
 import { PracticeCard } from './components/PracticeCard';
 import { PlannedAbsenceButton } from './components/PlannedAbsence';
@@ -261,6 +262,7 @@ export function PublicSchedule() {
           the tools (subscribe, report an absence, concert count) sit below
           the day instead of above it. */}
       <NowNext items={mySchedule} />
+      <NextDue items={myAssignments} today={today} />
 
       {/* Hidden delight (#easter-eggs): a line for your own instrument, one a day. */}
       {instrumentQuip(student.instrument, getLang()) && (
@@ -343,7 +345,7 @@ export function PublicSchedule() {
 
       {myAssignments.length > 0 && (
         <>
-          <h2 className="pub-section-title">{t('sched.yourAssignments')}</h2>
+          <h2 id={ASSIGNMENTS_ANCHOR} className="pub-section-title pub-assign-anchor">{t('sched.yourAssignments')}</h2>
           {/* Summary only — the exam form, the music, and the recorder are
               all on the assignment's own page now, so this row no longer
               nests a link inside a link. */}
