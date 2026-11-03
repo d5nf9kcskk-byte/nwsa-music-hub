@@ -215,12 +215,12 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
             <div className={`pub-card pub-attend-card ${event.concertAttendance}`}>
               <strong>
                 {event.concertAttendance === 'required'
-                  ? 'Required concert'
-                  : 'Optional concert'}
+                  ? t('ci.required')
+                  : t('ci.optional')}
               </strong>{' '}
               {event.concertAttendance === 'required'
-                ? 'Attendance at this concert counts toward your required concerts for the semester.'
-                : 'This one is optional — it counts toward your optional concerts if you come.'}
+                ? t('event.attend.required')
+                : t('event.attend.optional')}
             </div>
           )}
 

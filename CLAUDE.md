@@ -1806,6 +1806,23 @@ so every section was bare text on the season's bats. Rules for every screen:
   `?role=teacher|classroom|assistant` (AuthGate, fixtures only), so a layout
   change can be looked at as each kind of user without signing in.
 
+## Dates and times: staff stay English, Spanish weekdays stay lowercase (Nov 2026, #staff-english)
+
+- **Staff shells format in English, always.** The EN|ES choice lives in one
+  localStorage key the public site writes, and the staff shells have no toggle
+  to put it back, so a director who once tapped ES saw "3:30 p.m." on the
+  concert-day banner. `formatLang()` in `src/shared/dates.ts` answers 'en' on
+  any staff path (`isStaffPath()` in `src/shared/staffShell.ts`, decided from
+  the URL so the first render is right). `dateLocale()` and `formatTime()` go
+  through it. A public component that also renders in a staff shell (the
+  announcement preview uses `PubAnnouncements`) picks its words the same way.
+  Adding a fifth staff route means adding its segment there; the self-check
+  reads `main.tsx` to catch it.
+- **A date inside a sentence uses `fmtLongDateInline`.** `fmtLongDate` is a
+  heading and capitalizes the Spanish weekday; "hasta el Miércoles" was the bug.
+- `src/shared/dateLang.selfcheck.ts` pins both, and fails on any
+  `{ date: fmtLongDate(` / `fmtDayHeader(` / `fmtFullDate(` in a `t()` call.
+
 ## What's New banner (auto)
 
 Product/UX changes that affect all staff or the public student site must

@@ -14,7 +14,7 @@ import { BackLink } from './components/BackLink';
 import { EmptyState } from './components/PageHeader';
 import { todayStr, toDateStr, ensembleDisplayName } from '../director/utils';
 import { sortStudents } from '../director/scoreOrder';
-import { fmtLongDate } from '../shared/dates';
+import { fmtLongDateInline } from '../shared/dates';
 import { t, useLang } from '../shared/i18n';
 import { primaryStudent } from '../shared/identity';
 import { INSTRUMENT_FAMILY_LABEL } from '../shared/instrumentFamily';
@@ -417,7 +417,7 @@ export function PublicSignup() {
       {receipt && (
         <div className="pub-signup-receipt">
           <Check size={15} /> {t('su.receipt.sentAs')} <strong>{receipt.studentName}</strong> {t('su.receipt.on')}{' '}
-          {fmtLongDate(toDateStr(new Date(receipt.at)))}.
+          {fmtLongDateInline(toDateStr(new Date(receipt.at)))}.
           {!closedReason && ` ${t('su.receipt.replaces')}`}
           {bookedSlots.length > 0 && (
             <div className="pub-signup-booked">
@@ -446,7 +446,7 @@ export function PublicSignup() {
           <h2>{t('su.closed.title')}</h2>
           <p>
             {closedReason === 'deadline' && form.deadline
-              ? t('su.closed.after', { date: fmtLongDate(form.deadline) })
+              ? t('su.closed.after', { date: fmtLongDateInline(form.deadline) })
               : t('su.closed.byDirector')}
             {' '}{t('su.closed.emailPre')}{' '}
             <a href={`mailto:${ORG.contactEmail}?subject=${encodeURIComponent(form.title)}`}>{ORG.contactEmail}</a>.
@@ -872,9 +872,9 @@ function gradeChoices(rosterGrade?: string): string[] {
 }
 
 function deadlineLine(deadline: string, today: string): string {
-  if (deadline < today) return t('su.closedOn', { date: fmtLongDate(deadline) });
+  if (deadline < today) return t('su.closedOn', { date: fmtLongDateInline(deadline) });
   if (deadline === today) return t('su.closesToday');
-  return t('su.by', { date: fmtLongDate(deadline) });
+  return t('su.by', { date: fmtLongDateInline(deadline) });
 }
 
 /** One plain sentence naming what's still missing — better than a dead
