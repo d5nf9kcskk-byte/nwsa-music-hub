@@ -55,7 +55,7 @@ export function PublicPiece() {
     ?? null;
 
   return (
-    <div className="pub-page">
+    <div className="pub-page pub-drill">
       <BackLink fallback="/repertoire" label="Back" />
 
       {/* Breadcrumb graph (#7): ensemble › concerts this piece is on */}

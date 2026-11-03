@@ -119,10 +119,10 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
         pageInkOK(bg, k.ink, mode);
       }
       // 6b. Seasons paint on top of the Hub 2.0 preview too (#hub2-look): its
-      //     ink and muted text must clear AA on the tint, drawing included.
+      //     ink, muted and teal text must clear AA on the tint, drawing included.
       if (hub2) {
         const h = hub2[mode];
-        for (const text of [h.ink, h.muted]) {
+        for (const text of [h.ink, h.muted, h.accent]) {
           assert.ok(contrast(text, bg) >= AA, at(`${s.id} (${mode}) Hub 2.0 text ${text} on ${bg}: ${contrast(text, bg).toFixed(2)}`));
         }
         pageInkOK(bg, h.ink, mode);

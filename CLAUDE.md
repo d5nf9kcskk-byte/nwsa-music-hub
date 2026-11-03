@@ -1964,6 +1964,32 @@ any change. Later sessions apply it page by page.
 - `hub2.selfcheck.ts` pins the switch, the scoping and the fonts; the
   palette's AA readability (both themes, under every tint and season) rides
   in `look.selfcheck.ts` and `seasons.selfcheck.ts`.
+- **Themed so far: the public site** (`src/public/hub2Public.css`, Nov
+  2026). Studio Bright everywhere (Plus Jakarta, big tabular times, 12px
+  rows, plum selected states, sun "owed" chips); Concert Hall's Newsreader
+  titles and gold hairlines on pages carrying `.pub-hall` (event, program,
+  Concerts); Spotlight on the check-in pages (`.pub-checkin`,
+  `.pub-checkins`) and the public Tonight banner, by re-pointing the
+  `--pub-*` tokens inside the stage; slide-in on `.pub-drill` pages, a 30ms
+  list stagger and a 97% press, all off under reduced motion. Those page
+  classes have NO stock CSS (the self-check fails if one gains any), which is
+  what lets a component carry them with the preview off.
+- **The public hub2 rules are `@media screen` only** (all of
+  `hub2Public.css`, and the `--pub-*` block of `hub2.css`). Paper (program,
+  season fridge copy, Start Guide, QR kit) prints identically with the
+  preview on. Keep every new public rule inside that block; the self-check
+  enforces it.
+- **Teal text reads as text on the page, not only on a card.** Under the
+  preview the accent must clear 4.5:1 on the page background, on every
+  student tint and on every season's page (`look.selfcheck.ts`,
+  `seasons.selfcheck.ts`); the stock palette is untouched. The light accent
+  is #0E7585 for that reason (4.97:1 on the page, 5.4:1 under white), and
+  it is the staff teal too.
+- **White on a teal fill uses `--hub2-accent-fill` in dark.** The dark accent
+  is a light teal for TEXT and fails AA under white ("Add to my calendar"
+  was 2.7:1). The self-check scans every public CSS rule that puts white on
+  `--pub-accent` and fails until it is in the dark fill list (or is a plum
+  selected state, or on the Spotlight check-in page).
 - **Staff screens are themed** (`src/director/hub2Staff.css`, imported by all
   four shells): Studio Bright soft cards, big times and numbers (Today, roll
   counts, Gradebook, Check-In), sun on waiting chips and nav badges; Concert
@@ -1977,8 +2003,8 @@ any change. Later sessions apply it page by page.
   stylesheet may read, so flag off stays pixel-identical. **Prints never take
   the preview**: every staff rule, including the `--dir-*` mapping in
   hub2.css, is `@media screen`, and print gets the stock font back. The
-  light `--dir-primary` is the accent with a tenth of ink mixed in, since the
-  bare accent is 4.41:1 as text on the page. The ConcertDayBanner is untouched.
+  light `--dir-primary` is the plain accent (#0E7585, one teal for both
+  sides), chosen to read as text on the page and under white. The ConcertDayBanner is untouched.
   `hub2.selfcheck.ts` §6 pins all of it.
 
 ## Clear cards, and a page per concert (Oct 2026, #clear-cards)

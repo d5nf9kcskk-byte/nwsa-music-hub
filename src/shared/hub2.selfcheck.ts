@@ -55,6 +55,96 @@ for (const sel of [HUB2_SCOPE.pub, HUB2_SCOPE.pubDark, HUB2_SCOPE.dir, HUB2_SCOP
 }
 assert.ok(read('../main.tsx').includes("import './shared/hub2.css';"), 'main.tsx must import hub2.css');
 
+// 3b. The public page looks (src/public/hub2Public.css) keep the same two
+//     promises, and both files' public rules stop at the screen: paper prints the same
+//     with the preview on (the program, the season fridge copy, the Start
+//     Guide, the QR kit), so nothing here may reach @media print.
+const screenOnly = (name: string, src: string) => {
+  const body = src.trim();
+  assert.ok(body.startsWith('@media screen {') && body.endsWith('}'), `${name}: every rule must sit inside one @media screen block`);
+  let depth = 0;
+  for (let i = 0; i < body.length; i++) {
+    if (body[i] === '{') depth++;
+    if (body[i] === '}' && --depth === 0) assert.equal(i, body.length - 1, `${name}: a rule sits outside @media screen`);
+  }
+};
+// hub2.css holds the staff mapping too, which another change owns; there,
+// every PUBLIC rule must sit inside @media screen.
+{
+  const stack: string[] = []; let prelude = '';
+  for (const ch of css) {
+    if (ch === '{') {
+      const p = prelude.trim();
+      if (p.startsWith(':root[data-hub2="on"]') && !stack.includes('@media (prefers-reduced-motion: reduce)')) {
+        assert.ok(stack.includes('@media screen'), `hub2.css: ${p} must sit inside @media screen`);
+      }
+      stack.push(p); prelude = '';
+    } else if (ch === '}') { stack.pop(); prelude = ''; } else prelude += ch;
+  }
+}
+const pubCss = strip(read('../public/hub2Public.css'));
+screenOnly('hub2Public.css', pubCss);
+assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(pubCss), 'hub2Public.css must take every color from the tokens');
+const pubRules = pubCss.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+const pubSelectors = [...pubRules.matchAll(/([^{}]+)\{/g)].map(m => m[1].trim()).filter(s => !s.startsWith('@'));
+assert.ok(pubSelectors.length >= 20);
+// Split on top-level commas only: :is(a, b) is one selector.
+const topLevel = (group: string) => {
+  const out: string[] = []; let depth = 0, cur = '';
+  for (const ch of group) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = ''; } else cur += ch;
+  }
+  return [...out, cur.trim()];
+};
+for (const group of pubSelectors) {
+  for (const sel of topLevel(group)) {
+    assert.ok(sel.startsWith(':root[data-hub2="on"]'), `hub2Public.css selector ${sel} is not scoped under the preview`);
+  }
+}
+const mainSrc = read('../main.tsx');
+assert.ok(mainSrc.indexOf("import './public/hub2Public.css';") > mainSrc.indexOf("import './shared/hub2.css';"),
+  'main.tsx must import hub2Public.css after hub2.css');
+// The page-look classes are opt-in: nothing in the stock CSS styles them, so
+// adding one to a component changes nothing with the preview off.
+const allCss: string[] = [];
+const walk = (dir: URL) => {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (e.isDirectory()) walk(new URL(`${e.name}/`, dir));
+    else if (e.name.endsWith('.css')) allCss.push(new URL(e.name, dir).pathname);
+  }
+};
+walk(new URL('../', import.meta.url));
+const stock = allCss.filter(f => !/\/hub2(Public)?\.css$/.test(f));
+for (const f of stock) {
+  const src = strip(readFileSync(f, 'utf8'));
+  for (const cls of ['pub-hall', 'pub-drill', 'pub-checkins']) {
+    assert.ok(!new RegExp(`\\.${cls}(?![\\w-])`).test(src), `${f} styles .${cls}, which is a Hub 2.0-only page class`);
+  }
+}
+// White on the dark accent is ~2.7:1. Every white-on-accent fill in the public
+// CSS must be redrawn under the preview: the dark fill list, a plum selected
+// state, or the check-in page (Spotlight draws its own fills gold).
+const fillBlock = pubRules.match(/\[data-pub-theme='dark'\] :is\(([^)]*)\)\s*\{[^}]*--hub2-accent-fill/);
+assert.ok(fillBlock, 'hub2Public.css has no dark-mode accent fill rule');
+const covered = new Set(fillBlock[1].split(',').map(s => s.trim()));
+const plumBlock = pubRules.match(/([^{}]+)\{[^}]*background-color: var\(--hub2-plum\)/);
+for (const sel of topLevel(plumBlock![1])) covered.add(sel.replace(':root[data-hub2="on"] ', ''));
+const spotlit = (sel: string) => /^\.pub-checkin(\s|-steps\b)/.test(sel);
+let fills = 0;
+for (const f of stock.filter(f => f.includes('/src/public/'))) {
+  const src = strip(readFileSync(f, 'utf8'));
+  for (const m of src.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (!/background(-color)?:\s*var\(--pub-accent[,)]/.test(m[2]) || !/(^|;|\s)color:\s*(#fff\b|#ffffff|white)/i.test(m[2])) continue;
+    for (const sel of topLevel(m[1].trim().replace(/\s+/g, ' '))) {
+      fills++;
+      assert.ok(covered.has(sel) || spotlit(sel), `${f}: ${sel} puts white on --pub-accent, which fails AA in dark under Hub 2.0 — add it to the dark fill list in hub2Public.css`);
+    }
+  }
+}
+assert.ok(fills >= 20, `only ${fills} white-on-accent fills found — the scan is broken`);
+
 // 4. Fonts: latin subsets only, the first family of every configured stack is
 //    one hub2Fonts.ts loads, and the files stay out of the precache.
 const fontImports = [...read('./hub2Fonts.ts').matchAll(/^import '@fontsource\/([a-z-]+)\/([a-z0-9-]+)\.css';$/gm)];
@@ -144,29 +234,32 @@ for (const shell of ['./DirectorApp.tsx', './teacher/TeacherApp.tsx', './classro
     if (org.hub2) assert.ok(!org.brand?.['--org-font'], `${file}: a brand --org-font would be lost from staff prints under the preview`);
   }
 }
-// The staff --dir-primary is the accent darkened by a share of the ink: text
-// on the page (4.5:1) and the header fill under white (4.5:1) must both read.
+// One teal: the staff --dir-primary and the public --pub-accent are both the
+// org's plain accent, so nothing darkens twice and the two shells match. That
+// accent is TEXT on the page and on a card in both themes, and in light it is
+// also the staff header fill under white: all of it must clear 4.5:1.
 {
-  const mix = css.match(/--dir-primary:\s*color-mix\(in srgb, var\(--hub2-accent\) (\d+)%, var\(--hub2-ink\)\)/);
-  assert.ok(mix, 'hub2.css: the staff --dir-primary must be the accent mixed with the ink');
-  const share = Number(mix[1]) / 100;
+  assert.match(css, /--dir-primary:\s*var\(--hub2-accent\);/, 'hub2.css: the staff --dir-primary must be the plain accent');
+  assert.match(css, /--pub-accent:\s*var\(--hub2-accent\);/, 'hub2.css: the public --pub-accent must be the plain accent');
   const hex = (h: string) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const lum = (c: number[]) => {
     const [r, g, b] = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
-  const ratio = (a: number[], b: number[]) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  const ratio = (a: string, b: string) => { const [x, y] = [lum(hex(a)), lum(hex(b))].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
   for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) {
     const look: Hub2Look | undefined = JSON.parse(read(`../../config/orgs/${file}`)).hub2;
     if (!look) continue;
-    const a = hex(look.light.accent);
-    const ink = hex(look.light.ink);
-    const teal = a.map((v, i) => v * share + ink[i] * (1 - share));
-    for (const [name, ground] of [['page', look.light.bg], ['card', look.light.surface], ['white header text', '#ffffff']] as const) {
-      const r = ratio(teal, hex(ground));
-      assert.ok(r >= 4.5, `${file}: staff teal on ${name} is ${r.toFixed(2)}:1`);
+    for (const mode of ['light', 'dark'] as const) {
+      const t = look[mode];
+      for (const [name, ground] of [['page', t.bg], ['card', t.surface]] as const) {
+        const r = ratio(t.accent, ground);
+        assert.ok(r >= 4.5, `${file}: ${mode} teal text on the ${name} is ${r.toFixed(2)}:1`);
+      }
     }
+    const r = ratio(look.light.accent, '#ffffff');
+    assert.ok(r >= 4.5, `${file}: white staff header text on the light teal is ${r.toFixed(2)}:1`);
   }
 }
 
-console.log(`hub2 self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${fontImports.length} font files)`);
+console.log(`hub2 self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${fontImports.length} font files, ${pubSelectors.length} public rules, ${fills} accent fills covered)`);

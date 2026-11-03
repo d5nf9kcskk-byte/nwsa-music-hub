@@ -6,6 +6,7 @@ import './public/public.css';
 import './public/look.css';
 import './shared/seasons.css';
 import './shared/hub2.css';
+import './public/hub2Public.css';
 import { initLook } from './public/look';
 import { initDirSeason } from './shared/seasons';
 import { initHub2 } from './shared/hub2Preview';
