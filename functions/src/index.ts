@@ -1,4 +1,5 @@
-import { https, firestore } from 'firebase-functions/v1';
+import { https, firestore, runWith } from 'firebase-functions/v1';
+import Anthropic from '@anthropic-ai/sdk';
 import { initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { ALLOWED_ORIGIN, buildLessonsIcs, tokenMatches, TOKEN_RE } from './lessonsFeed.ts';
@@ -33,6 +34,7 @@ import { composeSubmission as runComposeSubmission } from './composeSubmission.t
 import { getAuth } from 'firebase-admin/auth';
 import { getMessaging } from 'firebase-admin/messaging';
 import { handleEventChange, sendTestAlert, type PushDeps } from './pushSend.ts';
+import { draftSpanish, noteFromBody } from './bannerDrafter.ts';
 import {
   isSubscriptionDocId, type PushEventLike, type PushSubscriptionDoc,
 } from '../../src/shared/pushAlerts.ts';
@@ -988,4 +990,65 @@ export const pushTestAlert = https.onRequest(async (req, res) => {
     code: r.code ?? 'unknown',
     message: 'Firebase Cloud Messaging refused the alert. Turn alerts off and on again on this phone.',
   });
+});
+
+/**
+ * The Spanish banner drafter (#banner-drafter). A signed-in staff member sends
+ * the English change note they just wrote; this answers with a Spanish draft
+ * for their box. It writes nothing: the director edits the draft, and their
+ * own Save is the only thing that puts `changeNoteEs` on an event.
+ *
+ * Only `req.body.note` is read, and only the note reaches the model
+ * (`draftRequest` in bannerDrafter.ts, pinned by bannerDrafter.selfcheck.ts).
+ * The caller's email is used for the staff check and never leaves this file.
+ *
+ * NOT in the deploy list: ANTHROPIC_API_KEY must exist in Secret Manager
+ * first, or naming it fails the deploy. docs/banner-drafter.md.
+ *
+ * The secret is named as a STRING, never `defineSecret()`. A defineSecret
+ * param is resolved for the whole codebase BEFORE `--only` filters anything
+ * (firebase-tools prepare.ts → resolveParams → handleSecret), so a missing
+ * secret would fail the deploy of every OTHER function too, even with this
+ * one left off the list. A string secret is checked only for the functions
+ * being deployed (secretsAreValid(matchingBackend)). Same Secret Manager
+ * secret, mounted as process.env.ANTHROPIC_API_KEY.
+ */
+export const draftChangeNoteEs = runWith({ secrets: ['ANTHROPIC_API_KEY'] }).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+  res.set('Cache-Control', 'no-store');
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.set('Access-Control-Max-Age', '3600');
+    res.status(204).send('');
+    return;
+  }
+  const refuse = (status: number, message: string) => { res.status(status).json({ ok: false, message }); };
+  if (req.method !== 'POST') { refuse(405, 'That did not reach the Hub correctly.'); return; }
+
+  const header = req.get('Authorization') ?? '';
+  const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!idToken) { refuse(401, 'Sign in again, then try.'); return; }
+  let email: string;
+  try {
+    const decoded = await getAuth().verifyIdToken(idToken);
+    if (decoded.email_verified !== true || !decoded.email) throw new Error('unverified');
+    email = decoded.email;
+  } catch {
+    refuse(401, 'Sign in again, then try.');
+    return;
+  }
+  const me = await getFirestore().doc(`directors/${email}`).get();
+  if (!me.exists || !hasKnownRole(me.data())) { refuse(403, 'This account cannot use the drafter.'); return; }
+
+  const input = noteFromBody(req.body);
+  if (!input.ok) { refuse(400, input.message); return; }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) { refuse(503, 'The drafter is not set up. Type the Spanish yourself.'); return; }
+  const client = new Anthropic({ apiKey });
+  const r = await draftSpanish(input.note, request => client.beta.messages.create(request));
+  if (r.ok) { res.status(200).json({ ok: true, draft: r.draft }); return; }
+  refuse(r.status, r.message);
 });

@@ -1641,6 +1641,45 @@ subscriptions hold. The family side is BUILT and switched OFF.
   `functions/src/pushSend.selfcheck.ts` pins per-language sends, send-once,
   and dead-token cleanup.
 
+## Spanish change notes and the banner drafter (Nov 2026, #banner-drafter)
+
+Hub 2.0 Phase 3 item 14, built and switched OFF ("always behind a confirm;
+never a writer"). A Spanish-reading family used to see Spanish chrome around
+an English change note. `CalendarEvent.changeNoteEs` is the director's
+CONFIRMED Spanish version of `changeNote`, and nothing else.
+`src/shared/changeNoteEs.ts` is the ONE place it is read and guarded;
+`src/director/schedule/changeNoteEs.selfcheck.ts` (self-checks) and
+`functions/src/bannerDrafter.selfcheck.ts` (functions selfcheck) pin it.
+
+- **One reader.** Every public surface shows the note through
+  `changeNoteFor(event, formatLang())`: Spanish only for a Spanish reader when
+  a confirmed Spanish note exists, otherwise the English exactly as before.
+  `.ics` feeds and push alerts stay English on purpose (a later option). The
+  self-check fails on any `{x.changeNote}` rendered raw under `src/public`.
+- **A stale Spanish note is the worst outcome**, so a write that changes or
+  clears the English note without confirming new Spanish clears it:
+  `reconcileChangeNoteEs()` runs inside `useEvents.updateEvent` (mapping the
+  clear to `deleteField()`) and the Hub Calendar tool's `stage()`; `revertPlan`
+  clears it on "Back to normal"; editing the English in the Event form empties
+  the Spanish box. A write that touches neither field, or an event with no
+  Spanish note, gains no new key, so flag-off writes are unchanged. Any NEW
+  path that writes `changeNote` must go through one of those.
+- **The flag** is `features.bannerDrafter` in `config/orgs/*.json`, false in
+  every org (pinned). Off: no box renders, the Event form strips
+  `changeNoteEs`, the review sheet passes none. On: a Spanish box and "Draft
+  Spanish" under the note in the Event form and on Change a Day's review sheet
+  (`ChangeNoteEsField`); only Save / Confirm writes the field.
+- **The drafter function** `draftChangeNoteEs` (`functions/src/bannerDrafter.ts`)
+  reads only `req.body.note` (bounded), from a verified allowlisted staff
+  account, and sends only that text to Anthropic. It writes nothing. It is in
+  `NOT_DEPLOYED`. Its key is `runWith({ secrets: ['ANTHROPIC_API_KEY'] })`,
+  **never `defineSecret()`**: firebase-tools resolves defineSecret params for
+  the WHOLE codebase before `--only` filters, so a missing secret would fail
+  every other function's deploy too (pinned).
+- Events have no key allowlist in `firestore.rules`, so no rules change: the
+  field is the same public sentence in another language on a world-readable
+  doc. Turning it on: `docs/banner-drafter.md`. No What's New entry until then.
+
 ## One nav, every width (Sept 2026, #one-nav)
 
 **A change to what a person SEES is not shipped until it is visible at every

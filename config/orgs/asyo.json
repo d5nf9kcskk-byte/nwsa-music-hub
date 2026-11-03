@@ -67,7 +67,8 @@
     "calendarSeed": false,
     "contactForm": true,
     "absenceReport": false,
-    "personnel": false
+    "personnel": false,
+    "bannerDrafter": false
   },
   "program": {
     "missionStatement": "The Alpharetta Symphony Youth Orchestra provides young musicians in the North Fulton area with a dynamic and educational performance experience, in partnership with the Alpharetta Symphony.",
