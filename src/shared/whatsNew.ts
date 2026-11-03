@@ -43,6 +43,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Combining and room changes work too: “Combine Philharmonic and Camerata on Friday”, “Symphony is in the Recital Hall tomorrow”. If it can’t tell what you mean, it says so and you can use the buttons.',
       'The review sheet now warns you when two groups would end up in the same room at the same time.',
       'Changed a rehearsal’s time, room or date in the event form? Back to normal now puts that back too.',
+      'Used School closed on Today? Back to normal on Change a Day now puts that day’s rehearsals back on too.',
     ],
     expires: '2026-11-24',
   },

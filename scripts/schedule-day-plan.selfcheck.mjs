@@ -60,7 +60,7 @@ registerHooks({
 globalThis.__ORG_CONFIG__ = JSON.parse(
   readFileSync(new URL('../config/orgs/nwsa.json', import.meta.url), 'utf8'));
 
-const { planDayChange, applyPlan, changeReceipt, revertPlan, normalizeRoom } = await import('../src/director/schedule/changePlan.ts');
+const { planDayChange, applyPlan, changeReceipt, revertPlan, normalizeRoom, schoolClosedWrite } = await import('../src/director/schedule/changePlan.ts');
 
 let failures = 0;
 function assert(cond, msg) {
@@ -325,6 +325,23 @@ const labels = { 'evt-we': 'Wind Ensemble', 'evt-so': 'Symphony Orchestra' };
   eqDeep(restored, we, 'edit (date + time) → back to normal restores the event byte-for-byte');
   assert(!('date' in revertPlan({ ...we, startTime: '15:00', changeFrom: { status: 'Scheduled', startTime: '13:10' } }).fields),
     'a snapshot with no date never touches the date');
+}
+
+// ── the Today screen's "School closed" button (#change-receipts) ─────
+{
+  const w = schoolClosedWrite(we);
+  eqDeep(w, { status: 'Cancelled', changeNote: 'School closed', changeFrom: { status: 'Scheduled', startTime: '13:10', endTime: '14:25', location: 'Band Room' } },
+    'a school-closed cancel carries the same receipt a chip-cancelled block does');
+  const closed = { ...we, ...w };
+  const { fields } = revertPlan(closed);
+  const restored = { ...closed };
+  for (const [k, v] of Object.entries(fields)) { if (v === undefined) delete restored[k]; else restored[k] = v; }
+  eqDeep(restored, we, 'school closed → revertPlan restores the block byte-for-byte');
+  const afterClose = [{ ...we, ...w }, { ...so, ...schoolClosedWrite(so) }];
+  eqDeep(applyPlan(afterClose, planDayChange(afterClose, { kind: 'backToNormal' }).writes), day,
+    'school closed → Change a Day\'s Back to normal restores the whole day');
+  const moved = { ...we, startTime: '15:00', changeFrom: { status: 'Scheduled', startTime: '13:10', endTime: '14:25', location: 'Band Room' } };
+  assert(!('changeFrom' in schoolClosedWrite(moved)), 'snapshot-once: closing a block that was already moved keeps its ORIGINAL');
 }
 
 // ── back to normal with nothing changed does nothing ──────────────────

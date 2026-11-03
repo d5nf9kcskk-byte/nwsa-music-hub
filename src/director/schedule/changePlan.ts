@@ -92,6 +92,16 @@ export function revertPlan(e: CalendarEvent | undefined): {
   };
 }
 
+/**
+ * What the Today screen's "School closed" button writes on each block it
+ * sweeps (#change-receipts): the cancel, its note, and the same snapshot-once
+ * receipt a chip-cancelled block carries, so Change a Day's "Back to normal"
+ * puts the block back exactly. Which blocks it sweeps stays with the button.
+ */
+export function schoolClosedWrite(e: CalendarEvent): Partial<Omit<CalendarEvent, 'id'>> {
+  return { status: 'Cancelled', changeNote: 'School closed', ...captureOriginal(e) };
+}
+
 /** The schedule fields a receipt guards: change one and "Back to normal" has
  *  to know what it was. Everything else on an event is content, not schedule. */
 export const RECEIPT_FIELDS = ['date', 'startTime', 'endTime', 'location', 'status'] as const;
