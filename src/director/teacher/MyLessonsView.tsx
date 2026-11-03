@@ -39,6 +39,7 @@ import {
   type LessonLogSheet,
   type PayrollMinutes,
   type TermRef,
+  thisWeekCounts,
 } from '../lessonLog';
 import {
   doubledUpOffSlot, lessonPayloadsFor, lessonsOffSlot, pendingSlotDates, planHasWork, schoolYearEnd, skippedNoSchoolDates, slotChangePlan,
@@ -50,6 +51,7 @@ import type { Lesson, Student } from '../types';
 import { studentMatchesQuery } from '../studentSearch';
 import { whenQueued } from '../writeStatus';
 import './lessonLog.css';
+import { LessonAttachmentsCell } from './LessonAttachmentsCell';
 import { backdropClose } from '../../shared/backdropClose';
 
 const EMPTY_IDS: string[] = [];
@@ -85,7 +87,10 @@ export function MyLessonsView() {
   const { events } = useEvents();
   const { ensembles } = useEnsembles();
   const { overrides, addOverride, deleteOverride } = useRosterOverrides();
-  const { lessons, addLesson, updateLesson, deleteLesson, cancelLesson, syncLessonMirror } = useLessons();
+  const {
+    lessons, addLesson, updateLesson, deleteLesson, cancelLesson, syncLessonMirror,
+    attachLessonFile, removeLessonAttachment,
+  } = useLessons();
 
   const today = todayStr();
   const [editingStudents, setEditingStudents] = useState(false);
@@ -120,6 +125,8 @@ export function MyLessonsView() {
   const needsInitial = myLessons.filter(l =>
     l.status !== 'Cancelled' && isLessonGrade(l.grade) && !initialsOk(l.studentInitials) && l.date <= today,
   );
+
+  const week = thisWeekCounts(myLessons, today);
 
   const summaries = Object.fromEntries(
     assignedStudents.map(s => [s.id, gradeSummary(myLessons.filter(l => l.studentId === s.id), today)]),
@@ -594,6 +601,8 @@ export function MyLessonsView() {
                     onDeleteRequest={() => setConfirmDeleteLesson(l.id)}
                     onDeleteCancel={() => setConfirmDeleteLesson(null)}
                     onDeleteConfirm={() => handleDeleteLesson(l)}
+                    onAttach={file => attachLessonFile(l, file)}
+                    onRemoveAttachment={path => removeLessonAttachment(l, path)}
                   />
                 ))}
               </tbody>
@@ -639,6 +648,12 @@ export function MyLessonsView() {
           onDismiss={() => setMail(null)}
         />
       )}
+
+      {/* The week at a glance (Hub 2.0 Phase 4): counted from the
+          lessons this screen already holds, so it costs no query. */}
+      <div className="dir-page-hint dir-week-line" style={{ marginTop: 4 }}>
+        This week: {week.lessons} lesson{week.lessons === 1 ? '' : 's'}, {week.toLog} to log
+      </div>
 
       {(ungraded.length > 0 || needsInitial.length > 0) && (
         <div className="dir-page-hint" style={{ marginTop: 4 }}>
@@ -807,6 +822,7 @@ function GradeCell({ grade }: { grade?: string }) {
 
 function LogReadRow({
   index, lesson, today, confirming, onEdit, onMail, onCancel, onDeleteRequest, onDeleteCancel, onDeleteConfirm,
+  onAttach, onRemoveAttachment,
 }: {
   index: number;
   lesson: Lesson;
@@ -818,6 +834,8 @@ function LogReadRow({
   onDeleteRequest?: () => void;
   onDeleteCancel?: () => void;
   onDeleteConfirm?: () => void;
+  onAttach?: (file: File) => Promise<string | null>;
+  onRemoveAttachment?: (path: string) => Promise<void>;
 }) {
   const cancelled = lesson.status === 'Cancelled';
   return (
@@ -857,6 +875,14 @@ function LogReadRow({
           <div style={{ color: 'var(--dir-danger)' }}>
             <AlertTriangle size={11} style={{ verticalAlign: '-1px' }} /> Misses {lesson.conflict.eventLabel} — confirmed
           </div>
+        )}
+        {onAttach && onRemoveAttachment && (
+          <LessonAttachmentsCell
+            lesson={lesson}
+            editable
+            onAttach={onAttach}
+            onRemove={onRemoveAttachment}
+          />
         )}
       </td>
       <td>{lesson.payrollMinutes === 60 ? '1 hr' : lesson.payrollMinutes ? '45 min' : <span className="dir-log-missing">—</span>}</td>

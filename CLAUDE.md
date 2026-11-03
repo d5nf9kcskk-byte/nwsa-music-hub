@@ -1011,6 +1011,38 @@ those marks onto the original file. Everything else — audience, deadline,
   stored lesson, addresses from `contacts/{studentId}`, and
   `queueRequestOk()` makes the lesson agree with the student the rules bound
   the request to. `mail` stays denied to every client.
+- **Files on a lesson are staff-only, and the email link expires**
+  (#lesson-attachments, Nov 2026, Hub 2.0 Phase 4). A teacher attaches up to
+  three PDFs, pictures or audio clips to a log line. `Lesson.attachments`
+  holds `{name, path, contentType, size}`; `src/director/lessonAttachments.ts`
+  is the ONE definition (zero imports, the function loads it bare).
+  - Storage `lessonAttachments/{lessonId}/{file}`: read and upload only by
+    that lesson's own teacher or a director, anchored on the `lessons` doc
+    existing (the `/absenceExcusePhotos` shape), 50 MB, PDF/image/audio,
+    create-only, and `teacherEmail` metadata that must match the lesson so
+    the owner can still delete the files after the lesson doc is gone. No
+    public read and no download URL ever: the app opens a file with getBlob.
+  - `lessons` has no key allowlist, so `lessonAttachmentsOk()` in
+    firestore.rules is the one shape check: three slots, four keys, and each
+    PATH pinned to `lessonAttachments/<that lesson>/`. That pin matters
+    because the function signs whatever path the doc names; the function
+    re-checks it (`attachmentsToSign`). Raising the three means editing the
+    rules' per-slot checks too.
+  - `attachments` is in NONE of the three public lesson allowlists and must
+    never be. `lessonAttachments.selfcheck.ts` pins all of this.
+  - The family email (still only on the teacher's press) gets one link per
+    file: a **v2 signed URL, 30 days**, made by `lessonLogMailSend` through
+    the Admin SDK (`signedUrlOptions`; v4 cannot outlive seven days). Never a
+    Firebase download token. Signing needs the functions runtime service
+    account to hold **Service Account Token Creator on itself**
+    (`iam.serviceAccounts.signBlob`); without it the file is left out and the
+    email says to ask the teacher. Do not "fix" that with a permanent link.
+    The mailto fallback carries no link (no signer in the browser).
+  - Deleting an attachment deletes the object after the save; deleting the
+    lesson deletes them when the undo window lapses (`deleteStoredPaths`).
+  - My Lessons opens with "This week: N lessons, M to log"
+    (`thisWeekCounts()` in lessonLog.ts), counted from the lessons the screen
+    already loads.
 - **The whole paper form is on screen** (#applied). `src/director/lessonLog.ts`
   holds the per-lesson blanks; the ONCE-A-TERM ones (Jury Repertoire List, the
   three signature lines) are a `LessonLogSheet` in `lessonLogSheets` on the
