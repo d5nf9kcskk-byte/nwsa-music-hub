@@ -32,6 +32,20 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Hub 2.0, Phase 3: director tools on Change a Day.
+  {
+    id: '2026-11-03-type-what-changed',
+    date: '2026-11-03',
+    title: 'Change a Day: just type what changed',
+    audience: 'staff' as const,
+    bullets: [
+      'On Change a Day there’s a new box: type “Cancel Camerata today” or “Move Thursday’s Symphony block to 3:30” and tap Review. You get the same review sheet as the buttons, and nothing saves until you say so.',
+      'Combining and room changes work too: “Combine Philharmonic and Camerata on Friday”, “Symphony is in the Recital Hall tomorrow”. If it can’t tell what you mean, it says so and you can use the buttons.',
+      'The review sheet now warns you when two groups would end up in the same room at the same time.',
+      'Changed a rehearsal’s time, room or date in the event form? Back to normal now puts that back too.',
+    ],
+    expires: '2026-11-24',
+  },
   // Send to my other phone (Hub 2.0, Phase 1, item 9).
   {
     id: '2026-11-03-send-to-other-phone',

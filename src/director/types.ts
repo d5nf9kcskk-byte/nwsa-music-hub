@@ -406,6 +406,9 @@ export interface CalendarEvent {
    */
   changeFrom?: {
     startTime?: string; endTime?: string; location?: string; status?: EventStatus;
+    /** The day the event was on, captured only when an edit MOVED it to
+     *  another date (`changeReceipt`, #change-receipts) — revert puts it back. */
+    date?: string;
     /** Pre-combine membership (#schedule-ux-redesign §4.1) — present only when
      *  this event absorbed another block, so revert knows to restore it. */
     ensembleIds?: string[];

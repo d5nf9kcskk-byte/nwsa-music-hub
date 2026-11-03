@@ -290,8 +290,20 @@ runs:
     # the day's private LESSONS must go with the MDCPS day — a lesson left
     # behind on a cancelled day cannot be swept up later, because
     # pendingSlotDates() reads its week as already covered.
+    # Also: a plan that puts two live blocks in the same room at overlapping
+    # times raises roomClash (#room-clash), and changeReceipt() — the receipt
+    # the Event form and hub-calendar `edit` leave — is snapshot-once and
+    # reverts a moved date (#change-receipts).
     - name: Check day-plan engine
       run: node scripts/schedule-day-plan.selfcheck.mjs
+      shell: bash
+
+    # "Type what changed" on Change a Day (#day-change-parse): the asked-for
+    # sentences come out as the exact DayAction a chip builds, and anything
+    # it cannot pin to specific blocks on one day is refused, never guessed.
+    # No model behind the fallback seam.
+    - name: Check typed day-change parser
+      run: npx tsx src/director/schedule/dayChangeParse.selfcheck.ts
       shell: bash
 
     # Standing weekday rotations: `days` on RosterOverride decides which
