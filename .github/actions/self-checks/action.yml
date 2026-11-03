@@ -147,6 +147,13 @@ runs:
       run: node scripts/absence-report.selfcheck.mjs
       shell: bash
 
+    # The usage-counts workflow prints into a PUBLIC Actions log. Its output
+    # must be numbers, the term's name and concert titles, nothing else: fake
+    # names, emails, reasons and doc ids go in, none may come out.
+    - name: Check usage-counts output is numbers only
+      run: node scripts/usage-counts.selfcheck.mjs
+      shell: bash
+
     # What YES on an absence request writes to the roll (#requests): only the
     # blocks and groups it covers, never downgrading a mark already there.
     - name: Check absence request decisions
