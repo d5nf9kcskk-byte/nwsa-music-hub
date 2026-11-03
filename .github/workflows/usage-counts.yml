@@ -1,0 +1,39 @@
+name: Usage counts
+
+# How much the Hub is used this term, as NUMBERS ONLY: per-concert door scans
+# against the expected roster, absence reports by status, form responses and
+# copy requests. Read-only. This log is public, so the script prints no name,
+# doc id, email or free text (pinned by scripts/usage-counts.selfcheck.mjs,
+# and enforced again at run time before anything is printed).
+on:
+  workflow_dispatch:
+    inputs:
+      today:
+        description: 'Count as of this date (YYYY-MM-DD). Blank = today.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm install firebase-admin --no-save
+      - name: Check the output guard
+        run: node scripts/usage-counts.selfcheck.mjs
+      - name: Count
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          TODAY: ${{ inputs.today }}
+        run: |
+          if [ -n "$TODAY" ]; then
+            node scripts/usage-counts.mjs "--today=$TODAY"
+          else
+            node scripts/usage-counts.mjs
+          fi
