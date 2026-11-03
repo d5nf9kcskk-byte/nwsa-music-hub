@@ -66,6 +66,8 @@ export function revertPlan(e: CalendarEvent | undefined): {
   const fields: Record<string, unknown> = {
     status: cf?.status ?? 'Scheduled',
     changeNote: undefined,
+    // #banner-drafter: the Spanish note goes with the English one, always.
+    changeNoteEs: undefined,
     changeFrom: undefined,
     changeAnnouncementId: undefined,
     updatedAt: undefined,

@@ -38,6 +38,7 @@ Los estudiantes y las familias pueden enviar: un aviso de ausencia (con foto de 
 - **Control de seguridad.** Las páginas públicas pueden usar Google reCAPTCHA (a través de Firebase App Check) para distinguir navegadores reales de tráfico automatizado. Google recibe información del navegador para ese control.
 - **Su dispositivo.** El sitio guarda algunas preferencias en su propio teléfono o computadora, como el estudiante que guardó y los colores que eligió. No salen del dispositivo a menos que usted mismo las envíe a otro.
 - **Alertas en el teléfono (prueba con el personal).** El personal puede activar alertas que hacen vibrar su teléfono cuando algo de hoy cambia o se cancela. El Hub guarda un identificador por cada teléfono que las activa, junto con los conjuntos que sigue. Nadie puede leer esos identificadores desde la app, y una alerta nunca nombra a un estudiante. Las familias todavía no pueden inscribirse. Si eso se abre más adelante, un teléfono familiar que active las alertas también guardaría los identificadores de los estudiantes guardados en él, y este aviso lo dirá antes.
+- **Borrador de avisos en español (listo, pero apagado).** El Hub tiene un botón que le pediría a Claude, de Anthropic, una versión en español de una nota de cambio de horario que acaba de escribir un director, para que el director la revise antes de guardarla. Solo enviaría esa nota, nunca el nombre de un estudiante ni ningún otro registro. Hoy está apagado, así que no se envía nada, y este aviso lo dirá antes de que se active.
 
 ## 5. Cuánto tiempo la guardamos
 

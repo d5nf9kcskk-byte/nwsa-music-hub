@@ -344,6 +344,13 @@ runs:
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/dateLang.selfcheck.ts
       shell: bash
 
+    # Spanish change notes (#banner-drafter): a changed or cleared English
+    # note never keeps an old Spanish one, every public surface reads the
+    # note through changeNoteFor, and the drafter flag is off in every org.
+    - name: Check Spanish change notes
+      run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/schedule/changeNoteEs.selfcheck.ts
+      shell: bash
+
     - name: Check ensemble/class classification
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/groupKind.selfcheck.ts
       shell: bash

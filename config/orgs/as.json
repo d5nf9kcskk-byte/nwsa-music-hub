@@ -66,7 +66,8 @@
     "campusMap": false,
     "calendarSeed": false,
     "contactForm": true,
-    "personnel": true
+    "personnel": true,
+    "bannerDrafter": false
   },
   "program": {
     "missionStatement": "The Alpharetta Symphony exists to inspire, connect, educate, and enrich our home city of Alpharetta and North Fulton through the magic of classical music.",

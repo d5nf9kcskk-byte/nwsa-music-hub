@@ -38,6 +38,7 @@ Students and families can send: an absence report (with an excuse-note photo whe
 - **Security check.** Public pages may run Google reCAPTCHA (through Firebase App Check) to tell real browsers from automated traffic. Google receives information about the browser for that check.
 - **Your device.** The site saves a few choices on your own phone or computer, such as the student you saved and your color settings. They never leave the device unless you send them to another one yourself.
 - **Phone alerts (staff trial).** Staff can turn on alerts that buzz their phone when something happening today is changed or cancelled. The Hub stores a device token for each phone that turns them on, plus the ensembles it follows. Nobody can read those tokens through the app, and an alert never names a student. Families cannot sign up yet. If that opens later, a family phone that turns alerts on would also store the ids of the students saved on it, and this notice will say so first.
+- **Spanish banner drafter (built, switched off).** The Hub has a button that would ask Anthropic's Claude for a Spanish version of a schedule change note a director just wrote, for the director to check before saving. It would send only that note, never a student's name or any other record. It is off today, so nothing is sent, and this notice will say so before it is turned on.
 
 ## 5. How long we keep it
 

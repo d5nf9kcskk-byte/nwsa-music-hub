@@ -35,6 +35,10 @@ const NOT_DEPLOYED: Record<string, string> = {
   plannedAbsenceConfirmation:
     'Deploying it STARTS emailing students who file an absence — mail that has never gone out and nobody has seen. '
     + 'The director\'s decision, not a line to slip into an unrelated change (raised 2026-09-22).',
+  draftChangeNoteEs:
+    'Needs the ANTHROPIC_API_KEY secret in Secret Manager, and a function naming a missing secret fails the WHOLE deploy. '
+    + 'Deploying it starts sending the director\'s English change notes (and nothing else) to Anthropic for a Spanish draft. '
+    + 'Built switched off (Hub 2.0 Phase 3 item 14); turning it on is docs/banner-drafter.md.',
 };
 
 function assert(cond: unknown, msg: string): void {

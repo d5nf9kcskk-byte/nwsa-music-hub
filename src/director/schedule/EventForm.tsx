@@ -23,6 +23,8 @@ import { concertChartFor, chartPieceIds, isPieceChart } from '../../shared/conce
 import type { CalendarEvent, Ensemble, EventType, EventStatus, SeatingChart } from '../types';
 import { backdropClose } from '../../shared/backdropClose';
 import { GroupPicker } from '../components/GroupPicker';
+import { ChangeNoteEsField } from './ChangeNoteEsField';
+import { bannerDrafterOn } from './bannerDrafterFlag';
 
 interface Props {
   event: CalendarEvent | null;
@@ -256,6 +258,14 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
     setForm(f => ({ ...f, [k]: v }));
   }
 
+  /** #banner-drafter: a Spanish line written for the old English note must
+   *  never ride along with a new one, so editing the English empties the
+   *  Spanish box. With the drafter off the box does not exist and the field
+   *  is left alone here (and stripped from the save below). */
+  function setChangeNote(v: string) {
+    setForm(f => (bannerDrafterOn() && f.changeNoteEs ? { ...f, changeNote: v, changeNoteEs: '' } : { ...f, changeNote: v }));
+  }
+
   /** Not a plain setter: picking the FIRST group pre-fills a blank location
    *  and start/end time from that group's own defaults, which is most of what
    *  makes adding a rehearsal quick. Kept when this became a multi-select —
@@ -396,6 +406,17 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
           .filter(b => b.instrument && b.url);
       }
       if (form.partBooksSharedUrl !== undefined) data.partBooksSharedUrl = form.partBooksSharedUrl.trim();
+      // #banner-drafter. Off: no write ever carries a Spanish note (the form
+      // copied the loaded event, so drop whatever it copied; useEvents still
+      // clears a stale one if the English changed). On: the box's text is the
+      // confirmed Spanish, and an empty box clears it.
+      if (!bannerDrafterOn()) delete data.changeNoteEs;
+      else {
+        const es = (form.changeNoteEs ?? '').trim();
+        if (es) data.changeNoteEs = es;
+        else if (event) data.changeNoteEs = '';
+        else delete data.changeNoteEs;
+      }
       if (cancellingNow && event) {
         // Same guarantees as a cancel on Schedule Changes: snapshot for
         // revert, a change note (drives the public red-banner day), and
@@ -1225,11 +1246,16 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             <input
               className="dir-input"
               value={form.changeNote ?? ''}
-              onChange={e => set('changeNote', e.target.value)}
+              onChange={e => setChangeNote(e.target.value)}
               placeholder="e.g. Double block — Ensemble both blocks; moved to Auditorium"
             />
             <div className="dir-field-hint">If set, this event shows a CHANGED tag and the public site shows a red schedule-change banner that day.</div>
           </div>
+          <ChangeNoteEsField
+            english={form.changeNote ?? ''}
+            value={form.changeNoteEs ?? ''}
+            onChange={v => set('changeNoteEs', v)}
+          />
 
           <div className="dir-field">
             <label className="dir-label">Notes</label>

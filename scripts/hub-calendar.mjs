@@ -262,9 +262,16 @@ function cleanFields(src, { creating }) {
   return out;
 }
 
-/** Stage an update of an existing event, remembering its before-values. */
+/** Stage an update of an existing event, remembering its before-values.
+ *  #banner-drafter: a write that changes or clears the English change note
+ *  also clears a Spanish one written for the old note (the app's own
+ *  `reconcileChangeNoteEs`, so the tool and the Schedule screen agree). */
 function stage(e, data, lbl) {
   before[`events/${e.id}`] = e;
+  const plain = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v === DELETE ? undefined : v]));
+  const safe = app.reconcileChangeNoteEs(plain, e);
+  if ('changeNoteEs' in safe && !('changeNoteEs' in data)) data = { ...data, changeNoteEs: safe.changeNoteEs ?? DELETE };
+  else if ('changeNoteEs' in data && safe.changeNoteEs === undefined) data = { ...data, changeNoteEs: DELETE };
   writes.push({ op: 'update', collection: 'events', id: e.id, data, label: lbl });
 }
 

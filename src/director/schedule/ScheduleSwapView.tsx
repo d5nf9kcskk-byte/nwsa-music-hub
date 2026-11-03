@@ -10,6 +10,8 @@ import { todayStr, addDays, parseDate, toDateStr, formatTime, formatTimeRange, e
 import { sharedBlockLabel } from '../../shared/sharedBlock';
 import { bannersForEvents, announceChange, captureOriginal, combineSnapshot } from './changeOps';
 import { planDayChange, applyPlan, rolledBlocks, strandedEventOverrides } from './changePlan';
+import { ChangeNoteEsField } from './ChangeNoteEsField';
+import { bannerDrafterOn } from './bannerDrafterFlag';
 import type { DayAction, DayPlan, PlanGuard } from './changePlan';
 import { campusForEvent, splitClosure, isCampusClosed, LESSON_CAMPUS, CAMPUS_LABEL, CAMPUS_FULL_NAME } from '../campusCalendar';
 import type { Campus } from '../campusCalendar';
@@ -280,7 +282,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
 
   /** Replay a plan through the existing changeOps machinery: the writes as
    *  planned, then ONE banner linked from every updated event. */
-  async function commitPlan(plan: DayPlan, notify: boolean) {
+  async function commitPlan(plan: DayPlan, notify: boolean, spanish?: Record<string, string>) {
     // Never commit an unacknowledged collision (exit test, doc §6) — the
     // review sheet swaps Save for the resolution buttons, this is the belt.
     if (plan.guards.some(g => g.kind === 'collision')) return;
@@ -290,7 +292,10 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
       const lessonById = Object.fromEntries(dayLessons.map(l => [l.id, l]));
       const touched = plan.writes.map(w => byId[w.id]).filter(Boolean) as CalendarEvent[];
       for (const w of plan.writes) {
-        if (w.op === 'update') await updateEvent(w.id, w.data);
+        // #banner-drafter: a Spanish note the director confirmed on the
+        // review sheet rides with its own English note. Only passed when the
+        // drafter is on; useEvents clears any old Spanish otherwise.
+        if (w.op === 'update') await updateEvent(w.id, spanish?.[w.id] ? { ...w.data, changeNoteEs: spanish[w.id] } : w.data);
         else if (w.op === 'delete') await deleteEvent(w.id, { undoable: false });
         // Lessons live in their own collection with their own mirror, so they
         // go through useLessons rather than the event machinery. Skipped if
@@ -665,7 +670,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
           busy={busy}
           error={error}
           onAction={setPlanAction}
-          onConfirm={notify => commitPlan(planned, notify)}
+          onConfirm={(notify, spanish) => commitPlan(planned, notify, spanish)}
           onClose={() => setPlanAction(null)}
         />
       )}
@@ -965,11 +970,26 @@ function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, 
   busy: boolean;
   error: string;
   onAction: (a: DayAction) => void;
-  onConfirm: (notify: boolean) => void;
+  onConfirm: (notify: boolean, spanish?: Record<string, string>) => void;
   onClose: () => void;
 }) {
   const { students } = useStudents();
   const [notify, setNotify] = useState(true);
+  // #banner-drafter: each English note this plan writes, with the Spanish the
+  // director confirms for it. Keyed by event id AND the English text, so a
+  // re-planned action (different note) never carries an old Spanish line.
+  const drafter = bannerDrafterOn();
+  const notedWrites = useMemo(() => planned.writes.flatMap(w =>
+    w.op === 'update' && typeof w.data.changeNote === 'string' && w.data.changeNote.trim()
+      ? [{ id: w.id, en: w.data.changeNote.trim() }] : []), [planned]);
+  const [spanish, setSpanish] = useState<Record<string, { en: string; es: string }>>({});
+  const spanishFor = (id: string, en: string) => (spanish[id]?.en === en ? spanish[id].es : '');
+  const confirmedSpanish = (): Record<string, string> | undefined => {
+    if (!drafter) return undefined;
+    const out: Record<string, string> = {};
+    for (const n of notedWrites) { const es = spanishFor(n.id, n.en).trim(); if (es) out[n.id] = es; }
+    return out;
+  };
   const after = useMemo(() => applyPlan(dayEvents, planned.writes), [dayEvents, planned]);
   const byId = useMemo(() => Object.fromEntries(dayEvents.map(e => [e.id, e])), [dayEvents]);
   const ofKind = <K extends PlanGuard['kind']>(k: K) =>
@@ -1126,6 +1146,16 @@ function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, 
             // through the student's calendar feed.
             <div className="dir-field-hint">No banner — nothing on the public calendar changes.</div>
           )}
+          {drafter && !collision && notedWrites.map(n => (
+            <div key={n.id} className="dir-field">
+              <div className="dir-label">{byId[n.id] ? labelOf(byId[n.id]) : 'Change note'}: “{n.en}”</div>
+              <ChangeNoteEsField
+                english={n.en}
+                value={spanishFor(n.id, n.en)}
+                onChange={v => setSpanish(s => ({ ...s, [n.id]: { en: n.en, es: v } }))}
+              />
+            </div>
+          ))}
           {error && <div className="dir-sc-error">⚠ {error}</div>}
         </div>
         <div className="dir-drawer-footer">
@@ -1134,7 +1164,7 @@ function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, 
             <button
               className={`dir-btn ${action.kind === 'cancelDay' ? 'dir-btn-danger' : 'dir-btn-primary'}`}
               disabled={busy || planned.writes.length === 0}
-              onClick={() => onConfirm(notify)}
+              onClick={() => onConfirm(notify, confirmedSpanish())}
             >
               {busy ? 'Saving…' : saveLabel}
             </button>

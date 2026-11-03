@@ -105,13 +105,17 @@ export async function loadAppModules() {
     globalThis.__ORG_CONFIG__ = JSON.parse(readFileSync(new URL('config/orgs/nwsa.json', ROOT), 'utf8'));
   }
   const src = p => new URL(`src/${p}`, ROOT).href;
-  const [plan, ops, utils, rich] = await Promise.all([
+  const [plan, ops, utils, rich, es] = await Promise.all([
     import(src('director/schedule/changePlan.ts')),
     import(src('director/schedule/changeOps.ts')),
     import(src('director/utils.ts')),
     import(src('shared/richTextParse.ts')),
+    import(src('shared/changeNoteEs.ts')),
   ]);
-  return { ...plan, ...ops, ...utils, richTextToPlain: rich.richTextToPlain, ORG: globalThis.__ORG_CONFIG__ };
+  return {
+    ...plan, ...ops, ...utils, richTextToPlain: rich.richTextToPlain,
+    reconcileChangeNoteEs: es.reconcileChangeNoteEs, ORG: globalThis.__ORG_CONFIG__,
+  };
 }
 
 // ── Firestore ────────────────────────────────────────────────────────────

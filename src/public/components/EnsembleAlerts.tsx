@@ -3,7 +3,8 @@ import { Link } from 'react-router';
 import { AlertTriangle, Siren } from 'lucide-react';
 import type { Announcement, CalendarEvent } from '../../director/types';
 import { useEnsembles } from '../../director/hooks/useEnsembles';
-import { fmtShortDate } from '../../shared/dates';
+import { fmtShortDate, formatLang } from '../../shared/dates';
+import { changeNoteFor } from '../../shared/changeNoteEs';
 import { t, useLang } from '../../shared/i18n';
 import { formatTime } from '../../director/utils';
 import { groupScheduleAlerts, groupUrgentAnnouncements } from '../../shared/groupAlerts';
@@ -83,7 +84,7 @@ export function EnsembleAlerts({
                 </strong>
                 {' · '}{fmtShortDate(e.date)}
                 {e.startTime ? ` · ${formatTime(e.startTime)}` : ''}
-                {e.changeNote ? ` — ${e.changeNote}` : ''}
+                {e.changeNote ? ` — ${changeNoteFor(e, formatLang())}` : ''}
               </span>
             </Link>
           );

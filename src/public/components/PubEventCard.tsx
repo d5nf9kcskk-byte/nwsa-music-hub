@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router';
 import type { CalendarEvent, Ensemble, RepertoirePiece } from '../../director/types';
 import { formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, CONCERT_COLOR, eventPieceMovements } from '../../director/utils';
 import { t, tType, useLang } from '../../shared/i18n';
-import { fmtShortDate } from '../../shared/dates';
+import { fmtShortDate, formatLang } from '../../shared/dates';
+import { changeNoteFor } from '../../shared/changeNoteEs';
 import { EnsembleLink, EnsembleLinks } from './EnsembleLink';
 import { Linkify } from '../../director/components/Linkify';
 import { NotesText } from './NotesText';
@@ -141,7 +142,7 @@ export function PubEventCard({
             two places that can drift. */}
         {e.slot && <div className="pub-event-slot">{e.slot}</div>}
 
-        {e.changeNote && <div className="pub-event-change">⚠ {e.changeNote}</div>}
+        {e.changeNote && <div className="pub-event-change">⚠ {changeNoteFor(e, formatLang())}</div>}
 
         {e.title && ensembleObjs.length > 0 && (
           <div className="pub-tag-row pub-tag-row-sm">

@@ -400,6 +400,14 @@ export interface CalendarEvent {
    */
   changeNote?: string;
   /**
+   * The director's CONFIRMED Spanish version of `changeNote`, and nothing
+   * else (#banner-drafter). Shown in place of the English note to a reader in
+   * Spanish, through `changeNoteFor()` only. Cleared by any write that changes
+   * or clears the English note without confirming new Spanish
+   * (`reconcileChangeNoteEs`). Feeds and push alerts stay English.
+   */
+  changeNoteEs?: string;
+  /**
    * Snapshot of the schedule taken right before the FIRST change to this event,
    * so "Revert to normal" can restore it exactly. Left in place across further
    * edits so the original is never lost; cleared on revert.

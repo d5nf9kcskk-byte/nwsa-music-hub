@@ -11,6 +11,8 @@ import { directorEmailId } from '../../director/hooks/useDirectors';
 import { todayStr, ensembleDisplayName } from '../../director/utils';
 import { getIdentity, onIdentityChange } from '../../shared/identity';
 import { t, useLang, getLang } from '../../shared/i18n';
+import { formatLang } from '../../shared/dates';
+import { changeNoteFor } from '../../shared/changeNoteEs';
 import { groupScheduleAlerts, groupUrgentAnnouncements } from '../../shared/groupAlerts';
 import { AlertGroupSections } from '../../shared/AlertGroupSections';
 import { publicAlertGroupTitle, publicMoreLabels } from '../alertGroupTitle';
@@ -133,7 +135,7 @@ function AlertStrip({ onHome }: { onHome: boolean }) {
               <AlertTriangle size={14} style={{ verticalAlign: '-2px' }} />{' '}
               {e.status === 'Cancelled' ? t('alert.cancelledToday') : t('alert.changedToday')}:{' '}
               {e.title || ensName(e.ensembleIds)}
-              {e.changeNote ? ` — ${e.changeNote}` : ''}
+              {e.changeNote ? ` — ${changeNoteFor(e, formatLang())}` : ''}
             </Link>
           )}
         />
