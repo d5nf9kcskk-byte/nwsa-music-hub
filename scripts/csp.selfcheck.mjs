@@ -91,6 +91,18 @@ requires('frame-src', 'https://www.google.com/recaptcha/',
 requires('connect-src', 'https://content-firebaseappcheck.googleapis.com',
   'App Check exchanges the reCAPTCHA answer for its token here.');
 
+// Web push (#push). getToken() makes two calls before a device has a token:
+// an installation id from Firebase Installations, then the FCM registration.
+// Refused here, "Turn on alerts" would spin forever on the director's phone
+// with no error, which reads as "iPhone push doesn't work" rather than as the
+// one-line policy omission it is.
+requires('connect-src', 'https://firebaseinstallations.googleapis.com',
+  'Firebase Installations issues the id an FCM token is minted against.');
+requires('connect-src', 'https://fcmregistrations.googleapis.com',
+  'FCM registers this device and returns its push token here.');
+requires('connect-src', 'https://fcm.googleapis.com',
+  'The FCM web SDK talks to this host for registration and token refresh.');
+
 // Guards that must not erode.
 if (!directives["object-src"]?.includes("'none'")) fail("object-src must stay 'none'");
 if (!directives["base-uri"]?.includes("'self'")) fail("base-uri must stay 'self'");

@@ -47,6 +47,14 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all;
 }
 
+/* Step 1: Home Screen (#push). Mirrored in QR_PRINT_CSS for the popup. */
+.dir-qr-a2hs {
+  margin: 14px auto 0; max-width: 46ch; padding: 8px 12px; border: 1.5px solid #bbb;
+  border-radius: 10px; font-size: 13px; line-height: 1.4; color: #222; text-align: left;
+}
+.dir-qr-a2hs strong { display: block; font-size: 14px; margin-bottom: 2px; }
+.dir-qr-launch .dir-qr-a2hs { border-color: rgba(255, 255, 255, 0.6); color: #fff; }
+
 /* ── Launch flyer (screen preview; print uses popup CSS) ── */
 .dir-qr-launch {
   border: none;

@@ -30,6 +30,12 @@ import {
 } from './mailStatus.ts';
 import { buildSubmissionReceipt, submissionReceiptId } from './submissionReceipt.ts';
 import { composeSubmission as runComposeSubmission } from './composeSubmission.ts';
+import { getAuth } from 'firebase-admin/auth';
+import { getMessaging } from 'firebase-admin/messaging';
+import { handleEventChange, sendTestAlert, type PushDeps } from './pushSend.ts';
+import {
+  isSubscriptionDocId, type PushEventLike, type PushSubscriptionDoc,
+} from '../../src/shared/pushAlerts.ts';
 import type {
   Assignment, AssignmentResult, Ensemble, Lesson, PlannedAbsence, SignupForm,
   SignupResponse, Student, StudentContact,
@@ -847,4 +853,139 @@ export const composeSubmission = https.onRequest(async (req, res) => {
     now: Date.now,
   });
   res.status(200).json(outcome);
+});
+
+
+/* ── Web push for same-day changes (#push) ──────────────────────────────
+ * The ONLY two senders. Logic lives in pushSend.ts (pinned by
+ * pushSend.selfcheck.ts); these wire it to the Admin SDK. */
+
+const KNOWN_ROLES = ['owner', 'director', 'teacher', 'classroom', 'assistant'];
+
+/** isKnownRole() from firestore.rules, for a directors doc read server-side. */
+function hasKnownRole(d: Record<string, unknown> | undefined): boolean {
+  if (!d) return false;
+  if (Array.isArray(d.roles)) return (d.roles as unknown[]).some(r => KNOWN_ROLES.includes(String(r)));
+  return KNOWN_ROLES.includes(typeof d.role === 'string' ? d.role : 'director');
+}
+
+function pushDeps(): PushDeps {
+  const db = getFirestore();
+  return {
+    async listSubscriptions() {
+      const snap = await db.collection('pushSubscriptions').get();
+      return snap.docs.map(d => ({ id: d.id, data: d.data() as PushSubscriptionDoc }));
+    },
+    async ensembleNames(ids) {
+      const out: Record<string, string> = {};
+      const refs = [...new Set(ids)].filter(Boolean).map(id => db.doc(`ensembles/${id}`));
+      if (refs.length === 0) return out;
+      const snaps = await db.getAll(...refs);
+      for (const s of snaps) {
+        const name = s.exists ? s.get('name') : undefined;
+        if (typeof name === 'string' && name) out[s.id] = name;
+      }
+      return out;
+    },
+    async claimMarker(id) {
+      try {
+        await db.doc(`pushSent/${id}`).create({ at: FieldValue.serverTimestamp() });
+        return true;
+      } catch (err) {
+        // ALREADY_EXISTS (6) = this change was already sent. Anything else is
+        // a real failure and should retry the trigger.
+        if ((err as { code?: number }).code === 6) return false;
+        throw err;
+      }
+    },
+    async send(messages) {
+      const res = await getMessaging().sendEach(messages);
+      return res.responses.map(r => ({ success: r.success, error: r.error ? { code: r.error.code } : undefined }));
+    },
+    async deleteSubscription(id) {
+      await db.doc(`pushSubscriptions/${id}`).delete();
+    },
+    timeZone: ORG.timezone,
+    publicUrl: ORG.publicUrl,
+    icon: ORG.icons.icon192,
+    now: () => new Date(),
+  };
+}
+
+/**
+ * A director changed an event happening TODAY — Change a Day (move, swap,
+ * combine, cancel), the quick Cancel / Back on, or "School closed" — and the
+ * change note is new. Push it to every device following that event's
+ * ensembles (or to everyone, for a school-wide event). Sends once per change:
+ * the marker in `pushSent` is claimed before anything goes out.
+ */
+export const pushOnEventChange = firestore
+  .document('events/{eventId}')
+  .onUpdate(async (change, context) => {
+    const outcome = await handleEventChange(
+      context.params.eventId as string,
+      change.before.data() as PushEventLike,
+      change.after.data() as PushEventLike,
+      pushDeps(),
+    );
+    // Counts only: never a token, never a name.
+    if (outcome.kind === 'sent') {
+      console.log(`pushOnEventChange: ${outcome.recipients} device(s), ${outcome.sent} sent, `
+        + `${outcome.failed} failed, ${outcome.removed} dead token(s) removed`);
+    }
+  });
+
+/**
+ * "Send a test alert to this phone" (#push trial). POST { subId } with the
+ * caller's Firebase ID token as a Bearer header. The caller must be on the
+ * allowlist with a known role and a verified email, and the subscription must
+ * be THEIR OWN device (staffEmail), so this cannot be pointed at a family.
+ */
+export const pushTestAlert = https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+  res.set('Cache-Control', 'no-store');
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.set('Access-Control-Max-Age', '3600');
+    res.status(204).send('');
+    return;
+  }
+  const refuse = (status: number, message: string) => { res.status(status).json({ ok: false, message }); };
+  if (req.method !== 'POST') { refuse(405, 'That did not reach the Hub correctly.'); return; }
+
+  const header = req.get('Authorization') ?? '';
+  const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!idToken) { refuse(401, 'Sign in again, then try.'); return; }
+  let email: string;
+  try {
+    const decoded = await getAuth().verifyIdToken(idToken);
+    if (decoded.email_verified !== true || !decoded.email) throw new Error('unverified');
+    email = decoded.email;
+  } catch {
+    refuse(401, 'Sign in again, then try.');
+    return;
+  }
+
+  const db = getFirestore();
+  const me = await db.doc(`directors/${email}`).get();
+  if (!me.exists || !hasKnownRole(me.data())) { refuse(403, 'This account cannot send test alerts.'); return; }
+
+  const subId = typeof req.body?.subId === 'string' ? req.body.subId : '';
+  if (!isSubscriptionDocId(subId)) { refuse(400, 'Turn alerts on for this phone first.'); return; }
+  const sub = await db.doc(`pushSubscriptions/${subId}`).get();
+  const data = sub.data() as PushSubscriptionDoc | undefined;
+  if (!sub.exists || !data || data.staffEmail !== email) {
+    refuse(404, 'This phone is not signed up for alerts. Turn alerts on again.');
+    return;
+  }
+  const r = await sendTestAlert({ id: subId, data }, pushDeps());
+  if (r.ok) { res.status(200).json({ ok: true }); return; }
+  console.error('pushTestAlert: FCM refused the send', r.code ?? 'unknown');
+  res.status(200).json({
+    ok: false,
+    code: r.code ?? 'unknown',
+    message: 'Firebase Cloud Messaging refused the alert. Turn alerts off and on again on this phone.',
+  });
 });

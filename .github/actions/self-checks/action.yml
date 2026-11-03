@@ -605,3 +605,14 @@ runs:
     - name: Check the season repertoire event sweep
       run: node scripts/seed-season-repertoire.mjs --selfcheck
       shell: bash
+
+    # Web push for same-day changes (#push): no client can write the send
+    # path, the subscription key allowlists match firestore.rules, a
+    # school-wide change reaches every device and an ensemble change only its
+    # own, no student name rides in a payload, subscriptions are never
+    # readable, and family subscriptions are refused while familiesOpen is
+    # false. The sender's dedupe and dead-token cleanup are pinned in
+    # functions/src/pushSend.selfcheck.ts (deploy-functions.yml).
+    - name: Check push alerts
+      run: npx tsx src/shared/pushAlerts.selfcheck.ts
+      shell: bash

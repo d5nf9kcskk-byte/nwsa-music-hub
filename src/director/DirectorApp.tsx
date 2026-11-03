@@ -14,6 +14,7 @@ import { AssistantApp } from './assistant/AssistantApp';
 import { ClassroomTeacherApp } from './classroom/ClassroomTeacherApp';
 import { DirectorSearch } from './components/DirectorSearch';
 import { InstallAppButton } from './components/InstallAppButton';
+import { PushAlertsButton } from './components/PushAlertsPanel';
 import { AppVersionRow } from './components/AppVersionRow';
 import { Hub2PreviewToggle } from './components/Hub2PreviewToggle';
 import { WriteTray } from './components/WriteTray';
@@ -527,6 +528,7 @@ export default function DirectorApp() {
                 <HelpCircle size={18} /> Start guide (all audiences)
               </button>
               <InstallAppButton rail />
+              <PushAlertsButton rail />
               <AppVersionRow rail />
               {isOwner && <Hub2PreviewToggle rail />}
               <div className="dir-rail-whats-new">
@@ -731,6 +733,7 @@ export default function DirectorApp() {
                   <HelpCircle size={19} /> Start guide (all audiences)
                 </button>
                 <InstallAppButton />
+                <PushAlertsButton />
                 <AppVersionRow />
                 {isOwner && <Hub2PreviewToggle />}
 
