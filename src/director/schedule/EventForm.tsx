@@ -450,7 +450,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
 
   return (
     <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
-      <div className="dir-drawer" role="dialog" aria-modal="true" aria-label={event ? 'Edit event' : 'New event'} tabIndex={-1} ref={panelRef}>
+      <div className="dir-drawer" data-event-type={form.type} role="dialog" aria-modal="true" aria-label={event ? 'Edit event' : 'New event'} tabIndex={-1} ref={panelRef}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <span className="dir-drawer-title">{event ? 'Edit Event' : 'New Event'}</span>
@@ -912,7 +912,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             <div className="dir-field">
               <label className="dir-label">Title</label>
               <input
-                className="dir-input"
+                className="dir-input dir-hall-title"
                 value={form.title ?? ''}
                 onChange={e => set('title', e.target.value)}
                 placeholder={form.type === 'Concert' ? 'e.g. Winter Concert' : form.type === 'Class' ? 'e.g. Music Theory I' : 'Event name'}

@@ -1893,6 +1893,22 @@ any change. Later sessions apply it page by page.
 - `hub2.selfcheck.ts` pins the switch, the scoping and the fonts; the
   palette's AA readability (both themes, under every tint and season) rides
   in `look.selfcheck.ts` and `seasons.selfcheck.ts`.
+- **Staff screens are themed** (`src/director/hub2Staff.css`, imported by all
+  four shells): Studio Bright soft cards, big times and numbers (Today, roll
+  counts, Gradebook, Check-In), sun on waiting chips and nav badges; Concert
+  Hall's Newsreader on a concert's title on Schedule, Today's coming-up list,
+  the event drawer (Title field, gold hairline under its labels), the
+  concert's roll and roster, and Check-In; Spotlight on Today's concert card
+  and on Check-In's page for a concert held today; slide-in drill-downs,
+  staggered lists and a press dip, all off under reduced motion. Components
+  carry hooks for it (`data-event-type`, `data-hub2-spotlight`,
+  `.dir-today-time`, `.dir-roll-concert`, `.dir-hall-title`) that NO other
+  stylesheet may read, so flag off stays pixel-identical. **Prints never take
+  the preview**: every staff rule, including the `--dir-*` mapping in
+  hub2.css, is `@media screen`, and print gets the stock font back. The
+  light `--dir-primary` is the accent with a tenth of ink mixed in, since the
+  bare accent is 4.41:1 as text on the page. The ConcertDayBanner is untouched.
+  `hub2.selfcheck.ts` §6 pins all of it.
 
 ## Clear cards, and a page per concert (Oct 2026, #clear-cards)
 

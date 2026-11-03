@@ -148,8 +148,11 @@ export function CheckinView({ onNavigate }: { onNavigate?: DirNavigate }) {
   });
 
   if (open) {
+    // Spotlight (#hub2-look) styles this only under the owner's preview; with
+    // the preview off nothing reads the attribute.
+    const concertNight = selected?.date === today && selected.status !== 'Cancelled';
     return (
-      <div className="dir-checkin" ref={rootRef}>
+      <div className="dir-checkin" ref={rootRef} data-hub2-spotlight={concertNight ? 'on' : undefined}>
         <button type="button" className="dir-checkin-back" onClick={() => setEventId('')}>
           <ChevronLeft size={18} /> All concerts
         </button>
