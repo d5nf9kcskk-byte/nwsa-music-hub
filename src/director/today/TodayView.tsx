@@ -17,6 +17,7 @@ import { resolveRoster } from '../rosterResolver';
 import { isSharedBlock, sharedBlockLabel } from '../../shared/sharedBlock';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, addDays, assignmentEmoji, rollTarget, CONCERT_COLOR, ASSIGN_COLOR } from '../utils';
 import { eventIcon } from '../groupIcon';
+import { schoolClosedWrite } from '../schedule/changePlan';
 import type { Announcement, CalendarEvent, Ensemble } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
@@ -147,7 +148,8 @@ export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNav
   async function closeSchoolFor(date: string) {
     const affected = events.filter(e => e.date === date && e.status !== 'Cancelled' && e.ensembleIds.length > 0);
     for (const e of affected) {
-      await updateEvent(e.id, { status: 'Cancelled', changeNote: 'School closed' });
+      // The receipt (#change-receipts) lets "Back to normal" undo the day.
+      await updateEvent(e.id, schoolClosedWrite(e));
     }
     await addAnnouncement({
       title: `School closed ${parseDate(date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })} — all rehearsals cancelled`,

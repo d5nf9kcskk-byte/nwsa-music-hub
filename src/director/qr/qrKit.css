@@ -222,16 +222,21 @@
   .dir-qr-poster-code { width: 4.4in; max-width: 78%; }
   .dir-qr-poster-url { font-size: 15pt; margin-top: 0.3in; }
 
+  /* Same sizes as the popup's QR_PRINT_CSS (QrKitView.tsx): the flyer is
+     exactly 11in with overflow hidden, so a block that does not fit is cut
+     off the bottom. scripts/qrkit-flyer.selfcheck.mjs keeps the two in step. */
   .dir-qr-launch {
     width: auto; min-height: 0; height: 11in;
-    padding: 0.45in 0.5in 0.4in;
+    padding: 0.4in 0.5in 0.4in;
   }
   .dir-qr-launch::before { inset: 0.22in; border-width: 3px; border-radius: 18px; }
-  .dir-qr-launch-logo { width: 1.35in; }
-  .dir-qr-launch-headline { font-size: 40pt; }
+  .dir-qr-launch-logo { width: 1in; }
+  .dir-qr-launch-headline { font-size: 38pt; }
   .dir-qr-launch-tag { font-size: 14pt; }
-  .dir-qr-launch-qr { width: 3.9in; padding: 0.26in; }
+  .dir-qr-launch-qr { width: 3.1in; padding: 0.2in; }
   .dir-qr-launch-scan { font-size: 16pt; }
+  .dir-qr-launch .dir-qr-a2hs { padding: 6px 12px; font-size: 10.5pt; line-height: 1.35; }
+  .dir-qr-launch .dir-qr-a2hs strong { font-size: 11.5pt; }
   .dir-qr-launch-cta-url { font-size: 12.5pt; }
 
   .dir-qr-slips { padding: 0.25in 0 0; }
