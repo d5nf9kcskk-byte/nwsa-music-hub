@@ -103,7 +103,7 @@ export function EventRoster({ event, ensembles, onClose, onNavigate }: Props) {
   return (
     <>
     <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
-      <div className="dir-drawer">
+      <div className="dir-drawer" data-event-type={event.type}>
         <div className="dir-drawer-handle" />
         <div className="dir-drawer-header">
           <span className="dir-drawer-title"><Users size={16} style={{ verticalAlign: '-2px' }} /> {event.type} Roster</span>

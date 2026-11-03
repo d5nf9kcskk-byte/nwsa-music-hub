@@ -510,7 +510,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
 
   return (
     <div>
-      <div className="dir-roll-sticky-top">
+      <div className="dir-roll-sticky-top" data-event-type={period.event?.type}>
       <div className="dir-sc-panel-head">
         <button className="dir-drawer-back" onClick={onBack}><ChevronLeft size={18} /> Back</button>
         <div className="dir-sc-student" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -518,7 +518,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
           <div>
             <div className="dir-sc-student-name" style={{ fontSize: 17 }}>{ensemble?.name ?? 'Roll'}</div>
             <div className="dir-ens-sub">{dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}</div>
-            {isConcert && <div className="dir-ens-sub">{concertTag(period.event)}</div>}
+            {isConcert && <div className="dir-ens-sub dir-roll-concert">{concertTag(period.event)}</div>}
             {receipt?.by && (
               <div className="dir-ens-sub">
                 ✓ Roll taken by {receipt.by}{receipt.byRole === 'assistant' ? ' (Student Assistant)' : ''}
