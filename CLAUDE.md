@@ -406,9 +406,13 @@ seed that `set`s rather than merges.
   `changePlan.ts` is what the Event form (edits, not repeats or creates) and
   `hub-calendar.mjs` `edit` add to a write that moves date, time, room or
   status — snapshot-once, like `captureOriginal`. A date move adds
-  `changeFrom.date`, which `revertPlan` restores. Not covered on purpose: the
-  Today screen's "School closed" cancel (`TodayView`), which still writes no
-  receipt. Both pinned in `scripts/schedule-day-plan.selfcheck.mjs`.
+  `changeFrom.date`, which `revertPlan` restores. The Today screen's "School
+  closed" button writes `schoolClosedWrite()` (cancel + note + the same
+  receipt), so Back to normal undoes a closed day. That button still sweeps
+  EVERY block on the date and takes no lessons — not campus-aware, which is
+  against #college-hs-calendar-deps; left for the director to decide, since
+  changing what it cancels changes what people see. All pinned in
+  `scripts/schedule-day-plan.selfcheck.mjs`.
 
 ## Ensembles vs. classes (Aug 2026)
 
