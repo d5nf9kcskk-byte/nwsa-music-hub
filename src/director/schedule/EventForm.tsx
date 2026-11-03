@@ -18,7 +18,8 @@ import { SENIOR_GRADE, gradeExcusedFromAudience, seniorsExcused } from '../../sh
 import { enableCheckinPatch } from '../../shared/concertCheckin';
 import { studentMatchesQuery } from '../studentSearch';
 import { useAnnouncements } from '../hooks/useAnnouncements';
-import { captureOriginal, announceChange } from './changeOps';
+import { announceChange } from './changeOps';
+import { changeReceipt } from './changePlan';
 import { concertChartFor, chartPieceIds, isPieceChart } from '../../shared/concertRosters';
 import type { CalendarEvent, Ensemble, EventType, EventStatus, SeatingChart } from '../types';
 import { backdropClose } from '../../shared/backdropClose';
@@ -396,11 +397,17 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
           .filter(b => b.instrument && b.url);
       }
       if (form.partBooksSharedUrl !== undefined) data.partBooksSharedUrl = form.partBooksSharedUrl.trim();
+      if (event && repeatDates.length === 0) {
+        // The receipt (#change-receipts): an edit that moves this event's
+        // date, time, room or status snapshots the ORIGINAL once, exactly as
+        // Change a Day does, so its "Back to normal" can put it back. A
+        // content-only edit (title, pieces, notes) leaves none.
+        Object.assign(data, changeReceipt(event, data));
+      }
       if (cancellingNow && event) {
         // Same guarantees as a cancel on Schedule Changes: snapshot for
-        // revert, a change note (drives the public red-banner day), and
-        // optionally the urgent announcement.
-        Object.assign(data, captureOriginal(event));
+        // revert (the receipt above), a change note (drives the public
+        // red-banner day), and optionally the urgent announcement.
         if (!data.changeNote?.trim()) data.changeNote = 'Cancelled';
       }
       if (repeatDates.length > 0) {
