@@ -93,11 +93,22 @@ service firebase.storage {
     // a PDF, or a Word form).
     match /announcements/{allPaths=**} { allow read; allow write: if mayUploadStaffFiles() && withinStaffSize(); }
 
-    // Student video submissions (#video-submissions). World-readable so the
-    // director can stream them in the grade sheet and the cron sync can
-    // download them. Unauthenticated write is allowed only for video files
-    // under the submissions path — the Firestore doc write (which validates
-    // the assignment exists and accepts video) gates access in practice.
+    // Student video submissions (#video-submissions). Unauthenticated write is
+    // allowed only for video files under the submissions path — the Firestore
+    // doc write (which validates the assignment exists and accepts video)
+    // gates access in practice.
+    //
+    // READ is split (Nov 2026): `get` stays open, `list` is staff-only.
+    // Every reader in the app goes through the tokenized download URL stored
+    // on the staff-only assignmentSubmissions doc (grade sheet, director
+    // list, sync-drive-videos.mjs), which these rules never see; the repair
+    // script uses the Admin SDK. The one rules-checked read is the uploading
+    // browser's own getDownloadURL right after the upload, which needs `get`
+    // on the object it just wrote. LIST is what handed out the folder: both
+    // path segments are public ids, so an open list enumerated every video
+    // in it. Object names carry the upload's millisecond timestamp and the
+    // student's own file name, so a single object cannot be guessed without
+    // listing.
     //
     // The size ceiling is the one the DIRECTOR set on that assignment
     // (`maxVideoSizeMB`, shown in the form in MB), read across services from
@@ -116,7 +127,8 @@ service firebase.storage {
     // isStaff() above already relies on), so there's no reason to read the
     // narrower projection.
     match /submissions/{assignmentId}/{studentId}/{allPaths=**} {
-      allow read;
+      allow get;
+      allow list: if isStaff();
       allow create: if firestore.exists(/databases/(default)/documents/assignments/$(assignmentId))
         && firestore.exists(/databases/(default)/documents/students/$(studentId))
         && request.resource.size < firestore.get(
