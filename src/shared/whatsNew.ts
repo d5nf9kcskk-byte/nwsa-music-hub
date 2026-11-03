@@ -40,7 +40,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     audience: 'staff' as const,
     bullets: [
       'My Lessons → open a student → Attach on any lesson line. Add a PDF, a picture or an audio clip, up to three per lesson. Only you and the directors can open them.',
-      'When you email that lesson to the family, each file goes with it as a link that works for 30 days.',
+      'When you email that lesson to the family, each file can go with it as a 30-day link. Until that’s switched on, the email asks the family to get the file from you.',
       'My Lessons now opens with a line for the week: how many lessons you have and how many still need a grade or initials.',
     ],
     expires: '2026-11-24',
