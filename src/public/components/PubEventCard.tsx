@@ -183,7 +183,7 @@ export function PubEventCard({
             rendered in exactly one place: the .ics DESCRIPTION. So a class's
             schedule read as bare dates on the site while a calendar
             subscription carried the unit. */}
-        {e.unitInfo && <div className="pub-event-rep">Unit: <Linkify text={e.unitInfo} /></div>}
+        {e.unitInfo && <div className="pub-event-rep">{t('event.unit')} <Linkify text={e.unitInfo} /></div>}
 
         {showNotes && e.notes && (
           <div className="pub-event-notes-inline">

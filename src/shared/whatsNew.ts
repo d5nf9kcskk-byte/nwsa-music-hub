@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Hub 2.0 follow-up: Spanish leftovers on the four tabs.
+  {
+    id: '2026-11-03-more-spanish',
+    date: '2026-11-03',
+    title: 'More of the Hub in Spanish',
+    audience: 'public' as const,
+    bullets: [
+      'In Español, the name search on My Schedule, the search box, and the planned absence form are now in Spanish too.',
+      'En español, la búsqueda de nombres en Mi horario, el buscador y el formulario de ausencia planificada ya están en español también.',
+    ],
+    expires: '2026-11-17',
+  },
   // Send to my other phone (Hub 2.0, Phase 1, item 9).
   {
     id: '2026-11-03-send-to-other-phone',

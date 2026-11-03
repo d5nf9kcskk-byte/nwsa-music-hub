@@ -279,7 +279,7 @@ export function PublicHome() {
 
       {orderedCollege.length > 0 && (
         <>
-          <h2 className="pub-section-title">College Ensembles</h2>
+          <h2 className="pub-section-title">{t('nav.collegeEnsembles')}</h2>
           <div className="pub-ens-btn-grid">
             {orderedCollege.map(en => (
               <Link key={en.id} to={`/ensemble/${en.id}`} className="pub-ens-btn" style={{ borderLeftColor: ensembleColor(en) }}>
