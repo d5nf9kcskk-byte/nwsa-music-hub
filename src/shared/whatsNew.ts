@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Send to my other phone (Hub 2.0, Phase 1, item 9).
+  {
+    id: '2026-11-03-send-to-other-phone',
+    date: '2026-11-03',
+    title: 'Put your students on your other phone',
+    audience: 'public' as const,
+    bullets: [
+      'Saved your kids on one phone? Open My Schedule in the menu and tap Send to my other phone. Share or text the link, then open it on the other phone and tap Save. Works for the other parent too.',
+      '¿Guardaste a tus hijos en un teléfono? Abre Mi horario en el menú y toca Enviar a mi otro teléfono. Comparte o manda el enlace por mensaje, ábrelo en el otro teléfono y toca Guardar. También sirve para el otro padre o madre.',
+    ],
+    expires: '2026-11-17',
+  },
   // Next due on the student's own page (Hub 2.0, Phase 1, item 8).
   {
     id: '2026-11-03-next-due',

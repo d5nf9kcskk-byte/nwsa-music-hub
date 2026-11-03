@@ -14,6 +14,7 @@ import { PublicCalendar } from './public/PublicCalendar';
 import { PublicEnsembles } from './public/PublicEnsembles';
 import { PublicEnsemble } from './public/PublicEnsemble';
 import { PublicLookup } from './public/PublicLookup';
+import { PublicAddStudents } from './public/PublicAddStudents';
 import { PublicSchedule } from './public/PublicSchedule';
 import { PublicPiece } from './public/PublicPiece';
 import { PublicSeating } from './public/PublicSeating';
@@ -84,6 +85,8 @@ const router = createBrowserRouter(
         { path: 'ensemble/:id', element: <PublicEnsemble /> },
         { path: 'repertoire', element: <PublicRepertoire /> },
         { path: 'lookup', element: <PublicLookup /> },
+        // "Send to my other phone" (Hub 2.0 item 9). A published link: never rename.
+        { path: 'add-students', element: <PublicAddStudents /> },
         { path: 'student/:id', element: <PublicSchedule /> },
         { path: 'piece/:id', element: <PublicPiece /> },
         { path: 'seating/:id', element: <PublicSeating /> },

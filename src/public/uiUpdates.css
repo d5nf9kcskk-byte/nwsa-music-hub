@@ -543,6 +543,53 @@ button.pub-back { border: none; background: none; padding: 0; cursor: pointer; f
   font-size: 13px; font-weight: 700; color: var(--pub-muted); text-decoration: underline;
 }
 
+/* Send to my other phone (Hub 2.0 item 9) */
+.pub-xfer-open {
+  display: inline-flex; align-items: center; gap: 7px; margin-top: 8px;
+  padding: 9px 12px; min-height: 40px; border: 1.5px solid var(--pub-border); border-radius: 10px;
+  background: var(--pub-surface); color: var(--pub-ink); font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.pub-xfer-open svg, .pub-xfer-title svg, .pub-xfer-receive-q svg { color: var(--pub-purple); flex-shrink: 0; }
+.pub-xfer-panel {
+  margin-top: 10px; padding: 12px; border: 1.5px solid var(--pub-border); border-radius: 12px;
+  background: var(--pub-surface);
+}
+.pub-xfer-title { display: flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 800; color: var(--pub-ink); }
+.pub-xfer-help { margin: 6px 0 10px; font-size: 13px; line-height: 1.5; color: var(--pub-muted); }
+.pub-xfer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pub-xfer-btn {
+  flex: 1 1 120px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 42px; padding: 9px 12px; border: 1.5px solid var(--pub-border); border-radius: 10px;
+  background: var(--pub-surface); color: var(--pub-ink); font-size: 14px; font-weight: 700;
+  text-decoration: none; cursor: pointer;
+}
+.pub-xfer-btn.primary { background: var(--pub-purple); border-color: var(--pub-purple); color: #fff; }
+.pub-xfer-link {
+  display: block; width: 100%; box-sizing: border-box; margin-top: 10px; padding: 9px 10px;
+  border: 1.5px solid var(--pub-border); border-radius: 8px; background: var(--pub-bg, var(--pub-surface));
+  color: var(--pub-ink); font-size: 13px; font-family: inherit;
+}
+.pub-xfer-close {
+  display: block; margin: 8px 0 0 auto; padding: 6px 4px; border: 0; background: none; cursor: pointer;
+  font-size: 13px; font-weight: 700; color: var(--pub-muted); text-decoration: underline;
+}
+.pub-xfer-receive { padding: 16px; }
+.pub-xfer-receive-q { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 800; color: var(--pub-ink); }
+.pub-xfer-receive-lead { margin: 0; font-size: 15px; line-height: 1.5; color: var(--pub-ink); }
+.pub-xfer-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.pub-xfer-item {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 10px 8px;
+  border-top: 1px solid var(--pub-border); font-weight: 700; font-size: 15px; color: var(--pub-ink);
+}
+.pub-xfer-item:first-child { border-top: 0; }
+.pub-xfer-item svg { color: var(--pub-purple); flex-shrink: 0; }
+.pub-xfer-already {
+  margin-left: auto; padding: 2px 8px; border-radius: 10px; background: var(--pub-accent-soft);
+  font-size: 12px; font-weight: 700; color: var(--pub-muted);
+}
+.pub-xfer-note { margin: 8px 0 0; font-size: 13px; }
+.pub-xfer-linkbtn { text-align: center; text-decoration: none; display: block; }
+
 /* A–Z rail (#3) */
 .pub-az-rail { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 4px; }
 .pub-az-btn {

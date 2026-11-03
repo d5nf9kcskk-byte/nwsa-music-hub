@@ -5,6 +5,8 @@
  * and offers a "Not you?" switch. Parents can save several students.
  */
 
+import { mergeStudents } from './deviceTransfer';
+
 export interface SavedStudent {
   id: string;
   name: string;
@@ -51,6 +53,18 @@ export function rememberStudent(s: SavedStudent, asParent = false) {
     ? [...st.students.filter(x => x.id !== s.id), s]
     : [s];
   write({ students, parentMode: keepList });
+}
+
+/**
+ * Add students sent from another device ("Send to my other phone"). Only
+ * ever APPENDS: a student already saved here keeps their place and data,
+ * and nobody is removed. More than one student turns parent mode on, so a
+ * later lookup on this phone appends instead of replacing the list.
+ */
+export function addStudents(incoming: SavedStudent[]) {
+  const st = read();
+  const students = mergeStudents(st.students, incoming);
+  write({ students, parentMode: st.parentMode || students.length > 1 });
 }
 
 export function forgetStudent(id: string) {
