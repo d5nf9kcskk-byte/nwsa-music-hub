@@ -23,7 +23,10 @@ import { buildConfirmation } from './signupConfirmation.ts';
 import { buildAbsenceReceipt } from './plannedAbsenceConfirmation.ts';
 import { buildAbsenceDecision, buildCopyDecline } from './requestDecision.ts';
 import type { CopyRequest } from '../../src/shared/copyRequest.ts';
-import { buildLessonLogMail, isDocId, queueRequestOk } from './lessonLogMail.ts';
+import {
+  attachmentsToSign, buildLessonLogMail, isDocId, queueRequestOk, signedUrlOptions,
+  type AttachmentLink,
+} from './lessonLogMail.ts';
 import { buildGradeMail, queueRequestOk as gradeRequestOk } from './gradeMail.ts';
 import {
   DELETE, WRITEBACK_TARGETS, isDocId as isMailDocId, mailVerdict, writebackFields,
@@ -603,10 +606,36 @@ export const lessonLogMailSend = firestore
         db.doc(`contacts/${lesson.studentId}`).get(),
       ]);
 
+      // Files on the lesson (#lesson-attachments): one EXPIRING signed link
+      // each, made here with the Admin SDK at the moment of the press. Never a
+      // permanent download token. If signing fails (the runtime service
+      // account lacks Token Creator on itself) the file is left out and the
+      // email says one could not be linked; nothing falls back to a permanent
+      // link. The URL is never logged: it is a bearer link until it expires.
+      const links: AttachmentLink[] = [];
+      let unlinked = 0;
+      const files = attachmentsToSign(lesson);
+      if (files.length) {
+        const bucket = PHOTO_BUCKET ? getStorage().bucket(PHOTO_BUCKET) : getStorage().bucket();
+        const opts = signedUrlOptions(Date.now());
+        for (const f of files) {
+          try {
+            const [url] = await bucket.file(f.path).getSignedUrl(opts);
+            links.push({ name: f.name, url });
+          } catch (err) {
+            unlinked += 1;
+            console.error('lessonLogMailSend: could not sign an attachment link',
+              (err as { code?: unknown })?.code ?? (err as Error)?.message ?? 'unknown');
+          }
+        }
+      }
+
       const mail = buildLessonLogMail(
         lesson,
         studentSnap.exists ? ({ id: studentSnap.id, ...studentSnap.data() } as Student) : undefined,
         contactSnap.exists ? ({ id: contactSnap.id, ...contactSnap.data() } as StudentContact) : null,
+        links,
+        unlinked,
       );
       // No address on file, or a line that is not actually complete. Nothing
       // to send, and not an error.

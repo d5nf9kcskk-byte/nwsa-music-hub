@@ -997,6 +997,31 @@ service cloud.firestore {
     // collection: a lesson is already scoped to exactly one applied teacher,
     // so the grade inherits that scoping and there is no second
     // query/rule pair to keep in agreement.
+    // Files on a lesson (#lesson-attachments). There is no key allowlist on
+    // `lessons` (it is staff-only and has no public half), so this is the
+    // one shape check: at most three entries, each naming exactly the four
+    // fields, and each PATH inside this lesson's own Storage folder. The path
+    // is what the family-email function signs a link to, so a teacher must
+    // not be able to point it at somebody else's file. Checked slot by slot
+    // because rules cannot loop; LESSON_ATTACHMENT_MAX_FILES says 3 too.
+    function lessonAttachmentOk(lessonId, a) {
+      return a is map
+        && a.keys().hasOnly(['name', 'path', 'contentType', 'size'])
+        && a.keys().hasAll(['name', 'path', 'contentType', 'size'])
+        && a.name is string && a.name.size() <= 200
+        && a.contentType is string && a.contentType.size() <= 100
+        && a['size'] is int
+        && a.path is string && a.path.size() <= 400
+        && a.path.matches('lessonAttachments/' + lessonId + '/[^/]+');
+    }
+    function lessonAttachmentsOk(lessonId, d) {
+      let list = d.get('attachments', []);
+      return list is list && list.size() <= 3
+        && (list.size() < 1 || lessonAttachmentOk(lessonId, list[0]))
+        && (list.size() < 2 || lessonAttachmentOk(lessonId, list[1]))
+        && (list.size() < 3 || lessonAttachmentOk(lessonId, list[2]));
+    }
+
     match /lessons/{doc} {
       // Not plain signedIn(): a Student Assistant is attendance-scoped and
       // has no business reading who takes private lessons with whom.
@@ -1009,16 +1034,18 @@ service cloud.firestore {
       // for coordination.
       allow read: if isStaff()
         || (isTeacherRole() && resource.data.teacherEmail == request.auth.token.email);
-      allow create: if isStaff() || (isTeacherRole() && request.resource.data.teacherEmail == request.auth.token.email);
+      allow create: if (isStaff() || (isTeacherRole() && request.resource.data.teacherEmail == request.auth.token.email))
+        && lessonAttachmentsOk(doc, request.resource.data);
       allow delete: if isStaff() || (isTeacherRole() && resource.data.teacherEmail == request.auth.token.email);
       // Update checks BOTH the old and the new teacherEmail: owning the doc
       // gets you the edit, but the edit may not hand the doc (and the grade on
       // it) to a different teacher, or to an address that is nobody's. Only
       // checking `resource` let a teacher reassign their own lesson away.
-      allow update: if isStaff()
+      allow update: if (isStaff()
         || (isTeacherRole()
             && resource.data.teacherEmail == request.auth.token.email
-            && request.resource.data.teacherEmail == resource.data.teacherEmail);
+            && request.resource.data.teacherEmail == resource.data.teacherEmail))
+        && lessonAttachmentsOk(doc, request.resource.data);
     }
 
     // Public projection of the lesson SCHEDULE (#applied, #privacy) — when and

@@ -37,3 +37,22 @@ export async function deleteStoredFile(url: string | undefined): Promise<void> {
 export async function deleteStoredFiles(urls: (string | undefined)[]): Promise<void> {
   await Promise.all(urls.map(deleteStoredFile));
 }
+
+/**
+ * Delete staff-only objects by their Storage PATH (#lesson-attachments).
+ * Those files never get a download URL, so the URL helpers above cannot name
+ * them. Only paths under `lessonAttachments/` are accepted: this is a cleanup
+ * helper, not a general delete.
+ */
+export async function deleteStoredPaths(paths: (string | undefined)[]): Promise<void> {
+  const st = storage;
+  if (!st) return;
+  await Promise.all(paths.map(async p => {
+    if (!p || !p.startsWith('lessonAttachments/')) return;
+    try {
+      await deleteObject(storageRef(st, p));
+    } catch {
+      // Already gone, or the rules refused. Same stance as deleteStoredFile.
+    }
+  }));
+}
