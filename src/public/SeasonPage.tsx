@@ -47,7 +47,7 @@ export function SeasonPage() {
   const past = filtered.filter(c => c.date < today);
 
   return (
-    <div className="pub-page pub-season" ref={pageRef}>
+    <div className="pub-page pub-season pub-hall" ref={pageRef}>
       <PageHeader
         title={t('nav.concerts')}
         action={

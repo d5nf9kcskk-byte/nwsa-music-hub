@@ -144,6 +144,23 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
   // Spotlight (concert night): its ink and gold read on its stage.
   assert.ok(contrast(h.spotlight.ink, h.spotlight.bg) >= AA, at('spotlight ink'));
   assert.ok(contrast(h.spotlight.gold, h.spotlight.bg) >= AA, at('spotlight gold'));
+  // A gold Spotlight button carries the stage's own dark as its text.
+  assert.ok(contrast(h.spotlight.bg, h.spotlight.gold) >= AA, at('stage ink on a gold button'));
+  // The public page looks (src/public/hub2Public.css). White on a teal fill,
+  // plum text on a selected tab, ink on a sun "owed" chip: in BOTH themes.
+  // The dark accent is a light teal for text, so white on it fails; the fill
+  // token is what makes "Add to my calendar" pass in dark.
+  for (const mode of ['light', 'dark'] as const) {
+    const t = h[mode];
+    const fill = t.accentFill ?? h.light.accentFill;
+    assert.ok(fill, at(`${mode} has no accentFill`));
+    assert.ok(contrast(LIGHT_INK, fill) >= AA, at(`(${mode}) white on the accent fill ${fill}: ${contrast(LIGHT_INK, fill).toFixed(2)}`));
+    const plumText = t.plumText ?? h.light.plumText ?? h.light.plum!;
+    assert.ok(contrast(plumText, t.surface) >= AA, at(`(${mode}) plum text ${plumText} on a card: ${contrast(plumText, t.surface).toFixed(2)}`));
+    assert.ok(contrast(LIGHT_INK, t.plum ?? h.light.plum!) >= AA, at(`(${mode}) white on a plum selected state`));
+    const sun = t.sun ?? h.light.sun!, sunInk = t.sunInk ?? h.light.sunInk!;
+    assert.ok(contrast(sunInk, sun) >= AA, at(`(${mode}) ink on a sun chip`));
+  }
   hub2Checked++;
 }
 assert.ok(hub2Checked > 0, 'no org has a Hub 2.0 look — its readability was not checked');

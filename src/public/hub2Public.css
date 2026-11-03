@@ -1,0 +1,263 @@
+/* ═══════════════════════════════════════════════════════════════
+   Hub 2.0 look on the PUBLIC site (#hub2-look). src/shared/hub2.css maps the
+   tokens; this file is what the tokens cannot say: type, surfaces, selected
+   states, the two page looks (Concert Hall, Spotlight) and motion.
+
+   Three rules hold for every line below, and hub2.selfcheck.ts pins them:
+   - Every selector starts with :root[data-hub2="on"], so with the preview
+     off nothing here matches and the site is pixel-identical to main.
+   - Everything sits inside @media screen. Paper (the program, the season
+     fridge copy, the Start Guide, the QR kit) prints exactly as it does
+     without the preview; base.css's print ink stays the only print rule.
+   - No color literal. Colors come from the --hub2-* tokens (org config) or
+     the existing --pub-* ones; `white` is the existing white-on-fill text.
+
+   Specificity: a rule here is at least (0,3,0), above the stock dark theme
+   (0,2,0). None of it touches what a student's tint (#look) or a season
+   (#seasons) paints — the header, the menu and the page background — so
+   those keep painting on top.
+
+   Page looks are opt-in by class, each with no stock CSS behind it:
+   .pub-hall (Concert Hall: event, program and Concerts pages) and the
+   check-in pages (.pub-checkin, .pub-checkins) for Spotlight. .pub-drill
+   marks a drill-down page that slides in.
+═══════════════════════════════════════════════════════════════ */
+
+@media screen {
+
+  /* ── Studio Bright: type ── */
+  :root[data-hub2="on"] .pub-app { font-family: var(--hub2-font-body); }
+  :root[data-hub2="on"] .pub-h1 { font-weight: 800; letter-spacing: -0.02em; }
+
+  /* Big, bold times and numbers. */
+  :root[data-hub2="on"] .pub-ev2-start,
+  :root[data-hub2="on"] .pub-daysheet-time {
+    font-size: 24px; font-weight: 800; letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  :root[data-hub2="on"] .pub-season-day,
+  :root[data-hub2="on"] .pub-tally-n,
+  :root[data-hub2="on"] .pub-checkin-big {
+    font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
+  }
+
+  /* BackLink is a <button>; the stock rule never cleared the browser's own
+     grey button box, which reads as a stray rectangle on the new surfaces. */
+  :root[data-hub2="on"] .pub-back-link {
+    background: none; border: 0; padding: 4px 0;
+    font-family: inherit; cursor: pointer;
+  }
+
+  /* ── Studio Bright: surfaces. Cards are 18px (the token), rows 12px. ── */
+  :root[data-hub2="on"] .pub-signup-row,
+  :root[data-hub2="on"] .pub-checkin-row,
+  :root[data-hub2="on"] .pub-signup-alert {
+    border-radius: var(--hub2-radius-row);
+    box-shadow: var(--pub-shadow-1);
+  }
+
+  /* ── Studio Bright: selected states are plum ── */
+  :root[data-hub2="on"] .pub-chip.active,
+  :root[data-hub2="on"] .pub-cal-cell.selected .pub-cal-day,
+  :root[data-hub2="on"] .pub-signup-yesno-btn.active,
+  :root[data-hub2="on"] .pub-signup-slot.active,
+  :root[data-hub2="on"] .pub-fm-opt.checked .pub-fm-box,
+  :root[data-hub2="on"] .pub-sg-tab.active,
+  :root[data-hub2="on"] .pub-pdf-tool.active {
+    background-color: var(--hub2-plum); border-color: var(--hub2-plum); color: white;
+  }
+  :root[data-hub2="on"] .pub-fm-btn.active {
+    border-color: var(--hub2-plum);
+    background-color: color-mix(in srgb, var(--hub2-plum) 10%, var(--pub-surface));
+  }
+  /* Plum as TEXT needs its own dark-mode shade: the fill plum is ~2:1 on a
+     dark surface. */
+  :root[data-hub2="on"] .pub-tabbar-btn.active,
+  :root[data-hub2="on"] .pub-nav-btn.active { color: var(--hub2-plum-text, var(--hub2-plum)); }
+
+  /* ── Studio Bright: what is owed wears sun ── */
+  :root[data-hub2="on"] .pub-signup-alert > svg:first-child {
+    box-sizing: content-box; padding: 6px; border-radius: 999px;
+    background: var(--hub2-sun); color: var(--hub2-ink-on-sun);
+  }
+  :root[data-hub2="on"] .pub-signup-alert.urgent > svg:first-child { color: var(--hub2-ink-on-sun); }
+  :root[data-hub2="on"] .pub-signup-row.highlight { border-color: var(--pub-border); border-left: 4px solid var(--hub2-sun); }
+  :root[data-hub2="on"] .pub-signup-due.urgent,
+  :root[data-hub2="on"] .pub-signup-row-meta .urgent {
+    padding: 1px 8px; border-radius: 999px;
+    background: var(--hub2-sun); color: var(--hub2-ink-on-sun);
+  }
+
+  /* ── White text on a teal fill passes AA in dark mode too ──
+     The dark accent (light teal, for teal TEXT on a dark page) is ~2.7:1
+     under white, so every white-on-accent fill takes the deeper fill teal.
+     hub2.selfcheck.ts scans the public CSS and fails on a fill missing here.
+     The check-in page's own fills are not listed: Spotlight draws them gold. */
+  :root[data-hub2="on"][data-pub-theme='dark'] :is(
+    .pub-atc-primary .pub-atc-btn,
+    .pub-absence-branch .pub-btn,
+    .pub-campus-mi,
+    .pub-checkin-callout .pub-btn,
+    .pub-checkin-strip,
+    .pub-tally-ask .pub-btn,
+    .pub-nownext-tag,
+    .pub-pdf-btn.primary,
+    .pub-subw-step-num,
+    .pub-subw-action,
+    .pub-welcome-done,
+    .pub-subscribe-action,
+    .pub-print-btn,
+    .pub-push-btn,
+    .pub-contact-send,
+    .pub-quiz-send,
+    .pub-signup-step-num,
+    .pub-signup-send,
+    .pub-today-badge,
+    .pub-seat-current
+  ) {
+    background-color: var(--hub2-accent-fill);
+  }
+  :root[data-hub2="on"][data-pub-theme='dark'] :is(.pub-pdf-btn.primary, .pub-push-btn) {
+    border-color: var(--hub2-accent-fill);
+  }
+
+  /* ═══ Concert Hall: event, program and Concerts pages ═══ */
+  :root[data-hub2="on"] .pub-hall .pub-h1,
+  :root[data-hub2="on"] .pub-hall .pub-season-title,
+  :root[data-hub2="on"] .pub-hall .pub-program-title,
+  :root[data-hub2="on"] .pub-hall .pub-program-page-title,
+  :root[data-hub2="on"] .pub-hall .pub-daysheet-head {
+    font-family: var(--hub2-font-title);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  :root[data-hub2="on"] .pub-hall .pub-h1 { font-size: 30px; line-height: 1.15; }
+  :root[data-hub2="on"] .pub-hall .pub-season-title { font-size: 17px; }
+  :root[data-hub2="on"] .pub-hall .pub-daysheet-head { font-size: 19px; }
+  /* A thin gold hairline under every section label. */
+  :root[data-hub2="on"] .pub-hall .pub-section-title::after,
+  :root[data-hub2="on"] .pub-hall .pub-hero-kicker::after,
+  :root[data-hub2="on"] .pub-hall .pub-season-month-title::after {
+    content: ''; display: block;
+    width: 36px; height: 1px; margin-top: 6px;
+    background: var(--hub2-hall-gold);
+  }
+
+  /* ═══ Spotlight: concert night ═══
+     The stage re-points the --pub-* tokens for everything inside it, so the
+     page's own rules draw it with no second copy of each one. */
+  :root[data-hub2="on"] .pub-checkin,
+  :root[data-hub2="on"] .pub-checkins,
+  :root[data-hub2="on"] .pub-app .concert-day-banner-item {
+    --pub-bg: var(--hub2-spot-bg);
+    --pub-surface: var(--hub2-spot-surface);
+    --pub-card: var(--hub2-spot-surface);
+    --pub-card-alt: var(--hub2-spot-surface);
+    --pub-ink: var(--hub2-spot-ink);
+    --pub-text: var(--hub2-spot-ink);
+    --pub-muted: color-mix(in srgb, var(--hub2-spot-ink) 74%, var(--hub2-spot-bg));
+    --pub-border: color-mix(in srgb, var(--hub2-spot-ink) 16%, transparent);
+    --pub-accent: var(--hub2-spot-gold);
+    --pub-accent-soft: color-mix(in srgb, var(--hub2-spot-gold) 16%, transparent);
+    --pub-shadow-1: none;
+    color: var(--hub2-spot-ink);
+    font-family: var(--hub2-font-spot-body);
+    background:
+      radial-gradient(120% 70% at 0% 0%, var(--hub2-spot-teal-glow), transparent 60%),
+      radial-gradient(110% 70% at 100% 100%, var(--hub2-spot-plum-glow), transparent 60%),
+      var(--hub2-spot-bg);
+    border: 1px solid var(--pub-border);
+    box-shadow: 0 18px 50px -24px var(--hub2-spot-plum-glow);
+  }
+  :root[data-hub2="on"] .pub-checkin,
+  :root[data-hub2="on"] .pub-checkins {
+    width: calc(100% - 16px);
+    margin: 8px auto;
+    border-radius: var(--hub2-radius-card);
+  }
+  :root[data-hub2="on"] :is(.pub-checkin, .pub-checkins) :is(h1, .pub-h1, .pub-checkin-big, .pub-checkin-label),
+  :root[data-hub2="on"] .pub-app .concert-day-banner-item summary {
+    font-family: var(--hub2-font-spot-display);
+  }
+  :root[data-hub2="on"] :is(.pub-checkin, .pub-checkins) :is(h1, .pub-h1) { letter-spacing: -0.02em; }
+  /* Gold primary buttons, dark ink on them. */
+  :root[data-hub2="on"] :is(.pub-checkin, .pub-checkins) .pub-btn,
+  :root[data-hub2="on"] :is(.pub-checkin, .pub-checkins) .pub-checkin-steps li.on,
+  :root[data-hub2="on"] .pub-app .concert-day-banner-checkin {
+    background: var(--hub2-spot-gold); color: var(--hub2-spot-bg);
+    box-shadow: 0 6px 22px -8px var(--hub2-spot-gold);
+  }
+  :root[data-hub2="on"] :is(.pub-checkin, .pub-checkins) .pub-checkin-steps li.ok {
+    background: color-mix(in srgb, var(--hub2-spot-teal-glow) 60%, transparent);
+    color: var(--hub2-spot-ink);
+  }
+  /* Glass cards. */
+  :root[data-hub2="on"] :is(.pub-checkin, .pub-checkins) :is(.pub-card, .pub-checkin-row, .pub-checkin-next) {
+    background: var(--hub2-spot-surface);
+    border: 1px solid var(--pub-border);
+    box-shadow: none;
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  }
+  :root[data-hub2="on"] .pub-checkin .pub-input {
+    background: color-mix(in srgb, var(--hub2-spot-ink) 8%, transparent);
+    color: var(--hub2-spot-ink);
+  }
+  :root[data-hub2="on"] .pub-checkin .pub-input::placeholder { color: var(--pub-muted); }
+  /* The page's light pastel pills, redrawn for the stage. */
+  :root[data-hub2="on"] .pub-checkin .pub-attend-badge {
+    background: color-mix(in srgb, var(--hub2-spot-plum-glow) 70%, transparent);
+    color: var(--hub2-spot-ink);
+  }
+  :root[data-hub2="on"] .pub-checkin .pub-checkin-kind.out {
+    background: var(--pub-accent-soft); color: var(--hub2-spot-gold);
+  }
+  :root[data-hub2="on"] .pub-checkin .pub-checkin-tick {
+    background: color-mix(in srgb, var(--hub2-spot-teal-glow) 70%, transparent);
+    color: var(--hub2-spot-ink);
+  }
+  /* The Tonight banner: one dark card above every page, concert day only. */
+  :root[data-hub2="on"] .pub-app .concert-day-banner-item {
+    border-left: 3px solid var(--hub2-spot-gold);
+    border-radius: var(--hub2-radius-row);
+    padding: 10px 14px;
+  }
+  :root[data-hub2="on"] .pub-app .concert-day-banner-item summary { color: var(--hub2-spot-ink); font-weight: 600; }
+  :root[data-hub2="on"] .pub-app .concert-day-banner-detail { color: var(--pub-muted); }
+
+  /* ═══ Motion ═══
+     Fill mode `backwards` on purpose: a page that kept a transform after its
+     slide would become the containing block of its own fixed action bar. */
+  @keyframes hub2-slide-in {
+    from { opacity: 0; transform: translateX(28px); }
+  }
+  @keyframes hub2-rise-in {
+    from { opacity: 0; transform: translateY(6px); }
+  }
+  :root[data-hub2="on"] :is(.pub-drill, .pub-checkin) {
+    animation: hub2-slide-in var(--hub2-slide-ms) var(--hub2-ease) backwards;
+  }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2) {
+    animation: hub2-rise-in var(--hub2-slide-ms) var(--hub2-ease) backwards;
+  }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(2) { animation-delay: calc(var(--hub2-stagger-ms) * 1); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(3) { animation-delay: calc(var(--hub2-stagger-ms) * 2); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(4) { animation-delay: calc(var(--hub2-stagger-ms) * 3); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(5) { animation-delay: calc(var(--hub2-stagger-ms) * 4); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(6) { animation-delay: calc(var(--hub2-stagger-ms) * 5); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(7) { animation-delay: calc(var(--hub2-stagger-ms) * 6); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(n+8) { animation-delay: calc(var(--hub2-stagger-ms) * 7); }
+
+  /* A press dips to 97%. */
+  :root[data-hub2="on"] .pub-app :is(button, .pub-signup-row, .pub-checkin-row.open, .pub-event.tappable, .pub-tabbar-btn, .pub-cta-btn, .pub-quick-btn) {
+    transition: transform 120ms var(--hub2-ease), background-color .12s ease, border-color .12s ease, color .12s ease;
+  }
+  :root[data-hub2="on"] .pub-app :is(button, .pub-signup-row, .pub-checkin-row.open, .pub-event.tappable, .pub-tabbar-btn, .pub-cta-btn, .pub-quick-btn):active:not(:disabled) {
+    transform: scale(var(--hub2-press-scale));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-hub2="on"] :is(.pub-drill, .pub-checkin, .pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2) { animation: none; }
+    :root[data-hub2="on"] .pub-app :is(button, .pub-signup-row, .pub-checkin-row.open, .pub-event.tappable, .pub-tabbar-btn, .pub-cta-btn, .pub-quick-btn) { transition: none; }
+    :root[data-hub2="on"] .pub-app :is(button, .pub-signup-row, .pub-checkin-row.open, .pub-event.tappable, .pub-tabbar-btn, .pub-cta-btn, .pub-quick-btn):active:not(:disabled) { transform: none; }
+  }
+}

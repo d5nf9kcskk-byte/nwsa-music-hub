@@ -118,7 +118,7 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
     : t('event.infoEvent');
 
   return (
-    <div className="pub-page pub-page-wide">
+    <div className="pub-page pub-page-wide pub-hall pub-drill">
       <BackLink fallback="/calendar" label={t('event.back')} className="pub-back-link" />
 
       <div className="pub-hero">

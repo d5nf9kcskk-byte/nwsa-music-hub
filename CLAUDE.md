@@ -1863,6 +1863,24 @@ any change. Later sessions apply it page by page.
 - `hub2.selfcheck.ts` pins the switch, the scoping and the fonts; the
   palette's AA readability (both themes, under every tint and season) rides
   in `look.selfcheck.ts` and `seasons.selfcheck.ts`.
+- **Themed so far: the public site** (`src/public/hub2Public.css`, Nov
+  2026). Studio Bright everywhere (Plus Jakarta, big tabular times, 12px
+  rows, plum selected states, sun "owed" chips); Concert Hall's Newsreader
+  titles and gold hairlines on pages carrying `.pub-hall` (event, program,
+  Concerts); Spotlight on the check-in pages (`.pub-checkin`,
+  `.pub-checkins`) and the public Tonight banner, by re-pointing the
+  `--pub-*` tokens inside the stage; slide-in on `.pub-drill` pages, a 30ms
+  list stagger and a 97% press, all off under reduced motion. Those page
+  classes have NO stock CSS (the self-check fails if one gains any), which is
+  what lets a component carry them with the preview off.
+- **Both hub2 files are `@media screen` only.** Paper (program, season fridge
+  copy, Start Guide, QR kit) prints identically with the preview on. Keep
+  every new rule inside that block; the self-check enforces it.
+- **White on a teal fill uses `--hub2-accent-fill` in dark.** The dark accent
+  is a light teal for TEXT and fails AA under white ("Add to my calendar"
+  was 2.7:1). The self-check scans every public CSS rule that puts white on
+  `--pub-accent` and fails until it is in the dark fill list (or is a plum
+  selected state, or on the Spotlight check-in page).
 
 ## Clear cards, and a page per concert (Oct 2026, #clear-cards)
 

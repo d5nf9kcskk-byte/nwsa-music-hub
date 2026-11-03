@@ -136,11 +136,13 @@
   "hub2": {
     "light": {
       "bg": "#F4F6F8", "surface": "#FFFFFF", "ink": "#18212F", "muted": "#66717F",
-      "line": "#E2E6EB", "accent": "#0D7E8E", "plum": "#7B3578", "sun": "#F5C84C"
+      "line": "#E2E6EB", "accent": "#0D7E8E", "plum": "#7B3578", "sun": "#F5C84C",
+      "accentFill": "#0D7E8E", "plumText": "#7B3578", "sunInk": "#18212F"
     },
     "dark": {
       "bg": "#10151B", "surface": "#1A212A", "ink": "#E7ECF2", "muted": "#97A3B2",
-      "line": "#2B3440", "accent": "#3AA8B8"
+      "line": "#2B3440", "accent": "#3AA8B8",
+      "accentFill": "#0D7E8E", "plumText": "#D7A2D3"
     },
     "radius": { "card": "18px", "row": "12px" },
     "shadow": "0 1px 2px rgba(16,24,40,.06), 0 4px 12px rgba(16,24,40,.06)",

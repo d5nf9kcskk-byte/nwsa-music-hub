@@ -55,6 +55,83 @@ for (const sel of [HUB2_SCOPE.pub, HUB2_SCOPE.pubDark, HUB2_SCOPE.dir, HUB2_SCOP
 }
 assert.ok(read('../main.tsx').includes("import './shared/hub2.css';"), 'main.tsx must import hub2.css');
 
+// 3b. The public page looks (src/public/hub2Public.css) keep the same two
+//     promises, and both files stop at the screen: paper prints the same
+//     with the preview on (the program, the season fridge copy, the Start
+//     Guide, the QR kit), so nothing here may reach @media print.
+const screenOnly = (name: string, src: string) => {
+  const body = src.trim();
+  assert.ok(body.startsWith('@media screen {') && body.endsWith('}'), `${name}: every rule must sit inside one @media screen block`);
+  let depth = 0;
+  for (let i = 0; i < body.length; i++) {
+    if (body[i] === '{') depth++;
+    if (body[i] === '}' && --depth === 0) assert.equal(i, body.length - 1, `${name}: a rule sits outside @media screen`);
+  }
+};
+screenOnly('hub2.css', css);
+const pubCss = strip(read('../public/hub2Public.css'));
+screenOnly('hub2Public.css', pubCss);
+assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(pubCss), 'hub2Public.css must take every color from the tokens');
+const pubRules = pubCss.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+const pubSelectors = [...pubRules.matchAll(/([^{}]+)\{/g)].map(m => m[1].trim()).filter(s => !s.startsWith('@'));
+assert.ok(pubSelectors.length >= 20);
+// Split on top-level commas only: :is(a, b) is one selector.
+const topLevel = (group: string) => {
+  const out: string[] = []; let depth = 0, cur = '';
+  for (const ch of group) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = ''; } else cur += ch;
+  }
+  return [...out, cur.trim()];
+};
+for (const group of pubSelectors) {
+  for (const sel of topLevel(group)) {
+    assert.ok(sel.startsWith(':root[data-hub2="on"]'), `hub2Public.css selector ${sel} is not scoped under the preview`);
+  }
+}
+const mainSrc = read('../main.tsx');
+assert.ok(mainSrc.indexOf("import './public/hub2Public.css';") > mainSrc.indexOf("import './shared/hub2.css';"),
+  'main.tsx must import hub2Public.css after hub2.css');
+// The page-look classes are opt-in: nothing in the stock CSS styles them, so
+// adding one to a component changes nothing with the preview off.
+const allCss: string[] = [];
+const walk = (dir: URL) => {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (e.isDirectory()) walk(new URL(`${e.name}/`, dir));
+    else if (e.name.endsWith('.css')) allCss.push(new URL(e.name, dir).pathname);
+  }
+};
+walk(new URL('../', import.meta.url));
+const stock = allCss.filter(f => !/\/hub2(Public)?\.css$/.test(f));
+for (const f of stock) {
+  const src = strip(readFileSync(f, 'utf8'));
+  for (const cls of ['pub-hall', 'pub-drill', 'pub-checkins']) {
+    assert.ok(!new RegExp(`\\.${cls}(?![\\w-])`).test(src), `${f} styles .${cls}, which is a Hub 2.0-only page class`);
+  }
+}
+// White on the dark accent is ~2.7:1. Every white-on-accent fill in the public
+// CSS must be redrawn under the preview: the dark fill list, a plum selected
+// state, or the check-in page (Spotlight draws its own fills gold).
+const fillBlock = pubRules.match(/\[data-pub-theme='dark'\] :is\(([^)]*)\)\s*\{[^}]*--hub2-accent-fill/);
+assert.ok(fillBlock, 'hub2Public.css has no dark-mode accent fill rule');
+const covered = new Set(fillBlock[1].split(',').map(s => s.trim()));
+const plumBlock = pubRules.match(/([^{}]+)\{[^}]*background-color: var\(--hub2-plum\)/);
+for (const sel of topLevel(plumBlock![1])) covered.add(sel.replace(':root[data-hub2="on"] ', ''));
+const spotlit = (sel: string) => /^\.pub-checkin(\s|-steps\b)/.test(sel);
+let fills = 0;
+for (const f of stock.filter(f => f.includes('/src/public/'))) {
+  const src = strip(readFileSync(f, 'utf8'));
+  for (const m of src.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (!/background(-color)?:\s*var\(--pub-accent[,)]/.test(m[2]) || !/(^|;|\s)color:\s*(#fff\b|#ffffff|white)/i.test(m[2])) continue;
+    for (const sel of topLevel(m[1].trim().replace(/\s+/g, ' '))) {
+      fills++;
+      assert.ok(covered.has(sel) || spotlit(sel), `${f}: ${sel} puts white on --pub-accent, which fails AA in dark under Hub 2.0 — add it to the dark fill list in hub2Public.css`);
+    }
+  }
+}
+assert.ok(fills >= 20, `only ${fills} white-on-accent fills found — the scan is broken`);
+
 // 4. Fonts: latin subsets only, the first family of every configured stack is
 //    one hub2Fonts.ts loads, and the files stay out of the precache.
 const fontImports = [...read('./hub2Fonts.ts').matchAll(/^import '@fontsource\/([a-z-]+)\/([a-z0-9-]+)\.css';$/gm)];
@@ -89,4 +166,4 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
   checked++;
 }
 assert.ok(checked > 0, 'no org has a Hub 2.0 look — nothing was checked');
-console.log(`hub2 self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${fontImports.length} font files)`);
+console.log(`hub2 self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${fontImports.length} font files, ${pubSelectors.length} public rules, ${fills} accent fills covered)`);
