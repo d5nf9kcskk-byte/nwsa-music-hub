@@ -446,6 +446,14 @@ runs:
       run: node scripts/one-nav.selfcheck.mjs
       shell: bash
 
+    # "Send to my other phone" (Hub 2.0 item 9). The link is built from the
+    # page's own origin + base (it is how families carry saved students across
+    # a domain move), and opening it only ever ADDS students to a phone,
+    # never replaces one, because a forwarded link lands on a stranger's phone.
+    - name: Check the send-to-my-other-phone link and merge
+      run: npx tsx src/shared/deviceTransfer.selfcheck.ts
+      shell: bash
+
     # A student's own colors (#look). Every palette color in config/orgs/
     # must keep the header, the menu and the page as readable as the stock
     # theme — a light header color or a dark page tint would ship unreadable

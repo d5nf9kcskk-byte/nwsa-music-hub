@@ -12,6 +12,7 @@ import { PubEnsembleSelect } from './components/PubEnsembleSelect';
 import type { Student } from '../director/types';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 import { backdropClose } from '../shared/backdropClose';
+import { SendToOtherPhone } from './components/SendToOtherPhone';
 
 /** Diacritic-stripped lowercase for forgiving matching (#3): José → jose. */
 function fold(s: string): string {
@@ -132,6 +133,7 @@ export function PublicLookup() {
           >
             {t('lookup.stopRemembering')}
           </button>
+          <SendToOtherPhone students={identity.students} />
         </div>
       )}
 
