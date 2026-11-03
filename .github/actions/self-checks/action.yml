@@ -460,6 +460,13 @@ runs:
       run: node scripts/one-nav.selfcheck.mjs
       shell: bash
 
+    # Student video submissions: public GET only (the upload flow), LIST is
+    # staff-only. A bare `allow read` would let anyone list a folder whose
+    # path is made of public ids.
+    - name: Check the video submissions read rule
+      run: node scripts/storage-rules.selfcheck.mjs
+      shell: bash
+
     # "Send to my other phone" (Hub 2.0 item 9). The link is built from the
     # page's own origin + base (it is how families carry saved students across
     # a domain move), and opening it only ever ADDS students to a phone,
