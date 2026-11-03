@@ -115,6 +115,9 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   // Time slots the student booked on a sign-up (#signups).
   'sched.yourTimes':        { en: 'Your times',              es: 'Tus horarios' },
   'sched.yourAssignments':  { en: 'Your assignments & exams', es: 'Tus tareas y exámenes' },
+  // One line in the top cluster: the soonest assignment due (Hub 2.0 item 8).
+  'sched.nextDue':          { en: 'Next due',                 es: 'Próxima entrega' },
+  'sched.nextDueMore':      { en: '+{n} more',                es: '+{n} más' },
   'sched.yourSchedule':     { en: 'Your schedule',            es: 'Tu horario' },
   'sched.nothingToday':     { en: 'Nothing scheduled for you today.', es: 'No tienes nada programado para hoy.' },
   'misc.subscribe':         { en: 'Subscribe',                es: 'Suscribirse' },

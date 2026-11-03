@@ -13,3 +13,23 @@
 .pub-nownext.now .pub-nownext-tag { background: #10b981; }
 .pub-nownext-body { font-size: 14px; line-height: 1.45; min-width: 0; }
 .pub-nownext-count { color: var(--pub-accent); font-style: normal; font-weight: 800; }
+
+/* Next due (Hub 2.0 item 8): sits right under Now/Next, same shape, in the
+   assignment violet so the two lines read as different things. A surface
+   with a visible edge (#clear-cards). */
+.pub-nextdue {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px; padding: 10px 14px;
+  background: var(--pub-surface); border: 1.5px solid var(--pub-assign);
+  border-radius: var(--pub-radius); box-shadow: var(--pub-shadow-1);
+  text-decoration: none; color: var(--pub-ink);
+}
+.pub-nextdue-tag {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 8px;
+  background: var(--pub-assign); color: #fff;
+  font-size: 11px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.pub-nextdue-body { font-size: 14px; line-height: 1.45; min-width: 0; overflow-wrap: anywhere; }
+.pub-nextdue-more { font-style: normal; font-weight: 700; color: var(--pub-muted); }
+.pub-assign-anchor { scroll-margin-top: 80px; }

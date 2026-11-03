@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Next due on the student's own page (Hub 2.0, Phase 1, item 8).
+  {
+    id: '2026-11-03-next-due',
+    date: '2026-11-03',
+    title: 'See what’s due next, right at the top',
+    audience: 'public' as const,
+    bullets: [
+      'Your schedule page now shows your next assignment and its due date right under Now / Next. Tap it to jump to all your assignments.',
+      'Tu página de horario ahora muestra tu próxima tarea y su fecha de entrega justo debajo de Ahora / Próximo. Tócala para ver todas tus tareas.',
+    ],
+    expires: '2026-11-17',
+  },
   // One inbox for student requests (#requests).
   {
     id: '2026-10-30-requests-inbox',
