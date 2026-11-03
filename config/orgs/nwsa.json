@@ -133,6 +133,29 @@
     { "id": "2026-fall", "name": "Fall 2026", "start": "2026-08-17", "end": "2026-12-19" },
     { "id": "2027-spring", "name": "Spring 2027", "start": "2027-01-06", "end": "2027-06-03" }
   ],
+  "hub2": {
+    "light": {
+      "bg": "#F4F6F8", "surface": "#FFFFFF", "ink": "#18212F", "muted": "#66717F",
+      "line": "#E2E6EB", "accent": "#0D7E8E", "plum": "#7B3578", "sun": "#F5C84C"
+    },
+    "dark": {
+      "bg": "#10151B", "surface": "#1A212A", "ink": "#E7ECF2", "muted": "#97A3B2",
+      "line": "#2B3440", "accent": "#3AA8B8"
+    },
+    "radius": { "card": "18px", "row": "12px" },
+    "shadow": "0 1px 2px rgba(16,24,40,.06), 0 4px 12px rgba(16,24,40,.06)",
+    "concertHall": { "gold": "#C8A52A" },
+    "spotlight": {
+      "bg": "#121018", "surface": "rgba(255,255,255,.06)", "ink": "#F3EEFF", "gold": "#E4C968",
+      "tealGlow": "rgba(58,168,184,.35)", "plumGlow": "rgba(123,53,120,.45)"
+    },
+    "fonts": {
+      "body": "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      "title": "'Newsreader', Georgia, 'Times New Roman', serif",
+      "spotlightDisplay": "'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      "spotlightBody": "'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    }
+  },
   "personalize": {
     "header": [
       { "id": "navy", "color": "#1f3a5f", "label": { "en": "Navy", "es": "Azul marino" } },

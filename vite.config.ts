@@ -96,6 +96,14 @@ function cspPlugin(authDomain: string | undefined, functionsOrigin: string | und
             ...(authDomain ? [`https://${authDomain}`] : []),
             // App Check trades the reCAPTCHA answer for a token here.
             'https://content-firebaseappcheck.googleapis.com',
+            // Web push (#push). getToken() registers the device with FCM in
+            // two calls: an installation id from Firebase Installations, then
+            // the token from the FCM registration API. Refused by the policy,
+            // "Turn on alerts" would just spin — the same silent failure as
+            // every other line in this list.
+            'https://firebaseinstallations.googleapis.com',
+            'https://fcmregistrations.googleapis.com',
+            'https://fcm.googleapis.com',
           ].join(' '),
           // The invisible iframe signInWithPopup uses lives on authDomain;
           // reCAPTCHA runs its scoring in an iframe of its own.
@@ -293,22 +301,41 @@ export default defineConfig(({ mode }) => {
         // precaching them would cost every visitor bytes they never use. Once a
         // second page (the emergency-contacts reader) shared pdf.js, Rollup
         // split it into its own chunk, which it names after the worker file.
+        // The Hub 2.0 preview fonts (#hub2-look, src/shared/hub2Fonts.ts) are
+        // the only woff2 Vite emits into assets/: they serve one owner's
+        // preview, so they are runtime-cached below instead and a visitor
+        // without the preview downloads none of them. (An org's own body
+        // font lives at the dist root, ORG.fonts, and stays precached.)
         globIgnores: [
-          'feeds/**', 'sw-cleanup.js', 'screenshots/**',
+          'feeds/**', 'sw-cleanup.js', 'push-handler.js', 'screenshots/**',
+          // Web push (#push): the FCM SDK and the subscribe code load only when
+          // someone taps "Turn on alerts". Precaching them would make every
+          // visitor download what only the opted-in few use.
+          'assets/fcmLazy-*', 'assets/pushClient-*',
           'assets/PdfSigner-*', 'assets/pdfStamp-*', 'assets/emergencyContacts-*', 'assets/pdf.worker.min-*',
+          'assets/*.woff2',
         ],
         // Legacy-cache migration runs inside the SW's own activate (see
         // public/sw-cleanup.js) — never from the page, where it would race
         // the still-controlling old SW's offline fallback.
-        importScripts: ['sw-cleanup.js'],
+        // push-handler.js is the web-push display + tap handler (#push): a
+        // static file, so the generated sw.js stays deterministic.
+        importScripts: ['sw-cleanup.js', 'push-handler.js'],
         navigateFallback: `${BASE}index.html`,
         // Never serve the SPA shell for feeds or for anything with a file
         // extension (real files should 404 honestly, not render the app).
         navigateFallbackDenylist: [/\/feeds\//, /\/[^/?]+\.[a-z0-9]+(\?|$)/i],
         cleanupOutdatedCaches: true,
-        // Deliberately NO runtimeCaching: Firestore/Auth/Storage are
-        // cross-origin and must keep bypassing the SW (the Firestore SDK has
-        // its own IndexedDB offline cache; see src/director/firebase.ts).
+        // Firestore/Auth/Storage are cross-origin and must keep bypassing the
+        // SW (the Firestore SDK has its own IndexedDB offline cache; see
+        // src/director/firebase.ts). The ONE runtime cache is same-origin:
+        // the Hub 2.0 preview fonts kept out of the precache above, cached
+        // the first time the preview asks for them so it still works offline.
+        runtimeCaching: [{
+          urlPattern: ({ sameOrigin, url }) => sameOrigin && /\/assets\/[^/]+\.woff2$/.test(url.pathname),
+          handler: 'CacheFirst',
+          options: { cacheName: 'hub2-fonts', expiration: { maxEntries: 24 } },
+        }],
       },
     }),
     cspPlugin(authDomain, functionsOrigin),

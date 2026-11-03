@@ -157,6 +157,25 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'lookup.noGoBack':       { en: 'No, go back',                     es: 'No, volver' },
   'home.findSomeoneElse':  { en: 'Find a different student',        es: 'Buscar a otro estudiante' },
   'sched.notYou':          { en: 'Not you? Search again',           es: '¿No eres tú? Buscar de nuevo' },
+  // ── Phone alerts for same-day changes (#push) ────────────────────────────
+  'push.getAlerts':   { en: 'Get alerts on this phone',        es: 'Recibir alertas en este teléfono' },
+  'push.help':        { en: 'Your phone buzzes when a rehearsal or concert for your students is changed or cancelled today.', es: 'Tu teléfono vibra cuando un ensayo o concierto de tus estudiantes cambia o se cancela hoy.' },
+  'push.on':          { en: 'Alerts are on for this phone',    es: 'Las alertas están activadas en este teléfono' },
+  'push.update':      { en: 'Update for my saved students',    es: 'Actualizar con mis estudiantes guardados' },
+  'push.turnOff':     { en: 'Turn off alerts',                 es: 'Desactivar alertas' },
+  'push.working':     { en: 'One moment…',                     es: 'Un momento…' },
+  'push.iosHomeScreen': { en: 'On iPhone, alerts only work from the Home Screen. In Safari tap Share, then Add to Home Screen, then open the Hub from that icon.', es: 'En iPhone, las alertas solo funcionan desde la pantalla de inicio. En Safari toca Compartir, luego Agregar a inicio, y abre el Hub desde ese ícono.' },
+  'push.unsupported': { en: 'This browser cannot get alerts. Try Chrome, or the Hub added to your Home Screen.', es: 'Este navegador no puede recibir alertas. Prueba con Chrome o con el Hub en tu pantalla de inicio.' },
+  'push.blocked':     { en: 'Notifications are blocked for this site. Allow them in your phone settings, then try again.', es: 'Las notificaciones están bloqueadas para este sitio. Permítelas en la configuración del teléfono e inténtalo de nuevo.' },
+  'push.denied':      { en: 'Notifications were not allowed. Tap again and choose Allow.', es: 'No se permitieron las notificaciones. Toca de nuevo y elige Permitir.' },
+  'push.failed':      { en: 'Alerts could not be turned on. Check your connection and try again.', es: 'No se pudieron activar las alertas. Revisa tu conexión e inténtalo de nuevo.' },
+  // ── Add to Home Screen, step one of the Start Guide (#push) ──────────────
+  'a2hs.title':       { en: 'Step 1: Put the Hub on your Home Screen', es: 'Paso 1: Pon el Hub en tu pantalla de inicio' },
+  // No alert promise here yet: families cannot sign up until familiesOpen is on (#push).
+  'a2hs.why':         { en: 'One tap from your Home Screen, it opens like an app and still works when the signal drops.', es: 'Con un toque desde tu pantalla de inicio, se abre como una app y sigue funcionando cuando se cae la señal.' },
+  'a2hs.iphone':      { en: 'iPhone or iPad: in Safari tap Share, then Add to Home Screen.', es: 'iPhone o iPad: en Safari toca Compartir y luego Agregar a inicio.' },
+  'a2hs.android':     { en: 'Android: in Chrome tap the ⋮ menu, then Install app (or Add to Home screen).', es: 'Android: en Chrome toca el menú ⋮ y luego Instalar app (o Agregar a la pantalla principal).' },
+  'a2hs.then':        { en: 'Then open the Hub from its new icon.', es: 'Después abre el Hub desde su nuevo ícono.' },
   // ── Send to my other phone (Hub 2.0 item 9) ──────────────────────────────
   'xfer.open':        { en: 'Send to my other phone',          es: 'Enviar a mi otro teléfono' },
   'xfer.help':        { en: 'Open this link on your other phone, or send it to another parent. It asks before it saves anything there.', es: 'Abre este enlace en tu otro teléfono o mándaselo al otro padre o madre. Antes de guardar algo, te pregunta.' },

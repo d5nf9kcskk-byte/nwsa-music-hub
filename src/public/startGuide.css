@@ -15,6 +15,22 @@
 
 .pub-sg-intro { font-size: 14px; color: var(--pub-muted); margin: 0 0 14px; line-height: 1.5; }
 
+/* ── Step 1: Home Screen (#push) — a card, printed with the guide ── */
+.pub-sg-a2hs {
+  background: var(--pub-surface); border: 1px solid var(--pub-border);
+  border-left: 4px solid var(--pub-accent); border-radius: var(--pub-radius);
+  box-shadow: var(--pub-shadow-1); padding: 12px 14px; margin: 0 0 14px;
+}
+.pub-sg-a2hs-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 16px; font-weight: 800; margin: 0 0 6px;
+}
+.pub-sg-a2hs-why { font-size: 14px; line-height: 1.5; margin: 0 0 6px; }
+.pub-sg-a2hs-steps { font-size: 14px; line-height: 1.55; margin: 0 0 6px; padding-left: 20px; }
+@media print {
+  .pub-sg-a2hs { box-shadow: none; border-color: #999; break-inside: avoid; }
+}
+
 /* ── Audience tabs ── */
 .pub-sg-tabs {
   display: flex; gap: 6px; margin-bottom: 14px;

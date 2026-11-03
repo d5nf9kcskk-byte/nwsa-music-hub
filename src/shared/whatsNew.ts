@@ -46,6 +46,20 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     ],
     expires: '2026-11-24',
   },
+  // Web push trial (Hub 2.0, Phase 2, #push). Staff only: families stay off
+  // until App Check enforcement and the iPhone trial are done.
+  {
+    id: '2026-11-03-push-trial',
+    date: '2026-11-03',
+    title: 'Trial: alerts on your phone for today’s changes',
+    audience: 'staff' as const,
+    bullets: [
+      'Menu → Phone alerts → Turn on alerts on this phone. When anything happening today is changed or cancelled, your phone buzzes with the change note. Then tap Send a test alert to make sure it arrives.',
+      'iPhone: add the Hub to your Home Screen first (Safari → Share → Add to Home Screen) and open it from that icon. iOS only sends alerts to a Hub opened that way.',
+      'Families can’t sign up yet. That waits until the trial shows alerts keep arriving on iPhones.',
+    ],
+    expires: '2026-11-24',
+  },
   // Hub 2.0 follow-up: Spanish leftovers on the four tabs.
   {
     id: '2026-11-03-more-spanish',

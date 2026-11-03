@@ -909,3 +909,14 @@ html:has(.pub-app) body {
   border-bottom-left-radius: var(--pub-radius-sm); border-bottom-right-radius: var(--pub-radius-sm);
   box-shadow: var(--pub-shadow-1);
 }
+
+/* Get alerts on this phone (#push), on Home's saved-students card. Renders
+   only once a director opens alerts to families. */
+.pub-push-card { padding: 12px 14px; margin: 8px 0; }
+.pub-push-btn {
+  min-height: 44px; padding: 0 16px; border-radius: 10px;
+  border: 1.5px solid var(--pub-accent); background: var(--pub-accent);
+  color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;
+}
+.pub-push-btn-ghost { background: transparent; color: var(--pub-text); }
+.pub-push-btn:disabled { opacity: .5; cursor: not-allowed; }

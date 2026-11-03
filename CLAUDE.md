@@ -229,7 +229,8 @@ Upgrading the SDK does not remove the need: no Firestore release through
   deploy workflow.
 - `calendarViews` is one of the app's unauthenticated writes (with
   `plannedAbsences`, `parentMessages`, `assignmentSubmissions`,
-  `signupResponses`, `quizSubmissions`) — students
+  `signupResponses`, `quizSubmissions`, `copyRequests`, and — only while
+  `pushSettings/global.familiesOpen` is true — `pushSubscriptions`, #push) — students
   subscribing to their OWN mix is the point of the feature. It is safe only
   because of two structural guards: the doc ID is the hash of the filters,
   and the generator ignores any doc whose ID doesn't match its contents.
@@ -1557,6 +1558,85 @@ and a future kind is one more `Kind` on that screen, not a new screen.
 - Nothing became more readable: both collections keep their read rules, and
   the staff `update` they already had covers every new field.
 
+## Phone alerts for same-day changes (Nov 2026, #push)
+
+Hub 2.0 Phase 2. A director changes or cancels something happening TODAY and
+the phones following that group buzz with the change note. Director's call:
+the director trials it on their own phone first; families come later, only
+after App Check enforcement is on and a two-week trial shows iPhone
+subscriptions hold. The family side is BUILT and switched OFF.
+
+- **`src/shared/pushAlerts.ts` is the ONE definition** of a subscription's
+  fields (`STAFF_SUB_KEYS` / `FAMILY_SUB_KEYS`), which change is worth a push
+  (`pushWorthy`: event dated today in `ORG.timezone`, a non-blank
+  `changeNote`, and the note or the status moved — so Change a Day moves,
+  swaps, combines and cancels, the quick Cancel / Back on, and "School
+  closed" all count; "Back to normal" clearing the note does not), who it
+  reaches (`subscriptionReaches`: a school-wide event reaches everyone, a
+  staff `scope: 'all'` device hears everything, otherwise the ensemble lists
+  must meet), and what it says (`buildPushPayload`). Zero imports, so the
+  function bundle and the Node self-check load it bare.
+- **A payload is the event's title or its ensembles' names, plus the
+  director's change note.** All already world-readable. The builder reads no
+  other field, so a student id, performer, audience list or roster move can
+  never ride along. App words ("Today:", type names) go in the device's
+  `lang`; the note is the director's own text.
+- **Only the Cloud Functions send.** `pushOnEventChange` (an `events` onUpdate
+  trigger) and `pushTestAlert` (staff-only HTTPS, ID token checked against
+  the allowlist, and only to the caller's OWN device). There is no
+  client-writable send queue, for the reason `mail` has none. Each change
+  claims `pushSent/<eventId>_<fingerprint>` with `create()` BEFORE sending, so
+  an at-least-once retry never buzzes a phone twice; `pushSent` is denied to
+  every client (a client marker could suppress a real alert). Tokens FCM
+  reports dead are deleted. Logic in `functions/src/pushSend.ts`.
+- **Subscriptions** live at `pushSubscriptions/<sha256(token)>`, and the rules
+  recompute that hash from the token being written (`hashing.sha256`), so a
+  doc can only sit at its own token's address. NO client read, ever: a list
+  of tokens is a list of every family's phone. Delete is open by doc id, which
+  is how a device unsubscribes (the id is unguessable and unlistable).
+  Staff create/update their OWN device (`staffEmail` == the signed-in email,
+  `isKnownRole()`).
+- **The family gate is `pushSettings/global.familiesOpen`** — world-readable
+  so Home knows whether to render "Get alerts on this phone", Owner/Director
+  to write, absent = closed. While it is false the rules refuse every family
+  create; the button's own check is courtesy. A family create is the app's
+  EIGHTH unauthenticated write: exact key set (the honeypot), `scope` pinned
+  to `'groups'`, bounded arrays, a `students/{id}` anchor, no update (a
+  changed list is a delete + create). **Why families wait for App Check:**
+  this write needs no account and costs us a send per change, so without
+  App Check nothing stops a script from filling the collection. The director
+  flips the switch from Menu → Phone alerts, behind a confirm that says so.
+  `docs/privacy-notice.md` (and `.es.md`) promise families that the notice
+  will describe the family side BEFORE it opens; update both first.
+- **The service worker stays generated and deterministic.** The push and
+  notificationclick handlers are `public/push-handler.js`, pulled in by the
+  workbox `importScripts` option beside `sw-cleanup.js` and kept out of the
+  precache. Messages are DATA-only and that handler always draws the
+  notification (iOS revokes a subscription that receives silent pushes). No
+  `skipWaiting`, no `clients.claim`. A tap opens only a URL inside the SW's
+  own scope.
+- **The messaging SDK is lazy.** `src/shared/pushClient.ts` imports
+  `firebase/messaging` dynamically and is itself only ever imported
+  dynamically (the staff panel, the family button), so nobody downloads it
+  before tapping. `getToken` gets the app's EXISTING registration
+  (`navigator.serviceWorker.ready`) and no VAPID key: the SDK's built-in
+  default key works with FCM with no console step
+  (`VITE_FIREBASE_VAPID_KEY` overrides it if the project ever makes its own).
+- **CSP**: `firebaseinstallations.googleapis.com`,
+  `fcmregistrations.googleapis.com` and `fcm.googleapis.com` are in
+  `connect-src` and pinned by `scripts/csp.selfcheck.mjs` (#csp: an
+  omission fails silently, as "Turn on alerts" spinning).
+- **iPhone only delivers to a Hub added to the Home Screen** (iOS 16.4+,
+  opened from the icon). `pushSupport()` says so instead of offering a
+  button that cannot work, and "Add to Home Screen" is now step one of the
+  Start Guide (`/start`) and of every poster in the QR kit.
+- Self-checks: `src/shared/pushAlerts.selfcheck.ts` (in
+  `.github/actions/self-checks` and the functions `selfcheck` script) pins the
+  rules side — send path closed, key allowlists equal, no reads, family clause
+  gated on `familiesOpen == true` — plus reach and no-student-data;
+  `functions/src/pushSend.selfcheck.ts` pins per-language sends, send-once,
+  and dead-token cleanup.
+
 ## One nav, every width (Sept 2026, #one-nav)
 
 **A change to what a person SEES is not shipped until it is visible at every
@@ -1774,6 +1854,41 @@ everything it changes.
     the Director Panel banner is never recolored.
 - Public site only. The director panel has its own theme switch and is not
   touched; the tint rule is scoped to `:has(.pub-app)` for that reason.
+
+## Hub 2.0 look, behind the owner's preview (Nov 2026, #hub2-look)
+
+The new look ("Studio Bright" everywhere, Concert Hall's serif on concert,
+event and program titles, Spotlight on concert night) is built behind a
+preview only the OWNER can turn on, on their own device. Nobody else sees
+any change. Later sessions apply it page by page.
+
+- **The switch** is `src/shared/hub2Preview.ts`, the ONE reader/writer of
+  localStorage `hub2.preview`. index.html's boot script (the one that sets
+  `data-pub-theme`) sets `data-hub2="on"` on `<html>` before first paint.
+  The toggle (`Hub2PreviewToggle`) renders under `isOwner` in the rail AND
+  the drawer. It covers the public pages on that device too (same origin).
+  **No URL parameter, ever**: a preview must not be shareable.
+- **Colors are org config** (`hub2` in `config/orgs/*.json`), injected as
+  `--hub2-*` custom properties by `hub2Tokens.ts`. `src/shared/hub2.css` maps
+  the existing `--pub-*` / `--dir-*` tokens onto them and holds no color of
+  its own. An org without `hub2` (ASYO) has the attribute taken back off, so
+  its preview is the stock look.
+- **Every rule is scoped under `[data-hub2="on"]`, and specificity is the
+  contract** (the shells' CSS loads in different chunks, so file order is
+  not). The selectors sit ABOVE the stock dark themes and BELOW a student's
+  tint (#look) and a season (#seasons), which keep painting on top. The
+  ladder is written out in hub2.css's header. Flag off must stay
+  pixel-identical to main: check Home, My Schedule, an event, Calendar and
+  director Today at 390px and 1024px, light and dark.
+- **Fonts are self-hosted and never precached.** `hub2Fonts.ts` imports the
+  @fontsource latin files and is loaded ONLY by dynamic import while the
+  preview is on. `globIgnores` keeps `assets/*.woff2` out of the precache and
+  one same-origin `runtimeCaching` rule caches them on first use, so a
+  visitor without the preview downloads no font file. No Google Fonts (the
+  CSP allows none, and the app works offline).
+- `hub2.selfcheck.ts` pins the switch, the scoping and the fonts; the
+  palette's AA readability (both themes, under every tint and season) rides
+  in `look.selfcheck.ts` and `seasons.selfcheck.ts`.
 
 ## Clear cards, and a page per concert (Oct 2026, #clear-cards)
 

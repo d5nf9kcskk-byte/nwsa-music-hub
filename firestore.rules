@@ -774,6 +774,88 @@ service cloud.firestore {
       allow read, update, delete: if isStaff();
     }
 
+    // ── Web push for same-day changes (#push) ──────────────────────────
+    // One doc per DEVICE, at the SHA-256 of its FCM token — recomputed here
+    // from the token being written, so a doc can only live at the address its
+    // own token implies (the calendarViews shape). Field contract:
+    // src/shared/pushAlerts.ts (STAFF_SUB_KEYS / FAMILY_SUB_KEYS), pinned
+    // against this block by pushAlerts.selfcheck.ts — change both together.
+    //
+    //   • NO client reads, ever. A token is a send address; a list of them is
+    //     a list of every family's phone.
+    //   • STAFF (the director's trial): a signed-in, allowlisted person of any
+    //     known role creates and updates their OWN device (staffEmail).
+    //   • FAMILIES: an unauthenticated CREATE — the app's eighth — only while
+    //     pushSettings/global.familiesOpen is true. Built and OFF: families
+    //     wait for App Check enforcement and a two-week iPhone trial. Same
+    //     shaping as the other unauthenticated writes: exact key set (also the
+    //     honeypot), bounded arrays, a students/{id} anchor, no update.
+    //   • DELETE by doc id, unauthenticated: that is how a device unsubscribes.
+    //     The id is unguessable (a hash of a secret token) and unlistable.
+    //   • Nothing here SENDS. Only the pushOnEventChange / pushTestAlert Cloud
+    //     Functions send, through the Admin SDK — there is no client-writable
+    //     send queue, for the reason `mail` below has none.
+    function pushSubShaped(subId) {
+      let d = request.resource.data;
+      return d.token is string
+        && d.token.size() > 0
+        && d.token.size() <= 4096
+        && hashing.sha256(d.token).toHexString().lower() == subId
+        && d.studentIds is list
+        && d.studentIds.size() <= 8
+        && d.ensembleIds is list
+        && d.ensembleIds.size() <= 40
+        && d.lang in ['en', 'es']
+        && d.scope in ['all', 'groups']
+        && d.createdAt is number
+        && d.updatedAt is number;
+    }
+    function pushStaffSub(subId) {
+      let d = request.resource.data;
+      return isKnownRole()
+        && d.keys().hasOnly(['token', 'studentIds', 'ensembleIds', 'lang', 'scope', 'createdAt', 'updatedAt', 'staffEmail'])
+        && d.keys().hasAll(['token', 'studentIds', 'ensembleIds', 'lang', 'scope', 'createdAt', 'updatedAt', 'staffEmail'])
+        && d.staffEmail == request.auth.token.email
+        && pushSubShaped(subId);
+    }
+    function pushFamiliesOpen() {
+      return exists(/databases/$(database)/documents/pushSettings/global)
+        && get(/databases/$(database)/documents/pushSettings/global).data.get('familiesOpen', false) == true;
+    }
+    function pushFamilySub(subId) {
+      let d = request.resource.data;
+      return pushFamiliesOpen()
+        && d.keys().hasOnly(['token', 'studentIds', 'ensembleIds', 'lang', 'scope', 'createdAt', 'updatedAt'])
+        && d.keys().hasAll(['token', 'studentIds', 'ensembleIds', 'lang', 'scope', 'createdAt', 'updatedAt'])
+        && d.scope == 'groups'
+        && d.studentIds.size() >= 1
+        && d.studentIds[0] is string
+        && exists(/databases/$(database)/documents/students/$(d.studentIds[0]))
+        && pushSubShaped(subId);
+    }
+    match /pushSubscriptions/{subId} {
+      allow read: if false;
+      allow create: if pushStaffSub(subId) || pushFamilySub(subId);
+      allow update: if pushStaffSub(subId)
+        && resource.data.get('staffEmail', '') == request.auth.token.email;
+      allow delete: if true;
+    }
+
+    // The families switch (#push). World-readable so the public Home can
+    // decide whether to show "Get alerts on this phone"; Owner/Director only
+    // to flip. Absent doc = closed.
+    match /pushSettings/global {
+      allow read: if true;
+      allow write: if isStaff()
+        && request.resource.data.keys().hasOnly(['familiesOpen', 'updatedAt', 'updatedBy'])
+        && request.resource.data.familiesOpen is bool;
+    }
+
+    // Send-once markers, written by pushOnEventChange through the Admin SDK.
+    // No client needs them; a client that could write one could SUPPRESS a
+    // real alert. Denied explicitly, same posture as `mail`.
+    match /pushSent/{doc}        { allow read, write: if false; }
+
     // Sign-up RESPONSES (#signups): a student saying "yes, I want to do this",
     // plus whatever the form asked for and a typed signature. The app's fifth
     // unauthenticated create (with plannedAbsences, parentMessages,
