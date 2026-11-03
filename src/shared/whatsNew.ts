@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Hub 2.0, Phase 3: director tools on Change a Day.
+  {
+    id: '2026-11-03-type-what-changed',
+    date: '2026-11-03',
+    title: 'Change a Day: just type what changed',
+    audience: 'staff' as const,
+    bullets: [
+      'On Change a Day there’s a new box: type “Cancel Camerata today” or “Move Thursday’s Symphony block to 3:30” and tap Review. You get the same review sheet as the buttons, and nothing saves until you say so.',
+      'Combining and room changes work too: “Combine Philharmonic and Camerata on Friday”, “Symphony is in the Recital Hall tomorrow”. If it can’t tell what you mean, it says so and you can use the buttons.',
+      'The review sheet now warns you when two groups would end up in the same room at the same time.',
+      'Changed a rehearsal’s time, room or date in the event form? Back to normal now puts that back too.',
+      'Used School closed on Today? Back to normal on Change a Day now puts that day’s rehearsals back on too.',
+    ],
+    expires: '2026-11-24',
+  },
   // Web push trial (Hub 2.0, Phase 2, #push). Staff only: families stay off
   // until App Check enforcement and the iPhone trial are done.
   {
@@ -43,6 +58,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Menu → Phone alerts → Turn on alerts on this phone. When anything happening today is changed or cancelled, your phone buzzes with the change note. Then tap Send a test alert to make sure it arrives.',
       'iPhone: add the Hub to your Home Screen first (Safari → Share → Add to Home Screen) and open it from that icon. iOS only sends alerts to a Hub opened that way.',
       'Families can’t sign up yet. That waits until the trial shows alerts keep arriving on iPhones.',
+      'QR kit: every poster now starts with how to put the Hub on your Home Screen, and the launch flyer prints on one page again with the web address at the bottom.',
     ],
     expires: '2026-11-24',
   },

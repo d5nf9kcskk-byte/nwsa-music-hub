@@ -51,9 +51,12 @@ Firestore REST API (`events` is world-readable).
 - `move` and `cancel` work exactly like the Schedule screen: the original
   schedule is captured once so `restore` puts it back, one red banner per
   event is posted or rewritten, and the Teams / family alert is queued.
-  `"notify": false` skips the banner and alert. `edit` is always quiet.
+  `"notify": false` skips the banner and alert. `edit` is always quiet, but an
+  edit that moves the date, time, room or status leaves the same `changeFrom`
+  receipt the Event form does, so `restore` puts it back.
 - A `move` the app's review sheet would warn about (onto an occupied block,
-  outside a lesson pull-out window) is refused until the request says
+  outside a lesson pull-out window, into a room already in use) is refused
+  until the request says
   `"acknowledge": true`.
 - `delete` refuses an event with roll taken or a roster move pointing at it.
   Cancel those instead. `status` cannot be set by `edit`.

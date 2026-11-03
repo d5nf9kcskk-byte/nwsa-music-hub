@@ -1749,3 +1749,11 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
   max-height: 320px;
   overflow-y: auto;
 }
+
+/* ── Change a Day: "Type what changed" (#day-change-parse) ── */
+.dir-typed-change { margin: 0 0 12px; }
+.dir-typed-change .dir-label { display: block; margin-bottom: 4px; }
+.dir-typed-change-row { display: flex; gap: 8px; align-items: stretch; }
+.dir-typed-change-row .dir-input { flex: 1 1 auto; min-width: 0; }
+.dir-typed-change-row .dir-btn { flex: 0 0 auto; padding: 0 18px; white-space: nowrap; }
+.dir-typed-change .dir-sc-error { margin-top: 6px; }

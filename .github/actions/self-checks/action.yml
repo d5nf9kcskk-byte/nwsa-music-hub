@@ -297,8 +297,20 @@ runs:
     # the day's private LESSONS must go with the MDCPS day — a lesson left
     # behind on a cancelled day cannot be swept up later, because
     # pendingSlotDates() reads its week as already covered.
+    # Also: a plan that puts two live blocks in the same room at overlapping
+    # times raises roomClash (#room-clash), and changeReceipt() — the receipt
+    # the Event form and hub-calendar `edit` leave — is snapshot-once and
+    # reverts a moved date (#change-receipts).
     - name: Check day-plan engine
       run: node scripts/schedule-day-plan.selfcheck.mjs
+      shell: bash
+
+    # "Type what changed" on Change a Day (#day-change-parse): the asked-for
+    # sentences come out as the exact DayAction a chip builds, and anything
+    # it cannot pin to specific blocks on one day is refused, never guessed.
+    # No model behind the fallback seam.
+    - name: Check typed day-change parser
+      run: npx tsx src/director/schedule/dayChangeParse.selfcheck.ts
       shell: bash
 
     # Standing weekday rotations: `days` on RosterOverride decides which
@@ -472,6 +484,14 @@ runs:
     # path is made of public ids.
     - name: Check the video submissions read rule
       run: node scripts/storage-rules.selfcheck.mjs
+      shell: bash
+
+    # The QR kit's launch flyer is exactly one letter page with overflow
+    # hidden, so a block that does not fit is cut off the bottom of the
+    # printout instead of moving to a second page. The Home Screen step pushed
+    # the "Or type this address" box off it entirely and nothing failed.
+    - name: Check the QR kit launch flyer fits its page
+      run: node scripts/qrkit-flyer.selfcheck.mjs
       shell: bash
 
     # "Send to my other phone" (Hub 2.0 item 9). The link is built from the

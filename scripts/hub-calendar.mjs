@@ -138,10 +138,14 @@ async function planEdit() {
   if (next.type === 'Rehearsal' && (next.ensembleIds ?? []).length === 0) fail('A rehearsal needs at least one ensemble.');
   if (next.startTime && next.endTime && next.endTime <= next.startTime) fail('The end time is before the start time.');
   if ('sharedBlock' in data && data.sharedBlock && (next.ensembleIds ?? []).length < 2) fail('sharedBlock needs two or more ensembles.');
+  // The receipt (#change-receipts): the same snapshot-once changeFrom the
+  // Event form leaves when an edit moves the date, time, room or status, so
+  // "Back to normal" (restore, or the Schedule screen) can put it back.
+  const receipt = app.changeReceipt(e, data);
   if ('startTime' in data || 'endTime' in data || 'location' in data || 'date' in data) {
-    console.log('Note: edit changes the event quietly, like the Event form. To post the red banner and keep "Back to normal", use move.');
+    console.log('Note: edit changes the event quietly, like the Event form (no red banner; "Back to normal" still restores it). To post the banner, use move.');
   }
-  stage(e, { ...data, updatedAt: Date.now(), updatedBy: by }, `edit ${label(next)}`);
+  stage(e, { ...data, ...receipt, updatedAt: Date.now(), updatedBy: by }, `edit ${label(next)}`);
   await warnOverlaps(next);
   if ('pieceIds' in data || 'type' in data) await syncPieceLinks(next, [e.id], e.pieceIds ?? []);
 }
@@ -296,6 +300,10 @@ function describeGuard(g, dayEvents) {
   if (g.kind === 'collision') {
     const o = byId[g.occupantId];
     return `overlaps ${label(o)} ${app.formatTimeRange(o.startTime, o.endTime)}${o.location ? ` in ${o.location}` : ''}`;
+  }
+  if (g.kind === 'roomClash') {
+    const o = byId[g.otherId];
+    return `${o ? label(o) : 'another block'} is in ${g.location} at an overlapping time`;
   }
   if (g.kind === 'lessonWindow') return `a lesson pull-out (${app.formatTimeRange(g.startTime, g.endTime)}) no longer fits inside the new time`;
   return g.kind;

@@ -80,6 +80,9 @@ export function revertPlan(e: CalendarEvent | undefined): {
     fields.location = 'location' in cf ? cf.location : undefined;
     // Membership arms exist only on combine snapshots (§4.1) — snapshots from
     // a plain time/room change never captured ensembleIds and must not touch it.
+    // A date only rides in a snapshot taken by an edit that MOVED the event
+    // to another day (changeReceipt). Absent = the date never changed.
+    if ('date' in cf && cf.date) fields.date = cf.date;
     if (cf.ensembleIds) {
       fields.ensembleIds = cf.ensembleIds;
       fields.sharedBlock = 'sharedBlock' in cf ? cf.sharedBlock : undefined;
@@ -89,6 +92,65 @@ export function revertPlan(e: CalendarEvent | undefined): {
     fields,
     recreate: (cf?.absorbed ?? []).map(({ id, ...data }) => ({ id, data })),
   };
+}
+
+/**
+ * What the Today screen's "School closed" button writes on each block it
+ * sweeps (#change-receipts): the cancel, its note, and the same snapshot-once
+ * receipt a chip-cancelled block carries, so Change a Day's "Back to normal"
+ * puts the block back exactly. Which blocks it sweeps stays with the button.
+ */
+export function schoolClosedWrite(e: CalendarEvent): Partial<Omit<CalendarEvent, 'id'>> {
+  return { status: 'Cancelled', changeNote: 'School closed', ...captureOriginal(e) };
+}
+
+/** The schedule fields a receipt guards: change one and "Back to normal" has
+ *  to know what it was. Everything else on an event is content, not schedule. */
+export const RECEIPT_FIELDS = ['date', 'startTime', 'endTime', 'location', 'status'] as const;
+
+/**
+ * The receipt an edit OUTSIDE Change a Day leaves (#change-receipts): the Event
+ * form, the Schedule screen, and `scripts/hub-calendar.mjs` `edit`. Same
+ * snapshot-once rule as `captureOriginal`, but only when the patch actually
+ * moves the date, time, room or status — renaming a rehearsal or adding a
+ * piece is not a schedule change and must not light up "Revert".
+ *
+ * The date is captured only when the date moves, because `revertPlan` treats
+ * a snapshot's `date` as "put it back on this day". An event already carrying
+ * a snapshot keeps it untouched, except that a first date move adds the date
+ * it was on (still the original — nothing before recorded a date move).
+ * An empty string and a missing field read the same, as the form writes ''.
+ */
+export function changeReceipt(
+  e: CalendarEvent,
+  patch: Partial<Omit<CalendarEvent, 'id'>>,
+): { changeFrom?: ChangeFrom } {
+  const val = (o: object, k: string) => ((o as Record<string, unknown>)[k] ?? '') as string;
+  const moved = RECEIPT_FIELDS.filter(k => k in patch && val(patch, k) !== val(e, k));
+  if (moved.length === 0) return {};
+  const dateMoved = moved.includes('date');
+  if (e.changeFrom) {
+    return dateMoved && !('date' in e.changeFrom) ? { changeFrom: { ...e.changeFrom, date: e.date } } : {};
+  }
+  const s = snapshot(e);
+  if (dateMoved) s.date = e.date;
+  return { changeFrom: s };
+}
+
+/** A room name compared loosely: "Recital Hall", "recital hall." and
+ *  " Recital  Hall" are one room. There is no rooms collection to key on, so
+ *  the typed `location` string IS the room (#room-clash). Blank = no room. */
+export const normalizeRoom = (s?: string) =>
+  (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/** Two live blocks in the same room at overlapping times. */
+function roomsClash(x: CalendarEvent, y: CalendarEvent): boolean {
+  if (x.status === 'Cancelled' || y.status === 'Cancelled') return false;
+  if (!x.startTime || !x.endTime || !y.startTime || !y.endTime) return false;
+  const r = normalizeRoom(x.location);
+  return !!r && r === normalizeRoom(y.location)
+    && x.date === y.date
+    && x.startTime < y.endTime && y.startTime < x.endTime;
 }
 
 // ── Day plans (#schedule-ux-two-doors §3, Phase 4c) ───────────────────────
@@ -115,6 +177,13 @@ export type DayAction =
    * offers the scoped plan FIRST whenever `splitClosure()` names a campus.
    */
   | { kind: 'cancelDay'; campus?: Campus }
+  /**
+   * Cancel named blocks, not the day — "Cancel Camerata today" from the typed
+   * box (#day-change-parse). The same writes and banner as a block's own
+   * Cancel sheet. Takes no private lessons: a lesson is cancelled with its
+   * DAY (cancelDay), never because one rehearsal is off.
+   */
+  | { kind: 'cancel'; ids: string[] }
   /**
    * Undo every change on the date, scoped to ONE campus when `campus` is set.
    *
@@ -159,7 +228,13 @@ export type PlanGuard =
    *  carries a grade, so it is a record of a lesson that HAPPENED. Reported
    *  rather than cancelled — and reported rather than skipped in silence,
    *  which is the same rule `skippedNoSchoolDates()` follows. */
-  | { kind: 'gradedLesson'; lessonId: string; studentId: string };
+  | { kind: 'gradedLesson'; lessonId: string; studentId: string }
+  /** After the plan, two live blocks sit in the same room at overlapping
+   *  times (#room-clash). Read off the typed `location` string, normalized —
+   *  there is no rooms collection. Only a clash the plan CREATES is reported;
+   *  two groups that already shared a room are not news. Not blocking: a big
+   *  room can hold two sectionals, and the director knows which. */
+  | { kind: 'roomClash'; eventId: string; otherId: string; location: string };
 
 export interface DayPlan {
   writes: PlanWrite[];
@@ -326,6 +401,14 @@ export function planDayChange(
       if (live.length > 0) bannerText = `🚫 ${live.map(label).join(', ')}: CANCELLED ${when}`;
       break;
     }
+    case 'cancel': {
+      const live = action.ids.map(id => byId[id]).filter(e => e && e.status !== 'Cancelled') as CalendarEvent[];
+      for (const e of live) {
+        writes.push({ op: 'update', id: e.id, data: { status: 'Cancelled', changeNote: 'Cancelled', ...captureOriginal(e) } });
+      }
+      if (live.length > 0) bannerText = `🚫 ${live.map(label).join(', ')}: CANCELLED ${when}`;
+      break;
+    }
     case 'backToNormal': {
       for (const e of dayEvents) {
         if (action.campus && campusForEvent(e, groups) !== action.campus) continue;
@@ -345,7 +428,34 @@ export function planDayChange(
       break;
     }
   }
+  guards.push(...roomClashes(dayEvents, writes));
   return { writes, bannerText, guards };
+}
+
+/**
+ * Room clashes a plan CREATES (#room-clash): judged on the day as it will be
+ * (`applyPlan`), against the day as it is, so a pair that already shared a
+ * room before the plan is never reported. One guard per pair.
+ */
+function roomClashes(dayEvents: CalendarEvent[], writes: PlanWrite[]): PlanGuard[] {
+  const touched = new Set(writes.filter(w => w.op === 'update' || w.op === 'revert').map(w => w.id));
+  if (touched.size === 0) return [];
+  const before = Object.fromEntries(dayEvents.map(e => [e.id, e]));
+  const after = applyPlan(dayEvents, writes);
+  const out: PlanGuard[] = [];
+  const seen = new Set<string>();
+  for (const e of after) {
+    if (!touched.has(e.id)) continue;
+    for (const o of after) {
+      if (o.id === e.id || !roomsClash(e, o)) continue;
+      const key = [e.id, o.id].sort().join('|');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (before[e.id] && before[o.id] && roomsClash(before[e.id], before[o.id])) continue;
+      out.push({ kind: 'roomClash', eventId: e.id, otherId: o.id, location: e.location ?? '' });
+    }
+  }
+  return out;
 }
 
 /**

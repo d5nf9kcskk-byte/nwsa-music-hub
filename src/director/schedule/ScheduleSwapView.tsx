@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, ArrowLeftRight, Clock3, MapPin, XCircle, RotateCcw, Grid3x3, CalendarDays, List, UserCog, Pencil, Merge } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeftRight, Clock3, MapPin, XCircle, RotateCcw, Grid3x3, CalendarDays, List, UserCog, Pencil, Merge, Type } from 'lucide-react';
 import { useEvents } from '../hooks/useEvents';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { useStudents } from '../hooks/useStudents';
 import { useLessons } from '../hooks/useLessons';
+import { useLocations } from '../hooks/useLocations';
+import { ORG } from '../../org';
+import { parseDayChange } from './dayChangeParse';
 import { todayStr, addDays, parseDate, toDateStr, formatTime, formatTimeRange, ensembleColor, addMinutesToTime, TIME_BLOCKS, CONCERT_COLOR, isClassGroup } from '../utils';
 import { sharedBlockLabel } from '../../shared/sharedBlock';
 import { bannersForEvents, announceChange, captureOriginal, combineSnapshot } from './changeOps';
@@ -56,6 +59,11 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
   const { overrides } = useRosterOverrides();
   const announcementApi = useAnnouncements();
   const { announcements, deleteAnnouncement } = announcementApi;
+  const { locations } = useLocations();
+  // "Type what changed" (#day-change-parse): the sentence and, when it could
+  // not be read, the plain reason why.
+  const [typed, setTyped] = useState('');
+  const [typedError, setTypedError] = useState('');
 
   const [date, setDate] = useState(initialDate ?? todayStr());
   /**
@@ -270,6 +278,30 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
     () => (isCampusClosed(LESSON_CAMPUS, date) ? dayLessons.filter(l => l.status !== 'Cancelled') : []),
     [date, dayLessons],
   );
+
+  /**
+   * Read a typed sentence into the SAME DayAction a chip builds and open the
+   * same review sheet on the day it names. Nothing is written here; the
+   * director confirms in the sheet, and "Back to normal" undoes it.
+   */
+  function readTyped() {
+    const r = parseDayChange(typed, {
+      now: new Date(), defaultDate: date, events, groups: ensembles,
+      aliases: ORG.vanitySlugs, locations,
+    });
+    if (!r.ok) { setTypedError(r.reason); return; }
+    let action = r.action;
+    // A combine carries the same "A + B" label the chips give it.
+    if (action.kind === 'combine') {
+      const ids = [action.hostId, ...action.absorbedIds];
+      action = { ...action, groupLabel: combinedLabel(events.filter(e => ids.includes(e.id))) };
+    }
+    setTypedError('');
+    setTyped('');
+    setPick(null);
+    setDate(r.date);
+    setPlanAction(action);
+  }
 
   /** Revert one event and pull down every banner that belongs to it. */
   async function revertOne(e: CalendarEvent) {
@@ -512,6 +544,32 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
           </div>
         )}
 
+        <form
+          className="dir-typed-change"
+          onSubmit={ev => { ev.preventDefault(); readTyped(); }}
+        >
+          <label className="dir-label" htmlFor="dir-typed-change">
+            <Type size={13} style={{ verticalAlign: '-2px' }} /> Type what changed
+          </label>
+          <div className="dir-typed-change-row">
+            <input
+              id="dir-typed-change"
+              className="dir-input"
+              value={typed}
+              onChange={ev => { setTyped(ev.target.value); if (typedError) setTypedError(''); }}
+              placeholder="e.g. Move Thursday’s Symphony block to 3:30"
+              autoComplete="off"
+              enterKeyHint="go"
+            />
+            <button type="submit" className="dir-btn dir-btn-primary" disabled={!typed.trim()}>Review</button>
+          </div>
+          {typedError && (
+            <div className="dir-sc-error" role="alert">
+              ⚠ {typedError} Or use the buttons below, or Change on a block.
+            </div>
+          )}
+        </form>
+
         {dayEvents.length === 0 && dayLessons.length === 0 ? (
           <div className="dir-empty-inline">
             No ensemble events this day.
@@ -557,7 +615,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
                   >
                     {q.action.kind === 'swap' ? <ArrowLeftRight size={14} />
                       : q.action.kind === 'combine' ? <Merge size={14} />
-                      : q.action.kind === 'cancelDay' ? <XCircle size={14} />
+                      : q.action.kind === 'cancelDay' || q.action.kind === 'cancel' ? <XCircle size={14} />
                       : <RotateCcw size={14} />} {q.label}
                   </button>
                 ))}
@@ -1001,6 +1059,8 @@ function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, 
   const stranded = ofKind('strandedOverride');
   const lessons = ofKind('lessonWindow');
   const gradedLessons = ofKind('gradedLesson');
+  const roomClashes = ofKind('roomClash');
+  const afterById = useMemo(() => Object.fromEntries(after.map(e => [e.id, e])), [after]);
   const studentName = (id: string) => students.find(s => s.id === id)?.name ?? 'A student';
   // Private lessons in this plan. They are in another collection and have no
   // card on the day board, so the "after" boards cannot show them — this line
@@ -1019,6 +1079,7 @@ function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, 
     combine: [<Merge key="i" size={16} style={{ verticalAlign: '-2px' }} />, 'Combine blocks', 'Combine the blocks'],
     move: [<Clock3 key="i" size={16} style={{ verticalAlign: '-2px' }} />, 'Move time / room', 'Save the change'],
     cancelDay: [<XCircle key="i" size={16} style={{ verticalAlign: '-2px' }} />, 'Cancel the day', 'Cancel the day'],
+    cancel: [<XCircle key="i" size={16} style={{ verticalAlign: '-2px' }} />, 'Cancel', 'Cancel it'],
     backToNormal: [<RotateCcw key="i" size={16} style={{ verticalAlign: '-2px' }} />, 'Back to normal', 'Put the day back to normal'],
   };
   const [icon, baseTitle, baseSave] = titles[action.kind];
@@ -1089,6 +1150,17 @@ function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, 
               ⚠ These per-event roster moves point at a block being absorbed and will stop applying:{' '}
               {stranded.map(g => `${studentName(g.studentId)} (${g.action === 'add' ? 'sub in' : g.lesson ? 'lesson pull-out' : 'pull-out'})`).join(', ')}.
               Re-add them on the combined block if they still apply.
+            </div>
+          )}
+          {roomClashes.length > 0 && (
+            <div className="dir-sc-error">
+              ⚠ Same room, same time:{' '}
+              {roomClashes.map(g => {
+                const x = afterById[g.eventId], y = afterById[g.otherId];
+                return `${x ? labelOf(x) : 'a block'} and ${y ? labelOf(y) : 'another block'} would both be in ${g.location}`
+                  + (y ? ` (${formatTimeRange(y.startTime, y.endTime)})` : '');
+              }).join('; ')}.
+              Fine if the room holds both — otherwise change the room before saving.
             </div>
           )}
           {lessons.length > 0 && (
@@ -1162,7 +1234,7 @@ function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, 
           <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
           {!collision && (
             <button
-              className={`dir-btn ${action.kind === 'cancelDay' ? 'dir-btn-danger' : 'dir-btn-primary'}`}
+              className={`dir-btn ${action.kind === 'cancelDay' || action.kind === 'cancel' ? 'dir-btn-danger' : 'dir-btn-primary'}`}
               disabled={busy || planned.writes.length === 0}
               onClick={() => onConfirm(notify, confirmedSpanish())}
             >
