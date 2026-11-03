@@ -17,68 +17,61 @@
    - staff dark    + [data-dir-theme="dark"]      (0,3,0) beats the stock dark (0,2,0),
                                                          loses to a season    (0,3,1)
    hub2.selfcheck.ts pins these selectors.
-
-   SCREEN ONLY. Paper prints exactly as it does without the preview (the
-   program, the season fridge copy, the Start Guide, the QR kit): the font,
-   radius and accent mappings stop at @media print, and base.css's print ink
-   is the one rule there. The public page looks live in
-   src/public/hub2Public.css under the same two rules.
 ═══════════════════════════════════════════════════════════════ */
 
+/* Screen only: paper prints exactly as without the preview (#hub2-look). */
 @media screen {
+:root[data-hub2="on"],
+:root[data-hub2="on"][data-pub-theme='dark'] {
+  --pub-bg: var(--hub2-bg);
+  --pub-surface: var(--hub2-surface);
+  --pub-ink: var(--hub2-ink);
+  --pub-text: var(--hub2-ink);
+  --pub-muted: var(--hub2-muted);
+  --pub-border: var(--hub2-line);
+  --pub-accent: var(--hub2-accent);
+  --pub-purple: var(--hub2-plum);
+  --pub-radius: var(--hub2-radius-card);
+  --pub-radius-lg: var(--hub2-radius-card);
+  --pub-radius-md: var(--hub2-radius-row);
+  --org-font: var(--hub2-font-body);
 
-  :root[data-hub2="on"],
-  :root[data-hub2="on"][data-pub-theme='dark'] {
-    --pub-bg: var(--hub2-bg);
-    --pub-surface: var(--hub2-surface);
-    --pub-ink: var(--hub2-ink);
-    --pub-text: var(--hub2-ink);
-    --pub-muted: var(--hub2-muted);
-    --pub-border: var(--hub2-line);
-    --pub-accent: var(--hub2-accent);
-    --pub-purple: var(--hub2-plum);
-    --pub-radius: var(--hub2-radius-card);
-    --pub-radius-lg: var(--hub2-radius-card);
-    --pub-radius-md: var(--hub2-radius-row);
-    --org-font: var(--hub2-font-body);
+  /* Motion. Later sessions use these; reduced motion zeroes them below. */
+  --hub2-ease: cubic-bezier(.2, .8, .2, 1);
+  --hub2-slide-ms: 240ms;
+  --hub2-stagger-ms: 30ms;
+  --hub2-press-scale: .97;
+}
+/* The light shadow only: a dark page keeps the stock dark elevation, which a
+   6% black shadow would erase. */
+:root[data-hub2="on"]:not([data-pub-theme='dark']) {
+  --pub-shadow-1: var(--hub2-shadow);
+}
+} /* @media screen: the public mapping stops at paper (hub2Public.css header) */
 
-    /* Motion. Later sessions use these; reduced motion zeroes them below. */
-    --hub2-ease: cubic-bezier(.2, .8, .2, 1);
-    --hub2-slide-ms: 240ms;
-    --hub2-stagger-ms: 30ms;
-    --hub2-press-scale: .97;
-  }
-  /* The light shadow only: a dark page keeps the stock dark elevation, which a
-     6% black shadow would erase. */
-  :root[data-hub2="on"]:not([data-pub-theme='dark']) {
-    --pub-shadow-1: var(--hub2-shadow);
-  }
+[data-hub2="on"] .dir-app,
+[data-hub2="on"] .dir-app[data-dir-theme="dark"] {
+  --dir-bg: var(--hub2-bg);
+  --dir-surface: var(--hub2-surface);
+  --dir-text: var(--hub2-ink);
+  --dir-text-muted: var(--hub2-muted);
+  --dir-border: var(--hub2-line);
+  --dir-blue: var(--hub2-plum);
+  --dir-radius: var(--hub2-radius-card);
+  --dir-radius-sm: var(--hub2-radius-row);
+}
+/* Light only. --dir-primary is the header fill under WHITE text, so it keeps
+   the light teal in dark mode (the dark accent would fail white text), and
+   --dir-blue-text keeps its own lighter dark-mode tint. */
+[data-hub2="on"] .dir-app:not([data-dir-theme="dark"]) {
+  --dir-primary: var(--hub2-accent);
+  --dir-card-shadow: var(--hub2-shadow);
+}
 
-  [data-hub2="on"] .dir-app,
-  [data-hub2="on"] .dir-app[data-dir-theme="dark"] {
-    --dir-bg: var(--hub2-bg);
-    --dir-surface: var(--hub2-surface);
-    --dir-text: var(--hub2-ink);
-    --dir-text-muted: var(--hub2-muted);
-    --dir-border: var(--hub2-line);
-    --dir-blue: var(--hub2-plum);
-    --dir-radius: var(--hub2-radius-card);
-    --dir-radius-sm: var(--hub2-radius-row);
+@media (prefers-reduced-motion: reduce) {
+  :root[data-hub2="on"] {
+    --hub2-slide-ms: 0ms;
+    --hub2-stagger-ms: 0ms;
+    --hub2-press-scale: 1;
   }
-  /* Light only. --dir-primary is the header fill under WHITE text, so it keeps
-     the light teal in dark mode (the dark accent would fail white text), and
-     --dir-blue-text keeps its own lighter dark-mode tint. */
-  [data-hub2="on"] .dir-app:not([data-dir-theme="dark"]) {
-    --dir-primary: var(--hub2-accent);
-    --dir-card-shadow: var(--hub2-shadow);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    :root[data-hub2="on"] {
-      --hub2-slide-ms: 0ms;
-      --hub2-stagger-ms: 0ms;
-      --hub2-press-scale: 1;
-    }
-  }
-
 }

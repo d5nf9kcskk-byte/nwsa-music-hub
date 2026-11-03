@@ -56,7 +56,7 @@ for (const sel of [HUB2_SCOPE.pub, HUB2_SCOPE.pubDark, HUB2_SCOPE.dir, HUB2_SCOP
 assert.ok(read('../main.tsx').includes("import './shared/hub2.css';"), 'main.tsx must import hub2.css');
 
 // 3b. The public page looks (src/public/hub2Public.css) keep the same two
-//     promises, and both files stop at the screen: paper prints the same
+//     promises, and both files' public rules stop at the screen: paper prints the same
 //     with the preview on (the program, the season fridge copy, the Start
 //     Guide, the QR kit), so nothing here may reach @media print.
 const screenOnly = (name: string, src: string) => {
@@ -68,7 +68,20 @@ const screenOnly = (name: string, src: string) => {
     if (body[i] === '}' && --depth === 0) assert.equal(i, body.length - 1, `${name}: a rule sits outside @media screen`);
   }
 };
-screenOnly('hub2.css', css);
+// hub2.css holds the staff mapping too, which another change owns; there,
+// every PUBLIC rule must sit inside @media screen.
+{
+  const stack: string[] = []; let prelude = '';
+  for (const ch of css) {
+    if (ch === '{') {
+      const p = prelude.trim();
+      if (p.startsWith(':root[data-hub2="on"]') && !stack.includes('@media (prefers-reduced-motion: reduce)')) {
+        assert.ok(stack.includes('@media screen'), `hub2.css: ${p} must sit inside @media screen`);
+      }
+      stack.push(p); prelude = '';
+    } else if (ch === '}') { stack.pop(); prelude = ''; } else prelude += ch;
+  }
+}
 const pubCss = strip(read('../public/hub2Public.css'));
 screenOnly('hub2Public.css', pubCss);
 assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(pubCss), 'hub2Public.css must take every color from the tokens');

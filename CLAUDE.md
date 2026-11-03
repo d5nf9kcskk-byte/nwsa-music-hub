@@ -1873,9 +1873,15 @@ any change. Later sessions apply it page by page.
   list stagger and a 97% press, all off under reduced motion. Those page
   classes have NO stock CSS (the self-check fails if one gains any), which is
   what lets a component carry them with the preview off.
-- **Both hub2 files are `@media screen` only.** Paper (program, season fridge
-  copy, Start Guide, QR kit) prints identically with the preview on. Keep
-  every new rule inside that block; the self-check enforces it.
+- **The public hub2 rules are `@media screen` only** (all of
+  `hub2Public.css`, and the `--pub-*` block of `hub2.css`). Paper (program,
+  season fridge copy, Start Guide, QR kit) prints identically with the
+  preview on. Keep every new public rule inside that block; the self-check
+  enforces it.
+- **Teal text reads as text on the page, not only on a card.** Under the
+  preview the accent must clear 4.5:1 on the page background, on every
+  student tint and on every season's page (`look.selfcheck.ts`,
+  `seasons.selfcheck.ts`); the stock palette is untouched.
 - **White on a teal fill uses `--hub2-accent-fill` in dark.** The dark accent
   is a light teal for TEXT and fails AA under white ("Add to my calendar"
   was 2.7:1). The self-check scans every public CSS rule that puts white on

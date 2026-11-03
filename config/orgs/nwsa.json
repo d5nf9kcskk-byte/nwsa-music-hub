@@ -136,8 +136,8 @@
   "hub2": {
     "light": {
       "bg": "#F4F6F8", "surface": "#FFFFFF", "ink": "#18212F", "muted": "#66717F",
-      "line": "#E2E6EB", "accent": "#0D7E8E", "plum": "#7B3578", "sun": "#F5C84C",
-      "accentFill": "#0D7E8E", "plumText": "#7B3578", "sunInk": "#18212F"
+      "line": "#E2E6EB", "accent": "#0C7A8A", "plum": "#7B3578", "sun": "#F5C84C",
+      "accentFill": "#0C7A8A", "plumText": "#7B3578", "sunInk": "#18212F"
     },
     "dark": {
       "bg": "#10151B", "surface": "#1A212A", "ink": "#E7ECF2", "muted": "#97A3B2",

@@ -124,8 +124,9 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
     for (const ground of [t.bg, t.surface]) {
       assert.ok(contrast(t.ink, ground) >= AA, at(`(${mode}) ink on ${ground}`));
       assert.ok(contrast(t.muted, ground) >= AA, at(`(${mode}) muted on ${ground}: ${contrast(t.muted, ground).toFixed(2)}`));
-      // A link sitting straight on the page is a UI mark (3:1); on a card it is text.
-      assert.ok(contrast(t.accent, ground) >= (ground === t.surface ? AA : 3), at(`(${mode}) accent on ${ground}: ${contrast(t.accent, ground).toFixed(2)}`));
+      // Teal is TEXT on the page as well as on a card (a back link, a kicker,
+      // "Today"), so it has to read as text on both under the preview.
+      assert.ok(contrast(t.accent, ground) >= AA, at(`(${mode}) accent on ${ground}: ${contrast(t.accent, ground).toFixed(2)}`));
     }
     if (t.plum) assert.ok(contrast(t.plum, t.surface) >= AA, at(`(${mode}) plum on a card`));
     // The pattern marks, at their heaviest, under the Hub 2.0 ink.
@@ -136,6 +137,7 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
     for (const s of (org.personalize as LookPalette | undefined)?.background ?? []) {
       assert.ok(contrast(t.ink, s[mode]) >= AA, at(`(${mode}) ink on tint ${s.id}`));
       assert.ok(contrast(t.muted, s[mode]) >= AA, at(`(${mode}) muted on tint ${s.id}: ${contrast(t.muted, s[mode]).toFixed(2)}`));
+      assert.ok(contrast(t.accent, s[mode]) >= AA, at(`(${mode}) teal text on tint ${s.id}: ${contrast(t.accent, s[mode]).toFixed(2)}`));
     }
   }
   // The staff header keeps WHITE text on the light accent in both themes.
