@@ -250,12 +250,13 @@ export function emailAccepted(raw: string, domains: string[]): boolean {
 }
 
 /** "@students.dadeschools.net or @mymdc.net" — the hint under the field, and
- *  the same words in the error, so the student is never guessing. */
-export function domainsLabel(domains: string[]): string {
+ *  the same words in the error, so the student is never guessing. `or` is
+ *  the joining word; the public pages pass the reader's language. */
+export function domainsLabel(domains: string[], or = 'or'): string {
   const list = domains.map(d => `@${d.replace(/^@/, '')}`);
   if (list.length === 0) return '';
   if (list.length === 1) return list[0];
-  return `${list.slice(0, -1).join(', ')} or ${list[list.length - 1]}`;
+  return `${list.slice(0, -1).join(', ')} ${or} ${list[list.length - 1]}`;
 }
 
 /* ───────────────────────────── the college door ────────────────────────── */

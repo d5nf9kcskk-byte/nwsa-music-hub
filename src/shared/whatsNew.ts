@@ -44,6 +44,23 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     ],
     expires: '2026-11-17',
   },
+  // Hub 2.0 Phase 1: the stress forms in Spanish. /absence first, then
+  // Forms and Concert Check-In (id bumped so the banner shows again).
+  {
+    id: '2026-11-02-forms-checkin-spanish',
+    date: '2026-11-02',
+    title: 'Absences, Forms and Check-In, now in Spanish',
+    audience: 'public' as const,
+    bullets: [
+      'Tap ES at the top of the Hub and the whole absence form reads in Spanish, photo step included.',
+      'Forms (sign-ups, permission slips, signing the official PDF) and Concert Check-In read in Spanish too. What your director wrote stays as they wrote it.',
+      'Toca ES arriba y todo el formulario de ausencia aparece en español, incluida la foto del justificante.',
+      'Los formularios (inscripciones, permisos, firmar el PDF oficial) y el registro de conciertos también aparecen en español. Lo que escribió tu director se queda tal como lo escribió.',
+      'The banners at the top of the page follow ES too: concert tonight, cancellations and changes, check in and check out, forms you still owe, and your concert count.',
+      'Los avisos de arriba también cambian a español: concierto esta noche, cancelaciones y cambios, registrar llegada y salida, formularios pendientes y tu conteo de conciertos.',
+    ],
+    expires: '2026-11-17',
+  },
   // One inbox for student requests (#requests).
   {
     id: '2026-10-30-requests-inbox',

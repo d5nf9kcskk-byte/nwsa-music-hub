@@ -15,6 +15,7 @@ import { BackLink } from './components/BackLink';
 import { primaryStudent } from '../shared/identity';
 import { fmtLongDate } from '../shared/dates';
 import { ORG } from '../org';
+import { t, useLang } from '../shared/i18n';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 import type { AbsenceCategory, Student } from '../director/types';
 import './signup.css';
@@ -43,31 +44,18 @@ function fold(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
+// Translation keys, not strings: t() reads the language at render time.
 const CATEGORY_INFO: { value: AbsenceCategory; label: string; desc: string; Icon: typeof DoorOpen }[] = [
-  {
-    value: 'leaving-early',
-    label: 'Leaving Early (Office Note)',
-    desc: 'Leaving before rehearsal ends — a photo of your excuse slip is required.',
-    Icon: DoorOpen,
-  },
-  {
-    value: 'full-day-absence',
-    label: 'Full-Day School Absence',
-    desc: "You weren't in school at all today.",
-    Icon: CalendarOff,
-  },
-  {
-    value: 'parent-signout',
-    label: 'Parent Sign-Out',
-    desc: 'A parent or guardian is checking you out during the school day.',
-    Icon: UserCheck,
-  },
+  { value: 'leaving-early', label: 'abs.cat.early', desc: 'abs.cat.earlyDesc', Icon: DoorOpen },
+  { value: 'full-day-absence', label: 'abs.cat.fullDay', desc: 'abs.cat.fullDayDesc', Icon: CalendarOff },
+  { value: 'parent-signout', label: 'abs.cat.signout', desc: 'abs.cat.signoutDesc', Icon: UserCheck },
 ];
 
 /** Shortest reason a Full-Day Absence will accept. Shown under the box too. */
 const REASON_MIN_CHARS = 10;
 
 export function PublicAbsence() {
+  useLang(); // re-render when the EN|ES toggle flips
   const { students, loading: studentsLoading } = useStudentsPublic();
   const { ensembles } = useEnsembles();
 
@@ -125,20 +113,20 @@ export function PublicAbsence() {
     && !!date && timeOk && !!category && categoryOk;
 
   function whyNotYet(): string {
-    if (!student) return 'Find your name to continue.';
-    if (!acknowledged) return 'Check the box above to continue.';
-    if (!emailOk) return 'Add your email to continue.';
-    if (ensembleIds.length === 0) return 'Pick at least one ensemble or class.';
-    if (!date) return 'Pick the date.';
-    if (timeWindow === 'specific' && !timeOk) return 'Add a start and end time, with the end after the start.';
-    if (!category) return "Choose what's happening.";
-    if (category === 'leaving-early' && !photo) return 'Attach a photo of your office note to continue.';
-    if (category === 'full-day-absence' && reason.trim().length < REASON_MIN_CHARS) return `Write at least one complete sentence about why you were out (${REASON_MIN_CHARS} characters minimum).`;
+    if (!student) return t('abs.why.name');
+    if (!acknowledged) return t('abs.why.ack');
+    if (!emailOk) return t('abs.why.email');
+    if (ensembleIds.length === 0) return t('abs.why.ensemble');
+    if (!date) return t('abs.why.date');
+    if (timeWindow === 'specific' && !timeOk) return t('abs.why.times');
+    if (!category) return t('abs.why.category');
+    if (category === 'leaving-early' && !photo) return t('abs.why.photo');
+    if (category === 'full-day-absence' && reason.trim().length < REASON_MIN_CHARS) return t('abs.why.reasonMin', { min: REASON_MIN_CHARS });
     if (category === 'parent-signout') {
-      if (!reason.trim()) return 'Add a reason for the sign-out.';
-      if (parentName.trim().length < 2) return "Add the parent or guardian's name.";
-      if (!parentContact.trim()) return "Add a parent or guardian's phone or email.";
-      if (!signOutTime) return 'Add the time of sign-out.';
+      if (!reason.trim()) return t('abs.why.signoutReason');
+      if (parentName.trim().length < 2) return t('abs.why.parentName');
+      if (!parentContact.trim()) return t('abs.why.parentContact');
+      if (!signOutTime) return t('abs.why.signoutTime');
     }
     return '';
   }
@@ -183,20 +171,20 @@ export function PublicAbsence() {
       setState('done');
     } catch {
       setState('error');
-      setError(`Could not send right now — check your connection and try again, or email ${ORG.contactEmail}.`);
+      setError(t('abs.err.send', { email: ORG.contactEmail }));
     }
   }
 
   if (studentsLoading) {
-    return <div className="pub-page"><div className="pub-signup-loading">Loading…</div></div>;
+    return <div className="pub-page"><div className="pub-signup-loading">{t('misc.loading')}</div></div>;
   }
 
   if (!PUBLIC_STUDENT_INFO) {
     return (
       <div className="pub-page">
-        <BackLink fallback="/" label="Home" />
+        <BackLink fallback="/" label={t('nav.home')} />
         <div className="pub-card pub-muted">
-          The roster isn't published yet, so this form isn't available. Email {ORG.contactEmail}.
+          {t('abs.unpublished', { email: ORG.contactEmail })}
         </div>
       </div>
     );
@@ -207,12 +195,14 @@ export function PublicAbsence() {
       <div className="pub-page">
         <div className="pub-signup-done">
           <div className="pub-signup-done-mark"><Check size={30} /></div>
-          <h1>Sent to your director</h1>
-          <p><strong>{student?.name}</strong> — reported for <strong>{fmtLongDate(date)}</strong>.</p>
+          <h1>{t('abs.done.title')}</h1>
+          <p><strong>{student?.name}</strong> — {t('abs.done.reportedFor')} <strong>{fmtLongDate(date)}</strong>.</p>
           <p className="pub-muted">
-            Your director will approve or decline it{email.trim() ? `, and the answer will be emailed to ${email.trim()}` : ''}.
+            {email.trim()
+              ? t('abs.done.willEmail', { email: email.trim() })
+              : t('abs.done.willAnswer')}
           </p>
-          <Link className="pub-signup-send" to="/">Back to the Hub</Link>
+          <Link className="pub-signup-send" to="/">{t('abs.done.back')}</Link>
         </div>
       </div>
     );
@@ -220,32 +210,28 @@ export function PublicAbsence() {
 
   return (
     <div className="pub-page">
-      <BackLink fallback="/" label="Home" />
+      <BackLink fallback="/" label={t('nav.home')} />
 
       <header className="pub-signup-head">
-        <div className="pub-signup-kicker"><CalendarX size={14} /> Rehearsal absence report</div>
-        <h1>Report an Absence</h1>
+        <div className="pub-signup-kicker"><CalendarX size={14} /> {t('abs.kicker')}</div>
+        <h1>{t('nav.absence')}</h1>
       </header>
 
       <div className="pub-card" style={{ borderLeft: '3px solid var(--pub-accent, #0d7e8e)' }}>
-        <p style={{ margin: '0 0 10px', fontWeight: 600 }}>Before you fill this out:</p>
+        <p style={{ margin: '0 0 10px', fontWeight: 600 }}>{t('abs.beforeYou')}</p>
         <p className="pub-muted" style={{ margin: '0 0 12px' }}>
-          You're responsible for telling your director before missing any rehearsal — not a friend,
-          not your section leader, and not after the fact. If the absence is unplanned, notify your
-          director the moment you know, not the next day. This form is that notification, not a
-          replacement for it: send it in addition to whatever you already said in person or by text.
+          {t('abs.policy')}
         </p>
         <label className="pub-parent-toggle">
           <input type="checkbox" checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)} />
-          I understand I'm responsible for notifying my director before missing rehearsal, or
-          immediately after if it was unplanned.
+          {t('abs.ack')}
         </label>
       </div>
 
       {/* ── 1 · who you are ─────────────────────────────── */}
       <div className="pub-signup-step">
         <div className="pub-signup-step-num">1</div>
-        <div className="pub-signup-step-title">Your name</div>
+        <div className="pub-signup-step-title">{t('abs.step.name')}</div>
       </div>
       <div className="pub-card">
         {student ? (
@@ -255,7 +241,7 @@ export function PublicAbsence() {
               <div className="pub-muted">{[student.instrument, student.grade].filter(Boolean).join(' · ')}</div>
             </div>
             <button className="pub-signup-switch" onClick={() => { setPickedStudent(null); setQ(''); }}>
-              Not you?
+              {t('abs.notYou')}
             </button>
           </div>
         ) : (
@@ -264,7 +250,7 @@ export function PublicAbsence() {
               <Search size={18} />
               <input
                 className="pub-search-input"
-                placeholder="Type your name…"
+                placeholder={t('abs.typeName')}
                 value={q}
                 onChange={e => setQ(e.target.value)}
               />
@@ -277,7 +263,7 @@ export function PublicAbsence() {
                 </button>
               ))}
               {folded && matches.length === 0 && (
-                <div className="pub-muted">No matching name. Email {ORG.contactEmail} if you can't find yourself.</div>
+                <div className="pub-muted">{t('abs.noMatch', { email: ORG.contactEmail })}</div>
               )}
             </div>
           </>
@@ -289,44 +275,44 @@ export function PublicAbsence() {
           {/* ── 2 · details ──────────────────────────────── */}
           <div className="pub-signup-step">
             <div className="pub-signup-step-num">2</div>
-            <div className="pub-signup-step-title">Details</div>
+            <div className="pub-signup-step-title">{t('abs.step.details')}</div>
           </div>
           <div className="pub-card">
-            <label className="pub-absence-label" htmlFor="ab-email">Your email</label>
+            <label className="pub-absence-label" htmlFor="ab-email">{t('abs.email')}</label>
             <input id="ab-email" className="pub-absence-input" type="email" inputMode="email"
               autoComplete="email" maxLength={254} value={email}
-              onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
+              onChange={e => setEmail(e.target.value)} placeholder={t('abs.emailPh')} />
 
-            <label className="pub-absence-label">Ensembles / classes affected</label>
+            <label className="pub-absence-label">{t('abs.ensembles')}</label>
             <FilterMenu
               prefix="pub"
-              allLabel="Choose at least one…"
+              allLabel={t('abs.chooseOne')}
               options={ensembleOptions}
               selected={ensembleIds}
               onChange={setEnsembleIds}
-              ariaLabel="Ensembles or classes affected"
+              ariaLabel={t('abs.ensemblesAria')}
             />
 
-            <label className="pub-absence-label" htmlFor="ab-date">Date</label>
+            <label className="pub-absence-label" htmlFor="ab-date">{t('abs.date')}</label>
             <input id="ab-date" className="pub-absence-input" type="date"
               value={date} onChange={e => setDate(e.target.value)} />
 
-            <label className="pub-absence-label">Time missing</label>
+            <label className="pub-absence-label">{t('abs.timeMissing')}</label>
             <div className="pub-signup-yesno">
               <button type="button" className={`pub-signup-yesno-btn ${timeWindow === 'full' ? 'active' : ''}`}
-                onClick={() => setTimeWindow('full')}>Full rehearsal</button>
+                onClick={() => setTimeWindow('full')}>{t('abs.fullRehearsal')}</button>
               <button type="button" className={`pub-signup-yesno-btn ${timeWindow === 'specific' ? 'active' : ''}`}
-                onClick={() => setTimeWindow('specific')}>Specific time range</button>
+                onClick={() => setTimeWindow('specific')}>{t('abs.specificTime')}</button>
             </div>
             {timeWindow === 'specific' && (
               <div className="pub-absence-times">
                 <div>
-                  <label className="pub-absence-label" htmlFor="ab-start">Start time</label>
+                  <label className="pub-absence-label" htmlFor="ab-start">{t('abs.startTime')}</label>
                   <input id="ab-start" className="pub-absence-input" type="time"
                     value={startTime} onChange={e => setStartTime(e.target.value)} />
                 </div>
                 <div>
-                  <label className="pub-absence-label" htmlFor="ab-end">End time</label>
+                  <label className="pub-absence-label" htmlFor="ab-end">{t('abs.endTime')}</label>
                   <input id="ab-end" className="pub-absence-input" type="time"
                     value={endTime} onChange={e => setEndTime(e.target.value)} />
                 </div>
@@ -337,10 +323,10 @@ export function PublicAbsence() {
           {/* ── 3 · what's happening ─────────────────────── */}
           <div className="pub-signup-step">
             <div className="pub-signup-step-num">3</div>
-            <div className="pub-signup-step-title">What's happening</div>
+            <div className="pub-signup-step-title">{t('abs.step.what')}</div>
           </div>
           <div className="pub-card">
-            <div className="pub-absence-categories" role="radiogroup" aria-label="Absence category">
+            <div className="pub-absence-categories" role="radiogroup" aria-label={t('abs.categoryAria')}>
               {CATEGORY_INFO.map(c => (
                 <button
                   key={c.value}
@@ -352,8 +338,8 @@ export function PublicAbsence() {
                 >
                   <c.Icon size={18} aria-hidden />
                   <span>
-                    <span className="pub-absence-cat-label">{c.label}</span>
-                    <span className="pub-absence-cat-desc">{c.desc}</span>
+                    <span className="pub-absence-cat-label">{t(c.label)}</span>
+                    <span className="pub-absence-cat-desc">{t(c.desc)}</span>
                   </span>
                 </button>
               ))}
@@ -361,36 +347,36 @@ export function PublicAbsence() {
 
             {category === 'leaving-early' && (
               <div className="pub-absence-branch">
-                <label className="pub-absence-label">Photo of your office excuse slip</label>
-                <p className="pub-signup-note">Photograph the slip before you hand it back to the office.</p>
+                <label className="pub-absence-label">{t('abs.photoLabel')}</label>
+                <p className="pub-signup-note">{t('abs.photoNote')}</p>
                 <ExcusePhotoUpload photo={photo} onCapture={setPhoto} onClear={() => setPhoto(null)} disabled={state === 'saving'} />
               </div>
             )}
 
             {category === 'full-day-absence' && (
               <div className="pub-absence-branch">
-                <label className="pub-absence-label" htmlFor="ab-reason-b">Reason</label>
+                <label className="pub-absence-label" htmlFor="ab-reason-b">{t('abs.reason')}</label>
                 <textarea id="ab-reason-b" className="pub-absence-input pub-signup-textarea" rows={3}
                   maxLength={300} value={reason} onChange={e => setReason(e.target.value)}
-                  placeholder="e.g. Family emergency, out of state" />
+                  placeholder={t('abs.reasonPh')} />
                 <p className="pub-signup-note">
-                  Write at least one complete sentence, even if it is just a few words. Minimum {REASON_MIN_CHARS} characters.
+                  {t('abs.reasonNote', { min: REASON_MIN_CHARS })}
                 </p>
               </div>
             )}
 
             {category === 'parent-signout' && (
               <div className="pub-absence-branch">
-                <label className="pub-absence-label" htmlFor="ab-reason-c">Reason for sign-out</label>
+                <label className="pub-absence-label" htmlFor="ab-reason-c">{t('abs.signoutReason')}</label>
                 <textarea id="ab-reason-c" className="pub-absence-input pub-signup-textarea" rows={3}
                   maxLength={300} value={reason} onChange={e => setReason(e.target.value)} />
-                <label className="pub-absence-label" htmlFor="ab-pname">Parent/guardian name</label>
+                <label className="pub-absence-label" htmlFor="ab-pname">{t('abs.parentName')}</label>
                 <input id="ab-pname" className="pub-absence-input" maxLength={120}
                   autoComplete="name" value={parentName} onChange={e => setParentName(e.target.value)} />
-                <label className="pub-absence-label" htmlFor="ab-pcontact">Parent/guardian contact</label>
+                <label className="pub-absence-label" htmlFor="ab-pcontact">{t('abs.parentContact')}</label>
                 <input id="ab-pcontact" className="pub-absence-input" maxLength={120}
-                  value={parentContact} onChange={e => setParentContact(e.target.value)} placeholder="Phone or email" />
-                <label className="pub-absence-label" htmlFor="ab-signout">Time of sign-out</label>
+                  value={parentContact} onChange={e => setParentContact(e.target.value)} placeholder={t('abs.phoneOrEmail')} />
+                <label className="pub-absence-label" htmlFor="ab-signout">{t('abs.signoutTime')}</label>
                 <input id="ab-signout" className="pub-absence-input" type="time"
                   value={signOutTime} onChange={e => setSignOutTime(e.target.value)} />
               </div>
@@ -399,7 +385,7 @@ export function PublicAbsence() {
 
           <div className="pub-card">
             <label className="pub-absence-label" htmlFor="ab-notes">
-              Anything else your director should know? <span className="pub-signup-optional">(optional)</span>
+              {t('abs.notes')} <span className="pub-signup-optional">{t('misc.optional')}</span>
             </label>
             <textarea id="ab-notes" className="pub-absence-input pub-signup-textarea" rows={2}
               maxLength={500} value={notes} onChange={e => setNotes(e.target.value)} />
@@ -408,11 +394,11 @@ export function PublicAbsence() {
           {error && <div className="pub-absence-error">⚠ {error}</div>}
 
           <button className="pub-signup-send" disabled={!valid || state === 'saving'} onClick={submit}>
-            {state === 'saving' ? 'Sending…' : 'Send to my director'}
+            {state === 'saving' ? t('vid.sending') : t('abs.send')}
           </button>
           {!valid && <div className="pub-signup-note pub-signup-why">{whyNotYet()}</div>}
           <p className="pub-signup-privacy">
-            What you send here goes only to {ORG.orgShortName} staff.
+            {t('abs.privacy', { org: ORG.orgShortName })}
           </p>
         </>
       )}

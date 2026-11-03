@@ -48,3 +48,21 @@
 }
 
 .pub-absence-times > div { flex: 1; min-width: 0; }
+
+/* The excuse-slip photo buttons. `pub-btn` / `pub-btn-ghost` are only defined
+   inside `.pub-checkin` (checkin.css), so on this page "Take or choose a
+   photo" rendered as a bare browser button: the one action a Leaving Early
+   report cannot be sent without. Same values as the check-in page, scoped
+   to the photo branch so nothing else on the public site shifts. */
+.pub-absence-branch .pub-btn,
+.pub-absence-branch .pub-btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  padding: .65rem 1rem; border-radius: .6rem; font: inherit; font-weight: 600;
+  cursor: pointer; border: 1px solid transparent; text-decoration: none;
+}
+.pub-absence-branch .pub-btn { background: var(--pub-accent, #0d7e8e); color: #fff; }
+.pub-absence-branch .pub-btn:disabled { opacity: .45; cursor: not-allowed; }
+.pub-absence-branch .pub-btn-ghost {
+  background: transparent; color: var(--pub-accent, #0d7e8e);
+  border-color: var(--pub-border, #d3d9dd);
+}

@@ -77,6 +77,20 @@ requires('img-src', 'blob:',
 requires('connect-src', STORAGE, 'Uploads and downloads.');
 requires('connect-src', 'https://firestore.googleapis.com', 'All live data.');
 
+// App Check (docs/security-recommendations.md #1). The code is shipped and
+// dormant; it wakes up the moment VITE_RECAPTCHA_SITE_KEY is set. If the
+// policy refuses reCAPTCHA at that moment, nothing throws: watch-only mode
+// just reports every real visitor as unverified, and enforcing on that
+// evidence would lock the school out of its own Hub.
+requires('script-src', 'https://www.google.com/recaptcha/',
+  'App Check loads the Fraud Defense (reCAPTCHA Enterprise) script from here.');
+requires('script-src', 'https://www.gstatic.com/recaptcha/',
+  'reCAPTCHA pulls the rest of its code from here.');
+requires('frame-src', 'https://www.google.com/recaptcha/',
+  'reCAPTCHA runs inside an iframe from this path.');
+requires('connect-src', 'https://content-firebaseappcheck.googleapis.com',
+  'App Check exchanges the reCAPTCHA answer for its token here.');
+
 // Guards that must not erode.
 if (!directives["object-src"]?.includes("'none'")) fail("object-src must stay 'none'");
 if (!directives["base-uri"]?.includes("'self'")) fail("base-uri must stay 'self'");

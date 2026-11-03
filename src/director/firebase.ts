@@ -30,6 +30,13 @@ export const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
  * site key exists in the Firebase console — and the SDK is dynamically
  * imported so visitors don't download it while it's off.
  *
+ * The provider is reCAPTCHA ENTERPRISE (Google Cloud "Fraud Defense"), not
+ * reCAPTCHA v3: the console marks v3 ("reCAPTCHA Classic") deprecated as of
+ * Nov 2026. The key in VITE_RECAPTCHA_SITE_KEY must be a Fraud Defense
+ * website key with the checkbox challenge OFF, registered under App Check's
+ * Fraud Defense provider. A v3 key here, or this provider against a v3
+ * registration, fails silently: every visitor reads as unverified.
+ *
  * ROLLOUT — read docs/security-recommendations.md before enforcing:
  *   1. ship with the key set, enforcement OFF (monitor mode);
  *   2. watch the App Check metrics until the traffic is verified;
@@ -42,7 +49,7 @@ const appCheckSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 if (app && appCheckSiteKey) {
   void (async () => {
     try {
-      const { initializeAppCheck, ReCaptchaV3Provider } = await import('firebase/app-check');
+      const { initializeAppCheck, ReCaptchaEnterpriseProvider } = await import('firebase/app-check');
       // A debug token lets localhost and CI count as "real browser" while
       // testing; it is only honoured for tokens registered in the console.
       const debugToken = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
@@ -51,7 +58,7 @@ if (app && appCheckSiteKey) {
           .FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
       }
       initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider(appCheckSiteKey),
+        provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
         isTokenAutoRefreshEnabled: true,
       });
     } catch {

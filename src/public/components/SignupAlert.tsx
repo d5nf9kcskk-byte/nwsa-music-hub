@@ -6,6 +6,7 @@ import { useSignupForms } from '../../director/hooks/useSignups';
 import { useMinuteTick } from '../../director/hooks/useAnnouncements';
 import { todayStr } from '../../director/utils';
 import { fmtLongDate } from '../../shared/dates';
+import { t, tn, useLang } from '../../shared/i18n';
 import { primaryStudent } from '../../shared/identity';
 import { eligibleForSignup, signupIsOpen, signupShowsInAlerts } from '../../shared/signupEligibility';
 import { getReceipt } from '../signupReceipt';
@@ -24,6 +25,7 @@ import '../signup.css';
  * find your name."
  */
 export function SignupAlert({ student }: { student?: Pick<Student, 'id' | 'ensembleIds' | 'instrument' | 'status'> }) {
+  useLang(); // re-render when the EN|ES toggle flips
   const now = useMinuteTick();
   const today = todayStr();
   const { forms } = useSignupForms();
@@ -63,14 +65,12 @@ export function SignupAlert({ student }: { student?: Pick<Student, 'id' | 'ensem
       <ClipboardSignature size={18} />
       <div className="pub-signup-alert-body">
         <div className="pub-signup-alert-title">
-          {target
-            ? `You have ${relevant.length === 1 ? 'a form' : `${relevant.length} forms`} to fill out`
-            : 'Forms are open'}
+          {target ? tn('sa.youHave', relevant.length) : t('sa.open')}
         </div>
         <div className="pub-signup-alert-sub">
           {first.title}
-          {first.deadline && (dueToday ? ' — closes today' : ` — by ${fmtLongDate(first.deadline)}`)}
-          {relevant.length > 1 && ` · +${relevant.length - 1} more`}
+          {first.deadline && (dueToday ? t('sa.closesToday') : t('sa.by', { date: fmtLongDate(first.deadline) }))}
+          {relevant.length > 1 && t('sa.more', { count: relevant.length - 1 })}
         </div>
       </div>
       <ChevronRight size={18} style={{ flexShrink: 0, opacity: 0.7 }} />

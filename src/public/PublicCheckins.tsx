@@ -9,7 +9,8 @@ import { PageHeader, EmptyState, SkeletonCards } from './components/PageHeader';
 import { receiptForEvent } from './checkinReceipt';
 import { addDays, ensembleDisplayName, formatTime, todayStr } from '../director/utils';
 import { fmtLongDate } from '../shared/dates';
-import { useLang } from '../shared/i18n';
+import { t, tType, useLang } from '../shared/i18n';
+import { clockAt } from './checkinClock';
 import { ORG } from '../org';
 import { checkinState, checkinWindow, resolveCheckinSettings } from '../shared/concertCheckin';
 import type { CalendarEvent } from '../director/types';
@@ -49,37 +50,37 @@ export function PublicCheckins() {
 
   const title = (e: CalendarEvent) => e.title
     || e.ensembleIds.map(id => ensembleDisplayName(ensembles.find(x => x.id === id))).filter(Boolean).join(' + ')
-    || 'Concert';
+    || tType('Concert');
 
   return (
     <div className="pub-page">
       <PageHeader
-        title={<><ScanLine size={20} style={{ verticalAlign: '-3px' }} /> Concert Check-In</>}
-        intro="Check in when you arrive and check out at the end — you need both to get credit. A concert opens here shortly before its downbeat."
+        title={<><ScanLine size={20} style={{ verticalAlign: '-3px' }} /> {t('nav.checkin')}</>}
+        intro={t('cis.intro')}
       />
 
       {loading && rows.length === 0 && <SkeletonCards n={2} />}
 
       {!loading && rows.length === 0 && (
         <EmptyState icon={<ScanLine size={30} />}>
-          No concert is taking check-ins right now. This page fills in as concerts with check-in get scheduled.
+          {t('cis.empty')}
         </EmptyState>
       )}
 
-      {openNow.length > 0 && <div className="pub-section-title">Open now</div>}
+      {openNow.length > 0 && <div className="pub-section-title">{t('cis.openNow')}</div>}
       {openNow.map(r => <CheckinRow key={r.event.id} event={r.event} title={title(r.event)} />)}
 
       {later.length > 0 && (
         <>
-          {openNow.length > 0 && <div className="pub-section-title">Coming up</div>}
+          {openNow.length > 0 && <div className="pub-section-title">{t('cis.comingUp')}</div>}
           {later.map(r => (
             <ClosedRow
               key={r.event.id}
               event={r.event}
               title={title(r.event)}
               when={r.state === 'closed'
-                ? 'Check-in has closed'
-                : `Opens ${r.event.date === today ? 'at' : `${fmtLongDate(r.event.date)},`} ${r.win ? clockAt(r.win.opensAt) : 'before the concert'}`}
+                ? t('ci.closedTitle')
+                : opensLine(r.event.date === today ? null : fmtLongDate(r.event.date), r.win ? clockAt(r.win.opensAt) : null)}
             />
           ))}
         </>
@@ -88,10 +89,11 @@ export function PublicCheckins() {
   );
 }
 
-function clockAt(ms: number): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric', minute: '2-digit', timeZone: ORG.timezone,
-  }).format(new Date(ms));
+/** "Opens at 6:50 PM" today, "Opens Saturday, November 14, 6:50 PM" on
+ *  another day; the before-the-concert forms when no window is known. */
+function opensLine(date: string | null, time: string | null): string {
+  if (date === null) return time ? t('cis.opensAt', { time }) : t('cis.opensAtBefore');
+  return time ? t('cis.opensOn', { date, time }) : t('cis.opensOnBefore', { date });
 }
 
 function When({ event }: { event: CalendarEvent }) {
@@ -105,6 +107,7 @@ function When({ event }: { event: CalendarEvent }) {
 }
 
 function CheckinRow({ event, title }: { event: CalendarEvent; title: string }) {
+  useLang(); // re-render when the EN|ES toggle flips
   const receipt = receiptForEvent(event.id);
   const done = Boolean(receipt?.in && receipt?.out);
   const out = Boolean(receipt?.in && !receipt?.out);
@@ -115,9 +118,9 @@ function CheckinRow({ event, title }: { event: CalendarEvent; title: string }) {
         <When event={event} />
       </div>
       <span className="pub-checkin-row-cta">
-        {done ? <><Check size={14} /> Done</>
-          : out ? <><LogOut size={14} /> Check out</>
-          : <><LogIn size={14} /> Check in</>}
+        {done ? <><Check size={14} /> {t('look.done')}</>
+          : out ? <><LogOut size={14} /> {t('ci.checkOut')}</>
+          : <><LogIn size={14} /> {t('ci.checkIn')}</>}
       </span>
     </Link>
   );

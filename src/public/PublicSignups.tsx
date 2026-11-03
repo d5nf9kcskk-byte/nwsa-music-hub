@@ -8,13 +8,14 @@ import { useStudentsPublic } from './hooks/usePublicRoster';
 import { PageHeader, EmptyState, SkeletonCards } from './components/PageHeader';
 import { todayStr, ensembleDisplayName } from '../director/utils';
 import { fmtLongDate } from '../shared/dates';
-import { useLang } from '../shared/i18n';
+import { t, useLang } from '../shared/i18n';
 import { primaryStudent } from '../shared/identity';
 import { INSTRUMENT_FAMILY_LABEL } from '../shared/instrumentFamily';
 import { audienceLabel, eligibleForSignup, signupIsOpen, signupShowsInIndex } from '../shared/signupEligibility';
 import { getReceipt } from './signupReceipt';
 import { formPath } from '../shared/formLink';
-import { FORM_KIND_LABEL, formKindOf } from '../shared/formKind';
+import { formKindOf } from '../shared/formKind';
+import { formKindLabel } from './formKindLabel';
 import type { SignupForm } from '../director/types';
 import './signup.css';
 
@@ -71,7 +72,7 @@ export function PublicSignups() {
   const others = open.filter(f => !forMe(f) && f.audienceMode !== 'open' && !getReceipt(f.id));
 
   function who(f: SignupForm): string {
-    if (f.audienceMode === 'students') return 'By invitation';
+    if (f.audienceMode === 'students') return t('su.byInvitation');
     return audienceLabel(
       { mode: f.audienceMode, ensembleIds: f.ensembleIds ?? [], families: f.families ?? [], highSchoolOnly: f.highSchoolOnly },
       eid => ensembleDisplayName(ensembles.find(e => e.id === eid)),
@@ -82,42 +83,42 @@ export function PublicSignups() {
   return (
     <div className="pub-page">
       <PageHeader
-        title={<><ClipboardSignature size={20} style={{ verticalAlign: '-3px' }} /> Forms</>}
-        intro="Sign-ups, permission slips, registrations — anything your director needs you or your family to fill out. Tap one, find your name, and you’re done."
+        title={<><ClipboardSignature size={20} style={{ verticalAlign: '-3px' }} /> {t('nav.signups')}</>}
+        intro={t('forms.intro')}
       />
 
       {loading && <SkeletonCards n={2} />}
 
       {!loading && open.length === 0 && (
         <EmptyState icon={<ClipboardSignature size={30} />}>
-          Nothing to fill out right now. When your director opens a form, it shows up here and on the Hub home page.
+          {t('forms.empty')}
         </EmptyState>
       )}
 
       {waiting.length > 0 && (
         <>
-          <div className="pub-section-title">Waiting for you</div>
+          <div className="pub-section-title">{t('forms.waiting')}</div>
           {waiting.map(f => <SignupRow key={f.id} form={f} who={who(f)} today={today} highlight />)}
         </>
       )}
 
       {others.length > 0 && (
         <>
-          {(waiting.length > 0 || done.length > 0) && <div className="pub-section-title">Also open</div>}
+          {(waiting.length > 0 || done.length > 0) && <div className="pub-section-title">{t('forms.alsoOpen')}</div>}
           {others.map(f => <SignupRow key={f.id} form={f} who={who(f)} today={today} />)}
         </>
       )}
 
       {anyone.length > 0 && (
         <>
-          <div className="pub-section-title">Open to anyone</div>
+          <div className="pub-section-title">{t('forms.anyone')}</div>
           {anyone.map(f => <SignupRow key={f.id} form={f} who={who(f)} today={today} />)}
         </>
       )}
 
       {done.length > 0 && (
         <>
-          <div className="pub-section-title">Done</div>
+          <div className="pub-section-title">{t('forms.done')}</div>
           {done.map(f => <SignupRow key={f.id} form={f} who={who(f)} today={today} />)}
         </>
       )}
@@ -131,24 +132,25 @@ function SignupRow({ form, who, today, highlight }: {
   today: string;
   highlight?: boolean;
 }) {
+  useLang(); // re-render when the EN|ES toggle flips
   const receipt = getReceipt(form.id);
   return (
     <Link to={formPath(form.id)} className={`pub-signup-row${highlight ? ' highlight' : ''}`}>
       <div className="pub-signup-row-body">
         <div className="pub-signup-row-title">{form.title}</div>
         <div className="pub-signup-row-meta">
-          <span className="pub-form-kind">{FORM_KIND_LABEL[formKindOf(form)]}</span>
+          <span className="pub-form-kind">{formKindLabel(formKindOf(form))}</span>
           <span>{who}</span>
           {form.deadline && (
             <span className={form.deadline === today ? 'urgent' : undefined}>
               <CalendarClock size={12} />{' '}
-              {form.deadline === today ? 'Closes today' : `By ${fmtLongDate(form.deadline)}`}
+              {form.deadline === today ? t('su.closesToday') : t('su.by', { date: fmtLongDate(form.deadline) })}
             </span>
           )}
         </div>
       </div>
       {receipt ? (
-        <span className="pub-signup-row-done"><Check size={14} /> Sent</span>
+        <span className="pub-signup-row-done"><Check size={14} /> {t('su.done.sent')}</span>
       ) : (
         <ChevronRight size={18} style={{ opacity: 0.5, flexShrink: 0 }} />
       )}

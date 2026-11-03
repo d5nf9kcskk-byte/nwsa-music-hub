@@ -55,10 +55,22 @@ unauthenticated update would let anyone overwrite someone else's signed form.
 
 **What's left (console work, in this order):**
 
-1. Firebase console → App Check → register the web app with reCAPTCHA v3;
-   copy the site key.
-2. Add it as the `VITE_RECAPTCHA_SITE_KEY` GitHub secret and redeploy. App
-   Check now runs in **monitor mode** — it reports, it does not block.
+1. Google Cloud console → Fraud Defense (formerly reCAPTCHA Enterprise) →
+   create a **Website** key for every domain the Hub is served from, with
+   "Use checkbox challenge" left OFF. Then Firebase console → App Check →
+   register the web app under **Fraud Defense** with that site key. Not under
+   "reCAPTCHA" (Classic v3): the console marks it deprecated, and the app
+   code uses `ReCaptchaEnterpriseProvider`, so a v3 registration would leave
+   every visitor unverified. Token time to live: 1 day. Each new token is one
+   Fraud Defense assessment; 10,000 a month are free per Google Cloud
+   organization, and the default 1 hour (refreshed twice an hour while a tab
+   is open) could outrun that for a whole school. Keep billing attached to
+   the project: without it, assessments past the free 10,000 return errors,
+   and once enforcement is on, an error is a visitor locked out.
+2. **After** the code that uses the Enterprise provider and lists reCAPTCHA in
+   the CSP is on `main`, add the site key as the `VITE_RECAPTCHA_SITE_KEY`
+   GitHub secret; the next deploy picks it up. App Check now runs in
+   **monitor mode** — it reports, it does not block.
 3. Watch App Check metrics for a few days: verified vs unverified requests
    should be overwhelmingly verified. Anything else means real users would be
    locked out by step 5.

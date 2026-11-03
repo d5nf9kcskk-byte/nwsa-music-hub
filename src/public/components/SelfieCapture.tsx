@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, RefreshCw, Check, CameraOff } from 'lucide-react';
+import { t, useLang } from '../../shared/i18n';
 
 /**
  * One selfie, taken at a concert door (#concert-checkin).
@@ -32,7 +33,9 @@ interface SelfieCaptureProps {
 export function SelfieCapture({ onCapture, onClear, photo, disabled }: SelfieCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  useLang(); // re-render when the EN|ES toggle flips
   const [facing, setFacing] = useState<'user' | 'environment'>('user');
+  // A translation key, not a sentence, so the EN|ES toggle reaches it.
   const [error, setError] = useState('');
   const [live, setLive] = useState(false);
 
@@ -83,8 +86,8 @@ export function SelfieCapture({ onCapture, onClear, photo, disabled }: SelfieCap
         if (cancelled) return;
         const name = (e as { name?: string })?.name ?? '';
         setError(name === 'NotAllowedError'
-          ? 'Camera access was blocked. Allow the camera in your browser settings, then reload.'
-          : 'The camera would not open. Find a director.');
+          ? 'selfie.blocked'
+          : 'selfie.wontOpen');
       });
 
     return () => {
@@ -113,25 +116,25 @@ export function SelfieCapture({ onCapture, onClear, photo, disabled }: SelfieCap
     canvas.width = Math.round(video.videoWidth * scale);
     canvas.height = Math.round(video.videoHeight * scale);
     const ctx = canvas.getContext('2d');
-    if (!ctx) { setError('This browser could not save the photo. Find a director.'); return; }
+    if (!ctx) { setError('selfie.cantSave'); return; }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     try {
       onCapture(canvas.toDataURL('image/jpeg', JPEG_QUALITY));
       releaseCamera();
     } catch {
-      setError('This browser could not save the photo. Find a director.');
+      setError('selfie.cantSave');
     }
   }
 
   if (photo) {
     return (
       <div className="pub-selfie">
-        <img className="pub-selfie-shot" src={photo} alt="Your check-in photo" />
+        <img className="pub-selfie-shot" src={photo} alt={t('selfie.alt')} />
         <div className="pub-selfie-row">
           <button type="button" className="pub-btn-ghost" onClick={onClear} disabled={disabled}>
-            <RefreshCw size={16} aria-hidden /> Take it again
+            <RefreshCw size={16} aria-hidden /> {t('selfie.again')}
           </button>
-          <span className="pub-selfie-ok"><Check size={16} aria-hidden /> Photo ready</span>
+          <span className="pub-selfie-ok"><Check size={16} aria-hidden /> {t('photo.ready')}</span>
         </div>
       </div>
     );
@@ -142,14 +145,14 @@ export function SelfieCapture({ onCapture, onClear, photo, disabled }: SelfieCap
       {noCamera || error ? (
         <div className="pub-selfie-error">
           <CameraOff size={20} aria-hidden />
-          <p>{error || 'This browser will not open the camera. Find a director.'}</p>
+          <p>{t(error || 'selfie.noCamera')}</p>
         </div>
       ) : (
         <video ref={videoRef} className="pub-selfie-live" playsInline muted autoPlay />
       )}
       <div className="pub-selfie-row">
         <button type="button" className="pub-btn" onClick={take} disabled={!live || disabled}>
-          <Camera size={16} aria-hidden /> Take the photo
+          <Camera size={16} aria-hidden /> {t('selfie.take')}
         </button>
         <button
           type="button"
@@ -157,7 +160,7 @@ export function SelfieCapture({ onCapture, onClear, photo, disabled }: SelfieCap
           onClick={() => setFacing(f => (f === 'user' ? 'environment' : 'user'))}
           disabled={disabled}
         >
-          <RefreshCw size={16} aria-hidden /> {facing === 'user' ? 'Use the back camera' : 'Use the front camera'}
+          <RefreshCw size={16} aria-hidden /> {facing === 'user' ? t('selfie.back') : t('selfie.front')}
         </button>
       </div>
     </div>

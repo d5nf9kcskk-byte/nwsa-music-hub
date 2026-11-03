@@ -6,6 +6,7 @@ import { receiptForEvent } from '../checkinReceipt';
 import { checkinState, resolveCheckinSettings } from '../../shared/concertCheckin';
 import { ensembleDisplayName } from '../../director/utils';
 import { ORG } from '../../org';
+import { t, tType, useLang } from '../../shared/i18n';
 import type { CalendarEvent, Ensemble } from '../../director/types';
 import '../checkin.css';
 
@@ -28,6 +29,7 @@ export function CheckinStrip({ events, ensembles = [] }: {
   events: CalendarEvent[];
   ensembles?: Ensemble[];
 }) {
+  useLang(); // re-render when the EN|ES toggle flips
   const site = useCheckinSettings();
   const now = useMinuteTick();
 
@@ -39,7 +41,7 @@ export function CheckinStrip({ events, ensembles = [] }: {
   const name = (e: CalendarEvent) =>
     e.title
     || e.ensembleIds.map(id => ensembleDisplayName(ensembles.find(x => x.id === id))).filter(Boolean).join(' + ')
-    || 'Concert';
+    || tType('Concert');
 
   return (
     <div className="pub-checkin-strip-wrap">
@@ -52,8 +54,8 @@ export function CheckinStrip({ events, ensembles = [] }: {
           <Link key={e.id} to={`/checkin/${e.id}`} className="pub-checkin-strip">
             {out ? <LogOut size={15} style={{ verticalAlign: '-2.5px' }} />
                  : <LogIn size={15} style={{ verticalAlign: '-2.5px' }} />}{' '}
-            <strong>{out ? 'Check out' : 'Check in'}</strong>
-            {' — '}{name(e)}
+            <strong>{out ? t('ci.checkOut') : t('ci.checkIn')}</strong>
+            {t('cic.stripSep')}{name(e)}
           </Link>
         );
       })}

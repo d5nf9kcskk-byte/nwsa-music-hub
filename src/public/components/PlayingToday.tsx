@@ -5,6 +5,7 @@ import { useStudentsPublic } from '../hooks/usePublicRoster';
 import { performersForEvent } from '../../shared/eventPerformers';
 import { formatTime } from '../../director/utils';
 import { formatClock24 } from '../../shared/signupBooking';
+import { t, useLang } from '../../shared/i18n';
 import type { PerformerEventLike } from '../../shared/eventPerformers';
 
 /**
@@ -20,6 +21,7 @@ import type { PerformerEventLike } from '../../shared/eventPerformers';
  * director cannot tell it apart from the bug this replaced.
  */
 export function PlayingToday({ event }: { event: PerformerEventLike }) {
+  useLang(); // re-render when the EN|ES toggle flips
   const { forms } = useSignupForms();
   const { bookings } = useAllSignupSlotBookings();
   const { students } = useStudentsPublic();
@@ -38,7 +40,7 @@ export function PlayingToday({ event }: { event: PerformerEventLike }) {
 
   return (
     <>
-      <h2 className="pub-section-title">Playing today</h2>
+      <h2 className="pub-section-title">{t('play.title')}</h2>
       <div className="pub-card pub-playing-today">
         <ul className="pub-playing-list">
           {performers.map((p, i) => (
@@ -47,14 +49,13 @@ export function PlayingToday({ event }: { event: PerformerEventLike }) {
               {p.startMin != null && (
                 <span className="pub-playing-time">{formatTime(formatClock24(p.startMin))}</span>
               )}
-              {p.source === 'guest' && <span className="pub-playing-guest">guest</span>}
+              {p.source === 'guest' && <span className="pub-playing-guest">{t('play.guest')}</span>}
             </li>
           ))}
         </ul>
         <div className="pub-playing-foot">
           <Music2 size={13} style={{ verticalAlign: '-2px' }} />{' '}
-          Booked a time on a sign-up form? Your name appears here, and on this
-          event in your subscribed calendar.
+          {t('play.foot')}
         </div>
       </div>
     </>

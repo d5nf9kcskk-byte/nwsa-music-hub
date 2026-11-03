@@ -17,7 +17,9 @@ import { getReceipt, receiptForEvent, saveReceipt } from './checkinReceipt';
 import { formatTime, ensembleDisplayName } from '../director/utils';
 import { sortStudents } from '../director/scoreOrder';
 import { fmtFullDate } from '../shared/dates';
-import { useLang } from '../shared/i18n';
+import { t, tType, useLang } from '../shared/i18n';
+import { clockAt } from './checkinClock';
+import { TRANSLATIONS } from '../shared/translations';
 import { primaryStudent, rememberStudent } from '../shared/identity';
 import { ORG } from '../org';
 import {
@@ -35,10 +37,12 @@ import './checkin.css';
 /** Wall-clock time at the SCHOOL, not on the viewer's device. At the venue
  *  these agree; on a phone still set to another timezone they do not, and a
  *  check-in receipt that reads an hour off is a support call. */
-function clockAt(epoch: number): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric', minute: '2-digit', timeZone: ORG.timezone,
-  }).format(new Date(epoch));
+/** The function's refusal in the reader's language, by its failure code.
+ *  A code with no Spanish yet keeps the function's own English message. */
+function refusalMessage(failure: string | undefined, message: string | undefined): string {
+  const key = `ckerr.srv.${failure ?? ''}`;
+  if (failure && TRANSLATIONS[key]) return t(key);
+  return message ?? t('ci.fallbackErr');
 }
 
 /**
@@ -146,25 +150,25 @@ export function PublicCheckin() {
   if (!event) {
     return (
       <div className="pub-page">
-        <BackLink fallback="/calendar" label="Back" className="pub-back-link" />
-        <div className="pub-card pub-muted">That concert is not on the calendar.</div>
+        <BackLink fallback="/calendar" label={t('event.back')} className="pub-back-link" />
+        <div className="pub-card pub-muted">{t('ckerr.srv.unknown-event')}</div>
       </div>
     );
   }
 
   const title = event.title
     || event.ensembleIds.map(eid => ensembleDisplayName(ensembles.find(e => e.id === eid))).filter(Boolean).join(' + ')
-    || 'Concert';
+    || tType('Concert');
   const win = checkinWindow(event, settings, ORG.timezone);
   const domains = settings.emailDomains;
-  const hint = domainsLabel(domains);
+  const hint = domainsLabel(domains, t('misc.or'));
 
   /* ── The station is not taking records ── */
 
   if (state !== 'open') {
     return (
       <div className="pub-page pub-checkin">
-        <BackLink fallback={`/event/${event.id}`} label="Back to the concert" className="pub-back-link" />
+        <BackLink fallback={`/event/${event.id}`} label={t('ci.backToConcert')} className="pub-back-link" />
         <ClosedCard state={state} title={title} event={event} win={win} />
       </div>
     );
@@ -193,7 +197,7 @@ export function PublicCheckin() {
     });
     if (!outcome.ok) {
       setSending(false);
-      setError(outcome.message ?? 'That did not go through. Find a director.');
+      setError(refusalMessage(outcome.failure, outcome.message));
       // A refusal that the student can fix sends them back to the step that
       // fixes it, rather than to the top of the page.
       setStepOverride(outcome.failure === 'wrong-domain' || outcome.failure === 'bad-email' ? 'email'
@@ -228,29 +232,28 @@ export function PublicCheckin() {
       <div className="pub-page pub-checkin">
         <div className="pub-checkin-done">
           <div className="pub-checkin-tick"><Check size={40} aria-hidden /></div>
-          <h1>{doneKind === 'in' ? 'You are checked in' : 'You are checked out'}</h1>
+          <h1>{doneKind === 'in' ? t('ci.done.in') : t('ci.done.out')}</h1>
           <p className="pub-checkin-big">{clockAt(doneAt)}</p>
           <p className="pub-muted">{whoName} · {title}</p>
           {doneKind === 'in' ? (
             <p className="pub-checkin-next">
-              <strong>Come back to this page when the concert ends</strong> and check out.
-              You need both to get credit.
+              <strong>{t('ci.done.comeBack')}</strong> {t('ci.done.andCheckOut')}
             </p>
           ) : (
-            <p className="pub-checkin-next">That is everything. Thanks for coming.</p>
+            <p className="pub-checkin-next">{t('ci.done.thanks')}</p>
           )}
           <div className="pub-checkin-actions">
             {doneKind === 'in' && (
               <button type="button" className="pub-btn-ghost" onClick={() => {
                 setKindOverride('out'); setPhoto(null); setStepOverride('photo'); setDoneAt(0);
               }}>
-                <LogOut size={16} aria-hidden /> Check out now
+                <LogOut size={16} aria-hidden /> {t('ci.checkOutNow')}
               </button>
             )}
             {student && (
-              <Link className="pub-btn-ghost" to={`/student/${student.id}`}>See my concert count</Link>
+              <Link className="pub-btn-ghost" to={`/student/${student.id}`}>{t('ci.myCount')}</Link>
             )}
-            <Link className="pub-btn-ghost" to={`/event/${event.id}`}>Back to the concert</Link>
+            <Link className="pub-btn-ghost" to={`/event/${event.id}`}>{t('ci.backToConcert')}</Link>
           </div>
         </div>
       </div>
@@ -259,25 +262,25 @@ export function PublicCheckin() {
 
   return (
     <div className="pub-page pub-checkin">
-      <BackLink fallback={`/event/${event.id}`} label="Back to the concert" className="pub-back-link" />
+      <BackLink fallback={`/event/${event.id}`} label={t('ci.backToConcert')} className="pub-back-link" />
 
       <header className="pub-checkin-head">
         <span className={`pub-checkin-kind ${kind}`}>
-          {kind === 'in' ? <><LogIn size={14} aria-hidden /> Check in</> : <><LogOut size={14} aria-hidden /> Check out</>}
+          {kind === 'in' ? <><LogIn size={14} aria-hidden /> {t('ci.checkIn')}</> : <><LogOut size={14} aria-hidden /> {t('ci.checkOut')}</>}
         </span>
         <h1>{title}</h1>
         <p className="pub-muted">{fmtFullDate(event.date)}{event.startTime ? ` · ${formatTime(event.startTime)}` : ''}</p>
         {event.concertAttendance && (
           <span className={`pub-attend-badge ${event.concertAttendance}`}>
-            {event.concertAttendance === 'required' ? 'Required concert' : 'Optional concert'}
+            {event.concertAttendance === 'required' ? t('ci.required') : t('ci.optional')}
           </span>
         )}
       </header>
 
       <ol className="pub-checkin-steps">
-        <li className={step === 'who' ? 'on' : whoName ? 'ok' : ''}>Your name</li>
-        <li className={step === 'email' ? 'on' : guestWho || (email && !emailProblem(email, domains)) ? 'ok' : ''}>School email</li>
-        <li className={step === 'photo' || step === 'sending' ? 'on' : photo ? 'ok' : ''}>Photo</li>
+        <li className={step === 'who' ? 'on' : whoName ? 'ok' : ''}>{t('abs.step.name')}</li>
+        <li className={step === 'email' ? 'on' : guestWho || (email && !emailProblem(email, domains)) ? 'ok' : ''}>{t('ci.step.email')}</li>
+        <li className={step === 'photo' || step === 'sending' ? 'on' : photo ? 'ok' : ''}>{t('ci.step.photo')}</li>
       </ol>
 
       {error && (
@@ -331,11 +334,11 @@ export function PublicCheckin() {
                 setStepOverride('who');
               }}
             >
-              Not you?
+              {t('abs.notYou')}
             </button>
           </p>
           <label className="pub-checkin-label" htmlFor="checkin-email">
-            <Mail size={16} aria-hidden /> Your school email
+            <Mail size={16} aria-hidden /> {t('ci.schoolEmail')}
           </label>
           <input
             id="checkin-email"
@@ -345,21 +348,21 @@ export function PublicCheckin() {
             autoComplete="email"
             autoCapitalize="off"
             spellCheck={false}
-            placeholder={hint ? hint.split(',')[0].replace('@', 'you@') : 'you@school.edu'}
+            placeholder={hint ? hint.split(',')[0].replace('@', t('ci.youAt')) : t('ci.schoolEmailPh')}
             value={email}
             onChange={e => { setEmailInput(e.target.value); setError(''); }}
           />
-          {hint && <p className="pub-checkin-hint">It has to end in {hint}.</p>}
+          {hint && <p className="pub-checkin-hint">{t('ci.mustEnd', { hint })}</p>}
           <button
             type="button"
             className="pub-btn"
             disabled={Boolean(emailProblem(email, domains))}
             onClick={() => setStepOverride('photo')}
           >
-            Next — take the photo
+            {t('ci.next')}
           </button>
           {email && emailProblem(email, domains) === 'domain' && (
-            <p className="pub-checkin-hint warn">That is not a school address. Use {hint}.</p>
+            <p className="pub-checkin-hint warn">{t('ci.notSchool', { hint })}</p>
           )}
         </section>
       )}
@@ -399,20 +402,19 @@ export function PublicCheckin() {
                   setStepOverride('who');
                 }}
               >
-                Fix this
+                {t('ci.fix')}
               </button>
             </p>
           )}
           <label className="pub-checkin-label">
-            <Camera size={16} aria-hidden /> {kind === 'in' ? 'A photo with the stage behind you' : 'One more photo, with the stage behind you'}
+            <Camera size={16} aria-hidden /> {kind === 'in' ? t('ci.photoIn') : t('ci.photoOut')}
           </label>
           <p className="pub-checkin-hint">
-            This is how a director can tell you were really here. It is only ever
-            seen by your directors.
+            {t('ci.photoWhy')}
           </p>
           {settings.photoOptional && (
             <p className="pub-checkin-hint">
-              A director has made the photo optional tonight — you can send without one.
+              {t('ci.photoOptional')}
             </p>
           )}
           <SelfieCapture
@@ -423,13 +425,12 @@ export function PublicCheckin() {
           />
           {arrivalClosed && cutoffAt && (
             <p className="pub-checkin-hint warn">
-              <Clock size={14} aria-hidden /> Check-in closed at {clockAt(cutoffAt)}.
-              Find a director so they can record you.
+              <Clock size={14} aria-hidden /> {t('ci.cutoff', { time: clockAt(cutoffAt) })}
             </p>
           )}
           {!checkoutReady && blockedUntil && (
             <p className="pub-checkin-hint warn">
-              <Clock size={14} aria-hidden /> Check-out opens at {clockAt(blockedUntil)}.
+              <Clock size={14} aria-hidden /> {t('ci.checkoutOpens', { time: clockAt(blockedUntil) })}
             </p>
           )}
           <button
@@ -439,15 +440,14 @@ export function PublicCheckin() {
             onClick={send}
           >
             {step === 'sending'
-              ? 'Sending…'
-              : kind === 'in' ? 'Check me in' : 'Check me out'}
+              ? t('vid.sending')
+              : kind === 'in' ? t('ci.checkMeIn') : t('ci.checkMeOut')}
           </button>
         </section>
       )}
 
       <p className="pub-checkin-foot">
-        Your photo is used only to confirm concert attendance and is visible only
-        to your directors.
+        {t('ci.foot')}
       </p>
     </div>
   );
@@ -469,6 +469,7 @@ function WhoStep({ students, q, setQ, onPick, collegeDoor, onCollege }: {
   collegeDoor: boolean;
   onCollege: () => void;
 }) {
+  useLang(); // re-render when the EN|ES toggle flips
   const folded = fold(q.trim());
   const matches = useMemo(() => {
     const active = students.filter(s => s.status === 'Active');
@@ -480,26 +481,26 @@ function WhoStep({ students, q, setQ, onPick, collegeDoor, onCollege }: {
   }, [students, folded]);
 
   if (!PUBLIC_STUDENT_INFO) {
-    return <div className="pub-card pub-muted">Check-in is not available on this site.</div>;
+    return <div className="pub-card pub-muted">{t('ci.unavailable')}</div>;
   }
 
   return (
     <section className="pub-card pub-checkin-card">
       <label className="pub-checkin-label" htmlFor="checkin-who">
-        <Search size={16} aria-hidden /> Find your name
+        <Search size={16} aria-hidden /> {t('ci.findName')}
       </label>
       <input
         id="checkin-who"
         className="pub-input"
         type="search"
         autoComplete="off"
-        placeholder="Start typing your name"
+        placeholder={t('ci.startTyping')}
         value={q}
         onChange={e => setQ(e.target.value)}
       />
       {folded && matches.length === 0 && (
         <p className="pub-checkin-hint warn">
-          No match. Try your last name — or find a director.
+          {t('ci.noMatch')}
         </p>
       )}
       <ul className="pub-checkin-matches">
@@ -515,7 +516,7 @@ function WhoStep({ students, q, setQ, onPick, collegeDoor, onCollege }: {
       {collegeDoor && (
         <p className="pub-checkin-college-door">
           <button type="button" className="pub-linkish" onClick={onCollege}>
-            <GraduationCap size={15} aria-hidden /> I am a college student and I am not on this list
+            <GraduationCap size={15} aria-hidden /> {t('ci.collegeDoor')}
           </button>
         </p>
       )}
@@ -548,30 +549,30 @@ function CollegeStep({ settings, first, setFirst, last, setLast, email, setEmail
   onBack: () => void;
   onDone: (name: string) => void;
 }) {
+  useLang(); // re-render when the EN|ES toggle flips
   const name = normalizeGuestName(`${first} ${last}`);
   const nameBad = guestNameProblem(name);
   const emailBad = guestEmailProblem(email, settings);
-  const hint = domainsLabel(settings.guestEmailDomains);
+  const hint = domainsLabel(settings.guestEmailDomains, t('misc.or'));
 
   return (
     <section className="pub-card pub-checkin-card">
       <p className="pub-checkin-who">
-        <GraduationCap size={18} aria-hidden /> College student
-        <button type="button" className="pub-linkish" onClick={onBack}>Back to the list</button>
+        <GraduationCap size={18} aria-hidden /> {t('ci.college')}
+        <button type="button" className="pub-linkish" onClick={onBack}>{t('ci.backToList')}</button>
       </p>
       <p className="pub-checkin-hint">
-        Your name is not in the Hub yet. Type it here and it will be on the
-        director&rsquo;s attendance sheet all the same.
+        {t('ci.collegeHint')}
       </p>
 
-      <label className="pub-checkin-label" htmlFor="checkin-first">Your name</label>
+      <label className="pub-checkin-label" htmlFor="checkin-first">{t('abs.step.name')}</label>
       <div className="pub-checkin-name-row">
         <input
           id="checkin-first"
           className="pub-input"
           type="text"
           autoComplete="given-name"
-          placeholder="First name"
+          placeholder={t('ci.first')}
           value={first}
           onChange={e => setFirst(e.target.value)}
         />
@@ -580,14 +581,14 @@ function CollegeStep({ settings, first, setFirst, last, setLast, email, setEmail
           className="pub-input"
           type="text"
           autoComplete="family-name"
-          placeholder="Last name"
+          placeholder={t('ci.last')}
           value={last}
           onChange={e => setLast(e.target.value)}
         />
       </div>
 
       <label className="pub-checkin-label" htmlFor="checkin-college-email">
-        <Mail size={16} aria-hidden /> Your college email
+        <Mail size={16} aria-hidden /> {t('ci.collegeEmail')}
       </label>
       <input
         id="checkin-college-email"
@@ -597,20 +598,18 @@ function CollegeStep({ settings, first, setFirst, last, setLast, email, setEmail
         autoComplete="email"
         autoCapitalize="off"
         spellCheck={false}
-        placeholder={hint ? hint.split(',')[0].replace('@', 'you@') : 'you@college.edu'}
+        placeholder={hint ? hint.split(',')[0].replace('@', t('ci.youAt')) : t('ci.collegeEmailPh')}
         value={email}
         onChange={e => setEmail(e.target.value)}
       />
       {hint && (
         <p className="pub-checkin-hint">
-          It has to end in {hint}. <strong>Use the same address when you check
-          out</strong> — it is how the Hub knows the two are you.
+          {t('ci.mustEnd', { hint })} <strong>{t('ci.sameAddress')}</strong>{t('ci.sameAddressWhy')}
         </p>
       )}
       {email && emailBad === 'domain' && (
         <p className="pub-checkin-hint warn">
-          That is not a college address. If you are on the student list, go back
-          and find your name instead.
+          {t('ci.notCollege')}
         </p>
       )}
 
@@ -620,7 +619,7 @@ function CollegeStep({ settings, first, setFirst, last, setLast, email, setEmail
         disabled={Boolean(nameBad || emailBad)}
         onClick={() => onDone(name)}
       >
-        Next — take the photo
+        {t('ci.next')}
       </button>
     </section>
   );
@@ -634,6 +633,7 @@ function ClosedCard({ state, title, event, win }: {
   event: { date: string; startTime?: string };
   win: { opensAt: number } | null;
 }) {
+  useLang(); // re-render when the EN|ES toggle flips
   const opensAt = win ? new Date(win.opensAt) : null;
   return (
     <section className="pub-card pub-checkin-card pub-checkin-closed">
@@ -641,23 +641,22 @@ function ClosedCard({ state, title, event, win }: {
       <p className="pub-muted">{fmtFullDate(event.date)}{event.startTime ? ` · ${formatTime(event.startTime)}` : ''}</p>
       {state === 'early' && opensAt && (
         <>
-          <p className="pub-checkin-big"><Clock size={20} aria-hidden /> Not open yet</p>
+          <p className="pub-checkin-big"><Clock size={20} aria-hidden /> {t('ci.notOpen')}</p>
           <p>
-            Check-in opens at {clockAt(opensAt.getTime())}. Come back then — this
-            page will be waiting.
+            {t('ci.opensAt', { time: clockAt(opensAt.getTime()) })}
           </p>
         </>
       )}
       {state === 'closed' && (
         <>
-          <p className="pub-checkin-big">Check-in has closed</p>
-          <p>If you were here and did not get checked in, find a director. Do not just leave it.</p>
+          <p className="pub-checkin-big">{t('ci.closedTitle')}</p>
+          <p>{t('ci.closedBody')}</p>
         </>
       )}
       {state === 'off' && (
         <>
-          <p className="pub-checkin-big">No check-in for this one</p>
-          <p>This concert is not using the check-in station.</p>
+          <p className="pub-checkin-big">{t('ci.offTitle')}</p>
+          <p>{t('ci.offBody')}</p>
         </>
       )}
     </section>

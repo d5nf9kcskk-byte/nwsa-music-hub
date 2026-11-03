@@ -31,6 +31,9 @@ const BASE = ORG.basePath;
  * enumerated; anything else — injected script, exfiltration fetch — is
  * blocked by the browser.
  */
+/** App Check's reCAPTCHA (Fraud Defense) script origins (see script-src below). */
+const RECAPTCHA = ['https://www.google.com/recaptcha/', 'https://www.gstatic.com/recaptcha/'];
+
 function cspPlugin(authDomain: string | undefined, functionsOrigin: string | undefined): Plugin {
   return {
     name: 'nwsa-csp',
@@ -44,7 +47,16 @@ function cspPlugin(authDomain: string | undefined, functionsOrigin: string | und
         const policy = [
           "default-src 'self'",
           // apis.google.com: loaded by the Firebase Auth popup helper.
-          `script-src 'self' https://apis.google.com ${hashes.join(' ')}`,
+          // The two /recaptcha/ paths are App Check's reCAPTCHA loader, the
+          // Fraud Defense (reCAPTCHA Enterprise) script and the files it pulls
+          // in (docs/security-recommendations.md #1). Listed ALWAYS, not only
+          // when VITE_RECAPTCHA_SITE_KEY is set: App Check runs in watch-only
+          // mode first, and a key added to a build whose policy refuses the
+          // script fails silently. The metrics would then show every real
+          // visitor as unverified, and switching to enforce on that evidence
+          // locks the whole school out. Same trap as connect-src and
+          // media-src below, one directive up.
+          `script-src 'self' https://apis.google.com ${RECAPTCHA.join(' ')} ${hashes.join(' ')}`,
           // React style attributes need unsafe-inline; no external styles.
           "style-src 'self' 'unsafe-inline'",
           // googleusercontent: Google-account avatars in the director header.
@@ -82,9 +94,16 @@ function cspPlugin(authDomain: string | undefined, functionsOrigin: string | und
             // bad venue wifi from the inside.
             ...(functionsOrigin ? [functionsOrigin] : []),
             ...(authDomain ? [`https://${authDomain}`] : []),
+            // App Check trades the reCAPTCHA answer for a token here.
+            'https://content-firebaseappcheck.googleapis.com',
           ].join(' '),
-          // The invisible iframe signInWithPopup uses lives on authDomain.
-          ...(authDomain ? [`frame-src https://${authDomain}`] : []),
+          // The invisible iframe signInWithPopup uses lives on authDomain;
+          // reCAPTCHA runs its scoring in an iframe of its own.
+          'frame-src ' + [
+            ...(authDomain ? [`https://${authDomain}`] : []),
+            'https://www.google.com/recaptcha/',
+            'https://recaptcha.google.com/recaptcha/',
+          ].join(' '),
           "object-src 'none'",
           "base-uri 'self'",
           "form-action 'self'",
