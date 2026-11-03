@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { FORMS_PATH } from '../shared/formLink';
-import { FORM_KIND_LABEL, formKindOf } from '../shared/formKind';
+import { formKindOf } from '../shared/formKind';
+import { formKindLabel } from './formKindLabel';
 import { NotesText } from './components/NotesText';
 import { useParams, Link } from 'react-router';
 import { ClipboardSignature, FileText, CalendarClock, Check, Search, Paperclip, UserRound } from 'lucide-react';
@@ -14,7 +15,7 @@ import { EmptyState } from './components/PageHeader';
 import { todayStr, toDateStr, ensembleDisplayName } from '../director/utils';
 import { sortStudents } from '../director/scoreOrder';
 import { fmtLongDate } from '../shared/dates';
-import { useLang } from '../shared/i18n';
+import { t, useLang } from '../shared/i18n';
 import { primaryStudent } from '../shared/identity';
 import { INSTRUMENT_FAMILY_LABEL } from '../shared/instrumentFamily';
 import { audienceLabel, eligibleForSignupPicker, signupClosedReason, signupIsPublished } from '../shared/signupEligibility';
@@ -206,15 +207,15 @@ export function PublicSignup() {
   }, [effectiveGrade, questions]);
 
   if (formsLoading || studentsLoading) {
-    return <div className="pub-page"><div className="pub-signup-loading">Loading…</div></div>;
+    return <div className="pub-page"><div className="pub-signup-loading">{t('misc.loading')}</div></div>;
   }
 
   if (!form || !signupIsPublished(form, now)) {
     return (
       <div className="pub-page">
-        <BackLink fallback={FORMS_PATH} label="Forms" />
+        <BackLink fallback={FORMS_PATH} label={t('nav.signups')} />
         <EmptyState icon={<ClipboardSignature size={30} />}>
-          That form isn’t available. It may have been taken down, or the link may be out of date.
+          {t('su.unavailable')}
         </EmptyState>
       </div>
     );
@@ -223,7 +224,7 @@ export function PublicSignup() {
   const closedReason = signupClosedReason(form, today, now);
   const docUrl = form.formUrl ?? '';
   const who = form.audienceMode === 'students'
-    ? 'By invitation'
+    ? t('su.byInvitation')
     : audienceLabel(
       { mode: form.audienceMode, ensembleIds: form.ensembleIds ?? [], families: form.families ?? [], highSchoolOnly: form.highSchoolOnly },
       eid => ensembleDisplayName(ensembles.find(e => e.id === eid)),
@@ -272,7 +273,7 @@ export function PublicSignup() {
     if (!db || !identified || !valid || state === 'saving') return;
     if (answersTooLong) {
       setState('error');
-      setError('Your answers are longer than this form can send — please shorten them a little.');
+      setError(t('su.err.tooLong'));
       return;
     }
     setState('saving'); setError('');
@@ -323,19 +324,19 @@ export function PublicSignup() {
     } catch (err) {
       setState('error');
       if (err instanceof SignupSlotTakenError) {
-        setError(`That time (${err.slotLabel}) was just taken — pick another slot.`);
+        setError(t('su.err.slotTaken', { slot: err.slotLabel }));
       } else if (err instanceof SignupSlotGradeError) {
-        setError(`That time (${err.slotLabel}) isn’t available for your grade — ${err.reason}.`);
+        setError(t('su.err.slotGrade', { slot: err.slotLabel, reason: err.reason }));
       } else if (form?.audienceMode === 'students') {
-        setError(`This form is by invitation — if your name isn’t on the list, email ${ORG.contactEmail}.`);
+        setError(t('su.err.invite', { email: ORG.contactEmail }));
       } else if ((err as { code?: string })?.code === 'permission-denied') {
         // The write reached Firestore and the rules turned it down, so
         // "check your connection" would send the student off chasing their
         // wifi. Name it for what it is and point at a human — that is what
         // gets the next one of these reported to the right place.
-        setError(`This form turned that submission down — nothing you did is wrong. Email ${ORG.contactEmail} and they can take it from here.`);
+        setError(t('su.err.denied', { email: ORG.contactEmail }));
       } else {
-        setError(`Could not send right now — check your connection and try again, or email ${ORG.contactEmail}.`);
+        setError(t('abs.err.send', { email: ORG.contactEmail }));
       }
     }
   }
@@ -345,21 +346,21 @@ export function PublicSignup() {
       <div className="pub-page">
         <div className="pub-signup-done">
           <div className="pub-signup-done-mark"><Check size={30} /></div>
-          <h1>{formKindOf(form ?? {}) === 'signup' ? 'You’re signed up' : 'Sent'}</h1>
+          <h1>{formKindOf(form ?? {}) === 'signup' ? t('su.done.signedUp') : t('su.done.sent')}</h1>
           <p>
-            <strong>{identityName}</strong>{effectiveGrade ? ` · ${effectiveGrade}` : ''} — sent to your director.
-            {needsSignature && ' Your signature went with it.'}
-            {signsPdf && ' Your signed form went with it.'}
+            <strong>{identityName}</strong>{effectiveGrade ? ` · ${effectiveGrade}` : ''} — {t('su.done.sentTo')}
+            {needsSignature && ` ${t('su.done.sigWent')}`}
+            {signsPdf && ` ${t('su.done.pdfWent')}`}
           </p>
           {myCopy && (
-            <a className="pub-signup-doc" href={myCopy} download={`${form?.title ?? 'Signed form'}.pdf`}>
-              <FileText size={15} /> Save a copy of your signed form
+            <a className="pub-signup-doc" href={myCopy} download={`${form?.title ?? t('su.signedForm')}.pdf`}>
+              <FileText size={15} /> {t('su.done.saveCopy')}
             </a>
           )}
           {pickedSlots.length > 0 && (
             <div className="pub-signup-booked">
               <div className="pub-signup-booked-head">
-                {pickedSlots.length > 1 ? 'Your times' : 'Your time'}
+                {pickedSlots.length > 1 ? t('su.yourTimes') : t('su.yourTime')}
               </div>
               {pickedSlots.map(s => (
                 <div key={s.label} className="pub-signup-booked-row">
@@ -374,10 +375,11 @@ export function PublicSignup() {
             </div>
           )}
           <p className="pub-muted">
-            Nothing else to do right now. If your director needs anything more,
-            they’ll reach out{email.trim() ? ` at ${email.trim()}` : ''}.
+            {email.trim()
+              ? t('su.done.nothingElseAt', { email: email.trim() })
+              : t('su.done.nothingElse')}
           </p>
-          <Link className="pub-signup-send" to="/">Back to the Hub</Link>
+          <Link className="pub-signup-send" to="/">{t('abs.done.back')}</Link>
         </div>
       </div>
     );
@@ -385,10 +387,10 @@ export function PublicSignup() {
 
   return (
     <div className="pub-page">
-      <BackLink fallback={FORMS_PATH} label="Forms" />
+      <BackLink fallback={FORMS_PATH} label={t('nav.signups')} />
 
       <header className="pub-signup-head">
-        <div className="pub-signup-kicker"><ClipboardSignature size={14} /> {FORM_KIND_LABEL[formKindOf(form)]}</div>
+        <div className="pub-signup-kicker"><ClipboardSignature size={14} /> {formKindLabel(formKindOf(form))}</div>
         <h1>{form.title}</h1>
         <div className="pub-signup-meta">
           <span>{who}</span>
@@ -406,7 +408,7 @@ export function PublicSignup() {
         {form.intro && <div className="pub-signup-intro"><NotesText text={form.intro} /></div>}
         {docUrl && (
           <a className="pub-signup-doc" href={docUrl} target="_blank" rel="noreferrer">
-            <FileText size={15} /> Open the official form
+            <FileText size={15} /> {t('su.open')}
           </a>
         )}
       </header>
@@ -414,13 +416,13 @@ export function PublicSignup() {
       {/* `state === 'done'` returned above, so this only shows before a send. */}
       {receipt && (
         <div className="pub-signup-receipt">
-          <Check size={15} /> You already sent this as <strong>{receipt.studentName}</strong> on{' '}
+          <Check size={15} /> {t('su.receipt.sentAs')} <strong>{receipt.studentName}</strong> {t('su.receipt.on')}{' '}
           {fmtLongDate(toDateStr(new Date(receipt.at)))}.
-          {!closedReason && ' Sending this form again replaces your earlier answers.'}
+          {!closedReason && ` ${t('su.receipt.replaces')}`}
           {bookedSlots.length > 0 && (
             <div className="pub-signup-booked">
               <div className="pub-signup-booked-head">
-                {bookedSlots.length > 1 ? 'Your times' : 'Your time'}
+                {bookedSlots.length > 1 ? t('su.yourTimes') : t('su.yourTime')}
               </div>
               {bookedSlots.map(s => (
                 <div key={s.booking.id} className="pub-signup-booked-row">
@@ -441,44 +443,38 @@ export function PublicSignup() {
 
       {closedReason ? (
         <div className="pub-card pub-signup-closed">
-          <h2>This form is closed</h2>
+          <h2>{t('su.closed.title')}</h2>
           <p>
             {closedReason === 'deadline' && form.deadline
-              ? `This closed after ${fmtLongDate(form.deadline)}.`
-              : 'Your director has closed this form.'}
-            {' '}If you still want in, email{' '}
+              ? t('su.closed.after', { date: fmtLongDate(form.deadline) })
+              : t('su.closed.byDirector')}
+            {' '}{t('su.closed.emailPre')}{' '}
             <a href={`mailto:${ORG.contactEmail}?subject=${encodeURIComponent(form.title)}`}>{ORG.contactEmail}</a>.
           </p>
         </div>
       ) : !openMode && !PUBLIC_STUDENT_INFO ? (
         <div className="pub-card">
-          <p className="pub-muted">The roster isn’t published yet, so you can’t pick your name here. Email {ORG.contactEmail}.</p>
+          <p className="pub-muted">{t('su.unpublished', { email: ORG.contactEmail })}</p>
         </div>
       ) : !openMode && eligible.length === 0 ? (
         <div className="pub-card">
-          <p className="pub-muted">
-            Nobody on the roster matches who this form is for ({who}). If that’s wrong,
-            let your director know — they can widen it in a tap.
-          </p>
+          <p className="pub-muted">{t('su.nobody', { who })}</p>
         </div>
       ) : (
         <>
           {/* ── 1 · who you are ─────────────────────────────── */}
           <div className="pub-signup-step">
             <div className="pub-signup-step-num">1</div>
-            <div className="pub-signup-step-title">Your name</div>
+            <div className="pub-signup-step-title">{t('abs.step.name')}</div>
           </div>
           <div className="pub-card">
             {openMode ? (
               <>
-                <label className="pub-absence-label" htmlFor="su-name">Your full name</label>
+                <label className="pub-absence-label" htmlFor="su-name">{t('su.fullName')}</label>
                 <input id="su-name" className="pub-absence-input" maxLength={120}
                   autoComplete="name" autoCapitalize="words" value={typedName}
-                  onChange={e => setTypedName(e.target.value)} placeholder="e.g. Maria Delgado" />
-                <div className="pub-signup-note">
-                  You don’t need to be on a roster — this form is how your
-                  director gets your details in the first place.
-                </div>
+                  onChange={e => setTypedName(e.target.value)} placeholder={t('su.fullNamePh')} />
+                <div className="pub-signup-note">{t('su.openNote')}</div>
                 {/* Honeypot: hidden, never tabbed to, invisible to a human. */}
                 {honeypot.field}
               </>
@@ -489,22 +485,22 @@ export function PublicSignup() {
                   <div className="pub-muted">{[student.instrument, student.grade].filter(Boolean).join(' · ')}</div>
                 </div>
                 <button className="pub-signup-switch" onClick={() => { setPickedId(null); setQuery(''); }}>
-                  Not you?
+                  {t('abs.notYou')}
                 </button>
               </div>
             ) : (
               <>
                 <p className="pub-absence-hint" style={{ marginTop: 0 }}>
                   {form.audienceMode === 'students'
-                    ? 'Tap your name. Only invited students can submit — if you’re not on the list, email your director.'
-                    : 'Tap your name. Only students this form is for are listed.'}
+                    ? t('su.tapInvite')
+                    : t('su.tapName')}
                 </p>
                 {eligible.length > 8 && (
                   <div className="pub-search" style={{ marginBottom: 10 }}>
                     <Search size={18} />
                     <input
                       className="pub-search-input"
-                      placeholder="Type your name…"
+                      placeholder={t('abs.typeName')}
                       value={query}
                       onChange={e => setQuery(e.target.value)}
                     />
@@ -518,7 +514,7 @@ export function PublicSignup() {
                     </button>
                   ))}
                   {matching(eligible, query).length === 0 && (
-                    <div className="pub-muted">No matching name on this list.</div>
+                    <div className="pub-muted">{t('su.noMatch')}</div>
                   )}
                 </div>
               </>
@@ -531,20 +527,20 @@ export function PublicSignup() {
               <div className="pub-signup-step">
                 <div className="pub-signup-step-num">2</div>
                 <div className="pub-signup-step-title">
-                  {openMode ? 'Your details' : 'Confirm your grade'}
+                  {openMode ? t('su.step.details') : t('su.step.grade')}
                 </div>
               </div>
               <div className="pub-card">
                 <label className="pub-absence-label" htmlFor="su-grade">
                   {openMode
-                    ? <>Grade or year <span className="pub-signup-optional">(optional)</span></>
-                    : 'Grade you’re in'}
+                    ? <>{t('su.gradeOrYear')} <span className="pub-signup-optional">{t('misc.optional')}</span></>
+                    : t('su.gradeIn')}
                 </label>
                 {openMode ? (
                   <input id="su-grade" className="pub-absence-input" maxLength={40}
                     value={effectiveGrade}
                     onChange={e => { setGradeTouched(true); setGrade(e.target.value); }}
-                    placeholder="e.g. 11th, or College freshman" />
+                    placeholder={t('su.gradePh')} />
                 ) : (
                   <select
                     id="su-grade"
@@ -552,28 +548,28 @@ export function PublicSignup() {
                     value={effectiveGrade}
                     onChange={e => { setGradeTouched(true); setGrade(e.target.value); }}
                   >
-                    <option value="">Choose your grade…</option>
+                    <option value="">{t('su.chooseGrade')}</option>
                     {gradeChoices(student?.grade).map(g => <option key={g} value={g}>{g}</option>)}
                   </select>
                 )}
                 {student?.grade && effectiveGrade && effectiveGrade !== student.grade && (
                   <div className="pub-signup-note">
-                    The roster says {student.grade}. Your director will see that you corrected it.
+                    {t('su.gradeCorrected', { grade: student.grade })}
                   </div>
                 )}
 
                 {form.collectEmail && (
                   <>
-                    <label className="pub-absence-label" htmlFor="su-email">Your email</label>
+                    <label className="pub-absence-label" htmlFor="su-email">{t('abs.email')}</label>
                     <input id="su-email" className="pub-absence-input" type="email" inputMode="email"
                       autoComplete="email" maxLength={254} value={email}
-                      onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
-                    <div className="pub-signup-note">So your director can send you what comes next.</div>
+                      onChange={e => setEmail(e.target.value)} placeholder={t('abs.emailPh')} />
+                    <div className="pub-signup-note">{t('su.emailNote')}</div>
                   </>
                 )}
                 {form.collectPhone && (
                   <>
-                    <label className="pub-absence-label" htmlFor="su-phone">Phone <span className="pub-signup-optional">(optional)</span></label>
+                    <label className="pub-absence-label" htmlFor="su-phone">{t('su.phone')} <span className="pub-signup-optional">{t('misc.optional')}</span></label>
                     <input id="su-phone" className="pub-absence-input" type="tel" inputMode="tel"
                       autoComplete="tel" maxLength={40} value={phone}
                       onChange={e => setPhone(e.target.value)} placeholder="(305) 555-0134" />
@@ -586,7 +582,7 @@ export function PublicSignup() {
                 <>
                   <div className="pub-signup-step">
                     <div className="pub-signup-step-num">3</div>
-                    <div className="pub-signup-step-title">The form</div>
+                    <div className="pub-signup-step-title">{t('su.step.form')}</div>
                   </div>
                   <div className="pub-card">
                     {questions.map(q => (
@@ -610,14 +606,14 @@ export function PublicSignup() {
                 <>
                   <div className="pub-signup-step">
                     <div className="pub-signup-step-num">3</div>
-                    <div className="pub-signup-step-title">Fill in, sign and date the form</div>
+                    <div className="pub-signup-step-title">{t('su.step.pdf')}</div>
                   </div>
                   <div className="pub-card">
                     {pdfFields.length > 0 && (
                       <div className="pub-signup-pdf-fields">
                         {asksFor('studentName') && (
                           <>
-                            <label className="pub-absence-label" htmlFor="su-pdf-name">Student’s name</label>
+                            <label className="pub-absence-label" htmlFor="su-pdf-name">{t('su.pdfName')}</label>
                             <input id="su-pdf-name" className="pub-absence-input" maxLength={80}
                               autoCapitalize="words" value={pdfName ?? identityName}
                               onChange={e => setPdfName(e.target.value)} />
@@ -625,41 +621,37 @@ export function PublicSignup() {
                         )}
                         {asksFor('studentId') && (
                           <>
-                            <label className="pub-absence-label" htmlFor="su-pdf-id">Student ID number</label>
+                            <label className="pub-absence-label" htmlFor="su-pdf-id">{t('su.pdfId')}</label>
                             <input id="su-pdf-id" className="pub-absence-input" maxLength={20}
                               inputMode="numeric" autoComplete="off" value={pdfSchoolId}
-                              onChange={e => setPdfSchoolId(e.target.value)} placeholder="Your school ID" />
+                              onChange={e => setPdfSchoolId(e.target.value)} placeholder={t('su.pdfIdPh')} />
                           </>
                         )}
                         {asksFor('grade') && (
-                          <div className="pub-signup-note">Grade: {effectiveGrade || '—'} (from step 2).</div>
+                          <div className="pub-signup-note">{t('su.pdfGrade', { grade: effectiveGrade || '—' })}</div>
                         )}
                         <PdfQuestions questions={pdfQuestions.filter(q => !q.extra)}
                           answers={pdfAnswers} onAnswer={(qid, v) => setPdfAnswers(a => ({ ...a, [qid]: v }))} />
                         {pdfQuestions.some(q => q.extra) && (
                           <details className="pub-signup-pdf-extra">
-                            <summary>Add insurance, doctor or medical information (optional)</summary>
+                            <summary>{t('su.pdfExtra')}</summary>
                             <PdfQuestions questions={pdfQuestions.filter(q => q.extra)}
                               answers={pdfAnswers} onAnswer={(qid, v) => setPdfAnswers(a => ({ ...a, [qid]: v }))} />
                           </details>
                         )}
-                        <div className="pub-signup-note">
-                          Your answers print on the form for you (shaded below), and go only into
-                          the signed form your director receives. Then sign it and date it on the form.
-                        </div>
+                        <div className="pub-signup-note">{t('su.pdfNote')}</div>
                       </div>
                     )}
                     {pdfLoadError ? (
                       <div className="pub-absence-error">
-                        ⚠ The form could not be loaded. Check your connection and reload the page,
-                        or email {ORG.contactEmail}.
+                        ⚠ {t('su.pdfLoadErr', { email: ORG.contactEmail })}
                       </div>
                     ) : pdfBytes ? (
-                      <Suspense fallback={<div className="pub-signup-loading">Opening the form…</div>}>
+                      <Suspense fallback={<div className="pub-signup-loading">{t('su.opening')}</div>}>
                         <PdfSigner bytes={pdfBytes} marks={marks} onMarks={setMarks} fixed={fieldMarks} />
                       </Suspense>
                     ) : (
-                      <div className="pub-signup-loading">Opening the form…</div>
+                      <div className="pub-signup-loading">{t('su.opening')}</div>
                     )}
                   </div>
                 </>
@@ -670,36 +662,34 @@ export function PublicSignup() {
                 <>
                   <div className="pub-signup-step">
                     <div className="pub-signup-step-num">{questions.length > 0 ? 4 : 3}</div>
-                    <div className="pub-signup-step-title">Sign</div>
+                    <div className="pub-signup-step-title">{t('su.step.sign')}</div>
                   </div>
                   <div className="pub-card">
                     <div className="pub-signup-statement"><NotesText text={form.signatureStatement ?? ''} /></div>
-                    <label className="pub-absence-label" htmlFor="su-sign">Type your full name to sign</label>
+                    <label className="pub-absence-label" htmlFor="su-sign">{t('su.signLabel')}</label>
                     <input id="su-sign" className="pub-absence-input pub-signup-sign" maxLength={120}
                       autoComplete="off" autoCapitalize="words" value={signature}
                       onChange={e => setSignature(e.target.value)} placeholder={identityName} />
-                    <div className="pub-signup-note">
-                      Typing your name here counts as your signature, and records the date and time.
-                    </div>
+                    <div className="pub-signup-note">{t('su.signNote')}</div>
 
                     {needsGuardian && (
                       <>
                         <div className="pub-signup-divider" />
                         <div className="pub-signup-statement"><NotesText text={form.guardianStatement ?? ''} /></div>
-                        <label className="pub-absence-label" htmlFor="su-gname">Parent/guardian name</label>
+                        <label className="pub-absence-label" htmlFor="su-gname">{t('abs.parentName')}</label>
                         <input id="su-gname" className="pub-absence-input" maxLength={120}
                           autoComplete="name" value={guardianName}
-                          onChange={e => setGuardianName(e.target.value)} placeholder="e.g. Jordan Rivera" />
-                        <label className="pub-absence-label" htmlFor="su-gsign">Parent/guardian signature</label>
+                          onChange={e => setGuardianName(e.target.value)} placeholder={t('su.gNamePh')} />
+                        <label className="pub-absence-label" htmlFor="su-gsign">{t('su.gSign')}</label>
                         <input id="su-gsign" className="pub-absence-input pub-signup-sign" maxLength={120}
                           autoComplete="off" autoCapitalize="words" value={guardianSignature}
-                          onChange={e => setGuardianSignature(e.target.value)} placeholder="Type the full name above" />
+                          onChange={e => setGuardianSignature(e.target.value)} placeholder={t('su.gSignPh')} />
                         <label className="pub-absence-label" htmlFor="su-gemail">
-                          Parent/guardian email <span className="pub-signup-optional">(optional)</span>
+                          {t('su.gEmail')} <span className="pub-signup-optional">{t('misc.optional')}</span>
                         </label>
                         <input id="su-gemail" className="pub-absence-input" type="email" inputMode="email"
                           maxLength={254} value={guardianEmail}
-                          onChange={e => setGuardianEmail(e.target.value)} placeholder="parent@example.com" />
+                          onChange={e => setGuardianEmail(e.target.value)} placeholder={t('su.gEmailPh')} />
                       </>
                     )}
                   </div>
@@ -709,21 +699,21 @@ export function PublicSignup() {
               {error && <div className="pub-absence-error">⚠ {error}</div>}
 
               <button className="pub-signup-send" disabled={!valid || state === 'saving'} onClick={submit}>
-                {state === 'saving' ? 'Sending…' : signsPdf ? 'Send the signed form' : needsSignature ? 'Sign and send' : 'Send to my director'}
+                {state === 'saving' ? t('vid.sending') : signsPdf ? t('su.sendSigned') : needsSignature ? t('su.signSend') : t('abs.send')}
               </button>
               {!valid && (
                 <div className="pub-signup-note pub-signup-why">
                   {signsPdf && fieldsMissing && effectiveGrade.trim()
                     ? (pdfQuestionsMissing
-                      ? 'Answer the required questions above the form — the parent’s name, at least one phone number, and a backup contact.'
-                      : 'Add the student’s name and ID number above the form.')
+                      ? t('su.why.pdfQuestions')
+                      : t('su.why.pdfId'))
                     : signsPdf && !pdfSigned && effectiveGrade.trim()
-                    ? 'The form still needs a signature — tap Signature, then tap the signature line.'
+                    ? t('su.why.pdfSign')
                     : whyNotYet({ effectiveGrade, gradeRequired: !openMode, missingRequired, needsSignature, signature, needsGuardian, guardianName, guardianSignature, collectEmail: !!form.collectEmail, email, guardianEmail })}
                 </div>
               )}
               <p className="pub-signup-privacy">
-                What you send here goes only to {ORG.orgShortName} staff.
+                {t('abs.privacy', { org: ORG.orgShortName })}
               </p>
             </>
           )}
@@ -741,6 +731,7 @@ function PdfQuestions({ questions, answers, onAnswer }: {
   answers: Record<string, string>;
   onAnswer: (id: string, v: string) => void;
 }) {
+  useLang(); // re-render when the EN|ES toggle flips
   return (
     <>
       {questions.map(q => (
@@ -748,8 +739,8 @@ function PdfQuestions({ questions, answers, onAnswer }: {
           {q.section && <div className="pub-signup-pdf-section">{q.section}</div>}
           <label className="pub-absence-label" htmlFor={`su-pdfq-${q.id}`}>
             {q.label}
-            {q.oneOf ? <span className="pub-signup-optional"> (at least one phone)</span>
-              : !q.required && <span className="pub-signup-optional"> (optional)</span>}
+            {q.oneOf ? <span className="pub-signup-optional"> {t('su.atLeastOnePhone')}</span>
+              : !q.required && <span className="pub-signup-optional"> {t('misc.optional')}</span>}
           </label>
           <input id={`su-pdfq-${q.id}`} className="pub-absence-input"
             type={q.type === 'tel' ? 'tel' : 'text'} inputMode={q.type === 'tel' ? 'tel' : undefined}
@@ -770,9 +761,10 @@ function QuestionField({ question, value, onChange, takenSlots, studentId, stude
   studentGrade?: string;
   slotBookings?: SignupSlotBooking[];
 }) {
+  useLang(); // re-render when the EN|ES toggle flips
   const label = (
     <label className="pub-absence-label" htmlFor={`su-q-${question.id}`}>
-      {question.label}{!question.required && <span className="pub-signup-optional"> (optional)</span>}
+      {question.label}{!question.required && <span className="pub-signup-optional"> {t('misc.optional')}</span>}
     </label>
   );
   return (
@@ -785,7 +777,7 @@ function QuestionField({ question, value, onChange, takenSlots, studentId, stude
       ) : question.type === 'choice' ? (
         <select id={`su-q-${question.id}`} className="pub-absence-input"
           value={value} onChange={e => onChange(e.target.value)}>
-          <option value="">Choose…</option>
+          <option value="">{t('su.choose')}</option>
           {(question.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
         </select>
       ) : question.type === 'timeslot' ? (
@@ -809,17 +801,17 @@ function QuestionField({ question, value, onChange, takenSlots, studentId, stude
                 onClick={() => { if (!disabled) onChange(selected ? '' : slot); }}
               >
                 <span className="pub-signup-slot-time">{slot}</span>
-                {taken && <span className="pub-signup-slot-badge">Taken</span>}
+                {taken && <span className="pub-signup-slot-badge">{t('su.taken')}</span>}
                 {!taken && gradeBadge && (
                   <span className={`pub-signup-slot-badge ${blocked ? '' : 'pub-signup-slot-badge-limit'}`}>
-                    {blocked ? 'Not available' : gradeBadge}
+                    {blocked ? t('su.notAvailable') : gradeBadge}
                   </span>
                 )}
               </button>
             );
           })}
           {(question.options ?? []).length === 0 && (
-            <div className="pub-signup-note">No times listed yet — check back soon.</div>
+            <div className="pub-signup-note">{t('su.noTimes')}</div>
           )}
         </div>
       ) : question.type === 'yesno' ? (
@@ -831,7 +823,7 @@ function QuestionField({ question, value, onChange, takenSlots, studentId, stude
               className={`pub-signup-yesno-btn ${value === o ? 'active' : ''}`}
               onClick={() => onChange(value === o ? '' : o)}
             >
-              {o}
+              {o === 'Yes' ? t('su.yes') : t('su.no')}
             </button>
           ))}
         </div>
@@ -850,6 +842,7 @@ function isImageAttachment(file: Attachment): boolean {
 }
 
 function QuestionReference({ file }: { file: Attachment }) {
+  useLang(); // re-render when the EN|ES toggle flips
   if (isImageAttachment(file)) {
     return (
       <a className="pub-signup-ref" href={file.url} target="_blank" rel="noreferrer">
@@ -859,7 +852,7 @@ function QuestionReference({ file }: { file: Attachment }) {
   }
   return (
     <a className="pub-signup-ref-link" href={file.url} target="_blank" rel="noreferrer">
-      <Paperclip size={14} /> {file.name || 'Reference file'}
+      <Paperclip size={14} /> {file.name || t('su.refFile')}
     </a>
   );
 }
@@ -879,9 +872,9 @@ function gradeChoices(rosterGrade?: string): string[] {
 }
 
 function deadlineLine(deadline: string, today: string): string {
-  if (deadline < today) return `Closed ${fmtLongDate(deadline)}`;
-  if (deadline === today) return 'Closes today';
-  return `By ${fmtLongDate(deadline)}`;
+  if (deadline < today) return t('su.closedOn', { date: fmtLongDate(deadline) });
+  if (deadline === today) return t('su.closesToday');
+  return t('su.by', { date: fmtLongDate(deadline) });
 }
 
 /** One plain sentence naming what's still missing — better than a dead
@@ -892,15 +885,15 @@ function whyNotYet(s: {
   needsGuardian: boolean; guardianName: string; guardianSignature: string;
   collectEmail: boolean; email: string; guardianEmail: string;
 }): string {
-  if (s.gradeRequired && !s.effectiveGrade.trim()) return 'Pick the grade you’re in to continue.';
-  if (s.collectEmail && !/.+@.+\..+/.test(s.email.trim())) return 'Add your email to continue.';
-  if (s.missingRequired) return 'A question above still needs an answer.';
-  if (s.needsSignature && s.signature.trim().length < 3) return 'Type your full name to sign.';
+  if (s.gradeRequired && !s.effectiveGrade.trim()) return t('su.why.grade');
+  if (s.collectEmail && !/.+@.+\..+/.test(s.email.trim())) return t('abs.why.email');
+  if (s.missingRequired) return t('su.why.question');
+  if (s.needsSignature && s.signature.trim().length < 3) return t('su.why.sign');
   if (s.needsGuardian && (s.guardianName.trim().length < 2 || s.guardianSignature.trim().length < 3)) {
-    return 'A parent or guardian still needs to add their name and sign.';
+    return t('su.why.guardian');
   }
   if (s.guardianEmail.trim() && !/.+@.+\..+/.test(s.guardianEmail.trim())) {
-    return 'That parent/guardian email doesn’t look right — fix it or clear it.';
+    return t('su.why.gEmail');
   }
   return '';
 }

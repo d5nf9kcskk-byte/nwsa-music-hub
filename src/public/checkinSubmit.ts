@@ -1,4 +1,5 @@
 import type { CheckinKind } from '../shared/concertCheckin';
+import { t } from '../shared/i18n';
 
 /**
  * Posting a scan to the concertCheckin Cloud Function (#concert-checkin).
@@ -38,7 +39,7 @@ export type CheckinPost =
 export async function submitCheckin(args: CheckinPost): Promise<CheckinOutcome> {
   const url = checkinEndpoint();
   if (!url) {
-    return { ok: false, failure: 'offline', message: 'The Hub is not configured for check-in yet.' };
+    return { ok: false, failure: 'offline', message: t('ckerr.offline') };
   }
   let res: Response;
   try {
@@ -53,12 +54,12 @@ export async function submitCheckin(args: CheckinPost): Promise<CheckinOutcome> 
     return {
       ok: false,
       failure: 'network',
-      message: 'That did not reach the Hub. Check your signal and press it again.',
+      message: t('ckerr.network'),
     };
   }
   try {
     return await res.json() as CheckinOutcome;
   } catch {
-    return { ok: false, failure: 'network', message: 'The Hub gave an answer we could not read. Try again.' };
+    return { ok: false, failure: 'network', message: t('ckerr.unreadable') };
   }
 }
