@@ -544,7 +544,7 @@ export function PublicLayout() {
 
         <main className="pub-content">
           <StatusStrips />
-          <ConcertDayBanner checkinNav={{ to: '/checkin' }} />
+          <ConcertDayBanner checkinNav={{ to: '/checkin' }} localized />
           <GlobalAlerts />
           <Outlet />
         </main>

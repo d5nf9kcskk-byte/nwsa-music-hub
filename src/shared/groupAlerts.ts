@@ -37,14 +37,25 @@ export function alertGroupTitle(
   const suffix = kind === 'announcements' ? 'announcements' : 'alerts';
   if (key === 'classes') return `Classes ${suffix}`;
   if (key === 'everyone') return 'Everyone';
+  return `${alertGroupNames(key, ensembles)} ${suffix}`;
+}
+
+/** The ensemble part of a group heading ("Symphony + Camerata"): the
+ *  director's names, short form, never translated. */
+export function alertGroupNames(
+  key: string,
+  ensembles: Pick<Ensemble, 'id' | 'name' | 'order'>[],
+): string {
   const ids = key.slice('ensemble:'.length).split('+').filter(Boolean);
-  const names = ids.map(id => {
+  return ids.map(id => {
     const e = ensembles.find(x => x.id === id);
     return shortEnsembleLabel(ensembleDisplayName(e) || id);
-  });
-  if (names.length === 1) return `${names[0]} ${suffix}`;
-  return `${names.join(' + ')} ${suffix}`;
+  }).join(' + ');
 }
+
+/** A group key → its heading. English by default; the public site passes a
+ *  translated one (src/public/alertGroupTitle.ts). */
+export type AlertGroupTitleFn = (key: string) => string;
 
 function groupSortRank(key: string, ensembles: Pick<Ensemble, 'id' | 'order'>[]): number {
   if (key === 'everyone') return 0;
@@ -79,11 +90,12 @@ export function groupAlertItems<T>(
 export function groupScheduleAlerts(
   events: CalendarEvent[],
   ensembles: Pick<Ensemble, 'id' | 'name' | 'order'>[],
+  titleFor?: AlertGroupTitleFn,
 ): AlertGroup<CalendarEvent>[] {
   return groupAlertItems(
     events,
     scheduleAlertGroupKey,
-    key => alertGroupTitle(key, ensembles, 'announcements'),
+    titleFor ?? (key => alertGroupTitle(key, ensembles, 'announcements')),
     ensembles,
   );
 }
@@ -91,11 +103,12 @@ export function groupScheduleAlerts(
 export function groupUrgentAnnouncements(
   announcements: Announcement[],
   ensembles: Pick<Ensemble, 'id' | 'name' | 'order'>[],
+  titleFor?: AlertGroupTitleFn,
 ): AlertGroup<Announcement>[] {
   return groupAlertItems(
     announcements,
     urgentAlertGroupKey,
-    key => alertGroupTitle(key, ensembles, 'announcements'),
+    titleFor ?? (key => alertGroupTitle(key, ensembles, 'announcements')),
     ensembles,
   );
 }

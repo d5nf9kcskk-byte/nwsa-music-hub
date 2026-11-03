@@ -4,6 +4,8 @@ import { useMinuteTick } from '../../director/hooks/useAnnouncements';
 import { useCheckinSettings } from '../hooks/useCheckinSettings';
 import { receiptForEvent } from '../checkinReceipt';
 import { ORG } from '../../org';
+import { formatTime } from '../../director/utils';
+import { t, useLang } from '../../shared/i18n';
 import { checkinState, checkinWindow, resolveCheckinSettings } from '../../shared/concertCheckin';
 import type { CalendarEvent } from '../../director/types';
 import '../checkin.css';
@@ -19,6 +21,7 @@ import '../checkin.css';
  * out), or done. A concert with no station renders nothing at all.
  */
 export function CheckinCallout({ event }: { event: CalendarEvent }) {
+  useLang(); // re-render when the EN|ES toggle flips
   const site = useCheckinSettings();
   const now = useMinuteTick();
 
@@ -32,17 +35,19 @@ export function CheckinCallout({ event }: { event: CalendarEvent }) {
   const receipt = receiptForEvent(event.id);
   const checkedIn = Boolean(receipt?.in);
   const checkedOut = Boolean(receipt?.out);
-  const clock = (ms: number) => new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric', minute: '2-digit', timeZone: ORG.timezone,
-  }).format(new Date(ms));
+  // The org's wall clock as "HH:MM", then the app's one time formatter, so
+  // the time reads "6:50 p.m." in Spanish like every other time on the page.
+  const clock = (ms: number) => formatTime(new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: ORG.timezone,
+  }).format(new Date(ms)));
 
   if (checkedIn && checkedOut) {
     return (
       <div className="pub-card pub-checkin-callout done">
         <CheckCircle2 size={18} aria-hidden />
         <div>
-          <strong>You are checked in and out.</strong>
-          <p>Nothing else to do for this concert.</p>
+          <strong>{t('cic.doneTitle')}</strong>
+          <p>{t('cic.doneBody')}</p>
         </div>
       </div>
     );
@@ -53,8 +58,8 @@ export function CheckinCallout({ event }: { event: CalendarEvent }) {
       <div className="pub-card pub-checkin-callout">
         <Clock size={18} aria-hidden />
         <div>
-          <strong>Check-in opens at {win ? clock(win.opensAt) : 'the concert'}</strong>
-          <p>Come back to this page then. You check in when you arrive and check out at the end.</p>
+          <strong>{win ? t('cic.opensAt', { time: clock(win.opensAt) }) : t('cic.opensAtConcert')}</strong>
+          <p>{t('cic.earlyBody')}</p>
         </div>
       </div>
     );
@@ -65,10 +70,8 @@ export function CheckinCallout({ event }: { event: CalendarEvent }) {
       <div className="pub-card pub-checkin-callout">
         <Clock size={18} aria-hidden />
         <div>
-          <strong>Check-in has closed</strong>
-          <p>{checkedIn && !checkedOut
-            ? 'You checked in but never checked out — tell a director.'
-            : 'If you were here and were not checked in, find a director.'}</p>
+          <strong>{t('ci.closedTitle')}</strong>
+          <p>{checkedIn && !checkedOut ? t('cic.inNoOut') : t('cic.missed')}</p>
         </div>
       </div>
     );
@@ -78,14 +81,14 @@ export function CheckinCallout({ event }: { event: CalendarEvent }) {
     <div className="pub-card pub-checkin-callout open">
       {checkedIn ? <LogOut size={18} aria-hidden /> : <LogIn size={18} aria-hidden />}
       <div>
-        <strong>{checkedIn ? 'Check out when the concert ends' : 'Check in for this concert'}</strong>
+        <strong>{checkedIn ? t('cic.outTitle') : t('cic.inTitle')}</strong>
         <p>
           {checkedIn
-            ? 'You checked in at ' + clock(receipt!.in!) + '. You need the check-out too.'
-            : 'Find your name, give your school email, and take a photo with the stage behind you.'}
+            ? t('cic.inAt', { time: clock(receipt!.in!) })
+            : t('cic.howTo')}
         </p>
         <Link className="pub-btn" to={`/checkin/${event.id}`}>
-          {checkedIn ? 'Check out' : 'Check in'}
+          {checkedIn ? t('ci.checkOut') : t('ci.checkIn')}
         </Link>
       </div>
     </div>

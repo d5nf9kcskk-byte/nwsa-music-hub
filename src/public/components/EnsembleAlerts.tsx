@@ -8,6 +8,7 @@ import { t, useLang } from '../../shared/i18n';
 import { formatTime } from '../../director/utils';
 import { groupScheduleAlerts, groupUrgentAnnouncements } from '../../shared/groupAlerts';
 import { AlertGroupSections } from '../../shared/AlertGroupSections';
+import { publicAlertGroupTitle, publicMoreLabels } from '../alertGroupTitle';
 
 /**
  * Ensemble-page Alerts: this ensemble's cancelled/changed rehearsals & classes,
@@ -29,8 +30,9 @@ export function EnsembleAlerts({
   const { ensembles } = useEnsembles();
   if (scheduleAlerts.length === 0 && urgentAlerts.length === 0) return null;
 
-  const urgentGroups = groupUrgentAnnouncements(urgentAlerts, ensembles);
-  const scheduleGroups = groupScheduleAlerts(scheduleAlerts, ensembles);
+  const urgentGroups = groupUrgentAnnouncements(urgentAlerts, ensembles, publicAlertGroupTitle(ensembles));
+  const scheduleGroups = groupScheduleAlerts(scheduleAlerts, ensembles, publicAlertGroupTitle(ensembles));
+  const moreLabels = publicMoreLabels();
 
   return (
     <section className="pub-ens-alerts" aria-label={t('alert.sectionTitle')}>
@@ -44,6 +46,7 @@ export function EnsembleAlerts({
 
       <AlertGroupSections
         groups={urgentGroups}
+        labels={moreLabels}
         renderItem={a => {
           const everyone = a.ensembleId == null;
           return (
@@ -62,6 +65,7 @@ export function EnsembleAlerts({
 
       <AlertGroupSections
         groups={scheduleGroups}
+        labels={moreLabels}
         renderItem={e => {
           const forThis = e.ensembleIds.includes(ensembleId);
           const cancelled = e.status === 'Cancelled';

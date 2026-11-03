@@ -3,6 +3,7 @@ import { Music4, AlertTriangle, Check } from 'lucide-react';
 import { emailProblem, domainsLabel, normalizeEmail } from '../../shared/concertCheckin';
 import { useCheckinSettings } from '../hooks/useCheckinSettings';
 import { fmtShortDate } from '../../shared/dates';
+import { t, tn, tType, useLang } from '../../shared/i18n';
 import type { Student } from '../../director/types';
 import '../checkin.css';
 
@@ -39,12 +40,26 @@ function rememberedEmail(): string {
   try { return localStorage.getItem(EMAIL_KEY) ?? ''; } catch { return ''; }
 }
 
+/** The concertTally function answers in English and sends no failure code.
+ *  It has exactly two refusals; map those by their exact text and show
+ *  anything else as the function wrote it. */
+const SERVER_MESSAGE_KEY: Record<string, string> = {
+  'We could not match that name and email. Use the school address you check in with, or ask a director.': 'tally.srv.noMatch',
+  'The Hub is busy. Try once more.': 'tally.srv.busy',
+};
+
+function serverMessage(message: string): string {
+  const key = SERVER_MESSAGE_KEY[message];
+  return key ? t(key) : message;
+}
+
 function tallyEndpoint(): string {
   const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
   return projectId ? `https://us-central1-${projectId}.cloudfunctions.net/concertTally` : '';
 }
 
 export function ConcertTally({ student }: { student: Student }) {
+  useLang(); // re-render when the EN|ES toggle flips
   const site = useCheckinSettings();
   const [email, setEmail] = useState(rememberedEmail);
   const [terms, setTerms] = useState<TermTally[] | null>(null);
@@ -53,12 +68,12 @@ export function ConcertTally({ student }: { student: Student }) {
   const [busy, setBusy] = useState(false);
 
   const domains = site.emailDomains ?? [];
-  const hint = domainsLabel(domains);
+  const hint = domainsLabel(domains, t('misc.or'));
   const badEmail = Boolean(emailProblem(email, domains));
 
   async function look() {
     const url = tallyEndpoint();
-    if (!url) { setError('Concert counts are not switched on yet.'); return; }
+    if (!url) { setError(t('tally.off')); return; }
     setBusy(true);
     setError('');
     try {
@@ -72,7 +87,7 @@ export function ConcertTally({ student }: { student: Student }) {
         incomplete?: { eventTitle: string; eventDate: string }[];
       };
       if (!data.ok) {
-        setError(data.message ?? 'That did not work. Ask a director.');
+        setError(data.message ? serverMessage(data.message) : t('tally.failed'));
         setTerms(null);
         return;
       }
@@ -80,7 +95,7 @@ export function ConcertTally({ student }: { student: Student }) {
       setTerms(data.terms ?? []);
       setIncomplete(data.incomplete ?? []);
     } catch {
-      setError('That did not reach the Hub. Check your signal and try again.');
+      setError(t('tally.network'));
     } finally {
       setBusy(false);
     }
@@ -88,14 +103,11 @@ export function ConcertTally({ student }: { student: Student }) {
 
   return (
     <section className="pub-card pub-tally">
-      <h2 className="pub-tally-head"><Music4 size={18} aria-hidden /> Your concerts</h2>
+      <h2 className="pub-tally-head"><Music4 size={18} aria-hidden /> {t('tally.title')}</h2>
 
       {!terms && (
         <>
-          <p className="pub-checkin-hint">
-            Enter the school email you check in with and we’ll show how many
-            concerts you’ve completed this semester.
-          </p>
+          <p className="pub-checkin-hint">{t('tally.intro')}</p>
           <div className="pub-tally-ask">
             <input
               className="pub-input"
@@ -104,15 +116,15 @@ export function ConcertTally({ student }: { student: Student }) {
               autoComplete="email"
               autoCapitalize="off"
               spellCheck={false}
-              placeholder={hint ? hint.split(',')[0].replace('@', 'you@') : 'you@school.edu'}
+              placeholder={hint ? hint.split(',')[0].replace('@', t('ci.youAt')) : t('ci.schoolEmailPh')}
               value={email}
               onChange={e => { setEmail(e.target.value); setError(''); }}
             />
             <button type="button" className="pub-btn" disabled={badEmail || busy} onClick={look}>
-              {busy ? 'Checking…' : 'Show my count'}
+              {busy ? t('tally.checking') : t('tally.show')}
             </button>
           </div>
-          {hint && <p className="pub-checkin-hint">Has to end in {hint}.</p>}
+          {hint && <p className="pub-checkin-hint">{t('tally.mustEnd', { hint })}</p>}
         </>
       )}
 
@@ -124,32 +136,27 @@ export function ConcertTally({ student }: { student: Student }) {
 
       {terms && (
         <>
-          {terms.map(t => (
-            <div key={t.termId} className="pub-tally-term">
-              <h3>{t.termName}</h3>
+          {terms.map(term => (
+            <div key={term.termId} className="pub-tally-term">
+              <h3>{term.termName}</h3>
               <div className="pub-tally-rows">
-                <TallyRow label="Required" count={t.required} goal={t.requiredGoal} />
-                <TallyRow label="Optional" count={t.optional} goal={t.optionalGoal} />
+                <TallyRow label={t('tally.required')} count={term.required} goal={term.requiredGoal} />
+                <TallyRow label={t('tally.optional')} count={term.optional} goal={term.optionalGoal} />
               </div>
             </div>
           ))}
-          {terms.length === 0 && <p className="pub-checkin-hint">No semesters are set up yet.</p>}
+          {terms.length === 0 && <p className="pub-checkin-hint">{t('tally.noTerms')}</p>}
 
           {incomplete.length > 0 && (
             <div className="pub-tally-warn">
               <AlertTriangle size={16} aria-hidden />
               <div>
-                <strong>
-                  {incomplete.length === 1 ? 'One concert did not count' : `${incomplete.length} concerts did not count`}
-                </strong>
-                <p>
-                  You checked in but never checked out, so {incomplete.length === 1 ? 'it' : 'they'} did
-                  not count. Tell a director if you think that is wrong.
-                </p>
+                <strong>{tn('tally.notCounted', incomplete.length)}</strong>
+                <p>{tn('tally.notCountedWhy', incomplete.length)}</p>
                 <ul>
                   {incomplete.map((c, i) => (
                     <li key={`${c.eventDate}-${i}`}>
-                      {c.eventTitle || 'Concert'}{c.eventDate ? ` · ${fmtShortDate(c.eventDate)}` : ''}
+                      {c.eventTitle || tType('Concert')}{c.eventDate ? ` · ${fmtShortDate(c.eventDate)}` : ''}
                     </li>
                   ))}
                 </ul>
@@ -162,7 +169,7 @@ export function ConcertTally({ student }: { student: Student }) {
             className="pub-linkish"
             onClick={() => { setTerms(null); setIncomplete([]); }}
           >
-            Check a different address
+            {t('tally.otherAddress')}
           </button>
         </>
       )}
@@ -175,7 +182,7 @@ function TallyRow({ label, count, goal }: { label: string; count: number; goal?:
   return (
     <div className={`pub-tally-row ${met ? 'met' : ''}`}>
       <span className="pub-tally-n">
-        {goal != null ? `${count} of ${goal}` : count}
+        {goal != null ? t('tally.ofGoal', { count, goal }) : count}
         {met && <Check size={16} aria-hidden />}
       </span>
       <span className="pub-tally-l">{label}</span>

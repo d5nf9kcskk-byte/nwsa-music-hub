@@ -13,6 +13,7 @@ import { getIdentity, onIdentityChange } from '../../shared/identity';
 import { t, useLang, getLang } from '../../shared/i18n';
 import { groupScheduleAlerts, groupUrgentAnnouncements } from '../../shared/groupAlerts';
 import { AlertGroupSections } from '../../shared/AlertGroupSections';
+import { publicAlertGroupTitle, publicMoreLabels } from '../alertGroupTitle';
 import { allClearExtraLine } from '../../shared/whimsy';
 import { CheckinStrip } from './CheckinStrip';
 
@@ -79,15 +80,18 @@ function AlertStrip({ onHome }: { onHome: boolean }) {
     [announcements, today, now]);
 
   const ensName = (ids: string[]) =>
-    ids.map(id => ensembleDisplayName(ensembles.find(e => e.id === id))).filter(Boolean).join(' + ') || 'School';
+    ids.map(id => ensembleDisplayName(ensembles.find(e => e.id === id))).filter(Boolean).join(' + ') || t('alert.school');
 
   // The check-in strip (#concert-checkin). Rendered in BOTH exits below: an
   // otherwise quiet night must not swallow the one banner a student standing
   // in a concert lobby actually needs.
   const checkinStrip = <CheckinStrip events={events} ensembles={ensembles} />;
 
-  const urgentGroups = useMemo(() => groupUrgentAnnouncements(urgent, ensembles), [urgent, ensembles]);
-  const problemGroups = useMemo(() => groupScheduleAlerts(problems, ensembles), [problems, ensembles]);
+  // Built every render, not memoized: the headings are translated as the
+  // groups are built, so they have to follow the EN|ES toggle.
+  const urgentGroups = groupUrgentAnnouncements(urgent, ensembles, publicAlertGroupTitle(ensembles));
+  const problemGroups = groupScheduleAlerts(problems, ensembles, publicAlertGroupTitle(ensembles));
+  const moreLabels = publicMoreLabels();
 
   if (urgent.length === 0 && (problems.length === 0 || onHome)) {
     if (onHome || events.length === 0) return checkinStrip;
@@ -107,6 +111,7 @@ function AlertStrip({ onHome }: { onHome: boolean }) {
       {checkinStrip}
       <AlertGroupSections
         groups={urgentGroups}
+        labels={moreLabels}
         renderItem={a => (
           <Link
             key={a.id}
@@ -115,13 +120,14 @@ function AlertStrip({ onHome }: { onHome: boolean }) {
           >
             <Siren size={15} style={{ verticalAlign: '-2.5px' }} /> <strong>{a.title}</strong>
             {a.body ? ` — ${preview(a.body, 90)}` : ''}
-            {isStaff ? ' · Edit' : ''}
+            {isStaff ? ` · ${t('alert.edit')}` : ''}
           </Link>
         )}
       />
       {!onHome && (
         <AlertGroupSections
           groups={problemGroups}
+          labels={moreLabels}
           renderItem={e => (
             <Link key={e.id} to={`/event/${e.id}`} className="pub-strip-alert">
               <AlertTriangle size={14} style={{ verticalAlign: '-2px' }} />{' '}
