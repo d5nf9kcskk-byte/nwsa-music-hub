@@ -11,6 +11,7 @@ import { revertPlan } from '../schedule/changePlan';
 import type { CalendarEvent, EventType } from '../types';
 import { FIXTURES_ON, FIXTURE_EVENTS } from './fixtures';
 import { proposeWrite } from './usePendingActions';
+import { reconcileChangeNoteEs } from '../../shared/changeNoteEs';
 
 /**
  * Heal legacy events seeded before their category became its own event type —
@@ -99,8 +100,14 @@ export function useEvents(filter?: EventFilter) {
       })) return;
       data = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
     }
+    // #banner-drafter: a write that changes or clears the English note never
+    // leaves an old Spanish note behind. `changeNoteEs: undefined` means
+    // DELETE (ignoreUndefinedProperties would otherwise drop it silently);
+    // every other key keeps its existing undefined-is-dropped behavior.
+    data = reconcileChangeNoteEs(data, events.find(x => x.id === id));
     const dbRef = db;
-    const payload = data;
+    const payload: Record<string, unknown> = { ...data };
+    if ('changeNoteEs' in payload && payload.changeNoteEs === undefined) payload.changeNoteEs = deleteField();
     await trackWrite('Event update', () => updateDoc(doc(dbRef, 'events', id), payload));
   }
 

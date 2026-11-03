@@ -356,6 +356,13 @@ runs:
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/shared/dateLang.selfcheck.ts
       shell: bash
 
+    # Spanish change notes (#banner-drafter): a changed or cleared English
+    # note never keeps an old Spanish one, every public surface reads the
+    # note through changeNoteFor, and the drafter flag is off in every org.
+    - name: Check Spanish change notes
+      run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/schedule/changeNoteEs.selfcheck.ts
+      shell: bash
+
     - name: Check ensemble/class classification
       run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/groupKind.selfcheck.ts
       shell: bash
@@ -536,6 +543,14 @@ runs:
     # student per term, and the five-line jury list.
     - name: Check applied lesson log
       run: npx tsx src/director/lessonLog.selfcheck.ts
+      shell: bash
+
+    # Files on a lesson (#lesson-attachments): never in any of the three
+    # public lesson allowlists, Storage read/upload anchored on the lesson
+    # and its own teacher, each path pinned to the lesson's folder in
+    # firestore.rules, and the teacher landing's "This week" count.
+    - name: Check lesson attachments
+      run: npx tsx src/director/lessonAttachments.selfcheck.ts
       shell: bash
 
     # Standing weekly lesson time (#applied): expansion must land on the

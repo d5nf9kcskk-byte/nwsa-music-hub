@@ -1011,6 +1011,38 @@ those marks onto the original file. Everything else — audience, deadline,
   stored lesson, addresses from `contacts/{studentId}`, and
   `queueRequestOk()` makes the lesson agree with the student the rules bound
   the request to. `mail` stays denied to every client.
+- **Files on a lesson are staff-only, and the email link expires**
+  (#lesson-attachments, Nov 2026, Hub 2.0 Phase 4). A teacher attaches up to
+  three PDFs, pictures or audio clips to a log line. `Lesson.attachments`
+  holds `{name, path, contentType, size}`; `src/director/lessonAttachments.ts`
+  is the ONE definition (zero imports, the function loads it bare).
+  - Storage `lessonAttachments/{lessonId}/{file}`: read and upload only by
+    that lesson's own teacher or a director, anchored on the `lessons` doc
+    existing (the `/absenceExcusePhotos` shape), 50 MB, PDF/image/audio,
+    create-only, and `teacherEmail` metadata that must match the lesson so
+    the owner can still delete the files after the lesson doc is gone. No
+    public read and no download URL ever: the app opens a file with getBlob.
+  - `lessons` has no key allowlist, so `lessonAttachmentsOk()` in
+    firestore.rules is the one shape check: three slots, four keys, and each
+    PATH pinned to `lessonAttachments/<that lesson>/`. That pin matters
+    because the function signs whatever path the doc names; the function
+    re-checks it (`attachmentsToSign`). Raising the three means editing the
+    rules' per-slot checks too.
+  - `attachments` is in NONE of the three public lesson allowlists and must
+    never be. `lessonAttachments.selfcheck.ts` pins all of this.
+  - The family email (still only on the teacher's press) gets one link per
+    file: a **v2 signed URL, 30 days**, made by `lessonLogMailSend` through
+    the Admin SDK (`signedUrlOptions`; v4 cannot outlive seven days). Never a
+    Firebase download token. Signing needs the functions runtime service
+    account to hold **Service Account Token Creator on itself**
+    (`iam.serviceAccounts.signBlob`); without it the file is left out and the
+    email says to ask the teacher. Do not "fix" that with a permanent link.
+    The mailto fallback carries no link (no signer in the browser).
+  - Deleting an attachment deletes the object after the save; deleting the
+    lesson deletes them when the undo window lapses (`deleteStoredPaths`).
+  - My Lessons opens with "This week: N lessons, M to log"
+    (`thisWeekCounts()` in lessonLog.ts), counted from the lessons the screen
+    already loads.
 - **The whole paper form is on screen** (#applied). `src/director/lessonLog.ts`
   holds the per-lesson blanks; the ONCE-A-TERM ones (Jury Repertoire List, the
   three signature lines) are a `LessonLogSheet` in `lessonLogSheets` on the
@@ -1640,6 +1672,45 @@ subscriptions hold. The family side is BUILT and switched OFF.
   gated on `familiesOpen == true` — plus reach and no-student-data;
   `functions/src/pushSend.selfcheck.ts` pins per-language sends, send-once,
   and dead-token cleanup.
+
+## Spanish change notes and the banner drafter (Nov 2026, #banner-drafter)
+
+Hub 2.0 Phase 3 item 14, built and switched OFF ("always behind a confirm;
+never a writer"). A Spanish-reading family used to see Spanish chrome around
+an English change note. `CalendarEvent.changeNoteEs` is the director's
+CONFIRMED Spanish version of `changeNote`, and nothing else.
+`src/shared/changeNoteEs.ts` is the ONE place it is read and guarded;
+`src/director/schedule/changeNoteEs.selfcheck.ts` (self-checks) and
+`functions/src/bannerDrafter.selfcheck.ts` (functions selfcheck) pin it.
+
+- **One reader.** Every public surface shows the note through
+  `changeNoteFor(event, formatLang())`: Spanish only for a Spanish reader when
+  a confirmed Spanish note exists, otherwise the English exactly as before.
+  `.ics` feeds and push alerts stay English on purpose (a later option). The
+  self-check fails on any `{x.changeNote}` rendered raw under `src/public`.
+- **A stale Spanish note is the worst outcome**, so a write that changes or
+  clears the English note without confirming new Spanish clears it:
+  `reconcileChangeNoteEs()` runs inside `useEvents.updateEvent` (mapping the
+  clear to `deleteField()`) and the Hub Calendar tool's `stage()`; `revertPlan`
+  clears it on "Back to normal"; editing the English in the Event form empties
+  the Spanish box. A write that touches neither field, or an event with no
+  Spanish note, gains no new key, so flag-off writes are unchanged. Any NEW
+  path that writes `changeNote` must go through one of those.
+- **The flag** is `features.bannerDrafter` in `config/orgs/*.json`, false in
+  every org (pinned). Off: no box renders, the Event form strips
+  `changeNoteEs`, the review sheet passes none. On: a Spanish box and "Draft
+  Spanish" under the note in the Event form and on Change a Day's review sheet
+  (`ChangeNoteEsField`); only Save / Confirm writes the field.
+- **The drafter function** `draftChangeNoteEs` (`functions/src/bannerDrafter.ts`)
+  reads only `req.body.note` (bounded), from a verified allowlisted staff
+  account, and sends only that text to Anthropic. It writes nothing. It is in
+  `NOT_DEPLOYED`. Its key is `runWith({ secrets: ['ANTHROPIC_API_KEY'] })`,
+  **never `defineSecret()`**: firebase-tools resolves defineSecret params for
+  the WHOLE codebase before `--only` filters, so a missing secret would fail
+  every other function's deploy too (pinned).
+- Events have no key allowlist in `firestore.rules`, so no rules change: the
+  field is the same public sentence in another language on a world-readable
+  doc. Turning it on: `docs/banner-drafter.md`. No What's New entry until then.
 
 ## One nav, every width (Sept 2026, #one-nav)
 

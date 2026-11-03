@@ -234,6 +234,56 @@ service firebase.storage {
         && request.resource.contentType == 'application/pdf';
     }
 
+    // Files a teacher attaches to one private lesson (#lesson-attachments):
+    // a marked-up PDF, a photo, an audio clip. A lesson is staff-only (it
+    // names a student, their teacher and their mark), and so is everything
+    // attached to it — NO public read, no assistant or classroom read, and
+    // the app opens a file with getBlob, never a download URL. The family
+    // email carries an EXPIRING signed link that the Cloud Function makes
+    // through the Admin SDK, which these rules do not govern.
+    //
+    // Anchored on the `lessons` doc existing, the same existence-anchor shape
+    // as /absenceExcusePhotos: only that lesson's own teacher, or a director,
+    // may read or upload. `teacherEmail` rides as object metadata and must
+    // match the lesson's, so that once a lesson is DELETED (its doc gone, the
+    // undo window lapsed) the teacher who owned it can still remove its files.
+    // Create-only: a second upload is a second file.
+    function isTeacher() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
+        && hasRole('teacher');
+    }
+
+    function lessonExists(lessonId) {
+      return firestore.exists(/databases/(default)/documents/lessons/$(lessonId));
+    }
+
+    function lessonTeacher(lessonId) {
+      return firestore.get(/databases/(default)/documents/lessons/$(lessonId)).data.get('teacherEmail', '');
+    }
+
+    function mayHandleLesson(lessonId) {
+      return lessonExists(lessonId)
+        && (isStaff() || (isTeacher() && lessonTeacher(lessonId) == request.auth.token.email));
+    }
+
+    match /lessonAttachments/{lessonId}/{file} {
+      allow read: if mayHandleLesson(lessonId);
+      allow create: if resource == null
+        && mayHandleLesson(lessonId)
+        && request.resource.size < 50 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf|image/[A-Za-z0-9.+-]+|audio/[A-Za-z0-9.+-]+')
+        && request.resource.metadata != null
+        && request.resource.metadata.get('teacherEmail', '') == lessonTeacher(lessonId);
+      allow delete: if mayHandleLesson(lessonId)
+        || (!lessonExists(lessonId)
+            && (isStaff()
+                || (isTeacher()
+                    && resource.metadata != null
+                    && resource.metadata.get('teacherEmail', '') == request.auth.token.email)));
+    }
+
     function signPdfOpen(formId) {
       let form = firestore.get(/databases/(default)/documents/signupForms/$(formId)).data;
       return form.get('signPdf', null) != null && form.get('closed', false) == false;

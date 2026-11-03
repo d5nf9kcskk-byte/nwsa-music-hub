@@ -1,4 +1,5 @@
-import { https, firestore } from 'firebase-functions/v1';
+import { https, firestore, runWith } from 'firebase-functions/v1';
+import Anthropic from '@anthropic-ai/sdk';
 import { initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { ALLOWED_ORIGIN, buildLessonsIcs, tokenMatches, TOKEN_RE } from './lessonsFeed.ts';
@@ -23,7 +24,10 @@ import { buildConfirmation } from './signupConfirmation.ts';
 import { buildAbsenceReceipt } from './plannedAbsenceConfirmation.ts';
 import { buildAbsenceDecision, buildCopyDecline } from './requestDecision.ts';
 import type { CopyRequest } from '../../src/shared/copyRequest.ts';
-import { buildLessonLogMail, isDocId, queueRequestOk } from './lessonLogMail.ts';
+import {
+  attachmentsToSign, buildLessonLogMail, isDocId, queueRequestOk, signedUrlOptions,
+  type AttachmentLink,
+} from './lessonLogMail.ts';
 import { buildGradeMail, queueRequestOk as gradeRequestOk } from './gradeMail.ts';
 import {
   DELETE, WRITEBACK_TARGETS, isDocId as isMailDocId, mailVerdict, writebackFields,
@@ -33,6 +37,7 @@ import { composeSubmission as runComposeSubmission } from './composeSubmission.t
 import { getAuth } from 'firebase-admin/auth';
 import { getMessaging } from 'firebase-admin/messaging';
 import { handleEventChange, sendTestAlert, type PushDeps } from './pushSend.ts';
+import { draftSpanish, noteFromBody } from './bannerDrafter.ts';
 import {
   isSubscriptionDocId, type PushEventLike, type PushSubscriptionDoc,
 } from '../../src/shared/pushAlerts.ts';
@@ -603,10 +608,36 @@ export const lessonLogMailSend = firestore
         db.doc(`contacts/${lesson.studentId}`).get(),
       ]);
 
+      // Files on the lesson (#lesson-attachments): one EXPIRING signed link
+      // each, made here with the Admin SDK at the moment of the press. Never a
+      // permanent download token. If signing fails (the runtime service
+      // account lacks Token Creator on itself) the file is left out and the
+      // email says one could not be linked; nothing falls back to a permanent
+      // link. The URL is never logged: it is a bearer link until it expires.
+      const links: AttachmentLink[] = [];
+      let unlinked = 0;
+      const files = attachmentsToSign(lesson);
+      if (files.length) {
+        const bucket = PHOTO_BUCKET ? getStorage().bucket(PHOTO_BUCKET) : getStorage().bucket();
+        const opts = signedUrlOptions(Date.now());
+        for (const f of files) {
+          try {
+            const [url] = await bucket.file(f.path).getSignedUrl(opts);
+            links.push({ name: f.name, url });
+          } catch (err) {
+            unlinked += 1;
+            console.error('lessonLogMailSend: could not sign an attachment link',
+              (err as { code?: unknown })?.code ?? (err as Error)?.message ?? 'unknown');
+          }
+        }
+      }
+
       const mail = buildLessonLogMail(
         lesson,
         studentSnap.exists ? ({ id: studentSnap.id, ...studentSnap.data() } as Student) : undefined,
         contactSnap.exists ? ({ id: contactSnap.id, ...contactSnap.data() } as StudentContact) : null,
+        links,
+        unlinked,
       );
       // No address on file, or a line that is not actually complete. Nothing
       // to send, and not an error.
@@ -988,4 +1019,65 @@ export const pushTestAlert = https.onRequest(async (req, res) => {
     code: r.code ?? 'unknown',
     message: 'Firebase Cloud Messaging refused the alert. Turn alerts off and on again on this phone.',
   });
+});
+
+/**
+ * The Spanish banner drafter (#banner-drafter). A signed-in staff member sends
+ * the English change note they just wrote; this answers with a Spanish draft
+ * for their box. It writes nothing: the director edits the draft, and their
+ * own Save is the only thing that puts `changeNoteEs` on an event.
+ *
+ * Only `req.body.note` is read, and only the note reaches the model
+ * (`draftRequest` in bannerDrafter.ts, pinned by bannerDrafter.selfcheck.ts).
+ * The caller's email is used for the staff check and never leaves this file.
+ *
+ * NOT in the deploy list: ANTHROPIC_API_KEY must exist in Secret Manager
+ * first, or naming it fails the deploy. docs/banner-drafter.md.
+ *
+ * The secret is named as a STRING, never `defineSecret()`. A defineSecret
+ * param is resolved for the whole codebase BEFORE `--only` filters anything
+ * (firebase-tools prepare.ts → resolveParams → handleSecret), so a missing
+ * secret would fail the deploy of every OTHER function too, even with this
+ * one left off the list. A string secret is checked only for the functions
+ * being deployed (secretsAreValid(matchingBackend)). Same Secret Manager
+ * secret, mounted as process.env.ANTHROPIC_API_KEY.
+ */
+export const draftChangeNoteEs = runWith({ secrets: ['ANTHROPIC_API_KEY'] }).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+  res.set('Cache-Control', 'no-store');
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.set('Access-Control-Max-Age', '3600');
+    res.status(204).send('');
+    return;
+  }
+  const refuse = (status: number, message: string) => { res.status(status).json({ ok: false, message }); };
+  if (req.method !== 'POST') { refuse(405, 'That did not reach the Hub correctly.'); return; }
+
+  const header = req.get('Authorization') ?? '';
+  const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!idToken) { refuse(401, 'Sign in again, then try.'); return; }
+  let email: string;
+  try {
+    const decoded = await getAuth().verifyIdToken(idToken);
+    if (decoded.email_verified !== true || !decoded.email) throw new Error('unverified');
+    email = decoded.email;
+  } catch {
+    refuse(401, 'Sign in again, then try.');
+    return;
+  }
+  const me = await getFirestore().doc(`directors/${email}`).get();
+  if (!me.exists || !hasKnownRole(me.data())) { refuse(403, 'This account cannot use the drafter.'); return; }
+
+  const input = noteFromBody(req.body);
+  if (!input.ok) { refuse(400, input.message); return; }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) { refuse(503, 'The drafter is not set up. Type the Spanish yourself.'); return; }
+  const client = new Anthropic({ apiKey });
+  const r = await draftSpanish(input.note, request => client.beta.messages.create(request));
+  if (r.ok) { res.status(200).json({ ok: true, draft: r.draft }); return; }
+  refuse(r.status, r.message);
 });

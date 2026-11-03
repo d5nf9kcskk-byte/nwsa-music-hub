@@ -101,6 +101,42 @@
   line-height: 1.35;
 }
 
+/* Files on a log line (#lesson-attachments): small chips under the comments,
+   each opened through the signed-in session. */
+.dir-log-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  align-items: center;
+}
+.dir-log-attachment {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid var(--dir-border);
+  border-radius: 999px;
+  background: var(--dir-surface, transparent);
+}
+.dir-log-attachment-open,
+.dir-log-attachment-remove {
+  background: none;
+  border: 0;
+  color: var(--dir-blue-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 8px;
+}
+.dir-log-attachment-open {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+.dir-log-attachment-remove { padding: 2px 6px 2px 0; color: var(--dir-text-muted); }
+.dir-log-attach-btn { font-size: 12px; }
+
 /* The header blanks at the top of the form: Teacher, Student Name, Grade,
    Instrument or Voice, Lesson Length, School Year, Term. */
 .dir-log-header {

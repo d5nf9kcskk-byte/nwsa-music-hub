@@ -10,6 +10,7 @@ import type {
 import type { RubricCriterion, RubricScore } from './examRubric';
 // Same again: quiz.ts is pure (#online-test).
 import type { QuizDefinition } from '../shared/quiz';
+import type { LessonAttachment } from './lessonAttachments';
 import type { FormKind } from '../shared/formKind';
 
 /**
@@ -399,6 +400,14 @@ export interface CalendarEvent {
    * "schedule changed today" banner on the public home page.
    */
   changeNote?: string;
+  /**
+   * The director's CONFIRMED Spanish version of `changeNote`, and nothing
+   * else (#banner-drafter). Shown in place of the English note to a reader in
+   * Spanish, through `changeNoteFor()` only. Cleared by any write that changes
+   * or clears the English note without confirming new Spanish
+   * (`reconcileChangeNoteEs`). Feeds and push alerts stay English.
+   */
+  changeNoteEs?: string;
   /**
    * Snapshot of the schedule taken right before the FIRST change to this event,
    * so "Revert to normal" can restore it exactly. Left in place across further
@@ -1284,6 +1293,12 @@ export interface Lesson {
   /** Id of the linked RosterOverride (kind: 'lesson') pull-out, when this
    *  lesson's conflict was acknowledged. Kept in sync on edit/delete. */
   overrideId?: string;
+  /** Files the teacher attached to this log line — a PDF, a picture, an
+   *  audio clip (#lesson-attachments). Staff-only: Storage objects under
+   *  `lessonAttachments/{lessonId}/`, readable by this lesson's teacher and
+   *  directors only. NOT in any of the three public lesson allowlists, and it
+   *  must never be — `lessonAttachments.selfcheck.ts` pins that. */
+  attachments?: LessonAttachment[];
   createdAt: number;
   updatedAt?: number;
   updatedBy?: string; // director's display name (falls back to email)

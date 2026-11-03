@@ -14,7 +14,8 @@ import { SkeletonCards, EmptyState } from './components/PageHeader';
 import { getIdentity, onIdentityChange } from '../shared/identity';
 import { isSharedBlock, sharedBlockLabel } from '../shared/sharedBlock';
 import { t, useLang, getLang } from '../shared/i18n';
-import { fmtLongDate, fmtShortDate } from '../shared/dates';
+import { fmtLongDate, fmtShortDate, formatLang } from '../shared/dates';
+import { changeNoteFor } from '../shared/changeNoteEs';
 import { composerBirthdaysOn, birthdayLine, musicHolidayOn, concertDayLine, dailyPun, say, schoolMomentLine, weekdayMomentLine, fermataHoldLine } from '../shared/whimsy';
 import { useTapTempo } from '../shared/useTapTempo';
 import { useEggCheer } from '../shared/useEggCheer';
@@ -167,7 +168,7 @@ export function PublicHome() {
               <Link key={e.id} to={`/event/${e.id}`} className="pub-alert-row">
                 <strong>{label(e)}</strong>
                 {e.status === 'Cancelled' ? ` — ${t('alert.cancelled')}` : ''}
-                {e.changeNote ? ` — ${e.changeNote}` : ''}
+                {e.changeNote ? ` — ${changeNoteFor(e, formatLang())}` : ''}
                 <ChevronRight size={14} />
               </Link>
             )}
