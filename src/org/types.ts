@@ -63,6 +63,38 @@ export interface LookSeason {
   pattern: string;
 }
 
+/** One theme of the Hub 2.0 system palette (#hub2-look). Every value #rrggbb. */
+export interface Hub2Palette {
+  bg: string;
+  surface: string;
+  ink: string;
+  muted: string;
+  line: string;
+  accent: string;
+  /** Light only; dark keeps the light value (the stock dark site never re-tinted it). */
+  plum?: string;
+  sun?: string;
+}
+
+/**
+ * The Hub 2.0 look (#hub2-look, src/shared/hub2Preview.ts). Applied ONLY while
+ * the owner's on-device preview is on, as CSS custom properties under
+ * `:root[data-hub2="on"]`. Absent = the preview shows the stock look.
+ */
+export interface Hub2Look {
+  /** "Studio Bright" — the system everywhere. */
+  light: Hub2Palette;
+  dark: Hub2Palette;
+  radius: { card: string; row: string };
+  shadow: string;
+  /** "Concert Hall" — the serif on concert, event and program titles only. */
+  concertHall: { gold: string };
+  /** "Spotlight" — concert night only (the Tonight card and check-in). */
+  spotlight: { bg: string; surface: string; ink: string; gold: string; tealGlow: string; plumGlow: string };
+  /** CSS font-family stacks. The first family of each must be self-hosted in src/shared/hub2Fonts.ts. */
+  fonts: { body: string; title: string; spotlightDisplay: string; spotlightBody: string };
+}
+
 /**
  * Org config — the white-label surface (#org-config). One JSON file per
  * organization lives in config/orgs/; vite.config.ts picks one by the
@@ -248,6 +280,11 @@ export interface OrgConfig {
    * spelled out in `src/`.
    */
   grading?: OrgGrading;
+  /**
+   * The Hub 2.0 look (#hub2-look), behind the owner-only on-device preview.
+   * Optional: an org without it previews the stock look.
+   */
+  hub2?: Hub2Look;
   /**
    * Concert check-in station defaults (#concert-checkin). Per-event switches
    * on the event itself override these field by field; the accepted email

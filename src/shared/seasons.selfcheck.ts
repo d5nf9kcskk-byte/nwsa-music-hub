@@ -9,7 +9,7 @@
  */
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import type { LookSeason } from '../org/types';
+import type { Hub2Look, LookSeason } from '../org/types';
 import { contrast, easter, inkOn, inkOnSwatch, LIGHT_INK, seasonAt, seasonDate, thanksgiving } from './seasons';
 
 const read = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8');
@@ -70,8 +70,11 @@ const menuAlpha = (name: string) => Number(lookCss.match(new RegExp(`${name}: rg
 const dirAlpha = (name: string) => Number(css.match(new RegExp(`${name}: rgb\\(var\\(--dir-season-side-ink\\) / ([\\d.]+)\\)`))![1]);
 
 let checked = 0;
+let hub2Seasons = 0;
 for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) {
-  const seasons: LookSeason[] | undefined = JSON.parse(read(`../../config/orgs/${file}`)).personalize?.seasons;
+  const org = JSON.parse(read(`../../config/orgs/${file}`));
+  const seasons: LookSeason[] | undefined = org.personalize?.seasons;
+  const hub2: Hub2Look | undefined = org.hub2;
   if (!seasons) continue;
   const at = (what: string) => `${file} ${what}`;
   const ids = seasons.map(s => s.id);
@@ -115,6 +118,16 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
         }
         pageInkOK(bg, k.ink, mode);
       }
+      // 6b. Seasons paint on top of the Hub 2.0 preview too (#hub2-look): its
+      //     ink and muted text must clear AA on the tint, drawing included.
+      if (hub2) {
+        const h = hub2[mode];
+        for (const text of [h.ink, h.muted]) {
+          assert.ok(contrast(text, bg) >= AA, at(`${s.id} (${mode}) Hub 2.0 text ${text} on ${bg}: ${contrast(text, bg).toFixed(2)}`));
+        }
+        pageInkOK(bg, h.ink, mode);
+        hub2Seasons++;
+      }
     }
   }
 
@@ -152,4 +165,5 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
 }
 
 assert.ok(checked > 0, 'no org has seasons — nothing was checked');
-console.log(`seasons self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${marks.length} marks)`);
+assert.ok(hub2Seasons > 0, 'no season was checked against the Hub 2.0 look');
+console.log(`seasons self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${marks.length} marks, ${hub2Seasons} Hub 2.0 pairings)`);

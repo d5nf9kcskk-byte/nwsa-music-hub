@@ -15,6 +15,7 @@ import { ClassroomTeacherApp } from './classroom/ClassroomTeacherApp';
 import { DirectorSearch } from './components/DirectorSearch';
 import { InstallAppButton } from './components/InstallAppButton';
 import { AppVersionRow } from './components/AppVersionRow';
+import { Hub2PreviewToggle } from './components/Hub2PreviewToggle';
 import { WriteTray } from './components/WriteTray';
 import { useWriteBusy } from './writeStatus';
 import { useModalA11y } from '../shared/useModalA11y';
@@ -527,6 +528,7 @@ export default function DirectorApp() {
               </button>
               <InstallAppButton rail />
               <AppVersionRow rail />
+              {isOwner && <Hub2PreviewToggle rail />}
               <div className="dir-rail-whats-new">
                 <WhatsNewBanner audience="staff" />
               </div>
@@ -730,6 +732,7 @@ export default function DirectorApp() {
                 </button>
                 <InstallAppButton />
                 <AppVersionRow />
+                {isOwner && <Hub2PreviewToggle />}
 
                 <div className="dir-menu-divider" />
                 <div className="dir-menu-whats-new">

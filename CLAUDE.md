@@ -1749,6 +1749,41 @@ everything it changes.
 - Public site only. The director panel has its own theme switch and is not
   touched; the tint rule is scoped to `:has(.pub-app)` for that reason.
 
+## Hub 2.0 look, behind the owner's preview (Nov 2026, #hub2-look)
+
+The new look ("Studio Bright" everywhere, Concert Hall's serif on concert,
+event and program titles, Spotlight on concert night) is built behind a
+preview only the OWNER can turn on, on their own device. Nobody else sees
+any change. Later sessions apply it page by page.
+
+- **The switch** is `src/shared/hub2Preview.ts`, the ONE reader/writer of
+  localStorage `hub2.preview`. index.html's boot script (the one that sets
+  `data-pub-theme`) sets `data-hub2="on"` on `<html>` before first paint.
+  The toggle (`Hub2PreviewToggle`) renders under `isOwner` in the rail AND
+  the drawer. It covers the public pages on that device too (same origin).
+  **No URL parameter, ever**: a preview must not be shareable.
+- **Colors are org config** (`hub2` in `config/orgs/*.json`), injected as
+  `--hub2-*` custom properties by `hub2Tokens.ts`. `src/shared/hub2.css` maps
+  the existing `--pub-*` / `--dir-*` tokens onto them and holds no color of
+  its own. An org without `hub2` (ASYO) has the attribute taken back off, so
+  its preview is the stock look.
+- **Every rule is scoped under `[data-hub2="on"]`, and specificity is the
+  contract** (the shells' CSS loads in different chunks, so file order is
+  not). The selectors sit ABOVE the stock dark themes and BELOW a student's
+  tint (#look) and a season (#seasons), which keep painting on top. The
+  ladder is written out in hub2.css's header. Flag off must stay
+  pixel-identical to main: check Home, My Schedule, an event, Calendar and
+  director Today at 390px and 1024px, light and dark.
+- **Fonts are self-hosted and never precached.** `hub2Fonts.ts` imports the
+  @fontsource latin files and is loaded ONLY by dynamic import while the
+  preview is on. `globIgnores` keeps `assets/*.woff2` out of the precache and
+  one same-origin `runtimeCaching` rule caches them on first use, so a
+  visitor without the preview downloads no font file. No Google Fonts (the
+  CSP allows none, and the app works offline).
+- `hub2.selfcheck.ts` pins the switch, the scoping and the fonts; the
+  palette's AA readability (both themes, under every tint and season) rides
+  in `look.selfcheck.ts` and `seasons.selfcheck.ts`.
+
 ## Clear cards, and a page per concert (Oct 2026, #clear-cards)
 
 Director, 2026-10-27, on an iPhone: Check-In "all blurs together and looks like
