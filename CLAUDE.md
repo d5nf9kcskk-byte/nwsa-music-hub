@@ -1074,8 +1074,8 @@ those marks onto the original file. Everything else — audience, deadline,
   and the teacher confirms each pull-out, which is what tells the ensemble
   director.
 - Roles are a CLOSED set enforced by `isKnownRole()` in `firestore.rules`
-  (owner / director / teacher / assistant; a doc with no `role` = legacy
-  director). Adding a new role means deliberately updating that helper and
+  (owner / director / teacher / classroom / assistant; a doc with no `role` =
+  legacy director). Adding a new role means deliberately updating that helper and
   the role's specific rules — until then the new role can access nothing
   beyond its own `directors/{email}` doc. Never gate a collection on bare
   `signedIn()`.
