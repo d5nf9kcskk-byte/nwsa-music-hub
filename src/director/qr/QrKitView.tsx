@@ -46,9 +46,13 @@ const QR_PRINT_CSS = `
   .dir-qr-slip-url { font-size: 8pt; color: #333; margin-top: 3px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
 
-  /* Launch flyer — full-bleed letter page */
+  /* Launch flyer — full-bleed letter page. It is exactly 11in tall with
+     overflow hidden, so anything that does not fit is silently cut off the
+     bottom (the "Or type this address" box went first). After adding or
+     growing a block, print it and check the address box is still on the page;
+     scripts/qrkit-flyer.selfcheck.mjs adds the heights up. */
   .dir-qr-launch {
-    width: 8.5in; height: 11in; margin: 0; padding: 0.45in 0.5in 0.4in;
+    width: 8.5in; height: 11in; margin: 0; padding: 0.4in 0.5in 0.4in;
     border: none; border-radius: 0; text-align: center; color: #fff;
     display: flex; flex-direction: column; align-items: center;
     background:
@@ -66,33 +70,33 @@ const QR_PRINT_CSS = `
     content: ""; position: absolute; inset: 0.32in;
     border: 1px solid rgba(200,165,42,0.55); border-radius: 12px; pointer-events: none;
   }
-  .dir-qr-launch-logo { width: 1.35in; height: auto; margin-top: 0.15in; position: relative; z-index: 1; }
+  .dir-qr-launch-logo { width: 1in; height: auto; margin-top: 0.08in; position: relative; z-index: 1; }
   .dir-qr-launch-school {
-    margin: 0.18in 0 0; font-size: 11pt; font-weight: 700; letter-spacing: 0.18em;
+    margin: 0.12in 0 0; font-size: 11pt; font-weight: 700; letter-spacing: 0.18em;
     text-transform: uppercase; color: rgba(255,255,255,0.88); position: relative; z-index: 1;
   }
   .dir-qr-launch-headline {
-    margin: 0.22in 0 0; font-weight: 900; font-size: 40pt; line-height: 1.05;
+    margin: 0.14in 0 0; font-weight: 900; font-size: 38pt; line-height: 1.05;
     letter-spacing: -0.02em; max-width: 7in; position: relative; z-index: 1;
   }
   .dir-qr-launch-headline em { font-style: normal; color: #f0d56a; }
   .dir-qr-launch-tag {
-    margin: 0.18in auto 0; font-size: 14pt; font-weight: 600; line-height: 1.35;
+    margin: 0.12in auto 0; font-size: 14pt; font-weight: 600; line-height: 1.35;
     max-width: 28ch; color: rgba(255,255,255,0.95); position: relative; z-index: 1;
   }
   .dir-qr-launch-qr {
-    margin: 0.28in auto 0; width: 3.9in; padding: 0.26in; background: #fff;
+    margin: 0.2in auto 0; width: 3.1in; padding: 0.2in; background: #fff;
     border-radius: 22px; position: relative; z-index: 1;
     box-shadow: 0 0 0 6px rgba(200,165,42,0.85), 0 18px 40px rgba(0,0,0,0.35);
   }
   .dir-qr-launch-qr svg { display: block; width: 100%; height: auto; }
   .dir-qr-launch-scan {
-    margin: 0.18in 0 0; font-size: 16pt; font-weight: 800; letter-spacing: 0.04em;
+    margin: 0.12in 0 0; font-size: 16pt; font-weight: 800; letter-spacing: 0.04em;
     text-transform: uppercase; color: #f0d56a; position: relative; z-index: 1;
   }
-  .dir-qr-launch-spacer { flex: 1; min-height: 0.15in; }
+  .dir-qr-launch-spacer { flex: 1; min-height: 0.1in; }
   .dir-qr-launch-cta {
-    width: 100%; max-width: 7.2in; margin-top: 0.15in; padding: 0.2in 0.26in;
+    width: 100%; max-width: 7.2in; margin-top: 0.08in; padding: 0.16in 0.26in;
     background: rgba(0,0,0,0.28); border: 2px solid rgba(255,255,255,0.35);
     border-radius: 14px; position: relative; z-index: 1;
   }
@@ -108,7 +112,9 @@ const QR_PRINT_CSS = `
   .dir-qr-a2hs { margin: 0.18in auto 0; max-width: 5.6in; padding: 8px 12px; border: 1.5px solid #bbb;
     border-radius: 10px; font-size: 11pt; line-height: 1.4; color: #222; text-align: left; }
   .dir-qr-a2hs strong { display: block; font-size: 12pt; margin-bottom: 2px; }
-  .dir-qr-launch .dir-qr-a2hs { border-color: rgba(255,255,255,0.6); color: #fff; }
+  .dir-qr-launch .dir-qr-a2hs { border-color: rgba(255,255,255,0.6); color: #fff;
+    margin-top: 0.12in; padding: 6px 12px; font-size: 10.5pt; line-height: 1.35; }
+  .dir-qr-launch .dir-qr-a2hs strong { font-size: 11.5pt; }
 `;
 
 /** Step one on every poster (#push): on iPhone the Home Screen icon is the

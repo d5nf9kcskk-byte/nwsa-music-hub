@@ -43,6 +43,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Menu → Phone alerts → Turn on alerts on this phone. When anything happening today is changed or cancelled, your phone buzzes with the change note. Then tap Send a test alert to make sure it arrives.',
       'iPhone: add the Hub to your Home Screen first (Safari → Share → Add to Home Screen) and open it from that icon. iOS only sends alerts to a Hub opened that way.',
       'Families can’t sign up yet. That waits until the trial shows alerts keep arriving on iPhones.',
+      'QR kit: every poster now starts with how to put the Hub on your Home Screen, and the launch flyer prints on one page again with the web address at the bottom.',
     ],
     expires: '2026-11-24',
   },
