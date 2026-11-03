@@ -37,7 +37,7 @@ Students and families can send: an absence report (with an excuse-note photo whe
 - **Email.** The Hub sends email through a school Gmail account: form confirmations, answers to absence and copy requests, lesson logs, and grade reports. Copies of sent emails are kept in the Hub's database.
 - **Security check.** Public pages may run Google reCAPTCHA (through Firebase App Check) to tell real browsers from automated traffic. Google receives information about the browser for that check.
 - **Your device.** The site saves a few choices on your own phone or computer, such as the student you saved and your color settings. They never leave the device unless you send them to another one yourself.
-- **Coming soon: phone notifications for staff.** When this ships, the Hub will store a device token for each staff phone that turns notifications on. Those tokens are staff-only. Students and families are not part of it.
+- **Phone alerts (staff trial).** Staff can turn on alerts that buzz their phone when something happening today is changed or cancelled. The Hub stores a device token for each phone that turns them on, plus the ensembles it follows. Nobody can read those tokens through the app, and an alert never names a student. Families cannot sign up yet. If that opens later, a family phone that turns alerts on would also store the ids of the students saved on it, and this notice will say so first.
 
 ## 5. How long we keep it
 

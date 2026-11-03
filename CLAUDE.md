@@ -1580,6 +1580,8 @@ subscriptions hold. The family side is BUILT and switched OFF.
   this write needs no account and costs us a send per change, so without
   App Check nothing stops a script from filling the collection. The director
   flips the switch from Menu → Phone alerts, behind a confirm that says so.
+  `docs/privacy-notice.md` (and `.es.md`) promise families that the notice
+  will describe the family side BEFORE it opens; update both first.
 - **The service worker stays generated and deterministic.** The push and
   notificationclick handlers are `public/push-handler.js`, pulled in by the
   workbox `importScripts` option beside `sw-cleanup.js` and kept out of the

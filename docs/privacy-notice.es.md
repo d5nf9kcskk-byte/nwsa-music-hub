@@ -37,7 +37,7 @@ Los estudiantes y las familias pueden enviar: un aviso de ausencia (con foto de 
 - **Correo.** El Hub envía correos desde una cuenta de Gmail de la escuela: confirmaciones de formularios, respuestas a avisos de ausencia y pedidos de copias, registros de clases privadas e informes de calificaciones. Las copias de los correos enviados se guardan en la base de datos del Hub.
 - **Control de seguridad.** Las páginas públicas pueden usar Google reCAPTCHA (a través de Firebase App Check) para distinguir navegadores reales de tráfico automatizado. Google recibe información del navegador para ese control.
 - **Su dispositivo.** El sitio guarda algunas preferencias en su propio teléfono o computadora, como el estudiante que guardó y los colores que eligió. No salen del dispositivo a menos que usted mismo las envíe a otro.
-- **Próximamente: notificaciones en el teléfono para el personal.** Cuando esto esté listo, el Hub guardará un identificador de dispositivo por cada teléfono del personal que active las notificaciones. Solo el personal tiene acceso a esos identificadores. Los estudiantes y las familias no participan.
+- **Alertas en el teléfono (prueba con el personal).** El personal puede activar alertas que hacen vibrar su teléfono cuando algo de hoy cambia o se cancela. El Hub guarda un identificador por cada teléfono que las activa, junto con los conjuntos que sigue. Nadie puede leer esos identificadores desde la app, y una alerta nunca nombra a un estudiante. Las familias todavía no pueden inscribirse. Si eso se abre más adelante, un teléfono familiar que active las alertas también guardaría los identificadores de los estudiantes guardados en él, y este aviso lo dirá antes.
 
 ## 5. Cuánto tiempo la guardamos
 
