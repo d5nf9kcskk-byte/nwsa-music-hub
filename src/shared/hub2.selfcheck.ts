@@ -234,28 +234,31 @@ for (const shell of ['./DirectorApp.tsx', './teacher/TeacherApp.tsx', './classro
     if (org.hub2) assert.ok(!org.brand?.['--org-font'], `${file}: a brand --org-font would be lost from staff prints under the preview`);
   }
 }
-// The staff --dir-primary is the accent darkened by a share of the ink: text
-// on the page (4.5:1) and the header fill under white (4.5:1) must both read.
+// One teal: the staff --dir-primary and the public --pub-accent are both the
+// org's plain accent, so nothing darkens twice and the two shells match. That
+// accent is TEXT on the page and on a card in both themes, and in light it is
+// also the staff header fill under white: all of it must clear 4.5:1.
 {
-  const mix = css.match(/--dir-primary:\s*color-mix\(in srgb, var\(--hub2-accent\) (\d+)%, var\(--hub2-ink\)\)/);
-  assert.ok(mix, 'hub2.css: the staff --dir-primary must be the accent mixed with the ink');
-  const share = Number(mix[1]) / 100;
+  assert.match(css, /--dir-primary:\s*var\(--hub2-accent\);/, 'hub2.css: the staff --dir-primary must be the plain accent');
+  assert.match(css, /--pub-accent:\s*var\(--hub2-accent\);/, 'hub2.css: the public --pub-accent must be the plain accent');
   const hex = (h: string) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const lum = (c: number[]) => {
     const [r, g, b] = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
-  const ratio = (a: number[], b: number[]) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  const ratio = (a: string, b: string) => { const [x, y] = [lum(hex(a)), lum(hex(b))].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
   for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) {
     const look: Hub2Look | undefined = JSON.parse(read(`../../config/orgs/${file}`)).hub2;
     if (!look) continue;
-    const a = hex(look.light.accent);
-    const ink = hex(look.light.ink);
-    const teal = a.map((v, i) => v * share + ink[i] * (1 - share));
-    for (const [name, ground] of [['page', look.light.bg], ['card', look.light.surface], ['white header text', '#ffffff']] as const) {
-      const r = ratio(teal, hex(ground));
-      assert.ok(r >= 4.5, `${file}: staff teal on ${name} is ${r.toFixed(2)}:1`);
+    for (const mode of ['light', 'dark'] as const) {
+      const t = look[mode];
+      for (const [name, ground] of [['page', t.bg], ['card', t.surface]] as const) {
+        const r = ratio(t.accent, ground);
+        assert.ok(r >= 4.5, `${file}: ${mode} teal text on the ${name} is ${r.toFixed(2)}:1`);
+      }
     }
+    const r = ratio(look.light.accent, '#ffffff');
+    assert.ok(r >= 4.5, `${file}: white staff header text on the light teal is ${r.toFixed(2)}:1`);
   }
 }
 

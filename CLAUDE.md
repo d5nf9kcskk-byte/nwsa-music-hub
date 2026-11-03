@@ -1983,7 +1983,8 @@ any change. Later sessions apply it page by page.
   preview the accent must clear 4.5:1 on the page background, on every
   student tint and on every season's page (`look.selfcheck.ts`,
   `seasons.selfcheck.ts`); the stock palette is untouched. The light accent
-  is #0C7A8A for that reason (4.65:1 on the page).
+  is #0E7585 for that reason (4.97:1 on the page, 5.4:1 under white), and
+  it is the staff teal too.
 - **White on a teal fill uses `--hub2-accent-fill` in dark.** The dark accent
   is a light teal for TEXT and fails AA under white ("Add to my calendar"
   was 2.7:1). The self-check scans every public CSS rule that puts white on
@@ -2002,8 +2003,8 @@ any change. Later sessions apply it page by page.
   stylesheet may read, so flag off stays pixel-identical. **Prints never take
   the preview**: every staff rule, including the `--dir-*` mapping in
   hub2.css, is `@media screen`, and print gets the stock font back. The
-  light `--dir-primary` is the accent with a tenth of ink mixed in, since the
-  bare accent is 4.41:1 as text on the page. The ConcertDayBanner is untouched.
+  light `--dir-primary` is the plain accent (#0E7585, one teal for both
+  sides), chosen to read as text on the page and under white. The ConcertDayBanner is untouched.
   `hub2.selfcheck.ts` §6 pins all of it.
 
 ## Clear cards, and a page per concert (Oct 2026, #clear-cards)

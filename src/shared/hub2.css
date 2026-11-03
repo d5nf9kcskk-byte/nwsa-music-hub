@@ -69,11 +69,11 @@
   /* Light only. --dir-primary is the header fill under WHITE text, so it keeps
      the light teal in dark mode (the dark accent would fail white text), and
      --dir-blue-text keeps its own lighter dark-mode tint.
-     It is also TEXT straight on the page (back buttons, links), where the bare
-     accent measures 4.41:1. One tenth of the ink takes it past 4.5:1 there and
-     darkens the header fill under white with it; hub2.selfcheck.ts pins both. */
+     It is also TEXT straight on the page (back buttons, links). The org's
+     light accent is chosen to read there (4.5:1+) and under white, so the
+     public and staff teal are one color; hub2.selfcheck.ts pins both. */
   [data-hub2="on"] .dir-app:not([data-dir-theme="dark"]) {
-    --dir-primary: color-mix(in srgb, var(--hub2-accent) 90%, var(--hub2-ink));
+    --dir-primary: var(--hub2-accent);
     --dir-card-shadow: var(--hub2-shadow);
   }
 }
