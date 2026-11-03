@@ -479,6 +479,14 @@ runs:
       run: node scripts/storage-rules.selfcheck.mjs
       shell: bash
 
+    # The QR kit's launch flyer is exactly one letter page with overflow
+    # hidden, so a block that does not fit is cut off the bottom of the
+    # printout instead of moving to a second page. The Home Screen step pushed
+    # the "Or type this address" box off it entirely and nothing failed.
+    - name: Check the QR kit launch flyer fits its page
+      run: node scripts/qrkit-flyer.selfcheck.mjs
+      shell: bash
+
     # "Send to my other phone" (Hub 2.0 item 9). The link is built from the
     # page's own origin + base (it is how families carry saved students across
     # a domain move), and opening it only ever ADDS students to a phone,
