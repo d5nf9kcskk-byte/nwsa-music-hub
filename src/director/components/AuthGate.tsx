@@ -61,9 +61,10 @@ export function AuthGate({ children }: Props) {
   useEffect(() => {
     if (!isFirebaseConfigured && FIXTURES_ON) {
       // ?role=teacher|classroom|assistant previews another shell, so a layout
-      // change can be checked in all four (#clear-cards). Fixtures only.
+      // change can be checked in all four (#clear-cards); ?role=owner shows
+      // the owner-only rows (Directors, the Hub 2.0 preview). Fixtures only.
       const asked = new URLSearchParams(window.location.search).get('role');
-      const role = asked === 'teacher' || asked === 'classroom' || asked === 'assistant' ? asked : 'director';
+      const role = asked === 'teacher' || asked === 'classroom' || asked === 'assistant' || asked === 'owner' ? asked : 'director';
       setCurrentDirector({ email: 'fixtures@local', role, assignedEnsembleIds: ['symphony-orchestra'] }, 'Fixture Director');
     }
   }, []);

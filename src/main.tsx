@@ -5,8 +5,10 @@ import './base.css';
 import './public/public.css';
 import './public/look.css';
 import './shared/seasons.css';
+import './shared/hub2.css';
 import { initLook } from './public/look';
 import { initDirSeason } from './shared/seasons';
+import { initHub2 } from './shared/hub2Preview';
 
 import { PublicLayout } from './public/PublicLayout';
 import { PublicHome } from './public/PublicHome';
@@ -187,6 +189,9 @@ applyBrand();
 // season too, on their own on/off switch.
 initLook(ORG.personalize);
 initDirSeason(ORG.personalize?.seasons);
+// The owner's on-device Hub 2.0 preview (#hub2-look). Off everywhere else,
+// where it does nothing at all.
+initHub2();
 
 // Offline app shell (#43) — registered after load so it never delays startup.
 // When a NEW version installs under an open tab, src/pwa.ts shows a one-tap

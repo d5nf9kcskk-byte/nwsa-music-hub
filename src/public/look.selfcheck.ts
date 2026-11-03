@@ -7,6 +7,7 @@
  */
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
+import type { Hub2Look } from '../org/types';
 import { contrast, DARK_INK, inkFor, inkOn, LIGHT_INK, parseLook, PATTERNS, type LookPalette } from './look';
 
 const read = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8');
@@ -108,8 +109,47 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
   checked++;
 }
 
+// 5. The Hub 2.0 look (#hub2-look, the owner's preview). Its palette replaces
+//    the stock page, so it has to clear AA on its own in both themes, and a
+//    student's tint or drawn pattern painted over it still has to read.
+let hub2Checked = 0;
+for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) {
+  const org = JSON.parse(read(`../../config/orgs/${file}`));
+  const h: Hub2Look | undefined = org.hub2;
+  if (!h) continue;
+  const at = (what: string) => `${file} hub2 ${what}`;
+  for (const mode of ['light', 'dark'] as const) {
+    const t = h[mode];
+    for (const k of ['bg', 'surface', 'ink', 'muted', 'line', 'accent'] as const) assert.match(t[k], HEX, at(`${mode}.${k}`));
+    for (const ground of [t.bg, t.surface]) {
+      assert.ok(contrast(t.ink, ground) >= AA, at(`(${mode}) ink on ${ground}`));
+      assert.ok(contrast(t.muted, ground) >= AA, at(`(${mode}) muted on ${ground}: ${contrast(t.muted, ground).toFixed(2)}`));
+      // A link sitting straight on the page is a UI mark (3:1); on a card it is text.
+      assert.ok(contrast(t.accent, ground) >= (ground === t.surface ? AA : 3), at(`(${mode}) accent on ${ground}: ${contrast(t.accent, ground).toFixed(2)}`));
+    }
+    if (t.plum) assert.ok(contrast(t.plum, t.surface) >= AA, at(`(${mode}) plum on a card`));
+    // The pattern marks, at their heaviest, under the Hub 2.0 ink.
+    const gray = css.match(/fill='%23([0-9a-f]{6})'/i)![1];
+    const heaviest = Math.max(...[...css.matchAll(/opacity='([\d.]+)'/g)].map(m => Number(m[1])));
+    assert.ok(contrast(t.ink, over(`#${gray}`, heaviest, t.bg)) >= AA, at(`(${mode}) ink over a pattern`));
+    // Every tint a student can pick, under the Hub 2.0 ink and muted.
+    for (const s of (org.personalize as LookPalette | undefined)?.background ?? []) {
+      assert.ok(contrast(t.ink, s[mode]) >= AA, at(`(${mode}) ink on tint ${s.id}`));
+      assert.ok(contrast(t.muted, s[mode]) >= AA, at(`(${mode}) muted on tint ${s.id}: ${contrast(t.muted, s[mode]).toFixed(2)}`));
+    }
+  }
+  // The staff header keeps WHITE text on the light accent in both themes.
+  assert.equal(inkOn(h.light.accent), LIGHT_INK, at('light accent carries the white staff header'));
+  assert.ok(contrast(LIGHT_INK, h.light.accent) >= AA, at('white on the light accent'));
+  // Spotlight (concert night): its ink and gold read on its stage.
+  assert.ok(contrast(h.spotlight.ink, h.spotlight.bg) >= AA, at('spotlight ink'));
+  assert.ok(contrast(h.spotlight.gold, h.spotlight.bg) >= AA, at('spotlight gold'));
+  hub2Checked++;
+}
+assert.ok(hub2Checked > 0, 'no org has a Hub 2.0 look — its readability was not checked');
+
 assert.equal(inkFor({ id: 'x', color: '#000000', neon: '#3cf2ff', label: { en: 'x', es: 'x' } }), '#3cf2ff');
 assert.equal(inkOn('#ffffff'), DARK_INK);
 assert.equal(inkOn('#000000'), LIGHT_INK);
 assert.ok(checked > 0, 'no org has a palette — nothing was checked');
-console.log(`look self-check OK (${checked} palette${checked === 1 ? '' : 's'})`);
+console.log(`look self-check OK (${checked} palette${checked === 1 ? '' : 's'}, ${hub2Checked} Hub 2.0 look${hub2Checked === 1 ? '' : 's'})`);
