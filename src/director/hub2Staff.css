@@ -249,4 +249,7 @@
   :root[data-hub2="on"] .dir-app .dir-quick-btn:active {
     transform: scale(var(--hub2-press-scale));
   }
+  /* Page wipes (#hub2-motion) are drawn in hub2Public.css: the
+     ::view-transition pseudo-elements hang off <html> and serve both shells.
+     No scroll reveal here: staff screens dim too many things on purpose. */
 }

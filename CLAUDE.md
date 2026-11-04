@@ -2013,6 +2013,33 @@ any change. Later sessions apply it page by page.
   list stagger and a 97% press, all off under reduced motion. Those page
   classes have NO stock CSS (the self-check fails if one gains any), which is
   what lets a component carry them with the preview off.
+- **Page wipes and soft reveals** (#hub2-motion, director's ask 2026-11-04),
+  both only under the look and without reduced motion. The rule that shapes
+  both: **nothing may stay a layer once the motion is over.** The first
+  version named the content pane for good (every sheet and drawer slid under
+  the header and the tab bar) and animated opacity/translate on a scroll
+  timeline (Chrome keeps such a block a layer while the animation is
+  attached, which is forever, so dropdowns went under the next section).
+  WIPES: `src/shared/hub2Motion.ts` `withPageWipes()` wraps the router in
+  `main.tsx` so a navigation to another PAGE (`changesPage()`: not a filter
+  tap, not a hash) asks React Router for a View Transition. The whole screen
+  (root) wipes left to right with ONE moving edge (`hub2-wipe-in` on the new,
+  `hub2-wipe-out` on the old, so they never overlap; both ends of each are
+  written out, because clip-path cannot blend an inset() into `none` and a
+  one-ended keyframe just cuts over halfway); the header, rail, tab
+  bar and Director Panel strip are named ONLY under `:active-view-transition`
+  so they stay still above it. `mix-blend-mode: normal` on the pair, or the
+  browser's plus-lighter cross-fade flashes white. The `.pub-drill` slide is
+  dropped where wipes run. REVEALS, public pages only: each block of
+  `.pub-page` fades in as it scrolls in, by animating a registered number
+  (`@property --hub2-reveal`, initial 1) on `animation-timeline: view()` with
+  fill `backwards`, and `opacity: var(--hub2-reveal, 1)`; in view, it is
+  plain opacity 1. Left alone: blocks dimmed on purpose (`.cancelled`,
+  `.pub-past-dim`), blocks that are or hold something `position: fixed`
+  (`hub2.selfcheck.ts` §7 derives every fixed class from the CSS), and
+  staggered rows. No staff reveals: staff screens dim too many things on
+  purpose. §7 also pins `changesPage()`, the names-only-while-transitioning
+  rule, the moving edge and the registered number.
 - **The public hub2 rules are `@media screen` only** (all of
   `hub2Public.css`, and the `--pub-*` block of `hub2.css`). Paper (program,
   season fridge copy, Start Guide, QR kit) prints identically with the

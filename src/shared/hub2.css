@@ -40,6 +40,7 @@
   /* Motion. Later sessions use these; reduced motion zeroes them below. */
   --hub2-ease: cubic-bezier(.2, .8, .2, 1);
   --hub2-slide-ms: 240ms;
+  --hub2-wipe-ms: 340ms;
   --hub2-stagger-ms: 30ms;
   --hub2-press-scale: .97;
 }
@@ -85,6 +86,7 @@
 @media (prefers-reduced-motion: reduce) {
   :root[data-hub2="on"] {
     --hub2-slide-ms: 0ms;
+    --hub2-wipe-ms: 0ms;
     --hub2-stagger-ms: 0ms;
     --hub2-press-scale: 1;
   }

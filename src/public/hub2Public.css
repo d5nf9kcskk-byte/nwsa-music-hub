@@ -237,4 +237,66 @@
     :root[data-hub2="on"] .pub-app :is(button, .pub-signup-row, .pub-checkin-row.open, .pub-event.tappable, .pub-tabbar-btn, .pub-cta-btn, .pub-quick-btn) { transition: none; }
     :root[data-hub2="on"] .pub-app :is(button, .pub-signup-row, .pub-checkin-row.open, .pub-event.tappable, .pub-tabbar-btn, .pub-cta-btn, .pub-quick-btn):active:not(:disabled) { transform: none; }
   }
+
+  /* ═══ Page wipes and soft reveals (#hub2-motion) ═══
+     Both only without reduced motion. Nothing here may leave a named element,
+     a stacking context or a containing block behind once the motion is over:
+     the first version did, and sheets slid under the tab bar and dropdowns
+     under the next section. */
+  /* Both ends written out: clip-path cannot blend an inset() into the
+     implicit `none`, so a one-ended keyframe jumps halfway instead of
+     sweeping. */
+  @keyframes hub2-wipe-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+  @keyframes hub2-wipe-out { from { clip-path: inset(0); } to { clip-path: inset(0 0 0 100%); } }
+  /* The reveal animates a plain registered number, never opacity itself:
+     Chrome treats an element with an attached opacity or transform animation
+     as a layer for as long as the animation is attached, and a scroll-driven
+     one is attached for good. A number that ends at its initial 1 leaves
+     opacity at 1, which is no layer at all. */
+  @property --hub2-reveal { syntax: '<number>'; inherits: false; initial-value: 1; }
+  @keyframes hub2-reveal { from { --hub2-reveal: 0; } }
+  @media (prefers-reduced-motion: no-preference) {
+    /* Page wipes. hub2Motion.ts asks the router for a View Transition when the
+       page changes. The WHOLE screen wipes left to right with one moving
+       edge: the new page grows from the left exactly as the old one shrinks
+       from the left, so the two never overlap, on a phone or a laptop. The
+       shell is named only WHILE a transition runs, so it stays still above
+       the wipe and is an ordinary element the rest of the time. Normal
+       blending: the browser's cross-fade blend would flash white.
+       These ::view-transition rules hang off <html>, so they serve the staff
+       shell too. */
+    :root[data-hub2="on"]:active-view-transition :is(.pub-header, .dir-header) { view-transition-name: hub2-header; }
+    :root[data-hub2="on"]:active-view-transition :is(.pub-sidebar, .dir-rail) { view-transition-name: hub2-rail; }
+    :root[data-hub2="on"]:active-view-transition .pub-tabbar { view-transition-name: hub2-tabbar; }
+    :root[data-hub2="on"]:active-view-transition .dir-panel-banner { view-transition-name: hub2-banner; }
+    :root[data-hub2="on"]::view-transition-old(root) {
+      animation: hub2-wipe-out var(--hub2-wipe-ms) var(--hub2-ease) both;
+      mix-blend-mode: normal;
+    }
+    :root[data-hub2="on"]::view-transition-new(root) {
+      animation: hub2-wipe-in var(--hub2-wipe-ms) var(--hub2-ease) both;
+      mix-blend-mode: normal;
+    }
+    /* A drill-down page that wipes in no longer also slides: one motion. */
+    @supports (view-transition-name: none) {
+      :root[data-hub2="on"] :is(.pub-drill, .pub-checkin) { animation: none; }
+    }
+
+    /* Soft reveals. Each block of a public page fades in as it scrolls into
+       view, driven by the scroll itself, no script. Fill `backwards`, so once
+       a block is in, --hub2-reveal is back at 1 and the block is exactly as
+       without the look. Left alone: a block that is or holds something fixed
+       (an overlay, the event action bar: hub2.selfcheck.ts fails on a
+       position: fixed class this misses), a block dimmed on purpose
+       (cancelled, past), and rows that stagger in on load. Staff screens get
+       no reveal: they dim too many things on purpose. */
+    @supports (animation-timeline: view()) {
+      :root[data-hub2="on"] .pub-page > :not(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .cancelled, .pub-past-dim, .pub-event-actionbar, .pub-nav, .pub-pdf-pad-back, .nwsa-noteburst, [class*="-overlay"], :has([class*="-overlay"], [aria-modal="true"], .pub-event-actionbar, .pub-nav, .pub-pdf-pad-back, .nwsa-noteburst)) {
+        animation: hub2-reveal linear backwards;
+        animation-timeline: view();
+        animation-range: entry 0% entry 40%;
+        opacity: var(--hub2-reveal, 1);
+      }
+    }
+  }
 }

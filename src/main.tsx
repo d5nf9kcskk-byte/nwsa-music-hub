@@ -10,6 +10,7 @@ import './public/hub2Public.css';
 import { initLook } from './public/look';
 import { initDirSeason } from './shared/seasons';
 import { initHub2 } from './shared/hub2Preview';
+import { withPageWipes } from './shared/hub2Motion';
 
 import { PublicLayout } from './public/PublicLayout';
 import { PublicHome } from './public/PublicHome';
@@ -70,7 +71,8 @@ const DirectorApp = lazy(() => {
     });
 });
 
-const router = createBrowserRouter(
+// Page wipes under the Hub 2.0 look (#hub2-motion): no effect with it off.
+const router = withPageWipes(createBrowserRouter(
   [
     {
       path: '/',
@@ -181,7 +183,7 @@ const router = createBrowserRouter(
   // BASE_URL comes from the org's basePath (vite.config.ts); the router
   // basename is the same path without the trailing slash.
   { basename: import.meta.env.BASE_URL.replace(/\/$/, '') },
-);
+));
 
 // Org brand palette (no-op for NWSA — empty maps inject nothing).
 applyBrand();
