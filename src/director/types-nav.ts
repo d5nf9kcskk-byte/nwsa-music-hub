@@ -17,6 +17,10 @@ export interface DirNavOpts {
    *  lives, and arriving there with an empty selection is three taps of
    *  nothing. */
   selectAll?: boolean;
+  /** Open Change a Day ready to CLOSE school (#close-a-day): its day-cancel
+   *  buttons ask which school is closed and say so in the notes and the
+   *  banner. Today's "Close a day" is the caller. */
+  closing?: boolean;
 }
 
 /** Cross-tab navigation with intent (preselect an ensemble, focus an event, …). */

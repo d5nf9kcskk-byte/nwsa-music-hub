@@ -365,6 +365,7 @@ export default function DirectorApp() {
     announcementId: searchParams.get('announcement') ?? undefined,
     assignmentId: searchParams.get('assignment') ?? undefined,
     selectAll: searchParams.get('selectall') === '1' || undefined,
+    closing: searchParams.get('closing') === '1' || undefined,
   };
 
   function go(t: DirTab, opts?: DirNavOpts) {
@@ -376,6 +377,7 @@ export default function DirectorApp() {
     if (opts?.announcementId) p.set('announcement', opts.announcementId);
     if (opts?.assignmentId) p.set('assignment', opts.assignmentId);
     if (opts?.selectAll) p.set('selectall', '1');
+    if (opts?.closing) p.set('closing', '1');
     const qs = p.toString();
     navigate(`/director${t === 'today' ? '' : `/${t}`}${qs ? `?${qs}` : ''}`);
     setMenuOpen(false);
@@ -449,7 +451,7 @@ export default function DirectorApp() {
   // Remount the target view when the intent changes so preselects apply cleanly.
   // Every DirNavOpts field belongs here, or a screen keyed on it will not
   // remount when that field is the only thing that changed.
-  const intentKey = `${intent.ensembleId ?? ''}|${intent.date ?? ''}|${intent.eventId ?? ''}|${intent.studentId ?? ''}|${intent.announcementId ?? ''}|${intent.assignmentId ?? ''}|${intent.selectAll ? '1' : ''}`;
+  const intentKey = `${intent.ensembleId ?? ''}|${intent.date ?? ''}|${intent.eventId ?? ''}|${intent.studentId ?? ''}|${intent.announcementId ?? ''}|${intent.assignmentId ?? ''}|${intent.selectAll ? '1' : ''}|${intent.closing ? '1' : ''}`;
 
   return (
     <AuthGate>
@@ -621,7 +623,7 @@ export default function DirectorApp() {
                 onNavigate={go}
               />
             )}
-            {tab === 'scheduleSwap'    && <ScheduleSwapView key={intentKey} initialDate={intent.date} onNavigate={go} />}
+            {tab === 'scheduleSwap'    && <ScheduleSwapView key={intentKey} initialDate={intent.date} closing={intent.closing} onNavigate={go} />}
             {tab === 'rotations'       && <RotationsView />}
             {tab === 'repertoire'      && <RepertoireManager key={intentKey} asTab ensembleId={intent.ensembleId} onNavigate={go} onClose={() => {}} />}
             {tab === 'documents'       && <DocumentsView key={intentKey} initialEnsembleId={intent.ensembleId ?? ''} />}

@@ -50,8 +50,12 @@ const overrideWord = (o: RosterOverride) =>
  * public red banner) and can post an urgent announcement (in-app banner).
  * A per-row "Revert to normal" restores the original schedule and clears both.
  */
-export function ScheduleSwapView({ initialDate, onNavigate }: {
+export function ScheduleSwapView({ initialDate, closing = false, onNavigate }: {
   initialDate?: string;
+  /** Opened from Today's "Close a day" (#close-a-day): the day-cancel buttons
+   *  close a SCHOOL, campus by campus, and say so in the notes and the banner.
+   *  Swaps and combines are hidden, since nobody closing a school wants them. */
+  closing?: boolean;
   onNavigate: DirNavigate;
 }) {
   const { events, updateEvent, deleteEvent, revertEvent } = useEvents();
@@ -155,7 +159,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
     const isRehearsalBlock = (e: CalendarEvent) =>
       (e.type === 'Rehearsal' || e.type === 'Sectional')
       && e.ensembleIds.some(id => { const g = ensembleMap[id]; return g && !isClassGroup(g); });
-    const [p0, p1] = boardCols.map(col => col.filter(isRehearsalBlock));
+    const [p0, p1] = closing ? [[], []] : boardCols.map(col => col.filter(isRehearsalBlock));
     for (const ea of p0) for (const eb of p1) {
       if (ea.status === 'Cancelled' || eb.status === 'Cancelled') continue;
       if (ea.ensembleIds.some(id => eb.ensembleIds.includes(id))) continue;
@@ -201,14 +205,21 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
         if (n === 0) continue;
         opts.push({
           key: `cancel-day-${c}`,
-          label: `Cancel the ${CAMPUS_LABEL[c]} day (${n})`,
-          action: { kind: 'cancelDay', campus: c },
+          label: closing ? `Close the ${CAMPUS_LABEL[c]} (${n})` : `Cancel the ${CAMPUS_LABEL[c]} day (${n})`,
+          action: { kind: 'cancelDay', campus: c, ...(closing ? { closed: true } : {}) },
           danger: true,
         });
       }
-      opts.push({ key: 'cancel-day', label: 'Cancel everything', action: { kind: 'cancelDay' }, danger: true });
+      opts.push({ key: 'cancel-day', label: closing ? 'Close both' : 'Cancel everything', action: closing ? { kind: 'cancelDay', closed: true } : { kind: 'cancelDay' }, danger: true });
     } else if (liveByCampus.size === 1) {
-      opts.push({ key: 'cancel-day', label: 'Cancel the day', action: { kind: 'cancelDay' }, danger: true });
+      // Closing names the one school that has anything on (Nov 23-25 is a
+      // college-only board, Dec 14-17 a high-school-only one), so the notes
+      // and the banner never say "School closed" about the other. The writes
+      // are the same: everything live already belongs to that campus.
+      const [[only, n]] = [...liveByCampus];
+      opts.push(closing
+        ? { key: 'cancel-day', label: `Close the ${CAMPUS_LABEL[only]} (${n})`, action: { kind: 'cancelDay', campus: only, closed: true }, danger: true }
+        : { key: 'cancel-day', label: 'Cancel the day', action: { kind: 'cancelDay' }, danger: true });
     }
     // Putting it back, same shape. A day whose two campuses were changed
     // together — which is how the college classes got cancelled in the first
@@ -238,7 +249,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
     }
     return opts;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boardCols, dayEvents, dayLessons, date, ensembleMap]);
+  }, [boardCols, dayEvents, dayLessons, date, ensembleMap, closing]);
 
   /**
    * "Sep 21 is a day off at the high school (MDCPS). Miami Dade College is in
@@ -523,6 +534,13 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
       </div>
 
       <div className="dir-page-body">
+        {closing ? (
+          <div className="dir-att-summary" style={{ borderRadius: 10 }}>
+            🌀 <strong>Closing school.</strong> Pick the day with the arrows, then tap what is
+            closed below. Closing the high school cancels that day’s private lessons too.
+            You see everything before it saves, and Back to normal undoes it.
+          </div>
+        ) : (
         <div className="dir-field-hint">
           Whole-ensemble changes for this day — pick a ready-made option below,
           or tap <strong>Change</strong> on a block
@@ -533,6 +551,7 @@ export function ScheduleSwapView({ initialDate, onNavigate }: {
             Move a Student
           </button>
         </div>
+        )}
 
         {closureHint && <div className="dir-att-summary" style={{ borderRadius: 10 }}>{closureHint}</div>}
         {strandedLessons.length > 0 && (
@@ -1086,7 +1105,8 @@ function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, 
   // A scoped cancel has to say WHICH day it is cancelling, on the sheet and on
   // the button — "Cancel the day" is the wording that caused the trouble.
   const scoped =
-    action.kind === 'cancelDay' && action.campus ? `Cancel the ${CAMPUS_LABEL[action.campus]} day`
+    action.kind === 'cancelDay' && action.closed ? (action.campus ? `Close the ${CAMPUS_LABEL[action.campus]}` : 'Close the day')
+    : action.kind === 'cancelDay' && action.campus ? `Cancel the ${CAMPUS_LABEL[action.campus]} day`
     : action.kind === 'backToNormal' && action.campus ? `Put the ${CAMPUS_LABEL[action.campus]} day back`
     : null;
   const title = scoped ?? baseTitle;

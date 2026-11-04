@@ -60,7 +60,7 @@ registerHooks({
 globalThis.__ORG_CONFIG__ = JSON.parse(
   readFileSync(new URL('../config/orgs/nwsa.json', import.meta.url), 'utf8'));
 
-const { planDayChange, applyPlan, changeReceipt, revertPlan, normalizeRoom, schoolClosedWrite } = await import('../src/director/schedule/changePlan.ts');
+const { planDayChange, applyPlan, changeReceipt, revertPlan, normalizeRoom, closedNote } = await import('../src/director/schedule/changePlan.ts');
 
 let failures = 0;
 function assert(cond, msg) {
@@ -214,6 +214,17 @@ const labels = { 'evt-we': 'Wind Ensemble', 'evt-so': 'Symphony Orchestra' };
   eqDeep(both.writes.map(w => w.id).sort(), ['evt-cco', 'evt-hs', 'evt-mc', 'evt-mdc'],
     'an UNSCOPED cancel still closes both programs — a hurricane is a real verb');
 
+  // Closing ONE school (#close-a-day): same campus split, and the words name it.
+  const hsClosed = planDayChange(mday, { kind: 'cancelDay', campus: 'mdcps', closed: true }, { labels: mlabels, groups });
+  eqDeep(hsClosed.writes.map(w => w.id).sort(), ['evt-hs', 'evt-mc'], 'closing the high school closes no college group');
+  assert(hsClosed.writes.every(w => w.data.changeNote === 'High school closed'), 'each high school block says the high school is closed');
+  assert(hsClosed.bannerText === '🚫 High school closed Mon, Sep 21: everything at the high school is cancelled',
+    `high school closure banner is exact (got "${hsClosed.bannerText}")`);
+  const mdcClosed = planDayChange(mday, { kind: 'cancelDay', campus: 'mdc', closed: true }, { labels: mlabels, groups });
+  eqDeep(mdcClosed.writes.map(w => w.id).sort(), ['evt-cco', 'evt-mdc'], 'closing the college closes no high school group');
+  assert(mdcClosed.bannerText === '🚫 College closed Mon, Sep 21: everything at the college is cancelled',
+    `college closure banner is exact (got "${mdcClosed.bannerText}")`);
+
   // Should not exist: the two programs are separate. Fail-safe, not a rule.
   const shared = { id: 'evt-mix', type: 'Rehearsal', ensembleIds: ['class-college-piano-1', 'we'], date: M, startTime: '10:00', endTime: '11:00', status: 'Scheduled' };
   eqDeep(planDayChange([shared], { kind: 'cancelDay', campus: 'mdc' }, { groups }).writes, [],
@@ -253,6 +264,10 @@ const labels = { 'evt-we': 'Wind Ensemble', 'evt-so': 'Symphony Orchestra' };
   const hsOnly = planDayChange([hsReh, collegeCls], { kind: 'cancelDay', campus: 'mdcps' }, { groups, lessons });
   eqDeep(hsOnly.writes.filter(w => w.op === 'cancelLesson'), [{ op: 'cancelLesson', id: 'les-1' }],
     'the high school day takes the lessons with it');
+  // The bug #close-a-day fixed: Today's old sweep left every lesson standing.
+  eqDeep(planDayChange([hsReh, collegeCls], { kind: 'cancelDay', campus: 'mdcps', closed: true }, { groups, lessons })
+    .writes.filter(w => w.op === 'cancelLesson'), [{ op: 'cancelLesson', id: 'les-1' }],
+    'closing the high school takes its private lessons with it');
 
   // The day board previews BLOCKS. A lesson write must never reach it.
   eqDeep(applyPlan([hsReh, collegeCls], p.writes).map(e => e.id).sort(), ['evt-hs', 'evt-mdc'],
@@ -327,21 +342,32 @@ const labels = { 'evt-we': 'Wind Ensemble', 'evt-so': 'Symphony Orchestra' };
     'a snapshot with no date never touches the date');
 }
 
-// ── the Today screen's "School closed" button (#change-receipts) ─────
+// ── closing school (#close-a-day) ─────────────────────────────────────
+// Today's "Close a day" opens Change a Day with `closed`. It must cancel
+// exactly what a day cancel cancels, leave the same receipts, and change only
+// the WORDS: the note says which school is closed, and the one banner says so
+// instead of listing every group.
 {
-  const w = schoolClosedWrite(we);
-  eqDeep(w, { status: 'Cancelled', changeNote: 'School closed', changeFrom: { status: 'Scheduled', startTime: '13:10', endTime: '14:25', location: 'Band Room' } },
-    'a school-closed cancel carries the same receipt a chip-cancelled block does');
-  const closed = { ...we, ...w };
-  const { fields } = revertPlan(closed);
-  const restored = { ...closed };
-  for (const [k, v] of Object.entries(fields)) { if (v === undefined) delete restored[k]; else restored[k] = v; }
-  eqDeep(restored, we, 'school closed → revertPlan restores the block byte-for-byte');
-  const afterClose = [{ ...we, ...w }, { ...so, ...schoolClosedWrite(so) }];
+  const plain = planDayChange(day, { kind: 'cancelDay' }, { labels });
+  const closed = planDayChange(day, { kind: 'cancelDay', closed: true }, { labels });
+  eqDeep(closed.writes.map(w => w.id), plain.writes.map(w => w.id), 'a closure cancels exactly the blocks a day cancel does');
+  assert(closed.writes.every(w => w.data.changeNote === 'School closed'), 'an unscoped closure notes "School closed" on every block');
+  eqDeep(closed.writes.map(w => w.data.changeFrom), plain.writes.map(w => w.data.changeFrom),
+    'a closure leaves the same receipt a chip-cancelled block does');
+  assert(closed.bannerText === '🚫 School closed Fri, Sep 4: everything is cancelled',
+    `closure banner is exact (got "${closed.bannerText}")`);
+  const gala = { id: 'evt-gala', type: 'Concert', ensembleIds: ['so'], date: D, startTime: '19:00', endTime: '21:00', status: 'Scheduled' };
+  const withConcert = planDayChange([...day, gala], { kind: 'cancelDay', closed: true }, { labels: { ...labels, 'evt-gala': 'Fall Concert' } });
+  assert(withConcert.bannerText === '🚫 School closed Fri, Sep 4: everything is cancelled, including Fall Concert',
+    `a closure names the concert it cancels, so nobody reads it as still on (got "${withConcert.bannerText}")`);
+  const afterClose = applyPlan(day, closed.writes);
   eqDeep(applyPlan(afterClose, planDayChange(afterClose, { kind: 'backToNormal' }).writes), day,
     'school closed → Change a Day\'s Back to normal restores the whole day');
   const moved = { ...we, startTime: '15:00', changeFrom: { status: 'Scheduled', startTime: '13:10', endTime: '14:25', location: 'Band Room' } };
-  assert(!('changeFrom' in schoolClosedWrite(moved)), 'snapshot-once: closing a block that was already moved keeps its ORIGINAL');
+  assert(!('changeFrom' in planDayChange([moved], { kind: 'cancelDay', closed: true }).writes[0].data),
+    'snapshot-once: closing a block that was already moved keeps its ORIGINAL');
+  assert(closedNote() === 'School closed' && closedNote('mdcps') === 'High school closed' && closedNote('mdc') === 'College closed',
+    'a scoped closure names its school');
 }
 
 // ── back to normal with nothing changed does nothing ──────────────────
