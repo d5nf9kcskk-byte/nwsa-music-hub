@@ -296,27 +296,46 @@ let fixedChecked = 0;
     assert.ok(motion.includes(gate), `hub2Motion.ts: page wipes must check ${gate}`);
   }
   assert.ok(read('../main.tsx').includes('withPageWipes(createBrowserRouter('), 'main.tsx must wrap the router in withPageWipes');
-  // One named pane per shell, so the header and the nav stay put, and only
-  // where motion is allowed.
-  const decl = /[{;]\s*view-transition-name:\s*([\w-]+)/g; // a declaration, not an @supports test
-  const names = [...pubCss.matchAll(decl), ...staffCss.matchAll(decl)].map(m => m[1]);
-  assert.deepEqual(names, ['hub2-page', 'hub2-page'], 'exactly one named page pane per shell');
-  assert.match(pubCss, /\.pub-content \{ view-transition-name: hub2-page; \}/, 'hub2Public.css: .pub-content is the public pane');
-  assert.match(staffCss, /\.dir-content \{ view-transition-name: hub2-page; \}/, 'hub2Staff.css: .dir-content is the staff pane');
-  for (const [name, src] of [['hub2Public.css', pubCss], ['hub2Staff.css', staffCss]] as const) {
-    const at = src.indexOf('view-transition-name');
-    assert.ok(src.lastIndexOf('prefers-reduced-motion: no-preference', at) !== -1, `${name}: the page wipe must sit under prefers-reduced-motion: no-preference`);
+  // Only a change of PAGE wipes: a filter tap or a hash link must not (the
+  // transition swallows taps while it runs).
+  const { changesPage } = await import('./hub2Motion');
+  assert.ok(motion.includes('changesPage(to, router.state.location.pathname)'), 'withPageWipes must ask changesPage');
+  for (const [to, here, want] of [
+    ['?ensemble=x', '/calendar', false], ['#part-books', '/event/a', false], ['/calendar', '/calendar', false],
+    ['/calendar?x=1', '/calendar/', false], [{ search: '?a=1' }, '/calendar', false],
+    ['/concerts', '/calendar', true], [{ pathname: '/event/b' }, '/event/a', true], ['../x', '/a/b', true],
+  ] as const) {
+    assert.equal(changesPage(to, here), want, `changesPage(${JSON.stringify(to)}, ${here})`);
   }
-  // The browser blends the snapshot pair "plus-lighter" for a cross-fade; two
-  // full-opacity pages would add up to a white flash.
-  for (const pane of ['old', 'new']) {
-    assert.match(pubCss, new RegExp(`::view-transition-${pane}\\(hub2-page\\) \\{[^}]*mix-blend-mode: normal`), `the ${pane} page snapshot must blend normally`);
+  // Nothing is named for good: a named element is its own layer, and the
+  // first version's named content pane put every sheet and drawer under the
+  // header and the tab bar. The shell is named only during a transition.
+  const decls = [...pubCss.matchAll(/([^{}]+)\{\s*view-transition-name:/g), ...staffCss.matchAll(/([^{}]+)\{\s*view-transition-name:/g)];
+  assert.ok(decls.length >= 3, 'the shell (header, rail, tab bar) must be named for the wipe');
+  for (const [, sel] of decls) {
+    assert.ok(sel.includes(':active-view-transition'), `${sel.trim()}: name an element only while a transition runs`);
+    assert.ok(pubCss.lastIndexOf('prefers-reduced-motion: no-preference', pubCss.indexOf(sel)) !== -1, 'the page wipe must sit under prefers-reduced-motion: no-preference');
   }
-  // Reveals: scroll-driven, fill backwards (no effect once a block is in), and
-  // every position: fixed class excluded, or it would be moved with its block.
+  // One moving edge: the new page grows from the left as the old one shrinks
+  // from the left, so they never overlap; and normal blending, or the
+  // browser's plus-lighter cross-fade would flash white.
+  assert.match(pubCss, /@keyframes hub2-wipe-in \{ from \{ clip-path: inset\(0 100% 0 0\); \} \}/);
+  assert.match(pubCss, /@keyframes hub2-wipe-out \{ to \{ clip-path: inset\(0 0 0 100%\); \} \}/);
+  for (const [pane, kf] of [['old', 'hub2-wipe-out'], ['new', 'hub2-wipe-in']]) {
+    assert.match(pubCss, new RegExp(`::view-transition-${pane}\\(root\\) \\{[^}]*animation: ${kf} var\\(--hub2-wipe-ms\\)[^}]*mix-blend-mode: normal`),
+      `the ${pane} page must run ${kf} and blend normally`);
+  }
+  // Reveals animate a registered number, never opacity or a transform: an
+  // attached scroll-driven animation of those keeps the block a layer for
+  // good, which put dropdowns under the next section.
+  assert.match(pubCss, /@property --hub2-reveal \{ syntax: '<number>'; inherits: false; initial-value: 1; \}/, 'the reveal number must be registered, starting at 1');
+  assert.match(pubCss, /@keyframes hub2-reveal \{ from \{ --hub2-reveal: 0; \} \}/, 'the reveal keyframes animate --hub2-reveal and nothing else');
+  assert.ok(!/animation-timeline/.test(staffCss), 'staff screens get no scroll reveal: they dim too many things on purpose');
+  // Every position: fixed class must be excluded where a BLOCK holds it
+  // (the :has() list), or a block mid-reveal would hold it in its layer.
   const fixedIn = (dirs: string[]) => {
     const out = new Set<string>();
-    for (const f of stock.filter(f => dirs.some(d => f.includes(d)))) {
+    for (const f of stock.filter(f => dirs.some(d => f.includes(d)) || /\/src\/[^/]+\.css$/.test(f))) {
       for (const m of strip(readFileSync(f, 'utf8')).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
         if (!/position:\s*fixed/.test(m[2])) continue;
         for (const sel of topLevel(m[1].trim())) {
@@ -327,21 +346,20 @@ let fixedChecked = 0;
     }
     return out;
   };
-  for (const [name, src, dirs] of [
-    ['hub2Public.css', pubCss, ['/src/public/', '/src/shared/']],
-    ['hub2Staff.css', staffCss, ['/src/director/', '/src/shared/']],
-  ] as const) {
-    const rule = src.match(/([^{}]+)\{\s*animation: hub2-reveal linear backwards;\s*animation-timeline: view\(\);/);
-    assert.ok(rule, `${name}: the reveal must be scroll-driven with fill backwards`);
-    assert.ok(src.lastIndexOf('@supports (animation-timeline: view())', rule.index) !== -1, `${name}: the reveal must sit under @supports (animation-timeline: view())`);
-    assert.ok(src.lastIndexOf('prefers-reduced-motion: no-preference', rule.index) !== -1, `${name}: the reveal must sit under prefers-reduced-motion: no-preference`);
-    const fixed = fixedIn([...dirs]);
-    assert.ok(fixed.size >= 3, `${name}: found only ${fixed.size} fixed classes; the scan is broken`);
-    for (const c of fixed) {
-      assert.ok(c.includes('-overlay') || rule[1].includes(`.${c},`) || rule[1].includes(`.${c})`),
-        `${name}: .${c} is position: fixed, and the reveal would move it with its block. Exclude it`);
-      fixedChecked++;
-    }
+  const rule = pubCss.match(/([^{}]+)\{\s*animation: hub2-reveal linear backwards;\s*animation-timeline: view\(\);[^}]*opacity: var\(--hub2-reveal, 1\);/);
+  assert.ok(rule, 'hub2Public.css: the reveal must be scroll-driven, fill backwards, opacity from --hub2-reveal');
+  assert.ok(pubCss.lastIndexOf('@supports (animation-timeline: view())', rule.index) !== -1, 'the reveal must sit under @supports (animation-timeline: view())');
+  assert.ok(pubCss.lastIndexOf('prefers-reduced-motion: no-preference', rule.index) !== -1, 'the reveal must sit under prefers-reduced-motion: no-preference');
+  const head = rule[1];
+  // Blocks dimmed on purpose keep their own opacity.
+  for (const dim of ['.cancelled', '.pub-past-dim']) assert.ok(head.includes(`${dim},`), `the reveal must leave ${dim} blocks alone`);
+  const held = head.slice(head.indexOf(':has('));
+  const fixed = fixedIn(['/src/public/', '/src/shared/']);
+  assert.ok(fixed.size >= 3, `found only ${fixed.size} fixed classes; the scan is broken`);
+  for (const c of fixed) {
+    assert.ok(c.includes('-overlay') || (held.includes(`.${c},`) || held.includes(`.${c})`)),
+      `.${c} is position: fixed; the reveal must leave alone any block that holds it (the :has() list)`);
+    fixedChecked++;
   }
 }
 
