@@ -163,6 +163,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'push.on':          { en: 'Alerts are on for this phone',    es: 'Las alertas están activadas en este teléfono' },
   'push.update':      { en: 'Update for my saved students',    es: 'Actualizar con mis estudiantes guardados' },
   'push.turnOff':     { en: 'Turn off alerts',                 es: 'Desactivar alertas' },
+  'push.paused':      { en: 'Alerts to families are paused for now. You can still turn them off on this phone.', es: 'Las alertas a las familias están en pausa por ahora. Igual puedes desactivarlas en este teléfono.' },
   'push.working':     { en: 'One moment…',                     es: 'Un momento…' },
   'push.iosHomeScreen': { en: 'On iPhone, alerts only work from the Home Screen. In Safari tap Share, then Add to Home Screen, then open the Hub from that icon.', es: 'En iPhone, las alertas solo funcionan desde la pantalla de inicio. En Safari toca Compartir, luego Agregar a inicio, y abre el Hub desde ese ícono.' },
   'push.unsupported': { en: 'This browser cannot get alerts. Try Chrome, or the Hub added to your Home Screen.', es: 'Este navegador no puede recibir alertas. Prueba con Chrome o con el Hub en tu pantalla de inicio.' },

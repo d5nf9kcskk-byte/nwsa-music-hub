@@ -1637,10 +1637,15 @@ subscriptions hold. The family side is BUILT and switched OFF.
   to write, absent = closed. While it is false the rules refuse every family
   create; the button's own check is courtesy. **The sender checks it too**
   (Nov 2026): `deviceMaySend()` in `pushAlerts.ts`, read once per change in
-  `handleEventChange` BEFORE the send-once marker is claimed, so closing the
-  switch stops every family phone that already signed up, not only new
-  sign-ups; their records are kept and reopening resumes them. A family
-  device is one with no `staffEmail`. A family create is the app's
+  `handleEventChange`, so closing the switch stops every family phone that
+  already signed up, not only new sign-ups; their records are kept and
+  reopening resumes them. A failed read counts as CLOSED (`.catch(() =>
+  false)`): families fail closed and staff still get the alert, because
+  `pushOnEventChange` is a v1 trigger with no retry policy and a throw would
+  lose it for everyone. While closed, a phone that already signed up still
+  sees the Home card with "Turn off" only (`FamilyAlertsButton`), so a family
+  can always remove its own record. A family device is one with no
+  `staffEmail`. A family create is the app's
   EIGHTH unauthenticated write: exact key set (the honeypot), `scope` pinned
   to `'groups'`, bounded arrays, a `students/{id}` anchor, no update (a
   changed list is a delete + create). **Why families wait for App Check:**

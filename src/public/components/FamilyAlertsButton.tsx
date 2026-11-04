@@ -14,7 +14,9 @@ const loadClient = () => import('../../shared/pushClient') as Promise<typeof Pus
  * Renders NOTHING unless `pushSettings/global.familiesOpen` is true — the
  * director's switch, off until App Check enforcement is on and the iPhone
  * trial is done. The rules refuse a family subscription while it is off, so
- * this check is courtesy, not the gate.
+ * this check is courtesy, not the gate. One exception: a phone that signed up
+ * while it was open still sees the card after a close, with "Turn off" only,
+ * so a family can always remove its own record (the sender skips it anyway).
  *
  * Ensembles are resolved from `studentsPublic` at the moment of tapping, so
  * a student moved into Symphony last week is followed as a Symphony student.
@@ -37,8 +39,11 @@ export function FamilyAlertsButton({ students }: { students: SavedStudent[] }) {
     return () => { alive = false; };
   }, [students.length]);
 
+  // Loaded whether or not families are open, so a phone that signed up before
+  // a close can still turn alerts off. Small, and precached; the messaging
+  // SDK itself still loads only when a button is pressed.
   useEffect(() => {
-    if (!open) return;
+    if (students.length === 0) return;
     let alive = true;
     void loadClient().then(c => {
       if (!alive) return;
@@ -46,9 +51,9 @@ export function FamilyAlertsButton({ students }: { students: SavedStudent[] }) {
       setOn(!!c.readPushState('family'));
     });
     return () => { alive = false; };
-  }, [open]);
+  }, [students.length]);
 
-  if (!open || students.length === 0) return null;
+  if (students.length === 0 || (!open && !on)) return null;
 
   const support = client?.pushSupport() ?? 'ok';
 
@@ -105,12 +110,14 @@ export function FamilyAlertsButton({ students }: { students: SavedStudent[] }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700 }}>
         <Bell size={18} /> {on ? t('push.on') : t('push.getAlerts')}
       </div>
-      <p style={{ margin: '6px 0 8px', fontSize: 14 }}>{supportNote ?? t('push.help')}</p>
-      {!supportNote && (
+      <p style={{ margin: '6px 0 8px', fontSize: 14 }}>{!open ? t('push.paused') : supportNote ?? t('push.help')}</p>
+      {(!supportNote || !open) && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="pub-push-btn" disabled={busy || !client} onClick={subscribe}>
-            {busy ? t('push.working') : on ? t('push.update') : t('push.getAlerts')}
-          </button>
+          {open && (
+            <button className="pub-push-btn" disabled={busy || !client} onClick={subscribe}>
+              {busy ? t('push.working') : on ? t('push.update') : t('push.getAlerts')}
+            </button>
+          )}
           {on && (
             <button className="pub-push-btn pub-push-btn-ghost" disabled={busy} onClick={unsubscribe}>
               {t('push.turnOff')}

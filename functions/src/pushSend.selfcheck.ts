@@ -27,7 +27,7 @@ function sub(id: string, ensembleIds: string[], lang: 'en' | 'es' = 'en', scope:
   return { id, data };
 }
 
-function harness(results: (token: string) => SendResult = () => ({ success: true }), familiesOpen = true) {
+function harness(results: (token: string) => SendResult = () => ({ success: true }), familiesOpen: boolean | 'throws' = true) {
   const subs = [
     sub('symEn', ['sym']),
     sub('symEs', ['sym'], 'es'),
@@ -41,7 +41,10 @@ function harness(results: (token: string) => SendResult = () => ({ success: true
   const deleted: string[] = [];
   const deps: PushDeps = {
     async listSubscriptions() { return subs.filter(s => !deleted.includes(s.id)); },
-    async familiesOpen() { return familiesOpen; },
+    async familiesOpen() {
+      if (familiesOpen === 'throws') throw new Error('unavailable');
+      return familiesOpen;
+    },
     async ensembleNames(ids) {
       const all: Record<string, string> = { sym: 'Symphony Orchestra', jazz: 'Jazz Band' };
       return Object.fromEntries(ids.filter(i => all[i]).map(i => [i, all[i]]));
@@ -130,6 +133,13 @@ const cancelled = {
   const tokens = h.sent.map(m => m.token);
   check(JSON.stringify(tokens) === JSON.stringify(['tok-staff']), `families closed: staff device only (got ${tokens.join(',')})`);
   check(r.kind === 'sent' && r.recipients === 1, 'families closed: one recipient counted');
+
+  // The switch cannot be read: families fail closed, staff still hear it.
+  const u = harness(undefined, 'throws');
+  await handleEventChange('e8', { ...before, ensembleIds: [] },
+    { ...before, ensembleIds: [], status: 'Cancelled', changeNote: 'School closed' }, u.deps);
+  const got = u.sent.map(m => m.token);
+  check(JSON.stringify(got) === JSON.stringify(['tok-staff']), `unreadable switch: staff device only (got ${got.join(',')})`);
 }
 
 /* The staff test alert. */

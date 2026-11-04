@@ -100,8 +100,10 @@ export async function handleEventChange(
   if (!pushWorthy(before, after, today)) return { kind: 'skipped', reason: 'not-worthy' };
 
   // Closing alerts to families stops their phones, not just new sign-ups.
-  // Read before the claim, so a failed read retries rather than losing it.
-  const familiesOpen = await deps.familiesOpen();
+  // A failed read counts as closed: families fail closed, and staff still get
+  // the alert (this v1 trigger has no retry policy, so a throw here would
+  // lose it for everyone).
+  const familiesOpen = await deps.familiesOpen().catch(() => false);
 
   // Claim BEFORE sending: a trigger is delivered at least once, and a retry
   // after a partial send must not buzz the phones that already got it. The
