@@ -1969,6 +1969,19 @@ any change. Later sessions apply it page by page.
   The toggle (`Hub2PreviewToggle`) renders under `isOwner` in the rail AND
   the drawer. It covers the public pages on that device too (same origin).
   **No URL parameter, ever**: a preview must not be shareable.
+- **For everyone is one word in the org config** (`hub2.forEveryone`, built
+  Nov 2026, false until the director's date, Sun Dec 13, 2026, after the
+  last concert). org-statics in `vite.config.ts` writes it into the boot
+  script as a literal `true`/`false` (so it is on before first paint, and
+  the CSP hashes the final script), `hub2PreviewOn()` answers true so tokens
+  and fonts follow, and the owner's toggle hides itself. `hub2.selfcheck.ts`
+  §1b pins every link. With it on, the look's fonts join the precache by
+  themselves (`globIgnores`), so phones keep them offline at a venue. The
+  flip commit also adds a What's New entry (audience `both`), per the What's
+  New rule. Flip it on a non-concert day the director can check, and confirm
+  the deployed `index.html` says `var hub2Everyone = true;`.
+  `scripts/csp.selfcheck.mjs` recomputes every inline script's hash from the
+  built page, so a boot-script edit the CSP did not see fails the build.
 - **Colors are org config** (`hub2` in `config/orgs/*.json`), injected as
   `--hub2-*` custom properties by `hub2Tokens.ts`. `src/shared/hub2.css` maps
   the existing `--pub-*` / `--dir-*` tokens onto them and holds no color of

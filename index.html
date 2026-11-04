@@ -31,9 +31,12 @@
         var dark = choice === 'dark' ||
           (choice !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.setAttribute('data-pub-theme', dark ? 'dark' : 'light');
-        // Hub 2.0 preview (#hub2-look): the owner's on-device switch, same key
-        // as src/shared/hub2Preview.ts. Never read from the URL.
-        try { if (localStorage.getItem('hub2.preview') === 'on') document.documentElement.setAttribute('data-hub2', 'on'); } catch (e) { /* private mode */ }
+        // Hub 2.0 look (#hub2-look): on for everyone once the org config says
+        // so (hub2.forEveryone, written in at build time); until then the
+        // owner's on-device preview, same key as src/shared/hub2Preview.ts.
+        // Never read from the URL.
+        var hub2Everyone = __ORG_HUB2_EVERYONE__;
+        try { if (hub2Everyone || localStorage.getItem('hub2.preview') === 'on') document.documentElement.setAttribute('data-hub2', 'on'); } catch (e) { if (hub2Everyone) document.documentElement.setAttribute('data-hub2', 'on'); }
       })();
     </script>
     <div id="root"></div>

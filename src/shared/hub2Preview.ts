@@ -11,6 +11,10 @@
  * <html> before first paint; initHub2() then injects the org's tokens and
  * starts the font download. An org with no `hub2` config takes the attribute
  * back off, so its preview shows the stock look.
+ *
+ * `hub2.forEveryone` in the org config turns the look on for EVERY visitor:
+ * the boot script gets it as a literal at build time, hub2PreviewOn() answers
+ * true, and the owner's toggle hides itself. Still never from the URL.
  */
 import { ORG } from '../org';
 import { HUB2_ATTR, hub2TokenCss } from './hub2Tokens';
@@ -23,8 +27,14 @@ export function hub2Available(): boolean {
   return !!ORG.hub2;
 }
 
-/** The stored choice on this device. */
+/** The look is on for every visitor (`hub2.forEveryone` in the org config). */
+export function hub2ForEveryone(): boolean {
+  return ORG.hub2?.forEveryone === true;
+}
+
+/** On for everyone, or this device's stored preview choice. */
 export function hub2PreviewOn(): boolean {
+  if (hub2ForEveryone()) return true;
   try { return localStorage.getItem(HUB2_PREVIEW_KEY) === 'on'; } catch { return false; }
 }
 
