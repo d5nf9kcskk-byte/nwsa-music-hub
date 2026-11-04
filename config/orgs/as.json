@@ -53,6 +53,7 @@
   },
   "brandDark": {
     "--pub-accent": "#a68be0",
+    "--pub-accent-fill": "#7860c9",
     "--pub-accent-soft": "#261a42",
     "--pub-purple": "#8f76c9"
   },

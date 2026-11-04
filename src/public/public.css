@@ -10,7 +10,7 @@
   --pub-text: #18212f; /* alias — several rules reference --pub-text */
   --pub-muted: #6b7686;
   --pub-border: #d9dfe7; /* visible card edge on a tinted season page (#clear-cards) */
-  --pub-accent: #0d7e8e;       /* logo teal */
+  --pub-accent: #0e7585;       /* logo teal, one shade deeper: teal TEXT must clear 4.5:1 on the page (#contrast) */
   --pub-accent-soft: #e6f2f3;
   --pub-purple: #7b3578;        /* logo purple — selection accent (matches director) */
   --pub-gold: #c8a52a;          /* logo gold — highlights (matches director) */

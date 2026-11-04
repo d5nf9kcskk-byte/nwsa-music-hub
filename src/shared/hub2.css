@@ -30,6 +30,7 @@
   --pub-muted: var(--hub2-muted);
   --pub-border: var(--hub2-line);
   --pub-accent: var(--hub2-accent);
+  --pub-accent-fill: var(--hub2-accent-fill);
   --pub-purple: var(--hub2-plum);
   --pub-radius: var(--hub2-radius-card);
   --pub-radius-lg: var(--hub2-radius-card);
