@@ -71,7 +71,7 @@ Staff (`src/director/hub2Staff.css`):
 | Fields | `.dir-input`, `.dir-select`, `.dir-textarea`, `.dir-label`, `.dir-field-hint` | Taller, 12px radius, a teal focus ring, sentence-case labels |
 | Drawers | `.dir-drawer-overlay`, `.dir-drawer` and its header, body, footer, handle, close | 24px top radius, springs up, title in the display weight |
 | Cards and rows | `.dir-card`, `.dir-ens-row` and the card family listed in `director.css` (`.dir-student-card` ... `.dir-search-item`) | White soft cards (18px), rows 12px, a group-colored left bar where a row has a group, a chevron where it opens something |
-| Segments and tabs | `.dir-segment`, `.dir-segment-btn`, `.dir-mode-toggle`, `.dir-tab` | Plum selected state that pops in; gliding pill where the browser supports anchor positioning |
+| Segments and tabs | `.dir-segment`, `.dir-segment-btn`, `.dir-mode-toggle`, `.dir-tab` | Plum selected state that pops in |
 | Section heads | `.dir-section-head`, `.dir-section-title`, `.dir-detail-section-title`, `.dir-form-section-label` | Sentence-case bold headings instead of small grey capitals |
 | Empty states | `.dir-empty`, `.dir-empty-inline`, `.dir-loc-empty` | A drawing (the music stand) and a kind line |
 | Badges and chips | `.dir-status-badge`, `.dir-nav-badge`, chips | Pill shapes on the palette, pop on change |
@@ -93,7 +93,7 @@ student's tint and a season (they keep painting on top), every print.
 | Change page | The existing wipe, now with a gold leading edge | Every page change | View Transition; the edge is an element named only while a transition runs |
 | Press | Dips to 97% and ripples from the finger | Every button, row and card that opens something | CSS dip; ripple drawn by `hub2Motion.ts` as a fixed overlay, removed when done |
 | Open | Springs into place | Every drawer, sheet and menu | CSS easing on the existing entrance |
-| Choose | The selection pops in, glides where supported | Segments, tabs, week strip, chips | CSS |
+| Choose | The selection pops in (it glides on the new week strip and bottom bar, which own their pill) | Segments, tabs, week strip, chips | CSS |
 | Count | Numbers roll when they change | Elements marked `data-hub2-count` | `hub2Motion.ts` watches them |
 | Finish | A check draws itself, with a burst of notes | Every success: checked in, form sent, roll saved, test sent, absence reported | CSS for the check; `hub2Celebrate()` for the notes, called from each success path |
 | Live | Bars fill, countdowns tick, a dot pulses | The Now card, Tonight, Today's current block | Small React pieces on a one-minute (bar) or one-second (countdown) clock |
