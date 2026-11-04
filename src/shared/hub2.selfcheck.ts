@@ -123,15 +123,15 @@ for (const f of stock) {
     assert.ok(!new RegExp(`\\.${cls}(?![\\w-])`).test(src), `${f} styles .${cls}, which is a Hub 2.0-only page class`);
   }
 }
-// White on the dark accent is ~2.7:1. Every white-on-accent fill in the public
-// CSS must be redrawn under the preview: the dark fill list, a plum selected
-// state, or the check-in page (Spotlight draws its own fills gold).
-const fillBlock = pubRules.match(/\[data-pub-theme='dark'\] :is\(([^)]*)\)\s*\{[^}]*--hub2-accent-fill/);
-assert.ok(fillBlock, 'hub2Public.css has no dark-mode accent fill rule');
+// White on the dark accent is 2.8:1 (#contrast). Every white-on-accent fill in
+// the public CSS must be in the stock dark theme's fill list (uiUpdates.css),
+// which re-points the token on the element to --pub-accent-fill; hub2.css maps
+// that to the org's accentFill, so the preview reads the same list.
+const fillBlock = strip(read('../public/uiUpdates.css'))
+  .match(/:root\[data-pub-theme='dark'\] :where\(([^)]*)\)\s*\{\s*--pub-accent:\s*var\(--pub-accent-fill\);\s*\}/);
+assert.ok(fillBlock, 'uiUpdates.css has no dark-mode accent fill rule');
+assert.match(css, /--pub-accent-fill:\s*var\(--hub2-accent-fill\);/, 'hub2.css: under the preview the fill must be the org accentFill');
 const covered = new Set(fillBlock[1].split(',').map(s => s.trim()));
-const plumBlock = pubRules.match(/([^{}]+)\{[^}]*background-color: var\(--hub2-plum\)/);
-for (const sel of topLevel(plumBlock![1])) covered.add(sel.replace(':root[data-hub2="on"] ', ''));
-const spotlit = (sel: string) => /^\.pub-checkin(\s|-steps\b)/.test(sel);
 let fills = 0;
 for (const f of stock.filter(f => f.includes('/src/public/'))) {
   const src = strip(readFileSync(f, 'utf8'));
@@ -139,11 +139,11 @@ for (const f of stock.filter(f => f.includes('/src/public/'))) {
     if (!/background(-color)?:\s*var\(--pub-accent[,)]/.test(m[2]) || !/(^|;|\s)color:\s*(#fff\b|#ffffff|white)/i.test(m[2])) continue;
     for (const sel of topLevel(m[1].trim().replace(/\s+/g, ' '))) {
       fills++;
-      assert.ok(covered.has(sel) || spotlit(sel), `${f}: ${sel} puts white on --pub-accent, which fails AA in dark under Hub 2.0 — add it to the dark fill list in hub2Public.css`);
+      assert.ok(covered.has(sel), `${f}: ${sel} puts white on --pub-accent, which is 2.8:1 in dark mode. Add it to the dark fill list in uiUpdates.css`);
     }
   }
 }
-assert.ok(fills >= 20, `only ${fills} white-on-accent fills found — the scan is broken`);
+assert.ok(fills >= 28, `only ${fills} white-on-accent fills found — the scan is broken`);
 
 // 4. Fonts: latin subsets only, the first family of every configured stack is
 //    one hub2Fonts.ts loads, and the files stay out of the precache.

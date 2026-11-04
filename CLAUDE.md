@@ -1982,14 +1982,24 @@ any change. Later sessions apply it page by page.
 - **Teal text reads as text on the page, not only on a card.** Under the
   preview the accent must clear 4.5:1 on the page background, on every
   student tint and on every season's page (`look.selfcheck.ts`,
-  `seasons.selfcheck.ts`); the stock palette is untouched. The light accent
-  is #0E7585 for that reason (4.97:1 on the page, 5.4:1 under white), and
-  it is the staff teal too.
-- **White on a teal fill uses `--hub2-accent-fill` in dark.** The dark accent
-  is a light teal for TEXT and fails AA under white ("Add to my calendar"
-  was 2.7:1). The self-check scans every public CSS rule that puts white on
-  `--pub-accent` and fails until it is in the dark fill list (or is a plum
-  selected state, or on the Spotlight check-in page).
+  `seasons.selfcheck.ts`). The light accent is #0E7585 for that reason
+  (4.97:1 on the page, 5.4:1 under white), and it is the staff teal too.
+  **The stock public site uses the same teal since Nov 2026** (#contrast,
+  director's call): `--pub-accent` in `public.css` was #0d7e8e, 4.46:1 on the
+  page. `look.selfcheck.ts` §4b pins the stock accent (with each org's
+  `brand` overrides) as text on the page and a card, under white, and on
+  every tint. The stock STAFF teal (`--dir-primary`, 4.36:1 on the staff
+  page) is still #0d7e8e; the new look replaces it.
+- **White on a teal fill takes `--pub-accent-fill` in dark, on the stock site
+  and under the preview.** The dark accent is a light teal for TEXT and white
+  on it is 2.8:1 ("Add to my calendar", the check-in strip, every Send). The
+  stock dark theme (`uiUpdates.css`) re-points `--pub-accent` to
+  `--pub-accent-fill` on every white-on-accent fill, inside a `:where()` so it
+  adds no specificity and a plum selected state or the Spotlight gold still
+  wins; `hub2.css` maps the fill to `--hub2-accent-fill`, and an org sets its
+  own in `brandDark` (ASYO's purple). `hub2.selfcheck.ts` scans every public
+  CSS rule that puts white on `--pub-accent` and fails until it is in that
+  list.
 - **Staff screens are themed** (`src/director/hub2Staff.css`, imported by all
   four shells): Studio Bright soft cards, big times and numbers (Today, roll
   counts, Gradebook, Check-In), sun on waiting chips and nav badges; Concert

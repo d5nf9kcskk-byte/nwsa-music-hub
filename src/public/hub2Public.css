@@ -94,38 +94,9 @@
     background: var(--hub2-sun); color: var(--hub2-ink-on-sun);
   }
 
-  /* ── White text on a teal fill passes AA in dark mode too ──
-     The dark accent (light teal, for teal TEXT on a dark page) is ~2.7:1
-     under white, so every white-on-accent fill takes the deeper fill teal.
-     hub2.selfcheck.ts scans the public CSS and fails on a fill missing here.
-     The check-in page's own fills are not listed: Spotlight draws them gold. */
-  :root[data-hub2="on"][data-pub-theme='dark'] :is(
-    .pub-atc-primary .pub-atc-btn,
-    .pub-absence-branch .pub-btn,
-    .pub-campus-mi,
-    .pub-checkin-callout .pub-btn,
-    .pub-checkin-strip,
-    .pub-tally-ask .pub-btn,
-    .pub-nownext-tag,
-    .pub-pdf-btn.primary,
-    .pub-subw-step-num,
-    .pub-subw-action,
-    .pub-welcome-done,
-    .pub-subscribe-action,
-    .pub-print-btn,
-    .pub-push-btn,
-    .pub-contact-send,
-    .pub-quiz-send,
-    .pub-signup-step-num,
-    .pub-signup-send,
-    .pub-today-badge,
-    .pub-seat-current
-  ) {
-    background-color: var(--hub2-accent-fill);
-  }
-  :root[data-hub2="on"][data-pub-theme='dark'] :is(.pub-pdf-btn.primary, .pub-push-btn) {
-    border-color: var(--hub2-accent-fill);
-  }
+  /* White text on a teal fill: the stock dark theme re-points those fills to
+     --pub-accent-fill (uiUpdates.css), and hub2.css maps that to the org's
+     accentFill, so the preview needs no list of its own. */
 
   /* ═══ Concert Hall: event, program and Concerts pages ═══ */
   :root[data-hub2="on"] .pub-hall .pub-h1,

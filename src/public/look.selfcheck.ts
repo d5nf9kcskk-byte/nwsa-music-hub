@@ -109,6 +109,34 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
   checked++;
 }
 
+// 4b. The stock teal every visitor sees (#contrast), with each org's brand
+//     overrides on top: TEXT on the page and on a card in both themes, WHITE on
+//     a teal fill in both (dark fills take --pub-accent-fill, because the dark
+//     accent is a light teal for text), and teal text on every page tint.
+for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) {
+  const org = JSON.parse(read(`../../config/orgs/${file}`));
+  const at = (what: string) => `${file} stock ${what}`;
+  const find = (src: string, name: string) => src.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6})`, 'i'))?.[1];
+  // Dark rules (:root[data-pub-theme='dark']) outrank :root, and an org's brand
+  // block outranks the stock one at the same level.
+  const pick = (mode: 'light' | 'dark', name: string): string => {
+    const v = (mode === 'dark' ? org.brandDark?.[name] ?? find(dark, name) : undefined) ?? org.brand?.[name] ?? find(light, name);
+    assert.ok(v, at(`${mode} ${name} is not set`));
+    return v;
+  };
+  for (const mode of ['light', 'dark'] as const) {
+    const accent = pick(mode, '--pub-accent');
+    for (const ground of [pick(mode, '--pub-bg'), pick(mode, '--pub-surface')]) {
+      assert.ok(contrast(accent, ground) >= AA, at(`(${mode}) teal text ${accent} on ${ground}: ${contrast(accent, ground).toFixed(2)}`));
+    }
+    const fill = mode === 'dark' ? pick(mode, '--pub-accent-fill') : accent;
+    assert.ok(contrast(LIGHT_INK, fill) >= AA, at(`(${mode}) white on the teal fill ${fill}: ${contrast(LIGHT_INK, fill).toFixed(2)}`));
+    for (const s of (org.personalize as LookPalette | undefined)?.background ?? []) {
+      assert.ok(contrast(accent, s[mode]) >= AA, at(`(${mode}) teal text on tint ${s.id}: ${contrast(accent, s[mode]).toFixed(2)}`));
+    }
+  }
+}
+
 // 5. The Hub 2.0 look (#hub2-look, the owner's preview). Its palette replaces
 //    the stock page, so it has to clear AA on its own in both themes, and a
 //    student's tint or drawn pattern painted over it still has to read.

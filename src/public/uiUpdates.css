@@ -673,10 +673,52 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
   --pub-border: #364152;
   --pub-accent: #3aa8b8;
   --pub-accent-soft: #123840;
+  --pub-accent-fill: #0e7585; /* under WHITE text; see the rule below */
   --pub-gold-text: #e4c968;
   --pub-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4);
   --pub-shadow-2: 0 8px 24px rgba(0, 0, 0, 0.5);
   --pub-shadow-3: 0 16px 48px rgba(0, 0, 0, 0.6);
+}
+/* White text on a teal FILL (#contrast). The dark accent is a light teal so it
+   reads as TEXT on a dark page, and white on it is 2.8:1 ("Add to my
+   calendar", the check-in strip, every Send). These elements take the deeper
+   fill teal by re-pointing the token on themselves, so their own rules, hover
+   states and borders follow with no second copy. :where() adds nothing to the
+   specificity: a selected state, the Hub 2.0 plum and the Spotlight gold set
+   the background directly and still win. hub2.selfcheck.ts fails on any
+   white-on-accent fill missing here. */
+:root[data-pub-theme='dark'] :where(
+  .pub-absence-branch .pub-btn,
+  .pub-atc-primary .pub-atc-btn,
+  .pub-cal-cell.selected .pub-cal-day,
+  .pub-campus-mi,
+  .pub-checkin .pub-btn,
+  .pub-checkin-callout .pub-btn,
+  .pub-checkin-steps li.on,
+  .pub-checkin-strip,
+  .pub-chip.active,
+  .pub-contact-send,
+  .pub-fm-opt.checked .pub-fm-box,
+  .pub-nownext-tag,
+  .pub-pdf-btn.primary,
+  .pub-pdf-tool.active,
+  .pub-print-btn,
+  .pub-push-btn,
+  .pub-quiz-send,
+  .pub-seat-current,
+  .pub-sg-tab.active,
+  .pub-signup-send,
+  .pub-signup-slot.active,
+  .pub-signup-step-num,
+  .pub-signup-yesno-btn.active,
+  .pub-subscribe-action,
+  .pub-subw-action,
+  .pub-subw-step-num,
+  .pub-tally-ask .pub-btn,
+  .pub-today-badge,
+  .pub-welcome-done
+) {
+  --pub-accent: var(--pub-accent-fill);
 }
 [data-pub-theme='dark'] .pub-app { color-scheme: dark; }
 [data-pub-theme='dark'] .pub-menu-panel { background: var(--pub-surface); }

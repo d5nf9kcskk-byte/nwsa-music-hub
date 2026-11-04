@@ -493,7 +493,7 @@ export function GradebookView() {
         {grading.reports.map(r => (
           <button
             key={r.id}
-            className={r.id === layout.id ? 'active' : ''}
+            className={`dir-segment-btn ${r.id === layout.id ? 'active' : ''}`}
             onClick={() => setReportId(r.id)}
           >
             {r.title}
