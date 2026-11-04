@@ -2092,6 +2092,57 @@ any change. Later sessions apply it page by page.
   sides), chosen to read as text on the page and under white. The ConcertDayBanner is untouched.
   `hub2.selfcheck.ts` §6 pins all of it.
 
+### "The Higgsfield design", on every page, alive (Nov 2026, #hub2-alive)
+
+When the director says "the Higgsfield design" he means the six mockups made
+in his Higgsfield account on 2026-11-02 (Studio Bright, Concert Hall,
+Spotlight; phone and laptop). They are not in this repo. On 2026-11-04 he said
+the look above had misunderstood him: it took the mockups' colors and fonts
+and restyled a handful of screens. He wants it on every page, with much more
+motion, and approved a sketch of exactly that ("100 times yes"). The sketch is
+the reference: `docs/hub2-alive/concept.html`; design and piece-by-piece plan
+in `docs/superpowers/specs/2026-11-04-hub2-alive-design.md` and
+`docs/superpowers/plans/2026-11-04-hub2-alive.md`. All of it ships with the
+look on Dec 13 by the same one-word flip; nothing new to switch.
+
+- **Parts, not pages.** The look attaches to the ~20 shared parts every screen
+  is built from (`dir-btn`, `dir-label`, `dir-section-head`, drawers,
+  `dir-ens-row`, segments, empty states; `pub-section-title`, `pub-card`,
+  `pub-quick-btn`, `pub-event`, menu items, fields), so every screen changes
+  at once, including screens built later. A new screen built from these parts
+  needs nothing more. Do not go back to styling screens one by one: that is
+  how the first pass stopped at five.
+- **Eight motions, one vocabulary, Lively level** (the director's pick):
+  arrive (the first 16 rows of a list rise in, 40ms apart), change page (the
+  wipe, now behind a gold edge), press (dip plus a ripple), open (drawers rise
+  or slide in), choose (a new selection pops), count (`Hub2Count` rolls a
+  changed number), finish (every lucide check draws itself;
+  `hub2Celebrate()` bursts notes from a success), live (Now card, countdown:
+  Piece 2). Ambient motion (drifting glow, gold dust, looping shimmer) belongs
+  ONLY to concert-night surfaces. Take Roll never moves on its own.
+- **One gate.** `hub2MotionOn()` in `src/shared/hub2Motion.ts` (look on and no
+  reduced motion) is asked at every press, page change and success; the
+  ripple and the note burst are fixed overlays on `<body>` that remove
+  themselves, so no component's CSS changes. The gold edge is a `<div>` first
+  in `<body>`, hidden by CSS and named `hub2-edge` only while a View
+  Transition runs; its group sweeps with the wipe, under the header and tab
+  bar groups.
+- **Nothing stays a layer.** Every animation on a page element fills
+  `backwards` with one-ended keyframes. The first staff rules used `both` with
+  a `to { opacity: 1 }`, which kept every card a layer AND undid the dimming
+  of a cancelled card under the look. `hub2.selfcheck.ts` §8 fails on any
+  other fill (view-transition pseudo-elements and the self-removing overlays
+  excepted, `infinite` allowed for the concert-night ambient).
+- `hub2-count`, `hub2-roll`, `hub2-wipe-edge`, `hub2-ripple`, `hub2-note` and
+  `hub2-burst` are look-only classes: no stock stylesheet may style them (§8).
+  Flag off was verified pixel-identical to main on Home, My Schedule, an
+  event, Calendar, director Today, Take Roll and Check-In, at 390 and 1024,
+  light and dark.
+- **Proof is a contact sheet.** `scripts/hub2-contact-sheet.mjs` drives the
+  system Chrome (no dependency) against the fixtures server and photographs
+  every routed page, look on or off, at any widths. Run it before saying a
+  piece reached every page; the Browser pane draws no frames while hidden.
+
 ## Clear cards, and a page per concert (Oct 2026, #clear-cards)
 
 Director, 2026-10-27, on an iPhone: Check-In "all blurs together and looks like
