@@ -219,7 +219,7 @@ assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(staffCss), 'hub2Staff.css must take 
     if (m[2] === '}') { depth--; continue; }
     if (depth === 0) assert.match(head, /^@media screen\b/, `hub2Staff.css: "${head}" is outside @media screen`);
     else if (!head.startsWith('@') && !/^(from|to|\d+%)$/.test(head)) {
-      for (const sel of head.split(',').map(x => x.trim())) {
+      for (const sel of topLevel(head)) {
         assert.ok(sel.startsWith(':root[data-hub2="on"] .dir-app'), `hub2Staff.css selector ${sel} is not scoped under the preview`);
       }
       staffRules++;
@@ -287,4 +287,62 @@ for (const shell of ['./DirectorApp.tsx', './teacher/TeacherApp.tsx', './classro
   }
 }
 
-console.log(`hub2 self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${fontImports.length} font files, ${pubSelectors.length} public rules, ${fills} accent fills covered)`);
+// 7. Motion (#hub2-motion): page wipes and soft reveals, only under the look
+//    and without reduced motion, and never able to move a fixed bar or pop-up.
+let fixedChecked = 0;
+{
+  const motion = strip(read('./hub2Motion.ts'));
+  for (const gate of ["getAttribute(HUB2_ATTR) === 'on'", 'startViewTransition', "'(prefers-reduced-motion: reduce)'"]) {
+    assert.ok(motion.includes(gate), `hub2Motion.ts: page wipes must check ${gate}`);
+  }
+  assert.ok(read('../main.tsx').includes('withPageWipes(createBrowserRouter('), 'main.tsx must wrap the router in withPageWipes');
+  // One named pane per shell, so the header and the nav stay put, and only
+  // where motion is allowed.
+  const decl = /[{;]\s*view-transition-name:\s*([\w-]+)/g; // a declaration, not an @supports test
+  const names = [...pubCss.matchAll(decl), ...staffCss.matchAll(decl)].map(m => m[1]);
+  assert.deepEqual(names, ['hub2-page', 'hub2-page'], 'exactly one named page pane per shell');
+  assert.match(pubCss, /\.pub-content \{ view-transition-name: hub2-page; \}/, 'hub2Public.css: .pub-content is the public pane');
+  assert.match(staffCss, /\.dir-content \{ view-transition-name: hub2-page; \}/, 'hub2Staff.css: .dir-content is the staff pane');
+  for (const [name, src] of [['hub2Public.css', pubCss], ['hub2Staff.css', staffCss]] as const) {
+    const at = src.indexOf('view-transition-name');
+    assert.ok(src.lastIndexOf('prefers-reduced-motion: no-preference', at) !== -1, `${name}: the page wipe must sit under prefers-reduced-motion: no-preference`);
+  }
+  // The browser blends the snapshot pair "plus-lighter" for a cross-fade; two
+  // full-opacity pages would add up to a white flash.
+  for (const pane of ['old', 'new']) {
+    assert.match(pubCss, new RegExp(`::view-transition-${pane}\\(hub2-page\\) \\{[^}]*mix-blend-mode: normal`), `the ${pane} page snapshot must blend normally`);
+  }
+  // Reveals: scroll-driven, fill backwards (no effect once a block is in), and
+  // every position: fixed class excluded, or it would be moved with its block.
+  const fixedIn = (dirs: string[]) => {
+    const out = new Set<string>();
+    for (const f of stock.filter(f => dirs.some(d => f.includes(d)))) {
+      for (const m of strip(readFileSync(f, 'utf8')).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        if (!/position:\s*fixed/.test(m[2])) continue;
+        for (const sel of topLevel(m[1].trim())) {
+          const subject = sel.split(/\s*[\s>+~]\s*/).pop() ?? '';
+          for (const c of subject.match(/\.[a-z][\w-]*/g) ?? []) out.add(c.slice(1));
+        }
+      }
+    }
+    return out;
+  };
+  for (const [name, src, dirs] of [
+    ['hub2Public.css', pubCss, ['/src/public/', '/src/shared/']],
+    ['hub2Staff.css', staffCss, ['/src/director/', '/src/shared/']],
+  ] as const) {
+    const rule = src.match(/([^{}]+)\{\s*animation: hub2-reveal linear backwards;\s*animation-timeline: view\(\);/);
+    assert.ok(rule, `${name}: the reveal must be scroll-driven with fill backwards`);
+    assert.ok(src.lastIndexOf('@supports (animation-timeline: view())', rule.index) !== -1, `${name}: the reveal must sit under @supports (animation-timeline: view())`);
+    assert.ok(src.lastIndexOf('prefers-reduced-motion: no-preference', rule.index) !== -1, `${name}: the reveal must sit under prefers-reduced-motion: no-preference`);
+    const fixed = fixedIn([...dirs]);
+    assert.ok(fixed.size >= 3, `${name}: found only ${fixed.size} fixed classes; the scan is broken`);
+    for (const c of fixed) {
+      assert.ok(c.includes('-overlay') || rule[1].includes(`.${c},`) || rule[1].includes(`.${c})`),
+        `${name}: .${c} is position: fixed, and the reveal would move it with its block. Exclude it`);
+      fixedChecked++;
+    }
+  }
+}
+
+console.log(`hub2 self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${fontImports.length} font files, ${pubSelectors.length} public rules, ${fills} accent fills covered, ${fixedChecked} fixed classes kept still)`);

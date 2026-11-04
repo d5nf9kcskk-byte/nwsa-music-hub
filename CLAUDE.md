@@ -2013,6 +2013,24 @@ any change. Later sessions apply it page by page.
   list stagger and a 97% press, all off under reduced motion. Those page
   classes have NO stock CSS (the self-check fails if one gains any), which is
   what lets a component carry them with the preview off.
+- **Page wipes and soft reveals** (#hub2-motion, director's ask 2026-11-04),
+  both only under the look and without reduced motion. WIPES:
+  `src/shared/hub2Motion.ts` `withPageWipes()` wraps the router in `main.tsx`
+  so every navigation asks React Router for a View Transition (it only runs
+  one per navigation that asks); only the content pane is named
+  (`.pub-content`, `.dir-content` = `hub2-page`), so the header and the nav
+  stay still and the new page wipes in left to right. The `::view-transition`
+  rules live once, in `hub2Public.css`, and MUST keep `mix-blend-mode: normal`
+  (the browser's plus-lighter cross-fade turns two full pages into a white
+  flash). Where wipes run, the `.pub-drill` slide is dropped: one motion per
+  page. REVEALS: each block of `.pub-page` / `.dir-page-body` fades up as it
+  scrolls in, a CSS scroll-driven animation (`animation-timeline: view()`,
+  inside `@supports`), fill `backwards` so a block that is in view carries no
+  effect (no stacking context or containing block, so menus and pop-ups
+  inside behave as without the look). Any block that is or holds something
+  `position: fixed` is never animated; `hub2.selfcheck.ts` §7 derives every
+  fixed class from the CSS and fails on one the exclusion misses. Staggered
+  rows keep their own entrance.
 - **The public hub2 rules are `@media screen` only** (all of
   `hub2Public.css`, and the `--pub-*` block of `hub2.css`). Paper (program,
   season fridge copy, Start Guide, QR kit) prints identically with the

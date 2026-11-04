@@ -249,4 +249,22 @@
   :root[data-hub2="on"] .dir-app .dir-quick-btn:active {
     transform: scale(var(--hub2-press-scale));
   }
+
+  /* Page wipes (#hub2-motion): the staff content pane is the named part, so
+     the header and the rail stay put. The wipe itself is drawn once, in
+     hub2Public.css: the ::view-transition pseudo-elements hang off <html>. */
+  :root[data-hub2="on"] .dir-app .dir-content { view-transition-name: hub2-page; }
+
+  /* Soft reveals, as on the public pages (hub2Public.css): fill `backwards`,
+     so a block that is in view carries no effect at all; a block that is or
+     holds something fixed is never animated; staggered cards keep their own
+     entrance. hub2.selfcheck.ts fails on a position: fixed class this misses. */
+  @keyframes hub2-reveal { from { opacity: 0; translate: 0 16px; } }
+  @supports (animation-timeline: view()) {
+    :root[data-hub2="on"] .dir-app .dir-page-body > :not(.dir-today-card, .dir-event-card, .dir-checkin-concert, .dir-fab, .dir-roster-mailbar, .dir-tray, .dir-checkin-modal, .nwsa-noteburst, [class*="-overlay"], :has([class*="-overlay"], [aria-modal="true"], .dir-fab, .dir-roster-mailbar, .dir-tray, .dir-checkin-modal, .nwsa-noteburst)) {
+      animation: hub2-reveal linear backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+  }
 }
