@@ -356,9 +356,12 @@ MDCPS teacher-planning day even though MDC was in full session that day.
   whether every closure agrees with both calendars, in BOTH directions: no
   live high school block or lesson on an MDCPS closure, every college class
   present on the MDCPS-only ones, and no live college block on an MDC closure.
-  Read-only and credential-free — `events`, `ensembles` and `lessonsPublic` are
-  all `allow read` — so it can run from anywhere, and it prints no student
-  names. Findings in the FUTURE fail; findings in the past are printed and do
+  Read-only, and it reads only `events`, `ensembles` and `lessonsPublic`, which
+  are all `allow read`, so it prints no student names. Anonymous reads work
+  until App Check enforcement; the workflow passes
+  `FIREBASE_SERVICE_ACCOUNT_JSON` so it keeps working after (Nov 2026), and a
+  hand run without that secret will be refused once enforcement is on.
+  Findings in the FUTURE fail; findings in the past are printed and do
   not, because a stale block on a date that already happened is a record, not
   a schedule (`--since` moves that line, `--strict` fails on both). It is NOT
   in `.github/actions/self-checks`: those are pure and offline and gate every

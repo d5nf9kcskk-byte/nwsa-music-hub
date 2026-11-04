@@ -82,6 +82,12 @@ unauthenticated update would let anyone overwrite someone else's signed form.
    4-hourly feed refresh would return 403 and every subscribed calendar would
    quietly stop updating. Confirm the run logs
    "Feed generation authenticated with the service account".
+   Everything else that reads Firestore from GitHub Actions already uses the
+   same secret: *Hub Calendar* and *Hub Announcement* (Admin SDK), and
+   *Audit Calendar Closures* (since Nov 2026; its log says "reading as the
+   service account"). Run by hand on a computer without that secret,
+   `calendar-closures-audit.mjs` and `rotation-check.mjs` will be refused
+   once enforcement is on; run the audit from the Actions tab instead.
 5. Turn enforcement on for Firestore, then Storage.
 
 Local development with a key set: register a debug token in the console and
