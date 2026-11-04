@@ -243,8 +243,11 @@
      a stacking context or a containing block behind once the motion is over:
      the first version did, and sheets slid under the tab bar and dropdowns
      under the next section. */
-  @keyframes hub2-wipe-in { from { clip-path: inset(0 100% 0 0); } }
-  @keyframes hub2-wipe-out { to { clip-path: inset(0 0 0 100%); } }
+  /* Both ends written out: clip-path cannot blend an inset() into the
+     implicit `none`, so a one-ended keyframe jumps halfway instead of
+     sweeping. */
+  @keyframes hub2-wipe-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+  @keyframes hub2-wipe-out { from { clip-path: inset(0); } to { clip-path: inset(0 0 0 100%); } }
   /* The reveal animates a plain registered number, never opacity itself:
      Chrome treats an element with an attached opacity or transform animation
      as a layer for as long as the animation is attached, and a scroll-driven

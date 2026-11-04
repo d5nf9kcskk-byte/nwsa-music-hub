@@ -2024,7 +2024,9 @@ any change. Later sessions apply it page by page.
   `main.tsx` so a navigation to another PAGE (`changesPage()`: not a filter
   tap, not a hash) asks React Router for a View Transition. The whole screen
   (root) wipes left to right with ONE moving edge (`hub2-wipe-in` on the new,
-  `hub2-wipe-out` on the old, so they never overlap); the header, rail, tab
+  `hub2-wipe-out` on the old, so they never overlap; both ends of each are
+  written out, because clip-path cannot blend an inset() into `none` and a
+  one-ended keyframe just cuts over halfway); the header, rail, tab
   bar and Director Panel strip are named ONLY under `:active-view-transition`
   so they stay still above it. `mix-blend-mode: normal` on the pair, or the
   browser's plus-lighter cross-fade flashes white. The `.pub-drill` slide is

@@ -319,8 +319,12 @@ let fixedChecked = 0;
   // One moving edge: the new page grows from the left as the old one shrinks
   // from the left, so they never overlap; and normal blending, or the
   // browser's plus-lighter cross-fade would flash white.
-  assert.match(pubCss, /@keyframes hub2-wipe-in \{ from \{ clip-path: inset\(0 100% 0 0\); \} \}/);
-  assert.match(pubCss, /@keyframes hub2-wipe-out \{ to \{ clip-path: inset\(0 0 0 100%\); \} \}/);
+  // Both ends written out: clip-path cannot blend an inset() into the
+  // implicit `none`, and a one-ended keyframe cut over at 50% with no wipe.
+  assert.match(pubCss, /@keyframes hub2-wipe-in \{ from \{ clip-path: inset\(0 100% 0 0\); \} to \{ clip-path: inset\(0\); \} \}/,
+    'hub2-wipe-in must run from inset(0 100% 0 0) to inset(0)');
+  assert.match(pubCss, /@keyframes hub2-wipe-out \{ from \{ clip-path: inset\(0\); \} to \{ clip-path: inset\(0 0 0 100%\); \} \}/,
+    'hub2-wipe-out must run from inset(0) to inset(0 0 0 100%)');
   for (const [pane, kf] of [['old', 'hub2-wipe-out'], ['new', 'hub2-wipe-in']]) {
     assert.match(pubCss, new RegExp(`::view-transition-${pane}\\(root\\) \\{[^}]*animation: ${kf} var\\(--hub2-wipe-ms\\)[^}]*mix-blend-mode: normal`),
       `the ${pane} page must run ${kf} and blend normally`);
