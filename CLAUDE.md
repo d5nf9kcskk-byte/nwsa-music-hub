@@ -2003,7 +2003,12 @@ any change. Later sessions apply it page by page.
   `src/public` and `src/shared` CSS that puts white text on a background using
   `--pub-accent` (solid, as a fallback, or in a gradient: the header, the
   concert-day "Check in") and fails until it is in that list. Inline styles in
-  components are not scanned; none exist today.
+  components are not scanned; none exist today. **The header is the one
+  exception:** the Aa and sun/moon menus open inside it and show teal TEXT on
+  a dark card, which the re-point would drop to 3:1, so a separate
+  `:where(.pub-header)` dark rule redraws only its background (still below a
+  student's header color and a season). The self-check accepts that rule and
+  fails if the header ever joins the re-point list.
 - **Staff screens are themed** (`src/director/hub2Staff.css`, imported by all
   four shells): Studio Bright soft cards, big times and numbers (Today, roll
   counts, Gradebook, Check-In), sun on waiting chips and nav badges; Concert

@@ -134,6 +134,14 @@ const fillBlock = strip(read('../public/uiUpdates.css'))
 assert.ok(fillBlock, 'uiUpdates.css has no dark-mode accent fill rule');
 assert.match(css, /--pub-accent-fill:\s*var\(--hub2-accent-fill\);/, 'hub2.css: under the preview the fill must be the org accentFill');
 const covered = new Set(fillBlock[1].split(',').map(s => s.trim()));
+// A fill whose children read the accent as TEXT (the header: its Aa and
+// sun/moon menus) gets its own dark background rule on --pub-accent-fill
+// instead of the token re-point.
+for (const m of strip(read('../public/uiUpdates.css'))
+  .matchAll(/:root\[data-pub-theme='dark'\] :where\(([^)]*)\)\s*\{\s*background:[^}]*var\(--pub-accent-fill\)[^}]*\}/g)) {
+  for (const sel of m[1].split(',')) covered.add(sel.trim());
+}
+assert.ok(!fillBlock[1].includes('.pub-header'), 'the header must not take the re-point: its menus show teal text');
 let fills = 0;
 for (const f of stock.filter(f => /\/src\/(public|shared)\//.test(f))) {
   const src = strip(readFileSync(f, 'utf8'));

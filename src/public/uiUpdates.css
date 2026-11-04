@@ -700,7 +700,6 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
   .pub-chip.active,
   .pub-contact-send,
   .pub-fm-opt.checked .pub-fm-box,
-  .pub-header,
   .pub-nownext-tag,
   .pub-pdf-btn.primary,
   .pub-pdf-tool.active,
@@ -723,6 +722,14 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
   .pub-welcome-done
 ) {
   --pub-accent: var(--pub-accent-fill);
+}
+/* The header is the one fill that cannot take the re-point: the Aa and
+   sun/moon menus open inside it, and their selected option is teal TEXT on a
+   dark card, which the deep fill would drop to 3:1. So only its own
+   background is redrawn. :where() keeps this below a student's header color
+   and a season (look.css), which still paint on top. */
+:root[data-pub-theme='dark'] :where(.pub-header) {
+  background: linear-gradient(110deg, var(--pub-accent-fill) 0%, var(--pub-accent-deep, #0a6675) 100%);
 }
 [data-pub-theme='dark'] .pub-app { color-scheme: dark; }
 [data-pub-theme='dark'] .pub-menu-panel { background: var(--pub-surface); }
