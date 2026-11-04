@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../director/firebase';
 import { t, useLang, getLang } from '../../shared/i18n';
 import type { SavedStudent } from '../../shared/identity';
+import { hasPushState } from '../../shared/pushDeviceState';
 import type * as PushClient from '../../shared/pushClient';
 
 const loadClient = () => import('../../shared/pushClient') as Promise<typeof PushClient>;
@@ -39,19 +40,20 @@ export function FamilyAlertsButton({ students }: { students: SavedStudent[] }) {
     return () => { alive = false; };
   }, [students.length]);
 
-  // Loaded whether or not families are open, so a phone that signed up before
-  // a close can still turn alerts off. Small, and precached; the messaging
-  // SDK itself still loads only when a button is pressed.
+  // The client loads when families are open, or when this phone signed up
+  // earlier (so it can still turn alerts off after a close). Otherwise
+  // nothing loads: the push client is kept out of the precache on purpose.
+  const signedUp = hasPushState('family');
   useEffect(() => {
-    if (students.length === 0) return;
+    if (students.length === 0 || (!open && !signedUp)) return;
     let alive = true;
     void loadClient().then(c => {
       if (!alive) return;
       setClient(c);
       setOn(!!c.readPushState('family'));
-    });
+    }).catch(() => { /* offline: no card until the client can load */ });
     return () => { alive = false; };
-  }, [students.length]);
+  }, [open, signedUp, students.length]);
 
   if (students.length === 0 || (!open && !on)) return null;
 

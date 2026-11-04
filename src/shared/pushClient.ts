@@ -18,6 +18,7 @@ import { app, db } from '../director/firebase';
 import {
   subscriptionDocId, type PushLang, type PushScope, type PushSubscriptionDoc,
 } from './pushAlerts';
+import { PUSH_STATE_KEY } from './pushDeviceState';
 
 export type PushSupport = 'ok' | 'unsupported' | 'ios-needs-home-screen' | 'blocked';
 
@@ -52,7 +53,7 @@ export interface LocalPushState {
 }
 
 function storageKey(kind: 'staff' | 'family'): string {
-  return kind === 'staff' ? 'hub.push.staff.v1' : 'hub.push.family.v1';
+  return PUSH_STATE_KEY[kind];
 }
 
 export function readPushState(kind: 'staff' | 'family'): LocalPushState | null {
