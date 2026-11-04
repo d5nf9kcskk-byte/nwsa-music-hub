@@ -1863,8 +1863,11 @@ events and announcements from the Actions tab, one JSON request per run.
 Usage: `docs/hub-tools.md`. Rules that keep them safe:
 
 - **Preview by default.** Nothing is written without `--apply` (the
-  workflow's "apply" box) AND the service account. A preview reads the
-  world-readable collections over public REST, so it runs anywhere.
+  workflow's "apply" box) AND the service account. A preview without the
+  service account reads the world-readable collections over public REST, so
+  it runs anywhere until App Check enforcement, which refuses anonymous
+  reads; the workflow always passes the secret, so previews from the Actions
+  tab keep working.
 - **The app's own logic, imported, never copied.** A move or cancel goes
   through `captureOriginal` / `planDayChange` / `bannersForEvents`, so the
   snapshot, the one-banner-per-event rule and "Back to normal" behave exactly

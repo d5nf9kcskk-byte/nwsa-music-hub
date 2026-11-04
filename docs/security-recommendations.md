@@ -86,8 +86,10 @@ unauthenticated update would let anyone overwrite someone else's signed form.
    same secret: *Hub Calendar* and *Hub Announcement* (Admin SDK), and
    *Audit Calendar Closures* (since Nov 2026; its log says "reading as the
    service account"). Run by hand on a computer without that secret,
-   `calendar-closures-audit.mjs` and `rotation-check.mjs` will be refused
-   once enforcement is on; run the audit from the Actions tab instead.
+   `calendar-closures-audit.mjs`, `rotation-check.mjs` and a *preview* of
+   `hub-calendar.mjs` or `hub-announcement.mjs` (they fall back to anonymous
+   REST) will be refused once enforcement is on; run them from the Actions
+   tab instead, where the secret is always passed.
 5. Turn enforcement on for Firestore, then Storage.
 
 Local development with a key set: register a debug token in the console and

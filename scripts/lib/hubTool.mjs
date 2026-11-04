@@ -19,7 +19,8 @@
  *    Firestore REST API, which is enough for a PREVIEW: every collection these
  *    tools read (events, ensembles, announcements, repertoire) is already
  *    `allow read` in firestore.rules. That is what lets a preview be checked
- *    from anywhere, credential-free.
+ *    from anywhere, credential-free, until App Check enforcement refuses
+ *    anonymous reads; the workflow always passes the service account.
  *
  * 3. WRITE, ONLY ON --apply. Tools build a list of writes, print every one,
  *    and execute them only when --apply is passed AND a service account is
