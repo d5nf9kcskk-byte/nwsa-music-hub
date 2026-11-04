@@ -367,4 +367,66 @@ let fixedChecked = 0;
   }
 }
 
-console.log(`hub2 self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${fontImports.length} font files, ${pubSelectors.length} public rules, ${fills} accent fills covered, ${fixedChecked} fixed classes kept still)`);
+// 8. Hub 2.0, alive (#hub2-alive): the look and its motion reach every page
+//    through the shared parts, one script does what CSS cannot, and nothing
+//    it adds outlives its own motion.
+let partsChecked = 0;
+{
+  const motionSrc = strip(read('./hub2Motion.ts'));
+  // One gate for every motion the script runs.
+  assert.match(motionSrc, /export function hub2MotionOn\(\): boolean/, 'hub2Motion.ts must export hub2MotionOn()');
+  for (const fn of ['initHub2Motion', 'hub2Celebrate']) {
+    const at = motionSrc.indexOf(`export function ${fn}`);
+    assert.ok(at >= 0, `hub2Motion.ts must export ${fn}()`);
+    assert.ok(motionSrc.slice(at, at + 700).includes('hub2MotionOn()'), `${fn} must check hub2MotionOn()`);
+  }
+  assert.ok(read('../main.tsx').includes('initHub2Motion();'), 'main.tsx must call initHub2Motion()');
+  // The gold edge rides the wipe: hidden unless a transition runs (§7 pins
+  // that it is named only then), moved by its own group with the wipe.
+  assert.match(pubCss, /:root\[data-hub2="on"\] \.hub2-wipe-edge \{ display: none; \}/, 'the wipe edge must be hidden outside a transition');
+  assert.match(pubCss, /::view-transition-group\(hub2-edge\) \{[^}]*animation: hub2-edge-sweep var\(--hub2-wipe-ms\)/, 'the gold edge must sweep with the wipe');
+  // Nothing stays a layer: every animation on a page element fills
+  // backwards (or loops on purpose). A view transition's pseudo-elements and
+  // the ripple and note overlays, which remove themselves, are exempt.
+  for (const [name, src] of [['hub2Public.css', pubCss], ['hub2Staff.css', staffCss]] as const) {
+    const noKf = src.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+    for (const m of noKf.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const sel = m[1].trim();
+      if (/::view-transition|hub2-ripple|hub2-note/.test(sel)) continue;
+      for (const d of m[2].matchAll(/(?:^|;)\s*animation:\s*([^;]+)/g)) {
+        if (d[1].trim() === 'none') continue;
+        for (const part of topLevel(d[1])) {
+          assert.ok(/\b(backwards|infinite)\b/.test(part), `${name}: "${sel}" animates "${part}"; page elements fill backwards so nothing stays a layer`);
+        }
+      }
+    }
+  }
+  // The classes the alive layer adds are read by no stock stylesheet, so
+  // with the look off they change nothing.
+  for (const f of stock) {
+    if (f.endsWith('/director/hub2Staff.css')) continue;
+    const src = strip(readFileSync(f, 'utf8'));
+    for (const cls of ['hub2-count', 'hub2-roll', 'hub2-wipe-edge', 'hub2-ripple', 'hub2-note', 'hub2-burst']) {
+      assert.ok(!new RegExp(`\\.${cls}(?![\\w-])`).test(src), `${f} styles .${cls}, which belongs to the Hub 2.0 look`);
+    }
+  }
+  // Parts: the shared pieces that make a page read as Studio Bright are
+  // themed on both shells. Spot checks; the contact sheet is the full proof.
+  for (const part of ['.dir-btn-primary', '.dir-section-head', '.dir-label', '.dir-drawer-title', '.dir-empty', '.dir-ens-swatch', '.dir-segment-btn']) {
+    assert.ok(staffCss.includes(part), `hub2Staff.css does not theme ${part}`);
+    partsChecked++;
+  }
+  for (const part of ['.pub-section-title', '.pub-quick-btn', '.pub-event-bar', '.pub-menu-item']) {
+    assert.ok(pubCss.includes(part), `hub2Public.css does not theme ${part}`);
+    partsChecked++;
+  }
+  // Arrive: a list staggers its first 16 rows; a roster of 140 must not put
+  // 140 animations on the screen at once.
+  assert.match(staffCss, /:nth-child\(-n\+16\)/, 'staff lists stagger their first 16 rows only');
+  assert.match(pubCss, /:nth-child\(-n\+16\)/, 'public lists stagger their first 16 rows only');
+  // Count: the number's span remounts on every new value, which is what
+  // restarts its roll.
+  assert.ok(read('./Hub2Count.tsx').includes('key={String(value)}'), 'Hub2Count must remount its span on every new value');
+}
+
+console.log(`hub2 self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${fontImports.length} font files, ${pubSelectors.length} public rules, ${fills} accent fills covered, ${fixedChecked} fixed classes kept still, ${partsChecked} parts themed)`);

@@ -32,6 +32,7 @@ import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 import { ORG } from '../org';
 import type { Attachment, SignPdfQuestion, SignupForm, SignupQuestion, SignupSlotBooking, Student } from '../director/types';
 import type { PdfMark } from '../shared/pdfStamp';
+import { hub2Celebrate } from '../shared/hub2Motion';
 import './signup.css';
 
 /**
@@ -321,6 +322,8 @@ export function PublicSignup() {
         complete: !missingRequired && (!needsSignature || !!signature.trim()) && (!needsGuardian || !!guardianSignature.trim()),
       });
       setState('done');
+      hub2Celebrate(); // the finish moment under the Hub 2.0 look (#hub2-alive); nothing without it
+
     } catch (err) {
       setState('error');
       if (err instanceof SignupSlotTakenError) {

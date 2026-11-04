@@ -25,6 +25,14 @@
 
 @media screen {
 
+  /* Two drawings both shells mask and tint with a token (#hub2-alive): the
+     row chevron and the empty-state music stand from the approved sketch.
+     Masks, so the strokes' own color never shows. */
+  :root[data-hub2="on"] {
+    --hub2-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E");
+    --hub2-stand: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 140' fill='none' stroke='black' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M100 60V124M100 124L80 136M100 124L120 136M100 124V136M58 18H142L135 58H65ZM62 60H138M148 26L176 132'/%3E%3Cpath stroke-width='2.5' d='M78 31H122M78 37H122M78 43H122M78 49H122M153 24L178 118'/%3E%3C/svg%3E");
+  }
+
   /* ── Studio Bright: type ── */
   :root[data-hub2="on"] .pub-app { font-family: var(--hub2-font-body); }
   :root[data-hub2="on"] .pub-h1 { font-weight: 800; letter-spacing: -0.02em; }
@@ -98,6 +106,36 @@
      --pub-accent-fill (uiUpdates.css), and hub2.css maps that to the org's
      accentFill, so the preview needs no list of its own. */
 
+  /* ═══ Parts (#hub2-alive) ═══
+     Every public page is built from these, so restyling them reaches every
+     page at once, including pages built later. Menu colors stay on the
+     --pub-* tokens: a student's menu color re-derives those. */
+  :root[data-hub2="on"] .pub-section-title {
+    text-transform: none; letter-spacing: -0.01em;
+    font-size: 18px; font-weight: 800; color: var(--pub-ink);
+  }
+  :root[data-hub2="on"] .pub-h1,
+  :root[data-hub2="on"] .pub-hero h1 { font-size: 28px; line-height: 1.15; }
+  :root[data-hub2="on"] .pub-event-bar { width: 5px; }
+  :root[data-hub2="on"] .pub-event.tappable:not(:has(.lucide-chevron-right))::after {
+    content: ''; flex: none; align-self: center; width: 18px; height: 18px; margin-right: 12px;
+    background: var(--pub-muted);
+    -webkit-mask: var(--hub2-chevron) center / contain no-repeat;
+    mask: var(--hub2-chevron) center / contain no-repeat;
+  }
+  :root[data-hub2="on"] .pub-quick-btn { color: var(--pub-ink); font-weight: 700; }
+  :root[data-hub2="on"] .pub-quick-btn > svg:first-child {
+    box-sizing: content-box; padding: 10px; border-radius: 50%;
+    color: var(--pub-accent); background: color-mix(in srgb, var(--pub-accent) 12%, var(--pub-surface));
+  }
+  :root[data-hub2="on"] .pub-menu-item { margin: 2px 10px; padding: 12px 14px; border-left: 0; border-radius: var(--hub2-radius-row); }
+  :root[data-hub2="on"] .pub-menu-item.active { font-weight: 700; }
+  :root[data-hub2="on"] :is(.pub-input, .pub-absence-input, .pub-signup-textarea):focus {
+    outline: none; border-color: var(--pub-accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--pub-accent) 18%, transparent);
+  }
+  :root[data-hub2="on"] .pub-search:focus-within { box-shadow: 0 0 0 4px color-mix(in srgb, var(--pub-accent) 18%, transparent); }
+
   /* ═══ Concert Hall: event, program and Concerts pages ═══ */
   :root[data-hub2="on"] .pub-hall .pub-h1,
   :root[data-hub2="on"] .pub-hall .pub-season-title,
@@ -109,6 +147,7 @@
     letter-spacing: -0.01em;
   }
   :root[data-hub2="on"] .pub-hall .pub-h1 { font-size: 30px; line-height: 1.15; }
+  :root[data-hub2="on"] .pub-hall .pub-section-title { font-family: var(--hub2-font-title); font-weight: 600; font-size: 22px; letter-spacing: 0; }
   :root[data-hub2="on"] .pub-hall .pub-season-title { font-size: 17px; }
   :root[data-hub2="on"] .pub-hall .pub-daysheet-head { font-size: 19px; }
   /* A thin gold hairline under every section label. */
@@ -208,21 +247,60 @@
     from { opacity: 0; transform: translateX(28px); }
   }
   @keyframes hub2-rise-in {
-    from { opacity: 0; transform: translateY(6px); }
+    from { opacity: 0; transform: translateY(var(--hub2-arrive-d, 6px)); }
   }
   :root[data-hub2="on"] :is(.pub-drill, .pub-checkin) {
     animation: hub2-slide-in var(--hub2-slide-ms) var(--hub2-ease) backwards;
   }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2) {
-    animation: hub2-rise-in var(--hub2-slide-ms) var(--hub2-ease) backwards;
+  /* Arrive: the first 16 rows of a list rise in, one after another. A long
+     list's later rows are already there: 140 animations at once is a stall. */
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(-n+16) {
+    animation: hub2-rise-in var(--hub2-arrive-ms) var(--hub2-ease) backwards;
   }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(2) { animation-delay: calc(var(--hub2-stagger-ms) * 1); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(3) { animation-delay: calc(var(--hub2-stagger-ms) * 2); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(4) { animation-delay: calc(var(--hub2-stagger-ms) * 3); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(5) { animation-delay: calc(var(--hub2-stagger-ms) * 4); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(6) { animation-delay: calc(var(--hub2-stagger-ms) * 5); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(7) { animation-delay: calc(var(--hub2-stagger-ms) * 6); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(n+8) { animation-delay: calc(var(--hub2-stagger-ms) * 7); }
+  @media (prefers-reduced-motion: no-preference) {
+    /* More lists arrive the same way (#hub2-alive): quick links, roster and
+       day-sheet rows, pieces, list cards, and the phone menu's items as it
+       opens. A block that IS a page section (.pub-page > *) is left to the
+       scroll reveal below, so nothing runs two motions. */
+    :root[data-hub2="on"] :is(.pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-card):not(.pub-page > *):nth-child(-n+16),
+    :root[data-hub2="on"] .pub-menu-panel .pub-menu-item:nth-child(-n+16) {
+      animation: hub2-rise-in var(--hub2-arrive-ms) var(--hub2-ease) backwards;
+    }
+    /* Choose: a new selection pops in. */
+    :root[data-hub2="on"] :is(.pub-chip.active, .pub-sg-tab.active, .pub-signup-slot.active, .pub-signup-yesno-btn.active, .pub-fm-btn.active, .pub-tabbar-btn.active, .pub-pdf-tool.active, .pub-cal-cell.selected .pub-cal-day) {
+      animation: hub2-pop 320ms var(--hub2-spring) backwards;
+    }
+    /* Open: the phone menu slides in from its edge over a fading shade. */
+    :root[data-hub2="on"] .pub-menu-overlay { animation: hub2-fade 220ms ease-out backwards; }
+    :root[data-hub2="on"] .pub-menu-panel { animation: hub2-menu-in var(--hub2-open-ms) var(--hub2-ease) backwards; }
+  }
+  @keyframes hub2-pop { from { transform: scale(.9); } }
+  @keyframes hub2-fade { from { opacity: 0; } }
+  @keyframes hub2-menu-in { from { transform: translateX(100%); } }
+  /* One stagger for every arriving list: 40ms apart, the twelfth row and on
+     together. Page sections are left out (they reveal on scroll instead). */
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(2),
+  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(2) { animation-delay: calc(var(--hub2-stagger-ms) * 1); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(3),
+  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(3) { animation-delay: calc(var(--hub2-stagger-ms) * 2); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(4),
+  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(4) { animation-delay: calc(var(--hub2-stagger-ms) * 3); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(5),
+  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(5) { animation-delay: calc(var(--hub2-stagger-ms) * 4); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(6),
+  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(6) { animation-delay: calc(var(--hub2-stagger-ms) * 5); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(7),
+  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(7) { animation-delay: calc(var(--hub2-stagger-ms) * 6); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(8),
+  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(8) { animation-delay: calc(var(--hub2-stagger-ms) * 7); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(9),
+  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(9) { animation-delay: calc(var(--hub2-stagger-ms) * 8); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(10),
+  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(10) { animation-delay: calc(var(--hub2-stagger-ms) * 9); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(11),
+  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(11) { animation-delay: calc(var(--hub2-stagger-ms) * 10); }
+  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(n+12),
+  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(n+12) { animation-delay: calc(var(--hub2-stagger-ms) * 11); }
 
   /* A press dips to 97%. */
   :root[data-hub2="on"] .pub-app :is(button, .pub-signup-row, .pub-checkin-row.open, .pub-event.tappable, .pub-tabbar-btn, .pub-cta-btn, .pub-quick-btn) {
@@ -277,6 +355,20 @@
       animation: hub2-wipe-in var(--hub2-wipe-ms) var(--hub2-ease) both;
       mix-blend-mode: normal;
     }
+    /* The gold edge (#hub2-alive) rides the moving edge, like a curtain. The
+       element (hub2Motion.ts, first in <body>) is named only while a
+       transition runs; its group sweeps across with the wipe, under the
+       header and tab bar groups. */
+    :root[data-hub2="on"]:active-view-transition .hub2-wipe-edge {
+      view-transition-name: hub2-edge;
+      display: block; position: fixed; top: 0; bottom: 0; left: 0; z-index: 1;
+      width: 3px; margin-left: -1.5px; pointer-events: none;
+      background: linear-gradient(180deg, transparent, var(--hub2-spot-gold) 18%, var(--hub2-spot-gold) 82%, transparent);
+      box-shadow: 0 0 14px 3px color-mix(in srgb, var(--hub2-spot-gold) 55%, transparent);
+    }
+    :root[data-hub2="on"]::view-transition-group(hub2-edge) { animation: hub2-edge-sweep var(--hub2-wipe-ms) var(--hub2-ease) both; }
+    :root[data-hub2="on"]::view-transition-old(hub2-edge) { animation: none; opacity: 0; }
+    :root[data-hub2="on"]::view-transition-new(hub2-edge) { animation: none; }
     /* A drill-down page that wipes in no longer also slides: one motion. */
     @supports (view-transition-name: none) {
       :root[data-hub2="on"] :is(.pub-drill, .pub-checkin) { animation: none; }
@@ -299,4 +391,43 @@
       }
     }
   }
+
+  /* ═══ Press, count, finish: both shells (#hub2-alive) ═══
+     hub2Motion.ts puts the ripple and the note burst on <body> and removes
+     them when they are done; Hub2Count.tsx and lucide's check icons carry the
+     rest. With reduced motion none of it runs: the look stands still. */
+  :root[data-hub2="on"] .hub2-wipe-edge { display: none; }
+  @keyframes hub2-edge-sweep { from { transform: translateX(0); } to { transform: translateX(100vw); } }
+  @media (prefers-reduced-motion: no-preference) {
+    :root[data-hub2="on"] .hub2-ripple { position: fixed; z-index: 2147483000; overflow: hidden; pointer-events: none; }
+    :root[data-hub2="on"] .hub2-ripple > i {
+      position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%;
+      background: currentColor; opacity: .2;
+      animation: hub2-ripple 560ms var(--hub2-ease) forwards;
+    }
+    :root[data-hub2="on"] .hub2-burst { position: fixed; inset: 0; z-index: 2147483000; overflow: hidden; pointer-events: none; }
+    :root[data-hub2="on"] .hub2-note {
+      position: absolute; font-size: 22px; line-height: 1;
+      animation: hub2-note 1.3s var(--hub2-ease) both;
+    }
+    :root[data-hub2="on"] .hub2-note.n0 { color: var(--hub2-spot-gold); }
+    :root[data-hub2="on"] .hub2-note.n1 { color: var(--hub2-accent); }
+    :root[data-hub2="on"] .hub2-note.n2 { color: var(--hub2-plum-text, var(--hub2-plum)); }
+    :root[data-hub2="on"] .hub2-note.n3 { color: var(--hub2-sun); }
+    /* Count: a number that changed rolls in (Hub2Count remounts it). */
+    :root[data-hub2="on"] .hub2-count.hub2-roll { display: inline-block; animation: hub2-roll 420ms var(--hub2-ease) backwards; }
+    /* Finish: every check mark draws itself as it appears. */
+    :root[data-hub2="on"] :is(.lucide-check, .lucide-circle-check, .lucide-circle-check-big, .lucide-check-check, .lucide-badge-check) path {
+      stroke-dasharray: 100;
+      animation: hub2-draw 560ms var(--hub2-ease) backwards;
+    }
+  }
+  @keyframes hub2-ripple { to { transform: scale(30); opacity: 0; } }
+  @keyframes hub2-note {
+    0% { transform: translate(-50%, -50%) scale(.3); opacity: 0; }
+    18% { opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--r)) scale(1.15); opacity: 0; }
+  }
+  @keyframes hub2-roll { from { transform: translateY(55%); opacity: 0; } }
+  @keyframes hub2-draw { from { stroke-dashoffset: 100; } }
 }
