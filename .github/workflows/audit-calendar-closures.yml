@@ -10,11 +10,14 @@ name: Audit Calendar Closures
 # ever looks back: a college class that is missing and a lesson stranded on
 # Thanksgiving both look exactly like a normal calendar.
 #
-# No secrets. `events`, `ensembles` and `lessonsPublic` are all `allow read`
-# in firestore.rules, so this needs no service account and no npm install —
-# just Node, whose type-stripping loader reads the two calendars straight
-# from the .ts sources. It prints no student names; Actions logs here are
-# public (#student-data).
+# `events`, `ensembles` and `lessonsPublic` are all `allow read` in
+# firestore.rules, so the reads need no account. But App Check enforcement
+# refuses ANONYMOUS reads, so the run passes FIREBASE_SERVICE_ACCOUNT_JSON
+# and the script reads those same three collections with a service-account
+# token, which App Check does not gate (firebase-admin mints it, hence
+# npm ci). Node's type-stripping loader reads the two calendars straight from
+# the .ts sources. It prints no student names and never the token; Actions
+# logs here are public (#student-data).
 #
 # Deliberately NOT in .github/actions/self-checks: those are pure and offline
 # and gate every build. This one needs the network and live data, so it stays
@@ -41,9 +44,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: npm
+      - run: npm ci
       - name: Audit the live calendar against both academic calendars
         env:
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           INPUT_SINCE: ${{ inputs.since }}
           INPUT_STRICT: ${{ inputs.strict }}
         run: |

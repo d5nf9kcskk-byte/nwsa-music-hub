@@ -28,11 +28,15 @@
  * On every MDC closure where MDCPS is open:
  *   • no live college block.
  *
- * NO CREDENTIALS. `events`, `ensembles` and `lessonsPublic` are all
- * `allow read` in firestore.rules, so this runs against production from
- * anywhere, including a pull request. Nothing it can read is staff-only, and
- * it prints counts, dates and group names only — never a student name
- * (#student-data: this repo and its Actions logs are public).
+ * NO CREDENTIALS NEEDED, until App Check enforcement. `events`, `ensembles`
+ * and `lessonsPublic` are all `allow read` in firestore.rules, so this runs
+ * against production from anywhere. Enforcement refuses anonymous REST reads,
+ * though, so when FIREBASE_SERVICE_ACCOUNT_JSON is set (the workflow passes
+ * it) the same three reads carry a service-account access token, which App
+ * Check does not gate. The credential widens nothing: it reads the same three
+ * world-readable collections either way, never logs the token, and prints
+ * counts, dates and group names only — never a student name (#student-data:
+ * this repo and its Actions logs are public).
  *
  * NOT A SELF-CHECK. The checks in `.github/actions/self-checks` are pure and
  * offline; this one needs the network and live data, so it must not gate a
@@ -68,7 +72,17 @@ if (!/^\d{4}-\d{2}-\d{2}$/.test(SINCE)) {
 const YEAR_START_MS = Date.UTC(2026, 7, 13);
 const YEAR_END_MS = Date.UTC(2027, 5, 3);
 
-// ── Firestore REST, unauthenticated ───────────────────────────────────
+// ── Firestore REST: anonymous, or as the service account ──────────────
+async function serviceAccountToken() {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!raw) return null;
+  const { initializeApp, cert } = await import('firebase-admin/app');
+  const app = initializeApp({ credential: cert(JSON.parse(raw)) });
+  return (await app.options.credential.getAccessToken()).access_token;
+}
+const TOKEN = await serviceAccountToken();
+const HEADERS = TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {};
+
 const val = (v) => {
   if (v == null) return undefined;
   if ('stringValue' in v) return v.stringValue;
@@ -93,7 +107,7 @@ async function listAll(collection) {
     const u = new URL(`${BASE}/${collection}`);
     u.searchParams.set('pageSize', '300');
     if (pageToken) u.searchParams.set('pageToken', pageToken);
-    const res = await fetch(u);
+    const res = await fetch(u, { headers: HEADERS });
     if (!res.ok) throw new Error(`${collection}: ${res.status} ${await res.text()}`);
     const j = await res.json();
     out.push(...(j.documents ?? []).map(toDoc));
@@ -102,7 +116,7 @@ async function listAll(collection) {
   return out;
 }
 
-console.log(`project: ${PROJECT_ID}`);
+console.log(`project: ${PROJECT_ID} (reading ${TOKEN ? 'as the service account' : 'anonymously'})`);
 console.log(`future starts: ${SINCE}${STRICT ? '  (--strict: past findings fail too)' : ''}\n`);
 
 const groups = Object.fromEntries((await listAll('ensembles')).map(g => [g.id, g]));
