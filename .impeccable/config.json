@@ -1,0 +1,80 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "docs/hub2-alive/concept.html"
+        ],
+        "createdAt": "2026-11-04T22:13:37.866Z",
+        "reason": "Claude: the only gradient text is the gold treble clef glyph, an illustration from the Spotlight mockup the director chose, not a heading or metric"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "docs/hub2-alive/concept.html"
+        ],
+        "createdAt": "2026-11-04T22:13:37.887Z",
+        "reason": "Claude: concert-night Spotlight look the director chose (docs/session-notes-2026-11-03-hub-2-0.md); glows are that mockup's language and the shipped hub2 tokens"
+      },
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "files": [
+          "docs/hub2-alive/concept.html"
+        ],
+        "createdAt": "2026-11-04T22:13:37.907Z",
+        "reason": "Claude: Plus Jakarta Sans is the Hub 2.0 body font already shipped in config/orgs/nwsa.json"
+      },
+      {
+        "rule": "nested-cards",
+        "value": "*",
+        "files": [
+          "docs/hub2-alive/concept.html"
+        ],
+        "createdAt": "2026-11-04T22:13:37.948Z",
+        "reason": "Claude: the outer containers are a phone frame and graphic-preview tiles in a design sketch, not app cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "docs/hub2-alive/concept.html"
+        ],
+        "createdAt": "2026-11-04T22:13:37.968Z",
+        "reason": "Claude: colored left bars come from the Studio Bright mockup; on roll rows the stripe encodes late or absent"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "docs/hub2-alive/concept.html"
+        ],
+        "createdAt": "2026-11-04T22:13:37.989Z",
+        "reason": "Claude: looping sheen only under the opt-in Showtime level, which exists to show ambient motion"
+      },
+      {
+        "rule": "low-contrast",
+        "value": "*",
+        "files": [
+          "docs/hub2-alive/concept.html"
+        ],
+        "createdAt": "2026-11-04T22:13:43.894Z",
+        "reason": "Claude: false positive, the only flagged pairs are white labels on a sliding teal or plum pill element the detector cannot see; the real 4.3:1 Now-card pair was fixed"
+      },
+      {
+        "rule": "kicker-above-heading",
+        "value": "*",
+        "files": [
+          "docs/hub2-alive/concept.html"
+        ],
+        "createdAt": "2026-11-04T22:13:43.916Z",
+        "reason": "Claude: the one kicker left is the live Now status label with a pulsing dot, from the Studio Bright mockup the director chose"
+      }
+    ]
+  }
+}
