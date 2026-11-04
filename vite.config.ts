@@ -310,6 +310,9 @@ export default defineConfig(({ mode }) => {
         // preview, so they are runtime-cached below instead and a visitor
         // without the preview downloads none of them. (An org's own body
         // font lives at the dist root, ORG.fonts, and stays precached.)
+        // Once hub2.forEveryone is on, every visitor uses them, so they ARE
+        // precached: a staff phone at a concert venue with no signal still
+        // has the concert-night fonts.
         globIgnores: [
           'feeds/**', 'sw-cleanup.js', 'push-handler.js', 'screenshots/**',
           // Web push (#push): the FCM SDK and the subscribe code load only when
@@ -317,7 +320,7 @@ export default defineConfig(({ mode }) => {
           // visitor download what only the opted-in few use.
           'assets/fcmLazy-*', 'assets/pushClient-*',
           'assets/PdfSigner-*', 'assets/pdfStamp-*', 'assets/emergencyContacts-*', 'assets/pdf.worker.min-*',
-          'assets/*.woff2',
+          ...(ORG.hub2?.forEveryone === true ? [] : ['assets/*.woff2']),
         ],
         // Legacy-cache migration runs inside the SW's own activate (see
         // public/sw-cleanup.js) — never from the page, where it would race

@@ -25,6 +25,7 @@
  * the vite plugin, so the built file is the only place the real answer exists.
  */
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 
 const INDEX = new URL('../dist/index.html', import.meta.url);
 
@@ -112,5 +113,16 @@ if (directives['script-src']?.includes("'unsafe-inline'")) {
 if (!directives['script-src']?.some(v => v.startsWith("'sha256-"))) {
   fail('script-src must carry the sha256 hashes of the inline boot scripts');
 }
+// The hashes must be of the scripts AS SHIPPED. org-statics writes org values
+// into the boot script (the theme, hub2.forEveryone), and cspPlugin hashes it
+// afterwards only because of hook order: if that ever flips, the browser
+// refuses the whole boot script and every check above still passes.
+for (const [, body] of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
+  const hash = `'sha256-${createHash('sha256').update(body).digest('base64')}'`;
+  if (!directives['script-src'].includes(hash)) {
+    fail(`an inline script is not allowed by its hash (${hash}): the CSP was computed before a later change to index.html`);
+  }
+}
+if (/__ORG_[A-Z0-9_]+__/.test(html)) fail('an __ORG_*__ placeholder survived into dist/index.html');
 
 console.log('csp self-check OK —', Object.keys(directives).length, 'directives');

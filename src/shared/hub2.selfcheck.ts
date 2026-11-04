@@ -166,7 +166,8 @@ assert.ok(fontImports.length > 0, 'hub2Fonts.ts imports no fonts');
 for (const [, , file] of fontImports) assert.match(file, /^latin-\d{3}$/, `font file ${file}: latin subset, normal style only`);
 const loaded = new Set(fontImports.map(m => m[1]));
 const vite = read('../../vite.config.ts');
-assert.ok(vite.includes("'assets/*.woff2'"), 'vite.config.ts must keep the preview fonts out of the precache');
+assert.ok(vite.includes("...(ORG.hub2?.forEveryone === true ? [] : ['assets/*.woff2'])"),
+  'vite.config.ts must keep the preview fonts out of the precache, and precache them once the look is on for everyone');
 assert.match(vite, /runtimeCaching:[\s\S]*sameOrigin && [^\n]*woff2/, 'the preview fonts must be runtime-cached, same-origin only');
 assert.ok(!strip(read('../main.tsx')).includes('hub2Fonts'), 'main.tsx must not load the fonts eagerly');
 assert.ok(previewSrc.includes("import('./hub2Fonts')"), 'the fonts load by dynamic import only');
