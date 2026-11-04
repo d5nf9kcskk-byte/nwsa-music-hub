@@ -32,6 +32,19 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // #close-a-day: Today's "Close a day" goes through Change a Day.
+  {
+    id: '2026-11-04-close-a-day',
+    date: '2026-11-04',
+    title: 'Close a day now asks which school is closed',
+    audience: 'staff' as const,
+    bullets: [
+      'Today → Close a day now opens Change a Day. Pick the day, then Close the high school, Close the college, or Close both. The two calendars often differ, so closing one no longer cancels the other’s classes.',
+      'Closing the high school cancels that day’s private lessons too. You see everything on the review sheet before it saves, and Back to normal undoes it.',
+      'Families see “High school closed” (or College, or School) on each cancelled block and in the one urgent announcement.',
+    ],
+    expires: '2026-11-18',
+  },
   // Lessons (Hub 2.0, Phase 4, #lesson-attachments). Applied teachers.
   {
     id: '2026-11-03-lesson-attachments',

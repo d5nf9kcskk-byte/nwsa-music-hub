@@ -8,7 +8,7 @@
 import type { CalendarEvent, Ensemble, Lesson, RosterOverride } from '../types';
 import { formatTime, formatTimeRange, parseDate } from '../utils';
 import { lessonsFor } from '../rosterResolver';
-import { campusForEvent, LESSON_CAMPUS } from '../campusCalendar';
+import { campusForEvent, CAMPUS_LABEL, LESSON_CAMPUS } from '../campusCalendar';
 import type { Campus } from '../campusCalendar';
 
 type ChangeFrom = NonNullable<CalendarEvent['changeFrom']>;
@@ -95,13 +95,14 @@ export function revertPlan(e: CalendarEvent | undefined): {
 }
 
 /**
- * What the Today screen's "School closed" button writes on each block it
- * sweeps (#change-receipts): the cancel, its note, and the same snapshot-once
- * receipt a chip-cancelled block carries, so Change a Day's "Back to normal"
- * puts the block back exactly. Which blocks it sweeps stays with the button.
+ * "School closed" / "High school closed" / "College closed": the change note a
+ * CLOSURE writes on each block (#close-a-day), so a family reads why, not
+ * just "Cancelled". Unscoped is both campuses (a hurricane).
  */
-export function schoolClosedWrite(e: CalendarEvent): Partial<Omit<CalendarEvent, 'id'>> {
-  return { status: 'Cancelled', changeNote: 'School closed', ...captureOriginal(e) };
+export function closedNote(campus?: Campus): string {
+  if (!campus) return 'School closed';
+  const word = CAMPUS_LABEL[campus];
+  return `${word[0].toUpperCase()}${word.slice(1)} closed`;
 }
 
 /** The schedule fields a receipt guards: change one and "Back to normal" has
@@ -175,8 +176,13 @@ export type DayAction =
    * sweep is what cancelled nine dual-enrollment classes on an MDCPS teacher
    * planning day while Miami Dade College was in full session. The day board
    * offers the scoped plan FIRST whenever `splitClosure()` names a campus.
+   *
+   * `closed`: the SCHOOL is closed, not just the day's rehearsals (#close-a-day,
+   * Today's "Close a day"). The same writes, lessons included; only the words
+   * change, so the notes say "High school closed" and the one banner says
+   * which school instead of listing every group on the board.
    */
-  | { kind: 'cancelDay'; campus?: Campus }
+  | { kind: 'cancelDay'; campus?: Campus; closed?: boolean }
   /**
    * Cancel named blocks, not the day — "Cancel Camerata today" from the typed
    * box (#day-change-parse). The same writes and banner as a block's own
@@ -373,8 +379,9 @@ export function planDayChange(
       const live = dayEvents.filter(e =>
         e.status !== 'Cancelled'
         && (!action.campus || campusForEvent(e, groups) === action.campus));
+      const note = action.closed ? closedNote(action.campus) : 'Cancelled';
       for (const e of live) {
-        writes.push({ op: 'update', id: e.id, data: { status: 'Cancelled', changeNote: 'Cancelled', ...captureOriginal(e) } });
+        writes.push({ op: 'update', id: e.id, data: { status: 'Cancelled', changeNote: note, ...captureOriginal(e) } });
       }
       // The day's private lessons go with it. They are not events and were
       // never in `dayEvents`, so a cancelled day used to leave a student's
@@ -398,7 +405,14 @@ export function planDayChange(
       // lesson announces itself through the student's own feed — the cancelled
       // lesson drops out of feeds/student-<id>.ics, which reaches exactly the
       // one family it concerns instead of the whole school.
-      if (live.length > 0) bannerText = `🚫 ${live.map(label).join(', ')}: CANCELLED ${when}`;
+      if (live.length > 0) {
+        const what = action.campus === 'mdc' ? 'all college classes and rehearsals'
+          : action.campus === 'mdcps' ? 'all high school rehearsals and classes'
+          : 'all rehearsals and classes';
+        bannerText = action.closed
+          ? `🚫 ${closedNote(action.campus)} ${when}: ${what} cancelled`
+          : `🚫 ${live.map(label).join(', ')}: CANCELLED ${when}`;
+      }
       break;
     }
     case 'cancel': {

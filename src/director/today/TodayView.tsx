@@ -17,7 +17,6 @@ import { resolveRoster } from '../rosterResolver';
 import { isSharedBlock, sharedBlockLabel } from '../../shared/sharedBlock';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, addDays, assignmentEmoji, rollTarget, CONCERT_COLOR, ASSIGN_COLOR } from '../utils';
 import { eventIcon } from '../groupIcon';
-import { schoolClosedWrite } from '../schedule/changePlan';
 import type { Announcement, CalendarEvent, Ensemble } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { Linkify } from '../components/Linkify';
@@ -39,16 +38,15 @@ const ENS_PREF_KEY = 'dir.today.ensemble';
  *  two can never disagree; on a phone the badge is behind the ☰. */
 export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNavigate; requestCount?: number }) {
   const { ensembles } = useEnsembles();
-  const { events, updateEvent } = useEvents();
+  const { events } = useEvents();
   const { students } = useStudents();
   const { pieces } = useRepertoire();
   const { overrides } = useRosterOverrides();
-  const { announcements, addAnnouncement } = useAnnouncements();
+  const { announcements } = useAnnouncements();
   const { notices, dismissNotice } = useStaffNotices();
   const now = useMinuteTick(); // scheduled posts appear the minute they go live
   const { assignments } = useAssignments();
   const { records: allAttendance } = useAllAttendance();
-  const [snowDay, setSnowDay] = useState(false);
   const [showChecklist, setShowChecklist] = useState(false);
   const [showQrKit, setShowQrKit] = useState(false);
   const [previewingAnn, setPreviewingAnn] = useState<Announcement | null>(null);
@@ -144,22 +142,6 @@ export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNav
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [allAttendance, today, ensembleId]);
   const [showFollowUps, setShowFollowUps] = useState(false);
-
-  async function closeSchoolFor(date: string) {
-    const affected = events.filter(e => e.date === date && e.status !== 'Cancelled' && e.ensembleIds.length > 0);
-    for (const e of affected) {
-      // The receipt (#change-receipts) lets "Back to normal" undo the day.
-      await updateEvent(e.id, schoolClosedWrite(e));
-    }
-    await addAnnouncement({
-      title: `School closed ${parseDate(date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })} — all rehearsals cancelled`,
-      ensembleId: null,
-      priority: 'urgent',
-      createdAt: Date.now(),
-      expiresOn: addDays(date, 1),
-    });
-    setSnowDay(false);
-  }
   const dateLabel = parseDate(today).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   // One label for an event's ensembles, so a combined block reads the same on
@@ -357,7 +339,10 @@ export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNav
           <button className="dir-quick-btn" onClick={() => onNavigate('schedule', { date: today })}><CalendarPlus size={18} /> New event</button>
           <button className="dir-quick-btn" onClick={() => onNavigate('announcements')}><Megaphone size={18} /> Post announcement</button>
           <button className="dir-quick-btn" onClick={() => onNavigate('scheduleSwap', { date: today })}><Clock size={18} /> Change today’s schedule</button>
-          <button className="dir-quick-btn" onClick={() => setSnowDay(true)}>🌀 Close a day</button>
+          {/* #close-a-day: Change a Day asks which school is closed, takes the
+              high school's private lessons with it, and Back to normal undoes
+              it. The old one-tap sweep here closed both campuses. */}
+          <button className="dir-quick-btn" onClick={() => onNavigate('scheduleSwap', { date: today, closing: true })}>🌀 Close a day</button>
           <button className="dir-quick-btn" onClick={() => setShowChecklist(true)}>🍂 Term checklist</button>
           <button className="dir-quick-btn" onClick={() => setShowQrKit(true)}>📱 QR kit</button>
         </div>
@@ -396,10 +381,6 @@ export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNav
           </>
         )}
       </div>
-
-      {snowDay && (
-        <SnowDaySheet onConfirm={closeSchoolFor} onClose={() => setSnowDay(false)} defaultDate={today} />
-      )}
 
       {showQrKit && <QrKitView onClose={() => setShowQrKit(false)} />}
 
@@ -523,47 +504,6 @@ function TodayCard({
           )}
           <button className="dir-btn dir-btn-ghost dir-today-action" onClick={() => onNavigate('schedule', { date: event.date, eventId: event.id })}>
             {linkedPieces.length > 0 || event.repertoire ? 'Edit / details' : <><Plus size={14} /> Add repertoire</>}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Snow-day switch (#20): cancel everything on one date, one urgent announcement. */
-function SnowDaySheet({ defaultDate, onConfirm, onClose }: {
-  defaultDate: string; onConfirm: (date: string) => Promise<void>; onClose: () => void;
-}) {
-  const [date, setDate] = useState(defaultDate);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-  return (
-    <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
-      <div className="dir-drawer">
-        <div className="dir-drawer-handle" />
-        <div className="dir-drawer-header">
-          <span className="dir-drawer-title">🌀 Close school for a day</span>
-          <button className="dir-drawer-close" onClick={onClose}>×</button>
-        </div>
-        <div className="dir-drawer-body">
-          <div className="dir-field-hint" style={{ marginBottom: 10 }}>
-            Cancels every ensemble rehearsal, concert, and event on this date (school-calendar
-            notes stay) and posts one urgent school-wide announcement. Events can be un-cancelled individually afterward.
-          </div>
-          <div className="dir-field">
-            <label className="dir-label">Date</label>
-            <input className="dir-input" type="date" value={date} onChange={e => setDate(e.target.value)} />
-          </div>
-          {err && <div className="dir-sc-error" style={{ margin: '8px 0 0' }}>⚠ {err}</div>}
-        </div>
-        <div className="dir-drawer-footer">
-          <button className="dir-btn dir-btn-ghost" onClick={onClose}>Cancel</button>
-          <button
-            className="dir-btn dir-btn-danger"
-            disabled={busy}
-            onClick={async () => { setBusy(true); setErr(''); try { await onConfirm(date); } catch (e) { setBusy(false); setErr(e instanceof Error ? e.message : 'Failed'); } }}
-          >
-            {busy ? 'Closing…' : 'Close this day'}
           </button>
         </div>
       </div>

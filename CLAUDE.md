@@ -406,13 +406,19 @@ seed that `set`s rather than merges.
   `changePlan.ts` is what the Event form (edits, not repeats or creates) and
   `hub-calendar.mjs` `edit` add to a write that moves date, time, room or
   status — snapshot-once, like `captureOriginal`. A date move adds
-  `changeFrom.date`, which `revertPlan` restores. The Today screen's "School
-  closed" button writes `schoolClosedWrite()` (cancel + note + the same
-  receipt), so Back to normal undoes a closed day. That button still sweeps
-  EVERY block on the date and takes no lessons — not campus-aware, which is
-  against #college-hs-calendar-deps; left for the director to decide, since
-  changing what it cancels changes what people see. All pinned in
+  `changeFrom.date`, which `revertPlan` restores. All pinned in
   `scripts/schedule-day-plan.selfcheck.mjs`.
+- **"Close a day" is Change a Day** (#close-a-day, director's call
+  2026-11-04). Today's button used to sweep EVERY block on a date, on both
+  campuses, and leave every private lesson standing, which is the
+  #college-hs-calendar-deps mistake on a button. It now opens Change a Day
+  with `closing` (a `DirNavOpts` field, so it survives the URL): the
+  day-cancel buttons read "Close the high school / college / both", swaps and
+  combines are hidden, and the action carries `closed: true`. That changes the
+  WORDS only, never the writes: the note is `closedNote()` ("High school
+  closed") and the one banner names the school instead of listing every group.
+  Same campus split, same lessons, same receipts, same Back to normal, all
+  pinned in the day-plan self-check.
 
 ## Ensembles vs. classes (Aug 2026)
 
@@ -1606,8 +1612,8 @@ subscriptions hold. The family side is BUILT and switched OFF.
   fields (`STAFF_SUB_KEYS` / `FAMILY_SUB_KEYS`), which change is worth a push
   (`pushWorthy`: event dated today in `ORG.timezone`, a non-blank
   `changeNote`, and the note or the status moved — so Change a Day moves,
-  swaps, combines and cancels, the quick Cancel / Back on, and "School
-  closed" all count; "Back to normal" clearing the note does not), who it
+  swaps, combines, cancels and closures ("Close a day"), and the quick
+  Cancel / Back on all count; "Back to normal" clearing the note does not), who it
   reaches (`subscriptionReaches`: a school-wide event reaches everyone, a
   staff `scope: 'all'` device hears everything, otherwise the ensemble lists
   must meet), and what it says (`buildPushPayload`). Zero imports, so the
