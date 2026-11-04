@@ -239,8 +239,8 @@ function PushAlertsPanel({ onClose }: { onClose: () => void }) {
               <div className="dir-field-hint">
                 {familiesOpen === null ? 'Checking…'
                   : familiesOpen
-                    ? 'ON. Families see "Get alerts on this phone" on the Home page.'
-                    : 'OFF. Families see nothing yet.'}
+                    ? 'ON. Families see "Get alerts on this phone" on the Home page. Closing stops alerts to every family phone at once; opening again brings them back.'
+                    : 'OFF. Families see nothing, and no family phone gets an alert.'}
               </div>
               <div className="dir-field-hint">
                 Turn this on only after App Check enforcement is on and the two-week iPhone trial

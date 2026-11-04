@@ -69,6 +69,16 @@ export interface PushSettings {
   updatedBy?: string;
 }
 
+/**
+ * May this device be sent an alert right now? A staff device always; a family
+ * device (no `staffEmail`) only while `familiesOpen` is true. The switch is
+ * checked at SEND time, not only by the rules at sign-up, so "Close alerts to
+ * families" stops every family phone at once instead of only new sign-ups.
+ */
+export function deviceMaySend(sub: Pick<PushSubscriptionDoc, 'staffEmail'>, familiesOpen: boolean): boolean {
+  return !!sub.staffEmail || familiesOpen;
+}
+
 /** Only the event fields this module is allowed to look at. */
 export interface PushEventLike {
   id?: string;
@@ -102,8 +112,8 @@ function clean(s: unknown): string {
  * Yes when the event is today (org timezone), carries a change note after the
  * write, and either the note or the status moved. That covers every writer
  * of a change: the Schedule screen's Change a Day plan (`changePlan.ts`:
- * move, swap, combine, cancel), the quick Cancel / Back on buttons, and the
- * Today screen's "School closed". A note cleared by "Back to normal" is not
+ * move, swap, combine, cancel, and a school closure from Today's "Close a
+ * day"), and the quick Cancel / Back on buttons. A note cleared by "Back to normal" is not
  * sent: the director un-did a change, and a second buzz saying "never mind"
  * with no text would be noise.
  */

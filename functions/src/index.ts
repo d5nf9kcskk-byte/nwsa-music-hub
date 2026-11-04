@@ -907,6 +907,10 @@ function pushDeps(): PushDeps {
       const snap = await db.collection('pushSubscriptions').get();
       return snap.docs.map(d => ({ id: d.id, data: d.data() as PushSubscriptionDoc }));
     },
+    async familiesOpen() {
+      const snap = await db.doc('pushSettings/global').get();
+      return snap.exists && snap.get('familiesOpen') === true;
+    },
     async ensembleNames(ids) {
       const out: Record<string, string> = {};
       const refs = [...new Set(ids)].filter(Boolean).map(id => db.doc(`ensembles/${id}`));
@@ -945,9 +949,10 @@ function pushDeps(): PushDeps {
 
 /**
  * A director changed an event happening TODAY — Change a Day (move, swap,
- * combine, cancel), the quick Cancel / Back on, or "School closed" — and the
+ * combine, cancel, close the school), or the quick Cancel / Back on — and the
  * change note is new. Push it to every device following that event's
- * ensembles (or to everyone, for a school-wide event). Sends once per change:
+ * ensembles (or to everyone, for a school-wide event), family devices only
+ * while alerts are open to families. Sends once per change:
  * the marker in `pushSent` is claimed before anything goes out.
  */
 export const pushOnEventChange = firestore

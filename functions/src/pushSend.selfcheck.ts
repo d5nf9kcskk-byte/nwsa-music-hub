@@ -8,7 +8,8 @@
  *   • each device gets its OWN language, and no student name or id rides along;
  *   • one change is sent once, however often the trigger is delivered;
  *   • a token FCM calls dead is deleted; a transient failure is not;
- *   • a change on another day, or one with no note, sends nothing.
+ *   • a change on another day, or one with no note, sends nothing;
+ *   • with alerts closed to families, only staff devices are sent to.
  */
 import { handleEventChange, sendTestAlert, type FcmMessage, type PushDeps, type SendResult } from './pushSend.ts';
 import type { PushEventLike, PushSubscriptionDoc } from '../../src/shared/pushAlerts.ts';
@@ -18,20 +19,21 @@ function check(cond: unknown, msg: string) {
   if (!cond) { failures++; console.error(`  ✗ ${msg}`); }
 }
 
-function sub(id: string, ensembleIds: string[], lang: 'en' | 'es' = 'en', scope: 'all' | 'groups' = 'groups') {
+function sub(id: string, ensembleIds: string[], lang: 'en' | 'es' = 'en', scope: 'all' | 'groups' = 'groups', staffEmail?: string) {
   const data: PushSubscriptionDoc = {
     token: `tok-${id}`, studentIds: ['stu-1'], ensembleIds, lang, scope, createdAt: 1, updatedAt: 1,
+    ...(staffEmail ? { staffEmail } : {}),
   };
   return { id, data };
 }
 
-function harness(results: (token: string) => SendResult = () => ({ success: true })) {
+function harness(results: (token: string) => SendResult = () => ({ success: true }), familiesOpen = true) {
   const subs = [
     sub('symEn', ['sym']),
     sub('symEs', ['sym'], 'es'),
     sub('jazz', ['jazz']),
     sub('none', []),
-    sub('staff', [], 'en', 'all'),
+    sub('staff', [], 'en', 'all', 'director@example.org'),
     sub('dead', ['sym']),
   ];
   const markers = new Set<string>();
@@ -39,6 +41,7 @@ function harness(results: (token: string) => SendResult = () => ({ success: true
   const deleted: string[] = [];
   const deps: PushDeps = {
     async listSubscriptions() { return subs.filter(s => !deleted.includes(s.id)); },
+    async familiesOpen() { return familiesOpen; },
     async ensembleNames(ids) {
       const all: Record<string, string> = { sym: 'Symphony Orchestra', jazz: 'Jazz Band' };
       return Object.fromEntries(ids.filter(i => all[i]).map(i => [i, all[i]]));
@@ -116,6 +119,17 @@ const cancelled = {
   await handleEventChange('e5', before, { ...before, location: 'Room 9' }, h.deps);
   await handleEventChange('e6', before, undefined, h.deps);
   check(h.sent.length === 0 && h.markers.size === 0, 'another day, no note, or a delete: nothing sent or marked');
+}
+
+/* Alerts closed to families: a school-wide change reaches only the staff
+   device. "Close alerts to families" stops phones that already signed up. */
+{
+  const h = harness(undefined, false);
+  const r = await handleEventChange('e7', { ...before, ensembleIds: [] },
+    { ...before, ensembleIds: [], status: 'Cancelled', changeNote: 'School closed' }, h.deps);
+  const tokens = h.sent.map(m => m.token);
+  check(JSON.stringify(tokens) === JSON.stringify(['tok-staff']), `families closed: staff device only (got ${tokens.join(',')})`);
+  check(r.kind === 'sent' && r.recipients === 1, 'families closed: one recipient counted');
 }
 
 /* The staff test alert. */
