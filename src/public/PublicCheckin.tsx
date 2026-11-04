@@ -32,6 +32,7 @@ import {
 } from '../shared/concertCheckin';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 import type { Student } from '../director/types';
+import { hub2Celebrate } from '../shared/hub2Motion';
 import './checkin.css';
 
 /** Wall-clock time at the SCHOOL, not on the viewer's device. At the venue
@@ -225,6 +226,9 @@ export function PublicCheckin() {
     setDoneAt(at);
     setDoneKind(kind);
     setStepOverride('done');
+    // Under the Hub 2.0 look, notes burst from the big tick the done screen
+    // centers (#hub2-alive). Nothing at all with the look off.
+    hub2Celebrate();
   }
 
   if (step === 'done') {

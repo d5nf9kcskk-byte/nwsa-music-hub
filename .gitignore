@@ -38,3 +38,6 @@ _review
 # directories in the main checkout, one `git add -A` away from being
 # committed as a gitlink.
 .claude/worktrees/
+
+# The impeccable design hook's scratch cache (its config.json is shared).
+.impeccable/hook.cache.json

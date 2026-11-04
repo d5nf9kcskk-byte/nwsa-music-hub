@@ -10,7 +10,7 @@ import './public/hub2Public.css';
 import { initLook } from './public/look';
 import { initDirSeason } from './shared/seasons';
 import { initHub2 } from './shared/hub2Preview';
-import { withPageWipes } from './shared/hub2Motion';
+import { initHub2Motion, withPageWipes } from './shared/hub2Motion';
 
 import { PublicLayout } from './public/PublicLayout';
 import { PublicHome } from './public/PublicHome';
@@ -193,8 +193,10 @@ applyBrand();
 initLook(ORG.personalize);
 initDirSeason(ORG.personalize?.seasons);
 // The owner's on-device Hub 2.0 preview (#hub2-look). Off everywhere else,
-// where it does nothing at all.
+// where it does nothing at all. Its press ripple and gold wipe edge
+// (#hub2-alive) ask the same switch at every press and every page change.
 initHub2();
+initHub2Motion();
 
 // Offline app shell (#43) — registered after load so it never delays startup.
 // When a NEW version installs under an open tab, src/pwa.ts shows a one-tap
