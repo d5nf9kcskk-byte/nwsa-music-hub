@@ -12,7 +12,7 @@
  * pushSend.selfcheck.ts can drive it with fakes and read every payload.
  */
 import {
-  buildPushPayload, buildTestPayload, isDeadTokenError, pushWorthy, sentMarkerId,
+  buildPushPayload, buildTestPayload, deviceMaySend, isDeadTokenError, pushWorthy, sentMarkerId,
   subscriptionReaches, todayInZone,
   type PushEventLike, type PushLang, type PushPayload, type PushSubscriptionDoc,
 } from '../../src/shared/pushAlerts.ts';
@@ -33,6 +33,8 @@ export interface SendResult {
 export interface PushDeps {
   /** Every subscription, with its doc id. */
   listSubscriptions(): Promise<{ id: string; data: PushSubscriptionDoc }[]>;
+  /** `pushSettings/global.familiesOpen === true`, read at send time. */
+  familiesOpen(): Promise<boolean>;
   /** Names for the ensemble ids on the event (world-readable `ensembles`). */
   ensembleNames(ids: string[]): Promise<Record<string, string>>;
   /** Create the send-once marker. Resolves false if it already existed. */
@@ -97,6 +99,12 @@ export async function handleEventChange(
   const today = todayInZone(deps.timeZone, deps.now());
   if (!pushWorthy(before, after, today)) return { kind: 'skipped', reason: 'not-worthy' };
 
+  // Closing alerts to families stops their phones, not just new sign-ups.
+  // A failed read counts as closed: families fail closed, and staff still get
+  // the alert (this v1 trigger has no retry policy, so a throw here would
+  // lose it for everyone).
+  const familiesOpen = await deps.familiesOpen().catch(() => false);
+
   // Claim BEFORE sending: a trigger is delivered at least once, and a retry
   // after a partial send must not buzz the phones that already got it. The
   // cost is the other way round — a crash between claim and send loses that
@@ -106,7 +114,7 @@ export async function handleEventChange(
 
   const event = { ...after, id: eventId };
   const subs = (await deps.listSubscriptions())
-    .filter(s => subscriptionReaches(s.data, event.ensembleIds));
+    .filter(s => deviceMaySend(s.data, familiesOpen) && subscriptionReaches(s.data, event.ensembleIds));
   if (subs.length === 0) return { kind: 'sent', recipients: 0, sent: 0, failed: 0, removed: 0 };
 
   const names = await deps.ensembleNames(event.ensembleIds ?? []);

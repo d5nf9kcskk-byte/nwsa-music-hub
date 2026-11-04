@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../director/firebase';
 import { t, useLang, getLang } from '../../shared/i18n';
 import type { SavedStudent } from '../../shared/identity';
+import { hasPushState } from '../../shared/pushDeviceState';
 import type * as PushClient from '../../shared/pushClient';
 
 const loadClient = () => import('../../shared/pushClient') as Promise<typeof PushClient>;
@@ -14,7 +15,9 @@ const loadClient = () => import('../../shared/pushClient') as Promise<typeof Pus
  * Renders NOTHING unless `pushSettings/global.familiesOpen` is true — the
  * director's switch, off until App Check enforcement is on and the iPhone
  * trial is done. The rules refuse a family subscription while it is off, so
- * this check is courtesy, not the gate.
+ * this check is courtesy, not the gate. One exception: a phone that signed up
+ * while it was open still sees the card after a close, with "Turn off" only,
+ * so a family can always remove its own record (the sender skips it anyway).
  *
  * Ensembles are resolved from `studentsPublic` at the moment of tapping, so
  * a student moved into Symphony last week is followed as a Symphony student.
@@ -37,18 +40,22 @@ export function FamilyAlertsButton({ students }: { students: SavedStudent[] }) {
     return () => { alive = false; };
   }, [students.length]);
 
+  // The client loads when families are open, or when this phone signed up
+  // earlier (so it can still turn alerts off after a close). Otherwise
+  // nothing loads: the push client is kept out of the precache on purpose.
+  const signedUp = hasPushState('family');
   useEffect(() => {
-    if (!open) return;
+    if (students.length === 0 || (!open && !signedUp)) return;
     let alive = true;
     void loadClient().then(c => {
       if (!alive) return;
       setClient(c);
       setOn(!!c.readPushState('family'));
-    });
+    }).catch(() => { /* offline: no card until the client can load */ });
     return () => { alive = false; };
-  }, [open]);
+  }, [open, signedUp, students.length]);
 
-  if (!open || students.length === 0) return null;
+  if (students.length === 0 || (!open && !on)) return null;
 
   const support = client?.pushSupport() ?? 'ok';
 
@@ -105,12 +112,14 @@ export function FamilyAlertsButton({ students }: { students: SavedStudent[] }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700 }}>
         <Bell size={18} /> {on ? t('push.on') : t('push.getAlerts')}
       </div>
-      <p style={{ margin: '6px 0 8px', fontSize: 14 }}>{supportNote ?? t('push.help')}</p>
-      {!supportNote && (
+      <p style={{ margin: '6px 0 8px', fontSize: 14 }}>{!open ? t('push.paused') : supportNote ?? t('push.help')}</p>
+      {(!supportNote || !open) && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="pub-push-btn" disabled={busy || !client} onClick={subscribe}>
-            {busy ? t('push.working') : on ? t('push.update') : t('push.getAlerts')}
-          </button>
+          {open && (
+            <button className="pub-push-btn" disabled={busy || !client} onClick={subscribe}>
+              {busy ? t('push.working') : on ? t('push.update') : t('push.getAlerts')}
+            </button>
+          )}
           {on && (
             <button className="pub-push-btn pub-push-btn-ghost" disabled={busy} onClick={unsubscribe}>
               {t('push.turnOff')}

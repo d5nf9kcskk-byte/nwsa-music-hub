@@ -1643,15 +1643,27 @@ subscriptions hold. The family side is BUILT and switched OFF.
 - **The family gate is `pushSettings/global.familiesOpen`** — world-readable
   so Home knows whether to render "Get alerts on this phone", Owner/Director
   to write, absent = closed. While it is false the rules refuse every family
-  create; the button's own check is courtesy. A family create is the app's
+  create; the button's own check is courtesy. **The sender checks it too**
+  (Nov 2026): `deviceMaySend()` in `pushAlerts.ts`, read once per change in
+  `handleEventChange`, so closing the switch stops every family phone that
+  already signed up, not only new sign-ups; their records are kept and
+  reopening resumes them. A failed read counts as CLOSED (`.catch(() =>
+  false)`): families fail closed and staff still get the alert, because
+  `pushOnEventChange` is a v1 trigger with no retry policy and a throw would
+  lose it for everyone. While closed, a phone that already signed up still
+  sees the Home card with "Turn off" only (`FamilyAlertsButton`), so a family
+  can always remove its own record. A family device is one with no
+  `staffEmail`. A family create is the app's
   EIGHTH unauthenticated write: exact key set (the honeypot), `scope` pinned
   to `'groups'`, bounded arrays, a `students/{id}` anchor, no update (a
   changed list is a delete + create). **Why families wait for App Check:**
   this write needs no account and costs us a send per change, so without
   App Check nothing stops a script from filling the collection. The director
   flips the switch from Menu → Phone alerts, behind a confirm that says so.
-  `docs/privacy-notice.md` (and `.es.md`) promise families that the notice
-  will describe the family side BEFORE it opens; update both first.
+  `docs/privacy-notice.md` (and `.es.md`) describe the family side as built
+  (updated Nov 2026, before it opens: the token, language, ensembles and
+  saved student ids a family phone stores, and that closing stops them).
+  Change what a family subscription stores and both notices change with it.
 - **The service worker stays generated and deterministic.** The push and
   notificationclick handlers are `public/push-handler.js`, pulled in by the
   workbox `importScripts` option beside `sw-cleanup.js` and kept out of the
