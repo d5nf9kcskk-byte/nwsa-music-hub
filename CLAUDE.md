@@ -1996,10 +1996,14 @@ any change. Later sessions apply it page by page.
   stock dark theme (`uiUpdates.css`) re-points `--pub-accent` to
   `--pub-accent-fill` on every white-on-accent fill, inside a `:where()` so it
   adds no specificity and a plum selected state or the Spotlight gold still
-  wins; `hub2.css` maps the fill to `--hub2-accent-fill`, and an org sets its
-  own in `brandDark` (ASYO's purple). `hub2.selfcheck.ts` scans every public
-  CSS rule that puts white on `--pub-accent` and fails until it is in that
-  list.
+  wins; `hub2.css` maps the fill to `--hub2-accent-fill`. An org that sets its
+  own dark `--pub-accent` must set its own `--pub-accent-fill` in `brandDark`
+  too (ASYO and AS use a purple), or its buttons borrow NWSA teal;
+  `look.selfcheck.ts` fails otherwise. `hub2.selfcheck.ts` scans every rule in
+  `src/public` and `src/shared` CSS that puts white text on a background using
+  `--pub-accent` (solid, as a fallback, or in a gradient: the header, the
+  concert-day "Check in") and fails until it is in that list. Inline styles in
+  components are not scanned; none exist today.
 - **Staff screens are themed** (`src/director/hub2Staff.css`, imported by all
   four shells): Studio Bright soft cards, big times and numbers (Today, roll
   counts, Gradebook, Check-In), sun on waiting chips and nav badges; Concert

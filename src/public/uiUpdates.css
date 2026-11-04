@@ -688,6 +688,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
    the background directly and still win. hub2.selfcheck.ts fails on any
    white-on-accent fill missing here. */
 :root[data-pub-theme='dark'] :where(
+  .concert-day-banner-checkin,
   .pub-absence-branch .pub-btn,
   .pub-atc-primary .pub-atc-btn,
   .pub-cal-cell.selected .pub-cal-day,
@@ -699,6 +700,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
   .pub-chip.active,
   .pub-contact-send,
   .pub-fm-opt.checked .pub-fm-box,
+  .pub-header,
   .pub-nownext-tag,
   .pub-pdf-btn.primary,
   .pub-pdf-tool.active,
@@ -716,6 +718,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
   .pub-subw-step-num,
   .pub-tally-ask .pub-btn,
   .pub-today-badge,
+  .pub-welcome-banner,
+  .pub-welcome-college-shout,
   .pub-welcome-done
 ) {
   --pub-accent: var(--pub-accent-fill);

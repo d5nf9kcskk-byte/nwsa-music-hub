@@ -123,27 +123,29 @@ for (const f of stock) {
     assert.ok(!new RegExp(`\\.${cls}(?![\\w-])`).test(src), `${f} styles .${cls}, which is a Hub 2.0-only page class`);
   }
 }
-// White on the dark accent is 2.8:1 (#contrast). Every white-on-accent fill in
-// the public CSS must be in the stock dark theme's fill list (uiUpdates.css),
-// which re-points the token on the element to --pub-accent-fill; hub2.css maps
-// that to the org's accentFill, so the preview reads the same list.
+// White on the dark accent is 2.8:1 (#contrast). Every rule in the public and
+// shared CSS that puts white text on a background using --pub-accent (solid,
+// as a fallback, or inside a gradient) must be in the stock dark theme's fill
+// list (uiUpdates.css), which re-points the token on the element to
+// --pub-accent-fill; hub2.css maps that to the org's accentFill, so the
+// preview reads the same list.
 const fillBlock = strip(read('../public/uiUpdates.css'))
   .match(/:root\[data-pub-theme='dark'\] :where\(([^)]*)\)\s*\{\s*--pub-accent:\s*var\(--pub-accent-fill\);\s*\}/);
 assert.ok(fillBlock, 'uiUpdates.css has no dark-mode accent fill rule');
 assert.match(css, /--pub-accent-fill:\s*var\(--hub2-accent-fill\);/, 'hub2.css: under the preview the fill must be the org accentFill');
 const covered = new Set(fillBlock[1].split(',').map(s => s.trim()));
 let fills = 0;
-for (const f of stock.filter(f => f.includes('/src/public/'))) {
+for (const f of stock.filter(f => /\/src\/(public|shared)\//.test(f))) {
   const src = strip(readFileSync(f, 'utf8'));
   for (const m of src.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    if (!/background(-color)?:\s*var\(--pub-accent[,)]/.test(m[2]) || !/(^|;|\s)color:\s*(#fff\b|#ffffff|white)/i.test(m[2])) continue;
+    if (!/background(-color)?:[^;]*var\(--pub-accent[,)]/.test(m[2]) || !/(^|;|\s)color:\s*(#fff\b|#ffffff|white)/i.test(m[2])) continue;
     for (const sel of topLevel(m[1].trim().replace(/\s+/g, ' '))) {
       fills++;
       assert.ok(covered.has(sel), `${f}: ${sel} puts white on --pub-accent, which is 2.8:1 in dark mode. Add it to the dark fill list in uiUpdates.css`);
     }
   }
 }
-assert.ok(fills >= 28, `only ${fills} white-on-accent fills found — the scan is broken`);
+assert.ok(fills >= 32, `only ${fills} white-on-accent fills found — the scan is broken`);
 
 // 4. Fonts: latin subsets only, the first family of every configured stack is
 //    one hub2Fonts.ts loads, and the files stay out of the precache.

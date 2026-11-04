@@ -124,6 +124,11 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
     assert.ok(v, at(`${mode} ${name} is not set`));
     return v;
   };
+  // An org with its own dark teal sets its own dark fill too, or its buttons
+  // would borrow the stock (NWSA) teal: a white-label leak, not a contrast one.
+  if (org.brandDark?.['--pub-accent']) {
+    assert.ok(org.brandDark['--pub-accent-fill'], at('brandDark sets --pub-accent but not --pub-accent-fill'));
+  }
   for (const mode of ['light', 'dark'] as const) {
     const accent = pick(mode, '--pub-accent');
     for (const ground of [pick(mode, '--pub-bg'), pick(mode, '--pub-surface')]) {
