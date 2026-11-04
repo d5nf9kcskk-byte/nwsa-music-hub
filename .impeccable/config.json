@@ -74,6 +74,33 @@
         ],
         "createdAt": "2026-11-04T22:13:43.916Z",
         "reason": "Claude: the one kicker left is the live Now status label with a pulsing dot, from the Studio Bright mockup the director chose"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.34, 1.56, .64, 1)",
+        "files": [
+          "src/shared/hub2.css"
+        ],
+        "createdAt": "2026-11-04T23:06:55.814Z",
+        "reason": "Claude: the selection pop from the motion sketch the director approved on 2026-11-04 (docs/hub2-alive/concept.html uses this exact spring)"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "var(--hub2-spring)",
+        "files": [
+          "src/public/hub2Public.css"
+        ],
+        "createdAt": "2026-11-04T23:06:55.956Z",
+        "reason": "Claude: the selection pop from the motion sketch the director approved on 2026-11-04 (docs/hub2-alive/concept.html)"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "var(--hub2-spring)",
+        "files": [
+          "src/director/hub2Staff.css"
+        ],
+        "createdAt": "2026-11-04T23:06:56.088Z",
+        "reason": "Claude: the selection pop from the motion sketch the director approved on 2026-11-04 (docs/hub2-alive/concept.html)"
       }
     ]
   }
