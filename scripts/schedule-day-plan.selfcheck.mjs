@@ -218,11 +218,11 @@ const labels = { 'evt-we': 'Wind Ensemble', 'evt-so': 'Symphony Orchestra' };
   const hsClosed = planDayChange(mday, { kind: 'cancelDay', campus: 'mdcps', closed: true }, { labels: mlabels, groups });
   eqDeep(hsClosed.writes.map(w => w.id).sort(), ['evt-hs', 'evt-mc'], 'closing the high school closes no college group');
   assert(hsClosed.writes.every(w => w.data.changeNote === 'High school closed'), 'each high school block says the high school is closed');
-  assert(hsClosed.bannerText === '🚫 High school closed Mon, Sep 21: all high school rehearsals and classes cancelled',
+  assert(hsClosed.bannerText === '🚫 High school closed Mon, Sep 21: everything at the high school is cancelled',
     `high school closure banner is exact (got "${hsClosed.bannerText}")`);
   const mdcClosed = planDayChange(mday, { kind: 'cancelDay', campus: 'mdc', closed: true }, { labels: mlabels, groups });
   eqDeep(mdcClosed.writes.map(w => w.id).sort(), ['evt-cco', 'evt-mdc'], 'closing the college closes no high school group');
-  assert(mdcClosed.bannerText === '🚫 College closed Mon, Sep 21: all college classes and rehearsals cancelled',
+  assert(mdcClosed.bannerText === '🚫 College closed Mon, Sep 21: everything at the college is cancelled',
     `college closure banner is exact (got "${mdcClosed.bannerText}")`);
 
   // Should not exist: the two programs are separate. Fail-safe, not a rule.
@@ -354,8 +354,12 @@ const labels = { 'evt-we': 'Wind Ensemble', 'evt-so': 'Symphony Orchestra' };
   assert(closed.writes.every(w => w.data.changeNote === 'School closed'), 'an unscoped closure notes "School closed" on every block');
   eqDeep(closed.writes.map(w => w.data.changeFrom), plain.writes.map(w => w.data.changeFrom),
     'a closure leaves the same receipt a chip-cancelled block does');
-  assert(closed.bannerText === '🚫 School closed Fri, Sep 4: all rehearsals and classes cancelled',
+  assert(closed.bannerText === '🚫 School closed Fri, Sep 4: everything is cancelled',
     `closure banner is exact (got "${closed.bannerText}")`);
+  const gala = { id: 'evt-gala', type: 'Concert', ensembleIds: ['so'], date: D, startTime: '19:00', endTime: '21:00', status: 'Scheduled' };
+  const withConcert = planDayChange([...day, gala], { kind: 'cancelDay', closed: true }, { labels: { ...labels, 'evt-gala': 'Fall Concert' } });
+  assert(withConcert.bannerText === '🚫 School closed Fri, Sep 4: everything is cancelled, including Fall Concert',
+    `a closure names the concert it cancels, so nobody reads it as still on (got "${withConcert.bannerText}")`);
   const afterClose = applyPlan(day, closed.writes);
   eqDeep(applyPlan(afterClose, planDayChange(afterClose, { kind: 'backToNormal' }).writes), day,
     'school closed → Change a Day\'s Back to normal restores the whole day');

@@ -210,9 +210,16 @@ export function ScheduleSwapView({ initialDate, closing = false, onNavigate }: {
           danger: true,
         });
       }
-      opts.push({ key: 'cancel-day', label: closing ? 'Close both' : 'Cancel everything', action: { kind: 'cancelDay', ...(closing ? { closed: true } : {}) }, danger: true });
+      opts.push({ key: 'cancel-day', label: closing ? 'Close both' : 'Cancel everything', action: closing ? { kind: 'cancelDay', closed: true } : { kind: 'cancelDay' }, danger: true });
     } else if (liveByCampus.size === 1) {
-      opts.push({ key: 'cancel-day', label: closing ? 'Close the day' : 'Cancel the day', action: { kind: 'cancelDay', ...(closing ? { closed: true } : {}) }, danger: true });
+      // Closing names the one school that has anything on (Nov 23-25 is a
+      // college-only board, Dec 14-17 a high-school-only one), so the notes
+      // and the banner never say "School closed" about the other. The writes
+      // are the same: everything live already belongs to that campus.
+      const [[only, n]] = [...liveByCampus];
+      opts.push(closing
+        ? { key: 'cancel-day', label: `Close the ${CAMPUS_LABEL[only]} (${n})`, action: { kind: 'cancelDay', campus: only, closed: true }, danger: true }
+        : { key: 'cancel-day', label: 'Cancel the day', action: { kind: 'cancelDay' }, danger: true });
     }
     // Putting it back, same shape. A day whose two campuses were changed
     // together — which is how the college classes got cancelled in the first

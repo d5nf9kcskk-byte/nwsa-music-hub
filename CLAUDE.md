@@ -413,10 +413,12 @@ seed that `set`s rather than merges.
   campuses, and leave every private lesson standing, which is the
   #college-hs-calendar-deps mistake on a button. It now opens Change a Day
   with `closing` (a `DirNavOpts` field, so it survives the URL): the
-  day-cancel buttons read "Close the high school / college / both", swaps and
+  day-cancel buttons read "Close the high school / college / both" (a day
+  with only one campus on it names that campus, never "School"), swaps and
   combines are hidden, and the action carries `closed: true`. That changes the
   WORDS only, never the writes: the note is `closedNote()` ("High school
-  closed") and the one banner names the school instead of listing every group.
+  closed") and the one banner names the school and says "everything is
+  cancelled", naming any concert outright, instead of listing every group.
   Same campus split, same lessons, same receipts, same Back to normal, all
   pinned in the day-plan self-check.
 

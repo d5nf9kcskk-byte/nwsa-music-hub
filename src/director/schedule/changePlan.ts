@@ -406,11 +406,13 @@ export function planDayChange(
       // lesson drops out of feeds/student-<id>.ics, which reaches exactly the
       // one family it concerns instead of the whole school.
       if (live.length > 0) {
-        const what = action.campus === 'mdc' ? 'all college classes and rehearsals'
-          : action.campus === 'mdcps' ? 'all high school rehearsals and classes'
-          : 'all rehearsals and classes';
+        // A closure says "everything", and names any concert outright: a
+        // family must never read "rehearsals and classes" and assume the
+        // concert is still on.
+        const where = action.campus ? ` at the ${CAMPUS_LABEL[action.campus]}` : '';
+        const concerts = live.filter(e => e.type === 'Concert').map(label);
         bannerText = action.closed
-          ? `🚫 ${closedNote(action.campus)} ${when}: ${what} cancelled`
+          ? `🚫 ${closedNote(action.campus)} ${when}: everything${where} is cancelled${concerts.length ? `, including ${concerts.join(', ')}` : ''}`
           : `🚫 ${live.map(label).join(', ')}: CANCELLED ${when}`;
       }
       break;
