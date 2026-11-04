@@ -1,6 +1,7 @@
 /**
  * Hub 2.0 preview (#hub2-look) — the promises that keep it the owner's alone
- * and keep "flag off" meaning "nothing changed".
+ * until the org config turns it on for everyone (hub2.forEveryone), and keep
+ * "flag off" meaning "nothing changed".
  *
  *   npx tsx src/shared/hub2.selfcheck.ts
  *
@@ -26,6 +27,19 @@ assert.ok(bootLine, 'index.html boot script does not read the preview key');
 assert.ok(bootLine.includes(`setAttribute('${HUB2_ATTR}', 'on')`), 'the boot script must set data-hub2="on"');
 for (const src of [strip(previewSrc), bootLine]) {
   assert.ok(!/location|URLSearchParams|searchParams/.test(src), 'the preview must never be switched on from the URL');
+}
+// 1b. "For everyone" is org config (hub2.forEveryone), written into the boot
+//     script at build time so it is on before first paint, and answered by
+//     hub2PreviewOn() so tokens and fonts follow. Flipping it must be a
+//     one-word change in config/orgs, so every link of that chain is pinned.
+assert.ok(html.includes('var hub2Everyone = __ORG_HUB2_EVERYONE__;'), 'the boot script must take forEveryone from the build');
+assert.ok(bootLine.includes('hub2Everyone ||'), 'the boot script must switch the look on for everyone');
+assert.match(read('../../vite.config.ts'), /replaceAll\('__ORG_HUB2_EVERYONE__', String\(ORG\.hub2\?\.forEveryone === true\)\)/,
+  'vite.config.ts must write hub2.forEveryone into the boot script');
+assert.ok(previewSrc.includes('if (hub2ForEveryone()) return true;'), 'hub2PreviewOn() must answer true for everyone');
+for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) {
+  const fe = JSON.parse(read(`../../config/orgs/${file}`)).hub2?.forEveryone;
+  assert.ok(fe === undefined || typeof fe === 'boolean', `${file}: hub2.forEveryone must be true or false`);
 }
 
 // 2. The switch is rendered for the owner only, on both nav surfaces (#one-nav).

@@ -180,7 +180,11 @@ function orgStatics(): Plugin {
           .replaceAll('__ORG_THEMECOLOR__', ORG.themeColor)
           .replaceAll('__ORG_FAVICONFILE__', ORG.faviconFile)
           .replaceAll('__ORG_FAVICONTYPE__', FAVICON_MIME[ext] ?? 'image/png')
-          .replaceAll('__ORG_APPLETOUCHICON__', ORG.icons.appleTouchIcon);
+          .replaceAll('__ORG_APPLETOUCHICON__', ORG.icons.appleTouchIcon)
+          // The Hub 2.0 look for everyone (#hub2-look): a literal true/false in
+          // the boot script, so it is on before first paint. The CSP hashes the
+          // script after this runs (cspPlugin is order 'post').
+          .replaceAll('__ORG_HUB2_EVERYONE__', String(ORG.hub2?.forEveryone === true));
       },
     },
     closeBundle() {

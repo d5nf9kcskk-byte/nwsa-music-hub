@@ -100,6 +100,13 @@ export interface Hub2Look {
   spotlight: { bg: string; surface: string; ink: string; gold: string; tealGlow: string; plumGlow: string };
   /** CSS font-family stacks. The first family of each must be self-hosted in src/shared/hub2Fonts.ts. */
   fonts: { body: string; title: string; spotlightDisplay: string; spotlightBody: string };
+  /**
+   * The look for EVERY visitor, not only the owner's on-device preview.
+   * Written into index.html's boot script at build time (org-statics in
+   * vite.config.ts) and read by hub2PreviewOn(). Absent or false = preview
+   * only. NWSA's date for it is Sun Dec 13, 2026, after the last concert.
+   */
+  forEveryone?: boolean;
 }
 
 /**
