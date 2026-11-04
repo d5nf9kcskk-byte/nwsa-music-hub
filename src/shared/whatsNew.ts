@@ -34,6 +34,16 @@ export interface WhatsNewEntry {
 export const WHATS_NEW: WhatsNewEntry[] = [
   // #close-a-day: Today's "Close a day" goes through Change a Day.
   {
+    id: '2026-11-04-phone-alerts-menu',
+    date: '2026-11-04',
+    title: 'Phone alerts opens from the phone menu',
+    audience: 'staff' as const,
+    bullets: [
+      'On a phone, Menu → Phone alerts now closes the menu and opens the alerts panel on top, so you can turn alerts on.',
+    ],
+    expires: '2026-11-18',
+  },
+  {
     id: '2026-11-04-close-a-day',
     date: '2026-11-04',
     title: 'Close a day now asks which school is closed',

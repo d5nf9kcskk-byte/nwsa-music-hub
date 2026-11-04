@@ -21,12 +21,14 @@ const loadClient = () => import('../../shared/pushClient') as Promise<typeof Pus
  * "Phone alerts" menu row (#push). One component, two skins (#one-nav): the
  * rail and the phone drawer both render this, so neither can lose it.
  */
-export function PushAlertsButton({ rail = false }: { rail?: boolean } = {}) {
+export function PushAlertsButton({ rail = false, onOpen }: { rail?: boolean; onOpen?: () => void } = {}) {
   const [open, setOpen] = useState(false);
   const cls = rail ? 'dir-rail-item' : 'dir-menu-item';
   return (
     <>
-      <button className={cls} onClick={() => setOpen(true)}>
+      {/* The phone drawer passes onOpen: the panel's state must live OUTSIDE
+          the drawer, or closing the drawer unmounts the panel with it. */}
+      <button className={cls} onClick={() => (onOpen ? onOpen() : setOpen(true))}>
         <Bell size={rail ? 18 : 19} /> Phone alerts
       </button>
       {/* Portaled to <body>: opened from inside the phone drawer, a fixed
@@ -50,7 +52,7 @@ const ERROR_TEXT: Record<string, string> = {
   'no-service-worker': 'The Hub app is still installing on this device. Reload once, then try again.',
 };
 
-function PushAlertsPanel({ onClose }: { onClose: () => void }) {
+export function PushAlertsPanel({ onClose }: { onClose: () => void }) {
   const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
   const me = useCurrentDirector();
   const canFlipFamilies = isStaffMember(me);
