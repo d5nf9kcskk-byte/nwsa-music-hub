@@ -110,10 +110,27 @@
      Every public page is built from these, so restyling them reaches every
      page at once, including pages built later. Menu colors stay on the
      --pub-* tokens: a student's menu color re-derives those. */
-  :root[data-hub2="on"] .pub-section-title {
+  :root[data-hub2="on"] :is(.pub-section-title, .pub-doc-group-title, .pub-doc-section-head, .pub-season-month-title) {
     text-transform: none; letter-spacing: -0.01em;
     font-size: 18px; font-weight: 800; color: var(--pub-ink);
   }
+  /* Form labels read as words, not small grey capitals ("Your name"). */
+  :root[data-hub2="on"] .pub-absence-label { text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--pub-ink); }
+  /* An empty state: the page's own icon in a tinted circle, or where a page
+     gave none, the music stand. */
+  :root[data-hub2="on"] .pub-empty { border-style: solid; }
+  :root[data-hub2="on"] .pub-empty > svg:first-child {
+    opacity: 1; box-sizing: content-box; padding: 12px; border-radius: 50%;
+    color: var(--pub-accent); background: color-mix(in srgb, var(--pub-accent) 12%, var(--pub-surface));
+  }
+  :root[data-hub2="on"] .pub-empty:not(:has(> svg))::before {
+    content: ''; width: 110px; height: 77px; background: var(--pub-muted); opacity: .6;
+    -webkit-mask: var(--hub2-stand) center / contain no-repeat;
+    mask: var(--hub2-stand) center / contain no-repeat;
+  }
+  /* A group pill in a page's crumbs: one even colored outline, not a thick
+     left end that rounds into a crescent. */
+  :root[data-hub2="on"] .pub-crumb { border-left-width: 1.5px; }
   :root[data-hub2="on"] .pub-h1,
   :root[data-hub2="on"] .pub-hero h1 { font-size: 28px; line-height: 1.15; }
   :root[data-hub2="on"] .pub-event-bar { width: 5px; }
@@ -129,9 +146,14 @@
     color: var(--pub-accent); background: color-mix(in srgb, var(--pub-accent) 12%, var(--pub-surface));
   }
   :root[data-hub2="on"] .pub-menu-item { margin: 2px 10px; padding: 12px 14px; border-left: 0; border-radius: var(--hub2-radius-row); }
+  /* The group rows are full-width buttons: take the side margins out of
+     their width, or the menu scrolls sideways. */
+  :root[data-hub2="on"] .pub-menu-expand { width: calc(100% - 20px); }
   :root[data-hub2="on"] .pub-menu-item.active { font-weight: 700; }
   :root[data-hub2="on"] :is(.pub-input, .pub-absence-input, .pub-signup-textarea):focus {
-    outline: none; border-color: var(--pub-accent);
+    /* Transparent, not none: Windows high contrast drops the shadow ring and
+       draws this outline instead. */
+    outline: 2px solid transparent; border-color: var(--pub-accent);
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--pub-accent) 18%, transparent);
   }
   :root[data-hub2="on"] .pub-search:focus-within { box-shadow: 0 0 0 4px color-mix(in srgb, var(--pub-accent) 18%, transparent); }
@@ -147,7 +169,7 @@
     letter-spacing: -0.01em;
   }
   :root[data-hub2="on"] .pub-hall .pub-h1 { font-size: 30px; line-height: 1.15; }
-  :root[data-hub2="on"] .pub-hall .pub-section-title { font-family: var(--hub2-font-title); font-weight: 600; font-size: 22px; letter-spacing: 0; }
+  :root[data-hub2="on"] .pub-hall :is(.pub-section-title, .pub-season-month-title) { font-family: var(--hub2-font-title); font-weight: 600; font-size: 22px; letter-spacing: 0; }
   :root[data-hub2="on"] .pub-hall .pub-season-title { font-size: 17px; }
   :root[data-hub2="on"] .pub-hall .pub-daysheet-head { font-size: 19px; }
   /* A thin gold hairline under every section label. */
@@ -252,12 +274,12 @@
   :root[data-hub2="on"] :is(.pub-drill, .pub-checkin) {
     animation: hub2-slide-in var(--hub2-slide-ms) var(--hub2-ease) backwards;
   }
-  /* Arrive: the first 16 rows of a list rise in, one after another. A long
-     list's later rows are already there: 140 animations at once is a stall. */
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(-n+16) {
-    animation: hub2-rise-in var(--hub2-arrive-ms) var(--hub2-ease) backwards;
-  }
   @media (prefers-reduced-motion: no-preference) {
+    /* Arrive: the first 16 rows of a list rise in, one after another. A long
+       list's later rows are already there: 140 animations at once is a stall. */
+    :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(-n+16) {
+      animation: hub2-rise-in var(--hub2-arrive-ms) var(--hub2-ease) backwards;
+    }
     /* More lists arrive the same way (#hub2-alive): quick links, roster and
        day-sheet rows, pieces, list cards, and the phone menu's items as it
        opens. A block that IS a page section (.pub-page > *) is left to the
@@ -361,7 +383,7 @@
        header and tab bar groups. */
     :root[data-hub2="on"]:active-view-transition .hub2-wipe-edge {
       view-transition-name: hub2-edge;
-      display: block; position: fixed; top: 0; bottom: 0; left: 0; z-index: 1;
+      display: block; position: fixed; top: 0; bottom: 0; left: 0;
       width: 3px; margin-left: -1.5px; pointer-events: none;
       background: linear-gradient(180deg, transparent, var(--hub2-spot-gold) 18%, var(--hub2-spot-gold) 82%, transparent);
       box-shadow: 0 0 14px 3px color-mix(in srgb, var(--hub2-spot-gold) 55%, transparent);

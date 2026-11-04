@@ -10,6 +10,6 @@ import { useState } from 'react';
  */
 export function Hub2Count({ value }: { value: number | string }) {
   const [seen, setSeen] = useState({ value, changed: false });
-  if (seen.value !== value) setSeen({ value, changed: true });
+  if (!Object.is(seen.value, value)) setSeen({ value, changed: true }); // Object.is: NaN equals itself, so it can't loop
   return <span key={String(value)} className={seen.changed ? 'hub2-count hub2-roll' : 'hub2-count'}>{value}</span>;
 }

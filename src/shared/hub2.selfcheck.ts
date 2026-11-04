@@ -376,9 +376,15 @@ let partsChecked = 0;
   // One gate for every motion the script runs.
   assert.match(motionSrc, /export function hub2MotionOn\(\): boolean/, 'hub2Motion.ts must export hub2MotionOn()');
   for (const fn of ['initHub2Motion', 'hub2Celebrate']) {
-    const at = motionSrc.indexOf(`export function ${fn}`);
-    assert.ok(at >= 0, `hub2Motion.ts must export ${fn}()`);
-    assert.ok(motionSrc.slice(at, at + 700).includes('hub2MotionOn()'), `${fn} must check hub2MotionOn()`);
+    assert.ok(motionSrc.includes(`export function ${fn}(`), `hub2Motion.ts must export ${fn}()`);
+  }
+  // Each function's OWN body asks the gate (a window over the file would
+  // let one function's check stand in for its neighbor's).
+  for (const fn of ['ripple', 'initHub2Motion', 'hub2Celebrate']) {
+    const at = motionSrc.search(new RegExp(`function ${fn}\\(`));
+    assert.ok(at >= 0, `hub2Motion.ts must define ${fn}()`);
+    const body = motionSrc.slice(at, motionSrc.indexOf('\n}', at));
+    assert.ok(body.includes('hub2MotionOn()'), `${fn}() must check hub2MotionOn() itself`);
   }
   assert.ok(read('../main.tsx').includes('initHub2Motion();'), 'main.tsx must call initHub2Motion()');
   // The gold edge rides the wipe: hidden unless a transition runs (§7 pins
@@ -388,19 +394,23 @@ let partsChecked = 0;
   // Nothing stays a layer: every animation on a page element fills
   // backwards (or loops on purpose). A view transition's pseudo-elements and
   // the ripple and note overlays, which remove themselves, are exempt.
+  let animsChecked = 0;
   for (const [name, src] of [['hub2Public.css', pubCss], ['hub2Staff.css', staffCss]] as const) {
     const noKf = src.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
     for (const m of noKf.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       const sel = m[1].trim();
       if (/::view-transition|hub2-ripple|hub2-note/.test(sel)) continue;
+      assert.ok(!/animation-fill-mode:\s*(both|forwards)/.test(m[2]), `${name}: "${sel}" sets a fill mode that keeps a layer`);
       for (const d of m[2].matchAll(/(?:^|;)\s*animation:\s*([^;]+)/g)) {
         if (d[1].trim() === 'none') continue;
         for (const part of topLevel(d[1])) {
           assert.ok(/\b(backwards|infinite)\b/.test(part), `${name}: "${sel}" animates "${part}"; page elements fill backwards so nothing stays a layer`);
+          animsChecked++;
         }
       }
     }
   }
+  assert.ok(animsChecked >= 15, `only ${animsChecked} animations found: the fill-mode scan is broken`);
   // The classes the alive layer adds are read by no stock stylesheet, so
   // with the look off they change nothing.
   for (const f of stock) {

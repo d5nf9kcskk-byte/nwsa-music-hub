@@ -87,8 +87,10 @@ const TAPPABLE = 'button, a[href], [role="button"], summary';
 
 function ripple(e: PointerEvent): void {
   if (!hub2MotionOn() || e.button !== 0) return;
-  const target = (e.target as Element | null)?.closest?.(TAPPABLE);
-  if (!target || target.closest('input, textarea, select, [data-hub2-noripple]')) return;
+  const at = e.target as Element | null;
+  if (!at?.closest || at.closest('input, textarea, select, [data-hub2-noripple]')) return;
+  const target = at.closest(TAPPABLE);
+  if (!target) return;
   const r = target.getBoundingClientRect();
   // Skip slivers and anything the size of a page (a whole card list that
   // happens to be one link).

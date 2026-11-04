@@ -17,7 +17,7 @@
  *
  *   node scripts/hub2-contact-sheet.mjs --base http://localhost:5173/nwsa-music-hub \
  *     --out /tmp/sheet [--look on|off] [--widths 390,1280] [--dark] \
- *     [--only public|director] [--routes /,/calendar]
+ *     [--only public|director] [--routes /,/calendar] [--top]
  *
  * A local tool: CI renders nothing (CLAUDE.md #one-nav). The Browser pane
  * draws no frames while hidden, which is why this runs its own Chrome.
@@ -35,11 +35,12 @@ const flag = (name, fallback) => {
   return next && !next.startsWith('--') ? next : true;
 };
 const BASE = String(flag('base', 'http://localhost:5173/nwsa-music-hub')).replace(/\/$/, '');
-const OUT = String(flag('out', 'hub2-sheet'));
+const OUT = String(flag('out', join(tmpdir(), 'hub2-sheet'))); // never a folder in the repo by default
 const LOOK = flag('look', 'on') === 'off' ? 'off' : 'on';
 const WIDTHS = String(flag('widths', '390,1280')).split(',').map(Number);
 const DARK = flag('dark', false) === true;
 const ONLY = flag('only', '');
+const TOP = flag('top', false) === true; // first screenful only: quick spot checks
 const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 // Every routed page (src/main.tsx), with fixture ids from
@@ -156,10 +157,12 @@ async function main() {
       await go(route, route.startsWith('/director') ? 2600 : 1700);
       // Both shells scroll an inner box, so grow the window to fit it and
       // photograph the whole page in one frame.
-      const height = await evaluate(`Math.min(6000, Math.max(900, document.documentElement.scrollHeight,
-        ...[...document.querySelectorAll('.pub-content, .dir-content, .pub-page, .dir-tab-page')].map(e => e.scrollHeight + 160)))`);
-      await cdp.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile }, s);
-      await sleep(500);
+      if (!TOP) {
+        const height = await evaluate(`Math.min(6000, Math.max(900, document.documentElement.scrollHeight,
+          ...[...document.querySelectorAll('.pub-content, .dir-content, .pub-page, .dir-tab-page')].map(e => e.scrollHeight + 160)))`);
+        await cdp.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile }, s);
+        await sleep(500);
+      }
       const look = await evaluate("document.documentElement.getAttribute('data-hub2') || 'off'");
       const { data } = await cdp.send('Page.captureScreenshot', { format: 'png' }, s);
       const file = `${width}-${slug(route)}.png`;

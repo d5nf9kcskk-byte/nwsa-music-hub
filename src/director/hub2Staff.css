@@ -34,7 +34,7 @@
    later. Studio Bright: bold sentence-case headings instead of small grey
    capitals, teal primary buttons, plum selections, soft rows with a group
    bar and a chevron, drawers with a big title, drawn empty states. ═══ */
-:root[data-hub2="on"] .dir-app :is(.dir-section-head, .dir-section-title, .dir-detail-section-title) {
+:root[data-hub2="on"] .dir-app :is(.dir-section-head, .dir-section-title, .dir-detail-section-title, .dir-checkin-group, .dir-signup-section) {
   text-transform: none; letter-spacing: -0.005em;
   font-size: 16px; font-weight: 800; color: var(--dir-text);
 }
@@ -44,19 +44,28 @@
 :root[data-hub2="on"] .dir-app .dir-label {
   text-transform: none; letter-spacing: 0; font-size: 13.5px; color: var(--dir-text-muted);
 }
-:root[data-hub2="on"] .dir-app .dir-btn { font-weight: 800; }
+/* A button grows with a label that wraps instead of spilling out of the
+   stock fixed 48px (the look's wider type wraps long labels on a phone), and
+   a page button in a column can no longer collapse to a sliver. Small and
+   compact buttons keep their own size. */
+:root[data-hub2="on"] .dir-app .dir-btn:not(.dir-btn-sm, .dir-btn-compact, .dir-sc-small) {
+  height: auto; min-height: 48px; padding: 6px 10px; line-height: 1.25;
+}
 :root[data-hub2="on"] .dir-app .dir-btn-primary { background: var(--hub2-accent-fill); color: white; }
 :root[data-hub2="on"] .dir-app:not([data-dir-theme="dark"]) .dir-btn-primary {
   box-shadow: 0 8px 18px -10px var(--hub2-accent-fill);
 }
 :root[data-hub2="on"] .dir-app .dir-btn-ghost { background: var(--dir-surface); color: var(--dir-text); }
-:root[data-hub2="on"] .dir-app :is(.dir-tool-btn, .dir-icon-btn) { color: var(--dir-text); }
 :root[data-hub2="on"] .dir-app .dir-icon-btn { border-radius: var(--dir-radius-sm); }
 :root[data-hub2="on"] .dir-app :is(.dir-input, .dir-select, .dir-textarea):focus {
   border-color: var(--dir-primary);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--dir-primary) 18%, transparent);
 }
-:root[data-hub2="on"] .dir-app .dir-drawer-overlay:not(.dir-drawer-full) .dir-drawer { border-radius: 24px 24px 0 0; }
+/* A phone's drawer is a sheet with round shoulders; a laptop's is a square
+   pane down the right edge (dirShell.css), left as it is. */
+@media (max-width: 1023.98px) {
+  :root[data-hub2="on"] .dir-app .dir-drawer-overlay:not(.dir-drawer-full) .dir-drawer { border-radius: 24px 24px 0 0; }
+}
 :root[data-hub2="on"] .dir-app .dir-drawer-header { border-bottom-color: transparent; }
 :root[data-hub2="on"] .dir-app .dir-drawer-title { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
 :root[data-hub2="on"] .dir-app .dir-drawer-close {
@@ -66,13 +75,31 @@
 :root[data-hub2="on"] .dir-app .dir-ens-row {
   border-width: 1px; border-radius: var(--dir-radius-sm); box-shadow: var(--dir-card-shadow);
 }
-/* The group color, as the mockup's left bar rather than a block. */
-:root[data-hub2="on"] .dir-app .dir-ens-swatch { width: 5px; height: auto; align-self: stretch; border-radius: 99px; }
+/* The group color, as the mockup's left bar rather than a block. Only an
+   empty swatch: Juries prints the running-order number inside one. */
+:root[data-hub2="on"] .dir-app .dir-ens-swatch:empty { width: 5px; height: auto; align-self: stretch; border-radius: 99px; }
 /* A row that opens something says so (the mask is drawn in hub2Public.css). */
-:root[data-hub2="on"] .dir-app button.dir-ens-row:not(:has(.lucide-chevron-right))::after {
+:root[data-hub2="on"] .dir-app button.dir-ens-row:not(:disabled, :has(.lucide-chevron-right))::after {
   content: ''; flex: none; width: 18px; height: 18px; background: var(--dir-text-muted);
   -webkit-mask: var(--hub2-chevron) center / contain no-repeat;
   mask: var(--hub2-chevron) center / contain no-repeat;
+}
+/* The ensemble page's top card already wears the color as its thick left
+   edge; the inner bar would draw it twice. */
+:root[data-hub2="on"] .dir-app .dir-hub-hero > .dir-ens-swatch { display: none; }
+/* Its buttons drop below the name when the row is too narrow for both. */
+:root[data-hub2="on"] .dir-app .dir-hub-hero { flex-wrap: wrap; }
+/* A row of page buttons flows onto a second line instead of squeezing four
+   labels into one (the stock flex: 1 never lets a row wrap). Buttons that
+   are a page's direct children keep the stock rule that stops them
+   stretching. */
+:root[data-hub2="on"] .dir-app .dir-page-body > * .dir-btn:not(.dir-btn-sm, .dir-btn-compact, .dir-sc-small) { flex: 1 1 auto; }
+/* An intro line's icon keeps its size beside a long sentence. */
+:root[data-hub2="on"] .dir-app .dir-sc-intro > svg { flex: none; }
+/* Selected filters (Messages' Inbox / Archived, Forms' chips, every tag
+   picker) say so in plum, as every selection does under the look. */
+:root[data-hub2="on"] .dir-app :is(.dir-tool-btn.active, .dir-tool-btn[aria-pressed="true"], .dir-checkbox-tag.checked) {
+  background: var(--hub2-plum); border-color: var(--hub2-plum); color: white;
 }
 :root[data-hub2="on"] .dir-app :is(.dir-segment, .dir-mode-toggle) { background: var(--dir-surface); border-radius: 14px; }
 :root[data-hub2="on"] .dir-app .dir-segment-btn.active { box-shadow: 0 6px 14px -8px var(--dir-blue); }
@@ -288,8 +315,10 @@
     }
   }
 
-  /* Arrive: every card and row list rises in, 40ms apart, the first 16 only
-     (a roster of 140 must not put 140 animations on the screen at once). */
+  /* Arrive: every card and row list rises in, 40ms apart, its first 16 rows
+     only. The cap counts per list, so a page of many group lists (the roster,
+     one list per ensemble) animates its first group and shows the rest:
+     sixteen rows times every ensemble is a stall on an old iPad. */
   :root[data-hub2="on"] .dir-app :is(.dir-today-card, .dir-event-card, .dir-checkin-concert, .dir-ens-row, .dir-student-card, .dir-roster-card, .dir-note-card, .dir-announce-card, .dir-rep-card, .dir-assign-card, .dir-signup-card, .dir-doc-card, .dir-search-item, .dir-up-row, .dir-sub-row, .dir-card):nth-child(-n+16) {
     animation: hub2-dir-rise var(--hub2-arrive-ms) var(--hub2-ease) backwards;
   }
@@ -305,6 +334,8 @@
   :root[data-hub2="on"] .dir-app :is(.dir-today-card, .dir-event-card, .dir-checkin-concert, .dir-ens-row, .dir-student-card, .dir-roster-card, .dir-note-card, .dir-announce-card, .dir-rep-card, .dir-assign-card, .dir-signup-card, .dir-doc-card, .dir-search-item, .dir-up-row, .dir-sub-row, .dir-card):nth-child(11) { animation-delay: calc(var(--hub2-stagger-ms) * 10); }
   :root[data-hub2="on"] .dir-app :is(.dir-today-card, .dir-event-card, .dir-checkin-concert, .dir-ens-row, .dir-student-card, .dir-roster-card, .dir-note-card, .dir-announce-card, .dir-rep-card, .dir-assign-card, .dir-signup-card, .dir-doc-card, .dir-search-item, .dir-up-row, .dir-sub-row, .dir-card):nth-child(n+12) { animation-delay: calc(var(--hub2-stagger-ms) * 11); }
 
+  :root[data-hub2="on"] .dir-app .dir-roster-group ~ .dir-roster-group .dir-roster-list > * { animation: none; }
+
   /* Open: a drawer rises from the bottom on a phone and slides in from the
      right as a pane on a laptop, over a fading shade. A full-screen drawer
      keeps its own fade. */
@@ -317,7 +348,7 @@
   }
 
   /* Choose: a new selection pops in. */
-  :root[data-hub2="on"] .dir-app :is(.dir-segment-btn, .dir-tab, .dir-division-btn).active {
+  :root[data-hub2="on"] .dir-app :is(.dir-segment-btn.active, .dir-tab.active, .dir-division-btn.active, .dir-tool-btn.active, .dir-checkbox-tag.checked) {
     animation: hub2-dir-pop 320ms var(--hub2-spring) backwards;
   }
 
