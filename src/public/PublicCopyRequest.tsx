@@ -13,7 +13,7 @@ import { useHoneypot } from './components/Honeypot';
 import { primaryStudent } from '../shared/identity';
 import { fmtLongDate } from '../shared/dates';
 import {
-  COPY_LIMITS, COPY_REASON_LABEL, COPY_REQUEST_REASONS, partLooksVague, type CopyRequestReason,
+  COPY_LIMITS, COPY_REASON_LABEL, COPY_REQUEST_REASONS, partLooksVague, partNotInPiece, type CopyRequestReason,
 } from '../shared/copyRequest';
 import { ORG } from '../org';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
@@ -122,11 +122,13 @@ export function PublicCopyRequest() {
     ? [...new Set((choice.piece.partsLinks ?? []).map(l => l.instrument.trim()).filter(Boolean))]
     : [];
   const vague = partLooksVague(part);
+  // A part the piece is not scored for (a clarinet part on a cello concerto).
+  const missingFamily = choice?.kind === 'listed' ? partNotInPiece(part, choice.piece) : null;
 
   // Same bar the rules hold `email` to; blank is fine, it is optional.
   const emailOk = !email.trim() || /.+@.+\..+/.test(email.trim());
   const valid = !!student && !!ensembleId && !!choice && pieceTitle.length > 0
-    && part.trim().length >= COPY_LIMITS.partMin && !!reason && emailOk;
+    && part.trim().length >= COPY_LIMITS.partMin && !missingFamily && !!reason && emailOk;
 
   function whyNotYet(): string {
     if (!student) return 'Find your name to continue.';
@@ -134,6 +136,7 @@ export function PublicCopyRequest() {
     if (!choice) return 'Pick the piece, or tap “My piece isn’t listed”.';
     if (!pieceTitle) return 'Type the name of the piece.';
     if (part.trim().length < COPY_LIMITS.partMin) return 'Type the exact part you play.';
+    if (missingFamily) return `${pieceTitle} has no ${missingFamily} part.`;
     if (!reason) return 'Tell your director why you need the copy.';
     if (!emailOk) return 'Check your email address, or leave it blank.';
     return '';
@@ -380,7 +383,16 @@ export function PublicCopyRequest() {
                 <input id="cr-part" className="pub-absence-input" maxLength={COPY_LIMITS.part}
                   value={part} onChange={e => setPart(e.target.value)}
                   placeholder={student.instrument ? `e.g. ${student.instrument} 2` : 'e.g. Trumpet 1 in B♭'} />
-                {vague && (
+                {missingFamily && (
+                  <div className="pub-signup-note" style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                    <AlertTriangle size={15} style={{ flex: 'none', marginTop: 2 }} />
+                    <span>
+                      {pieceTitle} isn't written for {missingFamily}, so there is no such part to copy.
+                      Check the part name, or pick one of the parts listed above.
+                    </span>
+                  </div>
+                )}
+                {vague && !missingFamily && (
                   <div className="pub-signup-note" style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                     <AlertTriangle size={15} style={{ flex: 'none', marginTop: 2 }} />
                     <span>

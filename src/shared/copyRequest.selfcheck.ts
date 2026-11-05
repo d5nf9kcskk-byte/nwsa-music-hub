@@ -2,7 +2,7 @@
 // Run: npx tsx src/shared/copyRequest.selfcheck.ts
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { COPY_LIMITS, COPY_REQUEST_REASONS, copyRequestIsMine, partLooksVague, sortCopyRequests } from './copyRequest';
+import { COPY_LIMITS, COPY_REQUEST_REASONS, copyRequestIsMine, partLooksVague, partNotInPiece, sortCopyRequests } from './copyRequest';
 
 const staffed = new Set(['symphony', 'band']);
 const hasStaff = (id: string) => staffed.has(id);
@@ -43,5 +43,22 @@ for (const [k, n] of Object.entries(COPY_LIMITS)) {
 }
 // Staff-only read: a request names a student and is never world-readable.
 assert.ok(/allow read, update, delete: if isStaff\(\);/.test(block), 'copyRequests read is staff-only');
+
+// 7. A part the piece is not scored for is refused; fails open on no data.
+const haydnVc = { instrumentation: '0 2 0 0 — 2 0 0 0 — str', soloistInstrument: 'cello' };
+assert.equal(partNotInPiece('Clarinet 1', haydnVc), 'clarinet');
+assert.equal(partNotInPiece('Bb Clarinet', haydnVc), 'clarinet');
+assert.equal(partNotInPiece('Oboe 2', haydnVc), null);
+assert.equal(partNotInPiece('Horn 2 in D', haydnVc), null);
+assert.equal(partNotInPiece('Trumpet 1', haydnVc), 'trumpet');
+assert.equal(partNotInPiece('Violin 2', haydnVc), null);
+assert.equal(partNotInPiece('Cello', haydnVc), null);
+assert.equal(partNotInPiece('Harp', haydnVc), 'harp');
+assert.equal(partNotInPiece('Mystery part', haydnVc), null);
+assert.equal(partNotInPiece('Clarinet', {}), null);
+assert.equal(partNotInPiece('Clarinet', { instrumentation: '2 2 2 2 — 2 2 0 0 — timp — str' }), null);
+assert.equal(partNotInPiece('Tuba', { instrumentation: '3[1.2.pic] 2 2eh 2 — 4 3 3 1 — tmp — str' }), null);
+assert.equal(partNotInPiece('Bass Clarinet', { instrumentation: '2 2 0 2 — 2 2 0 0 — str' }), 'clarinet');
+assert.equal(partNotInPiece('Clarinet', { ...haydnVc, partsLinks: [{ instrument: 'Clarinet' }] }), null);
 
 console.log('copyRequest self-check OK');
