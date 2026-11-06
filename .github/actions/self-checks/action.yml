@@ -553,6 +553,16 @@ runs:
       run: npx tsx src/director/lessonAttachments.selfcheck.ts
       shell: bash
 
+    # How a lesson save writes the public mirror (#privacy). /lessonsPublic is
+    # an exact key allowlist and a MERGE cannot remove a key, so a mirror doc
+    # that ever drifted outside it fails on every later save — and the mirror
+    # rides in the lesson's own batch, so the lesson never saves either. The
+    # write must REPLACE the mirror, built from the stored lesson plus the
+    # write, so a drifted doc heals instead of bricking the lesson.
+    - name: Check lesson mirror write
+      run: npx tsx src/director/lessonMirrorWrite.selfcheck.ts
+      shell: bash
+
     # Standing weekly lesson time (#applied): expansion must land on the
     # right weekday, must never re-create a date that already has a lesson
     # (which would resurrect a cancelled one), and must stay bounded.

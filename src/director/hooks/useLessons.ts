@@ -102,12 +102,42 @@ export function useLessons(opts: {
     const dbRef = db;
     const payload = { ...data, updatedAt: Date.now(), updatedBy: currentDirectorName() };
     await trackWrite('Lesson update', async () => {
+      // REPLACE the mirror, never merge into it.
+      //
+      // A merge cannot remove a key, and /lessonsPublic is pinned to an exact
+      // key allowlist. So one mirror doc that ever drifted outside that list
+      // fails the rule on every later save — and because the mirror rides in
+      // THIS batch, the rejection takes the lesson's own write down with it.
+      // The teacher gets "Lesson update failed to save", the retry does the
+      // identical thing, and the log they just typed is gone. That happened:
+      // lessonsPublic/6wpSwYNwxJtBnvr1LQdi picked up updatedAt + updatedBy on
+      // 2026-11-05 and bricked that lesson until this change. Replacing the
+      // doc is self-healing — whatever it held, what lands is exactly the
+      // allowlist — and it also expresses a CLEARED field, which the merge
+      // could not.
+      //
+      // An update is a PARTIAL, so the projection is built from the lesson as
+      // the SERVER has it plus this write, not from the payload alone (which
+      // would blank the fields the caller didn't send) and not from the local
+      // `lessons` snapshot (stale within one save: saveLesson calls this twice,
+      // and the second call would publish the time the first one just changed).
+      // One read on a screen that saves a handful of times a day —
+      // syncLessonMirror already pays exactly this cost for exactly this
+      // reason.
+      let after: Lesson | undefined;
+      try {
+        const snap = await getDoc(doc(dbRef, 'lessons', id));
+        if (snap.exists()) after = { id, ...snap.data() } as Lesson;
+      } catch { /* offline with nothing cached — fall back to the merge below */ }
+
       const batch = writeBatch(dbRef);
       batch.update(doc(dbRef, 'lessons', id), payload);
-      // Merge, not set: an update is a PARTIAL, and the caller may be sending
-      // only a grade. Fields the update CLEARS are handled by syncLessonMirror,
-      // which the clearing call sites run afterwards.
-      batch.set(doc(dbRef, 'lessonsPublic', id), publicLessonFields(payload), { merge: true });
+      const mirror = doc(dbRef, 'lessonsPublic', id);
+      if (after) batch.set(mirror, publicLessonFields({ ...after, ...payload }));
+      // No read to go on: a full set would blank what this partial does not
+      // carry — a student's calendar losing its lesson time — so keep the old
+      // merge and let syncLessonMirror converge it.
+      else batch.set(mirror, publicLessonFields(payload), { merge: true });
       await batch.commit();
     });
   }
