@@ -504,6 +504,27 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   },
   'vid.recoveredResume': { en: 'Resume it',                        es: 'Continuar' },
   'vid.recoveredDiscard': { en: 'Start fresh',                     es: 'Empezar de nuevo' },
+  // Every byte is already in the Hub's storage and only the record is
+  // missing — so this says the video arrived, because it did, and asks for
+  // one tap rather than another upload.
+  'vid.recoveredAllUp': {
+    en: 'Your video reached the Hub but was never turned in — the app closed before it finished. One tap finishes it; nothing to upload again.',
+    es: 'Tu video llegó al Hub pero no se entregó — la aplicación se cerró antes de terminar. Un toque lo completa; no hay que subir nada otra vez.',
+  },
+  'vid.recoveredFinish': { en: 'Finish turning it in',             es: 'Terminar de entregarlo' },
+  // Names the file and the real count, because "it didn't finish" with no
+  // numbers is the kind of message a student reasonably ignores.
+  'vid.recoveredPartial': {
+    en: 'Your last upload of {file} did not finish — {done} of {total} parts arrived. Choose that same file again and it picks up where it stopped.',
+    es: 'Tu última subida de {file} no terminó — llegaron {done} de {total} partes. Elige ese mismo archivo otra vez y continuará donde se detuvo.',
+  },
+  'vid.recoveredRepick': { en: 'Choose that file again',           es: 'Elegir ese archivo otra vez' },
+  // Shown in place of "100%" while the Hub writes the record: a full bar is
+  // not a submission, and this is the difference said out loud.
+  'vid.saving': {
+    en: 'Saving to the Hub… keep this open',
+    es: 'Guardando en el Hub… no cierres esto',
+  },
   'vid.alreadySubmitted': { en: 'Submitted {date}.',               es: 'Enviado el {date}.' },
   'vid.uploadAnother':  { en: 'Upload another version?',           es: '¿Subir otra versión?' },
   'vid.submittedBadge': { en: 'Submitted',                         es: 'Enviado' },

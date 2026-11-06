@@ -590,6 +590,15 @@ runs:
     # deploy-functions.yml alongside every other Cloud Function guard.
     - name: Check chunked-upload path and doc-id conventions
       run: npx tsx src/shared/submissionChunks.selfcheck.ts
+
+    # Upload recovery (#video-upload-reliability Phase 3): which interrupted
+    # sends can be rescued and how — the half-uploaded picked file that used
+    # to be thrown away silently, and the fully-uploaded one that finishes
+    # from its stored metadata without re-sending a byte. An interrupted
+    # upload that tells the student nothing is how a submission ends up
+    # argued over instead of resent, so the classification is pinned.
+    - name: Check upload-recovery classification
+      run: npx tsx src/public/uploadResumeDb.selfcheck.ts
       shell: bash
 
     # The age cutoff behind the hourly sweep for abandoned chunked-upload

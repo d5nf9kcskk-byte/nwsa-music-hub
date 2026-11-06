@@ -29,6 +29,7 @@ import {
  *  Returns null on any IndexedDB failure, never throws. */
 export async function sessionForFile(
   file: File, assignmentId: string, studentId: string, contentType: string,
+  durationSeconds = 0,
 ): Promise<UploadSession | null> {
   try {
     const fingerprint = fingerprintFile(file);
@@ -40,6 +41,12 @@ export async function sessionForFile(
       assignmentId, studentId, fingerprint,
       fileName: file.name, contentType, totalSize: file.size,
       chunkCount: chunkCountFor(file.size),
+      // Stored even though this path already has it in hand: a session
+      // recovered after a closed tab is finalized from these fields ALONE
+      // (#video-upload-reliability Phase 3), with no file to re-probe, and a
+      // length probed once should not become "unknown" just because the app
+      // died between the last chunk and the finalize call.
+      durationSeconds,
     });
     await putSession(session);
     return session;
@@ -153,6 +160,13 @@ export async function finalizeChunkedSubmission(args: FinalizeArgs): Promise<Fin
   } catch {
     return { ok: false, failure: 'network', message: 'That did not reach the Hub. Check your connection and try again.' };
   }
+  // The STATUS decides, not the shape of the body. A 5xx from the Functions
+  // runtime, a proxy error page, or a cold-start timeout can all answer with
+  // perfectly well-formed JSON, and an `{ ok: ... }` field read out of one of
+  // those would be this client's own invention — nothing about it says a
+  // submission was written. The code rides along so a student's screenshot
+  // names the layer that refused.
+  if (!res.ok) return { ok: false, failure: `http-${res.status}` };
   try {
     return await res.json() as FinalizeOutcome;
   } catch {

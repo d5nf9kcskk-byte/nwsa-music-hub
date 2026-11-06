@@ -32,6 +32,21 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // #video-upload-reliability Phase 3: an interrupted upload used to say
+  // nothing at all, so a student whose app closed mid-send believed they had
+  // turned a video in that never existed.
+  {
+    id: '2026-11-05-upload-didnt-finish',
+    date: '2026-11-05',
+    title: 'The Hub now tells you when a video upload did not finish',
+    audience: 'public' as const,
+    bullets: [
+      'If your app or browser closes while a video is uploading, the Submit Video page now says so the next time you open it — and offers to pick up where it stopped instead of making you start over.',
+      'If the video had already finished uploading, one tap turns it in. You never upload the same video twice.',
+      'While the Hub is saving your video it now says "Saving to the Hub" instead of showing 100%. Your video is only turned in once you see the green check.',
+    ],
+    expires: '2026-11-19',
+  },
   // #close-a-day: Today's "Close a day" goes through Change a Day.
   {
     id: '2026-11-04-phone-alerts-menu',
