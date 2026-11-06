@@ -590,6 +590,7 @@ runs:
     # deploy-functions.yml alongside every other Cloud Function guard.
     - name: Check chunked-upload path and doc-id conventions
       run: npx tsx src/shared/submissionChunks.selfcheck.ts
+      shell: bash
 
     # Upload recovery (#video-upload-reliability Phase 3): which interrupted
     # sends can be rescued and how — the half-uploaded picked file that used
