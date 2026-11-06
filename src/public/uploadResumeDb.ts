@@ -122,16 +122,62 @@ export async function getSessionByFingerprint(
   }
 }
 
-/** The most recently started, not-yet-finalized recording for this
- *  assignment — a device only ever records one exam at a time, so "most
- *  recent" is an unambiguous answer even before a student is known. */
-export async function findRecoverableRecording(assignmentId: string): Promise<UploadSession | null> {
+/**
+ * What an unfinished session still needs from the student, decided from its
+ * OWN bookkeeping and nothing else. Pure, so uploadResumeDb.selfcheck.ts can
+ * pin it without a browser.
+ *
+ * This is the one answer to "can this be rescued, and how" — before it
+ * existed, only `kind: 'recording'` was ever offered back, and a picked file
+ * that died mid-upload was silently unrecoverable even though every byte of
+ * bookkeeping needed to finish it was sitting right here (#video-upload-
+ * reliability Phase 3).
+ *
+ *  - 'finish' — every chunk already reached Storage. composeSubmission is
+ *    idempotent and takes only this session's METADATA, so the submission
+ *    can be completed with one call and NO file: there is nothing left to
+ *    upload. Checked first, and for both kinds — re-sending 150 MB that is
+ *    already in the bucket is the worst answer available.
+ *  - 'resume' — a recording whose blob is on this device; re-stage it and
+ *    the upload picks up at the first chunk that never landed.
+ *  - 'repick' — a picked file, partly uploaded. Browsers never hand a File
+ *    back across a reload, so finishing needs the student to choose the SAME
+ *    file again; sessionForFile() then matches it by fingerprint and
+ *    uploadChunks() skips what already arrived.
+ *  - null — nothing worth offering: already finalized, or not one chunk ever
+ *    left the device (a failure that early surfaced as an error on screen at
+ *    the time, so there is nothing to tell the student they don't know).
+ */
+export function recoveryKind(session: UploadSession): 'finish' | 'resume' | 'repick' | null {
+  if (session.finalizedAt) return null;
+  const uploaded = new Set(session.uploadedIndexes).size;
+  if (session.chunkCount > 0 && uploaded >= session.chunkCount) return 'finish';
+  if (session.kind === 'recording') return session.blob ? 'resume' : null;
+  return uploaded > 0 ? 'repick' : null;
+}
+
+/**
+ * The most recently started rescuable session for this assignment — a device
+ * only ever sends one exam at a time, so "most recent" is an unambiguous
+ * answer.
+ *
+ * A recording is offered as it always was: its blob lives on THIS device and
+ * its session may not name a student yet. A FILE session is offered only to
+ * the student it belongs to, because finishing one files a submission in
+ * somebody's name without a video on screen to check it by — a shared
+ * classroom phone must never hand one student's unfinished upload to the
+ * next person who picks it up.
+ */
+export async function findRecoverableSession(
+  assignmentId: string, studentId?: string,
+): Promise<UploadSession | null> {
   try {
     const db = await openDb();
     const tx = db.transaction(STORE, 'readonly');
     const index = tx.objectStore(STORE).index('by_assignment');
     const all = await promisify(index.getAll(assignmentId) as IDBRequest<UploadSession[]>);
-    const candidates = all.filter(s => s.kind === 'recording' && !s.finalizedAt && s.blob);
+    const candidates = all.filter(s => recoveryKind(s) !== null
+      && (s.kind === 'recording' || (!!studentId && s.studentId === studentId)));
     if (candidates.length === 0) return null;
     candidates.sort((a, b) => b.createdAt - a.createdAt);
     return candidates[0];
