@@ -225,6 +225,54 @@
   box-shadow: var(--glass-inner), var(--glass-bloom);
 }
 
+/* THE ACCENT STRIPE DISSOLVES TOO (the director, 2026-11-07).
+   Ten blocks carry a 3-4px coloured border down their left side. With the
+   other three sides dissolved it was the only hard edge left on the page,
+   which is the opposite of what this round is for.
+
+   It dissolves rather than disappearing: the line stops being a line and
+   becomes a place where the block is warmer on the left, which is the same
+   move the rest of the edge makes (the plan's dissolved edge is "a bloom
+   wide enough that the card has no findable boundary, only a place where it
+   stops being bright"). The border keeps its 3-4px of space, so nothing
+   reflows and the text stays exactly where it was.
+
+   A STRIPE THAT MARKS A STATE OR A SEVERITY IS NOT TOUCHED, because that
+   one is information rather than decoration: `.pub-announce-important`
+   (amber), `.pub-announce-urgent` (red), the red error boxes, the amber
+   warning, `.pub-signup-row.highlight` and `.pub-checkin-row.open` all keep
+   their line. They read BETTER for it — an urgent announcement is now the
+   only striped thing on the page instead of one stripe among ten. If you
+   add a stripe to say "this one is different", leave it out of the lists
+   below; if you add one to say "this is an announcement", put it in.
+
+   Checked against the live pages rather than against a grep, because two of
+   these are not borders at all: `.pub-event-bar` is a <span> coloured per
+   EVENT TYPE from the event itself (and dimmed when one is cancelled), and
+   `.pub-ens-btn` carries each ensemble's own colour. Both are the same kind
+   of thing as an urgent stripe and both stay. So does the concert-day
+   banner's gold line, which the Spotlight look owns. */
+:root[data-hub2="on"] :is(
+  .pub-ens-hero, .pub-piece-hero, .pub-announce, .pub-sg-a2hs,
+  .pub-checkin-callout, .whats-new
+) { --glass-stripe: var(--hub2-accent); }
+:root[data-hub2="on"] .pub-assign-card { --glass-stripe: var(--hub2-plum); }
+:root[data-hub2="on"] .pub-daysheet { --glass-stripe: var(--hub2-sun); }
+/* The ORG tokens, not --pub-accent. Measured: on .whats-new, --pub-accent
+   resolves to the ink colour, because that banner sits in a subtree that
+   re-points it, so the glow came out navy instead of teal. --hub2-* is set
+   once on :root by the look and cannot be shadowed by a page. */
+
+:root[data-hub2="on"] :is(
+  .pub-ens-hero, .pub-piece-hero, .pub-announce, .pub-sg-a2hs,
+  .pub-checkin-callout, .whats-new, .pub-assign-card, .pub-daysheet
+) {
+  border-left-color: transparent;
+  box-shadow:
+    inset 18px 0 26px -20px color-mix(in srgb, var(--glass-stripe) 72%, transparent),
+    var(--glass-inner), var(--glass-bloom);
+}
+
 /* ══════════════════════════════════════════════════════════════
    3. The field
    ══════════════════════════════════════════════════════════════
