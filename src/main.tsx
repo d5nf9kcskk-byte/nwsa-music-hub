@@ -7,10 +7,13 @@ import './public/look.css';
 import './shared/seasons.css';
 import './shared/hub2.css';
 import './public/hub2Public.css';
+// Last of the look's stylesheets: the glass re-points --pub-surface and the
+// radii that hub2.css set a few lines up, so it has to win on order (#glass).
+import './shared/hub2Glass.css';
 import { initLook } from './public/look';
 import { initDirSeason } from './shared/seasons';
 import { initHub2 } from './shared/hub2Preview';
-import { initHub2Motion, withPageWipes } from './shared/hub2Motion';
+import { initHub2Motion, withPageMorph } from './shared/hub2Motion';
 
 import { PublicLayout } from './public/PublicLayout';
 import { PublicHome } from './public/PublicHome';
@@ -71,8 +74,8 @@ const DirectorApp = lazy(() => {
     });
 });
 
-// Page wipes under the Hub 2.0 look (#hub2-motion): no effect with it off.
-const router = withPageWipes(createBrowserRouter(
+// The page morph under the Hub 2.0 look (#glass): no effect with it off.
+const router = withPageMorph(createBrowserRouter(
   [
     {
       path: '/',
