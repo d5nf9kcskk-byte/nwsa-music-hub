@@ -338,16 +338,42 @@
     :root[data-hub2="on"] .pub-app :is(button, .pub-signup-row, .pub-checkin-row.open, .pub-event.tappable, .pub-tabbar-btn, .pub-cta-btn, .pub-quick-btn):active:not(:disabled) { transform: none; }
   }
 
-  /* ═══ Page wipes and soft reveals (#hub2-motion) ═══
+  /* ═══ The page morph and soft reveals (#glass, #hub2-motion) ═══
      Both only without reduced motion. Nothing here may leave a named element,
      a stacking context or a containing block behind once the motion is over:
      the first version did, and sheets slid under the tab bar and dropdowns
-     under the next section. */
-  /* Both ends written out: clip-path cannot blend an inset() into the
-     implicit `none`, so a one-ended keyframe jumps halfway instead of
-     sweeping. */
-  @keyframes hub2-wipe-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
-  @keyframes hub2-wipe-out { from { clip-path: inset(0); } to { clip-path: inset(0 0 0 100%); } }
+     under the next section.
+
+     THE WIPE IS GONE, and not for taste. It ran as a View Transition, and
+     Safari and Firefox disable `backdrop-filter` for the whole duration of
+     one (WebKit 302256) — so on the phone this look is for, every glass
+     panel went flat for the length of the wipe and snapped back at the end.
+     The morph (hub2Morph.ts) animates live elements instead, so the glass
+     keeps re-sampling as a panel travels. Deleted with it: the clip-path
+     keyframes, the shell's view-transition names, and the gold edge that
+     swept across — which is also the "wave" the director asked twice to
+     have removed. Do not animate anything carrying glass through
+     `startViewTransition`. */
+
+  /* The clones the morph fades out. They are copies of real panels, so every
+     glass token on them is zeroed: the live counterpart is already carrying
+     the real shell along the same path, and two translucent shells stacked
+     read as one much denser shell. `contain: paint` keeps a travelling clone
+     from ever lengthening the page. */
+  :root[data-hub2="on"] #hub2-ghosts {
+    position: fixed; inset: 0; z-index: var(--z-overlay);
+    overflow: hidden; pointer-events: none; contain: paint;
+  }
+  :root[data-hub2="on"] #hub2-ghosts > .hub2-ghost {
+    position: absolute; margin: 0;
+    --glass-panel: transparent; --glass-chrome: transparent; --glass-hero: transparent;
+    --glass-chrome-fx: none; --glass-hero-fx: none; --glass-bar-fx: none;
+    --glass-shine: transparent; --glass-inner: 0 0 transparent;
+    --glass-bloom: 0 0 transparent;
+    background: transparent; box-shadow: none;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+
   /* The reveal animates a plain registered number, never opacity itself:
      Chrome treats an element with an attached opacity or transform animation
      as a layer for as long as the animation is attached, and a scroll-driven
@@ -356,46 +382,6 @@
   @property --hub2-reveal { syntax: '<number>'; inherits: false; initial-value: 1; }
   @keyframes hub2-reveal { from { --hub2-reveal: 0; } }
   @media (prefers-reduced-motion: no-preference) {
-    /* Page wipes. hub2Motion.ts asks the router for a View Transition when the
-       page changes. The WHOLE screen wipes left to right with one moving
-       edge: the new page grows from the left exactly as the old one shrinks
-       from the left, so the two never overlap, on a phone or a laptop. The
-       shell is named only WHILE a transition runs, so it stays still above
-       the wipe and is an ordinary element the rest of the time. Normal
-       blending: the browser's cross-fade blend would flash white.
-       These ::view-transition rules hang off <html>, so they serve the staff
-       shell too. */
-    :root[data-hub2="on"]:active-view-transition :is(.pub-header, .dir-header) { view-transition-name: hub2-header; }
-    :root[data-hub2="on"]:active-view-transition :is(.pub-sidebar, .dir-rail) { view-transition-name: hub2-rail; }
-    :root[data-hub2="on"]:active-view-transition .pub-tabbar { view-transition-name: hub2-tabbar; }
-    :root[data-hub2="on"]:active-view-transition .dir-panel-banner { view-transition-name: hub2-banner; }
-    :root[data-hub2="on"]::view-transition-old(root) {
-      animation: hub2-wipe-out var(--hub2-wipe-ms) var(--hub2-ease) both;
-      mix-blend-mode: normal;
-    }
-    :root[data-hub2="on"]::view-transition-new(root) {
-      animation: hub2-wipe-in var(--hub2-wipe-ms) var(--hub2-ease) both;
-      mix-blend-mode: normal;
-    }
-    /* The gold edge (#hub2-alive) rides the moving edge, like a curtain. The
-       element (hub2Motion.ts, first in <body>) is named only while a
-       transition runs; its group sweeps across with the wipe, under the
-       header and tab bar groups. */
-    :root[data-hub2="on"]:active-view-transition .hub2-wipe-edge {
-      view-transition-name: hub2-edge;
-      display: block; position: fixed; top: 0; bottom: 0; left: 0;
-      width: 3px; margin-left: -1.5px; pointer-events: none;
-      background: linear-gradient(180deg, transparent, var(--hub2-spot-gold) 18%, var(--hub2-spot-gold) 82%, transparent);
-      box-shadow: 0 0 14px 3px color-mix(in srgb, var(--hub2-spot-gold) 55%, transparent);
-    }
-    :root[data-hub2="on"]::view-transition-group(hub2-edge) { animation: hub2-edge-sweep var(--hub2-wipe-ms) var(--hub2-ease) both; }
-    :root[data-hub2="on"]::view-transition-old(hub2-edge) { animation: none; opacity: 0; }
-    :root[data-hub2="on"]::view-transition-new(hub2-edge) { animation: none; }
-    /* A drill-down page that wipes in no longer also slides: one motion. */
-    @supports (view-transition-name: none) {
-      :root[data-hub2="on"] :is(.pub-drill, .pub-checkin) { animation: none; }
-    }
-
     /* Soft reveals. Each block of a public page fades in as it scrolls into
        view, driven by the scroll itself, no script. Fill `backwards`, so once
        a block is in, --hub2-reveal is back at 1 and the block is exactly as
@@ -418,8 +404,6 @@
      hub2Motion.ts puts the ripple and the note burst on <body> and removes
      them when they are done; Hub2Count.tsx and lucide's check icons carry the
      rest. With reduced motion none of it runs: the look stands still. */
-  :root[data-hub2="on"] .hub2-wipe-edge { display: none; }
-  @keyframes hub2-edge-sweep { from { transform: translateX(0); } to { transform: translateX(100vw); } }
   @media (prefers-reduced-motion: no-preference) {
     :root[data-hub2="on"] .hub2-ripple { position: fixed; z-index: 2147483000; overflow: hidden; pointer-events: none; }
     :root[data-hub2="on"] .hub2-ripple > i {

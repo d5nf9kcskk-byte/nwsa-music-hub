@@ -101,6 +101,21 @@
         ],
         "createdAt": "2026-11-04T23:06:56.088Z",
         "reason": "Claude: the selection pop from the motion sketch the director approved on 2026-11-04 (docs/hub2-alive/concept.html)"
+      },
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "createdAt": "2026-11-06T15:19:23.212Z",
+        "reason": "Not a free choice: it is hub2.fonts.body in config/orgs/nwsa.json, approved by the director 2026-11-03 and self-hosted in the repo. The sample's job is to show the approved look plus glass; another face would misrepresent it."
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "docs/design/glass-sample.html"
+        ],
+        "createdAt": "2026-11-06T15:19:23.341Z",
+        "reason": "Reproduces shipped code: the gold button glow is verbatim from src/public/hub2Public.css (Spotlight primary button, box-shadow 0 6px 22px -8px var(--hub2-spot-gold)). Changing it would make the sample misrepresent the live Spotlight look."
       }
     ]
   }

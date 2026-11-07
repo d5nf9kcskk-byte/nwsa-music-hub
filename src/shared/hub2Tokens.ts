@@ -62,6 +62,17 @@ export function hub2TokenCss(look: Hub2Look | undefined): string {
     `--hub2-font-title:${look.fonts.title};`,
     `--hub2-font-spot-display:${look.fonts.spotlightDisplay};`,
     `--hub2-font-spot-body:${look.fonts.spotlightBody};`,
+    // The glass layer's numbers (#glass). Absent block = no token, and
+    // hub2Glass.css falls back to a solid panel on every one of them, so the
+    // look still works with no glass at all.
+    ...(look.glass ? [
+      `--hub2-glass-chrome-blur:${look.glass.chromeBlur};`,
+      `--hub2-glass-hero-blur:${look.glass.heroBlur};`,
+      `--hub2-field-drift:${look.glass.fieldDrift};`,
+      `--hub2-logo-shine:${look.glass.logoShine};`,
+      `--hub2-morph-ms:${look.glass.morphMs}ms;`,
+      `--hub2-reveal-ms:${look.glass.revealMs}ms;`,
+    ] : []),
   ];
   const light = [...palette(look.light), ...shared].join('');
   const dark = palette(look.dark).join('');

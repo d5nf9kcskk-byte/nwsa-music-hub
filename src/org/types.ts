@@ -84,6 +84,36 @@ export interface Hub2Palette {
 }
 
 /**
+ * The glass layer (#glass). The numbers, and only the numbers: every COLOUR in
+ * src/shared/hub2Glass.css is mixed from the palette above, so an org re-tints
+ * the glass by changing its accent and never by editing a stylesheet.
+ *
+ * The director chose Full glass with Dissolved edges and the Slowest pace from
+ * docs/design/glass-sample.html on 2026-11-07; those are the values below and
+ * the one combination the app ships. The sample keeps the other eight for
+ * comparison.
+ *
+ * ONE WORD TURNS IT OFF: `chromeBlur` and `heroBlur` at "0px" leave the look
+ * with solid panels and no blur anywhere, which is also what
+ * `prefers-reduced-transparency: reduce` and a browser without
+ * `backdrop-filter` get. `morphMs: 0` leaves pages changing instantly.
+ */
+export interface Hub2Glass {
+  /** Blur behind the header, the rail, the tab bar, drawers and sheets. */
+  chromeBlur: string;
+  /** Blur behind a page's one hero card. Lower than the chrome: it sits over content. */
+  heroBlur: string;
+  /** How long the field's light takes to drift across the page once. */
+  fieldDrift: string;
+  /** The specular sweep across the brand mark. Long and slow, or it is a distraction. */
+  logoShine: string;
+  /** How long a panel takes to reform into its counterpart on the next page. */
+  morphMs: number;
+  /** The scroll reveal that rides with the morph. */
+  revealMs: number;
+}
+
+/**
  * The Hub 2.0 look (#hub2-look, src/shared/hub2Preview.ts). Applied ONLY while
  * the owner's on-device preview is on, as CSS custom properties under
  * `:root[data-hub2="on"]`. Absent = the preview shows the stock look.
@@ -100,6 +130,8 @@ export interface Hub2Look {
   spotlight: { bg: string; surface: string; ink: string; gold: string; tealGlow: string; plumGlow: string };
   /** CSS font-family stacks. The first family of each must be self-hosted in src/shared/hub2Fonts.ts. */
   fonts: { body: string; title: string; spotlightDisplay: string; spotlightBody: string };
+  /** The glass layer and the page morph. Absent = the look with no glass. */
+  glass?: Hub2Glass;
   /**
    * The look for EVERY visitor, not only the owner's on-device preview.
    * Written into index.html's boot script at build time (org-statics in

@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glass Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Sora:wght@700;800&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   GLASS HUB — the Hub 2.0 look plus glass, and the morphing page
+   transition. Tap a concert row: the row itself travels and becomes
+   the page you land on, while everything around it frosts over and
+   reforms. Layout: a control bar, one phone you can actually use.
+   ══════════════════════════════════════════════════════════════════ */
+:root {
+  --doc-bg: #eef1f5;
+  --doc-panel: #ffffff;
+  --doc-ink: #18212f;
+  --doc-muted: #66717f;
+  --doc-line: #dde2e8;
+
+  /* ── Hub 2.0 tokens (config/orgs/nwsa.json → hub2.light) ── */
+  --hub2-bg: #f4f6f8;
+  --hub2-surface: #ffffff;
+  --hub2-ink: #18212f;
+  /* #66717F in the config is 4.579:1 on the page against a 4.5 bar.
+     Darkened to #5D6773 (5.31:1) so a wash can exist behind it at all. */
+  --hub2-muted: #5d6773;
+  --hub2-line: #e2e6eb;
+  --hub2-accent: #0e7585;
+  /* Any FILLED button uses this. The dark accent #3aa8b8 under white
+     text is 2.8:1, which is the live-site bug the preview already fixes. */
+  --hub2-accent-fill: #0e7585;
+  --hub2-plum: #7b3578;
+  --hub2-plum-text: #7b3578;
+  --hub2-sun: #f5c84c;
+  --hub2-sun-ink: #18212f;
+  --hub2-radius-card: 18px;
+  --hub2-radius-row: 14px;
+  --hub2-shadow: 0 1px 2px rgba(16,24,40,.06), 0 4px 12px rgba(16,24,40,.06);
+  --hub2-hall-gold: #c8a52a;
+  /* #8A6D10 measured 4.39:1 on the composited light glass, under the 4.5 bar.
+     Darkened to #7E6410 (5.32:1 there). Sample-only token: it appears nowhere
+     in config/orgs or src/, so nothing in the product moves with it. */
+  --hall-gold-text: #7e6410;
+  --hub2-font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --hub2-font-title: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --hub2-font-spot: 'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --spot-bg: #121018;
+  --spot-ink: #f3eeff;
+  --spot-gold: #e4c968;
+  --spot-teal-glow: rgba(58,168,184,.38);
+  --spot-plum-glow: rgba(123,53,120,.48);
+
+  --hub2-ease: cubic-bezier(.2,.8,.2,1);
+  --hub2-arrive-ms: 460ms;
+  --hub2-stagger-ms: 40ms;
+  --hub2-press-scale: .97;
+
+  /* ══ THE GLASS ══ */
+  /* --field-base deepens the page a little so the orbs have somewhere to be
+     brighter THAN. See the long note on [data-glass="full"]. */
+  --field-base: transparent;
+  --field-teal: rgba(14,117,133,0);
+  --field-plum: rgba(123,53,120,0);
+  --field-warm: rgba(245,200,76,0);
+  --field-spark: rgba(255,255,255,0);
+  --field-drift: 0s;
+  --glass-chrome: var(--hub2-surface);
+  --glass-chrome-blur: none;
+  --glass-hero: var(--hub2-surface);
+  --glass-hero-blur: none;
+  --glass-solid: var(--hub2-surface);
+  --glass-line: var(--hub2-line);
+  --glass-shadow: var(--hub2-shadow);
+  --glass-shine: transparent;
+  --glass-shine-ms: 0s;
+  --glass-lift: 0px;
+  /* The light source on the panel: a top-weighted wash that gives the surface
+     a direction instead of being a flat slab. ADDITIVE only — it can never
+     make a surface darker, which is why the contrast model is allowed to
+     ignore it in the light themes and must include it in the dark ones. */
+  --glass-veil: transparent;
+  --glass-spec-line: transparent;   /* the soft inner highlight colour */
+  --glass-under: transparent;       /* the soft inner shade at the bottom */
+
+  /* ══ THE EDGE ══
+     The stark edge is three separate things and they are three separate
+     variables: the ring (a hard 1px line), the inner highlight, and the
+     outer shadow. "Soft" and "Dissolved" set the ring width to 0 and let
+     the highlight and a wide bloom carry the boundary instead.
+     --glass-fade is the fourth piece: how far the panel's own alpha fades
+     out before its edge, so the BLUR dissolves rather than ending. It is 0
+     here and set per edge mode below. The WebKit bug worth worrying about
+     for mask-plus-backdrop-filter is 142662, and it was fixed in 2016,
+     eight major versions below this app's floor. */
+  --glass-ring-w: 1px;
+  --glass-inner: 0 0 transparent;
+  --glass-bloom: var(--hub2-shadow);
+  --glass-fade: 0px;
+  --veil-stop: 100%;
+  --edge-radius-card: var(--hub2-radius-card);
+  --edge-radius-row: var(--hub2-radius-row);
+
+  /* ══ THE MOTION ══ */
+  --morph-ms: 900ms;
+  --reveal-ms: 1300ms;
+  --reveal-d: 26px;
+  /* The curve the panels travel on. It is NOT an overshooting curve any
+     more, and that is a correction rather than a preference: an overshoot
+     in the curve itself, cubic-bezier(.22,1.2,.3,1), is so front-loaded
+     that a FLIP is visually finished in about 15% of its duration. With a
+     view transition the opacity crossfade was carrying the time and it did
+     not show; with a FLIP the geometry IS the animation, so the panel
+     arrived instantly and then sat there for the rest of the Pace setting.
+     The settle is now an explicit keyframe at 72% that goes a few per cent
+     past the target and comes back, which is the same surface tension and
+     is visible for the whole duration instead of in the first frames. */
+  --ease-settle: cubic-bezier(.33,0,.2,1);
+  --settle-past: 1.045;
+  /* How soft a panel's CONTENT goes while it is in flight. Only the content:
+     the shell can never carry a filter, because the card is an ancestor of
+     its own glass. What makes the motion read as liquid is not this, it is
+     that the glass is a live element the whole way and re-samples what it is
+     passing over every frame. This is the finishing touch on top of that,
+     and it is set per edge mode below so Dissolved edges also means
+     dissolved motion. */
+  --slot-soften: 10px;
+}
+
+/* ══ Subtle ══ */
+[data-glass="subtle"] {
+  --field-base: rgba(16,24,40,.035);
+  --field-teal: rgba(210,245,253,.60);
+  --field-plum: rgba(248,236,249,.55);
+  --field-warm: rgba(255,242,184,.50);
+  --field-spark: rgba(255,255,255,.5);
+  --field-drift: 60s;
+  --glass-chrome: rgba(255,255,255,.42);
+  --glass-chrome-blur: blur(24px) saturate(150%) brightness(1.02);
+  --glass-hero: rgba(255,255,255,.46);
+  --glass-hero-blur: blur(20px) saturate(150%) brightness(1.02);
+  --glass-solid: rgba(255,255,255,.60);
+  --glass-line: color-mix(in srgb, var(--hub2-accent) 30%, transparent);
+  --glass-veil: rgba(255,255,255,.06);
+  --glass-spec-line: rgba(255,255,255,.9);
+  --glass-under: rgba(16,24,40,.10);
+  --glass-shadow: 0 1px 2px rgba(16,24,40,.05), 0 8px 24px -8px rgba(16,24,40,.14);
+  --glass-shine: rgba(255,255,255,.10);
+  --glass-shine-ms: 13s;
+  --glass-lift: 2px;
+}
+
+/* ══ Full ══
+   Two things changed here and the second one is the interesting one.
+   1. The old "alpha floor of 0.55" was simply wrong. It treated the wash as
+      if it sat ON TOP of the text. It does not: the wash is behind the card
+      and the card is behind the text, so a white card over a light page
+      barely moves the composite at all. 0.22 is fine.
+   2. THE LIGHT FIELD IS NOW ADDITIVE, NOT SUBTRACTIVE, and that is what
+      makes a transparent light panel possible at all. Painting a dark teal
+      wash on a pale page darkens it, and muted grey on the BARE page — a
+      heading's subtitle, with no card under it — has only 5.31:1 on #F4F6F8
+      to spend. A wash strong enough to see ate all of it, which is why the
+      previous two rounds had to choose between a visible field and legible
+      text and quietly chose a field nobody could see.
+      So: deepen the page a little with --field-base, then make every orb
+      BRIGHTER than that. Now the darkest pixel anywhere on the page is a
+      fixed, known, measured colour, and the orbs can be as strong as they
+      like because brightening can only ever raise contrast for dark text.
+      The colours are pale as a consequence; saturate(190%) in the panel's
+      backdrop-filter pushes them back up where the glass is, which is also
+      where you want the colour.
+   Every value here is composited and measured by scratchpad/contrast.py. */
+[data-glass="full"] {
+  --field-base: rgba(16,24,40,.035);
+  --field-teal: rgba(210,245,253,.95);
+  --field-plum: rgba(248,236,249,.92);
+  --field-warm: rgba(255,242,184,.88);
+  --field-spark: rgba(255,255,255,.9);
+  --field-drift: 40s;
+  /* Transparency you can SEE comes as much from saturate() and brightness()
+     as from alpha: pushing the colour of whatever is behind the glass reads
+     as "I can see through this", and in light mode brightness above 1 also
+     BUYS contrast back, which is what pays for an alpha this low. */
+  --glass-chrome: rgba(255,255,255,.14);
+  --glass-chrome-blur: blur(34px) saturate(190%) brightness(1.05);
+  --glass-hero: rgba(255,255,255,.17);
+  --glass-hero-blur: blur(28px) saturate(180%) brightness(1.04);
+  --glass-solid: rgba(255,255,255,.30);
+  --glass-line: color-mix(in srgb, var(--hub2-accent) 45%, transparent);
+  --glass-veil: rgba(255,255,255,.07);
+  --glass-spec-line: rgba(255,255,255,1);
+  --glass-under: rgba(16,24,40,.14);
+  --glass-shadow: 0 1px 2px rgba(16,24,40,.04), 0 16px 42px -14px rgba(16,24,40,.22);
+  --glass-shine: rgba(255,255,255,.13);
+  --glass-shine-ms: 10s;
+  --glass-lift: 5px;
+}
+
+/* ══ THE EDGE, three ways ══
+   Crisp is the hairline the director called "too penciled". Soft drops the
+   line entirely. Dissolved keeps going: bigger radius, a longer inner
+   highlight, and a bloom wide enough that the card has no findable boundary,
+   only a place where it stops being bright. */
+[data-edge="crisp"] {
+  --glass-ring-w: 1px;
+  --glass-fade: 0px;
+  --slot-soften: 3px;
+  --glass-inner: inset 0 1px 0 var(--glass-spec-line);
+  --glass-bloom: var(--glass-shadow);
+  --veil-stop: 100%;
+}
+[data-edge="soft"] {
+  --glass-ring-w: 0px;
+  --glass-fade: 14px;
+  --slot-soften: 6px;
+  --glass-inner: inset 0 2px 16px -7px var(--glass-spec-line),
+                 inset 0 -16px 22px -20px var(--glass-under);
+  --glass-bloom: 0 2px 10px rgba(16,24,40,.05),
+                 0 18px 50px -16px rgba(16,24,40,.18),
+                 0 36px 90px -40px rgba(16,24,40,.22);
+  --veil-stop: 76%;
+  --edge-radius-card: 23px;
+  --edge-radius-row: 18px;
+}
+[data-edge="dissolved"] {
+  --glass-ring-w: 0px;
+  --glass-fade: 22px;
+  --slot-soften: 9px;
+  --glass-inner: inset 0 4px 26px -9px var(--glass-spec-line),
+                 inset 0 -24px 34px -26px var(--glass-under);
+  --glass-bloom: 0 3px 16px rgba(16,24,40,.045),
+                 0 26px 64px -18px rgba(16,24,40,.16),
+                 0 56px 130px -50px rgba(16,24,40,.26);
+  --veil-stop: 54%;
+  --edge-radius-card: 31px;
+  --edge-radius-row: 25px;
+}
+
+/* ══ Kill switches ══ */
+@media (prefers-reduced-transparency: reduce) {
+  [data-glass] {
+    --glass-chrome-blur: none; --glass-hero-blur: none;
+    --glass-chrome: var(--hub2-surface);
+    --glass-hero: var(--hub2-surface);
+    --glass-solid: var(--hub2-surface);
+    --glass-shine: transparent;
+    --glass-veil: transparent;
+    --field-teal: transparent; --field-plum: transparent; --field-warm: transparent;
+  }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  [data-glass] { --glass-chrome: var(--hub2-surface); --glass-hero: var(--hub2-surface); }
+}
+
+/* ══ Dark theme ══ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --doc-bg: #0b0f14; --doc-panel: #151b23; --doc-ink: #e7ecf2;
+    --doc-muted: #97a3b2; --doc-line: #2b3440;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --doc-bg: #0b0f14; --doc-panel: #151b23; --doc-ink: #e7ecf2;
+  --doc-muted: #97a3b2; --doc-line: #2b3440;
+}
+.screen[data-hub-theme="dark"] {
+  --hub2-bg: #10151b;
+  --hub2-surface: #1a212a;
+  --hub2-ink: #e7ecf2;
+  --hub2-muted: #97a3b2;
+  --hub2-line: #2b3440;
+  --hub2-accent: #3aa8b8;
+  --hub2-plum-text: #d7a2d3;
+  --hall-gold-text: #d9b84a;
+  --hub2-shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.3);
+}
+/* Dark is where the glass can actually be bold, and it is the opposite
+   trade from light. Every white alpha LIGHTENS a dark page, so a lower
+   alpha is both more transparent AND higher contrast — the two goals point
+   the same way. So the field goes UP (0.13 teal, vs 0.038 in light) and the
+   panels go DOWN to a few per cent. There is no gold lobe in dark at all:
+   gold lightens the page far more than teal or plum and takes the #3AA8B8
+   accent under 4.5:1 at every alpha worth having.
+   The brightness() here is BELOW 1 for the same reason it is above 1 in
+   light: it pushes the backdrop away from the text, not toward it. */
+[data-glass="subtle"] .screen[data-hub-theme="dark"] {
+  --field-teal: rgba(14,117,133,.08);
+  --field-plum: rgba(123,53,120,.075);
+  --field-warm: transparent;
+  --field-spark: rgba(255,255,255,.025);
+  --glass-chrome: rgba(255,255,255,.045);
+  --glass-chrome-blur: blur(26px) saturate(150%) brightness(.95);
+  --glass-hero: rgba(255,255,255,.05);
+  --glass-hero-blur: blur(22px) saturate(150%) brightness(.95);
+  --glass-solid: rgba(255,255,255,.065);
+  --glass-line: rgba(255,255,255,.15);
+  --glass-veil: rgba(255,255,255,.012);
+  --glass-spec-line: rgba(255,255,255,.3);
+  --glass-under: rgba(0,0,0,.5);
+  --glass-shine: rgba(255,255,255,.022);
+  --glass-shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px -10px rgba(0,0,0,.6);
+}
+[data-glass="full"] .screen[data-hub-theme="dark"] {
+  --field-teal: rgba(14,117,133,.13);
+  --field-plum: rgba(123,53,120,.12);
+  --field-warm: transparent;
+  --field-spark: rgba(255,255,255,.045);
+  --glass-chrome: rgba(255,255,255,.022);
+  --glass-chrome-blur: blur(34px) saturate(180%) brightness(.9);
+  --glass-hero: rgba(255,255,255,.026);
+  --glass-hero-blur: blur(28px) saturate(180%) brightness(.9);
+  --glass-solid: rgba(255,255,255,.04);
+  --glass-line: rgba(255,255,255,.2);
+  --glass-veil: rgba(255,255,255,.012);
+  --glass-spec-line: rgba(255,255,255,.42);
+  --glass-under: rgba(0,0,0,.6);
+  --glass-shine: rgba(255,255,255,.018);
+  --glass-shadow: 0 1px 2px rgba(0,0,0,.5), 0 18px 44px -14px rgba(0,0,0,.72);
+}
+/* The bloom in dark cannot be a grey shadow, because the page is already
+   darker than any shadow. It is a dark halo plus the faintest light spill,
+   which is what separates a near-invisible panel from the page behind it. */
+[data-edge="soft"] .screen[data-hub-theme="dark"],
+[data-edge="soft"] .screen[data-look="spot"] {
+  --glass-bloom: 0 2px 10px rgba(0,0,0,.5),
+                 0 18px 50px -14px rgba(0,0,0,.7),
+                 0 0 40px -8px rgba(255,255,255,.035);
+}
+[data-edge="dissolved"] .screen[data-hub-theme="dark"],
+[data-edge="dissolved"] .screen[data-look="spot"] {
+  --glass-bloom: 0 3px 16px rgba(0,0,0,.45),
+                 0 26px 64px -16px rgba(0,0,0,.72),
+                 0 0 70px -10px rgba(255,255,255,.05);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Document chrome
+   ══════════════════════════════════════════════════════════════════ */
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--doc-bg); color: var(--doc-ink);
+  font-family: var(--hub2-font-body); font-size: 15px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 980px; margin: 0 auto; padding: 26px 16px 64px; }
+.doc-head h1 { margin: 0 0 6px; font-size: clamp(26px,5vw,36px); font-weight: 800; letter-spacing: -.025em; text-wrap: balance; }
+.doc-head p { margin: 0; max-width: 62ch; color: var(--doc-muted); }
+.doc-head b { color: var(--doc-ink); }
+
+.controls {
+  display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center;
+  margin: 18px 0 22px; padding: 12px;
+  background: var(--doc-panel); border: 1px solid var(--doc-line); border-radius: 16px;
+}
+.ctl { display: flex; align-items: center; gap: 7px; }
+.ctl > span { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--doc-muted); }
+.seg { display: flex; gap: 3px; padding: 3px; background: var(--doc-bg); border-radius: 999px; }
+.seg button {
+  padding: 6px 13px; border: 0; border-radius: 999px; background: transparent; color: var(--doc-muted);
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background-color .16s, color .16s;
+}
+.seg button:hover { color: var(--doc-ink); }
+.seg button[aria-pressed="true"] { background: #0e7585; color: #fff; }
+.seg button:focus-visible { outline: 2px solid #0e7585; outline-offset: 2px; }
+
+.stage { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+/* The phone's holder must STRETCH. .stage centres its children, which makes
+   every one of them shrink-to-fit, and .screen asks for `width: 100%` of a
+   parent that is itself sized by its content. That is circular, so the phone
+   ended up as wide as whatever page happened to be in it: 390px on the first
+   screen and 360px on every screen after the first navigation. It had been
+   there since the sample was written and was only caught by measuring the
+   morph, because a FLIP reads boxes on both sides of the change and the two
+   disagreed. Centring now happens here, where it costs nothing. */
+#host { width: 100%; display: flex; justify-content: center; }
+.hint { max-width: 42ch; text-align: center; font-size: 13.5px; color: var(--doc-muted); }
+.hint b { color: var(--doc-ink); }
+
+/* ══════════════════════════════════════════════════════════════════
+   The phone
+   ══════════════════════════════════════════════════════════════════ */
+.screen {
+  position: relative; isolation: isolate; overflow: hidden;
+  width: 100%; max-width: 390px; height: 724px;
+  display: flex; flex-direction: column;
+  background: var(--hub2-bg); color: var(--hub2-ink);
+  border: 1px solid var(--doc-line); border-radius: 30px;
+  box-shadow: 0 24px 60px -28px rgba(16,24,40,.5);
+  font-family: var(--hub2-font-body);
+}
+
+/* ── The field ──
+   --field-base is on .field itself and does NOT drift: it is the floor, the
+   darkest the page ever gets, and the whole contrast argument rests on it
+   holding still. The orbs drift on the two pseudo-elements above it.
+   The fourth, small, hard-edged orb exists because BLUR NEEDS DETAIL. Three
+   soft gradients blurred at 28px look exactly like three soft gradients; a
+   small sharp spot smeared across 28px is what reads as glass. ── */
+.field { position: absolute; inset: 0; z-index: 0; pointer-events: none; background: var(--field-base); }
+.field::before, .field::after {
+  content: ''; position: absolute; inset: -30%;
+  background:
+    radial-gradient(40% 36% at 30% 26%, var(--field-teal), transparent 70%),
+    radial-gradient(42% 38% at 70% 72%, var(--field-plum), transparent 70%),
+    radial-gradient(28% 24% at 58% 44%, var(--field-warm), transparent 70%),
+    radial-gradient(10% 8% at 74% 33%, var(--field-spark), transparent 64%),
+    radial-gradient(7% 6% at 34% 66%, var(--field-spark), transparent 60%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .field::before { animation: drift var(--field-drift,0s) var(--hub2-ease) infinite alternate; }
+  .field::after { opacity: .7; animation: drift2 calc(var(--field-drift,0s) * 1.4) var(--hub2-ease) infinite alternate; }
+}
+@keyframes drift { from { transform: translate3d(-3%,-2%,0) scale(1); } to { transform: translate3d(4%,3%,0) scale(1.14); } }
+@keyframes drift2 { from { transform: translate3d(3%,2%,0) scale(1.1) rotate(0deg); } to { transform: translate3d(-4%,-3%,0) scale(1) rotate(9deg); } }
+
+.view { position: relative; z-index: 1; flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.view::-webkit-scrollbar { width: 0; }
+.pad { padding: 12px 13px 96px; }
+
+/* ── Surfaces ──
+   Every panel is: a tint, optionally a blur, a RING whose width is a
+   variable (0 in the soft modes), a soft inner highlight, and a bloom.
+   There is no `border: 1px` written anywhere any more. */
+.tier-chrome, .tier-hero, .tier-solid {
+  border: var(--glass-ring-w) solid var(--glass-line);
+  box-shadow: var(--glass-bloom);
+}
+.tier-chrome { position: relative; z-index: 0; }
+.tier-hero {
+  position: relative; z-index: 0; overflow: hidden;
+  border-radius: var(--edge-radius-card);
+}
+.tier-solid {
+  position: relative; z-index: 0; overflow: hidden;
+  background: var(--glass-solid);
+  border-radius: var(--edge-radius-row);
+  box-shadow: var(--glass-inner), var(--glass-bloom);
+}
+[data-glass="off"] :is(.tier-chrome,.tier-hero,.tier-solid) { border-color: var(--hub2-line); }
+
+/* ── The veil: a top-weighted wash, so the panel has a light source rather
+      than being a flat slab of tint. In the soft modes it stops at 76% or
+      54% of the height, which leaves the bottom of the card sitting at the
+      base tint alone — the panel gets dimmer toward its lower edge instead
+      of ending at full strength. That is the part of "rolls off" that does
+      not need a mask.
+      z-index: -1 is load-bearing. This and the shine paint between the
+      card's own background and its text, never over the text. The first
+      draft had the shine above the text with mix-blend-mode: overlay, which
+      DOUBLES any channel under 0.5 — it would have dragged muted grey up by
+      forty points every time it swept past, and the contrast model would
+      have been measuring a surface nobody was reading text on. ── */
+.tier-chrome::before, .tier-hero::before, .tier-solid::before, .quick::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  border-radius: inherit;
+  background-image: linear-gradient(to bottom, var(--glass-veil), transparent var(--veil-stop));
+}
+
+/* ── THE GLASS LAYER, AND WHY IT IS A PSEUDO-ELEMENT ──
+   The blur, the tint, the veil, the inner highlight and the edge mask all
+   live on this ONE element, and neither half of that is arbitrary.
+   The mask has to be on the SAME element as the backdrop-filter, because a
+   mask there masks the whole composited result, the blurred backdrop
+   included — which is the entire point, since it is the BLUR that has to
+   dissolve rather than end at a line. Putting the mask on a parent and the
+   blur on a child is the folk version of this and it is the backdrop-root
+   bug: the child sits in an empty backdrop root and the three engines
+   disagree, with the spec-correct one showing no glass at all.
+   And it has to be a PSEUDO-element rather than the card itself, because a
+   mask on the card would fade the card's own TEXT out at the edges along
+   with the panel.
+   -webkit-backdrop-filter stays FIRST and the unprefixed one second: they
+   are cascade aliases sharing one value, so the later declaration wins, and
+   iOS 16.4 and 17 have only the prefixed one. */
+.tier-chrome::before, .tier-hero::before {
+  box-shadow: var(--glass-inner);
+  background-color: var(--glass-chrome);
+  -webkit-backdrop-filter: var(--glass-chrome-blur);
+  backdrop-filter: var(--glass-chrome-blur);
+}
+.tier-hero::before {
+  background-color: var(--glass-hero);
+  -webkit-backdrop-filter: var(--glass-hero-blur);
+  backdrop-filter: var(--glass-hero-blur);
+}
+
+/* ── THE FALLOFF ──
+   The panel's own alpha fades out over its last --glass-fade pixels, so the
+   glass stops being a rectangle that ends and becomes a patch of blur that
+   runs out. Two linear ramps, intersected, so all four edges feather and
+   the corners feather twice.
+   Standard `mask-composite` only: it is Safari 15.4 and iOS 15.4, a year
+   below this app's floor, and `-webkit-mask-composite: source-in` has been
+   an invalid declaration in Chrome 120 and up, discarded rather than
+   honoured, so the prefixed form buys nothing anywhere.
+   The @supports is a belt rather than a necessity. If mask-composite were
+   ever dropped, both layers keep the initial `add`, which is a union: all
+   four edges go fully opaque and only the corners feather. Wrong, but
+   visible and legible — the panel cannot vanish. */
+@supports (mask-composite: intersect) {
+  .tier-chrome::before, .tier-hero::before {
+    mask-image:
+      linear-gradient(to bottom, transparent, #000 var(--glass-fade),
+                      #000 calc(100% - var(--glass-fade)), transparent),
+      linear-gradient(to right,  transparent, #000 var(--glass-fade),
+                      #000 calc(100% - var(--glass-fade)), transparent);
+    mask-composite: intersect;
+  }
+}
+
+/* ── The travelling shine. One slow pass of light across the glass.
+      `infinite alternate`, which is what the repo's self-check demands
+      of any animation that stays on the page. Narrower band than before,
+      and normal blending, so its contribution is a plain white wash the
+      contrast model can account for. ── */
+@media (prefers-reduced-motion: no-preference) {
+  .tier-hero::after, .tier-chrome::after {
+    content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(104deg, transparent 42%, var(--glass-shine) 50%, transparent 58%);
+    background-size: 280% 100%; background-repeat: no-repeat;
+    mix-blend-mode: normal;
+    animation: shine var(--glass-shine-ms,0s) ease-in-out infinite alternate;
+  }
+}
+@keyframes shine { from { background-position: 135% 0; } to { background-position: -35% 0; } }
+
+/* ── The lift ── */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .tier-hero, .tier-solid, .quick { transition: transform .24s var(--hub2-ease), box-shadow .24s var(--hub2-ease); }
+  .tier-hero:hover, .tier-solid:hover, .quick:hover { transform: translateY(calc(var(--glass-lift) * -1)); }
+}
+.row, .quick, .btn { transition: transform .12s var(--hub2-ease); }
+.row:active, .quick:active, .btn:active { transform: scale(var(--hub2-press-scale)); }
+
+/* ── The slow reveal. Much longer and further than before, and driven by
+      an observer so it is identical on every browser. Anything already on
+      screen at load is revealed at once, so the page is never blank. ── */
+.rv { opacity: 0; transform: translateY(var(--reveal-d)); }
+@media (prefers-reduced-motion: no-preference) {
+  .rv { transition: opacity var(--reveal-ms) var(--hub2-ease), transform var(--reveal-ms) var(--hub2-ease); }
+}
+.rv.in { opacity: 1; transform: none; }
+/* Revealed with no transition at all, which a panel about to be measured
+   needs. wireReveal has to read the scroller's box before it can decide what
+   is on screen, and that read flushes layout, which means the element now
+   HAS a recorded computed style and adding .in a moment later animates from
+   it over --reveal-ms instead of applying. Every panel then measured 26px
+   low, the lower ones fell outside the scroller, and they were dropped from
+   the pairing. Higher specificity than the .rv transition rule, so no
+   !important is needed. */
+.rv.no-tr { transition: none; }
+@media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; } }
+
+/* ── GLASS AND THE REVEAL CANNOT SHARE AN ELEMENT ──
+   An element whose opacity is below 1 is a BACKDROP ROOT, and a
+   backdrop-filter inside an empty backdrop root is a silent no-op: not an
+   error, not a warning, just flat. The hero card carried the glass AND the
+   reveal, so fading it in killed its own blur for the whole reveal and
+   popped the glass in at the end — which reads as a rendering bug rather
+   than as motion, and cannot be caught by eye across browsers, because the
+   engine that is spec-correct is the one that shows nothing.
+   So glass surfaces reveal by TRANSFORM alone. The same trap is waiting in
+   `filter`, `mask`, `clip-path`, `mix-blend-mode` other than normal, and
+   `will-change` naming any of them: never put one of those on a glass layer
+   or on any ancestor of one. `will-change: transform` is safe;
+   `will-change: opacity` is not. */
+.rv.tier-hero, .rv.tier-chrome {
+  opacity: 1;
+  transform: translateY(var(--reveal-d)) scale(.976);
+}
+.rv.tier-hero.in, .rv.tier-chrome.in { transform: none; }
+
+/* ══════════════════════════════════════════════════════════════════
+   THE PAGE TRANSITION — a FLIP, and the glass stays live through it.
+   Round four.
+
+   THE FACT THAT DECIDES THE WHOLE ARCHITECTURE: WebKit bug 302256.
+   Safari and Firefox DISABLE backdrop-filter outright for the entire
+   duration of a View Transition. Chrome explicitly does not. So on the
+   phone this is being designed for, a view transition does not freeze the
+   glass, it REMOVES it: every card goes flat for the length of the
+   transition and the glass snaps back at the end. Nobody here would have
+   seen it, because everything on this machine is tested in Chrome.
+   That is why the View Transitions API is gone from this file. It was the
+   right tool for a per-element morph and it is the wrong tool for a morph
+   of GLASS.
+
+   And it explains the original complaint. ::view-transition-old() is a
+   static screenshot with the blur frozen into it, cross-fading out over the
+   new side, and the default group animation scales both as replaced
+   elements with object-fit. Half of every morph was a photograph of a card
+   being stretched and faded. That is what "pictures sliding" was.
+
+   What replaces it is FLIP: let the new page lay out, then transform each
+   card back to where its counterpart was and animate the transform away.
+   The card is a LIVE element the whole way, so its backdrop-filter is
+   re-sampled in screen space every frame at the position it has reached.
+   The glass genuinely refracts what it is passing over as it travels, which
+   is a thing no view transition can do on any engine.
+
+   ── THE TRAP, and it is specific to this file ──
+   The backdrop-root rule is SELF versus ANCESTOR. opacity, filter, mask and
+   mix-blend-mode break a backdrop-filter only from an ANCESTOR; an element
+   carrying backdrop-filter is already a backdrop root, so piling more onto
+   it changes nothing.
+   And "break" is the honest word, not "kill". Measured: an ancestor filter
+   does not switch the blur off, it RE-POINTS it at the filtered subtree's
+   own painted content. With a wrapper that paints only its left half, a card
+   over the painted side still blurs and is bit-identical to the control,
+   while a card over the empty side goes crisp. Our cards sit in a subtree
+   that paints almost nothing, so the practical result is a flat panel, but
+   the model matters when deciding where a wrapper may go.
+   In this file the glass is on .tier-hero::before, which makes the CARD an
+   ancestor of its own glass. So opacity on a card flattens that card. That
+   is the round-three bug, restated, and it rules out the obvious technique:
+   overlaying the two counterparts and cross-fading them by opacity, which is
+   what Framer Motion and GSAP both do, would flatten both cards for exactly
+   the duration of the cross-fade.
+   NEVER put opacity, will-change: opacity, filter, mask or mix-blend-mode
+   on a card, on .view, on .pad, on .screen or on the stage.
+   Two measured non-escapes, so nobody spends an afternoon on either.
+   There is no cheap version of a filter: `filter: blur(0px)`, an identity
+   SVG filter and `will-change: filter` with no filter set are all
+   bit-identical in effect to `blur(8px) contrast(20)`. Declaring the intent
+   is the whole cost.
+   And `isolation: isolate` is a pure no-op for this. It neither creates a
+   backdrop root nor repairs one. It is on .screen for z-index stacking and
+   is doing no work for the glass either way.
+
+   ── SO: Apple's own split, which their GlassEffectContainer docs spell out ──
+   The shell and the content are animated by two different mechanisms.
+   1. THE SHELL morphs its geometry and NEVER fades. Transform and
+      border-radius only, so its ::before keeps live blur the entire way.
+   2. THE CONTENT cross-fades, and the opacity goes on .cw, a SIBLING of the
+      glass pseudo-element rather than an ancestor of it.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── .cw: the content wrapper, and it has three jobs ──
+   It is inserted by JS around every panel's children after each paint, so
+   no page template had to change. It carries:
+     1. the opacity for the content cross-fade,
+     2. the counter-scale, because the shell is scaled by the FLIP and
+        without an inverse scale on the content the text stretches, which is
+        the exact artefact this round is removing,
+     3. a small blur mid-flight, which is safe HERE and nowhere else.
+   Everything is inherited from the card so the original layout is
+   untouched: a flex row stays a flex row, a block stays a block. */
+.cw {
+  display: inherit;
+  flex-direction: inherit;
+  align-items: inherit;
+  justify-content: inherit;
+  gap: inherit;
+  width: 100%;
+  min-width: 0;
+}
+/* The one card that needs its wrapper to have a real box, and the reason is
+   worth keeping. Once .cw carries the counter-scale it has a transform, and
+   a transformed element becomes the containing block for every absolutely
+   positioned descendant inside it. The concert hero's light beam and floor
+   are positioned against percentages of their container, so with .cw at its
+   natural height they collapsed and snapped back when the transform was
+   removed at the end.
+   This is `position: absolute; inset: 0` rather than `height: 100%` on every
+   .cw, which is what it was first, because a percentage height against an
+   auto-height parent is circular: the first forced layout read straight
+   after the wrapper is inserted comes back with a pre-convergence value, and
+   that read is exactly the one the morph measures LAST with. The concert
+   title block measured 131px tall at that instant and 98px one frame later,
+   so every panel under it was measured 33px out of place. */
+.hall-hero > .cw { position: absolute; inset: 0; }
+
+/* ── The ghost layer ──
+   A FLIP animates the card that EXISTS, and the page being left is already
+   gone by the time anything moves. So the outgoing content is cloned into
+   this layer, travels the same path as its counterpart, and fades out: that
+   is the other half of the cross-fade.
+   It is clipped to the phone's SCROLLING AREA rather than to the phone, so
+   a ghost can never paint over the header or the tab bar. Its box is
+   written by JS at navigation time.
+   overflow and border-radius do not make a backdrop root, so a ghost that
+   keeps its glass still has live glass. Opacity on the layer ITSELF would
+   kill it, so the fade is always on an individual ghost, never on this. */
+#ghosts {
+  position: fixed; overflow: hidden; pointer-events: none; z-index: 50;
+  contain: paint;
+}
+#ghosts > * { position: absolute; margin: 0; }
+
+/* A paired ghost is CONTENT ONLY. Its live counterpart is travelling the
+   same path underneath it carrying the real glass, and two translucent
+   shells stacked read as one much denser shell. Zeroing the glass tokens on
+   the clone strips the shell without touching the markup, and it also makes
+   the ghost safe to fade, since there is no backdrop-filter left on it to
+   kill. */
+#ghosts .gh {
+  --glass-solid: transparent;
+  --glass-hero: transparent;
+  --glass-chrome: transparent;
+  --glass-hero-blur: none;
+  --glass-chrome-blur: none;
+  --glass-veil: transparent;
+  --glass-shine: transparent;
+  --glass-inner: 0 0 transparent;
+  --glass-bloom: 0 0 transparent;
+  --glass-ring-w: 0px;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Hub parts
+   ══════════════════════════════════════════════════════════════════ */
+.hdr {
+  position: relative; z-index: 3; flex: none;
+  display: flex; align-items: center; gap: 10px; padding: 11px 13px;
+  margin: 9px 9px 0; border-radius: calc(var(--edge-radius-card) - 1px);
+  font-weight: 800; letter-spacing: -.01em;
+}
+[data-glass="off"] .hdr { margin: 0; border-radius: 0; border-width: 0 0 1px; }
+.hdr .brand { flex: 1; font-size: 15.5px; }
+.hdr .ico {
+  width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px;
+  color: var(--hub2-muted); background: color-mix(in srgb, var(--hub2-ink) 6%, transparent);
+}
+.tabbar {
+  position: absolute; z-index: 3; left: 12px; right: 12px; bottom: 12px;
+  display: flex; padding: 7px 4px; border-radius: calc(var(--edge-radius-card) + 3px);
+}
+[data-glass="off"] .tabbar { left: 0; right: 0; bottom: 0; border-width: 1px 0 0; border-radius: 0; }
+.tabbar button {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 5px 0; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 10.5px; font-weight: 700; color: var(--hub2-muted);
+}
+.tabbar button.on { color: var(--hub2-plum-text); }
+
+h1.title { margin: 2px 0; font-size: 27px; font-weight: 800; letter-spacing: -.025em; line-height: 1.12; }
+.sub { margin: 0 0 14px; color: var(--hub2-muted); font-size: 13.5px; }
+.sect { margin: 20px 0 9px; font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
+.back {
+  display: inline-flex; align-items: center; gap: 5px; margin-bottom: 8px;
+  padding: 5px 11px 5px 7px; border: 0; border-radius: 999px;
+  background: color-mix(in srgb, var(--hub2-ink) 6%, transparent); color: var(--hub2-ink);
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+
+.now { padding: 16px; margin-bottom: 11px; }
+.kick { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--hub2-accent); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--hub2-accent); }
+.now h3 { margin: 7px 0 3px; font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.big { font-size: 25px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.bar { height: 6px; margin-top: 13px; border-radius: 99px; background: color-mix(in srgb, var(--hub2-ink) 9%, transparent); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 42%; border-radius: 99px; background: var(--hub2-accent-fill); }
+
+.rows { display: flex; flex-direction: column; gap: 8px; }
+.row { display: flex; align-items: center; gap: 11px; padding: 11px 13px; cursor: pointer; text-align: left; }
+.row .t { width: 56px; flex: none; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.row .m { flex: 1; min-width: 0; }
+.row .m b { display: block; font-size: 14.5px; font-weight: 700; }
+.row .m span { display: block; font-size: 12.5px; color: var(--hub2-muted); }
+.row .chev { flex: none; color: var(--hub2-muted); }
+.accent { width: 4px; align-self: stretch; flex: none; border-radius: 99px; background: var(--hub2-accent); }
+.accent.plum { background: var(--hub2-plum); }
+.accent.gold { background: var(--hub2-hall-gold); }
+
+.owed { display: flex; align-items: center; gap: 11px; padding: 12px 13px; margin-bottom: 11px; }
+.owed .badge { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 999px; background: var(--hub2-sun); color: var(--hub2-sun-ink); }
+.owed b { display: block; font-size: 14.5px; }
+.owed span { font-size: 12.5px; color: var(--hub2-muted); }
+
+.quicks { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+.quick {
+  position: relative; z-index: 0; display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 13px 4px; cursor: pointer;
+  background: var(--glass-solid); border: var(--glass-ring-w) solid var(--glass-line);
+  border-radius: var(--edge-radius-row); box-shadow: var(--glass-inner), var(--glass-bloom);
+  font-size: 11px; font-weight: 700; color: var(--hub2-ink); text-align: center;
+}
+[data-glass="off"] .quick { border-color: var(--hub2-line); }
+.quick i { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; color: var(--hub2-accent); background: color-mix(in srgb, var(--hub2-accent) 12%, transparent); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 44px; padding: 0 18px; border: 0; border-radius: 13px;
+  background: var(--hub2-accent-fill); color: #fff;
+  font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.btn.ghost { background: transparent; color: var(--hub2-ink); border: 1px solid var(--glass-line); }
+.btn.gold { background: var(--spot-gold); color: var(--spot-bg); }
+.btn.wide { width: 100%; }
+.btnrow { display: flex; gap: 9px; margin: 13px 0 2px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 11px 0 2px; }
+.chip { padding: 5px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 700; background: var(--glass-solid); border: var(--glass-ring-w) solid var(--glass-line); box-shadow: var(--glass-inner); }
+.chip.gold { color: var(--hall-gold-text); border-color: color-mix(in srgb, var(--hub2-hall-gold) 55%, transparent); }
+
+/* ── Concert Hall ── */
+[data-look="hall"] h1.title { font-family: var(--hub2-font-title); font-weight: 600; font-size: 30px; letter-spacing: -.01em; }
+[data-look="hall"] .sect { font-family: var(--hub2-font-title); font-weight: 600; font-size: 21px; letter-spacing: 0; }
+[data-look="hall"] .sect::after { content: ''; display: block; width: 36px; height: 1px; margin-top: 6px; background: var(--hub2-hall-gold); }
+/* The box the row grows into. It is a real panel, so the morph has
+   something with edges to become. */
+.ev-head { padding: 14px 15px 15px; margin-bottom: 12px; }
+.ev-head .title { margin: 0 0 3px; }
+.hall-hero {
+  position: relative; height: 146px; margin-bottom: 12px; overflow: hidden;
+  border-radius: var(--hub2-radius-card);
+  background:
+    radial-gradient(60% 90% at 50% 112%, rgba(245,224,160,.6), transparent 62%),
+    radial-gradient(40% 70% at 50% 0%, rgba(255,238,190,.26), transparent 70%),
+    linear-gradient(176deg,#241a12,#130e0a);
+}
+.hall-hero .beam { position: absolute; left: 50%; top: -14%; width: 56%; height: 128%; transform: translateX(-50%); background: linear-gradient(180deg, rgba(255,241,205,.3), rgba(255,241,205,0) 76%); clip-path: polygon(40% 0,60% 0,100% 100%,0 100%); }
+.hall-hero svg { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); opacity: .82; }
+.hall-hero .floor { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.45)); }
+.prog { display: flex; align-items: baseline; gap: 12px; padding: 12px 13px; }
+.prog .n { flex: none; width: 20px; font-size: 12px; font-weight: 800; color: var(--hall-gold-text); font-variant-numeric: tabular-nums; }
+.prog .w { flex: 1; min-width: 0; }
+.prog .w b { display: block; font-size: 14.5px; font-weight: 700; }
+.prog .w span { font-size: 12.5px; color: var(--hub2-muted); }
+.prog .d { flex: none; font-size: 12.5px; color: var(--hub2-muted); font-variant-numeric: tabular-nums; }
+
+/* ── Spotlight ── */
+/* Spotlight is the one place this can genuinely fail: the page is near black
+   and the glows behind the glass are the strongest in the sample, so the
+   composited panel is much lighter than the page. #B6AECB measured 3.55:1 on
+   it, which is a failure the first two rounds already had. Lightening the
+   muted token to #D5CEE6 is the right direction for a dark theme and is
+   sample-only, the same as --hall-gold-text above. */
+.screen[data-look="spot"] {
+  --hub2-bg: var(--spot-bg); --hub2-ink: var(--spot-ink); --hub2-muted: #d5cee6;
+  --hub2-line: rgba(243,238,255,.16); --hub2-accent: var(--spot-gold);
+  --hub2-accent-fill: #6c5a1c; --hub2-plum-text: var(--spot-gold);
+  --glass-solid: rgba(255,255,255,.07);
+  --glass-hero: rgba(255,255,255,.05);
+  --glass-chrome: rgba(255,255,255,.04);
+  --glass-chrome-blur: blur(34px) saturate(170%) brightness(.92);
+  --glass-hero-blur: blur(28px) saturate(170%) brightness(.92);
+  --glass-line: rgba(243,238,255,.18);
+  --glass-veil: rgba(255,255,255,.02);
+  --glass-spec-line: rgba(255,255,255,.34);
+  --glass-under: rgba(0,0,0,.65);
+  --glass-shine: rgba(255,255,255,.035);
+  --glass-shadow: 0 16px 40px -16px rgba(0,0,0,.8);
+}
+[data-glass="subtle"] .screen[data-look="spot"] {
+  --spot-teal-glow: rgba(58,168,184,.30);
+  --spot-plum-glow: rgba(123,53,120,.38);
+  --glass-solid: rgba(255,255,255,.09);
+  --glass-hero: rgba(255,255,255,.075);
+  --glass-chrome: rgba(255,255,255,.065);
+  --glass-chrome-blur: blur(26px) saturate(150%) brightness(.95);
+  --glass-hero-blur: blur(22px) saturate(150%) brightness(.95);
+  --glass-shine: rgba(255,255,255,.03);
+}
+.screen[data-look="spot"] .field::before {
+  background:
+    radial-gradient(78% 52% at 4% 0%, var(--spot-teal-glow), transparent 62%),
+    radial-gradient(74% 54% at 96% 100%, var(--spot-plum-glow), transparent 62%);
+}
+.screen[data-look="spot"] .field::after { background: none; }
+[data-look="spot"] h1.title { font-family: var(--hub2-font-spot); font-size: 30px; letter-spacing: -.03em; }
+[data-look="spot"] .big { font-family: var(--hub2-font-spot); font-size: 34px; }
+.steps { display: flex; flex-direction: column; gap: 7px; }
+.step { display: flex; align-items: center; gap: 10px; padding: 10px 13px; font-size: 13.5px; font-weight: 600; }
+.step .k { flex: none; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; font-size: 11px; font-weight: 800; background: color-mix(in srgb, var(--spot-gold) 22%, transparent); color: var(--spot-gold); }
+.step.done .k { background: var(--spot-teal-glow); color: var(--spot-ink); }
+
+/* ── Staff on a phone ── */
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 4px; }
+.tile { padding: 13px; }
+.tile .l { font-size: 11.5px; font-weight: 700; color: var(--hub2-muted); }
+.tile .v { margin-top: 2px; font-size: 26px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.tile .v small { font-size: 14px; font-weight: 700; color: var(--hub2-muted); letter-spacing: 0; }
+
+.notes { margin-top: 36px; padding: 22px; background: var(--doc-panel); border: 1px solid var(--doc-line); border-radius: 18px; }
+.notes h2 { margin: 0 0 4px; font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.notes > p { margin: 0 0 18px; color: var(--doc-muted); max-width: 64ch; }
+.tiers { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit,minmax(228px,1fr)); }
+.tiercard { padding: 14px; border: 1px solid var(--doc-line); border-radius: 14px; }
+.tiercard b { display: block; font-size: 14px; }
+.tiercard .c { margin: 7px 0 0; font-size: 13px; color: var(--doc-muted); }
+.tiercard .tag { display: inline-block; margin-bottom: 7px; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; background: color-mix(in srgb,#0e7585 13%,transparent); color: #0e7585; }
+:root[data-theme="dark"] .tiercard .tag { background: color-mix(in srgb,#3aa8b8 18%,transparent); color: #6fd0de; }
+
+@media (max-width: 820px) {
+  .ctl { width: 100%; align-items: flex-start; }
+  .ctl > span { flex: none; width: 54px; padding-top: 10px; }
+  .seg { flex: 1; min-width: 0; flex-wrap: wrap; border-radius: 15px; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="doc-head">
+    <h1>Glass Hub</h1>
+    <p>Tap anything. <b>Every panel on the page you leave flows into the panel that
+      takes its place on the page you arrive at</b>: the first into the first, the
+      second into the second, each one travelling and changing size while the writing
+      inside it fades across. A panel with nothing to become melts away, and a new one
+      that came from nothing gathers itself out of a haze. Nothing sweeps across the
+      screen any more. <b>The glass stays real the whole way</b>, so a card picks up
+      the colours it is passing over as it moves, which is the part that could not be
+      done before. Start on <b>Full</b>, <b>Dissolved</b> and <b>Slowest</b>, then
+      dial back until it feels right.</p>
+  </header>
+
+  <div class="controls">
+    <div class="ctl">
+      <span>Glass</span>
+      <div class="seg" id="segGlass">
+        <button data-v="subtle" aria-pressed="false">Subtle</button>
+        <button data-v="full" aria-pressed="true">Full</button>
+        <button data-v="off" aria-pressed="false">Off</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span>Edges</span>
+      <div class="seg" id="segEdge">
+        <button data-v="crisp" aria-pressed="false">Crisp</button>
+        <button data-v="soft" aria-pressed="false">Soft</button>
+        <button data-v="dissolved" aria-pressed="true">Dissolved</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span>Pace</span>
+      <div class="seg" id="segPace">
+        <button data-v="quick" aria-pressed="false">Quick</button>
+        <button data-v="slow" aria-pressed="true">Slow</button>
+        <button data-v="slowest" aria-pressed="false">Slowest</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span>Theme</span>
+      <div class="seg" id="segTheme">
+        <button data-v="light" aria-pressed="true">Light</button>
+        <button data-v="dark" aria-pressed="false">Dark</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div id="host" data-glass="full" data-edge="dissolved"></div>
+    <p class="hint" id="hint">Scroll the phone to see things arrive. Tap
+      <b>Fall Symphony Concert</b> and watch every panel on the page flow
+      into the panel that takes its place.</p>
+  </div>
+
+  <section class="notes">
+    <h2>What changed in this round</h2>
+    <p>The three things you asked for, pushed as far as they go. Every colour here has
+      been composited and measured, so the glass is this thin because it is safe to be,
+      not because nobody checked.</p>
+    <div class="tiers">
+      <div class="tiercard"><span class="tag">More transparent</span><b>Four times thinner</b>
+        <p class="c">The panels went from 56% opaque to 14%. What made that possible was
+          turning the background wash upside down: instead of a dark tint over a pale
+          page, the page is dropped a shade and the colours floating behind the glass are
+          all <i>brighter</i> than it. Brightening can only ever help dark text, so the
+          old limit disappeared.</p></div>
+      <div class="tiercard"><span class="tag">Softer edges</span><b>The glass runs out</b>
+        <p class="c">The hairline is gone, and so is the edge itself: over the last
+          twenty-two pixels the panel's own frosting fades away, so the blur dissolves
+          rather than stopping at a line. Add a soft glow inside the top edge and a wide
+          bloom underneath, and there is nothing left to call a boundary. Use the Edges
+          control to compare: Crisp is what you saw last time.</p></div>
+      <div class="tiercard"><span class="tag">Liquid</span><b>The panels reform, and the glass stays real</b>
+        <p class="c">The wave and the oval are gone. Both were a photograph of one page
+          being revealed by a photograph of another, which is why neither could look
+          like a morph: you were watching a picture of a card being stretched. Now the
+          real card moves. It travels to where the next page needs it, grows or shrinks
+          to fit, and the writing inside fades across while it goes. Because it is the
+          real card and not a picture, the glass keeps working the whole way and picks
+          up whatever colour it happens to be over. They start one after another down
+          the page, because liquid lags, and each one goes a hair past its mark and
+          settles back.</p></div>
+      <div class="tiercard"><span class="tag">The cost</span><b>Slow has a price</b>
+        <p class="c">Slow is now 900 milliseconds, and Slowest is a second and a half.
+          Worth knowing once: past about half a second a transition stops feeling like
+          something your tap caused and starts feeling like the app is behind you, and
+          while it runs it swallows taps. Quick is there so you can feel both.</p></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const I = {
+  search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/>',
+  menu:'<path d="M3 6h18M3 12h18M3 18h18"/>',
+  chev:'<path d="m9 6 6 6-6 6"/>',
+  back:'<path d="m15 18-6-6 6-6"/>',
+  home:'<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>',
+  cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  music:'<circle cx="7" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M10 18V4l11-2v14"/>',
+  clip:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+  pin:'<path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/>',
+  file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  alert:'<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  stand:'<path d="M12 10v9m0 0-4 2m4-2 4 2M7 3h10l-1 6H8z"/>',
+};
+const ic = (n,s) => '<svg width="'+(s||18)+'" height="'+(s||18)+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+I[n]+'</svg>';
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+
+/* ── Content ───────────────────────────────────────────────────── */
+const EVENTS = {
+  fall: { title:'Fall Symphony Concert', meta:'NWSA Theater, call 6:15 PM', date:'Nov 20',
+    when:'Thursday, November 20, 7:30 PM',
+    program:[['Symphony No. 7','Beethoven','36 min'],['Adoration','Florence Price','5 min'],['Hoe-Down','Copland','4 min']],
+    groups:[['Symphony Orchestra','48 players',''],['Camerata','22 players','plum']] },
+  opera: { title:'Opera Scenes', meta:'Black Box, required to attend', date:'Dec 4',
+    when:'Thursday, December 4, 7:00 PM',
+    program:[['Scenes from Dido and Aeneas','Purcell','22 min'],['Scenes from The Magic Flute','Mozart','18 min']],
+    groups:[['Opera Workshop','19 singers','plum']] },
+  winter: { title:'Winter Chamber Night', meta:'Recital Hall, no call time yet', date:'Dec 12',
+    when:'Friday, December 12, 7:30 PM',
+    program:[['Quintet in A, D. 667','Schubert','38 min']],
+    groups:[['College Chamber Orchestra','14 players','']] },
+};
+
+/* ── Page templates ────────────────────────────────────────────── */
+function evRow(id, accent) {
+  const e = EVENTS[id];
+  return '<button class="row tier-solid rv" data-ev="'+id+'" data-morph-src>' +
+    '<i class="accent '+(accent||'gold')+'" data-m="bar"></i>' +
+    '<span class="t">'+esc(e.date)+'</span>' +
+    '<span class="m"><b data-m="title">'+esc(e.title)+'</b><span data-m="meta">'+esc(e.meta)+'</span></span>' +
+    '<span class="chev">'+ic('chev',16)+'</span></button>';
+}
+function row(t,name,where,accent) {
+  return '<div class="row tier-solid rv"><i class="accent '+(accent||'')+'"></i>' +
+    '<span class="t">'+t+'</span><span class="m"><b>'+name+'</b><span>'+where+'</span></span>' +
+    '<span class="chev">'+ic('chev',16)+'</span></div>';
+}
+
+const PAGES = {
+  today: { look:'bright', tab:0, body: () =>
+    '<h1 class="title">Good afternoon, Maya</h1>' +
+    '<p class="sub">Thursday, November 20</p>' +
+    '<div class="now tier-hero rv"><span class="kick"><i class="dot"></i> On now</span>' +
+      '<h3>Symphony Orchestra</h3><div class="big">2:30 to 4:15 PM</div>' +
+      '<p class="sub" style="margin:4px 0 0">Room 405, Mr. Fleischman</p>' +
+      '<div class="bar"><i></i></div></div>' +
+    '<div class="owed tier-solid rv"><span class="badge">'+ic('alert',17)+'</span>' +
+      '<span><b>Field trip form due Friday</b><span>Tap to sign it now</span></span>' +
+      '<span class="chev">'+ic('chev',16)+'</span></div>' +
+    '<div class="sect rv">Rest of today</div><div class="rows">' +
+      row('4:30 PM','Violin Lesson','Room 212, Ms. Alvarez','plum') +
+      row('5:30 PM','Jazz Combo 2','Band Room','') + '</div>' +
+    '<div class="sect rv">Coming up</div><div class="rows">' +
+      evRow('fall') + evRow('opera') + '</div>' +
+    '<div class="sect rv">Jump to</div><div class="quicks rv">' +
+      '<div class="quick">'+'<i>'+ic('cal',19)+'</i>My week</div>' +
+      '<div class="quick">'+'<i>'+ic('book',19)+'</i>Music</div>' +
+      '<div class="quick">'+'<i>'+ic('file',19)+'</i>Forms</div>' +
+      '<div class="quick">'+'<i>'+ic('pin',19)+'</i>Rooms</div></div>'
+  },
+
+  concerts: { look:'hall', tab:1, body: () =>
+    '<h1 class="title">Concerts</h1><p class="sub">This semester</p>' +
+    '<div class="sect rv">Coming up</div><div class="rows">' +
+      evRow('fall') + evRow('opera') + evRow('winter') + '</div>' +
+    '<div class="sect rv">Already played</div><div class="rows">' +
+      row('Oct 26','NWSA Music Showcase','119 expected, 0 scanned','') +
+      row('Sep 29','College Chamber Orchestra','43 arrived of 78','') + '</div>'
+  },
+
+  event: { look:'hall', tab:1, body: (id) => {
+    const e = EVENTS[id];
+    return '<button class="back" data-back>'+ic('back',15)+' Back</button>' +
+      '<div class="hall-hero rv"><div class="beam"></div>' +
+        '<svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="rgba(255,240,205,.85)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'+I.stand+'</svg>' +
+        '<div class="floor"></div></div>' +
+      '<div class="ev-head tier-hero" data-morph-dst>' +
+      '<i class="accent gold" style="display:block;height:3px;width:38px;margin-bottom:9px"></i>' +
+      '<h1 class="title">'+esc(e.title)+'</h1>' +
+      '<p class="sub" style="margin:0">'+esc(e.when)+'</p></div>' +
+      '<div class="chips rv"><span class="chip">'+esc(e.meta.split(',')[0])+'</span>' +
+        '<span class="chip gold">Call 6:15 PM</span><span class="chip">Concert black</span></div>' +
+      '<div class="btnrow rv"><button class="btn">'+ic('cal',17)+' Add to my calendar</button>' +
+        '<button class="btn ghost">'+ic('pin',17)+'</button></div>' +
+      '<div class="sect rv">Program</div><div class="rows">' +
+        e.program.map((p,i) => '<div class="prog tier-solid rv"><span class="n">'+(i+1)+'</span>' +
+          '<span class="w"><b>'+esc(p[0])+'</b><span>'+esc(p[1])+'</span></span>' +
+          '<span class="d">'+esc(p[2])+'</span></div>').join('') + '</div>' +
+      '<div class="sect rv">Who plays</div><div class="rows">' +
+        e.groups.map(g => row('', esc(g[0]), esc(g[1]), g[2])).join('') + '</div>';
+  }},
+
+  tonight: { look:'spot', tab:2, body: () =>
+    '<p class="kick" style="color:var(--spot-gold)">Tonight</p>' +
+    '<h1 class="title">Fall Symphony Concert</h1>' +
+    '<p class="sub">NWSA Theater, 7:30 PM. Call time 6:15.</p>' +
+    '<div class="now tier-hero rv" style="text-align:center">' +
+      '<p class="sub" style="margin:0 0 2px">Doors open in</p><div class="big">3h 42m</div>' +
+      '<button class="btn gold wide" style="margin-top:14px">'+ic('check',17)+' Check in at the door</button></div>' +
+    '<div class="sect rv">Your night</div><div class="steps">' +
+      '<div class="step tier-solid rv done"><span class="k">'+ic('check',12)+'</span> Arrive by 6:15, stage door</div>' +
+      '<div class="step tier-solid rv done"><span class="k">'+ic('check',12)+'</span> Concert black, folder and pencil</div>' +
+      '<div class="step tier-solid rv"><span class="k">3</span> Scan in at the table</div>' +
+      '<div class="step tier-solid rv"><span class="k">4</span> Scan out before you leave</div></div>' +
+    '<div class="sect rv">On the program</div><div class="rows">' +
+      '<div class="prog tier-solid rv"><span class="n">1</span><span class="w"><b>Symphony No. 7</b><span>Beethoven</span></span><span class="d">36 min</span></div>' +
+      '<div class="prog tier-solid rv"><span class="n">2</span><span class="w"><b>Adoration</b><span>Florence Price</span></span><span class="d">5 min</span></div></div>'
+  },
+
+  staff: { look:'bright', tab:3, body: () =>
+    '<h1 class="title">Thursday, November 20</h1>' +
+    '<p class="sub">Concert tonight. Four blocks, one roll still to take.</p>' +
+    '<div class="tiles rv">' +
+      '<div class="tile tier-solid"><div class="l">Out today</div><div class="v">6</div></div>' +
+      '<div class="tile tier-solid"><div class="l">Rolls to take</div><div class="v">1 <small>of 4</small></div></div>' +
+      '<div class="tile tier-solid"><div class="l">Requests waiting</div><div class="v">3</div></div>' +
+      '<div class="tile tier-solid"><div class="l">Expected tonight</div><div class="v">78</div></div></div>' +
+    '<div class="sect rv">Today’s blocks</div><div class="rows">' +
+      row('8:45','Music Theory I','Room 310, roll taken','') +
+      row('10:20','Camerata','Room 405, roll taken','plum') +
+      row('2:30','Symphony Orchestra','Room 405, roll open','') +
+      row('6:15','Call: Fall Symphony Concert','NWSA Theater','gold') + '</div>' +
+    '<div class="sect rv">Needs you</div><div class="rows">' +
+      row('','3 absence requests','Oldest is 2 days old','gold') +
+      row('','1 copy request','Price, Adoration','') + '</div>'
+  },
+};
+
+const TABS = [['home','Today','today'],['music','Concerts','concerts'],['clip','Tonight','tonight'],['cal','Staff','staff']];
+
+/* ── Shell ─────────────────────────────────────────────────────── */
+const host = document.getElementById('host');
+const state = { page:'today', arg:null, glass:'full', edge:'dissolved', pace:'slow', theme:'light', lastEv:null };
+/* [morph, reveal]. There is no separate exit duration any more: a panel's
+   outgoing picture is gone by 66% of its own flight, so the exit is shorter
+   than the entry by construction and the overlap where ghosting lives is
+   the 34% to 66% window where the two pictures are deliberately merging.
+   Slow is the default and lands at 900ms, which is what was asked for twice.
+   The cost is real and is worth stating once rather than arguing: past about
+   500ms a transition stops reading as "caused by my tap" and starts reading
+   as lag, and while it runs it swallows taps. A student moving quickly
+   through the Hub will feel that before they admire it. Quick is kept so the
+   two can be compared back to back. */
+const PACE = { quick:[420,760], slow:[900,1300], slowest:[1500,2000] };
+
+function shell() {
+  const p = PAGES[state.page];
+  return '<div class="screen" data-look="'+p.look+'" data-hub-theme="'+state.theme+'">' +
+    '<div class="field"></div>' +
+    '<div class="hdr tier-chrome"><span class="brand">New World School</span>' +
+      '<span class="ico">'+ic('search',17)+'</span><span class="ico">'+ic('menu',17)+'</span></div>' +
+    '<div class="view"><div class="pad">' + p.body(state.arg) + '</div></div>' +
+    '<div class="tabbar tier-chrome">' + TABS.map((t,i) =>
+      '<button data-tab="'+t[2]+'" class="'+(i===p.tab?'on':'')+'">'+ic(t[0],19)+'<span>'+t[1]+'</span></button>'
+    ).join('') + '</div></div>';
+}
+
+/* ── Panels ────────────────────────────────────────────────────── */
+/* Every glass surface, in document order. Not .tier-chrome: the header and
+   the tab bar do not move and are simply rebuilt in place. Not .chip: too
+   small to read as anything but noise in flight. */
+const PANEL_SEL = '.tier-hero, .tier-solid, .quick, .hall-hero';
+/* Only .tier-hero and .tier-chrome carry a real backdrop-filter in this
+   sample; rows, tiles, steps and quick actions are a flat translucent fill.
+   That matters in exactly one place: fading a card's shell kills its own
+   blur (the card is an ancestor of its ::before), so a departing card that
+   has glass loses it while it leaves. It is worth knowing rather than
+   worth preventing, because slot 1 is a hero on both sides of every
+   navigation in this sample and therefore always pairs. */
+const hasGlass = el => el.classList.contains('tier-hero') || el.classList.contains('tier-chrome');
+
+/* Which panels take part. Two conditions and both are load-bearing.
+   1. FULLY INSIDE THE SCROLLING AREA, measured against the TAB BAR rather
+      than the bottom of the phone, so nothing that is tucked behind the bar
+      is ever animated out from under it.
+   2. ACTUALLY REVEALED. A panel inside a block still at opacity 0 has a
+      real box but nothing visible in it. .closest() covers the panel itself
+      and every ancestor in one test. */
+function panels() {
+  const view = host.querySelector('.view');
+  const bar = host.querySelector('.tabbar');
+  if (!view) return [];
+  const vr = view.getBoundingClientRect();
+  const floor = bar ? bar.getBoundingClientRect().top : vr.bottom;
+  return Array.prototype.filter.call(host.querySelectorAll(PANEL_SEL), function (el) {
+    if (el.closest('.rv:not(.in)')) return false;
+    const r = el.getBoundingClientRect();
+    return r.height > 0 && r.top >= vr.top - 1 && r.bottom <= floor + 1;
+  });
+}
+
+/* The content wrapper. Inserted after every paint rather than written into
+   nine page templates, and it inherits the card's own layout so a flex row
+   stays a flex row. See the long note on .cw in the stylesheet for why the
+   opacity has to live here and not on the card. */
+function wrapContent(el) {
+  const first = el.firstElementChild;
+  if (first && first.classList.contains('cw')) return first;
+  const cw = document.createElement('div');
+  cw.className = 'cw';
+  while (el.firstChild) cw.appendChild(el.firstChild);
+  el.appendChild(cw);
+  return cw;
+}
+
+/* Reveal: a panel that is about to morph must be visible BEFORE it is
+   measured, so those are revealed synchronously. Everything else — section
+   headings, chips, button rows — is revealed on the next frame instead, so
+   its own CSS transition actually runs and the loose content on the new
+   page eases in rather than appearing all at once under the moving panels.
+   Opacity on .quicks and .tiles is safe: they contain no backdrop-filter. */
+let obs = null;
+function wireReveal() {
+  const view = host.querySelector('.view');
+  if (obs) obs.disconnect();
+  const items = host.querySelectorAll('.rv');
+  if (!('IntersectionObserver' in window)) { items.forEach(e => e.classList.add('in')); return; }
+  obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (en.isIntersecting) { en.target.classList.add('in'); obs.unobserve(en.target); }
+    });
+  }, { root: view, rootMargin: '0px 0px -6% 0px', threshold: 0.01 });
+  const vr = view.getBoundingClientRect();
+  const soon = [];
+  items.forEach(function (e) {
+    const r = e.getBoundingClientRect();
+    if (r.top >= vr.bottom || r.bottom <= vr.top) { obs.observe(e); return; }
+    /* A panel is revealed instantly and WITHOUT a transition, because it is
+       about to be measured and then morphed. Everything else is revealed on
+       the next frame so its own transition runs and the loose content on the
+       arriving page eases in instead of appearing all at once. */
+    if (e.matches(PANEL_SEL) || e.querySelector(PANEL_SEL)) e.classList.add('in', 'no-tr');
+    else soon.push(e);
+  });
+  requestAnimationFrame(function () { soon.forEach(e => e.classList.add('in')); });
+}
+
+function paint() {
+  host.setAttribute('data-glass', state.glass);
+  host.setAttribute('data-edge', state.edge);
+  document.documentElement.setAttribute('data-edge', state.edge);
+  host.innerHTML = shell();
+  wireReveal();
+  host.querySelectorAll(PANEL_SEL).forEach(wrapContent);
+}
+
+/* ── The morph ─────────────────────────────────────────────────── */
+const FLIP_ID = 'flip';
+const reduced = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+const radiusOf = el => parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
+
+function ghostLayer(view, floor) {
+  let g = document.getElementById('ghosts');
+  if (!g) {
+    g = document.createElement('div');
+    g.id = 'ghosts';
+    g.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(g);
+  }
+  g.style.left = view.left + 'px';
+  g.style.top = view.top + 'px';
+  g.style.width = view.width + 'px';
+  g.style.height = (floor - view.top) + 'px';
+  g.textContent = '';
+  return g;
+}
+
+/* A clone of an outgoing panel, parked at the box it occupied. `bare` strips
+   the glass tokens so only the content is left, which is what a PAIRED ghost
+   wants: its live counterpart is carrying the real shell along the same path
+   underneath it. */
+function ghostOf(el, box, layer, bare) {
+  const g = el.cloneNode(true);
+  g.className = el.className + (bare ? ' gh' : ' gh-full');
+  g.style.left = (box.left - layer.getBoundingClientRect().left) + 'px';
+  g.style.top = (box.top - layer.getBoundingClientRect().top) + 'px';
+  g.style.width = box.width + 'px';
+  g.style.height = box.height + 'px';
+  layer.appendChild(g);
+  return g;
+}
+
+function go(page, arg, srcEl) {
+  const scr = host.querySelector('.screen');
+  const apply = function () { state.page = page; state.arg = arg; paint(); };
+  if (!scr || reduced() || !scr.animate) { apply(); return; }
+
+  const view = host.querySelector('.view').getBoundingClientRect();
+  const bar = host.querySelector('.tabbar');
+  const floor = bar ? bar.getBoundingClientRect().top : view.bottom;
+
+  /* FIRST, measured while any in-flight morph is STILL APPLIED.
+     getBoundingClientRect returns the post-transform rect, so this reads
+     where each card visually IS right now, mid-flight. That one fact is the
+     whole of interruption handling, and it is why the cancel below happens
+     after this line and not before it. */
+  /* The row you TAPPED is always in, whatever panels() thinks. Its filter is
+     about what is safe to animate unattended, and a row the finger landed on
+     is by definition on screen. Without this, tapping a row that happens to
+     sit under the tab bar silently drops the one pair that matters most. */
+  const oldEls = panels();
+  if (srcEl && oldEls.indexOf(srcEl) < 0) oldEls.unshift(srcEl);
+  const first = oldEls.map(el => el.getBoundingClientRect());
+  const oldClones = oldEls.map(el => el.cloneNode(true));
+  const srcIdx = srcEl ? oldEls.indexOf(srcEl) : -1;
+
+  document.getAnimations().forEach(function (a) { if (a.id === FLIP_ID) a.cancel(); });
+
+  apply();                                   // the DOM is final from here on
+
+  /* KNOWN IMPRECISION, measured and left alone deliberately.
+     The first forced layout after a page's worth of new nodes uses fallback
+     font metrics, so the concert title wraps onto two lines and its card
+     measures 131px tall here and 98px one frame later. Everything below it
+     is then measured about 33px out of place. An extra layout flush does not
+     fix it: the re-resolve needs a real frame, not another read.
+     The effect is bounded and self-correcting. The animation ENDS at the
+     element's true box either way, so only the starting pose is off: that
+     card begins about a quarter too short and two programme lines begin
+     33px high. The fix, if it ever shows, is to pin each card at its first
+     pose synchronously and re-measure on the next frame; that was not built
+     because it adds a state where a backgrounded tab leaves cards pinned. */
+  const newEls = panels();
+  const dst = srcEl === undefined ? null :
+    (host.querySelector('[data-morph-dst]') || host.querySelector('[data-ev="' + state.lastEv + '"]'));
+  if (dst && newEls.indexOf(dst) < 0) newEls.unshift(dst);
+  const dstIdx = dst ? newEls.indexOf(dst) : -1;
+
+  /* Pairing. The row you tapped and the block it opens into are the same
+     object, so they pair by IDENTITY. Everything else pairs by POSITION,
+     first with first and second with second, because these pages hold
+     completely different content and there is no identity to pair on.
+     Both halves of the identity pair are held back from the positional pool
+     only if BOTH exist. Holding one back on its own drops it from the pool
+     as well as from the pair, so it animates not at all — which is what
+     happened the first time this ran, to the one card the whole feature is
+     named after. */
+  const identity = srcIdx >= 0 && dstIdx >= 0;
+  const oldRest = oldEls.map((_, i) => i).filter(i => !identity || i !== srcIdx);
+  const newRest = newEls.map((_, i) => i).filter(i => !identity || i !== dstIdx);
+  const pairs = [];
+  if (identity) pairs.push([srcIdx, dstIdx]);
+  const n = Math.min(oldRest.length, newRest.length);
+  for (let k = 0; k < n; k++) pairs.push([oldRest[k], newRest[k]]);
+
+  const ms = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--morph-ms')) || 900;
+  const soften = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--slot-soften')) || 0;
+  const ease = getComputedStyle(document.documentElement).getPropertyValue('--ease-settle').trim() || 'ease';
+  const layer = ghostLayer(view, floor);
+  const anims = [];
+
+  pairs.forEach(function (p, i) {
+    const el = newEls[p[1]], f = first[p[0]], l = el.getBoundingClientRect();
+    if (!f.width || !l.width) return;
+    const dx = f.left - l.left, dy = f.top - l.top;
+    const sx = f.width / l.width, sy = f.height / l.height;
+    /* The lag. Liquid does not start all at once. The delay grows with the
+       panel's position and the duration shrinks by exactly as much, so the
+       last one still lands on the beat the Pace control promises. */
+    const delay = Math.min(i, 7) * ms * 0.035;
+    const dur = ms - delay;
+    /* fill: 'backwards' is required, not stylistic. With fill: 'none' a
+       staggered card applies nothing during its delay, so it snaps to its
+       final position, sits there, and jumps back when the delay elapses. */
+    const timing = { duration: dur, delay: delay, easing: ease, fill: 'backwards', id: FLIP_ID };
+    const r = radiusOf(el);
+
+    /* THE SHELL. Transform and radius only. No opacity, no filter, ever:
+       the card is an ancestor of its own glass. A non-uniform scale turns a
+       circular corner into an ellipse, so each radius is pre-divided by its
+       own axis scale and lands back at the design token.
+       The middle keyframe is the settle: it carries the box a few per cent
+       PAST where it is going and the last stop brings it back. */
+    const k = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--settle-past')) || 1;
+    const osx = sx + (1 - sx) * k, osy = sy + (1 - sy) * k;
+    anims.push(el.animate([
+      { transformOrigin: '0 0', transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')',
+        borderRadius: (r / sx) + 'px / ' + (r / sy) + 'px' },
+      { offset: .72, transformOrigin: '0 0',
+        transform: 'translate(' + (dx - dx * k) + 'px,' + (dy - dy * k) + 'px) scale(' + osx + ',' + osy + ')',
+        borderRadius: (r / osx) + 'px / ' + (r / osy) + 'px' },
+      { transformOrigin: '0 0', transform: 'translate(0,0) scale(1,1)', borderRadius: r + 'px' }
+    ], timing));
+
+    /* THE CONTENT. The counter-scale keeps the text from stretching, which
+       is the artefact this whole round exists to remove, and the opacity
+       and the blur are safe here because .cw is a SIBLING of the glass
+       pseudo-element rather than an ancestor of it. */
+    const cw = el.firstElementChild;
+    if (cw && cw.classList.contains('cw')) anims.push(cw.animate([
+      { transformOrigin: '0 0', transform: 'scale(' + (1 / sx) + ',' + (1 / sy) + ')',
+        opacity: 0, filter: 'blur(' + soften + 'px)' },
+      { offset: .55, opacity: 1, filter: 'blur(0px)' },
+      { transformOrigin: '0 0', transform: 'scale(1,1)', opacity: 1, filter: 'blur(0px)' }
+    ], timing));
+
+    /* The other half of the cross-fade: the outgoing content, travelling
+       the same path and fading out. Content only, because the live card
+       underneath is already carrying the shell. */
+    const g = ghostOf(oldClones[p[0]], f, layer, true);
+    const ga = g.animate([
+      { transform: 'translate(0,0) scale(1,1)', opacity: 1 },
+      { offset: .55, opacity: 0 },
+      { transform: 'translate(' + (-dx) + 'px,' + (-dy) + 'px) scale(' + (1 / sx) + ',' + (1 / sy) + ')', opacity: 0 }
+    ], { duration: dur, delay: delay, easing: ease, fill: 'both', id: FLIP_ID });
+    ga.finished.then(function () { g.remove(); }, function () {});
+    anims.push(ga);
+  });
+
+  /* A panel with no counterpart is not crossfaded. It melts out, or it
+     gathers itself in. Today's four quick actions have nothing to become on
+     a concert page.
+     fill: 'both' here, NOT 'backwards'. A ghost's natural resting state is
+     "fully visible", so a backwards fill hands it straight back the moment
+     its own animation ends: the melted rows reappeared at full strength
+     half way through the morph and sat on top of the new page until the
+     last pair finished. Removing each ghost as it finishes is the belt. */
+  oldRest.slice(n).forEach(function (i, k) {
+    const g = ghostOf(oldClones[i], first[i], layer, false);
+    const a = g.animate([
+      { transform: 'scale(1)', opacity: 1, filter: 'blur(0px)' },
+      { transform: 'scale(.9)', opacity: 0, filter: 'blur(' + (soften * 1.6) + 'px)' }
+    ], { duration: ms * 0.6, delay: k * ms * 0.03, easing: 'cubic-bezier(.4,0,.7,1)', fill: 'both', id: FLIP_ID });
+    a.finished.then(function () { g.remove(); }, function () {});
+    anims.push(a);
+  });
+  newRest.slice(n).forEach(function (i, k) {
+    const el = newEls[i], cw = el.firstElementChild;
+    const timing = { duration: ms * 0.7, delay: ms * 0.25 + k * ms * 0.03,
+                     easing: ease, fill: 'backwards', id: FLIP_ID };
+    anims.push(el.animate([{ transform: 'scale(.94)' }, { transform: 'scale(1)' }], timing));
+    if (cw && cw.classList.contains('cw')) anims.push(cw.animate(
+      [{ opacity: 0, filter: 'blur(' + (soften * 1.4) + 'px)' }, { opacity: 1, filter: 'blur(0px)' }], timing));
+  });
+
+  // allSettled, because cancel() rejects finished with AbortError.
+  Promise.allSettled(anims.map(a => a.finished)).then(function () {
+    if (!document.getAnimations().some(a => a.id === FLIP_ID)) layer.textContent = '';
+  });
+}
+
+host.addEventListener('click', function (e) {
+  const evBtn = e.target.closest('[data-ev]');
+  if (evBtn && state.page !== 'event') {
+    state.lastEv = evBtn.dataset.ev;
+    go('event', evBtn.dataset.ev, evBtn);
+    return;
+  }
+  if (e.target.closest('[data-back]')) { go('concerts', null, host.querySelector('[data-morph-dst]')); return; }
+  const tab = e.target.closest('[data-tab]');
+  // A tab change shares no single element with the next page, so there is no
+  // identity pair — but the furniture still pairs by position, so the panels
+  // reform here too. That used to be the one navigation that only dissolved.
+  if (tab) { go(tab.dataset.tab); }
+});
+
+/* ── Controls ──────────────────────────────────────────────────── */
+function setPace(v) {
+  const p = PACE[v];
+  document.documentElement.style.setProperty('--morph-ms', p[0]+'ms');
+  document.documentElement.style.setProperty('--reveal-ms', p[1]+'ms');
+}
+function wire(id, key, after) {
+  const seg = document.getElementById(id);
+  seg.addEventListener('click', function (e) {
+    const b = e.target.closest('button'); if (!b) return;
+    state[key] = b.dataset.v;
+    seg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    if (after) after(b.dataset.v);
+    paint();
+  });
+}
+wire('segGlass','glass');
+wire('segEdge','edge');
+wire('segPace','pace', setPace);
+wire('segTheme','theme', function (v) { document.documentElement.setAttribute('data-theme', v); });
+
+try {
+  if (matchMedia('(prefers-color-scheme: dark)').matches) {
+    state.theme = 'dark';
+    document.documentElement.setAttribute('data-theme','dark');
+    document.querySelectorAll('#segTheme button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === 'dark')));
+  }
+} catch (e) {}
+
+/* The floor for the morph is now the Web Animations API, which every
+   browser this app supports has had for years. The View Transitions API,
+   and with it the iOS 18 floor the previous round had to accept, is not
+   involved any more. */
+if (!document.body.animate) {
+  document.getElementById('hint').innerHTML =
+    'This browser cannot animate, so pages change instantly. Everything else works.';
+}
+
+setPace('slow');
+document.documentElement.setAttribute('data-theme', state.theme);
+paint();
+</script>
+</body>
+</html>
