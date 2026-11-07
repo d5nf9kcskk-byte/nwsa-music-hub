@@ -373,6 +373,17 @@
     background: transparent; box-shadow: none;
     -webkit-backdrop-filter: none; backdrop-filter: none;
   }
+  /* And nothing INSIDE a clone composites a backdrop either. The clone's
+     own opacity is an ancestor of every card in it, so each one's blur is
+     re-pointed at the clone's subtree and paints nothing anyway — this
+     just stops a page's worth of dead layers being made to prove it. */
+  :root[data-hub2="on"] #hub2-ghosts .hub2-ghost *,
+  :root[data-hub2="on"] #hub2-ghosts .hub2-ghost *::before,
+  :root[data-hub2="on"] #hub2-ghosts .hub2-ghost *::after,
+  :root[data-hub2="on"] #hub2-ghosts > .hub2-ghost::before,
+  :root[data-hub2="on"] #hub2-ghosts > .hub2-ghost::after {
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
 
   /* The reveal animates a plain registered number, never opacity itself:
      Chrome treats an element with an attached opacity or transform animation

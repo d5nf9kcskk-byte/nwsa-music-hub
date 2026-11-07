@@ -103,6 +103,10 @@ export interface Hub2Glass {
   chromeBlur: string;
   /** Blur behind a page's one hero card. Lower than the chrome: it sits over content. */
   heroBlur: string;
+  /** Blur behind an ORDINARY card or row. Lowest of the three, and there are
+   *  dozens of them on a page: this is the one that costs real compositing on
+   *  an older phone, so it is the first to turn down to "0px". */
+  panelBlur: string;
   /** How long the field's light takes to drift across the page once. */
   fieldDrift: string;
   /** The specular sweep across the brand mark. Long and slow, or it is a distraction. */

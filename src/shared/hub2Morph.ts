@@ -89,6 +89,34 @@ const STAGGER_MS = 40;
 const SETTLE_AT = 0.72;
 const SETTLE_PAST = 0.045;
 
+/**
+ * HOW FAR APART TWO BLOCKS MAY BE AND STILL BE THE SAME OBJECT.
+ *
+ * Positional pairing is right for furniture and wrong for everything else,
+ * and nothing was stopping it: first-with-first, whatever the two were. A
+ * 24px section heading paired with a 400px month grid, and what a sixteen
+ * times scale looks like is a panel being STRETCHED, which is the exact
+ * artefact round four existed to remove. The director's word for it was
+ * "messy instead of liquidy".
+ *
+ * So a positional pair must be roughly the same shape, and one that is not
+ * is better served by the two branches that already exist: the old one
+ * melts where it stood and the new one gathers out of a haze.
+ *
+ * THE PRESSED ROW IS EXEMPT, and it has to be: a 56px row opening into a
+ * 150px hero is a nine-times area change and it is the single animation
+ * this whole feature is named after. A finger landed on it, so the person
+ * already knows those two things are the same object and the scale reads
+ * as growth rather than as stretching.
+ */
+const MAX_SCALE = 3.2;
+
+/** How much of the morph the outgoing clone is visible for, and on what
+ *  curve. Short and front-loaded, for the reason written where it is used:
+ *  anything slower leaves two legible pages stacked on each other. */
+const FADE_OF = 0.34;
+const FADE_EASE = 'cubic-bezier(.3,.9,.4,1)';
+
 const num = (v: string) => parseFloat(v) || 0;
 
 /** The look's own easing, and the morph duration the org config sets.
@@ -170,6 +198,22 @@ interface Shot {
   rects: DOMRect[];
   clones: HTMLElement[];
   radii: string[];
+  /** Did a finger land on the first one? See MAX_SCALE. */
+  anchored: boolean;
+}
+
+/** Glass on the element OR on the pane it carries. The panes put their
+ *  blur on a `::before` (hub2Glass.css §4, so the edge mask can live on the
+ *  same element as the blur), and a host asked about its own
+ *  `backdropFilter` answers "none" — which would let the gather branch fade
+ *  it, and an ancestor opacity re-points its pane's blur at an empty
+ *  subtree. Flat glass, nothing thrown, nothing logged. */
+function carriesGlass(el: Element): boolean {
+  for (const pseudo of [null, '::before'] as const) {
+    const f = getComputedStyle(el, pseudo).backdropFilter;
+    if (f && f !== 'none') return true;
+  }
+  return false;
 }
 
 /** A fixed layer for the outgoing clones. `contain: paint` keeps a clone
@@ -198,6 +242,7 @@ export function capture(): Shot | null {
   const at = pressed ? els.indexOf(pressed as HTMLElement) : -1;
   if (at > 0) els.unshift(...els.splice(at, 1));
   return {
+    anchored: at >= 0,
     rects: els.map(el => el.getBoundingClientRect()),
     radii: els.map(el => getComputedStyle(el).borderTopLeftRadius),
     clones: els.map(el => el.cloneNode(true) as HTMLElement),
@@ -233,19 +278,27 @@ export function play(shot: Shot): void {
 
   const now = panels();
   const host = ghostLayer();
-  const pairs = Math.min(shot.rects.length, now.length);
 
   for (let i = 0; i < Math.max(shot.rects.length, now.length); i++) {
     const delay = Math.min(i, 6) * STAGGER_MS;
     const opts: KeyframeAnimationOptions = { duration: ms, easing: ease, delay, fill: 'both' };
 
+    // Is there a counterpart, and is it the same SHAPE? See MAX_SCALE: a
+    // positional pair that is not gets taken apart and handed to the melt
+    // and gather branches below, which is what they are for.
+    const el: HTMLElement | undefined = now[i];
+    const from: DOMRect | undefined = shot.rects[i];
+    const to = el?.getBoundingClientRect();
+    let paired = !!(from && to && to.width && to.height);
+    if (paired && !(shot.anchored && i === 0)) {
+      const kx = from!.width / to!.width;
+      const ky = from!.height / to!.height;
+      paired = Math.max(kx, 1 / kx, ky, 1 / ky) <= MAX_SCALE;
+    }
+
     // A panel with a counterpart: the live element travels, and the outgoing
     // copy travels the same path and fades out over it.
-    if (i < pairs) {
-      const el = now[i];
-      const from = shot.rects[i];
-      const to = el.getBoundingClientRect();
-      if (!to.width || !to.height) continue;
+    if (paired && el && from && to) {
       const sx = from.width / to.width;
       const sy = from.height / to.height;
       const dx = from.left - to.left;
@@ -287,14 +340,46 @@ export function play(shot: Shot): void {
       // so the live panel never needs an opacity. Its glass is zeroed by
       // CSS (#hub2-ghosts .hub2-ghost), because two translucent shells
       // stacked read as one much denser shell.
+      // THE CLONE CARRIES THE WHOLE CROSS-FADE, and it has to be OVER
+      // early. The live panel never gets an opacity (the backdrop-root
+      // trap, see the header), so for as long as the clone is legible BOTH
+      // pages are legible at once, on top of each other. At the old 62% of
+      // a 1500ms morph that was most of a second of two readable pages
+      // stacked: photographed at 404ms, "Calendar / All ensembles" sat
+      // across "Today at NWSA Music" with every word of both sharp. That is
+      // the whole of "the transitions look messy instead of liquidy".
+      // So: gone by 38%, and BLURRED on the way, which stops it being
+      // readable at about 15% — long before it is invisible. The geometry
+      // still takes the full duration underneath, which is the part that
+      // reads as liquid. The clone keeps travelling its counterpart's path
+      // the whole way; only the fade is early.
       const ghost = shot.clones[i];
       ghost.classList.add('hub2-ghost');
       ghost.style.cssText += `;left:${from.left}px;top:${from.top}px;width:${from.width}px;height:${from.height}px`;
       host.appendChild(ghost);
+      // It travels its counterpart's path, on the morph's own curve.
+      const gt = ghost.animate([
+        { transform: 'translate(0,0) scale(1,1)' },
+        { transform: `translate(${to.left - from.left}px,${to.top - from.top}px) scale(${to.width / from.width},${to.height / from.height})` },
+      ], opts);
+      gt.id = FLIP_ID;
+      // AND THE CROSS-FADE IS A SEPARATE ANIMATION ON ITS OWN CLOCK, which
+      // is the whole of the fix. It cannot share the morph's curve: that
+      // one is deliberately slow at both ends so the GEOMETRY spends the
+      // time travelling, and a fade on it is still at 95% a tenth of a
+      // second in. Photographed before this split, at 130ms and again at
+      // 404ms of a 1500ms morph, both pages were sharp and stacked —
+      // "Calendar / All ensembles" written across "Today at NWSA Music".
+      // That is the director's "messy instead of liquidy", and it is not
+      // the morph, it is the clock on the fade. Fast curve, a third of the
+      // duration, and a blur that makes the clone unreadable long before it
+      // is invisible, which is what reads as melting rather than as a
+      // double exposure. The live panel still never gets an opacity (the
+      // backdrop-root trap, see the header); the clone carries all of it.
       const g = ghost.animate([
-        { transform: 'translate(0,0) scale(1,1)', opacity: 1 },
-        { transform: `translate(${to.left - from.left}px,${to.top - from.top}px) scale(${to.width / from.width},${to.height / from.height})`, opacity: 0 },
-      ], { ...opts, duration: ms * 0.62 });
+        { opacity: 1, filter: 'blur(0px)' },
+        { opacity: 0, filter: 'blur(9px)' },
+      ], { ...opts, duration: ms * FADE_OF, easing: FADE_EASE });
       g.id = FLIP_ID;
       g.finished.then(() => ghost.remove(), () => ghost.remove());
       continue;
@@ -303,8 +388,7 @@ export function play(shot: Shot): void {
     // An odd one out. A panel with nothing to become MELTS: the clone sinks
     // and blurs away where it stood. Today's four quick actions have nothing
     // to turn into on a concert page.
-    if (i < shot.rects.length) {
-      const from = shot.rects[i];
+    if (from) {
       const ghost = shot.clones[i];
       ghost.classList.add('hub2-ghost');
       ghost.style.cssText += `;left:${from.left}px;top:${from.top}px;width:${from.width}px;height:${from.height}px`;
@@ -315,24 +399,22 @@ export function play(shot: Shot): void {
       const g = ghost.animate([
         { opacity: 1, transform: 'translateY(0) scale(1)', filter: 'blur(0px)' },
         { opacity: 0, transform: 'translateY(14px) scale(.96)', filter: 'blur(10px)' },
-      ], { ...opts, duration: ms * 0.55 });
+      ], { ...opts, duration: ms * FADE_OF, easing: FADE_EASE });
       g.id = FLIP_ID;
       g.finished.then(() => ghost.remove(), () => ghost.remove());
-      continue;
     }
 
     // A new panel with nothing to come from GATHERS ITSELF out of a haze.
     // The live element gets no filter and no opacity, so this runs on a
     // clone-free element only when it carries no glass of its own; one that
     // does simply rises into place, which is the trade the header explains.
-    const el = now[i];
-    const glass = getComputedStyle(el).backdropFilter;
-    const hasGlass = !!glass && glass !== 'none';
-    const a = el.animate(hasGlass
-      ? [{ transform: 'translateY(16px)' }, { transform: 'none' }]
-      : [{ opacity: 0, transform: 'translateY(16px) scale(.97)', filter: 'blur(8px)' },
-         { opacity: 1, transform: 'none', filter: 'blur(0px)' }],
-      { ...opts, fill: 'backwards' });
-    a.id = FLIP_ID;
+    if (el) {
+      const a = el.animate(carriesGlass(el)
+        ? [{ transform: 'translateY(16px) scale(.985)' }, { transform: 'none' }]
+        : [{ opacity: 0, transform: 'translateY(16px) scale(.97)', filter: 'blur(8px)' },
+           { opacity: 1, transform: 'none', filter: 'blur(0px)' }],
+        { ...opts, fill: 'backwards' });
+      a.id = FLIP_ID;
+    }
   }
 }

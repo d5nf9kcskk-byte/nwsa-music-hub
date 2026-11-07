@@ -348,6 +348,28 @@ let fixedChecked = 0;
   // nothing after the end and every melted panel reappears at full strength
   // half way through the morph, sitting on top of the new page.
   assert.match(morphSrc, /fill: 'both'/, "hub2Morph.ts: the clones must fill 'both'");
+  // AND THE CROSS-FADE RUNS ON ITS OWN CLOCK. The morph curve is slow at
+  // both ends on purpose, so the GEOMETRY spends the duration travelling;
+  // a fade sharing it is still at 95% a tenth of a second in, and for most
+  // of a second both pages are legible stacked on each other. Photographed
+  // at 130ms and 404ms of a 1500ms morph before this was split out: every
+  // word of both pages sharp. That is the director's "messy instead of
+  // liquidy", and it is the clock on the fade, not the morph.
+  assert.match(morphSrc, /duration: ms \* FADE_OF, easing: FADE_EASE/,
+    'hub2Morph.ts: the clone fade must not share the morph duration or curve');
+  assert.match(morphSrc, /const FADE_OF = 0\.[0-4]/, 'hub2Morph.ts: the clone is gone well before the morph is');
+  // A positional pair that is nowhere near the same shape is not one
+  // object becoming another, it is a panel being STRETCHED — which is the
+  // artefact the FLIP exists to remove. The pressed row is exempt: a finger
+  // landed on it, so the scale reads as growth.
+  assert.match(morphSrc, /const MAX_SCALE = /, 'hub2Morph.ts: a positional pair needs a shape test');
+  assert.match(morphSrc, /shot\.anchored && i === 0/, 'hub2Morph.ts: the pressed row is exempt from the shape test');
+  // The panes put their blur on a ::before so the edge mask can share the
+  // element, so a host asked about its own backdropFilter answers "none" —
+  // and the gather branch would then fade it, which re-points its pane's
+  // blur at an empty subtree.
+  assert.match(morphSrc, /getComputedStyle\(el, pseudo\)\.backdropFilter/,
+    'hub2Morph.ts: glass on a ::before counts as glass, or the gather branch flattens it');
   assert.equal((morphSrc.match(/\.finished\.then\(\(\) => ghost\.remove\(\), \(\) => ghost\.remove\(\)\)/g) ?? []).length, 2,
     'hub2Morph.ts: every clone must be removed when it finishes AND when it is cancelled');
   // A roster of 140 is not a choreography.
@@ -558,13 +580,13 @@ let glassRules = 0;
   // the event-type bar) answers to the reduced-transparency block instead,
   // which the loop above already proved sets every one of them back.
   let fx = 0;
-  for (const m of glassCss.matchAll(/--glass-(?:chrome|hero|bar)-fx:\s*([^;]+);/g)) {
+  for (const m of glassCss.matchAll(/--glass-(?:chrome|hero|panel|bar)-fx:\s*([^;]+);/g)) {
     if (m[1].trim() === 'none') continue;
     assert.match(m[1], /blur\(var\(--hub2-glass-[a-z-]+, *0px\)\)/,
       `hub2Glass.css: "${m[1].trim()}" hardcodes a blur radius; it must come from the org config`);
     fx++;
   }
-  assert.ok(fx >= 5, `only ${fx} backdrop recipes found in hub2Glass.css — the scan is broken`);
+  assert.ok(fx >= 7, `only ${fx} backdrop recipes found in hub2Glass.css — the scan is broken`);
   // Nothing stays a composited layer: the field and the brand mark loop for
   // good on purpose and so must say `infinite`, and motion only runs for
   // somebody who has not asked for less of it.
@@ -577,6 +599,53 @@ let glassRules = 0;
   assert.ok(glassAnims >= 3, `only ${glassAnims} animations in hub2Glass.css — the scan is broken`);
   assert.ok(!/animation/.test(glassCss.split('prefers-reduced-motion: no-preference')[0]),
     'hub2Glass.css: every animation belongs inside a prefers-reduced-motion: no-preference block');
+  // THE EDGE DISSOLVES, which is the half of "Dissolved" the first pass
+  // shipped without. A border set to transparent is only the first of the
+  // five things that word means in docs/design/glass-redesign-plan.md §8b;
+  // the fifth is that the pane's own alpha, blurred backdrop included,
+  // fades out over its last --glass-fade pixels. And the mask has to sit on
+  // the SAME element as the backdrop-filter, or it masks a tint over a hard
+  // rectangle of blur — the folk version, which is the backdrop-root bug by
+  // construction. Both are checked together, because either alone is the
+  // bug.
+  {
+    // The declaration, not the @supports head, which spells it the same way.
+    const at = glassCss.indexOf('mask-composite: intersect;');
+    assert.ok(at > 0, 'hub2Glass.css: the dissolved edge is a mask, and it needs mask-composite: intersect');
+    assert.match(glassCss, /--glass-fade: \d+px/, 'hub2Glass.css: --glass-fade is how far the pane runs out');
+    const open = glassCss.lastIndexOf('{', at);
+    const rule = glassCss.slice(open, at);
+    const selector = glassCss.slice(glassCss.lastIndexOf('{', open - 1) + 1, open);
+    assert.ok(rule.includes('mask-image'), 'hub2Glass.css: mask-composite without a mask-image');
+    assert.ok(selector.includes('::before'),
+      'hub2Glass.css: the mask must be on the ::before that carries the blur, never on the card (it would feather the text)');
+    assert.ok(/backdrop-filter: var\(--glass-pane-fx\)/.test(glassCss),
+      'hub2Glass.css: the masked ::before is the element that carries the blur, or the mask shapes a tint over a hard rectangle of blur');
+    assert.ok(!/-webkit-mask-composite/.test(glassCss),
+      'hub2Glass.css: -webkit-mask-composite: source-in has been an INVALID declaration since Chrome 120 and buys nothing anywhere');
+  }
+  // THE BARS FLOAT (the director, 2026-11-07). The sample floats both and
+  // the first pass did not, which left every edge of the screen a hard
+  // rectangle. The tab bar leaving the flow is the load-bearing half: out
+  // of flow the page scrolls UNDER it, so it blurs live content rather than
+  // the bare field. If it ever goes back to `sticky`, the content behind it
+  // goes away and so does the glass.
+  assert.match(glassCss, /\.pub-tabbar \{\s*position: fixed/,
+    'hub2Glass.css: the tab bar floats, and out of flow is what puts content behind it');
+  assert.match(glassCss, /\.pub-header,\n:root\[data-hub2="on"\] \.dir-app \.dir-header \{\n {2}margin: /,
+    'hub2Glass.css: both headers float');
+  // And the toast and the WriteTray stack above whatever is docked at the
+  // bottom (src/base.css, read by src/pwa.ts). Lift the bar without lifting
+  // this and an update toast lands on top of the tab bar.
+  assert.match(glassCss, /--nwsa-bottom-chrome: \d+px/,
+    'hub2Glass.css: a floating tab bar has to re-state --nwsa-bottom-chrome');
+  // And a pane never takes `position` off a bar. This file is the last sheet
+  // in, so one blanket `position: relative` on the pane hosts dropped the
+  // event action bar out of fixed positioning and into the middle of the
+  // page — rendered fine, just somewhere else.
+  assert.ok(!/\.pub-event-actionbar[^{}]*\{[^}]*position: relative/.test(glassCss),
+    'hub2Glass.css: the event action bar is position: fixed and must stay that way');
+
   // The numbers are org config, and an org with no glass block gets a look
   // with no glass rather than a broken one.
   for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) {

@@ -68,6 +68,7 @@ export function hub2TokenCss(look: Hub2Look | undefined): string {
     ...(look.glass ? [
       `--hub2-glass-chrome-blur:${look.glass.chromeBlur};`,
       `--hub2-glass-hero-blur:${look.glass.heroBlur};`,
+      `--hub2-glass-panel-blur:${look.glass.panelBlur};`,
       `--hub2-field-drift:${look.glass.fieldDrift};`,
       `--hub2-logo-shine:${look.glass.logoShine};`,
       `--hub2-morph-ms:${look.glass.morphMs}ms;`,
