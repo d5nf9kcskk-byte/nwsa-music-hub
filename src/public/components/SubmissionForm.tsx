@@ -11,7 +11,7 @@ import {
   sessionForFile, sessionForRecording, uploadChunks, finalizeChunkedSubmission,
 } from '../chunkedUpload';
 import {
-  newSession, putSession, markFinalized, deleteSession, findRecoverableRecording,
+  newSession, putSession, markFinalized, deleteSession, findRecoverableSession, recoveryKind,
   type UploadSession,
 } from '../uploadResumeDb';
 import { t, useLang } from '../../shared/i18n';
@@ -91,6 +91,13 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
   const [staged, setStaged] = useState<StagedVideo | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  // Which half of a send is running. The bytes going up and the Hub writing
+  // the record are two different waits, and 100% of the first one is NOT the
+  // second one finishing (#video-upload-reliability Phase 3) — a bar sitting
+  // full while the submission does not yet exist is the single most
+  // misleading thing this screen can show, and it is exactly what a student
+  // remembers as "it said it was done".
+  const [phase, setPhase] = useState<'upload' | 'finalize'>('upload');
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
   // Set once the student taps "Upload another version?" on the receipt
@@ -119,18 +126,23 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
   }, []);
 
-  // Best-effort recovery check (#video-upload-reliability Phase 2): a
-  // recording persists to IndexedDB the instant it's made (handleRecordedVideo
-  // below), so a tab closed or an app killed between finishing a take and
-  // pressing Submit doesn't lose it. Any IndexedDB failure here just means
-  // nothing is offered — never an error the student sees.
+  // Best-effort recovery check (#video-upload-reliability Phase 2, widened in
+  // Phase 3): a recording persists to IndexedDB the instant it's made
+  // (handleRecordedVideo below), and a picked file's chunk bookkeeping
+  // persists as each piece lands (markChunkUploaded), so a tab closed or an
+  // app killed mid-send doesn't lose either one. Any IndexedDB failure here
+  // just means nothing is offered — never an error the student sees.
+  //
+  // Re-runs when the picker changes because a FILE session is only ever
+  // offered to the student it belongs to (findRecoverableSession), and on a
+  // device with no remembered name that student isn't known on mount.
   useEffect(() => {
     let cancelled = false;
-    void findRecoverableRecording(assignment.id).then(found => {
+    void findRecoverableSession(assignment.id, selectedStudentId || undefined).then(found => {
       if (!cancelled && found) setRecoveredSession(found);
     });
     return () => { cancelled = true; };
-  }, [assignment.id]);
+  }, [assignment.id, selectedStudentId]);
 
   // A closed tab mid-upload is exactly how a video lands in Storage with no
   // Firestore doc to show for it — the repair script's whole reason to
@@ -244,6 +256,72 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
   function discardRecovered() {
     if (recoveredSession) void deleteSession(recoveredSession.sessionId);
     setRecoveredSession(null);
+    setError('');
+  }
+
+  /**
+   * Finish a session whose every chunk is already in Storage — the case that
+   * used to be thrown away (#video-upload-reliability Phase 3). There is
+   * nothing left to upload: composeSubmission takes only this session's
+   * metadata, all of which survived in IndexedDB, and it is idempotent, so
+   * this is safe to press twice. Asking the student to re-send 150 MB the
+   * bucket is already holding was the real cost of not having this.
+   */
+  async function finishRecovered() {
+    const session = recoveredSession;
+    if (!session) return;
+    setError('');
+    setUploading(true);
+    setPhase('finalize');
+    setUploadProgress(100);
+    try {
+      const outcome = await finalizeChunkedSubmission({
+        sessionId: session.sessionId,
+        assignmentId: session.assignmentId,
+        studentId: session.studentId,
+        studentName: students.find(s => s.id === session.studentId)?.name ?? session.studentId,
+        fileName: session.fileName,
+        contentType: session.contentType,
+        chunkCount: session.chunkCount,
+        totalSize: session.totalSize,
+        videoDurationSeconds: session.durationSeconds ?? 0,
+        ...(session.thumbnailUrl ? { videoThumbnailUrl: session.thumbnailUrl } : {}),
+      });
+      if (!outcome.ok || !outcome.videoUrl) {
+        throw Object.assign(new Error(outcome.message ?? t('vid.errGeneric')), { code: outcome.failure });
+      }
+      void markFinalized(session.sessionId);
+      void deleteSession(session.sessionId);
+      setRecoveredSession(null);
+      // The session's own studentId, not the picker: a recovered session
+      // already knows whose it is, and on a device with no remembered name
+      // the picker is still blank at this point.
+      rememberSubmitter(session.studentId);
+      setSubmitted(true);
+      onSubmitted();
+    } catch (e) {
+      // The session stays on screen with the error beside it: the chunks may
+      // simply have aged out of the 48h sweep, in which case re-sending is
+      // the only way through and "Start fresh" is the button for it.
+      console.error('[submission] finishing a recovered upload failed', e);
+      setError(submitErrorMessage(e));
+    } finally {
+      setUploading(false);
+      setPhase('upload');
+    }
+  }
+
+  /** A partly-uploaded PICKED file: the bytes that landed are still in
+   *  Storage, but no browser hands a File back after a reload, so the only
+   *  way on is the student choosing the same file again — at which point
+   *  sessionForFile() matches it by fingerprint and uploadChunks() skips
+   *  every chunk that already arrived. Clearing the session from state drops
+   *  through to the normal upload area and its file picker; the session row
+   *  itself STAYS in IndexedDB, because it is what makes that match work. */
+  function repickRecovered() {
+    setMode('upload');
+    setRecoveredSession(null);
+    setError('');
   }
 
   async function handleFileChosen(file: File) {
@@ -281,7 +359,7 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
   async function submitChunked(studentName: string): Promise<{ videoUrl: string } | null> {
     const contentType = staged!.blob.type || 'video/mp4';
     const session = staged!.sourceFile
-      ? await sessionForFile(staged!.sourceFile, assignment.id, selectedStudentId, contentType)
+      ? await sessionForFile(staged!.sourceFile, assignment.id, selectedStudentId, contentType, staged!.durationSeconds)
       : staged!.recordingSessionId
         ? await sessionForRecording(staged!.recordingSessionId, assignment.id, selectedStudentId)
         : null;
@@ -289,6 +367,11 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
 
     await uploadChunks(staged!.blob, session, pct => setUploadProgress(Math.round(pct * 100)));
 
+    // Every byte is up; nothing is submitted yet. The compose + write below
+    // is a real wait on a 150 MB exam, and leaving the bar reading 100% with
+    // no record written is how a student ends up certain they submitted
+    // something that does not exist (#video-upload-reliability Phase 3).
+    setPhase('finalize');
     const outcome = await finalizeChunkedSubmission({
       sessionId: session.sessionId,
       assignmentId: assignment.id,
@@ -317,6 +400,10 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
    *  upload actually landed either way. */
   async function submitDirect(studentName: string): Promise<{ videoUrl: string }> {
     const { url, size } = await uploadToStorage(staged!.blob, staged!.fileName);
+    // Same reasoning as the chunked path: the video is in Storage, the
+    // submission is not written, and the bar is at 100%. This is the exact
+    // window the repair script exists to clean up after.
+    setPhase('finalize');
     // Generated up front so every retry below writes the SAME doc instead
     // of minting a new one each attempt.
     const submissionId = newSubmissionId();
@@ -348,18 +435,7 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
       const studentName = students.find(s => s.id === selectedStudentId)?.name ?? selectedStudentId;
       const chunked = await submitChunked(studentName);
       if (!chunked) await submitDirect(studentName);
-      // The device now knows this student, so their next visit to any
-      // assignment pre-fills the picker AND can show them their own receipt
-      // (#video-upload-reliability Phase 1). Runs after EITHER path above —
-      // chunked or direct — since both are equally a real submission.
-      const who = students.find(s => s.id === selectedStudentId);
-      if (who) {
-        rememberStudent({
-          id: who.id, name: who.name,
-          ensembleIds: who.ensembleIds ?? [],
-          ...(who.instrument ? { instrument: who.instrument } : {}),
-        });
-      }
+      rememberSubmitter();
       clearStaged();
       setSubmitted(true);
       onSubmitted();
@@ -370,7 +446,23 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
       setError(submitErrorMessage(e));
     } finally {
       setUploading(false);
+      setPhase('upload');
     }
+  }
+
+  /** The device now knows this student, so their next visit to any assignment
+   *  pre-fills the picker AND can show them their own receipt
+   *  (#video-upload-reliability Phase 1). Called after EVERY real submission
+   *  — chunked, direct, or a recovered session finished later — since all
+   *  three are equally a submission that landed. */
+  function rememberSubmitter(studentId: string = selectedStudentId) {
+    const who = students.find(s => s.id === studentId);
+    if (!who) return;
+    rememberStudent({
+      id: who.id, name: who.name,
+      ensembleIds: who.ensembleIds ?? [],
+      ...(who.instrument ? { instrument: who.instrument } : {}),
+    });
   }
 
   /** Firebase's raw errors ("Missing or insufficient permissions.") tell a
@@ -407,17 +499,41 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
     );
   }
 
-  // A recording that never finished sending, found on this page's mount
-  // (#video-upload-reliability Phase 2) — offered before anything else, and
-  // only until the student picks Resume or Discard.
+  // A send that never finished, found on this page's mount
+  // (#video-upload-reliability Phase 2, widened in Phase 3) — offered before
+  // anything else, and only until the student acts on it. The whole point is
+  // that an interrupted upload stops being silent: a student who watched a
+  // bar climb and then lost the app had no way at all to learn they were not
+  // done, which is precisely the argument this screen exists to prevent.
   if (recoveredSession && !staged) {
+    const kind = recoveryKind(recoveredSession);
+    const onward =
+      kind === 'finish' ? { label: t('vid.recoveredFinish'), run: finishRecovered }
+      : kind === 'repick' ? { label: t('vid.recoveredRepick'), run: repickRecovered }
+      : { label: t('vid.recoveredResume'), run: resumeRecovered };
     return (
       <div className="sf-recovered">
-        <p className="sf-recovered-line">{t('vid.recoveredFound')}</p>
+        <p className="sf-recovered-line">
+          {kind === 'finish' ? t('vid.recoveredAllUp')
+            : kind === 'repick' ? t('vid.recoveredPartial', {
+              file: recoveredSession.fileName,
+              done: String(new Set(recoveredSession.uploadedIndexes).size),
+              total: String(recoveredSession.chunkCount),
+            })
+            : t('vid.recoveredFound')}
+        </p>
         <div className="sf-recovered-actions">
-          <button className="sf-recovered-resume" onClick={resumeRecovered}>{t('vid.recoveredResume')}</button>
-          <button className="sf-recovered-discard" onClick={discardRecovered}>{t('vid.recoveredDiscard')}</button>
+          <button className="sf-recovered-resume" onClick={onward.run} disabled={uploading}>
+            {uploading ? t('vid.saving') : onward.label}
+          </button>
+          <button className="sf-recovered-discard" onClick={discardRecovered} disabled={uploading}>
+            {t('vid.recoveredDiscard')}
+          </button>
         </div>
+        {/* A finish can fail for real — chunks swept after 48h, most likely —
+            and the student has to be able to see why before choosing to
+            start over rather than being bounced silently. */}
+        {error && <div className="sf-error" role="alert">{error}</div>}
       </div>
     );
   }
@@ -544,7 +660,13 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
           <div className="sf-progress-bar">
             <div className="sf-progress-fill" style={{ width: `${uploadProgress}%` }} />
           </div>
-          <span className="sf-progress-pct">{uploadProgress}%</span>
+          {/* A full bar is not a submission. While the Hub is writing the
+              record, the number is replaced by what is actually happening —
+              there is no state of this screen where 100% sits beside no
+              other words and means two different things. */}
+          <span className="sf-progress-pct">
+            {phase === 'finalize' ? t('vid.saving') : `${uploadProgress}%`}
+          </span>
         </div>
       )}
 
