@@ -552,10 +552,19 @@ let glassRules = 0;
   }
   // And the config's own word: a blur of 0px is the third way, so every
   // blur must read its radius from the token rather than naming one.
-  // The @supports prelude's own blur(1px) is a feature test, not a radius.
-  for (const m of glassCss.replace(/@supports[^{]*/g, '').matchAll(/blur\(([^)]*)\)/g)) {
-    assert.ok(m[1].startsWith('var(--hub2-glass-'), `hub2Glass.css: blur(${m[1]}) hardcodes a radius; it must come from the org config`);
+  // Each BACKDROP blur recipe must read its radius from the org config, or
+  // setting it to "0px" stops being a way to turn the glass off. Only those:
+  // a decorative blur that is not a backdrop-filter (the one that softens
+  // the event-type bar) answers to the reduced-transparency block instead,
+  // which the loop above already proved sets every one of them back.
+  let fx = 0;
+  for (const m of glassCss.matchAll(/--glass-(?:chrome|hero|bar)-fx:\s*([^;]+);/g)) {
+    if (m[1].trim() === 'none') continue;
+    assert.match(m[1], /blur\(var\(--hub2-glass-[a-z-]+, *0px\)\)/,
+      `hub2Glass.css: "${m[1].trim()}" hardcodes a blur radius; it must come from the org config`);
+    fx++;
   }
+  assert.ok(fx >= 5, `only ${fx} backdrop recipes found in hub2Glass.css — the scan is broken`);
   // Nothing stays a composited layer: the field and the brand mark loop for
   // good on purpose and so must say `infinite`, and motion only runs for
   // somebody who has not asked for less of it.

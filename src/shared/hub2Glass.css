@@ -124,6 +124,8 @@
                  0 26px 64px -18px color-mix(in srgb, black 16%, transparent),
                  0 56px 130px -50px color-mix(in srgb, black 26%, transparent);
   --glass-veil-stop: 54%;
+  /* How far the event-type bar spreads once it stops being a bar. */
+  --glass-eventbar-soften: blur(7px);
 
   /* THE MORPH NEEDS ITS OWN CURVE, not the look's. `--hub2-ease` is
      cubic-bezier(.2,.8,.2,1), a hugely front-loaded spring that is right for
@@ -271,6 +273,28 @@
   box-shadow:
     inset 18px 0 26px -20px color-mix(in srgb, var(--glass-stripe) 72%, transparent),
     var(--glass-inner), var(--glass-bloom);
+}
+
+/* THE EVENT-TYPE BAR DISSOLVES TOO (the director, 2026-11-07, asked for this
+   one by name after seeing it in a screenshot).
+
+   It is not a border. It is a <span> whose colour comes from the EVENT, set
+   inline per event type and dimmed when one is cancelled, so no stylesheet
+   can read that colour to turn it into a glow. Blurring the bar itself is
+   what keeps it: the colour is still the event's, the hard edge is gone, and
+   `filter` does not affect layout, so no text moves by a pixel.
+
+   Safe on this element and not in general: a `filter` breaks a DESCENDANT's
+   backdrop-filter, and this span is a leaf with no children. Do not reach
+   for the same trick on anything that contains a glass panel.
+
+   The bar still says which kind of event it is, which is the only reason it
+   was kept in the first pass. It just says it the way everything else on the
+   page now does. */
+:root[data-hub2="on"] .pub-event-bar {
+  filter: var(--glass-eventbar-soften);
+  opacity: .62;
+  border-radius: 999px;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -488,6 +512,8 @@
     --glass-hero-fx: none;
     --glass-bar-fx: none;
     --glass-shine: transparent;
+    /* Somebody who asked for less transparency wants the crisp bar back. */
+    --glass-eventbar-soften: none;
     --glass-field-base: transparent;
     --glass-field-teal: transparent;
     --glass-field-plum: transparent;
