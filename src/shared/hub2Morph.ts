@@ -78,8 +78,10 @@ const SCROLLER_SEL = '.pub-content, .dir-content';
  *  person can actually SEE. A roster of 140 is not a choreography. */
 const CAP = 10;
 
-/** Per-panel delay, so the page reforms in a ripple rather than a block. */
-const STAGGER_MS = 40;
+/** Per-panel delay, so the page reforms in a ripple rather than a block.
+ *  A FRACTION of the morph's own duration, the sample's 0.035 — see where it
+ *  is used for why a fixed number of milliseconds is a latent crash. */
+const STAGGER_OF = 0.035;
 
 /** How far past its mark a panel carries before settling back. The morph
  *  used to be over in 15% of its duration: the look's own spring curve is
@@ -116,6 +118,15 @@ const MAX_SCALE = 3.2;
  *  anything slower leaves two legible pages stacked on each other. */
 const FADE_OF = 0.34;
 const FADE_EASE = 'cubic-bezier(.3,.9,.4,1)';
+
+/** The arriving content's half of the cross-fade: how far out of focus it
+ *  starts, and how much of the morph it takes to resolve. The sample's
+ *  `--slot-soften` at its dissolved setting, and its 55%. It lands before the
+ *  box does on purpose — the words are readable while the panel is still
+ *  settling, so the motion finishes under text somebody is already reading
+ *  rather than holding them back. */
+const SOFTEN_PX = 9;
+const FADE_IN_AT = 0.55;
 
 const num = (v: string) => parseFloat(v) || 0;
 
@@ -200,6 +211,9 @@ interface Shot {
   radii: string[];
   /** Did a finger land on the first one? See MAX_SCALE. */
   anchored: boolean;
+  /** The outgoing elements themselves, kept for ONE question: has React
+   *  actually swapped the page yet? See playWhenReady. */
+  was: Set<Element>;
 }
 
 /** Glass on the element OR on the pane it carries. The panes put their
@@ -213,6 +227,30 @@ function carriesGlass(el: Element): boolean {
     const f = getComputedStyle(el, pseudo).backdropFilter;
     if (f && f !== 'none') return true;
   }
+  return false;
+}
+
+/** The most a child's subtree is worth scanning for glass before the answer
+ *  stops being cheap. Panels hold a handful of rows, not a roster. */
+const GLASS_SCAN = 48;
+
+/**
+ * Does this child carry glass, or hold anything that does?
+ *
+ * Such a child must not be given an opacity or a filter for the cross-fade:
+ * either one makes it a backdrop root, which re-points the glass BELOW it at
+ * the child's own painted content and flattens it for the length of the
+ * morph. It gets the counter-scale and nothing else.
+ *
+ * A subtree too big to check cheaply is assumed to hold glass. Under-fading
+ * one block is invisible; a card going flat half way through is the artefact
+ * this whole layer exists to avoid.
+ */
+function holdsGlass(kid: Element): boolean {
+  if (carriesGlass(kid)) return true;
+  const all = kid.querySelectorAll('*');
+  if (all.length > GLASS_SCAN) return true;
+  for (const d of all) if (carriesGlass(d)) return true;
   return false;
 }
 
@@ -243,6 +281,7 @@ export function capture(): Shot | null {
   if (at > 0) els.unshift(...els.splice(at, 1));
   return {
     anchored: at >= 0,
+    was: new Set<Element>(els),
     rects: els.map(el => el.getBoundingClientRect()),
     radii: els.map(el => getComputedStyle(el).borderTopLeftRadius),
     clones: els.map(el => el.cloneNode(true) as HTMLElement),
@@ -250,22 +289,48 @@ export function capture(): Shot | null {
 }
 
 /**
- * Wait for the new page to exist, then play.
+ * Wait for the new page to BE THERE, then play.
  *
  * `router.navigate` resolves on COMMIT, and React paints on its own
  * schedule after that, so one `requestAnimationFrame` is not reliably
  * enough: measured on the real app, play() ran while the new page still had
  * no panels, every old panel took the "nothing to become" branch and melted,
- * and a tab change that should have reformed four panels dissolved one. The
- * retry stops the moment there is something to measure, so in practice this
- * is one frame; the bound is there so a page that genuinely has no panels
- * still melts the old ones rather than hanging.
+ * and a tab change that should have reformed four panels dissolved one.
+ *
+ * WAITING FOR PANELS TO EXIST IS THE WRONG TEST, and it was a coin flip.
+ * When the router resolves, the OUTGOING page is still mounted, so there are
+ * always panels to find — the guard passed on the first frame whether or not
+ * React had swapped anything. Measured on the built app, same page, same
+ * click, eight runs: four morphed the page the person was LEAVING into a
+ * shuffled version of itself (the pressed panel is moved to the front of the
+ * captured list, so pairing old-with-old cross-matches every box), and then
+ * the new page simply appeared with no morph at all. The other four were
+ * correct. Nothing in the code was random; it was whether React had committed
+ * before the first frame, which on a phone it usually has not.
+ *
+ * The right test is IDENTITY: the page has changed when a panel is on screen
+ * that was not one of the ones just captured. React builds new elements for a
+ * new route, so this flips exactly when the swap lands.
+ *
+ * The bound still matters, and now it has a second job. A navigation that
+ * re-renders the same component with new props (a different `:id` on the same
+ * route) can legitimately reuse every element, so the test would never flip;
+ * after `tries` frames this plays anyway, which is the old behaviour and the
+ * honest fallback. Twelve frames is about 200ms, under the time a person
+ * reads as a delay and well over the one or two React needs.
  */
-export function playWhenReady(shot: Shot, tries = 6): void {
+export function playWhenReady(shot: Shot, tries = 12): void {
   requestAnimationFrame(() => {
-    if (tries > 0 && !panels().length) { playWhenReady(shot, tries - 1); return; }
+    if (tries > 0 && !swapped(shot)) { playWhenReady(shot, tries - 1); return; }
     play(shot);
   });
+}
+
+/** Is anything on screen that was not on screen when the shot was taken? */
+function swapped(shot: Shot): boolean {
+  const now = panels();
+  if (!now.length) return false;
+  return now.some(el => !shot.was.has(el));
 }
 
 /** LAST, INVERT, PLAY. */
@@ -280,8 +345,22 @@ export function play(shot: Shot): void {
   const host = ghostLayer();
 
   for (let i = 0; i < Math.max(shot.rects.length, now.length); i++) {
-    const delay = Math.min(i, 6) * STAGGER_MS;
-    const opts: KeyframeAnimationOptions = { duration: ms, easing: ease, delay, fill: 'both' };
+    // THE LAG IS PAID FOR OUT OF THE DURATION, NOT ADDED TO IT. Liquid does
+    // not start all at once, but it does finish all at once: in the sample the
+    // delay grows with the panel and the duration shrinks by exactly as much,
+    // so the last panel still lands on the beat the duration promises. The app
+    // added the delay on top instead, so a four-panel page took 1500ms + 240ms
+    // and the panels arrived one after another, which is what reads as a page
+    // settling in instalments rather than reforming.
+    // And the lag is a FRACTION of the duration, not a fixed 40ms. With a
+    // fixed one, `ms - delay` reaches zero at morphMs 240 and goes negative
+    // below it, and element.animate throws on a negative duration — morphOn()
+    // only guards ms > 0, so a short morph in some future org config would
+    // break every navigation in it. A fraction cannot do that, and it is also
+    // what the sample does: the ripple stays proportionate at any pace.
+    const delay = Math.min(i, 6) * ms * STAGGER_OF;
+    const dur = ms - delay;
+    const opts: KeyframeAnimationOptions = { duration: dur, easing: ease, delay, fill: 'both' };
 
     // Is there a counterpart, and is it the same SHAPE? See MAX_SCALE: a
     // positional pair that is not gets taken apart and handed to the melt
@@ -306,6 +385,27 @@ export function play(shot: Shot): void {
       // Nothing to reform: skip rather than animate a no-op.
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) continue;
 
+      // MEASURE THE CHILDREN FIRST, while nothing has moved. The shell
+      // animation below is created with fill: 'backwards', so from the moment
+      // it exists the panel is already wearing its starting transform and
+      // every rect inside it is the transformed one.
+      //
+      // The old code sidestepped that by using offsetLeft/offsetTop, which are
+      // layout values no transform can touch. But those are measured from the
+      // nearest POSITIONED ancestor, and a page block is `position: static`,
+      // so offsetParent was <body> and the numbers were the child's distance
+      // from the top of the PAGE rather than from its panel. Measured on the
+      // event page: a hero's first child reports (16, 192) where its true
+      // offset inside the panel is (0, 0), so the counter-scale shoved it
+      // 192px up the screen for the whole flight. Rects relative to the panel
+      // are the right answer; they only have to be read before anything moves.
+      const kids: Array<{ el: HTMLElement; x: number; y: number; fade: boolean }> = [];
+      for (const kid of el.children) {
+        if (!(kid instanceof HTMLElement)) continue;
+        const kr = kid.getBoundingClientRect();
+        kids.push({ el: kid, x: kr.left - to.left, y: kr.top - to.top, fade: !holdsGlass(kid) });
+      }
+
       const r = num(getComputedStyle(el).borderTopLeftRadius);
       const osx = sx + (1 - sx) * (1 + SETTLE_PAST);
       const osy = sy + (1 - sy) * (1 + SETTLE_PAST);
@@ -322,17 +422,36 @@ export function play(shot: Shot): void {
 
       // The counter-scale, one animation per child, in the animation layer
       // only. See the header: no wrapper, no DOM mutation, React untouched.
-      for (const kid of el.children) {
-        if (!(kid instanceof HTMLElement)) continue;
-        const x = kid.offsetLeft;
-        const y = kid.offsetTop;
+      //
+      // AND THE CONTENT CROSS-FADE, which the app did not have at all. In the
+      // sample the arriving content rises out of nothing and un-blurs as the
+      // box settles while the outgoing copy fades out over it, and that PAIR
+      // is most of what reads as liquid rather than as a box being resized.
+      // The app had only the outgoing half, so the new text appeared instantly
+      // at full strength inside a box that was still the wrong size and still
+      // travelling — sharp new words sliding around inside a growing rectangle.
+      //
+      // Opacity and a filter on a CHILD are safe for the panel's own glass.
+      // The backdrop-root rule re-points a DESCENDANT's backdrop-filter, and
+      // the panel — along with the ::before it keeps its pane on — is an
+      // ANCESTOR of these children, not a descendant. A child that carries
+      // glass of its own, or holds one that does, is the exception, and gets
+      // the counter-scale alone.
+      for (const kid of kids) {
         const back = (ax: number, ay: number) =>
-          `translate(${(x * (1 - ax)) / ax}px,${(y * (1 - ay)) / ay}px) scale(${1 / ax},${1 / ay})`;
-        const a = kid.animate([
-          { transformOrigin: '0 0', transform: back(sx, sy) },
-          { offset: SETTLE_AT, transformOrigin: '0 0', transform: back(osx, osy) },
-          { transformOrigin: '0 0', transform: 'none' },
-        ], { ...opts, fill: 'backwards' });
+          `translate(${(kid.x * (1 - ax)) / ax}px,${(kid.y * (1 - ay)) / ay}px) scale(${1 / ax},${1 / ay})`;
+        const a = kid.el.animate(kid.fade
+          ? [
+            { transformOrigin: '0 0', transform: back(sx, sy), opacity: 0, filter: `blur(${SOFTEN_PX}px)` },
+            { offset: FADE_IN_AT, opacity: 1, filter: 'blur(0px)' },
+            { offset: SETTLE_AT, transformOrigin: '0 0', transform: back(osx, osy) },
+            { transformOrigin: '0 0', transform: 'none', opacity: 1, filter: 'blur(0px)' },
+          ]
+          : [
+            { transformOrigin: '0 0', transform: back(sx, sy) },
+            { offset: SETTLE_AT, transformOrigin: '0 0', transform: back(osx, osy) },
+            { transformOrigin: '0 0', transform: 'none' },
+          ], { ...opts, fill: 'backwards' });
         a.id = FLIP_ID;
       }
 
@@ -379,7 +498,7 @@ export function play(shot: Shot): void {
       const g = ghost.animate([
         { opacity: 1, filter: 'blur(0px)' },
         { opacity: 0, filter: 'blur(9px)' },
-      ], { ...opts, duration: ms * FADE_OF, easing: FADE_EASE });
+      ], { ...opts, duration: dur * FADE_OF, easing: FADE_EASE });
       g.id = FLIP_ID;
       g.finished.then(() => ghost.remove(), () => ghost.remove());
       continue;
@@ -399,7 +518,7 @@ export function play(shot: Shot): void {
       const g = ghost.animate([
         { opacity: 1, transform: 'translateY(0) scale(1)', filter: 'blur(0px)' },
         { opacity: 0, transform: 'translateY(14px) scale(.96)', filter: 'blur(10px)' },
-      ], { ...opts, duration: ms * FADE_OF, easing: FADE_EASE });
+      ], { ...opts, duration: dur * FADE_OF, easing: FADE_EASE });
       g.id = FLIP_ID;
       g.finished.then(() => ghost.remove(), () => ghost.remove());
     }
