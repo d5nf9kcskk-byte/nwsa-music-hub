@@ -331,17 +331,47 @@ let fixedChecked = 0;
   {
     const at = morphSrc.indexOf('const shell = el.animate(');
     assert.ok(at > 0, 'hub2Morph.ts: the paired shell animation must be named `shell`');
-    const kf = morphSrc.slice(at, morphSrc.indexOf('], {', at));
+    // To `shell.id`, not to the next `], {`. The keyframes are built by
+    // mapping a sampled path now, so the call no longer ends in `], {` and
+    // that slice ran on past the end of the shell and swallowed the CHILD's
+    // keyframes, which legitimately do carry an opacity and a filter. The
+    // check then failed on the one thing it exists to permit. Ending at the
+    // line that names the animation cannot run past it however the keyframes
+    // are written.
+    const end = morphSrc.indexOf('shell.id', at);
+    assert.ok(end > at, 'hub2Morph.ts: the shell animation must be given the FLIP id');
+    const kf = morphSrc.slice(at, end);
     for (const banned of ['opacity', 'filter', 'mixBlendMode', 'mask']) {
       assert.ok(!kf.includes(banned), `hub2Morph.ts: the live shell must not animate ${banned} — it would flatten its own glass`);
     }
     assert.match(kf, /transform:/, 'hub2Morph.ts: the live shell must animate a transform');
     assert.match(kf, /borderRadius:/, 'hub2Morph.ts: the radius must travel with the box, or a corner comes out elliptical');
-    // The settle. The look's own spring curve is enormously front-loaded, so
-    // with a view transition the opacity crossfade carried the time and with
-    // a FLIP the geometry IS the animation: the panel arrived in 15% of its
-    // duration and then sat still. An explicit middle keyframe fixes it.
-    assert.match(kf, /offset: SETTLE_AT/, 'hub2Morph.ts: the shell needs an explicit settle keyframe');
+  }
+  // The settle. The look's own spring curve is enormously front-loaded, so
+  // with a view transition the opacity crossfade carried the time and with
+  // a FLIP the geometry IS the animation: the panel arrived in 15% of its
+  // duration and then sat still. The travel therefore carries PAST its mark
+  // and comes back, with the turn at SETTLE_AT.
+  //
+  // That used to be one literal middle keyframe. It is now a sampled path —
+  // the shell's scale and its content's counter-scale have to multiply to 1
+  // everywhere and not only at a keyframe, which with three of them they did
+  // not (measured 6% too tall at 225ms, and visible as condensed text). So
+  // the pin moved from the keyframe list to the thing that builds it: the
+  // turn, the overshoot, and the fact that both sides are cut from the same
+  // offsets.
+  {
+    assert.match(morphSrc, /const SETTLE_AT = 0\.[5-9]/, 'hub2Morph.ts: the travel must turn late, not half way');
+    assert.match(morphSrc, /const SETTLE_PAST = 0\.0[1-9]/, 'hub2Morph.ts: the travel must carry past its mark and settle back');
+    assert.match(morphSrc, /u <= SETTLE_AT/, 'hub2Morph.ts: the sampled path must turn at the settle');
+    assert.match(morphSrc, /const STEPS = \d\d/,
+      'hub2Morph.ts: the path must be cut into enough samples that the counter-scale actually cancels');
+    assert.match(morphSrc, /path\.map\(\(\{ offset, p \}\)/,
+      'hub2Morph.ts: the shell must be built from the sampled path');
+    const kidAt = morphSrc.indexOf('const a = kid.el.animate(');
+    assert.ok(kidAt > 0, 'hub2Morph.ts: the counter-scale animation must be named `a`');
+    assert.match(morphSrc.slice(kidAt, kidAt + 400), /path\.map\(\(\{ offset, p \}\)/,
+      'hub2Morph.ts: the content must be cut from the SAME offsets as its shell, or the two do not cancel');
     assert.match(morphSrc, /SETTLE_AT = 0\.\d+/, 'hub2Morph.ts: SETTLE_AT must be a fraction of the duration');
   }
   // A ghost's resting state is "visible", so `fill: backwards` applies
