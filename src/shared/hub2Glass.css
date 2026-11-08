@@ -81,9 +81,35 @@
      backdrop-filter pushes the colour back up exactly where the glass is,
      which is also where you want it. */
   --glass-field-base: transparent;
+  /* THE ORBS CARRY HUE FROM THE PALETTE AND SET THEIR OWN LIGHTNESS, and
+     that is the difference between a field and a faint smudge. Mixing the
+     accent into white walks a straight line in oklch from (L .51, C .083)
+     to (L 1, C 0), so ANY amount of colour arrives with a matching amount
+     of darkness: at the lightness the contrast budget allows, the mix is
+     down at C .009 and the lobe is invisible. The brand teal is simply a
+     DARK colour, and no mix of it is both light and colourful.
+     Relative colour syntax takes the hue and nothing else, so each lobe
+     can sit at the top of the budget AND be five times as chromatic. It
+     is still the org's own colour: change the accent and the field's hue
+     follows, which is the promise this file makes.
+     The color-mix line above each one is the fallback for an engine with
+     no relative colour syntax (below Safari 16.4 / Chrome 119): it is
+     dropped at parse time there and the pale lobe stands, which is
+     exactly what shipped before.
+     THE LIGHTNESS NUMBERS ARE A MEASURED CEILING, NOT A TASTE. 4.5:1 for
+     the teal accent used as page text needs the darkest painted pixel to
+     stay above 0.816 relative luminance, and Oklab L cubes to roughly
+     that, so ~0.937 is the floor with the two field layers stacked.
+     scratchpad ink.py reads it off a bare-field screenshot; run it after
+     touching any of these. */
   --glass-field-teal: color-mix(in oklch, var(--hub2-accent) 10%, white);
+  --glass-field-teal: oklch(from var(--hub2-accent) 0.945 0.048 h);
   --glass-field-plum: color-mix(in oklch, var(--hub2-plum) 8%, white);
+  --glass-field-plum: oklch(from var(--hub2-plum) 0.958 0.040 h);
+  /* Yellow carries far more luminance per unit of chroma than teal or
+     plum, so the warm lobe is the one that can actually be seen. */
   --glass-field-warm: color-mix(in oklch, var(--hub2-sun) 13%, white);
+  --glass-field-warm: oklch(from var(--hub2-sun) 0.962 0.075 h);
   --glass-field-spark: white;
 
   /* SECONDARY TEXT GOES DARKER, BECAUSE THE PAGE IT SITS ON GOT BUSIER.
@@ -101,14 +127,49 @@
   /* The surfaces. Transparency you can SEE comes as much from
      saturate() as from alpha: pushing the colour of whatever is behind
      the glass is what reads as "I can see through this". */
-  --glass-panel: color-mix(in srgb, white 30%, transparent);
+  --glass-panel: color-mix(in srgb, white 21%, transparent);
   --glass-chrome: color-mix(in srgb, white 14%, transparent);
   --glass-hero: color-mix(in srgb, white 17%, transparent);
   --glass-chrome-fx: blur(var(--hub2-glass-chrome-blur, 0px)) saturate(190%) brightness(1.05);
   --glass-hero-fx: blur(var(--hub2-glass-hero-blur, 0px)) saturate(180%) brightness(1.04);
+  /* AND ORDINARY CARDS BLUR TOO, which is the first pass's real miss.
+     A 30% white tint over a page that is almost white is not glass, it is
+     a white rectangle: there is nothing behind it for the eye to find.
+     What the sample's ordinary panel gets away with is a page underneath
+     that is strongly coloured, and this app's page cannot be (the teal
+     accent is used as text straight on it, so the field has a measured
+     ceiling — see the note above). So the colour has to be pushed back up
+     exactly where the glass is, which is what saturate() does, and the
+     backdrop has to actually MOVE, which is what a small blur does.
+     Lowest of the three radii on purpose: there are dozens of these on a
+     page and each one is a composited layer. `panelBlur: "0px"` in the org
+     config is the way out if an older iPad ever says so. */
+  --glass-panel-fx: blur(var(--hub2-glass-panel-blur, 0px)) saturate(185%) brightness(1.04);
+  /* THE TAB BAR IS THE ONE PANE WITH DARK INK OVER ARBITRARY CONTENT,
+     and that is why it is not --glass-chrome. Floating it means the page
+     now scrolls UNDER it, which is the whole point, and it also means
+     the backdrop is no longer the field (a known colour) but whatever
+     card happens to be passing. Measured at the sample's 14%: the muted
+     grey of a tab label came out at 3.53:1 over ordinary blurred body
+     text and far worse over a group hero. brightness() cannot save it
+     either — it is multiplicative, so it does nothing at all to a dark
+     backdrop. Alpha is the only lever, and 50% is where the label clears
+     4.5:1 over anything the app actually puts under it — including a
+     group hero, which is the darkest thing that scrolls under it.
+     The sample gets away with 14% because its one phone only ever had
+     light cards in it. This is the one number in this file that is
+     deliberately not the sample's. */
+  --glass-floatbar: color-mix(in srgb, white 70%, transparent);
   /* The header is the white-ink exception: no brightness, and enough
-     teal left to hold white at 4.5:1 over the brightest orb. */
-  --glass-bar: color-mix(in srgb, var(--pub-accent) 86%, transparent);
+     teal left to hold white at 4.5:1 over the brightest orb.
+     86% DID NOT, and the only reason to believe it did was that nobody
+     had photographed the bar with its own text hidden. Measured off the
+     painted tint (scratchpad bar.mjs + box.py): 86% teal over the field
+     leaves white at 4.28:1. 92% is 4.7:1 and still visibly glass,
+     because what reads as transparency in a bar this saturated is the
+     saturate() on what is behind it, not the last six per cent of
+     alpha. */
+  --glass-bar: color-mix(in srgb, var(--pub-accent) 92%, transparent);
   --glass-bar-fx: blur(var(--hub2-glass-chrome-blur, 0px)) saturate(140%);
 
   --glass-spec: white;
@@ -124,6 +185,13 @@
                  0 26px 64px -18px color-mix(in srgb, black 16%, transparent),
                  0 56px 130px -50px color-mix(in srgb, black 26%, transparent);
   --glass-veil-stop: 54%;
+  /* How far a pane's own alpha fades out before its edge — the fifth and
+     honest meaning of "dissolved", see the long note in section 4. Two
+     linear ramps intersected, so all four edges feather and the corners
+     feather twice. 22px is the plan's Dissolved number; the bars take the
+     Soft one for the contrast reason given where they are set. */
+  --glass-fade: 22px;
+  --glass-fade-bar: 14px;
   /* How far the event-type bar spreads once it stops being a bar. */
   --glass-eventbar-soften: blur(7px);
 
@@ -161,6 +229,16 @@
   --glass-hero: color-mix(in srgb, white 2.6%, transparent);
   --glass-chrome-fx: blur(var(--hub2-glass-chrome-blur, 0px)) saturate(180%) brightness(.9);
   --glass-hero-fx: blur(var(--hub2-glass-hero-blur, 0px)) saturate(180%) brightness(.9);
+  --glass-panel-fx: blur(var(--hub2-glass-panel-blur, 0px)) saturate(175%) brightness(.92);
+  --glass-floatbar: color-mix(in srgb, black 55%, transparent);
+  /* AND THE HEADER TAKES THE FILL TEAL IN DARK, NOT THE ACCENT. Dark's
+     --pub-accent is a PALE teal meant for text; white on it is 2.8:1,
+     which is the live-site bug the look already fixes everywhere else by
+     re-pointing white-on-accent fills to --pub-accent-fill (CLAUDE.md,
+     #contrast). The glass bar was reading --pub-accent at :root, outside
+     the :where() rule that does the re-pointing, and so put the dark
+     header back to 3.19:1 measured. */
+  --glass-bar: color-mix(in srgb, var(--pub-accent-fill) 92%, transparent);
 
   --glass-spec: color-mix(in srgb, white 42%, transparent);
   --glass-under: color-mix(in srgb, black 60%, transparent);
@@ -226,6 +304,64 @@
 ) {
   box-shadow: var(--glass-inner), var(--glass-bloom);
 }
+/* And the same panels blur what is behind them, and carry the veil.
+   Split from the rule above only to leave out .pub-event-bar, which is a
+   leaf that already carries its own blur and has no business compositing
+   a backdrop as well.
+
+   THE VEIL IS A background-image, NOT A PSEUDO-ELEMENT, and that is the
+   whole reason it can go on fourteen classes at once. The sample paints
+   it on `.tier-solid::before`, which needs the host to be positioned and
+   to own a stacking context; promising that for every card, row and chip
+   in the app means auditing every absolutely positioned descendant of
+   each one. A background-image layers over --pub-surface (which arrives
+   as background-COLOR) and under the content by construction, with no
+   positioning and nothing to audit. It works here because hub2Glass.css
+   is the last sheet in, so no later `background: var(--pub-surface)`
+   shorthand can reset it.
+
+   The two HEROES are deliberately missing from this list: they are panes
+   (section 4), so their blur and their veil are already on their own
+   ::before, and a second backdrop-filter on the host would composite the
+   same backdrop twice for nothing. */
+:root[data-hub2="on"] :is(
+  .pub-card, .pub-event, .pub-announce, .pub-upcoming, .pub-empty,
+  .pub-ens-card, .pub-assign-card,
+  .pub-confirm-card, .pub-subscribe-panel, .pub-fm-panel, .pub-xfer-panel,
+  .pub-cal, .pub-quick-btn, .pub-signup-alert, .pub-daysheet
+),
+:root[data-hub2="on"] .dir-app :is(
+  .dir-card, .dir-empty, .dir-section, .dir-roster-card
+) {
+  background-image: linear-gradient(var(--glass-shine), transparent var(--glass-veil-stop));
+  -webkit-backdrop-filter: var(--glass-panel-fx);
+  backdrop-filter: var(--glass-panel-fx);
+}
+
+/* ── THE OUTLINES THAT THE TOKEN COULD NOT REACH ──
+   Re-pointing --pub-border turns off the 139 rules that USE it, and only
+   those. A rule that writes its own colour keeps its line, and the
+   director's word for what was left is "the rounded edge lines". Found by
+   walking the live pages and listing every computed border still painting
+   at more than 2% alpha, not by grepping, because a grep cannot tell a
+   decoration from a state.
+
+   THE LINE GOES, THE 1px STAYS, exactly as it does for the token, so
+   nothing reflows. And the split is the same one section 2 already makes:
+   a line that says "this one is DIFFERENT" is information and keeps its
+   line (the red error boxes, the amber warnings, .pub-allclear's green,
+   the per-ensemble colour on .pub-ens-btn, the event-type chips, the
+   Spotlight banner's gold). A line that merely says "this is a box" goes.
+
+   .pub-signup-alert is the one judgement call in the list: it is a teal
+   ring round "Forms are open", which is a prompt rather than a severity,
+   so it dissolves into the same warm left-edge glow every other prompt on
+   the page now has. */
+:root[data-hub2="on"] :is(
+  .pub-subscribe-btn, .pub-birthday-line, .pub-instrument-quip,
+  .pub-search-egg, .pub-header-search, .pub-director-link, .whats-new,
+  .whats-new-item, .pub-signup-alert
+) { border-color: transparent; }
 
 /* THE ACCENT STRIPE DISSOLVES TOO (the director, 2026-11-07).
    Ten blocks carry a 3-4px coloured border down their left side. With the
@@ -256,7 +392,7 @@
    banner's gold line, which the Spotlight look owns. */
 :root[data-hub2="on"] :is(
   .pub-ens-hero, .pub-piece-hero, .pub-announce, .pub-sg-a2hs,
-  .pub-checkin-callout, .whats-new
+  .pub-checkin-callout, .whats-new, .pub-signup-alert
 ) { --glass-stripe: var(--hub2-accent); }
 :root[data-hub2="on"] .pub-assign-card { --glass-stripe: var(--hub2-plum); }
 :root[data-hub2="on"] .pub-daysheet { --glass-stripe: var(--hub2-sun); }
@@ -267,7 +403,8 @@
 
 :root[data-hub2="on"] :is(
   .pub-ens-hero, .pub-piece-hero, .pub-announce, .pub-sg-a2hs,
-  .pub-checkin-callout, .whats-new, .pub-assign-card, .pub-daysheet
+  .pub-checkin-callout, .whats-new, .pub-assign-card, .pub-daysheet,
+  .pub-signup-alert
 ) {
   border-left-color: transparent;
   box-shadow:
@@ -324,7 +461,7 @@
     radial-gradient(10% 8% at 74% 33%, var(--glass-field-spark), transparent 64%),
     radial-gradient(7% 6% at 34% 66%, var(--glass-field-spark), transparent 60%);
 }
-:root[data-hub2="on"] body::after { opacity: .7; }
+:root[data-hub2="on"] body::after { opacity: .6; }
 
 /* THE FIELD HAS TO CLEAR TWO BACKGROUNDS, NOT ONE, and the second is the
    one that is easy to miss. A negative z-index descendant paints above the
@@ -372,9 +509,15 @@
   backdrop-filter: var(--glass-bar-fx);
 }
 
-/* The menu, the rail, the bars and the overlays: clear glass over
-   whatever they are covering. */
-:root[data-hub2="on"] :is(.pub-menu-panel, .pub-sidebar, .pub-tabbar, .pub-search-panel),
+/* The menu, the rail, the drawers and the overlays: clear glass over
+   whatever they are covering, carried on the ELEMENT.
+
+   These are the panes that SCROLL (a rail and a drawer own their own
+   overflow), and a `position: absolute; inset: 0` pseudo-element inside a
+   scroller covers one screenful and then scrolls away with the content.
+   So they keep the element-level recipe and take no edge mask. They lose
+   nothing by it: three of their four edges are the edge of the screen. */
+:root[data-hub2="on"] :is(.pub-menu-panel, .pub-sidebar, .pub-search-panel),
 :root[data-hub2="on"] .dir-app :is(.dir-menu-panel, .dir-rail, .dir-drawer, .dir-sheet) {
   background: var(--glass-chrome);
   -webkit-backdrop-filter: var(--glass-chrome-fx);
@@ -382,27 +525,235 @@
   box-shadow: var(--glass-inner), var(--glass-bloom);
 }
 
-/* One hero per page: the card a page leads with, over content rather
-   than over the bare field, so it blurs less than the chrome does. */
+/* ── A PANE OF GLASS, AND WHY IT IS A PSEUDO-ELEMENT ──
+   #8b of docs/design/glass-redesign-plan.md, which the first pass did not
+   carry over. "Dissolved" shipped as a border set to transparent, and that
+   is only the first of the five things that word means. The fifth and the
+   honest one is that THE BLUR ITSELF RUNS OUT: the pane's own alpha fades
+   over its last --glass-fade pixels, so a panel stops being a rectangle
+   that ends and becomes a patch of blur that runs out. Without it every
+   panel is still a crisp rectangle that merely has no line drawn on it,
+   which is what the director was looking at when he said the edges were
+   "the rounded edge lines instead of these straight lines".
+
+   THE MASK MUST BE ON THE SAME ELEMENT AS THE backdrop-filter. That is
+   what masks the whole composited result, blurred backdrop included —
+   which is the entire point, since it is the BLUR that has to dissolve.
+   Putting the mask on a parent and the blur on a child is the folk version
+   and it is the backdrop-root bug by construction: the child sits in an
+   empty backdrop root, the engines disagree, and the spec-correct one
+   shows nothing.
+   AND IT HAS TO BE A PSEUDO-ELEMENT, not the card. A mask on the card
+   would feather the card's own TEXT out at its edges along with the panel.
+
+   `isolation: isolate` is what keeps the z-index: -1 pane inside its own
+   host rather than behind the page. It creates a stacking context and it
+   is NOT one of the four properties that make a backdrop root, so it is
+   the one wrapper-ish thing that is safe here (plan §8c measured this).
+
+   Standard `mask-composite` only: Safari 15.4 / iOS 15.4, a year under the
+   floor, and `-webkit-mask-composite: source-in` has been an INVALID
+   declaration in Chrome 120+, discarded rather than honoured. The
+   @supports is a belt: with both layers left at the initial `add` the
+   edges go fully opaque and only the corners feather — wrong, but visible.
+   `-webkit-backdrop-filter` stays FIRST: they are cascade aliases sharing
+   one value, so the later declaration wins, and iOS 16.4 and 17 have only
+   the prefixed one. */
+:root[data-hub2="on"] :is(.pub-tabbar, .pub-event-actionbar) {
+  --glass-pane: var(--glass-floatbar);
+  --glass-pane-fx: var(--glass-chrome-fx);
+  /* THE BARS FEATHER LESS THAN A CARD, and this is a contrast decision
+     rather than a taste. A card feathers over the page, which is a known
+     colour; a bar feathers over whatever happens to be scrolling under it.
+     At the full 22px the muted grey of a tab label would sit on an
+     arbitrary card. 14px keeps the label over solid glass and still turns
+     the edge into a falloff rather than a cut. */
+  --glass-fade: var(--glass-fade-bar);
+}
 :root[data-hub2="on"] :is(.pub-ens-hero, .pub-piece-hero, .pub-program-sheet),
 :root[data-hub2="on"] .dir-app .dir-today-card {
-  background: var(--glass-hero);
-  -webkit-backdrop-filter: var(--glass-hero-fx);
-  backdrop-filter: var(--glass-hero-fx);
+  --glass-pane: var(--glass-hero);
+  --glass-pane-fx: var(--glass-hero-fx);
 }
-
-/* The veil: a top-weighted wash, so a panel has a light source rather
-   than being a flat slab of tint. It stops at 54% in Dissolved, which
-   is what leaves the bottom of a card with nothing to call an edge. */
-:root[data-hub2="on"] :is(.pub-ens-hero, .pub-piece-hero)::before,
+/* `isolation: isolate` goes on every pane; `position` does NOT.
+   Both BARS are already positioned (the tab bar fixed by the rule below,
+   the event action bar fixed in pubEventShell.css), and this file is the
+   last sheet in, so a blanket `position: relative` here quietly took the
+   event action bar out of fixed positioning and dropped it into the middle
+   of the page. Caught by printing the three bottom bars' boxes, not by
+   looking: the page still rendered, the bar was just somewhere else. */
+:root[data-hub2="on"] :is(.pub-tabbar, .pub-event-actionbar, .pub-ens-hero, .pub-piece-hero, .pub-program-sheet),
+:root[data-hub2="on"] .dir-app .dir-today-card {
+  isolation: isolate;
+  background: transparent;
+}
+:root[data-hub2="on"] :is(.pub-ens-hero, .pub-piece-hero, .pub-program-sheet),
+:root[data-hub2="on"] .dir-app .dir-today-card {
+  position: relative;
+}
+:root[data-hub2="on"] :is(.pub-tabbar, .pub-event-actionbar, .pub-ens-hero, .pub-piece-hero, .pub-program-sheet)::before,
 :root[data-hub2="on"] .dir-app .dir-today-card::before {
   content: '';
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
   border-radius: inherit;
-  background: linear-gradient(var(--glass-shine), transparent var(--glass-veil-stop));
+  /* The veil rides on the same element: a top-weighted wash, so the pane
+     has a light source rather than being a flat slab of tint. It stops at
+     54% in Dissolved, which is what leaves the bottom of a card with
+     nothing to call an edge. */
+  background-image: linear-gradient(var(--glass-shine), transparent var(--glass-veil-stop));
+  background-color: var(--glass-pane);
+  -webkit-backdrop-filter: var(--glass-pane-fx);
+  backdrop-filter: var(--glass-pane-fx);
+  box-shadow: var(--glass-inner);
+}
+@supports (mask-composite: intersect) {
+  :root[data-hub2="on"] :is(.pub-tabbar, .pub-event-actionbar, .pub-ens-hero, .pub-piece-hero, .pub-program-sheet)::before,
+  :root[data-hub2="on"] .dir-app .dir-today-card::before {
+    mask-image:
+      linear-gradient(to bottom, transparent, black var(--glass-fade),
+                      black calc(100% - var(--glass-fade)), transparent),
+      linear-gradient(to right, transparent, black var(--glass-fade),
+                      black calc(100% - var(--glass-fade)), transparent);
+    mask-composite: intersect;
+  }
+}
+
+/* ── The travelling shine ──
+   One slow pass of light across a pane. `infinite alternate`, which is
+   what the look's own self-check demands of anything that stays on the
+   page. Normal blending and a narrow band, so its contribution is a plain
+   white wash the contrast measurement can account for — the first draft of
+   this in the sample used mix-blend-mode: overlay ABOVE the text, which
+   doubles any channel under 0.5 and would have dragged muted grey up by
+   forty points every time it swept past. */
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-hub2="on"] :is(.pub-tabbar, .pub-ens-hero, .pub-piece-hero, .pub-program-sheet)::after,
+  :root[data-hub2="on"] .dir-app .dir-today-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    background: linear-gradient(104deg, transparent 42%, var(--glass-shine) 50%, transparent 58%);
+    background-size: 280% 100%;
+    background-repeat: no-repeat;
+    animation: glass-pane-shine var(--hub2-logo-shine, 0s) ease-in-out infinite alternate;
+  }
+}
+@keyframes glass-pane-shine {
+  from { background-position: 135% 0; }
+  to { background-position: -35% 0; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   4b. THE BARS FLOAT (the director, 2026-11-07: "the menu at the bottom
+   of the page is not rounded and floating. It's completely locked into
+   the bottom. Even the top menu bar is not rounded, floating, and
+   glassy.")
+   ══════════════════════════════════════════════════════════════
+
+   docs/design/glass-sample.html floats both bars and the first pass did
+   not, which left every edge of the screen a hard rectangle — so the look
+   read as unfinished however good the panels were. The sample is the
+   contract and the sample has this switched on, so it was never optional:
+
+     .hdr    { margin: 9px 9px 0; border-radius: calc(card - 1px); }
+     .tabbar { position: absolute; left: 12px; right: 12px; bottom: 12px; }
+
+   THE TAB BAR LEAVING THE FLOW IS THE POINT, NOT THE ROUNDING. Out of
+   flow the page scrolls UNDER it, so the bar blurs live content instead
+   of blurring the bare field, and that is the difference between a glass
+   bar and a tinted one. `fixed` rather than `absolute`: .pub-app is not a
+   positioned ancestor, and giving it `position: relative` would re-home
+   every absolutely positioned descendant inside it.
+
+   THE HEADER STAYS IN FLOW, exactly as in the sample — content passes
+   under it in the 9px gutters on desktop and nowhere else. Its margin is
+   measured from the MARGIN box by `position: sticky`, so it still docks
+   with its 9px of page above it rather than jumping.
+
+   AND THE HEADER TAKES NO EDGE MASK, which is the one place this file
+   departs from the sample on purpose. The sample's header carries DARK
+   ink on clear glass, so feathering its edges costs nothing. Ours is the
+   white-ink exception (see the two-recipes note at the top): feather the
+   teal out at the edge and the white text nearest that edge ends up on
+   the pale page. A mask there is a contrast failure, not a style. */
+
+/* The gold line STAYS a line and simply follows the corner round, which is
+   the one thing a floating bar lets it do that a full-bleed one could not.
+   It was first dissolved into an inset glow along the bottom, the same move
+   the accent stripes make above, and that was wrong twice over: gold bled
+   into teal and printed a green band, and white header text crossing that
+   band measured 3.60:1. */
+:root[data-hub2="on"] .pub-header,
+:root[data-hub2="on"] .dir-app .dir-header {
+  margin: 9px 9px 0;
+  border-radius: calc(var(--pub-radius) - 1px);
+  box-shadow: var(--glass-bloom);
+}
+:root[data-hub2="on"] .dir-app .dir-header { border-radius: calc(var(--dir-radius) - 1px); }
+
+/* The desktop sidebar is stuck to "header height + gold line". The header
+   now starts 9px lower, so both numbers move with it or the sidebar rides
+   9px up under the bar when the page is scrolled. */
+@media (min-width: 1024px) {
+  :root[data-hub2="on"] .pub-sidebar {
+    top: 68px;
+    max-height: calc(100dvh - 68px);
+  }
+}
+
+:root[data-hub2="on"] .pub-tabbar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  border-radius: calc(var(--pub-radius) + 3px);
+  border-top-color: transparent;
+  box-shadow: var(--glass-bloom);
+}
+
+/* Out of flow, so the page has to grow its own room back. The 16px in
+   uiUpdates.css is deliberately small BECAUSE the bar used to occupy real
+   flex space. */
+:root[data-hub2="on"] .pub-app .pub-content {
+  padding-bottom: calc(var(--pub-nav) + env(safe-area-inset-bottom) + 30px);
+}
+
+/* WHAT THE PWA TOAST AND THE WriteTray STACK ABOVE (src/base.css, read by
+   src/pwa.ts). The bar is 12px higher than it was, so this is too, or an
+   update toast floats over the tab bar instead of above it. Both values
+   are the stock ones plus the lift; the event page's own override is
+   re-stated at a higher specificity because hub2Glass.css is the last
+   sheet in and would otherwise win over it at equal weight. */
+:root[data-hub2="on"] { --nwsa-bottom-chrome: 88px; }
+@media (max-width: 1023.98px) and (min-height: 561px) {
+  :root[data-hub2="on"]:has(.pub-event-actionbar) { --nwsa-bottom-chrome: 154px; }
+}
+
+/* The event page's third bar floats on top of the tab bar. --pub-tabbar-h
+   is the tab bar's own offsetHeight, written by a ResizeObserver in
+   PublicEvent.tsx and unaware of the lift, so the lift plus a gap is added
+   here. Lift it and nothing else and it overlaps the bar it sits on. */
+:root[data-hub2="on"] .pub-event-actionbar {
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--pub-tabbar-h, calc(var(--pub-nav) + env(safe-area-inset-bottom))) + 24px);
+  border-radius: var(--pub-radius-md);
+  border-top-color: transparent;
+  box-shadow: var(--glass-bloom);
+}
+
+/* And the concert-day check-in strip, the one remaining thing that still
+   ran edge to edge across the page (measured, not guessed: a probe listed
+   every element as wide as the viewport). */
+:root[data-hub2="on"] .pub-checkin-strip {
+  margin: 0 12px;
+  border-radius: var(--pub-radius-md);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -510,6 +861,7 @@
     --glass-bar: var(--pub-accent);
     --glass-chrome-fx: none;
     --glass-hero-fx: none;
+    --glass-panel-fx: none;
     --glass-bar-fx: none;
     --glass-shine: transparent;
     /* Somebody who asked for less transparency wants the crisp bar back. */

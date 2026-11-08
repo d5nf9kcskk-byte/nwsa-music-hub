@@ -162,9 +162,10 @@
     "glass": {
       "chromeBlur": "34px",
       "heroBlur": "28px",
+      "panelBlur": "13px",
       "fieldDrift": "40s",
       "logoShine": "10s",
-      "morphMs": 1500,
+      "morphMs": 900,
       "revealMs": 2000
     }
   },
