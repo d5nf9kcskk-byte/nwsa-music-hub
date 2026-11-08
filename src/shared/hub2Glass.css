@@ -328,7 +328,16 @@
   .pub-card, .pub-event, .pub-announce, .pub-upcoming, .pub-empty,
   .pub-ens-card, .pub-assign-card,
   .pub-confirm-card, .pub-subscribe-panel, .pub-fm-panel, .pub-xfer-panel,
-  .pub-cal, .pub-quick-btn, .pub-signup-alert, .pub-daysheet
+  .pub-cal, .pub-quick-btn, .pub-signup-alert, .pub-daysheet,
+  /* ADDED after walking the real pages with a glass audit rather than
+     reading this list. The morph flies `.pub-page > *`, and where these two
+     disagree the Hub flies boxes with no blur in them — which is how the
+     motion can be right and the page still not look like the sample.
+     Concert Season measured ZERO glass blocks, and the calendar's 481px day
+     panel had none while the month grid beside it did.
+     `.pub-day-detail` is a panel exactly like the `.pub-cal` above it, and
+     `.pub-season-month` is the card the concert rows sit in. */
+  .pub-day-detail, .pub-season-month
 ),
 :root[data-hub2="on"] .dir-app :is(
   .dir-card, .dir-empty, .dir-section, .dir-roster-card
