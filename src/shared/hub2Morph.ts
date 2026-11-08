@@ -91,6 +91,14 @@ const STAGGER_OF = 0.035;
 const SETTLE_AT = 0.72;
 const SETTLE_PAST = 0.045;
 
+/** How many keyframes the travel is cut into. Not smoothness — the browser
+ *  interpolates smoothly between any two — but ACCURACY: see the long note at
+ *  the sampling, where the shell's scale and its content's counter-scale have
+ *  to multiply to 1 everywhere rather than only at a keyframe. The error falls
+ *  off with the square of the gap, so this is already far past the point of
+ *  diminishing returns, and a dozen keyframes is nothing to a compositor. */
+const STEPS = 14;
+
 /**
  * HOW FAR APART TWO BLOCKS MAY BE AND STILL BE THE SAME OBJECT.
  *
@@ -433,13 +441,57 @@ export function play(shot: Shot): void {
       const osy = sy + (1 - sy) * (1 + SETTLE_PAST);
       const odx = dx - dx * (1 + SETTLE_PAST);
       const ody = dy - dy * (1 + SETTLE_PAST);
+      // THE PATH, SAMPLED — and this is what keeps the text the right shape.
+      //
+      // The shell scales by s and the content counter-scales by 1/s, so the
+      // product is 1 and the words stay the size they are. That is true AT a
+      // keyframe and nowhere else: between two keyframes the browser
+      // interpolates s linearly and 1/s linearly, and the product of two
+      // straight lines through 1/s is not 1. With three keyframes the gaps are
+      // enormous (0 to 0.72, then 0.72 to 1) and the error peaks around +24%
+      // for a panel growing from 0.4 — a quarter of the way too big, in the
+      // middle of the flight, which is exactly the stretch this layer exists
+      // to remove. Two independent passes over the frames caught it on two
+      // different pages: "condensed horizontally, narrow tall letterforms".
+      //
+      // So both sides are sampled from the SAME path at the same offsets. The
+      // residual error is quadratic in the gap between samples, so going from
+      // 2 segments to STEPS of them takes roughly +24% down to a fraction of
+      // one per cent, which is under a pixel on a line of type.
+      //
+      // Sampling in progress space is right even with an easing on the
+      // animation: the easing decides WHEN each progress value is reached, and
+      // it is the same easing for the shell and for its children, so they
+      // arrive at matching samples together.
+      const pose = (u: number) => {
+        const first = u <= SETTLE_AT;
+        const t = first ? (SETTLE_AT ? u / SETTLE_AT : 1) : (u - SETTLE_AT) / (1 - SETTLE_AT);
+        const a = first ? [sx, sy, dx, dy] : [osx, osy, odx, ody];
+        const b = first ? [osx, osy, odx, ody] : [1, 1, 0, 0];
+        return {
+          sx: a[0] + (b[0] - a[0]) * t,
+          sy: a[1] + (b[1] - a[1]) * t,
+          dx: a[2] + (b[2] - a[2]) * t,
+          dy: a[3] + (b[3] - a[3]) * t,
+        };
+      };
+      // Offsets include 0, the settle, and 1 exactly, so the corner in the
+      // path is a sample rather than something smoothed across.
+      const offsets: number[] = [];
+      const upTo = Math.max(2, Math.round(STEPS * SETTLE_AT));
+      for (let k = 0; k <= upTo; k++) offsets.push((k / upTo) * SETTLE_AT);
+      const after = Math.max(2, STEPS - upTo);
+      for (let k = 1; k <= after; k++) offsets.push(SETTLE_AT + (k / after) * (1 - SETTLE_AT));
+      const path = offsets.map(offset => ({ offset, p: pose(offset) }));
+
       // The radius is pre-divided by the scale on each axis, or a circular
       // corner comes out as an ellipse for the whole flight.
-      const shell = el.animate([
-        { transformOrigin: '0 0', transform: `translate(${dx}px,${dy}px) scale(${sx},${sy})`, borderRadius: `${r / sx}px / ${r / sy}px` },
-        { offset: SETTLE_AT, transformOrigin: '0 0', transform: `translate(${odx}px,${ody}px) scale(${osx},${osy})`, borderRadius: `${r / osx}px / ${r / osy}px` },
-        { transformOrigin: '0 0', transform: 'translate(0,0) scale(1,1)', borderRadius: `${r}px` },
-      ], { ...opts, fill: 'backwards' });
+      const shell = el.animate(path.map(({ offset, p }) => ({
+        offset,
+        transformOrigin: '0 0',
+        transform: `translate(${p.dx}px,${p.dy}px) scale(${p.sx},${p.sy})`,
+        borderRadius: `${r / p.sx}px / ${r / p.sy}px`,
+      })), { ...opts, fill: 'backwards' });
       shell.id = FLIP_ID;
 
       // The counter-scale, one animation per child, in the animation layer
@@ -462,18 +514,20 @@ export function play(shot: Shot): void {
       for (const kid of kids) {
         const back = (ax: number, ay: number) =>
           `translate(${(kid.x * (1 - ax)) / ax}px,${(kid.y * (1 - ay)) / ay}px) scale(${1 / ax},${1 / ay})`;
-        const a = kid.el.animate(kid.fade
-          ? [
-            { transformOrigin: '0 0', transform: back(sx, sy), opacity: 0, filter: `blur(${SOFTEN_PX}px)` },
-            { offset: FADE_IN_AT, opacity: 1, filter: 'blur(0px)' },
-            { offset: SETTLE_AT, transformOrigin: '0 0', transform: back(osx, osy) },
-            { transformOrigin: '0 0', transform: 'none', opacity: 1, filter: 'blur(0px)' },
-          ]
-          : [
-            { transformOrigin: '0 0', transform: back(sx, sy) },
-            { offset: SETTLE_AT, transformOrigin: '0 0', transform: back(osx, osy) },
-            { transformOrigin: '0 0', transform: 'none' },
-          ], { ...opts, fill: 'backwards' });
+        // The same offsets as the shell, so every sample is an exact inverse.
+        const a = kid.el.animate(path.map(({ offset, p }) => {
+          const f: Keyframe = {
+            offset,
+            transformOrigin: '0 0',
+            transform: offset === 1 ? 'none' : back(p.sx, p.sy),
+          };
+          if (kid.fade) {
+            const g = FADE_IN_AT ? Math.min(1, offset / FADE_IN_AT) : 1;
+            f.opacity = g;
+            f.filter = `blur(${(SOFTEN_PX * (1 - g)).toFixed(2)}px)`;
+          }
+          return f;
+        }), { ...opts, fill: 'backwards' });
         a.id = FLIP_ID;
       }
 
