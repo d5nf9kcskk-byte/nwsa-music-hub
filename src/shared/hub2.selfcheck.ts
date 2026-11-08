@@ -363,6 +363,21 @@ let fixedChecked = 0;
   assert.match(morphSrc, /duration: dur \* FADE_OF, easing: FADE_EASE/,
     'hub2Morph.ts: the clone fade must not share the morph duration or curve');
   assert.match(morphSrc, /const FADE_OF = 0\.[0-4]/, 'hub2Morph.ts: the clone is gone well before the morph is');
+  // AND THE MORPH WAITS FOR THE PAGE IT IS MORPHING INTO. This one was a coin
+  // flip and nothing caught it: playWhenReady used to retry only while there
+  // were NO panels, and when the router resolves the OUTGOING page is still
+  // mounted, so there are always panels to find. Measured on the built app,
+  // same click, eight runs: four morphed the page being left into a shuffled
+  // version of itself and then let the new page appear with no morph at all.
+  // The test has to be identity — a panel that was not one of the captured
+  // ones — and a shimmer placeholder does not count as an arrival, or the
+  // live site morphs cards into grey boxes while Firestore answers.
+  assert.match(morphSrc, /!shot\.was\.has\(el\)/,
+    'hub2Morph.ts: the swap test must compare element identity, not panel count');
+  assert.match(morphSrc, /!isPlaceholder\(el\)/,
+    'hub2Morph.ts: a loading skeleton is not the page having arrived');
+  assert.doesNotMatch(morphSrc, /if \(tries > 0 && !panels\(\)\.length\)/,
+    'hub2Morph.ts: waiting for ANY panel binds the morph to the outgoing page');
   // A positional pair that is nowhere near the same shape is not one
   // object becoming another, it is a panel being STRETCHED — which is the
   // artefact the FLIP exists to remove. The pressed row is exempt: a finger

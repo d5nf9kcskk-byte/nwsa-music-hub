@@ -326,11 +326,33 @@ export function playWhenReady(shot: Shot, tries = 12): void {
   });
 }
 
-/** Is anything on screen that was not on screen when the shot was taken? */
+/**
+ * Is REAL CONTENT on screen that was not on screen when the shot was taken?
+ *
+ * "New element" is not enough on the live site. A page that waits on Firestore
+ * renders shimmer placeholders first, so the swap lands on a page made of grey
+ * boxes: measured against the deployed site, one navigation in four morphed
+ * the concert row into a skeleton card, and the real card then appeared behind
+ * it. That is two transitions where the person asked for one. Nothing like it
+ * shows up against fixtures, where the data is already there — which is why it
+ * took running the probe against the live site to see it at all.
+ *
+ * A placeholder is therefore not an arrival. If the data outruns the frame
+ * budget the morph still plays against whatever is there, skeletons included,
+ * which is strictly what it did before.
+ */
 function swapped(shot: Shot): boolean {
   const now = panels();
   if (!now.length) return false;
-  return now.some(el => !shot.was.has(el));
+  return now.some(el => !shot.was.has(el) && !isPlaceholder(el));
+}
+
+/** A shimmer standing in for a card that has not loaded (SkeletonCards in
+ *  public/components/PageHeader.tsx renders these inside one aria-hidden
+ *  wrapper, so the wrapper is the panel and the shimmer is its child). */
+function isPlaceholder(el: Element): boolean {
+  return el.classList.contains('pub-skeleton-card')
+    || !!el.querySelector('.pub-skeleton-card');
 }
 
 /** LAST, INVERT, PLAY. */
