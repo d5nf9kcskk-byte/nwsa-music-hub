@@ -355,7 +355,12 @@ let fixedChecked = 0;
   // at 130ms and 404ms of a 1500ms morph before this was split out: every
   // word of both pages sharp. That is the director's "messy instead of
   // liquidy", and it is the clock on the fade, not the morph.
-  assert.match(morphSrc, /duration: ms \* FADE_OF, easing: FADE_EASE/,
+  // `dur`, not `ms`: each panel's own duration, which is now the morph's
+  // duration less that panel's share of the ripple. The promise being pinned
+  // is unchanged — the fade takes a FRACTION of the travel and rides its own
+  // curve — it is just scaled per panel so a staggered clone cannot outlive
+  // the panel it belongs to.
+  assert.match(morphSrc, /duration: dur \* FADE_OF, easing: FADE_EASE/,
     'hub2Morph.ts: the clone fade must not share the morph duration or curve');
   assert.match(morphSrc, /const FADE_OF = 0\.[0-4]/, 'hub2Morph.ts: the clone is gone well before the morph is');
   // A positional pair that is nowhere near the same shape is not one
