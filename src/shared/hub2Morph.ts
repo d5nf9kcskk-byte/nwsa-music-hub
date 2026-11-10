@@ -78,26 +78,70 @@ const SCROLLER_SEL = '.pub-content, .dir-content';
  *  person can actually SEE. A roster of 140 is not a choreography. */
 const CAP = 10;
 
-/** Per-panel delay, so the page reforms in a ripple rather than a block.
- *  A FRACTION of the morph's own duration, the sample's 0.035 — see where it
- *  is used for why a fixed number of milliseconds is a latent crash. */
-const STAGGER_OF = 0.035;
+/**
+ * THE LAW (the director chose this, 2026-11-09, from three built side by side).
+ *
+ * A CUBIC-BEZIER CANNOT BE VISCOUS, and that is arithmetic rather than taste.
+ * Searched the whole bezier space for the three properties liquid needs at
+ * once — a slow head (the first 10% of the travel taking at least 17% of the
+ * clock), a long creeping tail (the last 10% taking at least 42%), and no
+ * darting (peak velocity no more than 2.9x its own mean) — and there is no
+ * solution. There cannot be: the area under a velocity curve is fixed at 1,
+ * so buying a slow start AND a slow end must be paid for with a fast middle,
+ * which is the one thing honey never does.
+ *
+ * So the travel is a TABLE, played on a linear easing: the step response of an
+ * overdamped system to a force that ramps in over its first quarter. The ramp
+ * is the load-bearing part, not the damping — a plain spring applies full
+ * force from the first frame and darts out of the gate even when critically
+ * damped. Sampled AT its own 15 points, so linear interpolation between them
+ * reproduces it exactly instead of approximating it.
+ *
+ * AND THERE IS NO POSITIONAL OVERSHOOT. Overshoot is a SPRING cue, and liquid
+ * is the thing a spring is defined against: honey does not carry past its mark
+ * and come back. The overshoot moved into CURVATURE, where a real surface
+ * finding its level genuinely does wobble. See the shell.
+ */
+const LAW = [0, .0059, .0632, .2104, .4150, .6041, .7460, .8433, .9062,
+             .9455, .9695, .9838, .9922, .9972, 1];
 
-/** How far past its mark a panel carries before settling back. The morph
- *  used to be over in 15% of its duration: the look's own spring curve is
- *  enormously front-loaded, and with a FLIP the geometry IS the animation,
- *  so the panel arrived almost instantly and then sat still. The settle is
- *  an explicit keyframe at 72% instead. */
-const SETTLE_AT = 0.72;
-const SETTLE_PAST = 0.045;
+/**
+ * PERCEPTUAL MOMENTS ARE WALL-CLOCK, NOT FRACTIONS. This is the finding that
+ * makes a slower morph possible at all, and it is why the earlier attempt at
+ * 1500ms had to be abandoned.
+ *
+ * These numbers encode thresholds in a person's head: when two stacked pages
+ * stop reading as one event, and when the destination becomes readable. Those
+ * are fixed in milliseconds. Held as FRACTIONS they stretched with the
+ * duration, so a longer morph kept the old page legible for longer and made
+ * the new text wait — which is exactly the "two readable pages stacked" fault
+ * that got blamed on the duration and treated by shortening it. The mechanism
+ * stayed armed and re-fired at anything over about a second.
+ *
+ * Held here, the duration can go wherever the director wants it.
+ */
+const OUT_MS = 300;    // the outgoing copy is unreadable by here
+const READ_MS = 480;   // the arriving text is sharp by here
+
+/**
+ * Per-panel delay, in milliseconds, ordered by DISTANCE FROM THE TAP.
+ *
+ * Two changes from the old 3.5%-of-duration-in-document-order version, both
+ * measured. First the size: 3.5% of 900ms is 31.5ms, which sits at or below
+ * the temporal fusion floor (the binding-window literature spans roughly 25ms
+ * to 150ms), so neighbouring panels read as simultaneous and there was no
+ * ripple to see at all. The problem was never too much stagger; it was too
+ * little. Second the order: a ripple through a liquid starts where it was
+ * touched and spreads outward. Running down the document is a list loading.
+ */
+const STAGGER = 70;
 
 /** How many keyframes the travel is cut into. Not smoothness — the browser
  *  interpolates smoothly between any two — but ACCURACY: see the long note at
  *  the sampling, where the shell's scale and its content's counter-scale have
- *  to multiply to 1 everywhere rather than only at a keyframe. The error falls
- *  off with the square of the gap, so this is already far past the point of
- *  diminishing returns, and a dozen keyframes is nothing to a compositor. */
-const STEPS = 14;
+ *  to multiply to 1 everywhere rather than only at a keyframe. Fixed at the
+ *  law's own resolution so every sample is a real measurement of it. */
+const STEPS = LAW.length - 1;
 
 /**
  * HOW FAR APART TWO BLOCKS MAY BE AND STILL BE THE SAME OBJECT.
@@ -121,20 +165,15 @@ const STEPS = 14;
  */
 const MAX_SCALE = 3.2;
 
-/** How much of the morph the outgoing clone is visible for, and on what
- *  curve. Short and front-loaded, for the reason written where it is used:
- *  anything slower leaves two legible pages stacked on each other. */
-const FADE_OF = 0.34;
+/** The curve the outgoing copy leaves on. Front-loaded on purpose: it has to
+ *  stop being a second readable page almost at once, while its GEOMETRY keeps
+ *  travelling for the full duration underneath. How LONG it takes is OUT_MS,
+ *  in wall clock, so this does not stretch when the pace does. */
 const FADE_EASE = 'cubic-bezier(.3,.9,.4,1)';
 
-/** The arriving content's half of the cross-fade: how far out of focus it
- *  starts, and how much of the morph it takes to resolve. The sample's
- *  `--slot-soften` at its dissolved setting, and its 55%. It lands before the
- *  box does on purpose — the words are readable while the panel is still
- *  settling, so the motion finishes under text somebody is already reading
- *  rather than holding them back. */
+/** How far out of focus the arriving content starts. The sample's
+ *  `--slot-soften` at its dissolved setting. When it lands is READ_MS. */
 const SOFTEN_PX = 9;
-const FADE_IN_AT = 0.55;
 
 const num = (v: string) => parseFloat(v) || 0;
 
@@ -366,13 +405,29 @@ function isPlaceholder(el: Element): boolean {
 /** LAST, INVERT, PLAY. */
 export function play(shot: Shot): void {
   if (!morphOn()) return;
-  const { ms, ease } = timing();
+  // The curve the org config names is no longer asked for: the travel runs on
+  // the LAW, played linear. See the constant for why no bezier can do this.
+  const { ms } = timing();
   // A second navigation mid-flight: drop the first rather than compose with
   // it, or the two fight over the same transform.
   for (const a of document.getAnimations()) if (a.id === FLIP_ID) a.cancel();
 
   const now = panels();
   const host = ghostLayer();
+
+  /* THE RIPPLE SPREADS FROM THE TAP. Rank every panel by how far it is from
+     the one a finger landed on (or from the top of the screen when nothing
+     was tapped), and let that rank buy the delay. Document order made the
+     change run down the page like a list loading; distance makes it travel
+     across the screen like something displaced. */
+  const originY = shot.anchored && shot.rects[0]
+    ? shot.rects[0].top + shot.rects[0].height / 2
+    : 0;
+  const away = shot.rects.map(r => Math.abs(r.top + r.height / 2 - originY));
+  const place: number[] = [];
+  shot.rects.map((_, i) => i)
+    .sort((a, b) => away[a] - away[b])
+    .forEach((idx, rankAt) => { place[idx] = rankAt; });
 
   for (let i = 0; i < Math.max(shot.rects.length, now.length); i++) {
     // THE LAG IS PAID FOR OUT OF THE DURATION, NOT ADDED TO IT. Liquid does
@@ -388,9 +443,14 @@ export function play(shot: Shot): void {
     // only guards ms > 0, so a short morph in some future org config would
     // break every navigation in it. A fraction cannot do that, and it is also
     // what the sample does: the ripple stays proportionate at any pace.
-    const delay = Math.min(i, 6) * ms * STAGGER_OF;
-    const dur = ms - delay;
-    const opts: KeyframeAnimationOptions = { duration: dur, easing: ease, delay, fill: 'both' };
+    // Paid OUT OF the duration, never added on top, so every panel still
+    // lands on the beat the duration promises however late it set off. And
+    // capped, so a long page cannot push the last panel past the end: with a
+    // floor on the duration there is no way to reach a negative one, which is
+    // what element.animate throws on.
+    const delay = Math.min(place[i] ?? i, 5) * STAGGER;
+    const dur = Math.max(ms - delay, 200);
+    const opts: KeyframeAnimationOptions = { duration: dur, easing: 'linear', delay, fill: 'both' };
 
     // Is there a counterpart, and is it the same SHAPE? See MAX_SCALE: a
     // positional pair that is not gets taken apart and handed to the melt
@@ -437,10 +497,10 @@ export function play(shot: Shot): void {
       }
 
       const r = num(getComputedStyle(el).borderTopLeftRadius);
-      const osx = sx + (1 - sx) * (1 + SETTLE_PAST);
-      const osy = sy + (1 - sy) * (1 + SETTLE_PAST);
-      const odx = dx - dx * (1 + SETTLE_PAST);
-      const ody = dy - dy * (1 + SETTLE_PAST);
+      // How much the box thins across its direction of travel at the fastest
+      // moment. Liquid in a hurry is not the shape it is at rest. Scaled by
+      // the distance, so a short hop does not squash at all.
+      const hurryMax = Math.min(0.05, Math.hypot(dx, dy) / 4000);
       // THE PATH, SAMPLED — and this is what keeps the text the right shape.
       //
       // The shell scales by s and the content counter-scales by 1/s, so the
@@ -463,35 +523,41 @@ export function play(shot: Shot): void {
       // animation: the easing decides WHEN each progress value is reached, and
       // it is the same easing for the shell and for its children, so they
       // arrive at matching samples together.
-      const pose = (u: number) => {
-        const first = u <= SETTLE_AT;
-        const t = first ? (SETTLE_AT ? u / SETTLE_AT : 1) : (u - SETTLE_AT) / (1 - SETTLE_AT);
-        const a = first ? [sx, sy, dx, dy] : [osx, osy, odx, ody];
-        const b = first ? [osx, osy, odx, ody] : [1, 1, 0, 0];
-        return {
-          sx: a[0] + (b[0] - a[0]) * t,
-          sy: a[1] + (b[1] - a[1]) * t,
-          dx: a[2] + (b[2] - a[2]) * t,
-          dy: a[3] + (b[3] - a[3]) * t,
-        };
-      };
-      // Offsets include 0, the settle, and 1 exactly, so the corner in the
-      // path is a sample rather than something smoothed across.
-      const offsets: number[] = [];
-      const upTo = Math.max(2, Math.round(STEPS * SETTLE_AT));
-      for (let k = 0; k <= upTo; k++) offsets.push((k / upTo) * SETTLE_AT);
-      const after = Math.max(2, STEPS - upTo);
-      for (let k = 1; k <= after; k++) offsets.push(SETTLE_AT + (k / after) * (1 - SETTLE_AT));
-      const path = offsets.map(offset => ({ offset, p: pose(offset) }));
+      // Sampled at the law's own points, so linear interpolation between them
+      // reproduces the curve exactly rather than approximating it.
+      const path = LAW.map((v, k) => ({ offset: k / STEPS, v }));
 
-      // The radius is pre-divided by the scale on each axis, or a circular
-      // corner comes out as an ellipse for the whole flight.
-      const shell = el.animate(path.map(({ offset, p }) => ({
-        offset,
-        transformOrigin: '0 0',
-        transform: `translate(${p.dx}px,${p.dy}px) scale(${p.sx},${p.sy})`,
-        borderRadius: `${r / p.sx}px / ${r / p.sy}px`,
-      })), { ...opts, fill: 'backwards' });
+      /* THE SHELL. Geometry only, as ever: the card is an ancestor of its own
+         glass, so an opacity or a filter here would flatten it. What changed
+         is what the geometry is made of.
+
+         POSITION rides the law and simply stops. CURVATURE carries the
+         overshoot instead: the corners swell by half again as the panel lets
+         go, stay loose while it flows, and come home through one damped
+         wobble. That is the brief's own sentence — lose the edge before
+         moving and regain it on settling — said in the only property a glass
+         panel is allowed to have animated. A rectangle whose corners are
+         relaxing reads as a surface finding its level; a rectangle that
+         carries past its mark and comes back reads as a spring, which is the
+         thing liquid is defined against. */
+      const shell = el.animate(path.map(({ offset, v }) => {
+        const ex = sx + (1 - sx) * v;
+        const ey = sy + (1 - sy) * v;
+        const hurry = Math.sin(Math.PI * offset) * hurryMax;
+        const ax = ex * (1 + hurry);
+        const ay = ey * (1 - hurry);
+        const swell = offset < .5
+          ? 1 + .55 * (offset / .5)
+          : 1 + .55 * Math.exp(-6 * (offset - .5)) * Math.cos(11 * (offset - .5));
+        return {
+          offset,
+          transformOrigin: '0 0',
+          transform: `translate(${dx * (1 - v)}px,${dy * (1 - v)}px) scale(${ax},${ay})`,
+          // Pre-divided by the scale on each axis, or a circular corner comes
+          // out as an ellipse for the whole flight.
+          borderRadius: `${(r * swell) / ax}px / ${(r * swell) / ay}px`,
+        };
+      }), { ...opts, fill: 'backwards' });
       shell.id = FLIP_ID;
 
       // The counter-scale, one animation per child, in the animation layer
@@ -514,15 +580,33 @@ export function play(shot: Shot): void {
       for (const kid of kids) {
         const back = (ax: number, ay: number) =>
           `translate(${(kid.x * (1 - ax)) / ax}px,${(kid.y * (1 - ay)) / ay}px) scale(${1 / ax},${1 / ay})`;
-        // The same offsets as the shell, so every sample is an exact inverse.
-        const a = kid.el.animate(path.map(({ offset, p }) => {
+        // The same offsets as the shell, so every sample is an exact inverse —
+        // AND THAT INCLUDES THE SQUASH. Leaving it out of the counter-scale
+        // was tried and measured: the content then ran 4.4% out of shape at
+        // the fastest moment, which is the same artefact, by the same amount,
+        // that two separate reviews caught as "condensed, narrow and tall".
+        // Squash and stretch has always worked this way — the CONTAINER
+        // deforms and the features inside it stay readable. The box still
+        // visibly thins across its travel; the words do not.
+        //
+        // The moment the words become sharp is a wall-clock one, READ_MS from
+        // the start of the whole transition — see the constant. A panel that
+        // set off late simply resolves earlier in its own progress, so the
+        // page becomes readable at the same instant however long the morph is
+        // and whatever order the panels left in. That is what lets the pace go
+        // to the slowest setting without it feeling like a wait.
+        const readAt = Math.max(.08, Math.min(.92, (READ_MS - delay) / dur));
+        const a = kid.el.animate(path.map(({ offset, v }) => {
+          const hurry = Math.sin(Math.PI * offset) * hurryMax;
+          const ex = (sx + (1 - sx) * v) * (1 + hurry);
+          const ey = (sy + (1 - sy) * v) * (1 - hurry);
           const f: Keyframe = {
             offset,
             transformOrigin: '0 0',
-            transform: offset === 1 ? 'none' : back(p.sx, p.sy),
+            transform: offset === 1 ? 'none' : back(ex, ey),
           };
           if (kid.fade) {
-            const g = FADE_IN_AT ? Math.min(1, offset / FADE_IN_AT) : 1;
+            const g = Math.min(1, offset / readAt);
             f.opacity = g;
             f.filter = `blur(${(SOFTEN_PX * (1 - g)).toFixed(2)}px)`;
           }
@@ -552,11 +636,13 @@ export function play(shot: Shot): void {
       ghost.classList.add('hub2-ghost');
       ghost.style.cssText += `;left:${from.left}px;top:${from.top}px;width:${from.width}px;height:${from.height}px`;
       host.appendChild(ghost);
-      // It travels its counterpart's path, on the morph's own curve.
-      const gt = ghost.animate([
-        { transform: 'translate(0,0) scale(1,1)' },
-        { transform: `translate(${to.left - from.left}px,${to.top - from.top}px) scale(${to.width / from.width},${to.height / from.height})` },
-      ], opts);
+      // It travels its counterpart's path, on the law, so the old copy and
+      // the live panel under it move as one thing rather than drifting apart.
+      const gt = ghost.animate(path.map(({ offset, v }) => ({
+        offset,
+        transform: `translate(${(to.left - from.left) * v}px,${(to.top - from.top) * v}px) `
+          + `scale(${1 + (to.width / from.width - 1) * v},${1 + (to.height / from.height - 1) * v})`,
+      })), opts);
       gt.id = FLIP_ID;
       // AND THE CROSS-FADE IS A SEPARATE ANIMATION ON ITS OWN CLOCK, which
       // is the whole of the fix. It cannot share the morph's curve: that
@@ -574,7 +660,7 @@ export function play(shot: Shot): void {
       const g = ghost.animate([
         { opacity: 1, filter: 'blur(0px)' },
         { opacity: 0, filter: 'blur(9px)' },
-      ], { ...opts, duration: dur * FADE_OF, easing: FADE_EASE });
+      ], { ...opts, duration: Math.min(dur, OUT_MS), easing: FADE_EASE });
       g.id = FLIP_ID;
       g.finished.then(() => ghost.remove(), () => ghost.remove());
       continue;
@@ -594,7 +680,7 @@ export function play(shot: Shot): void {
       const g = ghost.animate([
         { opacity: 1, transform: 'translateY(0) scale(1)', filter: 'blur(0px)' },
         { opacity: 0, transform: 'translateY(14px) scale(.96)', filter: 'blur(10px)' },
-      ], { ...opts, duration: dur * FADE_OF, easing: FADE_EASE });
+      ], { ...opts, duration: Math.min(dur, OUT_MS), easing: FADE_EASE });
       g.id = FLIP_ID;
       g.finished.then(() => ghost.remove(), () => ghost.remove());
     }
