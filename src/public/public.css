@@ -78,6 +78,19 @@ html:has(.pub-app) body {
   border-bottom: 3px solid var(--pub-gold);
   color: #fff;
 }
+/* PAYING FOR THE 44px MENU BUTTON ON THE SMALLEST PHONE. The control row is
+   five fixed-width items (EN|ES, Aa, theme, search, menu) with an inline
+   8px gap, and taking the two 38px buttons to 44 adds 12px to a row that
+   already sits within a few pixels of a 360px viewport — the overflow the
+   "high-zoom safety" rules in pubShell.css were written for. A 10px gutter
+   gives back exactly what the targets took, below the widths anything was
+   measured at, and leaves 390px and up untouched. */
+@media (max-width: 380px) {
+  .pub-header {
+    padding-right: calc(10px + env(safe-area-inset-right));
+    padding-left: calc(10px + env(safe-area-inset-left));
+  }
+}
 
 .pub-brand {
   display: flex;
@@ -106,10 +119,14 @@ html:has(.pub-app) body {
   padding: 5px 11px;
 }
 
-/* Hamburger button */
+/* Hamburger button. 44px, not 38: it is the button that opens the whole
+   menu (and its twin opens search), so it is the last control in the app
+   that should be under the 44px thumb minimum. The header cluster still
+   fits a 360px phone — the wordmark is already hidden below 520px and the
+   brand yields by ellipsis before any control does (pubShell.css). */
 .pub-hamburger {
   display: flex; align-items: center; justify-content: center;
-  width: 38px; height: 38px; border: none; border-radius: 9px;
+  width: 44px; height: 44px; border: none; border-radius: 9px;
   background: rgba(255,255,255,0.15); color: #fff; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -340,7 +357,29 @@ html:has(.pub-app) body {
 }
 
 .pub-tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+/* WHITE ON THE ENSEMBLE'S OWN COLOUR NEEDS THE FILL DARKENED (#contrast).
+   The fill is not ours: every call site sets it inline from
+   `ensembleColor()`, so no stylesheet can read it and no stylesheet may
+   replace it either — these chips are how a student tells one group's
+   events from another's, and the same colours draw the calendar dots.
+   Measured against the 8-swatch picker (the only way a colour is chosen in
+   the app): white clears 4.5:1 on three of them and FAILS on four
+   (#16a34a 3.30, #ea580c 3.56, #0891b2 3.68, #65a30d 3.09), and the live
+   chip the audit measured was 2.77.
+   So the colour stays and a fixed scrim goes over it: an INSET box-shadow,
+   because it paints above the background and below the text, follows the
+   radius, and — unlike `background-image` — cannot be wiped by the inline
+   `background` shorthand the component writes. A uniform multiply keeps
+   every hue and every difference between them; it only moves all eight
+   down together. At 34% the eight swatches land between 6.7:1 and 10.3:1
+   and the 2.77 chip at ~6.1:1. The one case it does not cover is a legacy
+   fill lighter than about #eab308 (4.7:1 after the scrim), which no path
+   through the app can produce — only a seed script could, and it would
+   show up as a washed-out chip rather than as an invisible one.
+   NOT `filter`/`opacity`: both would take the text down with the fill
+   (and `filter` is off limits anywhere near glass). */
 .pub-ens-tag { font-size: 12px; font-weight: 700; color: #fff; padding: 3px 10px; border-radius: 9px; }
+.pub-ens-tag, .pub-season-tag { box-shadow: inset 0 0 0 100px rgba(0, 0, 0, 0.34); }
 
 /* Roster */
 .pub-roster { padding: 4px 16px; }
@@ -488,7 +527,21 @@ html:has(.pub-app) body {
 }
 .pub-ev-ens-link { color: inherit; text-decoration: none; }
 .pub-ev-ens-link:active { opacity: 0.6; }
-.pub-ens-tag-link { color: #fff; text-decoration: none; }
+/* 114x13 measured, on the card every student opens the app to read. The
+   link stays INLINE, so vertical padding grows its hit box without
+   touching the line box: an inline non-replaced box's vertical padding is
+   excluded from line-height but included in its border box, which is what
+   hit-testing uses. So the pill is drawn exactly as before and the target
+   is 13 + 2x16 = 45px. (A `min-height` here would need the pill itself to
+   be 44px tall, and a row of 44px-tall name chips is a different card.) */
+.pub-ens-tag-link { color: #fff; text-decoration: none; padding: 16px 0; }
+/* Same 19px target, other shape: on /student/* the chip IS the link
+   (PublicSchedule), so padding would grow the painted pill instead of just
+   its hit box. An absolutely positioned overlay extends the target with no
+   paint and no layout. The type selector matters — the same class is a
+   plain <span> on /lookup. */
+a.pub-ens-tag { position: relative; }
+a.pub-ens-tag::after { content: ''; position: absolute; inset: -13px 0; }
 
 .pub-tag-row-sm { margin-top: 8px; gap: 5px; }
 .pub-tag-row-sm .pub-ens-tag { font-size: 11px; padding: 2px 8px; }
@@ -728,8 +781,13 @@ html:has(.pub-app) body {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
 
+/* 268x16 measured. This one takes a REAL 44px, not padding plus a negative
+   margin: the pieces are a vertical list 21px apart, so hit boxes that
+   overflow their rows would overlap each other and the later piece in the
+   DOM would quietly win the gap above it. A list of tappable rows is
+   allowed to be a list of tappable rows. */
 .pub-event-piece-link {
-  display: inline-flex; align-items: center; gap: 4px;
+  display: inline-flex; align-items: center; gap: 4px; min-height: 44px;
   font-size: 13px; font-weight: 600; color: var(--pub-text); text-decoration: none;
 }
 .pub-event-piece-link svg { color: var(--pub-accent); flex-shrink: 0; }
@@ -756,8 +814,12 @@ html:has(.pub-app) body {
 }
 .pub-event-mypart:active { background: #d4e9f2; }
 
+/* 321x16 measured, and up to three of them stack at the bottom of the
+   piece list ("My book" / "Part books" / "View program"). Same reasoning as
+   the piece link above: stacked targets cannot overlap, so they take the
+   height. */
 .pub-event-program-link {
-  display: inline-flex; align-items: center; gap: 5px; margin-top: 2px;
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; min-height: 44px;
   font-size: 13px; font-weight: 700; color: #ca8a04; text-decoration: none;
 }
 .pub-event-program-link:hover { text-decoration: underline; }

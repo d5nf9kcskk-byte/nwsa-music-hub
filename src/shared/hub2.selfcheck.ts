@@ -14,6 +14,7 @@ import type { Hub2Look } from '../org/types';
 import { HUB2_ATTR, HUB2_SCOPE, hub2TokenCss } from './hub2Tokens';
 
 const read = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8');
+let glassClasses = 0;
 const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 // 1. One key, spelled the same in the boot script and the module, and never
@@ -123,10 +124,15 @@ assert.ok(mainSrc.indexOf("import './public/hub2Public.css';") > mainSrc.indexOf
 // The page-look classes are opt-in: nothing in the stock CSS styles them, so
 // adding one to a component changes nothing with the preview off.
 const allCss: string[] = [];
+// Every component too, in the same pass: §7 has to prove that each class the
+// morph's selectors NAME is a class the app actually renders (see #one-nav for
+// the same shape of bug, and the .dir-page pin for the one that shipped).
+const allTsx: string[] = [];
 const walk = (dir: URL) => {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     if (e.isDirectory()) walk(new URL(`${e.name}/`, dir));
     else if (e.name.endsWith('.css')) allCss.push(new URL(e.name, dir).pathname);
+    else if (e.name.endsWith('.tsx')) allTsx.push(new URL(e.name, dir).pathname);
   }
 };
 walk(new URL('../', import.meta.url));
@@ -232,7 +238,8 @@ assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(staffCss), 'hub2Staff.css must take 
   assert.ok(!/animation|transition/.test(staffCss.split('prefers-reduced-motion: no-preference')[0]),
     'every animation and transition belongs in the no-preference block');
 }
-for (const shell of ['./DirectorApp.tsx', './teacher/TeacherApp.tsx', './classroom/ClassroomTeacherApp.tsx', './assistant/AssistantApp.tsx']) {
+const STAFF_SHELLS = ['./DirectorApp.tsx', './teacher/TeacherApp.tsx', './classroom/ClassroomTeacherApp.tsx', './assistant/AssistantApp.tsx'];
+for (const shell of STAFF_SHELLS) {
   const src = read(`../director/${shell}`);
   assert.ok(src.includes("import './hub2Staff.css';") || src.includes("import '../hub2Staff.css';"),
     `${shell} must import hub2Staff.css`);
@@ -290,6 +297,7 @@ for (const shell of ['./DirectorApp.tsx', './teacher/TeacherApp.tsx', './classro
 // 7. Motion (#hub2-motion): page wipes and soft reveals, only under the look
 //    and without reduced motion, and never able to move a fixed bar or pop-up.
 let fixedChecked = 0;
+let selectorClasses = 0;
 {
   const motion = strip(read('./hub2Motion.ts'));
   const morphSrc = strip(read('./hub2Morph.ts'));
@@ -411,6 +419,74 @@ let fixedChecked = 0;
   assert.match(morphSrc, /const READ_MS = [1-9]\d\d;/, 'hub2Morph.ts: the arriving text lands at a fixed moment');
   assert.match(morphSrc, /\(READ_MS - delay\) \/ dur/,
     'hub2Morph.ts: a panel that set off late must resolve earlier in its own progress');
+  /* WHAT THE MORPH CAN SEE, AND THE BUG WHERE IT COULD SEE NOTHING.
+
+     `.dir-page > *` sat in PANEL_SEL and matched NOTHING, on any of the four
+     staff shells, for as long as it shipped: a class selector does not match a
+     prefix, so `.dir-page-body` / `-hint` / `-actions` never answered to it
+     and there is no `.dir-page` in the app at all. Nothing threw, no check
+     failed, and the whole feature was simply dead on every staff screen while
+     the public side worked. That is the CSP failure mode (#csp) exactly.
+
+     A pin restating the new string would have passed on the old one too. So
+     this pins the thing that was actually false: every class the morph NAMES
+     must be a class the app RENDERS, and the selector has to reach both
+     shells rather than one. */
+  const rendered = new Set<string>();
+  for (const f of allTsx) {
+    for (const m of readFileSync(f, 'utf8').matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\}|\{'([^']*)'\})/g)) {
+      // A `${...}` is cut out rather than split on, or a class written beside
+      // one (`pub-skeleton-card${slim ? ' slim' : ''}`) comes out glued to it
+      // and reads as unrendered.
+      for (const c of (m[1] ?? m[2] ?? m[3]).replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) if (c) rendered.add(c);
+    }
+  }
+  assert.ok(rendered.has('pub-page') && rendered.size > 200, `the className scan found ${rendered.size} classes — it is broken`);
+  for (const what of ['PANEL_SEL', 'SCROLLER_SEL']) {
+    const sel = morphSrc.match(new RegExp(`const ${what} = '([^']+)'`))?.[1];
+    assert.ok(sel, `hub2Morph.ts: ${what} must be a literal selector string`);
+    const classes = [...new Set([...sel!.matchAll(/\.([a-z][\w-]*)/g)].map(m => m[1]))];
+    for (const c of classes) {
+      assert.ok(rendered.has(c),
+        `hub2Morph.ts: ${what} names .${c}, which nothing in the app renders. That side of the morph is dead and nothing will throw`);
+      selectorClasses++;
+    }
+    assert.ok(classes.some(c => c.startsWith('pub-')) && classes.some(c => c.startsWith('dir-')),
+      `hub2Morph.ts: ${what} must reach the public shell AND the staff one, or one side of the Hub never morphs`);
+  }
+  // And the staff half has to reach EVERY staff shell, not just the one
+  // somebody happened to have open.
+  // (`[^>]*` because the tag carries other attributes: DirectorApp hangs its
+  // scroll ref off this same element.)
+  const STAFF_MAIN = /<main className="dir-content"[^>]*>/;
+  for (const shell of STAFF_SHELLS) {
+    assert.match(read(`../director/${shell}`), STAFF_MAIN,
+      `${shell}: the morph reads a staff page through .dir-content, so every staff shell must render it`);
+  }
+  /* THE STAFF VIEW IS READ AS THE LAST CHILD OF THAT SCROLLER, and that is
+     the one assumption here that can go quietly wrong.
+
+     It has to be read that way: the staff shells have no page wrapper, so
+     `.dir-content > *` is the shell's own strips plus ONE routed view whose
+     children are the blocks, and it would put a whole screen in flight as a
+     single box. `:last-child` holds in DirectorApp, which is also the only
+     staff shell that navigates through the router at all. The other three
+     already break it: each appends a MyCalendarFeedPanel AFTER its view, so
+     in them `:last-child` is that panel and not the page. (They switch tabs
+     with useState, so nothing morphs on their tabs either way.) Add one such
+     row to DirectorApp and the staff morph dies again, silently.
+
+     Gated on the selector still using it, so giving the view a real class of
+     its own retires this pin instead of tripping over it. */
+  if (/:last-child/.test(morphSrc)) {
+    const from = app.search(STAFF_MAIN);
+    assert.ok(from > 0, 'DirectorApp.tsx must render <main className="dir-content">');
+    const block = strip(app.slice(from, app.indexOf('</main>', from) + 7));
+    assert.match(block, /\}\s*<\/main>\s*$/,
+      'DirectorApp.tsx: .dir-content must END on the tab list. A row added after it becomes :last-child, and the staff morph silently stops finding a single panel');
+    assert.match(block.slice(block.lastIndexOf('{tab ===')), /^\{tab === [\s\S]*\}\s*<\/main>\s*$/,
+      'DirectorApp.tsx: nothing may render between the last tab branch and </main> — it would become the morph\'s idea of the page');
+  }
   // AND THE MORPH WAITS FOR THE PAGE IT IS MORPHING INTO. This one was a coin
   // flip and nothing caught it: playWhenReady used to retry only while there
   // were NO panels, and when the router resolves the OUTGOING page is still
@@ -422,10 +498,51 @@ let fixedChecked = 0;
   // live site morphs cards into grey boxes while Firestore answers.
   assert.match(morphSrc, /!shot\.was\.has\(el\)/,
     'hub2Morph.ts: the swap test must compare element identity, not panel count');
-  assert.match(morphSrc, /!isPlaceholder\(el\)/,
-    'hub2Morph.ts: a loading skeleton is not the page having arrived');
   assert.doesNotMatch(morphSrc, /if \(tries > 0 && !panels\(\)\.length\)/,
     'hub2Morph.ts: waiting for ANY panel binds the morph to the outgoing page');
+  /* AND A PLACEHOLDER IS NOT A BLOCK — asked in panels(), not in swapped().
+
+     It used to be asked in swapped() alone, and once the staff screens morphed
+     that was too late. swapped() needs only ONE real arrival to let the morph
+     play, which is right, but a loading staff page is not all placeholder:
+     Take Roll renders its Roll/Tracker toggle beside the bare `.dir-loading`
+     row, so the toggle answered swapped() and the panel next to it was still
+     morphed into the word "Loading". Asked in panels() it keeps a placeholder
+     out of the morph targets, out of capture() and out of the gather branch,
+     and swapped() still refuses a page with no blocks at all. */
+  {
+    const at = morphSrc.indexOf('function panels(');
+    assert.ok(at > 0, 'hub2Morph.ts must define panels()');
+    assert.match(morphSrc.slice(at, morphSrc.indexOf('\n}', at)), /if \(isPlaceholder\(el\)\) continue;/,
+      'hub2Morph.ts: panels() must drop a placeholder, or the morph reforms a card into a loading row');
+    assert.match(morphSrc, /if \(!now\.length\) return false;/,
+      'hub2Morph.ts: a page with no blocks is not the page having arrived');
+  }
+  /* Both shells' loading markers, each one a class something really renders.
+     The public shimmer sits INSIDE an aria-hidden wrapper, so the wrapper is
+     the panel and the scan has to look down; the staff row IS the block, so it
+     is matched on the element and deliberately not scanned for — a real panel
+     that happens to hold a loading row must still reform. And the marker has
+     to mean only one thing, which is why `.dir-loc-empty` and
+     `.dir-field-hint` are not here: both also carry genuine empty states,
+     error lines and hints. */
+  {
+    const at = morphSrc.indexOf('function isPlaceholder(');
+    assert.ok(at > 0, 'hub2Morph.ts must define isPlaceholder()');
+    const body = morphSrc.slice(at, morphSrc.indexOf('\n}', at));
+    for (const cls of ['pub-skeleton-card', 'dir-loading']) {
+      assert.ok(body.includes(`.${cls}`),
+        `hub2Morph.ts: isPlaceholder() must know .${cls}, or that shell morphs into its own loading state`);
+      assert.ok(rendered.has(cls),
+        `hub2Morph.ts: isPlaceholder() names .${cls}, which nothing in the app renders`);
+    }
+    assert.doesNotMatch(body, /querySelector\([^)]*dir-loading/,
+      'hub2Morph.ts: do not scan INSIDE a block for .dir-loading — a real panel holding a loading row would stop reforming');
+    for (const amb of ['dir-loc-empty', 'dir-field-hint']) {
+      assert.ok(!body.includes(amb),
+        `hub2Morph.ts: .${amb} also means "empty", "error" and "hint", so it cannot stand for "not loaded yet"`);
+    }
+  }
   // A positional pair that is nowhere near the same shape is not one
   // object becoming another, it is a panel being STRETCHED — which is the
   // artefact the FLIP exists to remove. The pressed row is exempt: a finger
@@ -725,4 +842,124 @@ let glassRules = 0;
   }
 }
 
-console.log(`hub2 self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${fontImports.length} font files, ${pubSelectors.length} public rules, ${fills} accent fills covered, ${fixedChecked} fixed classes kept still, ${partsChecked} parts themed, ${glassRules} glass rules)`);
+// ══════════════════════════════════════════════════════════════════════
+// WHOSE SWITCH DECIDES THE GLASS, and the list that rots if nobody looks
+// ══════════════════════════════════════════════════════════════════════
+{
+  const glass = read('./hub2Glass.css');
+  const bare = strip(glass);
+
+  // 1. TWO THEME SWITCHES, AND THE PALETTE MUST ANSWER BOTH. The whole glass
+  //    palette was keyed on data-pub-theme, which lives on <html> and which
+  //    the staff shell never sets, so in two of the four combinations the
+  //    staff shell ran the wrong tier outright — a white rail on a black
+  //    page. HUB2_SCOPE already names both switches; this pins that the glass
+  //    layer uses them rather than assuming one.
+  const PUB_DARK = ":root[data-hub2=\"on\"][data-pub-theme='dark']";
+  const DIR_DARK_ARM = ':root[data-hub2="on"]:is(:has(.dir-app[data-dir-theme="dark"]))';
+  const DIR_LIGHT_ARM = ':root[data-hub2="on"]:is(:has(.dir-app:not([data-dir-theme="dark"])))';
+  assert.ok(bare.includes(DIR_DARK_ARM),
+    'hub2Glass.css: the dark palette must also apply to a staff shell whose own switch says dark');
+  assert.ok(bare.includes(DIR_LIGHT_ARM),
+    'hub2Glass.css: the light palette must be re-asserted for a LIGHT staff shell, or <html>\'s dark theme leaks into it');
+  // And in the right place: the two arms must sit beside the theme block
+  // they belong to, not merely somewhere in the file.
+  const darkAt = bare.indexOf(PUB_DARK + ',\n' + DIR_DARK_ARM + ' {');
+  assert.ok(darkAt > 0, 'hub2Glass.css: the staff dark arm must be part of the dark palette block itself');
+  assert.ok(bare.includes(':root[data-hub2="on"],\n' + DIR_LIGHT_ARM + ' {'),
+    'hub2Glass.css: the staff light arm must be part of the light palette block itself');
+
+  // 2. :has() ONLY EVER INSIDE :is(). An unknown selector in a plain comma
+  //    list invalidates the WHOLE rule, so a bare :has() arm in here would
+  //    take the entire palette with it on an engine that does not support
+  //    one. :is() is forgiving — the arm matches nothing and the other arms
+  //    still apply — and it keeps the specificity the arm needs.
+  //    A bare :has() is fine in a rule that has only ONE selector — it drops
+  //    on its own and takes nothing with it, which is why the pre-existing
+  //    --nwsa-bottom-chrome rule is left alone. The trap is a :has() arm in a
+  //    comma LIST.
+  for (const m of bare.matchAll(/^[ 	]*(:root[^{};]*:has\([^{]*?)\{/gm)) {
+    const head = m[1];
+    if (head.split(',').length === 1) continue;
+    for (const hit of head.matchAll(/:has\(/g)) {
+      const before = head.slice(Math.max(0, hit.index! - 4), hit.index!);
+      assert.equal(before, ':is(',
+        `hub2Glass.css: a :has() arm in a comma list must be wrapped in :is(), or it invalidates the whole rule — found "${before}:has("`);
+    }
+  }
+
+  // 3. THE RADII HAVE TO BE SAID IN EVERY DARK BLOCK. hub2.css maps the
+  //    --pub-radius* / --dir-radius* names onto the org's own 18px/12px at
+  //    the same specificity, so a dark block that does not restate them
+  //    hands every card back to the look's small radius and INVERTS the
+  //    scale (-md below -sm). It shipped that way and nobody had put a dark
+  //    card beside a light one.
+  for (const [blockStart, token] of [[PUB_DARK, '--pub-radius'],
+                                     [':root[data-hub2="on"] .dir-app[data-dir-theme="dark"]', '--dir-radius']] as const) {
+    const at = bare.indexOf(blockStart);
+    assert.ok(at > 0, `hub2Glass.css: expected a block for ${blockStart}`);
+    const body = bare.slice(at, bare.indexOf('}', at));
+    assert.ok(body.includes(`${token}:`) || body.includes(`${token} :`),
+      `hub2Glass.css: ${blockStart} must restate ${token}, or hub2.css's dark block wins it back`);
+  }
+
+  // 4. THE SCRIM IS INSIDE THE GLASS. A pane sits inside its own dimming
+  //    overlay, and an ancestor's background is part of what backdrop-filter
+  //    samples — so a heavy scrim is blurred INTO the pane and arrives as a
+  //    flat slab. That is what "the menu is too dark, maybe too transparent"
+  //    was. The overlays must stay well under the 45% they shipped at.
+  const scrim = bare.match(/\.pub-menu-overlay[\s\S]{0,260}?black (\d+)%/);
+  assert.ok(scrim, 'hub2Glass.css: the menu overlays must take a thinner scrim under the preview');
+  assert.ok(Number(scrim![1]) <= 30,
+    `hub2Glass.css: the menu scrim is ${scrim![1]}%, and the pane blurs it — keep it at 30% or less`);
+  // .dir-drawer-full is deliberately opaque (#seating-link): a full-screen
+  // drawer has no dimmed margin to click outside, so thinning it would make
+  // the seating-chart editor see-through onto the page behind.
+  assert.match(bare, /\.dir-drawer-overlay:not\(\.dir-drawer-full\)/,
+    'hub2Glass.css: the full-screen drawer keeps its opaque overlay');
+
+  // 5. AND THE TWO WAYS OFF HAVE TO KNOW ABOUT THE STAFF ARMS TOO, or a
+  //    director who asked their system for less transparency gets the glass
+  //    handed straight back by the arms above (they are more specific).
+  for (const off of ['@media (prefers-reduced-transparency: reduce)',
+                     '@supports not (backdrop-filter: blur(1px))']) {
+    const at = bare.indexOf(off);
+    const head = bare.slice(at, bare.indexOf('{', bare.indexOf('{', at) + 1));
+    for (const arm of [DIR_DARK_ARM, DIR_LIGHT_ARM]) {
+      assert.ok(head.includes(arm.replace(':root', ':root')),
+        `${off} must also name ${arm}, or the staff palette outranks the solid fallback`);
+    }
+  }
+
+  // 6. EVERY CLASS IN THE GLASS LISTS MUST BE A CLASS THIS APP RENDERS.
+  //    `.dir-section` was in both staff lists and exists nowhere in this
+  //    repo but in hub2Glass.css itself, so the staff side's glass was four
+  //    classes wide while the public side's was twenty — which is most of
+  //    "the director side has almost no glass". A list of hand-written class
+  //    names rots silently; nothing throws, the panel is simply flat. This
+  //    is the check that stops it, and the comment at the head of those
+  //    lists says they had already been patched once by hand.
+  const everywhere = (() => {
+    const out: string[] = [];
+    const walk = (dir: URL) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const at = new URL(e.name + (e.isDirectory() ? '/' : ''), dir);
+        if (e.isDirectory()) walk(at);
+        else if (/\.(tsx?|css)$/.test(e.name) && e.name !== 'hub2Glass.css') out.push(readFileSync(at, 'utf8'));
+      }
+    };
+    walk(new URL('../', import.meta.url));
+    return out.join('\n');
+  })();
+  const listed = new Set<string>();
+  for (const m of bare.matchAll(/:is\(([^)]*(?:\([^)]*\)[^)]*)*)\)/g)) {
+    for (const c of m[1].matchAll(/\.((?:pub|dir|whats)-[a-z0-9-]+)/g)) listed.add(c[1]);
+  }
+  assert.ok(listed.size > 40, `expected the glass lists to name plenty of classes, found ${listed.size}`);
+  const ghosts = [...listed].filter(c => !new RegExp(`[.'"\`\\s]${c}(?![-\\w])`).test(everywhere));
+  assert.deepEqual(ghosts, [],
+    `hub2Glass.css names ${ghosts.length} class(es) nothing else in src/ mentions: ${ghosts.join(', ')}`);
+  glassClasses = listed.size;
+}
+
+console.log(`hub2 self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${fontImports.length} font files, ${pubSelectors.length} public rules, ${fills} accent fills covered, ${fixedChecked} fixed classes kept still, ${selectorClasses} morph classes rendered, ${partsChecked} parts themed, ${glassRules} glass rules, ${glassClasses} glass classes rendered)`);

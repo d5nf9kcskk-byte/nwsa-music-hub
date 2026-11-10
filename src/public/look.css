@@ -29,13 +29,25 @@ html[data-pub-look-header='glow'] .pub-header :is(.pub-textsize.adjusted, .pub-l
 }
 html[data-pub-look-header='glow'] .pub-header svg { filter: drop-shadow(0 0 3px rgb(var(--look-header-ink) / 0.7)); }
 
-/* ── Menu: the desktop rail AND the phone drawer — one choice, every width
+/* THE PAIR STANDS ASIDE WHERE THE GLASS OWNS THE PANE (#hub2-look). Under
+   the preview the menu is glass, and glass carries its own ink from
+   --hub2-ink, so the block below must not apply half of itself. The
+   `:not()` is on the colour and the ink only: the min-height at the end of
+   the block is geometry, a rail that does not reach the bottom of the
+   window reads as a box floating in the page either way, and that one is
+   wanted under the preview too.
+   The cost, stated plainly: a student who picked a menu colour does not see
+   it under the preview, because the pane is glass. That was already true —
+   the glass won the background months ago. All that changes is that the
+   words are legible again.
+
+   ── Menu: the desktop rail AND the phone drawer — one choice, every width
    (#one-nav). Every token the menu reads is re-derived from the ink that
    contrasts with the chosen color (inkOn), so a dark menu gets light text
    and a light one gets dark text, in either theme. Nested cards (What's New)
    read the same tokens and flip with it. The alphas are pinned by
    look.selfcheck.ts — change them there too. */
-html[data-pub-look-side] :is(.pub-sidebar, .pub-menu-panel) {
+html[data-pub-look-side]:not([data-hub2="on"]) :is(.pub-sidebar, .pub-menu-panel) {
   background: var(--look-side);
   color: var(--pub-ink);
   --pub-ink: rgb(var(--look-side-ink));
@@ -49,8 +61,8 @@ html[data-pub-look-side] :is(.pub-sidebar, .pub-menu-panel) {
 }
 /* A neon menu: the tokens above already draw every word and icon in the
    neon (icons are stroked in currentColor); this adds the glow. */
-html[data-pub-look-side='glow'] :is(.pub-sidebar, .pub-menu-panel) { text-shadow: 0 0 6px rgb(var(--look-side-ink) / 0.55); }
-html[data-pub-look-side='glow'] :is(.pub-sidebar, .pub-menu-panel) svg { filter: drop-shadow(0 0 3px rgb(var(--look-side-ink) / 0.7)); }
+html[data-pub-look-side='glow']:not([data-hub2="on"]) :is(.pub-sidebar, .pub-menu-panel) { text-shadow: 0 0 6px rgb(var(--look-side-ink) / 0.55); }
+html[data-pub-look-side='glow']:not([data-hub2="on"]) :is(.pub-sidebar, .pub-menu-panel) svg { filter: drop-shadow(0 0 3px rgb(var(--look-side-ink) / 0.7)); }
 /* The rail is only as tall as its links; a colored one must reach the bottom
    of the window or it reads as a box floating in the page (pubShell.css). */
 html[data-pub-look-side] .pub-sidebar { min-height: calc(100dvh - 59px); }

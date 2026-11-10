@@ -6,10 +6,16 @@
   display: inline-flex;
 }
 
+/* 166x28 measured inside an event card. min-height on the base class, so
+   the primary CTA and the action-bar variant (which override padding, not
+   height) come up to 44 as well. It shares .pub-ev2-foot with the Details
+   link, so the row grows once and nothing stacks. */
 .pub-atc-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
+  min-height: 44px;
   padding: 5px 11px;
   border: 1px solid var(--pub-border);
   border-radius: 999px;

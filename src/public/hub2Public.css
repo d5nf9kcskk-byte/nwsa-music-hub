@@ -80,9 +80,13 @@
   :root[data-hub2="on"] .pub-pdf-tool.active {
     background-color: var(--hub2-plum); border-color: var(--hub2-plum); color: white;
   }
+  /* The plum wash is mixed into TRANSPARENT, not into `--pub-surface`: the
+     control block further down re-points that token to transparent on this
+     button (a control is not a panel), so a mix against it would have
+     quietly thinned the one fill that says "this filter is on". */
   :root[data-hub2="on"] .pub-fm-btn.active {
     border-color: var(--hub2-plum);
-    background-color: color-mix(in srgb, var(--hub2-plum) 10%, var(--pub-surface));
+    background-color: color-mix(in srgb, var(--hub2-plum) 14%, transparent);
   }
   /* Plum as TEXT needs its own dark-mode shade: the fill plum is ~2:1 on a
      dark surface. */
@@ -118,8 +122,13 @@
   :root[data-hub2="on"] .pub-absence-label { text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--pub-ink); }
   /* An empty state: the page's own icon in a tinted circle, or where a page
      gave none, the music stand. */
-  :root[data-hub2="on"] .pub-empty { border-style: solid; }
-  :root[data-hub2="on"] .pub-empty > svg:first-child {
+  /* `.pub-card.pub-muted` is the other eleven pages' empty state and now
+     shares `.pub-empty`'s box (uiUpdates.css), so it takes the solid edge
+     and the icon circle here too. It is deliberately NOT added to the
+     music-stand rule below: that one draws a stand where a page gave no
+     icon, and a third of those call sites say "Loading…". */
+  :root[data-hub2="on"] :is(.pub-empty, .pub-card.pub-muted) { border-style: solid; }
+  :root[data-hub2="on"] :is(.pub-empty, .pub-card.pub-muted) > svg:first-child {
     opacity: 1; box-sizing: content-box; padding: 12px; border-radius: 50%;
     color: var(--pub-accent); background: color-mix(in srgb, var(--pub-accent) 12%, var(--pub-surface));
   }
@@ -128,6 +137,85 @@
     -webkit-mask: var(--hub2-stand) center / contain no-repeat;
     mask: var(--hub2-stand) center / contain no-repeat;
   }
+  /* ── A PANEL PROMOTED TO GLASS NEEDS THE GLASS'S CORNER ──
+     hub2Glass.css blurs `.pub-day-detail` (the calendar's selected-day
+     panel) and `.pub-season-month` (the card the concert rows sit in),
+     because the morph flies them and they had no glass in them at all. But
+     both are bare layout blocks — one sets `margin-top`, the other
+     `margin-bottom`, and neither has ever had a background, a border or a
+     radius. So they arrived as frosted RECTANGLES with 90-degree corners,
+     beside 31px ones, on /calendar and /concerts.
+     The radius alone is not enough: with no padding, the corner arc cuts
+     across the first line of content, so the frost appears to bite into
+     its own heading. A small inset gives the blur somewhere to end.
+     Under the preview only — with the flag off both are transparent boxes
+     and a radius on them would be decoration nobody can see.
+     No `--pub-surface` here on purpose: the rows inside them are already
+     tinted panels, and a second tint behind a tinted row reads as one much
+     denser pane (the same reason the morph's clones zero their glass). */
+  :root[data-hub2="on"] :is(.pub-day-detail, .pub-season-month) {
+    border-radius: var(--pub-radius);
+    padding: 14px 10px 10px;
+    margin-top: 14px;
+  }
+  /* With no padding, both blocks' headings collapsed their own top margin
+     THROUGH the block, so the frost began at the first line of text. The
+     padding above ends that collapse, which would otherwise stack that
+     margin on top of it and open an empty band inside the panel; the
+     block's own `margin-top` above is the outer gap the collapsed margin
+     used to provide. */
+  :root[data-hub2="on"] :is(.pub-day-detail, .pub-season-month) > :first-child {
+    margin-top: 0;
+  }
+
+  /* ── A CONTROL LOOKS LIKE A CONTROL, NOT LIKE A PANEL ──
+     `--pub-surface` is re-pointed site-wide to the glass tint and
+     `--pub-border` to transparent, which is what turns 84 rules' worth of
+     cards into glass in one declaration. The blur and the bloom, though,
+     are two hand-written lists — so a rule that reads
+     `background: var(--pub-surface); border: 1px solid var(--pub-border)`
+     and is in neither list gains the tint, loses its line, and gets
+     nothing back: a pale wash with no edge. For a card the answer is to
+     join the lists. For a BUTTON it is not — these ten are controls, and a
+     control wearing a panel's fill is exactly the confusion the look is
+     supposed to remove.
+     Done by re-pointing the two tokens ON the control rather than by
+     writing `background`/`border` over it, which is this file's own idiom
+     (the Spotlight block below does the same). The control's own rule then
+     draws it, and — the whole reason for the trick — every state rule
+     still wins: `.active` filling with plum, `:hover` with accent-soft,
+     `:active` on a press. A blanket `background-color: transparent` at
+     this specificity would have silently eaten all three.
+     `.pub-ens-select` is why it is the TOKEN and not `background`: it
+     draws its dropdown chevron with a `background-image` data-URI, so
+     anything writing the `background` shorthand over it empties the 34px
+     gutter where the arrow was. */
+  :root[data-hub2="on"] :is(
+    .pub-ens-select, .pub-view-toggle, .pub-az-btn, .pub-filter-btn,
+    .pub-atc-btn, .pub-season-print, .pub-sg-print-btn, .pub-fm-btn,
+    .pub-absence-btn
+  ) {
+    --pub-surface: transparent;
+    --pub-border: var(--hub2-line);
+  }
+  /* The tenth one needs the opposite treatment: "Get Directions" has no
+     background and no border to re-point — it is a bare muted text link
+     sitting under a full-width primary CTA, so it reads as a caption
+     rather than as the second action on the day sheet. It gets a control's
+     outline written out, and the 44px every other target on that sheet
+     now has. One rule covers both copies of the block (PublicEvent writes
+     the address + directions markup twice — see #one-nav). */
+  :root[data-hub2="on"] .pub-daysheet-directions {
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--hub2-line);
+    border-radius: var(--hub2-radius-row, var(--pub-radius-sm));
+    color: var(--pub-accent);
+    font-weight: 700;
+  }
+
   /* A group pill in a page's crumbs: one even colored outline, not a thick
      left end that rounds into a crescent. */
   :root[data-hub2="on"] .pub-crumb { border-left-width: 1.5px; }
@@ -145,7 +233,14 @@
     box-sizing: content-box; padding: 10px; border-radius: 50%;
     color: var(--pub-accent); background: color-mix(in srgb, var(--pub-accent) 12%, var(--pub-surface));
   }
-  :root[data-hub2="on"] .pub-menu-item { margin: 2px 10px; padding: 12px 14px; border-left: 0; border-radius: var(--hub2-radius-row); }
+  /* ONE NAV ROW, BOTH WIDTHS (#one-nav). The phone drawer's row and the
+     desktop rail's row are the same destination drawn by two hand-written
+     trees, so their shape has to be declared in one place or it drifts —
+     and it had: the drawer row took the look's row radius here while
+     `.pub-side-item` kept its stock 9px (pubShell.css), leaving the public
+     rail the last 9px nav row in the app. Both read the token now. */
+  :root[data-hub2="on"] :is(.pub-menu-item, .pub-side-item) { border-radius: var(--hub2-radius-row); }
+  :root[data-hub2="on"] .pub-menu-item { margin: 2px 10px; padding: 12px 14px; border-left: 0; }
   /* The group rows are full-width buttons: take the side margins out of
      their width, or the menu scrolls sideways. */
   :root[data-hub2="on"] .pub-menu-expand { width: calc(100% - 20px); }
@@ -265,11 +360,30 @@
   /* ═══ Motion ═══
      Fill mode `backwards` on purpose: a page that kept a transform after its
      slide would become the containing block of its own fixed action bar. */
+  /* THE TRAVEL IS THE MOTION, AND THERE IS NO FADE (#glass).
+     Both of these used to open on `opacity: 0`, and both run on glass:
+     `hub2-rise-in` on the arriving rows and cards (`.pub-card` and
+     `.pub-quick-btn` always were panels; `.pub-signup-row`,
+     `.pub-checkin-row` and `.pub-season-row` have now joined both glass
+     lists), and `hub2-slide-in` on `.pub-drill` / `.pub-checkin`, which
+     are ANCESTORS of glass. An opacity below 1 makes a backdrop root, so
+     every one of those panels was pointed at a subtree that paints nothing
+     and was therefore FLAT for the whole of its arrival — 460ms, and with
+     `backwards` fill plus the 40ms stagger below, the sixteenth row sat
+     flat for 640ms before it even began to move. The longer the list, the
+     longer the page spent not looking like glass, then snapped.
+     Transform-only, rather than fading something else, because
+     `hub2Morph.ts` already answers this question the same way
+     (`carriesGlass(el)` picks a transform-only track) and that is the
+     motion the director chose from the sample. The staff twins
+     (`hub2-dir-slide` / `hub2-dir-rise`) carry the identical change.
+     Decoration that IS the animated thing keeps its alpha: the ripple, the
+     note burst and the rolling counter are not glass hosts. */
   @keyframes hub2-slide-in {
-    from { opacity: 0; transform: translateX(28px); }
+    from { transform: translateX(28px); }
   }
   @keyframes hub2-rise-in {
-    from { opacity: 0; transform: translateY(var(--hub2-arrive-d, 6px)); }
+    from { transform: translateY(var(--hub2-arrive-d, 6px)); }
   }
   :root[data-hub2="on"] :is(.pub-drill, .pub-checkin) {
     animation: hub2-slide-in var(--hub2-slide-ms) var(--hub2-ease) backwards;
@@ -297,7 +411,19 @@
     :root[data-hub2="on"] .pub-menu-panel { animation: hub2-menu-in var(--hub2-open-ms) var(--hub2-ease) backwards; }
   }
   @keyframes hub2-pop { from { transform: scale(.9); } }
-  @keyframes hub2-fade { from { opacity: 0; } }
+  /* THE SHADE FADES ITS BACKGROUND, NOT ITS OPACITY (#glass).
+     This ran `opacity: 0 → 1` on `.pub-menu-overlay`, which is the parent
+     of `.pub-menu-panel` — a pane carrying `backdrop-filter`. An ancestor
+     with opacity below 1 is a backdrop root, so for the first 220ms of
+     every menu open the panel's blur was pointed at a subtree that paints
+     nothing and simply STOPPED: the page behind came through sharp and the
+     menu's own words landed on top of readable page text. That is why it
+     read as broken rather than as a slightly-off colour.
+     `background-color` is animatable, is not one of the four properties
+     that make a backdrop root, and the overlay already has a scrim to
+     animate from — so the shade still arrives and the glass never drops.
+     The staff shell made the same correction in `hub2-dir-fade`. */
+  @keyframes hub2-fade { from { background-color: transparent; } }
   @keyframes hub2-menu-in { from { transform: translateX(100%); } }
   /* One stagger for every arriving list: 40ms apart, the twelfth row and on
      together. Page sections are left out (they reveal on scroll instead). */

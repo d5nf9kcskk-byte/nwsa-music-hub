@@ -11,6 +11,7 @@ import type { Hub2Look } from '../org/types';
 import { contrast, DARK_INK, inkFor, inkOn, LIGHT_INK, parseLook, PATTERNS, type LookPalette } from './look';
 
 const read = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8');
+let tokensChecked = 0;
 const css = read('./look.css');
 const light = read('./public.css');
 const dark = read('./uiUpdates.css').split(":root[data-pub-theme='dark'] {")[1];
@@ -204,4 +205,73 @@ assert.equal(inkFor({ id: 'x', color: '#000000', neon: '#3cf2ff', label: { en: '
 assert.equal(inkOn('#ffffff'), DARK_INK);
 assert.equal(inkOn('#000000'), LIGHT_INK);
 assert.ok(checked > 0, 'no org has a palette — nothing was checked');
+
+// ══════════════════════════════════════════════════════════════════════
+// A NAME THAT LOOKS LIKE A TOKEN MUST BE ONE
+// ══════════════════════════════════════════════════════════════════════
+// `var(--dir-card, #fff)` with no --dir-card declared anywhere is not a
+// token: it IS #fff, wearing a token's clothes. It reads as themed in the
+// source and is immune to every theme — which is how the Gradebook came to
+// paint on hardcoded white and the pre-hub2 teal inside a glass page, and
+// how nine such names accumulated across the two shells before anybody
+// looked. A redesign re-points the real token beside them and these do not
+// move; nothing throws, and the screen is simply wrong.
+//
+// So: every --pub-*/--dir-* name this app READS must be declared somewhere,
+// except the four below, each of which has a reason written next to it. A
+// fifth one means writing its reason here, which is the point.
+{
+  const EXPECTED_UNDECLARED: Record<string, string> = {
+    // A severity colour. The literal IS the design — amber for a warning —
+    // and there is no theme token for it on either side.
+    '--dir-warn': 'severity amber, no theme token exists',
+    '--dir-danger-light': 'the danger tint behind a remove button, ditto',
+    // Brand gradient ends an org MAY declare in its own `brand` block
+    // (ORG.brand, read by HubSaveGuide.tsx for the QR code), so an org that
+    // sets one gets it and NWSA falls back on purpose.
+    '--dir-primary-deep': 'org brand gradient end, optional per org',
+    '--pub-accent-light': 'org brand gradient end, optional per org',
+  };
+
+  const declared = new Set<string>();
+  const used = new Map<string, Set<string>>();
+  const walk = (dir: URL) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const at = new URL(e.name + (e.isDirectory() ? '/' : ''), dir);
+      if (e.isDirectory()) { walk(at); continue; }
+      if (!/\.(css|tsx?)$/.test(e.name)) continue;
+      // Not the self-checks: this very block names --dir-card in its own
+      // comment, and a check that trips on its own prose is a check nobody
+      // keeps. Comments are stripped from everything else for the same
+      // reason — a commented-out rule is not a rule.
+      if (e.name.includes('.selfcheck.')) continue;
+      const s = readFileSync(at, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+      // Declared: as a CSS declaration, or by name from the TS that injects
+      // tokens at runtime (hub2Tokens.ts, look.ts, the org's brand block).
+      for (const m of s.matchAll(/(?:^|[;{\s'"`])(--[a-z0-9-]+)\s*:/gm)) declared.add(m[1]);
+      for (const m of s.matchAll(/['"`](--[a-z0-9-]+)['"`]/g)) declared.add(m[1]);
+      for (const m of s.matchAll(/var\((--(?:pub|dir)-[a-z0-9-]+)/g)) {
+        (used.get(m[1]) ?? used.set(m[1], new Set()).get(m[1])!).add(e.name);
+      }
+    }
+  };
+  walk(new URL('../', import.meta.url));
+
+  const ghosts = [...used.keys()].filter(k => !declared.has(k)).sort();
+  for (const g of ghosts) {
+    assert.ok(EXPECTED_UNDECLARED[g],
+      `${g} is read in ${[...used.get(g)!].join(', ')} but declared nowhere. `
+      + 'Either declare it, or point those uses at a token that exists, or '
+      + 'add it to EXPECTED_UNDECLARED here with the reason.');
+  }
+  // And the other way, so a name that gets properly declared later does not
+  // leave a stale excuse sitting here.
+  for (const k of Object.keys(EXPECTED_UNDECLARED)) {
+    assert.ok(ghosts.includes(k), `${k} is declared now — drop it from EXPECTED_UNDECLARED`);
+  }
+  tokensChecked = used.size;
+}
+
 console.log(`look self-check OK (${checked} palette${checked === 1 ? '' : 's'}, ${hub2Checked} Hub 2.0 look${hub2Checked === 1 ? '' : 's'})`);

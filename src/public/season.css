@@ -1,9 +1,9 @@
 /* Season at a Glance (#13) — pub-season-* classes, scoped to SeasonPage.tsx */
 
-.pub-season-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-}
-.pub-season-head .pub-h1 { margin-bottom: 4px; }
+/* `.pub-season-head` lived here: a hand-rolled copy of `.pub-pagehead` with
+   its own title spacing. SeasonPage renders <PageHeader> now and nothing in
+   the app carries the class, so it is deleted rather than converged — one
+   less page-header design to keep in step. */
 
 .pub-season-print {
   display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
@@ -44,6 +44,9 @@
 .pub-season-title { font-size: 14px; font-weight: 800; line-height: 1.3; }
 
 .pub-season-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+/* The fill comes inline from `ensembleColor()`; the scrim that makes white
+   legible on it is on `.pub-ens-tag, .pub-season-tag` in public.css, so the
+   two chips cannot drift apart. */
 .pub-season-tag {
   font-size: 11px; font-weight: 700; color: #fff;
   padding: 2px 7px; border-radius: 8px; white-space: nowrap;
@@ -86,7 +89,10 @@
   .pub-season-row { break-inside: avoid; border-color: #ccc; margin-bottom: 6px; }
   .pub-season-row.past { opacity: 1; }
   .pub-season-date { background: none; border: 1px solid #ccc; color: #000; }
-  .pub-season-tag { color: #000; background: none !important; border: 1px solid #999; padding: 1px 6px; }
+  /* `box-shadow: none` with the background: the screen chip darkens its
+     inline fill with an inset shadow, and on paper there is no fill to
+     darken — only black ink to put a grey block behind. */
+  .pub-season-tag { color: #000; background: none !important; box-shadow: none; border: 1px solid #999; padding: 1px 6px; }
   .pub-season-month-title { color: #000; border-bottom: 2px solid #000; padding-bottom: 3px; }
   /* The muted lines take an explicit print colour. `--pub-muted` is a pale
      grey in dark mode, and a sheet printed from a dark-themed screen put the

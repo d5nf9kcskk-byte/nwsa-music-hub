@@ -54,7 +54,36 @@
    1. The numbers
    ══════════════════════════════════════════════════════════════ */
 
-:root[data-hub2="on"] {
+/* ── WHICH THEME'S GLASS, AND WHOSE SWITCH DECIDES IT ──
+   There are TWO theme switches in this app and hub2Tokens.ts is explicit
+   that they are independent: `data-pub-theme` on <html> for the student
+   site, `data-dir-theme` on `.dir-app` for the staff panel, so a director
+   can run the panel light while the public pages are dark. The glass
+   palette below was keyed on the PUBLIC one alone, and the staff shell has
+   no `data-pub-theme` of its own to set — so in two of the four
+   combinations it ran the wrong tier outright. Measured on the staff
+   drawer: panel dark, pages light gave the LIGHT tier on a dark shell,
+   worst label 1.60:1; pages dark, panel light gave the DARK tier on a light
+   shell, worst 1.02:1. A white rail on a black page is the loudest form of
+   "the two sides don't match", and it was never a staff bug — it was this
+   file asking the wrong element.
+
+   So each theme block takes one more selector, naming the staff shell
+   through `:has()` on the ROOT rather than scoping to `.dir-app`. It has to
+   be the root: the field paints on `body::before`, and body is an ANCESTOR
+   of `.dir-app`, so a `.dir-app`-scoped field value is unreachable from it
+   and a dark staff shell would have taken dark panels on near-white lobes.
+   Custom properties inherit, so one declaration at the root reaches both.
+
+   `:is(:has(...))` rather than bare `:has()`, and that is not decoration.
+   An unknown selector in a plain comma list invalidates the WHOLE rule, so
+   a bare `:has()` in here would take the entire dark palette with it on an
+   engine that does not support it. `:is()` is forgiving — its list empties,
+   that one arm matches nothing, and the other arms still apply — and it
+   carries the specificity of its most specific argument, so the arm still
+   lands at (0,4,0) where it needs to be. */
+:root[data-hub2="on"],
+:root[data-hub2="on"]:is(:has(.dir-app:not([data-dir-theme="dark"]))) {
   /* The field. --glass-field-base does NOT drift: it is the floor, the
      darkest the page ever gets, and the contrast argument above rests
      on it holding still. The orbs drift above it. */
@@ -128,9 +157,23 @@
      saturate() as from alpha: pushing the colour of whatever is behind
      the glass is what reads as "I can see through this". */
   --glass-panel: color-mix(in srgb, white 21%, transparent);
-  --glass-chrome: color-mix(in srgb, white 14%, transparent);
+  /* CHROME CARRIES ITS OWN CONTRAST NOW, because the thing it was leaning
+     on was a bug. The menu and the rail sit INSIDE a dimming overlay
+     (section 4), and a scrim on an ancestor is part of what
+     `backdrop-filter` samples — so at 14% the pane was not blurring the
+     page, it was blurring the page and half a stop of black, and arriving
+     as a flat grey slab with four of fifteen rows under 4.5:1 (worst
+     1.86:1). The scrim is thinned where it is set and the tint comes up
+     here to replace it. Modelled over the real blurred pixels and then
+     measured: 34% is the lowest value that clears 4.5:1 at every sampled
+     row. The glassiness it costs is real and bounded — transmission, the
+     share of the backdrop's own contrast that survives, goes 0.90 -> 0.67,
+     between an ordinary card (0.82) and the tab bar below (0.50). Raising
+     the tint ALONE was the other candidate and it is the failure case: at
+     46% over the old scrim the pane clears 5.38:1 and is still grey. */
+  --glass-chrome: color-mix(in srgb, white 34%, transparent);
   --glass-hero: color-mix(in srgb, white 17%, transparent);
-  --glass-chrome-fx: blur(var(--hub2-glass-chrome-blur, 0px)) saturate(190%) brightness(1.05);
+  --glass-chrome-fx: blur(var(--hub2-glass-chrome-blur, 0px)) saturate(190%) brightness(1.02);
   --glass-hero-fx: blur(var(--hub2-glass-hero-blur, 0px)) saturate(180%) brightness(1.04);
   /* AND ORDINARY CARDS BLUR TOO, which is the first pass's real miss.
      A 30% white tint over a page that is almost white is not glass, it is
@@ -212,8 +255,10 @@
 }
 
 /* Dark mode. Written at the same specificity hub2.css uses for its own
-   dark block (0,3,0), or that block's --pub-surface would win here. */
-:root[data-hub2="on"][data-pub-theme='dark'] {
+   dark block (0,3,0), or that block's --pub-surface would win here; the
+   staff arm goes one higher still, for the reason in the note above. */
+:root[data-hub2="on"][data-pub-theme='dark'],
+:root[data-hub2="on"]:is(:has(.dir-app[data-dir-theme="dark"])) {
   /* No gold lobe in dark: gold lightens the page far more than teal or
      plum and takes the dark accent under 4.5:1 at every alpha worth
      having. The accent FILL, not the accent: dark's accent is a pale
@@ -225,9 +270,17 @@
   --glass-field-spark: color-mix(in srgb, white 4.5%, transparent);
 
   --glass-panel: color-mix(in srgb, white 4%, transparent);
-  --glass-chrome: color-mix(in srgb, white 2.2%, transparent);
+  /* THE DARK MENU WAS NOT A PANE AT ALL. 2.2% white under brightness(.9)
+     lifted the backdrop by 0.003 in luminance and then darkened it again:
+     measured, the pane was 88% of the page's own brightness, i.e. a very
+     slightly dimmer patch of page. 9% with brightness ABOVE 1 is the rare
+     fix that costs nothing, because brightness over 1 amplifies the
+     backdrop's own contrast instead of crushing it — transmission goes
+     0.88 -> 0.96. The menu becomes more visible AND more glassy, and every
+     label stays far above 4.5:1. */
+  --glass-chrome: color-mix(in srgb, white 9%, transparent);
   --glass-hero: color-mix(in srgb, white 2.6%, transparent);
-  --glass-chrome-fx: blur(var(--hub2-glass-chrome-blur, 0px)) saturate(180%) brightness(.9);
+  --glass-chrome-fx: blur(var(--hub2-glass-chrome-blur, 0px)) saturate(180%) brightness(1.06);
   --glass-hero-fx: blur(var(--hub2-glass-hero-blur, 0px)) saturate(180%) brightness(.9);
   --glass-panel-fx: blur(var(--hub2-glass-panel-blur, 0px)) saturate(175%) brightness(.92);
   --glass-floatbar: color-mix(in srgb, black 55%, transparent);
@@ -250,10 +303,53 @@
   --glass-bloom: 0 3px 16px color-mix(in srgb, black 45%, transparent),
                  0 26px 64px -16px color-mix(in srgb, black 72%, transparent),
                  0 0 70px -10px color-mix(in srgb, white 5%, transparent);
+
+  /* AND THE RADII HAVE TO BE SAID TWICE, which is not duplication for its
+     own sake. hub2.css maps --pub-radius* onto the ORG's 18px/12px in a
+     block of exactly this specificity, so with these four absent every
+     card in dark mode went back to 18px and the scale INVERTED — -md fell
+     to 12px, below -sm's 18px, and -sm equalled the full card radius. The
+     "dissolved" corners were a light-mode-only feature and nobody had
+     looked at a dark card beside a light one. */
+  --pub-radius: 31px;
+  --pub-radius-lg: 31px;
+  --pub-radius-md: 25px;
+  --pub-radius-sm: 18px;
 }
 
 /* Staff, the same two blocks at the specificity hub2.css uses. */
 :root[data-hub2="on"] .dir-app {
+  --dir-radius: 31px;
+  --dir-radius-sm: 25px;
+  /* THE SAME DARKENING THE PUBLIC MUTED GREY GETS ABOVE. One token,
+     --hub2-muted, reaches both shells, and only the public one was being
+     pulled clear of the field — so staff secondary text sat at the 4.09:1
+     the note above documents as a fail while the public twin read 5.3:1.
+     Measured over the median painted field: six staff labels 4.18 to 4.59,
+     four of them under 4.5:1; the public ones 5.34 to 6.11, none failing.
+     Same field, same look, one grey, two answers. */
+  --dir-text-muted: color-mix(in srgb, var(--hub2-muted) 86%, black);
+  /* THE SECOND SURFACE, and it is the --dir-border story again at scale.
+     --dir-surface-2 is the recessed fill inside a staff panel — a table
+     head, a chip strip, a count row, an inactive segment — and 79 staff
+     rules paint on it. Neither hub2.css nor this file re-pointed it, so
+     every one of them stayed an OPAQUE #f8fafc patch (#232a36 in dark)
+     sitting on a glass page. It is not that they were transparent and
+     invisible; they were solid, and they are most of what is left of "the
+     director side has almost no glass".
+     Written against --hub2-ink rather than as a fixed tint so it inverts
+     with the shell's own theme: 6% ink reads as a recess on a light page
+     and as a lift on a dark one, which is what a recess has to do in both.
+     6% rather than the 8% a staff CONTROL takes, because a recess should be
+     quieter than a button. The Spotlight stage keeps its own value at a
+     higher specificity (hub2Staff.css), and so does the season rail. */
+  --dir-surface-2: color-mix(in srgb, var(--hub2-ink) 6%, transparent);
+}
+/* And again for the staff dark switch, because hub2.css's own dark staff
+   block is (0,4,0) and would otherwise win the radii back to 18px/12px —
+   the staff twin of the --pub-radius* note above. This one is later in the
+   file, so the tie goes to it. */
+:root[data-hub2="on"] .dir-app[data-dir-theme="dark"] {
   --dir-radius: 31px;
   --dir-radius-sm: 25px;
 }
@@ -297,10 +393,38 @@
   .pub-card, .pub-event, .pub-announce, .pub-upcoming, .pub-empty,
   .pub-ens-card, .pub-ens-hero, .pub-assign-card, .pub-piece-hero,
   .pub-confirm-card, .pub-subscribe-panel, .pub-fm-panel, .pub-xfer-panel,
-  .pub-cal, .pub-quick-btn, .pub-event-bar
+  .pub-cal, .pub-quick-btn, .pub-event-bar,
+  /* WALKED, NOT GUESSED. A glass audit over twelve routes listed every
+     element whose computed background was --glass-panel with no
+     backdrop-filter on itself or its ::before: twenty-five classes, wearing
+     the tint, with the line turned off by the token and nothing given back.
+     On /documents the four document rows had no card at all — icon, title,
+     chips and description straight onto the field. These are the ones that
+     are genuinely PANELS; the controls among that twenty-five belong in an
+     outline instead, and are handled in their own files. */
+  .pub-doc-card, .pub-signup-row, .pub-season-row, .pub-checkin-row,
+  .pub-sg-a2hs, .pub-sg-glossary, .pub-sg-item, .pub-sg-tabs,
+  .pub-campus-legend, .pub-search, .pub-day-detail, .pub-season-month
 ),
+/* THE STAFF ARM NAMED FIVE CLASSES, ONE OF WHICH DOES NOT EXIST. The
+   public arm names twenty. `.dir-section` appears nowhere in this app but
+   in this file, so the staff side's glass was four classes wide, and that
+   is most of "the director side has almost no glass": the shell took the
+   tint and lost its borders site-wide, and almost nothing got the blur and
+   the bloom in exchange. The set below is the public one in staff spelling.
+   `.dir-sched-cal-col` and not `.dir-cal`: the visible month panel is the
+   column, and blurring the bare date grid inside it paints a frosted
+   rectangle inset nine pixels from a panel that is already frosted, with
+   two concentric sets of 31px corners. */
 :root[data-hub2="on"] .dir-app :is(
-  .dir-card, .dir-empty, .dir-section, .dir-roster-card, .dir-today-card
+  .dir-card, .dir-empty, .dir-roster-card, .dir-today-card, .dir-page-hint,
+  .dir-event-card, .dir-doc-card, .dir-student-card, .dir-note-card,
+  .dir-announce-card, .dir-rep-card, .dir-assign-card, .dir-signup-card,
+  .dir-sched-cal-col, .dir-day-detail, .dir-quick-btn,
+  /* Rows and toolbar buttons take the bloom and NOT the blur, below: a
+     roster screen can hold forty of them, and forty backdrop-filters on a
+     phone is a different kind of regression. */
+  .dir-ens-row, .dir-up-row, .dir-sub-row, .dir-search-item, .dir-tool-btn
 ) {
   box-shadow: var(--glass-inner), var(--glass-bloom);
 }
@@ -337,10 +461,23 @@
      panel had none while the month grid beside it did.
      `.pub-day-detail` is a panel exactly like the `.pub-cal` above it, and
      `.pub-season-month` is the card the concert rows sit in. */
-  .pub-day-detail, .pub-season-month
+  .pub-day-detail, .pub-season-month,
+  /* The panels from the audit walk, same list as the bloom above. */
+  .pub-doc-card, .pub-signup-row, .pub-season-row, .pub-checkin-row,
+  .pub-sg-a2hs, .pub-sg-glossary, .pub-sg-item, .pub-sg-tabs,
+  .pub-campus-legend, .pub-search
 ),
 :root[data-hub2="on"] .dir-app :is(
-  .dir-card, .dir-empty, .dir-section, .dir-roster-card
+  .dir-card, .dir-empty, .dir-roster-card, .dir-page-hint,
+  .dir-event-card, .dir-doc-card, .dir-student-card, .dir-note-card,
+  .dir-announce-card, .dir-rep-card, .dir-assign-card, .dir-signup-card,
+  .dir-sched-cal-col, .dir-day-detail, .dir-quick-btn
+  /* .dir-today-card is a pane (section 4) and blurs there. The rows and
+     .dir-tool-btn are deliberately absent: bloom only, see above. And no
+     .dir-select or .dir-textarea — a select draws its chevron with a
+     background-image, and the veil below writes background-image, which
+     would replace the arrow and leave its 34px gutter empty. The public
+     arm avoids the same trap by leaving .pub-ens-select out. */
 ) {
   background-image: linear-gradient(var(--glass-shine), transparent var(--glass-veil-stop));
   -webkit-backdrop-filter: var(--glass-panel-fx);
@@ -371,6 +508,36 @@
   .pub-search-egg, .pub-header-search, .pub-director-link, .whats-new,
   .whats-new-item, .pub-signup-alert
 ) { border-color: transparent; }
+
+/* The one STICKY thing that paints on --dir-surface-2: the group picker's
+   section label, which a list of ensembles scrolls underneath. Translucent
+   is right for it and translucent alone is not enough — without a blur the
+   group names read straight through the label. So it takes the same chrome
+   recipe the rail and the drawers take, which is the only other place in
+   this file where a scroller's own surface has to stay readable. */
+:root[data-hub2="on"] .dir-app .dir-group-picker-bucket-label {
+  -webkit-backdrop-filter: var(--glass-chrome-fx);
+  backdrop-filter: var(--glass-chrome-fx);
+}
+
+/* ── AND ONE PLACE WHERE THE TOKEN TOOK INFORMATION WITH IT ──
+   Re-pointing --dir-border to transparent is right for a card's decorative
+   edge and wrong for a TABLE. The Gradebook is a hundred and forty students
+   by nine columns, and its cell rules are how a person reads along a row
+   without losing which student they are on; with them off it is a wall of
+   numbers. Same split the note above makes, applied to the one staff screen
+   where a line is structure rather than ornament. Written as its own colour
+   so it survives the token, at a weight that still reads as glass rather
+   than as a spreadsheet. */
+:root[data-hub2="on"] .dir-app :is(
+  .dir-gb-table th, .dir-gb-table td,
+  /* And the applied-lesson log, for the same reason and more strongly: it
+     is a reproduction of the school's own printed form (#applied), and a
+     form whose boxes have no lines is not the form. */
+  .dir-log-table th, .dir-log-table td
+) {
+  border-color: color-mix(in srgb, var(--hub2-ink) 14%, transparent);
+}
 
 /* THE ACCENT STRIPE DISSOLVES TOO (the director, 2026-11-07).
    Ten blocks carry a 3-4px coloured border down their left side. With the
@@ -518,6 +685,30 @@
   backdrop-filter: var(--glass-bar-fx);
 }
 
+/* ── THE SCRIM IS INSIDE THE GLASS, WHICH IS WHY THE MENU WAS GREY ──
+   Both shells put the pane INSIDE its own dimming overlay, and an
+   ancestor's background is part of what `backdrop-filter` samples. A 45%
+   black scrim therefore went into the blur with the page, and what came out
+   was a flat slab the pane's own tint could not be seen through. Measured
+   at 390px in light: 4 of 15 public rows under 4.5:1, worst 1.86, and 8 of
+   35 staff rows, worst 1.41. The two sides matched only in being broken the
+   same way.
+   The scrim comes down to where it still separates the pane from the page,
+   and --glass-chrome goes up to carry the contrast instead (section 1). In
+   dark the pane is now LIGHTER than the page, so separation no longer rests
+   on the scrim at all and the thinner value is free there too.
+
+   .dir-drawer-full KEEPS ITS OPAQUE OVERLAY, which is why this names the
+   other drawers rather than all of them. That one is deliberately solid
+   (dirShell.css, #seating-link): a full-screen drawer has no dimmed margin
+   to click outside, so a translucent overlay would make the seating-chart
+   editor see-through onto the page behind it. */
+:root[data-hub2="on"] .pub-menu-overlay,
+:root[data-hub2="on"] .dir-app .dir-menu-overlay,
+:root[data-hub2="on"] .dir-app .dir-drawer-overlay:not(.dir-drawer-full) {
+  background: color-mix(in srgb, black 22%, transparent);
+}
+
 /* The menu, the rail, the drawers and the overlays: clear glass over
    whatever they are covering, carried on the ELEMENT.
 
@@ -527,11 +718,52 @@
    So they keep the element-level recipe and take no edge mask. They lose
    nothing by it: three of their four edges are the edge of the screen. */
 :root[data-hub2="on"] :is(.pub-menu-panel, .pub-sidebar, .pub-search-panel),
-:root[data-hub2="on"] .dir-app :is(.dir-menu-panel, .dir-rail, .dir-drawer, .dir-sheet) {
+/* .dir-sheet is gone from this list: it is the second dead class the new
+   ghost-class pin caught, after .dir-section. The staff bottom sheet IS
+   .dir-drawer — `dir-sheet-up` and `hub2-dir-sheet` are keyframe names, not
+   a class, which is exactly the kind of near-miss a hand-written list
+   collects. */
+:root[data-hub2="on"] .dir-app :is(.dir-menu-panel, .dir-rail, .dir-drawer) {
   background: var(--glass-chrome);
   -webkit-backdrop-filter: var(--glass-chrome-fx);
   backdrop-filter: var(--glass-chrome-fx);
   box-shadow: var(--glass-inner), var(--glass-bloom);
+}
+
+/* ── AND THE TWO THINGS ON A PANE THAT STILL NEEDED A COLOUR ──
+   Measured after the fixes above, glyph pixels against the painted surface,
+   all four theme combinations at 390px and 1280px. The panes went from
+   1.04:1 (dark, the labels simply absent) and 1.86:1 (light) to 9-12:1 on
+   every ordinary row. Two things did not come with them, and both are the
+   same mistake one level down: a colour picked to read on a surface this
+   layer no longer paints.
+
+   THE ACTIVE ROW READS BY ITS FILL, NOT BY ITS HUE. It was painting its
+   label in the accent: 3.98:1 on the public rail in dark (#369cab, the pale
+   dark-mode teal) and 2.50:1 on the staff rail (#0d7e8e, and that one is
+   deliberately the LIGHT teal in dark mode because --dir-primary is also the
+   header fill under white text, so no dark value exists to reach for). An
+   accent as TEXT cannot be made to work on a surface that is sometimes the
+   page's brightest orb and sometimes near-black. So the selected row keeps
+   the look's own selected colour as a FILL — plum, the same one
+   hub2Staff.css:101 already uses for every other selected thing — and takes
+   the pane's own ink for its words. The weight is the second cue and the
+   public pane already sets it; the staff pane gets it here so the two agree.
+
+   THE MUTED SUB-LABELS get the pane's ink at 78% rather than the page's
+   muted grey, which measured 3.77:1 light and 3.37:1 dark on the sign-in
+   section. --pub-muted is tuned against the FIELD (see the long note in
+   section 1); a pane is a different backdrop and needs its own answer. */
+:root[data-hub2="on"] :is(.pub-menu-panel, .pub-sidebar, .pub-search-panel),
+:root[data-hub2="on"] .dir-app :is(.dir-menu-panel, .dir-rail, .dir-drawer) {
+  --pub-muted: color-mix(in srgb, var(--hub2-ink) 78%, transparent);
+  --dir-text-muted: color-mix(in srgb, var(--hub2-ink) 78%, transparent);
+}
+:root[data-hub2="on"] :is(.pub-menu-panel, .pub-sidebar) :is(.pub-menu-item, .pub-side-item).active,
+:root[data-hub2="on"] .dir-app :is(.dir-menu-panel, .dir-rail) :is(.dir-menu-item, .dir-rail-item).active {
+  background: color-mix(in srgb, var(--hub2-plum) 18%, var(--glass-floatbar));
+  color: var(--hub2-ink);
+  font-weight: 700;
 }
 
 /* ── A PANE OF GLASS, AND WHY IT IS A PSEUDO-ELEMENT ──
@@ -706,15 +938,13 @@
 }
 :root[data-hub2="on"] .dir-app .dir-header { border-radius: calc(var(--dir-radius) - 1px); }
 
-/* The desktop sidebar is stuck to "header height + gold line". The header
-   now starts 9px lower, so both numbers move with it or the sidebar rides
-   9px up under the bar when the page is scrolled. */
-@media (min-width: 1024px) {
-  :root[data-hub2="on"] .pub-sidebar {
-    top: 68px;
-    max-height: calc(100dvh - 68px);
-  }
-}
+/* The desktop sidebar's geometry is NOT here any more. It used to pin
+   `top` and `max-height` to "header height + gold line" at (0,2,1), which
+   meant two files owned the same two numbers; pubShell.css now owns both in
+   one --pub-side-top / --pub-side-gap pair and re-states them at (0,3,1), so
+   sheet order can no longer decide the answer. The 9px of overflow that this
+   block was written to chase turned out to come from look.css's own
+   min-height, not from these. */
 
 :root[data-hub2="on"] .pub-tabbar {
   position: fixed;
@@ -863,7 +1093,14 @@
 
 @media (prefers-reduced-transparency: reduce) {
   :root[data-hub2="on"],
-  :root[data-hub2="on"][data-pub-theme='dark'] {
+  :root[data-hub2="on"][data-pub-theme='dark'],
+  /* The two staff arms from section 1, repeated verbatim so they tie rather
+     than lose: they are (0,4,0) and this block is later in the file, so the
+     solid panel wins. Without them, a director who asked their system for
+     less transparency would have had the fix above hand the glass straight
+     back. */
+  :root[data-hub2="on"]:is(:has(.dir-app:not([data-dir-theme="dark"]))),
+  :root[data-hub2="on"]:is(:has(.dir-app[data-dir-theme="dark"])) {
     --glass-panel: var(--hub2-surface);
     --glass-chrome: var(--hub2-surface);
     --glass-hero: var(--hub2-surface);
@@ -887,7 +1124,14 @@
 
 @supports not (backdrop-filter: blur(1px)) {
   :root[data-hub2="on"],
-  :root[data-hub2="on"][data-pub-theme='dark'] {
+  :root[data-hub2="on"][data-pub-theme='dark'],
+  /* The two staff arms from section 1, repeated verbatim so they tie rather
+     than lose: they are (0,4,0) and this block is later in the file, so the
+     solid panel wins. Without them, a director who asked their system for
+     less transparency would have had the fix above hand the glass straight
+     back. */
+  :root[data-hub2="on"]:is(:has(.dir-app:not([data-dir-theme="dark"]))),
+  :root[data-hub2="on"]:is(:has(.dir-app[data-dir-theme="dark"])) {
     --glass-panel: var(--hub2-surface);
     --glass-chrome: var(--hub2-surface);
     --glass-hero: var(--hub2-surface);

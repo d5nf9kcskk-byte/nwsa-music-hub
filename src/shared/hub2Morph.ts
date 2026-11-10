@@ -62,8 +62,33 @@ const FLIP_ID = 'hub2-morph';
  * between are built from `.pub-hero`, `.pub-signup-alert`, `.pub-season-month`,
  * `.pub-day-detail` and a dozen more. A structural selector cannot drift from
  * the markup the way a list does.
+ *
+ * AND THE STAFF HALF NAMED A CLASS THAT DOES NOT EXIST. `.dir-page > *`
+ * shipped here and matched NOTHING, on any of the four staff shells, ever: a
+ * class selector does not match a prefix, so `.dir-page-body`,
+ * `.dir-page-hint` and `.dir-page-actions` never answered to it and there is
+ * no `.dir-page` in the app. Nothing threw, no check failed, and the morph
+ * was simply dead on every staff screen while the public side worked. That is
+ * the CSP failure mode (#csp), and the pin for it is in hub2.selfcheck.ts:
+ * every class this selector names must be a class the app actually renders.
+ *
+ * WHY NOT `.dir-content > *`. The staff shells have no page wrapper. The
+ * scroller IS the page container, and its children are the shell's own strips
+ * plus ONE routed view whose CHILDREN are the blocks, so `.dir-content > *`
+ * yields a single giant block per screen. One block does not reform into
+ * another; it gets resized, which is the artefact this whole layer removes.
+ *
+ * SO THE VIEW IS READ AS THE LAST CHILD, and that is the one assumption here
+ * worth watching. It holds in DirectorApp, which is also the only staff shell
+ * that navigates through the ROUTER at all (the assistant, applied-teacher and
+ * classroom-teacher shells switch tabs with useState, so no morph can fire on
+ * their tabs whatever this says). Those three already break the assumption:
+ * each appends a MyCalendarFeedPanel after its view, so `:last-child` in them
+ * is that panel rather than the page. Add such a row to DirectorApp and the
+ * staff morph dies again with nothing thrown, so hub2.selfcheck.ts pins that
+ * this shell's `.dir-content` ends on the tab list.
  */
-const PANEL_SEL = '.pub-page > *, .dir-page > *';
+const PANEL_SEL = '.pub-page > *, .dir-content > :last-child > *';
 
 /** Below this a block is a heading or a one-line link, and flying it reads
  *  as jitter rather than as liquid. */
@@ -240,6 +265,16 @@ function panels(): HTMLElement[] {
   for (const el of document.querySelectorAll<HTMLElement>(PANEL_SEL)) {
     const r = el.getBoundingClientRect();
     if (r.height < MIN_H) continue;
+    // A PLACEHOLDER IS NOT A BLOCK. Asking this in swapped() alone was not
+    // enough once the staff screens came in. swapped() only needs ONE real
+    // arrival to let the morph play, and a loading staff page is not all
+    // placeholder: Take Roll renders its Roll/Tracker toggle beside the bare
+    // `.dir-loading` row, so the toggle satisfied swapped() and the panel next
+    // to it was still morphed into the word "Loading". Dropping it here
+    // answers both questions at once, since swapped() already reads a page
+    // with no blocks as not arrived, and it keeps a placeholder out of
+    // capture() and out of the gather branch as well.
+    if (isPlaceholder(el)) continue;
     // Never transform something pinned to the viewport: an action bar or a
     // nav that is fixed or sticky would be dragged off its anchor and, worse,
     // would take its own containing block with it.
@@ -384,21 +419,50 @@ export function playWhenReady(shot: Shot, tries = 12): void {
  * shows up against fixtures, where the data is already there — which is why it
  * took running the probe against the live site to see it at all.
  *
- * A placeholder is therefore not an arrival. If the data outruns the frame
- * budget the morph still plays against whatever is there, skeletons included,
- * which is strictly what it did before.
+ * A placeholder is therefore not an arrival, and panels() is where that is
+ * now decided: a shimmer or a bare loading row is not a BLOCK, so a page made
+ * only of them has no panels and this returns false on the count alone. The
+ * test used to sit here instead, and it was too late. One real block is
+ * enough to call a page arrived, which is right, but a half-loaded page then
+ * played the morph with its placeholder still in the list of things to morph
+ * into. If the data outruns the frame budget the morph plays anyway after the
+ * bound, against the real blocks that are there and never into a placeholder.
  */
 function swapped(shot: Shot): boolean {
   const now = panels();
   if (!now.length) return false;
-  return now.some(el => !shot.was.has(el) && !isPlaceholder(el));
+  return now.some(el => !shot.was.has(el));
 }
 
-/** A shimmer standing in for a card that has not loaded (SkeletonCards in
- *  public/components/PageHeader.tsx renders these inside one aria-hidden
- *  wrapper, so the wrapper is the panel and the shimmer is its child). */
+/**
+ * Something standing in for content that has not loaded. The two shells say it
+ * differently and the difference is why this is not one list.
+ *
+ * PUBLIC: a shimmer. SkeletonCards in public/components/PageHeader.tsx renders
+ * them inside one aria-hidden wrapper, so the wrapper is the panel and the
+ * shimmer is its CHILD, which is what the deep scan is for.
+ *
+ * STAFF: a bare loading row, `.dir-loading` (director/uiUpdates.css). It is
+ * the block itself and never a wrapper, so `matches` is the whole of it and
+ * the deep scan deliberately does not look for it: scanning would let a real
+ * panel be thrown away for holding a loading row somewhere inside it.
+ *
+ * AND THE MARKER HAS TO MEAN ONLY ONE THING. `.dir-loading` does, which is
+ * why it is the one named here. The other staff screens that print "Loading"
+ * reach for `.dir-loc-empty` or `.dir-field-hint`, and those also carry
+ * genuine empty states, error lines and hints, so treating either as a
+ * placeholder would quietly stop a real block from reforming. A screen that
+ * wants its loading row skipped says so by wearing `.dir-loading`.
+ */
 function isPlaceholder(el: Element): boolean {
-  return el.classList.contains('pub-skeleton-card')
+  // .pub-signup-loading is on the MATCHES side only, and that asymmetry is
+  // the whole point: three public pages (the sign-up, the copy request and
+  // the absence report) render it as the sole child of .pub-page while they
+  // wait, so without it those three morph into their own "Loading…" line.
+  // But it is ALSO used nested inside real content — a Suspense fallback
+  // while a PDF opens — so a deep scan for it would read a page that is
+  // mostly there as a placeholder and refuse to morph it.
+  return el.matches('.pub-skeleton-card, .dir-loading, .pub-signup-loading')
     || !!el.querySelector('.pub-skeleton-card');
 }
 

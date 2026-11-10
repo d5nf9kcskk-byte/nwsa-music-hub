@@ -79,13 +79,28 @@ html[data-pub-theme='dark'][data-pub-season] .pub-app { background-image: var(--
    colors are all dark (pinned). */
 html[data-dir-season] .dir-app { --dir-bg: var(--dir-season-light); }
 html[data-dir-season] .dir-app[data-dir-theme="dark"] { --dir-bg: var(--dir-season-dark); }
+/* And at <html>, which is where director.css paints the page floor. The
+   `.dir-app` selector above cannot reach it, so without this line the staff
+   page in dark mode painted the stock dark rather than the season's. Both are
+   dark, which is why it would never have been reported. */
+html[data-dir-season]:has(.dir-app[data-dir-theme="dark"]) { --dir-bg: var(--dir-season-dark); }
 html[data-dir-season] .dir-content { --season-wash: linear-gradient(color-mix(in srgb, var(--dir-bg) 55%, transparent), color-mix(in srgb, var(--dir-bg) 55%, transparent)); }
 html[data-dir-season] .dir-content { background-image: var(--season-wash), var(--season-img); }
-html[data-dir-season] .dir-app[data-dir-theme="dark"] .dir-content { background-image: var(--season-wash), var(--season-img), var(--season-img); }
+/* And this one stands aside too, because it was WINNING where its light
+   twin loses. hub2Glass.css turns the staff wallpaper off at (0,4,0); the
+   light rule above is (0,2,1) and loses to it as intended, but this one is
+   (0,4,1) and beat it — so the leaves painted on the staff page in dark
+   mode and in dark mode only, burying the glass field under a double tile.
+   Nobody chose that; it was a specificity accident between two rules that
+   agree on what should happen. */
+html[data-dir-season]:not([data-hub2="on"]) .dir-app[data-dir-theme="dark"] .dir-content { background-image: var(--season-wash), var(--season-img), var(--season-img); }
 html[data-dir-season] .dir-header {
   background: linear-gradient(110deg, transparent 0%, rgb(0 0 0 / 0.22) 100%), var(--dir-season-header);
 }
-html[data-dir-season] :is(.dir-rail, .dir-menu-panel) {
+/* Stands aside under the preview, for the reason spelled out in look.css:
+   the surface and the ink that reads on it are one decision, and the glass
+   layer owns the surface there. */
+html[data-dir-season]:not([data-hub2="on"]) :is(.dir-rail, .dir-menu-panel) {
   --dir-surface: var(--dir-season-side);
   --dir-surface-2: rgb(var(--dir-season-side-ink) / 0.06);
   --dir-text: rgb(var(--dir-season-side-ink));
@@ -96,7 +111,7 @@ html[data-dir-season] :is(.dir-rail, .dir-menu-panel) {
   background: var(--dir-surface);
   color: var(--dir-text);
 }
-html[data-dir-season] .dir-rail-item.active { background: rgb(var(--dir-season-side-ink) / 0.14); }
+html[data-dir-season]:not([data-hub2="on"]) .dir-rail-item.active { background: rgb(var(--dir-season-side-ink) / 0.14); }
 
 /* The season button in a staff header: the season's emoji on the header's
    own translucent chip; dimmed while the season is off. */

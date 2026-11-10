@@ -7,10 +7,13 @@
 .dir-approval {
   border: 1px solid var(--dir-border, #e2e2e6);
   border-radius: 10px;
-  background: var(--dir-card-bg, #fff);
+  background: var(--dir-surface, #fff);
   overflow: hidden;
 }
-.dir-approval.waiting { border-left: 4px solid var(--dir-accent, #b8892b); }
+/* The amber is the point (waiting), so it is written rather than read from
+   a token: --dir-accent is a name nothing in this repo declares, so this was
+   always the fallback and only looked like a token. */
+.dir-approval.waiting { border-left: 4px solid #b8892b; }
 .dir-approval.decided { opacity: 0.72; }
 
 .dir-approval-head {
@@ -34,7 +37,7 @@
   letter-spacing: 0.04em;
   padding: 2px 7px;
   border-radius: 999px;
-  background: var(--dir-chip-bg, #f1f1f4);
+  background: var(--dir-surface-2, #f1f1f4);
   white-space: nowrap;
 }
 .dir-approval-label { flex: 1 1 240px; font-weight: 600; }

@@ -37,7 +37,11 @@
   overflow-y: auto;
   animation: dir-menu-in 0.18s ease-out;
 }
-@keyframes dir-menu-in { from { transform: translateX(24px); opacity: 0.6; } to { transform: none; opacity: 1; } }
+/* Fades its BACKGROUND in, never its opacity (#glass). The panel carries
+   backdrop-filter, and any opacity below 1 on it re-points that blur at a
+   subtree that paints nothing — the glass went flat for the first 180ms of
+   every open. background-color is animatable and makes no backdrop root. */
+@keyframes dir-menu-in { from { transform: translateX(24px); background-color: transparent; } }
 .dir-menu-header {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 12px 14px;
@@ -497,9 +501,12 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 .dir-multi-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 16px 8px; }
 .dir-multi-filter-label { font-size: 13px; font-weight: 700; color: var(--dir-text-muted); white-space: nowrap; }
 .dir-filter-presets { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
+/* --dir-card and --dir-accent were never tokens in this app: both
+   declarations were invalid and dropped, so a preset chip had no background
+   and a SELECTED one looked exactly like an unselected one. */
 .dir-filter-preset {
   border: 1px solid var(--dir-border);
-  background: var(--dir-card);
+  background: var(--dir-surface);
   color: var(--dir-text-muted);
   border-radius: 999px;
   padding: 4px 10px;
@@ -507,9 +514,9 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   cursor: pointer;
 }
 .dir-filter-preset.active {
-  border-color: var(--dir-accent);
-  background: color-mix(in srgb, var(--dir-accent) 12%, transparent);
-  color: var(--dir-accent);
+  border-color: var(--dir-primary);
+  background: color-mix(in srgb, var(--dir-primary) 12%, transparent);
+  color: var(--dir-primary);
 }
 .dir-fm { position: relative; flex: 1 1 160px; min-width: 150px; max-width: 280px; }
 .dir-fm-btn {
@@ -545,6 +552,22 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
 /* Opt-in dark theme for the back end (Moon/Sun toggle in the header). The
    content surfaces are token-driven, so overriding the core tokens re-themes
    the whole editing area; the header and Director Panel strip are already dark. */
+/* `<html>` is named too, or staff dark mode paints a LIGHT page. director.css
+   gives html and body `background: var(--dir-bg)`, which has to RESOLVE at
+   <html> — and these values used to be declared on .dir-app alone, which
+   <html> cannot reach, so the canvas kept the stock light slate. Invisible
+   until the glass layer made .dir-app translucent on top of it, at which
+   point the whole page was light behind dark panels. :has() is already used
+   two rules away in director.css, so this adds no platform floor.
+
+   ORDER IS LOAD-BEARING, and not for the cascade — a selector list is
+   unordered there. seasons.selfcheck.ts:33 finds this token block by
+   splitting the file on the .dir-app dark selector followed by its opening
+   brace, so THAT selector has to stay the one touching the brace. Leading
+   with the html one instead fails the self-check on an undefined read rather
+   than a readable message, and quoting the marker in a comment splits the
+   file twice and fails it again. */
+html:has(.dir-app[data-dir-theme="dark"]),
 .dir-app[data-dir-theme="dark"] {
   --dir-bg: #12151b;
   --dir-surface: #1a1f28;
@@ -647,6 +670,9 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   border-radius: 6px;
   padding: 2px 7px;
   vertical-align: 1px;
+  /* A two-word role never reads as two lines: at 390px "DIRECTOR PANEL"
+     broke inside the chip and took the header's brand column with it. */
+  white-space: nowrap;
 }
 
 /* Fuller content cards: assignment description + form link, announcement body. */
@@ -754,7 +780,7 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--dir-muted, #64748b);
+  color: var(--dir-text-muted, #64748b);
   margin: 0 0 6px;
 }
 .dir-alert-group-more {
@@ -762,10 +788,14 @@ button.dir-ens-row:active { background: var(--dir-surface-2); }
   width: 100%;
   margin: 4px 0 0;
   padding: 8px 10px;
-  border: 1px dashed #cbd5e1;
+  /* A dashed add-affordance, so the dash is the information and must not be
+     dissolved with --dir-border. It follows the text instead, which keeps it
+     visible in both themes. The third use of --dir-accent, a name nothing in
+     this app declares. */
+  border: 1px dashed color-mix(in srgb, currentColor 45%, transparent);
   border-radius: 8px;
   background: transparent;
-  color: var(--dir-accent, #0d7e8e);
+  color: var(--dir-primary, #0d7e8e);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -1594,7 +1624,9 @@ button:focus-visible { outline: 2px solid var(--dir-blue); outline-offset: 2px; 
   flex-basis: 100%;
   margin-top: 6px;
   padding: 9px 11px;
-  border-left: 3px solid var(--dir-accent);
+  /* --dir-accent is not a token in this app: the declaration was invalid and
+     dropped, so the note had no left edge at all. */
+  border-left: 3px solid var(--dir-primary);
   border-radius: var(--dir-radius-sm);
   background: var(--dir-surface-2);
   color: var(--dir-text);

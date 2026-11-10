@@ -17,6 +17,7 @@ import { NoteBurst } from '../shared/NoteBurst';
 import { useLogoEgg } from '../shared/useLogoEgg';
 import { primaryStudent, onIdentityChange } from '../shared/identity';
 import { useModalA11y } from '../shared/useModalA11y';
+import { backdropClose } from '../shared/backdropClose';
 import { WhatsNewBanner } from '../shared/WhatsNewBanner';
 import '../shared/whatsNew.css';
 import '../shared/concertDayBanner.css';
@@ -261,8 +262,8 @@ export function PublicLayout() {
       </header>
 
       {menuOpen && (
-        <div className="pub-menu-overlay" onClick={closeMenu}>
-          <nav className="pub-menu-panel" role="dialog" aria-modal="true" aria-label={t('nav.menu')} tabIndex={-1} ref={menuRef} onClick={e => e.stopPropagation()}>
+        <div className="pub-menu-overlay" {...backdropClose(closeMenu)}>
+          <nav className="pub-menu-panel" role="dialog" aria-modal="true" aria-label={t('nav.menu')} tabIndex={-1} ref={menuRef}>
             <div className="pub-menu-header">
               <span className="pub-menu-title">{ORG.brandName}</span>
               <button className="pub-menu-close" onClick={closeMenu} aria-label={t('nav.closeMenu')}>
