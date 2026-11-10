@@ -347,32 +347,45 @@ let fixedChecked = 0;
     assert.match(kf, /transform:/, 'hub2Morph.ts: the live shell must animate a transform');
     assert.match(kf, /borderRadius:/, 'hub2Morph.ts: the radius must travel with the box, or a corner comes out elliptical');
   }
-  // The settle. The look's own spring curve is enormously front-loaded, so
-  // with a view transition the opacity crossfade carried the time and with
-  // a FLIP the geometry IS the animation: the panel arrived in 15% of its
-  // duration and then sat still. The travel therefore carries PAST its mark
-  // and comes back, with the turn at SETTLE_AT.
-  //
-  // That used to be one literal middle keyframe. It is now a sampled path —
-  // the shell's scale and its content's counter-scale have to multiply to 1
-  // everywhere and not only at a keyframe, which with three of them they did
-  // not (measured 6% too tall at 225ms, and visible as condensed text). So
-  // the pin moved from the keyframe list to the thing that builds it: the
-  // turn, the overshoot, and the fact that both sides are cut from the same
-  // offsets.
+  /* THE LAW (the director chose it, 2026-11-09). The travel is a sampled
+     overdamped table played linear, not a bezier, because a bezier cannot be
+     viscous: a slow head, a long creeping tail and no darting are mutually
+     exclusive when the area under the velocity curve is fixed at 1.
+
+     AND THERE IS NO POSITIONAL OVERSHOOT. Overshoot is a spring cue, and
+     liquid is what a spring is defined against. It lives in the CURVATURE
+     instead, which is the only other property a glass panel is allowed. The
+     previous pins here asserted the opposite — a positional settle at
+     SETTLE_AT carrying SETTLE_PAST past the mark — so they are gone rather
+     than relaxed: they encoded the old answer, not an invariant.
+
+     What still must hold: a monotone table that starts at 0 and ends at 1,
+     a linear easing (an easing ON the table would re-shape the law), and
+     both sides cut from the SAME samples so the counter-scale cancels the
+     shell everywhere rather than only at a keyframe. */
   {
-    assert.match(morphSrc, /const SETTLE_AT = 0\.[5-9]/, 'hub2Morph.ts: the travel must turn late, not half way');
-    assert.match(morphSrc, /const SETTLE_PAST = 0\.0[1-9]/, 'hub2Morph.ts: the travel must carry past its mark and settle back');
-    assert.match(morphSrc, /u <= SETTLE_AT/, 'hub2Morph.ts: the sampled path must turn at the settle');
-    assert.match(morphSrc, /const STEPS = \d\d/,
-      'hub2Morph.ts: the path must be cut into enough samples that the counter-scale actually cancels');
-    assert.match(morphSrc, /path\.map\(\(\{ offset, p \}\)/,
+    assert.match(morphSrc, /const LAW = \[0, /, 'hub2Morph.ts: the travel must run on the sampled law');
+    assert.match(morphSrc, /, 1\];/, 'hub2Morph.ts: the law must finish at its mark');
+    const law = morphSrc.slice(morphSrc.indexOf('const LAW = ['));
+    const nums = (law.slice(0, law.indexOf(']')).match(/[0-9.]+/g) || []).map(Number);
+    assert.ok(nums.length >= 10, 'hub2Morph.ts: the law needs enough samples to interpolate honestly');
+    assert.ok(nums[0] === 0 && nums[nums.length - 1] === 1, 'hub2Morph.ts: the law must run 0 to 1');
+    for (let i = 1; i < nums.length; i++) {
+      assert.ok(nums[i] >= nums[i - 1], 'hub2Morph.ts: the law must be monotone — liquid does not go backwards');
+      assert.ok(nums[i] <= 1, 'hub2Morph.ts: the law must never pass 1 — overshoot is a spring, not a liquid');
+    }
+    assert.ok(!/const SETTLE_PAST/.test(morphSrc),
+      'hub2Morph.ts: positional overshoot is gone on purpose; the wobble belongs to the radius');
+    assert.match(morphSrc, /easing: 'linear'/,
+      'hub2Morph.ts: the law must be played linear, or the easing re-shapes it');
+    assert.match(morphSrc, /path\.map\(\(\{ offset, v \}\)/,
       'hub2Morph.ts: the shell must be built from the sampled path');
     const kidAt = morphSrc.indexOf('const a = kid.el.animate(');
     assert.ok(kidAt > 0, 'hub2Morph.ts: the counter-scale animation must be named `a`');
-    assert.match(morphSrc.slice(kidAt, kidAt + 400), /path\.map\(\(\{ offset, p \}\)/,
+    assert.match(morphSrc.slice(kidAt, kidAt + 500), /path\.map\(\(\{ offset, v \}\)/,
       'hub2Morph.ts: the content must be cut from the SAME offsets as its shell, or the two do not cancel');
-    assert.match(morphSrc, /SETTLE_AT = 0\.\d+/, 'hub2Morph.ts: SETTLE_AT must be a fraction of the duration');
+    // The corners carry the overshoot now, so the radius must actually move.
+    assert.match(morphSrc, /const swell =/, 'hub2Morph.ts: the corners must swell and settle');
   }
   // A ghost's resting state is "visible", so `fill: backwards` applies
   // nothing after the end and every melted panel reappears at full strength
@@ -385,14 +398,19 @@ let fixedChecked = 0;
   // at 130ms and 404ms of a 1500ms morph before this was split out: every
   // word of both pages sharp. That is the director's "messy instead of
   // liquidy", and it is the clock on the fade, not the morph.
-  // `dur`, not `ms`: each panel's own duration, which is now the morph's
-  // duration less that panel's share of the ripple. The promise being pinned
-  // is unchanged — the fade takes a FRACTION of the travel and rides its own
-  // curve — it is just scaled per panel so a staggered clone cannot outlive
-  // the panel it belongs to.
-  assert.match(morphSrc, /duration: dur \* FADE_OF, easing: FADE_EASE/,
-    'hub2Morph.ts: the clone fade must not share the morph duration or curve');
-  assert.match(morphSrc, /const FADE_OF = 0\.[0-4]/, 'hub2Morph.ts: the clone is gone well before the morph is');
+  // AND IT IS NOW A WALL-CLOCK TIME, not a fraction of anything. That is the
+  // finding that let the pace go to 1.9 seconds at all: these numbers encode
+  // thresholds in a person's head, which are fixed in milliseconds. Held as
+  // fractions they stretched with the duration, so a longer morph kept the
+  // old page legible longer AND made the new text wait — the exact fault that
+  // was blamed on the duration and treated by shortening it, with the
+  // mechanism left armed to re-fire above about a second.
+  assert.match(morphSrc, /duration: Math\.min\(dur, OUT_MS\), easing: FADE_EASE/,
+    'hub2Morph.ts: the clone fade must be a wall-clock time, not a share of the duration');
+  assert.match(morphSrc, /const OUT_MS = [1-9]\d\d;/, 'hub2Morph.ts: the clone is gone in a fixed few hundred ms');
+  assert.match(morphSrc, /const READ_MS = [1-9]\d\d;/, 'hub2Morph.ts: the arriving text lands at a fixed moment');
+  assert.match(morphSrc, /\(READ_MS - delay\) \/ dur/,
+    'hub2Morph.ts: a panel that set off late must resolve earlier in its own progress');
   // AND THE MORPH WAITS FOR THE PAGE IT IS MORPHING INTO. This one was a coin
   // flip and nothing caught it: playWhenReady used to retry only while there
   // were NO panels, and when the router resolves the OUTGOING page is still
