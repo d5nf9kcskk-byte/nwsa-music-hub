@@ -274,4 +274,4 @@ assert.ok(checked > 0, 'no org has a palette — nothing was checked');
   tokensChecked = used.size;
 }
 
-console.log(`look self-check OK (${checked} palette${checked === 1 ? '' : 's'}, ${hub2Checked} Hub 2.0 look${hub2Checked === 1 ? '' : 's'})`);
+console.log(`look self-check OK (${checked} palette${checked === 1 ? '' : 's'}, ${hub2Checked} Hub 2.0 look${hub2Checked === 1 ? '' : 's'}, ${tokensChecked} tokens declared)`);
