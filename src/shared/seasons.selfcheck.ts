@@ -67,7 +67,7 @@ const pageInkOK = (bg: string, ink: string, mode: 'light' | 'dark') => {
 };
 
 const menuAlpha = (name: string) => Number(lookCss.match(new RegExp(`${name}: rgb\\(var\\(--look-side-ink\\) / ([\\d.]+)\\)`))![1]);
-const dirAlpha = (name: string) => Number(css.match(new RegExp(`${name}: rgb\\(var\\(--dir-season-side-ink\\) / ([\\d.]+)\\)`))![1]);
+const dirAlpha = (name: string) => Number(css.match(new RegExp(`${name}: rgb\\(var\\(--dir-look-side-ink\\) / ([\\d.]+)\\)`))![1]);
 
 let checked = 0;
 let hub2Seasons = 0;

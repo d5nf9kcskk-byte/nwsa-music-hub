@@ -71,19 +71,22 @@ html[data-pub-theme='dark'][data-pub-season] .pub-app { background-image: var(--
 .pub-season-thumb { background-image: var(--season-img); }
 :root[data-pub-theme='dark'] .pub-season-thumb { background-image: var(--season-img), var(--season-img); }
 
-/* ── Staff side (all four shells share .dir-app). Header + page tint + the
-   rail / phone drawer, re-derived from the ink that reads on the season's
-   menu color, exactly as the public menu does (look.css). The Director
-   Panel banner above the header is NEVER recolored — it is how staff know
-   they are on the editing side. Header text stays white: season header
-   colors are all dark (pinned). */
-html[data-dir-season] .dir-app { --dir-bg: var(--dir-season-light); }
-html[data-dir-season] .dir-app[data-dir-theme="dark"] { --dir-bg: var(--dir-season-dark); }
+/* ── Staff side (all four shells share .dir-app). look.ts paints a staff
+   member's own colors (#look-staff) OR the season through the same
+   attributes and values, so these rules are both: data-dir-look-header /
+   -side / -tint carry the colors, data-dir-season the season's drawing.
+   Header + page tint + the rail / phone drawer, the menu re-derived from the
+   ink that reads on its color, exactly as the public menu does (look.css).
+   The Director Panel banner above the header is NEVER recolored — it is how
+   staff know they are on the editing side. Header text stays white: every
+   header color is dark (pinned), and a staff header carries no neon. */
+html[data-dir-look-tint] .dir-app { --dir-bg: var(--dir-look-light); }
+html[data-dir-look-tint] .dir-app[data-dir-theme="dark"] { --dir-bg: var(--dir-look-dark); }
 /* And at <html>, which is where director.css paints the page floor. The
    `.dir-app` selector above cannot reach it, so without this line the staff
-   page in dark mode painted the stock dark rather than the season's. Both are
+   page in dark mode painted the stock dark rather than the tint. Both are
    dark, which is why it would never have been reported. */
-html[data-dir-season]:has(.dir-app[data-dir-theme="dark"]) { --dir-bg: var(--dir-season-dark); }
+html[data-dir-look-tint]:has(.dir-app[data-dir-theme="dark"]) { --dir-bg: var(--dir-look-dark); }
 html[data-dir-season] .dir-content { --season-wash: linear-gradient(color-mix(in srgb, var(--dir-bg) 55%, transparent), color-mix(in srgb, var(--dir-bg) 55%, transparent)); }
 html[data-dir-season] .dir-content { background-image: var(--season-wash), var(--season-img); }
 /* And this one stands aside too, because it was WINNING where its light
@@ -94,24 +97,24 @@ html[data-dir-season] .dir-content { background-image: var(--season-wash), var(-
    Nobody chose that; it was a specificity accident between two rules that
    agree on what should happen. */
 html[data-dir-season]:not([data-hub2="on"]) .dir-app[data-dir-theme="dark"] .dir-content { background-image: var(--season-wash), var(--season-img), var(--season-img); }
-html[data-dir-season] .dir-header {
-  background: linear-gradient(110deg, transparent 0%, rgb(0 0 0 / 0.22) 100%), var(--dir-season-header);
+html[data-dir-look-header] .dir-header {
+  background: linear-gradient(110deg, transparent 0%, rgb(0 0 0 / 0.22) 100%), var(--dir-look-header);
 }
 /* Stands aside under the preview, for the reason spelled out in look.css:
    the surface and the ink that reads on it are one decision, and the glass
    layer owns the surface there. */
-html[data-dir-season]:not([data-hub2="on"]) :is(.dir-rail, .dir-menu-panel) {
-  --dir-surface: var(--dir-season-side);
-  --dir-surface-2: rgb(var(--dir-season-side-ink) / 0.06);
-  --dir-text: rgb(var(--dir-season-side-ink));
-  --dir-text-muted: rgb(var(--dir-season-side-ink) / 0.78);
-  --dir-primary: rgb(var(--dir-season-side-ink));
-  --dir-bg: rgb(var(--dir-season-side-ink) / 0.08);
-  --dir-border: rgb(var(--dir-season-side-ink) / 0.16);
+html[data-dir-look-side]:not([data-hub2="on"]) :is(.dir-rail, .dir-menu-panel) {
+  --dir-surface: var(--dir-look-side);
+  --dir-surface-2: rgb(var(--dir-look-side-ink) / 0.06);
+  --dir-text: rgb(var(--dir-look-side-ink));
+  --dir-text-muted: rgb(var(--dir-look-side-ink) / 0.78);
+  --dir-primary: rgb(var(--dir-look-side-ink));
+  --dir-bg: rgb(var(--dir-look-side-ink) / 0.08);
+  --dir-border: rgb(var(--dir-look-side-ink) / 0.16);
   background: var(--dir-surface);
   color: var(--dir-text);
 }
-html[data-dir-season]:not([data-hub2="on"]) .dir-rail-item.active { background: rgb(var(--dir-season-side-ink) / 0.14); }
+html[data-dir-look-side]:not([data-hub2="on"]) .dir-rail-item.active { background: rgb(var(--dir-look-side-ink) / 0.14); }
 
 /* The season button in a staff header: the season's emoji on the header's
    own translucent chip; dimmed while the season is off. */

@@ -376,10 +376,11 @@
    pattern of their own (look.css, data-pub-look-bg), that becomes the thing
    the glass refracts, which is the best backdrop this design can have. The
    :not() is what tells the two apart, and it is why this is not simply
-   `background-image: none` on .pub-app. */
+   `background-image: none` on .pub-app. A staff member's own pattern
+   (data-dir-look-bg, #look-staff) is kept the same way. */
 :root[data-hub2="on"]:not([data-pub-look-bg]) .pub-app { background-image: none; }
 :root[data-hub2="on"] .dir-app,
-:root[data-hub2="on"] .dir-app .dir-content { background-image: none; }
+:root[data-hub2="on"]:not([data-dir-look-bg]) .dir-app .dir-content { background-image: none; }
 
 /* The bloom and the inner highlight are the half of "dissolved" that a
    colour token cannot carry, so the panels are named here. A new panel

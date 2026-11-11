@@ -143,6 +143,68 @@ for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) 
   }
 }
 
+// 4c. The staff side (#look-staff). The same palette paints the staff shells
+//     through seasons.css (data-dir-look-*), on the staff page's own tokens
+//     and its own theme switch. Header: WHITE text on every header color, neon
+//     or not (a staff header carries no neon). Menu: text, muted and the
+//     active row at the staff rules' own alphas. Page: a tint keeps the staff
+//     ink at AA and never reads worse than the stock staff page for ink,
+//     muted or the teal; a drawn pattern keeps the ink at AA over its
+//     heaviest mark. Every pattern has its staff rule.
+//     Known and NOT this feature's to change: the stock staff page's own
+//     muted grey (#64748b on #f1f5f9) is 4.34:1 and its teal 4.36:1 before
+//     anybody picks anything; every tint reads at least that well.
+let staffChecked = 0;
+{
+  const seasonsCss = read('../shared/seasons.css');
+  const dirLight = read('../director/director.css');
+  const dirDark = read('../director/uiUpdates.css').split('.dir-app[data-dir-theme="dark"] {')[1];
+  const dirAlpha = (re: string) => Number(seasonsCss.match(new RegExp(`${re}rgb\\(var\\(--dir-look-side-ink\\) / ([\\d.]+)\\)`))![1]);
+  const mutedA = dirAlpha('--dir-text-muted: ');
+  const activeA = dirAlpha('\\.dir-rail-item\\.active \\{ background: ');
+  const dirStock = {
+    light: { bg: token(dirLight, '--dir-bg'), ink: token(dirLight, '--dir-text'), muted: token(dirLight, '--dir-text-muted'), teal: token(dirLight, '--dir-primary') },
+    dark: { bg: token(dirDark, '--dir-bg'), ink: token(dirDark, '--dir-text'), muted: token(dirDark, '--dir-text-muted'), teal: undefined },
+  };
+  for (const id of PATTERNS) {
+    assert.ok(css.includes(`html[data-dir-look-bg='${id}'] .dir-content`), `pattern ${id} has no staff rule in look.css`);
+  }
+  for (const rule of ['html[data-dir-look-header] .dir-header', 'html[data-dir-look-tint] .dir-app', 'html[data-dir-look-side]:not([data-hub2="on"]) :is(.dir-rail, .dir-menu-panel)']) {
+    assert.ok(seasonsCss.includes(rule), `seasons.css has no staff rule ${rule}`);
+  }
+  const gray = css.match(/fill='%23([0-9a-f]{6})'/i)![1];
+  const heaviest = Math.max(...[...css.matchAll(/opacity='([\d.]+)'/g)].map(m => Number(m[1])));
+
+  for (const file of readdirSync(new URL('../../config/orgs/', import.meta.url))) {
+    const p: LookPalette | undefined = JSON.parse(read(`../../config/orgs/${file}`)).personalize;
+    if (!p) continue;
+    const at = (what: string) => `${file} staff ${what}`;
+    for (const s of p.header) {
+      assert.ok(contrast(LIGHT_INK, s.color) >= AA, at(`header ${s.id}: white on ${s.color} is ${contrast(LIGHT_INK, s.color).toFixed(2)}`));
+    }
+    for (const s of p.sidebar) {
+      const ink = inkFor(s);
+      assert.ok(contrast(ink, s.color) >= AA, at(`menu ${s.id} text`));
+      assert.ok(contrast(over(ink, mutedA, s.color), s.color) >= AA, at(`menu ${s.id} muted text`));
+      assert.ok(contrast(ink, over(ink, activeA, s.color)) >= AA, at(`menu ${s.id} active row`));
+    }
+    for (const mode of ['light', 'dark'] as const) {
+      const k = dirStock[mode];
+      for (const bg of [k.bg, ...p.background.map(s => s[mode])]) {
+        assert.ok(contrast(k.ink, bg) >= AA, at(`(${mode}) ink on ${bg}`));
+        for (const text of [k.ink, k.muted, k.teal].filter((x): x is string => !!x)) {
+          assert.ok(contrast(text, bg) >= contrast(text, k.bg) - 0.005,
+            at(`(${mode}) ${text} on ${bg} reads worse than on the stock ${k.bg}: ${contrast(text, bg).toFixed(2)} < ${contrast(text, k.bg).toFixed(2)}`));
+        }
+        const under = over(`#${gray}`, heaviest, bg);
+        assert.ok(contrast(k.ink, under) >= AA, at(`(${mode}) ink over a pattern on ${bg}: ${contrast(k.ink, under).toFixed(2)}`));
+      }
+    }
+    staffChecked++;
+  }
+  assert.ok(staffChecked > 0, 'no org palette reached the staff check');
+}
+
 // 5. The Hub 2.0 look (#hub2-look, the owner's preview). Its palette replaces
 //    the stock page, so it has to clear AA on its own in both themes, and a
 //    student's tint or drawn pattern painted over it still has to read.
@@ -274,4 +336,4 @@ assert.ok(checked > 0, 'no org has a palette — nothing was checked');
   tokensChecked = used.size;
 }
 
-console.log(`look self-check OK (${checked} palette${checked === 1 ? '' : 's'}, ${hub2Checked} Hub 2.0 look${hub2Checked === 1 ? '' : 's'}, ${tokensChecked} tokens declared)`);
+console.log(`look self-check OK (${checked} palette${checked === 1 ? '' : 's'}, ${staffChecked} staff, ${hub2Checked} Hub 2.0 look${hub2Checked === 1 ? '' : 's'}, ${tokensChecked} tokens declared)`);

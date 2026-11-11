@@ -1984,8 +1984,19 @@ everything it changes.
     opacity per `<g>` so the check can read it.
   - The staff header keeps WHITE text in every season (no neon there), and
     the Director Panel banner is never recolored.
-- Public site only. The director panel has its own theme switch and is not
-  touched; the tint rule is scoped to `:has(.pub-app)` for that reason.
+- **The staff shells get the same sheet** (#look-staff, Nov 2026, director's
+  ask): the palette button beside the season button in all four staff
+  headers (`LookButton` in `SeasonButton.tsx`). **Stored APART**, under
+  `dir.look`, the way the season switch is already apart per side: a
+  director checking the student site must see what students see, and a
+  student's pick on a shared laptop must not restyle the director panel.
+  `look.ts` is the ONE store for both sides; the staff side paints
+  `data-dir-look-*` + `--dir-look-*`, which the staff rules in `seasons.css`
+  read for a person's own colors AND the season (the season paints through
+  the same values). A staff header keeps white text, neon swatch or not. The
+  public tint rule stays scoped to `:has(.pub-app)`; the staff one to
+  `.dir-app`. `look.selfcheck.ts` §4c pins staff readability. Known and not
+  this feature's: the stock staff muted grey is 4.34:1 on its own page.
 
 ## Hub 2.0 look, behind the owner's preview (Nov 2026, #hub2-look)
 
