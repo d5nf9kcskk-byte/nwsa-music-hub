@@ -1268,13 +1268,44 @@ in `.github/actions/self-checks`.
   the lesson grades logged after the interim never reached the final, and an
   exam regraded after being added as a column never moved. Now a number typed
   into a box OVERRIDES the live one (as typing over a formula does);
-  `categoryResult()` says which is which, and the screen offers ↺ per box and
-  "Follow the Hub" per category to hand a box back. **Never write a live number
-  into a box** — that is the snapshot bug again. `fillValueFor()` is still the
+  `categoryResult()` says which is which; a typed number is bold with a dot and
+  its cell says "You typed 92. The Hub says 88." with "Undo: use the Hub
+  number". **Never write a live number into a box** — that is the snapshot bug
+  again. `fillValueFor()` is still the
   ONE answer to what Fill writes, and Fill is offered only on JUDGEMENT boxes,
   where nothing in the Hub can speak: full marks, never a computed value.
   Marks are keyed by PERIOD, not by interim-or-final, so what was entered at
   the interim is already there at the end of the quarter.
+- **Automatic intake, no modes (Nov 2026 rebuild).** Every graded assignment of
+  EVERY type, every concert required of someone on the table, and the lesson
+  average is its own column, created by `buildTable()` the moment the first
+  student on the table is graded — nobody adds a Hub column and nobody can
+  remove one. A category is the mean of the cells that have a number, per
+  student. Banned, and pinned by `gradeTable.selfcheck.ts` A1-A7: a hand-made
+  column changing which Hub items count (the old "once one exam column exists
+  the rest drop out" flip), a due-date or "as of" gate on an ASSIGNMENT grade
+  (the "as of" date governs only dated things: concerts, lessons, roll), and a
+  blank read as zero anywhere, the email and the college export included.
+  Which category a type lands in is config (`assignmentTypes` on a category;
+  anything unclaimed lands in the `suggest: 'exams'` one). A Hub column can be
+  switched to "Not counting" (`off:<key>` on the table doc `_table`, filed as
+  `${groupKey}_${periodId}__table` so no rules change); it stays on screen.
+  Hand-made columns (`x:` grades, `d:` penalties) are registered on that same
+  table doc. The UI may not say pinned, tally or suggest, and every button is
+  one of a fixed list of verb phrases: the self-check reads the TSX for both.
+- **High school and college never share a table (Nov 2026).** `tableSpecs()`
+  is the ONE answer to which tabs exist: the configured district reports
+  ("Camerata · HS"), any other HS group with a grade this quarter, and a
+  College table for every group with college members that is the person's own
+  (`assignedEnsembleIds`). `rosterFor()` filters by world, so a college student
+  is never in the Brent Mounger email and a high schooler is never in a college
+  table. A college student in Symphony is on "Orchestra · College", so the
+  grade follows the student. College marks live in `gradeMarks` under
+  `college:<ensembleId>` (no new collection, no rules change); a college
+  table reads the student's old HS-key doc until its first save copies it
+  across. College plan: `plans.college` in config (the default plan plus
+  Applied Lessons, labels "Exams & Tests"). College tables end in "Copy the
+  table": name, every column, category averages, final, blank never zero.
 - **Re-normalize over scored categories** — the workbook's formula verbatim, so
   an unscored category leaves numerator and denominator both and an interim in
   week three is not dragged down by an exam that has not happened. A blank is

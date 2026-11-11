@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  {
+    id: '2026-11-10-gradebook-rebuild',
+    date: '2026-11-10',
+    title: 'The Gradebook fills itself in, and college has its own tables',
+    audience: 'staff' as const,
+    bullets: [
+      'Every graded assignment, required concert and lesson average now appears as its own column by itself, the moment one student is graded. A blank box is not graded yet and never counts as a zero.',
+      'College students have their own tables (for example "Orchestra · College") that copy straight into a spreadsheet, and never appear in the high school email.',
+      'A number you type over the Hub\u2019s is bold with a dot; tap it to see the Hub\u2019s number and undo.',
+    ],
+    expires: '2026-11-30',
+  },
   // #close-a-day: Today's "Close a day" goes through Change a Day.
   {
     id: '2026-11-04-phone-alerts-menu',

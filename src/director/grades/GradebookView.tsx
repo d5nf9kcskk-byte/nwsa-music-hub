@@ -526,7 +526,7 @@ export function GradebookView() {
 
       {rows.length === 0 && <div className="dir-empty"><p>Nobody is on {tabLabel(spec)} for {span.label}.</p></div>}
 
-      <section className="gb-ready" aria-label="Ready check">
+      {rows.length > 0 && <section className="gb-ready" aria-label="Ready check">
         {notReady.length === 0
           ? <p><b>Ready.</b> Every row on {tabLabel(spec)} has what it needs.</p>
           : (
@@ -542,7 +542,7 @@ export function GradebookView() {
               </ul>
             </>
           )}
-      </section>
+      </section>}
 
       {hs && grading.instructions && (
         <details className="gb-district">
@@ -606,10 +606,12 @@ function ScoreCell({ name, label, cell, hub, off, avg, disabled, penalty = 0, af
       />
       {overridden && <span className="gb-dot" aria-hidden="true">&bull;</span>}
       {overridden && (
-        <button className="gb-undo" disabled={disabled} title={cell.live === null ? 'Clears your number' : `Goes back to ${cell.live}`}
-          onMouseDown={e => e.preventDefault()} onClick={() => void onSave(null)}>
-          Undo: use the Hub number
-        </button>
+        <div className="gb-tip">
+          <span>{explain}</span>
+          <button className="gb-undo" disabled={disabled} onMouseDown={e => e.preventDefault()} onClick={() => void onSave(null)}>
+            Undo: use the Hub number
+          </button>
+        </div>
       )}
       {off && <div className="gb-offnote">Not counting</div>}
       {penalty > 0 && (

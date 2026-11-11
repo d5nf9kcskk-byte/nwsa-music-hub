@@ -88,7 +88,7 @@
 .gb-final b { font-size: 17px; }
 .gb-flag { display: block; font-size: 12px; font-weight: 400; color: var(--dir-danger); }
 
-.gb-cell { position: relative; min-width: 72px; }
+.gb-cell { position: relative; min-width: 72px; overflow: visible; }
 .gb-input {
   width: 56px; padding: 4px 6px; border: 1px solid transparent; border-radius: 6px;
   background: transparent; color: var(--dir-text); font: inherit; text-align: right;
@@ -97,12 +97,18 @@
 .gb-input:focus { border-color: var(--dir-primary); outline: none; background: var(--dir-surface); }
 .gb-input::placeholder { color: var(--dir-text-muted); }
 .gb-cell.typed .gb-input { font-weight: 800; }
-.gb-dot { position: absolute; top: 4px; right: 4px; color: var(--dir-primary); font-size: 16px; line-height: 1; }
-.gb-undo {
-  display: none; margin-top: 4px; padding: 2px 6px; border: 1px solid var(--dir-border); border-radius: 6px;
-  background: var(--dir-surface); color: var(--dir-text); font-size: 12px; white-space: nowrap; cursor: pointer;
+.gb-cell { white-space: nowrap; }
+.gb-dot { margin-left: 2px; color: var(--dir-primary); font-size: 20px; font-weight: 900; line-height: 1; vertical-align: middle; }
+.gb-tip {
+  display: none; position: absolute; left: 4px; top: calc(100% - 4px); z-index: 5; width: 210px;
+  padding: 8px; border: 1px solid var(--dir-border); border-radius: 8px; background: var(--dir-surface);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15); font-size: 13px; font-weight: 400; white-space: normal;
 }
-.gb-cell:focus-within .gb-undo, .gb-cell:hover .gb-undo { display: block; }
+.gb-cell:focus-within .gb-tip, .gb-cell:hover .gb-tip { display: block; }
+.gb-undo {
+  display: block; margin-top: 6px; padding: 4px 8px; border: 1px solid var(--dir-border); border-radius: 6px;
+  background: var(--dir-surface-2); color: var(--dir-text); font-size: 13px; cursor: pointer;
+}
 .gb-cell.off .gb-input { color: var(--dir-text-muted); }
 .gb-offnote { font-size: 11px; color: var(--dir-text-muted); }
 .gb-penalty { font-size: 12px; color: var(--dir-text-muted); white-space: nowrap; }
