@@ -1,16 +1,21 @@
 /**
- * Pins the Gradebook's table arithmetic (#gradebook). Run:
+ * Pins the Gradebook (#gradebook). Run:
  *   npx tsx src/director/grades/gradeTable.selfcheck.ts
  *
- * The world below is the real Q1 2026 calendar in miniature: a Symphony member
- * performs at the Pops concert, Festival I and the Midnight Ball (none of them
- * marked Required), sits in the audience at the College Chamber Orchestra
- * concert and the faculty recital (both marked Required), and a senior is
- * excused from the audience one. Every assertion is a rule a "tidy-up" could
- * break while the screen still looked right.
+ * The world is the real Q1 2026 calendar in miniature: a Symphony member
+ * performs at Pops, Festival I and the Midnight Ball (none marked Required),
+ * sits in the audience at the College Chamber Orchestra concert and the
+ * faculty recital (both Required), and a senior is excused from the audience
+ * one. Sections A1-A7 are the acceptance tests of the Nov 2026 rebuild,
+ * word for word; the rest are rules a tidy-up could break while the screen
+ * still looked right.
  */
-import { buildTable, concertLabel, type TableInput } from './gradeTable';
+import { readFileSync } from 'node:fs';
+import {
+  TABLE_DOC, buildTable, gridRows, offKey, rosterFor, tableSpecs, type TableInput, type TableModel,
+} from './gradeTable';
 import { itemKey, tallyGrade, type GradeCategory } from '../../shared/ensembleGrades';
+import { buildTable as buildReport, type ReportLayout } from '../../shared/interimReport';
 import type { Assignment, AttendanceRecord, CalendarEvent, Student } from '../types';
 
 function assert(cond: unknown, msg: string): void {
@@ -22,10 +27,10 @@ const CAM = 'camerata-string-orchestra';
 const CCO = 'college-chamber-orchestra';
 
 const PLAN: GradeCategory[] = [
-  { id: 'attendance', label: 'Attendance & Punctuality', weight: 30 },
+  { id: 'attendance', label: 'Attendance & Punctuality', weight: 30, showsRoll: true },
   { id: 'prep', label: 'Preparation & Participation', weight: 10 },
-  { id: 'exams', label: 'Playing Exams', weight: 15, suggest: 'exams' },
-  { id: 'performance', label: 'Performance', weight: 20 },
+  { id: 'exams', label: 'Playing Exams', weight: 15, suggest: 'exams', assignmentTypes: ['Playing Exam', 'Written Test', 'Other'] },
+  { id: 'performance', label: 'Performance', weight: 20, assignmentTypes: ['Performance'] },
   { id: 'concerts', label: 'Required Performance Attendance', weight: 15, suggest: 'concerts' },
   { id: 'professionalism', label: 'Professionalism', weight: 10 },
 ];
@@ -65,6 +70,7 @@ const checkins = [
 ];
 const records = [
   { id: 'r1', studentId: 's2', ensembleId: SYM, eventId: 'fest', date: '2026-10-03', status: 'Absent' },
+  { id: 'r2', studentId: 's2', ensembleId: SYM, eventId: 'reh1', date: '2026-09-01', status: 'Late' },
 ] as unknown as AttendanceRecord[];
 
 const exam = (id: string, due: string, extra: Partial<Assignment> = {}): Assignment =>
@@ -79,6 +85,8 @@ const assignments: Assignment[] = [
 const results = [
   { assignmentId: 'ex1', studentId: 's1', score: '90' }, { assignmentId: 'ex2', studentId: 's1', score: '80' },
   { assignmentId: 'ex1', studentId: 's2', score: '70' }, { assignmentId: 'ex2', studentId: 's2', score: '88.5' },
+  { assignmentId: 'other-group', studentId: 's1', score: '10' },
+  { assignmentId: 'next-quarter', studentId: 's1', score: '10' },
 ];
 
 const base: TableInput = {
@@ -94,270 +102,314 @@ const base: TableInput = {
   pulledFrom: () => false,
 };
 const table = (over: Partial<TableInput> = {}) => buildTable({ ...base, ...over });
-const row = (t: ReturnType<typeof table>, id: string) => t.rows.find(r => r.student.id === id)!;
+const row = (t: TableModel, id: string) => t.rows.find(r => r.student.id === id)!;
+const keys = (t: TableModel, kind?: string) => t.columns.filter(c => !kind || c.kind === kind).map(c => c.key).join();
+const K = (kind: 'exam' | 'concert', id: string) => itemKey(kind, id);
 
-/* ── 1. With nothing typed, the Hub speaks for the boxes ───────────────── */
+/* ── 1. Hub grades arrive by themselves, as columns in date order ──────── */
 
 const t0 = table();
-assert(t0.columns.length === 0, 'no columns until a director adds one');
+assert(keys(t0, 'exam') === `${K('exam', 'ex1')},${K('exam', 'ex2')}`,
+  'every graded assignment of the quarter is a column with nobody adding it; an ungraded written test, another '
+  + 'group\'s exam and next quarter\'s are not');
+assert(keys(t0, 'concert') === ['recital', 'pops', 'cco', 'fest', 'ball'].map(id => K('concert', id)).join(),
+  'every concert required of someone on the table is a column, in date order — not a cancelled one, a Wind-only one '
+  + 'or next quarter\'s');
+assert(t0.columns.every(c => c.counting), 'every Hub column counts until someone switches it off');
+const ex1Col = t0.columns.find(c => c.key === K('exam', 'ex1'))!;
+assert(ex1Col.graded === 2 && ex1Col.of === 3 && ex1Col.categoryId === 'exams', 'its header can say "Graded 2 of 3"');
+const ex2Col = t0.columns.find(c => c.key === K('exam', 'ex2'))!;
+assert(ex2Col.graded === 1, 'a score the Hub cannot read as a whole 0-100 is not "graded"');
+assert(row(t0, 's2').cells[K('exam', 'ex2')].value === null && row(t0, 's2').cells[K('exam', 'ex2')].raw === '88.5'
+  && row(t0, 's2').cells[K('exam', 'ex2')].blank === 'unreadable', 'and the cell says what the Hub holds instead');
+assert(row(t0, 's1').cats.exams.value === 85 && row(t0, 's2').cats.exams.value === 70,
+  'a category is the mean of the items actually graded for THAT student');
 
-// s1: recital 100 (entry-only, arrival scan), pops 100 (performer, no roll), cco 100 (both scans),
-//     fest 100 (rolled, no mark), ball 100 (performer, no roll).
+// Concerts, unchanged rules (#concert-roll).
 assert(row(t0, 's1').cats.concerts.value === 100, 'a student present at everything reads 100');
-// s2: recital 0 (never scanned), pops 100, cco 50 (checked in, never out), fest 0 (marked Absent), ball 100.
 assert(row(t0, 's2').cats.concerts.value === 50, 'mean of 0, 100, 50, 0, 100 — a missed concert is a real zero');
-assert(row(t0, 's2').concerts.held === 5 && row(t0, 's2').concerts.credited === 2
-  && row(t0, 's2').concerts.incomplete === 1, 'the evidence line: 2 credited of 5, one with no check-out');
-// s3 is a senior: excused from the CCO concert, so it LEAVES their denominator.
-assert(row(t0, 's3').concerts.excused === 1 && row(t0, 's3').concerts.held === 4,
-  'a senior excused from the audience requirement is out of the denominator, not a zero');
-assert(t0.requiredConcerts.map(e => e.id).join() === 'recital,pops,cco,fest,ball',
-  'the concerts that count are the ones required of someone on the table, in date order — a cancelled one, '
-  + 'a Wind-only one and next quarter\'s are not among them');
+assert(row(t0, 's3').cells[K('concert', 'cco')].value === null && row(t0, 's3').cells[K('concert', 'cco')].blank === 'excused',
+  'a senior excused from the audience requirement is blank for it, and the cell says excused');
+const ccoCol = t0.columns.find(c => c.key === K('concert', 'cco'))!;
+assert(ccoCol.graded === 2 && ccoCol.of === 3, 'graded 2 of the 3 it was required of');
 
-assert(row(t0, 's1').cats.exams.value === 85, 'with no exam columns the box averages every graded Playing Exam');
-assert(row(t0, 's2').cats.exams.value === 70,
-  'an exam whose score cannot be read as a whole 0-100 is left out, never counted as a zero');
-const ex2 = t0.windowExams.find(o => o.assignment.id === 'ex2')!;
-assert(ex2.graded === 1 && ex2.unreadable === 1 && ex2.of === 3,
-  'and the screen can say so: 1 graded, 1 the Hub could not read, of 3');
+assert(row(t0, 's1').cats.prep.value === null && !('prep' in row(t0, 's1').scores),
+  'a judgement box nobody filled is NOT scored — a blank is never a zero');
+assert(t0.judgement.has('prep') && t0.judgement.has('performance') && !t0.judgement.has('exams')
+  && !t0.judgement.has('concerts'), 'Fill reaches only the boxes a person fills — never exams or concerts, graded or not');
+assert(row(t0, 's2').att.late === 1 && row(t0, 's2').att.meetings === 2, 'the roll is there to read beside Attendance');
 
-assert(row(t0, 's1').scores.prep === undefined && row(t0, 's1').cats.prep.value === null,
-  'a judgement category nobody has filled is NOT scored — a blank is never a zero');
-assert(!('prep' in row(t0, 's1').scores), 'and it is absent from the scores the grade reads');
+/* ── A1. Grade 1 student of 78 on a new playing exam ──────────────────── */
 
-/* ── 2. Linked columns follow the Hub until a number is typed over them ─── */
-
-const ex1Key = itemKey('exam', 'ex1');
-const popsKey = itemKey('concert', 'pops');
-const t1 = table({
-  marks: {
-    s1: { scores: { [ex1Key]: null, [popsKey]: null } },
-    s2: { scores: { [ex1Key]: 50, [popsKey]: null } },     // s2: a typed 50 over a live 70
-  },
+const big = Array.from({ length: 78 }, (_, n) => student(`m${n}`, [SYM]));
+const bigRoster = big.map(s => ({ student: s, instrument: 'Viola' }));
+const bigBase: Partial<TableInput> = { roster: bigRoster, checkins: [], records: [], events: [], results: [] };
+const before = table({ ...bigBase, assignments: [...assignments, exam('new', '2026-10-01')] });
+assert(!before.columns.some(c => c.refId === 'new'), 'an exam nobody is graded on yet has no column');
+const after = table({
+  ...bigBase, assignments: [...assignments, exam('new', '2026-10-01')],
+  results: [{ assignmentId: 'new', studentId: 'm7', score: '93' }],
 });
-assert(t1.columns.map(c => c.key).join() === `${ex1Key},${popsKey}`,
-  'both columns exist although some cells are null, in the plan\'s category order (exams, then concerts)');
-assert(t1.columns.find(c => c.key === ex1Key)?.categoryId === 'exams'
-  && t1.columns.find(c => c.key === popsKey)?.categoryId === 'concerts', 'each lands under its own category');
-assert(row(t1, 's1').cells[ex1Key].value === 90 && row(t1, 's1').cells[ex1Key].typed === null,
-  'a blank cell is the live grade');
-assert(row(t1, 's2').cells[ex1Key].value === 50 && row(t1, 's2').cells[ex1Key].live === 70,
-  'a typed cell overrides the live one, and the live one is still known');
-assert(row(t1, 's1').cats.exams.value === 90,
-  'once a category has exam columns it averages THEM — only the exam added, not every exam in the quarter');
-assert(row(t1, 's2').cats.exams.value === 50, 'and a typed cell is what the box then adds up');
-assert(t1.pinned.exams.cells.length === 1 && t1.pinned.exams.cells[0].studentId === 's2'
-  && t1.pinned.exams.cells[0].key === ex1Key, 'the typed cell over a live one is reported as pinned');
-assert(row(t1, 's1').cats.concerts.value === 100, 'a concert column is the concert\'s own number');
+const newCol = after.columns.find(c => c.refId === 'new')!;
+assert(newCol && newCol.graded === 1 && newCol.of === 78, 'A1: the column exists the moment ONE student is graded: 1 of 78');
+assert(row(after, 'm7').cells[newCol.key].value === 93, 'A1: that cell shows the grade');
+assert(after.rows.filter(r => r.cells[newCol.key].value === null && r.cells[newCol.key].blank === 'not-graded').length === 77,
+  'A1: the other 77 cells are blank, "not graded yet"');
+assert(row(after, 'm7').cats.exams.value === 93, 'A1: that student\'s exam average is that one grade');
+assert(after.rows.filter(r => r.student.id !== 'm7').every(r => {
+  const b = row(before, r.student.id);
+  return JSON.stringify(b.cats) === JSON.stringify(r.cats) && b.final === r.final;
+}), 'A1: no other student\'s numbers moved');
 
-// A column whose exam was deleted still draws, and still says so.
-const tGone = table({ marks: { s1: { scores: { [itemKey('exam', 'gone')]: 77 } } } });
-assert(tGone.columns[0].label === 'Deleted exam' && row(tGone, 's1').cells[itemKey('exam', 'gone')].value === 77,
-  'a typed number under a deleted exam is kept and labelled, not dropped');
+/* ── A2. A college student, graded on an exam given through the Hub ───── */
 
-/* ── 3. Columns of the director\'s own ───────────────────────────────── */
+const c1 = { ...student('c1', [SYM, CCO], 'College Sophomore'), name: 'Rivera, Ana' } as Student;
+const h1 = { ...student('h1', [SYM]), name: 'Bloom, Eli' } as Student;
+const people = [c1, h1];
+const orchestra: ReportLayout = {
+  id: 'orchestra', title: 'Orchestra', source: { kind: 'ensemble', ensembleId: SYM },
+  headerColor: '#4472c4', conductLabel: 'Conduct', columns: ['fullName', 'grade', 'effort', 'conduct', 'codes'],
+};
+const symExam = exam('sym-ex', '2026-09-30');
+const graded = [{ assignmentId: 'sym-ex', studentId: 'c1', score: '88' }, { assignmentId: 'sym-ex', studentId: 'h1', score: '75' }];
+const specs = tableSpecs({
+  reports: [orchestra],
+  ensembles: [
+    { id: SYM, name: 'Symphony Orchestra' },
+    { id: CCO, name: 'College Chamber Orchestra', collegeLevel: true },
+  ],
+  students: people, assignments: [symExam], results: graded,
+  period: base.period, assigned: null,
+});
+const hsSpec = specs.find(t => t.id === 'orchestra')!;
+const colSpec = specs.find(t => t.id === `college:${SYM}`)!;
+assert(hsSpec.world === 'hs' && colSpec?.world === 'college' && colSpec.groupKey === `college:${SYM}`,
+  'A2: a college student in Symphony gets a "Symphony · College" table, filed under its own group key');
+assert(specs.some(t => t.id === `college:${CCO}`), 'A2: and every college ensemble gets one');
+const rosterOf = (spec: typeof hsSpec) => rosterFor({
+  spec, students: people, lessons: [], assignedStudentIds: [], span: base.span,
+});
+assert(rosterOf(hsSpec).map(r => r.student.id).join() === 'h1', 'A2: a high school table never holds a college student');
+assert(rosterOf(colSpec).map(r => r.student.id).join() === 'c1', 'A2: a college table never holds a high schooler');
 
-const sight = 'x:prep:Sight reading';
-const t2 = table({ marks: { s1: { scores: { [sight]: 80 } }, s2: { scores: { [sight]: null } } } });
-assert(t2.columns.length === 1 && t2.columns[0].kind === 'custom' && t2.columns[0].label === 'Sight reading'
-  && t2.columns[0].categoryId === 'prep', 'a column of one\'s own appears under its category');
-assert(row(t2, 's1').cats.prep.value === 80, 'the box is the average of its columns');
-assert(row(t2, 's2').cats.prep.value === null, 'a student nobody scored on the column has no number — not a zero');
+const collegeTable = (res: typeof graded) => table({
+  roster: rosterOf(colSpec), assignments: [symExam], results: res, checkins: [], records: [], events: [],
+  marks: { c1: { scores: { attendance: 100, prep: 100, performance: 100, professionalism: 100 } } },
+});
+const cBefore = collegeTable([]);
+const cAfter = collegeTable(graded);
+assert(row(cAfter, 'c1').cells[K('exam', 'sym-ex')].value === 88,
+  'A2: the Symphony exam lands in the college student\'s college table — the grade follows the student');
+assert(row(cBefore, 'c1').final !== row(cAfter, 'c1').final && row(cAfter, 'c1').final === Math.round((100 * 70 + 88 * 15) / 85),
+  'A2: and moves their college final grade');
+const hsModel = table({ roster: rosterOf(hsSpec), assignments: [symExam], results: graded, checkins: [], records: [], events: [] });
+assert(hsModel.rows.every(r => r.student.id !== 'c1'), 'A2: it is in no high school table');
+const email = buildReport(orchestra, 'Q1i', hsModel.rows.map(r => ({
+  studentId: r.student.id, name: r.student.name, percent: r.final, effort: null, conduct: null, codes: [],
+})));
+assert(!JSON.stringify(email).includes('Rivera'), 'A2: and not in the high school email');
 
-const t2b = table({ marks: { s1: { scores: { [sight]: 80, prep: 100 } } } });
-assert(row(t2b, 's1').cats.prep.value === 100 && row(t2b, 's1').cats.prep.derived === 80,
-  'a number typed into the box beats the columns, and the columns\' answer is still known');
-assert(t2b.pinned.prep.students.join() === 's1', 'so the screen can offer to follow the columns again');
+/* ── A3. A regrade reaches everything with no manual step ──────────────── */
 
-const t2c = table({ marks: { s1: { scores: { 'x:nowhere:Ghost': 90 } } } });
-assert(t2c.columns.length === 0, 'a column filed under a category this plan does not have is ignored, not crashed on');
+const regraded = collegeTable([{ assignmentId: 'sym-ex', studentId: 'c1', score: '60' }]);
+const grid = gridRows(regraded, PLAN, s => s.name);
+assert(row(regraded, 'c1').cells[K('exam', 'sym-ex')].value === 60 && row(regraded, 'c1').cats.exams.value === 60,
+  'A3: the cell and the category show the new grade');
+assert(row(regraded, 'c1').final === Math.round((100 * 70 + 60 * 15) / 85), 'A3: so does the final grade');
+assert(grid[1].includes('60') && grid[1][grid[1].length - 1] === String(row(regraded, 'c1').final),
+  'A3: and the export, read from the same model');
 
-/* ── 4. Things that cost points ──────────────────────────────────────── */
+/* ── A4. A hand-made column never changes which Hub items count ───────── */
+
+const sight = 'x:exams:Sight reading';
+const withOwn = table({ marks: { [TABLE_DOC]: { scores: { [sight]: null } }, s1: { scores: { [sight]: 70 } } } });
+assert(keys(withOwn, 'exam') === keys(t0, 'exam') && keys(withOwn, 'concert') === keys(t0, 'concert')
+  && withOwn.columns.filter(c => c.kind !== 'custom').every(c => c.counting),
+  'A4: adding a column of one\'s own adds that column and nothing starts or stops counting');
+assert(row(withOwn, 's2').cats.exams.value === row(t0, 's2').cats.exams.value,
+  'A4: a student with nothing typed in it keeps exactly the same average');
+assert(row(withOwn, 's1').cats.exams.value === Math.round((90 + 80 + 70) / 3), 'A4: a typed one is one more item');
+// The old mode flip: an exam column for ex1 alone used to drop ex2 out of the box.
+const legacyOne = table({ marks: { s1: { scores: { [K('exam', 'ex1')]: null } } } });
+assert(row(legacyOne, 's1').cats.exams.value === 85, 'A4: an old one-exam column no longer drops the other exam');
+
+/* ── A5. An ungraded item is never a zero, anywhere ───────────────────── */
+
+const g0 = gridRows(t0, PLAN, s => s.name);
+const s3line = g0.find(r => r[0] === 's3')!;
+const exIdx = g0[0].indexOf('ex1');
+assert(s3line[exIdx] === '' && s3line[g0[0].indexOf('Playing Exams')] === '',
+  'A5: an ungraded exam is an empty cell in the export, and so is the average built on nothing');
+assert(s3line[s3line.length - 1] === '', 'A5: a student below the coverage floor has a blank final, not a zero');
+assert(!t0.rows.some(r => Object.values(r.cells).some(c => c.value === 0 && c.typed === null && c.live === null)),
+  'A5: no cell reads zero without the Hub or a person saying zero');
+const emailBlank = buildReport(orchestra, 'Q1i', [{ studentId: 's3', name: 's3', percent: row(t0, 's3').final, effort: null, conduct: null, codes: [] }]);
+assert(emailBlank.rows[0][1] === '', 'A5: and the email cell is blank');
+
+/* ── 2. Typing over the Hub, and going back ──────────────────────────── */
+
+const typed = table({ marks: { s2: { scores: { [K('exam', 'ex1')]: 50, exams: 99 } } } });
+const cell = row(typed, 's2').cells[K('exam', 'ex1')];
+assert(cell.typed === 50 && cell.live === 70 && cell.value === 50,
+  'a typed cell wins and the Hub\'s number is still known ("You typed 50. The Hub says 70.")');
+assert(row(typed, 's2').cats.exams.typed === 99 && row(typed, 's2').cats.exams.derived === 50
+  && row(typed, 's2').cats.exams.value === 99, 'a number typed into the box wins over its columns, which are still known');
+const typedOnGone = table({ marks: { s1: { scores: { [K('exam', 'gone')]: 77 } } } });
+assert(typedOnGone.columns.some(c => c.label === 'Deleted assignment') && row(typedOnGone, 's1').cats.exams.value === Math.round((90 + 80 + 77) / 3),
+  'a number typed under a deleted assignment is kept, labelled, and still counts');
+const nullOnly = table({ marks: { s1: { scores: { [K('concert', 'wind-only')]: null } } } });
+assert(!nullOnly.columns.some(c => c.refId === 'wind-only'), 'an old empty column marker for a non-required concert draws nothing');
+
+/* ── 3. "Not counting" — visible, greyed, and out of the average ──────── */
+
+const off = table({ marks: { [TABLE_DOC]: { scores: { [offKey(K('exam', 'ex2'))]: 1 } } } });
+const offCol = off.columns.find(c => c.key === K('exam', 'ex2'))!;
+assert(offCol && !offCol.counting, 'a switched-off Hub column is still on the table');
+assert(row(off, 's1').cats.exams.value === 90, 'and leaves the average: only ex1 (90) counts for s1');
+assert(row(off, 's1').cells[K('exam', 'ex2')].value === 80, 'while its grade is still shown');
+assert(gridRows(off, PLAN, s => s.name)[0].includes('ex2 (not counting)'), 'and the export says so');
+
+/* ── 4. Columns of one's own, and penalties ───────────────────────────── */
 
 const phone = 'd:professionalism:2:Phone out in class';
 const t3 = table({
   marks: {
+    [TABLE_DOC]: { scores: { [phone]: null } },
     s1: { scores: { professionalism: 100, [phone]: 3 } },
-    s2: { scores: { [phone]: 3 } },                      // incidents, and nothing else to grade
-    s3: { scores: { professionalism: 100, [phone]: null } },
+    s2: { scores: { [phone]: 3 } },
   },
 });
-assert(t3.columns[0].kind === 'tally' && t3.columns[0].points === 2, 'an incident column knows what each one costs');
-assert(row(t3, 's1').cats.professionalism.value === 94,
-  'filled at 100, three phones at 2 points each: 94 — the penalty comes off a typed number too');
-assert(row(t3, 's1').cats.professionalism.penalty === 6 && row(t3, 's1').cats.professionalism.base === 100,
-  'and the screen can show "−6 → 94"');
-assert(row(t3, 's2').cats.professionalism.value === null,
-  'incidents alone never CREATE a grade: three phones and nothing else is not a 94');
-assert(row(t3, 's3').cats.professionalism.value === 100, 'a blank count is no incident');
-assert(row(t3, 's1').counts[phone] === 3 && row(t3, 's3').counts[phone] === 0, 'counts are read per student');
-assert(t3.pinned.professionalism.students.length === 0,
-  'a typed number with nothing for the Hub to say is not "pinned" — there is no live number to follow');
+const ph = t3.columns.find(c => c.key === phone)!;
+assert(ph.kind === 'tally' && ph.points === 2 && ph.categoryId === 'professionalism', 'a penalty column knows its cost and category');
+assert(row(t3, 's1').cats.professionalism.value === 94, 'filled at 100, three at 2 points each: 94');
+assert(row(t3, 's2').cats.professionalism.value === null, 'penalties alone never CREATE a grade');
+assert(row(t3, 's3').counts[phone] === 0, 'a blank count is none');
+assert(t3.judgement.has('professionalism'), 'a box with only a penalty column is still one a person fills');
+const ghost = table({ marks: { s1: { scores: { 'x:nowhere:Ghost': 90 } } } });
+assert(!ghost.columns.some(c => c.label === 'Ghost'), 'a column filed under a category this plan lacks is ignored');
 
-const withBoth = table({
-  marks: { s1: { scores: { [sight]: 90, [phone.replace('professionalism', 'prep')]: 2 } } },
-});
-assert(row(withBoth, 's1').cats.prep.value === 86, 'a graded column and an incident column on one category: 90 − 2×2');
+/* ── 5. Lessons are live ─────────────────────────────────────────────── */
 
-/* ── 5. The applied lesson average is live ──────────────────────────── */
-
-const live = table({
-  ensembleId: '', plan: APPLIED, lessonAverages: { s1: 91 },
-  marks: { s1: { scores: {} } },
-});
-assert(row(live, 's1').cats.lessons.value === 91, 'the lesson average comes straight from the lessons');
-const later = table({ ensembleId: '', plan: APPLIED, lessonAverages: { s1: 88 }, marks: { s1: { scores: {} } } });
-assert(row(later, 's1').cats.lessons.value === 88,
-  'and moves when another lesson is graded — nothing was copied into a box');
-assert(row(live, 's2').cats.lessons.value === null, 'a student with no graded lessons has no number, not a zero');
-
+const live = table({ ensembleId: '', plan: APPLIED, lessonAverages: { s1: 91 } });
+assert(live.columns.map(c => c.kind).join() === 'lessons' && row(live, 's1').cats.lessons.value === 91,
+  'the lesson average is its own column and the box follows it');
+assert(row(table({ ensembleId: '', plan: APPLIED, lessonAverages: { s1: 88 } }), 's1').cats.lessons.value === 88,
+  'and moves when another lesson is graded');
+assert(row(live, 's2').cats.lessons.value === null, 'no graded lessons is no number, not a zero');
 const frozen = table({ ensembleId: '', plan: APPLIED, lessonAverages: { s1: 88 }, marks: { s1: { scores: { lessons: 91 } } } });
 assert(row(frozen, 's1').cats.lessons.value === 91 && row(frozen, 's1').cats.lessons.derived === 88,
-  'an old snapshot typed into the box still wins — until the director follows the Hub again');
-assert(frozen.pinned.lessons.students.join() === 's1', 'and it is reported, so "follow the Hub" can find it');
+  'an old number typed into the box survives the rebuild as a typed-over number');
+assert(table({ ensembleId: '', plan: APPLIED }).columns.length === 0, 'the applied table has no assignments or concerts');
 
-const jury = table({
-  ensembleId: '', plan: APPLIED, lessonAverages: { s1: 91 },
-  marks: { s1: { scores: { 'x:lessons:Jury': 79 } } },
+/* ── 6. The "as of" date governs dated things, never grades ─────────────── */
+
+const ex3 = exam('ex3', '2026-10-10');
+const interim = table({
+  span: { from: '2026-08-13', through: '2026-10-01' },
+  assignments: [...assignments, ex3],
+  results: [...results, { assignmentId: 'ex3', studentId: 's1', score: '60' }],
+  marks: { s2: { scores: { [K('concert', 'ball')]: 77 } } },
 });
-assert(row(jury, 's1').cats.lessons.value === 85, 'the lesson average and a jury grade are averaged: 91 and 79 → 85');
-assert(table({ ensembleId: '', plan: APPLIED }).concertOptions.length === 0
-  && table({ ensembleId: '', plan: APPLIED }).examOptions.length === 0, 'the applied table offers no concerts or exams');
+assert(!interim.columns.some(c => c.refId === 'fest'), 'an interim as of Oct 1 holds no Oct 3 concert');
+assert(row(interim, 's1').cells[K('exam', 'ex3')].value === 60,
+  'but a grade entered for an exam due after the "as of" date still shows and counts');
+assert(row(interim, 's2').cells[K('concert', 'ball')].value === 77, 'and a number TYPED for a later concert is still the director\'s');
+const tomorrow = table({ today: '2026-10-05' });
+assert(!tomorrow.columns.some(c => c.refId === 'ball'), 'a concert that has not happened yet credits nobody');
 
-/* ── 6. What "+ Add" offers ─────────────────────────────────────────── */
-
-const opts = table({ marks: { s1: { scores: { [popsKey]: null } } } });
-assert(opts.concertOptions.every(o => o.event.id !== 'pops'), 'a concert already a column is not offered twice');
-assert(!opts.concertOptions.some(o => o.event.id === 'cancelled'), 'a cancelled concert is not offered');
-assert(!opts.concertOptions.some(o => o.event.id === 'later'), 'a concert outside the quarter is not offered');
-assert(opts.concertOptions.find(o => o.event.id === 'fest')?.relation === 'performs',
-  'a concert the Symphony plays is offered although nobody marked it Required');
-assert(opts.concertOptions.find(o => o.event.id === 'cco')?.relation === 'required',
-  'the audience concert is offered as required');
-assert(opts.concertOptions.find(o => o.event.id === 'wind-only')?.relation === 'other',
-  'another group\'s concert is offered last, as "other" — the director decides');
-
-// A drummer in two groups: the Wind concert is theirs to attend, but it is never "the Symphony's".
-const drummer = student('drummer', [SYM, 'wind']);
-const tDual = table({ roster: [...roster, { student: drummer, instrument: 'Percussion' }] });
-assert(tDual.concertOptions.find(o => o.event.id === 'wind-only')?.relation === 'other'
-  && !tDual.requiredConcerts.some(e => e.id === 'wind-only'),
-  'one student who also plays in another group must not turn that group\'s concert into the Symphony\'s');
-assert(row(tDual, 'drummer').concerts.held === 6 && row(tDual, 'drummer').concerts.credited === 4,
-  'but it still counts for THEM: required at both groups\' concerts (4 of 6 credited, the recital and the CCO concert unscanned)');
-assert(row(tDual, 's1').concerts.held === 5, 'and nobody else on the table is affected');
-
-const early = table({ today: '2026-09-29', span: { from: '2026-08-13', through: '2026-09-29' } });
-assert(!early.concertOptions.some(o => o.event.id === 'fest') && early.concertOptions.some(o => o.event.id === 'cco'),
-  'a concert that has not happened by the cutoff cannot be added yet');
-
-assert(table().examOptions.map(o => o.assignment.id).join() === 'ex1,wt,ex2',
-  'every assignment this group has this quarter is offered, whatever its type, by due date — '
-  + 'not the Camerata\'s, and not next quarter\'s');
-const optEx = table({ marks: { s1: { scores: { [ex1Key]: null } } } }).examOptions;
-assert(!optEx.some(o => o.assignment.id === 'ex1'), 'an exam already a column is not offered twice');
-assert(concertLabel({ date: '2026-10-03', title: 'Festival I' }) === 'Festival I · 10/3', 'a concert column heading');
-
-/* ── 7. The email reads the same numbers ─────────────────────────────── */
-
-const grade = (t: ReturnType<typeof table>, id: string) => tallyGrade(PLAN, row(t, id).scores).percent;
-const full = table({
-  marks: {
-    s1: { scores: { attendance: 100, prep: 100, performance: 95, professionalism: 100 } },
-    s2: { scores: { attendance: 90 } },
-  },
-});
-// s1: attendance 100×30, prep 100×10, exams 85×15, performance 95×20, concerts 100×15, professionalism 100×10
-assert(grade(full, 's1') === Math.round((100 * 30 + 100 * 10 + 85 * 15 + 95 * 20 + 100 * 15 + 100 * 10) / 100),
-  'live exams and concerts count toward the grade with nothing copied into a box');
-// s2: attendance 90×30, exams 70×15 (the one exam that reads), concerts 50×15 = 60 of 100 points scored.
-assert(grade(full, 's2') === Math.round((90 * 30 + 70 * 15 + 50 * 15) / 60),
-  'a student exactly past the coverage floor gets the re-normalized grade');
-assert(grade(table(), 's1') === null,
-  'a student with only live sources — 30 of 100 points — gets NO percent: below the floor, no grade');
-
-/* ── 8. Excusals, whoever decides them ──────────────────────────────── */
+/* ── 7. Excusals and the concert rules an earlier review found ────────── */
 
 const pulled = table({ pulledFrom: (s, e) => s.id === 's1' && e.id === 'fest' });
-assert(row(pulled, 's1').concerts.excused === 1 && row(pulled, 's1').concerts.held === 4
-  && row(pulled, 's1').cats.concerts.value === 100,
-  'a student pulled from a concert is blank for it and out of the denominator');
-
-const seniorPerforms = ev('senior-perf', '2026-09-20', { ensembleIds: [SYM], attendanceExcusedGrades: ['12'] } as Partial<CalendarEvent>);
-const tSenior = table({
-  events: [...events, seniorPerforms],
-  marks: { s3: { scores: { [itemKey('concert', 'senior-perf')]: null } } },
-});
-assert(row(tSenior, 's3').cells[itemKey('concert', 'senior-perf')].value === 100,
-  'a senior excused from an AUDIENCE requirement still plays when they perform on it');
-
-/* ── 9. What an independent review found ─────────────────────────────── */
-
-// (a) A drummer in two groups: the roll that counts at the Wind concert is the
-// Wind roll, on EITHER group's table. Reading only the table's own group made
-// the two district tables disagree about one student at one concert.
+assert(row(pulled, 's1').cells[K('concert', 'fest')].value === null && row(pulled, 's1').cats.concerts.value === 100,
+  'a student pulled from a concert is blank for it, never a zero');
 const WIND = 'wind';
 const windGig = ev('wind-gig', '2026-09-30', { ensembleIds: [WIND], rollTaken: { [WIND]: { at: 1, absent: 1 } } } as Partial<CalendarEvent>);
-const drummer2 = student('drummer2', [SYM, WIND]);
-const windAbsent = [{ id: 'w1', studentId: 'drummer2', ensembleId: WIND, eventId: 'wind-gig', date: '2026-09-30', status: 'Absent' }] as unknown as AttendanceRecord[];
-const gigKey = itemKey('concert', 'wind-gig');
+const drummer = student('drummer', [SYM, WIND]);
 const dual = {
   events: [...events, windGig],
-  records: [...records, ...windAbsent],
-  roster: [{ student: drummer2, instrument: 'Percussion' }],
-  marks: { drummer2: { scores: { [gigKey]: null } } },
+  records: [...records, { id: 'w1', studentId: 'drummer', ensembleId: WIND, eventId: 'wind-gig', date: '2026-09-30', status: 'Absent' }] as unknown as AttendanceRecord[],
+  roster: [{ student: drummer, instrument: 'Percussion' }],
 };
-assert(row(table(dual), 'drummer2').cells[gigKey].live === 0,
-  'marked Absent on the Wind roll: a zero on the Symphony table, where the drummer is also a member');
-assert(row(buildTable({ ...base, ...dual, ensembleId: WIND }), 'drummer2').cells[gigKey].live === 0,
-  'and the same zero on the Wind table — the two district tables cannot disagree about one student at one concert');
-
-// (b) A cancelled concert says nothing about anyone, and its column says so.
-const cancelledKey = itemKey('concert', 'cancelled');
-const tCancelled = table({ marks: { s1: { scores: { [cancelledKey]: null } } } });
-assert(row(tCancelled, 's1').cells[cancelledKey].live === null,
-  'a column for a concert that was later cancelled reads blank — never 100 for a performer, never 0 for the audience');
-assert(tCancelled.columns[0].label.includes('(cancelled)'), 'and its heading says it was cancelled');
-assert(row(tCancelled, 's1').cats.concerts.value === null, 'so it adds nothing to the box');
-
-// (c) The Gradebook has always counted any event marked Required, whatever its type.
+assert(row(table(dual), 'drummer').cells[K('concert', 'wind-gig')].value === 0
+  && row(buildTable({ ...base, ...dual, ensembleId: WIND }), 'drummer').cells[K('concert', 'wind-gig')].value === 0,
+  'a drummer marked Absent on the Wind roll reads 0 on BOTH tables — they cannot disagree');
+assert(table(dual).rows.length === 1 && !t0.columns.some(c => c.refId === 'wind-gig'),
+  'and the Wind gig is a column only where someone it is required of sits');
 const assembly = { id: 'assembly', type: 'Event', ensembleIds: [], attendanceEnsembleIds: [SYM], date: '2026-09-17', status: 'Scheduled', concertAttendance: 'required', checkin: { enabled: true } } as unknown as CalendarEvent;
 const club = { id: 'club', type: 'Event', ensembleIds: [SYM], date: '2026-09-18', status: 'Scheduled' } as unknown as CalendarEvent;
 const tEvent = table({ events: [...events, assembly, club] });
-assert(tEvent.requiredConcerts.some(e => e.id === 'assembly')
-  && tEvent.concertOptions.find(o => o.event.id === 'assembly')?.relation === 'required',
-  'an Event-typed item marked Required still counts and is still offered (the student\'s own tally counts its scans too)');
-assert(!tEvent.requiredConcerts.some(e => e.id === 'club') && !tEvent.concertOptions.some(o => o.event.id === 'club'),
-  'while an ordinary unflagged Event is not a concert at all');
+assert(tEvent.columns.some(c => c.refId === 'assembly') && !tEvent.columns.some(c => c.refId === 'club'),
+  'an Event marked Required counts like a concert; an ordinary Event does not');
+const unflagged = ev('aud-unflagged', '2026-09-12', { ensembleIds: [CCO], attendanceEnsembleIds: [SYM] } as Partial<CalendarEvent>);
+assert(!table({ events: [...events, unflagged] }).columns.some(c => c.refId === 'aud-unflagged'),
+  'an audience concert without the Required flag has no door station, so it is nobody\'s column');
 
-// (d) A column respects the report's "as of" date, like the live fallback does.
-const ex3 = exam('ex3', '2026-10-10');
-const tInterim = table({
-  span: { from: '2026-08-13', through: '2026-10-01' },
-  assignments: [...assignments, ex3],
+/* ── 8. The final grade is the workbook's formula over the same numbers ── */
+
+const full = table({
+  marks: { s1: { scores: { attendance: 100, prep: 100, performance: 95, professionalism: 100 } } },
+});
+assert(row(full, 's1').final === Math.round((100 * 30 + 100 * 10 + 85 * 15 + 95 * 20 + 100 * 15 + 100 * 10) / 100)
+  && row(full, 's1').final === tallyGrade(PLAN, row(full, 's1').scores).percent,
+  'live exams and concerts count toward the grade with nothing copied into a box');
+
+/* ── A6. Old marks survive: every stored key reads back where it was ───── */
+
+const legacy = table({
   marks: {
-    s1: { scores: { [itemKey('concert', 'ball')]: null, [itemKey('concert', 'fest')]: null, [itemKey('exam', 'ex2')]: null } },
-    s2: { scores: { [itemKey('concert', 'ball')]: 77 } },
+    s1: { scores: { prep: 90, exams: 83, [K('exam', 'ex1')]: 95, 'x:prep:Sight reading': 80, 'd:professionalism:2:Cell phone violations': 1, professionalism: 100 } },
   },
 });
-assert(row(tInterim, 's1').cells[itemKey('concert', 'ball')].live === null
-  && row(tInterim, 's1').cells[itemKey('concert', 'fest')].live === null,
-  'an interim as of Oct 1 does not already hold the Oct 3 and Oct 6 concerts');
-assert(row(tInterim, 's1').cells[itemKey('exam', 'ex2')].live === 80, 'but an exam due before the cutoff is live');
-assert(row(tInterim, 's2').cells[itemKey('concert', 'ball')].value === 77,
-  'and a number TYPED into a cell past the cutoff is still the director\'s number');
-assert(!tInterim.examOptions.some(o => o.assignment.id === 'ex3')
-  && table({ assignments: [...assignments, ex3] }).examOptions.some(o => o.assignment.id === 'ex3'),
-  'the exam menu stops at the cutoff the way the concert menu does');
+const L = row(legacy, 's1');
+assert(L.cats.exams.typed === 83 && L.cells[K('exam', 'ex1')].typed === 95 && L.cells['x:prep:Sight reading'].value === 80
+  && L.counts['d:professionalism:2:Cell phone violations'] === 1 && L.cats.professionalism.value === 98,
+  'A6: typed boxes, typed cells, own columns and penalty columns all read back on the same student');
+// (The before/after comparison against live data is scripts/gradebook-before-after.ts.)
 
-// (e) Someone in the AUDIENCE is measurable only when the concert is marked Required.
-const unflagged = ev('aud-unflagged', '2026-09-12', { ensembleIds: [CCO], attendanceEnsembleIds: [SYM] } as Partial<CalendarEvent>);
-const unflaggedKey = itemKey('concert', 'aud-unflagged');
-const tAudience = table({ events: [...events, unflagged], marks: { s1: { scores: { [unflaggedKey]: null } } } });
-assert(row(tAudience, 's1').cells[unflaggedKey].live === null,
-  'no Required flag means no door station, so "no scan" is blank — it must not read as "did not come"');
-assert(row(table({ marks: { s2: { scores: { [itemKey('concert', 'recital')]: null } } } }), 's2').cells[itemKey('concert', 'recital')].live === 0,
-  'while a Required concert with no scan is a real zero');
+/* ── A7. The words on the screen ─────────────────────────────────────── */
+
+const ui = ['./GradebookView.tsx', './OwnColumnForm.tsx']
+  .map(f => readFileSync(new URL(f, import.meta.url), 'utf8')).join('\n');
+// Words a person reads: JSX text, and the strings in title / aria / placeholder / confirm.
+// JSX text is what sits between tags and reads like prose rather than code.
+const shown = [
+  ...[...ui.matchAll(/>([^<>{}]*[A-Za-z][^<>{}]*)</g)].map(m => m[1]).filter(t => !/[=;(]/.test(t)),
+  ...[...ui.matchAll(/`([^`]*)`/g)].map(m => m[1].replace(/\$\{[^}]*\}/g, ' ')),
+  ...[...ui.matchAll(/(?:title|aria-label|placeholder)=["']([^"']+)["']/g)].map(m => m[1]),
+  ...[...ui.matchAll(/'([A-Z][^']{6,})'/g)].map(m => m[1]),
+];
+for (const word of ['pinned', 'tally', 'suggest', 'Follow the Hub', 'Use the average']) {
+  const hit = shown.find(t => t.toLowerCase().includes(word.toLowerCase()));
+  assert(!hit, `A7: "${word}" appears in the UI: ${hit}`);
+}
+const ALLOWED = new Set([
+  'Fill empty boxes with 100', 'Add my own column', 'Add a penalty', 'Copy the email', 'Copy the table',
+  'Remove this column', 'Undo: use the Hub number', 'Add the column', 'Cancel',
+]);
+/** Each `<button …>label</button>`: the opening tag ends at the first `>`
+ *  outside braces, so an arrow function in an attribute does not end it. */
+function buttons(src: string): [string, string][] {
+  const out: [string, string][] = [];
+  for (let at = src.indexOf('<button'); at >= 0; at = src.indexOf('<button', at + 1)) {
+    let depth = 0;
+    let n = at + 7;
+    for (; n < src.length; n++) {
+      if (src[n] === '{') depth++;
+      else if (src[n] === '}') depth--;
+      else if (src[n] === '>' && depth === 0) break;
+    }
+    out.push([src.slice(at + 7, n), src.slice(n + 1, src.indexOf('</button>', n))]);
+  }
+  return out;
+}
+for (const [attrs, label] of buttons(ui)) {
+  const text = label.replace(/\{[^}]*\}/g, '').replace(/<[^>]+>/g, '').replace(/&times;/g, '').trim();
+  if (/role="tab"/.test(attrs)) continue;                       // a tab is the class's name
+  if (text === '' || /^\W*$/.test(text)) {
+    assert(/aria-label=\{?`Remove /.test(attrs), `A7: a button with no words must say what it does: ${attrs.slice(0, 80)}`);
+    continue;
+  }
+  assert(ALLOWED.has(text), `A7: button "${text}" is not one of the plain verb phrases`);
+}
 
 console.log('gradeTable self-check: ok');

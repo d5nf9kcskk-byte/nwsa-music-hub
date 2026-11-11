@@ -19,7 +19,12 @@ export interface OrgGrading {
    * grading is deliberately off for that group and must never be
    * re-defaulted (the `Assignment.rubric` three-state rule).
    */
-  plans: { default: GradeCategory[]; byGroupKey?: Record<string, GradeCategory[]> };
+  plans: {
+    default: GradeCategory[];
+    /** Every college table's plan (#gradebook, Nov 2026); `default` when absent. */
+    college?: GradeCategory[];
+    byGroupKey?: Record<string, GradeCategory[]>;
+  };
   /** When the district requires a written reason alongside a grade. */
   commentRules: CommentRules;
   /** The district's comment code list: code → what it means. */

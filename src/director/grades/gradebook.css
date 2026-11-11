@@ -1,313 +1,136 @@
-/* Gradebook (#gradebook). A grade sheet is a wide table by nature, so the
-   table gets its own horizontal scroller with a pinned name column rather
-   than being squeezed into a phone-width card and losing the evidence that
-   makes the numbers defensible. */
+/* Gradebook (#gradebook): one spreadsheet a tired teacher reads at a glance.
+   Frozen header row, frozen name column on the left and final grade on the
+   right; everything else scrolls sideways inside its own box. */
 
-.dir-gradebook { padding-bottom: 40px; }
+.dir-gradebook { padding-bottom: 40px; font-size: 15px; color: var(--dir-text); }
 
-.dir-gb-controls { flex-wrap: wrap; gap: 8px; align-items: center; }
-.dir-gb-controls .dir-input { width: auto; min-width: 140px; }
-.dir-gb-cutoff,
-.dir-gb-hsonly {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--dir-muted, #64748b);
+.gb-top { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 12px; }
+.gb-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--dir-text-muted); }
+.gb-field .dir-input { min-width: 160px; width: auto; font-size: 15px; }
+.gb-narrow .dir-input { min-width: 80px; width: 90px; }
+
+.gb-steps {
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+  list-style: none; margin: 0 0 14px; padding: 0;
+  font-size: 13px; color: var(--dir-text-muted);
 }
-.dir-gb-cutoff .dir-input { min-width: 150px; }
-
-.dir-gb-note {
-  margin: 8px 0 12px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--dir-muted, #64748b);
+.gb-steps li b {
+  display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 4px;
+  border: 1px solid var(--dir-border); border-radius: 50%; font-size: 12px;
 }
+.gb-steps li.done { color: var(--dir-text); }
+.gb-steps li.done b { font-size: 0; }
+.gb-steps li.done b::before { content: '✓'; font-size: 12px; }
+.gb-steps li.now { color: var(--dir-text); font-weight: 700; }
+.gb-steps li.now b { background: var(--dir-primary); border-color: var(--dir-primary); color: #fff; }
 
-.dir-gb-tabs { margin-bottom: 12px; }
-
-.dir-gb-scroll {
-  overflow-x: auto;
-  border: 1px solid var(--dir-border, #e2e8f0);
-  border-radius: 10px;
-  background: var(--dir-card, #fff);
+.gb-tabs { display: grid; gap: 6px; margin-bottom: 12px; }
+.gb-tabrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.gb-tabrow-label { min-width: 92px; font-size: 13px; font-weight: 700; color: var(--dir-text-muted); }
+.gb-tab {
+  padding: 6px 12px; border: 1px solid var(--dir-border); border-radius: 999px;
+  background: var(--dir-surface); color: var(--dir-text); font-size: 14px; cursor: pointer;
 }
+.gb-tab.active { background: var(--dir-primary); border-color: var(--dir-primary); color: #fff; font-weight: 700; }
 
-.dir-gb-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
-.dir-gb-table th,
-.dir-gb-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--dir-border, #e2e8f0);
-  text-align: left;
-  vertical-align: top;
-  white-space: nowrap;
-}
-.dir-gb-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--dir-card, #fff);
-  font-size: 12px;
-  font-weight: 600;
-  box-shadow: inset 0 -1px 0 var(--dir-border, #e2e8f0);
-}
-.dir-gb-table th.dir-gb-name,
-.dir-gb-table td.dir-gb-name {
-  position: sticky;
-  left: 0;
-  z-index: 3;
-  background: var(--dir-card, #fff);
-  min-width: 260px;
-  white-space: normal;
-  border-right: 1px solid var(--dir-border, #e2e8f0);
-}
-.dir-gb-table thead th.dir-gb-name { z-index: 4; }
+.gb-explain, .gb-hint, .gb-loading { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: var(--dir-text-muted); }
+.gb-typed-sample { color: var(--dir-text); }
+.gb-typed-sample::after { content: ' •'; color: var(--dir-primary); }
 
-.dir-gb-weight { font-weight: 400; font-size: 11px; color: var(--dir-muted, #64748b); }
+.gb-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+.gb-copied { font-size: 14px; color: var(--dir-text); }
 
-/* A box and the columns it averages read as one group: the box opens the
-   group with a rule on its left, its columns are tinted, and its heading says
-   in words what it is made of. */
-.dir-gb-table th.dir-gb-cat,
-.dir-gb-table td.dir-gb-cat { border-left: 2px solid var(--dir-border, #cbd5e1); }
-.dir-gb-avg {
-  max-width: 150px;
-  margin-top: 2px;
-  font-weight: 400;
-  font-size: 11px;
-  line-height: 1.35;
-  white-space: normal;
-  color: var(--dir-muted, #64748b);
+.gb-form {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+  margin: 8px 0 14px; padding: 12px; border: 1px solid var(--dir-border);
+  border-radius: var(--dir-radius, 10px); background: var(--dir-surface-2);
+}
+.gb-form-says { flex-basis: 100%; margin: 0; font-size: 14px; }
+.gb-form-buttons { display: flex; gap: 8px; }
+
+.gb-scroll {
+  overflow: auto; max-height: 75vh;
+  border: 1px solid var(--dir-border); border-radius: var(--dir-radius, 10px);
+  background: var(--dir-surface);
+}
+.gb-grid { border-collapse: separate; border-spacing: 0; font-size: 15px; }
+.gb-grid th, .gb-grid td {
+  padding: 6px 10px; border-bottom: 1px solid var(--dir-border); border-right: 1px solid var(--dir-border);
+  text-align: left; vertical-align: top; background: var(--dir-surface);
+}
+.gb-grid tbody tr:nth-child(even) > * { background: var(--dir-surface-2); }
+
+.gb-grid thead th { position: sticky; z-index: 2; font-weight: 600; }
+.gb-grid thead tr:first-child th { top: 0; }
+.gb-grid thead tr:nth-child(2) th { top: 37px; }
+.gb-group { text-align: center !important; font-size: 14px; white-space: nowrap; }
+.gb-avg-group { border-left: 3px double var(--dir-border); }
+.gb-col { min-width: 120px; max-width: 170px; font-size: 13px; }
+.gb-colname { font-size: 14px; font-weight: 700; white-space: normal; }
+.gb-colmeta { font-size: 12px; font-weight: 400; color: var(--dir-text-muted); white-space: normal; margin-top: 2px; }
+.gb-col.off .gb-colname { text-decoration: line-through; }
+.gb-switch { display: flex; gap: 4px; align-items: flex-start; margin-top: 4px; font-size: 12px; font-weight: 400; white-space: normal; }
+.gb-link {
+  margin-top: 4px; padding: 0; border: 0; background: none; color: var(--dir-danger);
+  font-size: 12px; text-decoration: underline; cursor: pointer;
 }
 
-.dir-gb-fill {
-  margin-top: 4px;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 6px;
-  font-size: 11px;
-  border: 1px solid var(--dir-border, #e2e8f0);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--dir-accent, #0d7e8e);
-  cursor: pointer;
+.gb-name {
+  position: sticky; left: 0; z-index: 1; min-width: 210px;
+  font-weight: 600; white-space: nowrap; box-shadow: 1px 0 0 var(--dir-border);
 }
-.dir-gb-fill:hover { background: rgba(13, 126, 142, 0.08); }
+.gb-grid thead .gb-name { z-index: 4; }
+.gb-final {
+  position: sticky; right: 0; z-index: 1; min-width: 90px; text-align: center !important;
+  box-shadow: -2px 0 0 var(--dir-border);
+}
+.gb-grid thead .gb-final { z-index: 4; }
+.gb-final b { font-size: 17px; }
+.gb-flag { display: block; font-size: 12px; font-weight: 400; color: var(--dir-danger); }
 
-/* One concert / one exam (#gradebook-columns): a sub-column of the category
-   to its left, tinted so it does not read as a seventh weighted category. */
-.dir-gb-table .dir-gb-itemcol { background: rgba(13, 126, 142, 0.04); }
-.dir-gb-table thead th.dir-gb-itemcol { background: color-mix(in srgb, var(--dir-card, #fff) 93%, #0d7e8e); font-weight: 500; }
+.gb-cell { position: relative; min-width: 72px; }
+.gb-input {
+  width: 56px; padding: 4px 6px; border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: var(--dir-text); font: inherit; text-align: right;
+}
+.gb-input:hover { border-color: var(--dir-border); }
+.gb-input:focus { border-color: var(--dir-primary); outline: none; background: var(--dir-surface); }
+.gb-input::placeholder { color: var(--dir-text-muted); }
+.gb-cell.typed .gb-input { font-weight: 800; }
+.gb-dot { position: absolute; top: 4px; right: 4px; color: var(--dir-primary); font-size: 16px; line-height: 1; }
+.gb-undo {
+  display: none; margin-top: 4px; padding: 2px 6px; border: 1px solid var(--dir-border); border-radius: 6px;
+  background: var(--dir-surface); color: var(--dir-text); font-size: 12px; white-space: nowrap; cursor: pointer;
+}
+.gb-cell:focus-within .gb-undo, .gb-cell:hover .gb-undo { display: block; }
+.gb-cell.off .gb-input { color: var(--dir-text-muted); }
+.gb-offnote { font-size: 11px; color: var(--dir-text-muted); }
+.gb-penalty { font-size: 12px; color: var(--dir-text-muted); white-space: nowrap; }
+.gb-avgcell { font-weight: 600; }
+.gb-roll { font-size: 13px; white-space: nowrap; }
 
-/* Add a column (#gradebook-columns): one bar above the table, four kinds. */
-.dir-gb-addbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--dir-border, #e2e8f0);
-  border-radius: 10px;
-  background: var(--dir-card, #fff);
+.gb-pick { padding: 4px; border: 1px solid var(--dir-border); border-radius: 6px; background: var(--dir-surface); color: var(--dir-text); font-size: 14px; }
+.gb-codes { min-width: 180px; }
+.gb-chip {
+  margin: 0 4px 4px 0; padding: 2px 8px; border: 1px solid var(--dir-border); border-radius: 999px;
+  background: var(--dir-surface-2); color: var(--dir-text); font-size: 13px; cursor: pointer;
 }
-.dir-gb-addlabel { font-size: 13px; font-weight: 600; }
-.dir-gb-addbar .dir-gb-pick { max-width: 340px; }
-.dir-gb-addname { width: auto; min-width: 240px; }
-.dir-gb-addcost { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
-.dir-gb-addcost .dir-input { width: 64px; min-width: 0; }
-.dir-gb-adderr { color: #b91c1c; font-size: 12px; font-weight: 600; }
+.gb-why { margin-top: 4px; font-size: 12px; }
+.gb-why.bad { color: var(--dir-danger); font-weight: 700; }
 
-/* A number the Hub works out by itself (Oct 2026). It is a real part of the
-   grade, so it must not read as "empty": slanted, tinted and dashed, against a
-   typed number's plain solid box. */
-.dir-gb-cellwrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.dir-gb-score.auto { background: rgba(13, 126, 142, 0.07); border-style: dashed; }
-.dir-gb-score.auto::placeholder { color: inherit; opacity: 0.8; font-style: italic; }
-.dir-gb-follow,
-.dir-gb-plus {
-  padding: 1px 7px;
-  font-size: 11px;
-  border: 1px solid var(--dir-border, #e2e8f0);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--dir-accent, #0d7e8e);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.dir-gb-follow:hover,
-.dir-gb-plus:hover { background: rgba(13, 126, 142, 0.08); }
-.dir-gb-penalty { font-size: 11px; font-weight: 600; color: #b45309; white-space: nowrap; }
+.gb-ready { margin-top: 16px; padding: 12px 14px; border: 1px solid var(--dir-border); border-radius: var(--dir-radius, 10px); }
+.gb-ready p { margin: 0 0 6px; }
+.gb-ready ul { margin: 0; padding-left: 20px; line-height: 1.6; }
 
-/* "What is counting toward each box" — the answer to "why isn't my concert here". */
-.dir-gb-counting {
-  margin: 0 0 12px;
-  padding: 10px 14px;
-  border: 1px solid var(--dir-border, #e2e8f0);
-  border-radius: 8px;
-  background: var(--dir-card, #fff);
-  font-size: 13px;
-}
-.dir-gb-counting > summary { cursor: pointer; font-weight: 600; }
-.dir-gb-counting ul { margin: 8px 0 0; padding-left: 20px; line-height: 1.6; }
-.dir-gb-warn { color: #b45309; }
-.dir-gb-inline {
-  padding: 1px 8px;
-  font-size: 12px;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--dir-accent, #0d7e8e);
-  cursor: pointer;
-}
-.dir-gb-inline:hover { background: rgba(13, 126, 142, 0.08); }
-.dir-gb-nudge {
-  margin: 0 0 12px;
-  padding: 10px 14px;
-  border: 1px solid #f59e0b;
-  border-radius: 8px;
-  background: rgba(245, 158, 11, 0.1);
-  font-size: 13px;
-  line-height: 1.5;
-}
+.gb-district { margin-top: 14px; font-size: 14px; line-height: 1.5; }
+.gb-district summary { cursor: pointer; font-weight: 700; }
+.gb-codelist { columns: 2 260px; padding-left: 18px; }
 
-.dir-gb-student { font-weight: 600; }
-.dir-gb-evidence {
-  margin-top: 2px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  font-size: 11px;
-  color: var(--dir-muted, #64748b);
+@media print {
+  .gb-top, .gb-steps, .gb-tabs, .gb-explain, .gb-hint, .gb-loading, .gb-actions, .gb-form,
+  .gb-ready, .gb-district, .gb-switch, .gb-link, .gb-undo, .gb-flag { display: none !important; }
+  .gb-scroll { overflow: visible; max-height: none; border: 0; }
+  .gb-grid { font-size: 11pt; }
+  .gb-name, .gb-final, .gb-grid thead th { position: static; }
+  .gb-input { border: 0; width: auto; }
 }
-.dir-gb-evidence .bad { color: #b45309; font-weight: 600; }
-
-.dir-gb-score {
-  width: 62px;
-  padding: 5px 6px;
-  font-size: 13px;
-  text-align: center;
-  border: 1px solid var(--dir-border, #e2e8f0);
-  border-radius: 6px;
-  background: var(--dir-card, #fff);
-  color: inherit;
-}
-.dir-gb-score::placeholder { color: #94a3b8; font-style: italic; }
-
-.dir-gb-pick {
-  padding: 5px 6px;
-  font-size: 13px;
-  border: 1px solid var(--dir-border, #e2e8f0);
-  border-radius: 6px;
-  background: var(--dir-card, #fff);
-  color: inherit;
-}
-.dir-gb-codepick { max-width: 180px; margin-top: 4px; }
-
-.dir-gb-grade { font-weight: 700; font-size: 15px; text-align: center; }
-.dir-gb-nograde { color: #94a3b8; cursor: help; }
-
-.dir-gb-codes-col { white-space: normal; min-width: 200px; }
-.dir-gb-chips { display: flex; flex-wrap: wrap; gap: 4px; }
-.dir-gb-chip {
-  padding: 2px 7px;
-  font-size: 11px;
-  border: 1px solid var(--dir-border, #e2e8f0);
-  border-radius: 999px;
-  background: rgba(13, 126, 142, 0.1);
-  color: inherit;
-  cursor: pointer;
-}
-.dir-gb-why { margin-top: 4px; font-size: 11px; color: var(--dir-muted, #64748b); }
-.dir-gb-why.bad { color: #b91c1c; font-weight: 600; }
-
-.dir-gb-todo td.dir-gb-name { box-shadow: inset 3px 0 0 #f59e0b; }
-
-.dir-gb-foot {
-  margin-top: 14px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  justify-content: space-between;
-}
-.dir-gb-status { font-size: 13px; color: var(--dir-muted, #64748b); }
-
-.dir-gb-email {
-  margin-top: 16px;
-  padding: 14px;
-  border: 1px solid var(--dir-border, #e2e8f0);
-  border-radius: 10px;
-  background: var(--dir-card, #fff);
-}
-.dir-gb-subject { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-.dir-gb-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--dir-muted, #64748b);
-}
-.dir-gb-subject code { font-size: 14px; }
-.dir-gb-copy { margin-top: 10px; }
-.dir-gb-hint { margin: 8px 0 0; font-size: 12px; color: var(--dir-muted, #64748b); line-height: 1.5; }
-
-.dir-gb-preview { margin-top: 12px; overflow-x: auto; }
-.dir-gb-out { border-collapse: collapse; font-size: 12px; margin-bottom: 14px; }
-.dir-gb-out th {
-  color: #fff;
-  border: 1px solid #808080;
-  padding: 4px 8px;
-  text-align: left;
-  white-space: nowrap;
-}
-.dir-gb-out td { border: 1px solid #808080; padding: 4px 8px; white-space: nowrap; }
-.dir-gb-out tbody tr:nth-child(even) td { background: #f2f2f2; }
-
-@media (max-width: 700px) {
-  .dir-gb-table th.dir-gb-name,
-  .dir-gb-table td.dir-gb-name { min-width: 180px; }
-}
-
-/* The teacher of record's standing request, at the top of the screen. It is
-   the specification this whole page is built against, so it belongs in front
-   of the person filling the page in. Collapsible, because on the fifth visit
-   you know it by heart. */
-.dir-gb-brief {
-  margin: 0 0 12px;
-  padding: 10px 14px;
-  border: 1px solid var(--dir-border, #e2e8f0);
-  border-left: 3px solid var(--dir-accent, #0d7e8e);
-  border-radius: 8px;
-  background: var(--dir-card, #fff);
-  font-size: 13px;
-}
-.dir-gb-brief > summary {
-  cursor: pointer;
-  font-weight: 600;
-  list-style-position: outside;
-}
-.dir-gb-brief-list { margin: 8px 0 0; padding-left: 20px; line-height: 1.6; }
-.dir-gb-brief-note {
-  margin: 8px 0 0;
-  color: var(--dir-muted, #64748b);
-  line-height: 1.5;
-}
-.dir-gb-codes-ref { margin-top: 8px; }
-.dir-gb-codes-ref > summary {
-  cursor: pointer;
-  color: var(--dir-accent, #0d7e8e);
-  font-size: 12px;
-}
-.dir-gb-codes-ref ul {
-  margin: 6px 0 0;
-  padding-left: 18px;
-  max-height: 220px;
-  overflow-y: auto;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--dir-muted, #64748b);
-}
-
-.dir-gb-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.dir-gb-actions .dir-tool-btn { display: inline-flex; align-items: center; gap: 6px; }

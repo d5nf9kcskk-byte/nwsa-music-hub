@@ -56,6 +56,16 @@ export interface GradeCategory {
    */
   suggest?: 'exams' | 'concerts' | 'lessons';
   /**
+   * Which assignment types count toward this category (#gradebook, Nov 2026):
+   * every graded assignment in the Hub becomes a column under the category
+   * that names its type, or under the `suggest: 'exams'` category when none
+   * does — so no type of assignment is ever without a home.
+   */
+  assignmentTypes?: string[];
+  /** Show the roll counts (absent, late, of meetings) beside this category, as
+   *  the evidence a person reads before typing its number. */
+  showsRoll?: boolean;
+  /**
    * The value the column's Fill button writes when there is nothing to
    * compute (director's call, 2026-09-14): start the observed categories at
    * full marks and adjust down from there, which is the same exception-only

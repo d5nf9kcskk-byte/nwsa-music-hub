@@ -1,144 +1,65 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ClipboardCopy, Check, RotateCcw, Wand2, X } from 'lucide-react';
 import { ORG } from '../../org';
 import {
-  CONDUCT_GRADES, EFFORT_GRADES, commentReasons, conductValue, effortValue, fillValueFor, gradeValue,
-  itemKey, rowReadiness, tallyGrade, tallyCount, type GradeCategory,
+  CONDUCT_GRADES, EFFORT_GRADES, FULL_MARKS, byLastName, commentReasons, conductValue, effortValue,
+  fillValueFor, gradeValue, lastFirst, rowReadiness, tallyCount, type GradeCategory,
 } from '../../shared/ensembleGrades';
 import {
-  currentGradingPeriod, defaultCutoff, sortPeriods, windowFor,
-  type GradingPeriod, type ReportKind, type ReportingWindow,
+  currentGradingPeriod, defaultCutoff, sortPeriods, windowFor, type GradingPeriod, type ReportKind,
 } from '../../shared/gradingPeriods';
 import {
-  buildTable, introLine, subjectLine, tablesToHtml, tablesToText,
-  type ReportLayout, type ReportRow, type ReportTable,
+  buildTable as buildReportTable, esc, introLine, subjectLine, tablesToHtml, tablesToText,
+  type ReportRow, type ReportTable,
 } from '../../shared/interimReport';
 import { useStudents } from '../hooks/useStudents';
 import { useEvents } from '../hooks/useEvents';
+import { useEnsembles } from '../hooks/useEnsembles';
 import { useAllAttendance } from '../hooks/useAttendance';
 import { useConcertCheckins } from '../hooks/useConcertCheckins';
 import { useRosterOverrides } from '../hooks/useRosterOverrides';
 import { pulledFromEvent } from '../rosterResolver';
 import { useAssignments, useAllAssignmentResults } from '../hooks/useAssignments';
 import { useLessons } from '../hooks/useLessons';
-import { useGradeMarks, REMOVE, type CellPatch } from '../hooks/useGradeMarks';
+import { useGradeMarks, REMOVE, type CellPatch, type GradeMarks } from '../hooks/useGradeMarks';
 import { useCurrentDirector } from '../currentDirector';
 import { gradeSummary } from '../lessonGrades';
 import { todayStr } from '../utils';
 import type { CalendarEvent, Lesson, Student } from '../types';
-import { AddColumnBar } from './AddColumnBar';
-import { buildTable as buildGradeTable, concertLabel, type GradeColumn, type TableModel } from './gradeTable';
+import { OwnColumnForm } from './OwnColumnForm';
+import {
+  TABLE_DOC, buildTable, gridRows, offKey, rosterFor, rowsToTsv, tabLabel, tableSpecs,
+  type CellResult, type GradeColumn, type TableModel, type TableSpec,
+} from './gradeTable';
 import './gradebook.css';
 
 /**
- * The Gradebook (#gradebook) — where a quarter grade is decided, and where the
- * report the district collects is built.
+ * The Gradebook (#gradebook) — one spreadsheet per class, read at a glance.
  *
- * The shape of this screen follows two decisions from the director.
+ * Every grade in the Hub is already in it: each graded assignment, required
+ * concert and lesson average is its own column, filled in automatically and
+ * updated live. A blank is "not graded yet", never a zero. A number typed over
+ * the Hub's is bold with a dot, and says what the Hub's number was.
  *
- * 2026-09-14 — **the Hub does not grade attendance, the director does.** An
- * excused absence costs nothing and is a record only; an unexcused absence or
- * lateness informs the Preparation mark, and by how much is a judgement. So
- * the observed categories are boxes a person fills in, with the Hub's own
- * records printed on the same line.
- *
- * 2026-10-14 — **it is a spreadsheet, and a number the Hub can work out
- * follows the Hub.** Exams, concerts and lesson grades are live: they update
- * when an exam is graded, a roll is finished, or another lesson is logged,
- * and a number typed over one replaces it (↺ gives it back). Columns can be
- * added at will — an exam, a concert, a grade of one's own, or a thing that
- * costs points (a phone out, acting out). Before this, "Fill" and "Add" COPIED
- * the Hub's number into the box, a copy is a snapshot, and the lesson grades
- * logged after the interim never reached the final.
- *
- * None of the arithmetic is in this file. It is in `./gradeTable.ts` and
- * `src/shared/ensembleGrades.ts`, and the email's tables are in
- * `src/shared/interimReport.ts` — all pure, all pinned by a self-check, so what
- * this screen shows and what the email carries cannot drift apart.
+ * None of the arithmetic is here: it is in `./gradeTable.ts` and
+ * `src/shared/ensembleGrades.ts`, which the email and the college export read
+ * too, so the screen and what is copied cannot disagree.
  */
 
-type GroupRoster = { student: Student; instrument: string }[];
+const TAB_MEMORY = 'gb.lastTab';
+const readTab = () => { try { return localStorage.getItem(TAB_MEMORY) ?? ''; } catch { return ''; } };
+const rememberTab = (id: string) => { try { localStorage.setItem(TAB_MEMORY, id); } catch { /* private window */ } };
 
-const HS_ONLY_HINT = 'College students are on the MDC roll, not the district one.';
+const BLANK_WORDS: Record<string, string> = {
+  'not-graded': 'Not graded yet. A blank never counts as a zero.',
+  'not-theirs': 'Not assigned to this student.',
+  excused: 'Excused, so it does not count.',
+};
 
-/** A college year is stored as "College Freshman" … "College Senior"
- *  (#signups), so a high schooler is anyone whose grade does not start there. */
-function isCollegeStudent(s: Student): boolean {
-  return (s.grade ?? '').trim().toLowerCase().startsWith('college');
-}
-
-/** The group key a report's marks are stored under: an ensemble id, or the
- *  report's own id for a table that is not an ensemble (the applied studio). */
-function groupKeyFor(layout: ReportLayout): string {
-  return layout.source.kind === 'ensemble' ? layout.source.ensembleId : layout.id;
-}
-
-/** Whole days from one YYYY-MM-DD to another (negative when `to` is earlier). */
-function daysBetween(from: string, to: string): number {
-  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
-}
-
-/**
- * Who belongs on one table.
- *
- * An ensemble table is its roster. The applied table is the teacher's STUDIO,
- * and it is the union of two lists because neither one alone is right:
- *
- *   • `assignedStudentIds` on the teacher's own directors doc — everyone in
- *     the studio, whether or not a lesson has been logged yet. A student who
- *     has had no lesson this quarter still has to appear, or they are missing
- *     from the report entirely rather than showing an honest blank.
- *   • anyone this teacher actually gave a lesson to inside the window, which
- *     catches a student picked up mid-quarter before the assignment list
- *     caught up.
- *
- * Both are already scoped to the signed-in teacher (`lessons` by its own query
- * and rules, `assignedStudentIds` by being their own doc), so this can never
- * reach another teacher's studio.
- */
-function rosterFor(
-  layout: ReportLayout,
-  students: Student[],
-  lessons: Lesson[],
-  myEmail: string | undefined,
-  assignedStudentIds: string[],
-  reportSpan: ReportingWindow,
-  hsOnly: boolean,
-): GroupRoster {
-  const active = students.filter(s => s.status === 'Active' && (!hsOnly || !isCollegeStudent(s)));
-  if (layout.source.kind === 'ensemble') {
-    const id = layout.source.ensembleId;
-    return active
-      .filter(s => s.ensembleIds?.includes(id))
-      .map(s => ({ student: s, instrument: s.instrument ?? '' }));
-  }
-  const pattern = layout.source.instrumentPattern?.toLowerCase() ?? '';
-  const matches = (instrument: string) => !pattern || instrument.toLowerCase().includes(pattern);
-  const byId = new Map<string, string>();
-
-  // Everyone assigned to this teacher, lesson or no lesson.
-  for (const id of assignedStudentIds) {
-    const student = students.find(s => s.id === id);
-    const instrument = (student?.instrument ?? '').trim();
-    if (!matches(instrument)) continue;
-    byId.set(id, instrument);
-  }
-  // Plus anyone they actually taught in the window. A lesson's own instrument
-  // wins over the roster's, since it is what was taught on the day.
-  for (const l of lessons) {
-    if (myEmail && l.teacherEmail !== myEmail) continue;
-    if (l.date < reportSpan.from || l.date > reportSpan.through) continue;
-    if (l.status === 'Cancelled') continue;
-    const student = students.find(s => s.id === l.studentId);
-    const instrument = (l.instrument || student?.instrument || '').trim();
-    if (!matches(instrument)) continue;
-    byId.set(l.studentId, instrument);
-  }
-
-  return active
-    .filter(s => byId.has(s.id))
-    .map(s => ({ student: s, instrument: byId.get(s.id) || (s.instrument ?? '') }));
-}
+const shortDate = (iso: string) => {
+  if (!iso) return '';
+  const [, m, d] = iso.split('-');
+  return new Date(2000, Number(m) - 1, Number(d)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
 
 export function GradebookView() {
   const grading = ORG.grading;
@@ -149,36 +70,27 @@ export function GradebookView() {
   const [periodId, setPeriodId] = useState(() => currentGradingPeriod(periods, today)?.id ?? '');
   const [kind, setKind] = useState<ReportKind>('interim');
   const [cutoffEdit, setCutoffEdit] = useState<string | null>(null);
-  const [reportId, setReportId] = useState(grading?.reports[0]?.id ?? '');
-  const [hsOnly, setHsOnly] = useState(true);
-  const [showEmail, setShowEmail] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [tabId, setTabId] = useState(readTab);
+  const [adding, setAdding] = useState<'grade' | 'penalty' | null>(null);
+  const [copied, setCopied] = useState('');
 
   const period: GradingPeriod | undefined = periods.find(p => p.id === periodId) ?? periods[0];
   const cutoff = cutoffEdit ?? (period ? defaultCutoff(period, kind, today) : today);
-  const reportSpan: ReportingWindow | null = useMemo(
-    () => (period ? windowFor(period, kind, cutoff) : null),
-    [period, kind, cutoff],
-  );
-  const layout: ReportLayout | undefined =
-    grading?.reports.find(r => r.id === reportId) ?? grading?.reports[0];
+  const span = useMemo(() => (period ? windowFor(period, kind, cutoff) : null), [period, kind, cutoff]);
 
-  /* ── everything the evidence is read from ───────────────────────────── */
-  const { students, loading: studentsLoading } = useStudents();
-  const { events, loading: eventsLoading } = useEvents();
-  const { records, loading: recordsLoading } = useAllAttendance();
-  const { checkins, loading: checkinsLoading } = useConcertCheckins();
-  const { overrides, loading: overridesLoading } = useRosterOverrides();
-  const { assignments, loading: assignmentsLoading } = useAssignments();
-  const { results, loading: resultsLoading } = useAllAssignmentResults();
-  const { lessons, loading: lessonsLoading } = useLessons();
-  const { byGroup, loading: marksLoading, saveMark, saveScore, writeCells } = useGradeMarks(period?.id ?? '');
-
-  /** Every record the numbers are built from. Until all eight listeners have
-   *  answered, a table is incomplete — a missing check-in reads as a concert
-   *  not attended — so nothing that WRITES from it or COPIES it may run. */
-  const loadingRecords = studentsLoading || eventsLoading || recordsLoading || checkinsLoading
-    || overridesLoading || assignmentsLoading || resultsLoading || lessonsLoading || marksLoading;
+  const { students, loading: l1 } = useStudents();
+  const { events, loading: l2 } = useEvents();
+  const { ensembles, loading: l3 } = useEnsembles();
+  const { records, loading: l4 } = useAllAttendance();
+  const { checkins, loading: l5 } = useConcertCheckins();
+  const { overrides, loading: l6 } = useRosterOverrides();
+  const { assignments, loading: l7 } = useAssignments();
+  const { results, loading: l8 } = useAllAssignmentResults();
+  const { lessons, loading: l9 } = useLessons();
+  const { byGroup, loading: l10, saveMark, writeCells } = useGradeMarks(period?.id ?? '');
+  /** Until every record has arrived a table is incomplete (a missing check-in
+   *  reads as a concert not attended), so nothing writes or copies from it. */
+  const loading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9 || l10;
 
   const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
   const pulledFrom = useCallback(
@@ -186,815 +98,525 @@ export function GradebookView() {
     [overrides, eventsById],
   );
 
-  /** This teacher's own lesson average per student, through the cutoff. It is
-   *  LIVE: another graded lesson moves it, nothing is copied into a box. */
-  const lessonAverages = useMemo(() => {
-    const out: Record<string, number> = {};
-    if (!reportSpan) return out;
+  const specs = useMemo(() => (grading && period ? tableSpecs({
+    reports: grading.reports, ensembles, students, assignments, results,
+    period: { start: period.start, end: period.end },
+    assigned: me?.assignedEnsembleIds?.length ? me.assignedEnsembleIds : null,
+  }) : []), [grading, period, ensembles, students, assignments, results, me]);
+  const spec: TableSpec | undefined = specs.find(t => t.id === tabId) ?? specs[0];
+
+  const planFor = useCallback((t: TableSpec): GradeCategory[] => {
+    if (!grading) return [];
+    return grading.plans.byGroupKey?.[t.groupKey]
+      ?? (t.world === 'college' ? grading.plans.college ?? grading.plans.default : grading.plans.default);
+  }, [grading]);
+
+  /** A table's docs: its own, or (college) the student's old HS doc for the
+   *  same group until the first save on this table files one of its own. */
+  const marksFor = useCallback((t: TableSpec): Record<string, GradeMarks> => {
+    const own = byGroup[t.groupKey] ?? {};
+    if (!t.legacyGroupKey) return own;
+    return { ...(byGroup[t.legacyGroupKey] ?? {}), ...own, [TABLE_DOC]: own[TABLE_DOC] } as Record<string, GradeMarks>;
+  }, [byGroup]);
+
+  const modelFor = useCallback((t: TableSpec): { model: TableModel; plan: GradeCategory[] } | null => {
+    if (!period || !span) return null;
+    const applied = !t.ensembleId;
+    const roster = rosterFor({
+      spec: t, students, lessons, myEmail: me?.email, assignedStudentIds: me?.assignedStudentIds ?? [], span,
+    });
+    // The applied studio is the signed-in teacher's own lessons; a college
+    // table carries the student's lesson average from every lesson they had.
+    const lessonAverages: Record<string, number> = {};
     const byStudent = new Map<string, Lesson[]>();
     for (const l of lessons) {
-      if (me?.email && l.teacherEmail !== me.email) continue;
-      if (l.date < reportSpan.from || l.date > reportSpan.through) continue;
-      const list = byStudent.get(l.studentId) ?? [];
-      list.push(l);
-      byStudent.set(l.studentId, list);
+      if (applied && me?.email && l.teacherEmail !== me.email) continue;
+      if (l.date < span.from || l.date > span.through) continue;
+      byStudent.set(l.studentId, [...(byStudent.get(l.studentId) ?? []), l]);
     }
-    for (const [studentId, list] of byStudent) {
-      const s = gradeSummary(list, reportSpan.through);
-      if (s) out[studentId] = s.rounded;
+    for (const [id, list] of byStudent) {
+      const s = gradeSummary(list, span.through);
+      if (s) lessonAverages[id] = s.rounded;
     }
-    return out;
-  }, [lessons, me, reportSpan]);
-
-  /**
-   * Every table's arithmetic, built the same way for the table on screen and
-   * for each table the email carries. Before this the email was built from
-   * whatever had been TYPED, so a number that was only ever a suggestion on
-   * screen never reached it.
-   */
-  const models = useMemo(() => {
-    const out: Record<string, TableModel> = {};
-    if (!grading || !period || !reportSpan) return out;
-    for (const r of grading.reports) {
-      const key = groupKeyFor(r);
-      out[r.id] = buildGradeTable({
-        ensembleId: r.source.kind === 'ensemble' ? r.source.ensembleId : '',
-        plan: grading.plans.byGroupKey?.[key] ?? grading.plans.default,
-        span: { from: reportSpan.from, through: reportSpan.through },
-        period: { start: period.start, end: period.end },
-        today,
-        roster: rosterFor(r, students, lessons, me?.email, me?.assignedStudentIds ?? [], reportSpan, hsOnly),
-        marks: byGroup[key] ?? {},
-        events, records, checkins, assignments, results, lessonAverages, pulledFrom,
-      });
-    }
-    return out;
-  }, [grading, period, reportSpan, today, students, lessons, me, hsOnly, byGroup, events, records,
-    checkins, assignments, results, lessonAverages, pulledFrom]);
-
-  const groupKey = layout ? groupKeyFor(layout) : '';
-  const model: TableModel | undefined = layout ? models[layout.id] : undefined;
-  const marks = useMemo(() => byGroup[groupKey] ?? {}, [byGroup, groupKey]);
-  const plan: GradeCategory[] = useMemo(() => {
-    if (!grading) return [];
-    return grading.plans.byGroupKey?.[groupKey] ?? grading.plans.default;
-  }, [grading, groupKey]);
-  const ensembleId = layout?.source.kind === 'ensemble' ? layout.source.ensembleId : '';
-
-  /* ── the rows on screen ─────────────────────────────────────────────── */
-  const rows = useMemo(() => (model?.rows ?? []).map(r => {
-    const mark = marks[r.student.id];
-    const tally = tallyGrade(plan, r.scores);
-    const effort = effortValue(mark?.effort);
-    const conduct = conductValue(mark?.conduct);
-    const codes = mark?.codes ?? [];
-    return {
-      ...r,
-      tally,
-      effort,
-      conduct,
-      codes,
-      reasons: commentReasons({ percent: tally.percent, effort, conduct }, grading?.commentRules),
-      readiness: rowReadiness({ percent: tally.percent, effort, conduct, codes }, grading?.commentRules),
-    };
-  }), [model, marks, plan, grading]);
-
-  /* ── the email: every table, not just the one on screen ─────────────── */
-  const tables: ReportTable[] = useMemo(() => {
-    if (!grading || !reportSpan) return [];
-    return grading.reports.map(r => {
-      const key = groupKeyFor(r);
-      const cats = grading.plans.byGroupKey?.[key] ?? grading.plans.default;
-      const groupMarks = byGroup[key] ?? {};
-      const reportRows: ReportRow[] = (models[r.id]?.rows ?? []).map(row => {
-        const m = groupMarks[row.student.id];
-        return {
-          studentId: row.student.id,
-          name: row.student.name,
-          instrument: row.instrument,
-          percent: tallyGrade(cats, row.scores).percent,
-          effort: effortValue(m?.effort),
-          conduct: conductValue(m?.conduct),
-          codes: m?.codes ?? [],
-        };
-      });
-      return buildTable(r, reportSpan.prefix, reportRows);
+    const plan = planFor(t);
+    const model = buildTable({
+      ensembleId: t.ensembleId, plan,
+      span: { from: span.from, through: span.through },
+      period: { start: period.start, end: period.end },
+      today, roster, marks: marksFor(t),
+      events, records, checkins, assignments, results, lessonAverages, pulledFrom,
     });
-  }, [grading, reportSpan, byGroup, models]);
+    model.rows.sort((a, b) => byLastName(a.student.name, b.student.name));
+    return { model, plan };
+  }, [period, span, students, lessons, me, planFor, today, marksFor, events, records, checkins,
+    assignments, results, pulledFrom]);
 
-  if (!grading || !period || !reportSpan || !layout || !model) {
-    return (
-      <div className="dir-empty">
-        <p>No grading periods are set up for this organization yet.</p>
-      </div>
-    );
+  const current = useMemo(() => (spec ? modelFor(spec) : null), [spec, modelFor]);
+
+  /** The district email: every configured report, built from the same math. */
+  const emailTables: ReportTable[] = useMemo(() => {
+    if (!grading || !span) return [];
+    return specs.filter(t => t.layout).map(t => {
+      const built = modelFor(t)!;
+      const m = marksFor(t);
+      const rows: ReportRow[] = built.model.rows.map(r => ({
+        studentId: r.student.id, name: r.student.name, instrument: r.instrument, percent: r.final,
+        effort: effortValue(m[r.student.id]?.effort), conduct: conductValue(m[r.student.id]?.conduct),
+        codes: m[r.student.id]?.codes ?? [],
+      }));
+      return buildReportTable(t.layout!, span.prefix, rows);
+    });
+  }, [grading, span, specs, modelFor, marksFor]);
+
+  if (!grading || !period || !span || !spec || !current) {
+    return <div className="dir-empty"><p>No grading periods are set up for this organization yet.</p></div>;
   }
 
-  const notReady = rows.filter(r => r.readiness !== 'ok');
-  const intro = introLine(reportSpan, grading.email.intro);
-  const subject = subjectLine(reportSpan, grading.email.subjectSuffix);
-  const quarterEndsSoon = kind === 'interim' && daysBetween(today, period.end) >= 0
-    && daysBetween(today, period.end) <= 7;
+  const { model, plan } = current;
+  const hs = spec.world === 'hs';
+  const marks = marksFor(spec);
+  const groupKey = spec.groupKey;
 
-  const examCat = plan.find(c => c.suggest === 'exams');
-  const concertCat = plan.find(c => c.suggest === 'concerts');
+  /* ── writes ─────────────────────────────────────────────────────────── */
 
-  async function copyEmail() {
-    const html = tablesToHtml(tables, intro);
-    const text = tablesToText(tables, intro);
-    try {
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          'text/html': new Blob([html], { type: 'text/html' }),
-          'text/plain': new Blob([text], { type: 'text/plain' }),
-        }),
-      ]);
-    } catch {
-      // Any refusal of the rich flavour: plain text still pastes into a
-      // spreadsheet, which beats the button appearing to do nothing.
-      try { await navigator.clipboard.writeText(text); } catch { /* nothing left to try */ }
+  /** A college student's first save on a college table carries their old HS
+   *  marks across, so nothing typed before the split is lost. */
+  async function seed(studentIds: string[]) {
+    if (!spec?.legacyGroupKey) return;
+    const own = byGroup[spec.groupKey] ?? {};
+    const old = byGroup[spec.legacyGroupKey] ?? {};
+    for (const id of studentIds) {
+      const o = old[id];
+      if (own[id] || !o) continue;
+      const carry = Object.fromEntries(Object.entries({
+        scores: o.scores, effort: o.effort, conduct: o.conduct, codes: o.codes, note: o.note,
+      }).filter(([, v]) => v !== undefined));
+      await saveMark(spec.groupKey, id, carry);
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+  }
+  async function cells(ops: { studentId: string; patch: CellPatch }[]) {
+    await seed(ops.map(o => o.studentId).filter(id => id !== TABLE_DOC));
+    await writeCells(groupKey, ops);
+  }
+  async function mark(studentId: string, patch: Partial<GradeMarks>) {
+    await seed([studentId]);
+    await saveMark(groupKey, studentId, patch);
   }
 
-  /* ── columns ────────────────────────────────────────────────────────── */
+  const fillable = plan.filter(c => model.judgement.has(c.id));
+  async function fillEmpty() {
+    const ops = model.rows.map(r => {
+      const patch: CellPatch = {};
+      for (const c of fillable) {
+        const v = fillValueFor(c, null);
+        if (r.cats[c.id].typed === null && v !== null) patch[c.id] = v;
+      }
+      return { studentId: r.student.id, patch };
+    }).filter(op => Object.keys(op.patch).length > 0);
+    await cells(ops);
+  }
 
-  /** Add columns for everyone on the table. A column exists because some doc
-   *  holds its key, so each gets a literal null — never over a number already
-   *  there, which is why only keys that are not columns yet are written. */
-  async function addColumns(keys: string[]) {
-    const fresh = keys.filter(k => !model!.columns.some(c => c.key === k));
-    if (fresh.length === 0) return;
-    const patch = Object.fromEntries(fresh.map(k => [k, null]));
-    await writeCells(groupKey, model!.rows.map(r => ({ studentId: r.student.id, patch })));
+  async function addOwnColumn(key: string) {
+    setAdding(null);
+    if (model.columns.some(c => c.key === key)) return;
+    await cells([{ studentId: TABLE_DOC, patch: { [key]: null } }]);
   }
 
   async function removeColumn(col: GradeColumn) {
-    if (!window.confirm(`Remove the "${col.label}" column from this table? Any numbers typed into it are deleted.`)) return;
-    const ops: { studentId: string; patch: CellPatch }[] = Object.entries(marks)
-      .filter(([, m]) => m.scores && col.key in m.scores)
-      .map(([studentId]) => ({ studentId, patch: { [col.key]: REMOVE } }));
-    await writeCells(groupKey, ops);
+    if (!window.confirm(`Remove the column "${col.label}"? The numbers typed into it are deleted.`)) return;
+    const ops = Object.entries(marks)
+      .filter(([, m]) => m?.scores && col.key in m.scores)
+      .map(([studentId]) => ({ studentId, patch: { [col.key]: REMOVE } as CellPatch }));
+    await cells(ops);
   }
 
-  /** Put the Hub's live number back wherever a typed one is covering it. */
-  async function followHub(c: GradeCategory) {
-    const pins = model!.pinned[c.id];
-    const total = pins.students.length + pins.cells.length;
-    if (total === 0) return;
-    if (!window.confirm(
-      `Switch ${total} typed number${total === 1 ? '' : 's'} in "${c.label}" back to `
-      + `${c.suggest ? 'the Hub’s live numbers' : 'the average of its columns'}? What you typed there is replaced.`,
-    )) return;
-    const byStudent = new Map<string, CellPatch>();
-    for (const id of pins.students) byStudent.set(id, { ...(byStudent.get(id) ?? {}), [c.id]: REMOVE });
-    for (const { studentId, key } of pins.cells) byStudent.set(studentId, { ...(byStudent.get(studentId) ?? {}), [key]: null });
-    await writeCells(groupKey, [...byStudent].map(([studentId, patch]) => ({ studentId, patch })));
+  async function setCounting(col: GradeColumn, counts: boolean) {
+    await writeCells(groupKey, [{ studentId: TABLE_DOC, patch: { [offKey(col.key)]: counts ? REMOVE : 1 } }]);
   }
 
-  /** A judgement category is fillable when nothing in the Hub can speak for it. */
-  const fillable = (c: GradeCategory) =>
-    !c.suggest && !model.columns.some(col => col.categoryId === c.id && col.kind === 'custom');
+  /* ── the result ─────────────────────────────────────────────────────── */
+  const rows = model.rows.map(r => {
+    const m = marks[r.student.id];
+    const effort = effortValue(m?.effort);
+    const conduct = conductValue(m?.conduct);
+    const codes = m?.codes ?? [];
+    const rules = grading.commentRules;
+    return {
+      ...r, effort, conduct, codes,
+      reasons: hs ? commentReasons({ percent: r.final, effort, conduct }, rules) : [],
+      readiness: hs ? rowReadiness({ percent: r.final, effort, conduct, codes }, rules)
+        : r.final === null ? 'no-grade' as const : 'ok' as const,
+    };
+  });
+  const notReady = rows.filter(r => r.readiness !== 'ok');
+  const emptyJudgement = rows.some(r => fillable.some(c => r.cats[c.id].typed === null));
+  const step = emptyJudgement ? 3 : notReady.length ? 4 : 5;
 
-  /**
-   * Fill every EMPTY box in the fillable categories at full marks (or the
-   * category's own starting value), in ONE save. Never overwrites a number
-   * already in a box, so pressing it twice is safe and pressing it after you
-   * have adjusted somebody does not undo the adjustment.
-   */
-  async function fill(cats: GradeCategory[]) {
-    const ops = rows
-      .map(r => {
-        const patch: Record<string, number | null> = {};
-        for (const c of cats) {
-          const v = fillValueFor(c, null);
-          if (r.cats[c.id].typed === null && v !== null) patch[c.id] = v;
-        }
-        return { studentId: r.student.id, patch };
-      })
-      .filter(op => Object.keys(op.patch).length > 0);
-    await writeCells(groupKey, ops);
+  async function copy(html: string, text: string) {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([text], { type: 'text/plain' }),
+      })]);
+    } catch {
+      try { await navigator.clipboard.writeText(text); } catch { /* nothing left to try */ }
+    }
+    setCopied(spec!.id);
+    setTimeout(() => setCopied(''), 3000);
   }
+  const intro = introLine(span, grading.email.intro);
+  const copyEmail = () => copy(tablesToHtml(emailTables, intro), tablesToText(emailTables, intro));
+  const copyTable = () => {
+    const grid = gridRows(model, plan, s => lastFirst(s.name));
+    const html = `<table style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt;">${
+      grid.map((r, n) => `<tr>${r.map(c => (n === 0
+        ? `<th style="border:1px solid #808080;padding:4px 8px;text-align:left;">${esc(c)}</th>`
+        : `<td style="border:1px solid #808080;padding:4px 8px;">${esc(c)}</td>`)).join('')}</tr>`).join('')
+    }</table>`;
+    return copy(html, rowsToTsv(grid));
+  };
 
-  /** Save one cell of a column; blank goes back to following the Hub. */
-  async function saveCell(studentId: string, key: string, raw: string, current: number | null, input: HTMLInputElement) {
-    const text = raw.trim();
-    const v = text === '' ? null : gradeValue(text);
-    if (text !== '' && v === null) { input.value = current === null ? '' : String(current); return; }
-    if (v === current) return;
-    await writeCells(groupKey, [{ studentId, patch: { [key]: v } }]);
-  }
+  /* ── layout of the grid ─────────────────────────────────────────────── */
+  const rollCat = spec.ensembleId ? plan.find(c => c.showsRoll) : undefined;
+  const groups = plan
+    .map(c => ({ c, cols: model.columns.filter(col => col.categoryId === c.id), roll: rollCat?.id === c.id }))
+    .filter(g => g.cols.length > 0 || g.roll);
+  const hubKinds = new Set(['exam', 'concert', 'lessons']);
+  const hsTabs = specs.filter(t => t.world === 'hs');
+  const collegeTabs = specs.filter(t => t.world === 'college');
 
-  /* ── what is counting, in words ─────────────────────────────────────── */
-  const examCols = model.columns.filter(c => c.kind === 'exam');
-  const concertCols = model.columns.filter(c => c.kind === 'concert');
-  const columnKeys = new Set(model.columns.map(c => c.key));
-  // What SHOULD be counting but is not. Until a box has columns of its own every
-  // expected exam and concert counts by itself, so nothing is left out; after,
-  // only the expected ones missing from the columns are named. Optional concerts,
-  // written tests and exams past the cutoff are never nagged: following the nudge
-  // must never LOWER a grade for something that was not required.
-  const examsLeftOut = examCols.length > 0
-    ? model.windowExams.filter(o => !columnKeys.has(itemKey('exam', o.assignment.id)))
-    : [];
-  const concertsLeftOut = concertCols.length > 0
-    ? model.requiredConcerts.filter(ev => !columnKeys.has(itemKey('concert', ev.id)))
-    : [];
-  const ownColumns = model.columns.filter(c => c.kind === 'custom' || c.kind === 'tally');
-  const catLabel = (id: string) => plan.find(c => c.id === id)?.label ?? id;
+  const pickTab = (id: string) => { setTabId(id); rememberTab(id); setAdding(null); };
 
   return (
     <div className="dir-gradebook">
-      {grading.instructions && (
-        <details className="dir-gb-brief" open>
-          <summary>{grading.instructions.title}</summary>
-          <ol className="dir-gb-brief-list">
-            {grading.instructions.items.map(item => <li key={item}>{item}</li>)}
-          </ol>
-          {grading.instructions.note && (
-            <p className="dir-gb-brief-note">{grading.instructions.note}</p>
-          )}
-          <details className="dir-gb-codes-ref">
-            <summary>Comment codes ({Object.keys(grading.commentCodes).length})</summary>
-            <ul>
-              {Object.entries(grading.commentCodes).map(([code, text]) => (
-                <li key={code}><b>{code}</b> {text}</li>
-              ))}
-            </ul>
-          </details>
-        </details>
-      )}
-
-      <div className="dir-filter-bar dir-gb-controls">
-        <select
-          className="dir-input"
-          value={period.id}
-          onChange={e => { setPeriodId(e.target.value); setCutoffEdit(null); }}
-        >
-          {periods.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-        <select
-          className="dir-input"
-          value={kind}
-          onChange={e => { setKind(e.target.value as ReportKind); setCutoffEdit(null); }}
-        >
-          <option value="interim">Interim</option>
-          <option value="quarter">End of quarter</option>
-        </select>
-        <label className="dir-gb-cutoff">
-          As of
-          <input
-            className="dir-input"
-            type="date"
-            value={cutoff}
-            min={period.start}
-            max={period.end}
-            onChange={e => setCutoffEdit(e.target.value)}
-          />
+      <div className="gb-top">
+        <label className="gb-field">
+          <span>Quarter</span>
+          <select className="dir-input" value={period.id} onChange={e => { setPeriodId(e.target.value); setCutoffEdit(null); }}>
+            {periods.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
         </label>
-        <label className="dir-gb-hsonly" title={HS_ONLY_HINT}>
-          <input type="checkbox" checked={hsOnly} onChange={e => setHsOnly(e.target.checked)} />
-          High school only
+        <label className="gb-field">
+          <span>Report</span>
+          <select className="dir-input" value={kind} onChange={e => { setKind(e.target.value as ReportKind); setCutoffEdit(null); }}>
+            <option value="interim">Interim grades</option>
+            <option value="quarter">End-of-quarter grades</option>
+          </select>
+        </label>
+        <label className="gb-field">
+          <span>Grades as of this date</span>
+          <input className="dir-input" type="date" value={cutoff} min={period.start} max={period.end}
+            onChange={e => setCutoffEdit(e.target.value)} />
         </label>
       </div>
 
-      {quarterEndsSoon && (
-        <div className="dir-gb-nudge" role="status">
-          {period.name} ends {period.end}. For the final grades choose <b>End of quarter</b> above — the
-          column heading and the subject line then read “{period.short}” instead of “{period.short}i”.
-          Everything you have entered for the interim carries straight over: it is the same grades.
-        </div>
-      )}
+      <ol className="gb-steps" aria-label="Where you are">
+        {['Pick the class', 'Hub grades are already in', 'Fill the judgement boxes', 'Fix the flagged rows', 'Copy the result']
+          .map((label, n) => (
+            <li key={label} className={n + 1 === step ? 'now' : n + 1 < step ? 'done' : ''} aria-current={n + 1 === step ? 'step' : undefined}>
+              <b>{n + 1}</b> {label}
+            </li>
+          ))}
+      </ol>
 
-      {loadingRecords && (
-        <div className="dir-gb-nudge" role="status">
-          Loading the Hub’s records… the numbers below can change for a moment, so Fill, Follow the
-          Hub, Add column and the email wait until everything has arrived.
-        </div>
-      )}
-
-      <div className="dir-gb-note">
-        Covering {reportSpan.label}, from <b>{period.start}</b> through <b>{reportSpan.through}</b>.
-        {' '}A report covers the whole quarter so far, never only the weeks since the last one.
-        {kind === 'interim' && (
-          <>
-            {' '}The district publishes quarter boundaries and nothing else, so the cutoff is
-            yours: set it to whatever you were asked for.
-          </>
-        )}
-        {' '}<i>Slanted grey numbers</i> are the Hub’s own and update by themselves as you grade
-        lessons and exams and finish roll. Type over one to replace it; <b>↺</b> brings the Hub’s
-        number back. <b>Fill</b> starts a judgement box at full marks and never overwrites one you
-        have touched.
-      </div>
-
-      <div className="dir-segment dir-gb-tabs">
-        {grading.reports.map(r => (
-          <button
-            key={r.id}
-            className={`dir-segment-btn ${r.id === layout.id ? 'active' : ''}`}
-            onClick={() => setReportId(r.id)}
-          >
-            {r.title}
-          </button>
+      <div className="gb-tabs">
+        {[['High school', hsTabs], ['College', collegeTabs]].map(([title, list]) => (list as TableSpec[]).length > 0 && (
+          <div key={title as string} className="gb-tabrow" role="tablist" aria-label={title as string}>
+            <span className="gb-tabrow-label">{title as string}</span>
+            {(list as TableSpec[]).map(t => (
+              <button key={t.id} role="tab" aria-selected={t.id === spec.id}
+                className={`gb-tab${t.id === spec.id ? ' active' : ''}`} onClick={() => pickTab(t.id)}>
+                {tabLabel(t)}
+              </button>
+            ))}
+          </div>
         ))}
       </div>
 
-      <AddColumnBar
-        key={layout.id}
-        plan={plan}
-        groupTitle={layout.title}
-        concertOptions={model.concertOptions}
-        examOptions={model.examOptions}
-        canLinkExams={!!examCat && !!ensembleId}
-        canLinkConcerts={!!concertCat && !!ensembleId}
-        existing={model.columns}
-        disabled={loadingRecords}
-        onAdd={addColumns}
-      />
+      <p className="gb-explain">
+        Grades from the Hub fill in by themselves and change when you regrade. A blank box is not graded yet and
+        never counts as a zero. A number you typed over the Hub&rsquo;s is <b className="gb-typed-sample">bold with
+        a dot</b>; click it to see the Hub&rsquo;s number and to undo.
+        {' '}Concerts, lessons and roll count through {shortDate(span.through)}; assignment grades count whenever you enter them.
+      </p>
 
-      <details className="dir-gb-counting" open>
-        <summary>What is counting toward each box</summary>
-        <ul>
-          {examCat && ensembleId && (
-            <li>
-              <b>{examCat.label}</b>:{' '}
-              {examCols.length > 0
-                ? <>the average of the {examCols.length} exam column{examCols.length === 1 ? '' : 's'} below.</>
-                : model.windowExams.length === 0
-                  ? <>no Playing Exam has come due yet this quarter.</>
-                  : <>the average of every graded Playing Exam so far —{' '}
-                    {model.windowExams.map((o, n) => (
-                      <span key={o.assignment.id}>
-                        {n > 0 && '; '}{o.assignment.title} ({o.graded} of {o.of} graded)
-                      </span>
-                    ))}.</>}
-              {model.windowExams.some(o => o.graded < o.of) && examCols.length === 0 && (
-                <> Where an exam was not graded in the Hub, add it as a column and type the scores.</>
-              )}
-              {model.windowExams.filter(o => o.unreadable > 0).map(o => (
-                <span key={o.assignment.id} className="dir-gb-warn">
-                  {' '}{o.unreadable} score{o.unreadable === 1 ? '' : 's'} on {o.assignment.title} can’t be
-                  read — the Hub needs a whole number from 0 to 100.
-                </span>
-              ))}
-              {examsLeftOut.length > 0 && (
-                <span className="dir-gb-warn">
-                  {' '}Not counting yet: {examsLeftOut.map(o => o.assignment.title).join(', ')}.{' '}
-                  <button
-                    className="dir-gb-inline"
-                    disabled={loadingRecords}
-                    onClick={() => void addColumns(examsLeftOut.map(o => itemKey('exam', o.assignment.id)))}
-                  >
-                    Add {examsLeftOut.length === 1 ? 'it' : `all ${examsLeftOut.length}`} as a column
-                  </button>
-                </span>
-              )}
-            </li>
-          )}
-          {concertCat && ensembleId && (
-            <li>
-              <b>{concertCat.label}</b>:{' '}
-              {concertCols.length > 0
-                ? <>the average of the {concertCols.length} concert column{concertCols.length === 1 ? '' : 's'} below.</>
-                : model.requiredConcerts.length === 0
-                  ? <>no concert is required of this group yet this quarter.</>
-                  : <>the average over the {model.requiredConcerts.length} concert
-                    {model.requiredConcerts.length === 1 ? '' : 's'} required of this group —{' '}
-                    {model.requiredConcerts.map(concertLabel).join('; ')}. A performer is credited unless
-                    roll marks them absent; someone in the audience is credited by the door check-in.</>}
-              {concertsLeftOut.length > 0 && (
-                <span className="dir-gb-warn">
-                  {' '}Not counting yet: {concertsLeftOut.map(ev => concertLabel(ev)).join('; ')}.{' '}
-                  <button
-                    className="dir-gb-inline"
-                    disabled={loadingRecords}
-                    onClick={() => void addColumns(concertsLeftOut.map(ev => itemKey('concert', ev.id)))}
-                  >
-                    Add {concertsLeftOut.length === 1 ? 'it' : `all ${concertsLeftOut.length}`} as a column
-                  </button>
-                </span>
-              )}
-            </li>
-          )}
-          {!ensembleId && plan.some(c => c.suggest === 'lessons') && (
-            <li>
-              <b>{plan.find(c => c.suggest === 'lessons')!.label}</b>: the average of every graded
-              lesson through {reportSpan.through}. It moves by itself each time you grade another lesson.
-            </li>
-          )}
-          {ownColumns.map(col => (
-            <li key={col.key}>
-              <b>{col.label}</b>:{' '}
-              {col.kind === 'tally'
-                ? <>each one takes {col.points} point{col.points === 1 ? '' : 's'} off {catLabel(col.categoryId)}.</>
-                : <>a grade of your own, averaged into {catLabel(col.categoryId)}.</>}
-            </li>
-          ))}
-        </ul>
-      </details>
+      {loading && <p className="gb-loading" role="status">Loading the Hub&rsquo;s grades. The buttons wait until everything has arrived.</p>}
 
-      <div className="dir-gb-scroll">
-        <table className="dir-gb-table">
+      <div className="gb-actions">
+        {fillable.length > 0 && (
+          <button className="dir-tool-btn" disabled={loading} onClick={() => void fillEmpty()}
+            title={`Puts ${FULL_MARKS} in every empty box under ${fillable.map(c => c.label).join(', ')}. Never changes a box that already has a number.`}>
+            Fill empty boxes with 100
+          </button>
+        )}
+        <button className="dir-tool-btn" disabled={loading} onClick={() => setAdding(adding === 'grade' ? null : 'grade')}>
+          Add my own column
+        </button>
+        <button className="dir-tool-btn" disabled={loading} onClick={() => setAdding(adding === 'penalty' ? null : 'penalty')}>
+          Add a penalty
+        </button>
+        {spec.layout ? (
+          <button className="dir-tool-btn primary" disabled={loading} onClick={() => void copyEmail()}>Copy the email</button>
+        ) : (
+          <button className="dir-tool-btn primary" disabled={loading} onClick={() => void copyTable()}>Copy the table</button>
+        )}
+        {copied === spec.id && <span className="gb-copied" role="status">Copied. Paste it {spec.layout ? `into the email to ${grading.email.recipientName}` : 'into your spreadsheet'}.</span>}
+      </div>
+      {fillable.length > 0 && (
+        <p className="gb-hint">
+          &ldquo;Fill empty boxes with 100&rdquo; fills only {fillable.map(c => c.label).join(', ')}, and never overwrites a box that already has a number.
+        </p>
+      )}
+
+      {adding && (
+        <OwnColumnForm mode={adding} plan={plan} onAdd={k => void addOwnColumn(k)} onCancel={() => setAdding(null)} />
+      )}
+
+      <div className="gb-scroll">
+        <table className="gb-grid">
           <thead>
             <tr>
-              <th className="dir-gb-name">Student</th>
-              {plan.flatMap(c => {
-                const cols = model.columns.filter(col => col.categoryId === c.id);
-                const pins = model.pinned[c.id];
-                const pinned = pins.students.length + pins.cells.length;
-                const caption = boxCaption(c, cols);
-                return [
-                  <th key={c.id} className="dir-gb-cat">
-                    <div>{c.label}</div>
-                    <div className="dir-gb-weight">{c.weight} pts</div>
-                    {caption && <div className="dir-gb-avg">= {caption}</div>}
-                    {fillable(c) && (
-                      <button
-                        className="dir-gb-fill"
-                        disabled={loadingRecords}
-                        onClick={() => void fill([c])}
-                        title={`Start every empty box in this column at ${c.fillWith ?? 100}, then adjust down`}
-                      >
-                        <Wand2 size={12} /> Fill {c.fillWith ?? 100}
-                      </button>
-                    )}
-                    {pinned > 0 && (
-                      <button
-                        className="dir-gb-fill"
-                        disabled={loadingRecords}
-                        onClick={() => void followHub(c)}
-                        title={c.suggest
-                          ? 'Replace the numbers you typed in this box with the Hub’s live ones'
-                          : 'Replace the numbers you typed in this box with the average of its columns'}
-                      >
-                        <RotateCcw size={12} /> {c.suggest ? 'Follow the Hub' : 'Use the average'} ({pinned})
-                      </button>
-                    )}
+              <th rowSpan={2} className="gb-name">Student</th>
+              {groups.map(g => (
+                <th key={g.c.id} colSpan={g.cols.length + (g.roll ? 1 : 0)} className="gb-group">{g.c.label}</th>
+              ))}
+              <th colSpan={plan.length} className="gb-group gb-avg-group">Category averages</th>
+              <th rowSpan={2} className="gb-final">{span.prefix} Final grade</th>
+              {hs && <th rowSpan={2}>Effort</th>}
+              {hs && <th rowSpan={2}>{spec.layout?.conductLabel ?? 'Conduct'}</th>}
+              {hs && <th rowSpan={2}>Comment codes</th>}
+            </tr>
+            <tr>
+              {groups.flatMap(g => [
+                ...(g.roll ? [
+                  <th key={`${g.c.id}-roll`} className="gb-col">
+                    <div className="gb-colname">Roll this quarter</div>
+                    <div className="gb-colmeta">Not a grade. {model.meetings} rehearsals with roll taken.</div>
                   </th>,
-                  ...cols.map(col => (
-                    <th key={col.key} className="dir-gb-itemcol">
-                      <div>{col.label}</div>
-                      <div className="dir-gb-weight">
-                        {col.kind === 'tally'
-                          ? `each one takes ${col.points} off ${c.label}`
-                          : `averaged into ${c.label}`}
-                      </div>
-                      <button
-                        className="dir-gb-fill"
-                        disabled={loadingRecords}
-                        onClick={() => void removeColumn(col)}
-                        title="Remove this column"
-                      >
-                        <X size={12} /> Remove
-                      </button>
-                    </th>
-                  )),
-                ];
-              })}
-              <th>{reportSpan.prefix} Grade</th>
-              <th>Effort</th>
-              <th>{layout.conductLabel}</th>
-              <th className="dir-gb-codes-col">Comment codes</th>
+                ] : []),
+                ...g.cols.map(col => (
+                  <th key={col.key} className={`gb-col${col.counting ? '' : ' off'}`}>
+                    <div className="gb-colname">{col.label}</div>
+                    <div className="gb-colmeta">
+                      {col.kind === 'tally'
+                        ? `Each one takes ${col.points} point${col.points === 1 ? '' : 's'} off ${g.c.label}`
+                        : col.kind === 'custom'
+                          ? `Your own column · graded ${col.graded} of ${col.of}`
+                          : `${col.date ? `${shortDate(col.date)} · ` : ''}Graded ${col.graded} of ${col.of}`}
+                    </div>
+                    {hubKinds.has(col.kind) ? (
+                      <label className="gb-switch">
+                        <input type="checkbox" checked={col.counting} disabled={loading}
+                          onChange={e => void setCounting(col, e.target.checked)} />
+                        {col.counting ? `Counts toward ${g.c.label}` : 'Not counting'}
+                      </label>
+                    ) : (
+                      <button className="gb-link" disabled={loading} onClick={() => void removeColumn(col)}>Remove this column</button>
+                    )}
+                  </th>
+                )),
+              ])}
+              {plan.map(c => (
+                <th key={c.id} className="gb-col gb-avg">
+                  <div className="gb-colname">{c.label}</div>
+                  <div className="gb-colmeta">
+                    {c.weight} of {plan.reduce((s, x) => s + x.weight, 0)} points
+                    {model.judgement.has(c.id) ? ' · you fill this in' : ' · average of its columns'}
+                  </div>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => (
-              <tr key={r.student.id} className={r.readiness === 'ok' ? '' : 'dir-gb-todo'}>
-                <td className="dir-gb-name">
-                  <div className="dir-gb-student">{r.student.name}</div>
-                  <div className="dir-gb-evidence">
-                    {ensembleId ? (
-                      <>
-                        <span className={r.att.absent ? 'bad' : ''}>{r.att.absent} unexcused</span>
-                        <span>{r.att.excused} excused</span>
-                        <span className={r.att.late ? 'bad' : ''}>{r.att.late} late</span>
-                        {r.att.lateExcused > 0 && <span>{r.att.lateExcused} late exc</span>}
-                        {r.att.lesson > 0 && <span>{r.att.lesson} lesson</span>}
-                        <span>{r.att.meetings} meetings</span>
-                        {r.exams.of > 0 && (
-                          <span>
-                            Exams {r.exams.scores.join(', ') || 'none'}
-                            {' '}({r.exams.scores.length} of {r.exams.of})
-                          </span>
-                        )}
-                        {model.requiredConcerts.length > 0 && (
-                          <span>
-                            Concerts {r.concerts.credited} of {r.concerts.held}
-                            {r.concerts.excused ? ` · ${r.concerts.excused} excused` : ''}
-                          </span>
-                        )}
-                        {r.concerts.incomplete > 0 && (
-                          <span className="bad" title="Checked in but never out, so it earned half credit">
-                            {r.concerts.incomplete} no check-out
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <span>{r.instrument}</span>
-                        {lessonAverages[r.student.id] !== undefined
-                          ? <span>Lesson average {lessonAverages[r.student.id]}</span>
-                          : <span>No graded lessons this quarter yet</span>}
-                      </>
-                    )}
-                  </div>
-                </td>
-
-                {plan.flatMap(c => {
-                  const res = r.cats[c.id];
-                  const cols = model.columns.filter(col => col.categoryId === c.id);
-                  return [
-                    <td key={c.id} className="dir-gb-cat">
-                      <div className="dir-gb-cellwrap">
-                        <input
-                          className={`dir-gb-score${res.typed === null && res.derived !== null ? ' auto' : ''}`}
-                          type="number"
-                          min={0}
-                          max={100}
-                          inputMode="numeric"
-                          aria-label={`${r.student.name}, ${c.label}`}
-                          key={`${r.student.id}:${c.id}:${res.typed ?? ''}`}
-                          defaultValue={res.typed ?? ''}
-                          placeholder={res.derived === null ? '' : String(res.derived)}
-                          title={res.typed === null && res.derived !== null
-                            ? 'The Hub’s own number. Type to replace it.'
-                            : undefined}
+            {rows.map(r => {
+              const name = lastFirst(r.student.name);
+              return (
+                <tr key={r.student.id} className={r.readiness === 'ok' ? '' : 'flag'}>
+                  <th scope="row" className="gb-name">
+                    {name}
+                    {r.readiness !== 'ok' && <span className="gb-flag"> Needs attention</span>}
+                  </th>
+                  {groups.flatMap(g => [
+                    ...(g.roll ? [
+                      <td key={`${g.c.id}-roll`} className="gb-roll">
+                        {r.att.absent} absent · {r.att.late} late{r.att.excused ? ` · ${r.att.excused} excused` : ''}
+                      </td>,
+                    ] : []),
+                    ...g.cols.map(col => (col.kind === 'tally' ? (
+                      <td key={col.key} className="gb-cell">
+                        <input className="gb-input" inputMode="numeric" aria-label={`${name}, ${col.label}, how many`}
+                          key={`${r.student.id}:${col.key}:${r.counts[col.key]}`} defaultValue={r.counts[col.key] || ''}
+                          disabled={loading}
                           onBlur={e => {
                             const raw = e.target.value.trim();
-                            const v = gradeValue(raw);
-                            if (raw === '') {
-                              if (res.typed !== null) void saveScore(groupKey, r.student.id, c.id, null);
-                            } else if (v !== null) {
-                              if (v !== res.typed) void saveScore(groupKey, r.student.id, c.id, v);
-                            } else {
-                              // Not a grade: put the stored value back rather
-                              // than saving something unreadable.
-                              e.target.value = res.typed === null ? '' : String(res.typed);
-                            }
-                          }}
-                        />
-                        {res.typed !== null && res.derived !== null && (
-                          <button
-                            className="dir-gb-follow"
-                            title={`You typed ${res.typed}; ${c.suggest ? 'the Hub says' : 'its columns average'} ${res.derived}. Click to use ${res.derived}.`}
-                            aria-label={`Use ${res.derived} for ${r.student.name}, ${c.label}`}
-                            onClick={() => void saveScore(groupKey, r.student.id, c.id, null)}
-                          >
-                            ↺ {res.derived}
-                          </button>
-                        )}
-                        {res.penalty > 0 && res.base !== null && (
-                          <div className="dir-gb-penalty" title={`${res.base} less ${res.penalty} points for the incidents logged`}>
-                            −{res.penalty} → {res.value}
-                          </div>
-                        )}
-                        {res.penalty > 0 && res.base === null && (
-                          <div className="dir-gb-penalty" title="Incidents are logged, but there is no number in this box to take points off">
-                            −{res.penalty}, no score yet
-                          </div>
-                        )}
-                      </div>
-                    </td>,
-                    ...cols.map(col => {
-                      if (col.kind === 'tally') {
-                        const count = r.counts[col.key] ?? 0;
-                        return (
-                          <td key={col.key} className="dir-gb-itemcol">
-                            <div className="dir-gb-cellwrap">
-                              <input
-                                className="dir-gb-score"
-                                type="number"
-                                min={0}
-                                max={100}
-                                inputMode="numeric"
-                                aria-label={`${r.student.name}, ${col.label}`}
-                                key={`${r.student.id}:${col.key}:${count}`}
-                                defaultValue={count || ''}
-                                placeholder="0"
-                                onBlur={e => {
-                                  const raw = e.target.value.trim();
-                                  const v = raw === '' ? 0 : tallyCount(raw);
-                                  if (raw !== '' && gradeValue(raw) === null) { e.target.value = count ? String(count) : ''; return; }
-                                  if (v === count) return;
-                                  void writeCells(groupKey, [{ studentId: r.student.id, patch: { [col.key]: v === 0 ? null : v } }]);
-                                }}
-                              />
-                              <button
-                                className="dir-gb-plus"
-                                disabled={loadingRecords}
-                                title={`One more: ${col.label}`}
-                                aria-label={`Add one ${col.label} for ${r.student.name}`}
-                                onClick={() => void writeCells(groupKey, [{
-                                  studentId: r.student.id,
-                                  patch: { [col.key]: Math.min(100, count + 1) },
-                                }])}
-                              >
-                                +1
-                              </button>
-                            </div>
-                          </td>
-                        );
-                      }
-                      const cell = r.cells[col.key];
-                      const linked = col.kind === 'concert' || col.kind === 'exam';
-                      return (
-                        <td key={col.key} className="dir-gb-itemcol">
-                          <div className="dir-gb-cellwrap">
-                            <input
-                              className={`dir-gb-score${cell.typed === null && cell.live !== null ? ' auto' : ''}`}
-                              type="number"
-                              min={0}
-                              max={100}
-                              inputMode="numeric"
-                              aria-label={`${r.student.name}, ${col.label}`}
-                              key={`${r.student.id}:${col.key}:${cell.typed ?? ''}`}
-                              defaultValue={cell.typed ?? ''}
-                              placeholder={cell.live !== null ? String(cell.live) : linked ? '—' : ''}
-                              title={linked && cell.live === null && cell.typed === null
-                                ? 'Nothing counted here: excused, not required of this student, or not graded in the Hub yet. Type a number to give one.'
-                                : undefined}
-                              onBlur={e => void saveCell(r.student.id, col.key, e.target.value, cell.typed, e.target)}
-                            />
-                            {cell.typed !== null && cell.live !== null && (
-                              <button
-                                className="dir-gb-follow"
-                                title={`You typed ${cell.typed}; the Hub says ${cell.live}. Click to use the Hub’s number.`}
-                                aria-label={`Use the Hub’s ${cell.live} for ${r.student.name}, ${col.label}`}
-                                onClick={() => void writeCells(groupKey, [{ studentId: r.student.id, patch: { [col.key]: null } }])}
-                              >
-                                ↺ {cell.live}
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    }),
-                  ];
-                })}
-
-                <td className="dir-gb-grade">
-                  {r.tally.percent === null ? (
-                    <span
-                      className="dir-gb-nograde"
-                      title={`Only ${r.tally.scoredWeight} of ${r.tally.totalWeight} points are scored.`
-                        + ' A grade built on less than half the plan is not a grade.'}
-                    >
-                      &mdash;
-                    </span>
-                  ) : r.tally.percent}
-                </td>
-
-                <td>
-                  <select
-                    className="dir-gb-pick"
-                    value={r.effort ?? ''}
-                    onChange={e => void saveMark(groupKey, r.student.id, { effort: e.target.value })}
-                  >
-                    <option value="" />
-                    {EFFORT_GRADES.map(g => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                </td>
-
-                <td>
-                  <select
-                    className="dir-gb-pick"
-                    value={r.conduct ?? ''}
-                    onChange={e => void saveMark(groupKey, r.student.id, { conduct: e.target.value })}
-                  >
-                    <option value="" />
-                    {CONDUCT_GRADES.map(g => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                </td>
-
-                <td className="dir-gb-codes-col">
-                  <div className="dir-gb-chips">
-                    {r.codes.map(code => (
-                      <button
-                        key={code}
-                        className="dir-gb-chip"
-                        title={`${grading.commentCodes[code] ?? code} — tap to remove`}
-                        onClick={() => void saveMark(groupKey, r.student.id, {
-                          codes: r.codes.filter(c => c !== code),
-                        })}
-                      >
-                        {code} &times;
-                      </button>
-                    ))}
-                  </div>
-                  <select
-                    className="dir-gb-pick dir-gb-codepick"
-                    value=""
-                    onChange={e => {
-                      const code = e.target.value;
-                      if (!code || r.codes.includes(code)) return;
-                      void saveMark(groupKey, r.student.id, { codes: [...r.codes, code] });
-                    }}
-                  >
-                    <option value="">Add a code…</option>
-                    {Object.entries(grading.commentCodes).map(([code, text]) => (
-                      <option key={code} value={code}>{code} — {text}</option>
-                    ))}
-                  </select>
-                  {r.reasons.length > 0 && (
-                    <div className={`dir-gb-why${r.codes.length === 0 ? ' bad' : ''}`}>
-                      Comment required: {r.reasons.join(', ')}
-                    </div>
+                            if (raw !== '' && gradeValue(raw) === null) { e.target.value = r.counts[col.key] ? String(r.counts[col.key]) : ''; return; }
+                            const v = raw === '' ? 0 : tallyCount(raw);
+                            if (v !== r.counts[col.key]) void cells([{ studentId: r.student.id, patch: { [col.key]: v || null } }]);
+                          }} />
+                      </td>
+                    ) : (
+                      <ScoreCell key={col.key} name={name} label={col.label} cell={r.cells[col.key]}
+                        hub={hubKinds.has(col.kind)} off={!col.counting} disabled={loading}
+                        onSave={v => cells([{ studentId: r.student.id, patch: { [col.key]: v } }])} />
+                    ))),
+                  ])}
+                  {plan.map(c => {
+                    const res = r.cats[c.id];
+                    const judged = model.judgement.has(c.id);
+                    return (
+                      <ScoreCell key={c.id} name={name} label={c.label} avg
+                        cell={{ typed: res.typed, live: judged ? null : res.derived, value: res.base }}
+                        hub={!judged} disabled={loading} penalty={res.penalty} after={res.value}
+                        onSave={v => cells([{ studentId: r.student.id, patch: { [c.id]: v === null ? REMOVE : v } }])} />
+                    );
+                  })}
+                  <td className="gb-final">
+                    {r.final === null
+                      ? <span title="Less than half of the grade's points have a number yet, so there is no grade.">No grade yet</span>
+                      : <b>{r.final}</b>}
+                  </td>
+                  {hs && (
+                    <td>
+                      <select className="gb-pick" aria-label={`${name}, effort`} value={r.effort ?? ''} disabled={loading}
+                        onChange={e => void mark(r.student.id, { effort: e.target.value })}>
+                        <option value="" />
+                        {EFFORT_GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                      </select>
+                    </td>
                   )}
-                </td>
-              </tr>
-            ))}
+                  {hs && (
+                    <td>
+                      <select className="gb-pick" aria-label={`${name}, conduct`} value={r.conduct ?? ''} disabled={loading}
+                        onChange={e => void mark(r.student.id, { conduct: e.target.value })}>
+                        <option value="" />
+                        {CONDUCT_GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                      </select>
+                    </td>
+                  )}
+                  {hs && (
+                    <td className="gb-codes">
+                      {r.codes.map(code => (
+                        <button key={code} className="gb-chip" disabled={loading}
+                          aria-label={`Remove code ${code} from ${name}`} title={grading.commentCodes[code] ?? code}
+                          onClick={() => void mark(r.student.id, { codes: r.codes.filter(x => x !== code) })}>
+                          {code} &times;
+                        </button>
+                      ))}
+                      <select className="gb-pick" aria-label={`${name}, add a comment code`} value="" disabled={loading}
+                        onChange={e => {
+                          const code = e.target.value;
+                          if (code && !r.codes.includes(code)) void mark(r.student.id, { codes: [...r.codes, code] });
+                        }}>
+                        <option value="">Add a code</option>
+                        {Object.entries(grading.commentCodes).map(([code, text]) => (
+                          <option key={code} value={code}>{code} {text}</option>
+                        ))}
+                      </select>
+                      {r.reasons.length > 0 && (
+                        <div className={`gb-why${r.codes.length ? '' : ' bad'}`}>Comment required: {r.reasons.join(', ')}</div>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {rows.length === 0 && (
-        <div className="dir-empty"><p>Nobody is on this list for {reportSpan.label}.</p></div>
-      )}
+      {rows.length === 0 && <div className="dir-empty"><p>Nobody is on {tabLabel(spec)} for {span.label}.</p></div>}
 
-      <div className="dir-gb-foot">
-        <div className="dir-gb-status">
-          {notReady.length === 0
-            ? <>Every row on this table is ready to submit.</>
-            : <><b>{notReady.length}</b> of {rows.length} rows still need something: {summarize(notReady)}.</>}
-        </div>
-        <div className="dir-gb-actions">
-          <button className="dir-tool-btn" disabled={loadingRecords} onClick={() => void fill(plan.filter(fillable))}>
-            <Wand2 size={14} /> Fill every empty judgement box
-          </button>
-          <button className="dir-tool-btn" disabled={loadingRecords} onClick={() => setShowEmail(s => !s)}>
-            {showEmail ? 'Hide the email' : 'Build the email'}
-          </button>
-        </div>
-      </div>
+      <section className="gb-ready" aria-label="Ready check">
+        {notReady.length === 0
+          ? <p><b>Ready.</b> Every row on {tabLabel(spec)} has what it needs.</p>
+          : (
+            <>
+              <p><b>{notReady.length} of {rows.length} rows need something</b> before you copy:</p>
+              <ul>
+                {(['no-grade', 'missing-effort-conduct', 'needs-code'] as const).map(k => {
+                  const who = notReady.filter(r => r.readiness === k);
+                  if (!who.length) return null;
+                  const what = { 'no-grade': 'No grade yet', 'missing-effort-conduct': 'Needs an effort and a conduct grade', 'needs-code': 'Needs a comment code' }[k];
+                  return <li key={k}><b>{what}:</b> {who.map(r => lastFirst(r.student.name)).join('; ')}</li>;
+                })}
+              </ul>
+            </>
+          )}
+      </section>
 
-      {showEmail && (
-        <div className="dir-gb-email">
-          <div className="dir-gb-subject">
-            <span className="dir-gb-label">Subject</span>
-            <code>{subject}</code>
-          </div>
-          <button className="dir-tool-btn dir-gb-copy" disabled={loadingRecords} onClick={() => void copyEmail()}>
-            {copied
-              ? <><Check size={14} /> Copied</>
-              : <><ClipboardCopy size={14} /> Copy all {tables.length} tables</>}
-          </button>
-          <p className="dir-gb-hint">
-            Paste straight into the email to {grading.email.recipientName}. The tables carry their
-            own borders and header colours, so they arrive looking like this. A student with no
-            grade comes across as a BLANK cell, never a zero.
-          </p>
-          <div className="dir-gb-preview">
-            <p>{intro}</p>
-            {tables.map(t => (
-              <div key={t.id}>
-                <p><b>{t.title}:</b></p>
-                <table className="dir-gb-out">
-                  <thead>
-                    <tr>
-                      {t.headers.map(h => <th key={h} style={{ background: t.headerColor }}>{h}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {t.rows.map((row, i) => (
-                      <tr key={i}>{row.map((c, j) => <td key={j}>{c}</td>)}</tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
-          </div>
-        </div>
+      {hs && grading.instructions && (
+        <details className="gb-district">
+          <summary>District requirements</summary>
+          <p>{grading.instructions.title}</p>
+          <ol>{grading.instructions.items.map(item => <li key={item}>{item}</li>)}</ol>
+          {grading.instructions.note && <p>{grading.instructions.note}</p>}
+          <p><b>Comment codes</b></p>
+          <ul className="gb-codelist">
+            {Object.entries(grading.commentCodes).map(([code, text]) => <li key={code}><b>{code}</b> {text}</li>)}
+          </ul>
+          <p><b>The email</b> goes to {grading.email.recipientName} with the subject
+            {' '}<code>{subjectLine(span, grading.email.subjectSuffix)}</code> and carries {emailTables.map(t => t.title).join(', ')}.
+            College students are never in it.</p>
+        </details>
       )}
     </div>
   );
 }
 
 /**
- * One line under a box's heading saying what the box IS — so nobody has to
- * guess that the concert columns beside "Required Performance Attendance" are
- * the pieces it averages, not categories of their own.
+ * One grade cell. Shows the number in use; a number typed over the Hub's is
+ * bold with a dot and explains itself. Clearing the box, or typing the Hub's
+ * own number, goes back to following the Hub.
  */
-function boxCaption(c: GradeCategory, cols: GradeColumn[]): string {
-  const graded = cols.filter(col => col.kind !== 'tally').length;
-  const parts: string[] = [];
-  if (graded > 0) parts.push(`average of the ${graded} column${graded === 1 ? '' : 's'} on its right`);
-  else if (c.suggest === 'exams') parts.push('average of every graded exam');
-  else if (c.suggest === 'concerts') parts.push('average of every concert required');
-  else if (c.suggest === 'lessons') parts.push('average of every graded lesson');
-  if (cols.some(col => col.kind === 'tally')) parts.push('minus the points for incidents');
-  return parts.join(', ');
-}
-
-/** "4 with no grade yet, 2 with a comment code the district requires". */
-function summarize(rows: { readiness: string }[]): string {
-  const counts: Record<string, number> = {};
-  for (const r of rows) counts[r.readiness] = (counts[r.readiness] ?? 0) + 1;
-  const say: Record<string, string> = {
-    'no-grade': 'no grade yet',
-    'missing-effort-conduct': 'no effort or conduct grade',
-    'needs-code': 'a comment code the district requires',
-  };
-  return Object.entries(counts).map(([k, n]) => `${n} with ${say[k] ?? k}`).join(', ');
+function ScoreCell({ name, label, cell, hub, off, avg, disabled, penalty = 0, after, onSave }: {
+  name: string; label: string; cell: CellResult; hub: boolean; off?: boolean; avg?: boolean;
+  disabled?: boolean; penalty?: number; after?: number | null;
+  onSave: (v: number | null) => Promise<void>;
+}) {
+  const overridden = hub && cell.typed !== null;
+  const shown = cell.typed ?? cell.live;
+  const explain = overridden
+    ? `You typed ${cell.typed}. ${cell.live === null ? 'The Hub has no grade here.' : `The Hub says ${cell.live}.`}`
+    : cell.value === null
+      ? cell.raw ? `The Hub holds "${cell.raw}", which is not a number from 0 to 100, so it does not count.`
+        : BLANK_WORDS[cell.blank ?? 'not-graded'] ?? ''
+      : hub ? 'From the Hub. Type a number to replace it.' : '';
+  return (
+    <td className={`gb-cell${avg ? ' gb-avgcell' : ''}${off ? ' off' : ''}${overridden ? ' typed' : ''}`} title={explain}>
+      <input
+        className="gb-input"
+        inputMode="numeric"
+        aria-label={`${name}, ${label}`}
+        aria-description={explain || undefined}
+        key={`${cell.typed ?? ''}|${cell.live ?? ''}`}
+        defaultValue={shown ?? ''}
+        placeholder={cell.raw ?? ''}
+        disabled={disabled}
+        onBlur={e => {
+          const raw = e.target.value.trim();
+          const v = raw === '' ? null : gradeValue(raw);
+          const reset = () => { e.target.value = shown === null ? '' : String(shown); };
+          if (raw !== '' && v === null) return reset();          // not a grade: put it back
+          if (v === null || (hub && v === cell.live)) {           // cleared, or the Hub's own number
+            if (cell.typed !== null) void onSave(null); else reset();
+            return;
+          }
+          if (v !== cell.typed) void onSave(v);
+        }}
+      />
+      {overridden && <span className="gb-dot" aria-hidden="true">&bull;</span>}
+      {overridden && (
+        <button className="gb-undo" disabled={disabled} title={cell.live === null ? 'Clears your number' : `Goes back to ${cell.live}`}
+          onMouseDown={e => e.preventDefault()} onClick={() => void onSave(null)}>
+          Undo: use the Hub number
+        </button>
+      )}
+      {off && <div className="gb-offnote">Not counting</div>}
+      {penalty > 0 && (
+        <div className="gb-penalty">
+          {after === null || after === undefined ? `−${penalty} for penalties, no grade yet` : `−${penalty} for penalties = ${after}`}
+        </div>
+      )}
+    </td>
+  );
 }
