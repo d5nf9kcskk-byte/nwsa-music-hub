@@ -40,17 +40,33 @@
  * underneath changes; while clearing, what is on screen becomes the out copy
  * and the melt climbs back from wherever it had got to.
  *
+ * INSIDE A SCREEN (director, 2026-11-11: "Yes, melt those too"). A screen that
+ * swaps one view for another in place (Check-In's concert page, Schedule's day
+ * on a phone, the assignment and form editors) changes through
+ * useDissolvedState(), which is this same page dissolve. A drawer, sheet or
+ * pop-up form is not a page change, so the page under it stays put and the
+ * drawer itself melts: in, it forms out of the peak melt the way a new page
+ * clears; out, it melts and fades the way a page being left does. Drawers are
+ * found by watching the page (OVERLAY below), so none of the forty-odd needs
+ * wiring of its own, and one closing is put back where it was, as its own
+ * copy, for as long as it takes to melt away.
+ *
  * ONE CLOCK. Duration, peak blur and hold come from the org config
  * (`hub2.glass.dissolveMs` / `dissolveBlur` / `dissolveHoldMs`, emitted as
  * --hub2-dissolve-* by hub2Tokens.ts). The one curve is LAW below. Nothing else
  * in the look may name a duration (hub2.selfcheck.ts §7).
  */
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { HUB2_ATTR } from './hub2Tokens';
 
 /** The page area: the one scroller in each shell. */
 const SCROLLER = '.pub-content, .dir-content';
 /** A page still fetching. A page showing one of these is not the page having arrived. */
 const PLACEHOLDER = '.pub-skeleton-card, .dir-loading';
+/** Drawers, sheets and pop-up forms: each melts in and out by itself. Menus and
+ *  search are left out on purpose: they are how you GET to a page, and that
+ *  page change is the melt. */
+const OVERLAY = '.dir-drawer-overlay, .dir-subw-overlay, .pub-subw-overlay, .pub-confirm-overlay, .pub-welcome-overlay, .dir-checkin-modal';
 /** <html> carries the phase, so CSS can hide the live page while a copy shows. */
 export const PHASE_ATTR = 'data-hub2-dissolve';
 
@@ -265,6 +281,81 @@ export function dissolve(swap?: () => void): void {
   }
   swap?.();
   startUp(from);
+}
+
+/**
+ * useState whose changes swap the whole screen in place, so they change
+ * through the page dissolve. `melt` says whether this change really swaps what
+ * is on screen (Schedule's day is its own page only below 1100px).
+ */
+export function useDissolvedState<T>(init: T | (() => T), melt: () => boolean = () => true) {
+  const [value, setNow] = useState(init);
+  // Read through refs so `set` is the same function every render, like a
+  // useState setter (effects list it as a dependency).
+  const now = useRef(value);
+  const meltNow = useRef(melt);
+  useLayoutEffect(() => { now.current = value; meltNow.current = melt; });
+  const set = useCallback((next: T) => {
+    if (Object.is(next, now.current)) return;
+    now.current = next;
+    if (meltNow.current()) dissolve(() => setNow(next));
+    else setNow(next);
+  }, []);
+  return [value, set] as const;
+}
+
+/** A drawer copy waiting to clear, by the live drawer it is a copy of. */
+const forming = new WeakMap<HTMLElement, HTMLElement>();
+
+/** A drawer opened: a copy of it forms out of the peak melt above it, and the
+ *  live drawer (real glass) is revealed under it near the end. */
+function overlayIn(live: HTMLElement) {
+  const z = getComputedStyle(live).zIndex;
+  const g = copyOf(live);
+  g.style.zIndex = z;
+  forming.set(live, g);
+  const T: KeyframeAnimationOptions = { duration: clock().ms * (1 - UP), easing: 'linear', fill: 'both' };
+  g.animate([{ opacity: 0 }, { opacity: 1, offset: OUT_FADE }, { opacity: 1, offset: REVEAL_AT }, { opacity: 0 }], T);
+  const shown = live.animate(REVEAL, T);
+  g.animate(melt(1, 0, LAW.down), T).finished.then(() => { g.remove(); shown.cancel(); forming.delete(live); }, () => {});
+}
+
+/** A drawer closed: the node React just removed goes back where it was, as a
+ *  copy nobody can tap, melts the way a page being left does, then fades. */
+function overlayOut(gone: HTMLElement, parent: Node, next: Node | null) {
+  if (!parent.isConnected) return;
+  gone.getAnimations().forEach(a => a.cancel());
+  forming.get(gone)?.remove();
+  gone.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
+  parent.insertBefore(gone, next && next.parentNode === parent ? next : null);
+  const z = getComputedStyle(gone).zIndex;
+  gone.classList.add('hub2-ghost');
+  gone.setAttribute('aria-hidden', 'true');
+  gone.inert = true;
+  gone.style.zIndex = z;
+  const c = clock();
+  gone.animate(melt(0, 1, LAW.up), { duration: c.ms * UP, easing: 'linear', fill: 'both' });
+  gone.animate([{ opacity: 1 }, { opacity: 0 }], { delay: c.ms * UP, duration: c.ms * (1 - UP) * OUT_FADE, easing: 'linear', fill: 'both' })
+    .finished.then(() => gone.remove(), () => {});
+}
+
+const overlayOf = (n: Node): HTMLElement | null =>
+  n instanceof HTMLElement && !n.classList.contains('hub2-ghost')
+    ? (n.matches(OVERLAY) ? n : n.querySelector<HTMLElement>(OVERLAY))
+    : null;
+
+/** Watch for drawers. A mutation observer runs after React's commit and before
+ *  the browser paints, so neither the drawer arriving nor the one leaving is
+ *  ever on screen unmelted. Not during a page change: that melt covers it. */
+if (typeof MutationObserver === 'function' && typeof document !== 'undefined') {
+  new MutationObserver(records => {
+    let on: boolean | undefined;
+    const gate = () => (on ??= !S.phase && dissolveOn());
+    for (const r of records) {
+      r.removedNodes.forEach(n => { const o = overlayOf(n); if (o && gate()) overlayOut(o, r.target, r.nextSibling); });
+      r.addedNodes.forEach(n => { const o = overlayOf(n); if (o && o.isConnected && gate()) overlayIn(o); });
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true });
 }
 
 /** For test scripts: the phase and the level, read only. */

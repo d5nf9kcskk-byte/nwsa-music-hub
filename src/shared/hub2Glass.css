@@ -1270,6 +1270,9 @@
 }
 :root[data-hub2="on"] .hub2-ghost {
   position: fixed; z-index: 39; margin: 0; pointer-events: none;
+  /* A drawer's copy carries the drawer's class, and with it the drawer's own
+     opening keyframes; the melt is its only motion. */
+  animation: none !important;
   /* NOT a scroller. On an iPhone a scrolling box is its own native layer,
      and an effect applied over or onto one is where the first build lost its
      blur. The copy still shows the right part of the page: the script sets
@@ -1282,6 +1285,13 @@
 :root[data-hub2="on"] .hub2-ghost *::before,
 :root[data-hub2="on"] .hub2-ghost *::after {
   -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none !important;
+}
+/* A drawer's copy sits over the REAL page, not over a hidden one, and with its
+   blur switched off its pane would show that page through it, sharp, with the
+   form's words on top of the calendar's. So the pane in a drawer's copy is the
+   solid panel the glass already falls back to (section 6). */
+:root[data-hub2="on"] .hub2-ghost:is(.dir-drawer-overlay, .dir-subw-overlay, .pub-subw-overlay, .pub-confirm-overlay, .pub-welcome-overlay, .dir-checkin-modal) > * {
+  background: var(--hub2-surface) !important;
 }
 
 } /* @media screen */

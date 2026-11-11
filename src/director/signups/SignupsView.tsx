@@ -28,6 +28,7 @@ import { useMinuteTick } from '../hooks/useAnnouncements';
 import { SchedulePublishField } from '../components/SchedulePublishField';
 import { FileUpload } from '../components/FileUpload';
 import { registerOverlayClose } from '../../shared/overlayBack';
+import { useDissolvedState } from '../../shared/hub2Dissolve';
 import { FilterMenu } from '../../shared/FilterMenu';
 import { whenQueued } from '../writeStatus';
 import { printViaPopup } from '../../shared/printPopup';
@@ -93,8 +94,9 @@ export function SignupsView() {
   // the "couldn't load" strip for a screen they can otherwise use.
   const canManageRoster = isStaffMember(me);
   const { contacts, saveContact } = useContacts(canManageRoster);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ form: SignupForm | null; draft: Draft } | null>(null);
+  // A form and its editor are pages in place, so opening either melts.
+  const [openId, setOpenId] = useDissolvedState<string | null>(null);
+  const [editing, setEditing] = useDissolvedState<{ form: SignupForm | null; draft: Draft } | null>(null);
   // "New form" first asks what kind (#forms); the kind picks the template.
   const [picking, setPicking] = useState(false);
   const [kindFilter, setKindFilter] = useState<FormKind | 'all'>('all');

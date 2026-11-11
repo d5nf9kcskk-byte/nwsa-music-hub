@@ -414,16 +414,28 @@ let ambientLoops = 0;
   assert.ok(!/backdropFilter|webkitBackdropFilter/.test(mover),
     `${MOVER}: never animate a backdrop-filter; an iPhone computes it and does not paint it`);
   for (const m of mover.matchAll(/([\w.!]+)\.animate\(/g)) {
-    assert.ok(['S.out!', 'S.out', 'S.in', 'live'].includes(m[1]), `${MOVER}: "${m[1]}.animate(" animates something that is not a copy`);
+    // g: a drawer's copy; gone: a closed drawer put back as its own copy.
+    assert.ok(['S.out!', 'S.out', 'S.in', 'live', 'g', 'gone'].includes(m[1]), `${MOVER}: "${m[1]}.animate(" animates something that is not a copy`);
   }
-  assert.match(mover, /live\.animate\(REVEAL, T\)/, `${MOVER}: the live page is only ever revealed`);
+  const liveCalls = [...mover.matchAll(/live\.animate\(([^)]*)\)/g)].map(m => m[1]);
+  assert.ok(liveCalls.length >= 2 && liveCalls.every(a => a === 'REVEAL, T'),
+    `${MOVER}: a live page or live drawer is only ever revealed (live.animate(REVEAL, T)), got ${liveCalls.join(' | ')}`);
   const reveal = mover.slice(mover.indexOf('const REVEAL'), mover.indexOf('];', mover.indexOf('const REVEAL')));
   assert.ok(reveal.length > 20 && !/opacity|filter|transform|mask|clip/.test(reveal),
     `${MOVER}: REVEAL may animate visibility and nothing else on the live page`);
   // The copies go BESIDE the live page and nowhere else, never around it.
   for (const m of mover.matchAll(/(\S*)(appendChild\(|\.append\(|\.prepend\(|\.before\(|\.after\(|insertBefore\(|replaceWith\()/g)) {
-    assert.equal(`${m[1]}${m[2]}`, 'live.after(', `${MOVER}: "${m[0]}" puts something into the page; a copy goes beside the live page, nowhere else`);
+    assert.ok(['live.after(', 'parent.insertBefore('].includes(`${m[1]}${m[2]}`),
+      `${MOVER}: "${m[0]}" puts something into the page; a copy goes beside the live page, or a closed drawer back where it was, nowhere else`);
   }
+  // INSIDE A SCREEN (director, 2026-11-11: "Yes, melt those too"). Drawers
+  // melt by themselves, found by watching the page, and never during a page
+  // change; menus and search are how you reach a page, so they are not on it.
+  const overlay = mover.match(/const OVERLAY = '([^']+)'/)?.[1] ?? '';
+  assert.ok(overlay.includes('.dir-drawer-overlay') && !/menu|search/.test(overlay),
+    `${MOVER}: OVERLAY must name the drawers and no menu or search (${overlay})`);
+  assert.match(mover, /on \?\?= !S\.phase && dissolveOn\(\)/, `${MOVER}: a drawer melts only through the gate, and not during a page change`);
+  assert.match(mover, /export function useDissolvedState</, `${MOVER}: in-place page swaps change through useDissolvedState`);
   const glassSrc = strip(read('./hub2Glass.css'));
   assert.match(glassSrc, /\[data-hub2-dissolve\] :is\(\.pub-content, \.dir-content\):not\(\.hub2-ghost\) \{\s*visibility: hidden;\s*\}/,
     'hub2Glass.css: the live page hides with visibility alone while a copy shows');
@@ -439,9 +451,19 @@ let ambientLoops = 0;
   assert.ok(mainSrc2.indexOf('router.subscribe(') < mainSrc2.indexOf('createRoot('),
     'main.tsx: subscribe before the app renders, or the page being left is gone before it can be copied');
   for (const shell of ['./teacher/TeacherApp.tsx', './classroom/ClassroomTeacherApp.tsx', './assistant/AssistantApp.tsx']) {
-    assert.match(read(`../director/${shell}`), /const setTab = \(next: typeof tab\) => \{ if \(next !== tab\) dissolve\(\(\) => setTabNow\(next\)\); \};/,
-      `${shell}: its tabs are pages, so they change through dissolve()`);
+    assert.match(read(`../director/${shell}`), /const \[tab, setTab\] = useDissolvedState</,
+      `${shell}: its tabs are pages, so they change through the dissolve`);
   }
+  // And the screens that swap a whole page in place.
+  for (const [file, state] of [
+    ['./checkin/CheckinView.tsx', 'eventId'], ['./schedule/ScheduleView.tsx', 'dayOpen'],
+    ['./assignments/AssignmentsView.tsx', 'editingId'], ['./assignments/AssignmentsView.tsx', 'gradingId'],
+    ['./assignments/AssignmentsView.tsx', 'addingNew'], ['./signups/SignupsView.tsx', 'openId'], ['./signups/SignupsView.tsx', 'editing'],
+  ]) {
+    assert.match(read(`../director/${file}`), new RegExp(`const \\[${state}, set\\w+\\] = useDissolvedState`),
+      `${file}: ${state} swaps the page in place, so it changes through the dissolve`);
+  }
+  assert.match(glassSrc, /\.hub2-ghost \{[^}]*animation: none !important/, "hub2Glass.css: a drawer's copy must not replay the drawer's own opening");
 }
 
 // 8. Parts (#hub2-alive): the shared pieces that make a page read as Studio

@@ -3,7 +3,6 @@ import { SeasonButton } from '../SeasonButton';
 import '../uiUpdates.css';
 import '../dirShell.css';
 import '../hub2Staff.css';
-import { useState } from 'react';
 import type { User } from 'firebase/auth';
 import { useNavigate } from 'react-router';
 import {
@@ -23,7 +22,7 @@ import { useCurrentDirector } from '../currentDirector';
 import { assistantHasCapability } from '../directorRoles';
 import type { AssistantCapability } from '../types';
 import { ORG } from '../../org';
-import { dissolve } from '../../shared/hub2Dissolve';
+import { useDissolvedState } from '../../shared/hub2Dissolve';
 
 type AsstTab = 'roll' | 'readAloud' | AssistantCapability;
 
@@ -38,9 +37,8 @@ export function AssistantApp({ user, signOut }: { user: User; signOut: () => voi
   const me = useCurrentDirector();
   const allowed = me?.assignedEnsembleIds ?? [];
   const caps = me?.assistantCapabilities ?? [];
-  const [tab, setTabNow] = useState<AsstTab>('roll');
   // A tab is a page here, so it changes the way every page does (#hub2-motion).
-  const setTab = (next: typeof tab) => { if (next !== tab) dissolve(() => setTabNow(next)); };
+  const [tab, setTab] = useDissolvedState<AsstTab>('roll');
 
   const title =
     tab === 'roll' ? 'Take Roll'

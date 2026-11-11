@@ -46,6 +46,7 @@ import { enqueueGradeMail } from '../hooks/useGradeMail';
 import { isAdultStudent } from '../groupKind';
 import { GradeMailBar } from './GradeMailBar';
 import { registerOverlayClose } from '../../shared/overlayBack';
+import { useDissolvedState } from '../../shared/hub2Dissolve';
 import { describeDuration, formatClock, formatFileSize, minutesToSeconds, secondsToMinutes } from '../../shared/duration';
 import { ORG } from '../../org';
 import { studentMatchesQuery } from '../studentSearch';
@@ -1065,9 +1066,10 @@ export function AssignmentsView({ initialAssignmentId, initialEnsembleId, allowe
     : byEnsemble;
   const hiddenByTerm = byEnsemble.length - shownAssignments.length;
 
-  const [addingNew, setAddingNew] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [gradingId, setGradingId] = useState<string | null>(initialAssignmentId ?? null);
+  // Each of these swaps the list for a page, so each melts like a page change.
+  const [addingNew, setAddingNew] = useDissolvedState(false);
+  const [editingId, setEditingId] = useDissolvedState<string | null>(null);
+  const [gradingId, setGradingId] = useDissolvedState<string | null>(initialAssignmentId ?? null);
 
   const editingAssignment = scopedAssignments.find(a => a.id === editingId) ?? null;
   const gradingAssignment = scopedAssignments.find(a => a.id === gradingId) ?? null;
