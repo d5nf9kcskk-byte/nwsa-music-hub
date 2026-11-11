@@ -1200,4 +1200,32 @@
   }
 }
 
+/* ══════════════════════════════════════════════════════════════
+   The page dissolve (#hub2-motion, src/shared/hub2Dissolve.ts)
+   ══════════════════════════════════════════════════════════════
+   The lens is appended to <body>, never an ancestor of a page, and sits
+   ABOVE the page (40) and BELOW the header (50 / 100) and the tab bar (60),
+   so the bars stay sharp while the page behind them melts. It has no filter
+   of its own between dissolves; the script animates one. The ghost is the
+   page just left, laid over the live one while it fogs; it may fade because
+   it is a copy (a fading ancestor would flatten LIVE glass, not a copy's). */
+:root[data-hub2="on"][data-hub2-dissolve="up"] :is(.pub-content, .dir-content):not(.hub2-ghost) {
+  visibility: hidden;
+}
+:root[data-hub2="on"] .hub2-lens {
+  position: fixed; z-index: 40; pointer-events: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+:root[data-hub2="on"] .hub2-ghost {
+  position: fixed; z-index: 39; margin: 0; pointer-events: none;
+}
+/* Once it starts to fade its glass is flat anyway (its own opacity makes it
+   a backdrop root), so its blurs and loops stop: half the work at the
+   busiest moment, under a lens near its peak. */
+:root[data-hub2="on"] .hub2-ghost.leaving *,
+:root[data-hub2="on"] .hub2-ghost.leaving *::before,
+:root[data-hub2="on"] .hub2-ghost.leaving *::after {
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none !important;
+}
+
 } /* @media screen */

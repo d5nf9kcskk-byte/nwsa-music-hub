@@ -103,10 +103,10 @@ export interface Hub2Palette {
  * `prefers-reduced-transparency: reduce` and a browser without
  * `backdrop-filter` get.
  *
- * NO MOTION NUMBERS, on purpose (2026-11-10): the page morph's and scroll
- * reveal's durations went with them. The one page transition the look gets
- * next brings ONE duration and ONE curve back here, and nothing else in the
- * look may name its own (docs/design/liquid-dissolve-plan.md).
+ * ONE CLOCK FOR ALL THE LOOK'S MOTION (#hub2-motion): the page dissolve's
+ * duration, peak and hold live here and nowhere else in the look; its curve
+ * is the one LAW in src/shared/hub2Dissolve.ts. `dissolveMs: 0` turns the
+ * dissolve off and pages simply change.
  */
 export interface Hub2Glass {
   /** Blur behind the header, the rail, the tab bar, drawers and sheets. */
@@ -121,6 +121,12 @@ export interface Hub2Glass {
   fieldDrift: string;
   /** The specular sweep across the brand mark. Long and slow, or it is a distraction. */
   logoShine: string;
+  /** The page dissolve, start to finish (the director picked 1600, "slow"). */
+  dissolveMs: number;
+  /** How far out of focus a page goes at the dissolve's peak. */
+  dissolveBlur: string;
+  /** The longest the dissolve waits at its peak for a page still loading. */
+  dissolveHoldMs: number;
 }
 
 /**

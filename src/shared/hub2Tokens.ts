@@ -71,6 +71,9 @@ export function hub2TokenCss(look: Hub2Look | undefined): string {
       `--hub2-glass-panel-blur:${look.glass.panelBlur};`,
       `--hub2-field-drift:${look.glass.fieldDrift};`,
       `--hub2-logo-shine:${look.glass.logoShine};`,
+      `--hub2-dissolve-ms:${look.glass.dissolveMs}ms;`,
+      `--hub2-dissolve-blur:${look.glass.dissolveBlur};`,
+      `--hub2-dissolve-hold-ms:${look.glass.dissolveHoldMs}ms;`,
     ] : []),
   ];
   const light = [...palette(look.light), ...shared].join('');

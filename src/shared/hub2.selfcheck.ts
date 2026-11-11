@@ -289,8 +289,8 @@ for (const shell of STAFF_SHELLS) {
   }
 }
 
-// 7. Motion (#glass): the look has NONE of its own, and only the ambient
-//    loops move.
+// 7. Motion (#hub2-motion): ONE dissolve between pages on ONE clock, the
+//    ambient loops, and nothing else.
 //
 //    Everything that used to be pinned here encoded the old motion: the page
 //    morph's sampled law, its clone layer and wall-clock fade, the arrive
@@ -304,9 +304,9 @@ for (const shell of STAFF_SHELLS) {
 //
 //    One pin replaces them, and it is the one a stray `transition` cannot get
 //    past: the look's sheets and scripts contain no animation and no
-//    transition beyond a short named allowlist. Whatever page transition the
-//    look gains next has to be added to that list on purpose, in the change
-//    that adds it.
+//    transition beyond a short named allowlist. The dissolve the director
+//    picked from the sample on 2026-11-11 ("Liquid, slow, smooth") is the one
+//    script on that list, and it was added to it on purpose, below.
 let ambientLoops = 0;
 {
   // Only a change of PAGE is a page change: a filter tap or a hash link is
@@ -360,7 +360,7 @@ let ambientLoops = 0;
     for (const m of src.matchAll(/(?<![\w-])((?:animation|transition)(?:-[a-z-]+)?)\s*:\s*([^;}]+)/g)) {
       const prop = m[1];
       const value = m[2].trim();
-      if (value === 'none') continue;
+      if (/^none(\s*!important)?$/.test(value)) continue;
       const loop = AMBIENT.find(k => value.startsWith(`${k} `));
       assert.ok(prop === 'animation' && name === 'hub2Glass.css' && loop,
         `${name}: "${prop}: ${value}" is motion the look does not have. Only the ambient loops in hub2Glass.css may animate`);
@@ -374,12 +374,65 @@ let ambientLoops = 0;
   }
   // And the list cannot rot: every name on it is a loop the glass really runs.
   assert.deepEqual([...used].sort(), [...AMBIENT].sort(), 'the ambient allowlist names a loop hub2Glass.css no longer runs (or the scan is broken)');
-  // Scripts move nothing at all. No Web Animations call, no frame loop, no
-  // timer-driven tick: the ripple, the note burst and the morph were all
-  // script, and each kept its own clock.
+  // Scripts move nothing, except the dissolve. No Web Animations call, no
+  // frame loop, no timer-driven tick anywhere else: the ripple, the note
+  // burst and the morph were all script, and each kept its own clock.
+  const MOVER = 'hub2Dissolve.ts';
   for (const [name, src] of scripts) {
+    if (name === MOVER) continue;
     assert.ok(!/\.animate\(|requestAnimationFrame|getAnimations\(|setInterval\(/.test(src),
-      `${name}: the look's scripts animate nothing (docs/design/liquid-dissolve-plan.md)`);
+      `${name}: the look's scripts animate nothing; the one mover is ${MOVER}`);
+  }
+  const mover = scripts.find(([n]) => n === MOVER)?.[1];
+  assert.ok(mover, `${MOVER} must exist: it is the page dissolve`);
+  // ONE CLOCK. Every duration the dissolve uses comes from the org config
+  // (--hub2-dissolve-*), and it names none of its own: no `duration: 900`,
+  // no `setTimeout(x, 40)` poll. It may hold at its peak, but the hold is
+  // config too, and it waits on the page (a MutationObserver), not on a tick.
+  assert.ok(!/requestAnimationFrame|setInterval\(/.test(mover), `${MOVER}: no frame loop or ticking timer`);
+  assert.ok(!/duration:\s*\d/.test(mover), `${MOVER}: a literal duration; the clock is the org config`);
+  for (const m of mover.matchAll(/setTimeout\(([^;]*)\);/g)) {
+    assert.ok(/clock\(\)\.holdMs/.test(m[1]), `${MOVER}: setTimeout(${m[1]}) names its own time; only the configured hold may wait`);
+  }
+  for (const v of ['--hub2-dissolve-ms', '--hub2-dissolve-blur', '--hub2-dissolve-hold-ms']) {
+    assert.ok(mover.includes(`'${v}'`), `${MOVER}: must read ${v} from the config`);
+  }
+  // AND NOTHING AT ALL for somebody who asked for less. The one gate asks for
+  // both reduced motion and reduced transparency, the look's own switch, and
+  // a clock; dissolve() asks the gate first and is then exactly swap().
+  for (const q of ["'(prefers-reduced-motion: reduce)'", "'(prefers-reduced-transparency: reduce)'", "getAttribute(HUB2_ATTR) === 'on'", 'clock().ms > 0']) {
+    assert.ok(mover.includes(q), `${MOVER}: the gate must check ${q}`);
+  }
+  assert.match(mover, /export function dissolve\(swap\?: \(\) => void\): void \{\n\s*if \(!dissolveOn\(\)\) \{ finish\(\); swap\?\.\(\); return; \}/,
+    `${MOVER}: dissolve() must ask the gate first and otherwise just swap`);
+  // THE LENS IS NEVER AN ANCESTOR OF A PAGE. It is appended to <body> and
+  // nowhere else, so no page can ever sit inside it (an ancestor's filter
+  // would re-point every live card's blur at nothing). The live page is
+  // hidden with `visibility`, which is not on the backdrop-root list; the
+  // only thing that fades is the ghost, a copy, placed BESIDE the live page.
+  assert.ok(mover.includes('document.body.appendChild('), `${MOVER}: the lens goes on <body>`);
+  for (const m of mover.matchAll(/(\S*)(appendChild\(|\.append\(|\.prepend\(|\.before\(|\.after\(|insertBefore\(|replaceWith\()/g)) {
+    assert.ok(m[1].endsWith('document.body.') && m[2] === 'appendChild(' || `${m[1]}${m[2]}` === 'live.after(',
+      `${MOVER}: "${m[0]}" puts something into the page; the lens goes on <body> and the ghost beside the live page, nowhere else`);
+  }
+  assert.match(mover, /live\.after\(g\)/, `${MOVER}: the ghost goes BESIDE the live page, never around it`);
+  const glassSrc = strip(read('./hub2Glass.css'));
+  assert.match(glassSrc, /\[data-hub2-dissolve="up"\] :is\(\.pub-content, \.dir-content\):not\(\.hub2-ghost\) \{\s*visibility: hidden;\s*\}/,
+    'hub2Glass.css: the live page hides with visibility alone while the ghost shows');
+  assert.match(glassSrc, /\.hub2-lens \{[^}]*pointer-events: none/, 'hub2Glass.css: the lens must never take a tap');
+  assert.match(glassSrc, /\.hub2-ghost \{[^}]*pointer-events: none/, 'hub2Glass.css: the ghost must never take a tap');
+  // Above the page, below every bar: header 50 (public) / 100 (staff), tab bar 60.
+  const lensZ = Number(glassSrc.match(/\.hub2-lens \{[^}]*z-index: (\d+)/)?.[1]);
+  assert.ok(lensZ > 0 && lensZ < 50, `hub2Glass.css: the lens z-index ${lensZ} must sit under the bars (50) so they stay sharp`);
+  // Wired at the router, page changes only, and in all three useState shells.
+  const mainSrc2 = strip(read('../main.tsx'));
+  assert.match(mainSrc2, /router\.subscribe\(/, 'main.tsx: the dissolve runs from the router');
+  assert.match(mainSrc2, /changesPage\(next, here\)/, 'main.tsx: a filter tap or hash link must not dissolve');
+  assert.ok(mainSrc2.indexOf('router.subscribe(') < mainSrc2.indexOf('createRoot('),
+    'main.tsx: subscribe before the app renders, or the page being left is gone before it can be copied');
+  for (const shell of ['./teacher/TeacherApp.tsx', './classroom/ClassroomTeacherApp.tsx', './assistant/AssistantApp.tsx']) {
+    assert.match(read(`../director/${shell}`), /const setTab = \(next: typeof tab\) => \{ if \(next !== tab\) dissolve\(\(\) => setTabNow\(next\)\); \};/,
+      `${shell}: its tabs are pages, so they change through dissolve()`);
   }
 }
 
