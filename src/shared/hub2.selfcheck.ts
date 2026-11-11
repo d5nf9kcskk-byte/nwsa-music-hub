@@ -960,6 +960,38 @@ let glassRules = 0;
   assert.deepEqual(ghosts, [],
     `hub2Glass.css names ${ghosts.length} class(es) nothing else in src/ mentions: ${ghosts.join(', ')}`);
   glassClasses = listed.size;
+
+  // 7. A DISSOLVED STRIPE IS TWO RULES AND THEY MUST NAME THE SAME CLASSES.
+  //    One sets --glass-stripe, the colour the glow keeps; the other turns
+  //    the border transparent and paints that glow. Add a class to the first
+  //    alone and its stripe simply stays hard, which nothing reveals. Add it
+  //    to the second alone and color-mix() is handed an empty value, so the
+  //    whole box-shadow declaration is dropped at computed-value time and the
+  //    block silently loses its glass shadow as well as its stripe.
+  //    Both lists were entirely public until 2026-11-10 -- ten blocks counted,
+  //    ten of them public -- which is how a hint box on a public page came to
+  //    have no findable edge while the identical staff one kept a hard bar.
+  const stripeSet = new Set<string>();
+  const dissolved = new Set<string>();
+  for (const rule of bare.split('}')) {
+    const brace = rule.indexOf('{');
+    if (brace < 0) continue;
+    const body = rule.slice(brace + 1);
+    // `var(--glass-stripe)` inside the consumer's box-shadow has no colon
+    // after the name, so the two halves cannot be mistaken for each other.
+    const into = /--glass-stripe\s*:/.test(body) ? stripeSet
+      : /border-left-color\s*:\s*transparent/.test(body) ? dissolved
+      : null;
+    if (!into) continue;
+    for (const c of rule.slice(0, brace).matchAll(/\.((?:pub|dir|whats)-[a-z0-9-]+)/g)) {
+      if (c[1] !== 'dir-app') into.add(c[1]);  // the shell scope, not a striped block
+    }
+  }
+  assert.ok(stripeSet.size >= 13,
+    `expected both sides' accent stripes, found ${stripeSet.size}`);
+  assert.deepEqual([...stripeSet].sort(), [...dissolved].sort(),
+    'hub2Glass.css: the --glass-stripe classes and the border-left-color:transparent '
+    + 'classes must be the same set, or a stripe stays hard or a block loses its shadow');
 }
 
 console.log(`hub2 self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${fontImports.length} font files, ${pubSelectors.length} public rules, ${fills} accent fills covered, ${fixedChecked} fixed classes kept still, ${selectorClasses} morph classes rendered, ${partsChecked} parts themed, ${glassRules} glass rules, ${glassClasses} glass classes rendered)`);

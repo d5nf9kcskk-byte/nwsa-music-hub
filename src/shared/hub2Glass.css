@@ -616,6 +616,49 @@
     var(--glass-inner), var(--glass-bloom);
 }
 
+/* AND THE SAME FOUR ON THE STAFF SIDE, which the pass above never reached:
+   it counted ten blocks and every one of them was public, so there was not a
+   .dir-* class in either list. The result is the mismatch this round is
+   about -- a hint box on a public page has no findable edge and the same
+   hint box on a staff page has a hard bar down its left.
+
+   hub2Staff.css :111 is the proof it was an oversight and not a choice: it
+   matches .dir-ens-grid-btn's top, right and bottom border colours to the
+   look's own line and leaves the 5px left stripe alone, so that one element
+   already carries three quarters of this treatment.
+
+   Same test, so five of the nine staff stripes stay: .dir-today-alert (red),
+   .dir-roll-nudge and .dir-gap-warning (amber), .dir-followup-tile (blue)
+   and .dir-msg.unread all say "this one is different". So does
+   .dir-lessons-feed, whose --dir-lesson is a real category colour shared
+   with .dir-status-badge.lesson and .dir-att-btn.lesson-btn -- its stripe
+   says "lessons" the way an event-type bar says "rehearsal".
+   .dir-rubric-line-note is here because this branch GAVE it a left edge: the
+   ghost-token sweep turned an invalid --dir-accent into a real --dir-primary,
+   so dissolving it finishes that change rather than undoing it.
+
+   --dir-primary and --dir-blue rather than --hub2-accent, unlike the public
+   rule: that one reaches for the org token because --pub-accent is
+   re-pointed inside the What's New subtree, and nothing does that to these
+   two -- both are declared at shell level only, and hub2.selfcheck.ts
+   already pins the staff --dir-primary to var(--hub2-accent). Reading them
+   means the glow follows the look including Spotlight, which re-points both
+   to the hall's gold on a concert night. A teal glow in a gold shell is the
+   same mismatch one layer down. */
+:root[data-hub2="on"] .dir-app :is(
+  .dir-page-hint, .dir-staff-notice, .dir-rubric-line-note
+) { --glass-stripe: var(--dir-primary); }
+:root[data-hub2="on"] .dir-app .dir-ens-grid-btn { --glass-stripe: var(--dir-blue); }
+
+:root[data-hub2="on"] .dir-app :is(
+  .dir-page-hint, .dir-staff-notice, .dir-rubric-line-note, .dir-ens-grid-btn
+) {
+  border-left-color: transparent;
+  box-shadow:
+    inset 18px 0 26px -20px color-mix(in srgb, var(--glass-stripe) 72%, transparent),
+    var(--glass-inner), var(--glass-bloom);
+}
+
 /* THE EVENT-TYPE BAR DISSOLVES TOO (the director, 2026-11-07, asked for this
    one by name after seeing it in a screenshot).
 
