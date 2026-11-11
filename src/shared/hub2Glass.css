@@ -121,10 +121,22 @@
      can sit at the top of the budget AND be five times as chromatic. It
      is still the org's own colour: change the accent and the field's hue
      follows, which is the promise this file makes.
-     The color-mix line above each one is the fallback for an engine with
-     no relative colour syntax (below Safari 16.4 / Chrome 119): it is
-     dropped at parse time there and the pale lobe stands, which is
-     exactly what shipped before.
+     THE COLOR-MIX LINE IS THE FALLBACK, AND IT ONLY WORKS BEHIND THE
+     @supports BELOW. It used to sit here with the relative-colour line
+     directly after it, on the theory that the second line is "dropped at
+     parse time" on an engine without relative colour syntax. A custom
+     property is not: its value is any balanced token sequence, so the
+     oklch line always parsed, always shadowed this one, and the fallback
+     was dead code on every engine. The failure then landed at
+     SUBSTITUTION, where `background` on body::before is ONE shorthand of
+     five radial-gradients: one invalid component makes the whole
+     declaration invalid at computed-value time, so below Safari 16.4 /
+     Chrome 119 the page painted NO lobe at all — not even the two that
+     resolve — and the look came out as grey rectangles rather than
+     degrading to the pale version. The three relative-colour lines are
+     now in an @supports block after this one, which is the only way round
+     it: the guard keeps them out of the cascade entirely where they
+     cannot be evaluated.
      THE LIGHTNESS NUMBERS ARE A MEASURED CEILING, NOT A TASTE. 4.5:1 for
      the teal accent used as page text needs the darkest painted pixel to
      stay above 0.816 relative luminance, and Oklab L cubes to roughly
@@ -132,13 +144,10 @@
      scratchpad ink.py reads it off a bare-field screenshot; run it after
      touching any of these. */
   --glass-field-teal: color-mix(in oklch, var(--hub2-accent) 10%, white);
-  --glass-field-teal: oklch(from var(--hub2-accent) 0.945 0.048 h);
   --glass-field-plum: color-mix(in oklch, var(--hub2-plum) 8%, white);
-  --glass-field-plum: oklch(from var(--hub2-plum) 0.958 0.040 h);
   /* Yellow carries far more luminance per unit of chroma than teal or
      plum, so the warm lobe is the one that can actually be seen. */
   --glass-field-warm: color-mix(in oklch, var(--hub2-sun) 13%, white);
-  --glass-field-warm: oklch(from var(--hub2-sun) 0.962 0.075 h);
   --glass-field-spark: white;
 
   /* SECONDARY TEXT GOES DARKER, BECAUSE THE PAGE IT SITS ON GOT BUSIER.
@@ -245,6 +254,29 @@
   --pub-radius-lg: 31px;
   --pub-radius-md: 25px;
   --pub-radius-sm: 18px;
+}
+
+/* THE FIELD'S LOBES, AT FULL CHROMA, ONLY WHERE THEY CAN BE EVALUATED.
+   Relative colour syntax is Safari 16.4 and Chrome 119; the floor this look
+   states is iOS 16.4, and the public student site has no floor at all, so
+   both sides of this have to work. Inside the guard each lobe takes its hue
+   from the org's accent and sets its own lightness and chroma (the measured
+   ceiling explained in section 1); outside it the color-mix lobes above
+   stand, paler but painted.
+   It has to be a separate block AFTER the light one and BEFORE the dark one:
+   a declaration cannot be guarded in place without nesting @supports inside
+   a style rule, which is newer than this file's floor, and the same two
+   selector arms have to be repeated or the staff-light shell misses it.
+   Nothing here may be copied into the dark block: dark deliberately uses
+   color-mix(in srgb, ...) because gold and teal both take the dark accent
+   under 4.5:1 at any alpha worth having. */
+@supports (color: oklch(from white l c h)) {
+  :root[data-hub2="on"],
+  :root[data-hub2="on"]:is(:has(.dir-app:not([data-dir-theme="dark"]))) {
+    --glass-field-teal: oklch(from var(--hub2-accent) 0.945 0.048 h);
+    --glass-field-plum: oklch(from var(--hub2-plum) 0.958 0.040 h);
+    --glass-field-warm: oklch(from var(--hub2-sun) 0.962 0.075 h);
+  }
 }
 
 /* Dark mode. Written at the same specificity hub2.css uses for its own
@@ -502,10 +534,14 @@
    than broken -- information can dissolve, so long as what dissolves keeps
    its colour. The same is true of the event bar, softened below.
 
-   .pub-signup-alert is the one judgement call in the list: it is a teal
-   ring round "Forms are open", which is a prompt rather than a severity,
-   so it dissolves into the same warm left-edge glow every other prompt on
-   the page now has. */
+   .pub-signup-alert is the one judgement call in the list: a teal ring
+   round "Forms are open" is a prompt rather than a severity, so it
+   dissolves into the same warm left-edge glow every other prompt on the
+   page now has. BUT `.pub-signup-alert.urgent` IS a severity -- an amber
+   ring that SignupAlert.tsx puts on when a form is due TODAY -- and it was
+   swept in here with the prompt, so both tiers came out identical. It
+   dissolves too, and takes SUN in the glow instead of teal (set below with
+   .pub-daysheet, which means the same thing). */
 :root[data-hub2="on"] :is(
   .pub-subscribe-btn, .pub-birthday-line, .pub-instrument-quip,
   .pub-search-egg, .pub-header-search, .pub-director-link, .whats-new,
@@ -606,6 +642,15 @@
 ) { --glass-stripe: var(--hub2-accent); }
 :root[data-hub2="on"] .pub-assign-card { --glass-stripe: var(--hub2-plum); }
 :root[data-hub2="on"] .pub-daysheet { --glass-stripe: var(--hub2-sun); }
+/* A FORM DUE TODAY IS A SEVERITY, AND IT KEEPS ITS COLOUR. `.urgent` is set
+   by SignupAlert.tsx on dueToday and signup.css rings it in --pub-warn;
+   dissolving it with the list above handed it the same teal glow a form due
+   next week gets, so the one tier that matters disappeared. Sun, like
+   .pub-daysheet above and .pub-signup-row.highlight on the index, both of
+   which mean the same thing. (0,4,0), so it beats the accent list. This is
+   the rule two comments up applied, not an exception to it: information may
+   dissolve so long as what dissolves keeps its colour. */
+:root[data-hub2="on"] .pub-signup-alert.urgent { --glass-stripe: var(--hub2-sun); }
 :root[data-hub2="on"] .pub-ens-btn {
   --glass-stripe: var(--ens-color, var(--hub2-accent));
   border-radius: var(--pub-radius-md);
@@ -1088,11 +1133,26 @@
    block was written to chase turned out to come from look.css's own
    min-height, not from these. */
 
+/* THE HOME-INDICATOR INSET MOVES OUTSIDE THE BAR WHEN THE BAR LEAVES THE
+   BOTTOM EDGE. uiUpdates.css pads the bar's own bottom by
+   env(safe-area-inset-bottom), which is right for a bar docked at the
+   bottom: it is how the labels clear the home indicator. Floated 12px up,
+   that padding buys nothing and is just dead glass — 34px of it on every
+   notched iPhone, under a 52px row of labels, so the bar rendered ~87px
+   tall with a third of itself empty and ~46px of the thumb zone gone. It
+   is the installed Home Screen PWA that gets this, which the Start Guide
+   makes the recommended way to run the Hub.
+   The inset moves to `bottom`, so the bar's TOP EDGE DOES NOT MOVE: 34+12
+   from the bottom instead of 12 with 34 inside it. Nothing above it needs
+   re-measuring — not --nwsa-bottom-chrome, not .pub-content's padding —
+   and with no inset at all (desktop, a phone with no notch) it is
+   pixel-identical to before. */
 :root[data-hub2="on"] .pub-tabbar {
   position: fixed;
   left: 12px;
   right: 12px;
-  bottom: 12px;
+  bottom: calc(env(safe-area-inset-bottom) + 12px);
+  padding-bottom: 0;
   border-radius: calc(var(--pub-radius) + 3px);
   border-top-color: transparent;
   box-shadow: var(--glass-bloom);
@@ -1100,9 +1160,18 @@
 
 /* Out of flow, so the page has to grow its own room back. The 16px in
    uiUpdates.css is deliberately small BECAUSE the bar used to occupy real
-   flex space. */
-:root[data-hub2="on"] .pub-app .pub-content {
-  padding-bottom: calc(var(--pub-nav) + env(safe-area-inset-bottom) + 30px);
+   flex space.
+   PHONE AND TABLET ONLY. pubShell.css hides the tab bar outright at
+   1024px and sets this padding to 32px there, but it does that at (0,2,0)
+   inside a media query, and a media query adds no specificity — so this
+   rule at (0,4,0) won at EVERY width and every public page on a laptop
+   carried ~92px of dead field under its last card, reserved for a bar that
+   is not rendered. #one-nav: not shipped until it is right at every
+   width. */
+@media (max-width: 1023.98px) {
+  :root[data-hub2="on"] .pub-app .pub-content {
+    padding-bottom: calc(var(--pub-nav) + env(safe-area-inset-bottom) + 30px);
+  }
 }
 
 /* WHAT THE PWA TOAST AND THE WriteTray STACK ABOVE (src/base.css, read by
@@ -1119,11 +1188,16 @@
 /* The event page's third bar floats on top of the tab bar. --pub-tabbar-h
    is the tab bar's own offsetHeight, written by a ResizeObserver in
    PublicEvent.tsx and unaware of the lift, so the lift plus a gap is added
-   here. Lift it and nothing else and it overlaps the bar it sits on. */
+   here. Lift it and nothing else and it overlaps the bar it sits on.
+   THE INSET IS NAMED HERE NOW, because it is no longer inside
+   --pub-tabbar-h: that measurement used to carry the home indicator's 34px
+   as the bar's own padding, and taking the padding off the bar above drops
+   offsetHeight from ~87 to 53. Without adding the inset back this bar would
+   sit 34px lower and ride up onto the tab bar it floats above. */
 :root[data-hub2="on"] .pub-event-actionbar {
   left: 12px;
   right: 12px;
-  bottom: calc(var(--pub-tabbar-h, calc(var(--pub-nav) + env(safe-area-inset-bottom))) + 24px);
+  bottom: calc(var(--pub-tabbar-h, var(--pub-nav)) + env(safe-area-inset-bottom) + 24px);
   border-radius: var(--pub-radius-md);
   border-top-color: transparent;
   box-shadow: var(--glass-bloom);
@@ -1235,6 +1309,31 @@
     --glass-field-warm: transparent;
     --glass-field-spark: transparent;
     --pub-border: var(--hub2-line);
+    /* The floating bars' own tint, and the feather. Both were missed when
+       they were added, which is the whole of the bug this block exists to
+       prevent: the four tokens above were listed and these were not, so a
+       person who asked for less transparency kept a 55%-white bar with live
+       text scrolling under it. */
+    --glass-floatbar: var(--hub2-surface);
+    /* THE FEATHER IS GEOMETRY, NOT COLOUR, so making a panel opaque does
+       not stop the mask fading its last 22px to fully transparent — the
+       corners twice. An opaque panel with see-through edges is not a solid
+       panel. Both tokens: --glass-fade-bar is set ON the bars, and an
+       element-level declaration beats this one however specific it is. */
+    --glass-fade: 0px;
+    --glass-fade-bar: 0px;
+  }
+  /* THE TWO FLOATING BARS TAKE THEIR OWN RULE, and it cannot be folded into
+     the one above. Their --glass-pane / --glass-pane-fx are declared ON the
+     elements, and a custom property declared on the element always beats one
+     inherited from an ancestor, whatever the ancestor's specificity — so
+     naming them at :root reaches everything except the two elements that
+     need it. Both arms, to outrank the light (0,3,0) and dark (0,4,0) pair
+     where the bars are tinted. */
+  :root[data-hub2="on"] :is(.pub-tabbar, .pub-event-actionbar),
+  :root[data-hub2="on"][data-pub-theme='dark'] :is(.pub-tabbar, .pub-event-actionbar) {
+    --glass-pane: var(--hub2-surface);
+    --glass-pane-fx: none;
   }
   :root[data-hub2="on"] .dir-app { --dir-border: var(--hub2-line); }
 }
@@ -1253,6 +1352,16 @@
     --glass-chrome: var(--hub2-surface);
     --glass-hero: var(--hub2-surface);
     --glass-bar: var(--pub-accent);
+    /* Same two as the block above, and this branch needs them MORE: with no
+       backdrop-filter at all there is no blur standing between a translucent
+       bar and the page scrolling under it. */
+    --glass-floatbar: var(--hub2-surface);
+    --glass-fade: 0px;
+    --glass-fade-bar: 0px;
+  }
+  :root[data-hub2="on"] :is(.pub-tabbar, .pub-event-actionbar),
+  :root[data-hub2="on"][data-pub-theme='dark'] :is(.pub-tabbar, .pub-event-actionbar) {
+    --glass-pane: var(--hub2-surface);
   }
 }
 
