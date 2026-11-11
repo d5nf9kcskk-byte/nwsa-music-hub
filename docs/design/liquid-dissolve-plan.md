@@ -63,8 +63,9 @@ Student Assistant), because those switch screens in a way it could not see.
 1. **Strip.** One change that takes all the motion in the table out. Your
    phone then shows the glass standing still, which is the clean start you
    asked for. It goes live as soon as its checks pass, except on a concert
-   day. It sits on top of another finished change ("One look, both sides",
-   number 234) and goes live right after that one does.
+   day. It was built on top of another finished change ("One look, both
+   sides", number 234), which went live on 10 November, so nothing is in its
+   way now.
 2. **Sample.** A page you open on your iPhone with a working phone screen
    inside it and two switches, Transition and Pace. It includes "None" (the
    stripped state), "Today" (what you have now, to compare against) and the
