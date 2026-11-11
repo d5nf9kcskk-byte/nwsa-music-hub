@@ -343,7 +343,7 @@ Nov 30, Dec 3, Dec 9, Dec 10, Dec 12. No merges on those days.
 
 | By | Ships |
 |---|---|
-| Sun Nov 15 | `studentDay.ts` with page and feed agreeing. Ask, English and Spanish, in the owner preview. Nothing changes for anyone else. |
+| Sun Nov 15 | `studentDay.ts` with page and feed agreeing. Ask, English and Spanish, in the owner preview. Email and password sign-in, built and switched off (section 10). Nothing changes for anyone else. |
 | Sun Nov 22 | Ask to everyone, if the director says so. `Fold` and `DirPageHead`. Staff removals live: banner, tips, seeds to Setup, Roster, Requests, Tracker, form responses. |
 | Sun Nov 29 | Home and the student page, with the Now and Tonight cards. Gradebook, Move a Student. |
 | Sun Dec 6 | In the preview: menu folds, Calendar, Event form, Change a Day. iPhone pass. Contact sheets, before and after. Then a freeze. |
@@ -363,3 +363,121 @@ Nov 30, Dec 3, Dec 9, Dec 10, Dec 12. No merges on those days.
 6. **The questions people really type.** The corpus starts from 30 the
    review wrote. Any the director adds in his own words, or collects from
    students, go straight into the self-check.
+7. **Email and password sign-in for staff** (section 10). Recommended:
+   yes, built first, switched on after the director tries it himself.
+
+## 10. Getting in (added 2026-11-11, after the director's note)
+
+**Not cross-examined.** This section was written after the four reviews.
+Its first build step is the proof in 10.4.
+
+The director's report: the jazz director signs in, works, and the next time
+he opens the Hub he is signed out again. The ask: a second way in that is
+the Hub's own. The director adds the person's email; they choose their own
+password; the phone saves it and lets them straight in.
+
+### 10.1 What the code says about being signed out
+
+- Staff sign-in is Google only, through a pop-up window
+  (`AuthGate.tsx`). A sign-in is meant to last indefinitely. Nothing in the
+  Hub signs anyone out on a timer.
+- So a lost sign-in means the phone threw away what the Hub stored. The
+  known ways that happens:
+  - **Safari on an iPhone erases a site's storage after seven days of
+    Safari use without a visit to that site.** A Hub added to the Home
+    Screen keeps its own storage and is treated separately.
+  - **Three doors, three separate storages.** The Home Screen icon, a
+    Safari tab, and a link tapped inside a text or an email each keep their
+    own sign-in. Signed in through one, he is signed out in the others.
+  - Private browsing, or a browser set to clear its data on closing.
+- The Google pop-up is itself fragile on phones. When the installed app
+  blocks the pop-up the Hub falls back to a redirect, and the code already
+  notes Safari can drop that result because the sign-in page lives on
+  another domain.
+- Which of these is his cannot be told from here. Two questions settle it:
+  iPhone or Android, and how he opens the Hub (the icon, a bookmark, or a
+  link someone sent).
+
+A password does not stop a phone erasing storage. It makes getting back in
+one tap, with no pop-up and no second domain, and it works the same through
+all three doors.
+
+### 10.2 The design
+
+- **The sign-in screen offers two ways:** "Sign in with Google", unchanged,
+  and "Email and password".
+- **The form is an ordinary one** (email field marked as a username,
+  password field marked as a current password), so the phone's own
+  password manager offers to save it and fills it with Face ID or a
+  fingerprint afterwards.
+- **"Set up or reset my password":** the person types their email and a
+  password of their choosing. The Hub emails them a link; tapping it
+  proves the address is theirs. Until that link is tapped the account can
+  read nothing.
+- **Who gets in is unchanged.** The Directors screen stays the one list.
+  The director adds an email there exactly as today; the field is renamed
+  from "Google sign-in email" to "Sign-in email". Any address works, a
+  school one included.
+- **One person, either way.** Someone who has used Google can add a
+  password to the same account and use whichever is handy.
+- **Student Assistants** are on that same list, so they get the same two
+  ways in. Students in general still need no account for anything,
+  including Ask.
+- **Staying in:** after a staff sign-in on an iPhone in a Safari tab, one
+  line offers "Add to Home Screen to stay signed in". The Hub also asks the
+  browser to keep its storage. Both are best effort.
+
+### 10.3 What does not change
+
+- **No rules change.** Every staff rule already requires a verified email
+  and the Cloud Functions check the same thing. The comment in
+  `firestore.rules` says that requirement was written for the day a second
+  provider arrived.
+- The security policy already allows the sign-in service's two addresses.
+- Sign-out still clears the staff cache.
+
+### 10.4 Proof before it is switched on
+
+On the emulator, before any of it is live:
+
+1. A password account whose email link was never tapped is refused by the
+   rules, even when that email is on the Directors list.
+2. Someone who makes a password account with a director's email first,
+   without access to the inbox, never gets in, and loses that password the
+   moment the real person sets theirs or signs in with Google.
+3. After the link is tapped, the same account passes, and Google and the
+   password both open the same account.
+
+The sign-in service's own tests suggest that setting a password through an
+emailed link also marks the address verified. That is not in its
+documentation, so the build does not rely on it: if the address is still
+unverified after sign-in, the Hub sends the verification link itself.
+
+### 10.5 Switches and the director's part
+
+- Built behind `features.passwordSignIn` in the org config, off, so the
+  demo orgs are untouched and nothing shows until the provider is on.
+- One step in the Firebase console that only the owner can take:
+  Authentication, Sign-in method, Email/Password, Enable. While there, set
+  the minimum password length to 10.
+- The links are sent by the sign-in service, not the Hub's own mail, and
+  can land in junk. If that proves a problem, the Hub's mail function can
+  send them instead.
+
+### 10.6 Known wrinkle
+
+"Connect Google Drive" on assignments opens its own Google pop-up. For
+someone signed in by password with a different Google address, that pop-up
+would switch the signed-in account. It is changed to ask for Drive access
+without changing who is signed in.
+
+### 10.7 Considered and left out
+
+- **A link by email instead of a password:** on an iPhone the link opens
+  in Safari, not in the Home Screen app, so it signs in the wrong door.
+- **Microsoft sign-in** (school accounts): the sign-in service does not
+  treat Microsoft addresses as verified, so the rules would refuse them,
+  and a district can block outside apps.
+- **Apple:** needs a paid developer account.
+- **Accounts for every student or family:** still spring, and still the
+  cross-examination's "no".
