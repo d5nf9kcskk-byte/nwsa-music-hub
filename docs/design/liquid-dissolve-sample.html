@@ -1,0 +1,1229 @@
+<title>Liquid Dissolve</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   Liquid Dissolve: a sample for choosing the Hub's page transition.
+   One working phone, a few switches. Nothing here is app source.
+
+   The outer document follows the viewer's theme (three states: system,
+   forced light, forced dark). The phone has its own Light / Dark switch.
+   ══════════════════════════════════════════════════════════════════ */
+:root {
+  --doc-bg: #eef1f4;
+  --doc-panel: #ffffff;
+  --doc-ink: #18212f;
+  --doc-muted: #55606e;
+  --doc-line: #d7dde4;
+  --doc-seg: #e4e9ee;
+  --doc-accent: #0e7585;
+  --doc-on-accent: #ffffff;
+  --doc-note-bg: #fff3c9;
+  --doc-note-ink: #3f3200;
+  --doc-shadow: rgb(16 24 40 / .45);
+  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-title: 'Newsreader', Georgia, 'Times New Roman', serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --doc-bg: #0b0f14;
+    --doc-panel: #161c24;
+    --doc-ink: #e7ecf2;
+    --doc-muted: #a3aebb;
+    --doc-line: #2b3440;
+    --doc-seg: #0b0f14;
+    --doc-accent: #0e7585;
+    --doc-on-accent: #ffffff;
+    --doc-note-bg: #3a2f08;
+    --doc-note-ink: #f6e7b0;
+    --doc-shadow: rgb(0 0 0 / .7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --doc-bg: #0b0f14;
+  --doc-panel: #161c24;
+  --doc-ink: #e7ecf2;
+  --doc-muted: #a3aebb;
+  --doc-line: #2b3440;
+  --doc-seg: #0b0f14;
+  --doc-accent: #0e7585;
+  --doc-on-accent: #ffffff;
+  --doc-note-bg: #3a2f08;
+  --doc-note-ink: #f6e7b0;
+  --doc-shadow: rgb(0 0 0 / .7);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--doc-bg); color: var(--doc-ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
+}
+.wrap {
+  max-width: 860px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 14px 0;
+}
+.intro h1 { margin: 0 0 3px; font-size: 21px; font-weight: 800; letter-spacing: -.02em; }
+.intro p { margin: 0 0 8px; font-size: 13.5px; color: var(--doc-muted); max-width: 64ch; }
+
+/* The dock: switches on top, the phone filling whatever height is left, the
+   whole thing pinned to the screen. After the short intro scrolls away
+   nothing on the outer page moves again, so a thumb never has to hunt for
+   the switches. */
+.dock {
+  position: sticky; top: 0;
+  display: flex; flex-direction: column; gap: 8px;
+  height: 100vh;
+  height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  min-height: 560px;
+  padding-block: 6px 10px;
+}
+.controls {
+  flex: none;
+  display: grid; grid-template-columns: 3fr 2fr; gap: 5px 10px;
+  padding: 8px 10px 7px;
+  background: var(--doc-panel); border: 1px solid var(--doc-line); border-radius: 16px;
+}
+.ctl { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ctl.wide { grid-column: 1 / -1; }
+.ctl[data-off] { opacity: .55; }
+.lab { font-size: 10px; line-height: 1.25; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--doc-muted); }
+.seg { display: flex; gap: 2px; padding: 3px; background: var(--doc-seg); border-radius: 12px; }
+.seg button {
+  flex: 1 1 0; min-width: 0; min-height: 31px; padding: 1px 2px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 0; border-radius: 9px; background: transparent; color: var(--doc-muted);
+  font: inherit; font-size: 12.5px; font-weight: 700; line-height: 1.1; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.seg button small { font-size: 9.5px; font-weight: 600; opacity: .85; font-variant-numeric: tabular-nums; }
+.seg button[aria-pressed="true"] { background: var(--doc-accent); color: var(--doc-on-accent); }
+.seg button:disabled { opacity: .4; cursor: default; }
+.seg button:focus-visible, .chk input:focus-visible { outline: 2px solid var(--doc-accent); outline-offset: 2px; }
+.chk {
+  display: flex; align-items: center; gap: 7px; min-height: 37px; margin-top: auto;
+  font-size: 12.5px; font-weight: 700; color: var(--doc-ink); cursor: pointer;
+}
+.chk input { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--doc-accent); }
+/* Every caption sits in the same grid cell and only one is visible, so the
+   bar is always as tall as the longest and the phone never changes size. */
+.caps { grid-column: 1 / -1; display: grid; font-size: 12px; line-height: 1.3; color: var(--doc-ink); }
+.caps p { grid-area: 1 / 1; margin: 0; visibility: hidden; }
+.caps p.on { visibility: visible; }
+.note {
+  grid-column: 1 / -1; margin: 0; padding: 7px 10px; border-radius: 10px;
+  background: var(--doc-note-bg); color: var(--doc-note-ink); font-size: 12.5px; font-weight: 600;
+}
+.stage { flex: 1 1 auto; min-height: 0; display: flex; justify-content: center; }
+
+@media (min-width: 760px) {
+  .wrap { padding-block: 26px 40px; }
+  .intro h1 { font-size: 30px; }
+  .intro p { font-size: 15px; margin-bottom: 14px; }
+  .dock { position: static; height: auto; min-height: 0; gap: 18px; padding-block: 0; }
+  .controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 18px; padding: 12px 14px; }
+  .ctl.wide { flex: 1 1 100%; }
+  .ctl.wide .seg { max-width: 520px; }
+  .seg button { padding: 2px 14px; flex: 1 0 auto; }
+  .caps, .note { flex: 1 1 100%; font-size: 14px; }
+  .stage { flex: none; }
+  .stage .phone { height: 720px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   The phone. Tokens copied from config/orgs/nwsa.json ("hub2") and the
+   recipes from src/shared/hub2Glass.css, so this is the real look.
+   ══════════════════════════════════════════════════════════════════ */
+.phone {
+  --hub2-bg: #F4F6F8; --hub2-surface: #FFFFFF; --hub2-ink: #18212F;
+  --hub2-muted: #58616D;            /* the look's #66717F, 86% toward black, as on glass */
+  --hub2-line: #E2E6EB; --hub2-accent: #0E7585; --hub2-accent-fill: #0E7585;
+  --hub2-plum: #7B3578; --hub2-plum-text: #7B3578; --hub2-sun: #F5C84C;
+  --hub2-gold: #C8A52A; --gold-text: #6F5A06; --warn-text: #A12B25;
+
+  --field-teal: color-mix(in oklch, var(--hub2-accent) 10%, white);
+  --field-teal: oklch(from var(--hub2-accent) 0.945 0.048 h);
+  --field-plum: color-mix(in oklch, var(--hub2-plum) 8%, white);
+  --field-plum: oklch(from var(--hub2-plum) 0.958 0.040 h);
+  --field-warm: color-mix(in oklch, var(--hub2-sun) 13%, white);
+  --field-warm: oklch(from var(--hub2-sun) 0.962 0.075 h);
+  --field-spark: white;
+
+  --glass-panel: rgb(255 255 255 / .21);
+  --glass-hero: rgb(255 255 255 / .17);
+  --glass-floatbar: rgb(255 255 255 / .70);
+  --glass-bar: color-mix(in srgb, var(--hub2-accent) 92%, transparent);
+  --glass-panel-fx: blur(13px) saturate(185%) brightness(1.04);
+  --glass-hero-fx: blur(28px) saturate(180%) brightness(1.04);
+  --glass-chrome-fx: blur(34px) saturate(190%) brightness(1.02);
+  --glass-bar-fx: blur(34px) saturate(140%);
+  --glass-spec: white;
+  --glass-under: rgb(0 0 0 / .14);
+  --glass-shine: rgb(255 255 255 / .13);
+  --glass-inner: inset 0 4px 26px -9px var(--glass-spec), inset 0 -24px 34px -26px var(--glass-under);
+  --glass-bloom: 0 3px 16px rgb(0 0 0 / .045), 0 26px 64px -18px rgb(0 0 0 / .16), 0 56px 130px -50px rgb(0 0 0 / .26);
+  --glass-veil-stop: 54%;
+  --glass-fade: 22px;
+  --glass-stripe: color-mix(in srgb, var(--hub2-accent) 72%, transparent);
+  --r-card: 31px; --r-row: 25px; --r-sm: 18px;
+
+  /* The colour cloud for the "Colour" transition: the look's own three hues,
+     far stronger than the field, because nobody reads text at the peak. */
+  --orb-teal: color-mix(in oklch, var(--hub2-accent) 42%, white);
+  --orb-teal: oklch(from var(--hub2-accent) 0.76 0.10 h);
+  --orb-plum: color-mix(in oklch, var(--hub2-plum) 36%, white);
+  --orb-plum: oklch(from var(--hub2-plum) 0.72 0.12 h);
+  --orb-warm: color-mix(in oklch, var(--hub2-sun) 70%, white);
+  --orb-warm: oklch(from var(--hub2-sun) 0.89 0.13 h);
+
+  position: relative; isolation: isolate; overflow: hidden;
+  width: 100%; max-width: 390px; height: 100%;
+  background: var(--hub2-bg); color: var(--hub2-ink);
+  border: 1px solid var(--doc-line); border-radius: 34px;
+  box-shadow: 0 24px 60px -28px var(--doc-shadow);
+  font-family: var(--font-body); font-size: 14.5px; line-height: 1.4;
+}
+.phone[data-hub-theme="dark"] {
+  --hub2-bg: #10151B; --hub2-surface: #1A212A; --hub2-ink: #E7ECF2; --hub2-muted: #97A3B2;
+  --hub2-line: #2B3440; --hub2-accent: #3AA8B8; --hub2-accent-fill: #0E7585;
+  --hub2-plum-text: #D7A2D3; --gold-text: #E4C968; --warn-text: #F3A69F;
+
+  --field-teal: color-mix(in srgb, var(--hub2-accent-fill) 13%, transparent);
+  --field-plum: color-mix(in srgb, var(--hub2-plum) 12%, transparent);
+  --field-warm: transparent;
+  --field-spark: rgb(255 255 255 / .045);
+
+  --glass-panel: rgb(255 255 255 / .04);
+  --glass-hero: rgb(255 255 255 / .026);
+  --glass-floatbar: rgb(0 0 0 / .55);
+  --glass-bar: color-mix(in srgb, var(--hub2-accent-fill) 92%, transparent);
+  --glass-panel-fx: blur(13px) saturate(175%) brightness(.92);
+  --glass-hero-fx: blur(28px) saturate(180%) brightness(.9);
+  --glass-chrome-fx: blur(34px) saturate(180%) brightness(1.06);
+  --glass-spec: rgb(255 255 255 / .42);
+  --glass-under: rgb(0 0 0 / .6);
+  --glass-shine: rgb(255 255 255 / .018);
+  /* Measured: at the look's 72% the pale dark-mode teal glows far enough into
+     the hero to leave its own teal kicker at 4.43:1. 40% clears it. */
+  --glass-stripe: color-mix(in srgb, var(--hub2-accent) 40%, transparent);
+  --glass-bloom: 0 3px 16px rgb(0 0 0 / .45), 0 26px 64px -16px rgb(0 0 0 / .72), 0 0 70px -10px rgb(255 255 255 / .05);
+
+  --orb-teal: color-mix(in srgb, var(--hub2-accent-fill) 80%, black);
+  --orb-teal: oklch(from var(--hub2-accent-fill) 0.50 0.095 h);
+  --orb-plum: color-mix(in srgb, var(--hub2-plum) 85%, black);
+  --orb-plum: oklch(from var(--hub2-plum) 0.42 0.125 h);
+  --orb-warm: transparent;
+}
+
+/* The ways off, all landing on a solid panel (hub2Glass.css section 6). */
+@media (prefers-reduced-transparency: reduce) {
+  .phone, .phone[data-hub-theme="dark"] {
+    --glass-panel: var(--hub2-surface); --glass-hero: var(--hub2-surface); --glass-floatbar: var(--hub2-surface);
+    --glass-bar: var(--hub2-accent-fill);
+    --glass-panel-fx: none; --glass-hero-fx: none; --glass-chrome-fx: none; --glass-bar-fx: none;
+    --glass-shine: transparent;
+    --field-teal: transparent; --field-plum: transparent; --field-warm: transparent; --field-spark: transparent;
+  }
+  .phone .glass, .phone .pane { border-color: var(--hub2-line); }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .phone, .phone[data-hub-theme="dark"] {
+    --glass-panel: var(--hub2-surface); --glass-hero: var(--hub2-surface); --glass-floatbar: var(--hub2-surface);
+    --glass-bar: var(--hub2-accent-fill);
+  }
+}
+
+/* ── The field: pale drifting colour, the thing the glass refracts ── */
+.field { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.field::before, .field::after {
+  content: ''; position: absolute; inset: -30%;
+  background:
+    radial-gradient(40% 36% at 30% 26%, var(--field-teal), transparent 70%),
+    radial-gradient(42% 38% at 70% 72%, var(--field-plum), transparent 70%),
+    radial-gradient(28% 24% at 58% 44%, var(--field-warm), transparent 70%),
+    radial-gradient(10% 8% at 74% 33%, var(--field-spark), transparent 64%),
+    radial-gradient(7% 6% at 34% 66%, var(--field-spark), transparent 60%);
+}
+.field::after { opacity: .6; }
+@media (prefers-reduced-motion: no-preference) {
+  .field::before { animation: drift 40s cubic-bezier(.2,.8,.2,1) infinite alternate; }
+  .field::after { animation: drift2 56s cubic-bezier(.2,.8,.2,1) infinite alternate; }
+}
+@keyframes drift { from { transform: translate3d(-3%,-2%,0) scale(1); } to { transform: translate3d(4%,3%,0) scale(1.14); } }
+@keyframes drift2 { from { transform: translate3d(3%,2%,0) scale(1.1) rotate(0deg); } to { transform: translate3d(-4%,-3%,0) scale(1) rotate(9deg); } }
+
+/* ── The layers, bottom to top ──────────────────────────────────────
+     field  .view (the live page)  .ghost  .orbs  the lens  header + tab bar
+
+   THE RULE THIS WHOLE FILE IS BUILT ROUND: never put opacity, filter, mask,
+   clip-path or mix-blend-mode on an ANCESTOR of live glass. It does not
+   throw, it silently flattens every card inside. So the live page (.view)
+   and the phone never carry any of them. They are allowed on the lens, on
+   the ghost (a copy that is about to be thrown away) and on the orbs.
+   `visibility` is not on that list, which is why hiding the new page while
+   the old one fogs up is done with visibility and nothing else. ── */
+.view {
+  position: absolute; inset: 0; z-index: 1;
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.view::-webkit-scrollbar { display: none; }
+.pad { padding: 76px 13px 108px; }
+.phone[data-phase="up"] > .view:not(.ghost) { visibility: hidden; }
+/* The ghost keeps the live page's own overflow on purpose. Measured: as a
+   plain overflow:hidden box its glass edges came out up to 5/255 different
+   from the live page, as the same kind of scroller it matches to within the
+   screenshot noise. It cannot be scrolled: no pointer events, and inert. */
+.ghost { z-index: 2; pointer-events: none; }
+/* Once the ghost starts to fade its glass is flat anyway (its own opacity
+   makes it a backdrop root), so the blurs are switched off to halve the
+   work at the busiest moment. It is under the lens at full strength then. */
+.ghost.leaving * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+.ghost.leaving *::before, .ghost.leaving *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none !important; }
+.fly { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
+.fly > * { position: absolute; margin: 0; }
+.fly > .bare { background: none; box-shadow: none; border-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.fly > .bare::before, .fly > .bare::after { display: none; }
+
+.orbs {
+  position: absolute; inset: -25%; z-index: 3; pointer-events: none; opacity: 0;
+  /* Where he tapped. A custom property and not a keyframe, for the same
+     reason as the Lighter blur below: anything but opacity and transform in
+     the keyframes takes the animation off the compositor. */
+  transform-origin: var(--orb-origin, 50% 50%);
+  background:
+    radial-gradient(34% 30% at 34% 34%, var(--orb-teal) 0 30%, transparent 72%),
+    radial-gradient(36% 32% at 66% 64%, var(--orb-plum) 0 28%, transparent 72%),
+    radial-gradient(26% 22% at 60% 40%, var(--orb-warm) 0 26%, transparent 70%);
+}
+/* The lens. A SIBLING of the page, never an ancestor of it. At rest it has
+   no filter at all. -webkit- first: iOS 16 and 17 only know the prefix. */
+.lensy {
+  position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.lensy.lite { opacity: 0; }
+/* The Lighter sheets take their FIXED blur from a custom property and have
+   only their opacity animated. Measured: with the blur written into the same
+   keyframes as the opacity, Chrome ran the whole animation on the main
+   thread, and a 300ms block there froze the lens for 372ms. Opacity alone
+   stays on the compositor. */
+#lite1 { -webkit-backdrop-filter: var(--lite1, none); backdrop-filter: var(--lite1, none); }
+#lite2 { -webkit-backdrop-filter: var(--lite2, none); backdrop-filter: var(--lite2, none); }
+#lite3 { -webkit-backdrop-filter: var(--lite3, none); backdrop-filter: var(--lite3, none); }
+
+/* ── Glass, exactly as hub2Glass.css builds it ── */
+.glass {
+  border: 1px solid transparent;
+  background-color: var(--glass-panel);
+  background-image: linear-gradient(var(--glass-shine), transparent var(--glass-veil-stop));
+  -webkit-backdrop-filter: var(--glass-panel-fx); backdrop-filter: var(--glass-panel-fx);
+  box-shadow: var(--glass-inner), var(--glass-bloom);
+  border-radius: var(--r-row);
+}
+/* A pane: the blur, tint, veil, inner light and the edge fade all sit on one
+   pseudo-element, so the BLUR runs out at the edge instead of ending. */
+.pane { position: relative; isolation: isolate; background: transparent; border: 1px solid transparent; border-radius: var(--r-card); }
+.pane::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+  background-image: linear-gradient(var(--glass-shine), transparent var(--glass-veil-stop));
+  background-color: var(--glass-pane, var(--glass-hero));
+  -webkit-backdrop-filter: var(--glass-pane-fx, var(--glass-hero-fx)); backdrop-filter: var(--glass-pane-fx, var(--glass-hero-fx));
+  box-shadow: var(--glass-inner);
+}
+@supports (mask-composite: intersect) {
+  .pane::before {
+    mask-image:
+      linear-gradient(to bottom, transparent, black var(--glass-fade), black calc(100% - var(--glass-fade)), transparent),
+      linear-gradient(to right, transparent, black var(--glass-fade), black calc(100% - var(--glass-fade)), transparent);
+    mask-composite: intersect;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pane::after {
+    content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+    background: linear-gradient(104deg, transparent 42%, var(--glass-shine) 50%, transparent 58%);
+    background-size: 280% 100%; background-repeat: no-repeat;
+    animation: shine 10s ease-in-out infinite alternate;
+  }
+}
+@keyframes shine { from { background-position: 135% 0; } to { background-position: -35% 0; } }
+
+/* ── The bars float, and stay sharp above the lens ── */
+.hdr {
+  position: absolute; z-index: 6; top: 9px; left: 9px; right: 9px;
+  display: flex; align-items: center; gap: 8px; padding: 9px 9px 9px 15px;
+  color: #fff; font-weight: 800; letter-spacing: -.01em;
+  background: var(--glass-bar);
+  -webkit-backdrop-filter: var(--glass-bar-fx); backdrop-filter: var(--glass-bar-fx);
+  border-bottom: 2px solid var(--hub2-gold);
+  border-radius: calc(var(--r-card) - 1px);
+  box-shadow: var(--glass-bloom);
+}
+.hdr .brand { flex: 1; min-width: 0; font-size: 15.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hdr .ico { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 11px; background: rgb(255 255 255 / .14); }
+.hdr .mark { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 13px; background: rgb(255 255 255 / .92); color: var(--hub2-accent-fill); box-shadow: 0 2px 10px rgb(0 0 0 / .18); }
+.tabbar {
+  --glass-pane: var(--glass-floatbar); --glass-pane-fx: var(--glass-chrome-fx); --glass-fade: 14px;
+  position: absolute; z-index: 6; left: 12px; right: 12px; bottom: 12px;
+  /* Tall enough that the icons and labels sit clear of the 14px edge fade,
+     over solid glass, whatever is scrolling underneath. */
+  display: flex; padding: 12px 6px 14px;
+  border-radius: calc(var(--r-card) + 3px);
+  box-shadow: var(--glass-bloom);
+}
+.tabbar button {
+  flex: 1; min-width: 0; min-height: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 10.5px; font-weight: 700; color: var(--hub2-muted);
+  -webkit-tap-highlight-color: transparent;
+}
+.tabbar button.on { color: var(--hub2-plum-text); }
+.phone :is(button, [data-go], [data-ev]):focus-visible { outline: 2px solid var(--hub2-accent); outline-offset: 2px; }
+
+/* ── Hub parts ── */
+.title { margin: 2px 2px 2px; font-size: 27px; font-weight: 800; letter-spacing: -.025em; line-height: 1.12; }
+.sub { margin: 0 2px 13px; color: var(--hub2-muted); font-size: 13.5px; }
+.sect { margin: 20px 2px 9px; font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
+.day { margin: 18px 4px 8px; display: flex; align-items: baseline; gap: 8px; font-size: 13px; font-weight: 800; letter-spacing: .02em; color: var(--hub2-ink); }
+.day em { font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--hub2-accent); }
+.kick { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--hub2-accent); }
+.kick.plum { color: var(--hub2-plum-text); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+.hero { padding: 16px 16px 15px; margin-bottom: 11px; box-shadow: inset 18px 0 26px -20px var(--glass-stripe), var(--glass-inner), var(--glass-bloom); }
+.hero h3 { margin: 7px 0 2px; font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.hero p { margin: 0; font-size: 13.5px; color: var(--hub2-muted); }
+.big { margin-top: 8px; font-size: 25px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.big small { font-size: 14px; font-weight: 700; letter-spacing: 0; color: var(--hub2-muted); }
+.meter { height: 6px; margin-top: 11px; border-radius: 99px; background: color-mix(in srgb, var(--hub2-ink) 10%, transparent); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 42%; border-radius: 99px; background: var(--hub2-accent-fill); }
+.next { display: flex; align-items: baseline; gap: 8px; margin-top: 13px; padding-top: 11px; border-top: 1px solid color-mix(in srgb, var(--hub2-ink) 10%, transparent); font-size: 13.5px; }
+.next b { font-variant-numeric: tabular-nums; }
+
+.announce { display: block; padding: 13px 15px 13px 17px; margin-bottom: 9px; border-radius: var(--r-card); box-shadow: inset 18px 0 26px -20px var(--glass-stripe), var(--glass-inner), var(--glass-bloom); }
+.announce b { display: block; font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
+.announce p { margin: 3px 0 6px; font-size: 13.5px; }
+.announce span { font-size: 12px; color: var(--hub2-muted); }
+
+.quicks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0 4px; }
+.quick {
+  display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 0;
+  padding: 12px 2px 11px; cursor: pointer; color: var(--hub2-ink);
+  font: inherit; font-size: 11px; font-weight: 700; text-align: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.quick i { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; color: var(--hub2-accent); background: color-mix(in srgb, var(--hub2-accent) 13%, transparent); }
+
+.row {
+  display: flex; align-items: center; gap: 11px; width: 100%; margin: 0 0 8px; padding: 11px 12px 11px 13px;
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+div.row { cursor: default; }
+/* The event-type bar is a soft glow, not a line (the look's "dissolved"). A
+   filter here is safe because this span is a leaf. */
+.row .bar { flex: none; width: 5px; align-self: stretch; border-radius: 999px; background: var(--hub2-accent); filter: blur(4px); opacity: .7; }
+.row .bar.plum { background: var(--hub2-plum); }
+.row .bar.gold { background: var(--hub2-gold); }
+.row .bar.sun { background: var(--hub2-sun); }
+.row .t { flex: none; width: 50px; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; line-height: 1.15; }
+.row .t small { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .02em; color: var(--hub2-muted); }
+.row .m { flex: 1; min-width: 0; }
+.row .m b { display: block; font-size: 14.5px; font-weight: 700; }
+.row .m > span { display: block; font-size: 12.5px; color: var(--hub2-muted); }
+.row .chev { flex: none; display: grid; color: var(--hub2-muted); }
+.row.off .m b { text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.chip { padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: .01em; background: color-mix(in srgb, var(--hub2-plum) 14%, transparent); color: var(--hub2-plum-text); }
+.chip.gold { background: color-mix(in srgb, var(--hub2-gold) 22%, transparent); color: var(--gold-text); }
+.chip.warn { background: color-mix(in srgb, var(--warn-text) 13%, transparent); color: var(--warn-text); }
+.filters { display: flex; gap: 6px; margin: 0 0 4px; overflow: hidden; }
+.filters span { flex: none; padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 700; border-radius: 999px; }
+.filters span.on { background: color-mix(in srgb, var(--hub2-plum) 18%, var(--glass-floatbar)); }
+
+.back {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 36px; margin: 0 0 8px; padding: 0 13px 0 8px;
+  border: 0; border-radius: 999px; cursor: pointer;
+  background: color-mix(in srgb, var(--hub2-ink) 8%, transparent); color: var(--hub2-ink);
+  font: inherit; font-size: 13px; font-weight: 700;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 46px; padding: 0 14px; border: 0; border-radius: var(--r-sm);
+  background: var(--hub2-accent-fill); color: #fff; font: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer;
+}
+.btn.quiet { background: color-mix(in srgb, var(--hub2-ink) 8%, transparent); color: var(--hub2-ink); }
+.btnrow { display: flex; gap: 9px; margin: 14px 0 2px; }
+
+/* ── Concert pages: the serif and the gold hairline ── */
+.hall .title { font-family: var(--font-title); font-weight: 600; font-size: 31px; letter-spacing: -.01em; }
+.hall .title::after { content: ''; display: block; width: 44px; height: 1px; margin: 9px 0 8px; background: var(--hub2-gold); }
+.hall .sect { font-family: var(--font-title); font-weight: 600; font-size: 21px; letter-spacing: 0; }
+.hall .sect::after { content: ''; display: block; width: 36px; height: 1px; margin-top: 6px; background: var(--hub2-gold); }
+.head { padding: 15px 16px 12px; margin-bottom: 11px; border-radius: var(--r-card); }
+.head .sub { margin: 0; }
+.stagepic {
+  position: relative; height: 132px; margin-bottom: 4px; overflow: hidden; border-radius: var(--r-card);
+  background:
+    radial-gradient(60% 90% at 50% 112%, rgb(245 224 160 / .6), transparent 62%),
+    radial-gradient(40% 70% at 50% 0%, rgb(255 238 190 / .26), transparent 70%),
+    linear-gradient(176deg, #241a12, #130e0a);
+  box-shadow: var(--glass-bloom);
+}
+.stagepic::before { content: ''; position: absolute; left: 22%; top: -14%; width: 56%; height: 128%; background: linear-gradient(180deg, rgb(255 241 205 / .3), rgb(255 241 205 / 0) 76%); clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%); }
+.stagepic svg { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); opacity: .85; }
+.work { display: flex; align-items: baseline; gap: 11px; margin: 0 0 8px; padding: 12px 14px; }
+.work .n { flex: none; width: 18px; font-size: 12px; font-weight: 800; color: var(--gold-text); font-variant-numeric: tabular-nums; }
+.work .w { flex: 1; min-width: 0; }
+.work .w b { display: block; font-size: 14.5px; font-weight: 700; }
+.work .w span { font-size: 12.5px; color: var(--hub2-muted); }
+.work .d { flex: none; font-size: 12.5px; color: var(--hub2-muted); font-variant-numeric: tabular-nums; }
+.facts { padding: 4px 15px; border-radius: var(--r-card); }
+.facts div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; font-size: 13.5px; }
+.facts div + div { border-top: 1px solid color-mix(in srgb, var(--hub2-ink) 9%, transparent); }
+.facts span { color: var(--hub2-muted); }
+.facts b { font-weight: 700; text-align: right; }
+.season { display: block; width: 100%; margin: 0 0 9px; padding: 14px 16px; border-radius: var(--r-card); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+div.season { cursor: default; }
+.season b { display: block; font-family: var(--font-title); font-size: 20px; font-weight: 600; line-height: 1.2; }
+.season span { display: block; margin-top: 3px; font-size: 13px; color: var(--hub2-muted); }
+.season .kick { margin-bottom: 4px; color: var(--gold-text); }
+.ens { display: flex; align-items: center; gap: 12px; margin: 0 0 9px; padding: 13px 15px; border-radius: var(--r-card); }
+.ens i { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: var(--hub2-accent); background: color-mix(in srgb, var(--hub2-accent) 13%, transparent); }
+.ens b { display: block; font-size: 15px; font-weight: 800; }
+.ens span { font-size: 12.5px; color: var(--hub2-muted); }
+
+.empty {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 30px 18px; text-align: center;
+  border: 1.5px dashed color-mix(in srgb, var(--hub2-ink) 30%, transparent); border-radius: var(--r-card);
+}
+.empty i { display: grid; place-items: center; width: 44px; height: 44px; margin-bottom: 4px; border-radius: 50%; color: var(--hub2-accent); background: color-mix(in srgb, var(--hub2-accent) 13%, transparent); }
+.empty b { font-size: 15.5px; font-weight: 800; }
+.empty span { font-size: 13px; color: var(--hub2-muted); max-width: 28ch; }
+
+/* ── Loading placeholders (the "Slow connection" switch) ── */
+.sk { border-radius: var(--r-card); margin-bottom: 9px; padding: 15px; }
+.sk i { display: block; height: 11px; margin: 0 0 9px; border-radius: 99px; background: color-mix(in srgb, var(--hub2-ink) 13%, transparent); }
+.sk i:last-child { margin-bottom: 0; width: 55%; }
+.sk.tall { padding: 20px 16px; }
+.sk.tall i:first-child { height: 18px; width: 62%; }
+.skt { height: 26px; width: 46%; margin: 4px 2px 14px; border-radius: 99px; background: color-mix(in srgb, var(--hub2-ink) 13%, transparent); }
+@media (prefers-reduced-motion: no-preference) {
+  .sk i, .skt { animation: pulse 1.1s ease-in-out infinite alternate; }
+}
+@keyframes pulse { from { opacity: .45; } to { opacity: 1; } }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <h1>Pick how pages change</h1>
+    <p>This is a working copy of the NWSA Music Hub inside a phone, with a few different ways for one page to turn into the next. Tap around the phone below, change Transition and Pace, then tell Claude which pair you want and whether it looked smooth.</p>
+  </header>
+
+  <div class="dock">
+    <div class="controls" role="group" aria-label="Sample settings">
+      <div class="ctl wide">
+        <span class="lab" id="labT">Transition</span>
+        <div class="seg" data-key="transition" role="group" aria-labelledby="labT">
+          <button type="button" data-v="none" aria-pressed="false">None</button>
+          <button type="button" data-v="today" aria-pressed="false">Today</button>
+          <button type="button" data-v="lens" aria-pressed="false">Lens</button>
+          <button type="button" data-v="colour" aria-pressed="false">Colour</button>
+          <button type="button" data-v="liquid" aria-pressed="true">Liquid</button>
+        </div>
+      </div>
+      <div class="ctl" id="ctlPace">
+        <span class="lab" id="labP">Pace</span>
+        <div class="seg" data-key="pace" role="group" aria-labelledby="labP">
+          <button type="button" data-v="brisk" aria-pressed="false">Brisk<small>0.6 s</small></button>
+          <button type="button" data-v="medium" aria-pressed="true">Medium<small>1.0 s</small></button>
+          <button type="button" data-v="slow" aria-pressed="false">Slow<small>1.6 s</small></button>
+        </div>
+      </div>
+      <div class="ctl">
+        <span class="lab" id="labH">Theme</span>
+        <div class="seg" data-key="theme" role="group" aria-labelledby="labH">
+          <button type="button" data-v="light" aria-pressed="true">Light</button>
+          <button type="button" data-v="dark" aria-pressed="false">Dark</button>
+        </div>
+      </div>
+      <div class="ctl" id="ctlBuild">
+        <span class="lab" id="labB">If it stutters</span>
+        <div class="seg" data-key="build" role="group" aria-labelledby="labB">
+          <button type="button" data-v="smooth" aria-pressed="true">Smooth</button>
+          <button type="button" data-v="lighter" aria-pressed="false">Lighter</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <label class="chk"><input type="checkbox" id="slow"> Slow connection</label>
+      </div>
+      <div class="caps" id="caps" aria-live="polite">
+        <p data-for="none">Pages change at once. This is the Hub with every bit of motion taken out.</p>
+        <p data-for="today">What the Hub did until now: every card flies off on its own clock. Always 1.9 seconds, whatever Pace says.</p>
+        <p data-for="lens">The whole page goes out of focus at once, then the next page comes into focus. Nothing travels.</p>
+        <p data-for="colour">The page goes out of focus, a soft cloud of teal, plum and gold swells through, and the next page clears.</p>
+        <p data-for="liquid">The page melts into soft pools, like ink in water, and the pools gather into the next page.</p>
+      </div>
+      <p class="note" id="note" role="status" hidden></p>
+    </div>
+
+    <div class="stage">
+      <div class="phone" id="phone" data-hub-theme="light">
+        <div class="field" aria-hidden="true"></div>
+        <div class="view" id="view"></div>
+        <div class="fly" id="fly" aria-hidden="true"></div>
+        <div class="orbs" id="orbs" aria-hidden="true"></div>
+        <div class="lensy" id="lens" aria-hidden="true"></div>
+        <div class="lensy lite" id="lite1" aria-hidden="true"></div>
+        <div class="lensy lite" id="lite2" aria-hidden="true"></div>
+        <div class="lensy lite" id="lite3" aria-hidden="true"></div>
+        <header class="hdr">
+          <span class="brand">NWSA Music Hub</span>
+          <span class="ico" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+          <span class="ico" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>
+          <span class="mark" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></span>
+        </header>
+        <nav class="tabbar pane" id="tabs" aria-label="Hub pages"></nav>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+'use strict';
+var $ = function (s) { return document.querySelector(s); };
+var phone = $('#phone'), view = $('#view'), fly = $('#fly'), orbs = $('#orbs'), lens = $('#lens');
+var lite = [$('#lite1'), $('#lite2'), $('#lite3')];
+
+/* ══════════════════════════════════════════════════════════════════
+   The switches
+   ══════════════════════════════════════════════════════════════════ */
+var S = { transition: 'liquid', pace: 'medium', theme: 'light', build: 'smooth', slow: false,
+          page: 'home', arg: null, back: null };
+var KEEP = ['transition', 'pace', 'theme', 'build', 'slow'];
+var PACE = { brisk: 600, medium: 1000, slow: 1600 };
+var NOTE = {
+  motion: 'Your phone has Reduce Motion switched on, so pages simply change. The Hub will do the same for you.',
+  clear: 'Your phone has Reduce Transparency switched on, so the glass is solid and pages simply change. The Hub will do the same for you.',
+  old: 'This browser cannot do the blur these transitions are made of, so pages simply change. The Hub will do the same here.',
+  nosmooth: 'This phone cannot run the Smooth version, so you are seeing the Lighter one. That is worth knowing: please tell Claude you saw this note.'
+};
+
+/* CAN THIS BROWSER ANIMATE A BACKDROP BLUR AT ALL? iOS 16 and 17 know only
+   the prefixed property, and whether a Web Animation of it is accepted there
+   is the one thing no desktop test can say. If it is not, the Smooth build
+   would show no blur whatever, which looks like "nothing happens" rather
+   than like a stutter. So it is asked once, here, and a browser that cannot
+   gets the Lighter build (a plain CSS blur whose opacity moves) and is told. */
+var SMOOTH_OK = (function () {
+  try {
+    var f = 'blur(3px)';
+    var a = lens.animate([{ webkitBackdropFilter: f, backdropFilter: f }, { webkitBackdropFilter: f, backdropFilter: f }], { duration: 1000, fill: 'both' });
+    a.pause();
+    var cs = getComputedStyle(lens), v = String(cs.backdropFilter || '') + String(cs.webkitBackdropFilter || '');
+    a.cancel();
+    return v.indexOf('blur') >= 0;
+  } catch (e) { return false; }
+})();
+
+function mq(q) { try { return window.matchMedia(q).matches; } catch (e) { return false; } }
+/* Why a dissolve may not run. Empty string means it may. */
+function blocked() {
+  if (mq('(prefers-reduced-motion: reduce)')) return 'motion';
+  if (mq('(prefers-reduced-transparency: reduce)')) return 'clear';
+  var ok = false;
+  try { ok = CSS.supports('backdrop-filter', 'blur(1px)') || CSS.supports('-webkit-backdrop-filter', 'blur(1px)'); } catch (e) {}
+  return ok && lens.animate ? '' : 'old';
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   The pages. Every person-shaped thing here is made up.
+   ══════════════════════════════════════════════════════════════════ */
+var ICON = {
+  home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  cal: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/>',
+  music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+  doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>',
+  right: '<path d="m9 6 6 6-6 6"/>',
+  left: '<path d="m15 6-6 6 6 6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  pin: '<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'
+};
+function ic(n, s) {
+  return '<svg width="' + (s || 18) + '" height="' + (s || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[n] + '</svg>';
+}
+
+/* [day, tag, [time, group, what, where, colour, chip]] */
+var DAYS = [
+  ['Tue, Nov 10', 'Today', [
+    ['1:05 PM', 'Camerata', 'Rehearsal', 'Room 5201', ''],
+    ['2:10 PM', 'Symphony Orchestra', 'Rehearsal', 'Room 5201', ''],
+    ['4:00 PM', 'Jazz Ensemble', 'Sectional', 'Room 5310', 'plum', 'Room change']]],
+  ['Wed, Nov 11', '', [
+    ['All day', 'No school', 'Veterans Day', 'No rehearsals', 'sun', 'No school']]],
+  ['Thu, Nov 12', '', [
+    ['1:05 PM', 'Camerata', 'Rehearsal', 'Room 5201', ''],
+    ['2:10 PM', 'Jazz Ensemble', 'Rehearsal', 'Room 5310', ''],
+    ['7:30 PM', 'Jazz Ensemble', 'Fall Jazz Night', 'Recital Hall', 'gold', 'Concert']]],
+  ['Fri, Nov 13', '', [
+    ['1:05 PM', 'Wind Ensemble', 'Rehearsal', 'Room 5204', ''],
+    ['2:10 PM', 'Symphony Orchestra', 'Strings sectional', 'Room 5201', 'plum'],
+    ['2:10 PM', 'Symphony Orchestra', 'Winds and brass sectional', 'Room 5204', 'plum']]],
+  ['Mon, Nov 16', '', [
+    ['1:05 PM', 'Camerata', 'Rehearsal', 'Room 5201', ''],
+    ['2:10 PM', 'Symphony Orchestra', 'Rehearsal', 'Room 5201', ''],
+    ['4:00 PM', 'Opera Scenes', 'Music rehearsal', 'Room 5310', 'plum']]],
+  ['Tue, Nov 17', '', [
+    ['1:05 PM', 'Wind Ensemble', 'Rehearsal', 'Room 5204', '', 'Cancelled'],
+    ['2:10 PM', 'Symphony Orchestra', 'Rehearsal', 'Room 5201', ''],
+    ['4:00 PM', 'Jazz Ensemble', 'Sectional', 'Room 5310', 'plum']]],
+  ['Wed, Nov 18', '', [
+    ['1:05 PM', 'Camerata', 'Rehearsal', 'Room 5201', ''],
+    ['2:10 PM', 'Symphony Orchestra', 'Rehearsal', 'Room 5201', ''],
+    ['6:30 PM', 'Opera Scenes', 'Dress rehearsal', 'Black Box', 'gold', 'Required']]],
+  ['Thu, Nov 19', '', [
+    ['1:05 PM', 'Wind Ensemble', 'Rehearsal', 'Room 5204', ''],
+    ['2:10 PM', 'Jazz Ensemble', 'Rehearsal', 'Room 5310', ''],
+    ['7:30 PM', 'Opera Scenes', 'An Evening of Opera Scenes', 'Black Box', 'gold', 'Concert']]],
+  ['Fri, Nov 20', '', [
+    ['1:05 PM', 'Camerata', 'Rehearsal', 'Room 5201', ''],
+    ['2:10 PM', 'Symphony Orchestra', 'Dress rehearsal', 'Concert Hall', 'gold', 'Required']]],
+  ['Sat, Nov 21', '', [
+    ['6:15 PM', 'Symphony Orchestra', 'Call time', 'Concert Hall', 'plum', 'Required'],
+    ['7:30 PM', 'Symphony Orchestra', 'Songs from Home', 'Concert Hall', 'gold', 'Concert']]],
+  ['Mon, Nov 23', '', [
+    ['1:05 PM', 'Camerata', 'Rehearsal', 'Room 5201', ''],
+    ['2:10 PM', 'Wind Ensemble', 'Rehearsal', 'Room 5204', ''],
+    ['4:00 PM', 'Jazz Ensemble', 'Sectional', 'Room 5310', 'plum']]]
+];
+var EVENTS = [];
+DAYS.forEach(function (d) { d[2].forEach(function (e) { e.day = d[0]; e.id = EVENTS.push(e) - 1; }); });
+var SEASON = EVENTS.filter(function (e) { return e[5] === 'Concert'; });
+var WORKS = [
+  ['Simple Gifts', 'Shaker melody', '4 min'],
+  ['Shenandoah', 'American folk song', '5 min'],
+  ['Londonderry Air', 'Irish melody', '5 min'],
+  ['Sakura, Sakura', 'Japanese folk song', '4 min'],
+  ['Arirang', 'Korean folk song', '6 min'],
+  ['La Llorona', 'Mexican folk song', '5 min']
+];
+var GROUPS = [
+  ['Symphony Orchestra', 'Meets every day, 2:10 PM'], ['Camerata', 'Mon, Wed, Fri at 1:05 PM'],
+  ['Jazz Ensemble', 'Tue and Thu at 2:10 PM'], ['Wind Ensemble', 'Tue, Thu, Fri at 1:05 PM'],
+  ['Opera Scenes', 'Evenings, by the call sheet']
+];
+
+function row(e) {
+  var t = e[0].split(' '), chip = e[5], open = chip !== 'No school';      /* a day off is not something to open */
+  var kind = chip === 'Concert' || chip === 'Required' ? ' gold' : chip === 'Cancelled' ? ' warn' : '';
+  return (open ? '<button type="button" data-ev="' + e.id + '"' : '<div') + ' class="row glass' + (chip === 'Cancelled' ? ' off' : '') + '">' +
+    '<i class="bar ' + e[4] + '"></i>' +
+    '<span class="t">' + (t[1] === 'day' ? 'All<small>day</small>' : t[0] + '<small>' + t[1] + '</small>') + '</span>' +
+    '<span class="m"><b>' + e[1] + '</b><span>' + e[2] + ' · ' + e[3] + '</span>' +
+      (chip ? '<span class="chips"><span class="chip' + kind + '">' + chip + '</span></span>' : '') + '</span>' +
+    (open ? '<span class="chev">' + ic('right', 16) + '</span></button>' : '</div>');
+}
+
+var TABS = [['home', 'Home', 'home'], ['cal', 'Calendar', 'calendar'], ['music', 'Concerts', 'concerts'], ['doc', 'Forms', 'forms']];
+var PAGES = {
+  home: { tab: 0, body: function () {
+    return '<h1 class="title">Good afternoon</h1><p class="sub">Tuesday, November 10</p>' +
+      '<section class="hero pane"><span class="kick"><i class="dot"></i>Now</span>' +
+        '<h3>Symphony Orchestra</h3><p>Rehearsal · Room 5201</p>' +
+        '<div class="big">2:10 <small>to</small> 3:40 <small>PM</small></div><div class="meter"><i></i></div>' +
+        '<div class="next"><span class="kick plum">Next</span><b>4:00 PM</b><span>Jazz Ensemble sectional</span></div></section>' +
+      '<article class="announce glass"><b>Concert black for Saturday</b><p>Symphony Orchestra, please bring your concert black to Friday\'s dress rehearsal so we can check everything once.</p><span>Music Office · Today</span></article>' +
+      '<article class="announce glass"><b>Room change this afternoon</b><p>The Jazz Ensemble sectional meets in Room 5310 today. Room 5201 is in use.</p><span>Music Office · Today</span></article>' +
+      '<div class="quicks">' +
+        [['cal', 'Calendar', 'calendar'], ['music', 'Concerts', 'concerts'], ['doc', 'Forms', 'forms'], ['users', 'Ensembles', 'ensembles']].map(function (q) {
+          return '<button type="button" class="quick glass" data-go="' + q[2] + '"><i>' + ic(q[0], 19) + '</i>' + q[1] + '</button>';
+        }).join('') + '</div>' +
+      '<h2 class="sect">Today</h2>' + DAYS[0][2].map(row).join('');
+  } },
+  calendar: { tab: 1, body: function () {
+    return '<h1 class="title">Calendar</h1><p class="sub">November 2026</p>' +
+      '<div class="filters"><span class="on">Everything</span><span>Rehearsals</span><span>Concerts</span><span>Classes</span></div>' +
+      DAYS.map(function (d) {
+        return '<h2 class="day">' + d[0] + (d[1] ? '<em>' + d[1] + '</em>' : '') + '</h2>' + d[2].map(row).join('');
+      }).join('');
+  } },
+  concerts: { tab: 2, hall: true, body: function () {
+    return '<h1 class="title">Concert Season</h1><p class="sub">Everything on stage this fall.</p>' +
+      SEASON.map(function (e) {
+        return '<button type="button" class="season glass" data-ev="' + e.id + '"><span class="kick">' + e.day + ' · ' + e[0] + '</span><b>' + e[2] + '</b><span>' + e[1] + ' · ' + e[3] + '</span></button>';
+      }).join('') +
+      '<div class="season glass"><span class="kick">Sat, Dec 12 · 7:30 PM</span><b>Winter Concert</b><span>Wind Ensemble and Camerata · Concert Hall</span></div>';
+  } },
+  concert: { tab: 2, hall: true, body: function (e) {
+    e = e || SEASON[SEASON.length - 1];
+    var show = e[5] === 'Concert';
+    return '<button type="button" class="back" data-back>' + ic('left', 16) + 'Back</button>' +
+      '<section class="head glass"><span class="kick">' + (show ? 'Concert' : e[2]) + '</span>' +
+        '<h1 class="title">' + (show ? e[2] : e[1]) + '</h1>' +
+        '<p class="sub">' + e.day + ' · ' + e[0] + ' · ' + e[3] + '</p></section>' +
+      '<div class="stagepic"><svg width="150" height="40" viewBox="0 0 150 40" fill="none" stroke="rgb(255 241 205 / .8)" stroke-width="1.6" stroke-linecap="round"><path d="M6 36c20-16 118-16 138 0"/><path d="M30 30v-9M46 27V16M62 26V13M75 25V11M88 26V13M104 27V16M120 30v-9"/></svg></div>' +
+      '<h2 class="sect">' + (show ? 'On the programme' : 'On the stands') + '</h2>' +
+      WORKS.map(function (w, i) {
+        return '<div class="work glass"><span class="n">' + (i + 1) + '</span><span class="w"><b>' + w[0] + '</b><span>' + w[1] + '</span></span><span class="d">' + w[2] + '</span></div>';
+      }).join('') +
+      '<h2 class="sect">Details</h2>' +
+      '<div class="facts glass"><div><span>Who</span><b>' + e[1] + '</b></div><div><span>When</span><b>' + e.day + ', ' + e[0] + '</b></div>' +
+        '<div><span>Where</span><b>' + e[3] + '</b></div><div><span>What to wear</span><b>' + (show ? 'Concert black' : 'School dress code') + '</b></div></div>' +
+      '<div class="btnrow"><button type="button" class="btn">' + ic('plus', 17) + 'Add to my calendar</button><button type="button" class="btn quiet">' + ic('pin', 17) + 'Directions</button></div>';
+  } },
+  forms: { tab: 3, body: function () {
+    return '<h1 class="title">Forms</h1><p class="sub">Permission slips and sign-ups waiting for you.</p>' +
+      '<div class="empty glass"><i>' + ic('doc', 21) + '</i><b>No forms are open right now.</b><span>When one opens it will show up here and on Home.</span></div>';
+  } },
+  ensembles: { tab: 0, body: function () {
+    return '<button type="button" class="back" data-back>' + ic('left', 16) + 'Back</button>' +
+      '<h1 class="title">Ensembles</h1><p class="sub">The groups you can follow.</p>' +
+      GROUPS.map(function (g) {
+        return '<div class="ens glass"><i>' + ic('music', 19) + '</i><span><b>' + g[0] + '</b><span>' + g[1] + '</span></span></div>';
+      }).join('');
+  } }
+};
+function skeleton() {
+  var card = '<div class="sk glass"><i></i><i></i><i></i></div>';
+  return '<div class="skt"></div><div class="sk tall glass"><i></i><i></i><i></i></div>' + card + card + card + card;
+}
+
+/* Put the current page into the live scroller. With "Slow connection" on it
+   shows placeholders first and the real page a moment later, which is what a
+   page that has to fetch its data does. */
+var loadTimer = 0;
+function render(scroll) {
+  var p = PAGES[S.page];
+  var fill = function () {
+    view.innerHTML = '<div class="pad' + (p.hall ? ' hall' : '') + '">' + p.body(S.arg) + '</div>';
+    view.scrollTop = scroll || 0;
+  };
+  clearTimeout(loadTimer);
+  if (S.slow) {
+    view.innerHTML = '<div class="pad" data-loading>' + skeleton() + '</div>';
+    view.scrollTop = 0;
+    if (isFinite(hook.slowMs)) loadTimer = setTimeout(fill, hook.slowMs);
+  } else fill();
+  var tab = (S.page === 'concert' || S.page === 'ensembles') && S.back ? PAGES[S.back.page].tab : p.tab;
+  Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b, i) {
+    b.classList.toggle('on', i === tab);
+    if (i === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+}
+function pageReady() { return !view.querySelector('[data-loading]'); }
+
+/* ══════════════════════════════════════════════════════════════════
+   THE DISSOLVE. One lens, not many movers.
+
+   Nothing inside a page animates. One sheet of glass (the lens) lies over
+   the page area, under the header and the tab bar, and fogs up and clears.
+   Every part of the screen therefore changes at the same rate on one clock,
+   which is the whole answer to "they don't move at the same rate".
+
+   dissolve(swap) is the only way a page changes. Its phases:
+
+     UP    The outgoing page is copied into a ghost (same scroll offset) and
+           swap() runs at once, so the new page is already in place under it,
+           kept visibility:hidden. The lens ramps from clear to its peak.
+     PEAK  If the new page is still showing loading placeholders, wait here
+           (HOLD_MAX at most) rather than clear onto placeholders.
+     DOWN  The new page becomes visible, the ghost fades out early (while
+           the lens is still near its peak, so two sharp pages are never on
+           screen together), and the lens ramps back to clear.
+     END   Animations cancelled, ghost removed, phase attribute removed.
+           Nothing is left behind: no transform, no filter, no extra layer.
+
+   Everything in a phase is created in the same instant with one duration,
+   and UP + DOWN add up to the Pace. They are two animations rather than one
+   because the peak has to be able to WAIT: a peak that is a resting state
+   (fill: forwards) means a busy main thread shows up as a slightly longer
+   hold, never as a stutter. The animations themselves are declarative
+   (Web Animations), so the compositor can run them while the app is busy
+   building the new page. There is no requestAnimationFrame loop.
+
+   The curve is sampled into keyframes and played linearly, so the same
+   numbers drive the Smooth build, the Lighter build and the retarget.
+   ══════════════════════════════════════════════════════════════════ */
+var UP = .42;            /* share of the Pace spent fogging up */
+var GHOST_OUT = .34;     /* share of DOWN in which the old page fades away */
+var HOLD_MAX = 1200;     /* longest wait at the peak for a slow page, ms */
+var STEPS = 12;
+var RECIPE = {
+  lens:   { blur: 30, sat: 1.5 },
+  colour: { blur: 34, sat: 1.15, orbs: true },
+  liquid: { blur: 32, sat: .8, gain: { light: 2.6, dark: 2.6 } }
+};
+/* "Liquid" is blur, then contrast. Plain contrast() pivots on mid grey, which
+   on a near-white page (or a near-black one) throws the whole screen to white
+   (or black): the harsh flash. So the contrast is paired with a brightness
+   that moves the pivot onto the PAGE colour. The page stays the colour it is
+   and everything that differs from it is pushed further away: dark pools on
+   a light page, glowing pools on a dark one. `gain` is that push. */
+var PIVOT = { light: .955, dark: .075 };
+
+function smooth(u) { return u * u * (3 - 2 * u); }
+function progUp(u) { return smooth(Math.pow(u, .7)); }       /* sets off at once, settles into the peak */
+function progDown(u) { return smooth(Math.pow(u, 1.5)); }    /* stays near the peak while the old page leaves */
+
+function fx(r, blur, sat, gain) {
+  var s = 'blur(' + blur.toFixed(2) + 'px) saturate(' + sat.toFixed(3) + ')';
+  if (r.gain) {
+    var P = PIVOT[S.theme], K = 1 + 2 * P * (gain - 1);
+    s += ' brightness(' + (gain / K).toFixed(4) + ') contrast(' + K.toFixed(4) + ')';
+  }
+  return s;
+}
+/* The Smooth lens at level p (0 clear, 1 peak). THE RADIUS GROWS BY EQUAL
+   RATIOS, NOT EQUAL STEPS: every doubling of the blur takes the same share
+   of the clock. Blur is seen in ratios (1px to 2px is as big a change as
+   16px to 32px), so a straight ramp spends a quarter of its time making the
+   words unreadable and the rest changing nothing anyone can see. This way
+   the words soften through the first half and the shapes melt through the
+   second, at one even rate. */
+var FINE = .5;           /* px: the smallest blur worth showing */
+function radius(R, p) { return FINE * (Math.pow(R / FINE + 1, p) - 1); }
+function lensAt(r, p) {
+  return fx(r, radius(r.blur, p), 1 + (r.sat - 1) * p, r.gain ? 1 + (r.gain[S.theme] - 1) * p : 1);
+}
+/* THE LIGHTER BUILD. Three stacked sheets with FIXED blurs whose own opacity
+   is what moves, which is cheap for a phone's graphics chip, where an
+   animated radius is a new blur every frame. Each sheet blurs what the one
+   below already blurred, and gaussian blurs add in quadrature, so the three
+   radii are chosen to add up to exactly the Smooth peak:
+   .085^2 + .29^2 + .953^2 = 1. Each sheet is fully in at the level where the
+   Smooth radius reaches the same running total, so the two builds agree at
+   three points and cross-fade between them.
+   Stacked contrasts MULTIPLY, and that is used rather than fought: the
+   Liquid push is split between the bottom sheet and the top one as two
+   factors whose product is the whole (G^.45 x G^.55 = G). The bottom share
+   is what thickens the words into ink at the very start and end, as the
+   Smooth build does; with all of it on the top sheet that moment was lost. */
+var LITE_R = [.085, .29, .953], LITE_IN = [0, .38, .66], LITE_FULL = [.45, .72, 1], LITE_GAIN = [.45, 0, .55];
+function liteFx(r, i) {
+  return fx(r, r.blur * LITE_R[i], i === 1 ? r.sat : 1, r.gain ? Math.pow(r.gain[S.theme], LITE_GAIN[i]) : 1);
+}
+function liteOpacity(p, i) {
+  return smooth(Math.min(1, Math.max(0, (p - LITE_IN[i]) / (LITE_FULL[i] - LITE_IN[i]))));
+}
+
+var E = { phase: null, anims: [], clock: null, ghost: null, gen: 0, from: 0, to: 0, prog: progUp,
+          holdUntil: 0, origin: '50% 50%', swell: .62, swell0: .62 };
+
+/* Start one phase: every animated thing, created now, one duration. */
+function run(from, to, prog, dur, down) {
+  var r = RECIPE[S.transition], old = E.anims, A = [], pts = [], k, u;
+  var T = { duration: dur, easing: 'linear', fill: 'both' };
+  for (k = 0; k <= STEPS; k++) { u = k / STEPS; pts.push(from + (to - from) * prog(u)); }
+
+  if (S.build === 'lighter') {
+    lite.forEach(function (el, i) {
+      phone.style.setProperty('--lite' + (i + 1), liteFx(r, i));
+      A.push(el.animate(pts.map(function (p) { return { opacity: liteOpacity(p, i) }; }), T));
+    });
+  } else {
+    A.push(lens.animate(pts.map(function (p) {
+      var f = lensAt(r, p);
+      return { webkitBackdropFilter: f, backdropFilter: f };
+    }), T));
+  }
+  if (r.orbs) {
+    /* The cloud only ever grows, in both phases, so it reads as one thing
+       passing through rather than breathing in and out. */
+    var s0 = E.swell0 = E.swell;
+    phone.style.setProperty('--orb-origin', E.origin);
+    A.push(orbs.animate(pts.map(function (p) {
+      var s = s0 + .38 * Math.abs(p - from);
+      return { opacity: Math.pow(Math.max(0, p), 1.4),
+               transform: 'scale(' + s.toFixed(4) + ') rotate(' + ((s - 1) * 36).toFixed(2) + 'deg)' };
+    }), T));
+  }
+  if (down && E.ghost) {
+    E.ghost.classList.add('leaving');
+    A.push(E.ghost.animate([{ opacity: 1 }, { opacity: 0, offset: GHOST_OUT }, { opacity: 0 }], T));
+  }
+  E.anims = A; E.clock = A[0]; E.from = from; E.to = to; E.prog = prog;
+  old.forEach(function (a) { a.cancel(); });
+  if (hook.frozen) A.forEach(function (a) { a.pause(); });
+  return ++E.gen;
+}
+/* How fogged the lens is right now, 0 to 1. Read off the clock, so a tap in
+   the middle of a dissolve can pick up from exactly here. */
+function level() {
+  if (!E.phase) return 0;
+  if (E.phase === 'hold') return 1;
+  var g = E.clock.effect.getComputedTiming().progress;
+  return E.from + (E.to - E.from) * E.prog(g == null ? 1 : g);
+}
+function setGhost() {
+  if (E.ghost) E.ghost.remove();
+  var g = view.cloneNode(true);
+  g.removeAttribute('id');
+  g.classList.add('ghost');
+  g.setAttribute('aria-hidden', 'true');
+  g.inert = true;
+  phone.insertBefore(g, fly);
+  g.scrollTop = view.scrollTop;
+  E.ghost = g;
+}
+function startUp(from) {
+  E.phase = 'up';
+  phone.setAttribute('data-phase', 'up');
+  var gen = run(from, 1, progUp, Math.max(140, PACE[S.pace] * UP * (1 - from)), false);
+  E.clock.finished.then(function () { if (gen === E.gen) hold(); }, function () {});
+}
+function hold() {
+  var gen = E.gen;
+  E.phase = 'hold';
+  E.holdUntil = performance.now() + HOLD_MAX;
+  (function wait() {
+    if (gen !== E.gen || E.phase !== 'hold') return;
+    if (pageReady() || performance.now() >= E.holdUntil) { startDown(); return; }
+    setTimeout(wait, 40);
+  })();
+}
+function startDown() {
+  E.swell = E.swell0 + .38 * Math.abs(1 - E.from);
+  E.phase = 'down';
+  phone.setAttribute('data-phase', 'down');
+  var gen = run(1, 0, progDown, PACE[S.pace] * (1 - UP), true);
+  E.clock.finished.then(function () { if (gen === E.gen) finish(); }, function () {});
+}
+function finish() {
+  E.gen++;
+  E.anims.forEach(function (a) { a.cancel(); });
+  E.anims = []; E.clock = null;
+  if (E.ghost) { E.ghost.remove(); E.ghost = null; }
+  lite.forEach(function (el, i) { phone.style.removeProperty('--lite' + (i + 1)); });
+  phone.style.removeProperty('--orb-origin');
+  phone.removeAttribute('data-phase');
+  E.phase = null; E.swell = .62;
+}
+
+function dissolve(swap, at) {
+  var how = blocked() ? 'none' : S.transition;
+  if (how === 'none' || how === 'today') {
+    finish();
+    if (how === 'today') today(swap); else { stopToday(); swap(); }
+    return;
+  }
+  stopToday();
+  /* A SECOND TAP WHILE IT IS STILL FOGGING UP (or waiting at the peak): the
+     ghost he is looking at stays, the lens carries on untouched, and only
+     the destination underneath changes. Latest tap wins, nothing stacks. */
+  if (E.phase === 'up' || E.phase === 'hold') {
+    swap();
+    if (E.phase === 'hold') E.holdUntil = performance.now() + HOLD_MAX;
+    return;
+  }
+  /* From rest, or A SECOND TAP WHILE IT IS CLEARING: what is on screen now
+     becomes the ghost, and the lens climbs back to the peak from wherever
+     it has got to, in proportionally less time. */
+  var from = level();
+  if (!E.phase) {
+    E.swell = .62;
+    E.origin = at ? (at.x + phone.clientWidth * .25).toFixed(0) + 'px ' + (at.y + phone.clientHeight * .25).toFixed(0) + 'px' : '50% 50%';
+  } else if (RECIPE[S.transition].orbs) {
+    E.swell = E.swell0 + .38 * Math.abs(from - E.from);
+  }
+  setGhost();
+  swap();
+  startUp(from);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   "Today": the per-card morph the Hub shipped with, kept as the baseline.
+   Each visible block flies from where its counterpart was (paired by
+   position), 1900ms, 70ms between neighbours, on the Hub's own curve.
+   Blocks with no counterpart melt away or gather in. Deliberately not
+   improved: a block that barely moves and one that crosses the screen get
+   the same clock, which is the unevenness this sample exists to replace.
+   ══════════════════════════════════════════════════════════════════ */
+var LAW = [0, .0059, .0632, .2104, .4150, .6041, .7460, .8433, .9062, .9455, .9695, .9838, .9922, .9972, 1];
+function blocks() {
+  var pr = phone.getBoundingClientRect();
+  return Array.prototype.filter.call(view.querySelectorAll('.pad > *'), function (el) {
+    var r = el.getBoundingClientRect();
+    return r.height >= 36 && r.bottom > pr.top + 64 && r.top < pr.bottom - 76;
+  }).slice(0, 10);
+}
+var flight = 0;
+function stopToday() {
+  flight++;
+  document.getAnimations().forEach(function (a) { if (a.id === 'today') a.cancel(); });
+  fly.textContent = '';
+}
+function today(swap) {
+  var MS = 1900, GAP = 70, OUT = 300, A = [];
+  /* Measured BEFORE the old flight is cancelled, so a second tap picks each
+     card up from where it visibly is. */
+  var olds = blocks(), was = olds.map(function (el) { return el.getBoundingClientRect(); });
+  var copies = olds.map(function (el) { return el.cloneNode(true); });
+  stopToday();
+  swap();
+  var news = blocks(), pr = phone.getBoundingClientRect(), n = Math.min(olds.length, news.length);
+  function park(copy, box, bare) {
+    copy.classList.add(bare ? 'bare' : 'whole');
+    copy.style.cssText = 'left:' + (box.left - pr.left) + 'px;top:' + (box.top - pr.top) + 'px;width:' + box.width + 'px;height:' + box.height + 'px';
+    fly.appendChild(copy);
+    return copy;
+  }
+  news.forEach(function (el, i) {
+    if (i >= n) {
+      A.push(el.animate([{ transform: 'scale(.94)' }, { transform: 'scale(1)' }],
+        { duration: MS * .7, delay: MS * .25 + (i - n) * 57, easing: 'cubic-bezier(.33,0,.2,1)', fill: 'backwards', id: 'today' }));
+      return;
+    }
+    var f = was[i], l = el.getBoundingClientRect();
+    var dx = f.left - l.left, dy = f.top - l.top, sx = f.width / l.width, sy = f.height / l.height;
+    var wait = Math.min(i, 5) * GAP;
+    var T = { duration: MS - wait, delay: wait, easing: 'linear', fill: 'backwards', id: 'today' };
+    /* The live card: geometry only, so its glass stays live in flight. */
+    A.push(el.animate(LAW.map(function (v) {
+      return { transformOrigin: '0 0', transform: 'translate(' + (dx * (1 - v)) + 'px,' + (dy * (1 - v)) + 'px) scale(' + (sx + (1 - sx) * v) + ',' + (sy + (1 - sy) * v) + ')' };
+    }), T));
+    /* Its children: the counter-scale, so the words do not stretch. */
+    Array.prototype.forEach.call(el.children, function (c) {
+      A.push(c.animate(LAW.map(function (v) {
+        return { transformOrigin: '0 0', transform: 'scale(' + (1 / (sx + (1 - sx) * v)) + ',' + (1 / (sy + (1 - sy) * v)) + ')' };
+      }), T));
+    });
+    /* The old words ride the same path and are gone 300ms in. */
+    var cut = Math.min(.9, OUT / (MS - wait));
+    A.push(park(copies[i], f, true).animate([
+      { opacity: 1, filter: 'blur(0px)', transform: 'translate(0,0)' },
+      { offset: cut, opacity: 0, filter: 'blur(8px)' },
+      { opacity: 0, filter: 'blur(8px)', transform: 'translate(' + (-dx) + 'px,' + (-dy) + 'px)' }
+    ], { duration: MS - wait, delay: wait, easing: 'linear', fill: 'both', id: 'today' }));
+  });
+  olds.slice(n).forEach(function (el, k) {
+    A.push(park(copies[n + k], was[n + k], false).animate([
+      { transform: 'scale(1)', opacity: 1, filter: 'blur(0px)' },
+      { transform: 'scale(.9)', opacity: 0, filter: 'blur(12px)' }
+    ], { duration: MS * .6, delay: k * 57, easing: 'cubic-bezier(.4,0,.7,1)', fill: 'both', id: 'today' }));
+  });
+  /* Clear the flown copies once this flight is over, unless a newer flight
+     has already taken the layer. cancel() rejects, hence allSettled. */
+  var mine = flight;
+  Promise.allSettled(A.map(function (a) { return a.finished; })).then(function () {
+    if (mine === flight) stopToday();
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Getting around
+   ══════════════════════════════════════════════════════════════════ */
+function go(page, arg, opt) {
+  opt = opt || {};
+  var here = { page: S.page, arg: S.arg, scroll: view.scrollTop };
+  dissolve(function () {
+    if ((page === 'concert' || page === 'ensembles') && S.page !== page) S.back = here;
+    S.page = page; S.arg = arg || null;
+    render(opt.scroll || 0);
+  }, opt.at);
+}
+phone.addEventListener('click', function (e) {
+  var t = e.target.closest('[data-go],[data-ev],[data-back]');
+  if (!t || !phone.contains(t)) return;
+  var pr = phone.getBoundingClientRect();
+  var at = e.detail ? { x: e.clientX - pr.left, y: e.clientY - pr.top } : null;
+  if (t.hasAttribute('data-back')) {
+    var b = S.back || { page: 'home', arg: null, scroll: 0 };
+    go(b.page, b.arg, { at: at, scroll: b.scroll });
+  } else if (t.hasAttribute('data-ev')) {
+    go('concert', EVENTS[+t.getAttribute('data-ev')], { at: at });
+  } else if (t.getAttribute('data-go') !== S.page) {
+    go(t.getAttribute('data-go'), null, { at: at });
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   The switches, and remembering them
+   ══════════════════════════════════════════════════════════════════ */
+function sync() {
+  if (!SMOOTH_OK) S.build = 'lighter';
+  document.querySelector('.seg[data-key="build"] button[data-v="smooth"]').disabled = !SMOOTH_OK;
+  Array.prototype.forEach.call(document.querySelectorAll('.seg'), function (seg) {
+    var key = seg.getAttribute('data-key');
+    Array.prototype.forEach.call(seg.querySelectorAll('button'), function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-v') === S[key]));
+    });
+  });
+  phone.setAttribute('data-hub-theme', S.theme);
+  $('#slow').checked = S.slow;
+  Array.prototype.forEach.call(document.querySelectorAll('#caps p'), function (c) {
+    c.classList.toggle('on', c.getAttribute('data-for') === S.transition);
+  });
+  var lensy = !!RECIPE[S.transition];
+  $('#ctlPace').toggleAttribute('data-off', !lensy);
+  $('#ctlBuild').toggleAttribute('data-off', !lensy);
+  var why = blocked() || (lensy && !SMOOTH_OK ? 'nosmooth' : ''), note = $('#note');
+  note.hidden = !why;
+  note.textContent = why ? NOTE[why] : '';
+}
+function set(key, v) {
+  finish(); stopToday();
+  S[key] = v;
+  try { var o = {}; KEEP.forEach(function (k) { o[k] = S[k]; }); localStorage.setItem('liquidDissolve.v1', JSON.stringify(o)); } catch (e) {}
+  sync();
+}
+document.querySelector('.controls').addEventListener('click', function (e) {
+  var b = e.target.closest('.seg button');
+  if (b) set(b.parentNode.getAttribute('data-key'), b.getAttribute('data-v'));
+});
+$('#slow').addEventListener('change', function (e) { set('slow', e.target.checked); });
+['(prefers-reduced-motion: reduce)', '(prefers-reduced-transparency: reduce)'].forEach(function (q) {
+  try { window.matchMedia(q).addEventListener('change', function () { finish(); stopToday(); sync(); }); } catch (e) {}
+});
+
+/* ── A small handle for test scripts ──
+   __dissolve.frozen = true makes every animation start paused; seek(f) then
+   parks the dissolve at a share f of its whole length (0 start, UP the
+   peak, 1 the end) so a still can be taken at an exact moment. */
+var hook = window.__dissolve = {
+  frozen: false,
+  slowMs: 900,
+  go: function (page, arg, opt) { go(page, typeof arg === 'number' ? EVENTS[arg] : arg, opt); },
+  set: set,
+  animations: function () { return E.anims.slice(); },
+  level: level,
+  seek: function (f) {
+    hook.frozen = true;
+    if (!E.phase) return;
+    if (f >= 1) { finish(); return; }
+    if (f > UP && E.phase !== 'down') startDown();
+    var u = E.phase === 'down' ? (f - UP) / (1 - UP) : f / UP;
+    E.anims.forEach(function (a) { a.pause(); a.currentTime = u * a.effect.getComputedTiming().duration; });
+  },
+  get state() {
+    return { phase: E.phase, level: level(), page: S.page, ghosts: phone.querySelectorAll('.ghost').length,
+             up: UP, pace: PACE[S.pace], blocked: blocked(), settings: KEEP.reduce(function (o, k) { o[k] = S[k]; return o; }, {}) };
+  }
+};
+
+/* ── Start ── */
+$('#tabs').innerHTML = TABS.map(function (t) {
+  return '<button type="button" data-go="' + t[2] + '">' + ic(t[0], 20) + '<span>' + t[1] + '</span></button>';
+}).join('');
+var rootTheme = document.documentElement.getAttribute('data-theme');
+S.theme = rootTheme === 'dark' || rootTheme === 'light' ? rootTheme : (mq('(prefers-color-scheme: dark)') ? 'dark' : 'light');
+try {
+  var saved = JSON.parse(localStorage.getItem('liquidDissolve.v1') || 'null');
+  if (saved) KEEP.forEach(function (k) {
+    if (k === 'slow') S.slow = saved.slow === true;
+    else if (typeof saved[k] === 'string' && document.querySelector('.seg[data-key="' + k + '"] button[data-v="' + saved[k] + '"]')) S[k] = saved[k];
+  });
+} catch (e) {}
+sync();
+render(0);
+})();
+</script>
