@@ -460,7 +460,7 @@
   background: var(--dir-surface); border: 1px solid var(--dir-border); border-radius: var(--dir-radius);
   font-family: inherit; color: var(--dir-text); cursor: pointer;
 }
-.dir-form-kind:hover, .dir-form-kind:focus-visible { border-color: var(--dir-accent, currentColor); }
+.dir-form-kind:hover, .dir-form-kind:focus-visible { border-color: currentColor; }
 .dir-form-kind-name { font-weight: 700; }
 .dir-form-kind-hint { font-size: 13px; color: var(--dir-text-muted); }
 .dir-form-kind-chip {

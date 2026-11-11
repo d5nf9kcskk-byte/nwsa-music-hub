@@ -42,18 +42,71 @@
   }
 
   /* Sidebar: the hamburger menu made permanent. Sticky under the header;
-     scrolls internally only if its own content overflows the viewport. */
+     scrolls internally only if its own content overflows the viewport.
+
+     ONE NUMBER, THREE PLACES. Where the rail starts is written into its
+     sticky offset, into the height it is allowed to reach, and (for a
+     coloured rail) into look.css — and the first two have to add up to the
+     bottom of the window or the rail overflows it. They drifted: the glass
+     look floats the header 9px down the page and re-pointed the offset to
+     68px, while look.css's `min-height: calc(100dvh - 59px)` stayed on the
+     old number. min-height beats max-height, so a student who had picked a
+     menu colour got a rail running exactly 9px past the bottom of the
+     window. Both now read the token below, which is the only place the
+     number is written. */
   .pub-sidebar {
+    --pub-side-top: 59px; /* header min-height 56px + 3px gold border */
+    --pub-side-gap: 0px;  /* gutter under the rail (the glass look floats it) */
     display: flex;
     flex-direction: column;
     gap: 1px;
     position: sticky;
-    top: 59px; /* header min-height 56px + 3px gold border */
-    max-height: calc(100dvh - 59px);
+    top: var(--pub-side-top);
+    max-height: calc(100dvh - var(--pub-side-top) - var(--pub-side-gap));
     overflow-y: auto;
     padding: 12px 10px 16px;
     background: var(--pub-surface);
     border-right: 1px solid var(--pub-border);
+  }
+  /* look.css pins a coloured rail to the bottom of the window with its own
+     min-height, because a tinted box that stops short of the bottom reads
+     as floating in the page. Right intent, hardcoded number — re-stated
+     here from the token. Deliberately (0,3,1) rather than matching
+     look.css's (0,2,1): this must not depend on which sheet the bundler
+     emits last. */
+  html[data-pub-look-side] .pub-shell .pub-sidebar {
+    min-height: calc(100dvh - var(--pub-side-top) - var(--pub-side-gap));
+  }
+
+  /* ── The rail under the glass look (#glass) ──
+     hub2Glass.css already gives it the chrome tint, the blur and the
+     bloom — it is one of the panes carried on the ELEMENT because it
+     scrolls, and it takes no edge mask for that reason. What it was still
+     missing is the geometry: the header floats in a 9px gutter and the tab
+     bar in a 12px one, and the rail alone was drawn as a flush-sided slab
+     with 90-degree corners in a page where every other pane has a 31px
+     radius. So it floats too, on the header's own 9px, and the token above
+     carries the arithmetic.
+     No border colour written back: a chrome pane in this look has no line
+     at all (the header and the tab bar don't either) — the bloom is the
+     edge.
+
+     `top` AND `max-height` ARE RESTATED HERE, which is the whole point of
+     the token above. hub2Glass.css carries its own
+     `top: 68px; max-height: calc(100dvh - 68px)` for this element at
+     (0,2,1), which beats the token-driven pair in the base rule (0,1,0) —
+     so setting only the token would have left the offset at 68px with a
+     height measured from 77px, which is the same 9px overflow in a new
+     coat. This rule is (0,3,1) and takes both, so the three numbers cannot
+     be split across two files again. Those two lines in hub2Glass.css are
+     now dead and can be deleted by whoever owns that file. */
+  :root[data-hub2="on"] .pub-shell .pub-sidebar {
+    --pub-side-top: 77px; /* 9px header gutter + 56px + 3px + 9px gap */
+    --pub-side-gap: 9px;
+    top: var(--pub-side-top);
+    max-height: calc(100dvh - var(--pub-side-top) - var(--pub-side-gap));
+    margin: 0 0 var(--pub-side-gap) 9px;
+    border-radius: var(--pub-radius);
   }
 
   .pub-side-item {
@@ -154,6 +207,36 @@
      (same items, different position: the Slack isomorphism rule). */
   .pub-tabbar { display: none; }
   .pub-app .pub-content { padding-bottom: 32px; }
+
+  /* ── ONE MEASURE PER PAGE ──
+     `.pub-page` caps itself at 720px and centres, so every page's content
+     ran 688px wide — while the blocks PublicLayout renders ABOVE the outlet
+     (the connectivity strips, the concert-day banner, the check-in strip,
+     the alert groups) are children of .pub-content and spanned the whole
+     column. Two margins on one page, and the wide one is the one to move:
+     720px is the reading measure every page is written to, and an alert
+     that is 260px wider than the card it is warning about reads as a
+     different page stapled on top.
+     The blocks are NAMED rather than written as `> :not(.pub-page)`, and
+     neither is the column itself capped. The event page opts into 1080px
+     (.pub-page-wide, pubEventShell.css) for its two-column day sheet and
+     the contact page caps itself at 560px, so both a cap on .pub-content
+     and a blanket "everything that is not .pub-page" would quietly resize
+     a page. If a new strip is added above the outlet it simply does not
+     get capped — the same finding again, in the open, rather than a page
+     silently given somebody else's measure.
+     Nothing in the page moves by a pixel: it was already centred here. */
+  .pub-app .pub-content > :is(
+    .app-status-strip, .concert-day-banner, .pub-checkin-strip-wrap,
+    .pub-allclear, .pub-global-alert-groups
+  ) {
+    max-width: 720px;
+    margin-inline: auto;
+  }
+  /* The banner carried its own 16px side margin, which `auto` has now
+     replaced. As padding it still lands the card on the page's own 688px,
+     so the two line up exactly instead of nearly. */
+  .pub-app .pub-content > .concert-day-banner { padding-inline: 16px; }
 }
 
 /* "Show all N" progressive disclosure (redesign Phase 3): the count in the

@@ -131,7 +131,7 @@
   align-items: baseline;
   gap: 10px;
   padding: 7px 0;
-  border-bottom: 1px solid var(--pub-hairline, rgba(0, 0, 0, 0.07));
+  border-bottom: 1px solid var(--pub-border, rgba(0, 0, 0, 0.07));
 }
 .pub-playing-row:last-child { border-bottom: none; }
 .pub-playing-name { flex: 1; min-width: 0; font-weight: 600; }

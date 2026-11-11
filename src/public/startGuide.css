@@ -1,9 +1,8 @@
 /* Start Here guide (#6) — pub-sg-* classes, scoped to StartGuide.tsx */
 
-.pub-sg-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-}
-.pub-sg-head .pub-h1 { margin-bottom: 4px; }
+/* `.pub-sg-head` lived here: the same hand-rolled copy of `.pub-pagehead`
+   that season.css carried, with its own title spacing. StartGuide renders
+   <PageHeader> now and nothing carries the class, so it is deleted. */
 
 .pub-sg-print-btn {
   display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;

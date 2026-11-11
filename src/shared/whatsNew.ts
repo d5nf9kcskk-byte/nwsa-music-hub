@@ -32,6 +32,33 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // Template pass: the two sides brought onto one look, and the menu fixed.
+  {
+    id: '2026-11-10-appearance-and-menu',
+    date: '2026-11-10',
+    title: 'The panel follows your device, and the menu reads properly',
+    audience: 'staff' as const,
+    bullets: [
+      'Light or dark now follows your phone or laptop unless you choose otherwise. The button in the header cycles Automatic, Light and Dark, and it says which one you are on.',
+      'The account you are signed in as now shows in the side menu at every width, not just on a phone.',
+      'Switching tabs takes you back to the top of the page instead of leaving you where the last screen was scrolled to.',
+      'A selected filter preset now looks selected. It never did.',
+      'Dragging out of the menu, or selecting text and releasing past its edge, no longer closes it.',
+    ],
+    expires: '2026-11-24',
+  },
+  {
+    id: '2026-11-10-tap-targets',
+    date: '2026-11-10',
+    title: 'Easier to tap, easier to read',
+    audience: 'public' as const,
+    bullets: [
+      'The links on a concert card, the menu button and the add-to-calendar button are all big enough to hit on a phone now. Several were a third of the size they should be.',
+      'Ensemble name tags are readable: white on a pale blue was too faint, so every tag colour is a little deeper.',
+      'Page headings and empty pages look the same everywhere instead of two designs each.',
+    ],
+    expires: '2026-11-24',
+  },
   {
     id: '2026-11-10-gradebook-rebuild',
     date: '2026-11-10',

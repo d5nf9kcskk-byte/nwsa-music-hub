@@ -105,8 +105,12 @@
   margin-top: 3px; font-size: 13px; font-style: italic;
   color: var(--pub-muted);
 }
+/* 60x16 measured. It shares .pub-ev2-foot with the add-to-calendar button
+   (space-between, align-items: center), so both taking min-height: 44px
+   grows that ONE row from 28px to 44px and the two targets sit side by
+   side — no stacking, nothing to overlap. */
 .pub-event-detail-link {
-  display: inline-flex; align-items: center; gap: 3px;
+  display: inline-flex; align-items: center; gap: 3px; min-height: 44px;
   margin-top: 9px; font-size: 13px; font-weight: 700;
   color: var(--pub-accent); text-decoration: none;
 }
@@ -795,9 +799,30 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
 .pub-chip:active, .pub-filter-btn:active, .pub-view-toggle:active { transform: scale(0.98); }
 
 /* ── Overlay + sheet entrances (menus/search/confirm snap-fixes) ── */
-@keyframes pub-fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pub-sheet-up { from { transform: translateY(36px); opacity: 0.4; } to { transform: none; opacity: 1; } }
-@keyframes pub-slide-in-right { from { transform: translateX(32px); opacity: 0.5; } to { transform: none; opacity: 1; } }
+/* BOTH FADE A BACKGROUND, NEVER AN OPACITY (#glass) — the same correction
+   the staff shell already made (`dir-fade-in`, `hub2-dir-fade`).
+   `pub-fade-in` runs on four overlays, and every one of them is an
+   ANCESTOR of a glass pane: the menu drawer, the search panel, the confirm
+   card and the subscribe sheet. An ancestor with opacity < 1 re-points its
+   descendants' `backdrop-filter` at a subtree that paints nothing, so for
+   the length of the fade those panels went FLAT — the page behind showing
+   through sharp, with the panel's text landing on readable page text. All
+   four overlays already carry a scrim colour to animate instead, which
+   dims exactly the same thing with none of that.
+   `pub-sheet-up` is the same shape on the panes themselves and keeps its
+   geometry only, for the reason `pub-slide-in-right` does below. */
+@keyframes pub-fade-in { from { background-color: transparent; } }
+@keyframes pub-sheet-up { from { transform: translateY(36px); } }
+/* TRANSFORM ONLY (#glass). This is the drawer's own entrance and the drawer
+   is a glass pane: an `opacity` keyframe on a pane is one specificity
+   accident away from the bug hub2-fade had on the overlay above it, where
+   an animating ancestor opacity re-points every descendant's
+   backdrop-filter at a subtree that paints nothing and the blur stops for
+   the length of the animation. Geometry is always safe; alpha is not.
+   Under the preview a transform-only `hub2-menu-in` already wins on
+   specificity, so nothing there changes; with the preview off the drawer
+   now slides without the 0.5 fade. */
+@keyframes pub-slide-in-right { from { transform: translateX(32px); } }
 .pub-menu-overlay { animation: pub-fade-in 0.15s ease-out; }
 .pub-menu-panel { animation: pub-slide-in-right 0.2s ease-out; }
 .pub-confirm-overlay { animation: pub-fade-in 0.15s ease-out; }
@@ -835,12 +860,28 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
 .pub-skeleton-card.slim { height: 48px; }
 @keyframes pub-shimmer { from { background-position: 120% 0; } to { background-position: -80% 0; } }
 
-/* ── Empty states: one designed treatment everywhere ── */
-.pub-empty {
+/* ── Empty states: one designed treatment everywhere ──
+   TWO CLASSES, ONE APPEARANCE. `.pub-empty` (EmptyState, used on
+   /assignments and /student/*) was the designed one; the other eleven pages
+   reach for `<div className="pub-card pub-muted">` instead, and all 23 of
+   those call sites are the same job — empty, not-found or loading. They
+   read as a different design on an adjacent page, so the weaker one takes
+   the stronger one's rules rather than the markup being rewritten on
+   eleven pages. Everything that is genuinely about the ICON stays keyed on
+   `.pub-empty` alone (hub2Public.css): one of those draws a music stand
+   where a page gave no icon, and a music stand over "Loading…" is not an
+   empty state. */
+.pub-empty,
+.pub-card.pub-muted {
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   padding: 26px 16px; text-align: center;
   background: var(--pub-surface); border: 1px dashed var(--pub-border);
   border-radius: var(--pub-radius); color: var(--pub-muted);
+  font-size: 14px;
+  /* .pub-card brings a drop shadow and .pub-empty never had one. Under the
+     preview both take the glass bloom anyway; this is so they match with
+     the preview off too. */
+  box-shadow: none;
 }
 .pub-empty svg { color: var(--pub-muted); opacity: 0.7; }
 .pub-empty-text { font-size: 14px; line-height: 1.5; }
@@ -860,10 +901,18 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pub-purple); ou
   background: rgba(255, 255, 255, 0.15); color: inherit; cursor: pointer;
 }
 
-/* ── Shared page header (one title treatment on every page) ── */
+/* ── Shared page header (one title treatment on every page) ──
+   AND IT HAS TO SPACE ITSELF LIKE A BARE `.pub-h1`, which is the other
+   half of "one title treatment". Sixteen pages wrap their title in
+   PageHeader; the rest write `<h1 className="pub-h1">` straight into the
+   page, where `.pub-h1`'s own `margin: 4px 0 14px` applies. This wrapper
+   zeroes that margin on the h1 and replaced it with 8px, so /ensembles and
+   /concerts sat their titles at two different heights with two different
+   gaps under them. The wrapper now carries the h1's own margin, so the two
+   are the same block however the page was written. */
 .pub-pagehead {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; margin-bottom: 8px;
+  gap: 10px; margin: 4px 0 14px;
 }
 .pub-pagehead .pub-h1 { margin: 0; }
 .pub-page-intro { font-size: 14px; color: var(--pub-muted); margin: 0 0 14px; line-height: 1.5; }

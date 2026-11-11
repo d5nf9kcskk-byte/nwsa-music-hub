@@ -101,10 +101,20 @@ html:has(.dir-app) body {
   letter-spacing: -0.3px;
 }
 
+/* One line, always. The header's brand column is the flexible one, so at
+   390px this line is narrower than its contents; left to wrap, the role chip
+   and the name after it crossed the header's bottom stroke. It truncates
+   instead: the chip comes first and never breaks (.dir-panel-tag), so the
+   role is always fully readable and only the trailing name clips. Hiding it
+   was the alternative and is wrong — on the three non-director shells the
+   trailing text is the signed-in person's name. */
 .dir-header-sub {
   font-size: 12px;
   opacity: 0.75;
   margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dir-header-right {
@@ -1010,8 +1020,18 @@ button.dir-roster-group-link:hover .dir-group-open-hint { opacity: 1; }
   animation: dir-sheet-up 0.2s ease-out;
 }
 
-@keyframes dir-fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes dir-sheet-up { from { transform: translateY(48px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+/* Both fade a BACKGROUND, never an opacity (#glass). `dir-fade-in` runs on
+   .dir-drawer-overlay — the ancestor of a glass .dir-drawer — and on the
+   full-screen drawer itself; `dir-sheet-up` runs on the glass drawer. An
+   opacity below 1 on a glass panel OR any ancestor of one re-points its
+   backdrop-filter at a subtree that paints nothing, and the glass goes flat
+   for the length of the animation. background-color is animatable and makes
+   no backdrop root, and both elements already have one to animate from.
+   (Under the hub2 preview these are overridden by the transform-only
+   keyframes in hub2Staff.css — but only inside prefers-reduced-motion:
+   no-preference, so these two still ran on a reduced-motion device.) */
+@keyframes dir-fade-in { from { background-color: transparent; } }
+@keyframes dir-sheet-up { from { transform: translateY(48px); background-color: transparent; } }
 
 .dir-drawer-handle {
   width: 40px;
@@ -2411,7 +2431,7 @@ a.dir-menu-item {
 .dir-rte-font {
   height: 28px; padding: 0 4px; margin-left: 2px;
   font: inherit; font-size: 11px;
-  color: var(--dir-text-2); background: transparent;
+  color: var(--dir-text-muted); background: transparent;
   border: 1px solid var(--dir-border); border-radius: 6px;
   cursor: pointer;
 }
@@ -2524,7 +2544,7 @@ a.dir-menu-item {
 .dir-ann-linkchip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dir-ann-linkchip button {
   display: flex; align-items: center;
-  border: none; background: transparent; color: var(--dir-text-2);
+  border: none; background: transparent; color: var(--dir-text-muted);
   padding: 2px; cursor: pointer;
 }
 

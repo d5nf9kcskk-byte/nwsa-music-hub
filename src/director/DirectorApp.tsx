@@ -3,9 +3,9 @@ import { SeasonButton } from './SeasonButton';
 import './uiUpdates.css';
 import './dirShell.css';
 import './hub2Staff.css';
-import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
-import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine, FileSpreadsheet, Ticket, Inbox, Mic } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, FileText, ClipboardCheck, Megaphone, ExternalLink, Music, CalendarClock, Menu, X, LogOut, Search, HelpCircle, UserX, UserCog, QrCode, Moon, Sun, SunMoon, UserCircle, FolderOpen, ShieldCheck, GraduationCap, MessageSquarePlus, Mail, ClipboardSignature , Gavel, BookOpen, Repeat, ScanLine, FileSpreadsheet, Ticket, Inbox, Mic } from 'lucide-react';
 import { QrKitView } from './qr/QrKitView';
 import { DirectorsManager } from './directors/DirectorsManager';
 import { AuthGate } from './components/AuthGate';
@@ -21,6 +21,8 @@ import { Hub2PreviewToggle } from './components/Hub2PreviewToggle';
 import { WriteTray } from './components/WriteTray';
 import { useWriteBusy } from './writeStatus';
 import { useModalA11y } from '../shared/useModalA11y';
+import { backdropClose } from '../shared/backdropClose';
+import { useSystemDark, type PubThemeChoice } from '../public/theme';
 import { StatusStrips } from '../shared/StatusStrips';
 import { ConcertDayBanner } from '../shared/ConcertDayBanner';
 import { NoteBurst } from '../shared/NoteBurst';
@@ -273,6 +275,81 @@ function navGroups(showMyLessons: boolean): typeof NAV_GROUPS {
   });
 }
 
+/**
+ * Appearance — the SAME three-way choice the public site has had since
+ * #dark-view: Automatic (follow this device) / Light / Dark, remembered per
+ * device under `dir.theme`, resolved through the one media query in
+ * src/public/theme.ts.
+ *
+ * It used to be a two-state flag that defaulted to light and never asked the
+ * device, so a Mac in dark mode showed a dark student site and a white staff
+ * panel side by side with nobody having touched a setting — the most visible
+ * disagreement between the two sides.
+ *
+ * Automatic stores NOTHING (the key is removed), so "never pressed the
+ * button" and "chose Automatic" are one state. That is what keeps a director
+ * who deliberately picked Light on Light: the old button always wrote an
+ * explicit 'light' or 'dark', so a stored value is always a real choice.
+ */
+const DIR_THEME_KEY = 'dir.theme';
+
+function storedDirTheme(): PubThemeChoice {
+  try {
+    const v = localStorage.getItem(DIR_THEME_KEY);
+    return v === 'light' || v === 'dark' ? v : 'auto';
+  } catch {
+    return 'auto';
+  }
+}
+
+function saveDirTheme(choice: PubThemeChoice) {
+  try {
+    if (choice === 'auto') localStorage.removeItem(DIR_THEME_KEY);
+    else localStorage.setItem(DIR_THEME_KEY, choice);
+  } catch { /* private mode — the choice still applies for this page */ }
+}
+
+/** One press moves one step. The public side offers the three as a labelled
+ *  menu; the staff header has no popover of its own and this file may not grow
+ *  one without CSS, so the icon carries the state and the hover/screen-reader
+ *  sentence says what the press does — the shape SeasonButton beside it uses. */
+const THEME_NEXT: Record<PubThemeChoice, PubThemeChoice> = { auto: 'light', light: 'dark', dark: 'auto' };
+const THEME_ICON: Record<PubThemeChoice, typeof Sun> = { auto: SunMoon, light: Sun, dark: Moon };
+const THEME_SAYS: Record<PubThemeChoice, string> = {
+  auto: 'Appearance: automatic, following this device — tap for light',
+  light: 'Appearance: light — tap for dark',
+  dark: 'Appearance: dark — tap for automatic',
+};
+
+/**
+ * Who is signed in. `rail` renders the desktop sidebar's skin instead of the
+ * phone drawer's — ONE component with a prop, never a second copy (#one-nav),
+ * the same shape as <AppVersionRow rail />.
+ *
+ * This row lived in the drawer header ALONE, and dirShell.css hides the
+ * hamburger that opens that drawer at ≥1024px, so a director on a laptop
+ * could not see which account they were signed in as. The drawer passes its
+ * close button as children; `dir-menu-title` is shared by both surfaces on
+ * purpose — it is a text style (ellipsis, weight), not a surface style.
+ */
+function AccountRow({ user, rail = false, children }: {
+  user: { displayName: string | null; email: string | null; photoURL: string | null };
+  rail?: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className={rail ? 'dir-rail-item' : 'dir-menu-header'} style={rail ? { cursor: 'default' } : undefined}>
+      {user.photoURL
+        ? <img className="dir-avatar" src={user.photoURL} alt="" referrerPolicy="no-referrer" />
+        : <UserCircle size={rail ? 18 : 20} />}
+      <span className="dir-menu-title" title={user.email ?? undefined}>
+        {user.displayName ?? user.email ?? ORG.appName}
+      </span>
+      {children}
+    </div>
+  );
+}
+
 function pickShell(me: CurrentDirector | null): 'staff' | 'teacher' | 'classroom' | 'assistant' {
   if (!me) return 'staff';
   if (isStaffMember(me)) return 'staff';
@@ -290,7 +367,10 @@ export default function DirectorApp() {
   const [collegeOpen, setCollegeOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem('dir.theme') === 'dark'; } catch { return false; } });
+  const [themeChoice, setThemeChoice] = useState<PubThemeChoice>(storedDirTheme);
+  const systemDark = useSystemDark();
+  const dark = themeChoice === 'auto' ? systemDark : themeChoice === 'dark';
+  const ThemeIcon = THEME_ICON[themeChoice];
 
   // Cmd/Ctrl+K opens the quick switcher (DirectorSearch already has full
   // keyboard navigation — it only lacked the shortcut).
@@ -447,6 +527,26 @@ export default function DirectorApp() {
     if (inCollegeGroup) setCollegeOpen(true);
   }, [tab, intent.ensembleId, inHsEnsemble, inHsClass, inCollegeGroup]);
 
+  // A tab change is a new screen, so it opens at the top — the public side
+  // gets this from <ScrollRestoration />. That component cannot do it here: it
+  // only ever reads window.scrollY and calls window.scrollTo (react-router's
+  // useScrollRestoration), and `.dir-app` is `overflow: hidden` with
+  // `.dir-content` as the one page scroller (director.css), so window scroll
+  // is always 0. Only one <ScrollRestoration /> may exist per app anyway.
+  //
+  // Keyed on the TAB alone, deliberately: an overlay opening, a drawer that
+  // puts ?event=… in the URL, or a second tap on the tab you are already on
+  // must not throw away the place you were reading.
+  //
+  // A layout effect, for the same reason react-router's own does it that way:
+  // the reset lands before paint, so the glass morph (hub2Morph.ts, which
+  // measures `.dir-content`'s panels once React has swapped the page) sees the
+  // arriving blocks where they will actually sit. Found by querySelector
+  // rather than a ref because hub2.selfcheck.ts pins the exact text
+  // `<main className="dir-content">`, and only one staff shell is ever
+  // mounted, so there is only ever one of them in the document.
+  useLayoutEffect(() => { document.querySelector('.dir-content')?.scrollTo({ top: 0 }); }, [tab]);
+
   const hubEnsemble = ensembles.find(e => e.id === intent.ensembleId);
   const title = tab === 'ensembleHub' && hubEnsemble ? hubEnsemble.name : TAB_TITLES[tab];
   // Remount the target view when the intent changes so preselects apply cleanly.
@@ -463,7 +563,11 @@ export default function DirectorApp() {
       ) : shell === 'assistant' ? (
         <AssistantApp user={user} signOut={signOut} />
       ) : (
-        <div className="dir-app" data-dir-theme={darkMode ? 'dark' : undefined}>
+        // Only DARK is stamped. Four rules read `:not([data-dir-theme="dark"])`
+        // (hub2.css, hub2Staff.css), and an explicit "light" would still match
+        // them — but leaving the attribute off keeps every selector behaving
+        // exactly as it did before Auto existed.
+        <div className="dir-app" data-dir-theme={dark ? 'dark' : undefined}>
           {/* Back-end marker: an unmistakable dark strip + gold rule, always on
               top, so the director always knows this is the editing side. */}
           <div className="dir-panel-banner no-print" role="note" onClick={onPanelTap} style={{ cursor: 'pointer' }}>
@@ -538,6 +642,7 @@ export default function DirectorApp() {
               <div className="dir-rail-whats-new">
                 <WhatsNewBanner audience="staff" />
               </div>
+              <AccountRow user={user} rail />
               <button className="dir-rail-item dir-rail-signout" onClick={signOut}>
                 <LogOut size={18} /> Sign out
               </button>
@@ -564,10 +669,11 @@ export default function DirectorApp() {
               )}
               <button
                 className="dir-hamburger"
-                onClick={() => { const v = !darkMode; setDarkMode(v); try { localStorage.setItem('dir.theme', v ? 'dark' : 'light'); } catch { /* private mode */ } }}
-                aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                onClick={() => { const next = THEME_NEXT[themeChoice]; setThemeChoice(next); saveDirTheme(next); }}
+                aria-label={THEME_SAYS[themeChoice]}
+                title={THEME_SAYS[themeChoice]}
               >
-                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+                <ThemeIcon size={20} />
               </button>
               <SeasonButton className="dir-hamburger" />
               <button className="dir-hamburger" onClick={() => setSearchOpen(true)} aria-label="Search">
@@ -668,15 +774,13 @@ export default function DirectorApp() {
           />
 
           {menuOpen && (
-            <div className="dir-menu-overlay" onClick={() => setMenuOpen(false)}>
-              <nav className="dir-menu-panel" role="dialog" aria-modal="true" aria-label="Menu" tabIndex={-1} ref={menuRef} onClick={e => e.stopPropagation()}>
-                <div className="dir-menu-header">
-                  {user.photoURL && <img className="dir-avatar" src={user.photoURL} alt={user.displayName ?? 'User'} referrerPolicy="no-referrer" />}
-                  <span className="dir-menu-title">{user.displayName ?? ORG.appName}</span>
+            <div className="dir-menu-overlay" {...backdropClose(() => setMenuOpen(false))}>
+              <nav className="dir-menu-panel" role="dialog" aria-modal="true" aria-label="Menu" tabIndex={-1} ref={menuRef}>
+                <AccountRow user={user}>
                   <button className="dir-menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">
                     <X size={20} />
                   </button>
-                </div>
+                </AccountRow>
 
                 {NAV_TOP.map(({ id, label, Icon }) => (
                   <button

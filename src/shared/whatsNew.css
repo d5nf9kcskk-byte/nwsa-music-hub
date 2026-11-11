@@ -1,9 +1,14 @@
 /* One collapsed roll-up of unseen updates — staff + public menus. */
 .whats-new {
   margin: 18px 16px 0;
-  background: var(--dir-surface, var(--pub-surface, #fff));
-  border: 1px solid var(--dir-border, var(--pub-border, #e2e8f0));
-  border-left: 3px solid var(--dir-primary, var(--pub-accent, #0d7e8e));
+  /* THE SHELL DECIDES, NOT A FALLBACK CHAIN. --dir-surface is declared on
+     :root in director.css, so it is defined on the student site too and
+     `var(--dir-surface, var(--pub-surface, ...))` never reached the second
+     name — the card painted an opaque white rectangle inside the glass
+     menu. The staff values are re-stated under .dir-app below. */
+  background: var(--pub-surface, #fff);
+  border: 1px solid var(--pub-border, #e2e8f0);
+  border-left: 3px solid var(--pub-accent, #0d7e8e);
   border-radius: 10px;
   padding: 10px 12px;
 }
@@ -24,13 +29,13 @@
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: var(--dir-text-muted, var(--pub-muted, #64748b));
+  color: var(--pub-muted, #64748b);
   cursor: pointer;
   list-style: none;
 }
 .whats-new-head::-webkit-details-marker { display: none; }
 .whats-new-head strong {
-  color: var(--dir-text, var(--pub-ink, #1e293b));
+  color: var(--pub-ink, #1e293b);
   font-size: 13px;
 }
 .whats-new-dismiss {
@@ -44,7 +49,7 @@
 }
 .whats-new-item { margin-top: 10px; }
 .whats-new-item + .whats-new-item {
-  border-top: 1px solid var(--dir-border, var(--pub-border, #e2e8f0));
+  border-top: 1px solid var(--pub-border, #e2e8f0);
   padding-top: 10px;
 }
 .whats-new-title {
@@ -53,7 +58,7 @@
 }
 .whats-new-item-date {
   font-size: 12px;
-  color: var(--dir-text-muted, var(--pub-muted, #64748b));
+  color: var(--pub-muted, #64748b);
   margin-bottom: 2px;
 }
 .whats-new-list {
@@ -61,5 +66,23 @@
   padding-left: 18px;
   font-size: 13px;
   line-height: 1.4;
-  color: var(--dir-text-muted, var(--pub-muted, #64748b));
+  color: var(--pub-muted, #64748b);
 }
+
+/* ── AND THE STAFF SHELL'S OWN VALUES, by selector rather than by fallback.
+   Everything above is now written in public tokens, which on a staff page
+   resolve to the student site's theme; these put the panel back on the
+   staff palette, so one card reads correctly in both menus and in both
+   themes. --dir-primary rather than --dir-accent: the latter is a name
+   nothing in this repo declares. */
+.dir-app .whats-new {
+  background: var(--dir-surface, #fff);
+  border-color: var(--dir-border, #e2e8f0);
+  border-left-color: var(--dir-primary, #0d7e8e);
+}
+.dir-app :is(.whats-new-head, .whats-new-item-date, .whats-new-list) {
+  color: var(--dir-text-muted, #64748b);
+}
+.dir-app .whats-new-head strong { color: var(--dir-text, #1e293b); }
+.dir-app .whats-new-item + .whats-new-item { border-top-color: var(--dir-border, #e2e8f0); }
+.dir-rail-whats-new { border-top-color: var(--dir-border, #e2e8f0); }

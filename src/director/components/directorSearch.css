@@ -206,7 +206,7 @@
   border-bottom: 1px solid var(--dir-border);
   flex: 0 0 auto;
 }
-.dir-linkpick-search-icon { color: var(--dir-text-2); flex: 0 0 auto; }
+.dir-linkpick-search-icon { color: var(--dir-text-muted); flex: 0 0 auto; }
 .dir-linkpick-input {
   flex: 1 1 auto; min-width: 0;
   border: none; background: transparent;
@@ -215,12 +215,12 @@
 .dir-linkpick-input:focus { outline: none; }
 .dir-linkpick-close {
   flex: 0 0 auto; display: flex; align-items: center;
-  border: none; background: transparent; color: var(--dir-text-2);
+  border: none; background: transparent; color: var(--dir-text-muted);
   padding: 4px; cursor: pointer;
 }
 .dir-linkpick-back {
   flex: 0 0 auto; display: flex; align-items: center;
-  border: none; background: transparent; color: var(--dir-text-2);
+  border: none; background: transparent; color: var(--dir-text-muted);
   padding: 4px; margin-left: -4px; cursor: pointer;
 }
 
@@ -246,7 +246,7 @@
   display: flex; align-items: center; gap: 5px;
   padding: 10px 14px 4px;
   font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
-  text-transform: uppercase; color: var(--dir-text-2);
+  text-transform: uppercase; color: var(--dir-text-muted);
 }
 .dir-linkpick-row {
   display: flex; flex-direction: column; gap: 1px;
@@ -255,8 +255,8 @@
 }
 .dir-linkpick-row:hover, .dir-linkpick-row:focus-visible { background: var(--dir-surface-2); }
 .dir-linkpick-row-label { font-size: 14px; color: var(--dir-text); }
-.dir-linkpick-row-sub { font-size: 12px; color: var(--dir-text-2); }
-.dir-linkpick-empty { padding: 18px 14px; font-size: 13px; color: var(--dir-text-2); }
+.dir-linkpick-row-sub { font-size: 12px; color: var(--dir-text-muted); }
+.dir-linkpick-empty { padding: 18px 14px; font-size: 13px; color: var(--dir-text-muted); }
 
 .dir-linkpick-fold {
   flex: 0 0 auto;
@@ -265,13 +265,13 @@
 }
 .dir-linkpick-fold > summary {
   display: flex; align-items: center; gap: 6px;
-  font-size: 13px; font-weight: 600; color: var(--dir-text-2); cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--dir-text-muted); cursor: pointer;
 }
 .dir-linkpick-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .dir-linkpick-chip {
   padding: 4px 9px;
   font: inherit; font-size: 12px;
-  color: var(--dir-text-2); background: var(--dir-surface-2);
+  color: var(--dir-text-muted); background: var(--dir-surface-2);
   border: 1px solid var(--dir-border); border-radius: 999px;
   cursor: pointer;
 }
@@ -285,7 +285,7 @@
   padding: 6px 8px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
-  color: var(--dir-text-2);
+  color: var(--dir-text-muted);
   background: var(--dir-surface-2);
   border-radius: 6px;
   overflow-wrap: anywhere;
