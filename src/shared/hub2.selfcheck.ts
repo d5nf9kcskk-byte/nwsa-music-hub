@@ -90,7 +90,7 @@ const screenOnly = (name: string, src: string) => {
   for (const ch of css) {
     if (ch === '{') {
       const p = prelude.trim();
-      if (p.startsWith(':root[data-hub2="on"]') && !stack.includes('@media (prefers-reduced-motion: reduce)')) {
+      if (p.startsWith(':root[data-hub2="on"]')) {
         assert.ok(stack.includes('@media screen'), `hub2.css: ${p} must sit inside @media screen`);
       }
       stack.push(p); prelude = '';
@@ -100,8 +100,7 @@ const screenOnly = (name: string, src: string) => {
 const pubCss = strip(read('../public/hub2Public.css'));
 screenOnly('hub2Public.css', pubCss);
 assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(pubCss), 'hub2Public.css must take every color from the tokens');
-const pubRules = pubCss.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
-const pubSelectors = [...pubRules.matchAll(/([^{}]+)\{/g)].map(m => m[1].trim()).filter(s => !s.startsWith('@'));
+const pubSelectors = [...pubCss.matchAll(/([^{}]+)\{/g)].map(m => m[1].trim()).filter(s => !s.startsWith('@'));
 assert.ok(pubSelectors.length >= 20);
 // Split on top-level commas only: :is(a, b) is one selector.
 const topLevel = (group: string) => {
@@ -124,22 +123,21 @@ assert.ok(mainSrc.indexOf("import './public/hub2Public.css';") > mainSrc.indexOf
 // The page-look classes are opt-in: nothing in the stock CSS styles them, so
 // adding one to a component changes nothing with the preview off.
 const allCss: string[] = [];
-// Every component too, in the same pass: §7 has to prove that each class the
-// morph's selectors NAME is a class the app actually renders (see #one-nav for
-// the same shape of bug, and the .dir-page pin for the one that shipped).
-const allTsx: string[] = [];
+// The look's own scripts too, in the same pass: §7 scans every hub2* module
+// for motion, wherever it lives.
+const lookScripts: string[] = [];
 const walk = (dir: URL) => {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     if (e.isDirectory()) walk(new URL(`${e.name}/`, dir));
     else if (e.name.endsWith('.css')) allCss.push(new URL(e.name, dir).pathname);
-    else if (e.name.endsWith('.tsx')) allTsx.push(new URL(e.name, dir).pathname);
+    else if (/^hub2.*\.tsx?$/i.test(e.name) && !e.name.includes('.selfcheck.')) lookScripts.push(new URL(e.name, dir).pathname);
   }
 };
 walk(new URL('../', import.meta.url));
 const stock = allCss.filter(f => !/\/hub2(Public|Glass)?\.css$/.test(f));
 for (const f of stock) {
   const src = strip(readFileSync(f, 'utf8'));
-  for (const cls of ['pub-hall', 'pub-drill', 'pub-checkins']) {
+  for (const cls of ['pub-hall', 'pub-checkins']) {
     assert.ok(!new RegExp(`\\.${cls}(?![\\w-])`).test(src), `${f} styles .${cls}, which is a Hub 2.0-only page class`);
   }
 }
@@ -224,7 +222,7 @@ assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(staffCss), 'hub2Staff.css must take 
     const head = m[1].trim();
     if (m[2] === '}') { depth--; continue; }
     if (depth === 0) assert.match(head, /^@media screen\b/, `hub2Staff.css: "${head}" is outside @media screen`);
-    else if (!head.startsWith('@') && !/^(from|to|\d+%)$/.test(head)) {
+    else if (!head.startsWith('@')) {
       for (const sel of topLevel(head)) {
         assert.ok(sel.startsWith(':root[data-hub2="on"] .dir-app'), `hub2Staff.css selector ${sel} is not scoped under the preview`);
       }
@@ -234,9 +232,6 @@ assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(staffCss), 'hub2Staff.css must take 
   }
   assert.equal(depth, 0, 'hub2Staff.css braces do not balance');
   assert.ok(staffRules > 10, 'hub2Staff.css has suspiciously few rules');
-  assert.match(staffCss, /prefers-reduced-motion: no-preference/, 'staff motion must be off under reduced motion');
-  assert.ok(!/animation|transition/.test(staffCss.split('prefers-reduced-motion: no-preference')[0]),
-    'every animation and transition belongs in the no-preference block');
 }
 const STAFF_SHELLS = ['./DirectorApp.tsx', './teacher/TeacherApp.tsx', './classroom/ClassroomTeacherApp.tsx', './assistant/AssistantApp.tsx'];
 for (const shell of STAFF_SHELLS) {
@@ -294,21 +289,29 @@ for (const shell of STAFF_SHELLS) {
   }
 }
 
-// 7. Motion (#hub2-motion): page wipes and soft reveals, only under the look
-//    and without reduced motion, and never able to move a fixed bar or pop-up.
-let fixedChecked = 0;
-let selectorClasses = 0;
+// 7. Motion (#hub2-motion): ONE dissolve between pages on ONE clock, the
+//    ambient loops, and nothing else.
+//
+//    Everything that used to be pinned here encoded the old motion: the page
+//    morph's sampled law, its clone layer and wall-clock fade, the arrive
+//    stagger's sixteen-row cap, the scroll reveal's registered number, the
+//    fill-mode scan, the ripple and note-burst gates. The director's verdict
+//    on the fifth round of tuning it (2026-11-10): "They don't move at the
+//    same rate. It's not timed out, and it's not even." So the motion was
+//    removed rather than tuned again, and those pins are DELETED, not
+//    relaxed: they held the old answer in place, not an invariant.
+//    docs/design/liquid-dissolve-plan.md has the inventory.
+//
+//    One pin replaces them, and it is the one a stray `transition` cannot get
+//    past: the look's sheets and scripts contain no animation and no
+//    transition beyond a short named allowlist. The dissolve the director
+//    picked from the sample on 2026-11-11 ("Liquid, slow, smooth") is the one
+//    script on that list, and it was added to it on purpose, below.
+let ambientLoops = 0;
 {
-  const motion = strip(read('./hub2Motion.ts'));
-  const morphSrc = strip(read('./hub2Morph.ts'));
-  for (const gate of ["getAttribute(HUB2_ATTR) === 'on'", "'(prefers-reduced-motion: reduce)'", 'timing().ms > 0']) {
-    assert.ok(morphSrc.includes(gate), `hub2Morph.ts: the morph must check ${gate}`);
-  }
-  assert.ok(read('../main.tsx').includes('withPageMorph(createBrowserRouter('), 'main.tsx must wrap the router in withPageMorph');
-  // Only a change of PAGE morphs: a filter tap or a hash link must not (the
-  // motion swallows taps while it runs).
+  // Only a change of PAGE is a page change: a filter tap or a hash link is
+  // not, and whatever animates a navigation has to ask this first.
   const { changesPage } = await import('./hub2Motion');
-  assert.ok(motion.includes('changesPage(to, router.state.location.pathname)'), 'withPageMorph must ask changesPage');
   for (const [to, here, want] of [
     ['?ensemble=x', '/calendar', false], ['#part-books', '/event/a', false], ['/calendar', '/calendar', false],
     ['/calendar?x=1', '/calendar/', false], [{ search: '?a=1' }, '/calendar', false],
@@ -316,381 +319,147 @@ let selectorClasses = 0;
   ] as const) {
     assert.equal(changesPage(to, here), want, `changesPage(${JSON.stringify(to)}, ${here})`);
   }
+
+  const SHEETS = [
+    ['hub2.css', css], ['hub2Public.css', pubCss], ['hub2Staff.css', staffCss], ['hub2Glass.css', strip(read('./hub2Glass.css'))],
+  ] as const;
+  const scripts = lookScripts.map(f => [f.slice(f.lastIndexOf('/') + 1), strip(readFileSync(f, 'utf8'))] as const);
+  assert.ok(scripts.length >= 4 && scripts.some(([n]) => n === 'hub2Motion.ts'),
+    `found only ${scripts.length} hub2 scripts: the scan is broken`);
+
   // NO VIEW TRANSITIONS ANYWHERE, and this is the one that matters most.
   // Safari and Firefox disable `backdrop-filter` for the entire duration of
   // a View Transition (WebKit 302256) and Chrome explicitly does not, so on
   // the phone this look is designed for a wipe did not freeze the glass, it
-  // REMOVED it — every panel flat for the length of the transition, glass
+  // REMOVED it: every panel flat for the length of the transition, glass
   // snapping back at the end, invisible from any machine that tests in
-  // Chrome. The morph animates live elements instead. Nothing in the app may
-  // reach for a view transition again while the look carries glass.
-  for (const [name, src] of [['hub2Public.css', pubCss], ['hub2Staff.css', staffCss], ['hub2Glass.css', strip(read('./hub2Glass.css'))]] as const) {
+  // Chrome. Nothing in the look may reach for a view transition while it
+  // carries glass.
+  for (const [name, src] of SHEETS) {
     assert.ok(!/view-transition/.test(src), `${name}: a view transition disables backdrop-filter in WebKit for its whole duration (302256)`);
   }
-  for (const [name, src] of [['hub2Motion.ts', motion], ['hub2Morph.ts', morphSrc]] as const) {
-    assert.ok(!/startViewTransition|viewTransition:/.test(src), `${name}: must not ask for a view transition (WebKit 302256)`);
+  for (const [name, src] of scripts) {
+    assert.ok(!/startViewTransition|viewTransition/.test(src), `${name}: must not ask for a view transition (WebKit 302256)`);
   }
-  // THE LIVE PANEL NEVER FADES. `opacity`, `filter`, `mask` and
-  // `mix-blend-mode` on an ANCESTOR re-point a descendant's backdrop-filter
-  // at the filtered subtree's own painted content, which here paints
-  // nothing — and the glass lives on the card's own pseudo-element, so the
-  // card is an ancestor of its own glass. The paired branch therefore
-  // animates geometry only, and the fade is carried by the clone.
-  {
-    const at = morphSrc.indexOf('const shell = el.animate(');
-    assert.ok(at > 0, 'hub2Morph.ts: the paired shell animation must be named `shell`');
-    // To `shell.id`, not to the next `], {`. The keyframes are built by
-    // mapping a sampled path now, so the call no longer ends in `], {` and
-    // that slice ran on past the end of the shell and swallowed the CHILD's
-    // keyframes, which legitimately do carry an opacity and a filter. The
-    // check then failed on the one thing it exists to permit. Ending at the
-    // line that names the animation cannot run past it however the keyframes
-    // are written.
-    const end = morphSrc.indexOf('shell.id', at);
-    assert.ok(end > at, 'hub2Morph.ts: the shell animation must be given the FLIP id');
-    const kf = morphSrc.slice(at, end);
-    for (const banned of ['opacity', 'filter', 'mixBlendMode', 'mask']) {
-      assert.ok(!kf.includes(banned), `hub2Morph.ts: the live shell must not animate ${banned} — it would flatten its own glass`);
-    }
-    assert.match(kf, /transform:/, 'hub2Morph.ts: the live shell must animate a transform');
-    assert.match(kf, /borderRadius:/, 'hub2Morph.ts: the radius must travel with the box, or a corner comes out elliptical');
-  }
-  /* THE LAW (the director chose it, 2026-11-09). The travel is a sampled
-     overdamped table played linear, not a bezier, because a bezier cannot be
-     viscous: a slow head, a long creeping tail and no darting are mutually
-     exclusive when the area under the velocity curve is fixed at 1.
 
-     AND THERE IS NO POSITIONAL OVERSHOOT. Overshoot is a spring cue, and
-     liquid is what a spring is defined against. It lives in the CURVATURE
-     instead, which is the only other property a glass panel is allowed. The
-     previous pins here asserted the opposite — a positional settle at
-     SETTLE_AT carrying SETTLE_PAST past the mark — so they are gone rather
-     than relaxed: they encoded the old answer, not an invariant.
-
-     What still must hold: a monotone table that starts at 0 and ends at 1,
-     a linear easing (an easing ON the table would re-shape the law), and
-     both sides cut from the SAME samples so the counter-scale cancels the
-     shell everywhere rather than only at a keyframe. */
-  {
-    assert.match(morphSrc, /const LAW = \[0, /, 'hub2Morph.ts: the travel must run on the sampled law');
-    assert.match(morphSrc, /, 1\];/, 'hub2Morph.ts: the law must finish at its mark');
-    const law = morphSrc.slice(morphSrc.indexOf('const LAW = ['));
-    const nums = (law.slice(0, law.indexOf(']')).match(/[0-9.]+/g) || []).map(Number);
-    assert.ok(nums.length >= 10, 'hub2Morph.ts: the law needs enough samples to interpolate honestly');
-    assert.ok(nums[0] === 0 && nums[nums.length - 1] === 1, 'hub2Morph.ts: the law must run 0 to 1');
-    for (let i = 1; i < nums.length; i++) {
-      assert.ok(nums[i] >= nums[i - 1], 'hub2Morph.ts: the law must be monotone — liquid does not go backwards');
-      assert.ok(nums[i] <= 1, 'hub2Morph.ts: the law must never pass 1 — overshoot is a spring, not a liquid');
+  // THE ALLOWLIST. Three slow loops that are the glass itself, five keyframes
+  // between them, all in hub2Glass.css: the drifting field (two layers), the
+  // pane shine, and the living logo (its shine and its breath). They loop for
+  // good, so each must say `infinite` (an animation that ENDS keeps its
+  // element a layer), and section 9 pins that they only run for somebody who
+  // has not asked for reduced motion.
+  const AMBIENT = ['glass-drift', 'glass-drift-2', 'glass-pane-shine', 'glass-logo-shine', 'glass-logo-breathe'];
+  const used = new Set<string>();
+  for (const [name, src] of SHEETS) {
+    for (const m of src.matchAll(/@keyframes\s+([\w-]+)/g)) {
+      assert.ok(name === 'hub2Glass.css' && AMBIENT.includes(m[1]),
+        `${name}: @keyframes ${m[1]} is not on the look's motion allowlist. The look stands still (docs/design/liquid-dissolve-plan.md)`);
     }
-    assert.ok(!/const SETTLE_PAST/.test(morphSrc),
-      'hub2Morph.ts: positional overshoot is gone on purpose; the wobble belongs to the radius');
-    assert.match(morphSrc, /easing: 'linear'/,
-      'hub2Morph.ts: the law must be played linear, or the easing re-shapes it');
-    assert.match(morphSrc, /path\.map\(\(\{ offset, v \}\)/,
-      'hub2Morph.ts: the shell must be built from the sampled path');
-    const kidAt = morphSrc.indexOf('const a = kid.el.animate(');
-    assert.ok(kidAt > 0, 'hub2Morph.ts: the counter-scale animation must be named `a`');
-    assert.match(morphSrc.slice(kidAt, kidAt + 500), /path\.map\(\(\{ offset, v \}\)/,
-      'hub2Morph.ts: the content must be cut from the SAME offsets as its shell, or the two do not cancel');
-    // The corners carry the overshoot now, so the radius must actually move.
-    assert.match(morphSrc, /const swell =/, 'hub2Morph.ts: the corners must swell and settle');
-  }
-  // A ghost's resting state is "visible", so `fill: backwards` applies
-  // nothing after the end and every melted panel reappears at full strength
-  // half way through the morph, sitting on top of the new page.
-  assert.match(morphSrc, /fill: 'both'/, "hub2Morph.ts: the clones must fill 'both'");
-  // AND THE CROSS-FADE RUNS ON ITS OWN CLOCK. The morph curve is slow at
-  // both ends on purpose, so the GEOMETRY spends the duration travelling;
-  // a fade sharing it is still at 95% a tenth of a second in, and for most
-  // of a second both pages are legible stacked on each other. Photographed
-  // at 130ms and 404ms of a 1500ms morph before this was split out: every
-  // word of both pages sharp. That is the director's "messy instead of
-  // liquidy", and it is the clock on the fade, not the morph.
-  // AND IT IS NOW A WALL-CLOCK TIME, not a fraction of anything. That is the
-  // finding that let the pace go to 1.9 seconds at all: these numbers encode
-  // thresholds in a person's head, which are fixed in milliseconds. Held as
-  // fractions they stretched with the duration, so a longer morph kept the
-  // old page legible longer AND made the new text wait — the exact fault that
-  // was blamed on the duration and treated by shortening it, with the
-  // mechanism left armed to re-fire above about a second.
-  assert.match(morphSrc, /duration: Math\.min\(dur, OUT_MS\), easing: FADE_EASE/,
-    'hub2Morph.ts: the clone fade must be a wall-clock time, not a share of the duration');
-  assert.match(morphSrc, /const OUT_MS = [1-9]\d\d;/, 'hub2Morph.ts: the clone is gone in a fixed few hundred ms');
-  assert.match(morphSrc, /const READ_MS = [1-9]\d\d;/, 'hub2Morph.ts: the arriving text lands at a fixed moment');
-  assert.match(morphSrc, /\(READ_MS - delay\) \/ dur/,
-    'hub2Morph.ts: a panel that set off late must resolve earlier in its own progress');
-  /* WHAT THE MORPH CAN SEE, AND THE BUG WHERE IT COULD SEE NOTHING.
-
-     `.dir-page > *` sat in PANEL_SEL and matched NOTHING, on any of the four
-     staff shells, for as long as it shipped: a class selector does not match a
-     prefix, so `.dir-page-body` / `-hint` / `-actions` never answered to it
-     and there is no `.dir-page` in the app at all. Nothing threw, no check
-     failed, and the whole feature was simply dead on every staff screen while
-     the public side worked. That is the CSP failure mode (#csp) exactly.
-
-     A pin restating the new string would have passed on the old one too. So
-     this pins the thing that was actually false: every class the morph NAMES
-     must be a class the app RENDERS, and the selector has to reach both
-     shells rather than one. */
-  const rendered = new Set<string>();
-  for (const f of allTsx) {
-    for (const m of readFileSync(f, 'utf8').matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\}|\{'([^']*)'\})/g)) {
-      // A `${...}` is cut out rather than split on, or a class written beside
-      // one (`pub-skeleton-card${slim ? ' slim' : ''}`) comes out glued to it
-      // and reads as unrendered.
-      for (const c of (m[1] ?? m[2] ?? m[3]).replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) if (c) rendered.add(c);
+    // `animation`, `transition` and every longhand of either. `none` is the
+    // one value any sheet may write: it is how the look SILENCES a motion.
+    for (const m of src.matchAll(/(?<![\w-])((?:animation|transition)(?:-[a-z-]+)?)\s*:\s*([^;}]+)/g)) {
+      const prop = m[1];
+      const value = m[2].trim();
+      if (/^none(\s*!important)?$/.test(value)) continue;
+      const loop = AMBIENT.find(k => value.startsWith(`${k} `));
+      assert.ok(prop === 'animation' && name === 'hub2Glass.css' && loop,
+        `${name}: "${prop}: ${value}" is motion the look does not have. Only the ambient loops in hub2Glass.css may animate`);
+      assert.match(value, /\binfinite\b/, `${name}: "${value}" must loop, or it keeps a layer after it ends`);
+      used.add(loop!);
+      ambientLoops++;
     }
+    // The other ways in: a scroll-driven timeline (the old reveal), and the
+    // layer hint that goes with an animation.
+    assert.ok(!/animation-timeline|will-change/.test(src), `${name}: scroll-driven animation and will-change went with the motion`);
   }
-  assert.ok(rendered.has('pub-page') && rendered.size > 200, `the className scan found ${rendered.size} classes — it is broken`);
-  for (const what of ['PANEL_SEL', 'SCROLLER_SEL']) {
-    const sel = morphSrc.match(new RegExp(`const ${what} = '([^']+)'`))?.[1];
-    assert.ok(sel, `hub2Morph.ts: ${what} must be a literal selector string`);
-    const classes = [...new Set([...sel!.matchAll(/\.([a-z][\w-]*)/g)].map(m => m[1]))];
-    for (const c of classes) {
-      assert.ok(rendered.has(c),
-        `hub2Morph.ts: ${what} names .${c}, which nothing in the app renders. That side of the morph is dead and nothing will throw`);
-      selectorClasses++;
-    }
-    assert.ok(classes.some(c => c.startsWith('pub-')) && classes.some(c => c.startsWith('dir-')),
-      `hub2Morph.ts: ${what} must reach the public shell AND the staff one, or one side of the Hub never morphs`);
+  // And the list cannot rot: every name on it is a loop the glass really runs.
+  assert.deepEqual([...used].sort(), [...AMBIENT].sort(), 'the ambient allowlist names a loop hub2Glass.css no longer runs (or the scan is broken)');
+  // Scripts move nothing, except the dissolve. No Web Animations call, no
+  // frame loop, no timer-driven tick anywhere else: the ripple, the note
+  // burst and the morph were all script, and each kept its own clock.
+  const MOVER = 'hub2Dissolve.ts';
+  for (const [name, src] of scripts) {
+    if (name === MOVER) continue;
+    assert.ok(!/\.animate\(|requestAnimationFrame|getAnimations\(|setInterval\(/.test(src),
+      `${name}: the look's scripts animate nothing; the one mover is ${MOVER}`);
   }
-  // And the staff half has to reach EVERY staff shell, not just the one
-  // somebody happened to have open.
-  // (`[^>]*` because the tag carries other attributes: DirectorApp hangs its
-  // scroll ref off this same element.)
-  const STAFF_MAIN = /<main className="dir-content"[^>]*>/;
-  for (const shell of STAFF_SHELLS) {
-    assert.match(read(`../director/${shell}`), STAFF_MAIN,
-      `${shell}: the morph reads a staff page through .dir-content, so every staff shell must render it`);
+  const mover = scripts.find(([n]) => n === MOVER)?.[1];
+  assert.ok(mover, `${MOVER} must exist: it is the page dissolve`);
+  // ONE CLOCK. Every duration the dissolve uses comes from the org config
+  // (--hub2-dissolve-*), and it names none of its own: no `duration: 900`,
+  // no `setTimeout(x, 40)` poll. It may hold at its peak, but the hold is
+  // config too, and it waits on the page (a MutationObserver), not on a tick.
+  assert.ok(!/requestAnimationFrame|setInterval\(/.test(mover), `${MOVER}: no frame loop or ticking timer`);
+  assert.ok(!/duration:\s*\d/.test(mover), `${MOVER}: a literal duration; the clock is the org config`);
+  for (const m of mover.matchAll(/setTimeout\(([^;]*)\);/g)) {
+    assert.ok(/clock\(\)\.holdMs/.test(m[1]), `${MOVER}: setTimeout(${m[1]}) names its own time; only the configured hold may wait`);
   }
-  /* THE STAFF VIEW IS READ AS THE LAST CHILD OF THAT SCROLLER, and that is
-     the one assumption here that can go quietly wrong.
-
-     It has to be read that way: the staff shells have no page wrapper, so
-     `.dir-content > *` is the shell's own strips plus ONE routed view whose
-     children are the blocks, and it would put a whole screen in flight as a
-     single box. `:last-child` holds in DirectorApp, which is also the only
-     staff shell that navigates through the router at all. The other three
-     already break it: each appends a MyCalendarFeedPanel AFTER its view, so
-     in them `:last-child` is that panel and not the page. (They switch tabs
-     with useState, so nothing morphs on their tabs either way.) Add one such
-     row to DirectorApp and the staff morph dies again, silently.
-
-     Gated on the selector still using it, so giving the view a real class of
-     its own retires this pin instead of tripping over it. */
-  if (/:last-child/.test(morphSrc)) {
-    const from = app.search(STAFF_MAIN);
-    assert.ok(from > 0, 'DirectorApp.tsx must render <main className="dir-content">');
-    const block = strip(app.slice(from, app.indexOf('</main>', from) + 7));
-    assert.match(block, /\}\s*<\/main>\s*$/,
-      'DirectorApp.tsx: .dir-content must END on the tab list. A row added after it becomes :last-child, and the staff morph silently stops finding a single panel');
-    assert.match(block.slice(block.lastIndexOf('{tab ===')), /^\{tab === [\s\S]*\}\s*<\/main>\s*$/,
-      'DirectorApp.tsx: nothing may render between the last tab branch and </main> — it would become the morph\'s idea of the page');
+  for (const v of ['--hub2-dissolve-ms', '--hub2-dissolve-blur', '--hub2-dissolve-hold-ms']) {
+    assert.ok(mover.includes(`'${v}'`), `${MOVER}: must read ${v} from the config`);
   }
-  // AND THE MORPH WAITS FOR THE PAGE IT IS MORPHING INTO. This one was a coin
-  // flip and nothing caught it: playWhenReady used to retry only while there
-  // were NO panels, and when the router resolves the OUTGOING page is still
-  // mounted, so there are always panels to find. Measured on the built app,
-  // same click, eight runs: four morphed the page being left into a shuffled
-  // version of itself and then let the new page appear with no morph at all.
-  // The test has to be identity — a panel that was not one of the captured
-  // ones — and a shimmer placeholder does not count as an arrival, or the
-  // live site morphs cards into grey boxes while Firestore answers.
-  assert.match(morphSrc, /!shot\.was\.has\(el\)/,
-    'hub2Morph.ts: the swap test must compare element identity, not panel count');
-  assert.doesNotMatch(morphSrc, /if \(tries > 0 && !panels\(\)\.length\)/,
-    'hub2Morph.ts: waiting for ANY panel binds the morph to the outgoing page');
-  /* AND A PLACEHOLDER IS NOT A BLOCK — asked in panels(), not in swapped().
-
-     It used to be asked in swapped() alone, and once the staff screens morphed
-     that was too late. swapped() needs only ONE real arrival to let the morph
-     play, which is right, but a loading staff page is not all placeholder:
-     Take Roll renders its Roll/Tracker toggle beside the bare `.dir-loading`
-     row, so the toggle answered swapped() and the panel next to it was still
-     morphed into the word "Loading". Asked in panels() it keeps a placeholder
-     out of the morph targets, out of capture() and out of the gather branch,
-     and swapped() still refuses a page with no blocks at all. */
-  {
-    const at = morphSrc.indexOf('function panels(');
-    assert.ok(at > 0, 'hub2Morph.ts must define panels()');
-    assert.match(morphSrc.slice(at, morphSrc.indexOf('\n}', at)), /if \(isPlaceholder\(el\)\) continue;/,
-      'hub2Morph.ts: panels() must drop a placeholder, or the morph reforms a card into a loading row');
-    assert.match(morphSrc, /if \(!now\.length\) return false;/,
-      'hub2Morph.ts: a page with no blocks is not the page having arrived');
+  // AND NOTHING AT ALL for somebody who asked for less. The one gate asks for
+  // both reduced motion and reduced transparency, the look's own switch, and
+  // a clock; dissolve() asks the gate first and is then exactly swap().
+  for (const q of ["'(prefers-reduced-motion: reduce)'", "'(prefers-reduced-transparency: reduce)'", "getAttribute(HUB2_ATTR) === 'on'", 'clock().ms > 0']) {
+    assert.ok(mover.includes(q), `${MOVER}: the gate must check ${q}`);
   }
-  /* Both shells' loading markers, each one a class something really renders.
-     The public shimmer sits INSIDE an aria-hidden wrapper, so the wrapper is
-     the panel and the scan has to look down; the staff row IS the block, so it
-     is matched on the element and deliberately not scanned for — a real panel
-     that happens to hold a loading row must still reform. And the marker has
-     to mean only one thing, which is why `.dir-loc-empty` and
-     `.dir-field-hint` are not here: both also carry genuine empty states,
-     error lines and hints. */
-  {
-    const at = morphSrc.indexOf('function isPlaceholder(');
-    assert.ok(at > 0, 'hub2Morph.ts must define isPlaceholder()');
-    const body = morphSrc.slice(at, morphSrc.indexOf('\n}', at));
-    for (const cls of ['pub-skeleton-card', 'dir-loading']) {
-      assert.ok(body.includes(`.${cls}`),
-        `hub2Morph.ts: isPlaceholder() must know .${cls}, or that shell morphs into its own loading state`);
-      assert.ok(rendered.has(cls),
-        `hub2Morph.ts: isPlaceholder() names .${cls}, which nothing in the app renders`);
-    }
-    assert.doesNotMatch(body, /querySelector\([^)]*dir-loading/,
-      'hub2Morph.ts: do not scan INSIDE a block for .dir-loading — a real panel holding a loading row would stop reforming');
-    for (const amb of ['dir-loc-empty', 'dir-field-hint']) {
-      assert.ok(!body.includes(amb),
-        `hub2Morph.ts: .${amb} also means "empty", "error" and "hint", so it cannot stand for "not loaded yet"`);
-    }
+  assert.match(mover, /export function dissolve\(swap\?: \(\) => void\): void \{\n\s*if \(!dissolveOn\(\)\) \{ finish\(\); swap\?\.\(\); return; \}/,
+    `${MOVER}: dissolve() must ask the gate first and otherwise just swap`);
+  // NO BACKDROP-FILTER IN MOTION, and nothing on the LIVE page but
+  // visibility. The first build animated a backdrop-filter lens over the page:
+  // Chrome painted it, the director's iPhone computed it (32px at the peak)
+  // and never painted it, so every change was a quick fade (2026-11-11). An
+  // ordinary filter on a COPY is painted everywhere. And a filter or opacity
+  // on the live page, an ancestor of its glass, would flatten every card.
+  assert.ok(!/backdropFilter|webkitBackdropFilter/.test(mover),
+    `${MOVER}: never animate a backdrop-filter; an iPhone computes it and does not paint it`);
+  for (const m of mover.matchAll(/([\w.!]+)\.animate\(/g)) {
+    assert.ok(['S.out!', 'S.out', 'S.in', 'live'].includes(m[1]), `${MOVER}: "${m[1]}.animate(" animates something that is not a copy`);
   }
-  // A positional pair that is nowhere near the same shape is not one
-  // object becoming another, it is a panel being STRETCHED — which is the
-  // artefact the FLIP exists to remove. The pressed row is exempt: a finger
-  // landed on it, so the scale reads as growth.
-  assert.match(morphSrc, /const MAX_SCALE = /, 'hub2Morph.ts: a positional pair needs a shape test');
-  assert.match(morphSrc, /shot\.anchored && i === 0/, 'hub2Morph.ts: the pressed row is exempt from the shape test');
-  // The panes put their blur on a ::before so the edge mask can share the
-  // element, so a host asked about its own backdropFilter answers "none" —
-  // and the gather branch would then fade it, which re-points its pane's
-  // blur at an empty subtree.
-  assert.match(morphSrc, /getComputedStyle\(el, pseudo\)\.backdropFilter/,
-    'hub2Morph.ts: glass on a ::before counts as glass, or the gather branch flattens it');
-  assert.equal((morphSrc.match(/\.finished\.then\(\(\) => ghost\.remove\(\), \(\) => ghost\.remove\(\)\)/g) ?? []).length, 2,
-    'hub2Morph.ts: every clone must be removed when it finishes AND when it is cancelled');
-  // A roster of 140 is not a choreography.
-  {
-    const cap = Number(morphSrc.match(/const CAP = (\d+)/)?.[1]);
-    assert.ok(cap > 0 && cap <= 16, `hub2Morph.ts: CAP is ${cap}; a page must not put a whole roster in flight`);
+  assert.match(mover, /live\.animate\(REVEAL, T\)/, `${MOVER}: the live page is only ever revealed`);
+  const reveal = mover.slice(mover.indexOf('const REVEAL'), mover.indexOf('];', mover.indexOf('const REVEAL')));
+  assert.ok(reveal.length > 20 && !/opacity|filter|transform|mask|clip/.test(reveal),
+    `${MOVER}: REVEAL may animate visibility and nothing else on the live page`);
+  // The copies go BESIDE the live page and nowhere else, never around it.
+  for (const m of mover.matchAll(/(\S*)(appendChild\(|\.append\(|\.prepend\(|\.before\(|\.after\(|insertBefore\(|replaceWith\()/g)) {
+    assert.equal(`${m[1]}${m[2]}`, 'live.after(', `${MOVER}: "${m[0]}" puts something into the page; a copy goes beside the live page, nowhere else`);
   }
-  // Reveals animate a registered number, never opacity or a transform: an
-  // attached scroll-driven animation of those keeps the block a layer for
-  // good, which put dropdowns under the next section.
-  assert.match(pubCss, /@property --hub2-reveal \{ syntax: '<number>'; inherits: false; initial-value: 1; \}/, 'the reveal number must be registered, starting at 1');
-  assert.match(pubCss, /@keyframes hub2-reveal \{ from \{ --hub2-reveal: 0; \} \}/, 'the reveal keyframes animate --hub2-reveal and nothing else');
-  assert.ok(!/animation-timeline/.test(staffCss), 'staff screens get no scroll reveal: they dim too many things on purpose');
-  // Every position: fixed class must be excluded where a BLOCK holds it
-  // (the :has() list), or a block mid-reveal would hold it in its layer.
-  const fixedIn = (dirs: string[]) => {
-    const out = new Set<string>();
-    for (const f of stock.filter(f => dirs.some(d => f.includes(d)) || /\/src\/[^/]+\.css$/.test(f))) {
-      for (const m of strip(readFileSync(f, 'utf8')).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-        if (!/position:\s*fixed/.test(m[2])) continue;
-        for (const sel of topLevel(m[1].trim())) {
-          const subject = sel.split(/\s*[\s>+~]\s*/).pop() ?? '';
-          for (const c of subject.match(/\.[a-z][\w-]*/g) ?? []) out.add(c.slice(1));
-        }
-      }
-    }
-    return out;
-  };
-  const rule = pubCss.match(/([^{}]+)\{\s*animation: hub2-reveal linear backwards;\s*animation-timeline: view\(\);[^}]*opacity: var\(--hub2-reveal, 1\);/);
-  assert.ok(rule, 'hub2Public.css: the reveal must be scroll-driven, fill backwards, opacity from --hub2-reveal');
-  assert.ok(pubCss.lastIndexOf('@supports (animation-timeline: view())', rule.index) !== -1, 'the reveal must sit under @supports (animation-timeline: view())');
-  assert.ok(pubCss.lastIndexOf('prefers-reduced-motion: no-preference', rule.index) !== -1, 'the reveal must sit under prefers-reduced-motion: no-preference');
-  const head = rule[1];
-  // Blocks dimmed on purpose keep their own opacity.
-  for (const dim of ['.cancelled', '.pub-past-dim']) assert.ok(head.includes(`${dim},`), `the reveal must leave ${dim} blocks alone`);
-  const held = head.slice(head.indexOf(':has('));
-  const fixed = fixedIn(['/src/public/', '/src/shared/']);
-  assert.ok(fixed.size >= 3, `found only ${fixed.size} fixed classes; the scan is broken`);
-  for (const c of fixed) {
-    assert.ok(c.includes('-overlay') || (held.includes(`.${c},`) || held.includes(`.${c})`)),
-      `.${c} is position: fixed; the reveal must leave alone any block that holds it (the :has() list)`);
-    fixedChecked++;
+  const glassSrc = strip(read('./hub2Glass.css'));
+  assert.match(glassSrc, /\[data-hub2-dissolve\] :is\(\.pub-content, \.dir-content\):not\(\.hub2-ghost\) \{\s*visibility: hidden;\s*\}/,
+    'hub2Glass.css: the live page hides with visibility alone while a copy shows');
+  assert.match(glassSrc, /\.hub2-ghost \{[^}]*pointer-events: none/, 'hub2Glass.css: a copy must never take a tap');
+  assert.match(glassSrc, /\.hub2-ghost \{[^}]*overflow: hidden/, 'hub2Glass.css: a copy is not a scroller (an iPhone draws scrollers as their own layer)');
+  // Above the page, below every bar: header 50 (public) / 100 (staff), tab bar 60.
+  const ghostZ = Number(glassSrc.match(/\.hub2-ghost \{[^}]*z-index: (\d+)/)?.[1]);
+  assert.ok(ghostZ > 0 && ghostZ < 50, `hub2Glass.css: the copies' z-index ${ghostZ} must sit under the bars (50) so they stay sharp`);
+  // Wired at the router, page changes only, and in all three useState shells.
+  const mainSrc2 = strip(read('../main.tsx'));
+  assert.match(mainSrc2, /router\.subscribe\(/, 'main.tsx: the dissolve runs from the router');
+  assert.match(mainSrc2, /changesPage\(next, here\)/, 'main.tsx: a filter tap or hash link must not dissolve');
+  assert.ok(mainSrc2.indexOf('router.subscribe(') < mainSrc2.indexOf('createRoot('),
+    'main.tsx: subscribe before the app renders, or the page being left is gone before it can be copied');
+  for (const shell of ['./teacher/TeacherApp.tsx', './classroom/ClassroomTeacherApp.tsx', './assistant/AssistantApp.tsx']) {
+    assert.match(read(`../director/${shell}`), /const setTab = \(next: typeof tab\) => \{ if \(next !== tab\) dissolve\(\(\) => setTabNow\(next\)\); \};/,
+      `${shell}: its tabs are pages, so they change through dissolve()`);
   }
 }
 
-// 8. Hub 2.0, alive (#hub2-alive): the look and its motion reach every page
-//    through the shared parts, one script does what CSS cannot, and nothing
-//    it adds outlives its own motion.
+// 8. Parts (#hub2-alive): the shared pieces that make a page read as Studio
+//    Bright are themed on both shells. Spot checks; the contact sheet
+//    (scripts/hub2-contact-sheet.mjs) is the full proof.
 let partsChecked = 0;
-{
-  const motionSrc = strip(read('./hub2Motion.ts'));
-  // One gate for every motion the script runs.
-  assert.match(motionSrc, /export function hub2MotionOn\(\): boolean/, 'hub2Motion.ts must export hub2MotionOn()');
-  for (const fn of ['initHub2Motion', 'hub2Celebrate']) {
-    assert.ok(motionSrc.includes(`export function ${fn}(`), `hub2Motion.ts must export ${fn}()`);
-  }
-  // Each function's OWN body asks the gate (a window over the file would
-  // let one function's check stand in for its neighbor's).
-  for (const fn of ['ripple', 'hub2Celebrate']) {
-    const at = motionSrc.search(new RegExp(`function ${fn}\\(`));
-    assert.ok(at >= 0, `hub2Motion.ts must define ${fn}()`);
-    const body = motionSrc.slice(at, motionSrc.indexOf('\n}', at));
-    assert.ok(body.includes('hub2MotionOn()'), `${fn}() must check hub2MotionOn() itself`);
-  }
-  // initHub2Motion is deliberately NOT in that list: it registers one passive
-  // listener and moves nothing, and registering it unconditionally is what
-  // lets the preview be switched on mid-session without a reload. The gate
-  // belongs on the motion, which is the handler.
-  assert.match(motionSrc, /addEventListener\('pointerdown', ripple/, 'the press listener must be registered unconditionally');
-  // Same rule on the morph: both halves ask their own gate, because capture
-  // runs before a navigation and play runs after, and a preview switched off
-  // in between must leave the new page alone rather than half-animated.
-  const morph = strip(read('./hub2Morph.ts'));
-  for (const fn of ['capture', 'play']) {
-    const at = morph.search(new RegExp(`function ${fn}\\(`));
-    assert.ok(at >= 0, `hub2Morph.ts must define ${fn}()`);
-    const body = morph.slice(at, morph.indexOf('\n}', at));
-    assert.ok(body.includes('morphOn()'), `${fn}() must check morphOn() itself`);
-  }
-  assert.ok(read('../main.tsx').includes('initHub2Motion();'), 'main.tsx must call initHub2Motion()');
-  // The clone layer. Every glass token on a clone is zeroed: the live
-  // counterpart already carries the real shell along the same path, and two
-  // translucent shells stacked read as one much denser shell.
-  assert.match(pubCss, /#hub2-ghosts \{[^}]*position: fixed[^}]*contain: paint/, 'the clone layer must be fixed and contain its paint');
-  assert.match(pubCss, /#hub2-ghosts > \.hub2-ghost \{[^}]*backdrop-filter: none/, 'a clone must carry no glass of its own');
-  // Nothing stays a layer: every animation on a page element fills
-  // backwards (or loops on purpose). A view transition's pseudo-elements and
-  // the ripple and note overlays, which remove themselves, are exempt.
-  let animsChecked = 0;
-  for (const [name, src] of [['hub2Public.css', pubCss], ['hub2Staff.css', staffCss]] as const) {
-    const noKf = src.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
-    for (const m of noKf.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-      const sel = m[1].trim();
-      if (/::view-transition|hub2-ripple|hub2-note/.test(sel)) continue;
-      assert.ok(!/animation-fill-mode:\s*(both|forwards)/.test(m[2]), `${name}: "${sel}" sets a fill mode that keeps a layer`);
-      for (const d of m[2].matchAll(/(?:^|;)\s*animation:\s*([^;]+)/g)) {
-        if (d[1].trim() === 'none') continue;
-        for (const part of topLevel(d[1])) {
-          assert.ok(/\b(backwards|infinite)\b/.test(part), `${name}: "${sel}" animates "${part}"; page elements fill backwards so nothing stays a layer`);
-          animsChecked++;
-        }
-      }
-    }
-  }
-  assert.ok(animsChecked >= 15, `only ${animsChecked} animations found: the fill-mode scan is broken`);
-  // The classes the alive layer adds are read by no stock stylesheet, so
-  // with the look off they change nothing.
-  for (const f of stock) {
-    if (f.endsWith('/director/hub2Staff.css')) continue;
-    const src = strip(readFileSync(f, 'utf8'));
-    for (const cls of ['hub2-count', 'hub2-roll', 'hub2-ghost', 'hub2-ripple', 'hub2-note', 'hub2-burst']) {
-      assert.ok(!new RegExp(`\\.${cls}(?![\\w-])`).test(src), `${f} styles .${cls}, which belongs to the Hub 2.0 look`);
-    }
-  }
-  // Parts: the shared pieces that make a page read as Studio Bright are
-  // themed on both shells. Spot checks; the contact sheet is the full proof.
-  for (const part of ['.dir-btn-primary', '.dir-section-head', '.dir-label', '.dir-drawer-title', '.dir-empty', '.dir-ens-swatch', '.dir-segment-btn']) {
-    assert.ok(staffCss.includes(part), `hub2Staff.css does not theme ${part}`);
-    partsChecked++;
-  }
-  for (const part of ['.pub-section-title', '.pub-quick-btn', '.pub-event-bar', '.pub-menu-item']) {
-    assert.ok(pubCss.includes(part), `hub2Public.css does not theme ${part}`);
-    partsChecked++;
-  }
-  // Arrive: a list staggers its first 16 rows; a roster of 140 must not put
-  // 140 animations on the screen at once.
-  assert.match(staffCss, /:nth-child\(-n\+16\)/, 'staff lists stagger their first 16 rows only');
-  assert.match(pubCss, /:nth-child\(-n\+16\)/, 'public lists stagger their first 16 rows only');
-  // Count: the number's span remounts on every new value, which is what
-  // restarts its roll.
-  assert.ok(read('./Hub2Count.tsx').includes('key={String(value)}'), 'Hub2Count must remount its span on every new value');
+for (const part of ['.dir-btn-primary', '.dir-section-head', '.dir-label', '.dir-drawer-title', '.dir-empty', '.dir-ens-swatch', '.dir-segment-btn']) {
+  assert.ok(staffCss.includes(part), `hub2Staff.css does not theme ${part}`);
+  partsChecked++;
+}
+for (const part of ['.pub-section-title', '.pub-quick-btn', '.pub-event-bar', '.pub-menu-item']) {
+  assert.ok(pubCss.includes(part), `hub2Public.css does not theme ${part}`);
+  partsChecked++;
 }
 
-// 9. The glass layer (#glass) — Full glass, Dissolved edges, Slowest pace,
-//    the one combination of the nine in docs/design/glass-sample.html that
-//    the director chose on 2026-11-07. It keeps every promise the rest of the
+// 9. The glass layer (#glass) — Full glass with Dissolved edges, the
+//    combination in docs/design/glass-sample.html that the director chose on
+//    2026-11-07 (its Pace setting went with the page morph it timed). It keeps every promise the rest of the
 //    look keeps (scoped under the preview, screen only, colours from the
 //    palette) and adds the three ways off, because a glass layer that cannot
 //    be turned off is a glass layer nobody can ship.
@@ -772,16 +541,8 @@ let glassRules = 0;
     fx++;
   }
   assert.ok(fx >= 7, `only ${fx} backdrop recipes found in hub2Glass.css — the scan is broken`);
-  // Nothing stays a composited layer: the field and the brand mark loop for
-  // good on purpose and so must say `infinite`, and motion only runs for
-  // somebody who has not asked for less of it.
-  const noKf = glassCss.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
-  let glassAnims = 0;
-  for (const m of noKf.matchAll(/animation:\s*([^;]+)/g)) {
-    assert.match(m[1], /\binfinite\b/, `hub2Glass.css: "${m[1].trim()}" must loop, or it keeps a layer after it ends`);
-    glassAnims++;
-  }
-  assert.ok(glassAnims >= 3, `only ${glassAnims} animations in hub2Glass.css — the scan is broken`);
+  // The ambient loops (section 7 holds the list, and that each says
+  // `infinite`) only run for somebody who has not asked for less motion.
   assert.ok(!/animation/.test(glassCss.split('prefers-reduced-motion: no-preference')[0]),
     'hub2Glass.css: every animation belongs inside a prefers-reduced-motion: no-preference block');
   // THE EDGE DISSOLVES, which is the half of "Dissolved" the first pass
@@ -838,7 +599,6 @@ let glassRules = 0;
     if (!look?.glass) continue;
     const out = hub2TokenCss(look);
     for (const v of Object.values(look.glass)) assert.ok(out.includes(`:${v}`), `${file}: glass value ${v} not emitted`);
-    assert.ok(look.glass.morphMs >= 0, `${file}: morphMs must not be negative`);
   }
 }
 
@@ -994,4 +754,4 @@ let glassRules = 0;
     + 'classes must be the same set, or a stripe stays hard or a block loses its shadow');
 }
 
-console.log(`hub2 self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${fontImports.length} font files, ${pubSelectors.length} public rules, ${fills} accent fills covered, ${fixedChecked} fixed classes kept still, ${selectorClasses} morph classes rendered, ${partsChecked} parts themed, ${glassRules} glass rules, ${glassClasses} glass classes rendered)`);
+console.log(`hub2 self-check OK (${checked} org${checked === 1 ? '' : 's'}, ${fontImports.length} font files, ${pubSelectors.length} public rules, ${fills} accent fills covered, ${ambientLoops} ambient loops and no other motion, ${partsChecked} parts themed, ${glassRules} glass rules, ${glassClasses} glass classes rendered)`);

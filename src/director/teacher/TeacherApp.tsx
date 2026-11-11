@@ -15,6 +15,7 @@ import { SignupsView } from '../signups/SignupsView';
 import { AttendanceView } from '../attendance/AttendanceView';
 import { useCurrentDirector } from '../currentDirector';
 import { ORG } from '../../org';
+import { dissolve } from '../../shared/hub2Dissolve';
 
 /**
  * The whole app, for an Applied Teacher sign-in (#roles, #applied — stored
@@ -47,7 +48,9 @@ export function TeacherApp({
   const navigate = useNavigate();
   const me = useCurrentDirector();
   const allowed = me?.assignedEnsembleIds ?? [];
-  const [tab, setTab] = useState<'lessons' | 'signups'>('lessons');
+  const [tab, setTabNow] = useState<'lessons' | 'signups'>('lessons');
+  // A tab is a page here, so it changes the way every page does (#hub2-motion).
+  const setTab = (next: typeof tab) => { if (next !== tab) dissolve(() => setTabNow(next)); };
 
   return (
     <div className="dir-app">
@@ -59,9 +62,9 @@ export function TeacherApp({
 
       <header className="dir-header">
         <div className="dir-header-brand">
-          <span className="dir-logo-chip">
+          <button type="button" className="dir-logo-chip" aria-label="Lesson Log" onClick={() => setTab('lessons')}>
             <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} className="dir-header-mark" />
-          </span>
+          </button>
           <div>
             <div className="dir-header-title">
               {tab === 'signups' ? 'Forms' : alsoAssistant ? 'Lesson Log & Roll' : 'Lesson Log'}

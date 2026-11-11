@@ -13,7 +13,8 @@ import './shared/hub2Glass.css';
 import { initLook } from './public/look';
 import { initDirSeason } from './shared/seasons';
 import { initHub2 } from './shared/hub2Preview';
-import { initHub2Motion, withPageMorph } from './shared/hub2Motion';
+import { dissolve } from './shared/hub2Dissolve';
+import { changesPage } from './shared/hub2Motion';
 
 import { PublicLayout } from './public/PublicLayout';
 import { PublicHome } from './public/PublicHome';
@@ -74,8 +75,7 @@ const DirectorApp = lazy(() => {
     });
 });
 
-// The page morph under the Hub 2.0 look (#glass): no effect with it off.
-const router = withPageMorph(createBrowserRouter(
+const router = createBrowserRouter(
   [
     {
       path: '/',
@@ -186,7 +186,20 @@ const router = withPageMorph(createBrowserRouter(
   // BASE_URL comes from the org's basePath (vite.config.ts); the router
   // basename is the same path without the trailing slash.
   { basename: import.meta.env.BASE_URL.replace(/\/$/, '') },
-));
+);
+
+// The page change under the Hub 2.0 look (#hub2-motion): one liquid dissolve,
+// and nothing at all with the look off. Subscribed BEFORE the app renders, so
+// this runs first on every navigation (links, navigate(), Back and Forward
+// alike) while the page being left is still on screen to be copied.
+let here = router.state.location.pathname;
+router.subscribe(state => {
+  const next = state.location.pathname;
+  if (next === here) return;
+  const moved = changesPage(next, here);
+  here = next;
+  if (moved) dissolve();
+});
 
 // Org brand palette (no-op for NWSA — empty maps inject nothing).
 applyBrand();
@@ -196,10 +209,8 @@ applyBrand();
 initLook(ORG.personalize);
 initDirSeason(ORG.personalize?.seasons);
 // The owner's on-device Hub 2.0 preview (#hub2-look). Off everywhere else,
-// where it does nothing at all. Its press ripple and gold wipe edge
-// (#hub2-alive) ask the same switch at every press and every page change.
+// where it does nothing at all.
 initHub2();
-initHub2Motion();
 
 // Offline app shell (#43) — registered after load so it never delays startup.
 // When a NEW version installs under an open tab, src/pwa.ts shows a one-tap

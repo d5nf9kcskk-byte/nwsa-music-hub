@@ -93,7 +93,7 @@ export interface Hub2Palette {
  * src/shared/hub2Glass.css is mixed from the palette above, so an org re-tints
  * the glass by changing its accent and never by editing a stylesheet.
  *
- * The director chose Full glass with Dissolved edges and the Slowest pace from
+ * The director chose Full glass with Dissolved edges from
  * docs/design/glass-sample.html on 2026-11-07; those are the values below and
  * the one combination the app ships. The sample keeps the other eight for
  * comparison.
@@ -101,7 +101,12 @@ export interface Hub2Palette {
  * ONE WORD TURNS IT OFF: `chromeBlur` and `heroBlur` at "0px" leave the look
  * with solid panels and no blur anywhere, which is also what
  * `prefers-reduced-transparency: reduce` and a browser without
- * `backdrop-filter` get. `morphMs: 0` leaves pages changing instantly.
+ * `backdrop-filter` get.
+ *
+ * ONE CLOCK FOR ALL THE LOOK'S MOTION (#hub2-motion): the page dissolve's
+ * duration, peak and hold live here and nowhere else in the look; its curve
+ * is the one LAW in src/shared/hub2Dissolve.ts. `dissolveMs: 0` turns the
+ * dissolve off and pages simply change.
  */
 export interface Hub2Glass {
   /** Blur behind the header, the rail, the tab bar, drawers and sheets. */
@@ -112,14 +117,19 @@ export interface Hub2Glass {
    *  dozens of them on a page: this is the one that costs real compositing on
    *  an older phone, so it is the first to turn down to "0px". */
   panelBlur: string;
+  /** Blur behind the floating bottom bars. The heaviest: it is what keeps the
+   *  tab labels readable over whatever scrolls under them. */
+  barBlur: string;
   /** How long the field's light takes to drift across the page once. */
   fieldDrift: string;
   /** The specular sweep across the brand mark. Long and slow, or it is a distraction. */
   logoShine: string;
-  /** How long a panel takes to reform into its counterpart on the next page. */
-  morphMs: number;
-  /** The scroll reveal that rides with the morph. */
-  revealMs: number;
+  /** The page dissolve, start to finish (the director picked 1600, "slow"). */
+  dissolveMs: number;
+  /** How far out of focus a page goes at the dissolve's peak. */
+  dissolveBlur: string;
+  /** The longest the dissolve waits at its peak for a page still loading. */
+  dissolveHoldMs: number;
 }
 
 /**

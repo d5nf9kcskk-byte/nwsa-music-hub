@@ -163,10 +163,12 @@
       "chromeBlur": "34px",
       "heroBlur": "28px",
       "panelBlur": "13px",
+      "barBlur": "40px",
       "fieldDrift": "40s",
       "logoShine": "10s",
-      "morphMs": 1900,
-      "revealMs": 2300
+      "dissolveMs": 1600,
+      "dissolveBlur": "32px",
+      "dissolveHoldMs": 1200
     }
   },
   "personalize": {

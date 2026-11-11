@@ -15,6 +15,7 @@ import { AssignmentsView } from '../assignments/AssignmentsView';
 import { DocumentsView } from '../documents/DocumentsView';
 import { useCurrentDirector } from '../currentDirector';
 import { ORG } from '../../org';
+import { dissolve } from '../../shared/hub2Dissolve';
 
 type ClassTab = 'roll' | 'assignments' | 'documents';
 
@@ -27,7 +28,9 @@ export function ClassroomTeacherApp({ user, signOut }: { user: User; signOut: ()
   const navigate = useNavigate();
   const me = useCurrentDirector();
   const allowed = me?.assignedEnsembleIds ?? [];
-  const [tab, setTab] = useState<ClassTab>('roll');
+  const [tab, setTabNow] = useState<ClassTab>('roll');
+  // A tab is a page here, so it changes the way every page does (#hub2-motion).
+  const setTab = (next: typeof tab) => { if (next !== tab) dissolve(() => setTabNow(next)); };
 
   return (
     <div className="dir-app">
@@ -39,9 +42,9 @@ export function ClassroomTeacherApp({ user, signOut }: { user: User; signOut: ()
 
       <header className="dir-header">
         <div className="dir-header-brand">
-          <span className="dir-logo-chip">
+          <button type="button" className="dir-logo-chip" aria-label="Take Roll" onClick={() => setTab('roll')}>
             <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} className="dir-header-mark" />
-          </span>
+          </button>
           <div>
             <div className="dir-header-title">
               {tab === 'roll' ? 'Take Roll' : tab === 'assignments' ? 'Assignments' : 'Documents'}

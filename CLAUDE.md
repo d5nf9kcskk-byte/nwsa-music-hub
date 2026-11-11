@@ -2040,37 +2040,64 @@ any change. Later sessions apply it page by page.
   titles and gold hairlines on pages carrying `.pub-hall` (event, program,
   Concerts); Spotlight on the check-in pages (`.pub-checkin`,
   `.pub-checkins`) and the public Tonight banner, by re-pointing the
-  `--pub-*` tokens inside the stage; slide-in on `.pub-drill` pages, a 30ms
-  list stagger and a 97% press, all off under reduced motion. Those page
+  `--pub-*` tokens inside the stage. Those page
   classes have NO stock CSS (the self-check fails if one gains any), which is
   what lets a component carry them with the preview off.
-- **Page wipes and soft reveals** (#hub2-motion, director's ask 2026-11-04),
-  both only under the look and without reduced motion. The rule that shapes
-  both: **nothing may stay a layer once the motion is over.** The first
-  version named the content pane for good (every sheet and drawer slid under
-  the header and the tab bar) and animated opacity/translate on a scroll
-  timeline (Chrome keeps such a block a layer while the animation is
-  attached, which is forever, so dropdowns went under the next section).
-  WIPES: `src/shared/hub2Motion.ts` `withPageWipes()` wraps the router in
-  `main.tsx` so a navigation to another PAGE (`changesPage()`: not a filter
-  tap, not a hash) asks React Router for a View Transition. The whole screen
-  (root) wipes left to right with ONE moving edge (`hub2-wipe-in` on the new,
-  `hub2-wipe-out` on the old, so they never overlap; both ends of each are
-  written out, because clip-path cannot blend an inset() into `none` and a
-  one-ended keyframe just cuts over halfway); the header, rail, tab
-  bar and Director Panel strip are named ONLY under `:active-view-transition`
-  so they stay still above it. `mix-blend-mode: normal` on the pair, or the
-  browser's plus-lighter cross-fade flashes white. The `.pub-drill` slide is
-  dropped where wipes run. REVEALS, public pages only: each block of
-  `.pub-page` fades in as it scrolls in, by animating a registered number
-  (`@property --hub2-reveal`, initial 1) on `animation-timeline: view()` with
-  fill `backwards`, and `opacity: var(--hub2-reveal, 1)`; in view, it is
-  plain opacity 1. Left alone: blocks dimmed on purpose (`.cancelled`,
-  `.pub-past-dim`), blocks that are or hold something `position: fixed`
-  (`hub2.selfcheck.ts` §7 derives every fixed class from the CSS), and
-  staggered rows. No staff reveals: staff screens dim too many things on
-  purpose. §7 also pins `changesPage()`, the names-only-while-transitioning
-  rule, the moving edge and the registered number.
+- **Motion: ONE liquid dissolve between pages, on one clock** (#hub2-motion).
+  The look used to carry a per-panel page morph, an arrive stagger, a drill
+  slide, a scroll reveal, a pop, a press ripple, a rolling count, a
+  self-drawing check and a note burst, each on its own clock. After five rounds
+  of tuning ("They don't move at the same rate") all of it was deleted
+  (2026-11-10, `docs/design/liquid-dissolve-plan.md`), and the director picked
+  the replacement from `docs/design/liquid-dissolve-sample.html` on 2026-11-11:
+  "Liquid, slow, smooth". `src/shared/hub2Dissolve.ts` is the ONE mover:
+  - **Two copies, an ordinary filter, no backdrop-filter.** The page being
+    left is cloned into a `.hub2-ghost` placed BESIDE the live scroller (same
+    parent, so every shell rule still styles it; z 39, under the header at
+    50/100 and the tab bar at 60, so the bars stay sharp), and that copy melts
+    with `filter: blur() saturate() brightness() contrast()`, the contrast
+    pivoted on the page colour (`--hub2-bg`). The live page meanwhile hides
+    with `visibility` alone while the new page renders into it. At the peak it
+    HOLDS (bounded) if the new page still shows `.pub-skeleton-card` /
+    `.dir-loading`; then the new page is cloned at the same melt under the
+    old copy, the old copy fades while both are formless, the new copy
+    clears, and over the last fifth the live page (real glass) is revealed
+    under it as the copy fades. A second change mid-way retargets.
+  - **Why not a lens.** The first build (PR #237) laid one fixed sheet over the
+    page and animated its `backdrop-filter`. Chrome painted it; the director's
+    iPhone computed it (32px at the peak) and never painted it, so every change
+    was a quick fade. Do not go back to animating a backdrop-filter. Copies are
+    `overflow: hidden`, not scrollers: an iPhone draws a scroller as its own
+    native layer. Playwright's WebKit screenshots paint NO compositor effect
+    (no backdrop-filter, no animated filter), so they cannot verify this;
+    Chrome screenshots can, and WebKit can still verify the logic.
+  - **Never an ancestor of live glass.** opacity, filter, mask, clip-path or
+    mix-blend-mode on an ancestor flattens every card in it, silently. Filter
+    and opacity go on the copies only (their glass is switched off: under a
+    filter it would be flat anyway); the live page only ever changes
+    `visibility`. And never
+    the View Transitions API: Safari and Firefox switch `backdrop-filter` off
+    for its whole duration (WebKit 302256).
+  - **One clock, in the org config**: `hub2.glass.dissolveMs` (1600),
+    `dissolveBlur` (32px), `dissolveHoldMs` (1200), emitted as
+    `--hub2-dissolve-*`. The curve is the one `LAW` in the module.
+    `dissolveMs: 0` turns it off.
+  - **Wired in two places only.** `router.subscribe` in `main.tsx`, registered
+    BEFORE the app renders so it runs while the old page is still on screen
+    (links, `navigate()`, Back and Forward alike; `changesPage()` keeps a filter
+    tap or hash link still), and the three `useState` staff shells, whose
+    `setTab` is `dissolve(() => setTabNow(next))`.
+  - **Nothing at all** with the look off, reduced motion, reduced
+    transparency, or a browser that cannot animate a backdrop filter: the page
+    simply changes.
+  - `hub2.selfcheck.ts` §7 pins all of it: no animation or transition in the
+    look's sheets beyond the three ambient loops in `hub2Glass.css` and `none`,
+    no script that animates except `hub2Dissolve.ts`, no literal duration in it,
+    no backdrop-filter animated, only copies animated and the live page only
+    revealed, copies beside the page, not scrollers and under the bars, the
+    gate, and the wiring. A new motion goes on that list on purpose or not
+    at all. Verify motion by pausing and seeking (headless Chrome reports
+    reduced motion by default; override it and assert the override).
 - **The public hub2 rules are `@media screen` only** (all of
   `hub2Public.css`, and the `--pub-*` block of `hub2.css`). Paper (program,
   season fridge copy, Start Guide, QR kit) prints identically with the
@@ -2112,8 +2139,7 @@ any change. Later sessions apply it page by page.
   Hall's Newsreader on a concert's title on Schedule, Today's coming-up list,
   the event drawer (Title field, gold hairline under its labels), the
   concert's roll and roster, and Check-In; Spotlight on Today's concert card
-  and on Check-In's page for a concert held today; slide-in drill-downs,
-  staggered lists and a press dip, all off under reduced motion. Components
+  and on Check-In's page for a concert held today. Components
   carry hooks for it (`data-event-type`, `data-hub2-spotlight`,
   `.dir-today-time`, `.dir-roll-concert`, `.dir-hall-title`) that NO other
   stylesheet may read, so flag off stays pixel-identical. **Prints never take
@@ -2143,36 +2169,50 @@ look on Dec 13 by the same one-word flip; nothing new to switch.
   at once, including screens built later. A new screen built from these parts
   needs nothing more. Do not go back to styling screens one by one: that is
   how the first pass stopped at five.
-- **Eight motions, one vocabulary, Lively level** (the director's pick):
-  arrive (the first 16 rows of a list rise in, 40ms apart), change page (the
-  wipe, now behind a gold edge), press (dip plus a ripple), open (drawers rise
-  or slide in), choose (a new selection pops), count (`Hub2Count` rolls a
-  changed number), finish (every lucide check draws itself;
-  `hub2Celebrate()` bursts notes from a success), live (Now card, countdown:
-  Piece 2). Ambient motion (drifting glow, gold dust, looping shimmer) belongs
-  ONLY to concert-night surfaces. Take Roll never moves on its own.
-- **One gate.** `hub2MotionOn()` in `src/shared/hub2Motion.ts` (look on and no
-  reduced motion) is asked at every press, page change and success; the
-  ripple and the note burst are fixed overlays on `<body>` that remove
-  themselves, so no component's CSS changes. The gold edge is a `<div>` first
-  in `<body>`, hidden by CSS and named `hub2-edge` only while a View
-  Transition runs; its group sweeps with the wipe, under the header and tab
-  bar groups.
-- **Nothing stays a layer.** Every animation on a page element fills
-  `backwards` with one-ended keyframes. The first staff rules used `both` with
-  a `to { opacity: 1 }`, which kept every card a layer AND undid the dimming
-  of a cancelled card under the look. `hub2.selfcheck.ts` §8 fails on any
-  other fill (view-transition pseudo-elements and the self-removing overlays
-  excepted, `infinite` allowed for the concert-night ambient).
-- `hub2-count`, `hub2-roll`, `hub2-wipe-edge`, `hub2-ripple`, `hub2-note` and
-  `hub2-burst` are look-only classes: no stock stylesheet may style them (§8).
-  Flag off was verified pixel-identical to main on Home, My Schedule, an
-  event, Calendar, director Today, Take Roll and Check-In, at 390 and 1024,
-  light and dark.
+- **The eight motions of that sketch are gone** (2026-11-10): arrive, the
+  page change, press, open, choose, count, finish and live. `hub2MotionOn()`,
+  `hub2Celebrate()`, `Hub2Count` and their classes no longer exist. The page
+  change came back as the one dissolve above; nothing else did. The parts
+  stay. Take Roll still never moves on its own.
 - **Proof is a contact sheet.** `scripts/hub2-contact-sheet.mjs` drives the
   system Chrome (no dependency) against the fixtures server and photographs
   every routed page, look on or off, at any widths. Run it before saying a
   piece reached every page; the Browser pane draws no frames while hidden.
+
+### The glass (Nov 2026, #glass)
+
+The look is glass: translucent panels that blur a slowly drifting colour
+field behind them. The director chose it from `docs/design/glass-sample.html`
+on 2026-11-07 (Full glass, Dissolved edges); `src/shared/hub2Glass.css` is all
+of it, loaded last by `main.tsx`, and `docs/design/glass-redesign-plan.md` is
+the design record.
+
+- **It reaches every page by re-pointing tokens, not by styling pages.**
+  `--pub-surface` / `--pub-border` (and the `--dir-*` twins) become a
+  translucent tint and a transparent border, so every card, row, chip and
+  sheet in both shells turns to glass at once. Only the chrome (header, menu,
+  rail, bars, heroes) is named by hand, because a blur has to sit on the
+  element that has something behind it. A class in the glass lists must be one
+  the app renders (§ "the list that rots" in `hub2.selfcheck.ts`).
+- **The backdrop-root trap, found in more than a dozen places:** opacity,
+  filter, mask, clip-path or mix-blend-mode on an ANCESTOR of a glass element
+  re-points its blur at that ancestor's own subtree, which paints nothing, so
+  the glass goes flat with nothing thrown. Always reported as "it does not look
+  glassy". On the element itself it is fine. Fade a copy, never a parent.
+- **Two theme switches.** `data-pub-theme` on `<html>` (student site) and
+  `data-dir-theme` on `.dir-app` (staff). Each glass palette block names both,
+  the staff arm through `:is(:has(...))` on the root (a bare `:has()` in a
+  comma list invalidates the whole rule on an engine without it).
+- **Contrast is measured from painted pixels**, never reasoned: the teal
+  accent used as text on the page sets the field's ceiling, and the floating
+  tab bar's 70% tint is the one number that is not the sample's.
+- **Three ways off, all landing on a solid panel:** blur radii of "0px" in
+  `hub2.glass`, `prefers-reduced-transparency`, and no `backdrop-filter`.
+- **Screen only and colours from the palette**: no colour literal but
+  `white` / `black` / `transparent`, and paper prints as without the look.
+- The only motion is the three ambient loops (drifting field, pane shine,
+  living logo) and the page dissolve (#hub2-motion), which never animates a
+  backdrop-filter.
 
 ## Clear cards, and a page per concert (Oct 2026, #clear-cards)
 

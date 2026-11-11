@@ -26,7 +26,6 @@ import { recordActivity } from '../hooks/useActivityLog';
 import type { AttendanceStatus, Student, StudentContact, Ensemble, CalendarEvent, RosterOverride } from '../types';
 import { ATTENDANCE_STATUS_LABEL, isAbsentMark, isRollException } from '../attendanceStatus';
 import { backdropClose } from '../../shared/backdropClose';
-import { Hub2Count } from '../../shared/Hub2Count';
 
 interface Period {
   event: CalendarEvent | null;   // null = ad-hoc roll (no scheduled rehearsal)
@@ -536,22 +535,22 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
         {exceptionCount === 0 && <span className="dir-att-allpresent">All present</span>}
         {statusCounts.Absent > 0 && (
           <button className={`dir-att-chip absent${statusFilter === 'Absent' ? ' on' : ''}`} onClick={() => toggleFilter('Absent')}>
-            <strong><Hub2Count value={statusCounts.Absent} /></strong> Absent
+            <strong>{statusCounts.Absent}</strong> Absent
           </button>
         )}
         {statusCounts.Late > 0 && (
           <button className={`dir-att-chip late${statusFilter === 'Late' ? ' on' : ''}`} onClick={() => toggleFilter('Late')}>
-            <strong><Hub2Count value={statusCounts.Late} /></strong> Late
+            <strong>{statusCounts.Late}</strong> Late
           </button>
         )}
         {statusCounts.Excused > 0 && (
           <button className={`dir-att-chip excused${statusFilter === 'Excused' ? ' on' : ''}`} onClick={() => toggleFilter('Excused')}>
-            <strong><Hub2Count value={statusCounts.Excused} /></strong> Abs Exc
+            <strong>{statusCounts.Excused}</strong> Abs Exc
           </button>
         )}
         {statusCounts.LateExcused > 0 && (
           <button className={`dir-att-chip lateexcused${statusFilter === 'LateExcused' ? ' on' : ''}`} onClick={() => toggleFilter('LateExcused')}>
-            <strong><Hub2Count value={statusCounts.LateExcused} /></strong> Late Exc
+            <strong>{statusCounts.LateExcused}</strong> Late Exc
           </button>
         )}
         {lessonCount > 0 && (
@@ -561,7 +560,7 @@ function RollPeriod({ date, period, ensemble, onBack, onNavigate, assistantMode 
         )}
         {unmarkedCount > 0 && exceptionCount > 0 && (
           <button className={`dir-att-chip${statusFilter === 'Unmarked' ? ' on' : ''}`} onClick={() => toggleFilter('Unmarked')}>
-            <strong><Hub2Count value={unmarkedCount} /></strong> Unmarked
+            <strong>{unmarkedCount}</strong> Unmarked
           </button>
         )}
         {pulledToday.length > 0 && <> · <strong>{pulledToday.length}</strong> pulled</>}

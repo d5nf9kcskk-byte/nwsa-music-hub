@@ -201,7 +201,9 @@
      group hero, which is the darkest thing that scrolls under it.
      The sample gets away with 14% because its one phone only ever had
      light cards in it. This is the one number in this file that is
-     deliberately not the sample's. */
+     deliberately not the sample's. (It was raised to 70% later. Since
+     2026-11-11 the bottom bars no longer use it at all: see THE BOTTOM BARS
+     ARE FROSTED EDGE TO EDGE. It still tints the menu's active row.) */
   --glass-floatbar: color-mix(in srgb, white 70%, transparent);
   /* The header is the white-ink exception: no brightness, and enough
      teal left to hold white at 4.5:1 over the brightest orb.
@@ -236,16 +238,7 @@
   --glass-fade: 22px;
   --glass-fade-bar: 14px;
   /* How far the event-type bar spreads once it stops being a bar. */
-  --glass-eventbar-soften: blur(7px);
-
-  /* THE MORPH NEEDS ITS OWN CURVE, not the look's. `--hub2-ease` is
-     cubic-bezier(.2,.8,.2,1), a hugely front-loaded spring that is right for
-     a 240ms slide and wrong here: with a FLIP the GEOMETRY is the animation,
-     so that curve put every panel on its mark inside the first fifth of the
-     duration and then held it still for the rest of the Pace setting. The
-     panel looked like it had snapped and the Slowest setting did nothing.
-     This one eases in as well as out, so the time is spent travelling. */
-  --hub2-morph-ease: cubic-bezier(.33, 0, .2, 1);
+  --glass-eventbar-soften: blur(4px);
 
   /* Dissolved wants a bigger radius than the look's own 18px/12px. */
   --pub-radius: 31px;
@@ -268,6 +261,9 @@
   --glass-field-plum: color-mix(in srgb, var(--hub2-plum) 12%, transparent);
   --glass-field-warm: transparent;
   --glass-field-spark: color-mix(in srgb, white 4.5%, transparent);
+  /* The coloured left glow is lighter in dark, as in the sample (40%): at
+     72% the pale dark-mode colours glow far into the card. */
+  --glass-stripe-alpha: 40%;
 
   --glass-panel: color-mix(in srgb, white 4%, transparent);
   /* THE DARK MENU WAS NOT A PANE AT ALL. 2.2% white under brightness(.9)
@@ -454,9 +450,9 @@
   .pub-confirm-card, .pub-subscribe-panel, .pub-fm-panel, .pub-xfer-panel,
   .pub-cal, .pub-quick-btn, .pub-signup-alert, .pub-daysheet,
   /* ADDED after walking the real pages with a glass audit rather than
-     reading this list. The morph flies `.pub-page > *`, and where these two
-     disagree the Hub flies boxes with no blur in them — which is how the
-     motion can be right and the page still not look like the sample.
+     reading this list: a block of a page (`.pub-page > *`) that is not
+     named here is a box with no blur in it, which is how a page can be
+     built right and still not look like the sample.
      Concert Season measured ZERO glass blocks, and the calendar's 481px day
      panel had none while the month grid beside it did.
      `.pub-day-detail` is a panel exactly like the `.pub-cal` above it, and
@@ -496,8 +492,14 @@
    nothing reflows. And the split is the same one section 2 already makes:
    a line that says "this one is DIFFERENT" is information and keeps its
    line (the red error boxes, the amber warnings, .pub-allclear's green,
-   the per-ensemble colour on .pub-ens-btn, the event-type chips, the
-   Spotlight banner's gold). A line that merely says "this is a box" goes.
+   the event-type chips, the Spotlight banner's gold). A line that merely
+   says "this is a box" goes.
+
+   .pub-ens-btn used to be named here as a fourth example and no longer is:
+   on 2026-11-11 it joined the dissolved list, and its ensemble colour rides
+   in the GLOW instead (the note above it). That is the rule refined rather
+   than broken -- information can dissolve, so long as what dissolves keeps
+   its colour. The same is true of the event bar, softened below.
 
    .pub-signup-alert is the one judgement call in the list: it is a teal
    ring round "Forms are open", which is a prompt rather than a severity,
@@ -591,15 +593,22 @@
    Checked against the live pages rather than against a grep, because two of
    these are not borders at all: `.pub-event-bar` is a <span> coloured per
    EVENT TYPE from the event itself (and dimmed when one is cancelled), and
-   `.pub-ens-btn` carries each ensemble's own colour. Both are the same kind
-   of thing as an urgent stripe and both stay. So does the concert-day
-   banner's gold line, which the Spotlight look owns. */
+   `.pub-ens-btn` carries each ensemble's own colour. The event bar is
+   softened below; the ensemble buttons joined this list on 2026-11-11 (the
+   director: the sample's colours are "much more subtle... much more
+   rounded and frosty. I like them"), their colour now arriving as
+   --ens-color instead of an inline border colour no stylesheet could beat.
+   The concert-day banner's gold line stays: the Spotlight look owns it. */
 :root[data-hub2="on"] :is(
   .pub-ens-hero, .pub-piece-hero, .pub-announce, .pub-sg-a2hs,
   .pub-checkin-callout, .whats-new, .pub-signup-alert
 ) { --glass-stripe: var(--hub2-accent); }
 :root[data-hub2="on"] .pub-assign-card { --glass-stripe: var(--hub2-plum); }
 :root[data-hub2="on"] .pub-daysheet { --glass-stripe: var(--hub2-sun); }
+:root[data-hub2="on"] .pub-ens-btn {
+  --glass-stripe: var(--ens-color, var(--hub2-accent));
+  border-radius: var(--pub-radius-md);
+}
 /* The ORG tokens, not --pub-accent. Measured: on .whats-new, --pub-accent
    resolves to the ink colour, because that banner sits in a subtree that
    re-points it, so the glow came out navy instead of teal. --hub2-* is set
@@ -608,11 +617,11 @@
 :root[data-hub2="on"] :is(
   .pub-ens-hero, .pub-piece-hero, .pub-announce, .pub-sg-a2hs,
   .pub-checkin-callout, .whats-new, .pub-assign-card, .pub-daysheet,
-  .pub-signup-alert
+  .pub-signup-alert, .pub-ens-btn
 ) {
   border-left-color: transparent;
   box-shadow:
-    inset 18px 0 26px -20px color-mix(in srgb, var(--glass-stripe) 72%, transparent),
+    inset 18px 0 26px -20px color-mix(in srgb, var(--glass-stripe) var(--glass-stripe-alpha, 72%), transparent),
     var(--glass-inner), var(--glass-bloom);
 }
 
@@ -661,14 +670,20 @@
 :root[data-hub2="on"] .dir-app :is(
   .dir-page-hint, .dir-staff-notice, .dir-rubric-line-note
 ) { --glass-stripe: var(--hub2-accent); }
-:root[data-hub2="on"] .dir-app .dir-ens-grid-btn { --glass-stripe: var(--hub2-plum); }
+/* The tile alone takes --ens-color (#239), so an ensemble's own colour glows
+   on its own button. Not the three above: that property is only ever set as
+   an inline style, on .dir-ens-grid-btn in TodayView.tsx and .pub-ens-btn in
+   PublicHome.tsx, and nothing sets it on a container, so on a hint box or a
+   Today notice it could never resolve. The FALLBACK is the org token for the
+   reason in the note above. */
+:root[data-hub2="on"] .dir-app .dir-ens-grid-btn { --glass-stripe: var(--ens-color, var(--hub2-plum)); }
 
 :root[data-hub2="on"] .dir-app :is(
   .dir-page-hint, .dir-staff-notice, .dir-rubric-line-note, .dir-ens-grid-btn
 ) {
   border-left-color: transparent;
   box-shadow:
-    inset 18px 0 26px -20px color-mix(in srgb, var(--glass-stripe) 72%, transparent),
+    inset 18px 0 26px -20px color-mix(in srgb, var(--glass-stripe) var(--glass-stripe-alpha, 72%), transparent),
     var(--glass-inner), var(--glass-bloom);
 }
 
@@ -688,11 +703,21 @@
    The bar still says which kind of event it is, which is the only reason it
    was kept in the first pass. It just says it the way everything else on the
    page now does. */
-:root[data-hub2="on"] .pub-event-bar {
+/* 2026-11-11: the sample's own numbers (a 4px blur at .7), drawn inboard of
+   the card's rounded corner so the colour no longer bends round it, and the
+   same treatment for the three flush bars the first pass missed: the
+   /ensembles stripe, the staff Today card's stripe and the Schedule's event
+   bar. transform and filter only, so no text moves. A cancelled event's bar
+   is dimmed further, as the stock look does. */
+:root[data-hub2="on"] :is(.pub-event-bar, .pub-ens-stripe),
+:root[data-hub2="on"] .dir-app :is(.dir-today-stripe, .dir-event-bar) {
   filter: var(--glass-eventbar-soften);
-  opacity: .62;
+  opacity: .7;
   border-radius: 999px;
+  transform: translateX(9px) scaleY(.72);
 }
+:root[data-hub2="on"] .dir-app .dir-ens-swatch:empty { filter: var(--glass-eventbar-soften); opacity: .7; }
+:root[data-hub2="on"] .cancelled :is(.pub-event-bar, .dir-event-bar, .dir-today-stripe) { opacity: .3; }
 
 /* ══════════════════════════════════════════════════════════════
    3. The field
@@ -804,9 +829,8 @@
 :root[data-hub2="on"] :is(.pub-menu-panel, .pub-sidebar, .pub-search-panel),
 /* .dir-sheet is gone from this list: it is the second dead class the new
    ghost-class pin caught, after .dir-section. The staff bottom sheet IS
-   .dir-drawer — `dir-sheet-up` and `hub2-dir-sheet` are keyframe names, not
-   a class, which is exactly the kind of near-miss a hand-written list
-   collects. */
+   .dir-drawer — `dir-sheet-up` is a keyframe name, not a class, which is
+   exactly the kind of near-miss a hand-written list collects. */
 :root[data-hub2="on"] .dir-app :is(.dir-menu-panel, .dir-rail, .dir-drawer) {
   background: var(--glass-chrome);
   -webkit-backdrop-filter: var(--glass-chrome-fx);
@@ -944,6 +968,39 @@
                       black calc(100% - var(--glass-fade)), transparent);
     mask-composite: intersect;
   }
+}
+
+/* THE BOTTOM BARS ARE FROSTED EDGE TO EDGE, with no feathered edge (the
+   director, 2026-11-11: "the edges are so transparent, and then the middle
+   is all completely white... It looks like it's a mistake. I'd rather it was
+   more glassy and blurred out the things behind it"). The edge mask faded
+   the bar's own blur out at its rim, so the rim went clear and showed the
+   page sharp, while the 70% tint left the middle a white slab; in Chrome the
+   two-layer mask dropped the blur altogether, and a label measured 2.25:1
+   over an event page (1.46:1 in dark). So these two bars take no mask, a
+   heavy blur that does the work, and a lower tint. Labels go to full ink
+   and the selected tab gets a capsule, because muted grey on ANY tint low
+   enough to read as glass fails over the purple Find My Schedule button.
+   Measured from painted pixels across Home, Calendar, an ensemble and an
+   event page: worst label 6.65:1 light, 6.73:1 dark. */
+@supports (mask-composite: intersect) {
+  :root[data-hub2="on"] :is(.pub-tabbar, .pub-event-actionbar)::before { mask-image: none; }
+}
+:root[data-hub2="on"] :is(.pub-tabbar, .pub-event-actionbar) {
+  --glass-pane: color-mix(in srgb, white 55%, transparent);
+  --glass-pane-fx: blur(var(--hub2-glass-bar-blur, 0px)) saturate(120%) brightness(1.15);
+}
+:root[data-hub2="on"][data-pub-theme='dark'] :is(.pub-tabbar, .pub-event-actionbar) {
+  --glass-pane: color-mix(in srgb, black 45%, transparent);
+  --glass-pane-fx: blur(var(--hub2-glass-bar-blur, 0px)) saturate(120%) brightness(.8);
+}
+:root[data-hub2="on"] .pub-tabbar-btn:not(.active) { color: var(--hub2-ink); }
+:root[data-hub2="on"] .pub-tabbar-btn.active {
+  background: color-mix(in srgb, white 72%, transparent);
+  border-radius: 999px;
+}
+:root[data-hub2="on"][data-pub-theme='dark'] .pub-tabbar-btn.active {
+  background: color-mix(in srgb, black 45%, transparent);
 }
 
 /* ── The travelling shine ──
@@ -1136,40 +1193,15 @@
 /* The mark sits above the light, not under it. */
 :root[data-hub2="on"] :is(.pub-brand-mark, .dir-header-mark) { position: relative; z-index: 1; }
 
-/* TOP RIGHT, NEXT TO THE MENU (the director's instruction, 2026-11-07).
-   Done with `order` rather than by moving the markup, because with the
-   look off the header must sit exactly where it does today — the same
-   promise everything else here keeps. row-reverse inside the brand puts
-   the MARK outboard of the wordmark, so the glass chip is the last
-   thing on the bar and lands beside the menu button.
-
-   The brand keeps `min-width: 0` and a shrink factor: it is no longer
-   the element that absorbs the spare width, so without those the
-   wordmark's ellipsis never fires and a 1.3x "Aa" on a 360px phone
-   pushes the page into horizontal scroll (pubShell.css has the story).
-   Below 520px the wordmark is already hidden and the chip names the
-   site on its own. */
-:root[data-hub2="on"] .pub-header { justify-content: flex-end; }
-:root[data-hub2="on"] .pub-header .pub-header-search { order: 1; flex: 1 1 auto; }
-:root[data-hub2="on"] .pub-header > div:last-of-type { order: 2; }
-:root[data-hub2="on"] .pub-header .pub-brand {
-  order: 3;
-  flex: 0 1 auto;
-  min-width: 0;
-  flex-direction: row-reverse;
-}
-/* The staff header gets the same move, and `display: contents` is what makes
-   it possible without touching the markup. The mark there is nested inside
-   .dir-header-brand with the page title, so `order` alone cannot reach it;
-   dropping that wrapper's BOX (not the element) promotes the mark and the
-   title to flex items of the header, which can then be ordered
-   independently. The wrapper carries nothing but display / align / gap /
-   min-width, so the only thing to hand back is the title's own min-width —
-   without it a long page title stops the header shrinking. */
-:root[data-hub2="on"] .dir-app .dir-header-brand { display: contents; }
-:root[data-hub2="on"] .dir-app .dir-header-brand > div { order: 1; min-width: 0; flex: 1 1 auto; }
-:root[data-hub2="on"] .dir-app .dir-header > div:last-of-type { order: 2; }
-:root[data-hub2="on"] .dir-app .dir-logo-chip { order: 3; flex: none; }
+/* THE MARK IS BACK ON THE LEFT (the director, 2026-11-11, reversing his
+   2026-11-07 call to put it beside the menu): "It should be all the way on
+   the left... left of all of the text and everything, still in that bar."
+   That is where the markup already puts it on both sides, so the look no
+   longer reorders anything. The title block only needs to take the spare
+   width and be allowed to shrink, or a long staff title runs under the
+   header's buttons. */
+:root[data-hub2="on"] .dir-app .dir-header-brand { flex: 1 1 auto; }
+:root[data-hub2="on"] .dir-app .dir-header-brand > div { min-width: 0; }
 
 /* ══════════════════════════════════════════════════════════════
    6. The three ways off, all landing on a solid panel
@@ -1221,6 +1253,35 @@
     --glass-hero: var(--hub2-surface);
     --glass-bar: var(--pub-accent);
   }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   The page dissolve (#hub2-motion, src/shared/hub2Dissolve.ts)
+   ══════════════════════════════════════════════════════════════
+   The script melts COPIES of the pages (.hub2-ghost) with an ordinary
+   filter, never a backdrop-filter: an iPhone computed an animated backdrop
+   blur and never painted it. A copy sits beside the live page, ABOVE it (39)
+   and BELOW the header (50 / 100) and the tab bar (60), so the bars stay
+   sharp while the page melts. While a change is under way the live page is
+   hidden with `visibility` alone: never a filter or an opacity on it, which
+   would flatten its live glass. */
+:root[data-hub2="on"][data-hub2-dissolve] :is(.pub-content, .dir-content):not(.hub2-ghost) {
+  visibility: hidden;
+}
+:root[data-hub2="on"] .hub2-ghost {
+  position: fixed; z-index: 39; margin: 0; pointer-events: none;
+  /* NOT a scroller. On an iPhone a scrolling box is its own native layer,
+     and an effect applied over or onto one is where the first build lost its
+     blur. The copy still shows the right part of the page: the script sets
+     its scrollTop, which an overflow:hidden box honours. */
+  overflow: hidden !important;
+}
+/* A copy's glass would be flat under its filter anyway (a filter makes it a
+   backdrop root), and its loops would only cost frames, so both stop. */
+:root[data-hub2="on"] .hub2-ghost *,
+:root[data-hub2="on"] .hub2-ghost *::before,
+:root[data-hub2="on"] .hub2-ghost *::after {
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none !important;
 }
 
 } /* @media screen */

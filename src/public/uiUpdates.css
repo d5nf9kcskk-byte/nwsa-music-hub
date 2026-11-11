@@ -79,7 +79,7 @@
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
   padding: 13px 13px;
   background: var(--pub-surface); border: 1px solid var(--pub-border);
-  border-left-width: 5px; border-radius: 12px;
+  border-left-width: 5px; border-left-color: var(--ens-color, var(--pub-border)); border-radius: 12px;
   font-size: 14px; font-weight: 700; color: var(--pub-ink); text-decoration: none;
 }
 .pub-ens-btn.slim { justify-content: flex-start; font-size: 14px; padding: 11px 12px; }
