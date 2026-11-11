@@ -648,9 +648,9 @@ export default function DirectorApp() {
 
           <header className="dir-header">
             <div className="dir-header-brand">
-              <span className="dir-logo-chip" onClick={onLogoTap}>
+              <button type="button" className="dir-logo-chip" aria-label="Today" onClick={() => { onLogoTap(); if (tab !== 'today') go('today'); }}>
                 <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} className="dir-header-mark" />
-              </span>
+              </button>
               <div>
                 <div className="dir-header-title">{title}</div>
                 <div className="dir-header-sub">

@@ -117,6 +117,9 @@ export interface Hub2Glass {
    *  dozens of them on a page: this is the one that costs real compositing on
    *  an older phone, so it is the first to turn down to "0px". */
   panelBlur: string;
+  /** Blur behind the floating bottom bars. The heaviest: it is what keeps the
+   *  tab labels readable over whatever scrolls under them. */
+  barBlur: string;
   /** How long the field's light takes to drift across the page once. */
   fieldDrift: string;
   /** The specular sweep across the brand mark. Long and slow, or it is a distraction. */
