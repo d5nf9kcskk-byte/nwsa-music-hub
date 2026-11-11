@@ -2051,21 +2051,31 @@ any change. Later sessions apply it page by page.
   (2026-11-10, `docs/design/liquid-dissolve-plan.md`), and the director picked
   the replacement from `docs/design/liquid-dissolve-sample.html` on 2026-11-11:
   "Liquid, slow, smooth". `src/shared/hub2Dissolve.ts` is the ONE mover:
-  - **One lens, not many movers.** Nothing on either page animates. A fixed
-    `.hub2-lens` appended to `<body>` (z 40: above the page, below the header
-    at 50/100 and the tab bar at 60, so the bars stay sharp) animates
-    `backdrop-filter: blur() saturate() brightness() contrast()`, the contrast
-    pivoted on the page colour (`--hub2-bg`) so a light page melts into dark
-    pools and a dark one into glowing pools without flashing white. The page
-    you leave is copied into a `.hub2-ghost` placed BESIDE the live scroller
-    (same parent, so every shell rule still styles it); the live page is hidden
-    with `visibility` alone while the lens fogs; at the peak it HOLDS (bounded)
-    if the new page still shows `.pub-skeleton-card` / `.dir-loading`; then the
-    ghost fades early and the lens clears. A second change mid-way retargets.
-    Nothing is left behind when it ends.
+  - **Two copies, an ordinary filter, no backdrop-filter.** The page being
+    left is cloned into a `.hub2-ghost` placed BESIDE the live scroller (same
+    parent, so every shell rule still styles it; z 39, under the header at
+    50/100 and the tab bar at 60, so the bars stay sharp), and that copy melts
+    with `filter: blur() saturate() brightness() contrast()`, the contrast
+    pivoted on the page colour (`--hub2-bg`). The live page meanwhile hides
+    with `visibility` alone while the new page renders into it. At the peak it
+    HOLDS (bounded) if the new page still shows `.pub-skeleton-card` /
+    `.dir-loading`; then the new page is cloned at the same melt under the
+    old copy, the old copy fades while both are formless, the new copy
+    clears, and over the last fifth the live page (real glass) is revealed
+    under it as the copy fades. A second change mid-way retargets.
+  - **Why not a lens.** The first build (PR #237) laid one fixed sheet over the
+    page and animated its `backdrop-filter`. Chrome painted it; the director's
+    iPhone computed it (32px at the peak) and never painted it, so every change
+    was a quick fade. Do not go back to animating a backdrop-filter. Copies are
+    `overflow: hidden`, not scrollers: an iPhone draws a scroller as its own
+    native layer. Playwright's WebKit screenshots paint NO compositor effect
+    (no backdrop-filter, no animated filter), so they cannot verify this;
+    Chrome screenshots can, and WebKit can still verify the logic.
   - **Never an ancestor of live glass.** opacity, filter, mask, clip-path or
-    mix-blend-mode on an ancestor flattens every card in it, silently. The lens
-    is on `<body>`, the ghost (a copy) is the only thing that fades. And never
+    mix-blend-mode on an ancestor flattens every card in it, silently. Filter
+    and opacity go on the copies only (their glass is switched off: under a
+    filter it would be flat anyway); the live page only ever changes
+    `visibility`. And never
     the View Transitions API: Safari and Firefox switch `backdrop-filter` off
     for its whole duration (WebKit 302256).
   - **One clock, in the org config**: `hub2.glass.dissolveMs` (1600),
@@ -2083,8 +2093,9 @@ any change. Later sessions apply it page by page.
   - `hub2.selfcheck.ts` §7 pins all of it: no animation or transition in the
     look's sheets beyond the three ambient loops in `hub2Glass.css` and `none`,
     no script that animates except `hub2Dissolve.ts`, no literal duration in it,
-    the gate, the lens on `<body>` and the ghost beside the page, the lens under
-    the bars, and the wiring. A new motion goes on that list on purpose or not
+    no backdrop-filter animated, only copies animated and the live page only
+    revealed, copies beside the page, not scrollers and under the bars, the
+    gate, and the wiring. A new motion goes on that list on purpose or not
     at all. Verify motion by pausing and seeking (headless Chrome reports
     reduced motion by default; override it and assert the override).
 - **The public hub2 rules are `@media screen` only** (all of
@@ -2200,7 +2211,8 @@ the design record.
 - **Screen only and colours from the palette**: no colour literal but
   `white` / `black` / `transparent`, and paper prints as without the look.
 - The only motion is the three ambient loops (drifting field, pane shine,
-  living logo) and the page dissolve (#hub2-motion).
+  living logo) and the page dissolve (#hub2-motion), which never animates a
+  backdrop-filter.
 
 ## Clear cards, and a page per concert (Oct 2026, #clear-cards)
 

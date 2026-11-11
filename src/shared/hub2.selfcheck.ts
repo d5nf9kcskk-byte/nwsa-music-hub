@@ -405,25 +405,33 @@ let ambientLoops = 0;
   }
   assert.match(mover, /export function dissolve\(swap\?: \(\) => void\): void \{\n\s*if \(!dissolveOn\(\)\) \{ finish\(\); swap\?\.\(\); return; \}/,
     `${MOVER}: dissolve() must ask the gate first and otherwise just swap`);
-  // THE LENS IS NEVER AN ANCESTOR OF A PAGE. It is appended to <body> and
-  // nowhere else, so no page can ever sit inside it (an ancestor's filter
-  // would re-point every live card's blur at nothing). The live page is
-  // hidden with `visibility`, which is not on the backdrop-root list; the
-  // only thing that fades is the ghost, a copy, placed BESIDE the live page.
-  assert.ok(mover.includes('document.body.appendChild('), `${MOVER}: the lens goes on <body>`);
-  for (const m of mover.matchAll(/(\S*)(appendChild\(|\.append\(|\.prepend\(|\.before\(|\.after\(|insertBefore\(|replaceWith\()/g)) {
-    assert.ok(m[1].endsWith('document.body.') && m[2] === 'appendChild(' || `${m[1]}${m[2]}` === 'live.after(',
-      `${MOVER}: "${m[0]}" puts something into the page; the lens goes on <body> and the ghost beside the live page, nowhere else`);
+  // NO BACKDROP-FILTER IN MOTION, and nothing on the LIVE page but
+  // visibility. The first build animated a backdrop-filter lens over the page:
+  // Chrome painted it, the director's iPhone computed it (32px at the peak)
+  // and never painted it, so every change was a quick fade (2026-11-11). An
+  // ordinary filter on a COPY is painted everywhere. And a filter or opacity
+  // on the live page, an ancestor of its glass, would flatten every card.
+  assert.ok(!/backdropFilter|webkitBackdropFilter/.test(mover),
+    `${MOVER}: never animate a backdrop-filter; an iPhone computes it and does not paint it`);
+  for (const m of mover.matchAll(/([\w.!]+)\.animate\(/g)) {
+    assert.ok(['S.out!', 'S.out', 'S.in', 'live'].includes(m[1]), `${MOVER}: "${m[1]}.animate(" animates something that is not a copy`);
   }
-  assert.match(mover, /live\.after\(g\)/, `${MOVER}: the ghost goes BESIDE the live page, never around it`);
+  assert.match(mover, /live\.animate\(REVEAL, T\)/, `${MOVER}: the live page is only ever revealed`);
+  const reveal = mover.slice(mover.indexOf('const REVEAL'), mover.indexOf('];', mover.indexOf('const REVEAL')));
+  assert.ok(reveal.length > 20 && !/opacity|filter|transform|mask|clip/.test(reveal),
+    `${MOVER}: REVEAL may animate visibility and nothing else on the live page`);
+  // The copies go BESIDE the live page and nowhere else, never around it.
+  for (const m of mover.matchAll(/(\S*)(appendChild\(|\.append\(|\.prepend\(|\.before\(|\.after\(|insertBefore\(|replaceWith\()/g)) {
+    assert.equal(`${m[1]}${m[2]}`, 'live.after(', `${MOVER}: "${m[0]}" puts something into the page; a copy goes beside the live page, nowhere else`);
+  }
   const glassSrc = strip(read('./hub2Glass.css'));
-  assert.match(glassSrc, /\[data-hub2-dissolve="up"\] :is\(\.pub-content, \.dir-content\):not\(\.hub2-ghost\) \{\s*visibility: hidden;\s*\}/,
-    'hub2Glass.css: the live page hides with visibility alone while the ghost shows');
-  assert.match(glassSrc, /\.hub2-lens \{[^}]*pointer-events: none/, 'hub2Glass.css: the lens must never take a tap');
-  assert.match(glassSrc, /\.hub2-ghost \{[^}]*pointer-events: none/, 'hub2Glass.css: the ghost must never take a tap');
+  assert.match(glassSrc, /\[data-hub2-dissolve\] :is\(\.pub-content, \.dir-content\):not\(\.hub2-ghost\) \{\s*visibility: hidden;\s*\}/,
+    'hub2Glass.css: the live page hides with visibility alone while a copy shows');
+  assert.match(glassSrc, /\.hub2-ghost \{[^}]*pointer-events: none/, 'hub2Glass.css: a copy must never take a tap');
+  assert.match(glassSrc, /\.hub2-ghost \{[^}]*overflow: hidden/, 'hub2Glass.css: a copy is not a scroller (an iPhone draws scrollers as their own layer)');
   // Above the page, below every bar: header 50 (public) / 100 (staff), tab bar 60.
-  const lensZ = Number(glassSrc.match(/\.hub2-lens \{[^}]*z-index: (\d+)/)?.[1]);
-  assert.ok(lensZ > 0 && lensZ < 50, `hub2Glass.css: the lens z-index ${lensZ} must sit under the bars (50) so they stay sharp`);
+  const ghostZ = Number(glassSrc.match(/\.hub2-ghost \{[^}]*z-index: (\d+)/)?.[1]);
+  assert.ok(ghostZ > 0 && ghostZ < 50, `hub2Glass.css: the copies' z-index ${ghostZ} must sit under the bars (50) so they stay sharp`);
   // Wired at the router, page changes only, and in all three useState shells.
   const mainSrc2 = strip(read('../main.tsx'));
   assert.match(mainSrc2, /router\.subscribe\(/, 'main.tsx: the dissolve runs from the router');
