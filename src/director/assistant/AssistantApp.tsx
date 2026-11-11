@@ -23,6 +23,7 @@ import { useCurrentDirector } from '../currentDirector';
 import { assistantHasCapability } from '../directorRoles';
 import type { AssistantCapability } from '../types';
 import { ORG } from '../../org';
+import { dissolve } from '../../shared/hub2Dissolve';
 
 type AsstTab = 'roll' | 'readAloud' | AssistantCapability;
 
@@ -37,7 +38,9 @@ export function AssistantApp({ user, signOut }: { user: User; signOut: () => voi
   const me = useCurrentDirector();
   const allowed = me?.assignedEnsembleIds ?? [];
   const caps = me?.assistantCapabilities ?? [];
-  const [tab, setTab] = useState<AsstTab>('roll');
+  const [tab, setTabNow] = useState<AsstTab>('roll');
+  // A tab is a page here, so it changes the way every page does (#hub2-motion).
+  const setTab = (next: typeof tab) => { if (next !== tab) dissolve(() => setTabNow(next)); };
 
   const title =
     tab === 'roll' ? 'Take Roll'

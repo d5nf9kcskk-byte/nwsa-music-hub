@@ -93,3 +93,9 @@ two seconds is a different thing, so the sample asks again.
 Everything so far has been measured on a desktop copy of Chrome. None of it
 has been run in Safari or on a real iPhone. That is the reason the sample
 goes to your phone before anything goes into the Hub.
+
+## What you picked
+
+On 11 November you tried the sample on your iPhone and picked **Liquid**,
+**Slow** (1.6 seconds), and said it was **smooth**. That is what is now built
+into the Hub, on every student page and in all four staff panels.

@@ -13,6 +13,8 @@ import './shared/hub2Glass.css';
 import { initLook } from './public/look';
 import { initDirSeason } from './shared/seasons';
 import { initHub2 } from './shared/hub2Preview';
+import { dissolve } from './shared/hub2Dissolve';
+import { changesPage } from './shared/hub2Motion';
 
 import { PublicLayout } from './public/PublicLayout';
 import { PublicHome } from './public/PublicHome';
@@ -185,6 +187,19 @@ const router = createBrowserRouter(
   // basename is the same path without the trailing slash.
   { basename: import.meta.env.BASE_URL.replace(/\/$/, '') },
 );
+
+// The page change under the Hub 2.0 look (#hub2-motion): one liquid dissolve,
+// and nothing at all with the look off. Subscribed BEFORE the app renders, so
+// this runs first on every navigation (links, navigate(), Back and Forward
+// alike) while the page being left is still on screen to be copied.
+let here = router.state.location.pathname;
+router.subscribe(state => {
+  const next = state.location.pathname;
+  if (next === here) return;
+  const moved = changesPage(next, here);
+  here = next;
+  if (moved) dissolve();
+});
 
 // Org brand palette (no-op for NWSA — empty maps inject nothing).
 applyBrand();
