@@ -21,6 +21,7 @@ import { addDays, checkinCandidateEvents, ensembleDisplayName, todayStr } from '
 import type { ConcertCheckin, CalendarEvent, Ensemble } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { registerOverlayClose } from '../../shared/overlayBack';
+import { useDissolvedState } from '../../shared/hub2Dissolve';
 import './checkin.css';
 
 /** The eventId that means "every concert's scans" rather than one concert. */
@@ -57,7 +58,8 @@ export function CheckinView({ onNavigate }: { onNavigate?: DirNavigate }) {
   const { ensembles } = useEnsembles();
 
   // '' = the list of concerts; a concert id or EVERY = that concert's own page.
-  const [eventId, setEventId] = useState('');
+  // A concert opens as its own page, so opening one melts like a page change.
+  const [eventId, setEventId] = useDissolvedState('');
   const [q, setQ] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [photoOf, setPhotoOf] = useState<ConcertCheckin | null>(null);
@@ -103,7 +105,7 @@ export function CheckinView({ onNavigate }: { onNavigate?: DirNavigate }) {
     if (!open) return;
     rootRef.current?.closest('.dir-content')?.scrollTo({ top: 0 });
     return registerOverlayClose(() => setEventId(''));
-  }, [open, eventId]);
+  }, [open, eventId, setEventId]);
 
   async function addCheckin(e: CalendarEvent) {
     await updateEvent(e.id, enableCheckinPatch(e));

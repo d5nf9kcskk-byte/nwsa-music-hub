@@ -3,7 +3,6 @@ import { SeasonButton } from '../SeasonButton';
 import '../uiUpdates.css';
 import '../dirShell.css';
 import '../hub2Staff.css';
-import { useState } from 'react';
 import type { User } from 'firebase/auth';
 import { useNavigate } from 'react-router';
 import { ClipboardSignature, ExternalLink, GraduationCap, LogOut } from 'lucide-react';
@@ -15,7 +14,7 @@ import { SignupsView } from '../signups/SignupsView';
 import { AttendanceView } from '../attendance/AttendanceView';
 import { useCurrentDirector } from '../currentDirector';
 import { ORG } from '../../org';
-import { dissolve } from '../../shared/hub2Dissolve';
+import { useDissolvedState } from '../../shared/hub2Dissolve';
 
 /**
  * The whole app, for an Applied Teacher sign-in (#roles, #applied — stored
@@ -48,9 +47,8 @@ export function TeacherApp({
   const navigate = useNavigate();
   const me = useCurrentDirector();
   const allowed = me?.assignedEnsembleIds ?? [];
-  const [tab, setTabNow] = useState<'lessons' | 'signups'>('lessons');
   // A tab is a page here, so it changes the way every page does (#hub2-motion).
-  const setTab = (next: typeof tab) => { if (next !== tab) dissolve(() => setTabNow(next)); };
+  const [tab, setTab] = useDissolvedState<'lessons' | 'signups'>('lessons');
 
   return (
     <div className="dir-app">

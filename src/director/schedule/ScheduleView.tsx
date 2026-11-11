@@ -37,6 +37,7 @@ import { Linkify } from '../components/Linkify';
 import { dailyPun } from '../../shared/whimsy';
 import { ORG } from '../../org';
 import { registerOverlayClose } from '../../shared/overlayBack';
+import { useDissolvedState } from '../../shared/hub2Dissolve';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -274,7 +275,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
   // 1100px dirShell.css hides the grid while `dayOpen` is set, the page starts
   // at the day, and Back (button or gesture) returns to the month. At 1100px
   // and up the two sit side by side and `dayOpen` changes nothing.
-  const [dayOpen, setDayOpen] = useState(false);
+  const [dayOpen, setDayOpen] = useDissolvedState(false, () => !!window.matchMedia?.('(max-width: 1099.98px)').matches);
   const calColRef = useRef<HTMLDivElement>(null);
   const dayRef = useRef<HTMLDivElement>(null);
   function openDay(dateStr: string) {
@@ -295,7 +296,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
     if (!col || getComputedStyle(col).display !== 'none') return;
     dayRef.current?.scrollIntoView({ block: 'start' });
     return registerOverlayClose(() => setDayOpen(false));
-  }, [dayOpen]);
+  }, [dayOpen, setDayOpen]);
 
   const dayEvents = (eventsByDate[selectedDate] ?? [])
     .slice()

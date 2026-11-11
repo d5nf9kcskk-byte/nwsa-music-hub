@@ -2082,11 +2082,22 @@ any change. Later sessions apply it page by page.
     `dissolveBlur` (32px), `dissolveHoldMs` (1200), emitted as
     `--hub2-dissolve-*`. The curve is the one `LAW` in the module.
     `dissolveMs: 0` turns it off.
-  - **Wired in two places only.** `router.subscribe` in `main.tsx`, registered
+  - **Wired in three ways only.** `router.subscribe` in `main.tsx`, registered
     BEFORE the app renders so it runs while the old page is still on screen
     (links, `navigate()`, Back and Forward alike; `changesPage()` keeps a filter
-    tap or hash link still), and the three `useState` staff shells, whose
-    `setTab` is `dissolve(() => setTabNow(next))`.
+    tap or hash link still). `useDissolvedState()`, a `useState` whose setter
+    dissolves, for a page swapped IN PLACE (director, 2026-11-11: "Yes, melt
+    those too"): the three staff shells' tabs, Check-In's concert page,
+    Schedule's day page (phone widths only), the assignment editor and grade
+    sheet, and a form and its editor. A new list-to-page swap uses it too.
+    And drawers (`OVERLAY` in the module: the editing drawers, sheets and
+    pop-up forms, never a menu or search) melt BY THEMSELVES: a
+    MutationObserver sees one arrive or leave after React's commit and before
+    paint, so no drawer needs wiring. The page under a drawer stays put; the
+    drawer forms out of the peak melt, and a closing one is put back where it
+    was as its own copy and melts away. A drawer's copy sits over the REAL
+    page, so its pane is the solid `--hub2-surface` (hub2Glass.css), or the
+    page shows through it sharp with the form's words on top.
   - **Nothing at all** with the look off, reduced motion, reduced
     transparency, or a browser that cannot animate a backdrop filter: the page
     simply changes.
