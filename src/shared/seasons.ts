@@ -24,7 +24,6 @@
  *
  * No ORG import on purpose: seasons.selfcheck.ts runs this under plain Node.
  */
-import { useSyncExternalStore } from 'react';
 import type { LookSeason } from '../org/types';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -107,8 +106,6 @@ export function currentSeason(seasons: LookSeason[] | undefined): SeasonPick | n
 
 export type SeasonSide = 'pub' | 'dir';
 const offKey = (side: SeasonSide) => `${side}.season.off`;
-const listeners = new Set<() => void>();
-let version = 0;
 
 export function seasonIsOn(side: SeasonSide, pick: SeasonPick | null): boolean {
   if (!pick) return false;
@@ -120,54 +117,6 @@ export function setSeasonOn(side: SeasonSide, pick: SeasonPick, on: boolean): vo
     if (on) localStorage.removeItem(offKey(side));
     else localStorage.setItem(offKey(side), pick.key);
   } catch { /* private mode — it still applies for this page */ }
-  version++;
-  listeners.forEach(l => l());
-}
-
-/** Re-render when either side's on/off changes. */
-export function useSeasonVersion(): number {
-  return useSyncExternalStore(
-    l => { listeners.add(l); return () => listeners.delete(l); },
-    () => version,
-    () => version,
-  );
-}
-
-// ── The staff side ──────────────────────────────────────────────────────────
-// The public side paints a season through look.ts (it shares the machinery
-// with a student's own colors). The staff shells have no personal colors, so
-// this is all they need: attributes + values on <html> that seasons.css reads,
-// scoped to `.dir-app`.
-
-let dirPick: SeasonPick | null = null;
-
-function paintDir(): void {
-  const root = document.documentElement;
-  const s = seasonIsOn('dir', dirPick) ? dirPick!.season : null;
-  if (s) root.setAttribute('data-dir-season', s.pattern); else root.removeAttribute('data-dir-season');
-  const vars: Record<string, string | undefined> = {
-    '--dir-season-header': s?.header.color,
-    '--dir-season-side': s?.side.color,
-    '--dir-season-side-ink': s ? channels(inkOnSwatch(s.side)) : undefined,
-    '--dir-season-light': s?.light,
-    '--dir-season-dark': s?.dark,
-  };
-  for (const [k, v] of Object.entries(vars)) {
-    if (v) root.style.setProperty(k, v); else root.style.removeProperty(k);
-  }
-}
-
-export function initDirSeason(seasons: LookSeason[] | undefined): void {
-  dirPick = currentSeason(seasons);
-  paintDir();
-}
-
-export function dirSeason(): SeasonPick | null { return dirPick; }
-
-export function setDirSeasonOn(on: boolean): void {
-  if (!dirPick) return;
-  setSeasonOn('dir', dirPick, on);
-  paintDir();
 }
 
 // ── Color helpers shared with look.ts ───────────────────────────────────────

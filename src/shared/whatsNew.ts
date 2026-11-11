@@ -32,6 +32,18 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  {
+    id: '2026-11-11-staff-colors',
+    date: '2026-11-11',
+    title: 'Pick your own colors in the Hub',
+    audience: 'staff' as const,
+    bullets: [
+      'The palette button in the header opens Colors & background: a top bar color, a menu color and a page background, the same choices students have.',
+      'It is saved on this device only, and separately from the student site, so the student pages still look the way students see them.',
+      'Picking your own colors turns the season look off. Tap the season button to bring it back; your colors stay saved underneath.',
+    ],
+    expires: '2026-11-25',
+  },
   // Template pass: the two sides brought onto one look, and the menu fixed.
   {
     id: '2026-11-10-appearance-and-menu',

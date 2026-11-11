@@ -108,6 +108,10 @@ html:has(.dir-app) body {
    role is always fully readable and only the trailing name clips. Hiding it
    was the alternative and is wrong — on the three non-director shells the
    trailing text is the signed-in person's name. */
+/* The column holding the title and this line must be allowed to shrink too,
+   or the ellipsis never happens and the line runs under the header buttons
+   (it did, at 375px, on every shell). */
+.dir-header-brand > div:last-child { min-width: 0; }
 .dir-header-sub {
   font-size: 12px;
   opacity: 0.75;
@@ -2137,6 +2141,19 @@ button.dir-roster-group-link:hover .dir-group-open-hint { opacity: 1; }
   flex-shrink: 0;
 }
 .dir-header-site-btn:active { background: rgba(255,255,255,0.25); }
+
+/* Room for every header control on a phone (#look-staff). The staff headers
+   carry up to five controls beside the title, and below 480px they used to
+   run over it ("Director Panel", "Take Roll"). There the Public site button
+   keeps its icon (its name stays on aria-label) and the director's buttons
+   tighten a little. */
+.dir-header-actions { display: flex; align-items: center; gap: 8px; }
+@media (max-width: 480px) {
+  .dir-header-site-label { display: none; }
+  .dir-header-site-btn { padding: 0 8px; }
+  .dir-header-actions { gap: 4px; }
+  .dir-header-actions .dir-hamburger { width: 36px; height: 36px; }
+}
 
 /* ── Repertoire tab page ── */
 .dir-tab-page {

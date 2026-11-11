@@ -11,7 +11,6 @@ import './public/hub2Public.css';
 // radii that hub2.css set a few lines up, so it has to win on order (#glass).
 import './shared/hub2Glass.css';
 import { initLook } from './public/look';
-import { initDirSeason } from './shared/seasons';
 import { initHub2 } from './shared/hub2Preview';
 import { dissolve } from './shared/hub2Dissolve';
 import { changesPage } from './shared/hub2Motion';
@@ -204,10 +203,9 @@ router.subscribe(state => {
 // Org brand palette (no-op for NWSA — empty maps inject nothing).
 applyBrand();
 // A student's own colors (#look) and this time of year's look (#seasons),
-// before the first render so they never flash. The staff shells get the
-// season too, on their own on/off switch.
+// before the first render so they never flash. The staff shells get both
+// too, stored apart from the student side (dir.look, dir.season.off).
 initLook(ORG.personalize);
-initDirSeason(ORG.personalize?.seasons);
 // The owner's on-device Hub 2.0 preview (#hub2-look). Off everywhere else,
 // where it does nothing at all.
 initHub2();

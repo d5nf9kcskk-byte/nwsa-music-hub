@@ -21,6 +21,15 @@
  * choice sits untouched in storage underneath. Turning it off, picking any
  * color of their own, or the season ending, puts their setup straight back.
  *
+ * TWO SIDES, one palette (#look-staff, Nov 2026). The staff shells offer the
+ * same sheet, stored apart under `dir.look` exactly as the season's switch is
+ * already apart (`pub.season.off` / `dir.season.off`): a director looking at
+ * the student site should see what students see, and a student's pick on a
+ * shared laptop must not restyle the director panel. The staff side paints
+ * through `data-dir-look-*` + `--dir-look-*` (seasons.css), its header keeps
+ * WHITE text even on a neon swatch (no neon in a staff header, #seasons), and
+ * it never touches the theme-color meta, as the staff season never did.
+ *
  * There is NO personal photo, on purpose (Oct 2026, director's call): the
  * backgrounds are the curated tints and patterns below and nothing else.
  *
@@ -79,31 +88,35 @@ function fromLook(look: Look, p: LookPalette): Paint {
 
 let baseThemeColor: string | null | undefined;
 
-function paint({ header, side, tint, pattern, seasonPattern }: Paint): void {
+export type LookSide = 'pub' | 'dir';
+
+function setAll(attrs: Record<string, string | undefined>, vars: Record<string, string | undefined>): void {
   const root = document.documentElement;
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v) root.setAttribute(k, v); else root.removeAttribute(k);
+  }
+  for (const [k, v] of Object.entries(vars)) {
+    if (v) root.style.setProperty(k, v); else root.style.removeProperty(k);
+  }
+}
+
+function paint({ header, side, tint, pattern, seasonPattern }: Paint): void {
   // 'glow' = a neon swatch: look.css adds the glow to its words and icons.
   const kind = (s: Paint['header']) => s && (s.neon ? 'glow' : 'on');
-  const attrs: Record<string, string | undefined> = {
+  setAll({
     'data-pub-look-header': kind(header),
     'data-pub-look-side': kind(side),
     'data-pub-look-tint': tint && 'on',
     'data-pub-look-bg': pattern,
     'data-pub-season': seasonPattern,
-  };
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v) root.setAttribute(k, v); else root.removeAttribute(k);
-  }
-  const vars: Record<string, string | undefined> = {
+  }, {
     '--look-header': header?.color,
     '--look-header-ink': header?.neon && channels(header.neon),
     '--look-side': side?.color,
     '--look-side-ink': side && channels(inkOnSwatch(side)),
     '--look-bg-light': tint?.light,
     '--look-bg-dark': tint?.dark,
-  };
-  for (const [k, v] of Object.entries(vars)) {
-    if (v) root.style.setProperty(k, v); else root.style.removeProperty(k);
-  }
+  });
 
   // The phone's status bar / address bar should match the header under it.
   const meta = document.querySelector('meta[name="theme-color"]');
@@ -113,62 +126,87 @@ function paint({ header, side, tint, pattern, seasonPattern }: Paint): void {
   }
 }
 
+/** The staff shells (seasons.css reads these, scoped to `.dir-app`). */
+function paintDir({ header, side, tint, pattern, seasonPattern }: Paint): void {
+  setAll({
+    'data-dir-look-header': header && 'on',
+    'data-dir-look-side': side && 'on',
+    'data-dir-look-tint': tint && 'on',
+    'data-dir-look-bg': pattern,
+    'data-dir-season': seasonPattern,
+  }, {
+    '--dir-look-header': header?.color,
+    '--dir-look-side': side?.color,
+    '--dir-look-side-ink': side && channels(inkOnSwatch(side)),
+    '--dir-look-light': tint?.light,
+    '--dir-look-dark': tint?.dark,
+  });
+}
+
+type LookState = { look: Look; season: SeasonPick | null; seasonOn: boolean };
+const KEYS: Record<LookSide, string> = { pub: KEY, dir: 'dir.look' };
+const PAINT: Record<LookSide, (p: Paint) => void> = { pub: paint, dir: paintDir };
 let palette: LookPalette | undefined;
-let current: Look = {};
 let season: SeasonPick | null = null;
-let state: { look: Look; season: SeasonPick | null; seasonOn: boolean } = { look: current, season, seasonOn: false };
+const current: Record<LookSide, Look> = { pub: {}, dir: {} };
+const state: Record<LookSide, LookState> = {
+  pub: { look: {}, season: null, seasonOn: false },
+  dir: { look: {}, season: null, seasonOn: false },
+};
 const listeners = new Set<() => void>();
 
-function refresh(): void {
+function refresh(side: LookSide): void {
   if (!palette) return;
-  const on = seasonIsOn('pub', season);
+  const on = seasonIsOn(side, season);
   const s = on ? season!.season : null;
-  paint(s ? { header: s.header, side: s.side, tint: s, seasonPattern: s.pattern } : fromLook(current, palette));
-  state = { look: current, season, seasonOn: on };
+  PAINT[side](s ? { header: s.header, side: s.side, tint: s, seasonPattern: s.pattern } : fromLook(current[side], palette));
+  state[side] = { look: current[side], season, seasonOn: on };
   listeners.forEach(l => l());
 }
 
-/** Read the saved choice and today's season, and apply. No-op without a palette. */
+/** Read both sides' saved choices and today's season, and apply. No-op without a palette. */
 export function initLook(p: LookPalette | undefined): void {
   palette = p;
   if (!p) return;
-  let raw: string | null = null;
-  try {
-    raw = localStorage.getItem(KEY);
-    // the retired personal photo (Sept 2026): free its space on this device
-    localStorage.removeItem('pub.look.photo');
-  } catch { /* private mode */ }
-  current = parseLook(raw, p);
   season = currentSeason(p.seasons);
-  refresh();
+  for (const side of ['pub', 'dir'] as const) {
+    let raw: string | null = null;
+    try { raw = localStorage.getItem(KEYS[side]); } catch { /* private mode */ }
+    current[side] = parseLook(raw, p);
+    refresh(side);
+  }
+  // the retired personal photo (Sept 2026): free its space on this device
+  try { localStorage.removeItem('pub.look.photo'); } catch { /* private mode */ }
 }
 
-/** Apply and remember. Choosing your own colors turns the season off. */
-export function setLook(next: Look): void {
+/** Apply and remember. Choosing your own colors turns that side's season off. */
+export function setLook(next: Look, side: LookSide = 'pub'): void {
   if (!palette) return;
-  current = Object.fromEntries(Object.entries(next).filter(([, v]) => v)) as Look;
+  const look = Object.fromEntries(Object.entries(next).filter(([, v]) => v)) as Look;
+  current[side] = look;
   try {
-    if (Object.keys(current).length) localStorage.setItem(KEY, JSON.stringify(current));
-    else localStorage.removeItem(KEY);
+    if (Object.keys(look).length) localStorage.setItem(KEYS[side], JSON.stringify(look));
+    else localStorage.removeItem(KEYS[side]);
   } catch { /* private mode — the choice still applies for this page */ }
-  if (season && seasonIsOn('pub', season)) setSeasonOn('pub', season, false);
-  refresh();
+  if (season && seasonIsOn(side, season)) setSeasonOn(side, season, false);
+  refresh(side);
 }
 
 /** Reset to Default. */
-export function resetLook(): void { setLook({}); }
+export function resetLook(side: LookSide = 'pub'): void { setLook({}, side); }
 
-/** The season's look on or off for this device; off puts the student's own setup back. */
-export function setPubSeasonOn(on: boolean): void {
+/** The season's look on or off for this device; off puts that side's own setup back. */
+export function setLookSeasonOn(side: LookSide, on: boolean): void {
   if (!season) return;
-  setSeasonOn('pub', season, on);
-  refresh();
+  setSeasonOn(side, season, on);
+  refresh(side);
 }
+export const setPubSeasonOn = (on: boolean) => setLookSeasonOn('pub', on);
 
-export function useLook(): typeof state {
+export function useLook(side: LookSide = 'pub'): LookState {
   return useSyncExternalStore(
     l => { listeners.add(l); return () => listeners.delete(l); },
-    () => state,
-    () => state,
+    () => state[side],
+    () => state[side],
   );
 }

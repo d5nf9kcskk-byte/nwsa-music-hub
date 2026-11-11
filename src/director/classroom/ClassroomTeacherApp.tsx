@@ -1,5 +1,5 @@
 import '../director.css';
-import { SeasonButton } from '../SeasonButton';
+import { LookButton, SeasonButton } from '../SeasonButton';
 import '../uiUpdates.css';
 import '../dirShell.css';
 import '../hub2Staff.css';
@@ -56,8 +56,9 @@ export function ClassroomTeacherApp({ user, signOut }: { user: User; signOut: ()
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <SeasonButton />
-          <button className="dir-header-site-btn" onClick={() => navigate('/')}>
-            <ExternalLink size={14} /> Public site
+          <LookButton />
+          <button className="dir-header-site-btn" onClick={() => navigate('/')} aria-label="Public site" title="Public site">
+            <ExternalLink size={14} /> <span className="dir-header-site-label">Public site</span>
           </button>
           <button className="dir-header-icon-btn" onClick={signOut} aria-label="Sign out" title="Sign out">
             <LogOut size={18} />

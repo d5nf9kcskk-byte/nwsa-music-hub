@@ -2,10 +2,10 @@ import type { CSSProperties } from 'react';
 import { Check, Palette, X } from 'lucide-react';
 import { ORG } from '../../org';
 import type { LookSwatch } from '../../org/types';
-import { t, useLang } from '../../shared/i18n';
+import { tIn, useLang } from '../../shared/i18n';
 import { backdropClose } from '../../shared/backdropClose';
 import { useModalA11y } from '../../shared/useModalA11y';
-import { PATTERNS, resetLook, setLook, setPubSeasonOn, useLook, type Look } from '../look';
+import { PATTERNS, resetLook, setLook, setLookSeasonOn, useLook, type Look, type LookSide } from '../look';
 import { resolvedPubTheme, usePubTheme } from '../theme';
 import './subscribeButton.css'; // the shared bottom-sheet shell (.pub-subw-*)
 
@@ -14,18 +14,24 @@ import './subscribeButton.css'; // the shared bottom-sheet shell (.pub-subw-*)
  * the barely-dimmed backdrop is so the page behind it IS the preview — and
  * Reset to default clears all three. While a season is on (#seasons) it leads
  * the sheet, and picking any color of your own switches it off.
- * Opened from the Appearance menu.
+ * Opened from the Appearance menu, and on the staff side (#look-staff) from
+ * the palette button in every staff header, where it stays English
+ * (#staff-english) and previews against the staff theme.
  */
-export function LookSheet({ onClose }: { onClose: () => void }) {
-  const lang = useLang();
+export function LookSheet({ onClose, side = 'pub' }: { onClose: () => void; side?: LookSide }) {
+  const pubLang = useLang();
+  const lang = side === 'dir' ? 'en' : pubLang;
+  const t = (key: string, params?: Record<string, string>) => tIn(lang, key, params);
   const choice = usePubTheme();
-  const { look, season, seasonOn } = useLook();
+  const { look, season, seasonOn } = useLook(side);
   const ref = useModalA11y<HTMLDivElement>(onClose);
   const p = ORG.personalize;
   if (!p) return null;
 
-  const pick = (patch: Look) => setLook({ ...look, ...patch });
-  const dark = resolvedPubTheme(choice) === 'dark';
+  const pick = (patch: Look) => setLook({ ...look, ...patch }, side);
+  const dark = side === 'dir'
+    ? document.querySelector('.dir-app')?.getAttribute('data-dir-theme') === 'dark'
+    : resolvedPubTheme(choice) === 'dark';
   const tick = <span className="pub-look-check"><Check size={13} strokeWidth={3} /></span>;
 
   const swatch = (key: 'header' | 'side', id: string | undefined, label: string, s?: LookSwatch) => {
@@ -86,7 +92,7 @@ export function LookSheet({ onClose }: { onClose: () => void }) {
                 {seasonOn ? t('season.until', { date: fmtUntil(season.until, lang) }) : t('season.offNote')}
               </div>
             </div>
-            <button className="pub-season-toggle" aria-pressed={seasonOn} onClick={() => setPubSeasonOn(!seasonOn)}>
+            <button className="pub-season-toggle" aria-pressed={seasonOn} onClick={() => setLookSeasonOn(side, !seasonOn)}>
               {t(seasonOn ? 'season.turnOff' : 'season.turnOn')}
             </button>
           </div>
@@ -118,7 +124,7 @@ export function LookSheet({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="pub-look-actions">
-          <button className="pub-look-reset" disabled={!Object.keys(look).length && !seasonOn} onClick={resetLook}>
+          <button className="pub-look-reset" disabled={!Object.keys(look).length && !seasonOn} onClick={() => resetLook(side)}>
             {t('look.reset')}
           </button>
           <button className="pub-look-done" onClick={onClose}>{t('look.done')}</button>

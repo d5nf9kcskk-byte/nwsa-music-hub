@@ -1,5 +1,5 @@
 import './director.css';
-import { SeasonButton } from './SeasonButton';
+import { LookButton, SeasonButton } from './SeasonButton';
 import './uiUpdates.css';
 import './dirShell.css';
 import './hub2Staff.css';
@@ -658,7 +658,7 @@ export default function DirectorApp() {
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="dir-header-actions">
               {writeBusy !== 'idle' && (
                 <span className={`dir-save-cue ${writeBusy}`} role="status">
                   {writeBusy === 'saving' ? 'Saving…' : '✓ Saved'}
@@ -673,6 +673,7 @@ export default function DirectorApp() {
                 <ThemeIcon size={20} />
               </button>
               <SeasonButton className="dir-hamburger" />
+              <LookButton className="dir-hamburger" />
               <button className="dir-hamburger" onClick={() => setSearchOpen(true)} aria-label="Search">
                 <Search size={22} />
               </button>

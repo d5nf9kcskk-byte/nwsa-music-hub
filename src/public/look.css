@@ -91,10 +91,17 @@ html[data-pub-theme='dark'][data-pub-look-tint]:has(.pub-app) { --pub-bg: var(--
   --look-pat-dot: rgb(24 33 47 / 0.2);
 }
 :root[data-pub-theme='dark'] { --look-pat: rgb(231 236 242 / 0.06); --look-pat-dot: rgb(231 236 242 / 0.16); }
+/* The staff shells have their own theme switch (data-dir-theme on .dir-app)
+   and the public one says nothing about them, so on a staff page the marks
+   follow the staff theme, both ways round (#look-staff). */
+html:has(.dir-app[data-dir-theme='dark']) { --look-pat: rgb(231 236 242 / 0.06); --look-pat-dot: rgb(231 236 242 / 0.16); }
+html:has(.dir-app:not([data-dir-theme='dark'])) { --look-pat: rgb(24 33 47 / 0.075); --look-pat-dot: rgb(24 33 47 / 0.2); }
 
 html[data-pub-look-bg='staff'] .pub-app,
+html[data-dir-look-bg='staff'] .dir-content,
 .pub-look-thumb.staff { background-image: var(--look-img-staff); background-size: 100% 112px; }
 html[data-pub-look-bg='dots'] .pub-app,
+html[data-dir-look-bg='dots'] .dir-content,
 .pub-look-thumb.dots { background-image: var(--look-img-dots); background-size: 20px 20px; }
 
 /* Five more, all music (Oct 2026). The SVG ones are drawn in one mid gray at
@@ -112,15 +119,20 @@ html[data-pub-look-bg='dots'] .pub-app,
   --look-img-vinyl: repeating-radial-gradient(circle at 100% 0, var(--look-pat) 0 1px, transparent 1px 11px);
 }
 html[data-pub-look-bg='keys'] .pub-app,
+html[data-dir-look-bg='keys'] .dir-content,
 .pub-look-thumb.keys { background-image: var(--look-img-keys); }
 html[data-pub-look-bg='notes'] .pub-app,
+html[data-dir-look-bg='notes'] .dir-content,
 .pub-look-thumb.notes { background-image: var(--look-img-notes); }
 .pub-look-thumb.notes { background-position: -8px -18px; }
 html[data-pub-look-bg='waves'] .pub-app,
+html[data-dir-look-bg='waves'] .dir-content,
 .pub-look-thumb.waves { background-image: var(--look-img-waves); }
 html[data-pub-look-bg='eq'] .pub-app,
+html[data-dir-look-bg='eq'] .dir-content,
 .pub-look-thumb.eq { background-image: var(--look-img-eq); background-position: 0 100%; }
-html[data-pub-look-bg='vinyl'] .pub-app { background-image: var(--look-img-vinyl); background-attachment: fixed; }
+html[data-pub-look-bg='vinyl'] .pub-app,
+html[data-dir-look-bg='vinyl'] .dir-content { background-image: var(--look-img-vinyl); background-attachment: fixed; }
 .pub-look-thumb.vinyl { background-image: var(--look-img-vinyl); }
 
 /* ── The sheet (opened from the Appearance menu). The backdrop is barely
@@ -204,6 +216,21 @@ html[data-pub-look-bg='vinyl'] .pub-app { background-image: var(--look-img-vinyl
 .pub-look-reset { border: 1px solid var(--pub-border); background: var(--pub-surface); color: var(--pub-ink); }
 .pub-look-reset:disabled { color: var(--pub-muted); cursor: default; }
 .pub-look-done { border: none; background: var(--pub-purple); color: #fff; }
+
+/* The same sheet on the staff side (#look-staff, LookButton portals it into
+   .dir-app): it takes the staff theme's tokens, so it is light or dark with
+   the staff page rather than with whatever the student site last chose. */
+.dir-app .pub-look-overlay {
+  --pub-bg: var(--dir-surface);
+  --pub-surface: var(--dir-surface-2);
+  --pub-border: var(--dir-border);
+  --pub-ink: var(--dir-text);
+  --pub-text: var(--dir-text);
+  --pub-muted: var(--dir-text-muted);
+  --pub-purple: var(--dir-blue);
+  --pub-accent: var(--dir-primary);
+  color: var(--dir-text);
+}
 
 /* A rule between the theme choices and the "Colors & background…" item. */
 .pub-textsize-sep { height: 1px; margin: 4px 6px; background: var(--pub-border); }
