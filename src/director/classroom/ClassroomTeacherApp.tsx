@@ -42,9 +42,9 @@ export function ClassroomTeacherApp({ user, signOut }: { user: User; signOut: ()
 
       <header className="dir-header">
         <div className="dir-header-brand">
-          <span className="dir-logo-chip">
+          <button type="button" className="dir-logo-chip" aria-label="Take Roll" onClick={() => setTab('roll')}>
             <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} className="dir-header-mark" />
-          </span>
+          </button>
           <div>
             <div className="dir-header-title">
               {tab === 'roll' ? 'Take Roll' : tab === 'assignments' ? 'Assignments' : 'Documents'}

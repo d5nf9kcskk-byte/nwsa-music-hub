@@ -201,7 +201,9 @@
      group hero, which is the darkest thing that scrolls under it.
      The sample gets away with 14% because its one phone only ever had
      light cards in it. This is the one number in this file that is
-     deliberately not the sample's. */
+     deliberately not the sample's. (It was raised to 70% later. Since
+     2026-11-11 the bottom bars no longer use it at all: see THE BOTTOM BARS
+     ARE FROSTED EDGE TO EDGE. It still tints the menu's active row.) */
   --glass-floatbar: color-mix(in srgb, white 70%, transparent);
   /* The header is the white-ink exception: no brightness, and enough
      teal left to hold white at 4.5:1 over the brightest orb.
@@ -236,7 +238,7 @@
   --glass-fade: 22px;
   --glass-fade-bar: 14px;
   /* How far the event-type bar spreads once it stops being a bar. */
-  --glass-eventbar-soften: blur(7px);
+  --glass-eventbar-soften: blur(4px);
 
   /* Dissolved wants a bigger radius than the look's own 18px/12px. */
   --pub-radius: 31px;
@@ -259,6 +261,9 @@
   --glass-field-plum: color-mix(in srgb, var(--hub2-plum) 12%, transparent);
   --glass-field-warm: transparent;
   --glass-field-spark: color-mix(in srgb, white 4.5%, transparent);
+  /* The coloured left glow is lighter in dark, as in the sample (40%): at
+     72% the pale dark-mode colours glow far into the card. */
+  --glass-stripe-alpha: 40%;
 
   --glass-panel: color-mix(in srgb, white 4%, transparent);
   /* THE DARK MENU WAS NOT A PANE AT ALL. 2.2% white under brightness(.9)
@@ -582,15 +587,22 @@
    Checked against the live pages rather than against a grep, because two of
    these are not borders at all: `.pub-event-bar` is a <span> coloured per
    EVENT TYPE from the event itself (and dimmed when one is cancelled), and
-   `.pub-ens-btn` carries each ensemble's own colour. Both are the same kind
-   of thing as an urgent stripe and both stay. So does the concert-day
-   banner's gold line, which the Spotlight look owns. */
+   `.pub-ens-btn` carries each ensemble's own colour. The event bar is
+   softened below; the ensemble buttons joined this list on 2026-11-11 (the
+   director: the sample's colours are "much more subtle... much more
+   rounded and frosty. I like them"), their colour now arriving as
+   --ens-color instead of an inline border colour no stylesheet could beat.
+   The concert-day banner's gold line stays: the Spotlight look owns it. */
 :root[data-hub2="on"] :is(
   .pub-ens-hero, .pub-piece-hero, .pub-announce, .pub-sg-a2hs,
   .pub-checkin-callout, .whats-new, .pub-signup-alert
 ) { --glass-stripe: var(--hub2-accent); }
 :root[data-hub2="on"] .pub-assign-card { --glass-stripe: var(--hub2-plum); }
 :root[data-hub2="on"] .pub-daysheet { --glass-stripe: var(--hub2-sun); }
+:root[data-hub2="on"] .pub-ens-btn {
+  --glass-stripe: var(--ens-color, var(--hub2-accent));
+  border-radius: var(--pub-radius-md);
+}
 /* The ORG tokens, not --pub-accent. Measured: on .whats-new, --pub-accent
    resolves to the ink colour, because that banner sits in a subtree that
    re-points it, so the glow came out navy instead of teal. --hub2-* is set
@@ -599,11 +611,11 @@
 :root[data-hub2="on"] :is(
   .pub-ens-hero, .pub-piece-hero, .pub-announce, .pub-sg-a2hs,
   .pub-checkin-callout, .whats-new, .pub-assign-card, .pub-daysheet,
-  .pub-signup-alert
+  .pub-signup-alert, .pub-ens-btn
 ) {
   border-left-color: transparent;
   box-shadow:
-    inset 18px 0 26px -20px color-mix(in srgb, var(--glass-stripe) 72%, transparent),
+    inset 18px 0 26px -20px color-mix(in srgb, var(--glass-stripe) var(--glass-stripe-alpha, 72%), transparent),
     var(--glass-inner), var(--glass-bloom);
 }
 
@@ -639,14 +651,14 @@
 :root[data-hub2="on"] .dir-app :is(
   .dir-page-hint, .dir-staff-notice, .dir-rubric-line-note
 ) { --glass-stripe: var(--dir-primary); }
-:root[data-hub2="on"] .dir-app .dir-ens-grid-btn { --glass-stripe: var(--dir-blue); }
+:root[data-hub2="on"] .dir-app .dir-ens-grid-btn { --glass-stripe: var(--ens-color, var(--dir-blue)); }
 
 :root[data-hub2="on"] .dir-app :is(
   .dir-page-hint, .dir-staff-notice, .dir-rubric-line-note, .dir-ens-grid-btn
 ) {
   border-left-color: transparent;
   box-shadow:
-    inset 18px 0 26px -20px color-mix(in srgb, var(--glass-stripe) 72%, transparent),
+    inset 18px 0 26px -20px color-mix(in srgb, var(--glass-stripe) var(--glass-stripe-alpha, 72%), transparent),
     var(--glass-inner), var(--glass-bloom);
 }
 
@@ -666,11 +678,21 @@
    The bar still says which kind of event it is, which is the only reason it
    was kept in the first pass. It just says it the way everything else on the
    page now does. */
-:root[data-hub2="on"] .pub-event-bar {
+/* 2026-11-11: the sample's own numbers (a 4px blur at .7), drawn inboard of
+   the card's rounded corner so the colour no longer bends round it, and the
+   same treatment for the three flush bars the first pass missed: the
+   /ensembles stripe, the staff Today card's stripe and the Schedule's event
+   bar. transform and filter only, so no text moves. A cancelled event's bar
+   is dimmed further, as the stock look does. */
+:root[data-hub2="on"] :is(.pub-event-bar, .pub-ens-stripe),
+:root[data-hub2="on"] .dir-app :is(.dir-today-stripe, .dir-event-bar) {
   filter: var(--glass-eventbar-soften);
-  opacity: .62;
+  opacity: .7;
   border-radius: 999px;
+  transform: translateX(9px) scaleY(.72);
 }
+:root[data-hub2="on"] .dir-app .dir-ens-swatch:empty { filter: var(--glass-eventbar-soften); opacity: .7; }
+:root[data-hub2="on"] .cancelled :is(.pub-event-bar, .dir-event-bar, .dir-today-stripe) { opacity: .3; }
 
 /* ══════════════════════════════════════════════════════════════
    3. The field
@@ -923,6 +945,39 @@
   }
 }
 
+/* THE BOTTOM BARS ARE FROSTED EDGE TO EDGE, with no feathered edge (the
+   director, 2026-11-11: "the edges are so transparent, and then the middle
+   is all completely white... It looks like it's a mistake. I'd rather it was
+   more glassy and blurred out the things behind it"). The edge mask faded
+   the bar's own blur out at its rim, so the rim went clear and showed the
+   page sharp, while the 70% tint left the middle a white slab; in Chrome the
+   two-layer mask dropped the blur altogether, and a label measured 2.25:1
+   over an event page (1.46:1 in dark). So these two bars take no mask, a
+   heavy blur that does the work, and a lower tint. Labels go to full ink
+   and the selected tab gets a capsule, because muted grey on ANY tint low
+   enough to read as glass fails over the purple Find My Schedule button.
+   Measured from painted pixels across Home, Calendar, an ensemble and an
+   event page: worst label 6.65:1 light, 6.73:1 dark. */
+@supports (mask-composite: intersect) {
+  :root[data-hub2="on"] :is(.pub-tabbar, .pub-event-actionbar)::before { mask-image: none; }
+}
+:root[data-hub2="on"] :is(.pub-tabbar, .pub-event-actionbar) {
+  --glass-pane: color-mix(in srgb, white 55%, transparent);
+  --glass-pane-fx: blur(var(--hub2-glass-bar-blur, 0px)) saturate(120%) brightness(1.15);
+}
+:root[data-hub2="on"][data-pub-theme='dark'] :is(.pub-tabbar, .pub-event-actionbar) {
+  --glass-pane: color-mix(in srgb, black 45%, transparent);
+  --glass-pane-fx: blur(var(--hub2-glass-bar-blur, 0px)) saturate(120%) brightness(.8);
+}
+:root[data-hub2="on"] .pub-tabbar-btn:not(.active) { color: var(--hub2-ink); }
+:root[data-hub2="on"] .pub-tabbar-btn.active {
+  background: color-mix(in srgb, white 72%, transparent);
+  border-radius: 999px;
+}
+:root[data-hub2="on"][data-pub-theme='dark'] .pub-tabbar-btn.active {
+  background: color-mix(in srgb, black 45%, transparent);
+}
+
 /* ── The travelling shine ──
    One slow pass of light across a pane. `infinite alternate`, which is
    what the look's own self-check demands of anything that stays on the
@@ -1113,40 +1168,15 @@
 /* The mark sits above the light, not under it. */
 :root[data-hub2="on"] :is(.pub-brand-mark, .dir-header-mark) { position: relative; z-index: 1; }
 
-/* TOP RIGHT, NEXT TO THE MENU (the director's instruction, 2026-11-07).
-   Done with `order` rather than by moving the markup, because with the
-   look off the header must sit exactly where it does today — the same
-   promise everything else here keeps. row-reverse inside the brand puts
-   the MARK outboard of the wordmark, so the glass chip is the last
-   thing on the bar and lands beside the menu button.
-
-   The brand keeps `min-width: 0` and a shrink factor: it is no longer
-   the element that absorbs the spare width, so without those the
-   wordmark's ellipsis never fires and a 1.3x "Aa" on a 360px phone
-   pushes the page into horizontal scroll (pubShell.css has the story).
-   Below 520px the wordmark is already hidden and the chip names the
-   site on its own. */
-:root[data-hub2="on"] .pub-header { justify-content: flex-end; }
-:root[data-hub2="on"] .pub-header .pub-header-search { order: 1; flex: 1 1 auto; }
-:root[data-hub2="on"] .pub-header > div:last-of-type { order: 2; }
-:root[data-hub2="on"] .pub-header .pub-brand {
-  order: 3;
-  flex: 0 1 auto;
-  min-width: 0;
-  flex-direction: row-reverse;
-}
-/* The staff header gets the same move, and `display: contents` is what makes
-   it possible without touching the markup. The mark there is nested inside
-   .dir-header-brand with the page title, so `order` alone cannot reach it;
-   dropping that wrapper's BOX (not the element) promotes the mark and the
-   title to flex items of the header, which can then be ordered
-   independently. The wrapper carries nothing but display / align / gap /
-   min-width, so the only thing to hand back is the title's own min-width —
-   without it a long page title stops the header shrinking. */
-:root[data-hub2="on"] .dir-app .dir-header-brand { display: contents; }
-:root[data-hub2="on"] .dir-app .dir-header-brand > div { order: 1; min-width: 0; flex: 1 1 auto; }
-:root[data-hub2="on"] .dir-app .dir-header > div:last-of-type { order: 2; }
-:root[data-hub2="on"] .dir-app .dir-logo-chip { order: 3; flex: none; }
+/* THE MARK IS BACK ON THE LEFT (the director, 2026-11-11, reversing his
+   2026-11-07 call to put it beside the menu): "It should be all the way on
+   the left... left of all of the text and everything, still in that bar."
+   That is where the markup already puts it on both sides, so the look no
+   longer reorders anything. The title block only needs to take the spare
+   width and be allowed to shrink, or a long staff title runs under the
+   header's buttons. */
+:root[data-hub2="on"] .dir-app .dir-header-brand { flex: 1 1 auto; }
+:root[data-hub2="on"] .dir-app .dir-header-brand > div { min-width: 0; }
 
 /* ══════════════════════════════════════════════════════════════
    6. The three ways off, all landing on a solid panel

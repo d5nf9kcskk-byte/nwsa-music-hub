@@ -275,7 +275,7 @@ export function PublicHome() {
           <h2 className="pub-section-title">{t('home.ourEnsembles')}</h2>
           <div className="pub-ens-btn-grid">
             {orderedEnsembles.map(en => (
-              <Link key={en.id} to={`/ensemble/${en.id}`} className="pub-ens-btn" style={{ borderLeftColor: ensembleColor(en) }}>
+              <Link key={en.id} to={`/ensemble/${en.id}`} className="pub-ens-btn" style={{ '--ens-color': ensembleColor(en) } as React.CSSProperties}>
                 {ensembleDisplayName(en)} <ChevronRight size={15} />
               </Link>
             ))}
@@ -288,7 +288,7 @@ export function PublicHome() {
           <h2 className="pub-section-title">{t('nav.collegeEnsembles')}</h2>
           <div className="pub-ens-btn-grid">
             {orderedCollege.map(en => (
-              <Link key={en.id} to={`/ensemble/${en.id}`} className="pub-ens-btn" style={{ borderLeftColor: ensembleColor(en) }}>
+              <Link key={en.id} to={`/ensemble/${en.id}`} className="pub-ens-btn" style={{ '--ens-color': ensembleColor(en) } as React.CSSProperties}>
                 {ensembleDisplayName(en)} <ChevronRight size={15} />
               </Link>
             ))}

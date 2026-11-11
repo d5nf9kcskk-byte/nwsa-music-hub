@@ -62,9 +62,9 @@ export function TeacherApp({
 
       <header className="dir-header">
         <div className="dir-header-brand">
-          <span className="dir-logo-chip">
+          <button type="button" className="dir-logo-chip" aria-label="Lesson Log" onClick={() => setTab('lessons')}>
             <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} className="dir-header-mark" />
-          </span>
+          </button>
           <div>
             <div className="dir-header-title">
               {tab === 'signups' ? 'Forms' : alsoAssistant ? 'Lesson Log & Roll' : 'Lesson Log'}

@@ -372,7 +372,7 @@ export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNav
             <div className="dir-section-head"><span>Ensembles</span></div>
             <div className="dir-ens-grid">
               {orderedEns.map(e => (
-                <button key={e.id} className="dir-ens-grid-btn" style={{ borderLeftColor: ensembleColor(e) }} onClick={() => onNavigate('ensembleHub', { ensembleId: e.id })}>
+                <button key={e.id} className="dir-ens-grid-btn" style={{ '--ens-color': ensembleColor(e) } as React.CSSProperties} onClick={() => onNavigate('ensembleHub', { ensembleId: e.id })}>
                   {e.name}
                   <ChevronRight size={15} style={{ opacity: 0.4 }} />
                 </button>
