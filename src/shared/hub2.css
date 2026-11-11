@@ -37,17 +37,9 @@
   --pub-radius-md: var(--hub2-radius-row);
   --org-font: var(--hub2-font-body);
 
-  /* Motion; reduced motion zeroes it below. The arrive values and the wipe
-     match the approved sketch's "Lively" level (#hub2-alive). */
+  /* The one curve left. Only the three ambient loops in hub2Glass.css read
+     it; every other motion token went with the motion (#glass). */
   --hub2-ease: cubic-bezier(.2, .8, .2, 1);
-  --hub2-spring: cubic-bezier(.34, 1.56, .64, 1);
-  --hub2-slide-ms: 240ms;
-  --hub2-wipe-ms: 460ms;
-  --hub2-open-ms: 380ms;
-  --hub2-arrive-ms: 460ms;
-  --hub2-arrive-d: 14px;
-  --hub2-stagger-ms: 40ms;
-  --hub2-press-scale: .97;
 }
 /* The light shadow only: a dark page keeps the stock dark elevation, which a
    6% black shadow would erase. */
@@ -86,15 +78,4 @@
 }
 @media print {
   [data-hub2="on"] .dir-app { --org-font: initial; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :root[data-hub2="on"] {
-    --hub2-slide-ms: 0ms;
-    --hub2-wipe-ms: 0ms;
-    --hub2-open-ms: 0ms;
-    --hub2-arrive-ms: 0ms;
-    --hub2-stagger-ms: 0ms;
-    --hub2-press-scale: 1;
-  }
 }

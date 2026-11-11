@@ -21,7 +21,6 @@ import { addDays, checkinCandidateEvents, ensembleDisplayName, todayStr } from '
 import type { ConcertCheckin, CalendarEvent, Ensemble } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { registerOverlayClose } from '../../shared/overlayBack';
-import { Hub2Count } from '../../shared/Hub2Count';
 import './checkin.css';
 
 /** The eventId that means "every concert's scans" rather than one concert. */
@@ -341,7 +340,7 @@ function Stat({ label, value, icon, tone, active, onClick }: {
 }) {
   return (
     <button type="button" className={`dir-checkin-stat ${tone ?? ''}${active ? ' active' : ''}`} onClick={onClick} aria-pressed={active}>
-      <span className="n">{icon} <Hub2Count value={value} /></span>
+      <span className="n">{icon} {value}</span>
       <span className="l">{label}</span>
     </button>
   );

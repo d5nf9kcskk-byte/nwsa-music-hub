@@ -164,9 +164,7 @@
       "heroBlur": "28px",
       "panelBlur": "13px",
       "fieldDrift": "40s",
-      "logoShine": "10s",
-      "morphMs": 1900,
-      "revealMs": 2300
+      "logoShine": "10s"
     }
   },
   "personalize": {

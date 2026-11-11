@@ -238,15 +238,6 @@
   /* How far the event-type bar spreads once it stops being a bar. */
   --glass-eventbar-soften: blur(7px);
 
-  /* THE MORPH NEEDS ITS OWN CURVE, not the look's. `--hub2-ease` is
-     cubic-bezier(.2,.8,.2,1), a hugely front-loaded spring that is right for
-     a 240ms slide and wrong here: with a FLIP the GEOMETRY is the animation,
-     so that curve put every panel on its mark inside the first fifth of the
-     duration and then held it still for the rest of the Pace setting. The
-     panel looked like it had snapped and the Slowest setting did nothing.
-     This one eases in as well as out, so the time is spent travelling. */
-  --hub2-morph-ease: cubic-bezier(.33, 0, .2, 1);
-
   /* Dissolved wants a bigger radius than the look's own 18px/12px. */
   --pub-radius: 31px;
   --pub-radius-lg: 31px;
@@ -454,9 +445,9 @@
   .pub-confirm-card, .pub-subscribe-panel, .pub-fm-panel, .pub-xfer-panel,
   .pub-cal, .pub-quick-btn, .pub-signup-alert, .pub-daysheet,
   /* ADDED after walking the real pages with a glass audit rather than
-     reading this list. The morph flies `.pub-page > *`, and where these two
-     disagree the Hub flies boxes with no blur in them — which is how the
-     motion can be right and the page still not look like the sample.
+     reading this list: a block of a page (`.pub-page > *`) that is not
+     named here is a box with no blur in it, which is how a page can be
+     built right and still not look like the sample.
      Concert Season measured ZERO glass blocks, and the calendar's 481px day
      panel had none while the month grid beside it did.
      `.pub-day-detail` is a panel exactly like the `.pub-cal` above it, and
@@ -791,9 +782,8 @@
 :root[data-hub2="on"] :is(.pub-menu-panel, .pub-sidebar, .pub-search-panel),
 /* .dir-sheet is gone from this list: it is the second dead class the new
    ghost-class pin caught, after .dir-section. The staff bottom sheet IS
-   .dir-drawer — `dir-sheet-up` and `hub2-dir-sheet` are keyframe names, not
-   a class, which is exactly the kind of near-miss a hand-written list
-   collects. */
+   .dir-drawer — `dir-sheet-up` is a keyframe name, not a class, which is
+   exactly the kind of near-miss a hand-written list collects. */
 :root[data-hub2="on"] .dir-app :is(.dir-menu-panel, .dir-rail, .dir-drawer) {
   background: var(--glass-chrome);
   -webkit-backdrop-filter: var(--glass-chrome-fx);

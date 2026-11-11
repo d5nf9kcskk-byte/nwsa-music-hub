@@ -181,7 +181,7 @@ export function PublicProgram() {
   }
 
   return (
-    <div className="pub-page pub-program pub-hall pub-drill">
+    <div className="pub-page pub-program pub-hall">
       <div className="pub-program-toolbar">
         <BackLink fallback="/calendar" label="Back" />
         <button className="pub-print-btn" onClick={handlePrint}>

@@ -539,12 +539,9 @@ export default function DirectorApp() {
   // must not throw away the place you were reading.
   //
   // A layout effect, for the same reason react-router's own does it that way:
-  // the reset lands before paint, so the glass morph (hub2Morph.ts, which
-  // measures `.dir-content`'s panels once React has swapped the page) sees the
-  // arriving blocks where they will actually sit. Found by querySelector
-  // rather than a ref because hub2.selfcheck.ts pins the exact text
-  // `<main className="dir-content">`, and only one staff shell is ever
-  // mounted, so there is only ever one of them in the document.
+  // the reset lands before paint, so the new screen is never seen part-way
+  // down. Found by querySelector: only one staff shell is ever mounted, so
+  // there is only ever one `.dir-content` in the document.
   useLayoutEffect(() => { document.querySelector('.dir-content')?.scrollTo({ top: 0 }); }, [tab]);
 
   const hubEnsemble = ensembles.find(e => e.id === intent.ensembleId);
