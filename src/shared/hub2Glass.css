@@ -492,8 +492,14 @@
    nothing reflows. And the split is the same one section 2 already makes:
    a line that says "this one is DIFFERENT" is information and keeps its
    line (the red error boxes, the amber warnings, .pub-allclear's green,
-   the per-ensemble colour on .pub-ens-btn, the event-type chips, the
-   Spotlight banner's gold). A line that merely says "this is a box" goes.
+   the event-type chips, the Spotlight banner's gold). A line that merely
+   says "this is a box" goes.
+
+   .pub-ens-btn used to be named here as a fourth example and no longer is:
+   on 2026-11-11 it joined the dissolved list, and its ensemble colour rides
+   in the GLOW instead (the note above it). That is the rule refined rather
+   than broken -- information can dissolve, so long as what dissolves keeps
+   its colour. The same is true of the event bar, softened below.
 
    .pub-signup-alert is the one judgement call in the list: it is a teal
    ring round "Forms are open", which is a prompt rather than a severity,
@@ -640,18 +646,37 @@
    ghost-token sweep turned an invalid --dir-accent into a real --dir-primary,
    so dissolving it finishes that change rather than undoing it.
 
-   --dir-primary and --dir-blue rather than --hub2-accent, unlike the public
-   rule: that one reaches for the org token because --pub-accent is
-   re-pointed inside the What's New subtree, and nothing does that to these
-   two -- both are declared at shell level only, and hub2.selfcheck.ts
-   already pins the staff --dir-primary to var(--hub2-accent). Reading them
-   means the glow follows the look including Spotlight, which re-points both
-   to the hall's gold on a concert night. A teal glow in a gold shell is the
-   same mismatch one layer down. */
+   THE ORG TOKENS, exactly as the public rule reads them, and this was wrong
+   once: it read --dir-primary and --dir-blue first, on the argument that both
+   are declared at shell level and that hub2.selfcheck.ts pins the staff
+   --dir-primary to var(--hub2-accent). The pin is real and the argument was
+   still wrong, because it is a claim about the SOURCE and the bug is in the
+   computed value. Measured in a rendered staff shell: with the panel dark,
+   --dir-primary is #0d7e8e while the public twin's glow is #3AA8B8. Two
+   colours for one stripe, which is the single thing this round exists to fix.
+
+   hub2.css scopes the staff --dir-primary to `:not([data-dir-theme="dark"])`
+   deliberately and says why -- it is the header FILL under WHITE text, and
+   the look's dark accent would fail white text there -- so in dark it is not
+   the look's colour at all and falls through to director.css's stock teal.
+   A glow on a panel is not a fill under white text, so that reason does not
+   reach this rule and --hub2-accent is right here.
+
+   Given up knowingly: --dir-primary would have followed Spotlight to the
+   hall's gold on a concert night. The public side has never done that, so
+   matching it drops a nicety rather than adding one to both. If it is wanted,
+   it belongs in hub2Staff.css's Spotlight block, and on the striped elements
+   themselves -- an ancestor's custom property loses to the element's own. */
 :root[data-hub2="on"] .dir-app :is(
   .dir-page-hint, .dir-staff-notice, .dir-rubric-line-note
-) { --glass-stripe: var(--dir-primary); }
-:root[data-hub2="on"] .dir-app .dir-ens-grid-btn { --glass-stripe: var(--ens-color, var(--dir-blue)); }
+) { --glass-stripe: var(--hub2-accent); }
+/* The tile alone takes --ens-color (#239), so an ensemble's own colour glows
+   on its own button. Not the three above: that property is only ever set as
+   an inline style, on .dir-ens-grid-btn in TodayView.tsx and .pub-ens-btn in
+   PublicHome.tsx, and nothing sets it on a container, so on a hint box or a
+   Today notice it could never resolve. The FALLBACK is the org token for the
+   reason in the note above. */
+:root[data-hub2="on"] .dir-app .dir-ens-grid-btn { --glass-stripe: var(--ens-color, var(--hub2-plum)); }
 
 :root[data-hub2="on"] .dir-app :is(
   .dir-page-hint, .dir-staff-notice, .dir-rubric-line-note, .dir-ens-grid-btn
