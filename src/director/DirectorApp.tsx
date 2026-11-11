@@ -251,7 +251,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   messages:        'Messages families send through the public Contact Us form. Reply opens your own email app.',
   signups:         'Sign-ups, permission slips, registrations \u2014 anything students or families fill out. They pick their name (or type it, on a form open to anyone with the link), answer your questions, and sign. You see who has and hasn\u2019t, and get a spreadsheet and the signed forms.',
   juries:          'End-of-semester juries. Add one as soon as you know it\u2019s happening \u2014 a name is enough \u2014 and fill in the date, room, panel, and running order as each gets decided.',
-  gradebook:       'Quarter grades, and the tables the district collects. Type each category with the Hub\u2019s own attendance, exam and concert records printed beside the name, then build the email and paste it.',
+  gradebook:       'Every grade in the Hub, one spreadsheet per class. High school tables build the district email; college tables copy into a spreadsheet for MDC.',
   approvals:       'Everything a Student Assistant has submitted, waiting on you. Nothing they send reaches families until you approve it here \u2014 taking roll is the exception and still lands right away.',
   directors:       'Who can sign in and at what level. Tap the pencil to edit roles and assignments \u2014 ensembles, class sections, or applied-lesson students.',
   // Spread-conditional so the string ships only in personnel-org bundles.

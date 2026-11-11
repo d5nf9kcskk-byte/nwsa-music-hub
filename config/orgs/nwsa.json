@@ -255,12 +255,23 @@
         ]
       },
       "default": [
-        { "id": "attendance", "label": "Attendance & Punctuality", "weight": 30 },
+        { "id": "attendance", "label": "Attendance & Punctuality", "weight": 30, "showsRoll": true },
         { "id": "prep", "label": "Preparation & Participation", "weight": 10 },
-        { "id": "exams", "label": "Playing Exams", "weight": 15, "suggest": "exams" },
-        { "id": "performance", "label": "Performance", "weight": 20 },
+        { "id": "exams", "label": "Playing Exams", "weight": 15, "suggest": "exams",
+          "assignmentTypes": ["Playing Exam", "Written Test", "Other"] },
+        { "id": "performance", "label": "Performance", "weight": 20, "assignmentTypes": ["Performance"] },
         { "id": "concerts", "label": "Required Performance Attendance", "weight": 15, "suggest": "concerts" },
         { "id": "professionalism", "label": "Professionalism", "weight": 10 }
+      ],
+      "college": [
+        { "id": "attendance", "label": "Attendance & Punctuality", "weight": 30, "showsRoll": true },
+        { "id": "prep", "label": "Preparation & Participation", "weight": 10 },
+        { "id": "exams", "label": "Exams & Tests", "weight": 15, "suggest": "exams",
+          "assignmentTypes": ["Playing Exam", "Written Test", "Other"] },
+        { "id": "performance", "label": "Performance", "weight": 20, "assignmentTypes": ["Performance"] },
+        { "id": "concerts", "label": "Required Performance Attendance", "weight": 15, "suggest": "concerts" },
+        { "id": "professionalism", "label": "Professionalism", "weight": 10 },
+        { "id": "lessons", "label": "Applied Lessons", "weight": 15, "suggest": "lessons" }
       ]
     },
     "commentRules": { "academicAtOrBelow": 79, "effortAtOrAbove": 3, "conductAtOrBelow": "C" },

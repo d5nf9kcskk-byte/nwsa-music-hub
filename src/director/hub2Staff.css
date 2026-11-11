@@ -249,11 +249,7 @@
 :root[data-hub2="on"] .dir-app .dir-checkin-stat .n {
   font-size: 1.6rem; letter-spacing: -.02em; font-variant-numeric: tabular-nums;
 }
-:root[data-hub2="on"] .dir-app .dir-gb-grade {
-  font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums;
-}
-:root[data-hub2="on"] .dir-app .dir-gb-score,
-:root[data-hub2="on"] .dir-app .dir-gb-avg { font-weight: 700; font-variant-numeric: tabular-nums; }
+:root[data-hub2="on"] .dir-app .gb-grid { font-variant-numeric: tabular-nums; }
 
 /* Sun for what is owed or waiting (light only: the stock dark amber already
    reads, and the sun fill under white-ish dark text would not). */

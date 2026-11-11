@@ -529,13 +529,41 @@
    where a line is structure rather than ornament. Written as its own colour
    so it survives the token, at a weight that still reads as glass rather
    than as a spreadsheet. */
-:root[data-hub2="on"] .dir-app :is(
-  .dir-gb-table th, .dir-gb-table td,
-  /* And the applied-lesson log, for the same reason and more strongly: it
-     is a reproduction of the school's own printed form (#applied), and a
-     form whose boxes have no lines is not the form. */
-  .dir-log-table th, .dir-log-table td
-) {
+:root[data-hub2="on"] .dir-app .gb-grid {
+  /* GIVE THE TOKEN BACK, rather than naming the cells. The rebuilt grid
+     (main, 2026-11-10) reads --dir-border for the cell rules AND for the
+     two frozen columns' box-shadows AND for the average group's double
+     divider, and a border-color list reaches none of the last three. One
+     declaration on the table covers all of them and cannot drift when a
+     column is added. Scoped to .gb-grid and NOT .gb-scroll because the
+     scroll box reads the token for its own outer edge, which is a box
+     saying "I am a box" and is what the glass is right to dissolve. */
+  --dir-border: color-mix(in srgb, var(--hub2-ink) 14%, transparent);
+}
+
+/* AND THE THREE FROZEN STRIPS GO OPAQUE. The grid freezes its header row,
+   its name column and its final-grade column, and paints all three from
+   --dir-surface, which here is 21% white in light and 4% in dark. A sticky
+   strip at 21% alpha passes 79% of what scrolls under it, so the names and
+   the finals and the column headings are read through by a hundred and forty
+   rows of numbers. Blur is what the group-picker label one rule above does
+   for the same reason, and it is wrong at this size: that is one label,
+   while this is a header row plus two columns a hundred and forty cells
+   long, and three hundred backdrop-filters is the perf regression the note
+   below warns about. So: opaque, on the one surface in the look that already
+   has an opaque value for both tiers. Declared as the TOKENS and not as a
+   background, so the zebra striping, the typed-cell weight and everything
+   else main builds on these two keeps working, one shade denser. */
+:root[data-hub2="on"] .dir-app :is(.gb-grid thead th, .gb-name, .gb-final) {
+  --dir-surface: var(--hub2-surface);
+  --dir-surface-2: color-mix(in srgb, var(--hub2-ink) 6%, var(--hub2-surface));
+}
+/* The applied-lesson log is the same story and more strongly: it is a
+   reproduction of the school's own printed form (#applied), and a form whose
+   boxes have no lines is not the form. Named cells here rather than the
+   token because this table paints its own outer frame from --dir-border too,
+   and that frame IS part of the printed form. */
+:root[data-hub2="on"] .dir-app :is(.dir-log-table th, .dir-log-table td) {
   border-color: color-mix(in srgb, var(--hub2-ink) 14%, transparent);
 }
 
