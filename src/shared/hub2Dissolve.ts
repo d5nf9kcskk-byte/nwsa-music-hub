@@ -5,38 +5,45 @@
  * ("Liquid, slow, smooth"). The page you leave melts into soft pools, like ink
  * in water, and the pools gather into the next page.
  *
- * ONE LENS, NOT MANY MOVERS. Nothing on either page animates. One fixed sheet
- * (the lens) lies over the page area, under the header and the tab bar, and
- * fogs up and clears through `backdrop-filter`. Every pixel therefore changes
- * at the same rate on one clock, which is the whole answer to the five rounds
- * of per-panel morphs that "don't move at the same rate".
+ * TWO COPIES, ONE CLOCK, AND NO BACKDROP-FILTER. The first build laid one
+ * see-through lens over the page and animated its `backdrop-filter`. Chrome
+ * painted it; on the director's iPhone the blur was computed (getComputedStyle
+ * said 32px at the peak) and never painted, so every page change was a quick
+ * fade with nothing melting (2026-11-11). An ordinary `filter` on an element
+ * is painted by every engine, so this blurs COPIES of the pages directly:
+ *
+ *   UP    The page being left is copied (the "out" copy) at its scroll offset,
+ *         beside the live page, which hides (visibility only) while the new
+ *         page renders into it. The copy melts: blur, then a contrast step
+ *         pivoted on the page colour, so text and edges gather into pools.
+ *   PEAK  If the new page is still showing loading placeholders, the melt
+ *         holds (holdMs at most) rather than clear onto placeholders.
+ *   DOWN  The new page is copied (the "in" copy) at the same melt, under the
+ *         out copy, which fades while both are formless. The in copy clears,
+ *         and over the last fifth the live page (real glass) is revealed
+ *         under it as the copy fades, so nothing pops.
+ *   END   Animations cancelled, copies removed. Nothing left behind.
+ *
+ * Every animated value in one change starts at the same instant and runs on
+ * one duration, so every pixel changes at the same rate: the answer to the
+ * per-panel morphs that "don't move at the same rate".
  *
  * THE RULE THIS FILE IS BUILT ROUND: opacity, filter, mask, clip-path or
  * mix-blend-mode on an ANCESTOR of live glass silently flattens every card in
- * it. So the lens is appended to <body> and is never an ancestor of a page,
- * the live page is hidden with `visibility` alone (not on that list), and the
- * only thing that fades is the ghost: a throwaway copy of the page you left.
- * And never the View Transitions API: Safari and Firefox switch
- * `backdrop-filter` off for the whole of one (WebKit 302256).
+ * it. So filter and opacity go on the COPIES only (their glass is switched off
+ * in hub2Glass.css: under a filter it would be flat anyway), and the live page
+ * is only ever hidden and shown with `visibility`, which is not on that list.
+ * Never the View Transitions API: Safari and Firefox switch `backdrop-filter`
+ * off for the whole of one (WebKit 302256).
  *
- *   UP    The outgoing page is copied into a ghost at the same scroll offset,
- *         the new page goes in underneath (kept visibility:hidden), and the
- *         lens ramps from clear to its peak.
- *   PEAK  If the new page is still showing loading placeholders, wait here
- *         (holdMs at most) rather than clear onto placeholders.
- *   DOWN  The new page is shown, the ghost fades early while the blur is
- *         still near its peak (so two readable pages are never on screen
- *         together), and the lens clears.
- *   END   Animations cancelled, ghost and lens removed. Nothing left behind.
+ * A second change mid-way RETARGETS: while melting or holding, only the page
+ * underneath changes; while clearing, what is on screen becomes the out copy
+ * and the melt climbs back from wherever it had got to.
  *
- * A second change mid-way RETARGETS: while fogging up or holding, only the
- * page underneath changes; while clearing, what is on screen becomes the new
- * ghost and the lens climbs back from wherever it had got to.
- *
- * ONE CLOCK. The duration, the peak blur and the hold all come from the org
- * config (`hub2.glass.dissolveMs` / `dissolveBlur` / `dissolveHoldMs`, emitted
- * as --hub2-dissolve-* by hub2Tokens.ts). The one curve is LAW below. Nothing
- * else in the look may name a duration (hub2.selfcheck.ts §7).
+ * ONE CLOCK. Duration, peak blur and hold come from the org config
+ * (`hub2.glass.dissolveMs` / `dissolveBlur` / `dissolveHoldMs`, emitted as
+ * --hub2-dissolve-* by hub2Tokens.ts). The one curve is LAW below. Nothing else
+ * in the look may name a duration (hub2.selfcheck.ts §7).
  */
 import { HUB2_ATTR } from './hub2Tokens';
 
@@ -44,13 +51,15 @@ import { HUB2_ATTR } from './hub2Tokens';
 const SCROLLER = '.pub-content, .dir-content';
 /** A page still fetching. A page showing one of these is not the page having arrived. */
 const PLACEHOLDER = '.pub-skeleton-card, .dir-loading';
-/** <html> carries the phase, so CSS can hide the live page while the ghost shows. */
+/** <html> carries the phase, so CSS can hide the live page while a copy shows. */
 export const PHASE_ATTR = 'data-hub2-dissolve';
 
-/** Share of the clock spent fogging up; the rest clears. */
+/** Share of the clock spent melting; the rest clears. */
 const UP = 0.42;
-/** Share of the clearing in which the old page fades away. */
-const GHOST_OUT = 0.34;
+/** Share of the clearing in which the out copy fades under the peak. */
+const OUT_FADE = 0.15;
+/** Share of the clearing after which the live page shows under the in copy. */
+const REVEAL_AT = 0.8;
 /** Keyframes the curve is cut into, played linear. */
 const STEPS = 12;
 /** Liquid is blur, then contrast pivoted on the PAGE colour (plain contrast()
@@ -62,13 +71,19 @@ const GAIN = 2.6;
  *  from here, so every doubling takes the same share of the clock. */
 const FINE = 0.5;
 
-/** THE CURVE. Up sets off at once and settles into the peak; down stays near
- *  the peak while the old page leaves, then clears. */
+/** THE CURVE. The melt sets off at once and settles into the peak; the
+ *  clearing stays near the peak while the old page leaves, then clears. */
 const smooth = (u: number) => u * u * (3 - 2 * u);
 const LAW = {
   up: (u: number) => smooth(Math.pow(u, 0.7)),
   down: (u: number) => smooth(Math.pow(u, 1.5)),
 };
+
+/** The only thing ever animated on the LIVE page: whether it is shown. */
+const REVEAL: Keyframe[] = [
+  { visibility: 'hidden' }, { visibility: 'hidden', offset: REVEAL_AT },
+  { visibility: 'visible', offset: REVEAL_AT }, { visibility: 'visible' },
+];
 
 type Clock = { ms: number; blur: number; holdMs: number };
 
@@ -80,34 +95,14 @@ function clock(): Clock {
 
 const mq = (q: string) => !!window.matchMedia?.(q).matches;
 
-/** Can this browser animate a backdrop filter at all? iOS 16 and 17 know only
- *  the prefixed property. Asked once; a browser that cannot simply changes page. */
-let animatable: boolean | undefined;
-function canAnimate(): boolean {
-  if (animatable !== undefined) return animatable;
-  try {
-    const el = document.createElement('div');
-    document.body.appendChild(el);
-    const f = 'blur(3px)';
-    const a = el.animate([{ webkitBackdropFilter: f, backdropFilter: f }, { webkitBackdropFilter: f, backdropFilter: f }], { fill: 'both' });
-    a.pause();
-    const cs = getComputedStyle(el) as CSSStyleDeclaration & { webkitBackdropFilter?: string };
-    animatable = `${cs.backdropFilter ?? ''}${cs.webkitBackdropFilter ?? ''}`.includes('blur');
-    a.cancel();
-    el.remove();
-  } catch { animatable = false; }
-  return animatable;
-}
-
 /** The one gate: the look is on, the person has asked for neither less motion
- *  nor less transparency, the browser can do it, and the config gives a clock. */
+ *  nor less transparency, and the config gives a clock. */
 export function dissolveOn(): boolean {
   return document.documentElement.getAttribute(HUB2_ATTR) === 'on'
     && typeof document.body?.animate === 'function'
     && !mq('(prefers-reduced-motion: reduce)')
     && !mq('(prefers-reduced-transparency: reduce)')
-    && clock().ms > 0
-    && canAnimate();
+    && clock().ms > 0;
 }
 
 /** Where the page colour sits, 0 (black) to 1 (white): the contrast pivot. */
@@ -118,8 +113,8 @@ function pivot(at: Element): number {
   return (parseInt(m[1], 16) + parseInt(m[2], 16) + parseInt(m[3], 16)) / 765;
 }
 
-/** The lens at level p (0 clear, 1 peak). */
-function lensAt(p: number, c: Clock, P: number): string {
+/** The melt at level p (0 sharp, 1 peak). */
+function meltAt(p: number, c: Clock, P: number): string {
   const r = FINE * (Math.pow(c.blur / FINE + 1, p) - 1);
   const g = 1 + (GAIN - 1) * p;
   const K = 1 + 2 * P * (g - 1);
@@ -129,14 +124,14 @@ function lensAt(p: number, c: Clock, P: number): string {
 type Phase = 'up' | 'hold' | 'down';
 const S: {
   phase: Phase | null; anims: Animation[]; from: number; to: number; law: (u: number) => number;
-  ghost: HTMLElement | null; lens: HTMLElement | null; gen: number; holdUntil: number; watch: MutationObserver | null; timer: number;
-} = { phase: null, anims: [], from: 0, to: 0, law: LAW.up, ghost: null, lens: null, gen: 0, holdUntil: 0, watch: null, timer: 0 };
+  out: HTMLElement | null; in: HTMLElement | null; gen: number; holdUntil: number; watch: MutationObserver | null; timer: number;
+} = { phase: null, anims: [], from: 0, to: 0, law: LAW.up, out: null, in: null, gen: 0, holdUntil: 0, watch: null, timer: 0 };
 
 function scroller(): HTMLElement | null {
   return document.querySelector<HTMLElement>(`:is(${SCROLLER}):not(.hub2-ghost)`);
 }
 
-/** How fogged the lens is now, read off the clock so a retarget picks up from here. */
+/** How melted the page is now, read off the clock so a retarget picks up from here. */
 function level(): number {
   if (!S.phase) return 0;
   if (S.phase === 'hold') return 1;
@@ -150,11 +145,11 @@ function setPhase(p: Phase | null) {
   else document.documentElement.removeAttribute(PHASE_ATTR);
 }
 
-/** Copy the page on screen into a ghost, laid exactly over it. It is placed
- *  BESIDE the live page (same parent), so every shell rule still styles it,
- *  and after it, so querySelector still finds the live one first. */
-function makeGhost(live: HTMLElement) {
-  S.ghost?.remove();
+/** Copy the live page, laid exactly over it. It goes BESIDE the live page
+ *  (same parent), so every shell rule still styles it, and directly after it,
+ *  so querySelector still finds the live one first and a newer copy sits
+ *  UNDER an older one. */
+function copyOf(live: HTMLElement): HTMLElement {
   const r = live.getBoundingClientRect();
   const g = live.cloneNode(true) as HTMLElement;
   g.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
@@ -166,42 +161,27 @@ function makeGhost(live: HTMLElement) {
   g.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
   live.after(g);
   g.scrollTop = live.scrollTop;
-  S.ghost = g;
+  return g;
 }
 
-/** The lens covers the page area as it sits on screen, never the rail or bars. */
-function placeLens(live: HTMLElement) {
-  const r = live.getBoundingClientRect();
-  const top = Math.max(0, r.top), bottom = Math.min(innerHeight, r.bottom);
-  const lens = S.lens ?? document.body.appendChild(Object.assign(document.createElement('div'), { className: 'hub2-lens' }));
-  lens.setAttribute('aria-hidden', 'true');
-  lens.style.cssText = `left:${r.left}px;top:${top}px;width:${r.width}px;height:${Math.max(0, bottom - top)}px`;
-  S.lens = lens;
-}
-
-/** Start one phase: every animated thing created now, on one duration. */
-function run(from: number, to: number, law: (u: number) => number, ms: number, down: boolean): number {
+function melt(from: number, to: number, law: (u: number) => number): Keyframe[] {
   const c = clock();
-  const live = scroller();
-  const P = pivot(live ?? document.documentElement);
-  const pts: number[] = [];
-  for (let k = 0; k <= STEPS; k++) pts.push(from + (to - from) * law(k / STEPS));
-  const T: KeyframeAnimationOptions = { duration: ms, easing: 'linear', fill: 'both' };
-  const old = S.anims;
-  S.anims = [S.lens!.animate(pts.map(p => { const f = lensAt(p, c, P); return { webkitBackdropFilter: f, backdropFilter: f }; }), T)];
-  if (down && S.ghost) {
-    S.ghost.classList.add('leaving');
-    S.anims.push(S.ghost.animate([{ opacity: 1 }, { opacity: 0, offset: GHOST_OUT }, { opacity: 0 }], T));
-  }
-  old.forEach(a => a.cancel());
-  S.from = from; S.to = to; S.law = law;
-  return ++S.gen;
+  const P = pivot(scroller() ?? document.documentElement);
+  const k: Keyframe[] = [];
+  for (let i = 0; i <= STEPS; i++) k.push({ filter: meltAt(from + (to - from) * law(i / STEPS), c, P) });
+  return k;
+}
+
+function begin(gen: number, anims: Animation[], from: number, to: number, law: (u: number) => number) {
+  S.anims.forEach(a => a.cancel());
+  S.anims = anims; S.from = from; S.to = to; S.law = law;
+  return gen;
 }
 
 function startUp(from: number) {
   setPhase('up');
-  const c = clock();
-  const gen = run(from, 1, LAW.up, Math.max(c.ms * UP * (1 - from), 1), false);
+  const T: KeyframeAnimationOptions = { duration: Math.max(clock().ms * UP * (1 - from), 1), easing: 'linear', fill: 'both' };
+  const gen = begin(++S.gen, [S.out!.animate(melt(from, 1, LAW.up), T)], from, 1, LAW.up);
   S.anims[0].finished.then(() => { if (gen === S.gen) hold(); }, () => {});
 }
 
@@ -228,9 +208,24 @@ function hold() {
 function startDown() {
   S.watch?.disconnect(); S.watch = null; clearTimeout(S.timer);
   const live = scroller();
-  if (live) placeLens(live);
+  if (!live) { finish(); return; }
+  S.in?.remove();
+  S.in = copyOf(live);
   setPhase('down');
-  const gen = run(1, 0, LAW.down, clock().ms * (1 - UP), true);
+  const T: KeyframeAnimationOptions = { duration: clock().ms * (1 - UP), easing: 'linear', fill: 'both' };
+  const anims = [
+    S.in.animate(melt(1, 0, LAW.down), T),
+    S.in.animate([{ opacity: 1 }, { opacity: 1, offset: REVEAL_AT }, { opacity: 0 }], T),
+    live.animate(REVEAL, T),
+  ];
+  // The out copy stays fully melted while it fades: its own melt animation is
+  // about to be cancelled, and a fading copy that snapped back sharp would put
+  // the old page on screen for a moment.
+  if (S.out) {
+    const peak = melt(1, 1, LAW.down)[0].filter as string;
+    anims.push(S.out.animate([{ opacity: 1, filter: peak }, { opacity: 0, filter: peak, offset: OUT_FADE }, { opacity: 0, filter: peak }], T));
+  }
+  const gen = begin(++S.gen, anims, 1, 0, LAW.down);
   S.anims[0].finished.then(() => { if (gen === S.gen) finish(); }, () => {});
 }
 
@@ -239,8 +234,8 @@ export function finish() {
   S.gen++;
   S.anims.forEach(a => a.cancel()); S.anims = [];
   S.watch?.disconnect(); S.watch = null; clearTimeout(S.timer);
-  S.ghost?.remove(); S.ghost = null;
-  S.lens?.remove(); S.lens = null;
+  S.out?.remove(); S.out = null;
+  S.in?.remove(); S.in = null;
   setPhase(null);
 }
 
@@ -260,8 +255,14 @@ export function dissolve(swap?: () => void): void {
   const live = scroller();
   if (!live) { finish(); swap?.(); return; }
   const from = level();
-  placeLens(live);
-  makeGhost(live);
+  if (S.phase === 'down' && S.in) {
+    // What is on screen (the clearing in copy) becomes the page being left.
+    S.out?.remove();
+    S.out = S.in; S.in = null;
+  } else {
+    S.out?.remove();
+    S.out = copyOf(live);
+  }
   swap?.();
   startUp(from);
 }
