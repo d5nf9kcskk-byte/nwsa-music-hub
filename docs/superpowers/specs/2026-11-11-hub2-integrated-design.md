@@ -360,9 +360,11 @@ Nov 30, Dec 3, Dec 9, Dec 10, Dec 12. No merges on those days.
 4. **Staff Ask and the phone bottom bar in January.** Recommended: yes.
 5. **Week strip, concert hero, instrument badges:** January, or retired.
    Recommended: January, decided after the flip.
-6. **The questions people really type.** The corpus starts from 30 the
-   review wrote. Any the director adds in his own words, or collects from
-   students, go straight into the self-check.
+6. **The questions people really type.** Decided 2026-11-11: the list is
+   written from what the Hub is used for, not collected. It is
+   `src/shared/ask/corpus.ts`, 307 questions (227 student, 38 parent, 42
+   staff; 39 in Spanish; 17 the engine must refuse). It is the engine's
+   spec and its self-check. Decisions 1 to 5 and 7: yes, same day.
 7. **Email and password sign-in for staff** (section 10). Recommended:
    yes, built first, switched on after the director tries it himself.
 
