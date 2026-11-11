@@ -93,7 +93,7 @@ export interface Hub2Palette {
  * src/shared/hub2Glass.css is mixed from the palette above, so an org re-tints
  * the glass by changing its accent and never by editing a stylesheet.
  *
- * The director chose Full glass with Dissolved edges and the Slowest pace from
+ * The director chose Full glass with Dissolved edges from
  * docs/design/glass-sample.html on 2026-11-07; those are the values below and
  * the one combination the app ships. The sample keeps the other eight for
  * comparison.
@@ -101,7 +101,12 @@ export interface Hub2Palette {
  * ONE WORD TURNS IT OFF: `chromeBlur` and `heroBlur` at "0px" leave the look
  * with solid panels and no blur anywhere, which is also what
  * `prefers-reduced-transparency: reduce` and a browser without
- * `backdrop-filter` get. `morphMs: 0` leaves pages changing instantly.
+ * `backdrop-filter` get.
+ *
+ * NO MOTION NUMBERS, on purpose (2026-11-10): the page morph's and scroll
+ * reveal's durations went with them. The one page transition the look gets
+ * next brings ONE duration and ONE curve back here, and nothing else in the
+ * look may name its own (docs/design/liquid-dissolve-plan.md).
  */
 export interface Hub2Glass {
   /** Blur behind the header, the rail, the tab bar, drawers and sheets. */
@@ -116,10 +121,6 @@ export interface Hub2Glass {
   fieldDrift: string;
   /** The specular sweep across the brand mark. Long and slow, or it is a distraction. */
   logoShine: string;
-  /** How long a panel takes to reform into its counterpart on the next page. */
-  morphMs: number;
-  /** The scroll reveal that rides with the morph. */
-  revealMs: number;
 }
 
 /**

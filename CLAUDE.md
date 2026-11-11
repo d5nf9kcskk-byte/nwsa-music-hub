@@ -2040,37 +2040,30 @@ any change. Later sessions apply it page by page.
   titles and gold hairlines on pages carrying `.pub-hall` (event, program,
   Concerts); Spotlight on the check-in pages (`.pub-checkin`,
   `.pub-checkins`) and the public Tonight banner, by re-pointing the
-  `--pub-*` tokens inside the stage; slide-in on `.pub-drill` pages, a 30ms
-  list stagger and a 97% press, all off under reduced motion. Those page
+  `--pub-*` tokens inside the stage. Those page
   classes have NO stock CSS (the self-check fails if one gains any), which is
   what lets a component carry them with the preview off.
-- **Page wipes and soft reveals** (#hub2-motion, director's ask 2026-11-04),
-  both only under the look and without reduced motion. The rule that shapes
-  both: **nothing may stay a layer once the motion is over.** The first
-  version named the content pane for good (every sheet and drawer slid under
-  the header and the tab bar) and animated opacity/translate on a scroll
-  timeline (Chrome keeps such a block a layer while the animation is
-  attached, which is forever, so dropdowns went under the next section).
-  WIPES: `src/shared/hub2Motion.ts` `withPageWipes()` wraps the router in
-  `main.tsx` so a navigation to another PAGE (`changesPage()`: not a filter
-  tap, not a hash) asks React Router for a View Transition. The whole screen
-  (root) wipes left to right with ONE moving edge (`hub2-wipe-in` on the new,
-  `hub2-wipe-out` on the old, so they never overlap; both ends of each are
-  written out, because clip-path cannot blend an inset() into `none` and a
-  one-ended keyframe just cuts over halfway); the header, rail, tab
-  bar and Director Panel strip are named ONLY under `:active-view-transition`
-  so they stay still above it. `mix-blend-mode: normal` on the pair, or the
-  browser's plus-lighter cross-fade flashes white. The `.pub-drill` slide is
-  dropped where wipes run. REVEALS, public pages only: each block of
-  `.pub-page` fades in as it scrolls in, by animating a registered number
-  (`@property --hub2-reveal`, initial 1) on `animation-timeline: view()` with
-  fill `backwards`, and `opacity: var(--hub2-reveal, 1)`; in view, it is
-  plain opacity 1. Left alone: blocks dimmed on purpose (`.cancelled`,
-  `.pub-past-dim`), blocks that are or hold something `position: fixed`
-  (`hub2.selfcheck.ts` §7 derives every fixed class from the CSS), and
-  staggered rows. No staff reveals: staff screens dim too many things on
-  purpose. §7 also pins `changesPage()`, the names-only-while-transitioning
-  rule, the moving edge and the registered number.
+- **Motion: the look has none of its own** (#hub2-motion, director's call
+  2026-11-10). It carried a per-panel page morph, an arrive stagger, a drill
+  slide, a scroll reveal, a pop, a press dip and ripple, a rolling count, a
+  self-drawing check and a note burst, each on its own clock, four of them
+  firing on one page change. After five rounds of tuning: "They don't move at
+  the same rate. It's not timed out, and it's not even." So all of it was
+  deleted, not tuned again (`hub2Morph.ts` and `Hub2Count.tsx` are gone;
+  `hub2Motion.ts` keeps only `changesPage()`), and the look is the glass
+  standing still. The inventory, and what replaces it (ONE dissolve between
+  pages on one clock, picked by the director from
+  `docs/design/liquid-dissolve-sample.html`), is
+  `docs/design/liquid-dissolve-plan.md`. Until that lands, add no animation
+  and no transition to any hub2 sheet or script: `hub2.selfcheck.ts` §7 fails
+  the build on anything but the three ambient loops in `hub2Glass.css` (the
+  drifting field, the pane shine, the living logo) and `animation: none`.
+  Menus and drawers open on the STOCK keyframes, which move a transform or a
+  background and nothing else; the one that fades opacity (the laptop
+  drawer's `dir-slide-in-right`) is silenced under the look, because an
+  opacity below 1 on an ancestor of a glass panel flattens it. Never use the
+  View Transitions API on anything carrying glass: Safari and Firefox switch
+  `backdrop-filter` off for the whole transition (WebKit 302256). §7 pins it.
 - **The public hub2 rules are `@media screen` only** (all of
   `hub2Public.css`, and the `--pub-*` block of `hub2.css`). Paper (program,
   season fridge copy, Start Guide, QR kit) prints identically with the
@@ -2112,8 +2105,7 @@ any change. Later sessions apply it page by page.
   Hall's Newsreader on a concert's title on Schedule, Today's coming-up list,
   the event drawer (Title field, gold hairline under its labels), the
   concert's roll and roster, and Check-In; Spotlight on Today's concert card
-  and on Check-In's page for a concert held today; slide-in drill-downs,
-  staggered lists and a press dip, all off under reduced motion. Components
+  and on Check-In's page for a concert held today. Components
   carry hooks for it (`data-event-type`, `data-hub2-spotlight`,
   `.dir-today-time`, `.dir-roll-concert`, `.dir-hall-title`) that NO other
   stylesheet may read, so flag off stays pixel-identical. **Prints never take
@@ -2143,32 +2135,12 @@ look on Dec 13 by the same one-word flip; nothing new to switch.
   at once, including screens built later. A new screen built from these parts
   needs nothing more. Do not go back to styling screens one by one: that is
   how the first pass stopped at five.
-- **Eight motions, one vocabulary, Lively level** (the director's pick):
-  arrive (the first 16 rows of a list rise in, 40ms apart), change page (the
-  wipe, now behind a gold edge), press (dip plus a ripple), open (drawers rise
-  or slide in), choose (a new selection pops), count (`Hub2Count` rolls a
-  changed number), finish (every lucide check draws itself;
-  `hub2Celebrate()` bursts notes from a success), live (Now card, countdown:
-  Piece 2). Ambient motion (drifting glow, gold dust, looping shimmer) belongs
-  ONLY to concert-night surfaces. Take Roll never moves on its own.
-- **One gate.** `hub2MotionOn()` in `src/shared/hub2Motion.ts` (look on and no
-  reduced motion) is asked at every press, page change and success; the
-  ripple and the note burst are fixed overlays on `<body>` that remove
-  themselves, so no component's CSS changes. The gold edge is a `<div>` first
-  in `<body>`, hidden by CSS and named `hub2-edge` only while a View
-  Transition runs; its group sweeps with the wipe, under the header and tab
-  bar groups.
-- **Nothing stays a layer.** Every animation on a page element fills
-  `backwards` with one-ended keyframes. The first staff rules used `both` with
-  a `to { opacity: 1 }`, which kept every card a layer AND undid the dimming
-  of a cancelled card under the look. `hub2.selfcheck.ts` §8 fails on any
-  other fill (view-transition pseudo-elements and the self-removing overlays
-  excepted, `infinite` allowed for the concert-night ambient).
-- `hub2-count`, `hub2-roll`, `hub2-wipe-edge`, `hub2-ripple`, `hub2-note` and
-  `hub2-burst` are look-only classes: no stock stylesheet may style them (§8).
-  Flag off was verified pixel-identical to main on Home, My Schedule, an
-  event, Calendar, director Today, Take Roll and Check-In, at 390 and 1024,
-  light and dark.
+- **The eight motions of that sketch are gone** (2026-11-10, #hub2-motion
+  above): arrive, the page change, press, open, choose, count, finish and
+  live. `hub2MotionOn()`, `hub2Celebrate()`, `Hub2Count` and the look-only
+  classes they drew (`hub2-count`, `hub2-ripple`, `hub2-note`, `hub2-burst`)
+  no longer exist. The parts stay; the motion is being rebuilt as one
+  dissolve. Take Roll still never moves on its own.
 - **Proof is a contact sheet.** `scripts/hub2-contact-sheet.mjs` drives the
   system Chrome (no dependency) against the fixtures server and photographs
   every routed page, look on or off, at any widths. Run it before saying a

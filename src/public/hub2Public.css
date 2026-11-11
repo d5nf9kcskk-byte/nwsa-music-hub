@@ -1,7 +1,14 @@
 /* ═══════════════════════════════════════════════════════════════
    Hub 2.0 look on the PUBLIC site (#hub2-look). src/shared/hub2.css maps the
    tokens; this file is what the tokens cannot say: type, surfaces, selected
-   states, the two page looks (Concert Hall, Spotlight) and motion.
+   states and the two page looks (Concert Hall, Spotlight).
+
+   NO MOTION LIVES HERE (#glass, 2026-11-10). This sheet used to carry the
+   arrive stagger, the drill slide, the scroll reveal, the pop, the press dip,
+   the ripple, the rolling count, the self-drawing check and the note burst,
+   each on its own clock. They were removed together, not tuned again:
+   docs/design/liquid-dissolve-plan.md. hub2.selfcheck.ts fails the build on
+   any animation or transition in this file.
 
    Three rules hold for every line below, and hub2.selfcheck.ts pins them:
    - Every selector starts with :root[data-hub2="on"], so with the preview
@@ -19,8 +26,7 @@
 
    Page looks are opt-in by class, each with no stock CSS behind it:
    .pub-hall (Concert Hall: event, program and Concerts pages) and the
-   check-in pages (.pub-checkin, .pub-checkins) for Spotlight. .pub-drill
-   marks a drill-down page that slides in.
+   check-in pages (.pub-checkin, .pub-checkins) for Spotlight.
 ═══════════════════════════════════════════════════════════════ */
 
 @media screen {
@@ -140,7 +146,7 @@
   /* ── A PANEL PROMOTED TO GLASS NEEDS THE GLASS'S CORNER ──
      hub2Glass.css blurs `.pub-day-detail` (the calendar's selected-day
      panel) and `.pub-season-month` (the card the concert rows sit in),
-     because the morph flies them and they had no glass in them at all. But
+     because they are whole blocks of a page with no glass in them at all. But
      both are bare layout blocks — one sets `margin-top`, the other
      `margin-bottom`, and neither has ever had a background, a border or a
      radius. So they arrived as frosted RECTANGLES with 90-degree corners,
@@ -152,7 +158,7 @@
      and a radius on them would be decoration nobody can see.
      No `--pub-surface` here on purpose: the rows inside them are already
      tinted panels, and a second tint behind a tinted row reads as one much
-     denser pane (the same reason the morph's clones zero their glass). */
+     denser pane. */
   :root[data-hub2="on"] :is(.pub-day-detail, .pub-season-month) {
     border-radius: var(--pub-radius);
     padding: 14px 10px 10px;
@@ -356,221 +362,4 @@
   }
   :root[data-hub2="on"] .pub-app .concert-day-banner-item summary { color: var(--hub2-spot-ink); font-weight: 600; }
   :root[data-hub2="on"] .pub-app .concert-day-banner-detail { color: var(--pub-muted); }
-
-  /* ═══ Motion ═══
-     Fill mode `backwards` on purpose: a page that kept a transform after its
-     slide would become the containing block of its own fixed action bar. */
-  /* THE TRAVEL IS THE MOTION, AND THERE IS NO FADE (#glass).
-     Both of these used to open on `opacity: 0`, and both run on glass:
-     `hub2-rise-in` on the arriving rows and cards (`.pub-card` and
-     `.pub-quick-btn` always were panels; `.pub-signup-row`,
-     `.pub-checkin-row` and `.pub-season-row` have now joined both glass
-     lists), and `hub2-slide-in` on `.pub-drill` / `.pub-checkin`, which
-     are ANCESTORS of glass. An opacity below 1 makes a backdrop root, so
-     every one of those panels was pointed at a subtree that paints nothing
-     and was therefore FLAT for the whole of its arrival — 460ms, and with
-     `backwards` fill plus the 40ms stagger below, the sixteenth row sat
-     flat for 640ms before it even began to move. The longer the list, the
-     longer the page spent not looking like glass, then snapped.
-     Transform-only, rather than fading something else, because
-     `hub2Morph.ts` already answers this question the same way
-     (`carriesGlass(el)` picks a transform-only track) and that is the
-     motion the director chose from the sample. The staff twins
-     (`hub2-dir-slide` / `hub2-dir-rise`) carry the identical change.
-     Decoration that IS the animated thing keeps its alpha: the ripple, the
-     note burst and the rolling counter are not glass hosts. */
-  @keyframes hub2-slide-in {
-    from { transform: translateX(28px); }
-  }
-  @keyframes hub2-rise-in {
-    from { transform: translateY(var(--hub2-arrive-d, 6px)); }
-  }
-  :root[data-hub2="on"] :is(.pub-drill, .pub-checkin) {
-    animation: hub2-slide-in var(--hub2-slide-ms) var(--hub2-ease) backwards;
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    /* Arrive: the first 16 rows of a list rise in, one after another. A long
-       list's later rows are already there: 140 animations at once is a stall. */
-    :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2):nth-child(-n+16) {
-      animation: hub2-rise-in var(--hub2-arrive-ms) var(--hub2-ease) backwards;
-    }
-    /* More lists arrive the same way (#hub2-alive): quick links, roster and
-       day-sheet rows, pieces, list cards, and the phone menu's items as it
-       opens. A block that IS a page section (.pub-page > *) is left to the
-       scroll reveal below, so nothing runs two motions. */
-    :root[data-hub2="on"] :is(.pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-card):not(.pub-page > *):nth-child(-n+16),
-    :root[data-hub2="on"] .pub-menu-panel .pub-menu-item:nth-child(-n+16) {
-      animation: hub2-rise-in var(--hub2-arrive-ms) var(--hub2-ease) backwards;
-    }
-    /* Choose: a new selection pops in. */
-    :root[data-hub2="on"] :is(.pub-chip.active, .pub-sg-tab.active, .pub-signup-slot.active, .pub-signup-yesno-btn.active, .pub-fm-btn.active, .pub-tabbar-btn.active, .pub-pdf-tool.active, .pub-cal-cell.selected .pub-cal-day) {
-      animation: hub2-pop 320ms var(--hub2-spring) backwards;
-    }
-    /* Open: the phone menu slides in from its edge over a fading shade. */
-    :root[data-hub2="on"] .pub-menu-overlay { animation: hub2-fade 220ms ease-out backwards; }
-    :root[data-hub2="on"] .pub-menu-panel { animation: hub2-menu-in var(--hub2-open-ms) var(--hub2-ease) backwards; }
-  }
-  @keyframes hub2-pop { from { transform: scale(.9); } }
-  /* THE SHADE FADES ITS BACKGROUND, NOT ITS OPACITY (#glass).
-     This ran `opacity: 0 → 1` on `.pub-menu-overlay`, which is the parent
-     of `.pub-menu-panel` — a pane carrying `backdrop-filter`. An ancestor
-     with opacity below 1 is a backdrop root, so for the first 220ms of
-     every menu open the panel's blur was pointed at a subtree that paints
-     nothing and simply STOPPED: the page behind came through sharp and the
-     menu's own words landed on top of readable page text. That is why it
-     read as broken rather than as a slightly-off colour.
-     `background-color` is animatable, is not one of the four properties
-     that make a backdrop root, and the overlay already has a scrim to
-     animate from — so the shade still arrives and the glass never drops.
-     The staff shell made the same correction in `hub2-dir-fade`. */
-  @keyframes hub2-fade { from { background-color: transparent; } }
-  @keyframes hub2-menu-in { from { transform: translateX(100%); } }
-  /* One stagger for every arriving list: 40ms apart, the twelfth row and on
-     together. Page sections are left out (they reveal on scroll instead). */
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(2),
-  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(2) { animation-delay: calc(var(--hub2-stagger-ms) * 1); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(3),
-  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(3) { animation-delay: calc(var(--hub2-stagger-ms) * 2); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(4),
-  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(4) { animation-delay: calc(var(--hub2-stagger-ms) * 3); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(5),
-  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(5) { animation-delay: calc(var(--hub2-stagger-ms) * 4); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(6),
-  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(6) { animation-delay: calc(var(--hub2-stagger-ms) * 5); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(7),
-  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(7) { animation-delay: calc(var(--hub2-stagger-ms) * 6); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(8),
-  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(8) { animation-delay: calc(var(--hub2-stagger-ms) * 7); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(9),
-  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(9) { animation-delay: calc(var(--hub2-stagger-ms) * 8); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(10),
-  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(10) { animation-delay: calc(var(--hub2-stagger-ms) * 9); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(11),
-  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(11) { animation-delay: calc(var(--hub2-stagger-ms) * 10); }
-  :root[data-hub2="on"] :is(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .pub-quick-btn, .pub-roster-row, .pub-daysheet-row, .pub-piece-link, .pub-menu-item):nth-child(n+12),
-  :root[data-hub2="on"] .pub-card:not(.pub-page > *):nth-child(n+12) { animation-delay: calc(var(--hub2-stagger-ms) * 11); }
-
-  /* A press dips to 97%. */
-  :root[data-hub2="on"] .pub-app :is(button, .pub-signup-row, .pub-checkin-row.open, .pub-event.tappable, .pub-tabbar-btn, .pub-cta-btn, .pub-quick-btn) {
-    transition: transform 120ms var(--hub2-ease), background-color .12s ease, border-color .12s ease, color .12s ease;
-  }
-  :root[data-hub2="on"] .pub-app :is(button, .pub-signup-row, .pub-checkin-row.open, .pub-event.tappable, .pub-tabbar-btn, .pub-cta-btn, .pub-quick-btn):active:not(:disabled) {
-    transform: scale(var(--hub2-press-scale));
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    :root[data-hub2="on"] :is(.pub-drill, .pub-checkin, .pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2) { animation: none; }
-    :root[data-hub2="on"] .pub-app :is(button, .pub-signup-row, .pub-checkin-row.open, .pub-event.tappable, .pub-tabbar-btn, .pub-cta-btn, .pub-quick-btn) { transition: none; }
-    :root[data-hub2="on"] .pub-app :is(button, .pub-signup-row, .pub-checkin-row.open, .pub-event.tappable, .pub-tabbar-btn, .pub-cta-btn, .pub-quick-btn):active:not(:disabled) { transform: none; }
-  }
-
-  /* ═══ The page morph and soft reveals (#glass, #hub2-motion) ═══
-     Both only without reduced motion. Nothing here may leave a named element,
-     a stacking context or a containing block behind once the motion is over:
-     the first version did, and sheets slid under the tab bar and dropdowns
-     under the next section.
-
-     THE WIPE IS GONE, and not for taste. It ran as a View Transition, and
-     Safari and Firefox disable `backdrop-filter` for the whole duration of
-     one (WebKit 302256) — so on the phone this look is for, every glass
-     panel went flat for the length of the wipe and snapped back at the end.
-     The morph (hub2Morph.ts) animates live elements instead, so the glass
-     keeps re-sampling as a panel travels. Deleted with it: the clip-path
-     keyframes, the shell's view-transition names, and the gold edge that
-     swept across — which is also the "wave" the director asked twice to
-     have removed. Do not animate anything carrying glass through
-     `startViewTransition`. */
-
-  /* The clones the morph fades out. They are copies of real panels, so every
-     glass token on them is zeroed: the live counterpart is already carrying
-     the real shell along the same path, and two translucent shells stacked
-     read as one much denser shell. `contain: paint` keeps a travelling clone
-     from ever lengthening the page. */
-  :root[data-hub2="on"] #hub2-ghosts {
-    position: fixed; inset: 0; z-index: var(--z-overlay);
-    overflow: hidden; pointer-events: none; contain: paint;
-  }
-  :root[data-hub2="on"] #hub2-ghosts > .hub2-ghost {
-    position: absolute; margin: 0;
-    --glass-panel: transparent; --glass-chrome: transparent; --glass-hero: transparent;
-    --glass-chrome-fx: none; --glass-hero-fx: none; --glass-bar-fx: none;
-    --glass-shine: transparent; --glass-inner: 0 0 transparent;
-    --glass-bloom: 0 0 transparent;
-    background: transparent; box-shadow: none;
-    -webkit-backdrop-filter: none; backdrop-filter: none;
-  }
-  /* And nothing INSIDE a clone composites a backdrop either. The clone's
-     own opacity is an ancestor of every card in it, so each one's blur is
-     re-pointed at the clone's subtree and paints nothing anyway — this
-     just stops a page's worth of dead layers being made to prove it. */
-  :root[data-hub2="on"] #hub2-ghosts .hub2-ghost *,
-  :root[data-hub2="on"] #hub2-ghosts .hub2-ghost *::before,
-  :root[data-hub2="on"] #hub2-ghosts .hub2-ghost *::after,
-  :root[data-hub2="on"] #hub2-ghosts > .hub2-ghost::before,
-  :root[data-hub2="on"] #hub2-ghosts > .hub2-ghost::after {
-    -webkit-backdrop-filter: none; backdrop-filter: none;
-  }
-
-  /* The reveal animates a plain registered number, never opacity itself:
-     Chrome treats an element with an attached opacity or transform animation
-     as a layer for as long as the animation is attached, and a scroll-driven
-     one is attached for good. A number that ends at its initial 1 leaves
-     opacity at 1, which is no layer at all. */
-  @property --hub2-reveal { syntax: '<number>'; inherits: false; initial-value: 1; }
-  @keyframes hub2-reveal { from { --hub2-reveal: 0; } }
-  @media (prefers-reduced-motion: no-preference) {
-    /* Soft reveals. Each block of a public page fades in as it scrolls into
-       view, driven by the scroll itself, no script. Fill `backwards`, so once
-       a block is in, --hub2-reveal is back at 1 and the block is exactly as
-       without the look. Left alone: a block that is or holds something fixed
-       (an overlay, the event action bar: hub2.selfcheck.ts fails on a
-       position: fixed class this misses), a block dimmed on purpose
-       (cancelled, past), and rows that stagger in on load. Staff screens get
-       no reveal: they dim too many things on purpose. */
-    @supports (animation-timeline: view()) {
-      :root[data-hub2="on"] .pub-page > :not(.pub-signup-row, .pub-checkin-row, .pub-season-row, .pub-ev2, .cancelled, .pub-past-dim, .pub-event-actionbar, .pub-nav, .pub-pdf-pad-back, .nwsa-noteburst, [class*="-overlay"], :has([class*="-overlay"], [aria-modal="true"], .pub-event-actionbar, .pub-nav, .pub-pdf-pad-back, .nwsa-noteburst)) {
-        animation: hub2-reveal linear backwards;
-        animation-timeline: view();
-        animation-range: entry 0% entry 40%;
-        opacity: var(--hub2-reveal, 1);
-      }
-    }
-  }
-
-  /* ═══ Press, count, finish: both shells (#hub2-alive) ═══
-     hub2Motion.ts puts the ripple and the note burst on <body> and removes
-     them when they are done; Hub2Count.tsx and lucide's check icons carry the
-     rest. With reduced motion none of it runs: the look stands still. */
-  @media (prefers-reduced-motion: no-preference) {
-    :root[data-hub2="on"] .hub2-ripple { position: fixed; z-index: 2147483000; overflow: hidden; pointer-events: none; }
-    :root[data-hub2="on"] .hub2-ripple > i {
-      position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%;
-      background: currentColor; opacity: .2;
-      animation: hub2-ripple 560ms var(--hub2-ease) forwards;
-    }
-    :root[data-hub2="on"] .hub2-burst { position: fixed; inset: 0; z-index: 2147483000; overflow: hidden; pointer-events: none; }
-    :root[data-hub2="on"] .hub2-note {
-      position: absolute; font-size: 22px; line-height: 1;
-      animation: hub2-note 1.3s var(--hub2-ease) both;
-    }
-    :root[data-hub2="on"] .hub2-note.n0 { color: var(--hub2-spot-gold); }
-    :root[data-hub2="on"] .hub2-note.n1 { color: var(--hub2-accent); }
-    :root[data-hub2="on"] .hub2-note.n2 { color: var(--hub2-plum-text, var(--hub2-plum)); }
-    :root[data-hub2="on"] .hub2-note.n3 { color: var(--hub2-sun); }
-    /* Count: a number that changed rolls in (Hub2Count remounts it). */
-    :root[data-hub2="on"] .hub2-count.hub2-roll { display: inline-block; animation: hub2-roll 420ms var(--hub2-ease) backwards; }
-    /* Finish: every check mark draws itself as it appears. */
-    :root[data-hub2="on"] :is(.lucide-check, .lucide-circle-check, .lucide-circle-check-big, .lucide-check-check, .lucide-badge-check) path {
-      stroke-dasharray: 100;
-      animation: hub2-draw 560ms var(--hub2-ease) backwards;
-    }
-  }
-  @keyframes hub2-ripple { to { transform: scale(30); opacity: 0; } }
-  @keyframes hub2-note {
-    0% { transform: translate(-50%, -50%) scale(.3); opacity: 0; }
-    18% { opacity: 1; }
-    100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--r)) scale(1.15); opacity: 0; }
-  }
-  @keyframes hub2-roll { from { transform: translateY(55%); opacity: 0; } }
-  @keyframes hub2-draw { from { stroke-dashoffset: 100; } }
 }

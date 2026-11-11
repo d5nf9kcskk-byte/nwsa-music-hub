@@ -235,7 +235,7 @@ export function PublicEnsemble() {
   ) : null;
 
   return (
-    <div className="pub-page pub-drill">
+    <div className="pub-page">
       <BackLink fallback="/ensembles" label={t('event.back')} />
       <GradientHero
         color={ensembleColor(ensemble)}
