@@ -430,14 +430,21 @@ function clockAt(now: number, timeZone: string | undefined): { today: string; cl
   const part = (type: string) => parts.find(p => p.type === type)?.value ?? '00';
   return { today: `${part('year')}-${part('month')}-${part('day')}`, clock: +part('hour') * 60 + +part('minute') };
 }
-/** When a thing starts and ends, in minutes past midnight on its own day. An
- *  end at or before the start is past midnight: 22:00 to 00:30 ends at 24:30.
- *  With no end stored it is taken to last ASSUMED_MINUTES. */
+const DAY = 24 * 60;
+/** A time stored before the start is after midnight only when it is 6:00 AM
+ *  or earlier: 22:00 to 00:30. Any later (15:00 to 14:00) is a typing
+ *  mistake, and a time equal to the start is not a day long. */
+const wraps = (start: number | undefined, t: number | undefined) =>
+  start !== undefined && t !== undefined && t < start && t <= 6 * 60;
+/** When a thing starts and ends, in minutes past midnight on its own day:
+ *  22:00 to 00:30 ends at 24:30. With no end stored, or an end that is not
+ *  after the start and not past midnight, it is taken to last ASSUMED_MINUTES. */
 function spanOf(x: { startTime?: string; endTime?: string }): { start?: number; ends?: number } {
   const start = minutes(x.startTime);
   const stored = minutes(x.endTime);
-  const ends = stored === undefined ? (start === undefined ? undefined : start + ASSUMED_MINUTES)
-    : start !== undefined && stored <= start ? stored + 24 * 60 : stored;
+  const ends = wraps(start, stored) ? stored! + DAY
+    : stored !== undefined && (start === undefined || stored > start) ? stored
+      : start === undefined ? undefined : start + ASSUMED_MINUTES;
   return { start, ends };
 }
 
@@ -474,13 +481,16 @@ interface Entry {
 export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): AskAnswer {
   const L = opts.lang === 'es' ? ES : EN;
   const { use, now } = opts;
-  const { today, clock } = clockAt(now, opts.timeZone);
   const none = (choices: AskReading[] = []): AskAnswer => ({
     state: 'notUnderstood', sentence: end(L.notUnderstood), cards: [], forWho: { kind: 'general' },
     choices: choices.map(({ intent, when, about, match }) =>
       ({ intent, ...(when ? { when } : {}), ...(about ? { about } : {}), ...(match ? { match } : {}) })),
     followUps: [],
   });
+  // A moment that is not a number is no moment: there is no "today" to answer about.
+  if (!Number.isFinite(now)) return none();
+  const { today, clock } = clockAt(now, opts.timeZone);
+  const yesterday = plus(today, -1);
 
   /* Which reading. One the parser is sure of, or the only one it offered. */
   const guessed = !parse.confident;
@@ -516,8 +526,11 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
   /** Already over: a day gone by, or ended earlier today. A thing that runs
    *  past midnight is not over at any hour of its own day. */
   const over = (x: { date?: string; startTime?: string; endTime?: string }) => {
-    if (!x.date || x.date !== today) return !!x.date && x.date < today;
+    if (!x.date || x.date > today) return false;
+    if (x.date < yesterday) return true;
     const { ends } = spanOf(x);
+    // One that began yesterday is over unless it is still going past midnight.
+    if (x.date === yesterday) return ends === undefined || ends - DAY <= clock;
     return ends !== undefined && ends <= clock;
   };
   const group = found('group', data.ensembles, e => e.name);
@@ -534,10 +547,10 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
    *  ends: "when is pickup" at 9:10, after a 9:00 end, with pickup at 9:30. */
   const behind = (x: { date?: string; startTime?: string; endTime?: string; pickupTime?: string }) => {
     if (!over(x)) return false;
-    const pickup = intent === 'pickup' && x.date === today ? minutes(x.pickupTime) : undefined;
+    const pickup = intent === 'pickup' && x.date && x.date >= yesterday ? minutes(x.pickupTime) : undefined;
     if (pickup === undefined) return true;
-    const start = minutes(x.startTime);
-    return (start !== undefined && pickup <= start ? pickup + 24 * 60 : pickup) <= clock;
+    // Both counted from midnight of the concert's own day.
+    return pickup + (wraps(minutes(x.startTime), pickup) ? DAY : 0) <= clock + (x.date === yesterday ? DAY : 0);
   };
   const concert = (byId && !behind(byId) ? byId : undefined)
     ?? titled.find(e => !behind(e) && isLive(e)) ?? titled.find(e => !behind(e))
@@ -574,6 +587,9 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
   /** "Symphony Orchestra, tomorrow 2:10 PM, Room 2210", skipping what is blank. */
   const line = (name: string | undefined, date: string | undefined, time?: string, ...rest: (string | undefined)[]) =>
     [name, [date && dayOf(date), time && use.time(time)].filter(Boolean).join(' '), ...rest.map(r => r?.trim())].filter(Boolean).join(', ');
+  /** A pickup or an end, with its day: one after midnight is the next day. */
+  const clockLine = (e: CalendarEvent, time: string) =>
+    line(undefined, wraps(minutes(e.startTime), minutes(time)) ? plus(e.date, 1) : e.date, time);
   const oneDay = range.to === range.from;
   /** The days asked about, as words: "tomorrow", "this week", a date. */
   const days = (() => {
@@ -586,6 +602,11 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
    *  date is printed twice. */
   const countDays = oneDay || (when && when in L.when) ? days : '';
   const inRange = (date: string, r: Range = range) => date >= r.from && (!r.to || date <= r.to);
+  /** Began yesterday and is not behind us: still going past midnight, or, for
+   *  a pickup question, its pickup still ahead. It belongs to today's
+   *  questions, so a range that starts today takes it in. */
+  const carried = (e: CalendarEvent, r: Range) => r.from === today && e.date === yesterday && !behind(e);
+  const eventsIn = (r: Range = range) => data.events.filter(e => inRange(e.date, r) || carried(e, r));
 
   /** Reaches the evening: starts at five or later, or is still running after
    *  five. It is a fact about the thing, not about the hour it is asked, so a
@@ -596,8 +617,8 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     const { start, ends } = spanOf(x);
     return start === undefined || start >= EVENING || (ends !== undefined && ends > EVENING);
   };
-  /** "Tonight": the evening's things that are not over. */
-  const tonight = (x: Entry) => evening(x) && !over(x);
+  /** "Tonight": the evening's things that are not behind us. */
+  const tonight = (x: Entry) => evening(x) && !behind(x.event ?? x);
   /** Was part of the evening, and has ended. */
   const wasTonight = (x: Entry) => x.live && evening(x) && over(x);
   /** The next one: the first still on and not over, else a cancelled one. */
@@ -612,9 +633,15 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
   /** The cards' own words, so a sentence and the card under it agree. */
   const cancelledWord = ASK_CARD_WORDS['card.cancelled'][opts.lang];
   const lessonWord = ASK_CARD_WORDS['sched.lesson'][opts.lang];
-  const lineOf = (i: Entry, withDate = true) => (i.event
-    ? line(titleOf(i.event), withDate ? i.date : undefined, i.startTime, i.location)
-    : line(lessonWord, withDate ? i.date : undefined, i.startTime, i.location, i.lesson?.teacherName));
+  /** `under`: the sentence already opens with this group's name, so a line
+   *  whose only name is that group is its time and room. A thing that began
+   *  yesterday always carries its date. */
+  const lineOf = (i: Entry, withDate = true, under?: string) => {
+    const date = withDate || i.date < today ? i.date : undefined;
+    if (!i.event) return line(lessonWord, date, i.startTime, i.location, i.lesson?.teacherName);
+    const title = titleOf(i.event);
+    return (title === under && line(undefined, date, i.startTime, i.location)) || line(title, date, i.startTime, i.location);
+  };
 
   /** The director's note, word for word, or nothing when it is blank. */
   const noteOf = (e: CalendarEvent) => {
@@ -649,7 +676,9 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
    * concert's or a room's are read off the calendar and are the same for
    * everybody. */
   const mine = (me: AskStudent, r: Range = range): Entry[] =>
-    studentDay(me.id, { ...r, now }, data).events.map(x => ({
+    // Asked from yesterday when the range starts today, for what is `carried`.
+    studentDay(me.id, { ...r, from: r.from === today ? yesterday : r.from, now }, data).events
+      .filter(x => inRange(x.event.date, r) || carried(x.event, r)).map(x => ({
       date: x.event.date, startTime: x.event.startTime, endTime: x.event.endTime, location: x.event.location,
       live: isLive(x.event), status: x.event.status, event: x.event,
       pieces: x.pieces, attendanceOnly: x.exp.attendanceOnly, ensembleIds: x.exp.ensembleIds,
@@ -684,7 +713,7 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
           ...i, ensembleIds: [group.id],
           pieces: i.pieces.filter(p => pieceEnsembleIds(p).length === 0 || pieceEnsembleIds(p).includes(group.id)),
         }))
-        : open(data.events.filter(e => inRange(e.date, r) && e.ensembleIds.includes(group.id)));
+        : open(eventsIn(r).filter(e => e.ensembleIds.includes(group.id)));
     }
     return me ? mine(me, r) : undefined;
   };
@@ -740,7 +769,7 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     // "Are we in Room 2210 today": where we are, which says it either way.
     if (place) return ok(lineOf(on.find(i => !over(i) && same(i.location, place)) ?? lead), cards, general);
     if (needRoom) return lead.location?.trim() ? ok(lineOf(lead), cards, general) : notYet(L.noRoom(lineOf(lead)), cards, general);
-    const said = on.length > 1 ? L.things(on.length, countDays, lineOf(lead, !oneDay), range.from === today && oneDay, groupName) : lineOf(lead);
+    const said = on.length > 1 ? L.things(on.length, countDays, lineOf(lead, !oneDay, groupName), range.from === today && oneDay, groupName) : lineOf(lead);
     return ok(lead.attendanceOnly ? sentences(said, L.audience) : said, cards, general);
   };
 
@@ -768,7 +797,7 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     const titles = (ps: RepertoirePiece[]) => L.list(ps.slice(0, 3).map(p => p.title), ps.length - 3);
     const say = (i: Entry) => (i.pieces.length > 0 ? L.playing(line(titleOf(i.event!), i.date), titles(i.pieces)) : L.musicListed(line(titleOf(i.event!), i.date)));
     const all = place
-      ? open(data.events.filter(e => inRange(e.date) && same(e.location, place)))
+      ? open(eventsIn().filter(e => same(e.location, place)))
       : scope(me, program ? { from: today } : range);
     if (!all) return 'who';
 
@@ -922,9 +951,9 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
   const concerts = (me: AskStudent | undefined): Entry[] => {
     if (concert) return open([concert]).map(i => (me ? relate(me, i) : i));
     const pool = place ? data.events.filter(e => e.date >= today && same(e.location, place))
-      : group ? data.events.filter(e => inRange(e.date) && e.ensembleIds.includes(group.id))
+      : group ? eventsIn().filter(e => e.ensembleIds.includes(group.id))
         : undefined;
-    let list = (pool ? open(pool) : me ? mine(me) : open(data.events.filter(e => inRange(e.date))))
+    let list = (pool ? open(pool) : me ? mine(me) : open(eventsIn()))
       .filter(i => i.event!.type === 'Concert');
     // A piece named: the concerts that have it on the program.
     if (piece) list = list.filter(i => eventPieces(i.event!, piecesById).some(p => p.id === piece.id));
@@ -948,7 +977,7 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     const cards = [...list.map(i => eventCard(i)), season];
     const on = list.filter(i => i.live);
     if (on.length === 0) return ok(statuses(list), cards, general);
-    const said = on.length > 1 ? L.concerts(on.length, countDays, lineOf(on[0]), groupName) : lineOf(on[0]);
+    const said = on.length > 1 ? L.concerts(on.length, countDays, lineOf(on[0], true, groupName), groupName) : lineOf(on[0]);
     return ok(on[0].attendanceOnly ? sentences(said, L.audience) : said, cards, general);
   };
 
@@ -978,8 +1007,8 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     }
     if (what === 'dress') return e.dress?.trim() ? ok(L.dress(t, e.dress.trim()), cards, general) : notYet(L.noDress(t), cards, general);
     // Pickup is for whoever played. Somebody in the audience leaves when it ends.
-    if (e.pickupTime && !next.attendanceOnly) return ok(L.pickup(t, line(undefined, e.date, e.pickupTime)), cards, general);
-    return e.endTime ? ok(L.ends(t, line(undefined, e.date, e.endTime)), cards, general) : notYet(L.noPickup(t), cards, general);
+    if (e.pickupTime && !next.attendanceOnly) return ok(L.pickup(t, clockLine(e, e.pickupTime)), cards, general);
+    return e.endTime ? ok(L.ends(t, clockLine(e, e.endTime)), cards, general) : notYet(L.noPickup(t), cards, general);
   };
 
   const required = (me: AskStudent | undefined): Result => {
@@ -998,7 +1027,7 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
       return ok(one.absent ? L.notOnSchedule(t) : one.attendanceOnly ? L.reqAttend(t) : L.reqPlay(t), cards);
     }
     // The concerts in the days asked that are still on. Never a cancelled one.
-    const pool = data.events.filter(e => e.type === 'Concert' && inRange(e.date) && isLive(e) && !over(e));
+    const pool = eventsIn().filter(e => e.type === 'Concert' && isLive(e) && !over(e));
     if (!me) {
       if (!group) {
         const list = requiredAudienceEvents(pool);

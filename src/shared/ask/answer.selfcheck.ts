@@ -1326,17 +1326,24 @@ check('the sweep really ran', SWEEP.length === ASK_ANSWERS.length * WHENS.length
     ask(q('callTime', named(concert('mid', 'Late Show'))), ['ada'], { now: at(TODAY, '23:45') }, night).sentence, 'Call time for Late Show: today <21:00>.');
   check('23. the day after, it is the past',
     ask(q('callTime', named(concert('mid', 'Late Show'))), ['ada'], { now: at('2026-10-06', '08:00') }, night).state === 'notUnderstood');
-  // An end typed before the start (15:00 to 14:00) is read the same way: it
-  // is never called over on its own day.
-  const typo = { ...data, events: [...events, ev('ty', TODAY, 'Sectional', ['sym'], { startTime: '15:00', endTime: '14:00', location: 'Room 12' })] };
-  for (const h of ['15:45', '20:00', '23:59']) {
-    eq(`23. a sectional stored as 15:00 to 14:00, asked at ${h}, is not over`,
-      ask(q('where', { when: 'today' }), ['ada'], { now: at(TODAY, h) }, typo).sentence, 'Symphony Orchestra, today <15:00>, Room 12.');
-  }
-  // An end AT the start is read the same way.
-  const flat = { ...data, events: [...events, ev('fl', TODAY, 'Sectional', ['sym'], { startTime: '15:00', endTime: '15:00', location: 'Room 12' })] };
-  eq('23. a sectional stored as 15:00 to 15:00, asked at 16:00, is not over',
-    ask(q('where', { when: 'today' }), ['ada'], { now: at(TODAY, '16:00') }, flat).sentence, 'Symphony Orchestra, today <15:00>, Room 12.');
+  // An end before the start that is not an early-morning hour (15:00 to
+  // 14:00) is a typing mistake. The thing is taken to last two hours.
+  const whereAt = (d: AskData, h: string) => ask(q('where', { when: 'today' }), ['ada'], { now: at(TODAY, h) }, d).sentence;
+  const sectional = (startTime: string, endTime?: string) =>
+    ({ ...data, events: [...events, ev('ty', TODAY, 'Sectional', ['sym'], { startTime, endTime, location: 'Room 12' })] });
+  const DONE = 'Nothing more is on your schedule today.';
+  eq('23. a sectional stored as 15:00 to 14:00 is on at 16:59', whereAt(sectional('15:00', '14:00'), '16:59'), 'Symphony Orchestra, today <15:00>, Room 12.');
+  for (const h of ['17:00', '20:00', '23:59']) eq(`23. and it is over at ${h}`, whereAt(sectional('15:00', '14:00'), h), DONE);
+  eq('23. and it is not tonight', cardsOf(ask(q('myDay', { when: 'tonight' }), ['ada'], { now: at(TODAY, '12:00') }, sectional('15:00', '14:00'))), []);
+  // A start equal to the end is not a day long. Two hours, the same.
+  eq('23. a sectional stored as 08:00 to 08:00 is on at 09:59', whereAt(sectional('08:00', '08:00'), '09:59'), 'Symphony Orchestra, today <08:00>, Room 12.');
+  eq('23. and at 10:00 the next thing is the afternoon rehearsal', whereAt(sectional('08:00', '08:00'), '10:00'), 'Symphony Orchestra, today <14:10>, Room 2210.');
+  eq('23. and at four nothing more is on', whereAt(sectional('08:00', '08:00'), '16:00'), DONE);
+  eq('23. and at eleven it is not tonight',
+    ask(q('myDay', { when: 'tonight' }), ['ada'], { now: at(TODAY, '23:00') }, sectional('08:00', '08:00')).sentence, 'Nothing is on your schedule tonight.');
+  // Past midnight runs to 6:00 AM. An end at 6:01 is a mistake.
+  eq('23. 20:00 to 06:00 is still on at 22:30', whereAt(sectional('20:00', '06:00'), '22:30'), 'Symphony Orchestra, today <20:00>, Room 12.');
+  eq('23. 20:00 to 06:01 is two hours long, and over at 22:30', whereAt(sectional('20:00', '06:01'), '22:30'), DONE);
   // An end after the start is still an end.
   eq('23. a rehearsal from 14:10 to 15:30 is over at 15:45', ask(q('where', { when: 'today' }), ['ada'], { now: at(TODAY, '15:45') }).sentence,
     'Nothing more is on your schedule today.');
@@ -1351,8 +1358,8 @@ check('the sweep really ran', SWEEP.length === ASK_ANSWERS.length * WHENS.length
     ['nothing more today', q('myDay', { when: 'today', ...named(SYM) }), four,
       'Nothing more for Symphony Orchestra today.', 'No queda nada de Symphony Orchestra hoy.'],
     ['a count of things', q('myDay', { when: 'thisWeek', ...named(SYM) }), {},
-      'Symphony Orchestra: 4 things this week. First: Symphony Orchestra, today <14:10>, Room 2210.',
-      'Symphony Orchestra: 4 cosas esta semana. Primero: Symphony Orchestra, hoy <14:10>, Room 2210.'],
+      'Symphony Orchestra: 4 things this week. First: today <14:10>, Room 2210.',
+      'Symphony Orchestra: 4 cosas esta semana. Primero: hoy <14:10>, Room 2210.'],
     ['nothing changed', q('cancelled', { when: 'today', ...named(SYM) }), {},
       'Nothing is cancelled or changed for Symphony Orchestra today.', 'No hay nada cancelado ni cambiado en Symphony Orchestra hoy.'],
     ['what is due', q('due', named(SYM)), {},
@@ -1380,6 +1387,43 @@ check('the sweep really ran', SWEEP.length === ASK_ANSWERS.length * WHENS.length
     'Nothing more is on your schedule today.');
   eq('24. a group she is not in: it is not on her schedule', ask(q('playing', named(CHAM)), ['ada']).sentence,
     'No concert for Chamber Players is on your schedule.');
+  // The name is said once. A count that opens with the group does not name
+  // it again on the line that follows: that line is its time and room.
+  const more = (...added: Row<'events'>[]) => ({ ...data, events: [...events, ...added] });
+  const twoTomorrow = more(ev('w2', '2026-10-06', 'Sectional', ['sym'], { startTime: '09:00', location: 'Room 12' }));
+  eq('24. a count on one day: the line is the time and the room', ask(q('myDay', { when: 'tomorrow', ...named(SYM) }), ['fay'], {}, twoTomorrow).sentence,
+    'Symphony Orchestra: 2 things tomorrow. First: <09:00>, Room 12.');
+  eq('24. and in Spanish', ask(q('myDay', { when: 'tomorrow', ...named(SYM) }), ['fay'], { lang: 'es' }, twoTomorrow).sentence,
+    'Symphony Orchestra: 2 cosas mañana. Primero: <09:00>, Room 12.');
+  eq('24. a concert with a title of its own keeps it', ask(q('concert', named(SYM)), ['fay']).sentence,
+    '3 concerts for Symphony Orchestra. Next: Fall Concert, {2026-10-10} <19:00>, Main Hall.');
+  eq('24. a concert with no title is its day and time',
+    ask(q('concert', named(SYM)), ['fay'], {}, more(ev('u1', '2026-10-08', 'Concert', ['sym'], { startTime: '19:00' }))).sentence,
+    '4 concerts for Symphony Orchestra. Next: {2026-10-08} <19:00>.');
+  eq('24. with no time and no room there is only the name to say',
+    ask(q('myDay', { when: 'weekday:sun', ...named(SYM) }), ['fay'], {}, more(ev('b1', '2026-10-11', 'Sectional', ['sym']), ev('b2', '2026-10-11', 'Sectional', ['sym']))).sentence,
+    'Symphony Orchestra: 2 things {2026-10-11}. First: Symphony Orchestra.');
+  eq('24. with no group named the line keeps the name', ask(q('myDay', { when: 'tomorrow' }), ['ada'], {}, twoTomorrow).sentence,
+    '2 things tomorrow. First: Symphony Orchestra, <09:00>, Room 12.');
+  // A name with a colon in it, and a very long one: said once, at the front.
+  const LONG = 'The Very Long Named Advanced Chamber Strings Collaborative Ensemble of the Upper School, Section B (Tuesday and Thursday)';
+  for (const name of ['Theory: Grade 9', LONG]) {
+    const renamed = { ...data, ensembles: ensembles.map(g => (g.id === 'sym' ? { ...g, name } : g)) };
+    const week = q('myDay', { when: 'thisWeek', ...named(G('sym', name)) });
+    eq(`24. "${name.slice(0, 20)}": a count`, ask(week, ['fay'], {}, renamed).sentence, `${name}: 4 things this week. First: today <14:10>, Room 2210.`);
+    eq(`24. "${name.slice(0, 20)}": in Spanish`, ask(week, ['fay'], { lang: 'es' }, renamed).sentence, `${name}: 4 cosas esta semana. Primero: hoy <14:10>, Room 2210.`);
+    eq(`24. "${name.slice(0, 20)}": nothing more`, ask(q('myDay', { when: 'today', ...named(G('sym', name)) }), ['fay'], four, renamed).sentence,
+      `Nothing more for ${name} today.`);
+    eq(`24. "${name.slice(0, 20)}": required`, ask(q('required', named(G('sym', name))), ['fay'], {}, renamed).sentence, `${name}: 3 concerts to play, 0 to attend.`);
+  }
+  for (const s of SWEEP) {
+    const name = s.got.showing?.thing;
+    for (const text of everything(s.got).sentences) {
+      if (name && (text.startsWith(`${name}: `) || /^\d+ (?:concerts for|conciertos de) /.test(text))) {
+        check(`24. ${s.what}: a count names the group twice`, text.split(name).length === 2, text);
+      }
+    }
+  }
   // Everywhere: with a group read, no sentence is one of the forms that speak
   // for a whole schedule.
   const WHOLE = new RegExp([
@@ -1443,7 +1487,18 @@ check('the sweep really ran', SWEEP.length === ASK_ANSWERS.length * WHENS.length
   // Ten at night at the school is already tomorrow in London.
   eq('26. the day is the school\'s day', ask(q('myDay', { when: 'tomorrow' }), ['ada'], { now: Date.parse('2026-10-06T02:00:00Z') }).showing?.from, '2026-10-06');
   // There is no `today` to hand in any more. One passed anyway changes nothing.
-  eq('26. a `today` handed in is not read', ask(q('myDay', { when: 'today' }), ['ada'], as<Partial<AskOptions>>({ today: '2026-10-20' })).showing?.from, TODAY);
+  // A moment that is not a number does not throw. It is not understood.
+  for (const bad of [NaN, Infinity, -Infinity, undefined, null, 'soon']) {
+    let said: AskAnswer | undefined;
+    try {
+      said = ask(q('myDay', { when: 'today' }), ['ada'], { now: as<number>(bad) });
+    } catch {
+      said = undefined;
+    }
+    eq(`26. a \`now\` of ${String(bad)} is not understood, and does not throw`, said && [said.state, said.sentence, said.cards, said.showing], ['notUnderstood', NONE, [], undefined]);
+  }
+  check('26. a `now` of 0 is a moment like any other', ask(q('news'), [], { now: 0 }).state === 'answered');
+  eq('26. a `today` handed in is not read',ask(q('myDay', { when: 'today' }), ['ada'], as<Partial<AskOptions>>({ today: '2026-10-20' })).showing?.from, TODAY);
   check('26. answer.ts has no `today` option', !/\btoday\??: string;/.test(read('src/shared/ask/answer.ts').split('export interface AskOptions')[1].split('\n}')[0]));
   // A zone that is empty or unknown does not throw: the device's own is used.
   // (Eight in the evening at the school: midnight in London, so a zone read
@@ -1602,6 +1657,15 @@ check('the sweep really ran', SWEEP.length === ASK_ANSWERS.length * WHENS.length
   // With no pickup time stored, the end is the end.
   eq('30. no pickup time stored: ten minutes after the end is the past',
     ask(q('pickup', named(concert('cs', 'Autumn Showcase'))), ['ben'], { now: at('2026-10-31', '20:10') }).sentence, past.sentence);
+  // "Pickup tonight" is the same question: tonight counts a concert whose
+  // pickup is still ahead.
+  for (const h of ['21:00', '21:10', '21:29']) {
+    eq(`30. "pickup tonight" at ${h}, after the end`, ask(q('pickup', { when: 'tonight' }), ['ben'], { now: at('2026-10-17', h) }).sentence, PICKUP);
+  }
+  eq('30. "pickup tonight" at the pickup time', ask(q('pickup', { when: 'tonight' }), ['ben'], { now: at('2026-10-17', '21:30') }).sentence,
+    'No concert is on your schedule tonight.');
+  eq('30. only pickup: "call time tonight" after the end', ask(q('callTime', { when: 'tonight' }), ['ben'], curb).sentence,
+    'No concert is on your schedule tonight.');
   // The two sentences.
   const dayOff = { now: at('2026-10-09', '10:00') };
   eq('30. "the next day off", asked on a day off', ask(q('noSchool', { when: 'next' }), ['ada'], dayOff).sentence, 'No school today.');
@@ -1609,6 +1673,58 @@ check('the sweep really ran', SWEEP.length === ASK_ANSWERS.length * WHENS.length
   eq('30. how to find my schedule: by what the Home screen calls it', ask(q('howFindMe'), []).sentence, 'Use Find My Schedule on the Home screen.');
   eq('30. and in Spanish', ask(q('howFindMe'), [], { lang: 'es' }).sentence, 'Usa Buscar mi horario en la pantalla Inicio.');
   check('30. both names are in the page-name table', 'home.findMySchedule' in ASK_PAGE_NAMES && 'nav.home' in ASK_PAGE_NAMES);
+}
+
+/* ── 31. After midnight. ──────────────────────────────────────────────── */
+{
+  const plus = (...added: Row<'events'>[]) => ({ ...data, events: [...events, ...added] });
+  // Monday night, 11:30 PM to 12:15 AM. Asked on Tuesday at five past midnight
+  // it is still going, so it is still what is next and where she is.
+  const late = plus(ev('ls', TODAY, 'Concert', ['sym'], { title: 'Late Show', startTime: '23:30', endTime: '00:15', location: 'Main Hall' }));
+  const five = { now: at('2026-10-06', '00:05') };
+  const LATE = 'Late Show, {2026-10-05} <23:30>, Main Hall.';
+  eq('31. still going at 00:05: what is next', [ask(q('myDay', { when: 'next' }), ['ada'], five, late).sentence, cardsOf(ask(q('myDay', { when: 'next' }), ['ada'], five, late))],
+    [LATE, ['event:ls']]);
+  eq('31. where she is', ask(q('where', { when: 'today' }), ['ada'], five, late).sentence, LATE);
+  eq('31. her day, with its date on the line', ask(q('myDay', { when: 'today' }), ['ada'], five, late).sentence, `2 things today. Next: ${LATE}`);
+  eq('31. the next concert, nobody saved', ask(q('concert', { when: 'next' }), [], five, late).sentence, LATE);
+  eq('31. by name', ask(q('concert', named(concert('ls', 'Late Show'))), [], five, late).sentence, LATE);
+  eq('31. for a named group', ask(q('myDay', { when: 'next', ...named(SYM) }), [], five, late).sentence, LATE);
+  eq('31. it is not part of tomorrow', ask(q('myDay', { when: 'tomorrow', ...named(SYM) }), [], five, late).sentence,
+    'Nothing is on the calendar for Symphony Orchestra tomorrow.');
+  eq('31. at 00:15 it is over', ask(q('myDay', { when: 'next' }), ['ada'], { now: at('2026-10-06', '00:15') }, late).sentence,
+    'Symphony Orchestra, today <14:10>, Room 2210.');
+  check('31. and by name it is the past', ask(q('concert', named(concert('ls', 'Late Show'))), [], { now: at('2026-10-06', '00:15') }, late).state === 'notUnderstood');
+  // No end stored: 11:00 PM and two hours.
+  const open = plus(ev('ne', TODAY, 'Sectional', ['sym'], { startTime: '23:00', location: 'Room 12' }));
+  eq('31. 23:00 with no end is still on at 00:30', ask(q('where', { when: 'today' }), ['ada'], { now: at('2026-10-06', '00:30') }, open).sentence,
+    'Symphony Orchestra, {2026-10-05} <23:00>, Room 12.');
+  eq('31. and over at 01:00', ask(q('where', { when: 'today' }), ['ada'], { now: at('2026-10-06', '01:00') }, open).sentence,
+    'Symphony Orchestra, today <14:10>, Room 2210.');
+  eq('31. an ordinary day gone by is not carried over', ask(q('myDay', { when: 'next' }), ['ada'], five).sentence, 'Symphony Orchestra, today <14:10>, Room 2210.');
+  // A pickup earlier on the clock than the start is the next day: 9:00 PM to
+  // 11:30 PM, pickup 12:15 AM.
+  const ball = plus(ev('mb', TODAY, 'Concert', ['sym'], { title: 'Midnight Ball', startTime: '21:00', endTime: '23:30', pickupTime: '00:15' }));
+  const BALL = named(concert('mb', 'Midnight Ball'));
+  for (const h of ['20:00', '23:45']) {
+    eq(`31. pickup after midnight, asked at ${h} the night before`, ask(q('pickup', { when: 'next' }), ['ada'], { now: at(TODAY, h) }, ball).sentence,
+      'Pickup for Midnight Ball: tomorrow <00:15>.');
+  }
+  eq('31. and in Spanish', ask(q('pickup', BALL), ['ada'], { now: at(TODAY, '23:45'), lang: 'es' }, ball).sentence, 'Recogida para Midnight Ball: mañana <00:15>.');
+  eq('31. asked at 00:05 it is today, with no concert named', ask(q('pickup', { when: 'next' }), ['ada'], five, ball).sentence, 'Pickup for Midnight Ball: today <00:15>.');
+  eq('31. and by name', ask(q('pickup', BALL), ['ada'], five, ball).sentence, 'Pickup for Midnight Ball: today <00:15>.');
+  eq('31. and with nobody saved', ask(q('pickup', { when: 'next' }), [], five, ball).sentence, 'Pickup for Midnight Ball: today <00:15>.');
+  eq('31. at 00:15 it is the next concert\'s', ask(q('pickup', { when: 'next' }), ['ada'], { now: at('2026-10-06', '00:15') }, ball).sentence,
+    'Pickup for Fall Concert: {2026-10-10} <21:00>.');
+  check('31. and by name it is the past', ask(q('pickup', BALL), ['ada'], { now: at('2026-10-06', '00:15') }, ball).state === 'notUnderstood');
+  check('31. only pickup: its call time at 00:05 is the past', ask(q('callTime', BALL), ['ada'], five, ball).state === 'notUnderstood');
+  // A pickup at 9:30 PM the night before is not ahead at 00:05.
+  const early = plus(ev('ep', TODAY, 'Concert', ['sym'], { title: 'Early Night', startTime: '19:00', endTime: '21:00', pickupTime: '21:30' }));
+  check('31. yesterday evening\'s pickup is the past', ask(q('pickup', named(concert('ep', 'Early Night'))), ['ada'], five, early).state === 'notUnderstood');
+  // An end after midnight is printed on the next day too.
+  const night = plus(ev('mid', TODAY, 'Concert', ['sym'], { title: 'Late Show', startTime: '22:00', endTime: '00:30' }));
+  eq('31. an end after midnight is tomorrow', ask(q('pickup', named(concert('mid', 'Late Show'))), [], { now: at(TODAY, '23:00') }, night).sentence,
+    'Late Show ends tomorrow <00:30>.');
 }
 
 if (failures > 0) {
