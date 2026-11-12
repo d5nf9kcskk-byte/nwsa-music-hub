@@ -246,7 +246,7 @@ for (const [q, intent] of [
 const SLOT_WORDS: Record<string, string> = {
   DATE: 'tomorrow', GROUP: 'wind ensemble', EVENT: 'midnight ball', PIECE: 'lincoln portrait', VENUE: 'southwood middle school',
   ROOM: 'wolfson auditorium', PLACE: 'wolfson auditorium', FORM: 'orchestra assistant interview', TASK: 'camerata playing exam 2',
-  TERM: 'downbeat', DEADLINE: 'by tomorrow',
+  TERM: 'downbeat', DEADLINE: 'by tomorrow', DAY: 'tomorrow', EVENTW: 'pops',
 };
 const slotWord = (w: string) => (isSlotName(w) ? SLOT_WORDS[w.replace(/[+!]$/, '')] : w);
 const NOT_ME = [
@@ -257,8 +257,17 @@ const NOT_ME = [
 const ARTICLES = new Set(['el', 'la']);
 const MY_WORDS = new Set(MACROS.MY.split('|'));
 /** What a parent may ask about their own child: schedule and logistics. */
-const LOGISTICS = new Set(['myDay', 'lesson', 'due', 'dress', 'callTime', 'pickup', 'concert', 'cancelled', 'howAbsence']);
-const KIN_WORDS = new Set([...MACROS.KIN.split('|'), ...MACROS.KINS.split('|')]);
+const LOGISTICS = new Set(['myDay', 'lesson', 'due', 'dress', 'callTime', 'pickup', 'concert', 'cancelled', 'howAbsence', 'required', 'where']);
+const KIN_WORDS = new Set([...MACROS.KIN.split('|'), ...MACROS.KINS.split('|'), ...MACROS.KINO.split('|')]);
+// A template with a position for a parent's own child is about schedule or
+// logistics, and never asks where the child IS, what they did or how they are.
+for (const t of PUBLIC_TEMPLATES) {
+  if (!/\b(?:KIN|KINS|MYKIN|KINO)\b/.test(t.t)) continue;
+  if (!LOGISTICS.has(t.intent)) fail(`template "${t.t}" has a child in it and is ${t.intent}: only schedule and logistics may`);
+  if (/where is \[?[^\]]*\bKIN(?!S)|\b(?:is|are|was|were) \[?[^\]]*\bKINO?\b[^\]]*\]? (?:at|in|here|there|absent|late|ok|sick)|\b(?:did|has|was|were) \[?[^\]]*\bKIN(?!S)/.test(t.t)) {
+    fail(`template "${t.t}" asks where a child is, what they did or how they are`);
+  }
+}
 const compiled = compileTemplates(PUBLIC_TEMPLATES);
 let unreached = 0;
 let leaky = 0;
@@ -354,11 +363,11 @@ for (const [q, name] of [['is composition cancelled', 'Composition'], ['program 
 
 for (const q of [
   'the week after next', 'rehearsal the week after next', 'the week of the concert', 'what do i have the week of the concert',
-  'sat test', 'sat prep class', "we'd like tickets", 'wed like to know', 'nxt friday', 'upcoming friday', 'this coming friday',
+  'sat test', 'sat prep class', "we'd like tickets", 'wed like to know', 'nxt friday', 'upcoming friday',
   'do we have rehearsal next friday', 'feb 30', 'rehearsal 2/30', 'whats due 4/31', 'the day after the concert',
   'two weeks from friday', 'every friday', 'fridays', 'last friday', 'friday next week', 'end of the month',
   'the friday after thanksgiving', 'what is due before friday', 'rehearsal until friday', 'in two days', 'in 3 weeks',
-  'later today', 'next month', 'first day of school', 'last day of school', 'the last concert', 'the first concert',
+  'next month', 'first day of school', 'last day of school', 'the last concert', 'the first concert',
   'the day of the concert', 'monday through friday', 'do i have rehearsal today or tomorrow', 'que tengo pasado mañana',
   'what did we play yesterday', 'when is the sat', 'next to chapman', 'the room next to 4302',
   'what do i have 11/12/13', 'rehearsal 12/9/2025', 'concert dec 9 2026', 'concerts in the spring',

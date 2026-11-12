@@ -107,7 +107,7 @@ for (const q of [
 // The staff templates, tried the same way as the public ones.
 const SLOT_WORDS: Record<string, string> = {
   DATE: 'tomorrow', GROUP: 'wind ensemble', EVENT: 'midnight ball', ROOM: 'wolfson auditorium', FORM: 'orchestra assistant interview',
-  TASK: 'camerata playing exam 2', PERSON: 'zelda quillfeather', INSTRS: 'cellos',
+  TASK: 'camerata playing exam 2', PERSON: 'zelda quillfeather', INSTRS: 'cellos', DAY: 'tomorrow', EVENTW: 'pops',
 };
 const slotWord = (w: string) => (isSlotName(w) ? SLOT_WORDS[w.replace(/[+!]$/, '')] : w);
 let unreached = 0;
