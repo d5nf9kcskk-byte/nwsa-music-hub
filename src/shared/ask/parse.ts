@@ -916,7 +916,9 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
     }
     // Staff: a few words shaped like a name are a person. Never resolved here.
     let intent = as;
-    if (side && loose().length > 0 && loose().length <= 3 && (rule?.person || (as === 'where' && !one))) {
+    // "Where is <a name>", in that shape: "where do we meet" is not a person.
+    const whereIs = as === 'where' && !one && /^(?:where is|wheres|donde esta)\b/.test(sentence);
+    if (side && loose().length > 0 && loose().length <= 3 && (rule?.person || whereIs)) {
       const named = loose().every(i => GIVEN_NAMES.has(toks[i].w) || (!ordinary(toks[i].w) && /^[a-z]+$/.test(toks[i].w)));
       if (named) {
         person = loose().map(i => toks[i].w).join(' ');
@@ -1039,8 +1041,10 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
   };
 
   /* A third person and the past, or their whereabouts: a record. Refused
-   * whatever the word order, article or language. The how-to is offered. */
-  if (!staff) {
+   * whatever the word order, article or language. The how-to is offered.
+   * Staff too, unless a staff rule fired: "is my son at rehearsal" names
+   * nobody a staff answer could look up. */
+  if (!staff || !intents.some(i => i.startsWith('staff'))) {
     const subject = toks.some((t, i) => SUBJECT.has(t.w) || (KIN.has(t.w) && !(toks[i + 1] && OWNED.has(toks[i + 1].w))));
     const report = REPORT.test(plainText);
     const record =

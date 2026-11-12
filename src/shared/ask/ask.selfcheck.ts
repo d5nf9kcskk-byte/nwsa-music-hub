@@ -193,6 +193,8 @@ const HOSTILE_SAID = [
   'open house', 'family night', 'address update', 'my address', 'phone number change', 'take five', 'take a break',
   'night and day', 'day and night', 'song', 'fanfare for the common man', 'composition', 'business',
   'guitar', 'guitar lesson', 'percussion', 'office hours', 'what are office hours', 'when is lunch',
+  'where is the bell', 'is bell cancelled', 'when is bell', 'where are the fields', 'is fields cancelled',
+  'where is banks', 'is banks open today',
 ];
 let fooled = 0;
 const same = (a: AskParse, b: AskParse) => a.confident === b.confident && a.intent === b.intent && a.when === b.when && a.about === b.about;
@@ -283,6 +285,11 @@ for (const q of ['camerata', 'symphony', '4302', 'Chapman', 'cco', 'dance']) {
 for (const q of ['when is the nutcracker', 'where is the lyric', 'holberg part', 'gilman', 'tchaik 5', 'nutcraker', 'is camertaa cancelled', 'beethoven 7', 'fleischmann']) {
   const got = refuse(q, 'weak evidence for a name');
   if (got.suggestions.length === 0) fail(`"${q}" should offer what it might mean`);
+}
+// A person on a thing is found by surname and only ever offered, even when
+// that surname is on one thing only and the question has a shape.
+for (const q of ['where is pena', 'is marcano cancelled', 'when is albornoz', 'what is andai playing', 'is gasior cancelled today']) {
+  refuse(q, 'a surname alone');
 }
 // A whole name, or two distinctive words of one, is believed with no question.
 expect('wind ensemble', { intent: 'group', about: 'wind ensemble' });

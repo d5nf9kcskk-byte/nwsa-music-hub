@@ -182,7 +182,8 @@ export const HOSTILE: readonly AskName[] = Object.freeze([
   ]),
   ...of('group', [
     ['Guitar Class', '@Rosa Parks'], ['Composition', '@Dolores Day'], ['Percussion Ensemble', '@Hugh Long'],
-    ['Music Business', '@Grace Price'], 'Today', 'Lunch', 'Office Hours',
+    ['Music Business', '@Grace Price'], ['Handbells', '@Ms. Bell'], ['Steel Band', '@Mr. Fields'],
+    ['Jazz Lab', '@Dr. Banks'], 'Today', 'Lunch', 'Office Hours',
   ]),
   ...of('room', ['The Office', 'Front Desk', 'Parking Garage']),
   ...of('concert', ['Open House', 'Family Night', 'The Show']),
