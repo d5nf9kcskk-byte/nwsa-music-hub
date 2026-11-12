@@ -33,7 +33,9 @@ export default defineConfig([
         patterns: [{
           // (\.ts)? — self-check scripts import these modules through Node's
           // type-stripping loader, which requires the explicit extension.
-          regex: 'director/(?!(hooks/|(utils|types|firebase|rosterResolver|scoreOrder|components/Linkify|DirectorApp)(\\.ts)?$))',
+          // groupKind is zero-import (no UI behind it), and studentDay.ts
+          // needs isMasterClass without utils.ts, which Node cannot load.
+          regex: 'director/(?!(hooks/|(utils|types|firebase|rosterResolver|scoreOrder|groupKind|components/Linkify|DirectorApp)(\\.ts)?$))',
           message: 'Public/shared code may only import director hooks, utils, types, firebase, rosterResolver, scoreOrder, or Linkify — anything else drags director UI into the public bundle. Put shared primitives in src/shared/.',
         }],
       }],
