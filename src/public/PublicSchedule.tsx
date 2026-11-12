@@ -20,16 +20,14 @@ import { usePublicOverrides } from './hooks/usePublicRoster';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../director/hooks/useAnnouncements';
 import { useRepertoire } from '../director/hooks/useRepertoire';
 import { useSeatingCharts } from '../director/hooks/useSeatingCharts';
-import { studentEventPieces } from '../shared/studentRepertoire';
+import { studentDay, type StudentDayEvent } from '../shared/studentDay';
 import { useAssignments } from '../director/hooks/useAssignments';
 import { useSignupForms, useStudentSlotBookings } from '../director/hooks/useSignups';
 import { useStudentLessons } from './hooks/usePublicLessons';
 import { LessonTimes } from './components/LessonTimes';
 import { resolveBookedSlots, upcomingBookedSlots, slotCalendarEvent } from '../shared/signupBooking';
-import { bookedPerformersForEvent } from '../shared/eventPerformers';
 import { AddToCalendarButton } from './components/AddToCalendar';
-import { studentExpectation } from '../director/rosterResolver';
-import { todayStr, toDateStr, parseDate, formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, studentHasAssignment, assignmentEmoji, isAssignmentOpen, byDueDateOpenFirst, isMasterClass, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
+import { todayStr, toDateStr, parseDate, formatTime, ensembleColor, ensembleDisplayName, findPartForInstrument, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubSelect } from './components/PubSelect';
 import { PubAnnouncements } from './components/PubAnnouncements';
@@ -90,34 +88,23 @@ export function PublicSchedule() {
   const student = students.find(s => s.id === id);
   const today = todayStr();
   const ensembleMap = useMemo(() => Object.fromEntries(ensembles.map(e => [e.id, e])), [ensembles]);
-  const eventsById = useMemo(() => Object.fromEntries(events.map(e => [e.id, e])), [events]);
   const piecesById = useMemo(() => Object.fromEntries(pieces.map(p => [p.id, p])), [pieces]);
 
-  // Master classes this student booked a slot at (#masterclass-performers).
-  // Signing up to play is its own way onto the schedule: the sign-up exists
-  // precisely because these students are not on the master class roster, so
-  // without this the one event they personally committed to is the one event
-  // missing from their schedule. Same join the personal .ics feed uses, so the
-  // page and the subscribed calendar say the same thing.
-  const myBookedEventIds = useMemo(() => {
-    const out = new Set<string>();
-    for (const e of events) {
-      if (!e.ensembleIds.some(eid => ensembleMap[eid] && isMasterClass(ensembleMap[eid]))) continue;
-      if (bookedPerformersForEvent(e, signupForms, myBookings).some(p => p.studentId === id)) out.add(e.id);
-    }
-    return out;
-  }, [events, ensembleMap, signupForms, myBookings, id]);
-
-  // Upcoming events where this student is expected — performing (base member
-  // or sub, minus pulls) OR required in the audience (attendanceEnsembleIds).
-  const mySchedule = useMemo(() => {
-    if (!student) return [];
-    return events
-      .filter(e => e.date >= today)
-      .map(e => ({ event: e, exp: studentExpectation(id, e, students, overrides, eventsById, myBookedEventIds) }))
-      .filter(x => x.exp.expected)
-      .sort((a, b) => a.event.date.localeCompare(b.event.date) || (a.event.startTime ?? '99').localeCompare(b.event.startTime ?? '99'));
-  }, [student, events, students, overrides, eventsById, id, today, myBookedEventIds]);
+  // What this student has, from today on (#student-day): the events they are
+  // expected at — performing, subbing in, booked to play at a master class, or
+  // required in the audience — the pieces they play on each, their lesson
+  // times, and the assignments due. src/shared/studentDay.ts is the ONE answer,
+  // shared with the personal .ics feed, so this page and the calendar a
+  // student subscribes to from it say the same thing. Do not re-derive any of
+  // it here.
+  const day = useMemo(
+    () => studentDay(id, { from: today, now }, {
+      students, events, overrides, ensembles, pieces, charts, assignments,
+      forms: signupForms, bookings: myBookings, lessons: myLessons,
+    }),
+    [id, today, now, students, events, overrides, ensembles, pieces, charts, assignments, signupForms, myBookings, myLessons],
+  );
+  const mySchedule = day.events;
 
   const todayItems = mySchedule.filter(x => x.event.date === today);
   const { nowHM, isPast } = usePastDimming();
@@ -136,12 +123,12 @@ export function PublicSchedule() {
   // tell somebody, and dropping it silently is how a student walks to an
   // empty room.
   const lessonsToday = useMemo(
-    () => myLessons.filter(l => l.date === today),
-    [myLessons, today],
+    () => day.lessons.filter(l => l.date === today),
+    [day, today],
   );
   const lessonsUpcoming = useMemo(
-    () => myLessons.filter(l => (l.date ?? '') > today),
-    [myLessons, today],
+    () => day.lessons.filter(l => (l.date ?? '') > today),
+    [day, today],
   );
 
   // Conflict explainer (#10): today's lesson windows that override a rehearsal.
@@ -153,14 +140,7 @@ export function PublicSchedule() {
     [overrides, student, today],
   );
 
-  const myAssignments = useMemo(
-    () => student
-      ? assignments
-          .filter(a => isAssignmentOpen(a, today, now) && studentHasAssignment(a, student.id, student.ensembleIds))
-          .sort(byDueDateOpenFirst(today))
-      : [],
-    [assignments, today, now, student],
-  );
+  const myAssignments = day.assignments;
 
   // Time slots this student BOOKED on a sign-up (#signups) — an audition
   // time or a hearing is a real appointment, but it lives in
@@ -177,11 +157,9 @@ export function PublicSchedule() {
   // contributes only their own ensemble's works.
   const myPiecesByEvent = useMemo(() => {
     const out: Record<string, Set<string>> = {};
-    for (const { event: e, exp } of mySchedule) {
-      out[e.id] = new Set(studentEventPieces(id, e, exp, piecesById, charts).map(p => p.id));
-    }
+    for (const { event: e, pieces: mine } of mySchedule) out[e.id] = new Set(mine.map(p => p.id));
     return out;
-  }, [mySchedule, piecesById, charts, id]);
+  }, [mySchedule]);
 
   // Pieces the student plays at upcoming events that have a part for their instrument.
   const myParts = useMemo(() => {
@@ -436,7 +414,7 @@ export function PublicSchedule() {
 
 /** Personal month calendar: dots on days with this student's events; tap a day for details. */
 function StudentMonth({ items, assignments, ensembleMap, piecesById, studentInstrument, myPiecesByEvent, onMonth }: {
-  items: { event: CalendarEvent; exp: ReturnType<typeof studentExpectation> }[];
+  items: Pick<StudentDayEvent, 'event' | 'exp'>[];
   assignments: import('../director/types').Assignment[];
   ensembleMap: Record<string, import('../director/types').Ensemble>;
   piecesById: Record<string, import('../director/types').RepertoirePiece>;
