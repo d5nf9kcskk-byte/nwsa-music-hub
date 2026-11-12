@@ -717,6 +717,12 @@ runs:
       run: node src/director/ask/staffAsk.selfcheck.ts
       shell: bash
 
+    # An iPhone must record MP4, never WebKit's WebM: the director's Chrome
+    # cannot decode that file and a Mac cannot open it (#recording-type).
+    - name: Check in-app recording type
+      run: node src/shared/recordingType.selfcheck.ts
+      shell: bash
+
     # Ask, the answering half: a reading of the question and the public
     # records in, an answer object out. It pins the states (answered, nothing
     # posted, not understood, ask who is asking), that an archived or missing
