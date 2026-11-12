@@ -128,22 +128,46 @@ export const newId = () => Array.from({ length: 20 }, () => AUTO_ID[randomInt(AU
 /** Marks a field for deletion in an update (the app's `undefined` = delete). */
 export const DELETE = Symbol('delete-field');
 
-export async function connect() {
+/**
+ * When a doc was last written, as the read saw it. Every doc object a store
+ * returns carries it under this key. It is not enumerable, so it never shows
+ * up in a spread, in Object.entries or in a write. `deleteMany` sends it back
+ * as the delete's precondition.
+ */
+export const UPDATE_TIME = Symbol('update-time');
+const stamped = (obj, updateTime) => Object.defineProperty(obj, UPDATE_TIME, { value: updateTime });
+
+/** One line saying why this credential may not be used, or null when it may. */
+export function projectMismatch(serviceAccount, onlyProject) {
+  const got = serviceAccount?.project_id;
+  if (got === onlyProject) return null;
+  return `This tool only runs against the ${onlyProject} project. The credential is for ${got ? `"${got}"` : 'no project'}. Nothing was read or written.`;
+}
+
+/**
+ * `onlyProject` pins the run to one Firebase project: a service account for
+ * any other project is refused before anything is read.
+ */
+export async function connect({ onlyProject } = {}) {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (raw) {
     let sa;
     try { sa = JSON.parse(raw); } catch { fail('FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON.'); }
+    const wrong = onlyProject && projectMismatch(sa, onlyProject);
+    if (wrong) fail(wrong);
     const { initializeApp, cert, getApps } = await import('firebase-admin/app');
     const { getFirestore, FieldValue } = await import('firebase-admin/firestore');
     if (getApps().length === 0) initializeApp({ credential: cert(sa) });
     return adminStore(getFirestore(), FieldValue);
   }
   if (APPLY) fail('--apply needs FIREBASE_SERVICE_ACCOUNT_JSON. Nothing was written.');
-  return restStore(process.env.HUB_PROJECT_ID || DEFAULT_PROJECT);
+  const projectId = process.env.HUB_PROJECT_ID || DEFAULT_PROJECT;
+  if (onlyProject && projectId !== onlyProject) fail(`This tool only reads the ${onlyProject} project (HUB_PROJECT_ID is "${projectId}").`);
+  return restStore(projectId);
 }
 
 function adminStore(db, FieldValue) {
-  const snapToObj = s => (s.exists ? { id: s.id, ...s.data() } : null);
+  const snapToObj = s => (s.exists ? stamped({ id: s.id, ...s.data() }, s.updateTime) : null);
   const encode = data => Object.fromEntries(
     Object.entries(data).map(([k, v]) => [k, v === DELETE ? FieldValue.delete() : v]));
   return {
@@ -154,14 +178,26 @@ function adminStore(db, FieldValue) {
     // `fields` reads only those fields of each doc (the id always comes).
     all: async (c, fields) =>
       (await (fields ? db.collection(c).select(...fields) : db.collection(c)).get()).docs.map(snapToObj),
-    /** Delete many docs of one collection, in batches. Returns how many. */
-    async deleteMany(c, ids) {
-      for (let i = 0; i < ids.length; i += 400) {
+    /**
+     * Delete many docs of one collection, in batches. Each row is
+     * `{ id, updateTime }`, and the delete carries that time as a
+     * precondition: a doc somebody changed after the read fails its whole
+     * batch instead of being deleted. A row with no update time is refused
+     * before anything is sent. Returns how many were deleted; on a failed
+     * batch the error carries `deleted`, the count from the batches before it.
+     */
+    async deleteMany(c, rows) {
+      const bare = rows.filter(r => !r.updateTime);
+      if (bare.length) throw Object.assign(new Error(`${bare.length} row(s) carry no update time, so they cannot be deleted safely.`), { deleted: 0 });
+      let deleted = 0;
+      for (let i = 0; i < rows.length; i += 400) {
+        const chunk = rows.slice(i, i + 400);
         const batch = db.batch();
-        for (const id of ids.slice(i, i + 400)) batch.delete(db.collection(c).doc(id));
-        await batch.commit();
+        for (const r of chunk) batch.delete(db.collection(c).doc(r.id), { lastUpdateTime: r.updateTime });
+        try { await batch.commit(); } catch (e) { throw Object.assign(e, { deleted }); }
+        deleted += chunk.length;
       }
-      return ids.length;
+      return deleted;
     },
     async write(w) {
       const ref = db.collection(w.collection).doc(w.id);
@@ -188,7 +224,7 @@ function restStore(projectId) {
     return undefined;
   };
   const fields = f => Object.fromEntries(Object.entries(f ?? {}).map(([k, v]) => [k, decode(v)]));
-  const toObj = d => ({ id: d.name.split('/').pop(), ...fields(d.fields) });
+  const toObj = d => stamped({ id: d.name.split('/').pop(), ...fields(d.fields) }, d.updateTime);
   const call = async (url, init) => {
     const res = await fetch(url, init);
     if (res.status === 404) return null;

@@ -349,9 +349,9 @@ MDCPS teacher-planning day even though MDC was in full session that day.
   MDCPS-only closure — simply did not exist in Firestore until 2026-09-19.
   The director reported it as "you cancelled the college classes"; they had
   never been created. After changing which calendar a generator asks, re-run
-  that generator (`Seed College Program` is `workflow_dispatch`; use its
-  "missing only" run, below) and verify against the live data, which is
-  world-readable for `events`.
+  that generator (`Seed College Program` is `workflow_dispatch`, and by
+  default it only adds what is missing, below) and verify against the live
+  data, which is world-readable for `events`.
 - **`scripts/calendar-closures-audit.mjs` is that verification**, as a command
   (*Audit Calendar Closures*, `workflow_dispatch`). It asks the live project
   whether every closure agrees with both calendars, in BOTH directions: no
@@ -390,15 +390,28 @@ MDCPS teacher-planning day even though MDC was in full session that day.
     on a day the college holds no classes, and refuses any that a person has
     touched (roll, a change note, a cancel, an edit, a roster move) or that
     has already happened. It reads `events` and the event id field of
-    `rosterOverridesPublic` and nothing else. Its `--selfcheck` runs in the
-    self-checks.
-  - **A plain *Seed College Program* re-run overwrites.** Its merge resets
-    every field the generator writes, `status` included, so a cancelled class
-    meeting comes back as Scheduled. Run it with **"missing only"**
-    (`--missing-only`, ticked by default in the workflow): it creates the docs
-    that do not exist and touches nothing that does. That is how the March 29
-    classes get added after a prune. The in-app "Set up college program"
-    button still does the plain overwrite.
+    `rosterOverridesPublic` and nothing else. It runs only against the
+    `nwsa-hub` project. Each delete carries the update time the read saw
+    (`UPDATE_TIME` in `scripts/lib/hubTool.mjs`), so a meeting somebody
+    cancels or edits between the read and the delete fails its batch instead
+    of being deleted. Its `--selfcheck` runs in the self-checks.
+  - **A college seed only ADDS WHAT IS MISSING.** `missingCollegeDocs()` in
+    `collegeSchedule.ts` is the ONE decision behind `scripts/seed-college.mjs`
+    (its default), the in-app "Add college program" and "Set up college
+    program" buttons (`seedCollege.ts`), and the prune's "Missing classes"
+    list: the groups and class meetings that do not exist, never one that
+    does, and never one a combined block is holding (`changeFrom.absorbed`).
+    That is how the March 29 classes get added after a prune. The old run
+    merged the generator's fields over every meeting, `status` included, so a
+    cancelled class came back as Scheduled. It still exists as `--overwrite`
+    (the workflow's "Missing only" unticked, or `"missing_only": false` in the
+    trigger file) and nowhere else. Do not give a seed a merge back.
+  - **No seed creates a College Chamber Orchestra rehearsal safely.**
+    `scripts/add-ensembles.mjs` and the in-app `seedCalendar()` write over
+    every rehearsal that exists. The prune lists missing rehearsals apart
+    from missing classes and says they need adding by hand.
+  - *Seed College Program* and *Prune College Sessions* share the `hub-tools`
+    concurrency group, so one never creates while the other deletes.
 - **A cancelled day takes the day's private LESSONS with it.** They are in
   another collection and were never in `dayEvents`, so a cancelled Monday used
   to look empty with a violin lesson still on it. It cannot be tidied up

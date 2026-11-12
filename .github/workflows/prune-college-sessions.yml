@@ -16,8 +16,17 @@ name: Prune College Sessions
 # cancel, an edit, a roster move) or one that has already happened. Those are
 # listed and kept.
 #
-# It creates nothing. To add the meetings it reports missing, run the *Seed
-# College Program* workflow afterwards with "missing only" ticked.
+# Each delete carries the time its doc was last written, as this run read it.
+# If somebody cancels or edits one of these meetings between the read and the
+# delete, the run deletes nothing in that batch, says so, and fails. Run the
+# preview again.
+#
+# It runs only against the nwsa-hub project and refuses any other credential.
+#
+# It creates nothing. To add the class meetings it reports missing, run the
+# *Seed College Program* workflow afterwards with "missing only" ticked.
+# Missing College Chamber Orchestra rehearsals are listed apart: no seed adds
+# those safely, and they need adding by hand on the Schedule screen.
 #
 # It reads `events` and the event id field of `rosterOverridesPublic`, both
 # world-readable, and prints counts, dates, class titles, event ids and field

@@ -2,7 +2,7 @@
  * College calendar session generation — no Firebase. Shared by the in-app
  * seed (seedCollege.ts) and the admin script (scripts/seed-college.mjs).
  */
-import { COLLEGE_CLASSES } from './collegeClasses.ts';
+import { COLLEGE_CLASSES, COLLEGE_ENSEMBLES, COLLEGE_TERM } from './collegeClasses.ts';
 import type { CollegeClassSpec } from './collegeClasses.ts';
 import { MDC_NO_SCHOOL, MDC_YEAR } from '../shared/academicCalendars.ts';
 
@@ -88,6 +88,68 @@ export function collegeClassEventDocs(): { id: string; data: CollegeSeedEventDat
     }
   }
   return docs;
+}
+
+/**
+ * The `ensembles` docs the college program creates: the two college ensembles
+ * and one class group per entry in COLLEGE_CLASSES. One list for the in-app
+ * seed and scripts/seed-college.mjs.
+ */
+export function collegeGroupDocs(): { id: string; data: Record<string, unknown> }[] {
+  return [
+    ...COLLEGE_ENSEMBLES.map(({ id, ...data }) => ({ id, data: { ...data, kind: 'ensemble', collegeLevel: true } })),
+    ...COLLEGE_CLASSES.map(c => ({
+      id: c.id,
+      data: {
+        kind: 'class',
+        collegeLevel: true,
+        name: c.title,
+        order: c.order,
+        conductorName: c.teacher,
+        ...(c.room ? { defaultLocation: c.room } : {}),
+        // The catalog number, onto the GROUP, so the class page can print the
+        // number a dual-enrollment student is registered under. A class with
+        // no code in the spec carries no field.
+        ...(c.courseCode ? { courseCode: c.courseCode } : {}),
+        term: c.term ?? COLLEGE_TERM,
+        defaultStartTime: c.start,
+        defaultEndTime: c.end,
+        meetingDays: c.days,
+      },
+    })),
+  ];
+}
+
+/** Ids of the blocks a combined block is holding (`changeFrom.absorbed`).
+ *  They are off the calendar on purpose, and "Back to normal" re-creates them. */
+export function absorbedEventIds(
+  events: Iterable<{ changeFrom?: { absorbed?: { id: string }[] } | null }>,
+): Set<string> {
+  const ids = new Set<string>();
+  for (const e of events) for (const a of e.changeFrom?.absorbed ?? []) ids.add(a.id);
+  return ids;
+}
+
+/**
+ * What a seed may CREATE: the college groups and class meetings that do not
+ * exist yet. The ONE decision behind the in-app "Add college program" button,
+ * `scripts/seed-college.mjs` (its default run) and the "Missing" list of
+ * scripts/prune-college-sessions.mjs.
+ *
+ * It never returns a doc that exists, so a cancelled, moved or edited meeting
+ * is never written over. It skips a meeting that a combined block is holding,
+ * so a combine is not undone by a second copy. It returns no rehearsal and no
+ * room patch: those only make sense on a doc that is already there.
+ */
+export function missingCollegeDocs(have: {
+  groupIds: ReadonlySet<string>;
+  eventIds: ReadonlySet<string>;
+  absorbed: ReadonlySet<string>;
+}) {
+  return {
+    groups: collegeGroupDocs().filter(d => !have.groupIds.has(d.id)),
+    sessions: collegeClassEventDocs().filter(d => !have.eventIds.has(d.id) && !have.absorbed.has(d.id)),
+  };
 }
 
 /** Patch existing CCO rehearsals with room 4302 (fall schedule). */
