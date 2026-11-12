@@ -520,6 +520,21 @@ async function s8_onePersonPerAccount() {
   const fresh = await adminAuth.getUserByEmail(email);
   must(fresh.providerData.filter(q => q.providerId === 'google.com').map(q => q.uid).join() === 'google-ned', 'the fresh account has the entry\'s Google identity on it, and no other');
   must(await getsIn((await byPassword('ned-phone-2', email, 'neds own pass 2')).d, email) === true, 'and they are in again by password');
+
+  // The same starting state, put right the other way: nobody's Hub asks,
+  // and the person uses a link from their own inbox.
+  const second = 'nan@school.test';
+  await list(second);
+  await google('nan-laptop', second, 'google-nan');
+  const was = await director(second);
+  await adminAuth.updateUser(was.boundUid, { providersToUnlink: ['google.com'] });
+  await adminAuth.updateUser(was.boundUid, { providerToLink: { providerId: 'google.com', uid: 'google-other-2', email: second } });
+  must((await setPassword(second, 'nans own pass 1')).status === 'done', 'with such an account standing on the address, the person sets a password by link');
+  const made = await adminAuth.getUserByEmail(second);
+  must(made.uid !== was.boundUid && made.providerData.filter(q => q.providerId === 'google.com').map(q => q.uid).join() === 'google-nan',
+    'the fresh account carries the Google identity the ENTRY names; the one that sat on the old account is not carried over');
+  must(await getsIn((await byPassword('nan-phone', second, 'nans own pass 1')).d, second) === true && await getsIn((await googleOnly('nan-laptop-2', second, 'google-nan')).d, second) === true,
+    'and the person is in by password and by Google');
 }
 
 async function s9_aFailedSetup() {
