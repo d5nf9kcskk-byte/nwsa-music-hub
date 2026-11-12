@@ -1,0 +1,51 @@
+# The checks that pin who the security rules let in.
+#
+# They used to run only when the functions deployed, so a change to the rules
+# alone went live with none of them. Now they run in two places:
+#
+#   • on every pull request that touches the rules or the code that mirrors
+#     them, and
+#   • as the FIRST job of the rules deploy (deploy-rules.yml calls this
+#     workflow and deploys only if it passes).
+#
+# The same self-checks are also in .github/actions/self-checks, so every
+# build runs them too. This workflow exists so that a rules-only push cannot
+# skip them.
+name: Rules checks
+
+on:
+  workflow_call:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'firestore.rules'
+      - 'storage.rules'
+      - 'functions/src/googleBinding*.ts'
+      - 'functions/src/freshAccount.ts'
+      - 'functions/src/googleIdToken.ts'
+      - 'functions/src/entryLock.ts'
+      - 'functions/src/index.ts'
+      - 'src/director/components/AuthGate.tsx'
+      - 'scripts/sign-in-accounts-audit.mjs'
+      - 'scripts/set-doc-field.mjs'
+      - '.github/workflows/rules-checks.yml'
+      - '.github/workflows/deploy-rules.yml'
+      - '.github/workflows/deploy-functions.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  rules-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Check the Google tie
+        run: node --experimental-strip-types functions/src/googleBinding.selfcheck.ts
+
+      - name: Check the sign-in accounts audit
+        run: node scripts/sign-in-accounts-audit.mjs --selfcheck

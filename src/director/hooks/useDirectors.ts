@@ -57,6 +57,22 @@ export {
  * single `role` field is still read for unmigrated docs.
  */
 
+/**
+ * The fields on an entry that record which sign-in account is the person's
+ * (#google-binding). The server writes them; nothing here may, and the rules
+ * refuse it. `addDirector` and "Reset" are the only places that name them.
+ */
+export const BINDING_KEYS = ['googleSub', 'boundUid', 'boundAt', 'passwordSet'] as const;
+
+/**
+ * Has the server recorded this person's sign-in account? An account on
+ * record, opened either by their Google account or by a password the server
+ * set (#password-sign-in). The switch script counts the same way
+ * (scripts/require-google-ties.mjs).
+ */
+export const isConfirmed = (d: Pick<Director, 'googleSub' | 'boundUid' | 'passwordSet'>): boolean =>
+  !!d.boundUid && (!!d.googleSub || d.passwordSet === true);
+
 export interface Director {
   email: string;    // doc id
   name?: string;    // display name — auto-captured from Google profile on
@@ -67,6 +83,20 @@ export interface Director {
   roles?: DirectorRole[];
   addedBy?: string; // email of the director who added them
   addedAt?: number; // epoch ms
+  /**
+   * Which sign-in account is this person's (#google-binding): Google's id
+   * for them, the one Hub account that goes with it, and when it was
+   * recorded. Written by the `bindGoogle` Cloud Function ONLY, the first
+   * time the person opens the Hub after signing in with Google. The app
+   * never sets these (BINDING_KEYS below). The Owner may clear them (the
+   * Directors screen's "Reset"), and the person is tied again the next time
+   * they open the Hub.
+   */
+  googleSub?: string;
+  boundUid?: string;
+  boundAt?: number;
+  /** The server has set a password on that account, by the Hub's emailed link (#password-sign-in). */
+  passwordSet?: boolean;
   /** Applied-teacher only: instrument(s) they teach, e.g. ["Violin"]. */
   instruments?: string[];
   /** Applied-teacher only: students they give private lessons to. An Owner/Director
@@ -186,10 +216,19 @@ export function useDirectors() {
     const dbRef = db;
     const id = directorEmailId(email);
     const roles = extra?.roles ?? (extra?.role ? [extra.role] : ['director']);
+    // (#google-binding) "Adding" an address that is already listed replaces
+    // the entry. It must not also wipe which sign-in account is theirs, so
+    // that record rides along exactly as the server wrote it. (The rules let
+    // a browser carry those fields unchanged, never set or alter them.)
+    const existing = directors.find(d => d.email === id);
+    const kept = Object.fromEntries(
+      BINDING_KEYS.filter(k => existing?.[k] !== undefined).map(k => [k, existing![k]]),
+    );
     await trackWrite('Director', () =>
       setDoc(doc(dbRef, 'directors', id), {
         email: id,
         roles,
+        ...kept,
         ...(extra?.name ? { name: extra.name } : {}),
         ...(extra?.instruments ? { instruments: extra.instruments } : {}),
         ...(extra?.assignedStudentIds ? { assignedStudentIds: extra.assignedStudentIds } : {}),
@@ -255,4 +294,33 @@ export function useMyDirector(email: string | null | undefined) {
   }, [email]);
 
   return { director, loading };
+}
+
+/** What the *Audit Sign-in Accounts* workflow last found (#google-binding). */
+export interface SignInAudit {
+  at?: number;
+  result?: string;
+  /** Sign-in accounts that are not what the Hub expects, by address. */
+  needALook: string[];
+  /** Listed addresses that have no sign-in account yet. */
+  listedWithNoAccount: string[];
+}
+
+/**
+ * The audit's note, for the Owner's Directors screen. Its public log prints
+ * one word; WHICH accounts is said here, where only the Owner can read it.
+ */
+export function useSignInAudit(isOwner: boolean): SignInAudit | null {
+  const [state, setState] = useState<SignInAudit | null>(null);
+  useEffect(() => {
+    if (!db || !isOwner) return;
+    const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+    return onSnapshot(doc(db, 'serverConfig', 'signInAudit'), snap => {
+      setState(snap.exists() ? {
+        at: snap.get('at'), result: snap.get('result'),
+        needALook: list(snap.get('needALook')), listedWithNoAccount: list(snap.get('listedWithNoAccount')),
+      } : null);
+    }, () => setState(null));
+  }, [isOwner]);
+  return state;
 }

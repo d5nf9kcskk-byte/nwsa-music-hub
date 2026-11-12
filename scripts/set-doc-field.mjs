@@ -29,6 +29,10 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 // Their writes must carry a matching public projection — out of scope here.
 const MIRRORED = ['students', 'rosterOverrides', 'lessons'];
+// Places the server keeps for itself: who may sign in, the switches the rules
+// read, one-time links, feed tokens. A typo tool must never write them, and
+// must never print them: this log is public.
+const REFUSED = ['directors', 'serverConfig', 'signInLocks', 'passwordSetup', 'passwordSetupLimits', 'feedSecrets'];
 
 const DRY = process.argv.includes('--dry-run');
 const collection = (process.env.DOC_COLLECTION ?? '').trim();
@@ -41,6 +45,10 @@ for (const [k, v] of [['DOC_COLLECTION', collection], ['DOC_ID', docId], ['DOC_F
 }
 if (field.includes('.')) {
   console.error(`DOC_FIELD "${field}" — nested paths are not supported, only a top-level field.`);
+  process.exit(1);
+}
+if (REFUSED.includes(collection)) {
+  console.error(`${collection} is not something this tool may write. Use the app, or the workflow made for it.`);
   process.exit(1);
 }
 if (MIRRORED.includes(collection)) {
