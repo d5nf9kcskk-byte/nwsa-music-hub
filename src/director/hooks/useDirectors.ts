@@ -67,6 +67,17 @@ export interface Director {
   roles?: DirectorRole[];
   addedBy?: string; // email of the director who added them
   addedAt?: number; // epoch ms
+  /**
+   * Google's id for the person this entry is tied to, and when it was tied
+   * (#google-binding). Written by the `bindGoogle` Cloud Function ONLY, the
+   * first time the person opens the Hub after signing in with Google: the
+   * server checks that Google's own address for their account is this
+   * entry's address. The app never sets these. The Owner may clear them (the
+   * Directors screen's "Reset"), and the person is tied again the next time
+   * they open the Hub.
+   */
+  googleSub?: string;
+  googleBoundAt?: number;
   /** Applied-teacher only: instrument(s) they teach, e.g. ["Violin"]. */
   instruments?: string[];
   /** Applied-teacher only: students they give private lessons to. An Owner/Director

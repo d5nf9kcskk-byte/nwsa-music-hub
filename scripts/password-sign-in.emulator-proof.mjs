@@ -15,6 +15,13 @@
  *   Storage     a staff-only listing
  *   Functions   verifyIdToken, then staffFromToken, then the role check
  *
+ * Google sign-ins here are tied the way the app does it (#google-binding):
+ * right after signing in, the device asks the REAL bindGoogle
+ * (functions/src/googleBinding.ts) to tie the entry. The switch that makes
+ * Firestore require the tie is ON throughout, which is the state password
+ * sign-in is meant to be turned on in, and the only one in which all three
+ * gates give the same answer for a Google sign-in.
+ *
  * Nothing here can reach production: the project id starts with "demo-".
  *
  * Run from the repo root (Java is Homebrew's keg-only openjdk on this Mac):
@@ -52,6 +59,8 @@ import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 import { completeSetup, requestSetup } from '../functions/src/passwordSetup.ts';
 import { passwordSetupStore } from '../functions/src/passwordSetupStore.ts';
 import { staffFromToken } from '../functions/src/staffToken.ts';
+import { bindGoogle } from '../functions/src/googleBinding.ts';
+import { googleBindingStore } from '../functions/src/googleBindingStore.ts';
 import { readSetupLink } from '../src/shared/passwordSetupLink.ts';
 
 const PROJECT = process.env.GCLOUD_PROJECT || 'demo-password-sign-in';
@@ -71,6 +80,7 @@ const adminApp = initializeAdminApp({ projectId: PROJECT });
 const adminAuth = getAdminAuth(adminApp);
 const adminDb = getAdminFirestore(adminApp);
 const store = passwordSetupStore(adminDb, adminAuth, { publicUrl: 'https://example.test/hub/', appName: 'Proof Hub' });
+const bindStore = googleBindingStore(adminDb, adminAuth);
 
 const apps = [];
 /** One browser: its own sign-in state. */
@@ -175,10 +185,13 @@ async function setPassword(email, password) {
 const fakeGoogle = email => GoogleAuthProvider.credential(
   JSON.stringify({ sub: `google-${email}`, email, email_verified: true }),
 );
+/** What the app does by itself after a Google sign-in: ask the server to tie the entry to this Google account. */
+const askToBind = async dev => bindGoogle(bindStore, await adminAuth.verifyIdToken(await dev.auth.currentUser.getIdToken()));
 const google = async (name, email) => {
   const d = device(name);
   const { user } = await signInWithCredential(d.auth, fakeGoogle(email));
-  return { d, user };
+  const tie = await askToBind(d);
+  return { d, user, tie };
 };
 const byPassword = async (name, email, password) => {
   const d = device(name);
@@ -217,9 +230,9 @@ async function s1_theRulesAlone() {
   await list(email);
 
   const g = await google('ada-laptop', email);
-  must(await getsIn(g.d, email) === true, 'Google, on the list: gets in (Firestore, Storage and the functions agree)');
+  must(await getsIn(g.d, email) === true, 'Google, on the list, tied by the server at sign-in: gets in (Firestore, Storage and the functions agree)');
   const stranger = await google('unlisted-google', 'nobody@elsewhere.test');
-  must(await getsIn(stranger.d, 'nobody@elsewhere.test') === false, 'Google, not on the list: refused');
+  must(stranger.tie === 'not-listed' && await getsIn(stranger.d, 'nobody@elsewhere.test') === false, 'Google, not on the list: not tied, refused');
 
   await g.d.auth.signOut();
   await adminAuth.deleteUser(g.user.uid); // clear the address for the cases below
@@ -246,7 +259,7 @@ async function s1_theRulesAlone() {
   await refresh(anon);
   const ac = await claimsOf(anon);
   must(ac.email === email && ac.email_verified === true && ac.firebase.sign_in_provider === 'anonymous', 'an anonymous account given a listed address, verified: its token says so');
-  must(await getsIn(anon, email) === false, 'refused: only Google and a bound password are honoured');
+  must(await getsIn(anon, email) === false, 'refused: only the tied Google account and a bound password are honoured');
   await adminAuth.deleteUser(user.uid);
 
   const off = await outsideAccount('unlisted-verified', 'someone@elsewhere.test', 'some password 3', { verified: true });
@@ -292,7 +305,9 @@ async function s3_noAccountYet() {
   must(await getsIn(phone.d, email) === true, 'and gets in: Firestore, Storage and the functions agree');
 
   const g = await google('cara-laptop', email);
-  must(g.user.uid === account.uid && await getsIn(g.d, email) === true, 'Google with the same address opens the SAME account, and gets in');
+  must(g.user.uid === account.uid && g.tie === 'bound' && await getsIn(g.d, email) === true, 'Google with the same address opens the SAME account, is tied, and gets in');
+  const both = await director(email);
+  must(both.passwordUid === account.uid && both.googleSub === `google-${email}`, 'the entry now carries both records, each written by the server');
   must((await byPassword('cara-tablet', email, 'caras own pass 1')).user.uid === account.uid, 'and the password still opens it afterwards');
   must(await codeOf(signInWithEmailAndPassword(device('guess').auth, email, 'not caras password')) !== 'ok', 'a wrong password does not sign in');
 }
@@ -348,10 +363,11 @@ async function s5_googleFirst() {
   const account = await adminAuth.getUserByEmail(email);
   must(account.uid !== laptop.user.uid, 'the account is a fresh one');
   must(account.providerData.some(p => p.providerId === 'google.com' && p.uid === `google-${email}`), 'with their own Google identity attached to it');
+  must((await director(email)).googleSub === `google-${email}`, 'the Google tie is untouched: it is to Google\'s id for the person, not to the account that was replaced');
   const phone = await byPassword('eve-phone', email, 'eves own pass 1');
   must(phone.user.uid === account.uid && await getsIn(phone.d, email) === true, 'the password gets in');
   const again = await google('eve-laptop-again', email);
-  must(again.user.uid === account.uid && await getsIn(again.d, email) === true, 'Sign in with Google opens the same account, and gets in');
+  must(again.user.uid === account.uid && await getsIn(again.d, email) === true, 'Sign in with Google opens the same account, and gets in with no new tie needed');
   must(await refresh(laptop.d) !== 'ok', 'the browser that was signed in before has to sign in again (its account is gone)');
 }
 
@@ -422,14 +438,14 @@ async function s7_accountsFromBefore() {
     const olderToken = await older.d.auth.currentUser.getIdToken();
     const real = await google('ida-laptop', email);
     fact(`emulator: the real person's Google sign-in opened ${real.user.uid === older.user.uid ? 'that same account' : 'a different account'}`);
-    must(await getsIn(real.d, email) === true, 'the real person gets in with Google, exactly as today');
+    must(await getsIn(real.d, email) === true, 'the real person gets in with Google, tied by the server at sign-in');
     must(await tokenGetsIn(olderToken, email) === false, 'BEFORE any binding: the older token is refused');
     const renewed = await refresh(older.d);
     fact(`emulator: asked for a fresh token, the older browser gets: ${renewed}`);
     if (renewed === 'ok') {
       const c = await claimsOf(older.d);
       fact(`that fresh token says: verified ${c.email_verified}, signed in by ${c.firebase.sign_in_provider}`);
-      must(await getsIn(older.d, email) === false, 'BEFORE any binding: refused with the fresh token as well (nobody is bound, so no password is honoured)');
+      must(await getsIn(older.d, email) === false, 'BEFORE any binding: refused with the fresh token as well (it did not sign in with Google, and no password is bound)');
     }
     must((await setPassword(email, 'idas own pass 1')).status === 'done', 'the real person sets a password by link');
     must(await tokenGetsIn(olderToken, email) === false, 'AFTER the binding: the older token is refused');
@@ -500,7 +516,8 @@ async function s10_removedAndReadded() {
   must(await getsIn(phone.d, email) === false && await getsIn(laptop.d, email) === false, 'taken off the list: out, both ways');
 
   await list(email); // added again: a new doc, with no binding
-  must(await getsIn(laptop.d, email) === true, 'added again: Google gets in at once, exactly as today');
+  must(await getsIn(laptop.d, email) === false, 'added again: Google is out until tied again (the tie went with the old listing too)');
+  must(await askToBind(laptop.d) === 'bound' && await getsIn(laptop.d, email) === true, 'the Hub ties the Google account again by itself, and it is in with the token it already had');
   must(await getsIn(phone.d, email) === false, 'the password does not: the binding went with the old listing');
   must(await refresh(phone.d) === 'ok' && await getsIn(phone.d, email) === false, 'not with a renewed token either');
   const fresh = await byPassword('lee-phone-again', email, 'lees own pass 1');
@@ -556,6 +573,7 @@ async function s11_theBindingTestItself() {
 }
 
 await adminDb.doc('students/probe').set({ name: 'Probe Student (fictional)' });
+await adminDb.doc('serverConfig/signIn').set({ googleTieRequired: true }); // the Google tie is required (see the header)
 const steps = [
   s1_theRulesAlone, s2_askingChangesNothing, s3_noAccountYet, s4_theBindingIsTheServers, s5_googleFirst,
   s6_reset, s7_accountsFromBefore, s8_aFailedSetup, s9_linksAreOneTime, s10_removedAndReadded,

@@ -79,7 +79,8 @@ assert(/secrets: \['ANTHROPIC_API_KEY'\]/.test(handler) && /process\.env\.ANTHRO
 // missing ANTHROPIC_API_KEY would fail the deploy of all the others too.
 assert(!/defineSecret\(/.test(index.split('\n').filter(l => !/^\s*(\*|\/\/)/.test(l)).join('\n')), 'no defineSecret() in index.ts: it would make every deploy demand the secret');
 // The token goes through the one shared staff test (staffToken.ts, the same
-// test the rules use), then the role is checked here (#password-sign-in).
+// test the rules use), then the role is checked here (#google-binding,
+// #password-sign-in).
 assert(/staffFromIdToken\(idToken\)/.test(handler) && /hasKnownRole\(staff\.director\)/.test(handler)
   && !/verifyIdToken/.test(handler),
   'only a verified, allowlisted staff account may draft');

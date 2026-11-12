@@ -36,6 +36,8 @@ import { buildSubmissionReceipt, submissionReceiptId } from './submissionReceipt
 import { composeSubmission as runComposeSubmission } from './composeSubmission.ts';
 import { getAuth } from 'firebase-admin/auth';
 import { getAppCheck } from 'firebase-admin/app-check';
+import { bindGoogle as runBindGoogle, type BindClaims } from './googleBinding.ts';
+import { googleBindingStore } from './googleBindingStore.ts';
 import { staffFromToken } from './staffToken.ts';
 import { completeSetup, requestSetup, type RequestOutcome } from './passwordSetup.ts';
 import { passwordSetupStore } from './passwordSetupStore.ts';
@@ -905,8 +907,9 @@ function hasKnownRole(d: Record<string, unknown> | undefined): boolean {
 }
 
 /**
- * The ONE way a function reads a caller's sign-in token (#password-sign-in):
- * verify it, then put it through the same staff test the rules use
+ * The ONE way a function learns who is calling (#google-binding,
+ * #password-sign-in): verify the token, then put it through the same staff
+ * test the rules use
  * (staffToken.ts). Null means "not a sign-in the Hub honours" and the caller
  * answers 401; the role is still the caller's to check.
  */
@@ -1090,6 +1093,52 @@ export const draftChangeNoteEs = runWith({ secrets: ['ANTHROPIC_API_KEY'] }).htt
   const r = await draftSpanish(input.note, request => client.beta.messages.create(request));
   if (r.ok) { res.status(200).json({ ok: true, draft: r.draft }); return; }
   refuse(r.status, r.message);
+});
+
+/**
+ * Tie a listed person to their own Google account (#google-binding). POST
+ * with the caller's Firebase ID token as a Bearer header; no body. The app
+ * calls it by itself right after a Google sign-in whenever the person's
+ * Directors entry is not tied yet.
+ *
+ * It records Google's id for the person on their entry, and only when
+ * Google's own address for the account behind the sign-in IS the listed
+ * address. The rule and the reasons are in googleBinding.ts. Answers
+ * { ok: true, status } with one of: bound, not-listed, mismatch,
+ * other-account. It speaks only about the caller's own sign-in.
+ */
+export const bindGoogle = https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+  res.set('Cache-Control', 'no-store');
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.set('Access-Control-Max-Age', '3600');
+    res.status(204).send('');
+    return;
+  }
+  const refuse = (status: number, message: string) => { res.status(status).json({ ok: false, message }); };
+  if (req.method !== 'POST') { refuse(405, 'That did not reach the Hub correctly.'); return; }
+
+  const header = req.get('Authorization') ?? '';
+  const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!idToken) { refuse(401, 'Sign in again, then try.'); return; }
+  let claims: BindClaims;
+  try {
+    claims = await getAuth().verifyIdToken(idToken);
+  } catch {
+    refuse(401, 'Sign in again, then try.');
+    return;
+  }
+  try {
+    const status = await runBindGoogle(googleBindingStore(getFirestore(), getAuth()), claims);
+    res.status(200).json({ ok: true, status });
+  } catch (err) {
+    // The code only: never the address or the token.
+    console.error('bindGoogle failed:', (err as { code?: unknown } | null)?.code ?? 'unknown');
+    refuse(500, 'That did not work on our side. Try again in a moment.');
+  }
 });
 
 /**

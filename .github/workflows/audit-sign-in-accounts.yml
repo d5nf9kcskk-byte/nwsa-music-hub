@@ -1,0 +1,28 @@
+name: Audit Sign-in Accounts
+
+# Is every Hub sign-in account Google's own account for the address it
+# carries? (#google-binding) Prints one word, OK or REVIEW NEEDED, and nothing
+# else: this log is public and an account's address does not belong in it.
+# Read-only. Run it before the rules start requiring each person to be tied
+# to their Google account, and again any time.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm install firebase-admin --no-save
+      - name: Check the rule and the one-word promise
+        run: node scripts/sign-in-accounts-audit.mjs --selfcheck
+      - name: Audit
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/sign-in-accounts-audit.mjs

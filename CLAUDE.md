@@ -1168,33 +1168,98 @@ those marks onto the original file. Everything else — audience, deadline,
   the session record for all of the above is
   `docs/session-notes-2026-08-04-pwa-hardening.md`.
 
-## Email and password sign-in (Nov 2026, #password-sign-in) — built, switched OFF
+## A sign-in is honoured only for the account the server bound (Nov 2026, #google-binding, #password-sign-in)
 
-Staff can sign in with an email and a password beside Google, behind
-`features.passwordSignIn` (false in every org). The safety is in the RULES,
-not in which accounts happen to exist and not in a console setting:
+A verified email on the list says an account CARRIES that address. It does not
+say who holds the account, and the rules cannot see that. So the server
+records, on each Directors entry, the one account that is that person's for
+each way of signing in, and `honouredSignIn()` lets in only that account.
 
-- **A verified email on the list is no longer enough by itself; HOW the token
-  signed in matters.** `honouredSignIn()` is the test, and there are THREE
-  copies that change together: `firestore.rules`, `storage.rules`, and
-  `functions/src/staffToken.ts` (for the functions that check a caller's
-  token). Google is honoured exactly as it always was (the `||` stops there:
-  no extra read, no changed verdict). A password is honoured for ONE account
-  only, the one the server bound to that listed person (`passwordUid`), and
+- **`honouredSignIn()` is the test, in three places that change together**:
+  `firestore.rules`, `storage.rules`, and `functions/src/staffToken.ts`. It
+  has two arms and nothing else. A Google sign-in is honoured for the Google
+  account the entry is tied to (`googleSub`). A password is honoured for the
+  one account the server made and bound to the person (`passwordUid`), and
   only for a sign-in made after it was bound (`passwordBoundAt`, whole
   seconds, against the token's `auth_time`). Every other way in is refused: a
-  new provider gets a clause on purpose or it gets nothing.
-- **Every gate calls it.** `signedIn()` and `verifiedSelf()` in
-  `firestore.rules` (the only two places that file reads a token for access),
-  the four staff helpers in `storage.rules`, and `staffFromIdToken()` in
-  `functions/src/index.ts`, which is the ONE place a function may call
-  `verifyIdToken`. A new gate that checks `email_verified` without it is the
-  regression; `staffToken.selfcheck.ts` reads all three files and fails on it.
-- **The binding is the server's alone.** `passwordUid` / `passwordBoundAt`
-  live on `directors/{email}`. No browser may set or alter them, the Owner
-  included (`bindingUntouched()`); they may only vanish whole, which takes
-  password access away and nothing else. `addDirector` overwrites an entry, so
-  re-adding a listed person unbinds them: they set a password again by link.
+  new way of signing in gets a clause on purpose or gets nothing. Every gate
+  calls it: `signedIn()` and `verifiedSelf()` in `firestore.rules` (the only
+  two places that file reads a token for access), the four staff helpers in
+  `storage.rules`, and `staffFromIdToken()` in `functions/src/index.ts`, the
+  ONE place a function may call `verifyIdToken` to learn who is asking
+  (`bindGoogle` aside, which is what makes the tie). A new gate that checks
+  `email_verified` without it is the regression; `staffToken.selfcheck.ts`
+  reads all three files and fails on it.
+- **Both records are the server's alone.** No browser may set or alter
+  `googleSub` / `googleBoundAt` or `passwordUid` / `passwordBoundAt`, the
+  Owner included, and no create may carry them. The Owner may clear another
+  person's Google tie whole (Directors screen, Reset), never their own; the
+  password binding may only vanish whole. `addDirector` overwrites an entry,
+  so re-adding a listed person clears both: the Hub ties their Google account
+  again by itself, and they set a password again by link.
+- **A hand-made test token must say how it signed in** and its entry must
+  carry the matching record, or the staff rules refuse it: for Google,
+  `firebase: { sign_in_provider: 'google.com', identities: { 'google.com': [...] } }`
+  and `googleSub` on the entry (required by Storage and the functions always,
+  and by Firestore once the switch is on).
+- Two emulator proofs, neither in CI (they need Java):
+  `scripts/google-binding.emulator-proof.mjs` and
+  `scripts/password-sign-in.emulator-proof.mjs` (real sign-ins, the real rules
+  files, all three gates must agree). `scripts/rules-verdicts.emulator-check.mjs`
+  records every role's answers to a battery of reads and writes so a rules
+  change can be compared with `main`. This repo had no rules suite before;
+  use that one for the next rules change too.
+
+### The Google tie (#google-binding)
+
+- **Only `bindGoogle` writes the tie** (`functions/src/googleBinding.ts`), and
+  only when Google's own address for the account behind the caller's sign-in
+  IS the listed address. It never creates an entry and never changes a tie
+  that is there. `AuthGate.tsx` calls it by itself and never writes the tie.
+- **It goes live in three moves, on purpose** (`docs/google-binding.md`). The
+  service worker holds a new app version until the person taps Refresh, so a
+  phone on an old copy would never ask to be tied and would be locked out the
+  moment a stricter rule took effect. Move 1 is the function, the app's call
+  and the Owner's view; it changes no rule. Move 2 is the rules, with the
+  requirement switched off. Move 3 is the switch, once every active person
+  reads "Google account confirmed" on the Directors screen.
+- **Firestore requires the tie only once a server-only switch is on**
+  (`serverConfig/signIn.googleTieRequired`, written by
+  `scripts/require-google-ties.mjs` and nothing else; no client can read or
+  write `serverConfig`). It is data and not a line of the rules for two
+  reasons. This SAME `firestore.rules` is deployed to the demo projects, which
+  have no Cloud Functions and so can never tie anyone: with no such document
+  they work exactly as before. NEVER set it for a demo project. And turning it
+  on or off is one write, instant and reversible, with no rules deploy. The
+  tied clause comes first in the rule, so a tied person never costs a read of
+  the switch. The switch is about the Google arm only: a password is never
+  honoured unbound, switch or no switch.
+- **Storage and the functions always require the tie, with no switch.** A
+  Storage rule may look at only two Firestore documents and these already use
+  both, and both exist only for the school's project. So the three copies are
+  NOT word for word the same; `staffToken.selfcheck.ts` pins each one.
+- **The app asks in two places**: in the background when a read works but the
+  entry is not tied, and when the rules REFUSE the membership read (which is
+  what an untied entry looks like once the switch is on). A refusal that the
+  server answers with "bound" is retried exactly once. If the server cannot
+  be reached, every path falls back to what it did before, break-glass
+  included. A password session never asks.
+- **It is Google's id for the person, not the Hub's account id**, because the
+  rules can read Google's id straight from the token
+  (`firebase.identities['google.com']`) and it survives the account being
+  replaced, which setting a password does.
+- `scripts/sign-in-accounts-audit.mjs` (*Audit Sign-in Accounts* workflow)
+  answers, in one word, whether every sign-in account is what the Hub
+  expects: Google's own account for its address, with a password on it only
+  when that account is the one bound on the Directors entry. It prints OK or
+  REVIEW NEEDED and never an address: this repo's logs are public.
+- `googleBinding.selfcheck.ts` pins the tying rule and its wiring.
+
+### Email and password sign-in (#password-sign-in) — built, switched OFF
+
+Staff can sign in with an email and a password beside Google, behind
+`features.passwordSignIn` (false in every org).
+
 - **Nothing about anyone's account changes without their inbox.**
   `passwordSetup` (one function, two actions) is the only thing that touches
   an account. `request` only emails a one-time link and answers the same
@@ -1205,9 +1270,10 @@ not in which accounts happen to exist and not in a console setting:
   FRESH account with the chosen password, re-attaches the person's own Google
   identity to it, and binds it. Every failure gets one and the same answer.
   It signs nobody in: the screen hands over to the ordinary sign-in form.
-  Fresh, always: every older session on the address is on a deleted account. Safe only because nothing in `src/`, the
-  rules or the functions keys data on an account id. If that ever changes,
-  revisit this first.
+  Fresh, always: every older session on the address is on a deleted account.
+  Safe only because nothing in `src/`, the rules or the functions keys data
+  on an account id (the Google tie is Google's id, for this reason). If that
+  ever changes, revisit this first.
 - **The app never creates an account, sets a password, or sends a
   verification email.** `AuthGate.tsx` signs in and nothing else;
   `passwordSetup.selfcheck.ts` fails if any of those calls appears there.
@@ -1217,18 +1283,11 @@ not in which accounts happen to exist and not in a console setting:
 - **Listing someone does nothing but list them.** There is no trigger and no
   backfill. An earlier version made an empty account for every listed email;
   that put today's Google sign-in at risk for no gain and was removed.
-- **A hand-made test token must say it signed in with Google**
-  (`firebase: { sign_in_provider: 'google.com' }`), or these rules refuse it.
 - **`useGoogleDrive` runs its pop-up on a throwaway second sign-in** for an
   account with no Google on it, so "Connect Google Drive" cannot change who is
   signed in. An account that has Google on it takes the old path, unchanged.
-- Two emulator scripts, neither in CI (they need Java):
-  `scripts/password-sign-in.emulator-proof.mjs` (real sign-ins, the real rules
-  files, all three gates must agree on every verdict), and
-  `scripts/rules-verdicts.emulator-check.mjs`, which records every role's
-  answers to a battery of reads and writes so a rules change can be compared
-  with `main`. This repo had no rules suite before; use that one for the next
-  rules change too. Turning the feature on is `docs/password-sign-in.md`.
+- Turning the feature on is `docs/password-sign-in.md`. It comes after the
+  Google tie is required (move 3 above), never before.
 
 ## Playing-exam grading — one line, one rubric (Sept 2026, #exam-rubric)
 

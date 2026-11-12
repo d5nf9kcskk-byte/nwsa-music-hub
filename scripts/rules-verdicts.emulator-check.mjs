@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Did a rules change move anything it was not meant to? (#password-sign-in)
+ * Did a rules change move anything it was not meant to? (#google-binding, #password-sign-in)
  *
  * This repo keeps no rules test suite: each one so far was written for one
  * change and thrown away. This is the general-purpose one. It signs in with
@@ -126,9 +126,19 @@ const rest = (method, path, token, body) => fetch(`${base}${path}`, {
 }).then(r => r.status);
 
 // ── Seed (the Admin SDK goes around the rules) ──────────────────────────────
+// TIE=0 leaves every entry without its Google tie (#google-binding); the
+// default ties each one to the Google account it signs in with below, which
+// is the state every real entry is in once its person has opened the Hub.
+// REQUIRE=1 turns on the server-only switch that makes the tie required.
+const tie = process.env.TIE !== '0';
 for (const [who, data] of Object.entries(PEOPLE)) {
-  if (data) await adminDb.doc(`directors/${emailOf(who)}`).set({ email: emailOf(who), ...data });
+  if (data) {
+    await adminDb.doc(`directors/${emailOf(who)}`).set({
+      email: emailOf(who), ...data, ...(tie ? { googleSub: `google-${who}`, googleBoundAt: 1 } : {}),
+    });
+  }
 }
+if (process.env.REQUIRE === '1') await adminDb.doc('serverConfig/signIn').set({ googleTieRequired: true });
 await adminDb.doc('students/stu-1').set({ name: 'Seed Student (fictional)', ensembleIds: ['ens-1'], status: 'active' });
 await adminDb.doc('studentsPublic/stu-1').set({ name: 'Seed Student (fictional)', ensembleIds: ['ens-1'], status: 'active' });
 await adminDb.doc('ensembles/ens-1').set({ name: 'Seed Ensemble' });

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { FormEvent } from 'react';
+import { bindGoogleAccount } from '../googleBindingClient';
 import {
   onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider,
   signInWithEmailAndPassword,
@@ -68,7 +69,9 @@ function passwordSignInMessage(code: string): string {
   }
 }
 
-type Access = 'checking' | 'granted' | 'denied' | 'error' | 'refused';
+// 'refused': a password sign-in the rules do not honour (#password-sign-in).
+// 'mismatch': a Google account that is not the one for its address (#google-binding).
+type Access = 'checking' | 'granted' | 'denied' | 'error' | 'refused' | 'mismatch';
 
 interface Props {
   children: (user: User, signOutFn: () => void) => React.ReactNode;
@@ -102,6 +105,14 @@ export function AuthGate({ children }: Props) {
   const [password2, setPassword2] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(justSet ? PASSWORD_SET_NOTICE : '');
+  // (#google-binding) Each listed person is tied to their own Google account
+  // by the server (functions/src/googleBinding.ts). This component asks for
+  // that by itself, in two places below, and never writes the tie.
+  //   bindAsked    the account already asked for in the background
+  //   bindRetried  the account whose refused read was already retried once
+  const bindAsked = useRef('');
+  const bindRetried = useRef('');
+  const [mismatch, setMismatch] = useState<'mismatch' | 'other-account'>('mismatch');
 
   useEffect(() => {
     if (!auth) { setUser(null); return; }
@@ -154,15 +165,20 @@ export function AuthGate({ children }: Props) {
     // hanging at "Checking access…" — and a revoked account is signed out of
     // the UI live, without waiting for the next cold start.
     let resolved = false; // a real verdict (grant/deny) has been delivered
+    let cancelled = false; // this effect was torn down (user changed, or a retry)
     // (#password-sign-in) How THIS session signed in. Null with the flag off,
-    // and then every path below is exactly what it was. With it on, a
-    // password session never falls back to the break-glass list (that list
-    // exists for a founding Google account during a bad rollout), and a
-    // refusal by the rules gets its own screen.
-    let cancelled = false;
+    // and then every session is a Google one, as it always was. With it on,
+    // a password session never falls back to the break-glass list (that list
+    // exists for a founding Google account during a bad rollout), never asks
+    // to be tied to a Google account, and a refusal by the rules gets its
+    // own screen.
     const signedInBy = PASSWORD_SIGN_IN
       ? user.getIdTokenResult().then(r => r.signInProvider, () => null)
       : null;
+    // (#google-binding) Ask the server to tie this entry to this Google
+    // account. No answer at all (offline, the function missing, an error)
+    // comes back 'unreachable'.
+    const askToBind = () => user.getIdToken().then(bindGoogleAccount).catch(() => 'unreachable' as const);
     // Offline with nothing cached, the listener neither answers nor errors —
     // it just keeps emitting cache misses. Bound the wait so the user lands
     // on the error screen (retry + sign-out buttons) instead of an
@@ -211,6 +227,16 @@ export function AuthGate({ children }: Props) {
           updateDoc(doc(db, 'directors', email), { name: user.displayName.trim() }).catch(() => {});
         }
         setAccess('granted');
+        bindRetried.current = ''; // a read that works clears the one-retry guard
+        // (#google-binding) Not tied to their Google account yet: ask the
+        // server, once per account, in the background. Nothing on screen
+        // waits on the answer, and a "no" changes nothing here. A password
+        // session never asks: it is not a Google sign-in.
+        if (!directorDoc.googleSub && bindAsked.current !== user.uid) {
+          bindAsked.current = user.uid;
+          if (!signedInBy) void askToBind();
+          else void signedInBy.then(by => { if (by !== 'password' && !cancelled) void askToBind(); });
+        }
       },
       err => {
         // The read itself failed (offline, or pre-migration rules). Fall back to
@@ -230,10 +256,40 @@ export function AuthGate({ children }: Props) {
             setAccess('error');
           }
         };
-        if (!signedInBy) { fallBack(); return; }
+        // (#google-binding) The rules REFUSED a Google session's read. Once
+        // the rules honour a Google sign-in only for the account an entry is
+        // tied to, that is what an entry not tied yet looks like: a newly
+        // listed person's first sign-in, or someone whose tie the Owner
+        // reset. So ask the server to tie it, and let the answer decide the
+        // screen. If the server cannot be reached, everything falls back to
+        // exactly what it did before.
+        const forGoogle = () => {
+          if (err.code !== 'permission-denied') { fallBack(); return; }
+          void askToBind().then(answer => {
+            if (cancelled) return;
+            if (answer === 'bound') {
+              // Tied (now, or already). Read again, once: a second refusal is
+              // something else, and gets the old fallback.
+              if (bindRetried.current === user.uid) { fallBack(); return; }
+              bindRetried.current = user.uid;
+              setCheckNonce(n => n + 1);
+            } else if (resolved) {
+              // Refused in the middle of a session and not fixable from here.
+              // Leave the screen alone; the next load says why.
+            } else if (answer === 'mismatch' || answer === 'other-account') {
+              setMismatch(answer);
+              setAccess('mismatch');
+            } else if (answer === 'not-listed' && !BREAK_GLASS_EMAILS.includes(email)) {
+              setAccess('denied');
+            } else {
+              fallBack();
+            }
+          });
+        };
+        if (!signedInBy) { forGoogle(); return; }
         void signedInBy.then(by => {
           if (cancelled) return;
-          if (by !== 'password') { fallBack(); return; }
+          if (by !== 'password') { forGoogle(); return; }
           // A password session the rules refuse: not set up yet, set up
           // again since (which ends every older session), or never this
           // person's. Say so, even mid-session: an app left open with every
@@ -617,6 +673,34 @@ export function AuthGate({ children }: Props) {
           again.
         </p>
         <button className="dir-google-btn" onClick={() => setCheckNonce(n => n + 1)}>Try again</button>
+        <button className="dir-google-btn" onClick={handleSignOut}>Sign in with a different account</button>
+        <p><Link to="/">← Back to the public site</Link></p>
+      </div>
+    );
+  }
+
+  // Signed in with a Google account the server would not tie to this address
+  // (#google-binding). Only reachable once the rules ask for the tie.
+  if (access === 'mismatch') {
+    return (
+      <div className="dir-auth">
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
+        <h1>{mismatch === 'other-account' ? 'A different Google account is on file' : 'This Google account does not match'}</h1>
+        {mismatch === 'other-account' ? (
+          <p>
+            You’re signed in as <strong>{user.email}</strong>, but {ORG.appName} has
+            a different Google account on file for that address. If you changed
+            Google accounts, ask the Owner to reset your sign-in on the
+            Directors screen, then sign in again.
+          </p>
+        ) : (
+          <p>
+            You’re signed in as <strong>{user.email}</strong>, but this is not
+            the Google account that belongs to that address, so {ORG.appName} cannot
+            open for it. Sign in with the Google account for that address. If
+            this is the right one, ask the Owner to look at the Directors screen.
+          </p>
+        )}
         <button className="dir-google-btn" onClick={handleSignOut}>Sign in with a different account</button>
         <p><Link to="/">← Back to the public site</Link></p>
       </div>
