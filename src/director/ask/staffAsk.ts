@@ -80,6 +80,26 @@ export const STAFF_TEMPLATES: AskTemplate[] = [
   T('staffDo', 'excuse PERSON from THE? EVENT'),
   T('staffDo', 'new [form|announcement]'),
   T('staffDo', 'open? the? gradebook'),
+
+  /* Coverage, by kind (second PR). */
+  T('staffWhosOut', 'who is [out|absent|missing] [in|from] GROUP DATE?'),
+  T('staffWhosOut', 'who is missing DATE'),
+  T('staffWhosOut', 'quien falta DATE?'),
+  T('staffDo', '[take roll|take attendance|roll|attendance] for GROUP', 'today'),
+  T('staffDo', 'pasar lista', 'today'),
+  T('staffDo', 'add an event'),
+  T('staffDo', 'change a day'),
+  T('staffDo', 'excuse a student from a concert'),
+  T('staffDo', 'print the program for THE? EVENT'),
+  T('staffWaiting', '[pending|any]? [requests|approvals]'),
+  T('staffWaiting', '[any|pending]? [absence|copy] requests'),
+  T('staffWaiting', 'who needs a copy'),
+  T('staffMissing', 'who is missing forms'),
+  T('staffMissing', 'who [hasnt|has not|didnt|did not] [turned in|turn in] THE? FORM'),
+  T('staffRoster', 'how many INSTRS are? in GROUP'),
+  T('staffRoster', 'how many [kids|students|people] are? in GROUP'),
+  T('staffDay', 'room changes DATE?'),
+  T('lesson', 'my lessons DATE?'),
 ];
 const STAFF_MACROS = { INSTRS: [...ASK_INSTRUMENTS].filter(w => w.endsWith('s')).join('|') };
 
