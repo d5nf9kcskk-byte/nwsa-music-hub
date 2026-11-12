@@ -92,6 +92,8 @@ export const ASK_CORPUS: AskCase[] = [
   s('tomorow', 'myDay', { when: 'tomorrow' }),
   s('what do i have friday', 'myDay', { when: 'weekday:fri' }),
   s('thurs', 'myDay', { when: 'weekday:thu' }),
+  // Also a staff line (section 13). From a student it is their own Thursday.
+  s('whats on thursday', 'myDay', { when: 'weekday:thu' }),
   s('what time is rehearsal tomorow', 'myDay', { when: 'tomorrow' }),
   s('when does rehearsal end', 'myDay', { when: 'today' }),
   s('what time do we get out today', 'myDay', { when: 'today' }),
@@ -388,7 +390,9 @@ export const ASK_CORPUS: AskCase[] = [
   d('approvals', 'staffWaiting'),
   d('who hasnt turned in the playing exam', 'staffMissing', { about: 'playing exam' }),
   d('who hasnt signed the field trip form', 'staffMissing', { about: 'field trip' }),
-  d('who didnt check in last night', 'staffMissing', { when: 'next' }),
+  // "Last night" is behind us and AskWhen has no word for the past, so no
+  // date is expected here. It was 'next', which means the one still to come.
+  d('who didnt check in last night', 'staffMissing'),
   d('who has not submitted camerata exam 2', 'staffMissing', { about: 'camerata playing exam' }),
   d('lessons i havent logged', 'staffMissing'),
   d('what rolls are left today', 'staffMissing', { when: 'today' }),
@@ -410,7 +414,7 @@ export const ASK_CORPUS: AskCase[] = [
   // Things to DO open the door already filled in. Nothing is written by the search.
   d('cancel rehearsal tomorrow', 'staffDo', { when: 'tomorrow', answer: 'link' }),
   d('move symphony to chapman today', 'staffDo', { when: 'today', about: 'symphony', answer: 'link' }),
-  d('add a sectional friday 2:10', 'staffDo', { when: 'weekday:fri', answer: 'link' }),
+  d('add a sectional friday 2:10', 'staffDo', { when: 'weekday:fri', about: 'sectional', answer: 'link' }),
   d('post an announcement', 'staffDo', { answer: 'link' }),
   d('take roll', 'staffDo', { when: 'today', answer: 'link' }),
   d('excuse {classmate} from the concert', 'staffDo', { answer: 'link' }),
