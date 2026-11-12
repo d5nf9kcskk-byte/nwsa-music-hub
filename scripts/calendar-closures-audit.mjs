@@ -69,6 +69,10 @@ if (!/^\d{4}-\d{2}-\d{2}$/.test(SINCE)) {
 }
 
 // The window the seeds cover: MDCPS's first day through the last day of school.
+// This is the HIGH SCHOOL's year on purpose. The college's spring ends on
+// April 30, 2027, so every weekday from May 3 to June 3 is checked below as an
+// MDC closure while MDCPS is open, and a college block left there is a finding
+// (scripts/prune-college-sessions.mjs removes the generated ones).
 const YEAR_START_MS = Date.UTC(2026, 7, 13);
 const YEAR_END_MS = Date.UTC(2027, 5, 3);
 
@@ -203,7 +207,7 @@ for (const date of [...MDCPS_NO_SCHOOL].sort()) {
   if (mdcOpen) {
     const missing = want.filter(id => !eventIds.has(id));
     if (missing.length) {
-      finding(date, `${missing.length} of ${want.length} college class session(s) MISSING — re-run Seed College Program`);
+      finding(date, `${missing.length} of ${want.length} college class session(s) MISSING. Run Seed College Program with "missing only".`);
     }
     for (const e of day.filter(x => campusOf(x) === 'mdc' && !isLive(x))) {
       finding(date, `college class cancelled although MDC is in session: ${label(e)}  [${e.id}]`);

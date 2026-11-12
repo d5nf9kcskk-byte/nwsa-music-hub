@@ -27,6 +27,12 @@
  *    on a day the director just cancelled, and families would arrive to a
  *    locked room.
  *
+ * 5. THE COLLEGE'S DATES ARE MDC'S OWN. The spring term ends April 30, 2027,
+ *    spring break is March 22 to 28, and March 4 has no classes, each pinned
+ *    from both sides against MDC's published calendar and final exam
+ *    schedule. The code once used the high school's last day (June 3) and an
+ *    MDCPS planning day (March 29) for the college.
+ *
  * Run: npx tsx src/director/campusCalendar.selfcheck.ts
  */
 import {
@@ -35,8 +41,8 @@ import {
 } from './campusCalendar';
 import { isCollegeGroup } from './groupKind';
 import { COLLEGE_GROUP_IDS } from './collegeClasses';
-import { isCollegeSessionDay } from './collegeSchedule';
-import { MDC_YEAR } from '../shared/academicCalendars';
+import { isCollegeSessionDay, collegeClassEventDocs, collegeChamberRehearsalPatches } from './collegeSchedule';
+import { MDC_YEAR, MDC_NO_SCHOOL, MDCPS_NO_SCHOOL, MDCPS_YEAR } from '../shared/academicCalendars';
 import type { CalendarEvent, Ensemble } from './types';
 
 // Failures are collected rather than thrown one at a time: when the two
@@ -74,7 +80,7 @@ eq(splitClosure('2026-09-22'), null, 'an ordinary Tuesday closes neither');
 // MDCPS takes the whole week, MDC closes for the Thursday and Friday only.
 const MDCPS_ONLY = [
   '2026-09-21', '2026-11-03', '2026-11-23', '2026-11-24', '2026-11-25',
-  '2027-01-15', '2027-03-10',
+  '2027-01-15', '2027-03-10', '2027-03-29',
 ];
 eq(MDCPS_ONLY.filter(d => isCampusClosed('mdcps', d) && !isCampusClosed('mdc', d)).length,
   MDCPS_ONLY.length,
@@ -184,6 +190,70 @@ for (let n = 1; n <= 7; n++) {
   assert(!isCollegeSessionDay(shift(MDC_YEAR.from, -n)), `${n} days before MDC_YEAR the college is not in session`);
   assert(!isCollegeSessionDay(shift(MDC_YEAR.to, n)), `${n} days after MDC_YEAR the college is not in session`);
 }
+
+// ── MDC's spring 2027, from MDC's own documents ───────────────────────
+//
+// Sources, checked 2026-11-12 (the URLs are in src/shared/academicCalendars.ts):
+//   1. MDC Final Exam Schedule, Spring 2027 (Term 2273): the term is
+//      1/04/27 to 4/30/27, exams April 28 to 30.
+//   2. MDC Academic Calendar: classes begin Jan. 4; Mar. 4 Employee Retreat,
+//      no classes; spring break Mar. 22 to 28; April 30 last day of classes
+//      and final exams.
+//   3. MDC Holidays 2027: MLK Jan. 16 to 18, Presidents' Day Feb. 13 to 15.
+//
+// Each fact is pinned from both sides. The code once ended the college's
+// spring on June 3 (the HIGH SCHOOL's last day) and kept spring break going
+// through March 29 (an MDCPS teacher planning day), which put 155 college
+// meetings on the calendar after the term was over.
+eq(MDC_YEAR.from, '2026-08-24', 'MDC fall classes begin Aug 24, 2026');
+eq(MDC_YEAR.to, '2027-04-30', "MDC's spring ends April 30, 2027, the last day of classes and final exams");
+assert(MDC_YEAR.to < MDCPS_YEAR.to,
+  'the college finishes before the high school does. Its last day is never the MDCPS last day');
+
+eq(isCollegeSessionDay('2027-01-04'), true, 'Jan 4, 2027: spring classes begin');
+eq(isCollegeSessionDay('2027-01-03'), false, 'Jan 3, 2027 is still winter recess');
+
+eq(isCollegeSessionDay('2027-04-30'), true, 'April 30, 2027 is the last day of classes and finals');
+eq(isCollegeSessionDay('2027-05-03'), false, 'May 3, 2027: the term is over (grades are posted that day)');
+eq(isCollegeSessionDay('2027-06-03'), false, "June 3, 2027 is the high school's last day, not a college day");
+eq(splitClosure('2027-05-03'), 'mdc', 'May 3 splits: the college is done, the high school is in session');
+
+eq(isCollegeSessionDay('2027-03-26'), false, 'March 26, 2027 is inside spring break (Mar 22 to 28)');
+eq(isCollegeSessionDay('2027-03-29'), true, 'March 29, 2027: classes resume after spring break');
+eq(splitClosure('2027-03-29'), 'mdcps',
+  'March 29 splits: it is an MDCPS teacher planning day and an ordinary Monday at the college');
+
+eq(isCollegeSessionDay('2027-03-04'), false, 'March 4, 2027 is the Employee Retreat: no classes');
+eq(isCollegeSessionDay('2027-03-03'), true, 'March 3, 2027 is an ordinary Wednesday');
+eq(isCollegeSessionDay('2027-03-05'), true, 'March 5, 2027 is an ordinary Friday');
+eq(splitClosure('2027-03-04'), 'mdc', 'March 4 splits: the college has no classes, the high school does');
+
+// Every entry in MDC_NO_SCHOOL sits inside a term, so taking it out would
+// change an answer. A date outside the terms (Memorial Day was one) is a
+// leftover from the other calendar and says nothing.
+const inTerm = (d: string) =>
+  (d >= MDC_YEAR.from && d <= '2026-12-11')
+  || (d >= '2027-01-04' && d <= MDC_YEAR.to && !(d >= '2027-03-22' && d <= '2027-03-28'));
+eq([...MDC_NO_SCHOOL].filter(d => !inTerm(d)).join(', '), '',
+  'every MDC_NO_SCHOOL date falls inside a term');
+// The two sets are sourced apart. Mar 4 is the proof on MDC's side: the
+// college has no classes and MDCPS has never heard of the day.
+assert(MDC_NO_SCHOOL.has('2027-03-04') && !MDCPS_NO_SCHOOL.has('2027-03-04'),
+  'the Employee Retreat is an MDC-only day');
+
+// The generators follow. No class meeting and no College Chamber Orchestra
+// room patch is generated outside a session day, after April 30, or on
+// March 4, and the Monday classes are generated on March 29.
+const generated = [...collegeClassEventDocs().map(d => d.data.date as string),
+  ...collegeChamberRehearsalPatches().map(d => d.id.slice(4, 14))];
+assert(generated.length > 0 && generated.every(isCollegeSessionDay),
+  'every generated college meeting is on a day the college is in session');
+eq(generated.filter(d => d > '2027-04-30').length, 0, 'nothing is generated after April 30, 2027');
+eq(generated.filter(d => d === '2027-03-04').length, 0, 'nothing is generated on March 4, 2027');
+eq(collegeClassEventDocs().filter(d => d.data.date === '2027-03-29').length, 9,
+  'the nine Monday classes are generated on March 29, 2027');
+eq(collegeClassEventDocs().filter(d => d.data.date === '2027-04-30').length, 1,
+  'the one Friday class (Opera Workshop) meets on April 30, 2027');
 
 // Thrown, not process.exit()'d: this file is compiled by tsconfig.app.json,
 // which has no node types, and every other self-check under src/ fails the
