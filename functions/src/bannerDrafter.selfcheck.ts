@@ -78,13 +78,21 @@ assert(/secrets: \['ANTHROPIC_API_KEY'\]/.test(handler) && /process\.env\.ANTHRO
 // defineSecret() is resolved for EVERY function before --only filters, so a
 // missing ANTHROPIC_API_KEY would fail the deploy of all the others too.
 assert(!/defineSecret\(/.test(index.split('\n').filter(l => !/^\s*(\*|\/\/)/.test(l)).join('\n')), 'no defineSecret() in index.ts: it would make every deploy demand the secret');
-assert(/hasKnownRole\(me\.data\(\)\)/.test(handler) && /email_verified !== true/.test(handler),
+// The token goes through the one shared staff test (staffToken.ts, the same
+// test the rules use), then the role is checked here (#password-sign-in).
+assert(/staffFromIdToken\(idToken\)/.test(handler) && /hasKnownRole\(staff\.director\)/.test(handler)
+  && !/verifyIdToken/.test(handler),
   'only a verified, allowlisted staff account may draft');
 assert((handler.match(/req\.body/g) ?? []).length === 1 && /noteFromBody\(req\.body\)/.test(handler),
   'the handler reads the request body only through noteFromBody');
 assert(/draftSpanish\(input\.note,/.test(handler), 'the model is handed input.note and nothing else');
 const docs = [...handler.matchAll(/\.doc\(`([^`]*)`\)|\.collection\(/g)].map(m => m[1] ?? 'collection');
-assert(docs.length === 1 && docs[0] === 'directors/${email}', 'the only Firestore read is the caller\'s own directors doc');
+// The caller's own directors doc is read inside staffFromIdToken; the handler
+// itself touches Firestore not at all.
+assert(docs.length === 0, 'the handler reads nothing from Firestore itself (the staff check reads the caller\'s own directors doc)');
+const staffReader = index.slice(index.indexOf('async function staffFromIdToken'), index.indexOf('function pushDeps'));
+assert(/\.doc\(`directors\/\$\{email\}`\)/.test(staffReader) && (staffReader.match(/\.doc\(|\.collection\(/g) ?? []).length === 1,
+  'and that staff check reads the caller\'s own directors doc and nothing else');
 assert(!/(?<!res)\.set\(|\.update\(|\.add\(|\.create\(|\.delete\(/.test(handler.replace('client.beta.messages.create', '')),
   'the drafter writes nothing (response headers aside)');
 

@@ -58,6 +58,13 @@ on:
       # Bundled into pushOnEventChange / pushTestAlert — who a same-day change
       # reaches and what it says, shared with the page that subscribes (#push).
       - 'src/shared/pushAlerts.ts'
+      # Bundled into passwordSetup — the shape of the "choose your password"
+      # link, shared with the sign-in screen that reads it (#password-sign-in).
+      - 'src/shared/passwordSetupLink.ts'
+      # Bundled into every function (ORG). passwordSetup answers nothing until
+      # features.passwordSignIn is true HERE, so flipping that flag has to
+      # redeploy the functions as well as rebuild the site.
+      - 'config/orgs/nwsa.json'
       - 'src/director/types.ts'
       - 'config/orgs/nwsa.json'
       - '.github/workflows/deploy-functions.yml'
@@ -185,7 +192,7 @@ jobs:
           # from the log and the policy now sets itself on every deploy. If
           # it ever comes back, that grant is what went missing.
           npx --yes firebase-tools@latest deploy \
-            --only functions:lessonsFeed,functions:appointmentsFeed,functions:staffFeed,functions:concertCheckin,functions:concertTally,functions:signupConfirmation,functions:lessonLogMailSend,functions:gradeMailSend,functions:mailStatusWriteback,functions:submissionReceipt,functions:composeSubmission,functions:absenceDecisionMail,functions:copyDeclineMail,functions:pushOnEventChange,functions:pushTestAlert,functions:staffAccountOnListing \
+            --only functions:lessonsFeed,functions:appointmentsFeed,functions:staffFeed,functions:concertCheckin,functions:concertTally,functions:signupConfirmation,functions:lessonLogMailSend,functions:gradeMailSend,functions:mailStatusWriteback,functions:submissionReceipt,functions:composeSubmission,functions:absenceDecisionMail,functions:copyDeclineMail,functions:pushOnEventChange,functions:pushTestAlert,functions:passwordSetup \
             --project nwsa-hub \
             --non-interactive \
             --force

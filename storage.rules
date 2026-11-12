@@ -29,6 +29,28 @@ service firebase.storage {
       return firestore.get(/databases/(default)/documents/directors/$(request.auth.token.email)).data;
     }
 
+    // HOW the token signed in (#password-sign-in): the SAME test as
+    // honouredSignIn() in firestore.rules, and it must stay the same. Google
+    // is honoured exactly as before (the `||` stops there, no extra read). A
+    // password is honoured only for the one account the Hub's server bound
+    // to this listed person, for a sign-in made after it was bound. Every
+    // staff helper in this file calls it, so a verified email alone opens
+    // nothing here either.
+    function honouredSignIn() {
+      return request.auth.token.firebase.sign_in_provider == 'google.com'
+        || (request.auth.token.firebase.sign_in_provider == 'password'
+            && boundPasswordSignIn());
+    }
+
+    function boundPasswordSignIn() {
+      let d = directorDoc();
+      return d.keys().hasAll(['passwordUid', 'passwordBoundAt'])
+        && d.passwordUid is string
+        && d.passwordBoundAt is int
+        && d.passwordUid == request.auth.uid
+        && request.auth.token.auth_time > d.passwordBoundAt;
+    }
+
     // Signed in AND listed in Firestore's `directors` collection — mirrors
     // firestore.rules' isStaff(). Owner and Director get full Storage access
     // (a legacy doc with no role counts as director); every other role is
@@ -45,6 +67,7 @@ service firebase.storage {
       return request.auth != null
         && request.auth.token.email_verified == true
         && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
+        && honouredSignIn()
         && hasRole('classroom');
     }
 
@@ -56,6 +79,7 @@ service firebase.storage {
       return request.auth != null
         && request.auth.token.email_verified == true
         && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
+        && honouredSignIn()
         && hasRole('assistant');
     }
 
@@ -63,6 +87,7 @@ service firebase.storage {
       return request.auth != null
         && request.auth.token.email_verified == true
         && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
+        && honouredSignIn()
         && (hasRole('owner') || hasRole('director'));
     }
 
@@ -252,6 +277,7 @@ service firebase.storage {
       return request.auth != null
         && request.auth.token.email_verified == true
         && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
+        && honouredSignIn()
         && hasRole('teacher');
     }
 

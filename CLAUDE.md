@@ -1129,41 +1129,61 @@ those marks onto the original file. Everything else — audience, deadline,
 ## Email and password sign-in (Nov 2026, #password-sign-in) — built, switched OFF
 
 Staff can sign in with an email and a password beside Google, behind
-`features.passwordSignIn` (false in every org). No rules changed: every staff
-rule already requires a verified email. What makes it safe is WHO makes the
-account, and that must not regress:
+`features.passwordSignIn` (false in every org). The safety is in the RULES,
+not in which accounts happen to exist and not in a console setting:
 
-- **The Hub makes the account, never the person and never the app.**
-  `staffAccountOnListing` (a Firestore trigger on `directors/{email}` create)
-  runs `ensureStaffAccount()` in `functions/src/staffAccount.ts`: an empty
-  account, no password, never marked verified by us. `AuthGate.tsx` must never
-  call `createUserWithEmailAndPassword`. Setting up and resetting are ONE path,
-  the emailed reset link, so whoever opens the inbox chooses the password.
-- **A password never survives being listed.** An account that already carries
-  a password when its address is listed is replaced by an empty one, because
-  nothing shows who chose that password. Safe only because every staff record
-  is keyed by EMAIL: nothing in `src/`, the rules or the functions reads an
-  account id. If anything ever keys data on `uid`, this rule has to be
-  revisited first. An account with no password (everyone who only uses Google)
-  is left exactly as it is.
-- **The verification email goes out on a person's press, never from an
-  effect** (`sendVerifyLink`). It exists only as a fallback, in case finishing
-  a reset does not mark the address verified in production (it does on the
-  emulator; Google does not document it).
-- **The console setting is the door; the flag is only the form.** Email/Password
-  must not be enabled for a project until the function is deployed AND
-  `scripts/ensure-staff-accounts.mjs` (*Ensure Staff Accounts* workflow) reports
-  every listed email has an account. The order is `docs/password-sign-in.md`.
-  That script prints counts only, never an address: this repo's logs are public.
+- **A verified email on the list is no longer enough by itself; HOW the token
+  signed in matters.** `honouredSignIn()` is the test, and there are THREE
+  copies that change together: `firestore.rules`, `storage.rules`, and
+  `functions/src/staffToken.ts` (for the functions that check a caller's
+  token). Google is honoured exactly as it always was (the `||` stops there:
+  no extra read, no changed verdict). A password is honoured for ONE account
+  only, the one the server bound to that listed person (`passwordUid`), and
+  only for a sign-in made after it was bound (`passwordBoundAt`, whole
+  seconds, against the token's `auth_time`). Every other way in is refused: a
+  new provider gets a clause on purpose or it gets nothing.
+- **Every gate calls it.** `signedIn()` and `verifiedSelf()` in
+  `firestore.rules` (the only two places that file reads a token for access),
+  the four staff helpers in `storage.rules`, and `staffFromIdToken()` in
+  `functions/src/index.ts`, which is the ONE place a function may call
+  `verifyIdToken`. A new gate that checks `email_verified` without it is the
+  regression; `staffToken.selfcheck.ts` reads all three files and fails on it.
+- **The binding is the server's alone.** `passwordUid` / `passwordBoundAt`
+  live on `directors/{email}`. No browser may set or alter them, the Owner
+  included (`bindingUntouched()`); they may only vanish whole, which takes
+  password access away and nothing else. `addDirector` overwrites an entry, so
+  re-adding a listed person unbinds them: they set a password again by link.
+- **Nothing about anyone's account changes without their inbox.**
+  `passwordSetup` (one function, two actions) is the only thing that touches
+  an account. `request` only emails a one-time link and answers the same
+  whether or not the address is listed. `complete` takes the link's token
+  (stored only as a hash, used up before anything else) and only then makes a
+  FRESH account with the chosen password, re-attaches the person's own Google
+  identity to it, and binds it. Fresh, always: every older session on the
+  address is on a deleted account. Safe only because nothing in `src/`, the
+  rules or the functions keys data on an account id. If that ever changes,
+  revisit this first.
+- **The app never creates an account, sets a password, or sends a
+  verification email.** `AuthGate.tsx` signs in and nothing else;
+  `passwordSetup.selfcheck.ts` fails if any of those calls appears there.
+- **A password session the rules refuse gets its own screen** (`refused`),
+  never "not authorized" and never the break-glass list, which exists for a
+  founding Google account during a bad rollout.
+- **Listing someone does nothing but list them.** There is no trigger and no
+  backfill. An earlier version made an empty account for every listed email;
+  that put today's Google sign-in at risk for no gain and was removed.
+- **A hand-made test token must say it signed in with Google**
+  (`firebase: { sign_in_provider: 'google.com' }`), or these rules refuse it.
 - **`useGoogleDrive` runs its pop-up on a throwaway second sign-in** for an
   account with no Google on it, so "Connect Google Drive" cannot change who is
-  signed in to the Hub. An account that has Google on it takes the old path,
-  unchanged.
-- `functions/src/staffAccount.selfcheck.ts` pins the rule, the trigger wiring
-  and the two `AuthGate` promises (it was broken eleven ways to confirm it
-  notices). `scripts/password-sign-in.emulator-proof.mjs` does real sign-ins on
-  the Auth and Firestore emulators against the real rules; it needs Java, so it
-  is NOT in CI. Run it by hand after touching any of the above.
+  signed in. An account that has Google on it takes the old path, unchanged.
+- Two emulator scripts, neither in CI (they need Java):
+  `scripts/password-sign-in.emulator-proof.mjs` (real sign-ins, the real rules
+  files, all three gates must agree on every verdict), and
+  `scripts/rules-verdicts.emulator-check.mjs`, which records every role's
+  answers to a battery of reads and writes so a rules change can be compared
+  with `main`. This repo had no rules suite before; use that one for the next
+  rules change too. Turning the feature on is `docs/password-sign-in.md`.
 
 ## Playing-exam grading — one line, one rubric (Sept 2026, #exam-rubric)
 

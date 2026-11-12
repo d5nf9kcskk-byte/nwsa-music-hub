@@ -35,7 +35,11 @@ import {
 import { buildSubmissionReceipt, submissionReceiptId } from './submissionReceipt.ts';
 import { composeSubmission as runComposeSubmission } from './composeSubmission.ts';
 import { getAuth } from 'firebase-admin/auth';
-import { ensureStaffAccount } from './staffAccount.ts';
+import { getAppCheck } from 'firebase-admin/app-check';
+import { staffFromToken } from './staffToken.ts';
+import { completeSetup, requestSetup, type RequestOutcome } from './passwordSetup.ts';
+import { passwordSetupStore } from './passwordSetupStore.ts';
+import { MIN_PASSWORD_LENGTH } from '../../src/shared/passwordSetupLink.ts';
 import { getMessaging } from 'firebase-admin/messaging';
 import { handleEventChange, sendTestAlert, type PushDeps } from './pushSend.ts';
 import { draftSpanish, noteFromBody } from './bannerDrafter.ts';
@@ -901,6 +905,22 @@ function hasKnownRole(d: Record<string, unknown> | undefined): boolean {
   return KNOWN_ROLES.includes(typeof d.role === 'string' ? d.role : 'director');
 }
 
+/**
+ * The ONE way a function reads a caller's sign-in token (#password-sign-in):
+ * verify it, then put it through the same staff test the rules use
+ * (staffToken.ts). Null means "not a sign-in the Hub honours" and the caller
+ * answers 401; the role is still the caller's to check.
+ */
+async function staffFromIdToken(idToken: string) {
+  try {
+    const decoded = await getAuth().verifyIdToken(idToken);
+    return await staffFromToken(decoded, async email =>
+      (await getFirestore().doc(`directors/${email}`).get()).data());
+  } catch {
+    return null;
+  }
+}
+
 function pushDeps(): PushDeps {
   const db = getFirestore();
   return {
@@ -995,19 +1015,12 @@ export const pushTestAlert = https.onRequest(async (req, res) => {
   const header = req.get('Authorization') ?? '';
   const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (!idToken) { refuse(401, 'Sign in again, then try.'); return; }
-  let email: string;
-  try {
-    const decoded = await getAuth().verifyIdToken(idToken);
-    if (decoded.email_verified !== true || !decoded.email) throw new Error('unverified');
-    email = decoded.email;
-  } catch {
-    refuse(401, 'Sign in again, then try.');
-    return;
-  }
+  const staff = await staffFromIdToken(idToken);
+  if (!staff) { refuse(401, 'Sign in again, then try.'); return; }
+  const email = staff.email;
 
   const db = getFirestore();
-  const me = await db.doc(`directors/${email}`).get();
-  if (!me.exists || !hasKnownRole(me.data())) { refuse(403, 'This account cannot send test alerts.'); return; }
+  if (!hasKnownRole(staff.director)) { refuse(403, 'This account cannot send test alerts.'); return; }
 
   const subId = typeof req.body?.subId === 'string' ? req.body.subId : '';
   if (!isSubscriptionDocId(subId)) { refuse(400, 'Turn alerts on for this phone first.'); return; }
@@ -1065,17 +1078,9 @@ export const draftChangeNoteEs = runWith({ secrets: ['ANTHROPIC_API_KEY'] }).htt
   const header = req.get('Authorization') ?? '';
   const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (!idToken) { refuse(401, 'Sign in again, then try.'); return; }
-  let email: string;
-  try {
-    const decoded = await getAuth().verifyIdToken(idToken);
-    if (decoded.email_verified !== true || !decoded.email) throw new Error('unverified');
-    email = decoded.email;
-  } catch {
-    refuse(401, 'Sign in again, then try.');
-    return;
-  }
-  const me = await getFirestore().doc(`directors/${email}`).get();
-  if (!me.exists || !hasKnownRole(me.data())) { refuse(403, 'This account cannot use the drafter.'); return; }
+  const staff = await staffFromIdToken(idToken);
+  if (!staff) { refuse(401, 'Sign in again, then try.'); return; }
+  if (!hasKnownRole(staff.director)) { refuse(403, 'This account cannot use the drafter.'); return; }
 
   const input = noteFromBody(req.body);
   if (!input.ok) { refuse(400, input.message); return; }
@@ -1089,21 +1094,75 @@ export const draftChangeNoteEs = runWith({ secrets: ['ANTHROPIC_API_KEY'] }).htt
 });
 
 /**
- * The owner listed an email on the Directors screen: make its sign-in account
- * (#password-sign-in). The Hub makes the account, empty, so that the only way
- * a password ever lands on a listed address is the emailed reset link, chosen
- * by whoever can open that inbox. An account already carrying a password is
- * replaced by an empty one; an account with no password (everyone who only
- * uses Google) is left as it is. The rule and the reasons are in
- * staffAccount.ts.
+ * Set or reset a staff password (#password-sign-in). POST JSON, two actions:
  *
- * This must be deployed, and scripts/ensure-staff-accounts.mjs run over the
- * current list, BEFORE Email/Password sign-in is enabled for the project.
+ *   { action: 'request', email }             email a one-time link, if the
+ *                                            address is on the Directors list.
+ *                                            Changes nothing. Same answer
+ *                                            whether or not it is listed.
+ *   { action: 'complete', token, password }  the link was opened: set the
+ *                                            password its holder chose and
+ *                                            bind that account to the person.
+ *
+ * Nothing about anyone's account changes without the token from their own
+ * inbox. The rules and the reasons are in passwordSetup.ts.
+ *
+ * Answers nothing at all (404) until the org turns `features.passwordSignIn`
+ * on, so deploying it changes nothing for anyone. App Check is REQUIRED: a
+ * request with no valid App Check token is refused before anything is read.
  */
-export const staffAccountOnListing = firestore
-  .document('directors/{email}')
-  .onCreate(async (_snap, context) => {
-    const outcome = await ensureStaffAccount(getAuth(), context.params.email as string, { replacePassworded: true });
-    // The outcome only, never the address.
-    console.log(`staffAccountOnListing: ${outcome}`);
-  });
+export const passwordSetup = https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+  res.set('Cache-Control', 'no-store');
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, X-Firebase-AppCheck');
+    res.set('Access-Control-Max-Age', '3600');
+    res.status(204).send('');
+    return;
+  }
+  const refuse = (status: number, message: string) => { res.status(status).json({ ok: false, message }); };
+  if (!ORG.features.passwordSignIn) { refuse(404, 'Not available.'); return; }
+  if (req.method !== 'POST') { refuse(405, 'That did not reach the Hub correctly.'); return; }
+  try {
+    await getAppCheck().verifyToken(req.get('X-Firebase-AppCheck') ?? '');
+  } catch {
+    refuse(401, 'That did not reach the Hub correctly. Reload the page and try again.');
+    return;
+  }
+
+  const deps = passwordSetupStore(getFirestore(), getAuth(), { publicUrl: ORG.publicUrl, appName: ORG.appName });
+  const ip = req.ip ?? 'unknown';
+  const action: unknown = req.body?.action;
+
+  if (action === 'request') {
+    let outcome: RequestOutcome = 'ok';
+    try {
+      outcome = await requestSetup(deps, req.body?.email, ip);
+    } catch (err) {
+      // A failure answers exactly like success: an error here must not be a
+      // way to learn which addresses are listed. The code only, never the address.
+      console.error('passwordSetup request failed:', (err as { code?: unknown } | null)?.code ?? 'unknown');
+    }
+    if (outcome === 'limited') { refuse(429, 'Too many tries. Wait a few minutes and try again.'); return; }
+    res.status(200).json({ ok: true });
+    return;
+  }
+
+  if (action === 'complete') {
+    try {
+      const outcome = await completeSetup(deps, req.body?.token, req.body?.password, ip);
+      if (outcome.status === 'done') { res.status(200).json({ ok: true, email: outcome.email }); return; }
+      if (outcome.status === 'limited') { refuse(429, 'Too many tries. Wait a few minutes and try again.'); return; }
+      if (outcome.status === 'weak') { refuse(400, `Choose a password of at least ${MIN_PASSWORD_LENGTH} characters.`); return; }
+      refuse(410, 'That link has expired or was already used. Ask for a new one.');
+    } catch (err) {
+      console.error('passwordSetup complete failed:', (err as { code?: unknown } | null)?.code ?? 'unknown');
+      refuse(500, 'That did not work on our side. Ask for a new link and try again.');
+    }
+    return;
+  }
+
+  refuse(400, 'That did not reach the Hub correctly.');
+});

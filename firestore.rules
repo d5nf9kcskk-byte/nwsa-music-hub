@@ -100,7 +100,53 @@ service cloud.firestore {
     function signedIn() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && exists(/databases/$(database)/documents/directors/$(request.auth.token.email));
+        && exists(/databases/$(database)/documents/directors/$(request.auth.token.email))
+        && honouredSignIn();
+    }
+
+    // HOW the token signed in (#password-sign-in). A verified email on the
+    // list is not enough by itself: it says an address was confirmed, not who
+    // holds the account. So the way in matters.
+    //
+    //   • Google: honoured exactly as it always was. The `||` stops here for
+    //     a Google token, so it costs no extra read and changes no verdict.
+    //   • Email and password: honoured for ONE account only, the one the
+    //     Hub's server bound to this listed person, and only for a sign-in
+    //     made AFTER it was bound. Until a person has been bound they can
+    //     only ever get in through Google.
+    //   • Anything else (anonymous, a custom token, a provider nobody turned
+    //     on deliberately): refused. A new provider gets a clause here on
+    //     purpose or it gets nothing.
+    //
+    // The same test lives in storage.rules (honouredSignIn) and in the Cloud
+    // Functions that check a staff token (functions/src/staffToken.ts). All
+    // three change together.
+    function honouredSignIn() {
+      return request.auth.token.firebase.sign_in_provider == 'google.com'
+        || (request.auth.token.firebase.sign_in_provider == 'password'
+            && boundPasswordSignIn());
+    }
+
+    // `passwordUid` and `passwordBoundAt` (whole seconds) are written by the
+    // server only: see the directors block, which lets no client set or alter
+    // them. `auth_time` is when this session signed in; a refreshed token
+    // keeps it, so a session older than the binding stays refused for good.
+    function boundPasswordSignIn() {
+      let d = myDirectorDoc();
+      return d.keys().hasAll(['passwordUid', 'passwordBoundAt'])
+        && d.passwordUid is string
+        && d.passwordBoundAt is int
+        && d.passwordUid == request.auth.uid
+        && request.auth.token.auth_time > d.passwordBoundAt;
+    }
+
+    // A client may never SET or ALTER the binding, the Owner included. It may
+    // only vanish whole (the Owner re-adding or overwriting a person), which
+    // takes password access away and nothing else.
+    function bindingUntouched() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+               .hasAny(['passwordUid', 'passwordBoundAt'])
+        || !request.resource.data.keys().hasAny(['passwordUid', 'passwordBoundAt']);
     }
 
     // Same verified-email bar as signedIn(), minus the allowlist existence
@@ -110,7 +156,8 @@ service cloud.firestore {
     function verifiedSelf(email) {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email == email;
+        && request.auth.token.email == email
+        && honouredSignIn();
     }
 
     // Does the signed-in user's directors doc include role `r`? Reads the
@@ -1576,11 +1623,16 @@ service cloud.firestore {
       allow list: if isOwner();
       // Existing directors are seeded out-of-band (Admin SDK bypasses these
       // rules); from here on, only the Owner adds or edits others.
-      allow create: if isOwner();
-      allow update: if isOwner()
-        || (verifiedSelf(email)
-            && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['name', 'assignedStudentIds', 'lessonSlots', 'lessonLogSheets', 'examRubric', 'extraEventIds']));
+      // `passwordUid` / `passwordBoundAt` (#password-sign-in) are the server's
+      // alone: no create may carry them and no update may set or alter them
+      // (bindingUntouched). The self-service list below never names them.
+      allow create: if isOwner()
+        && !request.resource.data.keys().hasAny(['passwordUid', 'passwordBoundAt']);
+      allow update: if (isOwner()
+          || (verifiedSelf(email)
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['name', 'assignedStudentIds', 'lessonSlots', 'lessonLogSheets', 'examRubric', 'extraEventIds'])))
+        && bindingUntouched();
       // The Owner may remove any OTHER director, but never their own
       // account — the app can never end up ownerless.
       allow delete: if isOwner() && request.auth.token.email != email;

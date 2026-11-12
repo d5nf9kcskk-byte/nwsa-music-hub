@@ -293,12 +293,11 @@ export interface OrgConfig {
     /**
      * Email-and-password staff sign-in beside Google (#password-sign-in).
      * FALSE everywhere today: with it off the sign-in screen and the
-     * Directors screen are exactly as they were. Turning it on is the LAST
-     * step of docs/password-sign-in.md, never the first: the
-     * staffAccountOnListing function must be deployed and every listed email
-     * must already have an account before Email/Password is enabled for the
-     * Firebase project. The flag only shows the form; the provider is what
-     * opens the door.
+     * Directors screen are exactly as they were, and the `passwordSetup`
+     * Cloud Function (which bundles this file for NWSA) answers nothing.
+     * Turning it on is the last step of docs/password-sign-in.md. The rules
+     * do not depend on this flag: they honour a password only for the
+     * account the server bound to a listed person, whatever it says.
      */
     passwordSignIn: boolean;
   };

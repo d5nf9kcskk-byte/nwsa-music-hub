@@ -1,53 +1,51 @@
 # Email and password sign-in for staff: how to turn it on
 
-Built November 2026 (Hub 2.0 plan, section 10) and left **off**. While it is off the sign-in screen and the Directors screen are exactly as they were.
+Built November 2026 (Hub 2.0 plan, section 10) and left **off**. While it is off the sign-in screen and the Directors screen are exactly as they were, and the server function behind it answers nothing.
 
 ## What it does
 
 Staff get a second way in beside "Sign in with Google": their email and a password of their own, in an ordinary form the phone's password manager can save and fill.
 
-- **Who gets in does not change.** The Directors screen is still the one list. The owner adds an email there, exactly as today.
-- **The Hub makes the account, not the person.** The moment an email is listed, a server function makes an empty sign-in account for it. Nobody else can make an account on a listed address.
-- **One way to a password: the emailed link.** "Set up or reset my password" emails a link. Whoever opens that inbox chooses the password. The Hub's screen never creates an account and never sets a password.
-- **A password never survives being listed.** If an address already had an account with a password on it when it was listed, that account is replaced by an empty one, because nothing shows who chose that password. Accounts with no password (everyone who only uses Google) are left exactly as they are.
-- **One person, either way.** Google and the password open the same account.
-- **No rules change.** Every staff rule already requires a verified email.
+- **Who gets in does not change.** The Directors screen is still the one list. The owner adds an email there, exactly as today. Nothing else happens when someone is listed.
+- **Google works exactly as it does now**, for everyone, whether or not they ever choose a password.
+- **One way to a password: a link the Hub emails.** "Set up or reset my password" emails a one-time link (good for an hour). It opens the Hub's own "Choose your password" screen. Whoever can open that inbox chooses the password. Setting one up and resetting one are the same path.
+- **Asking for a link changes nothing.** Anyone can ask for anyone's link. It only sends an email, and it says the same thing whether or not the address is on the list. Nobody is signed out or locked out by someone else asking.
+- **A password counts only for the account the Hub's server set up.** When the link is used, the server makes a fresh sign-in account for that person, puts the chosen password on it, and records on their Directors entry which account that is and when. The rules (Firestore, Storage, and the server functions that check a sign-in) honour a password sign-in only for that account, and only for a sign-in made after it was set up. A person who has not been through the link can only ever get in with Google.
+- **Choosing a password signs you out everywhere once.** The fresh account replaces whatever was on the address, so every older sign-in ends. Your own Google sign-in is carried over to the fresh account, so "Sign in with Google" keeps working for you.
+- **At least 10 characters**, enforced by the Hub itself.
 
-## Turning it on: the only safe order
+## Turning it on
 
-**Do not enable Email/Password in the Firebase console until steps 1 to 3 are done.** The switch in step 6 only shows the form. The console setting in step 4 is what opens the door, and it must not open before every listed email has an account the Hub made. Enabling it earlier is unsafe.
+Nothing in steps 1 to 3 changes what anyone sees.
 
-1. **Merge, and confirm the function is live.** Merging to `main` runs *Deploy Functions*, which ships `staffAccountOnListing`. A green deploy is not proof. Check it is there:
-   ```
-   npx --no-install firebase functions:list --project nwsa-hub
-   ```
-   `staffAccountOnListing` must be in the list.
-2. **Run the backfill.** GitHub → Actions → *Ensure Staff Accounts* → Run workflow. Leave both boxes unticked the first time: it only counts. Then run it again with **apply** ticked: it makes the missing accounts. The log shows counts, never an address.
-3. **Confirm every listed email has an account.** Run it once more, unticked. The last line must read `Every listed email has an account (N of N)` and the line `account carrying a password, left as it is` must be `0`. Then check the function itself: add a made-up address on the Directors screen, run the workflow unticked again, see N go up by one with nothing missing, and remove the made-up address.
-4. **Only now, the console.** Firebase console → Authentication → Sign-in method → Email/Password → Enable. Leave "Email link (passwordless sign-in)" off. Then Authentication → Settings → Password policy → minimum length 10. (If the console says the password policy needs an upgrade, stop there and ask; nothing else depends on it.)
-5. **Recommended second lock.** Authentication → Settings → User actions → untick **Enable create (sign-up)**. This stops anyone but the Hub from making an account at all. One thing could not be checked ahead of time: whether a newly listed person's first Google sign-in still works with it off. So test it right away: list a new Google address, have that person sign in with Google. If they cannot, tick the box back on and tell whoever maintains the Hub.
-6. **Flip the flag.** In `config/orgs/nwsa.json`, set `features.passwordSignIn` to `true`. Push; the site rebuilds. Add a What's New entry in the same commit.
-7. **Try it yourself first.** On the sign-in screen: "Set up or reset my password", type your email, tap the link in the email, choose a password, come back and sign in. The phone should offer to save it.
+1. **Merge.** That deploys the new rules (Firestore and Storage) and the `passwordSetup` function. Then check two things, because a green deploy is not proof:
+   - Google sign-in still works for you and for one other role (for example a student assistant). The new rules treat Google exactly as before; this is the check that they really do.
+   - `npx --no-install firebase functions:list --project nwsa-hub` shows `passwordSetup`.
+2. **App Check must be on for the site.** The function refuses any request that does not carry an App Check token, so the `VITE_RECAPTCHA_SITE_KEY` secret has to be set (see `docs/security-recommendations.md`). If it is not, nothing breaks, but "Email me the link" will always say it did not reach the Hub.
+3. **The Hub's own email must be working**, because the link is sent by the Hub's mail (the same one that sends sign-up confirmations), not by the sign-in service.
+4. **Firebase console:** Authentication → Sign-in method → Email/Password → Enable. Leave "Email link (passwordless sign-in)" off. This is safe to do at this point whatever else has or has not happened: with the new rules live, a password account nobody set up through the Hub's link is honoured nowhere.
+5. **Flip the flag.** In `config/orgs/nwsa.json`, set `features.passwordSignIn` to `true`, with a What's New entry. Pushing that rebuilds the site and redeploys the functions (the function reads the same flag).
+6. **Try it yourself first.** "Set up or reset my password", type your email, open the link in the email, choose a password, and you should land in the Hub. Then sign out and sign back in with it. Then check "Sign in with Google" still opens your account.
 
-If step 3 ever shows `account carrying a password` above zero **before** step 6, Email/Password was enabled too early. Run *Ensure Staff Accounts* with both **apply** and **replace** ticked, then start again from step 3.
-
-After it is live, do not tick **replace** again: it takes away every password staff have chosen (they would each set a new one by link).
+**Do steps 4 and 5 only after step 1 is live.** The rules in this change are what make Email/Password safe to enable. Enabling it on a project still running the old rules is not safe.
 
 ## Turning it off again
 
-Set `features.passwordSignIn` back to `false`: the form disappears. To close the door itself, disable Email/Password in the console. The accounts the Hub made stay; they are empty and harmless, and Google sign-in keeps using them.
+Set `features.passwordSignIn` back to `false`: the form disappears and the function goes quiet. To close the door itself, disable Email/Password in the console. Bound accounts stay as they are and Google keeps opening them.
 
 ## Known edges
 
-- The password is chosen on the sign-in service's own page (the link opens it), so the phone may not offer to save it there. It offers when the person types it once on the Hub's own form.
-- The link emails come from the sign-in service, not the Hub's own mail, and can land in junk.
-- "Connect Google Drive" on an assignment opens a Google pop-up. For someone whose account has no Google on it, that pop-up now runs on a separate, throwaway sign-in so it cannot change who is signed in to the Hub. With the second lock on (step 5), it only works if the Google account they pick already has a Hub account.
-- If a listed person is removed and listed again, any password on their account is cleared and they set a new one by link.
+- The link emails can land in junk.
+- A link opens in whatever browser the mail app uses, which on an iPhone may not be the Home Screen app. The password is set there; signing in with it then works anywhere.
+- If the Owner re-adds a person who is already listed (which overwrites their entry), their password stops being accepted until they set it up again by link. Google is unaffected.
+- "Connect Google Drive" on an assignment opens a Google pop-up. For someone whose account has no Google on it, that pop-up runs on a separate, throwaway sign-in so it cannot change who is signed in to the Hub.
+- Future rules tests: a made-up test token must say it signed in with Google (`firebase: { sign_in_provider: 'google.com' }`) or the rules will refuse it.
 
 ## Where things live
 
-- `functions/src/staffAccount.ts`: the rule. `staffAccountOnListing` in `functions/src/index.ts` runs it when a `directors` doc is created. Self-check: `functions/src/staffAccount.selfcheck.ts`.
-- `scripts/ensure-staff-accounts.mjs` and the *Ensure Staff Accounts* workflow: the same rule over the current list.
-- `src/director/components/AuthGate.tsx`: the form, the link flow, the "confirm your email" step, the Home Screen line.
-- `src/director/hooks/useGoogleDrive.ts`: the Drive pop-up guard.
-- `scripts/password-sign-in.emulator-proof.mjs` with `firebase.emulators.json`: real sign-ins on the emulators against the real rules. Not part of CI (it needs Java). Run it by hand before step 6 and after any change to the files above.
+- `firestore.rules`, `storage.rules`: `honouredSignIn()` and `boundPasswordSignIn()`, the same test in both. The Directors block lets no browser set or alter the binding.
+- `functions/src/staffToken.ts`: the same test for the functions that check a caller's sign-in. Self-check: `staffToken.selfcheck.ts`, which also reads both rules files.
+- `functions/src/passwordSetup.ts` (the rules of setting a password), `passwordSetupStore.ts` (where it keeps things), `passwordSetup` in `functions/src/index.ts` (the function). Self-check: `passwordSetup.selfcheck.ts`.
+- `src/shared/passwordSetupLink.ts`: the shape of the link, shared by the function and the screen.
+- `src/director/components/AuthGate.tsx`, `src/director/passwordSetupClient.ts`: the form and the screens. `src/director/hooks/useGoogleDrive.ts`: the Drive pop-up guard.
+- `scripts/password-sign-in.emulator-proof.mjs`: real sign-ins on the emulators against the real rules. `scripts/rules-verdicts.emulator-check.mjs`: records every role's answers so a rules change can be compared with `main`. Both need Java, so neither is in CI. Run them by hand after touching any of the above; the commands are at the top of each file.
