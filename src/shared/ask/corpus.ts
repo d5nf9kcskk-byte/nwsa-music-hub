@@ -151,6 +151,7 @@ export const ASK_CORPUS: AskCase[] = [
   s('what room', 'where', { when: 'today' }),
   s('where is symphony today', 'where', { when: 'today', about: 'symphony' }),
   s('are we in chapman', 'where', { when: 'today', about: 'chapman' }),
+  s('wheres wind ens today', 'where', { when: 'today', about: 'wind ensemble' }),
   s('are we in 4302 or wolfson', 'where', { when: 'today' }),
   s('where is my lesson', 'where', { when: 'next', about: 'lesson' }),
   s('where is jazz theory', 'where', { when: 'next', about: 'jazz theory' }),
@@ -241,6 +242,8 @@ export const ASK_CORPUS: AskCase[] = [
   s('jazz combos concert', 'concert', { about: 'jazz combos' }),
   s('how many concerts are left', 'concert'),
   s('concerts', 'concert'),
+  s('next perf', 'concert', { when: 'next' }),
+  s('midnite ball', 'concert', { about: 'midnight ball' }),
   s('cuando es el concierto', 'concert', { ...es, when: 'next' }),
   s('a que hora es el concierto', 'concert', { ...es, when: 'next' }),
   s('proximo concierto', 'concert', { ...es, when: 'next' }),
@@ -373,6 +376,29 @@ export const ASK_CORPUS: AskCase[] = [
   s('what is the wifi password', 'none', { answer: 'none' }),
   s('will it rain', 'none', { answer: 'none' }),
   s('asdf', 'none', { answer: 'none' }),
+  // Found by an independent review of the first parser (2026-11-11). Each of
+  // these got a confident answer. The self-check also runs every
+  // `{classmate}` line with 48 ordinary first names, because the made-up
+  // stand-in only passed for being unusual.
+  s('is {classmate} in camerata', 'none', { answer: 'none' }),
+  // "ill" is how a thumb types "I'll". These are promises to come, not sick notes.
+  s('ill be there', 'none', { answer: 'none' }),
+  s('ill be at the concert', 'none', { answer: 'none' }),
+  s('ill be at rehearsal tomorrow', 'none', { answer: 'none' }),
+  // A grade or the attendance record, asked without the tell-tale words.
+  s('how did i do on the playing exam', 'none', { answer: 'none' }),
+  s('did i do ok on the test', 'none', { answer: 'none' }),
+  s('how was my exam', 'none', { answer: 'none' }),
+  s('was i absent', 'none', { answer: 'none' }),
+  s('did i miss rehearsal', 'none', { answer: 'none' }),
+  // Time signatures are not dates.
+  s('what is 4/4', 'none', { answer: 'none' }),
+  s('3/4 time', 'none', { answer: 'none' }),
+  s('2/4', 'none', { answer: 'none' }),
+  // A loose beginning is not a short form: these used to find the Concerto
+  // concert and Opera Workshop.
+  s('when is the next conc', 'none', { answer: 'none' }),
+  s('do we have work today', 'none', { answer: 'none' }),
 
   /* ── 13. The director's side (built in January). ───────────────────── */
   d('where is {classmate}', 'staffWhereIs', { when: 'today' }),

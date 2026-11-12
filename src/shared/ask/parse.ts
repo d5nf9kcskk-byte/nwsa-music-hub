@@ -21,11 +21,15 @@
  * holding a list of people. Keep FILLER small; every word added to it is a
  * word the engine agrees to ignore.
  *
- * KNOWN LIMIT. A person whose first name is also a word in a group's or a
- * concert's name is read as that group: "what is florence playing" answers
- * about Souvenir de Florence. Nothing here can tell the two apart without a
- * list of people, which this module must never hold. The answer names what
- * it understood, and everything it can show is already public.
+ * FIRST NAMES. Titles are full of them (Carmen Suite, Souvenir de Florence,
+ * the James K. Batten Room), and "where is james" must not find a room. Three
+ * guards, all in the matcher: a name is matched on its whole words or on the
+ * short forms in SHORT, never on a loose beginning; the people on a thing
+ * (`by`) are found by surname only; and a word in givenNames.ts never picks a
+ * thing by itself. KNOWN LIMIT: a first name that is in no list of common
+ * names and is also a whole word of some title still reads as that title.
+ * Nothing can close that without a list of people, which this module must
+ * never hold. The answer names what it understood, and all of it is public.
  *
  * Pure: no React, no Firestore, no org config. Relative imports carry `.ts`
  * so plain Node can load it. ask.selfcheck.ts runs it over the corpus.
@@ -33,6 +37,7 @@
 
 import type { AskIntent, AskWhen } from './corpus.ts';
 import { normalizeText, withinOneTypo } from '../fuzzy.ts';
+import { GIVEN_NAMES } from './givenNames.ts';
 
 /** What kind of thing a name is. `room` is somewhere we rehearse; `venue` is
  *  somewhere we travel to perform, so "where is the Lyric" is a question
@@ -42,8 +47,12 @@ export type AskNameKind = 'group' | 'concert' | 'assignment' | 'piece' | 'venue'
 export interface AskName {
   kind: AskNameKind;
   name: string;
-  /** Other words people find it by: a course code, a composer, a conductor. */
+  /** Other words people find it by: a course code, a short title. */
   also?: string[];
+  /** The people on it: conductor, teacher, composer. Found by SURNAME only.
+   *  "gilman" finds his classes; "sarah" finds nothing, because a first name
+   *  is far more often a classmate than a teacher. */
+  by?: string[];
   /** The caller's own handle. Never read here; handed back on `match`. */
   id?: string;
 }
@@ -60,9 +69,36 @@ export interface AskParse {
   confident: boolean;
 }
 
-export interface AskOptions {
-  /** 'public' (the default) can never return a staff intent. */
-  side?: 'public' | 'staff';
+export interface AskRule {
+  intent: AskIntent;
+  /** The words that give the question away. A capture group marks words
+   *  that are ALSO the thing asked about ("playing exam", "finals"). */
+  re: RegExp;
+  /** Other words that belong to this shape of question and mean nothing more. */
+  also?: RegExp;
+  /** The date when no date word was typed. null = none. Left out = the
+   *  intent's own default (WHEN_DEFAULT). */
+  when?: AskWhen | null;
+  /** Leftover words are the topic to search for, not a reason to refuse. */
+  topic?: boolean;
+  /** Staff only: leftover words are a person's name. Ignored, never resolved. */
+  person?: boolean;
+}
+
+/** Everything the staff side adds. It lives in src/director/ask/ (design
+ *  3.8), so the public bundle carries no staff phrasing at all: the public
+ *  parser refuses "who is out today" because it has never heard of it. */
+export interface AskStaffSide {
+  /** Tried before the public rules. */
+  rules: AskRule[];
+  kinds: Partial<Record<AskIntent, AskNameKind[]>>;
+  whenDefault: Partial<Record<AskIntent, [AskWhen | undefined, AskWhen | undefined]>>;
+  /** Public intents that mean something wider when staff ask. */
+  widen: Partial<Record<AskIntent, AskIntent>>;
+  /** "Where is <words nothing accounts for>": a person. */
+  wherePerson: AskIntent;
+  /** A room and a date with nothing else. */
+  roomOnDate: AskIntent;
 }
 
 /* ── Words ────────────────────────────────────────────────────────────── */
@@ -86,7 +122,7 @@ const GENERIC = set(
 );
 /** An instrument qualifies a lesson, a seat or a part. Anywhere else it is a
  *  word nothing accounts for ("cellos in symphony" is a roster question). */
-const INSTRUMENT = set(
+export const ASK_INSTRUMENTS = set(
   'violin violins viola violas cello cellos bass basses flute flutes oboe oboes clarinet clarinets ' +
   'bassoon bassoons horn horns trumpet trumpets trombone trombones tuba tubas percussion piano harp ' +
   'guitar sax saxophone saxophones drums voice chelo violonchelo contrabajo flauta trompeta',
@@ -96,6 +132,14 @@ const INSTRUMENT_OK = new Set<AskIntent>(['lesson', 'seat', 'parts', 'due', 'how
 const KIND_WORD = set('sectional sectionals seccional seccionales masterclass masterclasses');
 const ARTICLE = set('a an any un una');
 const NAME_STOP = set('the of de la el a an and in for from at y no to with by up');
+/** The short forms people really use, and nothing looser. Any four-letter
+ *  beginning used to count, and "chris" found the Christmas concert, "work"
+ *  found Opera Workshop and "conc" found the Concerto concert. A group's own
+ *  nickname belongs on its `also`. Initials ("cco", "WE") are a separate rule. */
+const SHORT: Record<string, string> = {
+  phil: 'philharmonic', orch: 'orchestra', symph: 'symphony', ens: 'ensemble', tchaik: 'tchaikovsky',
+  midnite: 'midnight', nite: 'night', xmas: 'christmas',
+};
 
 /** Lower case, no accents, no punctuation. ':' and '/' survive for dates. */
 export function askWords(s: string): string {
@@ -115,7 +159,7 @@ const WEEKDAYS: [string, string][] = [
   ['thu', 'thursday|thrusday|thurs|thur|thu|jueves'],
   ['fri', 'friday|firday|fri|viernes'],
   ['sat', 'saturday|saterday|sat|sabado'],
-  ['sun', 'sunday|sun|domingo'],
+  ['sun', 'sunday|sun'],
 ];
 const MONTHS = [
   'january|jan|enero|ene', 'february|feb|febrero', 'march|mar|marzo', 'april|apr|abril|abr',
@@ -141,17 +185,20 @@ const DATE_WORDS: [RegExp, DateHit][] = [
   [/\btonight\b|\btonite\b|\b2nite\b|\besta noche\b/g, 'tonight'],
   [/\btoday\b|\b2day\b|\btdy\b|\bhoy\b|\bright now\b|\bnow\b|\bahora\b|\besta manana\b|\bafter school\b/g, 'today'],
   [/\btomorrow\b|\btomorow\b|\btommorow\b|\btommorrow\b|\btomorro\b|\btmrw\b|\btmr\b|\btmw\b|\b2morrow\b|\b2moro\b|\bmanana\b/g, 'tomorrow'],
+  // Domingo is also a man's name, so it is Sunday only with its article.
+  [/\b(?:el|este|los) domingo\b/g, 'weekday:sun'],
   ...WEEKDAYS.map(([day, alts]): [RegExp, DateHit] =>
     [new RegExp(`\\b(?:(?:on|this|el|este|los) )?(?:${alts})\\b`, 'g'), `weekday:${day}` as AskWhen]),
 ];
 const NEXT = /\b(?:next|proxim[oa]s?|siguiente|upcoming)\b/g;
 
-interface DateRead { rest: string; when?: AskWhen; next: boolean; past: boolean; unsure: boolean }
+interface DateRead { rest: string; when?: AskWhen; next: boolean; past: boolean; unsure: boolean; bareSlash: boolean }
 
 function takeDate(text: string): DateRead {
   const found = new Set<AskWhen>();
   let past = false;
   let unsure = false;
+  let bareSlash = false;
   const dated = (m: number, d: number) => {
     if (m < 1 || m > 12 || d < 1 || d > 31) return false;
     found.add(`date:${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
@@ -167,7 +214,12 @@ function takeDate(text: string): DateRead {
     .replace(/\bthe (sat|sun)\b/g, 'the $1s')
     .replace(DATE_WORDS[0][0], ' ');
   // Month first, as the school writes it. "16/11" can only be day first.
-  s = s.replace(/\b(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?\b/g, (all, m, d) => (dated(+m, +d) || dated(+d, +m) ? ' ' : all));
+  s = s.replace(/\b(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?\b/g, (all, m, d, at: number, whole: string) => {
+    if (/^ time\b/.test(whole.slice(at + all.length))) return all; // "3/4 time"
+    if (!dated(+m, +d) && !dated(+d, +m)) return all;
+    if (!/\b(?:on|el|for|para|del|by|due)\s*$/.test(whole.slice(0, at))) bareSlash = true;
+    return ' ';
+  });
   // A month is a date only with a day number beside it: "dec 9", "9 de diciembre".
   s = s.replace(new RegExp(`\\b(${MONTH}) (\\d{1,2})(?:st|nd|rd|th)?\\b`, 'g'),
     (all, m, d) => (dated(monthOf(m), +d) ? ' ' : all));
@@ -184,29 +236,18 @@ function takeDate(text: string): DateRead {
   const next = s.search(NEXT) >= 0;
   s = s.replace(NEXT, ' ').replace(/[:/]/g, ' ').replace(/\s+/g, ' ').trim();
   // Two different days in one question is a question this cannot answer.
-  return { rest: s, when: found.size === 1 ? [...found][0] : undefined, next, past, unsure: unsure || found.size > 1 };
+  return { rest: s, when: found.size === 1 ? [...found][0] : undefined, next, past, bareSlash, unsure: unsure || found.size > 1 };
 }
 
 /* ── 2. Intent ────────────────────────────────────────────────────────── */
 
-interface Rule {
-  intent: AskIntent;
-  /** The words that give the question away. A capture group marks words
-   *  that are ALSO the thing asked about ("playing exam", "finals"). */
-  re: RegExp;
-  /** Other words that belong to this shape of question and mean nothing more. */
-  also?: RegExp;
-  /** The date when no date word was typed. null = none. Left out = the
-   *  intent's own default (WHEN_DEFAULT). */
-  when?: AskWhen | null;
-  /** Leftover words are the topic to search for, not a reason to refuse. */
-  topic?: boolean;
-  /** Staff only: leftover words are a person's name. Ignored, never resolved. */
-  person?: boolean;
-}
-
-/** Staff-only facts. Refused outright on the public side. */
-const REFUSE = /\b(?:grades?|notas?|calificacion(?:es)?|what did i get|marked|passing|failing|gpa)\b|^change\b/;
+/** Staff-only facts. Refused outright on the public side. The second line is
+ *  the same questions with the tell-tale words left out: "how did I do on
+ *  the exam" is a grade, and "was I absent" is the attendance record. */
+const REFUSE = new RegExp(
+  /\b(?:grades?|notas?|calificacion(?:es)?|what did i get|marked|passing|failing|gpa)\b|^change\b/.source + '|' +
+  /\bwas i\b|\bdid i (?!submit|upload|turn|send|check)|\bhow did \w+ do\b|\bhow was (?:my|his|her)\b|\bdid (?:he|she) (?:pass|do|miss)\b/.source,
+);
 /** A "who" question is about other people, so the public side refuses it
  *  unless it is one of these, which ask about a group or about me. */
 const WHO = /\b(?:who|whos|whose|quien|quienes)\b/;
@@ -215,10 +256,11 @@ const WHEN_SHAPE = /\b(?:when|whens|wen|what time|cuando|a que hora)\b/;
 
 /** First match wins, so the order is the meaning: "is my lesson cancelled"
  *  is about the lesson, "where is the concert" is about the concert. */
-const RULES: Rule[] = [
+const RULES: AskRule[] = [
   { intent: 'glossary', re: /\bwhat does (.+) mean\b|\bque (?:significa|quiere decir) (.+)|^(?:whats|what is|que es) (?:a|an|un|una) (.+)$|^define (.+)$/ },
 
-  { intent: 'howAbsence', re: /\b(?:sick|ill|enferm[oa])\b/, also: /\bout\b|\bhome\b/, when: 'today' },
+  // "ill" alone is how thumbs type "I'll": "ill be there" is a promise to come.
+  { intent: 'howAbsence', re: /\b(?:sick|enferm[oa])\b|\b(?:im|i am|is|feel|feels|feeling) ill\b/, also: /\bout\b|\bhome\b/, when: 'today' },
   { intent: 'howAbsence', re: /\b(?:absent|absence|ausente|ausencia|faltar|leav(?:e|ing) early|salir temprano|appointment|cita|have to miss|gonna miss|miss (?:rehearsal|class|school)|wont be (?:at|in|there)|cant (?:come|make it))\b/, also: /\breport\b|\breportar\b|\bwho do i tell\b|\bdentist\b|\bdoctors?\b|\bschool\b|\bwill be\b/ },
   { intent: 'howSubmit', re: /\bturn(?:ed)? (?:it )?in\b|\b(?:re)?submit\b|\bupload(?:ed)?\b|\b(?:better|another) take\b|\bretake\b|\bcomo (?:entrego|subo|envio)\b/, also: /\b(?:send|video|playing|exam|examen|test)\b/ },
   { intent: 'howCheckin', re: /\bcheck(?:ed)? ?(?:in|out)\b|\bregistrar (?:mi )?llegada\b|\bhow many concerts have i (?:gone to|been to|attended)\b/, also: /\b(?:forgot|count|counted)\b/ },
@@ -262,28 +304,13 @@ const RULES: Rule[] = [
 
   // More than one concert is a list, not "the next one".
   { intent: 'concert', re: /\bhow many concerts are left\b|\bconcerts\b|\bconciertos\b|\bcoming up\b/, when: null },
-  { intent: 'concert', re: /\bconcert\b|\bconcierto\b|\bshows?\b|\brecitals?\b|\btickets?\b|\bboletos?\b|\bentradas?\b|\baddress\b|\bdireccion\b/, also: /\bmuch\b/ },
+  { intent: 'concert', re: /\bconcert\b|\bconcierto\b|\bshows?\b|\bperformances?\b|\bperf\b|\brecitals?\b|\btickets?\b|\bboletos?\b|\bentradas?\b|\baddress\b|\bdireccion\b/, also: /\bmuch\b/ },
 
   { intent: 'group', re: /\bwho(?:s| is) in\b|\bwho (?:conducts|teaches|directs)\b|\bquien (?:dirige|ensena)\b/ },
   { intent: 'where', re: /\bare we in\b|\bestamos en\b/, when: 'today' },
   { intent: 'where', re: /\bwheres?\b|\bdonde\b|\b(?:what|which) room\b|\bsalon\b|\broom\b/ },
   { intent: 'myDay', re: /\bschedule\b|\bhorario\b|\brehearsals?\b|\bensayos?\b|\bget out\b|\bwhat do i have\b|\bdo (?:i|we) have\b/ },
 ];
-
-/** The director's side. Tried first there, and never on the public side. */
-const STAFF_RULES: Rule[] = [
-  { intent: 'staffDo', re: /^take (?:roll|attendance)\b/, when: 'today' },
-  { intent: 'staffDo', re: /^(?:cancel|move|add|post|excuse|create)\b|^new (?:form|announcement)\b|^(?:open )?(?:the )?gradebook\b/, also: /\bannouncement\b/, person: true },
-  { intent: 'staffContact', re: /\b(?:call(?! time)|email|text|phone|contact)\b|\b(?:parents?|mom|dad|mother|father|guardians?)\b/, person: true },
-  { intent: 'staffMissing', re: /\bwho (?:hasnt|has not|havent|have not|didnt|did not)(?: (?:turned in|submitted|signed|filled out|checked (?:in|out)|check (?:in|out)|sent|logged))?\b|\bwho (?:still )?owes\b|\bhavent (?:logged|taken)\b|\brolls?(?: are)? left\b|\bmissing\b/, also: /\bemergency contacts?\b|\brolls?\b/ },
-  { intent: 'staffWaiting', re: /\bwaiting (?:on|for) me\b|\brequests?\b|\bapprovals?\b|\babsence reports?\b/, also: /\bcopy\b/ },
-  { intent: 'staffWhosOut', re: /\bwho(?:s| is) (?:out|absent|excused|pulled(?: out)?)\b|\babsences\b|\bexcused\b|\bpulled out\b|\bquien(?:es)? faltan?\b/ },
-  { intent: 'staffRoster', re: new RegExp(`\\broster\\b|\\b(?:seniors|juniors|sophomores|freshmen)\\b|\\bhow many in\\b|\\bwho studies with\\b|\\b(?:${[...INSTRUMENT].join('|')}) in\\b`), topic: true },
-  { intent: 'staffWhereIs', re: /\bhere\b|\bin the building\b|\bon campus\b/, person: true },
-  { intent: 'staffDay', re: /\bwhat(?:s| is) (?:in|on)\b|\bfree\b|\bwho(?:s| is) playing\b/ },
-];
-/** On the staff side a schedule question is about the whole building. */
-const STAFF_MAP: Partial<Record<AskIntent, AskIntent>> = { myDay: 'staffDay', concert: 'staffDay', noSchool: 'staffDay' };
 
 /** The date a question means when it names none: [nothing named, a thing named]. */
 const WHEN_DEFAULT: Partial<Record<AskIntent, [AskWhen | undefined, AskWhen | undefined]>> = {
@@ -297,7 +324,6 @@ const WHEN_DEFAULT: Partial<Record<AskIntent, [AskWhen | undefined, AskWhen | un
   dress: ['next', undefined],
   pickup: ['next', undefined],
   noSchool: ['next', undefined],
-  staffWhereIs: ['today', 'today'],
 };
 
 /** Which kinds of name each question can be about, most likely first. A kind
@@ -319,12 +345,6 @@ const KINDS: Partial<Record<AskIntent, AskNameKind[]>> = {
   group: ['group'],
   piece: ['piece'],
   documents: ['group'],
-  staffWhosOut: ['group', 'concert'],
-  staffMissing: ['assignment', 'form', 'concert', 'group'],
-  staffDay: ['group', 'room', 'concert', 'venue'],
-  staffRoster: ['group'],
-  staffContact: ['group'],
-  staffDo: ['group', 'room', 'concert'],
 };
 /** How people name a concert that has another name on the poster. */
 const SEASON = set('winter spring fall autumn summer holiday christmas invierno primavera otono verano navidad');
@@ -357,10 +377,7 @@ function hit(t: string, w: string, typo: boolean): number {
   if (t === w) return 1;
   if (/^\d/.test(t) || /^\d/.test(w)) return 0;
   if (t === w + 's' || w === t + 's') return 1;
-  // ponytail: a short form is a word with at least four letters cut off
-  // ("phil", "orch", "tchaik"). Cutting fewer is usually a different word
-  // ("free" is not Freedom). A table of real nicknames if this guess wears thin.
-  if (t.length >= 4 && w.length - t.length >= 4 && w.startsWith(t)) return 2;
+  if (SHORT[t] === w) return 2;
   // Six letters before a typo is forgiven: at five, "grace" is a misspelled "grade".
   return typo && t.length >= 6 && w.length >= 6 && withinOneTypo(t, w) ? 3 : 0;
 }
@@ -368,10 +385,15 @@ function hit(t: string, w: string, typo: boolean): number {
 const nameWords = (label: string) =>
   askWords(label).replace(/[:/]/g, ' ').split(/\s+/).filter(w => w && !NAME_STOP.has(w));
 
+/** "Dr. Grant Gilman" → gilman. "Verdi, Giuseppe" → verdi. Two people
+ *  joined by a slash give two surnames. */
+const surnames = (who: string) =>
+  who.split(/\s*\/\s*|\s+and\s+|\s*&\s*/).flatMap(p => nameWords(p.includes(',') ? p.split(',')[0] : p).slice(-1));
+
 function candidates(toks: Tok[], names: readonly AskName[], kinds: readonly AskNameKind[]): Cand[] {
   const pool = names.filter(n => kinds.includes(n.kind)).map(n => {
-    const labels = [n.name, ...(n.also ?? [])];
-    return { n, labels, words: labels.map(nameWords) };
+    const plain = [n.name, ...(n.also ?? [])];
+    return { n, labels: [...plain, ...(n.by ?? [])], words: [...plain.map(nameWords), ...(n.by ?? []).map(surnames)] };
   });
   const live = toks.map((_, i) => i).filter(i => toks[i].role !== 'stop' && toks[i].role !== 'used');
   // A word that fits some name exactly is never also read as a typo of
@@ -391,11 +413,15 @@ function candidates(toks: Tok[], names: readonly AskName[], kinds: readonly AskN
       for (const i of live) {
         const t = toks[i];
         const free = t.role === 'free';
-        const initials = free && ws.length > 1 && (t.w.length > 2 || t.caps) && t.w === ws.map(w => w[0]).join('');
+        // A common first name is far more often a classmate than a title:
+        // it never picks a thing alone, is never a typo of one, and is
+        // never initials. "James" does not find the James K. Batten Room.
+        const given = GIVEN_NAMES.has(t.w);
+        const initials = free && !given && ws.length > 1 && (t.w.length > 2 || t.caps) && t.w === ws.map(w => w[0]).join('');
         let word: string | undefined;
         if (!initials && !t.soft) {
           for (const w of ws) {
-            const h = hit(t.w, w, free && !sure.has(i));
+            const h = hit(t.w, w, free && !given && !sure.has(i));
             if (!h) continue;
             word = w;
             if (h > 1) spell.set(i, w);
@@ -407,7 +433,7 @@ function candidates(toks: Tok[], names: readonly AskName[], kinds: readonly AskN
         if (initials) ws.forEach(w => covered.add(w));
         else covered.add(word!);
         // A scrap ("up", "go", "5") is in too many names to pick one alone.
-        const sturdy = free && (initials || t.w.length >= 4 || /^\d{3,}$/.test(t.w));
+        const sturdy = free && !given && (initials || t.w.length >= 4 || /^\d{3,}$/.test(t.w));
         (sturdy ? strong : weak).add(i);
       }
       perLabel[li] = n;
@@ -460,15 +486,22 @@ function ranges(re: RegExp | undefined, s: string, used: [number, number][], kep
   }
 }
 
-export function parseAsk(text: string, names: readonly AskName[], opts: AskOptions = {}): AskParse {
-  const staff = opts.side === 'staff';
+/**
+ * The public parser. Called with two arguments it knows no staff phrasing
+ * and can never return a staff intent. The staff side passes its own tables
+ * as `side`; use `parseStaffAsk` in src/director/ask/ rather than calling
+ * this with three.
+ */
+export function parseAsk(text: string, names: readonly AskName[], side?: AskStaffSide): AskParse {
+  const staff = !!side;
+  const kindsOf = (i: AskIntent) => side?.kinds[i] ?? KINDS[i] ?? [];
   const mixedCase = /[a-z]/.test(text);
   const capsWords = new Set(mixedCase ? (text.match(/\b[A-Z]{2}\b/g) ?? []).map(w => w.toLowerCase()) : []);
 
   const cleaned = askWords(text);
   if (!cleaned) return none();
   if (/^(?:whats|what is) next$|^que sigue$/.test(cleaned)) {
-    return { intent: staff ? 'staffDay' : 'myDay', when: 'today', confident: true };
+    return { intent: side?.widen.myDay ?? 'myDay', when: 'today', confident: true };
   }
   const date = takeDate(cleaned);
   const s = date.rest;
@@ -477,7 +510,10 @@ export function parseAsk(text: string, names: readonly AskName[], opts: AskOptio
   const marks = s.replace(/\b(?:\d+(?:st|nd|rd|th)|ninth|tenth|eleventh|twelfth) grade\b/g, '');
   if (!staff && (REFUSE.test(marks) || (WHO.test(s) && !WHO_OK.test(s)))) return none();
 
-  const found = (staff ? STAFF_RULES.find(r => r.re.test(s)) : undefined) ?? RULES.find(r => r.re.test(s));
+  const found = side?.rules.find(r => r.re.test(s)) ?? RULES.find(r => r.re.test(s));
+  // "What is 4/4" is a time signature. Two numbers and a slash are a date
+  // only when the rest of the sentence is a question about a day.
+  if (date.bareSlash && !found) return none();
   // "Chamber Music", "Form & Analysis", "Violin Masterclass Sign-Up": when
   // the word that picked the intent turns out to be part of the name it
   // matched, it was never a question word. Read the sentence again as a name.
@@ -489,7 +525,7 @@ export function parseAsk(text: string, names: readonly AskName[], opts: AskOptio
   }
   return first;
 
-  function read(rule: Rule | undefined): AskParse {
+  function read(rule: AskRule | undefined): AskParse {
   let intent: AskIntent | undefined = rule?.intent;
 
   /* Sort every word into what it is doing in the sentence. */
@@ -516,13 +552,13 @@ export function parseAsk(text: string, names: readonly AskName[], opts: AskOptio
     if (keptIn && !anyOne.has(keptIn)) role = 'kept';
     else if (inside(m.index, used)) role = 'used';
     else if (FILLER.has(w)) { if (caps) soft = true; else role = 'stop'; }
-    else if (INSTRUMENT.has(w)) role = 'inst';
+    else if (ASK_INSTRUMENTS.has(w)) role = 'inst';
     else if (GENERIC.has(w)) role = 'weak';
     toks.push({ w, at: m.index, role, caps, soft });
   }
 
   /* Match the leftover words against the names. */
-  const kinds = intent ? KINDS[intent] ?? [] : ANY_KIND;
+  const kinds = intent ? kindsOf(intent) : ANY_KIND;
   const cands = candidates(toks, names, kinds);
   const tied = best(cands);
   triggerInName = tied.some(c => {
@@ -562,10 +598,10 @@ export function parseAsk(text: string, names: readonly AskName[], opts: AskOptio
   if (unknown.length > 0) {
     if (rule?.topic) unknown.forEach(i => aboutIdx.add(i));
     else if (rule?.person) { /* a name: left alone */ }
-    else if (staff && intent === 'where' && aboutIdx.size === 0) intent = 'staffWhereIs';
+    else if (side && intent === 'where' && aboutIdx.size === 0) intent = side.wherePerson;
     // "The winter concert" is on nobody's poster under that name, but it is
     // plainly a concert being asked about.
-    else if (intent && KINDS[intent] === ABOUT_CONCERT && unknown.every(i => SEASON.has(toks[i].w))) unknown.forEach(i => aboutIdx.add(i));
+    else if (intent && kindsOf(intent) === ABOUT_CONCERT && unknown.every(i => SEASON.has(toks[i].w))) unknown.forEach(i => aboutIdx.add(i));
     else return none();
   }
 
@@ -581,7 +617,7 @@ export function parseAsk(text: string, names: readonly AskName[], opts: AskOptio
     else if (named === 'form') intent = 'forms';
     else if (named === 'assignment') intent = 'due';
     // A room on a date is a question about the building, not about me.
-    else intent = !dated ? 'where' : staff ? 'staffDay' : undefined;
+    else intent = !dated ? 'where' : side?.roomOnDate;
     if (!intent) return none();
   }
   // Asking where a hall is, is asking about the concert there.
@@ -613,14 +649,14 @@ export function parseAsk(text: string, names: readonly AskName[], opts: AskOptio
     } else if (intent === 'playing' && /\b(?:concert|concierto)\b/.test(s)) {
       when = 'next';
     } else {
-      const [bare, named] = WHEN_DEFAULT[intent] ?? [];
+      const [bare, named] = side?.whenDefault[intent] ?? WHEN_DEFAULT[intent] ?? [];
       // A room is where, not what: "what are we rehearsing in chapman" is still today.
       const thing = !!about && !(intent === 'playing' && kind === 'room');
       when = intent === 'where' && kind === 'room' ? undefined : thing ? named : bare;
     }
   }
 
-  if (staff) intent = STAFF_MAP[intent] ?? intent;
+  if (side) intent = side.widen[intent] ?? intent;
   else if (intent.startsWith('staff')) return none();
 
   const out: AskParse = { intent, confident: true };
