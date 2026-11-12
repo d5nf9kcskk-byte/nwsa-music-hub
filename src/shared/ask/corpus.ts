@@ -465,6 +465,11 @@ export const ASK_CORPUS: AskCase[] = [
   s('15 dec', 'myDay', { when: 'date:12-15' }),
   s('9 diciembre', 'myDay', { ...es, when: 'date:12-09' }),
   s('the 15th', 'myDay', { when: 'day:15' }),
+  s('is there rehearsal the 20th', 'myDay', { when: 'day:20' }),
+  // An ordinal is a day only in a question about a day.
+  s('bowings on the 2nd', 'none', { answer: 'none' }),
+  s('am i the 2nd', 'none', { answer: 'none' }),
+  p('is my son playing friday', 'myDay', { when: 'weekday:fri' }),
   // Words that fired on too little.
   s('call the school', 'none', { answer: 'none' }),
   s('call me', 'none', { answer: 'none' }),

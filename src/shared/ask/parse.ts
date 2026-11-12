@@ -129,7 +129,7 @@ const FILLER = set(
   'r their them they u ur wat wen wut ' +
   'el en end ends es esta for from gonna has have hay he her hey hi him his hola hora how i if im in is it ' +
   'its just la las like lo look los me meet meets mi my need of ok on our over para please pls plz por ' +
-  'que se she should so start starts still tengo thanks that the there this tiene time to un una us va ' +
+  'que se she should so some start starts still tengo thanks that the there this tiene time to un una us va ' +
   'up vamos voy want was we what whats when whens where wheres which who whos with would y you your ' +
   'kid kids child son daughter student hijo hija empieza termina',
 );
@@ -225,13 +225,14 @@ const DATE_WORDS: [RegExp, DateHit][] = [
 ];
 const NEXT = /\b(?:next|nxt|proxim[oa]s?|siguiente|upcoming)\b/g;
 
-interface DateRead { rest: string; when?: AskWhen; next: boolean; past: boolean; unsure: boolean; bareSlash: boolean }
+interface DateRead { rest: string; when?: AskWhen; next: boolean; past: boolean; unsure: boolean; bareSlash: boolean; bareDay: boolean }
 
 function takeDate(text: string): DateRead {
   const found = new Set<AskWhen>();
   let past = false;
   let unsure = false;
   let bareSlash = false;
+  let bareDay = false;
   const dated = (m: number, d: number) => {
     if (m < 1 || m > 12 || d < 1 || d > 31) return false;
     found.add(`date:${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
@@ -270,11 +271,15 @@ function takeDate(text: string): DateRead {
   s = s.replace(new RegExp(`\\b(?:in|en|during|durante) (${MONTH})\\b`, 'g'), month);
   s = s.replace(new RegExp(`\\b(?!march\\b|may\\b|mar\\b)(${MONTH}) (?=(?:concert|concierto|recital|show)s?\\b)`, 'g'), month);
   // "The 15th" is the next 15th, but only as the last thing said: "the 5th
-  // symphony" and "9th grade" are not days.
+  // symphony" and "9th grade" are not days. And unless it is all that was
+  // said, only in a question about a day (`bareDay`): "bowings on the 2nd"
+  // is a stand.
+  const said = s.trim();
   s = s.replace(/\b(?:on )?the (\d{1,2})(?:st|nd|rd|th)(?=[ ~]*$)|\bel dia (\d{1,2})\b/, (all, d1, d2) => {
     const d = +(d1 ?? d2);
     if (d < 1 || d > 31) return all;
     found.add(`day:${String(d).padStart(2, '0')}`);
+    if (d1 && all !== said) bareDay = true;
     return WAS_DATE;
   });
   for (const [re, hit] of DATE_WORDS.slice(1)) {
@@ -291,7 +296,7 @@ function takeDate(text: string): DateRead {
   const next = s.search(NEXT) >= 0;
   s = s.replace(NEXT, ' ').replace(/[:/~]/g, ' ').replace(/\s+/g, ' ').trim();
   // Two different days in one question is a question this cannot answer.
-  return { rest: s, when: found.size === 1 ? [...found][0] : undefined, next, past, bareSlash, unsure: unsure || found.size > 1 };
+  return { rest: s, when: found.size === 1 ? [...found][0] : undefined, next, past, bareSlash, bareDay, unsure: unsure || found.size > 1 };
 }
 
 /* ── 2. Intent ────────────────────────────────────────────────────────── */
@@ -370,7 +375,8 @@ const RULES: AskRule[] = [
   // concert" and "end of quarter concert" are about the concert.
   { intent: 'noSchool', re: /\b((?:thanksgiving|winter|spring|summer|fall|christmas|holiday) break|thanksgiving|finals|quarter|semester|grading period|vacaciones)\b|\bbreak\b|\bday off\b|\bholidays?\b|\bdias? festivos?\b|\bferiados?\b/, also: /\bschedule\b/, not: /\b(?:concert|concierto|recital|show)s?\b/ },
 
-  { intent: 'myDay', re: /\bam i playing\b/ },
+  // "Is my son playing friday" asks whether he is on, not what the pieces are.
+  { intent: 'myDay', re: /\bam i playing\b|^is (?:he|she|my (?:son|daughter|kid|child|student)) playing\b/ },
   // "What should I practice", not "can I practice in 4304".
   { intent: 'playing', re: /\bwhat (?:should|do|can|shall) (?:i|we) (?:need to |have to )?practice\b|\bwhat to practice\b|\bque (?:debo |tengo que )?practicar\b/, when: 'thisWeek' },
   { intent: 'playing', re: /\b(?:what|which|program|concert) order\b|\border of\b/, also: /\bplaying\b/, when: 'next' },
@@ -387,6 +393,12 @@ const RULES: AskRule[] = [
   { intent: 'where', re: /\bwheres?\b|\bdonde\b|\b(?:what|which) room\b|\bsalon\b|\broom\b/ },
   { intent: 'myDay', re: /\bschedule\b|\bhorario\b|\brehearsals?\b|\bensayos?\b|\bget out\b|\bwhat do i have\b|\bdo (?:i|we) have\b/ },
 ];
+
+/** The questions that are about a day, so "the 15th" in one is a date. */
+const DAY_QUESTION = new Set<AskIntent>([
+  'myDay', 'playing', 'where', 'cancelled', 'lesson', 'due', 'concert', 'callTime', 'dress', 'pickup',
+  'required', 'noSchool', 'howAbsence',
+]);
 
 /** The shapes that carry a search topic, for the self-check: it tries each
  *  with a person where the topic goes, and fails if one has no such test. */
@@ -641,6 +653,8 @@ export function parseAsk(typed: string, names: readonly AskName[], side?: AskSta
   // "What is 4/4" is a time signature. Two numbers and a slash are a date
   // only when the rest of the sentence is a question about a day.
   if (date.bareSlash && !found) return none();
+  // Likewise "the 2nd" is a day only in a question about a day.
+  if (date.bareDay && !(found && (DAY_QUESTION.has(found.intent) || found.intent.startsWith('staff')))) return none();
   // "Chamber Music", "Form & Analysis", "Violin Masterclass Sign-Up": when
   // the word that picked the intent turns out to be part of the name it
   // matched, it was never a question word. Read the sentence again as a name.

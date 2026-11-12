@@ -29,9 +29,9 @@ export const STAFF_SIDE: AskStaffSide = {
     { intent: 'staffMissing', re: /\bwho (?:hasnt|has not|havent|have not|didnt|did not)(?: (?:turned in|submitted|signed|filled out|checked (?:in|out)|check (?:in|out)|sent|logged))?\b|\bwho (?:still )?owes\b|\bhavent (?:logged|taken)\b|\brolls?(?: are)? left\b|\bmissing\b/, also: /\bemergency contacts?\b|\brolls?\b/ },
     { intent: 'staffWaiting', re: /\bwaiting (?:on|for) me\b|\brequests?\b|\bapprovals?\b|\babsence reports?\b/, also: /\bcopy\b/ },
     { intent: 'staffWhosOut', re: /\bwho(?:s| is) (?:out|absent|excused|pulled(?: out)?)\b|\babsences\b|\bexcused\b|\bpulled out\b|\bquien(?:es)? faltan?\b/ },
-    // "Was he absent", "is <somebody> late": a question about the roll, not
+    // "Was he absent", "is <somebody> absent": a question about the roll, not
     // somebody reporting an absence, which is what the public rule would hear.
-    { intent: 'staffWhosOut', re: /^(?:is|was|are|were|esta|estuvo)\b.*\b(?:absent|ausente|late|tardy)\b/, person: true },
+    { intent: 'staffWhosOut', re: /^(?:is|was|are|were|esta|estuvo)\b.*\b(?:absent|ausente|tardy)\b/, person: true },
     { intent: 'staffRoster', re: new RegExp(`\\broster\\b|\\b(?:seniors|juniors|sophomores|freshmen)\\b|\\bhow many in\\b|\\bwho studies with\\b|\\b(?:${[...ASK_INSTRUMENTS].join('|')}) in\\b`), topic: true },
     { intent: 'staffWhereIs', re: /\bhere\b|\bin the building\b|\bon campus\b/, person: true },
     { intent: 'staffDay', re: /\bwhat(?:s| is) (?:in|on)\b|\bfree\b|\bwho(?:s| is) playing\b/ },
