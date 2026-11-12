@@ -41,7 +41,7 @@ export const STAFF_SIDE: AskStaffSide = {
     // "Was he absent", "is <somebody> absent": a question about the roll, not
     // somebody reporting an absence, which is what the public rule would hear.
     { intent: 'staffWhosOut', re: /\b(?:absent|ausente|tardy)\b/, with: /^(?:is|was|are|were|esta|estuvo)\b/, person: true },
-    { intent: 'staffRoster', re: new RegExp(`\\broster\\b|\\b(?:seniors|juniors|sophomores|freshmen)\\b|\\bhow many in\\b|\\bwho studies with\\b|\\b(?:${[...ASK_INSTRUMENTS].join('|')}) in\\b`), topic: true },
+    { intent: 'staffRoster', re: new RegExp(`\\broster\\b|\\bwho(?:s| is) in\\b|\\b(?:seniors|juniors|sophomores|freshmen)\\b|\\bhow many in\\b|\\bwho studies with\\b|\\b(?:${[...ASK_INSTRUMENTS].join('|')}) in\\b`), topic: true },
     { intent: 'staffWhereIs', re: /\bhere\b|\bin the building\b|\bon campus\b/, also: /\bright\b/, person: true },
     { intent: 'staffDay', re: /\bwhat(?:s| is) (?:in|on)\b|\bfree\b|\bwho(?:s| is) playing\b/ },
   ],
@@ -53,6 +53,7 @@ export const STAFF_SIDE: AskStaffSide = {
     ['staffMissing', 'lesson', 'lessons i havent logged'],
     ['staffWhosOut', 'howAbsence', 'was he absent'],
     ['staffDay', 'myDay', 'who is playing at masterclass friday'],
+    ['staffRoster', 'group', 'who is in camerata'],
   ],
   kinds: {
     staffWhosOut: ['group', 'concert'],

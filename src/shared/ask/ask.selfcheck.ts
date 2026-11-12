@@ -221,6 +221,8 @@ for (const q of [
   'later today', 'next month', 'first day of school', 'last day of school', 'the last concert', 'the first concert',
   'the day of the concert', 'monday through friday', 'do i have rehearsal today or tomorrow', 'que tengo pasado mañana',
   'what did we play yesterday', 'when is the sat', 'next to chapman', 'the room next to 4302',
+  'what do i have 11/12/13', 'rehearsal 12/9/2025', 'concert dec 9 2026', 'concerts in the spring',
+  'what is happening in the fall', 'que tengo el viernes que viene',
 ]) refuse(q, 'a date phrase the table cannot read in full');
 
 /* ── Definitions: only the glossary's own words ───────────────────────── */
@@ -307,6 +309,21 @@ for (const q of [
   'change rehearsal to 3pm', 'is camerata cancelled for zelda', 'where is the free concert', 'ill be there',
   'what do we do after the concert', 'rehearsal with gilman', 'who do i ask about seating',
 ]) refuse(q, 'a word nothing accounts for');
+// Asking permission is not reporting: the Hub does not know the rules.
+for (const q of ['may i leave early', 'can i leave early', 'can i miss rehearsal', 'can i be absent friday', 'can i wear black jeans']) {
+  refuse(q, 'a question about the rules');
+}
+// Whether I did it is a record too. The page that shows it is offered.
+for (const q of ['did i submit my video', 'did my video upload', 'did i check in', 'did my check in count', 'have i turned in the exam']) {
+  const got = refuse(q, 'a record, even my own');
+  if (!got.suggestions.some(s => s.intent === 'howSubmit' || s.intent === 'howCheckin')) fail(`"${q}" should offer the page that shows it; ${said(got)}`);
+}
+// Two question words are two questions, with or without an "and".
+for (const q of [
+  'what time is the concert and what do i wear', 'cuando es el concierto y que me pongo',
+  'what time is the concert what do i wear', 'when is the concert and where is it', 'where is rehearsal and when does it end',
+]) refuse(q, 'two questions in one sentence');
+expect('when and where do i pick up my student after the concert', { intent: 'pickup', when: 'next' });  // one question
 // Two questions in one sentence: neither is answered, both are offered.
 for (const [q, a, b] of [
   ['is there school on black friday', 'noSchool', 'dress'], ['pick up my part', 'pickup', 'parts'],

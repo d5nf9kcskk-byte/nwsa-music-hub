@@ -135,17 +135,17 @@ export interface AskStaffSide {
 const set = (s: string) => new Set(s.split(' '));
 
 /** Words that carry nothing, and the ONLY words that may go unclaimed.
- *  Deliberately tiny. Not here on purpose: how, why, who, where, if, or,
+ *  Deliberately tiny. Not here on purpose: how, why, who, where, if, or, and,
  *  can, need, want, about, with, from, after, before, up, out, over, back,
  *  did, was, get, go. Each of those changes the meaning, so a rule must
  *  claim it. */
 const FRAME = set(
   'a an the is are am be do does i me my we our us it its this that there ' +
-  'what whats which when whens wen wat wut at in on for to of and ' +
+  'what whats which when whens wen wat wut at in on for to of ' +
   'please pls plz thanks thank hi hey hello ok have has should would ' +
   'you your u ur r he she her his him they their them son daughter kid kids child student ' +
   'any anything time im ' +
-  'el la los las un una es esta estan yo mi mis que cual cuando al de del en para por y ' +
+  'el la los las un una es esta estan yo mi mis que cual cuando al de del en para por ' +
   'hay tengo tiene tenemos hola gracias hora hijo hija se va vamos voy',
 );
 /** A preposition must lead somewhere. Left hanging ("sign in", "show up at")
@@ -296,7 +296,9 @@ function takeDate(text: string): DateRead {
     .replace(/\bthe (sat|sun)\b/g, 'the $1s')
     .replace(DATE_WORDS[0][0], ' ');
   // Month first, as the school writes it. "16/11" can only be day first.
-  s = s.replace(/\b(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?\b/g, (all, m, d, at: number, whole: string) => {
+  s = s.replace(/\b(\d{1,2})\/(\d{1,2})(\/\d{2,4})?\b/g, (all, m, d, year, at: number, whole: string) => {
+    // A year makes it a day this table cannot place: it may be long past.
+    if (year) { unsure = true; return all; }
     if (/^ time\b/.test(whole.slice(at + all.length))) return all; // "3/4 time"
     if (!dated(+m, +d) && !dated(+d, +m)) return all;
     if (!/\b(?:on|el|for|para|del|by|due)\s*$/.test(whole.slice(0, at))) bareSlash = true;
@@ -409,6 +411,9 @@ const TYPO_PERSON = 8;
 const ordinary = (w: string) =>
   w.length < 3 || /^\d{1,2}$/.test(w) || PLAIN.has(w) || GIVEN_NAMES.has(w) || FRAME.has(w) || NOUNS.has(w) ||
   ASK_INSTRUMENTS.has(w) || NAME_STOP.has(w);
+/** Too ordinary even to offer a thing on: "so", "day", a first name. */
+const dull = (w: string) =>
+  w.length < 3 || PLAIN.has(w) || GIVEN_NAMES.has(w) || FRAME.has(w) || NOUNS.has(w) || NAME_STOP.has(w);
 const distinctive = (w: string) => !ordinary(w) && (w.length >= 4 || /^\d{3,}$/.test(w));
 
 /** The words of a name that tell it apart. A name that is nothing but
@@ -505,6 +510,9 @@ const REFUSE = new RegExp([
 const WHO = /\b(?:who|whos|whose|quien|quienes)\b/;
 const WHO_OK = /\bwho do i tell\b|\bwho(?:s| is) in\b|\bwho (?:conducts|teaches|directs|wrote|composed)\b|\bwho(?:s| is) my\b|\bwho has\b.*\bduty\b|\bquien (?:dirige|ensena|es mi)\b/;
 const WHEN_SHAPE = /\b(?:when|whens|wen|what time|what day|which day|cuando|a que hora|que dia)\b/g;
+/** Question words. Two of them is two questions ("what time is the concert
+ *  what do i wear"), and two questions are not answered as one. */
+const ASKING = set('what whats when whens where wheres how which who whos why que cuando donde como cual quien');
 /** "How do I": only ever the start of a how-to question. */
 const HOW = /\bhow (?:do|can|should) (?:i|we)\b|\bcomo\b/g;
 const CAN = /\b(?:can|could)\b|\bi need\b/g;
@@ -526,7 +534,8 @@ const REPORT = /\b(?:sick|ill|enferm[oa])\b|\b(?:will|wont|gonna|going to) be\b|
 /** The past: what happened is a record. */
 const PAST = set(
   'did didnt was were wasnt werent had been went came got missed skipped attended showed arrived made passed ' +
-  'failed finished turned submitted uploaded checked sent signed took happened fue fueron estuvo estaba falto llego vino entrego',
+  // Not "entrego", "llego", "falto": without the accent those are also "I hand in", "I arrive", "I miss".
+  'failed finished turned submitted uploaded checked sent signed took happened fue fueron estuvo estaba vino',
 );
 /** Asked of oneself with "am": today's roll. */
 const ROLL = set('absent ausente late tardy excused present presente marked');
@@ -537,8 +546,8 @@ const RULES: AskRule[] = [
   // "ill" alone is how thumbs type "I'll": "ill be there" is a promise to come.
   { intent: 'howAbsence', re: /\b(?:sick|enferm[oa])\b|\b(?:im|i am|is|feel|feels|feeling) ill\b/, also: /\bout\b|\bhome\b/, when: 'today' },
   { intent: 'howAbsence', re: /\b(?:absent|absence|ausente|ausencia|faltar|leav(?:e|ing) early|salir temprano|appointment|cita|have to miss|gonna miss|miss (?:rehearsal|class|school)|wont be (?:at|in|there)|cant (?:come|go|attend|make it|be there)|no pued[eo] (?:ir|venir|asistir|llegar))\b/, also: /\breport(?:o|ar)?\b|\bwho do i tell\b|\bdentist\b|\bdoctors?\b|\bschool\b|\b(?:will|gonna) be\b/ },
-  { intent: 'howSubmit', re: /\bturn(?:ed)? (?:it )?in\b|\b(?:re)?submit\b|\bupload(?:ed)?\b|\b(?:better|another) take\b|\bretake\b|\b(?:entrego|subo|envio)\b/, also: /\bsend\b|\bvideo\b|\bdid\b/ },
-  { intent: 'howCheckin', re: /\bcheck(?:ed)? ?(?:in|out)\b|\bregistrar (?:mi )?llegada\b|\bhow many concerts have i (?:gone to|been to|attended)\b/, also: /\bforgot\b|\bcount(?:ed)?\b|\bdid\b/ },
+  { intent: 'howSubmit', re: /\bturn(?:ed)? (?:it )?in\b|\b(?:re)?submit\b|\bupload(?:ed)?\b|\b(?:better|another) take\b|\bretake\b|\b(?:entrego|subo|envio)\b/, also: /\bsend\b|\bvideo\b/ },
+  { intent: 'howCheckin', re: /\bcheck(?:ed)? ?(?:in|out)\b|\bregistrar (?:mi )?llegada\b|\bhow many concerts have i (?:gone to|been to|attended)\b/, also: /\bforgot\b|\bcount(?:ed)?\b/ },
   // Getting the schedule INTO a calendar. "What is on my calendar" is not this.
   { intent: 'howCalendar', re: /\bsubscribe\b|\badd (?:\w+ )?to (?:my )?(?:calendar|calendario|phone)\b|\b(?:schedule )?on my phone\b|\b(?:google|apple|iphone|outlook) calendar\b|\bcalendar (?:feed|link|subscription)\b/, also: /\bget\b|\bcalendar\b|\bcalendario\b/ },
   { intent: 'howCopy', re: /\blost my (?:music|part|folder)\b|\b(?:a|another|a new) copy\b|\bcopy of my\b|\bpage turn\b|\bmissing (?:a page|pages)\b|\bperdi mi (?:musica|partitura)\b/, also: /\b(?:bad|get)\b/ },
@@ -546,7 +555,7 @@ const RULES: AskRule[] = [
   { intent: 'howFindMe', re: /\bfind (?:my schedule|me)\b|\bnot me\b|\bwrong (?:person|student|name|kid)\b|\btwo kids\b|\b(?:other|another) (?:kids?|child|student|phone)\b|\bespanol\b|\bin spanish\b/, also: /\bin the program\b|\bsend\b|\bsee\b/ },
 
   { intent: 'required', re: /\b(?:required|mandatory|obligatori[oa]s?)\b|\b(?:have|need) to (?:go|attend)(?: to)?\b/, also: /\bhow many\b|\bgo\b|\battend\b/ },
-  { intent: 'pickup', re: /\bpick ?up\b|\bpick (?:him|her|them) up\b|\brecog\w+\b|\brecojo\b/, also: /\bafter\b|\bfrom\b/ },
+  { intent: 'pickup', re: /\bpick ?up\b|\bpick (?:him|her|them) up\b|\brecog\w+\b|\brecojo\b/, also: /\bafter\b|\bfrom\b|\bdespues\b|\bwhen and where\b/ },
   { intent: 'pickup', re: /^(?:what time|when) is it over$|\b(?:concert|concierto|show|it) (?:ends?|finish(?:es)?|is over|lets? out|termina|acaba)\b/, whenShape: true },
   // "Call" is the call time only as a noun: "what time is call", "our call".
   { intent: 'callTime', re: /\bcall ?time\b|\b(?:is|whens|whats|the|our|my) call\b|^call$|^call for\b|\b(?:have|need|supposed) to be (?:there|at)\b|\b(?:be|get) there\b|\barrive\b|\bllegar\b|\b(?:hora de )?llegada\b/ },
@@ -573,7 +582,7 @@ const RULES: AskRule[] = [
   // Only the shapes that ask whether school is on. "What time does school
   // start" is a bell schedule, which the Hub does not hold.
   { intent: 'noSchool', re: /\b(?:is there|there is|theres|do we have|have|hay|tenemos) (?:school|clases|escuela)\b|\bschool (?:closed|open|off|cancell?ed)\b|\bis (mdc) open\b/ },
-  { intent: 'noSchool', re: /\b((?:thanksgiving|winter|spring|summer|fall|christmas|holiday) break|thanksgiving|finals|quarter|semester|grading period|vacaciones)\b|\bbreak\b|\bday off\b|\bholidays?\b|\bdias? festivos?\b|\bferiados?\b/ },
+  { intent: 'noSchool', re: /\b((?:thanksgiving|winter|spring|summer|fall|christmas|holiday) break|thanksgiving|finals|quarter|semester|grading period|vacaciones)\b|\bbreak\b|\bdays? off\b|\bholidays?\b|\bdias? festivos?\b|\bferiados?\b/ },
 
   { intent: 'myDay', re: /\bam i playing\b|^is (?:he|she|my (?:son|daughter|kid|child|student)) playing\b/ },
   { intent: 'myDay', re: /\bschedule\b|\bhorario\b|\brehearsals?\b|\brehearses?\b|\bensayos?\b|\bclass(?:es)?\b|\bclases?\b|\bget out\b|\bwhat do i have\b(?! to\b)|\bdo (?:i|we) have\b(?! to\b)|\blook like\b|\b(sectionals?|seccional(?:es)?|masterclass(?:es)?)\b/ },
@@ -614,6 +623,9 @@ export const ASK_PRECEDENCE: AskPrecedence[] = [
   ['forms', 'where', 'donde firmo el permiso'],
   ['forms', 'due', 'are there any forms due'],
   ['howCheckin', 'where', 'where do i check in'],
+  ['howCheckin', 'concert', 'how do i check in at the concert'],
+  ['howSubmit', 'where', 'where do i upload my video'],
+  ['documents', 'where', 'where are the documents'],
   ['seat', 'where', 'where do i sit'],
   ['parts', 'where', 'where is my part'],
   ['howCopy', 'parts', 'i need a copy of my part'],
@@ -823,12 +835,12 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
 
   /* One way of reading the sentence: as intent `as`, or as a bare name. */
   interface Try { reading?: AskReading; sure: boolean; offers: AskReading[] }
-  const attempt = (as: AskIntent | undefined, lenient: boolean): Try => {
+  const attempt = (as: AskIntent | undefined, lenient: boolean, given?: Set<string>): Try => {
     const mine = fired.filter(f => f.rule.intent === as);
     const rule = mine[0]?.rule;
     const claimed = new Set<number>();
     const claim = (ss: number[][]) => ss.forEach(s => s.forEach(i => claimed.add(i)));
-    toks.forEach((t, i) => { if (t.frame && !t.loud) claimed.add(i); });
+    toks.forEach((t, i) => { if ((t.frame && !t.loud) || given?.has(t.w)) claimed.add(i); });
     claim(whenSpans);
     const held = new Set<number>(); // claimed by a phrase, so a preposition in it is not left hanging
     for (const f of fired) {
@@ -841,7 +853,9 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
     }
     // "How do I" and "can I" start a how-to and nothing else: "can I wear
     // jeans" is a question about the rules, which the Hub does not hold.
-    if (as?.startsWith('how')) claim([...spans(HOW), ...spans(CAN)]);
+    // And "can I leave early" asks permission; it does not report anything.
+    if (as?.startsWith('how')) claim(spans(HOW));
+    if (as?.startsWith('how') && as !== 'howAbsence') claim(spans(CAN));
     toks.forEach((t, i) => {
       if (as && whenShape && TIMED.has(as) && TIMING.has(t.w)) claimed.add(i);
       if (as && INSTRUMENT_OK.has(as) && ASK_INSTRUMENTS.has(t.w)) claimed.add(i);
@@ -894,17 +908,19 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
       // it must be one this module can vouch for: an ordinary word, a word
       // of some public name, or what follows "a" or "my". Anything else may
       // be a person, and a first name always is.
-      const titled = new Set(found.filter(f => !f.person && !f.typo).flatMap(f => f.hits));
+      // Staff may also name a teacher ("who studies with marcano"), and get
+      // no pass for what follows "the": a roster is of a group or a person.
+      const titled = new Set(found.filter(f => (staff || !f.person) && !f.typo).flatMap(f => f.hits));
       const known = (w: string) => [w, w.replace(/s$/, '')].some(x => PLAIN.has(x) || NOUNS.has(x) || ASK_INSTRUMENTS.has(x));
       let after = false;
       const vouched = toks.map((t, i) => {
-        if (DETERMINER.has(t.w)) { after = true; return true; }
+        if (DETERMINER.has(t.w)) { after = !staff; return true; }
         if (claimed.has(i)) { after = false; return true; }
         const ok = !GIVEN_NAMES.has(t.w) && (after || titled.has(i) || known(t.w));
         if (!ok) after = false;
         return ok;
       });
-      if (staff || loose().every(i => vouched[i])) {
+      if (loose().every(i => vouched[i])) {
         const idx = loose();
         about = toks.slice(idx[0], idx[idx.length - 1] + 1).filter((_, k) => !held.has(idx[0] + k)).map(t => t.w).join(' ');
         idx.forEach(i => claimed.add(i));
@@ -912,7 +928,10 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
     }
     // "The winter concert" is on nobody's poster under that name, but it is
     // plainly a concert being asked about.
-    if (!about && as && kindsOf(as) === ABOUT_CONCERT && loose().length > 0 && loose().every(i => SEASON.has(toks[i].w))) {
+    // Only right before the word it describes: "concerts in the spring" is a
+    // time of year, not a concert called Spring.
+    const names = (i: number) => SEASON.has(toks[i].w) && !!toks[i + 1] && /^(?:concerts?|conciertos?|recitals?|shows?)$/.test(toks[i + 1].w);
+    if (!about && as && kindsOf(as) === ABOUT_CONCERT && loose().length > 0 && loose().every(names)) {
       about = loose().map(i => toks[i].w).join(' ');
       loose().forEach(i => claimed.add(i));
     }
@@ -921,7 +940,9 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
     // "Where is <a name>", in that shape: "where do we meet" is not a person.
     const whereIs = as === 'where' && !one && /^(?:where is|wheres|donde esta)\b/.test(sentence);
     if (side && loose().length > 0 && loose().length <= 3 && (rule?.person || whereIs)) {
-      const named = loose().every(i => GIVEN_NAMES.has(toks[i].w) || (!ordinary(toks[i].w) && /^[a-z]+$/.test(toks[i].w)));
+      // A name takes no article: "where is the stapler" is not a person.
+      const bare = !DETERMINER.has(toks[loose()[0] - 1]?.w);
+      const named = bare && loose().every(i => GIVEN_NAMES.has(toks[i].w) || (!ordinary(toks[i].w) && /^[a-z]+$/.test(toks[i].w)));
       if (named) {
         person = loose().map(i => toks[i].w).join(' ');
         loose().forEach(i => claimed.add(i));
@@ -984,10 +1005,11 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
     // by its own name or by a person on it ("tchaik 5").
     const reach = new Map<AskName, Set<number>>();
     const wholly = new Set<AskName>();
+    // A first name or a dull word alone offers nothing: it is far more often
+    // a classmate, or just a word.
+    const telling = new Set(fits.filter(f => f.hits.some(i => toks[i].loud || !dull(toks[i].w))).map(f => f.n));
     for (const f of fits) {
-      // A first name alone offers nothing: it is far more often a classmate.
-      if (!(tied || strength(f, shaped) === 0 || picked.length > 1)) continue;
-      if (!f.hits.some(i => !NOUNS.has(toks[i].w) && !GIVEN_NAMES.has(toks[i].w))) continue;
+      if (!(tied || strength(f, shaped) === 0 || picked.length > 1) || !telling.has(f.n)) continue;
       const set = reach.get(f.n) ?? new Set<number>();
       f.hits.forEach(i => set.add(i));
       reach.set(f.n, set);
@@ -1046,6 +1068,7 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
    * whatever the word order, article or language. The how-to is offered.
    * Staff too, unless a staff rule fired: "is my son at rehearsal" names
    * nobody a staff answer could look up. */
+  const door = (i: AskIntent) => i === 'howSubmit' || i === 'howCheckin' || i === 'howAbsence';
   if (!staff || !intents.some(i => i.startsWith('staff'))) {
     const subject = toks.some((t, i) => SUBJECT.has(t.w) || (KIN.has(t.w) && !(toks[i + 1] && OWNED.has(toks[i + 1].w))));
     const report = REPORT.test(plainText);
@@ -1054,10 +1077,15 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
       // are expected to do, and a report that they will be out.
       (subject && (has(PAST) || (!report && !has(SCHEDULE_VERB)))) ||
       // "Is he absent", "am I excused": asking for today's roll, not reporting.
-      (!report && has(ROLL) && toks.some(t => COPULA.has(t.w) || t.w === 'am' || t.w === 'estoy'));
+      (!report && has(ROLL) && toks.some(t => COPULA.has(t.w) || t.w === 'am' || t.w === 'estoy')) ||
+      // "Did I submit my video", "did my check-in count": whether it happened
+      // is a record. The page that shows it is offered, not answered.
+      (has(PAST) && intents.some(i => i === 'howSubmit' || i === 'howCheckin'));
     if (record) {
-      const doors = intents.filter(i => i === 'howSubmit' || i === 'howCheckin' || i === 'howAbsence');
-      return offer(doors.map(intent => ({ intent })));
+      // The page that shows it may be offered, when nothing else is in the
+      // sentence (no name) and, for an absence, it is not about the past.
+      const doors = intents.filter(door).filter(i => i !== 'howAbsence' || !has(PAST));
+      return offer(doors.filter(i => attempt(i, true, PAST).reading).map(intent => ({ intent })));
     }
   }
   // "What is 4/4" is a time signature. Two numbers and a slash are a date
@@ -1065,9 +1093,11 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
   if (date.bareSlash && intents.length === 0) return nothing();
 
   /* Settle it. */
-  if (intents.length > 0 && !winner) {
+  const asked = toks.filter(t => ASKING.has(t.w)).length;
+  const twice = asked > 1 && !/\b(?:when and where|where and when)\b/.test(sentence);
+  if ((intents.length > 0 && !winner) || twice) {
     // Two questions in one sentence. Offer each; answer neither.
-    const each = standing.map(i => attempt(i, true));
+    const each = (twice ? intents : standing).map(i => attempt(i, true));
     return offer(each.flatMap(t => (t.offers.length > 0 ? t.offers : t.reading ? [t.reading] : [])));
   }
   const got = attempt(winner, false);

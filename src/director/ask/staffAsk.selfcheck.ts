@@ -53,13 +53,15 @@ expect('what time is call', 'callTime', 'next');
 expect('whats tmrw', 'staffDay', 'tomorrow');
 expect('is rehearsal cancelled', 'cancelled', 'today');
 expect('what do i wear', 'dress', 'next');
+expect('who is in wind ensemble', 'staffRoster');      // from staff, the roster
 // The date stays on a question about the past.
 expect(`was ${CLASSMATE} absent yesterday`, 'staffWhosOut', 'yesterday');
 expect('who was out last week', 'staffWhosOut', 'lastWeek');
 for (const q of [
   'asdf', 'cancel', 'post', 'move', 'add', 'post office', 'cancel culture', 'parent night', 'missing rehearsal tomorrow',
   'call me', 'email parents', 'is rehearsal late today', 'what does zelda have today', 'email', 'new', 'take roll call',
-  'the week after next', 'who was out last friday',
+  'the week after next', 'who was out last friday', 'where is the stapler', 'where is my coffee',
+  'roster of the 1927 yankees', 'where do we meet', 'is my son at rehearsal', 'teacher email',
 ]) {
   const got = ask(q);
   if (got.confident) fail(`"${q}" should not be answered: ${show(got)}`);
