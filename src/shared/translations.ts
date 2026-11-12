@@ -482,6 +482,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'vid.fileHint':       { en: 'MP4, MOV, or WebM — up to {size} MB', es: 'MP4, MOV o WebM — hasta {size} MB' },
   'vid.limits':         { en: 'Up to {minutes}, {size} MB max.', es: 'Hasta {minutes}, máximo {size} MB.' },
   'vid.tooBig':         { en: 'That file is {size} — the limit is {max} MB. Record in the app, or export a smaller version.', es: 'Ese archivo pesa {size} — el límite es {max} MB. Graba en la app o exporta una versión más pequeña.' },
+  'vid.blankFile':      { en: 'That video did not come through from your phone: the file is empty, so it cannot be graded. Open it in your Photos app until it plays (it may still be downloading from iCloud), then choose it again. Or record it here with Record Video.', es: 'Ese video no llegó desde tu teléfono: el archivo está vacío y no se puede calificar. Ábrelo en tu app de Fotos hasta que se reproduzca (puede que aún se esté descargando de iCloud) y vuelve a elegirlo. O grábalo aquí con Grabar video.' },
   'vid.tooLong':        { en: 'That video runs {length} — the limit is {max}.', es: 'Ese video dura {length} — el límite es {max}.' },
   'vid.chooseAnother':  { en: 'Choose a different file',         es: 'Elegir otro archivo' },
   'vid.sending':        { en: 'Sending…',                        es: 'Enviando…' },

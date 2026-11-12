@@ -723,6 +723,12 @@ runs:
       run: node src/shared/recordingType.selfcheck.ts
       shell: bash
 
+    # A picked video whose bytes are all zero is refused at pick time, while
+    # the student still holds the phone (#blank-video).
+    - name: Check blank video refusal
+      run: node src/shared/blankVideo.selfcheck.ts
+      shell: bash
+
     # Ask, the answering half: a reading of the question and the public
     # records in, an answer object out. It pins the states (answered, nothing
     # posted, not understood, ask who is asking), that an archived or missing

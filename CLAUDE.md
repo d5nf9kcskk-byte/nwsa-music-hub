@@ -1216,15 +1216,13 @@ for them), `boundUid` (the one Hub sign-in account that goes with it),
   `features.googleConfirm` in `config/orgs/*.json`, true for NWSA only. The
   demo sites have founding addresses and no Cloud Functions, so there the
   note could only fail.
-- **FIRST LIVE RUN: only the founding addresses are asked, and only they are
-  recorded** (`asksServer` in `AuthGate.tsx`, and `firstRunAllows` on the
-  server, checked before any claim is taken). The first run is done signed
-  in as the founding address in `breakGlassEmails`; signed in as anything
-  else, the Owner role included, the Hub shows nothing new. One follow-up
-  change, its own pull request, removes the app's condition and the
-  server's together and carries the What's New note for staff. Do not
-  remove either in any other change. `docs/google-binding.md` has the steps,
-  what that person sees when it worked and when it did not, and the stop button
+- **Every listed person is asked** (`ASKS_SERVER` in `AuthGate.tsx`). On
+  the first live run only the founding address was asked and recorded; that
+  condition was removed from the app and the server TOGETHER, and the
+  self-check now fails if it comes back on either side: once the sign-in
+  rules are in place, a person whose Hub never offers to confirm could
+  never get their file access back. `docs/google-binding.md` has the steps,
+  what a person sees when it worked and when it did not, and the stop button
   (delete the `bindGoogle` function in the Google Cloud console: a revert
   does not remove a deployed function).
 - **It goes live in steps, on purpose**: the Owner alone, then everyone, then

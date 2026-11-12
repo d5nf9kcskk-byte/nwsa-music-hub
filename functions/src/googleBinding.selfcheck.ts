@@ -45,14 +45,13 @@ const claims = (over: Partial<BindClaims> = {}): BindClaims => ({
 /** What Google's token says. The stand-in "token" here is just that, as an object. */
 const saysGoogle = (over: Partial<GoogleIdentity> = {}): GoogleIdentity => ({ sub: 'g-pat', email: EMAIL, emailVerified: true, ...over });
 
-function harness(opts: { user?: BindUser | null; entries?: Record<string, Record<string, unknown>>; fresh?: string | null; founders?: string[] } = {}) {
+function harness(opts: { user?: BindUser | null; entries?: Record<string, Record<string, unknown>>; fresh?: string | null } = {}) {
   const entries = new Map(Object.entries(opts.entries ?? { [EMAIL]: { roles: ['director'] } }));
   const log: string[] = [];
   let made = 0;
   let held = false;
   const deps: BindDeps = {
     async verifyGoogle(token) { log.push('google'); return (token as GoogleIdentity | null) ?? null; },
-    firstRunAllows: email => (opts.founders ?? [EMAIL]).includes(email),
     async lock(email, fn) {
       if (held) throw new Error('the lock was taken twice at once');
       held = true; log.push(`lock ${email}`);
@@ -139,16 +138,6 @@ for (const [label, google] of [
   const core = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), 'googleBinding.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
   check(!/emailVerified(?!\))/.test(core.replace(/google\.emailVerified/g, '')) && !/email_verified ===|email_verified !==/.test(core) && !/providerData/.test(core),
     'bindGoogle reads "verified" from Google\'s token and from nowhere else');
-}
-
-// ── FIRST LIVE RUN: the server records only the founding addresses ──────────
-{
-  const h = harness({ founders: ['founder@school.test'] });
-  check(await bindGoogle(h.deps, claims(), saysGoogle()) === 'mismatch', 'a listed person who is not a founding address, asking by hand: "mismatch"');
-  check(!h.log.some(l => /^(lock|getUser|list|replace|tie)/.test(l)) && h.entries.get(EMAIL)!.googleSub === undefined,
-    'and nothing is looked at or touched: no claim, no account, no record');
-  const founder = harness({ founders: [EMAIL] });
-  check(await bindGoogle(founder.deps, claims(), saysGoogle()) === 'again', 'a founding address is recorded as before');
 }
 
 // ── Other kinds of sign-in ──────────────────────────────────────────────────
@@ -310,6 +299,31 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
   const late = fakeDb();
   await entryLock(late.db, quick)('pat@school.test', async () => { late.docs.set(PATH, { at: clock, id: 'the-next-request' }); });
   check(late.docs.get(PATH)?.id === 'the-next-request', 'a request lets go of its OWN claim only, never one another request has since taken');
+
+  // A crowd on one address: the database gives up on the taking step itself.
+  const crowded = (failures: number, error: unknown) => {
+    const f = fakeDb();
+    const real = (f.db as unknown as { runTransaction: (fn: unknown) => Promise<unknown> }).runTransaction;
+    let left = failures;
+    (f.db as unknown as { runTransaction: (fn: unknown) => Promise<unknown> }).runTransaction = async fn => {
+      if (left > 0) { left--; throw error; }
+      return real(fn);
+    };
+    return f;
+  };
+  const aborted = Object.assign(new Error('10 ABORTED: Transaction lock timeout'), { code: 10 });
+  const few = crowded(3, aborted);
+  check(await entryLock(few.db, quick)('pat@school.test', async () => 'ran') === 'ran' && !few.docs.has(PATH),
+    'the database giving up on the taking step is "not got yet": the request looks again and gets its turn');
+  const always = crowded(Number.POSITIVE_INFINITY, aborted);
+  let crowdCode: unknown = '';
+  let crowdRan = false;
+  try { await entryLock(always.db, quick)('pat@school.test', async () => { crowdRan = true; }); } catch (e) { crowdCode = (e as { code?: unknown }).code; }
+  check(!crowdRan && crowdCode === 'hub/busy', 'and if it never gets one, the answer is "busy", not a database error');
+  const broken = crowded(1, Object.assign(new Error('3 INVALID_ARGUMENT'), { code: 3 }));
+  let otherCode: unknown = '';
+  try { await entryLock(broken.db, quick)('pat@school.test', async () => 'ran'); } catch (e) { otherCode = (e as { code?: unknown }).code; }
+  check(otherCode === 3, 'any other database error is not swallowed');
 }
 
 // ── The fresh account ───────────────────────────────────────────────────────
@@ -424,7 +438,7 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
   const handler = index.slice(at, index.indexOf('\n});', at));
   check(at > 0, 'index.ts exports bindGoogle');
   check(/verifyIdToken\(idToken\)/.test(handler) && handler.indexOf('verifyIdToken(idToken)') < handler.indexOf('runBindGoogle('), 'the caller\'s token is verified before anything else');
-  check((handler.match(/req\.body/g) ?? []).length === 1 && /runBindGoogle\(googleBindingStore\(getFirestore\(\), getAuth\(\), verifyGoogleLive, firstRunAllows\), claims, req\.body\?\.googleIdToken\)/.test(handler),
+  check((handler.match(/req\.body/g) ?? []).length === 1 && /runBindGoogle\(googleBindingStore\(getFirestore\(\), getAuth\(\), verifyGoogleLive\), claims, req\.body\?\.googleIdToken\)/.test(handler),
     'the one thing it reads from the request body is Google\'s token, which the real check then verifies; who to record comes from the two verified tokens alone');
   const logged = [...handler.matchAll(/console\.\w+\(([^;]*)\);/g)].map(m => m[1].replace(/'[^']*'|`[^`]*`/g, ''));
   check(logged.length === 1 && !/email|token|claims|body|err\)|err,/.test(logged[0]), 'it logs an error code and nothing else');
@@ -441,10 +455,6 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
   const core = noComments(readFileSync(resolve(here, 'googleBinding.ts'), 'utf8'));
   check(!/boundUid: uid|tie\(email, google\.sub, uid|tie\(email, entry\.googleSub, uid/.test(core), 'bindGoogle never records the account the caller arrived on');
   check(core.indexOf('deps.verifyGoogle(') < core.indexOf('deps.lock(') && core.indexOf('deps.lock(') < core.indexOf('deps.getUser('), 'Google\'s token is checked before the claim is taken, and the account is looked at only under it');
-  // FIRST LIVE RUN, the server's half. The follow-up that lets everyone ask removes these two checks with the lines they pin.
-  check(core.includes("if (!deps.firstRunAllows(email)) return 'mismatch';") && core.indexOf('deps.firstRunAllows(') < core.indexOf('deps.lock('),
-    'FIRST LIVE RUN: the server refuses anyone but a founding address, before any claim is taken');
-  check(index.includes('const firstRunAllows = (email: string) => (ORG.breakGlassEmails as string[]).includes(email);'), 'and the founding addresses are the org\'s own list');
   // Nothing in the token check can be switched off from outside: the two files that do it read no environment variable.
   for (const file of ['googleBindingStore.ts', 'googleIdToken.ts']) {
     check(!/process\.env/.test(readFileSync(resolve(here, file), 'utf8')), `${file} reads no environment variable (no way to skip the check)`);
@@ -511,11 +521,16 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
   const gate = noComments(readFileSync(resolve(repo, 'src/director/components/AuthGate.tsx'), 'utf8'));
   check((gate.match(/bindGoogleAccount\(/g) ?? []).length === 1, 'the app asks the server in exactly one place');
   const record = gate.slice(gate.indexOf('async function recordWith('), gate.indexOf('async function confirmGoogle('));
-  check(/GoogleAuthProvider\.credentialFromResult\(result\)/.test(record) && /if \(!cred\?\.idToken \|\| !asksServer\(email\)\) return/.test(squash(record)),
-    'and only with Google\'s token from a real sign-in, and only when asksServer() says so');
+  check(/GoogleAuthProvider\.credentialFromResult\(result\)/.test(record) && /if \(!cred\?\.idToken \|\| !ASKS_SERVER\) return/.test(squash(record)),
+    'and only with Google\'s token from a real sign-in, and only in a deployment that has the server step');
   check(/bindGoogleAccount\(await result\.user\.getIdToken\(\), cred\.idToken\)/.test(record) && !/bindGoogleAccount\([^)]*accessToken/.test(record),
     'what it sends is Google\'s ID token, never its access token');
-  check(/const asksServer = \(email: string\) => ORG\.features\.googleConfirm && BREAK_GLASS_EMAILS\.includes\(email\);/.test(gate), 'FIRST LIVE RUN: only the founding addresses ask (remove this line\'s condition in the follow-up change, and this check with it)');
+  // EVERYONE is asked now. The first-run condition must be gone from the app and from the server together:
+  // with the sign-in rules in place, a person whose Hub never offers to confirm could never get their file access back.
+  check(/const ASKS_SERVER = ORG\.features\.googleConfirm;/.test(gate) && !/asksServer/.test(gate),
+    'every listed person\'s Hub offers to confirm: the founders-only condition is not in the app');
+  check(!/firstRunAllows/.test(core) && !/firstRunAllows/.test(index) && !/firstRunAllows/.test(store),
+    'and not on the server either');
   // Only a deployment that has the server step asks at all.
   const flag = (org: string) => (JSON.parse(readFileSync(resolve(repo, `config/orgs/${org}.json`), 'utf8')) as { features: Record<string, unknown> }).features.googleConfirm;
   check(flag('nwsa') === true && flag('asyo') === false && flag('as') === false, 'the Hub offers to confirm only where the server step exists: NWSA, and neither demo site');
