@@ -103,7 +103,7 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
     if (!window.confirm(
       `Reset the Google account on file for ${d.name || d.email}?\n\n`
       + 'Do this if they now sign in with a different Google account. '
-      + 'The Hub confirms their account again the next time they open it, and asks them to sign in once more.',
+      + 'The Hub offers them a one-tap "Confirm" the next time they open it.',
     )) return;
     setBusy(true);
     try {
@@ -201,10 +201,10 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
           <p className="dir-loc-hint">
             <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} />{' '}
             <strong>Google accounts confirmed: {directors.filter(isConfirmed).length} of {directors.length}.</strong>{' '}
-            The Hub confirms each person’s Google account by itself the next
-            time they open it, and asks them to sign in once more, one time.
-            Anyone still “not confirmed yet” has not opened an up-to-date copy
-            of the Hub since this was added.
+            Each person confirms with one tap when the Hub offers it (a note
+            at the bottom of the screen, or straight after signing in).
+            Anyone still “not confirmed yet” has not done that on an
+            up-to-date copy of the Hub.
           </p>
         )}
 
@@ -238,7 +238,7 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
                     : ''}
                 </div>
                 <div className="dir-ens-sub">
-                  {isConfirmed(d) ? 'Google account confirmed' : 'Google account not confirmed yet'}
+                  {isConfirmed(d) ? (d.googleSub ? 'Google account confirmed' : 'Sign-in confirmed') : 'Google account not confirmed yet'}
                   {isConfirmed(d) && !isSelf && (
                     <>
                       {' · '}

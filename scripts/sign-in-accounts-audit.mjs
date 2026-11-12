@@ -21,7 +21,11 @@
  * which accounts, run it on a private machine with DETAILS=1; it refuses to
  * print details inside GitHub Actions.
  *
- * Read-only: it lists accounts and entries and changes nothing.
+ * It lists accounts and entries and changes nothing about them. It leaves
+ * one note of what it found in `serverConfig/signInAudit`, a place no
+ * browser can write and only the Owner can read, so the Owner can see WHICH
+ * accounts on the Directors screen without a terminal: the accounts that
+ * need a look, and the listed addresses that have no sign-in account yet.
  *
  *   node scripts/sign-in-accounts-audit.mjs              (needs FIREBASE_SERVICE_ACCOUNT_JSON)
  *   node scripts/sign-in-accounts-audit.mjs --selfcheck  (no credentials; checks the rule below)
@@ -100,10 +104,14 @@ for (const d of (await getFirestore().collection('directors').get()).docs) {
 }
 
 const flagged = [];
+const haveAccount = new Set();
 let pageToken;
 do {
   const page = await auth.listUsers(1000, pageToken);
-  for (const user of page.users) if (needsReview(user, entries.get((user.email ?? '').toLowerCase()))) flagged.push(user);
+  for (const user of page.users) {
+    if (user.email) haveAccount.add(user.email.toLowerCase());
+    if (needsReview(user, entries.get((user.email ?? '').toLowerCase()))) flagged.push(user);
+  }
   pageToken = page.pageToken;
 } while (pageToken);
 
@@ -113,5 +121,12 @@ if (details) {
     console.log(line);
   }
 }
+// For the Owner's screen only. Addresses go here and never to the log.
+await getFirestore().doc('serverConfig/signInAudit').set({
+  at: Date.now(),
+  result: flagged.length ? 'REVIEW NEEDED' : 'OK',
+  needALook: flagged.map(u => u.email ?? '(an account with no address)').slice(0, 50),
+  listedWithNoAccount: [...entries.keys()].filter(e => !haveAccount.has(e)).slice(0, 200),
+});
 if (flagged.length) console.log('REVIEW NEEDED');
 else console.log('OK');

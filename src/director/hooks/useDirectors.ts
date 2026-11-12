@@ -62,10 +62,16 @@ export {
  * (#google-binding). The server writes them; nothing here may, and the rules
  * refuse it. `addDirector` and "Reset" are the only places that name them.
  */
-export const BINDING_KEYS = ['googleSub', 'boundUid', 'boundAt'] as const;
+export const BINDING_KEYS = ['googleSub', 'boundUid', 'boundAt', 'passwordSet'] as const;
 
-/** Has the server recorded this person's sign-in account? */
-export const isConfirmed = (d: Pick<Director, 'googleSub' | 'boundUid'>): boolean => !!d.googleSub && !!d.boundUid;
+/**
+ * Has the server recorded this person's sign-in account? An account on
+ * record, opened either by their Google account or by a password the server
+ * set (#password-sign-in). The switch script counts the same way
+ * (scripts/require-google-ties.mjs).
+ */
+export const isConfirmed = (d: Pick<Director, 'googleSub' | 'boundUid' | 'passwordSet'>): boolean =>
+  !!d.boundUid && (!!d.googleSub || d.passwordSet === true);
 
 export interface Director {
   email: string;    // doc id
@@ -89,6 +95,8 @@ export interface Director {
   googleSub?: string;
   boundUid?: string;
   boundAt?: number;
+  /** The server has set a password on that account, by the Hub's emailed link (#password-sign-in). */
+  passwordSet?: boolean;
   /** Applied-teacher only: instrument(s) they teach, e.g. ["Violin"]. */
   instruments?: string[];
   /** Applied-teacher only: students they give private lessons to. An Owner/Director

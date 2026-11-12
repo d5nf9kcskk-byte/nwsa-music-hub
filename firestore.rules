@@ -122,18 +122,19 @@ service cloud.firestore {
                  .hasOnly(['name', 'assignedStudentIds', 'lessonSlots', 'lessonLogSheets', 'examRubric', 'extraEventIds']));
     }
 
-    // (#google-binding) `googleSub`, `boundUid` and `boundAt` on an entry
-    // record which sign-in account is that person's. The server writes them
+    // (#google-binding) `googleSub`, `boundUid`, `boundAt` and `passwordSet` on an
+    // entry record which sign-in account is that person's and how it may be
+    // opened. The server writes them
     // (functions/src/googleBinding.ts) and nothing else may: no browser can
     // set or alter them, the Owner's included. They may only be REMOVED, and
     // only by the Owner from someone else's entry (Reset on the Directors
     // screen), which the Hub puts right the next time that person opens it.
     function bindingKept() {
-      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['googleSub', 'boundUid', 'boundAt']);
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['googleSub', 'boundUid', 'boundAt', 'passwordSet']);
     }
     function bindingOnlyRemoved() {
-      return !request.resource.data.diff(resource.data).addedKeys().hasAny(['googleSub', 'boundUid', 'boundAt'])
-        && !request.resource.data.diff(resource.data).changedKeys().hasAny(['googleSub', 'boundUid', 'boundAt']);
+      return !request.resource.data.diff(resource.data).addedKeys().hasAny(['googleSub', 'boundUid', 'boundAt', 'passwordSet'])
+        && !request.resource.data.diff(resource.data).changedKeys().hasAny(['googleSub', 'boundUid', 'boundAt', 'passwordSet']);
     }
     function bindingGuard(email) {
       return bindingKept()
@@ -1606,7 +1607,7 @@ service cloud.firestore {
       // The binding record is the server's alone (see bindingGuard above):
       // no create may carry it and every update goes through the guard.
       allow create: if isOwner()
-        && !request.resource.data.keys().hasAny(['googleSub', 'boundUid', 'boundAt']);
+        && !request.resource.data.keys().hasAny(['googleSub', 'boundUid', 'boundAt', 'passwordSet']);
       allow update: if directorEditAllowed(email) && bindingGuard(email);
       // The Owner may remove any OTHER director, but never their own
       // account — the app can never end up ownerless.

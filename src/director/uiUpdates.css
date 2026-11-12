@@ -190,6 +190,22 @@
   font-size: 14px; line-height: 1.4;
 }
 .dir-tie-warning span { flex: 1; }
+/* The "Confirm now / Later" note is the same card in the Hub's own blue,
+   with its two buttons under the words on a phone and beside them when
+   there is room. */
+.dir-confirm-note {
+  background: #eef6ff; color: #12304f; border-color: #93c5fd;
+  flex-wrap: wrap; align-items: center;
+}
+.dir-confirm-note > span:first-child { flex: 1 1 220px; }
+.dir-tie-warning .dir-confirm-actions { flex: 0 0 auto; display: flex; gap: 8px; }
+.dir-tie-warning .dir-confirm-actions button {
+  width: auto; min-width: 0; min-height: 44px; margin: 0; padding: 0 14px;
+  border-radius: 10px; font: inherit; font-size: 14px; font-weight: 600; line-height: 1.2;
+}
+.dir-tie-warning .dir-confirm-now { background: #1d4ed8; color: #fff; border: 0; }
+.dir-tie-warning .dir-confirm-now:disabled { opacity: 0.6; cursor: default; }
+.dir-tie-warning .dir-confirm-later { background: none; color: inherit; border: 1.5px solid #93c5fd; }
 .dir-tie-warning button {
   flex: 0 0 auto; min-width: 44px; min-height: 44px; margin: -8px -10px -8px 0;
   border: 0; border-radius: 8px; background: none; color: inherit;
