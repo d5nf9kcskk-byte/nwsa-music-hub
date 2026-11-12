@@ -113,6 +113,33 @@ service cloud.firestore {
         && request.auth.token.email == email;
     }
 
+    // Who may edit a Directors entry: the Owner anything, a person a short
+    // list of their own fields.
+    function directorEditAllowed(email) {
+      return isOwner()
+        || (verifiedSelf(email)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['name', 'assignedStudentIds', 'lessonSlots', 'lessonLogSheets', 'examRubric', 'extraEventIds']));
+    }
+
+    // (#google-binding) `googleSub`, `boundUid` and `boundAt` on an entry
+    // record which sign-in account is that person's. The server writes them
+    // (functions/src/googleBinding.ts) and nothing else may: no browser can
+    // set or alter them, the Owner's included. They may only be REMOVED, and
+    // only by the Owner from someone else's entry (Reset on the Directors
+    // screen), which the Hub puts right the next time that person opens it.
+    function bindingKept() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['googleSub', 'boundUid', 'boundAt']);
+    }
+    function bindingOnlyRemoved() {
+      return !request.resource.data.diff(resource.data).addedKeys().hasAny(['googleSub', 'boundUid', 'boundAt'])
+        && !request.resource.data.diff(resource.data).changedKeys().hasAny(['googleSub', 'boundUid', 'boundAt']);
+    }
+    function bindingGuard(email) {
+      return bindingKept()
+        || (bindingOnlyRemoved() && isOwner() && request.auth.token.email != email);
+    }
+
     // Does the signed-in user's directors doc include role `r`? Reads the
     // new `roles[]` array when present; falls back to legacy single `role`.
     function hasRole(r) {
@@ -1576,11 +1603,11 @@ service cloud.firestore {
       allow list: if isOwner();
       // Existing directors are seeded out-of-band (Admin SDK bypasses these
       // rules); from here on, only the Owner adds or edits others.
-      allow create: if isOwner();
-      allow update: if isOwner()
-        || (verifiedSelf(email)
-            && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['name', 'assignedStudentIds', 'lessonSlots', 'lessonLogSheets', 'examRubric', 'extraEventIds']));
+      // The binding record is the server's alone (see bindingGuard above):
+      // no create may carry it and every update goes through the guard.
+      allow create: if isOwner()
+        && !request.resource.data.keys().hasAny(['googleSub', 'boundUid', 'boundAt']);
+      allow update: if directorEditAllowed(email) && bindingGuard(email);
       // The Owner may remove any OTHER director, but never their own
       // account — the app can never end up ownerless.
       allow delete: if isOwner() && request.auth.token.email != email;

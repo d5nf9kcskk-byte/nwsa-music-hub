@@ -26,7 +26,20 @@ import { ORG } from '../../org';
  */
 const BREAK_GLASS_EMAILS = ORG.breakGlassEmails;
 
-type Access = 'checking' | 'granted' | 'denied' | 'error' | 'mismatch';
+// 'again': the server has made this person's account afresh; they sign in once more (#google-binding).
+type Access = 'checking' | 'granted' | 'denied' | 'error' | 'mismatch' | 'again';
+
+/** sessionStorage: how many times in a row this tab was asked to sign in once more. Guards against asking for ever. */
+const AGAIN_KEY = 'hub.signInAgain';
+function againCount(): number {
+  try { return Number(sessionStorage.getItem(AGAIN_KEY)) || 0; } catch { return 0; /* private mode */ }
+}
+function setAgainCount(n: number) {
+  try {
+    if (n) sessionStorage.setItem(AGAIN_KEY, String(n));
+    else sessionStorage.removeItem(AGAIN_KEY);
+  } catch { /* private mode */ }
+}
 
 interface Props {
   children: (user: User, signOutFn: () => void) => React.ReactNode;
@@ -38,13 +51,17 @@ export function AuthGate({ children }: Props) {
   const [checkNonce, setCheckNonce] = useState(0);
   const [signInError, setSignInError] = useState('');
   // (#google-binding) Each listed person is tied to their own Google account
-  // by the server (functions/src/googleBinding.ts). This component asks for
-  // that by itself, in two places below, and never writes the tie.
+  // by the server (functions/src/googleBinding.ts), which makes their Hub
+  // sign-in account afresh when it does. This component asks for that by
+  // itself, in two places below, never writes the tie, and when the server
+  // says so asks the person to sign in once more.
   //   bindAsked    the account already asked for in the background
   //   bindRetried  the account whose refused read was already retried once
+  //   tieWarning   the server would not confirm this account (shown as a note)
   const bindAsked = useRef('');
   const bindRetried = useRef('');
-  const [mismatch, setMismatch] = useState<'mismatch' | 'other-account'>('mismatch');
+  const [mismatch, setMismatch] = useState<'mismatch' | 'other-account' | 'stuck'>('mismatch');
+  const [tieWarning, setTieWarning] = useState<'' | 'mismatch' | 'other-account'>('');
 
   useEffect(() => {
     if (!auth) { setUser(null); return; }
@@ -101,6 +118,20 @@ export function AuthGate({ children }: Props) {
     // Ask the server to tie this entry to this Google account. No answer at
     // all (offline, the function missing, an error) comes back 'unreachable'.
     const askToBind = () => user.getIdToken().then(bindGoogleAccount).catch(() => 'unreachable' as const);
+    // The server answered "again": this person's account has been made
+    // afresh, and this session is not on it. They sign in once more. Queued
+    // writes get a moment to go out first, because they will not follow the
+    // person to the new session. Asked at most twice in a row.
+    const signInOnceMore = async () => {
+      if (againCount() >= 2) { setMismatch('stuck'); setAccess('mismatch'); return; }
+      setAgainCount(againCount() + 1);
+      if (db) {
+        try {
+          await Promise.race([waitForPendingWrites(db), new Promise(resolve => { setTimeout(resolve, 4000); })]);
+        } catch { /* best effort */ }
+      }
+      if (!cancelled) setAccess('again');
+    };
     // Offline with nothing cached, the listener neither answers nor errors —
     // it just keeps emitting cache misses. Bound the wait so the user lands
     // on the error screen (retry + sign-out buttons) instead of an
@@ -143,12 +174,19 @@ export function AuthGate({ children }: Props) {
         }
         setAccess('granted');
         bindRetried.current = ''; // a read that works clears the one-retry guard
-        // (#google-binding) Not tied to their Google account yet: ask the
-        // server, once per account, in the background. Nothing on screen
-        // waits on the answer, and a "no" changes nothing here.
-        if (!directorDoc.googleSub && bindAsked.current !== user.uid) {
+        // (#google-binding) Not tied to the account this session is on: ask
+        // the server, once per account, in the background. Nothing on screen
+        // waits on the answer. "again" means sign in once more; a "no" shows
+        // a note and changes nothing else here.
+        if (directorDoc.googleSub && directorDoc.boundUid === user.uid) {
+          setAgainCount(0);
+        } else if (bindAsked.current !== user.uid) {
           bindAsked.current = user.uid;
-          void askToBind();
+          void askToBind().then(answer => {
+            if (cancelled) return;
+            if (answer === 'again') void signInOnceMore();
+            else if (answer === 'mismatch' || answer === 'other-account') setTieWarning(answer);
+          });
         }
       },
       err => {
@@ -179,9 +217,11 @@ export function AuthGate({ children }: Props) {
         // be reached, everything falls back to exactly what it did before.
         void askToBind().then(answer => {
           if (cancelled) return;
-          if (answer === 'bound') {
-            // Tied (now, or already). Read again, once: a second refusal is
-            // something else, and gets the old fallback.
+          if (answer === 'again') {
+            void signInOnceMore();
+          } else if (answer === 'bound') {
+            // Tied to this very account already. Read again, once: a second
+            // refusal is something else, and gets the old fallback.
             if (bindRetried.current === user.uid) { fallBack(); return; }
             bindRetried.current = user.uid;
             setCheckNonce(n => n + 1);
@@ -309,6 +349,11 @@ export function AuthGate({ children }: Props) {
         <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
         <h1>{ORG.appName} — Directors</h1>
         <p>Roster, attendance, rehearsals, and notes — all in one place.</p>
+        {againCount() > 0 && (
+          <p style={{ fontSize: 14, maxWidth: 340 }}>
+            One more step: sign in with Google once more to finish confirming your account.
+          </p>
+        )}
         <button className="dir-google-btn" onClick={signIn}>
           <svg width="18" height="18" viewBox="0 0 18 18">
             <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 002.38-5.88c0-.57-.05-.66-.15-1.18z"/>
@@ -352,14 +397,41 @@ export function AuthGate({ children }: Props) {
     );
   }
 
+  // The server has made this person's account afresh (#google-binding). One
+  // tap: the button is the ordinary Google sign-in, and it lands on the
+  // fresh account.
+  if (access === 'again') {
+    return (
+      <div className="dir-auth">
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
+        <h1>One more step</h1>
+        <p>
+          {ORG.appName} has confirmed <strong>{user.email}</strong> as your Google
+          account. To finish, sign in with Google once more. You are asked
+          this one time on each device.
+        </p>
+        <button className="dir-google-btn" onClick={signIn}>Sign in with Google</button>
+        {signInError && <p style={{ color: '#b91c1c', fontSize: 14, maxWidth: 340 }}>{signInError}</p>}
+        <p><Link to="/">← Back to the public site</Link></p>
+      </div>
+    );
+  }
+
   // Signed in with a Google account the server would not tie to this address
   // (#google-binding). Only reachable once the rules ask for the tie.
   if (access === 'mismatch') {
     return (
       <div className="dir-auth">
         <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
-        <h1>{mismatch === 'other-account' ? 'A different Google account is on file' : 'This Google account does not match'}</h1>
-        {mismatch === 'other-account' ? (
+        <h1>{mismatch === 'stuck' ? 'Couldn’t finish confirming your account' : mismatch === 'other-account' ? 'A different Google account is on file' : 'This Google account does not match'}</h1>
+        {mismatch === 'stuck' ? (
+          <p>
+            You’re signed in as <strong>{user.email}</strong>. {ORG.appName} asked
+            you to sign in again more than once and still could not finish.
+            Nothing is wrong with your Google account. Tell the Owner, then
+            try again.
+          </p>
+        ) : mismatch === 'other-account' ? (
           <p>
             You’re signed in as <strong>{user.email}</strong>, but {ORG.appName} has
             a different Google account on file for that address. If you changed
@@ -373,6 +445,9 @@ export function AuthGate({ children }: Props) {
             open for it. Sign in with the Google account for that address. If
             this is the right one, ask the Owner to look at the Directors screen.
           </p>
+        )}
+        {mismatch === 'stuck' && (
+          <button className="dir-google-btn" onClick={() => { setAgainCount(0); setCheckNonce(n => n + 1); }}>Try again</button>
         )}
         <button className="dir-google-btn" onClick={handleSignOut}>Sign in with a different account</button>
         <p><Link to="/">← Back to the public site</Link></p>
@@ -397,5 +472,19 @@ export function AuthGate({ children }: Props) {
     );
   }
 
-  return <>{children(user, handleSignOut)}</>;
+  return (
+    <>
+      {tieWarning && (
+        <div className="dir-tie-warning" role="status">
+          <span>
+            {ORG.appName} could not confirm this Google account as yours
+            {tieWarning === 'other-account' ? ' (a different one is on file)' : ''}.
+            Ask the Owner to look at the Directors screen.
+          </span>
+          <button type="button" onClick={() => setTieWarning('')} aria-label="Dismiss">×</button>
+        </div>
+      )}
+      {children(user, handleSignOut)}
+    </>
+  );
 }
