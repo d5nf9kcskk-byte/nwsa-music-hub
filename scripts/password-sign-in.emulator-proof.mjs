@@ -206,12 +206,12 @@ const byPassword = async (name, email, password) => {
   const { user } = await signInWithEmailAndPassword(d.auth, email, password);
   return { d, user };
 };
-/** A password account that stands on an address without the Hub having made it. Put there directly. */
+/** An account the server did not make, with a password. Made here directly. */
 async function outsideAccount(name, email, password, { verified }) {
   await adminAuth.createUser({ email, password, emailVerified: verified });
   return byPassword(name, email, password);
 }
-/** An anonymous session whose account then has an address on it. Set directly. */
+/** An account the server did not make, with an anonymous session. Made here directly. */
 async function anonymousWithAddress(name, email) {
   const d = device(name);
   const { user } = await signInAnonymously(d.auth);
@@ -226,6 +226,10 @@ function must(ok, label) {
   if (!ok) failed++;
 }
 const fact = label => console.log(`  FACT  ${label}`);
+/** A starting condition a case relies on. Checked without a word; the case stops if it is not met. */
+function need(ok, what) {
+  if (!ok) throw new Error(`the starting condition was not met: ${what}`);
+}
 const section = title => console.log(`\n${title}`);
 async function codeOf(p) {
   try { await p; return 'ok'; } catch (e) { return e.code || String(e); }
@@ -256,24 +260,24 @@ async function s1_theRulesAlone() {
   await adminAuth.deleteUser(g.user.uid); // clear the address, and the entry, for the cases below
   await list(email);
   const unverified = await outsideAccount('unverified', email, 'some password 1', { verified: false });
-  must((await claimsOf(unverified.d)).email_verified === false && await getsIn(unverified.d, email) === false,
-    'a password account on a listed address, never verified: refused');
+  need((await claimsOf(unverified.d)).email_verified === false, 'its address is not verified');
+  must(await getsIn(unverified.d, email) === false, 'an account the server did not make, by password, address not verified: refused');
   await adminAuth.deleteUser(unverified.user.uid);
 
   const verified = await outsideAccount('verified', email, 'some password 2', { verified: true });
   const c = await claimsOf(verified.d);
-  must(c.email === email && c.email_verified === true && c.firebase.sign_in_provider === 'password', 'a password account on a listed address, VERIFIED: its token says so');
-  must(await getsIn(verified.d, email) === false, 'and it is refused all the same, by Firestore, Storage and the functions: it is not the account on record');
+  need(c.email === email && c.email_verified === true && c.firebase.sign_in_provider === 'password', 'a verified password session');
+  must(await getsIn(verified.d, email) === false, 'the same with the address verified: refused by Firestore, Storage and the functions, because it is not the account on record');
   await adminAuth.deleteUser(verified.user.uid);
 
   const anon = await anonymousWithAddress('anonymous', email);
   const ac = await claimsOf(anon.d);
-  must(ac.email === email && ac.email_verified === true && ac.firebase.sign_in_provider === 'anonymous', 'an anonymous account with a listed address on it: its token says so');
-  must(await getsIn(anon.d, email) === false, 'refused: only a Google or a password sign-in on the account on record is honoured');
+  need(ac.email === email && ac.email_verified === true && ac.firebase.sign_in_provider === 'anonymous', 'a verified anonymous session');
+  must(await getsIn(anon.d, email) === false, 'an account the server did not make, with an anonymous session: refused. Only a Google or a password sign-in on the account on record is honoured');
   await adminAuth.deleteUser(anon.user.uid);
 
   const off = await outsideAccount('unlisted-verified', 'someone@elsewhere.test', 'some password 3', { verified: true });
-  must(await getsIn(off.d, 'someone@elsewhere.test') === false, 'a verified password account that is not on the list: refused');
+  must(await getsIn(off.d, 'someone@elsewhere.test') === false, 'an address that is not on the list: refused');
 }
 
 async function s2_askingChangesNothing() {
@@ -309,7 +313,7 @@ async function s3_noAccountYet() {
   const d = await director(email);
   must(d.boundUid === account.uid && d.passwordSet === true && Number.isInteger(d.boundAt), 'the server made the account and recorded it on the entry');
   must(await notices(email) === 1, 'and emailed the person that a password was just set');
-  fact(`the address is marked verified by the server, on the strength of the link: emailVerified is ${account.emailVerified}`);
+  need(account.emailVerified === true, 'the server marks the address verified, on the strength of the link');
 
   const phone = await byPassword('cara-phone', email, 'caras own pass 1');
   must((await claimsOf(phone.d)).firebase.sign_in_provider === 'password' && phone.user.uid === d.boundUid, 'the sign-in that follows is by password, on the account on record');
@@ -403,73 +407,68 @@ async function s6_reset() {
 }
 
 /**
- * Accounts that stood on an address before its person set a password, each
- * with a browser still signed in, put into that state here directly.
- * Whatever state they are in, and whether that browser keeps its old token
- * or asks for a new one, it stays out.
+ * A session from before a record is made does not carry over, whatever kind
+ * of session it is and whether it keeps its old token or asks for a new one.
+ * Each starting state is made here directly.
  */
-async function s7_accountsFromBefore() {
-  section('(7) An account from before: a verified password account, with a browser still signed in');
+async function s7_aSessionFromBeforeDoesNotCarryOver() {
+  section('(7) A session from before: by password');
   {
     const email = 'gia@school.test';
     await list(email);
     const older = await outsideAccount('older', email, 'older pass 1', { verified: true });
     const olderToken = await older.d.auth.currentUser.getIdToken();
     must(await getsIn(older.d, email) === false, 'refused before');
-    must((await setPassword(email, 'gias own pass 1')).status === 'done', 'the real person sets a password by link');
-    must(await tokenGetsIn(olderToken, email) === false, 'the older token, exactly as it was minted, is refused by Firestore, Storage and the functions');
-    const renew = await refresh(older.d);
-    must(renew !== 'ok', `and cannot be renewed (${renew})`);
-    must(await codeOf(signInWithEmailAndPassword(device('older-again').auth, email, 'older pass 1')) !== 'ok', 'the older password no longer signs in');
+    must((await setPassword(email, 'gias own pass 1')).status === 'done', 'the person sets a password by link');
+    must(await tokenGetsIn(olderToken, email) === false, 'the session from before, with the token it holds: refused by Firestore, Storage and the functions');
+    must(await refresh(older.d) !== 'ok', 'and it cannot get another');
+    must(await codeOf(signInWithEmailAndPassword(device('older-again').auth, email, 'older pass 1')) !== 'ok', 'the password that was on that account no longer signs in');
     must(await codeOf(createUserWithEmailAndPassword(device('older-third').auth, email, 'older pass 2')) === 'auth/email-already-in-use', 'and no second account can be made on the address');
-    must(await getsIn((await byPassword('gia-phone', email, 'gias own pass 1')).d, email) === true, 'the real person gets in');
+    must(await getsIn((await byPassword('gia-phone', email, 'gias own pass 1')).d, email) === true, 'the person gets in');
   }
 
-  section('(7) An account from before: an anonymous account with the address on it');
+  section('(7) A session from before: anonymous');
   {
     const email = 'hal@school.test';
     await list(email);
     const anon = await anonymousWithAddress('anon', email);
     const anonToken = await anon.d.auth.currentUser.getIdToken();
     must(await tokenGetsIn(anonToken, email) === false, 'refused before');
-    must((await setPassword(email, 'hals own pass 1')).status === 'done', 'the real person sets a password by link');
-    must(await tokenGetsIn(anonToken, email) === false, 'the older token is refused after');
-    must(await refresh(anon.d) !== 'ok', 'and cannot be renewed');
-    must(await getsIn((await byPassword('hal-phone', email, 'hals own pass 1')).d, email) === true, 'the real person gets in');
+    must((await setPassword(email, 'hals own pass 1')).status === 'done', 'the person sets a password by link');
+    must(await tokenGetsIn(anonToken, email) === false, 'the session from before is refused after');
+    must(await refresh(anon.d) !== 'ok', 'and it cannot get another');
+    must(await getsIn((await byPassword('hal-phone', email, 'hals own pass 1')).d, email) === true, 'the person gets in');
   }
 
-  section('(7) An account from before: an unverified password account, then the real person arrives with Google');
+  section('(7) A session from before, and then the person signs in with Google');
   {
     const email = 'ida@school.test';
     await list(email);
     const older = await outsideAccount('older', email, 'older pass 3', { verified: false });
     const olderToken = await older.d.auth.currentUser.getIdToken();
     const real = await googleOnly('ida-laptop', email);
-    fact(`emulator: the real person's Google sign-in opened ${real.user.uid === older.user.uid ? 'that same account' : 'a different account'}`);
+    if (real.user.uid !== older.user.uid) fact('emulator: the sign-in opened a different account');
     const renewed = await refresh(older.d);
-    fact(`emulator: asked for a fresh token, the older browser gets: ${renewed}`);
-    if (renewed === 'ok') {
-      const c = await claimsOf(older.d);
-      fact(`that fresh token says: verified ${c.email_verified}, signed in by ${c.firebase.sign_in_provider}`);
-    }
-    must(await tokenGetsIn(olderToken, email) === false && (renewed !== 'ok' || await getsIn(older.d, email) === false), 'BEFORE the server has confirmed anyone: the older browser is refused, with the token it had and with a fresh one');
-    must(await askToBind(real.d) === 'again', 'the real person\'s Hub asks, and the server confirms them on a fresh account');
+    if (renewed !== 'ok') fact(`emulator: the session from before could not renew (${renewed})`);
+    must(await tokenGetsIn(olderToken, email) === false && (renewed !== 'ok' || await getsIn(older.d, email) === false), 'before any record is made: the session from before is refused, with the token it had and with a fresh one');
+    must(await askToBind(real.d) === 'again', 'the person\'s Hub asks, and the server makes the record on a fresh account');
     const realAgain = await googleOnly('ida-laptop', email, undefined, real.d);
-    must(await getsIn(realAgain.d, email) === true, 'the real person signs in once more and gets in with Google');
-    must(await tokenGetsIn(olderToken, email) === false && await refresh(older.d) !== 'ok', 'AFTER: the older browser is refused, and cannot renew');
-    must((await setPassword(email, 'idas own pass 1')).status === 'done', 'the real person sets a password by link');
+    must(await getsIn(realAgain.d, email) === true, 'the person signs in once more and gets in with Google');
+    must(await tokenGetsIn(olderToken, email) === false && await refresh(older.d) !== 'ok', 'after: the session from before is refused, and cannot get another token');
+    must((await setPassword(email, 'idas own pass 1')).status === 'done', 'the person sets a password by link');
     must(await getsIn((await byPassword('ida-phone', email, 'idas own pass 1')).d, email) === true, 'and gets in with the password');
     must(await getsIn((await google('ida-laptop-again', email)).d, email) === true, 'and still with Google');
-    must(await codeOf(signInWithEmailAndPassword(device('older-pass').auth, email, 'older pass 3')) !== 'ok', 'the older password signs in nowhere');
+    must(await codeOf(signInWithEmailAndPassword(device('older-pass').auth, email, 'older pass 3')) !== 'ok', 'the password that was on that account signs in nowhere');
   }
 }
 
 /**
  * The account on record belongs to one person: when its entry names a Google
  * identity, a password is honoured on it only while it still has that one.
+ * The starting state is made here directly.
  */
 async function s8_onePersonPerAccount() {
-  section('(8) The account on record with a different Google identity on it');
+  section('(8) One person per account');
   const email = 'ned@school.test';
   await list(email);
   await google('ned-laptop', email, 'google-ned');
@@ -478,27 +477,22 @@ async function s8_onePersonPerAccount() {
   const ned = await byPassword('ned-phone', email, 'neds own pass 1');
   must(await getsIn(ned.d, email) === true, 'and is in by password');
 
-  // A different Google account that Google says has the same address.
-  const other = await googleOnly('another-google-account', email, 'google-not-ned');
-  fact(`emulator: a different Google account for the same address opened ${other.user.uid === record.boundUid ? 'the account on record' : 'another account'}`);
-  must(await getsIn(other.d, email) === false, 'it is refused by Google sign-in: it is not the Google identity the entry names');
+  // The account on record, with a Google identity on it that the entry does not name.
+  await adminAuth.updateUser(record.boundUid, { providersToUnlink: ['google.com'] });
+  await adminAuth.updateUser(record.boundUid, { providerToLink: { providerId: 'google.com', uid: 'google-other', email } });
+  const other = await googleOnly('another-identity', email, 'google-other');
+  need(other.user.uid === record.boundUid, 'that identity signs in on the account on record');
+  must(await getsIn(other.d, email) === false, 'a Google sign-in on it with an identity the entry does not name: refused');
   must(await askToBind(other.d) === 'other-account' && (await director(email)).googleSub === 'google-ned', 'and the server will not move the record to it');
-  const set = await codeOf(updatePassword(other.d.auth.currentUser, 'a password of its own 1'));
-  fact(`emulator: asked to change that account's password from its own session, the sign-in service answers: ${set}`);
-  if (set === 'ok') {
-    const back = await codeOf(signInWithEmailAndPassword(device('not-ned-by-password').auth, email, 'a password of its own 1'));
-    fact(`emulator: signing in with that password answers: ${back}`);
-    if (back === 'ok') {
-      const viaPassword = await byPassword('not-ned-by-password-2', email, 'a password of its own 1');
-      must(await getsIn(viaPassword.d, email) === false, 'a password set that way is NOT honoured: the account no longer has the Google identity its entry names');
-    }
-  }
-  // The real person puts it right with a link from their own inbox.
-  must((await setPassword(email, 'neds own pass 2')).status === 'done', 'the real person sets a password again by link');
+  need(await codeOf(updatePassword(other.d.auth.currentUser, 'a password of its own 1')) === 'ok', 'the sign-in service lets that session change the password');
+  const viaPassword = await byPassword('by-that-password', email, 'a password of its own 1');
+  must(await getsIn(viaPassword.d, email) === false, 'a password put on the account that way is not honoured: the account does not have the Google identity its entry names');
+  // The person puts it right with a link from their own inbox.
+  must((await setPassword(email, 'neds own pass 2')).status === 'done', 'the person sets a password again by link');
   const fresh = await adminAuth.getUserByEmail(email);
-  must(fresh.providerData.filter(p => p.providerId === 'google.com').map(p => p.uid).join() === 'google-ned', 'the fresh account has the entry\'s Google identity on it, and not the other one');
+  must(fresh.providerData.filter(p => p.providerId === 'google.com').map(p => p.uid).join() === 'google-ned', 'the fresh account has the entry\'s Google identity on it, and no other');
   must(await getsIn((await byPassword('ned-phone-2', email, 'neds own pass 2')).d, email) === true, 'and they are in again');
-  must(await refresh(other.d) !== 'ok', 'the other Google account\'s session cannot be renewed');
+  must(await refresh(other.d) !== 'ok' && await refresh(viaPassword.d) !== 'ok', 'the sessions that were on the old account cannot be renewed');
 }
 
 async function s9_aFailedSetup() {
@@ -511,7 +505,6 @@ async function s9_aFailedSetup() {
   must(await codeOf(completeSetup(broken, token, 'jos own pass 1', someCaller())) !== 'ok', 'the recording step fails (the database is down at that moment)');
   must((await director(email)).boundUid === undefined && await notices(email) === 0, 'nothing is recorded, and no notice is sent');
   const half = await codeOf(signInWithEmailAndPassword(device('jo-half').auth, email, 'jos own pass 1'));
-  fact(`the account from the failed attempt exists; signing in to it at the sign-in service answers: ${half}`);
   if (half === 'ok') must(await getsIn((await byPassword('jo-half-2', email, 'jos own pass 1')).d, email) === false, 'but the rules refuse it: it is not an account the entry names');
   must((await completeSetup(store, token, 'jos own pass 1', someCaller())).status === 'expired', 'the link was used up by the failed attempt');
   must((await setPassword(email, 'jos own pass 2')).status === 'done', 'asking again works: nothing is left to repair by hand');
@@ -623,7 +616,7 @@ await adminDb.doc('students/probe').set({ name: 'Probe Student (fictional)' });
 await adminDb.doc('serverConfig/signIn').set({ googleTieRequired: true }); // the record is required (see the header)
 const steps = [
   s1_theRulesAlone, s2_askingChangesNothing, s3_noAccountYet, s4_theRecordIsTheServers, s5_googleFirst,
-  s6_reset, s7_accountsFromBefore, s8_onePersonPerAccount, s9_aFailedSetup, s10_linksAreOneTime,
+  s6_reset, s7_aSessionFromBeforeDoesNotCarryOver, s8_onePersonPerAccount, s9_aFailedSetup, s10_linksAreOneTime,
   s11_removedAndReadded, s12_theRecordItself,
 ];
 for (const step of steps) {
