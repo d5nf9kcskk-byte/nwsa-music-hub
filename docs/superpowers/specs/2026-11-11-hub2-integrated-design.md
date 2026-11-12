@@ -459,9 +459,19 @@ unverified after sign-in, the Hub sends the verification link itself.
 
 - Built behind `features.passwordSignIn` in the org config, off, so the
   demo orgs are untouched and nothing shows until the provider is on.
-- One step in the Firebase console that only the owner can take:
-  Authentication, Sign-in method, Email/Password, Enable. While there, set
-  the minimum password length to 10.
+- **Do not enable Email/Password in the Firebase console yet.** The proof
+  in 10.4 passed as written and still found that the design above is not
+  enough by itself (2026-11-11): an account has to be made by the Hub when
+  the owner lists an email, not by whoever types that email first. That
+  needs one Cloud Function and a one-time run over the current list. The
+  rules still do not change.
+- The only safe order for going live: merge and deploy that function; run
+  it over the current list; confirm every listed email has an account;
+  only then enable Email/Password in the console (minimum length 10); then
+  flip the flag.
+- In the app, setting up a password and resetting one are the same single
+  path: the emailed link, where the person who opens the inbox chooses the
+  password. The app never creates an account itself.
 - The links are sent by the sign-in service, not the Hub's own mail, and
   can land in junk. If that proves a problem, the Hub's mail function can
   send them instead.
