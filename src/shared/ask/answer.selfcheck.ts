@@ -6,9 +6,12 @@
  * loads without the org config, React or Firestore.
  *
  * What it pins, on a small invented school:
- *    1. every intent the public templates can return is answered, and a
- *       staff question is not
- *    2. each intent gives the right state, sentence and cards
+ *    1. every intent the public templates can return is answered, every
+ *       table word they can hand back is one this file has decided about,
+ *       and a staff question is not answered
+ *    2. each intent gives the right state, sentence and cards; a question
+ *       the Hub has no record for (parking, tickets) is told so and nothing
+ *       is made up; `showing` always carries the day that was understood
  *    3. who it is for: several saved students get one answer each; nobody
  *       saved and a "my" question asks who; an archived or missing student
  *       is nobody, never "nothing today"; a general question never asks
@@ -31,7 +34,7 @@
  *   17. every time and date in a sentence is exactly what the formatter gave
  *   18. the real parser's reading goes straight in
  *
- * Three of the repo's own rules are lifted out of their files and run here
+ * Two of the repo's own rules are lifted out of their files and run here
  * (see `lift`), so the announcements filter and the seating address tested
  * are the real ones, not a copy.
  *
@@ -46,7 +49,7 @@ import {
   type AskAnswer, type AskCard, type AskData, type AskOptions,
 } from './answer.ts';
 import { parseAsk, type AskName, type AskParse, type AskReading } from './parse.ts';
-import { PUBLIC_TEMPLATES } from './templates.ts';
+import { MACROS, PUBLIC_TEMPLATES } from './templates.ts';
 import type { AskIntent, AskWhen } from './corpus.ts';
 
 let failures = 0;
@@ -190,8 +193,7 @@ const base: AskOptions = {
 
 const G = (id: string, name: string): AskName => ({ kind: 'group', name, id });
 const SYM = G('sym', 'Symphony Orchestra');
-const q = (intent: AskIntent | (typeof ASK_ANSWERS)[number], rest: Partial<AskReading> = {}): AskParse =>
-  ({ intent: intent as AskIntent, confident: true, suggestions: [], ...rest });
+const q = (intent: AskIntent, rest: Partial<AskReading> = {}): AskParse => ({ intent, confident: true, suggestions: [], ...rest });
 const ask = (reading: AskParse, saved: string[] = [], more: Partial<AskOptions> = {}, d: AskData = data) =>
   answerAsk(reading, d, { ...base, saved, ...more });
 
@@ -216,6 +218,24 @@ for (const i of publicIntents) {
 for (const i of ['none', 'staffWhosOut', 'staffContact', 'staffRoster'] as AskIntent[]) {
   const got = ask(q(i, { when: 'today' }), ['ada']);
   check(`1. "${i}" is not answered`, got.state === 'notUnderstood' && got.cards.length === 0 && !got.showing);
+}
+// A template can hand back a word from its own table as what the question
+// is about ("sectional", "finals", "teacher"). Each one must be a word this
+// file has decided about: answered, or said plainly not to be held. A new
+// word nobody decided about fails here.
+{
+  let words = 0;
+  for (const t of PUBLIC_TEMPLATES) {
+    for (const m of t.t.matchAll(/\{([^}]+)\}/g)) {
+      for (const about of m[1].split('|').flatMap(w => (MACROS[w] ?? w).split('|'))) {
+        words++;
+        const got = ask(q(t.intent, { about, ...(t.when ? { when: t.when } : {}) }), ['ada']);
+        check(`1. "${about}" in a "${t.intent}" template is a word answer.ts has decided about`,
+          got.sentence !== 'I do not have an answer for that.' && !!got.showing, `${got.state}: ${got.sentence}`);
+      }
+    }
+  }
+  check('1. the templates do hand back table words', words >= 20, String(words));
 }
 
 /* ── 2. Each intent: state, sentence and cards. ───────────────────────── */
@@ -380,7 +400,7 @@ eq('2. with the contact page mounted, contact links to it',
 {
   // Understood and not held is told apart from not understood by `showing`.
   const held = ask(q('tickets'), ['ada']);
-  check('2. "the Hub does not have that" still says what was understood', held.showing?.intent === ('tickets' as AskIntent) && held.forWho.kind === 'general');
+  check('2. "the Hub does not have that" still says what was understood', held.showing?.intent === 'tickets' && held.forWho.kind === 'general');
   check('2. and nothing typed in an unreadable question is shown', ask(q('none'), ['ada']).showing === undefined);
   const hidden = ask(q('due', { about: 'Hidden Quiz', match: { kind: 'assignment', name: 'Hidden Quiz', id: 'a2' } }), ['ada']);
   check('2. a post that is still hidden is not named in `showing` either', hidden.showing === undefined && !JSON.stringify(hidden).includes('Hidden'));
@@ -755,6 +775,16 @@ const MY: AskParse[] = [
   eq('18. "que tengo hoy", for a Spanish reader',
     ask(parseAsk('que tengo hoy', kit), ['ada'], { lang: 'es' }).sentence, 'Sí. Symphony Orchestra, hoy <14:10>, Room 2210.');
   check('18. "what do i have today" with nobody saved asks who', typed('what do i have today', []).state === 'needsWho');
+  for (const text of ['where do i park', 'how much are tickets', 'what should i bring', 'how long is the concert']) {
+    const got = typed(text, ['ada']);
+    eq(`18. "${text}": the Hub does not have it, and says so`, [got.state, got.sentence, got.cards.length], ['notUnderstood', 'The Hub does not have that.', 0]);
+  }
+  eq('18. "who is my teacher"', typed('who is my teacher', ['ada']).sentence, 'Your lesson teacher is Ms. Invented.');
+  eq('18. "how do i contact my teacher"', typed('how do i contact my teacher', ['ada']).sentence, 'Write to office@example.org.');
+  // December 9, 2026 is a Wednesday. The parser does not check the weekday,
+  // so what it read is always shown.
+  const dated = typed('what do i have 12/9', ['ada']).showing;
+  eq('18. "what do i have 12/9" shows the day it was read as', [dated?.from, dated?.to], ['2026-12-09', '2026-12-09']);
   for (const text of ['who is out today', 'what is ben sample doing today', 'did ada example come to rehearsal']) {
     const got = typed(text, ['ada']);
     check(`18. "${text}" is not answered`, got.state === 'notUnderstood' && got.cards.length === 0, `${got.state}: ${got.sentence}`);

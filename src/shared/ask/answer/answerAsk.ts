@@ -32,12 +32,12 @@
  *
  * WHAT IT READS. Public records only (#privacy), through the same rules the
  * pages use: `studentDay` for a student's day, `isAssignmentOpen` and
- * `isPublished` for assignments, the sign-up filters for forms. Four of the
+ * `isPublished` for assignments, the sign-up filters for forms. Some of the
  * repo's ONE definitions cannot be loaded by plain Node (they reach the org
  * config, React or Firestore), so the caller hands them in as `opts.use`:
  * the time and date formatters, the announcements filter, the seating chart
  * address and the school-day calendars. That keeps one definition of each
- * and keeps this file pure.
+ * and keeps this file pure. The org's contact address comes in the same way.
  *
  * Pure: no React, no Firestore, no org config, no clock ("today" and "now"
  * are arguments), nothing kept between calls. Relative imports carry `.ts`.
@@ -207,7 +207,7 @@ export const ASK_ANSWERS = [
   'noSchool', 'group', 'piece', 'news', 'documents',
   'howAbsence', 'howSubmit', 'howCheckin', 'howCalendar', 'howCopy', 'howAlerts', 'howFindMe', 'glossary',
   'parking', 'tickets', 'bring', 'duration', 'whoStaff', 'contactStaff',
-] as const;
+] as const satisfies readonly AskIntent[];
 type Answered = (typeof ASK_ANSWERS)[number];
 
 /** The same spellings the public pages write (src/main.tsx). Forms and
