@@ -12,6 +12,7 @@ import type { Director } from '../hooks/useDirectors';
 import { recordLogin } from '../hooks/useLoginEvents';
 import { setCurrentDirector, clearCurrentDirector } from '../currentDirector';
 import { ORG } from '../../org';
+import { HomeScreenHint } from './HomeScreenHint';
 
 /**
  * Break-glass allowlist. Access is normally decided by the `directors`
@@ -222,7 +223,7 @@ export function AuthGate({ children }: Props) {
     // console with a stub user so layout work is verifiable — deploys always
     // have Firebase configured, so this can never appear in production.
     if (FIXTURES_ON) {
-      return <>{children({ displayName: 'Fixture Director', email: 'fixtures@local', photoURL: null } as unknown as User, () => {})}</>;
+      return <><HomeScreenHint />{children({ displayName: 'Fixture Director', email: 'fixtures@local', photoURL: null } as unknown as User, () => {})}</>;
     }
     return (
       <div className="dir-auth">
@@ -318,5 +319,7 @@ export function AuthGate({ children }: Props) {
     );
   }
 
-  return <>{children(user, handleSignOut)}</>;
+  // Access confirmed. HomeScreenHint is mounted only here (and in the fixture
+  // path above), so it can never show on a sign-in or "not authorized" screen.
+  return <><HomeScreenHint />{children(user, handleSignOut)}</>;
 }
