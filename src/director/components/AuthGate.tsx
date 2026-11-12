@@ -32,14 +32,18 @@ import { HomeScreenHint } from './HomeScreenHint';
 const BREAK_GLASS_EMAILS = ORG.breakGlassEmails;
 
 /**
+ * Only a deployment that HAS the server step asks at all
+ * (`features.googleConfirm`: the demo sites have no Cloud Functions).
+ *
  * FIRST LIVE RUN (#google-binding). Only the founding addresses ask the
- * server to confirm their Google account. The server step replaces a
+ * server to confirm their Google account, and the server refuses anyone
+ * else too (googleBinding.ts). The server step replaces a
  * person's sign-in account, and that has only ever run on a test setup; so
  * the Owner goes first, alone, on the live project, and everyone else's Hub
  * asks for nothing. When the Owner's entry reads "Google account confirmed",
  * a small follow-up change makes this `() => true` (docs/google-binding.md).
  */
-const asksServer = (email: string) => BREAK_GLASS_EMAILS.includes(email);
+const asksServer = (email: string) => ORG.features.googleConfirm && BREAK_GLASS_EMAILS.includes(email);
 
 // 'confirm': the rules will not let this session in until the server has
 // confirmed the person's Google account; one tap does it (#google-binding).

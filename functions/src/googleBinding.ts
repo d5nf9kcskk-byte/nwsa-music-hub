@@ -64,6 +64,12 @@ export interface BindEntry {
 export interface BindDeps {
   /** What Google says in the token it signed at sign-in, or null if the token is not good. */
   verifyGoogle(token: unknown): Promise<GoogleIdentity | null>;
+  /**
+   * FIRST LIVE RUN: may this address be recorded yet? Only the founding
+   * addresses, until the step has been seen to work on the live project.
+   * The follow-up change that lets everyone's Hub ask removes this too.
+   */
+  firstRunAllows(email: string): boolean;
   /** One request at a time per address (entryLock.ts). */
   lock<T>(email: string, fn: () => Promise<T>): Promise<T>;
   /** The account behind a sign-in, or null if it is gone. */
@@ -115,6 +121,8 @@ export async function bindGoogle(deps: BindDeps, claims: BindClaims, googleToken
   // An entry's name is its address, so an address that could not be an
   // entry's name is nobody's.
   if (email.includes('/')) return 'mismatch';
+  // FIRST LIVE RUN: nobody but a founding address is recorded, whoever asks.
+  if (!deps.firstRunAllows(email)) return 'mismatch';
 
   return deps.lock(email, async () => {
     const user = await deps.getUser(uid);

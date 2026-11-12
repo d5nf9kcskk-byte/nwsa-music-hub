@@ -57,20 +57,6 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     ],
     expires: '2026-11-25',
   },
-  // (#google-binding) The one thing staff see from the Google tie.
-  {
-    id: '2026-11-12-sign-in-once-more',
-    date: '2026-11-12',
-    title: 'The Hub asks you to confirm your Google account',
-    audience: 'staff' as const,
-    bullets: [
-      'A note at the bottom of the Hub offers “Confirm now” or “Later”. Confirming is one tap and the usual Google window, one time on each device.',
-      'Do it when you are not in the middle of something. If you have taken roll, let it finish saving first.',
-      'Your other phones and computers will ask you to sign in again afterwards. Do each one before your next concert.',
-      'After that, nothing is different. If the Hub ever says it could not confirm your account, tell the Owner.',
-    ],
-    expires: '2026-12-12',
-  },
   // Template pass: the two sides brought onto one look, and the menu fixed.
   {
     id: '2026-11-10-appearance-and-menu',

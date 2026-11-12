@@ -290,6 +290,13 @@ export interface OrgConfig {
      * renders and no write carries a Spanish note.
      */
     bannerDrafter: boolean;
+    /**
+     * This deployment has the server step that confirms each listed person's
+     * Google account (#google-binding, the `bindGoogle` Cloud Function).
+     * TRUE for NWSA only. The demo projects have no Cloud Functions, so with
+     * this false their Hub never offers "Confirm now": it could only fail.
+     */
+    googleConfirm: boolean;
   };
   /** Printed concert program (src/public/PublicProgram.tsx). */
   program: {

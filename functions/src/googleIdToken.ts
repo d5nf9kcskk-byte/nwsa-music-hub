@@ -9,7 +9,8 @@
  *
  * This checks such a token the way Google's guidance says to: the signature
  * against Google's published keys, that Google issued it, that it was issued
- * for one of this project's own sign-in clients, and that it has not expired.
+ * for one of this project's own sign-in clients and to that same client, and
+ * that it has not expired.
  *
  * Pure: the keys, the project number and the clock are passed in, so the
  * self-check runs it against keys of its own. Zero imports beyond Node.
@@ -77,6 +78,11 @@ export function verifyGoogleIdToken(
   const seconds = Math.floor(opts.now / 1000);
   if (typeof payload.iss !== 'string' || !ISSUERS.includes(payload.iss)) return null;
   if (!isProjectClientId(payload.aud, opts.projectNumber)) return null;
+  // The party the token was issued TO is the same sign-in client it is FOR.
+  // That is so for a person signing in through this project's client. A
+  // token some other party asked Google to mint with an audience of its own
+  // choosing names that party here instead.
+  if (payload.azp !== payload.aud) return null;
   if (typeof payload.exp !== 'number' || payload.exp <= seconds) return null;
   if (typeof payload.iat !== 'number' || payload.iat > seconds + CLOCK_SKEW_SECONDS) return null;
   if (typeof payload.sub !== 'string' || !payload.sub) return null;
