@@ -1230,14 +1230,76 @@ for them), `boundUid` (the one Hub sign-in account that goes with it),
   service worker holds a new app version until the person taps Refresh, so a
   phone on an old copy would be locked out the moment a stricter rule took
   effect. None of the steps on a concert day.
+- **`honouredSignIn()` is the test, in three places that change together**:
+  `firestore.rules`, `storage.rules`, and `functions/src/staffToken.ts`. A
+  Google sign-in is honoured only when the session is on the account the
+  entry names (`boundUid`) and that account has the entry's Google identity
+  (`googleSub`); anything that is not a Google sign-in is refused; a new way
+  of signing in gets a clause on purpose or gets nothing. Every gate calls
+  it: `signedIn()` and `verifiedSelf()` in `firestore.rules` (the only two
+  places that file reads a token for access; every role helper goes through
+  `hasRole()`, which asks `signedIn()` first), the four staff helpers in
+  `storage.rules`, and `staffFromIdToken()` in `functions/src/index.ts`, the
+  ONE place a function may call `verifyIdToken` to learn who is asking
+  (`bindGoogle` aside, which is what makes the record). Each such function
+  checks the ROLE straight after, because an unlisted caller comes back with
+  no entry rather than refused.
+- **Firestore requires the record only once a server-only switch is on**
+  (`serverConfig/signIn.googleTieRequired`, written by
+  `scripts/require-google-ties.mjs` and nothing else; no client can write
+  `serverConfig`, and only the Owner can read it). It is data and not a line
+  of the rules for two reasons. This SAME `firestore.rules` is deployed to
+  the demo projects, which have no Cloud Functions and so can never make a
+  record: with no such document they work exactly as before. NEVER set it
+  for a demo project. And turning it on or off is one write, instant and
+  reversible, with no rules deploy. The bound clause comes first in the
+  rule, so a bound person never costs a read of the switch. Even with the
+  switch OFF, a sign-in that is not Google's is refused on a listed address.
+- **"Confirmed" has ONE meaning**: the entry names an account (`boundUid`)
+  and either a Google identity (`googleSub`) or `passwordSet === true`. The
+  switch script (`isConfirmed` there) and the Directors screen
+  (`isConfirmed` in `useDirectors.ts`) both use it. Turning the switch on
+  counts EVERYONE listed, so an unused entry makes it refuse; remove the
+  entry rather than forcing it.
+- **Storage and the functions always require the record, with no switch.** A
+  Storage rule may look at only two Firestore documents and these already use
+  both, and both exist only for the school's project. So a person with no
+  record can neither upload nor open staff-only files until the app has had
+  the record made. The three copies are NOT word for word the same;
+  `staffToken.selfcheck.ts` pins each one.
+- **The switch workflow's log says nothing about the result**: not whether
+  the requirement is on, not how many people have no record. The choice is
+  read from the run's event file (a step's environment is printed in the
+  log), the script prints one fixed line, and the result goes to
+  `serverConfig/signIn.lastRun` for the Owner's Directors screen. Its
+  `clear-owner` mode is how an Owner who cannot get in is put right; never
+  through *Fix One Field*, which refuses that collection.
+- **A hand-made test token must be a Google sign-in on the account its entry
+  names** (`firebase: { sign_in_provider: 'google.com', identities: {
+  'google.com': [...] } }`, with `googleSub` and `boundUid` on the entry), or
+  the staff rules refuse it (Storage and the functions always; Firestore
+  once the switch is on).
 - `scripts/sign-in-accounts-audit.mjs` (*Audit Sign-in Accounts* workflow)
   answers, in one word, whether every sign-in account is what the Hub
   expects. It prints OK or REVIEW NEEDED and never an address: this repo's
   logs are public. Which accounts, and which listed addresses have no sign-in
-  account yet, go to `serverConfig/signInAudit` for the Owner's screen.
-- `googleBinding.selfcheck.ts` runs in `.github/actions/self-checks`, in the
-  functions chain, and as the first job of the rules deploy
-  (`rules-checks.yml`). It also pins that those wirings stay.
+  account yet, go to `serverConfig/signInAudit`, which the Owner's Directors
+  screen shows.
+- **The checks run before every rules deploy AND every functions deploy**
+  (`rules-checks.yml`, the first job of `deploy-rules.yml` and of
+  `deploy-functions.yml`, and on pull requests that touch the rules):
+  `googleBinding.selfcheck.ts` and `staffToken.selfcheck.ts` (also in
+  `.github/actions/self-checks`), then two emulator checks that ask the
+  REAL rules: `scripts/google-binding.emulator-proof.mjs` (real sign-ins,
+  every role, all three gates) and the `visitor` mode of
+  `scripts/rules-verdicts.emulator-check.mjs` (with the requirement on, a
+  listed person with no record gets exactly what an unlisted Google account
+  gets). The self-checks compare the rules word for word, which catches a
+  regrouped condition; only the emulator checks can see a rule elsewhere
+  that lets the same thing through another way. `googleBinding.selfcheck.ts`
+  also pins that these wirings stay. That script's `record` and `compare`
+  modes show what a rules change moved against `main`; use them for the
+  next rules change too.
 
 ## Playing-exam grading — one line, one rubric (Sept 2026, #exam-rubric)
 

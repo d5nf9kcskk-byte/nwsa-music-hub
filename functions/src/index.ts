@@ -37,6 +37,7 @@ import { composeSubmission as runComposeSubmission } from './composeSubmission.t
 import { getAuth } from 'firebase-admin/auth';
 import { bindGoogle as runBindGoogle, type BindClaims } from './googleBinding.ts';
 import { googleBindingStore, verifyGoogleLive } from './googleBindingStore.ts';
+import { staffFromToken } from './staffToken.ts';
 import { getMessaging } from 'firebase-admin/messaging';
 import { handleEventChange, sendTestAlert, type PushDeps } from './pushSend.ts';
 import { draftSpanish, noteFromBody } from './bannerDrafter.ts';
@@ -902,6 +903,22 @@ function hasKnownRole(d: Record<string, unknown> | undefined): boolean {
   return KNOWN_ROLES.includes(typeof d.role === 'string' ? d.role : 'director');
 }
 
+/**
+ * The ONE way a function learns who is calling (#google-binding): verify the
+ * token, then put it through the same staff test the rules use
+ * (staffToken.ts). Null means "not a sign-in the Hub honours" and the caller
+ * answers 401; the role is still the caller's to check.
+ */
+async function staffFromIdToken(idToken: string) {
+  try {
+    const decoded = await getAuth().verifyIdToken(idToken);
+    return await staffFromToken(decoded, async email =>
+      (await getFirestore().doc(`directors/${email}`).get()).data());
+  } catch {
+    return null;
+  }
+}
+
 function pushDeps(): PushDeps {
   const db = getFirestore();
   return {
@@ -996,19 +1013,12 @@ export const pushTestAlert = https.onRequest(async (req, res) => {
   const header = req.get('Authorization') ?? '';
   const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (!idToken) { refuse(401, 'Sign in again, then try.'); return; }
-  let email: string;
-  try {
-    const decoded = await getAuth().verifyIdToken(idToken);
-    if (decoded.email_verified !== true || !decoded.email) throw new Error('unverified');
-    email = decoded.email;
-  } catch {
-    refuse(401, 'Sign in again, then try.');
-    return;
-  }
+  const staff = await staffFromIdToken(idToken);
+  if (!staff) { refuse(401, 'Sign in again, then try.'); return; }
+  const email = staff.email;
 
   const db = getFirestore();
-  const me = await db.doc(`directors/${email}`).get();
-  if (!me.exists || !hasKnownRole(me.data())) { refuse(403, 'This account cannot send test alerts.'); return; }
+  if (!hasKnownRole(staff.director)) { refuse(403, 'This account cannot send test alerts.'); return; }
 
   const subId = typeof req.body?.subId === 'string' ? req.body.subId : '';
   if (!isSubscriptionDocId(subId)) { refuse(400, 'Turn alerts on for this phone first.'); return; }
@@ -1066,17 +1076,9 @@ export const draftChangeNoteEs = runWith({ secrets: ['ANTHROPIC_API_KEY'] }).htt
   const header = req.get('Authorization') ?? '';
   const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (!idToken) { refuse(401, 'Sign in again, then try.'); return; }
-  let email: string;
-  try {
-    const decoded = await getAuth().verifyIdToken(idToken);
-    if (decoded.email_verified !== true || !decoded.email) throw new Error('unverified');
-    email = decoded.email;
-  } catch {
-    refuse(401, 'Sign in again, then try.');
-    return;
-  }
-  const me = await getFirestore().doc(`directors/${email}`).get();
-  if (!me.exists || !hasKnownRole(me.data())) { refuse(403, 'This account cannot use the drafter.'); return; }
+  const staff = await staffFromIdToken(idToken);
+  if (!staff) { refuse(401, 'Sign in again, then try.'); return; }
+  if (!hasKnownRole(staff.director)) { refuse(403, 'This account cannot use the drafter.'); return; }
 
   const input = noteFromBody(req.body);
   if (!input.ok) { refuse(400, input.message); return; }

@@ -113,8 +113,6 @@ Have a newly listed person sign in the day they are added. Until they have, thei
 
 ## Where things live
 
-(The sign-in rules, the switch and the emulator scripts arrive with step 3.)
-
 - `functions/src/googleBinding.ts` (the rule for recording), `googleIdToken.ts` (reading Google's own token), `freshAccount.ts` (the fresh sign-in account), `entryLock.ts` (one request at a time per person), `googleBindingStore.ts`, `bindGoogle` in `functions/src/index.ts`. Self-check: `googleBinding.selfcheck.ts`, which also reads the Directors rule.
 - `firestore.rules`: `bindingGuard()` on the Directors entry. With step 3: `honouredSignIn()` there and in `storage.rules`, and `functions/src/staffToken.ts`, the same test for the functions. Self-check: `staffToken.selfcheck.ts`.
 - `scripts/require-google-ties.mjs` and the *Require Google Ties* workflow: the switch (`serverConfig/signIn.googleTieRequired`).

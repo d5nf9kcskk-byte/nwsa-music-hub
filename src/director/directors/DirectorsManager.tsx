@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock, History, Activity, ChevronDown, ChevronUp, BookOpen, ChevronLeft } from 'lucide-react';
-import { useDirectors, directorEmailId, directorRoles, directorRoleLabels, hasDirectorRole, primaryDirectorRole, BINDING_KEYS, isConfirmed, useSignInAudit } from '../hooks/useDirectors';
+import { useDirectors, directorEmailId, directorRoles, directorRoleLabels, hasDirectorRole, primaryDirectorRole, BINDING_KEYS, isConfirmed, useSignInSwitch, useSignInAudit } from '../hooks/useDirectors';
 import type { Director, DirectorRole } from '../hooks/useDirectors';
 import { useLoginEvents, LOGIN_LOG_LIMIT } from '../hooks/useLoginEvents';
 import { useActivityLog, ACTIVITY_LOG_LIMIT } from '../hooks/useActivityLog';
@@ -113,9 +113,21 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
     }
   }
 
-  // (#google-binding) What the account check last found. Its public log
-  // prints one word; which accounts is said here, to the Owner only.
+  // (#google-binding) Whether only confirmed sign-ins are let in, and what
+  // the server last did about it. Said here, to the Owner, and nowhere public.
+  const signInSwitch = useSignInSwitch(isOwner);
   const signInAudit = useSignInAudit(isOwner);
+  const lastRunWords = (() => {
+    const r = signInSwitch?.lastRun;
+    if (!r?.at) return '';
+    const when = new Date(r.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+    const what = r.result === 'on' ? 'turned on'
+      : r.result === 'off' ? 'turned off'
+      : r.result === 'refused' ? `NOT turned on: ${r.notConfirmed ?? 'some'} listed ${r.notConfirmed === 1 ? 'person is' : 'people are'} not confirmed yet`
+      : r.result === 'cleared' ? `the Owner record was cleared (${r.cleared ?? 0})`
+      : 'nothing changed';
+    return ` Last run (${when}): ${what}.`;
+  })();
 
   if (!isOwner) {
     // Defense in depth: DirectorApp already hides the nav entry that opens
@@ -209,6 +221,13 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
             at the bottom of the screen, or straight after signing in).
             Anyone still “not confirmed yet” has not done that on an
             up-to-date copy of the Hub.
+          </p>
+        )}
+        {signInSwitch && (
+          <p className="dir-loc-hint">
+            <Lock size={14} style={{ verticalAlign: '-2px' }} />{' '}
+            <strong>Only confirmed Google accounts can sign in: {signInSwitch.required ? 'On' : 'Off'}.</strong>
+            {lastRunWords}
           </p>
         )}
         {signInAudit?.at && (

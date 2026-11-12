@@ -696,6 +696,21 @@ runs:
       run: node scripts/sign-in-accounts-audit.mjs --selfcheck
       shell: bash
 
+    # Who the rules let in (#google-binding): the same test in firestore.rules,
+    # storage.rules and the functions, word for word; every staff gate applies
+    # it; the switch is the server's alone; every function that takes a
+    # caller's token checks the role after it. It reads both rules files, so
+    # it runs on every build, and again before every rules deploy
+    # (rules-checks.yml, which also asks the real rules on emulators).
+    - name: Check the staff sign-in test
+      run: node --experimental-strip-types functions/src/staffToken.selfcheck.ts
+      shell: bash
+
+    # The switch script says nothing about its result in a public log.
+    - name: Check the switch script
+      run: node scripts/require-google-ties.mjs --selfcheck
+      shell: bash
+
     # Ask, the understanding half (#ask): what a person typed in, one typed
     # question out, with no AI in it. A confident wrong answer is the one
     # thing it may not give, so the checks are mostly about what must NOT be

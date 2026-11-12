@@ -100,7 +100,74 @@ service cloud.firestore {
     function signedIn() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && exists(/databases/$(database)/documents/directors/$(request.auth.token.email));
+        && exists(/databases/$(database)/documents/directors/$(request.auth.token.email))
+        && honouredSignIn();
+    }
+
+    // WHICH account signed in (#google-binding). Being on the list is not
+    // enough by itself. The server records on each entry which sign-in
+    // account is that person's (functions/src/googleBinding.ts), and a
+    // sign-in is honoured only on that account:
+    //
+    //   • A Google sign-in is honoured when the session is on the entry's
+    //     own account (`boundUid`) and that account has the entry's Google
+    //     identity (`googleSub`). Once this is REQUIRED (the switch below),
+    //     an entry with no record lets nobody in; the app asks the server to
+    //     make the record at the next sign-in, by itself.
+    //   • Anything else (a password, anonymous, a custom token, a provider
+    //     nobody turned on deliberately) is refused. A new way of signing in
+    //     gets a clause here on purpose or it gets nothing.
+    //
+    // The bound clause comes FIRST, so for a bound person the switch is
+    // never even read: no extra document, no changed verdict.
+    //
+    // storage.rules (honouredSignIn) and the Cloud Functions that check a
+    // staff token (functions/src/staffToken.ts) apply the same test WITHOUT
+    // the switch, for the reason given there. All three change together.
+    function honouredSignIn() {
+      return request.auth.token.firebase.sign_in_provider == 'google.com'
+        && (boundGoogleSignIn() || !googleTieRequired());
+    }
+
+    // The switch: `serverConfig/signIn.googleTieRequired == true`. It is data
+    // rather than a line of this file for two reasons. This SAME file is
+    // deployed to the demo projects, which have no server step and so can
+    // never make a record: with no such document nothing is required and
+    // they work exactly as before. And for the school, turning the
+    // requirement on (or back off) is one write by the server, instant and
+    // reversible, instead of a rules deploy. No client can write
+    // serverConfig, and only the Owner can read it (see its match block).
+    function googleTieRequired() {
+      return exists(/databases/$(database)/documents/serverConfig/signIn)
+        && get(/databases/$(database)/documents/serverConfig/signIn).data.get('googleTieRequired', false) == true;
+    }
+
+    // The record is written by the server only: see bindingGuard below,
+    // which lets no client set or alter it. The `exists` comes first so that
+    // an address with no entry at all is a plain "no" here rather than an
+    // error: with the switch off, a Google account that is not on the list
+    // must still be told "no such entry", exactly as before.
+    function boundGoogleSignIn() {
+      return exists(/databases/$(database)/documents/directors/$(request.auth.token.email))
+        && isBoundGoogleAccount(myDirectorDoc());
+    }
+    function isBoundGoogleAccount(d) {
+      return isBoundAccount(d.get('boundUid', ''))
+        && isTiedGoogleId(d.get('googleSub', ''));
+    }
+    // The session is on the one account the entry names.
+    function isBoundAccount(boundUid) {
+      return boundUid is string
+        && boundUid != ''
+        && boundUid == request.auth.uid;
+    }
+    // `firebase.identities['google.com']` is the list of Google ids on the
+    // account behind the token.
+    function isTiedGoogleId(googleSub) {
+      return googleSub is string
+        && googleSub != ''
+        && 'google.com' in request.auth.token.firebase.identities
+        && googleSub in request.auth.token.firebase.identities['google.com'];
     }
 
     // Same verified-email bar as signedIn(), minus the allowlist existence
@@ -110,7 +177,8 @@ service cloud.firestore {
     function verifiedSelf(email) {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email == email;
+        && request.auth.token.email == email
+        && honouredSignIn();
     }
 
     // Who may edit a Directors entry: the Owner anything, a person a short
@@ -1725,11 +1793,14 @@ service cloud.firestore {
     // intent is visible at the point someone would otherwise edit it.
     match /mail/{doc}            { allow read, write: if false; }
 
-    // (#google-binding) Notes the server leaves for the Owner. Written by the
-    // Admin SDK alone: no client may write here, the Owner included. The
-    // Owner may read, so the Directors screen can say what a public log
-    // must not (which sign-in accounts the account check wants looked at).
-    match /serverConfig/{doc}    { allow read: if isOwner(); allow write: if false; }
+    // Server-only switches the rules themselves read (#google-binding:
+    // serverConfig/signIn.googleTieRequired). Written by the Admin SDK alone
+    // (scripts/require-google-ties.mjs). No client may write it, the Owner
+    // included: whoever could write it could switch a rule off. The Owner
+    // may read it, so the Directors screen can show whether the requirement
+    // is on (that is said in the Hub, never in a public log). The account
+    // check leaves its note for the Owner here too (serverConfig/signInAudit).
+    match /serverConfig/{doc}   { allow read: if isOwner(); allow write: if false; }
 
     // ── Deny everything else by default ─────────────────
     match /{document=**}         { allow read, write: if false; }
