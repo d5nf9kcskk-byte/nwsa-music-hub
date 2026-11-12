@@ -12,7 +12,14 @@
  * the step that attaches a Google identity is tried on it before anything
  * that exists is touched. Only when that has worked is the old account
  * deleted and the address moved over. So if this project turns out not to
- * allow one of those steps, the person still has the account they had.
+ * allow making an account or attaching an identity, the person still has
+ * the account they had.
+ *
+ * A failure AFTER the old account has gone (moving the address over, or
+ * attaching the person's own Google identity) leaves the person with no
+ * account until they sign in again: the session they have open carries on
+ * for up to an hour and then drops to the sign-in screen. One ordinary
+ * sign-in puts it right, and the Hub offers to confirm again.
  *
  * Nothing in the Hub is keyed by a sign-in account's id, so nothing is lost:
  * the person signs in once more and is on the fresh account. (The browser's
@@ -93,8 +100,9 @@ async function remove(auth: AccountAuth, uid: string): Promise<void> {
  * Make one fresh account for the address and delete whatever stood on it.
  * Returns the fresh account's id, or null when an account on the address has
  * been switched off on purpose (this must not be a way to switch it back
- * on). Throws if it cannot finish; nothing half-made is left behind, and if
- * it fails before the old account is touched, the old account is as it was.
+ * on). Throws if it cannot finish; nothing half-made is left behind. If it
+ * fails before the old account is touched, the old account is as it was; if
+ * it fails after, the person signs in again (see the top of this file).
  */
 export async function freshAccount(auth: AccountAuth, spec: FreshAccountSpec): Promise<string | null> {
   if ((await find(auth, spec.email))?.disabled) return null;

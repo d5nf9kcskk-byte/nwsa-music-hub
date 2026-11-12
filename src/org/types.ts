@@ -291,6 +291,13 @@ export interface OrgConfig {
      */
     bannerDrafter: boolean;
     /**
+     * This deployment has the server step that confirms each listed person's
+     * Google account (#google-binding, the `bindGoogle` Cloud Function).
+     * TRUE for NWSA only. The demo projects have no Cloud Functions, so with
+     * this false their Hub never offers "Confirm now": it could only fail.
+     */
+    googleConfirm: boolean;
+    /**
      * Email-and-password staff sign-in beside Google (#password-sign-in).
      * FALSE everywhere today: with it off the sign-in screen and the
      * Directors screen are exactly as they were, and the `passwordSetup`

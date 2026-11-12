@@ -70,6 +70,7 @@
     "absenceReport": false,
     "personnel": false,
     "bannerDrafter": false,
+    "googleConfirm": false,
     "passwordSignIn": false
   },
   "program": {

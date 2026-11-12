@@ -51,6 +51,9 @@ export function needsReview(user, entry) {
   // The entry records which account is this person's: it must be this one,
   // with the Google identity the entry names and no other.
   if (entry?.googleSub && (!google.length || google[0].uid !== entry.googleSub)) return true;
+  // A record made with a password alone names no Google identity, so its
+  // account should carry none.
+  if (entry?.passwordSet === true && !entry.googleSub && entry.boundUid === user.uid && google.length) return true;
   if (entry?.boundUid && user.uid !== entry.boundUid) return true;
   return false;
 }
@@ -70,6 +73,7 @@ if (process.argv.includes('--selfcheck')) {
     [{ email: 'pat@school.test', providerData: [{ providerId: 'google.com', email: 'pat@school.test' }, { providerId: 'phone' }] }, undefined, true, 'a Google account with something else on it'],
     [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'google.com', uid: 'g1', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, { ...tied, passwordSet: true }, false, 'the account on record, with the password the server set and the entry\'s Google identity'],
     [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, { boundUid: 'u1', passwordSet: true }, false, 'the account on record of a person who has only ever used a password'],
+    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'google.com', uid: 'g1', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, { boundUid: 'u1', passwordSet: true }, true, 'that same account with a Google identity on it, when its entry names none'],
     [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'google.com', uid: 'g1', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, tied, true, 'a password on the account on record that the server did not set'],
     [{ uid: 'u2', email: 'pat@school.test', providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, { boundUid: 'u1', passwordSet: true }, true, 'a password account that is not the one on record'],
     [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'google.com', uid: 'g-other', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, { ...tied, passwordSet: true }, true, 'the account on record, but with a Google identity that is not the entry\'s'],

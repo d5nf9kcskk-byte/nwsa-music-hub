@@ -80,6 +80,8 @@ export interface SetupDeps {
   saveToken(id: string, record: { email: string; expiresAt: number }): Promise<void>;
   /** Throw away every unused link for this address, so only the newest email's link works. */
   retireTokens(email: string): Promise<void>;
+  /** Whose link is this? Read only: the link is NOT used up. Null if there is no such link. */
+  peekToken(id: string): Promise<{ email: string } | null>;
   /** Use a token up: the record if it existed and has not expired, else null. Never usable twice. */
   takeToken(id: string, now: number): Promise<{ email: string } | null>;
   sendMail(mail: MailDoc): Promise<void>;
@@ -95,7 +97,11 @@ export interface SetupDeps {
 }
 
 export const newToken = (): string => randomBytes(32).toString('base64url');
-/** Tokens are stored hashed: the database never holds a usable link. */
+/**
+ * Tokens are stored hashed: `passwordSetup` never holds a usable link. (The
+ * email waiting to be sent, in `mail`, does carry the whole link until it is
+ * used or an hour passes. No browser can read `mail`.)
+ */
 export const tokenId = (token: string): string => createHash('sha256').update(token).digest('hex');
 /** A stable, address-free key for a rate-limit doc. */
 export const limitKey = (kind: 'req' | 'done' | 'to' | 'day' | 'all', value: string): string =>
@@ -218,7 +224,7 @@ export type CompleteOutcome =
   | { status: 'weak' }
   /** The link is unknown, used, retired, expired, or its person is no longer listed. */
   | { status: 'expired' }
-  /** Too many tries from this network address. Nothing was looked at; the link still works. */
+  /** Too many tries from this network address, or the person's claim is busy. The link was not used; it still works. */
   | { status: 'limited' };
 
 export async function completeSetup(
@@ -226,42 +232,57 @@ export async function completeSetup(
 ): Promise<CompleteOutcome> {
   if (!await deps.allow(limitKey('done', caller), COMPLETE_CALLER_LIMIT.max, COMPLETE_CALLER_LIMIT.windowMs)) return { status: 'limited' };
   if (typeof token !== 'string' || !token) return { status: 'expired' };
-  // The token is used up HERE, before anything else is looked at: a link
-  // works once, whether or not what follows succeeds. A failure leaves at
-  // worst an account the entry does not name, which the rules refuse, and
-  // the person asks for a new link. (The token is never compared with a
-  // stored secret, so there is no comparison to time: its hash is the name
-  // of the record, and the lookup finds that record or does not.)
-  const record = await deps.takeToken(tokenId(token), deps.now());
-  if (!record) return { status: 'expired' };
-  const email = record.email;
-  // The screen checks these before it sends, so a person never loses a link
-  // to a typo. They are checked again here because the screen is not the
-  // only thing that can call this.
-  if (!passwordAcceptable(password) || normaliseEmail(password) === email) return { status: 'weak' };
+  // Whose link is it? Looked up WITHOUT using it up, so that the person's
+  // claim can be taken first: a link must not be spent while this waits on
+  // a claim that a request which died left behind.
+  const named = await deps.peekToken(tokenId(token));
+  if (!named) return { status: 'expired' };
+  const email = named.email;
   // One request at a time per person, the Google step's requests included
-  // (entryLock.ts): the entry is read, the account replaced and the record
-  // written with no other request for this person in between.
-  const recorded = await deps.lock(email, async () => {
-    // Still on the list at this moment, not just when the link was sent.
-    const director = await deps.getDirector(email);
-    if (!director) return false;
+  // (entryLock.ts): the link is used up, the entry read, the account
+  // replaced and the record written with no other request for this person
+  // in between.
+  let outcome: CompleteOutcome | 'recorded';
+  try {
+    outcome = await deps.lock(email, async (): Promise<CompleteOutcome | 'recorded'> => {
+      // The token is used up HERE, before anything else is looked at: a link
+      // works once, whether or not what follows succeeds. A failure leaves at
+      // worst an account the entry does not name, which the rules refuse, and
+      // the person asks for a new link. (The token is never compared with a
+      // stored secret, so there is no comparison to time: its hash is the name
+      // of the record, and the lookup finds that record or does not.)
+      const record = await deps.takeToken(tokenId(token), deps.now());
+      if (!record || record.email !== email) return { status: 'expired' };
+      // The screen checks these before it sends, so a person never loses a link
+      // to a typo. They are checked again here because the screen is not the
+      // only thing that can call this.
+      if (!passwordAcceptable(password) || normaliseEmail(password) === email) return { status: 'weak' };
+      // Still on the list at this moment, not just when the link was sent.
+      const director = await deps.getDirector(email);
+      if (!director) return { status: 'expired' };
 
-    // The account that gets recorded is ALWAYS a fresh one (freshAccount.ts).
-    // The only thing attached to it besides the password is the Google
-    // identity the ENTRY names, if it names one.
-    const googleSub = typeof director.googleSub === 'string' ? director.googleSub : '';
-    const uid = await freshAccount(deps.auth, {
-      email,
-      password,
-      ...(googleSub ? { google: { providerId: 'google.com', uid: googleSub, email } } : {}),
+      // The account that gets recorded is ALWAYS a fresh one (freshAccount.ts).
+      // The only thing attached to it besides the password is the Google
+      // identity the ENTRY names, if it names one.
+      const googleSub = typeof director.googleSub === 'string' ? director.googleSub : '';
+      const uid = await freshAccount(deps.auth, {
+        email,
+        password,
+        ...(googleSub ? { google: { providerId: 'google.com', uid: googleSub, email } } : {}),
     });
     // An account on the address was switched off on purpose. A link must not
     // be a way to switch it back on.
-    if (!uid) return false;
-    return deps.bind(email, uid, deps.now());
-  });
-  if (!recorded) return { status: 'expired' };
+    if (!uid) return { status: 'expired' };
+    return await deps.bind(email, uid, deps.now()) ? 'recorded' : { status: 'expired' };
+    });
+  } catch (e) {
+    // The claim could not be had in time (another request for this person
+    // is still running, or one died a moment ago). Nothing was looked at
+    // and the link has NOT been used: the person tries again shortly.
+    if ((e as { code?: unknown } | null)?.code === 'hub/busy') return { status: 'limited' };
+    throw e;
+  }
+  if (outcome !== 'recorded') return outcome;
   // Tell the person, at the address the link went to. If the notice cannot
   // be sent the password is still set; that is not a reason to fail.
   try { await deps.sendMail(buildDoneMail(email, deps.appName)); } catch { /* the password stands */ }

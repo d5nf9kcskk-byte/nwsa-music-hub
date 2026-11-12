@@ -40,7 +40,7 @@ export function googleBindingStore(
       const snap = await db.doc(`directors/${email}`).get();
       if (!snap.exists) return null;
       const text = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
-      return { googleSub: text(snap.get('googleSub')), boundUid: text(snap.get('boundUid')) };
+      return { googleSub: text(snap.get('googleSub')), boundUid: text(snap.get('boundUid')), passwordSet: snap.get('passwordSet') === true };
     },
     replaceAccount(spec) {
       return freshAccount(auth, spec);

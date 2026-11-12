@@ -330,11 +330,28 @@ async function s3_noAccountYet() {
   must(await getsIn(phone.d, email) === true, 'and gets in: Firestore, Storage and the functions agree');
   must(await codeOf(signInWithEmailAndPassword(device('guess').auth, email, 'not caras password')) !== 'ok', 'a wrong password does not sign in');
 
-  // Later she uses Google for the first time. A Google tie always makes the
-  // account afresh, and a fresh account has no password.
+  // Later a Google sign-in turns up for her address. Her record was made
+  // with her own inbox and names no Google identity, so a Google sign-in
+  // does not get to replace it by itself, whoever's it is.
+  const first = await googleOnly('a-google-sign-in', email);
+  must(await getsIn(first.d, email) === false, 'a Google sign-in for the address of a person who has only a password: refused everywhere');
+  must(await askToBind(first.d) === 'other-account', 'its Hub asks: "other-account" (the screen says to ask the Owner)');
+  const same = await director(email);
+  const still = await adminAuth.getUser(d.boundUid);
+  must(same.googleSub === undefined && same.boundUid === d.boundUid && same.passwordSet === true && still.uid === d.boundUid,
+    'the record and the account it names are exactly as they were');
+  must(await refresh(phone.d) === 'ok' && await getsIn(phone.d, email) === true
+    && await getsIn((await byPassword('cara-phone-again', email, 'caras own pass 1')).d, email) === true,
+  'and she is still in by password: the session she had, renewed, and a new sign-in');
+
+  // She does want Google: the Owner resets her record, and then her Google
+  // sign-in is confirmed. A confirm always makes the account afresh, and a
+  // fresh account has no password.
+  await adminDb.doc(`directors/${email}`).update(Object.fromEntries(['googleSub', 'boundUid', 'boundAt', 'passwordSet'].map(k => [k, FieldValue.delete()])));
+  must(await getsIn(phone.d, email) === false, 'the Owner resets her record: out, until she confirms');
   const g = await google('cara-laptop', email);
   const d2 = await director(email);
-  must(g.tie === 'again' && g.user.uid === d2.boundUid && d2.googleSub === `google-${email}` && await getsIn(g.d, email) === true, 'her first Google sign-in is confirmed on a fresh account, and gets in');
+  must(g.tie === 'again' && g.user.uid === d2.boundUid && d2.googleSub === `google-${email}` && await getsIn(g.d, email) === true, 'now her Google sign-in is confirmed on a fresh account, and gets in');
   must(d2.passwordSet !== true && await getsIn(phone.d, email) === false && await refresh(phone.d) !== 'ok', 'the password session from before is out, and the entry no longer says a password is set');
   must(await codeOf(signInWithEmailAndPassword(device('cara-old-pass').auth, email, 'caras own pass 1')) !== 'ok', 'the old password no longer signs in: she sets one again by link');
   must((await setPassword(email, 'caras own pass 2')).status === 'done', 'which she does');

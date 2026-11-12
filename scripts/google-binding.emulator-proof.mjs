@@ -539,6 +539,18 @@ async function s8_theStoreItself() {
       'both devices open it with the same Google sign-in and are in');
     must(!(await adminDb.doc(`signInLocks/${email}`).get()).exists, 'and the claim that kept them apart has been let go');
   }
+  {
+    // A claim left behind by a request that died. Made here directly.
+    const email = 'ona@school.test';
+    await list(email);
+    const ona = await google('ona-phone', email);
+    await adminDb.doc(`signInLocks/${email}`).set({ at: Date.now() - 61_000, id: 'left-by-a-request-that-died' });
+    must(await askToBind(ona.d) === 'again' && !(await adminDb.doc(`signInLocks/${email}`).get()).exists,
+      'a claim left behind more than a minute ago does not block the person: the request takes it over, and lets go of its own');
+    await adminDb.doc(`signInLocks/${email}`).set({ at: Date.now() + 3_600_000, id: 'dated-in-the-future' });
+    const onaAgain = await google('ona-phone', email, undefined, ona.d);
+    must(await askToBind(onaAgain.d) === 'bound' && await all(onaAgain.d, email, true), 'and neither does one dated in the future');
+  }
 }
 
 await adminDb.doc('students/probe').set({ name: 'Probe Student (fictional)' });

@@ -69,6 +69,7 @@
     "contactForm": true,
     "personnel": true,
     "bannerDrafter": false,
+    "googleConfirm": false,
     "passwordSignIn": false
   },
   "program": {

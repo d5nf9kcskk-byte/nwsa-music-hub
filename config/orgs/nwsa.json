@@ -48,6 +48,7 @@
     "absenceReport": true,
     "personnel": false,
     "bannerDrafter": false,
+    "googleConfirm": true,
     "passwordSignIn": false
   },
   "program": {

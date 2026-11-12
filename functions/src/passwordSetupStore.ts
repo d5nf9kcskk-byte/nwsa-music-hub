@@ -49,6 +49,11 @@ export function passwordSetupStore(
       const unused = await db.collection('passwordSetup').where('email', '==', email).get();
       await Promise.all(unused.docs.map(d => d.ref.delete()));
     },
+    async peekToken(id) {
+      const snap = await db.doc(`passwordSetup/${id}`).get();
+      const email: unknown = snap.get('email');
+      return snap.exists && typeof email === 'string' ? { email } : null;
+    },
     async takeToken(id, now) {
       // One transaction: of several tries with the same link at the same
       // moment, exactly one finds it.

@@ -19,6 +19,8 @@
  *   • the checks themselves stay wired into the deploys.
  */
 import { readFileSync } from 'node:fs';
+import type { Firestore } from 'firebase-admin/firestore';
+import { entryLock, claimIsLive, LOCK_STALE_MS, LOCK_SKEW_MS } from './entryLock.ts';
 import { createSign, generateKeyPairSync } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -59,7 +61,7 @@ function harness(opts: { user?: BindUser | null; entries?: Record<string, Record
     async getEntry(email) {
       log.push(`list ${email}`);
       const e = entries.get(email);
-      return e ? { googleSub: e.googleSub as string | undefined, boundUid: e.boundUid as string | undefined } : null;
+      return e ? { googleSub: e.googleSub as string | undefined, boundUid: e.boundUid as string | undefined, passwordSet: e.passwordSet === true } : null;
     },
     async replaceAccount(spec) {
       log.push(`replace ${spec.alsoDelete} ${spec.google.uid}`);
@@ -138,6 +140,22 @@ for (const [label, google] of [
     'bindGoogle reads "verified" from Google\'s token and from nowhere else');
 }
 
+// ── A record made with a password alone is not replaced by a Google sign-in ─
+{
+  const h = harness({ entries: { [EMAIL]: { roles: ['director'], boundUid: 'password-account', boundAt: 5, passwordSet: true } } });
+  check(await bindGoogle(h.deps, claims(), saysGoogle()) === 'other-account', 'an entry with a password record and no Google identity: "other-account"');
+  const e = h.entries.get(EMAIL)!;
+  check(!h.log.some(l => /^(replace|tie)/.test(l)) && e.googleSub === undefined && e.boundUid === 'password-account' && e.passwordSet === true,
+    'no account is replaced and the record is exactly as it was');
+  const onIt = harness({ user: googleUser({ uid: 'password-account' }), entries: { [EMAIL]: { roles: ['director'], boundUid: 'password-account', boundAt: 5, passwordSet: true } } });
+  check(await bindGoogle(onIt.deps, claims({ uid: 'password-account' }), saysGoogle()) === 'other-account' && !onIt.log.some(l => /^(replace|tie)/.test(l)),
+    'the same when the Google sign-in is on the recorded account itself');
+  const reset = harness({ entries: { [EMAIL]: { roles: ['director'] } } });
+  check(await bindGoogle(reset.deps, claims(), saysGoogle()) === 'again', 'once the Owner has reset the record, a Google sign-in is confirmed as usual');
+  const off = harness({ entries: { [EMAIL]: { roles: ['director'], boundUid: 'x', passwordSet: false } } });
+  check(await bindGoogle(off.deps, claims(), saysGoogle()) === 'again', 'a record with the password mark off is not held back');
+}
+
 // ── Other kinds of sign-in ──────────────────────────────────────────────────
 for (const [label, c] of [
   ['a password sign-in', claims({ firebase: { sign_in_provider: 'password', identities: { 'google.com': ['g-pat'] } } })],
@@ -203,7 +221,7 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
   const other = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const keys: GoogleJwk[] = [{ ...(publicKey.export({ format: 'jwk' }) as GoogleJwk), kid: 'key-1' }];
   const b64 = (v: unknown) => Buffer.from(typeof v === 'string' ? v : JSON.stringify(v)).toString('base64url');
-  const good = { iss: 'https://accounts.google.com', aud: AUD, sub: 'g-pat', email: 'Pat@School.test', email_verified: true, iat: NOW / 1000 - 10, exp: NOW / 1000 + 3000 };
+  const good = { iss: 'https://accounts.google.com', aud: AUD, azp: AUD, sub: 'g-pat', email: 'Pat@School.test', email_verified: true, iat: NOW / 1000 - 10, exp: NOW / 1000 + 3000 };
   const token = (payload: Record<string, unknown> = good, header: Record<string, unknown> = { alg: 'RS256', kid: 'key-1', typ: 'JWT' }, key = privateKey) => {
     const body = `${b64(header)}.${b64(payload)}`;
     return `${body}.${createSign('RSA-SHA256').update(body).sign(key).toString('base64url')}`;
@@ -227,6 +245,9 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
     ['issued for another project\'s sign-in', token({ ...good, aud: '999999999999-abc.apps.googleusercontent.com' })],
     ['issued for something that only starts like this project\'s number', token({ ...good, aud: `${PROJECT}9-abc.apps.googleusercontent.com` })],
     ['an audience that is a list', token({ ...good, aud: [AUD] })],
+    ['issued to nobody in particular (no "azp")', token({ ...good, azp: undefined })],
+    ['issued to some other party for this audience', token({ ...good, azp: '104857600000000000001' })],
+    ['issued to another of this project\'s clients', token({ ...good, azp: `${PROJECT}-other.apps.googleusercontent.com` })],
     ['expired', token({ ...good, exp: NOW / 1000 - 1 })],
     ['no expiry', token({ ...good, exp: undefined })],
     ['issued in the future', token({ ...good, iat: NOW / 1000 + 4000 })],
@@ -241,6 +262,59 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
   }
   check(read(token(), { keys: [] }) === null && read(token(), { projectNumber: '' }) === null, 'with no keys, or no project number, nothing is read');
   check(isProjectClientId(AUD, PROJECT) && !isProjectClientId(`x${AUD}`, PROJECT) && !isProjectClientId(`${AUD}.evil.test`, PROJECT) && !isProjectClientId(AUD, '12'), 'a sign-in client id is this project\'s only when it is exactly the project number, a dash, letters and digits, and Google\'s ending');
+}
+
+// ── The claim (entryLock.ts) ────────────────────────────────────────────────
+{
+  const fakeDb = () => {
+    const docs = new Map<string, Record<string, unknown>>();
+    const snap = (path: string) => ({ exists: docs.has(path), get: (f: string) => docs.get(path)?.[f] });
+    const tx = {
+      get: async (ref: { path: string }) => snap(ref.path),
+      set: (ref: { path: string }, data: Record<string, unknown>) => { docs.set(ref.path, data); },
+      delete: (ref: { path: string }) => { docs.delete(ref.path); },
+    };
+    const db = { doc: (path: string) => ({ path }), runTransaction: async <T>(fn: (t: typeof tx) => Promise<T>) => fn(tx) };
+    return { db: db as unknown as Firestore, docs };
+  };
+  const PATH = 'signInLocks/pat@school.test';
+  let clock = 5_000_000;
+  const tick = () => (clock += 10); // every look at the clock moves it on, so a wait ends
+  const quick = { now: tick, waitMs: 200, pollMs: 1 };
+
+  check(claimIsLive(1000, 1000) && claimIsLive(1000, 1000 + LOCK_STALE_MS - 1) && !claimIsLive(1000, 1000 + LOCK_STALE_MS), 'a claim is held for a minute and no longer');
+  check(claimIsLive(1000 + LOCK_SKEW_MS, 1000) && !claimIsLive(1000 + LOCK_SKEW_MS + 1, 1000) && !claimIsLive('soon', 1000) && !claimIsLive(undefined, 1000),
+    'a claim dated in the future (beyond a few seconds of clock difference) is not held, and neither is one with no time');
+
+  // An ordinary run: taken, then let go, whether or not the work fails.
+  const a = fakeDb();
+  let seen: Record<string, unknown> | undefined;
+  check(await entryLock(a.db, quick)('pat@school.test', async () => { seen = a.docs.get(PATH); return 'done'; }) === 'done' && typeof seen?.id === 'string' && !a.docs.has(PATH),
+    'a claim is taken for the work, carries an id of its own, and is let go afterwards');
+  let threw = false;
+  try { await entryLock(a.db, quick)('pat@school.test', async () => { throw new Error('the work failed'); }); } catch { threw = true; }
+  check(threw && !a.docs.has(PATH), 'and is let go when the work fails');
+
+  // A claim left by a crash.
+  const stale = fakeDb();
+  stale.docs.set(PATH, { at: clock - LOCK_STALE_MS - 1, id: 'left-by-a-crash' });
+  check(await entryLock(stale.db, quick)('pat@school.test', async () => 'took over') === 'took over' && !stale.docs.has(PATH), 'a claim left behind by a crash is taken over once it is a minute old');
+  const future = fakeDb();
+  future.docs.set(PATH, { at: clock + 3_600_000, id: 'dated-in-the-future' });
+  check(await entryLock(future.db, quick)('pat@school.test', async () => 'took over') === 'took over', 'and so is one dated in the future, which could otherwise never go stale');
+
+  // A claim someone else holds.
+  const held = fakeDb();
+  held.docs.set(PATH, { at: clock, id: 'someone-elses' });
+  let ran = false;
+  let code = '';
+  try { await entryLock(held.db, quick)('pat@school.test', async () => { ran = true; }); } catch (e) { code = (e as { code?: string }).code ?? ''; }
+  check(!ran && code === 'hub/busy' && held.docs.get(PATH)?.id === 'someone-elses', 'a claim someone else holds: the work does not run, the request gives up, and their claim is left alone');
+
+  // A run that outlived its claim must not let go of its successor's.
+  const late = fakeDb();
+  await entryLock(late.db, quick)('pat@school.test', async () => { late.docs.set(PATH, { at: clock, id: 'the-next-request' }); });
+  check(late.docs.get(PATH)?.id === 'the-next-request', 'a request lets go of its OWN claim only, never one another request has since taken');
 }
 
 // ── The fresh account ───────────────────────────────────────────────────────
@@ -371,9 +445,19 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
   'the deployed check uses Google\'s published keys and this project\'s own number');
   const core = noComments(readFileSync(resolve(here, 'googleBinding.ts'), 'utf8'));
   check(!/boundUid: uid|tie\(email, google\.sub, uid|tie\(email, entry\.googleSub, uid/.test(core), 'bindGoogle never records the account the caller arrived on');
+  check(core.includes("if (!entry.googleSub && entry.passwordSet === true) return 'other-account';")
+    && core.indexOf("if (!entry.googleSub && entry.passwordSet === true) return 'other-account';") < core.indexOf('deps.replaceAccount('),
+  'a record made with a password alone is answered "other-account" before any account is replaced');
   check(core.indexOf('deps.verifyGoogle(') < core.indexOf('deps.lock(') && core.indexOf('deps.lock(') < core.indexOf('deps.getUser('), 'Google\'s token is checked before the claim is taken, and the account is looked at only under it');
+  // Nothing in the token check can be switched off from outside: the two files that do it read no environment variable.
+  for (const file of ['googleBindingStore.ts', 'googleIdToken.ts']) {
+    check(!/process\.env/.test(readFileSync(resolve(here, file), 'utf8')), `${file} reads no environment variable (no way to skip the check)`);
+  }
   const lock = noComments(readFileSync(resolve(here, 'entryLock.ts'), 'utf8'));
-  check(/db\.doc\(`signInLocks\/\$\{email\}`\)/.test(lock) && /runTransaction/.test(lock) && /finally \{ await ref\.delete\(\)/.test(squash(lock)), 'the claim is one document per address, taken in a transaction and always let go');
+  check(/db\.doc\(`signInLocks\/\$\{email\}`\)/.test(lock) && /if \(snap\.exists && claimIsLive\(snap\.get\('at'\), now\(\)\)\) return false; tx\.set\(ref, \{ at: now\(\), id: mine \}\);/.test(squash(lock))
+    && /finally \{ await db\.runTransaction\(async tx => \{ const snap = await tx\.get\(ref\); if \(snap\.exists && snap\.get\('id'\) === mine\) tx\.delete\(ref\); \}\)\.catch\(\(\) => \{\}\); \}/.test(squash(lock))
+    && !/ref\.delete\(/.test(lock),
+  'the claim is one document per address, taken in a transaction, and a request lets go of its own claim only');
   for (const file of ['googleBinding.ts', 'googleBindingStore.ts', 'freshAccount.ts', 'entryLock.ts', 'googleIdToken.ts']) {
     check(!/console\./.test(noComments(readFileSync(resolve(here, file), 'utf8'))), `${file} logs nothing`);
   }
@@ -436,9 +520,19 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
   const gate = noComments(readFileSync(resolve(repo, 'src/director/components/AuthGate.tsx'), 'utf8'));
   check((gate.match(/bindGoogleAccount\(/g) ?? []).length === 1, 'the app asks the server in exactly one place');
   const record = gate.slice(gate.indexOf('async function recordWith('), gate.indexOf('async function confirmGoogle('));
-  check(/GoogleAuthProvider\.credentialFromResult\(result\)/.test(record) && /if \(!cred\?\.idToken \|\| !asksServer\(email\)\) return/.test(squash(record)),
-    'and only with Google\'s token from a real sign-in, and only when asksServer() says so');
-  check(/const asksServer = \(email: string\) => BREAK_GLASS_EMAILS\.includes\(email\);/.test(gate), 'FIRST LIVE RUN: only the founding addresses ask (remove this line\'s condition in the follow-up change, and this check with it)');
+  check(/GoogleAuthProvider\.credentialFromResult\(result\)/.test(record) && /if \(!cred\?\.idToken \|\| !ASKS_SERVER\) return/.test(squash(record)),
+    'and only with Google\'s token from a real sign-in, and only in a deployment that has the server step');
+  check(/bindGoogleAccount\(await result\.user\.getIdToken\(\), cred\.idToken\)/.test(record) && !/bindGoogleAccount\([^)]*accessToken/.test(record),
+    'what it sends is Google\'s ID token, never its access token');
+  // EVERYONE is asked now. The first-run condition must be gone from the app and from the server together:
+  // with the sign-in rules in place, a person whose Hub never offers to confirm could never get their file access back.
+  check(/const ASKS_SERVER = ORG\.features\.googleConfirm;/.test(gate) && !/asksServer/.test(gate),
+    'every listed person\'s Hub offers to confirm: the founders-only condition is not in the app');
+  check(!/firstRunAllows/.test(core) && !/firstRunAllows/.test(index) && !/firstRunAllows/.test(store),
+    'and not on the server either');
+  // Only a deployment that has the server step asks at all.
+  const flag = (org: string) => (JSON.parse(readFileSync(resolve(repo, `config/orgs/${org}.json`), 'utf8')) as { features: Record<string, unknown> }).features.googleConfirm;
+  check(flag('nwsa') === true && flag('asyo') === false && flag('as') === false, 'the Hub offers to confirm only where the server step exists: NWSA, and neither demo site');
   check(!/googleSub:|boundUid:|boundAt:/.test(gate), 'the app never writes the record');
 }
 

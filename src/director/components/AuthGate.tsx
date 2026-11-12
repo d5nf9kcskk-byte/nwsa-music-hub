@@ -35,14 +35,14 @@ import { HomeScreenHint } from './HomeScreenHint';
 const BREAK_GLASS_EMAILS = ORG.breakGlassEmails;
 
 /**
- * FIRST LIVE RUN (#google-binding). Only the founding addresses ask the
- * server to confirm their Google account. The server step replaces a
- * person's sign-in account, and that has only ever run on a test setup; so
- * the Owner goes first, alone, on the live project, and everyone else's Hub
- * asks for nothing. When the Owner's entry reads "Google account confirmed",
- * a small follow-up change makes this `() => true` (docs/google-binding.md).
+ * Does this Hub offer to confirm a person's Google account
+ * (#google-binding)? Only in a deployment that HAS the server step
+ * (`features.googleConfirm`: the demo sites have no Cloud Functions), and
+ * there, for every listed person. (On the first live run only the founding
+ * address was asked; that was proven and then removed, here and on the
+ * server together.)
  */
-const asksServer = (email: string) => BREAK_GLASS_EMAILS.includes(email);
+const ASKS_SERVER = ORG.features.googleConfirm;
 
 /**
  * Email-and-password sign-in beside Google (#password-sign-in). Off in every
@@ -285,7 +285,7 @@ export function AuthGate({ children }: Props) {
           setAgainCount(0);
           setConfirmNote(false);
         } else {
-          const offer = () => setConfirmNote(asksServer(email) && againCount() < 2 && !laterChosen());
+          const offer = () => setConfirmNote(ASKS_SERVER && againCount() < 2 && !laterChosen());
           if (!signedInBy) offer();
           else void signedInBy.then(by => { if (!cancelled && by !== 'password') offer(); });
         }
@@ -316,7 +316,7 @@ export function AuthGate({ children }: Props) {
         // have just signed in), wait for its answer instead of flashing a
         // screen.
         const forGoogle = () => {
-          if (err.code !== 'permission-denied' || !asksServer(email)) { fallBack(); return; }
+          if (err.code !== 'permission-denied' || !ASKS_SERVER) { fallBack(); return; }
           if (cancelled || recording.current) return;
           if (againCount() >= 2) { setMismatch('stuck'); setAccess('mismatch'); } else setAccess('confirm');
         };
@@ -429,8 +429,7 @@ export function AuthGate({ children }: Props) {
    */
   async function recordWith(result: UserCredential): Promise<BindAnswer | 'skipped'> {
     const cred = GoogleAuthProvider.credentialFromResult(result);
-    const email = directorEmailId(result.user.email ?? '');
-    if (!cred?.idToken || !asksServer(email)) return 'skipped';
+    if (!cred?.idToken || !ASKS_SERVER) return 'skipped';
     recording.current = true;
     try {
       // The browser keeps unsent changes per sign-in account. Give them a
@@ -850,9 +849,10 @@ export function AuthGate({ children }: Props) {
         ) : mismatch === 'other-account' ? (
           <p>
             You’re signed in as <strong>{user.email}</strong>, but {ORG.appName} has
-            a different Google account on file for that address. If you changed
-            Google accounts, ask the Owner to reset your sign-in on the
-            Directors screen, then sign in again.
+            a different sign-in on file for that address. If you changed
+            Google accounts, or have only used a password until now, ask the
+            Owner to reset your sign-in on the Directors screen, then sign in
+            again.
           </p>
         ) : (
           <p>

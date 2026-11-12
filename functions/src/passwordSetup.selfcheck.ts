@@ -38,7 +38,7 @@ function check(cond: unknown, msg: string) {
 interface FakeUser extends AccountRecord { password?: string }
 const PAT = 'pat@school.test';
 
-function harness(opts: { users?: FakeUser[]; listed?: Record<string, Record<string, unknown>>; bindFails?: boolean; mailFails?: 'done' } = {}) {
+function harness(opts: { users?: FakeUser[]; listed?: Record<string, Record<string, unknown>>; bindFails?: boolean; mailFails?: 'done'; busy?: () => boolean } = {}) {
   const users = new Map((opts.users ?? []).map(u => [u.uid, u]));
   const directors = new Map(Object.entries(opts.listed ?? { [PAT]: { role: 'director' } }));
   const tokens = new Map<string, { email: string; expiresAt: number }>();
@@ -90,6 +90,7 @@ function harness(opts: { users?: FakeUser[]; listed?: Record<string, Record<stri
       },
     },
     async lock(email, fn) {
+      if (opts.busy?.()) throw Object.assign(new Error('busy'), { code: 'hub/busy' });
       log.push(`lock ${email}`);
       try { return await fn(); } finally { log.push(`unlock ${email}`); }
     },
@@ -103,7 +104,9 @@ function harness(opts: { users?: FakeUser[]; listed?: Record<string, Record<stri
     },
     async saveToken(id, record) { tokens.set(id, record); },
     async retireTokens(email) { for (const [id, r] of tokens) if (r.email === email) tokens.delete(id); },
+    async peekToken(id) { const r = tokens.get(id); return r ? { email: r.email } : null; },
     async takeToken(id, now) {
+      log.push('take link');
       const r = tokens.get(id);
       tokens.delete(id);
       return r && r.expiresAt > now ? { email: r.email } : null;
@@ -250,6 +253,19 @@ async function linkFor(h: ReturnType<typeof harness>, email: string, caller = '1
   await linkFor(others, 'sam@school.test');
   check((await completeSetup(others.deps, pats, GOOD, '7.7.7.3')).status === 'done', 'someone else asking for THEIR link retires nobody else\'s');
   check(others.directors.get('sam@school.test')!.boundUid === undefined, 'and a link sets a password for its own address only');
+
+  // A link is not spent while the person's claim cannot be had.
+  let claimBusy = true;
+  const waiting = harness({ busy: () => claimBusy });
+  const t4 = await linkFor(waiting, PAT);
+  check((await completeSetup(waiting.deps, t4, GOOD, '1.1.1.1')).status === 'limited' && waiting.tokens.size === 1 && !waiting.log.includes('take link') && waiting.authCalls().length === 0,
+    'while the person\'s claim is busy: "try again shortly", the link is not used up, nothing is touched');
+  claimBusy = false;
+  check((await completeSetup(waiting.deps, t4, GOOD, '1.1.1.1')).status === 'done', 'and the same link works once the claim is free');
+  const ordered = harness();
+  await completeSetup(ordered.deps, await linkFor(ordered, PAT), GOOD, '1.1.1.1');
+  check(ordered.log.indexOf(`lock ${PAT}`) >= 0 && ordered.log.indexOf(`lock ${PAT}`) < ordered.log.indexOf('take link') && ordered.log.indexOf('take link') < ordered.log.indexOf(`unlock ${PAT}`),
+    'the link is used up only once the claim is held');
 
   const gone = harness();
   const t3 = await linkFor(gone, PAT);
@@ -457,10 +473,13 @@ for (const [label, existing] of [
   check(completeFn.indexOf("return { status: 'limited' }") < completeFn.indexOf('deps.takeToken('), '"too many tries" is decided before the link is looked at');
   check(completeFn.indexOf('deps.takeToken(') < completeFn.indexOf('passwordAcceptable(') && completeFn.indexOf('deps.takeToken(') < completeFn.indexOf('deps.getDirector('),
     'the link is used up before the password or the list is looked at');
-  const locked = completeFn.slice(completeFn.indexOf('await deps.lock(email, async () => {'));
-  check(locked.length > 0 && completeFn.indexOf('deps.getDirector(') > completeFn.indexOf('await deps.lock(email, async () => {')
-    && /deps\.getDirector\(email\)[\s\S]*freshAccount\(deps\.auth,[\s\S]*return deps\.bind\(email, uid, deps\.now\(\)\);\s*\}\);/.test(locked),
-  'the entry is read, the account replaced and the record written under one claim on the person');
+  const lockAt = completeFn.indexOf('await deps.lock(email, async ()');
+  const locked = completeFn.slice(lockAt);
+  check(lockAt > 0 && completeFn.indexOf('deps.peekToken(') < lockAt && completeFn.indexOf('deps.takeToken(') > lockAt && completeFn.indexOf('deps.getDirector(') > lockAt
+    && /deps\.takeToken\([\s\S]*deps\.getDirector\(email\)[\s\S]*freshAccount\(deps\.auth,[\s\S]*await deps\.bind\(email, uid, deps\.now\(\)\) \? 'recorded' : \{ status: 'expired' \};\s*\}\);/.test(locked),
+  'the link is used up, the entry read, the account replaced and the record written under one claim on the person, taken first');
+  check(/async peekToken\(id\) \{ const snap = await db\.doc\(`passwordSetup\/\$\{id\}`\)\.get\(\);/.test(squash(store)) && !/peekToken[\s\S]{0,200}\.delete\(/.test(store.slice(store.indexOf('async peekToken('), store.indexOf('async takeToken('))),
+    'looking up whose link it is reads and does not use it up');
   const ownerFn = core.slice(core.indexOf('export async function ownerSendLink'), core.indexOf('export type CompleteOutcome'));
   check(ownerFn.length > 0 && !/deps\.auth|deps\.bind|freshAccount|limitKey\('(to|day)'/.test(ownerFn) && /limitKey\('all', 'everyone'\)/.test(ownerFn),
     'the Owner\'s link touches no account and no record, skips the inbox\'s own caps and keeps the mailbox\'s');

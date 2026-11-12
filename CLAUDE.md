@@ -1177,13 +1177,18 @@ for them), `boundUid` (the one Hub sign-in account that goes with it),
 
 - **Only `bindGoogle` writes the record** (`functions/src/googleBinding.ts`),
   and only from the token GOOGLE signs at a real Google sign-in
-  (`googleIdToken.ts`: Google's keys, issued for this project, a verified
-  address that is the listed one). It reads "verified" from nowhere else. It
+  (`googleIdToken.ts`: Google's keys, issued for one of this project's
+  sign-in clients AND to that same client, a verified address that is the
+  listed one). Neither file that does that check reads an environment
+  variable, so nothing outside can switch it off. It reads "verified" from
+  nowhere else. It
   never creates an entry and never moves a record to a different Google
   account. The app sends that token along; it never writes the record.
 - **The account it records is always a FRESH one** (`freshAccount.ts`): a new
   account is made, the attach step is proven on it, and only then is the
-  account the caller arrived on deleted and the address moved over. The same
+  account the caller arrived on deleted and the address moved over. (A
+  failure after that point leaves the person with no account until they
+  sign in again, which puts it right.) The same
   Google sign-in then opens the fresh one, so there is no second pop-up. Do
   not "save a step" by recording the account the caller is already on: the
   fresh account is the mechanism, and `googleBinding.selfcheck.ts` fails if
@@ -1192,7 +1197,9 @@ for them), `boundUid` (the one Hub sign-in account that goes with it),
   why the app lets it empty first and why other devices must sign in again.
 - **One request at a time per person** (`entryLock.ts`, `signInLocks`, which
   no rule matches). Everything that reads or changes the account or the entry
-  happens under that claim.
+  happens under that claim. A claim carries an id of its own and a request
+  lets go of ITS claim only; one left by a crash, or dated in the future, is
+  ignored after a minute.
 - **No browser may set or alter the record, the Owner's included**
   (`bindingGuard()` in `firestore.rules`, pinned word for word by the
   self-check). The Owner may only REMOVE it from someone else's entry
@@ -1205,11 +1212,17 @@ for them), `boundUid` (the one Hub sign-in account that goes with it),
   they get a note with "Confirm now" and "Later", and after two tries that
   did not finish the note stays away until the Hub is next opened. Only when
   the rules refuse the session is there a "One more step" screen.
-- **FIRST LIVE RUN: only the founding addresses ask** (`asksServer` in
-  `AuthGate.tsx`). The Owner proves the server step on the live project
-  alone; a small follow-up change then makes it `() => true`. Do not remove
-  that condition in any other change. `docs/google-binding.md` has the steps,
-  what the Owner sees when it worked and when it did not, and the stop button
+- **The Hub offers to confirm only where the server step exists**:
+  `features.googleConfirm` in `config/orgs/*.json`, true for NWSA only. The
+  demo sites have founding addresses and no Cloud Functions, so there the
+  note could only fail.
+- **Every listed person is asked** (`ASKS_SERVER` in `AuthGate.tsx`). On
+  the first live run only the founding address was asked and recorded; that
+  condition was removed from the app and the server TOGETHER, and the
+  self-check now fails if it comes back on either side: once the sign-in
+  rules are in place, a person whose Hub never offers to confirm could
+  never get their file access back. `docs/google-binding.md` has the steps,
+  what a person sees when it worked and when it did not, and the stop button
   (delete the `bindGoogle` function in the Google Cloud console: a revert
   does not remove a deployed function).
 - **It goes live in steps, on purpose**: the Owner alone, then everyone, then
@@ -1306,22 +1319,32 @@ person, made afresh by the server, named on their entry.
   `passwordSetup` (one function, three actions) is the only thing that sets
   a password. `request` only emails a one-time link and answers the same,
   in the same time, whether or not the address is listed; a newer link
-  retires the older ones. `owner-send` is the Owner having the Hub email
+  retires the older ones. (The token is stored only as a hash in
+  `passwordSetup`; the outgoing `mail` document does carry the link itself
+  until it is used or expires, and no client can read `mail`.) `owner-send`
+  is the Owner having the Hub email
   one listed person that same link (Directors screen): it goes through the
   same staff test as every other function, then the Owner role, and it does
   not count against that inbox's own caps, which anyone asking in the
-  person's name can use up. `complete` takes the link's token (32 random
-  bytes, stored only as a hash, used up inside one transaction before
-  anything else is looked at), and then, under the same per-person claim
-  the Google step takes (`entryLock.ts`), re-checks the person is still
+  person's name can use up. `complete` looks up whose link it is without
+  using it, takes the same per-person claim the Google step takes
+  (`entryLock.ts`), and only then uses the token up (32 random bytes, one
+  transaction, before anything else is looked at), so a link is never spent
+  waiting on a claim. Under that claim it re-checks the person is still
   listed, makes the FRESH account through `freshAccount.ts` (the same step
   the Google tie uses), attaches the Google identity the ENTRY names and no
   other, and records it. Then it emails the person that a password was
   set. Every failure after the link is looked at gets one and the same
   answer. It signs nobody in.
+- **A record made with a password alone is not replaced by a Google
+  sign-in.** `bindGoogle` answers `other-account` for an entry with
+  `passwordSet` true and no `googleSub`, whoever's Google account it is;
+  the Owner's Reset is how such a person adds Google. Do not "helpfully"
+  confirm them instead: Google is not the authority for every address.
 - **A Google tie made afterwards clears `passwordSet`**, because a tie
   always makes the account afresh and a fresh account has no password. A
-  person who set a password before ever using Google sets it again by link.
+  person who adds Google (after the Owner's Reset) sets their password
+  again by link.
   The same happens when a Google identity the entry does not name turns up
   on the recorded account and asks: the account is made afresh for the
   identity the entry names, with no password on it.
