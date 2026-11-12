@@ -19,7 +19,8 @@
  *                   (so `about` is always a word from this file)
  *   X?              optional (works on a word, a group or a slot)
  *   UPPER           a macro from MACROS (a word set) or a typed slot:
- *     DATE          a whole date phrase, with "on", "for" or "by" before it
+ *     DATE          a whole date phrase, with "on" or "for" before it
+ *     DEADLINE      "by" and a date: only in a question about what is due
  *     GROUP EVENT PIECE VENUE ROOM PLACE FORM TASK TERM
  *                   a thing from the caller's names, on strong evidence
  *     GROUP+        the same, but only a name of two words or more: for a
@@ -64,7 +65,7 @@ export const MACROS: Record<string, string> = {
   NEXT: 'next|upcoming|proximo|proxima|siguiente',
   KIN: 'he|she|my son|my daughter|my kid|my child|my student|mi hijo|mi hija',
   MYKIN: 'my son|my daughter|my kid|my child|my student|mi hijo|mi hija',
-  KINS: 'his|her|my sons|my daughters|my kids|my childs|my students|su',
+  KINS: 'his|her|my sons|my daughters|my kids|my childs|my students',
   INSTR: INSTRUMENTS,
   CANC: 'cancelled|still on|still happening',
   SEASONS,
@@ -76,9 +77,12 @@ export const NEXT_WORDS = new Set(MACROS.NEXT.split('|'));
 
 const KINDS = ['group', 'event', 'piece', 'venue', 'room', 'form', 'task', 'term'];
 const slotSource = (name: string): string | undefined => {
-  if (name === 'DATE') return '(?:(?:on|for|by|el|para|del|de) )?~';
-  if (name === 'PERSON') return '(?<person>[a-z]+(?: [a-z]+){0,2}?)';
+  // Not "by": "what do I have by friday" is a deadline, not a day.
+  if (name === 'DATE') return '(?:(?:on|for|el|para|del|de) )?~';
+  if (name === 'PERSON') return '(?<person>0?\\p{L}+(?: 0?\\p{L}+){0,2}?)';
   if (name === 'PLACE') return '<(?:room|venue)1?>';
+  // "By friday" is a deadline, and only a question about what is due has one.
+  if (name === 'DEADLINE') return 'by ~';
   const m = name.match(/^([A-Z]+)([+!]?)$/);
   const kind = m && KINDS.find(k => k.toUpperCase() === m[1]);
   if (!kind) return undefined;
@@ -114,6 +118,10 @@ export interface AskCompiled {
   re: RegExp;
   /** The shortest and the longest sentence it accepts, for the self-check. */
   samples: AskSample[];
+  /** Words one of which must be in the sentence for this to fit (the first
+   *  position that is not optional). Only a shortcut: a sentence with none
+   *  of them is not tried. Left out when that position can be anything. */
+  keys?: string[];
 }
 
 const GREET = '(?:(?:hi|hey|hello|hola|please) )*';
@@ -139,10 +147,24 @@ export function compileTemplates(list: readonly AskTemplate[], extra: Record<str
     };
     const short = build(false);
     const long = build(true);
+    // What the first required position can start with, as sentence tokens.
+    const must = elements(src.t).find(e => !e.optional);
+    const starts = (must?.alts ?? []).map(a => {
+      const w = a.split(' ')[0];
+      if (w === 'PERSON' || w === 'DEADLINE') return null;
+      if (w === 'DATE') return ['~'];
+      if (w === 'PLACE') return ['<room', '<venue'];
+      const slot = w.match(/^([A-Z]+)[+!]?$/);
+      const kind = slot && KINDS.find(k => k.toUpperCase() === slot[1]);
+      if (kind) return [`<${kind}`];
+      return (macros[w] ?? w).split('|').map(x => x.split(' ')[0]);
+    });
+    const keys = starts.length > 0 && starts.every(k => k !== null) ? [...new Set(starts.flat() as string[])] : undefined;
     return {
       src,
-      re: new RegExp(`^${GREET}${elems.map(e => e.source).join('')}${THANKS}$`),
+      re: new RegExp(`^${GREET}${elems.map(e => e.source).join('')}${THANKS}$`, 'u'),
       samples: short.words.length === long.words.length ? [short] : [short, long],
+      ...(keys ? { keys } : {}),
     };
   });
 }
@@ -259,6 +281,7 @@ export const PUBLIC_TEMPLATES: AskTemplate[] = [
 
   /* What is due. */
   T('due', 'what is due DATE?'),
+  T('due', 'what is due DEADLINE'),
   T('due', 'what DO I have due DATE?'),
   T('due', '[homework|tarea|assignments]'),
   T('due', '[DO I have|is there|any|tengo|hay] any? [homework|tarea] DATE?'),
@@ -313,7 +336,7 @@ export const PUBLIC_TEMPLATES: AskTemplate[] = [
   T('concert', 'WHEN is THE? GROUP CON'),
   T('concert', 'where is THE? GROUP CON'),
   T('concert', 'GROUP CON'),
-  T('concert', 'what CONS are coming up', null),
+  T('concert', 'what CONS are coming up [this year]?', null),
   T('concert', 'how many CONS are left', null),
   T('concert', 'WHEN is THE? EVENT'),
   T('concert', 'EVENT+'),

@@ -193,6 +193,13 @@ export const HOSTILE: readonly AskName[] = Object.freeze([
 /** Nobody. Stands in for `{classmate}`. */
 export const CLASSMATE = 'Zelda Quillfeather';
 
+/** A made-up roster for the staff side, which answers a question about a
+ *  person only when the name is on the roster its caller passes in. Nobody
+ *  real: the roster was never read (#privacy). */
+export const PEOPLE: readonly string[] = Object.freeze([
+  CLASSMATE, 'Bartholomew Finch', 'Pembrook, Ottoline R.', 'Thaddeus Okonkwo-Reyes', 'Carmen Vellacourt',
+]);
+
 /**
  * First names to stand in for `{classmate}`, one at a time. The made-up
  * name above passes because it is unusual; these are the ones that used to

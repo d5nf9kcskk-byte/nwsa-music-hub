@@ -144,6 +144,9 @@ export interface AskStaffSide {
   oneWord: string[];
   /** The staff questions that are about a day. A roster is not. */
   dayIntents: AskIntent[];
+  /** The roster, passed in by the staff caller for one call: full names.
+   *  A PERSON slot is filled only by words of one of these. Never held. */
+  people?: readonly string[];
 }
 
 /* ── Words ────────────────────────────────────────────────────────────── */
@@ -202,11 +205,14 @@ const ONE_WORD = set(
   'bowings fingerings scales holidays',
 );
 
-/** Lower case, no accents, no punctuation. ':' and '/' survive for dates. */
+/** Lower case, no accents, no punctuation. ':' and '/' survive for dates.
+ *  A word in any script survives, and so does an emoji: "where is 李娜" has
+ *  three words, and the third is somebody's name. Deleting it would leave a
+ *  sentence about the person typing. */
 export function askWords(s: string): string {
   return normalizeText(s)
     .replace(/['’‘`´]/g, '')
-    .replace(/[^a-z0-9:/]+/g, ' ')
+    .replace(/[^\p{L}\p{N}\p{Extended_Pictographic}:/]+/gu, ' ')
     .replace(/\bmaster class/g, 'masterclass')
     .trim();
 }
@@ -243,7 +249,7 @@ const WAS_DATE = ' ~ ';
 const TIME_OF_DAY = /~\s+(?:(?:in|en|por|de|a|at)\s+(?:the\s+|la\s+)?)?(?:night|nite|morning|afternoon|evening|noche|tarde)\b/g;
 const NEXT_WORD = 'next|nxt|upcoming|proxim[oa]s?|siguiente';
 
-type DateHit = AskWhen | 'strip' | 'past' | 'unsure';
+type DateHit = AskWhen | 'strip' | 'past' | 'unsure' | 'morning';
 const DATE_WORDS: [RegExp, DateHit][] = [
   [/\b\d{1,2}:\d{2}(?: ?[ap]m)?\b|\b\d{1,2} ?[ap]m\b|\b(?:at|a las?) \d{1,2}\b(?![/:])/g, 'strip'],
   // Days AskWhen has no word for. Reading "pasado mañana" as tomorrow would
@@ -256,7 +262,7 @@ const DATE_WORDS: [RegExp, DateHit][] = [
   [/\blast night\b|\banoche\b/g, 'lastNight'],
   [/\blast week\b|\bla semana pasada\b/g, 'lastWeek'],
   [/\blast (?:month|time|year)\b/g, 'past'],
-  [/\bthis year\b|\beste ano\b|\b(?:por|en) la manana\b/g, 'strip'],
+  [/\b(?:por|en) la manana\b/g, 'morning'],
   [/\b(?:la )?(?:proxima|siguiente) semana\b|\bla semana que viene\b|\bne?xt weeks?\b/g, 'nextWeek'],
   [/\b(?:esta|this|the|my|mi) (?:semana|weeks?)\b/g, 'thisWeek'],
   [/\b(?:(?:this|the|el|este) )?(?:weekend|wknd|fin de semana|finde)\b/g, 'weekend'],
@@ -266,7 +272,7 @@ const DATE_WORDS: [RegExp, DateHit][] = [
   // Domingo is also a man's name, so it is Sunday only with its article.
   [/\b(?:el|este|los) domingo\b/g, 'weekday:sun'],
   ...WEEKDAYS.map(([day, sure]): [RegExp, DateHit] =>
-    [new RegExp(`\\b(?:(?:on|this|el|este|los) )?(?:${sure})\\b`, 'g'), `weekday:${day}` as AskWhen]),
+    [new RegExp(`\\b(?:(?:on|this|el|este) )?(?:${sure})\\b`, 'g'), `weekday:${day}` as AskWhen]),
 ];
 const PAST_WHEN = new Set<AskWhen>(['yesterday', 'lastNight', 'lastWeek']);
 /** "Next" names the one still to come, but "next to" is somewhere else. */
@@ -289,8 +295,9 @@ function takeDate(text: string): DateRead {
   const found = new Set<AskWhen>();
   let past = false;
   let unsure = false;
+  const real = (m: number, d: number) => m >= 1 && m <= 12 && d >= 1 && d <= MONTH_DAYS[m - 1];
   const dated = (m: number, d: number) => {
-    if (m < 1 || m > 12 || d < 1 || d > MONTH_DAYS[m - 1]) return false;
+    if (!real(m, d)) return false;
     found.add(`date:${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
     return true;
   };
@@ -313,8 +320,14 @@ function takeDate(text: string): DateRead {
     // ("playing in 6/8") or an idiom ("24/7"). Day first only in Spanish.
     const lead = whole.slice(0, at).match(/\b(on|el|for|para|del|by|due)\s*$/)?.[1];
     if (!lead) return all;
-    if (!dated(+m, +d) && !(/^(?:el|del|para)$/.test(lead) && dated(+d, +m))) return all;
-    return WAS_DATE;
+    if (/^(?:el|del|para)$/.test(lead)) {
+      // Spanish writes the day first, and in Miami plenty of people write
+      // it the school's way. When both readings are real days and they
+      // differ ("el 9/12"), there is no telling which was meant.
+      if (real(+m, +d) && real(+d, +m) && m !== d) { unsure = true; return all; }
+      return dated(+d, +m) || dated(+m, +d) ? WAS_DATE : all;
+    }
+    return dated(+m, +d) ? WAS_DATE : all;
   });
   // A month is a date with a day number beside it: "dec 9", "9 de diciembre",
   // "15 dec". ("May" is left out of the last shape: "exam 2 may be late".)
@@ -331,10 +344,10 @@ function takeDate(text: string): DateRead {
   };
   s = s.replace(new RegExp(`\\b(?:in|en|during|durante) (${MONTH})\\b`, 'g'), month);
   s = s.replace(new RegExp(`\\b(?!march\\b|may\\b|mar\\b)(${MONTH}) (?=(?:concert|concierto|recital|show)s?\\b)`, 'g'), month);
-  // "On the 15th" is the next 15th, and so is "the 15th" said alone. "Are we
-  // playing the 5th" is a symphony, and "9th grade" is not a day.
-  s = s.replace(/\bon the (\d{1,2})(?:st|nd|rd|th)\b|^the (\d{1,2})(?:st|nd|rd|th)$|\bel dia (\d{1,2})\b/, (all, d1, d2, d3) => {
-    const d = +(d1 ?? d2 ?? d3);
+  // "On the 15th" is the next 15th. "The 5th" alone, or "are we playing the
+  // 5th", may be a symphony, and "9th grade" is not a day.
+  s = s.replace(/\bon the (\d{1,2})(?:st|nd|rd|th)\b|\bel dia (\d{1,2})\b/, (all, d1, d2) => {
+    const d = +(d1 ?? d2);
     if (d < 1 || d > 31) return all;
     found.add(`day:${String(d).padStart(2, '0')}`);
     return WAS_DATE;
@@ -343,10 +356,14 @@ function takeDate(text: string): DateRead {
     s = s.replace(re, () => {
       if (hit === 'past') past = true;
       else if (hit === 'unsure') unsure = true;
+      else if (hit === 'morning') return ' ~am ';
       else if (hit !== 'strip') found.add(hit);
       return hit === 'strip' ? ' ' : WAS_DATE;
     });
   }
+  // "En la mañana" after a day is that day's morning; alone it is today's.
+  s = s.replace(/~\s+~am\b/g, '~');
+  if (s.includes('~am')) { found.add('today'); s = s.replace(/~am/g, '~'); }
   // The short forms are words too ("sat test", "wed like to", "the sun"),
   // so they are a day only where a day belongs: after "on" or "this", as
   // the last thing said, or before a time.
@@ -734,9 +751,42 @@ const SPELL: Record<string, string> = {
   canceled: 'cancelled', cancled: 'cancelled', orch: 'orchestra', symph: 'symphony', ens: 'ensemble',
   tchaik: 'tchaikovsky', midnite: 'midnight', xmas: 'christmas', nxt: 'next', perf: 'performance',
 };
-const tidy = (typed: string) =>
+/** Short accented words that really are the plain word: "qué", "día", "más". */
+const ACCENT_OK = set('que dia mas');
+const DATE_SHORT = set('mon tue wed thu fri sat sun jan feb mar apr may jun jul aug sep oct nov dec');
+/**
+ * Words typed AS A NAME, marked with a leading "0" so no template word and
+ * no date word can match them. Three shapes, all of them a short word that
+ * would otherwise vanish into a function word:
+ *   - two capitals among lower-case words ("is WE cancelled"): a short name,
+ *     not the pronoun, unless it follows "are" or "do"
+ *   - a capitalised word of three letters or fewer in mid-sentence ("where
+ *     is An", "what is My seat"): An, My, Su, Do and He are people too
+ *   - a short word with an accent that is not Spanish for the plain word
+ *     ("Mỹ", "Sú", "Ân")
+ * Only the template path uses this; a marked word can never be consumed, so
+ * the sentence is not confident.
+ */
+function markNames(typed: string): string {
+  const all = typed.match(/[\p{L}\p{M}]+/gu) ?? [];
+  const mixed = all.slice(1).some(w => /^\p{Ll}/u.test(w));
+  let at = 0;
+  let prev = '';
+  return typed.replace(/[\p{L}\p{M}]+/gu, w => {
+    const first = at++ === 0;
+    const before = prev;
+    const low = normalizeText(w);
+    prev = low;
+    if (!/^[a-z]+$/.test(low)) return w;
+    const accented = low.length <= 3 && low !== w.toLowerCase() && !ACCENT_OK.has(low);
+    const loud = mixed && /^\p{Lu}{2}$/u.test(w) && !BEFORE_PRONOUN.has(before);
+    const capital = mixed && !first && low.length <= 3 && /^\p{Lu}\p{Ll}*$/u.test(w) && low !== 'i' && low !== 'the' && !DATE_SHORT.has(low);
+    return accented || loud || capital ? `0${low}` : w;
+  });
+}
+const tidy = (typed: string, names = false) =>
   // "We'd" is "we would", not Wednesday.
-  askWords(typed.replace(/(\w)['’]d\b/g, '$1 would').replace(/(\w)['’]ll\b/g, '$1 will'))
+  askWords((names ? markNames(typed) : typed).replace(/(\w)['’]d\b/g, '$1 would').replace(/(\w)['’]ll\b/g, '$1 will'))
     .replace(/\brehe?a?r?s(?:al|el)(s?)\b/g, 'rehearsal$1')
     .replace(/\brehe?a?r?s(ing|ed)\b/g, 'rehears$1')
     .split(' ').map(w => SPELL[w] ?? w).join(' ');
@@ -746,23 +796,31 @@ interface Fired { rule: AskRule; spans: number[][]; kept: number[][] }
 /* ── Engine one: whole-sentence templates. The only way to confident. ─── */
 
 const PUBLIC = compileTemplates(PUBLIC_TEMPLATES);
+/** The same templates for the staff side, with the "my own child" positions
+ *  made unfillable: that is a parent's question, and staff have no "he". */
+const NOBODY = '§';
+const PUBLIC_FOR_STAFF = compileTemplates(PUBLIC_TEMPLATES, { KIN: NOBODY, MYKIN: NOBODY, KINS: NOBODY });
 const SLOT_OF: Record<AskNameKind, string> = {
   group: 'group', concert: 'event', assignment: 'task', piece: 'piece', venue: 'venue', room: 'room', form: 'form', term: 'term',
 };
 
 /** May this fit fill a slot, and as what? '' two words or more, '1' one
- *  word, '~' made entirely of ordinary words (only a slot whose template
- *  names the kind takes that), or not at all. */
+ *  word, '~' two words or more that are all ordinary (only a slot whose
+ *  template names the kind takes that), or not at all. */
 function fillAs(f: Found, toks: Tok[]): '' | '1' | '~' | undefined {
-  if (f.person || f.typo) return undefined;
-  if (f.n.kind === 'term') return f.whole ? '' : undefined;
-  if (f.whole && f.words >= 2) return f.plain ? '~' : '';
-  if (!f.whole) return f.distinctive >= 2 ? '' : undefined;
-  // One word: only the word itself, four letters or more, and not a
-  // first name. "Cam", "phil" and "WE" are offered, never believed.
+  // The WHOLE name, as the kit gives it (`name` or an `also`). Two words out
+  // of a longer title are not it: "philharmonic and camerata" is two groups,
+  // not their joint concert, and a recital named after a student is not
+  // where that student is.
+  if (f.person || f.typo || !f.whole) return undefined;
+  if (f.n.kind === 'term') return '';
+  if (f.words >= 2) return f.plain ? '~' : '';
+  // One word: only the word itself, four letters or more, not a first name
+  // and not an ordinary word. "Cam", "phil", "WE" and a piece called "Lost"
+  // are offered, never believed.
   const w = toks[f.hits[0]].w;
-  if (f.loose > 0 || w.length < 4 || GIVEN_NAMES.has(w)) return undefined;
-  return f.plain ? '~' : '1';
+  if (f.loose > 0 || w.length < 4 || GIVEN_NAMES.has(w) || f.plain) return undefined;
+  return '1';
 }
 
 /** Every reading some template gives the whole sentence. One means it is
@@ -771,15 +829,16 @@ function fillAs(f: Found, toks: Tok[]): '' | '1' | '~' | undefined {
  *  sentences with more than one. */
 export function askTemplateReadings(typed: string, names: readonly AskName[], side?: AskStaffSide): AskReading[] {
   if (typed.length > MAX_LENGTH) return [];
-  const cleaned = tidy(typed);
+  const cleaned = tidy(typed, true);
   if (!cleaned) return [];
   const date = takeDate(cleaned);
   if (date.unsure || (date.past && (!side || !date.when))) return [];
   const toks: Tok[] = date.kept.split(' ').filter(Boolean)
     .map(w => ({ w, frame: w === '~' || FRAME.has(w), dateAfter: false, loud: false }));
+  // One word is a question only if it is one of the few that are
+  // ("schedule", "forms"). "Practice", "show" and "program" are keywords.
+  if (toks.length === 1 && toks[0].w !== '~' && !ONE_WORD.has(toks[0].w) && !side?.oneWord.includes(toks[0].w)) return [];
   const found = findNames(toks, names);
-  const titled = new Set(found.filter(f => !f.person && !f.typo).flatMap(f => f.hits));
-
   // The fits that may fill a slot. Where two overlap, the one that covers
   // more words wins, then the whole name over part of one. A tie leaves
   // both, and two readings is no answer.
@@ -794,7 +853,8 @@ export function askTemplateReadings(typed: string, names: readonly AskName[], si
   // Staff templates are tried first. Where one fits, it is the reading: a
   // staff member asking "who is in camerata" wants the roster, and the
   // public reading of the same words does not make that a conflict.
-  for (const layer of side ? [side.templates, PUBLIC] : [PUBLIC]) {
+  // The "my own child" templates are for a parent. Staff have no "he".
+  for (const layer of side ? [side.templates, PUBLIC_FOR_STAFF] : [PUBLIC]) {
     const got = readings(layer);
     if (got.length > 0) return got;
   }
@@ -810,16 +870,18 @@ export function askTemplateReadings(typed: string, names: readonly AskName[], si
       else if (i === f.hits[0]) words.push(`<${SLOT_OF[f.n.kind]}${fillAs(f, toks)}>`);
     });
     const text = `${words.join(' ')} `;
+    const present = new Set(words.map(w => (w.startsWith('<') ? w.replace(/[1~]?>$/, '') : w)));
     for (const tpl of templates) {
+      if (tpl.keys && !tpl.keys.some(k => present.has(k))) continue;
       const m = tpl.re.exec(text);
       if (!m) continue;
-      const person = m.groups?.person;
+      const person = m.groups?.person?.replace(/(^| )0/g, '$1');
       if (person !== undefined) {
-        // A name: one to three words that are no ordinary word and no word
-        // of a thing. A first name always is one.
-        const at = text.slice(0, text.indexOf(`${person} `)).split(' ').filter(Boolean).length;
-        const ok = person.split(' ').every((w, k) => GIVEN_NAMES.has(w) || (!ordinary(w) && !titled.has(at + k)));
-        if (!ok) continue;
+        // A person is somebody on the roster the staff caller passed in:
+        // every word typed is a word of one name there. With no roster a
+        // name is only a guess by shape, and a guess is not an answer.
+        const words = person.split(' ');
+        if (!side?.people?.some(full => { const ws = everyWord(full); return words.every(w => ws.includes(w)); })) continue;
       }
       const i = tpl.src.intent;
       const fill = set[0];
@@ -1024,14 +1086,14 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide): As
 
     /* Words from the closed tables that are also the thing asked about. */
     let about: string | undefined = one?.n.name;
-    const keptIdx = fired
+    const keptSpans = fired
       // A how-to is a door, not a card: it is not about the exam it mentions.
       .filter(f => f.rule.intent === as || (as && !as.startsWith('how') && beats(as, f.rule.intent)))
       .flatMap(f => f.kept)
       // "The exam" is one exam, and the thing asked about. "A test" is any test.
-      .filter(k => !(as === 'due' && k[0] > 0 && ARTICLE.has(toks[k[0] - 1].w)))
-      .flat();
-    if (!about && keptIdx.length > 0) about = [...new Set(keptIdx)].sort((a, b) => a - b).map(i => toks[i].w).join(' ');
+      .filter(k => !(as === 'due' && k[0] > 0 && ARTICLE.has(toks[k[0] - 1].w)));
+    // One table word, never two joined: "finals semester" is not a word.
+    if (!about && keptSpans.length > 0) about = keptSpans[0].map(i => toks[i].w).join(' ');
     let person: string | undefined;
 
     const loose = () => toks.map((_, i) => i).filter(i => !claimed.has(i));
@@ -1061,7 +1123,7 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide): As
     if (side && loose().length > 0 && loose().length <= 3 && (rule?.person || whereIs)) {
       // A name takes no article: "where is the stapler" is not a person.
       const bare = !DETERMINER.has(toks[loose()[0] - 1]?.w);
-      const named = bare && loose().every(i => GIVEN_NAMES.has(toks[i].w) || (!ordinary(toks[i].w) && /^[a-z]+$/.test(toks[i].w)));
+      const named = bare && loose().every(i => GIVEN_NAMES.has(toks[i].w) || (!ordinary(toks[i].w) && /^\p{L}+$/u.test(toks[i].w)));
       if (named) {
         person = loose().map(i => toks[i].w).join(' ');
         loose().forEach(i => claimed.add(i));

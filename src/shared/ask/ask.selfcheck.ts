@@ -159,6 +159,8 @@ const SUBJECTS = [
   'sarah', 'zelda quillfeather', 'al', 'will', 'may', 'cam', 'phil', 'so', 'carmen', 'james', 'gilman', 'dr gilman',
   // Spanish
   'mi hijo', 'mi hija', 'el', 'la', 'ella', 'ellos', 'su hijo',
+  // names no Latin-letter table knows, and short names that are also little words
+  '李娜', 'Иван', '🐻', 'An', 'Ân', 'My', 'Mỹ', 'Su', 'Sú', 'Do', 'He', 'La', 'El', 'Una', 'Mi',
   // nobody at all
   '',
 ];
@@ -244,7 +246,7 @@ for (const [q, intent] of [
 const SLOT_WORDS: Record<string, string> = {
   DATE: 'tomorrow', GROUP: 'wind ensemble', EVENT: 'midnight ball', PIECE: 'lincoln portrait', VENUE: 'southwood middle school',
   ROOM: 'wolfson auditorium', PLACE: 'wolfson auditorium', FORM: 'orchestra assistant interview', TASK: 'camerata playing exam 2',
-  TERM: 'downbeat',
+  TERM: 'downbeat', DEADLINE: 'by tomorrow',
 };
 const slotWord = (w: string) => (isSlotName(w) ? SLOT_WORDS[w.replace(/[+!]$/, '')] : w);
 const NOT_ME = [
@@ -272,9 +274,12 @@ for (const c of compiled) {
     if (readings.length > 1) twoWays.push(`"${q}": ${readings.map(show).join(' | ')}`);
     const got = look(q);
     if (readings.length === 1 && got.intent !== c.src.intent) { unreached++; fail(`template "${c.src.t}": its sample "${q}" came back ${said(got)}`); }
+    // A one-word sample may be a word that is not a question by itself
+    // ("seat"); the template's longer sample ("my seat") is the reachable one.
+    if (readings.length === 0 && words.length === 1 && c.samples.length > 1) continue;
     if (readings.length === 0) { unreached++; fail(`template "${c.src.t}": its sample "${q}" matches no template`); }
     // One unknown word, at every position.
-    for (const extra of ['zzyzx', 'sarah', 'him']) {
+    for (const extra of ['zzyzx', 'sarah', 'him', '李娜', 'An', 'Mỹ', 'WE']) {
       for (let at = 0; at <= words.length; at++) {
         const broken = [...words.slice(0, at), extra, ...words.slice(at)].join(' ');
         leakyTotal++;
@@ -328,7 +333,8 @@ const HOSTILE_SAID = [
   'where is the bell', 'is bell cancelled', 'when is bell', 'where are the fields', 'is fields cancelled',
   'where is banks', 'is banks open today', 'when is home', 'what time is home', 'when is one', 'what time is the show',
   'when is time', 'when is the lesson', 'what time is rehearsal', 'when is winter', 'what time is go home',
-  'when is night and day', 'what time is family night',
+  'when is night and day', 'what time is family night', 'lost part', 'recording of rehearsal',
+  'program notes for spring', 'my lost part', 'who wrote home', 'recording of one',
 ];
 let fooled = 0;
 const same = (a: AskParse, b: AskParse) => a.confident === b.confident && a.intent === b.intent && a.when === b.when && a.about === b.about;
@@ -339,7 +345,7 @@ for (const q of [...publicCases.map(c => fill(c.q)), ...HOSTILE_SAID]) {
 }
 console.log(`Confident answers the hostile kit changed or created: ${fooled} (must be 0)`);
 // Not deaf either: a hostile thing is found where the template names its kind.
-for (const [q, name] of [['is composition cancelled', 'Composition'], ['program notes for night and day', 'Night and Day'], ['who wrote go home', 'Go Home']]) {
+for (const [q, name] of [['is composition cancelled', 'Composition'], ['program notes for night and day', 'Night and Day'], ['who wrote take five', 'Take Five']]) {
   const got = look(q, hostile);
   if (got.match?.name !== name) fail(`hostile kit: "${q}" should find ${name}, got ${said(got)}`);
 }
@@ -433,10 +439,27 @@ for (const q of ['when is violin masterclass', 'what time is violin masterclass'
 // A whole name, or two distinctive words of one, is believed with no question.
 expect('wind ensemble', { intent: 'group', about: 'wind ensemble' });
 expect('lincoln portrait', { intent: 'piece', about: 'lincoln portrait' });
-expect('jazz combos concert', { intent: 'concert', about: 'jazz combos' });
 expect('chamber music', { intent: 'group', about: 'chamber music' });       // "music" is part of the name
 expect('form and analysis', { intent: 'group', about: 'form & analysis' }); // so is "form"
-expect('when is jazz combo', { intent: 'myDay', when: 'next', about: 'jazz combo' });
+expect('whats due by friday', { intent: 'due', when: 'weekday:fri' });       // a deadline, in a question about what is due
+// Two words out of a longer title are not the title. They may be two other
+// things ("philharmonic and camerata" are two groups, not their concert).
+for (const q of [
+  'jazz combos concert', 'when is jazz combo', 'is philharmonic and camerata cancelled', 'when is nwsa symphony orchestra',
+  'string quartet', 'when is the concerto competition', 'side by side', 'field trip',
+]) refuse(q, 'part of a longer title');
+// A thing named after a person is not where that person is.
+const namedAfter: readonly AskName[] = [
+  ...NAMES, { kind: 'concert', name: 'Senior Recital: Malik Johnson' }, { kind: 'group', name: 'Malik Johnson Studio' },
+  { kind: 'venue', name: 'Imani Brooks Hall' }, { kind: 'form', name: 'Priya Raman Scholarship' },
+];
+for (const q of [
+  'where is malik johnson', 'address for malik johnson', 'what does malik johnson have today', 'is imani brooks here',
+  'where is imani brooks', 'when is priya raman', 'is malik johnson cancelled', 'malik johnson',
+]) {
+  const got = look(q, namedAfter);
+  if (got.confident) fail(`"${q}" names a person a thing is called after, and was answered: ${show(got)}`);
+}
 expect('where is the freedom tower concert', { intent: 'concert', about: 'freedom tower concert' });
 // Words no template has a position for.
 for (const q of [
@@ -451,6 +474,11 @@ for (const q of [
   'do we change for the concert', 'when is the concert rehearsal', 'pick up tickets', 'the play', 'the sign', 'is black',
   'a break', 'is she sick', 'has anyone seen my son', 'is my daughter part of symphony',
   'may i leave early', 'can i leave early', 'can i miss rehearsal', 'can i be absent friday',
+  // The code-reading review's: silent trimming, a short name read as a pronoun, single keywords.
+  'what are we playing this year', 'what is my schedule this year', 'what should i practice this year',
+  'what is WE playing friday', 'does WE have rehearsal today', 'what room is WE in',
+  'que hay el 9/12', 'que tengo el 5/11', 'what do i have by friday', 'is there school by friday', 'voy a faltar los viernes',
+  'the 5th', 'the 15th', 'practice', 'show', 'program', 'thanksgiving', 'documents', 'seat', 'class', 'recital',
   'what time is the concert and what do i wear', 'cuando es el concierto y que me pongo',
   'is there school on black friday', 'pick up my part', 'where do we change', 'do i have rehearsal over break',
 ]) refuse(q, 'a word no template has a position for');

@@ -131,6 +131,13 @@ export const STAFF_SIDE: AskStaffSide = {
   oneWord: ['requests', 'approvals', 'seniors', 'juniors', 'sophomores', 'freshmen', 'gradebook', 'absences'],
 };
 
-export function parseStaffAsk(text: string, names: readonly AskName[]): AskParse {
-  return parseAsk(text, names, STAFF_SIDE);
+/**
+ * `people` is the roster, as full names, for this one call. A question
+ * about a person ("where is <name>") is answered only when every word of
+ * the name typed is a word of one name on it. Leave it out and those
+ * questions come back as suggestions, with the name as typed in `person`.
+ * Nothing is kept between calls.
+ */
+export function parseStaffAsk(text: string, names: readonly AskName[], people?: readonly string[]): AskParse {
+  return parseAsk(text, names, people ? { ...STAFF_SIDE, people } : STAFF_SIDE);
 }
