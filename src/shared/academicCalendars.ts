@@ -56,27 +56,54 @@ export const MDCPS_NO_SCHOOL = new Set([
 ]);
 
 /**
- * Every weekday MDC campus holidays fall on, WITHIN a term — term start,
- * finals, and winter/spring break boundaries are date ranges handled
- * separately by `isCollegeSessionDay()` in `collegeSchedule.ts`, so they are
- * deliberately not repeated here. This is NOT the MDCPS list: it omits every
+ * Sources for everything this file and `isCollegeSessionDay()` say about
+ * Miami Dade College, all checked on 2026-11-12:
+ *
+ *   1. MDC Final Exam Schedule, Spring 2027 (Term 2273):
+ *      https://www.mdc.edu/finals/pdf/2273.pdf
+ *      The term runs 1/04/27 to 4/30/27. Exams are April 28, 29 and 30.
+ *   2. MDC Academic Calendar: https://www.mdc.edu/academics/calendar/
+ *      Classes begin Jan. 4. Spring break is Mar. 22 to 28. Mar. 4 is the
+ *      Employee Retreat, with no classes. April 30 is the last day of classes
+ *      and final exams.
+ *   3. MDC Holidays 2027: https://www.mdc.edu/academics/calendar/holidays-2027.aspx
+ *      MLK Jan. 16 to 18, Presidents' Day Feb. 13 to 15, spring break
+ *      Mar. 22 to 28.
+ *
+ * The rule: the college's term dates come from MDC's own published calendar
+ * and final exam schedule, never from the high school's last day. This file
+ * once ended the spring term on June 3 (the MDCPS last day) and ran spring
+ * break through March 29 (an MDCPS teacher planning day). Both were the high
+ * school's calendar leaking into the college's.
+ */
+
+/**
+ * Every weekday inside an MDC term when the college holds no classes. Term
+ * start, the last day of classes, and the winter and spring breaks are date
+ * ranges handled by `isCollegeSessionDay()` in `collegeSchedule.ts`, so they
+ * are not repeated here. This is NOT the MDCPS list: it omits every
  * MDCPS-only closure (teacher planning days, professional learning days,
  * grading-period boundaries, the extra MDCPS Thanksgiving recess days)
- * because MDC does not close campus for any of those.
+ * because MDC holds classes on all of those.
+ *
+ * Every date here is inside a term, so each one changes an answer
+ * (campusCalendar.selfcheck.ts holds that). Memorial Day (May 31, 2027) is an
+ * MDC holiday too, but it falls a month after the spring term ends on
+ * April 30, so the term boundary already covers it and it is not listed.
  */
 export const MDC_NO_SCHOOL = new Set([
   // Labor Day
   '2026-09-07',
   // Veterans Day
   '2026-11-11',
-  // Thanksgiving holiday
+  // Thanksgiving holiday (Nov 26 to 29)
   '2026-11-26', '2026-11-27',
-  // MLK Day
+  // MLK Day (Jan 16 to 18)
   '2027-01-18',
-  // Presidents Day
+  // Presidents' Day (Feb 13 to 15)
   '2027-02-15',
-  // Memorial Day
-  '2027-05-31',
+  // Employee Retreat. No classes. The college itself is open.
+  '2027-03-04',
 ]);
 
 export function isMdcpsSchoolDay(dateStr: string): boolean {
@@ -92,9 +119,11 @@ export function isMdcpsSchoolDay(dateStr: string): boolean {
  *
  * MDCPS: the district's first and last day, which are also the first grading
  * period's start and the last one's end (gradingPeriods.selfcheck.ts holds
- * the two together). MDC: the fall term's first day and the spring term's
- * last, the same two dates `isCollegeSessionDay()` in collegeSchedule.ts
- * refuses anything outside of (pinned there too).
+ * the two together). MDC: the first day of fall classes (Aug 24, 2026) and
+ * the last day of spring classes and final exams (April 30, 2027), from the
+ * sources listed above `MDC_NO_SCHOOL`. `isCollegeSessionDay()` in
+ * collegeSchedule.ts reads its two outer edges from here. It is NOT the high
+ * school's last day: the college finishes five weeks before MDCPS does.
  */
 export const MDCPS_YEAR = { from: '2026-08-13', to: '2027-06-03' } as const;
-export const MDC_YEAR = { from: '2026-08-24', to: '2027-06-03' } as const;
+export const MDC_YEAR = { from: '2026-08-24', to: '2027-04-30' } as const;

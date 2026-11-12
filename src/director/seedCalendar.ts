@@ -100,7 +100,9 @@ const MARKERS: { id: string; date: string; title: string; type: EventType; notes
   { id: 'mdc-winter-break',         date: '2026-12-21', title: 'MDC: Winter Break Begins',         type: 'Event', notes: mdcNote('2026-12-21') },
   { id: 'mdc-spring-start',         date: '2027-01-04', title: 'MDC: Spring 2027 Classes Begin',   type: 'Event', notes: mdcNote('2027-01-04') },
   { id: 'mdc-spring-break-start',   date: '2027-03-22', title: 'MDC: Spring Break Begins',         type: 'Event', notes: mdcNote('2027-03-22') },
-  { id: 'mdc-spring-break-end',     date: '2027-03-29', title: 'MDC: Spring Break Ends',           type: 'Event', notes: mdcNote('2027-03-29') },
+  // MDC's spring break is Mar 22 to 28. Mar 29 is the day classes are back,
+  // not a day of break. The id is kept so a re-seed updates the same marker.
+  { id: 'mdc-spring-break-end',     date: '2027-03-29', title: 'MDC: Classes Resume After Spring Break', type: 'Event', notes: mdcNote('2027-03-29') },
 ];
 
 // NWSA 2025-2026 schedule pattern (same rooms and times apply for 2026-2027).
