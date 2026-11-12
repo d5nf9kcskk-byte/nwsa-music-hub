@@ -529,12 +529,22 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
   const byId = match?.kind === 'concert' ? data.events.find(e => e.id === match.id) : undefined;
   const titled = match?.kind === 'concert'
     ? data.events.filter(e => e === byId || same(e.title, byId?.title) || same(e.title, match.name)).sort(byTime) : [];
-  const concert = (byId && !over(byId) ? byId : undefined)
-    ?? titled.find(e => !over(e) && isLive(e)) ?? titled.find(e => !over(e))
+  /** Behind us: over. For a PICKUP question, a concert with a pickup time
+   *  stored is still ahead until that time has passed, not only until it
+   *  ends: "when is pickup" at 9:10, after a 9:00 end, with pickup at 9:30. */
+  const behind = (x: { date?: string; startTime?: string; endTime?: string; pickupTime?: string }) => {
+    if (!over(x)) return false;
+    const pickup = intent === 'pickup' && x.date === today ? minutes(x.pickupTime) : undefined;
+    if (pickup === undefined) return true;
+    const start = minutes(x.startTime);
+    return (start !== undefined && pickup <= start ? pickup + 24 * 60 : pickup) <= clock;
+  };
+  const concert = (byId && !behind(byId) ? byId : undefined)
+    ?? titled.find(e => !behind(e) && isLive(e)) ?? titled.find(e => !behind(e))
     ?? byId ?? titled[titled.length - 1];
   // A concert that is over is the past, like any day gone by: it is not
   // answered about, and never in the present tense ("Call time for ...").
-  if (concert && over(concert)) return none();
+  if (concert && behind(concert)) return none();
   // A room or a hall: the directory's own entry, or the words an event uses.
   const asked = match?.kind === 'room' || match?.kind === 'venue' ? match.name : undefined;
   const room = asked ? (data.locations ?? []).find(l => same(l.room, asked) || same(l.label, asked)) : undefined;
@@ -924,7 +934,7 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
   const coming = (me: AskStudent | undefined) => {
     const all = concerts(me);
     if (concert) return all;
-    return !when || when === 'next' || place ? all.filter(i => !over(i)) : window(all);
+    return !when || when === 'next' || place ? all.filter(i => !behind(i.event!)) : window(all);
   };
 
   const concertAnswer = (me: AskStudent | undefined): Result => {
@@ -950,8 +960,11 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     const general = !me;
     const all = coming(me);
     const named = !!(concert || place || group || piece);
-    const next = all.find(i => i.live && (named || what === 'pickup' || !i.attendanceOnly));
+    // A pickup still ahead of a concert that has ended is the players'. To
+    // somebody who sat in its audience, that concert is over.
+    const next = all.find(i => i.live && !(i.attendanceOnly && over(i)) && (named || what === 'pickup' || !i.attendanceOnly));
     if (!next) {
+      if (concert && over(concert)) return null;
       const off = all.find(i => !i.live);
       return off && named ? ok(statuses([off]), [eventCard(off)], general) : ok(L.noConcert(!general, days, groupName), [], general);
     }

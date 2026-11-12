@@ -1579,6 +1579,29 @@ check('the sweep really ran', SWEEP.length === ASK_ANSWERS.length * WHENS.length
   }
   eq('30. an hour before it ends, it is still answered', ask(q('callTime', C1), ['ada'], { now: at('2026-10-10', '20:00') }).sentence,
     'Call time for Fall Concert: today <18:00>.');
+  // Pickup is the one question still open after the end: until the pickup
+  // time, when one is stored. Chamber Night ends at 9:00, pickup is 9:30.
+  const curb = { now: at('2026-10-17', '21:10') };
+  const PICKUP = 'Pickup for Chamber Night: today <21:30>.';
+  eq('30. pickup by name, ten minutes after the end, for a player', [ask(q('pickup', C2), ['ben'], curb).sentence, cardsOf(ask(q('pickup', C2), ['ben'], curb))],
+    [PICKUP, ['event:c2']]);
+  eq('30. the same with nobody saved', ask(q('pickup', C2), [], curb).sentence, PICKUP);
+  eq('30. the same with no concert named', ask(q('pickup', { when: 'next' }), ['ben'], curb).sentence, PICKUP);
+  eq('30. and before the end, as ever', ask(q('pickup', C2), ['ben'], { now: at('2026-10-17', '20:45') }).sentence, PICKUP);
+  eq('30. at the pickup time it is the past', ask(q('pickup', C2), ['ben'], { now: at('2026-10-17', '21:30') }).sentence, past.sentence);
+  eq('30. and with no concert named it is the next one\'s', ask(q('pickup', { when: 'next' }), ['ben'], { now: at('2026-10-17', '21:30') }).sentence,
+    'Autumn Showcase ends {2026-10-31} <20:00>.');
+  for (const intent of ['callTime', 'dress', 'concert', 'duration'] as AskIntent[]) {
+    eq(`30. only pickup: "${intent}" ten minutes after the end is the past`, ask(q(intent, C2), ['ben'], curb).sentence, past.sentence);
+  }
+  // The pickup is the players'. To somebody who sat in the audience it is over.
+  eq('30. pickup by name, after the end, for somebody in the audience', [ask(q('pickup', C2), ['ada'], curb).state, ask(q('pickup', C2), ['ada'], curb).sentence],
+    [past.state, past.sentence]);
+  eq('30. and with no concert named she gets her next one', ask(q('pickup', { when: 'next' }), ['ada'], curb).sentence,
+    'Autumn Showcase ends {2026-10-31} <20:00>.');
+  // With no pickup time stored, the end is the end.
+  eq('30. no pickup time stored: ten minutes after the end is the past',
+    ask(q('pickup', named(concert('cs', 'Autumn Showcase'))), ['ben'], { now: at('2026-10-31', '20:10') }).sentence, past.sentence);
   // The two sentences.
   const dayOff = { now: at('2026-10-09', '10:00') };
   eq('30. "the next day off", asked on a day off', ask(q('noSchool', { when: 'next' }), ['ada'], dayOff).sentence, 'No school today.');
