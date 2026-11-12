@@ -1126,6 +1126,45 @@ those marks onto the original file. Everything else — audience, deadline,
   the session record for all of the above is
   `docs/session-notes-2026-08-04-pwa-hardening.md`.
 
+## Email and password sign-in (Nov 2026, #password-sign-in) — built, switched OFF
+
+Staff can sign in with an email and a password beside Google, behind
+`features.passwordSignIn` (false in every org). No rules changed: every staff
+rule already requires a verified email. What makes it safe is WHO makes the
+account, and that must not regress:
+
+- **The Hub makes the account, never the person and never the app.**
+  `staffAccountOnListing` (a Firestore trigger on `directors/{email}` create)
+  runs `ensureStaffAccount()` in `functions/src/staffAccount.ts`: an empty
+  account, no password, never marked verified by us. `AuthGate.tsx` must never
+  call `createUserWithEmailAndPassword`. Setting up and resetting are ONE path,
+  the emailed reset link, so whoever opens the inbox chooses the password.
+- **A password never survives being listed.** An account that already carries
+  a password when its address is listed is replaced by an empty one, because
+  nothing shows who chose that password. Safe only because every staff record
+  is keyed by EMAIL: nothing in `src/`, the rules or the functions reads an
+  account id. If anything ever keys data on `uid`, this rule has to be
+  revisited first. An account with no password (everyone who only uses Google)
+  is left exactly as it is.
+- **The verification email goes out on a person's press, never from an
+  effect** (`sendVerifyLink`). It exists only as a fallback, in case finishing
+  a reset does not mark the address verified in production (it does on the
+  emulator; Google does not document it).
+- **The console setting is the door; the flag is only the form.** Email/Password
+  must not be enabled for a project until the function is deployed AND
+  `scripts/ensure-staff-accounts.mjs` (*Ensure Staff Accounts* workflow) reports
+  every listed email has an account. The order is `docs/password-sign-in.md`.
+  That script prints counts only, never an address: this repo's logs are public.
+- **`useGoogleDrive` runs its pop-up on a throwaway second sign-in** for an
+  account with no Google on it, so "Connect Google Drive" cannot change who is
+  signed in to the Hub. An account that has Google on it takes the old path,
+  unchanged.
+- `functions/src/staffAccount.selfcheck.ts` pins the rule, the trigger wiring
+  and the two `AuthGate` promises (it was broken eleven ways to confirm it
+  notices). `scripts/password-sign-in.emulator-proof.mjs` does real sign-ins on
+  the Auth and Firestore emulators against the real rules; it needs Java, so it
+  is NOT in CI. Run it by hand after touching any of the above.
+
 ## Playing-exam grading — one line, one rubric (Sept 2026, #exam-rubric)
 
 The grade sheet used to be two lists of the SAME people: a roster row that

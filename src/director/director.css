@@ -240,6 +240,80 @@ html:has(.dir-app) body {
 }
 
 .dir-google-btn:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.dir-google-btn:disabled { opacity: 0.55; cursor: default; }
+
+/* Email-and-password sign-in (#password-sign-in). Only rendered when
+   features.passwordSignIn is on, so none of this can move the Google-only
+   screen. The taller screens scroll instead of centring in a fixed height:
+   a form plus the phone's keyboard does not fit in 100dvh. */
+.dir-auth-tall {
+  height: auto;
+  min-height: 100dvh;
+  gap: 18px;
+}
+.dir-auth-copy { max-width: 360px; line-height: 1.5; }
+.dir-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 320px;
+  text-align: left;
+}
+.dir-auth-sub {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--dir-text);
+  margin: 6px 0 2px;
+  text-align: center;
+}
+.dir-auth-form .dir-label { margin: 6px 0 0; }
+.dir-auth-submit { justify-content: center; margin-top: 10px; }
+.dir-auth-link {
+  background: none;
+  border: 0;
+  padding: 10px 8px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dir-primary);
+  text-decoration: underline;
+  cursor: pointer;
+  align-self: center;
+}
+.dir-auth-link:disabled { opacity: 0.55; cursor: default; }
+
+/* "Add to Home Screen to stay signed in": one line over the staff shell on an
+   iPhone in a browser tab, above the bottom bar, gone for good once dismissed. */
+.dir-home-hint {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
+  z-index: var(--z-toast, 400);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--dir-surface);
+  color: var(--dir-text);
+  border: 1.5px solid var(--dir-border);
+  border-radius: var(--dir-radius);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.dir-home-hint span { flex: 1; }
+.dir-home-hint button {
+  background: none;
+  border: 0;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--dir-text-muted);
+  cursor: pointer;
+}
 
 .dir-setup-box {
   background: var(--dir-surface);

@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider } from 'firebase/auth';
+import type { FormEvent } from 'react';
+import {
+  onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider,
+  signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification,
+} from 'firebase/auth';
 import type { User } from 'firebase/auth';
+import { detectPlatform } from '../../public/platform';
 import { doc, onSnapshot, updateDoc, waitForPendingWrites, terminate, clearIndexedDbPersistence } from 'firebase/firestore';
 import { forgetStaffDevice, markStaffDevice } from '../firestoreCache';
 import { Link } from 'react-router';
@@ -25,7 +30,49 @@ import { ORG } from '../../org';
  */
 const BREAK_GLASS_EMAILS = ORG.breakGlassEmails;
 
-type Access = 'checking' | 'granted' | 'denied' | 'error';
+/**
+ * Email-and-password sign-in beside Google (#password-sign-in). Off in every
+ * org today; with it off nothing below this flag renders or runs.
+ *
+ * Two promises this file keeps, pinned by functions/src/staffAccount.selfcheck.ts:
+ *   • It NEVER creates an account. The Hub's server makes the account when
+ *     the owner lists an email (functions/src/staffAccount.ts), and setting
+ *     up and resetting are the same single path: the emailed reset link,
+ *     where whoever opens the inbox chooses the password.
+ *   • It never sends the verification email on its own. That only goes out
+ *     when a signed-in person presses the button (sendVerifyLink).
+ */
+const PASSWORD_SIGN_IN = ORG.features.passwordSignIn;
+
+/** localStorage: the "Add to Home Screen" line was dismissed on this device. */
+const HOME_HINT_KEY = 'hub.homeScreenHint.dismissed';
+
+/** An iPhone or iPad in a browser tab, not the installed Home Screen app. */
+function isIosBrowserTab(): boolean {
+  return detectPlatform() === 'ios'
+    && !window.matchMedia('(display-mode: standalone)').matches
+    && (navigator as { standalone?: boolean }).standalone !== true;
+}
+
+/** What to do next, for each way a password sign-in can fail. */
+function passwordSignInMessage(code: string): string {
+  switch (code) {
+    case 'auth/too-many-requests':
+      return 'Too many tries. Wait a few minutes, or tap “Set up or reset my password”.';
+    case 'auth/network-request-failed':
+      return 'No connection. Check your internet and try again.';
+    case 'auth/operation-not-allowed':
+      return 'Password sign-in is not switched on yet. Use Sign in with Google.';
+    case 'auth/user-disabled':
+      return 'This account is turned off. Ask a director.';
+    default:
+      // Wrong password, no such account, no password set yet: one message,
+      // so the screen never says which addresses have an account.
+      return 'That email and password do not match. Check them, or tap “Set up or reset my password”.';
+  }
+}
+
+type Access = 'checking' | 'granted' | 'denied' | 'error' | 'unverified';
 
 interface Props {
   children: (user: User, signOutFn: () => void) => React.ReactNode;
@@ -36,6 +83,17 @@ export function AuthGate({ children }: Props) {
   const [access, setAccess] = useState<Access>('checking');
   const [checkNonce, setCheckNonce] = useState(0);
   const [signInError, setSignInError] = useState('');
+  // Password sign-in only (all unused while the flag is off).
+  const [mode, setMode] = useState<'signin' | 'setup' | 'sent'>('signin');
+  const [typedEmail, setTypedEmail] = useState('');
+  const [verifySent, setVerifySent] = useState(false);
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [hintDismissed, setHintDismissed] = useState(() => {
+    if (!PASSWORD_SIGN_IN) return true;
+    try { return localStorage.getItem(HOME_HINT_KEY) === '1'; } catch { return false; /* private mode */ }
+  });
 
   useEffect(() => {
     if (!auth) { setUser(null); return; }
@@ -78,6 +136,13 @@ export function AuthGate({ children }: Props) {
       // default identity so role-gated screens still render sensibly.
       setCurrentDirector({ email: user.email ?? '', role: 'director' }, user.displayName);
       setAccess('granted');
+      return;
+    }
+    // A password account whose address is not confirmed yet. The rules refuse
+    // it every read, so asking would only earn "couldn't verify your access";
+    // show the one step that is actually missing instead.
+    if (PASSWORD_SIGN_IN && !user.emailVerified) {
+      setAccess('unverified');
       return;
     }
     setAccess('checking');
@@ -177,6 +242,106 @@ export function AuthGate({ children }: Props) {
     }
   }
 
+  // Staying in (#password-sign-in): once a staff sign-in is confirmed, ask the
+  // browser to keep this site's storage, and on an iPhone in a browser tab
+  // offer the one thing that really keeps a sign-in: the Home Screen app,
+  // whose storage Safari does not clear after a week away. Both best effort.
+  useEffect(() => {
+    if (!PASSWORD_SIGN_IN || access !== 'granted') return;
+    try { void navigator.storage?.persist?.().catch(() => {}); } catch { /* not supported */ }
+  }, [access]);
+  const homeHint = PASSWORD_SIGN_IN && access === 'granted' && !hintDismissed && isIosBrowserTab();
+
+  function dismissHomeHint() {
+    setHintDismissed(true);
+    try { localStorage.setItem(HOME_HINT_KEY, '1'); } catch { /* private mode */ }
+  }
+
+  async function signInWithPassword(e: FormEvent) {
+    e.preventDefault();
+    if (!auth || busy) return;
+    setSignInError('');
+    setBusy(true);
+    try {
+      await signInWithEmailAndPassword(auth, typedEmail.trim(), password);
+      setPassword('');
+    } catch (err) {
+      setSignInError(passwordSignInMessage((err as { code?: string }).code ?? ''));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // "Set up or reset my password": one path for both, the emailed link. The
+  // screen says the same thing whether or not the address has an account.
+  async function sendPasswordLink(e?: FormEvent) {
+    e?.preventDefault();
+    if (!auth || busy) return;
+    const to = typedEmail.trim();
+    setSignInError('');
+    setNotice('');
+    setBusy(true);
+    try {
+      await sendPasswordResetEmail(auth, to);
+    } catch (err) {
+      const code = (err as { code?: string }).code ?? '';
+      const problem =
+        code === 'auth/invalid-email' || code === 'auth/missing-email' ? 'That does not look like an email address. Check it and try again.'
+          : code === 'auth/network-request-failed' ? 'No connection. Check your internet and try again.'
+            : code === 'auth/too-many-requests' ? 'Too many tries. Wait a few minutes and try again.'
+              : code === 'auth/operation-not-allowed' ? 'Password sign-in is not switched on yet. Use Sign in with Google.'
+                : '';
+      if (problem) {
+        setSignInError(problem);
+        setBusy(false);
+        return;
+      }
+      // Anything else (no such account, say) looks exactly like success.
+    }
+    setBusy(false);
+    if (mode === 'sent') setNotice('Sent again.');
+    setMode('sent');
+  }
+
+  // Signed in by password, address not confirmed: the person presses for the
+  // link. Never called from an effect (see the note on PASSWORD_SIGN_IN).
+  async function sendVerifyLink() {
+    if (!auth?.currentUser || busy) return;
+    setBusy(true);
+    setNotice('');
+    try {
+      await sendEmailVerification(auth.currentUser);
+      setVerifySent(true);
+      setNotice('Sent. Tap the link in the email, then press “I tapped the link”. If you do not see it, look in junk.');
+    } catch (err) {
+      const code = (err as { code?: string }).code ?? '';
+      setNotice(code === 'auth/too-many-requests'
+        ? 'A link was sent a moment ago. Check your email (and junk), or wait a few minutes and try again.'
+        : 'That did not send. Check your internet and try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function continueAfterLink() {
+    if (!auth?.currentUser || busy) return;
+    setBusy(true);
+    setNotice('');
+    try {
+      await auth.currentUser.reload();
+      if (auth.currentUser.emailVerified) {
+        await auth.currentUser.getIdToken(true); // the old token still says unconfirmed
+        setCheckNonce(n => n + 1);
+      } else {
+        setNotice('Not confirmed yet. Tap the link in the email first, then press this again.');
+      }
+    } catch {
+      setNotice('Could not check. Check your internet and try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Sign out AND purge the Firestore offline cache (audit S7): the
   // persistent cache holds everything this account ever read — full student
   // records, guardian contacts, attendance history, progress notes — and
@@ -252,9 +417,60 @@ export function AuthGate({ children }: Props) {
     );
   }
 
+  // "Set up or reset my password", and what follows it (#password-sign-in).
+  if (!user && PASSWORD_SIGN_IN && mode === 'setup') {
+    return (
+      <div className="dir-auth dir-auth-tall">
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
+        <h1>Set up or reset your password</h1>
+        <p className="dir-auth-copy">
+          Type the email a director added for you. We will email you a link.
+          Tap it and choose your password.
+        </p>
+        <form className="dir-auth-form" onSubmit={sendPasswordLink}>
+          <label className="dir-label" htmlFor="hub-setup-email">Email</label>
+          <input
+            id="hub-setup-email" className="dir-input" type="email" name="username"
+            autoComplete="username" autoCapitalize="none" autoCorrect="off" required
+            value={typedEmail} onChange={e => setTypedEmail(e.target.value)}
+          />
+          <button className="dir-google-btn dir-auth-submit" type="submit" disabled={busy}>
+            {busy ? 'Sending…' : 'Email me the link'}
+          </button>
+          <button type="button" className="dir-auth-link" onClick={() => { setSignInError(''); setMode('signin'); }}>
+            Back to sign in
+          </button>
+        </form>
+        {signInError && <p role="alert" style={{ color: '#b91c1c', fontSize: 14, maxWidth: 340 }}>{signInError}</p>}
+      </div>
+    );
+  }
+
+  if (!user && PASSWORD_SIGN_IN && mode === 'sent') {
+    return (
+      <div className="dir-auth dir-auth-tall">
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
+        <h1>Check your email and tap the link</h1>
+        <p className="dir-auth-copy">
+          If <strong>{typedEmail.trim()}</strong> is on the staff list, a link is
+          on its way. Tap it and choose your password, then come back here and
+          sign in. If you do not see it, look in junk.
+        </p>
+        <button className="dir-google-btn" onClick={() => { setNotice(''); setSignInError(''); setMode('signin'); }}>
+          I chose my password. Sign in
+        </button>
+        <button className="dir-auth-link" disabled={busy} onClick={() => sendPasswordLink()}>
+          {busy ? 'Sending…' : 'Send the link again'}
+        </button>
+        {notice && <p role="status" style={{ fontSize: 14 }}>{notice}</p>}
+        {signInError && <p role="alert" style={{ color: '#b91c1c', fontSize: 14, maxWidth: 340 }}>{signInError}</p>}
+      </div>
+    );
+  }
+
   if (!user) {
     return (
-      <div className="dir-auth">
+      <div className={PASSWORD_SIGN_IN ? 'dir-auth dir-auth-tall' : 'dir-auth'}>
         <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
         <h1>{ORG.appName} — Directors</h1>
         <p>Roster, attendance, rehearsals, and notes — all in one place.</p>
@@ -267,7 +483,55 @@ export function AuthGate({ children }: Props) {
           </svg>
           Sign in with Google
         </button>
+        {PASSWORD_SIGN_IN && (
+          // An ordinary form, so the phone's own password manager offers to
+          // save it and fills it afterwards: username + current-password.
+          <form className="dir-auth-form" onSubmit={signInWithPassword}>
+            <h2 className="dir-auth-sub">Email and password</h2>
+            <label className="dir-label" htmlFor="hub-email">Email</label>
+            <input
+              id="hub-email" className="dir-input" type="email" name="username"
+              autoComplete="username" autoCapitalize="none" autoCorrect="off" required
+              value={typedEmail} onChange={e => setTypedEmail(e.target.value)}
+            />
+            <label className="dir-label" htmlFor="hub-password">Password</label>
+            <input
+              id="hub-password" className="dir-input" type="password" name="password"
+              autoComplete="current-password" required
+              value={password} onChange={e => setPassword(e.target.value)}
+            />
+            <button className="dir-google-btn dir-auth-submit" type="submit" disabled={busy}>
+              {busy ? 'Signing in…' : 'Sign in'}
+            </button>
+            <button type="button" className="dir-auth-link" onClick={() => { setSignInError(''); setMode('setup'); }}>
+              Set up or reset my password
+            </button>
+          </form>
+        )}
         {signInError && <p style={{ color: '#b91c1c', fontSize: 14, maxWidth: 340 }}>{signInError}</p>}
+      </div>
+    );
+  }
+
+  // Signed in by password, address not confirmed yet (#password-sign-in).
+  // Never "not authorized": the account may be fine, one step is missing.
+  if (access === 'unverified') {
+    return (
+      <div className="dir-auth dir-auth-tall">
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
+        <h1>{verifySent ? 'Check your email and tap the link' : 'One more step: confirm your email'}</h1>
+        <p className="dir-auth-copy">
+          You are signed in as <strong>{user.email}</strong>. Before the Hub
+          opens, it needs to know this address is yours. We email you a link,
+          you tap it, and you are in.
+        </p>
+        <button className="dir-google-btn" disabled={busy} onClick={sendVerifyLink}>
+          {verifySent ? 'Send the link again' : 'Email me the link'}
+        </button>
+        <button className="dir-google-btn" disabled={busy} onClick={continueAfterLink}>I tapped the link</button>
+        {notice && <p role="status" className="dir-auth-copy">{notice}</p>}
+        <button className="dir-auth-link" onClick={handleSignOut}>Sign in with a different account</button>
+        <p><Link to="/">← Back to the public site</Link></p>
       </div>
     );
   }
@@ -310,7 +574,7 @@ export function AuthGate({ children }: Props) {
         <p>
           You’re signed in as <strong>{user.email}</strong>, which isn’t on the
           director list for {ORG.appName}. If you should have access, ask a
-          current director to add your Google email from the Directors screen.
+          current director to add your {PASSWORD_SIGN_IN ? 'email' : 'Google email'} from the Directors screen.
         </p>
         <button className="dir-google-btn" onClick={handleSignOut}>Sign in with a different account</button>
         <p><Link to="/">← Back to the public site</Link></p>
@@ -318,5 +582,15 @@ export function AuthGate({ children }: Props) {
     );
   }
 
-  return <>{children(user, handleSignOut)}</>;
+  return (
+    <>
+      {homeHint && (
+        <div className="dir-home-hint" role="status">
+          <span>Add to Home Screen to stay signed in. Tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</span>
+          <button type="button" aria-label="Dismiss" onClick={dismissHomeHint}>×</button>
+        </div>
+      )}
+      {children(user, handleSignOut)}
+    </>
+  );
 }

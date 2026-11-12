@@ -27,6 +27,7 @@ import { studentMatchesQuery } from '../studentSearch';
 import '../signups/signups.css';
 import { GroupPicker } from '../components/GroupPicker';
 import { splitAssigned, withClasses, withPerforming } from './assignedSlices';
+import { ORG } from '../../org';
 
 /** Human-readable label for each logged action slug. Falls back to the raw
  *  slug so a newly-added action still shows something before this map is
@@ -497,7 +498,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
       <div className="dir-page-body">
         {!director && (
           <div className="dir-field">
-            <label className="dir-label">Google sign-in email</label>
+            <label className="dir-label">{ORG.features.passwordSignIn ? 'Sign-in email' : 'Google sign-in email'}</label>
             <input className="dir-input" type="email" value={email} placeholder="person@gmail.com" onChange={e => setEmail(e.target.value)} />
           </div>
         )}

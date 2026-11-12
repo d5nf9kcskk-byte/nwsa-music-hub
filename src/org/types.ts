@@ -290,6 +290,17 @@ export interface OrgConfig {
      * renders and no write carries a Spanish note.
      */
     bannerDrafter: boolean;
+    /**
+     * Email-and-password staff sign-in beside Google (#password-sign-in).
+     * FALSE everywhere today: with it off the sign-in screen and the
+     * Directors screen are exactly as they were. Turning it on is the LAST
+     * step of docs/password-sign-in.md, never the first: the
+     * staffAccountOnListing function must be deployed and every listed email
+     * must already have an account before Email/Password is enabled for the
+     * Firebase project. The flag only shows the form; the provider is what
+     * opens the door.
+     */
+    passwordSignIn: boolean;
   };
   /** Printed concert program (src/public/PublicProgram.tsx). */
   program: {

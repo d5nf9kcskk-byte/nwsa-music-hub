@@ -35,6 +35,7 @@ import {
 import { buildSubmissionReceipt, submissionReceiptId } from './submissionReceipt.ts';
 import { composeSubmission as runComposeSubmission } from './composeSubmission.ts';
 import { getAuth } from 'firebase-admin/auth';
+import { ensureStaffAccount } from './staffAccount.ts';
 import { getMessaging } from 'firebase-admin/messaging';
 import { handleEventChange, sendTestAlert, type PushDeps } from './pushSend.ts';
 import { draftSpanish, noteFromBody } from './bannerDrafter.ts';
@@ -1086,3 +1087,23 @@ export const draftChangeNoteEs = runWith({ secrets: ['ANTHROPIC_API_KEY'] }).htt
   if (r.ok) { res.status(200).json({ ok: true, draft: r.draft }); return; }
   refuse(r.status, r.message);
 });
+
+/**
+ * The owner listed an email on the Directors screen: make its sign-in account
+ * (#password-sign-in). The Hub makes the account, empty, so that the only way
+ * a password ever lands on a listed address is the emailed reset link, chosen
+ * by whoever can open that inbox. An account already carrying a password is
+ * replaced by an empty one; an account with no password (everyone who only
+ * uses Google) is left as it is. The rule and the reasons are in
+ * staffAccount.ts.
+ *
+ * This must be deployed, and scripts/ensure-staff-accounts.mjs run over the
+ * current list, BEFORE Email/Password sign-in is enabled for the project.
+ */
+export const staffAccountOnListing = firestore
+  .document('directors/{email}')
+  .onCreate(async (_snap, context) => {
+    const outcome = await ensureStaffAccount(getAuth(), context.params.email as string, { replacePassworded: true });
+    // The outcome only, never the address.
+    console.log(`staffAccountOnListing: ${outcome}`);
+  });
