@@ -32,9 +32,11 @@ import {
 import { icsAssignment, icsCalendar, icsEvent, icsLesson } from '../src/shared/ics.ts';
 // The ONE join of a booked sign-up slot to the meeting it happens in. Imported
 // as .ts — Node strips the types, the same way calendarView.ts is loaded here.
-import { performersForEvent, performerNames, bookedPerformersForEvent } from '../src/shared/eventPerformers.ts';
+import { performersForEvent, performerNames } from '../src/shared/eventPerformers.ts';
 import { isMasterClass } from '../src/director/groupKind.ts';
-import { gradeExcusedFromAudience } from '../src/shared/audienceExcusal.ts';
+// The ONE answer to "what does this student have" — shared with the student's
+// own page, so a personal feed and that page cannot disagree (#student-day).
+import { studentDay } from '../src/shared/studentDay.ts';
 import {
   assignmentMatchesBundle, bundleEnsembleIds, bundleFeedFile, eventMatchesBundle,
 } from '../src/shared/calendarBundles.ts';
@@ -440,89 +442,47 @@ function wrapCalendar(name, description, vevents) {
         : 'Private lessons feed is DISABLED (public Actions artifact would expose it) — nothing written');
     }
 
-    // Per-student feeds: base membership + subs − pulls + attendance requirements.
-    // (Lesson-kind overrides are PARTIAL absences and never remove an event.)
-    // Keep in sync with overrideApplies() in src/director/rosterResolver.ts.
-    // (Plain node here — no `src` imports — so this copy is deliberate.)
-    // Rotations govern rehearsals only; on a concert the student plays with
-    // whichever ensemble is on stage (mirrors rosterResolver.ts).
-    const TAKES_ROLL = new Set(['Rehearsal', 'Sectional', 'Class']);
-    const overrideApplies = (o, event) => {
-      if (o.kind === 'rotation' && !TAKES_ROLL.has(event.type)) return false;
-      if (o.scope === 'event') return o.eventId === event.id;
-      if (o.startDate && event.date < o.startDate) return false;
-      if (o.endDate && event.date > o.endDate) return false;
-      // Standing weekday rotation — UTC, to match the resolver.
-      if (o.days?.length) return o.days.includes(new Date(`${event.date}T00:00:00Z`).getUTCDay());
-      return true;
+    // Per-student feeds (#student-day). WHICH events and lessons belong to a
+    // student is src/shared/studentDay.ts — the same module the student's own
+    // page calls, so the calendar somebody subscribes to from that page holds
+    // what the page showed them. This script used to carry a hand copy of that
+    // logic ("plain node here, no src imports"), and the copy had drifted from
+    // the page in three ways; do not write a fourth. Everything it reads is a
+    // public projection (#privacy): studentsPublic, rosterOverridesPublic,
+    // lessonsPublic, and the world-readable sign-up collections.
+    //
+    // A raw REST doc can lack `ensembleIds` altogether — a shape the app's
+    // own hooks never hand the resolver — so it is filled in for the question
+    // and the ORIGINAL doc is what gets written to the calendar.
+    const dayRecords = {
+      students,
+      events: events.map(e => Array.isArray(e.ensembleIds) ? e : { ...e, ensembleIds: [] }),
+      overrides,
+      ensembles,
+      forms: signupForms,
+      bookings: slotBookings,
+      // A student's own lesson rides in their own feed and nowhere else — no
+      // all-events feed, no ensemble feed, no view or bundle (#applied).
+      lessons: publicLessons,
     };
-    // Booking a master class slot puts that class on your own calendar
-    // (#masterclass-performers). It has to be its own route into the feed: a
-    // student who signs up to play is very often NOT on the master class
-    // roster — that is what the sign-up is for — so neither ensemble
-    // membership nor `studentIds` would reach them, and the one event they
-    // personally committed to would be the one event missing from the
-    // calendar they subscribed to.
-    const bookedEventIds = new Map();
-    for (const e of events) {
-      const isMc = (e.ensembleIds ?? []).some(id => isMasterClass(ensembleMap[id] ?? {}));
-      if (!isMc) continue;
-      for (const p of bookedPerformersForEvent(e, signupForms, slotBookings)) {
-        if (!p.studentId) continue;
-        if (!bookedEventIds.has(p.studentId)) bookedEventIds.set(p.studentId, new Set());
-        bookedEventIds.get(p.studentId).add(e.id);
-      }
-    }
-
-    const expectedForStudent = (stu, event) => {
-      const memberIds = stu.ensembleIds ?? [];
-      if (bookedEventIds.get(stu.id)?.has(event.id)) return true;
-      if ((event.studentIds ?? []).includes(stu.id)) return true;
-      for (const ensId of event.ensembleIds ?? []) {
-        const isMember = memberIds.includes(ensId);
-        const mine = overrides.filter(o =>
-          o.studentId === stu.id && o.ensembleId === ensId && o.kind !== 'lesson' && overrideApplies(o, event));
-        const pulled = mine.some(o => o.action === 'remove');
-        // A 'remove' naming destEnsembleId both pulls from its own ensemble AND
-        // subs the student INTO the destination — mirrors resolveRoster(). Without
-        // this the destination rehearsal never reaches subscribed calendars.
-        const added = mine.some(o => o.action === 'add')
-          || overrides.some(o => o.studentId === stu.id && o.destEnsembleId === ensId
-            && o.action === 'remove' && overrideApplies(o, event));
-        if ((isMember && !pulled) || added) return true;
-      }
-      // Audience requirement: member of an attendance-required ensemble, or named individually.
-      if ((event.attendanceStudentIds ?? []).includes(stu.id)) return true;
-      // A grade the event excuses (seniors, #audience-excusal) — the same
-      // rule studentExpectation() applies on the schedule screen.
-      if (gradeExcusedFromAudience(stu.grade, event)) return false;
-      return (event.attendanceEnsembleIds ?? []).some(ensId => memberIds.includes(ensId));
-    };
-    // Private-lesson times, grouped by student (#applied). A student's own
-    // lesson rides in their own feed and nowhere else — no all-events feed, no
-    // ensemble feed, no view or bundle — so a lesson reaches exactly the one
-    // calendar it belongs on.
-    const lessonsByStudent = new Map();
-    for (const l of publicLessons) {
-      if (!l.studentId || !l.date) continue;
-      // Same reasoning as staffFeed.ts: omit rather than lean on
-      // STATUS:CANCELLED, which several calendar apps ignore on a
-      // subscribed feed (#30) — this is the same "absent from the next
-      // build" story every other deletion in this generator already uses.
-      if (l.status === 'Cancelled') continue;
-      if (!lessonsByStudent.has(l.studentId)) lessonsByStudent.set(l.studentId, []);
-      lessonsByStudent.get(l.studentId).push(l);
-    }
+    const feedNow = Date.now();
 
     let studentFeeds = 0;
     let lessonEvents = 0;
     if (PUBLIC_STUDENT_INFO) {
       for (const stu of students) {
         if (stu.status === 'Graduated' || stu.status === 'Inactive') continue;
-        const mine = events.filter(e => expectedForStudent(stu, e));
-        const myLessons = (lessonsByStudent.get(stu.id) ?? [])
-          .sort((a, b) => String(a.date).localeCompare(String(b.date))
-            || String(a.startTime ?? '').localeCompare(String(b.startTime ?? '')));
+        // No date range: a subscribed calendar keeps its history.
+        const day = studentDay(stu.id, { now: feedNow }, dayRecords);
+        // Written in the order the events were fetched, as always, so a feed
+        // whose contents did not change does not change.
+        const mineIds = new Set(day.events.map(x => x.event.id));
+        const mine = events.filter(e => mineIds.has(e.id));
+        // A cancelled lesson is OMITTED here though the page shows it struck
+        // through: several calendar apps ignore STATUS:CANCELLED on a
+        // subscribed feed (#30), so "absent from the next build" is the only
+        // cancellation a phone reliably honours. Same reasoning as staffFeed.ts.
+        const myLessons = day.lessons.filter(l => l.status !== 'Cancelled');
         lessonEvents += myLessons.length;
         const vevents = [
           ...mine.map(e => buildVEVENT(e, lookups)),

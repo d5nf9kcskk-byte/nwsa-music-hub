@@ -668,3 +668,15 @@ runs:
     - name: Check push alerts
       run: npx tsx src/shared/pushAlerts.selfcheck.ts
       shell: bash
+
+    # "What does this student have" is ONE module (#student-day): the student
+    # page and the per-student calendar feed both call it, its answer equals
+    # what the page computed before the logic was lifted out, the short path
+    # (own record + own pull-outs) agrees with the full roster, and neither
+    # caller keeps a copy of the rule. Run with plain `node` on purpose: the
+    # feed generator loads this module under Node's type-stripping loader, so
+    # an extensionless import or a reach into the org config fails HERE rather
+    # than in the hourly deploy, where it would publish no student calendars.
+    - name: Check student day
+      run: node src/shared/studentDay.selfcheck.ts
+      shell: bash

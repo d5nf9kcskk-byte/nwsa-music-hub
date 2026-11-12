@@ -3,6 +3,7 @@ import { dateLocale, fmtDate } from '../shared/dates';
 import { scoreOrderRank, lastName } from './scoreOrder';
 import { isClassGroup, isMasterClass, isCollegeGroup, isAdultStudent } from './groupKind';
 import { plannedAbsenceAppliesToRoll } from './plannedAbsenceScope';
+import { takesAttendance, pieceEnsembleIds, isPublished, isAssignmentOpen, byDueDateOpenFirst, studentHasAssignment } from '../shared/pureRules';
 
 // ── Date helpers (work in local time, store as YYYY-MM-DD) ──────────────────────
 
@@ -187,12 +188,10 @@ export function groupKindLabel(e: Pick<Ensemble, 'kind' | 'collegeLevel'>): stri
   return e.collegeLevel ? `college ${base}` : base;
 }
 
-/** A piece's ensembles as an array — reads the new `ensembleIds` or falls back
- *  to the legacy single `ensembleId`. Empty array if neither is set. */
-export function pieceEnsembleIds(p: Pick<RepertoirePiece, 'ensembleIds' | 'ensembleId'>): string[] {
-  if (p.ensembleIds && p.ensembleIds.length) return p.ensembleIds;
-  return p.ensembleId ? [p.ensembleId] : [];
-}
+/** These six live in src/shared/pureRules.ts (zero imports) so Node-side code — the feed
+ *  generator, through src/shared/studentDay.ts — can load them without the org
+ *  config. Re-exported here, the historic import site. */
+export { takesAttendance, pieceEnsembleIds, isPublished, isAssignmentOpen, byDueDateOpenFirst, studentHasAssignment };
 
 // ── Ensemble colors ─────────────────────────────────────────────────────
 
@@ -229,59 +228,6 @@ export function ensembleColor(e?: Pick<Ensemble, 'color' | 'order'>): string {
 
 export const ENSEMBLE_PALETTE = PALETTE;
 
-/** True if a scheduled item (Assignment/LibraryDocument) should show now —
- *  no publishAt set, or its publish moment has already passed. Mirrors the
- *  announcement scheduling gate (visibleAnnouncements in useAnnouncements.ts). */
-export function isPublished(item: { publishAt?: number }, now: number = Date.now()): boolean {
-  return !item.publishAt || item.publishAt <= now;
-}
-
-/**
- * Should this assignment still show in a list a student browses?
- *
- * Published, and either not yet due OR still taking submissions. The browse
- * lists used to drop anything past its due date, so an online test that was
- * still open left the home page, the assignments index, the calendar and a
- * student's own schedule the morning after it was due, while the test itself
- * went on accepting answers. (Its own page never hid — `PublicAssignment`
- * gates on `isPublished` alone — so the link kept working; it was the browsing
- * that broke.)
- *
- * `acceptsQuizSubmissions` ONLY, never `acceptsVideoSubmissions`.
- * `acceptsVideoSubmissions` reads like a twin and is not one: it is the MODE
- * flag that says this exam collects video at all, set once when the assignment
- * is created and never cleared, and it is what `firestore.rules` and
- * `composeSubmission` gate uploads on — so a director cannot switch it off
- * without breaking grading, and every playing exam ever set carries it
- * forever. Treating it as "still open" would pin every past exam to the top of
- * a list that sorts soonest-first and slices to four. `acceptsQuizSubmissions`
- * is a real toggle with a real Close button (`setQuizOpen`).
- */
-export function isAssignmentOpen(
-  a: { publishAt?: number; dueDate: string; acceptsQuizSubmissions?: boolean },
-  today: string,
-  now: number = Date.now(),
-): boolean {
-  return isPublished(a, now) && (a.dueDate >= today || !!a.acceptsQuizSubmissions);
-}
-
-/**
- * Sort comparator for a list built with `isAssignmentOpen`: soonest first, but
- * anything already overdue goes LAST.
- *
- * Without this the fix is worse than the bug. Every one of these lists sorts
- * by due date ascending, so an overdue-but-still-open test sorts ABOVE
- * everything real and stays there until somebody closes it — and the home page
- * shows five, the assignments index four.
- */
-export function byDueDateOpenFirst(today: string) {
-  return (a: { dueDate: string }, b: { dueDate: string }): number => {
-    const aLate = a.dueDate < today, bLate = b.dueDate < today;
-    if (aLate !== bLate) return aLate ? 1 : -1;
-    return a.dueDate.localeCompare(b.dueDate);
-  };
-}
-
 /**
  * An ensemble's display name, null-safe.
  *
@@ -303,16 +249,6 @@ export const EVENT_TYPES: EventType[] = ['Rehearsal', 'Class', 'Sectional', 'Con
  *  instrument — needs nothing from this one, and can therefore load under
  *  Node's type-stripping loader. Re-exported here, the historic import site. */
 export { EVENT_TYPE_ICON } from './groupIcon';
-
-/**
- * Event types the director takes roll for. A class meets on a schedule and its
- * attendance matters exactly like a rehearsal or sectional, so it counts here;
- * concerts and one-off events do not. Centralized so every attendance surface
- * agrees on what "a rehearsal day" means.
- */
-export function takesAttendance(type: EventType): boolean {
-  return type === 'Rehearsal' || type === 'Sectional' || type === 'Class';
-}
 
 /**
  * Events that appear on Take Roll (#concert-roll): everything `takesAttendance`
@@ -466,16 +402,6 @@ export function imslpSearchUrl(composer: string | undefined, title: string): str
 export function youtubeSearchUrl(composer: string | undefined, title: string): string {
   const q = [composer, title].filter(Boolean).join(' ');
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
-}
-
-/** Does this assignment target the given student (via ensemble or individually)? */
-export function studentHasAssignment(
-  a: { ensembleIds: string[]; studentIds?: string[] },
-  studentId: string,
-  studentEnsembleIds: string[] | undefined,
-): boolean {
-  if ((a.studentIds ?? []).includes(studentId)) return true;
-  return a.ensembleIds.some(id => (studentEnsembleIds ?? []).includes(id));
 }
 
 // ── Seating sections (shared by the seating editor and the printed program's

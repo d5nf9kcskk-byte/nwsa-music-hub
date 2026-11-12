@@ -183,22 +183,28 @@ assert(inForm('wind-ensemble', 'conWMon'),
 assert(inForm('camerata-string-orchestra', 'conCFri'),
   'Fri Camerata concert: still on the base concert roster too');
 
-// ── generate-feeds.mjs keeps its OWN copy of this logic (plain node, no src
-// imports) and ships unauthenticated on a 4-hour cron, so divergence is silent.
-// Pull the two functions out of the real source text and hold them to the
-// resolver's answers. `days` arriving as REST integerValue is the case that
-// already broke once: a string-only array decode turned [2,5] into ['',''].
+// ── generate-feeds.mjs used to keep its OWN copy of this logic and was held to
+// the resolver's answers here. The copy is gone (#student-day): per-student
+// feeds are built by src/shared/studentDay.ts, which calls this same resolver,
+// and src/shared/studentDay.selfcheck.ts pins that no copy grows back. What is
+// still the feed script's own is the REST DECODE, and that is the case that
+// already broke once: a string-only array decode turned `days: [2,5]` into
+// ['',''] and made every rotation inert. So pull the real decoder out of the
+// source text and prove what it hands the resolver.
 const feedsSrc = readFileSync(new URL('./generate-feeds.mjs', import.meta.url), 'utf8');
 function extract(re, what) {
   const m = feedsSrc.match(re);
   if (!m) { console.error(`FAIL: could not find ${what} in generate-feeds.mjs`); process.exit(1); }
   return m[0];
 }
-const { flattenFields, feedApplies } = await import('data:text/javascript,' + encodeURIComponent(
+assert(!/const overrideApplies\b/.test(feedsSrc),
+  'generate-feeds.mjs must not carry its own overrideApplies again — the resolver is the one answer');
+const { flattenFields } = await import('data:text/javascript,' + encodeURIComponent(
   `${extract(/function flattenFields\(fields\) \{[\s\S]*?\n\}/, 'flattenFields')}
-   ${extract(/const TAKES_ROLL = new Set\(\[[^\]]*\]\);/, 'TAKES_ROLL')}
-   ${extract(/const overrideApplies = \(o, event\) => \{[\s\S]*?\n\s*\};/, 'overrideApplies')}
-   export { flattenFields, overrideApplies as feedApplies };`));
+   export { flattenFields };`));
+// What the feed applies IS the resolver now; the name stays so the date-for-date
+// table below still reads as "what a feed does with a decoded doc".
+const feedApplies = (o, ev) => overrideApplies(o, { ensembleId: 'x', eventId: ev.id, eventsById: { [ev.id]: ev } });
 
 // The exact REST payload firebase-admin produces for days: [2, 5].
 const decoded = flattenFields({
