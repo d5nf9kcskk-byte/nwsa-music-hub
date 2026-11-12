@@ -349,8 +349,9 @@ MDCPS teacher-planning day even though MDC was in full session that day.
   MDCPS-only closure — simply did not exist in Firestore until 2026-09-19.
   The director reported it as "you cancelled the college classes"; they had
   never been created. After changing which calendar a generator asks, re-run
-  that generator (`Seed College Program` is idempotent and `workflow_dispatch`)
-  and verify against the live data, which is world-readable for `events`.
+  that generator (`Seed College Program` is `workflow_dispatch`; use its
+  "missing only" run, below) and verify against the live data, which is
+  world-readable for `events`.
 - **`scripts/calendar-closures-audit.mjs` is that verification**, as a command
   (*Audit Calendar Closures*, `workflow_dispatch`). It asks the live project
   whether every closure agrees with both calendars, in BOTH directions: no
@@ -367,6 +368,37 @@ MDCPS teacher-planning day even though MDC was in full session that day.
   in `.github/actions/self-checks`: those are pure and offline and gate every
   build, and this one needs the network and live data. Run it after a seed,
   after editing either calendar, and when setting up a new school year.
+- **The college's term dates come from MDC's own published calendar and final
+  exam schedule, never from the high school's last day** (2026-11-12). The
+  code ended the college's spring on June 3, 2027, which is the MDCPS last
+  day. It ran spring break through March 29, which is an MDCPS teacher
+  planning day. It had classes on March 4, MDC's Employee Retreat. The real
+  dates: the term is Jan 4 to April 30, 2027 (last day of classes and final
+  exams), spring break is March 22 to 28, classes resume March 29, and
+  March 4 has no classes. The three sources, all on mdc.edu and listed with
+  their URLs above `MDC_NO_SCHOOL` in `src/shared/academicCalendars.ts`: the
+  Final Exam Schedule for Spring 2027 (Term 2273), the Academic Calendar, and
+  the 2027 holidays page. `MDC_YEAR` holds the year's two outer dates and
+  `isCollegeSessionDay()` reads them. `campusCalendar.selfcheck.ts` pins each
+  fact from both sides, and that every `MDC_NO_SCHOOL` date is inside a term
+  (Memorial Day is an MDC holiday a month after the term ends, so it is not
+  listed). On the live calendar the wrong dates had left 155 generated
+  college meetings after April 30 and 7 on March 4, and none on March 29.
+  - **`scripts/prune-college-sessions.mjs` (*Prune College Sessions*
+    workflow) removes them.** Preview by default; it deletes only with
+    `--apply` and the service account. It removes a generated college meeting
+    on a day the college holds no classes, and refuses any that a person has
+    touched (roll, a change note, a cancel, an edit, a roster move) or that
+    has already happened. It reads `events` and the event id field of
+    `rosterOverridesPublic` and nothing else. Its `--selfcheck` runs in the
+    self-checks.
+  - **A plain *Seed College Program* re-run overwrites.** Its merge resets
+    every field the generator writes, `status` included, so a cancelled class
+    meeting comes back as Scheduled. Run it with **"missing only"**
+    (`--missing-only`, ticked by default in the workflow): it creates the docs
+    that do not exist and touches nothing that does. That is how the March 29
+    classes get added after a prune. The in-app "Set up college program"
+    button still does the plain overwrite.
 - **A cancelled day takes the day's private LESSONS with it.** They are in
   another collection and were never in `dayEvents`, so a cancelled Monday used
   to look empty with a violin lesson still on it. It cannot be tidied up

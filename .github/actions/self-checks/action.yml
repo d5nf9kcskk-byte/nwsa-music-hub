@@ -744,3 +744,12 @@ runs:
     - name: Check Ask (the answers)
       run: node src/shared/ask/answer.selfcheck.ts
       shell: bash
+
+    # The college calendar clean-up tool (#college-hs-calendar-deps). It may
+    # only remove a generated college meeting on a day Miami Dade College
+    # holds no classes, and never one a person has touched: roll, a change
+    # note, a cancel, an edit, a roster move, or a date already past. Pure,
+    # on invented events. The live run is the Prune College Sessions workflow.
+    - name: Check college session pruning
+      run: node scripts/prune-college-sessions.mjs --selfcheck
+      shell: bash

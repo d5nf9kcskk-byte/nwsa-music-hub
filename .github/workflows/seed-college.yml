@@ -4,13 +4,24 @@ name: Seed College Program
 # college classes with teacher names, and their Class calendar sessions.
 # Idempotent — run dry first, then apply.
 #
+# "Missing only" (ticked by default) creates the docs that do not exist and
+# leaves every existing group and class meeting exactly as it is. Untick it
+# only to push a change in the class list onto every meeting: that run
+# overwrites, and puts a cancelled or moved class meeting back to its
+# generated time, room and "Scheduled" status (scripts/seed-college.mjs).
+#
 # Cloud agents can trigger by pushing a change to
-# `.github/triggers/seed-college` (see file for dry_run flag).
+# `.github/triggers/seed-college` (see file for dry_run flag; add
+# "missing_only": true there for the safe run).
 on:
   workflow_dispatch:
     inputs:
       dry_run:
         description: 'List what would change without writing anything'
+        type: boolean
+        default: true
+      missing_only:
+        description: 'Missing only: create what does not exist, overwrite nothing'
         type: boolean
         default: true
   push:
@@ -37,7 +48,9 @@ jobs:
           EXTRA=""
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             [ "${{ inputs.dry_run }}" = "true" ] && EXTRA="--dry-run"
+            [ "${{ inputs.missing_only }}" = "true" ] && EXTRA="$EXTRA --missing-only"
           elif [ -f .github/triggers/seed-college ]; then
             grep -q '"dry_run"[[:space:]]*:[[:space:]]*true' .github/triggers/seed-college && EXTRA="--dry-run"
+            grep -q '"missing_only"[[:space:]]*:[[:space:]]*true' .github/triggers/seed-college && EXTRA="$EXTRA --missing-only"
           fi
           node scripts/seed-college.mjs $EXTRA

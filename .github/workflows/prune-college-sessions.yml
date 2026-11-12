@@ -1,0 +1,57 @@
+name: Prune College Sessions
+
+# Removes generated college class meetings and College Chamber Orchestra
+# rehearsals that sit on days Miami Dade College holds no classes
+# (#college-hs-calendar-deps). The code once ended the college's spring term
+# on the high school's last day (June 3, 2027) instead of April 30, and left
+# March 4 (MDC's Employee Retreat) as a class day, so the generators wrote
+# meetings on all of those days. Everything the tool does and refuses is
+# documented at the top of scripts/prune-college-sessions.mjs.
+#
+# PREVIEW BY DEFAULT. With "apply" unticked the run prints what it WOULD
+# remove, what it keeps and why, and which meetings are missing. It deletes
+# nothing. Tick "apply" only after reading a preview.
+#
+# It never deletes a meeting a person has touched (roll, a change note, a
+# cancel, an edit, a roster move) or one that has already happened. Those are
+# listed and kept.
+#
+# It creates nothing. To add the meetings it reports missing, run the *Seed
+# College Program* workflow afterwards with "missing only" ticked.
+#
+# It reads `events` and the event id field of `rosterOverridesPublic`, both
+# world-readable, and prints counts, dates, class titles, event ids and field
+# names. No student data is read or printed. This repo and its run logs are
+# public (CLAUDE.md).
+on:
+  workflow_dispatch:
+    inputs:
+      apply: { description: 'Delete them (unticked = preview only)', required: false, type: boolean, default: false }
+
+permissions:
+  contents: read
+
+# One Hub-tool run at a time, so two runs never plan against the same stale
+# read. Shared with Hub Calendar and Hub Announcement.
+concurrency:
+  group: hub-tools
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      # Pure and offline. It runs before any step is handed the credential.
+      - name: Check the selection and refusal rules
+        run: node scripts/prune-college-sessions.mjs --selfcheck
+      - name: ${{ inputs.apply && 'Apply' || 'Preview' }}
+        env:
+          TZ: America/New_York
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/prune-college-sessions.mjs ${{ inputs.apply && '--apply' || '' }}

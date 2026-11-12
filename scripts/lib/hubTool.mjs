@@ -151,7 +151,18 @@ function adminStore(db, FieldValue) {
     get: async (c, id) => snapToObj(await db.collection(c).doc(id).get()),
     where: async (c, field, value) =>
       (await db.collection(c).where(field, '==', value).get()).docs.map(snapToObj),
-    all: async c => (await db.collection(c).get()).docs.map(snapToObj),
+    // `fields` reads only those fields of each doc (the id always comes).
+    all: async (c, fields) =>
+      (await (fields ? db.collection(c).select(...fields) : db.collection(c)).get()).docs.map(snapToObj),
+    /** Delete many docs of one collection, in batches. Returns how many. */
+    async deleteMany(c, ids) {
+      for (let i = 0; i < ids.length; i += 400) {
+        const batch = db.batch();
+        for (const id of ids.slice(i, i + 400)) batch.delete(db.collection(c).doc(id));
+        await batch.commit();
+      }
+      return ids.length;
+    },
     async write(w) {
       const ref = db.collection(w.collection).doc(w.id);
       if (w.op === 'create') return ref.create(w.data); // fails if the id exists
@@ -198,16 +209,18 @@ function restStore(projectId) {
       const rows = await call(`${base}:runQuery`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       return (rows ?? []).filter(r => r.document).map(r => toObj(r.document));
     },
-    async all(c) {
+    async all(c, fields) {
       const out = [];
+      const mask = (fields ?? []).map(f => `&mask.fieldPaths=${encodeURIComponent(f)}`).join('');
       let token = '';
       do {
-        const page = await call(`${base}/${c}?pageSize=300${token ? `&pageToken=${token}` : ''}`);
+        const page = await call(`${base}/${c}?pageSize=300${mask}${token ? `&pageToken=${encodeURIComponent(token)}` : ''}`);
         out.push(...(page?.documents ?? []).map(toObj));
         token = page?.nextPageToken ?? '';
       } while (token);
       return out;
     },
+    async deleteMany() { throw new Error('preview mode never writes'); },
     async write() { throw new Error('preview mode never writes'); },
   };
 }
