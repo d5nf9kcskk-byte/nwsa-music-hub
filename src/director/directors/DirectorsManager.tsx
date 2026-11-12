@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock, History, Activity, ChevronDown, ChevronUp, BookOpen, ChevronLeft } from 'lucide-react';
-import { useDirectors, directorEmailId, directorRoles, directorRoleLabels, hasDirectorRole, primaryDirectorRole, BINDING_KEYS, isConfirmed } from '../hooks/useDirectors';
+import { useDirectors, directorEmailId, directorRoles, directorRoleLabels, hasDirectorRole, primaryDirectorRole, BINDING_KEYS, isConfirmed, useSignInAudit } from '../hooks/useDirectors';
 import type { Director, DirectorRole } from '../hooks/useDirectors';
 import { useLoginEvents, LOGIN_LOG_LIMIT } from '../hooks/useLoginEvents';
 import { useActivityLog, ACTIVITY_LOG_LIMIT } from '../hooks/useActivityLog';
@@ -113,6 +113,10 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
     }
   }
 
+  // (#google-binding) What the account check last found. Its public log
+  // prints one word; which accounts is said here, to the Owner only.
+  const signInAudit = useSignInAudit(isOwner);
+
   if (!isOwner) {
     // Defense in depth: DirectorApp already hides the nav entry that opens
     // this, so reaching here means a stale tab/role change — say so plainly
@@ -205,6 +209,17 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
             at the bottom of the screen, or straight after signing in).
             Anyone still “not confirmed yet” has not done that on an
             up-to-date copy of the Hub.
+          </p>
+        )}
+        {signInAudit?.at && (
+          <p className="dir-loc-hint">
+            <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} />{' '}
+            <strong>
+              Last account check ({new Date(signInAudit.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}):{' '}
+              {signInAudit.result === 'OK' ? 'OK' : 'review needed'}.
+            </strong>
+            {signInAudit.needALook.length > 0 && <> Sign-in accounts to look at: {signInAudit.needALook.join(', ')}.</>}
+            {signInAudit.listedWithNoAccount.length > 0 && <> Listed, and never signed in: {signInAudit.listedWithNoAccount.join(', ')}.</>}
           </p>
         )}
 

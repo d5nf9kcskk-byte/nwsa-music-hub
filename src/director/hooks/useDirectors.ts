@@ -295,3 +295,32 @@ export function useMyDirector(email: string | null | undefined) {
 
   return { director, loading };
 }
+
+/** What the *Audit Sign-in Accounts* workflow last found (#google-binding). */
+export interface SignInAudit {
+  at?: number;
+  result?: string;
+  /** Sign-in accounts that are not what the Hub expects, by address. */
+  needALook: string[];
+  /** Listed addresses that have no sign-in account yet. */
+  listedWithNoAccount: string[];
+}
+
+/**
+ * The audit's note, for the Owner's Directors screen. Its public log prints
+ * one word; WHICH accounts is said here, where only the Owner can read it.
+ */
+export function useSignInAudit(isOwner: boolean): SignInAudit | null {
+  const [state, setState] = useState<SignInAudit | null>(null);
+  useEffect(() => {
+    if (!db || !isOwner) return;
+    const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+    return onSnapshot(doc(db, 'serverConfig', 'signInAudit'), snap => {
+      setState(snap.exists() ? {
+        at: snap.get('at'), result: snap.get('result'),
+        needALook: list(snap.get('needALook')), listedWithNoAccount: list(snap.get('listedWithNoAccount')),
+      } : null);
+    }, () => setState(null));
+  }, [isOwner]);
+  return state;
+}

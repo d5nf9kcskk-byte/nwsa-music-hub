@@ -1725,6 +1725,12 @@ service cloud.firestore {
     // intent is visible at the point someone would otherwise edit it.
     match /mail/{doc}            { allow read, write: if false; }
 
+    // (#google-binding) Notes the server leaves for the Owner. Written by the
+    // Admin SDK alone: no client may write here, the Owner included. The
+    // Owner may read, so the Directors screen can say what a public log
+    // must not (which sign-in accounts the account check wants looked at).
+    match /serverConfig/{doc}    { allow read: if isOwner(); allow write: if false; }
+
     // ── Deny everything else by default ─────────────────
     match /{document=**}         { allow read, write: if false; }
   }
