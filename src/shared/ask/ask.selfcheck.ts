@@ -71,8 +71,12 @@ const refuse = (q: string, why: string, bare = false) => {
 
 const publicCases = ASK_CORPUS.filter(c => c.who !== 'staff');
 const staffCases = ASK_CORPUS.filter(c => c.who === 'staff');
-const counts = runCorpus('Public side', publicCases, ask);
-console.log(`  confident share       ${((counts.right + counts.wrong) / publicCases.length * 100).toFixed(0)}% of the corpus (refusals count as right, so the share of fair questions answered is lower)`);
+runCorpus('Public side', publicCases, ask);
+// "Right" above counts a refusal that was meant to be one. This is the
+// honest share: of the lines that WANT an answer, how many get a confident one.
+const fair = publicCases.filter(c => c.intent !== 'none');
+const answered = fair.filter(c => ask(fill(c.q)).confident).length;
+console.log(`  confident share       ${answered} of the ${fair.length} lines that want an answer (${(answered / fair.length * 100).toFixed(0)}%); ${answered} of all ${publicCases.length} (${(answered / publicCases.length * 100).toFixed(0)}%)`);
 
 // A staff question typed here gets no answer. The exception is a sentence
 // that is ALSO a public line ("next concert").

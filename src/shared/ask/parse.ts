@@ -3,44 +3,52 @@
  * question out. No model, no network, no state kept between calls.
  * Design: docs/superpowers/specs/2026-11-11-hub2-integrated-design.md, 3.3.
  *
- * THREE OUTCOMES, and the parser is built for the first one being RIGHT:
+ * THREE OUTCOMES:
  *   1. a confident answer (`confident: true`)
  *   2. "did you mean" (`confident: false`, `suggestions` not empty)
  *   3. nothing (`suggestions` empty): the ordinary search results show
  * A miss costs nothing, because the person still gets search results. A
- * confident wrong answer is the only expensive outcome. So nothing here
- * guesses. A sentence is answered only when EVERY word in it is accounted
- * for, and each of the four passes refuses rather than trims:
+ * confident wrong answer is the only expensive outcome.
  *
- *   1. DATES come out first, from a closed table. A date phrase the table
- *      cannot read in full is no date at all: "the week after next" is not
- *      "this week", because "after" is a word nothing accounts for.
- *   2. NAMES are matched against what the caller passes in, and a match
- *      counts only on strong evidence: the whole name, or two of its
- *      distinctive words. One word out of a long title, a surname, a typo,
- *      a bare number and a tie are suggestions, never answers. A one-word
- *      name counts only when it is not an ordinary word and the question
- *      asks about that kind of thing. A group's short name ("Camerata")
- *      must therefore be passed in as an `also`.
- *   3. EVERY intent rule is tried, not the first that fits. When two
- *      different intents fire the result is not confident, unless that pair
- *      is in PRECEDENCE with a sentence that says why. A longer phrase wins
- *      over a shorter one inside it ("do we have school" over "do we have").
- *   4. What is LEFT must be frame words (FRAME is deliberately tiny). "How",
- *      "if", "after", "up", "out", "did" are not frame: they change what a
- *      sentence means, so a rule has to claim them or the parse ends.
+ * TWO ENGINES, one result shape:
  *
- * PEOPLE. The public side never answers about a person's record. Three
- * guards that do not depend on word order, article or language: a grade
- * word ends the parse; a third person ("my son", "she", "mi hijo") with the
- * past tense, or with "is ... at/in/here/absent", ends it ("is my son at
- * rehearsal", "my son is at rehearsal?", "mi hijo esta en el ensayo"); and a
- * word nothing accounts for ends it, which is what a classmate's name is.
- * This module holds no list of people.
+ *   TEMPLATES (templates.ts) are the ONLY way to a confident answer. A
+ *   template is a row of positions, and a sentence is confident only when
+ *   one template consumes every token of it. No word is ignorable on that
+ *   path. Slots are typed and closed: a date phrase read whole, a kit name
+ *   on strong evidence, "I" and "my" for oneself, a parent's own child in
+ *   schedule and logistics templates only. Two templates that read one
+ *   sentence differently make it not confident; that is the only conflict
+ *   rule on this path.
+ *
+ *   KEYWORDS (the second half of this file) may only ever OFFER. It is the
+ *   older engine: rules fire on words, the words around them must be frame
+ *   words or claimed, and a table orders the rules that clash. What it is
+ *   sure of comes back as one suggestion, never as an answer.
+ *
+ * Before either engine reads a word: shorthand is spelled out from one
+ * table (SPELL), and dates come out from a closed table. A date phrase the
+ * table cannot read in full is no date at all.
+ *
+ * NAMES. A kit name fills a template slot only on strong evidence: the
+ * whole name, or two of its distinctive words, with nothing between them
+ * but the name's own small words. A one-word name must be the word itself,
+ * four letters or more, and not a common first name. A name made entirely
+ * of ordinary words fills only a slot whose template says what kind of
+ * thing it is. Everything else is a suggestion at best. So a group's short
+ * name ("Camerata") must be passed in by the caller as an `also`.
+ *
+ * WHAT THE CHECKS PROVE, and no more than this. ask.selfcheck.ts generates
+ * questions about a person's record, whereabouts and contact details from a
+ * list of subjects, states, deeds and word orders, and none is answered. It
+ * puts one unknown word into every template's own sample at every position,
+ * and swaps each "I" and "my" for somebody else, and none is answered. It
+ * checks that `about` on every parse it makes is a kit name or a word from
+ * a fixed table. Those are finite lists, not a proof about every sentence.
+ * This module holds no list of people and decides nothing by one.
  *
  * Pure: no React, no Firestore, no org config. Relative imports carry `.ts`
- * so plain Node can load it. ask.selfcheck.ts runs it over the corpus, a
- * hostile kit, and generated classes of question it must never answer.
+ * so plain Node can load it.
  */
 
 import type { AskIntent, AskWhen } from './corpus.ts';
@@ -71,13 +79,16 @@ export interface AskName {
 export interface AskReading {
   intent: AskIntent;
   when?: AskWhen;
-  /** What it is about, always clean: the matched thing's own name, or a
-   *  word from a closed table ("winter", "finals", "sectional"), or the
-   *  search topic, or (staff only) the person's name as typed. */
+  /** What it is about: the matched thing's own `name`, or a word from a
+   *  fixed table in this folder ("winter", "finals", "sectional"). Never a
+   *  word the person typed that is neither. The self-check asserts this on
+   *  every parse it makes. */
   about?: string;
   /** The caller's own record, when a name matched. */
   match?: AskName;
-  /** Staff only: the person named in the question, as typed. */
+  /** Staff only: the person named in the question, as typed. This is the
+   *  one field that carries typed words; it is a guess by shape (one to
+   *  three words that are no ordinary word), so check it against the roster. */
   person?: string;
 }
 
@@ -154,7 +165,7 @@ const FRAME = set(
 );
 /** A preposition must lead somewhere. Left hanging ("sign in", "show up at")
  *  it is a different verb, and a word nothing accounts for. */
-const PREPS = set('at in on for to of de del en para por');
+const PREPS = set('at in on for to of de del al en para por');
 const AFTER_PREP = set('the a an my our your his her their this that el la los las mi un una');
 /** An instrument qualifies a lesson, a seat or a part and nothing else. */
 export const ASK_INSTRUMENTS = set(
@@ -945,19 +956,9 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide): As
     })
     .filter(f => f.spans.length > 0);
 
-  // A definition, for a term the caller vouches for and nothing else.
-  const define = sentence.match(DEFINE);
-  const term = define && found.find(f => {
-    if (f.n.kind !== 'term' || !f.whole) return false;
-    const asked = define.slice(1).find(Boolean) ?? '';
-    const words = span(define.index! + define[0].indexOf(asked), asked.length).filter(i => !toks[i].frame || f.hits.includes(i));
-    return words.length === f.hits.length && words.every(i => f.hits.includes(i));
-  });
-  if (term) {
-    return { intent: 'glossary', about: term.n.name, match: term.n, confident: true, suggestions: [] };
-  }
-  // Asked to define anything else: not a question the Hub has an answer to.
-  if (define) return nothing();
+  // A definition is the templates' business ("what does TERM mean", whole
+  // sentence). Anything else shaped like one is not offered a guess.
+  if (DEFINE.test(sentence)) return nothing();
 
   const intents = [...new Set(fired.map(f => f.rule.intent))];
   const pairs = [...ASK_PRECEDENCE, ...(side?.precedence ?? [])];
