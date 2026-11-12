@@ -1,29 +1,29 @@
 /**
  * Is this sign-in token a staff member's? (#google-binding, #password-sign-in)
  *
- * The same two tests as honouredSignIn() in storage.rules, for the Cloud
+ * The same test as honouredSignIn() in storage.rules, for the Cloud
  * Functions that check a caller's token themselves. (firestore.rules applies
- * them too, with the Google one behind a server-only switch, because that one
- * file also runs for the demo projects, which have no server step. Storage
- * and these functions exist only for the school's project, so here the tie is
- * always required.) All three change together. A verified email on the
- * Directors list is not enough by itself: it says the account CARRIES that
- * address, not who holds it. A sign-in is honoured only for the account the
- * server bound to the listed person:
+ * it too, behind a server-only switch, because that one file also runs for
+ * the demo projects, which have no server step. Storage and these functions
+ * exist only for the school's project, so here it is always required.) All
+ * three change together. Being on the Directors list is not enough by
+ * itself: the server records on each entry which sign-in account is that
+ * person's (googleBinding.ts), and a sign-in is honoured only on it.
  *
- *   • Google: only the Google account the person's Directors entry is tied
- *     to (`googleSub`, written by the server alone: googleBinding.ts).
- *   • Email and password: only the ONE account the server made and bound to
- *     this person (`passwordUid`), and only for a sign-in made after it was
- *     bound (`passwordBoundAt`, whole seconds).
+ *   • A Google sign-in is honoured only when the session is on the account
+ *     the entry names (`boundUid`) and that account has the entry's Google
+ *     identity (`googleSub`).
+ *   • An email-and-password sign-in is honoured on that same account, and
+ *     only when the server has set a password on it (`passwordSet`). When
+ *     the entry also names a Google identity, the account must still have it.
  *   • Anything else is refused. A new way of signing in gets a clause here,
  *     and in both rules files, on purpose, or it gets nothing.
  *
- * Pure, so the emulator proofs can feed it real tokens. Every function that
+ * Pure, so the emulator proof can feed it real tokens. Every function that
  * calls verifyIdToken to learn who is asking goes through staffFromToken;
  * staffToken.selfcheck.ts reads index.ts to keep it that way. (`bindGoogle`
- * is the one exception by design: it is what ties a person, so it cannot
- * require the tie.)
+ * is the one exception by design: it is what makes the record, so it cannot
+ * require it.)
  */
 
 /** The claims this needs from a decoded Firebase ID token. */
@@ -32,30 +32,33 @@ export interface StaffClaims {
   sub?: string;
   email?: string;
   email_verified?: boolean;
-  /** When this session signed in, in seconds. A refreshed token keeps it. */
-  auth_time?: number;
   firebase?: { sign_in_provider?: string; identities?: Record<string, unknown> };
 }
 
 export type DirectorData = Record<string, unknown>;
 
+/** isBoundAccount() from the rules files: the session is on the one account the entry names. */
+function isBoundAccount(claims: StaffClaims, director: DirectorData | undefined): boolean {
+  const boundUid = director?.boundUid;
+  return typeof boundUid === 'string' && boundUid !== '' && boundUid === (claims.uid ?? claims.sub);
+}
+
 /** boundGoogleSignIn() from the rules files. */
 function boundGoogleSignIn(claims: StaffClaims, director: DirectorData | undefined): boolean {
   const googleSub = director?.googleSub;
   const ids = claims.firebase?.identities?.['google.com'];
-  return typeof googleSub === 'string' && googleSub !== ''
+  return isBoundAccount(claims, director)
+    && typeof googleSub === 'string' && googleSub !== ''
     && Array.isArray(ids) && ids.includes(googleSub);
 }
 
 /** boundPasswordSignIn() from the rules files. */
 function boundPasswordSignIn(claims: StaffClaims, director: DirectorData | undefined): boolean {
-  if (!director) return false;
-  const uid = claims.uid ?? claims.sub;
-  const { passwordUid, passwordBoundAt } = director;
-  return typeof passwordUid === 'string' && passwordUid !== ''
-    && typeof passwordBoundAt === 'number' && Number.isInteger(passwordBoundAt)
-    && passwordUid === uid
-    && typeof claims.auth_time === 'number' && claims.auth_time > passwordBoundAt;
+  if (!isBoundAccount(claims, director) || director?.passwordSet !== true) return false;
+  const googleSub = director.googleSub ?? '';
+  if (googleSub === '') return true;
+  const ids = claims.firebase?.identities?.['google.com'];
+  return typeof googleSub === 'string' && Array.isArray(ids) && ids.includes(googleSub);
 }
 
 /** honouredSignIn() from the rules files. */

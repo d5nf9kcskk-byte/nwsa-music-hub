@@ -66,7 +66,6 @@ on:
       # redeploy the functions as well as rebuild the site.
       - 'config/orgs/nwsa.json'
       - 'src/director/types.ts'
-      - 'config/orgs/nwsa.json'
       - '.github/workflows/deploy-functions.yml'
   workflow_dispatch:
 

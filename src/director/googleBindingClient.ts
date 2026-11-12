@@ -7,18 +7,20 @@
  */
 
 export type BindAnswer =
-  /** The entry is tied to this Google account (now, or already). */
+  /** The entry is tied to this Google account and this very sign-in. Nothing to do. */
   | 'bound'
+  /** The entry is tied, and the person's account is not the one this session is on: sign in once more. */
+  | 'again'
   /** This address is not on the Directors list. */
   | 'not-listed'
-  /** This Google account is not Google's own account for the address it carries. */
+  /** The server would not confirm this Google account for this address. */
   | 'mismatch'
   /** The entry is tied to a different Google account. */
   | 'other-account'
   /** No answer: offline, the function is not there yet, or it failed. */
   | 'unreachable';
 
-const ANSWERS: readonly string[] = ['bound', 'not-listed', 'mismatch', 'other-account'];
+const ANSWERS: readonly string[] = ['bound', 'again', 'not-listed', 'mismatch', 'other-account'];
 
 export async function bindGoogleAccount(idToken: string): Promise<BindAnswer> {
   const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;

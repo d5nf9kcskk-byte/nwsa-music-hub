@@ -38,8 +38,22 @@
  *   node scripts/rules-verdicts.emulator-check.mjs compare .rules-main/verdicts-main.json .rules-main/verdicts-branch.json
  *   rm -rf .rules-main firebase.emulators.main.json
  *
- * NOT in .github/actions/self-checks (needs Java and three emulators).
- * Every person and record in it is made up.
+ * A third mode judges one thing, and needs no second run:
+ *
+ *   visitor   With the sign-in requirement ON and nobody's record made, every
+ *             listed role must get exactly the answers a Google account that
+ *             is NOT on the list gets, for every read and write here. Being
+ *             on the list must open nothing by itself. This is the check
+ *             that sees what a text comparison of the rules cannot: a rule
+ *             somewhere that lets a role through another way.
+ *
+ *   PATH="/opt/homebrew/opt/openjdk/bin:$PATH" firebase emulators:exec --config firebase.emulators.json \
+ *     --only auth,firestore,storage --project demo-rules-verdicts \
+ *     "node scripts/rules-verdicts.emulator-check.mjs visitor"
+ *
+ * The visitor mode runs in CI before every rules deploy
+ * (.github/workflows/rules-checks.yml). Every person and record in it is
+ * made up.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -54,8 +68,9 @@ if (mode === 'compare') {
   console.log(`${keys.length} verdicts compared (${allowed} of them "allowed"), ${moved.length} moved`);
   process.exit(moved.length ? 1 : 0);
 }
-if (mode !== 'record' || !files[0]) {
-  console.error('usage: record <out.json> | compare <a.json> <b.json>   (see the top of this file)');
+const visitor = mode === 'visitor';
+if (!visitor && (mode !== 'record' || !files[0])) {
+  console.error('usage: record <out.json> | compare <a.json> <b.json> | visitor   (see the top of this file)');
   process.exit(2);
 }
 
@@ -125,20 +140,37 @@ const rest = (method, path, token, body) => fetch(`${base}${path}`, {
   ...(body ? { body: JSON.stringify(body) } : {}),
 }).then(r => r.status);
 
+// ── Sign in (first, because an entry's record names the account) ────────────
+const apps = [];
+const session = {};
+for (const who of Object.keys(PEOPLE)) {
+  const app = initializeApp({ apiKey: 'demo-key', projectId: PROJECT, storageBucket: BUCKET }, who);
+  apps.push(app);
+  session[who] = { app, token: '', uid: '' };
+  if (PEOPLE[who] === undefined) continue;
+  const auth = getAuth(app);
+  connectAuthEmulator(auth, `http://${AUTH_HOST}`, { disableWarnings: true });
+  const cred = GoogleAuthProvider.credential(JSON.stringify({ sub: `google-${who}`, email: emailOf(who), email_verified: true }));
+  const { user } = await signInWithCredential(auth, cred);
+  session[who].token = await user.getIdToken();
+  session[who].uid = user.uid;
+}
+
 // ── Seed (the Admin SDK goes around the rules) ──────────────────────────────
-// TIE=0 leaves every entry without its Google tie (#google-binding); the
-// default ties each one to the Google account it signs in with below, which
-// is the state every real entry is in once its person has opened the Hub.
-// REQUIRE=1 turns on the server-only switch that makes the tie required.
-const tie = process.env.TIE !== '0';
+// TIE=0 leaves every entry without its record (#google-binding); the
+// default gives each one the record for the account it signed in on above,
+// which is the state every real entry is in once its person has opened the
+// Hub. REQUIRE=1 turns on the server-only switch that makes it required.
+// The visitor mode is always: no records, requirement on.
+const tie = !visitor && process.env.TIE !== '0';
 for (const [who, data] of Object.entries(PEOPLE)) {
   if (data) {
     await adminDb.doc(`directors/${emailOf(who)}`).set({
-      email: emailOf(who), ...data, ...(tie ? { googleSub: `google-${who}`, googleBoundAt: 1 } : {}),
+      email: emailOf(who), ...data, ...(tie ? { googleSub: `google-${who}`, boundUid: session[who].uid, boundAt: 1 } : {}),
     });
   }
 }
-if (process.env.REQUIRE === '1') await adminDb.doc('serverConfig/signIn').set({ googleTieRequired: true });
+if (visitor || process.env.REQUIRE === '1') await adminDb.doc('serverConfig/signIn').set({ googleTieRequired: true });
 await adminDb.doc('students/stu-1').set({ name: 'Seed Student (fictional)', ensembleIds: ['ens-1'], status: 'active' });
 await adminDb.doc('studentsPublic/stu-1').set({ name: 'Seed Student (fictional)', ensembleIds: ['ens-1'], status: 'active' });
 await adminDb.doc('ensembles/ens-1').set({ name: 'Seed Ensemble' });
@@ -155,18 +187,9 @@ for (const col of COLLECTIONS) {
 
 // ── Ask ─────────────────────────────────────────────────────────────────────
 const verdicts = {};
-const apps = [];
 for (const who of Object.keys(PEOPLE)) {
   const email = emailOf(who);
-  const app = initializeApp({ apiKey: 'demo-key', projectId: PROJECT, storageBucket: BUCKET }, who);
-  apps.push(app);
-  let token = '';
-  if (PEOPLE[who] !== undefined) {
-    const auth = getAuth(app);
-    connectAuthEmulator(auth, `http://${AUTH_HOST}`, { disableWarnings: true });
-    const cred = GoogleAuthProvider.credential(JSON.stringify({ sub: `google-${who}`, email, email_verified: true }));
-    token = await (await signInWithCredential(auth, cred)).user.getIdToken();
-  }
+  const { app, token } = session[who];
   const note = (op, target, status) => { verdicts[`${who} | ${op} | ${target}`] = status; };
 
   for (const col of COLLECTIONS) {
@@ -208,6 +231,23 @@ for (const who of Object.keys(PEOPLE)) {
   }
 }
 
+if (visitor) {
+  // Every listed role against the Google account nobody listed: same
+  // question, same answer, or it is printed.
+  const roles = Object.keys(PEOPLE).filter(w => PEOPLE[w]);
+  let differ = 0;
+  let compared = 0;
+  for (const [key, status] of Object.entries(verdicts)) {
+    const [who, op, target] = key.split(' | ');
+    if (!roles.includes(who)) continue;
+    compared++;
+    const base = verdicts[`unlisted | ${op} | ${target}`];
+    if (status !== base) { differ++; console.log(`  MORE THAN A VISITOR  ${key}: ${status} (not on the list: ${base})`); }
+  }
+  console.log(`${compared} answers for ${roles.length} listed roles with no record, requirement on: ${differ} differ from a Google account that is not on the list`);
+  await Promise.all(apps.map(a => deleteApp(a).catch(() => {})));
+  process.exit(differ ? 1 : 0);
+}
 writeFileSync(files[0], JSON.stringify(verdicts, null, 1));
 const allowed = Object.values(verdicts).filter(v => v === 200 || v === 'ok').length;
 console.log(`${Object.keys(verdicts).length} verdicts recorded for ${Object.keys(PEOPLE).length} callers over ${COLLECTIONS.length} collections and ${STORAGE_PATHS.length} storage paths (${allowed} allowed) -> ${files[0]}`);

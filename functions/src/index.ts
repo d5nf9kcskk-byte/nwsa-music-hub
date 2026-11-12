@@ -39,7 +39,7 @@ import { getAppCheck } from 'firebase-admin/app-check';
 import { bindGoogle as runBindGoogle, type BindClaims } from './googleBinding.ts';
 import { googleBindingStore } from './googleBindingStore.ts';
 import { staffFromToken } from './staffToken.ts';
-import { completeSetup, requestSetup, type RequestOutcome } from './passwordSetup.ts';
+import { callerAddress, completeSetup, requestSetup, type RequestOutcome } from './passwordSetup.ts';
 import { passwordSetupStore } from './passwordSetupStore.ts';
 import { getMessaging } from 'firebase-admin/messaging';
 import { handleEventChange, sendTestAlert, type PushDeps } from './pushSend.ts';
@@ -1098,14 +1098,14 @@ export const draftChangeNoteEs = runWith({ secrets: ['ANTHROPIC_API_KEY'] }).htt
 /**
  * Tie a listed person to their own Google account (#google-binding). POST
  * with the caller's Firebase ID token as a Bearer header; no body. The app
- * calls it by itself right after a Google sign-in whenever the person's
- * Directors entry is not tied yet.
+ * calls it by itself after a Google sign-in whenever the person's Directors
+ * entry is not tied to the account they are on.
  *
- * It records Google's id for the person on their entry, and only when
- * Google's own address for the account behind the sign-in IS the listed
- * address. The rule and the reasons are in googleBinding.ts. Answers
- * { ok: true, status } with one of: bound, not-listed, mismatch,
- * other-account. It speaks only about the caller's own sign-in.
+ * It records, on the entry, Google's id for the person and the one Hub
+ * sign-in account that is theirs, which it makes afresh. The rule and the
+ * reasons are in googleBinding.ts. Answers { ok: true, status } with one of:
+ * bound, again (sign in once more), not-listed, mismatch, other-account. It
+ * speaks only about the caller's own sign-in.
  */
 export const bindGoogle = https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
@@ -1148,9 +1148,10 @@ export const bindGoogle = https.onRequest(async (req, res) => {
  *                                            address is on the Directors list.
  *                                            Changes nothing. Same answer
  *                                            whether or not it is listed.
- *   { action: 'complete', token, password }  the link was opened: set the
- *                                            password its holder chose and
- *                                            bind that account to the person.
+ *   { action: 'complete', token, password }  the link was opened: make the
+ *                                            person's account afresh with the
+ *                                            password its holder chose, and
+ *                                            record it on their entry.
  *
  * Nothing about anyone's account changes without the token from their own
  * inbox. The rules and the reasons are in passwordSetup.ts.
@@ -1181,13 +1182,15 @@ export const passwordSetup = https.onRequest(async (req, res) => {
   }
 
   const deps = passwordSetupStore(getFirestore(), getAuth(), { publicUrl: ORG.publicUrl, appName: ORG.appName });
-  const ip = req.ip ?? 'unknown';
+  // Counted by the address Google's front end appended, never by one the
+  // caller sent (passwordSetup.ts callerAddress).
+  const caller = callerAddress(req.get('X-Forwarded-For'), req.socket?.remoteAddress);
   const action: unknown = req.body?.action;
 
   if (action === 'request') {
     let outcome: RequestOutcome = 'ok';
     try {
-      outcome = await requestSetup(deps, req.body?.email, ip);
+      outcome = await requestSetup(deps, req.body?.email, caller);
     } catch (err) {
       // A failure answers exactly like success: an error here must not be a
       // way to learn which addresses are listed. The code only, never the address.
@@ -1199,20 +1202,26 @@ export const passwordSetup = https.onRequest(async (req, res) => {
   }
 
   if (action === 'complete') {
-    // ONE answer for every way this can fail (an unknown, used or expired
-    // link, a password the rules above refuse, a person no longer listed, too
-    // many tries, an error on our side): the same status and the same words,
-    // so a failed attempt says nothing about the link, the address or the
-    // list. The screen checks the password before it sends, so a real person
-    // is told what is wrong with it there.
+    // ONE answer for every way this can fail once the link has been looked
+    // at (an unknown, used or expired link, a password the rules above
+    // refuse, a person no longer listed, an error on our side): the same
+    // status and the same words, so a failed attempt says nothing about the
+    // link, the address or the list. The screen checks the password before
+    // it sends, so a real person is told what is wrong with it there.
+    // "Too many tries" is the one other answer. It is decided before the
+    // link is looked at, so it says nothing about it, and the link still
+    // works afterwards.
     let done: string | null = null;
+    let limited = false;
     try {
-      const outcome = await completeSetup(deps, req.body?.token, req.body?.password, ip);
+      const outcome = await completeSetup(deps, req.body?.token, req.body?.password, caller);
       if (outcome.status === 'done') done = outcome.email;
+      limited = outcome.status === 'limited';
     } catch (err) {
       console.error('passwordSetup complete failed:', (err as { code?: unknown } | null)?.code ?? 'unknown');
     }
     if (done) res.status(200).json({ ok: true, email: done });
+    else if (limited) refuse(429, 'Too many tries from this network just now. Wait a few minutes and open your link again. It still works.');
     else refuse(400, 'That link did not work. It may have expired or been used already. Ask for a new one.');
     return;
   }

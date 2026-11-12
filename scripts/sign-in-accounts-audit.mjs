@@ -3,16 +3,15 @@
  * sign-in-accounts-audit.mjs (#google-binding)
  *
  * One question about the Hub's sign-in accounts, answered in one word:
- * is every account Google's own account for the address it carries?
+ * is every account what the Hub expects it to be?
  *
- *   OK             every sign-in account has exactly one Google identity, and
- *                  Google's own address for it is the account's address. (A
- *                  password is fine on the one account the Hub's server bound
- *                  to the person on the Directors entry, with or without
- *                  their Google identity beside it: #password-sign-in.)
- *   REVIEW NEEDED  at least one account is something else: its address is
- *                  not the one Google has for it, or it is not a plain
- *                  Google account at all.
+ *   OK             every sign-in account has exactly one Google identity,
+ *                  Google's own address for it is the account's address, and
+ *                  where the Directors entry for that address records which
+ *                  account is the person's, this is that account. A password
+ *                  is fine on that account, and only there, when the entry
+ *                  says the server set one (#password-sign-in).
+ *   REVIEW NEEDED  at least one account is something else.
  *
  * An account that needs review cannot be tied to a Directors entry
  * (functions/src/googleBinding.ts refuses it), so the person behind it would
@@ -24,50 +23,61 @@
  * which accounts, run it on a private machine with DETAILS=1; it refuses to
  * print details inside GitHub Actions.
  *
- * Read-only: it lists accounts and changes nothing.
+ * Read-only: it lists accounts and entries and changes nothing.
  *
  *   node scripts/sign-in-accounts-audit.mjs              (needs FIREBASE_SERVICE_ACCOUNT_JSON)
  *   node scripts/sign-in-accounts-audit.mjs --selfcheck  (no credentials; checks the rule below)
  */
 
 /**
- * Is this account anything other than Google's own account for its address?
- * The same rule the server applies when it ties a person to their account.
+ * Is this account anything other than what the Hub expects? `entry` is the
+ * Directors entry for the account's address, when there is one.
  */
-export function needsReview(user, boundPasswordUid) {
+export function needsReview(user, entry) {
   const email = (user.email ?? '').toLowerCase();
   const providers = user.providerData ?? [];
   const google = providers.filter(p => p.providerId === 'google.com');
   const password = providers.filter(p => p.providerId === 'password');
   if (!email || !providers.length || google.length > 1 || password.length > 1) return true;
   if (google.length + password.length !== providers.length) return true;
-  // (#password-sign-in) A password belongs only on the one account the Hub's
-  // server made and bound to the person on the Directors entry for this
-  // address. Any other account with a password on it is worth a look.
-  if (password.length && (!boundPasswordUid || user.uid !== boundPasswordUid)) return true;
-  return google.some(g => (g.email ?? '').toLowerCase() !== email);
+  if (google.length && (google[0].email ?? '').toLowerCase() !== email) return true;
+  // A password belongs only on the account its entry names, and only when
+  // the entry says the server set one.
+  if (password.length && !(entry?.passwordSet === true && entry.boundUid === user.uid)) return true;
+  // The entry records which account is this person's: it must be this one,
+  // with the Google identity the entry names and no other.
+  if (entry?.googleSub && (!google.length || google[0].uid !== entry.googleSub)) return true;
+  if (entry?.boundUid && user.uid !== entry.boundUid) return true;
+  return false;
 }
 
 if (process.argv.includes('--selfcheck')) {
-  const g = (email, googleEmail) => ({ email, providerData: [{ providerId: 'google.com', uid: 'g', email: googleEmail }] });
+  const g = (email, googleEmail, over = {}) => ({ uid: 'u1', email, providerData: [{ providerId: 'google.com', uid: 'g1', email: googleEmail }], ...over });
+  const tied = { googleSub: 'g1', boundUid: 'u1' };
   const cases = [
-    [g('pat@school.test', 'pat@school.test'), false, 'Google\'s own account for its address'],
-    [g('Pat@School.test', 'pat@SCHOOL.test'), false, 'capitals do not matter'],
-    [g('pat@school.test', 'someone@gmail.test'), true, 'Google has a different address for it'],
-    [g('pat@school.test', undefined), true, 'Google reports no address for it'],
-    [{ email: 'pat@school.test', providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, true, 'not a Google account'],
-    [{ email: 'pat@school.test', providerData: [] }, true, 'no sign-in identity at all'],
-    [{ providerData: [] }, true, 'an account with no address'],
-    [{ email: 'pat@school.test', providerData: [{ providerId: 'google.com', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, true, 'a Google account with a password on it that the Hub did not bind'],
-    [{ email: 'pat@school.test', providerData: [{ providerId: 'google.com', email: 'pat@school.test' }, { providerId: 'phone' }] }, true, 'a Google account with something else on it'],
-    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'google.com', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, false, 'the account the Hub bound a password to, with the person\'s own Google identity', 'u1'],
-    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, false, 'the account the Hub bound a password to, with no Google identity yet', 'u1'],
-    [{ uid: 'u2', email: 'pat@school.test', providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, true, 'a password account that is not the bound one', 'u1'],
-    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'google.com', email: 'someone@gmail.test' }, { providerId: 'password', email: 'pat@school.test' }] }, true, 'the bound account, but Google has a different address for it', 'u1'],
+    [g('pat@school.test', 'pat@school.test'), undefined, false, 'Google\'s own account for its address'],
+    [g('Pat@School.test', 'pat@SCHOOL.test'), undefined, false, 'capitals do not matter'],
+    [g('pat@school.test', 'someone@gmail.test'), undefined, true, 'Google has a different address for it'],
+    [g('pat@school.test', undefined), undefined, true, 'Google reports no address for it'],
+    [{ email: 'pat@school.test', providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, undefined, true, 'not a Google account'],
+    [{ email: 'pat@school.test', providerData: [] }, undefined, true, 'no sign-in identity at all'],
+    [{ providerData: [] }, undefined, true, 'an account with no address'],
+    [{ email: 'pat@school.test', providerData: [{ providerId: 'google.com', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, undefined, true, 'a Google account with a password on it that no entry accounts for'],
+    [{ email: 'pat@school.test', providerData: [{ providerId: 'google.com', email: 'pat@school.test' }, { providerId: 'phone' }] }, undefined, true, 'a Google account with something else on it'],
+    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'google.com', uid: 'g1', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, { ...tied, passwordSet: true }, false, 'the account on record, with the password the server set and the entry\'s Google identity'],
+    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, { boundUid: 'u1', passwordSet: true }, false, 'the account on record of a person who has only ever used a password'],
+    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'google.com', uid: 'g1', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, tied, true, 'a password on the account on record that the server did not set'],
+    [{ uid: 'u2', email: 'pat@school.test', providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, { boundUid: 'u1', passwordSet: true }, true, 'a password account that is not the one on record'],
+    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'google.com', uid: 'g-other', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, { ...tied, passwordSet: true }, true, 'the account on record, but with a Google identity that is not the entry\'s'],
+    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, { ...tied, passwordSet: true }, true, 'the account on record of a tied person, with no Google identity on it any more'],
+    [g('pat@school.test', 'pat@school.test'), tied, false, 'the account its entry records'],
+    [g('pat@school.test', 'pat@school.test'), { googleSub: 'g-other', boundUid: 'u1' }, true, 'its Google id is not the one its entry records'],
+    [g('pat@school.test', 'pat@school.test'), { googleSub: 'g1', boundUid: 'u-other' }, true, 'it is not the account its entry records'],
+    [g('pat@school.test', 'pat@school.test'), {}, false, 'an entry that records nothing yet'],
   ];
   let failed = 0;
-  for (const [user, want, label, boundUid] of cases) {
-    if (needsReview(user, boundUid) !== want) { failed++; console.error(`  ✗ ${label}`); }
+  for (const [user, entry, want, label] of cases) {
+    if (needsReview(user, entry) !== want) { failed++; console.error(`  ✗ ${label}`); }
   }
   // The one-word promise: the only things this file can print about real
   // accounts are the two words, unless DETAILS is asked for outside Actions.
@@ -97,18 +107,18 @@ const { getFirestore } = await import('firebase-admin/firestore');
 initializeApp({ credential: cert(JSON.parse(raw)) });
 const auth = getAuth();
 
-// Which account, if any, the Hub's server bound a password to, per listed address.
-const boundPasswordUid = new Map();
+// What each Directors entry records about its person's account.
+const entries = new Map();
 for (const d of (await getFirestore().collection('directors').get()).docs) {
-  const uid = d.get('passwordUid');
-  if (typeof uid === 'string' && uid) boundPasswordUid.set(d.id.toLowerCase(), uid);
+  const text = v => (typeof v === 'string' && v ? v : undefined);
+  entries.set(d.id.toLowerCase(), { googleSub: text(d.get('googleSub')), boundUid: text(d.get('boundUid')), passwordSet: d.get('passwordSet') === true });
 }
 
 const flagged = [];
 let pageToken;
 do {
   const page = await auth.listUsers(1000, pageToken);
-  for (const user of page.users) if (needsReview(user, boundPasswordUid.get((user.email ?? '').toLowerCase()))) flagged.push(user);
+  for (const user of page.users) if (needsReview(user, entries.get((user.email ?? '').toLowerCase()))) flagged.push(user);
   pageToken = page.pageToken;
 } while (pageToken);
 

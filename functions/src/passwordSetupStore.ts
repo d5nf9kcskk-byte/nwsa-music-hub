@@ -4,11 +4,11 @@
  * Its own module, with the database and the sign-in service passed in, so
  * the Cloud Function and the emulator proof run exactly this code.
  *
- * Three server-only places, none of which any client may read or write
- * (firestore.rules has no match for the last two, so they are denied):
- *   directors/{email}.passwordUid / .passwordBoundAt   the binding
- *   passwordSetup/{sha256 of the token}                a link not yet used
- *   passwordSetupLimits/{hashed key}                   the rate-limit counters
+ * Three server-only places, none of which any client may write (and only the
+ * first of which a client may even read, on its own entry):
+ *   directors/{email}.boundUid / .boundAt / .passwordSet   the record
+ *   passwordSetup/{sha256 of the token}                    a link not yet used
+ *   passwordSetupLimits/{hashed key}                       the rate-limit counters
  */
 import type { Firestore } from 'firebase-admin/firestore';
 import { newToken, type SetupAuth, type SetupDeps } from './passwordSetup.ts';
@@ -28,10 +28,10 @@ export function passwordSetupStore(
     async getDirector(email) {
       return (await db.doc(`directors/${email}`).get()).data();
     },
-    async bind(email, uid, boundAtSeconds) {
+    async bind(email, uid, now) {
       // update(), never set(): this must not be able to put anyone ON the list.
       try {
-        await db.doc(`directors/${email}`).update({ passwordUid: uid, passwordBoundAt: boundAtSeconds });
+        await db.doc(`directors/${email}`).update({ boundUid: uid, boundAt: now, passwordSet: true });
         return true;
       } catch (e) {
         if ((e as { code?: unknown } | null)?.code === NOT_FOUND) return false;
@@ -46,6 +46,8 @@ export function passwordSetupStore(
       await Promise.all(unused.docs.map(d => d.ref.delete()));
     },
     async takeToken(id, now) {
+      // One transaction: of several tries with the same link at the same
+      // moment, exactly one finds it.
       return db.runTransaction(async tx => {
         const ref = db.doc(`passwordSetup/${id}`);
         const snap = await tx.get(ref);

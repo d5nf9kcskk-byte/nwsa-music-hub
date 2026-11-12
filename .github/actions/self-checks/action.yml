@@ -680,3 +680,42 @@ runs:
     - name: Check student day
       run: node src/shared/studentDay.selfcheck.ts
       shell: bash
+
+    # Each listed person is tied to their own Google account (#google-binding).
+    # The server step that records it, the fresh account it makes, and the
+    # Directors rules that let no browser write the record. It reads
+    # firestore.rules, so it must run on every build and before every rules
+    # deploy, not only when the functions change.
+    - name: Check the Google tie
+      run: node --experimental-strip-types functions/src/googleBinding.selfcheck.ts
+      shell: bash
+
+    # The sign-in accounts audit prints one word about real accounts and
+    # never an address: this repo's logs are public.
+    - name: Check the sign-in accounts audit
+      run: node scripts/sign-in-accounts-audit.mjs --selfcheck
+      shell: bash
+
+    # Who the rules let in (#google-binding): the same test in firestore.rules,
+    # storage.rules and the functions, word for word; every staff gate applies
+    # it; the switch is the server's alone; every function that takes a
+    # caller's token checks the role after it. It reads both rules files, so
+    # it runs on every build, and again before every rules deploy
+    # (rules-checks.yml, which also asks the real rules on emulators).
+    - name: Check the staff sign-in test
+      run: node --experimental-strip-types functions/src/staffToken.selfcheck.ts
+      shell: bash
+
+    # The switch script says nothing about its result in a public log.
+    - name: Check the switch script
+      run: node scripts/require-google-ties.mjs --selfcheck
+      shell: bash
+
+    # Setting a staff password (#password-sign-in): asking changes nothing and
+    # always takes the same time, a link works once and is taken inside one
+    # transaction, the account is always a fresh one, the limits are the
+    # agreed numbers, the function wants App Check and logs nothing but an
+    # error code, and the sign-in screen keeps no password anywhere.
+    - name: Check password setup
+      run: node --experimental-strip-types functions/src/passwordSetup.selfcheck.ts
+      shell: bash

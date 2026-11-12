@@ -29,24 +29,25 @@ service firebase.storage {
       return firestore.get(/databases/(default)/documents/directors/$(request.auth.token.email)).data;
     }
 
-    // WHICH account signed in (#google-binding, #password-sign-in): the SAME
-    // two tests as honouredSignIn() in firestore.rules, and they must stay
-    // the same. A Google sign-in is honoured only for the Google account the
-    // person's Directors entry is tied to (`googleSub`). A password is
-    // honoured only for the one account the Hub's server bound to this
-    // person (`passwordUid`), for a sign-in made after it was bound. Both
-    // records are written by the server alone. Every staff helper in this
-    // file calls it, so a verified email on the list opens nothing here by
-    // itself either.
+    // WHICH account signed in (#google-binding, #password-sign-in): the SAME test as
+    // honouredSignIn() in firestore.rules, and it must stay the same. A
+    // Google sign-in is honoured only when the session is on the account the
+    // person's Directors entry names (`boundUid`) and that account has the
+    // entry's Google identity (`googleSub`). An email-and-password sign-in is
+    // honoured on that same account, only when the server has set a password
+    // on it (`passwordSet`). The server alone writes all of it.
+    // Every staff helper in this file calls it, so being on the list opens
+    // nothing here by itself either.
     //
-    // One difference from firestore.rules, on purpose: there the Google tie
-    // is required only once a server-only switch is on. Here it is ALWAYS
+    // One difference from firestore.rules, on purpose: there this is
+    // required only once a server-only switch is on. Here it is ALWAYS
     // required. A Storage rule may look at only two Firestore documents, and
     // these rules already use both (the directors doc, and a lesson or an
     // assignment), so there is no room to read a switch. And only the school's
     // project has Storage at all, which is the one project that has the
-    // server step to tie people with. A person not tied yet cannot upload
-    // until the app has tied them, which it does by itself on opening.
+    // server step to make the record. A person with no record yet can
+    // neither upload nor open staff-only files until the app has had the
+    // record made, which it does by itself on opening.
     function honouredSignIn() {
       return (request.auth.token.firebase.sign_in_provider == 'google.com'
               && boundGoogleSignIn())
@@ -56,23 +57,29 @@ service firebase.storage {
 
     // Every caller has already checked that the directors doc exists.
     function boundGoogleSignIn() {
-      return isTiedGoogleId(directorDoc().get('googleSub', ''));
+      return isBoundGoogleAccount(directorDoc());
+    }
+    function isBoundGoogleAccount(d) {
+      return isBoundAccount(d.get('boundUid', ''))
+        && isTiedGoogleId(d.get('googleSub', ''));
+    }
+    function boundPasswordSignIn() {
+      return isBoundPasswordAccount(directorDoc());
+    }
+    function isBoundPasswordAccount(d) {
+      return isBoundAccount(d.get('boundUid', ''))
+        && d.get('passwordSet', false) == true
+        && (d.get('googleSub', '') == '' || isTiedGoogleId(d.get('googleSub', '')));
+    }
+    function isBoundAccount(boundUid) {
+      return boundUid is string
+        && boundUid != ''
+        && boundUid == request.auth.uid;
     }
     function isTiedGoogleId(googleSub) {
       return googleSub is string
         && googleSub != ''
         && googleSub in request.auth.token.firebase.identities['google.com'];
-    }
-
-    function boundPasswordSignIn() {
-      return isBoundPasswordAccount(directorDoc());
-    }
-    function isBoundPasswordAccount(d) {
-      return d.keys().hasAll(['passwordUid', 'passwordBoundAt'])
-        && d.passwordUid is string
-        && d.passwordBoundAt is int
-        && d.passwordUid == request.auth.uid
-        && request.auth.token.auth_time > d.passwordBoundAt;
     }
 
     // Signed in AND listed in Firestore's `directors` collection — mirrors
