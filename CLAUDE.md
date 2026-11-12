@@ -1198,11 +1198,14 @@ not in which accounts happen to exist and not in a console setting:
 - **Nothing about anyone's account changes without their inbox.**
   `passwordSetup` (one function, two actions) is the only thing that touches
   an account. `request` only emails a one-time link and answers the same
-  whether or not the address is listed. `complete` takes the link's token
-  (stored only as a hash, used up before anything else) and only then makes a
+  whether or not the address is listed; a newer link retires the older ones.
+  `complete` takes the link's token (32 random bytes, stored only as a hash,
+  used up before anything else is looked at, whether or not the rest
+  succeeds), re-checks the person is still listed, and only then makes a
   FRESH account with the chosen password, re-attaches the person's own Google
-  identity to it, and binds it. Fresh, always: every older session on the
-  address is on a deleted account. Safe only because nothing in `src/`, the
+  identity to it, and binds it. Every failure gets one and the same answer.
+  It signs nobody in: the screen hands over to the ordinary sign-in form.
+  Fresh, always: every older session on the address is on a deleted account. Safe only because nothing in `src/`, the
   rules or the functions keys data on an account id. If that ever changes,
   revisit this first.
 - **The app never creates an account, sets a password, or sends a

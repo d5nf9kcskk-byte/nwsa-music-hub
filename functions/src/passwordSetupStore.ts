@@ -41,6 +41,10 @@ export function passwordSetupStore(
     async saveToken(id, record) {
       await db.doc(`passwordSetup/${id}`).set(record);
     },
+    async retireTokens(email) {
+      const unused = await db.collection('passwordSetup').where('email', '==', email).get();
+      await Promise.all(unused.docs.map(d => d.ref.delete()));
+    },
     async takeToken(id, now) {
       return db.runTransaction(async tx => {
         const ref = db.doc(`passwordSetup/${id}`);

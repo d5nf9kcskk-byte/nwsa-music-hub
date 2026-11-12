@@ -80,6 +80,7 @@ function harness(opts: { users?: FakeUser[]; listed?: string[]; bindFails?: bool
       return true;
     },
     async saveToken(id, record) { tokens.set(id, record); },
+    async retireTokens(email) { for (const [id, r] of tokens) if (r.email === email) tokens.delete(id); },
     async takeToken(id, now) {
       const r = tokens.get(id);
       tokens.delete(id);
@@ -154,9 +155,8 @@ async function linkFor(h: ReturnType<typeof harness>, email: string, ip = '1.1.1
 {
   const h = harness();
   const token = await linkFor(h, 'pat@school.test');
-  check((await completeSetup(h.deps, token, 'short', '1.1.1.1')).status === 'weak', 'a short password is refused');
-  check(h.tokens.size === 1 && h.authCalls().length === 0, 'without using the link up or touching an account');
   check((await completeSetup(h.deps, 'not-a-real-token-aaaaaaaaaaaa', GOOD, '1.1.1.1')).status === 'expired' && h.authCalls().length === 0, 'an unknown token: expired, nothing touched');
+  check(h.tokens.size === 1, 'and a wrong guess does not use the real link up');
   for (const bad of [undefined, null, 7, '']) {
     check((await completeSetup(h.deps, bad, GOOD, '1.1.1.1')).status === 'expired', `a token of ${String(bad)}: expired`);
   }
@@ -169,6 +169,33 @@ async function linkFor(h: ReturnType<typeof harness>, email: string, ip = '1.1.1
   late.advance(LINK_LIFETIME_MS + 1);
   check((await completeSetup(late.deps, t2, GOOD, '1.1.1.1')).status === 'expired' && late.authCalls().length === 0, 'after an hour: expired, nothing touched');
   check(late.tokens.size === 0, 'and the dead link is gone');
+
+  // Used up on first use, whether or not the rest succeeds.
+  for (const [label, bad] of [
+    ['a password under 10 characters', 'short'],
+    ['a password over 200 characters', 'x'.repeat(201)],
+    ['the email address as its own password', 'pat@school.test'],
+    ['the email address with capitals and spaces', '  Pat@School.TEST '],
+    ['a password that is not text', 1234567890123],
+  ] as const) {
+    const w = harness();
+    const t = await linkFor(w, 'pat@school.test');
+    check((await completeSetup(w.deps, t, bad, '4.4.4.4')).status === 'weak' && w.authCalls().length === 0, `${label}: refused, no account touched`);
+    check(w.tokens.size === 0 && (await completeSetup(w.deps, t, GOOD, '5.5.5.5')).status === 'expired', `${label}: and the link is used up all the same`);
+  }
+
+  // A newer link retires the ones before it.
+  const two = harness();
+  const first = await linkFor(two, 'pat@school.test');
+  const second = await linkFor(two, 'pat@school.test', '6.6.6.6');
+  check(two.tokens.size === 1 && first !== second, 'asking again leaves exactly one live link for the address');
+  check((await completeSetup(two.deps, first, GOOD, '7.7.7.1')).status === 'expired' && two.authCalls().length === 0, 'the earlier email\'s link no longer works');
+  check((await completeSetup(two.deps, second, GOOD, '7.7.7.2')).status === 'done', 'the newest email\'s link does');
+  const others = harness({ listed: ['pat@school.test', 'sam@school.test'] });
+  const pats = await linkFor(others, 'pat@school.test');
+  await linkFor(others, 'sam@school.test');
+  check((await completeSetup(others.deps, pats, GOOD, '7.7.7.3')).status === 'done', 'someone else asking for THEIR link retires nobody else\'s');
+  check(others.directors.get('sam@school.test')!.passwordUid === undefined, 'and a link sets a password for its own address only');
 
   const gone = harness();
   const t3 = await linkFor(gone, 'pat@school.test');
@@ -254,8 +281,10 @@ for (const [label, existing] of [
   for (let i = 0; i < ADDRESS_LIMIT.max; i++) await requestSetup(h.deps, 'pat@school.test', `10.0.0.${i}`);
   check(h.mails.length === ADDRESS_LIMIT.max, `${ADDRESS_LIMIT.max} links to one inbox are sent`);
   check(await requestSetup(h.deps, 'pat@school.test', '10.0.9.9') === 'ok' && h.mails.length === ADDRESS_LIMIT.max, 'the next is NOT sent, and the answer does not change');
-  const earlier = readSetupLink(h.mails[0].message.text.slice(h.mails[0].message.text.indexOf('#')).split('\n')[0])!.token;
-  check((await completeSetup(h.deps, earlier, GOOD, '10.0.0.0')).status === 'done', 'and a link already in the inbox still works: nobody is locked out by someone else asking');
+  const newest = h.mails[h.mails.length - 1].message.text;
+  const live = readSetupLink(newest.slice(newest.indexOf('#')).split('\n')[0])!.token;
+  check(h.tokens.size === 1 && (await completeSetup(h.deps, live, GOOD, '10.0.0.0')).status === 'done',
+    'and the newest link in the inbox still works: past the cap nothing is retired, so nobody is locked out by someone else asking');
 
   const busy = harness();
   let limited = 0;
@@ -288,8 +317,28 @@ for (const [label, existing] of [
   const request = core.slice(core.indexOf('export async function requestSetup'), core.indexOf('export type CompleteOutcome'));
   check(!/deps\.auth|deps\.bind/.test(request), 'requestSetup never reaches the sign-in service or the binding');
 
+  // Every failed completion gets one and the same answer.
+  const complete = handler.slice(handler.indexOf("action === 'complete'"), handler.lastIndexOf("refuse(400, 'That did not reach"));
+  check((complete.match(/refuse\(/g) ?? []).length === 1 && (complete.match(/res\.status\(/g) ?? []).length === 1,
+    'completing has exactly one failure answer and one success answer');
+  check(!/outcome\.status === '(weak|expired|limited)'/.test(complete), 'and it does not tell the caller WHY it failed');
+  const core2 = noComments(readFileSync(resolve(here, 'passwordSetup.ts'), 'utf8'));
+  const completeFn = core2.slice(core2.indexOf('export async function completeSetup'));
+  check(completeFn.indexOf('deps.takeToken(') < completeFn.indexOf('passwordAcceptable(') && completeFn.indexOf('deps.takeToken(') < completeFn.indexOf('deps.getDirector('),
+    'the link is used up before the password or the list is looked at');
+  check(/randomBytes\(32\)/.test(core2), 'a token is 32 random bytes');
+  check(/retireTokens\(email\)[\s\S]*saveToken\(/.test(core2.slice(core2.indexOf('export async function requestSetup'), core2.indexOf('export type CompleteOutcome'))),
+    'a new link retires the older ones before it is saved');
+
   // The app's side of the same promise.
   const gate = noComments(readFileSync(resolve(repo, 'src/director/components/AuthGate.tsx'), 'utf8'));
+  const choose = gate.slice(gate.indexOf('async function choosePassword'), gate.indexOf('async function signIn()'));
+  check(choose.length > 0 && !/signInWith|getIdToken|signInWithCustomToken/.test(choose), 'choosing a password signs nobody in: it hands over to the ordinary sign-in form');
+  check(!gate.includes('signInWithCustomToken') && !gate.includes('signInWithEmailLink'), 'AuthGate signs in by Google or by password and by nothing else');
+  check(/autoComplete="username" readOnly/.test(gate) && (gate.match(/autoComplete="new-password"/g) ?? []).length === 2 && /autoComplete="current-password"/.test(gate),
+    'the fields are marked so a phone saves the email and password as a pair');
+  const choosing = gate.slice(gate.indexOf("PASSWORD_SIGN_IN && setupLink && mode === 'choose'"));
+  check(!/<(img|script|link|iframe)[^>]*(src|href)=["{]\s*["`']?https?:/.test(choosing.slice(0, choosing.indexOf("mode === 'setup'"))), 'the choose-your-password screen loads nothing from another site');
   for (const never of ['createUserWithEmailAndPassword', 'sendPasswordResetEmail', 'sendEmailVerification', 'updatePassword', 'confirmPasswordReset']) {
     check(!gate.includes(never), `AuthGate never calls ${never}: accounts and passwords are the server's work`);
   }

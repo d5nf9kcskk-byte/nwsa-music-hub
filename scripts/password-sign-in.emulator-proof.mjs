@@ -463,16 +463,28 @@ async function s9_linksAreOneTime() {
   const email = 'kit@school.test';
   await list(email);
   await requestSetup(store, email, someIp());
-  const token = await hubLink(email);
-  must((await completeSetup(store, token, 'short', someIp())).status === 'weak', 'a password under 10 characters is refused');
-  const late = { ...store, now: () => Date.now() + 61 * 60 * 1000 };
+  const first = await hubLink(email);
   await requestSetup(store, email, someIp());
   const second = await hubLink(email);
-  must((await completeSetup(late, second, 'kits own pass 1', someIp())).status === 'expired', 'a link opened after an hour: expired');
-  must((await completeSetup(store, token, 'kits own pass 1', someIp())).status === 'done', 'the first link, still inside its hour, works (the short password did not use it up)');
-  must((await completeSetup(store, token, 'kits own pass 2', someIp())).status === 'expired', 'and never a second time');
+  must((await completeSetup(store, first, 'kits own pass 0', someIp())).status === 'expired', 'asking again retires the earlier link: only the newest email\'s link works');
+  must((await completeSetup(store, second, email, someIp())).status === 'weak', 'the email address is refused as its own password');
+  must((await completeSetup(store, second, 'kits own pass 0', someIp())).status === 'expired', 'and that link is used up all the same: a link works once, whether or not it succeeded');
+  must(await codeOf(adminAuth.getUserByEmail(email)) === 'auth/user-not-found' && (await director(email)).passwordUid === undefined, 'nothing was made and nothing bound by any of that');
+  await requestSetup(store, email, someIp());
+  const third = await hubLink(email);
   must((await completeSetup(store, 'a-made-up-token-000000000000', 'kits own pass 3', someIp())).status === 'expired', 'a made-up link: expired');
+  must((await completeSetup(store, third, 'kits own pass 1', someIp())).status === 'done', 'a fresh link with a proper password works');
+  must((await completeSetup(store, third, 'kits own pass 2', someIp())).status === 'expired', 'and never a second time');
   must(await getsIn((await byPassword('kit-phone', email, 'kits own pass 1')).d, email) === true, 'the password that was set gets in');
+
+  const email2 = 'kat@school.test';
+  await list(email2);
+  await requestSetup(store, email2, someIp());
+  const slow = await hubLink(email2);
+  const late = { ...store, now: () => Date.now() + 61 * 60 * 1000 };
+  must((await completeSetup(late, slow, 'kats own pass 1', someIp())).status === 'expired', 'a link opened after an hour: expired');
+  must((await completeSetup(store, slow, 'kats own pass 1', someIp())).status === 'expired', 'and gone for good');
+  must((await completeSetup(store, slow.slice(0, -2), 'short', someIp())).status === 'expired', 'a wrong link is "expired" even with a bad password: the link is judged first');
 }
 
 async function s10_removedAndReadded() {

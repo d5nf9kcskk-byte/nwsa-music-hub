@@ -46,6 +46,10 @@ const BREAK_GLASS_EMAILS = ORG.breakGlassEmails;
  */
 const PASSWORD_SIGN_IN = ORG.features.passwordSignIn;
 
+/** sessionStorage: the address whose password was just chosen, across the sign-out reload. Never the password. */
+const JUST_SET_KEY = 'hub.passwordJustSet';
+const PASSWORD_SET_NOTICE = 'Your password is set. Sign in with it below.';
+
 /** What to do next, for each way a password sign-in can fail. */
 function passwordSignInMessage(code: string): string {
   switch (code) {
@@ -82,12 +86,22 @@ export function AuthGate({ children }: Props) {
   useEffect(() => {
     if (setupLink) window.history.replaceState(null, '', window.location.pathname + window.location.search);
   }, [setupLink]);
+  // A password was chosen a moment ago on this device and the page reloaded
+  // on the way to the sign-in form: the address to fill in, read once.
+  const [justSet] = useState(() => {
+    if (!PASSWORD_SIGN_IN) return '';
+    try {
+      const email = sessionStorage.getItem(JUST_SET_KEY) ?? '';
+      sessionStorage.removeItem(JUST_SET_KEY);
+      return email;
+    } catch { return ''; /* private mode */ }
+  });
   const [mode, setMode] = useState<'signin' | 'setup' | 'sent' | 'choose'>(setupLink ? 'choose' : 'signin');
-  const [typedEmail, setTypedEmail] = useState(setupLink?.email ?? '');
+  const [typedEmail, setTypedEmail] = useState(setupLink?.email || justSet);
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState(justSet ? PASSWORD_SET_NOTICE : '');
 
   useEffect(() => {
     if (!auth) { setUser(null); return; }
@@ -280,27 +294,37 @@ export function AuthGate({ children }: Props) {
       setSignInError('The two passwords are not the same. Type them again.');
       return;
     }
+    // The server refuses these too, but it uses the link up first. Checking
+    // here means a slip costs a retype, not a new email.
+    if (setupLink.email && password.trim().toLowerCase() === setupLink.email) {
+      setSignInError('Choose a password that is not your email address.');
+      return;
+    }
     setSignInError('');
     setBusy(true);
     const answer = await completePasswordSetup(setupLink.token, password);
+    setBusy(false);
+    setPassword('');
+    setPassword2('');
     if (!answer.ok || !answer.email) {
-      setBusy(false);
       setSignInError(answer.message ?? '');
       return;
     }
-    try {
-      await signInWithEmailAndPassword(auth, answer.email, password);
-      setMode('signin');
-    } catch {
-      // The password IS set. Signing in with it is one more tap.
-      setTypedEmail(answer.email);
-      setMode('signin');
-      setNotice('Your password is set. Sign in with it below.');
-    } finally {
-      setPassword('');
-      setPassword2('');
-      setBusy(false);
+    // The password is set, and that is all this screen does. Getting in is
+    // the ordinary sign-in form, by the ordinary password sign-in: nothing
+    // here signs anyone in on the strength of the link.
+    if (user && user !== 'loading') {
+      // Someone is signed in on this device. Their account was just replaced,
+      // so sign out properly (which also clears the staff cache and reloads)
+      // and leave a note for the sign-in screen.
+      try { sessionStorage.setItem(JUST_SET_KEY, answer.email); } catch { /* private mode */ }
+      setMode('signin'); // if they decline the sign-out, they are back where they were
+      void handleSignOut();
+      return;
     }
+    setTypedEmail(answer.email);
+    setNotice(PASSWORD_SET_NOTICE);
+    setMode('signin');
   }
 
   async function signIn() {
@@ -438,7 +462,7 @@ export function AuthGate({ children }: Props) {
             value={password2} onChange={e => setPassword2(e.target.value)}
           />
           <button className="dir-google-btn dir-auth-submit" type="submit" disabled={busy}>
-            {busy ? 'Saving…' : 'Save and sign in'}
+            {busy ? 'Saving…' : 'Save my password'}
           </button>
         </form>
         {signInError && <p role="alert" className="dir-auth-copy dir-auth-error">{signInError}</p>}

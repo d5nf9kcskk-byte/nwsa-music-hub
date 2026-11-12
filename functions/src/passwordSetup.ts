@@ -84,6 +84,8 @@ export interface SetupDeps {
   /** Stamp the binding on an EXISTING directors doc. False if the doc is gone. Never creates one. */
   bind(email: string, uid: string, boundAtSeconds: number): Promise<boolean>;
   saveToken(id: string, record: { email: string; expiresAt: number }): Promise<void>;
+  /** Throw away every unused link for this address, so only the newest email's link works. */
+  retireTokens(email: string): Promise<void>;
   /** Use a token up: the record if it existed and has not expired, else null. Never usable twice. */
   takeToken(id: string, now: number): Promise<{ email: string } | null>;
   sendMail(mail: MailDoc): Promise<void>;
@@ -139,17 +141,27 @@ export async function requestSetup(deps: SetupDeps, rawEmail: unknown, ip: strin
   if (!looksLikeEmail(email)) return 'ok';
   if (!await deps.getDirector(email)) return 'ok';
   if (!await deps.allow(limitKey('to', email), ADDRESS_LIMIT.max, ADDRESS_LIMIT.windowMs)) return 'ok';
+  // One live link per address: a new one retires the ones before it. The
+  // newest email in the inbox is always the one that works. (Past the cap
+  // above nothing new is issued, so nothing is retired either.)
+  await deps.retireTokens(email);
   const token = deps.newToken();
   await deps.saveToken(tokenId(token), { email, expiresAt: deps.now() + LINK_LIFETIME_MS });
   await deps.sendMail(buildSetupMail(email, setupLink(deps.publicUrl, token, email), deps.appName));
   return 'ok';
 }
 
+/**
+ * Why a completion did not happen. These names are for the tests and the
+ * proof. The CALLER is told none of them: every failure gets one and the
+ * same answer (the function in index.ts), so a failed attempt says nothing
+ * about the link, the address or the list.
+ */
 export type CompleteOutcome =
   | { status: 'done'; email: string }
-  /** The password is too short or too long. Nothing was used up. */
+  /** The password is too short, too long, or is the email address itself. The link is used up all the same. */
   | { status: 'weak' }
-  /** The link is unknown, used, expired, or its person is no longer listed. One answer for all four. */
+  /** The link is unknown, used, retired, expired, or its person is no longer listed. */
   | { status: 'expired' }
   | { status: 'limited' };
 
@@ -180,14 +192,21 @@ export async function completeSetup(
   deps: SetupDeps, token: unknown, password: unknown, ip: string,
 ): Promise<CompleteOutcome> {
   if (!await deps.allow(limitKey('ip', ip), IP_LIMIT.max, IP_LIMIT.windowMs)) return { status: 'limited' };
-  if (!passwordAcceptable(password)) return { status: 'weak' };
   if (typeof token !== 'string' || !token) return { status: 'expired' };
-  // The token is used up HERE, before anything else: a link works once, even
-  // if what follows fails. A failure leaves at worst an unbound account,
-  // which the rules refuse, and the person asks for a new link.
+  // The token is used up HERE, before anything else is looked at: a link
+  // works once, whether or not what follows succeeds. A failure leaves at
+  // worst an unbound account, which the rules refuse, and the person asks
+  // for a new link. (The token is never compared with a stored secret, so
+  // there is no comparison to time: its hash is the name of the record, and
+  // the lookup finds that record or does not.)
   const record = await deps.takeToken(tokenId(token), deps.now());
   if (!record) return { status: 'expired' };
   const email = record.email;
+  // The screen checks these before it sends, so a person never loses a link
+  // to a typo. They are checked again here because the screen is not the
+  // only thing that can call this.
+  if (!passwordAcceptable(password) || normaliseEmail(password) === email) return { status: 'weak' };
+  // Still on the list at this moment, not just when the link was sent.
   if (!await deps.getDirector(email)) return { status: 'expired' };
 
   // The account that gets bound is ALWAYS a fresh one. Whatever stood on the

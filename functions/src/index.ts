@@ -39,7 +39,6 @@ import { getAppCheck } from 'firebase-admin/app-check';
 import { staffFromToken } from './staffToken.ts';
 import { completeSetup, requestSetup, type RequestOutcome } from './passwordSetup.ts';
 import { passwordSetupStore } from './passwordSetupStore.ts';
-import { MIN_PASSWORD_LENGTH } from '../../src/shared/passwordSetupLink.ts';
 import { getMessaging } from 'firebase-admin/messaging';
 import { handleEventChange, sendTestAlert, type PushDeps } from './pushSend.ts';
 import { draftSpanish, noteFromBody } from './bannerDrafter.ts';
@@ -1151,16 +1150,21 @@ export const passwordSetup = https.onRequest(async (req, res) => {
   }
 
   if (action === 'complete') {
+    // ONE answer for every way this can fail (an unknown, used or expired
+    // link, a password the rules above refuse, a person no longer listed, too
+    // many tries, an error on our side): the same status and the same words,
+    // so a failed attempt says nothing about the link, the address or the
+    // list. The screen checks the password before it sends, so a real person
+    // is told what is wrong with it there.
+    let done: string | null = null;
     try {
       const outcome = await completeSetup(deps, req.body?.token, req.body?.password, ip);
-      if (outcome.status === 'done') { res.status(200).json({ ok: true, email: outcome.email }); return; }
-      if (outcome.status === 'limited') { refuse(429, 'Too many tries. Wait a few minutes and try again.'); return; }
-      if (outcome.status === 'weak') { refuse(400, `Choose a password of at least ${MIN_PASSWORD_LENGTH} characters.`); return; }
-      refuse(410, 'That link has expired or was already used. Ask for a new one.');
+      if (outcome.status === 'done') done = outcome.email;
     } catch (err) {
       console.error('passwordSetup complete failed:', (err as { code?: unknown } | null)?.code ?? 'unknown');
-      refuse(500, 'That did not work on our side. Ask for a new link and try again.');
     }
+    if (done) res.status(200).json({ ok: true, email: done });
+    else refuse(400, 'That link did not work. It may have expired or been used already. Ask for a new one.');
     return;
   }
 
