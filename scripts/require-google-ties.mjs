@@ -14,8 +14,9 @@
  * The requirement is one field in one document, `serverConfig/signIn
  * .googleTieRequired`, which firestore.rules reads and no browser can write.
  *
- * Turning it ON is refused while any listed person has no record yet: anyone
- * on an old copy of the Hub would see an error until they refreshed. Ticking
+ * Turning it ON is refused while ANY listed person has no record yet,
+ * whether or not they still use the Hub: anyone on an old copy would open it
+ * as normal and have every save refused. Remove entries nobody uses. Ticking
  * the box turns it on anyway.
  *
  * IT SAYS NOTHING ABOUT THE RESULT. This repo and its Actions logs are
@@ -35,10 +36,15 @@
  */
 import { readFileSync } from 'node:fs';
 
-export const RECORD_KEYS = ['googleSub', 'boundUid', 'boundAt'];
+export const RECORD_KEYS = ['googleSub', 'boundUid', 'boundAt', 'passwordSet'];
 
-/** Has the server recorded this entry's sign-in account? */
-export const confirmed = d => typeof d.googleSub === 'string' && !!d.googleSub && typeof d.boundUid === 'string' && !!d.boundUid;
+/**
+ * Has the server recorded this entry's sign-in account? The entry names an
+ * account, and either a Google identity or a password its owner set. The
+ * Directors screen uses the same test (isConfirmed in useDirectors.ts).
+ */
+export const confirmed = d => typeof d.boundUid === 'string' && !!d.boundUid
+  && ((typeof d.googleSub === 'string' && !!d.googleSub) || d.passwordSet === true);
 
 /** Is this entry an Owner's? */
 export const isOwnerEntry = d => (Array.isArray(d.roles) ? d.roles.includes('owner') : d.role === 'owner');
@@ -80,6 +86,8 @@ if (process.argv.includes('--selfcheck')) {
     [decide('off', 5, 0, false).write === false, 'off is always allowed'],
     [decide('clear-owner', 5, 5, false).write === null && decide('clear-owner', 5, 5, false).result === 'cleared', 'clear-owner leaves the switch alone'],
     [confirmed({ googleSub: 'g', boundUid: 'u' }) && !confirmed({ googleSub: 'g' }) && !confirmed({ boundUid: 'u' }) && !confirmed({ googleSub: '', boundUid: 'u' }), 'confirmed means both halves of the record'],
+    [confirmed({ boundUid: 'u', passwordSet: true }) && !confirmed({ boundUid: 'u', passwordSet: false }) && !confirmed({ boundUid: 'u', passwordSet: 'true' }) && !confirmed({ passwordSet: true }), 'or an account and a password its owner set'],
+    [RECORD_KEYS.includes('passwordSet') && RECORD_KEYS.length === 4, 'clear-owner clears the whole record'],
     [isOwnerEntry({ roles: ['director', 'owner'] }) && isOwnerEntry({ role: 'owner' }) && !isOwnerEntry({ roles: ['director'] }) && !isOwnerEntry({}), 'an Owner entry is told by its roles'],
     [choice({ GITHUB_EVENT_PATH: '/e', MODE: 'off' }, () => '{"inputs":{"mode":"on","force":"true"}}').mode === 'on', 'inside Actions the choice comes from the event file, not the environment'],
     [choice({ GITHUB_EVENT_PATH: '/e' }, () => '{"inputs":{"mode":"on","force":"true"}}').force === true, 'and so does the box'],

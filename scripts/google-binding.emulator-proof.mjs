@@ -8,9 +8,13 @@
  * actually minted, and from the same staff test the Cloud Functions use
  * (functions/src/staffToken.ts). Tying a person runs the REAL bindGoogle
  * (functions/src/googleBinding.ts) over the real store
- * (googleBindingStore.ts, freshAccount.ts) and the real Admin SDK, on the
- * claims of a token the Admin SDK verified: what the `bindGoogle` function
- * does, minus only its HTTP wrapper.
+ * (googleBindingStore.ts, freshAccount.ts, entryLock.ts) and the real Admin
+ * SDK, on the claims of a token the Admin SDK verified and on what Google
+ * said at that sign-in: what the `bindGoogle` function does, minus its HTTP
+ * wrapper and the signature on Google's token. (The emulator's stand-in for
+ * Google signs nothing, so this script reads what it says directly; the real
+ * signature check is functions/src/googleIdToken.ts, and its self-check runs
+ * it against keys of its own.)
  *
  * Three gates are asked, and reported separately, because they are meant to
  * differ in one situation (see the top of storage.rules):
@@ -29,15 +33,14 @@
  *     --project demo-google-binding \
  *     "node scripts/google-binding.emulator-proof.mjs"
  *
- * It runs in CI before every rules deploy and on pull requests that touch
- * the rules (.github/workflows/rules-checks.yml).
+ * It runs in CI before every rules deploy and every functions deploy, and on
+ * pull requests that touch the rules (.github/workflows/rules-checks.yml).
  *
  * What an emulator can and cannot prove: the rules verdicts are exact (same
  * rules engine as production). What the sign-in service itself does when an
- * address already has an account is the emulator's MODEL of production, so
- * those lines are printed as FACT, not PASS. The design leans on one thing
- * about the service that holds in both: a deleted account's sessions cannot
- * be renewed.
+ * address already has an account is the emulator's MODEL of production. The
+ * design leans on one thing about the service that holds in both: a deleted
+ * account's sessions cannot be renewed.
  */
 import { initializeApp, deleteApp } from 'firebase/app';
 import {
@@ -67,7 +70,19 @@ const BUCKET = `${PROJECT}.appspot.com`;
 const adminApp = initializeAdminApp({ projectId: PROJECT });
 const adminAuth = getAdminAuth(adminApp);
 const adminDb = getAdminFirestore(adminApp);
-const store = googleBindingStore(adminDb, adminAuth);
+/**
+ * What Google said at a sign-in. On the emulators the "token" is the JSON
+ * the sign-in was made with; in production it is a token Google signed, and
+ * googleIdToken.ts checks the signature before reading these same fields.
+ */
+const whatGoogleSays = async token => {
+  try {
+    const c = JSON.parse(String(token));
+    if (typeof c.sub !== 'string' || typeof c.email !== 'string') return null;
+    return { sub: c.sub, email: c.email.toLowerCase(), emailVerified: c.email_verified === true };
+  } catch { return null; }
+};
+const store = googleBindingStore(adminDb, adminAuth, whatGoogleSays);
 
 const apps = [];
 /** One browser: its own sign-in state. */
@@ -85,17 +100,16 @@ const list = (email, role = 'director') =>
 const entry = async email => (await adminDb.doc(`directors/${email}`).get()).data();
 /** The server-only switch that firestore.rules reads. */
 const requireTie = on => adminDb.doc('serverConfig/signIn').set({ googleTieRequired: on });
-const RECORD = ['googleSub', 'boundUid', 'boundAt'];
+const RECORD = ['googleSub', 'boundUid', 'boundAt', 'passwordSet'];
 /** What "Reset" (or the server's clear-owner) leaves: the record gone. */
 const clearRecord = email => adminDb.doc(`directors/${email}`).update(Object.fromEntries(RECORD.map(k => [k, FieldValue.delete()])));
 
 /** A Google sign-in as the emulator models it: Google says who this is. `id` is Google's id for the person. */
-const fakeGoogle = (email, id = `google-${email}`) => GoogleAuthProvider.credential(
-  JSON.stringify({ sub: id, email, email_verified: true }),
-);
-/** Sign in with Google on a device (a new one unless given). */
-const google = async (name, email, id, d = device(name)) => {
-  const { user } = await signInWithCredential(d.auth, fakeGoogle(email, id));
+const googleSays = (email, id = `google-${email}`, verified = true) => JSON.stringify({ sub: id, email, email_verified: verified });
+/** Sign in with Google on a device (a new one unless given). The device keeps what Google said, as the app does. */
+const google = async (name, email, id, d = device(name), verified = true) => {
+  d.googleToken = googleSays(email, id, verified);
+  const { user } = await signInWithCredential(d.auth, GoogleAuthProvider.credential(d.googleToken));
   return { d, user };
 };
 const tokenOf = dev => dev.auth.currentUser.getIdToken();
@@ -122,11 +136,12 @@ async function claimsOf(idToken) {
     return { ...c, uid: c.user_id ?? c.sub };
   }
 }
-/** What the app does by itself after a Google sign-in: ask the server. */
-const askToBind = async dev => bindGoogle(store, await claimsOf(await tokenOf(dev)));
+/** What the app does straight after a Google sign-in: ask the server, sending along what Google said. */
+const askToBind = async (dev, googleToken = dev.googleToken) => bindGoogle(store, await claimsOf(await tokenOf(dev)), googleToken);
 /**
  * The whole of what an up-to-date copy of the Hub does: sign in, ask, and
- * when the server says "again", sign in once more on the same device.
+ * when the server says "again", open the fresh account with the same Google
+ * sign-in on the same device (no second pop-up).
  */
 async function openTheHub(name, email, id) {
   const first = await google(name, email, id);
@@ -180,7 +195,6 @@ function must(ok, label) {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label}`);
   if (!ok) failed++;
 }
-const fact = label => console.log(`  FACT  ${label}`);
 /** A starting condition a case relies on. Checked without a word; the case stops if it is not met. */
 function need(ok, what) {
   if (!ok) throw new Error(`the starting condition was not met: ${what}`);
@@ -215,6 +229,19 @@ async function s1_switchOff() {
   must(again.user.uid === e.boundUid, 'she signs in once more and is on the account on record');
   must(await all(again.d, email, true), 'and all three gates let her in');
   must(await askToBind(again.d) === 'bound' && (await entry(email)).boundUid === e.boundUid, 'asking again from there answers "bound" and changes nothing');
+
+  {
+    // An account the server did not make, with a password. Made here directly.
+    const listed = 'abe@school.test';
+    await list(listed);
+    const account = await adminAuth.createUser({ email: listed, emailVerified: true, password: 'some password 0' });
+    const d = device('password-account-switch-off');
+    await signInWithEmailAndPassword(d.auth, listed, 'some password 0');
+    const tok = await tokenOf(d);
+    must(await fsGet('students/probe', tok) === 403 && await fsGet(`directors/${listed}`, tok) === 403 && await all(d, listed, false),
+      'even with the switch off, a sign-in on a listed address that is not Google\'s is refused everywhere');
+    await adminAuth.deleteUser(account.uid);
+  }
 
   await adminDb.doc('serverConfig/signIn').delete();
   const bea = 'bea@school.test';
@@ -261,7 +288,7 @@ async function s3_whoMayWriteTheRecord() {
   const n = v => ({ integerValue: String(v) });
   const roles = r => ({ arrayValue: { values: [s(r)] } });
   const before = await entry(other);
-  const whole = e => ({ email: s(e.email), roles: roles(e.roles[0]), googleSub: s(e.googleSub), boundUid: s(e.boundUid), boundAt: n(e.boundAt) });
+  const whole = e => ({ email: s(e.email), roles: roles(e.roles[0]), googleSub: s(e.googleSub), boundUid: s(e.boundUid), boundAt: n(e.boundAt), passwordSet: { booleanValue: e.passwordSet } });
 
   must(await patch(`directors/${other}`, { googleSub: s('some-other-google-account') }, ['googleSub'], ownerToken) === 403, 'the Owner cannot point a record at another Google account');
   must(await patch(`directors/${other}`, { boundUid: s('some-other-account') }, ['boundUid'], ownerToken) === 403, 'or at another Hub account');
@@ -318,18 +345,36 @@ async function s4_accountsTheServerWillNotTie() {
     const d = await google('odd-address', 'a/b@school.test');
     must(await askToBind(d.d) === 'mismatch', 'an address that could not be an entry\'s name: "mismatch", and nothing breaks');
   }
+  {
+    // The record is made from what GOOGLE says and nothing else. Here the
+    // sign-in service calls the address verified and Google does not. The
+    // account is made here directly.
+    const email = 'flo@school.test';
+    await list(email);
+    const account = await adminAuth.createUser({ email, emailVerified: true });
+    await adminAuth.updateUser(account.uid, { providerToLink: { providerId: 'google.com', uid: `google-${email}`, email } });
+    const d = await google('google-does-not-vouch', email, undefined, undefined, false);
+    need(d.user.uid === account.uid && (await claimsOf(await tokenOf(d.d))).email_verified === true, 'the session is on that account, which the sign-in service calls verified');
+    must(await askToBind(d.d) === 'mismatch' && (await entry(email)).googleSub === undefined && await accountExists(account.uid),
+      'Google does not say it has verified the address: "mismatch", no record, whatever the sign-in service says');
+    must(await askToBind(d.d, undefined) === 'mismatch' && await askToBind(d.d, 'not a token') === 'mismatch' && (await entry(email)).googleSub === undefined,
+      'a request with nothing from Google, or with something unreadable: "mismatch", no record');
+    must(await askToBind(d.d, googleSays(email, 'google-somebody-else')) === 'mismatch' && (await entry(email)).googleSub === undefined,
+      'what Google said about a different sign-in than the one this session made: "mismatch", no record');
+    await adminAuth.deleteUser(account.uid);
+  }
 }
 
 /**
  * The account on record is always a fresh one, so a session from before a
- * record is made does not carry over. Both orders of who asks. The starting
- * state is made here directly.
+ * record is made does not carry over. The starting state is made here
+ * directly.
  */
 async function s5_aSessionFromBeforeDoesNotCarryOver() {
   section('(5) A session from before a record is made does not carry over');
-  for (const order of ['asked from the person\'s own device', 'asked from the session from before']) {
-    const own = order.startsWith('asked from the person');
-    const email = own ? 'cyd@school.test' : 'cal@school.test';
+  for (const order of ['the person asks straight away', 'the session from before asks first']) {
+    const first = order.startsWith('the session');
+    const email = first ? 'cal@school.test' : 'cyd@school.test';
     await list(email, 'owner');
     // An account the server did not make, with a session on it.
     const account = await adminAuth.createUser({ email, emailVerified: true });
@@ -341,19 +386,19 @@ async function s5_aSessionFromBeforeDoesNotCarryOver() {
 
     // The person signs in with Google.
     const real = await google('the-person', email);
-    if (real.user.uid !== account.uid) fact('emulator: the sign-in opened a different account');
-    const renewed = await refresh(before.d);
-    if (renewed !== 'ok') fact(`emulator: the session from before could not renew (${renewed})`);
-
-    const answer = await askToBind((own ? real : before).d);
-    must(answer === 'again', `(${order}) the server makes the record, on a fresh account: "${answer}"`);
+    if (first) {
+      must(await askToBind(before.d) === 'mismatch' && (await entry(email)).googleSub === undefined,
+        `(${order}) it is still not who Google says owns the address: "mismatch", and no record is made`);
+    }
+    const answer = await askToBind(real.d);
+    must(answer === 'again', `(${order}) the person asks, and the server makes the record on a fresh account: "${answer}"`);
     const e = await entry(email);
     must(e.googleSub === `google-${email}` && e.boundUid !== account.uid && e.boundUid !== real.user.uid && !await accountExists(account.uid),
       'the record names a new account; the one from before is gone');
     must(await all(before.d, email, false), 'the session from before, with the token it holds: refused by Firestore, Storage and the functions');
     must(await refresh(before.d) !== 'ok', 'and it cannot get another');
     const realAgain = await google('the-person', email, undefined, real.d);
-    must(realAgain.user.uid === e.boundUid && await all(realAgain.d, email, true), 'the person signs in once more, is on the account on record, and is in everywhere');
+    must(realAgain.user.uid === e.boundUid && await all(realAgain.d, email, true), 'the same Google sign-in opens the account on record, and the person is in everywhere');
   }
 }
 
@@ -396,10 +441,33 @@ async function s6_theOrdinaryCases() {
     await adminDb.doc(`directors/${email}`).update({ googleSub: '', boundUid: '' });
     must(await all(second.d, email, false) && await all(first.d, email, false), 'a blank record lets nobody in');
     await clearRecord(email); // the Owner presses Reset
-    must(await askToBind(second.d) === 'again', 'after the Owner resets it, the server makes the record for the new Google account');
-    const secondAgain = await google('hal-new-google', email, 'google-hal-new', second.d);
-    must(await all(secondAgain.d, email, true), 'and once signed in again they are in');
+    const secondAgain = await openTheHub('hal-new-google', email, 'google-hal-new');
+    must(secondAgain.answer === 'again' && (await entry(email)).googleSub === 'google-hal-new', 'after the Owner resets it, the person signs in and the server makes the record for the new Google account');
+    must(await all(secondAgain.d, email, true), 'and they are in');
     must(await all(first.d, email, false) && await refresh(first.d) !== 'ok', 'the session from the old Google account is out, and cannot be renewed');
+  }
+  {
+    // A Google identity the entry does not name is ON the account the entry
+    // names. (The sign-in service decides what an account carries, not the
+    // Hub.) The state is made here directly.
+    const email = 'lou@school.test';
+    await list(email);
+    const lou = await openTheHub('lou-phone', email);
+    const recorded = (await entry(email)).boundUid;
+    need(lou.user.uid === recorded && await all(lou.d, email, true), 'recorded and in');
+    await adminAuth.updateUser(recorded, { providerToLink: { providerId: 'google.com', uid: 'google-not-the-entrys', email } });
+    const other = await google('another-google-identity', email, 'google-not-the-entrys');
+    need(other.user.uid === recorded, 'the session is on the recorded account');
+    must(await all(other.d, email, false), 'a Google identity the entry does not name, on the recorded account: refused everywhere');
+    must(await askToBind(other.d) === 'other-account', 'it asks: "other-account"');
+    const e = await entry(email);
+    const made = await adminAuth.getUser(e.boundUid);
+    must(e.googleSub === `google-${email}` && e.boundUid !== recorded && !await accountExists(recorded)
+      && made.providerData.length === 1 && made.providerData[0].uid === `google-${email}`,
+    'and the account is made afresh for the identity the entry DOES name: the record is not moved, and the old account is gone');
+    must(await all(other.d, email, false) && await refresh(other.d) !== 'ok' && await refresh(lou.d) !== 'ok', 'every session on the old account is out and cannot be renewed');
+    const louAgain = await google('lou-phone', email, undefined, lou.d);
+    must(louAgain.user.uid === e.boundUid && await all(louAgain.d, email, true) && await askToBind(louAgain.d) === 'bound', 'the person signs in again, is on the account on record, and is in everywhere');
   }
   {
     const email = 'ivy@school.test';
@@ -438,10 +506,45 @@ async function s7_reversible() {
   await requireTie(true);
 }
 
+async function s8_theStoreItself() {
+  section('(8) The write step refuses by itself, and two requests at once do not interleave');
+  {
+    const email = 'max@school.test';
+    await list(email);
+    const max = await openTheHub('max-phone', email);
+    const before = await entry(email);
+    const refused = await store.tie(email, 'google-some-other-identity', 'some-other-account', Date.now());
+    const after = await entry(email);
+    must(refused === 'other-account' && RECORD.every(k => after[k] === before[k]),
+      'the write step, asked directly to record a different Google identity: "other-account", and the record is untouched');
+    must(await store.tie('nobody-listed@school.test', 'g', 'u', Date.now()) === 'not-listed' && !await entry('nobody-listed@school.test'),
+      'asked about an address that is not listed: "not-listed", and no entry appears');
+    must(await all(max.d, email, true), 'and the person is still in');
+  }
+  {
+    // Two devices, signed in before there is a record, ask at the same moment.
+    const email = 'ned@school.test';
+    await list(email);
+    const a = await google('ned-phone', email);
+    const b = await google('ned-laptop', email);
+    const answers = await Promise.allSettled([askToBind(a.d), askToBind(b.d)]);
+    must(answers.every(r => r.status === 'fulfilled' && r.value === 'again'), 'two requests for one person at the same moment: neither fails, both are told "again"');
+    const e = await entry(email);
+    const standing = await adminAuth.getUserByEmail(email);
+    must(standing.uid === e.boundUid && standing.providerData.length === 1 && standing.providerData[0].uid === e.googleSub,
+      'one account stands on the address afterwards, and it is the one the record names');
+    const a2 = await google('ned-phone', email, undefined, a.d);
+    const b2 = await google('ned-laptop', email, undefined, b.d);
+    must(a2.user.uid === e.boundUid && b2.user.uid === e.boundUid && await all(a2.d, email, true) && await all(b2.d, email, true),
+      'both devices open it with the same Google sign-in and are in');
+    must(!(await adminDb.doc(`signInLocks/${email}`).get()).exists, 'and the claim that kept them apart has been let go');
+  }
+}
+
 await adminDb.doc('students/probe').set({ name: 'Probe Student (fictional)' });
 const steps = [
   s1_switchOff, s2_switchOn_everyRole, s3_whoMayWriteTheRecord, s4_accountsTheServerWillNotTie,
-  s5_aSessionFromBeforeDoesNotCarryOver, s6_theOrdinaryCases, s7_reversible,
+  s5_aSessionFromBeforeDoesNotCarryOver, s6_theOrdinaryCases, s7_reversible, s8_theStoreItself,
 ];
 for (const step of steps) {
   try { await step(); }

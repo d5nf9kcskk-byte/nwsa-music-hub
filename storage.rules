@@ -67,6 +67,7 @@ service firebase.storage {
     function isTiedGoogleId(googleSub) {
       return googleSub is string
         && googleSub != ''
+        && 'google.com' in request.auth.token.firebase.identities
         && googleSub in request.auth.token.firebase.identities['google.com'];
     }
 

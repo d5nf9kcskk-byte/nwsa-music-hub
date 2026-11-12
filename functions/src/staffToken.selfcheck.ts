@@ -107,7 +107,7 @@ for (const provider of ['password', 'anonymous', 'custom', 'phone', 'microsoft.c
   const same: [string, string][] = [
     ['isBoundGoogleAccount', "function isBoundGoogleAccount(d) { return isBoundAccount(d.get('boundUid', '')) && isTiedGoogleId(d.get('googleSub', ''));"],
     ['isBoundAccount', "function isBoundAccount(boundUid) { return boundUid is string && boundUid != '' && boundUid == request.auth.uid;"],
-    ['isTiedGoogleId', "function isTiedGoogleId(googleSub) { return googleSub is string && googleSub != '' && googleSub in request.auth.token.firebase.identities['google.com'];"],
+    ['isTiedGoogleId', "function isTiedGoogleId(googleSub) { return googleSub is string && googleSub != '' && 'google.com' in request.auth.token.firebase.identities && googleSub in request.auth.token.firebase.identities['google.com'];"],
   ];
   for (const [name, text] of same) {
     check(fsFn(name) === text, `firestore.rules ${name} is the agreed test`);

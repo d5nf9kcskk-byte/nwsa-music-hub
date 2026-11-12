@@ -10,25 +10,27 @@
  *   boundUid   the one Hub sign-in account that is theirs
  *   boundAt    when (ms), for the Owner's screen
  *
- * It ties a Google sign-in only when Google's own address for the account
- * IS the listed address. And the account it ties is always a FRESH one
- * (freshAccount.ts): the account the caller arrived on is deleted and a new
- * one is made that only this Google identity can open. So no session that
- * existed before the tie is on the tied account. The caller signs in once
- * more and is on it.
+ * It makes a record only from what GOOGLE says, in the token Google signed
+ * at the person's sign-in (googleIdToken.ts): who they are, that their
+ * address is the listed one, and that Google has verified it. So a record is
+ * only ever made at the moment of a real Google sign-in.
  *
- * Called by the app, by itself, after a Google sign-in whenever the entry is
- * not tied to the account the person is on. Nobody does anything by hand.
+ * And the account it records is always a FRESH one (freshAccount.ts): the
+ * account the caller arrived on is deleted and a new one is made that only
+ * this Google identity opens. The caller's same Google sign-in then opens it.
  *
- * What it never does: put anyone on the list, or move a tie to a different
- * Google account. A person whose Google account really did change asks the
- * Owner to reset the tie on the Directors screen, and is tied again the next
- * time they open the Hub.
+ * What it never does: put anyone on the list, or move a record to a
+ * different Google account. A person whose Google account really did change
+ * asks the Owner to reset the record on the Directors screen. If a Google
+ * identity the entry does not name turns up ON the recorded account, the
+ * account is made afresh for the identity the entry does name, which signs
+ * everyone on it out.
  *
- * Pure: the sign-in service and the database are passed in, so the function,
- * the emulator proof and the self-check run the same code.
+ * Pure: the sign-in service, the database and the token check are passed in,
+ * so the function, the emulator proof and the self-check run the same code.
  */
 import type { AccountProvider, AccountRecord } from './freshAccount.ts';
+import type { GoogleIdentity } from './googleIdToken.ts';
 
 /** The claims this needs from a verified Firebase ID token. */
 export interface BindClaims {
@@ -42,38 +44,45 @@ export interface BindClaims {
 export type BindUser = AccountRecord;
 
 export type BindOutcome =
-  /** The entry is tied to this Google account and this very sign-in account. Nothing to do. */
+  /** The entry names this Google account and this very sign-in account. Nothing to do. */
   | 'bound'
-  /** The entry is tied (now, or already) and its account is not the one this session is on. Sign in once more. */
+  /** The entry names this Google account, and its account is not the one this session is on. Sign in with the same Google sign-in again. */
   | 'again'
   /** This address is not on the Directors list. */
   | 'not-listed'
-  /** This is not a Google sign-in on Google's own account for its address. */
+  /** Google does not vouch for this sign-in as the owner of its address. */
   | 'mismatch'
-  /** The entry is tied to a different Google account. */
+  /** The entry names a different Google account. */
   | 'other-account';
 
-/** What an entry says about its tie. */
+/** What an entry says about its record. */
 export interface BindEntry {
   googleSub?: string;
   boundUid?: string;
 }
 
 export interface BindDeps {
+  /** What Google says in the token it signed at sign-in, or null if the token is not good. */
+  verifyGoogle(token: unknown): Promise<GoogleIdentity | null>;
+  /** One request at a time per address (entryLock.ts). */
+  lock<T>(email: string, fn: () => Promise<T>): Promise<T>;
   /** The account behind a sign-in, or null if it is gone. */
   getUser(uid: string): Promise<BindUser | null>;
   /** The Directors entry for an address, or null when it is not listed. */
   getEntry(email: string): Promise<BindEntry | null>;
   /**
-   * Delete the caller's account (and anything else on the address) and make
-   * the person's fresh one, carrying only this Google identity. Its id, or
-   * null when it must not be made.
+   * Make the person's fresh account, carrying only this Google identity,
+   * and delete the caller's account and anything else on the address. Its
+   * id, or null when it must not be made.
    */
-  replaceAccount(user: BindUser, google: AccountProvider & { uid: string }): Promise<string | null>;
+  replaceAccount(spec: {
+    email: string; alsoDelete: string; google: AccountProvider & { uid: string };
+    displayName?: string; photoURL?: string;
+  }): Promise<string | null>;
   /**
-   * In ONE transaction: write the tie, unless the entry is gone or is tied
-   * to a different Google account. Never creates an entry and never moves a
-   * tie to another Google account.
+   * In ONE transaction: write the record, unless the entry is gone or names
+   * a different Google account. Never creates an entry and never moves a
+   * record to another Google account.
    */
   tie(email: string, googleSub: string, boundUid: string, now: number): Promise<'tied' | 'not-listed' | 'other-account'>;
   now(): number;
@@ -86,47 +95,58 @@ export function googleSubOf(claims: BindClaims): string {
   return Array.isArray(ids) && ids.length === 1 && typeof ids[0] === 'string' ? ids[0] : '';
 }
 
-/** The one Google identity on an account, when it is Google's own for this address. */
-export function ownGoogleIdentity(user: BindUser | null, email: string, googleSub: string): (AccountProvider & { uid: string }) | null {
-  if (!user || user.disabled || !user.emailVerified) return null;
-  if ((user.email ?? '').toLowerCase() !== email.toLowerCase()) return null;
-  const google = user.providerData.filter(p => p.providerId === 'google.com');
-  if (google.length !== 1 || google[0].uid !== googleSub) return null;
-  if ((google[0].email ?? '').toLowerCase() !== email.toLowerCase()) return null;
-  return { ...google[0], uid: googleSub };
-}
-
-/** Is this account Google's own account for this address? */
-export function isOwnGoogleAccount(user: BindUser | null, email: string, googleSub: string): boolean {
-  return ownGoogleIdentity(user, email, googleSub) !== null;
-}
-
-export async function bindGoogle(deps: BindDeps, claims: BindClaims): Promise<BindOutcome> {
-  const email = (claims.email ?? '').toLowerCase();
+/**
+ * `claims` are the caller's verified Hub sign-in. `googleToken` is the token
+ * Google signed at that same sign-in, sent along by the app.
+ */
+export async function bindGoogle(deps: BindDeps, claims: BindClaims, googleToken: unknown): Promise<BindOutcome> {
   const uid = claims.uid ?? claims.sub ?? '';
-  const googleSub = googleSubOf(claims);
-  if (claims.email_verified !== true || !email || !uid || !googleSub) return 'mismatch';
+  const sessionSub = googleSubOf(claims);
+  if (!uid || !sessionSub) return 'mismatch';
+  // What Google itself says. Nothing below reads who the person is, or
+  // whether their address is verified, from anywhere else.
+  const google = await deps.verifyGoogle(googleToken);
+  if (!google || !google.emailVerified) return 'mismatch';
+  // The token is for the Google identity this session signed in with, and
+  // the session is on the address Google names.
+  if (google.sub !== sessionSub) return 'mismatch';
+  const email = google.email;
+  if ((claims.email ?? '').toLowerCase() !== email) return 'mismatch';
   // An entry's name is its address, so an address that could not be an
   // entry's name is nobody's.
   if (email.includes('/')) return 'mismatch';
-  const user = await deps.getUser(uid);
-  // The account behind this session is gone: the person's account has been
-  // made afresh since. Nothing to do here but sign in again.
-  if (!user) return 'again';
-  // The account is judged BEFORE the list is looked at, so an account that
-  // fails here learns nothing about who is listed.
-  const google = ownGoogleIdentity(user, email, googleSub);
-  if (!google) return 'mismatch';
-  const entry = await deps.getEntry(email);
-  if (!entry) return 'not-listed';
-  if (entry.googleSub && entry.googleSub !== googleSub) return 'other-account';
-  if (entry.googleSub === googleSub && entry.boundUid === uid) return 'bound';
 
-  // Not tied yet, or tied but this session is not on the account on file.
-  // Either way the person's account is made afresh, here, so that nothing
-  // signed in before this moment is on it.
-  const fresh = await deps.replaceAccount(user, google);
-  if (!fresh) return 'mismatch';
-  const tied = await deps.tie(email, googleSub, fresh, deps.now());
-  return tied === 'tied' ? 'again' : tied;
+  return deps.lock(email, async () => {
+    const user = await deps.getUser(uid);
+    // The account behind this session is gone: the person's account has been
+    // made afresh since. Their Google sign-in opens the new one.
+    if (!user) return 'again';
+    if (user.disabled) return 'mismatch';
+    const entry = await deps.getEntry(email);
+    if (!entry) return 'not-listed';
+
+    if (entry.googleSub && entry.googleSub !== google.sub) {
+      // A Google identity the entry does not name, ON the account the entry
+      // names. That account is made afresh for the identity the entry does
+      // name, so that everyone on it is signed out, this caller included.
+      if (entry.boundUid === uid) {
+        const fresh = await deps.replaceAccount({
+          email, alsoDelete: uid, google: { providerId: 'google.com', uid: entry.googleSub, email },
+        });
+        if (fresh) await deps.tie(email, entry.googleSub, fresh, deps.now());
+      }
+      return 'other-account';
+    }
+    if (entry.googleSub === google.sub && entry.boundUid === uid) return 'bound';
+
+    // No record yet, or a record whose account is not the one this session
+    // is on. Either way the person's account is made afresh, here.
+    const fresh = await deps.replaceAccount({
+      email, alsoDelete: uid, google: { providerId: 'google.com', uid: google.sub, email },
+      displayName: user.displayName, photoURL: user.photoURL,
+    });
+    if (!fresh) return 'mismatch';
+    const tied = await deps.tie(email, google.sub, fresh, deps.now());
+    return tied === 'tied' ? 'again' : tied;
+  });
 }

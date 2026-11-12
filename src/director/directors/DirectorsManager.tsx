@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock, History, Activity, ChevronDown, ChevronUp, BookOpen, ChevronLeft } from 'lucide-react';
-import { useDirectors, directorEmailId, directorRoles, directorRoleLabels, hasDirectorRole, primaryDirectorRole, BINDING_KEYS, isConfirmed, useSignInSwitch } from '../hooks/useDirectors';
+import { useDirectors, directorEmailId, directorRoles, directorRoleLabels, hasDirectorRole, primaryDirectorRole, BINDING_KEYS, isConfirmed, useSignInSwitch, useSignInAudit } from '../hooks/useDirectors';
 import type { Director, DirectorRole } from '../hooks/useDirectors';
 import { useLoginEvents, LOGIN_LOG_LIMIT } from '../hooks/useLoginEvents';
 import { useActivityLog, ACTIVITY_LOG_LIMIT } from '../hooks/useActivityLog';
@@ -103,7 +103,7 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
     if (!window.confirm(
       `Reset the Google account on file for ${d.name || d.email}?\n\n`
       + 'Do this if they now sign in with a different Google account. '
-      + 'The Hub confirms their account again the next time they open it, and asks them to sign in once more.',
+      + 'The Hub offers them a one-tap "Confirm" the next time they open it.',
     )) return;
     setBusy(true);
     try {
@@ -116,6 +116,7 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
   // (#google-binding) Whether only confirmed sign-ins are let in, and what
   // the server last did about it. Said here, to the Owner, and nowhere public.
   const signInSwitch = useSignInSwitch(isOwner);
+  const signInAudit = useSignInAudit(isOwner);
   const lastRunWords = (() => {
     const r = signInSwitch?.lastRun;
     if (!r?.at) return '';
@@ -216,10 +217,10 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
           <p className="dir-loc-hint">
             <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} />{' '}
             <strong>Google accounts confirmed: {directors.filter(isConfirmed).length} of {directors.length}.</strong>{' '}
-            The Hub confirms each person’s Google account by itself the next
-            time they open it, and asks them to sign in once more, one time.
-            Anyone still “not confirmed yet” has not opened an up-to-date copy
-            of the Hub since this was added.
+            Each person confirms with one tap when the Hub offers it (a note
+            at the bottom of the screen, or straight after signing in).
+            Anyone still “not confirmed yet” has not done that on an
+            up-to-date copy of the Hub.
           </p>
         )}
         {signInSwitch && (
@@ -227,6 +228,17 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
             <Lock size={14} style={{ verticalAlign: '-2px' }} />{' '}
             <strong>Only confirmed Google accounts can sign in: {signInSwitch.required ? 'On' : 'Off'}.</strong>
             {lastRunWords}
+          </p>
+        )}
+        {signInAudit?.at && (
+          <p className="dir-loc-hint">
+            <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} />{' '}
+            <strong>
+              Last account check ({new Date(signInAudit.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}):{' '}
+              {signInAudit.result === 'OK' ? 'OK' : 'review needed'}.
+            </strong>
+            {signInAudit.needALook.length > 0 && <> Sign-in accounts to look at: {signInAudit.needALook.join(', ')}.</>}
+            {signInAudit.listedWithNoAccount.length > 0 && <> Listed, and never signed in: {signInAudit.listedWithNoAccount.join(', ')}.</>}
           </p>
         )}
 
@@ -260,7 +272,7 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
                     : ''}
                 </div>
                 <div className="dir-ens-sub">
-                  {isConfirmed(d) ? 'Google account confirmed' : 'Google account not confirmed yet'}
+                  {isConfirmed(d) ? (d.googleSub ? 'Google account confirmed' : 'Sign-in confirmed') : 'Google account not confirmed yet'}
                   {isConfirmed(d) && !isSelf && (
                     <>
                       {' · '}
