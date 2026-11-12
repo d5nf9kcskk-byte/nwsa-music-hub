@@ -391,6 +391,11 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
   const rulesChecks = lines('.github/workflows/rules-checks.yml');
   check(/"node scripts\/google-binding\.emulator-proof\.mjs"/.test(rulesChecks) && /"node scripts\/rules-verdicts\.emulator-check\.mjs visitor"/.test(rulesChecks),
     'and the rules checks still ask the real rules on the emulators');
+  // The server's notes for the Owner: read by the Owner, written by no browser.
+  const allRules = readFileSync(resolve(repo, 'firestore.rules'), 'utf8');
+  check(/match \/serverConfig\/\{doc\}\s*\{ allow read: if isOwner\(\); allow write: if false; \}/.test(allRules)
+    && (allRules.match(/match \/serverConfig/g) ?? []).length === 1,
+  'serverConfig: the Owner may read, no browser may write, and one rule names it');
   const pkg = readFileSync(resolve(repo, 'functions/package.json'), 'utf8');
   check(/src\/googleBinding\.selfcheck\.ts/.test(pkg), 'and this file is in the functions self-check chain');
   const action = readFileSync(resolve(repo, '.github/actions/self-checks/action.yml'), 'utf8');
