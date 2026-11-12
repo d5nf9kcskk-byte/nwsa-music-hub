@@ -35,6 +35,8 @@ import {
 import { buildSubmissionReceipt, submissionReceiptId } from './submissionReceipt.ts';
 import { composeSubmission as runComposeSubmission } from './composeSubmission.ts';
 import { getAuth } from 'firebase-admin/auth';
+import { bindGoogle as runBindGoogle, type BindClaims } from './googleBinding.ts';
+import { googleBindingStore, verifyGoogleLive } from './googleBindingStore.ts';
 import { getMessaging } from 'firebase-admin/messaging';
 import { handleEventChange, sendTestAlert, type PushDeps } from './pushSend.ts';
 import { draftSpanish, noteFromBody } from './bannerDrafter.ts';
@@ -1085,4 +1087,56 @@ export const draftChangeNoteEs = runWith({ secrets: ['ANTHROPIC_API_KEY'] }).htt
   const r = await draftSpanish(input.note, request => client.beta.messages.create(request));
   if (r.ok) { res.status(200).json({ ok: true, draft: r.draft }); return; }
   refuse(r.status, r.message);
+});
+
+/**
+ * Tie a listed person to their own Google account (#google-binding). POST
+ * with the caller's Firebase ID token as a Bearer header, and in the body
+ * the token Google signed at that same sign-in: { googleIdToken }. The app
+ * calls it by itself, straight after a Google sign-in.
+ *
+ * It records, on the entry, Google's id for the person and the one Hub
+ * sign-in account that is theirs, which it makes afresh. It takes who the
+ * person is, and that their address is verified, from Google's token alone.
+ * The rule and the reasons are in googleBinding.ts. Answers
+ * { ok: true, status } with one of: bound, again (sign in with the same
+ * Google sign-in again), not-listed, mismatch, other-account. It speaks only
+ * about the caller's own sign-in.
+ */
+/** FIRST LIVE RUN: the server records only the founding addresses (removed with the app's condition in the follow-up). */
+const firstRunAllows = (email: string) => (ORG.breakGlassEmails as string[]).includes(email);
+
+export const bindGoogle = https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+  res.set('Cache-Control', 'no-store');
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.set('Access-Control-Max-Age', '3600');
+    res.status(204).send('');
+    return;
+  }
+  const refuse = (status: number, message: string) => { res.status(status).json({ ok: false, message }); };
+  // Opened in a browser, this line is how the Owner can tell the function is there.
+  if (req.method !== 'POST') { refuse(405, 'The Hub sign-in helper is here. It only answers the Hub itself.'); return; }
+
+  const header = req.get('Authorization') ?? '';
+  const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!idToken) { refuse(401, 'Sign in again, then try.'); return; }
+  let claims: BindClaims;
+  try {
+    claims = await getAuth().verifyIdToken(idToken);
+  } catch {
+    refuse(401, 'Sign in again, then try.');
+    return;
+  }
+  try {
+    const status = await runBindGoogle(googleBindingStore(getFirestore(), getAuth(), verifyGoogleLive, firstRunAllows), claims, req.body?.googleIdToken);
+    res.status(200).json({ ok: true, status });
+  } catch (err) {
+    // The code only: never the address or the token.
+    console.error('bindGoogle failed:', (err as { code?: unknown } | null)?.code ?? 'unknown');
+    refuse(500, 'That did not work on our side. Try again in a moment.');
+  }
 });

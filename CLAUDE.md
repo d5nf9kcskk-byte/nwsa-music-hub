@@ -1168,6 +1168,79 @@ those marks onto the original file. Everything else — audience, deadline,
   the session record for all of the above is
   `docs/session-notes-2026-08-04-pwa-hardening.md`.
 
+## Each listed person is tied to their own Google account (Nov 2026, #google-binding)
+
+The Directors list names people by address. The server records, on each
+entry, which sign-in account is that person's: `googleSub` (Google's own id
+for them), `boundUid` (the one Hub sign-in account that goes with it),
+`boundAt`, and `passwordSet` (for #password-sign-in; always false here).
+
+- **Only `bindGoogle` writes the record** (`functions/src/googleBinding.ts`),
+  and only from the token GOOGLE signs at a real Google sign-in
+  (`googleIdToken.ts`: Google's keys, issued for one of this project's
+  sign-in clients AND to that same client, a verified address that is the
+  listed one). Neither file that does that check reads an environment
+  variable, so nothing outside can switch it off. It reads "verified" from
+  nowhere else. It
+  never creates an entry and never moves a record to a different Google
+  account. The app sends that token along; it never writes the record.
+- **The account it records is always a FRESH one** (`freshAccount.ts`): a new
+  account is made, the attach step is proven on it, and only then is the
+  account the caller arrived on deleted and the address moved over. (A
+  failure after that point leaves the person with no account until they
+  sign in again, which puts it right.) The same
+  Google sign-in then opens the fresh one, so there is no second pop-up. Do
+  not "save a step" by recording the account the caller is already on: the
+  fresh account is the mechanism, and `googleBinding.selfcheck.ts` fails if
+  it goes. Nothing in `src/`, the rules or the functions keys data on a
+  sign-in account's id; the browser's queue of unsent changes does, which is
+  why the app lets it empty first and why other devices must sign in again.
+- **One request at a time per person** (`entryLock.ts`, `signInLocks`, which
+  no rule matches). Everything that reads or changes the account or the entry
+  happens under that claim. A claim carries an id of its own and a request
+  lets go of ITS claim only; one left by a crash, or dated in the future, is
+  ignored after a minute.
+- **No browser may set or alter the record, the Owner's included**
+  (`bindingGuard()` in `firestore.rules`, pinned word for word by the
+  self-check). The Owner may only REMOVE it from someone else's entry
+  (Directors screen, Reset). `addDirector` carries an existing entry's record
+  along unchanged, so re-adding a listed address does not clear it
+  (`BINDING_KEYS` in `useDirectors.ts`). *Fix One Field* refuses `directors`,
+  `serverConfig` and the server's other collections.
+- **The app asks in ONE place**, `recordWith()` in `AuthGate.tsx`, straight
+  after a Google sign-in. A person the rules already let in is never blocked:
+  they get a note with "Confirm now" and "Later", and after two tries that
+  did not finish the note stays away until the Hub is next opened. Only when
+  the rules refuse the session is there a "One more step" screen.
+- **The Hub offers to confirm only where the server step exists**:
+  `features.googleConfirm` in `config/orgs/*.json`, true for NWSA only. The
+  demo sites have founding addresses and no Cloud Functions, so there the
+  note could only fail.
+- **FIRST LIVE RUN: only the founding addresses are asked, and only they are
+  recorded** (`asksServer` in `AuthGate.tsx`, and `firstRunAllows` on the
+  server, checked before any claim is taken). The first run is done signed
+  in as the founding address in `breakGlassEmails`; signed in as anything
+  else, the Owner role included, the Hub shows nothing new. One follow-up
+  change, its own pull request, removes the app's condition and the
+  server's together and carries the What's New note for staff. Do not
+  remove either in any other change. `docs/google-binding.md` has the steps,
+  what that person sees when it worked and when it did not, and the stop button
+  (delete the `bindGoogle` function in the Google Cloud console: a revert
+  does not remove a deployed function).
+- **It goes live in steps, on purpose**: the Owner alone, then everyone, then
+  the sign-in rules with the requirement switched off, then the switch. The
+  service worker holds a new app version until the person taps Refresh, so a
+  phone on an old copy would be locked out the moment a stricter rule took
+  effect. None of the steps on a concert day.
+- `scripts/sign-in-accounts-audit.mjs` (*Audit Sign-in Accounts* workflow)
+  answers, in one word, whether every sign-in account is what the Hub
+  expects. It prints OK or REVIEW NEEDED and never an address: this repo's
+  logs are public. Which accounts, and which listed addresses have no sign-in
+  account yet, go to `serverConfig/signInAudit` for the Owner's screen.
+- `googleBinding.selfcheck.ts` runs in `.github/actions/self-checks`, in the
+  functions chain, and as the first job of the rules deploy
+  (`rules-checks.yml`). It also pins that those wirings stay.
+
 ## Playing-exam grading — one line, one rubric (Sept 2026, #exam-rubric)
 
 The grade sheet used to be two lists of the SAME people: a roster row that

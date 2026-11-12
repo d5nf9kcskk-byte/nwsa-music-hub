@@ -37,7 +37,13 @@ permissions:
   contents: read
 
 jobs:
+  # The checks that pin who the rules let in run FIRST, and the deploy below
+  # happens only if they pass (rules-checks.yml).
+  rules-checks:
+    uses: ./.github/workflows/rules-checks.yml
+
   deploy-rules:
+    needs: rules-checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

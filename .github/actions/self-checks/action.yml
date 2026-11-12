@@ -680,3 +680,18 @@ runs:
     - name: Check student day
       run: node src/shared/studentDay.selfcheck.ts
       shell: bash
+
+    # Each listed person is tied to their own Google account (#google-binding).
+    # The server step that records it, the fresh account it makes, and the
+    # Directors rules that let no browser write the record. It reads
+    # firestore.rules, so it must run on every build and before every rules
+    # deploy, not only when the functions change.
+    - name: Check the Google tie
+      run: node --experimental-strip-types functions/src/googleBinding.selfcheck.ts
+      shell: bash
+
+    # The sign-in accounts audit prints one word about real accounts and
+    # never an address: this repo's logs are public.
+    - name: Check the sign-in accounts audit
+      run: node scripts/sign-in-accounts-audit.mjs --selfcheck
+      shell: bash

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock, History, Activity, ChevronDown, ChevronUp, BookOpen, ChevronLeft } from 'lucide-react';
-import { useDirectors, directorEmailId, directorRoles, directorRoleLabels, hasDirectorRole, primaryDirectorRole } from '../hooks/useDirectors';
+import { useDirectors, directorEmailId, directorRoles, directorRoleLabels, hasDirectorRole, primaryDirectorRole, BINDING_KEYS, isConfirmed, useSignInAudit } from '../hooks/useDirectors';
 import type { Director, DirectorRole } from '../hooks/useDirectors';
 import { useLoginEvents, LOGIN_LOG_LIMIT } from '../hooks/useLoginEvents';
 import { useActivityLog, ACTIVITY_LOG_LIMIT } from '../hooks/useActivityLog';
@@ -95,6 +95,28 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
     }
   }
 
+  // (#google-binding) Clear one person's tie to a Google account, for the
+  // person who now signs in with a different one. The Hub ties them again,
+  // by itself, the next time they open it. The Owner's own tie is not
+  // offered: clearing it could not be undone from this screen.
+  async function handleResetTie(d: Director) {
+    if (!window.confirm(
+      `Reset the Google account on file for ${d.name || d.email}?\n\n`
+      + 'Do this if they now sign in with a different Google account. '
+      + 'The Hub offers them a one-tap "Confirm" the next time they open it.',
+    )) return;
+    setBusy(true);
+    try {
+      await updateDirector(d.email, Object.fromEntries(BINDING_KEYS.map(k => [k, undefined])));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // (#google-binding) What the account check last found. Its public log
+  // prints one word; which accounts is said here, to the Owner only.
+  const signInAudit = useSignInAudit(isOwner);
+
   if (!isOwner) {
     // Defense in depth: DirectorApp already hides the nav entry that opens
     // this, so reaching here means a stale tab/role change — say so plainly
@@ -175,6 +197,32 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
           should have the class ticked as well as the ensembles.
         </p>
 
+        {/* (#google-binding) The Owner's view of who is tied to their own
+            Google account. The server does the tying, by itself, the next
+            time each person opens an up-to-date copy of the Hub; this only
+            shows it, and lets the Owner reset one. */}
+        {directors.length > 0 && (
+          <p className="dir-loc-hint">
+            <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} />{' '}
+            <strong>Google accounts confirmed: {directors.filter(isConfirmed).length} of {directors.length}.</strong>{' '}
+            Each person confirms with one tap when the Hub offers it (a note
+            at the bottom of the screen, or straight after signing in).
+            Anyone still “not confirmed yet” has not done that on an
+            up-to-date copy of the Hub.
+          </p>
+        )}
+        {signInAudit?.at && (
+          <p className="dir-loc-hint">
+            <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} />{' '}
+            <strong>
+              Last account check ({new Date(signInAudit.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}):{' '}
+              {signInAudit.result === 'OK' ? 'OK' : 'review needed'}.
+            </strong>
+            {signInAudit.needALook.length > 0 && <> Sign-in accounts to look at: {signInAudit.needALook.join(', ')}.</>}
+            {signInAudit.listedWithNoAccount.length > 0 && <> Listed, and never signed in: {signInAudit.listedWithNoAccount.join(', ')}.</>}
+          </p>
+        )}
+
         {loading && directors.length === 0 && <div className="dir-loc-empty">Loading…</div>}
         {!loading && directors.length === 0 && (
           <div className="dir-loc-empty">No directors listed yet. Add the first one below.</div>
@@ -203,6 +251,22 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
                   {hasDirectorRole(d, 'assistant') && assistantCapabilities(d).length
                     ? ` · +${assistantCapabilities(d).map(c => ASSISTANT_CAPABILITY_LABEL[c]).join(', ')}`
                     : ''}
+                </div>
+                <div className="dir-ens-sub">
+                  {isConfirmed(d) ? (d.googleSub ? 'Google account confirmed' : 'Sign-in confirmed') : 'Google account not confirmed yet'}
+                  {isConfirmed(d) && !isSelf && (
+                    <>
+                      {' · '}
+                      <button
+                        type="button"
+                        className="dir-tie-reset"
+                        disabled={busy}
+                        onClick={() => handleResetTie(d)}
+                      >
+                        Reset
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
               {confirmRemove === d.email ? (

@@ -1,6 +1,11 @@
-import { useState, useEffect } from 'react';
-import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider } from 'firebase/auth';
-import type { User } from 'firebase/auth';
+import { useState, useEffect, useRef } from 'react';
+import { bindGoogleAccount } from '../googleBindingClient';
+import type { BindAnswer } from '../googleBindingClient';
+import {
+  onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider,
+  signInWithCredential,
+} from 'firebase/auth';
+import type { User, UserCredential } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc, waitForPendingWrites, terminate, clearIndexedDbPersistence } from 'firebase/firestore';
 import { forgetStaffDevice, markStaffDevice } from '../firestoreCache';
 import { Link } from 'react-router';
@@ -26,7 +31,47 @@ import { HomeScreenHint } from './HomeScreenHint';
  */
 const BREAK_GLASS_EMAILS = ORG.breakGlassEmails;
 
-type Access = 'checking' | 'granted' | 'denied' | 'error';
+/**
+ * Only a deployment that HAS the server step asks at all
+ * (`features.googleConfirm`: the demo sites have no Cloud Functions).
+ *
+ * FIRST LIVE RUN (#google-binding). Only the founding addresses ask the
+ * server to confirm their Google account, and the server refuses anyone
+ * else too (googleBinding.ts). The server step replaces a
+ * person's sign-in account, and that has only ever run on a test setup; so
+ * the Owner goes first, alone, on the live project, and everyone else's Hub
+ * asks for nothing. When the Owner's entry reads "Google account confirmed",
+ * a small follow-up change makes this `() => true` (docs/google-binding.md).
+ */
+const asksServer = (email: string) => ORG.features.googleConfirm && BREAK_GLASS_EMAILS.includes(email);
+
+// 'confirm': the rules will not let this session in until the server has
+// confirmed the person's Google account; one tap does it (#google-binding).
+type Access = 'checking' | 'granted' | 'denied' | 'error' | 'mismatch' | 'confirm';
+
+/**
+ * sessionStorage: how many times in a row, in this tab, confirming did not
+ * end on the confirmed account. After two the app stops asking until the Hub
+ * is next opened, so nobody is asked for ever.
+ */
+const AGAIN_KEY = 'hub.signInAgain';
+function againCount(): number {
+  try { return Number(sessionStorage.getItem(AGAIN_KEY)) || 0; } catch { return 0; /* private mode */ }
+}
+function setAgainCount(n: number) {
+  try {
+    if (n) sessionStorage.setItem(AGAIN_KEY, String(n));
+    else sessionStorage.removeItem(AGAIN_KEY);
+  } catch { /* private mode */ }
+}
+/** sessionStorage: the person tapped "Later" on the confirm note. It comes back the next time the Hub is opened. */
+const LATER_KEY = 'hub.confirmLater';
+function laterChosen(): boolean {
+  try { return sessionStorage.getItem(LATER_KEY) === '1'; } catch { return false; /* private mode */ }
+}
+function chooseLater() {
+  try { sessionStorage.setItem(LATER_KEY, '1'); } catch { /* private mode */ }
+}
 
 interface Props {
   children: (user: User, signOutFn: () => void) => React.ReactNode;
@@ -37,6 +82,25 @@ export function AuthGate({ children }: Props) {
   const [access, setAccess] = useState<Access>('checking');
   const [checkNonce, setCheckNonce] = useState(0);
   const [signInError, setSignInError] = useState('');
+  // (#google-binding) Each listed person is tied to their own Google account
+  // by the server (functions/src/googleBinding.ts), which makes their Hub
+  // sign-in account afresh when it does. The server only does it from the
+  // token Google signs at a real Google sign-in, so this component asks in
+  // ONE place, recordWith() below, straight after such a sign-in. It never
+  // writes the record itself.
+  //   recording    a request to the server is in flight (the user may be about to change)
+  //   bindRetried  the account whose refused read was already retried once
+  //   confirmNote  offer "Confirm now / Later" over the Hub (the rules let this person in)
+  //   tieWarning   the server would not confirm this account (shown as a note)
+  const recording = useRef(false);
+  const bindRetried = useRef('');
+  const accessNow = useRef<Access>('checking');
+  const [mismatch, setMismatch] = useState<'mismatch' | 'other-account' | 'stuck'>('mismatch');
+  const [tieWarning, setTieWarning] = useState<'' | 'mismatch' | 'other-account'>('');
+  const [confirmNote, setConfirmNote] = useState(false);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
+  useEffect(() => { accessNow.current = access; }, [access]);
 
   useEffect(() => {
     if (!auth) { setUser(null); return; }
@@ -50,7 +114,9 @@ export function AuthGate({ children }: Props) {
   // bounce the user back to the sign-in screen with zero explanation.
   useEffect(() => {
     if (!auth) return;
-    getRedirectResult(auth).catch(e => {
+    getRedirectResult(auth).then(result => {
+      if (result) void recordWith(result).then(afterAnswer);
+    }).catch(e => {
       const code = (e as { code?: string }).code ?? '';
       if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
       setSignInError('Sign-in didn’t complete — check your connection and try again.');
@@ -89,6 +155,7 @@ export function AuthGate({ children }: Props) {
     // hanging at "Checking access…" — and a revoked account is signed out of
     // the UI live, without waiting for the next cold start.
     let resolved = false; // a real verdict (grant/deny) has been delivered
+    let cancelled = false; // this effect was torn down (user changed, or a retry)
     // Offline with nothing cached, the listener neither answers nor errors —
     // it just keeps emitting cache misses. Bound the wait so the user lands
     // on the error screen (retry + sign-out buttons) instead of an
@@ -130,8 +197,20 @@ export function AuthGate({ children }: Props) {
           updateDoc(doc(db, 'directors', email), { name: user.displayName.trim() }).catch(() => {});
         }
         setAccess('granted');
+        bindRetried.current = ''; // a read that works clears the one-retry guard
+        // (#google-binding) Is this session on the account the entry names?
+        // If not, and this Hub asks at all, offer to confirm: a note over the
+        // Hub with "Confirm now" and "Later". Nothing is asked of the server
+        // until the person taps, and after two tries that did not finish the
+        // note stays away until the Hub is next opened.
+        if (directorDoc.googleSub && directorDoc.boundUid === user.uid) {
+          setAgainCount(0);
+          setConfirmNote(false);
+        } else {
+          setConfirmNote(asksServer(email) && againCount() < 2 && !laterChosen());
+        }
       },
-      () => {
+      err => {
         // The read itself failed (offline, or pre-migration rules). Fall back to
         // the break-glass list so the founding account stays in; everyone else
         // gets an honest "couldn't verify" with a retry rather than a silent app
@@ -139,23 +218,127 @@ export function AuthGate({ children }: Props) {
         // real verdict (e.g. token revoked mid-session) must never overwrite
         // the already-resolved role with break-glass 'owner'.
         clearTimeout(failTimer);
-        if (resolved) return;
-        if (BREAK_GLASS_EMAILS.includes(email)) {
-          setCurrentDirector({ email, role: 'owner' }, user.displayName);
-          recordLogin({ email, name: user.displayName?.trim() || undefined, role: 'owner' });
-          setAccess('granted');
-        } else {
-          setAccess('error');
-        }
+        const fallBack = () => {
+          if (resolved) return;
+          if (BREAK_GLASS_EMAILS.includes(email)) {
+            setCurrentDirector({ email, role: 'owner' }, user.displayName);
+            recordLogin({ email, name: user.displayName?.trim() || undefined, role: 'owner' });
+            setAccess('granted');
+          } else {
+            setAccess('error');
+          }
+        };
+        if (err.code !== 'permission-denied' || !asksServer(email)) { fallBack(); return; }
+        // (#google-binding) The rules REFUSED the read. Once the rules honour
+        // a sign-in only on the account an entry names, that is what an entry
+        // with no record looks like: a newly listed person, a device that has
+        // not signed in since, or someone the Owner reset. One tap confirms
+        // them. If a request is already on its way (they have just signed
+        // in), wait for its answer instead of flashing a screen.
+        if (cancelled || recording.current) return;
+        if (againCount() >= 2) { setMismatch('stuck'); setAccess('mismatch'); } else setAccess('confirm');
       });
-    return () => { clearTimeout(failTimer); unsub(); };
+    return () => { cancelled = true; clearTimeout(failTimer); unsub(); };
   }, [user, checkNonce]);
+
+  /**
+   * The ONE place the app asks the server (#google-binding), straight after a
+   * real Google sign-in, with the token Google signed at it. When the server
+   * answers "again" it has made this person's account afresh, and the same
+   * Google sign-in opens it: no second pop-up.
+   */
+  async function recordWith(result: UserCredential): Promise<BindAnswer | 'skipped'> {
+    const cred = GoogleAuthProvider.credentialFromResult(result);
+    const email = directorEmailId(result.user.email ?? '');
+    if (!cred?.idToken || !asksServer(email)) return 'skipped';
+    recording.current = true;
+    try {
+      // The browser keeps unsent changes per sign-in account. Give them a
+      // moment to go out before the account they belong to is replaced.
+      if (db) {
+        try {
+          await Promise.race([waitForPendingWrites(db), new Promise(resolve => { setTimeout(resolve, 4000); })]);
+        } catch { /* best effort */ }
+      }
+      const answer = await bindGoogleAccount(await result.user.getIdToken(), cred.idToken);
+      if (answer === 'again' && auth) {
+        setAgainCount(againCount() + 1);
+        try {
+          await signInWithCredential(auth, GoogleAuthProvider.credential(cred.idToken, cred.accessToken));
+        } catch {
+          // The same Google sign-in could not be used a second time here.
+          // Fall back to asking for it once more.
+          await signOut(auth).catch(() => {});
+          setSignInError('One more step: sign in with Google once more to finish.');
+        }
+      }
+      return answer;
+    } finally {
+      recording.current = false;
+    }
+  }
+
+  /** What to show once the server has answered and the signed-in user did not change. */
+  function afterAnswer(answer: BindAnswer | 'skipped') {
+    if (answer === 'again' || answer === 'skipped') return;
+    const blocked = accessNow.current === 'confirm' || accessNow.current === 'checking';
+    if (answer === 'mismatch' || answer === 'other-account') {
+      setMismatch(answer);
+      setConfirmNote(false);
+      if (blocked) setAccess('mismatch'); else setTieWarning(answer);
+    } else if (answer === 'not-listed') {
+      if (blocked) setAccess('denied');
+    } else if (answer === 'bound') {
+      // The entry already names this very account. If the read was refused
+      // all the same, read once more; a second refusal is something else.
+      const uid = auth?.currentUser?.uid ?? '';
+      if (blocked && bindRetried.current !== uid) { bindRetried.current = uid; setCheckNonce(n => n + 1); }
+      else if (blocked) setAccess('error');
+    } else {
+      setConfirmError('Couldn’t reach the Hub’s server. Check your connection and try again.');
+      if (accessNow.current === 'checking') setAccess('confirm');
+    }
+  }
+
+  /** "Confirm now": one ordinary Google sign-in, and its token goes to the server. */
+  async function confirmGoogle() {
+    if (!auth || confirmBusy) return;
+    setConfirmError('');
+    setSignInError('');
+    setConfirmBusy(true);
+    recording.current = true;
+    try {
+      const result = await signInWithPopup(auth, new GoogleAuthProvider());
+      afterAnswer(await recordWith(result));
+    } catch (e) {
+      const code = (e as { code?: string }).code ?? '';
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+      if (code === 'auth/popup-blocked' && window.matchMedia('(display-mode: standalone)').matches) {
+        try {
+          await signInWithRedirect(auth, new GoogleAuthProvider());
+          return; // navigating away; the result is recorded when the page comes back
+        } catch { /* fall through to the message */ }
+      }
+      setConfirmError(
+        code === 'auth/popup-blocked'
+          ? 'Your browser blocked the Google window. Allow pop-ups for this site and try again.'
+          : 'That didn’t complete. Check your connection and try again.',
+      );
+    } finally {
+      recording.current = false;
+      setConfirmBusy(false);
+    }
+  }
 
   async function signIn() {
     if (!auth) return;
     setSignInError('');
+    recording.current = true;
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      const result = await signInWithPopup(auth, new GoogleAuthProvider());
+      // Every Google sign-in is the moment to confirm the account, if it is
+      // not confirmed yet: the server answers "bound" at once when it is.
+      afterAnswer(await recordWith(result));
     } catch (e) {
       // A dismissed popup is not an error worth shouting about.
       const code = (e as { code?: string }).code ?? '';
@@ -175,6 +358,8 @@ export function AuthGate({ children }: Props) {
           ? 'Your browser blocked the sign-in popup — allow popups for this site and try again.'
           : 'Sign-in didn’t complete — check your connection and try again.',
       );
+    } finally {
+      recording.current = false;
     }
   }
 
@@ -302,6 +487,67 @@ export function AuthGate({ children }: Props) {
     );
   }
 
+  // The rules will not let this session in until the server has confirmed
+  // the person's Google account (#google-binding). One tap: the button is an
+  // ordinary Google sign-in, and its token is what the server confirms from.
+  if (access === 'confirm') {
+    return (
+      <div className="dir-auth">
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
+        <h1>One more step</h1>
+        <p>
+          {ORG.appName} needs to confirm that <strong>{user.email}</strong> is your
+          Google account. Tap the button and choose that same account. You are
+          asked this one time on each device.
+        </p>
+        <button className="dir-google-btn" onClick={confirmGoogle} disabled={confirmBusy}>
+          {confirmBusy ? 'Confirming…' : 'Confirm with Google'}
+        </button>
+        {(confirmError || signInError) && <p role="alert" style={{ color: '#b91c1c', fontSize: 14, maxWidth: 340 }}>{confirmError || signInError}</p>}
+        <button className="dir-google-btn" onClick={handleSignOut}>Sign in with a different account</button>
+        <p><Link to="/">← Back to the public site</Link></p>
+      </div>
+    );
+  }
+
+  // Signed in with a Google account the server would not tie to this address
+  // (#google-binding). Only reachable once the rules ask for the tie.
+  if (access === 'mismatch') {
+    return (
+      <div className="dir-auth">
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
+        <h1>{mismatch === 'stuck' ? 'Couldn’t finish confirming your account' : mismatch === 'other-account' ? 'A different Google account is on file' : 'This Google account does not match'}</h1>
+        {mismatch === 'stuck' ? (
+          <p>
+            You’re signed in as <strong>{user.email}</strong>. {ORG.appName} tried
+            twice to confirm your Google account and could not finish.
+            Nothing is wrong with your Google account. Tell the Owner, then
+            try again.
+          </p>
+        ) : mismatch === 'other-account' ? (
+          <p>
+            You’re signed in as <strong>{user.email}</strong>, but {ORG.appName} has
+            a different Google account on file for that address. If you changed
+            Google accounts, ask the Owner to reset your sign-in on the
+            Directors screen, then sign in again.
+          </p>
+        ) : (
+          <p>
+            You’re signed in as <strong>{user.email}</strong>, but this is not
+            the Google account that belongs to that address, so {ORG.appName} cannot
+            open for it. Sign in with the Google account for that address. If
+            this is the right one, ask the Owner to look at the Directors screen.
+          </p>
+        )}
+        {mismatch === 'stuck' && (
+          <button className="dir-google-btn" onClick={() => { setAgainCount(0); setCheckNonce(n => n + 1); }}>Try again</button>
+        )}
+        <button className="dir-google-btn" onClick={handleSignOut}>Sign in with a different account</button>
+        <p><Link to="/">← Back to the public site</Link></p>
+      </div>
+    );
+  }
+
   // Signed in, but not on the director list: say so plainly.
   if (access === 'denied') {
     return (
@@ -321,5 +567,38 @@ export function AuthGate({ children }: Props) {
 
   // Access confirmed. HomeScreenHint is mounted only here (and in the fixture
   // path above), so it can never show on a sign-in or "not authorized" screen.
-  return <><HomeScreenHint />{children(user, handleSignOut)}</>;
+  return (
+    <>
+      <HomeScreenHint />
+      {confirmNote && !tieWarning && (
+        <div className="dir-tie-warning dir-confirm-note" role="status">
+          <span>
+            <strong>One quick step, when you have a moment.</strong> Confirm your
+            Google account for {ORG.appName}: one tap, one time on each device.
+            If you are in the middle of roll, finish and let it save first.
+            {confirmError && <><br /><em role="alert">{confirmError}</em></>}
+          </span>
+          <span className="dir-confirm-actions">
+            <button type="button" className="dir-confirm-now" onClick={confirmGoogle} disabled={confirmBusy}>
+              {confirmBusy ? 'Confirming…' : 'Confirm now'}
+            </button>
+            <button type="button" className="dir-confirm-later" onClick={() => { chooseLater(); setConfirmNote(false); }}>
+              Later
+            </button>
+          </span>
+        </div>
+      )}
+      {tieWarning && (
+        <div className="dir-tie-warning" role="status">
+          <span>
+            {ORG.appName} could not confirm this Google account as yours
+            {tieWarning === 'other-account' ? ' (a different one is on file)' : ''}.
+            Ask the Owner to look at the Directors screen.
+          </span>
+          <button type="button" onClick={() => setTieWarning('')} aria-label="Dismiss">×</button>
+        </div>
+      )}
+      {children(user, handleSignOut)}
+    </>
+  );
 }
