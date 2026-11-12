@@ -31,6 +31,12 @@ export function claimIsLive(at: unknown, now: number): boolean {
   return typeof at === 'number' && now - at < LOCK_STALE_MS && at - now <= LOCK_SKEW_MS;
 }
 
+/** The database's "this transaction lost to others, try again" (gRPC status 10, ABORTED). */
+function isAborted(e: unknown): boolean {
+  const code = (e as { code?: unknown } | null)?.code;
+  return code === 10 || code === 'aborted';
+}
+
 /** `opts` is for the self-check only: its own clock, and a shorter wait. */
 export function entryLock(db: Firestore, opts: { now?: () => number; waitMs?: number; pollMs?: number } = {}): EntryLock {
   const now = opts.now ?? Date.now;
@@ -41,12 +47,20 @@ export function entryLock(db: Firestore, opts: { now?: () => number; waitMs?: nu
     const mine = randomBytes(12).toString('hex');
     const started = now();
     for (;;) {
-      const got = await db.runTransaction(async tx => {
-        const snap = await tx.get(ref);
-        if (snap.exists && claimIsLive(snap.get('at'), now())) return false;
-        tx.set(ref, { at: now(), id: mine });
-        return true;
-      });
+      let got = false;
+      try {
+        got = await db.runTransaction(async tx => {
+          const snap = await tx.get(ref);
+          if (snap.exists && claimIsLive(snap.get('at'), now())) return false;
+          tx.set(ref, { at: now(), id: mine });
+          return true;
+        });
+      } catch (e) {
+        // With a crowd on one address the database can give up on this
+        // transaction (ABORTED). That is "not got", the same as finding the
+        // claim held: wait and look again, and say "busy" if the wait runs out.
+        if (!isAborted(e)) throw e;
+      }
       if (got) break;
       if (now() - started > waitMs) throw Object.assign(new Error('entryLock: still busy'), { code: 'hub/busy' });
       await new Promise(resolve => { setTimeout(resolve, pollMs); });

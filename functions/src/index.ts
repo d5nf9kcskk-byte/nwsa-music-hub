@@ -1103,9 +1103,6 @@ export const draftChangeNoteEs = runWith({ secrets: ['ANTHROPIC_API_KEY'] }).htt
  * Google sign-in again), not-listed, mismatch, other-account. It speaks only
  * about the caller's own sign-in.
  */
-/** FIRST LIVE RUN: the server records only the founding addresses (removed with the app's condition in the follow-up). */
-const firstRunAllows = (email: string) => (ORG.breakGlassEmails as string[]).includes(email);
-
 export const bindGoogle = https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
   res.set('Vary', 'Origin');
@@ -1132,7 +1129,7 @@ export const bindGoogle = https.onRequest(async (req, res) => {
     return;
   }
   try {
-    const status = await runBindGoogle(googleBindingStore(getFirestore(), getAuth(), verifyGoogleLive, firstRunAllows), claims, req.body?.googleIdToken);
+    const status = await runBindGoogle(googleBindingStore(getFirestore(), getAuth(), verifyGoogleLive), claims, req.body?.googleIdToken);
     res.status(200).json({ ok: true, status });
   } catch (err) {
     // The code only: never the address or the token.
