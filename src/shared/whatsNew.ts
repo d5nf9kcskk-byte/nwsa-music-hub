@@ -44,6 +44,19 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     ],
     expires: '2026-11-25',
   },
+  // (#google-binding) The one thing staff see from the Google tie.
+  {
+    id: '2026-11-12-sign-in-once-more',
+    date: '2026-11-12',
+    title: 'The Hub asks you to sign in once more',
+    audience: 'staff' as const,
+    bullets: [
+      'One time on each device, the Hub shows “One more step” and asks you to sign in with Google again. That confirms your Google account as yours.',
+      'After that, nothing is different. You sign in the same way as before.',
+      'If the Hub ever says it could not confirm your account, tell the Owner.',
+    ],
+    expires: '2026-12-12',
+  },
   // Template pass: the two sides brought onto one look, and the menu fixed.
   {
     id: '2026-11-10-appearance-and-menu',
