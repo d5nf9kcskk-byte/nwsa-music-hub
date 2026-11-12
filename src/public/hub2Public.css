@@ -104,7 +104,12 @@
     box-sizing: content-box; padding: 6px; border-radius: 999px;
     background: var(--hub2-sun); color: var(--hub2-ink-on-sun);
   }
-  :root[data-hub2="on"] .pub-signup-alert.urgent > svg:first-child { color: var(--hub2-ink-on-sun); }
+  /* The urgent variant's glyph needs no rule of its own: the sun pill above
+     already covers it, and a line restating `color: var(--hub2-ink-on-sun)`
+     here (which is what used to sit on this spot) read as the compensation
+     for dissolving the amber ring while changing nothing at all. The tier is
+     carried by the left-edge glow instead -- sun for due today, teal for
+     open -- in hub2Glass.css beside .pub-daysheet. */
   :root[data-hub2="on"] .pub-signup-row.highlight { border-color: var(--pub-border); border-left: 4px solid var(--hub2-sun); }
   :root[data-hub2="on"] .pub-signup-due.urgent,
   :root[data-hub2="on"] .pub-signup-row-meta .urgent {
