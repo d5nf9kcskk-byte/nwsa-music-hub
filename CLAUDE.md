@@ -1168,6 +1168,43 @@ those marks onto the original file. Everything else — audience, deadline,
   the session record for all of the above is
   `docs/session-notes-2026-08-04-pwa-hardening.md`.
 
+## Each listed person is tied to their own Google account (Nov 2026, #google-binding)
+
+A verified email on the list says an account CARRIES that address. It does not
+say Google itself knows the person by it, and the rules cannot see that. So
+the server records, on each Directors entry, which Google account is theirs
+(`googleSub`, Google's own id for the person, with `googleBoundAt`).
+
+- **Only `bindGoogle` writes the tie** (`functions/src/googleBinding.ts`), and
+  only when Google's own address for the account behind the caller's sign-in
+  IS the listed address. It never creates an entry and never changes a tie
+  that is there. `AuthGate.tsx` calls it by itself and never writes the tie.
+- **It goes live in three moves, on purpose** (`docs/google-binding.md`). The
+  service worker holds a new app version until the person taps Refresh, so a
+  phone on an old copy would never ask to be tied and would be locked out the
+  moment a stricter rule took effect. Move 1 (this) is the function, the
+  app's call and the Owner's view; it changes no rule. Move 2 is the rules,
+  with the requirement switched off. Move 3 is the switch, once every active
+  person reads "Google account confirmed" on the Directors screen.
+- **The app asks in two places**: in the background when a read works but the
+  entry is not tied, and when the rules REFUSE the membership read (which is
+  what an untied entry looks like once the tie is required). A refusal that the
+  server answers with "bound" is retried exactly once. If the server cannot
+  be reached, every path falls back to what it did before, break-glass
+  included.
+- **The Owner may clear another person's tie, never set one, and never
+  their own** (Directors screen, Reset). The person is tied again the next
+  time they open the Hub.
+- **It is Google's id for the person, not the Hub's account id**, because the
+  rules can read Google's id straight from the token
+  (`firebase.identities['google.com']`) and it survives the account being
+  replaced.
+- `scripts/sign-in-accounts-audit.mjs` (*Audit Sign-in Accounts* workflow)
+  answers, in one word, whether every sign-in account is Google's own account
+  for its address. It prints OK or REVIEW NEEDED and never an address: this
+  repo's logs are public.
+- `googleBinding.selfcheck.ts` pins the rule and the wiring.
+
 ## Playing-exam grading — one line, one rubric (Sept 2026, #exam-rubric)
 
 The grade sheet used to be two lists of the SAME people: a roster row that

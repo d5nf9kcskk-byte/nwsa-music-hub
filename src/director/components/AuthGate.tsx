@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { bindGoogleAccount } from '../googleBindingClient';
 import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc, waitForPendingWrites, terminate, clearIndexedDbPersistence } from 'firebase/firestore';
@@ -25,7 +26,7 @@ import { ORG } from '../../org';
  */
 const BREAK_GLASS_EMAILS = ORG.breakGlassEmails;
 
-type Access = 'checking' | 'granted' | 'denied' | 'error';
+type Access = 'checking' | 'granted' | 'denied' | 'error' | 'mismatch';
 
 interface Props {
   children: (user: User, signOutFn: () => void) => React.ReactNode;
@@ -36,6 +37,14 @@ export function AuthGate({ children }: Props) {
   const [access, setAccess] = useState<Access>('checking');
   const [checkNonce, setCheckNonce] = useState(0);
   const [signInError, setSignInError] = useState('');
+  // (#google-binding) Each listed person is tied to their own Google account
+  // by the server (functions/src/googleBinding.ts). This component asks for
+  // that by itself, in two places below, and never writes the tie.
+  //   bindAsked    the account already asked for in the background
+  //   bindRetried  the account whose refused read was already retried once
+  const bindAsked = useRef('');
+  const bindRetried = useRef('');
+  const [mismatch, setMismatch] = useState<'mismatch' | 'other-account'>('mismatch');
 
   useEffect(() => {
     if (!auth) { setUser(null); return; }
@@ -88,6 +97,10 @@ export function AuthGate({ children }: Props) {
     // hanging at "Checking access…" — and a revoked account is signed out of
     // the UI live, without waiting for the next cold start.
     let resolved = false; // a real verdict (grant/deny) has been delivered
+    let cancelled = false; // this effect was torn down (user changed, or a retry)
+    // Ask the server to tie this entry to this Google account. No answer at
+    // all (offline, the function missing, an error) comes back 'unreachable'.
+    const askToBind = () => user.getIdToken().then(bindGoogleAccount).catch(() => 'unreachable' as const);
     // Offline with nothing cached, the listener neither answers nor errors —
     // it just keeps emitting cache misses. Bound the wait so the user lands
     // on the error screen (retry + sign-out buttons) instead of an
@@ -129,8 +142,16 @@ export function AuthGate({ children }: Props) {
           updateDoc(doc(db, 'directors', email), { name: user.displayName.trim() }).catch(() => {});
         }
         setAccess('granted');
+        bindRetried.current = ''; // a read that works clears the one-retry guard
+        // (#google-binding) Not tied to their Google account yet: ask the
+        // server, once per account, in the background. Nothing on screen
+        // waits on the answer, and a "no" changes nothing here.
+        if (!directorDoc.googleSub && bindAsked.current !== user.uid) {
+          bindAsked.current = user.uid;
+          void askToBind();
+        }
       },
-      () => {
+      err => {
         // The read itself failed (offline, or pre-migration rules). Fall back to
         // the break-glass list so the founding account stays in; everyone else
         // gets an honest "couldn't verify" with a retry rather than a silent app
@@ -138,16 +159,46 @@ export function AuthGate({ children }: Props) {
         // real verdict (e.g. token revoked mid-session) must never overwrite
         // the already-resolved role with break-glass 'owner'.
         clearTimeout(failTimer);
-        if (resolved) return;
-        if (BREAK_GLASS_EMAILS.includes(email)) {
-          setCurrentDirector({ email, role: 'owner' }, user.displayName);
-          recordLogin({ email, name: user.displayName?.trim() || undefined, role: 'owner' });
-          setAccess('granted');
-        } else {
-          setAccess('error');
-        }
+        const fallBack = () => {
+          if (resolved) return;
+          if (BREAK_GLASS_EMAILS.includes(email)) {
+            setCurrentDirector({ email, role: 'owner' }, user.displayName);
+            recordLogin({ email, name: user.displayName?.trim() || undefined, role: 'owner' });
+            setAccess('granted');
+          } else {
+            setAccess('error');
+          }
+        };
+        if (err.code !== 'permission-denied') { fallBack(); return; }
+        // (#google-binding) The rules REFUSED the read. With today's rules
+        // that does not happen to a Google sign-in. Once the rules honour a
+        // Google sign-in only for the account an entry is tied to, it is what
+        // an entry not tied yet looks like: a newly listed person's first
+        // sign-in, or someone whose tie the Owner reset. So ask the server to
+        // tie it, and let the answer decide the screen. If the server cannot
+        // be reached, everything falls back to exactly what it did before.
+        void askToBind().then(answer => {
+          if (cancelled) return;
+          if (answer === 'bound') {
+            // Tied (now, or already). Read again, once: a second refusal is
+            // something else, and gets the old fallback.
+            if (bindRetried.current === user.uid) { fallBack(); return; }
+            bindRetried.current = user.uid;
+            setCheckNonce(n => n + 1);
+          } else if (resolved) {
+            // Refused in the middle of a session and not fixable from here.
+            // Leave the screen alone; the next load says why.
+          } else if (answer === 'mismatch' || answer === 'other-account') {
+            setMismatch(answer);
+            setAccess('mismatch');
+          } else if (answer === 'not-listed' && !BREAK_GLASS_EMAILS.includes(email)) {
+            setAccess('denied');
+          } else {
+            fallBack();
+          }
+        });
       });
-    return () => { clearTimeout(failTimer); unsub(); };
+    return () => { cancelled = true; clearTimeout(failTimer); unsub(); };
   }, [user, checkNonce]);
 
   async function signIn() {
@@ -295,6 +346,34 @@ export function AuthGate({ children }: Props) {
           again.
         </p>
         <button className="dir-google-btn" onClick={() => setCheckNonce(n => n + 1)}>Try again</button>
+        <button className="dir-google-btn" onClick={handleSignOut}>Sign in with a different account</button>
+        <p><Link to="/">← Back to the public site</Link></p>
+      </div>
+    );
+  }
+
+  // Signed in with a Google account the server would not tie to this address
+  // (#google-binding). Only reachable once the rules ask for the tie.
+  if (access === 'mismatch') {
+    return (
+      <div className="dir-auth">
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
+        <h1>{mismatch === 'other-account' ? 'A different Google account is on file' : 'This Google account does not match'}</h1>
+        {mismatch === 'other-account' ? (
+          <p>
+            You’re signed in as <strong>{user.email}</strong>, but {ORG.appName} has
+            a different Google account on file for that address. If you changed
+            Google accounts, ask the Owner to reset your sign-in on the
+            Directors screen, then sign in again.
+          </p>
+        ) : (
+          <p>
+            You’re signed in as <strong>{user.email}</strong>, but this is not
+            the Google account that belongs to that address, so {ORG.appName} cannot
+            open for it. Sign in with the Google account for that address. If
+            this is the right one, ask the Owner to look at the Directors screen.
+          </p>
+        )}
         <button className="dir-google-btn" onClick={handleSignOut}>Sign in with a different account</button>
         <p><Link to="/">← Back to the public site</Link></p>
       </div>

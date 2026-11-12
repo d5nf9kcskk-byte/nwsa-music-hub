@@ -95,6 +95,24 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
     }
   }
 
+  // (#google-binding) Clear one person's tie to a Google account, for the
+  // person who now signs in with a different one. The Hub ties them again,
+  // by itself, the next time they open it. The Owner's own tie is not
+  // offered: clearing it could not be undone from this screen.
+  async function handleResetTie(d: Director) {
+    if (!window.confirm(
+      `Reset the Google account on file for ${d.name || d.email}?\n\n`
+      + 'Do this if they now sign in with a different Google account. '
+      + 'The Hub confirms their account again the next time they open it.',
+    )) return;
+    setBusy(true);
+    try {
+      await updateDirector(d.email, { googleSub: undefined, googleBoundAt: undefined });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!isOwner) {
     // Defense in depth: DirectorApp already hides the nav entry that opens
     // this, so reaching here means a stale tab/role change — say so plainly
@@ -175,6 +193,20 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
           should have the class ticked as well as the ensembles.
         </p>
 
+        {/* (#google-binding) The Owner's view of who is tied to their own
+            Google account. The server does the tying, by itself, the next
+            time each person opens an up-to-date copy of the Hub; this only
+            shows it, and lets the Owner reset one. */}
+        {directors.length > 0 && (
+          <p className="dir-loc-hint">
+            <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} />{' '}
+            <strong>Google accounts confirmed: {directors.filter(d => d.googleSub).length} of {directors.length}.</strong>{' '}
+            The Hub confirms each person’s Google account by itself the next
+            time they open it. Anyone still “not confirmed yet” has not opened
+            an up-to-date copy of the Hub since this was added.
+          </p>
+        )}
+
         {loading && directors.length === 0 && <div className="dir-loc-empty">Loading…</div>}
         {!loading && directors.length === 0 && (
           <div className="dir-loc-empty">No directors listed yet. Add the first one below.</div>
@@ -203,6 +235,22 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
                   {hasDirectorRole(d, 'assistant') && assistantCapabilities(d).length
                     ? ` · +${assistantCapabilities(d).map(c => ASSISTANT_CAPABILITY_LABEL[c]).join(', ')}`
                     : ''}
+                </div>
+                <div className="dir-ens-sub">
+                  {d.googleSub ? 'Google account confirmed' : 'Google account not confirmed yet'}
+                  {d.googleSub && !isSelf && (
+                    <>
+                      {' · '}
+                      <button
+                        type="button"
+                        className="dir-tie-reset"
+                        disabled={busy}
+                        onClick={() => handleResetTie(d)}
+                      >
+                        Reset
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
               {confirmRemove === d.email ? (
