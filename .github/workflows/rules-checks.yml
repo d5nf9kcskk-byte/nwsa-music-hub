@@ -8,9 +8,13 @@
 #   • as the FIRST job of the rules deploy (deploy-rules.yml calls this
 #     workflow and deploys only if it passes).
 #
-# The same self-checks are also in .github/actions/self-checks, so every
+# The self-checks here are also in .github/actions/self-checks, so every
 # build runs them too. This workflow exists so that a rules-only push cannot
-# skip them.
+# skip them, and because the two emulator checks need Java, which the build
+# does not set up.
+#
+# Everything here runs against local emulators under a "demo-" project id.
+# Nothing in it can reach a real project, and it uses no secrets.
 name: Rules checks
 
 on:
@@ -20,14 +24,22 @@ on:
     paths:
       - 'firestore.rules'
       - 'storage.rules'
+      - 'firebase.emulators.json'
       - 'functions/src/googleBinding*.ts'
       - 'functions/src/freshAccount.ts'
       - 'functions/src/googleIdToken.ts'
       - 'functions/src/entryLock.ts'
+      - 'functions/src/staffToken*.ts'
+      - 'functions/src/passwordSetup*.ts'
       - 'functions/src/index.ts'
+      - 'src/shared/passwordSetupLink.ts'
       - 'src/director/components/AuthGate.tsx'
       - 'scripts/sign-in-accounts-audit.mjs'
       - 'scripts/set-doc-field.mjs'
+      - 'scripts/require-google-ties.mjs'
+      - 'scripts/google-binding.emulator-proof.mjs'
+      - 'scripts/password-sign-in.emulator-proof.mjs'
+      - 'scripts/rules-verdicts.emulator-check.mjs'
       - '.github/workflows/rules-checks.yml'
       - '.github/workflows/deploy-rules.yml'
       - '.github/workflows/deploy-functions.yml'
@@ -43,9 +55,53 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: npm
 
       - name: Check the Google tie
         run: node --experimental-strip-types functions/src/googleBinding.selfcheck.ts
 
+      - name: Check the staff sign-in test
+        run: node --experimental-strip-types functions/src/staffToken.selfcheck.ts
+
       - name: Check the sign-in accounts audit
         run: node scripts/sign-in-accounts-audit.mjs --selfcheck
+
+      - name: Check the switch script
+        run: node scripts/require-google-ties.mjs --selfcheck
+
+      - name: Check password setup
+        run: node --experimental-strip-types functions/src/passwordSetup.selfcheck.ts
+
+      # The two checks below ask the REAL rules, on local emulators. A text
+      # check cannot see a rule that lets the same thing through another way;
+      # these can.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: npm ci
+
+      # Real sign-ins, every role, all three gates.
+      - name: Prove the Google tie against the real rules
+        run: >
+          npx --yes firebase-tools@15.28.1 emulators:exec
+          --config firebase.emulators.json --only auth,firestore,storage
+          --project demo-google-binding
+          "node scripts/google-binding.emulator-proof.mjs"
+
+      # The password arm: real sign-ins by password and by Google together.
+      - name: Prove password sign-in against the real rules
+        run: >
+          npx --yes firebase-tools@15.28.1 emulators:exec
+          --config firebase.emulators.json --only auth,firestore,storage
+          --project demo-password-sign-in
+          "node scripts/password-sign-in.emulator-proof.mjs"
+
+      # Being on the list must open nothing by itself.
+      - name: Check a listed person with no record gets no more than a visitor
+        run: >
+          npx --yes firebase-tools@15.28.1 emulators:exec
+          --config firebase.emulators.json --only auth,firestore,storage
+          --project demo-rules-verdicts
+          "node scripts/rules-verdicts.emulator-check.mjs visitor"

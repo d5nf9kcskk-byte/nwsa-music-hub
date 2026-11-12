@@ -35,8 +35,12 @@ import {
 import { buildSubmissionReceipt, submissionReceiptId } from './submissionReceipt.ts';
 import { composeSubmission as runComposeSubmission } from './composeSubmission.ts';
 import { getAuth } from 'firebase-admin/auth';
+import { getAppCheck } from 'firebase-admin/app-check';
 import { bindGoogle as runBindGoogle, type BindClaims } from './googleBinding.ts';
 import { googleBindingStore, verifyGoogleLive } from './googleBindingStore.ts';
+import { staffFromToken } from './staffToken.ts';
+import { callerAddress, completeSetup, ownerSendLink, requestSetup, type RequestOutcome } from './passwordSetup.ts';
+import { passwordSetupStore } from './passwordSetupStore.ts';
 import { getMessaging } from 'firebase-admin/messaging';
 import { handleEventChange, sendTestAlert, type PushDeps } from './pushSend.ts';
 import { draftSpanish, noteFromBody } from './bannerDrafter.ts';
@@ -902,6 +906,29 @@ function hasKnownRole(d: Record<string, unknown> | undefined): boolean {
   return KNOWN_ROLES.includes(typeof d.role === 'string' ? d.role : 'director');
 }
 
+/** Is this Directors entry an Owner's? */
+function isOwnerDoc(d: Record<string, unknown> | undefined): boolean {
+  if (!d) return false;
+  return Array.isArray(d.roles) ? (d.roles as unknown[]).includes('owner') : d.role === 'owner';
+}
+
+/**
+ * The ONE way a function learns who is calling (#google-binding,
+ * #password-sign-in): verify the token, then put it through the same staff
+ * test the rules use
+ * (staffToken.ts). Null means "not a sign-in the Hub honours" and the caller
+ * answers 401; the role is still the caller's to check.
+ */
+async function staffFromIdToken(idToken: string) {
+  try {
+    const decoded = await getAuth().verifyIdToken(idToken);
+    return await staffFromToken(decoded, async email =>
+      (await getFirestore().doc(`directors/${email}`).get()).data());
+  } catch {
+    return null;
+  }
+}
+
 function pushDeps(): PushDeps {
   const db = getFirestore();
   return {
@@ -996,19 +1023,12 @@ export const pushTestAlert = https.onRequest(async (req, res) => {
   const header = req.get('Authorization') ?? '';
   const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (!idToken) { refuse(401, 'Sign in again, then try.'); return; }
-  let email: string;
-  try {
-    const decoded = await getAuth().verifyIdToken(idToken);
-    if (decoded.email_verified !== true || !decoded.email) throw new Error('unverified');
-    email = decoded.email;
-  } catch {
-    refuse(401, 'Sign in again, then try.');
-    return;
-  }
+  const staff = await staffFromIdToken(idToken);
+  if (!staff) { refuse(401, 'Sign in again, then try.'); return; }
+  const email = staff.email;
 
   const db = getFirestore();
-  const me = await db.doc(`directors/${email}`).get();
-  if (!me.exists || !hasKnownRole(me.data())) { refuse(403, 'This account cannot send test alerts.'); return; }
+  if (!hasKnownRole(staff.director)) { refuse(403, 'This account cannot send test alerts.'); return; }
 
   const subId = typeof req.body?.subId === 'string' ? req.body.subId : '';
   if (!isSubscriptionDocId(subId)) { refuse(400, 'Turn alerts on for this phone first.'); return; }
@@ -1066,17 +1086,9 @@ export const draftChangeNoteEs = runWith({ secrets: ['ANTHROPIC_API_KEY'] }).htt
   const header = req.get('Authorization') ?? '';
   const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (!idToken) { refuse(401, 'Sign in again, then try.'); return; }
-  let email: string;
-  try {
-    const decoded = await getAuth().verifyIdToken(idToken);
-    if (decoded.email_verified !== true || !decoded.email) throw new Error('unverified');
-    email = decoded.email;
-  } catch {
-    refuse(401, 'Sign in again, then try.');
-    return;
-  }
-  const me = await getFirestore().doc(`directors/${email}`).get();
-  if (!me.exists || !hasKnownRole(me.data())) { refuse(403, 'This account cannot use the drafter.'); return; }
+  const staff = await staffFromIdToken(idToken);
+  if (!staff) { refuse(401, 'Sign in again, then try.'); return; }
+  if (!hasKnownRole(staff.director)) { refuse(403, 'This account cannot use the drafter.'); return; }
 
   const input = noteFromBody(req.body);
   if (!input.ok) { refuse(400, input.message); return; }
@@ -1136,4 +1148,123 @@ export const bindGoogle = https.onRequest(async (req, res) => {
     console.error('bindGoogle failed:', (err as { code?: unknown } | null)?.code ?? 'unknown');
     refuse(500, 'That did not work on our side. Try again in a moment.');
   }
+});
+
+/**
+ * Set or reset a staff password (#password-sign-in). POST JSON, three actions:
+ *
+ *   { action: 'owner-send', email }          the OWNER, signed in, has the
+ *                                            Hub email one listed person a
+ *                                            link (Directors screen). Outside
+ *                                            that inbox's own caps.
+ *   { action: 'request', email }             email a one-time link, if the
+ *                                            address is on the Directors list.
+ *                                            Changes nothing. Same answer
+ *                                            whether or not it is listed.
+ *   { action: 'complete', token, password }  the link was opened: make the
+ *                                            person's account afresh with the
+ *                                            password its holder chose, and
+ *                                            record it on their entry.
+ *
+ * Nothing about anyone's account changes without the token from their own
+ * inbox. The rules and the reasons are in passwordSetup.ts.
+ *
+ * Answers nothing at all (404) until the org turns `features.passwordSignIn`
+ * on, so deploying it changes nothing for anyone. App Check is REQUIRED: a
+ * request with no valid App Check token is refused before anything is read.
+ */
+export const passwordSetup = https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Vary', 'Origin');
+  res.set('Cache-Control', 'no-store');
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Firebase-AppCheck');
+    res.set('Access-Control-Max-Age', '3600');
+    res.status(204).send('');
+    return;
+  }
+  const refuse = (status: number, message: string) => { res.status(status).json({ ok: false, message }); };
+  if (!ORG.features.passwordSignIn) { refuse(404, 'Not available.'); return; }
+  if (req.method !== 'POST') { refuse(405, 'That did not reach the Hub correctly.'); return; }
+  try {
+    await getAppCheck().verifyToken(req.get('X-Firebase-AppCheck') ?? '');
+  } catch {
+    refuse(401, 'That did not reach the Hub correctly. Reload the page and try again.');
+    return;
+  }
+
+  const deps = passwordSetupStore(getFirestore(), getAuth(), { publicUrl: ORG.publicUrl, appName: ORG.appName });
+  // Counted by the address Google's front end appended, never by one the
+  // caller sent (passwordSetup.ts callerAddress).
+  const caller = callerAddress(req.get('X-Forwarded-For'), req.socket?.remoteAddress);
+  const action: unknown = req.body?.action;
+
+  if (action === 'owner-send') {
+    // The Owner, and only the Owner, by the same staff test every other
+    // function uses. The link still goes to the person's own inbox, and
+    // nothing changes until they use it.
+    const header = req.get('Authorization') ?? '';
+    const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
+    if (!idToken) { refuse(401, 'Sign in again, then try.'); return; }
+    const staff = await staffFromIdToken(idToken);
+    if (!staff) { refuse(401, 'Sign in again, then try.'); return; }
+    if (!hasKnownRole(staff.director)) { refuse(403, 'Only the Owner can do this.'); return; }
+    if (!isOwnerDoc(staff.director)) { refuse(403, 'Only the Owner can do this.'); return; }
+    try {
+      const sent = await ownerSendLink(deps, req.body?.email);
+      if (sent === 'sent') res.status(200).json({ ok: true, sent: true });
+      else if (sent === 'limited') refuse(429, 'The Hub has sent too many of these this hour. Try again in an hour.');
+      else refuse(404, 'That address is not on the Directors list.');
+    } catch (err) {
+      console.error('passwordSetup owner-send failed:', (err as { code?: unknown } | null)?.code ?? 'unknown');
+      refuse(400, 'That did not work on our side. Try again in a moment.');
+    }
+    return;
+  }
+
+  if (action === 'request') {
+    let outcome: RequestOutcome = 'ok';
+    try {
+      outcome = await requestSetup(deps, req.body?.email, caller);
+    } catch (err) {
+      // A failure answers exactly like success: an error here must not be a
+      // way to learn which addresses are listed. The code only, never the address.
+      console.error('passwordSetup request failed:', (err as { code?: unknown } | null)?.code ?? 'unknown');
+    }
+    if (outcome === 'limited') { refuse(429, 'Too many tries. Wait a few minutes and try again.'); return; }
+    res.status(200).json({ ok: true });
+    return;
+  }
+
+  if (action === 'complete') {
+    // ONE answer for every way this can fail once the link has been looked
+    // at (an unknown, used or expired link, a password the rules above
+    // refuse, a person no longer listed, an error on our side): the same
+    // status and the same words, so a failed attempt says nothing about the
+    // link, the address or the list. The screen checks the password before
+    // it sends, so a real person is told what is wrong with it there.
+    // Two other answers, and after either the link still works. "Too many
+    // tries" is decided before the link is looked at, so it says nothing
+    // about it. "Busy" means the Hub was still finishing another request
+    // for the same person; it is said only to someone holding a real link.
+    let done: string | null = null;
+    let limited = false;
+    let busy = false;
+    try {
+      const outcome = await completeSetup(deps, req.body?.token, req.body?.password, caller);
+      if (outcome.status === 'done') done = outcome.email;
+      limited = outcome.status === 'limited';
+      busy = outcome.status === 'busy';
+    } catch (err) {
+      console.error('passwordSetup complete failed:', (err as { code?: unknown } | null)?.code ?? 'unknown');
+    }
+    if (done) res.status(200).json({ ok: true, email: done });
+    else if (limited) refuse(429, 'Too many tries from this network just now. Wait a few minutes and open your link again. It still works.');
+    else if (busy) refuse(503, 'The Hub was still finishing something else for you. Your link has not been used. Wait a minute and open it again.');
+    else refuse(400, 'That link did not work. It may have expired or been used already. Ask for a new one.');
+    return;
+  }
+
+  refuse(400, 'That did not reach the Hub correctly.');
 });

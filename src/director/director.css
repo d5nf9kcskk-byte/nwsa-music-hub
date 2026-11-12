@@ -240,6 +240,50 @@ html:has(.dir-app) body {
 }
 
 .dir-google-btn:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.dir-google-btn:disabled { opacity: 0.55; cursor: default; }
+
+/* Email-and-password sign-in (#password-sign-in). Only rendered when
+   features.passwordSignIn is on, so none of this can move the Google-only
+   screen. The taller screens scroll instead of centring in a fixed height:
+   a form plus the phone's keyboard does not fit in 100dvh. */
+.dir-auth-tall {
+  height: auto;
+  min-height: 100dvh;
+  gap: 18px;
+}
+.dir-auth-copy { max-width: 360px; line-height: 1.5; }
+.dir-auth p.dir-auth-error { color: #b91c1c; font-size: 14px; }
+.dir-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 320px;
+  text-align: left;
+}
+.dir-auth-sub {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--dir-text);
+  margin: 6px 0 2px;
+  text-align: center;
+}
+.dir-auth-form .dir-label { margin: 6px 0 0; }
+.dir-auth-form .dir-input[readonly] { color: var(--dir-text-muted); }
+.dir-auth-submit { justify-content: center; margin-top: 10px; }
+.dir-auth-link {
+  background: none;
+  border: 0;
+  padding: 10px 8px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dir-primary);
+  text-decoration: underline;
+  cursor: pointer;
+  align-self: center;
+}
+.dir-auth-link:disabled { opacity: 0.55; cursor: default; }
 
 /* "Add to Home Screen to stay signed in" (#stay-signed-in): one line over the
    staff shell on an iPhone or iPad in a browser tab, gone for good on that

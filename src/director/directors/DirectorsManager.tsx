@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock, History, Activity, ChevronDown, ChevronUp, BookOpen, ChevronLeft } from 'lucide-react';
-import { useDirectors, directorEmailId, directorRoles, directorRoleLabels, hasDirectorRole, primaryDirectorRole, BINDING_KEYS, isConfirmed, useSignInAudit } from '../hooks/useDirectors';
+import { useDirectors, directorEmailId, directorRoles, directorRoleLabels, hasDirectorRole, primaryDirectorRole, BINDING_KEYS, isConfirmed, useSignInSwitch, useSignInAudit } from '../hooks/useDirectors';
 import type { Director, DirectorRole } from '../hooks/useDirectors';
 import { useLoginEvents, LOGIN_LOG_LIMIT } from '../hooks/useLoginEvents';
 import { useActivityLog, ACTIVITY_LOG_LIMIT } from '../hooks/useActivityLog';
@@ -27,6 +27,9 @@ import { studentMatchesQuery } from '../studentSearch';
 import '../signups/signups.css';
 import { GroupPicker } from '../components/GroupPicker';
 import { splitAssigned, withClasses, withPerforming } from './assignedSlices';
+import { ORG } from '../../org';
+import { auth } from '../firebaseAuth';
+import { ownerSendPasswordLink } from '../passwordSetupClient';
 
 /** Human-readable label for each logged action slug. Falls back to the raw
  *  slug so a newly-added action still shows something before this map is
@@ -103,7 +106,8 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
     if (!window.confirm(
       `Reset the Google account on file for ${d.name || d.email}?\n\n`
       + 'Do this if they now sign in with a different Google account. '
-      + 'The Hub offers them a one-tap "Confirm" the next time they open it.',
+      + 'The Hub offers them a one-tap "Confirm" the next time they open it.'
+      + (d.passwordSet ? ' Their password is removed too; they can set it again from the sign-in screen.' : ''),
     )) return;
     setBusy(true);
     try {
@@ -113,9 +117,54 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
     }
   }
 
-  // (#google-binding) What the account check last found. Its public log
-  // prints one word; which accounts is said here, to the Owner only.
+  // (#google-binding) Whether only confirmed sign-ins are let in, and what
+  // the server last did about it. Said here, to the Owner, and nowhere public.
+  const signInSwitch = useSignInSwitch(isOwner);
   const signInAudit = useSignInAudit(isOwner);
+  const lastRunWords = (() => {
+    const r = signInSwitch?.lastRun;
+    if (!r?.at) return '';
+    const when = new Date(r.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+    const what = r.result === 'on' ? 'turned on'
+      : r.result === 'off' ? 'turned off'
+      : r.result === 'refused' ? `NOT turned on: ${r.notConfirmed ?? 'some'} listed ${r.notConfirmed === 1 ? 'person is' : 'people are'} not confirmed yet`
+      : r.result === 'cleared' ? `the Owner record was cleared (${r.cleared ?? 0})`
+      : 'nothing changed';
+    return ` Last run (${when}): ${what}.`;
+  })();
+
+  // (#password-sign-in) Take away one person's password. Their Google
+  // sign-in is untouched, and they can set a password again by link.
+  async function handleRemovePassword(d: Director) {
+    if (!window.confirm(
+      `Remove the password for ${d.name || d.email}?\n\n`
+      + 'They can still sign in with Google, and can set a new password from the sign-in screen.',
+    )) return;
+    setBusy(true);
+    try {
+      await updateDirector(d.email, { passwordSet: undefined });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // (#password-sign-in) Have the Hub email one person their password link.
+  // For someone who says no link arrives: an inbox gets only a few a day
+  // when asked from the sign-in screen, and this one does not count there.
+  async function handleSendPasswordLink(d: Director) {
+    if (!window.confirm(
+      `Email a password link to ${d.name || d.email}?\n\n`
+      + 'It goes to their own inbox and works once, for an hour. Nothing changes unless they use it.',
+    )) return;
+    setBusy(true);
+    try {
+      const idToken = await auth?.currentUser?.getIdToken();
+      const answer = idToken ? await ownerSendPasswordLink(idToken, d.email) : { ok: false, message: 'Sign in again, then try.' };
+      window.alert(answer.ok ? `Sent to ${d.email}.` : (answer.message || 'That did not reach the Hub. Try again.'));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (!isOwner) {
     // Defense in depth: DirectorApp already hides the nav entry that opens
@@ -211,6 +260,13 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
             up-to-date copy of the Hub.
           </p>
         )}
+        {signInSwitch && (
+          <p className="dir-loc-hint">
+            <Lock size={14} style={{ verticalAlign: '-2px' }} />{' '}
+            <strong>Only confirmed Google accounts can sign in: {signInSwitch.required ? 'On' : 'Off'}.</strong>
+            {lastRunWords}
+          </p>
+        )}
         {signInAudit?.at && (
           <p className="dir-loc-hint">
             <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} />{' '}
@@ -268,6 +324,36 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
                     </>
                   )}
                 </div>
+                {d.passwordSet && d.boundUid && (
+                  <div className="dir-ens-sub">
+                    Has a password
+                    {!isSelf && (
+                      <>
+                        {' · '}
+                        <button
+                          type="button"
+                          className="dir-tie-reset"
+                          disabled={busy}
+                          onClick={() => handleRemovePassword(d)}
+                        >
+                          Remove password
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+                {ORG.features.passwordSignIn && (
+                  <div className="dir-ens-sub">
+                    <button
+                      type="button"
+                      className="dir-tie-reset"
+                      disabled={busy}
+                      onClick={() => handleSendPasswordLink(d)}
+                    >
+                      Email them a password link
+                    </button>
+                  </div>
+                )}
               </div>
               {confirmRemove === d.email ? (
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
@@ -561,7 +647,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
       <div className="dir-page-body">
         {!director && (
           <div className="dir-field">
-            <label className="dir-label">Google sign-in email</label>
+            <label className="dir-label">{ORG.features.passwordSignIn ? 'Sign-in email' : 'Google sign-in email'}</label>
             <input className="dir-input" type="email" value={email} placeholder="person@gmail.com" onChange={e => setEmail(e.target.value)} />
           </div>
         )}

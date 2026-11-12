@@ -297,6 +297,16 @@ export interface OrgConfig {
      * this false their Hub never offers "Confirm now": it could only fail.
      */
     googleConfirm: boolean;
+    /**
+     * Email-and-password staff sign-in beside Google (#password-sign-in).
+     * FALSE everywhere today: with it off the sign-in screen and the
+     * Directors screen are exactly as they were, and the `passwordSetup`
+     * Cloud Function (which bundles this file for NWSA) answers nothing.
+     * Turning it on is the last step of docs/password-sign-in.md. The rules
+     * do not depend on this flag: they honour a password only for the
+     * account the server bound to a listed person, whatever it says.
+     */
+    passwordSignIn: boolean;
   };
   /** Printed concert program (src/public/PublicProgram.tsx). */
   program: {

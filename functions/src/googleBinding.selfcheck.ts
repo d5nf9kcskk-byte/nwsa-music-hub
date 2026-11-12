@@ -61,7 +61,7 @@ function harness(opts: { user?: BindUser | null; entries?: Record<string, Record
     async getEntry(email) {
       log.push(`list ${email}`);
       const e = entries.get(email);
-      return e ? { googleSub: e.googleSub as string | undefined, boundUid: e.boundUid as string | undefined } : null;
+      return e ? { googleSub: e.googleSub as string | undefined, boundUid: e.boundUid as string | undefined, passwordSet: e.passwordSet === true } : null;
     },
     async replaceAccount(spec) {
       log.push(`replace ${spec.alsoDelete} ${spec.google.uid}`);
@@ -138,6 +138,22 @@ for (const [label, google] of [
   const core = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), 'googleBinding.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
   check(!/emailVerified(?!\))/.test(core.replace(/google\.emailVerified/g, '')) && !/email_verified ===|email_verified !==/.test(core) && !/providerData/.test(core),
     'bindGoogle reads "verified" from Google\'s token and from nowhere else');
+}
+
+// ── A record made with a password alone is not replaced by a Google sign-in ─
+{
+  const h = harness({ entries: { [EMAIL]: { roles: ['director'], boundUid: 'password-account', boundAt: 5, passwordSet: true } } });
+  check(await bindGoogle(h.deps, claims(), saysGoogle()) === 'other-account', 'an entry with a password record and no Google identity: "other-account"');
+  const e = h.entries.get(EMAIL)!;
+  check(!h.log.some(l => /^(replace|tie)/.test(l)) && e.googleSub === undefined && e.boundUid === 'password-account' && e.passwordSet === true,
+    'no account is replaced and the record is exactly as it was');
+  const onIt = harness({ user: googleUser({ uid: 'password-account' }), entries: { [EMAIL]: { roles: ['director'], boundUid: 'password-account', boundAt: 5, passwordSet: true } } });
+  check(await bindGoogle(onIt.deps, claims({ uid: 'password-account' }), saysGoogle()) === 'other-account' && !onIt.log.some(l => /^(replace|tie)/.test(l)),
+    'the same when the Google sign-in is on the recorded account itself');
+  const reset = harness({ entries: { [EMAIL]: { roles: ['director'] } } });
+  check(await bindGoogle(reset.deps, claims(), saysGoogle()) === 'again', 'once the Owner has reset the record, a Google sign-in is confirmed as usual');
+  const off = harness({ entries: { [EMAIL]: { roles: ['director'], boundUid: 'x', passwordSet: false } } });
+  check(await bindGoogle(off.deps, claims(), saysGoogle()) === 'again', 'a record with the password mark off is not held back');
 }
 
 // ── Other kinds of sign-in ──────────────────────────────────────────────────
@@ -454,6 +470,9 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
   'the deployed check uses Google\'s published keys and this project\'s own number');
   const core = noComments(readFileSync(resolve(here, 'googleBinding.ts'), 'utf8'));
   check(!/boundUid: uid|tie\(email, google\.sub, uid|tie\(email, entry\.googleSub, uid/.test(core), 'bindGoogle never records the account the caller arrived on');
+  check(core.includes("if (!entry.googleSub && entry.passwordSet === true) return 'other-account';")
+    && core.indexOf("if (!entry.googleSub && entry.passwordSet === true) return 'other-account';") < core.indexOf('deps.replaceAccount('),
+  'a record made with a password alone is answered "other-account" before any account is replaced');
   check(core.indexOf('deps.verifyGoogle(') < core.indexOf('deps.lock(') && core.indexOf('deps.lock(') < core.indexOf('deps.getUser('), 'Google\'s token is checked before the claim is taken, and the account is looked at only under it');
   // Nothing in the token check can be switched off from outside: the two files that do it read no environment variable.
   for (const file of ['googleBindingStore.ts', 'googleIdToken.ts']) {
@@ -476,6 +495,11 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
   const deployRules = lines('.github/workflows/deploy-rules.yml');
   check(/\n {2}rules-checks:\n {4}uses: \.\/\.github\/workflows\/rules-checks\.yml\n/.test(deployRules) && /\n {2}deploy-rules:\n {4}needs: rules-checks\n/.test(deployRules),
     'the rules deploy still waits on the rules checks');
+  check(/\n {2}rules-checks:\n {4}uses: \.\/\.github\/workflows\/rules-checks\.yml\n/.test(deployFunctions) && /\n {2}deploy:\n {4}needs: rules-checks\n/.test(deployFunctions),
+    'and so does the functions deploy');
+  const rulesChecks = lines('.github/workflows/rules-checks.yml');
+  check(/"node scripts\/google-binding\.emulator-proof\.mjs"/.test(rulesChecks) && /"node scripts\/rules-verdicts\.emulator-check\.mjs visitor"/.test(rulesChecks),
+    'and the rules checks still ask the real rules on the emulators');
   // The server's notes for the Owner: read by the Owner, written by no browser.
   const allRules = readFileSync(resolve(repo, 'firestore.rules'), 'utf8');
   check(/match \/serverConfig\/\{doc\}\s*\{ allow read: if isOwner\(\); allow write: if false; \}/.test(allRules)

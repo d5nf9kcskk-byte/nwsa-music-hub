@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
+import type { FormEvent } from 'react';
 import { bindGoogleAccount } from '../googleBindingClient';
 import type { BindAnswer } from '../googleBindingClient';
 import {
   onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider,
-  signInWithCredential,
+  signInWithCredential, signInWithEmailAndPassword,
 } from 'firebase/auth';
 import type { User, UserCredential } from 'firebase/auth';
+import { MIN_PASSWORD_LENGTH, passwordAcceptable, readSetupLink } from '../../shared/passwordSetupLink';
+import { completePasswordSetup, requestPasswordLink } from '../passwordSetupClient';
 import { doc, onSnapshot, updateDoc, waitForPendingWrites, terminate, clearIndexedDbPersistence } from 'firebase/firestore';
 import { forgetStaffDevice, markStaffDevice } from '../firestoreCache';
 import { Link } from 'react-router';
@@ -41,9 +44,47 @@ const BREAK_GLASS_EMAILS = ORG.breakGlassEmails;
  */
 const ASKS_SERVER = ORG.features.googleConfirm;
 
+/**
+ * Email-and-password sign-in beside Google (#password-sign-in). Off in every
+ * org today; with it off nothing below this flag renders or runs.
+ *
+ * This file signs in, and that is all it does with a password. It never
+ * creates an account, never sets or resets a password, and never sends a
+ * verification email: those are the server's work, done only for someone
+ * holding the link from their own inbox (functions/src/passwordSetup.ts,
+ * pinned by passwordSetup.selfcheck.ts). The rules honour a password only
+ * on the account the server made for a listed person, so a password sign-in
+ * the rules refuse lands on its own plain screen, never on "not authorized"
+ * and never on the break-glass list.
+ */
+const PASSWORD_SIGN_IN = ORG.features.passwordSignIn;
+
+/** sessionStorage: the address whose password was just chosen, across the sign-out reload. Never the password. */
+const JUST_SET_KEY = 'hub.passwordJustSet';
+const PASSWORD_SET_NOTICE = 'Your password is set. Sign in with it below.';
+
+/** What to do next, for each way a password sign-in can fail. */
+function passwordSignInMessage(code: string): string {
+  switch (code) {
+    case 'auth/too-many-requests':
+      return 'Too many tries. Wait a few minutes, or tap “Set up or reset my password”.';
+    case 'auth/network-request-failed':
+      return 'No connection. Check your internet and try again.';
+    case 'auth/operation-not-allowed':
+      return 'Password sign-in is not switched on yet. Use Sign in with Google.';
+    case 'auth/user-disabled':
+      return 'This account is turned off. Ask a director.';
+    default:
+      // Wrong password, no such account, no password set yet: one message,
+      // so the screen never says which addresses have an account.
+      return 'That email and password do not match. Check them, or tap “Set up or reset my password”.';
+  }
+}
+
 // 'confirm': the rules will not let this session in until the server has
 // confirmed the person's Google account; one tap does it (#google-binding).
-type Access = 'checking' | 'granted' | 'denied' | 'error' | 'mismatch' | 'confirm';
+// 'refused': a password sign-in the rules do not honour (#password-sign-in).
+type Access = 'checking' | 'granted' | 'denied' | 'error' | 'refused' | 'mismatch' | 'confirm';
 
 /**
  * sessionStorage: how many times in a row, in this tab, confirming did not
@@ -78,6 +119,30 @@ export function AuthGate({ children }: Props) {
   const [access, setAccess] = useState<Access>('checking');
   const [checkNonce, setCheckNonce] = useState(0);
   const [signInError, setSignInError] = useState('');
+  // Password sign-in only (all unused while the flag is off).
+  // The emailed link carries its token after the #. Read it once, then take
+  // it out of the address bar so it is not left in history or a screenshot.
+  const [setupLink] = useState(() => (PASSWORD_SIGN_IN ? readSetupLink(window.location.hash) : null));
+  useEffect(() => {
+    if (setupLink) window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }, [setupLink]);
+  // A password was chosen a moment ago on this device and the page reloaded
+  // on the way to the sign-in form: the address to fill in, read once.
+  const [justSet] = useState(() => {
+    if (!PASSWORD_SIGN_IN) return '';
+    try {
+      const email = sessionStorage.getItem(JUST_SET_KEY) ?? '';
+      sessionStorage.removeItem(JUST_SET_KEY);
+      return email;
+    } catch { return ''; /* private mode */ }
+  });
+  const [mode, setMode] = useState<'signin' | 'setup' | 'sent' | 'choose'>(setupLink ? 'choose' : 'signin');
+  // Never filled in from the link: what a link claims is not shown to anyone.
+  const [typedEmail, setTypedEmail] = useState(justSet);
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(justSet ? PASSWORD_SET_NOTICE : '');
   // (#google-binding) Each listed person is tied to their own Google account
   // by the server (functions/src/googleBinding.ts), which makes their Hub
   // sign-in account afresh when it does. The server only does it from the
@@ -152,20 +217,36 @@ export function AuthGate({ children }: Props) {
     // the UI live, without waiting for the next cold start.
     let resolved = false; // a real verdict (grant/deny) has been delivered
     let cancelled = false; // this effect was torn down (user changed, or a retry)
+    // (#password-sign-in) How THIS session signed in. Null with the flag off,
+    // and then every session is a Google one, as it always was. With it on,
+    // a password session never falls back to the break-glass list (that list
+    // exists for a founding Google account during a bad rollout), is never
+    // offered the Google confirm step, and a refusal by the rules gets its
+    // own screen.
+    const signedInBy = PASSWORD_SIGN_IN
+      ? user.getIdTokenResult().then(r => r.signInProvider, () => null)
+      : null;
     // Offline with nothing cached, the listener neither answers nor errors —
     // it just keeps emitting cache misses. Bound the wait so the user lands
     // on the error screen (retry + sign-out buttons) instead of an
     // inescapable "Checking access…".
     const failTimer = setTimeout(() => {
       if (resolved) return;
-      if (BREAK_GLASS_EMAILS.includes(email)) {
-        setCurrentDirector({ email, role: 'owner' }, user.displayName);
-        markStaffDevice();
-        recordLogin({ email, name: user.displayName?.trim() || undefined, role: 'owner' });
-        setAccess('granted');
-      } else {
-        setAccess('error');
-      }
+      const fallBack = () => {
+        if (BREAK_GLASS_EMAILS.includes(email)) {
+          setCurrentDirector({ email, role: 'owner' }, user.displayName);
+          markStaffDevice();
+          recordLogin({ email, name: user.displayName?.trim() || undefined, role: 'owner' });
+          setAccess('granted');
+        } else {
+          setAccess('error');
+        }
+      };
+      if (!signedInBy) { fallBack(); return; }
+      void signedInBy.then(by => {
+        if (cancelled || resolved) return;
+        if (by === 'password') setAccess('error'); else fallBack();
+      });
     }, 8000);
     const unsub = onSnapshot(doc(db, 'directors', email),
       snap => {
@@ -198,12 +279,15 @@ export function AuthGate({ children }: Props) {
         // If not, and this Hub asks at all, offer to confirm: a note over the
         // Hub with "Confirm now" and "Later". Nothing is asked of the server
         // until the person taps, and after two tries that did not finish the
-        // note stays away until the Hub is next opened.
+        // note stays away until the Hub is next opened. A password session
+        // is never offered it: it is not a Google sign-in.
         if (directorDoc.googleSub && directorDoc.boundUid === user.uid) {
           setAgainCount(0);
           setConfirmNote(false);
         } else {
-          setConfirmNote(ASKS_SERVER && againCount() < 2 && !laterChosen());
+          const offer = () => setConfirmNote(ASKS_SERVER && againCount() < 2 && !laterChosen());
+          if (!signedInBy) offer();
+          else void signedInBy.then(by => { if (!cancelled && by !== 'password') offer(); });
         }
       },
       err => {
@@ -224,18 +308,118 @@ export function AuthGate({ children }: Props) {
             setAccess('error');
           }
         };
-        if (err.code !== 'permission-denied' || !ASKS_SERVER) { fallBack(); return; }
-        // (#google-binding) The rules REFUSED the read. Once the rules honour
-        // a sign-in only on the account an entry names, that is what an entry
-        // with no record looks like: a newly listed person, a device that has
-        // not signed in since, or someone the Owner reset. One tap confirms
-        // them. If a request is already on its way (they have just signed
-        // in), wait for its answer instead of flashing a screen.
-        if (cancelled || recording.current) return;
-        if (againCount() >= 2) { setMismatch('stuck'); setAccess('mismatch'); } else setAccess('confirm');
+        // (#google-binding) The rules REFUSED a Google session's read. Once
+        // the rules honour a sign-in only on the account an entry names, that
+        // is what an entry with no record looks like: a newly listed person,
+        // a device that has not signed in since, or someone the Owner reset.
+        // One tap confirms them. If a request is already on its way (they
+        // have just signed in), wait for its answer instead of flashing a
+        // screen.
+        const forGoogle = () => {
+          if (err.code !== 'permission-denied' || !ASKS_SERVER) { fallBack(); return; }
+          if (cancelled || recording.current) return;
+          if (againCount() >= 2) { setMismatch('stuck'); setAccess('mismatch'); } else setAccess('confirm');
+        };
+        if (!signedInBy) { forGoogle(); return; }
+        void signedInBy.then(by => {
+          if (cancelled) return;
+          if (by !== 'password') { forGoogle(); return; }
+          // A password session the rules refuse: not set up yet, set up
+          // again since (which ends every older session), or never this
+          // person's. Say so, even mid-session: an app left open with every
+          // read failing helps nobody.
+          if (err.code === 'permission-denied') setAccess('refused');
+          else if (!resolved) setAccess('error');
+        });
       });
     return () => { cancelled = true; clearTimeout(failTimer); unsub(); };
   }, [user, checkNonce]);
+
+  async function signInWithPassword(e: FormEvent) {
+    e.preventDefault();
+    if (!auth || busy) return;
+    setSignInError('');
+    setBusy(true);
+    try {
+      await signInWithEmailAndPassword(auth, typedEmail.trim(), password);
+      setPassword('');
+    } catch (err) {
+      setSignInError(passwordSignInMessage((err as { code?: string }).code ?? ''));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // "Set up or reset my password": one path for both. The server emails a
+  // link if the address is on the staff list and says the same thing either
+  // way, so this screen cannot be used to find out who is on it.
+  async function askForLink(e?: FormEvent) {
+    e?.preventDefault();
+    if (busy) return;
+    const to = typedEmail.trim();
+    if (!/^\S+@\S+\.\S+$/.test(to)) {
+      setSignInError('That does not look like an email address. Check it and try again.');
+      return;
+    }
+    setSignInError('');
+    setNotice('');
+    setBusy(true);
+    const answer = await requestPasswordLink(to);
+    setBusy(false);
+    if (!answer.ok) { setSignInError(answer.message ?? ''); return; }
+    if (mode === 'sent') setNotice('Sent again.');
+    setMode('sent');
+  }
+
+  // The emailed link was opened. The server sets the password (it checks the
+  // link first); then this signs in with it, like any other sign-in.
+  async function choosePassword(e: FormEvent) {
+    e.preventDefault();
+    if (!auth || busy || !setupLink) return;
+    if (!passwordAcceptable(password)) {
+      setSignInError(`Choose a password of at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+    if (password !== password2) {
+      setSignInError('The two passwords are not the same. Type them again.');
+      return;
+    }
+    // The server refuses these too, but it uses the link up first. Checking
+    // here means a slip costs a retype, not a new email.
+    if (setupLink.email && password.trim().toLowerCase() === setupLink.email) {
+      setSignInError('Choose a password that is not your email address.');
+      return;
+    }
+    setSignInError('');
+    setBusy(true);
+    const answer = await completePasswordSetup(setupLink.token, password);
+    setBusy(false);
+    setPassword('');
+    setPassword2('');
+    if (!answer.ok || !answer.email) {
+      setSignInError(answer.message ?? '');
+      return;
+    }
+    // The password is set, and that is all this screen does. Getting in is
+    // the ordinary sign-in form, by the ordinary password sign-in: nothing
+    // here signs anyone in on the strength of the link.
+    if (user && user !== 'loading') {
+      // Someone is signed in on this device. Their account was just replaced,
+      // so sign out properly (which also clears the staff cache and reloads)
+      // and leave a note for the sign-in screen.
+      try { sessionStorage.setItem(JUST_SET_KEY, answer.email); } catch { /* private mode */ }
+      setMode('signin'); // if they decline the sign-out, they are back where they were
+      void handleSignOut();
+      return;
+    }
+    // The address comes from the SERVER's answer, which knows whose link it
+    // was. What the link itself claimed is only a hint for the phone.
+    setTypedEmail(answer.email);
+    setNotice(answer.email === setupLink.email
+      ? PASSWORD_SET_NOTICE
+      : `Your password is set for ${answer.email}. Sign in with that address below.`);
+    setMode('signin');
+  }
 
   /**
    * The ONE place the app asks the server (#google-binding), straight after a
@@ -433,9 +617,102 @@ export function AuthGate({ children }: Props) {
     );
   }
 
+  // The emailed link was opened (#password-sign-in): choose the password.
+  // Shown whoever is or is not signed in on this device, because the link is
+  // what matters. `new-password` lets the phone suggest one and save it for
+  // the Hub's own address.
+  if (PASSWORD_SIGN_IN && setupLink && mode === 'choose') {
+    return (
+      <div className="dir-auth dir-auth-tall">
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
+        <h1>Choose your password</h1>
+        <p className="dir-auth-copy">
+          At least {MIN_PASSWORD_LENGTH} characters. Let your phone suggest and
+          save one if it offers.
+        </p>
+        <form className="dir-auth-form" onSubmit={choosePassword}>
+          {/* No address is SHOWN here: what the link claims is only a hint,
+              and the server says whose link it really was once it answers.
+              The hidden field is for the phone's password manager alone. */}
+          <input type="email" name="username" autoComplete="username" readOnly hidden value={setupLink.email} />
+          <label className="dir-label" htmlFor="hub-new-password">New password</label>
+          <input
+            id="hub-new-password" className="dir-input" type="password" name="new-password"
+            autoComplete="new-password" required minLength={MIN_PASSWORD_LENGTH}
+            value={password} onChange={e => setPassword(e.target.value)}
+          />
+          <label className="dir-label" htmlFor="hub-new-password-2">Type it again</label>
+          <input
+            id="hub-new-password-2" className="dir-input" type="password" name="new-password-again"
+            autoComplete="new-password" required minLength={MIN_PASSWORD_LENGTH}
+            value={password2} onChange={e => setPassword2(e.target.value)}
+          />
+          <button className="dir-google-btn dir-auth-submit" type="submit" disabled={busy}>
+            {busy ? 'Saving…' : 'Save my password'}
+          </button>
+        </form>
+        {signInError && <p role="alert" className="dir-auth-copy dir-auth-error">{signInError}</p>}
+        <button type="button" className="dir-auth-link" onClick={() => { setSignInError(''); setMode('setup'); }}>
+          Email me a new link
+        </button>
+      </div>
+    );
+  }
+
+  // "Set up or reset my password", and what follows it (#password-sign-in).
+  if (!user && PASSWORD_SIGN_IN && mode === 'setup') {
+    return (
+      <div className="dir-auth dir-auth-tall">
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
+        <h1>Set up or reset your password</h1>
+        <p className="dir-auth-copy">
+          Type the email a director added for you. We will email you a link.
+          Tap it and choose your password.
+        </p>
+        <form className="dir-auth-form" onSubmit={askForLink}>
+          <label className="dir-label" htmlFor="hub-setup-email">Email</label>
+          <input
+            id="hub-setup-email" className="dir-input" type="email" name="username"
+            autoComplete="username" autoCapitalize="none" autoCorrect="off" required
+            value={typedEmail} onChange={e => setTypedEmail(e.target.value)}
+          />
+          <button className="dir-google-btn dir-auth-submit" type="submit" disabled={busy}>
+            {busy ? 'Sending…' : 'Email me the link'}
+          </button>
+          <button type="button" className="dir-auth-link" onClick={() => { setSignInError(''); setMode('signin'); }}>
+            Back to sign in
+          </button>
+        </form>
+        {signInError && <p role="alert" className="dir-auth-copy dir-auth-error">{signInError}</p>}
+      </div>
+    );
+  }
+
+  if (!user && PASSWORD_SIGN_IN && mode === 'sent') {
+    return (
+      <div className="dir-auth dir-auth-tall">
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
+        <h1>Check your email and tap the link</h1>
+        <p className="dir-auth-copy">
+          If <strong>{typedEmail.trim()}</strong> is on the staff list, a link is
+          on its way. Tap it and choose your password. It works once, for one
+          hour. If you do not see it, look in junk.
+        </p>
+        <button className="dir-google-btn" disabled={busy} onClick={() => askForLink()}>
+          {busy ? 'Sending…' : 'Send the link again'}
+        </button>
+        <button className="dir-auth-link" onClick={() => { setNotice(''); setSignInError(''); setMode('signin'); }}>
+          Back to sign in
+        </button>
+        {notice && <p role="status" className="dir-auth-copy">{notice}</p>}
+        {signInError && <p role="alert" className="dir-auth-copy dir-auth-error">{signInError}</p>}
+      </div>
+    );
+  }
+
   if (!user) {
     return (
-      <div className="dir-auth">
+      <div className={PASSWORD_SIGN_IN ? 'dir-auth dir-auth-tall' : 'dir-auth'}>
         <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
         <h1>{ORG.appName} — Directors</h1>
         <p>Roster, attendance, rehearsals, and notes — all in one place.</p>
@@ -448,7 +725,57 @@ export function AuthGate({ children }: Props) {
           </svg>
           Sign in with Google
         </button>
+        {PASSWORD_SIGN_IN && (
+          // An ordinary form, so the phone's own password manager offers to
+          // save it and fills it afterwards: username + current-password.
+          <form className="dir-auth-form" onSubmit={signInWithPassword}>
+            <h2 className="dir-auth-sub">Email and password</h2>
+            {notice && <p role="status" className="dir-auth-copy">{notice}</p>}
+            <label className="dir-label" htmlFor="hub-email">Email</label>
+            <input
+              id="hub-email" className="dir-input" type="email" name="username"
+              autoComplete="username" autoCapitalize="none" autoCorrect="off" required
+              value={typedEmail} onChange={e => setTypedEmail(e.target.value)}
+            />
+            <label className="dir-label" htmlFor="hub-password">Password</label>
+            <input
+              id="hub-password" className="dir-input" type="password" name="password"
+              autoComplete="current-password" required
+              value={password} onChange={e => setPassword(e.target.value)}
+            />
+            <button className="dir-google-btn dir-auth-submit" type="submit" disabled={busy}>
+              {busy ? 'Signing in…' : 'Sign in'}
+            </button>
+            <button type="button" className="dir-auth-link" onClick={() => { setSignInError(''); setNotice(''); setMode('setup'); }}>
+              Set up or reset my password
+            </button>
+          </form>
+        )}
         {signInError && <p style={{ color: '#b91c1c', fontSize: 14, maxWidth: 340 }}>{signInError}</p>}
+      </div>
+    );
+  }
+
+  // Signed in by password, and the rules refuse it (#password-sign-in). The
+  // Hub honours a password only for the account its server set up for a
+  // listed person, so this is someone who has not been through the emailed
+  // link yet, who chose a new password since (which ends older sign-ins), or
+  // who is not on the staff list. The screen cannot tell which, and says the
+  // one thing that fixes all three.
+  if (access === 'refused') {
+    return (
+      <div className="dir-auth dir-auth-tall">
+        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
+        <h1>This password is not set up for the Hub</h1>
+        <p className="dir-auth-copy">
+          You are signed in as <strong>{user.email}</strong>, but the Hub does
+          not accept this password sign-in. Sign out, then tap “Set up or
+          reset my password” to get a link by email, or use Sign in with
+          Google. If you are not on the staff list yet, ask a director to add
+          your email.
+        </p>
+        <button className="dir-google-btn" onClick={handleSignOut}>Sign out and start again</button>
+        <p><Link to="/">← Back to the public site</Link></p>
       </div>
     );
   }
@@ -522,9 +849,10 @@ export function AuthGate({ children }: Props) {
         ) : mismatch === 'other-account' ? (
           <p>
             You’re signed in as <strong>{user.email}</strong>, but {ORG.appName} has
-            a different Google account on file for that address. If you changed
-            Google accounts, ask the Owner to reset your sign-in on the
-            Directors screen, then sign in again.
+            a different sign-in on file for that address. If you changed
+            Google accounts, or have only used a password until now, ask the
+            Owner to reset your sign-in on the Directors screen, then sign in
+            again.
           </p>
         ) : (
           <p>
@@ -552,7 +880,7 @@ export function AuthGate({ children }: Props) {
         <p>
           You’re signed in as <strong>{user.email}</strong>, which isn’t on the
           director list for {ORG.appName}. If you should have access, ask a
-          current director to add your Google email from the Directors screen.
+          current director to add your {PASSWORD_SIGN_IN ? 'email' : 'Google email'} from the Directors screen.
         </p>
         <button className="dir-google-btn" onClick={handleSignOut}>Sign in with a different account</button>
         <p><Link to="/">← Back to the public site</Link></p>
