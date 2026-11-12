@@ -315,6 +315,31 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
   const late = fakeDb();
   await entryLock(late.db, quick)('pat@school.test', async () => { late.docs.set(PATH, { at: clock, id: 'the-next-request' }); });
   check(late.docs.get(PATH)?.id === 'the-next-request', 'a request lets go of its OWN claim only, never one another request has since taken');
+
+  // A crowd on one address: the database gives up on the taking step itself.
+  const crowded = (failures: number, error: unknown) => {
+    const f = fakeDb();
+    const real = (f.db as unknown as { runTransaction: (fn: unknown) => Promise<unknown> }).runTransaction;
+    let left = failures;
+    (f.db as unknown as { runTransaction: (fn: unknown) => Promise<unknown> }).runTransaction = async fn => {
+      if (left > 0) { left--; throw error; }
+      return real(fn);
+    };
+    return f;
+  };
+  const aborted = Object.assign(new Error('10 ABORTED: Transaction lock timeout'), { code: 10 });
+  const few = crowded(3, aborted);
+  check(await entryLock(few.db, quick)('pat@school.test', async () => 'ran') === 'ran' && !few.docs.has(PATH),
+    'the database giving up on the taking step is "not got yet": the request looks again and gets its turn');
+  const always = crowded(Number.POSITIVE_INFINITY, aborted);
+  let crowdCode: unknown = '';
+  let crowdRan = false;
+  try { await entryLock(always.db, quick)('pat@school.test', async () => { crowdRan = true; }); } catch (e) { crowdCode = (e as { code?: unknown }).code; }
+  check(!crowdRan && crowdCode === 'hub/busy', 'and if it never gets one, the answer is "busy", not a database error');
+  const broken = crowded(1, Object.assign(new Error('3 INVALID_ARGUMENT'), { code: 3 }));
+  let otherCode: unknown = '';
+  try { await entryLock(broken.db, quick)('pat@school.test', async () => 'ran'); } catch (e) { otherCode = (e as { code?: unknown }).code; }
+  check(otherCode === 3, 'any other database error is not swallowed');
 }
 
 // ── The fresh account ───────────────────────────────────────────────────────
