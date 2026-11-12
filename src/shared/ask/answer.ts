@@ -33,8 +33,11 @@
  * both. It is built from the fixed tables at the bottom (English and Spanish)
  * and from the records. No typed word reaches it: a name is printed from the
  * record the reading points at, never from the reading itself. It never words
- * a change: a cancelled or moved event gets its stored status word, and the
- * director's own note rides on the card, through `changeNoteFor`.
+ * a change: a cancelled event or lesson gets the word its own card prints
+ * ("Cancelled"), a moved one is named with its time and room and nothing
+ * else, and the director's own note rides on the card, through
+ * `changeNoteFor`. A group named in the question is named in the sentence,
+ * so it never speaks for the whole schedule.
  *
  * LOOKUPS. A named record is found in ONE place (`found`, below), from lists
  * that already leave out everything hidden: an assignment that has not
@@ -52,8 +55,10 @@
  * and the school calendars. The org's contact address and time zone come in
  * the same way. That keeps one definition of each and keeps this file pure.
  *
- * Pure: no React, no Firestore, no org config, no clock ("today" and "now"
- * are arguments), nothing kept between calls. Relative imports carry `.ts`.
+ * Pure: no React, no Firestore, no org config, no clock (`now` is an
+ * argument, and the day and the time of day are both read from it in the
+ * school's time zone, so they cannot disagree), nothing kept between calls.
+ * Relative imports carry `.ts`.
  * It must never import `director/utils` (#student-day). The import list is
  * an allowlist, pinned by `checkImports` in askKit.selfcheck.ts.
  */
@@ -138,13 +143,13 @@ export type AskCampus = 'hs' | 'college';
 
 export interface AskOptions {
   lang: 'en' | 'es';
-  /** YYYY-MM-DD, in the school's own day. */
-  today: string;
-  /** The moment asked, in ms. It keeps scheduled posts hidden, and with
-   *  `timeZone` it says what is already over today. */
+  /** The moment asked, in ms. ONE clock: with `timeZone` it gives today's
+   *  date and the time of day at the school, and it keeps scheduled posts
+   *  hidden. There is no separate "today" to disagree with it. */
   now: number;
   /** The school's time zone (`timezone` in the org config), e.g.
-   *  "America/New_York". */
+   *  "America/New_York". Empty, or a zone this device does not know, falls
+   *  back to the device's own zone rather than throwing. */
   timeZone: string;
   /** The student ids saved on this device, in any order. */
   saved: readonly string[];
@@ -304,15 +309,33 @@ export const ASK_PAGE_NAMES = {
   'nav.mySchedule': { en: 'My Schedule', es: 'Mi horario' },
   'nav.signups': { en: 'Forms', es: 'Formularios' },
   'nav.startHere': { en: 'Start Here', es: 'Empieza aquí' },
+  // The Home screen, and what its button for finding a student is called.
+  'nav.home': { en: 'Home', es: 'Inicio' },
   'home.findMySchedule': { en: 'Find My Schedule', es: 'Buscar mi horario' },
 } as const;
 
-/** The words a public template can hand back as what the question is about
- *  ("sectional", "finals", "teacher"). `about` is believed only when it is
- *  one of these or the name of a record that was found. The parser exports
- *  no single list, so this is read off its templates. */
-const TABLE_WORDS = new Set(PUBLIC_TEMPLATES.flatMap(t =>
-  [...t.t.matchAll(/\{([^}]+)\}/g)].flatMap(m => m[1].split('|').flatMap(w => (MACROS[w] ?? w).split('|')))));
+/** Words a sentence shares with the cards: "Cancelled" as the event card and
+ *  the lesson card both print it, and what the lesson card calls a lesson.
+ *  Keyed and checked the same way as the page names. */
+export const ASK_CARD_WORDS = {
+  'card.cancelled': { en: 'Cancelled', es: 'Cancelado' },
+  'sched.lesson': { en: 'Private lesson', es: 'Clase particular' },
+} as const;
+
+/** The words a public template can hand back as what the question is about,
+ *  by INTENT: "sectional" on my day, "finals" on school, "teacher" on who.
+ *  `about` is believed only when it is one of the words that intent's own
+ *  templates can capture, or the name of a record that was found. "Winter"
+ *  on a lesson question is not read. The parser exports no single list, so
+ *  this is read off its templates. */
+const TABLE_WORDS = new Map<string, Set<string>>();
+for (const t of PUBLIC_TEMPLATES) {
+  for (const m of t.t.matchAll(/\{([^}]+)\}/g)) {
+    const words = TABLE_WORDS.get(t.intent) ?? new Set<string>();
+    for (const w of m[1].split('|').flatMap(x => (MACROS[x] ?? x).split('|'))) words.add(w);
+    TABLE_WORDS.set(t.intent, words);
+  }
+}
 
 /* ── Days. Arithmetic only: every date a person reads is `use.date`. ──── */
 
@@ -339,12 +362,17 @@ interface Range { from: string; to?: string }
  * past, and not next November. "5/1" asked in November is next May, in the
  * same school year.
  *
+ * In June and July the school year is over, so August to December is the
+ * COMING autumn: "8/16" asked on July 20 is next month, not last August.
+ * The same holds on any day after `yearEnd`, the stored school year's last
+ * day, when a caller has one to hand in.
+ *
  * A day of the month with no month ("the 15th") is the parser's meaning: the
  * NEXT day with that number, today included. "The 4th" asked on the 5th is
  * next month's 4th. A month that has no such day is passed over: "the 30th"
  * asked on January 31 is March 30.
  */
-export function askRange(when: AskWhen | undefined, today: string): Range | null {
+export function askRange(when: AskWhen | undefined, today: string, yearEnd?: string): Range | null {
   const one = (d: string): Range | null => (real(d) && d >= today ? { from: d, to: d } : null);
   if (!when || when === 'next') return { from: today };
   if (when === 'today' || when === 'tonight') return one(today);
@@ -358,8 +386,12 @@ export function askRange(when: AskWhen | undefined, today: string): Range | null
   }
   const [kind, value] = when.split(':');
   // The school year today is in starts the August 1 on or before it.
-  const start = +today.slice(0, 4) - (today.slice(5) >= '08-01' ? 0 : 1);
-  const yearOf = (month: string) => (month >= '08' ? start : start + 1);
+  const year = +today.slice(0, 4);
+  const start = year - (today.slice(5) >= '08-01' ? 0 : 1);
+  // Summer: the year is over and the next has not begun. August to December
+  // is then the autumn ahead, in this calendar year.
+  const summer = today.slice(5) < '08-01' && (today.slice(5) >= '06-01' || (!!yearEnd && today > yearEnd && yearEnd.slice(0, 4) === today.slice(0, 4)));
+  const yearOf = (month: string) => (summer ? year : month >= '08' ? start : start + 1);
   if (kind === 'weekday') return WEEKDAYS.includes(value) ? one(plus(today, (WEEKDAYS.indexOf(value) - weekdayOf(today) + 7) % 7)) : null;
   if (kind === 'date') return one(`${yearOf(value.slice(0, 2))}-${value}`);
   if (kind === 'day') {
@@ -381,12 +413,32 @@ export function askRange(when: AskWhen | undefined, today: string): Range | null
 const ASSUMED_MINUTES = 120;
 const EVENING = 17 * 60;
 const minutes = (hhmm?: string) => (hhmm && /^\d{1,2}:\d{2}/.test(hhmm) ? +hhmm.split(':')[0] * 60 + +hhmm.split(':')[1] : undefined);
-/** Minutes past midnight at the school, at the moment asked. */
-function clockAt(now: number, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-    .formatToParts(new Date(now));
-  const part = (type: string) => +(parts.find(p => p.type === type)?.value ?? 0);
-  return part('hour') * 60 + part('minute');
+/** The date and the minutes past midnight at the school, at the moment asked.
+ *  ONE reading of the one clock. A zone that is empty or unknown to this
+ *  device falls back to the device's own zone: it never throws. */
+function clockAt(now: number, timeZone: string | undefined): { today: string; clock: number } {
+  const format = (zone: string | undefined) => new Intl.DateTimeFormat('en-US', {
+    timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  });
+  let formatter: Intl.DateTimeFormat;
+  try {
+    formatter = format(timeZone || undefined);
+  } catch {
+    formatter = format(undefined);
+  }
+  const parts = formatter.formatToParts(new Date(now));
+  const part = (type: string) => parts.find(p => p.type === type)?.value ?? '00';
+  return { today: `${part('year')}-${part('month')}-${part('day')}`, clock: +part('hour') * 60 + +part('minute') };
+}
+/** When a thing starts and ends, in minutes past midnight on its own day. An
+ *  end at or before the start is past midnight: 22:00 to 00:30 ends at 24:30.
+ *  With no end stored it is taken to last ASSUMED_MINUTES. */
+function spanOf(x: { startTime?: string; endTime?: string }): { start?: number; ends?: number } {
+  const start = minutes(x.startTime);
+  const stored = minutes(x.endTime);
+  const ends = stored === undefined ? (start === undefined ? undefined : start + ASSUMED_MINUTES)
+    : start !== undefined && stored <= start ? stored + 24 * 60 : stored;
+  return { start, ends };
 }
 
 /* ── The answer ───────────────────────────────────────────────────────── */
@@ -421,8 +473,8 @@ interface Entry {
 
 export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): AskAnswer {
   const L = opts.lang === 'es' ? ES : EN;
-  const { use, today, now } = opts;
-  const clock = clockAt(now, opts.timeZone);
+  const { use, now } = opts;
+  const { today, clock } = clockAt(now, opts.timeZone);
   const none = (choices: AskReading[] = []): AskAnswer => ({
     state: 'notUnderstood', sentence: end(L.notUnderstood), cards: [], forWho: { kind: 'general' },
     choices: choices.map(({ intent, when, about, match }) =>
@@ -435,7 +487,10 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
   const picked = parse.confident ? parse : parse.suggestions.length === 1 ? parse.suggestions[0] : undefined;
   if (!picked) return none(parse.suggestions);
   const { intent, when, about, match } = picked;
-  const range = askRange(when, today);
+  // The last day of the stored school year, when one is handed in: after it
+  // (and in June and July either way) autumn means the autumn ahead.
+  const yearEnd = use.schoolYear ? [use.schoolYear.hs.to, use.schoolYear.college.to].sort().pop() : undefined;
+  const range = askRange(when, today, yearEnd);
   if (!range || !(ASK_ANSWERS as readonly string[]).includes(intent)) return none();
   // A name of a kind this question cannot be about is not half-read: the
   // answer would be about something else, with the name shown beside it.
@@ -458,6 +513,13 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
   const byTime = (a: { date: string; startTime?: string }, b: { date: string; startTime?: string }) =>
     a.date.localeCompare(b.date) || (a.startTime ?? '99').localeCompare(b.startTime ?? '99');
   const isLive = (x: { status?: string }) => x.status !== 'Cancelled';
+  /** Already over: a day gone by, or ended earlier today. A thing that runs
+   *  past midnight is not over at any hour of its own day. */
+  const over = (x: { date?: string; startTime?: string; endTime?: string }) => {
+    if (!x.date || x.date !== today) return !!x.date && x.date < today;
+    const { ends } = spanOf(x);
+    return ends !== undefined && ends <= clock;
+  };
   const group = found('group', data.ensembles, e => e.name);
   const piece = found('piece', data.pieces, p => p.title);
   const task = found('assignment', visible.tasks, a => a.title);
@@ -467,16 +529,30 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
   const byId = match?.kind === 'concert' ? data.events.find(e => e.id === match.id) : undefined;
   const titled = match?.kind === 'concert'
     ? data.events.filter(e => e === byId || same(e.title, byId?.title) || same(e.title, match.name)).sort(byTime) : [];
-  const concert = (byId && byId.date >= today ? byId : undefined)
-    ?? titled.find(e => e.date >= today && isLive(e)) ?? titled.find(e => e.date >= today)
+  /** Behind us: over. For a PICKUP question, a concert with a pickup time
+   *  stored is still ahead until that time has passed, not only until it
+   *  ends: "when is pickup" at 9:10, after a 9:00 end, with pickup at 9:30. */
+  const behind = (x: { date?: string; startTime?: string; endTime?: string; pickupTime?: string }) => {
+    if (!over(x)) return false;
+    const pickup = intent === 'pickup' && x.date === today ? minutes(x.pickupTime) : undefined;
+    if (pickup === undefined) return true;
+    const start = minutes(x.startTime);
+    return (start !== undefined && pickup <= start ? pickup + 24 * 60 : pickup) <= clock;
+  };
+  const concert = (byId && !behind(byId) ? byId : undefined)
+    ?? titled.find(e => !behind(e) && isLive(e)) ?? titled.find(e => !behind(e))
     ?? byId ?? titled[titled.length - 1];
+  // A concert that is over is the past, like any day gone by: it is not
+  // answered about, and never in the present tense ("Call time for ...").
+  if (concert && behind(concert)) return none();
   // A room or a hall: the directory's own entry, or the words an event uses.
   const asked = match?.kind === 'room' || match?.kind === 'venue' ? match.name : undefined;
   const room = asked ? (data.locations ?? []).find(l => same(l.room, asked) || same(l.label, asked)) : undefined;
   const place = room?.room ?? (asked ? data.events.find(e => same(e.location, asked))?.location : undefined);
   if (match && match.kind !== 'term' && !group && !piece && !task && !form && !concert && !place) return none();
-  // A word is believed only from the parser's own tables.
-  if (about && !match && !TABLE_WORDS.has(about)) return none();
+  // A word is believed only from the parser's own tables, and only on the
+  // intent whose templates can capture it.
+  if (about && !match && !TABLE_WORDS.get(intent)?.has(about)) return none();
   const word = match ? undefined : about;
   /** What was named, in the record's own words. */
   const thing = group?.name ?? (concert && (concert.title?.trim() || undefined)) ?? piece?.title ?? task?.title ?? form?.title ?? place ?? word;
@@ -511,26 +587,19 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
   const countDays = oneDay || (when && when in L.when) ? days : '';
   const inRange = (date: string, r: Range = range) => date >= r.from && (!r.to || date <= r.to);
 
-  /** Already over: a day gone by, or ended earlier today. */
-  const over = (x: { date?: string; startTime?: string; endTime?: string }) => {
-    if (!x.date || x.date !== today) return !!x.date && x.date < today;
-    const start = minutes(x.startTime);
-    const ends = minutes(x.endTime) ?? (start === undefined ? undefined : start + ASSUMED_MINUTES);
-    return ends !== undefined && ends <= clock;
+  /** Reaches the evening: starts at five or later, or is still running after
+   *  five. It is a fact about the thing, not about the hour it is asked, so a
+   *  4:30 to 9:00 dress rehearsal is "tonight" at noon and at six alike, and
+   *  a 2:10 to 3:30 rehearsal never is. A thing with no time stored counts:
+   *  it is today. */
+  const evening = (x: Entry) => {
+    const { start, ends } = spanOf(x);
+    return start === undefined || start >= EVENING || (ends !== undefined && ends > EVENING);
   };
-  /** "Tonight" is the evening: not over, and starting at five or later, or
-   *  already under way now that it is five or later. Never what is merely
-   *  left of the afternoon. A thing with no time stored counts: it is today. */
-  const tonight = (x: Entry) => {
-    const start = minutes(x.startTime);
-    return !over(x) && (start === undefined || start >= EVENING || (clock >= EVENING && start <= clock));
-  };
+  /** "Tonight": the evening's things that are not over. */
+  const tonight = (x: Entry) => evening(x) && !over(x);
   /** Was part of the evening, and has ended. */
-  const wasTonight = (x: Entry) => {
-    const start = minutes(x.startTime);
-    const ends = minutes(x.endTime) ?? (start === undefined ? undefined : start + ASSUMED_MINUTES);
-    return x.live && over(x) && ends !== undefined && ends > EVENING;
-  };
+  const wasTonight = (x: Entry) => x.live && evening(x) && over(x);
   /** The next one: the first still on and not over, else a cancelled one. */
   const nextOf = (list: Entry[]) => {
     const ahead = list.filter(i => !over(i));
@@ -540,10 +609,12 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
   /** The entries a date word leaves: tonight's, the next one, or all of them. */
   const window = (list: Entry[]) => (when === 'tonight' ? list.filter(tonight) : !when || when === 'next' ? nextOf(list) : list);
 
-  const statusOf = (i: Entry) => (i.status ? (L.status as Record<string, string | undefined>)[i.status] ?? i.status : L.status.Scheduled);
+  /** The cards' own words, so a sentence and the card under it agree. */
+  const cancelledWord = ASK_CARD_WORDS['card.cancelled'][opts.lang];
+  const lessonWord = ASK_CARD_WORDS['sched.lesson'][opts.lang];
   const lineOf = (i: Entry, withDate = true) => (i.event
     ? line(titleOf(i.event), withDate ? i.date : undefined, i.startTime, i.location)
-    : line(L.lessonWord, withDate ? i.date : undefined, i.startTime, i.location, i.lesson?.teacherName));
+    : line(lessonWord, withDate ? i.date : undefined, i.startTime, i.location, i.lesson?.teacherName));
 
   /** The director's note, word for word, or nothing when it is blank. */
   const noteOf = (e: CalendarEvent) => {
@@ -605,8 +676,14 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
   const scope = (me: AskStudent | undefined, r: Range = range): Entry[] | undefined => {
     if (concert) return open([concert]);
     if (group) {
+      // Theirs THROUGH that group, and of its music only that group's: a
+      // student in two groups asking what one of them plays is not handed
+      // the other's pieces.
       return me
-        ? mine(me, r).filter(i => i.ensembleIds.includes(group.id))
+        ? mine(me, r).filter(i => i.ensembleIds.includes(group.id)).map(i => ({
+          ...i, ensembleIds: [group.id],
+          pieces: i.pieces.filter(p => pieceEnsembleIds(p).length === 0 || pieceEnsembleIds(p).includes(group.id)),
+        }))
         : open(data.events.filter(e => inRange(e.date, r) && e.ensembleIds.includes(group.id)));
     }
     return me ? mine(me, r) : undefined;
@@ -615,8 +692,17 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     if (group) return ok(me ? L.notOnMine(group.name, days) : L.noneFor(group.name, days), [groupCard(group)], !me);
     return ok(me ? L.noneMine(days) : L.noneAll(days), [], !me);
   };
-  /** Each one named with its stored status word, and nothing more. */
-  const statuses = (list: Entry[]) => list.slice(0, 3).map(i => L.is(lineOf(i), statusOf(i))).join('. ');
+  /** Each one named, up to three, then the count of the rest. The only
+   *  status word is "Cancelled", as the cards print it. A thing that is
+   *  changed and still on is its time and room: the note is on the card. A
+   *  stored status this file does not know is never printed. */
+  const statuses = (list: Entry[]) => sentences(
+    ...list.slice(0, 3).map(i => (i.live ? lineOf(i) : L.is(lineOf(i), cancelledWord))),
+    list.length > 3 ? L.more(list.length - 3) : '',
+  );
+  /** A group named in the question is named in the answer: the sentence
+   *  must not read as if it spoke for the student's whole schedule. */
+  const groupName = group?.name;
 
   /* ── About me ─────────────────────────────────────────────────────── */
 
@@ -644,18 +730,18 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     if (list.length === 0) {
       // Something was on today (or this evening), and it is over.
       const gone = when === 'tonight' ? all.filter(wasTonight) : range.from === today && oneDay ? all.filter(i => i.live) : [];
-      return gone.length > 0 ? ok(L.noMore(days), gone.map(card), general) : emptyDay(me);
+      return gone.length > 0 ? ok(L.noMore(days, groupName), gone.map(card), general) : emptyDay(me);
     }
     const cards = list.map(card);
     const on = list.filter(i => i.live);
     if (on.length === 0) return ok(statuses(list), cards, general);
     const lead = concert ? on[0] : on.find(i => !over(i));
-    if (!lead) return ok(L.noMore(days), cards, general);
+    if (!lead) return ok(L.noMore(days, groupName), cards, general);
     // "Are we in Room 2210 today": where we are, which says it either way.
     if (place) return ok(lineOf(on.find(i => !over(i) && same(i.location, place)) ?? lead), cards, general);
     if (needRoom) return lead.location?.trim() ? ok(lineOf(lead), cards, general) : notYet(L.noRoom(lineOf(lead)), cards, general);
-    const said = on.length > 1 ? L.things(on.length, countDays, lineOf(lead, !oneDay), range.from === today && oneDay) : lineOf(lead);
-    return ok(lead.attendanceOnly ? `${end(said)} ${L.audience}` : said, cards, general);
+    const said = on.length > 1 ? L.things(on.length, countDays, lineOf(lead, !oneDay), range.from === today && oneDay, groupName) : lineOf(lead);
+    return ok(lead.attendanceOnly ? sentences(said, L.audience) : said, cards, general);
   };
 
   const cancelled = (me: AskStudent | undefined): Result => {
@@ -665,10 +751,11 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     if (list.length === 0) return emptyDay(me);
     const general = !me || !!concert;
     // What changed is the stored status and the director's note. The note
-    // stays on the card; the sentence names the event and its status.
+    // stays on the card; the sentence names the event, and says "Cancelled"
+    // when that is its status.
     const changed = list.filter(i => !i.live || !!noteOf(i.event!));
     return changed.length === 0
-      ? ok(L.noChange(days), list.map(i => eventCard(i)), general)
+      ? ok(L.noChange(days, groupName), list.map(i => eventCard(i)), general)
       : ok(statuses(changed), changed.map(i => eventCard(i)), general);
   };
 
@@ -691,7 +778,7 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
       const next = concert
         ? (me ? relate(me, all[0]) : all[0])
         : all.find(i => i.live && !over(i) && !i.attendanceOnly && i.event!.type === 'Concert');
-      if (!next) return ok(L.noConcert(!general, ''), [], general);
+      if (!next) return ok(L.noConcert(!general, '', groupName), group ? [groupCard(group)] : [], general);
       const cards = [eventCard(next), ...next.pieces.map(p => pieceCard(p))];
       if (!next.live) return ok(statuses([next]), [eventCard(next)], general);
       if (next.absent) return ok(L.notOnSchedule(titleOf(next.event!)), [eventCard(next)], general);
@@ -728,7 +815,7 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     const prep = (next?.pieces ?? []).filter(p => pieceEnsembleIds(p).length === 0 || pieceEnsembleIds(p).some(id => groups.has(id)));
     const blank = list.length > 1 ? L.noMusicFor(lineOf(target)) : L.noMusic;
     return notYet(
-      next && prep.length > 0 ? `${end(blank)} ${L.preparing(line(titleOf(next.event!), next.date))}` : blank,
+      next && prep.length > 0 ? sentences(blank, L.preparing(line(titleOf(next.event!), next.date))) : blank,
       [...cards, ...(next && prep.length > 0 ? [eventCard(next, 'preparingFor'), ...prep.map(p => pieceCard(p, 'preparingFor'))] : [])],
       general,
     );
@@ -762,9 +849,9 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
       list = list.filter(a => types.includes(a.type));
     }
     const cards = [...list.map(taskCard), page('assignments', '/assignments')];
-    if (list.length === 0) return ok(L.noneDue(days), cards, !!group);
+    if (list.length === 0) return ok(L.noneDue(days, groupName), cards, !!group);
     const first = list[0];
-    return ok(list.length > 1 ? L.dueMany(list.length, first.title, dayOf(first.dueDate), first.dueDate < today) : dueSaid(first), cards, !!group);
+    return ok(list.length > 1 ? L.dueMany(list.length, first.title, dayOf(first.dueDate), first.dueDate < today, groupName) : dueSaid(first), cards, !!group);
   };
 
   /** My chair. Which chart is a group's is `concertChartFor`'s decision: the
@@ -790,7 +877,7 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
       return at ? [at] : [];
     });
     if (seats.length === 0) return notYet(L.noSeat, []);
-    return ok(seats.map(s => L.seat(s.section, s.chair, s.c.title)).join('. '), seats.map(s => card(s.c)));
+    return ok(sentences(...seats.map(s => L.seat(s.section, s.chair, s.c.title))), seats.map(s => card(s.c)));
   };
 
   const parts = (me: AskStudent | undefined): Result => {
@@ -824,7 +911,7 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     list.sort((a, b) => (a.deadline ?? '9999').localeCompare(b.deadline ?? '9999'));
     if (list.length === 0) return ok(group ? L.noFormsFor(group.name) : L.noForms, [index], !!group);
     const first = list[0];
-    return ok(L.forms(list.length, first.title, first.deadline && dayOf(first.deadline)), [...list.map(formCard), index], !!group);
+    return ok(L.forms(list.length, first.title, first.deadline && dayOf(first.deadline), groupName), [...list.map(formCard), index], !!group);
   };
 
   /* ── About a concert ──────────────────────────────────────────────── */
@@ -847,7 +934,7 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
   const coming = (me: AskStudent | undefined) => {
     const all = concerts(me);
     if (concert) return all;
-    return !when || when === 'next' || place ? all.filter(i => !over(i)) : window(all);
+    return !when || when === 'next' || place ? all.filter(i => !behind(i.event!)) : window(all);
   };
 
   const concertAnswer = (me: AskStudent | undefined): Result => {
@@ -857,12 +944,12 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     const all = coming(me);
     const list = (when === 'next' || place) && !concert ? nextOf(all) : all;
     const season = page('concerts', '/concerts');
-    if (list.length === 0) return ok(L.noConcert(!general, days), [season], general);
+    if (list.length === 0) return ok(L.noConcert(!general, days, groupName), [season], general);
     const cards = [...list.map(i => eventCard(i)), season];
     const on = list.filter(i => i.live);
     if (on.length === 0) return ok(statuses(list), cards, general);
-    const said = on.length > 1 ? L.concerts(on.length, countDays, lineOf(on[0])) : lineOf(on[0]);
-    return ok(on[0].attendanceOnly ? `${end(said)} ${L.audience}` : said, cards, general);
+    const said = on.length > 1 ? L.concerts(on.length, countDays, lineOf(on[0]), groupName) : lineOf(on[0]);
+    return ok(on[0].attendanceOnly ? sentences(said, L.audience) : said, cards, general);
   };
 
   /** Call time, what to wear, pickup: one field of one concert's day sheet.
@@ -873,10 +960,13 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     const general = !me;
     const all = coming(me);
     const named = !!(concert || place || group || piece);
-    const next = all.find(i => i.live && (named || what === 'pickup' || !i.attendanceOnly));
+    // A pickup still ahead of a concert that has ended is the players'. To
+    // somebody who sat in its audience, that concert is over.
+    const next = all.find(i => i.live && !(i.attendanceOnly && over(i)) && (named || what === 'pickup' || !i.attendanceOnly));
     if (!next) {
+      if (concert && over(concert)) return null;
       const off = all.find(i => !i.live);
-      return off && named ? ok(statuses([off]), [eventCard(off)], general) : ok(L.noConcert(!general, days), [], general);
+      return off && named ? ok(statuses([off]), [eventCard(off)], general) : ok(L.noConcert(!general, days, groupName), [], general);
     }
     const e = next.event!;
     const cards = [eventCard(next)];
@@ -926,7 +1016,11 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     const list = mine(me).filter(i => i.event!.type === 'Concert' && i.live && !over(i) && (!group || i.ensembleIds.includes(group.id)));
     if (list.length === 0) return group ? emptyDay(me) : ok(L.noConcert(true, days), [all, ...tally]);
     const audience = list.filter(i => i.attendanceOnly).length;
-    return ok(L.reqMine(list.length, list.length - audience, audience, countDays), [...list.map(i => eventCard(i)), all, ...tally]);
+    // With a group named, the count is that group's, and says so.
+    return ok(
+      group ? L.reqGroup(group.name, list.length - audience, audience) : L.reqMine(list.length, list.length - audience, audience, countDays),
+      [...list.map(i => eventCard(i)), all, ...tally],
+    );
   };
 
   /** How long is it. The Hub stores no length, so this is the start and,
@@ -961,7 +1055,10 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     const to = range.to ?? year.to;
     if (range.from < year.from || range.from > year.to || to > year.to) return 'notHeld';
     if (!when || when === 'next') {
-      for (let d = today; d <= year.to; d = plus(d, 1)) if (off(d)) return ok(L.nextOff(dayOf(d)), cards, general);
+      for (let d = today; d <= year.to; d = plus(d, 1)) {
+        // Today is not "the next day off": it is no school today.
+        if (off(d)) return ok(d === today ? L.noSchool(L.today) : L.nextOff(dayOf(d)), cards, general);
+      }
       return notYet(L.noDayOff, cards, general);
     }
     if (oneDay) return ok(weekend(range.from) || off(range.from) ? L.noSchool(days) : L.school(days), cards, general);
@@ -987,7 +1084,7 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     const groups = data.ensembles.filter(g => me.ensembleIds.includes(g.id));
     const led = groups.filter(g => staffOf(g));
     return led.length > 0
-      ? ok(led.map(g => L.group(g.name, staffOf(g))).join('. '), led.map(groupCard))
+      ? ok(sentences(...led.map(g => L.group(g.name, staffOf(g)))), led.map(groupCard))
       : notYet(L.noStaff, groups.map(groupCard));
   };
 
@@ -1027,7 +1124,8 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
       : door(L.howCalendar(P('nav.calendar')), page('calendar', '/calendar'))),
     howCopy: () => door(L.goTo(P('nav.copies')), page('copies', '/copies')),
     howAlerts: () => door(L.howAlerts(P('nav.startHere')), page('start', '/start')),
-    howFindMe: () => door(L.goTo(P('home.findMySchedule')), page('lookup', '/lookup')),
+    // Not a page in the menu: the button the Home screen calls by this name.
+    howFindMe: () => door(L.onHome(P('home.findMySchedule'), P('nav.home')), page('lookup', '/lookup')),
     glossary: () => (match?.kind === 'term' ? door(L.glossary(P('nav.startHere')), page('glossary', '/start#glossary')) : null),
     // No page and no field holds these. Never an invented answer.
     parking: () => 'notHeld',
@@ -1086,9 +1184,16 @@ function unique<T>(list: readonly T[]): T[] {
 
 /** One full stop at the end, and never two: a Spanish time ends "p.m.". */
 const end = (s: string) => (/[.!?]$/.test(s) ? s : `${s}.`);
+/** Sentences side by side. Every join of two sentences goes through here,
+ *  so the first one's full stop is `end`'s too: "... 7:30 p.m. No hay ...",
+ *  never "p.m..". A blank part is left out. */
+const sentences = (...parts: string[]) => parts.filter(Boolean).map(end).join(' ');
 
 /* ── The words. Every sentence is one of these, filled from a record. ────
- * None ends in a full stop: `end` adds the one. None starts "Yes" or "No". */
+ * None ends in a full stop of its own writing: `end` adds the one, and a
+ * form that is two sentences is built with `sentences`. None starts "Yes"
+ * or "No". A form that can be asked about one group takes the group's name
+ * and says it. */
 
 const sp = (s: string) => (s ? ` ${s}` : '');
 
@@ -1102,23 +1207,22 @@ const EN = {
   inYear: (date: string, year: string) => `${date}, ${year}`,
   span: (a: string, b: string) => `from ${a} to ${b}`,
   when: { today: 'today', tonight: 'tonight', tomorrow: 'tomorrow', thisWeek: 'this week', nextWeek: 'next week', weekend: 'this weekend' },
-  /** The stored status, as the event card words it. */
-  status: { Scheduled: 'Scheduled', Completed: 'Completed', Cancelled: 'Cancelled' },
-  lessonWord: 'Lesson',
+  more: (n: number) => `And ${n} more`,
   list: (names: string[], more: number) => names.join(', ') + (more > 0 ? `, and ${more} more` : ''),
   is: (x: string, status: string) => `${x}: ${status}`,
-  things: (n: number, days: string, x: string, next: boolean) => `${n} things${sp(days)}. ${next ? 'Next' : 'First'}: ${x}`,
+  things: (n: number, days: string, x: string, next: boolean, group?: string) =>
+    sentences(`${group ? `${group}: ` : ''}${n} things${sp(days)}`, `${next ? 'Next' : 'First'}: ${x}`),
   audience: 'You are in the audience for this one',
   inAudience: (x: string) => `You are in the audience: ${x}`,
-  noMore: (days: string) => `Nothing more is on your schedule${sp(days)}`,
-  noChange: (days: string) => `Nothing is cancelled or changed${sp(days)}`,
+  noMore: (days: string, group?: string) => (group ? `Nothing more for ${group}${sp(days)}` : `Nothing more is on your schedule${sp(days)}`),
+  noChange: (days: string, group?: string) => `Nothing is cancelled or changed${group ? ` for ${group}` : ''}${sp(days)}`,
   noneMine: (days: string) => `Nothing is on your schedule${sp(days)}`,
   noneAll: (days: string) => `Nothing is on the calendar${sp(days)}`,
   noneFor: (group: string, days: string) => `Nothing is on the calendar for ${group}${sp(days)}`,
   notOnMine: (group: string, days: string) => `${group} is not on your schedule${sp(days)}`,
   notOnSchedule: (title: string) => `${title} is not on your schedule`,
   noRoom: (x: string) => `No room is listed for ${x} yet`,
-  room: (room: string, label: string, directions?: string) => `${room}: ${label}${directions ? `. ${directions}` : ''}`,
+  room: (room: string, label: string, directions?: string) => sentences(`${room}: ${label}`, directions ?? ''),
   noDirections: 'No directions are posted for that room yet',
   playing: (x: string, pieces: string) => `${x}: ${pieces}`,
   musicListed: (x: string) => `Music is listed for ${x}`,
@@ -1131,26 +1235,31 @@ const EN = {
   noLesson: (days: string) => `No lesson is on your schedule${sp(days)}`,
   dueOne: (title: string, day: string) => `${title} is due ${day}`,
   wasDue: (title: string, day: string) => `${title} was due ${day}`,
-  dueMany: (n: number, title: string, day: string, late: boolean) => `${n} things are due. First: ${title}, ${late ? `overdue since ${day}` : day}`,
-  noneDue: (days: string) => `Nothing is due${sp(days)}`,
+  dueMany: (n: number, title: string, day: string, late: boolean, group?: string) =>
+    sentences(`${n} things are due${group ? ` for ${group}` : ''}`, `First: ${title}, ${late ? `overdue since ${day}` : day}`),
+  noneDue: (days: string, group?: string) => `Nothing is due${group ? ` for ${group}` : ''}${sp(days)}`,
   seat: (section: string, chair: number, chart: string) => `${section}, chair ${chair}, on ${chart}`,
   noSeat: 'No seating chart with your name is posted yet',
   noSeatIn: (group: string) => `You are not on the seating chart for ${group}`,
   chartFor: (group: string, chart: string) => `The seating chart for ${group}: ${chart}`,
   noChartFor: (group: string) => `No seating chart is posted for ${group} yet`,
   partsOf: (title: string) => `The parts for ${title} are on its page`,
-  myPieces: (n: number) => `${n} ${n === 1 ? 'piece is' : 'pieces are'} on your schedule. Your part is on each piece's page`,
+  myPieces: (n: number) => sentences(`${n} ${n === 1 ? 'piece is' : 'pieces are'} on your schedule`, 'Your part is on each piece\'s page'),
   piecesFor: (n: number, group: string) => `${n} ${n === 1 ? 'piece' : 'pieces'} for ${group}`,
   noMusicMine: 'No music is listed for you yet',
   noPiecesFor: (group: string) => `No music is listed for ${group} yet`,
-  forms: (n: number, title: string, by?: string) =>
-    `${n} ${n === 1 ? 'form is' : 'forms are'} waiting. ${n === 1 ? '' : 'First: '}${title}${by ? `, by ${by}` : ''}`,
+  forms: (n: number, title: string, by?: string, group?: string) => sentences(
+    `${n} ${n === 1 ? 'form is' : 'forms are'} waiting${group ? ` for ${group}` : ''}`,
+    `${n === 1 ? '' : 'First: '}${title}${by ? `, by ${by}` : ''}`,
+  ),
   noForms: 'No forms are waiting for you',
   noFormsFor: (group: string) => `No forms are waiting for ${group}`,
   formOpen: (title: string, by?: string) => `${title} is open${by ? ` until ${by}` : ''}`,
   formsWord: 'Forms',
-  concerts: (n: number, days: string, x: string) => `${n} concerts${sp(days)}. Next: ${x}`,
-  noConcert: (mine: boolean, days: string) => `No concert is on ${mine ? 'your schedule' : 'the calendar'}${sp(days)}`,
+  concerts: (n: number, days: string, x: string, group?: string) =>
+    sentences(`${n} concerts${group ? ` for ${group}` : ''}${sp(days)}`, `Next: ${x}`),
+  noConcert: (mine: boolean, days: string, group?: string) =>
+    `No concert${group ? ` for ${group}` : ''} is on ${mine ? 'your schedule' : 'the calendar'}${sp(days)}`,
   call: (title: string, x: string) => `Call time for ${title}: ${x}`,
   noCall: (title: string) => `No call time is posted for ${title} yet`,
   dress: (title: string, dress: string) => `What to wear for ${title}: ${dress}`,
@@ -1164,7 +1273,8 @@ const EN = {
   reqNobody: (title: string) => `No group is listed as required to attend ${title}`,
   reqMine: (n: number, play: number, attend: number, days: string) =>
     `${n} ${n === 1 ? 'concert is' : 'concerts are'} on your schedule${sp(days)}: ${play} to play, ${attend} to attend`,
-  reqGroup: (group: string, play: number, attend: number) => `${group}: ${play} to play, ${attend} to attend`,
+  reqGroup: (group: string, play: number, attend: number) =>
+    `${group}: ${play} ${play === 1 ? 'concert' : 'concerts'} to play, ${attend} to attend`,
   reqAll: (n: number, days: string) => `${n} ${n === 1 ? 'concert has' : 'concerts have'} groups required to attend${sp(days)}`,
   reqAllNone: (days: string) => `No concert has a group required to attend${sp(days)}`,
   noSchool: (days: string) => `No school${sp(days)}`,
@@ -1175,17 +1285,18 @@ const EN = {
   schoolAll: (days: string) => `There is school every weekday${sp(days)}`,
   group: (name: string, by?: string) => (by ? `${name}, with ${by}` : name),
   piece: (title: string, by?: string) => (by ? `${title}, by ${by}` : title),
-  news: (n: number, title: string) => (n === 1 ? `1 announcement: ${title}` : `${n} announcements. Newest: ${title}`),
+  news: (n: number, title: string) => (n === 1 ? `1 announcement: ${title}` : sentences(`${n} announcements`, `Newest: ${title}`)),
   noNews: 'No announcements right now',
   documentsWord: 'Documents',
   onPage: (what: string, name: string) => `${what} are on the ${name} page`,
   goTo: (name: string) => `Use the ${name} page`,
+  onHome: (name: string, home: string) => `Use ${name} on the ${home} screen`,
   howSubmit: (name: string) => `Open the assignment from the ${name} page and send your video there`,
   howCalendar: (name: string) => `Subscribe from the ${name} page, and it stays up to date`,
   howAlerts: (name: string) => `The ${name} page shows how to turn on alerts`,
   glossary: (name: string) => `That word is in the glossary on the ${name} page`,
   startsEnds: (title: string, x: string, ends: string) => `${title}: starts ${x}, ends ${ends}`,
-  startsOnly: (title: string, x: string) => `${title}: starts ${x}. No end time is posted`,
+  startsOnly: (title: string, x: string) => sentences(`${title}: starts ${x}`, 'No end time is posted'),
   noTimes: (title: string) => `No times are posted for ${title} yet`,
   lessonTeacher: (name: string) => `Your lesson teacher is ${name}`,
   noStaff: 'No teacher or conductor is listed for your groups yet',
@@ -1202,22 +1313,21 @@ const ES: typeof EN = {
   inYear: (date, year) => `${date} de ${year}`,
   span: (a, b) => `del ${a} al ${b}`,
   when: { today: 'hoy', tonight: 'esta noche', tomorrow: 'mañana', thisWeek: 'esta semana', nextWeek: 'la próxima semana', weekend: 'este fin de semana' },
-  status: { Scheduled: 'Programado', Completed: 'Terminado', Cancelled: 'Cancelado' },
-  lessonWord: 'Clase particular',
+  more: n => `Y ${n} más`,
   list: (names, more) => names.join(', ') + (more > 0 ? ` y ${more} más` : ''),
   is: (x, status) => `${x}: ${status}`,
-  things: (n, days, x, next) => `${n} cosas${sp(days)}. ${next ? 'Sigue' : 'Primero'}: ${x}`,
+  things: (n, days, x, next, group) => sentences(`${group ? `${group}: ` : ''}${n} cosas${sp(days)}`, `${next ? 'Sigue' : 'Primero'}: ${x}`),
   audience: 'Vas como público a este',
   inAudience: x => `Vas como público: ${x}`,
-  noMore: days => `No queda nada en tu horario${sp(days)}`,
-  noChange: days => `No hay nada cancelado ni cambiado${sp(days)}`,
+  noMore: (days, group) => (group ? `No queda nada de ${group}${sp(days)}` : `No queda nada en tu horario${sp(days)}`),
+  noChange: (days, group) => `No hay nada cancelado ni cambiado${group ? ` en ${group}` : ''}${sp(days)}`,
   noneMine: days => `No hay nada en tu horario${sp(days)}`,
   noneAll: days => `No hay nada en el calendario${sp(days)}`,
   noneFor: (group, days) => `No hay nada en el calendario de ${group}${sp(days)}`,
   notOnMine: (group, days) => `${group} no está en tu horario${sp(days)}`,
   notOnSchedule: title => `${title} no está en tu horario`,
   noRoom: x => `Todavía no hay salón para ${x}`,
-  room: (room, label, directions) => `${room}: ${label}${directions ? `. ${directions}` : ''}`,
+  room: (room, label, directions) => sentences(`${room}: ${label}`, directions ?? ''),
   noDirections: 'Todavía no hay indicaciones para ese salón',
   playing: (x, pieces) => `${x}: ${pieces}`,
   musicListed: x => `Hay música anotada para ${x}`,
@@ -1230,26 +1340,30 @@ const ES: typeof EN = {
   noLesson: days => `No hay clase particular en tu horario${sp(days)}`,
   dueOne: (title, day) => `${title} se entrega ${day}`,
   wasDue: (title, day) => `${title} se entregaba ${day}`,
-  dueMany: (n, title, day, late) => `Hay ${n} tareas por entregar. Primera: ${title}, ${late ? `atrasada desde ${day}` : day}`,
-  noneDue: days => `No hay nada por entregar${sp(days)}`,
+  dueMany: (n, title, day, late, group) =>
+    sentences(`Hay ${n} tareas por entregar${group ? ` en ${group}` : ''}`, `Primera: ${title}, ${late ? `atrasada desde ${day}` : day}`),
+  noneDue: (days, group) => `No hay nada por entregar${group ? ` en ${group}` : ''}${sp(days)}`,
   seat: (section, chair, chart) => `${section}, silla ${chair}, en ${chart}`,
   noSeat: 'Todavía no hay una tabla de asientos con tu nombre',
   noSeatIn: group => `No apareces en la tabla de asientos de ${group}`,
   chartFor: (group, chart) => `La tabla de asientos de ${group}: ${chart}`,
   noChartFor: group => `Todavía no hay tabla de asientos para ${group}`,
   partsOf: title => `Las partes de ${title} están en su página`,
-  myPieces: n => `${n} ${n === 1 ? 'obra' : 'obras'} en tu horario. Tu parte está en la página de cada obra`,
+  myPieces: n => sentences(`${n} ${n === 1 ? 'obra' : 'obras'} en tu horario`, 'Tu parte está en la página de cada obra'),
   piecesFor: (n, group) => `${n} ${n === 1 ? 'obra' : 'obras'} para ${group}`,
   noMusicMine: 'Todavía no hay música anotada para ti',
   noPiecesFor: group => `Todavía no hay música anotada para ${group}`,
-  forms: (n, title, by) =>
-    `${n} ${n === 1 ? 'formulario pendiente' : 'formularios pendientes'}. ${n === 1 ? '' : 'Primero: '}${title}${by ? `, hasta ${by}` : ''}`,
+  forms: (n, title, by, group) => sentences(
+    `${n} ${n === 1 ? 'formulario pendiente' : 'formularios pendientes'}${group ? ` para ${group}` : ''}`,
+    `${n === 1 ? '' : 'Primero: '}${title}${by ? `, hasta ${by}` : ''}`,
+  ),
   noForms: 'No tienes formularios pendientes',
   noFormsFor: group => `No hay formularios pendientes para ${group}`,
   formOpen: (title, by) => `${title} está abierto${by ? ` hasta ${by}` : ''}`,
   formsWord: 'Los formularios',
-  concerts: (n, days, x) => `${n} conciertos${sp(days)}. El siguiente: ${x}`,
-  noConcert: (mine, days) => `No hay ningún concierto en ${mine ? 'tu horario' : 'el calendario'}${sp(days)}`,
+  concerts: (n, days, x, group) => sentences(`${n} conciertos${group ? ` de ${group}` : ''}${sp(days)}`, `El siguiente: ${x}`),
+  noConcert: (mine, days, group) =>
+    `No hay ningún concierto${group ? ` de ${group}` : ''} en ${mine ? 'tu horario' : 'el calendario'}${sp(days)}`,
   call: (title, x) => `Hora de llegada para ${title}: ${x}`,
   noCall: title => `Todavía no hay hora de llegada para ${title}`,
   dress: (title, dress) => `Qué ponerse para ${title}: ${dress}`,
@@ -1263,7 +1377,7 @@ const ES: typeof EN = {
   reqNobody: title => `Ningún grupo aparece como obligado a asistir a ${title}`,
   reqMine: (n, play, attend, days) =>
     `${n} ${n === 1 ? 'concierto' : 'conciertos'} en tu horario${sp(days)}: ${play} para tocar, ${attend} para asistir`,
-  reqGroup: (group, play, attend) => `${group}: ${play} para tocar, ${attend} para asistir`,
+  reqGroup: (group, play, attend) => `${group}: ${play} ${play === 1 ? 'concierto' : 'conciertos'} para tocar, ${attend} para asistir`,
   reqAll: (n, days) => `${n} ${n === 1 ? 'concierto tiene' : 'conciertos tienen'} grupos que deben asistir${sp(days)}`,
   reqAllNone: days => `Ningún concierto tiene un grupo que deba asistir${sp(days)}`,
   noSchool: days => `No hay clases${sp(days)}`,
@@ -1274,17 +1388,18 @@ const ES: typeof EN = {
   schoolAll: days => `Hay clases de lunes a viernes${sp(days)}`,
   group: (name, by) => (by ? `${name}, con ${by}` : name),
   piece: (title, by) => (by ? `${title}, de ${by}` : title),
-  news: (n, title) => (n === 1 ? `1 anuncio: ${title}` : `${n} anuncios. El más reciente: ${title}`),
+  news: (n, title) => (n === 1 ? `1 anuncio: ${title}` : sentences(`${n} anuncios`, `El más reciente: ${title}`)),
   noNews: 'No hay anuncios por ahora',
   documentsWord: 'Los documentos',
   onPage: (what, name) => `${what} están en la página ${name}`,
   goTo: name => `Usa la página ${name}`,
+  onHome: (name, home) => `Usa ${name} en la pantalla ${home}`,
   howSubmit: name => `Abre la tarea desde la página ${name} y envía tu video ahí`,
   howCalendar: name => `Suscríbete desde la página ${name} y se mantiene al día`,
   howAlerts: name => `La página ${name} muestra cómo activar las alertas`,
   glossary: name => `Esa palabra está en el glosario de la página ${name}`,
   startsEnds: (title, x, ends) => `${title}: empieza ${x}, termina ${ends}`,
-  startsOnly: (title, x) => `${title}: empieza ${x}. No hay hora de fin anotada`,
+  startsOnly: (title, x) => sentences(`${title}: empieza ${x}`, 'No hay hora de fin anotada'),
   noTimes: title => `Todavía no hay horas para ${title}`,
   lessonTeacher: name => `Tu clase particular es con ${name}`,
   noStaff: 'Todavía no aparece maestro ni director para tus grupos',
