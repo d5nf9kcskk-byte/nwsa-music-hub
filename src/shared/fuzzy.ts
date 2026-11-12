@@ -30,6 +30,23 @@ export function scoreMatch(query: string, text?: string): number {
   return total;
 }
 
+/** True when two words are the same or one slip apart: one letter wrong,
+ *  missing, extra, or two neighbours swapped ("nutcraker", "camertaa"). Ask
+ *  uses it to forgive a typo in a name; it is deliberately no looser, because
+ *  two slips is where "concerto" starts matching every concert. */
+export function withinOneTypo(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  if (a.length === b.length) {
+    if (a.slice(i + 1) === b.slice(i + 1)) return true;
+    return a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2);
+  }
+  const [short, long] = a.length < b.length ? [a, b] : [b, a];
+  return short.slice(i) === long.slice(i + 1);
+}
+
 /** Rank `list` against `query`. The FIRST field a row exposes counts double —
  *  a name match should beat a note that happens to mention the same word. */
 export function rankMatches<T>(
