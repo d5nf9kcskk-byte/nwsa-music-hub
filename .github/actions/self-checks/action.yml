@@ -710,3 +710,24 @@ runs:
     - name: Check the switch script
       run: node scripts/require-google-ties.mjs --selfcheck
       shell: bash
+
+    # Ask, the understanding half (#ask): what a person typed in, one typed
+    # question out, with no AI in it. A confident wrong answer is the one
+    # thing it may not give, so the checks are mostly about what must NOT be
+    # answered, and they generate whole classes of question rather than hold
+    # a list: a person's record, whereabouts or contact details in every word
+    # order and both languages; the past; a date phrase read only in part; a
+    # definition the glossary does not hold; a hostile kit of titles and
+    # teachers made of ordinary words. Nothing imports the parser yet. Run
+    # with plain node on purpose, like the step above: it must load without
+    # the org config.
+    - name: Check Ask (public side)
+      run: node src/shared/ask/ask.selfcheck.ts
+      shell: bash
+
+    # The staff side's words live in src/director/ask/ so the public bundle
+    # carries none of them (design 3.8). Same discipline: every rule tried,
+    # every word accounted for, a person's name never matched to a thing.
+    - name: Check Ask (staff side)
+      run: node src/director/ask/staffAsk.selfcheck.ts
+      shell: bash
