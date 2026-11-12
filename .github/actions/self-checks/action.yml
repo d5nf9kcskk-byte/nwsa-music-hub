@@ -722,3 +722,9 @@ runs:
     - name: Check in-app recording type
       run: node src/shared/recordingType.selfcheck.ts
       shell: bash
+
+    # A picked video whose bytes are all zero is refused at pick time, while
+    # the student still holds the phone (#blank-video).
+    - name: Check blank video refusal
+      run: node src/shared/blankVideo.selfcheck.ts
+      shell: bash
