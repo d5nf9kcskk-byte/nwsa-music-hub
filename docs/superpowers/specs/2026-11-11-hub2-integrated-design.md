@@ -459,6 +459,18 @@ unverified after sign-in, the Hub sends the verification link itself.
 
 - Built behind `features.passwordSignIn` in the org config, off, so the
   demo orgs are untouched and nothing shows until the provider is on.
+- **Superseded the same evening, 2026-11-11.** An independent security
+  review of the first build (PR #244) found that making accounts when an
+  email is listed is still not enough, and that the trigger could disturb
+  today's Google sign-in for a newly listed person. The design is being
+  reworked so that the RULES enforce it: a password sign-in is honoured
+  only for the one account the Hub bound to that listed person, in
+  `firestore.rules`, `storage.rules` and the functions that check a staff
+  token alike; the Google path stays exactly as it is; nothing is created
+  when an email is listed. So 10.3's "no rules change" no longer holds.
+  PR #244 does not merge until the rework has its own proof and a second
+  independent review. The bullets below are kept as the record of the
+  first design, not as steps to follow.
 - **Do not enable Email/Password in the Firebase console yet.** The proof
   in 10.4 passed as written and still found that the design above is not
   enough by itself (2026-11-11): an account has to be made by the Hub when
