@@ -22,8 +22,10 @@
  * Pinned by studentRepertoire.selfcheck.ts.
  */
 import type { CalendarEvent, RepertoirePiece, SeatingChart } from '../director/types';
-import { pieceEnsembleIds } from '../director/utils';
-import { pieceChartsFor } from './concertRosters';
+// `.ts` extensions and pureRules.ts (not utils.ts): studentDay.ts loads this
+// under Node's type-stripping loader for the feed generator.
+import { pieceEnsembleIds } from './pureRules.ts';
+import { pieceChartsFor } from './concertRosters.ts';
 
 /** Pieces linked to an event from either direction: the event's `pieceIds`
  *  (in program order), then any piece that names the event in `eventIds`. */

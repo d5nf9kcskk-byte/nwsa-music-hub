@@ -776,6 +776,48 @@ ranking anchors the string bass as `^bass$` so Bassoon stays a woodwind, which
 is why the class words come off the name before the rank is asked for.
 `groupIcon.selfcheck.ts` pins all four sections and runs in the deploy workflow.
 
+## What a student has: one module (Nov 2026, #student-day)
+
+`src/shared/studentDay.ts` is the ONE answer to "what does this student have in
+this date range": the events they are expected at (and how: performing, as a
+sub, audience only), the master class slots they booked, the pieces they play
+on each event, their lesson times, and the assignments due. The student page
+(`PublicSchedule.tsx`) and the per-student calendar feed
+(`scripts/generate-feeds.mjs`) both call it. Ask and Home's Now card must call
+it too. Do not write another copy.
+
+- **It decides nothing new.** It joins `studentExpectation`,
+  `bookedPerformersForEvent`, `studentEventPieces` and the assignment rules.
+  A new rule about who is expected goes in the resolver, not here.
+- **Why it exists.** The feed script kept a hand copy of the page's logic
+  ("plain node, no src imports") and the copy drifted three ways: it had no
+  academic-class rule, it read a range pull-out with a missing date as
+  open-ended where the resolver rejects it, and it matched an event pull-out
+  by event id only where the resolver also matches the same ensemble's other
+  meetings that day. On 2026-11-11 the live effect was one student feed
+  missing 71 class meetings their page already showed.
+- **Pure, and loadable by plain Node.** No React, no Firestore, no org config,
+  no clock ("today" and "now" are arguments). Every relative import carries
+  `.ts`, and it must never import `director/utils` (which reaches the org
+  config). That is why six small rules live in the zero-import
+  `src/shared/pureRules.ts`, re-exported by `utils.ts`. If this module stops
+  loading under Node, the feed run fails and publishes no student calendars.
+- **Public records only** (#privacy): `studentsPublic`,
+  `rosterOverridesPublic`, `lessonsPublic`. It needs no staff-only field.
+- **The short path is the same answer.** Only the student's own record and
+  their own pull-outs are consulted, so a caller holding just those two gets
+  what a caller holding the whole roster gets.
+- **The feed keeps two choices of its own on purpose**: it writes events in
+  fetch order (so an unchanged feed stays byte-identical), and it omits a
+  cancelled lesson that the page shows struck through (#30).
+- `studentDay.selfcheck.ts` runs under plain `node` in the self-checks and pins
+  all of it, including that neither caller grows a copy back. It keeps the old
+  page formula verbatim as its reference.
+- Not switched: `DirectorSearch.tsx` `whereNow` (base membership only, by
+  design a rougher answer) and `StudentDetail.tsx` (no sign-up data, its own
+  sort and an 8-row cap). Moving either changes what staff see, so it is its
+  own decision.
+
 ## Juries (Aug 2026) — a deliberate stub
 
 `juries` + `src/director/juries/` exist to hold what is known as it firms up.

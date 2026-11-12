@@ -1,8 +1,13 @@
 import type { Student, RosterOverride, CalendarEvent } from './types';
-import { isChoirClassTitle, academicClassTitlesFor } from './classSchedule';
-import { CHOIR_ENSEMBLE_ID } from './academicClasses';
-import { takesAttendance } from './utils';
-import { gradeExcusedFromAudience } from '../shared/audienceExcusal';
+// Explicit `.ts` extensions, and `takesAttendance` from the zero-import
+// shared/pureRules.ts rather than utils.ts (which reaches the org config): this
+// module is loaded by scripts/generate-feeds.mjs through
+// src/shared/studentDay.ts, under Node's type-stripping loader, which cannot
+// resolve an extensionless relative import. Same rule as signupEligibility.ts.
+import { isChoirClassTitle, academicClassTitlesFor } from './classSchedule.ts';
+import { CHOIR_ENSEMBLE_ID } from './academicClasses.ts';
+import { takesAttendance } from '../shared/pureRules.ts';
+import { gradeExcusedFromAudience } from '../shared/audienceExcusal.ts';
 
 export interface RosterContext {
   ensembleId: string;
