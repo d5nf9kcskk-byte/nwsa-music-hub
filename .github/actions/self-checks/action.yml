@@ -740,3 +740,9 @@ runs:
     - name: Check Ask (staff side)
       run: node src/director/ask/staffAsk.selfcheck.ts
       shell: bash
+
+    # An iPhone must record MP4, never WebKit's WebM: the director's Chrome
+    # cannot decode that file and a Mac cannot open it (#recording-type).
+    - name: Check in-app recording type
+      run: node src/shared/recordingType.selfcheck.ts
+      shell: bash

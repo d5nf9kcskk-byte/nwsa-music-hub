@@ -49,6 +49,9 @@ export type AskIntent =
   /* staff only (January) */
   | 'staffWhereIs' | 'staffWhosOut' | 'staffWaiting' | 'staffMissing'
   | 'staffDay' | 'staffRoster' | 'staffContact' | 'staffDo'
+  /* asked constantly, and the Hub has no answer of its own: the answering
+   * layer sends the person to a page, or says who to ask */
+  | 'parking' | 'tickets' | 'bring' | 'duration' | 'whoStaff' | 'contactStaff'
   /* the honest no */
   | 'none';
 
@@ -248,7 +251,7 @@ export const ASK_CORPUS: AskCase[] = [
   s('when is the nutcracker', 'concert', { about: 'nutcracker', expect: 'suggest' }),
   s('nutcraker', 'concert', { about: 'nutcracker', expect: 'suggest' }),
   s('when is the winter concert', 'concert', { about: 'winter' }),
-  s('concerto concert', 'concert', { about: 'concerto', expect: 'suggest' }),
+  s('concerto concert', 'concert', { about: 'concerto' }),
   s('where is the lyric', 'concert', { about: 'lyric', expect: 'suggest' }),
   s('what time does the concert start', 'concert', { when: 'next' }),
   s('side by side', 'concert', { about: 'side by side', expect: 'suggest' }),
@@ -264,7 +267,8 @@ export const ASK_CORPUS: AskCase[] = [
   p('what concerts are coming up this year', 'concert'),
   p('where is the concert monday', 'concert', { when: 'weekday:mon' }),
   p('address for the fillmore', 'concert', { about: 'fillmore', expect: 'suggest' }),
-  p('how much are tickets', 'concert', { when: 'next' }),
+  // Was `concert next`. Ticket questions have their own intent now.
+  p('how much are tickets', 'tickets', { answer: 'link' }),
   p('donde es el concierto', 'concert', { ...es, when: 'next' }),
   s('call time', 'callTime', { when: 'next' }),
   s('what time is call friday', 'callTime', { when: 'weekday:fri' }),
@@ -287,7 +291,7 @@ export const ASK_CORPUS: AskCase[] = [
   s('required concerts', 'required'),
   s('do i have to go to the choir concert', 'required', { about: 'choir' }),
   s('how many concerts do i need to attend', 'required'),
-  s('is the faculty recital required', 'required', { about: 'faculty recital', expect: 'suggest' }),
+  s('is the faculty recital required', 'required', { about: 'faculty recital' }),
   s('conciertos obligatorios', 'required', es),
 
   /* ── 10. The school. ───────────────────────────────────────────────── */
@@ -384,7 +388,9 @@ export const ASK_CORPUS: AskCase[] = [
   s('who is absent today', 'none', { answer: 'none' }),
   s('who hasnt turned in the exam', 'none', { answer: 'none' }),
   // Things the Hub does not hold.
-  p('where do i park', 'none', { answer: 'none' }),
+  // Was a refusal. The Hub still has no parking page, but the question now
+  // has its own intent, so the answer can say who to ask.
+  p('where do i park', 'parking', { answer: 'link' }),
   p('is the concert livestreamed', 'none', { answer: 'none' }),
   s('whats for lunch', 'none', { answer: 'none' }),
   s('what is the wifi password', 'none', { answer: 'none' }),
@@ -504,6 +510,78 @@ export const ASK_CORPUS: AskCase[] = [
   // "WE" in capitals is Wind Ensemble, but not after "are" or "do".
   s('where are WE today', 'where', { when: 'today' }),
 
+  /* ── 12c. Coverage, by kind of question (second PR, 2026-11-12). ────── */
+  // A group or a concert named inside an ordinary question.
+  s('what are we playing in camerata today', 'playing', { when: 'today', about: 'camerata' }),
+  s('where do i sit in symphony', 'seat', { about: 'symphony' }),
+  s('seating chart for camerata', 'seat', { about: 'camerata' }),
+  s('did camerata get moved', 'cancelled', { when: 'today', about: 'camerata' }),
+  s('when is the pops concert', 'concert', { about: 'pops' }),
+  s('what do we wear for the pops concert', 'dress', { about: 'pops' }),
+  s('what time is call for the midnight ball', 'callTime', { about: 'midnight ball' }),
+  s('what time does the midnight ball start', 'concert', { about: 'midnight ball' }),
+  s('is the midnight ball still happening', 'cancelled', { when: 'today', about: 'midnight ball' }),
+  // A parent's own child: schedule and logistics.
+  p('what time should i drop off my son', 'callTime', { when: 'next' }),
+  p('what time do i pick up my daughter tonight', 'pickup', { when: 'tonight' }),
+  p('where does my son need to be', 'where', { when: 'today' }),
+  p('is her lesson cancelled', 'lesson', { when: 'next' }),
+  p('does my son have to attend the midnight ball', 'required', { about: 'midnight ball' }),
+  p('how do i excuse my daughter from rehearsal', 'howAbsence', { answer: 'link' }),
+  p('my son will be late tomorrow', 'howAbsence', { when: 'tomorrow', answer: 'link' }),
+  s('i will be late', 'howAbsence', { answer: 'link' }),
+  p('what is my sons schedule', 'myDay', { when: 'today' }),
+  // How do I, with the rest of the sentence.
+  s('how do i check in at the concert', 'howCheckin', { answer: 'link' }),
+  s('how do i subscribe to the calendar', 'howCalendar', { answer: 'link' }),
+  s('can i get text alerts', 'howAlerts', { answer: 'link' }),
+  s('how do i request a copy of my part', 'howCopy', { answer: 'link' }),
+  s('how do i find my schedule', 'howFindMe', { answer: 'link' }),
+  s('where can i find my part', 'parts'),
+  s('do i owe any forms', 'forms'),
+  s('who do i contact about an absence', 'howAbsence', { answer: 'link' }),
+  // The day, said other ways.
+  s('whats on my schedule tomorrow', 'myDay', { when: 'tomorrow' }),
+  s('what am i doing this week', 'myDay', { when: 'thisWeek' }),
+  s('no rehearsal today?', 'myDay', { when: 'today' }),
+  s('is school closed on friday', 'noSchool', { when: 'weekday:fri' }),
+  s('do i have rehearsal after school tomorrow', 'myDay', { when: 'tomorrow' }),
+  s('later today', 'myDay', { when: 'today' }),
+  s('this coming monday', 'myDay', { when: 'weekday:mon' }),
+  s('what do i have 12/9', 'myDay', { when: 'date:12-09' }),
+  s('what do i have mon nov 16', 'myDay', { when: 'date:11-16' }),
+  s('any concerts in may', 'concert', { when: 'month:05' }),
+  s('days off in december', 'noSchool', { when: 'month:12' }),
+  s('teacher planning day', 'noSchool', { about: 'teacher planning day' }),
+  s('violin lesson tomorrow', 'lesson', { when: 'tomorrow' }),
+  // In Spanish, and mixed.
+  s('donde esta el salon 4304', 'where', { ...es, about: '4304', answer: 'link' }),
+  s('esta cancelado el ensayo de hoy', 'cancelled', { ...es, when: 'today' }),
+  s('cuando es mi leccion de violin', 'lesson', { ...es, when: 'next' }),
+  s('cuando es el examen', 'due', { ...es, about: 'examen' }),
+  s('a que hora tengo que llegar', 'callTime', { ...es, when: 'next' }),
+  s('cuando son las vacaciones', 'noSchool', { ...es, about: 'vacaciones' }),
+  s('como nos vestimos', 'dress', { ...es, when: 'next' }),
+  s('formularios pendientes', 'forms', es),
+  s('que hay de nuevo', 'news', es),
+  s('necesito una copia de mi parte', 'howCopy', { ...es, answer: 'link' }),
+  s('tengo lesson manana', 'lesson', { ...es, when: 'tomorrow' }),
+  p('mi hija tiene rehearsal today', 'myDay', { ...es, when: 'today' }),
+  // Shorthand, spelled out before anything reads it.
+  s('wat do i hv 2day', 'myDay', { when: 'today' }),
+  s('wher is rehersal rn', 'where', { when: 'today' }),
+  s('is skool closed 2moro', 'noSchool', { when: 'tomorrow' }),
+  // The Hub has no answer of its own: a fixed intent, so the answer can
+  // point at a page or say who to ask.
+  s('parking', 'parking', { answer: 'link' }),
+  p('do i need tickets', 'tickets', { answer: 'link' }),
+  p('is the concert free', 'tickets', { answer: 'link' }),
+  s('what should i bring', 'bring', { answer: 'link' }),
+  p('how long is the concert', 'duration', { answer: 'link' }),
+  s('who is my teacher', 'whoStaff', { about: 'teacher', answer: 'link' }),
+  s('who is the conductor', 'whoStaff', { about: 'conductor', answer: 'link' }),
+  s('how do i contact my teacher', 'contactStaff', { answer: 'link' }),
+
   /* ── 13. The director's side (built in January). ───────────────────── */
   d('where is {classmate}', 'staffWhereIs', { when: 'today' }),
   d('where is {classmate} right now', 'staffWhereIs', { when: 'today' }),
@@ -553,4 +631,22 @@ export const ASK_CORPUS: AskCase[] = [
   d('excuse {classmate} from the concert', 'staffDo', { answer: 'link' }),
   d('new form', 'staffDo', { answer: 'link' }),
   d('gradebook', 'staffDo', { answer: 'link' }),
+  // Coverage (second PR).
+  d('whos out in camerata today', 'staffWhosOut', { when: 'today', about: 'camerata' }),
+  d('who is missing from symphony', 'staffWhosOut', { about: 'symphony' }),
+  d('take roll for camerata', 'staffDo', { when: 'today', about: 'camerata', answer: 'link' }),
+  d('add an event', 'staffDo', { answer: 'link' }),
+  d('change a day', 'staffDo', { answer: 'link' }),
+  d('pending approvals', 'staffWaiting'),
+  d('absence requests', 'staffWaiting'),
+  d('who needs a copy', 'staffWaiting'),
+  d('who is missing forms', 'staffMissing'),
+  d('how many cellos in symphony', 'staffRoster', { about: 'symphony' }),
+  d('how many kids are in camerata', 'staffRoster', { about: 'camerata' }),
+  d('room changes today', 'staffDay', { when: 'today' }),
+  d('print the program for the midnight ball', 'staffDo', { about: 'midnight ball', answer: 'link' }),
+  d('my lessons today', 'lesson', { when: 'today' }),
+  d('excuse a student from a concert', 'staffDo', { answer: 'link' }),
+  d('quien falta hoy', 'staffWhosOut', { ...es, when: 'today' }),
+  d('pasar lista', 'staffDo', { ...es, when: 'today', answer: 'link' }),
 ];

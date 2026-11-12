@@ -202,7 +202,7 @@ const TIMED = new Set<AskIntent>(['myDay', 'concert', 'lesson', 'noSchool', 'pic
 const ONE_WORD = set(
   'schedule horario rehearsal ensayo lesson lessons concert concerts concierto conciertos forms formularios ' +
   'hw homework tarea syllabus handbook announcements anuncios news novedades noticias repertoire repertorio ' +
-  'bowings fingerings scales holidays',
+  'bowings fingerings scales holidays tickets parking',
 );
 
 /** Lower case, no accents, no punctuation. ':' and '/' survive for dates.
@@ -246,7 +246,7 @@ const PLAIN = new Set([
 ]);
 /** Where a date word was. */
 const WAS_DATE = ' ~ ';
-const TIME_OF_DAY = /~\s+(?:(?:in|en|por|de|a|at)\s+(?:the\s+|la\s+)?)?(?:night|nite|morning|afternoon|evening|noche|tarde)\b/g;
+const TIME_OF_DAY = /~s?\s+(?:(?:in|en|por|de|a|at)\s+(?:the\s+|la\s+)?)?(?:night|nite|morning|afternoon|evening|noche|tarde)\b/g;
 const NEXT_WORD = 'next|nxt|upcoming|proxim[oa]s?|siguiente';
 
 type DateHit = AskWhen | 'strip' | 'past' | 'unsure' | 'morning';
@@ -257,22 +257,22 @@ const DATE_WORDS: [RegExp, DateHit][] = [
   [/\bpasado manana\b|\bday after tomorrow\b|\bday before yesterday\b|\banteayer\b/g, 'unsure'],
   // "Next friday" is this coming Friday to some people and the one after to
   // others, however "next" is spelled and whichever side of the day it sits.
-  [new RegExp(`\\b(?:${NEXT_WORD}|(?:this )?coming) (?:${ANY_DAY})\\b|\\b(?:${ANY_DAY}) (?:que viene|proxim[oa]|siguiente|after next)\\b`, 'g'), 'unsure'],
+  [new RegExp(`\\b(?:${NEXT_WORD}) (?:${ANY_DAY})\\b|\\b(?:${ANY_DAY}) (?:que viene|proxim[oa]|siguiente|after next)\\b`, 'g'), 'unsure'],
   [/\byesterday\b|\bayer\b/g, 'yesterday'],
   [/\blast night\b|\banoche\b/g, 'lastNight'],
   [/\blast week\b|\bla semana pasada\b/g, 'lastWeek'],
   [/\blast (?:month|time|year)\b/g, 'past'],
-  [/\b(?:por|en) la manana\b/g, 'morning'],
+  [/\b(?:por|en) la manana\b|\bafter school\b/g, 'morning'],
   [/\b(?:la )?(?:proxima|siguiente) semana\b|\bla semana que viene\b|\bne?xt weeks?\b/g, 'nextWeek'],
   [/\b(?:esta|this|the|my|mi) (?:semana|weeks?)\b/g, 'thisWeek'],
   [/\b(?:(?:this|the|el|este) )?(?:weekend|wknd|fin de semana|finde)\b/g, 'weekend'],
   [/\btonights?\b|\btonite\b|\b2nite\b|\besta noche\b|\bthis evening\b|\bhoy (?:en|por|a) la noche\b/g, 'tonight'],
-  [/\btodays?\b|\b2day\b|\btdy\b|\bhoy\b|\bright now\b|\bnow\b|\bahora\b|\besta manana\b|\besta tarde\b|\bthis (?:morning|afternoon)\b|\bafter school\b/g, 'today'],
+  [/\btodays?\b|\b2day\b|\btdy\b|\bhoy\b|\bright now\b|\bnow\b|\bahora\b|\besta manana\b|\besta tarde\b|\bthis (?:morning|afternoon)\b|\blater today\b/g, 'today'],
   [/\btomorrows?\b|\btomorow\b|\btommorow\b|\btommorrow\b|\btomorro\b|\btmrw\b|\btmr\b|\btmw\b|\b2morrow\b|\b2moro\b|\bmanana\b/g, 'tomorrow'],
   // Domingo is also a man's name, so it is Sunday only with its article.
   [/\b(?:el|este|los) domingo\b/g, 'weekday:sun'],
   ...WEEKDAYS.map(([day, sure]): [RegExp, DateHit] =>
-    [new RegExp(`\\b(?:(?:on|this|el|este) )?(?:${sure})\\b`, 'g'), `weekday:${day}` as AskWhen]),
+    [new RegExp(`\\b(?:(?:on|this coming|coming|this|el|este) )?(?:${sure})\\b`, 'g'), `weekday:${day}` as AskWhen]),
 ];
 const PAST_WHEN = new Set<AskWhen>(['yesterday', 'lastNight', 'lastWeek']);
 /** "Next" names the one still to come, but "next to" is somewhere else. */
@@ -319,7 +319,9 @@ function takeDate(text: string): DateRead {
     // "on 12/9", "due 11/16". Anywhere else they may be a time signature
     // ("playing in 6/8") or an idiom ("24/7"). Day first only in Spanish.
     const lead = whole.slice(0, at).match(/\b(on|el|for|para|del|by|due)\s*$/)?.[1];
-    if (!lead) return all;
+    // With nothing announcing it, it is a date only where a template asks
+    // for a DAY ("what do i have 12/9"), so it gets its own mark.
+    if (!lead) return dated(+m, +d) ? ' ~s ' : all;
     if (/^(?:el|del|para)$/.test(lead)) {
       // Spanish writes the day first, and in Miami plenty of people write
       // it the school's way. When both readings are real days and they
@@ -338,6 +340,8 @@ function takeDate(text: string): DateRead {
   // "In march" is the month, and so is "the december concert". Without
   // either it stays a word, so "Radetzky March" is still a piece. Not "march"
   // or "may" before "concert": those two are also words.
+  // "Mon nov 16": the weekday beside a full date says nothing more.
+  if (found.size > 0) s = s.replace(new RegExp(`\\b(?:on )?(?:${ANY_DAY})\\s+(?=~)`, 'g'), ' ');
   const month = (_all: string, m: string) => {
     found.add(`month:${String(monthOf(m)).padStart(2, '0')}`);
     return WAS_DATE;
@@ -361,14 +365,14 @@ function takeDate(text: string): DateRead {
       return hit === 'strip' ? ' ' : WAS_DATE;
     });
   }
-  // "En la mañana" after a day is that day's morning; alone it is today's.
-  s = s.replace(/~\s+~am\b/g, '~');
+  // "En la mañana" or "after school" beside a day is that day; alone it is today.
+  s = s.replace(/~s?\s+~am\b/g, m => m.replace(/\s+~am/, '')).replace(/~am\s+(?=~)/g, '');
   if (s.includes('~am')) { found.add('today'); s = s.replace(/~am/g, '~'); }
   // The short forms are words too ("sat test", "wed like to", "the sun"),
   // so they are a day only where a day belongs: after "on" or "this", as
   // the last thing said, or before a time.
   for (const [day, , short] of WEEKDAYS) {
-    s = s.replace(new RegExp(`\\b(on |this |el )?${short}\\b`, 'g'), (all, lead, at: number, whole: string) => {
+    s = s.replace(new RegExp(`\\b(on |this coming |coming |this |el )?${short}\\b`, 'g'), (all, lead, at: number, whole: string) => {
       if (!lead && !/^(?: ~| \d|\s*$)/.test(whole.slice(at + all.length))) return all;
       found.add(`weekday:${day}` as AskWhen);
       return WAS_DATE;
@@ -497,7 +501,7 @@ function findNames(toks: Tok[], names: readonly AskName[]): Found[] {
         run = [];
       };
       toks.forEach((t, i) => {
-        if (t.w === '~') { close(); between = []; return; }
+        if (t.w.startsWith('~')) { close(); between = []; return; }
         // A loud frame word ("WE") is only ever a whole one-word name.
         if (t.loud) { if (ws.length === 1 && ws[0] === t.w) run.push({ i, h: 1, at: 0 }); return; }
         if (skip(t)) { if (run.length > 0) between.push(t.w); return; }
@@ -750,6 +754,10 @@ const SPELL: Record<string, string> = {
   u: 'you', ur: 'your', r: 'are', pls: 'please', plz: 'please', thx: 'thanks', gonna: 'going to',
   canceled: 'cancelled', cancled: 'cancelled', orch: 'orchestra', symph: 'symphony', ens: 'ensemble',
   tchaik: 'tchaikovsky', midnite: 'midnight', xmas: 'christmas', nxt: 'next', perf: 'performance',
+  wats: 'what is', wuts: 'what is', whts: 'what is', rn: 'right now', hv: 'have', whn: 'when', wht: 'what', wher: 'where', b: 'be', skool: 'school',
+  conert: 'concert', concrt: 'concert', cocnert: 'concert', lessson: 'lesson', abscence: 'absence',
+  absense: 'absence', sumbit: 'submit', nutcraker: 'nutcracker', camarata: 'camerata', sympony: 'symphony',
+  simphony: 'symphony', symhpony: 'symphony', ensamble: 'ensemble',
 };
 /** Short accented words that really are the plain word: "qué", "día", "más". */
 const ACCENT_OK = set('que dia mas');
@@ -789,7 +797,10 @@ const tidy = (typed: string, names = false) =>
   askWords((names ? markNames(typed) : typed).replace(/(\w)['’]d\b/g, '$1 would').replace(/(\w)['’]ll\b/g, '$1 will'))
     .replace(/\brehe?a?r?s(?:al|el)(s?)\b/g, 'rehearsal$1')
     .replace(/\brehe?a?r?s(ing|ed)\b/g, 'rehears$1')
-    .split(' ').map(w => SPELL[w] ?? w).join(' ');
+    .split(' ').map(w => SPELL[w] ?? w).join(' ')
+    // "w/" is "with", and "4" is "for" only right before what it is for.
+    .replace(/\bw\/(?= |$)/g, 'with')
+    .replace(/\b4 (?=(?:the|my|our|a|an|tomorrow|tmrw|today|2day|tonight|2moro)\b)/g, 'for ');
 
 interface Fired { rule: AskRule; spans: number[][]; kept: number[][] }
 
@@ -799,7 +810,7 @@ const PUBLIC = compileTemplates(PUBLIC_TEMPLATES);
 /** The same templates for the staff side, with the "my own child" positions
  *  made unfillable: that is a parent's question, and staff have no "he". */
 const NOBODY = '§';
-const PUBLIC_FOR_STAFF = compileTemplates(PUBLIC_TEMPLATES, { KIN: NOBODY, MYKIN: NOBODY, KINS: NOBODY });
+const PUBLIC_FOR_STAFF = compileTemplates(PUBLIC_TEMPLATES, { KIN: NOBODY, MYKIN: NOBODY, KINS: NOBODY, KINO: NOBODY });
 const SLOT_OF: Record<AskNameKind, string> = {
   group: 'group', concert: 'event', assignment: 'task', piece: 'piece', venue: 'venue', room: 'room', form: 'form', term: 'term',
 };
@@ -834,10 +845,10 @@ export function askTemplateReadings(typed: string, names: readonly AskName[], si
   const date = takeDate(cleaned);
   if (date.unsure || (date.past && (!side || !date.when))) return [];
   const toks: Tok[] = date.kept.split(' ').filter(Boolean)
-    .map(w => ({ w, frame: w === '~' || FRAME.has(w), dateAfter: false, loud: false }));
+    .map(w => ({ w, frame: w.startsWith('~') || FRAME.has(w), dateAfter: false, loud: false }));
   // One word is a question only if it is one of the few that are
   // ("schedule", "forms"). "Practice", "show" and "program" are keywords.
-  if (toks.length === 1 && toks[0].w !== '~' && !ONE_WORD.has(toks[0].w) && !side?.oneWord.includes(toks[0].w)) return [];
+  if (toks.length === 1 && !toks[0].w.startsWith('~') && !ONE_WORD.has(toks[0].w) && !side?.oneWord.includes(toks[0].w)) return [];
   const found = findNames(toks, names);
   // The fits that may fill a slot. Where two overlap, the one that covers
   // more words wins, then the whole name over part of one. A tie leaves
@@ -847,6 +858,19 @@ export function askTemplateReadings(typed: string, names: readonly AskName[], si
   const over = (a: Found, b: Found) => a.hits[0] <= b.hits[b.hits.length - 1] && b.hits[0] <= a.hits[a.hits.length - 1];
   const fills = able.filter(f => !able.some(g => g.n !== f.n && over(f, g) && rank(g) > rank(f)));
   const sets: Found[][] = [[], ...fills.map(f => [f])];
+  // "The pops concert": one distinctive word that is in exactly ONE concert's
+  // name, with the word "concert" right after it. Not a first name, not an
+  // ordinary word, and not a word that is already a whole name of its own.
+  const taken = new Set(fills.flatMap(f => f.hits));
+  const oneWord = new Set<Found>();
+  toks.forEach((t, i) => {
+    if (taken.has(i) || !distinctive(t.w) || !/^(?:concert|concierto|show|performance|recital)$/.test(toks[i + 1]?.w ?? '')) return;
+    const owners = names.filter(n => n.kind === 'concert' && everyWord(n.name).includes(t.w));
+    if (owners.length !== 1) return;
+    const f: Found = { n: owners[0], person: false, hits: [i], whole: false, words: 1, distinctive: 1, loose: 0, typo: false, plain: false };
+    oneWord.add(f);
+    sets.push([f]);
+  });
   for (const a of fills) for (const b of fills) if (a.hits[0] < b.hits[0] && !over(a, b)) sets.push([a, b]);
 
   const hasNext = toks.some(t => NEXT_WORDS.has(t.w));
@@ -867,7 +891,7 @@ export function askTemplateReadings(typed: string, names: readonly AskName[], si
     toks.forEach((t, i) => {
       const f = set.find(x => i >= x.hits[0] && i <= x.hits[x.hits.length - 1]);
       if (!f) words.push(t.w);
-      else if (i === f.hits[0]) words.push(`<${SLOT_OF[f.n.kind]}${fillAs(f, toks)}>`);
+      else if (i === f.hits[0]) words.push(oneWord.has(f) ? '<eventw>' : `<${SLOT_OF[f.n.kind]}${fillAs(f, toks)}>`);
     });
     const text = `${words.join(' ')} `;
     const present = new Set(words.map(w => (w.startsWith('<') ? w.replace(/[1~]?>$/, '') : w)));
@@ -958,7 +982,7 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide): As
   for (const piece of date.rest.split(' ')) {
     if (!piece) continue;
     const prev = toks[toks.length - 1];
-    if (piece === '~') { if (prev) prev.dateAfter = true; continue; }
+    if (piece.startsWith('~')) { if (prev) prev.dateAfter = true; continue; }
     const frame = FRAME.has(piece);
     toks.push({ w: piece, frame, dateAfter: false, loud: frame && loudWords.has(piece) && !(prev && BEFORE_PRONOUN.has(prev.w)) });
   }
