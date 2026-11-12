@@ -53,7 +53,7 @@ import {
 import { initializeApp as initializeAdminApp } from 'firebase-admin/app';
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { getFirestore as getAdminFirestore, FieldValue } from 'firebase-admin/firestore';
-import { completeSetup, ownerSendLink, requestSetup } from '../functions/src/passwordSetup.ts';
+import { completeSetup, ownerSendLink, requestSetup, tokenId } from '../functions/src/passwordSetup.ts';
 import { passwordSetupStore } from '../functions/src/passwordSetupStore.ts';
 import { staffFromToken } from '../functions/src/staffToken.ts';
 import { bindGoogle } from '../functions/src/googleBinding.ts';
@@ -606,6 +606,16 @@ async function s10_linksAreOneTime() {
   const tries = await Promise.all([1, 2, 3, 4].map(i => completeSetup(store, once, `kays own pass ${i}`, someCaller()).then(r => r.status, () => 'threw')));
   must(tries.filter(t => t === 'done').length === 1 && tries.filter(t => t === 'expired').length === 3, `four tries with one link at the same moment: exactly one is "done" (${tries.join(', ')})`);
   must(await notices(email3) === 1, 'and one notice is sent');
+
+  // The step that uses a link up, asked directly: several at the same instant,
+  // with nothing else keeping them apart.
+  const email4 = 'kip@school.test';
+  await list(email4);
+  await requestSetup(store, email4, someCaller());
+  const direct = await hubLink(email4);
+  const takes = await Promise.all([1, 2, 3, 4].map(() => store.takeToken(tokenId(direct), Date.now())));
+  must(takes.filter(Boolean).length === 1 && await store.peekToken(tokenId(direct)) === null,
+    'the step that uses a link up, asked four times at once by itself: exactly one gets the link, and it is gone');
 }
 
 async function s11_removedAndReadded() {
