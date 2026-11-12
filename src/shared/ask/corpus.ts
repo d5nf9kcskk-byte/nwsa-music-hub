@@ -56,7 +56,9 @@ export type AskIntent =
 export type AskWhen =
   | 'today' | 'tonight' | 'tomorrow' | 'thisWeek' | 'nextWeek' | 'weekend'
   | `weekday:${'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'}`
-  | `date:${string}`
+  | `date:${string}`   // one day, "MM-DD": "dec 9", "12/9", "15 dec"
+  | `month:${string}`  // a whole month, "MM": "concerts in march"
+  | `day:${string}`    // the next day of the month with that number, "DD": "the 15th"
   | 'next'; // the next one that exists
 
 export interface AskCase {
@@ -400,6 +402,91 @@ export const ASK_CORPUS: AskCase[] = [
   s('when is the next conc', 'none', { answer: 'none' }),
   s('do we have work today', 'none', { answer: 'none' }),
 
+  /* ── 12b. Found by a second independent review (2026-11-11). ────────── */
+  // 41 of 271 unseen questions got a confident wrong answer. Every one the
+  // reviewer named is a line here, with a few more of the same kind.
+  //
+  // A grade or the roll, asked by a parent or about "he" and "she". The
+  // refusals used to cover only "I".
+  p('how did my son do on the exam', 'none', { answer: 'none' }),
+  p('how did my daughter do on her playing exam', 'none', { answer: 'none' }),
+  p('did my son do ok on the test', 'none', { answer: 'none' }),
+  s('how was the exam', 'none', { answer: 'none' }),
+  p('was my son absent', 'none', { answer: 'none' }),
+  p('was he absent', 'none', { answer: 'none' }),
+  p('is he absent today', 'none', { answer: 'none' }),
+  p('esta mi hijo ausente', 'none', { ...es, answer: 'none' }),
+  p('did my son miss rehearsal', 'none', { answer: 'none' }),
+  p('did my son miss class today', 'none', { answer: 'none' }),
+  p('was my son at rehearsal today', 'none', { answer: 'none' }),
+  p('was she at rehearsal', 'none', { answer: 'none' }),
+  p('did my son show up today', 'none', { answer: 'none' }),
+  p('is he in class today', 'none', { answer: 'none' }),
+  s('my results', 'none', { answer: 'none' }),
+  // Somebody's contact details, and an address that is nobody's concert.
+  p('what is her address', 'none', { answer: 'none' }),
+  p('what is his address', 'none', { answer: 'none' }),
+  s('my address', 'none', { answer: 'none' }),
+  // An ordinary word one letter from a name, or sitting inside a title, is
+  // still an ordinary word. These found a class, a teacher and two pieces.
+  s('spring', 'none', { answer: 'none' }),
+  s('marcato', 'none', { answer: 'none' }),
+  s('cabbage', 'none', { answer: 'none' }),
+  s('is it cooler today', 'none', { answer: 'none' }),
+  s('bottle', 'none', { answer: 'none' }),
+  s('fiction', 'none', { answer: 'none' }),
+  s('go away', 'none', { answer: 'none' }),
+  s('well', 'none', { answer: 'none' }),
+  s('spring concert', 'concert', { about: 'spring' }),
+  s('when is the spring concert', 'concert', { about: 'spring' }),
+  // A person where a search topic goes.
+  s('results for {classmate}', 'none', { answer: 'none' }),
+  s('did anyone find {classmate}', 'none', { answer: 'none' }),
+  // A holiday is a day off, unless it is the Holiday Concert.
+  s('is monday a holiday', 'noSchool', { when: 'weekday:mon' }),
+  s('when is the next holiday', 'noSchool', { when: 'next' }),
+  s('holidays', 'noSchool', { when: 'next' }),
+  s('is there a holiday this week', 'noSchool', { when: 'thisWeek' }),
+  s('holiday schedule', 'noSchool', { when: 'next' }),
+  s('christmas break', 'noSchool', { about: 'christmas break' }),
+  // "In march" is the month, never the Radetzky March, and "friday night"
+  // is Friday, never a piece with "night" in it.
+  s('concerts in march', 'concert', { when: 'month:03' }),
+  s('whats in march', 'myDay', { when: 'month:03' }),
+  s('concerts in october', 'concert', { when: 'month:10' }),
+  s('concerts in december', 'concert', { when: 'month:12' }),
+  s('december concert', 'concert', { when: 'month:12' }),
+  s('concert friday night', 'concert', { when: 'weekday:fri' }),
+  s('rehearsal tomorrow night', 'myDay', { when: 'tomorrow' }),
+  s('this afternoon', 'myDay', { when: 'today' }),
+  s('tmrw morning', 'myDay', { when: 'tomorrow' }),
+  s('esta tarde', 'myDay', { ...es, when: 'today' }),
+  s('hoy en la noche', 'myDay', { ...es, when: 'tonight' }),
+  s('15 dec', 'myDay', { when: 'date:12-15' }),
+  s('9 diciembre', 'myDay', { ...es, when: 'date:12-09' }),
+  s('the 15th', 'myDay', { when: 'day:15' }),
+  // Words that fired on too little.
+  s('call the school', 'none', { answer: 'none' }),
+  s('call me', 'none', { answer: 'none' }),
+  s('how was the concert', 'none', { answer: 'none' }),
+  s('end of quarter concert', 'none', { answer: 'none' }),
+  // A class and three rooms all fit "theater": it could be any of them.
+  s('where is the theater', 'none', { answer: 'none' }),
+  s('where is the black box', 'where', { about: 'black box', answer: 'link' }),
+  s('do we need black for the concert', 'dress', { when: 'next' }),
+  // Common enough to read correctly: what thumbs do to "rehearsal", a
+  // parent's own child, and two ways of saying "cannot come" in Spanish.
+  s('rehersal tomorrow', 'myDay', { when: 'tomorrow' }),
+  s('what are we rehersing', 'playing', { when: 'today' }),
+  s('wen is nxt concert', 'concert', { when: 'next' }),
+  p('my sons schedule', 'myDay', { when: 'today' }),
+  p('my daughters rehearsal tomorrow', 'myDay', { when: 'tomorrow' }),
+  p('when is my sons lesson', 'lesson', { when: 'next' }),
+  s('como reporto una ausencia', 'howAbsence', { ...es, answer: 'link' }),
+  p('mi hija no puede ir mañana', 'howAbsence', { ...es, when: 'tomorrow', answer: 'link' }),
+  // "WE" in capitals is Wind Ensemble, but not after "are" or "do".
+  s('where are WE today', 'where', { when: 'today' }),
+
   /* ── 13. The director's side (built in January). ───────────────────── */
   d('where is {classmate}', 'staffWhereIs', { when: 'today' }),
   d('where is {classmate} right now', 'staffWhereIs', { when: 'today' }),
@@ -409,6 +496,10 @@ export const ASK_CORPUS: AskCase[] = [
   d('who is excused from the nutcracker', 'staffWhosOut', { about: 'nutcracker' }),
   d('who is pulled out of symphony today', 'staffWhosOut', { when: 'today', about: 'symphony' }),
   d('absences this week', 'staffWhosOut', { when: 'thisWeek' }),
+  // From staff this is a question about the roll. It used to be heard as
+  // somebody reporting an absence.
+  d('was {classmate} absent', 'staffWhosOut'),
+  d('was he absent', 'staffWhosOut'),
   d('what is waiting on me', 'staffWaiting'),
   d('requests', 'staffWaiting'),
   d('any absence reports today', 'staffWaiting', { when: 'today' }),

@@ -15,6 +15,8 @@
  *   - a line the corpus marks `answer: 'none'` gets an answer
  *   - a staff question gets an answer
  *   - any `{classmate}` line gets an answer with any of 48 first names in it
+ *   - a rule that carries a search topic answers with a person as the topic,
+ *     or has no shape in TOPIC_SHAPES
  *   - right is under 95% of the public lines
  *   - a file in this folder imports anything but this folder and ../fuzzy.ts,
  *     or the parser mentions a staff intent
@@ -25,9 +27,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ASK_CORPUS } from './corpus.ts';
-import { parseAsk, type AskParse } from './parse.ts';
+import { ASK_TOPIC_TRIGGERS, parseAsk, type AskName, type AskParse } from './parse.ts';
 import {
-  FIRST_NAMES, NAMES, anyFailed, checkImports, fail, fill, plain, runCorpus, show,
+  CLASSMATE, FIRST_NAMES, NAMES, anyFailed, checkImports, fail, fill, plain, runCorpus, show,
 } from './askKit.selfcheck.ts';
 
 const ask = (q: string) => parseAsk(q, NAMES);
@@ -80,6 +82,33 @@ for (const name of FIRST_NAMES) {
   }
 }
 console.log(`Questions about a named person answered: ${named} of ${FIRST_NAMES.length * personLines.length} (must be 0)`);
+
+// A rule that carries a search topic ("did anyone find ...", "... results")
+// lets the leftover words through, so it is where a person's name could
+// slip in. Every such rule is tried with a person where the topic goes,
+// every first name and the made-up full name alike. A new topic rule with
+// no shape here fails the run.
+const TOPIC_SHAPES = [
+  'results for {classmate}', '{classmate} results', 'did anyone find {classmate}', 'did anyone see {classmate}',
+  'has anyone seen {classmate}', 'has anyone found {classmate}', 'does {classmate} have duty',
+  'is {classmate} on duty', '{classmate} duty', 'lost and found {classmate}',
+];
+for (const re of ASK_TOPIC_TRIGGERS) {
+  if (!TOPIC_SHAPES.some(q => re.test(plain(fill(q))))) fail(`a topic rule (${re.source.slice(0, 40)}...) has no shape in TOPIC_SHAPES`);
+}
+let topical = 0;
+for (const name of [...FIRST_NAMES, CLASSMATE]) {
+  for (const shape of TOPIC_SHAPES) {
+    const q = fill(shape, name);
+    const got = ask(q);
+    if (got.intent !== 'none') { topical++; fail(`"${q}" answered: ${show(got)}`); }
+  }
+}
+console.log(`Search topics that were a person, answered: ${topical} of ${(FIRST_NAMES.length + 1) * TOPIC_SHAPES.length} (must be 0)`);
+// A thing still gets through.
+for (const q of ['did anyone find a bass bow', 'has anyone seen my folder', 'who has stands and chairs duty', 'all state results']) {
+  if (ask(q).intent !== 'news') fail(`"${q}" is a thing to search for and must be news, got ${show(ask(q))}`);
+}
 
 /* ── Traps that are not corpus lines ──────────────────────────────────── */
 
@@ -157,6 +186,52 @@ expect('pops concert', { intent: 'concert', about: 'pops' });
 // "ill" is "I'll" unless something says sick.
 expect('im ill', { intent: 'howAbsence', when: 'today' });
 expect('my son is ill today', { intent: 'howAbsence', when: 'today' });
+
+
+// Found by the second review. A typo is forgiven only on a long word, only
+// past its first letter, and never on a word that is something else first.
+expect('nutcraker', { intent: 'concert', about: 'nutcracker' });
+expect('simphony', { intent: 'group', about: 'symphony' });
+expect('fleischmann', { intent: 'group', about: 'fleischman' });   // a long surname, one letter over
+expect('when is the fall concert', { intent: 'concert', about: 'fall' });
+expect('is the theater open', { intent: 'none' });
+expect('where is the dance theater', { intent: 'where', about: 'dance theater' });  // two words settle it
+expect('where is dance', { intent: 'where', when: 'next', about: 'dance' });        // the class, by its whole name
+// The past, and other people's records, however they are asked.
+for (const q of [
+  'is my daughter late', 'has he been absent', 'did she go to rehearsal', 'how is my son doing',
+  'what did my son get on the exam', 'test results', 'whats his email', 'were we late', 'how was rehearsal',
+]) expect(q, { intent: 'none' });
+expect('my son is absent today', { intent: 'howAbsence', when: 'today' });    // a report, not a question
+// A clock time or a time of day beside a day says nothing more than the day.
+expect('is rehearsal at 3', { intent: 'myDay', when: 'today' });
+expect('rehearsal saturday morning', { intent: 'myDay', when: 'weekday:sat' });
+expect('mañana por la tarde', { intent: 'myDay', when: 'tomorrow' });
+expect('what do i have on the 3rd', { intent: 'myDay', when: 'day:03' });
+expect('15th of december', { intent: 'myDay', when: 'date:12-15' });
+expect('the 5th symphony', { intent: 'none' });               // not the 5th of the month
+expect('exam 2 may be late', { intent: 'none' });             // not May 2
+expect('march', { intent: 'none' });                          // the month or a piece: no telling
+expect('black', { intent: 'dress', when: 'next' });
+expect('black box', { intent: 'where', about: 'black box' });
+expect('call', { intent: 'callTime', when: 'next' });
+expect('lyric address', { intent: 'concert', about: 'lyric' });
+expect('the address', { intent: 'none' });
+// The reviewer's list had a piece called "October" and one with "night" in
+// it. Ours has neither, so they are added here.
+const more: AskName[] = [...NAMES, { kind: 'piece', name: 'October' }, { kind: 'piece', name: 'Night on Bald Mountain' }];
+const withMore = (q: string, intent: string, when?: string) => {
+  const got = parseAsk(q, more);
+  if (got.intent !== intent || got.when !== when) fail(`"${q}" (with two more pieces): wanted ${intent}${when ? ` ${when}` : ''}, got ${show(got)}`);
+};
+withMore('concerts in october', 'concert', 'month:10');
+withMore('concert friday night', 'concert', 'weekday:fri');
+withMore('october', 'piece');                                 // its whole name
+withMore('night', 'none');
+withMore('night on bald mountain', 'piece');
+// A pasted page is cut off, not read.
+const t0 = performance.now();
+if (ask('what do i have today '.repeat(2500)).intent !== 'none' && performance.now() - t0 > 50) fail('a 50,000 character question took too long');
 
 // Exactly one name gives the caller its own record back; several do not.
 if (ask('camerata').match?.name !== 'Camerata String Orchestra') fail('"camerata" must hand back the one group it names');
