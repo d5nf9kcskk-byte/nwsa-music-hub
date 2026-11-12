@@ -13,7 +13,7 @@ import {
   currentGradingPeriod, defaultCutoff, inWindow, periodForDate, sortPeriods, windowFor,
   type GradingPeriod,
 } from './gradingPeriods.ts';
-import { MDCPS_NO_SCHOOL } from './academicCalendars.ts';
+import { MDCPS_NO_SCHOOL, MDCPS_YEAR } from './academicCalendars.ts';
 // The org's real config, read as JSON rather than through `ORG`, so this runs
 // under plain Node with no Vite defines shim (the pattern in
 // functions/src/concertTally.ts).
@@ -144,6 +144,16 @@ for (let i = 1; i < inOrder.length; i++) {
 }
 assert(inOrder[0].start === '2026-08-13', 'the year opens on the district first day of school');
 assert(inOrder[3].end === '2027-06-03', 'and closes on the district last day');
+
+// The year each calendar says it covers is the year it really covers. Ask
+// answers "is there school" only inside it, so a wrong edge here would have
+// it say "there is school" on a day the lists know nothing about.
+assert(
+  MDCPS_YEAR.from === inOrder[0].start && MDCPS_YEAR.to === inOrder[3].end,
+  'MDCPS_YEAR runs from the first grading period\'s first day to the last one\'s last day',
+);
+// (MDC_YEAR is held to the college's own calendar in
+// src/director/campusCalendar.selfcheck.ts.)
 
 /* ── ordering is by date and never mutates the caller ──────────────────── */
 

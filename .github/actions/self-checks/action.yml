@@ -728,3 +728,19 @@ runs:
     - name: Check blank video refusal
       run: node src/shared/blankVideo.selfcheck.ts
       shell: bash
+
+    # Ask, the answering half: a reading of the question and the public
+    # records in, an answer object out. It pins the states (answered, nothing
+    # posted, not understood, ask who is asking), that an archived or missing
+    # saved student is never told "nothing today", that a change carries the
+    # director's own note and no other words, that a post, form or assignment
+    # that has not gone live never appears, that a concert a student only
+    # attends adds no music, that the short path gives the whole roster's
+    # answer, and that no typed word reaches a sentence. A sentence states a
+    # fact and never starts yes or no, a day gone by is the past and never
+    # next year, what is over today is not "next", and school is answered
+    # only inside the calendar's own year. Nothing imports the module yet.
+    # Plain node on purpose: it must load without the org config.
+    - name: Check Ask (the answers)
+      run: node src/shared/ask/answer.selfcheck.ts
+      shell: bash
