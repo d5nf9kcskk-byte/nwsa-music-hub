@@ -1244,20 +1244,24 @@ export const passwordSetup = https.onRequest(async (req, res) => {
     // status and the same words, so a failed attempt says nothing about the
     // link, the address or the list. The screen checks the password before
     // it sends, so a real person is told what is wrong with it there.
-    // "Too many tries" is the one other answer. It is decided before the
-    // link is looked at, so it says nothing about it, and the link still
-    // works afterwards.
+    // Two other answers, and after either the link still works. "Too many
+    // tries" is decided before the link is looked at, so it says nothing
+    // about it. "Busy" means the Hub was still finishing another request
+    // for the same person; it is said only to someone holding a real link.
     let done: string | null = null;
     let limited = false;
+    let busy = false;
     try {
       const outcome = await completeSetup(deps, req.body?.token, req.body?.password, caller);
       if (outcome.status === 'done') done = outcome.email;
       limited = outcome.status === 'limited';
+      busy = outcome.status === 'busy';
     } catch (err) {
       console.error('passwordSetup complete failed:', (err as { code?: unknown } | null)?.code ?? 'unknown');
     }
     if (done) res.status(200).json({ ok: true, email: done });
     else if (limited) refuse(429, 'Too many tries from this network just now. Wait a few minutes and open your link again. It still works.');
+    else if (busy) refuse(503, 'The Hub was still finishing something else for you. Your link has not been used. Wait a minute and open it again.');
     else refuse(400, 'That link did not work. It may have expired or been used already. Ask for a new one.');
     return;
   }

@@ -42,7 +42,7 @@ These are how the service is documented and how the test setup behaves. Neither 
    - `npx --no-install firebase functions:list --project nwsa-hub` shows `passwordSetup`.
 2. **App Check must be on for the site.** The function refuses any request that does not carry an App Check token, so the `VITE_RECAPTCHA_SITE_KEY` secret has to be set (see `docs/security-recommendations.md`). If it is not, nothing breaks, but "Email me the link" will always say it did not reach the Hub.
 3. **The Hub's own email must be working**, because the link is sent by the Hub's mail (the same one that sends sign-up confirmations), not by the sign-in service.
-4. **Firebase console**, Authentication. Do this only once steps 0 and 1 are done and checked: it is those rules, live in all three places, that make it safe.
+4. **Firebase console**, Authentication. Do this only once steps 0 and 1 are done and checked: it is those rules, live in all three places, that make it safe. **On the day, before you enable anything:** run *Audit Sign-in Accounts* (the Directors screen must say "Last account check: OK"), and look down Authentication → Users: one row for each listed person who has signed in, and no row you do not recognise.
    - Sign-in method → Email/Password → **Enable**.
    - In the same panel, **"Email link (passwordless sign-in)" must stay OFF.** With it on, anyone who can open a person's inbox could sign in with one tap and no password at all, and the Hub would treat that as a password sign-in.
    - Settings → User actions → **"Email enumeration protection" must be ON** (it is on by default for newer projects; look). With it off, the sign-in service will tell anyone who asks whether an address has an account.
@@ -67,7 +67,7 @@ Set `features.passwordSignIn` back to `false`: the form disappears and the funct
 - **"My link says it did not work."** Links work once, for an hour, and a newer one retires the older ones. Have them ask again and tap the newest email.
 - **"Sign in with Google says an account already exists."** See "A sign-in account on a listed address that the Hub did not make" above.
 - **Someone who has only a password wants to use Google too, or the Hub tells them to ask the Owner.** Directors screen → **Reset** beside their name. Then they sign in with Google and confirm, and set their password again by link.
-- **"Too many tries" when choosing a password, though they only tried once.** Another request for that person was still running. Their link has not been used; they wait a minute and open it again.
+- **"The Hub was still finishing something else for you" when choosing a password.** Another request for that person was still running. Their link has not been used; they wait a minute and open it again.
 - **"This password is not set up for the Hub."** Their password sign-in is not on the account the Hub made for them (they were reset, re-added, or confirmed with Google since). They sign out and set a password again by link.
 - **Someone's password should stop working now:** Directors screen → **Remove password**. Google keeps working for them.
 
@@ -81,6 +81,7 @@ Set `features.passwordSignIn` back to `false`: the form disappears and the funct
 - If, at the moment a person is choosing their password, someone else keeps creating an account on that address, the Hub tries five times and then gives up. The link is used up and the person asks for a new one. Nobody gets in who should not; it only costs a retry.
 - Future rules tests: a made-up test token must be a sign-in on the account its Directors entry names (see `docs/google-binding.md`), or the rules will refuse it.
 - *Audit Sign-in Accounts* accepts a password only on the one account an entry names, and only when the entry says the server set it. Anything else makes it say `REVIEW NEEDED`.
+- It also says `REVIEW NEEDED` for a person whose sign-in was changed after the Hub recorded it, which includes a password changed some other way than the Hub's link (the sign-in service's own reset email, for example). The cure is the same for every such case: the person sets their password again with the Hub's link (Directors screen → **Email them a password link** sends one), and the next check says OK. Keep running the check weekly once this is on, as `docs/google-binding.md` says.
 
 ## Where things live
 

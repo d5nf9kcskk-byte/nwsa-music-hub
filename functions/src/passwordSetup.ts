@@ -213,10 +213,11 @@ export async function requestSetup(deps: SetupDeps, rawEmail: unknown, caller: s
 
 /**
  * Why a completion did not happen. These names are for the tests and the
- * proof. The CALLER is told only "limited" (which is decided before the link
- * is looked at, and leaves it usable); every other failure gets one and the
- * same answer (the function in index.ts), so a failed attempt says nothing
- * about the link, the address or the list.
+ * proof. The CALLER is told only "limited" (decided before the link is
+ * looked at) and "busy" (the link was found but not used); both leave the
+ * link usable. Every other failure gets one and the same answer (the
+ * function in index.ts), so a failed attempt says nothing about the link,
+ * the address or the list.
  */
 export type CompleteOutcome =
   | { status: 'done'; email: string }
@@ -224,8 +225,10 @@ export type CompleteOutcome =
   | { status: 'weak' }
   /** The link is unknown, used, retired, expired, or its person is no longer listed. */
   | { status: 'expired' }
-  /** Too many tries from this network address, or the person's claim is busy. The link was not used; it still works. */
-  | { status: 'limited' };
+  /** Too many tries from this network address. Nothing was looked at; the link still works. */
+  | { status: 'limited' }
+  /** Another request for this person is still running. The link was NOT used; it still works. */
+  | { status: 'busy' };
 
 export async function completeSetup(
   deps: SetupDeps, token: unknown, password: unknown, caller: string,
@@ -279,7 +282,7 @@ export async function completeSetup(
     // The claim could not be had in time (another request for this person
     // is still running, or one died a moment ago). Nothing was looked at
     // and the link has NOT been used: the person tries again shortly.
-    if ((e as { code?: unknown } | null)?.code === 'hub/busy') return { status: 'limited' };
+    if ((e as { code?: unknown } | null)?.code === 'hub/busy') return { status: 'busy' };
     throw e;
   }
   if (outcome !== 'recorded') return outcome;

@@ -258,7 +258,7 @@ async function linkFor(h: ReturnType<typeof harness>, email: string, caller = '1
   let claimBusy = true;
   const waiting = harness({ busy: () => claimBusy });
   const t4 = await linkFor(waiting, PAT);
-  check((await completeSetup(waiting.deps, t4, GOOD, '1.1.1.1')).status === 'limited' && waiting.tokens.size === 1 && !waiting.log.includes('take link') && waiting.authCalls().length === 0,
+  check((await completeSetup(waiting.deps, t4, GOOD, '1.1.1.1')).status === 'busy' && waiting.tokens.size === 1 && !waiting.log.includes('take link') && waiting.authCalls().length === 0,
     'while the person\'s claim is busy: "try again shortly", the link is not used up, nothing is touched');
   claimBusy = false;
   check((await completeSetup(waiting.deps, t4, GOOD, '1.1.1.1')).status === 'done', 'and the same link works once the claim is free');
@@ -466,9 +466,11 @@ for (const [label, existing] of [
   // Completing: one generic failure answer, plus "too many tries", which is
   // decided before the link is looked at.
   const complete = handler.slice(handler.indexOf("action === 'complete'"), handler.lastIndexOf("refuse(400, 'That did not reach"));
-  check((complete.match(/refuse\(/g) ?? []).length === 2 && (complete.match(/res\.status\(/g) ?? []).length === 1 && /else if \(limited\) refuse\(429,/.test(complete),
-    'completing has one success answer, one "too many tries" answer, and exactly one answer for every other failure');
+  check((complete.match(/refuse\(/g) ?? []).length === 3 && (complete.match(/res\.status\(/g) ?? []).length === 1 && /else if \(limited\) refuse\(429,/.test(complete)
+    && /else if \(busy\) refuse\(503, 'The Hub was still finishing something else for you\. Your link has not been used\. Wait a minute and open it again\.'\);/.test(complete),
+  'completing has one success answer, one "too many tries" answer, one "busy, your link still works" answer in words of its own, and exactly one answer for every other failure');
   check(!/outcome\.status === '(weak|expired)'/.test(complete), 'and it does not tell the caller WHY it failed');
+  check(complete.includes("limited = outcome.status === 'limited';") && complete.includes("busy = outcome.status === 'busy';"), 'each of the two "your link still works" answers is given for its own reason only');
   const completeFn = core.slice(core.indexOf('export async function completeSetup'));
   check(completeFn.indexOf("return { status: 'limited' }") < completeFn.indexOf('deps.takeToken('), '"too many tries" is decided before the link is looked at');
   check(completeFn.indexOf('deps.takeToken(') < completeFn.indexOf('passwordAcceptable(') && completeFn.indexOf('deps.takeToken(') < completeFn.indexOf('deps.getDirector('),
