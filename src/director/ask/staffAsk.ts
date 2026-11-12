@@ -26,8 +26,65 @@ import {
   ASK_INSTRUMENTS, parseAsk,
   type AskName, type AskParse, type AskStaffSide,
 } from '../../shared/ask/parse.ts';
+import { compileTemplates, type AskTemplate } from '../../shared/ask/templates.ts';
+
+const T = (intent: AskTemplate['intent'], t: string, when?: AskTemplate['when']): AskTemplate =>
+  (when === undefined ? { intent, t } : { intent, t, when });
+
+/**
+ * The staff side's whole-sentence templates: the only way to a confident
+ * staff answer. Same mini-language as src/shared/ask/templates.ts. PERSON is
+ * one to three words that are a name; it comes back as `person`, as typed,
+ * and is never looked up here.
+ */
+export const STAFF_TEMPLATES: AskTemplate[] = [
+  T('staffWhereIs', 'where is PERSON DATE?'),
+  T('staffWhereIs', 'is PERSON here DATE?'),
+  T('staffWhosOut', 'who is [out|absent|excused] DATE?'),
+  T('staffWhosOut', 'who was [out|absent|excused] DATE'),
+  T('staffWhosOut', 'absences DATE?'),
+  T('staffWhosOut', 'who is excused from THE? NEXT? CON'),
+  T('staffWhosOut', 'who is excused from THE? EVENT'),
+  T('staffWhosOut', 'who is pulled out of GROUP DATE?'),
+  T('staffWhosOut', '[is|was] PERSON absent DATE?'),
+  T('staffWaiting', 'what is waiting [on|for] me'),
+  T('staffWaiting', '[requests|approvals|copy requests]'),
+  T('staffWaiting', 'any? absence reports DATE?'),
+  T('staffMissing', 'who [hasnt|has not|didnt|did not] [turned in|turn in|submitted|submit] the {playing exam}'),
+  T('staffMissing', 'who [hasnt|has not|didnt|did not] [turned in|turn in|submitted|submit] THE? TASK'),
+  T('staffMissing', 'who [hasnt|has not|didnt|did not] [signed|sign|filled out|fill out] THE? FORM'),
+  T('staffMissing', 'who [didnt|did not|hasnt|has not] [check in|checked in|check out|checked out] DATE?'),
+  T('staffMissing', 'lessons i havent logged'),
+  T('staffMissing', 'what rolls are left DATE?'),
+  T('staffMissing', 'missing emergency contacts'),
+  T('staffDay', 'what is [in|on] DATE'),
+  T('staffDay', 'what is in ROOM DATE?'),
+  T('staffDay', 'is ROOM free DATE?'),
+  T('staffDay', 'who is playing at THE? GROUP! DATE?'),
+  T('staffRoster', 'GROUP roster'),
+  T('staffRoster', 'roster for GROUP'),
+  T('staffRoster', 'who is in GROUP'),
+  T('staffRoster', 'how many in GROUP'),
+  T('staffRoster', 'INSTRS in GROUP'),
+  T('staffRoster', '[seniors|juniors|sophomores|freshmen]'),
+  T('staffContact', '[call|email|text] PERSON [mom|dad|parent|parents]?'),
+  T('staffContact', 'PERSON [parent|parents|mom|dad] [email|phone|number]?'),
+  T('staffContact', '[call|email|text] GROUP parents'),
+  T('staffDo', 'cancel THE? REH DATE'),
+  T('staffDo', 'cancel GROUP DATE?'),
+  T('staffDo', 'move GROUP to ROOM DATE?'),
+  T('staffDo', 'add a {sectional} DATE'),
+  T('staffDo', 'post an? announcement'),
+  T('staffDo', 'take [roll|attendance]', 'today'),
+  T('staffDo', 'excuse PERSON from THE? NEXT? CON'),
+  T('staffDo', 'excuse PERSON from THE? EVENT'),
+  T('staffDo', 'new [form|announcement]'),
+  T('staffDo', 'open? the? gradebook'),
+];
+const STAFF_MACROS = { INSTRS: [...ASK_INSTRUMENTS].filter(w => w.endsWith('s')).join('|') };
 
 export const STAFF_SIDE: AskStaffSide = {
+  templates: compileTemplates(STAFF_TEMPLATES, STAFF_MACROS),
   rules: [
     { intent: 'staffDo', re: /^take (?:roll|attendance)$/, when: 'today' },
     // A thing to do needs the thing: "cancel" alone opens nothing.

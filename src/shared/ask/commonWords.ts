@@ -54,6 +54,7 @@ export const COMMON_WORDS = new Set((
   'west what when where which while white who whole whose why wide wife will win wish with without woman ' +
   'women won wonder wood word work would write wrong year yes yet you young your ' +
   'address business change day days desk early garage help hours lost lunch office park parking phone price ' +
+  'her hers its ours yours theirs someone anyone everyone somebody anybody everybody nobody ella ellos ' +
   'update weeks months years grade grades level conductor director directors principal staff teacher teachers ' +
   // Spanish
   'ahora algo alguien antes aqui asi bien buena bueno cada casa como con cosa creo cuanto desde despues ' +

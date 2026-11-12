@@ -47,6 +47,7 @@ import type { AskIntent, AskWhen } from './corpus.ts';
 import { normalizeText, withinOneTypo } from '../fuzzy.ts';
 import { GIVEN_NAMES } from './givenNames.ts';
 import { COMMON_WORDS } from './commonWords.ts';
+import { NEXT_WORDS, PUBLIC_TEMPLATES, compileTemplates, type AskCompiled } from './templates.ts';
 
 /** What kind of thing a name is. `room` is somewhere we rehearse; `venue` is
  *  somewhere we travel to perform. `term` is a word the Hub's own glossary
@@ -116,6 +117,8 @@ export type AskPrecedence = [AskIntent, AskIntent, string];
 /** Everything the staff side adds. It lives in src/director/ask/ (design
  *  3.8), so the public bundle carries no staff phrasing at all. */
 export interface AskStaffSide {
+  /** The staff side's whole-sentence templates, compiled. */
+  templates: AskCompiled[];
   rules: AskRule[];
   precedence: AskPrecedence[];
   kinds: Partial<Record<AskIntent, AskNameKind[]>>;
@@ -145,10 +148,9 @@ const FRAME = set(
   'a an the is are am be do does i me my we our us it its this that there ' +
   'what whats which when whens wen wat wut at in on for to of ' +
   'please pls plz thanks thank hi hey hello ok have has should would ' +
-  'you your u ur r he she her his him they their them son daughter kid kids child student ' +
-  'any anything time im ' +
+  'any anything ' +
   'el la los las un una es esta estan yo mi mis que cual cuando al de del en para por ' +
-  'hay tengo tiene tenemos hola gracias hora hijo hija se va vamos voy',
+  'hay tengo tiene tenemos hola gracias hora se va vamos voy',
 );
 /** A preposition must lead somewhere. Left hanging ("sign in", "show up at")
  *  it is a different verb, and a word nothing accounts for. */
@@ -176,10 +178,7 @@ const NAME_STOP = set('the of de la el a an and in for from at y no to with by u
 /** How people name a concert that has another name on the poster. */
 const SEASON = set('winter spring fall autumn summer holiday christmas invierno primavera otono verano navidad');
 /** Word-level short forms. Anything looser is a suggestion at best. */
-const SHORT: Record<string, string> = {
-  phil: 'philharmonic', orch: 'orchestra', symph: 'symphony', ens: 'ensemble', tchaik: 'tchaikovsky',
-  midnite: 'midnight', nite: 'night', xmas: 'christmas',
-};
+const SHORT: Record<string, string> = { phil: 'philharmonic', nite: 'night' };
 /** "When does it start", "what time is it over": only in a when question. */
 const TIMING = set('start starts begin begins end ends meet meets over finish finishes empieza comienza termina acaba');
 const TIMED = new Set<AskIntent>(['myDay', 'concert', 'lesson', 'noSchool', 'pickup', 'callTime']);
@@ -271,18 +270,14 @@ interface DateRead {
   past: boolean;
   /** A date was typed and this cannot say which. */
   unsure: boolean;
-  /** "12/9" with nothing saying it is a day: maybe a time signature. */
-  bareSlash: boolean;
-  /** "the 2nd" inside a longer sentence: a day only in a question about one. */
-  bareDay: boolean;
+  /** The same, with "next" and its kin left in place as words. */
+  kept: string;
 }
 
 function takeDate(text: string): DateRead {
   const found = new Set<AskWhen>();
   let past = false;
   let unsure = false;
-  let bareSlash = false;
-  let bareDay = false;
   const dated = (m: number, d: number) => {
     if (m < 1 || m > 12 || d < 1 || d > MONTH_DAYS[m - 1]) return false;
     found.add(`date:${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
@@ -302,8 +297,12 @@ function takeDate(text: string): DateRead {
     // A year makes it a day this table cannot place: it may be long past.
     if (year) { unsure = true; return all; }
     if (/^ time\b/.test(whole.slice(at + all.length))) return all; // "3/4 time"
-    if (!dated(+m, +d) && !dated(+d, +m)) return all;
-    if (!/\b(?:on|el|for|para|del|by|due)\s*$/.test(whole.slice(0, at))) bareSlash = true;
+    // Two numbers and a slash are a date only where a date is announced:
+    // "on 12/9", "due 11/16". Anywhere else they may be a time signature
+    // ("playing in 6/8") or an idiom ("24/7"). Day first only in Spanish.
+    const lead = whole.slice(0, at).match(/\b(on|el|for|para|del|by|due)\s*$/)?.[1];
+    if (!lead) return all;
+    if (!dated(+m, +d) && !(/^(?:el|del|para)$/.test(lead) && dated(+d, +m))) return all;
     return WAS_DATE;
   });
   // A month is a date with a day number beside it: "dec 9", "9 de diciembre",
@@ -321,15 +320,12 @@ function takeDate(text: string): DateRead {
   };
   s = s.replace(new RegExp(`\\b(?:in|en|during|durante) (${MONTH})\\b`, 'g'), month);
   s = s.replace(new RegExp(`\\b(?!march\\b|may\\b|mar\\b)(${MONTH}) (?=(?:concert|concierto|recital|show)s?\\b)`, 'g'), month);
-  // "The 15th" is the next 15th, but only as the last thing said: "the 5th
-  // symphony" and "9th grade" are not days. And unless it is all that was
-  // said, only in a question about a day (`bareDay`).
-  const said = s.trim();
-  s = s.replace(/\b(?:on )?the (\d{1,2})(?:st|nd|rd|th)(?=[ ~]*$)|\bel dia (\d{1,2})\b/, (all, d1, d2) => {
-    const d = +(d1 ?? d2);
+  // "On the 15th" is the next 15th, and so is "the 15th" said alone. "Are we
+  // playing the 5th" is a symphony, and "9th grade" is not a day.
+  s = s.replace(/\bon the (\d{1,2})(?:st|nd|rd|th)\b|^the (\d{1,2})(?:st|nd|rd|th)$|\bel dia (\d{1,2})\b/, (all, d1, d2, d3) => {
+    const d = +(d1 ?? d2 ?? d3);
     if (d < 1 || d > 31) return all;
     found.add(`day:${String(d).padStart(2, '0')}`);
-    if (d1 && all !== said) bareDay = true;
     return WAS_DATE;
   });
   for (const [re, hit] of DATE_WORDS.slice(1)) {
@@ -357,11 +353,16 @@ function takeDate(text: string): DateRead {
   // a phrase this table does not hold. Reading only the part it knows would
   // be a different day.
   if (/~\s+(?:of|de|del)\s+(?!~)\S/.test(s)) unsure = true;
+  // "Next weekend", "tomorrow next": "next" beside a date is a different
+  // date, and this table has no word for it.
+  if (new RegExp(`\\b(?:${NEXT_WORD})\\s+~|~\\s+(?:${NEXT_WORD})\\b`).test(s)) unsure = true;
   const next = s.search(NEXT) >= 0;
-  s = s.replace(NEXT, WAS_DATE).replace(/[:/]/g, ' ').replace(/\s+/g, ' ').trim();
+  const squeeze = (x: string) => x.replace(/[:/]/g, ' ').replace(/\s+/g, ' ').trim();
+  const kept = squeeze(s);
+  s = squeeze(s.replace(NEXT, WAS_DATE));
   const when = found.size === 1 ? [...found][0] : undefined;
   return {
-    rest: s, when, next, bareSlash, bareDay,
+    rest: s, kept, when, next,
     past: past || (!!when && PAST_WHEN.has(when)),
     // Two different days in one question is a question this cannot answer.
     unsure: unsure || found.size > 1,
@@ -420,8 +421,9 @@ const distinctive = (w: string) => !ordinary(w) && (w.length >= 4 || /^\d{3,}$/.
 
 /** The words of a name that tell it apart. A name that is nothing but
  *  frame words ("WE") keeps them: it is still a name. */
+const everyWord = (label: string) => askWords(label.replace(/&/g, ' and ')).replace(/[:/]/g, ' ').split(/\s+/).filter(Boolean);
 const labelWords = (label: string) => {
-  const all = askWords(label).replace(/[:/]/g, ' ').split(/\s+/).filter(Boolean);
+  const all = everyWord(label);
   const telling = all.filter(w => !NAME_STOP.has(w) && !FRAME.has(w));
   return telling.length > 0 ? telling : all;
 };
@@ -438,11 +440,17 @@ function findNames(toks: Tok[], names: readonly AskName[]): Found[] {
   const skip = (t: Tok) => (t.frame && !t.loud) || NAME_STOP.has(t.w);
   const out: Found[] = [];
   for (const n of names) {
-    const titles = [n.name, ...(n.also ?? [])].map(labelWords);
+    const labels = [n.name, ...(n.also ?? [])];
+    const titles = labels.map(labelWords);
     const people = (n.by ?? []).flatMap(surnames).map(w => [w]);
     [...titles, ...people].forEach((ws, li) => {
       if (ws.length === 0) return;
       const person = li >= titles.length;
+      // The small words a name really has between its telling ones ("side
+      // BY side", "form AND analysis"). Only those may sit inside a fit:
+      // "phil is in camerata" is not the Philharmonic & Camerata Concert.
+      const own = new Set(person ? [] : everyWord(labels[li]));
+      let between: string[] = [];
       const bests: Found[] = [];
       let run: { i: number; h: number; at: number }[] = [];
       const close = () => {
@@ -461,9 +469,12 @@ function findNames(toks: Tok[], names: readonly AskName[]): Found[] {
         run = [];
       };
       toks.forEach((t, i) => {
+        if (t.w === '~') { close(); between = []; return; }
         // A loud frame word ("WE") is only ever a whole one-word name.
         if (t.loud) { if (ws.length === 1 && ws[0] === t.w) run.push({ i, h: 1, at: 0 }); return; }
-        if (skip(t)) return;
+        if (skip(t)) { if (run.length > 0) between.push(t.w); return; }
+        if (between.some(w => !own.has(w))) close();
+        between = [];
         const used = new Set(run.map(r => r.at));
         let at = -1;
         let h = 0;
@@ -563,7 +574,7 @@ const RULES: AskRule[] = [
   { intent: 'callTime', re: /\bcall ?time\b|\b(?:is|whens|whats|the|our|my) call\b|^call$|^call for\b|\b(?:have|need|supposed) to be (?:there|at)\b|\b(?:be|get) there\b|\barrive\b|\bllegar\b|\b(?:hora de )?llegada\b/ },
   { intent: 'dress', re: /\bwear(?:ing)?\b|\bdress(?: code)?\b(?! rehearsal)|\battire\b|\bconcert black\b|\bblack\b|\bme pongo\b|\bnos ponemos\b|\bropa\b|\buniforme?\b/, also: /\bon stage\b|\bneed(?: to)?\b/ },
 
-  { intent: 'lesson', re: /\blessons?\b|\bclase particular\b|\bleccion(?:es)?\b/, also: /\bteacher\b|\bprofesora?\b|\bwho is my\b/ },
+  { intent: 'lesson', re: /\blessons?\b|\bclase particular\b|\bleccion(?:es)?\b/, also: /\bteacher\b|\bprofesora?\b|\bwho is my\b|\btime\b/ },
   { intent: 'due', re: /\bdue\b|\bhw\b|\bhomework\b|\btarea\b|\bassignments?\b|\bse entrega\b|\b(playing exams?|exam(?:s|en|enes)?|tests?|quiz(?:zes)?)\b/, also: /\bexcerpts?\b|\bdate\b/ },
   { intent: 'forms', re: /\bforms?\b|\bformularios?\b|\bpermission(?: slip)?\b|\bpermiso\b|\bsign ?ups?\b|\bsign\b|\bfirm(?:o|ar)\b/, also: /\bfill(?:ed)? out\b|\bneed(?: to)?\b/ },
   { intent: 'seat', re: /\bseat(?:s|ing)?\b|\bsit(?:ting)?\b|\bchair\b|\bfirst or second\b|\bsiento\b|\basiento\b|\bstand partner\b|\b(?:which|what|my) stand\b/, also: /\bchart\b/ },
@@ -616,7 +627,7 @@ const DEFINE = /\bwhat does (.+) mean\b|\bque (?:significa|quiere decir) (.+)|^(
  * noun ("rehearsal", "concert", "exam") giving way to the question asked
  * about it.
  */
-export const ASK_PRECEDENCE: AskPrecedence[] = [
+const ASK_PRECEDENCE: AskPrecedence[] = [
   ['lesson', 'myDay', 'do i have a lesson today'],
   ['lesson', 'cancelled', 'is my lesson cancelled'],
   ['lesson', 'where', 'where is my lesson'],
@@ -702,22 +713,129 @@ const MAX_SUGGESTIONS = 4;
 
 const nothing = (): AskParse => ({ intent: 'none', confident: false, suggestions: [] });
 
-/** What thumbs do to the commonest words, put right before anything reads
- *  them. "My sons schedule" is a parent's own child's schedule (the
- *  apostrophe is already gone). */
-const respell = (s: string) => s
-  .replace(/\brehe?a?r?s(?:al|el)(s?)\b/g, 'rehearsal$1')
-  .replace(/\brehe?a?r?s(ing|ed)\b/g, 'rehears$1')
-  .replace(/\b(my|our) (son|daughter|kid|child|student)s (?=\w)/g, '$1 $2 ');
+/** Shorthand and the commonest slips, spelled out ONCE, before either
+ *  engine reads a word. A misspelling that is not here is not guessed at:
+ *  the sentence is simply not confident. (Date words have their own table.) */
+const SPELL: Record<string, string> = {
+  whats: 'what is', whens: 'when is', wheres: 'where is', whos: 'who is', theres: 'there is',
+  im: 'i am', wat: 'what', wut: 'what', wen: 'when', wich: 'which', hav: 'have', hw: 'homework',
+  u: 'you', ur: 'your', r: 'are', pls: 'please', plz: 'please', thx: 'thanks', gonna: 'going to',
+  canceled: 'cancelled', cancled: 'cancelled', orch: 'orchestra', symph: 'symphony', ens: 'ensemble',
+  tchaik: 'tchaikovsky', midnite: 'midnight', xmas: 'christmas', nxt: 'next', perf: 'performance',
+};
+const tidy = (typed: string) =>
+  // "We'd" is "we would", not Wednesday.
+  askWords(typed.replace(/(\w)['’]d\b/g, '$1 would').replace(/(\w)['’]ll\b/g, '$1 will'))
+    .replace(/\brehe?a?r?s(?:al|el)(s?)\b/g, 'rehearsal$1')
+    .replace(/\brehe?a?r?s(ing|ed)\b/g, 'rehears$1')
+    .split(' ').map(w => SPELL[w] ?? w).join(' ');
 
 interface Fired { rule: AskRule; spans: number[][]; kept: number[][] }
 
-/** Which intents fire in a sentence, before anything settles them. For the
- *  self-check, which proves each PRECEDENCE pair really is a pair. */
-export function askIntentsFired(text: string, names: readonly AskName[], side?: AskStaffSide): AskIntent[] {
-  const seen: AskIntent[] = [];
-  work(text, names, side, intents => { seen.push(...intents); });
-  return seen;
+/* ── Engine one: whole-sentence templates. The only way to confident. ─── */
+
+const PUBLIC = compileTemplates(PUBLIC_TEMPLATES);
+const SLOT_OF: Record<AskNameKind, string> = {
+  group: 'group', concert: 'event', assignment: 'task', piece: 'piece', venue: 'venue', room: 'room', form: 'form', term: 'term',
+};
+
+/** May this fit fill a slot, and as what? '' two words or more, '1' one
+ *  word, '~' made entirely of ordinary words (only a slot whose template
+ *  names the kind takes that), or not at all. */
+function fillAs(f: Found, toks: Tok[]): '' | '1' | '~' | undefined {
+  if (f.person || f.typo) return undefined;
+  if (f.n.kind === 'term') return f.whole ? '' : undefined;
+  if (f.whole && f.words >= 2) return f.plain ? '~' : '';
+  if (!f.whole) return f.distinctive >= 2 ? '' : undefined;
+  // One word: only the word itself, four letters or more, and not a
+  // first name. "Cam", "phil" and "WE" are offered, never believed.
+  const w = toks[f.hits[0]].w;
+  if (f.loose > 0 || w.length < 4 || GIVEN_NAMES.has(w)) return undefined;
+  return f.plain ? '~' : '1';
+}
+
+/** Every reading some template gives the whole sentence. One means it is
+ *  confident. Two that differ mean it is not: that is the conflict rule,
+ *  and there is no other. Exported for the self-check, which looks for
+ *  sentences with more than one. */
+export function askTemplateReadings(typed: string, names: readonly AskName[], side?: AskStaffSide): AskReading[] {
+  if (typed.length > MAX_LENGTH) return [];
+  const cleaned = tidy(typed);
+  if (!cleaned) return [];
+  const date = takeDate(cleaned);
+  if (date.unsure || (date.past && (!side || !date.when))) return [];
+  const toks: Tok[] = date.kept.split(' ').filter(Boolean)
+    .map(w => ({ w, frame: w === '~' || FRAME.has(w), dateAfter: false, loud: false }));
+  const found = findNames(toks, names);
+  const titled = new Set(found.filter(f => !f.person && !f.typo).flatMap(f => f.hits));
+
+  // The fits that may fill a slot. Where two overlap, the one that covers
+  // more words wins, then the whole name over part of one. A tie leaves
+  // both, and two readings is no answer.
+  const rank = (f: Found) => f.hits.length * 1000 + (f.whole ? 200 : 100) - f.loose;
+  const able = found.filter(f => fillAs(f, toks) !== undefined);
+  const over = (a: Found, b: Found) => a.hits[0] <= b.hits[b.hits.length - 1] && b.hits[0] <= a.hits[a.hits.length - 1];
+  const fills = able.filter(f => !able.some(g => g.n !== f.n && over(f, g) && rank(g) > rank(f)));
+  const sets: Found[][] = [[], ...fills.map(f => [f])];
+  for (const a of fills) for (const b of fills) if (a.hits[0] < b.hits[0] && !over(a, b)) sets.push([a, b]);
+
+  const hasNext = toks.some(t => NEXT_WORDS.has(t.w));
+  // Staff templates are tried first. Where one fits, it is the reading: a
+  // staff member asking "who is in camerata" wants the roster, and the
+  // public reading of the same words does not make that a conflict.
+  for (const layer of side ? [side.templates, PUBLIC] : [PUBLIC]) {
+    const got = readings(layer);
+    if (got.length > 0) return got;
+  }
+  return [];
+
+  function readings(templates: readonly AskCompiled[]): AskReading[] {
+  const out = new Map<string, AskReading>();
+  for (const set of sets) {
+    const words: string[] = [];
+    toks.forEach((t, i) => {
+      const f = set.find(x => i >= x.hits[0] && i <= x.hits[x.hits.length - 1]);
+      if (!f) words.push(t.w);
+      else if (i === f.hits[0]) words.push(`<${SLOT_OF[f.n.kind]}${fillAs(f, toks)}>`);
+    });
+    const text = `${words.join(' ')} `;
+    for (const tpl of templates) {
+      const m = tpl.re.exec(text);
+      if (!m) continue;
+      const person = m.groups?.person;
+      if (person !== undefined) {
+        // A name: one to three words that are no ordinary word and no word
+        // of a thing. A first name always is one.
+        const at = text.slice(0, text.indexOf(`${person} `)).split(' ').filter(Boolean).length;
+        const ok = person.split(' ').every((w, k) => GIVEN_NAMES.has(w) || (!ordinary(w) && !titled.has(at + k)));
+        if (!ok) continue;
+      }
+      const i = tpl.src.intent;
+      const fill = set[0];
+      const about = fill?.n.name ?? m.groups?.about;
+      let when: AskWhen | undefined = date.when;
+      if (!when) {
+        if (tpl.src.when !== undefined) when = tpl.src.when ?? undefined;
+        else if (hasNext) when = 'next';
+        else {
+          const [bare, named] = side?.whenDefault[i] ?? WHEN_DEFAULT[i] ?? [];
+          // A room is where, not what: "what are we rehearsing in chapman" is still today.
+          const thing = !!about && !(i === 'playing' && fill?.n.kind === 'room');
+          when = i === 'where' && fill?.n.kind === 'room' ? undefined : thing ? named : bare;
+          // "What day is rehearsal" is not asking about today.
+          if (i === 'myDay' && /\b(?:what|which) day\b|\bque dia\b/.test(text)) when = 'next';
+        }
+      }
+      const reading: AskReading = { intent: side ? side.widen[i] ?? i : i };
+      if (when) reading.when = when;
+      if (about) reading.about = about;
+      if (fill) reading.match = fill.n;
+      if (person) reading.person = person;
+      out.set(`${reading.intent}|${when ?? ''}|${about ?? ''}|${person ?? ''}`, reading);
+    }
+  }
+  return [...out.values()];
+  }
 }
 
 /**
@@ -725,12 +843,29 @@ export function askIntentsFired(text: string, names: readonly AskName[], side?: 
  * and can never return a staff intent. The staff side passes its own tables
  * as `side`; use `parseStaffAsk` in src/director/ask/ rather than calling
  * this with three.
+ *
+ * Confident comes from the templates and nowhere else. The keyword engine
+ * below it may only ever offer.
  */
 export function parseAsk(typed: string, names: readonly AskName[], side?: AskStaffSide): AskParse {
-  return work(typed, names, side);
+  const sure = askTemplateReadings(typed, names, side);
+  if (sure.length === 1) return { ...sure[0], confident: true, suggestions: [] };
+  const got = work(typed, names, side);
+  const offers = [...sure, ...(got.confident ? [reading(got)] : got.suggestions)];
+  const seen = new Set<string>();
+  const suggestions = offers.filter(r => {
+    const key = `${r.intent}|${r.when ?? ''}|${r.about ?? ''}`;
+    return !seen.has(key) && !!seen.add(key);
+  }).slice(0, MAX_SUGGESTIONS);
+  return { intent: 'none', confident: false, suggestions };
 }
+const reading = ({ intent, when, about, match, person }: AskParse): AskReading => ({
+  intent, ...(when ? { when } : {}), ...(about ? { about } : {}), ...(match ? { match } : {}), ...(person ? { person } : {}),
+});
 
-function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy?: (fired: AskIntent[]) => void): AskParse {
+/* ── Engine two: keywords. It may only ever offer. ───────────────────── */
+
+function work(typed: string, names: readonly AskName[], side?: AskStaffSide): AskParse {
   // Nobody's question is this long. A pasted page is not answered from its
   // first line: it is not answered.
   if (typed.length > MAX_LENGTH) return nothing();
@@ -739,12 +874,8 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
   const mixedCase = /[a-z]/.test(typed);
   const loudWords = new Set(mixedCase ? (typed.match(/\b[A-Z]{2}\b/g) ?? []).map(w => w.toLowerCase()) : []);
 
-  // "We'd" is "we would", not Wednesday.
-  const cleaned = respell(askWords(typed.replace(/(\w)['’]d\b/g, '$1 would').replace(/(\w)['’]ll\b/g, '$1 will')));
+  const cleaned = tidy(typed);
   if (!cleaned) return nothing();
-  if (/^(?:whats|what is) next$|^que sigue$/.test(cleaned)) {
-    return { intent: side?.widen.myDay ?? 'myDay', when: 'today', confident: true, suggestions: [] };
-  }
   const date = takeDate(cleaned);
   if (date.unsure || (date.past && (!staff || !date.when))) return nothing();
   const dated = !!date.when || date.next;
@@ -823,14 +954,12 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
     return words.length === f.hits.length && words.every(i => f.hits.includes(i));
   });
   if (term) {
-    spy?.(['glossary']);
     return { intent: 'glossary', about: term.n.name, match: term.n, confident: true, suggestions: [] };
   }
   // Asked to define anything else: not a question the Hub has an answer to.
   if (define) return nothing();
 
   const intents = [...new Set(fired.map(f => f.rule.intent))];
-  spy?.(intents);
   const pairs = [...ASK_PRECEDENCE, ...(side?.precedence ?? [])];
   const beats = (a: AskIntent, b: AskIntent) => pairs.some(([w, l]) => w === a && l === b);
   const winner = intents.find(a => intents.every(b => b === a || beats(a, b)));
@@ -906,28 +1035,14 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
 
     const loose = () => toks.map((_, i) => i).filter(i => !claimed.has(i));
     if (loose().length > 0 && rule?.topic) {
-      // A topic is a THING to search the announcements for: "a bass bow",
-      // "stands and chairs", "all state". On the public side every word of
-      // it must be one this module can vouch for: an ordinary word, a word
-      // of some public name, or what follows "a" or "my". Anything else may
-      // be a person, and a first name always is.
-      // Staff may also name a teacher ("who studies with marcano"), and get
-      // no pass for what follows "the": a roster is of a group or a person.
+      // A topic is a THING to search the announcements for ("stands and
+      // chairs", "all state"). Every word of it must be an ordinary word or
+      // a word of some public name. Anything else may be a person.
+      // The topic is never handed back: `about` carries no typed word.
       const titled = new Set(found.filter(f => (staff || !f.person) && !f.typo).flatMap(f => f.hits));
       const known = (w: string) => [w, w.replace(/s$/, '')].some(x => PLAIN.has(x) || NOUNS.has(x) || ASK_INSTRUMENTS.has(x));
-      let after = false;
-      const vouched = toks.map((t, i) => {
-        if (DETERMINER.has(t.w)) { after = !staff; return true; }
-        if (claimed.has(i)) { after = false; return true; }
-        const ok = !GIVEN_NAMES.has(t.w) && (after || titled.has(i) || known(t.w));
-        if (!ok) after = false;
-        return ok;
-      });
-      if (loose().every(i => vouched[i])) {
-        const idx = loose();
-        about = toks.slice(idx[0], idx[idx.length - 1] + 1).filter((_, k) => !held.has(idx[0] + k)).map(t => t.w).join(' ');
-        idx.forEach(i => claimed.add(i));
-      }
+      const vouched = (i: number) => !GIVEN_NAMES.has(toks[i].w) && (titled.has(i) || known(toks[i].w));
+      if (loose().every(vouched)) loose().forEach(i => claimed.add(i));
     }
     // "The winter concert" is on nobody's poster under that name, but it is
     // plainly a concert being asked about.
@@ -952,6 +1067,9 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
         if (as === 'where') intent = side.wherePerson;
       }
     }
+    // An article must lead to something too: "donde esta el" names nobody.
+    const last = toks.length - 1;
+    if (last >= 0 && AFTER_PREP.has(toks[last].w) && !held.has(last)) claimed.delete(last);
     // A preposition must lead to something. "Sign in" is not "sign".
     toks.forEach((t, i) => {
       if (!PREPS.has(t.w) || held.has(i) || t.dateAfter) return;
@@ -994,8 +1112,7 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
       }
       const out: AskReading = { intent: side ? side.widen[i] ?? i : i };
       if (when) out.when = when;
-      const shown = a ?? person;
-      if (shown) out.about = shown;
+      if (a) out.about = a;
       if (m) out.match = m.n;
       if (person) out.person = person;
       return out;
@@ -1047,8 +1164,7 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
       // One word, and not one of the few that is a question by itself.
       && !(toks.length === 1 && !dated && !ONE_WORD.has(toks[0].w) && !side?.oneWord.includes(toks[0].w))
       // A date belongs in a question about a day. "Calendar this week" is two questions.
-      && !(dated && !DAY_QUESTION.has(intent) && !side?.dayIntents.includes(intent))
-      && !(date.bareDay && !(as && (DAY_QUESTION.has(as) || staff)));
+      && !(dated && !DAY_QUESTION.has(intent) && !side?.dayIntents.includes(intent));
     const reading = intent && unknown.length === 0 && !lacking ? finish(intent, one, about) : undefined;
     // A lone keyword: offered as what it probably means.
     if (!sure && reading && toks.length === 1 && offers.length === 0) offers.push(reading);
@@ -1071,7 +1187,6 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
    * whatever the word order, article or language. The how-to is offered.
    * Staff too, unless a staff rule fired: "is my son at rehearsal" names
    * nobody a staff answer could look up. */
-  const door = (i: AskIntent) => i === 'howSubmit' || i === 'howCheckin' || i === 'howAbsence';
   if (!staff || !intents.some(i => i.startsWith('staff'))) {
     // "Son" is also Spanish for "are", so it is somebody's child only after "my".
     const kin = (t: Tok, i: number) => KIN.has(t.w) && (t.w !== 'son' || /^(?:my|our|your|his|her|their|the)$/.test(toks[i - 1]?.w ?? ''));
@@ -1086,16 +1201,9 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
       // "Did I submit my video", "did my check-in count": whether it happened
       // is a record. The page that shows it is offered, not answered.
       (has(PAST) && intents.some(i => i === 'howSubmit' || i === 'howCheckin'));
-    if (record) {
-      // The page that shows it may be offered, when nothing else is in the
-      // sentence (no name) and, for an absence, it is not about the past.
-      const doors = intents.filter(door).filter(i => i !== 'howAbsence' || !has(PAST));
-      return offer(doors.filter(i => attempt(i, true, PAST).reading).map(intent => ({ intent })));
-    }
+    // A sentence that looks like it is about a person offers nothing.
+    if (record || /\b(?:is|are|esta|estan|was|were) (?:at|in|en)\b/.test(plainText)) return nothing();
   }
-  // "What is 4/4" is a time signature. Two numbers and a slash are a date
-  // only when the rest of the sentence is a question about a day.
-  if (date.bareSlash && intents.length === 0) return nothing();
 
   /* Settle it. */
   // "Hay que" and "tengo que" are "have to", not a second question.
