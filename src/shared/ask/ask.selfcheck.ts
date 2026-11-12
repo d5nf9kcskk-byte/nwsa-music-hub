@@ -324,6 +324,11 @@ for (const q of [
   'what time is the concert what do i wear', 'when is the concert and where is it', 'where is rehearsal and when does it end',
 ]) refuse(q, 'two questions in one sentence');
 expect('when and where do i pick up my student after the concert', { intent: 'pickup', when: 'next' });  // one question
+// "Son" is Spanish for "are", and "hay que" is "have to": neither is a
+// child or a second question.
+expect('que conciertos son obligatorios', { intent: 'required' });
+expect('a que hora hay que llegar al concierto', { intent: 'callTime', when: 'next' });
+expect('where is the freedom tower concert', { intent: 'concert', about: 'freedom tower concert' });
 // Two questions in one sentence: neither is answered, both are offered.
 for (const [q, a, b] of [
   ['is there school on black friday', 'noSchool', 'dress'], ['pick up my part', 'pickup', 'parts'],

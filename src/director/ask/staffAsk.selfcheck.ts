@@ -61,7 +61,7 @@ for (const q of [
   'asdf', 'cancel', 'post', 'move', 'add', 'post office', 'cancel culture', 'parent night', 'missing rehearsal tomorrow',
   'call me', 'email parents', 'is rehearsal late today', 'what does zelda have today', 'email', 'new', 'take roll call',
   'the week after next', 'who was out last friday', 'where is the stapler', 'where is my coffee',
-  'roster of the 1927 yankees', 'where do we meet', 'is my son at rehearsal', 'teacher email',
+  'roster of the 1927 yankees', 'who is in today', 'camerata roster tomorrow', 'where do we meet', 'is my son at rehearsal', 'teacher email',
 ]) {
   const got = ask(q);
   if (got.confident) fail(`"${q}" should not be answered: ${show(got)}`);

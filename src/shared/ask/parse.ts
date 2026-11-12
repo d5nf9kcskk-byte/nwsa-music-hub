@@ -128,6 +128,8 @@ export interface AskStaffSide {
   roomOnDate: AskIntent;
   /** Staff words that are a whole question typed alone ("requests"). */
   oneWord: string[];
+  /** The staff questions that are about a day. A roster is not. */
+  dayIntents: AskIntent[];
 }
 
 /* ── Words ────────────────────────────────────────────────────────────── */
@@ -245,12 +247,12 @@ const DATE_WORDS: [RegExp, DateHit][] = [
   [/\blast week\b|\bla semana pasada\b/g, 'lastWeek'],
   [/\blast (?:month|time|year)\b/g, 'past'],
   [/\bthis year\b|\beste ano\b|\b(?:por|en) la manana\b/g, 'strip'],
-  [/\b(?:la )?(?:proxima|siguiente) semana\b|\bla semana que viene\b|\bne?xt week\b/g, 'nextWeek'],
-  [/\b(?:esta|this|the|my|mi) (?:semana|week)\b/g, 'thisWeek'],
+  [/\b(?:la )?(?:proxima|siguiente) semana\b|\bla semana que viene\b|\bne?xt weeks?\b/g, 'nextWeek'],
+  [/\b(?:esta|this|the|my|mi) (?:semana|weeks?)\b/g, 'thisWeek'],
   [/\b(?:(?:this|the|el|este) )?(?:weekend|wknd|fin de semana|finde)\b/g, 'weekend'],
-  [/\btonight\b|\btonite\b|\b2nite\b|\besta noche\b|\bthis evening\b|\bhoy (?:en|por|a) la noche\b/g, 'tonight'],
-  [/\btoday\b|\b2day\b|\btdy\b|\bhoy\b|\bright now\b|\bnow\b|\bahora\b|\besta manana\b|\besta tarde\b|\bthis (?:morning|afternoon)\b|\bafter school\b/g, 'today'],
-  [/\btomorrow\b|\btomorow\b|\btommorow\b|\btommorrow\b|\btomorro\b|\btmrw\b|\btmr\b|\btmw\b|\b2morrow\b|\b2moro\b|\bmanana\b/g, 'tomorrow'],
+  [/\btonights?\b|\btonite\b|\b2nite\b|\besta noche\b|\bthis evening\b|\bhoy (?:en|por|a) la noche\b/g, 'tonight'],
+  [/\btodays?\b|\b2day\b|\btdy\b|\bhoy\b|\bright now\b|\bnow\b|\bahora\b|\besta manana\b|\besta tarde\b|\bthis (?:morning|afternoon)\b|\bafter school\b/g, 'today'],
+  [/\btomorrows?\b|\btomorow\b|\btommorow\b|\btommorrow\b|\btomorro\b|\btmrw\b|\btmr\b|\btmw\b|\b2morrow\b|\b2moro\b|\bmanana\b/g, 'tomorrow'],
   // Domingo is also a man's name, so it is Sunday only with its article.
   [/\b(?:el|este|los) domingo\b/g, 'weekday:sun'],
   ...WEEKDAYS.map(([day, sure]): [RegExp, DateHit] =>
@@ -409,7 +411,7 @@ const TYPO_TITLE = 7;
 const TYPO_PERSON = 8;
 
 const ordinary = (w: string) =>
-  w.length < 3 || /^\d{1,2}$/.test(w) || PLAIN.has(w) || GIVEN_NAMES.has(w) || FRAME.has(w) || NOUNS.has(w) ||
+  w.length < 3 || /^\d{1,2}(?:st|nd|rd|th)?$/.test(w) || PLAIN.has(w) || GIVEN_NAMES.has(w) || FRAME.has(w) || NOUNS.has(w) ||
   ASK_INSTRUMENTS.has(w) || NAME_STOP.has(w);
 /** Too ordinary even to offer a thing on: "so", "day", a first name. */
 const dull = (w: string) =>
@@ -514,7 +516,7 @@ const WHEN_SHAPE = /\b(?:when|whens|wen|what time|what day|which day|cuando|a qu
  *  what do i wear"), and two questions are not answered as one. */
 const ASKING = set('what whats when whens where wheres how which who whos why que cuando donde como cual quien');
 /** "How do I": only ever the start of a how-to question. */
-const HOW = /\bhow (?:do|can|should) (?:i|we)\b|\bcomo\b/g;
+const HOW = /\bhow (?:do|can|should) (?:i|we)\b|\bcomo(?: hago)?\b/g;
 const CAN = /\b(?:can|could)\b|\bi need\b/g;
 
 /* People, on the public side. */
@@ -549,9 +551,9 @@ const RULES: AskRule[] = [
   { intent: 'howSubmit', re: /\bturn(?:ed)? (?:it )?in\b|\b(?:re)?submit\b|\bupload(?:ed)?\b|\b(?:better|another) take\b|\bretake\b|\b(?:entrego|subo|envio)\b/, also: /\bsend\b|\bvideo\b/ },
   { intent: 'howCheckin', re: /\bcheck(?:ed)? ?(?:in|out)\b|\bregistrar (?:mi )?llegada\b|\bhow many concerts have i (?:gone to|been to|attended)\b/, also: /\bforgot\b|\bcount(?:ed)?\b/ },
   // Getting the schedule INTO a calendar. "What is on my calendar" is not this.
-  { intent: 'howCalendar', re: /\bsubscribe\b|\badd (?:\w+ )?to (?:my )?(?:calendar|calendario|phone)\b|\b(?:schedule )?on my phone\b|\b(?:google|apple|iphone|outlook) calendar\b|\bcalendar (?:feed|link|subscription)\b/, also: /\bget\b|\bcalendar\b|\bcalendario\b/ },
+  { intent: 'howCalendar', re: /\bsubscribe\b|\badd (?:\w+ )?to (?:my )?(?:calendar|calendario|phone)\b|\bschedule on my phone\b|\b(?:google|apple|iphone|outlook) calendar\b|\bcalendar (?:feed|link|subscription)\b/, also: /\bget\b|\bcalendar\b|\bcalendario\b|\bon (?:my )?(?:phone|iphone|android)\b/ },
   { intent: 'howCopy', re: /\blost my (?:music|part|folder)\b|\b(?:a|another|a new) copy\b|\bcopy of my\b|\bpage turn\b|\bmissing (?:a page|pages)\b|\bperdi mi (?:musica|partitura)\b/, also: /\b(?:bad|get)\b/ },
-  { intent: 'howAlerts', re: /\b(?:alerts?|alertas?|notifications?|notificaciones|notify|get a text|text me)\b/, also: /\bturn on\b|\bget\b/ },
+  { intent: 'howAlerts', re: /\b(?:alerts?|alertas?|notifications?|notificaciones|notify|get a text|text me)\b/, also: /\bturn on\b|\bget\b|\bon my phone\b/ },
   { intent: 'howFindMe', re: /\bfind (?:my schedule|me)\b|\bnot me\b|\bwrong (?:person|student|name|kid)\b|\btwo kids\b|\b(?:other|another) (?:kids?|child|student|phone)\b|\bespanol\b|\bin spanish\b/, also: /\bin the program\b|\bsend\b|\bsee\b/ },
 
   { intent: 'required', re: /\b(?:required|mandatory|obligatori[oa]s?)\b|\b(?:have|need) to (?:go|attend)(?: to)?\b/, also: /\bhow many\b|\bgo\b|\battend\b/ },
@@ -559,7 +561,7 @@ const RULES: AskRule[] = [
   { intent: 'pickup', re: /^(?:what time|when) is it over$|\b(?:concert|concierto|show|it) (?:ends?|finish(?:es)?|is over|lets? out|termina|acaba)\b/, whenShape: true },
   // "Call" is the call time only as a noun: "what time is call", "our call".
   { intent: 'callTime', re: /\bcall ?time\b|\b(?:is|whens|whats|the|our|my) call\b|^call$|^call for\b|\b(?:have|need|supposed) to be (?:there|at)\b|\b(?:be|get) there\b|\barrive\b|\bllegar\b|\b(?:hora de )?llegada\b/ },
-  { intent: 'dress', re: /\bwear(?:ing)?\b|\bdress(?: code)?\b(?! rehearsal)|\battire\b|\bconcert black\b|\bblack\b|\bme pongo\b|\bropa\b|\buniforme?\b/, also: /\bon stage\b|\bneed(?: to)?\b/ },
+  { intent: 'dress', re: /\bwear(?:ing)?\b|\bdress(?: code)?\b(?! rehearsal)|\battire\b|\bconcert black\b|\bblack\b|\bme pongo\b|\bnos ponemos\b|\bropa\b|\buniforme?\b/, also: /\bon stage\b|\bneed(?: to)?\b/ },
 
   { intent: 'lesson', re: /\blessons?\b|\bclase particular\b|\bleccion(?:es)?\b/, also: /\bteacher\b|\bprofesora?\b|\bwho is my\b/ },
   { intent: 'due', re: /\bdue\b|\bhw\b|\bhomework\b|\btarea\b|\bassignments?\b|\bse entrega\b|\b(playing exams?|exam(?:s|en|enes)?|tests?|quiz(?:zes)?)\b/, also: /\bexcerpts?\b|\bdate\b/ },
@@ -626,6 +628,7 @@ export const ASK_PRECEDENCE: AskPrecedence[] = [
   ['howCheckin', 'concert', 'how do i check in at the concert'],
   ['howSubmit', 'where', 'where do i upload my video'],
   ['documents', 'where', 'where are the documents'],
+  ['documents', 'myDay', 'class documents'],
   ['seat', 'where', 'where do i sit'],
   ['parts', 'where', 'where is my part'],
   ['howCopy', 'parts', 'i need a copy of my part'],
@@ -670,7 +673,7 @@ const KINDS: Partial<Record<AskIntent, AskNameKind[]>> = {
   myDay: ['group', 'concert'],
   // Not a piece: "what is <a piece> playing" is a person who shares its name.
   playing: ['group', 'concert', 'venue', 'room'],
-  where: ['group', 'room', 'venue'],
+  where: ['group', 'room', 'venue', 'concert'],
   cancelled: ['group', 'concert'],
   due: ['assignment', 'group'],
   seat: ['group'],
@@ -857,7 +860,7 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
     if (as?.startsWith('how')) claim(spans(HOW));
     if (as?.startsWith('how') && as !== 'howAbsence') claim(spans(CAN));
     toks.forEach((t, i) => {
-      if (as && whenShape && TIMED.has(as) && TIMING.has(t.w)) claimed.add(i);
+      if (whenShape && (!as || TIMED.has(as)) && TIMING.has(t.w)) claimed.add(i);
       if (as && INSTRUMENT_OK.has(as) && ASK_INSTRUMENTS.has(t.w)) claimed.add(i);
     });
 
@@ -973,7 +976,7 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
       else intent = !dated ? 'where' : side?.roomOnDate;
     }
     // Asking where a hall is, is asking about the concert there.
-    if (intent === 'where' && kind === 'venue') intent = 'concert';
+    if (intent === 'where' && (kind === 'venue' || kind === 'concert')) intent = 'concert';
 
     const finish = (i: AskIntent, m: Found | undefined, a: string | undefined): AskReading => {
       let when: AskWhen | undefined = date.when ?? (date.next ? 'next' : undefined);
@@ -1032,7 +1035,7 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
           : k === 'concert' || k === 'venue' ? 'concert' : k === 'piece' ? 'piece' : k === 'form' ? 'forms'
             : k === 'assignment' ? 'due' : 'where');
         const f = fits.find(x => x.n === n)!;
-        offers.push(finish(i === 'where' && k === 'venue' ? 'concert' : i, f, n.name));
+        offers.push(finish(i === 'where' && (k === 'venue' || k === 'concert') ? 'concert' : i, f, n.name));
       }
     }
 
@@ -1044,7 +1047,7 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
       // One word, and not one of the few that is a question by itself.
       && !(toks.length === 1 && !dated && !ONE_WORD.has(toks[0].w) && !side?.oneWord.includes(toks[0].w))
       // A date belongs in a question about a day. "Calendar this week" is two questions.
-      && !(dated && !staff && !DAY_QUESTION.has(intent))
+      && !(dated && !DAY_QUESTION.has(intent) && !side?.dayIntents.includes(intent))
       && !(date.bareDay && !(as && (DAY_QUESTION.has(as) || staff)));
     const reading = intent && unknown.length === 0 && !lacking ? finish(intent, one, about) : undefined;
     // A lone keyword: offered as what it probably means.
@@ -1070,7 +1073,9 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
    * nobody a staff answer could look up. */
   const door = (i: AskIntent) => i === 'howSubmit' || i === 'howCheckin' || i === 'howAbsence';
   if (!staff || !intents.some(i => i.startsWith('staff'))) {
-    const subject = toks.some((t, i) => SUBJECT.has(t.w) || (KIN.has(t.w) && !(toks[i + 1] && OWNED.has(toks[i + 1].w))));
+    // "Son" is also Spanish for "are", so it is somebody's child only after "my".
+    const kin = (t: Tok, i: number) => KIN.has(t.w) && (t.w !== 'son' || /^(?:my|our|your|his|her|their|the)$/.test(toks[i - 1]?.w ?? ''));
+    const subject = toks.some((t, i) => SUBJECT.has(t.w) || (kin(t, i) && !(toks[i + 1] && OWNED.has(toks[i + 1].w))));
     const report = REPORT.test(plainText);
     const record =
       // About somebody else, only two things are answered: what they HAVE or
@@ -1093,7 +1098,8 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
   if (date.bareSlash && intents.length === 0) return nothing();
 
   /* Settle it. */
-  const asked = toks.filter(t => ASKING.has(t.w)).length;
+  // "Hay que" and "tengo que" are "have to", not a second question.
+  const asked = toks.filter((t, i) => ASKING.has(t.w) && !(t.w === 'que' && i > 0 && /^(?:hay|tengo|tiene|tienes|tenemos)$/.test(toks[i - 1].w))).length;
   const twice = asked > 1 && !/\b(?:when and where|where and when)\b/.test(sentence);
   if ((intents.length > 0 && !winner) || twice) {
     // Two questions in one sentence. Offer each; answer neither.
