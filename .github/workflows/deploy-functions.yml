@@ -73,7 +73,14 @@ permissions:
   contents: read
 
 jobs:
+  # The checks that pin who the rules and the functions let in run FIRST,
+  # real sign-ins on local emulators included (rules-checks.yml). The deploy
+  # below happens only if they pass.
+  rules-checks:
+    uses: ./.github/workflows/rules-checks.yml
+
   deploy:
+    needs: rules-checks
     runs-on: ubuntu-latest
     # No credential, no deploy — never a half-configured endpoint.
     if: github.repository == 'd5nf9kcskk-byte/nwsa-music-hub'

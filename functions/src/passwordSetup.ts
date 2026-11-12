@@ -71,6 +71,8 @@ export interface MailDoc {
 
 export interface SetupDeps {
   auth: SetupAuth;
+  /** One request at a time per address, shared with the Google step (entryLock.ts). */
+  lock<T>(email: string, fn: () => Promise<T>): Promise<T>;
   /** The directors doc for a lowercased address, or undefined when not listed. */
   getDirector(email: string): Promise<Record<string, unknown> | undefined>;
   /** Record the fresh account on an EXISTING directors doc. False if the doc is gone. Never creates one. */
@@ -157,14 +159,39 @@ async function requestNow(deps: SetupDeps, rawEmail: unknown, caller: string): P
   if (!await deps.allow(limitKey('to', email), ADDRESS_LIMIT.max, ADDRESS_LIMIT.windowMs)) return 'ok';
   if (!await deps.allow(limitKey('day', email), ADDRESS_DAILY_LIMIT.max, ADDRESS_DAILY_LIMIT.windowMs)) return 'ok';
   if (!await deps.allow(limitKey('all', 'everyone'), GLOBAL_LIMIT.max, GLOBAL_LIMIT.windowMs)) return 'ok';
-  // One live link per address: a new one retires the ones before it. The
-  // newest email in the inbox is always the one that works. (Past a cap
-  // above nothing new is issued, so nothing is retired either.)
+  await issueLink(deps, email);
+  return 'ok';
+}
+
+/**
+ * One live link per address: a new one retires the ones before it. The
+ * newest email in the inbox is always the one that works. (Past a cap
+ * nothing new is issued, so nothing is retired either.)
+ */
+async function issueLink(deps: SetupDeps, email: string): Promise<void> {
   await deps.retireTokens(email);
   const token = deps.newToken();
   await deps.saveToken(tokenId(token), { email, expiresAt: deps.now() + LINK_LIFETIME_MS });
   await deps.sendMail(buildSetupMail(email, setupLink(deps.publicUrl, token, email), deps.appName));
-  return 'ok';
+}
+
+export type OwnerSendOutcome = 'sent' | 'not-listed' | 'limited';
+
+/**
+ * The Owner sends one listed person a link (Directors screen). It is the
+ * same link by the same email, and it too changes nothing until the person
+ * uses it. It does not count against that inbox's hourly and daily caps:
+ * those can be used up by anyone asking in the person's name, and the Owner
+ * is who a person turns to when that has happened. The caller (index.ts)
+ * has already established that it IS the Owner asking. The whole mailbox's
+ * cap still applies.
+ */
+export async function ownerSendLink(deps: SetupDeps, rawEmail: unknown): Promise<OwnerSendOutcome> {
+  const email = normaliseEmail(rawEmail);
+  if (!looksLikeEmail(email) || !await deps.getDirector(email)) return 'not-listed';
+  if (!await deps.allow(limitKey('all', 'everyone'), GLOBAL_LIMIT.max, GLOBAL_LIMIT.windowMs)) return 'limited';
+  await issueLink(deps, email);
+  return 'sent';
 }
 
 /** `caller` is the caller's network address (callerAddress above). */
@@ -212,23 +239,29 @@ export async function completeSetup(
   // to a typo. They are checked again here because the screen is not the
   // only thing that can call this.
   if (!passwordAcceptable(password) || normaliseEmail(password) === email) return { status: 'weak' };
-  // Still on the list at this moment, not just when the link was sent.
-  const director = await deps.getDirector(email);
-  if (!director) return { status: 'expired' };
+  // One request at a time per person, the Google step's requests included
+  // (entryLock.ts): the entry is read, the account replaced and the record
+  // written with no other request for this person in between.
+  const recorded = await deps.lock(email, async () => {
+    // Still on the list at this moment, not just when the link was sent.
+    const director = await deps.getDirector(email);
+    if (!director) return false;
 
-  // The account that gets recorded is ALWAYS a fresh one (freshAccount.ts).
-  // The only thing attached to it besides the password is the Google
-  // identity the ENTRY names, if it names one.
-  const googleSub = typeof director.googleSub === 'string' ? director.googleSub : '';
-  const uid = await freshAccount(deps.auth, {
-    email,
-    password,
-    ...(googleSub ? { google: { providerId: 'google.com', uid: googleSub, email } } : {}),
+    // The account that gets recorded is ALWAYS a fresh one (freshAccount.ts).
+    // The only thing attached to it besides the password is the Google
+    // identity the ENTRY names, if it names one.
+    const googleSub = typeof director.googleSub === 'string' ? director.googleSub : '';
+    const uid = await freshAccount(deps.auth, {
+      email,
+      password,
+      ...(googleSub ? { google: { providerId: 'google.com', uid: googleSub, email } } : {}),
+    });
+    // An account on the address was switched off on purpose. A link must not
+    // be a way to switch it back on.
+    if (!uid) return false;
+    return deps.bind(email, uid, deps.now());
   });
-  // An account on the address was switched off on purpose. A link must not
-  // be a way to switch it back on.
-  if (!uid) return { status: 'expired' };
-  if (!await deps.bind(email, uid, deps.now())) return { status: 'expired' };
+  if (!recorded) return { status: 'expired' };
   // Tell the person, at the address the link went to. If the notice cannot
   // be sent the password is still set; that is not a reason to fail.
   try { await deps.sendMail(buildDoneMail(email, deps.appName)); } catch { /* the password stands */ }

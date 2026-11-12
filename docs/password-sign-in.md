@@ -2,16 +2,17 @@
 
 Built November 2026 (Hub 2.0 plan, section 10) and left **off**. While it is off the sign-in screen is exactly as it was, and the server function behind it answers nothing.
 
-It sits on top of the Google tie (`docs/google-binding.md`). Both ways of signing in go through one test: is this the one sign-in account the Hub's server made for this listed person. **Turn this on only after that work's last move (the switch is on).**
+It sits on top of the Google tie (`docs/google-binding.md`). Both ways of signing in go through one test: is this the one sign-in account the Hub's server made for this listed person. **Turn this on only after that work's last step (the switch is on), and not on a concert day.**
 
 ## What it does
 
 Staff get a second way in beside "Sign in with Google": their email and a password of their own, in an ordinary form the phone's password manager can save and fill.
 
 - **Who gets in does not change.** The Directors screen is still the one list. The owner adds an email there, exactly as today. Nothing else happens when someone is listed.
-- **Google works exactly as it does once the Google tie is in place**, with one exception below (a person who sets a password before ever using Google).
+- **Google works exactly as it does once the Google tie is in place**, with the exceptions under "What the Hub does not control" below.
 - **The Hub's way to a password is a link it emails.** "Set up or reset my password" emails a one-time link (good for an hour). It opens the Hub's own "Choose your password" screen. Whoever can open that inbox chooses the password. Setting one up and resetting one are the same path. Asking again retires the earlier link, so only the newest email's link works, and a link is used up the first time it is tried, whether or not that try succeeds.
-- **Asking for a link changes nothing.** Anyone can ask for anyone's link. It only sends an email, and it says the same thing, in the same time, whether or not the address is on the list. Nobody is signed out or locked out by someone else asking.
+- **Asking for a link changes nothing about anyone's account.** Anyone can ask for anyone's link. It only sends an email, and it says the same thing, in the same time, whether or not the address is on the list. Nobody is signed out by someone else asking. Two things someone else's asking CAN do, both small: a newer link retires the older ones, so a person who then taps an older email finds it no longer works and asks again; and one inbox is sent only 3 links an hour and 6 a day, so someone asking over and over in a person's name can use those up. That is what the Owner's button below is for.
+- **The Owner can send one person a link.** Directors screen, under the person: **Email them a password link**. It is the same link to the same inbox, and it does not count against that inbox's 3 an hour and 6 a day.
 - **A password counts only on the account the Hub's server made.** When the link is used, the server makes a fresh sign-in account for that person, puts the chosen password on it, and records it on their Directors entry. The rules (Firestore, Storage, and the server functions that check a sign-in) honour a password sign-in only on that account.
 - **Choosing a password signs you out everywhere once.** The fresh account replaces whatever was on the address, so every older sign-in ends. If you are confirmed with Google, your Google account is attached to the fresh one, so "Sign in with Google" keeps working and your entry still reads "Google account confirmed".
 - **The person is told.** After a password is set, the Hub emails that address to say so.
@@ -25,14 +26,19 @@ Once Email/Password is enabled in the Firebase console (step 4 below), **Google'
 - That reset also needs the person's inbox, so it does not let in anyone who cannot read their mail. But it does not apply the Hub's 10-character rule: the service's own minimum is 6. A person can end up with a shorter password that way.
 - Anyone who knows the site's public web key can make the service send that reset email to any address that has an account. It is only an email; nothing changes unless the person uses it. Tell staff: the only password email to use is the one from the Hub.
 
-One edge: a person who sets a password **before ever using Google** will, the first time they do sign in with Google, be confirmed on a fresh account, and the password they chose stops working. They set it again by link.
+### Two things that rest on how Google's sign-in service behaves
+
+These are how the service is documented and how the test setup behaves. Neither has been tried on the live project, so treat them as "expected" until the Owner has seen them once.
+
+- **A person who sets a password before ever using Google.** Their sign-in account then has a password and no Google on it. The first time they tap "Sign in with Google", the service is expected to let them in on that same account, the Hub offers "Confirm now", and confirming gives them a fresh account. **The password they chose stops working**; they set it again by link.
+- **A stray sign-in account on a listed address.** With Email/Password enabled, anyone can create a sign-in account on any address that does not have one yet, including a listed person who has never signed in. That account opens nothing in the Hub: the rules refuse it, and the person's link or Google confirm replaces it. But until one of those happens, the service may refuse that person's first "Sign in with Google" with an "account already exists" message. **How the Owner clears it:** Directors screen → **Email them a password link** (using the link replaces the stray account), or Firebase console → Authentication → Users → search for the address → the three dots → Delete account, after which Google sign-in works for them. *Audit Sign-in Accounts* reports such an account as `REVIEW NEEDED` and the Directors screen names it. This is the main reason to have every listed person sign in with Google and confirm BEFORE turning this on (step 0).
 
 ## Turning it on
 
-0. **First finish the Google tie**, all three moves in `docs/google-binding.md`, and check the top of the Directors screen says "Only confirmed Google accounts can sign in: On".
+0. **First finish the Google tie**, all four steps in `docs/google-binding.md`, and check the top of the Directors screen says "Only confirmed Google accounts can sign in: On" and "Last account check: OK".
 1. **Merge.** That deploys the rules (Firestore and Storage) and the `passwordSetup` function. Then check, because a green deploy is not proof:
    - Google sign-in still works for you and for one other role (for example a student assistant).
-   - You can open a staff-only file (for example a signed permission form). That shows the Storage rules deployed.
+   - In GitHub → Actions → *Deploy Firestore & Storage rules*, the run for this merge has a green "Deploy Storage rules" step. (Opening a staff-only file proves nothing: the rules before this allow it too.)
    - `npx --no-install firebase functions:list --project nwsa-hub` shows `passwordSetup`.
 2. **App Check must be on for the site.** The function refuses any request that does not carry an App Check token, so the `VITE_RECAPTCHA_SITE_KEY` secret has to be set (see `docs/security-recommendations.md`). If it is not, nothing breaks, but "Email me the link" will always say it did not reach the Hub.
 3. **The Hub's own email must be working**, because the link is sent by the Hub's mail (the same one that sends sign-up confirmations), not by the sign-in service.
@@ -55,6 +61,14 @@ One edge: a person who sets a password **before ever using Google** will, the fi
 
 Set `features.passwordSignIn` back to `false`: the form disappears and the function goes quiet. To close the door itself, disable Email/Password in the console. Accounts stay as they are and Google keeps opening them.
 
+## If someone is stuck
+
+- **"No link arrives."** Look in junk first. Then Directors screen → **Email them a password link**: it is not held back by the inbox's own limits. If that says the Hub has sent too many this hour, wait an hour (that limit is for everyone together).
+- **"My link says it did not work."** Links work once, for an hour, and a newer one retires the older ones. Have them ask again and tap the newest email.
+- **"Sign in with Google says an account already exists."** See "A stray sign-in account on a listed address" above.
+- **"This password is not set up for the Hub."** Their password sign-in is not on the account the Hub made for them (they were reset, re-added, or confirmed with Google since). They sign out and set a password again by link.
+- **Someone's password should stop working now:** Directors screen → **Remove password**. Google keeps working for them.
+
 ## Known edges
 
 - The link emails can land in junk.
@@ -70,7 +84,7 @@ Set `features.passwordSignIn` back to `false`: the form disappears and the funct
 
 - `firestore.rules`, `storage.rules`: `honouredSignIn()` (one test, a Google arm and a password arm) and `isBoundPasswordAccount()`, word for word the same in both. `bindingGuard()` lets no browser set or alter the record.
 - `functions/src/staffToken.ts`: the same test for the functions that check a caller's sign-in. Self-check: `staffToken.selfcheck.ts`, which also reads both rules files.
-- `functions/src/passwordSetup.ts` (the rules of setting a password, and the limits), `freshAccount.ts` (the fresh account, shared with the Google tie), `passwordSetupStore.ts` (where it keeps things), `passwordSetup` in `functions/src/index.ts` (the function). Self-check: `passwordSetup.selfcheck.ts`.
+- `functions/src/passwordSetup.ts` (the rules of setting a password, the limits, and the Owner's link), `freshAccount.ts` (the fresh account) and `entryLock.ts` (one request at a time per person), both shared with the Google tie, `passwordSetupStore.ts` (where it keeps things), `passwordSetup` in `functions/src/index.ts` (the function). Self-check: `passwordSetup.selfcheck.ts`.
 - `src/shared/passwordSetupLink.ts`: the shape of the link, shared by the function and the screen.
 - `src/director/components/AuthGate.tsx`, `src/director/passwordSetupClient.ts`: the form and the screens. `src/director/hooks/useGoogleDrive.ts`: the Drive pop-up guard.
-- `scripts/password-sign-in.emulator-proof.mjs`: real sign-ins on the emulators against the real rules, with the Google tie required. It runs with the other rules checks (`.github/workflows/rules-checks.yml`) before every rules deploy.
+- `scripts/password-sign-in.emulator-proof.mjs`: real sign-ins on the emulators against the real rules, with the Google tie required. It runs with the other rules checks (`.github/workflows/rules-checks.yml`) before every rules deploy and every functions deploy.

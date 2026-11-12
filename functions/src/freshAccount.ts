@@ -2,15 +2,22 @@
  * The one way the server gives a listed person their sign-in account
  * (#google-binding).
  *
- * The account a Directors entry is bound to is ALWAYS made here, afresh, at
- * the moment of binding. Whatever account stood on the address before is
- * deleted first. Deleting an account ends every session that was ever opened
- * on it, for certain and at once, so nothing that was signed in before the
- * binding is still signed in after it. The rules then honour a sign-in only
- * on the account this returns (its id is recorded on the entry).
+ * The account a Directors entry names is ALWAYS made here, afresh, at the
+ * moment the record is written. Whatever account stood on the address before
+ * is deleted, so nothing that was signed in before is still signed in after.
+ * The rules then honour a sign-in only on the account this returns (its id
+ * is recorded on the entry).
+ *
+ * The order matters. The new account is made FIRST, with nothing on it, and
+ * the step that attaches a Google identity is tried on it before anything
+ * that exists is touched. Only when that has worked is the old account
+ * deleted and the address moved over. So if this project turns out not to
+ * allow one of those steps, the person still has the account they had.
  *
  * Nothing in the Hub is keyed by a sign-in account's id, so nothing is lost:
- * the person signs in once more and is on the fresh account.
+ * the person signs in once more and is on the fresh account. (The browser's
+ * own queue of unsent changes IS kept per account, which is why the app lets
+ * it empty before it asks for this.)
  *
  * The sign-in service is passed in, so the functions, the emulator proofs and
  * the self-checks all run this same code.
@@ -37,18 +44,22 @@ export interface AccountRecord {
 
 export interface AccountAuth {
   getUserByEmail(email: string): Promise<AccountRecord>;
-  createUser(props: {
-    email: string; emailVerified: boolean; password?: string; displayName?: string; photoURL?: string;
+  createUser(props: { displayName?: string; photoURL?: string }): Promise<AccountRecord>;
+  /** Used here for three things only: attach or remove one sign-in identity, and give the account its address (and password). */
+  updateUser(uid: string, props: {
+    providerToLink?: AccountProvider & { uid: string };
+    providersToUnlink?: string[];
+    email?: string;
+    emailVerified?: boolean;
+    password?: string;
   }): Promise<AccountRecord>;
-  /** Attach one sign-in identity to an account. Used for nothing else here. */
-  updateUser(uid: string, props: { providerToLink: AccountProvider & { uid: string } }): Promise<AccountRecord>;
   deleteUser(uid: string): Promise<void>;
 }
 
 export interface FreshAccountSpec {
   /** The listed address, lowercased. */
   email: string;
-  /** An account to delete first even if it no longer holds the address (the caller's own). */
+  /** An account to delete even if it no longer holds the address (the caller's own). */
   alsoDelete?: string;
   /** The person's own Google identity, to attach so Sign in with Google opens the fresh account. */
   google?: AccountProvider & { uid: string };
@@ -58,7 +69,7 @@ export interface FreshAccountSpec {
   photoURL?: string;
 }
 
-/** How many times to look again when an account appears between the delete and the create. */
+/** How many times to look again when an account appears on the address between the delete and the move. */
 export const FRESH_ACCOUNT_TRIES = 5;
 
 const codeOf = (e: unknown) => (e as { code?: string } | null)?.code ?? '';
@@ -79,44 +90,55 @@ async function remove(auth: AccountAuth, uid: string): Promise<void> {
 }
 
 /**
- * Delete whatever stands on the address and make one fresh account for it.
+ * Make one fresh account for the address and delete whatever stood on it.
  * Returns the fresh account's id, or null when an account on the address has
- * been switched off on purpose (binding must not be a way to switch it back
- * on). Throws if it cannot finish; nothing half-made is left behind.
+ * been switched off on purpose (this must not be a way to switch it back
+ * on). Throws if it cannot finish; nothing half-made is left behind, and if
+ * it fails before the old account is touched, the old account is as it was.
  */
 export async function freshAccount(auth: AccountAuth, spec: FreshAccountSpec): Promise<string | null> {
-  const standing = await find(auth, spec.email);
-  if (standing?.disabled) return null;
-  if (spec.alsoDelete) await remove(auth, spec.alsoDelete);
+  if ((await find(auth, spec.email))?.disabled) return null;
 
-  let uid = '';
-  // Bounded: an account can appear on the address between the delete and the
-  // create. Look again rather than trust the first look.
-  for (let attempt = 0; attempt < FRESH_ACCOUNT_TRIES && !uid; attempt++) {
-    const user = await find(auth, spec.email);
-    if (user?.disabled) return null;
-    if (user) await remove(auth, user.uid);
-    try {
-      uid = (await auth.createUser({
-        email: spec.email,
-        emailVerified: true,
-        ...(spec.password ? { password: spec.password } : {}),
-        ...(spec.displayName ? { displayName: spec.displayName } : {}),
-        ...(spec.photoURL ? { photoURL: spec.photoURL } : {}),
-      })).uid;
-    } catch (e) {
-      if (codeOf(e) !== 'auth/email-already-exists') throw e;
+  // 1. The new account, with nothing on it. Nothing that exists is touched.
+  const fresh = (await auth.createUser({
+    ...(spec.displayName ? { displayName: spec.displayName } : {}),
+    ...(spec.photoURL ? { photoURL: spec.photoURL } : {}),
+  })).uid;
+  try {
+    // 2. Prove, on the new account, that attaching a Google identity is
+    //    allowed here: attach a placeholder and take it off again.
+    if (spec.google) {
+      const placeholder = `placeholder-${fresh}`;
+      await auth.updateUser(fresh, { providerToLink: { providerId: 'google.com', uid: placeholder } });
+      await auth.updateUser(fresh, { providersToUnlink: ['google.com'] });
     }
-  }
-  if (!uid) throw new Error(`freshAccount: the address kept being taken; gave up after ${FRESH_ACCOUNT_TRIES} tries`);
 
-  if (spec.google) {
-    try {
-      await auth.updateUser(uid, { providerToLink: spec.google });
-    } catch (e) {
-      await remove(auth, uid); // leave nothing half-made
-      throw e;
+    // 3. Only now does the old account go, and the address move over.
+    if (spec.alsoDelete) await remove(auth, spec.alsoDelete);
+    let moved = false;
+    for (let attempt = 0; attempt < FRESH_ACCOUNT_TRIES && !moved; attempt++) {
+      const standing = await find(auth, spec.email);
+      if (standing?.disabled) throw Object.assign(new Error('freshAccount: an account switched off on purpose appeared on the address'), { code: 'hub/disabled' });
+      if (standing) await remove(auth, standing.uid);
+      try {
+        await auth.updateUser(fresh, {
+          email: spec.email, emailVerified: true,
+          ...(spec.password ? { password: spec.password } : {}),
+        });
+        moved = true;
+      } catch (e) {
+        // An account took the address in the gap. Look again.
+        if (codeOf(e) !== 'auth/email-already-exists') throw e;
+      }
     }
+    if (!moved) throw new Error(`freshAccount: the address kept being taken; gave up after ${FRESH_ACCOUNT_TRIES} tries`);
+
+    // 4. The person's own Google identity.
+    if (spec.google) await auth.updateUser(fresh, { providerToLink: spec.google });
+    return fresh;
+  } catch (e) {
+    await remove(auth, fresh).catch(() => {}); // leave nothing half-made
+    if (codeOf(e) === 'hub/disabled') return null;
+    throw e;
   }
-  return uid;
 }

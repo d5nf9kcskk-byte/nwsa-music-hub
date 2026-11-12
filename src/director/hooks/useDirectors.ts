@@ -64,8 +64,14 @@ export {
  */
 export const BINDING_KEYS = ['googleSub', 'boundUid', 'boundAt', 'passwordSet'] as const;
 
-/** Has the server recorded this person's sign-in account? */
-export const isConfirmed = (d: Pick<Director, 'googleSub' | 'boundUid'>): boolean => !!d.googleSub && !!d.boundUid;
+/**
+ * Has the server recorded this person's sign-in account? An account on
+ * record, opened either by their Google account or by a password the server
+ * set (#password-sign-in). The switch script counts the same way
+ * (scripts/require-google-ties.mjs).
+ */
+export const isConfirmed = (d: Pick<Director, 'googleSub' | 'boundUid' | 'passwordSet'>): boolean =>
+  !!d.boundUid && (!!d.googleSub || d.passwordSet === true);
 
 export interface Director {
   email: string;    // doc id
@@ -309,6 +315,35 @@ export function useSignInSwitch(isOwner: boolean): SignInSwitch | null {
     if (!db || !isOwner) return;
     return onSnapshot(doc(db, 'serverConfig', 'signIn'), snap => {
       setState({ required: snap.get('googleTieRequired') === true, lastRun: snap.get('lastRun') });
+    }, () => setState(null));
+  }, [isOwner]);
+  return state;
+}
+
+/** What the *Audit Sign-in Accounts* workflow last found (#google-binding). */
+export interface SignInAudit {
+  at?: number;
+  result?: string;
+  /** Sign-in accounts that are not what the Hub expects, by address. */
+  needALook: string[];
+  /** Listed addresses that have no sign-in account yet. */
+  listedWithNoAccount: string[];
+}
+
+/**
+ * The audit's note, for the Owner's Directors screen. Its public log prints
+ * one word; WHICH accounts is said here, where only the Owner can read it.
+ */
+export function useSignInAudit(isOwner: boolean): SignInAudit | null {
+  const [state, setState] = useState<SignInAudit | null>(null);
+  useEffect(() => {
+    if (!db || !isOwner) return;
+    const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+    return onSnapshot(doc(db, 'serverConfig', 'signInAudit'), snap => {
+      setState(snap.exists() ? {
+        at: snap.get('at'), result: snap.get('result'),
+        needALook: list(snap.get('needALook')), listedWithNoAccount: list(snap.get('listedWithNoAccount')),
+      } : null);
     }, () => setState(null));
   }, [isOwner]);
   return state;

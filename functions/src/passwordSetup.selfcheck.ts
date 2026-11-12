@@ -25,7 +25,7 @@ import { dirname, resolve } from 'node:path';
 import {
   ADDRESS_DAILY_LIMIT, ADDRESS_LIMIT, COMPLETE_CALLER_LIMIT, GLOBAL_LIMIT, LINK_LIFETIME_MS, REQUEST_CALLER_LIMIT,
   REQUEST_FLOOR_MS, buildDoneMail, buildSetupMail, callerAddress, completeSetup, limitKey, looksLikeEmail,
-  requestSetup, tokenId, type MailDoc, type SetupDeps,
+  ownerSendLink, requestSetup, tokenId, type MailDoc, type SetupDeps,
 } from './passwordSetup.ts';
 import type { AccountRecord } from './freshAccount.ts';
 import { MIN_PASSWORD_LENGTH, readSetupLink, setupLink } from '../../src/shared/passwordSetupLink.ts';
@@ -35,7 +35,7 @@ function check(cond: unknown, msg: string) {
   if (!cond) { failures++; console.error(`  ✗ ${msg}`); }
 }
 
-interface FakeUser extends AccountRecord { email: string; password?: string }
+interface FakeUser extends AccountRecord { password?: string }
 const PAT = 'pat@school.test';
 
 function harness(opts: { users?: FakeUser[]; listed?: Record<string, Record<string, unknown>>; bindFails?: boolean; mailFails?: 'done' } = {}) {
@@ -56,20 +56,32 @@ function harness(opts: { users?: FakeUser[]; listed?: Record<string, Record<stri
         if (!u) throw Object.assign(new Error('none'), { code: 'auth/user-not-found' });
         return u;
       },
-      async createUser(props) {
-        if (byEmail(props.email)) throw Object.assign(new Error('exists'), { code: 'auth/email-already-exists' });
-        const u: FakeUser = {
-          uid: `new-${++made}`, email: props.email, emailVerified: props.emailVerified, disabled: false,
-          password: props.password, providerData: [{ providerId: 'password', email: props.email }],
-        };
+      async createUser() {
+        const u: FakeUser = { uid: `new-${++made}`, emailVerified: false, disabled: false, providerData: [] };
         users.set(u.uid, u);
         log.push(`create ${u.uid}`);
         return u;
       },
       async updateUser(uid, props) {
-        log.push(`link ${uid} ${props.providerToLink.uid}`);
         const u = users.get(uid)!;
-        u.providerData.push(props.providerToLink);
+        if (props.providerToLink) {
+          log.push(`link ${uid} ${props.providerToLink.uid}`);
+          u.providerData.push(props.providerToLink);
+        }
+        if (props.providersToUnlink) {
+          log.push(`unlink ${uid}`);
+          u.providerData = u.providerData.filter(q => !props.providersToUnlink!.includes(q.providerId));
+        }
+        if (props.email) {
+          if (byEmail(props.email)) throw Object.assign(new Error('exists'), { code: 'auth/email-already-exists' });
+          log.push(`address ${uid}`);
+          u.email = props.email;
+          u.emailVerified = props.emailVerified === true;
+        }
+        if (props.password) {
+          u.password = props.password;
+          u.providerData.push({ providerId: 'password', email: u.email });
+        }
         return u;
       },
       async deleteUser(uid) {
@@ -77,7 +89,11 @@ function harness(opts: { users?: FakeUser[]; listed?: Record<string, Record<stri
         log.push(`delete ${uid}`);
       },
     },
-    async getDirector(email) { return directors.get(email); },
+    async lock(email, fn) {
+      log.push(`lock ${email}`);
+      try { return await fn(); } finally { log.push(`unlock ${email}`); }
+    },
+    async getDirector(email) { log.push('read entry'); return directors.get(email); },
     async bind(email, uid, now) {
       log.push(`bind ${uid}`);
       const d = directors.get(email);
@@ -107,7 +123,7 @@ function harness(opts: { users?: FakeUser[]; listed?: Record<string, Record<stri
     publicUrl: 'https://example.org/hub/',
     appName: 'Example Hub',
   };
-  const authCalls = () => log.filter(l => /^(create|link|delete)/.test(l));
+  const authCalls = () => log.filter(l => /^(create|link|unlink|address|delete)/.test(l));
   const links = () => mails.filter(m => /choose your password/.test(m.message.subject));
   return { deps, users, byEmail, directors, tokens, mails, links, log, authCalls, advance: (ms: number) => { clock += ms; } };
 }
@@ -241,6 +257,27 @@ async function linkFor(h: ReturnType<typeof harness>, email: string, caller = '1
   check((await completeSetup(gone.deps, t3, GOOD, '1.1.1.1')).status === 'expired' && gone.authCalls().length === 0, 'a person taken off the list meanwhile: expired, nothing touched');
 }
 
+// ── The Owner sends one person a link ───────────────────────────────────────
+{
+  const h = harness();
+  for (let i = 0; i < ADDRESS_DAILY_LIMIT.max + 2; i++) await requestSetup(h.deps, PAT, `10.3.0.${i}`);
+  const before = h.links().length;
+  check(before === ADDRESS_LIMIT.max, 'the inbox\'s own cap has been used up by people asking');
+  check(await ownerSendLink(h.deps, ` ${PAT.toUpperCase()} `) === 'sent' && h.links().length === before + 1, 'the Owner\'s link is sent all the same');
+  const text = h.links()[h.links().length - 1].message.text;
+  const token = readSetupLink(text.slice(text.indexOf('#')).split('\n')[0])!.token;
+  check(h.tokens.size === 1 && h.authCalls().length === 0 && !h.log.some(l => l.startsWith('bind')), 'it is the one live link, and sending it changed nothing');
+  check((await completeSetup(h.deps, token, GOOD, '1.1.1.1')).status === 'done', 'and it works like any other');
+  check(await ownerSendLink(h.deps, 'stranger@elsewhere.test') === 'not-listed' && await ownerSendLink(h.deps, 'a/b@school.test') === 'not-listed' && await ownerSendLink(h.deps, 42) === 'not-listed',
+    'an address that is not listed gets nothing');
+  const many: Record<string, Record<string, unknown>> = {};
+  for (let i = 0; i < GLOBAL_LIMIT.max + 1; i++) many[`q${i}@school.test`] = { role: 'director' };
+  const all = harness({ listed: many });
+  let sent = 0;
+  for (let i = 0; i < GLOBAL_LIMIT.max + 1; i++) if (await ownerSendLink(all.deps, `q${i}@school.test`) === 'sent') sent++;
+  check(sent === GLOBAL_LIMIT.max, 'the whole mailbox\'s hourly cap still applies to it');
+}
+
 // ── Which account is recorded ───────────────────────────────────────────────
 {
   // Nobody has ever signed in.
@@ -266,8 +303,11 @@ async function linkFor(h: ReturnType<typeof harness>, email: string, caller = '1
   const carried = u.providerData.filter(p => p.providerId === 'google.com');
   check(carried.length === 1 && carried[0].uid === `google-id-of-${PAT}` && carried[0].email === PAT, 'and the Google identity the entry names is attached to the fresh one');
   check(d.boundUid === u.uid && d.passwordSet === true && d.googleSub === `google-id-of-${PAT}`, 'the entry now names the fresh account, keeps its Google identity, and has the password mark');
-  const order = [`delete ${mine.uid}`, `create ${u.uid}`, `link ${u.uid} google-id-of-${PAT}`, `bind ${u.uid}`].map(s => h.log.indexOf(s));
-  check(order.every(i => i >= 0) && order.join() === [...order].sort((a, b) => a - b).join(), 'in this order: old account gone, fresh one made, Google attached, then recorded');
+  const order = [`lock ${PAT}`, `create ${u.uid}`, `link ${u.uid} placeholder-${u.uid}`, `unlink ${u.uid}`, `delete ${mine.uid}`, `address ${u.uid}`, `link ${u.uid} google-id-of-${PAT}`, `bind ${u.uid}`, `unlock ${PAT}`].map(s => h.log.indexOf(s));
+  check(order.every(i => i >= 0) && order.join() === [...order].sort((a, b) => a - b).join(),
+    'in this order, all under the person\'s claim: fresh account made, the attach step proven on it, only then the old account gone, the address moved, Google attached, recorded');
+  const readAt = h.log.lastIndexOf('read entry');
+  check(readAt > h.log.indexOf(`lock ${PAT}`) && readAt < h.log.indexOf(`create ${u.uid}`), 'and the entry is read under that claim, just before the account is made');
 }
 {
   // Tied to Google, but the account standing on the address has some OTHER
@@ -379,12 +419,20 @@ for (const [label, existing] of [
   check(squash(handler).includes("const caller = callerAddress(req.get('X-Forwarded-For'), req.socket?.remoteAddress);") && !/req\.ip\b/.test(handler),
     'callers are counted by callerAddress, never by req.ip');
   const logged = [...handler.matchAll(/console\.\w+\(([^;]*)\);/g)].map(m => m[1]);
-  check(logged.join(' | ') === "'passwordSetup request failed:', (err as { code?: unknown } | null)?.code ?? 'unknown' | 'passwordSetup complete failed:', (err as { code?: unknown } | null)?.code ?? 'unknown'",
-    'it logs an error code and nothing else, in exactly two places: no address, token, password or raw error');
+  check(logged.join(' | ') === "'passwordSetup owner-send failed:', (err as { code?: unknown } | null)?.code ?? 'unknown' | 'passwordSetup request failed:', (err as { code?: unknown } | null)?.code ?? 'unknown' | 'passwordSetup complete failed:', (err as { code?: unknown } | null)?.code ?? 'unknown'",
+    'it logs an error code and nothing else, in exactly three places: no address, token, password or raw error');
+  // The Owner's link: the same staff test as every other function, then the Owner role, before anything is done.
+  const owner = squash(handler.slice(handler.indexOf("action === 'owner-send'"), handler.indexOf("action === 'request'")));
+  check(/const staff = await staffFromIdToken\(idToken\); if \(!staff\) \{ refuse\(401, [^)]*\); return; \} if \(!hasKnownRole\(staff\.director\)\) \{ refuse\(403, [^)]*\); return; \} if \(!isOwnerDoc\(staff\.director\)\) \{ refuse\(403, [^)]*\); return; \}/.test(owner)
+    && owner.indexOf('isOwnerDoc(staff.director)') < owner.indexOf('ownerSendLink('),
+  'the Owner\'s link is sent only for a caller the Hub honours whose entry is an Owner\'s, checked before anything is done');
+  check(/function isOwnerDoc\(d: Record<string, unknown> \| undefined\): boolean \{ if \(!d\) return false; return Array\.isArray\(d\.roles\) \? \(d\.roles as unknown\[\]\)\.includes\('owner'\) : d\.role === 'owner'; \}/.test(squash(index)),
+    'and an Owner is told by the entry\'s roles');
   check((handler.match(/res\.status\(200\)\.json\(\{ ok: true \}\)/g) ?? []).length === 1 && !/requestSetup[\s\S]*refuse\(5/.test(handler.slice(0, handler.indexOf("action === 'complete'"))),
     'asking answers ok even when something fails inside, so an error is not a way to learn who is listed');
 
   const store = noComments(readFileSync(resolve(here, 'passwordSetupStore.ts'), 'utf8'));
+  check(/lock: entryLock\(db\),/.test(store), 'the store takes the same per-person claim the Google step takes');
   check(/\.update\(\{ boundUid: uid, boundAt: now, passwordSet: true \}\)/.test(store) && !/directors\/\$\{email\}`\)\.set\(/.test(store), 'the record is written with update(), so it can never put anyone on the list');
   const take = squash(store.slice(store.indexOf('async takeToken('), store.indexOf('async sendMail(')));
   check(take.startsWith('async takeToken(id, now) { return db.runTransaction(async tx => {') && /const snap = await tx\.get\(ref\);/.test(take) && /tx\.delete\(ref\);/.test(take) && !/\bdb\.doc\([^)]*\)\.(get|delete)\(/.test(take),
@@ -409,6 +457,13 @@ for (const [label, existing] of [
   check(completeFn.indexOf("return { status: 'limited' }") < completeFn.indexOf('deps.takeToken('), '"too many tries" is decided before the link is looked at');
   check(completeFn.indexOf('deps.takeToken(') < completeFn.indexOf('passwordAcceptable(') && completeFn.indexOf('deps.takeToken(') < completeFn.indexOf('deps.getDirector('),
     'the link is used up before the password or the list is looked at');
+  const locked = completeFn.slice(completeFn.indexOf('await deps.lock(email, async () => {'));
+  check(locked.length > 0 && completeFn.indexOf('deps.getDirector(') > completeFn.indexOf('await deps.lock(email, async () => {')
+    && /deps\.getDirector\(email\)[\s\S]*freshAccount\(deps\.auth,[\s\S]*return deps\.bind\(email, uid, deps\.now\(\)\);\s*\}\);/.test(locked),
+  'the entry is read, the account replaced and the record written under one claim on the person');
+  const ownerFn = core.slice(core.indexOf('export async function ownerSendLink'), core.indexOf('export type CompleteOutcome'));
+  check(ownerFn.length > 0 && !/deps\.auth|deps\.bind|freshAccount|limitKey\('(to|day)'/.test(ownerFn) && /limitKey\('all', 'everyone'\)/.test(ownerFn),
+    'the Owner\'s link touches no account and no record, skips the inbox\'s own caps and keeps the mailbox\'s');
   check(/const uid = await freshAccount\(deps\.auth, \{/.test(completeFn) && !/deps\.auth\.(createUser|updateUser|deleteUser|getUserByEmail)/.test(core),
     'the account is made through freshAccount and no other way');
   check(/\.\.\.\(googleSub \? \{ google: \{ providerId: 'google\.com', uid: googleSub, email \} \} : \{\}\)/.test(completeFn) && /const googleSub = typeof director\.googleSub === 'string' \? director\.googleSub : '';/.test(completeFn),
@@ -418,12 +473,18 @@ for (const [label, existing] of [
 
   // The app's side of the same promise.
   const gate = noComments(readFileSync(resolve(repo, 'src/director/components/AuthGate.tsx'), 'utf8'));
-  const choose = gate.slice(gate.indexOf('async function choosePassword'), gate.indexOf('async function signIn()'));
+  const choose = gate.slice(gate.indexOf('async function choosePassword'), gate.indexOf('async function recordWith('));
   check(choose.length > 0 && !/signInWith|getIdToken|signInWithCustomToken/.test(choose), 'choosing a password signs nobody in: it hands over to the ordinary sign-in form');
   check(!gate.includes('signInWithCustomToken') && !gate.includes('signInWithEmailLink'), 'AuthGate signs in by Google or by password and by nothing else');
   check(/autoComplete="username" readOnly/.test(gate) && (gate.match(/autoComplete="new-password"/g) ?? []).length === 2 && /autoComplete="current-password"/.test(gate),
     'the fields are marked so a phone saves the email and password as a pair');
   const choosing = gate.slice(gate.indexOf("PASSWORD_SIGN_IN && setupLink && mode === 'choose'"));
+  // What a link claims about whose it is is never shown: the server says, once it answers.
+  const chooseScreen = choosing.slice(0, choosing.indexOf("mode === 'setup'"));
+  check((chooseScreen.match(/setupLink\.email/g) ?? []).length === 1
+    && chooseScreen.includes('<input type="email" name="username" autoComplete="username" readOnly hidden value={setupLink.email} />')
+    && /const \[typedEmail, setTypedEmail\] = useState\(justSet\);/.test(gate),
+  'the choose-your-password screen shows no address: the one the link claims is only in a hidden field for the password manager, and fills in no form');
   check(!/<(img|script|link|iframe)[^>]*(src|href)=["{]\s*["`']?https?:/.test(choosing.slice(0, choosing.indexOf("mode === 'setup'"))), 'the choose-your-password screen loads nothing from another site');
   for (const never of ['createUserWithEmailAndPassword', 'sendPasswordResetEmail', 'sendEmailVerification', 'updatePassword', 'confirmPasswordReset']) {
     check(!gate.includes(never), `AuthGate never calls ${never}: accounts and passwords are the server's work`);
@@ -431,8 +492,8 @@ for (const [label, existing] of [
   // What the sign-in screen keeps on the device: a count and an address.
   // Never a password, and never in localStorage.
   const stored = [...gate.matchAll(/(local|session)Storage\.setItem\(([^;]*)\);/g)].map(m => `${m[1]}:${squash(m[2])}`);
-  check(stored.sort().join(' | ') === 'session:AGAIN_KEY, String(n) | session:JUST_SET_KEY, answer.email',
-    'the sign-in screen stores exactly two things, in sessionStorage: a count, and the address a password was just set for');
+  check(stored.sort().join(' | ') === "session:AGAIN_KEY, String(n) | session:JUST_SET_KEY, answer.email | session:LATER_KEY, '1'",
+    'the sign-in screen stores exactly three things, in sessionStorage: a count, a "later", and the address a password was just set for');
   check(!/localStorage/.test(gate), 'and nothing in localStorage');
   check(MIN_PASSWORD_LENGTH === 10, 'the shortest password the Hub\'s own link accepts is 10 characters');
 }

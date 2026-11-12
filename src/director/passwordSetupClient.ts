@@ -1,5 +1,5 @@
 /**
- * The app's side of setting a staff password (#password-sign-in): two calls
+ * The app's side of setting a staff password (#password-sign-in): three calls
  * to the `passwordSetup` Cloud Function and nothing else. The app never
  * creates an account and never sets a password itself; the server does both,
  * and only for someone holding the link from their own inbox
@@ -22,7 +22,7 @@ export interface SetupAnswer {
 
 const NO_REACH = 'That did not reach the Hub. Check your internet and try again.';
 
-async function call(body: Record<string, string>): Promise<SetupAnswer> {
+async function call(body: Record<string, string>, idToken = ''): Promise<SetupAnswer> {
   const url = endpoint();
   if (!url) return { ok: false, message: NO_REACH };
   try {
@@ -35,7 +35,11 @@ async function call(body: Record<string, string>): Promise<SetupAnswer> {
     }
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Firebase-AppCheck': token } : {}) },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'X-Firebase-AppCheck': token } : {}),
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+      },
       body: JSON.stringify(body),
     });
     const data = await res.json().catch(() => null) as { ok?: boolean; email?: string; message?: string } | null;
@@ -48,6 +52,13 @@ async function call(body: Record<string, string>): Promise<SetupAnswer> {
 
 /** Ask for the link. The answer is the same whether or not the address is on the staff list. */
 export const requestPasswordLink = (email: string) => call({ action: 'request', email });
+
+/**
+ * The Owner has the Hub email one listed person their link (Directors
+ * screen). `idToken` is the Owner's own sign-in; the server checks it.
+ */
+export const ownerSendPasswordLink = (idToken: string, email: string) =>
+  call({ action: 'owner-send', email }, idToken);
 
 /** The link was opened and a password chosen. On success the server has set it. */
 export const completePasswordSetup = (token: string, password: string) =>

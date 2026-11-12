@@ -7,9 +7,9 @@
  * actually minted, and from the same staff test the Cloud Functions use
  * (functions/src/staffToken.ts). Setting a password runs the REAL
  * requestSetup / completeSetup (functions/src/passwordSetup.ts) over the
- * real store (passwordSetupStore.ts, freshAccount.ts) and the real Admin
- * SDK: the code the `passwordSetup` function runs, minus only its HTTP
- * wrapper.
+ * real store (passwordSetupStore.ts, freshAccount.ts, entryLock.ts) and the
+ * real Admin SDK: the code the `passwordSetup` function runs, minus only its
+ * HTTP wrapper.
  *
  * Every "gets in" below asks THREE gates and requires them to agree:
  *   Firestore   the person's own directors doc, and the staff-only roster
@@ -17,8 +17,11 @@
  *   Functions   verifyIdToken, then staffFromToken, then the role check
  *
  * Google sign-ins here do what the app does (#google-binding): right after
- * signing in, the device asks the REAL bindGoogle, and when the answer is
- * "again" it signs in once more. The switch that makes Firestore require the
+ * signing in, the device asks the REAL bindGoogle, sending along what Google
+ * said at that sign-in, and when the answer is "again" the same Google
+ * sign-in opens the fresh account. (The emulator's stand-in for Google signs
+ * nothing, so this script reads what it says directly; the real signature
+ * check is functions/src/googleIdToken.ts, with a self-check of its own.) The switch that makes Firestore require the
  * record is ON throughout, which is the state password sign-in is meant to
  * be turned on in, and the only one in which all three gates give the same
  * answer for a Google sign-in.
@@ -33,8 +36,8 @@
  *     --project demo-password-sign-in \
  *     "node scripts/password-sign-in.emulator-proof.mjs"
  *
- * It runs in CI before every rules deploy and on pull requests that touch
- * the rules (.github/workflows/rules-checks.yml).
+ * It runs in CI before every rules deploy and every functions deploy, and on
+ * pull requests that touch the rules (.github/workflows/rules-checks.yml).
  *
  * What an emulator can and cannot prove. The rules verdicts are exact (same
  * rules engine as production). What the sign-in service itself does is the
@@ -45,12 +48,12 @@
 import { initializeApp, deleteApp } from 'firebase/app';
 import {
   getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signInAnonymously,
-  signInWithEmailAndPassword, signInWithCredential, GoogleAuthProvider, updatePassword,
+  signInWithEmailAndPassword, signInWithCredential, GoogleAuthProvider,
 } from 'firebase/auth';
 import { initializeApp as initializeAdminApp } from 'firebase-admin/app';
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { getFirestore as getAdminFirestore, FieldValue } from 'firebase-admin/firestore';
-import { completeSetup, requestSetup } from '../functions/src/passwordSetup.ts';
+import { completeSetup, ownerSendLink, requestSetup } from '../functions/src/passwordSetup.ts';
 import { passwordSetupStore } from '../functions/src/passwordSetupStore.ts';
 import { staffFromToken } from '../functions/src/staffToken.ts';
 import { bindGoogle } from '../functions/src/googleBinding.ts';
@@ -74,7 +77,15 @@ const adminApp = initializeAdminApp({ projectId: PROJECT });
 const adminAuth = getAdminAuth(adminApp);
 const adminDb = getAdminFirestore(adminApp);
 const store = passwordSetupStore(adminDb, adminAuth, { publicUrl: 'https://example.test/hub/', appName: 'Proof Hub' });
-const bindStore = googleBindingStore(adminDb, adminAuth);
+/** What Google said at a sign-in. On the emulators the "token" is the JSON the sign-in was made with. */
+const whatGoogleSays = async token => {
+  try {
+    const c = JSON.parse(String(token));
+    if (typeof c.sub !== 'string' || typeof c.email !== 'string') return null;
+    return { sub: c.sub, email: c.email.toLowerCase(), emailVerified: c.email_verified === true };
+  } catch { return null; }
+};
+const bindStore = googleBindingStore(adminDb, adminAuth, whatGoogleSays);
 
 const apps = [];
 /** One browser: its own sign-in state. */
@@ -169,9 +180,7 @@ async function setPassword(email, password) {
   return completeSetup(store, token, password, someCaller());
 }
 
-const fakeGoogle = (email, id = `google-${email}`) => GoogleAuthProvider.credential(
-  JSON.stringify({ sub: id, email, email_verified: true }),
-);
+const googleSays = (email, id = `google-${email}`) => JSON.stringify({ sub: id, email, email_verified: true });
 /**
  * The claims of a token, as the `bindGoogle` function sees them. Against the
  * emulators the Admin SDK's verifyIdToken ALSO looks the account up, and so
@@ -187,14 +196,15 @@ async function claimsFor(idToken) {
     return { ...c, uid: c.user_id ?? c.sub };
   }
 }
-/** What the app does by itself after a Google sign-in: ask the server. */
-const askToBind = async dev => bindGoogle(bindStore, await claimsFor(await dev.auth.currentUser.getIdToken()));
-/** Sign in with Google on a device (a new one unless given), and nothing else. */
+/** What the app does straight after a Google sign-in: ask the server, sending along what Google said. */
+const askToBind = async dev => bindGoogle(bindStore, await claimsFor(await dev.auth.currentUser.getIdToken()), dev.googleToken);
+/** Sign in with Google on a device (a new one unless given), and nothing else. The device keeps what Google said, as the app does. */
 const googleOnly = async (name, email, id, d = device(name)) => {
-  const { user } = await signInWithCredential(d.auth, fakeGoogle(email, id));
+  d.googleToken = googleSays(email, id);
+  const { user } = await signInWithCredential(d.auth, GoogleAuthProvider.credential(d.googleToken));
   return { d, user };
 };
-/** What an up-to-date copy of the Hub does: sign in, ask, and when told "again" sign in once more. */
+/** What an up-to-date copy of the Hub does: sign in, ask, and when told "again" open the fresh account with the same Google sign-in. */
 const google = async (name, email, id) => {
   const first = await googleOnly(name, email, id);
   const tie = await askToBind(first.d);
@@ -477,22 +487,39 @@ async function s8_onePersonPerAccount() {
   const ned = await byPassword('ned-phone', email, 'neds own pass 1');
   must(await getsIn(ned.d, email) === true, 'and is in by password');
 
-  // The account on record, with a Google identity on it that the entry does not name.
+  // The account on record, with a Google identity on it that the entry does
+  // not name, and a password that is not the one the person chose. (What an
+  // account carries is the sign-in service's to decide, not the Hub's.)
   await adminAuth.updateUser(record.boundUid, { providersToUnlink: ['google.com'] });
-  await adminAuth.updateUser(record.boundUid, { providerToLink: { providerId: 'google.com', uid: 'google-other', email } });
+  await adminAuth.updateUser(record.boundUid, { providerToLink: { providerId: 'google.com', uid: 'google-other', email }, password: 'a password of its own 1' });
+  const viaPassword = await byPassword('by-that-password', email, 'a password of its own 1');
+  must(await getsIn(viaPassword.d, email) === false, 'a password sign-in on it is not honoured: the account does not have the Google identity its entry names');
   const other = await googleOnly('another-identity', email, 'google-other');
   need(other.user.uid === record.boundUid, 'that identity signs in on the account on record');
   must(await getsIn(other.d, email) === false, 'a Google sign-in on it with an identity the entry does not name: refused');
-  must(await askToBind(other.d) === 'other-account' && (await director(email)).googleSub === 'google-ned', 'and the server will not move the record to it');
-  need(await codeOf(updatePassword(other.d.auth.currentUser, 'a password of its own 1')) === 'ok', 'the sign-in service lets that session change the password');
-  const viaPassword = await byPassword('by-that-password', email, 'a password of its own 1');
-  must(await getsIn(viaPassword.d, email) === false, 'a password put on the account that way is not honoured: the account does not have the Google identity its entry names');
-  // The person puts it right with a link from their own inbox.
-  must((await setPassword(email, 'neds own pass 2')).status === 'done', 'the person sets a password again by link');
+
+  // Its Hub asks. The server does not move the record; it makes the account
+  // afresh for the identity the entry DOES name, which ends every session on
+  // the old one and leaves no password on the new one.
+  must(await askToBind(other.d) === 'other-account', 'it asks: "other-account"');
+  const after = await director(email);
+  const remade = await adminAuth.getUser(after.boundUid);
+  must(after.googleSub === 'google-ned' && after.boundUid !== record.boundUid && after.passwordSet === false,
+    'the record still names the person\'s own Google identity, on a fresh account, with the password mark off');
+  must(remade.providerData.length === 1 && remade.providerData[0].providerId === 'google.com' && remade.providerData[0].uid === 'google-ned',
+    'the fresh account carries that Google identity and nothing else: no password of anyone\'s');
+  must(await refresh(other.d) !== 'ok' && await refresh(viaPassword.d) !== 'ok' && await refresh(ned.d) !== 'ok', 'every session that was on the old account cannot be renewed');
+  must(await codeOf(signInWithEmailAndPassword(device('that-password-again').auth, email, 'a password of its own 1')) !== 'ok'
+    && await codeOf(signInWithEmailAndPassword(device('neds-old-password').auth, email, 'neds own pass 1')) !== 'ok',
+  'and neither password signs in anywhere');
+
+  // The person signs in with Google and is in; then chooses a password again.
+  const back = await googleOnly('ned-laptop-again', email, 'google-ned');
+  must(back.user.uid === after.boundUid && await getsIn(back.d, email) === true && await askToBind(back.d) === 'bound', 'the person signs in with Google, is on the account on record, and is in');
+  must((await setPassword(email, 'neds own pass 2')).status === 'done', 'and sets a password again by link');
   const fresh = await adminAuth.getUserByEmail(email);
-  must(fresh.providerData.filter(p => p.providerId === 'google.com').map(p => p.uid).join() === 'google-ned', 'the fresh account has the entry\'s Google identity on it, and no other');
-  must(await getsIn((await byPassword('ned-phone-2', email, 'neds own pass 2')).d, email) === true, 'and they are in again');
-  must(await refresh(other.d) !== 'ok' && await refresh(viaPassword.d) !== 'ok', 'the sessions that were on the old account cannot be renewed');
+  must(fresh.providerData.filter(q => q.providerId === 'google.com').map(q => q.uid).join() === 'google-ned', 'the fresh account has the entry\'s Google identity on it, and no other');
+  must(await getsIn((await byPassword('ned-phone-2', email, 'neds own pass 2')).d, email) === true, 'and they are in again by password');
 }
 
 async function s9_aFailedSetup() {
@@ -612,12 +639,47 @@ async function s12_theRecordItself() {
   must(other.user.uid !== good.boundUid && await getsIn(other.d, email) === false, 'a different account on that person\'s address, verified: refused, it is not the account on record');
 }
 
+async function s13_theOwnersLinkAndTwoAtOnce() {
+  section('(13) The Owner\'s link, and two requests for one person at the same moment');
+  {
+    const email = 'oz@school.test';
+    await list(email);
+    for (let i = 0; i < 5; i++) await requestSetup(store, email, someCaller()); // people asking in this person's name
+    need((await mailTo(email)).length === 3, 'the inbox has had its three links for the hour');
+    await hubLink(email); // those are in the inbox; set them aside
+    must(await ownerSendLink(store, email) === 'sent', 'the Owner has the Hub send this person a link, though the inbox\'s own cap is used up');
+    const token = await hubLink(email);
+    must(!!token && (await director(email)).boundUid === undefined, 'it arrives, and sending it changed nothing');
+    must((await completeSetup(store, token, 'ozs own pass 1', someCaller())).status === 'done'
+      && await getsIn((await byPassword('oz-phone', email, 'ozs own pass 1')).d, email) === true, 'and it works like any other link');
+    must(await ownerSendLink(store, 'nobody-listed@school.test') === 'not-listed' && (await mailTo('nobody-listed@school.test')).length === 0, 'for an address that is not listed, nothing is sent');
+  }
+  {
+    // A Google confirm and a password link for the same person, at once.
+    const email = 'pam@school.test';
+    await list(email);
+    const pam = await googleOnly('pam-laptop', email);
+    await requestSetup(store, email, someCaller());
+    const token = await hubLink(email);
+    const both = await Promise.allSettled([askToBind(pam.d), completeSetup(store, token, 'pams own pass 1', someCaller())]);
+    must(both.every(r => r.status === 'fulfilled') && both[1].value?.status === 'done', 'neither request fails');
+    const e = await director(email);
+    const standing = await adminAuth.getUserByEmail(email);
+    const kinds = standing.providerData.map(q => q.providerId).sort().join();
+    const googleOn = standing.providerData.filter(q => q.providerId === 'google.com').map(q => q.uid).join();
+    must(standing.uid === e.boundUid && e.passwordSet === true && kinds.includes('password') && googleOn === (e.googleSub ?? ''),
+      'one account stands on the address; it is the one the record names, with the password, and with exactly the Google identity the record names (or none)');
+    must(await getsIn((await byPassword('pam-phone', email, 'pams own pass 1')).d, email) === true, 'and the person is in with the password they chose');
+    must(!(await adminDb.doc(`signInLocks/${email}`).get()).exists, 'the claim that kept the two apart has been let go');
+  }
+}
+
 await adminDb.doc('students/probe').set({ name: 'Probe Student (fictional)' });
 await adminDb.doc('serverConfig/signIn').set({ googleTieRequired: true }); // the record is required (see the header)
 const steps = [
   s1_theRulesAlone, s2_askingChangesNothing, s3_noAccountYet, s4_theRecordIsTheServers, s5_googleFirst,
   s6_reset, s7_aSessionFromBeforeDoesNotCarryOver, s8_onePersonPerAccount, s9_aFailedSetup, s10_linksAreOneTime,
-  s11_removedAndReadded, s12_theRecordItself,
+  s11_removedAndReadded, s12_theRecordItself, s13_theOwnersLinkAndTwoAtOnce,
 ];
 for (const step of steps) {
   try { await step(); }

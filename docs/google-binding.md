@@ -1,56 +1,81 @@
 # Each listed person is tied to their own Google account
 
-Added November 2026. It goes live in three moves, because of how the Hub updates on people's phones: two changes to merge, then one switch.
+Added November 2026. It goes live in steps, because of how the Hub updates on people's phones: the Owner alone first, then everyone, then the rules, then one switch. **Do none of these steps on a concert day.**
 
 ## What it is
 
 The Directors screen lists people by email. This adds a record, kept by the Hub's server, of which Google account and which Hub sign-in belongs to each listed person, and then lets in only that one.
 
-- The Hub's server makes the record by itself, the first time each person opens the Hub after this is live. Nobody types anything.
-- **Each person is asked to sign in with Google once more, one time on each device.** When the server confirms a person, it gives them a fresh Hub sign-in, so they sign in again to be on it. The screen says "One more step" and has the usual Google button.
-- No browser can write that record. The Owner can clear one person's record (Directors screen, **Reset**) when that person starts using a different Google account; the Hub makes it again the next time they open it.
+- A person confirms with **one tap**. A note at the bottom of the Hub says "One quick step" with **Confirm now** and **Later**. Confirm now opens the usual Google window once. A person who is signing in anyway is confirmed by that same sign-in, with nothing extra to tap.
+- The server makes the record only from what Google itself says at that sign-in: who the person is, and that Google has checked their address.
+- When it confirms a person, the server gives them a fresh Hub sign-in. **Their other phones and computers are signed out** (within the hour) and each asks them to sign in again.
+- No browser can write the record. The Owner can clear one person's record (Directors screen, **Reset**) when that person starts using a different Google account.
 - It is still "Sign in with Google". Nothing about anyone's Google account changes.
 
-## Move 1 (can merge any time, but pick a quiet day): the server step and the app's call
+Tell staff, before each step that asks them to confirm:
 
-What people see: the next time each person opens an up-to-date copy of the Hub, a "One more step" screen asks them to sign in with Google once more. That happens once per device. Do not merge this on a concert day.
+- Confirm when you are not in the middle of something. **If you have taken roll, let it finish saving first** (unsaved changes belong to the sign-in they were made on).
+- Afterwards, open the Hub on each of your other devices and sign in again. **Do every device before your next concert.**
 
-What the Owner sees: on the Directors screen, a line under each person, **Google account confirmed** or **Google account not confirmed yet**, and a count at the top.
+## Step 1: the Owner alone
 
-One small rule change rides with this move: the Directors rule now refuses any browser that tries to write that record. It changes nothing for anyone, because no screen writes it.
+Merging the first change turns the server step on, but only the Owner's Hub asks for it. Nobody else sees anything. This is on purpose: the server step replaces a sign-in account, and it has only ever run on a test setup. The Owner tries it on the real project before anyone else is exposed to it.
 
-After merging, check that `bindGoogle` shows in `npx --no-install firebase functions:list --project nwsa-hub`. A green deploy is not proof. Then open the Hub yourself: you should get "One more step", sign in again, and your own entry should read "Google account confirmed".
+After merging:
 
-Then wait. A phone holds a new version of the Hub until the person taps **Refresh**, so this takes as long as it takes for everyone to open the Hub and refresh.
+1. **Check the server step is there.** Open `https://us-central1-nwsa-hub.cloudfunctions.net/bindGoogle` in a browser. A short line that begins "The Hub sign-in helper is here" means it is live. Google's own "Error: Page not found" page means it is not there yet; wait a few minutes and look again.
+2. **Open the Hub and refresh.** At the bottom you should see "One quick step". Tap **Confirm now** and choose your Google account.
 
-## Before move 2: three checks
+**It worked if:** the note goes away, you are still in the Hub, and your own entry on the Directors screen reads "Google account confirmed". Then open the Hub on your other devices; each asks you to sign in once, and then works.
 
-1. **Directors screen: every active person reads "Google account confirmed".** The Owner's own entry MUST be confirmed.
-2. **GitHub → Actions → *Audit Sign-in Accounts* → Run workflow.** It prints one word. `OK` means every sign-in account is what the Hub expects. `REVIEW NEEDED` means at least one is not; find out which (run the script on a private machine with `DETAILS=1`, never in Actions) before going on.
-3. Someone "not confirmed yet" who has definitely opened the Hub since move 1 is worth a look: the server declined to confirm them. Their own screen shows a note at the bottom saying so.
+**It did not work if** any of these happens. None of them locks you out, because nothing requires the record yet:
 
-## Move 2 (after those checks): the rules, with the requirement still switched off
+- The note stays, or comes back after you confirm. Tap **Later** and carry on. It stops asking after two tries and asks again the next time you open the Hub.
+- You are sent to the sign-in screen with "One more step: sign in with Google once more". Sign in. If the Directors screen then says "confirmed", it worked the slow way; say so, because everyone else would get that too.
+- A note says the Hub "could not confirm this Google account as yours". See "If someone is stuck".
 
-Merging deploys the rules by themselves. Two things happen at that moment:
+If it did not work, **stop here** and use the stop button below. Do not go on to step 2.
 
-- **Anything kept in file storage needs the confirmed sign-in straight away.** For a person who is not confirmed, that means: no uploading (documents, attachments, announcement files), and no opening or listing of the staff-only files (check-in photos, signed permission forms, lesson attachments, absence excuse photos, the list of video submissions). The "send a test alert" button too. The Hub confirms them by itself when they open an up-to-date copy, and then all of it works. In practice this is someone still on an old copy of the Hub, or someone the server declined to confirm.
+### The stop button
+
+Reverting the change does not remove a server step that is already deployed, and phones that already took the new copy keep calling it. To stop it for certain: Google Cloud console → project **nwsa-hub** → Cloud Functions → **bindGoogle** → Delete. With it gone, the Hub carries on exactly as before for everyone.
+
+## Step 2: everyone
+
+A small follow-up change (one line in `AuthGate.tsx`: `asksServer` becomes `() => true`, with its self-check line) makes every person's Hub offer the note. Merge it only when step 1 worked, and not in the days before a concert: people confirm whenever their phone next takes the new copy, which is not a moment you choose.
+
+Then wait. A phone holds a new version of the Hub until the person taps **Refresh**. Watch the count at the top of the Directors screen.
+
+Right after this, run GitHub → Actions → *Audit Sign-in Accounts* once (see "Before step 3").
+
+## Before step 3: three checks
+
+1. **Directors screen: everyone listed reads "Google account confirmed".** The Owner's own entry MUST be confirmed. Step 4 counts **everyone on the list**, not only people who are active. A new hire who has not signed in, or an entry nobody uses, will make it refuse. Remove entries nobody uses rather than working around them.
+2. **GitHub → Actions → *Audit Sign-in Accounts* → Run workflow.** It prints one word. `OK` means every sign-in account is what the Hub expects. `REVIEW NEEDED` means at least one is not: **stop**, and do not go on until it says `OK`. The log never says which. The top of the Directors screen does, for the Owner: "Last account check", with the sign-in accounts it wants looked at and the listed people who have never signed in. For each account it names: Firebase console → Authentication → Users → search for the address → the three dots → Delete account. That deletes a Hub sign-in and nothing else (not a Google account, nothing in the Hub); the person signs in with Google again and gets a clean one. Then run the check again.
+3. Someone "not confirmed yet" who says they tapped Confirm: the server declined them. See "If someone is stuck".
+
+## Step 3: the rules, with the requirement still switched off
+
+Merging deploys the rules by themselves, after their checks pass. Two things happen at that moment:
+
+- **Anything kept in file storage needs the confirmed sign-in straight away**, on every device. For a person who is not confirmed, or a confirmed person on a device that has not signed in again since: no uploading (documents, attachments, announcement files), and no opening or listing of the staff-only files (check-in photos, signed permission forms, lesson attachments, absence excuse photos, the list of video submissions). The "send a test alert" button too. Signing in again on that device fixes it.
 - **Everything else works exactly as before**, because the requirement itself is behind a switch that starts off.
 
-After merging, check that Google sign-in still works for you and for one other role, and that you can open a staff-only file (for example a signed permission form).
+After merging, check that Google sign-in still works for you and for one other role. To see that the new rules really deployed, look at the run in GitHub → Actions → *Deploy Firestore & Storage rules*: its "Deploy Storage rules" step must be green. (Opening a staff file proves nothing; the old rules allow it too.)
 
-## Move 3: the switch
+## Step 4: the switch
 
-GitHub → Actions → ***Require Google Ties*** → Run workflow. Its log says nothing about the result, on purpose: this repository's logs are public. **The result is on the Directors screen**, at the top, for the Owner.
+GitHub → Actions → ***Require Google Ties*** → Run workflow. Its log says nothing about the result, on purpose: this repository's logs are public. **The result is on the Directors screen**, at the top, for the Owner. Read it after every run.
 
-- **on** requires the confirmed sign-in. It refuses if anyone listed is not confirmed. (Tick the box to turn it on anyway; those people are confirmed the next time they open the Hub.)
-- **off** stops requiring it. It takes effect at once. This is the undo, and it needs no code change.
+- **on** requires the confirmed sign-in. It refuses if anyone on the list is not confirmed.
+- **The box ("turn it on even if...")**: do not tick it while anyone might still be on an old copy of the Hub. A phone with an old copy cached opens as normal and then **every save is refused with nothing on the screen**. Tick it only for someone you have decided to leave unconfirmed, knowing that.
+- **off** stops requiring it, at once. This is the undo, and it needs no code change. While it is off, the Hub is as open as it is today, so do not leave it off.
 - **clear-owner** clears the Owner's own record (see "If someone is stuck").
 
 Once it is on:
 
-- A person who is confirmed notices nothing. Their Hub keeps working offline as before.
-- A newly listed person: their first sign-in gets the "One more step" screen, once.
-- A person who is not confirmed, on an up-to-date copy: the Hub confirms them on the spot, with "One more step".
+- A person who is confirmed, on a device that has signed in since: notices nothing. Their Hub keeps working offline as before.
+- A confirmed person on another device, or a newly listed person: a "One more step" screen with one button, once.
 - A person on an old copy who was never confirmed: "Couldn't verify your access" until they refresh.
 - A person the server will not confirm for that address: a plain screen telling them to ask the Owner.
 
@@ -58,22 +83,28 @@ The switch is never turned on for the demo sites. They have no server step, so n
 
 ## If someone is stuck
 
-- **They changed Google accounts:** Directors screen, **Reset** beside their name, then they sign in again.
-- **The Owner is stuck** (for example the Owner's own Google account changed): the Owner's record cannot be reset from the screen, on purpose. Run *Require Google Ties* with **clear-owner**. It clears the record on the Owner's entry and nothing else, and its log names nobody. The Hub confirms the Owner again at the next sign-in. If the switch is on, turn it **off** first so the Owner can get in to check, then on again.
-- **Something is wrong for everyone:** *Require Google Ties* → **off**. Reading and writing the Hub's data is as it was before move 3, at once. File storage has no switch: if that is what is wrong, revert move 2.
-- **"Couldn't finish confirming your account":** the Hub asked that person to sign in again twice and still could not finish. Have them close the Hub and open it again; if it repeats, look at their entry.
+- **They changed Google accounts:** Directors screen, **Reset** beside their name, then they confirm again.
+- **The Hub says it "could not confirm this Google account as yours" / "does not match".** Two usual causes:
+  - *Their Google account's address is not the listed one any more* (it was renamed). Remove them from the Directors screen and add them under the address their Google account shows.
+  - *Some other sign-in account is sitting on their address.* Firebase console → Authentication → Users → search for the address → the three dots → Delete account. (That deletes a Hub sign-in, never a Google account.) Then they sign in again.
+- **"A different Google account is on file":** that person has two Google accounts for one address, or changed accounts. Decide which is right. If it is the new one, Reset.
+- **The Owner is stuck** (for example the Owner's own Google account changed): the Owner's record cannot be reset from the screen, on purpose. Run *Require Google Ties* with **clear-owner**. It clears the record on the Owner's entry and nothing else, and its log names nobody. Then the Owner signs in and confirms again. Leave the switch as it is: this works with it on.
+- **"Couldn't finish confirming your account":** the Hub tried twice and could not finish. Have them close the Hub and open it again; if it repeats, look at their entry, and at the two causes above.
+- **Something is wrong for everyone:** *Require Google Ties* → **off**. Reading and writing the Hub's data is as it was before step 4, at once. File storage has no switch: if that is what is wrong, revert step 3.
 
 ## Adding and re-adding people
 
-Adding an address that is already listed keeps that person's record; it does not make them confirm again. Removing a person and adding them back does clear it, and the Hub confirms them again by itself.
+Adding an address that is already listed keeps that person's record; it does not make them confirm again. Removing a person and adding them back does clear it, and they confirm again.
+
+Have a newly listed person sign in the day they are added. Until they have, their entry counts as not confirmed.
 
 ## Where things live
 
-- `functions/src/googleBinding.ts` (the rule for tying), `freshAccount.ts` (the fresh sign-in account), `googleBindingStore.ts`, `bindGoogle` in `functions/src/index.ts`. Self-check: `googleBinding.selfcheck.ts`, which also reads the Directors rule.
-- `firestore.rules`: `bindingGuard()` on the Directors entry. With move 2: `honouredSignIn()` there and in `storage.rules`, and `functions/src/staffToken.ts`, the same test for the functions. Self-check: `staffToken.selfcheck.ts`.
+- `functions/src/googleBinding.ts` (the rule for recording), `googleIdToken.ts` (reading Google's own token), `freshAccount.ts` (the fresh sign-in account), `entryLock.ts` (one request at a time per person), `googleBindingStore.ts`, `bindGoogle` in `functions/src/index.ts`. Self-check: `googleBinding.selfcheck.ts`, which also reads the Directors rule.
+- `firestore.rules`: `bindingGuard()` on the Directors entry. With step 3: `honouredSignIn()` there and in `storage.rules`, and `functions/src/staffToken.ts`, the same test for the functions. Self-check: `staffToken.selfcheck.ts`.
 - `scripts/require-google-ties.mjs` and the *Require Google Ties* workflow: the switch (`serverConfig/signIn.googleTieRequired`).
-- `src/director/components/AuthGate.tsx` and `src/director/googleBindingClient.ts`: the app's call and the "One more step" screen.
+- `src/director/components/AuthGate.tsx` and `src/director/googleBindingClient.ts`: the note, the "One more step" screen, and the app's one call to the server.
 - `src/director/directors/DirectorsManager.tsx`: the Owner's view and Reset.
 - `scripts/sign-in-accounts-audit.mjs` and the *Audit Sign-in Accounts* workflow.
-- `.github/workflows/rules-checks.yml`: the checks that run before every rules deploy, and on pull requests that touch the rules.
-- `scripts/google-binding.emulator-proof.mjs`: real sign-ins on the emulators against the real rules. `scripts/rules-verdicts.emulator-check.mjs`: records every role's answers so a rules change can be compared with `main`, and checks that being on the list opens nothing by itself. Both run in that workflow.
+- `.github/workflows/rules-checks.yml`: the checks that run before every rules deploy and every functions deploy.
+- `scripts/google-binding.emulator-proof.mjs`: real sign-ins on the emulators against the real rules. `scripts/rules-verdicts.emulator-check.mjs`: records every role's answers so a rules change can be compared with `main`.

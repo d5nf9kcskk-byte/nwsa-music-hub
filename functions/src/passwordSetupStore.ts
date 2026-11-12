@@ -9,9 +9,12 @@
  *   directors/{email}.boundUid / .boundAt / .passwordSet   the record
  *   passwordSetup/{sha256 of the token}                    a link not yet used
  *   passwordSetupLimits/{hashed key}                       the rate-limit counters
+ * and the short per-person claim it shares with the Google step
+ * (signInLocks, entryLock.ts).
  */
 import type { Firestore } from 'firebase-admin/firestore';
 import { newToken, type SetupAuth, type SetupDeps } from './passwordSetup.ts';
+import { entryLock } from './entryLock.ts';
 
 // ponytail: a link that is never opened, and every counter, stays in the
 // database for good. Each is a few bytes and holds nothing usable (a hash, an
@@ -25,6 +28,7 @@ export function passwordSetupStore(
 ): SetupDeps {
   return {
     auth,
+    lock: entryLock(db),
     async getDirector(email) {
       return (await db.doc(`directors/${email}`).get()).data();
     },

@@ -1,26 +1,34 @@
 /**
- * The real sign-in service and database behind googleBinding.ts
- * (#google-binding). Its own module, with both passed in, so the Cloud
- * Function and the emulator proof run exactly this code.
+ * The real sign-in service, database and Google keys behind googleBinding.ts
+ * (#google-binding). Its own module, with the database and sign-in service
+ * passed in, so the Cloud Function and the emulator proof run exactly this
+ * code. (The proof passes its own `verifyGoogle`, because the emulator's
+ * stand-in for Google does not sign tokens; the real check is
+ * googleIdToken.ts, and its self-check runs it against keys of its own.)
  *
- * The tie lives on the person's own Directors entry:
- *   directors/{email}.googleSub  Google's id for the person
- *   directors/{email}.boundUid   the one Hub sign-in account that is theirs
- *   directors/{email}.boundAt    when it was recorded (ms), for the Owner's screen
- * A fresh account has no password on it, so a tie also sets
- * directors/{email}.passwordSet to false (#password-sign-in): the person
- * sets a password again by link if they want one.
+ * The record lives on the person's own Directors entry:
+ *   directors/{email}.googleSub    Google's id for the person
+ *   directors/{email}.boundUid     the one Hub sign-in account that is theirs
+ *   directors/{email}.boundAt      when it was recorded (ms), for the Owner's screen
+ *   directors/{email}.passwordSet  set to false here: a fresh account has no
+ *                                  password on it (#password-sign-in)
  */
 import type { Firestore } from 'firebase-admin/firestore';
 import type { BindDeps, BindUser } from './googleBinding.ts';
 import { freshAccount, type AccountAuth } from './freshAccount.ts';
+import { entryLock } from './entryLock.ts';
+import { verifyGoogleIdToken, type GoogleIdentity, type GoogleJwk } from './googleIdToken.ts';
 
 export interface BindAuth extends AccountAuth {
   getUser(uid: string): Promise<BindUser>;
 }
 
-export function googleBindingStore(db: Firestore, auth: BindAuth): BindDeps {
+export function googleBindingStore(
+  db: Firestore, auth: BindAuth, verifyGoogle: (token: unknown) => Promise<GoogleIdentity | null>,
+): BindDeps {
   return {
+    verifyGoogle,
+    lock: entryLock(db),
     async getUser(uid) {
       try { return await auth.getUser(uid); }
       catch (e) {
@@ -34,14 +42,8 @@ export function googleBindingStore(db: Firestore, auth: BindAuth): BindDeps {
       const text = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
       return { googleSub: text(snap.get('googleSub')), boundUid: text(snap.get('boundUid')) };
     },
-    replaceAccount(user, google) {
-      return freshAccount(auth, {
-        email: (user.email ?? '').toLowerCase(),
-        alsoDelete: user.uid,
-        google,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-      });
+    replaceAccount(spec) {
+      return freshAccount(auth, spec);
     },
     async tie(email, googleSub, boundUid, now) {
       return db.runTransaction(async tx => {
@@ -57,4 +59,43 @@ export function googleBindingStore(db: Firestore, auth: BindAuth): BindDeps {
     },
     now: () => Date.now(),
   };
+}
+
+// ── Google's keys and this project's number, as they are in production ──────
+
+const KEYS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
+const PROJECT_NUMBER_URL = 'http://metadata.google.internal/computeMetadata/v1/project/numeric-project-id';
+const KEYS_FRESH_MS = 60 * 60 * 1000;
+
+let keys: { at: number; list: GoogleJwk[] } | null = null;
+let projectNumber = '';
+
+async function googleKeys(force: boolean): Promise<GoogleJwk[]> {
+  if (!force && keys && Date.now() - keys.at < KEYS_FRESH_MS) return keys.list;
+  const res = await fetch(KEYS_URL);
+  if (!res.ok) throw new Error('could not fetch the signing keys');
+  const body = await res.json() as { keys?: GoogleJwk[] };
+  keys = { at: Date.now(), list: Array.isArray(body.keys) ? body.keys : [] };
+  return keys.list;
+}
+
+async function thisProjectNumber(): Promise<string> {
+  if (projectNumber) return projectNumber;
+  const res = await fetch(PROJECT_NUMBER_URL, { headers: { 'Metadata-Flavor': 'Google' } });
+  if (!res.ok) throw new Error('could not read the project number');
+  projectNumber = (await res.text()).trim();
+  return projectNumber;
+}
+
+/**
+ * The check the deployed function uses: Google's published keys, and this
+ * project's own number (which every one of its sign-in client ids begins
+ * with). If a token does not verify, the keys are fetched once more before
+ * giving up, because Google changes them from time to time.
+ */
+export async function verifyGoogleLive(token: unknown): Promise<GoogleIdentity | null> {
+  const number = await thisProjectNumber();
+  const first = verifyGoogleIdToken(token, { keys: await googleKeys(false), projectNumber: number, now: Date.now() });
+  if (first) return first;
+  return verifyGoogleIdToken(token, { keys: await googleKeys(true), projectNumber: number, now: Date.now() });
 }

@@ -27,18 +27,22 @@ on:
       - 'firebase.emulators.json'
       - 'functions/src/googleBinding*.ts'
       - 'functions/src/freshAccount.ts'
+      - 'functions/src/googleIdToken.ts'
+      - 'functions/src/entryLock.ts'
       - 'functions/src/staffToken*.ts'
       - 'functions/src/passwordSetup*.ts'
       - 'functions/src/index.ts'
       - 'src/shared/passwordSetupLink.ts'
       - 'src/director/components/AuthGate.tsx'
       - 'scripts/sign-in-accounts-audit.mjs'
+      - 'scripts/set-doc-field.mjs'
       - 'scripts/require-google-ties.mjs'
       - 'scripts/google-binding.emulator-proof.mjs'
       - 'scripts/password-sign-in.emulator-proof.mjs'
       - 'scripts/rules-verdicts.emulator-check.mjs'
       - '.github/workflows/rules-checks.yml'
       - '.github/workflows/deploy-rules.yml'
+      - '.github/workflows/deploy-functions.yml'
 
 permissions:
   contents: read
