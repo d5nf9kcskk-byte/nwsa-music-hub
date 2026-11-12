@@ -59,7 +59,9 @@ export type AskWhen =
   | `date:${string}`   // one day, "MM-DD": "dec 9", "12/9", "15 dec"
   | `month:${string}`  // a whole month, "MM": "concerts in march"
   | `day:${string}`    // the next day of the month with that number, "DD": "the 15th"
-  | 'next'; // the next one that exists
+  | 'next' // the next one that exists
+  /* Behind us. Staff only: the public side does not answer about the past. */
+  | 'yesterday' | 'lastNight' | 'lastWeek';
 
 export interface AskCase {
   q: string;
@@ -71,6 +73,15 @@ export interface AskCase {
   about?: string;
   /** card: answered in place. link: sent to the page that does it. none: refused. */
   answer: 'card' | 'link' | 'none';
+  /**
+   * What the parser is EXPECTED to do with a real question it will not
+   * answer outright. Left out: it answers, confidently, exactly what the
+   * line says. 'suggest': it is not sure, and offers what the line says as
+   * a "did you mean". 'miss': it offers nothing right, and the ordinary
+   * search results show. The line still says what the question means, so
+   * the day the parser can answer it the mark comes off.
+   */
+  expect?: 'suggest' | 'miss';
 }
 
 const s = (q: string, intent: AskIntent, rest: Partial<AskCase> = {}): AskCase =>
@@ -89,7 +100,7 @@ export const ASK_CORPUS: AskCase[] = [
   s('schedule', 'myDay', { when: 'today' }),
   s('my schedule', 'myDay', { when: 'today' }),
   s('do i have rehearsal today', 'myDay', { when: 'today' }),
-  s('do we have orch tmrw', 'myDay', { when: 'tomorrow', about: 'orchestra' }),
+  s('do we have orch tmrw', 'myDay', { when: 'tomorrow', about: 'orchestra', expect: 'suggest' }),
   s('whats tmrw', 'myDay', { when: 'tomorrow' }),
   s('tomorow', 'myDay', { when: 'tomorrow' }),
   s('what do i have friday', 'myDay', { when: 'weekday:fri' }),
@@ -112,9 +123,9 @@ export const ASK_CORPUS: AskCase[] = [
   s('whats next', 'myDay', { when: 'today' }),
   s('when is violin masterclass', 'myDay', { when: 'next', about: 'violin masterclass' }),
   s('am i playing in masterclass friday', 'myDay', { when: 'weekday:fri', about: 'masterclass' }),
-  s('when is theory', 'myDay', { when: 'next', about: 'theory' }),
-  s('what time is MUT 1111', 'myDay', { when: 'next', about: 'mut 1111' }),
-  s('when does class piano meet', 'myDay', { when: 'next', about: 'class piano' }),
+  s('when is theory', 'myDay', { when: 'next', about: 'theory', expect: 'suggest' }),
+  s('what time is MUT 1111', 'myDay', { when: 'next', about: 'music theory 1' }),
+  s('when does class piano meet', 'myDay', { when: 'next', about: 'class piano', expect: 'suggest' }),
   s('hoy', 'myDay', { ...es, when: 'today' }),
   s('que tengo hoy', 'myDay', { ...es, when: 'today' }),
   s('mi horario', 'myDay', { ...es, when: 'today' }),
@@ -135,8 +146,8 @@ export const ASK_CORPUS: AskCase[] = [
   s('what pieces today', 'playing', { when: 'today' }),
   s('what should i practice', 'playing', { when: 'thisWeek' }),
   s('what do i need to practice for tmrw', 'playing', { when: 'tomorrow' }),
-  s('what are we playing at the lyric', 'playing', { about: 'lyric' }),
-  s('nutcracker music', 'playing', { about: 'nutcracker' }),
+  s('what are we playing at the lyric', 'playing', { about: 'lyric', expect: 'suggest' }),
+  s('nutcracker music', 'playing', { about: 'nutcracker', expect: 'suggest' }),
   s('whats on the program dec 9', 'playing', { when: 'date:12-09' }),
   s('what order are we playing in', 'playing', { when: 'next' }),
   s('what is camerata playing', 'playing', { about: 'camerata' }),
@@ -146,7 +157,7 @@ export const ASK_CORPUS: AskCase[] = [
   s('que tocamos hoy', 'playing', { ...es, when: 'today' }),
   s('que vamos a ensayar mañana', 'playing', { ...es, when: 'tomorrow' }),
   s('repertorio', 'playing', es),
-  p('what is the orchestra playing at the concert', 'playing', { when: 'next', about: 'orchestra' }),
+  p('what is the orchestra playing at the concert', 'playing', { when: 'next', about: 'orchestra', expect: 'suggest' }),
 
   /* ── 3. Where. ─────────────────────────────────────────────────────── */
   s('where is rehearsal', 'where', { when: 'today' }),
@@ -154,11 +165,12 @@ export const ASK_CORPUS: AskCase[] = [
   s('where is symphony today', 'where', { when: 'today', about: 'symphony' }),
   s('are we in chapman', 'where', { when: 'today', about: 'chapman' }),
   s('wheres wind ens today', 'where', { when: 'today', about: 'wind ensemble' }),
-  s('are we in 4302 or wolfson', 'where', { when: 'today' }),
-  s('where is my lesson', 'where', { when: 'next', about: 'lesson' }),
+  s('are we in 4302 or wolfson', 'where', { when: 'today', expect: 'miss' }),
+  // The lesson card has the room on it. Was `where` about "lesson".
+  s('where is my lesson', 'lesson', { when: 'next' }),
   s('where is jazz theory', 'where', { when: 'next', about: 'jazz theory' }),
   s('wheres 4304', 'where', { about: '4304', answer: 'link' }),
-  s('where is building 5', 'where', { about: 'building 5', answer: 'link' }),
+  s('where is building 5', 'where', { about: 'building 5', answer: 'link', expect: 'suggest' }),
   s('donde es el ensayo', 'where', { ...es, when: 'today' }),
   s('en que salon', 'where', { ...es, when: 'today' }),
 
@@ -193,9 +205,9 @@ export const ASK_CORPUS: AskCase[] = [
   s('playing exam', 'due', { about: 'playing exam' }),
   s('what excerpt is the playing exam', 'due', { about: 'playing exam' }),
   s('camerata playing exam 2', 'due', { about: 'camerata playing exam' }),
-  s('when is the music history exam', 'due', { about: 'music history' }),
+  s('when is the music history exam', 'due', { about: 'music history', expect: 'suggest' }),
   s('do i have a test tomorrow', 'due', { when: 'tomorrow' }),
-  s('is the exam late if i send it tonight', 'due', { when: 'tonight', about: 'exam' }),
+  s('is the exam late if i send it tonight', 'due', { when: 'tonight', about: 'exam', expect: 'miss' }),
   s('que tarea tengo', 'due', es),
   s('cuando se entrega el examen', 'due', { ...es, about: 'examen' }),
   p('does my son have an exam this week', 'due', { when: 'thisWeek' }),
@@ -211,10 +223,10 @@ export const ASK_CORPUS: AskCase[] = [
   s('where is my part', 'parts'),
   s('my music', 'parts'),
   s('sheet music', 'parts'),
-  s('holberg viola part', 'parts', { about: 'holberg' }),
-  s('nutcracker part', 'parts', { about: 'nutcracker' }),
+  s('holberg viola part', 'parts', { about: 'holberg', expect: 'suggest' }),
+  s('nutcracker part', 'parts', { about: 'nutcracker', expect: 'suggest' }),
   s('bowings', 'parts'),
-  s('is there a recording of tchaik 5', 'piece', { about: 'symphony no. 5' }),
+  s('is there a recording of tchaik 5', 'piece', { about: 'symphony no. 5', expect: 'suggest' }),
   s('donde esta mi partitura', 'parts', es),
 
   /* ── 8. Forms. ─────────────────────────────────────────────────────── */
@@ -222,8 +234,8 @@ export const ASK_CORPUS: AskCase[] = [
   s('do i have any forms', 'forms'),
   s('permission slip', 'forms'),
   s('field trip form', 'forms', { about: 'field trip' }),
-  s('sandwich order', 'forms', { about: 'sandwich' }),
-  s('all state sign up', 'forms', { about: 'all-state' }),
+  s('sandwich order', 'forms', { about: 'sandwich', expect: 'suggest' }),
+  s('all state sign up', 'forms', { about: 'all-state', expect: 'suggest' }),
   s('sign up for masterclass', 'forms', { about: 'masterclass' }),
   s('orchestra assistant interview', 'forms', { about: 'orchestra assistant' }),
   s('formularios', 'forms', es),
@@ -233,14 +245,14 @@ export const ASK_CORPUS: AskCase[] = [
   /* ── 9. Concerts: when, where, call, clothes, pickup. ──────────────── */
   s('next concert', 'concert', { when: 'next' }),
   s('when is the next concert', 'concert', { when: 'next' }),
-  s('when is the nutcracker', 'concert', { about: 'nutcracker' }),
-  s('nutcraker', 'concert', { about: 'nutcracker' }),
+  s('when is the nutcracker', 'concert', { about: 'nutcracker', expect: 'suggest' }),
+  s('nutcraker', 'concert', { about: 'nutcracker', expect: 'suggest' }),
   s('when is the winter concert', 'concert', { about: 'winter' }),
-  s('concerto concert', 'concert', { about: 'concerto' }),
-  s('where is the lyric', 'concert', { about: 'lyric' }),
+  s('concerto concert', 'concert', { about: 'concerto', expect: 'suggest' }),
+  s('where is the lyric', 'concert', { about: 'lyric', expect: 'suggest' }),
   s('what time does the concert start', 'concert', { when: 'next' }),
   s('side by side', 'concert', { about: 'side by side' }),
-  s('when is the arsht concert', 'concert', { about: 'arsht' }),
+  s('when is the arsht concert', 'concert', { about: 'arsht', expect: 'suggest' }),
   s('jazz combos concert', 'concert', { about: 'jazz combos' }),
   s('how many concerts are left', 'concert'),
   s('concerts', 'concert'),
@@ -251,20 +263,20 @@ export const ASK_CORPUS: AskCase[] = [
   s('proximo concierto', 'concert', { ...es, when: 'next' }),
   p('what concerts are coming up this year', 'concert'),
   p('where is the concert monday', 'concert', { when: 'weekday:mon' }),
-  p('address for the fillmore', 'concert', { about: 'fillmore' }),
+  p('address for the fillmore', 'concert', { about: 'fillmore', expect: 'suggest' }),
   p('how much are tickets', 'concert', { when: 'next' }),
   p('donde es el concierto', 'concert', { ...es, when: 'next' }),
   s('call time', 'callTime', { when: 'next' }),
   s('what time is call friday', 'callTime', { when: 'weekday:fri' }),
   s('call time sat', 'callTime', { when: 'weekday:sat' }),
   s('when do i have to be there', 'callTime', { when: 'next' }),
-  s('what time do we get there for nutcracker', 'callTime', { about: 'nutcracker' }),
+  s('what time do we get there for nutcracker', 'callTime', { about: 'nutcracker', expect: 'suggest' }),
   s('hora de llegada', 'callTime', { ...es, when: 'next' }),
   p('what time does he need to be at the concert', 'callTime', { when: 'next' }),
   s('what do i wear', 'dress', { when: 'next' }),
   s('do i need to wear black', 'dress', { when: 'next' }),
   s('concert black?', 'dress', { when: 'next' }),
-  s('dress code for jazz concert', 'dress', { about: 'jazz' }),
+  s('dress code for jazz concert', 'dress', { about: 'jazz', expect: 'suggest' }),
   s('que me pongo', 'dress', { ...es, when: 'next' }),
   p('what should my student wear on stage', 'dress', { when: 'next' }),
   p('what time is pickup friday', 'pickup', { when: 'weekday:fri' }),
@@ -275,7 +287,7 @@ export const ASK_CORPUS: AskCase[] = [
   s('required concerts', 'required'),
   s('do i have to go to the choir concert', 'required', { about: 'choir' }),
   s('how many concerts do i need to attend', 'required'),
-  s('is the faculty recital required', 'required', { about: 'faculty recital' }),
+  s('is the faculty recital required', 'required', { about: 'faculty recital', expect: 'suggest' }),
   s('conciertos obligatorios', 'required', es),
 
   /* ── 10. The school. ───────────────────────────────────────────────── */
@@ -290,16 +302,16 @@ export const ASK_CORPUS: AskCase[] = [
   s('when does the quarter end', 'noSchool', { about: 'quarter' }),
   s('hay clases mañana', 'noSchool', { ...es, when: 'tomorrow' }),
   p('is there school friday', 'noSchool', { when: 'weekday:fri' }),
-  s('symphony', 'group', { about: 'symphony' }),
+  s('symphony', 'group', { about: 'symphony', expect: 'suggest' }),
   s('wind ensemble', 'group', { about: 'wind ensemble' }),
   s('who is in camerata', 'group', { about: 'camerata' }),
   s('who conducts wind ensemble', 'group', { about: 'wind ensemble' }),
   s('who teaches ap theory', 'group', { about: 'ap theory' }),
-  s('gilman', 'group', { about: 'gilman' }),
-  s('cco', 'group', { about: 'college chamber orchestra' }),
+  s('gilman', 'group', { about: 'gilman', expect: 'miss' }),
+  s('cco', 'group', { about: 'college chamber orchestra', expect: 'suggest' }),
   s('opera workshop', 'group', { about: 'opera workshop' }),
-  s('holberg', 'piece', { about: 'holberg' }),
-  s('tchaik 5', 'piece', { about: 'symphony no. 5' }),
+  s('holberg', 'piece', { about: 'holberg', expect: 'suggest' }),
+  s('tchaik 5', 'piece', { about: 'symphony no. 5', expect: 'suggest' }),
   s('lincoln portrait', 'piece', { about: 'lincoln portrait' }),
   s('radetzky march', 'piece', { about: 'radetzky' }),
   s('program notes for cendrillon', 'piece', { about: 'cendrillon' }),
@@ -313,7 +325,7 @@ export const ASK_CORPUS: AskCase[] = [
   s('camerata syllabus', 'documents', { about: 'camerata' }),
   s('study guide', 'documents', { about: 'study guide' }),
   s('scales', 'documents', { about: 'scale' }),
-  s('orchestra librarian job', 'documents', { about: 'librarian' }),
+  s('orchestra librarian job', 'documents', { about: 'librarian', expect: 'miss' }),
   p('handbook', 'documents'),
 
   /* ── 11. How do I. Answered with the door, not an essay. ───────────── */
@@ -447,7 +459,7 @@ export const ASK_CORPUS: AskCase[] = [
   s('when is the next holiday', 'noSchool', { when: 'next' }),
   s('holidays', 'noSchool', { when: 'next' }),
   s('is there a holiday this week', 'noSchool', { when: 'thisWeek' }),
-  s('holiday schedule', 'noSchool', { when: 'next' }),
+  s('holiday schedule', 'noSchool', { when: 'next', expect: 'suggest' }),
   s('christmas break', 'noSchool', { about: 'christmas break' }),
   // "In march" is the month, never the Radetzky March, and "friday night"
   // is Friday, never a piece with "night" in it.
@@ -477,7 +489,7 @@ export const ASK_CORPUS: AskCase[] = [
   s('end of quarter concert', 'none', { answer: 'none' }),
   // A class and three rooms all fit "theater": it could be any of them.
   s('where is the theater', 'none', { answer: 'none' }),
-  s('where is the black box', 'where', { about: 'black box', answer: 'link' }),
+  s('where is the black box', 'where', { about: 'black box', answer: 'link', expect: 'suggest' }),
   s('do we need black for the concert', 'dress', { when: 'next' }),
   // Common enough to read correctly: what thumbs do to "rehearsal", a
   // parent's own child, and two ways of saying "cannot come" in Spanish.
@@ -493,17 +505,17 @@ export const ASK_CORPUS: AskCase[] = [
   s('where are WE today', 'where', { when: 'today' }),
 
   /* ── 13. The director's side (built in January). ───────────────────── */
-  d('where is {classmate}', 'staffWhereIs', { when: 'today' }),
-  d('where is {classmate} right now', 'staffWhereIs', { when: 'today' }),
-  d('is {classmate} here today', 'staffWhereIs', { when: 'today' }),
+  d('where is {classmate}', 'staffWhereIs', { when: 'today', about: '{classmate}' }),
+  d('where is {classmate} right now', 'staffWhereIs', { when: 'today', about: '{classmate}' }),
+  d('is {classmate} here today', 'staffWhereIs', { when: 'today', about: '{classmate}' }),
   d('whos out today', 'staffWhosOut', { when: 'today' }),
   d('who is out friday', 'staffWhosOut', { when: 'weekday:fri' }),
-  d('who is excused from the nutcracker', 'staffWhosOut', { about: 'nutcracker' }),
+  d('who is excused from the nutcracker', 'staffWhosOut', { about: 'nutcracker', expect: 'suggest' }),
   d('who is pulled out of symphony today', 'staffWhosOut', { when: 'today', about: 'symphony' }),
   d('absences this week', 'staffWhosOut', { when: 'thisWeek' }),
   // From staff this is a question about the roll. It used to be heard as
   // somebody reporting an absence.
-  d('was {classmate} absent', 'staffWhosOut'),
+  d('was {classmate} absent', 'staffWhosOut', { about: '{classmate}' }),
   d('was he absent', 'staffWhosOut'),
   d('what is waiting on me', 'staffWaiting'),
   d('requests', 'staffWaiting'),
@@ -512,10 +524,9 @@ export const ASK_CORPUS: AskCase[] = [
   d('approvals', 'staffWaiting'),
   d('who hasnt turned in the playing exam', 'staffMissing', { about: 'playing exam' }),
   d('who hasnt signed the field trip form', 'staffMissing', { about: 'field trip' }),
-  // "Last night" is behind us and AskWhen has no word for the past, so no
-  // date is expected here. It was 'next', which means the one still to come.
-  d('who didnt check in last night', 'staffMissing'),
-  d('who has not submitted camerata exam 2', 'staffMissing', { about: 'camerata playing exam' }),
+  // "Last night" is behind us. It was 'next', which means the one still to come.
+  d('who didnt check in last night', 'staffMissing', { when: 'lastNight' }),
+  d('who has not submitted camerata exam 2', 'staffMissing', { about: 'camerata playing exam', expect: 'suggest' }),
   d('lessons i havent logged', 'staffMissing'),
   d('what rolls are left today', 'staffMissing', { when: 'today' }),
   d('missing emergency contacts', 'staffMissing'),
@@ -530,8 +541,8 @@ export const ASK_CORPUS: AskCase[] = [
   d('seniors', 'staffRoster'),
   d('how many in wind ensemble', 'staffRoster', { about: 'wind ensemble' }),
   d('who studies with marcano', 'staffRoster', { about: 'marcano' }),
-  d('call {classmate} mom', 'staffContact'),
-  d('{classmate} parent email', 'staffContact'),
+  d('call {classmate} mom', 'staffContact', { about: '{classmate}' }),
+  d('{classmate} parent email', 'staffContact', { about: '{classmate}' }),
   d('email camerata parents', 'staffContact', { about: 'camerata' }),
   // Things to DO open the door already filled in. Nothing is written by the search.
   d('cancel rehearsal tomorrow', 'staffDo', { when: 'tomorrow', answer: 'link' }),
@@ -539,7 +550,7 @@ export const ASK_CORPUS: AskCase[] = [
   d('add a sectional friday 2:10', 'staffDo', { when: 'weekday:fri', about: 'sectional', answer: 'link' }),
   d('post an announcement', 'staffDo', { answer: 'link' }),
   d('take roll', 'staffDo', { when: 'today', answer: 'link' }),
-  d('excuse {classmate} from the concert', 'staffDo', { answer: 'link' }),
+  d('excuse {classmate} from the concert', 'staffDo', { about: '{classmate}', answer: 'link' }),
   d('new form', 'staffDo', { answer: 'link' }),
   d('gradebook', 'staffDo', { answer: 'link' }),
 ];

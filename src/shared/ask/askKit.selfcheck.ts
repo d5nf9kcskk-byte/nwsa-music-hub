@@ -10,12 +10,22 @@
  * or composer printed on a public page. No collection of people was read and
  * no student is named here. When you refresh this list, keep it that way
  * (#privacy).
+ *
+ * SHORT NAMES. A one-word reference ("camerata", "symphony") is believed
+ * only when the caller passes it as a whole name of its own, so the groups
+ * below carry the short names the school already publishes: the words in
+ * `vanitySlugs` in config/orgs/nwsa.json that pick out ONE group (camerata,
+ * symphony, choir, cco, we). "Jazz" and "opera" are slugs too, but each
+ * fits several groups, so they stay suggestions. A venue has no such list,
+ * so "the lyric" is a suggestion.
+ *
+ * TERMS are the Start Guide's own glossary (src/public/StartGuide.tsx).
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { AskCase } from './corpus.ts';
-import { askWords, type AskName, type AskNameKind, type AskParse } from './parse.ts';
+import { askWords, type AskName, type AskNameKind, type AskParse, type AskReading } from './parse.ts';
 
 /** A row is a name, then its other names. One that starts with "@" is a
  *  person on it (conductor, composer), found by surname only. */
@@ -29,12 +39,14 @@ const of = (kind: AskNameKind, rows: (string | string[])[]): AskName[] =>
 
 export const NAMES: readonly AskName[] = Object.freeze([
   ...of('group', [
-    'Camerata String Orchestra', 'Chamber Winds', 'AP Theory', 'Symphony Orchestra', 'Philharmonic',
-    'Wind Ensemble', 'Jazz Ensemble', 'Opera Orchestra', 'High School Choir', 'College Vocal Ensemble',
+    ['Camerata String Orchestra', 'Camerata', 'Cam'], 'Chamber Winds', 'AP Theory',
+    ['Symphony Orchestra', 'Symphony', 'SO'], 'Philharmonic',
+    ['Wind Ensemble', 'WE'], 'Jazz Ensemble', 'Opera Orchestra', ['High School Choir', 'Choir'],
+    'College Vocal Ensemble',
     'Jazz Theory', 'Music History — 11th–12th', 'Theory — 10th Grade', 'Theory — 9th Grade',
     'Vocal Forum', 'Vocal Lit', 'Dance', 'Theatre', 'Visual Arts',
     ['Chamber Music', '@Grant Gilman'],
-    ['College Chamber Orchestra', '@Grant Gilman'],
+    ['College Chamber Orchestra', 'CCO', '@Grant Gilman'],
     ['College Forum', '@Sarah Cambage'],
     ['Diction / Singing 1', 'MUS 1211', '@Sarah Cambage'],
     ['Form & Analysis', 'MUT 3611', '@Susan Epstein'],
@@ -150,6 +162,31 @@ export const NAMES: readonly AskName[] = Object.freeze([
     'Symphony Playing Exam #2', 'Symphony Playing Exam #3', 'Survey Music History 1 - Exam 1',
     'Survey Music History 1 - Exam 2',
   ]),
+  ...of('term', [
+    'Call time', 'Pull-out', 'Sub', 'Sectional', 'Class', 'Score order', ['Seating / chair', 'Seating', 'Chair'],
+    'Downbeat', 'Principal',
+  ]),
+]);
+
+/**
+ * A HOSTILE KIT: names made of the words people type for other reasons.
+ * Pieces called Winter, Home, One and Help!, teachers called Price, Day and
+ * Long. Nobody's real library, but any school's could hold one of them, and
+ * the parser must not be fooled when it does. Added on top of NAMES.
+ */
+export const HOSTILE: readonly AskName[] = Object.freeze([
+  ...of('piece', [
+    'Winter', 'Spring', 'March', 'Home', 'One', 'Help!', 'Tonight', 'Friday', 'Late', 'Away', 'Black', 'Lost',
+    'Go Home', 'The Lesson', 'Rehearsal', 'Night and Day', 'Take Five', 'Time', 'Yesterday', 'Changes',
+    ['Fanfare', '@Will May'], ['Song Without Words', '@April Rose'], ['Elegy', '@Florence Price'],
+  ]),
+  ...of('group', [
+    ['Guitar Class', '@Rosa Parks'], ['Composition', '@Dolores Day'], ['Percussion Ensemble', '@Hugh Long'],
+    ['Music Business', '@Grace Price'], 'Today', 'Lunch', 'Office Hours',
+  ]),
+  ...of('room', ['The Office', 'Front Desk', 'Parking Garage']),
+  ...of('concert', ['Open House', 'Family Night', 'The Show']),
+  ...of('form', ['Help', 'Address Update', 'Phone Number Change']),
 ]);
 
 /** Nobody. Stands in for `{classmate}`. */
@@ -190,45 +227,63 @@ export const fill = (q: string, who = CLASSMATE) => q.replace('{classmate}', who
 
 export type Parse = (q: string) => AskParse;
 
-/** Does the parse say what the corpus line says? `about` in the corpus is a
+/** Does a reading say what the corpus line says? `about` in the corpus is a
  *  plain word the matcher must find, so a fuller name ("Symphony No. 5")
  *  passes when it contains it; a line with no `about` must come back with none. */
-export function agrees(c: AskCase, got: AskParse): boolean {
-  const about = c.about ? !!got.about && plain(got.about).includes(plain(c.about)) : !got.about;
+export function agrees(c: AskCase, got: AskReading, who = CLASSMATE): boolean {
+  const about = c.about ? !!got.about && plain(got.about).includes(plain(fill(c.about, who))) : !got.about;
   return got.intent === c.intent && got.when === c.when && about;
 }
 
+export type Outcome = 'right' | 'suggestion' | 'none' | 'wrong';
+
 /**
- * Run a set of corpus lines and print the three counts. Fails on any
- * confident wrong answer, AND on any line that is not right unless it is
- * named in `mayBeNoAnswer`. Without that floor a line could slide from
- * right to "no answer" and nothing would notice: deleting "tmrw" from the
- * date table used to pass.
+ * The four outcomes. A confident answer is right or wrong. No answer is
+ * right for a line the corpus refuses; for any other line it is a
+ * suggestion (something was offered) or none (the search results show).
  */
-export function runCorpus(label: string, cases: AskCase[], parse: Parse, mayBeNoAnswer: readonly string[]) {
-  const right: AskCase[] = [];
-  const noAnswer: AskCase[] = [];
-  const wrong: AskCase[] = [];
+export function judge(c: AskCase, got: AskParse, who = CLASSMATE): Outcome {
+  if (got.confident) return c.intent !== 'none' && agrees(c, got, who) ? 'right' : 'wrong';
+  if (c.intent === 'none') return 'right';
+  return got.suggestions.length > 0 ? 'suggestion' : 'none';
+}
+
+/**
+ * Run a set of corpus lines and print the four counts. A line with no
+ * `expect` must be right. A line marked `expect: 'suggest'` must come back
+ * not confident with the right reading among the suggestions. A line marked
+ * `expect: 'miss'` must come back not confident. A marked line that is in
+ * fact answered right fails too, so the marks stay honest. Any confident
+ * wrong answer fails.
+ */
+export function runCorpus(label: string, cases: AskCase[], parse: Parse) {
+  const count: Record<Outcome, number> = { right: 0, suggestion: 0, none: 0, wrong: 0 };
   const lines: string[] = [];
   for (const c of cases) {
     const got = parse(fill(c.q));
     if (got.confident !== (got.intent !== 'none')) fail(`"${c.q}": confident must mean "has an intent"`);
-    if (agrees(c, got)) { right.push(c); continue; }
-    const silent = got.intent === 'none';
-    (silent ? noAnswer : wrong).push(c);
-    lines.push(`  ${silent ? 'no answer' : 'WRONG    '} "${c.q}"  wanted ${show(c)}, got ${show(got)}`);
-    if (silent && !mayBeNoAnswer.includes(c.q)) fail(`${label}: "${c.q}" lost its answer (wanted ${show(c)})`);
+    if (got.confident && got.suggestions.length > 0) fail(`"${c.q}": a confident answer carries no suggestions`);
+    const out = judge(c, got);
+    count[out]++;
+    const offered = got.suggestions.map(show).join(' / ');
+    if (out === 'wrong') {
+      lines.push(`  WRONG      "${c.q}"  wanted ${show(c)}, got ${show(got)}`);
+    } else if (!c.expect) {
+      if (out !== 'right') fail(`${label}: "${c.q}" lost its answer (wanted ${show(c)}; ${out}${offered ? `: ${offered}` : ''})`);
+    } else if (out === 'right') {
+      fail(`${label}: "${c.q}" is marked expect: '${c.expect}' but is answered right; take the mark off`);
+    } else if (c.expect === 'suggest' && !got.suggestions.some(r => agrees(c, r))) {
+      fail(`${label}: "${c.q}" must offer ${show(c)} as a suggestion; offered ${offered || 'nothing'}`);
+    }
   }
   console.log(`\n${label}: ${cases.length} lines`);
-  console.log(`  right                 ${right.length}`);
-  console.log(`  no answer             ${noAnswer.length}`);
-  console.log(`  wrong with confidence ${wrong.length}`);
+  console.log(`  right                 ${count.right}`);
+  console.log(`  suggestion            ${count.suggestion}`);
+  console.log(`  none                  ${count.none}`);
+  console.log(`  wrong with confidence ${count.wrong}`);
   for (const l of lines) console.log(l);
-  if (wrong.length > 0) fail(`${label}: ${wrong.length} wrong with confidence`);
-  for (const q of mayBeNoAnswer) {
-    if (!noAnswer.some(c => c.q === q)) fail(`${label}: "${q}" is listed as allowed to get no answer but does not; take it off the list`);
-  }
-  return { right, noAnswer, wrong };
+  if (count.wrong > 0) fail(`${label}: ${count.wrong} wrong with confidence`);
+  return count;
 }
 
 /**

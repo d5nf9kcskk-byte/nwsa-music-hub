@@ -18,6 +18,12 @@
  *
  * Written from general knowledge: the common words of English and Spanish,
  * three letters and up. Shorter words never pick a thing anyway.
+ *
+ * A HELPER, NOT THE DEFENCE. This list will never be complete, and nothing
+ * in parse.ts leans on it being so: one word out of a longer title is never
+ * believed whatever the word, a person's surname never is, and a word a
+ * rule has claimed is never also a name. The list only decides whether a
+ * thing whose WHOLE name is one word ("Dance", "Winter") may be believed.
  */
 export const COMMON_WORDS = new Set((
   // English
@@ -47,6 +53,8 @@ export const COMMON_WORDS = new Set((
   'unfinished until upon use van very wait walk wall want war warm watch water way week well went were ' +
   'west what when where which while white who whole whose why wide wife will win wish with without woman ' +
   'women won wonder wood word work would write wrong year yes yet you young your ' +
+  'address business change day days desk early garage help hours lost lunch office park parking phone price ' +
+  'update weeks months years ' +
   // Spanish
   'ahora algo alguien antes aqui asi bien buena bueno cada casa como con cosa creo cuanto desde despues ' +
   'dia donde dos durante ella ellos entonces entre ese eso fue gente gracias grande hace hacer hasta ' +
