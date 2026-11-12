@@ -49,7 +49,9 @@ Reverting the change does not remove a server step that is already deployed, and
 
 ## Step 2: everyone
 
-A small follow-up change, its own pull request, makes every person's Hub offer the note: it takes the founding-address condition out of the app and out of the server together, and adds the What's New note for staff. Merge it only when step 1 worked, and not in the days before a concert: people confirm whenever their phone next takes the new copy, which is not a moment you choose.
+This step is its own small change. It makes every person's Hub offer the note: it takes the founding-address condition out of the app and out of the server together, and adds the What's New note for staff. Merge it only when step 1 worked, and not in the days before a concert: people confirm whenever their phone next takes the new copy, which is not a moment you choose.
+
+After merging, check the server step again the same way as in step 1 (the address in the browser), then ask one other person to open the Hub, refresh, and tap **Confirm now**. Their entry on the Directors screen should read "Google account confirmed".
 
 Then wait. A phone holds a new version of the Hub until the person taps **Refresh**. Watch the count at the top of the Directors screen.
 

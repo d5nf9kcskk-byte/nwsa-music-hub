@@ -32,18 +32,14 @@ import { HomeScreenHint } from './HomeScreenHint';
 const BREAK_GLASS_EMAILS = ORG.breakGlassEmails;
 
 /**
- * Only a deployment that HAS the server step asks at all
- * (`features.googleConfirm`: the demo sites have no Cloud Functions).
- *
- * FIRST LIVE RUN (#google-binding). Only the founding addresses ask the
- * server to confirm their Google account, and the server refuses anyone
- * else too (googleBinding.ts). The server step replaces a
- * person's sign-in account, and that has only ever run on a test setup; so
- * the Owner goes first, alone, on the live project, and everyone else's Hub
- * asks for nothing. When the Owner's entry reads "Google account confirmed",
- * a small follow-up change makes this `() => true` (docs/google-binding.md).
+ * Does this Hub offer to confirm a person's Google account
+ * (#google-binding)? Only in a deployment that HAS the server step
+ * (`features.googleConfirm`: the demo sites have no Cloud Functions), and
+ * there, for every listed person. (On the first live run only the founding
+ * address was asked; that was proven and then removed, here and on the
+ * server together.)
  */
-const asksServer = (email: string) => ORG.features.googleConfirm && BREAK_GLASS_EMAILS.includes(email);
+const ASKS_SERVER = ORG.features.googleConfirm;
 
 // 'confirm': the rules will not let this session in until the server has
 // confirmed the person's Google account; one tap does it (#google-binding).
@@ -207,7 +203,7 @@ export function AuthGate({ children }: Props) {
           setAgainCount(0);
           setConfirmNote(false);
         } else {
-          setConfirmNote(asksServer(email) && againCount() < 2 && !laterChosen());
+          setConfirmNote(ASKS_SERVER && againCount() < 2 && !laterChosen());
         }
       },
       err => {
@@ -228,7 +224,7 @@ export function AuthGate({ children }: Props) {
             setAccess('error');
           }
         };
-        if (err.code !== 'permission-denied' || !asksServer(email)) { fallBack(); return; }
+        if (err.code !== 'permission-denied' || !ASKS_SERVER) { fallBack(); return; }
         // (#google-binding) The rules REFUSED the read. Once the rules honour
         // a sign-in only on the account an entry names, that is what an entry
         // with no record looks like: a newly listed person, a device that has
@@ -249,8 +245,7 @@ export function AuthGate({ children }: Props) {
    */
   async function recordWith(result: UserCredential): Promise<BindAnswer | 'skipped'> {
     const cred = GoogleAuthProvider.credentialFromResult(result);
-    const email = directorEmailId(result.user.email ?? '');
-    if (!cred?.idToken || !asksServer(email)) return 'skipped';
+    if (!cred?.idToken || !ASKS_SERVER) return 'skipped';
     recording.current = true;
     try {
       // The browser keeps unsent changes per sign-in account. Give them a

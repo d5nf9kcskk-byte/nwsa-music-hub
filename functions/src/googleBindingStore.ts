@@ -25,11 +25,9 @@ export interface BindAuth extends AccountAuth {
 
 export function googleBindingStore(
   db: Firestore, auth: BindAuth, verifyGoogle: (token: unknown) => Promise<GoogleIdentity | null>,
-  firstRunAllows: (email: string) => boolean,
 ): BindDeps {
   return {
     verifyGoogle,
-    firstRunAllows,
     lock: entryLock(db),
     async getUser(uid) {
       try { return await auth.getUser(uid); }
