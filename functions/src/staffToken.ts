@@ -1,26 +1,26 @@
 /**
  * Is this sign-in token a staff member's? (#google-binding)
  *
- * The same tie test as honouredSignIn() in storage.rules, for the Cloud
+ * The same test as honouredSignIn() in storage.rules, for the Cloud
  * Functions that check a caller's token themselves. (firestore.rules applies
  * it too, behind a server-only switch, because that one file also runs for
  * the demo projects, which have no server step. Storage and these functions
- * exist only for the school's project, so here the tie is always required.)
- * All three change together. A verified email on the Directors list is not
- * enough by itself: it says the account CARRIES that address, not that
- * Google knows the person by it. So:
+ * exist only for the school's project, so here it is always required.) All
+ * three change together. Being on the Directors list is not enough by
+ * itself: the server records on each entry which sign-in account is that
+ * person's (googleBinding.ts), and a sign-in is honoured only on it.
  *
- *   • A Google sign-in is honoured only for the Google account the person's
- *     Directors entry is tied to (`googleSub`, written by the server alone:
- *     googleBinding.ts).
+ *   • A Google sign-in is honoured only when the session is on the account
+ *     the entry names (`boundUid`) and that account has the entry's Google
+ *     identity (`googleSub`).
  *   • Anything else is refused. A new way of signing in gets a clause here,
  *     and in both rules files, on purpose, or it gets nothing.
  *
  * Pure, so the emulator proof can feed it real tokens. Every function that
  * calls verifyIdToken to learn who is asking goes through staffFromToken;
  * staffToken.selfcheck.ts reads index.ts to keep it that way. (`bindGoogle`
- * is the one exception by design: it is what ties a person, so it cannot
- * require the tie.)
+ * is the one exception by design: it is what makes the record, so it cannot
+ * require it.)
  */
 
 /** The claims this needs from a decoded Firebase ID token. */
@@ -34,11 +34,18 @@ export interface StaffClaims {
 
 export type DirectorData = Record<string, unknown>;
 
+/** isBoundAccount() from the rules files: the session is on the one account the entry names. */
+function isBoundAccount(claims: StaffClaims, director: DirectorData | undefined): boolean {
+  const boundUid = director?.boundUid;
+  return typeof boundUid === 'string' && boundUid !== '' && boundUid === (claims.uid ?? claims.sub);
+}
+
 /** boundGoogleSignIn() from the rules files. */
 function boundGoogleSignIn(claims: StaffClaims, director: DirectorData | undefined): boolean {
   const googleSub = director?.googleSub;
   const ids = claims.firebase?.identities?.['google.com'];
-  return typeof googleSub === 'string' && googleSub !== ''
+  return isBoundAccount(claims, director)
+    && typeof googleSub === 'string' && googleSub !== ''
     && Array.isArray(ids) && ids.includes(googleSub);
 }
 

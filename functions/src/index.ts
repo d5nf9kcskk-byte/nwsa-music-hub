@@ -1094,14 +1094,14 @@ export const draftChangeNoteEs = runWith({ secrets: ['ANTHROPIC_API_KEY'] }).htt
 /**
  * Tie a listed person to their own Google account (#google-binding). POST
  * with the caller's Firebase ID token as a Bearer header; no body. The app
- * calls it by itself right after a Google sign-in whenever the person's
- * Directors entry is not tied yet.
+ * calls it by itself after a Google sign-in whenever the person's Directors
+ * entry is not tied to the account they are on.
  *
- * It records Google's id for the person on their entry, and only when
- * Google's own address for the account behind the sign-in IS the listed
- * address. The rule and the reasons are in googleBinding.ts. Answers
- * { ok: true, status } with one of: bound, not-listed, mismatch,
- * other-account. It speaks only about the caller's own sign-in.
+ * It records, on the entry, Google's id for the person and the one Hub
+ * sign-in account that is theirs, which it makes afresh. The rule and the
+ * reasons are in googleBinding.ts. Answers { ok: true, status } with one of:
+ * bound, again (sign in once more), not-listed, mismatch, other-account. It
+ * speaks only about the caller's own sign-in.
  */
 export const bindGoogle = https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);

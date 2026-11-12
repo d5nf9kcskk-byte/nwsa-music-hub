@@ -1170,74 +1170,102 @@ those marks onto the original file. Everything else — audience, deadline,
 
 ## Each listed person is tied to their own Google account (Nov 2026, #google-binding)
 
-A verified email on the list says an account CARRIES that address. It does not
-say Google itself knows the person by it, and the rules cannot see that. So
-the server records, on each Directors entry, which Google account is theirs
-(`googleSub`, Google's own id for the person, with `googleBoundAt`).
+The Directors list names people by address. The server records, on each
+entry, which sign-in account is that person's: `googleSub` (Google's own id
+for them), `boundUid` (the one Hub sign-in account that goes with it) and
+`boundAt`.
 
-- **Only `bindGoogle` writes the tie** (`functions/src/googleBinding.ts`), and
-  only when Google's own address for the account behind the caller's sign-in
-  IS the listed address. It never creates an entry and never changes a tie
-  that is there. `AuthGate.tsx` calls it by itself and never writes the tie.
+- **Only `bindGoogle` writes the record** (`functions/src/googleBinding.ts`),
+  and only for a Google sign-in on Google's own account for the listed
+  address. It never creates an entry and never moves a record to a different
+  Google account. `AuthGate.tsx` calls it by itself and never writes it.
+- **The account it records is always a FRESH one** (`freshAccount.ts`): the
+  account the caller arrived on is deleted and a new one is made that only
+  that Google identity opens. The person signs in once more ("One more
+  step") and is on it. Do not "save the extra sign-in" by recording the
+  account the caller is already on: the fresh account is the mechanism, and
+  `googleBinding.selfcheck.ts` fails if it goes. Safe only because nothing in
+  `src/`, the rules or the functions keys data on a sign-in account's id. If
+  that ever changes, revisit this first.
+- **No browser may set or alter the record, the Owner's included**
+  (`bindingGuard()` in `firestore.rules`, pinned word for word by the
+  self-check). The Owner may only REMOVE it from someone else's entry
+  (Directors screen, Reset); the person is tied again the next time they
+  open the Hub. `addDirector` carries an existing entry's record along
+  unchanged, so re-adding a listed address does not clear it
+  (`BINDING_KEYS` in `useDirectors.ts`).
 - **It goes live in three moves, on purpose** (`docs/google-binding.md`). The
   service worker holds a new app version until the person taps Refresh, so a
   phone on an old copy would never ask to be tied and would be locked out the
-  moment a stricter rule took effect. Move 1 is the function, the app's call
-  and the Owner's view; it changes no rule. Move 2 is the rules, with the
-  requirement switched off. Move 3 is the switch, once every active person
-  reads "Google account confirmed" on the Directors screen.
+  moment a stricter rule took effect. Move 1 is the function, the app's
+  call, the Owner's view and the guard on the record. Move 2 is the sign-in
+  rules, with the requirement switched off. Move 3 is the switch, once every
+  active person reads "Google account confirmed" on the Directors screen.
 - **`honouredSignIn()` is the test, in three places that change together**:
   `firestore.rules`, `storage.rules`, and `functions/src/staffToken.ts`. A
-  Google sign-in is honoured for the Google account the entry is tied to;
-  anything that is not a Google sign-in is refused; a new way of signing in
-  gets a clause on purpose or gets nothing. Every gate calls it: `signedIn()`
-  and `verifiedSelf()` in `firestore.rules` (the only two places that file
-  reads a token for access), the four staff helpers in `storage.rules`, and
-  `staffFromIdToken()` in `functions/src/index.ts`, the ONE place a function
-  may call `verifyIdToken` to learn who is asking (`bindGoogle` aside, which
-  is what makes the tie). `staffToken.selfcheck.ts` reads all three files.
-- **Firestore requires the tie only once a server-only switch is on**
+  Google sign-in is honoured only when the session is on the account the
+  entry names (`boundUid`) and that account has the entry's Google identity
+  (`googleSub`); anything that is not a Google sign-in is refused; a new way
+  of signing in gets a clause on purpose or gets nothing. Every gate calls
+  it: `signedIn()` and `verifiedSelf()` in `firestore.rules` (the only two
+  places that file reads a token for access; every role helper goes through
+  `hasRole()`, which asks `signedIn()` first), the four staff helpers in
+  `storage.rules`, and `staffFromIdToken()` in `functions/src/index.ts`, the
+  ONE place a function may call `verifyIdToken` to learn who is asking
+  (`bindGoogle` aside, which is what makes the record). Each such function
+  checks the ROLE straight after, because an unlisted caller comes back with
+  no entry rather than refused.
+- **Firestore requires the record only once a server-only switch is on**
   (`serverConfig/signIn.googleTieRequired`, written by
-  `scripts/require-google-ties.mjs` and nothing else; no client can read or
-  write `serverConfig`). It is data and not a line of the rules for two
-  reasons. This SAME `firestore.rules` is deployed to the demo projects, which
-  have no Cloud Functions and so can never tie anyone: with no such document
-  they work exactly as before. NEVER set it for a demo project. And turning it
-  on or off is one write, instant and reversible, with no rules deploy. The
-  tied clause comes first in the rule, so a tied person never costs a read of
-  the switch.
-- **Storage and the functions always require the tie, with no switch.** A
+  `scripts/require-google-ties.mjs` and nothing else; no client can write
+  `serverConfig`, and only the Owner can read it). It is data and not a line
+  of the rules for two reasons. This SAME `firestore.rules` is deployed to
+  the demo projects, which have no Cloud Functions and so can never make a
+  record: with no such document they work exactly as before. NEVER set it
+  for a demo project. And turning it on or off is one write, instant and
+  reversible, with no rules deploy. The bound clause comes first in the
+  rule, so a bound person never costs a read of the switch.
+- **Storage and the functions always require the record, with no switch.** A
   Storage rule may look at only two Firestore documents and these already use
-  both, and both exist only for the school's project. So the three copies are
-  NOT word for word the same; `staffToken.selfcheck.ts` pins each one.
+  both, and both exist only for the school's project. So a person with no
+  record can neither upload nor open staff-only files until the app has had
+  the record made. The three copies are NOT word for word the same;
+  `staffToken.selfcheck.ts` pins each one.
+- **The switch workflow's log says nothing about the result**: not whether
+  the requirement is on, not how many people have no record. The choice is
+  read from the run's event file (a step's environment is printed in the
+  log), the script prints one fixed line, and the result goes to
+  `serverConfig/signIn.lastRun` for the Owner's Directors screen. Its
+  `clear-owner` mode is how an Owner who cannot get in is put right; never
+  through *Fix One Field*, which would print the entry in a public log.
+- **A hand-made test token must be a Google sign-in on the account its entry
+  names** (`firebase: { sign_in_provider: 'google.com', identities: {
+  'google.com': [...] } }`, with `googleSub` and `boundUid` on the entry), or
+  the staff rules refuse it (Storage and the functions always; Firestore
+  once the switch is on).
 - **The app asks in two places**: in the background when a read works but the
-  entry is not tied, and when the rules REFUSE the membership read (which is
-  what an untied entry looks like once the switch is on). A refusal that the
-  server answers with "bound" is retried exactly once. If the server cannot
-  be reached, every path falls back to what it did before, break-glass
-  included.
-- **A hand-made test token must say it signed in with Google**
-  (`firebase: { sign_in_provider: 'google.com', identities: { 'google.com': [...] } }`)
-  and its entry must carry the matching `googleSub`, or the staff rules
-  refuse it once the switch is on.
-- **The Owner may clear another person's tie, never set one, and never
-  their own** (Directors screen, Reset). The person is tied again the next
-  time they open the Hub.
-- **It is Google's id for the person, not the Hub's account id**, because the
-  rules can read Google's id straight from the token
-  (`firebase.identities['google.com']`) and it survives the account being
-  replaced.
+  entry is not tied to the account this session is on, and when the rules
+  REFUSE the membership read. "again" from the server means sign in once
+  more; the app asks at most twice in a row, then says it could not finish.
+  If the server cannot be reached, every path falls back to what it did
+  before, break-glass included.
 - `scripts/sign-in-accounts-audit.mjs` (*Audit Sign-in Accounts* workflow)
-  answers, in one word, whether every sign-in account is Google's own account
-  for its address. It prints OK or REVIEW NEEDED and never an address: this
-  repo's logs are public.
-- `googleBinding.selfcheck.ts` pins the tying rule and its wiring. Two
-  emulator scripts, neither in CI (they need Java):
-  `scripts/google-binding.emulator-proof.mjs` (real sign-ins, the real rules
-  files, every role), and `scripts/rules-verdicts.emulator-check.mjs`, which
-  records every role's answers to a battery of reads and writes so a rules
-  change can be compared with `main`. This repo had no rules suite before;
-  use that one for the next rules change too.
+  answers, in one word, whether every sign-in account is what the Hub
+  expects. It prints OK or REVIEW NEEDED and never an address: this repo's
+  logs are public.
+- **The checks run before every rules deploy** (`rules-checks.yml`, the
+  first job of `deploy-rules.yml`, and on pull requests that touch the
+  rules): `googleBinding.selfcheck.ts` and `staffToken.selfcheck.ts` (also
+  in `.github/actions/self-checks`), then two emulator checks that ask the
+  REAL rules: `scripts/google-binding.emulator-proof.mjs` (real sign-ins,
+  every role, all three gates) and the `visitor` mode of
+  `scripts/rules-verdicts.emulator-check.mjs` (with the requirement on, a
+  listed person with no record gets exactly what an unlisted Google account
+  gets). The self-checks compare the rules word for word, which catches a
+  regrouped condition; only the emulator checks can see a rule elsewhere
+  that lets the same thing through another way. That script's `record` and
+  `compare` modes show what a rules change moved against `main`; use them
+  for the next rules change too.
 
 ## Playing-exam grading — one line, one rubric (Sept 2026, #exam-rubric)
 

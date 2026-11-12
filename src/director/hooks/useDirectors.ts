@@ -57,6 +57,16 @@ export {
  * single `role` field is still read for unmigrated docs.
  */
 
+/**
+ * The fields on an entry that record which sign-in account is the person's
+ * (#google-binding). The server writes them; nothing here may, and the rules
+ * refuse it. `addDirector` and "Reset" are the only places that name them.
+ */
+export const BINDING_KEYS = ['googleSub', 'boundUid', 'boundAt'] as const;
+
+/** Has the server recorded this person's sign-in account? */
+export const isConfirmed = (d: Pick<Director, 'googleSub' | 'boundUid'>): boolean => !!d.googleSub && !!d.boundUid;
+
 export interface Director {
   email: string;    // doc id
   name?: string;    // display name — auto-captured from Google profile on
@@ -68,16 +78,17 @@ export interface Director {
   addedBy?: string; // email of the director who added them
   addedAt?: number; // epoch ms
   /**
-   * Google's id for the person this entry is tied to, and when it was tied
-   * (#google-binding). Written by the `bindGoogle` Cloud Function ONLY, the
-   * first time the person opens the Hub after signing in with Google: the
-   * server checks that Google's own address for their account is this
-   * entry's address. The app never sets these. The Owner may clear them (the
+   * Which sign-in account is this person's (#google-binding): Google's id
+   * for them, the one Hub account that goes with it, and when it was
+   * recorded. Written by the `bindGoogle` Cloud Function ONLY, the first
+   * time the person opens the Hub after signing in with Google. The app
+   * never sets these (BINDING_KEYS below). The Owner may clear them (the
    * Directors screen's "Reset"), and the person is tied again the next time
    * they open the Hub.
    */
   googleSub?: string;
-  googleBoundAt?: number;
+  boundUid?: string;
+  boundAt?: number;
   /** Applied-teacher only: instrument(s) they teach, e.g. ["Violin"]. */
   instruments?: string[];
   /** Applied-teacher only: students they give private lessons to. An Owner/Director
@@ -197,10 +208,19 @@ export function useDirectors() {
     const dbRef = db;
     const id = directorEmailId(email);
     const roles = extra?.roles ?? (extra?.role ? [extra.role] : ['director']);
+    // (#google-binding) "Adding" an address that is already listed replaces
+    // the entry. It must not also wipe which sign-in account is theirs, so
+    // that record rides along exactly as the server wrote it. (The rules let
+    // a browser carry those fields unchanged, never set or alter them.)
+    const existing = directors.find(d => d.email === id);
+    const kept = Object.fromEntries(
+      BINDING_KEYS.filter(k => existing?.[k] !== undefined).map(k => [k, existing![k]]),
+    );
     await trackWrite('Director', () =>
       setDoc(doc(dbRef, 'directors', id), {
         email: id,
         roles,
+        ...kept,
         ...(extra?.name ? { name: extra.name } : {}),
         ...(extra?.instruments ? { instruments: extra.instruments } : {}),
         ...(extra?.assignedStudentIds ? { assignedStudentIds: extra.assignedStudentIds } : {}),
@@ -266,4 +286,28 @@ export function useMyDirector(email: string | null | undefined) {
   }, [email]);
 
   return { director, loading };
+}
+
+/** What the server last did with the sign-in requirement (#google-binding). */
+export interface SignInSwitch {
+  /** Is a sign-in honoured only on the account an entry names? */
+  required: boolean;
+  lastRun?: { mode?: string; result?: string; at?: number; notConfirmed?: number; cleared?: number };
+}
+
+/**
+ * The sign-in requirement, for the Owner's Directors screen. The rules let
+ * only the Owner read `serverConfig/signIn`, and nothing in a browser write
+ * it: it is changed by the *Require Google Ties* workflow, whose public log
+ * says nothing about the result. This is where the result is said.
+ */
+export function useSignInSwitch(isOwner: boolean): SignInSwitch | null {
+  const [state, setState] = useState<SignInSwitch | null>(null);
+  useEffect(() => {
+    if (!db || !isOwner) return;
+    return onSnapshot(doc(db, 'serverConfig', 'signIn'), snap => {
+      setState({ required: snap.get('googleTieRequired') === true, lastRun: snap.get('lastRun') });
+    }, () => setState(null));
+  }, [isOwner]);
+  return state;
 }

@@ -1,23 +1,22 @@
 name: Require Google Ties
 
-# The one switch for "a Google sign-in must belong to the Google account the
-# person's Directors entry is tied to" (#google-binding). It writes one
-# server-only field that firestore.rules reads; no browser can.
+# The server's side of the Google tie (#google-binding): the one switch the
+# rules read, and clearing the Owner's own record. No browser can do either.
 #
-# Manual only. "status" changes nothing. "on" is refused while anyone listed
-# is not confirmed yet, unless the box is ticked. "off" always works and
-# takes effect at once. The log carries counts and never an address.
+# Manual only. This log says NOTHING about the result, on purpose: it is
+# public. The result is shown to the Owner on the Directors screen. For the
+# same reason the choice below is never passed through a step's environment
+# (the log prints those); the script reads it from the run's own event file.
 # docs/google-binding.md has the order of steps.
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'status = just look. on = require the tie. off = stop requiring it.'
+        description: 'on = require it. off = stop requiring it. clear-owner = clear the Owner record.'
         type: choice
-        options: [status, 'on', 'off']
-        default: status
+        options: ['on', 'off', clear-owner]
       force:
-        description: 'Turn it on even if some listed people are not confirmed yet (they will have to sign in again)'
+        description: 'For "on": turn it on even if some listed people are not confirmed yet'
         type: boolean
         default: false
 
@@ -33,11 +32,9 @@ jobs:
         with:
           node-version: 24
       - run: npm install firebase-admin --no-save
-      - name: Check the decision and the counts-only promise
+      - name: Check the decision and the says-nothing promise
         run: node scripts/require-google-ties.mjs --selfcheck
-      - name: Look, or switch
+      - name: Run
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          MODE: ${{ inputs.mode }}
-          FORCE: ${{ inputs.force && '1' || '' }}
         run: node scripts/require-google-ties.mjs
