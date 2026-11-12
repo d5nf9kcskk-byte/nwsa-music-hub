@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { Camera, StopCircle, RotateCcw, AlertTriangle } from 'lucide-react';
 import { describeDuration, formatClock, formatFileSize } from '../duration';
+import { pickRecordingType } from '../recordingType';
 
 interface VideoRecorderProps {
   maxDurationSeconds?: number; // default 300 (5 min)
@@ -14,17 +15,11 @@ interface VideoRecorderProps {
   busy?: boolean;
 }
 
-/** Container the browser will actually record in — Safari only does mp4.
- *  Returns '' when the browser can't say (no isTypeSupported): passing a
- *  guessed type there throws on Safari, while passing NO type lets every
- *  browser record in its own native container. */
+/** Container the browser will actually record in — see recordingType.ts for
+ *  why an iPhone records MP4 and Chrome records WebM. */
 function pickMimeType(): string {
   if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return '';
-  const candidates = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
-  for (const type of candidates) {
-    if (MediaRecorder.isTypeSupported(type)) return type;
-  }
-  return '';
+  return pickRecordingType(t => MediaRecorder.isTypeSupported(t), navigator.vendor ?? '');
 }
 
 export function VideoRecorder({
