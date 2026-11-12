@@ -29,6 +29,36 @@ service firebase.storage {
       return firestore.get(/databases/(default)/documents/directors/$(request.auth.token.email)).data;
     }
 
+    // WHICH account signed in (#google-binding): the SAME test as
+    // honouredSignIn() in firestore.rules, and it must stay the same. A
+    // Google sign-in is honoured only for the Google account the person's
+    // Directors entry is tied to (`googleSub`, written by the server alone).
+    // Every staff helper in this file calls it, so a verified email on the
+    // list opens nothing here by itself either.
+    //
+    // One difference from firestore.rules, on purpose: there the tie is
+    // required only once a server-only switch is on. Here it is ALWAYS
+    // required. A Storage rule may look at only two Firestore documents, and
+    // these rules already use both (the directors doc, and a lesson or an
+    // assignment), so there is no room to read a switch. And only the school's
+    // project has Storage at all, which is the one project that has the
+    // server step to tie people with. A person not tied yet cannot upload
+    // until the app has tied them, which it does by itself on opening.
+    function honouredSignIn() {
+      return request.auth.token.firebase.sign_in_provider == 'google.com'
+        && boundGoogleSignIn();
+    }
+
+    // Every caller has already checked that the directors doc exists.
+    function boundGoogleSignIn() {
+      return isTiedGoogleId(directorDoc().get('googleSub', ''));
+    }
+    function isTiedGoogleId(googleSub) {
+      return googleSub is string
+        && googleSub != ''
+        && googleSub in request.auth.token.firebase.identities['google.com'];
+    }
+
     // Signed in AND listed in Firestore's `directors` collection — mirrors
     // firestore.rules' isStaff(). Owner and Director get full Storage access
     // (a legacy doc with no role counts as director); every other role is
@@ -45,6 +75,7 @@ service firebase.storage {
       return request.auth != null
         && request.auth.token.email_verified == true
         && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
+        && honouredSignIn()
         && hasRole('classroom');
     }
 
@@ -56,6 +87,7 @@ service firebase.storage {
       return request.auth != null
         && request.auth.token.email_verified == true
         && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
+        && honouredSignIn()
         && hasRole('assistant');
     }
 
@@ -63,6 +95,7 @@ service firebase.storage {
       return request.auth != null
         && request.auth.token.email_verified == true
         && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
+        && honouredSignIn()
         && (hasRole('owner') || hasRole('director'));
     }
 
@@ -252,6 +285,7 @@ service firebase.storage {
       return request.auth != null
         && request.auth.token.email_verified == true
         && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
+        && honouredSignIn()
         && hasRole('teacher');
     }
 

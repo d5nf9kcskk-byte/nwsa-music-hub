@@ -59,8 +59,6 @@ The switch is never turned on for the demo sites. They have no server step, so n
 
 ## Where things live
 
-(The rules, the switch and the two emulator scripts arrive with move 2.)
-
 - `functions/src/googleBinding.ts` (the rule for tying), `googleBindingStore.ts`, `bindGoogle` in `functions/src/index.ts`. Self-check: `googleBinding.selfcheck.ts`.
 - `firestore.rules`, `storage.rules`: `honouredSignIn()`. `functions/src/staffToken.ts`: the same test for the functions. Self-check: `staffToken.selfcheck.ts`, which reads both rules files.
 - `scripts/require-google-ties.mjs` and the *Require Google Ties* workflow: the switch (`serverConfig/signIn.googleTieRequired`).

@@ -100,7 +100,78 @@ service cloud.firestore {
     function signedIn() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && exists(/databases/$(database)/documents/directors/$(request.auth.token.email));
+        && exists(/databases/$(database)/documents/directors/$(request.auth.token.email))
+        && honouredSignIn();
+    }
+
+    // WHICH account signed in (#google-binding). A verified email on the list
+    // says the account carries that address. It does not say Google itself
+    // knows the person by it, and a rule cannot look that up. The server can
+    // (functions/src/googleBinding.ts), and when Google's own address for an
+    // account is the listed one it records Google's id for the person on
+    // their entry: `googleSub`. So:
+    //
+    //   • A Google sign-in is honoured for the Google account the entry is
+    //     tied to. Once the tie is REQUIRED (the switch below), an entry that
+    //     is not tied lets nobody in; the app asks the server to tie it at
+    //     the next sign-in, by itself.
+    //   • Anything else (a password, anonymous, a custom token, a provider
+    //     nobody turned on deliberately) is refused. A new way of signing in
+    //     gets a clause here on purpose or it gets nothing.
+    //
+    // The tied clause comes FIRST, so for a tied person the switch is never
+    // even read: no extra document, no changed verdict.
+    //
+    // storage.rules (honouredSignIn) and the Cloud Functions that check a
+    // staff token (functions/src/staffToken.ts) apply the same tie test
+    // WITHOUT the switch, for the reason given there. All three change
+    // together.
+    function honouredSignIn() {
+      return request.auth.token.firebase.sign_in_provider == 'google.com'
+        && (boundGoogleSignIn() || !googleTieRequired());
+    }
+
+    // The switch: `serverConfig/signIn.googleTieRequired == true`. It is data
+    // rather than a line of this file for two reasons. This SAME file is
+    // deployed to the demo projects, which have no server step and so can
+    // never tie anyone: with no such document the tie is not required and
+    // they work exactly as before. And for the school, turning the
+    // requirement on (or back off) is one write by the server, instant and
+    // reversible, instead of a rules deploy. No client can read or write
+    // serverConfig (see its match block).
+    function googleTieRequired() {
+      return exists(/databases/$(database)/documents/serverConfig/signIn)
+        && get(/databases/$(database)/documents/serverConfig/signIn).data.get('googleTieRequired', false) == true;
+    }
+
+    // `firebase.identities['google.com']` is the list of Google ids on the
+    // account behind the token. `googleSub` is written by the server only:
+    // see the directors block, which lets no client set or alter it.
+    // The `exists` comes first so that an address with no entry at all is a
+    // plain "no" here rather than an error: with the switch off, a Google
+    // account that is not on the list must still be told "no such entry",
+    // exactly as before.
+    function boundGoogleSignIn() {
+      return exists(/databases/$(database)/documents/directors/$(request.auth.token.email))
+        && isTiedGoogleId(myDirectorDoc().get('googleSub', ''));
+    }
+    function isTiedGoogleId(googleSub) {
+      return googleSub is string
+        && googleSub != ''
+        && googleSub in request.auth.token.firebase.identities['google.com'];
+    }
+
+    // The tie is the server's alone. A client update must leave both fields
+    // exactly as they are (tieKept), with one exception the directors block
+    // spells out: the Owner may clear another person's tie whole
+    // (tieCleared), which lets nobody in and is undone the next time that
+    // person opens the Hub.
+    function tieKept() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+               .hasAny(['googleSub', 'googleBoundAt']);
+    }
+    function tieCleared() {
+      return !request.resource.data.keys().hasAny(['googleSub', 'googleBoundAt']);
     }
 
     // Same verified-email bar as signedIn(), minus the allowlist existence
@@ -110,7 +181,8 @@ service cloud.firestore {
     function verifiedSelf(email) {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email == email;
+        && request.auth.token.email == email
+        && honouredSignIn();
     }
 
     // Does the signed-in user's directors doc include role `r`? Reads the
@@ -1576,11 +1648,18 @@ service cloud.firestore {
       allow list: if isOwner();
       // Existing directors are seeded out-of-band (Admin SDK bypasses these
       // rules); from here on, only the Owner adds or edits others.
-      allow create: if isOwner();
-      allow update: if isOwner()
-        || (verifiedSelf(email)
-            && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['name', 'assignedStudentIds', 'lessonSlots', 'lessonLogSheets', 'examRubric', 'extraEventIds']));
+      // `googleSub` / `googleBoundAt` (#google-binding) are the server's
+      // alone. No create may carry them. An update must leave them as they
+      // are, except that the Owner may clear ANOTHER person's (never their
+      // own: that could not be undone from the app). The self-service list
+      // below never names them.
+      allow create: if isOwner()
+        && !request.resource.data.keys().hasAny(['googleSub', 'googleBoundAt']);
+      allow update: if (isOwner()
+          || (verifiedSelf(email)
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['name', 'assignedStudentIds', 'lessonSlots', 'lessonLogSheets', 'examRubric', 'extraEventIds'])))
+        && (tieKept() || (tieCleared() && isOwner() && request.auth.token.email != email));
       // The Owner may remove any OTHER director, but never their own
       // account — the app can never end up ownerless.
       allow delete: if isOwner() && request.auth.token.email != email;
@@ -1696,6 +1775,12 @@ service cloud.firestore {
     // Denied explicitly rather than left to the catch-all below, so that
     // intent is visible at the point someone would otherwise edit it.
     match /mail/{doc}            { allow read, write: if false; }
+
+    // Server-only switches the rules themselves read (#google-binding:
+    // serverConfig/signIn.googleTieRequired). Written by the Admin SDK alone
+    // (scripts/require-google-ties.mjs). No client may read or write it, the
+    // Owner included: whoever could write it could switch a rule off.
+    match /serverConfig/{doc}    { allow read, write: if false; }
 
     // ── Deny everything else by default ─────────────────
     match /{document=**}         { allow read, write: if false; }

@@ -1182,16 +1182,44 @@ the server records, on each Directors entry, which Google account is theirs
 - **It goes live in three moves, on purpose** (`docs/google-binding.md`). The
   service worker holds a new app version until the person taps Refresh, so a
   phone on an old copy would never ask to be tied and would be locked out the
-  moment a stricter rule took effect. Move 1 (this) is the function, the
-  app's call and the Owner's view; it changes no rule. Move 2 is the rules,
-  with the requirement switched off. Move 3 is the switch, once every active
-  person reads "Google account confirmed" on the Directors screen.
+  moment a stricter rule took effect. Move 1 is the function, the app's call
+  and the Owner's view; it changes no rule. Move 2 is the rules, with the
+  requirement switched off. Move 3 is the switch, once every active person
+  reads "Google account confirmed" on the Directors screen.
+- **`honouredSignIn()` is the test, in three places that change together**:
+  `firestore.rules`, `storage.rules`, and `functions/src/staffToken.ts`. A
+  Google sign-in is honoured for the Google account the entry is tied to;
+  anything that is not a Google sign-in is refused; a new way of signing in
+  gets a clause on purpose or gets nothing. Every gate calls it: `signedIn()`
+  and `verifiedSelf()` in `firestore.rules` (the only two places that file
+  reads a token for access), the four staff helpers in `storage.rules`, and
+  `staffFromIdToken()` in `functions/src/index.ts`, the ONE place a function
+  may call `verifyIdToken` to learn who is asking (`bindGoogle` aside, which
+  is what makes the tie). `staffToken.selfcheck.ts` reads all three files.
+- **Firestore requires the tie only once a server-only switch is on**
+  (`serverConfig/signIn.googleTieRequired`, written by
+  `scripts/require-google-ties.mjs` and nothing else; no client can read or
+  write `serverConfig`). It is data and not a line of the rules for two
+  reasons. This SAME `firestore.rules` is deployed to the demo projects, which
+  have no Cloud Functions and so can never tie anyone: with no such document
+  they work exactly as before. NEVER set it for a demo project. And turning it
+  on or off is one write, instant and reversible, with no rules deploy. The
+  tied clause comes first in the rule, so a tied person never costs a read of
+  the switch.
+- **Storage and the functions always require the tie, with no switch.** A
+  Storage rule may look at only two Firestore documents and these already use
+  both, and both exist only for the school's project. So the three copies are
+  NOT word for word the same; `staffToken.selfcheck.ts` pins each one.
 - **The app asks in two places**: in the background when a read works but the
   entry is not tied, and when the rules REFUSE the membership read (which is
-  what an untied entry looks like once the tie is required). A refusal that the
+  what an untied entry looks like once the switch is on). A refusal that the
   server answers with "bound" is retried exactly once. If the server cannot
   be reached, every path falls back to what it did before, break-glass
   included.
+- **A hand-made test token must say it signed in with Google**
+  (`firebase: { sign_in_provider: 'google.com', identities: { 'google.com': [...] } }`)
+  and its entry must carry the matching `googleSub`, or the staff rules
+  refuse it once the switch is on.
 - **The Owner may clear another person's tie, never set one, and never
   their own** (Directors screen, Reset). The person is tied again the next
   time they open the Hub.
@@ -1203,7 +1231,13 @@ the server records, on each Directors entry, which Google account is theirs
   answers, in one word, whether every sign-in account is Google's own account
   for its address. It prints OK or REVIEW NEEDED and never an address: this
   repo's logs are public.
-- `googleBinding.selfcheck.ts` pins the rule and the wiring.
+- `googleBinding.selfcheck.ts` pins the tying rule and its wiring. Two
+  emulator scripts, neither in CI (they need Java):
+  `scripts/google-binding.emulator-proof.mjs` (real sign-ins, the real rules
+  files, every role), and `scripts/rules-verdicts.emulator-check.mjs`, which
+  records every role's answers to a battery of reads and writes so a rules
+  change can be compared with `main`. This repo had no rules suite before;
+  use that one for the next rules change too.
 
 ## Playing-exam grading — one line, one rubric (Sept 2026, #exam-rubric)
 

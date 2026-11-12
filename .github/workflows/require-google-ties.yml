@@ -1,0 +1,43 @@
+name: Require Google Ties
+
+# The one switch for "a Google sign-in must belong to the Google account the
+# person's Directors entry is tied to" (#google-binding). It writes one
+# server-only field that firestore.rules reads; no browser can.
+#
+# Manual only. "status" changes nothing. "on" is refused while anyone listed
+# is not confirmed yet, unless the box is ticked. "off" always works and
+# takes effect at once. The log carries counts and never an address.
+# docs/google-binding.md has the order of steps.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'status = just look. on = require the tie. off = stop requiring it.'
+        type: choice
+        options: [status, 'on', 'off']
+        default: status
+      force:
+        description: 'Turn it on even if some listed people are not confirmed yet (they will have to sign in again)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  switch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm install firebase-admin --no-save
+      - name: Check the decision and the counts-only promise
+        run: node scripts/require-google-ties.mjs --selfcheck
+      - name: Look, or switch
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          MODE: ${{ inputs.mode }}
+          FORCE: ${{ inputs.force && '1' || '' }}
+        run: node scripts/require-google-ties.mjs
