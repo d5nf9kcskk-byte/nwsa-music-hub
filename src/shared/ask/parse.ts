@@ -542,11 +542,11 @@ const RULES: AskRule[] = [
   // Getting the schedule INTO a calendar. "What is on my calendar" is not this.
   { intent: 'howCalendar', re: /\bsubscribe\b|\badd (?:\w+ )?to (?:my )?(?:calendar|calendario|phone)\b|\b(?:schedule )?on my phone\b|\b(?:google|apple|iphone|outlook) calendar\b|\bcalendar (?:feed|link|subscription)\b/, also: /\bget\b|\bcalendar\b|\bcalendario\b/ },
   { intent: 'howCopy', re: /\blost my (?:music|part|folder)\b|\b(?:a|another|a new) copy\b|\bcopy of my\b|\bpage turn\b|\bmissing (?:a page|pages)\b|\bperdi mi (?:musica|partitura)\b/, also: /\b(?:bad|get)\b/ },
-  { intent: 'howAlerts', re: /\b(?:alerts?|alertas?|notifications?|notificaciones|notify|get a text|text me)\b/, also: /\bturn on\b/ },
+  { intent: 'howAlerts', re: /\b(?:alerts?|alertas?|notifications?|notificaciones|notify|get a text|text me)\b/, also: /\bturn on\b|\bget\b/ },
   { intent: 'howFindMe', re: /\bfind (?:my schedule|me)\b|\bnot me\b|\bwrong (?:person|student|name|kid)\b|\btwo kids\b|\b(?:other|another) (?:kids?|child|student|phone)\b|\bespanol\b|\bin spanish\b/, also: /\bin the program\b|\bsend\b|\bsee\b/ },
 
   { intent: 'required', re: /\b(?:required|mandatory|obligatori[oa]s?)\b|\b(?:have|need) to (?:go|attend)(?: to)?\b/, also: /\bhow many\b|\bgo\b|\battend\b/ },
-  { intent: 'pickup', re: /\bpick ?up\b|\bpick (?:him|her|them) up\b|\brecog\w+\b|\brecojo\b/, also: /\bafter\b/ },
+  { intent: 'pickup', re: /\bpick ?up\b|\bpick (?:him|her|them) up\b|\brecog\w+\b|\brecojo\b/, also: /\bafter\b|\bfrom\b/ },
   { intent: 'pickup', re: /^(?:what time|when) is it over$|\b(?:concert|concierto|show|it) (?:ends?|finish(?:es)?|is over|lets? out|termina|acaba)\b/, whenShape: true },
   // "Call" is the call time only as a noun: "what time is call", "our call".
   { intent: 'callTime', re: /\bcall ?time\b|\b(?:is|whens|whats|the|our|my) call\b|^call$|^call for\b|\b(?:have|need|supposed) to be (?:there|at)\b|\b(?:be|get) there\b|\barrive\b|\bllegar\b|\b(?:hora de )?llegada\b/ },
@@ -554,13 +554,13 @@ const RULES: AskRule[] = [
 
   { intent: 'lesson', re: /\blessons?\b|\bclase particular\b|\bleccion(?:es)?\b/, also: /\bteacher\b|\bprofesora?\b|\bwho is my\b/ },
   { intent: 'due', re: /\bdue\b|\bhw\b|\bhomework\b|\btarea\b|\bassignments?\b|\bse entrega\b|\b(playing exams?|exam(?:s|en|enes)?|tests?|quiz(?:zes)?)\b/, also: /\bexcerpts?\b|\bdate\b/ },
-  { intent: 'forms', re: /\bforms?\b|\bformularios?\b|\bpermission(?: slip)?\b|\bpermiso\b|\bsign ?ups?\b|\bsign\b|\bfirm(?:o|ar)\b/, also: /\bfill(?:ed)? out\b|\bneed to\b/ },
-  { intent: 'seat', re: /\bseat(?:s|ing)?\b|\bsit\b|\bchair\b|\bfirst or second\b|\bsiento\b|\basiento\b|\bstand partner\b|\b(?:which|what|my) stand\b/, also: /\bchart\b/ },
+  { intent: 'forms', re: /\bforms?\b|\bformularios?\b|\bpermission(?: slip)?\b|\bpermiso\b|\bsign ?ups?\b|\bsign\b|\bfirm(?:o|ar)\b/, also: /\bfill(?:ed)? out\b|\bneed(?: to)?\b/ },
+  { intent: 'seat', re: /\bseat(?:s|ing)?\b|\bsit(?:ting)?\b|\bchair\b|\bfirst or second\b|\bsiento\b|\basiento\b|\bstand partner\b|\b(?:which|what|my) stand\b/, also: /\bchart\b/ },
   { intent: 'parts', re: /\bparts?\b|\b(?:my|sheet) music\b|\bpartituras?\b|\bbowings?\b|\bfingerings?\b/ },
   { intent: 'piece', re: /\brecordings?\b|\bprogram notes?\b|\bgrabacion\b|\bwho (?:wrote|composed)\b|\bcomposer\b/ },
   // "cancel" and "move" alone are things a director DOES; only the past and
   // the question forms ask whether it happened.
-  { intent: 'cancelled', re: /\bcancell?ed\b|\bcancelad[oa]\b|\bcancelo\b|\bcancelaron\b|\bstill (?:on|happening)\b|\bchanges?\b|\bchanged\b|\bcambios?\b|\bmoved\b/, also: /\bdid\b/ },
+  { intent: 'cancelled', re: /\bcancell?ed\b|\bcancelad[oa]\b|\bcancelo\b|\bcancelaron\b|\bstill (?:on|happening)\b|\bchanges?\b|\bchanged\b|\bcambios?\b|\bmoved\b/, also: /\bdid\b|\bget\b|\bgot\b|\bhas\b|\bbeen\b/ },
   { intent: 'cancelled', re: /\bmove\b/, with: /\bdid\b/ },
 
   { intent: 'news', re: /\bdid (?:anyone|anybody|someone) (?:find|see)\b|\bhas (?:anyone|anybody) (?:seen|found)\b|\blost and found\b|\bduty\b|\bresults?\b|\bresultados\b/, also: /\bwho has\b/, topic: true },
@@ -576,7 +576,7 @@ const RULES: AskRule[] = [
   { intent: 'noSchool', re: /\b((?:thanksgiving|winter|spring|summer|fall|christmas|holiday) break|thanksgiving|finals|quarter|semester|grading period|vacaciones)\b|\bbreak\b|\bday off\b|\bholidays?\b|\bdias? festivos?\b|\bferiados?\b/ },
 
   { intent: 'myDay', re: /\bam i playing\b|^is (?:he|she|my (?:son|daughter|kid|child|student)) playing\b/ },
-  { intent: 'myDay', re: /\bschedule\b|\bhorario\b|\brehearsals?\b|\bensayos?\b|\bclass(?:es)?\b|\bclases?\b|\bget out\b|\bwhat do i have\b(?! to\b)|\bdo (?:i|we) have\b(?! to\b)|\blook like\b|\b(sectionals?|seccional(?:es)?|masterclass(?:es)?)\b/ },
+  { intent: 'myDay', re: /\bschedule\b|\bhorario\b|\brehearsals?\b|\brehearses?\b|\bensayos?\b|\bclass(?:es)?\b|\bclases?\b|\bget out\b|\bwhat do i have\b(?! to\b)|\bdo (?:i|we) have\b(?! to\b)|\blook like\b|\b(sectionals?|seccional(?:es)?|masterclass(?:es)?)\b/ },
   // "What should I practice", not "can I practice in 4304".
   { intent: 'playing', re: /\bwhat (?:should|do|can|shall) (?:i|we) (?:need to |have to )?practice\b|\bwhat to practice\b|\bque (?:debo |tengo que )?practicar\b/, when: 'thisWeek' },
   { intent: 'playing', re: /\b(?:what|which|program|concert) order\b|\border of\b/, also: /\bplaying(?: in)?\b/, when: 'next' },
@@ -591,7 +591,7 @@ const RULES: AskRule[] = [
 
   { intent: 'group', re: /\bwho(?:s| is) in\b|\bwho (?:conducts|teaches|directs)\b|\bquien (?:dirige|ensena)\b/ },
   { intent: 'where', re: /\bare we in\b|\bestamos en\b/, when: 'today' },
-  { intent: 'where', re: /\bwheres?\b|\bdonde\b|\b(?:what|which) room\b|\bsalon\b|\broom\b/ },
+  { intent: 'where', re: /\bwheres?\b|\bdonde\b|\b(?:what|which) room\b|\bsalon\b|\broom\b/, also: /\bin$/ },
 ];
 
 /** What a definition question looks like. It is answered only for a term
@@ -612,6 +612,8 @@ export const ASK_PRECEDENCE: AskPrecedence[] = [
   ['due', 'myDay', 'do i have a test tomorrow'],
   ['forms', 'myDay', 'do i have any forms'],
   ['forms', 'where', 'donde firmo el permiso'],
+  ['forms', 'due', 'are there any forms due'],
+  ['howCheckin', 'where', 'where do i check in'],
   ['seat', 'where', 'where do i sit'],
   ['parts', 'where', 'where is my part'],
   ['howCopy', 'parts', 'i need a copy of my part'],
