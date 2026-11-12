@@ -285,6 +285,42 @@ html:has(.dir-app) body {
 }
 .dir-auth-link:disabled { opacity: 0.55; cursor: default; }
 
+/* "Add to Home Screen to stay signed in" (#stay-signed-in): one line over the
+   staff shell on an iPhone or iPad in a browser tab, gone for good on that
+   device once dismissed. It floats at the level of the fixed bars, so menus,
+   drawers and dialogs open OVER it rather than under it. */
+.dir-home-hint {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
+  z-index: var(--z-bar, 60);
+  max-width: 520px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--dir-surface);
+  color: var(--dir-text);
+  border: 1.5px solid var(--dir-border);
+  border-radius: var(--dir-radius);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.dir-home-hint span { flex: 1; }
+.dir-home-hint button {
+  background: none;
+  border: 0;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--dir-text-muted);
+  cursor: pointer;
+}
+
 .dir-setup-box {
   background: var(--dir-surface);
   border: 1.5px solid var(--dir-border);
