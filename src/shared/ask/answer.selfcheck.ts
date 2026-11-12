@@ -151,6 +151,8 @@ const events = [
     title: 'Chamber Night', startTime: '19:30', endTime: '21:00', location: 'Small Hall',
     pieceIds: ['quartet'], attendanceEnsembleIds: ['sym'], callTime: '18:30', dress: 'Chamber dress.', pickupTime: '21:30',
   }),
+  // Starts in the afternoon and runs into the evening.
+  ev('late', '2026-10-13', 'Rehearsal', ['sym'], { startTime: '16:00', endTime: '18:30', location: 'Room 2210' }),
   ev('r6', '2026-10-20', 'Rehearsal', ['sym'], { startTime: '14:10', location: 'Room 2210' }),
   // Cancelled. It must never be "the next concert" or count as required.
   ev('cx', '2026-10-24', 'Concert', ['sym'], {
@@ -325,8 +327,8 @@ const CASES: Case[] = [
     ['event:r1', 'lesson:lt', 'event:r2', 'lesson:l1', 'event:c1']],
   // A count over a month carries no dates of its own: the line after it does.
   ['myDay over a month', q('myDay', { when: 'month:10' }), ['ada'], 'answered',
-    '8 things. First: Symphony Orchestra, today <14:10>, Room 2210.',
-    ['event:r1', 'lesson:lt', 'event:r2', 'lesson:l1', 'event:c1', 'event:c2!aud', 'event:r6', 'event:cx', 'event:cs']],
+    '9 things. First: Symphony Orchestra, today <14:10>, Room 2210.',
+    ['event:r1', 'lesson:lt', 'event:r2', 'lesson:l1', 'event:c1', 'event:late', 'event:c2!aud', 'event:r6', 'event:cx', 'event:cs']],
   ['myDay, a day with only a lesson', q('myDay', { when: 'weekday:wed' }), ['ada'], 'answered',
     'Lesson, {2026-10-07} <15:00>, Studio 3, Ms. Invented.', ['lesson:l1']],
   ['myDay on a day she is pulled out', q('myDay', { when: 'weekday:thu' }), ['ada'], 'answered',
@@ -1029,14 +1031,16 @@ check('the sweep really ran', SWEEP.length === ASK_ANSWERS.length * WHENS.length
     ['date:12-09', '2026-12-09', '2026-12-09'], ['date:10-05', '2026-10-05', '2026-10-05'],
     // Later in the same school year: next calendar year, and fine.
     ['date:01-15', '2027-01-15', '2027-01-15'], ['date:05-01', '2027-05-01', '2027-05-01'], ['date:07-31', '2027-07-31', '2027-07-31'],
+    // A day of the month with no month is the NEXT day with that number.
     ['day:15', '2026-10-15', '2026-10-15'], ['day:31', '2026-10-31', '2026-10-31'], ['day:05', '2026-10-05', '2026-10-05'],
+    ['day:04', '2026-11-04', '2026-11-04'], ['day:01', '2026-11-01', '2026-11-01'],
     ['month:10', '2026-10-05', '2026-10-31'], ['month:12', '2026-12-01', '2026-12-31'], ['month:02', '2027-02-01', '2027-02-28'],
     ['month:07', '2027-07-01', '2027-07-31'],
   ];
   for (const [when, from, to] of DAYS) eq(`16. ${when ?? 'no date'}`, askRange(when, TODAY), to ? { from, to } : { from });
-  // Earlier than today in this school year is the past. It never becomes
-  // the same day a year on.
-  for (const when of ['date:10-04', 'date:09-15', 'date:08-01', 'day:04', 'day:01', 'month:09', 'month:08', 'yesterday', 'lastNight', 'lastWeek'] as AskWhen[]) {
+  // A month and day, or a month, earlier than today in this school year is
+  // the past. It never becomes the same day a year on.
+  for (const when of ['date:10-04', 'date:09-15', 'date:08-01', 'month:09', 'month:08', 'yesterday', 'lastNight', 'lastWeek'] as AskWhen[]) {
     check(`16. "${when}" is behind us`, askRange(when, TODAY) === null, JSON.stringify(askRange(when, TODAY)));
     check(`16. and a question about "${when}" is not answered`, ask(q('myDay', { when }), ['ada']).state === 'notUnderstood');
   }
@@ -1044,7 +1048,28 @@ check('the sweep really ran', SWEEP.length === ASK_ANSWERS.length * WHENS.length
   for (const when of ['date:02-29', 'date:02-30', 'date:04-31', 'date:13-01', 'day:32', 'day:00', 'day:5', 'month:13', 'month:1', 'weekday:xyz', 'someday'] as AskWhen[]) {
     check(`16. "${when}" is not a real day`, askRange(when, TODAY) === null, JSON.stringify(askRange(when, TODAY)));
   }
-  check('16. the 31st, asked in a month with thirty days, is no day', askRange('day:31', '2026-11-10') === null);
+  // "The 31st" with no month: the next 31st, passing over a month without one.
+  const next = (when: AskWhen, today: string) => askRange(when, today)?.from;
+  eq('16. the 31st, asked on November 10', next('day:31', '2026-11-10'), '2026-12-31');
+  eq('16. the 31st, asked on November 30', next('day:31', '2026-11-30'), '2026-12-31');
+  eq('16. the 30th, asked on January 31: February has none', next('day:30', '2027-01-31'), '2027-03-30');
+  eq('16. the 29th, asked on January 30 of a plain year', next('day:29', '2027-01-30'), '2027-03-29');
+  eq('16. the 29th, asked on January 30 of a leap year', next('day:29', '2028-01-30'), '2028-02-29');
+  eq('16. the 31st, asked on February 1', next('day:31', '2027-02-01'), '2027-03-31');
+  eq('16. the 4th, asked on December 15, is in January', next('day:04', '2026-12-15'), '2027-01-04');
+  eq('16. the 1st, asked on July 31, is the next day', next('day:01', '2027-07-31'), '2027-08-01');
+  for (let n = 0; n < 366; n++) {
+    const today = new Date(Date.UTC(2027, 0, 1) + n * 86_400_000).toISOString().slice(0, 10);
+    for (let d = 1; d <= 31; d++) {
+      const got = next(`day:${String(d).padStart(2, '0')}` as AskWhen, today);
+      if (!got || got < today || +got.slice(8) !== d) check(`16. the ${d}th asked on ${today} is the next one`, false, String(got));
+    }
+  }
+  eq('16. the 4th in the sentence, with its month, and its year when that is next year',
+    ask(q('myDay', { when: 'day:04' }), ['ada'], { today: '2026-12-15', now: at('2026-12-15', '10:00') }).sentence,
+    'Nothing is on your schedule {2027-01-04}, 2027.');
+  eq('16. and what was read is shown', ask(q('myDay', { when: 'day:04' }), ['ada']).showing,
+    { intent: 'myDay', when: 'day:04', from: '2026-11-04', to: '2026-11-04' });
   eq('16. February 29 in a leap year is a day', askRange('date:02-29', '2027-10-05'), { from: '2028-02-29', to: '2028-02-29' });
   // In spring the school year began last August.
   eq('16. in March, "6/1" is this June', askRange('date:06-01', '2027-03-15'), { from: '2027-06-01', to: '2027-06-01' });
@@ -1121,6 +1146,10 @@ check('the sweep really ran', SWEEP.length === ASK_ANSWERS.length * WHENS.length
   const dated = typed('what do i have 12/9', ['ada']).showing;
   eq('18. "what do i have 12/9" shows the day it was read as', [dated?.from, dated?.to], ['2026-12-09', '2026-12-09']);
   check('18. "what do i have 10/4", asked on the 5th, is the past and not next October', typed('what do i have 10/4', ['ada']).state === 'notUnderstood');
+  // With no month it is the next day with that number, as the parser means it.
+  eq('18. "what do i have on the 4th", asked on the 5th, is next month\'s 4th', typed('what do i have on the 4th', ['ada']).showing?.from, '2026-11-04');
+  eq('18. "what do i have tonight", asked at ten on a day with nothing in the evening', typed('what do i have tonight', ['ada']).sentence,
+    'Nothing is on your schedule tonight.');
 }
 
 /* ── 19. No "Yes", no "No", and no change put into words. ─────────────── */
@@ -1157,14 +1186,41 @@ check('the sweep really ran', SWEEP.length === ASK_ANSWERS.length * WHENS.length
     'Chamber Players, today <08:00>, Room 9.');
   eq('20. the next lesson is not one that has ended', cardsOf(ask(q('lesson', { when: 'next' }), ['ben'])), ['lesson:l2']);
   eq('20. before it, it is', cardsOf(ask(q('lesson', { when: 'next' }), ['ben'], { now: at(TODAY, '08:30') })), ['lesson:l0']);
-  // Tonight: not over, and in the evening or still to come.
+  // Tonight is the evening: not over, and starting at five or later, or
+  // under way now that it is five or later. Asked at ten, three, six and
+  // eleven, on three kinds of day.
   const tonight = q('myDay', { when: 'tonight' });
-  eq('20. "tonight", asked at ten: what is still to come', cardsOf(ask(tonight, ['ada'])), ['event:r1', 'lesson:lt']);
-  eq('20. "tonight", asked at three: the rehearsal under way is not tonight', [ask(tonight, ['ada'], { now: at(TODAY, '15:00') }).sentence],
-    ['Lesson, today <16:00>, Studio 3, Ms. Invented.']);
-  eq('20. "tonight", asked at five: nothing more', ask(tonight, ['ada'], { now: at(TODAY, '17:00') }).sentence, 'Nothing more is on your schedule tonight.');
+  const HOURS = ['10:00', '15:00', '18:00', '23:00'];
+  const said = (ymd: string, hhmm: string) => {
+    const got = ask(tonight, ['ada'], { today: ymd, now: at(ymd, hhmm) });
+    return [got.sentence, cardsOf(got)];
+  };
+  // Monday: a rehearsal at 2:10 and a lesson at 4:00. Nothing in the evening.
+  for (const h of HOURS) {
+    eq(`20. "tonight" on a day with only afternoon things, asked at ${h}`, said(TODAY, h), ['Nothing is on your schedule tonight.', []]);
+  }
+  // Saturday: a concert at 7:00, with no end stored.
   const saturday = { today: '2026-10-10' };
-  eq('20. a concert at seven is tonight all day', cardsOf(ask(tonight, ['ada'], { ...saturday, now: at('2026-10-10', '09:00') })), ['event:c1']);
+  for (const h of HOURS.slice(0, 3)) {
+    eq(`20. "tonight" on a concert night, asked at ${h}`, said('2026-10-10', h), ['Fall Concert, today <19:00>, Main Hall.', ['event:c1']]);
+  }
+  eq('20. "tonight" on a concert night, asked at 23:00: it is over', said('2026-10-10', '23:00'),
+    ['Nothing more is on your schedule tonight.', ['event:c1']]);
+  // Tuesday the 13th: a rehearsal from 4:00 to 6:30.
+  for (const h of HOURS.slice(0, 2)) {
+    eq(`20. "tonight", a rehearsal that starts at four, asked at ${h}: it is not the evening yet`, said('2026-10-13', h),
+      ['Nothing is on your schedule tonight.', []]);
+  }
+  eq('20. "tonight", the same rehearsal, asked at 18:00: it is under way', said('2026-10-13', '18:00'),
+    ['Symphony Orchestra, today <16:00>, Room 2210.', ['event:late']]);
+  eq('20. "tonight", the same rehearsal, asked at 23:00: it is over', said('2026-10-13', '23:00'),
+    ['Nothing more is on your schedule tonight.', ['event:late']]);
+  for (const s of SWEEP.filter(x => x.when === 'tonight')) {
+    check(`20. "tonight" never names an afternoon time (${s.what})`,
+      everything(s.got).sentences.every(t => !/<(?:0\d|1[0-6]):\d\d>/.test(t)), JSON.stringify(everything(s.got).sentences));
+  }
+  eq('20. the other questions keep the evening too: nothing is cancelled tonight', ask(q('cancelled', { when: 'tonight' }), ['ada']).sentence,
+    'Nothing is on your schedule tonight.');
   // With no end stored, a thing is taken to last two hours.
   const thursday = { today: '2026-10-08' };
   eq('20. no end stored: still on after an hour and a half', ask(q('where', { when: 'today' }), ['dee'], { ...thursday, now: at('2026-10-08', '16:30') }).sentence,

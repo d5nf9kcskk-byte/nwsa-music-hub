@@ -333,12 +333,16 @@ interface Range { from: string; to?: string }
  * answers about: behind us, or not a real date.
  *
  * A week runs Monday to Sunday, and only its days still to come are asked
- * about. A date, a day of the month and a month are read INSIDE the school
- * year today is in (August 1 to July 31) and never jump a year to stay ahead:
- * "11/9" asked on November 10 is yesterday, which is the past, and not next
- * November. "5/1" asked in November is next May, in the same school year. A
- * day of the month ("the 15th") is this month's, and the past once it has
- * gone by.
+ * about. A date with its month ("11/9") and a month ("october") are read
+ * INSIDE the school year today is in (August 1 to July 31) and never jump a
+ * year to stay ahead: "11/9" asked on November 10 is yesterday, which is the
+ * past, and not next November. "5/1" asked in November is next May, in the
+ * same school year.
+ *
+ * A day of the month with no month ("the 15th") is the parser's meaning: the
+ * NEXT day with that number, today included. "The 4th" asked on the 5th is
+ * next month's 4th. A month that has no such day is passed over: "the 30th"
+ * asked on January 31 is March 30.
  */
 export function askRange(when: AskWhen | undefined, today: string): Range | null {
   const one = (d: string): Range | null => (real(d) && d >= today ? { from: d, to: d } : null);
@@ -358,7 +362,11 @@ export function askRange(when: AskWhen | undefined, today: string): Range | null
   const yearOf = (month: string) => (month >= '08' ? start : start + 1);
   if (kind === 'weekday') return WEEKDAYS.includes(value) ? one(plus(today, (WEEKDAYS.indexOf(value) - weekdayOf(today) + 7) % 7)) : null;
   if (kind === 'date') return one(`${yearOf(value.slice(0, 2))}-${value}`);
-  if (kind === 'day') return one(`${today.slice(0, 8)}${value}`);
+  if (kind === 'day') {
+    // Two months and a day reaches any day number from any day of the year.
+    for (let n = 0; n <= 62; n++) if (plus(today, n).slice(8) === value) return one(plus(today, n));
+    return null;
+  }
   if (kind === 'month') {
     const y = yearOf(value);
     const first = `${y}-${value}-01`;
@@ -510,10 +518,18 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     const ends = minutes(x.endTime) ?? (start === undefined ? undefined : start + ASSUMED_MINUTES);
     return ends !== undefined && ends <= clock;
   };
-  /** "Tonight": not over, and in the evening or still to come. */
+  /** "Tonight" is the evening: not over, and starting at five or later, or
+   *  already under way now that it is five or later. Never what is merely
+   *  left of the afternoon. A thing with no time stored counts: it is today. */
   const tonight = (x: Entry) => {
     const start = minutes(x.startTime);
-    return !over(x) && (start === undefined || start >= EVENING || start > clock);
+    return !over(x) && (start === undefined || start >= EVENING || (clock >= EVENING && start <= clock));
+  };
+  /** Was part of the evening, and has ended. */
+  const wasTonight = (x: Entry) => {
+    const start = minutes(x.startTime);
+    const ends = minutes(x.endTime) ?? (start === undefined ? undefined : start + ASSUMED_MINUTES);
+    return x.live && over(x) && ends !== undefined && ends > EVENING;
   };
   /** The next one: the first still on and not over, else a cancelled one. */
   const nextOf = (list: Entry[]) => {
@@ -626,8 +642,9 @@ export function answerAsk(parse: AskParse, data: AskData, opts: AskOptions): Ask
     const list = concert ? all : window(all);
     const card = cardFor(me);
     if (list.length === 0) {
-      // Something was on today, and it is over.
-      return all.some(i => i.live) && range.from === today && oneDay ? ok(L.noMore(days), all.map(card), general) : emptyDay(me);
+      // Something was on today (or this evening), and it is over.
+      const gone = when === 'tonight' ? all.filter(wasTonight) : range.from === today && oneDay ? all.filter(i => i.live) : [];
+      return gone.length > 0 ? ok(L.noMore(days), gone.map(card), general) : emptyDay(me);
     }
     const cards = list.map(card);
     const on = list.filter(i => i.live);
