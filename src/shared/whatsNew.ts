@@ -33,6 +33,19 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-11-11-stay-signed-in',
+    date: '2026-11-11',
+    title: 'Keep finding yourself signed out on your iPhone?',
+    audience: 'staff' as const,
+    bullets: [
+      'The Hub never signs you out on a timer. When a sign-in goes missing, the phone threw it away: Safari clears a site it has not seen for a week.',
+      'The fix is the Home Screen. In Safari, tap Share, then Add to Home Screen, and open the Hub from that icon. It keeps its own sign-in.',
+      'If you open the Hub in a Safari tab on an iPhone or iPad, a line at the bottom now says so once. Tap the x and it stays gone on that device.',
+      'The Home Screen icon, a Safari tab and a link opened inside Mail or Messages each keep a separate sign-in, so pick the icon and stick with it.',
+    ],
+    expires: '2026-11-25',
+  },
+  {
     id: '2026-11-11-staff-colors',
     date: '2026-11-11',
     title: 'Pick your own colors in the Hub',
