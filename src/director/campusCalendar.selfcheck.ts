@@ -35,6 +35,8 @@ import {
 } from './campusCalendar';
 import { isCollegeGroup } from './groupKind';
 import { COLLEGE_GROUP_IDS } from './collegeClasses';
+import { isCollegeSessionDay } from './collegeSchedule';
+import { MDC_YEAR } from '../shared/academicCalendars';
 import type { CalendarEvent, Ensemble } from './types';
 
 // Failures are collected rather than thrown one at a time: when the two
@@ -170,6 +172,18 @@ assert(!COLLEGE_GROUP_IDS.has('masterclass-violin') && !COLLEGE_GROUP_IDS.has('m
 // ── the labels a director actually reads ──────────────────────────────
 assert(CAMPUS_FULL_NAME.mdcps.includes('MDCPS') && CAMPUS_FULL_NAME.mdc.includes('Miami Dade'),
   'each campus label names the district or the college outright — "college day" alone is what got misread');
+
+// ── the year the college calendar covers ──────────────────────────────
+// Ask answers "is there school" only inside MDC_YEAR. Outside it the list of
+// closures knows nothing, so a wrong edge here would have it say the college
+// is in session on a day nobody stored anything about.
+assert(isCollegeSessionDay(MDC_YEAR.from) && isCollegeSessionDay(MDC_YEAR.to),
+  'the first and the last day of MDC_YEAR are days the college is in session');
+const shift = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+for (let n = 1; n <= 7; n++) {
+  assert(!isCollegeSessionDay(shift(MDC_YEAR.from, -n)), `${n} days before MDC_YEAR the college is not in session`);
+  assert(!isCollegeSessionDay(shift(MDC_YEAR.to, n)), `${n} days after MDC_YEAR the college is not in session`);
+}
 
 // Thrown, not process.exit()'d: this file is compiled by tsconfig.app.json,
 // which has no node types, and every other self-check under src/ fails the

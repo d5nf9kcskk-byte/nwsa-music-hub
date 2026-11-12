@@ -82,3 +82,19 @@ export const MDC_NO_SCHOOL = new Set([
 export function isMdcpsSchoolDay(dateStr: string): boolean {
   return !MDCPS_NO_SCHOOL.has(dateStr);
 }
+
+/**
+ * The school year each calendar above covers: the first and the last day
+ * students attend. Outside it the lists say NOTHING. They only name closures,
+ * so asked about July, or about next year's Labor Day, they would answer
+ * "there is school". Anything that tells a person whether there is school
+ * must check the day is inside the year first (the Ask answers do).
+ *
+ * MDCPS: the district's first and last day, which are also the first grading
+ * period's start and the last one's end (gradingPeriods.selfcheck.ts holds
+ * the two together). MDC: the fall term's first day and the spring term's
+ * last, the same two dates `isCollegeSessionDay()` in collegeSchedule.ts
+ * refuses anything outside of (pinned there too).
+ */
+export const MDCPS_YEAR = { from: '2026-08-13', to: '2027-06-03' } as const;
+export const MDC_YEAR = { from: '2026-08-24', to: '2027-06-03' } as const;
