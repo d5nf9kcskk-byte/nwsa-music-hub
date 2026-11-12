@@ -67,6 +67,7 @@ export const STAFF_SIDE: AskStaffSide = {
   widen: { myDay: 'staffDay', concert: 'staffDay', noSchool: 'staffDay' },
   wherePerson: 'staffWhereIs',
   roomOnDate: 'staffDay',
+  oneWord: ['requests', 'approvals', 'seniors', 'juniors', 'sophomores', 'freshmen', 'gradebook', 'absences'],
 };
 
 export function parseStaffAsk(text: string, names: readonly AskName[]): AskParse {

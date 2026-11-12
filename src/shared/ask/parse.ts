@@ -126,6 +126,8 @@ export interface AskStaffSide {
   wherePerson: AskIntent;
   /** A room and a date with nothing else. */
   roomOnDate: AskIntent;
+  /** Staff words that are a whole question typed alone ("requests"). */
+  oneWord: string[];
 }
 
 /* ── Words ────────────────────────────────────────────────────────────── */
@@ -179,6 +181,14 @@ const SHORT: Record<string, string> = {
 /** "When does it start", "what time is it over": only in a when question. */
 const TIMING = set('start starts begin begins end ends meet meets over finish finishes empieza comienza termina acaba');
 const TIMED = new Set<AskIntent>(['myDay', 'concert', 'lesson', 'noSchool', 'pickup', 'callTime']);
+/** The words that are a whole question typed alone. Any other single word
+ *  ("play", "sign", "black", "room") is a keyword to search for: the reading
+ *  is offered, not answered. */
+const ONE_WORD = set(
+  'schedule horario rehearsal ensayo lesson lessons concert concerts concierto conciertos forms formularios ' +
+  'hw homework tarea syllabus handbook announcements anuncios news novedades noticias repertoire repertorio ' +
+  'bowings fingerings scales holidays',
+);
 
 /** Lower case, no accents, no punctuation. ':' and '/' survive for dates. */
 export function askWords(s: string): string {
@@ -557,7 +567,9 @@ const RULES: AskRule[] = [
   { intent: 'news', re: /\bannouncements?\b|\banuncios?\b|\bwhats new\b|\bwhat is new\b|\bnews\b|\bnovedades\b|\bnoticias\b/ },
   { intent: 'documents', re: /\bsyllab(?:us|i)\b|\bhandbook\b|\bdocuments?\b|\bdocs\b|\b(study guides?|scales?|librarian)\b/, also: /\bjob\b/ },
 
-  { intent: 'noSchool', re: /\bno school\b|\bcome back\b|\bgo back\b|\bregresamos\b|\bvolvemos\b/, when: 'next' },
+  { intent: 'noSchool', re: /\bno school\b/, when: 'next' },
+  // "When do we come back" asks for a date. "Go back" alone is a button.
+  { intent: 'noSchool', re: /\bcome back\b|\bgo back\b|\bregresamos\b|\bvolvemos\b/, whenShape: true, when: 'next' },
   // Only the shapes that ask whether school is on. "What time does school
   // start" is a bell schedule, which the Hub does not hold.
   { intent: 'noSchool', re: /\b(?:is there|there is|theres|do we have|have|hay|tenemos) (?:school|clases|escuela)\b|\bschool (?:closed|open|off|cancell?ed)\b|\bis (mdc) open\b/ },
@@ -948,6 +960,8 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
           // A room is where, not what: "what are we rehearsing in chapman" is still today.
           const thing = !!a && !(i === 'playing' && m?.n.kind === 'room');
           when = i === 'where' && m?.n.kind === 'room' ? undefined : thing ? named : bare;
+          // "What day is rehearsal" is not asking about today.
+          if (i === 'myDay' && /\b(?:what|which) day\b|\bque dia\b/.test(sentence)) when = 'next';
         }
       }
       const out: AskReading = { intent: side ? side.widen[i] ?? i : i };
@@ -1001,10 +1015,14 @@ function work(typed: string, names: readonly AskName[], side?: AskStaffSide, spy
     const lacking = !!rule?.thing && !kind && !person && !fired.some(f => !!as && beats(as, f.rule.intent));
     const sure = !!intent && unknown.length === 0 && !tied && (picked.length <= 1 || choice || staff)
       && !lacking
+      // One word, and not one of the few that is a question by itself.
+      && !(toks.length === 1 && !dated && !ONE_WORD.has(toks[0].w) && !side?.oneWord.includes(toks[0].w))
       // A date belongs in a question about a day. "Calendar this week" is two questions.
       && !(dated && !staff && !DAY_QUESTION.has(intent))
       && !(date.bareDay && !(as && (DAY_QUESTION.has(as) || staff)));
     const reading = intent && unknown.length === 0 && !lacking ? finish(intent, one, about) : undefined;
+    // A lone keyword: offered as what it probably means.
+    if (!sure && reading && toks.length === 1 && offers.length === 0) offers.push(reading);
     return { reading, sure, offers };
   };
 
