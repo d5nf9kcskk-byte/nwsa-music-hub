@@ -13,6 +13,7 @@ import { useCurrentDirector } from './currentDirector';
 import { TeacherApp } from './teacher/TeacherApp';
 import { AssistantApp } from './assistant/AssistantApp';
 import { ClassroomTeacherApp } from './classroom/ClassroomTeacherApp';
+import { ChaperoneApp } from './chaperone/ChaperoneApp';
 import { DirectorSearch } from './components/DirectorSearch';
 import { InstallAppButton } from './components/InstallAppButton';
 import { PushAlertsButton, PushAlertsPanel } from './components/PushAlertsPanel';
@@ -350,12 +351,13 @@ function AccountRow({ user, rail = false, children }: {
   );
 }
 
-function pickShell(me: CurrentDirector | null): 'staff' | 'teacher' | 'classroom' | 'assistant' {
+function pickShell(me: CurrentDirector | null): 'staff' | 'teacher' | 'classroom' | 'assistant' | 'chaperone' {
   if (!me) return 'staff';
   if (isStaffMember(me)) return 'staff';
   if (hasDirectorRole(me, 'teacher')) return 'teacher';
   if (hasDirectorRole(me, 'classroom')) return 'classroom';
   if (hasDirectorRole(me, 'assistant')) return 'assistant';
+  if (hasDirectorRole(me, 'chaperone')) return 'chaperone';
   return 'staff';
 }
 
@@ -559,6 +561,8 @@ export default function DirectorApp() {
         <ClassroomTeacherApp user={user} signOut={signOut} />
       ) : shell === 'assistant' ? (
         <AssistantApp user={user} signOut={signOut} />
+      ) : shell === 'chaperone' ? (
+        <ChaperoneApp user={user} signOut={signOut} />
       ) : (
         // Only DARK is stamped. Four rules read `:not([data-dir-theme="dark"])`
         // (hub2.css, hub2Staff.css), and an explicit "light" would still match
