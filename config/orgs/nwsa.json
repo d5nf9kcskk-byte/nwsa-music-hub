@@ -263,7 +263,7 @@
         { "id": "exams", "label": "Playing Exams", "weight": 15, "suggest": "exams",
           "assignmentTypes": ["Playing Exam", "Written Test", "Other"] },
         { "id": "performance", "label": "Performance", "weight": 20, "assignmentTypes": ["Performance"] },
-        { "id": "concerts", "label": "Required Performance Attendance", "weight": 15, "suggest": "concerts" },
+        { "id": "concerts", "label": "Required Performance Attendance", "weight": 10, "suggest": "concerts" },
         { "id": "professionalism", "label": "Professionalism", "weight": 10 }
       ],
       "college": [
@@ -272,7 +272,7 @@
         { "id": "exams", "label": "Exams & Tests", "weight": 15, "suggest": "exams",
           "assignmentTypes": ["Playing Exam", "Written Test", "Other"] },
         { "id": "performance", "label": "Performance", "weight": 20, "assignmentTypes": ["Performance"] },
-        { "id": "concerts", "label": "Required Performance Attendance", "weight": 15, "suggest": "concerts" },
+        { "id": "concerts", "label": "Required Performance Attendance", "weight": 10, "suggest": "concerts" },
         { "id": "professionalism", "label": "Professionalism", "weight": 10 },
         { "id": "lessons", "label": "Applied Lessons", "weight": 15, "suggest": "lessons" }
       ]
