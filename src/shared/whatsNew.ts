@@ -33,6 +33,17 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-11-16-chaperones',
+    date: '2026-11-16',
+    title: 'Chaperones can sign in now',
+    audience: 'staff' as const,
+    bullets: [
+      'The Owner can add someone as a Chaperone on the Directors screen. They sign in with Google and see only field trip forms: who turned each one in, who hasn’t, and the signed forms themselves. They can’t change anything.',
+      'Permission slips always show to chaperones. For any other form, tick “Chaperones can see this form” in the form editor.',
+    ],
+    expires: '2026-12-07',
+  },
+  {
     id: '2026-11-11-stay-signed-in',
     date: '2026-11-11',
     title: 'Keep finding yourself signed out on your iPhone?',

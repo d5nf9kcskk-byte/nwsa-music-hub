@@ -1221,6 +1221,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
         ensembleIds: inviteMode || openMode ? [] : draft.ensembleIds,
         families: inviteMode || openMode ? [] : draft.families,
         highSchoolOnly: inviteMode || openMode ? undefined : draft.highSchoolOnly || undefined,
+        chaperoneVisible: draft.chaperoneVisible || undefined,
         inviteStudentIds: inviteMode ? inviteIds : [],
         // A guardian can only co-sign something the student signed first.
         guardianStatement: draft.signatureStatement?.trim() ? draft.guardianStatement?.trim() || undefined : undefined,
@@ -1430,6 +1431,20 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
             </div>
           </div>
           )}
+
+          <div className="dir-field">
+            <label className={`dir-checkbox-tag ${draft.chaperoneVisible || formKindOf(draft) === 'permission' ? 'checked' : ''}`}>
+              <input type="checkbox"
+                checked={!!draft.chaperoneVisible || formKindOf(draft) === 'permission'}
+                disabled={formKindOf(draft) === 'permission'}
+                onChange={e => set('chaperoneVisible', e.target.checked || undefined)} />
+              Chaperones can see this form
+            </label>
+            <div className="dir-signup-help">
+              Chaperones see who turned it in and who hasn’t, and can open signed forms.
+              Permission slips always show to them.
+            </div>
+          </div>
 
           <div className="dir-field">
             <label className="dir-label">Answers needed by</label>

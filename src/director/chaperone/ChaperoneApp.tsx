@@ -14,7 +14,7 @@ import { useSignupForms, useSignupResponses, useSignupAudiences, latestPerStuden
 import { useStudentsPublic } from '../../public/hooks/usePublicRoster';
 import { useCurrentDirector } from '../currentDirector';
 import { eligibleForSignup, signupIsPublished } from '../../shared/signupEligibility';
-import { formKindOf } from '../../shared/formKind';
+import { chaperoneSees } from '../../shared/formKind';
 import { parseName } from '../../shared/personName';
 import { ORG } from '../../org';
 import type { SignupForm, SignupResponse, Student } from '../types';
@@ -39,7 +39,7 @@ export function ChaperoneApp({ user, signOut }: { user: User; signOut: () => voi
 
   const trips = useMemo(
     () => forms
-      .filter(f => formKindOf(f) === 'permission' && signupIsPublished(f))
+      .filter(f => chaperoneSees(f) && signupIsPublished(f))
       .sort((a, b) => (b.deadline ?? '').localeCompare(a.deadline ?? '')),
     [forms],
   );
@@ -82,7 +82,7 @@ export function ChaperoneApp({ user, signOut }: { user: User; signOut: () => voi
         ) : trips.length === 0 ? (
           <div className="dir-empty">
             <h3>No field trip forms yet</h3>
-            <p>When a director posts a permission slip, it shows up here.</p>
+            <p>When a director posts a permission slip, or shares a form with chaperones, it shows up here.</p>
           </div>
         ) : (
           <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>

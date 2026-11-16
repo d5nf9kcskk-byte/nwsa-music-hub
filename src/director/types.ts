@@ -1503,6 +1503,9 @@ export interface SignupForm {
   /** What kind of form this is (#forms) — a label and a starting template.
    *  Absent on forms made before kinds existed; read it with formKindOf(). */
   formKind?: FormKind;
+  /** Chaperones see this form and who turned it in (#chaperone). Permission
+   *  slips always show to them; this adds any other form. Absent = off. */
+  chaperoneVisible?: boolean;
   createdAt: number;
   updatedAt?: number;
   updatedBy?: string; // director's display name (falls back to email)
