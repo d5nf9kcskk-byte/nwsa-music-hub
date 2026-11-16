@@ -59,6 +59,16 @@ service firebase.storage {
         && hasRole('assistant');
     }
 
+    // Chaperone (#chaperone): view-only, field trips. Reads the signed
+    // permission slips below (emergency contacts and medical notes are the
+    // reason a chaperone carries them) and nothing else in Storage.
+    function isChaperone() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
+        && hasRole('chaperone');
+    }
+
     function isStaff() {
       return request.auth != null
         && request.auth.token.email_verified == true
@@ -227,7 +237,8 @@ service firebase.storage {
     // rule pins. Create-only: a second send is a second file, never an
     // overwrite of the first.
     match /signupSignedForms/{formId}/{studentId}/{file} {
-      allow read, delete: if isStaff();
+      allow read: if isStaff() || isChaperone();
+      allow delete: if isStaff();
       allow create: if resource == null && signPdfOpen(formId)
         && firestore.exists(/databases/(default)/documents/students/$(studentId))
         && request.resource.size < 20 * 1024 * 1024

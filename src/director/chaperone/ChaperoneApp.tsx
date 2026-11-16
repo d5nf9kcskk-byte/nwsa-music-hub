@@ -6,6 +6,9 @@ import '../signups/signups.css';
 import { useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { LogOut, ChevronLeft } from 'lucide-react';
+import { ref as storageRef, getBlob } from 'firebase/storage';
+import { storage } from '../firebaseAuth';
+import { downloadCsv } from '../attendance/attendanceCsv';
 import { StatusStrips } from '../../shared/StatusStrips';
 import { useSignupForms, useSignupResponses, useSignupAudiences, latestPerStudent } from '../hooks/useSignups';
 import { useStudentsPublic } from '../../public/hooks/usePublicRoster';
@@ -22,7 +25,9 @@ import type { SignupForm, SignupResponse, Student } from '../types';
  * design: this file calls no write function, and firestore.rules gives the
  * role read on signupResponses + signupAudiences and nothing else staff-only.
  * Names come from studentsPublic, never the staff-only students collection.
- * Signed PDFs (medical / emergency details) stay directors-only.
+ * The signed PDFs (emergency contacts, medical notes) are what a chaperone
+ * carries them for: storage.rules lets the role READ them, and they open
+ * through the signed-in session (getBlob), never a download URL.
  */
 export function ChaperoneApp({ user, signOut }: { user: User; signOut: () => void }) {
   const me = useCurrentDirector();
@@ -103,10 +108,54 @@ export function ChaperoneApp({ user, signOut }: { user: User; signOut: () => voi
   );
 }
 
+async function signedBytes(path: string): Promise<Blob> {
+  if (!storage) throw new Error('Storage not initialized');
+  return Promise.race([
+    getBlob(storageRef(storage, path)),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 30_000)),
+  ]);
+}
+
+const safeName = (name: string) => name.replace(/[\\/:*?"<>|]+/g, '-');
+
+function saveBlob(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = safeName(name);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 function TripDetail({ form, responses, target, onBack }: {
   form: SignupForm; responses: SignupResponse[]; target: Student[]; onBack: () => void;
 }) {
   const { turnedIn, waiting } = tally(form, responses, target);
+  const signed = turnedIn.filter(r => r.signedPdfPath);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+
+  async function run(key: string, job: () => Promise<void>, failMsg: string) {
+    if (busy) return;
+    setBusy(key); setError('');
+    try { await job(); } catch { setError(failMsg); } finally { setBusy(''); }
+  }
+  const openOne = (r: SignupResponse) => run(r.id, async () => {
+    saveBlob(await signedBytes(r.signedPdfPath!), `${form.title} - ${r.studentName}.pdf`);
+  }, 'That form could not be opened. Check your connection and try again.');
+  const openAll = () => run('all', async () => {
+    const { mergePdfs } = await import('../../shared/pdfStamp');
+    const files = await Promise.all(signed.map(async r => (await signedBytes(r.signedPdfPath!)).arrayBuffer()));
+    const merged = await mergePdfs(files);
+    saveBlob(new Blob([merged as BlobPart], { type: 'application/pdf' }), `${form.title} - signed forms (${signed.length}).pdf`);
+  }, 'The forms could not be put together. Check your connection, or open them one at a time.');
+  const contacts = () => run('contacts', async () => {
+    const { emergencyContactsCsv } = await import('../signups/emergencyContacts');
+    downloadCsv(safeName(`${form.title} - emergency contacts.csv`),
+      await emergencyContactsCsv(form, turnedIn, signedBytes));
+  }, 'The emergency contacts could not be gathered. Check your connection and try again.');
   return (
     <div style={{ marginTop: 12 }}>
       <button className="dir-btn dir-btn-secondary" onClick={onBack} style={{ flex: '0 0 auto' }}>
@@ -116,6 +165,17 @@ function TripDetail({ form, responses, target, onBack }: {
       <p className="dir-field-hint">
         {turnedIn.length} of {turnedIn.length + waiting.length} turned in{form.deadline && <> · due {form.deadline}</>}
       </p>
+      {signed.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+          <button className="dir-btn dir-btn-primary" style={{ flex: '0 0 auto' }} disabled={!!busy} onClick={() => void openAll()}>
+            {busy === 'all' ? 'Opening…' : `All signed forms (${signed.length})`}
+          </button>
+          <button className="dir-btn dir-btn-secondary" style={{ flex: '0 0 auto' }} disabled={!!busy} onClick={() => void contacts()}>
+            {busy === 'contacts' ? 'Gathering…' : 'Emergency contacts sheet'}
+          </button>
+        </div>
+      )}
+      {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
 
       <section className="dir-card" style={{ marginTop: 12 }}>
         <h3 className="dir-label">Still waiting ({waiting.length})</h3>
@@ -131,7 +191,14 @@ function TripDetail({ form, responses, target, onBack }: {
         {turnedIn.length === 0 ? <p className="dir-empty-inline">Nothing turned in yet.</p> : (
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             {turnedIn.map(r => (
-              <li key={r.id}>{r.studentName} · {new Date(r.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</li>
+              <li key={r.id} style={{ marginBottom: 6 }}>
+                {r.studentName} · {new Date(r.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                {r.signedPdfPath && (
+                  <>{' '}<button className="dir-tool-btn" disabled={!!busy} onClick={() => void openOne(r)}>
+                    {busy === r.id ? 'Opening…' : 'Open form'}
+                  </button></>
+                )}
+              </li>
             ))}
           </ul>
         )}
