@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock, History, Activity, ChevronDown, ChevronUp, BookOpen, ChevronLeft } from 'lucide-react';
+import { Plus, Trash2, ShieldCheck, GraduationCap, UserCog, ClipboardList, Pencil, Lock, History, Activity, ChevronDown, ChevronUp, BookOpen, ChevronLeft, Eye } from 'lucide-react';
 import { useDirectors, directorEmailId, directorRoles, directorRoleLabels, hasDirectorRole, primaryDirectorRole, BINDING_KEYS, isConfirmed, useSignInAudit } from '../hooks/useDirectors';
 import type { Director, DirectorRole } from '../hooks/useDirectors';
 import { useLoginEvents, LOGIN_LOG_LIMIT } from '../hooks/useLoginEvents';
@@ -63,7 +63,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Teacher rename is one edit, not a grep. The stored value stays 'teacher'.
 const ROLE_LABEL = STAFF_ROLE_LABEL;
 const ROLE_ICON: Record<DirectorRole, typeof ShieldCheck> = {
-  owner: ShieldCheck, director: UserCog, teacher: GraduationCap, classroom: BookOpen, assistant: ClipboardList,
+  owner: ShieldCheck, director: UserCog, teacher: GraduationCap, classroom: BookOpen, assistant: ClipboardList, chaperone: Eye,
 };
 
 /**
@@ -603,6 +603,10 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
               <input type="checkbox" checked={hasAssistant} onChange={() => toggleRole('assistant')} />
               <ClipboardList size={14} /> Student Asst.
             </label>
+            <label className={`dir-checkbox-tag ${roles.includes('chaperone') ? 'checked' : ''}`}>
+              <input type="checkbox" checked={roles.includes('chaperone')} onChange={() => toggleRole('chaperone')} />
+              <Eye size={14} /> Chaperone
+            </label>
           </div>
           <div className="dir-field-hint">
             {isOwnerRow
@@ -611,6 +615,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
             {hasDirector && ' Director: full edit access everywhere except this screen.'}
             {hasTeacher && ' Applied Teacher: schedule and grade private lessons for assigned students.'}
             {hasClassroom && ' Classroom Teacher: roll, assignments, and documents for assigned class sections.'}
+            {roles.includes('chaperone') && ' Chaperone: view field trip forms and who has turned them in. Nothing else, and cannot change anything.'}
             {hasAssistant && ' Student Assistant: take roll for assigned ensembles; optional extras below. Never contacts, notes, or grades.'}
           </div>
         </div>

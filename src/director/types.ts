@@ -44,7 +44,7 @@ import type { FormKind } from '../shared/formKind';
  * (label: Student Assistant). Words live in STAFF_ROLE_LABEL below; the
  * wire value never moves.
  */
-export type StaffRole = 'owner' | 'director' | 'teacher' | 'classroom' | 'assistant';
+export type StaffRole = 'owner' | 'director' | 'teacher' | 'classroom' | 'assistant' | 'chaperone';
 
 /** The ONE place each role's user-facing words live. Anything that prints a
  *  role reads this — so a future rename is a label edit, never a data one. */
@@ -54,6 +54,8 @@ export const STAFF_ROLE_LABEL: Record<StaffRole, string> = {
   teacher: 'Applied Teacher',
   classroom: 'Classroom Teacher',
   assistant: 'Student Assistant',
+  // Read-only: field-trip forms and who has turned them in (#chaperone).
+  chaperone: 'Chaperone',
 };
 
 /**
