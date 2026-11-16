@@ -1504,6 +1504,15 @@ in `.github/actions/self-checks`.
 - **An interim covers the QUARTER TO DATE**, never the weeks since the last
   report. Getting this wrong produces numbers that are individually plausible
   and collectively wrong.
+- **A quarter already sent keeps its weights** (#gradebook-period-plans,
+  director 2026-11-16). Weights are read on every render, so changing
+  `grading.plans` re-grades every quarter on screen, including ones the
+  district already has. A period's own `plans` replaces the standing plans for
+  that period only, and `planFor()` in `ensembleGrades.ts` is the ONE
+  resolver. Q1 2026 is frozen at Required Performance Attendance 15 (the
+  standing plans dropped it to 10 from Q2). Before changing a standing weight
+  mid-year, copy the current plans onto every quarter already sent.
+  `gradingPeriods.selfcheck.ts` pins Q1's exact weights.
 - **Every district-specific string is org config** (`ORG.grading`): the
   weights, the comment codes, the comment triggers (79 or lower, effort 3,
   conduct C or lower), the standing request shown at the top of the screen,

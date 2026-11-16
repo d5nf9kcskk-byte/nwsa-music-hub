@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { ORG } from '../../org';
 import {
   CONDUCT_GRADES, EFFORT_GRADES, FULL_MARKS, byLastName, commentReasons, conductValue, effortValue,
-  fillValueFor, gradeValue, lastFirst, rowReadiness, tallyCount, type GradeCategory,
+  fillValueFor, gradeValue, lastFirst, planFor as resolvePlan, rowReadiness, tallyCount, type GradeCategory,
 } from '../../shared/ensembleGrades';
 import {
   currentGradingPeriod, defaultCutoff, sortPeriods, windowFor, type GradingPeriod, type ReportKind,
@@ -105,11 +105,11 @@ export function GradebookView() {
   }) : []), [grading, period, ensembles, students, assignments, results, me]);
   const spec: TableSpec | undefined = specs.find(t => t.id === tabId) ?? specs[0];
 
-  const planFor = useCallback((t: TableSpec): GradeCategory[] => {
-    if (!grading) return [];
-    return grading.plans.byGroupKey?.[t.groupKey]
-      ?? (t.world === 'college' ? grading.plans.college ?? grading.plans.default : grading.plans.default);
-  }, [grading]);
+  /** The period's own weights when it has them (Q1 keeps what it was sent
+   *  with), else the standing plans. */
+  const planFor = useCallback((t: TableSpec): GradeCategory[] => (
+    grading ? resolvePlan(grading.plans, period?.plans, t.groupKey, t.world) : []
+  ), [grading, period]);
 
   /** A table's docs: its own, or (college) the student's old HS doc for the
    *  same group until the first save on this table files one of its own. */
