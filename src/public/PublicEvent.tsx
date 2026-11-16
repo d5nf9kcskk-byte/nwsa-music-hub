@@ -231,6 +231,14 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
 
           <CheckinCallout event={event} />
 
+          {/* Equipment this concert needs on stage (#equipment): chairs,
+              stands, conductor podium/stand, and the percussion battery.
+              Public on purpose — the venue and crew work from this page.
+              Absent on every event that predates the field. */}
+          {!cancelled && event.equipment && (
+            <EquipmentSection equipment={event.equipment} />
+          )}
+
           {event.notes && (
             <>
               <h2 className="pub-section-title">{t('event.notesDirections')}</h2>
@@ -265,6 +273,54 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
       )}
       <NoteBurst cheer={cheer} />
     </div>
+  );
+}
+
+/**
+ * Equipment needed for a concert (#equipment) — totals first, then the
+ * percussion battery itemized by instrument. Renders nothing when the
+ * event carries no equipment data at all.
+ */
+function EquipmentSection({ equipment }: { equipment: import('../director/types').EventEquipment }) {
+  const percussion = (equipment.percussion ?? []).map(s => s.trim()).filter(Boolean);
+  const hasTotals = equipment.chairs != null || equipment.stands != null || equipment.podium;
+  if (!hasTotals && percussion.length === 0) return null;
+  return (
+    <>
+      <h2 className="pub-section-title">{t('event.equipment')}</h2>
+      <div className="pub-card pub-equipment">
+        {hasTotals && (
+          <div className="pub-daysheet-rows">
+            {equipment.chairs != null && (
+              <div className="pub-daysheet-row">
+                <span className="pub-daysheet-label">{t('event.eqChairs')}</span>
+                <span className="pub-daysheet-value">{equipment.chairs}</span>
+              </div>
+            )}
+            {equipment.stands != null && (
+              <div className="pub-daysheet-row">
+                <span className="pub-daysheet-label">{t('event.eqStands')}</span>
+                <span className="pub-daysheet-value">{equipment.stands}</span>
+              </div>
+            )}
+            {equipment.podium && (
+              <div className="pub-daysheet-row">
+                <span className="pub-daysheet-label">{t('event.eqPodium')}</span>
+                <span className="pub-daysheet-value">1</span>
+              </div>
+            )}
+          </div>
+        )}
+        {percussion.length > 0 && (
+          <>
+            <div className="pub-equipment-perc-head">{t('event.eqPercussion')}</div>
+            <ul className="pub-equipment-perc">
+              {percussion.map((line, i) => <li key={i}>{line}</li>)}
+            </ul>
+          </>
+        )}
+      </div>
+    </>
   );
 }
 

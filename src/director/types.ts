@@ -245,6 +245,22 @@ export type EventType = 'Rehearsal' | 'Concert' | 'Sectional' | 'Class' | 'Event
 export type EventStatus = 'Scheduled' | 'Completed' | 'Cancelled';
 
 /**
+ * Equipment a concert needs on stage (#equipment): chair and stand counts,
+ * the conductor's podium/stand, and the percussion battery itemized by
+ * instrument, one line per instrument (instrument, quantity, and which
+ * pieces use it). Shown to everyone on the public event page so the venue,
+ * the crew, and families can see what the concert takes. ABSENT = nothing
+ * renders, which is every event that predates the field.
+ */
+export interface EventEquipment {
+  chairs?: number;
+  stands?: number;
+  /** Conductor podium and stand. */
+  podium?: boolean;
+  percussion?: string[];
+}
+
+/**
  * Unified calendar item — rehearsals, concerts, sectionals, and other events
  * all share one shape so they render on a single calendar. A concert can span
  * several ensembles, so ensembleIds is an array.
@@ -388,6 +404,13 @@ export interface CalendarEvent {
    * it a character at a time.
    */
   links?: AnnouncementLink[];
+  /**
+   * Equipment needed for this concert (#equipment): chairs, music stands,
+   * conductor podium/stand, and the percussion battery itemized by
+   * instrument. Rendered on the public event page for anyone to see.
+   * ABSENT = no equipment area renders.
+   */
+  equipment?: EventEquipment;
   /* ── Change tracking (#17, #40) ── */
   updatedAt?: number;       // Date.now() of last edit
   updatedBy?: string;       // director email
