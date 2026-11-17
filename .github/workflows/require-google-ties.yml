@@ -1,0 +1,40 @@
+name: Require Google Ties
+
+# The server's side of the Google tie (#google-binding): the one switch the
+# rules read, and clearing the Owner's own record. No browser can do either.
+#
+# Manual only. This log says NOTHING about the result, on purpose: it is
+# public. The result is shown to the Owner on the Directors screen. For the
+# same reason the choice below is never passed through a step's environment
+# (the log prints those); the script reads it from the run's own event file.
+# docs/google-binding.md has the order of steps.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'on = require it. off = stop requiring it. clear-owner = clear the Owner record.'
+        type: choice
+        options: ['on', 'off', clear-owner]
+      force:
+        description: 'For "on": turn it on even if some listed people are not confirmed yet'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  switch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm install firebase-admin --no-save
+      - name: Check the decision and the says-nothing promise
+        run: node scripts/require-google-ties.mjs --selfcheck
+      - name: Run
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/require-google-ties.mjs

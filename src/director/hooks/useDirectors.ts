@@ -296,6 +296,30 @@ export function useMyDirector(email: string | null | undefined) {
   return { director, loading };
 }
 
+/** What the server last did with the sign-in requirement (#google-binding). */
+export interface SignInSwitch {
+  /** Is a sign-in honoured only on the account an entry names? */
+  required: boolean;
+  lastRun?: { mode?: string; result?: string; at?: number; notConfirmed?: number; cleared?: number };
+}
+
+/**
+ * The sign-in requirement, for the Owner's Directors screen. The rules let
+ * only the Owner read `serverConfig/signIn`, and nothing in a browser write
+ * it: it is changed by the *Require Google Ties* workflow, whose public log
+ * says nothing about the result. This is where the result is said.
+ */
+export function useSignInSwitch(isOwner: boolean): SignInSwitch | null {
+  const [state, setState] = useState<SignInSwitch | null>(null);
+  useEffect(() => {
+    if (!db || !isOwner) return;
+    return onSnapshot(doc(db, 'serverConfig', 'signIn'), snap => {
+      setState({ required: snap.get('googleTieRequired') === true, lastRun: snap.get('lastRun') });
+    }, () => setState(null));
+  }, [isOwner]);
+  return state;
+}
+
 /** What the *Audit Sign-in Accounts* workflow last found (#google-binding). */
 export interface SignInAudit {
   at?: number;
